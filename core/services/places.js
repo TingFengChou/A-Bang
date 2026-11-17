@@ -55,5 +55,19 @@ export function createPlaceServices() {
   };
 }
 
+/**
+ * 把「座標或地名」轉成 { name, lat, lon }（traffic_status、plan_trip 共用）。
+ * @param {{ find: Function }} places createPlaceServices() 的結果
+ * @param {{ lat: number, lon: number, name?: string } | string} x
+ */
+export async function resolvePoint(places, x) {
+  if (typeof x === 'string') {
+    const [p] = await places.find({ query: x });
+    if (!p) throw new UserError(`找不到「${x}」，請改用座標或更完整的地名（例如「台中車站」）`);
+    return { name: p.name, lat: p.lat, lon: p.lon };
+  }
+  return { name: x.name || `${x.lat.toFixed(4)}, ${x.lon.toFixed(4)}`, lat: x.lat, lon: x.lon };
+}
+
 /** 測試與資料檢查用 */
 export const LANDMARKS = landmarks;

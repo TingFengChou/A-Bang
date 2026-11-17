@@ -6,17 +6,25 @@ import { createMockTransitServices } from './services/transit-mock.js';
 import { createPlaceServices } from './services/places.js';
 import { createMetroServices } from './services/metro.js';
 import { createMockMetroServices } from './services/metro-mock.js';
+import { createTrafficServices } from './services/traffic.js';
+import { createMockTrafficServices } from './services/traffic-mock.js';
 
-export function createServices({ clientId, clientSecret, forceMock = false, log } = {}) {
+/**
+ * @param {{ clientId?: string, clientSecret?: string, forceMock?: boolean, log?: Function, demo?: { traffic?: 'smooth'|'jam' } }} [opts]
+ *   demo：示範模式情境（docs/TESTING.md §4），測試以參數注入，手動展示用環境變數
+ */
+export function createServices({ clientId, clientSecret, forceMock = false, log, demo = {} } = {}) {
   const live = Boolean(clientId && clientSecret) && !forceMock;
   const tdx = live ? createTdxClient({ clientId, clientSecret, log }) : null;
   const transit = live ? createTransitServices(tdx) : createMockTransitServices();
   const metro = live ? createMetroServices(tdx) : createMockMetroServices();
+  const traffic = live ? createTrafficServices(tdx) : createMockTrafficServices({ scenario: demo.traffic });
 
   return {
     mode: live ? 'live' : 'demo',
     ...transit, // bus, bike, rail
     ...metro, // metro
+    ...traffic, // traffic
     places: createPlaceServices(), // 內建地標，live 與示範相同
     // 之後的領域在這裡加入，例如：
     // weather: createWeatherServices(cwaKey),   // 中央氣象署 opendata.cwa.gov.tw
@@ -39,5 +47,6 @@ export async function loadEnv(path = new URL('../.env', import.meta.url)) {
     clientId: process.env.TDX_CLIENT_ID,
     clientSecret: process.env.TDX_CLIENT_SECRET,
     forceMock: process.env.DEMO_MODE === '1',
+    demo: { traffic: process.env.DEMO_TRAFFIC || undefined },
   };
 }

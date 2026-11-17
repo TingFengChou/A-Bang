@@ -30,7 +30,7 @@
 | 路徑 | 狀態 | 職責 | 不可以做 |
 |---|---|---|---|
 | `core/tdx-client.js` | ✅ | OIDC token 快取（single-flight、提前 5 分換新）、回應快取、401 重試、429 處理 | 解析業務欄位 |
-| `core/services/*.js` | ✅ transit、places、metro／📝 trip、traffic、weather、booking | 呼叫 client、正規化成共用格式、輸入容錯 | 知道 HTTP／MCP 存在 |
+| `core/services/*.js` | ✅ transit、places、metro、traffic／📝 trip、weather、booking | 呼叫 client、正規化成共用格式、輸入容錯 | 知道 HTTP／MCP 存在 |
 | `core/services/*-mock.js` | ✅ | 介面相同的示範資料，穩定可重現 | 呼叫外部網路 |
 | `core/tools/` | ✅ | Tool registry：`defineTool({ name, title, description, pack, tier, card, input, run, speak })`；`callTool()` 驗證參數並回傳 `{ name, card, mode, data, text, speak }` | 依賴特定 transport |
 | `core/decide.js` | ✅ | 決策引擎：依資料＋使用者狀態替方案計分排序、硬限制、理由句（ADR-0010） | 呼叫模型或外部 API |
@@ -112,7 +112,7 @@ Claude 等外部 client 走 `/mcp` 時，順序相同，只是由 Claude 決定�
 | Token | 到期前 5 分鐘換新（token endpoint 每 IP 每分鐘 ≤ 20 次） |
 | 公車到站、站牌到站、捷運看板 | 20 秒 |
 | YouBike 車數 | 30 秒（站點 1 小時） |
-| 路況 | 60 秒 📝 |
+| 路況 | 60 秒（路段定義與形狀 24 小時） |
 | 路線、站序、形狀 | 1 小時 |
 | 車站清單 | 24 小時 |
 | 時刻表、票價 | 10 分鐘 |

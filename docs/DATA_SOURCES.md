@@ -36,7 +36,7 @@
 | 捷運車站 | `/basic/v2/Rail/Metro/Station/{Operator}` | 24h | ✅ ⚠️ | `metro_stations`、`metro_live_board`（站名→代碼） |
 | 捷運即時看板 | `/basic/v2/Rail/Metro/LiveBoard/{Operator}`（`$filter=StationID eq …`） | 20s | ✅ ⚠️ | `metro_live_board` |
 | 公路客運 | `/basic/v2/Bus/Route/InterCity`、`/basic/v2/Bus/EstimatedTimeOfArrival/InterCity` | 1h／20s | 📝 ⚠️ | `intercity_bus` |
-| 高速公路路況 | 路段旅行時間、即時路況（`/v2/Road/Traffic/…`）、道路事件 | 60s | 📝 ⚠️ | `traffic_status` |
+| 高速公路路況 | 路段形狀 `/v2/Road/Traffic/SectionShape/Freeway`（WKT）、路段 `/Section/Freeway`（名稱、速限、長度）、即時 `/Live/Freeway`（`TravelSpeed`）、事件 `/Live/News/Freeway` | 24h／24h／60s／60s | ✅ ⚠️ | `traffic_status` |
 | 導訂票 | 台鐵／高鐵導訂票 API（需申請「臺鐵訂票導訂」「高鐵訂票導訂」權限） | 不快取 | 📝 ⚠️ | `rail_booking_link` |
 
 `{City}` 由 `core/cities.js` 解析（`Taipei`、`NewTaipei`、`Taoyuan`、`Taichung`、`Tainan`、`Kaohsiung`…）；`{Operator}`：`TRTC` 台北、`TYMC` 桃園、`TMRT` 台中、`KRTC` 高雄。

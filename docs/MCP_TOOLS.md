@@ -47,7 +47,7 @@
 | `metro_stations` | transit | L1 | — | ✅ ⚠️ |
 | `metro_live_board` | transit | L1 | `metro` | ✅ ⚠️ |
 | `find_place` | transit | L1 | — | ✅（內建地標；地理編碼 ⚠️） |
-| `traffic_status` | transit | L1 | — | 📝 ⚠️ |
+| `traffic_status` | transit | L1 | — | ✅ ⚠️ |
 | `intercity_bus` | transit | L1 | `timetable` | 📝 ⚠️ |
 | `rail_fare` | transit | L1 | — | ✅ ⚠️ |
 | `plan_trip` | transit | L1 | `trip` | 📝 |
@@ -178,9 +178,21 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | 來源標示 | `source: '阿幫內建地標資料（座標為近似值）'`、`static: true` |
 | speak | 「「逢甲夜市」最符合的是逢甲夜市（臺中市）。」 |
 
-### 📝 `traffic_status` ⚠️
+### ✅ `traffic_status` ⚠️
 
-輸入 `from`, `to`（座標或地名）；輸出 `{ level: 'smooth'|'slow'|'jam', delayMin, segments: [{ name, speedKmh }], events: [] }`。資料：TDX 高速公路路段旅行時間、即時路況、道路事件（可評估介接 TDX 官方 MCP event）（60s）。`level = jam` → 自動狀態「塞車中」。
+實作：`core/services/traffic.js`、`traffic-mock.js`、`core/tools/traffic.js`（M3-06）。
+
+| | |
+|---|---|
+| 輸入 | `from`, `to`：座標 `{ lat, lon }` 或地名（`resolvePoint()` 以 `find_place` 轉座標，找不到 → `UserError`） |
+| 輸出 | `{ from: { name, lat, lon }, to, level: 'smooth'\|'slow'\|'jam'\|null, delayMin, covered, straightKm, segments: [{ id, name, road, speedKmh, limitKmh, lengthKm, congestion }], events: [{ title, time }], note?, updatedAt }` |
+| 沿途路段 | 直線 < 15 km 不查（`covered: false`、`level: null`）。路段中點離起訖連線 ≤ 3 km、投影落在起訖之間、且路段方向與行進方向一致才算沿途；依行進順序排列。長度用 `SectionLength`，沒有就由形狀估；速限缺時以 100 km/h 計 |
+| level | 車速 ÷ 速限 < 0.4 為壅塞、< 0.75 為車多。壅塞累計 ≥ 5 km 或整體加權比值 < 0.4 → `jam`；車多以上累計 ≥ 5 km 或比值 < 0.75 → `slow`；其餘 `smooth`；沒有車速資料 → `null`（**不是順暢**） |
+| delayMin | 只計車多與壅塞路段：實際行駛時間 − 以速限行駛時間 |
+| events | 事件標題或內容提到沿途道路名稱的前 3 筆；事件端點失敗不影響車速結果 |
+| speak | 「沿途國道塞車中，預估多花 49 分鐘（…事故…）。」、「沿途國道順暢。」、「起訖很近，不需要看國道路況。」 |
+
+`level = jam` → 自動狀態「塞車中」；`level = null` 時 `plan_trip` 不加狀態。示範模式：`DEMO_TRAFFIC=jam`（或 `createServices({ demo: { traffic: 'jam' } })`）中間一段壅塞並有一則事故；預設順暢。可評估介接 TDX 官方 MCP event。
 
 ### 📝 `intercity_bus` ⚠️
 
