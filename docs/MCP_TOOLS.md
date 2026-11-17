@@ -21,6 +21,7 @@
 - 錯誤：輸入錯誤 → `UserError`（MCP `isError: true`、HTTP 400），訊息為可行動的繁體中文。
 - `speak`：討論串中小幫手的一句話（< 60 字），**只由資料產生、不經模型**（ADR-0009）。
 - 有座標的結果附 `nav`（§6）。
+- 英文名稱（ADR-0007、M3-14）：來源（TDX `En`）有非空英文時才附，沒有就不輸出、不翻譯：公車 `routeNameEn`、`stopNameEn`、站位 `nameEn`；YouBike `nameEn`（去掉 `YouBike2.0_` 前綴）；高鐵／台鐵車站 `nameEn`；捷運車站 `nameEn`、看板 `stationEn`、`lineEn`、`destinationEn`；路況路段 `nameEn`。示範資料沒有英文。
 
 ### 共用型別
 

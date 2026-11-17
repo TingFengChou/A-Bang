@@ -22,12 +22,12 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 | M0 基礎 | ✅ | — | — |
 | M1 TDX 實測 | ⛔ | M1-01 | TDX 金鑰、可連 TDX 的網路 |
 | M2 Registry＋遠端 MCP | ✅（Claude 實機連線待驗） | — | Austin 以 cloudflared 實測 |
-| M3 交通完整版 | 🚧 | M3-14 | 待 Austin：無狀態市區短程叫車排第一是否合理（ADR-0010）；`rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
+| M3 交通完整版 | 🚧（M3-12 ⛔ 以外完成） | 里程碑收尾驗收 | 待 Austin：無狀態市區短程叫車排第一是否合理（ADR-0010）；`rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
 | M4 互動卡片 | 📝 | — | — |
 | M5 網頁 agent | 📝 | — | Claude 模式需 `ANTHROPIC_API_KEY`（示範模式不需要） |
 | M6 上線 | 📝 | — | 部署帳號、網域 |
 
-建議順序：M3-14 → M4 → M5（M5 的討論串與決策圖可在 M3 完成 `plan_trip` 後提前開工）。
+建議順序：M3 收尾驗收 → M4 → M5（M5 的討論串與決策圖可在 M3 完成 `plan_trip` 後提前開工）。
 
 ## Austin 待辦（外部條件）
 
@@ -106,7 +106,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 - [x] M3-11 `plan_trip` 固定 10 組 OD fixture 測試（含：雨天、塞車、趕時間＋arriveBy、帶行李、跨城），斷言第一名與理由句關鍵字（2026-11-18：`test/trip-od.test.js`；「想省錢」cost 倍數 3→5 並記錄於 ADR-0010；無狀態市區短程叫車第一待 Austin 決定）
 - [ ] M3-12 ⛔ `rail_booking_link`（L2；導訂票權限到位前先完成介面、mock 與「未授權」錯誤訊息）
 - [x] M3-13 `tdx-client` 回報 `metrics`（呼叫數、筆數、快取命中、耗時）；`callTool` 回傳 `metrics`（2026-11-18：`core/metrics.js` 以 `AsyncLocalStorage` 隔開同時請求；CWA 也計量；MCP 放 `_meta`；OpenAPI 更新；5 項測試；計量帶 agent id 待 M5）
-- [ ] M3-14 🧩 來源有英文名稱時保留（`nameEn`、`stopNameEn`）
+- [x] M3-14 🧩 來源有英文名稱時保留（`nameEn`、`stopNameEn`）（2026-11-18：`util.en`／`enField`；公車、YouBike、高鐵台鐵車站、捷運、路況路段；3 項測試）
 
 驗收：`npm test` 全過；`plan_trip` 對 10 組 OD 排序合理且理由句正確；所有 tools 在示範模式可用；`GET /api/v1/tools` 列出 ≥ 17 個 tools。
 

@@ -1,6 +1,6 @@
 // 路況服務（真實 TDX 版）：起訖兩點之間的國道路段即時車速、延誤與事件（docs/MCP_TOOLS.md §7）
 // ⚠️ 端點與欄位待 M1 驗證，全部防禦性解析：取不到資料時回 level: null（不是「順暢」），由呼叫端決定不加狀態。
-import { assertLatLon, distanceM, zh, arr } from '../util.js';
+import { assertLatLon, distanceM, zh, enField, arr } from '../util.js';
 import { pathFromWkt } from '../geo.js';
 
 export const CORRIDOR_M = 3000;       // 路段中點離起訖連線多遠以內算「沿途」
@@ -116,7 +116,7 @@ export function createTrafficServices(tdx) {
             : path.slice(1).reduce((n, p, i) => n + distanceM(path[i][0], path[i][1], p[0], p[1]), 0) / 1000;
           segments.push({
             id: sh.id,
-            name: zh(s.SectionName) || [s.RoadName, s.RoadDirection].filter(Boolean).join(' ') || sh.id,
+            name: zh(s.SectionName) || [s.RoadName, s.RoadDirection].filter(Boolean).join(' ') || sh.id, ...enField('nameEn', s.SectionName),
             road: s.RoadName || null,
             speedKmh: sp > 0 ? sp : null,
             limitKmh: Number(s.SpeedLimit) > 0 ? Number(s.SpeedLimit) : DEFAULT_LIMIT_KMH,

@@ -1,6 +1,6 @@
 // 大眾運輸服務（真實 TDX 版）：把 TDX 原始資料正規化成 App / MCP 共用的格式
 import { resolveCity, cityFromUID } from '../cities.js';
-import { distanceM, busStatusText, minutesBetween, normName, todayTW, assertLatLon, UserError, zh, odataStr as q } from '../util.js';
+import { distanceM, busStatusText, minutesBetween, normName, todayTW, assertLatLon, UserError, zh, enField, odataStr as q } from '../util.js';
 import { pathFromWkt, thinPath } from '../geo.js';
 import { matchDirect, commonRoutes, DIRECT_RADIUS_M } from './bus-direct.js';
 
@@ -17,7 +17,7 @@ export function createTransitServices(tdx) {
         $top: 30,
       }, 3600);
       return rows.map((r) => ({
-        city: c.city, routeName: zh(r.RouteName),
+        city: c.city, routeName: zh(r.RouteName), ...enField('routeNameEn', r.RouteName),
         departure: r.DepartureStopNameZh, destination: r.DestinationStopNameZh,
       }));
     },
@@ -43,7 +43,7 @@ export function createTransitServices(tdx) {
           const e = etaMap.get(`${d.Direction}|${s.StopUID}`) || {};
           const p = s.StopPosition || {};
           return {
-            seq: s.StopSequence, stopName: zh(s.StopName),
+            seq: s.StopSequence, stopName: zh(s.StopName), ...enField('stopNameEn', s.StopName),
             ...(Number.isFinite(p.PositionLat) && Number.isFinite(p.PositionLon) && { lat: p.PositionLat, lon: p.PositionLon }),
             etaSec: e.EstimateTime ?? null, status: e.StopStatus ?? 0,
             statusText: busStatusText(e.StopStatus ?? 0, e.EstimateTime),
@@ -66,7 +66,7 @@ export function createTransitServices(tdx) {
         return {
           stationId: s.StationID, stationUid: s.StationUID,
           city: cityFromUID(s.StationUID)?.city || null,
-          name: zh(s.StationName), lat: p.PositionLat, lon: p.PositionLon,
+          name: zh(s.StationName), ...enField('nameEn', s.StationName), lat: p.PositionLat, lon: p.PositionLon,
           distance: distanceM(lat, lon, p.PositionLat, p.PositionLon),
           routes: [...new Set((s.Stops || []).map((x) => zh(x.RouteName)))],
         };
@@ -78,7 +78,7 @@ export function createTransitServices(tdx) {
       const c = mustCity(city);
       const rows = await tdx.get(`/basic/v2/Bus/EstimatedTimeOfArrival/City/${c.city}/PassThrough/Station/${encodeURIComponent(stationId)}`, {}, 20);
       return rows.map((e) => ({
-        routeName: zh(e.RouteName), direction: e.Direction,
+        routeName: zh(e.RouteName), ...enField('routeNameEn', e.RouteName), direction: e.Direction,
         etaSec: e.EstimateTime ?? null, status: e.StopStatus ?? 0,
         statusText: busStatusText(e.StopStatus ?? 0, e.EstimateTime),
       })).sort(sortEta);
@@ -100,7 +100,7 @@ export function createTransitServices(tdx) {
         const p = s.StationPosition;
         return {
           uid: s.StationUID,
-          name: zh(s.StationName).replace(/^YouBike\d\.\d_/, ''),
+          name: zh(s.StationName).replace(/^YouBike\d\.\d_/, ''), ...enField('nameEn', s.StationName, (x) => x.replace(/^YouBike\s*\d\.\d_/i, '')),
           type: s.ServiceType === 2 ? 'YouBike 2.0' : 'YouBike 1.0',
           address: zh(s.StationAddress), lat: p.PositionLat, lon: p.PositionLon,
           distance: distanceM(lat, lon, p.PositionLat, p.PositionLon),
@@ -120,7 +120,7 @@ export function createTransitServices(tdx) {
   const rail = {
     async thsrStations() {
       const rows = await tdx.get('/basic/v2/Rail/THSR/Station', { $select: 'StationID,StationName' }, 86400);
-      return rows.map((s) => ({ id: s.StationID, name: zh(s.StationName) }));
+      return rows.map((s) => ({ id: s.StationID, name: zh(s.StationName), ...enField('nameEn', s.StationName) }));
     },
     async thsrTimetable({ from, to, date = todayTW() }) {
       const st = await rail.thsrStations();
@@ -146,7 +146,7 @@ export function createTransitServices(tdx) {
     },
     async traStations() {
       const j = await tdx.get('/basic/v3/Rail/TRA/Station', { $select: 'StationID,StationName' }, 86400);
-      return (j.Stations || j).map((s) => ({ id: s.StationID, name: zh(s.StationName) }));
+      return (j.Stations || j).map((s) => ({ id: s.StationID, name: zh(s.StationName), ...enField('nameEn', s.StationName) }));
     },
     async traTimetable({ from, to, date = todayTW() }) {
       const st = await rail.traStations();
