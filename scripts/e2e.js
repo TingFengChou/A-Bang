@@ -65,8 +65,15 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       assert.equal(await page.locator('.tabbar a').count(), 4);
       assert.ok(await page.locator('.grid .tile').count() > 0);
       await shot(page, `${dname}-home`);
-      await page.fill('.hero .search input', '307');
+      // 首頁以問阿幫為主要入口（M5-12）：輸入問題 → #/agent 自動送出
+      assert.ok(await page.locator('.hero-ask .chip').count() >= 3);
+      await page.fill('.hero .search input', '307 到哪了？我在臺北車站');
       await page.press('.hero .search input', 'Enter');
+      await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+      assert.match(page.url(), /#\/agent$/);
+      assert.equal(await page.locator('.results [data-card="bus-route"]').count(), 1);
+      // 公車搜尋仍可從分頁列進入
+      await page.goto(`${base}/#/bus?q=307`);
       await page.waitForSelector('.card.list a');
       assert.match(page.url(), /#\/bus\?q=307/);
       await shot(page, `${dname}-bus-search`);

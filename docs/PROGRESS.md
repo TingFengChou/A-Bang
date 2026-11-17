@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M5-12 首頁以問阿幫為入口
+- 做了：首頁搜尋框改為「問阿幫」（`#/agent?q=` 自動送出、送出後網址換成 `#/agent`）、3 個範例問題；功能格子與分頁列保留；離線 Demo 版維持公車搜尋；SW v0.3.3
+- 測試：npm run lint 無錯誤；npm test 170 項全過；npm run e2e 16 項全過（首頁問題 → bus-route 卡片；公車搜尋改由 `#/bus?q=` 進入）；`npm run build:demo` 正常
+- 文件：UX §3、TESTING、PLAN、CLAUDE
+- 下一個：M5-13（Playwright 示範 6 個建議問題截圖；Claude 模式 mock 測試待 M5-05）
+- 卡住：同前
+
 ## 2026-11-18 M5-11 輕量 3D
 - 做了：結果卡片與決策圖 `.enter3d` 立體進場（`rotateX(8deg)`＋`translateZ`，依序延遲）；決策圖重算 FLIP 排名翻轉（Web Animations、最多 3 個）；`lite()`（`hardwareConcurrency ≤ 4` 或 reduced motion）→ `html.lite-motion` 只淡入；SW v0.3.2
 - 測試：npm run lint 無錯誤；npm test 170 項全過；npm run e2e 16 項全過（新增完整動態模式：3D 進場與翻轉；reduced motion 模式不翻轉）

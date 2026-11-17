@@ -9,12 +9,16 @@ export default {
   render({ main, toast, onCleanup }) {
     const hour = new Date().getHours();
     const greet = hour < 11 ? '早安' : hour < 18 ? '午安' : '晚安';
+    // M5-12：首頁以「問阿幫」為主要入口；離線 Demo（沒有伺服器）仍維持公車搜尋
+    const offline = !!globalThis.__DEMO_SERVICES__;
+    const examples = ['從西門町到台北 101 怎麼去？', '307 到哪了？', '台北車站附近還有 YouBike 嗎？'];
     main.innerHTML = `
       <section class="hero">
         <img class="mascot" src="/brand/abang-default.svg" alt="">
         <small>${greet}！我是阿幫，今天要去哪裡？</small>
-        <div class="big">即時公車・YouBike・高鐵台鐵</div>
-        <form class="search" id="q">${icons.search}<input name="q" placeholder="搜尋公車路線，例如 307" enterkeyhint="search" autocomplete="off"></form>
+        <div class="big">${offline ? '即時公車・YouBike・高鐵台鐵' : '想去哪裡，直接問我'}</div>
+        <form class="search" id="q">${icons.search}<input name="q" maxlength="500" placeholder="${offline ? '搜尋公車路線，例如 307' : '例如：從西門町到台北 101 怎麼去？'}" enterkeyhint="${offline ? 'search' : 'send'}" autocomplete="off" aria-label="${offline ? '搜尋公車路線' : '問阿幫'}"></form>
+        ${offline ? '' : `<div class="hero-ask">${examples.map((q) => `<a class="chip" href="#/agent?q=${encodeURIComponent(q)}">${esc(q)}</a>`).join('')}</div>`}
       </section>
       <div id="favs"></div>
       ${groups.map((g) => `
@@ -25,7 +29,7 @@ export default {
     main.querySelector('#q').addEventListener('submit', (e) => {
       e.preventDefault();
       const q = new FormData(e.target).get('q').trim();
-      if (q) location.hash = `#/bus?q=${encodeURIComponent(q)}`;
+      if (q) location.hash = offline ? `#/bus?q=${encodeURIComponent(q)}` : `#/agent?q=${encodeURIComponent(q)}`;
     });
     main.querySelectorAll('.tile.soon').forEach((el) =>
       el.addEventListener('click', () => toast(`「${el.dataset.name}」規劃中，預計串接${el.dataset.source}資料`)));

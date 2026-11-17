@@ -40,7 +40,7 @@ const metricsText = (m) => (m ? [m.scanned ? `${m.scanned} 筆` : null, m.cacheH
 
 export default {
   title: '問阿幫',
-  render({ main, setTitle, onCleanup }) {
+  render({ main, setTitle, onCleanup, query = {} }) {
     setTitle('問阿幫');
     if (globalThis.__DEMO_SERVICES__) {
       main.append(el('p', 'agent-note-offline', '問阿幫需要連線到阿幫伺服器（npm start），離線 Demo 版只能使用下方的公車、YouBike、高鐵台鐵功能。'));
@@ -88,6 +88,8 @@ export default {
       }
     });
     form.addEventListener('submit', (e) => { e.preventDefault(); send(input.value); });
+    // 從首頁帶問題過來（#/agent?q=…）：直接送出，並把網址換掉，避免重新整理時重送
+    if (query.q) { const q0 = query.q; window.history.replaceState(null, '', '#/agent'); queueMicrotask(() => send(q0)); }
 
     async function send(raw) {
       const q = String(raw || '').trim().slice(0, 500);
