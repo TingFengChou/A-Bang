@@ -139,6 +139,7 @@
 
 - ✅ 原型已有：卡片立體進場（`translateZ`＋`rotateX` 8°）、排名翻轉。
 - 限制：只用 CSS transform，不引入 WebGL；同時進行的 3D 動畫 ≤ 3 個；低階裝置（`navigator.hardwareConcurrency ≤ 4` 或 reduced-motion）降級為淡入。
+- ✅ M5-11：問阿幫的結果卡片與決策圖以 `.enter3d` 立體進場（`rotateX(8deg)`＋`translateZ`，依序延遲）；決策圖重算時位置改變的方案以 FLIP（Web Animations）滑到新位置，同時最多 3 個；`html.lite-motion`（`hardwareConcurrency ≤ 4` 或 reduced motion）只淡入、不翻轉。
 - 🔭 評估：3D 吉祥物（靜態渲染圖）、3D 傾斜路線地圖。
 
 ## 10. 可及性

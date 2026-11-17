@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M5-11 輕量 3D
+- 做了：結果卡片與決策圖 `.enter3d` 立體進場（`rotateX(8deg)`＋`translateZ`，依序延遲）；決策圖重算 FLIP 排名翻轉（Web Animations、最多 3 個）；`lite()`（`hardwareConcurrency ≤ 4` 或 reduced motion）→ `html.lite-motion` 只淡入；SW v0.3.2
+- 測試：npm run lint 無錯誤；npm test 170 項全過；npm run e2e 16 項全過（新增完整動態模式：3D 進場與翻轉；reduced motion 模式不翻轉）
+- 文件：UX §9、TESTING、PLAN、CLAUDE
+- 下一個：M5-12（首頁以 agent 為主要入口）
+- 卡住：同前
+
 ## 2026-11-18 M5-10 結論卡行動
 - 做了：trip 卡（M4-02 已有建議、分段條、備案、導航、叫車、訂票）補「提醒我出門」：`plan_trip` 高鐵／台鐵／客運方案帶 `leaveAt`（發車 − 到站時間）；`host-web.remind`（系統通知、需允許、12 小時內）；卡片只對今天且 1 分鐘後的出門時間顯示按鈕，設定後顯示「好，HH:mm 提醒你出門」
 - 測試：npm run lint 無錯誤；npm test 170 項全過（trip 測 leaveAt）；npm run e2e 14 項全過（假 host 驗證提醒）

@@ -24,7 +24,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | M2 Registry＋遠端 MCP | ✅（Claude 實機連線待驗） | — | Austin 以 cloudflared 實測 |
 | M3 交通完整版 | ✅（2026-11-18 驗收；M3-12 真實導訂票 ⛔） | — | 待 Austin：無狀態市區短程叫車排第一是否合理（ADR-0010）；`rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
 | M4 互動卡片 | 🚧（M4-01／02／03／07 ✅） | M4-04（host-mcp-app）⛔ 待新依賴同意 | M4-04 需新增依賴 `@modelcontextprotocol/ext-apps`（待 Austin 同意） |
-| M5 網頁 agent | 🚧 | M5-11（M5-05 待決定 SDK／fetch） | Claude 模式需 `ANTHROPIC_API_KEY`（示範模式不需要） |
+| M5 網頁 agent | 🚧 | M5-12（M5-05 待決定 SDK／fetch） | Claude 模式需 `ANTHROPIC_API_KEY`（示範模式不需要） |
 | M6 上線 | 📝 | — | 部署帳號、網域 |
 
 建議順序：M4-04 起需新增依賴（待 Austin）；等待期間可先做 M5 不依賴卡片 host 的部分（事件協定、示範模式 agent）。
@@ -140,7 +140,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 - [x] M5-08 `public/js/pages/agent.js`：對話 UI、討論串、`@` 點名、建議問題（2026-11-18：`#/agent`；討論串 role=log、角色色彩頭像、metrics、收合；卡片以 renderCard 呈現；定位流程；`/api/v1/agent/profile`；E2E 截圖已檢查。決策圖 M5-09、首頁入口 M5-12）
 - [x] M5-09 決策圖（`decision` 事件）：資料膠囊 → 狀態標籤連回來源 → 方案連線依分數變粗 → 勝出路徑亮起；狀態 chip 可切換並即時重算（前端呼叫同一份 `decide.js`）（2026-11-18：`decision-graph.js`、`/core/decide.js`、重算一致性測試、E2E 驗證切換想省錢會改變建議且不呼叫伺服器；FLIP／3D 於 M5-11）
 - [x] M5-10 結論卡：建議方案＋分段時間條＋備案＋行動按鈕（導航、訂票、叫車、提醒我）（2026-11-18：trip 卡（M4-02）補「提醒我出門」：高鐵／台鐵／客運方案帶 `leaveAt`，web host `remind` 以系統通知；只提醒今天且 1 分鐘後的出門時間）
-- [ ] M5-11 輕量 3D：卡片立體進場、排名翻轉；低階手機與 `prefers-reduced-motion` 降級
+- [x] M5-11 輕量 3D：卡片立體進場、排名翻轉；低階手機與 `prefers-reduced-motion` 降級（2026-11-18：CSS `enter3d`、決策圖 FLIP（最多 3 個）、`lite-motion` 降級；E2E 驗證兩種模式）
 - [ ] M5-12 首頁改以 agent 為主要入口，舊功能保留在格子
 - [ ] M5-13 Playwright：示範模式 6 個建議問題的手機與桌面截圖；Claude 模式以本地 mock API 測迴圈與錯誤
 

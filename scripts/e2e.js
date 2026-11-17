@@ -202,6 +202,9 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       assert.notEqual(await dg.getAttribute('data-best'), before, '想省錢時建議應改變（叫車 → 大眾運輸）');
       assert.equal(await dg.locator('.dg-chip.on', { hasText: '你選的：想省錢' }).count(), 1);
       assert.equal(calls, 0, '重算不呼叫伺服器');
+      // 輕量 3D 降級（M5-11）：測試以 reduced motion 執行 → 精簡模式，不做翻轉
+      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('lite-motion')), true);
+      assert.equal(await dg.evaluate((n) => n.classList.contains('reranked')), false);
       await dg.locator('.dg-details summary').click();
       assert.ok(await dg.locator('.dg-bar.top').count() >= 2);
       assert.match(await page.locator('.bubble.final .say').textContent(), /^選「/);
@@ -223,6 +226,24 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       assert.match(await page.locator('.results [data-card="trip"] .ab-title').nth(1).textContent(), /^你的位置/);
       await shot(page, `${dname}-agent-location`);
     });
+  });
+
+  test(`${dname}：完整動態時卡片 3D 進場、決策圖重算有排名翻轉`, async () => {
+    const ctx = await browser.newContext({ ...device, reducedMotion: 'no-preference' });
+    try {
+      const page = await ctx.newPage();
+      await page.addInitScript(() => Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 }));
+      await page.goto(`${base}/#/agent`);
+      await page.waitForSelector('.suggest .chip');
+      await page.locator('.suggest .chip').first().click();
+      await page.waitForSelector('.decision .dg-svg', { timeout: 20000 });
+      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('lite-motion')), false);
+      assert.match(await page.locator('.results .enter3d').first().evaluate((n) => getComputedStyle(n).animationName), /ab-enter3d/);
+      await page.locator('.decision .dg-chip.add', { hasText: '想省錢' }).click();
+      assert.equal(await page.locator('.decision').evaluate((n) => n.classList.contains('reranked')), true);
+    } finally {
+      await ctx.close();
+    }
   });
 
   test(`${dname}：API 文件（Swagger UI）列出所有 tools`, async () => {

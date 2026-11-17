@@ -3,7 +3,7 @@
 import { runAgent } from '../agent/client.js';
 import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
-import { renderDecision } from '../../ui/agent/decision-graph.js';
+import { renderDecision, lite } from '../../ui/agent/decision-graph.js';
 
 // 決策圖重算用的同一份 decide.js（伺服器以 /core/decide.js 提供；UX.md §5）
 const decideModule = import('/core/decide.js').catch(() => null);
@@ -46,6 +46,8 @@ export default {
       main.append(el('p', 'agent-note-offline', '問阿幫需要連線到阿幫伺服器（npm start），離線 Demo 版只能使用下方的公車、YouBike、高鐵台鐵功能。'));
       return;
     }
+    // 輕量 3D（M5-11）：低階裝置或 reduced motion 改為淡入
+    document.documentElement.classList.toggle('lite-motion', lite());
     const history = [];
     let context = '';
     let busy = false;
@@ -156,7 +158,7 @@ export default {
               if (e.ok && e.metrics) b.querySelector('.src').append(` · ${metricsText(e.metrics)}`);
             }
             if (e.ok && e.card) {
-              const slot = el('div', 'card-slot');
+              const slot = el('div', 'card-slot enter3d');
               results.append(slot);
               cards.push(renderCard(slot, { card: e.card, v: e.v, mode: e.mode, speak: e.speak, data: e.data, tool: e.tool, args: e.args }, host));
             }
@@ -173,7 +175,7 @@ export default {
             break;
           }
           case 'decision': {
-            const box = el('section', 'decision');
+            const box = el('section', 'decision enter3d');
             box.setAttribute('aria-label', '決策圖');
             if (reducedMotion()) box.classList.add('static');
             results.prepend(box);

@@ -11,6 +11,9 @@ const ROLE_CLASS = { 地點: 'place', 天氣: 'place', 公車: 'bus', YouBike: '
 const ADDABLE = ['rush', 'budget', 'lessWalk', 'luggage'];
 /** 方案名稱縮短，分數一定看得到（「叫車（Uber）」→「叫車」） */
 const short = (n) => { const x = String(n).replace(/（.*?）|\(.*?\)/g, ''); return x.length > 6 ? `${x.slice(0, 5)}…` : x; };
+/** 精簡模式：低階裝置或 reduced motion（UX.md §9）——只淡入、不做翻轉與 3D */
+export const lite = () => (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches)
+  || (typeof navigator !== 'undefined' && navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4);
 const ROW = 44, COL = [8, 128, 248, 368], W = 480, NODE_W = 104;
 
 function el(tag, cls, ...kids) {
@@ -50,6 +53,8 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA }) {
     const off = states.filter((s) => !s.on && s.source === 'auto').map((s) => STATE_LABEL[s.key]);
     const reason = (off.length ? `不考慮「${off.join('、')}」的話，` : '') + r.reason;
 
+    // FLIP（M5-11）：記下重算前各方案節點的位置，重畫後從舊位置滑到新位置（重算才做；精簡模式不做）
+    const before = new Map([...root.querySelectorAll('.dg-opt[data-id]')].map((g) => [g.dataset.id, g.getBoundingClientRect().top]));
     root.replaceChildren(
       chipsBar(),
       graph(ranked, excluded, active, r.best?.id),
@@ -58,7 +63,22 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA }) {
     );
     root.dataset.run = String(run);
     root.dataset.best = r.best?.id ?? '';
+    if (before.size && !lite()) flip(before);
   };
+
+  /** 排名翻轉：位置改變的方案從舊位置滑入並輕微翻轉（最多 3 個同時，UX.md §9） */
+  function flip(before) {
+    root.classList.add('reranked');
+    let n = 0;
+    for (const g of root.querySelectorAll('.dg-opt[data-id]')) {
+      const old = before.get(g.dataset.id);
+      if (old == null) continue;
+      const dy = old - g.getBoundingClientRect().top;
+      if (Math.abs(dy) < 1 || n >= 3 || typeof g.animate !== 'function') continue;
+      n++;
+      g.animate([{ transform: `translateY(${dy}px)`, opacity: 0.6 }, { transform: 'translateY(0)', opacity: 1 }], { duration: 600, easing: 'cubic-bezier(.2,.8,.2,1)', composite: 'add' });
+    }
+  }
 
   function chipsBar() {
     const bar = el('div', 'dg-chips');
@@ -118,6 +138,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA }) {
         class: `dg-edge ${isEx ? 'step4 excluded' : 'step3'}${win ? ' win' : ''}`, 'stroke-width': isEx ? 1 : (1 + 7 * (o.score / max)).toFixed(1) }));
       const n = node(COL[2], yy, isEx ? `${short(o.name)}（${o.why.includes('超過') ? '會遲到' : '排除'}）` : `${short(o.name)} ${o.score}`, `dg-opt ${isEx ? 'step4 excluded' : 'step3'}${win ? ' win' : ''}`);
       n.style.setProperty('--i', String(i));
+      n.dataset.id = o.id;
       s.append(n);
     });
     // 5 勝出路徑 → 建議

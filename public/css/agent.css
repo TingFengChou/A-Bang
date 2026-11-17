@@ -78,3 +78,14 @@
 .dg-bar.top { background: var(--brand); }
 .dg-crit-v { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { .decision * { animation: none !important; } }
+
+/* 輕量 3D（M5-11，UX.md §9）：卡片立體進場（rotateX 8°＋translateZ），只用 CSS transform；
+   低階裝置或 reduced motion（html.lite-motion）改為淡入 */
+.results { perspective: 900px; }
+.enter3d { transform-origin: 50% 0; animation: ab-enter3d .5s cubic-bezier(.2,.8,.2,1) both; }
+.results > .enter3d:nth-child(2) { animation-delay: .08s; }
+.results > .enter3d:nth-child(n+3) { animation-delay: .16s; }
+@keyframes ab-enter3d { from { opacity: 0; transform: translateZ(-40px) rotateX(8deg); } to { opacity: 1; transform: none; } }
+html.lite-motion .enter3d { animation: ab-fade .3s ease-out both; }
+@keyframes ab-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .enter3d { animation: none !important; } }
