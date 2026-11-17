@@ -1,6 +1,6 @@
 // 捷運服務（真實 TDX 版）：車站清單與即時到站看板（docs/MCP_TOOLS.md §5）
 // ⚠️ 端點與欄位待 M1 驗證：欄位依 TDX Swagger 防禦性解析；北捷看板資料有限，空資料時回傳空 trains。
-import { UserError, normName, zh, arr, odataStr as q } from '../util.js';
+import { UserError, normName, zh, enField, arr, odataStr as q } from '../util.js';
 
 /** 支援的捷運系統（TDX Operator 代碼） */
 export const METRO_SYSTEMS = {
@@ -55,7 +55,7 @@ export function createMetroServices(tdx) {
         const cur = byName.get(key);
         if (cur) { cur.ids.push(r.StationID); continue; }
         byName.set(key, {
-          id: r.StationID, ids: [r.StationID], name,
+          id: r.StationID, ids: [r.StationID], name, ...enField('nameEn', r.StationName),
           ...(Number.isFinite(p.PositionLat) && Number.isFinite(p.PositionLon) && { lat: p.PositionLat, lon: p.PositionLon }),
         });
       }
@@ -72,15 +72,15 @@ export function createMetroServices(tdx) {
       const trains = list.map((r) => {
         const etaMin = Number.isFinite(r.EstimateTime) ? r.EstimateTime : null;
         return {
-          line: zh(r.LineName) || r.LineID || r.LineNO || '',
+          line: zh(r.LineName) || r.LineID || r.LineNO || '', ...enField('lineEn', r.LineName),
           lineId: r.LineID || r.LineNO || null,
-          destination: zh(r.DestinationStationName) || zh(r.TripHeadSign) || '',
+          destination: zh(r.DestinationStationName) || zh(r.TripHeadSign) || '', ...enField('destinationEn', r.DestinationStationName),
           etaMin, status: metroStatusText(etaMin),
         };
       }).sort(sortByEta);
       const updatedAt = list.map((r) => r.UpdateTime).filter(Boolean).sort().at(-1) || new Date().toISOString();
       return {
-        system: op, station: st.name, stationId: st.id,
+        system: op, station: st.name, ...(st.nameEn && { stationEn: st.nameEn }), stationId: st.id,
         ...(st.lat != null && { lat: st.lat, lon: st.lon }),
         updatedAt, trains,
       };

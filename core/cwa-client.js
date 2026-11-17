@@ -1,5 +1,7 @@
 // 中央氣象署開放資料平臺 client：授權碼放在 query（只在伺服器端）、回應快取
 // 文件：https://opendata.cwa.gov.tw/dist/opendata-swagger.html
+import { recordFetch } from './metrics.js';
+
 const API_BASE = 'https://opendata.cwa.gov.tw/api/v1/rest/datastore';
 
 export class CwaError extends Error {
@@ -18,7 +20,7 @@ export function createCwaClient({ apiKey, fetchImpl = fetch }) {
     const qs = new URLSearchParams({ format: 'JSON', ...query });
     const key = `${dataId}?${qs}`; // 快取鍵不含授權碼
     const hit = cache.get(key);
-    if (hit && Date.now() < hit.exp) return hit.data;
+    if (hit && Date.now() < hit.exp) { recordFetch({ cacheHit: true, data: hit.data }); return hit.data; }
     let res;
     try {
       res = await fetchImpl(`${API_BASE}/${dataId}?${qs}&Authorization=${encodeURIComponent(apiKey)}`);
@@ -30,6 +32,7 @@ export function createCwaClient({ apiKey, fetchImpl = fetch }) {
     if (!res.ok) throw new CwaError(res.status, `氣象署 API 錯誤 ${res.status}`);
     const data = await res.json();
     if (data?.success === 'false' || data?.success === false) throw new CwaError(502, '氣象署 API 回應失敗');
+    recordFetch({ cacheHit: false, data });
     cache.set(key, { exp: Date.now() + ttlSec * 1000, data });
     if (cache.size > 500) cache.delete(cache.keys().next().value);
     return data;

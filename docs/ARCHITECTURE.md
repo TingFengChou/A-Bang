@@ -18,7 +18,7 @@
 │ Claude／AI agent │──▶│  /mcp、/mcp/:pack 遠端 MCP ✅  │   │   profiles/ life ✅規格 antifraud sme 🔭 │   │ TDX 官方 MCP（外部） │
 │  （自訂連接器）   │   ├───────────────────────────────┤   │ services/   交通服務 ✅ ＋ mock ✅        │   │  導訂票・道路事件 📝  │
 ├──────────────────┤   │ mcp/                          │   │   metro・places・trip・traffic 📝        │   ├─────────────────────┤
-│ iOS／Android 🔭   │──▶│  stdio ✅  create-server ✅    │   │ providers/  叫車 adapter（Uber）📝       │   │ 氣象署 📝 165・Uber 🔭│
+│ iOS／Android 🔭   │──▶│  stdio ✅  create-server ✅    │   │ providers/  叫車 adapter（Uber）✅       │   │ 氣象署 📝 165・Uber 🔭│
 │ LINE 🔭           │   │  ui://abang/cards.html 📝     │   │ tdx-client.js token・快取 ✅             │   └─────────────────────┘
 └──────────────────┘   └───────────────────────────────┘   └─────────────────────────────────────────┘
           ▲                                                   卡片渲染 public/ui/cards/ 📝（網頁與 MCP Apps 共用）
@@ -31,14 +31,15 @@
 |---|---|---|---|
 | `core/tdx-client.js` | ✅ | OIDC token 快取（single-flight、提前 5 分換新）、回應快取、401 重試、429 處理 | 解析業務欄位 |
 | `core/cwa-client.js` | ✅ | 中央氣象署 API：授權碼只放請求網址（快取鍵不含）、回應快取、401／403 與 `success=false` 處理 | 解析業務欄位 |
-| `core/services/*.js` | ✅ transit、places、metro、traffic、intercity、weather／📝 trip、booking | 呼叫 client、正規化成共用格式、輸入容錯 | 知道 HTTP／MCP 存在 |
+| `core/services/*.js` | ✅ transit、places、metro、traffic、intercity、weather、trip（`plan_trip`）、bus-direct、booking（🧩 權限前：驗證＋示範＋「尚未開通」）| 呼叫 client、正規化成共用格式、輸入容錯 | 知道 HTTP／MCP 存在 |
 | `core/services/*-mock.js` | ✅ | 介面相同的示範資料，穩定可重現 | 呼叫外部網路 |
 | `core/tools/` | ✅ | Tool registry：`defineTool({ name, title, description, pack, tier, card, input, run, speak })`；`callTool()` 驗證參數並回傳 `{ name, card, mode, data, text, speak }` | 依賴特定 transport |
 | `core/decide.js` | ✅ | 決策引擎：依資料＋使用者狀態替方案計分排序、硬限制、理由句（ADR-0010） | 呼叫模型或外部 API |
 | `core/agent/` | 📝 | Claude tool-use 迴圈、示範意圖解析、事件串流、使用者狀態合併 | 直接碰 TDX |
 | `core/agents/*.json` | 📝 | agent profile（ADR-0005）：system prompt、工具白名單、建議問題、免責、模型 | 寫程式邏輯 |
-| `core/providers/` | 📝 | 外部服務 adapter（ADR-0011）：`ridehail/uber.js` 深層連結；`mcp-client.js` 包裝外部 MCP（TDX 官方 MCP） | 直接被 server 呼叫 |
+| `core/providers/` | ✅ 叫車／📝 外部 MCP | 外部服務 adapter（ADR-0011）：`ridehail/index.js`（provider 註冊、`estimateFare` 距離估價、`createRidehailServices`）、`ridehail/uber.js` 深層連結（M3-09）；📝 `mcp-client.js` 包裝外部 MCP（TDX 官方 MCP） | 直接被 server 呼叫 |
 | `core/nav.js` | ✅ | 導航深層連結、步行時間、出發時機（M3-01） | 呼叫外部 API |
+| `core/metrics.js` | ✅ | 每次 tool 呼叫的計量（`AsyncLocalStorage` 隔開同時進行的請求）；TDX／CWA client 記錄取用、快取命中與筆數（M3-13） | 送出資料、跨請求累計 |
 | `core/geo.js` | ✅ | WKT 解析成 `[[lat, lon]]`、路徑抽樣（M3-02） | 呼叫外部 API |
 | `core/data/` | ✅ | `landmarks.json` 內建地標（201 筆，座標近似值待校對） | — |
 | `server/http.js` | ✅ | REST、`/api/v1/tools/:name`、遠端 `/mcp`、`/api/docs`、靜態檔、限流、CORS；非 `UserError` 只回通用訊息、細節寫 log | 商業邏輯 |
@@ -100,7 +101,7 @@ Claude 等外部 client 走 `/mcp` 時，順序相同，只是由 Claude 決定�
 
 - 導航：所有點位附 `nav`（Google／Apple Maps 深層連結）；「出發時機」由步行時間＋即時到站算出。
 - 訂票：TDX 台鐵／高鐵「導訂票」產生具時效的官方訂票連結（需 TDX 權限）；付款在官方網站。
-- 叫車：`core/providers/ridehail/` adapter，先 Uber 深層連結；估價待合作。
+- 叫車：`core/providers/ridehail/` adapter，先 Uber 深層連結（✅ M3-09）；業者估價待合作，之前以臺北市計程車費率＋道路距離估算區間並標 `estimated`。
 - 這三類屬 **L2 行動**：產生連結前需使用者確認，不代替使用者付款或填個資。
 
 ### 5.6 多端與平台預留（ADR-0007、ADR-0008）

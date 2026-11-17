@@ -2,6 +2,10 @@
 
 /** TDX 多語欄位取中文：{ Zh_tw } 或字串 */
 export const zh = (o) => (o && (o.Zh_tw ?? o)) || '';
+/** TDX 多語欄位取英文：{ En } 有值才回傳，否則 undefined（ADR-0007 保留英文名稱） */
+export const en = (o) => (o && typeof o === 'object' && typeof o.En === 'string' && o.En.trim()) || undefined;
+/** 有英文時回傳 { [key]: 英文 }，沒有回傳 {}，用於展開：{ name, ...enField('nameEn', s.StationName) } */
+export const enField = (key, o, fix = (x) => x) => { const v = en(o); return v ? { [key]: fix(v) } : {}; };
 /** OData 字串常值跳脫（單引號重複） */
 export const odataStr = (s) => String(s).replace(/'/g, "''");
 /** 取回應中的陣列：本身是陣列，或包在 key 底下（例：{ Sections: [...] }） */

@@ -21,14 +21,15 @@ export const STATES = {
   traffic: { label: '塞車中', say: '路上正在塞車', boost: { delayRisk: 6, minutes: 1.2 } },
   rain: { label: '下雨', say: '正在下雨', boost: { exposure: 4, walkMin: 1.5 } },
   luggage: { label: '帶行李', say: '你帶著行李', boost: { effort: 4 } },
-  budget: { label: '想省錢', say: '你想省錢', boost: { cost: 3 } },
+  budget: { label: '想省錢', say: '你想省錢', boost: { cost: 5 } },
   lessWalk: { label: '少走路', say: '你想少走路、輕鬆一點', boost: { walkMin: 1.5, effort: 3 } },
 };
 
 /**
  * @param {Array<{ id: string, name: string, minutes: number, waitMin?: number, walkMin?: number, cost?: number,
  *                 exposure?: number, effort?: number, arriveAt?: string }>} options
- * @param {{ states?: string[], arriveBy?: string }} [ctx]  states 例如 ['rain','luggage']；arriveBy 例如 '08:00'
+ * @param {{ states?: string[], arriveBy?: string, arriveByMin?: number }} [ctx]  states 例如 ['rain','luggage']；arriveBy 例如 '08:00'
+ *   arriveByMin 與方案的 arriveMin（自出發日 00:00 起算、可超過 24 小時）同時存在時以分鐘比較，跨午夜才不會誤判
  * @returns {{ weights: Record<string, number>, ranked: Array<object>, excluded: Array<object>, best: object|null, reason: string }}
  */
 export function decide(options, ctx = {}) {
@@ -43,7 +44,8 @@ export function decide(options, ctx = {}) {
   // 2. 硬限制：指定抵達時間時，會遲到的方案直接排除
   const excluded = [];
   const pool = options.filter((o) => {
-    if (ctx.arriveBy && o.arriveAt && o.arriveAt > ctx.arriveBy) {
+    const late = ctx.arriveByMin != null && o.arriveMin != null ? o.arriveMin > ctx.arriveByMin : ctx.arriveBy && o.arriveAt && o.arriveAt > ctx.arriveBy;
+    if (late) {
       excluded.push({ ...o, why: `${o.arriveAt} 才到，超過 ${ctx.arriveBy}` });
       return false;
     }

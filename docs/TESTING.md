@@ -1,6 +1,6 @@
 # 測試規格
 
-版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 89 項全過、`npm run e2e` 10 項全過（手機＋桌面各 5）。
+版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 127 項全過、`npm run e2e` 10 項全過（手機＋桌面各 5）。
 
 ## 1. 原則
 
@@ -15,6 +15,7 @@
 |---|---|---|---|
 | 正規化 | `test/transit.test.js`、`test/<domain>.test.js` | TDX 形狀 fixture → 服務輸出格式（`MCP_TOOLS.md`） | 每個 service |
 | 導航 | `test/nav.test.js` | 連結格式與編碼、無效座標、步行時間、出發時機、tools 附 `nav`（含 `bus_route_eta` 站點與示範 `shape`） | M3-01 起 |
+| 叫車 | `test/ridehail.test.js` | Uber 連結格式（`my_location`、上車座標、暱稱編碼）、`estimateFare` 起跳與續程、未知 provider、tool 的 L2／pack／確認文字／地名轉座標 | M3-09 起 |
 | 天氣 | `test/weather.test.js` | 氣象署形狀 fixture：WGS84、-99、最近測站、雨量站 `Past1hr`（不用當日累積）與 5 公里距離上限、預報解析、授權碼不出現在輸出、預報／局屬站／雨量站失敗；示範情境；`weatherMode` 與 TDX 金鑰獨立 | M3-08 起 |
 | 客運 | `test/intercity.test.js` | 站牌配對與方向、`ServiceDay`（ISO `departAt` 用該日星期）、站序備援、估算抵達、跨日、深夜列出 3 小時內隔日班次（`nextDay`）、延誤、只查配對路線、路況失敗仍回班次、示範與 tool | M3-07 起 |
 | 路況 | `test/traffic.test.js` | 走廊與方向判斷、整體 level 與延誤、TDX 形狀 fixture（反向／格式不明路段、事件篩選與失敗）、短程不查、示範情境、tool 地名與座標 | M3-06 起 |
@@ -22,9 +23,12 @@
 | 地點 | `test/places.test.js` | `landmarks.json` 筆數、欄位、名稱與別名不重複、同縣市距離合理；比對順序、臺／台、「站」不省略、縣市篩選、`find_place` tool | M3-03 起 |
 | 幾何 | `test/geo.test.js` | WKT `LINESTRING`／`MULTILINESTRING`、SRID 前綴、經緯度順序、壞輸入回空、抽樣保留頭尾 | M3-02 起 |
 | 決策 | `test/decide.test.js` | 權重、狀態、硬限制、理由句（ADR-0010） | 改 `decide.js` 必跑；改權重需新增情境 |
-| 行程 | `test/trip.test.js`（M3-11） | 10 組固定 OD：第一名、排除、理由句關鍵字 | M3 |
+| 行程 | `test/trip.test.js` | M3-10：車站座標對照、公車直達配對與方向、YouBike 費率、市區短程四種方案、跨城自動狀態（下雨＋塞車）與抵達時間排除、來源失敗只略過、tool；M3-11：`test/trip-od.test.js` 10 組固定 OD（示範模式＋固定時間：第一名、排除、最後一名、自動狀態、理由句關鍵字） | M3 |
 | Registry | `test/tools.test.js` | 每個 tool 有 `pack`/`tier`/`speak`、參數驗證錯誤訊息、`callTool` 格式 | 每個 tool |
 | MCP | `test/mcp.test.js` | 起 server（隨機埠、`DEMO_MODE=1`）；stdio 與 HTTP 列出／呼叫；三路徑一致；405/404/429；`/api/docs` 白名單（`package.json`、路徑穿越、`constructor` 等原型名稱皆 404） | 每個 tool 自動涵蓋 |
+| 導訂票 | `test/booking.test.js` | 車次、張數、日期範圍、車廂、車站驗證；示範連結與時效；真實版「尚未開通」附官方網站；tool L2 | M3-12 起 |
+| 英文名稱 | `test/english.test.js` | `en`／`enField` 只輸出非空英文；公車站位、YouBike（去前綴）、高鐵車站、捷運車站／路線／目的地 | M3-14 起 |
+| 計量 | `test/metrics.test.js` | `countRecords`、TDX 上游與快取計數、同時進行的 `measure` 互不干擾、CWA 計量、`callTool` 回傳 metrics、MCP 放 `_meta` | M3-13 起 |
 | 錯誤訊息 | `test/errors.test.js` | `UserError` 原樣回傳；上游或程式錯誤對外只回通用訊息（REST 與 MCP），不洩漏上游回應、檔案路徑 | 改錯誤處理時 |
 | API 文件 | `test/openapi.test.js` | OpenAPI 3.1 由 `server/rest.js` 路由表與 tool registry 產生：每個 REST 路由有 GET 文件與參數說明、每個 tool 有 POST 文件（request body 即 tool 的 JSON Schema）、`operationId` 唯一 | 新增路由或 tool 自動涵蓋 |
 | 卡片契約 | `test/cards-schema.test.js`（M4-01） | mock 輸出符合 `public/ui/cards/schema/*.json` | M4 |

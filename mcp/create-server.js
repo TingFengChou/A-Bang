@@ -28,6 +28,7 @@ export function createMcpServer(svc, { packs } = {}) {
         return {
           content: [{ type: 'text', text: note + r.text + `\n\n資料來源：${t.source}` }],
           structuredContent: { card: r.card, mode: r.mode, speak: r.speak, data: r.data },
+          _meta: { 'abang/metrics': r.metrics }, // 計量放 _meta：每次不同（耗時），不混進結構化資料
         };
       } catch (e) {
         if (!(e instanceof UserError)) console.error(e); // stdio 模式 stderr 不影響協定；細節不回給 client

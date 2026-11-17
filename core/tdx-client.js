@@ -1,5 +1,6 @@
 // TDX 運輸資料流通服務 client：OIDC client_credentials token 快取 + 回應快取
 // 文件：https://github.com/tdxmotc/SampleCode
+import { recordFetch } from './metrics.js';
 
 const TOKEN_URL = 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token';
 const API_BASE = 'https://tdx.transportdata.tw/api';
@@ -45,7 +46,7 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
     const qs = new URLSearchParams({ $format: 'JSON', ...query });
     const url = `${API_BASE}${path}?${qs.toString().replace(/\+/g, '%20')}`; // OData 空白用 %20 較保險
     const hit = cache.get(url);
-    if (hit && Date.now() < hit.exp) return hit.data;
+    if (hit && Date.now() < hit.exp) { recordFetch({ cacheHit: true, data: hit.data }); return hit.data; }
 
     const doFetch = async () =>
       fetchImpl(url, { headers: { authorization: `Bearer ${await getToken()}`, 'accept-encoding': 'br, gzip' } });
@@ -55,6 +56,7 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
     if (res.status === 429) throw new TdxError(429, 'TDX 呼叫次數已達方案上限，請稍後再試');
     if (!res.ok) throw new TdxError(res.status, `TDX API 錯誤 ${res.status}：${(await res.text()).slice(0, 200)}`);
     const data = await res.json();
+    recordFetch({ cacheHit: false, data });
     cache.set(url, { exp: Date.now() + ttlSec * 1000, data });
     if (cache.size > 2000) cache.delete(cache.keys().next().value);
     return data;

@@ -206,7 +206,7 @@ footer{color:var(--faint);font-size:13px;padding:24px 0}
     <tr><td>Tool registry、遠端 MCP、REST tools、限流</td><td><span class="pill done">M2 完成</span></td><td>8 個 tools（含 <code>speak</code>）、<code>/mcp</code>、<code>/mcp/:pack</code>；24 項測試通過；Claude 實機連線待本機驗證</td></tr>
     <tr><td>決策引擎 <code>core/decide.js</code></td><td><span class="pill done">完成</span></td><td>資料＋使用者狀態 → 排序、排除、理由句（ADR-0010）</td></tr>
     <tr><td>討論串＋決策圖原型</td><td><span class="pill done">完成</span></td><td>4 個情境，見「阿幫・生活」</td></tr>
-    <tr><td>交通完整版（捷運、地點、路況、天氣、客運、票價、行程、導航、訂票、叫車）</td><td><span class="pill next">下一步 M3</span></td><td>以 mock＋TDX 形狀 fixture 先開發</td></tr>
+    <tr><td>交通完整版（捷運、地點、路況、天氣、客運、票價、行程、導航、訂票、叫車）</td><td><span class="pill done">M3 完成</span></td><td>18 個 tools 在示範模式皆可用；真實欄位待 M1；導訂票待 TDX 權限</td></tr>
     <tr><td>TDX 真實資料驗證</td><td><span class="pill next">M1 需金鑰</span></td><td>只能在本機執行；可與 M3 並行</td></tr>
     <tr><td>互動卡片、網頁 agent、上線</td><td><span class="pill plan">M4–M6</span></td><td>規格已定：<code>CARDS.md</code>、<code>AGENT.md</code>、<code>UX.md</code></td></tr>
   </table></div>
@@ -367,10 +367,10 @@ footer{color:var(--faint);font-size:13px;padding:24px 0}
   <div class="tbl"><table>
     <tr><th>層</th><th>路徑</th><th>職責</th><th>狀態</th></tr>
     <tr><td>資料 client</td><td><code>core/tdx-client.js</code></td><td>OIDC token 快取、回應快取、401 重試、429 處理</td><td><span class="pill done">完成</span></td></tr>
-    <tr><td>服務</td><td><code>core/services/</code></td><td>正規化成共用格式；每個服務都有 mock</td><td><span class="pill done">transit</span> <span class="pill plan">M3 其他</span></td></tr>
+    <tr><td>服務</td><td><code>core/services/</code></td><td>正規化成共用格式；每個服務都有 mock</td><td><span class="pill done">transit、metro、traffic、intercity、weather、trip、booking</span></td></tr>
     <tr><td>Tool registry</td><td><code>core/tools/</code></td><td>tool 只定義一次；<code>pack</code>、<code>tier</code>、<code>speak</code></td><td><span class="pill done">完成</span></td></tr>
     <tr><td>決策引擎</td><td><code>core/decide.js</code></td><td>資料＋使用者狀態 → 排序、排除、理由句</td><td><span class="pill done">完成</span></td></tr>
-    <tr><td>providers</td><td><code>core/providers/</code></td><td>叫車 adapter、外部 MCP（TDX 官方）</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td>providers</td><td><code>core/providers/</code></td><td>叫車 adapter、外部 MCP（TDX 官方）</td><td><span class="pill done">叫車</span> <span class="pill plan">外部 MCP</span></td></tr>
     <tr><td>Agent</td><td><code>core/agent/</code>、<code>core/agents/*.json</code></td><td>Claude 迴圈、示範意圖、事件串流、狀態合併；agent profile</td><td><span class="pill plan">M5</span></td></tr>
     <tr><td>出口</td><td><code>server/</code>、<code>mcp/</code></td><td>REST、遠端 MCP、agent API、限流；不放商業邏輯</td><td><span class="pill done">完成</span></td></tr>
     <tr><td>卡片</td><td><code>public/ui/cards/</code></td><td>依資料契約渲染，網頁與 MCP Apps 共用</td><td><span class="pill plan">M4</span></td></tr>
@@ -415,14 +415,14 @@ TDX_CLIENT_SECRET=你的Secret</code></pre></li>
     <tr><td>公車到站</td><td><code>/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/{Route}</code></td><td>20 秒</td><td><span class="pill done">已串</span></td></tr>
     <tr><td>站牌到站</td><td><code>…/EstimatedTimeOfArrival/City/{City}/PassThrough/Station/{ID}</code></td><td>20 秒</td><td><span class="pill next">待實測</span></td></tr>
     <tr><td>附近站牌</td><td><code>/advanced/v2/Bus/Station/NearBy</code></td><td>1 小時</td><td><span class="pill done">已串</span></td></tr>
-    <tr><td>公車路線形狀</td><td><code>/basic/v2/Bus/Shape/City/{City}/{Route}</code></td><td>1 小時</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td>公車路線形狀</td><td><code>/basic/v2/Bus/Shape/City/{City}/{Route}</code></td><td>1 小時</td><td><span class="pill done">M3 完成（真實資料待 M1）</span></td></tr>
     <tr><td>YouBike 站點／車數</td><td><code>/advanced/v2/Bike/Station/NearBy</code>、<code>/advanced/v2/Bike/Availability/NearBy</code></td><td>1 小時／30 秒</td><td><span class="pill done">已串</span></td></tr>
-    <tr><td>捷運車站／看板</td><td><code>/basic/v2/Rail/Metro/Station/{Op}</code>、<code>/basic/v2/Rail/Metro/LiveBoard/{Op}</code></td><td>24 小時／20 秒</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td>捷運車站／看板</td><td><code>/basic/v2/Rail/Metro/Station/{Op}</code>、<code>/basic/v2/Rail/Metro/LiveBoard/{Op}</code></td><td>24 小時／20 秒</td><td><span class="pill done">M3 完成（真實資料待 M1）</span></td></tr>
     <tr><td>高鐵時刻</td><td><code>/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}</code></td><td>10 分鐘</td><td><span class="pill done">已串</span></td></tr>
     <tr><td>台鐵時刻</td><td><code>/basic/v3/Rail/TRA/DailyTrainTimetable/OD/{O}/to/{D}/{Date}</code></td><td>10 分鐘</td><td><span class="pill done">已串</span></td></tr>
-    <tr><td>高鐵／台鐵票價</td><td><code>/basic/v2/Rail/THSR/ODFare/…</code>、<code>/basic/v3/Rail/TRA/ODFare/…</code></td><td>10 分鐘</td><td><span class="pill plan">M3</span></td></tr>
-    <tr><td>國道客運</td><td><code>/basic/v2/Bus/Route/InterCity</code>、<code>…/EstimatedTimeOfArrival/InterCity</code></td><td>1 小時／20 秒</td><td><span class="pill plan">M3</span></td></tr>
-    <tr><td>高速公路路況、道路事件</td><td>路段旅行時間、即時路況、道路事件</td><td>60 秒</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td>高鐵／台鐵票價</td><td><code>/basic/v2/Rail/THSR/ODFare/…</code>、<code>/basic/v3/Rail/TRA/ODFare/…</code></td><td>10 分鐘</td><td><span class="pill done">M3 完成（真實資料待 M1）</span></td></tr>
+    <tr><td>國道客運</td><td><code>/basic/v2/Bus/Route/InterCity</code>、<code>…/EstimatedTimeOfArrival/InterCity</code></td><td>1 小時／20 秒</td><td><span class="pill done">M3 完成（真實資料待 M1）</span></td></tr>
+    <tr><td>高速公路路況、道路事件</td><td>路段旅行時間、即時路況、道路事件</td><td>60 秒</td><td><span class="pill done">M3 完成（真實資料待 M1）</span></td></tr>
     <tr><td>導訂票</td><td>台鐵／高鐵導訂票 API（需申請「臺鐵訂票導訂」「高鐵訂票導訂」權限）</td><td>不快取</td><td><span class="pill next">需權限</span></td></tr>
   </table></div>
   <p style="font-size:14.5px;color:var(--muted)">站牌、站位、YouBike、車站都有經緯度（<code>StopPosition</code>／<code>StationPosition</code>），用於導航與「出發時機」。</p>
@@ -439,10 +439,10 @@ TDX_CLIENT_SECRET=你的Secret</code></pre></li>
   <h3>其他來源</h3>
   <div class="tbl"><table>
     <tr><th>來源</th><th>用途</th><th>取得方式</th><th>狀態</th></tr>
-    <tr><td>中央氣象署開放資料平臺（自動氣象站觀測、鄉鎮預報）</td><td><code>weather_now</code> → 自動狀態「下雨」</td><td>註冊取得授權碼 <code>CWA_API_KEY</code></td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td>中央氣象署開放資料平臺（自動氣象站觀測、鄉鎮預報）</td><td><code>weather_now</code> → 自動狀態「下雨」</td><td>註冊取得授權碼 <code>CWA_API_KEY</code></td><td><span class="pill done">完成</span></td></tr>
     <tr><td>TDX 官方 MCP（<code>tdx-mcp/rail</code>、<code>tdx-mcp/event</code>）</td><td>班次、票價、導訂票、道路事件的替代來源</td><td>TDX 會員金鑰</td><td><span class="pill plan">評估</span></td></tr>
-    <tr><td>Google／Apple 地圖深層連結</td><td>導航到站牌、車站</td><td>不需金鑰</td><td><span class="pill plan">M3</span></td></tr>
-    <tr><td>Uber 深層連結</td><td>叫車（估價待合作）</td><td>不需金鑰</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td>Google／Apple 地圖深層連結</td><td>導航到站牌、車站</td><td>不需金鑰</td><td><span class="pill done">M3 完成</span></td></tr>
+    <tr><td>Uber 深層連結</td><td>叫車（估價待合作）</td><td>不需金鑰</td><td><span class="pill done">M3 完成</span></td></tr>
   </table></div>
 
   <h3>授權與標示</h3>
@@ -755,7 +755,7 @@ TDX_CLIENT_SECRET=你的Secret</code></pre></li>
 <section id="mcp">
   <div class="eyebrow">11 · MCP TOOLS</div>
   <h2>MCP tools</h2>
-  <p class="lead">所有 tools 皆為唯讀。回傳同時包含給模型讀的文字摘要，以及 <code>structuredContent: { card, mode, speak, data }</code>。完整規格見 <code>docs/MCP_TOOLS.md</code>。</p>
+  <p class="lead">所有 tools 皆為唯讀（L2 只產生官方連結）。回傳同時包含給模型讀的文字摘要，以及 <code>structuredContent: { card, mode, speak, data }</code>；計量在 <code>_meta['abang/metrics']</code>。API 文件：<code>/api/docs</code>（Swagger）。完整規格見 <code>docs/MCP_TOOLS.md</code>。</p>
   <div class="tbl"><table>
     <tr><th>Tool</th><th>pack・tier</th><th>用途</th><th>卡片</th><th>狀態</th></tr>
     <tr><td><code>bus_route_eta</code></td><td>transit・L1</td><td>路線全站即時到站（M3 加座標、形狀）</td><td><code>bus-route</code></td><td><span class="pill done">完成</span></td></tr>
@@ -765,15 +765,15 @@ TDX_CLIENT_SECRET=你的Secret</code></pre></li>
     <tr><td><code>youbike_nearby</code></td><td>transit・L1</td><td>附近 YouBike 可借／可還</td><td><code>youbike</code></td><td><span class="pill done">完成</span></td></tr>
     <tr><td><code>thsr_timetable</code>／<code>tra_timetable</code></td><td>transit・L1</td><td>高鐵／台鐵 OD 時刻</td><td><code>timetable</code></td><td><span class="pill done">完成</span></td></tr>
     <tr><td><code>rail_stations</code></td><td>transit・L1</td><td>車站清單</td><td>—</td><td><span class="pill done">完成</span></td></tr>
-    <tr><td><code>find_place</code></td><td>transit・L1</td><td>地名轉座標</td><td>—</td><td><span class="pill plan">M3</span></td></tr>
-    <tr><td><code>metro_stations</code>／<code>metro_live_board</code></td><td>transit・L1</td><td>捷運車站、即時到站</td><td><code>metro</code></td><td><span class="pill plan">M3</span></td></tr>
-    <tr><td><code>rail_fare</code></td><td>transit・L1</td><td>高鐵／台鐵票價</td><td>—</td><td><span class="pill plan">M3</span></td></tr>
-    <tr><td><code>traffic_status</code></td><td>transit・L1</td><td>路況（塞車 → 自動狀態）</td><td>—</td><td><span class="pill plan">M3</span></td></tr>
-    <tr><td><code>intercity_bus</code></td><td>transit・L1</td><td>國道客運班次與預估抵達</td><td><code>timetable</code></td><td><span class="pill plan">M3</span></td></tr>
-    <tr><td><code>weather_now</code></td><td>weather・L1</td><td>天氣（下雨 → 自動狀態）</td><td>—</td><td><span class="pill plan">M3</span></td></tr>
-    <tr><td><code>plan_trip</code></td><td>transit・L1</td><td>從 A 到 B：候選方案＋依狀態排序（<code>decide.js</code>）</td><td><code>trip</code></td><td><span class="pill plan">M3</span></td></tr>
-    <tr><td><code>rail_booking_link</code></td><td>transit・<b>L2</b></td><td>台鐵／高鐵官方訂票連結（需 TDX 權限、使用者確認）</td><td>時刻表按鈕</td><td><span class="pill next">需權限</span></td></tr>
-    <tr><td><code>ridehail_link</code></td><td>ridehail・<b>L2</b></td><td>叫車 App 深層連結（先 Uber）</td><td>行程卡按鈕</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td><code>find_place</code></td><td>transit・L1</td><td>地名轉座標</td><td>—</td><td><span class="pill done">完成</span></td></tr>
+    <tr><td><code>metro_stations</code>／<code>metro_live_board</code></td><td>transit・L1</td><td>捷運車站、即時到站</td><td><code>metro</code></td><td><span class="pill done">完成</span></td></tr>
+    <tr><td><code>rail_fare</code></td><td>transit・L1</td><td>高鐵／台鐵票價</td><td>—</td><td><span class="pill done">完成</span></td></tr>
+    <tr><td><code>traffic_status</code></td><td>transit・L1</td><td>路況（塞車 → 自動狀態）</td><td>—</td><td><span class="pill done">完成</span></td></tr>
+    <tr><td><code>intercity_bus</code></td><td>transit・L1</td><td>國道客運班次與預估抵達</td><td><code>timetable</code></td><td><span class="pill done">完成</span></td></tr>
+    <tr><td><code>weather_now</code></td><td>weather・L1</td><td>天氣（下雨 → 自動狀態）</td><td>—</td><td><span class="pill done">完成</span></td></tr>
+    <tr><td><code>plan_trip</code></td><td>transit・L1</td><td>從 A 到 B：候選方案＋依狀態排序（<code>decide.js</code>）</td><td><code>trip</code></td><td><span class="pill done">完成</span></td></tr>
+    <tr><td><code>rail_booking_link</code></td><td>transit・<b>L2</b></td><td>台鐵／高鐵官方訂票連結（需 TDX 權限、使用者確認）</td><td>時刻表按鈕</td><td><span class="pill next">介面完成・需權限</span></td></tr>
+    <tr><td><code>ridehail_link</code></td><td>ridehail・<b>L2</b></td><td>叫車 App 深層連結（先 Uber）</td><td>行程卡按鈕</td><td><span class="pill done">完成</span></td></tr>
   </table></div>
   <p style="font-size:14.5px;color:var(--muted)">每個 tool 都有 <code>speak(data)</code>：討論串中小幫手的一句話，由資料產生、不經模型。有座標的結果附 <code>nav</code>（Google／Apple 地圖）。</p>
 

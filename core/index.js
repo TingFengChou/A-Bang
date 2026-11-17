@@ -13,6 +13,9 @@ import { createMockIntercityServices } from './services/intercity-mock.js';
 import { createCwaClient } from './cwa-client.js';
 import { createWeatherServices } from './services/weather.js';
 import { createMockWeatherServices } from './services/weather-mock.js';
+import { createRidehailServices } from './providers/ridehail/index.js';
+import { createBookingServices } from './services/booking.js';
+import { createMockBookingServices } from './services/booking-mock.js';
 
 /**
  * @param {{ clientId?: string, clientSecret?: string, cwaKey?: string, forceMock?: boolean, log?: Function, demo?: { traffic?: 'smooth'|'jam', weather?: 'clear'|'rain' } }} [opts]
@@ -26,6 +29,7 @@ export function createServices({ clientId, clientSecret, cwaKey, forceMock = fal
   const metro = live ? createMetroServices(tdx) : createMockMetroServices();
   const traffic = live ? createTrafficServices(tdx) : createMockTrafficServices({ scenario: demo.traffic });
   const intercity = live ? createIntercityServices(tdx, traffic) : createMockIntercityServices(traffic);
+  const booking = live ? createBookingServices(tdx, transit) : createMockBookingServices(transit);
   const weatherLive = Boolean(cwaKey) && !forceMock;
   const weather = weatherLive ? createWeatherServices(createCwaClient({ apiKey: cwaKey })) : createMockWeatherServices({ scenario: demo.weather });
 
@@ -38,6 +42,8 @@ export function createServices({ clientId, clientSecret, cwaKey, forceMock = fal
     ...intercity, // intercity（依賴 traffic 算延誤）
     ...weather, // weather（中央氣象署，金鑰獨立）
     places: createPlaceServices(), // 內建地標，live 與示範相同
+    ...booking, // booking：導訂票（⛔ 權限前 live 回「尚未開通」）
+    ...createRidehailServices(), // ridehail：只產生官方連結，live 與示範相同（ADR-0011）
     // 之後的領域在這裡加入，例如：
     // env:     createAqiServices(moenvKey),     // 環境部 AQI
     // health:  createPharmacyServices(),        // 健保特約藥局

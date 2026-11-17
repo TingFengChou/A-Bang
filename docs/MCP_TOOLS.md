@@ -7,7 +7,7 @@
 - 定義位置：`core/tools/<pack>.js`，以 `defineTool()` 註冊（ADR-0002）。
 - 所有 tools 唯讀：`annotations.readOnlyHint = true`、`openWorldHint = true`。
 - 每個 tool 必有 `pack`、`tier`、`speak(data, args)`；選填 `source`（資料來源標示，預設 TDX）、`static`（內建資料、不依賴金鑰：示範模式不加「示範資料」提示）、`modeOf(svc)`（資料不是 TDX 時自己判斷 live／demo）、`demoNote`（示範提示文字）。
-- `callTool()` 回傳：`{ name, card, mode, data, text, speak }`（📝 M3 加 `metrics`）。
+- `callTool()` 回傳：`{ name, card, mode, data, text, speak, metrics }`；`metrics = { calls, cacheHits, cacheHit, scanned, ms }`（`core/metrics.js`：TDX／氣象署取用次數含快取、全部由快取取得、上游回應筆數、耗時；示範模式 `calls`／`scanned` 為 0）。REST 原樣回傳；MCP 放在結果 `_meta['abang/metrics']`（每次不同，不混進 `structuredContent`）。
 - MCP 回傳：
 
 ```jsonc
@@ -21,6 +21,7 @@
 - 錯誤：輸入錯誤 → `UserError`（MCP `isError: true`、HTTP 400），訊息為可行動的繁體中文。
 - `speak`：討論串中小幫手的一句話（< 60 字），**只由資料產生、不經模型**（ADR-0009）。
 - 有座標的結果附 `nav`（§6）。
+- 英文名稱（ADR-0007、M3-14）：來源（TDX `En`）有非空英文時才附，沒有就不輸出、不翻譯：公車 `routeNameEn`、`stopNameEn`、站位 `nameEn`；YouBike `nameEn`（去掉 `YouBike2.0_` 前綴）；高鐵／台鐵車站 `nameEn`；捷運車站 `nameEn`、看板 `stationEn`、`lineEn`、`destinationEn`；路況路段 `nameEn`。示範資料沒有英文。
 
 ### 共用型別
 
@@ -50,9 +51,9 @@
 | `traffic_status` | transit | L1 | — | ✅ ⚠️ |
 | `intercity_bus` | transit | L1 | `timetable` | ✅ ⚠️ |
 | `rail_fare` | transit | L1 | — | ✅ ⚠️ |
-| `plan_trip` | transit | L1 | `trip` | 📝 |
-| `rail_booking_link` | transit | **L2** | （時刻表按鈕） | 📝 ⚠️ 需 TDX 權限 |
-| `ridehail_link` | ridehail | **L2** | （行程卡按鈕） | 📝 |
+| `plan_trip` | transit | L1 | `trip` | ✅（客運、軌道 ⚠️） |
+| `rail_booking_link` | transit | **L2** | （時刻表按鈕） | 🧩 介面＋示範完成；⛔ 真實版需 TDX 導訂票權限 |
+| `ridehail_link` | ridehail | **L2** | （行程卡按鈕） | ✅ |
 | `weather_now` | weather | L1 | — | ✅（真實資料需 CWA 授權碼）⚠️ |
 
 ## 3. 公車
@@ -149,20 +150,30 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 
 已附 `nav`：`bus_nearby_stations`、`youbike_nearby`、`bus_route_eta` 站點（M3-02）（tool 層包裝，live 與 mock 一致）。`plan_trip` 各段於 M3-10 加上；`leaveAt` 於 M3-10 與 M4 卡片使用。
 
-### 📝 `rail_booking_link` — 台鐵／高鐵導訂票（L2）⚠️
+### 🧩 `rail_booking_link` — 台鐵／高鐵導訂票（L2）⚠️
+
+實作：`core/services/booking.js`（`validateBooking`、`bookingSummary`、真實版）、`booking-mock.js`、`core/tools/booking.js`（M3-12 權限前部分）。
 
 | | |
 |---|---|
-| 輸入 | `system: 'THSR'|'TRA'`, `trainNo`, `date`, `from`, `to`, `tickets`（1–4）, `carType?`（高鐵：標準／商務） |
-| 輸出 | `{ url, expiresAt, summary }`：開啟官方訂票網站並自動帶入；連結具時效 |
+| 輸入 | `system: 'THSR'\|'TRA'`, `trainNo`（1–4 位數字）, `date`（今天～28 天內）, `from`, `to`, `tickets?`（1–4，預設 1）, `carType?: 'standard'\|'business'`（只限高鐵） |
+| 輸出 | `{ system, url, expiresAt, summary, tickets, confirmText, demo?, note? }`：開啟官方訂票網站並自動帶入；連結具時效 |
+| 目前 | 真實版在權限與端點確認前**不呼叫 TDX**，回 `UserError`「導訂票尚未開通…」並附官方訂票網站（高鐵 `https://irs.thsrc.com.tw/IMINT/`、台鐵 `https://tip.railway.gov.tw/tra-tip-web/tip`）；示範版回官方網站首頁（不帶入車次）並標 `demo` |
 | TDX | 台鐵／高鐵「導訂票」API（**前置：在 TDX 會員中心申請「臺鐵訂票導訂」「高鐵訂票導訂」權限**） |
 | 規則 | 產生前需使用者確認車次、日期、張數；不代替付款或填個資 |
 
-### 📝 `ridehail_link`（L2）
+### ✅ `ridehail_link`（L2）
 
-依起訖座標產生叫車 App 深層連結；adapter：`core/providers/ridehail/uber.js`
-`https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[latitude]={lat}&dropoff[longitude]={lon}&dropoff[nickname]={name}`。
-估價 `ridehail_estimate` 需業者合作；在此之前 `plan_trip` 以距離與路況估算區間並標示「估算」。
+實作：`core/providers/ridehail/index.js`（provider 註冊、`estimateFare`、`createRidehailServices`）、`uber.js`、`core/tools/ridehail.js`（M3-09）。不呼叫外部 API，live 與示範相同（`static`）。
+
+| | |
+|---|---|
+| 輸入 | `to`：座標或地名（`T.point`）；`from?`：同上，省略時上車點用 App 的目前位置；`provider?: 'uber'`（預設） |
+| 輸出 | `{ provider, providerName, url, estimate: { low, high, distanceKm, currency: 'TWD', estimated: true, basis } \| null, from: string\|null, to, fromPoint, toPoint, confirmText }` |
+| 連結 | `https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[latitude]={lat}&dropoff[longitude]={lon}&dropoff[nickname]={name}`；有 `from` 時改為 `pickup[latitude]…`；座標 6 位小數、暱稱 URL 編碼 |
+| 估價 | 沒有 `from` 時為 null。道路距離＝直線 × 1.3；`low` 依臺北市計程車費率（起跳 85 元含 1.25 公里、每 200 公尺 5 元）、`high`＝`low` × 1.3（塞車、夜間、平台浮動）；一律標 `estimated`，非業者報價。業者估價 `ridehail_estimate` 需合作 |
+| 規則 | L2：呼叫前先向使用者確認目的地與要叫車（description 明示；M4 卡片用 `confirmText` 顯示確認視窗）；不代叫車、不付款、不收集個資（ADR-0011） |
+| speak | `Uber叫車連結準備好了，到台北101，估計 220～290 元（估算）；開啟後在 App 內確認。` |
 
 ## 7. 地點、路況、行程
 
@@ -208,13 +219,15 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | 票價 | TDX 客運票價端點未確認，live 先回 `null`；示範模式有估算票價 |
 | speak | 「下一班 1610 18:00 出發，預計 19:40 到（路上塞車中，多 20 分）。」；沒有班次時「…附近沒有直達的國道客運班次。」 |
 
-### 📝 `plan_trip` — 從 A 到 B 怎麼去（卡片 `trip`）
+### ✅ `plan_trip` — 從 A 到 B 怎麼去（卡片 `trip`）
+
+實作：`core/services/trip.js`（`planTrip(svc, …)`，只組合既有服務）、`core/services/bus-direct.js`（`matchDirect`、`commonRoutes`；`bus.directTrips` live／mock 介面相同）、`core/tools/trip.js`（M3-10）。
 
 | | |
 |---|---|
-| 輸入 | `from: LatLon \| { query }`, `to: LatLon \| { query }`, `departAt?`, `prefs?: { states?: ('rush'\|'traffic'\|'rain'\|'luggage'\|'budget'\|'lessWalk')[], arriveBy?: 'HH:mm' }` |
-| 輸出 | `{ from, to, straightKm, autoStates: [{ key, from }], options: [Option], ranking: { ranked, excluded, reason } }` |
-| Option | `{ id, role, name, minutes, waitMin, walkMin, cost, exposure, effort, delayRisk, arriveAt?, leaveAt?, legs: [{ mode, from: {name, lat, lon}, to: {...}, minutes, detail, nav }], notes[], estimated?: true }` |
+| 輸入 | `from`, `to`：座標或地名（`T.point`）；`departAt?`：HH:mm 或 ISO（同 `intercity_bus`）；`prefs?: { states?: ('rush'\|'traffic'\|'rain'\|'luggage'\|'budget'\|'lessWalk')[], arriveBy?: 'HH:mm' }` |
+| 輸出 | `{ from, to, straightKm, date, departAt, best, states: [{ key, source: 'auto'\|'user', from?, detail? }], weather, traffic, options: [Option], ranking: { ranked: [{ id, name, score, breakdown }], excluded: [{ id, name, why }], weights, reason }, unavailable? }`（與 `CARDS.md` `trip` 一致；`unavailable` 列出查詢失敗而略過的方案種類） |
+| Option | `{ id, role: 'walk'\|'bike'\|'bus'\|'thsr'\|'tra'\|'intercity'\|'ridehail', name, minutes, waitMin, walkMin, cost, costRange?, exposure, effort, delayRisk, arriveAt, arriveMin（自出發日 00:00 起算，可超過 24 小時；`arriveBy` 以此比較，跨午夜不誤判）, legs: [{ mode, from: {name, lat, lon}, to: {...}, minutes, detail, nav, url? }], notes[], train?, estimated?: true }` |
 | 排序 | `core/decide.js`（ADR-0010） |
 | speak | 「比了 4 種方式，因為路上在塞車，建議台鐵自強。」 |
 
@@ -227,6 +240,17 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 5. 國道客運：`intercity_bus`；`delayRisk` 依路況。
 6. 叫車：距離與路況估算時間與價格區間（`estimated: true`）；附 `ridehail_link`。
 7. 自動狀態：查 `traffic_status`（跨城或走一般道路的方案）與 `weather_now`（起點）；`raining` → 自動狀態「下雨」，`level = jam` → 「塞車中」。查詢失敗時不加狀態、不中斷規劃。
+
+實作細節（M3-10；門檻與估算常數在 `trip.js` 的 `LIMITS`、`EST`）：
+
+| 方案 | 條件（直線） | 時間 | 費用 | 標 `estimated` |
+|---|---|---|---|---|
+| 步行 | ≤ 6 km | `walkMinutes` | 0 | — |
+| YouBike | 0.5～12 km；起點 500 m 內有車、終點 500 m 內有空位 | 走＋騎（站距 × 1.3 ÷ 12 km/h）＋走 | 台北市 2.0 費率（前 30 分 5 元，之後每 30 分 10 元） | — |
+| 公車直達 | ≤ 25 km；`bus.directTrips` | 走＋等（ETA − 走路，趕不上以 10 分估）＋站數 × 1.5＋走 | 一段票 15 元 | 等車時間不明時 |
+| 高鐵／台鐵 | > 30 km；起訖 25 km 內最近車站（座標由內建地標對照 `stationPoint`） | 到站（1.2 km 內走路，否則市區轉乘 道路 ÷ 20 km/h＋5 分）＋等第一班趕得上的車＋車程＋離站 | 成人單程（台鐵依車種）＋市區轉乘 15 元 | 有市區轉乘或查不到票價時 |
+| 國道客運 | ≥ 15 km；`intercity.trips` | 走＋等（走到站牌趕得上的第一班）＋車程含路況延誤＋走 | 票價；缺資料時道路公里 × 1.3 元 | 缺票價或抵達為估算時 |
+| 叫車 | 一律 | 等 6 分＋道路 ÷（市區 22／長程 55 km/h）＋路況延誤 | `ridehail_link` 估價區間中位數（`costRange`） | 一律 |
 
 ### ✅ `weather_now` — 現在與接下來 3 小時天氣（pack `weather`）
 

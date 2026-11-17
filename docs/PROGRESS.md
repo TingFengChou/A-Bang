@@ -13,6 +13,55 @@
 
 ---
 
+## 2026-11-18 M3 里程碑收尾驗收
+- 驗收（PLAN M3）：`npm test` 127 項全過 ✅；`plan_trip` 10 組 OD 排序與理由句（`test/trip-od.test.js`）✅；示範模式逐一呼叫 18 個 tools 全部成功 ✅；`GET /api/v1/tools` 列出 18 個（≥ 17）✅；`npm run lint` 無錯誤、`npm run e2e` 10 項全過
+- 未完成：M3-12 真實導訂票（⛔ TDX 導訂票權限）；所有 TDX／CWA 真實欄位待 M1
+- 文件：PLAN 狀態看板、`docs/index.html`（M3 狀態、tools 表、資料來源、架構）
+- 待 Austin：① 授權合併 PR #2；② 無狀態市區短程叫車第一是否調整權重（ADR-0010）；③ M4-04 起需新增依賴 `@modelcontextprotocol/ext-apps`
+- 下一個：M4-01（卡片資料契約）
+
+## 2026-11-18 M3-12 導訂票（權限前部分）
+- 做了：`core/services/booking.js`（`validateBooking`：車次、張數 1～4、日期今天～28 天、車廂只限高鐵、車站比對；真實版在權限前回 `UserError`「尚未開通」並附官方訂票網站，不呼叫 TDX）、`booking-mock.js`（官方網站首頁、15 分時效、標示示範）；tool `rail_booking_link`（transit、L2、`confirmText`）
+- 測試：npm run lint 無錯誤；npm test 127 項全過（新增 4 項；tools 18 個）；npm run e2e 10 項全過
+- 文件：MCP_TOOLS §2／§6、ARCHITECTURE、TESTING、README、PLAN、CLAUDE
+- 下一個：M3 里程碑收尾驗收
+- 卡住：真實導訂票需 Austin 在 TDX 申請「臺鐵訂票導訂」「高鐵訂票導訂」權限
+
+## 2026-11-18 M3-14 英文名稱保留
+- 做了：`util.en`／`enField`（TDX `En` 非空才輸出）；公車 `routeNameEn`／`stopNameEn`／站位 `nameEn`、YouBike `nameEn`（去前綴）、高鐵台鐵車站 `nameEn`、捷運 `nameEn`／`stationEn`／`lineEn`／`destinationEn`、路況路段 `nameEn`
+- 測試：npm run lint 無錯誤；npm test 123 項全過（新增 3 項）；npm run e2e 10 項全過
+- 文件：MCP_TOOLS §1、TESTING、PLAN、CLAUDE
+- 下一個：M3 里程碑收尾驗收（M3-12 ⛔ 需 TDX 導訂票權限）
+- 卡住：M3-12 需導訂票權限；無狀態市區短程叫車第一待 Austin 決定
+
+## 2026-11-18 M3-13 計量 metrics
+- 做了：`core/metrics.js`（`measure`、`recordFetch`、`countRecords`；`AsyncLocalStorage` 隔開同時進行的請求）；`tdx-client`、`cwa-client` 在快取命中與上游回應時記錄；`callTool` 回傳 `metrics: { calls, cacheHits, cacheHit, scanned, ms }`；MCP 放結果 `_meta['abang/metrics']`；OpenAPI `ToolResult` 加 `metrics`
+- 測試：npm run lint 無錯誤；npm test 120 項全過（新增 5 項 metrics）；npm run e2e 10 項全過
+- 文件：MCP_TOOLS §1、AGENT §3.1、ARCHITECTURE、TESTING、PLAN、CLAUDE
+- 下一個：M3-14（英文名稱 `nameEn`）
+- 卡住：無（計量帶 agent id 於 M5）
+
+## 2026-11-18 M3-11 plan_trip 固定 OD 測試
+- 做了：`test/trip-od.test.js` 10 組 OD（市區短程無狀態／下雨／想省錢／帶行李＋少走路、1.5 公里、台中下雨、跨城無狀態／塞車／趕時間＋12:00 前到、新竹想省錢），先確認兩次執行結果相同；「想省錢」`cost` 倍數 3 → 5（×3 時市區叫車與公車同分、叫車勝出），記錄於 ADR-0010 並在 `decide.test.js` 加情境
+- 測試：npm run lint 無錯誤；npm test 115 項全過（新增 10 項 OD、1 項 decide）
+- 文件：ADR-0010（權重調整紀錄）、TESTING、PLAN、CLAUDE
+- 下一個：M3-13（metrics）；M3-12 需 TDX 導訂票權限
+- 卡住：待 Austin 決定——無狀態時市區短程（1.5～5 公里）叫車排第一是否符合產品預期（ADR-0010 權重調整紀錄）
+
+## 2026-11-18 M3-10 行程規劃 plan_trip
+- 做了：`core/services/trip.js` `planTrip()`：起點天氣＋沿途路況 → 自動狀態（下雨、塞車中）；7 種候選方案（步行、YouBike、公車直達、高鐵、台鐵、國道客運、叫車）各自容錯，失敗列 `unavailable`；`decide()` 排序與理由；`stationPoint` 由內建地標對照車站座標。`core/services/bus-direct.js`（`matchDirect` 以站點座標驗方向、`commonRoutes`）＋ `bus.directTrips`（live 與 mock）。tool `plan_trip`（卡片 `trip`，輸出對齊 `CARDS.md`）
+- 測試：npm run lint 無錯誤；npm test 104 項全過（新增 9 項 trip、1 項 decide 跨午夜；tools 17 個）；npm run e2e 10 項全過
+- 文件：MCP_TOOLS §2／§7（方案門檻與估算表）、CARDS `trip`、ARCHITECTURE、TESTING、README、PLAN、CLAUDE
+- 下一個：M3-11（10 組固定 OD 測試）
+- 卡住：無；公車直達、客運、軌道真實欄位待 M1
+
+## 2026-11-18 M3-09 叫車連結
+- 做了：`core/providers/ridehail/`（`uber.js` 深層連結：無上車點用 `my_location`、座標 6 位小數、暱稱編碼；`index.js` provider 註冊、`estimateFare` 以臺北市計程車費率＋直線 × 1.3 估區間並標 `estimated`、`createRidehailServices`）；tool `ridehail_link`（pack `ridehail`、L2、`static`，description 要求先確認，回傳 `confirmText` 給 M4 確認視窗）；PR #1 已合併，改在 `dev/m3-2` 開發
+- 測試：npm run lint 無錯誤；npm test 93 項全過（新增 4 項 ridehail；tools／REST 數量改 16、packs 加 ridehail）；npm run e2e 10 項全過
+- 文件：MCP_TOOLS §2／§6、ARCHITECTURE、TESTING、README、PLAN、CLAUDE
+- 下一個：M3-10（`plan_trip`）
+- 卡住：無
+
 ## 2026-11-18 M3-QA 品質基礎與 review 修正
 - 做了：Playwright E2E（`scripts/e2e.js`，手機＋桌面 5 個流程、截圖、每個 context try/finally 關閉）；Swagger（`server/rest.js` 路由表、`server/openapi.js` 產生 OpenAPI 3.1、`/api/docs` Swagger UI 白名單）；ESLint（`eslint.config.js`）；CI 加 `npm run lint` 與 E2E（截圖上傳 artifact）。review 修正：`weather_now` 的 `rainMm1h` 改取雨量站 `O-A0002-001` `Past1hr`（氣象站 `Now.Precipitation` 是當日累積）、新增 `rainStation`；`intercity` ISO 出發用該日星期、深夜列出 3 小時內隔日班次 `nextDay`；REST／MCP 非 `UserError` 只回通用訊息（`publicMessage`）；`/api/docs/constructor` 不再 502 洩漏路徑；`traffic_status` 改 `from`／`to` 名稱＋`fromPoint`／`toPoint`；`zh`／`arr`／`odataStr` 移到 `util.js`；路況 `congestionOf()`、`shapesOf()` 快取
 - 測試：npm run lint 無錯誤；npm test 89 項全過（新增 errors、OpenAPI、weather 雨量站與同名鄉鎮、intercity 隔日／跨午夜／ISO、metro 轉乘站代碼、413 與錯誤 CORS）；npm run e2e 10 項全過
