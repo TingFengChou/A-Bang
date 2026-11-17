@@ -24,7 +24,7 @@ export function listPacks() {
 export function describeTool(t) {
   return {
     name: t.name, title: t.title, description: t.description,
-    pack: t.pack, tier: t.tier, card: t.card ?? null,
+    pack: t.pack, tier: t.tier, card: t.card ?? null, source: t.source,
     inputSchema: z.toJSONSchema(t.schema),
   };
 }

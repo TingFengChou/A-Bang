@@ -10,7 +10,7 @@
 
 ## 目前進度
 
-M0 ✅、M2 ✅、決策引擎 ✅、`speak` ✅、M3-01 導航 ✅、M3-02 路線座標與形狀 ✅；**M3 交通完整版進行中**（`docs/PLAN.md` 狀態看板）。M1 需 TDX 金鑰，只能在 Austin 本機做。
+M0 ✅、M2 ✅、決策引擎 ✅、`speak` ✅、M3-01 導航 ✅、M3-02 路線座標與形狀 ✅、M3-03 `find_place` ✅；**M3 交通完整版進行中**（`docs/PLAN.md` 狀態看板）。M1 需 TDX 金鑰，只能在 Austin 本機做。
 
 ## 必讀文件（依序）
 
@@ -59,7 +59,7 @@ core/            唯一的資料與邏輯層
   agent/         📝 M5：run.js、claude.js、demo-intent.js、events.js
   agents/        📝 M5：life.json（agent profile）
   providers/     📝 M3：ridehail/uber.js、mcp-client.js（外部 MCP）
-  data/          📝 M3：landmarks.json
+  data/          landmarks.json（內建地標，座標待校對）
 server/          http.js（REST、/mcp、靜態檔）、rate-limit.js
 mcp/             create-server.js、server.js（stdio）
 public/          PWA；📝 ui/cards/（M4）、js/pages/agent.js（M5）

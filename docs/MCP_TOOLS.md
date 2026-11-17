@@ -6,7 +6,7 @@
 
 - 定義位置：`core/tools/<pack>.js`，以 `defineTool()` 註冊（ADR-0002）。
 - 所有 tools 唯讀：`annotations.readOnlyHint = true`、`openWorldHint = true`。
-- 每個 tool 必有 `pack`、`tier`、`speak(data, args)`。
+- 每個 tool 必有 `pack`、`tier`、`speak(data, args)`；選填 `source`（資料來源標示，預設 TDX）與 `static`（內建資料、不依賴金鑰：示範模式不加「示範資料」提示）。
 - `callTool()` 回傳：`{ name, card, mode, data, text, speak }`（📝 M3 加 `metrics`）。
 - MCP 回傳：
 
@@ -46,7 +46,7 @@
 | `rail_stations` | transit | L1 | — | ✅ |
 | `metro_stations` | transit | L1 | — | 📝 ⚠️ |
 | `metro_live_board` | transit | L1 | `metro` | 📝 ⚠️ |
-| `find_place` | transit | L1 | — | 📝 |
+| `find_place` | transit | L1 | — | ✅（內建地標；地理編碼 ⚠️） |
 | `traffic_status` | transit | L1 | — | 📝 ⚠️ |
 | `intercity_bus` | transit | L1 | `timetable` | 📝 ⚠️ |
 | `rail_fare` | transit | L1 | — | 📝 ⚠️ |
@@ -147,9 +147,17 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 
 ## 7. 地點、路況、行程
 
-### 📝 `find_place`
+### ✅ `find_place`
 
-輸入 `query`；輸出 `[{ name, lat, lon, city, source: 'landmark'|'station'|'geocode' }]`（≤ 5）。順序：內建地標 `core/data/landmarks.json`（約 150 筆）→ 車站名稱 → 地理編碼（TDX 或 TGOS，⚠️ 待驗證）。
+| | |
+|---|---|
+| 輸入 | `query: string`（1–50 字）、`city?: City` |
+| 輸出 | `[{ name, lat, lon, city, source: 'landmark'\|'station'\|'geocode', kind, nav }]`（≤ 5，最符合的在前） |
+| 資料 | 內建地標 `core/data/landmarks.json`（201 筆；車站類 `kind=station` 回 `source: 'station'`）；地理編碼（TDX 或 TGOS）⚠️ 待 M1 驗證，尚未串接 |
+| 比對 | `normPlace()`：臺→台、去空白與括號、英文小寫，**不去「站」**（「西門站」≠「西門」）。分數：名稱或別名完全相同 3 → 以查詢開頭 2 → 互相包含 1（「我要去逢甲夜市」也能找到）；同分車站優先，再取名稱短的 |
+| 錯誤 | 空白查詢、無法辨識的 `city` → `UserError`；找不到回空陣列 |
+| 來源標示 | `source: '阿幫內建地標資料（座標為近似值）'`、`static: true` |
+| speak | 「「逢甲夜市」最符合的是逢甲夜市（臺中市）。」 |
 
 ### 📝 `traffic_status` ⚠️
 

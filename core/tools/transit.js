@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { defineTool, T, clip } from './define.js';
 import { withNav } from '../nav.js';
+import { resolveCity } from '../cities.js';
 
 const PACK = 'transit';
 const fmtM = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} 公里` : `${m} 公尺`);
@@ -138,4 +139,29 @@ export const railStations = defineTool({
   },
 });
 
-export default [busSearchRoutes, busRouteEta, busNearbyStations, busStationEta, youbikeNearby, thsrTimetable, traTimetable, railStations];
+const cityName = (c) => resolveCity(c)?.name || c;
+const KIND = { station: '車站', airport: '機場', landmark: '景點', market: '夜市商圈', school: '學校', hospital: '醫院', government: '機關' };
+
+export const findPlace = defineTool({
+  name: 'find_place',
+  title: '找地點座標',
+  description: '把地名、車站、景點、俗稱（例：台北101、北車、逢甲夜市、小港機場）轉成座標，最多 5 筆，最符合的在前；每筆附 city 與導航連結 nav。查到座標後可接 bus_nearby_stations、youbike_nearby 或 plan_trip。目前只查內建地標與車站，找不到時請換個說法或加上縣市。',
+  pack: PACK, tier: 'L1',
+  source: '阿幫內建地標資料（座標為近似值）', static: true,
+  input: {
+    query: z.string().trim().min(1).max(50).describe('地點名稱或俗稱，例如 台北101、高雄車站、逢甲夜市'),
+    city: T.city.optional().describe('限定縣市（可省略），例如 Taichung 或「台中市」'),
+  },
+  speak: (d, a) => (d.length
+    ? `「${a.query}」最符合的是${d[0].name}（${cityName(d[0].city)}）${d.length > 1 ? `，另有 ${d.length - 1} 個相近地點` : ''}。`
+    : `找不到「${a.query}」，可以換個說法或加上縣市。`),
+  async run(svc, a) {
+    const data = withNav(await svc.places.find(a));
+    const text = data.length
+      ? clip([`「${a.query}」找到 ${data.length} 個地點：`, ...data.map((p) => `- ${p.name}（${cityName(p.city)}，${KIND[p.kind] || p.kind}）：lat=${p.lat}, lon=${p.lon}`)])
+      : `找不到「${a.query}」。目前只查內建地標與車站，請換個說法（例如完整名稱）或加上縣市。`;
+    return { data, text };
+  },
+});
+
+export default [busSearchRoutes, busRouteEta, busNearbyStations, busStationEta, youbikeNearby, thsrTimetable, traTimetable, railStations, findPlace];

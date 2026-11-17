@@ -24,9 +24,9 @@ export function createMcpServer(svc, { packs } = {}) {
     }, async (args) => {
       try {
         const r = await callTool(svc, t.name, args);
-        const note = r.mode === 'demo' ? '【示範資料：尚未設定 TDX 金鑰，以下非真實營運資訊】\n' : '';
+        const note = r.mode === 'demo' && !t.static ? '【示範資料：尚未設定 TDX 金鑰，以下非真實營運資訊】\n' : '';
         return {
-          content: [{ type: 'text', text: note + r.text + '\n\n資料來源：交通部 TDX 運輸資料流通服務' }],
+          content: [{ type: 'text', text: note + r.text + `\n\n資料來源：${t.source}` }],
           structuredContent: { card: r.card, mode: r.mode, speak: r.speak, data: r.data },
         };
       } catch (e) {

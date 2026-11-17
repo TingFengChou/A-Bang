@@ -3,6 +3,7 @@
 import { createTdxClient } from './tdx-client.js';
 import { createTransitServices } from './services/transit.js';
 import { createMockTransitServices } from './services/transit-mock.js';
+import { createPlaceServices } from './services/places.js';
 
 export function createServices({ clientId, clientSecret, forceMock = false, log } = {}) {
   const live = Boolean(clientId && clientSecret) && !forceMock;
@@ -13,6 +14,7 @@ export function createServices({ clientId, clientSecret, forceMock = false, log 
   return {
     mode: live ? 'live' : 'demo',
     ...transit, // bus, bike, rail
+    places: createPlaceServices(), // 內建地標，live 與示範相同
     // 之後的領域在這裡加入，例如：
     // weather: createWeatherServices(cwaKey),   // 中央氣象署 opendata.cwa.gov.tw
     // env:     createAqiServices(moenvKey),     // 環境部 AQI

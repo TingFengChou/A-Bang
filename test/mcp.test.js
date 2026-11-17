@@ -8,7 +8,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 
 const PORT = 18000 + Math.floor(Math.random() * 1000);
 const BASE = `http://127.0.0.1:${PORT}`;
-const EXPECTED = ['bus_nearby_stations', 'bus_route_eta', 'bus_search_routes', 'bus_station_eta', 'rail_stations', 'thsr_timetable', 'tra_timetable', 'youbike_nearby'];
+const EXPECTED = ['bus_nearby_stations', 'bus_route_eta', 'bus_search_routes', 'bus_station_eta', 'find_place', 'rail_stations', 'thsr_timetable', 'tra_timetable', 'youbike_nearby'];
 const ARGS = { from: '台北', to: '左營', date: '2026-12-01' };
 let http;
 
@@ -47,13 +47,19 @@ test('stdio：tools 清單、metadata、示範標註、錯誤', () => viaStdio(a
   const bad = await c.callTool({ name: 'thsr_timetable', arguments: { from: '火星', to: '左營' } });
   assert.equal(bad.isError, true);
   assert.match(bad.content[0].text, /找不到高鐵車站/);
+  // 內建資料的 tool：不加示範提示、來源標示為阿幫內建地標
+  const fp = await c.callTool({ name: 'find_place', arguments: { query: '台北101' } });
+  assert.ok(!fp.isError);
+  assert.doesNotMatch(fp.content[0].text, /示範資料/);
+  assert.match(fp.content[0].text, /資料來源：阿幫內建地標資料/);
+  assert.equal(fp.structuredContent.data[0].name, '台北101');
 }));
 
 test('遠端 HTTP /mcp 與 /mcp/transit', async () => {
   const names = await viaHttp(async (c) => (await c.listTools()).tools.map((t) => t.name).sort());
   assert.deepEqual(names, EXPECTED);
   const packNames = await viaHttp(async (c) => (await c.listTools()).tools.length, '/mcp/transit');
-  assert.equal(packNames, 8);
+  assert.equal(packNames, 9);
   const res = await fetch(BASE + '/mcp/nope', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
   assert.equal(res.status, 404);
   const get = await fetch(BASE + '/mcp');
@@ -72,7 +78,7 @@ test('stdio、HTTP、REST 三條路徑結果一致', async () => {
 
 test('REST：tools 清單、參數錯誤、方法錯誤', async () => {
   const list = await (await fetch(BASE + '/api/v1/tools')).json();
-  assert.equal(list.data.length, 8);
+  assert.equal(list.data.length, 9);
   assert.ok(list.data.every((t) => t.pack && t.tier && t.inputSchema));
   const bad = await fetch(BASE + '/api/v1/tools/youbike_nearby', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ lat: 'x' }) });
   assert.equal(bad.status, 400);

@@ -12,9 +12,12 @@ import { z } from 'zod';
  * @property {Record<string, import('zod').ZodTypeAny>} input  zod raw shape
  * @property {(svc: any, args: any) => Promise<{ data: any, text: string }>} run
  * @property {(data: any, args: any) => string} [speak]  討論串中工具的一句話發言（由資料決定，不經模型；ADR-0009）
+ * @property {string} [source]   資料來源標示，預設 TDX（DEFAULT_SOURCE）
+ * @property {boolean} [static]   資料不依賴 TDX 金鑰（內建資料），示範模式也不加「示範資料」提示
  */
 
 const TIERS = ['L1', 'L2', 'L3'];
+export const DEFAULT_SOURCE = '交通部 TDX 運輸資料流通服務';
 
 /** @param {ToolDef} def */
 export function defineTool(def) {
@@ -23,7 +26,7 @@ export function defineTool(def) {
   }
   if (!/^[a-z][a-z0-9_]*$/.test(def.name)) throw new Error(`tool 名稱需為 snake_case：${def.name}`);
   if (!TIERS.includes(def.tier)) throw new Error(`tool ${def.name} 的 tier 必須是 L1/L2/L3`);
-  return Object.freeze({ ...def, schema: z.object(def.input) });
+  return Object.freeze({ source: DEFAULT_SOURCE, static: false, ...def, schema: z.object(def.input) });
 }
 
 // ── 共用輸入型別 ──
