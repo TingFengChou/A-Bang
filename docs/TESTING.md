@@ -1,6 +1,6 @@
 # 測試規格
 
-版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 146 項全過、`npm run e2e` 12 項全過（手機＋桌面各 6）。
+版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 149 項全過、`npm run e2e` 12 項全過（手機＋桌面各 6）。
 
 ## 1. 原則
 
@@ -34,6 +34,7 @@
 | 卡片倒數 | `test/cards-countdown.test.js` | `etaLabel` 與 `busStatusText` 一致；`startCountdown` 以假時鐘驗證遞減、跨門檻換文字與 `soon`、不小於 0 | M4-07 起 |
 | 卡片文字 | `test/cards-i18n.test.js` | `t()` 佔位符與缺鍵；每則非空、括號成對、不含常見簡體字；每種卡片與 L2 確認視窗有必要文字 | M4-03 起 |
 | 卡片契約 | `test/cards-schema.test.js` | 小驗證器本身；每個有卡片的 tool 都有契約且 7 種一一對應；11 組示範輸出（含塞車客運、雨天跨城行程）通過對應 schema；payload 帶 `v`／`tool`／`args` | M4-01 起 |
+| Agent profile | `test/agent-profile.test.js` | life 通過驗證；未知欄位、不存在 tool、pack 不符、重複都擋下；system prompt 段落順序、日期、脈絡截斷 | M5-01 起 |
 | Agent 事件 | `test/agent.test.js`（M5） | 示範模式：4 個建議問題的事件序列（`status` → `agent_note` → `tool_start`… → `decision` → `text` → `done`）；狀態合併；限流 | M5 |
 | Claude 迴圈 | `test/agent-claude.test.js`（M5） | 以本地假 Anthropic API（`ANTHROPIC_BASE_URL=http://127.0.0.1:{port}`）回放 tool_use；5 輪上限；錯誤 | M5 |
 | E2E 冒煙 | `scripts/e2e.js`（`npm run e2e`） | 示範模式起伺服器（隨機埠、清空金鑰），Playwright 手機（iPhone 13）與桌面：首頁與搜尋、公車路線去返程、附近（定位）、高鐵台鐵時刻表、Swagger UI；無 console／頁面錯誤；截圖存 `test/screenshots/`（不進版控）；每個 browser context 以 try/finally 關閉；M4-02 起加卡片預覽（7 種卡片皆渲染、公車方向切換與點站、附近站牌展開到站、YouBike 排序、行程建議／分段條／理由、高鐵訂票按鈕、卡片內沒有 script） | 每輪 |

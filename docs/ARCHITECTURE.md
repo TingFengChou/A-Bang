@@ -35,8 +35,8 @@
 | `core/services/*-mock.js` | ✅ | 介面相同的示範資料，穩定可重現 | 呼叫外部網路 |
 | `core/tools/` | ✅ | Tool registry：`defineTool({ name, title, description, pack, tier, card, input, run, speak })`；`callTool()` 驗證參數並回傳 `{ name, card, mode, data, text, speak }` | 依賴特定 transport |
 | `core/decide.js` | ✅ | 決策引擎：依資料＋使用者狀態替方案計分排序、硬限制、理由句（ADR-0010） | 呼叫模型或外部 API |
-| `core/agent/` | 📝 | Claude tool-use 迴圈、示範意圖解析、事件串流、使用者狀態合併 | 直接碰 TDX |
-| `core/agents/*.json` | 📝 | agent profile（ADR-0005）：system prompt、工具白名單、建議問題、免責、模型 | 寫程式邏輯 |
+| `core/agent/` | 🚧 `prompt.js` ✅ | Claude tool-use 迴圈、示範意圖解析、事件串流、使用者狀態合併；`prompt.js` 組裝 system prompt（平台政策 → 工具包護欄 → 角色 → 情境） | 直接碰 TDX |
+| `core/agents/*.json` | ✅ life | agent profile（ADR-0005）：角色與規則、工具白名單、建議問題、免責、模型；`index.js` 以 zod 驗證並與 registry 交叉檢查 | 寫程式邏輯 |
 | `core/providers/` | ✅ 叫車／📝 外部 MCP | 外部服務 adapter（ADR-0011）：`ridehail/index.js`（provider 註冊、`estimateFare` 距離估價、`createRidehailServices`）、`ridehail/uber.js` 深層連結（M3-09）；📝 `mcp-client.js` 包裝外部 MCP（TDX 官方 MCP） | 直接被 server 呼叫 |
 | `core/nav.js` | ✅ | 導航深層連結、步行時間、出發時機（M3-01） | 呼叫外部 API |
 | `core/metrics.js` | ✅ | 每次 tool 呼叫的計量（`AsyncLocalStorage` 隔開同時進行的請求）；TDX／CWA client 記錄取用、快取命中與筆數（M3-13） | 送出資料、跨請求累計 |

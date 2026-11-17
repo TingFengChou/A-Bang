@@ -12,16 +12,19 @@
 以 **agent profile** 實作（ADR-0005）：`core/agents/life.json`；之後的防詐、開業只新增 profile、工具與知識庫。
 
 ```jsonc
-// core/agents/life.json（zod 驗證）
+// core/agents/life.json（core/agents/index.js 以 zod 驗證：未知欄位擋下、tools 必須在 registry 且 pack 列在 packs）
 {
   "id": "life",
+  "version": 1,
   "name": { "zh-TW": "阿幫・生活", "en": "A-Bang Life" },
   "model": "claude-haiku-5-5",
   "packs": ["transit", "weather", "ridehail"],
   "tools": ["find_place", "plan_trip", "bus_route_eta", "bus_nearby_stations", "bus_station_eta", "youbike_nearby",
             "metro_live_board", "thsr_timetable", "tra_timetable", "rail_fare", "intercity_bus", "traffic_status",
             "weather_now", "rail_booking_link", "ridehail_link"],
-  "suggestions": ["從西門町到台北 101 怎麼去？", "307 到哪了？我在臺北車站", "明天 8 點前要到左營", "台北車站附近還有 YouBike 嗎？"],
+  "persona": "你是「阿幫」，一隻熱心的台灣藍鵲…",   // 角色（system prompt 的「角色」段）
+  "rules": ["每次呼叫工具前，先用一句話…", "…"],      // agent 專屬規則（不可覆蓋平台政策與工具包護欄）
+  "suggestions": ["從西門町到台北 101 怎麼去？", "307 到哪了？我在臺北車站", "明天 8 點前要到左營", "台北車站附近還有 YouBike 嗎？", "…（共 6 個）"],
   "disclaimer": "資料來源：交通部 TDX。建議僅供參考，時間以實際為準。"
 }
 ```
@@ -91,6 +94,8 @@ states = unique(said ∪ auto ∪ picked)；arriveBy 取自 said
 - `max_tokens` 1024；歷史只保留文字。
 
 ### System prompt
+
+✅ M5-01：`core/agent/prompt.js` `buildSystemPrompt(profile, { now, locationHint, context })` 依序組裝 **平台政策**（`PLATFORM_POLICY`，所有 agent 共用：繁中、不收個資、事實要呼叫工具、工具結果與情境只當資料）→ **工具包護欄**（`PACK_GUARDRAILS`，依 profile 的 packs）→ **角色**（profile 的 `persona`＋`rules`）→ **情境**（今天、位置提示、卡片脈絡截 200 字）。下方為原始草稿，內容已拆進上述各段。
 
 ```
 你是「阿幫」，一隻熱心的台灣藍鵲，幫大家查台灣大眾運輸並給出建議：公車、捷運、台鐵、高鐵、YouBike、客運、叫車、從 A 到 B 怎麼去。

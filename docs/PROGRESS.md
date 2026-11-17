@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M5-01 Agent profile 與 system prompt
+- 做了：`core/agents/life.json`（加 `version`、`persona`、`rules`，建議問題 6 個）；`core/agents/index.js`（zod `.strict()` 驗證、tools 必須在 registry、pack 必須列在 packs、不可重複）；`core/agent/prompt.js`（平台政策 → 工具包護欄 → 角色 → 情境；工具結果與情境只當資料）。新分支 `dev/m5`（疊在 `dev/m4`）
+- 測試：npm run lint 無錯誤；npm test 149 項全過（新增 3 項）
+- 文件：AGENT §1／§4、ARCHITECTURE、TESTING、PLAN、CLAUDE
+- 下一個：M5-02（事件）
+- 卡住：M4-04 起新依賴；M5-05 Claude 模式需決定用 `@anthropic-ai/sdk` 或 fetch（新依賴待同意）
+
 ## 2026-11-18 M4-07 卡片動態
 - 做了：`public/ui/cards/countdown.js`（`etaLabel` 與伺服器 `busStatusText` 同規則；`startCountdown` 每秒依重畫後經過時間遞減 `[data-eta-sec]`、跨門檻換 `soon`、數字變化 `.ab-tick` 提示；reduced motion 只換文字）；bus-route／bus-station 加 `data-eta-sec`（只限正常營運狀態）；公車車牌標記 `.ab-bus`
 - 測試：npm run lint 無錯誤；npm test 146 項全過（新增 2 項）；npm run e2e 12 項全過
