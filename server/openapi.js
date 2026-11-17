@@ -54,7 +54,8 @@ export function buildOpenApi(svc) {
         ToolResult: {
           type: 'object',
           properties: {
-            name: { type: 'string' }, card: { type: ['string', 'null'] }, mode: { enum: ['live', 'demo'] },
+            name: { type: 'string' }, card: { type: ['string', 'null'] }, v: { type: 'integer', description: '卡片資料契約版本（有卡片時）' }, mode: { enum: ['live', 'demo'] },
+            args: { type: 'object', description: '驗證後的參數（卡片刷新用）' },
             data: { description: '正規化資料，格式見 docs/MCP_TOOLS.md' }, text: { type: 'string', description: '給模型看的摘要（≤ 1500 字）' },
             speak: { type: ['string', 'null'], description: '討論串的一句話（由資料產生）' },
             metrics: {

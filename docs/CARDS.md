@@ -50,7 +50,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 共通：時間 ISO 8601 或 `HH:mm`；距離公尺；金額新台幣整數；`nav` 見 `MCP_TOOLS.md` §1。
 
-> **遷移注意（M4-01）**：目前 `bus_nearby_stations`、`youbike_nearby`、`bus_station_eta` 的 `data` 是陣列。M4-01 改為下列物件格式（陣列放進 `stations`／`arrivals`，並帶查詢參數），同時更新 `run()` 的文字摘要、`speak`、`test/tools.test.js`、`test/mcp.test.js`。服務層（`core/services`）可維持回傳陣列，由 tool 包裝。
+> ✅ M4-01（2026-11-18）：7 種契約在 `public/ui/cards/schema/<card>.v1.json`（JSON Schema 2020-12 子集，驗證器 `schema/validate.js` 零依賴）；`bus_nearby_stations`、`youbike_nearby`、`bus_station_eta` 的 `data` 已改為下列物件格式（服務層仍回陣列，由 tool 包裝）；`structuredContent` 已帶 `v`、`tool`、`args`。`test/cards-schema.test.js` 以示範輸出驗證每種卡片。
 
 ### `bus-route`（`bus_route_eta`）
 
@@ -107,6 +107,6 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 ## 6. 測試
 
-- 單元：`test/cards-schema.test.js` — 每個 tool 的 mock 輸出通過對應 schema（用 `zod` 由 JSON Schema 轉或自寫小驗證器；不新增依賴優先）。
+- 單元：`test/cards-schema.test.js` — 每個 tool 的 mock 輸出通過對應 schema（自寫小驗證器 `public/ui/cards/schema/validate.js`，支援 type、enum、const、properties、required、items、minimum／maximum、minItems、additionalProperties: false、本檔 `$ref`；契約只用這些關鍵字）。
 - 視覺：Playwright 載入 `test/cards/harness.html`（假 host）＋每種卡片 fixture，手機與桌面截圖，無 console error。
 - MCP Apps：以 `AppBridge` 當 host 載入 `dist/cards.html`，送 `ui/notifications/tool-result`，檢查渲染與 `callServerTool` 往返。

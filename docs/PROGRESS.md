@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M4-01 卡片資料契約
+- 做了：`public/ui/cards/schema/` 7 種契約（bus-route、bus-station、nearby、youbike、metro、timetable、trip；JSON Schema 2020-12 子集）＋零依賴驗證器 `validate.js`；`bus_nearby_stations`、`youbike_nearby`、`bus_station_eta` 的 `data` 改物件（`stations`／`arrivals`＋查詢參數）；`callTool` 回 `v`（有卡片時）與 `args`，MCP `structuredContent` 帶 `v`／`tool`／`args`；OpenAPI 更新。新分支 `dev/m4`（疊在 PR #2 上）
+- 測試：npm run lint 無錯誤；npm test 141 項全過（新增 14 項 cards-schema）；npm run e2e 10 項全過
+- 文件：CARDS §4／§6、MCP_TOOLS §1／§3／§4、TESTING、PLAN、CLAUDE
+- 下一個：M4-03（卡片文字字典）→ M4-02（卡片渲染）
+- 卡住：M4-04 起需新增依賴 `@modelcontextprotocol/ext-apps`（待 Austin）
+
 ## 2026-11-18 M3 里程碑收尾驗收
 - 驗收（PLAN M3）：`npm test` 127 項全過 ✅；`plan_trip` 10 組 OD 排序與理由句（`test/trip-od.test.js`）✅；示範模式逐一呼叫 18 個 tools 全部成功 ✅；`GET /api/v1/tools` 列出 18 個（≥ 17）✅；`npm run lint` 無錯誤、`npm run e2e` 10 項全過
 - 未完成：M3-12 真實導訂票（⛔ TDX 導訂票權限）；所有 TDX／CWA 真實欄位待 M1

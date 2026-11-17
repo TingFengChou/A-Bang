@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/metro.v1.json",
+  "title": "metro（metro_live_board）",
+  "type": "object",
+  "required": ["system", "station", "stationId", "updatedAt", "trains", "nav"],
+  "properties": {
+    "system": { "enum": ["TRTC", "TYMC", "TMRT", "KRTC"] },
+    "station": { "type": "string" },
+    "stationEn": { "type": "string" },
+    "stationId": { "type": "string" },
+    "lat": { "type": "number" },
+    "lon": { "type": "number" },
+    "nav": { "type": ["object", "null"], "required": ["google", "apple"], "properties": { "google": { "type": "string" }, "apple": { "type": "string" } } },
+    "updatedAt": { "type": "string" },
+    "demo": { "type": "boolean" },
+    "trains": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["line", "destination", "etaMin", "status"],
+        "properties": {
+          "line": { "type": "string" },
+          "lineEn": { "type": "string" },
+          "lineId": { "type": ["string", "null"] },
+          "lineColor": { "type": "string" },
+          "destination": { "type": "string" },
+          "destinationEn": { "type": "string" },
+          "etaMin": { "type": ["integer", "null"] },
+          "status": { "type": "string" }
+        }
+      }
+    }
+  }
+}

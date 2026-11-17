@@ -27,7 +27,8 @@ export function createMcpServer(svc, { packs } = {}) {
         const note = r.mode === 'demo' && !t.static ? `${t.demoNote}\n` : '';
         return {
           content: [{ type: 'text', text: note + r.text + `\n\n資料來源：${t.source}` }],
-          structuredContent: { card: r.card, mode: r.mode, speak: r.speak, data: r.data },
+          // CardPayload（CARDS.md §2）：tool／args 給卡片刷新用
+          structuredContent: { card: r.card, ...(r.v && { v: r.v }), tool: r.name, args: r.args, mode: r.mode, speak: r.speak, data: r.data },
           _meta: { 'abang/metrics': r.metrics }, // 計量放 _meta：每次不同（耗時），不混進結構化資料
         };
       } catch (e) {

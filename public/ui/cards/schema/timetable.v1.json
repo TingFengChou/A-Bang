@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/timetable.v1.json",
+  "title": "timetable（thsr_timetable、tra_timetable、intercity_bus）",
+  "type": "object",
+  "required": ["from", "to", "date", "trains"],
+  "properties": {
+    "system": { "enum": ["THSR", "TRA", "BUS"] },
+    "from": { "type": "string" },
+    "to": { "type": "string" },
+    "date": { "type": "string" },
+    "departAt": { "type": "string" },
+    "demo": { "type": "boolean" },
+    "traffic": { "type": "object", "properties": { "level": { "enum": ["smooth", "slow", "jam", null] }, "delayMin": { "type": ["integer", "null"] } } },
+    "delayRisk": { "type": "number", "minimum": 0, "maximum": 1 },
+    "trains": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["trainNo", "depart", "arrive", "minutes"],
+        "properties": {
+          "trainNo": { "type": "string" },
+          "type": { "type": "string" },
+          "depart": { "type": "string" },
+          "arrive": { "type": "string" },
+          "minutes": { "type": "integer", "minimum": 0 },
+          "terminal": { "type": ["string", "null"] },
+          "fare": { "type": ["integer", "null"] },
+          "excluded": { "type": "string" },
+          "arriveWithDelay": { "type": "string" },
+          "delayMin": { "type": "integer" },
+          "estimated": { "type": "boolean" },
+          "nextDay": { "type": "boolean" },
+          "board": { "type": "string" },
+          "alight": { "type": "string" },
+          "walkFromM": { "type": "integer" },
+          "walkToM": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

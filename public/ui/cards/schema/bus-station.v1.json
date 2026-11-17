@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/bus-station.v1.json",
+  "title": "bus-station（bus_station_eta）",
+  "type": "object",
+  "required": ["city", "stationId", "arrivals"],
+  "properties": {
+    "city": { "type": "string" },
+    "stationId": { "type": "string" },
+    "name": { "type": "string" },
+    "arrivals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["routeName", "etaSec", "status", "statusText"],
+        "properties": {
+          "routeName": { "type": "string" },
+          "routeNameEn": { "type": "string" },
+          "direction": { "type": "integer" },
+          "etaSec": { "type": ["integer", "null"] },
+          "status": { "type": "integer", "minimum": 0, "maximum": 4 },
+          "statusText": { "type": "string" }
+        }
+      }
+    }
+  }
+}

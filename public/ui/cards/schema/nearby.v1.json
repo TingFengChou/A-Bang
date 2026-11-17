@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/nearby.v1.json",
+  "title": "nearby（bus_nearby_stations）",
+  "type": "object",
+  "required": ["lat", "lon", "stations"],
+  "properties": {
+    "lat": { "type": "number" },
+    "lon": { "type": "number" },
+    "radius": { "type": "integer" },
+    "stations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["stationId", "name", "distance", "routes", "nav"],
+        "properties": {
+          "stationId": { "type": "string" },
+          "stationUid": { "type": "string" },
+          "city": { "type": ["string", "null"] },
+          "name": { "type": "string" },
+          "nameEn": { "type": "string" },
+          "lat": { "type": "number" },
+          "lon": { "type": "number" },
+          "distance": { "type": "integer", "minimum": 0 },
+          "routes": { "type": "array", "items": { "type": "string" } },
+          "nav": { "$ref": "#/$defs/nav" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nav": { "type": ["object", "null"], "required": ["google", "apple"], "properties": { "google": { "type": "string" }, "apple": { "type": "string" } } }
+  }
+}
