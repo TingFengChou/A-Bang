@@ -178,7 +178,7 @@ export default {
             textEl.querySelector('.say').textContent = view.text;
             break;
           case 'error':
-            turn.append(el('div', 'msg error', e.retryAfterSec ? `${e.message}` : e.message));
+            turn.append(el('div', 'msg error', e.retryAfterSec && !/\d+ 秒/.test(e.message) ? `${e.message}（${e.retryAfterSec} 秒後可再試）` : e.message));
             break;
           default:
         }
