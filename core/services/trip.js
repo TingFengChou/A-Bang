@@ -243,6 +243,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     from: pt(from), to: pt(to), straightKm: +(straight / 1000).toFixed(1),
     date: depart.date, departAt: toHHMM(depart.minute),
     best: r.best?.id ?? null, states,
+    ...(prefs.arriveBy && { arriveBy: prefs.arriveBy, arriveByMin }), // 前端重算（決策圖）用同一份 decide.js
     weather: weather && { summary: weather.summary, raining: weather.raining, pop3h: weather.pop3h },
     traffic: traffic && { level: traffic.level, delayMin: traffic.delayMin, covered: traffic.covered },
     options,

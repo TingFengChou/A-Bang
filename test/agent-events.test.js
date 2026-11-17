@@ -36,3 +36,19 @@ test('mergeStates：auto 優先、同 key 去重、保留來源', () => {
   const s = mergeStates({ auto: [{ key: 'rain', from: 'weather_now' }], user: ['luggage', 'rain'], picked: ['budget', 'luggage'] });
   assert.deepEqual(s.map((x) => [x.key, x.source]), [['rain', 'auto'], ['luggage', 'user'], ['budget', 'picked']]);
 });
+
+test('decision 事件帶足重算所需資料：瀏覽器用同一份 decide.js 重算＝伺服器排名', async () => {
+  const { decide } = await import('../core/decide.js');
+  const svc = createServices({ forceMock: true, demo: { traffic: 'jam', weather: 'rain' } });
+  for (const args of [
+    { from: '台北車站', to: '高雄車站', departAt: '09:00', prefs: { states: ['rush'], arriveBy: '12:00' } },
+    { from: '台北車站', to: '台北101', departAt: '22:00', prefs: { arriveBy: '00:30' } },
+  ]) {
+    const r = await callTool(svc, 'plan_trip', args);
+    const d = ev.decision(r.data);
+    const again = decide(d.options, { states: d.states.map((s) => s.key), arriveBy: d.arriveBy ?? undefined, arriveByMin: d.arriveByMin });
+    assert.deepEqual(again.ranked.map((x) => [x.id, x.score]), d.ranked.map((x) => [x.id, x.score]), JSON.stringify(args));
+    assert.deepEqual(again.excluded.map((x) => x.id), d.excluded.map((x) => x.id));
+    assert.equal(again.reason, d.reason);
+  }
+});

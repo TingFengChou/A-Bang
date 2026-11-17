@@ -3,6 +3,10 @@
 import { runAgent } from '../agent/client.js';
 import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
+import { renderDecision } from '../../ui/agent/decision-graph.js';
+
+// 決策圖重算用的同一份 decide.js（伺服器以 /core/decide.js 提供；UX.md §5）
+const decideModule = import('/core/decide.js').catch(() => null);
 
 const MIN_GAP_MS = 300;
 const ROLE_CLASS = { 地點: 'place', 天氣: 'place', 公車: 'bus', YouBike: 'bike', 高鐵: 'rail', 台鐵: 'tra', 捷運: 'brand', 路況: 'car', 客運: 'car', 票價: 'fare', 叫車: 'car', 訂票: 'rail', 行程: 'brand', 車站: 'tra', 定位: 'place' };
@@ -111,6 +115,7 @@ export default {
       const results = el('div', 'results');
       turn.append(thread, results);
       const bubbles = new Map();
+      const roles = []; // 本輪回報的小幫手角色（決策圖的資料欄）
       let queue = Promise.resolve();
       let lastShown = 0;
       let textEl = null;
@@ -134,6 +139,7 @@ export default {
             thread.append(el('div', 'bubble tool', avatar('定位'), el('div', 'say typing', '定位中…')));
             break;
           case 'tool_start': {
+            if (!roles.includes(e.role)) roles.push(e.role);
             const b = el('div', 'bubble tool', avatar(e.role), el('div', 'say typing', '輸入中…'), el('small', 'src', `${e.name} · ${e.server}`));
             bubbles.set(e.id, b);
             thread.append(b);
@@ -166,12 +172,16 @@ export default {
             thread.before(sum);
             break;
           }
-          case 'decision':
-            // 決策圖於 M5-09；先顯示狀態與理由（文字替代，UX.md §10）
-            results.prepend(el('div', 'decision-lite',
-              e.states.length ? el('div', 'chips-row', e.states.map((s) => el('span', 'chip', `${s.source === 'auto' ? '自動' : s.source === 'picked' ? '你選的' : '你說的'}・${s.detail || s.key}`))) : null,
-              el('p', 'why', e.reason)));
+          case 'decision': {
+            const box = el('section', 'decision');
+            box.setAttribute('aria-label', '決策圖');
+            if (reducedMotion()) box.classList.add('static');
+            results.prepend(box);
+            const mod = await decideModule;
+            if (mod) renderDecision(box, e, { sources: roles.filter((r) => r !== '行程'), decide: mod.decide, CRITERIA: mod.CRITERIA });
+            else box.append(el('p', 'dg-why', e.reason)); // 載不到引擎時至少顯示理由
             break;
+          }
           case 'text':
             if (!textEl) { textEl = el('div', 'bubble agent final', avatar('阿幫'), el('div', 'say')); turn.append(textEl); }
             view.text += e.delta;

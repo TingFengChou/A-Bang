@@ -160,7 +160,22 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       assert.ok(await page.locator('.thread .bubble.tool').count() >= 4, '小幫手發言');
       assert.ok(await page.locator('.thread .mention').count() >= 1, '@角色 chip');
       assert.equal(await page.locator('.results [data-card="trip"]').count(), 1);
-      assert.match(await page.locator('.decision-lite .why').textContent(), /^選「/);
+      // 決策圖（M5-09）：四欄、勝出方案、理由；切換狀態即時重算（不呼叫伺服器）
+      const dg = page.locator('.decision');
+      await dg.locator('.dg-svg').waitFor();
+      assert.ok(await dg.locator('.dg-opt').count() >= 3);
+      assert.equal(await dg.locator('.dg-opt.win').count(), 1);
+      assert.match(await dg.locator('.dg-why').textContent(), /選「/);
+      const before = await dg.getAttribute('data-best');
+      let calls = 0;
+      page.on('request', (r) => { if (r.url().includes('/api/')) calls++; });
+      await dg.locator('.dg-chip.add', { hasText: '想省錢' }).click();
+      assert.equal(await dg.getAttribute('data-run'), '2');
+      assert.notEqual(await dg.getAttribute('data-best'), before, '想省錢時建議應改變（叫車 → 大眾運輸）');
+      assert.equal(await dg.locator('.dg-chip.on', { hasText: '你選的：想省錢' }).count(), 1);
+      assert.equal(calls, 0, '重算不呼叫伺服器');
+      await dg.locator('.dg-details summary').click();
+      assert.ok(await dg.locator('.dg-bar.top').count() >= 2);
       assert.match(await page.locator('.bubble.final .say').textContent(), /^選「/);
       await shot(page, `${dname}-agent-trip`);
       // 展開討論串

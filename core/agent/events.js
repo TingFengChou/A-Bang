@@ -31,7 +31,7 @@ export const ev = {
   discussionEnd: ({ tools, servers = ['abang'] }) => need('discussion_end', { tools, servers }, ['tools']),
   /** decision：由 plan_trip 的資料組成（含 options 決策欄位，讓前端切換狀態時不必再呼叫伺服器） */
   decision: (trip) => need('decision', {
-    states: trip.states, arriveBy: trip.arriveBy ?? null, best: trip.best,
+    states: trip.states, arriveBy: trip.arriveBy ?? null, ...(trip.arriveByMin != null && { arriveByMin: trip.arriveByMin }), best: trip.best,
     options: trip.options, ranked: trip.ranking.ranked, excluded: trip.ranking.excluded, weights: trip.ranking.weights, reason: trip.ranking.reason,
   }, ['states', 'options', 'ranked', 'excluded', 'reason']),
   guardrail: ({ tier, rule }) => need('guardrail', { tier, rule }, ['tier', 'rule']),

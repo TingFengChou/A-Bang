@@ -100,6 +100,8 @@
 
 **明細**：每個方案可展開長條圖（各比較項目得分 × 權重），標示最影響結果的兩項。
 
+✅ M5-09：`public/ui/agent/decision-graph.js`（`renderDecision(root, decision, { sources, decide, CRITERIA })`，SVG 以 DOM API 建立、含 `<title>`／`<desc>` 文字替代）；伺服器以白名單提供 `/core/decide.js`；`plan_trip` 輸出與 `decision` 事件帶 `arriveBy`／`arriveByMin` 讓前端重算與伺服器一致（`test/agent-events.test.js` 驗證）。動畫為 CSS 分段淡入（步驟 1–6），排名翻轉（FLIP）與 3D 留待 M5-11。
+
 ## 6. 結論卡片
 
 | 情境 | 卡片 | 主要內容 | 行動按鈕 |

@@ -37,3 +37,44 @@
 .agent-note-offline { color: var(--muted); }
 @media (min-width: 900px) { .chat, .chat-dock { max-width: 640px; margin: 0 auto; } }
 @media (prefers-reduced-motion: reduce) { .thread, .bubble { transition: none; animation: none; } }
+
+/* 決策圖（M5-09，UX.md §5）：步驟 1–6 依序淡入，總長約 2.4 秒；reduced-motion 直接顯示最終狀態 */
+.decision { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 8px 10px; }
+.dg-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.dg-chip { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 4px 10px; min-height: 36px; font-size: 13px; cursor: pointer; color: inherit; }
+.dg-chip.on { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); }
+.dg-chip.on.src-auto { background: #e8effc; border-color: var(--place); color: var(--place); }
+.dg-chip.off { color: var(--muted); text-decoration: line-through; }
+.dg-chip.add { color: var(--muted); border-style: dashed; }
+.dg-svg { width: 100%; height: auto; display: block; font-size: 12px; }
+.dg-col { fill: var(--muted); font-size: 11px; }
+.dg-node rect { fill: var(--card); stroke: var(--line); }
+.dg-node text { fill: var(--text); }
+.dg-src rect { fill: var(--off-soft); }
+.dg-state rect, .dg-hub rect { fill: var(--brand-soft); stroke: var(--brand); }
+.dg-state.src-auto rect { fill: #e8effc; stroke: var(--place); }
+.dg-opt.win rect, .dg-best rect { fill: var(--brand); stroke: var(--brand); }
+.dg-opt.win text, .dg-best text { fill: #fff; font-weight: 700; }
+.dg-opt.excluded { opacity: .45; } .dg-opt.excluded text { text-decoration: line-through; }
+.dg-edge { fill: none; stroke: var(--line); stroke-width: 1.5; }
+.dg-edge.dashed { stroke-dasharray: 4 3; stroke: var(--place); }
+.dg-edge.win { stroke: var(--brand); }
+.dg-edge.excluded { stroke-dasharray: 3 3; stroke: var(--bad); }
+.dg-src.win rect { stroke: var(--brand); stroke-width: 2; }
+.decision:not(.static) .step1 { animation: dg-in .6s ease-out both; }
+.decision:not(.static) .step2 { animation: dg-in .4s ease-out .6s both; }
+.decision:not(.static) .step3 { animation: dg-in .6s ease-out 1s both; }
+.decision:not(.static) .step4 { animation: dg-in .2s ease-out 1.6s both; }
+.decision:not(.static) .step5 { animation: dg-in .4s ease-out 1.8s both; }
+.decision:not(.static) .dg-why { animation: dg-in .2s ease-out 2.2s both; }
+.decision:not(.static) .dg-svg:has(.win) .dg-edge:not(.win) { animation: dg-in .6s ease-out both, dg-dim .4s ease-out 1.8s forwards; }
+@keyframes dg-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dg-dim { to { opacity: .3; } }
+.dg-why { margin: 6px 0 0; background: var(--brand-soft); border-radius: 10px; padding: 8px 10px; }
+.dg-details summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 6px 0; min-height: 32px; }
+.dg-row { margin: 6px 0; }
+.dg-crit { display: grid; grid-template-columns: 4.5em 1fr 3em; gap: 6px; align-items: center; font-size: 12px; }
+.dg-bar { height: 8px; border-radius: 4px; background: var(--off); }
+.dg-bar.top { background: var(--brand); }
+.dg-crit-v { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .decision * { animation: none !important; } }
