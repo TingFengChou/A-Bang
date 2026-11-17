@@ -10,7 +10,7 @@
 - 標 🧩 的任務是為 M9 平台預留的擴充點（ADR-0007、`PLATFORM.md` §11），範圍很小但不可省略。
 
 ```
-M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧 ─▶ M4 互動卡片 ─▶ M5 網頁 agent ─▶ M6 上線
+M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ ─▶ M4 互動卡片 ─▶ M5 網頁 agent ─▶ M6 上線
      M1 TDX 實測 ⛔（需金鑰，可與 M3 並行；M3 先用 mock＋TDX 形狀 fixture）
 ─▶ M7 反詐騙 ─▶ M8 中小企業概念驗證 ─▶【啟動門檻】─▶ M9 阿幫平台（Agent Builder）
 ```
@@ -22,12 +22,12 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 | M0 基礎 | ✅ | — | — |
 | M1 TDX 實測 | ⛔ | M1-01 | TDX 金鑰、可連 TDX 的網路 |
 | M2 Registry＋遠端 MCP | ✅（Claude 實機連線待驗） | — | Austin 以 cloudflared 實測 |
-| M3 交通完整版 | 🚧（M3-12 真實導訂票 ⛔ 以外完成） | 里程碑收尾驗收 | 待 Austin：無狀態市區短程叫車排第一是否合理（ADR-0010）；`rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
-| M4 互動卡片 | 📝 | — | — |
+| M3 交通完整版 | ✅（2026-11-18 驗收；M3-12 真實導訂票 ⛔） | — | 待 Austin：無狀態市區短程叫車排第一是否合理（ADR-0010）；`rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
+| M4 互動卡片 | 📝 | M4-01 | M4-04 需新增依賴 `@modelcontextprotocol/ext-apps`（待 Austin 同意） |
 | M5 網頁 agent | 📝 | — | Claude 模式需 `ANTHROPIC_API_KEY`（示範模式不需要） |
 | M6 上線 | 📝 | — | 部署帳號、網域 |
 
-建議順序：M3 收尾驗收 → M4 → M5（M5 的討論串與決策圖可在 M3 完成 `plan_trip` 後提前開工）。
+建議順序：M4-01 → M4-03 → M4-02（M4-04 起需新增依賴）→ M5 → M5（M5 的討論串與決策圖可在 M3 完成 `plan_trip` 後提前開工）。
 
 ## Austin 待辦（外部條件）
 
@@ -86,7 +86,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 - [x] README：Claude 自訂連接器設定（cloudflared）
 - [x] ADR-0006：M2 維持 SDK v1，M4 再評估 v2
 
-## M3 交通完整版 🚧
+## M3 交通完整版 ✅
 
 規格：`MCP_TOOLS.md`、`DATA_SOURCES.md`、ADR-0010。每個新服務都要：真實 service ＋ mock（示範模式）＋ TDX 形狀 fixture 單元測試 ＋ tool 註冊（含 `speak`）＋ MCP 整合測試列出。
 

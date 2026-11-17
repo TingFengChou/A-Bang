@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M3 里程碑收尾驗收
+- 驗收（PLAN M3）：`npm test` 127 項全過 ✅；`plan_trip` 10 組 OD 排序與理由句（`test/trip-od.test.js`）✅；示範模式逐一呼叫 18 個 tools 全部成功 ✅；`GET /api/v1/tools` 列出 18 個（≥ 17）✅；`npm run lint` 無錯誤、`npm run e2e` 10 項全過
+- 未完成：M3-12 真實導訂票（⛔ TDX 導訂票權限）；所有 TDX／CWA 真實欄位待 M1
+- 文件：PLAN 狀態看板、`docs/index.html`（M3 狀態、tools 表、資料來源、架構）
+- 待 Austin：① 授權合併 PR #2；② 無狀態市區短程叫車第一是否調整權重（ADR-0010）；③ M4-04 起需新增依賴 `@modelcontextprotocol/ext-apps`
+- 下一個：M4-01（卡片資料契約）
+
 ## 2026-11-18 M3-12 導訂票（權限前部分）
 - 做了：`core/services/booking.js`（`validateBooking`：車次、張數 1～4、日期今天～28 天、車廂只限高鐵、車站比對；真實版在權限前回 `UserError`「尚未開通」並附官方訂票網站，不呼叫 TDX）、`booking-mock.js`（官方網站首頁、15 分時效、標示示範）；tool `rail_booking_link`（transit、L2、`confirmText`）
 - 測試：npm run lint 無錯誤；npm test 127 項全過（新增 4 項；tools 18 個）；npm run e2e 10 項全過
