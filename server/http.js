@@ -34,6 +34,11 @@ const OPENAPI = JSON.stringify(buildOpenApi(svc));
 // Swagger UI：只提供這幾個檔（白名單，不開放整個 node_modules）
 const SWAGGER_DIR = fileURLToPath(new URL('../node_modules/swagger-ui-dist/', import.meta.url));
 const SWAGGER_FILES = { 'swagger-ui.css': 'text/css; charset=utf-8', 'swagger-ui-bundle.js': 'text/javascript; charset=utf-8' };
+const swaggerCache = new Map(); // 檔名 → Promise<Buffer>：只讀一次磁碟（約 1.5 MB）
+const swaggerFile = (name) => {
+  if (!swaggerCache.has(name)) swaggerCache.set(name, readFile(join(SWAGGER_DIR, name)).catch((e) => { swaggerCache.delete(name); throw e; }));
+  return swaggerCache.get(name);
+};
 const DOCS_HTML = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>阿幫 API 文件</title><link rel="stylesheet" href="/api/docs/swagger-ui.css"></head><body><div id="ui"></div><script src="/api/docs/swagger-ui-bundle.js"></script><script src="/api/docs/init.js"></script></body></html>`;
 const DOCS_INIT = "window.ui = SwaggerUIBundle({ url: '/api/v1/openapi.json', dom_id: '#ui', deepLinking: true, tryItOutEnabled: true });";
 
@@ -73,7 +78,7 @@ createServer(async (req, res) => {
     if (path === '/api/docs' || path === '/api/docs/') return sendRaw(res, 200, DOCS_HTML, 'text/html; charset=utf-8');
     if (path === '/api/docs/init.js') return sendRaw(res, 200, DOCS_INIT, 'text/javascript; charset=utf-8');
     const doc = path.match(/^\/api\/docs\/([\w.-]+)$/);
-    if (doc && Object.hasOwn(SWAGGER_FILES, doc[1])) return sendRaw(res, 200, await readFile(join(SWAGGER_DIR, doc[1])), SWAGGER_FILES[doc[1]], { 'cache-control': 'public, max-age=86400' });
+    if (doc && Object.hasOwn(SWAGGER_FILES, doc[1])) return sendRaw(res, 200, await swaggerFile(doc[1]), SWAGGER_FILES[doc[1]], { 'cache-control': 'public, max-age=86400' });
 
     // ── REST ──
     if (path.startsWith('/api/')) {

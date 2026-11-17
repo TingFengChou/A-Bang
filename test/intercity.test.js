@@ -1,7 +1,7 @@
 // 國道客運（M3-07）：站牌配對、時刻表、含路況的抵達、示範模式、tool
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matchRoutes, tripsFromSchedule, buildTrips, departMinutes, departOf, delayRiskOf, createIntercityServices } from '../core/services/intercity.js';
+import { matchRoutes, tripsFromSchedule, buildTrips, departMinutes, departOf, serviceDays, delayRiskOf, createIntercityServices } from '../core/services/intercity.js';
 import { createTdxClient } from '../core/tdx-client.js';
 import { callTool } from '../core/tools/index.js';
 import { createServices } from '../core/index.js';
@@ -40,7 +40,7 @@ test('matchRoutes：起訖附近都有站且方向正確才算；同路線只留
 test('tripsFromSchedule：依星期篩、以 StopUID 或站序對時間', () => {
   const [m] = matchRoutes(ROUTES, TPE, HSZ);
   const t = tripsFromSchedule(SCHEDULE[0], m, 2);
-  assert.deepEqual(t.map((x) => [x.depart, x.arrive]), [['18:00', '19:20'], ['18:40', null], ['17:00', '18:10'], ['23:30', '00:40']]);
+  assert.deepEqual(t.map((x) => [x.depart, x.arrive]), [['18:00', '19:20'], ['18:40', null], ['17:00', '18:10'], ['23:30', '24:40']]);
 });
 
 test('buildTrips：篩出發時間、排序、估算抵達、跨日、加延誤', () => {
@@ -53,6 +53,21 @@ test('buildTrips：篩出發時間、排序、估算抵達、跨日、加延誤'
     ['23:30', '00:40', 70, '01:00', false],
   ]);
   assert.equal(buildTrips(cands, { departMin: 0, straightM: 60000, traffic: { delayMin: 0 } })[0].arriveWithDelay, undefined);
+});
+
+test('tripsFromSchedule：發車後跨過午夜的站點改寫成 24:xx；ServiceDay 沒列的星期不開', () => {
+  const [m] = matchRoutes(ROUTES, TPE, HSZ);
+  const sched = { Timetables: [
+    { ServiceDay: { Tuesday: 1 }, StopTimes: [{ StopSequence: 0, DepartureTime: '23:30' }, { StopUID: 'A', StopSequence: 1, DepartureTime: '00:05' }, { StopUID: 'C', StopSequence: 3, ArrivalTime: '01:20' }] },
+    { ServiceDay: { Monday: 1 }, StopTimes: [{ StopUID: 'A', DepartureTime: '12:00' }] },
+  ] };
+  assert.deepEqual(tripsFromSchedule(sched, m, 2), [{ depart: '24:05', arrive: '25:20' }]);
+  // 週二 23:40 查：這班 00:05 的車要列出、標隔日
+  const t = buildTrips(tripsFromSchedule(sched, m, 2).map((x) => ({ ...x, m, dayOffset: 0 })), { departMin: 23 * 60 + 40, straightM: 60000, traffic: null });
+  assert.deepEqual(t.map((x) => [x.depart, x.arrive, x.minutes, !!x.nextDay]), [['00:05', '01:20', 75, true]]);
+  // 週三 00:00 查：前一天（週二班表）的 24:05 就是現在 5 分鐘後
+  const early = buildTrips(tripsFromSchedule(sched, m, 2).map((x) => ({ ...x, m, dayOffset: -1 })), { departMin: 0, straightM: 60000, traffic: null });
+  assert.deepEqual(early.map((x) => [x.depart, !!x.nextDay]), [['00:05', false]]);
 });
 
 test('buildTrips：深夜查詢列出 3 小時內的隔日班次並標 nextDay', () => {
@@ -78,6 +93,12 @@ test('departMinutes 與 delayRiskOf', () => {
   // ISO 用該日的日期與星期，不是今天
   assert.deepEqual(departOf('2026-11-21T09:15:00+08:00', NOW), { date: '2026-11-21', weekday: 6, minute: 555 });
   assert.deepEqual(departOf('07:05', NOW), { date: '2026-11-17', weekday: 2, minute: 425 });
+  // 沒有時區的 ISO 視為台灣時間（不受伺服器時區影響）；只有日期＝當天 00:00
+  assert.deepEqual(departOf('2026-11-18T19:00', NOW), { date: '2026-11-18', weekday: 3, minute: 1140 });
+  assert.deepEqual(departOf('2026-11-18', NOW), { date: '2026-11-18', weekday: 3, minute: 0 });
+  assert.deepEqual(departOf('2026-11-18T11:00:00Z', NOW).minute, 19 * 60);
+  for (const bad of ['25:00', '99:99', '7:60', 'tomorrow 7']) assert.throws(() => departOf(bad, NOW), /departAt 格式/, bad);
+  assert.deepEqual([serviceDays(60), serviceDays(12 * 60), serviceDays(23 * 60)], [[-1, 0], [0], [0, 1]]);
   assert.deepEqual(['jam', 'slow', 'smooth', null].map(delayRiskOf), [0.9, 0.5, 0.2, 0.4]);
 });
 

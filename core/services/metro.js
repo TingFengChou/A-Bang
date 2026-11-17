@@ -1,6 +1,6 @@
 // 捷運服務（真實 TDX 版）：車站清單與即時到站看板（docs/MCP_TOOLS.md §5）
 // ⚠️ 端點與欄位待 M1 驗證：欄位依 TDX Swagger 防禦性解析；北捷看板資料有限，空資料時回傳空 trains。
-import { UserError, normName, zh, odataStr as q } from '../util.js';
+import { UserError, normName, zh, arr, odataStr as q } from '../util.js';
 
 /** 支援的捷運系統（TDX Operator 代碼） */
 export const METRO_SYSTEMS = {
@@ -46,7 +46,7 @@ export function createMetroServices(tdx) {
       const op = mustSystem(system);
       const rows = await tdx.get(`/basic/v2/Rail/Metro/Station/${op}`, { $select: 'StationID,StationName,StationPosition' }, 86400);
       const byName = new Map();
-      for (const r of rows) {
+      for (const r of arr(rows, 'Stations')) {
         const name = zh(r.StationName);
         const p = r.StationPosition || {};
         if (!name) continue;
@@ -66,7 +66,8 @@ export function createMetroServices(tdx) {
       const st = findMetroStation(await metro.stations({ system: op }), station, op);
       const filter = st.ids.map((id) => `StationID eq '${q(id)}'`).join(' or ');
       const rows = await tdx.get(`/basic/v2/Rail/Metro/LiveBoard/${op}`, { $filter: filter }, 20);
-      const trains = rows.map((r) => {
+      const list = arr(rows, 'LiveBoards');
+      const trains = list.map((r) => {
         const etaMin = Number.isFinite(r.EstimateTime) ? r.EstimateTime : null;
         return {
           line: zh(r.LineName) || r.LineID || r.LineNO || '',
@@ -75,7 +76,7 @@ export function createMetroServices(tdx) {
           etaMin, status: metroStatusText(etaMin),
         };
       }).sort(sortByEta);
-      const updatedAt = rows.map((r) => r.UpdateTime).filter(Boolean).sort().at(-1) || new Date().toISOString();
+      const updatedAt = list.map((r) => r.UpdateTime).filter(Boolean).sort().at(-1) || new Date().toISOString();
       return {
         system: op, station: st.name, stationId: st.id,
         ...(st.lat != null && { lat: st.lat, lon: st.lon }),

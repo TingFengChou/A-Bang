@@ -61,6 +61,14 @@ test('parsePop3h 依鄉鎮名稱找 3 小時降雨機率；找不到回 null', (
   assert.equal(parsePop3h(FORECAST, '中正區'), 90);
   assert.equal(parsePop3h(FORECAST, '信義區'), null);
   assert.equal(parsePop3h(null, '中正區'), null);
+  // 第一個時段已結束（快取造成）→ 取下一個還沒結束的；全部結束 → null
+  const slots = { records: { Locations: [{ Location: [{ LocationName: '中正區', WeatherElement: [{ ElementName: '3小時降雨機率', Time: [
+    { StartTime: '2026-11-17T18:00:00+08:00', EndTime: '2026-11-17T21:00:00+08:00', ElementValue: [{ ProbabilityOfPrecipitation: '10' }] },
+    { StartTime: '2026-11-17T21:00:00+08:00', EndTime: '2026-11-18T00:00:00+08:00', ElementValue: [{ ProbabilityOfPrecipitation: '80' }] },
+  ] }] }] }] } };
+  assert.equal(parsePop3h(slots, '中正區', Date.parse('2026-11-17T20:00:00+08:00')), 10);
+  assert.equal(parsePop3h(slots, '中正區', Date.parse('2026-11-17T22:30:00+08:00')), 80);
+  assert.equal(parsePop3h(slots, '中正區', Date.parse('2026-11-18T01:00:00+08:00')), null);
 });
 
 test('now：取最近且有資料的測站、合併預報、授權碼只在請求網址', async () => {

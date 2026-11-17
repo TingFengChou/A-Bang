@@ -7,6 +7,10 @@ export const MAX_TRIPS = 5;
 export const BUS_KMH = 70;         // 時刻表沒有下車時間時，用直線 × 1.3 ÷ 70 km/h 估算
 export const NEXT_DAY_WINDOW_MIN = 180; // 深夜查詢：列出 3 小時內的隔日（跨日）班次
 const DAY = 24 * 60;
+/** 合法的 HH:mm（00:00～23:59） */
+export const HHMM_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
+/** 分鐘數 → 'HH:mm'，可超過 24 小時（例 1445 → '24:05'），用來表示跨過午夜的時刻 */
+const hhmmRaw = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 const WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /** 路況 level → 塞車風險（decide.js delayRisk，0～1）；國道即使順暢仍有少量風險 */
@@ -16,13 +20,17 @@ export function delayRiskOf(level) {
 
 /**
  * 出發時刻（台灣時間）：'HH:mm' 視為今天、ISO 用該日的日期與星期、省略為現在。
+ * ISO 沒有時區時一律視為台灣時間（+08:00），不受伺服器時區影響；只有日期時為當天 00:00。
  * @returns {{ date: string, weekday: number, minute: number }}
  */
 export function departOf(departAt, now = Date.now()) {
-  const hhmm = departAt && /^\d{1,2}:\d{2}$/.test(departAt) ? departAt : null;
+  const hhmm = departAt && HHMM_RE.test(departAt) ? departAt : null;
   let t = now;
   if (departAt && !hhmm) {
-    t = Date.parse(departAt);
+    let iso = String(departAt).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) iso += 'T00:00';
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(iso)) iso += '+08:00';
+    t = /^\d{4}-\d{2}-\d{2}T/.test(iso) ? Date.parse(iso) : NaN;
     if (Number.isNaN(t)) throw new UserError('departAt 格式需為 HH:mm 或 ISO 時間，例如 18:30');
   }
   const n = nowTW(t);
@@ -66,18 +74,24 @@ export function matchRoutes(stopOfRoute, from, to, radius = STOP_RADIUS_M) {
   return [...byRoute.values()];
 }
 
-/** 由時刻表算出某個星期幾的班次 [{ depart, arrive|null }] */
+/**
+ * 由時刻表算出某個星期幾的班次 [{ depart, arrive|null }]。
+ * ServiceDay 有提供時只收明確標 1 的星期；班次在起站發車後跨過午夜的站點時刻改寫成 24:xx（例 23:30 發車、00:05 到上車站 → '24:05'）。
+ */
 export function tripsFromSchedule(schedule, m, weekday) {
   const day = WEEK[weekday];
   const out = [];
   for (const tt of schedule.Timetables || []) {
-    if (tt.ServiceDay && tt.ServiceDay[day] === 0) continue;
+    if (tt.ServiceDay && Number(tt.ServiceDay[day]) !== 1) continue;
     const st = tt.StopTimes || [];
     const at = (stop) => st.find((x) => x.StopUID === stop.uid) || st.find((x) => x.StopSequence === stop.seq);
     const b = at(m.board), a = at(m.alight);
     const depart = b?.DepartureTime || b?.ArrivalTime;
     if (!depart) continue;
-    out.push({ depart, arrive: a?.ArrivalTime || a?.DepartureTime || null });
+    const first = st.reduce((p, x) => (p == null || (x.StopSequence ?? Infinity) < (p.StopSequence ?? Infinity) ? x : p), null);
+    const startMin = toMin(first?.DepartureTime || first?.ArrivalTime || depart);
+    const wrap = (t) => (t && toMin(t) < startMin ? hhmmRaw(toMin(t) + DAY) : t);
+    out.push({ depart: wrap(depart), arrive: wrap(a?.ArrivalTime || a?.DepartureTime || null) });
   }
   return out;
 }
@@ -86,15 +100,21 @@ export function tripsFromSchedule(schedule, m, weekday) {
 export const needsNextDay = (departMin) => departMin + NEXT_DAY_WINDOW_MIN > DAY;
 
 /**
+ * 要查哪幾天的班表（相對出發日）：清晨（6 點前）也看前一天跨過午夜（24:xx）的班次；深夜看隔日。
+ * @returns {number[]} 例如 [-1, 0]、[0]、[0, 1]
+ */
+export const serviceDays = (departMin) => [...(departMin < 6 * 60 ? [-1] : []), 0, ...(needsNextDay(departMin) ? [1] : [])];
+
+/**
  * 組出班次清單（live 與 mock 共用）：篩出發時間、補估算抵達、加上路況延誤。
- * 候選班次帶 dayOffset（0＝出發日、1＝隔日）；隔日班次只收出發後 NEXT_DAY_WINDOW_MIN 內的，並標 nextDay。
+ * 候選班次帶 dayOffset（-1＝前一天的 24:xx 班次、0＝出發日、1＝隔日）；隔日班次只收出發後 NEXT_DAY_WINDOW_MIN 內的，並標 nextDay。
  */
 export function buildTrips(cands, { departMin, straightM, traffic }) {
   const estMin = Math.round(((straightM * 1.3) / 1000 / BUS_KMH) * 60);
   const delay = traffic?.delayMin || 0;
   const at = (c) => toMin(c.depart) + (c.dayOffset || 0) * DAY;
   return cands
-    .filter((c) => at(c) >= departMin && (!c.dayOffset || at(c) < departMin + NEXT_DAY_WINDOW_MIN))
+    .filter((c) => at(c) >= departMin && (c.dayOffset !== 1 || at(c) < departMin + NEXT_DAY_WINDOW_MIN))
     .sort((x, y) => at(x) - at(y))
     .slice(0, MAX_TRIPS)
     .map((c) => {
@@ -132,11 +152,11 @@ export function createIntercityServices(tdx, { traffic }) {
         if (matches.length) {
           const filter = [...new Set(matches.map((m) => m.routeUid))].map((u) => `RouteUID eq '${odataStr(u)}'`).join(' or ');
           const schedules = arr(await tdx.get('/basic/v2/Bus/Schedule/InterCity', { $filter: filter }, 3600));
-          const days = needsNextDay(departMin) ? [0, 1] : [0];
+          const days = serviceDays(departMin);
           for (const m of matches) {
             for (const s of schedules.filter((x) => x.RouteUID === m.routeUid && (!m.subRouteUid || !x.SubRouteUID || x.SubRouteUID === m.subRouteUid) && (x.Direction ?? 0) === m.direction)) {
               for (const dayOffset of days) {
-                cands.push(...tripsFromSchedule(s, m, (dep.weekday + dayOffset) % 7).map((t) => ({ ...t, m, dayOffset })));
+                cands.push(...tripsFromSchedule(s, m, (dep.weekday + dayOffset + 7) % 7).map((t) => ({ ...t, m, dayOffset })));
               }
             }
           }

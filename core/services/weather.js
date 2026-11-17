@@ -49,8 +49,8 @@ export function nearestGauge(gauges, lat, lon) {
   return bestD <= RAIN_GAUGE_MAX_M ? best : null;
 }
 
-/** 鄉鎮預報 → 最近一個時段的 3 小時降雨機率（找名稱含「3小時降雨機率」或 PoP3h 的元素） */
-export function parsePop3h(json, town) {
+/** 鄉鎮預報 → 現在所在（尚未結束）時段的 3 小時降雨機率（找名稱含「3小時降雨機率」或 PoP3h 的元素）；全部時段都已結束回 null */
+export function parsePop3h(json, town, now = Date.now()) {
   const locs = [];
   const walk = (o) => {
     if (!o || typeof o !== 'object') return;
@@ -62,7 +62,9 @@ export function parsePop3h(json, town) {
   const loc = locs.find((l) => (l.LocationName || l.locationName) === town) || (locs.length === 1 ? locs[0] : null);
   if (!loc) return null;
   const el = (loc.WeatherElement || loc.weatherElement).find((e) => /3小時降雨機率|PoP3h/i.test(e.ElementName || e.elementName || ''));
-  const t = el?.Time?.[0] || el?.time?.[0];
+  const times = el?.Time || el?.time || [];
+  // 快取可能讓第一個時段已經過去：取第一個還沒結束的時段（沒有結束時間的視為有效）
+  const t = times.find((x) => { const end = Date.parse(x.EndTime ?? x.endTime); return Number.isNaN(end) || end > now; });
   const v = t?.ElementValue?.[0] || t?.elementValue?.[0];
   const n = num(v && (v.ProbabilityOfPrecipitation ?? v.value ?? Object.values(v)[0]));
   return n == null ? null : Math.max(0, Math.min(100, n));

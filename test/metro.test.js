@@ -28,6 +28,9 @@ const fakeFetch = async (url) => {
   if (/Metro\/Station\/TRTC/.test(u)) return new Response(JSON.stringify(STATIONS));
   if (/Metro\/LiveBoard\/TRTC/.test(u)) return new Response(JSON.stringify(BOARD));
   if (/Metro\/(Station|LiveBoard)\/KRTC/.test(u)) return new Response('[]');
+  // 回應包在物件裡（v3 形式）也要能解析
+  if (/Metro\/Station\/TMRT/.test(u)) return new Response(JSON.stringify({ Stations: STATIONS }));
+  if (/Metro\/LiveBoard\/TMRT/.test(u)) return new Response(JSON.stringify({ LiveBoards: BOARD }));
   return new Response('not found', { status: 404 });
 };
 const { metro } = createMetroServices(createTdxClient({ clientId: 'a', clientSecret: 'b', fetchImpl: fakeFetch }));
@@ -50,6 +53,11 @@ test('liveBoard：查同站所有代碼、依分鐘排序、目的地備援 Trip
     ['BL', '南港展覽館', null, '—'],
   ]);
   assert.equal(r.updatedAt, '2026-11-17T21:00:20+08:00');
+});
+
+test('stations／liveBoard：回應包在物件裡也能解析', async () => {
+  assert.equal((await metro.stations({ system: 'TMRT' })).length, 3);
+  assert.equal((await metro.liveBoard({ system: 'TMRT', station: '台北車站' })).trains.length, 3);
 });
 
 test('liveBoard：代碼查站、錯誤訊息', async () => {

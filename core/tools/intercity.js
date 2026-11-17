@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { defineTool, T, clip } from './define.js';
 import { resolvePoint } from '../services/places.js';
+import { HHMM_RE } from '../services/intercity.js';
 
 const PACK = 'transit';
 const LEVEL = { smooth: '順暢', slow: '車多', jam: '塞車中' };
@@ -13,7 +14,7 @@ export const intercityBus = defineTool({
   pack: PACK, tier: 'L1', card: 'timetable',
   input: {
     from: T.point('起點'), to: T.point('終點'),
-    departAt: z.string().trim().regex(/^\d{1,2}:\d{2}$/, 'departAt 格式需為 HH:mm').optional().describe('最早出發時間 HH:mm（台灣時間），預設現在'),
+    departAt: z.string().trim().regex(HHMM_RE, 'departAt 格式需為 HH:mm（00:00～23:59）').optional().describe('最早出發時間 HH:mm（台灣時間），預設現在'),
   },
   speak: (d) => {
     const t = d.trains[0];
