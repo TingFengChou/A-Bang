@@ -28,7 +28,7 @@
 | 名稱 | 定義 |
 |---|---|
 | `City` | `Taipei`／`TPE`／`台北市`／`臺北` 皆可（`core/cities.js`） |
-| `LatLon` | `lat` 21–27、`lon` 118–123（WGS84） |
+| `LatLon` | `lat` 21–27、`lon` 118–123（WGS84）；`T.point` 的座標物件可另帶 `name`（≤ 30 字，例「你的位置」） |
 | `Date` | `YYYY-MM-DD`，預設今天（台灣時間） |
 | `Eta` | `{ etaSec: number\|null, status: 0–4, statusText }`；1 尚未發車、2 交管不停靠、3 末班車已過、4 今日未營運 |
 | `Nav` | `{ google: url, apple: url }` |

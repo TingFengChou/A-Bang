@@ -12,7 +12,7 @@ let http, BASE;
 before(async () => {
   const port = await freePort();
   BASE = `http://127.0.0.1:${port}`;
-  http = spawn(process.execPath, ['server/http.js'], { env: { ...process.env, PORT: String(port), DEMO_MODE: '1', AGENT_RPM: '3' }, stdio: ['ignore', 'pipe', 'inherit'] });
+  http = spawn(process.execPath, ['server/http.js'], { env: { ...process.env, PORT: String(port), DEMO_MODE: '1', AGENT_RPM: '10' }, stdio: ['ignore', 'pipe', 'inherit'] });
   await new Promise((resolve, reject) => {
     http.stdout.on('data', (d) => String(d).includes('running') && resolve());
     http.on('exit', (c) => reject(new Error(`server exited ${c}`)));
@@ -33,11 +33,28 @@ test('NDJSON 串流：示範模式完整事件，不帶 CORS', async () => {
   assert.ok(events.some((e) => e.type === 'decision'));
 });
 
+test('client_tool_call：沒起點時請客戶端定位；拿到座標後用「你的位置」規劃；拒絕時用預設起點', async () => {
+  const { runAgent } = await import('../public/js/agent/client.js');
+  const msg = { messages: [{ role: 'user', content: '我想去台北101' }] };
+  const collect = async (locate) => { const es = []; await runAgent(msg, (e) => es.push(e), { base: BASE, locate }); return es; };
+  // 拿到定位
+  const ok = await collect(async () => ({ lat: 25.0478, lon: 121.517 }));
+  const call = ok.find((e) => e.type === 'client_tool_call');
+  assert.deepEqual([call.name, call.id], ['device_location', 'loc1']);
+  const trip = ok.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
+  assert.equal(trip.data.from.name, '你的位置');
+  assert.ok(!ok.find((e) => e.type === 'text').delta.includes('沒說從哪出發'));
+  // 拒絕定位：照示範預設起點，總結說明
+  const no = await collect(async () => null);
+  assert.match(no.find((e) => e.type === 'text').delta, /沒說從哪出發/);
+});
+
+
 test('驗證 400、方法 405、超過每分鐘上限 429', async () => {
   assert.equal((await post({ messages: [] })).status, 400);
   assert.equal((await fetch(`${BASE}/api/v1/agent`)).status, 405);
   let last;
-  for (let i = 0; i < 5; i++) last = await post({ messages: [{ role: 'user', content: '今天天氣如何' }] });
+  for (let i = 0; i < 12; i++) { last = await post({ messages: [{ role: 'user', content: '今天天氣如何' }] }); if (last.status === 429) break; }
   assert.equal(last.status, 429);
   assert.ok(Number(last.headers.get('retry-after')) > 0);
   assert.match((await last.json()).error, /問太快了/);

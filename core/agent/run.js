@@ -5,12 +5,23 @@ import { callTool } from '../tools/index.js';
 import { UserError, publicMessage } from '../util.js';
 import { ev } from './events.js';
 import { getProfile } from '../agents/index.js';
-import { parseIntent, demoSteps, demoSummary } from './demo-intent.js';
+import { parseIntent, demoSteps, demoSummary, needsLocation } from './demo-intent.js';
 import { STATES } from '../decide.js';
 
 export const MAX_MESSAGES = 10;
 export const MAX_CHARS = 500;
 export const MAX_TOOL_ROUNDS = 5;
+/** 裝置定位的 client tool 呼叫 id（客戶端回傳 clientToolResults 時用同一個 id） */
+export const LOCATION_CALL_ID = 'loc1';
+export const MY_LOCATION = '你的位置';
+
+/** 從 clientToolResults 取出裝置定位（台灣範圍內才採用）；沒有回 undefined、拒絕或無效回 null */
+export function deviceLocation(req) {
+  const r = req.clientToolResults?.find((x) => x.id === LOCATION_CALL_ID);
+  if (!r) return undefined;
+  const lat = Number(r.result?.lat), lon = Number(r.result?.lon);
+  return r.ok && lat >= 21 && lat <= 27 && lon >= 118 && lon <= 123 ? { name: MY_LOCATION, lat, lon } : null;
+}
 
 const RequestSchema = z.object({
   messages: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(MAX_CHARS) })).min(1).max(MAX_MESSAGES),
@@ -80,6 +91,17 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   emit(ev.status({ mode: 'demo', profile: profile.id }));
 
   const it = parseIntent(req.messages.at(-1).content);
+  // 需要使用者位置（M5-07）：客戶端支援 device_location 時先請它定位，拿到結果後客戶端帶 clientToolResults 重送
+  if (needsLocation(it) && req.clientTools?.includes('device_location')) {
+    const loc = deviceLocation(req);
+    if (loc === undefined) {
+      emit(ev.agentNote('@定位 先看看你在哪裡'));
+      emit(ev.clientToolCall({ id: LOCATION_CALL_ID, name: 'device_location' }));
+      emit(ev.done());
+      return;
+    }
+    if (loc) it.fromPoint = loc; // 拒絕定位或無效時，照示範預設起點（總結會說明）
+  }
   // 使用者點選的狀態一併交給 plan_trip 計分
   if (picked.length) it.states = [...new Set([...it.states, ...picked])];
   const results = {};

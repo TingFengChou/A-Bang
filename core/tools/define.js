@@ -40,7 +40,7 @@ export const T = {
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式需為 YYYY-MM-DD').optional().describe('乘車日期 YYYY-MM-DD，預設今天（台灣時間）'),
   /** 座標或地名（tool 內用 resolvePoint 轉成座標） */
   point: (label) => z.union([
-    z.object({ lat: z.number().min(21).max(27), lon: z.number().min(118).max(123) }),
+    z.object({ lat: z.number().min(21).max(27), lon: z.number().min(118).max(123), name: z.string().trim().min(1).max(30).optional() }),
     z.string().trim().min(1).max(50),
   ]).describe(`${label}：座標 { lat, lon } 或地名（例如「台北車站」，會用 find_place 轉成座標）`),
   radius: (def, max = 1000) => z.number().int().min(50).max(max).optional().describe(`搜尋半徑（公尺），預設 ${def}，上限 ${max}`),

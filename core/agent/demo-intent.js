@@ -86,7 +86,10 @@ export function parseIntent(text) {
   return { ...base, intent: 'unknown' };
 }
 
-export const DEFAULT_FROM = '臺北車站'; // 示範：沒說起點也沒有定位時，先從這裡算（M5-07 起改用裝置定位）
+export const DEFAULT_FROM = '臺北車站'; // 示範：沒說起點也拿不到裝置定位時，先從這裡算
+
+/** 需要使用者所在位置嗎（行程沒起點；YouBike／附近公車沒地點） */
+export const needsLocation = (it) => (it.intent === 'trip' && !it.from) || (['youbike', 'nearby_bus'].includes(it.intent) && !it.places[0]);
 
 /**
  * 意圖 → 分段計畫。每段 `(results) => ({ note, calls })`，results 是之前各段的 callTool 結果（依名稱）。
@@ -98,19 +101,25 @@ export function demoSteps(it, now = Date.now()) {
   const ll = (p) => p && { lat: p.lat, lon: p.lon };
   switch (it.intent) {
     case 'trip': {
+      // 起點：說了地名 → 查地標；沒說但有裝置定位（M5-07）→ 直接用座標；都沒有 → 示範預設
+      const fp = !it.from && it.fromPoint;
       const from = it.from || DEFAULT_FROM;
+      const pts = (r) => (fp ? [fp, point(r, 0)] : [point(r, 0), point(r, 1)]);
+      const asArg = (p) => (p === fp ? { lat: p.lat, lon: p.lon, name: p.name } : p.name);
       const date = it.tomorrow ? nowTW(now + 864e5).date : null;
       // 明天且有指定抵達時間：示範以抵達前 4 小時（最早 05:00）出發估算；沒有指定則明天 06:00
       const dep = date && (it.arriveBy ? `${String(Math.max(5, Number(it.arriveBy.slice(0, 2)) - 4)).padStart(2, '0')}:00` : '06:00');
       const userStates = it.states;
       return [
-        () => ({ note: `@地點 先確認「${from}」和「${it.to}」在哪`, calls: [{ name: 'find_place', args: { query: from } }, { name: 'find_place', args: { query: it.to } }] }),
-        (r) => (point(r, 0) && point(r, 1) ? { note: '@天氣 @路況 看一下外面的狀況', calls: [{ name: 'weather_now', args: ll(point(r, 0)) }, { name: 'traffic_status', args: { from: ll(point(r, 0)), to: ll(point(r, 1)) } }] } : null),
-        (r) => (point(r, 0) && point(r, 1) ? { note: '@行程 幫你比較幾種走法', calls: [{ name: 'plan_trip', args: {
-          from: point(r, 0).name, to: point(r, 1).name, // 用名稱：卡片標題顯示地名（plan_trip 會再轉座標）
+        () => (fp
+          ? { note: `@地點 確認「${it.to}」在哪`, calls: [{ name: 'find_place', args: { query: it.to } }] }
+          : { note: `@地點 先確認「${from}」和「${it.to}」在哪`, calls: [{ name: 'find_place', args: { query: from } }, { name: 'find_place', args: { query: it.to } }] }),
+        (r) => { const [a, b] = pts(r); return a && b ? { note: '@天氣 @路況 看一下外面的狀況', calls: [{ name: 'weather_now', args: ll(a) }, { name: 'traffic_status', args: { from: ll(a), to: ll(b) } }] } : null; },
+        (r) => { const [a, b] = pts(r); return a && b ? { note: '@行程 幫你比較幾種走法', calls: [{ name: 'plan_trip', args: {
+          from: asArg(a), to: asArg(b), // 地名：卡片標題顯示地名；定位：帶座標與「你的位置」
           ...(dep && { departAt: `${date}T${dep}` }),
           ...((userStates.length || it.arriveBy) && { prefs: { ...(userStates.length && { states: userStates }), ...(it.arriveBy && { arriveBy: it.arriveBy }) } }),
-        } }] } : null),
+        } }] } : null; },
       ];
     }
     case 'bus_route':
@@ -122,9 +131,11 @@ export function demoSteps(it, now = Date.now()) {
     case 'nearby_bus': {
       const place = it.places[0] || DEFAULT_FROM;
       const tool = it.intent === 'youbike' ? 'youbike_nearby' : 'bus_nearby_stations';
+      const note = it.intent === 'youbike' ? '@YouBike 附近還有車嗎' : '@公車 附近有哪些站牌';
+      if (!it.places[0] && it.fromPoint) return [() => ({ note, calls: [{ name: tool, args: ll(it.fromPoint) }] })]; // 用裝置定位
       return [
         () => ({ note: `@地點 找「${place}」的位置`, calls: [{ name: 'find_place', args: { query: place } }] }),
-        (r) => (point(r, 0) ? { note: it.intent === 'youbike' ? '@YouBike 附近還有車嗎' : '@公車 附近有哪些站牌', calls: [{ name: tool, args: ll(point(r, 0)) }] } : null),
+        (r) => (point(r, 0) ? { note, calls: [{ name: tool, args: ll(point(r, 0)) }] } : null),
       ];
     }
     case 'metro':
@@ -146,7 +157,7 @@ export function demoSummary(it, results, suggestions = []) {
   if (!last) return '這次沒查到資料，換個說法或加上地名試試看。';
   if (it.intent === 'trip') {
     const trip = results.plan_trip?.[0];
-    const pre = it.from ? '' : `（你沒說從哪出發，我先用「${DEFAULT_FROM}」算。）`;
+    const pre = it.from || it.fromPoint ? '' : `（你沒說從哪出發，我先用「${DEFAULT_FROM}」算。）`;
     return trip ? `${pre}${trip.data.ranking.reason}${trip.data.best ? ' 要我幫你開導航嗎？' : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
   }
   return last.speak || '查好了，結果在下面的卡片。';

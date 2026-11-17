@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M5-07 裝置端工具（定位）
+- 做了：`run.js` 需要位置且客戶端支援時送 `client_tool_call device_location`，`deviceLocation` 只採台灣範圍座標（「你的位置」）；`demo-intent.js` 行程／YouBike／附近公車可用定位座標；`T.point` 座標可帶 `name`；`public/js/agent/client.js`（`runAgent` 讀 NDJSON、執行 client tool、重送；`browserLocation`）
+- 測試：npm run lint 無錯誤；npm test 169 項全過（新增 2 項）
+- 文件：AGENT §3.4、MCP_TOOLS 共用型別、TESTING、PLAN、CLAUDE
+- 下一個：M5-08（網頁 agent 頁面）
+- 卡住：同前
+
 ## 2026-11-18 M5-06 Agent 端點
 - 做了：`server/agent.js` `createAgentHandler`（先驗證、NDJSON 串流 `runDemo`、例外以 `error`＋`done` 結束；限流每分鐘／每日 key＝agent id＋IP；每日計量 requests／toolCalls／modelCalls；log 不記對話與座標）；`server/http.js` 掛上 `POST /api/v1/agent`（無 CORS、405、429 帶 retry-after）；OpenAPI 加 `/api/v1/agent`
 - 測試：npm run lint 無錯誤；npm test 167 項全過（新增 3 項）

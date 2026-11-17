@@ -68,3 +68,15 @@ test('validateRequest：長度、則數、最後一則必須是使用者', () =>
   assert.throws(() => validateRequest({ messages: [{ role: 'user', content: 'hi' }], userState: { picked: ['sleepy'] } }), /請求格式錯誤/);
   assert.ok(validateRequest({ messages: [{ role: 'user', content: 'hi' }] }));
 });
+
+test('deviceLocation：台灣範圍內才採用；拒絕或無效回 null；沒回傳 undefined', async () => {
+  const { deviceLocation } = await import('../core/agent/run.js');
+  const r = (x) => deviceLocation({ clientToolResults: x });
+  assert.deepEqual(r([{ id: 'loc1', ok: true, result: { lat: 25.04, lon: 121.5 } }]), { name: '你的位置', lat: 25.04, lon: 121.5 });
+  assert.equal(r([{ id: 'loc1', ok: true, result: { lat: 35.6, lon: 139.7 } }]), null); // 東京
+  assert.equal(r([{ id: 'loc1', ok: false }]), null);
+  assert.equal(r(undefined), undefined);
+  // 沒有 clientTools 的請求不會要求定位
+  const es = await collect('我想去台北101');
+  assert.ok(!es.some((e) => e.type === 'client_tool_call'));
+});
