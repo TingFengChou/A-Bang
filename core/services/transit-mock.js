@@ -9,7 +9,7 @@ const ROAD_POOL = ['中山', '中正', '民生', '民權', '復興', '建國', '
 const ROUTES = ['307', '262', '藍15', '紅30', '棕9', '601', '212', '綠1', '235', '1503'];
 
 // 以字串產生穩定亂數，讓同一站每次看到的資料一致
-function seeded(str) {
+export function seeded(str) {
   let h = 2166136261;
   for (const ch of str) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
   return () => ((h = Math.imul(h ^ (h >>> 15), 2246822507) ^ Math.imul(h ^ (h >>> 13), 3266489909)) >>> 0) / 4294967296;

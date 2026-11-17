@@ -44,8 +44,8 @@
 | `thsr_timetable` | transit | L1 | `timetable` | ✅ |
 | `tra_timetable` | transit | L1 | `timetable` | ✅ |
 | `rail_stations` | transit | L1 | — | ✅ |
-| `metro_stations` | transit | L1 | — | 📝 ⚠️ |
-| `metro_live_board` | transit | L1 | `metro` | 📝 ⚠️ |
+| `metro_stations` | transit | L1 | — | ✅ ⚠️ |
+| `metro_live_board` | transit | L1 | `metro` | ✅ ⚠️ |
 | `find_place` | transit | L1 | — | ✅（內建地標；地理編碼 ⚠️） |
 | `traffic_status` | transit | L1 | — | 📝 ⚠️ |
 | `intercity_bus` | transit | L1 | `timetable` | 📝 ⚠️ |
@@ -102,9 +102,20 @@ TDX：高鐵 `/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}`；台鐵 
 
 輸入 `system`, `from`, `to`；輸出 `[{ ticketType, cabin?, price }]`。TDX 台鐵／高鐵 ODFare（10m）。也可評估改用 TDX 官方 MCP。
 
-### 📝 `metro_stations`／`metro_live_board` ⚠️
+### ✅ `metro_stations`／`metro_live_board` ⚠️
 
-輸入 `system: 'TRTC'|'TYMC'|'TMRT'|'KRTC'`（＋`station`）；輸出 `{ station, trains: [{ line, destination, etaMin, status }] }`；TDX `/basic/v2/Rail/Metro/Station/{Op}`（24h）、`/basic/v2/Rail/Metro/LiveBoard/{Op}`（20s）。北捷看板資料有限，M1 實測後決定是否以 `StationTimeTable` 推算。
+實作：`core/services/metro.js`、`metro-mock.js`、`core/tools/metro.js`（M3-04）。
+
+| | `metro_stations` | `metro_live_board`（卡片 `metro`） |
+|---|---|---|
+| 輸入 | `system: 'TRTC'\|'TYMC'\|'TMRT'\|'KRTC'` | `system`、`station`（站名或代碼，台／臺通用，例 台北車站、BL12） |
+| 輸出 | `[{ id, ids, name, lat?, lon?, nav }]`；同名多線合併成一站，`ids` 列出所有代碼 | `{ system, station, stationId, lat?, lon?, nav, updatedAt, trains: [{ line, lineId, destination, etaMin, status }] }`，依 `etaMin` 排序、沒有時間的在後 |
+| TDX | `/basic/v2/Rail/Metro/Station/{Op}`（24h） | 先查車站，再 `/basic/v2/Rail/Metro/LiveBoard/{Op}`（20s，`$filter` 該站所有代碼） |
+| 欄位 | `StationID`、`StationName`、`StationPosition` | `LineName`／`LineID`／`LineNO`、`DestinationStationName`（缺時用 `TripHeadSign`）、`EstimateTime`（分鐘）、`UpdateTime` |
+| status | — | 0 分「進站中」、1 分「即將進站」、其他「N 分」、無資料「—」 |
+| speak | 「桃園機場捷運共有 6 個車站。」 | 「美麗島最快 3 分鐘後有往小港的車。」；沒資料時「…目前沒有即時到站資料。」 |
+
+看板沒有資料時回空 `trains`（不報錯）。北捷看板資料有限，M1 實測後決定是否以 `StationTimeTable` 推算。示範模式：四個系統的主要車站（真實站名、近似座標），每 6 分鐘一班的模擬到站，終點站不顯示往自己方向的車。
 
 ## 6. 導航、訂票、叫車
 

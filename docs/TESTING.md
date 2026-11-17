@@ -1,6 +1,6 @@
 # 測試規格
 
-版本：v0.4（2026-11-17）。目前：`npm test` 48 項全過（decide 7、nav 8、geo 5、places 8、tools、transit、mcp）。
+版本：v0.4（2026-11-17）。目前：`npm test` 54 項全過（decide 7、nav 8、geo 5、places 8、metro 6、tools、transit、mcp）。
 
 ## 1. 原則
 
@@ -14,6 +14,7 @@
 |---|---|---|---|
 | 正規化 | `test/transit.test.js`、`test/<domain>.test.js` | TDX 形狀 fixture → 服務輸出格式（`MCP_TOOLS.md`） | 每個 service |
 | 導航 | `test/nav.test.js` | 連結格式與編碼、無效座標、步行時間、出發時機、tools 附 `nav`（含 `bus_route_eta` 站點與示範 `shape`） | M3-01 起 |
+| 捷運 | `test/metro.test.js` | TDX 形狀 fixture：同名多線合併、看板查同站所有代碼、排序、目的地備援；錯誤訊息；示範模式四系統；tools 的 card／speak／nav | M3-04 起 |
 | 地點 | `test/places.test.js` | `landmarks.json` 筆數、欄位、名稱與別名不重複、同縣市距離合理；比對順序、臺／台、「站」不省略、縣市篩選、`find_place` tool | M3-03 起 |
 | 幾何 | `test/geo.test.js` | WKT `LINESTRING`／`MULTILINESTRING`、SRID 前綴、經緯度順序、壞輸入回空、抽樣保留頭尾 | M3-02 起 |
 | 決策 | `test/decide.test.js` | 權重、狀態、硬限制、理由句（ADR-0010） | 改 `decide.js` 必跑；改權重需新增情境 |
