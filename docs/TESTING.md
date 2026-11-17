@@ -1,6 +1,6 @@
 # 測試規格
 
-版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 89 項全過、`npm run e2e` 10 項全過（手機＋桌面各 5）。
+版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 93 項全過、`npm run e2e` 10 項全過（手機＋桌面各 5）。
 
 ## 1. 原則
 
@@ -15,6 +15,7 @@
 |---|---|---|---|
 | 正規化 | `test/transit.test.js`、`test/<domain>.test.js` | TDX 形狀 fixture → 服務輸出格式（`MCP_TOOLS.md`） | 每個 service |
 | 導航 | `test/nav.test.js` | 連結格式與編碼、無效座標、步行時間、出發時機、tools 附 `nav`（含 `bus_route_eta` 站點與示範 `shape`） | M3-01 起 |
+| 叫車 | `test/ridehail.test.js` | Uber 連結格式（`my_location`、上車座標、暱稱編碼）、`estimateFare` 起跳與續程、未知 provider、tool 的 L2／pack／確認文字／地名轉座標 | M3-09 起 |
 | 天氣 | `test/weather.test.js` | 氣象署形狀 fixture：WGS84、-99、最近測站、雨量站 `Past1hr`（不用當日累積）與 5 公里距離上限、預報解析、授權碼不出現在輸出、預報／局屬站／雨量站失敗；示範情境；`weatherMode` 與 TDX 金鑰獨立 | M3-08 起 |
 | 客運 | `test/intercity.test.js` | 站牌配對與方向、`ServiceDay`（ISO `departAt` 用該日星期）、站序備援、估算抵達、跨日、深夜列出 3 小時內隔日班次（`nextDay`）、延誤、只查配對路線、路況失敗仍回班次、示範與 tool | M3-07 起 |
 | 路況 | `test/traffic.test.js` | 走廊與方向判斷、整體 level 與延誤、TDX 形狀 fixture（反向／格式不明路段、事件篩選與失敗）、短程不查、示範情境、tool 地名與座標 | M3-06 起 |

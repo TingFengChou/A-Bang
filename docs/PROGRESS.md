@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M3-09 叫車連結
+- 做了：`core/providers/ridehail/`（`uber.js` 深層連結：無上車點用 `my_location`、座標 6 位小數、暱稱編碼；`index.js` provider 註冊、`estimateFare` 以臺北市計程車費率＋直線 × 1.3 估區間並標 `estimated`、`createRidehailServices`）；tool `ridehail_link`（pack `ridehail`、L2、`static`，description 要求先確認，回傳 `confirmText` 給 M4 確認視窗）；PR #1 已合併，改在 `dev/m3-2` 開發
+- 測試：npm run lint 無錯誤；npm test 93 項全過（新增 4 項 ridehail；tools／REST 數量改 16、packs 加 ridehail）；npm run e2e 10 項全過
+- 文件：MCP_TOOLS §2／§6、ARCHITECTURE、TESTING、README、PLAN、CLAUDE
+- 下一個：M3-10（`plan_trip`）
+- 卡住：無
+
 ## 2026-11-18 M3-QA 品質基礎與 review 修正
 - 做了：Playwright E2E（`scripts/e2e.js`，手機＋桌面 5 個流程、截圖、每個 context try/finally 關閉）；Swagger（`server/rest.js` 路由表、`server/openapi.js` 產生 OpenAPI 3.1、`/api/docs` Swagger UI 白名單）；ESLint（`eslint.config.js`）；CI 加 `npm run lint` 與 E2E（截圖上傳 artifact）。review 修正：`weather_now` 的 `rainMm1h` 改取雨量站 `O-A0002-001` `Past1hr`（氣象站 `Now.Precipitation` 是當日累積）、新增 `rainStation`；`intercity` ISO 出發用該日星期、深夜列出 3 小時內隔日班次 `nextDay`；REST／MCP 非 `UserError` 只回通用訊息（`publicMessage`）；`/api/docs/constructor` 不再 502 洩漏路徑；`traffic_status` 改 `from`／`to` 名稱＋`fromPoint`／`toPoint`；`zh`／`arr`／`odataStr` 移到 `util.js`；路況 `congestionOf()`、`shapesOf()` 快取
 - 測試：npm run lint 無錯誤；npm test 89 項全過（新增 errors、OpenAPI、weather 雨量站與同名鄉鎮、intercity 隔日／跨午夜／ISO、metro 轉乘站代碼、413 與錯誤 CORS）；npm run e2e 10 項全過

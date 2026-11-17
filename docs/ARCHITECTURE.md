@@ -18,7 +18,7 @@
 │ Claude／AI agent │──▶│  /mcp、/mcp/:pack 遠端 MCP ✅  │   │   profiles/ life ✅規格 antifraud sme 🔭 │   │ TDX 官方 MCP（外部） │
 │  （自訂連接器）   │   ├───────────────────────────────┤   │ services/   交通服務 ✅ ＋ mock ✅        │   │  導訂票・道路事件 📝  │
 ├──────────────────┤   │ mcp/                          │   │   metro・places・trip・traffic 📝        │   ├─────────────────────┤
-│ iOS／Android 🔭   │──▶│  stdio ✅  create-server ✅    │   │ providers/  叫車 adapter（Uber）📝       │   │ 氣象署 📝 165・Uber 🔭│
+│ iOS／Android 🔭   │──▶│  stdio ✅  create-server ✅    │   │ providers/  叫車 adapter（Uber）✅       │   │ 氣象署 📝 165・Uber 🔭│
 │ LINE 🔭           │   │  ui://abang/cards.html 📝     │   │ tdx-client.js token・快取 ✅             │   └─────────────────────┘
 └──────────────────┘   └───────────────────────────────┘   └─────────────────────────────────────────┘
           ▲                                                   卡片渲染 public/ui/cards/ 📝（網頁與 MCP Apps 共用）
@@ -37,7 +37,7 @@
 | `core/decide.js` | ✅ | 決策引擎：依資料＋使用者狀態替方案計分排序、硬限制、理由句（ADR-0010） | 呼叫模型或外部 API |
 | `core/agent/` | 📝 | Claude tool-use 迴圈、示範意圖解析、事件串流、使用者狀態合併 | 直接碰 TDX |
 | `core/agents/*.json` | 📝 | agent profile（ADR-0005）：system prompt、工具白名單、建議問題、免責、模型 | 寫程式邏輯 |
-| `core/providers/` | 📝 | 外部服務 adapter（ADR-0011）：`ridehail/uber.js` 深層連結；`mcp-client.js` 包裝外部 MCP（TDX 官方 MCP） | 直接被 server 呼叫 |
+| `core/providers/` | ✅ 叫車／📝 外部 MCP | 外部服務 adapter（ADR-0011）：`ridehail/index.js`（provider 註冊、`estimateFare` 距離估價、`createRidehailServices`）、`ridehail/uber.js` 深層連結（M3-09）；📝 `mcp-client.js` 包裝外部 MCP（TDX 官方 MCP） | 直接被 server 呼叫 |
 | `core/nav.js` | ✅ | 導航深層連結、步行時間、出發時機（M3-01） | 呼叫外部 API |
 | `core/geo.js` | ✅ | WKT 解析成 `[[lat, lon]]`、路徑抽樣（M3-02） | 呼叫外部 API |
 | `core/data/` | ✅ | `landmarks.json` 內建地標（201 筆，座標近似值待校對） | — |
@@ -100,7 +100,7 @@ Claude 等外部 client 走 `/mcp` 時，順序相同，只是由 Claude 決定�
 
 - 導航：所有點位附 `nav`（Google／Apple Maps 深層連結）；「出發時機」由步行時間＋即時到站算出。
 - 訂票：TDX 台鐵／高鐵「導訂票」產生具時效的官方訂票連結（需 TDX 權限）；付款在官方網站。
-- 叫車：`core/providers/ridehail/` adapter，先 Uber 深層連結；估價待合作。
+- 叫車：`core/providers/ridehail/` adapter，先 Uber 深層連結（✅ M3-09）；業者估價待合作，之前以臺北市計程車費率＋道路距離估算區間並標 `estimated`。
 - 這三類屬 **L2 行動**：產生連結前需使用者確認，不代替使用者付款或填個資。
 
 ### 5.6 多端與平台預留（ADR-0007、ADR-0008）

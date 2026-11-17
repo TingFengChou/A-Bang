@@ -9,7 +9,7 @@ const svc = createServices({ forceMock: true });
 
 test('每個 tool 都有 pack、tier、描述與 JSON Schema', () => {
   const tools = listTools();
-  assert.equal(tools.length, 15);
+  assert.equal(tools.length, 16);
   for (const t of tools) {
     assert.match(t.name, /^[a-z][a-z0-9_]*$/);
     assert.ok(t.description.length > 10, t.name);
@@ -17,7 +17,7 @@ test('每個 tool 都有 pack、tier、描述與 JSON Schema', () => {
     const d = describeTool(t);
     assert.equal(d.inputSchema.type, 'object', t.name);
   }
-  assert.deepEqual(listPacks(), ['transit', 'weather']);
+  assert.deepEqual(listPacks(), ['transit', 'weather', 'ridehail']);
   assert.equal(listTools({ packs: ['nope'] }).length, 0);
 });
 

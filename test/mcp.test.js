@@ -8,7 +8,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 
 const PORT = 18000 + Math.floor(Math.random() * 1000);
 const BASE = `http://127.0.0.1:${PORT}`;
-const EXPECTED = ['bus_nearby_stations', 'bus_route_eta', 'bus_search_routes', 'bus_station_eta', 'find_place', 'intercity_bus', 'metro_live_board', 'metro_stations', 'rail_fare', 'rail_stations', 'thsr_timetable', 'tra_timetable', 'traffic_status', 'weather_now', 'youbike_nearby'];
+const EXPECTED = ['bus_nearby_stations', 'bus_route_eta', 'bus_search_routes', 'bus_station_eta', 'find_place', 'intercity_bus', 'metro_live_board', 'metro_stations', 'rail_fare', 'rail_stations', 'ridehail_link', 'thsr_timetable', 'tra_timetable', 'traffic_status', 'weather_now', 'youbike_nearby'];
 const ARGS = { from: '台北', to: '左營', date: '2026-12-01' };
 let http;
 
@@ -96,7 +96,7 @@ test('API 文件：openapi.json、Swagger UI 頁面與資源，只開放白名�
 
 test('REST：tools 清單、參數錯誤、方法錯誤', async () => {
   const list = await (await fetch(BASE + '/api/v1/tools')).json();
-  assert.equal(list.data.length, 15);
+  assert.equal(list.data.length, 16);
   assert.ok(list.data.every((t) => t.pack && t.tier && t.inputSchema));
   const bad = await fetch(BASE + '/api/v1/tools/youbike_nearby', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ lat: 'x' }) });
   assert.equal(bad.status, 400);

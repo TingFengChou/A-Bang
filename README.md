@@ -82,7 +82,8 @@ claude mcp add abang -e TDX_CLIENT_ID=… -e TDX_CLIENT_SECRET=… -- node /絕�
 | `intercity_bus` | 國道客運班次（含塞車延誤的預估抵達） | ✅ |
 | `weather_now` | 現在天氣與 3 小時降雨機率（中央氣象署；沒有授權碼時用示範資料） | ✅ |
 | `plan_trip` | 從 A 到 B：比較方案並依使用者狀態排序 | 📝 M3 |
-| `rail_booking_link`、`ridehail_link` | 官方訂票連結、叫車連結（需使用者確認） | 📝 M3 |
+| `ridehail_link` | 叫車 App（Uber）官方連結＋距離估算車資（L2，需使用者確認） | ✅ |
+| `rail_booking_link` | 台鐵／高鐵官方訂票連結（L2，需 TDX 導訂票權限） | 📝 M3 |
 
 完整規格：[`docs/MCP_TOOLS.md`](docs/MCP_TOOLS.md)。所有 tools 唯讀（`readOnlyHint`）；結果附 `structuredContent: { card, mode, speak, data }`。
 

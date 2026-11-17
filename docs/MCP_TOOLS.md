@@ -52,7 +52,7 @@
 | `rail_fare` | transit | L1 | — | ✅ ⚠️ |
 | `plan_trip` | transit | L1 | `trip` | 📝 |
 | `rail_booking_link` | transit | **L2** | （時刻表按鈕） | 📝 ⚠️ 需 TDX 權限 |
-| `ridehail_link` | ridehail | **L2** | （行程卡按鈕） | 📝 |
+| `ridehail_link` | ridehail | **L2** | （行程卡按鈕） | ✅ |
 | `weather_now` | weather | L1 | — | ✅（真實資料需 CWA 授權碼）⚠️ |
 
 ## 3. 公車
@@ -158,11 +158,18 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | TDX | 台鐵／高鐵「導訂票」API（**前置：在 TDX 會員中心申請「臺鐵訂票導訂」「高鐵訂票導訂」權限**） |
 | 規則 | 產生前需使用者確認車次、日期、張數；不代替付款或填個資 |
 
-### 📝 `ridehail_link`（L2）
+### ✅ `ridehail_link`（L2）
 
-依起訖座標產生叫車 App 深層連結；adapter：`core/providers/ridehail/uber.js`
-`https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[latitude]={lat}&dropoff[longitude]={lon}&dropoff[nickname]={name}`。
-估價 `ridehail_estimate` 需業者合作；在此之前 `plan_trip` 以距離與路況估算區間並標示「估算」。
+實作：`core/providers/ridehail/index.js`（provider 註冊、`estimateFare`、`createRidehailServices`）、`uber.js`、`core/tools/ridehail.js`（M3-09）。不呼叫外部 API，live 與示範相同（`static`）。
+
+| | |
+|---|---|
+| 輸入 | `to`：座標或地名（`T.point`）；`from?`：同上，省略時上車點用 App 的目前位置；`provider?: 'uber'`（預設） |
+| 輸出 | `{ provider, providerName, url, estimate: { low, high, distanceKm, currency: 'TWD', estimated: true, basis } \| null, from: string\|null, to, fromPoint, toPoint, confirmText }` |
+| 連結 | `https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[latitude]={lat}&dropoff[longitude]={lon}&dropoff[nickname]={name}`；有 `from` 時改為 `pickup[latitude]…`；座標 6 位小數、暱稱 URL 編碼 |
+| 估價 | 沒有 `from` 時為 null。道路距離＝直線 × 1.3；`low` 依臺北市計程車費率（起跳 85 元含 1.25 公里、每 200 公尺 5 元）、`high`＝`low` × 1.3（塞車、夜間、平台浮動）；一律標 `estimated`，非業者報價。業者估價 `ridehail_estimate` 需合作 |
+| 規則 | L2：呼叫前先向使用者確認目的地與要叫車（description 明示；M4 卡片用 `confirmText` 顯示確認視窗）；不代叫車、不付款、不收集個資（ADR-0011） |
+| speak | `Uber叫車連結準備好了，到台北101，估計 220～290 元（估算）；開啟後在 App 內確認。` |
 
 ## 7. 地點、路況、行程
 
