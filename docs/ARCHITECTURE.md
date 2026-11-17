@@ -45,6 +45,7 @@
 | `server/http.js` | ✅ | REST、`/api/v1/tools/:name`、遠端 `/mcp`、`/api/docs`、靜態檔、限流、CORS；非 `UserError` 只回通用訊息、細節寫 log | 商業邏輯 |
 | `server/rest.js` | ✅ | REST 路由表（路徑、參數說明、handler）；`http.js` 與 OpenAPI 共用同一份 | 商業邏輯 |
 | `server/openapi.js` | ✅ | 由路由表＋tool registry 產生 OpenAPI 3.1（`/api/v1/openapi.json`）；`/api/docs` 提供 Swagger UI（只開放白名單檔案） | 手寫重複規格 |
+| `server/agent.js` | ✅ | `POST /api/v1/agent`：驗證 → NDJSON 串流（`runDemo`）；限流（`AGENT_RPM`／`AGENT_RPD`，key＝agent id＋IP）與每日計量（requests、toolCalls、modelCalls）以 agent id 為單位；log 不記對話與座標 | 加 CORS、記錄對話 |
 | `server/rate-limit.js` | ✅ | 每 IP 固定視窗限流（之後加 agent id） | — |
 | `mcp/create-server.js` | ✅ | 由 registry 註冊 MCP tools（`_meta`：pack、tier、card），回傳 `structuredContent: { card, mode, speak, data }` | 自行定義 tool |
 | `mcp/server.js` | ✅ | stdio 入口（`MCP_PACKS` 過濾） | — |

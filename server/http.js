@@ -17,6 +17,7 @@ import { createMcpServer } from '../mcp/create-server.js';
 import { createRateLimiter, clientIp } from './rate-limit.js';
 import { restRoutes } from './rest.js';
 import { buildOpenApi } from './openapi.js';
+import { createAgentHandler } from './agent.js';
 
 const svc = createServices({ ...(await loadEnv()), log: console.log });
 const PORT = Number(process.env.PORT) || 8787;
@@ -30,6 +31,7 @@ const limiters = {
 
 // REST 路由表在 server/rest.js（同時產生 Swagger 文件）
 const routes = restRoutes(svc);
+const agent = createAgentHandler({ svc });
 const OPENAPI = JSON.stringify(buildOpenApi(svc));
 // Swagger UI：只提供這幾個檔（白名單，不開放整個 node_modules）
 const SWAGGER_DIR = fileURLToPath(new URL('../node_modules/swagger-ui-dist/', import.meta.url));
@@ -79,6 +81,14 @@ createServer(async (req, res) => {
     if (path === '/api/docs/init.js') return sendRaw(res, 200, DOCS_INIT, 'text/javascript; charset=utf-8');
     const doc = path.match(/^\/api\/docs\/([\w.-]+)$/);
     if (doc && Object.hasOwn(SWAGGER_FILES, doc[1])) return sendRaw(res, 200, await swaggerFile(doc[1]), SWAGGER_FILES[doc[1]], { 'cache-control': 'public, max-age=86400' });
+
+    // ── 網頁 agent（NDJSON 串流；只給本站網頁，不加 CORS）──
+    if (path === '/api/v1/agent') {
+      if (req.method !== 'POST') return send(res, 405, { error: '請以 POST 呼叫' }, { allow: 'POST' });
+      const lim = agent.limit('life', clientIp(req));
+      if (!lim.ok) return send(res, 429, { error: `問太快了，請 ${lim.retryAfterSec} 秒後再試`, retryAfterSec: lim.retryAfterSec }, { 'retry-after': String(lim.retryAfterSec) });
+      return await agent.handle(res, await readJson(req), { agentId: 'life' });
+    }
 
     // ── REST ──
     if (path.startsWith('/api/')) {

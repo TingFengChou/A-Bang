@@ -149,6 +149,8 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 | 單則訊息 | — | 500 字 |
 | 工具迴圈 | — | 5 輪 |
 
+✅ M5-06：`server/agent.js`（`createAgentHandler`）；限流 key＝`agent:{id}:{m|d}:{ip}`；計量 `usage(agentId)` → `{ requests, toolCalls, modelCalls, budget }`（只保留當天）；預算降級於 M5-05 Claude 模式接上。端點不加 CORS。
+
 ## 7. 隱私
 
 不儲存對話；log 只記事件類型、tool、耗時、token；座標不寫 log（統計時捨去至小數 2 位）；Claude 模式頁尾說明對話會送 Anthropic 處理。

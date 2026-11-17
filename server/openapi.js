@@ -35,6 +35,22 @@ export function buildOpenApi(svc) {
       },
     };
   }
+  paths['/api/v1/agent'] = {
+    post: {
+      tags: ['Agent'], summary: '網頁 agent（NDJSON 事件串流）', operationId: 'postAgent',
+      description: '回應 `application/x-ndjson`，每行一個事件（status、agent_note、tool_start、tool_result、discussion_end、decision、text、done、error），格式見 docs/AGENT.md §3。目前為示範模式。只給本站網頁使用（無 CORS）；每 IP 每分鐘與每日限流。',
+      requestBody: { required: true, content: { 'application/json': { schema: {
+        type: 'object', required: ['messages'],
+        properties: {
+          messages: { type: 'array', maxItems: 10, items: { type: 'object', required: ['role', 'content'], properties: { role: { enum: ['user', 'assistant'] }, content: { type: 'string', maxLength: 500 } } } },
+          userState: { type: 'object', properties: { picked: { type: 'array', items: { enum: ['rush', 'traffic', 'rain', 'luggage', 'budget', 'lessWalk'] } } } },
+          context: { type: 'string', maxLength: 200 },
+        },
+        example: { messages: [{ role: 'user', content: '從西門町到台北 101 怎麼去？' }] },
+      } } } },
+      responses: { 200: { description: 'NDJSON 事件串流', content: { 'application/x-ndjson': { schema: { type: 'string' } } } }, 405: { description: '只接受 POST' }, ...errors },
+    },
+  };
   paths['/mcp'] = {
     post: {
       tags: ['MCP'], summary: '遠端 MCP（Streamable HTTP，stateless）',

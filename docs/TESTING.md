@@ -1,6 +1,6 @@
 # 測試規格
 
-版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 164 項全過、`npm run e2e` 12 項全過（手機＋桌面各 6）。
+版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 167 項全過、`npm run e2e` 12 項全過（手機＋桌面各 6）。
 
 ## 1. 原則
 
@@ -37,6 +37,7 @@
 | 示範意圖 | `test/agent-demo-intent.test.js` | 地點擷取、抵達時間、意圖與狀態；每個建議問題的計畫以示範資料完整執行並以卡片結尾、`agent_note` ≤ 30 字；prefs 與明天日期帶入 plan_trip | M5-03 起 |
 | Agent 事件建立 | `test/agent-events.test.js` | 每個 tool 有角色名；必要欄位；registry 帶入；`tool_result`／`decision` 來自真實 callTool；`mergeStates` 去重與來源 | M5-02 起 |
 | Agent profile | `test/agent-profile.test.js` | life 通過驗證；未知欄位、不存在 tool、pack 不符、重複都擋下；system prompt 段落順序、日期、脈絡截斷 | M5-01 起 |
+| Agent 端點 | `test/agent-http.test.js` | 起 server：NDJSON 串流、無 CORS、400／405／429；handler 限流以 agent id＋IP、計量、結束事件 | M5-06 起 |
 | Agent 執行器 | `test/agent.test.js` | 示範模式事件順序（`status` → `agent_note` → `tool_start`… → `tool_result`… → `decision` → `discussion_end` → `text` → `done`）、各意圖以卡片結尾、picked 狀態、白名單與錯誤不外洩、請求驗證；限流於 M5-06 | M5-04 起 |
 | Claude 迴圈 | `test/agent-claude.test.js`（M5） | 以本地假 Anthropic API（`ANTHROPIC_BASE_URL=http://127.0.0.1:{port}`）回放 tool_use；5 輪上限；錯誤 | M5 |
 | E2E 冒煙 | `scripts/e2e.js`（`npm run e2e`） | 示範模式起伺服器（隨機埠、清空金鑰），Playwright 手機（iPhone 13）與桌面：首頁與搜尋、公車路線去返程、附近（定位）、高鐵台鐵時刻表、Swagger UI；無 console／頁面錯誤；截圖存 `test/screenshots/`（不進版控）；每個 browser context 以 try/finally 關閉；M4-02 起加卡片預覽（7 種卡片皆渲染、公車方向切換與點站、附近站牌展開到站、YouBike 排序、行程建議／分段條／理由、高鐵訂票按鈕、卡片內沒有 script） | 每輪 |

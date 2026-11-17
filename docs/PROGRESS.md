@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M5-06 Agent 端點
+- 做了：`server/agent.js` `createAgentHandler`（先驗證、NDJSON 串流 `runDemo`、例外以 `error`＋`done` 結束；限流每分鐘／每日 key＝agent id＋IP；每日計量 requests／toolCalls／modelCalls；log 不記對話與座標）；`server/http.js` 掛上 `POST /api/v1/agent`（無 CORS、405、429 帶 retry-after）；OpenAPI 加 `/api/v1/agent`
+- 測試：npm run lint 無錯誤；npm test 167 項全過（新增 3 項）
+- 文件：AGENT §6、ARCHITECTURE、README、TESTING、PLAN、CLAUDE
+- 下一個：M5-08（網頁 agent 頁面；M5-05 Claude 模式待決定 SDK／fetch，M5-07 client tools 可並行）
+- 卡住：同前
+
 ## 2026-11-18 M5-04 Agent 共用執行器
 - 做了：`core/agent/run.js`：`validateRequest`、`execTools`（平行、先 start 後依完成順序 result、plan_trip 後 decision、profile 白名單、錯誤經 publicMessage）、`runDemo`（示範模式完整事件流；picked 狀態帶進 plan_trip 並在 decision 標 `picked`）
 - 測試：npm run lint 無錯誤；npm test 164 項全過（新增 5 項）

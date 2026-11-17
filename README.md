@@ -96,7 +96,7 @@ API 文件：啟動後開 <http://localhost:8787/api/docs>（Swagger UI，可直
 | `GET /api/v1/status` | 模式、工具包 |
 | `GET /api/v1/tools?pack=` | tools、工具包、分級、JSON Schema |
 | `POST /api/v1/tools/:name` | 呼叫 tool；回傳 `{ name, card, mode, data, text, speak }` |
-| `POST /api/v1/agent` | 📝 M5：網頁 agent，NDJSON 事件串流（[`docs/AGENT.md`](docs/AGENT.md)） |
+| `POST /api/v1/agent` | 網頁 agent，NDJSON 事件串流（[`docs/AGENT.md`](docs/AGENT.md)）；目前示範模式；只給本站網頁（無 CORS）、每 IP 每分鐘／每日限流 |
 | `POST /mcp`、`/mcp/:pack` | 遠端 MCP（Streamable HTTP、stateless） |
 | `GET /api/v1/bus/*`、`/bike/nearby`、`/thsr/*`、`/tra/*` | 舊版 REST（PWA 使用） |
 
