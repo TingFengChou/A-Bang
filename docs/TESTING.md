@@ -1,6 +1,6 @@
 # 測試規格
 
-版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 144 項全過、`npm run e2e` 12 項全過（手機＋桌面各 6）。
+版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 146 項全過、`npm run e2e` 12 項全過（手機＋桌面各 6）。
 
 ## 1. 原則
 
@@ -31,6 +31,7 @@
 | 計量 | `test/metrics.test.js` | `countRecords`、TDX 上游與快取計數、同時進行的 `measure` 互不干擾、CWA 計量、`callTool` 回傳 metrics、MCP 放 `_meta` | M3-13 起 |
 | 錯誤訊息 | `test/errors.test.js` | `UserError` 原樣回傳；上游或程式錯誤對外只回通用訊息（REST 與 MCP），不洩漏上游回應、檔案路徑 | 改錯誤處理時 |
 | API 文件 | `test/openapi.test.js` | OpenAPI 3.1 由 `server/rest.js` 路由表與 tool registry 產生：每個 REST 路由有 GET 文件與參數說明、每個 tool 有 POST 文件（request body 即 tool 的 JSON Schema）、`operationId` 唯一 | 新增路由或 tool 自動涵蓋 |
+| 卡片倒數 | `test/cards-countdown.test.js` | `etaLabel` 與 `busStatusText` 一致；`startCountdown` 以假時鐘驗證遞減、跨門檻換文字與 `soon`、不小於 0 | M4-07 起 |
 | 卡片文字 | `test/cards-i18n.test.js` | `t()` 佔位符與缺鍵；每則非空、括號成對、不含常見簡體字；每種卡片與 L2 確認視窗有必要文字 | M4-03 起 |
 | 卡片契約 | `test/cards-schema.test.js` | 小驗證器本身；每個有卡片的 tool 都有契約且 7 種一一對應；11 組示範輸出（含塞車客運、雨天跨城行程）通過對應 schema；payload 帶 `v`／`tool`／`args` | M4-01 起 |
 | Agent 事件 | `test/agent.test.js`（M5） | 示範模式：4 個建議問題的事件序列（`status` → `agent_note` → `tool_start`… → `decision` → `text` → `done`）；狀態合併；限流 | M5 |

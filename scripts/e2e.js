@@ -117,6 +117,7 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       await route.locator('.ab-tab:not(.on)').click();
       await route.locator('.ab-stop-row').first().click();
       assert.equal(await route.locator('.ab-stop.open').count(), 1);
+      assert.ok(await route.locator('[data-eta-sec]').count() > 0, '到站倒數');
       // 附近站牌：點站在卡片內展開到站
       const near = page.locator('[data-card="nearby"]');
       await near.locator('.ab-click').first().click();

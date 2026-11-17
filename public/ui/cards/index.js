@@ -2,6 +2,7 @@
 // 卡片不直接 fetch，只透過 host（CARDS.md §3）。網頁、MCP Apps、App 共用同一份程式。
 import { h, hhmm } from './dom.js';
 import { t } from './i18n/zh-TW.js';
+import { startCountdown } from './countdown.js';
 import busRoute from './cards/bus-route.js';
 import busStation from './cards/bus-station.js';
 import nearby from './cards/nearby.js';
@@ -41,6 +42,7 @@ export function renderCard(el, payload, host) {
         updated && h('span', { class: 'ab-updated' }, updated),
         status),
       def.body(current.data, ctx));
+    card.dataset.drawnAt = String(Date.now()); // 倒數的基準時間（每次重畫＝收到新資料）
     el.replaceChildren(card);
   };
 
@@ -61,11 +63,12 @@ export function renderCard(el, payload, host) {
   };
 
   draw();
+  const stopCountdown = startCountdown(el);
   if (def.refreshSec && current.tool && host?.callTool) timer = setInterval(refresh, def.refreshSec * 1000);
   return {
     update(p) { current = merge(p); draw(); },
     refresh,
-    destroy() { clearInterval(timer); el.replaceChildren(); },
+    destroy() { clearInterval(timer); stopCountdown(); el.replaceChildren(); },
   };
 }
 

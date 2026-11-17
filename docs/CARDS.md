@@ -12,7 +12,7 @@
 
 ## 1.1 實作（M4-02）
 
-`public/ui/cards/`：`index.js`（`renderCard(el, payload, host)` → `{ update, refresh, destroy }`；外框、示範標示、更新時間、刷新與失敗狀態共用；`bus-route`／`bus-station`／`metro` 每 20 秒、`youbike` 每 30 秒經 `host.callTool` 刷新）、`cards/<card>.js`（7 種）、`dom.js`（`h()` 只用 `textContent`／`setAttribute`；`safeUrl` 只允許 https）、`actions.js`（導航、L2 確認連結、訂票：先呼叫 `rail_booking_link` 再 `openLink(url, { confirm })`）、`cards.css`（淺色、`.ab-` 前綴）、`host-web.js`。開發預覽：`/ui/cards/preview.html`（示範模式資料，E2E 會截圖）。
+`public/ui/cards/`：`index.js`（`renderCard(el, payload, host)` → `{ update, refresh, destroy }`；外框、示範標示、更新時間、刷新與失敗狀態共用；`bus-route`／`bus-station`／`metro` 每 20 秒、`youbike` 每 30 秒經 `host.callTool` 刷新）、`cards/<card>.js`（7 種）、`dom.js`（`h()` 只用 `textContent`／`setAttribute`；`safeUrl` 只允許 https）、`actions.js`（導航、L2 確認連結、訂票：先呼叫 `rail_booking_link` 再 `openLink(url, { confirm })`）、`cards.css`（淺色、`.ab-` 前綴）、`host-web.js`。開發預覽：`/ui/cards/preview.html`（示範模式資料，E2E 會截圖）。動態（M4-07）：`countdown.js` 每秒把 `[data-eta-sec]` 依重畫後經過時間遞減（不呼叫 API；文字規則同伺服器 `busStatusText`），數字變化時 `.ab-tick` 輕微提示，車牌以 `.ab-bus` 標記公車位置；`prefers-reduced-motion` 時只換文字。
 
 ## 2. 輸入：`CardPayload`
 

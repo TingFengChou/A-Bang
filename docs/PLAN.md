@@ -23,7 +23,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | M1 TDX 實測 | ⛔ | M1-01 | TDX 金鑰、可連 TDX 的網路 |
 | M2 Registry＋遠端 MCP | ✅（Claude 實機連線待驗） | — | Austin 以 cloudflared 實測 |
 | M3 交通完整版 | ✅（2026-11-18 驗收；M3-12 真實導訂票 ⛔） | — | 待 Austin：無狀態市區短程叫車排第一是否合理（ADR-0010）；`rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
-| M4 互動卡片 | 🚧 | M4-04（host-mcp-app） | M4-04 需新增依賴 `@modelcontextprotocol/ext-apps`（待 Austin 同意） |
+| M4 互動卡片 | 🚧（M4-01／02／03／07 ✅） | M4-04（host-mcp-app）⛔ 待新依賴同意 | M4-04 需新增依賴 `@modelcontextprotocol/ext-apps`（待 Austin 同意） |
 | M5 網頁 agent | 📝 | — | Claude 模式需 `ANTHROPIC_API_KEY`（示範模式不需要） |
 | M6 上線 | 📝 | — | 部署帳號、網域 |
 
@@ -120,7 +120,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 - [ ] M4-04 host 介面兩種實作：`host-web.js`、`host-mcp-app.js`（`@modelcontextprotocol/ext-apps` 的 `App`）；先評估 SDK v2 並更新 ADR-0006（2026-11-18：`host-web.js` ✅（無新依賴）；`host-mcp-app.js` 待 Austin 同意新增依賴）
 - [ ] M4-05 `scripts/build-cards.js`：esbuild 打包 `dist/cards.html`
 - [ ] M4-06 MCP 出口：`ui://abang/cards.html` 資源；有卡片的 tool 加 `_meta.ui.resourceUri`
-- [ ] M4-07 動態：倒數每秒遞減、數字變化、公車在時間軸移動；`prefers-reduced-motion` 關閉
+- [x] M4-07 動態：倒數每秒遞減、數字變化、公車在時間軸移動；`prefers-reduced-motion` 關閉（2026-11-18：`countdown.js` 本地倒數（規則同 `busStatusText`）、數字變化提示、車牌標記；reduced motion 只換文字；2 項單元＋E2E）
 - [ ] M4-08 Playwright：以 `AppBridge` 當 host 載入每種卡片 fixture，截圖並檢查無 console error
 - [ ] M4-09 ⛔ 以 ext-apps `basic-host` 與 Claude 實測（Austin）
 

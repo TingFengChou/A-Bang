@@ -26,8 +26,8 @@ export default {
         } },
         h('span', { class: 'ab-dot', 'aria-hidden': 'true' }),
         h('span', { class: 'ab-name' }, s.stopName),
-        h('span', { class: soon ? 'ab-eta soon' : 'ab-eta' }, soon && s.etaSec < 60 ? t('busRoute.coming') : s.statusText),
-        s.plate && h('span', { class: 'ab-sub' }, t('busRoute.plate', { plate: s.plate }))),
+        h('span', { class: soon ? 'ab-eta soon' : 'ab-eta', ...(s.status === 0 && s.etaSec != null && { 'data-eta-sec': s.etaSec }) }, s.statusText),
+        s.plate && h('span', { class: 'ab-bus', title: t('busRoute.busHere') }, t('busRoute.plate', { plate: s.plate }))),
         open && h('div', { class: 'ab-actions' },
           navButton(host, s.nav),
           host?.ask && h('button', { type: 'button', class: 'ab-btn', onclick: () => host.ask(t('busRoute.ask', { route: d.routeName, stop: s.stopName })) }, t('common.more'))));

@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M4-07 卡片動態
+- 做了：`public/ui/cards/countdown.js`（`etaLabel` 與伺服器 `busStatusText` 同規則；`startCountdown` 每秒依重畫後經過時間遞減 `[data-eta-sec]`、跨門檻換 `soon`、數字變化 `.ab-tick` 提示；reduced motion 只換文字）；bus-route／bus-station 加 `data-eta-sec`（只限正常營運狀態）；公車車牌標記 `.ab-bus`
+- 測試：npm run lint 無錯誤；npm test 146 項全過（新增 2 項）；npm run e2e 12 項全過
+- 文件：CARDS §1.1、TESTING、PLAN、CLAUDE
+- 下一個：M4-04 `host-mcp-app.js`（⛔ 需新增依賴 `@modelcontextprotocol/ext-apps`，等 Austin 同意）；M4-05／06／08 都依賴它
+- 卡住：新依賴待同意
+
 ## 2026-11-18 M4-02 卡片渲染
 - 做了：`public/ui/cards/` 7 種卡片（bus-route 方向切換與點站牌、bus-station、nearby 卡片內展開到站、youbike 借／還排序、metro、timetable 塞車延誤／隔日／排除／訂票、trip 建議＋分段條＋備案＋排除＋狀態 chips）；`index.js` 外框與刷新；`dom.js`（不用 innerHTML、https 白名單）；`actions.js`；`cards.css`（淺色）；`host-web.js`（M4-04 的網頁 host，無新依賴）；`preview.html`；`thsr_timetable`／`tra_timetable` 補 `system`（卡片標題與訂票依它判斷）
 - 測試：npm run lint 無錯誤；npm test 144 項全過；npm run e2e 12 項全過（新增卡片預覽，手機＋桌面截圖已檢查）

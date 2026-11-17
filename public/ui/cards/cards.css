@@ -61,4 +61,9 @@
 .ab-legs-detail li { color: var(--ab-muted); font-size: 13px; padding: 1px 0; }
 .ab-reason { background: var(--ab-brand-soft); border-radius: 10px; padding: 8px 10px; margin: 6px 0; }
 .ab-alts h4, .ab-excluded h4 { font-size: 14px; margin: 10px 0 2px; color: var(--ab-muted); }
+/* 動態（M4-07）：倒數數字變化輕微提示；公車所在站的車牌標記 */
+.ab-tick { animation: ab-tick .6s ease-out; }
+@keyframes ab-tick { from { background: var(--ab-ok-soft); } to { background: transparent; } }
+.ab-bus { font-size: 12px; padding: 0 6px; border-radius: 6px; background: var(--ab-brand); color: #fff; transition: transform .3s; }
+.ab-bus::before { content: "🚌 "; }
 @media (prefers-reduced-motion: reduce) { .ab-card * { transition: none !important; animation: none !important; } }

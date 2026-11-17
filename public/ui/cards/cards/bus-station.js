@@ -6,7 +6,7 @@ export function arrivalsList(arrivals, t) {
   return h('ul', { class: 'ab-list' }, arrivals.map((r) => h('li', { class: 'ab-row' },
     h('span', { class: 'ab-route' }, r.routeName),
     h('span', { class: 'ab-sub' }, r.direction ? t('busStation.inbound') : t('busStation.outbound')),
-    h('span', { class: r.etaSec != null && r.etaSec < 180 ? 'ab-eta soon' : 'ab-eta' }, r.statusText))));
+    h('span', { class: r.etaSec != null && r.etaSec < 180 ? 'ab-eta soon' : 'ab-eta', ...(r.status === 0 && r.etaSec != null && { 'data-eta-sec': r.etaSec }) }, r.statusText))));
 }
 
 export default {

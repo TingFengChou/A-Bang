@@ -22,6 +22,8 @@ export const MESSAGES = {
   'common.price': '{n} 元',
   'common.priceRange': '{low}～{high} 元',
   'common.empty': '目前沒有資料',
+  'eta.arriving': '進站中',
+  'busRoute.busHere': '公車在這附近',
   'common.copyLink': '複製連結',
   'common.copied': '已複製',
 
