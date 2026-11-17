@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>阿幫・生活｜工具討論串原型</title>
+<style>
+:root{--bg:#f4f6f5;--card:#fff;--text:#14201d;--muted:#5f6f6b;--faint:#97a5a1;--line:#e3e8e6;
+  --brand:#0f766e;--brand-soft:#e3f2ef;--bus:#0f766e;--bus-soft:#e3f2ef;--bike:#b45309;--bike-soft:#fdf1e3;
+  --rail:#c2410c;--rail-soft:#fdeee7;--walk:#57534e;--walk-soft:#f1efe8;--place:#1d4ed8;--place-soft:#e6f1fb;
+  --fare:#7c3aed;--fare-soft:#efeafe;--car:#475569;--car-soft:#eef2f6;--tra:#9a3412;--bad-soft:#fde8e8;--ok:#15803d;--warn:#b45309;--bad:#b91c1c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 -apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif}
+.app{max-width:440px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--bg)}
+header{display:flex;align-items:center;gap:10px;padding:14px 16px;position:sticky;top:0;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(8px);z-index:2}
+header .av{width:38px;height:38px}
+header b{font-size:17px}header small{display:block;color:var(--muted);font-size:12px}
+.thread{flex:1;padding:4px 14px 12px;display:flex;flex-direction:column;gap:10px}
+.u{align-self:flex-end;background:var(--brand);color:#fff;padding:9px 13px;border-radius:16px 16px 4px 16px;max-width:85%}
+.row{display:flex;gap:8px;align-items:flex-start;animation:in .3s ease both}
+.row .av{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center}
+.row .av svg{width:18px;height:18px}
+.row.agent .av{background:none}.row.agent .av svg{width:30px;height:30px}
+.who{font-size:12px;color:var(--muted);margin-bottom:2px}
+.who .src{color:var(--faint)}
+.msg{background:var(--card);border:1px solid var(--line);padding:8px 12px;border-radius:4px 14px 14px 14px;font-size:14.5px;max-width:300px}
+.row.agent .msg{background:var(--brand-soft);border-color:transparent}
+.at{font-weight:700;border-radius:6px;padding:0 4px}
+.typing{display:inline-flex;gap:3px;padding:4px 2px}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--faint);animation:dot 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+.meeting{border:1px dashed var(--line);border-radius:14px;padding:10px 10px 4px;display:flex;flex-direction:column;gap:9px;background:color-mix(in srgb,var(--card) 50%,transparent)}
+.meeting>summary{list-style:none;cursor:pointer;font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between}
+.meeting[open]>summary{margin-bottom:2px}
+.thread{perspective:900px}
+.result{background:var(--card);border-radius:16px;padding:14px;box-shadow:0 1px 2px rgba(16,40,34,.06),0 10px 24px rgba(16,40,34,.08);animation:in3d .55s cubic-bezier(.2,.8,.2,1) both;transform-origin:50% 0}
+.result h4{margin:0 0 2px;font-size:13px;color:var(--muted);font-weight:600}
+.best{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.best b{font-size:20px}
+.best .min{font-size:26px;font-weight:800;color:var(--brand);font-variant-numeric:tabular-nums}
+.legs{display:flex;gap:4px;margin:10px 0 6px;height:8px}
+.legs i{border-radius:4px;transform-origin:left;animation:grow .6s ease both}
+.legnote{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);gap:6px;flex-wrap:wrap}
+.alts{margin-top:10px;border-top:1px solid var(--line);padding-top:8px;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.alts div{display:flex;justify-content:space-between;color:var(--muted)}
+.cd{font-variant-numeric:tabular-nums;font-weight:700;color:var(--bad)}
+.actions{display:flex;gap:8px;margin-top:12px}
+.actions button{flex:1;font:inherit;font-size:14px;padding:9px;border-radius:12px;border:0;cursor:pointer}
+.actions .p{background:var(--brand);color:#fff}.actions .s{background:var(--brand-soft);color:var(--brand)}
+.actions .btn{flex:1;text-align:center;text-decoration:none;font-size:14px;padding:9px;border-radius:12px}
+.track{position:relative;height:46px;margin:12px 4px 4px}
+.track .ln{position:absolute;left:0;right:0;top:20px;height:4px;background:var(--line);border-radius:2px}
+.track .st{position:absolute;top:15px;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--bus);transform:translateX(-50%)}
+.track .st.me{border-color:var(--bad);box-shadow:0 0 0 4px #fde8e8}
+.track .bus{position:absolute;top:8px;width:28px;height:28px;border-radius:50%;background:var(--bus);display:grid;place-items:center;transform:translateX(-50%);transition:left 1s linear}
+.track .bus svg{width:16px;height:16px;color:#fff}
+.track .lb{position:absolute;top:34px;font-size:11px;color:var(--muted);transform:translateX(-50%);white-space:nowrap}
+.final{animation:in .3s ease both}
+.chips{display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px 16px;position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--line)}
+.chips button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;cursor:pointer;color:var(--text)}
+.chips button.on{border-color:var(--brand);color:var(--brand)}
+.note{font-size:11.5px;color:var(--faint);text-align:center;padding:2px 0 6px}
+.toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:var(--text);color:#fff;padding:9px 14px;border-radius:12px;font-size:14px;animation:in .2s ease both;max-width:90vw}
+.decide{background:var(--card);border-radius:16px;padding:12px 14px;border:1px solid var(--line);animation:in .35s ease both}
+.dsub{font-size:12px;color:var(--muted);margin:-4px 0 8px}
+.dh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}.dh span{font-size:12px;color:var(--muted)}
+.states{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.states button{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;padding:4px 10px;cursor:pointer}
+.states button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.states button small{opacity:.85;margin-left:2px}
+.states .fixed{font-size:12.5px;border-radius:999px;padding:4px 10px;background:var(--rail-soft);color:var(--rail)}
+.clegend{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11px;color:var(--muted);margin-bottom:6px}
+.clegend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:3px;vertical-align:0}
+.dopts{display:flex;flex-direction:column;gap:6px;perspective:700px}
+.dopt{display:grid;grid-template-columns:92px 1fr 40px;gap:8px;align-items:center;padding:6px 8px;border-radius:10px;border:1px solid transparent;transition:background .3s,border-color .3s}
+.dopt .dn{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbar{display:flex;height:10px;background:var(--bg);border-radius:5px;overflow:hidden}
+.dbar i{display:block;height:100%;transition:width .45s cubic-bezier(.2,.8,.2,1)}
+.ds{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted)}
+.dopt.win{background:var(--brand-soft);border-color:var(--brand);transform:translateZ(18px);box-shadow:0 6px 14px rgba(15,118,110,.15)}
+.dopt{transition:background .3s,border-color .3s,transform .35s,box-shadow .35s}.dopt.win .ds{color:var(--brand)}
+.dopt.win .dn::after{content:"最佳";margin-left:6px;font-size:10.5px;background:var(--brand);color:#fff;border-radius:6px;padding:0 5px;vertical-align:1px}
+.dopt.out{opacity:.45}.dopt.out .dn{text-decoration:line-through}.dopt.out .ds{font-size:11px;color:var(--bad)}
+.dwhy{font-size:13.5px;margin-top:8px;color:var(--text);min-height:20px}
+.dgraph{width:100%;height:auto;display:block;margin:2px 0 6px;overflow:visible}
+.dgraph .ge{fill:none;stroke:#cfd8d5;stroke-width:1.5;transition:stroke .4s,opacity .4s,stroke-width .5s cubic-bezier(.2,.8,.2,1)}
+.dgraph .ge.live{stroke:#9fbdb6}
+.dgraph .ge.why{stroke:#0f766e;stroke-width:2.5}
+.dgraph .go{stroke:#9fbdb6}
+.dgraph .go.win{stroke:#0f766e}
+.dgraph .go.dead{stroke:#f3b4b4;stroke-dasharray:3 4}
+.dgraph .gl{font-size:10px;fill:var(--muted)}
+.dgraph .gn{transition:opacity .4s}
+.dgraph .gn.src.pulse circle{animation:gpulse .8s ease}
+.dgraph .gn.src.why circle{stroke-width:3}
+.dgraph .gcenter.bump{animation:bump .35s ease}
+.dgraph .gcenter{transform-box:fill-box;transform-origin:center}
+.dgraph .or{fill:#fff;stroke:#cfd8d5;stroke-width:1.2;transition:fill .4s,stroke .4s}
+.dgraph .on{font-size:12px;font-weight:600;fill:var(--text)}
+.dgraph .os{font-size:12px;font-weight:800;fill:var(--muted)}
+.dgraph .opt.win .or{fill:#0f766e;stroke:#0f766e;filter:drop-shadow(0 4px 8px rgba(15,118,110,.35))}
+.dgraph .opt.win .on,.dgraph .opt.win .os{fill:#fff}
+.dgraph .opt.out .on{text-decoration:line-through;fill:var(--faint)}
+.dgraph .opt.out .os{fill:var(--bad);font-size:10px}
+.dgraph .pk text{font-size:10.5px;font-weight:700;fill:#fff}
+.dgraph .gs rect{fill:#fff;stroke:#0f766e;stroke-width:1}
+.dgraph .gs text{font-size:10.5px;fill:#0f766e;font-weight:700}
+.dgraph .gs .tg{fill:var(--muted);font-weight:400;font-size:9.5px}
+.dgraph .glink{fill:none;stroke:#0f766e;stroke-width:1;stroke-dasharray:2 3;opacity:.7}
+.dgraph .flow{fill:#0f766e}
+.more{margin-top:6px}.more>summary{cursor:pointer;font-size:12.5px;color:var(--muted);list-style:none}.more[open]>summary{margin-bottom:6px}
+@keyframes gpulse{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
+@keyframes bump{50%{transform:scale(1.08)}}
+.dgraph circle{transform-box:fill-box;transform-origin:center}
+@keyframes in3d{from{opacity:0;transform:rotateX(-18deg) translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes dot{0%,60%,100%{opacity:.3}30%{opacity:1}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header><span class="av"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="阿幫（預設：揮手）">
+<g transform="translate(118 124) scale(1.25)">
+  <path d="M24 20 Q50 30 60 54 L49 59 Q40 40 18 31 Z" fill="#2E6FB7"/>
+  <path d="M60 54 L49 59 L54 68 L65 63 Z" fill="#FFFFFF" stroke="#2E6FB7" stroke-width="1.5"/>
+  <rect x="34" y="-10" width="28" height="38" rx="9" fill="#0F766E"/><rect x="44" y="-3" width="14" height="9" rx="3" fill="#E1F5EE"/><circle cx="49" cy="16" r="3.5" fill="#FBBF24"/><circle cx="57" cy="22" r="3.5" fill="#F0997B"/>
+  <circle cx="0" cy="0" r="46" fill="#3B82C4"/>
+  <path d="M-46 -2 A46 46 0 0 1 46 -2 Q30 -14 0 -14 Q-30 -14 -46 -2 Z" fill="#1F2A44"/>
+  <ellipse cx="0" cy="20" rx="28" ry="22" fill="#EAF3FB"/>
+  <circle cx="-15" cy="-6" r="8" fill="#FFF"/><circle cx="15" cy="-6" r="8" fill="#FFF"/><circle cx="-13" cy="-5" r="4.5" fill="#1F2A44"/><circle cx="17" cy="-5" r="4.5" fill="#1F2A44"/><circle cx="-11.5" cy="-7" r="1.5" fill="#FFF"/><circle cx="18.5" cy="-7" r="1.5" fill="#FFF"/>
+  <path d="M-6 4 L6 4 L0 13 Z" fill="#E24B4A"/>
+  <circle cx="-27" cy="8" r="6" fill="#F4C0D1"/><circle cx="27" cy="8" r="6" fill="#F4C0D1"/>
+  <path d="M-26 -42 Q0 -70 26 -42 Z" fill="#0F766E"/><rect x="-30" y="-46" width="60" height="10" rx="5" fill="#0F766E"/><rect x="16" y="-44" width="26" height="7" rx="3.5" fill="#0F766E"/><circle cx="0" cy="-60" r="3.5" fill="#FBBF24"/>
+  <path d="M-44 8 Q-64 -6 -58 -26" fill="none" stroke="#3B82C4" stroke-width="10" stroke-linecap="round"/>
+  <path d="M-10 44 L-12 54 M10 44 L12 54" stroke="#E24B4A" stroke-width="4" stroke-linecap="round"/>
+</g>
+</svg></span><div><b>阿幫・生活</b><small>小幫手一起討論，阿幫依你的狀況做決定</small></div></header>
+  <div class="thread" id="thread"></div>
+  <div class="note">原型・資料為模擬</div>
+  <div class="chips" id="chips"></div>
+</div>
+<script>
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const sleep = (ms) => new Promise((r) => setTimeout(r, RM ? 0 : ms));
+const I = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const ICON = {
+  place: I('<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'),
+  bus: I('<rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16M7 21v-3M17 21v-3"/>'),
+  bike: I('<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9l2 7"/>'),
+  walk: I('<circle cx="13" cy="4" r="2"/><path d="M11 21l2-6-3-3 1-5 4 3 3 1M9 12l-2 3"/>'),
+  rail: I('<path d="M4 15c0-5 4-9 10-9h3l3 4v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M4 13h16M7 21l2-2M17 21l-2-2"/>'),
+  fare: I('<path d="M4 7h16v4a2 2 0 0 0 0 4v4H4v-4a2 2 0 0 0 0-4z"/><path d="M14 7v12"/>'),
+  traffic: I('<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/>'),
+  tra: I('<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 10h14M8 21l2-4M16 21l-2-4"/>'),
+  coach: I('<rect x="3" y="5" width="18" height="11" rx="2"/><path d="M3 11h18M7 19v-3M17 19v-3"/>'),
+  ride: I('<path d="M5 16l1.5-5A2 2 0 0 1 8.4 9.6h7.2a2 2 0 0 1 1.9 1.4L19 16"/><rect x="3" y="16" width="18" height="4" rx="1"/><circle cx="7" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/>'),
+  weather: I('<path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.5A3.5 3.5 0 1 1 17 18z"/><path d="M9 21l1-2M13 21l1-2"/>'),
+};
+// 工具角色：名稱、顏色、圖示、背後的 tool 與 MCP 伺服器（誠實標示來源）
+const ROLE = {
+  place: { name: '地點', c: 'place', tool: 'find_place', src: '阿幫 MCP' },
+  bus: { name: '公車', c: 'bus', tool: 'bus_station_eta', src: '阿幫 MCP · TDX' },
+  bike: { name: 'YouBike', c: 'bike', tool: 'youbike_nearby', src: '阿幫 MCP · TDX' },
+  walk: { name: '步行', c: 'walk', tool: 'plan_trip', src: '阿幫 MCP' },
+  rail: { name: '高鐵', c: 'rail', tool: 'thsr_timetable', src: '阿幫 MCP · TDX' },
+  fare: { name: '票價', c: 'fare', tool: 'rail_fare', src: '阿幫 MCP · TDX' },
+  weather: { name: '天氣', c: 'place', tool: 'weather_now', src: '阿幫 MCP · 氣象署' },
+  traffic: { name: '路況', c: 'bad', tool: 'traffic_status', src: '阿幫 MCP · TDX 即時路況' },
+  tra: { name: '台鐵', c: 'rail', tool: 'tra_timetable', src: '阿幫 MCP · TDX' },
+  coach: { name: '客運', c: 'bus', tool: 'intercity_bus', src: '阿幫 MCP · TDX' },
+  ride: { name: '叫車', c: 'walk', tool: 'ridehail_link', src: '阿幫 MCP · Uber 連結（估算）' },
+};
+const MASCOT = { idle: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="阿幫（預設：揮手）">
+<g transform="translate(118 124) scale(1.25)">
+  <path d="M24 20 Q50 30 60 54 L49 59 Q40 40 18 31 Z" fill="#2E6FB7"/>
+  <path d="M60 54 L49 59 L54 68 L65 63 Z" fill="#FFFFFF" stroke="#2E6FB7" stroke-width="1.5"/>
+  <rect x="34" y="-10" width="28" height="38" rx="9" fill="#0F766E"/><rect x="44" y="-3" width="14" height="9" rx="3" fill="#E1F5EE"/><circle cx="49" cy="16" r="3.5" fill="#FBBF24"/><circle cx="57" cy="22" r="3.5" fill="#F0997B"/>
+  <circle cx="0" cy="0" r="46" fill="#3B82C4"/>
+  <path d="M-46 -2 A46 46 0 0 1 46 -2 Q30 -14 0 -14 Q-30 -14 -46 -2 Z" fill="#1F2A44"/>
+  <ellipse cx="0" cy="20" rx="28" ry="22" fill="#EAF3FB"/>
+  <circle cx="-15" cy="-6" r="8" fill="#FFF"/><circle cx="15" cy="-6" r="8" fill="#FFF"/><circle cx="-13" cy="-5" r="4.5" fill="#1F2A44"/><circle cx="17" cy="-5" r="4.5" fill="#1F2A44"/><circle cx="-11.5" cy="-7" r="1.5" fill="#FFF"/><circle cx="18.5" cy="-7" r="1.5" fill="#FFF"/>
+  <path d="M-6 4 L6 4 L0 13 Z" fill="#E24B4A"/>
+  <circle cx="-27" cy="8" r="6" fill="#F4C0D1"/><circle cx="27" cy="8" r="6" fill="#F4C0D1"/>
+  <path d="M-26 -42 Q0 -70 26 -42 Z" fill="#0F766E"/><rect x="-30" y="-46" width="60" height="10" rx="5" fill="#0F766E"/><rect x="16" y="-44" width="26" height="7" rx="3.5" fill="#0F766E"/><circle cx="0" cy="-60" r="3.5" fill="#FBBF24"/>
+  <path d="M-44 8 Q-64 -6 -58 -26" fill="none" stroke="#3B82C4" stroke-width="10" stroke-linecap="round"/>
+  <path d="M-10 44 L-12 54 M10 44 L12 54" stroke="#E24B4A" stroke-width="4" stroke-linecap="round"/>
+</g>
+</svg>`, think: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="阿幫（查詢中）">
+<g transform="translate(118 124) scale(1.25)">
+  <path d="M24 20 Q50 30 60 54 L49 59 Q40 40 18 31 Z" fill="#2E6FB7"/>
+  <path d="M60 54 L49 59 L54 68 L65 63 Z" fill="#FFFFFF" stroke="#2E6FB7" stroke-width="1.5"/>
+  <rect x="34" y="-10" width="28" height="38" rx="9" fill="#0F766E"/><rect x="44" y="-3" width="14" height="9" rx="3" fill="#E1F5EE"/><circle cx="49" cy="16" r="3.5" fill="#FBBF24"/><circle cx="57" cy="22" r="3.5" fill="#F0997B"/>
+  <circle cx="0" cy="0" r="46" fill="#3B82C4"/>
+  <path d="M-46 -2 A46 46 0 0 1 46 -2 Q30 -14 0 -14 Q-30 -14 -46 -2 Z" fill="#1F2A44"/>
+  <ellipse cx="0" cy="20" rx="28" ry="22" fill="#EAF3FB"/>
+  <circle cx="-15" cy="-6" r="8" fill="#FFF"/><circle cx="15" cy="-6" r="8" fill="#FFF"/><circle cx="-12" cy="-9" r="4.5" fill="#1F2A44"/><circle cx="18" cy="-9" r="4.5" fill="#1F2A44"/><circle cx="-58" cy="-44" r="4" fill="#1F2A44" opacity=".35"/><circle cx="-68" cy="-58" r="6" fill="#1F2A44" opacity=".35"/>
+  <path d="M-6 4 L6 4 L0 13 Z" fill="#E24B4A"/>
+  <circle cx="-27" cy="8" r="6" fill="#F4C0D1"/><circle cx="27" cy="8" r="6" fill="#F4C0D1"/>
+  <path d="M-26 -42 Q0 -70 26 -42 Z" fill="#0F766E"/><rect x="-30" y="-46" width="60" height="10" rx="5" fill="#0F766E"/><rect x="16" y="-44" width="26" height="7" rx="3.5" fill="#0F766E"/><circle cx="0" cy="-60" r="3.5" fill="#FBBF24"/>
+  <path d="M-42 10 Q-54 20 -46 32" fill="none" stroke="#3B82C4" stroke-width="10" stroke-linecap="round"/>
+  <path d="M-10 44 L-12 54 M10 44 L12 54" stroke="#E24B4A" stroke-width="4" stroke-linecap="round"/>
+</g>
+</svg>`, happy: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="阿幫（開心）">
+<g transform="translate(118 124) scale(1.25)">
+  <path d="M24 20 Q50 30 60 54 L49 59 Q40 40 18 31 Z" fill="#2E6FB7"/>
+  <path d="M60 54 L49 59 L54 68 L65 63 Z" fill="#FFFFFF" stroke="#2E6FB7" stroke-width="1.5"/>
+  <rect x="34" y="-10" width="28" height="38" rx="9" fill="#0F766E"/><rect x="44" y="-3" width="14" height="9" rx="3" fill="#E1F5EE"/><circle cx="49" cy="16" r="3.5" fill="#FBBF24"/><circle cx="57" cy="22" r="3.5" fill="#F0997B"/>
+  <circle cx="0" cy="0" r="46" fill="#3B82C4"/>
+  <path d="M-46 -2 A46 46 0 0 1 46 -2 Q30 -14 0 -14 Q-30 -14 -46 -2 Z" fill="#1F2A44"/>
+  <ellipse cx="0" cy="20" rx="28" ry="22" fill="#EAF3FB"/>
+  <path d="M-21 -6 Q-15 -12 -9 -6" fill="none" stroke="#FFF" stroke-width="3" stroke-linecap="round"/><path d="M9 -6 Q15 -12 21 -6" fill="none" stroke="#FFF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M-6 4 L6 4 L0 13 Z" fill="#E24B4A"/>
+  <circle cx="-27" cy="8" r="6" fill="#F4C0D1"/><circle cx="27" cy="8" r="6" fill="#F4C0D1"/>
+  <path d="M-26 -42 Q0 -70 26 -42 Z" fill="#0F766E"/><rect x="-30" y="-46" width="60" height="10" rx="5" fill="#0F766E"/><rect x="16" y="-44" width="26" height="7" rx="3.5" fill="#0F766E"/><circle cx="0" cy="-60" r="3.5" fill="#FBBF24"/>
+  <path d="M-42 10 Q-54 20 -46 32" fill="none" stroke="#3B82C4" stroke-width="10" stroke-linecap="round"/>
+  <path d="M-10 44 L-12 54 M10 44 L12 54" stroke="#E24B4A" stroke-width="4" stroke-linecap="round"/>
+</g>
+</svg>` };
+const at = (k) => `<span class="at" style="color:var(--${ROLE[k].c});background:var(--${ROLE[k].c}-soft)">@${ROLE[k].name}</span>`;
+const $t = document.getElementById('thread');
+let RUN = 0, timers = [];
+
+function add(html, cls, parent = $t) { const d = document.createElement('div'); d.className = cls; d.innerHTML = html; parent.appendChild(d); d.scrollIntoView({ block: 'end', behavior: RM ? 'auto' : 'smooth' }); return d; }
+async function speak(parent, who, text, my) {
+  const isAgent = who === 'agent';
+  const av = isAgent ? MASCOT.think : `<span style="color:var(--${ROLE[who].c})">${ICON[who]}</span>`;
+  const head = isAgent ? '<div class="who">阿幫</div>' : `<div class="who">${ROLE[who].name} <span class="src">· ${ROLE[who].tool} · ${ROLE[who].src}</span></div>`;
+  const row = add(`<span class="av" style="${isAgent ? '' : `background:var(--${ROLE[who].c}-soft)`}">${av}</span><div>${head}<div class="msg"><span class="typing"><i></i><i></i><i></i></span></div></div>`, 'row' + (isAgent ? ' agent' : ''), parent);
+  await sleep(isAgent ? 450 : 750); if (my !== RUN) return;
+  row.querySelector('.msg').innerHTML = text;
+  await sleep(350);
+}
+function countdown(el, sec) { const t0 = Date.now(); const f = () => { const s = Math.max(0, sec - Math.floor((Date.now() - t0) / 1000)); el.textContent = s >= 60 ? `${Math.floor(s / 60)} 分 ${String(s % 60).padStart(2, '0')} 秒` : `${s} 秒`; }; f(); timers.push(setInterval(f, 1000)); }
+function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2400); }
+
+/* ---- 決策引擎：與 core/decide.js 相同（建置時內嵌） ---- */
+// 決策引擎：依使用者狀態，替交通方案排序並說明理由（ADR-0010）
+// 純函式、規則透明、可測試；不經模型。模型只負責「判斷使用者狀態」與「用口語轉述結果」。
+// 前端與 MCP Apps 卡片可以直接用 breakdown 畫出決策過程。
+
+/** 比較項目（都是越小越好）。
+ *  ratio：以「最佳值 / 本方案」比例計分（加 k 避免 0），不會被極端值（例如很貴的叫車）壓扁差距
+ *  abs：本身是 0–1 的程度值，直接以 1 - 值 計分 */
+const CRITERIA = [
+  { key: 'minutes', label: '總時間', base: 0.40, scale: 'ratio', k: 5 },
+  { key: 'waitMin', label: '等車', base: 0.10, scale: 'ratio', k: 5 },
+  { key: 'walkMin', label: '走路', base: 0.15, scale: 'ratio', k: 5 },
+  { key: 'cost', label: '費用', base: 0.15, scale: 'ratio', k: 20 },
+  { key: 'exposure', label: '淋雨', base: 0.10, scale: 'abs' }, // 0 = 全程室內／有遮蔽，1 = 全程戶外
+  { key: 'effort', label: '體力', base: 0.10, scale: 'abs' }, // 0 = 輕鬆，1 = 費力（騎車、長距離步行）
+  { key: 'delayRisk', label: '塞車風險', base: 0.05, scale: 'abs' }, // 0 = 軌道／專用道，1 = 走一般道路且路況差
+];
+
+/** 使用者狀態：顯示名稱與對權重的影響（倍數） */
+const STATES = {
+  rush: { label: '趕時間', say: '你趕時間', boost: { minutes: 2, waitMin: 1.5, delayRisk: 2 } },
+  traffic: { label: '塞車中', say: '路上正在塞車', boost: { delayRisk: 6, minutes: 1.2 } },
+  rain: { label: '下雨', say: '正在下雨', boost: { exposure: 4, walkMin: 1.5 } },
+  luggage: { label: '帶行李', say: '你帶著行李', boost: { effort: 4 } },
+  budget: { label: '想省錢', say: '你想省錢', boost: { cost: 3 } },
+  lessWalk: { label: '少走路', say: '你想少走路、輕鬆一點', boost: { walkMin: 1.5, effort: 3 } },
+};
+
+/**
+ * @param {Array<{ id: string, name: string, minutes: number, waitMin?: number, walkMin?: number, cost?: number,
+ *                 exposure?: number, effort?: number, arriveAt?: string }>} options
+ * @param {{ states?: string[], arriveBy?: string }} [ctx]  states 例如 ['rain','luggage']；arriveBy 例如 '08:00'
+ * @returns {{ weights: Record<string, number>, ranked: Array<object>, excluded: Array<object>, best: object|null, reason: string }}
+ */
+function decide(options, ctx = {}) {
+  const states = (ctx.states || []).filter((s) => STATES[s]);
+
+  // 1. 權重：基本權重 × 狀態倍數，再正規化成總和 1
+  const raw = Object.fromEntries(CRITERIA.map((c) => [c.key, c.base]));
+  for (const s of states) for (const [k, m] of Object.entries(STATES[s].boost)) raw[k] *= m;
+  const sum = Object.values(raw).reduce((a, b) => a + b, 0);
+  const weights = Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, v / sum]));
+
+  // 2. 硬限制：指定抵達時間時，會遲到的方案直接排除
+  const excluded = [];
+  const pool = options.filter((o) => {
+    if (ctx.arriveBy && o.arriveAt && o.arriveAt > ctx.arriveBy) {
+      excluded.push({ ...o, why: `${o.arriveAt} 才到，超過 ${ctx.arriveBy}` });
+      return false;
+    }
+    return true;
+  });
+
+  // 3. 各項正規化（越小越好 → 分數越高），乘上權重
+  const val = (o, k) => Number(o[k] ?? 0);
+  const ranked = pool.map((o) => {
+    const breakdown = {};
+    for (const c of CRITERIA) {
+      let norm;
+      if (c.scale === 'abs') norm = 1 - Math.min(1, Math.max(0, val(o, c.key)));
+      else { const lo = Math.min(...pool.map((p) => val(p, c.key))); norm = (lo + c.k) / (val(o, c.key) + c.k); }
+      breakdown[c.key] = norm * weights[c.key];
+    }
+    const score = Object.values(breakdown).reduce((a, b) => a + b, 0);
+    return { ...o, score: Math.round(score * 100), breakdown };
+  }).sort((a, b) => b.score - a.score || a.minutes - b.minutes);
+
+  const best = ranked[0] || null;
+  return { weights, ranked, excluded, best, reason: explain(best, ranked[1], states, excluded) };
+}
+
+/** 產生一句理由：最佳方案贏在哪裡（取貢獻差最大的項目）＋生效的狀態 */
+function explain(best, second, states, excluded) {
+  if (!best) return excluded.length ? '所有方案都趕不上指定時間。' : '沒有可比較的方案。';
+  const why = [];
+  if (states.length) why.push(`因為${states.map((s) => STATES[s].say).join('、')}`);
+  if (second) {
+    const diffs = CRITERIA.map((c) => ({ c, d: best.breakdown[c.key] - second.breakdown[c.key] })).sort((a, b) => b.d - a.d);
+    const top = diffs.filter((x) => x.d > 0.01).slice(0, 2).map((x) => PHRASE[x.c.key](best, second));
+    if (top.length) why.push(top.join('、'));
+  }
+  if (excluded.length) why.push(`${excluded.map((e) => e.name).join('、')}會遲到已排除`);
+  return `選「${best.name}」${why.length ? '：' + why.join('，') : ''}。`;
+}
+
+const PHRASE = {
+  minutes: (b, s) => `比${s.name}快 ${Math.max(1, s.minutes - b.minutes)} 分`,
+  waitMin: (b) => (b.waitMin ? `只要等 ${b.waitMin} 分` : '不用等車'),
+  walkMin: (b) => `只走 ${b.walkMin ?? 0} 分`,
+  cost: (b, s) => (b.cost < s.cost ? `省 ${s.cost - b.cost} 元` : '費用較低'),
+  exposure: () => '比較不會淋雨',
+  effort: () => '比較輕鬆',
+  delayRisk: () => '不受塞車影響',
+};
+
+const CCOLOR = { minutes: '#0f766e', waitMin: '#14b8a6', walkMin: '#78716c', cost: '#7c3aed', exposure: '#1d4ed8', effort: '#d97706', delayRisk: '#e11d48' };
+
+const legBar = (legs) => `<div class="legs">${legs.map((l, i) => `<i style="flex:${l.min};background:var(--${l.mode});animation-delay:${i * .15}s"></i>`).join('')}</div><div class="legnote">${legs.map((l) => `<span>${l.label}</span>`).join('')}</div>`;
+const navBtn = (label, lat, lon, cls = 'p') => `<a class="${cls} btn" href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=walking" target="_blank" rel="noopener">${label}</a>`;
+
+const SC = [
+  { label: '西門町到台北 101', q: '從西門町到台北 101 怎麼去？', lines: [
+      ['agent', '我請地點、天氣、公車、YouBike 一起看看。'],
+      ['place', '西門町、台北 101 都找到了，直線大約 3.8 公里。'],
+      ['weather', '西門町現在<b>小雨</b>，傍晚前都可能有雨。'],
+      ['agent', `${at('bus')} 西門町附近有直達的車嗎？`],
+      ['bus', '有，西門站的直達車 <b>12 分</b>後到，搭過去約 22 分。'],
+      ['agent', `要等 12 分。${at('bike')} 西門站現在有車嗎？`],
+      ['bike', '西門站還有 <b>8 台</b>（2 台電輔），101 旁的站有 15 個空位，騎過去約 25 分。'],
+      ['agent', `${at('walk')} 走路呢？`],
+      ['walk', '走路大約 65 分。'],
+    ],
+    states: ['rain'], stateSrc: { rain: '天氣回報' }, stateFrom: { rain: 'weather' }, // 由 MCP 資料自動判斷的使用者狀態
+    packets: { place: '3.8km', weather: '小雨', bus: '12分到', bike: '8台', walk: '65分' },
+    options: [
+      { id: 'bike', role: 'bike', name: 'YouBike', minutes: 28, waitMin: 0, walkMin: 3, cost: 10, exposure: 1, effort: 0.8,
+        legs: [{ mode: 'walk', min: 3, label: '步行 3 分到西門站' }, { mode: 'bike', min: 25, label: '騎 25 分，到站有空位' }],
+        actions: () => navBtn('導航到西門站', 25.0421, 121.5081) + `<button class="s" data-t="已設定：還車前提醒你空位數（示意）">還車前提醒我</button>`,
+        say: '現在騎 YouBike，大約 28 分鐘到。' },
+      { id: 'bus', role: 'bus', name: '公車直達', minutes: 34, waitMin: 12, walkMin: 8, cost: 15, exposure: 0.2, effort: 0.1, delayRisk: 0.4,
+        legs: [{ mode: 'walk', min: 3, label: '步行 3 分' }, { mode: 'bus', min: 12, label: '等 12 分' }, { mode: 'bus', min: 22, label: '搭 22 分' }],
+        actions: () => navBtn('導航到站牌', 25.0423, 121.5069) + `<button class="s" data-t="已設定：公車到站前 3 分鐘提醒（示意）">到站前提醒我</button>`,
+        say: '搭 12 分後那班直達公車，大約 34 分鐘到，一路有遮蔽。' },
+      { id: 'walk', role: 'walk', name: '步行', minutes: 65, waitMin: 0, walkMin: 65, cost: 0, exposure: 1, effort: 1,
+        legs: [{ mode: 'walk', min: 65, label: '步行約 4.9 公里' }],
+        actions: () => navBtn('開始步行導航', 25.0339, 121.5645),
+        say: '走過去大約 65 分鐘，不用花錢。' },
+    ] },
+  { label: '明早台北到左營', q: '明天 8 點前要到左營，從台北車站出發', lines: [
+      ['agent', `要 8 點前到。${at('rail')} 明早有哪幾班？`],
+      ['rail', '06:30 那班 <b>08:00</b> 到左營；07:00 那班 08:35 到。台鐵自強 05:56 出發要 10:02 才到。'],
+      ['agent', `${at('fare')} 標準車廂多少錢？`],
+      ['fare', '台北到左營標準車廂對號座 <b>1,490 元</b>。'],
+      ['agent', `${at('bike')} 到左營之後要接駁，站外有車嗎？`],
+      ['bike', '左營高鐵站附近 3 個站，共 <b>21 台</b>可借。'],
+    ],
+    states: [], arriveBy: '08:00',
+    packets: { rail: '06:30', fare: '$1490', bike: '21台' },
+    options: [
+      { id: 't0630', role: 'rail', name: '高鐵 06:30', minutes: 90, waitMin: 0, walkMin: 5, cost: 1490, exposure: 0, effort: 0.1, arriveAt: '08:00',
+        legs: [{ mode: 'walk', min: 10, label: '06:15 前到台北車站' }, { mode: 'rail', min: 90, label: '0603 次，標準車廂 1,490 元' }, { mode: 'bike', min: 8, label: '到站可借 YouBike' }],
+        actions: () => `<button class="p" data-t="會開啟高鐵官方訂票頁，自動帶入 0603 次、1 張標準車廂（TDX 導訂票，連結具時效性；示意）">去訂票（帶入班次）</button><button class="s" data-t="已設定：明天 05:45 提醒出門（裝置端提醒，示意）">05:45 提醒我</button>`,
+        say: '搭明早 06:30 那班，8 點整到左營。記得 06:15 前到台北車站，要我 05:45 叫你出門嗎？' },
+      { id: 't0700', role: 'rail', name: '高鐵 07:00', minutes: 95, cost: 1490, exposure: 0, effort: 0.1, arriveAt: '08:35', legs: [], actions: () => '', say: '' },
+      { id: 'tra', role: 'rail', name: '台鐵自強 05:56', minutes: 246, cost: 843, exposure: 0, effort: 0.3, arriveAt: '10:02', legs: [], actions: () => '', say: '' },
+    ] },
+  { label: '塞車時去新竹', q: '10 點前要到新竹車站，現在從台北車站出發', lines: [
+      ['agent', '10 點前要到。我先看路況，再請高鐵、台鐵、客運、叫車報價。'],
+      ['traffic', '國道 1 號南向林口到桃園<b>壅塞</b>，車速約 25 公里，走高速公路要多 30 分。'],
+      ['rail', '08:46 那班 09:17 到新竹站，轉接駁到市區約 09:45，<b>290 元</b>。'],
+      ['tra', '08:50 自強號 09:55 到新竹車站，<b>177 元</b>。'],
+      ['coach', '國道客運 08:45 發車，塞車的話約 10:20 才到，140 元。'],
+      ['ride', '叫車預估 2,000 元上下，塞車約 80 分，10:00 左右到（之後串接，示意）。'],
+      ['agent', '路上在塞，走軌道比較穩。我來比一下。'],
+    ],
+    states: ['traffic'], stateSrc: { traffic: '路況回報' }, stateFrom: { traffic: 'traffic' }, arriveBy: '10:00',
+    packets: { traffic: '壅塞', rail: '09:17', tra: '$177', coach: '10:20', ride: '$2000' },
+    options: [
+      { id: 'thsr', role: 'rail', name: '高鐵＋接駁', minutes: 59, waitMin: 6, walkMin: 6, cost: 306, exposure: 0, effort: 0.2, delayRisk: 0, arriveAt: '09:45',
+        legs: [{ mode: 'rail', min: 31, label: '高鐵 08:46 → 09:17' }, { mode: 'tra', min: 22, label: '接駁到新竹車站' }],
+        actions: () => `<button class="p" data-t="會開啟高鐵官方訂票頁，自動帶入 08:46 班次、1 張（TDX 導訂票；示意）">去訂票（帶入班次）</button>`,
+        say: '搭 08:46 的高鐵，09:45 左右到新竹車站，不受塞車影響。' },
+      { id: 'tra', role: 'tra', name: '台鐵自強', minutes: 65, waitMin: 10, walkMin: 4, cost: 177, exposure: 0, effort: 0.1, delayRisk: 0, arriveAt: '09:55',
+        legs: [{ mode: 'tra', min: 65, label: '自強號 08:50 → 09:55，177 元' }],
+        actions: () => `<button class="p" data-t="會開啟台鐵官方訂票頁，自動帶入 08:50 自強號、1 張（TDX 導訂票；示意）">去訂票（帶入班次）</button>`,
+        say: '搭 08:50 的台鐵自強號，09:55 到新竹車站，比高鐵省 129 元。' },
+      { id: 'coach', role: 'coach', name: '國道客運', minutes: 95, cost: 140, delayRisk: 1, arriveAt: '10:20', legs: [], actions: () => '', say: '' },
+      { id: 'ride', role: 'ride', name: '叫車（Uber）', minutes: 80, waitMin: 5, walkMin: 0, cost: 2100, exposure: 0, effort: 0, delayRisk: 1, arriveAt: '10:00',
+        legs: [{ mode: 'car', min: 80, label: '走國道，塞車約 80 分' }],
+        actions: () => `<a class="p btn" href="https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[latitude]=24.8016&dropoff[longitude]=120.9716&dropoff[nickname]=%E6%96%B0%E7%AB%B9%E8%BB%8A%E7%AB%99" target="_blank" rel="noopener">用 Uber 叫車</a>`,
+        say: '叫車大約 2,000 元，塞車的話 10:00 左右到，時間沒有把握。' },
+    ] },
+  { label: '307 到哪了', q: '307 到哪了？我在臺北車站', lines: [
+      ['agent', `${at('bus')} 307 往板橋方向，到臺北車站還要多久？`],
+      ['bus', '最近一班在 <b>3 站外</b>，約 6 分到；下一班 17 分後。'],
+      ['agent', '6 分剛好，走到站牌就差不多了，不用換方案。'],
+    ],
+    result() {
+      return `<h4>307 往板橋　臺北車站</h4><div class="best"><b>下一班</b><span class="min cd" id="cd"></span></div>
+        <div class="track"><div class="ln"></div>
+          <span class="st" style="left:4%"></span><span class="lb" style="left:4%">北門</span>
+          <span class="st" style="left:36%"></span><span class="lb" style="left:36%">中山堂</span>
+          <span class="st" style="left:68%"></span><span class="lb" style="left:68%">台大醫院</span>
+          <span class="st me" style="left:96%"></span><span class="lb" style="left:94%;color:var(--bad)">你在這</span>
+          <span class="bus" id="bus" style="left:6%">${ICON.bus}</span></div>
+        <div class="alts"><div><span>再下一班</span><span>17 分</span></div></div>
+        <div class="actions">${navBtn('導航到站牌', 25.0466, 121.517, 's')}<button class="s" data-t="已設定：到站前 2 分鐘提醒（裝置端提醒，示意）">到站前 2 分提醒我</button></div>`;
+    },
+    after(card) { countdown(card.querySelector('#cd'), 360); const bus = card.querySelector('#bus'); const t0 = Date.now(); timers.push(setInterval(() => { const p = Math.min(1, (Date.now() - t0) / 360000); bus.style.left = (6 + p * 88) + '%'; }, 1000)); setTimeout(() => (bus.style.left = '14%'), 50); },
+    final: '307 再 6 分到臺北車站，現在走到站牌剛好。' },
+];
+
+/* ---- 決策圖：資料來源 → 阿幫（你的狀況）→ 方案 ---- */
+const NS = 'http://www.w3.org/2000/svg';
+// 情境資料（天氣、路況）對應的比較項目；其他項目則亮起「勝出方案自己的資料來源」
+const CRIT_SRC = { exposure: ['weather'], delayRisk: ['traffic'], cost: ['fare'] };
+const svgEl = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); parent?.appendChild(e); return e; };
+const nestIcon = (role, x, y, size, color) => ICON[role].replace('<svg ', `<svg x="${x}" y="${y}" width="${size}" height="${size}" style="color:${color}" `);
+const roleColor = (r) => getComputedStyle(document.documentElement).getPropertyValue(`--${ROLE[r].c}`).trim() || '#0f766e';
+
+function buildGraph(panel, s) {
+  const svg = panel.querySelector('#dGraph');
+  const srcs = [...new Set(s.lines.filter(([w]) => w !== 'agent').map(([w]) => w))];
+  const W = 360, H = Math.max(250, Math.max(srcs.length, s.options.length) * 46 + 30), C = { x: 176, y: H / 2 };
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const ys = (n, i) => (n === 1 ? H / 2 : 26 + (i * (H - 52)) / (n - 1));
+  const g = { svg, C, src: {}, opt: {}, W, H };
+  const eL = svgEl('g', { class: 'edges' }, svg), nL = svgEl('g', {}, svg);
+  g.pkt = svgEl('g', {}, svg);
+  srcs.forEach((r, i) => {
+    const y = ys(srcs.length, i), x = 34, col = roleColor(r);
+    const d = `M${x + 16} ${y} C ${x + 70} ${y}, ${C.x - 80} ${C.y}, ${C.x - 30} ${C.y}`;
+    const edge = svgEl('path', { d, class: 'ge' }, eL);
+    const node = svgEl('g', { class: 'gn src', opacity: .35 }, nL);
+    svgEl('circle', { cx: x, cy: y, r: 16, fill: `var(--${ROLE[r].c}-soft)`, stroke: col, 'stroke-width': 1.5 }, node);
+    node.insertAdjacentHTML('beforeend', nestIcon(r, x - 9, y - 9, 18, col) + `<text x="${x}" y="${y + 28}" text-anchor="middle" class="gl">${ROLE[r].name}</text>`);
+    g.src[r] = { node, edge, d, x, y, col };
+  });
+  const cg = svgEl('g', { class: 'gcenter' }, nL);
+  svgEl('circle', { cx: C.x, cy: C.y, r: 30, fill: '#fff', stroke: '#0f766e', 'stroke-width': 2, class: 'ring' }, cg);
+  cg.insertAdjacentHTML('beforeend', MASCOT.think.replace('<svg ', `<svg x="${C.x - 27}" y="${C.y - 29}" width="54" height="54" `));
+  g.center = cg;
+  g.states = svgEl('g', {}, nL);
+  s.options.forEach((o, i) => {
+    const y = ys(s.options.length, i), x = 252;
+    const d = `M${C.x + 30} ${C.y} C ${C.x + 60} ${C.y}, ${x - 40} ${y}, ${x} ${y}`;
+    const edge = svgEl('path', { d, class: 'ge go', style: 'stroke-width:0' }, eL);
+    const node = svgEl('g', { class: 'gn opt', opacity: .25 }, nL);
+    svgEl('rect', { x: x - 6, y: y - 15, width: 112, height: 30, rx: 15, class: 'or' }, node);
+    svgEl('text', { x: x + 6, y: y + 4, class: 'on' }, node).textContent = o.name.length > 7 ? o.name.slice(0, 6) + '…' : o.name;
+    svgEl('text', { x: x + 98, y: y + 4, 'text-anchor': 'end', class: 'os' }, node).textContent = '';
+    g.opt[o.id] = { node, edge, d, x, y };
+  });
+  return g;
+}
+
+function packet(g, from, label, to = null) {
+  const s = g.src[from]; if (!s) return Promise.resolve();
+  const p = svgEl('g', { class: 'pk' }, g.pkt);
+  const w = Math.max(28, label.length * 11 + 12);
+  svgEl('rect', { x: -w / 2, y: -10, width: w, height: 20, rx: 10, fill: s.col }, p);
+  svgEl('text', { x: 0, y: 4, 'text-anchor': 'middle' }, p).textContent = label;
+  const m = svgEl('animateMotion', { dur: RM ? '0.01s' : '0.8s', fill: 'freeze', path: to || s.d, calcMode: 'spline', keyTimes: '0;1', keySplines: '.4 0 .2 1' }, p);
+  m.beginElement();
+  return new Promise((res) => setTimeout(() => { p.remove(); res(); }, RM ? 0 : 820));
+}
+
+async function collect(g, s, my) {
+  for (const [r, label] of Object.entries(s.packets)) {
+    if (my !== RUN) return;
+    const n = g.src[r]; if (!n) continue;
+    n.node.setAttribute('opacity', 1); n.node.classList.add('pulse'); n.edge.classList.add('live');
+    await packet(g, r, label);
+    n.node.classList.remove('pulse');
+    g.center.classList.remove('bump'); void g.center.getBBox(); g.center.classList.add('bump');
+  }
+}
+
+function drawStates(g, s, st) {
+  g.states.innerHTML = '';
+  const list = [...[...st].map((k) => ({ k, label: STATES[k].label, from: s.stateSrc?.[k] ? (s.stateFrom?.[k] || null) : null, tag: s.stateSrc?.[k] ? '自動' : '你選' })),
+    ...(s.arriveBy ? [{ k: 'arrive', label: `${s.arriveBy} 前到`, tag: '你說的' }] : [])];
+  list.forEach((it, i) => {
+    const y = g.C.y - 50 - i * 22, x = g.C.x;
+    const t = svgEl('g', { class: 'gs' }, g.states);
+    const w = it.label.length * 12 + it.tag.length * 10 + 22;
+    svgEl('rect', { x: x - w / 2, y: y - 10, width: w, height: 20, rx: 10 }, t);
+    svgEl('text', { x, y: y + 4, 'text-anchor': 'middle' }, t).innerHTML = `${it.label}<tspan dx="4" class="tg">${it.tag}</tspan>`;
+    if (it.from && g.src[it.from]) { const f = g.src[it.from]; svgEl('path', { d: `M${f.x + 16} ${f.y} Q ${x - 60} ${y} ${x - w / 2} ${y}`, class: 'glink' }, g.states); }
+  });
+}
+
+function evaluate(g, r, frac = 1) {
+  for (const o of r.ranked) {
+    const n = g.opt[o.id]; n.node.setAttribute('opacity', 1); n.node.classList.remove('out', 'win');
+    n.edge.style.strokeWidth = (1 + (o.score / 100) * 7 * frac).toFixed(1); n.edge.classList.remove('dead', 'win');
+    n.node.querySelector('.os').textContent = frac >= 1 ? o.score : '';
+  }
+  for (const o of r.excluded) { const n = g.opt[o.id]; n.node.setAttribute('opacity', 1); n.node.classList.add('out'); n.edge.style.strokeWidth = 1; n.edge.classList.add('dead'); n.node.querySelector('.os').textContent = '遲到'; }
+}
+
+function conclude(g, r) {
+  evaluate(g, r, 1);
+  Object.values(g.src).forEach((n) => { n.edge.classList.remove('why'); n.node.classList.remove('why'); });
+  g.svg.querySelectorAll('.flow').forEach((e) => e.remove());
+  if (!r.best) return;
+  const b = g.opt[r.best.id]; b.node.classList.add('win'); b.edge.classList.add('win');
+  for (const o of r.ranked.slice(1)) g.opt[o.id].node.setAttribute('opacity', .55);
+  // 理由路徑：贏在哪些項目 → 對應的資料來源亮起
+  const second = r.ranked[1];
+  const keys = second ? CRITERIA.map((c) => ({ k: c.key, d: r.best.breakdown[c.key] - second.breakdown[c.key] })).filter((x) => x.d > 0.01).sort((a, b) => b.d - a.d).slice(0, 2).map((x) => x.k) : ['minutes'];
+  const roles = new Set([r.best.role, ...keys.flatMap((k) => CRIT_SRC[k] || [])]);
+  for (const role of roles) { const n = g.src[role]; if (n) { n.edge.classList.add('why'); n.node.classList.add('why'); } }
+  // 勝出路徑上持續流動的小光點
+  if (!RM) for (let i = 0; i < 3; i++) { const dot = svgEl('circle', { r: 3, class: 'flow' }, g.pkt); svgEl('animateMotion', { dur: '1.6s', begin: `${i * 0.53}s`, repeatCount: 'indefinite', path: b.d }, dot).beginElement?.(); }
+}
+
+/* ---- 決策過程：逐項比較 → 排名 → 理由；切換狀態即時重算 ---- */
+function decisionPanel(s) {
+  const el = add(`<div class="dh"><b>阿幫在比較</b><span id="dStep">準備中…</span></div>
+    <div class="dsub">小幫手查到的資料 → 加上你的狀況 → 比較每個方案</div>
+    <svg id="dGraph" class="dgraph" role="img" aria-label="決策過程圖"></svg>
+    <div class="states" id="dStates">${Object.entries(STATES).map(([k, v]) => `<button data-k="${k}" class="${s.states.includes(k) ? 'on' : ''}">${v.label}${s.stateSrc?.[k] ? `<small>・自動：${s.stateSrc[k]}</small>` : ''}</button>`).join('')}${s.arriveBy ? `<span class="fixed">${s.arriveBy} 前到（你說的）</span>` : ''}</div>
+    <div class="dwhy" id="dWhy"></div>
+    <details class="more"><summary>看比較細節</summary>
+    <div class="clegend">${CRITERIA.map((c) => `<span><i style="background:${CCOLOR[c.key]}"></i>${c.label}</span>`).join('')}</div>
+    <div class="dopts" id="dOpts">${s.options.map((o) => `<div class="dopt" data-id="${o.id}"><span class="dn">${o.name}</span><span class="dbar">${CRITERIA.map((c) => `<i data-c="${c.key}" style="background:${CCOLOR[c.key]};width:0"></i>`).join('')}</span><span class="ds">–</span></div>`).join('')}</div>
+    </details>`, 'decide');
+  return el;
+}
+function paintDecision(panel, r, upto = CRITERIA.length) {
+  const rows = [...panel.querySelectorAll('.dopt')];
+  const first = new Map(rows.map((x) => [x.dataset.id, x.getBoundingClientRect().top]));
+  const order = [...r.ranked.map((o) => o.id), ...r.excluded.map((o) => o.id)];
+  const box = panel.querySelector('#dOpts');
+  for (const o of r.ranked) {
+    const row = box.querySelector(`[data-id="${o.id}"]`); row.classList.remove('out', 'win');
+    CRITERIA.forEach((c, i) => (row.querySelector(`[data-c="${c.key}"]`).style.width = i < upto ? (o.breakdown[c.key] * 100).toFixed(1) + '%' : '0'));
+    row.querySelector('.ds').textContent = upto >= CRITERIA.length ? o.score : '…';
+  }
+  for (const o of r.excluded) { const row = box.querySelector(`[data-id="${o.id}"]`); row.classList.add('out'); row.querySelectorAll('i').forEach((i) => (i.style.width = '0')); row.querySelector('.ds').textContent = '會遲到'; }
+  if (upto < CRITERIA.length) return;
+  order.forEach((id) => box.appendChild(box.querySelector(`[data-id="${id}"]`)));
+  for (const row of box.children) { const d = first.get(row.dataset.id) - row.getBoundingClientRect().top; if (d && !RM) row.animate([{ transform: `translateY(${d}px) rotateX(${d > 0 ? -35 : 35}deg)` }, { transform: 'translateY(0) rotateX(0)' }], { duration: 520, easing: 'cubic-bezier(.2,.8,.2,1)' }); }
+  if (r.best) box.querySelector(`[data-id="${r.best.id}"]`).classList.add('win');
+  panel.querySelector('#dWhy').innerHTML = r.reason.replace(/「(.+?)」/, '「<b>$1</b>」');
+  panel.querySelector('#dStep').textContent = '依你的狀況排序';
+}
+function resultCard(s, r) {
+  const b = r.best, alts = [...r.ranked.slice(1).map((o) => `<div><span>${o.name}</span><span>${o.minutes} 分</span></div>`), ...r.excluded.map((o) => `<div><span>${o.name}</span><span>${o.arriveAt} 到，會遲到</span></div>`)].join('');
+  return `<h4>阿幫建議</h4><div class="best"><b>${b.name}</b><span class="min">${b.minutes} 分</span></div>${legBar(b.legs)}<div class="alts">${alts}</div><div class="actions">${b.actions()}</div>`;
+}
+
+async function play(k) {
+  const my = ++RUN; timers.forEach(clearInterval); timers = []; $t.innerHTML = '';
+  document.querySelectorAll('#chips button').forEach((b, i) => b.classList.toggle('on', i === k));
+  const s = SC[k];
+  add(s.q, 'u'); await sleep(400); if (my !== RUN) return;
+  const det = document.createElement('details'); det.open = true; det.className = 'meeting'; det.innerHTML = `<summary><span>小幫手討論中…</span><span>收合</span></summary>`; $t.appendChild(det);
+  for (const [who, text] of s.lines) { await speak(det, who, text, my); if (my !== RUN) return; }
+  const tools = new Set(s.lines.filter(([w]) => w !== 'agent').map(([w]) => ROLE[w].tool));
+  const srvs = new Set(s.lines.filter(([w]) => w !== 'agent').map(([w]) => ROLE[w].src.split(' · ')[0]));
+  det.querySelector('summary span').textContent = `小幫手討論完成・${tools.size} 個工具・${srvs.size} 個 MCP`;
+  await sleep(300); det.open = false;
+  const tg = det.querySelector('summary span:last-child'); const upd = () => (tg.textContent = det.open ? '收合' : '看討論過程'); det.addEventListener('toggle', upd); upd();
+
+  let card, finalMsg;
+  if (s.options) {
+    const st = new Set(s.states);
+    const panel = decisionPanel(s);
+    const graph = buildGraph(panel, s);
+    let r = decide(s.options, { states: [...st], arriveBy: s.arriveBy });
+    const step = (t) => (panel.querySelector('#dStep').textContent = t);
+    step('① 收集資料'); await collect(graph, s, my); if (my !== RUN) return;
+    step('② 看你的狀況'); drawStates(graph, s, st); await sleep(700); if (my !== RUN) return;
+    for (let i = 1; i <= CRITERIA.length; i++) { step(`③ 比較：${CRITERIA[i - 1].label}`); evaluate(graph, r, i / CRITERIA.length); paintDecision(panel, r, i); await sleep(300); if (my !== RUN) return; }
+    step('④ 決定'); paintDecision(panel, r); conclude(graph, r); graph.center.innerHTML = graph.center.innerHTML.replace(/aria-label="阿幫（查詢中）"/, ''); 
+    panel.querySelectorAll('#dStates button').forEach((btn) => (btn.onclick = () => {
+      st.has(btn.dataset.k) ? st.delete(btn.dataset.k) : st.add(btn.dataset.k); btn.classList.toggle('on');
+      const prev = r.best?.id; r = decide(s.options, { states: [...st], arriveBy: s.arriveBy }); paintDecision(panel, r); drawStates(graph, s, st); conclude(graph, r);
+      if (!card) return; card.innerHTML = resultCard(s, r); bindActions(card); if (!RM) card.animate([{ boxShadow: '0 0 0 3px #99f6e4' }, { boxShadow: '0 0 0 0 transparent' }], { duration: 700 });
+      const on = st.has(btn.dataset.k); if (finalMsg) finalMsg.querySelector('.msg').textContent = (r.best.id !== prev ? (on ? `考慮到${STATES[btn.dataset.k].say}，改成${r.best.name}。` : `不考慮「${STATES[btn.dataset.k].label}」的話，改成${r.best.name}。`) : '') + r.best.say;
+    }));
+    await sleep(700); if (my !== RUN) return;
+    card = add(resultCard(s, r), 'result'); bindActions(card);
+    await sleep(400);
+    finalMsg = add(`<span class="av">${MASCOT.happy}</span><div><div class="who">阿幫</div><div class="msg">${r.best.say}</div></div>`, 'row agent final');
+  } else {
+    card = add(s.result(), 'result'); bindActions(card); s.after?.(card);
+    await sleep(500); if (my !== RUN) return;
+    add(`<span class="av">${MASCOT.happy}</span><div><div class="who">阿幫</div><div class="msg">${s.final}</div></div>`, 'row agent final');
+  }
+}
+function bindActions(card) { card.querySelectorAll('button[data-t]').forEach((b) => (b.onclick = () => toast(b.dataset.t))); }
+SC.forEach((s, i) => { const b = document.createElement('button'); b.textContent = s.label; b.onclick = () => play(i); document.getElementById('chips').appendChild(b); });
+play(0);
+</script>
+
+</body>
+</html>

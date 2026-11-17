@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>阿幫｜開發文件</title>
+<meta name="description" content="阿幫（A-Bang）開發文件：系統架構、開放資料來源、MCP tools、民眾 agent 與開發計畫">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNDAgMjQwIiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IumYv+W5qyBBcHAg5ZyW56S6Ij4KPHRpdGxlPumYv+W5qyBBcHAg5ZyW56S6PC90aXRsZT4KPHJlY3Qgd2lkdGg9IjI0MCIgaGVpZ2h0PSIyNDAiIHJ4PSI1MiIgZmlsbD0iI0UxRjVFRSIvPgo8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMjAgMTMwKSBzY2FsZSgxLjMpIj4KICA8Y2lyY2xlIGN4PSIwIiBjeT0iMCIgcj0iNDYiIGZpbGw9IiMzQjgyQzQiLz4KICA8cGF0aCBkPSJNLTQ2IC0yIEE0NiA0NiAwIDAgMSA0NiAtMiBRMzAgLTE0IDAgLTE0IFEtMzAgLTE0IC00NiAtMiBaIiBmaWxsPSIjMUYyQTQ0Ii8+CiAgPGVsbGlwc2UgY3g9IjAiIGN5PSIyMCIgcng9IjI4IiByeT0iMjIiIGZpbGw9IiNFQUYzRkIiLz4KICA8Y2lyY2xlIGN4PSItMTUiIGN5PSItNiIgcj0iOCIgZmlsbD0iI0ZGRiIvPjxjaXJjbGUgY3g9IjE1IiBjeT0iLTYiIHI9IjgiIGZpbGw9IiNGRkYiLz48Y2lyY2xlIGN4PSItMTMiIGN5PSItNSIgcj0iNC41IiBmaWxsPSIjMUYyQTQ0Ii8+PGNpcmNsZSBjeD0iMTciIGN5PSItNSIgcj0iNC41IiBmaWxsPSIjMUYyQTQ0Ii8+PGNpcmNsZSBjeD0iLTExLjUiIGN5PSItNyIgcj0iMS41IiBmaWxsPSIjRkZGIi8+PGNpcmNsZSBjeD0iMTguNSIgY3k9Ii03IiByPSIxLjUiIGZpbGw9IiNGRkYiLz4KICA8cGF0aCBkPSJNLTYgNCBMNiA0IEwwIDEzIFoiIGZpbGw9IiNFMjRCNEEiLz4KICA8Y2lyY2xlIGN4PSItMjciIGN5PSI4IiByPSI2IiBmaWxsPSIjRjRDMEQxIi8+PGNpcmNsZSBjeD0iMjciIGN5PSI4IiByPSI2IiBmaWxsPSIjRjRDMEQxIi8+CiAgPHBhdGggZD0iTS0yNiAtNDIgUTAgLTcwIDI2IC00MiBaIiBmaWxsPSIjMEY3NjZFIi8+PHJlY3QgeD0iLTMwIiB5PSItNDYiIHdpZHRoPSI2MCIgaGVpZ2h0PSIxMCIgcng9IjUiIGZpbGw9IiMwRjc2NkUiLz48cmVjdCB4PSIxNiIgeT0iLTQ0IiB3aWR0aD0iMjYiIGhlaWdodD0iNyIgcng9IjMuNSIgZmlsbD0iIzBGNzY2RSIvPjxjaXJjbGUgY3g9IjAiIGN5PSItNjAiIHI9IjMuNSIgZmlsbD0iI0ZCQkYyNCIvPgogIDxwYXRoIGQ9Ik0tNDQgOCBRLTY0IC02IC01OCAtMjYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzNCODJDNCIgc3Ryb2tlLXdpZHRoPSIxMCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgPHBhdGggZD0iTS0xMCA0NCBMLTEyIDU0IE0xMCA0NCBMMTIgNTQiIHN0cm9rZT0iI0UyNEI0QSIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPC9nPgo8L3N2Zz4=">
+<style>
+:root{
+  --bg:#f6f7f6;--card:#fff;--text:#16211e;--muted:#5d6b67;--faint:#8a9592;--line:#e2e7e5;
+  --brand:#0f766e;--brand-soft:#e3f2ef;--brand-ink:#fff;--code:#f0f3f2;
+  --ok:#15803d;--ok-soft:#e6f4ea;--warn:#b45309;--warn-soft:#fdf1e3;--bad:#b91c1c;--bad-soft:#fde8e8;
+  --req:#D85A30;--res:#1D9E75;
+  --g-f:#F1EFE8;--g-s:#5F5E5A;--g-t:#444441;--g-u:#5F5E5A;
+  --p-f:#EEEDFE;--p-s:#534AB7;--p-t:#3C3489;--p-u:#534AB7;
+  --t-f:#E1F5EE;--t-s:#0F6E56;--t-t:#085041;--t-u:#0F6E56;
+  --c-f:#FAECE7;--c-s:#993C1D;--c-t:#712B13;--c-u:#993C1D;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f1513;--card:#17201d;--text:#e6eeeb;--muted:#9aaba6;--faint:#6f7e7a;--line:#26322f;
+  --brand:#2dd4bf;--brand-soft:#123a35;--brand-ink:#062b26;--code:#1d2825;
+  --ok:#4ade80;--ok-soft:#133222;--warn:#fbbf24;--warn-soft:#3a2c10;--bad:#f87171;--bad-soft:#3b1717;
+  --g-f:#444441;--g-s:#B4B2A9;--g-t:#F1EFE8;--g-u:#D3D1C7;
+  --p-f:#3C3489;--p-s:#AFA9EC;--p-t:#EEEDFE;--p-u:#CECBF6;
+  --t-f:#085041;--t-s:#5DCAA5;--t-t:#E1F5EE;--t-u:#9FE1CB;
+  --c-f:#712B13;--c-s:#F0997B;--c-t:#FAECE7;--c-u:#F5C4B3;
+}}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--brand)}
+code,pre{font-family:var(--mono);font-size:13.5px}
+:not(pre)>code{background:var(--code);padding:1px 6px;border-radius:6px}
+pre{background:var(--code);border-radius:12px;padding:14px 16px;overflow-x:auto;line-height:1.6;margin:12px 0;position:relative}
+pre .copy{position:absolute;top:8px;right:8px;font:12px/1 inherit;font-family:inherit;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--muted);cursor:pointer}
+h1,h2,h3{line-height:1.35;font-weight:700}
+h2{font-size:26px;margin:0 0 6px}
+h3{font-size:18px;margin:32px 0 10px}
+p{margin:10px 0}
+.lead{color:var(--muted);margin:0 0 24px}
+header.top{position:sticky;top:0;z-index:20;height:60px;display:flex;align-items:center;gap:12px;padding:0 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.top .logo{width:32px;height:32px;border-radius:9px;background:var(--brand);display:grid;place-items:center}
+header.top b{font-size:17px}
+header.top .ver{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 9px}
+header.top .menu{margin-left:auto;display:none;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:10px;padding:6px 12px;font:inherit;font-size:14px}
+.layout{display:grid;grid-template-columns:240px minmax(0,1fr);max-width:1180px;margin:0 auto}
+nav.toc{position:sticky;top:60px;height:calc(100vh - 60px);overflow-y:auto;padding:24px 12px 24px 20px;border-right:1px solid var(--line)}
+nav.toc a{display:flex;gap:10px;align-items:baseline;padding:7px 12px;border-radius:10px;color:var(--muted);text-decoration:none;font-size:14.5px}
+nav.toc a span{font-family:var(--mono);font-size:12px;color:var(--faint);min-width:18px}
+nav.toc a:hover{background:var(--card);color:var(--text)}
+nav.toc a.on{background:var(--brand-soft);color:var(--brand);font-weight:600}
+nav.toc a.on span{color:var(--brand)}
+nav.toc .group{font-size:12px;color:var(--faint);margin:18px 12px 6px;letter-spacing:.5px}
+main{padding:32px 40px 80px;min-width:0}
+section{padding:24px 0 48px;border-bottom:1px solid var(--line)}
+section:last-child{border-bottom:0}
+.eyebrow{font-family:var(--mono);font-size:12px;color:var(--brand);letter-spacing:1px;margin-bottom:6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.grid .card h4{margin:6px 0 4px;font-size:16px}
+.grid .card p{margin:0;color:var(--muted);font-size:14.5px}
+.pill{display:inline-block;font-size:12px;padding:1px 9px;border-radius:999px;background:var(--brand-soft);color:var(--brand);font-weight:600;white-space:nowrap}
+.pill.done{background:var(--ok-soft);color:var(--ok)}
+.pill.next{background:var(--warn-soft);color:var(--warn)}
+.pill.plan{background:var(--code);color:var(--muted)}
+.tbl{overflow-x:auto;margin:12px 0;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:13px;color:var(--muted);font-weight:600;background:color-mix(in srgb,var(--code) 60%,transparent)}
+tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+.note{border-left:3px solid var(--warn);background:var(--warn-soft);padding:10px 14px;border-radius:0;margin:14px 0;font-size:14.5px}
+.note.info{border-color:var(--brand);background:var(--brand-soft)}
+.steps{counter-reset:s;list-style:none;padding:0;margin:12px 0}
+.steps li{counter-increment:s;position:relative;padding:0 0 14px 42px}
+.steps li::before{content:counter(s);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-size:14px;font-weight:700}
+/* architecture */
+.arch .sc{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+button.b{font:inherit;font-size:14px;padding:7px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer}
+button.b:hover{border-color:var(--brand)}
+button.b.on{background:var(--brand-soft);color:var(--brand);border-color:var(--brand)}
+.arch svg{width:100%;height:auto;display:block}
+.arch .ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0;font-size:13px;color:var(--muted)}
+.dotl{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px;margin-right:4px}
+.log{list-style:none;margin:0;padding:0;font-size:14px}
+.log li{display:grid;grid-template-columns:26px minmax(0,1fr);gap:8px;padding:7px 10px;border-radius:10px;color:var(--faint)}
+.log li.done{color:var(--text)}
+.log li.cur{background:var(--brand-soft);color:var(--brand)}
+.log code{font-size:12.5px;word-break:break-all;background:none;padding:0}
+.th{font-size:14px;font-weight:600}.ts{font-size:12px}
+.n-g rect{fill:var(--g-f);stroke:var(--g-s)}.n-g .th{fill:var(--g-t)}.n-g .ts{fill:var(--g-u)}
+.n-p rect{fill:var(--p-f);stroke:var(--p-s)}.n-p .th{fill:var(--p-t)}.n-p .ts{fill:var(--p-u)}
+.n-t rect{fill:var(--t-f);stroke:var(--t-s)}.n-t .th{fill:var(--t-t)}.n-t .ts{fill:var(--t-u)}
+.n-c rect{fill:var(--c-f);stroke:var(--c-s)}.n-c .th{fill:var(--c-t)}.n-c .ts{fill:var(--c-u)}
+.n-d rect{fill:none;stroke:var(--faint);stroke-dasharray:4 4}.n-d .th{fill:var(--text)}.n-d .ts{fill:var(--muted)}
+.nd{cursor:pointer}.nd rect{transition:stroke-width .2s}
+#edges path{stroke:var(--faint)}
+/* agent demo */
+.proto{width:100%;height:820px;border:1px solid var(--line);border-radius:16px;background:#f4f6f5;display:block}
+.agent-demo{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:24px;align-items:start}
+.phone{background:var(--card);border:1px solid var(--line);border-radius:28px;padding:14px;min-height:560px;display:flex;flex-direction:column}
+.phone .bar{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);padding:0 6px 10px;border-bottom:1px solid var(--line)}
+.chat{flex:1;padding:12px 4px;display:flex;flex-direction:column;gap:10px;min-height:440px}
+.bub{max-width:85%;padding:9px 13px;border-radius:16px;font-size:14.5px;line-height:1.55;animation:pop .3s ease}
+.bub.u{align-self:flex-end;background:var(--brand);color:var(--brand-ink);border-bottom-right-radius:4px}
+.bub.a{align-self:flex-start;background:var(--code);border-bottom-left-radius:4px}
+.chip{align-self:flex-start;display:flex;gap:8px;align-items:center;font-size:12.5px;font-family:var(--mono);color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 12px 4px 8px;animation:pop .3s ease}
+.chip .sp{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:spin .7s linear infinite}
+.chip.ok .sp{animation:none;border:0;width:auto;height:auto}
+.chip.ok .sp::before{content:"✓";color:var(--ok);font-weight:700}
+.mini{align-self:stretch;border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:13.5px;animation:pop .35s ease;background:var(--bg)}
+.mini h5{margin:0 0 6px;font-size:13.5px;display:flex;justify-content:space-between}
+.mini h5 span{color:var(--muted);font-weight:400;font-size:12px}
+.row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line)}
+.row:last-child{border-bottom:0}
+.row .g{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eta{font-weight:700;font-size:12.5px;padding:2px 8px;border-radius:8px;background:var(--ok-soft);color:var(--ok);min-width:64px;text-align:center;font-variant-numeric:tabular-nums}
+.eta.soon{background:var(--bad-soft);color:var(--bad)}
+.eta.mid{background:var(--warn-soft);color:var(--warn)}
+.busdot{width:9px;height:9px;border-radius:50%;background:var(--bad);box-shadow:0 0 0 3px var(--bad-soft);flex:none}
+.stopdot{width:9px;height:9px;border-radius:50%;border:2px solid var(--brand);flex:none}
+.num{font-weight:700;font-size:16px;color:var(--brand);font-variant-numeric:tabular-nums;min-width:26px;text-align:right}
+.optbar{height:8px;border-radius:4px;background:var(--brand);transition:width .8s ease}
+.suggest{display:flex;flex-wrap:wrap;gap:6px;padding-top:10px;border-top:1px solid var(--line)}
+.suggest button{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:999px;padding:5px 11px;cursor:pointer}
+.suggest button.on{border-color:var(--brand);color:var(--brand)}
+@keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+/* timeline */
+.ms{display:grid;gap:10px}
+.ms .card{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:14px;align-items:start;padding:14px 18px}
+.ms .k{font-family:var(--mono);font-weight:700;font-size:18px;color:var(--brand)}
+.ms h4{margin:0;font-size:16px}
+.ms p{margin:2px 0 0;color:var(--muted);font-size:14px}
+footer{color:var(--faint);font-size:13px;padding:24px 0}
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr}
+  nav.toc{position:fixed;top:60px;left:0;right:0;height:auto;max-height:70vh;background:var(--bg);border-bottom:1px solid var(--line);border-right:0;z-index:15;display:none;padding:12px}
+  nav.toc.open{display:block}
+  header.top .menu{display:block}
+  main{padding:20px 18px 60px}
+  .agent-demo{grid-template-columns:1fr}
+  #builder{grid-template-columns:1fr!important}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="logo" style="background:none"><svg width="32" height="32" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="阿幫 App 圖示">
+<title>阿幫 App 圖示</title>
+<rect width="240" height="240" rx="52" fill="#E1F5EE"/>
+<g transform="translate(120 130) scale(1.3)">
+  <circle cx="0" cy="0" r="46" fill="#3B82C4"/>
+  <path d="M-46 -2 A46 46 0 0 1 46 -2 Q30 -14 0 -14 Q-30 -14 -46 -2 Z" fill="#1F2A44"/>
+  <ellipse cx="0" cy="20" rx="28" ry="22" fill="#EAF3FB"/>
+  <circle cx="-15" cy="-6" r="8" fill="#FFF"/><circle cx="15" cy="-6" r="8" fill="#FFF"/><circle cx="-13" cy="-5" r="4.5" fill="#1F2A44"/><circle cx="17" cy="-5" r="4.5" fill="#1F2A44"/><circle cx="-11.5" cy="-7" r="1.5" fill="#FFF"/><circle cx="18.5" cy="-7" r="1.5" fill="#FFF"/>
+  <path d="M-6 4 L6 4 L0 13 Z" fill="#E24B4A"/>
+  <circle cx="-27" cy="8" r="6" fill="#F4C0D1"/><circle cx="27" cy="8" r="6" fill="#F4C0D1"/>
+  <path d="M-26 -42 Q0 -70 26 -42 Z" fill="#0F766E"/><rect x="-30" y="-46" width="60" height="10" rx="5" fill="#0F766E"/><rect x="16" y="-44" width="26" height="7" rx="3.5" fill="#0F766E"/><circle cx="0" cy="-60" r="3.5" fill="#FBBF24"/>
+  <path d="M-44 8 Q-64 -6 -58 -26" fill="none" stroke="#3B82C4" stroke-width="10" stroke-linecap="round"/>
+  <path d="M-10 44 L-12 54 M10 44 L12 54" stroke="#E24B4A" stroke-width="4" stroke-linecap="round"/>
+</g>
+</svg></div>
+  <b>阿幫</b><span class="ver">開發文件 v0.4</span>
+  <button class="menu" id="menu" aria-expanded="false" aria-controls="toc">章節</button>
+</header>
+<div class="layout">
+<nav class="toc" id="toc" aria-label="章節">
+  <div class="group">認識專案</div>
+  <a href="#overview"><span>01</span>專案概覽</a>
+  <a href="#brand"><span>02</span>品牌與設計</a>
+  <a href="#architecture"><span>03</span>系統架構</a>
+  <a href="#open-data"><span>04</span>Open Data 來源與使用</a>
+  <div class="group">Agent 產品線</div>
+  <a href="#agents"><span>05</span>Agent 產品線</a>
+  <a href="#agent"><span>06</span>阿幫・生活</a>
+  <a href="#antifraud"><span>07</span>阿幫・防詐</a>
+  <a href="#sme"><span>08</span>阿幫・開業</a>
+  <a href="#gov"><span>09</span>強化政府效率</a>
+  <div class="group">願景</div>
+  <a href="#platform"><span>10</span>阿幫平台（下一階段）</a>
+  <div class="group">技術與開發</div>
+  <a href="#mcp"><span>11</span>MCP tools</a>
+  <a href="#roadmap"><span>12</span>開發計畫</a>
+  <a href="#handoff"><span>13</span>GitHub 與 Claude Code</a>
+  <a href="#docs"><span>14</span>文件索引</a>
+</nav>
+<main>
+
+<section id="overview">
+  <div class="eyebrow">01 · OVERVIEW</div>
+  <h2>專案概覽</h2>
+  <p class="lead">阿幫是串接台灣政府開放資料的 AI 助手。第一階段聚焦大眾交通，網頁優先：一組可被任何 AI agent 使用的交通 MCP tools，加上一個會「找小幫手討論、依你的狀況做決定」的民眾網頁 agent。</p>
+  <div class="grid">
+    <div class="card"><span class="pill">民眾</span><h4>網頁 agent</h4><p>一句話問交通，不需要 Claude 帳號。看得到小幫手討論與決策圖，結論卡片可直接導航、訂票、叫車。</p></div>
+    <div class="card"><span class="pill">Claude 使用者</span><h4>遠端 MCP 連接器</h4><p>在 Claude 加入自訂連接器 <code>/mcp</code>，就能查公車、YouBike、高鐵台鐵、規劃行程，卡片一樣能互動。</p></div>
+    <div class="card"><span class="pill">開發者</span><h4>開放的 MCP server</h4><p>stdio 或 HTTP 接入自己的 agent；工具依工具包（pack）與風險分級（tier）組合。</p></div>
+  </div>
+  <h3>目前狀態（v0.4，2026-11-17）</h3>
+  <div class="tbl"><table>
+    <tr><th>項目</th><th>狀態</th><th>說明</th></tr>
+    <tr><td>共用核心、示範資料、PWA</td><td><span class="pill done">M0 完成</span></td><td>TDX token 與回應快取；公車、YouBike、高鐵、台鐵；附近、路線、時刻表、收藏</td></tr>
+    <tr><td>Tool registry、遠端 MCP、REST tools、限流</td><td><span class="pill done">M2 完成</span></td><td>8 個 tools（含 <code>speak</code>）、<code>/mcp</code>、<code>/mcp/:pack</code>；24 項測試通過；Claude 實機連線待本機驗證</td></tr>
+    <tr><td>決策引擎 <code>core/decide.js</code></td><td><span class="pill done">完成</span></td><td>資料＋使用者狀態 → 排序、排除、理由句（ADR-0010）</td></tr>
+    <tr><td>討論串＋決策圖原型</td><td><span class="pill done">完成</span></td><td>4 個情境，見「阿幫・生活」</td></tr>
+    <tr><td>交通完整版（捷運、地點、路況、天氣、客運、票價、行程、導航、訂票、叫車）</td><td><span class="pill next">下一步 M3</span></td><td>以 mock＋TDX 形狀 fixture 先開發</td></tr>
+    <tr><td>TDX 真實資料驗證</td><td><span class="pill next">M1 需金鑰</span></td><td>只能在本機執行；可與 M3 並行</td></tr>
+    <tr><td>互動卡片、網頁 agent、上線</td><td><span class="pill plan">M4–M6</span></td><td>規格已定：<code>CARDS.md</code>、<code>AGENT.md</code>、<code>UX.md</code></td></tr>
+  </table></div>
+</section>
+
+<section id="brand">
+  <div class="eyebrow">02 · BRAND</div>
+  <h2>品牌與設計</h2>
+  <p class="lead">品牌名稱是「阿幫」（A-Bang），吉祥物是一隻圓滾滾的台灣藍鵲：戴著青綠色鴨舌帽，背著小背包，背包上的徽章就是一個個工具包。完整規範見 <code>docs/BRAND.md</code>。</p>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))"><div class="card" style="text-align:center;padding:12px"><svg width="140" height="140" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="阿幫（預設：揮手）">
+<title>阿幫（預設：揮手）</title>
+<g transform="translate(118 124) scale(1.25)">
+  <path d="M24 20 Q50 30 60 54 L49 59 Q40 40 18 31 Z" fill="#2E6FB7"/>
+  <path d="M60 54 L49 59 L54 68 L65 63 Z" fill="#FFFFFF" stroke="#2E6FB7" stroke-width="1.5"/>
+  <rect x="34" y="-10" width="28" height="38" rx="9" fill="#0F766E"/><rect x="44" y="-3" width="14" height="9" rx="3" fill="#E1F5EE"/><circle cx="49" cy="16" r="3.5" fill="#FBBF24"/><circle cx="57" cy="22" r="3.5" fill="#F0997B"/>
+  <circle cx="0" cy="0" r="46" fill="#3B82C4"/>
+  <path d="M-46 -2 A46 46 0 0 1 46 -2 Q30 -14 0 -14 Q-30 -14 -46 -2 Z" fill="#1F2A44"/>
+  <ellipse cx="0" cy="20" rx="28" ry="22" fill="#EAF3FB"/>
+  <circle cx="-15" cy="-6" r="8" fill="#FFF"/><circle cx="15" cy="-6" r="8" fill="#FFF"/><circle cx="-13" cy="-5" r="4.5" fill="#1F2A44"/><circle cx="17" cy="-5" r="4.5" fill="#1F2A44"/><circle cx="-11.5" cy="-7" r="1.5" fill="#FFF"/><circle cx="18.5" cy="-7" r="1.5" fill="#FFF"/>
+  <path d="M-6 4 L6 4 L0 13 Z" fill="#E24B4A"/>
+  <circle cx="-27" cy="8" r="6" fill="#F4C0D1"/><circle cx="27" cy="8" r="6" fill="#F4C0D1"/>
+  <path d="M-26 -42 Q0 -70 26 -42 Z" fill="#0F766E"/><rect x="-30" y="-46" width="60" height="10" rx="5" fill="#0F766E"/><rect x="16" y="-44" width="26" height="7" rx="3.5" fill="#0F766E"/><circle cx="0" cy="-60" r="3.5" fill="#FBBF24"/>
+  <path d="M-44 8 Q-64 -6 -58 -26" fill="none" stroke="#3B82C4" stroke-width="10" stroke-linecap="round"/>
+  <path d="M-10 44 L-12 54 M10 44 L12 54" stroke="#E24B4A" stroke-width="4" stroke-linecap="round"/>
+</g>
+</svg><div style="font-weight:600;margin-top:4px">揮手</div><div style="font-size:12.5px;color:var(--muted)">首頁、歡迎<br><code>abang-default.svg</code></div></div><div class="card" style="text-align:center;padding:12px"><svg width="140" height="140" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="阿幫（查詢中）">
+<title>阿幫（查詢中）</title>
+<g transform="translate(118 124) scale(1.25)">
+  <path d="M24 20 Q50 30 60 54 L49 59 Q40 40 18 31 Z" fill="#2E6FB7"/>
+  <path d="M60 54 L49 59 L54 68 L65 63 Z" fill="#FFFFFF" stroke="#2E6FB7" stroke-width="1.5"/>
+  <rect x="34" y="-10" width="28" height="38" rx="9" fill="#0F766E"/><rect x="44" y="-3" width="14" height="9" rx="3" fill="#E1F5EE"/><circle cx="49" cy="16" r="3.5" fill="#FBBF24"/><circle cx="57" cy="22" r="3.5" fill="#F0997B"/>
+  <circle cx="0" cy="0" r="46" fill="#3B82C4"/>
+  <path d="M-46 -2 A46 46 0 0 1 46 -2 Q30 -14 0 -14 Q-30 -14 -46 -2 Z" fill="#1F2A44"/>
+  <ellipse cx="0" cy="20" rx="28" ry="22" fill="#EAF3FB"/>
+  <circle cx="-15" cy="-6" r="8" fill="#FFF"/><circle cx="15" cy="-6" r="8" fill="#FFF"/><circle cx="-12" cy="-9" r="4.5" fill="#1F2A44"/><circle cx="18" cy="-9" r="4.5" fill="#1F2A44"/><circle cx="-58" cy="-44" r="4" fill="#1F2A44" opacity=".35"/><circle cx="-68" cy="-58" r="6" fill="#1F2A44" opacity=".35"/>
+  <path d="M-6 4 L6 4 L0 13 Z" fill="#E24B4A"/>
+  <circle cx="-27" cy="8" r="6" fill="#F4C0D1"/><circle cx="27" cy="8" r="6" fill="#F4C0D1"/>
+  <path d="M-26 -42 Q0 -70 26 -42 Z" fill="#0F766E"/><rect x="-30" y="-46" width="60" height="10" rx="5" fill="#0F766E"/><rect x="16" y="-44" width="26" height="7" rx="3.5" fill="#0F766E"/><circle cx="0" cy="-60" r="3.5" fill="#FBBF24"/>
+  <path d="M-42 10 Q-54 20 -46 32" fill="none" stroke="#3B82C4" stroke-width="10" stroke-linecap="round"/>
+  <path d="M-10 44 L-12 54 M10 44 L12 54" stroke="#E24B4A" stroke-width="4" stroke-linecap="round"/>
+</g>
+</svg><div style="font-weight:600;margin-top:4px">查詢中</div><div style="font-size:12.5px;color:var(--muted)">工具呼叫、載入<br><code>abang-think.svg</code></div></div><div class="card" style="text-align:center;padding:12px"><svg width="140" height="140" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="阿幫（開心）">
+<title>阿幫（開心）</title>
+<g transform="translate(118 124) scale(1.25)">
+  <path d="M24 20 Q50 30 60 54 L49 59 Q40 40 18 31 Z" fill="#2E6FB7"/>
+  <path d="M60 54 L49 59 L54 68 L65 63 Z" fill="#FFFFFF" stroke="#2E6FB7" stroke-width="1.5"/>
+  <rect x="34" y="-10" width="28" height="38" rx="9" fill="#0F766E"/><rect x="44" y="-3" width="14" height="9" rx="3" fill="#E1F5EE"/><circle cx="49" cy="16" r="3.5" fill="#FBBF24"/><circle cx="57" cy="22" r="3.5" fill="#F0997B"/>
+  <circle cx="0" cy="0" r="46" fill="#3B82C4"/>
+  <path d="M-46 -2 A46 46 0 0 1 46 -2 Q30 -14 0 -14 Q-30 -14 -46 -2 Z" fill="#1F2A44"/>
+  <ellipse cx="0" cy="20" rx="28" ry="22" fill="#EAF3FB"/>
+  <path d="M-21 -6 Q-15 -12 -9 -6" fill="none" stroke="#FFF" stroke-width="3" stroke-linecap="round"/><path d="M9 -6 Q15 -12 21 -6" fill="none" stroke="#FFF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M-6 4 L6 4 L0 13 Z" fill="#E24B4A"/>
+  <circle cx="-27" cy="8" r="6" fill="#F4C0D1"/><circle cx="27" cy="8" r="6" fill="#F4C0D1"/>
+  <path d="M-26 -42 Q0 -70 26 -42 Z" fill="#0F766E"/><rect x="-30" y="-46" width="60" height="10" rx="5" fill="#0F766E"/><rect x="16" y="-44" width="26" height="7" rx="3.5" fill="#0F766E"/><circle cx="0" cy="-60" r="3.5" fill="#FBBF24"/>
+  <path d="M-42 10 Q-54 20 -46 32" fill="none" stroke="#3B82C4" stroke-width="10" stroke-linecap="round"/>
+  <path d="M-10 44 L-12 54 M10 44 L12 54" stroke="#E24B4A" stroke-width="4" stroke-linecap="round"/>
+</g>
+</svg><div style="font-weight:600;margin-top:4px">開心</div><div style="font-size:12.5px;color:var(--muted)">完成、成功<br><code>abang-happy.svg</code></div></div><div class="card" style="text-align:center;padding:12px"><svg width="140" height="140" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="阿幫 App 圖示">
+<title>阿幫 App 圖示</title>
+<rect width="240" height="240" rx="52" fill="#E1F5EE"/>
+<g transform="translate(120 130) scale(1.3)">
+  <circle cx="0" cy="0" r="46" fill="#3B82C4"/>
+  <path d="M-46 -2 A46 46 0 0 1 46 -2 Q30 -14 0 -14 Q-30 -14 -46 -2 Z" fill="#1F2A44"/>
+  <ellipse cx="0" cy="20" rx="28" ry="22" fill="#EAF3FB"/>
+  <circle cx="-15" cy="-6" r="8" fill="#FFF"/><circle cx="15" cy="-6" r="8" fill="#FFF"/><circle cx="-13" cy="-5" r="4.5" fill="#1F2A44"/><circle cx="17" cy="-5" r="4.5" fill="#1F2A44"/><circle cx="-11.5" cy="-7" r="1.5" fill="#FFF"/><circle cx="18.5" cy="-7" r="1.5" fill="#FFF"/>
+  <path d="M-6 4 L6 4 L0 13 Z" fill="#E24B4A"/>
+  <circle cx="-27" cy="8" r="6" fill="#F4C0D1"/><circle cx="27" cy="8" r="6" fill="#F4C0D1"/>
+  <path d="M-26 -42 Q0 -70 26 -42 Z" fill="#0F766E"/><rect x="-30" y="-46" width="60" height="10" rx="5" fill="#0F766E"/><rect x="16" y="-44" width="26" height="7" rx="3.5" fill="#0F766E"/><circle cx="0" cy="-60" r="3.5" fill="#FBBF24"/>
+  <path d="M-44 8 Q-64 -6 -58 -26" fill="none" stroke="#3B82C4" stroke-width="10" stroke-linecap="round"/>
+  <path d="M-10 44 L-12 54 M10 44 L12 54" stroke="#E24B4A" stroke-width="4" stroke-linecap="round"/>
+</g>
+</svg><div style="font-weight:600;margin-top:4px">App 圖示</div><div style="font-size:12.5px;color:var(--muted)">PWA、favicon<br><code>icon.svg</code></div></div></div>
+  <p style="font-size:13px;color:var(--faint)">目前為示意草圖，由 <code>scripts/build-brand.py</code> 產生；正式版請插畫師依本規範重繪。</p>
+
+  <h3>名稱與系列</h3>
+  <div class="tbl"><table>
+    <tr><th>用途</th><th>中文</th><th>英文</th></tr>
+    <tr><td>品牌</td><td><b>阿幫</b></td><td><b>A-Bang</b>（不寫 Abang、BangBang）</td></tr>
+    <tr><td>口號</td><td>有事問阿幫・阿幫報你知</td><td>Ask A-Bang</td></tr>
+    <tr><td>生活（交通）</td><td>阿幫・生活</td><td>A-Bang Life</td></tr>
+    <tr><td>反詐騙</td><td>阿幫・防詐</td><td>A-Bang Anti-Scam</td></tr>
+    <tr><td>中小企業</td><td>阿幫・開業</td><td>A-Bang Biz</td></tr>
+    <tr><td>旅客（M9）</td><td>阿幫・旅遊</td><td>A-Bang Travel</td></tr>
+    <tr><td>程式、repo</td><td colspan="2"><code>abang</code></td></tr>
+  </table></div>
+
+  <h3>色彩</h3>
+  <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))"><div style="display:flex;gap:10px;align-items:center"><span style="width:36px;height:36px;border-radius:10px;background:#0F766E;border:1px solid var(--line);flex:none"></span><span style="font-size:14px"><b>品牌青</b> <code>#0F766E</code><br><span style="color:var(--muted);font-size:12.5px">UI 主色、帽子、背包</span></span></div><div style="display:flex;gap:10px;align-items:center"><span style="width:36px;height:36px;border-radius:10px;background:#E1F5EE;border:1px solid var(--line);flex:none"></span><span style="font-size:14px"><b>薄荷</b> <code>#E1F5EE</code><br><span style="color:var(--muted);font-size:12.5px">淺底、圖示底</span></span></div><div style="display:flex;gap:10px;align-items:center"><span style="width:36px;height:36px;border-radius:10px;background:#3B82C4;border:1px solid var(--line);flex:none"></span><span style="font-size:14px"><b>藍鵲藍</b> <code>#3B82C4</code><br><span style="color:var(--muted);font-size:12.5px">吉祥物身體</span></span></div><div style="display:flex;gap:10px;align-items:center"><span style="width:36px;height:36px;border-radius:10px;background:#2E6FB7;border:1px solid var(--line);flex:none"></span><span style="font-size:14px"><b>尾羽藍</b> <code>#2E6FB7</code><br><span style="color:var(--muted);font-size:12.5px">尾巴</span></span></div><div style="display:flex;gap:10px;align-items:center"><span style="width:36px;height:36px;border-radius:10px;background:#1F2A44;border:1px solid var(--line);flex:none"></span><span style="font-size:14px"><b>夜藍</b> <code>#1F2A44</code><br><span style="color:var(--muted);font-size:12.5px">頭部、深色文字</span></span></div><div style="display:flex;gap:10px;align-items:center"><span style="width:36px;height:36px;border-radius:10px;background:#E24B4A;border:1px solid var(--line);flex:none"></span><span style="font-size:14px"><b>喙腳紅</b> <code>#E24B4A</code><br><span style="color:var(--muted);font-size:12.5px">嘴與腳；UI 僅警示</span></span></div><div style="display:flex;gap:10px;align-items:center"><span style="width:36px;height:36px;border-radius:10px;background:#F4C0D1;border:1px solid var(--line);flex:none"></span><span style="font-size:14px"><b>腮紅粉</b> <code>#F4C0D1</code><br><span style="color:var(--muted);font-size:12.5px">腮紅</span></span></div><div style="display:flex;gap:10px;align-items:center"><span style="width:36px;height:36px;border-radius:10px;background:#FBBF24;border:1px solid var(--line);flex:none"></span><span style="font-size:14px"><b>鈕扣黃</b> <code>#FBBF24</code><br><span style="color:var(--muted);font-size:12.5px">點綴、徽章</span></span></div></div>
+
+  <h3>語氣</h3>
+  <div class="tbl"><table>
+    <tr><th>要</th><th>不要</th></tr>
+    <tr><td>先講結論：「307 再 3 分鐘到。」</td><td>「根據系統查詢結果顯示，307 公車預計將於…」</td></tr>
+    <tr><td>口語、短句、適量台灣用語（報你知）</td><td>流行語堆疊、過度撒嬌、整句台語</td></tr>
+    <tr><td>不確定就說，並給官方管道</td><td>臆測或保證（「這一定安全」）</td></tr>
+    <tr><td>對長輩友善：字大、步驟清楚</td><td>縮寫、英文術語</td></tr>
+  </table></div>
+
+  <h3>使用規則</h3>
+  <ul>
+    <li>不要拿掉帽子或背包、不要拉伸變形、不要改主色。</li>
+    <li>不要改成熊（避開觀光署「喔熊」等既有角色）。</li>
+    <li>吉祥物也要守護欄：不說保證性的話。</li>
+  </ul>
+  <div class="note">商標：「阿幫」是常見暱稱，純文字商標可能較難核准。建議以「阿幫＋藍鵲圖形」申請組合商標，類別 9、35、42（電信結合時評估 38）；正式使用前查智慧局、網域、App 商店與 GitHub 名稱。</div>
+</section>
+
+<section id="architecture" class="arch">
+  <div class="eyebrow">03 · ARCHITECTURE</div>
+  <h2>系統架構</h2>
+  <p class="lead">一個核心、多個出口、多個 agent。所有資料存取、工具定義、決策邏輯都在 <code>core/</code>；網頁、MCP、App 只是出口。選一個情境按「播放」看請求怎麼走；點任一方塊看它負責什麼。虛線為下一階段。</p>
+  <div class="sc" id="sc"></div>
+  <div class="card" style="padding:12px">
+  <svg viewBox="0 0 680 560" role="img" aria-labelledby="archT archD"><title id="archT">系統架構與請求流程</title><desc id="archD">Claude、民眾網頁、App 經 MCP 出口或 HTTP 伺服器進入共用核心：agent 執行環境、tool registry、決策引擎、服務、providers、資料 client，再存取 TDX、氣象署、TDX 官方 MCP 與官方網站連結。</desc>
+  <g id="edges" fill="none" stroke-width="1"></g>
+  <g class="nd n-g" data-id="agent"><rect x="30" y="24" width="200" height="52" rx="8" stroke-width="0.6"/><text class="th" x="130" y="46" text-anchor="middle">Claude／AI agent</text><text class="ts" x="130" y="64" text-anchor="middle">自訂連接器・stdio</text></g>
+  <g class="nd n-g" data-id="pwa"><rect x="240" y="24" width="200" height="52" rx="8" stroke-width="0.6"/><text class="th" x="340" y="46" text-anchor="middle">民眾網頁 agent</text><text class="ts" x="340" y="64" text-anchor="middle">討論串・決策圖・卡片</text></g>
+  <g class="nd n-d" data-id="app"><rect x="450" y="24" width="200" height="52" rx="8" stroke-width="0.6"/><text class="th" x="550" y="46" text-anchor="middle">iOS／Android／LINE</text><text class="ts" x="550" y="64" text-anchor="middle">同一 agent API（下一階段）</text></g>
+  <g class="nd n-p" data-id="mcp"><rect x="30" y="116" width="300" height="52" rx="8" stroke-width="0.6"/><text class="th" x="180" y="138" text-anchor="middle">MCP 出口</text><text class="ts" x="180" y="156" text-anchor="middle">mcp/ · /mcp · /mcp/:pack · ui:// 卡片</text></g>
+  <g class="nd n-p" data-id="http"><rect x="350" y="116" width="300" height="52" rx="8" stroke-width="0.6"/><text class="th" x="500" y="138" text-anchor="middle">HTTP 伺服器</text><text class="ts" x="500" y="156" text-anchor="middle">/api/v1/agent · /api/v1/tools · 限流</text></g>
+  <g class="n-t"><rect x="20" y="194" width="640" height="252" rx="20" stroke-width="0.6"/><text class="th" x="44" y="220">core/ 共用核心</text><text class="ts" x="166" y="220">唯一的資料與邏輯層</text></g>
+  <g class="nd n-c" data-id="decide"><rect x="40" y="236" width="190" height="52" rx="8" stroke-width="0.6"/><text class="th" x="135" y="258" text-anchor="middle">決策引擎</text><text class="ts" x="135" y="276" text-anchor="middle">core/decide.js</text></g>
+  <g class="nd n-p" data-id="tools"><rect x="245" y="236" width="190" height="52" rx="8" stroke-width="0.6"/><text class="th" x="340" y="258" text-anchor="middle">Tool registry</text><text class="ts" x="340" y="276" text-anchor="middle">core/tools · pack · tier · speak</text></g>
+  <g class="nd n-p" data-id="agentrt"><rect x="450" y="236" width="190" height="52" rx="8" stroke-width="0.6"/><text class="th" x="545" y="258" text-anchor="middle">agent 執行環境</text><text class="ts" x="545" y="276" text-anchor="middle">core/agent · 事件串流</text></g>
+  <g class="nd n-g" data-id="mock"><rect x="40" y="310" width="190" height="52" rx="8" stroke-width="0.6"/><text class="th" x="135" y="332" text-anchor="middle">示範資料</text><text class="ts" x="135" y="350" text-anchor="middle">*-mock.js</text></g>
+  <g class="nd n-p" data-id="services"><rect x="245" y="310" width="190" height="52" rx="8" stroke-width="0.6"/><text class="th" x="340" y="332" text-anchor="middle">服務</text><text class="ts" x="340" y="350" text-anchor="middle">core/services</text></g>
+  <g class="nd n-p" data-id="providers"><rect x="450" y="310" width="190" height="52" rx="8" stroke-width="0.6"/><text class="th" x="545" y="332" text-anchor="middle">providers</text><text class="ts" x="545" y="350" text-anchor="middle">叫車・外部 MCP</text></g>
+  <g class="nd n-p" data-id="client"><rect x="245" y="382" width="190" height="52" rx="8" stroke-width="0.6"/><text class="th" x="340" y="404" text-anchor="middle">資料 client</text><text class="ts" x="340" y="422" text-anchor="middle">TDX・氣象署 token／快取</text></g>
+  <g class="nd n-c" data-id="cwa"><rect x="20" y="490" width="150" height="52" rx="8" stroke-width="0.6"/><text class="th" x="95" y="512" text-anchor="middle">中央氣象署</text><text class="ts" x="95" y="530" text-anchor="middle">天氣・自動狀態</text></g>
+  <g class="nd n-c" data-id="tdx"><rect x="185" y="490" width="150" height="52" rx="8" stroke-width="0.6"/><text class="th" x="260" y="512" text-anchor="middle">交通部 TDX</text><text class="ts" x="260" y="530" text-anchor="middle">公車・軌道・路況</text></g>
+  <g class="nd n-d" data-id="tdxmcp"><rect x="350" y="490" width="150" height="52" rx="8" stroke-width="0.6"/><text class="th" x="425" y="512" text-anchor="middle">TDX 官方 MCP</text><text class="ts" x="425" y="530" text-anchor="middle">導訂票・道路事件</text></g>
+  <g class="nd n-d" data-id="links"><rect x="515" y="490" width="145" height="52" rx="8" stroke-width="0.6"/><text class="th" x="587.5" y="512" text-anchor="middle">官方網站／App</text><text class="ts" x="587.5" y="530" text-anchor="middle">地圖・訂票・叫車</text></g>
+  <path id="trail" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle id="dot" r="7" opacity="0"/>
+  </svg>
+  </div>
+  <div class="ctl">
+    <button class="b" id="play">播放</button><button class="b" id="next">下一步</button><button class="b" id="reset">重設</button>
+    <span style="margin-left:auto"><span class="dotl" style="background:var(--req)"></span>請求　<span class="dotl" style="background:var(--res)"></span>回應</span>
+  </div>
+  <ol class="log" id="log"></ol>
+  <div class="card" id="info" style="margin-top:12px;color:var(--muted);font-size:14.5px">點擊圖中任一方塊，查看它負責什麼。</div>
+
+
+  <h3>多端彈性：Web、iOS、Android 都能用同一套 MCP</h3>
+  <p>MCP 只是「工具的標準介面」，不綁定前端。核心與工具只有一份，各端用最適合的方式接入：</p>
+  <div class="tbl"><table>
+    <tr><th>接入方式</th><th>適用</th><th>工具在哪執行</th><th>卡片怎麼顯示</th></tr>
+    <tr><td><b>呼叫 agent API</b>（<code>/api/v1/agent</code>，NDJSON 事件）</td><td>網頁、iOS、Android、LINE 的預設做法</td><td>伺服器</td><td>網頁直接渲染；App 用 WebView 顯示 HTML 卡片，或依卡片資料契約做原生畫面</td></tr>
+    <tr><td><b>App 當 MCP client</b>（連遠端 <code>/mcp</code>）</td><td>App 自己組 agent、裝置端模型</td><td>伺服器</td><td>App 依 <code>structuredContent</code> 渲染</td></tr>
+    <tr><td><b>裝置端工具</b></td><td>定位、行事曆、提醒、通知、相機</td><td>手機（agent 透過事件請 App 代為執行）</td><td>—</td></tr>
+    <tr><td><b>系統整合</b></td><td>Siri 捷徑／App Intents、Android 小工具與 App Actions、主畫面到站小工具</td><td>伺服器（REST）</td><td>系統原生 UI</td></tr>
+    <tr><td><b>快速上架</b></td><td>先把 PWA 包成 App（Android TWA、iOS 以 WebView 殼）</td><td>伺服器</td><td>同網頁</td></tr>
+  </table></div>
+  <div class="note info">保持彈性的兩個契約（ADR-0008）：<b>① 卡片資料契約</b>：每種卡片的 <code>structuredContent</code> 有版本化 JSON Schema，HTML 卡片與原生畫面都依它渲染；<b>② agent 事件協定</b>：預留 <code>client_tool_call</code> / <code>client_tool_result</code>，讓 App 執行裝置端工具。行動 App 本身排在上線之後，現在只預留。</div>
+
+  <h3>分層職責</h3>
+  <div class="tbl"><table>
+    <tr><th>層</th><th>路徑</th><th>職責</th><th>狀態</th></tr>
+    <tr><td>資料 client</td><td><code>core/tdx-client.js</code></td><td>OIDC token 快取、回應快取、401 重試、429 處理</td><td><span class="pill done">完成</span></td></tr>
+    <tr><td>服務</td><td><code>core/services/</code></td><td>正規化成共用格式；每個服務都有 mock</td><td><span class="pill done">transit</span> <span class="pill plan">M3 其他</span></td></tr>
+    <tr><td>Tool registry</td><td><code>core/tools/</code></td><td>tool 只定義一次；<code>pack</code>、<code>tier</code>、<code>speak</code></td><td><span class="pill done">完成</span></td></tr>
+    <tr><td>決策引擎</td><td><code>core/decide.js</code></td><td>資料＋使用者狀態 → 排序、排除、理由句</td><td><span class="pill done">完成</span></td></tr>
+    <tr><td>providers</td><td><code>core/providers/</code></td><td>叫車 adapter、外部 MCP（TDX 官方）</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td>Agent</td><td><code>core/agent/</code>、<code>core/agents/*.json</code></td><td>Claude 迴圈、示範意圖、事件串流、狀態合併；agent profile</td><td><span class="pill plan">M5</span></td></tr>
+    <tr><td>出口</td><td><code>server/</code>、<code>mcp/</code></td><td>REST、遠端 MCP、agent API、限流；不放商業邏輯</td><td><span class="pill done">完成</span></td></tr>
+    <tr><td>卡片</td><td><code>public/ui/cards/</code></td><td>依資料契約渲染，網頁與 MCP Apps 共用</td><td><span class="pill plan">M4</span></td></tr>
+  </table></div>
+  <h3>一次「阿幫・生活」對話的事件</h3>
+<pre><code>{"type":"status","mode":"demo","profile":"life"}
+{"type":"agent_note","text":"我請 @地點 @天氣 @公車 @YouBike 一起看看"}
+{"type":"tool_start","id":"t2","name":"weather_now","role":"天氣","server":"abang","pack":"weather","tier":"L1"}
+{"type":"tool_result","id":"t2","ok":true,"speak":"中正區現在下雨，3 小時降雨機率 80%。","metrics":{"scanned":1,"cacheHit":false,"ms":120}}
+{"type":"discussion_end","tools":5,"servers":1}
+{"type":"decision","states":[{"key":"rain","source":"auto","from":"weather_now"}],"ranked":[…],"excluded":[],"reason":"選「公車 307」：因為正在下雨，…"}
+{"type":"text","delta":"建議搭 307，3 分鐘後出門剛好。要我提醒你嗎？"}
+{"type":"done"}</code></pre>
+  <div class="note info">設計原則：金鑰只在伺服器、每個服務都有 mock、新端點必設 TTL、工具發言 <code>speak</code> 由資料產生不經模型、排序一律走 <code>decide.js</code>、行動類只產生官方連結。完整規則見 <code>CLAUDE.md</code>（12 條）與 <code>docs/ARCHITECTURE.md</code>。</div>
+</section>
+
+<section id="open-data">
+  <div class="eyebrow">04 · OPEN DATA</div>
+  <h2>Open Data 來源與使用方式</h2>
+  <p class="lead">交通資料來自交通部 TDX 運輸資料流通服務；決策用的天氣來自中央氣象署；導航、訂票、叫車用官方深層連結。完整清單見 <code>docs/DATA_SOURCES.md</code>。</p>
+
+  <h3>申請 TDX 金鑰</h3>
+  <ol class="steps">
+    <li>到 <a href="https://tdx.transportdata.tw/register" rel="noopener">TDX 官網</a>註冊會員並完成 Email 驗證，等待管理員審核。</li>
+    <li>登入後到「會員中心 → API 金鑰」取得 <b>Client Id</b> 與 <b>Client Secret</b>（最多 3 組）。</li>
+    <li>放進專案根目錄的 <code>.env</code>（不要進版控）：<pre><code>TDX_CLIENT_ID=你的ID
+TDX_CLIENT_SECRET=你的Secret</code></pre></li>
+    <li>執行 <code>npm start</code>，畫面上方的「示範模式」提示消失即代表已使用真實資料。</li>
+  </ol>
+
+  <h3>認證方式</h3>
+  <p>TDX 使用 OIDC Client Credentials：先換 Access Token（有效 24 小時），之後每次呼叫帶 <code>Authorization: Bearer</code>。專案已在 <code>core/tdx-client.js</code> 實作快取與到期前自動換新。</p>
+<pre><code>curl -X POST https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token \
+  -H 'content-type: application/x-www-form-urlencoded' \
+  -d grant_type=client_credentials -d client_id=$TDX_CLIENT_ID -d client_secret=$TDX_CLIENT_SECRET</code></pre>
+
+  <h3>使用的端點</h3>
+  <div class="tbl"><table>
+    <tr><th>資料</th><th>端點（前綴 <code>https://tdx.transportdata.tw/api</code>）</th><th>快取</th><th>狀態</th></tr>
+    <tr><td>公車路線</td><td><code>/basic/v2/Bus/Route/City/{City}</code></td><td>1 小時</td><td><span class="pill done">已串</span></td></tr>
+    <tr><td>公車站序</td><td><code>/basic/v2/Bus/DisplayStopOfRoute/City/{City}/{Route}</code></td><td>1 小時</td><td><span class="pill done">已串</span></td></tr>
+    <tr><td>公車到站</td><td><code>/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/{Route}</code></td><td>20 秒</td><td><span class="pill done">已串</span></td></tr>
+    <tr><td>站牌到站</td><td><code>…/EstimatedTimeOfArrival/City/{City}/PassThrough/Station/{ID}</code></td><td>20 秒</td><td><span class="pill next">待實測</span></td></tr>
+    <tr><td>附近站牌</td><td><code>/advanced/v2/Bus/Station/NearBy</code></td><td>1 小時</td><td><span class="pill done">已串</span></td></tr>
+    <tr><td>公車路線形狀</td><td><code>/basic/v2/Bus/Shape/City/{City}/{Route}</code></td><td>1 小時</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td>YouBike 站點／車數</td><td><code>/advanced/v2/Bike/Station/NearBy</code>、<code>/advanced/v2/Bike/Availability/NearBy</code></td><td>1 小時／30 秒</td><td><span class="pill done">已串</span></td></tr>
+    <tr><td>捷運車站／看板</td><td><code>/basic/v2/Rail/Metro/Station/{Op}</code>、<code>/basic/v2/Rail/Metro/LiveBoard/{Op}</code></td><td>24 小時／20 秒</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td>高鐵時刻</td><td><code>/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}</code></td><td>10 分鐘</td><td><span class="pill done">已串</span></td></tr>
+    <tr><td>台鐵時刻</td><td><code>/basic/v3/Rail/TRA/DailyTrainTimetable/OD/{O}/to/{D}/{Date}</code></td><td>10 分鐘</td><td><span class="pill done">已串</span></td></tr>
+    <tr><td>高鐵／台鐵票價</td><td><code>/basic/v2/Rail/THSR/ODFare/…</code>、<code>/basic/v3/Rail/TRA/ODFare/…</code></td><td>10 分鐘</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td>國道客運</td><td><code>/basic/v2/Bus/Route/InterCity</code>、<code>…/EstimatedTimeOfArrival/InterCity</code></td><td>1 小時／20 秒</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td>高速公路路況、道路事件</td><td>路段旅行時間、即時路況、道路事件</td><td>60 秒</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td>導訂票</td><td>台鐵／高鐵導訂票 API（需申請「臺鐵訂票導訂」「高鐵訂票導訂」權限）</td><td>不快取</td><td><span class="pill next">需權限</span></td></tr>
+  </table></div>
+  <p style="font-size:14.5px;color:var(--muted)">站牌、站位、YouBike、車站都有經緯度（<code>StopPosition</code>／<code>StationPosition</code>），用於導航與「出發時機」。</p>
+  <p style="font-size:14.5px;color:var(--muted)">查詢參數採 OData：<code>$filter</code>、<code>$select</code>、<code>$top</code>、<code>$format=JSON</code>；附近查詢用 <code>$spatialFilter=nearby(lat,lon,公尺)</code>，半徑上限 1000 公尺。</p>
+
+  <h3>額度與限制</h3>
+  <div class="tbl"><table>
+    <tr><th>限制</th><th>內容</th><th>專案對策</th></tr>
+    <tr><td>Token endpoint</td><td>每個 IP 每分鐘最多 20 次</td><td>token 快取 + single-flight</td></tr>
+    <tr><td>API 呼叫次數</td><td>依會員訂閱方案不同，超過回 HTTP 429</td><td>回應快取、每 IP 限流、友善錯誤訊息</td></tr>
+    <tr><td>平行連線</td><td>每 IP 最多 60 條（416）、每秒 50 次（423）</td><td>同一請求的平行呼叫控制在 3 個以內</td></tr>
+  </table></div>
+
+  <h3>其他來源</h3>
+  <div class="tbl"><table>
+    <tr><th>來源</th><th>用途</th><th>取得方式</th><th>狀態</th></tr>
+    <tr><td>中央氣象署開放資料平臺（自動氣象站觀測、鄉鎮預報）</td><td><code>weather_now</code> → 自動狀態「下雨」</td><td>註冊取得授權碼 <code>CWA_API_KEY</code></td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td>TDX 官方 MCP（<code>tdx-mcp/rail</code>、<code>tdx-mcp/event</code>）</td><td>班次、票價、導訂票、道路事件的替代來源</td><td>TDX 會員金鑰</td><td><span class="pill plan">評估</span></td></tr>
+    <tr><td>Google／Apple 地圖深層連結</td><td>導航到站牌、車站</td><td>不需金鑰</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td>Uber 深層連結</td><td>叫車（估價待合作）</td><td>不需金鑰</td><td><span class="pill plan">M3</span></td></tr>
+  </table></div>
+
+  <h3>授權與標示</h3>
+  <p>資料依<a href="https://data.gov.tw/license" rel="noopener">政府資料開放授權條款</a>使用，可商業利用，但須標示來源。App 頁尾與每張卡片都要顯示「資料來源：交通部 TDX 運輸資料流通服務」。</p>
+
+  <h3>下一階段資料源</h3>
+  <div class="tbl"><table>
+    <tr><th>領域</th><th>機關／平台</th><th>取得方式</th></tr>
+    <tr><td>地震</td><td>中央氣象署開放資料平臺 <code>opendata.cwa.gov.tw</code></td><td>註冊取得授權碼</td></tr>
+    <tr><td>空氣品質 AQI</td><td>環境部環境資料開放平臺 <code>data.moenv.gov.tw</code></td><td>申請 API Key</td></tr>
+    <tr><td>健保特約藥局</td><td>衛福部中央健康保險署開放資料</td><td>公開下載</td></tr>
+    <tr><td>統一發票中獎號碼</td><td>財政部電子發票整合服務平台</td><td>申請 AppID</td></tr>
+    <tr><td>垃圾車即時位置</td><td>各縣市環保局</td><td>各縣市格式不同</td></tr>
+  </table></div>
+</section>
+
+<section id="agents">
+  <div class="eyebrow">05 · AGENT LINEUP</div>
+  <h2>Agent 產品線</h2>
+  <p class="lead">同一個平台上跑多個 agent。每個 agent 只是「一組 tools + 一份 system prompt + 知識庫 + 護欄」的設定，核心、卡片、MCP 出口、限流全部共用。交通 agent 先把平台做穩，其他 agent 再陸續上線。</p>
+  <div class="grid">
+    <a class="card" href="#agent" style="text-decoration:none;color:inherit"><span class="pill done">第一階段</span><h4>阿幫・生活</h4><p>公車、捷運、YouBike、台鐵高鐵、從 A 到 B 怎麼去。之後擴充天氣、AQI、藥局。</p></a>
+    <a class="card" href="#antifraud" style="text-decoration:none;color:inherit"><span class="pill next">建議第二</span><h4>阿幫・防詐</h4><p>貼上可疑訊息，比對 165 資料與詐騙特徵，給出風險與下一步。社會價值高、與電信角色最貼近。</p></a>
+    <a class="card" href="#sme" style="text-decoration:none;color:inherit"><span class="pill plan">概念驗證</span><h4>阿幫・開業</h4><p>依產業與條件產生申辦清單：登記、許可、廢棄物、稅務期限，每項附法源與官方連結。</p></a>
+  </div>
+  <h3>共用與各自的部分</h3>
+  <div class="tbl"><table>
+    <tr><th></th><th>生活</th><th>反詐騙</th><th>中小企業</th></tr>
+    <tr><td>主要資料</td><td>TDX（即時 API）</td><td>165 開放資料、詐騙特徵規則庫</td><td>法規資料庫、商工登記 API、人工審核的申辦知識庫</td></tr>
+    <tr><td>資料更新</td><td>秒到分鐘</td><td>每日</td><td>依法規異動，需審核流程</td></tr>
+    <tr><td>最大風險</td><td>TDX 額度</td><td>誤判造成損失或錯誤安心感</td><td>清單錯漏造成違規</td></tr>
+    <tr><td>主要護欄</td><td>快取、限流</td><td>不宣稱安全、引導 165</td><td>附法源與日期、非法律意見、專家審核</td></tr>
+    <tr><td>模型建議</td><td><code>claude-haiku-5-5</code></td><td><code>claude-haiku-5-5</code>（規則先行，模型解釋）</td><td><code>claude-sonnet-5-5</code>（推理與追問較多）</td></tr>
+    <tr><td>共用</td><td colspan="3">core 核心、tool registry、互動卡片、MCP 出口（stdio / <code>/mcp</code>）、agent 執行環境與事件串流、限流與預算、示範模式</td></tr>
+  </table></div>
+  <div class="note info">平台面的設計：在 <code>core/agents/</code> 以設定檔定義每個 agent（id、名稱、system prompt、可用 tools、建議問題、免責聲明、模型）。網頁以 <code>/agent/life</code>、<code>/agent/antifraud</code>、<code>/agent/sme</code> 區分；MCP 已可依工具包分成不同端點（<code>/mcp/transit</code>…），讓 Claude 使用者只加需要的那組。</div>
+</section>
+
+<section id="agent">
+  <div class="eyebrow">06 · LIFE AGENT</div>
+  <h2>阿幫・生活</h2>
+  <p class="lead">民眾不需要懂 MCP，也不需要 Claude 帳號：在網頁一句話問交通，阿幫找小幫手討論、依「即時資料＋你的狀況」做決定，給一張可以直接出發的結論卡片。</p>
+  <h3>互動原型</h3>
+  <p>四個情境：西門町到台北 101（自動偵測下雨 → 公車；關掉下雨 → YouBike）、明早 8 點前到左營（會遲到的班次排除）、塞車時去新竹（台鐵自強勝出，可叫車）、307 到哪了（即時倒數）。資料為模擬。</p>
+  <iframe class="proto" src="prototypes/transit-discussion.html" title="阿幫・生活：小幫手討論串與決策圖原型" loading="lazy"></iframe>
+  <p style="font-size:13px;color:var(--faint);margin-top:6px"><a href="prototypes/transit-discussion.html">在新分頁開啟原型 →</a>　正式實作由真實事件驅動，不照抄原型的假資料與等待時間。</p>
+
+  <h3>一次對話會發生什麼</h3>
+  <ol class="steps">
+    <li><b>理解</b>：判斷意圖、地點與你說的狀況（「8 點前要到」「帶行李」）。Claude 模式由模型判斷；示範模式用規則。</li>
+    <li><b>點名小幫手</b>：阿幫說一句「我請 @公車 @YouBike @天氣 看看」，可平行呼叫。</li>
+    <li><b>小幫手回報</b>：每個工具用一句話回報真實資料（<code>speak</code>，不經模型），標示 tool 與 MCP 來源；討論完收合成一行。</li>
+    <li><b>決策圖</b>：資料膠囊流入 → 狀況標籤連回資料來源 → 方案依分數排序、線條變粗 → 勝出路徑亮起，附一句理由。</li>
+    <li><b>結論卡片</b>：建議方案、分段時間條、備案；導航、提醒、訂票、叫車一鍵完成；倒數即時更新。</li>
+  </ol>
+
+  <h3>小幫手討論串：看得到多 MCP 怎麼配合</h3>
+  <p>MCP 之間其實不會直接對話——是阿幫依前一個工具的結果決定下一步；討論串是這些真實呼叫的忠實呈現：阿幫的話＝<code>agent_note</code>、<code>@工具</code>＝<code>tool_start</code>、工具的話＝<code>tool_result.speak</code>。數字都來自真實資料，不加假延遲（ADR-0009）。</p>
+
+  <h3>依資料與你的狀況做決策</h3>
+  <div class="tbl"><table>
+    <tr><th>你的狀況</th><th>怎麼得知</th><th>影響</th></tr>
+    <tr><td>下雨</td><td>自動：<code>weather_now</code></td><td>淋雨權重 ×4、走路 ×1.5 → 偏向公車、捷運</td></tr>
+    <tr><td>塞車中</td><td>自動：<code>traffic_status</code>，或你說的</td><td>塞車風險權重 ×6 → 偏向台鐵、高鐵；客運、叫車延誤</td></tr>
+    <tr><td>趕時間</td><td>你說的／你選的</td><td>總時間 ×2、等車 ×1.5、塞車風險 ×2</td></tr>
+    <tr><td>帶行李</td><td>你說的／你選的</td><td>體力 ×4 → 少轉乘、少騎車</td></tr>
+    <tr><td>想省錢</td><td>你說的／你選的</td><td>費用 ×3</td></tr>
+    <tr><td>少走路</td><td>你說的／你選的</td><td>走路 ×1.5、體力 ×3</td></tr>
+    <tr><td>幾點前要到</td><td>你說的</td><td>硬限制：會遲到的方案直接排除</td></tr>
+  </table></div>
+  <p>比較項目：總時間、等車、走路、費用（比例計分）＋淋雨、體力、塞車風險（0–1）。計分由 <code>core/decide.js</code> 依透明規則完成，模型不自行計分；切換狀況會在前端用同一份程式即時重算（ADR-0010）。</p>
+
+  <h3>導航、訂票、叫車</h3>
+  <p>只產生官方連結：導航開 Google／Apple 地圖；訂票用 TDX 導訂票產生自動帶入車次的官方訂票網址；叫車先用 Uber 深層連結。訂票與叫車屬 L2，產生前要你確認，付款與個資都在官方網站完成（ADR-0011）。YouBike 照常列入比較。</p>
+
+<h3>兩種使用方式</h3>
+  <div class="tbl"><table>
+    <tr><th></th><th>網頁 agent</th><th>Claude 自訂連接器</th></tr>
+    <tr><td>對象</td><td>一般民眾，免帳號</td><td>有 Claude 付費方案的人</td></tr>
+    <tr><td>模型</td><td>伺服器端 Claude API（預設 <code>claude-haiku-5-5</code>）；無 Key 時示範模式</td><td>使用者自己的 Claude</td></tr>
+    <tr><td>工具執行</td><td>伺服器本地呼叫 tool registry</td><td>Claude 經 <code>/mcp</code> 呼叫</td></tr>
+    <tr><td>討論串＋決策圖</td><td>完整呈現</td><td>由 Claude 自行敘述；<code>speak</code> 與 <code>ranking</code> 在結構化結果中</td></tr>
+    <tr><td>卡片</td><td>網頁直接渲染</td><td>MCP Apps iframe（M4）</td></tr>
+  </table></div>
+
+  <h3>事件串流協定</h3>
+  <p><code>POST /api/v1/agent</code> 以 NDJSON 逐行回傳事件，前端依事件做動畫：</p>
+<div class="tbl"><table>
+    <tr><th>事件</th><th>畫面</th></tr>
+    <tr><td><code>status</code></td><td>頂部標示 Claude／示範模式</td></tr>
+    <tr><td><code>agent_note</code></td><td>阿幫的一句話（可 @角色）</td></tr>
+    <tr><td><code>tool_start</code></td><td>小幫手「輸入中…」，標示 tool、MCP 來源、pack、tier</td></tr>
+    <tr><td><code>tool_result</code></td><td>小幫手說出 <code>speak</code>；筆數、快取命中</td></tr>
+    <tr><td><code>discussion_end</code></td><td>討論收合成一行</td></tr>
+    <tr><td><code>decision</code></td><td>決策圖動畫、狀態 chips、理由</td></tr>
+    <tr><td><code>client_tool_call</code></td><td>請裝置執行定位、提醒</td></tr>
+    <tr><td><code>text</code>／<code>done</code>／<code>error</code></td><td>總結與主動提議／結束／錯誤或限流</td></tr>
+  </table></div>
+  <p style="font-size:14.5px;color:var(--muted)">完整欄位見 <code>docs/AGENT.md</code>；畫面時序見 <code>docs/UX.md</code>。</p>
+
+  <h3>成本與安全</h3>
+  <div class="tbl"><table>
+    <tr><th>機制</th><th>預設</th></tr>
+    <tr><td>每 IP 每分鐘／每日請求</td><td>10 次／100 次</td></tr>
+    <tr><td>全站每日模型呼叫上限</td><td>5000 次，超過自動降級為示範模式</td></tr>
+    <tr><td>單則訊息長度、工具迴圈</td><td>500 字、最多 5 輪</td></tr>
+    <tr><td>隱私</td><td>不儲存對話；座標不寫 log；只回答交通主題</td></tr>
+  </table></div>
+</section>
+
+<section id="antifraud">
+  <div class="eyebrow">07 · ANTI-SCAM AGENT</div>
+  <h2>阿幫・防詐（構想）</h2>
+  <p class="lead">民眾收到可疑簡訊、LINE 訊息或投資邀約時，貼上來就能得到風險判斷、可疑之處的說明，以及下一步該怎麼做。電信業者本身就站在防詐第一線，這條產品線與台灣大哥大的角色最貼近。</p>
+
+  <h3>試試看：貼上一則可疑訊息</h3>
+  <p style="font-size:14.5px;color:var(--muted)">示意版只用關鍵字規則；正式版會結合 165 開放資料比對與模型判斷。黑名單比對為示範資料。</p>
+  <div class="card" id="fraudDemo">
+    <div class="sc" id="fraudSamples" style="margin-bottom:10px"></div>
+    <div style="display:grid;grid-template-columns:140px minmax(0,1fr);gap:10px;align-items:center;margin-bottom:10px">
+      <label for="fraudSender" style="font-size:13px;color:var(--muted)">寄件號碼（選填）</label>
+      <input id="fraudSender" placeholder="例如 111、0912345678" style="font:inherit;font-size:14px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text)">
+    </div>
+    <textarea id="fraudText" rows="4" placeholder="把收到的訊息貼在這裡" style="width:100%;font:inherit;font-size:14.5px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);resize:vertical"></textarea>
+    <div style="display:flex;gap:8px;align-items:center;margin:10px 0"><button class="b on" id="fraudCheck">檢查</button><span id="fraudErr" style="font-size:13px;color:var(--bad)"></span></div>
+    <div id="fraudResult"></div>
+  </div>
+
+  <h3>可運用的資料與機制</h3>
+  <div class="tbl"><table>
+    <tr><th>資料／機制</th><th>來源</th><th>用途</th></tr>
+    <tr><td>165 詐騙 LINE ID</td><td>內政部警政署（政府資料開放平臺，欄位：LINE ID、通報日期）</td><td>比對訊息中的 LINE ID</td></tr>
+    <tr><td>165 假投資（博弈）網站、詐騙闢謠專區</td><td>內政部警政署（政府資料開放平臺；更新頻率待確認）</td><td>比對網址、提供闢謠說明</td></tr>
+    <tr><td>111 政府專屬短碼簡訊</td><td>數位發展部；政府機關簡訊由「111」發送，電信業者也有各自短碼（台灣大哥大為 935）</td><td>宣稱是政府但不是 111 發送 → 提高風險</td></tr>
+    <tr><td>常見詐騙手法特徵</td><td>165 宣導內容整理成規則庫（人工維護）</td><td>假投資、解除分期、假冒機關、假包裹等特徵</td></tr>
+  </table></div>
+
+  <h3>MCP tools 構想</h3>
+  <div class="tbl"><table>
+    <tr><th>Tool</th><th>用途</th></tr>
+    <tr><td><code>scam_check_message</code></td><td>分析訊息文字：比對特徵規則、抽出網址／LINE ID／電話，回傳風險等級與理由（卡片：風險量表 + 標示可疑字句）</td></tr>
+    <tr><td><code>scam_lookup_lineid</code> / <code>scam_lookup_url</code></td><td>比對 165 開放資料清單</td></tr>
+    <tr><td><code>sms_sender_check</code></td><td>判斷寄件號碼是否為政府或電信業者短碼</td></tr>
+    <tr><td><code>scam_myth_search</code></td><td>搜尋 165 闢謠內容</td></tr>
+  </table></div>
+
+  <h3>必要的護欄</h3>
+  <ul>
+    <li>永遠不說「這則訊息是安全的」；查無紀錄只代表「未在已知清單中」。</li>
+    <li>高風險時第一個動作是引導撥打 <b>165 反詐騙諮詢專線</b>，不要求使用者回覆或點擊任何連結。</li>
+    <li>貼上的內容不儲存、不寫 log；統計只記錄詐騙類型與時間，可回饋給主管機關作為趨勢參考。</li>
+    <li>網址只做字串比對與解析，不由伺服器主動開啟可疑連結。</li>
+  </ul>
+</section>
+
+<section id="sme">
+  <div class="eyebrow">08 · BIZ AGENT</div>
+  <h2>阿幫・開業（申辦導航構想）</h2>
+  <p class="lead">中小企業最花時間的往往不是做產品，而是搞清楚「我要申請什麼、找哪個機關、什麼時候前要完成」。同一套「開放資料 → MCP tools → agent → 互動卡片」架構，可以把法規與申辦流程變成一張會跟著條件變化的清單。</p>
+
+  <h3>試試看：我要生產保養品</h3>
+  <p style="font-size:14.5px;color:var(--muted)">選擇你的情況，清單會即時更新。以下為構想示意，項目與適用條件須由法規專家審核，<b>不構成法律或稅務意見</b>。</p>
+  <div class="card" id="smeDemo">
+    <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:14px">
+      <div><div style="font-size:13px;color:var(--muted);margin-bottom:6px">生產方式</div><div class="sc" data-q="make" style="margin:0"><button class="b on" data-v="self">自己製造</button><button class="b" data-v="oem">委託代工</button></div></div>
+      <div><div style="font-size:13px;color:var(--muted);margin-bottom:6px">產品類型</div><div class="sc" data-q="type" style="margin:0"><button class="b on" data-v="general">一般保養品</button><button class="b" data-v="special">防曬／美白等特定用途</button></div></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><b id="smeCount"></b><span style="font-size:13px;color:var(--muted)">點項目可展開</span></div>
+    <div id="smeList"></div>
+  </div>
+
+  <h3>可運用的開放資料與系統</h3>
+  <div class="tbl"><table>
+    <tr><th>用途</th><th>來源</th><th>串接方式</th></tr>
+    <tr><td>法規條文與修法歷程</td><td>法務部全國法規資料庫</td><td>開放資料下載（需確認現行 API 規格），建索引後提供引用</td></tr>
+    <tr><td>公司登記狀態、資本額、營業項目</td><td>經濟部商工登記公示資料</td><td><code>data.gcis.nat.gov.tw</code> 提供 Swagger API（JSON / XML）</td></tr>
+    <tr><td>化粧品產品登錄、GMP、PIF</td><td>衛福部食藥署</td><td>以公告與申辦須知建立知識庫；登錄與申請仍在食藥署系統完成</td></tr>
+    <tr><td>事業廢棄物清理計畫書、申報</td><td>環境部、地方環保局</td><td>多縣市提供「應否檢具清理計畫書」自我判定表，可轉成互動問答</td></tr>
+    <tr><td>營業稅、營所稅申報期限</td><td>財政部</td><td>以稅務行事曆提醒；實際申報仍在財政部電子申報繳稅服務網</td></tr>
+    <tr><td>同類型 MCP（可串接或參考）</td><td>民間法規 MCP（裁判書、法規查詢、法律試算）</td><td>評估直接接用，避免重複建置</td></tr>
+  </table></div>
+
+  <h3>MCP tools 構想</h3>
+  <div class="tbl"><table>
+    <tr><th>Tool</th><th>用途</th><th>卡片</th></tr>
+    <tr><td><code>permit_checklist</code></td><td>依產業與條件（生產方式、產品類型、規模、地點）產生申辦清單，每項附主管機關、法源、線上系統連結</td><td>互動清單（勾選進度、條件追問）</td></tr>
+    <tr><td><code>regulation_search</code></td><td>搜尋法規條文，回傳原文與條號、施行日期</td><td>條文卡（可展開全文）</td></tr>
+    <tr><td><code>company_lookup</code></td><td>以統一編號查公司登記狀態與營業項目</td><td>公司資料卡</td></tr>
+    <tr><td><code>compliance_calendar</code></td><td>依企業類型列出申報與換證期限（營業稅、營所稅、廢棄物申報等）</td><td>月曆卡，可匯出提醒</td></tr>
+  </table></div>
+
+  <h3>必要的護欄</h3>
+  <ul>
+    <li><b>清單來自人工審核的知識庫</b>，不是由模型自由生成；模型只負責理解問題、追問條件、解釋內容。</li>
+    <li>每一項都附<b>法源條號、主管機關、資料更新日期</b>，並連到官方申辦頁面。</li>
+    <li>畫面明示「僅供參考，不構成法律或稅務意見」，複雜情況建議洽主管機關或專業人士。</li>
+    <li>法規異動時（例如 2026 年 7 月化粧品 PIF 與 GMP 全面上路）知識庫要有版本與審核流程。</li>
+  </ul>
+  <div class="note info">與台灣大哥大的連結：企業客戶服務本就涵蓋大量中小企業，「申辦導航」可作為企業方案的加值服務；交通 agent 驗證的架構可直接沿用。建議先選一個產業（例如化粧品或餐飲）與一個縣市做概念驗證。</div>
+  <p style="font-size:13px;color:var(--faint)">參考：<a href="https://www.businesstoday.com.tw/article/category/183030/post/202607010044/" rel="noopener">化粧品 GMP 與 PIF 新制報導</a>、<a href="https://www.stst.com.tw/class/id=8789" rel="noopener">PIF 實施時程整理</a>、<a href="https://data.gov.tw/dataset/84883" rel="noopener">商工登記公示資料 API</a>、<a href="https://files.chcg.gov.tw/files/7_20231127150530796_應否檢具事業廢棄物清理計畫書之事業_自我判定表.pdf" rel="noopener">彰化縣事業廢棄物清理計畫書自我判定表</a>、<a href="https://github.com/ycsmiley/awesome-taiwan-mcp" rel="noopener">台灣 MCP 清單</a>。</p>
+</section>
+
+<section id="gov">
+  <div class="eyebrow">09 · GOV EFFICIENCY</div>
+  <h2>強化政府效率的延伸方向</h2>
+  <p class="lead">除了讓民眾查得更快，同一套「開放資料 → MCP → agent」架構也能減少政府端的重複工作。以下依可行性排序，皆為候選方向，尚未排入開發計畫。</p>
+
+  <div class="note info">市場現況（2026-11）：交通部 TDX 已推出官方 MCP（臺鐵／高鐵班次與票價、道路事件，遠端 HTTP、需會員金鑰）；民間也有涵蓋約 4.9 萬筆 data.gov.tw 資料集與政府採購資料的 MCP Hub。本專案的差異化應放在<b>跨資料組合的工具</b>（如行程規劃）、<b>互動卡片</b>與<b>免帳號的民眾 agent</b>，單純包裝 API 的價值有限。</div>
+
+  <div class="tbl"><table>
+    <tr><th>方向</th><th>資料或串接方式</th><th>對政府的效益</th><th>可行性</th></tr>
+    <tr><td><b>民眾問題需求報表</b></td><td>agent 查詢紀錄（去識別化、只留縣市／路線層級）</td><td>交通局看到「哪些路線常被問、末班車後仍有需求、哪裡常查不到車」，作為班次調整依據</td><td><span class="pill done">高</span> 自有資料，M5 後即可做</td></tr>
+    <tr><td><b>道路事件與施工主動通知</b></td><td>TDX 官方 MCP 道路事件、各縣市道路挖掘／施工開放資料</td><td>民眾事先繞道，減少 1999 與警察局的路況詢問</td><td><span class="pill done">高</span> 資料已開放</td></tr>
+    <tr><td><b>「怎麼申辦」問答附法源</b></td><td>全國法規資料庫、各機關申辦須知（data.gov.tw）</td><td>減少櫃台與電話重複詢問；回答附條文出處，降低錯誤資訊</td><td><span class="pill">中</span> 需嚴格引用與免責</td></tr>
+    <tr><td><b>結構化陳情通報</b></td><td>1999 派工項目與處理時限（公開）；送件需與縣市政府合作介接</td><td>agent 先問清楚地點、類別、照片再送出，減少客服轉派與退件</td><td><span class="pill next">需合作</span> 目前無公開送件 API</td></tr>
+    <tr><td><b>地址轉座標標準化</b></td><td>內政部 TGOS 地理編碼服務（需申請）</td><td>民眾說的地址可直接對應門牌座標，通報與查詢更精準</td><td><span class="pill">中</span> 需申請金鑰</td></tr>
+    <tr><td><b>MyData 帶入個人資料</b></td><td>數發部 MyData（民眾授權後帶入戶籍、財產、所得等）</td><td>例如社宅申請已可線上辦理、免紙本；未來可縮短申辦流程</td><td><span class="pill plan">觀察</span> 目前以政府機關為主，數發部表示將擴大到國營事業與金融機構</td></tr>
+    <tr><td><b>提供 tools 給機關內部 AI</b></td><td>數發部 TryAI（公務 AI 平台，機關 Bot 可用 API 串接內部系統）</td><td>機關的公務 Bot 也能查即時交通，回覆民眾更快</td><td><span class="pill plan">觀察</span> 目前未見 MCP 支援</td></tr>
+    <tr><td><b>電信人流 × 交通資料</b></td><td>去識別化人流統計結合 TDX 班次與運量</td><td>找出運能不足的時段與路段，支援公車路網調整</td><td><span class="pill plan">內部評估</span> 需公司資料治理與法遵確認</td></tr>
+  </table></div>
+
+  <h3>建議的下一步</h3>
+  <ol class="steps">
+    <li>M5 上線時就設計好去識別化的查詢統計（只記 tool 名稱、縣市、路線、時段），為「需求報表」留資料。</li>
+    <li>M3 評估是否直接介接 TDX 官方 MCP 的道路事件，或呼叫對應 REST API，納入 <code>plan_trip</code> 的提醒。</li>
+    <li>找一個縣市交通局或 1999 單位做小型合作，驗證需求報表與結構化通報的價值。</li>
+  </ol>
+  <p style="font-size:13px;color:var(--faint)">參考：<a href="https://github.com/tdxmotc/MCP" rel="noopener">TDX 官方 MCP</a>、<a href="https://www.businessinsider.tw/article/2980" rel="noopener">MCP Hub 報導</a>、<a href="https://moda.gov.tw/major-policies/ai/gov/19270" rel="noopener">數發部 TryAI</a>、<a href="https://www.ctee.com.tw/news/20260220700300-430104" rel="noopener">MyData 社宅申請報導</a>、<a href="https://laws.gov.taipei/Law/File/0000172469" rel="noopener">1999 派工項目及處理時限表</a>、<a href="https://data.gov.tw/dataset/31960" rel="noopener">TGOS</a>。</p>
+</section>
+
+<section id="platform">
+  <div class="eyebrow">10 · PLATFORM</div>
+  <h2>阿幫平台（下一階段）</h2>
+  <p class="lead">往上一層：讓創業者、店家、民宿、一般民眾、外國旅客都能用可信的台灣公共資料，組出自己的 agent。這是下一階段（M9），要先達到啟動門檻才開始；現階段只預留擴充點。完整規格見 <code>docs/PLATFORM.md</code>。</p>
+
+  <h3>平台分層</h3>
+  <div style="display:grid;gap:6px">
+    <div class="card" style="padding:10px 16px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><b>通路</b><span style="color:var(--muted);font-size:14px">網頁・內嵌對話框・QR code・LINE・iOS / Android App・MCP 端點・API</span></div>
+    <div class="card" style="padding:10px 16px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><b>Agent</b><span style="color:var(--muted);font-size:14px">第一方（生活、反詐騙、中小企業）＋ 建立者用 Builder 做的 agent</span></div>
+    <div class="card" style="padding:10px 16px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-color:var(--brand)"><b>執行環境 + 信任層</b><span style="color:var(--muted);font-size:14px">prompt 分層組裝・tool 迴圈・輸出檢查・分級護欄・計量與額度・稽核</span></div>
+    <div class="card" style="padding:10px 16px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><b>工具包（Tool packs）</b><span style="color:var(--muted);font-size:14px">交通・觀光・生活・旅客安全・防詐・申辦法規</span></div>
+    <div class="card" style="padding:10px 16px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--code)"><b>台灣公共資料</b><span style="color:var(--muted);font-size:14px">TDX・氣象署・環境部・警政署 165・法規資料庫・商工登記…</span></div>
+  </div>
+
+  <h3>誰會用、怎麼用</h3>
+  <div class="tbl"><table>
+    <tr><th>使用者</th><th>需要什麼</th><th>會自己 build 嗎</th></tr>
+    <tr><td>一般民眾</td><td>打開就能用的生活、反詐騙 agent</td><td>幾乎不會，頂多個人化設定</td></tr>
+    <tr><td>創業者／中小企業</td><td>自己的申辦助理、給客人用的 agent</td><td><b>會（主要客群）</b></td></tr>
+    <tr><td>民宿／飯店／旅行社</td><td>給旅客的多語接待 agent</td><td><b>會</b></td></tr>
+    <tr><td>外國旅客</td><td>交通、景點、緊急資訊、防詐</td><td>不會；用旅宿建好的或旅客版 agent</td></tr>
+    <tr><td>開發者</td><td>把工具包接進自己的產品</td><td>用 MCP / API</td></tr>
+  </table></div>
+
+  <h3>風險分級：護欄由平台加上，建立者不能關</h3>
+  <div class="tbl"><table>
+    <tr><th>分級</th><th>例子</th><th>強制護欄</th><th>發布</th></tr>
+    <tr><td><span class="pill done">L1 資訊查詢</span></td><td>交通、觀光、天氣</td><td>標示來源與資料時間；查不到就明說</td><td>自動上線</td></tr>
+    <tr><td><span class="pill next">L2 判斷建議</span></td><td>防詐、旅客安全</td><td>L1 ＋ 免責聲明、不得絕對保證、高風險導向官方管道</td><td>上線＋抽樣檢查</td></tr>
+    <tr><td><span class="pill" style="background:var(--bad-soft);color:var(--bad)">L3 權利義務</span></td><td>申辦、法規、稅務</td><td>L2 ＋ 每項附法源與日期、只引用人工審核知識庫、翻譯以中文原文為準</td><td>人工審核</td></tr>
+  </table></div>
+
+  <h3>試試看：用 Builder 做一個 agent</h3>
+  <p style="font-size:14.5px;color:var(--muted)">示意版：選範本與工具包，右側即時預覽；按「測試並發布」看平台如何依分級自動評測與審核。</p>
+  <div class="card" id="builder" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,320px);gap:20px">
+    <div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:6px">1. 範本</div>
+      <div class="sc" id="bTpl" style="margin-bottom:12px"></div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:6px">2. 名稱</div>
+      <input id="bName" style="width:100%;font:inherit;font-size:14.5px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);margin-bottom:4px">
+      <div id="bNameErr" style="font-size:13px;color:var(--bad);min-height:18px"></div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:6px">3. 工具包</div>
+      <div id="bPacks" style="display:grid;gap:6px;margin-bottom:12px"></div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:6px">4. 語言</div>
+      <div class="sc" id="bLangs" style="margin-bottom:12px"></div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:6px">5. 發布通路</div>
+      <div class="sc" id="bCh" style="margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px;align-items:center"><button class="b on" id="bPublish">測試並發布</button><span id="bErr" style="font-size:13px;color:var(--bad)"></span></div>
+      <div id="bResult" style="margin-top:12px"></div>
+      <details style="margin-top:10px"><summary style="cursor:pointer;font-size:14px;color:var(--muted)">產生的 agent 設定（JSON）</summary><pre style="font-size:12px;max-height:280px"><code id="bJson"></code></pre></details>
+    </div>
+    <div>
+      <div class="phone" style="min-height:0;padding:12px">
+        <div class="bar"><span id="pvName"></span><span id="pvTier" class="pill"></span></div>
+        <div class="sc" id="pvLang" style="margin:10px 0 6px"></div>
+        <div class="bub a" id="pvGreet" style="max-width:100%;animation:none"></div>
+        <div id="pvSug" style="display:flex;flex-direction:column;gap:6px;margin-top:10px"></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:12px;border-top:1px solid var(--line);padding-top:8px"><b style="color:var(--text)">自動加上的護欄</b><ul id="pvGuard" style="margin:4px 0 0;padding-left:18px"></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <h3>啟動門檻（全部達成才開始 M9）</h3>
+  <div class="tbl"><table>
+    <tr><th>門檻</th><th>標準</th></tr>
+    <tr><td>第一方 agent</td><td>至少 2 個上線（生活＋反詐騙），tool 成功率 ≥ 99%，連續 8 週無重大護欄事故</td></tr>
+    <tr><td>需求驗證</td><td>至少 5 家設計夥伴（民宿、店家、旅行社、企業）有具體用例並願意試用</td></tr>
+    <tr><td>單位經濟</td><td>每次對話成本已知，初步定價經夥伴驗證</td></tr>
+    <tr><td>護欄</td><td>L2 護欄在真實流量下驗證，輸出檢查器上線</td></tr>
+    <tr><td>法務</td><td>TDX 第三方使用條款、責任歸屬、個資、模型供應商條款、商標等確認完成</td></tr>
+  </table></div>
+  <div class="grid" style="margin-top:14px">
+    <div class="card"><span class="pill plan">M9a</span><h4>內部化</h4><p>agent 設定改存資料庫，團隊用內部工具做出 3 個範本 agent。</p></div>
+    <div class="card"><span class="pill plan">M9b</span><h4>封閉測試</h4><p>設計夥伴試用，只開 L1 工具包；網頁、內嵌、QR code；多租戶計量。</p></div>
+    <div class="card"><span class="pill plan">M9c</span><h4>公開</h4><p>自助註冊與收費、L2 工具包、LINE 與 MCP 通路、觀光與日韓語。</p></div>
+  </div>
+  <div class="note">現在就要做的準備（不增加範圍）：tool 標記工具包與分級、保留英文名稱、卡片文字放字典檔、agent 設定存成 JSON、計量帶 agent id。這些在 <code>docs/PLAN.md</code> 以 🧩 標示。</div>
+</section>
+
+<section id="mcp">
+  <div class="eyebrow">11 · MCP TOOLS</div>
+  <h2>MCP tools</h2>
+  <p class="lead">所有 tools 皆為唯讀。回傳同時包含給模型讀的文字摘要，以及 <code>structuredContent: { card, mode, speak, data }</code>。完整規格見 <code>docs/MCP_TOOLS.md</code>。</p>
+  <div class="tbl"><table>
+    <tr><th>Tool</th><th>pack・tier</th><th>用途</th><th>卡片</th><th>狀態</th></tr>
+    <tr><td><code>bus_route_eta</code></td><td>transit・L1</td><td>路線全站即時到站（M3 加座標、形狀）</td><td><code>bus-route</code></td><td><span class="pill done">完成</span></td></tr>
+    <tr><td><code>bus_search_routes</code></td><td>transit・L1</td><td>搜尋路線</td><td>—</td><td><span class="pill done">完成</span></td></tr>
+    <tr><td><code>bus_nearby_stations</code></td><td>transit・L1</td><td>附近公車站（M3 加導航）</td><td><code>nearby</code></td><td><span class="pill done">完成</span></td></tr>
+    <tr><td><code>bus_station_eta</code></td><td>transit・L1</td><td>站牌所有路線到站</td><td><code>bus-station</code></td><td><span class="pill done">完成</span></td></tr>
+    <tr><td><code>youbike_nearby</code></td><td>transit・L1</td><td>附近 YouBike 可借／可還</td><td><code>youbike</code></td><td><span class="pill done">完成</span></td></tr>
+    <tr><td><code>thsr_timetable</code>／<code>tra_timetable</code></td><td>transit・L1</td><td>高鐵／台鐵 OD 時刻</td><td><code>timetable</code></td><td><span class="pill done">完成</span></td></tr>
+    <tr><td><code>rail_stations</code></td><td>transit・L1</td><td>車站清單</td><td>—</td><td><span class="pill done">完成</span></td></tr>
+    <tr><td><code>find_place</code></td><td>transit・L1</td><td>地名轉座標</td><td>—</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td><code>metro_stations</code>／<code>metro_live_board</code></td><td>transit・L1</td><td>捷運車站、即時到站</td><td><code>metro</code></td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td><code>rail_fare</code></td><td>transit・L1</td><td>高鐵／台鐵票價</td><td>—</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td><code>traffic_status</code></td><td>transit・L1</td><td>路況（塞車 → 自動狀態）</td><td>—</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td><code>intercity_bus</code></td><td>transit・L1</td><td>國道客運班次與預估抵達</td><td><code>timetable</code></td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td><code>weather_now</code></td><td>weather・L1</td><td>天氣（下雨 → 自動狀態）</td><td>—</td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td><code>plan_trip</code></td><td>transit・L1</td><td>從 A 到 B：候選方案＋依狀態排序（<code>decide.js</code>）</td><td><code>trip</code></td><td><span class="pill plan">M3</span></td></tr>
+    <tr><td><code>rail_booking_link</code></td><td>transit・<b>L2</b></td><td>台鐵／高鐵官方訂票連結（需 TDX 權限、使用者確認）</td><td>時刻表按鈕</td><td><span class="pill next">需權限</span></td></tr>
+    <tr><td><code>ridehail_link</code></td><td>ridehail・<b>L2</b></td><td>叫車 App 深層連結（先 Uber）</td><td>行程卡按鈕</td><td><span class="pill plan">M3</span></td></tr>
+  </table></div>
+  <p style="font-size:14.5px;color:var(--muted)">每個 tool 都有 <code>speak(data)</code>：討論串中小幫手的一句話，由資料產生、不經模型。有座標的結果附 <code>nav</code>（Google／Apple 地圖）。</p>
+
+<h3>連接方式</h3>
+  <p><b>Claude Desktop</b>（本機 stdio）：編輯 <code>claude_desktop_config.json</code></p>
+<pre><code>{
+  "mcpServers": {
+    "abang": {
+      "command": "node",
+      "args": ["/絕對路徑/abang/mcp/server.js"],
+      "env": { "TDX_CLIENT_ID": "…", "TDX_CLIENT_SECRET": "…" }
+    }
+  }
+}</code></pre>
+  <p><b>Claude Code</b>：</p>
+<pre><code>claude mcp add abang -e TDX_CLIENT_ID=… -e TDX_CLIENT_SECRET=… -- node /絕對路徑/abang/mcp/server.js</code></pre>
+  <p><b>Claude 自訂連接器</b>（M2 已支援 <code>/mcp</code> 與 <code>/mcp/:pack</code>）：部署後在 Claude 設定 → Connectors → Add custom connector，填入 <code>https://你的網域/mcp</code>。本機測試可用 <code>npx cloudflared tunnel --url http://localhost:8787</code> 取得臨時 HTTPS 網址。自訂連接器需要 Claude 付費方案。</p>
+
+  <h3>互動卡片（MCP Apps，M4）</h3>
+  <p>卡片資料契約見 <code>docs/CARDS.md</code>。有卡片的 tool 在 <code>_meta.ui.resourceUri</code> 指向 <code>ui://abang/cards.html</code>。支援 MCP Apps 的 client（如 Claude）會在 iframe 中顯示卡片；卡片可透過 <code>callServerTool</code> 自行刷新、透過 <code>sendMessage</code> 產生延伸提問。不支援的 client 仍可讀取完整文字回傳。</p>
+</section>
+
+<section id="roadmap">
+  <div class="eyebrow">12 · ROADMAP</div>
+  <h2>開發計畫</h2>
+  <p class="lead">每個任務有代號（如 <code>M3-01</code>），由 Claude Code 依 <code>docs/LOOP.md</code> 每輪完成一個、勾選並記錄在 <code>docs/PROGRESS.md</code>。完整清單與狀態看板在 <code>docs/PLAN.md</code>。</p>
+  <div class="ms">
+    <div class="card"><span class="k">M0</span><div><h4>基礎</h4><p>共用核心、PWA、stdio MCP、測試、單檔 Demo</p></div><span class="pill done">完成</span></div>
+    <div class="card"><span class="k">M1</span><div><h4>TDX 實測與 fixture 錄製</h4><p>驗證所有端點（含路況、客運、票價、導訂票、CWA）、錄製真實回應、修正正規化</p></div><span class="pill next">需金鑰・本機</span></div>
+    <div class="card"><span class="k">M2</span><div><h4>Tool registry＋遠端 MCP</h4><p>tool 只定義一次；<code>/mcp</code>、<code>/mcp/:pack</code>；REST tools；限流；pack／tier</p></div><span class="pill done">完成</span></div>
+    <div class="card"><span class="k">M3</span><div><h4>交通完整版</h4><p>✅ 決策引擎、speak；導航、路線座標、地點、捷運、票價、路況、客運、天氣、叫車、<code>plan_trip</code>（10 組 OD 測試）、導訂票、metrics</p></div><span class="pill next">進行中</span></div>
+    <div class="card"><span class="k">M4</span><div><h4>互動卡片</h4><p>7 種卡片資料契約（JSON Schema）、渲染、host 介面、MCP Apps 單檔、自動刷新、AppBridge 測試</p></div><span class="pill plan">規劃</span></div>
+    <div class="card"><span class="k">M5</span><div><h4>民眾網頁 agent</h4><p>agent profile、事件、示範意圖、Claude 迴圈；討論串、決策圖、結論卡、輕量 3D；Playwright 截圖</p></div><span class="pill plan">規劃</span></div>
+    <div class="card"><span class="k">M6</span><div><h4>上線準備</h4><p>Docker、healthz、log、無障礙、Lighthouse、部署、文件站</p></div><span class="pill plan">規劃</span></div>
+    <div class="card"><span class="k">M7</span><div><h4>反詐騙 agent</h4><p>165 資料同步、詐騙特徵規則庫、風險卡片、L2 護欄</p></div><span class="pill plan">下一階段</span></div>
+    <div class="card"><span class="k">M8</span><div><h4>中小企業概念驗證</h4><p>一個產業與縣市；人工審核申辦知識庫、法規檢索、商工登記、申辦清單卡片</p></div><span class="pill plan">下一階段</span></div>
+    <div class="card"><span class="k">M9</span><div><h4>阿幫平台（Agent Builder）</h4><p>達啟動門檻後：M9a 內部化 → M9b 封閉測試 → M9c 公開</p></div><span class="pill plan">需過門檻</span></div>
+  </div>
+<h3>主要風險</h3>
+  <div class="tbl"><table>
+    <tr><th>風險</th><th>對策</th></tr>
+    <tr><td>部分 TDX 端點未實測</td><td>M1 先錄製真實回應；解析採防禦性寫法</td></tr>
+    <tr><td>TDX 額度不足</td><td>伺服器快取、限流、多實例改 Redis</td></tr>
+    <tr><td>民眾 agent 成本被濫用</td><td>每 IP／每日上限、全站預算、超額降級示範模式</td></tr>
+    <tr><td>MCP Apps 規格演進</td><td>文字回傳永遠完整，卡片為加分；版本鎖定 + ADR 追蹤</td></tr>
+    <tr><td>決策結果不符民眾直覺</td><td>規則透明、理由句、可切換狀態即時重算；權重改動必須更新測試與 ADR</td></tr>
+    <tr><td>導訂票權限或路況端點無法取得</td><td>介面與 mock 先完成；以 TDX 官方 MCP 為替代來源</td></tr>
+  </table></div>
+</section>
+
+<section id="handoff">
+  <div class="eyebrow">13 · HANDOFF</div>
+  <h2>GitHub 與 Claude Code</h2>
+  <p class="lead">專案已備好 CI、文件站發布、PR 與 Issue 範本，以及給 Claude Code 的 <code>CLAUDE.md</code> 與循環開發協定 <code>docs/LOOP.md</code>。完整步驟見 <code>docs/HANDOFF.md</code>。</p>
+  <h3>上 GitHub</h3>
+<pre><code>cd ~/workspace/A-Bang
+rm -rf node_modules && npm ci
+mkdir -p .github && cp -R _github/* .github/ && rm -rf _github
+npm test
+git add -A && git commit -m "docs: v0.4 development-ready specs"
+git remote add origin https://github.com/TingFengChou/A-Bang.git
+git push -u origin main</code></pre>
+  <div class="tbl"><table>
+    <tr><th>檔案</th><th>作用</th></tr>
+    <tr><td><code>.github/workflows/ci.yml</code></td><td>每次 push／PR 以示範模式跑測試與 Demo 打包</td></tr>
+    <tr><td><code>.github/workflows/pages.yml</code></td><td>把 <code>docs/</code> 發布成 GitHub Pages（Settings → Pages → Source 選 GitHub Actions）</td></tr>
+    <tr><td><code>.github/pull_request_template.md</code></td><td>PR 檢查清單（測試、示範模式、文件、金鑰）</td></tr>
+    <tr><td><code>.github/ISSUE_TEMPLATE/</code></td><td>開發任務、資料問題範本</td></tr>
+  </table></div>
+  <h3>Claude Code 循環開發</h3>
+  <p>每輪做一個任務：讀狀態 → 選下一個任務 → 讀該任務必讀文件 → 實作與測試 → 更新文件 → 勾選與紀錄 → commit。遇到金鑰、權限、新依賴、ADR 變更就停下來問。</p>
+<pre><code>你是阿幫（A-Bang）專案的開發者。照 docs/LOOP.md 的協定做「一輪」：
+1) 讀 CLAUDE.md、docs/PLAN.md 狀態看板、docs/PROGRESS.md 最後 5 筆、git status。
+2) 若有上一輪未完成的變更，先收尾（npm test 通過後提交），本輪就結束。
+3) 否則選 PLAN.md 目前里程碑第一個未勾選、未標 ⛔ 的任務，只讀 LOOP.md §3 列的必讀文件。
+4) 實作＋測試（npm test 全過；有 UI 就用 Playwright 截圖自己檢查），同步更新規格文件。
+5) 在 PLAN.md 勾選並更新狀態看板，在 docs/PROGRESS.md 最上面加一筆紀錄，git commit（不要 push）。
+6) 遇到 LOOP.md §2 的停止條件就停下並說明需要我做什麼。
+最後用 3–5 行回報：完成的任務代號、測試數、下一個任務、卡住事項。</code></pre>
+  <div class="note">M1 需要 TDX 金鑰與可連到 TDX 的網路，請在本機執行；CI 一律跑示範模式，不放金鑰。金鑰只放 <code>.env</code>，不要貼到對話。</div>
+</section>
+
+<section id="docs">
+  <div class="eyebrow">14 · INDEX</div>
+  <h2>文件索引</h2>
+  <div class="tbl"><table>
+    <tr><th>文件</th><th>讀者</th><th>內容</th></tr>
+    <tr><td><code>CLAUDE.md</code></td><td>Claude Code</td><td>架構規則 12 條、必讀順序、目錄、完成的定義</td></tr>
+    <tr><td><code>docs/LOOP.md</code></td><td>Claude Code</td><td>循環開發協定、停止條件、任務 → 必讀文件、loop prompt</td></tr>
+    <tr><td><code>docs/PLAN.md</code></td><td>全員</td><td>狀態看板、任務代號、驗收、Austin 待辦</td></tr>
+    <tr><td><code>docs/PROGRESS.md</code></td><td>全員</td><td>每輪開發紀錄</td></tr>
+    <tr><td><code>docs/CONTEXT.md</code></td><td>全員</td><td>規劃討論的決策摘要、市場現況、待驗證事項</td></tr>
+    <tr><td><code>docs/PRD.md</code></td><td>全員</td><td>目標、使用者、範圍、非目標、指標、風險</td></tr>
+    <tr><td><code>docs/ARCHITECTURE.md</code></td><td>開發</td><td>總覽、目錄職責、資料流、決策、卡片、行動、快取、安全</td></tr>
+    <tr><td><code>docs/MCP_TOOLS.md</code></td><td>開發</td><td>每個 tool 的輸入輸出、端點、<code>speak</code>、<code>plan_trip</code> 演算法</td></tr>
+    <tr><td><code>docs/DATA_SOURCES.md</code></td><td>開發</td><td>TDX 認證與端點、TTL、TDX 官方 MCP、氣象署、深層連結</td></tr>
+    <tr><td><code>docs/AGENT.md</code></td><td>開發</td><td>agent profile、事件協定、狀態合併、system prompt、示範模式、成本</td></tr>
+    <tr><td><code>docs/UX.md</code></td><td>開發、設計</td><td>畫面、討論串、決策圖時序、結論卡片、文案、3D、可及性</td></tr>
+    <tr><td><code>docs/CARDS.md</code></td><td>開發</td><td>卡片資料契約、host 介面、狀態與錯誤</td></tr>
+    <tr><td><code>docs/TESTING.md</code></td><td>開發</td><td>測試層級、fixture、情境開關、Playwright、CI</td></tr>
+    <tr><td><code>docs/BRAND.md</code></td><td>全員、設計</td><td>名稱、吉祥物、色彩、語氣、商標注意</td></tr>
+    <tr><td><code>docs/PLATFORM.md</code></td><td>產品、開發</td><td>阿幫平台：工具包、風險分級、Builder、啟動門檻、未決問題</td></tr>
+    <tr><td><code>docs/HANDOFF.md</code></td><td>Austin</td><td>上 GitHub、交給 Claude Code、需要 Austin 的事項</td></tr>
+    <tr><td><code>docs/prototypes/transit-discussion.html</code></td><td>全員</td><td>小幫手討論串＋決策圖原型</td></tr>
+    <tr><td><code>docs/adr/README.md</code></td><td>開發</td><td>ADR 0001–0011 索引</td></tr>
+  </table></div>
+</section>
+<footer>資料來源：交通部 TDX 運輸資料流通服務、中央氣象署、政府資料開放平臺、內政部警政署 165、經濟部商工登記公示資料。文件最後更新：2026-11-17。</footer>
+</main>
+</div>
+
+<script>
+/* ---------- 目錄：捲動定位與手機選單 ---------- */
+(() => {
+  const links = [...document.querySelectorAll('nav.toc a')];
+  const toc = document.getElementById('toc'), menu = document.getElementById('menu');
+  menu.onclick = () => { const o = toc.classList.toggle('open'); menu.setAttribute('aria-expanded', o); };
+  links.forEach((a) => a.addEventListener('click', () => { toc.classList.remove('open'); menu.setAttribute('aria-expanded', false); }));
+  const io = new IntersectionObserver((es) => es.forEach((e) => {
+    if (e.isIntersecting) links.forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id));
+  }), { rootMargin: '-40% 0px -55% 0px' });
+  document.querySelectorAll('main section').forEach((s) => io.observe(s));
+  document.querySelectorAll('pre').forEach((p) => {
+    const b = document.createElement('button'); b.className = 'copy'; b.textContent = '複製';
+    b.onclick = async () => { try { await navigator.clipboard.writeText(p.querySelector('code').innerText); b.textContent = '已複製'; } catch { b.textContent = '請手動選取'; } setTimeout(() => (b.textContent = '複製'), 1500); };
+    p.appendChild(b);
+  });
+})();
+
+/* ---------- 互動架構圖 ---------- */
+(() => {
+  const NS = 'http://www.w3.org/2000/svg';
+  const E = {
+    'agent-mcp': [[130,76],[130,116]], 'pwa-http': [[340,76],[340,96],[450,96],[450,116]], 'app-http': [[550,76],[550,116]],
+    'mcp-tools': [[180,168],[180,212],[300,212],[300,236]], 'http-tools': [[420,168],[420,212],[390,212],[390,236]],
+    'http-agentrt': [[600,168],[600,236]], 'agentrt-tools': [[450,262],[435,262]], 'tools-decide': [[245,262],[230,262]],
+    'tools-services': [[340,288],[340,310]], 'services-mock': [[245,336],[230,336]], 'services-providers': [[435,336],[450,336]],
+    'services-client': [[340,362],[340,382]], 'client-tdx': [[300,434],[300,490]], 'client-cwa': [[245,420],[95,420],[95,490]],
+    'providers-tdxmcp': [[480,362],[480,470],[425,470],[425,490]], 'providers-links': [[600,362],[600,490]] };
+  const seg = (a, b) => E[a + '-' + b] || (E[b + '-' + a] || []).slice().reverse();
+  const eg = document.getElementById('edges');
+  Object.values(E).forEach((p) => { const l = document.createElementNS(NS, 'path'); l.setAttribute('d', 'M' + p.map((q) => q.join(' ')).join(' L')); eg.appendChild(l); });
+  const S = {
+    trip: { name: '下雨天怎麼去 101', hops: [
+      ['pwa','http','req','民眾問「從西門町到台北 101 怎麼去？」','POST /api/v1/agent（NDJSON 事件串流）'],
+      ['http','agentrt','req','agent 判斷意圖（Claude 或示範規則）','agent_note「我請 @地點 @天氣 @公車 @YouBike 看看」'],
+      ['agentrt','tools','req','平行點名工具','tool_start：find_place ×2、weather_now、plan_trip'],
+      ['tools','services','req','plan_trip 產生候選方案','步行、YouBike、公車直達、叫車'],
+      ['services','client','req','查附近站牌、YouBike、到站與天氣','Bus/Station/NearBy、Bike/Availability、ETA、CWA 觀測'],
+      ['client','tdx','req','帶 Bearer token（快取 24 小時）','$spatialFilter=nearby(25.042,121.508,500)'],
+      ['tdx','client','res','站牌、車數、到站時間','EstimateTime: 240、AvailableRentBikes: 8'],
+      ['client','cwa','req','起點天氣','O-A0001-001（10 分鐘快取）'],
+      ['cwa','client','res','中正區正在下雨','rainMm1h: 2.5 → 自動狀態「下雨」'],
+      ['client','services','res','正規化＋快取','即時 20–30 秒、站點 1 小時'],
+      ['services','tools','res','候選方案（含淋雨、走路、等車、費用）','options[]：bus、bike、walk、ride'],
+      ['tools','decide','req','依資料＋狀態計分','decide(options, { states: ["rain"] })：淋雨權重 ×4'],
+      ['decide','tools','res','排序與理由','選「公車 307」：因為正在下雨，淋雨少、走路少'],
+      ['tools','agentrt','res','每個工具一句話回報','tool_result.speak「中正區現在下雨，3 小時降雨 80%」'],
+      ['agentrt','http','res','送出決策事件','decision：states、ranked、excluded、reason'],
+      ['http','pwa','res','討論串 → 決策圖動畫 → 結論卡片','可關掉「下雨」即時重算 → YouBike']] },
+    traffic: { name: '塞車改搭台鐵＋訂票', hops: [
+      ['pwa','http','req','「現在去新竹，路上好像在塞車」','POST /api/v1/agent'],
+      ['http','agentrt','req','你說的：塞車；判斷跨城行程','agent_note「我問 @路況 @台鐵 @高鐵 @客運 @叫車」'],
+      ['agentrt','tools','req','點名工具','traffic_status、tra_timetable、thsr_timetable、intercity_bus、plan_trip'],
+      ['tools','services','req','組合跨城方案','高鐵＋接駁、台鐵自強、國道客運、叫車'],
+      ['services','client','req','路況與時刻表','高速公路旅行時間、TRA/THSR OD 時刻'],
+      ['client','tdx','req','即時路況 60 秒快取','國道 1 號北向 …'],
+      ['tdx','client','res','壅塞，延誤約 35 分','level: "jam" → 自動狀態「塞車中」'],
+      ['client','services','res','正規化','客運與叫車加上延誤'],
+      ['services','tools','res','方案含塞車風險','delayRisk：客運 0.8、叫車 0.9、軌道 0'],
+      ['tools','decide','req','塞車風險權重 ×6','decide(options, { states: ["traffic"] })'],
+      ['decide','tools','res','台鐵自強勝出','國道客運會遲到已排除；叫車最後'],
+      ['tools','agentrt','res','工具回報','「國道 1 號北向壅塞，客運預估晚 35 分。」'],
+      ['agentrt','http','res','decision＋timetable 卡片','卡片上有「訂票」按鈕'],
+      ['http','pwa','res','結論卡片','使用者按「訂票」→ 確認車次、張數（L2）'],
+      ['pwa','http','req','確認後產生訂票連結','POST /api/v1/tools/rail_booking_link'],
+      ['http','tools','req','L2 tool','{ system: "TRA", trainNo: "123", tickets: 1 }'],
+      ['tools','services','req','交給 booking 服務','導訂票 adapter'],
+      ['services','providers','req','provider 介接','TDX 導訂票（需權限）'],
+      ['providers','tdxmcp','req','產生具時效的官方連結','導訂票 API／官方 MCP'],
+      ['tdxmcp','providers','res','訂票網址與到期時間','{ url, expiresAt }'],
+      ['providers','links','res','開啟官方訂票網站','付款與個資在官方網站完成']] },
+    mcp: { name: 'Claude 經 MCP 查 YouBike', hops: [
+      ['agent','mcp','req','使用者在 Claude 問「台北車站附近還有車嗎？」','tools/call youbike_nearby { lat: 25.0478, lon: 121.517 }'],
+      ['mcp','tools','req','zod 驗證後執行同一個 run()','callTool(svc, "youbike_nearby", args)'],
+      ['tools','services','req','站點＋即時車數','svc.bike.nearby({ lat, lon })'],
+      ['services','client','req','兩支 API 平行','Bike/Station/NearBy + Bike/Availability/NearBy'],
+      ['client','tdx','req','空間查詢 500 公尺','$spatialFilter=nearby(25.0478,121.517,500)'],
+      ['tdx','client','res','座標與可借車數','AvailableRentBikes: 12'],
+      ['client','services','res','站點 1 小時、車數 30 秒快取','靜態與即時分開快取'],
+      ['services','tools','res','正規化＋導航連結','nav: Google／Apple Maps'],
+      ['tools','mcp','res','文字＋structuredContent','{ card: "youbike", speak, data }'],
+      ['mcp','agent','res','Claude 回答並顯示卡片','「最近的 M8 出口站 120 公尺，還有 12 台」']] },
+    demo: { name: '示範模式（無金鑰）', hops: [
+      ['pwa','http','req','第一次啟動，沒填 .env','POST /api/v1/agent「307 到哪了？」'],
+      ['http','agentrt','req','沒有 ANTHROPIC_API_KEY','demo-intent.js 規則式意圖（事件與 Claude 模式相同）'],
+      ['agentrt','tools','req','點名公車','bus_route_eta { city: "Taipei", routeName: "307" }'],
+      ['tools','services','req','沒有 TDX 金鑰','mode = "demo"'],
+      ['services','mock','req','改用示範服務（介面相同）','createMockTransitServices()'],
+      ['mock','services','res','穩定、可重現的模擬資料','不呼叫任何外部 API'],
+      ['services','tools','res','照常正規化','{ mode: "demo", data }'],
+      ['tools','agentrt','res','speak 一句話','「307 目前有 3 個站即將有車」'],
+      ['agentrt','http','res','事件串流','tool_result → text → done'],
+      ['http','pwa','res','畫面標示「示範資料」','填入金鑰後自動切換真實資料']] },
+    cache: { name: '卡片刷新與快取', hops: [
+      ['pwa','http','req','卡片每 20 秒刷新','POST /api/v1/tools/bus_route_eta'],
+      ['http','tools','req','同一個 registry','callTool(svc, "bus_route_eta", args)'],
+      ['tools','services','req','交給服務','svc.bus.routeEta()'],
+      ['services','client','req','相同 URL 仍在有效期內','cache.get(url) 命中'],
+      ['client','services','res','不打 TDX','省下 3 次 API 額度'],
+      ['services','tools','res','正規化','metrics: { cacheHit: true, ms: 3 }'],
+      ['tools','http','res','回傳卡片資料','{ card: "bus-route", data, speak }'],
+      ['http','pwa','res','卡片更新，倒數本地每秒遞減','流量越大，省下的額度越多']] },
+  };
+  const INFO = {
+    agent: ['Claude／AI agent', '遠端 /mcp 或本機 stdio', ['由 Claude 決定呼叫哪些 tools','結果附 structuredContent（card、speak、data）','支援 MCP Apps 的 client 顯示互動卡片（M4）']],
+    pwa: ['民眾網頁 agent', 'public/ · M5', ['免帳號，一句話問交通','小幫手討論串＋決策圖＋結論卡片（UX.md）','淺色、手機優先、可導航／訂票／叫車']],
+    app: ['iOS／Android／LINE', '下一階段（ADR-0008）', ['呼叫同一個 /api/v1/agent','卡片依資料契約渲染（WebView 或原生）','裝置端工具：定位、提醒、通知（client_tool_call）']],
+    mcp: ['MCP 出口', 'mcp/create-server.js', ['由 registry 註冊，所有 tools 唯讀','stdio、Streamable HTTP（stateless）；/mcp/:pack 依工具包過濾','M4：ui://abang/cards.html 互動卡片資源']],
+    http: ['HTTP 伺服器', 'server/http.js', ['/api/v1/agent（M5，NDJSON）、/api/v1/tools、/mcp','每 IP 限流、64 KB body 上限、CORS','不放商業邏輯']],
+    decide: ['決策引擎', 'core/decide.js · ADR-0010', ['比較：總時間、等車、走路、費用、淋雨、體力、塞車風險','使用者狀態調權重：下雨、塞車、趕時間、帶行李、想省錢、少走路','arriveBy 硬限制；產生理由句；模型不計分']],
+    tools: ['Tool registry', 'core/tools/ · ADR-0002', ['defineTool：名稱、zod 輸入、run、speak、card','每個 tool 標 pack（工具包）與 tier（L1/L2/L3）','MCP、REST、網頁 agent 共用 callTool()']],
+    agentrt: ['agent 執行環境', 'core/agent/ · M5', ['Claude tool-use 迴圈或示範意圖解析','事件：agent_note、tool_start、tool_result、decision…','合併使用者狀態：自動判斷／你說的／你選的']],
+    mock: ['示範資料', 'core/services/*-mock.js', ['沒有金鑰時自動啟用，介面完全相同','DEMO_WEATHER、DEMO_TRAFFIC 切換情境','開發、Demo、CI 都用它']],
+    services: ['服務', 'core/services/', ['正規化成共用格式，不漏 TDX 原始欄位','transit ✅；metro、places、trip、traffic、weather、booking（M3）','縣市與站名容錯（台／臺）']],
+    providers: ['providers', 'core/providers/ · ADR-0011', ['叫車 adapter：先 Uber 深層連結，估價待合作','mcp-client：包裝 TDX 官方 MCP 等外部 MCP','行動類為 L2：使用者確認後才產生連結']],
+    client: ['資料 client', 'core/tdx-client.js（＋ cwa）', ['OIDC token 快取、single-flight、提前換新','回應快取：即時 20–60 秒、靜態 1 小時以上','401 換 token 重試、429 依 Retry-After']],
+    cwa: ['中央氣象署開放資料平臺', 'opendata.cwa.gov.tw · CWA_API_KEY', ['自動氣象站觀測、鄉鎮 3 小時預報','提供決策的自動狀態「下雨」','M3 串接']],
+    tdx: ['交通部 TDX', 'tdx.transportdata.tw', ['公車、YouBike、台鐵、高鐵、捷運、客運、路況','站牌與車站都有經緯度（導航）','需會員金鑰；額度依方案']],
+    tdxmcp: ['TDX 官方 MCP', 'tdx-mcp/rail · tdx-mcp/event', ['臺鐵／高鐵班次、票價、導訂票','道路事件','需會員金鑰；導訂票需另申請權限']],
+    links: ['官方網站／App', '深層連結', ['Google／Apple 地圖導航','台鐵／高鐵官方訂票網站（自動帶入）','叫車 App（Uber）；付款與個資不經阿幫']],
+  };
+  let cur = 'trip', i = 0, playing = false, anim = null;
+  const $ = (id) => document.getElementById(id), dot = $('dot'), trail = $('trail'), sc = $('sc');
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  Object.entries(S).forEach(([k, v]) => { const b = document.createElement('button'); b.className = 'b'; b.textContent = v.name; b.dataset.k = k; b.onclick = () => { cur = k; reset(); }; sc.appendChild(b); });
+  function hl(id) { document.querySelectorAll('.nd rect').forEach((r) => (r.style.strokeWidth = '')); if (id) { const r = document.querySelector('.nd[data-id="' + id + '"] rect'); if (r) r.style.strokeWidth = '2.5'; } }
+  function renderLog() { $('log').innerHTML = S[cur].hops.map((x, k) => '<li class="' + (k < i ? 'done' : '') + (k === i - 1 ? ' cur' : '') + '"><span>' + (k + 1) + '</span><span>' + x[3] + '<br><code>' + x[4].replace(/</g, '&lt;') + '</code></span></li>').join(''); sc.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.k === cur)); }
+  function setPlay() { $('play').textContent = playing ? '暫停' : '播放'; }
+  function reset() { cancelAnimationFrame(anim); playing = false; i = 0; dot.setAttribute('opacity', '0'); trail.setAttribute('d', ''); hl(null); setPlay(); renderLog(); }
+  function step(done) {
+    const h = S[cur].hops; if (i >= h.length) { playing = false; setPlay(); return; }
+    const [a, b, t] = h[i]; const pts = seg(a, b); i++; renderLog();
+    const col = css(t === 'req' ? '--req' : '--res'); dot.setAttribute('fill', col); trail.setAttribute('stroke', col); dot.setAttribute('opacity', '1');
+    const L = []; let tot = 0; for (let k = 1; k < pts.length; k++) { const d = Math.hypot(pts[k][0] - pts[k-1][0], pts[k][1] - pts[k-1][1]); L.push(d); tot += d; }
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const dur = reduce ? 1 : Math.max(500, tot * 6), t0 = performance.now();
+    hl(a);
+    (function f(now) {
+      const p = Math.min(1, (now - t0) / dur); let s = p * tot, k = 0; while (k < L.length - 1 && s > L[k]) { s -= L[k]; k++; }
+      const r = L[k] ? s / L[k] : 1, x = pts[k][0] + (pts[k+1][0] - pts[k][0]) * r, y = pts[k][1] + (pts[k+1][1] - pts[k][1]) * r;
+      dot.setAttribute('cx', x); dot.setAttribute('cy', y);
+      trail.setAttribute('d', 'M' + pts.slice(0, k + 1).map((q) => q.join(' ')).join(' L') + ' L' + x + ' ' + y);
+      if (p < 1) anim = requestAnimationFrame(f); else { hl(b); setTimeout(() => done && done(), 350); }
+    })(t0);
+  }
+  function loop() { if (!playing) return; if (i >= S[cur].hops.length) { playing = false; setPlay(); return; } step(loop); }
+  $('play').onclick = () => { if (i >= S[cur].hops.length) reset(); playing = !playing; setPlay(); if (playing) loop(); else cancelAnimationFrame(anim); };
+  $('next').onclick = () => { if (playing) { playing = false; setPlay(); } cancelAnimationFrame(anim); if (i >= S[cur].hops.length) reset(); step(); };
+  $('reset').onclick = reset;
+  document.querySelectorAll('.nd').forEach((g) => g.addEventListener('click', () => {
+    const d = INFO[g.dataset.id]; if (!d) return; hl(g.dataset.id);
+    $('info').innerHTML = '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline;margin-bottom:6px"><b style="color:var(--text);font-size:16px">' + d[0] + '</b><code>' + d[1] + '</code></div><ul style="margin:0;padding-left:20px">' + d[2].map((x) => '<li>' + x + '</li>').join('') + '</ul>';
+  }));
+  reset();
+})();
+
+/* ---------- 中小企業申辦清單示意 ---------- */
+(() => {
+  const root = document.getElementById('smeDemo'); if (!root) return;
+  const st = { make: 'self', type: 'general' };
+  const ITEMS = [
+    { t: '公司或商業登記', a: '經濟部商業發展署／地方政府', w: () => true, d: '先確認營業項目代碼涵蓋化粧品製造或批發零售；完成後可用商工登記公示資料查詢狀態。' },
+    { t: '稅籍登記與營業稅申報', a: '財政部各地區國稅局', w: () => true, d: '營業稅原則上每兩個月申報一次，營利事業所得稅每年結算申報；實際期限以財政部公告為準。' },
+    { t: '工廠登記（或確認免辦）', a: '經濟部產業發展署／地方政府', w: (s) => s.make === 'self', d: '依工廠管理輔導法判定是否需登記；規模較小的製造場所可能適用免辦規定，需逐案確認。' },
+    { t: '化粧品製造場所 GMP', a: '衛福部食藥署', w: (s) => s.make === 'self', d: '一般化粧品製造業者自 2026 年 7 月 1 日起全面適用；涵蓋廠房設備、人員、原料與成品管理及 SOP。' },
+    { t: '確認代工廠符合 GMP', a: '衛福部食藥署', w: (s) => s.make === 'oem', d: '委託代工時，應確認受託製造場所已符合化粧品 GMP 規定，並在合約中約定文件提供。' },
+    { t: '特定用途化粧品查驗登記（許可證）', a: '衛福部食藥署', w: (s) => s.type === 'special', d: '防曬、染髮、燙髮、止汗制臭、美白牙齒等特定用途化粧品，需先取得許可證才能上市。' },
+    { t: '產品登錄', a: '衛福部食藥署化粧品產品登錄平台', w: () => true, d: '在供應、販賣或提供試用前完成產品登錄。' },
+    { t: '產品資訊檔案（PIF）與安全資料簽署', a: '衛福部食藥署', w: () => true, d: '一般化粧品自 2026 年 7 月 1 日起全面適用；共 16 項內容，須由安全資料簽署人員評估簽署，主管機關可隨時要求提供。' },
+    { t: '事業廢棄物：判定是否需清理計畫書與申報', a: '環境部／地方環保局', w: (s) => s.make === 'self', d: '依行業別、規模與產生的廢棄物種類判定；多個縣市提供「應否檢具事業廢棄物清理計畫書」自我判定表。' },
+    { t: '標示與廣告', a: '衛福部食藥署／地方衛生局', w: () => true, d: '中文標示需完整；功效宣稱需有臨床或文獻佐證，避免誇大或醫療效能用語。' },
+  ];
+  const list = document.getElementById('smeList'), cnt = document.getElementById('smeCount');
+  function render() {
+    const on = ITEMS.filter((x) => x.w(st));
+    cnt.textContent = '你需要處理 ' + on.length + ' 個項目';
+    list.innerHTML = on.map((x, k) => '<details class="row" style="display:block;animation:pop .3s ease"><summary style="cursor:pointer;display:flex;gap:10px;align-items:baseline;list-style:none"><span style="font-family:var(--mono);color:var(--brand);min-width:20px">' + (k + 1) + '</span><span class="g" style="white-space:normal"><b>' + x.t + '</b><br><span style="font-size:12.5px;color:var(--muted)">' + x.a + '</span></span></summary><p style="margin:6px 0 4px 30px;font-size:14px;color:var(--muted)">' + x.d + '</p></details>').join('');
+  }
+  root.querySelectorAll('[data-q]').forEach((g) => g.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+    st[g.dataset.q] = b.dataset.v; g.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); render();
+  })));
+  render();
+})();
+
+/* ---------- 反詐騙檢查示意 ---------- */
+(() => {
+  const root = document.getElementById('fraudDemo'); if (!root) return;
+  const DEMO_BLACKLIST = ['invest888'];
+  const RULES = [
+    { re: /(bit\.ly|reurl\.cc|tinyurl|ppt\.cc|lihi|https?:\/\/[^\s]+\.(top|xyz|cc|vip)\b)/gi, s: 30, why: '含短網址或可疑網域，點擊前無法確認真正去向' },
+    { re: /(24\s*小時內|立即|盡快|逾期|凍結|停權|最後通知)/g, s: 20, why: '製造急迫感，催促你馬上行動' },
+    { re: /(保證獲利|穩賺|老師帶單|飆股|內線|高報酬|零風險)/g, s: 35, why: '典型假投資話術：保證獲利、名師帶單' },
+    { re: /(解除分期|重複扣款|操作\s*ATM|網路銀行操作|監管帳戶)/g, s: 40, why: '典型詐騙：要求操作 ATM、網銀或解除分期' },
+    { re: /(加\s*LINE|LINE\s*ID|加入群組|私訊)/gi, s: 20, why: '要求轉到 LINE 或私人群組聯繫' },
+    { re: /(地檢署|檢察官|警察局|法院|健保局|涉嫌洗錢)/g, s: 30, why: '假冒司法或公務機關' },
+    { re: /(包裹|地址不全|配送失敗|補運費)/g, s: 15, why: '常見假物流通知手法' },
+  ];
+  const GOV = /(政府|衛福部|財政部|國稅局|內政部|監理|健保|勞保|數位發展部)/;
+  const SAMPLES = [
+    { n: '假包裹', sender: '0987654321', t: '【物流通知】您的包裹因地址不全配送失敗，請於24小時內點擊 https://bit.ly/3xYz 補填資料並支付補運費 25 元。' },
+    { n: '假投資', sender: '', t: '恭喜加入飆股研究社！本週老師帶單保證獲利 30%，名額有限，立即加 LINE ID：invest888 進入 VIP 群組。' },
+    { n: '假冒機關', sender: '0223456789', t: '這裡是台北地檢署，您的帳戶涉嫌洗錢，即將凍結，請依指示操作 ATM 將款項轉入監管帳戶。' },
+    { n: '政府 111 簡訊', sender: '111', t: '財政部提醒：個人綜合所得稅申報期間將屆，請利用官方報稅系統辦理。' },
+  ];
+  const txt = document.getElementById('fraudText'), snd = document.getElementById('fraudSender'), out = document.getElementById('fraudResult'), err = document.getElementById('fraudErr');
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const sb = document.getElementById('fraudSamples');
+  SAMPLES.forEach((x) => { const b = document.createElement('button'); b.className = 'b'; b.textContent = x.n; b.onclick = () => { txt.value = x.t; snd.value = x.sender; err.textContent = ''; check(); }; sb.appendChild(b); });
+  txt.addEventListener('input', () => (err.textContent = ''));
+  function check() {
+    const t = txt.value.trim(), s = snd.value.trim();
+    if (!t) { err.textContent = '請先貼上訊息內容'; out.innerHTML = ''; return; }
+    let score = 0; const why = []; let marked = esc(t);
+    RULES.forEach((r) => { const m = t.match(r.re); if (m) { score += r.s; why.push(r.why); [...new Set(m)].forEach((w) => { marked = marked.split(esc(w)).join('<mark style="background:var(--bad-soft);color:var(--bad);border-radius:4px;padding:0 2px">' + esc(w) + '</mark>'); }); } });
+    const ids = (t.match(/LINE\s*ID[:：]?\s*([A-Za-z0-9._-]+)/i) || [])[1];
+    if (ids && DEMO_BLACKLIST.includes(ids.toLowerCase())) { score += 40; why.unshift('LINE ID「' + ids + '」在 165 通報清單中（示範資料）'); }
+    if (GOV.test(t)) { if (s === '111') { score -= 30; why.push('寄件號碼為 111 政府專屬短碼，來源可信度較高（內容仍請自行查證）'); } else if (s) { score += 25; why.push('自稱政府機關，但不是由 111 政府短碼發送'); } }
+    score = Math.max(0, Math.min(100, score));
+    const lv = score >= 60 ? ['高風險', 'var(--bad)', 'var(--bad-soft)'] : score >= 30 ? ['需要注意', 'var(--warn)', 'var(--warn-soft)'] : ['未發現明顯詐騙特徵', 'var(--ok)', 'var(--ok-soft)'];
+    const tips = score >= 60 ? ['不要點擊連結、不要回覆、不要加 LINE', '撥打 165 反詐騙諮詢專線確認', '若已提供資料或轉帳，立即聯絡銀行並報案'] : score >= 30 ? ['先不要點擊連結或提供個資', '透過官方網站或電話自行查證', '有疑問可撥 165 諮詢'] : ['未在已知特徵中發現問題，但這不代表一定安全', '涉及金錢或個資時，仍請透過官方管道確認'];
+    out.innerHTML = '<div style="border:1px solid var(--line);border-radius:12px;padding:14px;animation:pop .3s ease">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><b style="color:' + lv[1] + ';font-size:17px">' + lv[0] + '</b><span style="font-family:var(--mono);font-size:13px;color:var(--muted)">風險分數 ' + score + '</span></div>'
+      + '<div style="height:8px;background:var(--code);border-radius:4px;margin:8px 0 12px"><div style="height:8px;border-radius:4px;background:' + lv[1] + ';width:0;transition:width .8s ease" id="fraudBar"></div></div>'
+      + '<div style="font-size:14px;background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:10px;line-height:1.7">' + marked + '</div>'
+      + (why.length ? '<div style="font-size:13px;color:var(--muted);margin-bottom:4px">判斷理由</div><ul style="margin:0 0 10px;padding-left:20px;font-size:14px">' + why.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul>' : '')
+      + '<div style="font-size:13px;color:var(--muted);margin-bottom:4px">建議下一步</div><ul style="margin:0;padding-left:20px;font-size:14px">' + tips.map((w) => '<li>' + w + '</li>').join('') + '</ul></div>';
+    requestAnimationFrame(() => setTimeout(() => { const b = document.getElementById('fraudBar'); if (b) b.style.width = score + '%'; }, 30));
+  }
+  document.getElementById('fraudCheck').onclick = check;
+})();
+
+/* ---------- Agent Builder 示意 ---------- */
+(() => {
+  const root = document.getElementById('builder'); if (!root) return;
+  const LANGS = { 'zh-TW': '繁中', en: 'English', ja: '日本語', ko: '한국어' };
+  const PACKS = {
+    transit: { n: '交通', tier: 'L1', tools: 8, from: 'M1–M3' },
+    tourism: { n: '觀光', tier: 'L1', tools: 4, from: 'M9 新增' },
+    life: { n: '生活（天氣、AQI、藥局）', tier: 'L1', tools: 3, from: '候選' },
+    safety: { n: '旅客安全', tier: 'L2', tools: 3, from: 'M9 新增' },
+    antifraud: { n: '防詐', tier: 'L2', tools: 4, from: 'M7' },
+    permits: { n: '申辦法規', tier: 'L3', tools: 4, from: 'M8' },
+  };
+  const SUG = {
+    transit: { 'zh-TW': '怎麼去台北 101？', en: 'How do I get to Taipei 101?', ja: '台北101への行き方は？', ko: '타이베이 101은 어떻게 가나요?' },
+    tourism: { 'zh-TW': '附近有什麼景點？', en: "What's worth seeing nearby?", ja: '近くの観光スポットは？', ko: '근처에 볼 만한 곳이 있나요?' },
+    life: { 'zh-TW': '今天會下雨嗎？', en: 'Will it rain today?', ja: '今日は雨が降りますか？', ko: '오늘 비가 오나요?' },
+    safety: { 'zh-TW': '最近的醫院在哪？', en: "Where's the nearest hospital?", ja: '一番近い病院はどこですか？', ko: '가장 가까운 병원이 어디예요?' },
+    antifraud: { 'zh-TW': '這則簡訊是詐騙嗎？', en: 'Is this message a scam?', ja: 'このメッセージは詐欺ですか？', ko: '이 메시지 사기인가요?' },
+    permits: { 'zh-TW': '生產保養品要申請什麼？', en: 'What permits do I need to make cosmetics?', ja: '化粧品の製造に必要な申請は？', ko: '화장품을 만들려면 무엇을 신청해야 하나요?' },
+  };
+  const GREET = {
+    'zh-TW': (n) => `你好！我是${n}，有什麼可以幫你？`,
+    en: (n) => `Hi! I'm ${n}. How can I help?`,
+    ja: (n) => `こんにちは！${n}です。何でも聞いてください。`,
+    ko: (n) => `안녕하세요! ${n}입니다. 무엇을 도와드릴까요?`,
+  };
+  const GUARD = {
+    L1: ['標示資料來源與資料時間', '查不到時明說，不臆測'],
+    L2: ['顯示免責聲明', '不得做絕對保證（例如「一定安全」）', '高風險時導向官方管道（如 165）'],
+    L3: ['每項結論附法源條號與日期', '只引用人工審核的知識庫', '翻譯版本以中文原文為準'],
+  };
+  const TESTS = {
+    transit: '「怎麼去機場？」→ 呼叫交通工具並標示資料來源',
+    tourism: '「附近景點」→ 回傳景點卡片與資料時間',
+    life: '「明天天氣」→ 呼叫氣象工具，不臆測',
+    safety: '「我受傷了」→ 先提供緊急電話',
+    antifraud: '「保證獲利投資群組」→ 判為高風險且不說「安全」',
+    permits: '「保養品要申請什麼」→ 每項附法源與官方連結',
+  };
+  const CH = { web: '網頁', embed: '內嵌對話框', qr: 'QR code', line: 'LINE', app: 'iOS / Android', mcp: 'MCP 端點' };
+  const TPL = {
+    guesthouse: { label: '旅宿接待', name: '信義小旅店小幫手', packs: ['transit', 'tourism', 'safety', 'antifraud'], langs: ['zh-TW', 'en', 'ja', 'ko'], ch: ['web', 'qr'] },
+    shop: { label: '店家客服', name: '巷口咖啡小幫手', packs: ['transit'], langs: ['zh-TW', 'en'], ch: ['web', 'embed'] },
+    commute: { label: '通勤助理', name: '我的通勤助理', packs: ['transit', 'life'], langs: ['zh-TW'], ch: ['app', 'line'] },
+    community: { label: '社區防詐', name: '里民防詐小幫手', packs: ['antifraud'], langs: ['zh-TW'], ch: ['line', 'qr'] },
+    sme: { label: '企業申辦助理', name: '保養品創業申辦助理', packs: ['permits'], langs: ['zh-TW'], ch: ['web'] },
+  };
+  const order = { L1: 1, L2: 2, L3: 3 };
+  const st = { tpl: 'guesthouse', name: '', packs: new Set(), langs: new Set(), ch: new Set(), pv: 'zh-TW' };
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const tierPill = (t) => '<span class="pill ' + (t === 'L1' ? 'done' : t === 'L2' ? 'next' : '') + '" style="' + (t === 'L3' ? 'background:var(--bad-soft);color:var(--bad)' : '') + '">' + t + '</span>';
+  function chips(el, map, set) {
+    el.innerHTML = Object.entries(map).map(([k, v]) => '<button class="b' + (set.has(k) ? ' on' : '') + '" data-k="' + k + '" aria-pressed="' + set.has(k) + '">' + v + '</button>').join('');
+    el.querySelectorAll('button').forEach((b) => (b.onclick = () => { set.has(b.dataset.k) ? set.delete(b.dataset.k) : set.add(b.dataset.k); render(); }));
+  }
+  function applyTpl(k) { const t = TPL[k]; st.tpl = k; st.name = t.name; st.packs = new Set(t.packs); st.langs = new Set(t.langs); st.ch = new Set(t.ch); st.pv = t.langs[0]; $('bName').value = t.name; $('bResult').innerHTML = ''; render(); }
+  const tierOf = () => [...st.packs].map((p) => PACKS[p].tier).sort((a, b) => order[b] - order[a])[0] || 'L1';
+  function render() {
+    $('bTpl').innerHTML = Object.entries(TPL).map(([k, t]) => '<button class="b' + (k === st.tpl ? ' on' : '') + '" data-k="' + k + '">' + t.label + '</button>').join('');
+    $('bTpl').querySelectorAll('button').forEach((b) => (b.onclick = () => applyTpl(b.dataset.k)));
+    $('bPacks').innerHTML = Object.entries(PACKS).map(([k, p]) => '<label style="display:flex;gap:10px;align-items:center;font-size:14px;cursor:pointer"><input type="checkbox" data-k="' + k + '"' + (st.packs.has(k) ? ' checked' : '') + '> <span style="flex:1">' + p.n + ' <span style="color:var(--faint);font-size:12px">' + p.tools + ' 個 tools · ' + p.from + '</span></span>' + tierPill(p.tier) + '</label>').join('');
+    $('bPacks').querySelectorAll('input').forEach((i) => (i.onchange = () => { i.checked ? st.packs.add(i.dataset.k) : st.packs.delete(i.dataset.k); render(); }));
+    chips($('bLangs'), LANGS, st.langs); chips($('bCh'), CH, st.ch);
+    if (!st.langs.has(st.pv)) st.pv = [...st.langs][0] || 'zh-TW';
+    const name = $('bName').value.trim() || '（未命名）', tier = tierOf();
+    $('pvName').textContent = name; $('pvTier').outerHTML = tierPill(tier).replace('<span class="pill', '<span id="pvTier" class="pill');
+    $('pvLang').innerHTML = [...st.langs].map((l) => '<button class="b' + (l === st.pv ? ' on' : '') + '" data-l="' + l + '" style="padding:3px 10px;font-size:12px">' + LANGS[l] + '</button>').join('');
+    $('pvLang').querySelectorAll('button').forEach((b) => (b.onclick = () => { st.pv = b.dataset.l; render(); }));
+    $('pvGreet').textContent = GREET[st.pv](name);
+    $('pvSug').innerHTML = [...st.packs].slice(0, 3).map((p) => '<span class="chip" style="animation:none;font-family:inherit;font-size:13px;color:var(--text)">' + esc(SUG[p][st.pv]) + '</span>').join('') || '<span style="font-size:13px;color:var(--faint)">選擇工具包後會出現建議問題</span>';
+    const g = ['L1', 'L2', 'L3'].filter((t) => order[t] <= order[tier]).flatMap((t) => GUARD[t]);
+    $('pvGuard').innerHTML = g.map((x) => '<li>' + x + '</li>').join('');
+    $('bJson').textContent = JSON.stringify({ id: st.tpl + '-demo', status: 'draft', name: { [[...st.langs][0] || 'zh-TW']: name }, template: st.tpl, languages: [...st.langs], packs: [...st.packs], channels: Object.fromEntries(Object.keys(CH).map((c) => [c, st.ch.has(c)])), model: tier === 'L3' ? 'claude-sonnet-5-5' : 'claude-haiku-5-5', effectiveTier: tier, guardrails: g }, null, 2);
+  }
+  $('bName').addEventListener('input', () => { $('bNameErr').textContent = ''; render(); });
+  let run = 0;
+  $('bPublish').onclick = async () => {
+    const errs = [];
+    if (!$('bName').value.trim()) { $('bNameErr').textContent = '請輸入名稱'; errs.push(1); }
+    if (!st.packs.size) errs.push('至少選一個工具包'); if (!st.langs.size) errs.push('至少選一種語言'); if (!st.ch.size) errs.push('至少選一個通路');
+    $('bErr').textContent = errs.filter((e) => typeof e === 'string').join('、');
+    if (errs.length) return;
+    const my = ++run, tier = tierOf(), box = $('bResult');
+    box.innerHTML = '<div style="font-size:13px;color:var(--muted);margin-bottom:6px">自動評測</div>';
+    const wait = (ms) => new Promise((r) => setTimeout(r, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : ms));
+    for (const p of st.packs) {
+      const row = document.createElement('div'); row.className = 'chip'; row.style.cssText = 'font-family:inherit;margin:4px 0'; row.innerHTML = '<span class="sp"></span>' + TESTS[p]; box.appendChild(row);
+      await wait(550); if (my !== run) return; row.classList.add('ok');
+    }
+    const msg = { L1: ['已上線', 'var(--ok)', '工具包皆為 L1，自動評測通過後立即上線。'], L2: ['已上線，進入抽樣檢查', 'var(--warn)', '含 L2 工具包：平台會抽樣檢查對話，確認護欄有效。'], L3: ['已送人工審核', 'var(--bad)', '含 L3 工具包（申辦法規）：需法規人員審核知識庫與回覆後才能上線。'] }[tier];
+    const outs = [...st.ch].map((c) => ({ web: '網址 /a/' + st.tpl + '-demo', embed: '內嵌碼 &lt;script src=".../embed.js" data-agent="' + st.tpl + '-demo"&gt;', qr: 'QR code（可列印放櫃台）', line: '連結你的 LINE 官方帳號', app: '在 iOS / Android App 的 agent 清單出現', mcp: 'MCP 端點 /mcp/a/' + st.tpl + '-demo' }[c]));
+    const d = document.createElement('div'); d.style.cssText = 'border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:8px;animation:pop .3s ease';
+    d.innerHTML = '<b style="color:' + msg[1] + '">' + msg[0] + '</b><p style="margin:4px 0 6px;font-size:14px;color:var(--muted)">' + msg[2] + '</p>' + (tier === 'L3' ? '' : '<ul style="margin:0;padding-left:20px;font-size:13.5px">' + outs.map((o) => '<li>' + o + '</li>').join('') + '</ul>');
+    box.appendChild(d);
+  };
+  applyTpl('guesthouse');
+})();
+</script>
+</body>
+</html>

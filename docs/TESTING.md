@@ -1,0 +1,72 @@
+# 測試規格
+
+版本：v0.4（2026-11-17）。目前：`npm test` 31 項全過（decide 7、nav 7、tools、transit、mcp）。
+
+## 1. 原則
+
+- 不連外網：所有測試在示範模式＋fixture 下可跑（CI 與雲端沙盒都連不到 TDX）。
+- 每個新功能必有測試；修 bug 先寫能重現的測試。
+- 測試只用 Node 內建 `node:test`、`node:assert`；E2E 用已安裝的 Playwright（Chromium）。不新增測試框架。
+
+## 2. 層級
+
+| 層級 | 檔案 | 測什麼 | 何時 |
+|---|---|---|---|
+| 正規化 | `test/transit.test.js`、`test/<domain>.test.js` | TDX 形狀 fixture → 服務輸出格式（`MCP_TOOLS.md`） | 每個 service |
+| 導航 | `test/nav.test.js` | 連結格式與編碼、無效座標、步行時間、出發時機、tools 附 `nav` | M3-01 起 |
+| 決策 | `test/decide.test.js` | 權重、狀態、硬限制、理由句（ADR-0010） | 改 `decide.js` 必跑；改權重需新增情境 |
+| 行程 | `test/trip.test.js`（M3-11） | 10 組固定 OD：第一名、排除、理由句關鍵字 | M3 |
+| Registry | `test/tools.test.js` | 每個 tool 有 `pack`/`tier`/`speak`、參數驗證錯誤訊息、`callTool` 格式 | 每個 tool |
+| MCP | `test/mcp.test.js` | 起 server（隨機埠、`DEMO_MODE=1`）；stdio 與 HTTP 列出／呼叫；三路徑一致；405/404/429 | 每個 tool 自動涵蓋 |
+| 卡片契約 | `test/cards-schema.test.js`（M4-01） | mock 輸出符合 `public/ui/cards/schema/*.json` | M4 |
+| Agent 事件 | `test/agent.test.js`（M5） | 示範模式：4 個建議問題的事件序列（`status` → `agent_note` → `tool_start`… → `decision` → `text` → `done`）；狀態合併；限流 | M5 |
+| Claude 迴圈 | `test/agent-claude.test.js`（M5） | 以本地假 Anthropic API（`ANTHROPIC_BASE_URL=http://127.0.0.1:{port}`）回放 tool_use；5 輪上限；錯誤 | M5 |
+| E2E 截圖 | `scripts/e2e.js`（`npm run e2e`） | Playwright：手機（iPhone 13）與桌面；無 console error；關鍵元素存在；截圖存 `test/screenshots/`（不進版控） | M4、M5 |
+
+## 3. Fixture
+
+- 位置：`test/fixtures/<source>-<endpoint>.json`（例：`tdx-bus-eta-taipei-307.json`）。
+- M1 之前：手寫 TDX 形狀資料（欄位依官方 Swagger）；M1-02 起以 `scripts/record-fixtures.js` 錄製真實回應（截前 5 筆）。
+- 載入：`test/helpers/fake-tdx.js` 以路徑比對回傳 fixture，注入 `createTransitService({ tdx: fake })`。
+- 不錄使用者位置；不放金鑰。
+
+## 4. 示範模式情境開關（mock）
+
+| 變數 | 值 | 效果 |
+|---|---|---|
+| `DEMO_MODE` | `1` | 強制 mock |
+| `DEMO_WEATHER` | `rain`／`clear` | `weather_now` mock 結果（M3-08） |
+| `DEMO_TRAFFIC` | `jam`／`smooth` | `traffic_status` mock 結果（M3-06） |
+| `DEMO_NOW` | ISO 時間 | 固定「現在」，讓時刻表與倒數可重現 |
+
+測試內優先以參數注入（`createServices({ demo: { weather: 'rain' } })`），環境變數給手動展示用。
+
+## 5. Playwright 慣例
+
+```js
+import { chromium, devices } from 'playwright';   // 已預裝，不要 playwright install
+const browser = await chromium.launch();
+const page = await browser.newPage({ ...devices['iPhone 13'] });
+const errors = []; page.on('pageerror', (e) => errors.push(e)); page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+await page.goto(`http://localhost:${port}/`);
+// ... 操作 ...
+assert.equal(errors.length, 0);
+await page.screenshot({ path: 'test/screenshots/agent-trip-rain.png', fullPage: true });
+```
+
+- 人看的截圖 `deviceScaleFactor: 2`；只給自己檢查用 1。
+- 等待以事件或元素為準（`waitForSelector('[data-event=done]')`），不要固定 sleep。
+- 動畫測試設 `reducedMotion: 'reduce'` 跑一次，確認最終狀態一致。
+
+## 6. CI
+
+`.github/workflows/ci.yml`：Node 22、`npm ci`、`npm test`（`DEMO_MODE=1`）、`npm run build:demo`。M4 起加 `npm run build:cards`；M5 起加 `npm run e2e`（Playwright 於 CI 需 `npx playwright install --with-deps chromium`，僅 CI 使用）。
+
+## 7. 本機真實資料檢查（Austin）
+
+```bash
+cp .env.example .env   # 填 TDX_CLIENT_ID / TDX_CLIENT_SECRET / CWA_API_KEY
+node scripts/verify-tdx.js            # M1-01：所有端點狀態
+node scripts/record-fixtures.js       # M1-02：錄製 fixture
+DEMO_MODE=0 npm start                 # 真實資料
+```

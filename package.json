@@ -1,0 +1,27 @@
+{
+  "name": "abang",
+  "version": "0.1.0",
+  "description": "阿幫 A-Bang：台灣公共資料 AI 助手（PWA + MCP Server，共用核心）",
+  "main": "core/index.js",
+  "scripts": {
+    "start": "node server/http.js",
+    "mcp": "node mcp/server.js",
+    "build:demo": "node scripts/build-demo.js",
+    "test": "node --test test/*.test.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
+  },
+  "type": "module",
+  "bin": {
+    "abang-mcp": "mcp/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}
