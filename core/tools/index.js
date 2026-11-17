@@ -11,6 +11,9 @@ import ridehail from './ridehail.js';
 import trip from './trip.js';
 import booking from './booking.js';
 
+/** 卡片資料契約版本（public/ui/cards/schema/<card>.v1.json） */
+export const CARD_VERSION = 1;
+
 const ALL = [...transit, ...metro, ...traffic, ...intercity, ...weather, ...ridehail, ...trip, ...booking];
 const byName = new Map(ALL.map((t) => [t.name, t]));
 if (byName.size !== ALL.length) throw new Error('tool 名稱重複');
@@ -40,7 +43,8 @@ export function describeTool(t) {
 /**
  * 驗證參數並執行 tool。回傳統一格式；輸入錯誤丟 UserError。
  * metrics：本次呼叫的上游呼叫數、快取命中、掃描筆數、耗時（core/metrics.js；示範模式 calls／scanned 為 0）
- * @returns {Promise<{ name, card, mode, data, text, speak, metrics }>}
+ * 有卡片時另帶 v（契約版本）；args 為驗證後的參數，卡片刷新時用（CARDS.md §2）
+ * @returns {Promise<{ name, card, v?, mode, data, text, speak, args, metrics }>}
  */
 export async function callTool(svc, name, args = {}) {
   const t = getTool(name);
@@ -53,5 +57,5 @@ export async function callTool(svc, name, args = {}) {
   const { result: { data, text }, metrics } = await measure(() => t.run(svc, parsed.data));
   // speak：討論串中「工具發言」的一句話，由資料決定（ADR-0009）
   const speak = t.speak ? t.speak(data, parsed.data) : null;
-  return { name, card: t.card ?? null, mode: t.modeOf ? t.modeOf(svc) : svc.mode, data, text, speak, metrics };
+  return { name, card: t.card ?? null, ...(t.card && { v: CARD_VERSION }), mode: t.modeOf ? t.modeOf(svc) : svc.mode, data, text, speak, args: parsed.data, metrics };
 }

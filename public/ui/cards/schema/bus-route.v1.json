@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/bus-route.v1.json",
+  "title": "bus-route（bus_route_eta）",
+  "type": "object",
+  "required": ["city", "routeName", "directions", "updatedAt"],
+  "properties": {
+    "city": { "type": "string" },
+    "routeName": { "type": "string" },
+    "updatedAt": { "type": "string" },
+    "demo": { "type": "boolean" },
+    "directions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "stops"],
+        "properties": {
+          "direction": { "type": "integer" },
+          "label": { "type": "string" },
+          "stops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["seq", "stopName", "etaSec", "status", "statusText"],
+              "properties": {
+                "seq": { "type": "integer" },
+                "stopName": { "type": "string" },
+                "stopNameEn": { "type": "string" },
+                "lat": { "type": "number" },
+                "lon": { "type": "number" },
+                "etaSec": { "type": ["integer", "null"] },
+                "status": { "type": "integer", "minimum": 0, "maximum": 4 },
+                "statusText": { "type": "string" },
+                "plate": { "type": ["string", "null"] },
+                "nav": { "$ref": "#/$defs/nav" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "shape": { "type": "array", "items": { "$ref": "#/$defs/latlon" } }
+  },
+  "$defs": {
+    "latlon": { "type": "array", "items": { "type": "number" }, "minItems": 2 },
+    "nav": { "type": ["object", "null"], "required": ["google", "apple"], "properties": { "google": { "type": "string" }, "apple": { "type": "string" } } }
+  }
+}

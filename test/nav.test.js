@@ -63,8 +63,8 @@ test('bus_nearby_stations、youbike_nearby 每筆附 nav', async () => {
   const svc = createServices({ forceMock: true });
   for (const name of ['bus_nearby_stations', 'youbike_nearby']) {
     const r = await callTool(svc, name, { lat: 25.0478, lon: 121.517 });
-    assert.ok(r.data.length > 0, name);
-    for (const s of r.data) {
+    assert.ok(r.data.stations.length > 0, name);
+    for (const s of r.data.stations) {
       assert.ok(s.nav, `${name}: ${s.name}`);
       assert.ok(s.nav.google.includes(encodeURIComponent(`${Number(s.lat.toFixed(6))},${Number(s.lon.toFixed(6))}`)), name);
       assert.match(s.nav.apple, /^https:\/\/maps\.apple\.com\/\?daddr=/);

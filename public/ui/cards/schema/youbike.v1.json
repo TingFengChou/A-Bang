@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/youbike.v1.json",
+  "title": "youbike（youbike_nearby）",
+  "type": "object",
+  "required": ["lat", "lon", "stations"],
+  "properties": {
+    "lat": { "type": "number" },
+    "lon": { "type": "number" },
+    "radius": { "type": "integer" },
+    "stations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["uid", "name", "type", "distance", "rent", "returnSlots", "inService", "nav"],
+        "properties": {
+          "uid": { "type": "string" },
+          "name": { "type": "string" },
+          "nameEn": { "type": "string" },
+          "type": { "enum": ["YouBike 1.0", "YouBike 2.0"] },
+          "address": { "type": "string" },
+          "lat": { "type": "number" },
+          "lon": { "type": "number" },
+          "distance": { "type": "integer", "minimum": 0 },
+          "capacity": { "type": ["integer", "null"] },
+          "rent": { "type": ["integer", "null"] },
+          "general": { "type": ["integer", "null"] },
+          "electric": { "type": ["integer", "null"] },
+          "returnSlots": { "type": ["integer", "null"] },
+          "inService": { "type": "boolean" },
+          "updatedAt": { "type": ["string", "null"] },
+          "nav": { "$ref": "#/$defs/nav" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nav": { "type": ["object", "null"], "required": ["google", "apple"], "properties": { "google": { "type": "string" }, "apple": { "type": "string" } } }
+  }
+}

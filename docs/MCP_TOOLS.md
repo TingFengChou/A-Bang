@@ -7,13 +7,13 @@
 - 定義位置：`core/tools/<pack>.js`，以 `defineTool()` 註冊（ADR-0002）。
 - 所有 tools 唯讀：`annotations.readOnlyHint = true`、`openWorldHint = true`。
 - 每個 tool 必有 `pack`、`tier`、`speak(data, args)`；選填 `source`（資料來源標示，預設 TDX）、`static`（內建資料、不依賴金鑰：示範模式不加「示範資料」提示）、`modeOf(svc)`（資料不是 TDX 時自己判斷 live／demo）、`demoNote`（示範提示文字）。
-- `callTool()` 回傳：`{ name, card, mode, data, text, speak, metrics }`；`metrics = { calls, cacheHits, cacheHit, scanned, ms }`（`core/metrics.js`：TDX／氣象署取用次數含快取、全部由快取取得、上游回應筆數、耗時；示範模式 `calls`／`scanned` 為 0）。REST 原樣回傳；MCP 放在結果 `_meta['abang/metrics']`（每次不同，不混進 `structuredContent`）。
+- `callTool()` 回傳：`{ name, card, v?, mode, data, text, speak, args, metrics }`（`v`＝卡片契約版本，有卡片時才有；`args`＝驗證後參數）；`metrics = { calls, cacheHits, cacheHit, scanned, ms }`（`core/metrics.js`：TDX／氣象署取用次數含快取、全部由快取取得、上游回應筆數、耗時；示範模式 `calls`／`scanned` 為 0）。REST 原樣回傳；MCP 放在結果 `_meta['abang/metrics']`（每次不同，不混進 `structuredContent`）。
 - MCP 回傳：
 
 ```jsonc
 {
   "content": [{ "type": "text", "text": "【示範資料…】（示範模式）摘要（≤ 1500 字）\n\n資料來源：交通部 TDX 運輸資料流通服務" }],
-  "structuredContent": { "card": "bus-route", "mode": "live|demo", "speak": "一句話", "data": { } },
+  "structuredContent": { "card": "bus-route", "v": 1, "tool": "bus_route_eta", "args": { }, "mode": "live|demo", "speak": "一句話", "data": { } },
   "_meta（tool 定義上）": { "abang/pack": "transit", "abang/tier": "L1", "abang/card": "bus-route" }
 }
 ```
@@ -76,23 +76,23 @@
 
 ### ✅ `bus_nearby_stations`
 
-輸入 `lat`, `lon`, `radius?`（預設 400，上限 1000）；輸出 `[{ stationId, stationUid, city, name, lat, lon, distance, routes[], nav? }]`；TDX `/advanced/v2/Bus/Station/NearBy?$spatialFilter=nearby(lat,lon,r)`（1h）；`city` 由 `StationUID` 前三碼推得。
+輸入 `lat`, `lon`, `radius?`（預設 400，上限 1000）；輸出 `{ lat, lon, radius, stations: [{ stationId, stationUid, city, name, lat, lon, distance, routes[], nav? }] }`（M4-01 起為物件，卡片 `nearby`）；TDX `/advanced/v2/Bus/Station/NearBy?$spatialFilter=nearby(lat,lon,r)`（1h）；`city` 由 `StationUID` 前三碼推得。
 
 ### ✅ `bus_station_eta` ⚠️
 
-輸入 `city`, `stationId`；輸出依到站排序的 `[{ routeName, direction, ...Eta }]`；TDX `/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/PassThrough/Station/{StationID}`（20s）。
+輸入 `city`, `stationId`；輸出 `{ city, stationId, arrivals: [{ routeName, direction, ...Eta }] }`（依到站排序；M4-01 起為物件，卡片 `bus-station`）；TDX `/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/PassThrough/Station/{StationID}`（20s）。
 
 ## 4. YouBike
 
 ### ✅ `youbike_nearby`
 
-輸入 `lat`, `lon`, `radius?`（預設 500）；輸出 `[{ uid, name, type, address, lat, lon, distance, capacity, rent, general, electric, returnSlots, inService, updatedAt, nav? }]`；TDX `/advanced/v2/Bike/Station/NearBy`（1h）＋ `/advanced/v2/Bike/Availability/NearBy`（30s），以 `StationUID` 合併。speak：「最近有車的是捷運台北車站M8（120 公尺），還有 12 台。」
+輸入 `lat`, `lon`, `radius?`（預設 500）；輸出 `{ lat, lon, radius, stations: [{ uid, name, type, address, lat, lon, distance, capacity, rent, general, electric, returnSlots, inService, updatedAt, nav? }] }`（M4-01 起為物件，卡片 `youbike`）；TDX `/advanced/v2/Bike/Station/NearBy`（1h）＋ `/advanced/v2/Bike/Availability/NearBy`（30s），以 `StationUID` 合併。speak：「最近有車的是捷運台北車站M8（120 公尺），還有 12 台。」
 
 ## 5. 軌道與捷運
 
 ### ✅ `thsr_timetable`／`tra_timetable`
 
-輸入 `from`, `to`（中文站名或代碼，台／臺通用）, `date?`；輸出 `{ from, to, date, trains: [{ trainNo, type?, depart, arrive, minutes, terminal? }] }`。
+輸入 `from`, `to`（中文站名或代碼，台／臺通用）, `date?`；輸出 `{ system: 'THSR'|'TRA', from, to, date, trains: [{ trainNo, type?, depart, arrive, minutes, terminal? }] }`。
 TDX：高鐵 `/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}`；台鐵 v3 `/basic/v3/Rail/TRA/DailyTrainTimetable/OD/{O}/to/{D}/{Date}`（10m）。
 
 ### ✅ `rail_stations`

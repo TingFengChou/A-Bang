@@ -13,6 +13,34 @@
 
 ---
 
+## 2026-11-18 M4-07 卡片動態
+- 做了：`public/ui/cards/countdown.js`（`etaLabel` 與伺服器 `busStatusText` 同規則；`startCountdown` 每秒依重畫後經過時間遞減 `[data-eta-sec]`、跨門檻換 `soon`、數字變化 `.ab-tick` 提示；reduced motion 只換文字）；bus-route／bus-station 加 `data-eta-sec`（只限正常營運狀態）；公車車牌標記 `.ab-bus`
+- 測試：npm run lint 無錯誤；npm test 146 項全過（新增 2 項）；npm run e2e 12 項全過
+- 文件：CARDS §1.1、TESTING、PLAN、CLAUDE
+- 下一個：M4-04 `host-mcp-app.js`（⛔ 需新增依賴 `@modelcontextprotocol/ext-apps`，等 Austin 同意）；M4-05／06／08 都依賴它
+- 卡住：新依賴待同意
+
+## 2026-11-18 M4-02 卡片渲染
+- 做了：`public/ui/cards/` 7 種卡片（bus-route 方向切換與點站牌、bus-station、nearby 卡片內展開到站、youbike 借／還排序、metro、timetable 塞車延誤／隔日／排除／訂票、trip 建議＋分段條＋備案＋排除＋狀態 chips）；`index.js` 外框與刷新；`dom.js`（不用 innerHTML、https 白名單）；`actions.js`；`cards.css`（淺色）；`host-web.js`（M4-04 的網頁 host，無新依賴）；`preview.html`；`thsr_timetable`／`tra_timetable` 補 `system`（卡片標題與訂票依它判斷）
+- 測試：npm run lint 無錯誤；npm test 144 項全過；npm run e2e 12 項全過（新增卡片預覽，手機＋桌面截圖已檢查）
+- 文件：CARDS §1.1、ARCHITECTURE、MCP_TOOLS、TESTING、PLAN、CLAUDE
+- 下一個：M4-04 `host-mcp-app.js`（需新增依賴 `@modelcontextprotocol/ext-apps`，停下等 Austin）
+- 卡住：新依賴待同意
+
+## 2026-11-18 M4-03 卡片文字字典
+- 做了：`public/ui/cards/i18n/zh-TW.js`：`t(key, vars)`、`MESSAGES`（共通、L2 確認視窗、bus-route、bus-station、nearby、youbike、metro、timetable、trip）
+- 測試：npm run lint 無錯誤；npm test 144 項全過（新增 3 項）
+- 文件：CARDS §1、TESTING、PLAN、CLAUDE
+- 下一個：M4-02（卡片渲染）
+- 卡住：M4-04 起需新增依賴 `@modelcontextprotocol/ext-apps`（待 Austin）
+
+## 2026-11-18 M4-01 卡片資料契約
+- 做了：`public/ui/cards/schema/` 7 種契約（bus-route、bus-station、nearby、youbike、metro、timetable、trip；JSON Schema 2020-12 子集）＋零依賴驗證器 `validate.js`；`bus_nearby_stations`、`youbike_nearby`、`bus_station_eta` 的 `data` 改物件（`stations`／`arrivals`＋查詢參數）；`callTool` 回 `v`（有卡片時）與 `args`，MCP `structuredContent` 帶 `v`／`tool`／`args`；OpenAPI 更新。新分支 `dev/m4`（疊在 PR #2 上）
+- 測試：npm run lint 無錯誤；npm test 141 項全過（新增 14 項 cards-schema）；npm run e2e 10 項全過
+- 文件：CARDS §4／§6、MCP_TOOLS §1／§3／§4、TESTING、PLAN、CLAUDE
+- 下一個：M4-03（卡片文字字典）→ M4-02（卡片渲染）
+- 卡住：M4-04 起需新增依賴 `@modelcontextprotocol/ext-apps`（待 Austin）
+
 ## 2026-11-18 M3 里程碑收尾驗收
 - 驗收（PLAN M3）：`npm test` 127 項全過 ✅；`plan_trip` 10 組 OD 排序與理由句（`test/trip-od.test.js`）✅；示範模式逐一呼叫 18 個 tools 全部成功 ✅；`GET /api/v1/tools` 列出 18 個（≥ 17）✅；`npm run lint` 無錯誤、`npm run e2e` 10 項全過
 - 未完成：M3-12 真實導訂票（⛔ TDX 導訂票權限）；所有 TDX／CWA 真實欄位待 M1

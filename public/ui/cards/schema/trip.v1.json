@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/trip.v1.json",
+  "title": "trip（plan_trip）",
+  "type": "object",
+  "required": ["from", "to", "best", "options", "ranking", "states", "departAt"],
+  "properties": {
+    "from": { "$ref": "#/$defs/place" },
+    "to": { "$ref": "#/$defs/place" },
+    "straightKm": { "type": "number" },
+    "date": { "type": "string" },
+    "departAt": { "type": "string" },
+    "best": { "type": ["string", "null"] },
+    "states": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "source"],
+        "properties": {
+          "key": { "enum": ["rush", "traffic", "rain", "luggage", "budget", "lessWalk"] },
+          "source": { "enum": ["auto", "user", "picked"] },
+          "from": { "type": "string" },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "weather": { "type": ["object", "null"] },
+    "traffic": { "type": ["object", "null"] },
+    "options": { "type": "array", "items": { "$ref": "#/$defs/option" } },
+    "ranking": {
+      "type": "object",
+      "required": ["ranked", "excluded", "reason"],
+      "properties": {
+        "ranked": { "type": "array", "items": { "type": "object", "required": ["id", "name", "score"], "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "score": { "type": "integer" }, "breakdown": { "type": "object" } } } },
+        "excluded": { "type": "array", "items": { "type": "object", "required": ["id", "why"], "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "why": { "type": "string" } } } },
+        "weights": { "type": "object" },
+        "reason": { "type": "string" }
+      }
+    },
+    "unavailable": { "type": "array", "items": { "type": "string" } }
+  },
+  "$defs": {
+    "place": { "type": "object", "required": ["name", "lat", "lon"], "properties": { "name": { "type": "string" }, "lat": { "type": ["number", "null"] }, "lon": { "type": ["number", "null"] } } },
+    "option": {
+      "type": "object",
+      "required": ["id", "role", "name", "minutes", "waitMin", "walkMin", "cost", "arriveAt", "legs", "notes"],
+      "properties": {
+        "id": { "type": "string" },
+        "role": { "enum": ["walk", "bike", "bus", "thsr", "tra", "intercity", "ridehail"] },
+        "name": { "type": "string" },
+        "minutes": { "type": "integer", "minimum": 0 },
+        "waitMin": { "type": "integer", "minimum": 0 },
+        "walkMin": { "type": "integer", "minimum": 0 },
+        "cost": { "type": "integer", "minimum": 0 },
+        "costRange": { "type": "array", "items": { "type": "integer" } },
+        "exposure": { "type": "number", "minimum": 0, "maximum": 1 },
+        "effort": { "type": "number", "minimum": 0, "maximum": 1 },
+        "delayRisk": { "type": "number", "minimum": 0, "maximum": 1 },
+        "arriveAt": { "type": "string" },
+        "arriveMin": { "type": "integer" },
+        "estimated": { "type": "boolean" },
+        "notes": { "type": "array", "items": { "type": "string" } },
+        "train": { "type": "object" },
+        "legs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["mode", "from", "to", "minutes", "detail"],
+            "properties": {
+              "mode": { "enum": ["walk", "bike", "bus", "transit", "thsr", "tra", "intercity", "ridehail"] },
+              "from": { "$ref": "#/$defs/place" },
+              "to": { "$ref": "#/$defs/place" },
+              "minutes": { "type": "integer", "minimum": 0 },
+              "detail": { "type": "string" },
+              "nav": { "type": ["object", "null"] },
+              "url": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

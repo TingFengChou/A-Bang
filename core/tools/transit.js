@@ -52,11 +52,12 @@ export const busNearbyStations = defineTool({
   description: '依座標找出附近的公車站位與經過的路線，依距離排序；每筆附導航連結 nav（Google／Apple 地圖）。可再用 bus_station_eta 查各路線到站時間。',
   pack: PACK, tier: 'L1', card: 'nearby',
   input: { lat: T.lat, lon: T.lon, radius: T.radius(400) },
-  speak: (d) => (d.length ? `附近有 ${d.length} 個站牌，最近的是${d[0].name}（${fmtM(d[0].distance)}）。` : '附近沒有公車站。'),
+  speak: (d) => (d.stations.length ? `附近有 ${d.stations.length} 個站牌，最近的是${d.stations[0].name}（${fmtM(d.stations[0].distance)}）。` : '附近沒有公車站。'),
   async run(svc, a) {
-    const data = withNav(await svc.bus.nearbyStations(a));
-    const text = data.length
-      ? clip([`附近 ${data.length} 個公車站：`, ...data.map((s) => `- ${s.name}（${fmtM(s.distance)}，city=${s.city}，stationId=${s.stationId}）：${s.routes.join('、')}`)])
+    const stations = withNav(await svc.bus.nearbyStations(a));
+    const data = { lat: a.lat, lon: a.lon, radius: a.radius ?? 400, stations }; // 卡片 nearby 契約（CARDS.md §4）
+    const text = stations.length
+      ? clip([`附近 ${stations.length} 個公車站：`, ...stations.map((s) => `- ${s.name}（${fmtM(s.distance)}，city=${s.city}，stationId=${s.stationId}）：${s.routes.join('、')}`)])
       : '附近沒有公車站，可加大搜尋半徑。';
     return { data, text };
   },
@@ -68,11 +69,12 @@ export const busStationEta = defineTool({
   description: '查詢某個公車站位（stationId 來自 bus_nearby_stations）所有經過路線的預估到站時間。',
   pack: PACK, tier: 'L1', card: 'bus-station',
   input: { city: T.city, stationId: z.string().min(1) },
-  speak: (d) => { const f = d.find((r) => r.etaSec != null); return f ? `最快的是 ${f.routeName}，${f.statusText}。` : '這個站目前沒有車要來。'; },
+  speak: (d) => { const f = d.arrivals.find((r) => r.etaSec != null); return f ? `最快的是 ${f.routeName}，${f.statusText}。` : '這個站目前沒有車要來。'; },
   async run(svc, a) {
-    const data = await svc.bus.stationEta(a);
-    const text = data.length
-      ? clip([`此站 ${data.length} 條路線到站：`, ...data.map((r) => `- ${r.routeName}（${r.direction ? '返程' : '去程'}）：${r.statusText}`)])
+    const arrivals = await svc.bus.stationEta(a);
+    const data = { city: a.city, stationId: a.stationId, arrivals }; // 卡片 bus-station 契約
+    const text = arrivals.length
+      ? clip([`此站 ${arrivals.length} 條路線到站：`, ...arrivals.map((r) => `- ${r.routeName}（${r.direction ? '返程' : '去程'}）：${r.statusText}`)])
       : '目前沒有到站資訊。';
     return { data, text };
   },
@@ -84,11 +86,12 @@ export const youbikeNearby = defineTool({
   description: '依座標查詢附近公共自行車站的可借車輛（一般/電輔）與可還空位，依距離排序；每筆附導航連結 nav（Google／Apple 地圖）。',
   pack: PACK, tier: 'L1', card: 'youbike',
   input: { lat: T.lat, lon: T.lon, radius: T.radius(500) },
-  speak: (d) => { const s = d.find((x) => x.inService && x.rent > 0); return s ? `最近有車的是${s.name}（${fmtM(s.distance)}），還有 ${s.rent} 台。` : '附近的站暫時都沒有車。'; },
+  speak: (d) => { const s = d.stations.find((x) => x.inService && x.rent > 0); return s ? `最近有車的是${s.name}（${fmtM(s.distance)}），還有 ${s.rent} 台。` : '附近的站暫時都沒有車。'; },
   async run(svc, a) {
-    const data = withNav(await svc.bike.nearby(a));
-    const text = data.length
-      ? clip([`附近 ${data.length} 個 YouBike 站：`, ...data.map((s) => `- ${s.name}（${fmtM(s.distance)}）：可借 ${s.rent ?? '?'}（電輔 ${s.electric ?? 0}）、可還 ${s.returnSlots ?? '?'}${s.inService ? '' : '，暫停營運'}`)])
+    const stations = withNav(await svc.bike.nearby(a));
+    const data = { lat: a.lat, lon: a.lon, radius: a.radius ?? 500, stations }; // 卡片 youbike 契約
+    const text = stations.length
+      ? clip([`附近 ${stations.length} 個 YouBike 站：`, ...stations.map((s) => `- ${s.name}（${fmtM(s.distance)}）：可借 ${s.rent ?? '?'}（電輔 ${s.electric ?? 0}）、可還 ${s.returnSlots ?? '?'}${s.inService ? '' : '，暫停營運'}`)])
       : '附近沒有 YouBike 站。';
     return { data, text };
   },
@@ -108,7 +111,7 @@ export const thsrTimetable = defineTool({
   input: { from: z.string().min(1).describe('起站'), to: z.string().min(1).describe('迄站'), date: T.date },
   speak: (d) => (d.trains.length ? `${d.date} 共 ${d.trains.length} 班，最早 ${d.trains[0].depart} 出發、${d.trains[0].arrive} 到${d.to}。` : '那天沒有直達班次。'),
   async run(svc, a) {
-    const data = await svc.rail.thsrTimetable(a);
+    const data = { system: 'THSR', ...(await svc.rail.thsrTimetable(a)) }; // 卡片 timetable 依 system 決定標題與訂票
     return { data, text: railText(data, '高鐵') };
   },
 });
@@ -121,7 +124,7 @@ export const traTimetable = defineTool({
   input: { from: z.string().min(1).describe('起站'), to: z.string().min(1).describe('迄站'), date: T.date },
   speak: (d) => (d.trains.length ? `${d.date} 共 ${d.trains.length} 班，最早 ${d.trains[0].depart} 的${d.trains[0].type || ''}，${d.trains[0].arrive} 到${d.to}。` : '那天沒有直達班次。'),
   async run(svc, a) {
-    const data = await svc.rail.traTimetable(a);
+    const data = { system: 'TRA', ...(await svc.rail.traTimetable(a)) };
     return { data, text: railText(data, '台鐵') };
   },
 });

@@ -7,8 +7,12 @@
 - **一份渲染程式，三個地方用**：網頁 agent（直接渲染）、MCP Apps（`ui://abang/cards.html` 單檔）、App（WebView 或依契約原生實作）。
 - **先定契約**：`public/ui/cards/schema/<card>.v1.json`（JSON Schema 2020-12）。卡片只讀契約內欄位；tool 輸出以測試驗證符合契約。
 - **不直接 fetch**：卡片只能透過 `host` 介面取資料或互動。
-- **文字集中**：`public/ui/cards/i18n/zh-TW.js`（🧩 多語）。
+- **文字集中**：`public/ui/cards/i18n/zh-TW.js`（🧩 多語；✅ M4-03：`t(key, vars)`，`{name}` 佔位符，缺鍵回傳鍵本身；新增語言複製本檔、鍵相同）。
 - **單檔、零外部資源**：MCP Apps iframe 的 CSP 預設拒絕外部資源；圖示用內嵌 SVG。
+
+## 1.1 實作（M4-02）
+
+`public/ui/cards/`：`index.js`（`renderCard(el, payload, host)` → `{ update, refresh, destroy }`；外框、示範標示、更新時間、刷新與失敗狀態共用；`bus-route`／`bus-station`／`metro` 每 20 秒、`youbike` 每 30 秒經 `host.callTool` 刷新）、`cards/<card>.js`（7 種）、`dom.js`（`h()` 只用 `textContent`／`setAttribute`；`safeUrl` 只允許 https）、`actions.js`（導航、L2 確認連結、訂票：先呼叫 `rail_booking_link` 再 `openLink(url, { confirm })`）、`cards.css`（淺色、`.ab-` 前綴）、`host-web.js`。開發預覽：`/ui/cards/preview.html`（示範模式資料，E2E 會截圖）。動態（M4-07）：`countdown.js` 每秒把 `[data-eta-sec]` 依重畫後經過時間遞減（不呼叫 API；文字規則同伺服器 `busStatusText`），數字變化時 `.ab-tick` 輕微提示，車牌以 `.ab-bus` 標記公車位置；`prefers-reduced-motion` 時只換文字。
 
 ## 2. 輸入：`CardPayload`
 
@@ -50,7 +54,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 共通：時間 ISO 8601 或 `HH:mm`；距離公尺；金額新台幣整數；`nav` 見 `MCP_TOOLS.md` §1。
 
-> **遷移注意（M4-01）**：目前 `bus_nearby_stations`、`youbike_nearby`、`bus_station_eta` 的 `data` 是陣列。M4-01 改為下列物件格式（陣列放進 `stations`／`arrivals`，並帶查詢參數），同時更新 `run()` 的文字摘要、`speak`、`test/tools.test.js`、`test/mcp.test.js`。服務層（`core/services`）可維持回傳陣列，由 tool 包裝。
+> ✅ M4-01（2026-11-18）：7 種契約在 `public/ui/cards/schema/<card>.v1.json`（JSON Schema 2020-12 子集，驗證器 `schema/validate.js` 零依賴）；`bus_nearby_stations`、`youbike_nearby`、`bus_station_eta` 的 `data` 已改為下列物件格式（服務層仍回陣列，由 tool 包裝）；`structuredContent` 已帶 `v`、`tool`、`args`。`test/cards-schema.test.js` 以示範輸出驗證每種卡片。
 
 ### `bus-route`（`bus_route_eta`）
 
@@ -107,6 +111,6 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 ## 6. 測試
 
-- 單元：`test/cards-schema.test.js` — 每個 tool 的 mock 輸出通過對應 schema（用 `zod` 由 JSON Schema 轉或自寫小驗證器；不新增依賴優先）。
+- 單元：`test/cards-schema.test.js` — 每個 tool 的 mock 輸出通過對應 schema（自寫小驗證器 `public/ui/cards/schema/validate.js`，支援 type、enum、const、properties、required、items、minimum／maximum、minItems、additionalProperties: false、本檔 `$ref`；契約只用這些關鍵字）。
 - 視覺：Playwright 載入 `test/cards/harness.html`（假 host）＋每種卡片 fixture，手機與桌面截圖，無 console error。
 - MCP Apps：以 `AppBridge` 當 host 載入 `dist/cards.html`，送 `ui/notifications/tool-result`，檢查渲染與 `callServerTool` 往返。

@@ -23,11 +23,11 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | M1 TDX 實測 | ⛔ | M1-01 | TDX 金鑰、可連 TDX 的網路 |
 | M2 Registry＋遠端 MCP | ✅（Claude 實機連線待驗） | — | Austin 以 cloudflared 實測 |
 | M3 交通完整版 | ✅（2026-11-18 驗收；M3-12 真實導訂票 ⛔） | — | 待 Austin：無狀態市區短程叫車排第一是否合理（ADR-0010）；`rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
-| M4 互動卡片 | 📝 | M4-01 | M4-04 需新增依賴 `@modelcontextprotocol/ext-apps`（待 Austin 同意） |
+| M4 互動卡片 | 🚧（M4-01／02／03／07 ✅） | M4-04（host-mcp-app）⛔ 待新依賴同意 | M4-04 需新增依賴 `@modelcontextprotocol/ext-apps`（待 Austin 同意） |
 | M5 網頁 agent | 📝 | — | Claude 模式需 `ANTHROPIC_API_KEY`（示範模式不需要） |
 | M6 上線 | 📝 | — | 部署帳號、網域 |
 
-建議順序：M4-01 → M4-03 → M4-02（M4-04 起需新增依賴）→ M5 → M5（M5 的討論串與決策圖可在 M3 完成 `plan_trip` 後提前開工）。
+建議順序：M4-04 起需新增依賴（待 Austin）；等待期間可先做 M5 不依賴卡片 host 的部分（事件協定、示範模式 agent）。
 
 ## Austin 待辦（外部條件）
 
@@ -114,13 +114,13 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 
 規格：`CARDS.md`、ADR-0003、ADR-0008。
 
-- [ ] M4-01 卡片資料契約 `public/ui/cards/schema/<card>.v1.json`（7 種），測試以 schema 驗證 tools 的 `structuredContent.data`
-- [ ] M4-02 `public/ui/cards/`：`index.js`（依 `card` 分派）、7 種卡片、`cards.css`（淺色）
-- [ ] M4-03 🧩 卡片文字集中於 `public/ui/cards/i18n/zh-TW.js`
-- [ ] M4-04 host 介面兩種實作：`host-web.js`、`host-mcp-app.js`（`@modelcontextprotocol/ext-apps` 的 `App`）；先評估 SDK v2 並更新 ADR-0006
+- [x] M4-01 卡片資料契約 `public/ui/cards/schema/<card>.v1.json`（7 種），測試以 schema 驗證 tools 的 `structuredContent.data`（2026-11-18：零依賴驗證器；三個 tool 改物件格式；payload 帶 `v`／`tool`／`args`；14 項測試）
+- [x] M4-02 `public/ui/cards/`：`index.js`（依 `card` 分派）、7 種卡片、`cards.css`（淺色）（2026-11-18：`dom.js` 只用 textContent／https 連結白名單；外框、示範標示、刷新與失敗狀態共用；`actions.js` 導航／L2 確認／訂票；`preview.html`＋E2E 截圖；`thsr_timetable`／`tra_timetable` 補 `system`）
+- [x] M4-03 🧩 卡片文字集中於 `public/ui/cards/i18n/zh-TW.js`（2026-11-18：`t(key, vars)`、共通／L2 確認／7 種卡片的文字；3 項測試）
+- [ ] M4-04 host 介面兩種實作：`host-web.js`、`host-mcp-app.js`（`@modelcontextprotocol/ext-apps` 的 `App`）；先評估 SDK v2 並更新 ADR-0006（2026-11-18：`host-web.js` ✅（無新依賴）；`host-mcp-app.js` 待 Austin 同意新增依賴）
 - [ ] M4-05 `scripts/build-cards.js`：esbuild 打包 `dist/cards.html`
 - [ ] M4-06 MCP 出口：`ui://abang/cards.html` 資源；有卡片的 tool 加 `_meta.ui.resourceUri`
-- [ ] M4-07 動態：倒數每秒遞減、數字變化、公車在時間軸移動；`prefers-reduced-motion` 關閉
+- [x] M4-07 動態：倒數每秒遞減、數字變化、公車在時間軸移動；`prefers-reduced-motion` 關閉（2026-11-18：`countdown.js` 本地倒數（規則同 `busStatusText`）、數字變化提示、車牌標記；reduced motion 只換文字；2 項單元＋E2E）
 - [ ] M4-08 Playwright：以 `AppBridge` 當 host 載入每種卡片 fixture，截圖並檢查無 console error
 - [ ] M4-09 ⛔ 以 ext-apps `basic-host` 與 Claude 實測（Austin）
 
