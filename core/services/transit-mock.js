@@ -96,7 +96,7 @@ export function createMockTransitServices() {
         };
       }).sort((a, b) => a.distance - b.distance);
     },
-    async stationEta({ city, stationId }) {
+    async stationEta({ stationId }) {
       const r = seeded(stationId);
       const routes = [...new Set(Array.from({ length: 3 + Math.floor(r() * 4) }, () => pick(r, ROUTES)))];
       return routes.map((routeName, i) => {

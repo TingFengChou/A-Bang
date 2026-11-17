@@ -112,7 +112,7 @@ export function createIntercityServices(tdx, { traffic }) {
           traffic.status({ from: { ...from }, to: { ...to } }).catch(() => null), // 路況失敗不影響班次
         ]);
         const matches = matchRoutes(arr(stopOfRoute), from, to).slice(0, 8);
-        let cands = [];
+        const cands = [];
         if (matches.length) {
           const filter = [...new Set(matches.map((m) => m.routeUid))].map((u) => `RouteUID eq '${String(u).replace(/'/g, "''")}'`).join(' or ');
           const schedules = arr(await tdx.get('/basic/v2/Bus/Schedule/InterCity', { $filter: filter }, 3600));

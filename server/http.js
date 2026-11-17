@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // 阿幫 HTTP 伺服器（零框架，Node 20+）
 //   /api/v1/*            REST：PWA 頁面、卡片刷新（/api/v1/tools/:name）
+//   /api/docs            API 文件（Swagger UI，規格 /api/v1/openapi.json）
 //   /mcp、/mcp/:pack     遠端 MCP（Streamable HTTP，stateless）— Claude 自訂連接器
 //   其他                 PWA 靜態檔
 // TDX 金鑰只存在伺服器端，瀏覽器與 MCP client 都拿不到。
@@ -10,10 +11,12 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createServices, loadEnv } from '../core/index.js';
-import { listTools, listPacks, describeTool, callTool } from '../core/tools/index.js';
+import { listPacks, callTool } from '../core/tools/index.js';
 import { UserError } from '../core/util.js';
 import { createMcpServer } from '../mcp/create-server.js';
 import { createRateLimiter, clientIp } from './rate-limit.js';
+import { restRoutes } from './rest.js';
+import { buildOpenApi } from './openapi.js';
 
 const svc = createServices({ ...(await loadEnv()), log: console.log });
 const PORT = Number(process.env.PORT) || 8787;
@@ -25,21 +28,14 @@ const limiters = {
   mcp: createRateLimiter({ limit: Number(process.env.RATE_LIMIT_MCP) || 60 }),
 };
 
-// REST 路由（PWA 既有頁面使用；新功能請優先走 /api/v1/tools/:name）
-const num = (v) => (v == null || v === '' ? undefined : Number(v));
-const routes = {
-  '/api/v1/status': () => ({ mode: svc.mode, time: new Date().toISOString(), packs: listPacks() }),
-  '/api/v1/bus/routes': (p) => svc.bus.searchRoutes({ city: p.city, keyword: p.keyword || '' }),
-  '/api/v1/bus/eta': (p) => svc.bus.routeEta({ city: p.city, routeName: p.route }),
-  '/api/v1/bus/nearby': (p) => svc.bus.nearbyStations({ lat: num(p.lat), lon: num(p.lon), radius: num(p.radius) }),
-  '/api/v1/bus/station-eta': (p) => svc.bus.stationEta({ city: p.city, stationId: p.station }),
-  '/api/v1/bike/nearby': (p) => svc.bike.nearby({ lat: num(p.lat), lon: num(p.lon), radius: num(p.radius) }),
-  '/api/v1/thsr/stations': () => svc.rail.thsrStations(),
-  '/api/v1/thsr/timetable': (p) => svc.rail.thsrTimetable(p),
-  '/api/v1/tra/stations': () => svc.rail.traStations(),
-  '/api/v1/tra/timetable': (p) => svc.rail.traTimetable(p),
-  '/api/v1/tools': (p) => listTools({ packs: p.pack ? p.pack.split(',') : undefined }).map(describeTool),
-};
+// REST 路由表在 server/rest.js（同時產生 Swagger 文件）
+const routes = restRoutes(svc);
+const OPENAPI = JSON.stringify(buildOpenApi(svc));
+// Swagger UI：只提供這幾個檔（白名單，不開放整個 node_modules）
+const SWAGGER_DIR = fileURLToPath(new URL('../node_modules/swagger-ui-dist/', import.meta.url));
+const SWAGGER_FILES = { 'swagger-ui.css': 'text/css; charset=utf-8', 'swagger-ui-bundle.js': 'text/javascript; charset=utf-8' };
+const DOCS_HTML = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>阿幫 API 文件</title><link rel="stylesheet" href="/api/docs/swagger-ui.css"></head><body><div id="ui"></div><script src="/api/docs/swagger-ui-bundle.js"></script><script src="/api/docs/init.js"></script></body></html>`;
+const DOCS_INIT = "window.ui = SwaggerUIBundle({ url: '/api/v1/openapi.json', dom_id: '#ui', deepLinking: true, tryItOutEnabled: true });";
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
 const CORS = {
@@ -72,6 +68,13 @@ createServer(async (req, res) => {
       return;
     }
 
+    // ── API 文件（Swagger）──
+    if (path === '/api/v1/openapi.json') return sendRaw(res, 200, OPENAPI, 'application/json; charset=utf-8', CORS);
+    if (path === '/api/docs' || path === '/api/docs/') return sendRaw(res, 200, DOCS_HTML, 'text/html; charset=utf-8');
+    if (path === '/api/docs/init.js') return sendRaw(res, 200, DOCS_INIT, 'text/javascript; charset=utf-8');
+    const doc = path.match(/^\/api\/docs\/([\w.-]+)$/);
+    if (doc && SWAGGER_FILES[doc[1]]) return sendRaw(res, 200, await readFile(join(SWAGGER_DIR, doc[1])), SWAGGER_FILES[doc[1]], { 'cache-control': 'public, max-age=86400' });
+
     // ── REST ──
     if (path.startsWith('/api/')) {
       if (req.method === 'OPTIONS') return end(res, 204, CORS);
@@ -82,9 +85,9 @@ createServer(async (req, res) => {
         const r = await callTool(svc, m[1], await readJson(req));
         return send(res, 200, r, CORS);
       }
-      const handler = routes[path];
-      if (!handler) return send(res, 404, { error: 'Not found' });
-      const data = await handler(Object.fromEntries(url.searchParams));
+      const route = routes[path];
+      if (!route) return send(res, 404, { error: 'Not found' });
+      const data = await route.handler(Object.fromEntries(url.searchParams));
       return send(res, 200, { mode: svc.mode, data }, path === '/api/v1/tools' ? CORS : {});
     }
 
@@ -129,5 +132,9 @@ function readJson(req) {
 function send(res, status, body, headers = {}) {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers });
   res.end(JSON.stringify(body));
+}
+function sendRaw(res, status, body, type, headers = {}) {
+  res.writeHead(status, { 'content-type': type, 'cache-control': 'no-cache', ...headers });
+  res.end(body);
 }
 function end(res, status, headers = {}) { res.writeHead(status, headers); res.end(); }

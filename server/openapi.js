@@ -1,0 +1,65 @@
+// OpenAPI 3.1 文件（Swagger）：由 REST 路由表與 tool registry 自動產生，不手寫、不會與實作脫節。
+import { readFileSync } from 'node:fs';
+import { listTools, describeTool } from '../core/tools/index.js';
+import { restRoutes } from './rest.js';
+
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+const ERR = { $ref: '#/components/schemas/Error' };
+const errors = {
+  400: { description: '參數錯誤（訊息為繁體中文，說明怎麼改）', content: { 'application/json': { schema: ERR } } },
+  429: { description: '請求太頻繁（見 retry-after）', content: { 'application/json': { schema: ERR } } },
+  502: { description: '上游資料來源錯誤（TDX／氣象署）', content: { 'application/json': { schema: ERR } } },
+};
+
+/** @param {object} svc createServices() 的結果（只用來取路由表，不會呼叫服務） */
+export function buildOpenApi(svc) {
+  const paths = {};
+  for (const [path, r] of Object.entries(restRoutes(svc))) {
+    paths[path] = {
+      get: {
+        tags: [r.tag], summary: r.summary, operationId: `get${path.replace(/\/api\/v1|[^a-z0-9]/gi, ' ').replace(/ (\w)/g, (_, c) => c.toUpperCase()).replace(/ /g, '')}`,
+        parameters: r.params.map((p) => ({ name: p.name, in: 'query', required: p.required, description: p.description, schema: { type: p.type, ...(p.example !== undefined && { example: p.example }) } })),
+        responses: { 200: { description: '成功', content: { 'application/json': { schema: { type: 'object', properties: { mode: { enum: ['live', 'demo'] }, data: {} } } } } }, ...errors },
+      },
+    };
+  }
+  for (const t of listTools()) {
+    const d = describeTool(t);
+    const { $schema: _schema, ...input } = d.inputSchema; // 2020-12 與 OpenAPI 3.1 相容，去掉 $schema 避免 UI 警告
+    paths[`/api/v1/tools/${t.name}`] = {
+      post: {
+        tags: [`Tools: ${t.pack}`], summary: `${t.title}（${t.name}）`, operationId: t.name,
+        description: `${t.description}\n\n風險分級 ${t.tier}${t.card ? `；卡片 \`${t.card}\`` : ''}；資料來源：${t.source}`,
+        requestBody: { required: true, content: { 'application/json': { schema: input } } },
+        responses: { 200: { description: '成功', content: { 'application/json': { schema: { $ref: '#/components/schemas/ToolResult' } } } }, 405: { description: '只接受 POST' }, ...errors },
+      },
+    };
+  }
+  paths['/mcp'] = {
+    post: {
+      tags: ['MCP'], summary: '遠端 MCP（Streamable HTTP，stateless）',
+      description: '給 Claude 等 MCP client 的連接器端點，以 JSON-RPC 呼叫，與 /api/v1/tools 同一套 tools。`/mcp/{pack}` 只列出該工具包。',
+      requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', example: { jsonrpc: '2.0', id: 1, method: 'tools/list' } } } } },
+      responses: { 200: { description: 'JSON-RPC 回應' }, 405: { description: '只接受 POST' } },
+    },
+  };
+  return {
+    openapi: '3.1.0',
+    info: { title: '阿幫 A-Bang API', version: pkg.version || '0.0.0', description: '台灣政府開放資料的交通、天氣 tools。沒有金鑰時為示範模式（mode=demo，非真實資訊）。金鑰只在伺服器端。' },
+    servers: [{ url: '/' }],
+    paths,
+    components: {
+      schemas: {
+        Error: { type: 'object', properties: { error: { type: 'string' } }, required: ['error'] },
+        ToolResult: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' }, card: { type: ['string', 'null'] }, mode: { enum: ['live', 'demo'] },
+            data: { description: '正規化資料，格式見 docs/MCP_TOOLS.md' }, text: { type: 'string', description: '給模型看的摘要（≤ 1500 字）' },
+            speak: { type: ['string', 'null'], description: '討論串的一句話（由資料產生）' },
+          },
+        },
+      },
+    },
+  };
+}

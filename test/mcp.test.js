@@ -76,6 +76,18 @@ test('stdio、HTTP、REST 三條路徑結果一致', async () => {
   assert.ok(a.content[0].text.includes(rest.text));
 });
 
+test('API 文件：openapi.json、Swagger UI 頁面與資源，只開放白名單檔案', async () => {
+  const spec = await (await fetch(BASE + '/api/v1/openapi.json')).json();
+  assert.equal(spec.openapi, '3.1.0');
+  assert.ok(spec.paths['/api/v1/tools/weather_now']);
+  const page = await fetch(BASE + '/api/docs');
+  assert.match(page.headers.get('content-type'), /text\/html/);
+  assert.match(await page.text(), /swagger-ui-bundle\.js/);
+  assert.equal((await fetch(BASE + '/api/docs/swagger-ui.css')).status, 200);
+  assert.equal((await fetch(BASE + '/api/docs/package.json')).status, 404);
+  assert.equal((await fetch(BASE + '/api/docs/..%2F..%2Fpackage.json')).status, 404);
+});
+
 test('REST：tools 清單、參數錯誤、方法錯誤', async () => {
   const list = await (await fetch(BASE + '/api/v1/tools')).json();
   assert.equal(list.data.length, 15);

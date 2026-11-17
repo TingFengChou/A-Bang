@@ -12,7 +12,7 @@ export function createMockIntercityServices({ traffic }) {
         const straightM = distanceM(from.lat, from.lon, to.lat, to.lon);
         const tr = await traffic.status({ from: { ...from }, to: { ...to } }).catch(() => null);
         const traffic_ = tr ? { level: tr.level, delayMin: tr.delayMin } : { level: null, delayMin: null };
-        let cands = [];
+        const cands = [];
         if (straightM >= MIN_KM * 1000) {
           const km = (straightM / 1000) * 1.2;
           const ride = Math.round((km / 80) * 60) + 10;
