@@ -10,6 +10,10 @@
 - **文字集中**：`public/ui/cards/i18n/zh-TW.js`（🧩 多語；✅ M4-03：`t(key, vars)`，`{name}` 佔位符，缺鍵回傳鍵本身；新增語言複製本檔、鍵相同）。
 - **單檔、零外部資源**：MCP Apps iframe 的 CSP 預設拒絕外部資源；圖示用內嵌 SVG。
 
+## 1.1 實作（M4-02）
+
+`public/ui/cards/`：`index.js`（`renderCard(el, payload, host)` → `{ update, refresh, destroy }`；外框、示範標示、更新時間、刷新與失敗狀態共用；`bus-route`／`bus-station`／`metro` 每 20 秒、`youbike` 每 30 秒經 `host.callTool` 刷新）、`cards/<card>.js`（7 種）、`dom.js`（`h()` 只用 `textContent`／`setAttribute`；`safeUrl` 只允許 https）、`actions.js`（導航、L2 確認連結、訂票：先呼叫 `rail_booking_link` 再 `openLink(url, { confirm })`）、`cards.css`（淺色、`.ab-` 前綴）、`host-web.js`。開發預覽：`/ui/cards/preview.html`（示範模式資料，E2E 會截圖）。
+
 ## 2. 輸入：`CardPayload`
 
 就是 tool 的 `structuredContent`：

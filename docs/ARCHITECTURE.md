@@ -49,7 +49,7 @@
 | `mcp/create-server.js` | ✅ | 由 registry 註冊 MCP tools（`_meta`：pack、tier、card），回傳 `structuredContent: { card, mode, speak, data }` | 自行定義 tool |
 | `mcp/server.js` | ✅ | stdio 入口（`MCP_PACKS` 過濾） | — |
 | `public/` | ✅ PWA／📝 agent 頁 | 頁面、路由、收藏；M5 起首頁為對話 | 持有金鑰 |
-| `public/ui/cards/` | 📝 | 卡片渲染器（依 `CARDS.md` 契約），網頁與 MCP App bundle 共用 | 直接 fetch（透過 host） |
+| `public/ui/cards/` | ✅ 渲染＋web host／📝 MCP App host | 卡片渲染器（依 `CARDS.md` 契約），網頁與 MCP App bundle 共用：`index.js`（`renderCard`）、`cards/*.js`（7 種）、`dom.js`（只用 textContent）、`actions.js`、`cards.css`、`host-web.js`、`schema/`、`i18n/`、`preview.html`（開發預覽） | 直接 fetch（透過 host）、innerHTML |
 | `docs/prototypes/` | ✅ | 互動原型（討論串＋決策圖） | 被正式程式 import |
 
 ## 4. 一次「阿幫・生活」對話的資料流

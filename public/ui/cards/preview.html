@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>阿幫卡片預覽</title>
+<link rel="stylesheet" href="./cards.css">
+<style>
+  body { margin: 0; padding: 16px; background: #f4f6f5; font-family: -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; }
+  h1 { font-size: 18px; } .slot { margin: 0 0 16px; } .err { color: #b91c1c; }
+</style>
+</head>
+<body>
+<h1>阿幫卡片預覽（開發用；示範模式資料）</h1>
+<div id="cards"></div>
+<script type="module">
+  import { renderCard } from './index.js';
+  import { createWebHost } from './host-web.js';
+  const host = createWebHost({ ask: (q) => console.log('[ask]', q), setContext: (c) => console.log('[context]', c) });
+  const P = { lat: 25.0478, lon: 121.517 };
+  const DEMOS = [
+    ['bus_route_eta', { city: 'Taipei', routeName: '307' }],
+    ['bus_station_eta', { city: 'Taipei', stationId: 'M1000' }],
+    ['bus_nearby_stations', P],
+    ['youbike_nearby', P],
+    ['metro_live_board', { system: 'TRTC', station: '台北車站' }],
+    ['thsr_timetable', { from: '台北', to: '左營' }],
+    ['intercity_bus', { from: '台北轉運站', to: '新竹車站', departAt: '09:00' }],
+    ['plan_trip', { from: '台北車站', to: '高雄車站', departAt: '09:00', prefs: { states: ['rush'], arriveBy: '12:00' } }],
+    ['plan_trip', { from: '台北車站', to: '台北101', departAt: '09:00' }],
+  ];
+  const root = document.getElementById('cards');
+  for (const [name, args] of DEMOS) {
+    const slot = Object.assign(document.createElement('div'), { className: 'slot' });
+    slot.dataset.tool = name;
+    root.append(slot);
+    try {
+      const r = await host.callTool(name, args);
+      renderCard(slot, { ...r, tool: r.name }, host);
+    } catch (e) { slot.textContent = `${name}：${e.message}`; slot.className = 'slot err'; }
+  }
+  document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

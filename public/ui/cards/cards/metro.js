@@ -1,0 +1,17 @@
+// metro（metro_live_board）：各線各方向下一班；空資料時說明
+import { h } from '../dom.js';
+import { navButton } from '../actions.js';
+
+export default {
+  refreshSec: 20,
+  title: (d, { t }) => t('metro.title', { station: d.station }),
+  body(d, { host, t }) {
+    const list = d.trains?.length
+      ? h('ul', { class: 'ab-list' }, d.trains.map((x) => h('li', { class: 'ab-row' },
+        h('span', { class: 'ab-line', style: x.lineColor ? { borderColor: x.lineColor } : null }, x.line),
+        h('span', { class: 'ab-name' }, t('metro.toward', { dest: x.destination })),
+        h('span', { class: x.etaMin != null && x.etaMin <= 1 ? 'ab-eta soon' : 'ab-eta' }, x.status))))
+      : h('p', { class: 'ab-empty' }, t('metro.empty'));
+    return h('div', { class: 'ab-body' }, list, h('div', { class: 'ab-actions' }, navButton(host, d.nav)));
+  },
+};

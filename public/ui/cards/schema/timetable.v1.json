@@ -3,7 +3,7 @@
   "$id": "abang/cards/timetable.v1.json",
   "title": "timetable（thsr_timetable、tra_timetable、intercity_bus）",
   "type": "object",
-  "required": ["from", "to", "date", "trains"],
+  "required": ["system", "from", "to", "date", "trains"],
   "properties": {
     "system": { "enum": ["THSR", "TRA", "BUS"] },
     "from": { "type": "string" },

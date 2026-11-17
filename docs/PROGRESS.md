@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M4-02 卡片渲染
+- 做了：`public/ui/cards/` 7 種卡片（bus-route 方向切換與點站牌、bus-station、nearby 卡片內展開到站、youbike 借／還排序、metro、timetable 塞車延誤／隔日／排除／訂票、trip 建議＋分段條＋備案＋排除＋狀態 chips）；`index.js` 外框與刷新；`dom.js`（不用 innerHTML、https 白名單）；`actions.js`；`cards.css`（淺色）；`host-web.js`（M4-04 的網頁 host，無新依賴）；`preview.html`；`thsr_timetable`／`tra_timetable` 補 `system`（卡片標題與訂票依它判斷）
+- 測試：npm run lint 無錯誤；npm test 144 項全過；npm run e2e 12 項全過（新增卡片預覽，手機＋桌面截圖已檢查）
+- 文件：CARDS §1.1、ARCHITECTURE、MCP_TOOLS、TESTING、PLAN、CLAUDE
+- 下一個：M4-04 `host-mcp-app.js`（需新增依賴 `@modelcontextprotocol/ext-apps`，停下等 Austin）
+- 卡住：新依賴待同意
+
 ## 2026-11-18 M4-03 卡片文字字典
 - 做了：`public/ui/cards/i18n/zh-TW.js`：`t(key, vars)`、`MESSAGES`（共通、L2 確認視窗、bus-route、bus-station、nearby、youbike、metro、timetable、trip）
 - 測試：npm run lint 無錯誤；npm test 144 項全過（新增 3 項）

@@ -105,6 +105,39 @@ for (const [dname, device] of Object.entries(DEVICES)) {
     }
   });
 
+  test(`${dname}：互動卡片預覽（7 種卡片、互動、不注入 HTML）`, async () => {
+    await withPage(device, 'ui/cards/preview.html', async (page) => {
+      await page.waitForSelector('body[data-ready="1"]', { timeout: 20000 });
+      assert.equal(await page.locator('.slot.err').count(), 0);
+      const cards = await page.locator('.ab-card').evaluateAll((els) => els.map((e) => e.dataset.card));
+      assert.deepEqual([...new Set(cards)].sort(), ['bus-route', 'bus-station', 'metro', 'nearby', 'timetable', 'trip', 'youbike']);
+      assert.ok(await page.locator('.ab-demo').count() >= 7, '示範資料標示');
+      // 公車路線：切換方向、點站牌展開
+      const route = page.locator('[data-card="bus-route"]');
+      await route.locator('.ab-tab:not(.on)').click();
+      await route.locator('.ab-stop-row').first().click();
+      assert.equal(await route.locator('.ab-stop.open').count(), 1);
+      // 附近站牌：點站在卡片內展開到站
+      const near = page.locator('[data-card="nearby"]');
+      await near.locator('.ab-click').first().click();
+      await near.locator('.ab-expand .ab-list, .ab-expand .ab-empty').first().waitFor();
+      // YouBike：切換還車排序
+      await page.locator('[data-card="youbike"] .ab-tab:not(.on)').click();
+      assert.equal(await page.locator('[data-card="youbike"] .ab-tab.on').textContent(), '還車');
+      // 行程：建議方案、分段條、理由、排除
+      const trip = page.locator('[data-card="trip"]').first();
+      assert.equal(await trip.locator('.ab-option.best').count(), 1);
+      assert.ok(await trip.locator('.ab-leg').count() >= 2);
+      assert.match(await trip.locator('.ab-reason').textContent(), /^選「/);
+      // 高鐵時刻表每班有訂票按鈕（示範：開官方網站前先確認）
+      const tt = page.locator('[data-card="timetable"]').first();
+      assert.match(await tt.locator('.ab-title').textContent(), /^高鐵/);
+      assert.ok(await tt.locator('.ab-btn', { hasText: '訂票' }).count() > 0);
+      assert.equal(await page.locator('.ab-card script, .ab-card img[onerror]').count(), 0);
+      await shot(page, `${dname}-cards`);
+    });
+  });
+
   test(`${dname}：API 文件（Swagger UI）列出所有 tools`, async () => {
     await withPage(device, 'api/docs', async (page) => {
       await page.waitForSelector('.swagger-ui .opblock', { timeout: 15000 });

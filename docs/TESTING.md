@@ -1,6 +1,6 @@
 # 測試規格
 
-版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 144 項全過、`npm run e2e` 10 項全過（手機＋桌面各 5）。
+版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 144 項全過、`npm run e2e` 12 項全過（手機＋桌面各 6）。
 
 ## 1. 原則
 
@@ -35,7 +35,7 @@
 | 卡片契約 | `test/cards-schema.test.js` | 小驗證器本身；每個有卡片的 tool 都有契約且 7 種一一對應；11 組示範輸出（含塞車客運、雨天跨城行程）通過對應 schema；payload 帶 `v`／`tool`／`args` | M4-01 起 |
 | Agent 事件 | `test/agent.test.js`（M5） | 示範模式：4 個建議問題的事件序列（`status` → `agent_note` → `tool_start`… → `decision` → `text` → `done`）；狀態合併；限流 | M5 |
 | Claude 迴圈 | `test/agent-claude.test.js`（M5） | 以本地假 Anthropic API（`ANTHROPIC_BASE_URL=http://127.0.0.1:{port}`）回放 tool_use；5 輪上限；錯誤 | M5 |
-| E2E 冒煙 | `scripts/e2e.js`（`npm run e2e`） | 示範模式起伺服器（隨機埠、清空金鑰），Playwright 手機（iPhone 13）與桌面：首頁與搜尋、公車路線去返程、附近（定位）、高鐵台鐵時刻表、Swagger UI；無 console／頁面錯誤；截圖存 `test/screenshots/`（不進版控）；每個 browser context 以 try/finally 關閉 | 每輪 |
+| E2E 冒煙 | `scripts/e2e.js`（`npm run e2e`） | 示範模式起伺服器（隨機埠、清空金鑰），Playwright 手機（iPhone 13）與桌面：首頁與搜尋、公車路線去返程、附近（定位）、高鐵台鐵時刻表、Swagger UI；無 console／頁面錯誤；截圖存 `test/screenshots/`（不進版控）；每個 browser context 以 try/finally 關閉；M4-02 起加卡片預覽（7 種卡片皆渲染、公車方向切換與點站、附近站牌展開到站、YouBike 排序、行程建議／分段條／理由、高鐵訂票按鈕、卡片內沒有 script） | 每輪 |
 | Lint | `eslint.config.js`（`npm run lint`） | ESLint 推薦規則＋Node／瀏覽器 globals；`node_modules`、`dist`、`docs`、`test/screenshots` 除外 | 每輪 |
 
 ## 3. Fixture

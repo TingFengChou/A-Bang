@@ -111,7 +111,7 @@ export const thsrTimetable = defineTool({
   input: { from: z.string().min(1).describe('起站'), to: z.string().min(1).describe('迄站'), date: T.date },
   speak: (d) => (d.trains.length ? `${d.date} 共 ${d.trains.length} 班，最早 ${d.trains[0].depart} 出發、${d.trains[0].arrive} 到${d.to}。` : '那天沒有直達班次。'),
   async run(svc, a) {
-    const data = await svc.rail.thsrTimetable(a);
+    const data = { system: 'THSR', ...(await svc.rail.thsrTimetable(a)) }; // 卡片 timetable 依 system 決定標題與訂票
     return { data, text: railText(data, '高鐵') };
   },
 });
@@ -124,7 +124,7 @@ export const traTimetable = defineTool({
   input: { from: z.string().min(1).describe('起站'), to: z.string().min(1).describe('迄站'), date: T.date },
   speak: (d) => (d.trains.length ? `${d.date} 共 ${d.trains.length} 班，最早 ${d.trains[0].depart} 的${d.trains[0].type || ''}，${d.trains[0].arrive} 到${d.to}。` : '那天沒有直達班次。'),
   async run(svc, a) {
-    const data = await svc.rail.traTimetable(a);
+    const data = { system: 'TRA', ...(await svc.rail.traTimetable(a)) };
     return { data, text: railText(data, '台鐵') };
   },
 });
