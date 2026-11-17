@@ -57,6 +57,10 @@ export function buildOpenApi(svc) {
             name: { type: 'string' }, card: { type: ['string', 'null'] }, mode: { enum: ['live', 'demo'] },
             data: { description: '正規化資料，格式見 docs/MCP_TOOLS.md' }, text: { type: 'string', description: '給模型看的摘要（≤ 1500 字）' },
             speak: { type: ['string', 'null'], description: '討論串的一句話（由資料產生）' },
+            metrics: {
+              type: 'object', description: '本次呼叫的計量（示範模式 calls／scanned 為 0）',
+              properties: { calls: { type: 'integer', description: '上游資料取用次數（含快取）' }, cacheHits: { type: 'integer' }, cacheHit: { type: 'boolean', description: '全部由快取取得' }, scanned: { type: 'integer', description: '上游回應資料筆數' }, ms: { type: 'integer', description: '耗時（毫秒）' } },
+            },
           },
         },
       },

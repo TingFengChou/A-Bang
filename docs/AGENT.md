@@ -59,7 +59,7 @@
 | `status` | `mode: 'claude'\|'demo'`, `model?`, `profile` | 頂部標示模式 |
 | `agent_note` | `text`（≤ 30 字，可含 `@角色`） | 討論串中阿幫的一句話 |
 | `tool_start` | `id`, `name`, `title`, `role`（公車、YouBike…）, `server`（`abang`、`tdx-official`…）, `pack`, `tier`, `input` | 被點名的小幫手出現「輸入中…」 |
-| `tool_result` | `id`, `ok`, `speak`, `card?`, `data?`, `metrics: { scanned, cacheHit, ms }`, `error?` | 小幫手說出 `speak`；決策圖的資料膠囊 |
+| `tool_result` | `id`, `ok`, `speak`, `card?`, `data?`, `metrics: { calls, cacheHits, cacheHit, scanned, ms }`（即 `callTool` 的 `metrics`）, `error?` | 小幫手說出 `speak`；決策圖的資料膠囊 |
 | `discussion_end` | `tools`, `servers` | 討論收合成一行摘要 |
 | `decision` | `states: [{ key, source: 'auto'\|'said'\|'picked', from? }]`, `arriveBy?`, `options`, `ranked`, `excluded`, `reason` | 決策圖動畫；前端可用同一引擎即時重算 |
 | `guardrail` | `tier`, `rule` | 套用的護欄（L2 以上） |

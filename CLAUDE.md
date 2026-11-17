@@ -10,7 +10,7 @@
 
 ## 目前進度
 
-M0 ✅、M2 ✅、決策引擎 ✅、`speak` ✅、M3-01 導航 ✅、M3-02 路線座標與形狀 ✅、M3-03 `find_place` ✅、M3-04 捷運 ✅、M3-05 票價 ✅、M3-06 路況 ✅、M3-07 國道客運 ✅、M3-08 天氣 ✅（真實資料待 CWA 授權碼）、品質基礎（E2E／Swagger／ESLint／CI）✅、M3-09 叫車連結 ✅、M3-10 `plan_trip` ✅、M3-11 固定 OD 測試 ✅；**M3 交通完整版進行中**（`docs/PLAN.md` 狀態看板）。M1 需 TDX 金鑰，只能在 Austin 本機做。
+M0 ✅、M2 ✅、決策引擎 ✅、`speak` ✅、M3-01 導航 ✅、M3-02 路線座標與形狀 ✅、M3-03 `find_place` ✅、M3-04 捷運 ✅、M3-05 票價 ✅、M3-06 路況 ✅、M3-07 國道客運 ✅、M3-08 天氣 ✅（真實資料待 CWA 授權碼）、品質基礎（E2E／Swagger／ESLint／CI）✅、M3-09 叫車連結 ✅、M3-10 `plan_trip` ✅、M3-11 固定 OD 測試 ✅、M3-13 metrics ✅；**M3 交通完整版進行中**（`docs/PLAN.md` 狀態看板）。M1 需 TDX 金鑰，只能在 Austin 本機做。
 
 ## 必讀文件（依序）
 
@@ -60,6 +60,7 @@ core/            唯一的資料與邏輯層
   tools/         registry：define.js、index.js、<pack>.js（領域大時分檔，例 metro.js，pack 仍為 transit）
   decide.js      決策引擎（ADR-0010）
   nav.js         導航連結、步行時間、出發時機（ADR-0011）
+  metrics.js     每次 tool 呼叫的計量（AsyncLocalStorage）
   geo.js         WKT 路線形狀解析、路徑抽樣
   agent/         📝 M5：run.js、claude.js、demo-intent.js、events.js
   agents/        📝 M5：life.json（agent profile）

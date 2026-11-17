@@ -7,7 +7,7 @@
 - 定義位置：`core/tools/<pack>.js`，以 `defineTool()` 註冊（ADR-0002）。
 - 所有 tools 唯讀：`annotations.readOnlyHint = true`、`openWorldHint = true`。
 - 每個 tool 必有 `pack`、`tier`、`speak(data, args)`；選填 `source`（資料來源標示，預設 TDX）、`static`（內建資料、不依賴金鑰：示範模式不加「示範資料」提示）、`modeOf(svc)`（資料不是 TDX 時自己判斷 live／demo）、`demoNote`（示範提示文字）。
-- `callTool()` 回傳：`{ name, card, mode, data, text, speak }`（📝 M3 加 `metrics`）。
+- `callTool()` 回傳：`{ name, card, mode, data, text, speak, metrics }`；`metrics = { calls, cacheHits, cacheHit, scanned, ms }`（`core/metrics.js`：TDX／氣象署取用次數含快取、全部由快取取得、上游回應筆數、耗時；示範模式 `calls`／`scanned` 為 0）。REST 原樣回傳；MCP 放在結果 `_meta['abang/metrics']`（每次不同，不混進 `structuredContent`）。
 - MCP 回傳：
 
 ```jsonc
