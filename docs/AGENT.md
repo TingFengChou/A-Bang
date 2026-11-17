@@ -121,6 +121,8 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 `core/agent/demo-intent.js`：規則式意圖解析，輸出與 Claude 模式**相同的事件流**（含 `agent_note`、`speak`、`decision`）。不加人工延遲。
 
+✅ M5-03：`parseIntent(text)`（地點以內建地標名稱／別名比對，長的優先、車站另有短名如「左營」；`arriveByOf` 解析「8 點前」「10點半前」）→ `demoSteps(intent)` 產生分段計畫（每段 `(results) => { note, calls }`，同段平行；後段可用前段結果的座標）→ `demoSummary`。沒有起點時示範先用「臺北車站」並在總結說明（M5-07 起改用裝置定位）；「明天」＋抵達時間時以抵達前 4 小時（最早 05:00）出發估算。
+
 | 意圖 | 判斷 | 呼叫 |
 |---|---|---|
 | 行程規劃 | 「從…到…」「到…怎麼去」「幾點前要到」 | `find_place` ×2 → `weather_now`、`traffic_status`（跨城）→ `plan_trip` |

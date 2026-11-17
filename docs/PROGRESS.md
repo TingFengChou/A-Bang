@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M5-03 示範模式意圖
+- 做了：`core/agent/demo-intent.js`：`placesInText`（內建地標名稱／別名，長的優先、車站短名）、`arriveByOf`、狀態關鍵字、`parseIntent`（trip、bus_route、youbike、nearby_bus、metro、rail、unknown）、`demoSteps`（分段計畫，`agent_note` 以 @角色開頭）、`demoSummary`
+- 測試：npm run lint 無錯誤；npm test 159 項全過（新增 6 項；profile 的 6 個建議問題都能以示範資料完整執行）
+- 文件：AGENT §5、TESTING、PLAN、CLAUDE
+- 下一個：M5-04（共用執行器 run.js）
+- 卡住：同前
+
 ## 2026-11-18 M5-02 Agent 事件
 - 做了：`core/agent/events.js`（11 種事件的建立函式、registry 帶入 title／role／pack／tier、`tool_result` 帶卡片 payload 與 metrics、`decision` 由 plan_trip 資料組成、`toNdjson`、`mergeStates`、`TOOL_ROLES`）；AGENT.md 狀態來源 `said` 統一為 `user`（與 plan_trip／CARDS 一致）
 - 測試：npm run lint 無錯誤；npm test 153 項全過（新增 4 項）
