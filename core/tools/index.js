@@ -5,8 +5,9 @@ import transit from './transit.js';
 import metro from './metro.js';
 import traffic from './traffic.js';
 import intercity from './intercity.js';
+import weather from './weather.js';
 
-const ALL = [...transit, ...metro, ...traffic, ...intercity];
+const ALL = [...transit, ...metro, ...traffic, ...intercity, ...weather];
 const byName = new Map(ALL.map((t) => [t.name, t]));
 if (byName.size !== ALL.length) throw new Error('tool 名稱重複');
 
@@ -47,5 +48,5 @@ export async function callTool(svc, name, args = {}) {
   const { data, text } = await t.run(svc, parsed.data);
   // speak：討論串中「工具發言」的一句話，由資料決定（ADR-0009）
   const speak = t.speak ? t.speak(data, parsed.data) : null;
-  return { name, card: t.card ?? null, mode: svc.mode, data, text, speak };
+  return { name, card: t.card ?? null, mode: t.modeOf ? t.modeOf(svc) : svc.mode, data, text, speak };
 }

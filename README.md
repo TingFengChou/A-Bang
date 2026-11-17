@@ -77,7 +77,7 @@ claude mcp add abang -e TDX_CLIENT_ID=… -e TDX_CLIENT_SECRET=… -- node /絕�
 | `rail_fare` | 高鐵／台鐵票價 | ✅ |
 | `traffic_status` | 沿途國道路況（順暢／車多／塞車、延誤分鐘） | ✅ |
 | `intercity_bus` | 國道客運班次（含塞車延誤的預估抵達） | ✅ |
-| `weather_now` | 天氣 | 📝 M3 |
+| `weather_now` | 現在天氣與 3 小時降雨機率（中央氣象署；沒有授權碼時用示範資料） | ✅ |
 | `plan_trip` | 從 A 到 B：比較方案並依使用者狀態排序 | 📝 M3 |
 | `rail_booking_link`、`ridehail_link` | 官方訂票連結、叫車連結（需使用者確認） | 📝 M3 |
 

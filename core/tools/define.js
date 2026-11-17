@@ -14,10 +14,13 @@ import { z } from 'zod';
  * @property {(data: any, args: any) => string} [speak]  討論串中工具的一句話發言（由資料決定，不經模型；ADR-0009）
  * @property {string} [source]   資料來源標示，預設 TDX（DEFAULT_SOURCE）
  * @property {boolean} [static]   資料不依賴 TDX 金鑰（內建資料），示範模式也不加「示範資料」提示
+ * @property {(svc: any) => 'live'|'demo'} [modeOf]  資料來源不是 TDX 時，自己判斷 live／demo（例：天氣看 CWA 授權碼）
+ * @property {string} [demoNote]  示範模式提示，預設說明 TDX 金鑰（DEFAULT_DEMO_NOTE）
  */
 
 const TIERS = ['L1', 'L2', 'L3'];
 export const DEFAULT_SOURCE = '交通部 TDX 運輸資料流通服務';
+export const DEFAULT_DEMO_NOTE = '【示範資料：尚未設定 TDX 金鑰，以下非真實營運資訊】';
 
 /** @param {ToolDef} def */
 export function defineTool(def) {
@@ -26,7 +29,7 @@ export function defineTool(def) {
   }
   if (!/^[a-z][a-z0-9_]*$/.test(def.name)) throw new Error(`tool 名稱需為 snake_case：${def.name}`);
   if (!TIERS.includes(def.tier)) throw new Error(`tool ${def.name} 的 tier 必須是 L1/L2/L3`);
-  return Object.freeze({ source: DEFAULT_SOURCE, static: false, ...def, schema: z.object(def.input) });
+  return Object.freeze({ source: DEFAULT_SOURCE, static: false, demoNote: DEFAULT_DEMO_NOTE, ...def, schema: z.object(def.input) });
 }
 
 // ── 共用輸入型別 ──

@@ -6,7 +6,7 @@
 
 - 定義位置：`core/tools/<pack>.js`，以 `defineTool()` 註冊（ADR-0002）。
 - 所有 tools 唯讀：`annotations.readOnlyHint = true`、`openWorldHint = true`。
-- 每個 tool 必有 `pack`、`tier`、`speak(data, args)`；選填 `source`（資料來源標示，預設 TDX）與 `static`（內建資料、不依賴金鑰：示範模式不加「示範資料」提示）。
+- 每個 tool 必有 `pack`、`tier`、`speak(data, args)`；選填 `source`（資料來源標示，預設 TDX）、`static`（內建資料、不依賴金鑰：示範模式不加「示範資料」提示）、`modeOf(svc)`（資料不是 TDX 時自己判斷 live／demo）、`demoNote`（示範提示文字）。
 - `callTool()` 回傳：`{ name, card, mode, data, text, speak }`（📝 M3 加 `metrics`）。
 - MCP 回傳：
 
@@ -53,7 +53,7 @@
 | `plan_trip` | transit | L1 | `trip` | 📝 |
 | `rail_booking_link` | transit | **L2** | （時刻表按鈕） | 📝 ⚠️ 需 TDX 權限 |
 | `ridehail_link` | ridehail | **L2** | （行程卡按鈕） | 📝 |
-| `weather_now` | weather | L1 | — | 📝 需 CWA 授權碼 |
+| `weather_now` | weather | L1 | — | ✅（真實資料需 CWA 授權碼）⚠️ |
 
 ## 3. 公車
 
@@ -228,14 +228,16 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 6. 叫車：距離與路況估算時間與價格區間（`estimated: true`）；附 `ridehail_link`。
 7. 自動狀態：查 `traffic_status`（跨城或走一般道路的方案）與 `weather_now`（起點）；`raining` → 自動狀態「下雨」，`level = jam` → 「塞車中」。查詢失敗時不加狀態、不中斷規劃。
 
-### 📝 `weather_now` — 現在與接下來 3 小時天氣（pack `weather`）
+### ✅ `weather_now` — 現在與接下來 3 小時天氣（pack `weather`）
 
 | | |
 |---|---|
 | 輸入 | `lat`, `lon` |
-| 輸出 | `{ station, observedAt, tempC, raining: boolean, rainMm1h, pop3h: 0–100, summary }` |
+| 輸出 | `{ station, town, county, distanceM, observedAt, tempC, rainMm1h, pop3h: 0–100\|null, raining: boolean, summary }` |
 | 資料 | 中央氣象署開放資料平臺（需 `CWA_API_KEY` 授權碼）：自動氣象站觀測 `O-A0001-001`／`O-A0003-001`（10m）、鄉鎮天氣預報 `F-D0047-*`（1h）⚠️ 欄位待 M1 驗證 |
-| 判斷 | `raining = rainMm1h > 0 || pop3h ≥ 70` |
+| 判斷 | `raining = rainMm1h > 0 || pop3h ≥ 70`（`isRaining`） |
+| 模式 | `modeOf: svc.weatherMode`：有 `CWA_API_KEY` 才是 live，與 TDX 金鑰無關；來源標示「中央氣象署」；示範提示「尚未設定中央氣象署授權碼」 |
+| 示範 | `DEMO_WEATHER=rain`（或 `createServices({ demo: { weather: 'rain' } })`）：雨量 2.5 mm、降雨機率 80%；預設多雲、10% |
 | speak | 「中正區現在下雨，接下來 3 小時降雨機率 80%。」 |
 
 ## 8. 卡片種類

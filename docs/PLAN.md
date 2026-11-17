@@ -22,12 +22,12 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 | M0 基礎 | ✅ | — | — |
 | M1 TDX 實測 | ⛔ | M1-01 | TDX 金鑰、可連 TDX 的網路 |
 | M2 Registry＋遠端 MCP | ✅（Claude 實機連線待驗） | — | Austin 以 cloudflared 實測 |
-| M3 交通完整版 | 🚧 | M3-08 | `rail_booking_link` 需導訂票權限；`weather_now` 需 CWA 授權碼 |
+| M3 交通完整版 | 🚧 | M3-09 | `rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
 | M4 互動卡片 | 📝 | — | — |
 | M5 網頁 agent | 📝 | — | Claude 模式需 `ANTHROPIC_API_KEY`（示範模式不需要） |
 | M6 上線 | 📝 | — | 部署帳號、網域 |
 
-建議順序：M3-08 → M3-13 → M4 → M5（M5 的討論串與決策圖可在 M3 完成 `plan_trip` 後提前開工）。
+建議順序：M3-09 → M3-13 → M4 → M5（M5 的討論串與決策圖可在 M3 完成 `plan_trip` 後提前開工）。
 
 ## Austin 待辦（外部條件）
 
@@ -71,7 +71,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 | 高速公路旅行時間、道路事件、國道客運端點 | 未驗證（M3-07 假設 `StopOfRoute/InterCity`、`Schedule/InterCity` 的 `Timetables[].ServiceDay／StopTimes`；客運票價端點未知；M3-06 假設 `SectionShape`／`Section`／`Live`／`Live/News` 的 Freeway 端點與 `SectionShapes`、`Sections`、`LiveTraffics`、`Newses` 包裝） |
 | 地理編碼（TDX 或 TGOS） | 未驗證（`find_place` 目前只查內建地標） |
 | 導訂票 API 端點與參數（需權限） | 未驗證 |
-| CWA 觀測與鄉鎮預報欄位 | 未驗證 |
+| CWA 觀測與鄉鎮預報欄位 | 未驗證（M3-08 假設 `records.Station[]`（`GeoInfo.Coordinates` WGS84、`WeatherElement.AirTemperature／Now.Precipitation／Weather`）、`F-D0047-089` 可用 `LocationName` 篩、元素名「3小時降雨機率」） |
 | OData 空白用 `%20`（已實作）是否必要 | 未驗證 |
 
 ## M2 Tool registry＋遠端 MCP ✅
@@ -99,7 +99,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 - [x] M3-05 `rail_fare`（台鐵／高鐵票價）（2026-11-17：代碼轉中文、成人單程在前、未知代碼保留；台鐵車種只用資料自帶名稱；3 項測試）
 - [x] M3-06 `traffic_status`（pack transit；mock 提供「順暢」「壅塞」兩種情境，以 `DEMO_TRAFFIC=jam` 切換）（2026-11-17：沿途路段以走廊＋方向判斷；壅塞累計 5 km 即 jam；查不到為 null；`resolvePoint` 供 plan_trip 共用；6 項測試）
 - [x] M3-07 `intercity_bus`（國道客運；`delayRisk` 依路況）（2026-11-17：站牌 1.5 km 配對、時刻表、含延誤抵達；票價端點未確認先回 null；`T.point` 共用；6 項測試）
-- [ ] M3-08 `weather_now`（pack weather；`CWA_API_KEY`；mock 以 `DEMO_WEATHER=rain` 切換）
+- [x] M3-08 `weather_now`（pack weather；`CWA_API_KEY`；mock 以 `DEMO_WEATHER=rain` 切換）（2026-11-18：`cwa-client`、觀測＋鄉鎮預報、`weatherMode` 與 TDX 獨立；tool 加 `modeOf`／`demoNote`；6 項測試；真實資料待授權碼驗證）
 - [ ] M3-09 `core/providers/ridehail/uber.js` ＋ tool `ridehail_link`（pack ridehail、L2）；估價先以距離估算並標 `estimated`
 - [ ] M3-10 `core/services/trip.js` `planTrip()`：候選方案（`MCP_TOOLS.md` §7 規則 1–7）→ 自動狀態 → `decide()` → `ranking`；tool `plan_trip`（卡片 `trip`）
 - [ ] M3-11 `plan_trip` 固定 10 組 OD fixture 測試（含：雨天、塞車、趕時間＋arriveBy、帶行李、跨城），斷言第一名與理由句關鍵字
