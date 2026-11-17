@@ -99,6 +99,7 @@ export const MESSAGES = {
   'trip.stateKey.budget': '想省錢',
   'trip.stateKey.lessWalk': '少走路',
   'trip.ridehail': '叫車',
+  'trip.ridehailConfirm': '要開啟叫車 App 嗎？上車點、車種與付款請在 App 內確認，阿幫不會取得你的付款資料。',
   'trip.book': '訂票',
   'trip.leg.walk': '走路',
   'trip.leg.bike': 'YouBike',

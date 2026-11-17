@@ -26,7 +26,7 @@ function optionBlock(o, ctx, best) {
     best && h('ul', { class: 'ab-legs-detail' }, o.legs.map((l) => h('li', {}, l.detail))),
     best && h('div', { class: 'ab-actions' },
       navButton(host, o.legs[0]?.nav),
-      ride && confirmLinkButton(host, ride, t('confirm.title'), t('trip.ridehail')),
+      ride && confirmLinkButton(host, ride, t('trip.ridehailConfirm'), t('trip.ridehail')),
       o.train && bookButton(host, { system: o.role.toUpperCase(), trainNo: o.train.trainNo, date: o.train.date, from: o.train.from, to: o.train.to }, (m) => { ctx.state.err = m; ctx.rerender(); })));
 }
 

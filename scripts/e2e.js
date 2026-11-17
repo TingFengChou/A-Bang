@@ -134,6 +134,17 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       assert.match(await tt.locator('.ab-title').textContent(), /^高鐵/);
       assert.ok(await tt.locator('.ab-btn', { hasText: '訂票' }).count() > 0);
       assert.equal(await page.locator('.ab-card script, .ab-card img[onerror]').count(), 0);
+      // 自動刷新不會在第一次後停止：連續兩次 refresh 都會呼叫 tool
+      const calls = await page.evaluate(async () => {
+        const { renderCard } = await import('/ui/cards/index.js');
+        let n = 0;
+        const host = { callTool: async () => { n++; return { card: 'metro', name: 'metro_live_board', mode: 'demo', data: { system: 'TRTC', station: 'X', stationId: 'X', updatedAt: new Date().toISOString(), trains: [], nav: null } }; } };
+        const el = document.createElement('div');
+        const c = renderCard(el, { card: 'metro', tool: 'metro_live_board', args: {}, mode: 'demo', data: { system: 'TRTC', station: 'X', stationId: 'X', updatedAt: new Date().toISOString(), trains: [], nav: null } }, host);
+        await c.refresh(); await c.refresh(); c.destroy();
+        return n;
+      });
+      assert.equal(calls, 2);
       await shot(page, `${dname}-cards`);
     });
   });

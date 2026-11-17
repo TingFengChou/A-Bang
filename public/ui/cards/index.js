@@ -44,12 +44,16 @@ export function renderCard(el, payload, host) {
     el.replaceChildren(card);
   };
 
+  // REST 回傳 name 而不是 tool；刷新結果缺 tool／args 時沿用原本的，避免只刷新一次就停
+  const merge = (next) => ({ ...next, tool: next.tool ?? next.name ?? current.tool, args: next.args ?? current.args });
+  const hidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
+
   const refresh = async () => {
-    if (!current.tool || !host?.callTool) return;
+    if (!current.tool || !host?.callTool || hidden()) return; // 分頁在背景時不刷新
     status?.replaceChildren(t('common.loading'));
     try {
       const next = await host.callTool(current.tool, current.args || {});
-      if (next?.card === current.card) { current = next; draw(); }
+      if (next?.card === current.card) { current = merge(next); draw(); }
     } catch {
       const at = hhmm(current.data?.updatedAt || new Date().toISOString());
       status?.replaceChildren(h('span', { class: 'ab-fail' }, t('common.refreshFailed', { time: at })));
@@ -59,7 +63,7 @@ export function renderCard(el, payload, host) {
   draw();
   if (def.refreshSec && current.tool && host?.callTool) timer = setInterval(refresh, def.refreshSec * 1000);
   return {
-    update(p) { current = p; draw(); },
+    update(p) { current = merge(p); draw(); },
     refresh,
     destroy() { clearInterval(timer); el.replaceChildren(); },
   };

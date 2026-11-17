@@ -18,7 +18,8 @@ export function createWebHost({ base = '', ask, setContext, confirm = (m) => win
     setContext: setContext || (() => {}),
     openLink(url, opts = {}) {
       if (!/^https:\/\//i.test(url)) return;
-      if (opts.confirm && !confirm(`${opts.confirm}\n\n付款在官方網站完成，阿幫不會取得你的付款資料`)) return;
+      // 確認文字由 tool 提供（訂票、叫車各自說明付款在哪裡完成）；這裡不再自行加句子
+      if (opts.confirm && !confirm(opts.confirm)) return;
       window.open(url, '_blank', 'noopener');
     },
   };
