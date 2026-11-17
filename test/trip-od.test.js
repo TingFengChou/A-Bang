@@ -17,7 +17,7 @@ const CASES = [
   ['很近（約 1.5 公里）', '台北車站', '西門町', '09:00', {}, {}, { best: 'ridehail', roles: ['bike', 'bus', 'ridehail', 'walk'], reason: [/^選「叫車/] }],
   ['台中市區＋下雨', '台中車站', '逢甲夜市', '18:00', { weather: 'rain' }, {}, { best: 'ridehail', auto: ['rain'], reason: [/正在下雨/, /比較不會淋雨|只走 0 分/], notFirst: ['bike', 'walk'] }],
   ['跨城（無狀態）', '台北車站', '高雄車站', '09:00', {}, {}, { best: 'tra', roles: ['intercity', 'ridehail', 'thsr', 'tra'], reason: [/省 \d+ 元/] }],
-  ['跨城＋塞車（自動）', '台北車站', '高雄車站', '09:00', { traffic: 'jam' }, {}, { best: 'tra', auto: ['traffic'], reason: [/因為路上正在塞車/], last: 'intercity' }],
+  ['跨城＋塞車（自動）', '台北車站', '高雄車站', '09:00', { traffic: 'jam' }, {}, { best: 'tra', auto: ['traffic'], reason: [/因為路上正在塞車/], last: 'ridehail' }],
   ['跨城＋趕時間＋12:00 前到', '台北車站', '高雄車站', '09:00', {}, { states: ['rush'], arriveBy: '12:00' }, { best: 'thsr', excluded: ['intercity', 'ridehail'], reason: [/你趕時間/, /比台鐵\S+快 \d+ 分/, /會遲到已排除/] }],
   ['中程（新竹）＋想省錢', '台北車站', '新竹車站', '09:00', {}, { states: ['budget'] }, { best: 'intercity', reason: [/你想省錢/, /省 \d+ 元/], last: 'ridehail' }],
 ];

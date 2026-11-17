@@ -57,7 +57,7 @@ export default {
       d.states?.length > 0 && h('div', { class: 'ab-chips', 'aria-label': t('trip.states') }, d.states.map((s) => h('span', { class: 'ab-chip', title: s.detail || '' },
         `${t(`trip.stateKey.${s.key}`)}・${t(`trip.state.${s.source}`)}`))),
       state.err && h('p', { class: 'ab-fail', role: 'alert' }, state.err),
-      best ? optionBlock(best, ctx, true) : h('p', { class: 'ab-empty' }, t('trip.none')),
+      best ? optionBlock(best, ctx, true) : h('p', { class: 'ab-empty' }, t(d.ranking.excluded.length ? 'trip.allLate' : 'trip.none')),
       d.ranking.reason && h('p', { class: 'ab-reason' }, d.ranking.reason),
       alts.length > 0 && h('div', { class: 'ab-alts' }, h('h4', {}, t('trip.alternatives')), alts.map((o) => optionBlock(o, ctx, false))),
       d.ranking.excluded.length > 0 && h('div', { class: 'ab-excluded' }, h('h4', {}, t('trip.excluded')),

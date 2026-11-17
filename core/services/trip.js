@@ -26,6 +26,7 @@ export const EST = {
   carCityKmh: 22, carHighwayKmh: 55, ridehailWaitMin: 6,
   intercityTwdPerKm: 1.3,   // 客運票價缺資料時：道路公里 × 1.3 元
   stationWalkM: 1200,       // 到車站 1.2 公里內用走的
+  maxIdleWaitMin: 10,       // 班次制（軌道、客運）：要等更久時視為晚一點出門，等車只算 10 分（時間＝從 leaveAt 出門起算）
 };
 
 // YouBike 2.0（台北市）：前 30 分 5 元（市府補助）、之後每 30 分 10 元
@@ -143,16 +144,18 @@ async function railOption(svc, system, from, to, straight, depart) {
   if (!train) return null;
   const fares = await (system === 'THSR' ? svc.rail.thsrFare : svc.rail.traFare)({ from: o.name, to: d.name }).then((f) => f.fares).catch(() => []);
   const fare = fares.find((f) => f.adultOneWay && (!train.type || !f.trainType || f.trainType === train.type)) || fares.find((f) => f.adultOneWay);
-  const wait = toMin(train.depart) - ready;
+  // 班次制：等太久就晚點出門，等車最多算 maxIdleWaitMin；抵達以實際班次計算
+  const wait = Math.min(toMin(train.depart) - ready, EST.maxIdleWaitMin);
   const label = system === 'THSR' ? '高鐵' : `台鐵${train.type || ''}`;
   return {
     id: system.toLowerCase(), role: system.toLowerCase(), name: label,
     minutes: a1.minutes + wait + train.minutes + a2.minutes, waitMin: wait, walkMin: a1.walkMin + a2.walkMin,
+    arriveMin: toMin(train.depart) + train.minutes + a2.minutes,
     cost: (fare?.price ?? 0) + a1.cost + a2.cost, exposure: 0.1, effort: 0.3, delayRisk: 0,
     legs: [a1.leg, leg(system.toLowerCase(), o, d, train.minutes, `${label} ${train.trainNo} 次 ${train.depart} 開、${train.arrive} 到`, 'transit'), a2.leg],
     notes: [fare ? `${fare.trainType || fare.cabin || ''}成人單程 ${fare.price} 元` : '票價暫時查不到'],
     train: { trainNo: train.trainNo, depart: train.depart, arrive: train.arrive, from: o.name, to: d.name, date: depart.date },
-    leaveAt: toHHMM(toMin(train.depart) - a1.minutes), // 最晚出門時間＝發車 − 到站時間（卡片「提醒我出門」）
+    leaveAt: toHHMM(toMin(train.depart) - a1.minutes - wait), // 出門時間＝發車 − 到站 − 等車（卡片「提醒我出門」）
     ...((a1.estimated || a2.estimated || !fare) && { estimated: true }),
   };
 }
@@ -165,13 +168,15 @@ async function intercityOption(svc, from, to, straight, depart) {
   const t = r.trains.find((x) => waitOf(x) >= 0); // 走到站牌還趕得上的第一班
   if (!t) return null;
   const w1 = walkMinutes(t.walkFromM), w2 = walkMinutes(t.walkToM);
-  const wait = waitOf(t);
+  const realWait = waitOf(t);
+  const wait = Math.min(realWait, EST.maxIdleWaitMin);
   const ride = t.minutes + (t.delayMin || 0);
   const estFare = Math.round((roadKm(straight) * EST.intercityTwdPerKm) / 5) * 5;
   return {
     id: 'intercity', role: 'intercity', name: /^國道客運/.test(t.trainNo) ? t.trainNo : `國道客運 ${t.trainNo}`,
     minutes: w1 + wait + ride + w2, waitMin: wait, walkMin: w1 + w2, cost: t.fare ?? estFare,
-    leaveAt: toHHMM(depart.minute + wait), // 最晚出門時間＝發車 − 走到站牌
+    arriveMin: depart.minute + realWait + w1 + ride + w2,
+    leaveAt: toHHMM(depart.minute + realWait - wait), // 出門時間＝發車 − 走到站牌 − 等車
     exposure: 0.2, effort: 0.3, delayRisk: r.delayRisk,
     // 客運站牌座標服務層沒有回傳：站牌點不附座標與導航
     legs: [
@@ -233,7 +238,8 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   const results = await Promise.all(entries.map(([, f]) => f().catch(() => FAILED)));
   const unavailable = entries.filter((_, i) => results[i] === FAILED).map(([k]) => k); // 依方案順序，結果穩定
   // arriveMin：從出發日 00:00 起算的分鐘數（可超過 24 小時），跨午夜也能正確比較抵達時間
-  const options = results.filter((o) => o && o !== FAILED).map((o) => ({ ...o, arriveAt: toHHMM(depart.minute + o.minutes), arriveMin: depart.minute + o.minutes }));
+  // arriveMin：班次制方案以實際班次計算（已帶入），其餘＝出發＋總時間
+  const options = results.filter((o) => o && o !== FAILED).map((o) => { const am = o.arriveMin ?? depart.minute + o.minutes; return { ...o, arriveAt: toHHMM(am), arriveMin: am }; });
   // arriveBy 早於出發時間 → 視為隔天（例：23:00 出發、01:00 前到）
   const arriveByMin = prefs.arriveBy ? toMin(prefs.arriveBy) + (toMin(prefs.arriveBy) < depart.minute ? 24 * 60 : 0) : undefined;
 

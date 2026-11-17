@@ -116,6 +116,7 @@ export const MESSAGES = {
   'trip.leg.intercity': '客運',
   'trip.leg.ridehail': '叫車',
   'trip.none': '這段路找不到可行的交通方式',
+  'trip.allLate': '所有方式都趕不上指定時間，可以提早出發或放寬抵達時間',
 };
 
 /**

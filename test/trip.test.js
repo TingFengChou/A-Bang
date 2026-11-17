@@ -58,9 +58,11 @@ test('跨城（示範，下雨＋塞車）：自動狀態、軌道與客運、�
   assert.match(r.ranking.reason, /正在下雨、路上正在塞車、你趕時間/);
   const thsr = r.options.find((o) => o.id === 'thsr');
   assert.deepEqual([thsr.train.from, thsr.train.to], ['台北', '左營']);
-  // 最晚出門時間＝發車 − 到站（臺北車站就在旁邊：走路 1 分）
+  // 出門時間＝發車 − 到站（臺北車站就在旁邊：走路 1 分）− 等車（最多 10 分）；抵達以實際班次計算
   const toMin = (s) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3));
-  assert.equal(toMin(thsr.train.depart) - toMin(thsr.leaveAt), thsr.legs[0].minutes);
+  assert.equal(toMin(thsr.train.depart) - toMin(thsr.leaveAt), thsr.legs[0].minutes + thsr.waitMin);
+  assert.ok(thsr.waitMin <= 10);
+  assert.equal(thsr.arriveAt, (() => { const m = toMin(thsr.train.arrive) + thsr.legs[2].minutes; return `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; })());
   assert.ok(thsr.cost > 1000);
 });
 
@@ -102,4 +104,13 @@ test('plan_trip tool：地名、card trip、speak、參數錯誤', async () => {
   assert.match(r.text, /狀態：塞車中（自動：/);
   await assert.rejects(callTool(svc, 'plan_trip', { from: '台北車站', to: '台北101', prefs: { states: ['sleepy'] } }), /參數錯誤/);
   await assert.rejects(callTool(svc, 'plan_trip', { from: '台北車站', to: '台北101', prefs: { arriveBy: '25:00' } }), /參數錯誤/);
+});
+
+test('班次制：很早出發時不把長時間等車算進總時間，出門時間往後延', async () => {
+  const svc = createServices({ forceMock: true });
+  const r = await planTrip(svc, { from: TPE, to: KHH, departAt: '2026-11-19T05:00', now: NOW });
+  const thsr = r.options.find((o) => o.id === 'thsr');
+  assert.equal(thsr.waitMin, 10); // 05:01 就到站、06:07 才發車：只算 10 分
+  assert.ok(thsr.minutes < 160, `${thsr.minutes} 分`);
+  assert.ok(thsr.leaveAt > '05:30', thsr.leaveAt);
 });
