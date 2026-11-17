@@ -152,6 +152,7 @@ async function railOption(svc, system, from, to, straight, depart) {
     legs: [a1.leg, leg(system.toLowerCase(), o, d, train.minutes, `${label} ${train.trainNo} 次 ${train.depart} 開、${train.arrive} 到`, 'transit'), a2.leg],
     notes: [fare ? `${fare.trainType || fare.cabin || ''}成人單程 ${fare.price} 元` : '票價暫時查不到'],
     train: { trainNo: train.trainNo, depart: train.depart, arrive: train.arrive, from: o.name, to: d.name, date: depart.date },
+    leaveAt: toHHMM(toMin(train.depart) - a1.minutes), // 最晚出門時間＝發車 − 到站時間（卡片「提醒我出門」）
     ...((a1.estimated || a2.estimated || !fare) && { estimated: true }),
   };
 }
@@ -170,6 +171,7 @@ async function intercityOption(svc, from, to, straight, depart) {
   return {
     id: 'intercity', role: 'intercity', name: /^國道客運/.test(t.trainNo) ? t.trainNo : `國道客運 ${t.trainNo}`,
     minutes: w1 + wait + ride + w2, waitMin: wait, walkMin: w1 + w2, cost: t.fare ?? estFare,
+    leaveAt: toHHMM(depart.minute + wait), // 最晚出門時間＝發車 − 走到站牌
     exposure: 0.2, effort: 0.3, delayRisk: r.delayRisk,
     // 客運站牌座標服務層沒有回傳：站牌點不附座標與導航
     legs: [

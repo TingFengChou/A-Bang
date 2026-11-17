@@ -134,6 +134,34 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       const tt = page.locator('[data-card="timetable"]').first();
       assert.match(await tt.locator('.ab-title').textContent(), /^高鐵/);
       assert.ok(await tt.locator('.ab-btn', { hasText: '訂票' }).count() > 0);
+      // 行程卡：跨城建議（高鐵）有導航與訂票；有出門時間時可設定提醒（時間已過則不顯示）
+      const tripRail = page.locator('[data-card="trip"]').first();
+      assert.ok(await tripRail.locator('.ab-option.best .ab-btn', { hasText: '訂票' }).count() === 1);
+      // 提醒我出門：以假 host 渲染一張今天、30 分鐘後出門的行程卡
+      const reminded = await page.evaluate(async () => {
+        const { renderCard } = await import('/ui/cards/index.js');
+        const pad = (n) => String(n).padStart(2, '0');
+        const d = new Date(Date.now() + 30 * 60e3);
+        const leaveAt = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+        const calls = [];
+        const host = { remind: async (at, text) => { calls.push([at, text]); return true; }, openLink() {} };
+        const el = document.createElement('div');
+        document.body.append(el);
+        const P = { name: 'A', lat: 25, lon: 121 };
+        renderCard(el, { card: 'trip', mode: 'demo', data: { from: P, to: { ...P, name: 'B' }, date: today, departAt: '09:00', best: 'thsr', states: [],
+          options: [{ id: 'thsr', role: 'thsr', name: '高鐵', minutes: 120, waitMin: 10, walkMin: 2, cost: 1300, arriveAt: '11:00', leaveAt, notes: [],
+            legs: [{ mode: 'walk', from: P, to: P, minutes: 2, detail: '走', nav: null }] }],
+          ranking: { ranked: [{ id: 'thsr', name: '高鐵', score: 90 }], excluded: [], reason: '選「高鐵」' } } }, host);
+        el.querySelector('.ab-option.best .ab-btn').click();
+        await new Promise((r) => setTimeout(r, 50));
+        const out = { calls, text: el.querySelector('.ab-option.best [role="status"]')?.textContent, leaveAt };
+        el.remove();
+        return out;
+      });
+      assert.equal(reminded.calls.length, 1);
+      assert.equal(reminded.calls[0][0], reminded.leaveAt);
+      assert.match(reminded.text, /提醒你出門/);
       assert.equal(await page.locator('.ab-card script, .ab-card img[onerror]').count(), 0);
       // 自動刷新不會在第一次後停止：連續兩次 refresh 都會呼叫 tool
       const calls = await page.evaluate(async () => {

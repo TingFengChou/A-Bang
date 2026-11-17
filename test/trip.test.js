@@ -58,6 +58,9 @@ test('跨城（示範，下雨＋塞車）：自動狀態、軌道與客運、�
   assert.match(r.ranking.reason, /正在下雨、路上正在塞車、你趕時間/);
   const thsr = r.options.find((o) => o.id === 'thsr');
   assert.deepEqual([thsr.train.from, thsr.train.to], ['台北', '左營']);
+  // 最晚出門時間＝發車 − 到站（臺北車站就在旁邊：走路 1 分）
+  const toMin = (s) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3));
+  assert.equal(toMin(thsr.train.depart) - toMin(thsr.leaveAt), thsr.legs[0].minutes);
   assert.ok(thsr.cost > 1000);
 });
 

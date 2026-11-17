@@ -47,7 +47,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 | 實作 | 檔案 | `callTool` | `ask` | `setContext` | `openLink` |
 |---|---|---|---|---|---|
-| 網頁 | `public/ui/cards/host-web.js` | `POST /api/v1/tools/:name` | 填入輸入框並送出 | 存在下一次 agent 請求的 `context` | `window.open`（L2 先確認） |
+| 網頁 | `public/ui/cards/host-web.js` | `POST /api/v1/tools/:name` | 填入輸入框並送出 | 存在下一次 agent 請求的 `context` | `window.open`（L2 先確認）；`remind` 以系統通知（需允許通知、頁面保持開啟） |
 | MCP Apps | `public/ui/cards/host-mcp-app.js` | `app.callServerTool()` | `app.sendMessage()` | `app.updateModelContext()` | `app.openLink()`（若 host 支援；否則顯示可複製連結） |
 
 ## 4. 卡片種類與資料契約

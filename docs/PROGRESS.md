@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M5-10 結論卡行動
+- 做了：trip 卡（M4-02 已有建議、分段條、備案、導航、叫車、訂票）補「提醒我出門」：`plan_trip` 高鐵／台鐵／客運方案帶 `leaveAt`（發車 − 到站時間）；`host-web.remind`（系統通知、需允許、12 小時內）；卡片只對今天且 1 分鐘後的出門時間顯示按鈕，設定後顯示「好，HH:mm 提醒你出門」
+- 測試：npm run lint 無錯誤；npm test 170 項全過（trip 測 leaveAt）；npm run e2e 14 項全過（假 host 驗證提醒）
+- 文件：MCP_TOOLS Option、CARDS host、TESTING、PLAN、CLAUDE
+- 下一個：M5-11（輕量 3D 與排名翻轉）
+- 卡住：同前
+
 ## 2026-11-18 M5-09 決策圖
 - 做了：`public/ui/agent/decision-graph.js`（資料 → 你的狀態 → 方案 → 建議四欄 SVG；自動狀態虛線連回天氣／路況；連線粗細＝分數；排除方案灰階刪除線；勝出路徑與關鍵資料來源亮起；狀態 chips 切換／加選即時以同一份 `decide.js` 重算，關掉自動狀態時理由句加「不考慮『…』的話」；明細長條標示前兩項；SVG `title`／`desc` 文字替代）；伺服器白名單提供 `/core/decide.js`；`plan_trip`／`decision` 帶 `arriveBy`／`arriveByMin`；CSS 分段動畫、reduced motion 直接顯示；SW v0.3.1
 - 測試：npm run lint 無錯誤；npm test 170 項全過（新增重算一致性）；npm run e2e 14 項全過（決策圖互動、截圖已檢查）
