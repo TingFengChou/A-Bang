@@ -1,7 +1,7 @@
 # UX 規格 — 阿幫・生活（交通）
 
 版本：v0.4（2026-11-17）。參考原型：`docs/prototypes/transit-discussion.html`（瀏覽器直接開；4 個情境）。
-正式實作在 `public/js/pages/agent.js` ＋ `public/ui/agent/*`，**由真實 NDJSON 事件驅動**（`AGENT.md` §3），原型中的假資料與 `sleep()` 只是示意。
+正式實作在 `public/js/pages/agent.js`（✅ M5-08，`#/agent`）＋ `public/css/agent.css`，**由真實 NDJSON 事件驅動**（`AGENT.md` §3），原型中的假資料與 `sleep()` 只是示意。頭像目前以角色名縮寫＋色彩圓形呈現（線條 SVG 圖示待補）。
 
 ## 1. 原則
 

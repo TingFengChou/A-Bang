@@ -150,6 +150,38 @@ for (const [dname, device] of Object.entries(DEVICES)) {
     });
   });
 
+  test(`${dname}：問阿幫（建議問題 → 討論串 → 卡片 → 總結；@ 點名；定位）`, async () => {
+    await withPage(device, '#/agent', async (page) => {
+      await page.waitForSelector('.suggest .chip');
+      await page.locator('.suggest .chip').first().click(); // 從西門町到台北 101 怎麼去？
+      await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+      assert.match(await page.locator('.msg.user').first().textContent(), /西門町/);
+      assert.match(await page.locator('.thread-sum').first().textContent(), /小幫手討論完成・\d+ 個工具/);
+      assert.ok(await page.locator('.thread .bubble.tool').count() >= 4, '小幫手發言');
+      assert.ok(await page.locator('.thread .mention').count() >= 1, '@角色 chip');
+      assert.equal(await page.locator('.results [data-card="trip"]').count(), 1);
+      assert.match(await page.locator('.decision-lite .why').textContent(), /^選「/);
+      assert.match(await page.locator('.bubble.final .say').textContent(), /^選「/);
+      await shot(page, `${dname}-agent-trip`);
+      // 展開討論串
+      await page.locator('.thread-sum').first().click();
+      assert.equal(await page.locator('.thread.open').count(), 1);
+      // @ 點名
+      await page.fill('.chat-input', '請 @');
+      await page.locator('.chat-input').dispatchEvent('input');
+      assert.ok(await page.locator('.mention-bar .chip').count() >= 5);
+      await page.locator('.mention-bar .chip', { hasText: '@YouBike' }).click();
+      assert.equal(await page.inputValue('.chat-input'), '請 @YouBike ');
+      // 沒說起點：瀏覽器定位（測試 context 已給台北座標）
+      await page.fill('.chat-input', '我想去台北101');
+      await page.press('.chat-input', 'Enter');
+      await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
+      assert.equal(await page.locator('.results [data-card="trip"]').count(), 2);
+      assert.match(await page.locator('.results [data-card="trip"] .ab-title').nth(1).textContent(), /^你的位置/);
+      await shot(page, `${dname}-agent-location`);
+    });
+  });
+
   test(`${dname}：API 文件（Swagger UI）列出所有 tools`, async () => {
     await withPage(device, 'api/docs', async (page) => {
       await page.waitForSelector('.swagger-ui .opblock', { timeout: 15000 });

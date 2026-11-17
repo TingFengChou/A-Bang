@@ -1,6 +1,6 @@
 # 測試規格
 
-版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 169 項全過、`npm run e2e` 12 項全過（手機＋桌面各 6）。
+版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 169 項全過、`npm run e2e` 14 項全過（手機＋桌面各 7）。
 
 ## 1. 原則
 
@@ -40,7 +40,7 @@
 | Agent 端點 | `test/agent-http.test.js` | 起 server：NDJSON 串流、無 CORS、400／405／429；`client.js` 的定位流程（取得／拒絕）；handler 限流以 agent id＋IP、計量、結束事件 | M5-06 起 |
 | Agent 執行器 | `test/agent.test.js` | 示範模式事件順序（`status` → `agent_note` → `tool_start`… → `tool_result`… → `decision` → `discussion_end` → `text` → `done`）、各意圖以卡片結尾、picked 狀態、白名單與錯誤不外洩、請求驗證；限流於 M5-06 | M5-04 起 |
 | Claude 迴圈 | `test/agent-claude.test.js`（M5） | 以本地假 Anthropic API（`ANTHROPIC_BASE_URL=http://127.0.0.1:{port}`）回放 tool_use；5 輪上限；錯誤 | M5 |
-| E2E 冒煙 | `scripts/e2e.js`（`npm run e2e`） | 示範模式起伺服器（隨機埠、清空金鑰），Playwright 手機（iPhone 13）與桌面：首頁與搜尋、公車路線去返程、附近（定位）、高鐵台鐵時刻表、Swagger UI；無 console／頁面錯誤；截圖存 `test/screenshots/`（不進版控）；每個 browser context 以 try/finally 關閉；M4-02 起加卡片預覽（7 種卡片皆渲染、公車方向切換與點站、附近站牌展開到站、YouBike 排序、行程建議／分段條／理由、高鐵訂票按鈕、卡片內沒有 script） | 每輪 |
+| E2E 冒煙 | `scripts/e2e.js`（`npm run e2e`） | 示範模式起伺服器（隨機埠、清空金鑰），Playwright 手機（iPhone 13）與桌面：首頁與搜尋、公車路線去返程、附近（定位）、高鐵台鐵時刻表、Swagger UI；無 console／頁面錯誤；截圖存 `test/screenshots/`（不進版控）；每個 browser context 以 try/finally 關閉；M4-02 起加卡片預覽（7 種卡片皆渲染、公車方向切換與點站、附近站牌展開到站、YouBike 排序、行程建議／分段條／理由、高鐵訂票按鈕、卡片內沒有 script）；M5-08 起加問阿幫（建議問題 → 討論串 → 收合 → trip 卡片 → 總結、@ 點名、瀏覽器定位「你的位置」） | 每輪 |
 | Lint | `eslint.config.js`（`npm run lint`） | ESLint 推薦規則＋Node／瀏覽器 globals；`node_modules`、`dist`、`docs`、`test/screenshots` 除外 | 每輪 |
 
 ## 3. Fixture

@@ -94,6 +94,7 @@ API 文件：啟動後開 <http://localhost:8787/api/docs>（Swagger UI，可直
 | Endpoint | 說明 |
 |---|---|
 | `GET /api/v1/status` | 模式、工具包 |
+| `GET /api/v1/agent/profile` | 網頁 agent 的名稱、建議問題、免責、小幫手角色 |
 | `GET /api/v1/tools?pack=` | tools、工具包、分級、JSON Schema |
 | `POST /api/v1/tools/:name` | 呼叫 tool；回傳 `{ name, card, mode, data, text, speak }` |
 | `POST /api/v1/agent` | 網頁 agent，NDJSON 事件串流（[`docs/AGENT.md`](docs/AGENT.md)）；目前示範模式；只給本站網頁（無 CORS）、每 IP 每分鐘／每日限流 |

@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M5-08 問阿幫頁面
+- 做了：`public/js/pages/agent.js`（`#/agent`：使用者泡泡、小幫手討論串 `role=log`／角色色彩頭像／@角色 chip／metrics／討論完成收合與展開、卡片以 `renderCard`、狀態與理由、總結泡泡、建議問題、@ 點名列、裝置定位流程、離線 Demo 版提示）；`public/css/agent.css`；`GET /api/v1/agent/profile`；Service Worker 版本 v0.3.0 並快取新檔
+- 測試：npm run lint 無錯誤；npm test 169 項全過；npm run e2e 14 項全過（新增問阿幫流程，手機截圖已檢查）
+- 文件：UX、TESTING、README、PLAN、CLAUDE
+- 下一個：M5-09（決策圖）
+- 卡住：同前
+
 ## 2026-11-18 M5-07 裝置端工具（定位）
 - 做了：`run.js` 需要位置且客戶端支援時送 `client_tool_call device_location`，`deviceLocation` 只採台灣範圍座標（「你的位置」）；`demo-intent.js` 行程／YouBike／附近公車可用定位座標；`T.point` 座標可帶 `name`；`public/js/agent/client.js`（`runAgent` 讀 NDJSON、執行 client tool、重送；`browserLocation`）
 - 測試：npm run lint 無錯誤；npm test 169 項全過（新增 2 項）
