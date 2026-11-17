@@ -21,7 +21,7 @@ export const STATES = {
   traffic: { label: '塞車中', say: '路上正在塞車', boost: { delayRisk: 6, minutes: 1.2 } },
   rain: { label: '下雨', say: '正在下雨', boost: { exposure: 4, walkMin: 1.5 } },
   luggage: { label: '帶行李', say: '你帶著行李', boost: { effort: 4 } },
-  budget: { label: '想省錢', say: '你想省錢', boost: { cost: 3 } },
+  budget: { label: '想省錢', say: '你想省錢', boost: { cost: 5 } },
   lessWalk: { label: '少走路', say: '你想少走路、輕鬆一點', boost: { walkMin: 1.5, effort: 3 } },
 };
 

@@ -74,3 +74,13 @@ test('arriveByMin：以分鐘比較，跨午夜的抵達不會被字串比較放
   assert.deepEqual(r.excluded.map((o) => o.id), ['b']);
   assert.deepEqual(decide(opts, { arriveBy: '23:30' }).excluded.map((o) => o.id), []); // 只有字串時維持舊行為
 });
+
+test('想省錢（cost ×5，2026-11-18 調整）：市區短程貴的叫車不會勝過公車', async () => {
+  const { decide } = await import('../core/decide.js');
+  const opts = [
+    { id: 'ride', name: '叫車', minutes: 24, waitMin: 6, walkMin: 0, cost: 255, exposure: 0, effort: 0, delayRisk: 0.4 },
+    { id: 'bus', name: '公車', minutes: 34, waitMin: 5, walkMin: 6, cost: 15, exposure: 0.2, effort: 0.2, delayRisk: 0.4 },
+  ];
+  assert.equal(decide(opts).best.id, 'ride');
+  assert.equal(decide(opts, { states: ['budget'] }).best.id, 'bus');
+});
