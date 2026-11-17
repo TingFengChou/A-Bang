@@ -10,7 +10,7 @@
 
 ## 目前進度
 
-M0 ✅、M2 ✅、決策引擎 ✅、`speak` ✅、M3-01 導航 ✅、M3-02 路線座標與形狀 ✅、M3-03 `find_place` ✅、M3-04 捷運 ✅、M3-05 票價 ✅、M3-06 路況 ✅、M3-07 國道客運 ✅、M3-08 天氣 ✅（真實資料待 CWA 授權碼）、品質基礎（E2E／Swagger／ESLint／CI）✅、M3-09 叫車連結 ✅、M3-10 `plan_trip` ✅、M3-11 固定 OD 測試 ✅、M3-13 metrics ✅、M3-14 英文名稱 ✅、M3-12 導訂票（權限前部分）🧩；**M3 交通完整版 ✅**（M3-12 真實導訂票待權限）；M4 互動卡片進行中（M4-01 卡片契約 ✅、M4-03 卡片文字字典 ✅、M4-02 卡片渲染＋web host ✅、M4-07 倒數動態 ✅）；M5 網頁 agent 進行中（M5-01 profile ✅）（`docs/PLAN.md` 狀態看板）。M1 需 TDX 金鑰，只能在 Austin 本機做。
+M0 ✅、M2 ✅、決策引擎 ✅、`speak` ✅、M3-01 導航 ✅、M3-02 路線座標與形狀 ✅、M3-03 `find_place` ✅、M3-04 捷運 ✅、M3-05 票價 ✅、M3-06 路況 ✅、M3-07 國道客運 ✅、M3-08 天氣 ✅（真實資料待 CWA 授權碼）、品質基礎（E2E／Swagger／ESLint／CI）✅、M3-09 叫車連結 ✅、M3-10 `plan_trip` ✅、M3-11 固定 OD 測試 ✅、M3-13 metrics ✅、M3-14 英文名稱 ✅、M3-12 導訂票（權限前部分）🧩；**M3 交通完整版 ✅**（M3-12 真實導訂票待權限）；M4 互動卡片進行中（M4-01 卡片契約 ✅、M4-03 卡片文字字典 ✅、M4-02 卡片渲染＋web host ✅、M4-07 倒數動態 ✅）；M5 網頁 agent 進行中（M5-01 profile ✅、M5-02 事件 ✅）（`docs/PLAN.md` 狀態看板）。M1 需 TDX 金鑰，只能在 Austin 本機做。
 
 ## 必讀文件（依序）
 
@@ -62,7 +62,7 @@ core/            唯一的資料與邏輯層
   nav.js         導航連結、步行時間、出發時機（ADR-0011）
   metrics.js     每次 tool 呼叫的計量（AsyncLocalStorage）
   geo.js         WKT 路線形狀解析、路徑抽樣
-  agent/         M5：prompt.js ✅；📝 run.js、claude.js、demo-intent.js、events.js
+  agent/         M5：prompt.js、events.js ✅；📝 run.js、claude.js、demo-intent.js
   agents/        life.json（agent profile）＋ index.js（zod 驗證）✅
   providers/     ridehail/（index.js 註冊與估價、uber.js 深層連結）✅；📝 mcp-client.js（外部 MCP）
   data/          landmarks.json（內建地標，座標待校對）

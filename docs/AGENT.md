@@ -64,7 +64,7 @@
 | `tool_start` | `id`, `name`, `title`, `role`（公車、YouBike…）, `server`（`abang`、`tdx-official`…）, `pack`, `tier`, `input` | 被點名的小幫手出現「輸入中…」 |
 | `tool_result` | `id`, `ok`, `speak`, `card?`, `data?`, `metrics: { calls, cacheHits, cacheHit, scanned, ms }`（即 `callTool` 的 `metrics`）, `error?` | 小幫手說出 `speak`；決策圖的資料膠囊 |
 | `discussion_end` | `tools`, `servers` | 討論收合成一行摘要 |
-| `decision` | `states: [{ key, source: 'auto'\|'said'\|'picked', from? }]`, `arriveBy?`, `options`, `ranked`, `excluded`, `reason` | 決策圖動畫；前端可用同一引擎即時重算 |
+| `decision` | `states: [{ key, source: 'auto'\|'user'\|'picked', from?, detail? }]`, `arriveBy?`, `best`, `options`, `ranked`, `excluded`, `weights`, `reason` | 決策圖動畫；前端可用同一引擎即時重算 |
 | `guardrail` | `tier`, `rule` | 套用的護欄（L2 以上） |
 | `client_tool_call` | `id`, `name`, `input` | 請客戶端執行裝置端工具（`device_location`、`notify_at`） |
 | `text` | `delta` | 阿幫的總結（可串流） |
@@ -79,10 +79,15 @@
 ### 3.2 使用者狀態合併
 
 ```
-said    ← 模型從對話判斷（Claude 模式以 tool 參數 prefs 傳入；示範模式以關鍵字）
+user    ← 模型從對話判斷（「你說的」；Claude 模式以 tool 參數 prefs 傳入；示範模式以關鍵字）
 auto    ← 工具結果推得：weather_now raining → rain；traffic_status level=jam → traffic
 picked  ← 請求 userState.picked
-states = unique(said ∪ auto ∪ picked)；arriveBy 取自 said
+states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）；arriveBy 取自 user
+```
+
+✅ M5-02：`core/agent/events.js`：`ev.*` 建立函式（檢查必要欄位；`tool_start` 的 title／role／pack／tier 由 registry 帶入；`tool_result` 帶 `card`／`v`／`tool`／`args`／`metrics`）、`toNdjson`、`mergeStates`、`TOOL_ROLES`（討論串角色名）。`source` 統一用 `user`（與 `plan_trip`、CARDS `trip` 相同；畫面文字「你說的」）。
+
+```
 ```
 
 ## 4. Claude 模式

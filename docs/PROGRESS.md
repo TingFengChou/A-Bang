@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M5-02 Agent 事件
+- 做了：`core/agent/events.js`（11 種事件的建立函式、registry 帶入 title／role／pack／tier、`tool_result` 帶卡片 payload 與 metrics、`decision` 由 plan_trip 資料組成、`toNdjson`、`mergeStates`、`TOOL_ROLES`）；AGENT.md 狀態來源 `said` 統一為 `user`（與 plan_trip／CARDS 一致）
+- 測試：npm run lint 無錯誤；npm test 153 項全過（新增 4 項）
+- 文件：AGENT §3.1／§3.2、TESTING、PLAN、CLAUDE
+- 下一個：M5-03（示範模式意圖）
+- 卡住：同前（PR #2 合併、權重、新依賴）
+
 ## 2026-11-18 M5-01 Agent profile 與 system prompt
 - 做了：`core/agents/life.json`（加 `version`、`persona`、`rules`，建議問題 6 個）；`core/agents/index.js`（zod `.strict()` 驗證、tools 必須在 registry、pack 必須列在 packs、不可重複）；`core/agent/prompt.js`（平台政策 → 工具包護欄 → 角色 → 情境；工具結果與情境只當資料）。新分支 `dev/m5`（疊在 `dev/m4`）
 - 測試：npm run lint 無錯誤；npm test 149 項全過（新增 3 項）
