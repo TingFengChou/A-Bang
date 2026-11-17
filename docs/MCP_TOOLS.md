@@ -48,7 +48,7 @@
 | `metro_live_board` | transit | L1 | `metro` | ✅ ⚠️ |
 | `find_place` | transit | L1 | — | ✅（內建地標；地理編碼 ⚠️） |
 | `traffic_status` | transit | L1 | — | ✅ ⚠️ |
-| `intercity_bus` | transit | L1 | `timetable` | 📝 ⚠️ |
+| `intercity_bus` | transit | L1 | `timetable` | ✅ ⚠️ |
 | `rail_fare` | transit | L1 | — | ✅ ⚠️ |
 | `plan_trip` | transit | L1 | `trip` | 📝 |
 | `rail_booking_link` | transit | **L2** | （時刻表按鈕） | 📝 ⚠️ 需 TDX 權限 |
@@ -194,9 +194,19 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 
 `level = jam` → 自動狀態「塞車中」；`level = null` 時 `plan_trip` 不加狀態。示範模式：`DEMO_TRAFFIC=jam`（或 `createServices({ demo: { traffic: 'jam' } })`）中間一段壅塞並有一則事故；預設順暢。可評估介接 TDX 官方 MCP event。
 
-### 📝 `intercity_bus` ⚠️
+### ✅ `intercity_bus` ⚠️
 
-輸入 `from`, `to`, `departAt?`；輸出班次、預估抵達（含路況延誤）、票價。資料：TDX 公路客運。
+實作：`core/services/intercity.js`、`intercity-mock.js`、`core/tools/intercity.js`（M3-07）。
+
+| | |
+|---|---|
+| 輸入 | `from`, `to`：座標或地名（`T.point`）；`departAt?: 'HH:mm'`（台灣時間，預設現在） |
+| 輸出 | `{ system: 'BUS', from, to, fromPoint, toPoint, date, departAt, traffic: { level, delayMin }, delayRisk, trains: [{ trainNo, type, terminal, depart, arrive, minutes, arriveWithDelay?, delayMin?, estimated?, fare, board, alight, walkFromM, walkToM }] }`（卡片 `timetable`，最多 5 班） |
+| 配對 | `StopOfRoute/InterCity` 各路線：上車站離起點 ≤ 1.5 km、下車站離終點 ≤ 1.5 km、且下車站序在後；同一路線名只留步行最短的一組 |
+| 班次 | `Schedule/InterCity` 只查配對到的路線；依 `ServiceDay` 篩今天；上下車時間以 `StopUID`（找不到用站序）對應；沒有下車時間時以直線 × 1.3 ÷ 70 km/h 估算並標 `estimated`；跨日自動 +24h |
+| 路況 | 同時查 `traffic_status`：`delayMin` 加到 `arriveWithDelay`；`delayRisk`＝jam 0.9、slow 0.5、smooth 0.2、未知 0.4（國道即使順暢仍有風險）；路況失敗不影響班次 |
+| 票價 | TDX 客運票價端點未確認，live 先回 `null`；示範模式有估算票價 |
+| speak | 「下一班 1610 18:00 出發，預計 19:40 到（路上塞車中，多 20 分）。」；沒有班次時「…附近沒有直達的國道客運班次。」 |
 
 ### 📝 `plan_trip` — 從 A 到 B 怎麼去（卡片 `trip`）
 

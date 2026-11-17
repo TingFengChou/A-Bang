@@ -35,7 +35,7 @@
 | 高鐵／台鐵票價 | `/basic/v2/Rail/THSR/ODFare/{O}/to/{D}`、`/basic/v3/Rail/TRA/ODFare/{O}/to/{D}` | 10m | ✅ ⚠️ | `rail_fare` |
 | 捷運車站 | `/basic/v2/Rail/Metro/Station/{Operator}` | 24h | ✅ ⚠️ | `metro_stations`、`metro_live_board`（站名→代碼） |
 | 捷運即時看板 | `/basic/v2/Rail/Metro/LiveBoard/{Operator}`（`$filter=StationID eq …`） | 20s | ✅ ⚠️ | `metro_live_board` |
-| 公路客運 | `/basic/v2/Bus/Route/InterCity`、`/basic/v2/Bus/EstimatedTimeOfArrival/InterCity` | 1h／20s | 📝 ⚠️ | `intercity_bus` |
+| 公路客運 | 路線站序 `/basic/v2/Bus/StopOfRoute/InterCity`（含 `StopPosition`）、時刻表 `/basic/v2/Bus/Schedule/InterCity`（`$filter=RouteUID eq …`）；票價端點待確認；即時到站 `/EstimatedTimeOfArrival/InterCity` 尚未使用 | 24h／1h | ✅ ⚠️ | `intercity_bus` |
 | 高速公路路況 | 路段形狀 `/v2/Road/Traffic/SectionShape/Freeway`（WKT）、路段 `/Section/Freeway`（名稱、速限、長度）、即時 `/Live/Freeway`（`TravelSpeed`）、事件 `/Live/News/Freeway` | 24h／24h／60s／60s | ✅ ⚠️ | `traffic_status` |
 | 導訂票 | 台鐵／高鐵導訂票 API（需申請「臺鐵訂票導訂」「高鐵訂票導訂」權限） | 不快取 | 📝 ⚠️ | `rail_booking_link` |
 

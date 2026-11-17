@@ -35,6 +35,11 @@ export const T = {
   lon: z.number().min(118).max(123).describe('經度 (WGS84)，例如台北車站 121.5170'),
   city: z.string().min(1).describe('縣市，可用 Taipei / NewTaipei / Taichung / Kaohsiung… 或中文「台北市」'),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式需為 YYYY-MM-DD').optional().describe('乘車日期 YYYY-MM-DD，預設今天（台灣時間）'),
+  /** 座標或地名（tool 內用 resolvePoint 轉成座標） */
+  point: (label) => z.union([
+    z.object({ lat: z.number().min(21).max(27), lon: z.number().min(118).max(123) }),
+    z.string().trim().min(1).max(50),
+  ]).describe(`${label}：座標 { lat, lon } 或地名（例如「台北車站」，會用 find_place 轉成座標）`),
   radius: (def, max = 1000) => z.number().int().min(50).max(max).optional().describe(`搜尋半徑（公尺），預設 ${def}，上限 ${max}`),
 };
 

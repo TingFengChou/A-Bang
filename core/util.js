@@ -45,6 +45,17 @@ export function todayTW() {
   return new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 }
 
+/** 台灣時間的「現在」：{ date: 'YYYY-MM-DD', hhmm: 'HH:mm', weekday: 0–6（0＝週日） } */
+export function nowTW(now = Date.now()) {
+  const d = new Date(now + 8 * 3600e3);
+  const iso = d.toISOString();
+  return { date: iso.slice(0, 10), hhmm: iso.slice(11, 16), weekday: d.getUTCDay() };
+}
+
+/** "HH:mm" ↔ 當日分鐘數（可超過 24 小時，例如 25:10） */
+export const toMin = (t) => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
+export const toHHMM = (min) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(Math.round(min) % 60).padStart(2, '0')}`;
+
 export function assertLatLon(lat, lon) {
   lat = Number(lat); lon = Number(lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < 21 || lat > 27 || lon < 118 || lon > 123) {

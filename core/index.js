@@ -8,6 +8,8 @@ import { createMetroServices } from './services/metro.js';
 import { createMockMetroServices } from './services/metro-mock.js';
 import { createTrafficServices } from './services/traffic.js';
 import { createMockTrafficServices } from './services/traffic-mock.js';
+import { createIntercityServices } from './services/intercity.js';
+import { createMockIntercityServices } from './services/intercity-mock.js';
 
 /**
  * @param {{ clientId?: string, clientSecret?: string, forceMock?: boolean, log?: Function, demo?: { traffic?: 'smooth'|'jam' } }} [opts]
@@ -19,12 +21,14 @@ export function createServices({ clientId, clientSecret, forceMock = false, log,
   const transit = live ? createTransitServices(tdx) : createMockTransitServices();
   const metro = live ? createMetroServices(tdx) : createMockMetroServices();
   const traffic = live ? createTrafficServices(tdx) : createMockTrafficServices({ scenario: demo.traffic });
+  const intercity = live ? createIntercityServices(tdx, traffic) : createMockIntercityServices(traffic);
 
   return {
     mode: live ? 'live' : 'demo',
     ...transit, // bus, bike, rail
     ...metro, // metro
     ...traffic, // traffic
+    ...intercity, // intercity（依賴 traffic 算延誤）
     places: createPlaceServices(), // 內建地標，live 與示範相同
     // 之後的領域在這裡加入，例如：
     // weather: createWeatherServices(cwaKey),   // 中央氣象署 opendata.cwa.gov.tw

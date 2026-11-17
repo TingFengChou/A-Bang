@@ -1,13 +1,8 @@
 // 工具包：transit（交通）／路況 — 風險分級 L1
-import { z } from 'zod';
 import { defineTool, T, clip } from './define.js';
 import { resolvePoint } from '../services/places.js';
 
 const PACK = 'transit';
-const point = (label) => z.union([
-  z.object({ lat: T.lat, lon: T.lon }),
-  z.string().trim().min(1).max(50),
-]).describe(`${label}：座標 { lat, lon } 或地名（例如「台北車站」，會用 find_place 轉成座標）`);
 
 const LEVEL = { smooth: '順暢', slow: '車多', jam: '塞車中' };
 
@@ -16,7 +11,7 @@ export const trafficStatus = defineTool({
   title: '沿途國道路況',
   description: '查起訖兩點之間沿途國道的即時路況：level（smooth 順暢／slow 車多／jam 塞車中；起訖太近或查不到資料時為 null）、delayMin（比以速限行駛多花的分鐘）、各路段車速 segments 與相關事件 events。直線 15 公里以內不查國道。level=jam 時行程規劃應視為「塞車中」。',
   pack: PACK, tier: 'L1',
-  input: { from: point('起點'), to: point('終點') },
+  input: { from: T.point('起點'), to: T.point('終點') },
   speak: (d) => {
     if (!d.covered) return d.straightKm < 15 ? '起訖很近，不需要看國道路況。' : '沿途查不到國道路況。';
     if (!d.level) return '沿途國道暫時沒有車速資料。';

@@ -1,6 +1,6 @@
 # 測試規格
 
-版本：v0.4（2026-11-17）。目前：`npm test` 63 項全過（decide 7、nav 8、geo 5、places 8、metro 6、traffic 6、tools、transit、mcp）。
+版本：v0.4（2026-11-17）。目前：`npm test` 69 項全過（decide 7、nav 8、geo 5、places 8、metro 6、traffic 6、intercity 6、tools、transit、mcp）。
 
 ## 1. 原則
 
@@ -14,6 +14,7 @@
 |---|---|---|---|
 | 正規化 | `test/transit.test.js`、`test/<domain>.test.js` | TDX 形狀 fixture → 服務輸出格式（`MCP_TOOLS.md`） | 每個 service |
 | 導航 | `test/nav.test.js` | 連結格式與編碼、無效座標、步行時間、出發時機、tools 附 `nav`（含 `bus_route_eta` 站點與示範 `shape`） | M3-01 起 |
+| 客運 | `test/intercity.test.js` | 站牌配對與方向、`ServiceDay`、站序備援、估算抵達、跨日、延誤、只查配對路線、路況失敗仍回班次、示範與 tool | M3-07 起 |
 | 路況 | `test/traffic.test.js` | 走廊與方向判斷、整體 level 與延誤、TDX 形狀 fixture（反向／格式不明路段、事件篩選與失敗）、短程不查、示範情境、tool 地名與座標 | M3-06 起 |
 | 捷運 | `test/metro.test.js` | TDX 形狀 fixture：同名多線合併、看板查同站所有代碼、排序、目的地備援；錯誤訊息；示範模式四系統；tools 的 card／speak／nav | M3-04 起 |
 | 地點 | `test/places.test.js` | `landmarks.json` 筆數、欄位、名稱與別名不重複、同縣市距離合理；比對順序、臺／台、「站」不省略、縣市篩選、`find_place` tool | M3-03 起 |

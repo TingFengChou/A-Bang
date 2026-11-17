@@ -4,8 +4,9 @@ import { UserError } from '../util.js';
 import transit from './transit.js';
 import metro from './metro.js';
 import traffic from './traffic.js';
+import intercity from './intercity.js';
 
-const ALL = [...transit, ...metro, ...traffic];
+const ALL = [...transit, ...metro, ...traffic, ...intercity];
 const byName = new Map(ALL.map((t) => [t.name, t]));
 if (byName.size !== ALL.length) throw new Error('tool 名稱重複');
 
