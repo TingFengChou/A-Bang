@@ -41,7 +41,9 @@
 | `core/nav.js` | ✅ | 導航深層連結、步行時間、出發時機（M3-01） | 呼叫外部 API |
 | `core/geo.js` | ✅ | WKT 解析成 `[[lat, lon]]`、路徑抽樣（M3-02） | 呼叫外部 API |
 | `core/data/` | ✅ | `landmarks.json` 內建地標（201 筆，座標近似值待校對） | — |
-| `server/http.js` | ✅ | REST、`/api/v1/tools/:name`、遠端 `/mcp`、靜態檔、限流、CORS | 商業邏輯 |
+| `server/http.js` | ✅ | REST、`/api/v1/tools/:name`、遠端 `/mcp`、`/api/docs`、靜態檔、限流、CORS；非 `UserError` 只回通用訊息、細節寫 log | 商業邏輯 |
+| `server/rest.js` | ✅ | REST 路由表（路徑、參數說明、handler）；`http.js` 與 OpenAPI 共用同一份 | 商業邏輯 |
+| `server/openapi.js` | ✅ | 由路由表＋tool registry 產生 OpenAPI 3.1（`/api/v1/openapi.json`）；`/api/docs` 提供 Swagger UI（只開放白名單檔案） | 手寫重複規格 |
 | `server/rate-limit.js` | ✅ | 每 IP 固定視窗限流（之後加 agent id） | — |
 | `mcp/create-server.js` | ✅ | 由 registry 註冊 MCP tools（`_meta`：pack、tier、card），回傳 `structuredContent: { card, mode, speak, data }` | 自行定義 tool |
 | `mcp/server.js` | ✅ | stdio 入口（`MCP_PACKS` 過濾） | — |

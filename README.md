@@ -25,8 +25,11 @@
 ```bash
 npm install
 cp .env.example .env      # 填入金鑰；全部留空就是示範模式
-npm start                 # http://localhost:8787（PWA、/api/v1、/mcp）
-npm test
+npm start                 # http://localhost:8787（PWA、/api/v1、/mcp、/api/docs）
+npm run lint              # ESLint
+npm test                  # 單元＋整合測試（node:test）
+npx playwright install chromium   # 第一次跑 E2E 前下載瀏覽器
+npm run e2e               # Playwright E2E 冒煙測試（截圖在 test/screenshots/）
 ```
 
 | 金鑰 | 取得 | 沒有時 |
@@ -85,6 +88,8 @@ claude mcp add abang -e TDX_CLIENT_ID=… -e TDX_CLIENT_SECRET=… -- node /絕�
 
 ## HTTP API
 
+API 文件：啟動後開 <http://localhost:8787/api/docs>（Swagger UI，可直接試呼叫）；規格 `GET /api/v1/openapi.json`（OpenAPI 3.1，由路由表與 tool registry 自動產生）。
+
 | Endpoint | 說明 |
 |---|---|
 | `GET /api/v1/status` | 模式、工具包 |
@@ -94,7 +99,7 @@ claude mcp add abang -e TDX_CLIENT_ID=… -e TDX_CLIENT_SECRET=… -- node /絕�
 | `POST /mcp`、`/mcp/:pack` | 遠端 MCP（Streamable HTTP、stateless） |
 | `GET /api/v1/bus/*`、`/bike/nearby`、`/thsr/*`、`/tra/*` | 舊版 REST（PWA 使用） |
 
-錯誤：`{ "error": "…" }`（400 參數、405 方法、413 過大、429 限流、502 上游）。
+錯誤：`{ "error": "…" }`（400 參數、405 方法、413 過大、429 限流、502 上游）。502 只回通用訊息，細節只寫伺服器 log。
 
 ## 環境變數
 

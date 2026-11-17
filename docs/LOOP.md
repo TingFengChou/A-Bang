@@ -9,10 +9,14 @@
 3. **選任務**：PLAN.md 中目前里程碑第一個未勾選、未標 ⛔ 的任務（依代號順序）。前置未完成就選前置。目前里程碑都做完 → 進下一個里程碑。
 4. **讀規格**：只讀該任務需要的文件（見 §3 對照表）。
 5. **實作**：最小可行的完整做法；真實服務＋mock 一起寫；新 tool 附 `pack`、`tier`、`speak`。
-6. **測試**：新增或更新測試；`npm test` 全過。有 UI 的任務跑 Playwright 截圖並自己看過。
+6. **驗證**（依序，全部要過）：
+   1. `npm run lint`（ESLint）
+   2. `npm test`（單元＋整合；新增或更新測試）
+   3. `npm run e2e`（Playwright 冒煙測試；有 UI 的任務打開 `test/screenshots/` 的截圖自己看過）
+   4. `/code-review`（正確性）與 `/security-review`（安全）；有發現就修完再往下。需要第二意見時請 agy 獨立審查（只讀），結果貼到 PR 留言保存。
 7. **同步文件**：規格有變就改 `MCP_TOOLS.md`／`CARDS.md`／`AGENT.md`／`UX.md`；新增環境變數就改 `.env.example` 與 README；決策改變就寫新 ADR。
 8. **勾選與紀錄**：PLAN.md 勾選（加日期與一行備註）、更新狀態看板「下一個任務」；在 `docs/PROGRESS.md` 最上面加一筆。
-9. **提交**：`git add -A && git commit -m "feat(<scope>): <任務代號> <摘要>"`（Conventional Commits）。**不要 push**，除非 Austin 在 prompt 中說可以。
+9. **提交並推到 PR 分支**：確認沒有 `.env`、金鑰、`test/screenshots/`、`dist/` 進版控後，`git add -A && git commit -m "feat(<scope>): <任務代號> <摘要>"`（Conventional Commits），再 `git push` 到目前的開發分支（例 `dev/m3-2`，已有對應的 PR）。**絕不直接推 `main`**；合併 PR 需 Austin 授權。
 10. **結束本輪**：輸出 3–5 行摘要（做了什麼、測試數、下一個任務、是否有卡住）。
 
 ## 2. 停止條件（遇到就停下來，在摘要中說明，不要硬做）
@@ -46,6 +50,7 @@
 - 不加假延遲、不捏造數字；`speak` 不經模型；排序走 `decide.js`。
 - 淺色主題；使用者看得到的文字為繁體中文（台灣用語）。
 - 不把 `.env`、金鑰、座標紀錄提交進 repo。
+- lint、單元測試、E2E 全綠；CI（`.github/workflows/ci.yml`）在 PR 上也要綠。
 
 ## 5. Loop prompt
 
@@ -56,8 +61,8 @@
 1) 讀 CLAUDE.md、docs/PLAN.md 狀態看板、docs/PROGRESS.md 最後 5 筆、git status。
 2) 若有上一輪未完成的變更，先收尾（npm test 通過後提交），本輪就結束。
 3) 否則選 PLAN.md 目前里程碑第一個未勾選、未標 ⛔ 的任務，只讀 LOOP.md §3 列的必讀文件。
-4) 實作＋測試（npm test 全過；有 UI 就用 Playwright 截圖自己檢查），同步更新規格文件。
-5) 在 PLAN.md 勾選並更新狀態看板，在 docs/PROGRESS.md 最上面加一筆紀錄，git commit（不要 push）。
+4) 實作＋測試，同步更新規格文件；依序跑 npm run lint、npm test、npm run e2e（有 UI 就看截圖）、/code-review、/security-review，有問題修完再往下。
+5) 在 PLAN.md 勾選並更新狀態看板，在 docs/PROGRESS.md 最上面加一筆紀錄，git commit 後 push 到目前的開發分支（PR 分支，不推 main）。
 6) 遇到 LOOP.md §2 的停止條件就停下並說明需要我做什麼。
 最後用 3–5 行回報：完成的任務代號、測試數、下一個任務、卡住事項。
 ```
