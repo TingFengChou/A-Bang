@@ -92,3 +92,8 @@ test('bus_route_eta 站點附 nav、示範模式有 shape', async () => {
   const dm = distanceM(go.stops[0].lat, go.stops[0].lon, go.stops[1].lat, go.stops[1].lon);
   assert.ok(dm > 250 && dm < 450, String(dm));
 });
+
+test('toHHMM：先整體四捨五入再換算（59.6 分 → 01:00）', async () => {
+  const { toHHMM } = await import('../core/util.js');
+  assert.deepEqual([toHHMM(59.6), toHHMM(119.8), toHHMM(1445), toHHMM(0)], ['01:00', '02:00', '00:05', '00:00']);
+});

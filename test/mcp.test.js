@@ -103,6 +103,13 @@ test('REST：tools 清單、參數錯誤、方法錯誤', async () => {
   assert.match((await bad.json()).error, /參數錯誤/);
   assert.equal((await fetch(BASE + '/api/v1/tools/youbike_nearby')).status, 405);
   assert.equal((await fetch(BASE + '/api/v1/tools/x', { method: 'POST', body: 'not json' })).status, 400);
+  // 錯誤回應也帶 CORS（跨網域 client 才讀得到訊息）
+  assert.equal(bad.headers.get('access-control-allow-origin'), '*');
+  // 超過 64 KB：回 413 JSON（不是連線重置）
+  const big = await fetch(BASE + '/api/v1/tools/find_place', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query: 'x'.repeat(70 * 1024) }) });
+  assert.equal(big.status, 413);
+  assert.match((await big.json()).error, /請求內容過大/);
+  assert.equal(big.headers.get('access-control-allow-origin'), '*');
 });
 
 test('限流：超過上限回 429 與 Retry-After', async () => {

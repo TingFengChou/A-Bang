@@ -61,7 +61,7 @@ export function nowTW(now = Date.now()) {
 
 /** "HH:mm" ↔ 當日分鐘數（可超過 24 小時，例如 25:10） */
 export const toMin = (t) => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
-export const toHHMM = (min) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(Math.round(min) % 60).padStart(2, '0')}`;
+export const toHHMM = (min) => { const m = Math.round(min); return `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
 
 export function assertLatLon(lat, lon) {
   lat = Number(lat); lon = Number(lon);

@@ -106,7 +106,9 @@ createServer(async (req, res) => {
     // UserError（含 413 請求過大）回原訊息；其他錯誤只在伺服器 log，對外回通用訊息
     const status = e instanceof UserError ? e.status || 400 : e.status === 429 ? 429 : 502;
     if (!(e instanceof UserError)) console.error(e);
-    if (!res.headersSent) send(res, status, { error: publicMessage(e) });
+    // API 與 MCP 的錯誤也要帶 CORS，跨網域的 client 才讀得到錯誤訊息；413 回完就關連線（剩下的 body 不讀）
+    const headers = { ...(path.startsWith('/api/') || path.startsWith('/mcp') ? CORS : {}), ...(status === 413 && { connection: 'close' }) };
+    if (!res.headersSent) send(res, status, { error: publicMessage(e) }, headers);
   }
 }).listen(PORT, () => console.log(`阿幫 running → http://localhost:${PORT}  (mode=${svc.mode})  MCP: http://localhost:${PORT}/mcp`));
 
@@ -124,7 +126,12 @@ function readJson(req) {
     let size = 0; const chunks = [];
     req.on('data', (c) => {
       size += c.length;
-      if (size > MAX_BODY) { reject(Object.assign(new UserError('請求內容過大'), { status: 413 })); req.destroy(); return; }
+      if (size > MAX_BODY) {
+        // 不直接 destroy（client 會收到連線重置而不是 413）：停止讀取，回 413 並以 connection: close 結束
+        req.pause(); req.removeAllListeners('data');
+        reject(Object.assign(new UserError('請求內容過大'), { status: 413 }));
+        return;
+      }
       chunks.push(c);
     });
     req.on('end', () => {

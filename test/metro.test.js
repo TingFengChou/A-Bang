@@ -10,7 +10,7 @@ const Z = (s) => ({ Zh_tw: s, En: '' });
 const P = (lat, lon) => ({ PositionLat: lat, PositionLon: lon });
 const STATIONS = [
   { StationID: 'BL12', StationName: Z('台北車站'), StationPosition: P(25.0462, 121.5174) },
-  { StationID: 'R10', StationName: Z('台北車站'), StationPosition: P(25.0462, 121.5174) },
+  { StationID: 'R10', StationName: Z('臺北車站'), StationPosition: P(25.0462, 121.5174) },  // 臺／台 不同寫法仍合併
   { StationID: 'BL18', StationName: Z('市政府'), StationPosition: P(25.041, 121.5654) },
   { StationID: 'X1', StationName: Z('無座標站') },
 ];
@@ -62,6 +62,8 @@ test('stations／liveBoard：回應包在物件裡也能解析', async () => {
 
 test('liveBoard：代碼查站、錯誤訊息', async () => {
   assert.equal((await metro.liveBoard({ system: 'TRTC', station: 'bl18' })).station, '市政府');
+  // 轉乘站的第二條線代碼也查得到
+  assert.equal((await metro.liveBoard({ system: 'TRTC', station: 'r10' })).station, '台北車站');
   await assert.rejects(metro.liveBoard({ system: 'TRTC', station: '火星' }), /台北捷運找不到「火星」站/);
   await assert.rejects(metro.stations({ system: 'MRT' }), /不支援的捷運系統/);
   await assert.rejects(metro.liveBoard({ system: 'KRTC', station: '美麗島' }), /高雄捷運找不到/);

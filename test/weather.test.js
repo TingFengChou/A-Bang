@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createWeatherServices, parseStations, parseRainGauges, nearestGauge, parsePop3h, isRaining } from '../core/services/weather.js';
-import { createCwaClient } from '../core/cwa-client.js';
+import { createCwaClient, CwaError } from '../core/cwa-client.js';
 import { callTool } from '../core/tools/index.js';
 import { createServices } from '../core/index.js';
 
@@ -69,6 +69,27 @@ test('parsePop3h 依鄉鎮名稱找 3 小時降雨機率；找不到回 null', (
   assert.equal(parsePop3h(slots, '中正區', Date.parse('2026-11-17T20:00:00+08:00')), 10);
   assert.equal(parsePop3h(slots, '中正區', Date.parse('2026-11-17T22:30:00+08:00')), 80);
   assert.equal(parsePop3h(slots, '中正區', Date.parse('2026-11-18T01:00:00+08:00')), null);
+});
+
+test('parsePop3h：同名鄉鎮以縣市區分（臺北市與基隆市都有中正區）', () => {
+  const two = { records: { Locations: [
+    { LocationsName: '基隆市', Location: [{ LocationName: '中正區', WeatherElement: [{ ElementName: '3小時降雨機率', Time: [{ ElementValue: [{ ProbabilityOfPrecipitation: '90' }] }] }] }] },
+    { LocationsName: '臺北市', Location: [{ LocationName: '中正區', WeatherElement: [{ ElementName: '3小時降雨機率', Time: [{ ElementValue: [{ ProbabilityOfPrecipitation: '20' }] }] }] }] },
+  ] } };
+  assert.equal(parsePop3h(two, '中正區', Date.now(), '台北市'), 20);
+  assert.equal(parsePop3h(two, '中正區', Date.now(), '基隆市'), 90);
+  assert.equal(parsePop3h(two, '中正區', Date.now(), '新竹市'), null);
+});
+
+test('cwa-client：授權碼無效、連線失敗都不把授權碼帶進錯誤', async () => {
+  const bad = createCwaClient({ apiKey: 'SECRET-KEY', fetchImpl: async () => new Response('no', { status: 401 }) });
+  await assert.rejects(bad.get('O-A0001-001'), (e) => e instanceof CwaError && /授權碼無效/.test(e.message));
+  const down = createCwaClient({ apiKey: 'SECRET-KEY', fetchImpl: async (url) => { throw new TypeError('fetch failed', { cause: new Error(`connect to ${url}`) }); } });
+  await assert.rejects(down.get('O-A0001-001'), (e) => {
+    assert.ok(e instanceof CwaError);
+    assert.ok(!JSON.stringify({ m: e.message, s: e.stack, c: String(e.cause ?? '') }).includes('SECRET'));
+    return true;
+  });
 });
 
 test('now：取最近且有資料的測站、合併預報、授權碼只在請求網址', async () => {

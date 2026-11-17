@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { defineTool, T, clip } from './define.js';
 import { resolvePoint } from '../services/places.js';
-import { HHMM_RE } from '../services/intercity.js';
+import { HHMM_RE, ISO_RE } from '../services/intercity.js';
 
 const PACK = 'transit';
 const LEVEL = { smooth: '順暢', slow: '車多', jam: '塞車中' };
@@ -14,11 +14,11 @@ export const intercityBus = defineTool({
   pack: PACK, tier: 'L1', card: 'timetable',
   input: {
     from: T.point('起點'), to: T.point('終點'),
-    departAt: z.string().trim().regex(HHMM_RE, 'departAt 格式需為 HH:mm（00:00～23:59）').optional().describe('最早出發時間 HH:mm（台灣時間），預設現在'),
+    departAt: z.string().trim().refine((s) => HHMM_RE.test(s) || ISO_RE.test(s), 'departAt 格式需為 HH:mm（00:00～23:59）或 ISO 時間，例如 18:30、2026-11-20T09:00').optional().describe('最早出發時間：HH:mm（今天，台灣時間）或 ISO 日期時間（查其他日期；沒帶時區視為台灣時間），預設現在'),
   },
   speak: (d) => {
     const t = d.trains[0];
-    if (!t) return `${d.from.name}到${d.to.name}附近沒有直達的國道客運班次。`;
+    if (!t) return `${d.from}到${d.to}附近沒有直達的國道客運班次。`;
     return `下一班${t.trainNo} ${t.nextDay ? '隔日 ' : ''}${t.depart} 出發，預計 ${t.arriveWithDelay || t.arrive} 到${t.delayMin ? `（路上${LEVEL[d.traffic.level] || '延誤'}，多 ${t.delayMin} 分）` : ''}。`;
   },
   async run(svc, a) {

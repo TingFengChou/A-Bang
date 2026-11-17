@@ -19,7 +19,13 @@ export function createCwaClient({ apiKey, fetchImpl = fetch }) {
     const key = `${dataId}?${qs}`; // 快取鍵不含授權碼
     const hit = cache.get(key);
     if (hit && Date.now() < hit.exp) return hit.data;
-    const res = await fetchImpl(`${API_BASE}/${dataId}?${qs}&Authorization=${encodeURIComponent(apiKey)}`);
+    let res;
+    try {
+      res = await fetchImpl(`${API_BASE}/${dataId}?${qs}&Authorization=${encodeURIComponent(apiKey)}`);
+    } catch {
+      // 不保留原始例外（cause 可能含請求網址，網址裡有授權碼）；只留不含金鑰的訊息
+      throw new CwaError(502, `氣象署連線失敗（${dataId}）`);
+    }
     if (res.status === 401 || res.status === 403) throw new CwaError(res.status, '氣象署授權碼無效，請確認 CWA_API_KEY');
     if (!res.ok) throw new CwaError(res.status, `氣象署 API 錯誤 ${res.status}`);
     const data = await res.json();

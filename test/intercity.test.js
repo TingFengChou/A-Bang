@@ -138,6 +138,10 @@ test('示範模式與 intercity_bus tool：塞車時抵達含延誤、近距離�
   assert.match(r.speak, /^下一班.+ \d{2}:\d{2} 出發，預計 \d{2}:\d{2} 到（路上塞車中，多 \d+ 分）。$/);
   const near = await callTool(svc, 'intercity_bus', { from: '台北車站', to: '台北101' });
   assert.deepEqual(near.data.trains, []);
-  assert.match(near.speak, /沒有直達的國道客運/);
+  assert.equal(near.speak, '臺北車站到台北101附近沒有直達的國道客運班次。');
+  // ISO 出發時間：查其他日期
+  const iso = await callTool(svc, 'intercity_bus', { from: '台北轉運站', to: '新竹車站', departAt: '2026-11-20T09:00' });
+  assert.deepEqual([iso.data.date, iso.data.departAt], ['2026-11-20', '09:00']);
   await assert.rejects(callTool(svc, 'intercity_bus', { from: '台北車站', to: '新竹車站', departAt: '6點' }), /HH:mm/);
+  await assert.rejects(callTool(svc, 'intercity_bus', { from: '台北車站', to: '新竹車站', departAt: '25:00' }), /HH:mm/);
 });

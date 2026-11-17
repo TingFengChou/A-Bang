@@ -9,6 +9,8 @@ export const NEXT_DAY_WINDOW_MIN = 180; // 深夜查詢：列出 3 小時內的�
 const DAY = 24 * 60;
 /** 合法的 HH:mm（00:00～23:59） */
 export const HHMM_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
+/** departAt 可接受的 ISO：YYYY-MM-DD，或加上 THH:mm[:ss[.sss]]，可帶時區 Z／±hh:mm */
+export const ISO_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/i;
 /** 分鐘數 → 'HH:mm'，可超過 24 小時（例 1445 → '24:05'），用來表示跨過午夜的時刻 */
 const hhmmRaw = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 const WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

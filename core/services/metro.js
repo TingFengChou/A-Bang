@@ -31,7 +31,8 @@ export function mustSystem(system) {
 /** 站名或代碼找車站；「台北車站」「臺北車站」「台北車站站」都對得到 */
 export function findMetroStation(list, input, system) {
   const s = String(input || '').trim();
-  const byId = list.find((x) => x.id.toUpperCase() === s.toUpperCase());
+  const S = s.toUpperCase();
+  const byId = list.find((x) => (x.ids || [x.id]).some((id) => String(id).toUpperCase() === S)); // 轉乘站的每條線代碼都對得到
   if (byId) return byId;
   const n = normName(s);
   const hit = list.find((x) => normName(x.name) === n) || list.find((x) => normName(x.name).includes(n) || (n.length >= 2 && n.includes(normName(x.name))));
@@ -50,9 +51,10 @@ export function createMetroServices(tdx) {
         const name = zh(r.StationName);
         const p = r.StationPosition || {};
         if (!name) continue;
-        const cur = byName.get(name);
+        const key = normName(name); // 「台北車站」「臺北車站」視為同一站
+        const cur = byName.get(key);
         if (cur) { cur.ids.push(r.StationID); continue; }
-        byName.set(name, {
+        byName.set(key, {
           id: r.StationID, ids: [r.StationID], name,
           ...(Number.isFinite(p.PositionLat) && Number.isFinite(p.PositionLon) && { lat: p.PositionLat, lon: p.PositionLon }),
         });

@@ -200,7 +200,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 
 | | |
 |---|---|
-| 輸入 | `from`, `to`：座標或地名（`T.point`）；`departAt?: 'HH:mm'`（台灣時間，預設現在） |
+| 輸入 | `from`, `to`：座標或地名（`T.point`）；`departAt?`：`'HH:mm'`（今天，00:00～23:59，台灣時間）或 ISO 日期時間（例 `2026-11-20T09:00`，沒帶時區視為台灣時間），預設現在 |
 | 輸出 | `{ system: 'BUS', from, to, fromPoint, toPoint, date, departAt, traffic: { level, delayMin }, delayRisk, trains: [{ trainNo, type, terminal, depart, arrive, minutes, arriveWithDelay?, delayMin?, estimated?, nextDay?, fare, board, alight, walkFromM, walkToM }] }`（卡片 `timetable`，最多 5 班；`date` 是出發日；服務層也接受 ISO `departAt`，用該日的日期與星期 `ServiceDay` 篩班表；出發時間離午夜不到 3 小時時，一併列出 3 小時內的隔日班次並標 `nextDay: true`） |
 | 配對 | `StopOfRoute/InterCity` 各路線：上車站離起點 ≤ 1.5 km、下車站離終點 ≤ 1.5 km、且下車站序在後；同一路線名只留步行最短的一組 |
 | 班次 | `Schedule/InterCity` 只查配對到的路線；依 `ServiceDay` 篩今天；上下車時間以 `StopUID`（找不到用站序）對應；沒有下車時間時以直線 × 1.3 ÷ 70 km/h 估算並標 `estimated`；跨日自動 +24h |
@@ -233,7 +233,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | | |
 |---|---|
 | 輸入 | `lat`, `lon` |
-| 輸出 | `{ station, town, county, distanceM, observedAt, tempC, rainMm1h: number\|null, rainStation: string\|null, pop3h: 0–100\|null, raining: boolean, summary }`（`rainMm1h` 是最近且 5 公里內雨量站的過去 1 小時雨量；沒有就 null） |
+| 輸出 | `{ station, town, county, distanceM, observedAt, tempC, rainMm1h: number\|null, rainStation: string\|null, pop3h: 0–100\|null, raining: boolean, summary }`（`rainMm1h` 是最近且 5 公里內雨量站的過去 1 小時雨量；沒有就 null；`pop3h` 取所在縣市＋鄉鎮尚未結束的預報時段，同名鄉鎮以縣市區分） |
 | 資料 | 中央氣象署開放資料平臺（需 `CWA_API_KEY` 授權碼）：自動氣象站觀測 `O-A0001-001`／`O-A0003-001`（10m，氣溫、天氣）、雨量站 `O-A0002-001`（10m，`RainfallElement.Past1hr.Precipitation`；氣象站的 `Now.Precipitation` 是當日累積，不用）、鄉鎮天氣預報 `F-D0047-*`（1h）⚠️ 欄位待 M1 驗證 |
 | 判斷 | `raining = rainMm1h > 0 || pop3h ≥ 70`（`isRaining`） |
 | 模式 | `modeOf: svc.weatherMode`：有 `CWA_API_KEY` 才是 live，與 TDX 金鑰無關；來源標示「中央氣象署」；示範提示「尚未設定中央氣象署授權碼」 |
