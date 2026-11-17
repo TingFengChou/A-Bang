@@ -83,7 +83,7 @@ claude mcp add abang -e TDX_CLIENT_ID=… -e TDX_CLIENT_SECRET=… -- node /絕�
 | `weather_now` | 現在天氣與 3 小時降雨機率（中央氣象署；沒有授權碼時用示範資料） | ✅ |
 | `plan_trip` | 從 A 到 B：比較步行、YouBike、公車、高鐵、台鐵、客運、叫車，依天氣、路況與你的狀態排序並說明理由 | ✅ |
 | `ridehail_link` | 叫車 App（Uber）官方連結＋距離估算車資（L2，需使用者確認） | ✅ |
-| `rail_booking_link` | 台鐵／高鐵官方訂票連結（L2，需 TDX 導訂票權限） | 📝 M3 |
+| `rail_booking_link` | 台鐵／高鐵官方訂票連結（L2，需使用者確認） | 🧩 介面與示範完成；真實版需 TDX 導訂票權限 |
 
 完整規格：[`docs/MCP_TOOLS.md`](docs/MCP_TOOLS.md)。所有 tools 唯讀（`readOnlyHint`）；結果附 `structuredContent: { card, mode, speak, data }`。
 

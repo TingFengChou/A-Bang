@@ -9,8 +9,9 @@ import intercity from './intercity.js';
 import weather from './weather.js';
 import ridehail from './ridehail.js';
 import trip from './trip.js';
+import booking from './booking.js';
 
-const ALL = [...transit, ...metro, ...traffic, ...intercity, ...weather, ...ridehail, ...trip];
+const ALL = [...transit, ...metro, ...traffic, ...intercity, ...weather, ...ridehail, ...trip, ...booking];
 const byName = new Map(ALL.map((t) => [t.name, t]));
 if (byName.size !== ALL.length) throw new Error('tool 名稱重複');
 

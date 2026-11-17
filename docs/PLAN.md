@@ -22,7 +22,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 | M0 基礎 | ✅ | — | — |
 | M1 TDX 實測 | ⛔ | M1-01 | TDX 金鑰、可連 TDX 的網路 |
 | M2 Registry＋遠端 MCP | ✅（Claude 實機連線待驗） | — | Austin 以 cloudflared 實測 |
-| M3 交通完整版 | 🚧（M3-12 ⛔ 以外完成） | 里程碑收尾驗收 | 待 Austin：無狀態市區短程叫車排第一是否合理（ADR-0010）；`rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
+| M3 交通完整版 | 🚧（M3-12 真實導訂票 ⛔ 以外完成） | 里程碑收尾驗收 | 待 Austin：無狀態市區短程叫車排第一是否合理（ADR-0010）；`rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
 | M4 互動卡片 | 📝 | — | — |
 | M5 網頁 agent | 📝 | — | Claude 模式需 `ANTHROPIC_API_KEY`（示範模式不需要） |
 | M6 上線 | 📝 | — | 部署帳號、網域 |
@@ -104,7 +104,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 - [x] M3-09 `core/providers/ridehail/uber.js` ＋ tool `ridehail_link`（pack ridehail、L2）；估價先以距離估算並標 `estimated`（2026-11-18：provider 註冊與 `createRidehailServices`；臺北市計程車費率＋道路距離估區間；`confirmText` 供 M4 確認視窗；4 項測試）
 - [x] M3-10 `core/services/trip.js` `planTrip()`：候選方案（`MCP_TOOLS.md` §7 規則 1–7）→ 自動狀態 → `decide()` → `ranking`；tool `plan_trip`（卡片 `trip`）（2026-11-18：7 種方案、`bus.directTrips`（live 以站點座標驗方向／mock 示範路線）、車站座標由內建地標對照、來源失敗只略過並列 `unavailable`；輸出對齊 CARDS `trip`；7 項測試）
 - [x] M3-11 `plan_trip` 固定 10 組 OD fixture 測試（含：雨天、塞車、趕時間＋arriveBy、帶行李、跨城），斷言第一名與理由句關鍵字（2026-11-18：`test/trip-od.test.js`；「想省錢」cost 倍數 3→5 並記錄於 ADR-0010；無狀態市區短程叫車第一待 Austin 決定）
-- [ ] M3-12 ⛔ `rail_booking_link`（L2；導訂票權限到位前先完成介面、mock 與「未授權」錯誤訊息）
+- [ ] M3-12 ⛔ `rail_booking_link`（L2；導訂票權限到位前先完成介面、mock 與「未授權」錯誤訊息）（2026-11-18：權限前部分 ✅——參數驗證、示範版、真實版回「尚未開通」並附官方網站、tool L2；4 項測試。待權限：串 TDX 導訂票端點）
 - [x] M3-13 `tdx-client` 回報 `metrics`（呼叫數、筆數、快取命中、耗時）；`callTool` 回傳 `metrics`（2026-11-18：`core/metrics.js` 以 `AsyncLocalStorage` 隔開同時請求；CWA 也計量；MCP 放 `_meta`；OpenAPI 更新；5 項測試；計量帶 agent id 待 M5）
 - [x] M3-14 🧩 來源有英文名稱時保留（`nameEn`、`stopNameEn`）（2026-11-18：`util.en`／`enField`；公車、YouBike、高鐵台鐵車站、捷運、路況路段；3 項測試）
 

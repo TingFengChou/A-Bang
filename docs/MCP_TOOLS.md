@@ -52,7 +52,7 @@
 | `intercity_bus` | transit | L1 | `timetable` | ✅ ⚠️ |
 | `rail_fare` | transit | L1 | — | ✅ ⚠️ |
 | `plan_trip` | transit | L1 | `trip` | ✅（客運、軌道 ⚠️） |
-| `rail_booking_link` | transit | **L2** | （時刻表按鈕） | 📝 ⚠️ 需 TDX 權限 |
+| `rail_booking_link` | transit | **L2** | （時刻表按鈕） | 🧩 介面＋示範完成；⛔ 真實版需 TDX 導訂票權限 |
 | `ridehail_link` | ridehail | **L2** | （行程卡按鈕） | ✅ |
 | `weather_now` | weather | L1 | — | ✅（真實資料需 CWA 授權碼）⚠️ |
 
@@ -150,12 +150,15 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 
 已附 `nav`：`bus_nearby_stations`、`youbike_nearby`、`bus_route_eta` 站點（M3-02）（tool 層包裝，live 與 mock 一致）。`plan_trip` 各段於 M3-10 加上；`leaveAt` 於 M3-10 與 M4 卡片使用。
 
-### 📝 `rail_booking_link` — 台鐵／高鐵導訂票（L2）⚠️
+### 🧩 `rail_booking_link` — 台鐵／高鐵導訂票（L2）⚠️
+
+實作：`core/services/booking.js`（`validateBooking`、`bookingSummary`、真實版）、`booking-mock.js`、`core/tools/booking.js`（M3-12 權限前部分）。
 
 | | |
 |---|---|
-| 輸入 | `system: 'THSR'|'TRA'`, `trainNo`, `date`, `from`, `to`, `tickets`（1–4）, `carType?`（高鐵：標準／商務） |
-| 輸出 | `{ url, expiresAt, summary }`：開啟官方訂票網站並自動帶入；連結具時效 |
+| 輸入 | `system: 'THSR'\|'TRA'`, `trainNo`（1–4 位數字）, `date`（今天～28 天內）, `from`, `to`, `tickets?`（1–4，預設 1）, `carType?: 'standard'\|'business'`（只限高鐵） |
+| 輸出 | `{ system, url, expiresAt, summary, tickets, confirmText, demo?, note? }`：開啟官方訂票網站並自動帶入；連結具時效 |
+| 目前 | 真實版在權限與端點確認前**不呼叫 TDX**，回 `UserError`「導訂票尚未開通…」並附官方訂票網站（高鐵 `https://irs.thsrc.com.tw/IMINT/`、台鐵 `https://tip.railway.gov.tw/tra-tip-web/tip`）；示範版回官方網站首頁（不帶入車次）並標 `demo` |
 | TDX | 台鐵／高鐵「導訂票」API（**前置：在 TDX 會員中心申請「臺鐵訂票導訂」「高鐵訂票導訂」權限**） |
 | 規則 | 產生前需使用者確認車次、日期、張數；不代替付款或填個資 |
 
