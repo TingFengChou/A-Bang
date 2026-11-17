@@ -2,6 +2,7 @@
 import { resolveCity, cityFromUID } from '../cities.js';
 import { distanceM, busStatusText, minutesBetween, normName, todayTW, assertLatLon, UserError, zh, odataStr as q } from '../util.js';
 import { pathFromWkt, thinPath } from '../geo.js';
+import { matchDirect, commonRoutes, DIRECT_RADIUS_M } from './bus-direct.js';
 
 
 export function createTransitServices(tdx) {
@@ -177,6 +178,19 @@ export function createTransitServices(tdx) {
     // v3 每個車種一筆 OD，各有 Fares
     const fares = ods.flatMap((od) => normFares(od.Fares, 'TRA', trainTypeLabel(od)));
     return { system: 'TRA', from: o.name, to: d.name, fares: sortFares(fares) };
+  };
+
+  /** 起訖附近都有站牌的直達公車（plan_trip 用）：共同路線 → 以站點座標驗證方向；單一路線失敗只略過 */
+  bus.directTrips = async ({ from, to, radius = DIRECT_RADIUS_M }) => {
+    const [a, b] = await Promise.all([bus.nearbyStations({ ...from, radius }), bus.nearbyStations({ ...to, radius })]);
+    const city = a[0]?.city;
+    if (!city) return [];
+    const out = await Promise.all(commonRoutes(a, b).map(async (routeName) => {
+      const eta = await bus.routeEta({ city, routeName }).catch(() => null);
+      const m = eta && matchDirect(eta.directions, from, to, radius);
+      return m && { routeName, city, ...m };
+    }));
+    return out.filter(Boolean);
   };
 
   return { bus, bike, rail };

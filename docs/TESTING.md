@@ -1,6 +1,6 @@
 # 測試規格
 
-版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 93 項全過、`npm run e2e` 10 項全過（手機＋桌面各 5）。
+版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 101 項全過、`npm run e2e` 10 項全過（手機＋桌面各 5）。
 
 ## 1. 原則
 
@@ -23,7 +23,7 @@
 | 地點 | `test/places.test.js` | `landmarks.json` 筆數、欄位、名稱與別名不重複、同縣市距離合理；比對順序、臺／台、「站」不省略、縣市篩選、`find_place` tool | M3-03 起 |
 | 幾何 | `test/geo.test.js` | WKT `LINESTRING`／`MULTILINESTRING`、SRID 前綴、經緯度順序、壞輸入回空、抽樣保留頭尾 | M3-02 起 |
 | 決策 | `test/decide.test.js` | 權重、狀態、硬限制、理由句（ADR-0010） | 改 `decide.js` 必跑；改權重需新增情境 |
-| 行程 | `test/trip.test.js`（M3-11） | 10 組固定 OD：第一名、排除、理由句關鍵字 | M3 |
+| 行程 | `test/trip.test.js` | M3-10：車站座標對照、公車直達配對與方向、YouBike 費率、市區短程四種方案、跨城自動狀態（下雨＋塞車）與抵達時間排除、來源失敗只略過、tool；M3-11 加 10 組固定 OD（第一名、排除、理由句關鍵字） | M3 |
 | Registry | `test/tools.test.js` | 每個 tool 有 `pack`/`tier`/`speak`、參數驗證錯誤訊息、`callTool` 格式 | 每個 tool |
 | MCP | `test/mcp.test.js` | 起 server（隨機埠、`DEMO_MODE=1`）；stdio 與 HTTP 列出／呼叫；三路徑一致；405/404/429；`/api/docs` 白名單（`package.json`、路徑穿越、`constructor` 等原型名稱皆 404） | 每個 tool 自動涵蓋 |
 | 錯誤訊息 | `test/errors.test.js` | `UserError` 原樣回傳；上游或程式錯誤對外只回通用訊息（REST 與 MCP），不洩漏上游回應、檔案路徑 | 改錯誤處理時 |

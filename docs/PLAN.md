@@ -22,12 +22,12 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 | M0 基礎 | ✅ | — | — |
 | M1 TDX 實測 | ⛔ | M1-01 | TDX 金鑰、可連 TDX 的網路 |
 | M2 Registry＋遠端 MCP | ✅（Claude 實機連線待驗） | — | Austin 以 cloudflared 實測 |
-| M3 交通完整版 | 🚧 | M3-10 | `rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
+| M3 交通完整版 | 🚧 | M3-11 | `rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
 | M4 互動卡片 | 📝 | — | — |
 | M5 網頁 agent | 📝 | — | Claude 模式需 `ANTHROPIC_API_KEY`（示範模式不需要） |
 | M6 上線 | 📝 | — | 部署帳號、網域 |
 
-建議順序：M3-10 → M3-13 → M4 → M5（M5 的討論串與決策圖可在 M3 完成 `plan_trip` 後提前開工）。
+建議順序：M3-11 → M3-13 → M4 → M5（M5 的討論串與決策圖可在 M3 完成 `plan_trip` 後提前開工）。
 
 ## Austin 待辦（外部條件）
 
@@ -102,7 +102,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 - [x] M3-08 `weather_now`（pack weather；`CWA_API_KEY`；mock 以 `DEMO_WEATHER=rain` 切換）（2026-11-18：`cwa-client`、觀測＋鄉鎮預報、`weatherMode` 與 TDX 獨立；tool 加 `modeOf`／`demoNote`；6 項測試；真實資料待授權碼驗證）
 - [x] M3-QA 品質基礎（使用者追加）：Playwright E2E 冒煙測試（`npm run e2e`）、Swagger／OpenAPI 3.1（`server/rest.js` 路由表＋`server/openapi.js`，`/api/docs`）、ESLint（`npm run lint`）、CI 加 lint 與 E2E；code-review／security-review／agy 審查修正（雨量改取雨量站 `Past1hr`、客運 ISO 出發日與隔日班次、5xx 不外洩訊息、Swagger 白名單 `Object.hasOwn`、`traffic_status` 輸出與 `intercity_bus` 一致）（2026-11-18；`npm test` 89 項、E2E 10 項）
 - [x] M3-09 `core/providers/ridehail/uber.js` ＋ tool `ridehail_link`（pack ridehail、L2）；估價先以距離估算並標 `estimated`（2026-11-18：provider 註冊與 `createRidehailServices`；臺北市計程車費率＋道路距離估區間；`confirmText` 供 M4 確認視窗；4 項測試）
-- [ ] M3-10 `core/services/trip.js` `planTrip()`：候選方案（`MCP_TOOLS.md` §7 規則 1–7）→ 自動狀態 → `decide()` → `ranking`；tool `plan_trip`（卡片 `trip`）
+- [x] M3-10 `core/services/trip.js` `planTrip()`：候選方案（`MCP_TOOLS.md` §7 規則 1–7）→ 自動狀態 → `decide()` → `ranking`；tool `plan_trip`（卡片 `trip`）（2026-11-18：7 種方案、`bus.directTrips`（live 以站點座標驗方向／mock 示範路線）、車站座標由內建地標對照、來源失敗只略過並列 `unavailable`；輸出對齊 CARDS `trip`；7 項測試）
 - [ ] M3-11 `plan_trip` 固定 10 組 OD fixture 測試（含：雨天、塞車、趕時間＋arriveBy、帶行李、跨城），斷言第一名與理由句關鍵字
 - [ ] M3-12 ⛔ `rail_booking_link`（L2；導訂票權限到位前先完成介面、mock 與「未授權」錯誤訊息）
 - [ ] M3-13 `tdx-client` 回報 `metrics`（呼叫數、筆數、快取命中、耗時）；`callTool` 回傳 `metrics`

@@ -1,0 +1,84 @@
+// 行程規劃（M3-10）：車站座標對照、公車直達配對、候選方案、自動狀態、硬限制、來源失敗不中斷、tool
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { planTrip, stationPoint, bikeFare } from '../core/services/trip.js';
+import { matchDirect, commonRoutes } from '../core/services/bus-direct.js';
+import { callTool } from '../core/tools/index.js';
+import { createServices } from '../core/index.js';
+
+const TPE = { name: '臺北車站', lat: 25.0478, lon: 121.517 };
+const T101 = { name: '台北101', lat: 25.033964, lon: 121.564468 };
+const KHH = { name: '高雄車站', lat: 22.6394, lon: 120.3025 };
+const NOW = Date.parse('2026-11-18T09:00:00+08:00');
+
+test('stationPoint：高鐵對「高鐵○○站」或「○○車站」、台鐵對「○○車站」、臺／台不分', () => {
+  assert.ok(stationPoint('THSR', '左營').lat < 22.8);
+  assert.deepEqual(stationPoint('THSR', '台北'), { name: '台北', lat: 25.0478, lon: 121.517 });
+  assert.equal(stationPoint('TRA', '臺北').lat, 25.0478);
+  assert.notDeepEqual(stationPoint('TRA', '新竹'), stationPoint('THSR', '新竹')); // 台鐵新竹站 ≠ 高鐵新竹站
+  assert.equal(stationPoint('TRA', '火星'), null);
+});
+
+test('bikeFare：前 30 分 5 元，之後每 30 分 10 元', () => {
+  assert.deepEqual([bikeFare(10), bikeFare(30), bikeFare(31), bikeFare(65)], [5, 5, 15, 25]);
+});
+
+test('matchDirect：以座標找上下車站、驗證方向；commonRoutes 取共同路線', () => {
+  const s = (seq, name, lat, lon, etaSec) => ({ seq, stopName: name, lat, lon, etaSec });
+  const dirs = [
+    { label: '往 東', stops: [s(1, 'A', 25.0479, 121.5171, 120), s(2, 'B', 25.04, 121.54), s(3, 'C', 25.034, 121.5644)] },
+    { label: '往 西', stops: [s(1, 'C', 25.034, 121.5644), s(2, 'B', 25.04, 121.54), s(3, 'A', 25.0479, 121.5171)] },
+  ];
+  const m = matchDirect(dirs, TPE, T101);
+  assert.deepEqual([m.label, m.board.name, m.alight.name, m.stops, m.board.etaSec], ['往 東', 'A', 'C', 2, 120]);
+  assert.equal(matchDirect(dirs, TPE, KHH), null);
+  assert.deepEqual(commonRoutes([{ routes: ['307', '601'] }, { routes: ['307'] }], [{ routes: ['307', '235'] }, { routes: ['601'] }]), ['307', '601']);
+});
+
+test('市區短程（示範）：步行、YouBike、公車、叫車都列出，排序與理由由 decide 產生', async () => {
+  const r = await planTrip(createServices({ forceMock: true }), { from: TPE, to: T101, now: NOW });
+  assert.deepEqual(r.options.map((o) => o.role).sort(), ['bike', 'bus', 'ridehail', 'walk']);
+  assert.equal(r.states.length, 0);
+  assert.ok(r.best && r.ranking.ranked.length === 4 && /^選「/.test(r.ranking.reason));
+  for (const o of r.options) {
+    assert.ok(o.minutes > 0 && o.legs.length && /^\d{2}:\d{2}$/.test(o.arriveAt), o.id);
+    assert.ok(o.legs.every((l) => l.nav === null || l.nav.google.startsWith('https://www.google.com/maps/')), o.id);
+  }
+  const ride = r.options.find((o) => o.role === 'ridehail');
+  assert.ok(ride.estimated && ride.costRange[0] < ride.costRange[1] && ride.legs[0].url.startsWith('https://m.uber.com/'));
+});
+
+test('跨城（示範，下雨＋塞車）：自動狀態、軌道與客運、趕時間＋抵達時間排除遲到方案', async () => {
+  const svc = createServices({ forceMock: true, demo: { traffic: 'jam', weather: 'rain' } });
+  const r = await planTrip(svc, { from: TPE, to: KHH, departAt: '09:00', prefs: { states: ['rush'], arriveBy: '12:00' }, now: NOW });
+  assert.deepEqual(r.states.map((s) => [s.key, s.source, s.from ?? null]), [['rain', 'auto', 'weather_now'], ['traffic', 'auto', 'traffic_status'], ['rush', 'user', null]]);
+  assert.deepEqual(r.options.map((o) => o.role).sort(), ['intercity', 'ridehail', 'thsr', 'tra']);
+  assert.deepEqual(r.ranking.excluded.map((e) => e.id).sort(), ['intercity', 'ridehail']);
+  assert.equal(r.best, 'thsr');
+  assert.match(r.ranking.reason, /正在下雨、路上正在塞車、你趕時間/);
+  const thsr = r.options.find((o) => o.id === 'thsr');
+  assert.deepEqual([thsr.train.from, thsr.train.to], ['台北', '左營']);
+  assert.ok(thsr.cost > 1000);
+});
+
+test('來源失敗只略過：天氣、路況、公車壞掉仍回其他方案', async () => {
+  const svc = createServices({ forceMock: true });
+  const boom = async () => { throw new Error('boom'); };
+  svc.weather = { now: boom };
+  svc.traffic = { status: boom };
+  svc.bus = { ...svc.bus, directTrips: boom };
+  const r = await planTrip(svc, { from: TPE, to: T101, now: NOW });
+  assert.deepEqual([r.weather, r.traffic, r.states], [null, null, []]);
+  assert.deepEqual(r.unavailable, ['bus']);
+  assert.ok(r.options.length >= 3 && r.best);
+});
+
+test('plan_trip tool：地名、card trip、speak、參數錯誤', async () => {
+  const svc = createServices({ forceMock: true, demo: { traffic: 'jam' } });
+  const r = await callTool(svc, 'plan_trip', { from: '台北車站', to: '高雄車站', departAt: '09:00' });
+  assert.equal(r.card, 'trip');
+  assert.match(r.speak, /^比了 \d 種方式，因為路上正在塞車，建議.+。$/);
+  assert.match(r.text, /狀態：塞車中（自動：/);
+  await assert.rejects(callTool(svc, 'plan_trip', { from: '台北車站', to: '台北101', prefs: { states: ['sleepy'] } }), /參數錯誤/);
+  await assert.rejects(callTool(svc, 'plan_trip', { from: '台北車站', to: '台北101', prefs: { arriveBy: '25:00' } }), /參數錯誤/);
+});

@@ -96,6 +96,18 @@ export function createMockTransitServices() {
         };
       }).sort((a, b) => a.distance - b.distance);
     },
+    /** 直達公車（示範）：0.8～20 公里給一條示範路線，等車時間依座標產生 */
+    async directTrips({ from, to }) {
+      const d = distanceM(from.lat, from.lon, to.lat, to.lon);
+      if (d < 800 || d > 20000) return [];
+      const r = seeded(`direct${from.lat.toFixed(3)},${from.lon.toFixed(3)}>${to.lat.toFixed(3)},${to.lon.toFixed(3)}`);
+      return [{
+        routeName: pick(r, ROUTES), city: 'Taipei', label: '往 示範終點',
+        board: { name: '起點附近站牌（示範）', lat: from.lat + 0.001, lon: from.lon, etaSec: Math.round(60 + r() * 600) },
+        alight: { name: '終點附近站牌（示範）', lat: to.lat - 0.001, lon: to.lon },
+        stops: Math.max(2, Math.round((d * 1.3) / 450)), walkFromM: 120, walkToM: 150,
+      }];
+    },
     async stationEta({ stationId }) {
       const r = seeded(stationId);
       const routes = [...new Set(Array.from({ length: 3 + Math.floor(r() * 4) }, () => pick(r, ROUTES)))];
