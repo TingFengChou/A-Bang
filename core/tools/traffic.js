@@ -21,7 +21,7 @@ export const trafficStatus = defineTool({
   async run(svc, a) {
     const [from, to] = await Promise.all([resolvePoint(svc.places, a.from), resolvePoint(svc.places, a.to)]);
     const raw = await svc.traffic.status({ from: { lat: from.lat, lon: from.lon }, to: { lat: to.lat, lon: to.lon } });
-    const data = { from, to, ...raw };
+    const data = { ...raw, from: from.name, to: to.name, fromPoint: from, toPoint: to }; // 與 intercity_bus 一致
     const head = `${from.name} → ${to.name}（直線 ${data.straightKm} 公里）`;
     if (!data.covered) return { data, text: `${head}：${data.note}。` };
     const lines = [

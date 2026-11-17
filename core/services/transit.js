@@ -1,10 +1,8 @@
 // 大眾運輸服務（真實 TDX 版）：把 TDX 原始資料正規化成 App / MCP 共用的格式
 import { resolveCity, cityFromUID } from '../cities.js';
-import { distanceM, busStatusText, minutesBetween, normName, todayTW, assertLatLon, UserError } from '../util.js';
+import { distanceM, busStatusText, minutesBetween, normName, todayTW, assertLatLon, UserError, zh, odataStr as q } from '../util.js';
 import { pathFromWkt, thinPath } from '../geo.js';
 
-const zh = (o) => (o && (o.Zh_tw ?? o)) || '';
-const q = (s) => String(s).replace(/'/g, "''"); // OData 字串跳脫
 
 export function createTransitServices(tdx) {
   // ───────── 公車 ─────────

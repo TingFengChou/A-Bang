@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createServices, loadEnv } from '../core/index.js';
 import { listPacks, callTool } from '../core/tools/index.js';
-import { UserError } from '../core/util.js';
+import { UserError, publicMessage } from '../core/util.js';
 import { createMcpServer } from '../mcp/create-server.js';
 import { createRateLimiter, clientIp } from './rate-limit.js';
 import { restRoutes } from './rest.js';
@@ -73,7 +73,7 @@ createServer(async (req, res) => {
     if (path === '/api/docs' || path === '/api/docs/') return sendRaw(res, 200, DOCS_HTML, 'text/html; charset=utf-8');
     if (path === '/api/docs/init.js') return sendRaw(res, 200, DOCS_INIT, 'text/javascript; charset=utf-8');
     const doc = path.match(/^\/api\/docs\/([\w.-]+)$/);
-    if (doc && SWAGGER_FILES[doc[1]]) return sendRaw(res, 200, await readFile(join(SWAGGER_DIR, doc[1])), SWAGGER_FILES[doc[1]], { 'cache-control': 'public, max-age=86400' });
+    if (doc && Object.hasOwn(SWAGGER_FILES, doc[1])) return sendRaw(res, 200, await readFile(join(SWAGGER_DIR, doc[1])), SWAGGER_FILES[doc[1]], { 'cache-control': 'public, max-age=86400' });
 
     // ── REST ──
     if (path.startsWith('/api/')) {
@@ -98,9 +98,10 @@ createServer(async (req, res) => {
     res.writeHead(200, { 'content-type': MIME[extname(file)] || 'application/octet-stream', 'cache-control': file.endsWith('sw.js') ? 'no-cache' : 'public, max-age=300' });
     res.end(await readFile(file));
   } catch (e) {
-    const status = e instanceof UserError ? 400 : e.status === 413 ? 413 : e.status === 429 ? 429 : 502;
-    if (status === 502) console.error(e);
-    if (!res.headersSent) send(res, status, { error: e.message });
+    // UserError（含 413 請求過大）回原訊息；其他錯誤只在伺服器 log，對外回通用訊息
+    const status = e instanceof UserError ? e.status || 400 : e.status === 429 ? 429 : 502;
+    if (!(e instanceof UserError)) console.error(e);
+    if (!res.headersSent) send(res, status, { error: publicMessage(e) });
   }
 }).listen(PORT, () => console.log(`阿幫 running → http://localhost:${PORT}  (mode=${svc.mode})  MCP: http://localhost:${PORT}/mcp`));
 
@@ -118,7 +119,7 @@ function readJson(req) {
     let size = 0; const chunks = [];
     req.on('data', (c) => {
       size += c.length;
-      if (size > MAX_BODY) { reject(Object.assign(new Error('請求內容過大'), { status: 413 })); req.destroy(); return; }
+      if (size > MAX_BODY) { reject(Object.assign(new UserError('請求內容過大'), { status: 413 })); req.destroy(); return; }
       chunks.push(c);
     });
     req.on('end', () => {

@@ -1,6 +1,6 @@
 // 捷運服務（真實 TDX 版）：車站清單與即時到站看板（docs/MCP_TOOLS.md §5）
 // ⚠️ 端點與欄位待 M1 驗證：欄位依 TDX Swagger 防禦性解析；北捷看板資料有限，空資料時回傳空 trains。
-import { UserError, normName } from '../util.js';
+import { UserError, normName, zh, odataStr as q } from '../util.js';
 
 /** 支援的捷運系統（TDX Operator 代碼） */
 export const METRO_SYSTEMS = {
@@ -10,8 +10,6 @@ export const METRO_SYSTEMS = {
   KRTC: '高雄捷運',
 };
 
-const zh = (o) => (o && (o.Zh_tw ?? o)) || '';
-const q = (s) => String(s).replace(/'/g, "''");
 
 /** 看板分鐘數 → 易讀文字 */
 export function metroStatusText(etaMin) {

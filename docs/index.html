@@ -925,7 +925,7 @@ git push -u origin main</code></pre>
       ['services','client','req','查附近站牌、YouBike、到站與天氣','Bus/Station/NearBy、Bike/Availability、ETA、CWA 觀測'],
       ['client','tdx','req','帶 Bearer token（快取 24 小時）','$spatialFilter=nearby(25.042,121.508,500)'],
       ['tdx','client','res','站牌、車數、到站時間','EstimateTime: 240、AvailableRentBikes: 8'],
-      ['client','cwa','req','起點天氣','O-A0001-001（10 分鐘快取）'],
+      ['client','cwa','req','起點天氣','O-A0001-001＋O-A0002-001 雨量站（10 分鐘快取）'],
       ['cwa','client','res','中正區正在下雨','rainMm1h: 2.5 → 自動狀態「下雨」'],
       ['client','services','res','正規化＋快取','即時 20–30 秒、站點 1 小時'],
       ['services','tools','res','候選方案（含淋雨、走路、等車、費用）','options[]：bus、bike、walk、ride'],

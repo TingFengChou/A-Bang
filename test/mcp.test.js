@@ -86,6 +86,12 @@ test('API 文件：openapi.json、Swagger UI 頁面與資源，只開放白名�
   assert.equal((await fetch(BASE + '/api/docs/swagger-ui.css')).status, 200);
   assert.equal((await fetch(BASE + '/api/docs/package.json')).status, 404);
   assert.equal((await fetch(BASE + '/api/docs/..%2F..%2Fpackage.json')).status, 404);
+  // 物件原型上的名稱不能穿過白名單（之前 constructor 會 502 並洩漏絕對路徑）
+  for (const name of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+    const r = await fetch(BASE + '/api/docs/' + name);
+    assert.equal(r.status, 404, name);
+    assert.doesNotMatch(await r.text(), /node_modules|\/Users\//, name);
+  }
 });
 
 test('REST：tools 清單、參數錯誤、方法錯誤', async () => {

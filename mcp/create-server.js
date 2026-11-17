@@ -1,7 +1,7 @@
 // 由 tool registry 建立 MCP server（stdio 與 HTTP 共用；ADR-0002、ADR-0006）
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { listTools, callTool } from '../core/tools/index.js';
-import { UserError } from '../core/util.js';
+import { UserError, publicMessage } from '../core/util.js';
 
 export const SERVER_INFO = { name: 'abang', version: '0.2.0' };
 
@@ -30,8 +30,8 @@ export function createMcpServer(svc, { packs } = {}) {
           structuredContent: { card: r.card, mode: r.mode, speak: r.speak, data: r.data },
         };
       } catch (e) {
-        const msg = e instanceof UserError ? e.message : `查詢失敗：${e.message}`;
-        return { isError: true, content: [{ type: 'text', text: msg }] };
+        if (!(e instanceof UserError)) console.error(e); // stdio 模式 stderr 不影響協定；細節不回給 client
+        return { isError: true, content: [{ type: 'text', text: publicMessage(e) }] };
       }
     });
   }

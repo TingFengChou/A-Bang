@@ -1,7 +1,7 @@
 // 國道客運（M3-07）：站牌配對、時刻表、含路況的抵達、示範模式、tool
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matchRoutes, tripsFromSchedule, buildTrips, departMinutes, delayRiskOf, createIntercityServices } from '../core/services/intercity.js';
+import { matchRoutes, tripsFromSchedule, buildTrips, departMinutes, departOf, delayRiskOf, createIntercityServices } from '../core/services/intercity.js';
 import { createTdxClient } from '../core/tdx-client.js';
 import { callTool } from '../core/tools/index.js';
 import { createServices } from '../core/index.js';
@@ -25,6 +25,8 @@ const SCHEDULE = [{ RouteUID: 'R1', Direction: 0, Timetables: [
   { TripID: 't3', ServiceDay: { Tuesday: 0 }, StopTimes: [{ StopUID: 'A', DepartureTime: '18:50' }] },             // 週二不開
   { TripID: 't4', ServiceDay: { Tuesday: 1 }, StopTimes: [{ StopUID: 'A', DepartureTime: '17:00' }, { StopUID: 'C', ArrivalTime: '18:10' }] }, // 已過
   { TripID: 't5', StopTimes: [{ StopUID: 'A', DepartureTime: '23:30' }, { StopUID: 'C', ArrivalTime: '00:40' }] },  // 跨日
+  { TripID: 't6', ServiceDay: { Tuesday: 0, Wednesday: 1 }, StopTimes: [{ StopUID: 'A', DepartureTime: '19:10' }, { StopUID: 'C', ArrivalTime: '20:30' }] },
+  { TripID: 't7', ServiceDay: { Tuesday: 0, Wednesday: 1 }, StopTimes: [{ StopUID: 'A', DepartureTime: '00:30' }, { StopUID: 'C', ArrivalTime: '01:40' }] },
 ] }];
 const NOW = Date.parse('2026-11-17T17:30:00+08:00'); // 週二
 
@@ -53,11 +55,29 @@ test('buildTrips：篩出發時間、排序、估算抵達、跨日、加延誤'
   assert.equal(buildTrips(cands, { departMin: 0, straightM: 60000, traffic: { delayMin: 0 } })[0].arriveWithDelay, undefined);
 });
 
+test('buildTrips：深夜查詢列出 3 小時內的隔日班次並標 nextDay', () => {
+  const [m] = matchRoutes(ROUTES, TPE, HSZ);
+  const cands = [
+    { depart: '23:50', arrive: '01:00', m, dayOffset: 0 },
+    { depart: '00:30', arrive: '01:40', m, dayOffset: 1 },
+    { depart: '02:30', arrive: '03:40', m, dayOffset: 1 },
+    { depart: '05:00', arrive: '06:10', m, dayOffset: 1 },   // 超過 3 小時，不列
+    { depart: '23:00', arrive: '00:10', m, dayOffset: 1 },   // 隔日晚上，不列
+  ];
+  const t = buildTrips(cands, { departMin: 23 * 60 + 40, straightM: 60000, traffic: null });
+  assert.deepEqual(t.map((x) => [x.depart, x.arrive, x.minutes, !!x.nextDay]), [
+    ['23:50', '01:00', 70, false], ['00:30', '01:40', 70, true], ['02:30', '03:40', 70, true],
+  ]);
+});
+
 test('departMinutes 與 delayRiskOf', () => {
   assert.equal(departMinutes('07:05'), 425);
   assert.equal(departMinutes(undefined, NOW), 17 * 60 + 30);
   assert.equal(departMinutes('2026-11-17T09:15:00+08:00'), 555);
   assert.throws(() => departMinutes('明天'), /departAt 格式/);
+  // ISO 用該日的日期與星期，不是今天
+  assert.deepEqual(departOf('2026-11-21T09:15:00+08:00', NOW), { date: '2026-11-21', weekday: 6, minute: 555 });
+  assert.deepEqual(departOf('07:05', NOW), { date: '2026-11-17', weekday: 2, minute: 425 });
   assert.deepEqual(['jam', 'slow', 'smooth', null].map(delayRiskOf), [0.9, 0.5, 0.2, 0.4]);
 });
 
@@ -78,6 +98,13 @@ test('trips（TDX fixture）：只查配對到的路線、路況失敗仍回班�
   assert.deepEqual([r.system, r.date, r.departAt, r.traffic.level, r.delayRisk], ['BUS', '2026-11-17', '17:30', null, 0.4]);
   assert.deepEqual(r.trains.map((t) => t.depart), ['18:00', '18:40', '23:30']);
   assert.equal(r.trains[0].fare, null);
+  // ISO 出發時間：用週三的班表（t6 只有週三開）、date 是那一天
+  const wed = await intercity.trips({ from: TPE, to: HSZ, departAt: '2026-11-18T19:00:00+08:00', now: NOW });
+  assert.equal(wed.date, '2026-11-18');
+  assert.deepEqual(wed.trains.map((t) => t.depart), ['19:10', '23:30']);
+  // 週二 23:40 查：t5 已過；週三凌晨的 t7（00:30，週三開）要列出且標 nextDay
+  const late = await intercity.trips({ from: TPE, to: HSZ, departAt: '23:40', now: NOW });
+  assert.deepEqual(late.trains.map((t) => [t.depart, !!t.nextDay]), [['00:30', true]]);
 });
 
 test('示範模式與 intercity_bus tool：塞車時抵達含延誤、近距離沒有班次', async () => {

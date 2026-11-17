@@ -100,7 +100,9 @@ test('示範情境：預設順暢、jam 有壅塞與事件', async () => {
 test('traffic_status tool：地名與座標皆可、speak、找不到地名', async () => {
   const svc = createServices({ forceMock: true, demo: { traffic: 'jam' } });
   const r = await callTool(svc, 'traffic_status', { from: '台北車站', to: { lat: 22.6394, lon: 120.3025 } });
-  assert.equal(r.data.from.name, '臺北車站');
+  assert.deepEqual([r.data.from, typeof r.data.to], ['臺北車站', 'string']);
+  assert.equal(r.data.fromPoint.name, '臺北車站');
+  assert.deepEqual([r.data.toPoint.lat, r.data.toPoint.lon], [22.6394, 120.3025]);
   assert.match(r.speak, /^沿途國道塞車中，預估多花 \d+ 分鐘（國道1號 事故/);
   assert.match(r.text, /^臺北車站 → 22\.6394, 120\.3025（直線 \d+\.\d 公里）：國道塞車中/);
   const near = await callTool(svc, 'traffic_status', { from: '台北車站', to: '台北101' });

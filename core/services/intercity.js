@@ -1,12 +1,12 @@
 // 國道客運服務（真實 TDX 版）：起訖附近都有站牌的直達路線、接下來的班次、含路況的預估抵達（docs/MCP_TOOLS.md §7）
 // ⚠️ 端點與欄位待 M1 驗證，防禦性解析；票價端點未確認，fare 先回 null。
-import { distanceM, nowTW, toMin, toHHMM, UserError } from '../util.js';
+import { distanceM, nowTW, toMin, toHHMM, UserError, zh, arr, odataStr } from '../util.js';
 
 export const STOP_RADIUS_M = 1500; // 起訖點到上下車站牌的最大距離
 export const MAX_TRIPS = 5;
 export const BUS_KMH = 70;         // 時刻表沒有下車時間時，用直線 × 1.3 ÷ 70 km/h 估算
-const zh = (o) => (o && (o.Zh_tw ?? o)) || '';
-const arr = (j) => (Array.isArray(j) ? j : []);
+export const NEXT_DAY_WINDOW_MIN = 180; // 深夜查詢：列出 3 小時內的隔日（跨日）班次
+const DAY = 24 * 60;
 const WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /** 路況 level → 塞車風險（decide.js delayRisk，0～1）；國道即使順暢仍有少量風險 */
@@ -14,14 +14,23 @@ export function delayRiskOf(level) {
   return { jam: 0.9, slow: 0.5, smooth: 0.2 }[level] ?? 0.4;
 }
 
-/** 出發時間：'HH:mm'、ISO 或省略（現在）→ 當日分鐘數 */
-export function departMinutes(departAt, now = Date.now()) {
-  if (!departAt) return toMin(nowTW(now).hhmm);
-  if (/^\d{1,2}:\d{2}$/.test(departAt)) return toMin(departAt);
-  const t = Date.parse(departAt);
-  if (Number.isNaN(t)) throw new UserError('departAt 格式需為 HH:mm 或 ISO 時間，例如 18:30');
-  return toMin(nowTW(t).hhmm);
+/**
+ * 出發時刻（台灣時間）：'HH:mm' 視為今天、ISO 用該日的日期與星期、省略為現在。
+ * @returns {{ date: string, weekday: number, minute: number }}
+ */
+export function departOf(departAt, now = Date.now()) {
+  const hhmm = departAt && /^\d{1,2}:\d{2}$/.test(departAt) ? departAt : null;
+  let t = now;
+  if (departAt && !hhmm) {
+    t = Date.parse(departAt);
+    if (Number.isNaN(t)) throw new UserError('departAt 格式需為 HH:mm 或 ISO 時間，例如 18:30');
+  }
+  const n = nowTW(t);
+  return { date: n.date, weekday: n.weekday, minute: toMin(hhmm || n.hhmm) };
 }
+
+/** 出發時間 → 當日分鐘數（departOf 的簡寫） */
+export const departMinutes = (departAt, now = Date.now()) => departOf(departAt, now).minute;
 
 /**
  * 從各路線站序找出「上車站在起點附近、下車站在終點附近、且下車站在後」的組合。
@@ -57,7 +66,7 @@ export function matchRoutes(stopOfRoute, from, to, radius = STOP_RADIUS_M) {
   return [...byRoute.values()];
 }
 
-/** 由時刻表算出今天的班次 [{ depart, arrive|null }] */
+/** 由時刻表算出某個星期幾的班次 [{ depart, arrive|null }] */
 export function tripsFromSchedule(schedule, m, weekday) {
   const day = WEEK[weekday];
   const out = [];
@@ -73,23 +82,29 @@ export function tripsFromSchedule(schedule, m, weekday) {
   return out;
 }
 
+/** 是否需要查隔日班次（出發時間離午夜不到 NEXT_DAY_WINDOW_MIN） */
+export const needsNextDay = (departMin) => departMin + NEXT_DAY_WINDOW_MIN > DAY;
+
 /**
  * 組出班次清單（live 與 mock 共用）：篩出發時間、補估算抵達、加上路況延誤。
+ * 候選班次帶 dayOffset（0＝出發日、1＝隔日）；隔日班次只收出發後 NEXT_DAY_WINDOW_MIN 內的，並標 nextDay。
  */
 export function buildTrips(cands, { departMin, straightM, traffic }) {
   const estMin = Math.round(((straightM * 1.3) / 1000 / BUS_KMH) * 60);
   const delay = traffic?.delayMin || 0;
+  const at = (c) => toMin(c.depart) + (c.dayOffset || 0) * DAY;
   return cands
-    .filter((c) => toMin(c.depart) >= departMin)
-    .sort((x, y) => toMin(x.depart) - toMin(y.depart))
+    .filter((c) => at(c) >= departMin && (!c.dayOffset || at(c) < departMin + NEXT_DAY_WINDOW_MIN))
+    .sort((x, y) => at(x) - at(y))
     .slice(0, MAX_TRIPS)
     .map((c) => {
-      const d = toMin(c.depart);
-      let a = c.arrive ? toMin(c.arrive) : d + estMin;
-      if (a < d) a += 24 * 60; // 跨日
+      const d = at(c);
+      let a = c.arrive ? toMin(c.arrive) + (c.dayOffset || 0) * DAY : d + estMin;
+      while (a < d) a += DAY; // 跨日
       return {
         trainNo: c.m.routeName, type: '國道客運', terminal: c.m.headsign,
         depart: toHHMM(d), arrive: toHHMM(a), minutes: a - d,
+        ...(d >= DAY && { nextDay: true }),
         ...(delay && { arriveWithDelay: toHHMM(a + delay), delayMin: delay }),
         ...(!c.arrive && { estimated: true }),
         fare: c.fare ?? null,
@@ -105,7 +120,8 @@ export function createIntercityServices(tdx, { traffic }) {
        * @param {{ from: { lat, lon }, to: { lat, lon }, departAt?: string, now?: number }} p
        */
       async trips({ from, to, departAt, now = Date.now() }) {
-        const departMin = departMinutes(departAt, now);
+        const dep = departOf(departAt, now);
+        const departMin = dep.minute;
         const straightM = distanceM(from.lat, from.lon, to.lat, to.lon);
         const [stopOfRoute, tr] = await Promise.all([
           tdx.get('/basic/v2/Bus/StopOfRoute/InterCity', { $select: 'RouteUID,RouteName,SubRouteUID,SubRouteName,Direction,Stops' }, 86400),
@@ -114,18 +130,20 @@ export function createIntercityServices(tdx, { traffic }) {
         const matches = matchRoutes(arr(stopOfRoute), from, to).slice(0, 8);
         const cands = [];
         if (matches.length) {
-          const filter = [...new Set(matches.map((m) => m.routeUid))].map((u) => `RouteUID eq '${String(u).replace(/'/g, "''")}'`).join(' or ');
+          const filter = [...new Set(matches.map((m) => m.routeUid))].map((u) => `RouteUID eq '${odataStr(u)}'`).join(' or ');
           const schedules = arr(await tdx.get('/basic/v2/Bus/Schedule/InterCity', { $filter: filter }, 3600));
-          const { weekday } = nowTW(now);
+          const days = needsNextDay(departMin) ? [0, 1] : [0];
           for (const m of matches) {
             for (const s of schedules.filter((x) => x.RouteUID === m.routeUid && (!m.subRouteUid || !x.SubRouteUID || x.SubRouteUID === m.subRouteUid) && (x.Direction ?? 0) === m.direction)) {
-              cands.push(...tripsFromSchedule(s, m, weekday).map((t) => ({ ...t, m })));
+              for (const dayOffset of days) {
+                cands.push(...tripsFromSchedule(s, m, (dep.weekday + dayOffset) % 7).map((t) => ({ ...t, m, dayOffset })));
+              }
             }
           }
         }
         const traffic_ = tr ? { level: tr.level, delayMin: tr.delayMin } : { level: null, delayMin: null };
         return {
-          system: 'BUS', date: nowTW(now).date, departAt: toHHMM(departMin),
+          system: 'BUS', date: dep.date, departAt: toHHMM(departMin),
           traffic: traffic_, delayRisk: delayRiskOf(traffic_.level),
           trains: buildTrips(cands, { departMin, straightM, traffic: traffic_ }),
         };

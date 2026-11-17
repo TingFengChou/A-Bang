@@ -1,7 +1,7 @@
 // 路況服務（示範資料版）：介面與 traffic.js 相同。情境由 scenario 決定：'smooth'（預設）或 'jam'。
 // 路段沿起訖直線切出，名稱標「示範」，非真實路況。
 import { assertLatLon, distanceM } from '../util.js';
-import { MIN_TRIP_M, DEFAULT_LIMIT_KMH, summarize, shortTrip } from './traffic.js';
+import { MIN_TRIP_M, DEFAULT_LIMIT_KMH, summarize, shortTrip, congestionOf } from './traffic.js';
 
 export function createMockTrafficServices({ scenario = 'smooth' } = {}) {
   const jam = scenario === 'jam';
@@ -18,10 +18,11 @@ export function createMockTrafficServices({ scenario = 'smooth' } = {}) {
         const segments = Array.from({ length: n }, (_, i) => {
           // 塞車情境：中間那一段壅塞
           const congested = jam && i === Math.floor(n / 2);
+          const speedKmh = congested ? 35 : 92;
           return {
             id: `DEMO-${i + 1}`, name: `國道1號 第 ${i + 1} 段（示範）`, road: '國道1號',
-            speedKmh: congested ? 35 : 92, limitKmh: DEFAULT_LIMIT_KMH,
-            lengthKm: +(totalKm / n).toFixed(2), congestion: congested ? '壅塞' : '順暢',
+            speedKmh, limitKmh: DEFAULT_LIMIT_KMH,
+            lengthKm: +(totalKm / n).toFixed(2), congestion: congestionOf(speedKmh, DEFAULT_LIMIT_KMH),
           };
         });
         const events = jam ? [{ title: '國道1號 事故，內線車道封閉（示範）', time: new Date().toISOString() }] : [];
