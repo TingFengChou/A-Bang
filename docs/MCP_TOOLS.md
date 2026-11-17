@@ -37,7 +37,7 @@
 | Tool | pack | tier | 卡片 | 狀態 |
 |---|---|---|---|---|
 | `bus_search_routes` | transit | L1 | — | ✅ |
-| `bus_route_eta` | transit | L1 | `bus-route` | ✅（📝 加座標、形狀） |
+| `bus_route_eta` | transit | L1 | `bus-route` | ✅（含座標、`nav`、`shape` ⚠️） |
 | `bus_nearby_stations` | transit | L1 | `nearby` | ✅（含 `nav`） |
 | `bus_station_eta` | transit | L1 | `bus-station` | ✅ ⚠️ |
 | `youbike_nearby` | transit | L1 | `youbike` | ✅（含 `nav`） |
@@ -62,11 +62,12 @@
 | | |
 |---|---|
 | 輸入 | `city: City`, `routeName: string` |
-| 輸出 | `{ city, routeName, updatedAt, directions: [{ direction, label, stops: [{ seq, stopName, lat?, lon?, ...Eta, plate }] }], shape?: [[lat, lon]] }` |
-| TDX | `/basic/v2/Bus/DisplayStopOfRoute/City/{City}/{Route}`（1h）、`/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/{Route}`（20s）、`/basic/v2/Bus/Route/City/{City}/{Route}`（1h）、📝 `/basic/v2/Bus/Shape/City/{City}/{Route}`（1h，WKT）⚠️ |
+| 輸出 | `{ city, routeName, updatedAt, directions: [{ direction, label, stops: [{ seq, stopName, lat?, lon?, ...Eta, plate, nav }] }], shape?: [[lat, lon]] }` |
+| TDX | `/basic/v2/Bus/DisplayStopOfRoute/City/{City}/{Route}`（1h）、`/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/{Route}`（20s）、`/basic/v2/Bus/Route/City/{City}/{Route}`（1h）、`/basic/v2/Bus/Shape/City/{City}/{Route}`（1h，WKT）⚠️ |
 | 篩選 | `$filter=RouteName/Zh_tw eq '{Route}'`（路徑參數會模糊比對） |
 | speak | 「307 目前有 3 個站即將有車（例如北門、中山堂）。」 |
-| 📝 M3 | stops 加 `lat/lon`（`StopPosition`）、加 `shape` |
+| 座標 | 站點 `lat/lon` 取 `StopPosition`（缺座標的站不帶 `lat/lon`，`nav` 為 `null`）；`nav` 在 tool 層加（§6） |
+| shape | ✅ M3-02：取 `Direction = 0` 那筆（沒有就第一筆）的 `Geometry`（WKT），`core/geo.js` 解析 `LINESTRING`／`MULTILINESTRING`（`lon lat` → `[lat, lon]`，順序寫反會自動換回）、串接成一條、超過 400 點等距抽樣；形狀端點失敗或格式不明時省略 `shape`，到站資料照常。示範模式以站點加中點產生 |
 
 ### ✅ `bus_search_routes`
 
@@ -127,7 +128,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | `leaveAt({ etaSec, distanceM, now? })` | 出發時機 `{ walkMin, leaveInSec, leaveAt, status: 'ok'\|'hurry'\|'missed', text }`；`hurry` = 1 分鐘內要出門 |
 | `withNav(items, mode?)` | 替有 `lat/lon` 的清單每筆加 `nav`（不改原物件） |
 
-已附 `nav`：`bus_nearby_stations`、`youbike_nearby`（tool 層包裝，live 與 mock 一致）。`bus_route_eta` 站點於 M3-02、`plan_trip` 各段於 M3-10 加上；`leaveAt` 於 M3-10 與 M4 卡片使用。
+已附 `nav`：`bus_nearby_stations`、`youbike_nearby`、`bus_route_eta` 站點（M3-02）（tool 層包裝，live 與 mock 一致）。`plan_trip` 各段於 M3-10 加上；`leaveAt` 於 M3-10 與 M4 卡片使用。
 
 ### 📝 `rail_booking_link` — 台鐵／高鐵導訂票（L2）⚠️
 

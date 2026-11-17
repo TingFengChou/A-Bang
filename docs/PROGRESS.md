@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-17 M3-02 公車路線站點座標與路線形狀
+- 做了：新增 `core/geo.js`（`parseWkt`、`pathFromWkt`、`thinPath`）；`bus_route_eta` 站點帶 `lat/lon`（`StopPosition`）與 `nav`，回傳去程 `shape`；形狀端點失敗或格式不明時省略 `shape`；mock 依縣市中心產生站點座標與形狀
+- 測試：npm test 40 項全過（新增 9 項：geo 5、transit 3、nav 1）；`npm run build:demo` 正常
+- 文件：MCP_TOOLS §2／§3／§6、DATA_SOURCES、ARCHITECTURE、TESTING、PLAN（含 M1 待驗證表）、CLAUDE
+- 下一個：M3-03（`landmarks.json`＋`find_place`）
+- 卡住：無；Bus Shape 的實際欄位與 WKT 格式待 M1 驗證
+
 ## 2026-11-17 M3-01 導航連結與出發時機
 - 做了：新增 `core/nav.js`（`navLinks`、`walkMinutes`、`leaveAt`、`withNav`）；`bus_nearby_stations`、`youbike_nearby` 每筆附 `nav`（tool 層包裝，live／mock 一致），tool 描述註明 nav
 - 測試：npm test 31 項全過（新增 `test/nav.test.js` 7 項）

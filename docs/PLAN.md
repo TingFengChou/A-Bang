@@ -22,12 +22,12 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 | M0 基礎 | ✅ | — | — |
 | M1 TDX 實測 | ⛔ | M1-01 | TDX 金鑰、可連 TDX 的網路 |
 | M2 Registry＋遠端 MCP | ✅（Claude 實機連線待驗） | — | Austin 以 cloudflared 實測 |
-| M3 交通完整版 | 🚧 | M3-02 | `rail_booking_link` 需導訂票權限；`weather_now` 需 CWA 授權碼 |
+| M3 交通完整版 | 🚧 | M3-03 | `rail_booking_link` 需導訂票權限；`weather_now` 需 CWA 授權碼 |
 | M4 互動卡片 | 📝 | — | — |
 | M5 網頁 agent | 📝 | — | Claude 模式需 `ANTHROPIC_API_KEY`（示範模式不需要） |
 | M6 上線 | 📝 | — | 部署帳號、網域 |
 
-建議順序：M3-02 → M3-13 → M4 → M5（M5 的討論串與決策圖可在 M3 完成 `plan_trip` 後提前開工）。
+建議順序：M3-03 → M3-13 → M4 → M5（M5 的討論串與決策圖可在 M3 完成 `plan_trip` 後提前開工）。
 
 ## Austin 待辦（外部條件）
 
@@ -63,7 +63,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 | 待驗證 | 狀態 |
 |---|---|
 | `Bus/EstimatedTimeOfArrival/.../PassThrough/Station/{id}` | 未驗證 |
-| `Bus/Shape/City/{City}/{Route}` WKT 格式 | 未驗證 |
+| `Bus/Shape/City/{City}/{Route}` WKT 格式 | 未驗證（M3-02 假設欄位 `Geometry`、`LINESTRING`／`MULTILINESTRING`；`core/geo.js` 防禦性解析） |
 | 站牌 `StopPosition` 於各縣市完整度 | 未驗證 |
 | `Rail/Metro/LiveBoard/{Op}` 各系統欄位 | 未驗證 |
 | 台鐵／高鐵 ODFare 欄位 | 未驗證 |
@@ -92,7 +92,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 - [x] M3-00 決策引擎 `core/decide.js`（7 項測試，2026-11-17）
 - [x] M3-00b 每個 tool 的 `speak`（2026-11-17）
 - [x] M3-01 導航：`core/nav.js`（`navLinks(lat, lon, mode)`、`leaveAt(etaSec, distanceM)`）；`bus_nearby_stations`、`youbike_nearby` 每筆附 `nav`（2026-11-17：另有 `walkMinutes`、`withNav`；nav 在 tool 層包裝，7 項測試）
-- [ ] M3-02 `bus_route_eta` 站點加 `lat/lon`；`core/geo.js` 解析 Bus Shape WKT → `shape`（mock 也要有）
+- [x] M3-02 `bus_route_eta` 站點加 `lat/lon`；`core/geo.js` 解析 Bus Shape WKT → `shape`（mock 也要有）（2026-11-17：站點另附 `nav`；形狀端點失敗時省略 `shape` 不影響到站；9 項測試）
 - [ ] M3-03 `core/data/landmarks.json`（≥ 150 筆：名稱、別名、座標、縣市）＋ `core/services/places.js` ＋ tool `find_place`
 - [ ] M3-04 `core/services/metro.js` ＋ mock ＋ tools `metro_stations`、`metro_live_board`（卡片 `metro`）
 - [ ] M3-05 `rail_fare`（台鐵／高鐵票價）

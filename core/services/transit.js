@@ -1,6 +1,7 @@
 // 大眾運輸服務（真實 TDX 版）：把 TDX 原始資料正規化成 App / MCP 共用的格式
 import { resolveCity, cityFromUID } from '../cities.js';
 import { distanceM, busStatusText, minutesBetween, normName, todayTW, assertLatLon, UserError } from '../util.js';
+import { pathFromWkt, thinPath } from '../geo.js';
 
 const zh = (o) => (o && (o.Zh_tw ?? o)) || '';
 const q = (s) => String(s).replace(/'/g, "''"); // OData 字串跳脫
@@ -26,10 +27,12 @@ export function createTransitServices(tdx) {
     async routeEta({ city, routeName }) {
       const c = mustCity(city);
       const filter = { $filter: `RouteName/Zh_tw eq '${q(routeName)}'` };
-      const [stopsOfRoute, etas, routes] = await Promise.all([
+      const [stopsOfRoute, etas, routes, shapes] = await Promise.all([
         tdx.get(`/basic/v2/Bus/DisplayStopOfRoute/City/${c.city}/${encodeURIComponent(routeName)}`, filter, 3600),
         tdx.get(`/basic/v2/Bus/EstimatedTimeOfArrival/City/${c.city}/${encodeURIComponent(routeName)}`, filter, 20),
         tdx.get(`/basic/v2/Bus/Route/City/${c.city}/${encodeURIComponent(routeName)}`, { ...filter, $select: 'RouteName,DepartureStopNameZh,DestinationStopNameZh' }, 3600),
+        // 路線形狀端點待 M1 驗證：失敗只省略 shape，不影響到站資料
+        tdx.get(`/basic/v2/Bus/Shape/City/${c.city}/${encodeURIComponent(routeName)}`, filter, 3600).catch(() => []),
       ]);
       if (!stopsOfRoute.length) throw new UserError(`${c.name}找不到路線「${routeName}」`);
       const route = routes[0] || {};
@@ -39,15 +42,18 @@ export function createTransitServices(tdx) {
         label: `往 ${d.Direction === 0 ? route.DestinationStopNameZh || '終點' : route.DepartureStopNameZh || '起點'}`,
         stops: d.Stops.map((s) => {
           const e = etaMap.get(`${d.Direction}|${s.StopUID}`) || {};
+          const p = s.StopPosition || {};
           return {
             seq: s.StopSequence, stopName: zh(s.StopName),
+            ...(Number.isFinite(p.PositionLat) && Number.isFinite(p.PositionLon) && { lat: p.PositionLat, lon: p.PositionLon }),
             etaSec: e.EstimateTime ?? null, status: e.StopStatus ?? 0,
             statusText: busStatusText(e.StopStatus ?? 0, e.EstimateTime),
             plate: e.PlateNumb && e.PlateNumb !== '-1' ? e.PlateNumb : null,
           };
         }),
       }));
-      return { city: c.city, routeName, directions, updatedAt: new Date().toISOString() };
+      const shape = routeShape(shapes);
+      return { city: c.city, routeName, directions, ...(shape && { shape }), updatedAt: new Date().toISOString() };
     },
 
     /** 座標附近的公車站位 */
@@ -159,6 +165,14 @@ export function createTransitServices(tdx) {
 }
 
 // ───────── helpers ─────────
+/** Bus Shape 回應 → 去程路徑 [[lat, lon]]（沒有去程取第一筆）；解析不出兩點以上回傳 null */
+export function routeShape(rows) {
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const row = rows.find((r) => r.Direction === 0) || rows[0];
+  const path = thinPath(pathFromWkt(row.Geometry ?? row.Wkt ?? ''));
+  return path.length >= 2 ? path : null;
+}
+
 function mustCity(city) {
   const c = resolveCity(city);
   if (!c) throw new UserError(`無法辨識縣市「${city}」，可用 Taipei / 台北市 / TPE 等寫法`);

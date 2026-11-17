@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { navLinks, walkMinutes, leaveAt, withNav } from '../core/nav.js';
 import { callTool } from '../core/tools/index.js';
 import { createServices } from '../core/index.js';
+import { distanceM } from '../core/util.js';
 
 test('navLinks 產生 Google／Apple 步行導航連結', () => {
   const n = navLinks(25.0478123456, 121.517);
@@ -69,4 +70,25 @@ test('bus_nearby_stations、youbike_nearby 每筆附 nav', async () => {
       assert.match(s.nav.apple, /^https:\/\/maps\.apple\.com\/\?daddr=/);
     }
   }
+});
+
+test('bus_route_eta 站點附 nav、示範模式有 shape', async () => {
+  const svc = createServices({ forceMock: true });
+  const r = await callTool(svc, 'bus_route_eta', { city: 'Taipei', routeName: '307' });
+  for (const d of r.data.directions) {
+    for (const s of d.stops) {
+      assert.ok(Number.isFinite(s.lat) && Number.isFinite(s.lon), s.stopName);
+      assert.ok(s.nav.google.includes(encodeURIComponent(`${Number(s.lat.toFixed(6))},${Number(s.lon.toFixed(6))}`)), s.stopName);
+    }
+  }
+  // 返程站序與去程相反，座標也跟著反轉
+  const [go, back] = r.data.directions;
+  assert.deepEqual([go.stops[0].lat, go.stops[0].lon], [back.stops.at(-1).lat, back.stops.at(-1).lon]);
+  // 形狀從去程第一站到最後一站，點數比站多
+  assert.ok(r.data.shape.length > go.stops.length);
+  assert.deepEqual(r.data.shape[0], [go.stops[0].lat, go.stops[0].lon]);
+  assert.deepEqual(r.data.shape.at(-1), [go.stops.at(-1).lat, go.stops.at(-1).lon]);
+  // 站距約 350 公尺：第一站到第二站 250～450 公尺
+  const dm = distanceM(go.stops[0].lat, go.stops[0].lon, go.stops[1].lat, go.stops[1].lon);
+  assert.ok(dm > 250 && dm < 450, String(dm));
 });

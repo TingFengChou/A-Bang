@@ -10,7 +10,7 @@
 
 ## 目前進度
 
-M0 ✅、M2 ✅、決策引擎 ✅、`speak` ✅、M3-01 導航 ✅；**M3 交通完整版進行中**（`docs/PLAN.md` 狀態看板）。M1 需 TDX 金鑰，只能在 Austin 本機做。
+M0 ✅、M2 ✅、決策引擎 ✅、`speak` ✅、M3-01 導航 ✅、M3-02 路線座標與形狀 ✅；**M3 交通完整版進行中**（`docs/PLAN.md` 狀態看板）。M1 需 TDX 金鑰，只能在 Austin 本機做。
 
 ## 必讀文件（依序）
 
@@ -55,6 +55,7 @@ core/            唯一的資料與邏輯層
   tools/         registry：define.js、index.js、<pack>.js
   decide.js      決策引擎（ADR-0010）
   nav.js         導航連結、步行時間、出發時機（ADR-0011）
+  geo.js         WKT 路線形狀解析、路徑抽樣
   agent/         📝 M5：run.js、claude.js、demo-intent.js、events.js
   agents/        📝 M5：life.json（agent profile）
   providers/     📝 M3：ridehail/uber.js、mcp-client.js（外部 MCP）

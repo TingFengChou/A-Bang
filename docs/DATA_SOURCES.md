@@ -25,7 +25,7 @@
 | 公車預估到站 | `/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/{Route}` | 20s | ✅ | `bus_route_eta` |
 | 站位預估到站 | `/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/PassThrough/Station/{StationID}` | 20s | ✅ ⚠️ | `bus_station_eta` |
 | 附近站位 | `/advanced/v2/Bus/Station/NearBy` | 1h | ✅ | `bus_nearby_stations`、`plan_trip` |
-| 路線形狀 | `/basic/v2/Bus/Shape/City/{City}/{Route}`（WKT） | 1h | 📝 ⚠️ | `bus_route_eta.shape` |
+| 路線形狀 | `/basic/v2/Bus/Shape/City/{City}/{Route}`（WKT，欄位 `Geometry`） | 1h | ✅ ⚠️ | `bus_route_eta.shape` |
 | YouBike 站點 | `/advanced/v2/Bike/Station/NearBy` | 1h | ✅ | `youbike_nearby` |
 | YouBike 車數 | `/advanced/v2/Bike/Availability/NearBy` | 30s | ✅ | `youbike_nearby` |
 | 高鐵時刻 | `/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}` | 10m | ✅ | `thsr_timetable` |
@@ -45,7 +45,7 @@
 
 | 資料 | 欄位 |
 |---|---|
-| 公車站牌／站位 | `StopPosition`／`StationPosition`：`PositionLat`、`PositionLon`（WGS84） |
+| 公車站牌／站位 | `StopPosition`／`StationPosition`：`PositionLat`、`PositionLon`（WGS84）；`bus_route_eta` 用 `DisplayStopOfRoute` 各站的 `StopPosition` |
 | YouBike | `StationPosition` |
 | 台鐵／高鐵／捷運車站 | `StationPosition` |
 

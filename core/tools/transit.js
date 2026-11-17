@@ -25,7 +25,7 @@ export const busSearchRoutes = defineTool({
 export const busRouteEta = defineTool({
   name: 'bus_route_eta',
   title: '公車路線即時到站',
-  description: '查詢一條公車路線所有站牌的預估到站時間（去程與返程）。etaSec 為秒數；statusText 為易讀文字。',
+  description: '查詢一條公車路線所有站牌的預估到站時間（去程與返程）。etaSec 為秒數；statusText 為易讀文字；有座標的站牌附 lat/lon 與導航連結 nav；shape 為去程路線形狀 [[lat, lon]]（資料有提供時）。',
   pack: PACK, tier: 'L1', card: 'bus-route',
   input: { city: T.city, routeName: z.string().min(1).describe('完整路線名稱，例如 307') },
   speak: (d) => {
@@ -33,7 +33,8 @@ export const busRouteEta = defineTool({
     return `${d.routeName} 目前有 ${near.length} 個站即將有車${near.length ? `（例如${near.slice(0, 2).join('、')}）` : ''}。`;
   },
   async run(svc, a) {
-    const data = await svc.bus.routeEta(a);
+    const raw = await svc.bus.routeEta(a);
+    const data = { ...raw, directions: raw.directions.map((d) => ({ ...d, stops: withNav(d.stops) })) };
     const lines = [`${data.routeName} 公車即時到站（更新：${data.updatedAt}）`];
     for (const d of data.directions) {
       const near = d.stops.filter((s) => s.etaSec != null && s.etaSec < 180).map((s) => s.stopName);

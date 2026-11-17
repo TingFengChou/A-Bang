@@ -38,7 +38,7 @@
 | `core/agents/*.json` | 📝 | agent profile（ADR-0005）：system prompt、工具白名單、建議問題、免責、模型 | 寫程式邏輯 |
 | `core/providers/` | 📝 | 外部服務 adapter（ADR-0011）：`ridehail/uber.js` 深層連結；`mcp-client.js` 包裝外部 MCP（TDX 官方 MCP） | 直接被 server 呼叫 |
 | `core/nav.js` | ✅ | 導航深層連結、步行時間、出發時機（M3-01） | 呼叫外部 API |
-| `core/geo.js` | 📝 | WKT 解析（M3-02） | — |
+| `core/geo.js` | ✅ | WKT 解析成 `[[lat, lon]]`、路徑抽樣（M3-02） | 呼叫外部 API |
 | `core/data/` | 📝 | `landmarks.json` 內建地標 | — |
 | `server/http.js` | ✅ | REST、`/api/v1/tools/:name`、遠端 `/mcp`、靜態檔、限流、CORS | 商業邏輯 |
 | `server/rate-limit.js` | ✅ | 每 IP 固定視窗限流（之後加 agent id） | — |
