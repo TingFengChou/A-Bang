@@ -164,4 +164,35 @@ export const findPlace = defineTool({
   },
 });
 
-export default [busSearchRoutes, busRouteEta, busNearbyStations, busStationEta, youbikeNearby, thsrTimetable, traTimetable, railStations, findPlace];
+const SYS = { THSR: '高鐵', TRA: '台鐵' };
+const fmtPrice = (n) => `${n.toLocaleString('en-US')} 元`;
+const fareLabel = (f) => [f.trainType, f.cabin, f.fareClass, f.ticketType].filter(Boolean).join('／');
+
+export const railFare = defineTool({
+  name: 'rail_fare',
+  title: '高鐵／台鐵票價',
+  description: '查詢高鐵或台鐵兩站之間的票價。fares 每筆有票種、身分、車廂（高鐵）或車種（台鐵）與 price（新台幣元）；adultOneWay=true 為成人單程票，排在最前面。',
+  pack: PACK, tier: 'L1',
+  input: {
+    system: z.enum(['THSR', 'TRA']).describe('THSR=高鐵, TRA=台鐵'),
+    from: z.string().trim().min(1).describe('起站，中文站名或代碼，例如 台北'),
+    to: z.string().trim().min(1).describe('訖站，中文站名或代碼，例如 左營'),
+  },
+  speak: (d) => {
+    const a = d.fares.filter((f) => f.adultOneWay);
+    if (!a.length) return `${d.from}到${d.to}的${SYS[d.system]}票價暫時查不到。`;
+    const min = a[0], max = a.at(-1);
+    return min.price === max.price
+      ? `${d.from}到${d.to}${SYS[d.system]}成人單程 ${fmtPrice(min.price)}。`
+      : `${d.from}到${d.to}${SYS[d.system]}成人單程 ${fmtPrice(min.price)}起（最高 ${fmtPrice(max.price)}）。`;
+  },
+  async run(svc, a) {
+    const data = a.system === 'THSR' ? await svc.rail.thsrFare(a) : await svc.rail.traFare(a);
+    const text = data.fares.length
+      ? clip([`${SYS[data.system]} ${data.from} → ${data.to} 票價：`, ...data.fares.map((f) => `- ${fareLabel(f)}：${fmtPrice(f.price)}`)])
+      : `${SYS[data.system]} ${data.from} → ${data.to} 目前查不到票價資料。`;
+    return { data, text };
+  },
+});
+
+export default [busSearchRoutes, busRouteEta, busNearbyStations, busStationEta, youbikeNearby, thsrTimetable, traTimetable, railStations, railFare, findPlace];

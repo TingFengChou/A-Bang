@@ -32,7 +32,7 @@
 | 高鐵車站 | `/basic/v2/Rail/THSR/Station` | 24h | ✅ | `rail_stations` |
 | 台鐵時刻 | `/basic/v3/Rail/TRA/DailyTrainTimetable/OD/{O}/to/{D}/{Date}` | 10m | ✅ | `tra_timetable` |
 | 台鐵車站 | `/basic/v3/Rail/TRA/Station` | 24h | ✅ | `rail_stations` |
-| 高鐵／台鐵票價 | `/basic/v2/Rail/THSR/ODFare/{O}/to/{D}`、`/basic/v3/Rail/TRA/ODFare/{O}/to/{D}` | 10m | 📝 ⚠️ | `rail_fare` |
+| 高鐵／台鐵票價 | `/basic/v2/Rail/THSR/ODFare/{O}/to/{D}`、`/basic/v3/Rail/TRA/ODFare/{O}/to/{D}` | 10m | ✅ ⚠️ | `rail_fare` |
 | 捷運車站 | `/basic/v2/Rail/Metro/Station/{Operator}` | 24h | ✅ ⚠️ | `metro_stations`、`metro_live_board`（站名→代碼） |
 | 捷運即時看板 | `/basic/v2/Rail/Metro/LiveBoard/{Operator}`（`$filter=StationID eq …`） | 20s | ✅ ⚠️ | `metro_live_board` |
 | 公路客運 | `/basic/v2/Bus/Route/InterCity`、`/basic/v2/Bus/EstimatedTimeOfArrival/InterCity` | 1h／20s | 📝 ⚠️ | `intercity_bus` |

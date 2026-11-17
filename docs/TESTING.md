@@ -1,6 +1,6 @@
 # 測試規格
 
-版本：v0.4（2026-11-17）。目前：`npm test` 54 項全過（decide 7、nav 8、geo 5、places 8、metro 6、tools、transit、mcp）。
+版本：v0.4（2026-11-17）。目前：`npm test` 57 項全過（decide 7、nav 8、geo 5、places 8、metro 6、tools、transit、mcp）。
 
 ## 1. 原則
 

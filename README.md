@@ -74,7 +74,8 @@ claude mcp add abang -e TDX_CLIENT_ID=… -e TDX_CLIENT_SECRET=… -- node /絕�
 | `rail_stations` | 高鐵／台鐵車站 | ✅ |
 | `metro_stations`／`metro_live_board` | 捷運車站與即時看板（北捷、桃捷機場線、中捷、高捷） | ✅ |
 | `find_place` | 地名、車站、俗稱 → 座標（內建地標） | ✅ |
-| `traffic_status`、`intercity_bus`、`rail_fare`、`weather_now` | 路況、國道客運、票價、天氣 | 📝 M3 |
+| `rail_fare` | 高鐵／台鐵票價 | ✅ |
+| `traffic_status`、`intercity_bus`、`weather_now` | 路況、國道客運、天氣 | 📝 M3 |
 | `plan_trip` | 從 A 到 B：比較方案並依使用者狀態排序 | 📝 M3 |
 | `rail_booking_link`、`ridehail_link` | 官方訂票連結、叫車連結（需使用者確認） | 📝 M3 |
 

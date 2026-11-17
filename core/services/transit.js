@@ -136,6 +136,15 @@ export function createTransitServices(tdx) {
         })).sort((x, y) => x.depart.localeCompare(y.depart)),
       };
     },
+    /** 高鐵票價（OD） */
+    async thsrFare({ from, to }) {
+      const st = await rail.thsrStations();
+      const o = findStation(st, from, '高鐵'), d = findStation(st, to, '高鐵');
+      if (o.id === d.id) throw new UserError('起訖站不可相同');
+      const rows = await tdx.get(`/basic/v2/Rail/THSR/ODFare/${o.id}/to/${d.id}`, {}, 600);
+      const od = (Array.isArray(rows) ? rows : rows?.ODFares || [])[0];
+      return { system: 'THSR', from: o.name, to: d.name, fares: normFares(od?.Fares, 'THSR') };
+    },
     async traStations() {
       const j = await tdx.get('/basic/v3/Rail/TRA/Station', { $select: 'StationID,StationName' }, 86400);
       return (j.Stations || j).map((s) => ({ id: s.StationID, name: zh(s.StationName) }));
@@ -161,6 +170,17 @@ export function createTransitServices(tdx) {
     },
   };
 
+  rail.traFare = async ({ from, to }) => {
+    const st = await rail.traStations();
+    const o = findStation(st, from, '台鐵'), d = findStation(st, to, '台鐵');
+    if (o.id === d.id) throw new UserError('起訖站不可相同');
+    const j = await tdx.get(`/basic/v3/Rail/TRA/ODFare/${o.id}/to/${d.id}`, {}, 600);
+    const ods = Array.isArray(j) ? j : j?.ODFares || [];
+    // v3 每個車種一筆 OD，各有 Fares
+    const fares = ods.flatMap((od) => normFares(od.Fares, 'TRA', trainTypeLabel(od)));
+    return { system: 'TRA', from: o.name, to: d.name, fares: sortFares(fares) };
+  };
+
   return { bus, bike, rail };
 }
 
@@ -172,6 +192,28 @@ export function routeShape(rows) {
   const path = thinPath(pathFromWkt(row.Geometry ?? row.Wkt ?? ''));
   return path.length >= 2 ? path : null;
 }
+
+// ── 票價代碼（依 TDX Swagger；⚠️ 待 M1 驗證，未知代碼顯示「代碼 N」） ──
+export const TICKET_TYPE = { 1: '單程票', 2: '來回票', 3: '電子票證', 4: '回數票', 5: '定期票（30 天）', 6: '定期票（60 天）', 7: '早鳥票', 8: '團體票' };
+export const FARE_CLASS = { 1: '成人', 2: '學生', 3: '孩童', 4: '敬老', 5: '愛心', 6: '愛心孩童', 7: '愛心陪伴', 8: '軍警', 9: '法優' };
+export const CABIN_CLASS = { 1: '標準車廂', 2: '商務車廂', 3: '自由座' };
+const label = (table, code) => table[code] || (code == null ? null : `代碼 ${code}`);
+// 台鐵車種代碼對照未經驗證：只採用資料自帶的名稱，否則顯示代碼
+const trainTypeLabel = (od) => zh(od.TrainTypeName) || (od.TrainType != null ? `車種代碼 ${od.TrainType}` : null);
+
+/** TDX Fares → [{ ticketType, fareClass, cabin?, trainType?, price, adultOneWay }]；價格無效的略過 */
+export function normFares(fares, system, trainType = null) {
+  return sortFares((fares || []).filter((f) => Number.isFinite(f.Price)).map((f) => ({
+    ticketType: label(TICKET_TYPE, f.TicketType),
+    fareClass: label(FARE_CLASS, f.FareClass),
+    ...(system === 'THSR' && { cabin: label(CABIN_CLASS, f.CabinClass) }),
+    ...(trainType && { trainType }),
+    price: f.Price,
+    adultOneWay: f.TicketType === 1 && f.FareClass === 1,
+  })));
+}
+/** 成人單程在前，其次價格由低到高 */
+export const sortFares = (list) => list.sort((a, b) => b.adultOneWay - a.adultOneWay || a.price - b.price);
 
 function mustCity(city) {
   const c = resolveCity(city);

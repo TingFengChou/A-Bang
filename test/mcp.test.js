@@ -8,7 +8,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 
 const PORT = 18000 + Math.floor(Math.random() * 1000);
 const BASE = `http://127.0.0.1:${PORT}`;
-const EXPECTED = ['bus_nearby_stations', 'bus_route_eta', 'bus_search_routes', 'bus_station_eta', 'find_place', 'metro_live_board', 'metro_stations', 'rail_stations', 'thsr_timetable', 'tra_timetable', 'youbike_nearby'];
+const EXPECTED = ['bus_nearby_stations', 'bus_route_eta', 'bus_search_routes', 'bus_station_eta', 'find_place', 'metro_live_board', 'metro_stations', 'rail_fare', 'rail_stations', 'thsr_timetable', 'tra_timetable', 'youbike_nearby'];
 const ARGS = { from: '台北', to: '左營', date: '2026-12-01' };
 let http;
 
@@ -59,7 +59,7 @@ test('遠端 HTTP /mcp 與 /mcp/transit', async () => {
   const names = await viaHttp(async (c) => (await c.listTools()).tools.map((t) => t.name).sort());
   assert.deepEqual(names, EXPECTED);
   const packNames = await viaHttp(async (c) => (await c.listTools()).tools.length, '/mcp/transit');
-  assert.equal(packNames, 11);
+  assert.equal(packNames, 12);
   const res = await fetch(BASE + '/mcp/nope', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
   assert.equal(res.status, 404);
   const get = await fetch(BASE + '/mcp');
@@ -78,7 +78,7 @@ test('stdio、HTTP、REST 三條路徑結果一致', async () => {
 
 test('REST：tools 清單、參數錯誤、方法錯誤', async () => {
   const list = await (await fetch(BASE + '/api/v1/tools')).json();
-  assert.equal(list.data.length, 11);
+  assert.equal(list.data.length, 12);
   assert.ok(list.data.every((t) => t.pack && t.tier && t.inputSchema));
   const bad = await fetch(BASE + '/api/v1/tools/youbike_nearby', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ lat: 'x' }) });
   assert.equal(bad.status, 400);

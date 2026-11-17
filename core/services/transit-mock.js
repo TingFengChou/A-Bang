@@ -143,8 +143,31 @@ export function createMockTransitServices() {
     return { from: o.name, to: d.name, date, demo: true, trains };
   };
 
+  // 示範票價：依站距估算（非真實票價），欄位與 transit.js normFares 相同
+  const fare = (list, from, to, label, system) => {
+    const o = findStation(list, from, label), d = findStation(list, to, label);
+    if (o.id === d.id) throw new UserError('起訖站不可相同');
+    const hops = Math.abs(list.indexOf(o) - list.indexOf(d));
+    const row = (ticketType, fareClass, price, extra = {}) => ({ ticketType, fareClass, ...extra, price: Math.round(price / 5) * 5, adultOneWay: ticketType === '單程票' && fareClass === '成人' });
+    let fares;
+    if (system === 'THSR') {
+      const std = 40 + hops * 125;
+      fares = [
+        row('單程票', '成人', std, { cabin: '標準車廂' }), row('單程票', '成人', std * 1.6, { cabin: '商務車廂' }), row('單程票', '成人', std * 0.96, { cabin: '自由座' }),
+        row('單程票', '孩童', std / 2, { cabin: '標準車廂' }), row('單程票', '敬老', std / 2, { cabin: '標準車廂' }),
+      ];
+    } else {
+      fares = [['自強', 52], ['莒光', 40], ['區間', 34]].flatMap(([trainType, per]) => [
+        row('單程票', '成人', Math.max(15, hops * per), { trainType }), row('單程票', '孩童', Math.max(10, hops * per / 2), { trainType }),
+      ]);
+    }
+    return { system, from: o.name, to: d.name, demo: true, fares: fares.sort((a, b) => b.adultOneWay - a.adultOneWay || a.price - b.price) };
+  };
+
   const rail = {
     async thsrStations() { return THSR; },
+    async thsrFare({ from, to }) { return fare(THSR, from, to, '高鐵', 'THSR'); },
+    async traFare({ from, to }) { return fare(TRA, from, to, '台鐵', 'TRA'); },
     async thsrTimetable({ from, to, date = todayTW() }) { return timetable(THSR, from, to, date, '高鐵', 'thsr'); },
     async traStations() { return TRA; },
     async traTimetable({ from, to, date = todayTW() }) { return timetable(TRA, from, to, date, '台鐵', 'tra'); },

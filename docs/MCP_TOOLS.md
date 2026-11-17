@@ -49,7 +49,7 @@
 | `find_place` | transit | L1 | — | ✅（內建地標；地理編碼 ⚠️） |
 | `traffic_status` | transit | L1 | — | 📝 ⚠️ |
 | `intercity_bus` | transit | L1 | `timetable` | 📝 ⚠️ |
-| `rail_fare` | transit | L1 | — | 📝 ⚠️ |
+| `rail_fare` | transit | L1 | — | ✅ ⚠️ |
 | `plan_trip` | transit | L1 | `trip` | 📝 |
 | `rail_booking_link` | transit | **L2** | （時刻表按鈕） | 📝 ⚠️ 需 TDX 權限 |
 | `ridehail_link` | ridehail | **L2** | （行程卡按鈕） | 📝 |
@@ -98,9 +98,17 @@ TDX：高鐵 `/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}`；台鐵 
 
 輸入 `system: 'THSR'|'TRA'`；輸出 `[{ id, name }]`（24h）。
 
-### 📝 `rail_fare` ⚠️
+### ✅ `rail_fare` ⚠️
 
-輸入 `system`, `from`, `to`；輸出 `[{ ticketType, cabin?, price }]`。TDX 台鐵／高鐵 ODFare（10m）。也可評估改用 TDX 官方 MCP。
+| | |
+|---|---|
+| 輸入 | `system: 'THSR'\|'TRA'`, `from`, `to`（中文站名或代碼，台／臺通用） |
+| 輸出 | `{ system, from, to, fares: [{ ticketType, fareClass, cabin?, trainType?, price, adultOneWay }] }`；`cabin` 只有高鐵、`trainType` 只有台鐵；成人單程（`adultOneWay`）在前，其次價格由低到高 |
+| TDX | 高鐵 `/basic/v2/Rail/THSR/ODFare/{O}/to/{D}`；台鐵 v3 `/basic/v3/Rail/TRA/ODFare/{O}/to/{D}`（`ODFares` 每個車種一筆）；10m |
+| 代碼 | `TicketType`、`FareClass`、`CabinClass` 依 Swagger 轉中文（`TICKET_TYPE`、`FARE_CLASS`、`CABIN_CLASS`，⚠️ 待驗證）；未知代碼顯示「代碼 N」；台鐵車種只用資料自帶的 `TrainTypeName`，沒有就顯示「車種代碼 N」；`Price` 無效的略過 |
+| speak | 「台北到左營高鐵成人單程 1,490 元起（最高 2,390 元）。」；只有一種價格時不加「起」 |
+
+`plan_trip`（M3-10）取成人單程最低價當 `cost`。示範模式依站距估算票價（非真實票價）。也可評估改用 TDX 官方 MCP。
 
 ### ✅ `metro_stations`／`metro_live_board` ⚠️
 
