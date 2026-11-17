@@ -28,7 +28,8 @@ export const STATES = {
 /**
  * @param {Array<{ id: string, name: string, minutes: number, waitMin?: number, walkMin?: number, cost?: number,
  *                 exposure?: number, effort?: number, arriveAt?: string }>} options
- * @param {{ states?: string[], arriveBy?: string }} [ctx]  states 例如 ['rain','luggage']；arriveBy 例如 '08:00'
+ * @param {{ states?: string[], arriveBy?: string, arriveByMin?: number }} [ctx]  states 例如 ['rain','luggage']；arriveBy 例如 '08:00'
+ *   arriveByMin 與方案的 arriveMin（自出發日 00:00 起算、可超過 24 小時）同時存在時以分鐘比較，跨午夜才不會誤判
  * @returns {{ weights: Record<string, number>, ranked: Array<object>, excluded: Array<object>, best: object|null, reason: string }}
  */
 export function decide(options, ctx = {}) {
@@ -43,7 +44,8 @@ export function decide(options, ctx = {}) {
   // 2. 硬限制：指定抵達時間時，會遲到的方案直接排除
   const excluded = [];
   const pool = options.filter((o) => {
-    if (ctx.arriveBy && o.arriveAt && o.arriveAt > ctx.arriveBy) {
+    const late = ctx.arriveByMin != null && o.arriveMin != null ? o.arriveMin > ctx.arriveByMin : ctx.arriveBy && o.arriveAt && o.arriveAt > ctx.arriveBy;
+    if (late) {
       excluded.push({ ...o, why: `${o.arriveAt} 才到，超過 ${ctx.arriveBy}` });
       return false;
     }

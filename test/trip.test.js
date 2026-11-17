@@ -61,6 +61,24 @@ test('跨城（示範，下雨＋塞車）：自動狀態、軌道與客運、�
   assert.ok(thsr.cost > 1000);
 });
 
+test('跨午夜：22:00 出發、23:30 前到，隔天才到的方案要排除；arriveBy 早於出發視為隔天', async () => {
+  const svc = createServices({ forceMock: true });
+  const r = await planTrip(svc, { from: TPE, to: KHH, departAt: '22:00', prefs: { arriveBy: '23:30' }, now: NOW });
+  const ride = r.options.find((o) => o.id === 'ridehail');
+  assert.ok(ride.arriveMin > 24 * 60 && ride.arriveAt < '23:30');
+  assert.ok(r.ranking.excluded.some((e) => e.id === 'ridehail'));
+  const night = await planTrip(svc, { from: TPE, to: T101, departAt: '23:00', prefs: { arriveBy: '01:00' }, now: NOW });
+  assert.ok(night.ranking.excluded.every((e) => e.id !== 'ridehail'), '23:00 出發 25 分叫車，01:00 前到得了');
+});
+
+test('客運帶入 ISO 出發日（不是今天的星期）', async () => {
+  const svc = createServices({ forceMock: true });
+  let got;
+  svc.intercity = { trips: async (p) => { got = p.departAt; return { trains: [], delayRisk: 0.4 }; } };
+  await planTrip(svc, { from: TPE, to: KHH, departAt: '2026-11-21T09:00', now: NOW });
+  assert.equal(got, '2026-11-21T09:00');
+});
+
 test('來源失敗只略過：天氣、路況、公車壞掉仍回其他方案', async () => {
   const svc = createServices({ forceMock: true });
   const boom = async () => { throw new Error('boom'); };

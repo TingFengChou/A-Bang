@@ -63,3 +63,14 @@ test('未知狀態會被忽略；全部排除時有說明', () => {
   assert.match(r.reason, /趕不上/);
   assert.ok(Object.keys(STATES).length >= 5);
 });
+
+test('arriveByMin：以分鐘比較，跨午夜的抵達不會被字串比較放過', async () => {
+  const { decide } = await import('../core/decide.js');
+  const opts = [
+    { id: 'a', name: 'A', minutes: 30, arriveAt: '22:30', arriveMin: 1350 },
+    { id: 'b', name: 'B', minutes: 300, arriveAt: '03:00', arriveMin: 1620 },
+  ];
+  const r = decide(opts, { arriveBy: '23:30', arriveByMin: 1410 });
+  assert.deepEqual(r.excluded.map((o) => o.id), ['b']);
+  assert.deepEqual(decide(opts, { arriveBy: '23:30' }).excluded.map((o) => o.id), []); // 只有字串時維持舊行為
+});

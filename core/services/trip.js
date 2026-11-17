@@ -1,7 +1,7 @@
 // 行程規劃 plan_trip（docs/MCP_TOOLS.md §7、ADR-0010）：組合各服務產生候選方案 → 自動狀態 → decide() 排序。
 // 只用 svc 的既有服務（live 與 mock 介面相同），不直接呼叫外部 API；任何一個來源失敗只略過該方案，不中斷規劃。
 // 估算值（市區轉乘、叫車時間與車資、客運票價缺資料時）一律標 estimated，並在 notes 說明依據。
-import { distanceM, toHHMM, normName } from '../util.js';
+import { distanceM, toHHMM, toMin, normName } from '../util.js';
 import { walkMinutes, navLinks } from '../nav.js';
 import { decide, STATES } from '../decide.js';
 import { departOf, delayRiskOf } from './intercity.js';
@@ -39,7 +39,13 @@ const leg = (mode, from, to, minutes, detail, navMode = 'walking') => ({ mode, f
 const STATION_ITEMS = LANDMARKS.items.filter((x) => x.kind === 'station' && !/捷運/.test(x.name));
 const keysOf = (x) => [x.name, ...x.aliases].map(normPlace);
 /** 鐵路車站名稱 → 地標座標；找不到回 null */
+const stationCache = new Map();
 export function stationPoint(system, name) {
+  const ck = `${system}|${name}`;
+  if (!stationCache.has(ck)) stationCache.set(ck, findStationPoint(system, name));
+  return stationCache.get(ck);
+}
+function findStationPoint(system, name) {
   const n = normPlace(name);
   const want = system === 'THSR' ? [`高鐵${n}站`, `${n}車站`] : [`${n}車站`];
   for (const w of want) {
@@ -133,12 +139,11 @@ async function railOption(svc, system, from, to, straight, depart) {
   const a1 = access(from, o, o.d), a2 = access(d, to, d.d);
   const tt = await (system === 'THSR' ? svc.rail.thsrTimetable : svc.rail.traTimetable)({ from: o.name, to: d.name, date: depart.date });
   const ready = depart.minute + a1.minutes;
-  const toM = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-  const train = (tt.trains || []).filter((t) => toM(t.depart) >= ready).sort((x, y) => toM(x.depart) - toM(y.depart))[0];
+  const train = (tt.trains || []).filter((t) => toMin(t.depart) >= ready).sort((x, y) => toMin(x.depart) - toMin(y.depart))[0];
   if (!train) return null;
   const fares = await (system === 'THSR' ? svc.rail.thsrFare : svc.rail.traFare)({ from: o.name, to: d.name }).then((f) => f.fares).catch(() => []);
   const fare = fares.find((f) => f.adultOneWay && (!train.type || !f.trainType || f.trainType === train.type)) || fares.find((f) => f.adultOneWay);
-  const wait = toM(train.depart) - ready;
+  const wait = toMin(train.depart) - ready;
   const label = system === 'THSR' ? '高鐵' : `台鐵${train.type || ''}`;
   return {
     id: system.toLowerCase(), role: system.toLowerCase(), name: label,
@@ -153,9 +158,9 @@ async function railOption(svc, system, from, to, straight, depart) {
 
 async function intercityOption(svc, from, to, straight, depart) {
   if (straight < LIMITS.intercityMinM) return null;
-  const r = await svc.intercity.trips({ from, to, departAt: toHHMM(depart.minute) });
-  const toM = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
-  const waitOf = (t) => toM(t.depart) + (t.nextDay ? 24 * 60 : 0) - depart.minute - walkMinutes(t.walkFromM);
+  // 帶完整日期（台灣時間），出發日不是今天時客運班表才會用對的星期
+  const r = await svc.intercity.trips({ from, to, departAt: `${depart.date}T${toHHMM(depart.minute)}` });
+  const waitOf = (t) => toMin(t.depart) + (t.nextDay ? 24 * 60 : 0) - depart.minute - walkMinutes(t.walkFromM);
   const t = r.trains.find((x) => waitOf(x) >= 0); // 走到站牌還趕得上的第一班
   if (!t) return null;
   const w1 = walkMinutes(t.walkFromM), w2 = walkMinutes(t.walkToM);
@@ -221,14 +226,19 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     intercity: () => intercityOption(svc, from, to, straight, depart),
     ridehail: () => ridehailOption(svc, from, to, straight, traffic),
   };
-  const unavailable = [];
-  const results = await Promise.all(Object.entries(tasks).map(([k, f]) => f().catch(() => { unavailable.push(k); return null; })));
-  const options = results.filter(Boolean).map((o) => ({ ...o, arriveAt: toHHMM(depart.minute + o.minutes) }));
+  const FAILED = Symbol('failed');
+  const entries = Object.entries(tasks);
+  const results = await Promise.all(entries.map(([, f]) => f().catch(() => FAILED)));
+  const unavailable = entries.filter((_, i) => results[i] === FAILED).map(([k]) => k); // 依方案順序，結果穩定
+  // arriveMin：從出發日 00:00 起算的分鐘數（可超過 24 小時），跨午夜也能正確比較抵達時間
+  const options = results.filter((o) => o && o !== FAILED).map((o) => ({ ...o, arriveAt: toHHMM(depart.minute + o.minutes), arriveMin: depart.minute + o.minutes }));
+  // arriveBy 早於出發時間 → 視為隔天（例：23:00 出發、01:00 前到）
+  const arriveByMin = prefs.arriveBy ? toMin(prefs.arriveBy) + (toMin(prefs.arriveBy) < depart.minute ? 24 * 60 : 0) : undefined;
 
   // 狀態（CARDS.md trip）：自動判斷在前，使用者說的（source: 'user'）在後，同一個 key 只留一筆
   const states = [...autoStates];
   for (const k of prefs.states || []) if (STATES[k] && !states.some((s) => s.key === k)) states.push({ key: k, source: 'user' });
-  const r = decide(options, { states: states.map((s) => s.key), arriveBy: prefs.arriveBy });
+  const r = decide(options, { states: states.map((s) => s.key), arriveBy: prefs.arriveBy, arriveByMin });
   return {
     from: pt(from), to: pt(to), straightKm: +(straight / 1000).toFixed(1),
     date: depart.date, departAt: toHHMM(depart.minute),
