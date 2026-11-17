@@ -30,7 +30,8 @@
 | 路徑 | 狀態 | 職責 | 不可以做 |
 |---|---|---|---|
 | `core/tdx-client.js` | ✅ | OIDC token 快取（single-flight、提前 5 分換新）、回應快取、401 重試、429 處理 | 解析業務欄位 |
-| `core/services/*.js` | ✅ transit／📝 metro、places、trip、traffic、weather、booking | 呼叫 client、正規化成共用格式、輸入容錯 | 知道 HTTP／MCP 存在 |
+| `core/cwa-client.js` | ✅ | 中央氣象署 API：授權碼只放請求網址（快取鍵不含）、回應快取、401／403 與 `success=false` 處理 | 解析業務欄位 |
+| `core/services/*.js` | ✅ transit、places、metro、traffic、intercity、weather／📝 trip、booking | 呼叫 client、正規化成共用格式、輸入容錯 | 知道 HTTP／MCP 存在 |
 | `core/services/*-mock.js` | ✅ | 介面相同的示範資料，穩定可重現 | 呼叫外部網路 |
 | `core/tools/` | ✅ | Tool registry：`defineTool({ name, title, description, pack, tier, card, input, run, speak })`；`callTool()` 驗證參數並回傳 `{ name, card, mode, data, text, speak }` | 依賴特定 transport |
 | `core/decide.js` | ✅ | 決策引擎：依資料＋使用者狀態替方案計分排序、硬限制、理由句（ADR-0010） | 呼叫模型或外部 API |
@@ -38,9 +39,11 @@
 | `core/agents/*.json` | 📝 | agent profile（ADR-0005）：system prompt、工具白名單、建議問題、免責、模型 | 寫程式邏輯 |
 | `core/providers/` | 📝 | 外部服務 adapter（ADR-0011）：`ridehail/uber.js` 深層連結；`mcp-client.js` 包裝外部 MCP（TDX 官方 MCP） | 直接被 server 呼叫 |
 | `core/nav.js` | ✅ | 導航深層連結、步行時間、出發時機（M3-01） | 呼叫外部 API |
-| `core/geo.js` | 📝 | WKT 解析（M3-02） | — |
-| `core/data/` | 📝 | `landmarks.json` 內建地標 | — |
-| `server/http.js` | ✅ | REST、`/api/v1/tools/:name`、遠端 `/mcp`、靜態檔、限流、CORS | 商業邏輯 |
+| `core/geo.js` | ✅ | WKT 解析成 `[[lat, lon]]`、路徑抽樣（M3-02） | 呼叫外部 API |
+| `core/data/` | ✅ | `landmarks.json` 內建地標（201 筆，座標近似值待校對） | — |
+| `server/http.js` | ✅ | REST、`/api/v1/tools/:name`、遠端 `/mcp`、`/api/docs`、靜態檔、限流、CORS；非 `UserError` 只回通用訊息、細節寫 log | 商業邏輯 |
+| `server/rest.js` | ✅ | REST 路由表（路徑、參數說明、handler）；`http.js` 與 OpenAPI 共用同一份 | 商業邏輯 |
+| `server/openapi.js` | ✅ | 由路由表＋tool registry 產生 OpenAPI 3.1（`/api/v1/openapi.json`）；`/api/docs` 提供 Swagger UI（只開放白名單檔案） | 手寫重複規格 |
 | `server/rate-limit.js` | ✅ | 每 IP 固定視窗限流（之後加 agent id） | — |
 | `mcp/create-server.js` | ✅ | 由 registry 註冊 MCP tools（`_meta`：pack、tier、card），回傳 `structuredContent: { card, mode, speak, data }` | 自行定義 tool |
 | `mcp/server.js` | ✅ | stdio 入口（`MCP_PACKS` 過濾） | — |
@@ -112,7 +115,7 @@ Claude 等外部 client 走 `/mcp` 時，順序相同，只是由 Claude 決定�
 | Token | 到期前 5 分鐘換新（token endpoint 每 IP 每分鐘 ≤ 20 次） |
 | 公車到站、站牌到站、捷運看板 | 20 秒 |
 | YouBike 車數 | 30 秒（站點 1 小時） |
-| 路況 | 60 秒 📝 |
+| 路況 | 60 秒（路段定義與形狀 24 小時） |
 | 路線、站序、形狀 | 1 小時 |
 | 車站清單 | 24 小時 |
 | 時刻表、票價 | 10 分鐘 |

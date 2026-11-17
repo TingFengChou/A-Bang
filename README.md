@@ -25,8 +25,11 @@
 ```bash
 npm install
 cp .env.example .env      # 填入金鑰；全部留空就是示範模式
-npm start                 # http://localhost:8787（PWA、/api/v1、/mcp）
-npm test
+npm start                 # http://localhost:8787（PWA、/api/v1、/mcp、/api/docs）
+npm run lint              # ESLint
+npm test                  # 單元＋整合測試（node:test）
+npx playwright install chromium   # 第一次跑 E2E 前下載瀏覽器
+npm run e2e               # Playwright E2E 冒煙測試（截圖在 test/screenshots/）
 ```
 
 | 金鑰 | 取得 | 沒有時 |
@@ -72,15 +75,20 @@ claude mcp add abang -e TDX_CLIENT_ID=… -e TDX_CLIENT_SECRET=… -- node /絕�
 | `youbike_nearby` | 附近 YouBike 可借可還 | ✅ |
 | `thsr_timetable`／`tra_timetable` | 高鐵／台鐵 OD 時刻表 | ✅ |
 | `rail_stations` | 高鐵／台鐵車站 | ✅ |
-| `metro_stations`／`metro_live_board` | 捷運車站與即時看板 | 📝 M3 |
-| `find_place` | 地名 → 座標 | 📝 M3 |
-| `traffic_status`、`intercity_bus`、`rail_fare`、`weather_now` | 路況、國道客運、票價、天氣 | 📝 M3 |
+| `metro_stations`／`metro_live_board` | 捷運車站與即時看板（北捷、桃捷機場線、中捷、高捷） | ✅ |
+| `find_place` | 地名、車站、俗稱 → 座標（內建地標） | ✅ |
+| `rail_fare` | 高鐵／台鐵票價 | ✅ |
+| `traffic_status` | 沿途國道路況（順暢／車多／塞車、延誤分鐘） | ✅ |
+| `intercity_bus` | 國道客運班次（含塞車延誤的預估抵達） | ✅ |
+| `weather_now` | 現在天氣與 3 小時降雨機率（中央氣象署；沒有授權碼時用示範資料） | ✅ |
 | `plan_trip` | 從 A 到 B：比較方案並依使用者狀態排序 | 📝 M3 |
 | `rail_booking_link`、`ridehail_link` | 官方訂票連結、叫車連結（需使用者確認） | 📝 M3 |
 
 完整規格：[`docs/MCP_TOOLS.md`](docs/MCP_TOOLS.md)。所有 tools 唯讀（`readOnlyHint`）；結果附 `structuredContent: { card, mode, speak, data }`。
 
 ## HTTP API
+
+API 文件：啟動後開 <http://localhost:8787/api/docs>（Swagger UI，可直接試呼叫）；規格 `GET /api/v1/openapi.json`（OpenAPI 3.1，由路由表與 tool registry 自動產生）。
 
 | Endpoint | 說明 |
 |---|---|
@@ -91,7 +99,7 @@ claude mcp add abang -e TDX_CLIENT_ID=… -e TDX_CLIENT_SECRET=… -- node /絕�
 | `POST /mcp`、`/mcp/:pack` | 遠端 MCP（Streamable HTTP、stateless） |
 | `GET /api/v1/bus/*`、`/bike/nearby`、`/thsr/*`、`/tra/*` | 舊版 REST（PWA 使用） |
 
-錯誤：`{ "error": "…" }`（400 參數、405 方法、413 過大、429 限流、502 上游）。
+錯誤：`{ "error": "…" }`（400 參數、405 方法、413 過大、429 限流、502 上游）。502 只回通用訊息，細節只寫伺服器 log。
 
 ## 環境變數
 

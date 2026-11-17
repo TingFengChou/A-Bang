@@ -1,7 +1,7 @@
 // 由 tool registry 建立 MCP server（stdio 與 HTTP 共用；ADR-0002、ADR-0006）
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { listTools, callTool } from '../core/tools/index.js';
-import { UserError } from '../core/util.js';
+import { UserError, publicMessage } from '../core/util.js';
 
 export const SERVER_INFO = { name: 'abang', version: '0.2.0' };
 
@@ -24,14 +24,14 @@ export function createMcpServer(svc, { packs } = {}) {
     }, async (args) => {
       try {
         const r = await callTool(svc, t.name, args);
-        const note = r.mode === 'demo' ? '【示範資料：尚未設定 TDX 金鑰，以下非真實營運資訊】\n' : '';
+        const note = r.mode === 'demo' && !t.static ? `${t.demoNote}\n` : '';
         return {
-          content: [{ type: 'text', text: note + r.text + '\n\n資料來源：交通部 TDX 運輸資料流通服務' }],
+          content: [{ type: 'text', text: note + r.text + `\n\n資料來源：${t.source}` }],
           structuredContent: { card: r.card, mode: r.mode, speak: r.speak, data: r.data },
         };
       } catch (e) {
-        const msg = e instanceof UserError ? e.message : `查詢失敗：${e.message}`;
-        return { isError: true, content: [{ type: 'text', text: msg }] };
+        if (!(e instanceof UserError)) console.error(e); // stdio 模式 stderr 不影響協定；細節不回給 client
+        return { isError: true, content: [{ type: 'text', text: publicMessage(e) }] };
       }
     });
   }

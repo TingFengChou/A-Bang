@@ -1,5 +1,12 @@
 // 共用工具：純 JS，Node 與瀏覽器皆可使用
 
+/** TDX 多語欄位取中文：{ Zh_tw } 或字串 */
+export const zh = (o) => (o && (o.Zh_tw ?? o)) || '';
+/** OData 字串常值跳脫（單引號重複） */
+export const odataStr = (s) => String(s).replace(/'/g, "''");
+/** 取回應中的陣列：本身是陣列，或包在 key 底下（例：{ Sections: [...] }） */
+export const arr = (j, key) => (Array.isArray(j) ? j : (key && j?.[key]) || []);
+
 /** 兩點距離（公尺），Haversine */
 export function distanceM(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -45,6 +52,17 @@ export function todayTW() {
   return new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 }
 
+/** 台灣時間的「現在」：{ date: 'YYYY-MM-DD', hhmm: 'HH:mm', weekday: 0–6（0＝週日） } */
+export function nowTW(now = Date.now()) {
+  const d = new Date(now + 8 * 3600e3);
+  const iso = d.toISOString();
+  return { date: iso.slice(0, 10), hhmm: iso.slice(11, 16), weekday: d.getUTCDay() };
+}
+
+/** "HH:mm" ↔ 當日分鐘數（可超過 24 小時，例如 25:10） */
+export const toMin = (t) => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
+export const toHHMM = (min) => { const m = Math.round(min); return `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+
 export function assertLatLon(lat, lon) {
   lat = Number(lat); lon = Number(lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < 21 || lat > 27 || lon < 118 || lon > 123) {
@@ -57,3 +75,8 @@ export function assertLatLon(lat, lon) {
 export class UserError extends Error {
   constructor(msg) { super(msg); this.name = 'UserError'; }
 }
+
+/** 非 UserError（上游、程式錯誤）對外一律回這句；細節只寫伺服器 log，避免洩漏上游回應或檔案路徑 */
+export const INTERNAL_ERROR_MSG = '資料來源暫時無法取得，請稍後再試。';
+/** 錯誤 → 可以給使用者看的訊息 */
+export const publicMessage = (e) => (e instanceof UserError ? e.message : INTERNAL_ERROR_MSG);

@@ -10,7 +10,7 @@
 
 ## 目前進度
 
-M0 ✅、M2 ✅、決策引擎 ✅、`speak` ✅、M3-01 導航 ✅；**M3 交通完整版進行中**（`docs/PLAN.md` 狀態看板）。M1 需 TDX 金鑰，只能在 Austin 本機做。
+M0 ✅、M2 ✅、決策引擎 ✅、`speak` ✅、M3-01 導航 ✅、M3-02 路線座標與形狀 ✅、M3-03 `find_place` ✅、M3-04 捷運 ✅、M3-05 票價 ✅、M3-06 路況 ✅、M3-07 國道客運 ✅、M3-08 天氣 ✅（真實資料待 CWA 授權碼）、品質基礎（E2E／Swagger／ESLint／CI）✅；**M3 交通完整版進行中**（`docs/PLAN.md` 狀態看板）。M1 需 TDX 金鑰，只能在 Austin 本機做。
 
 ## 必讀文件（依序）
 
@@ -40,26 +40,32 @@ M0 ✅、M2 ✅、決策引擎 ✅、`speak` ✅、M3-01 導航 ✅；**M3 交�
 npm install
 npm start            # http://localhost:8787（PWA ＋ /api/v1 ＋ /mcp）
 npm run mcp          # MCP server（stdio）
+npm run lint         # ESLint，要零錯誤
 npm test             # node:test，全部要過
+npm run e2e          # Playwright E2E 冒煙測試（示範模式、手機＋桌面，截圖在 test/screenshots/）
 npm run build:demo   # dist/demo.html 單檔示範版
 ```
 
-Node.js ≥ 20。`public/` 不引入前端框架或建置工具（原生 ES modules、免建置）；MCP App 卡片單檔打包用 esbuild。Playwright（Chromium）已可用，不要 `playwright install`。
+Node.js ≥ 20。`public/` 不引入前端框架或建置工具（原生 ES modules、免建置）；MCP App 卡片單檔打包用 esbuild。Playwright 是 devDependency，第一次跑 E2E 前要 `npx playwright install chromium`（CI 用 `--with-deps`）。API 文件：`/api/docs`（Swagger UI，規格 `/api/v1/openapi.json` 由 `server/rest.js` 路由表與 tool registry 自動產生，新增路由或 tool 不必手寫文件）。
+
+每輪驗證順序（`docs/LOOP.md` §1）：`npm run lint` → `npm test` → `npm run e2e` → `/code-review` → `/security-review`（需要時請 agy 獨立審查），commit 後推到目前的 PR 分支，不推 `main`。
 
 ## 目錄
 
 ```
 core/            唯一的資料與邏輯層
   tdx-client.js  TDX token／快取
+  cwa-client.js  中央氣象署授權碼／快取
   services/      <domain>.js ＋ <domain>-mock.js（介面相同）
-  tools/         registry：define.js、index.js、<pack>.js
+  tools/         registry：define.js、index.js、<pack>.js（領域大時分檔，例 metro.js，pack 仍為 transit）
   decide.js      決策引擎（ADR-0010）
   nav.js         導航連結、步行時間、出發時機（ADR-0011）
+  geo.js         WKT 路線形狀解析、路徑抽樣
   agent/         📝 M5：run.js、claude.js、demo-intent.js、events.js
   agents/        📝 M5：life.json（agent profile）
   providers/     📝 M3：ridehail/uber.js、mcp-client.js（外部 MCP）
-  data/          📝 M3：landmarks.json
-server/          http.js（REST、/mcp、靜態檔）、rate-limit.js
+  data/          landmarks.json（內建地標，座標待校對）
+server/          http.js（REST、/mcp、/api/docs、靜態檔）、rest.js（路由表）、openapi.js、rate-limit.js
 mcp/             create-server.js、server.js（stdio）
 public/          PWA；📝 ui/cards/（M4）、js/pages/agent.js（M5）
 test/            node:test；fixtures/
@@ -94,7 +100,8 @@ docs/            規格、ADR、原型、文件網站
 - [ ] 規格文件同步（`MCP_TOOLS.md`／`CARDS.md`／`AGENT.md`／`UX.md`／README／`.env.example`）
 - [ ] `docs/PLAN.md` 勾選＋狀態看板、`docs/PROGRESS.md` 加紀錄
 - [ ] 沒有金鑰、`.env`、個人位置資料進 repo
-- [ ] Conventional Commit（`feat(core): M3-01 …`）；不 push，除非 Austin 說可以
+- [ ] `npm run lint`、`npm run e2e` 全過；`/code-review`、`/security-review` 無未處理問題
+- [ ] Conventional Commit（`feat(core): M3-01 …`）；推到目前的 PR 分支，不推 `main`
 
 ## 卡住時
 

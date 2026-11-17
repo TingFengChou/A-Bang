@@ -1,6 +1,6 @@
 # 開發計畫與里程碑
 
-版本：v0.4（2026-11-17）
+版本：v0.5（2026-11-18）
 
 規則：
 
@@ -22,12 +22,12 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 | M0 基礎 | ✅ | — | — |
 | M1 TDX 實測 | ⛔ | M1-01 | TDX 金鑰、可連 TDX 的網路 |
 | M2 Registry＋遠端 MCP | ✅（Claude 實機連線待驗） | — | Austin 以 cloudflared 實測 |
-| M3 交通完整版 | 🚧 | M3-02 | `rail_booking_link` 需導訂票權限；`weather_now` 需 CWA 授權碼 |
+| M3 交通完整版 | 🚧 | M3-09 | `rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
 | M4 互動卡片 | 📝 | — | — |
 | M5 網頁 agent | 📝 | — | Claude 模式需 `ANTHROPIC_API_KEY`（示範模式不需要） |
 | M6 上線 | 📝 | — | 部署帳號、網域 |
 
-建議順序：M3-02 → M3-13 → M4 → M5（M5 的討論串與決策圖可在 M3 完成 `plan_trip` 後提前開工）。
+建議順序：M3-09 → M3-13 → M4 → M5（M5 的討論串與決策圖可在 M3 完成 `plan_trip` 後提前開工）。
 
 ## Austin 待辦（外部條件）
 
@@ -36,6 +36,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 - [ ] 申請中央氣象署開放資料平臺授權碼 → `.env` 的 `CWA_API_KEY`
 - [ ] 本機 `npm start` ＋ `cloudflared tunnel --url http://localhost:8787`，在 Claude 新增自訂連接器 `https://<隨機>.trycloudflare.com/mcp`，確認能列出並呼叫 tools
 - [ ] 本機執行 `node scripts/verify-tdx.js`、`node scripts/record-fixtures.js`（M1 完成後），把 fixtures commit
+- [ ] 校對 `core/data/landmarks.json` 座標（201 筆，Claude 依記憶整理的近似值；可對照 Google 地圖或 M1 的 TDX／TGOS 結果，校對完把 `verified` 改為 `true`）
 - [ ] （M5）取得 `ANTHROPIC_API_KEY`，設定每日預算
 - [ ] （M6）選定部署平台與網域
 
@@ -63,14 +64,14 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 | 待驗證 | 狀態 |
 |---|---|
 | `Bus/EstimatedTimeOfArrival/.../PassThrough/Station/{id}` | 未驗證 |
-| `Bus/Shape/City/{City}/{Route}` WKT 格式 | 未驗證 |
+| `Bus/Shape/City/{City}/{Route}` WKT 格式 | 未驗證（M3-02 假設欄位 `Geometry`、`LINESTRING`／`MULTILINESTRING`；`core/geo.js` 防禦性解析） |
 | 站牌 `StopPosition` 於各縣市完整度 | 未驗證 |
-| `Rail/Metro/LiveBoard/{Op}` 各系統欄位 | 未驗證 |
-| 台鐵／高鐵 ODFare 欄位 | 未驗證 |
-| 高速公路旅行時間、道路事件、國道客運端點 | 未驗證 |
-| 地理編碼（TDX 或 TGOS） | 未驗證 |
+| `Rail/Metro/LiveBoard/{Op}` 各系統欄位 | 未驗證（M3-04 假設 `EstimateTime` 為分鐘、`DestinationStationName`／`TripHeadSign`、可用 `$filter=StationID eq …`） |
+| 台鐵／高鐵 ODFare 欄位 | 未驗證（M3-05 假設 `Fares[].TicketType／FareClass／CabinClass／Price`、台鐵 v3 `ODFares[]` 每車種一筆；代碼對照與台鐵 `TrainType` 意義待確認） |
+| 高速公路旅行時間、道路事件、國道客運端點 | 未驗證（M3-07 假設 `StopOfRoute/InterCity`、`Schedule/InterCity` 的 `Timetables[].ServiceDay／StopTimes`；客運票價端點未知；M3-06 假設 `SectionShape`／`Section`／`Live`／`Live/News` 的 Freeway 端點與 `SectionShapes`、`Sections`、`LiveTraffics`、`Newses` 包裝；`TravelSpeed` 為 0 是「完全停滯」還是「無資料」（目前視為無資料）；走廊 3 km 可能同時納入平行國道（國 1／國 3），需以實際路段資料決定是否依 `RoadName` 只取一條主線） |
+| 地理編碼（TDX 或 TGOS） | 未驗證（`find_place` 目前只查內建地標） |
 | 導訂票 API 端點與參數（需權限） | 未驗證 |
-| CWA 觀測與鄉鎮預報欄位 | 未驗證 |
+| CWA 觀測與鄉鎮預報欄位 | 未驗證（M3-08 假設 `records.Station[]`（`GeoInfo.Coordinates` WGS84、`WeatherElement.AirTemperature／Weather`）、雨量站 `O-A0002-001` 的 `RainfallElement.Past1hr.Precipitation`（`-998` 雨跡等特殊值目前視為沒有資料）、`F-D0047-089` 可用 `LocationName` 篩、上層縣市欄位 `LocationsName`（同名鄉鎮以縣市區分）、時段 `EndTime`、元素名「3小時降雨機率」） |
 | OData 空白用 `%20`（已實作）是否必要 | 未驗證 |
 
 ## M2 Tool registry＋遠端 MCP ✅
@@ -92,13 +93,14 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 🚧
 - [x] M3-00 決策引擎 `core/decide.js`（7 項測試，2026-11-17）
 - [x] M3-00b 每個 tool 的 `speak`（2026-11-17）
 - [x] M3-01 導航：`core/nav.js`（`navLinks(lat, lon, mode)`、`leaveAt(etaSec, distanceM)`）；`bus_nearby_stations`、`youbike_nearby` 每筆附 `nav`（2026-11-17：另有 `walkMinutes`、`withNav`；nav 在 tool 層包裝，7 項測試）
-- [ ] M3-02 `bus_route_eta` 站點加 `lat/lon`；`core/geo.js` 解析 Bus Shape WKT → `shape`（mock 也要有）
-- [ ] M3-03 `core/data/landmarks.json`（≥ 150 筆：名稱、別名、座標、縣市）＋ `core/services/places.js` ＋ tool `find_place`
-- [ ] M3-04 `core/services/metro.js` ＋ mock ＋ tools `metro_stations`、`metro_live_board`（卡片 `metro`）
-- [ ] M3-05 `rail_fare`（台鐵／高鐵票價）
-- [ ] M3-06 `traffic_status`（pack transit；mock 提供「順暢」「壅塞」兩種情境，以 `DEMO_TRAFFIC=jam` 切換）
-- [ ] M3-07 `intercity_bus`（國道客運；`delayRisk` 依路況）
-- [ ] M3-08 `weather_now`（pack weather；`CWA_API_KEY`；mock 以 `DEMO_WEATHER=rain` 切換）
+- [x] M3-02 `bus_route_eta` 站點加 `lat/lon`；`core/geo.js` 解析 Bus Shape WKT → `shape`（mock 也要有）（2026-11-17：站點另附 `nav`；形狀端點失敗時省略 `shape` 不影響到站；9 項測試）
+- [x] M3-03 `core/data/landmarks.json`（≥ 150 筆：名稱、別名、座標、縣市）＋ `core/services/places.js` ＋ tool `find_place`（2026-11-17：201 筆、座標待校對；tool 加 `source`／`static` 正確標示來源；8 項測試）
+- [x] M3-04 `core/services/metro.js` ＋ mock ＋ tools `metro_stations`、`metro_live_board`（卡片 `metro`）（2026-11-17：四系統；同名多線合併；看板空資料回空 trains；tools 在 `core/tools/metro.js`；6 項測試）
+- [x] M3-05 `rail_fare`（台鐵／高鐵票價）（2026-11-17：代碼轉中文、成人單程在前、未知代碼保留；台鐵車種只用資料自帶名稱；3 項測試）
+- [x] M3-06 `traffic_status`（pack transit；mock 提供「順暢」「壅塞」兩種情境，以 `DEMO_TRAFFIC=jam` 切換）（2026-11-17：沿途路段以走廊＋方向判斷；壅塞累計 5 km 即 jam；查不到為 null；`resolvePoint` 供 plan_trip 共用；6 項測試）
+- [x] M3-07 `intercity_bus`（國道客運；`delayRisk` 依路況）（2026-11-17：站牌 1.5 km 配對、時刻表、含延誤抵達；票價端點未確認先回 null；`T.point` 共用；6 項測試）
+- [x] M3-08 `weather_now`（pack weather；`CWA_API_KEY`；mock 以 `DEMO_WEATHER=rain` 切換）（2026-11-18：`cwa-client`、觀測＋鄉鎮預報、`weatherMode` 與 TDX 獨立；tool 加 `modeOf`／`demoNote`；6 項測試；真實資料待授權碼驗證）
+- [x] M3-QA 品質基礎（使用者追加）：Playwright E2E 冒煙測試（`npm run e2e`）、Swagger／OpenAPI 3.1（`server/rest.js` 路由表＋`server/openapi.js`，`/api/docs`）、ESLint（`npm run lint`）、CI 加 lint 與 E2E；code-review／security-review／agy 審查修正（雨量改取雨量站 `Past1hr`、客運 ISO 出發日與隔日班次、5xx 不外洩訊息、Swagger 白名單 `Object.hasOwn`、`traffic_status` 輸出與 `intercity_bus` 一致）（2026-11-18；`npm test` 89 項、E2E 10 項）
 - [ ] M3-09 `core/providers/ridehail/uber.js` ＋ tool `ridehail_link`（pack ridehail、L2）；估價先以距離估算並標 `estimated`
 - [ ] M3-10 `core/services/trip.js` `planTrip()`：候選方案（`MCP_TOOLS.md` §7 規則 1–7）→ 自動狀態 → `decide()` → `ranking`；tool `plan_trip`（卡片 `trip`）
 - [ ] M3-11 `plan_trip` 固定 10 組 OD fixture 測試（含：雨天、塞車、趕時間＋arriveBy、帶行李、跨城），斷言第一名與理由句關鍵字

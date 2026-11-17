@@ -3,9 +3,13 @@ on:
   push:
     branches: [main]
   pull_request:
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      DEMO_MODE: '1'   # CI 不連 TDX／氣象署，一律示範模式 + fixture
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -13,7 +17,17 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run lint
       - run: npm test
-        env:
-          DEMO_MODE: '1'   # CI 不連 TDX，一律示範模式 + fixture
       - run: npm run build:demo
+      - name: 安裝 Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - name: 上傳 E2E 截圖
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: test/screenshots/
+          if-no-files-found: ignore
+          retention-days: 7

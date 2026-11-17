@@ -77,11 +77,11 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 ### `metro`（`metro_live_board`）
 
-`{ system, station, trains: [{ line, lineColor?, destination, etaMin, status }] }`；每 20 秒刷新。
+`{ system, station, stationId, lat?, lon?, nav, updatedAt, trains: [{ line, lineId, lineColor?, destination, etaMin, status }] }`；每 20 秒刷新。`trains` 為空時顯示「目前沒有即時到站資料」。`lineColor` M4 再依 `lineId` 補（M3-04 未提供）。
 
 ### `timetable`（`thsr_timetable`、`tra_timetable`、`intercity_bus`）
 
-`{ system: 'THSR'|'TRA'|'BUS', from, to, date, trains: [{ trainNo, type?, depart, arrive, minutes, terminal?, fare?, excluded?: string }] }`；
+`{ system: 'THSR'|'TRA'|'BUS', from, to, date, trains: [{ trainNo, type?, depart, arrive, minutes, terminal?, fare?, excluded?: string }] }`；`BUS`（`intercity_bus`）另有 `traffic`、`delayRisk`，每班可有 `arriveWithDelay`、`delayMin`、`estimated`、`board`、`alight`、`walkFromM`、`walkToM`（有 `arriveWithDelay` 時以它為主、原抵達時間劃線）；
 `excluded` 有值時灰階並顯示原因（例：「會遲到」）；按「訂票」→ `rail_booking_link` → `host.openLink(url, { confirm })`。
 
 ### `trip`（`plan_trip`）

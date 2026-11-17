@@ -9,7 +9,7 @@ const svc = createServices({ forceMock: true });
 
 test('每個 tool 都有 pack、tier、描述與 JSON Schema', () => {
   const tools = listTools();
-  assert.equal(tools.length, 8);
+  assert.equal(tools.length, 15);
   for (const t of tools) {
     assert.match(t.name, /^[a-z][a-z0-9_]*$/);
     assert.ok(t.description.length > 10, t.name);
@@ -17,7 +17,7 @@ test('每個 tool 都有 pack、tier、描述與 JSON Schema', () => {
     const d = describeTool(t);
     assert.equal(d.inputSchema.type, 'object', t.name);
   }
-  assert.deepEqual(listPacks(), ['transit']);
+  assert.deepEqual(listPacks(), ['transit', 'weather']);
   assert.equal(listTools({ packs: ['nope'] }).length, 0);
 });
 
@@ -37,6 +37,18 @@ test('每個 tool 都有 speak（討論串用的一句話）', async () => {
   const yb = await callTool(svc, 'youbike_nearby', { lat: 25.0478, lon: 121.517 });
   assert.match(yb.speak, /還有 \d+ 台|暫時都沒有車/);
   assert.ok(yb.speak.length < 80);
+});
+
+test('rail_fare：示範模式兩系統、speak 用成人單程最低與最高', async () => {
+  const t = await callTool(svc, 'rail_fare', { system: 'THSR', from: '台北', to: '左營' });
+  const adult = t.data.fares.filter((f) => f.adultOneWay);
+  assert.ok(adult.length >= 2 && t.data.fares[0].adultOneWay);
+  assert.ok(adult.every((f) => f.cabin && Number.isInteger(f.price)));
+  assert.equal(t.speak, `台北到左營高鐵成人單程 ${adult[0].price.toLocaleString('en-US')} 元起（最高 ${adult.at(-1).price.toLocaleString('en-US')} 元）。`);
+  const r = await callTool(svc, 'rail_fare', { system: 'TRA', from: '臺北', to: '花蓮' });
+  assert.ok(r.data.fares.every((f) => f.trainType && !f.cabin));
+  assert.match(r.text, /^台鐵 臺北 → 花蓮 票價：/);
+  await assert.rejects(callTool(svc, 'rail_fare', { system: 'THSR', from: '台北', to: '花蓮' }), /找不到高鐵車站/);
 });
 
 test('參數驗證：型別、範圍、未知 tool', async () => {

@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { defineTool, T, clip } from './define.js';
 import { withNav } from '../nav.js';
+import { resolveCity } from '../cities.js';
 
 const PACK = 'transit';
 const fmtM = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} 公里` : `${m} 公尺`);
@@ -25,7 +26,7 @@ export const busSearchRoutes = defineTool({
 export const busRouteEta = defineTool({
   name: 'bus_route_eta',
   title: '公車路線即時到站',
-  description: '查詢一條公車路線所有站牌的預估到站時間（去程與返程）。etaSec 為秒數；statusText 為易讀文字。',
+  description: '查詢一條公車路線所有站牌的預估到站時間（去程與返程）。etaSec 為秒數；statusText 為易讀文字；有座標的站牌附 lat/lon 與導航連結 nav；shape 為去程路線形狀 [[lat, lon]]（資料有提供時）。',
   pack: PACK, tier: 'L1', card: 'bus-route',
   input: { city: T.city, routeName: z.string().min(1).describe('完整路線名稱，例如 307') },
   speak: (d) => {
@@ -33,7 +34,8 @@ export const busRouteEta = defineTool({
     return `${d.routeName} 目前有 ${near.length} 個站即將有車${near.length ? `（例如${near.slice(0, 2).join('、')}）` : ''}。`;
   },
   async run(svc, a) {
-    const data = await svc.bus.routeEta(a);
+    const raw = await svc.bus.routeEta(a);
+    const data = { ...raw, directions: raw.directions.map((d) => ({ ...d, stops: withNav(d.stops) })) };
     const lines = [`${data.routeName} 公車即時到站（更新：${data.updatedAt}）`];
     for (const d of data.directions) {
       const near = d.stops.filter((s) => s.etaSec != null && s.etaSec < 180).map((s) => s.stopName);
@@ -137,4 +139,60 @@ export const railStations = defineTool({
   },
 });
 
-export default [busSearchRoutes, busRouteEta, busNearbyStations, busStationEta, youbikeNearby, thsrTimetable, traTimetable, railStations];
+const cityName = (c) => resolveCity(c)?.name || c;
+const KIND = { station: '車站', airport: '機場', landmark: '景點', market: '夜市商圈', school: '學校', hospital: '醫院', government: '機關' };
+
+export const findPlace = defineTool({
+  name: 'find_place',
+  title: '找地點座標',
+  description: '把地名、車站、景點、俗稱（例：台北101、北車、逢甲夜市、小港機場）轉成座標，最多 5 筆，最符合的在前；每筆附 city 與導航連結 nav。查到座標後可接 bus_nearby_stations、youbike_nearby 或 plan_trip。目前只查內建地標與車站，找不到時請換個說法或加上縣市。',
+  pack: PACK, tier: 'L1',
+  source: '阿幫內建地標資料（座標為近似值）', static: true,
+  input: {
+    query: z.string().trim().min(1).max(50).describe('地點名稱或俗稱，例如 台北101、高雄車站、逢甲夜市'),
+    city: T.city.optional().describe('限定縣市（可省略），例如 Taichung 或「台中市」'),
+  },
+  speak: (d, a) => (d.length
+    ? `「${a.query}」最符合的是${d[0].name}（${cityName(d[0].city)}）${d.length > 1 ? `，另有 ${d.length - 1} 個相近地點` : ''}。`
+    : `找不到「${a.query}」，可以換個說法或加上縣市。`),
+  async run(svc, a) {
+    const data = withNav(await svc.places.find(a));
+    const text = data.length
+      ? clip([`「${a.query}」找到 ${data.length} 個地點：`, ...data.map((p) => `- ${p.name}（${cityName(p.city)}，${KIND[p.kind] || p.kind}）：lat=${p.lat}, lon=${p.lon}`)])
+      : `找不到「${a.query}」。目前只查內建地標與車站，請換個說法（例如完整名稱）或加上縣市。`;
+    return { data, text };
+  },
+});
+
+const SYS = { THSR: '高鐵', TRA: '台鐵' };
+const fmtPrice = (n) => `${n.toLocaleString('en-US')} 元`;
+const fareLabel = (f) => [f.trainType, f.cabin, f.fareClass, f.ticketType].filter(Boolean).join('／');
+
+export const railFare = defineTool({
+  name: 'rail_fare',
+  title: '高鐵／台鐵票價',
+  description: '查詢高鐵或台鐵兩站之間的票價。fares 每筆有票種、身分、車廂（高鐵）或車種（台鐵）與 price（新台幣元）；adultOneWay=true 為成人單程票，排在最前面。',
+  pack: PACK, tier: 'L1',
+  input: {
+    system: z.enum(['THSR', 'TRA']).describe('THSR=高鐵, TRA=台鐵'),
+    from: z.string().trim().min(1).describe('起站，中文站名或代碼，例如 台北'),
+    to: z.string().trim().min(1).describe('訖站，中文站名或代碼，例如 左營'),
+  },
+  speak: (d) => {
+    const a = d.fares.filter((f) => f.adultOneWay);
+    if (!a.length) return `${d.from}到${d.to}的${SYS[d.system]}票價暫時查不到。`;
+    const min = a[0], max = a.at(-1);
+    return min.price === max.price
+      ? `${d.from}到${d.to}${SYS[d.system]}成人單程 ${fmtPrice(min.price)}。`
+      : `${d.from}到${d.to}${SYS[d.system]}成人單程 ${fmtPrice(min.price)}起（最高 ${fmtPrice(max.price)}）。`;
+  },
+  async run(svc, a) {
+    const data = a.system === 'THSR' ? await svc.rail.thsrFare(a) : await svc.rail.traFare(a);
+    const text = data.fares.length
+      ? clip([`${SYS[data.system]} ${data.from} → ${data.to} 票價：`, ...data.fares.map((f) => `- ${fareLabel(f)}：${fmtPrice(f.price)}`)])
+      : `${SYS[data.system]} ${data.from} → ${data.to} 目前查不到票價資料。`;
+    return { data, text };
+  },
+});
+
+export default [busSearchRoutes, busRouteEta, busNearbyStations, busStationEta, youbikeNearby, thsrTimetable, traTimetable, railStations, railFare, findPlace];

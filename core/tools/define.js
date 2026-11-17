@@ -12,9 +12,15 @@ import { z } from 'zod';
  * @property {Record<string, import('zod').ZodTypeAny>} input  zod raw shape
  * @property {(svc: any, args: any) => Promise<{ data: any, text: string }>} run
  * @property {(data: any, args: any) => string} [speak]  討論串中工具的一句話發言（由資料決定，不經模型；ADR-0009）
+ * @property {string} [source]   資料來源標示，預設 TDX（DEFAULT_SOURCE）
+ * @property {boolean} [static]   資料不依賴 TDX 金鑰（內建資料），示範模式也不加「示範資料」提示
+ * @property {(svc: any) => 'live'|'demo'} [modeOf]  資料來源不是 TDX 時，自己判斷 live／demo（例：天氣看 CWA 授權碼）
+ * @property {string} [demoNote]  示範模式提示，預設說明 TDX 金鑰（DEFAULT_DEMO_NOTE）
  */
 
 const TIERS = ['L1', 'L2', 'L3'];
+export const DEFAULT_SOURCE = '交通部 TDX 運輸資料流通服務';
+export const DEFAULT_DEMO_NOTE = '【示範資料：尚未設定 TDX 金鑰，以下非真實營運資訊】';
 
 /** @param {ToolDef} def */
 export function defineTool(def) {
@@ -23,7 +29,7 @@ export function defineTool(def) {
   }
   if (!/^[a-z][a-z0-9_]*$/.test(def.name)) throw new Error(`tool 名稱需為 snake_case：${def.name}`);
   if (!TIERS.includes(def.tier)) throw new Error(`tool ${def.name} 的 tier 必須是 L1/L2/L3`);
-  return Object.freeze({ ...def, schema: z.object(def.input) });
+  return Object.freeze({ source: DEFAULT_SOURCE, static: false, demoNote: DEFAULT_DEMO_NOTE, ...def, schema: z.object(def.input) });
 }
 
 // ── 共用輸入型別 ──
@@ -32,6 +38,11 @@ export const T = {
   lon: z.number().min(118).max(123).describe('經度 (WGS84)，例如台北車站 121.5170'),
   city: z.string().min(1).describe('縣市，可用 Taipei / NewTaipei / Taichung / Kaohsiung… 或中文「台北市」'),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式需為 YYYY-MM-DD').optional().describe('乘車日期 YYYY-MM-DD，預設今天（台灣時間）'),
+  /** 座標或地名（tool 內用 resolvePoint 轉成座標） */
+  point: (label) => z.union([
+    z.object({ lat: z.number().min(21).max(27), lon: z.number().min(118).max(123) }),
+    z.string().trim().min(1).max(50),
+  ]).describe(`${label}：座標 { lat, lon } 或地名（例如「台北車站」，會用 find_place 轉成座標）`),
   radius: (def, max = 1000) => z.number().int().min(50).max(max).optional().describe(`搜尋半徑（公尺），預設 ${def}，上限 ${max}`),
 };
 
