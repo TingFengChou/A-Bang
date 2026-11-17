@@ -90,6 +90,10 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 ```
 ```
 
+### 3.3 執行器（✅ M5-04）
+
+`core/agent/run.js`：`validateRequest`（訊息 ≤ 500 字、≤ 10 則、最後一則是使用者、`userState.picked` 只能是已知狀態）；`execTools(svc, calls, emit, { profile, nextId, picked })`（平行：先送全部 `tool_start`，再依完成順序送 `tool_result`；`plan_trip` 成功後送 `decision`；不在 profile 白名單的 tool 回 `ok:false`；錯誤訊息經 `publicMessage`，不外洩上游細節）；`runDemo(svc, body, emit)`（示範模式：`status` → 每段 `agent_note`＋工具 → `discussion_end` → `text` → `done`；某段失敗就停止往下；最多 5 輪）。Claude 模式（M5-05）共用 `execTools`。
+
 ## 4. Claude 模式
 
 - SDK：`@anthropic-ai/sdk`；模型 `ANTHROPIC_MODEL`（預設 `claude-haiku-5-5`，需要較強推理時 `claude-sonnet-5-5`）。

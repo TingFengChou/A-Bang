@@ -24,7 +24,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | M2 Registry＋遠端 MCP | ✅（Claude 實機連線待驗） | — | Austin 以 cloudflared 實測 |
 | M3 交通完整版 | ✅（2026-11-18 驗收；M3-12 真實導訂票 ⛔） | — | 待 Austin：無狀態市區短程叫車排第一是否合理（ADR-0010）；`rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
 | M4 互動卡片 | 🚧（M4-01／02／03／07 ✅） | M4-04（host-mcp-app）⛔ 待新依賴同意 | M4-04 需新增依賴 `@modelcontextprotocol/ext-apps`（待 Austin 同意） |
-| M5 網頁 agent | 🚧 | M5-04 | Claude 模式需 `ANTHROPIC_API_KEY`（示範模式不需要） |
+| M5 網頁 agent | 🚧 | M5-06（M5-05 待決定 SDK／fetch） | Claude 模式需 `ANTHROPIC_API_KEY`（示範模式不需要） |
 | M6 上線 | 📝 | — | 部署帳號、網域 |
 
 建議順序：M4-04 起需新增依賴（待 Austin）；等待期間可先做 M5 不依賴卡片 host 的部分（事件協定、示範模式 agent）。
@@ -133,7 +133,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 - [x] M5-01 🧩 `core/agents/life.json` ＋ zod 驗證；prompt 組裝順序：平台政策 → 工具包護欄 → agent 設定 → 使用者（2026-11-18：`core/agents/index.js` 與 registry 交叉檢查；`core/agent/prompt.js`；3 項測試）
 - [x] M5-02 `core/agent/events.js`：事件型別與建立函式（`AGENT.md` §事件）＋測試（2026-11-18：`ev.*`、`toNdjson`、`mergeStates`、`TOOL_ROLES`；狀態來源統一 `user`；4 項測試）
 - [x] M5-03 `core/agent/demo-intent.js`：規則式意圖（`AGENT.md` 示範模式表），產生與 Claude 模式相同事件（2026-11-18：地標比對擷取地點、抵達時間、狀態關鍵字、6 種意圖的分段計畫與總結；6 個建議問題皆可完整執行；6 項測試）
-- [ ] M5-04 `core/agent/run.js`：共用執行器（呼叫 tool → `tool_start`/`tool_result` → `plan_trip` 時發 `decision`）
+- [x] M5-04 `core/agent/run.js`：共用執行器（呼叫 tool → `tool_start`/`tool_result` → `plan_trip` 時發 `decision`）（2026-11-18：`validateRequest`、`execTools`（白名單、錯誤不外洩）、`runDemo`；picked 狀態帶進計分並標示；5 項測試）
 - [ ] M5-05 `core/agent/claude.js`：Claude tool-use 迴圈（`claude-haiku-5-5`），`agent_note` 來自模型、`speak` 來自資料
 - [ ] M5-06 `POST /api/v1/agent` NDJSON 串流；🧩 限流與計量以 agent id 為單位；每日預算
 - [ ] M5-07 🧩 `client_tool_call`／`clientToolResults`；網頁實作 `device_location`

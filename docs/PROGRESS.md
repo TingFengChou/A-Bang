@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M5-04 Agent 共用執行器
+- 做了：`core/agent/run.js`：`validateRequest`、`execTools`（平行、先 start 後依完成順序 result、plan_trip 後 decision、profile 白名單、錯誤經 publicMessage）、`runDemo`（示範模式完整事件流；picked 狀態帶進 plan_trip 並在 decision 標 `picked`）
+- 測試：npm run lint 無錯誤；npm test 164 項全過（新增 5 項）
+- 文件：AGENT §3.3、TESTING、PLAN、CLAUDE
+- 下一個：M5-06（`POST /api/v1/agent` NDJSON；M5-05 Claude 模式待決定 SDK 或 fetch）
+- 卡住：同前
+
 ## 2026-11-18 M5-03 示範模式意圖
 - 做了：`core/agent/demo-intent.js`：`placesInText`（內建地標名稱／別名，長的優先、車站短名）、`arriveByOf`、狀態關鍵字、`parseIntent`（trip、bus_route、youbike、nearby_bus、metro、rail、unknown）、`demoSteps`（分段計畫，`agent_note` 以 @角色開頭）、`demoSummary`
 - 測試：npm run lint 無錯誤；npm test 159 項全過（新增 6 項；profile 的 6 個建議問題都能以示範資料完整執行）
