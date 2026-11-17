@@ -7,7 +7,7 @@
 - **一份渲染程式，三個地方用**：網頁 agent（直接渲染）、MCP Apps（`ui://abang/cards.html` 單檔）、App（WebView 或依契約原生實作）。
 - **先定契約**：`public/ui/cards/schema/<card>.v1.json`（JSON Schema 2020-12）。卡片只讀契約內欄位；tool 輸出以測試驗證符合契約。
 - **不直接 fetch**：卡片只能透過 `host` 介面取資料或互動。
-- **文字集中**：`public/ui/cards/i18n/zh-TW.js`（🧩 多語）。
+- **文字集中**：`public/ui/cards/i18n/zh-TW.js`（🧩 多語；✅ M4-03：`t(key, vars)`，`{name}` 佔位符，缺鍵回傳鍵本身；新增語言複製本檔、鍵相同）。
 - **單檔、零外部資源**：MCP Apps iframe 的 CSP 預設拒絕外部資源；圖示用內嵌 SVG。
 
 ## 2. 輸入：`CardPayload`

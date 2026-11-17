@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M4-03 卡片文字字典
+- 做了：`public/ui/cards/i18n/zh-TW.js`：`t(key, vars)`、`MESSAGES`（共通、L2 確認視窗、bus-route、bus-station、nearby、youbike、metro、timetable、trip）
+- 測試：npm run lint 無錯誤；npm test 144 項全過（新增 3 項）
+- 文件：CARDS §1、TESTING、PLAN、CLAUDE
+- 下一個：M4-02（卡片渲染）
+- 卡住：M4-04 起需新增依賴 `@modelcontextprotocol/ext-apps`（待 Austin）
+
 ## 2026-11-18 M4-01 卡片資料契約
 - 做了：`public/ui/cards/schema/` 7 種契約（bus-route、bus-station、nearby、youbike、metro、timetable、trip；JSON Schema 2020-12 子集）＋零依賴驗證器 `validate.js`；`bus_nearby_stations`、`youbike_nearby`、`bus_station_eta` 的 `data` 改物件（`stations`／`arrivals`＋查詢參數）；`callTool` 回 `v`（有卡片時）與 `args`，MCP `structuredContent` 帶 `v`／`tool`／`args`；OpenAPI 更新。新分支 `dev/m4`（疊在 PR #2 上）
 - 測試：npm run lint 無錯誤；npm test 141 項全過（新增 14 項 cards-schema）；npm run e2e 10 項全過
