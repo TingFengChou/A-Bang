@@ -14,7 +14,8 @@ export const FARE_BASIS = '依臺北市計程車費率與道路距離（直線 �
 /** 距離 → 車資估算區間 { low, high, distanceKm, currency, estimated, basis } */
 export function estimateFare(straightM) {
   const km = (straightM / 1000) * FARE.roadFactor;
-  const steps = Math.max(0, Math.ceil((km - FARE.baseKm) / FARE.stepKm));
+  // 先以公尺整數計算，避免浮點誤差在跳表邊界多算一跳
+  const steps = Math.max(0, Math.ceil(Math.round((km - FARE.baseKm) * 1000) / Math.round(FARE.stepKm * 1000)));
   const low = FARE.baseTWD + steps * FARE.stepTWD;
   const high = Math.ceil((low * FARE.highFactor) / 5) * 5;
   return { low, high, distanceKm: +km.toFixed(1), currency: 'TWD', estimated: true, basis: FARE_BASIS };

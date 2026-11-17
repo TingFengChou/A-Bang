@@ -51,3 +51,7 @@ test('ridehail_link tool：L2、pack ridehail、地名轉座標、估價、確�
   await assert.rejects(callTool(svc, 'ridehail_link', { to: '不存在的地方xyz' }), /找不到/);
   await assert.rejects(callTool(svc, 'ridehail_link', { to: '台北101', provider: 'lyft' }), /參數錯誤/);
 });
+
+test('estimateFare：跳表邊界不因浮點多算一跳', () => {
+  assert.equal(estimateFare((1.45 / 1.3) * 1000).low, 90);
+});
