@@ -209,7 +209,8 @@ footer{color:var(--faint);font-size:13px;padding:24px 0}
     <tr><td>交通完整版（捷運、地點、路況、天氣、客運、票價、行程、導航、訂票、叫車）</td><td><span class="pill done">M3 完成</span></td><td>18 個 tools 在示範模式皆可用；真實欄位待 M1；導訂票待 TDX 權限</td></tr>
     <tr><td>TDX 真實資料驗證</td><td><span class="pill next">M1 需金鑰</span></td><td>只能在本機執行；可與 M3 並行</td></tr>
     <tr><td>網頁 agent（問阿幫：討論串、決策圖、結論卡）</td><td><span class="pill done">M5 完成</span></td><td>Claude、地端模型（Ollama 等 OpenAI 相容）、示範模式三選一（ADR-0012）；Claude 實機待金鑰</td></tr>
-    <tr><td>互動卡片（MCP App）、上線</td><td><span class="pill plan">M4、M6</span></td><td>規格已定：<code>CARDS.md</code>；M4-04 起待新依賴同意</td></tr>
+    <tr><td>互動卡片（網頁＋MCP Apps）</td><td><span class="pill done">M4 完成</span></td><td>7 種卡片共用一份渲染；<code>ui://abang/cards.html</code> 單檔；AppBridge E2E；Claude 實測待本機</td></tr>
+    <tr><td>上線</td><td><span class="pill plan">M6</span></td><td>Dockerfile、健康檢查、部署</td></tr>
   </table></div>
 </section>
 
@@ -374,7 +375,7 @@ footer{color:var(--faint);font-size:13px;padding:24px 0}
     <tr><td>providers</td><td><code>core/providers/</code></td><td>叫車 adapter、外部 MCP（TDX 官方）</td><td><span class="pill done">叫車</span> <span class="pill plan">外部 MCP</span></td></tr>
     <tr><td>Agent</td><td><code>core/agent/</code>、<code>core/agents/*.json</code></td><td>Claude 迴圈、示範意圖、事件串流、狀態合併；agent profile</td><td><span class="pill plan">M5</span></td></tr>
     <tr><td>出口</td><td><code>server/</code>、<code>mcp/</code></td><td>REST、遠端 MCP、agent API、限流；不放商業邏輯</td><td><span class="pill done">完成</span></td></tr>
-    <tr><td>卡片</td><td><code>public/ui/cards/</code></td><td>依資料契約渲染，網頁與 MCP Apps 共用</td><td><span class="pill plan">M4</span></td></tr>
+    <tr><td>卡片</td><td><code>public/ui/cards/</code></td><td>依資料契約渲染，網頁與 MCP Apps 共用</td><td><span class="pill done">M4</span></td></tr>
   </table></div>
   <h3>一次「阿幫・生活」對話的事件</h3>
 <pre><code>{"type":"status","mode":"demo","profile":"life"}
@@ -806,7 +807,7 @@ TDX_CLIENT_SECRET=你的Secret</code></pre></li>
     <div class="card"><span class="k">M1</span><div><h4>TDX 實測與 fixture 錄製</h4><p>驗證所有端點（含路況、客運、票價、導訂票、CWA）、錄製真實回應、修正正規化</p></div><span class="pill next">需金鑰・本機</span></div>
     <div class="card"><span class="k">M2</span><div><h4>Tool registry＋遠端 MCP</h4><p>tool 只定義一次；<code>/mcp</code>、<code>/mcp/:pack</code>；REST tools；限流；pack／tier</p></div><span class="pill done">完成</span></div>
     <div class="card"><span class="k">M3</span><div><h4>交通完整版</h4><p>✅ 決策引擎、speak；導航、路線座標、地點、捷運、票價、路況、客運、天氣、叫車、<code>plan_trip</code>（10 組 OD 測試）、導訂票、metrics</p></div><span class="pill next">進行中</span></div>
-    <div class="card"><span class="k">M4</span><div><h4>互動卡片</h4><p>7 種卡片資料契約（JSON Schema）、渲染、host 介面、MCP Apps 單檔、自動刷新、AppBridge 測試</p></div><span class="pill plan">規劃</span></div>
+    <div class="card"><span class="k">M4</span><div><h4>互動卡片</h4><p>7 種卡片資料契約（JSON Schema）、渲染、host 介面、MCP Apps 單檔、自動刷新、AppBridge 測試</p></div><span class="pill done">完成</span></div>
     <div class="card"><span class="k">M5</span><div><h4>民眾網頁 agent</h4><p>agent profile、事件、示範意圖、Claude／地端模型迴圈；討論串、決策圖、結論卡、輕量 3D；Playwright 截圖</p></div><span class="pill done">完成</span></div>
     <div class="card"><span class="k">M6</span><div><h4>上線準備</h4><p>Docker、healthz、log、無障礙、Lighthouse、部署、文件站</p></div><span class="pill plan">規劃</span></div>
     <div class="card"><span class="k">M7</span><div><h4>反詐騙 agent</h4><p>165 資料同步、詐騙特徵規則庫、風險卡片、L2 護欄</p></div><span class="pill plan">下一階段</span></div>

@@ -19,7 +19,7 @@ export default [
     },
   },
   {
-    files: ['public/**/*.js', 'scripts/demo-setup.js'],
+    files: ['public/**/*.js', 'scripts/demo-setup.js', 'test/cards/*.js'],
     languageOptions: { globals: { ...globals.browser, ...globals.serviceworker } },
   },
   {

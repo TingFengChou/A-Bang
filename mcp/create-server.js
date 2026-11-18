@@ -2,6 +2,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { listTools, callTool } from '../core/tools/index.js';
 import { UserError, publicMessage } from '../core/util.js';
+import { CARDS_URI, CARDS_MIME, cardsHtml } from './cards-resource.js';
 
 export const SERVER_INFO = { name: 'abang', version: '0.2.0' };
 
@@ -20,7 +21,11 @@ export function createMcpServer(svc, { packs } = {}) {
       description: t.description,
       inputSchema: t.input,
       annotations: { readOnlyHint: true, openWorldHint: true, title: t.title },
-      _meta: { 'abang/pack': t.pack, 'abang/tier': t.tier, ...(t.card && { 'abang/card': t.card }) },
+      _meta: {
+        'abang/pack': t.pack, 'abang/tier': t.tier,
+        // 有卡片的 tool 指向 MCP Apps 資源（M4-06）；ui/resourceUri 為舊版 host 相容鍵
+        ...(t.card && { 'abang/card': t.card, ui: { resourceUri: CARDS_URI }, 'ui/resourceUri': CARDS_URI }),
+      },
     }, async (args) => {
       try {
         const r = await callTool(svc, t.name, args);
@@ -36,6 +41,13 @@ export function createMcpServer(svc, { packs } = {}) {
         return { isError: true, content: [{ type: 'text', text: publicMessage(e) }] };
       }
     });
+  }
+
+  // MCP Apps 卡片（ADR-0003）：單檔 HTML，卡片依 structuredContent 渲染；不支援的 client 仍有 content 文字
+  if (listTools({ packs }).some((t) => t.card)) {
+    server.registerResource('abang-cards', CARDS_URI, {
+      title: '阿幫互動卡片', description: '公車、捷運、YouBike、時刻表、行程等 tool 結果的互動卡片（MCP Apps）', mimeType: CARDS_MIME,
+    }, async (uri) => ({ contents: [{ uri: uri.href, mimeType: CARDS_MIME, text: await cardsHtml() }] }));
   }
   return server;
 }

@@ -19,9 +19,9 @@
 │  （自訂連接器）   │   ├───────────────────────────────┤   │ services/   交通服務 ✅ ＋ mock ✅        │   │  導訂票・道路事件 📝  │
 ├──────────────────┤   │ mcp/                          │   │   metro・places・trip・traffic 📝        │   ├─────────────────────┤
 │ iOS／Android 🔭   │──▶│  stdio ✅  create-server ✅    │   │ providers/  叫車 adapter（Uber）✅       │   │ 氣象署 📝 165・Uber 🔭│
-│ LINE 🔭           │   │  ui://abang/cards.html 📝     │   │ tdx-client.js token・快取 ✅             │   └─────────────────────┘
+│ LINE 🔭           │   │  ui://abang/cards.html ✅     │   │ tdx-client.js token・快取 ✅             │   └─────────────────────┘
 └──────────────────┘   └───────────────────────────────┘   └─────────────────────────────────────────┘
-          ▲                                                   卡片渲染 public/ui/cards/ 📝（網頁與 MCP Apps 共用）
+          ▲                                                   卡片渲染 public/ui/cards/ ✅（網頁與 MCP Apps 共用）
           └──────────── 地圖導航（Google／Apple Maps 深層連結）、叫車 App、官方訂票網站（導訂票）
 ```
 

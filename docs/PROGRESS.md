@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M4-04～06、M4-08 MCP Apps 互動卡片
+- 做了：新增 devDependency `@modelcontextprotocol/ext-apps` 1.7.5（2.x 需 SDK v2；1.7.x peer 為 v1 → ADR-0006 維持 v1）；`host-mcp-app.js`（callServerTool／sendMessage／updateModelContext／openLink；iframe 沙箱不能 `window.confirm`，L2 確認框與複製連結在卡片下方）；`mcp-app.js` 入口；`scripts/build-cards.js`（`npm run build:cards` → `dist/cards.html`，單檔約 394 KB）；MCP 資源 `ui://abang/cards.html` 與 tool `_meta.ui.resourceUri`（開發時記憶體內打包、正式環境讀 dist）；卡片色彩變數也套到確認框；CI 加 build:cards
+- 測試：npm run lint 無錯誤；npm test 191 項全過（新增 4 項）；npm run e2e 19 項全過（新增 AppBridge 經 `/mcp` 載入 7 種卡片、updateModelContext、訂票 → 確認 → openLink；每張卡片截圖已檢查，發現確認框按鈕因色彩變數只在 `.ab-card` 而看不見 → 已修）
+- 文件：ADR-0006、CARDS §3／§3.1／§6、TESTING、PLAN、README、CLAUDE、ARCHITECTURE、index.html、CI
+- 下一個：M4-09 Claude 實測（Austin：本機 npm start＋cloudflared）；M6 上線準備
+- 卡住：M1 TDX 金鑰申請中
+
 ## 2026-11-18 M5-05 模型模式（Claude＋地端模型）
 - 做了：ADR-0012 三種模式（claude／local／demo，`AGENT_PROVIDER` 或自動選）；`core/agent/claude.js`（`@anthropic-ai/sdk` 串流、prompt cache、effort low）、`local.js`（OpenAI 相容 fetch，Ollama 等，去 `<think>`、可關閉思考）、共用 `model-loop.js`（agent_note、5 輪上限、refusal／截斷、device_location、參數去 null）、`provider.js`；`server/agent.js` 接上每日預算降級與 log（不記內容）；問阿幫頁標示模式與資料去向；plan_trip 自動併入畫面點選的狀態。用地端 qwen3:8b 實玩發現並修正：高鐵／台鐵「下一班」原本回當天第一班 → 工具文字與 speak 只講未開出班次、卡片收起已開出班次；SW 更新會裝進 HTTP 快取的舊檔 → 安裝時 `cache: 'reload'`（v0.3.4）
 - 測試：npm run lint 無錯誤；npm test 187 項全過（新增 `test/agent-model.test.js` 等 16 項）；npm run e2e 全過

@@ -48,7 +48,13 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 | 實作 | 檔案 | `callTool` | `ask` | `setContext` | `openLink` |
 |---|---|---|---|---|---|
 | 網頁 | `public/ui/cards/host-web.js` | `POST /api/v1/tools/:name` | 填入輸入框並送出 | 存在下一次 agent 請求的 `context` | `window.open`（L2 先確認）；`remind` 以系統通知（需允許通知、頁面保持開啟） |
-| MCP Apps | `public/ui/cards/host-mcp-app.js` | `app.callServerTool()` | `app.sendMessage()` | `app.updateModelContext()` | `app.openLink()`（若 host 支援；否則顯示可複製連結） |
+| MCP Apps | `public/ui/cards/host-mcp-app.js` | `app.callServerTool()` → `structuredContent` | `app.sendMessage()`（host 支援 `message` 時） | `app.updateModelContext()`（host 支援時） | L2 先在卡片下方顯示確認框（iframe 沙箱不允許 `window.confirm`）→ `app.openLink()`；host 不支援或拒絕時顯示網址與「複製連結」；不提供 `remind` |
+
+## 3.1 MCP Apps 打包與資源（✅ M4-04～06）
+
+- 入口 `public/ui/cards/mcp-app.js`：`App`（ext-apps 1.7.5，`app-with-deps`）＋`PostMessageTransport(window.parent)`、`autoResize`；`ontoolresult` → `renderCard`（同種卡片就 `update`）；`ontoolinput` 顯示「更新中…」；`onteardown` 停止刷新。
+- `npm run build:cards` → `dist/cards.html`（esbuild 單檔、CSS 內嵌、零外部資源，約 394 KB）。
+- MCP：資源 `ui://abang/cards.html`（`text/html;profile=mcp-app`）；有卡片的 tool 帶 `_meta.ui.resourceUri`（與舊鍵 `ui/resourceUri`）。`mcp/cards-resource.js`：有 esbuild（開發）時記憶體內打包，否則讀 `dist/cards.html`（正式環境要先 `npm run build:cards`）。
 
 ## 4. 卡片種類與資料契約
 
@@ -113,4 +119,4 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 - 單元：`test/cards-schema.test.js` — 每個 tool 的 mock 輸出通過對應 schema（自寫小驗證器 `public/ui/cards/schema/validate.js`，支援 type、enum、const、properties、required、items、minimum／maximum、minItems、additionalProperties: false、本檔 `$ref`；契約只用這些關鍵字）。
 - 視覺：Playwright 載入 `test/cards/harness.html`（假 host）＋每種卡片 fixture，手機與桌面截圖，無 console error。
-- MCP Apps：以 `AppBridge` 當 host 載入 `dist/cards.html`，送 `ui/notifications/tool-result`，檢查渲染與 `callServerTool` 往返。
+- MCP Apps（✅ M4-08）：`scripts/e2e.js` 以 `test/cards/mcp-host.js`（`AppBridge`＋SDK `Client`）經 `/mcp` 讀 `ui://abang/cards.html`，放進 `sandbox="allow-scripts"` 的 iframe，送 tool input／result；檢查 7 種卡片、點站牌 → `updateModelContext`、訂票 → `callServerTool(rail_booking_link)` → 確認框 → `openLink`，每張截圖 `mcp-app-<card>.png`。單元：`test/host-mcp-app.test.js`（假 App）。
