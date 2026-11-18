@@ -13,6 +13,12 @@
 
 ---
 
+## 2026-11-19 M6 地端部署驗證
+- 做了：`docker-compose.yml`（讀 `.env`、地端模型指向主機 Ollama、唯讀、no-new-privileges）；`docker compose up -d --build` 實測：`/healthz` agent=local、網頁 agent 以 qwen3:8b 回答高鐵最早班（約 18 秒、答案正確）、MCP 18 個 tools、卡片資源 404 KB
+- 決定：Austin 指示雲端部署、Redis、Lighthouse 留到正式環境階段，先衝刺功能
+- 下一個：M7 反詐騙 agent
+- 卡住：M1 TDX 金鑰
+
 ## 2026-11-18 M6-01、02、04、07 上線準備
 - 做了：`Dockerfile`（兩階段、只裝正式依賴、node 使用者、檔案唯讀、HEALTHCHECK）＋`.dockerignore`＋`/healthz`；本機 docker build／run 驗證（發現本機 `core/tools` 等目錄權限 700，COPY 後 node 讀不到 → 映像內統一 `chmod a+rX`）。`server/log.js` 結構化 log（JSON、severity、tenantId、agentId、存取 log 不含 query、錯誤遮金鑰）。無障礙：跳到主要內容、焦點框、`aria-current`、`--off` 對比 3.1 → 5.0、卡片與公車頁播報到站；看截圖發現首頁範例問題白底白字（M5-12 起）→ 已修。`.github/workflows/pages.yml` 發布 docs。SW v0.3.5
 - 測試：npm run lint 無錯誤；npm test 198 項全過（新增 7 項）；npm run e2e 21 項全過（新增 2 項）

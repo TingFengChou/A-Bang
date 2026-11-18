@@ -25,9 +25,9 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | M3 交通完整版 | ✅（2026-11-18 驗收；M3-12 真實導訂票 ⛔） | — | 待 Austin：無狀態市區短程叫車排第一是否合理（ADR-0010）；`rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
 | M4 互動卡片 | ✅（2026-11-18；M4-09 Claude 實測 ⛔） | M4-09（Austin） | 本機 `npm start`＋cloudflared，在 Claude 自訂連接器實測卡片 |
 | M5 網頁 agent | ✅（2026-11-18；Claude 實機待金鑰） | — | Claude 模式需 `ANTHROPIC_API_KEY`；地端模式需自架 Ollama 等（示範模式都不需要） |
-| M6 上線 | 🚧（M6-01／02／04／07 ✅） | M6-03／05 ⛔ 待新依賴同意；M6-06 ⛔ | M6-03 Redis 需新增依賴（例 `redis`）；M6-05 Lighthouse 需新增依賴 `lighthouse`（dev）；M6-06 需部署帳號與網域；M6-07 需在 repo 設定啟用 Pages |
+| M6 上線 | 🚧（M6-01／02／04／07 ✅、地端部署驗證 ✅） | 正式環境階段再做 | 2026-11-19 Austin 決定：雲端部署（M6-06）、Redis 快取（M6-03）、Lighthouse（M6-05）留到正式環境階段；先衝刺功能。M6-07 需在 repo 設定啟用 Pages |
 
-建議順序：M4、M5 已完成；M1（TDX 金鑰）申請中；M6 剩下的任務都卡在新依賴或外部帳號。
+建議順序：M4、M5 已完成；M1（TDX 金鑰）申請中；M6 正式環境項目延後；先衝刺功能（M7 起）。
 
 ## Austin 待辦（外部條件）
 
@@ -151,10 +151,10 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 
 - [x] M6-01 `Dockerfile`、`.dockerignore`、`/healthz`（2026-11-18：兩階段建置（build 階段打包 `dist/cards.html`、執行階段只裝正式依賴）、node 使用者、檔案唯讀、HEALTHCHECK；`/healthz` 不限流不記 log；本機 docker build／run 驗證：healthz、首頁、MCP 卡片資源讀 dist、healthy）
 - [x] M6-02 結構化 log（不含座標與對話內容）；🧩 欄位含 `agentId`、`tenantId`（第一方 `first-party`）（2026-11-18：`server/log.js` 一行一個 JSON、Cloud Logging 欄位 severity／message；存取 log 不含 query；錯誤遮蔽金鑰值、堆疊只留 6 行；MCP 寫 stderr；4 項測試）
-- [ ] M6-03 ⛔ 選用 Redis 快取（`REDIS_URL` 有設才啟用）（需新增依賴，待 Austin 同意；單一實例部署時不需要）
+- [ ] M6-03 ⏸ 選用 Redis 快取（`REDIS_URL` 有設才啟用）（正式環境階段；需新增依賴；單一實例不需要）
 - [x] M6-04 無障礙：鍵盤、對比、`aria-live` 播報到站（2026-11-18：「跳到主要內容」、全站焦點框、分頁列 `aria-current`、toast `role=status`；`--off` 文字對比 3.1 → 5.0；修首頁範例問題白底白字；卡片常駐播報區（公車路線點開的站／即將進站、站牌最快 3 班、捷運最近 2 班），PWA 公車頁同樣播報，第一次不念、沒變不重念；4 項單元＋2 項 E2E）
-- [ ] M6-05 ⛔ Lighthouse PWA／Performance ≥ 90（需新增 dev 依賴 `lighthouse`，或 Austin 用 Chrome DevTools 手動跑）
-- [ ] M6-06 部署 Cloud Run 或 Zeabur，HTTPS 與自訂網域
+- [ ] M6-05 ⏸ Lighthouse PWA／Performance ≥ 90（正式環境階段；需新增 dev 依賴 `lighthouse`，或用 Chrome DevTools 手動跑）
+- [ ] M6-06 ⏸ 部署 Cloud Run 或 Zeabur，HTTPS 與自訂網域（正式環境階段。2026-11-19 地端部署驗證 ✅：`docker-compose.yml` 啟動、`/healthz`、網頁 agent 以地端 qwen3:8b 回答（約 18 秒、正確）、MCP 18 個 tools 與卡片資源）
 - [x] M6-07 GitHub Pages 發布 `docs/`（`index.html`、原型）（2026-11-18：`.github/workflows/pages.yml`，推 main 且 docs 有變時發布；待 Austin 在 repo 設定啟用 Pages）
 
 驗收：公開 HTTPS 網址可用網頁 agent；Claude 自訂連接器可連；文件站上線。

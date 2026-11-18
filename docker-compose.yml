@@ -1,0 +1,25 @@
+# 地端部署（M6-06 地端驗證）：docker compose up -d --build → http://localhost:8787
+# 金鑰與模型設定放 .env（不進版控、不進映像）；沒有 .env 時整個系統以示範模式運作。
+# 地端模型：預設連主機上的 Ollama（Mac／Windows 的 Docker Desktop 用 host.docker.internal；
+# Linux 需讓 Ollama 監聽 0.0.0.0：OLLAMA_HOST=0.0.0.0，並設 OLLAMA_CONTEXT_LENGTH=16384）。
+services:
+  abang:
+    build: .
+    image: abang:local
+    ports:
+      - "${ABANG_PORT:-8787}:8787"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PORT: "8787"
+      # .env 的 localhost 在容器裡指的是容器自己；改指向主機上的模型伺服器
+      LOCAL_LLM_URL: ${ABANG_LOCAL_LLM_URL:-http://host.docker.internal:11434/v1}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
