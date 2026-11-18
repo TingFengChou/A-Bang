@@ -10,7 +10,7 @@
 - 標 🧩 的任務是為 M9 平台預留的擴充點（ADR-0007、`PLATFORM.md` §11），範圍很小但不可省略。
 
 ```
-M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ ─▶ M4 互動卡片 ─▶ M5 網頁 agent ─▶ M6 上線
+M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ ─▶ M4 互動卡片 ✅ ─▶ M5 網頁 agent ✅ ─▶ M6 上線 🚧
      M1 TDX 實測 ⛔（需金鑰，可與 M3 並行；M3 先用 mock＋TDX 形狀 fixture）
 ─▶ M7 反詐騙 ─▶ M8 中小企業概念驗證 ─▶【啟動門檻】─▶ M9 阿幫平台（Agent Builder）
 ```
@@ -25,9 +25,9 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | M3 交通完整版 | ✅（2026-11-18 驗收；M3-12 真實導訂票 ⛔） | — | 待 Austin：無狀態市區短程叫車排第一是否合理（ADR-0010）；`rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
 | M4 互動卡片 | ✅（2026-11-18；M4-09 Claude 實測 ⛔） | M4-09（Austin） | 本機 `npm start`＋cloudflared，在 Claude 自訂連接器實測卡片 |
 | M5 網頁 agent | ✅（2026-11-18；Claude 實機待金鑰） | — | Claude 模式需 `ANTHROPIC_API_KEY`；地端模式需自架 Ollama 等（示範模式都不需要） |
-| M6 上線 | 📝 | — | 部署帳號、網域 |
+| M6 上線 | 🚧（M6-01／02／04／07 ✅） | M6-03／05 ⛔ 待新依賴同意；M6-06 ⛔ | M6-03 Redis 需新增依賴（例 `redis`）；M6-05 Lighthouse 需新增依賴 `lighthouse`（dev）；M6-06 需部署帳號與網域；M6-07 需在 repo 設定啟用 Pages |
 
-建議順序：M4、M5 已完成；M1（TDX 金鑰）申請中；接著做 M6 上線準備（不需新依賴）。
+建議順序：M4、M5 已完成；M1（TDX 金鑰）申請中；M6 剩下的任務都卡在新依賴或外部帳號。
 
 ## Austin 待辦（外部條件）
 
@@ -38,7 +38,8 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 - [ ] 本機執行 `node scripts/verify-tdx.js`、`node scripts/record-fixtures.js`（M1 完成後），把 fixtures commit
 - [ ] 校對 `core/data/landmarks.json` 座標（201 筆，Claude 依記憶整理的近似值；可對照 Google 地圖或 M1 的 TDX／TGOS 結果，校對完把 `verified` 改為 `true`）
 - [ ] （M5）取得 `ANTHROPIC_API_KEY`，設定每日預算；或不付費改用地端模型（`LOCAL_LLM_URL`＋`LOCAL_LLM_MODEL`，Ollama 需 `OLLAMA_CONTEXT_LENGTH=16384`）
-- [ ] （M6）選定部署平台與網域
+- [ ] （M6）選定部署平台與網域；部署時設定環境變數（金鑰）並用 `Dockerfile` 建置
+- [ ] （M6）repo Settings → Pages → Source 選「GitHub Actions」，文件站才會發布（`.github/workflows/pages.yml`）
 
 ---
 
@@ -148,13 +149,13 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 
 ## M6 上線準備
 
-- [ ] M6-01 `Dockerfile`、`.dockerignore`、`/healthz`
-- [ ] M6-02 結構化 log（不含座標與對話內容）；🧩 欄位含 `agentId`、`tenantId`（第一方 `first-party`）
-- [ ] M6-03 選用 Redis 快取（`REDIS_URL` 有設才啟用）
-- [ ] M6-04 無障礙：鍵盤、對比、`aria-live` 播報到站
-- [ ] M6-05 Lighthouse PWA／Performance ≥ 90
+- [x] M6-01 `Dockerfile`、`.dockerignore`、`/healthz`（2026-11-18：兩階段建置（build 階段打包 `dist/cards.html`、執行階段只裝正式依賴）、node 使用者、檔案唯讀、HEALTHCHECK；`/healthz` 不限流不記 log；本機 docker build／run 驗證：healthz、首頁、MCP 卡片資源讀 dist、healthy）
+- [x] M6-02 結構化 log（不含座標與對話內容）；🧩 欄位含 `agentId`、`tenantId`（第一方 `first-party`）（2026-11-18：`server/log.js` 一行一個 JSON、Cloud Logging 欄位 severity／message；存取 log 不含 query；錯誤遮蔽金鑰值、堆疊只留 6 行；MCP 寫 stderr；4 項測試）
+- [ ] M6-03 ⛔ 選用 Redis 快取（`REDIS_URL` 有設才啟用）（需新增依賴，待 Austin 同意；單一實例部署時不需要）
+- [x] M6-04 無障礙：鍵盤、對比、`aria-live` 播報到站（2026-11-18：「跳到主要內容」、全站焦點框、分頁列 `aria-current`、toast `role=status`；`--off` 文字對比 3.1 → 5.0；修首頁範例問題白底白字；卡片常駐播報區（公車路線點開的站／即將進站、站牌最快 3 班、捷運最近 2 班），PWA 公車頁同樣播報，第一次不念、沒變不重念；4 項單元＋2 項 E2E）
+- [ ] M6-05 ⛔ Lighthouse PWA／Performance ≥ 90（需新增 dev 依賴 `lighthouse`，或 Austin 用 Chrome DevTools 手動跑）
 - [ ] M6-06 部署 Cloud Run 或 Zeabur，HTTPS 與自訂網域
-- [ ] M6-07 GitHub Pages 發布 `docs/`（`index.html`、原型）
+- [x] M6-07 GitHub Pages 發布 `docs/`（`index.html`、原型）（2026-11-18：`.github/workflows/pages.yml`，推 main 且 docs 有變時發布；待 Austin 在 repo 設定啟用 Pages）
 
 驗收：公開 HTTPS 網址可用網頁 agent；Claude 自訂連接器可連；文件站上線。
 

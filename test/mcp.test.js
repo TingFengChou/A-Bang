@@ -11,11 +11,12 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const EXPECTED = ['bus_nearby_stations', 'bus_route_eta', 'bus_search_routes', 'bus_station_eta', 'find_place', 'intercity_bus', 'metro_live_board', 'metro_stations', 'plan_trip', 'rail_booking_link', 'rail_fare', 'rail_stations', 'ridehail_link', 'thsr_timetable', 'tra_timetable', 'traffic_status', 'weather_now', 'youbike_nearby'];
 const ARGS = { from: '台北', to: '左營', date: '2026-12-01' };
 let http;
+let out = ''; // 伺服器 stdout（結構化 log）
 
 before(async () => {
   http = spawn(process.execPath, ['server/http.js'], { env: { ...process.env, PORT: String(PORT), DEMO_MODE: '1', RATE_LIMIT_API: '30' }, stdio: ['ignore', 'pipe', 'inherit'] });
   await new Promise((resolve, reject) => {
-    http.stdout.on('data', (d) => String(d).includes('running') && resolve());
+    http.stdout.on('data', (d) => { out += d; if (String(d).includes('running')) resolve(); });
     http.on('exit', (c) => reject(new Error(`server exited ${c}`)));
     setTimeout(() => reject(new Error('server start timeout')), 8000);
   });
@@ -126,6 +127,27 @@ test('REST：tools 清單、參數錯誤、方法錯誤', async () => {
   assert.equal(big.status, 413);
   assert.match((await big.json()).error, /請求內容過大/);
   assert.equal(big.headers.get('access-control-allow-origin'), '*');
+});
+
+test('/healthz 與結構化 log（M6）：不限流；log 一行一個 JSON、不帶 query（座標）', async () => {
+  for (let i = 0; i < 3; i++) {
+    const r = await fetch(BASE + '/healthz');
+    assert.equal(r.status, 200);
+    const j = await r.json();
+    assert.equal(j.ok, true);
+    assert.equal(j.mode, 'demo');
+    assert.match(j.version, /^\d+\.\d+\.\d+$/);
+    assert.equal(r.headers.get('x-ratelimit-limit'), null);
+  }
+  await fetch(BASE + '/api/v1/bike/nearby?lat=25.0478&lon=121.517');
+  await new Promise((r) => setTimeout(r, 100));
+  const lines = out.trim().split('\n').map((l) => JSON.parse(l)); // 每行都要是 JSON
+  assert.ok(lines.some((l) => /running/.test(l.message) && l.tenantId === 'first-party'));
+  const access = lines.filter((l) => l.message === 'request');
+  assert.ok(access.length > 0);
+  assert.ok(access.every((l) => l.route !== '/healthz'), '健康檢查不記');
+  assert.ok(access.some((l) => l.route === '/api/v1/bike/nearby' && l.status >= 200));
+  assert.doesNotMatch(out, /25\.0478|121\.517/);
 });
 
 test('限流：超過上限回 429 與 Retry-After', async () => {

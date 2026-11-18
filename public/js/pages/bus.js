@@ -49,6 +49,18 @@ export const busSearch = {
   },
 };
 
+/**
+ * 螢幕閱讀器播報（M6-04）：第一次載入不念（內容本身會被讀到）；之後每 20 秒刷新，文字有變才更新 live region。
+ * @param {HTMLElement} el aria-live 區塊（常駐，不隨列表重畫）
+ */
+export function announcer(el) {
+  let first = true, last = '';
+  return (text) => {
+    if (!first && text && text !== last) el.textContent = text;
+    first = false; last = text;
+  };
+}
+
 /** 路線即時到站 */
 export const busRoute = {
   title: '路線',
@@ -57,12 +69,16 @@ export const busRoute = {
     setTitle(`${route} 公車`);
     starAction(setAction, toast, { id: `route:${city}:${route}`, type: 'route', title: `${route} 公車`, sub: '路線', href: location.hash });
     let dir = 0, data = null;
-    main.innerHTML = `<div class="seg" id="dirs"></div><div id="stops">${loading()}</div><div class="updated" id="upd"></div>`;
+    main.innerHTML = `<div class="seg" id="dirs"></div><div id="stops">${loading()}</div><div class="updated" id="upd"></div><p class="sr-only" aria-live="polite" aria-atomic="true" id="sr"></p>`;
+    const say = announcer(main.querySelector('#sr'));
 
     async function load() {
       try {
         data = await api.busEta(city, route);
         paint();
+        const d = data.directions[dir] || data.directions[0];
+        const soon = (d?.stops || []).filter((s) => s.status === 0 && s.etaSec != null && s.etaSec < 180).slice(0, 3).map((s) => s.stopName);
+        say(soon.length ? `${route} 即將進站：${soon.join('、')}` : '');
         main.querySelector('#upd').textContent = `更新於 ${fmtTime()}・每 20 秒自動更新`;
       } catch (e) { main.querySelector('#stops').innerHTML = errorBox(e); }
     }
@@ -91,10 +107,12 @@ export const busStation = {
     const name = query.name || '公車站';
     setTitle(name);
     starAction(setAction, toast, { id: `station:${city}:${stationId}`, type: 'station', city, stationId, title: name, sub: '公車站', href: location.hash });
-    main.innerHTML = `<div id="list">${loading()}</div><div class="updated" id="upd"></div>`;
+    main.innerHTML = `<div id="list">${loading()}</div><div class="updated" id="upd"></div><p class="sr-only" aria-live="polite" aria-atomic="true" id="sr"></p>`;
+    const say = announcer(main.querySelector('#sr'));
     async function load() {
       try {
         const rows = await api.busStationEta(city, stationId);
+        say(rows.slice(0, 3).map((r) => `${r.routeName} ${r.statusText}`).join('；'));
         main.querySelector('#list').innerHTML = rows.length
           ? `<div class="card list">${rows.map((r) => `
               <a href="#/bus/${city}/${encodeURIComponent(r.routeName)}">

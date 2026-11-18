@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M6-01、02、04、07 上線準備
+- 做了：`Dockerfile`（兩階段、只裝正式依賴、node 使用者、檔案唯讀、HEALTHCHECK）＋`.dockerignore`＋`/healthz`；本機 docker build／run 驗證（發現本機 `core/tools` 等目錄權限 700，COPY 後 node 讀不到 → 映像內統一 `chmod a+rX`）。`server/log.js` 結構化 log（JSON、severity、tenantId、agentId、存取 log 不含 query、錯誤遮金鑰）。無障礙：跳到主要內容、焦點框、`aria-current`、`--off` 對比 3.1 → 5.0、卡片與公車頁播報到站；看截圖發現首頁範例問題白底白字（M5-12 起）→ 已修。`.github/workflows/pages.yml` 發布 docs。SW v0.3.5
+- 測試：npm run lint 無錯誤；npm test 198 項全過（新增 7 項）；npm run e2e 21 項全過（新增 2 項）
+- 文件：ARCHITECTURE §7／§8、UX §10、README（Docker、/healthz）、TESTING、PLAN、CLAUDE、index.html
+- 下一個：M6-03／05 待新依賴同意（Redis、lighthouse）；M6-06 待部署帳號
+- 卡住：M1 TDX 金鑰；Pages 需在 repo 設定啟用
+
 ## 2026-11-18 M4-04～06、M4-08 MCP Apps 互動卡片
 - 做了：新增 devDependency `@modelcontextprotocol/ext-apps` 1.7.5（2.x 需 SDK v2；1.7.x peer 為 v1 → ADR-0006 維持 v1）；`host-mcp-app.js`（callServerTool／sendMessage／updateModelContext／openLink；iframe 沙箱不能 `window.confirm`，L2 確認框與複製連結在卡片下方）；`mcp-app.js` 入口；`scripts/build-cards.js`（`npm run build:cards` → `dist/cards.html`，單檔約 394 KB）；MCP 資源 `ui://abang/cards.html` 與 tool `_meta.ui.resourceUri`（開發時記憶體內打包、正式環境讀 dist）；卡片色彩變數也套到確認框；CI 加 build:cards
 - 測試：npm run lint 無錯誤；npm test 191 項全過（新增 4 項）；npm run e2e 19 項全過（新增 AppBridge 經 `/mcp` 載入 7 種卡片、updateModelContext、訂票 → 確認 → openLink；每張卡片截圖已檢查，發現確認框按鈕因色彩變數只在 `.ab-card` 而看不見 → 已修）

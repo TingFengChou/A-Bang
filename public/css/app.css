@@ -2,7 +2,7 @@
   --bg: #f4f6f5; --card: #fff; --text: #14201d; --muted: #5f6f6b; --line: #e3e8e6;
   --brand: #0f766e; --brand-soft: #e3f2ef; --brand-ink: #fff;
   --ok: #15803d; --ok-soft: #e6f4ea; --warn: #b45309; --warn-soft: #fdf1e3;
-  --bad: #b91c1c; --bad-soft: #fde8e8; --off: #8a9592; --off-soft: #eef1f0;
+  --bad: #b91c1c; --bad-soft: #fde8e8; --off: #5d6966; --off-soft: #eef1f0;
   --radius: 14px; --shadow: 0 1px 2px rgba(16, 40, 34, .06), 0 2px 8px rgba(16, 40, 34, .05);
   --nav-h: 64px; color-scheme: light dark;
 }
@@ -11,7 +11,7 @@
     --bg: #0e1513; --card: #17211e; --text: #e7efec; --muted: #94a5a0; --line: #26332f;
     --brand: #2dd4bf; --brand-soft: #123a35; --brand-ink: #062b26;
     --ok: #4ade80; --ok-soft: #133222; --warn: #fbbf24; --warn-soft: #3a2c10;
-    --bad: #f87171; --bad-soft: #3b1717; --off: #7d8a87; --off-soft: #1f2a27;
+    --bad: #f87171; --bad-soft: #3b1717; --off: #8f9c99; --off-soft: #1f2a27;
     --shadow: none;
   }
 }
@@ -131,4 +131,11 @@ main { padding: 4px 16px 16px; }
 
 /* 首頁「問阿幫」範例（M5-12） */
 .hero-ask { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-.hero-ask .chip { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 12px; min-height: 36px; font-size: 13px; display: inline-flex; align-items: center; }
+.hero-ask .chip { color: var(--text); text-decoration: none; border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 12px; min-height: 36px; font-size: 13px; display: inline-flex; align-items: center; }
+
+/* 無障礙（M6-04）：鍵盤焦點一律看得到；螢幕閱讀器專用文字；跳到主要內容 */
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.hero .search:focus-within, .field:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.skip { position: absolute; left: 8px; top: -48px; z-index: 100; background: var(--brand); color: var(--brand-ink); border: 0; border-radius: 10px; padding: 8px 14px; font: inherit; }
+.skip:focus { top: 8px; }

@@ -3,7 +3,7 @@
 .ab-card, .ab-confirm, .ab-linkbox {
   --ab-bg: #fff; --ab-text: #14201d; --ab-muted: #5f6f6b; --ab-line: #e3e8e6;
   --ab-brand: #0f766e; --ab-brand-soft: #e3f2ef; --ab-ok: #15803d; --ab-ok-soft: #e6f4ea;
-  --ab-warn: #b45309; --ab-warn-soft: #fdf1e3; --ab-bad: #b91c1c; --ab-bad-soft: #fde8e8; --ab-off: #8a9592;
+  --ab-warn: #b45309; --ab-warn-soft: #fdf1e3; --ab-bad: #b91c1c; --ab-bad-soft: #fde8e8; --ab-off: #5d6966;
   color-scheme: light; color: var(--ab-text);
   font: 15px/1.5 -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
 }
@@ -78,3 +78,6 @@
 .ab-linkbox p { margin: 0 0 8px; }
 .ab-linkurl { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid var(--ab-line); border-radius: 8px; margin: 0 0 8px; }
 .ab-confirm .ab-actions, .ab-linkbox .ab-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* 螢幕閱讀器播報到站（M6-04）：畫面不顯示 */
+.ab-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

@@ -94,6 +94,7 @@ API 文件：啟動後開 <http://localhost:8787/api/docs>（Swagger UI，可直
 
 | Endpoint | 說明 |
 |---|---|
+| `GET /healthz` | 健康檢查 `{ ok, version, mode, agent }`（容器、Cloud Run；不限流） |
 | `GET /api/v1/status` | 模式、工具包 |
 | `GET /api/v1/agent/profile` | 網頁 agent 的名稱、建議問題、免責、小幫手角色 |
 | `GET /api/v1/tools?pack=` | tools、工具包、分級、JSON Schema |
@@ -103,6 +104,15 @@ API 文件：啟動後開 <http://localhost:8787/api/docs>（Swagger UI，可直
 | `GET /api/v1/bus/*`、`/bike/nearby`、`/thsr/*`、`/tra/*` | 舊版 REST（PWA 使用） |
 
 錯誤：`{ "error": "…" }`（400 參數、405 方法、413 過大、429 限流、502 上游）。502 只回通用訊息，細節只寫伺服器 log。
+
+## 部署（Docker）
+
+```bash
+docker build -t abang .
+docker run -p 8787:8787 --env-file .env abang
+```
+
+映像只含正式依賴與預先打包的 `dist/cards.html`，以 `node` 使用者執行；log 為一行一個 JSON（Cloud Logging 相容，不含對話內容、座標與金鑰）。金鑰請用部署平台的環境變數設定，不要放進映像。
 
 ## 環境變數
 

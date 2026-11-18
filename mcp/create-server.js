@@ -3,6 +3,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { listTools, callTool } from '../core/tools/index.js';
 import { UserError, publicMessage } from '../core/util.js';
 import { CARDS_URI, CARDS_MIME, cardsHtml } from './cards-resource.js';
+import { createLogger } from '../server/log.js';
+
+const log = createLogger({ write: (l) => process.stderr.write(l) }); // stdio 模式 stdout 是協定通道，log 一律寫 stderr
 
 export const SERVER_INFO = { name: 'abang', version: '0.2.0' };
 
@@ -37,7 +40,7 @@ export function createMcpServer(svc, { packs } = {}) {
           _meta: { 'abang/metrics': r.metrics }, // 計量放 _meta：每次不同（耗時），不混進結構化資料
         };
       } catch (e) {
-        if (!(e instanceof UserError)) console.error(e); // stdio 模式 stderr 不影響協定；細節不回給 client
+        if (!(e instanceof UserError)) log.error('tool failed', e, { tool: t.name }); // 細節只進 log，不回給 client
         return { isError: true, content: [{ type: 'text', text: publicMessage(e) }] };
       }
     });

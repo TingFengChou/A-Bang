@@ -33,6 +33,8 @@
 | API 文件 | `test/openapi.test.js` | OpenAPI 3.1 由 `server/rest.js` 路由表與 tool registry 產生：每個 REST 路由有 GET 文件與參數說明、每個 tool 有 POST 文件（request body 即 tool 的 JSON Schema）、`operationId` 唯一 | 新增路由或 tool 自動涵蓋 |
 | 卡片倒數 | `test/cards-countdown.test.js` | `etaLabel` 與 `busStatusText` 一致；`startCountdown` 以假時鐘驗證遞減、跨門檻換文字與 `soon`、不小於 0 | M4-07 起 |
 | 卡片文字 | `test/cards-i18n.test.js` | `t()` 佔位符與缺鍵；每則非空、括號成對、不含常見簡體字；每種卡片與 L2 確認視窗有必要文字 | M4-03 起 |
+| 結構化 log | `test/log.test.js` | 一行一個 JSON、Cloud Logging 欄位、tenantId／agentId、金鑰遮蔽、路徑去 query；`test/mcp.test.js` 另測 `/healthz` 不限流、伺服器 stdout 每行都是 JSON 且不含座標 | M6-02 起 |
+| 無障礙 | `test/a11y.test.js` | 卡片播報句、PWA 播報節流（第一次不念、相同不重念）、淺色／深色主題與卡片色彩對比 ≥ 4.5 | M6-04 起 |
 | MCP Apps host | `test/host-mcp-app.test.js` | `payloadOf`（structuredContent、isError 用 tool 文字）；callTool → callServerTool；ask／setContext 只在 host 支援時送；openLink 只開 https、L2 取消不開 | M4-04 起 |
 | 卡片契約 | `test/cards-schema.test.js` | 小驗證器本身；每個有卡片的 tool 都有契約且 7 種一一對應；11 組示範輸出（含塞車客運、雨天跨城行程）通過對應 schema；payload 帶 `v`／`tool`／`args` | M4-01 起 |
 | 示範意圖 | `test/agent-demo-intent.test.js` | 地點擷取、抵達時間、意圖與狀態；每個建議問題的計畫以示範資料完整執行並以卡片結尾、`agent_note` ≤ 30 字；prefs 與明天日期帶入 plan_trip | M5-03 起 |
@@ -41,7 +43,7 @@
 | Agent 端點 | `test/agent-http.test.js` | 起 server：NDJSON 串流、無 CORS、400／405／429；`client.js` 的定位流程（取得／拒絕）；handler 限流以 agent id＋IP、計量、結束事件 | M5-06 起 |
 | Agent 執行器 | `test/agent.test.js` | 示範模式事件順序（`status` → `agent_note` → `tool_start`… → `tool_result`… → `decision` → `discussion_end` → `text` → `done`）、各意圖以卡片結尾、picked 狀態、白名單與錯誤不外洩、請求驗證；限流於 M5-06 | M5-04 起 |
 | 模型迴圈 | `test/agent-model.test.js` | 以本地假 Anthropic SSE（`ANTHROPIC_BASE_URL=http://127.0.0.1:{port}`）與假 OpenAI 相容伺服器回放工具呼叫；5 輪上限；定位；refusal／截斷；錯誤；預算降級；`pickProvider` | ✅ M5-05 |
-| E2E 冒煙 | `scripts/e2e.js`（`npm run e2e`） | 示範模式起伺服器（隨機埠、清空金鑰），Playwright 手機（iPhone 13）與桌面：首頁問阿幫（輸入 → `#/agent` 自動送出 → 卡片）與公車搜尋、公車路線去返程、附近（定位）、高鐵台鐵時刻表、Swagger UI；無 console／頁面錯誤；截圖存 `test/screenshots/`（不進版控）；每個 browser context 以 try/finally 關閉；M4-02 起加卡片預覽（7 種卡片皆渲染、公車方向切換與點站、附近站牌展開到站、YouBike 排序、行程建議／分段條／理由、高鐵訂票按鈕、卡片內沒有 script）；M5-08 起加問阿幫（建議問題 → 討論串 → 收合 → trip 卡片 → 總結、@ 點名、瀏覽器定位「你的位置」）；M5-09 起加決策圖（勝出方案、理由、加選「想省錢」即時重算且建議改變、不呼叫伺服器、明細長條）；M5-10 起加提醒我出門（假 host：今天 30 分鐘後出門 → 呼叫 remind、顯示已設定）；M5-13 起加 6 個建議問題逐題（討論串、正確卡片、行程有決策圖、每題截圖 `*-suggest-N.png`）；M5-11 起加動態兩種模式（reduced motion → `lite-motion` 不翻轉；完整動態 → `enter3d` 動畫與重算排名翻轉）；M4-08 起加 MCP Apps（AppBridge 經 `/mcp` 載入 `ui://abang/cards.html`，7 種卡片、updateModelContext、訂票確認後 openLink，截圖 `mcp-app-*.png`） | 每輪 |
+| E2E 冒煙 | `scripts/e2e.js`（`npm run e2e`） | 示範模式起伺服器（隨機埠、清空金鑰），Playwright 手機（iPhone 13）與桌面：首頁問阿幫（輸入 → `#/agent` 自動送出 → 卡片）與公車搜尋、公車路線去返程、附近（定位）、高鐵台鐵時刻表、Swagger UI；無 console／頁面錯誤；截圖存 `test/screenshots/`（不進版控）；每個 browser context 以 try/finally 關閉；M4-02 起加卡片預覽（7 種卡片皆渲染、公車方向切換與點站、附近站牌展開到站、YouBike 排序、行程建議／分段條／理由、高鐵訂票按鈕、卡片內沒有 script）；M5-08 起加問阿幫（建議問題 → 討論串 → 收合 → trip 卡片 → 總結、@ 點名、瀏覽器定位「你的位置」）；M5-09 起加決策圖（勝出方案、理由、加選「想省錢」即時重算且建議改變、不呼叫伺服器、明細長條）；M5-10 起加提醒我出門（假 host：今天 30 分鐘後出門 → 呼叫 remind、顯示已設定）；M5-13 起加 6 個建議問題逐題（討論串、正確卡片、行程有決策圖、每題截圖 `*-suggest-N.png`）；M5-11 起加動態兩種模式（reduced motion → `lite-motion` 不翻轉；完整動態 → `enter3d` 動畫與重算排名翻轉）；M4-08 起加 MCP Apps（AppBridge 經 `/mcp` 載入 `ui://abang/cards.html`，7 種卡片、updateModelContext、訂票確認後 openLink，截圖 `mcp-app-*.png`）；M6-04 起加無障礙（第一個 Tab 是跳到主要內容且有焦點框、Enter 移到 main、分頁列 aria-current、公車頁與每張卡片有 live region、首頁範例問題不是白字） | 每輪 |
 | Lint | `eslint.config.js`（`npm run lint`） | ESLint 推薦規則＋Node／瀏覽器 globals；`node_modules`、`dist`、`docs`、`test/screenshots` 除外 | 每輪 |
 
 ## 3. Fixture

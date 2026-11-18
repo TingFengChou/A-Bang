@@ -12,5 +12,7 @@ export function arrivalsList(arrivals, t) {
 export default {
   refreshSec: 20,
   title: (d, { t }) => t('busStation.title', { name: d.name || d.stationId }),
+  /** 播報：最快到站的 3 班 */
+  announce: (d, { t }) => (d.arrivals?.length ? t('busStation.announce', { name: d.name || d.stationId, list: d.arrivals.slice(0, 3).map((r) => `${r.routeName} ${r.statusText}`).join('；') }) : null),
   body: (d, { t }) => h('div', { class: 'ab-body' }, arrivalsList(d.arrivals, t)),
 };

@@ -21,22 +21,25 @@ const tabs = [['#/', '首頁', 'home'], ['#/nearby', '附近', 'pin'], ['#/bus',
 
 const root = document.getElementById('app');
 root.innerHTML = `
+  <button class="skip" id="skip" type="button">跳到主要內容</button>
   <header class="topbar">
     <button class="icon-btn" id="back" aria-label="返回">${icons.back}</button>
     <h1 id="title"></h1>
     <button class="icon-btn" id="action" hidden></button>
   </header>
   <div id="banner"></div>
-  <main id="main"></main>
+  <main id="main" tabindex="-1"></main>
   <div class="tabbar"><nav>${tabs.map(([h, n, i]) => `<a href="${h}" data-h="${h}">${icons[i]}<span>${n}</span></a>`).join('')}</nav></div>`;
 
 const $ = (id) => document.getElementById(id);
 $('back').onclick = () => (history.length > 1 ? history.back() : (location.hash = '#/'));
+$('skip').onclick = () => $('main').focus(); // hash 路由：不能用 href="#main"（會被當成頁面）
 
 let cleanups = [];
 function toast(msg) {
   const t = document.createElement('div');
   t.textContent = msg;
+  t.setAttribute('role', 'status'); // 螢幕閱讀器會念出提示
   t.style.cssText = 'position:fixed;left:50%;bottom:calc(var(--nav-h) + 24px);transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;z-index:99;max-width:85vw;text-align:center';
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
@@ -52,7 +55,11 @@ function navigate() {
   $('title').textContent = page.title;
   $('back').hidden = !!page.root;
   const act = $('action'); act.hidden = true; act.onclick = null; act.classList.remove('on');
-  document.querySelectorAll('.tabbar a').forEach((a) => a.classList.toggle('on', a.dataset.h === `#${path || '/'}` || (a.dataset.h === '#/' && !path)));
+  document.querySelectorAll('.tabbar a').forEach((a) => {
+    const on = a.dataset.h === `#${path || '/'}` || (a.dataset.h === '#/' && !path);
+    a.classList.toggle('on', on);
+    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
   const main = $('main');
   main.innerHTML = '';
   window.scrollTo(0, 0);
