@@ -58,3 +58,22 @@ test('參數驗證：型別、範圍、未知 tool', async () => {
   await assert.rejects(callTool(svc, 'no_such_tool', {}), /沒有這個 tool/);
   assert.equal(getTool('no_such_tool'), null);
 });
+
+test('高鐵／台鐵：查今天時說「下一班」（現在之後），其他日期說最早一班；今天都開走了要說明', async () => {
+  const { railSpeak, railText, upcomingTrains } = await import('../core/tools/transit.js');
+  const NOW = Date.parse('2026-11-18T09:12:00+08:00');
+  const trains = [['0603', '06:03', '06:54'], ['0915', '09:15', '10:06'], ['1031', '10:31', '11:20']].map(([trainNo, depart, arrive]) => ({ trainNo, depart, arrive, minutes: 50 }));
+  const today = { system: 'THSR', from: '台北', to: '台中', date: '2026-11-18', trains };
+  assert.deepEqual(upcomingTrains(today, NOW).map((t) => t.trainNo), ['0915', '1031']);
+  assert.equal(railSpeak(today, NOW), '今天還有 2 班，下一班 09:15 出發、10:06 到台中。');
+  const text = railText(today, '高鐵', NOW);
+  assert.match(text, /現在 09:12.*下一班 09:15/);
+  assert.ok(!text.includes('06:03'), '已開出的班次不給模型看');
+  assert.match(railSpeak({ ...today, date: '2026-11-19' }, NOW), /最早 06:03 出發/);
+  assert.equal(upcomingTrains({ ...today, date: '2026-11-19' }, NOW), null);
+  const late = Date.parse('2026-11-18T23:00:00+08:00');
+  assert.match(railSpeak(today, late), /都開走了（末班 10:31）/);
+  assert.match(railText(today, '高鐵', late), /請改查明天/);
+  assert.match(railText({ ...today, trains: [] }, '高鐵', NOW), /沒有直達班次/);
+  assert.match(railSpeak({ ...today, system: 'TRA', trains: [{ ...trains[2], type: '自強' }] }, NOW), /下一班 10:31 出發（自強）、11:20 到台中/);
+});

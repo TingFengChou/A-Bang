@@ -1,5 +1,5 @@
 // Agent 共用執行器（M5-04，AGENT.md §2–§3）：呼叫 tool → tool_start／tool_result；plan_trip 時發 decision。
-// 示範模式（demo-intent）與 Claude 模式（M5-05）共用 execTools，事件流相同。不加假延遲（ADR-0009）。
+// 示範模式（demo-intent）與模型模式（model-loop.js：Claude／地端，M5-05）共用 execTools，事件流相同。不加假延遲（ADR-0009）。
 import { z } from 'zod';
 import { callTool } from '../tools/index.js';
 import { UserError, publicMessage } from '../util.js';
@@ -57,7 +57,7 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
   return Promise.all(started.map(async (c) => {
     try {
       if (!profile.tools.includes(c.name)) throw new UserError(`這個 agent 不能使用 ${c.name}`);
-      const result = await callTool(svc, c.name, c.args);
+      const result = await callTool(svc, c.name, c.name === 'plan_trip' ? withPickedPrefs(c.args, picked) : c.args);
       emit(ev.toolResult({ id: c.id, result }));
       if (c.name === 'plan_trip') emit(ev.decision(withPicked(result.data, picked)));
       return { name: c.name, ok: true, result };
@@ -69,6 +69,14 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
   }));
 }
 
+/** 使用者點選的狀態一律交給 plan_trip 計分（Claude／地端模型可能漏帶；示範模式已帶，重複無妨） */
+function withPickedPrefs(args, picked) {
+  if (!picked.length || !args || typeof args !== 'object') return args;
+  const prefs = args.prefs && typeof args.prefs === 'object' ? args.prefs : {};
+  const states = [...new Set([...(Array.isArray(prefs.states) ? prefs.states : []), ...picked])];
+  return { ...args, prefs: { ...prefs, states } };
+}
+
 /** 使用者在畫面上點選的狀態（picked）標示來源；plan_trip 已依 prefs 計分，這裡只改標示 */
 function withPicked(trip, picked) {
   if (!picked.length) return trip;
@@ -76,19 +84,20 @@ function withPicked(trip, picked) {
 }
 
 /**
- * 示範模式的一輪對話：規則式意圖 → 分段呼叫工具 → 總結。事件格式與 Claude 模式相同。
+ * 示範模式的一輪對話：規則式意圖 → 分段呼叫工具 → 總結。事件格式與模型模式（Claude／地端）相同。
  * @param {object} svc createServices() 的結果
  * @param {object} body /api/v1/agent 的請求（會驗證）
  * @param {(e: object) => void} emit
- * @param {{ profileId?: string, now?: number }} [opts]
+ * @param {{ profileId?: string, now?: number, notice?: string }} [opts] notice：模型額度用完而降級時，在 status 後先說明
  */
-export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.now() } = {}) {
+export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.now(), notice } = {}) {
   const req = validateRequest(body);
   const profile = getProfile(profileId);
   const picked = req.userState?.picked || [];
   let n = 0;
   const nextId = () => `t${++n}`;
   emit(ev.status({ mode: 'demo', profile: profile.id }));
+  if (notice) emit(ev.agentNote(notice));
 
   const it = parseIntent(req.messages.at(-1).content);
   // 需要使用者位置（M5-07）：客戶端支援 device_location 時先請它定位，拿到結果後客戶端帶 clientToolResults 重送

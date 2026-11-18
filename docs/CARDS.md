@@ -86,7 +86,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 ### `timetable`（`thsr_timetable`、`tra_timetable`、`intercity_bus`）
 
 `{ system: 'THSR'|'TRA'|'BUS', from, to, date, trains: [{ trainNo, type?, depart, arrive, minutes, terminal?, fare?, excluded?: string }] }`；`BUS`（`intercity_bus`）另有 `traffic`、`delayRisk`，每班可有 `arriveWithDelay`、`delayMin`、`estimated`、`board`、`alight`、`walkFromM`、`walkToM`（有 `arriveWithDelay` 時以它為主、原抵達時間劃線）；
-`excluded` 有值時灰階並顯示原因（例：「會遲到」）；按「訂票」→ `rail_booking_link` → `host.openLink(url, { confirm })`。
+高鐵／台鐵查今天時預設從下一班開始列，已開出的班次收起，按「顯示今天已開出的 N 班」展開；都開走時顯示「今天的班次都開走了」（`visibleTrains`）。`excluded` 有值時灰階並顯示原因（例：「會遲到」）；按「訂票」→ `rail_booking_link` → `host.openLink(url, { confirm })`。
 
 ### `trip`（`plan_trip`）
 

@@ -66,7 +66,13 @@ export default {
     sendBtn.type = 'submit';
     const form = el('form', 'chat-form', input, sendBtn);
     const disclaimer = el('p', 'updated');
-    main.append(log, el('div', 'chat-dock', chips, mention, form), disclaimer);
+    const modeLine = el('p', 'updated agent-mode'); // 由誰回答（ADR-0012；Claude 模式說明對話會送 Anthropic，AGENT.md §7）
+    main.append(log, el('div', 'chat-dock', chips, mention, form), disclaimer, modeLine);
+    const MODE_TEXT = {
+      claude: (m) => `由 Claude（${m}）回答；對話會送 Anthropic 處理。`,
+      local: (m) => `由地端模型（${m}）回答；對話只送到本站設定的模型伺服器。`,
+      demo: () => '示範模式：規則式回答，不經 AI 模型。',
+    };
 
     const host = createWebHost({ ask: (q) => send(q), setContext: (c) => { context = c; } });
 
@@ -101,7 +107,10 @@ export default {
       log.append(turn);
       const view = turnView(turn);
       try {
-        await runAgent({ messages: history.slice(-10), ...(context && { context }) }, (e) => view.push(e));
+        await runAgent({ messages: history.slice(-10), ...(context && { context }) }, (e) => {
+          if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = MODE_TEXT[e.mode](e.model || '');
+          view.push(e);
+        });
         await view.flush();
         if (view.text) history.push({ role: 'assistant', content: view.text.slice(0, 500) });
       } catch {

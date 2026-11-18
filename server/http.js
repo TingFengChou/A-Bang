@@ -31,7 +31,7 @@ const limiters = {
 
 // REST 路由表在 server/rest.js（同時產生 Swagger 文件）
 const routes = restRoutes(svc);
-const agent = createAgentHandler({ svc });
+const agent = createAgentHandler({ svc, log: (o) => console.log('agent', JSON.stringify(o)) }); // 模式依 env（ADR-0012）
 const OPENAPI = JSON.stringify(buildOpenApi(svc));
 // Swagger UI：只提供這幾個檔（白名單，不開放整個 node_modules）
 const SWAGGER_DIR = fileURLToPath(new URL('../node_modules/swagger-ui-dist/', import.meta.url));
@@ -125,7 +125,7 @@ createServer(async (req, res) => {
     const headers = { ...(path.startsWith('/api/') || path.startsWith('/mcp') ? CORS : {}), ...(status === 413 && { connection: 'close' }) };
     if (!res.headersSent) send(res, status, { error: publicMessage(e) }, headers);
   }
-}).listen(PORT, () => console.log(`阿幫 running → http://localhost:${PORT}  (mode=${svc.mode})  MCP: http://localhost:${PORT}/mcp`));
+}).listen(PORT, () => console.log(`阿幫 running → http://localhost:${PORT}  (mode=${svc.mode}, agent=${agent.mode.mode}${agent.mode.model ? `:${agent.mode.model}` : ''})  MCP: http://localhost:${PORT}/mcp`));
 
 function limit(req, res, group) {
   const r = limiters[group](`${group}:${clientIp(req)}`);

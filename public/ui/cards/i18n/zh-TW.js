@@ -80,6 +80,8 @@ export const MESSAGES = {
   'timetable.delay': '塞車多 {n} 分',
   'timetable.board': '{stop} 上車',
   'timetable.empty': '{date} 沒有符合的班次',
+  'timetable.showGone': '顯示今天已開出的 {n} 班',
+  'timetable.allGone': '今天的班次都開走了，可以改查明天。',
 
   // ── trip ──
   'trip.title': '{from} → {to}',

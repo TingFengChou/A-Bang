@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-18 M5-05 模型模式（Claude＋地端模型）
+- 做了：ADR-0012 三種模式（claude／local／demo，`AGENT_PROVIDER` 或自動選）；`core/agent/claude.js`（`@anthropic-ai/sdk` 串流、prompt cache、effort low）、`local.js`（OpenAI 相容 fetch，Ollama 等，去 `<think>`、可關閉思考）、共用 `model-loop.js`（agent_note、5 輪上限、refusal／截斷、device_location、參數去 null）、`provider.js`；`server/agent.js` 接上每日預算降級與 log（不記內容）；問阿幫頁標示模式與資料去向；plan_trip 自動併入畫面點選的狀態。用地端 qwen3:8b 實玩發現並修正：高鐵／台鐵「下一班」原本回當天第一班 → 工具文字與 speak 只講未開出班次、卡片收起已開出班次；SW 更新會裝進 HTTP 快取的舊檔 → 安裝時 `cache: 'reload'`（v0.3.4）
+- 測試：npm run lint 無錯誤；npm test 187 項全過（新增 `test/agent-model.test.js` 等 16 項）；npm run e2e 全過
+- 文件：ADR-0012、AGENT §3／§4／§6／§7／§8、ARCHITECTURE、README、.env.example、MCP_TOOLS、CARDS、TESTING、PLAN、CLAUDE、index.html
+- 下一個：M5 完成；剩 M4-04／05／06／08（待新依賴 `@modelcontextprotocol/ext-apps` 同意）、M1（TDX 金鑰）
+- 卡住：Claude 實機需 `ANTHROPIC_API_KEY`；市區短程權重待決定
+
 ## 2026-11-18 M5-13 示範模式建議問題截圖（部分）
 - 做了：E2E 逐題點 6 個建議問題（手機＋桌面），檢查討論串、對應卡片（trip／bus-route／youbike／timetable）、行程有決策圖，每題截圖；E2E 伺服器放寬 `AGENT_RPM`。看截圖發現並修正 3 件事：①「明天 8 點前要到左營」在示範資料下全部遲到 → 建議題改 9 點；② 全部遲到時行程卡改說「所有方式都趕不上指定時間…」；③ 高鐵顯示「182 分」（很早出發把 67 分等車算進去）→ 班次制等車最多算 10 分、`leaveAt` 往後延、抵達以實際班次計算（ADR-0010 紀錄；跨城塞車最後一名變叫車）
 - 測試：npm run lint 無錯誤；npm test 171 項全過（新增 1 項）；npm run e2e 18 項全過

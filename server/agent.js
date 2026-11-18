@@ -1,16 +1,19 @@
 // POST /api/v1/agent（M5-06，AGENT.md §3、§6）：NDJSON 事件串流；限流與計量以「agent id ＋ IP」為單位（ADR-0007 🧩）。
-// 目前一律示範模式（runDemo）；Claude 模式（M5-05）上線後依 ANTHROPIC_API_KEY 與每日預算切換。
+// 模式（ADR-0012）：pickProvider 依環境變數選 Claude／地端模型／示範；全站每日模型呼叫超過 AGENT_DAILY_BUDGET 時降級示範模式。
 // 只給本站網頁使用：不加 CORS（避免其他網站耗用模型預算）。
 import { createRateLimiter } from './rate-limit.js';
 import { runDemo, validateRequest } from '../core/agent/run.js';
+import { runModel } from '../core/agent/model-loop.js';
+import { pickProvider } from '../core/agent/provider.js';
 import { ev, toNdjson } from '../core/agent/events.js';
 import { getProfile } from '../core/agents/index.js';
 import { nowTW, publicMessage } from '../core/util.js';
 
 /**
- * @param {{ svc: object, env?: Record<string, string|undefined>, log?: (o: object) => void }} opts
+ * @param {{ svc: object, env?: Record<string, string|undefined>, log?: (o: object) => void,
+ *   provider?: import('../core/agent/model-loop.js').Provider|null }} opts provider：測試注入；未給時依 env 決定
  */
-export function createAgentHandler({ svc, env = process.env, log = () => {} }) {
+export function createAgentHandler({ svc, env = process.env, log = () => {}, provider = pickProvider(env, { defaultModel: getProfile('life').model }) }) {
   const perMin = createRateLimiter({ limit: Number(env.AGENT_RPM) || 10 });
   const perDay = createRateLimiter({ limit: Number(env.AGENT_RPD) || 100, windowMs: 86_400_000 });
   const budget = Number(env.AGENT_DAILY_BUDGET) || 5000;
@@ -38,6 +41,9 @@ export function createAgentHandler({ svc, env = process.env, log = () => {} }) {
     /** 今天的計量（測試與 /api/v1/status 用） */
     usage: (agentId = 'life') => ({ ...usageOf(agentId), budget }),
 
+    /** 目前的模式（claude／local／demo）與模型名稱 */
+    mode: provider ? { mode: provider.mode, model: provider.model } : { mode: 'demo' },
+
     /**
      * 處理一個請求：先驗證（錯誤丟 UserError，由呼叫端回 400），再以 NDJSON 串流事件。
      * @param {import('node:http').ServerResponse} res
@@ -49,19 +55,29 @@ export function createAgentHandler({ svc, env = process.env, log = () => {} }) {
       u.requests++;
       res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
       const t0 = Date.now();
+      let mode = 'demo';
+      let tokens = null;
+      let failed = null;
       const emit = (e) => {
         if (e.type === 'tool_start') u.toolCalls++;
+        if (e.type === 'done' && e.usage) tokens = { in: e.usage.inputTokens, out: e.usage.outputTokens };
         if (!res.writableEnded) res.write(toNdjson(e));
       };
       try {
-        await runDemo(svc, body, emit, { profileId: profile.id });
+        if (provider && u.modelCalls < budget) {
+          mode = provider.mode;
+          await runModel(svc, body, emit, { provider, profileId: profile.id, onModelCall: () => { u.modelCalls++; } });
+        } else {
+          await runDemo(svc, body, emit, { profileId: profile.id, ...(provider && { notice: '今天的 AI 額度用完了，先用示範模式回答' }) });
+        }
       } catch (e) {
+        failed = e?.status ? `${e.name}:${e.status}` : (e?.name || 'Error'); // 只記錯誤類型，不記訊息（可能含上游細節）
         emit(ev.error({ message: publicMessage(e), retryable: !(e?.name === 'UserError') }));
         emit(ev.done());
       } finally {
         res.end();
-        // 隱私（AGENT.md §7）：只記事件數量與耗時，不記對話內容與座標
-        log({ agent: profile.id, ms: Date.now() - t0, toolCalls: u.toolCalls });
+        // 隱私（AGENT.md §7）：只記模式、事件數量、耗時與 token，不記對話內容與座標
+        log({ agent: profile.id, mode, ms: Date.now() - t0, toolCalls: u.toolCalls, modelCalls: u.modelCalls, ...(tokens && { tokens }), ...(failed && { error: failed }) });
       }
     },
   };

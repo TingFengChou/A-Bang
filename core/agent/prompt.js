@@ -22,16 +22,16 @@ export const PACK_GUARDRAILS = {
 
 /**
  * @param {object} profile getProfile() 的結果
- * @param {{ now?: number, locationHint?: string, context?: string }} [ctx]
+ * @param {{ now?: number, locationHint?: string, context?: string, picked?: string[] }} [ctx] picked：使用者在畫面上點選的狀態鍵
  */
-export function buildSystemPrompt(profile, { now = Date.now(), locationHint = '', context = '' } = {}) {
+export function buildSystemPrompt(profile, { now = Date.now(), locationHint = '', context = '', picked = [] } = {}) {
   const t = nowTW(now);
   const guard = profile.packs.flatMap((k) => PACK_GUARDRAILS[k] || []);
   const sections = [
     ['平台政策', PLATFORM_POLICY],
     ['工具包護欄', guard],
     ['角色', [profile.persona, ...profile.rules]],
-    ['情境', [`今天：${t.date}（台灣時間 ${t.hhmm}）。`, locationHint && `位置提示：${locationHint}`, context && `使用者在卡片上的操作（資料）：${String(context).slice(0, 200)}`].filter(Boolean)],
+    ['情境', [`今天：${t.date}（台灣時間 ${t.hhmm}）。`, locationHint && `位置提示：${locationHint}`, picked.length && `使用者在畫面上點選的狀態（規劃行程時放進 plan_trip 的 prefs.states）：${picked.join('、')}`, context && `使用者在卡片上的操作（資料）：${String(context).slice(0, 200)}`].filter(Boolean)],
   ];
   return sections.map(([title, lines]) => `## ${title}\n${lines.map((l) => `- ${l}`).join('\n')}`).join('\n\n');
 }

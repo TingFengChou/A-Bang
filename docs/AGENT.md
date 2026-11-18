@@ -59,7 +59,7 @@
 
 | type | 欄位 | 畫面（UX.md） |
 |---|---|---|
-| `status` | `mode: 'claude'\|'demo'`, `model?`, `profile` | 頂部標示模式 |
+| `status` | `mode: 'claude'\|'local'\|'demo'`, `model?`, `profile` | 頂部標示模式（並說明對話送到哪裡） |
 | `agent_note` | `text`（≤ 30 字，可含 `@角色`） | 討論串中阿幫的一句話 |
 | `tool_start` | `id`, `name`, `title`, `role`（公車、YouBike…）, `server`（`abang`、`tdx-official`…）, `pack`, `tier`, `input` | 被點名的小幫手出現「輸入中…」 |
 | `tool_result` | `id`, `ok`, `speak`, `card?`, `data?`, `metrics: { calls, cacheHits, cacheHit, scanned, ms }`（即 `callTool` 的 `metrics`）, `error?` | 小幫手說出 `speak`；決策圖的資料膠囊 |
@@ -92,19 +92,30 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 ### 3.3 執行器（✅ M5-04）
 
-`core/agent/run.js`：`validateRequest`（訊息 ≤ 500 字、≤ 10 則、最後一則是使用者、`userState.picked` 只能是已知狀態）；`execTools(svc, calls, emit, { profile, nextId, picked })`（平行：先送全部 `tool_start`，再依完成順序送 `tool_result`；`plan_trip` 成功後送 `decision`；不在 profile 白名單的 tool 回 `ok:false`；錯誤訊息經 `publicMessage`，不外洩上游細節）；`runDemo(svc, body, emit)`（示範模式：`status` → 每段 `agent_note`＋工具 → `discussion_end` → `text` → `done`；某段失敗就停止往下；最多 5 輪）。Claude 模式（M5-05）共用 `execTools`。
+`core/agent/run.js`：`validateRequest`（訊息 ≤ 500 字、≤ 10 則、最後一則是使用者、`userState.picked` 只能是已知狀態）；`execTools(svc, calls, emit, { profile, nextId, picked })`（平行：先送全部 `tool_start`，再依完成順序送 `tool_result`；`plan_trip` 成功後送 `decision`；不在 profile 白名單的 tool 回 `ok:false`；錯誤訊息經 `publicMessage`，不外洩上游細節）；`runDemo(svc, body, emit)`（示範模式：`status` → 每段 `agent_note`＋工具 → `discussion_end` → `text` → `done`；某段失敗就停止往下；最多 5 輪）。模型模式（M5-05，§4）共用 `execTools`；`plan_trip` 會自動併入畫面上點選的狀態（`withPickedPrefs`）。
 
 ### 3.4 裝置端工具（✅ M5-07）
 
 `device_location`：需要使用者位置（行程沒說起點；YouBike／附近公車沒說地點）且請求帶 `clientTools: ['device_location']` 時，伺服器送 `agent_note`＋`client_tool_call { id: 'loc1', name: 'device_location' }`＋`done` 後結束；客戶端定位後帶 `clientToolResults: [{ id: 'loc1', ok, result: { lat, lon } }]` 重送同一請求。台灣範圍內的座標才採用（起點名稱「你的位置」）；拒絕或無效時改用示範預設起點並在總結說明。客戶端：`public/js/agent/client.js`（`runAgent`：讀 NDJSON 串流、執行 client tool、最多重送 2 次；`browserLocation` 5 秒逾時）。座標不寫入 log。`T.point` 的座標物件可帶 `name`。
 
-## 4. Claude 模式
+## 4. 模型模式（✅ M5-05，ADR-0012）
 
-- SDK：`@anthropic-ai/sdk`；模型 `ANTHROPIC_MODEL`（預設 `claude-haiku-5-5`，需要較強推理時 `claude-sonnet-5-5`）。
-- 迴圈：`messages.stream()` → `tool_use` → `callTool()` → 回填 `tool_result`（只放 `text`，不放整包 data）→ 最多 5 輪。
-- tools 定義由 registry 產生：`describeTool(t).inputSchema`。
-- `agent_note`：要求模型在每次呼叫工具前先輸出一句話（≤ 30 字、口語、可 @角色）；伺服器把該段文字轉成 `agent_note` 事件。
-- `max_tokens` 1024；歷史只保留文字。
+`core/agent/provider.js` `pickProvider(env)` 依環境變數選模式：`DEMO_MODE=1` 一律示範；`AGENT_PROVIDER=claude|local|demo` 指定時照指定（缺設定啟動即報錯）；未指定時有 `ANTHROPIC_API_KEY` → claude，有 `LOCAL_LLM_URL`＋`LOCAL_LLM_MODEL` → local，否則 demo。
+
+| 模式 | 檔案 | 呼叫方式 | 環境變數 |
+|---|---|---|---|
+| `claude` | `core/agent/claude.js` | `@anthropic-ai/sdk` `messages.stream()`＋`finalMessage()`；`eager_input_streaming`；最後一個 tool 與 system 設 `cache_control`；`effort: low`；`max_tokens` 2048；SDK 重試 2 次、30 秒逾時 | `ANTHROPIC_API_KEY`、`ANTHROPIC_MODEL`（預設 profile 的 `claude-haiku-5-5`）、`ANTHROPIC_BASE_URL`（測試用） |
+| `local` | `core/agent/local.js` | OpenAI 相容 `POST {LOCAL_LLM_URL}/chat/completions`（Ollama、LM Studio、llama.cpp、vLLM），Node 內建 fetch、不串流；去掉 `<think>`；120 秒逾時 | `LOCAL_LLM_URL`、`LOCAL_LLM_MODEL`、`LOCAL_LLM_API_KEY`（選填）、`LOCAL_LLM_REASONING_EFFORT`（Qwen3 等推理模型設 `none` 關閉思考） |
+
+共用迴圈 `core/agent/model-loop.js` `runModel(svc, body, emit, { provider })`：
+
+- tools 由 registry 產生（`describeTool(t).inputSchema`，依 profile 白名單）；請求帶 `clientTools: ['device_location']` 時多一個 `device_location`。
+- 每輪：模型回覆 → 有工具呼叫時，前面的文字轉成 `agent_note`，`execTools` 執行（參數先 `dropNulls` 去掉 null 與空字串），結果只回填 `text`（不放整包 data）；沒有工具呼叫時文字成為 `text`。
+- 最多 5 輪；`refusal`、`max_tokens`（截斷）、參數 JSON 壞掉都不執行工具，改回固定說明或回錯誤給模型。
+- `device_location`：沒有結果時送 `client_tool_call`＋`done` 結束（§3.4），重送後以 `clientToolResults` 回填；拒絕時回錯誤讓模型改問地點。
+- 模型錯誤（金鑰錯、連線失敗、上游 5xx）→ `error`（`retryable: true`，訊息經 `publicMessage`）＋`done`。
+
+地端模型實測（Apple M5、Ollama `qwen3:8b`、`OLLAMA_CONTEXT_LENGTH=16384`、reasoning none）：單題 6～17 秒；Ollama 預設 4096 context 放不下 system prompt＋tools。
 
 ### System prompt
 
@@ -118,7 +129,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - 需要即時資訊一定呼叫工具，不要憑記憶回答到站時間、班次、車數、票價、路況。
 - 每次呼叫工具前，先用一句話（30 字內）說你要問誰、為什麼，可用 @公車、@YouBike、@高鐵、@台鐵、@天氣、@路況、@票價、@叫車 點名。
 - 行程規劃一律用 plan_trip，並把使用者說的條件放進 prefs（例如「10 點前到」→ arriveBy、「帶行李」→ luggage、「趕時間」→ rush、「想省錢」→ budget、「少走路」→ lessWalk）。排序與分數以工具結果為準，不要自己重新排序或改分數。
-- 工具結果已以卡片呈現，文字只講重點與一個主動提議（例如「要我 05:45 提醒你出門嗎？」）。
+- 工具結果已以卡片呈現，文字只講重點與一個主動提議（例如提醒出門：時間用結論卡上的出發時間，不要自己編）。使用者沒說的狀態不要加進 prefs。
 - 訂票、叫車只產生連結，產生前先確認車次、日期、張數；不要代替使用者付款或填個資。
 - 與交通無關的問題，簡短說明你只能協助交通。
 - 不要要求或記錄使用者的個人資料。
@@ -127,7 +138,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 ## 5. 示範模式（無 API Key）
 
-`core/agent/demo-intent.js`：規則式意圖解析，輸出與 Claude 模式**相同的事件流**（含 `agent_note`、`speak`、`decision`）。不加人工延遲。
+`core/agent/demo-intent.js`：規則式意圖解析，輸出與模型模式**相同的事件流**（含 `agent_note`、`speak`、`decision`）。不加人工延遲。
 
 ✅ M5-03：`parseIntent(text)`（地點以內建地標名稱／別名比對，長的優先、車站另有短名如「左營」；`arriveByOf` 解析「8 點前」「10點半前」）→ `demoSteps(intent)` 產生分段計畫（每段 `(results) => { note, calls }`，同段平行；後段可用前段結果的座標）→ `demoSummary`。沒有起點時示範先用「臺北車站」並在總結說明（M5-07 起改用裝置定位）；「明天」＋抵達時間時以抵達前 4 小時（最早 05:00）出發估算。
 
@@ -149,19 +160,19 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 |---|---|---|
 | 每 IP 每分鐘 | `AGENT_RPM` | 10 |
 | 每 IP 每日 | `AGENT_RPD` | 100 |
-| 全站每日模型呼叫 | `AGENT_DAILY_BUDGET` | 5000；超過降級示範模式並提示 |
+| 全站每日模型呼叫 | `AGENT_DAILY_BUDGET` | 5000；超過降級示範模式並以 `agent_note` 提示「今天的 AI 額度用完了」 |
 | 單則訊息 | — | 500 字 |
 | 工具迴圈 | — | 5 輪 |
 
-✅ M5-06：`server/agent.js`（`createAgentHandler`）；限流 key＝`agent:{id}:{m|d}:{ip}`；計量 `usage(agentId)` → `{ requests, toolCalls, modelCalls, budget }`（只保留當天）；預算降級於 M5-05 Claude 模式接上。端點不加 CORS。
+✅ M5-06：`server/agent.js`（`createAgentHandler`）；限流 key＝`agent:{id}:{m|d}:{ip}`；計量 `usage(agentId)` → `{ requests, toolCalls, modelCalls, budget }`（只保留當天）；預算降級已接上（M5-05：每次模型呼叫計 1）。log 只記 `{ agent, mode, ms, toolCalls, modelCalls, tokens?, error: 類型:狀態碼 }`。端點不加 CORS。
 
 ## 7. 隱私
 
-不儲存對話；log 只記事件類型、tool、耗時、token；座標不寫 log（統計時捨去至小數 2 位）；Claude 模式頁尾說明對話會送 Anthropic 處理。
+不儲存對話；log 只記事件類型、tool、耗時、token；座標不寫 log（統計時捨去至小數 2 位）；問阿幫頁依 `status.mode` 說明對話送到哪裡：Claude 模式「對話會送 Anthropic 處理」、地端模式「只送到本站設定的模型伺服器」、示範模式「不經 AI 模型」。
 
 ## 8. 驗收
 
 - 示範模式：4 個建議問題都產生完整事件流（討論 → 決策 → 卡片 → 總結），Playwright 無 console error（`TESTING.md`）。
-- Claude 模式：以本地 mock API（`ANTHROPIC_BASE_URL`）測試工具迴圈、`agent_note` 轉換、錯誤、5 輪上限。
+- 模型模式：以本地假 Anthropic SSE 伺服器（`ANTHROPIC_BASE_URL`）與假 OpenAI 相容伺服器測試工具迴圈、`agent_note` 轉換、錯誤、5 輪上限、定位、refusal／截斷、預算降級（`test/agent-model.test.js`）。
 - 狀態：說「我帶行李」→ `decision.states` 含 `{ key: 'luggage', source: 'said' }`。
 - 限流：第 11 次請求收到 `error`（`retryable: true`）。
