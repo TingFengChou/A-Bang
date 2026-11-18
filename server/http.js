@@ -17,6 +17,7 @@ import { createMcpServer } from '../mcp/create-server.js';
 import { createRateLimiter, clientIp } from './rate-limit.js';
 import { restRoutes } from './rest.js';
 import { buildOpenApi } from './openapi.js';
+import { createAgentHandler } from './agent.js';
 
 const svc = createServices({ ...(await loadEnv()), log: console.log });
 const PORT = Number(process.env.PORT) || 8787;
@@ -30,6 +31,7 @@ const limiters = {
 
 // REST 路由表在 server/rest.js（同時產生 Swagger 文件）
 const routes = restRoutes(svc);
+const agent = createAgentHandler({ svc, log: (o) => console.log('agent', JSON.stringify(o)) }); // 模式依 env（ADR-0012）
 const OPENAPI = JSON.stringify(buildOpenApi(svc));
 // Swagger UI：只提供這幾個檔（白名單，不開放整個 node_modules）
 const SWAGGER_DIR = fileURLToPath(new URL('../node_modules/swagger-ui-dist/', import.meta.url));
@@ -40,6 +42,8 @@ const swaggerFile = (name) => {
   return swaggerCache.get(name);
 };
 const DOCS_HTML = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>阿幫 API 文件</title><link rel="stylesheet" href="/api/docs/swagger-ui.css"></head><body><div id="ui"></div><script src="/api/docs/swagger-ui-bundle.js"></script><script src="/api/docs/init.js"></script></body></html>`;
+// 前端共用的核心純函式（決策圖即時重算用同一份 decide.js，UX.md §5）：只開放白名單檔案
+const SHARED_CORE = { 'decide.js': fileURLToPath(new URL('../core/decide.js', import.meta.url)) };
 const DOCS_INIT = "window.ui = SwaggerUIBundle({ url: '/api/v1/openapi.json', dom_id: '#ui', deepLinking: true, tryItOutEnabled: true });";
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
@@ -80,6 +84,17 @@ createServer(async (req, res) => {
     const doc = path.match(/^\/api\/docs\/([\w.-]+)$/);
     if (doc && Object.hasOwn(SWAGGER_FILES, doc[1])) return sendRaw(res, 200, await swaggerFile(doc[1]), SWAGGER_FILES[doc[1]], { 'cache-control': 'public, max-age=86400' });
 
+    // ── 網頁 agent（NDJSON 串流；只給本站網頁，不加 CORS）──
+    if (path === '/api/v1/agent') {
+      if (req.method !== 'POST') return send(res, 405, { error: '請以 POST 呼叫' }, { allow: 'POST' });
+      const lim = agent.limit('life', clientIp(req));
+      if (!lim.ok) return send(res, 429, { error: `問太快了，請 ${lim.retryAfterSec} 秒後再試`, retryAfterSec: lim.retryAfterSec }, { 'retry-after': String(lim.retryAfterSec) });
+      return await agent.handle(res, await readJson(req), { agentId: 'life' });
+    }
+
+    const core = path.match(/^\/core\/([\w.-]+)$/);
+    if (core && Object.hasOwn(SHARED_CORE, core[1])) return sendRaw(res, 200, await readFile(SHARED_CORE[core[1]]), 'text/javascript; charset=utf-8', { 'cache-control': 'no-cache' });
+
     // ── REST ──
     if (path.startsWith('/api/')) {
       if (req.method === 'OPTIONS') return end(res, 204, CORS);
@@ -110,7 +125,7 @@ createServer(async (req, res) => {
     const headers = { ...(path.startsWith('/api/') || path.startsWith('/mcp') ? CORS : {}), ...(status === 413 && { connection: 'close' }) };
     if (!res.headersSent) send(res, status, { error: publicMessage(e) }, headers);
   }
-}).listen(PORT, () => console.log(`阿幫 running → http://localhost:${PORT}  (mode=${svc.mode})  MCP: http://localhost:${PORT}/mcp`));
+}).listen(PORT, () => console.log(`阿幫 running → http://localhost:${PORT}  (mode=${svc.mode}, agent=${agent.mode.mode}${agent.mode.model ? `:${agent.mode.model}` : ''})  MCP: http://localhost:${PORT}/mcp`));
 
 function limit(req, res, group) {
   const r = limiters[group](`${group}:${clientIp(req)}`);

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { defineTool, T, clip } from './define.js';
 import { withNav } from '../nav.js';
 import { resolveCity } from '../cities.js';
+import { nowTW, toMin } from '../util.js';
 
 const PACK = 'transit';
 const fmtM = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} 公里` : `${m} 公尺`);
@@ -97,11 +98,34 @@ export const youbikeNearby = defineTool({
   },
 });
 
-const railText = (data, label) => {
-  const lines = [`${label} ${data.from} → ${data.to}（${data.date}），共 ${data.trains.length} 班：`];
-  lines.push(...data.trains.map((t) => `- ${t.trainNo} 次${t.type ? `（${t.type}）` : ''}：${t.depart} → ${t.arrive}，${t.minutes} 分`));
-  return clip(lines);
-};
+/** 查今天的班次時，只留還沒開出的（「下一班」）；其他日期回 null（全部都算） */
+export function upcomingTrains(data, now = Date.now()) {
+  const t = nowTW(now);
+  if (data.date !== t.date) return null;
+  const cur = toMin(t.hhmm);
+  return data.trains.filter((x) => toMin(x.depart) >= cur);
+}
+
+/** 工具發言：今天 → 下一班；其他日期 → 最早一班 */
+export function railSpeak(d, now = Date.now()) {
+  if (!d.trains.length) return '那天沒有直達班次。';
+  const type = (x) => (d.system === 'TRA' && x.type ? `（${x.type}）` : '');
+  const up = upcomingTrains(d, now);
+  if (!up) return `${d.date} 共 ${d.trains.length} 班，最早 ${d.trains[0].depart} 出發${type(d.trains[0])}、${d.trains[0].arrive} 到${d.to}。`;
+  if (!up.length) return `今天的班次都開走了（末班 ${d.trains.at(-1).depart}），可以改查明天。`;
+  return `今天還有 ${up.length} 班，下一班 ${up[0].depart} 出發${type(up[0])}、${up[0].arrive} 到${d.to}。`;
+}
+
+/** 給模型的文字：今天只列還沒開出的班次，並寫明現在時間與下一班，避免把第一班當成下一班 */
+export function railText(data, label, now = Date.now()) {
+  const row = (t) => `- ${t.trainNo} 次${t.type ? `（${t.type}）` : ''}：${t.depart} → ${t.arrive}，${t.minutes} 分`;
+  if (!data.trains.length) return `${label} ${data.from} → ${data.to}（${data.date}）沒有直達班次。`;
+  const up = upcomingTrains(data, now);
+  if (!up) return clip([`${label} ${data.from} → ${data.to}（${data.date}），共 ${data.trains.length} 班：`, ...data.trains.map(row)]);
+  const head = `${label} ${data.from} → ${data.to}（今天 ${data.date}，現在 ${nowTW(now).hhmm}）`;
+  if (!up.length) return `${head}：今天的 ${data.trains.length} 班都已開出（末班 ${data.trains.at(-1).depart}），請改查明天。`;
+  return clip([`${head}：今天還有 ${up.length} 班（全天 ${data.trains.length} 班），下一班 ${up[0].depart} 出發。尚未開出的班次：`, ...up.map(row)]);
+}
 
 export const thsrTimetable = defineTool({
   name: 'thsr_timetable',
@@ -109,7 +133,7 @@ export const thsrTimetable = defineTool({
   description: '查詢指定日期兩個高鐵站之間的班次（出發、抵達、行車分鐘數）。站名可用中文，例如「台北」「左營」。',
   pack: PACK, tier: 'L1', card: 'timetable',
   input: { from: z.string().min(1).describe('起站'), to: z.string().min(1).describe('迄站'), date: T.date },
-  speak: (d) => (d.trains.length ? `${d.date} 共 ${d.trains.length} 班，最早 ${d.trains[0].depart} 出發、${d.trains[0].arrive} 到${d.to}。` : '那天沒有直達班次。'),
+  speak: (d) => railSpeak(d),
   async run(svc, a) {
     const data = { system: 'THSR', ...(await svc.rail.thsrTimetable(a)) }; // 卡片 timetable 依 system 決定標題與訂票
     return { data, text: railText(data, '高鐵') };
@@ -122,7 +146,7 @@ export const traTimetable = defineTool({
   description: '查詢指定日期兩個台鐵車站之間的班次（車種、出發、抵達、行車分鐘數）。站名可用中文，例如「臺北」「花蓮」。',
   pack: PACK, tier: 'L1', card: 'timetable',
   input: { from: z.string().min(1).describe('起站'), to: z.string().min(1).describe('迄站'), date: T.date },
-  speak: (d) => (d.trains.length ? `${d.date} 共 ${d.trains.length} 班，最早 ${d.trains[0].depart} 的${d.trains[0].type || ''}，${d.trains[0].arrive} 到${d.to}。` : '那天沒有直達班次。'),
+  speak: (d) => railSpeak(d),
   async run(svc, a) {
     const data = { system: 'TRA', ...(await svc.rail.traTimetable(a)) };
     return { data, text: railText(data, '台鐵') };

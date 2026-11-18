@@ -13,6 +13,97 @@
 
 ---
 
+## 2026-11-18 M5-05 模型模式（Claude＋地端模型）
+- 做了：ADR-0012 三種模式（claude／local／demo，`AGENT_PROVIDER` 或自動選）；`core/agent/claude.js`（`@anthropic-ai/sdk` 串流、prompt cache、effort low）、`local.js`（OpenAI 相容 fetch，Ollama 等，去 `<think>`、可關閉思考）、共用 `model-loop.js`（agent_note、5 輪上限、refusal／截斷、device_location、參數去 null）、`provider.js`；`server/agent.js` 接上每日預算降級與 log（不記內容）；問阿幫頁標示模式與資料去向；plan_trip 自動併入畫面點選的狀態。用地端 qwen3:8b 實玩發現並修正：高鐵／台鐵「下一班」原本回當天第一班 → 工具文字與 speak 只講未開出班次、卡片收起已開出班次；SW 更新會裝進 HTTP 快取的舊檔 → 安裝時 `cache: 'reload'`（v0.3.4）
+- 測試：npm run lint 無錯誤；npm test 187 項全過（新增 `test/agent-model.test.js` 等 16 項）；npm run e2e 全過
+- 文件：ADR-0012、AGENT §3／§4／§6／§7／§8、ARCHITECTURE、README、.env.example、MCP_TOOLS、CARDS、TESTING、PLAN、CLAUDE、index.html
+- 下一個：M5 完成；剩 M4-04／05／06／08（待新依賴 `@modelcontextprotocol/ext-apps` 同意）、M1（TDX 金鑰）
+- 卡住：Claude 實機需 `ANTHROPIC_API_KEY`；市區短程權重待決定
+
+## 2026-11-18 M5-13 示範模式建議問題截圖（部分）
+- 做了：E2E 逐題點 6 個建議問題（手機＋桌面），檢查討論串、對應卡片（trip／bus-route／youbike／timetable）、行程有決策圖，每題截圖；E2E 伺服器放寬 `AGENT_RPM`。看截圖發現並修正 3 件事：①「明天 8 點前要到左營」在示範資料下全部遲到 → 建議題改 9 點；② 全部遲到時行程卡改說「所有方式都趕不上指定時間…」；③ 高鐵顯示「182 分」（很早出發把 67 分等車算進去）→ 班次制等車最多算 10 分、`leaveAt` 往後延、抵達以實際班次計算（ADR-0010 紀錄；跨城塞車最後一名變叫車）
+- 測試：npm run lint 無錯誤；npm test 171 項全過（新增 1 項）；npm run e2e 18 項全過
+- 文件：MCP_TOOLS §7、ADR-0010、AGENT、TESTING、PLAN、CLAUDE
+- 下一個：無不受阻的任務——M5-05（Claude 模式，待決定 SDK 或 fetch）、M4-04／05／06／08（待新依賴同意）
+- 卡住：PR #2 合併、市區短程權重、兩個新依賴決定
+
+## 2026-11-18 M5-12 首頁以問阿幫為入口
+- 做了：首頁搜尋框改為「問阿幫」（`#/agent?q=` 自動送出、送出後網址換成 `#/agent`）、3 個範例問題；功能格子與分頁列保留；離線 Demo 版維持公車搜尋；SW v0.3.3
+- 測試：npm run lint 無錯誤；npm test 170 項全過；npm run e2e 16 項全過（首頁問題 → bus-route 卡片；公車搜尋改由 `#/bus?q=` 進入）；`npm run build:demo` 正常
+- 文件：UX §3、TESTING、PLAN、CLAUDE
+- 下一個：M5-13（Playwright 示範 6 個建議問題截圖；Claude 模式 mock 測試待 M5-05）
+- 卡住：同前
+
+## 2026-11-18 M5-11 輕量 3D
+- 做了：結果卡片與決策圖 `.enter3d` 立體進場（`rotateX(8deg)`＋`translateZ`，依序延遲）；決策圖重算 FLIP 排名翻轉（Web Animations、最多 3 個）；`lite()`（`hardwareConcurrency ≤ 4` 或 reduced motion）→ `html.lite-motion` 只淡入；SW v0.3.2
+- 測試：npm run lint 無錯誤；npm test 170 項全過；npm run e2e 16 項全過（新增完整動態模式：3D 進場與翻轉；reduced motion 模式不翻轉）
+- 文件：UX §9、TESTING、PLAN、CLAUDE
+- 下一個：M5-12（首頁以 agent 為主要入口）
+- 卡住：同前
+
+## 2026-11-18 M5-10 結論卡行動
+- 做了：trip 卡（M4-02 已有建議、分段條、備案、導航、叫車、訂票）補「提醒我出門」：`plan_trip` 高鐵／台鐵／客運方案帶 `leaveAt`（發車 − 到站時間）；`host-web.remind`（系統通知、需允許、12 小時內）；卡片只對今天且 1 分鐘後的出門時間顯示按鈕，設定後顯示「好，HH:mm 提醒你出門」
+- 測試：npm run lint 無錯誤；npm test 170 項全過（trip 測 leaveAt）；npm run e2e 14 項全過（假 host 驗證提醒）
+- 文件：MCP_TOOLS Option、CARDS host、TESTING、PLAN、CLAUDE
+- 下一個：M5-11（輕量 3D 與排名翻轉）
+- 卡住：同前
+
+## 2026-11-18 M5-09 決策圖
+- 做了：`public/ui/agent/decision-graph.js`（資料 → 你的狀態 → 方案 → 建議四欄 SVG；自動狀態虛線連回天氣／路況；連線粗細＝分數；排除方案灰階刪除線；勝出路徑與關鍵資料來源亮起；狀態 chips 切換／加選即時以同一份 `decide.js` 重算，關掉自動狀態時理由句加「不考慮『…』的話」；明細長條標示前兩項；SVG `title`／`desc` 文字替代）；伺服器白名單提供 `/core/decide.js`；`plan_trip`／`decision` 帶 `arriveBy`／`arriveByMin`；CSS 分段動畫、reduced motion 直接顯示；SW v0.3.1
+- 測試：npm run lint 無錯誤；npm test 170 項全過（新增重算一致性）；npm run e2e 14 項全過（決策圖互動、截圖已檢查）
+- 文件：UX §5、TESTING、PLAN、CLAUDE
+- 下一個：M5-10（結論卡：建議＋分段條＋備案＋行動）
+- 卡住：同前
+
+## 2026-11-18 M5-08 問阿幫頁面
+- 做了：`public/js/pages/agent.js`（`#/agent`：使用者泡泡、小幫手討論串 `role=log`／角色色彩頭像／@角色 chip／metrics／討論完成收合與展開、卡片以 `renderCard`、狀態與理由、總結泡泡、建議問題、@ 點名列、裝置定位流程、離線 Demo 版提示）；`public/css/agent.css`；`GET /api/v1/agent/profile`；Service Worker 版本 v0.3.0 並快取新檔
+- 測試：npm run lint 無錯誤；npm test 169 項全過；npm run e2e 14 項全過（新增問阿幫流程，手機截圖已檢查）
+- 文件：UX、TESTING、README、PLAN、CLAUDE
+- 下一個：M5-09（決策圖）
+- 卡住：同前
+
+## 2026-11-18 M5-07 裝置端工具（定位）
+- 做了：`run.js` 需要位置且客戶端支援時送 `client_tool_call device_location`，`deviceLocation` 只採台灣範圍座標（「你的位置」）；`demo-intent.js` 行程／YouBike／附近公車可用定位座標；`T.point` 座標可帶 `name`；`public/js/agent/client.js`（`runAgent` 讀 NDJSON、執行 client tool、重送；`browserLocation`）
+- 測試：npm run lint 無錯誤；npm test 169 項全過（新增 2 項）
+- 文件：AGENT §3.4、MCP_TOOLS 共用型別、TESTING、PLAN、CLAUDE
+- 下一個：M5-08（網頁 agent 頁面）
+- 卡住：同前
+
+## 2026-11-18 M5-06 Agent 端點
+- 做了：`server/agent.js` `createAgentHandler`（先驗證、NDJSON 串流 `runDemo`、例外以 `error`＋`done` 結束；限流每分鐘／每日 key＝agent id＋IP；每日計量 requests／toolCalls／modelCalls；log 不記對話與座標）；`server/http.js` 掛上 `POST /api/v1/agent`（無 CORS、405、429 帶 retry-after）；OpenAPI 加 `/api/v1/agent`
+- 測試：npm run lint 無錯誤；npm test 167 項全過（新增 3 項）
+- 文件：AGENT §6、ARCHITECTURE、README、TESTING、PLAN、CLAUDE
+- 下一個：M5-08（網頁 agent 頁面；M5-05 Claude 模式待決定 SDK／fetch，M5-07 client tools 可並行）
+- 卡住：同前
+
+## 2026-11-18 M5-04 Agent 共用執行器
+- 做了：`core/agent/run.js`：`validateRequest`、`execTools`（平行、先 start 後依完成順序 result、plan_trip 後 decision、profile 白名單、錯誤經 publicMessage）、`runDemo`（示範模式完整事件流；picked 狀態帶進 plan_trip 並在 decision 標 `picked`）
+- 測試：npm run lint 無錯誤；npm test 164 項全過（新增 5 項）
+- 文件：AGENT §3.3、TESTING、PLAN、CLAUDE
+- 下一個：M5-06（`POST /api/v1/agent` NDJSON；M5-05 Claude 模式待決定 SDK 或 fetch）
+- 卡住：同前
+
+## 2026-11-18 M5-03 示範模式意圖
+- 做了：`core/agent/demo-intent.js`：`placesInText`（內建地標名稱／別名，長的優先、車站短名）、`arriveByOf`、狀態關鍵字、`parseIntent`（trip、bus_route、youbike、nearby_bus、metro、rail、unknown）、`demoSteps`（分段計畫，`agent_note` 以 @角色開頭）、`demoSummary`
+- 測試：npm run lint 無錯誤；npm test 159 項全過（新增 6 項；profile 的 6 個建議問題都能以示範資料完整執行）
+- 文件：AGENT §5、TESTING、PLAN、CLAUDE
+- 下一個：M5-04（共用執行器 run.js）
+- 卡住：同前
+
+## 2026-11-18 M5-02 Agent 事件
+- 做了：`core/agent/events.js`（11 種事件的建立函式、registry 帶入 title／role／pack／tier、`tool_result` 帶卡片 payload 與 metrics、`decision` 由 plan_trip 資料組成、`toNdjson`、`mergeStates`、`TOOL_ROLES`）；AGENT.md 狀態來源 `said` 統一為 `user`（與 plan_trip／CARDS 一致）
+- 測試：npm run lint 無錯誤；npm test 153 項全過（新增 4 項）
+- 文件：AGENT §3.1／§3.2、TESTING、PLAN、CLAUDE
+- 下一個：M5-03（示範模式意圖）
+- 卡住：同前（PR #2 合併、權重、新依賴）
+
+## 2026-11-18 M5-01 Agent profile 與 system prompt
+- 做了：`core/agents/life.json`（加 `version`、`persona`、`rules`，建議問題 6 個）；`core/agents/index.js`（zod `.strict()` 驗證、tools 必須在 registry、pack 必須列在 packs、不可重複）；`core/agent/prompt.js`（平台政策 → 工具包護欄 → 角色 → 情境；工具結果與情境只當資料）。新分支 `dev/m5`（疊在 `dev/m4`）
+- 測試：npm run lint 無錯誤；npm test 149 項全過（新增 3 項）
+- 文件：AGENT §1／§4、ARCHITECTURE、TESTING、PLAN、CLAUDE
+- 下一個：M5-02（事件）
+- 卡住：M4-04 起新依賴；M5-05 Claude 模式需決定用 `@anthropic-ai/sdk` 或 fetch（新依賴待同意）
+
 ## 2026-11-18 M4-07 卡片動態
 - 做了：`public/ui/cards/countdown.js`（`etaLabel` 與伺服器 `busStatusText` 同規則；`startCountdown` 每秒依重畫後經過時間遞減 `[data-eta-sec]`、跨門檻換 `soon`、數字變化 `.ab-tick` 提示；reduced motion 只換文字）；bus-route／bus-station 加 `data-eta-sec`（只限正常營運狀態）；公車車牌標記 `.ab-bus`
 - 測試：npm run lint 無錯誤；npm test 146 項全過（新增 2 項）；npm run e2e 12 項全過

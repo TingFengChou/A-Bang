@@ -1,7 +1,7 @@
 # UX 規格 — 阿幫・生活（交通）
 
 版本：v0.4（2026-11-17）。參考原型：`docs/prototypes/transit-discussion.html`（瀏覽器直接開；4 個情境）。
-正式實作在 `public/js/pages/agent.js` ＋ `public/ui/agent/*`，**由真實 NDJSON 事件驅動**（`AGENT.md` §3），原型中的假資料與 `sleep()` 只是示意。
+正式實作在 `public/js/pages/agent.js`（✅ M5-08，`#/agent`）＋ `public/css/agent.css`，**由真實 NDJSON 事件驅動**（`AGENT.md` §3），原型中的假資料與 `sleep()` 只是示意。頭像目前以角色名縮寫＋色彩圓形呈現（線條 SVG 圖示待補）。
 
 ## 1. 原則
 
@@ -63,6 +63,8 @@
 
 桌面（≥ 900px）：對話欄 640px 置中，決策圖可放大到 720px。
 
+✅ M5-12：首頁搜尋框即「問阿幫」（送出 → `#/agent?q=…` 自動送出，網址隨即換成 `#/agent` 避免重新整理重送），下方 3 個範例問題；原有功能格子與分頁列保留。離線 Demo 版（無伺服器）維持公車搜尋。
+
 ## 4. 小幫手討論串
 
 | 事件 | 呈現 | 時間 |
@@ -99,6 +101,8 @@
 - 關掉某個自動狀態時，理由句改為「不考慮『下雨』的話，…」。
 
 **明細**：每個方案可展開長條圖（各比較項目得分 × 權重），標示最影響結果的兩項。
+
+✅ M5-09：`public/ui/agent/decision-graph.js`（`renderDecision(root, decision, { sources, decide, CRITERIA })`，SVG 以 DOM API 建立、含 `<title>`／`<desc>` 文字替代）；伺服器以白名單提供 `/core/decide.js`；`plan_trip` 輸出與 `decision` 事件帶 `arriveBy`／`arriveByMin` 讓前端重算與伺服器一致（`test/agent-events.test.js` 驗證）。動畫為 CSS 分段淡入（步驟 1–6），排名翻轉（FLIP）與 3D 留待 M5-11。
 
 ## 6. 結論卡片
 
@@ -137,6 +141,7 @@
 
 - ✅ 原型已有：卡片立體進場（`translateZ`＋`rotateX` 8°）、排名翻轉。
 - 限制：只用 CSS transform，不引入 WebGL；同時進行的 3D 動畫 ≤ 3 個；低階裝置（`navigator.hardwareConcurrency ≤ 4` 或 reduced-motion）降級為淡入。
+- ✅ M5-11：問阿幫的結果卡片與決策圖以 `.enter3d` 立體進場（`rotateX(8deg)`＋`translateZ`，依序延遲）；決策圖重算時位置改變的方案以 FLIP（Web Animations）滑到新位置，同時最多 3 個；`html.lite-motion`（`hardwareConcurrency ≤ 4` 或 reduced motion）只淡入、不翻轉。
 - 🔭 評估：3D 吉祥物（靜態渲染圖）、3D 傾斜路線地圖。
 
 ## 10. 可及性

@@ -28,7 +28,7 @@
 | 名稱 | 定義 |
 |---|---|
 | `City` | `Taipei`／`TPE`／`台北市`／`臺北` 皆可（`core/cities.js`） |
-| `LatLon` | `lat` 21–27、`lon` 118–123（WGS84） |
+| `LatLon` | `lat` 21–27、`lon` 118–123（WGS84）；`T.point` 的座標物件可另帶 `name`（≤ 30 字，例「你的位置」） |
 | `Date` | `YYYY-MM-DD`，預設今天（台灣時間） |
 | `Eta` | `{ etaSec: number\|null, status: 0–4, statusText }`；1 尚未發車、2 交管不停靠、3 末班車已過、4 今日未營運 |
 | `Nav` | `{ google: url, apple: url }` |
@@ -93,6 +93,7 @@
 ### ✅ `thsr_timetable`／`tra_timetable`
 
 輸入 `from`, `to`（中文站名或代碼，台／臺通用）, `date?`；輸出 `{ system: 'THSR'|'TRA', from, to, date, trains: [{ trainNo, type?, depart, arrive, minutes, terminal? }] }`。
+查今天時，給模型的文字與 `speak` 以「現在時間」為準只講尚未開出的班次（「今天還有 N 班，下一班 HH:mm 出發」；都開走時說末班並建議查明天）；`data.trains` 仍是整天（`upcomingTrains(data, now)`）。
 TDX：高鐵 `/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}`；台鐵 v3 `/basic/v3/Rail/TRA/DailyTrainTimetable/OD/{O}/to/{D}/{Date}`（10m）。
 
 ### ✅ `rail_stations`
@@ -227,7 +228,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 |---|---|
 | 輸入 | `from`, `to`：座標或地名（`T.point`）；`departAt?`：HH:mm 或 ISO（同 `intercity_bus`）；`prefs?: { states?: ('rush'\|'traffic'\|'rain'\|'luggage'\|'budget'\|'lessWalk')[], arriveBy?: 'HH:mm' }` |
 | 輸出 | `{ from, to, straightKm, date, departAt, best, states: [{ key, source: 'auto'\|'user', from?, detail? }], weather, traffic, options: [Option], ranking: { ranked: [{ id, name, score, breakdown }], excluded: [{ id, name, why }], weights, reason }, unavailable? }`（與 `CARDS.md` `trip` 一致；`unavailable` 列出查詢失敗而略過的方案種類） |
-| Option | `{ id, role: 'walk'\|'bike'\|'bus'\|'thsr'\|'tra'\|'intercity'\|'ridehail', name, minutes, waitMin, walkMin, cost, costRange?, exposure, effort, delayRisk, arriveAt, arriveMin（自出發日 00:00 起算，可超過 24 小時；`arriveBy` 以此比較，跨午夜不誤判）, legs: [{ mode, from: {name, lat, lon}, to: {...}, minutes, detail, nav, url? }], notes[], train?, estimated?: true }` |
+| Option | `{ id, role: 'walk'\|'bike'\|'bus'\|'thsr'\|'tra'\|'intercity'\|'ridehail', name, minutes, waitMin, walkMin, cost, costRange?, exposure, effort, delayRisk, arriveAt, arriveMin（自出發日 00:00 起算，可超過 24 小時；`arriveBy` 以此比較，跨午夜不誤判）, leaveAt?（高鐵／台鐵／客運：最晚出門時間＝發車 − 到站時間）, legs: [{ mode, from: {name, lat, lon}, to: {...}, minutes, detail, nav, url? }], notes[], train?, estimated?: true }` |
 | 排序 | `core/decide.js`（ADR-0010） |
 | speak | 「比了 4 種方式，因為路上在塞車，建議台鐵自強。」 |
 
@@ -248,8 +249,8 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | 步行 | ≤ 6 km | `walkMinutes` | 0 | — |
 | YouBike | 0.5～12 km；起點 500 m 內有車、終點 500 m 內有空位 | 走＋騎（站距 × 1.3 ÷ 12 km/h）＋走 | 台北市 2.0 費率（前 30 分 5 元，之後每 30 分 10 元） | — |
 | 公車直達 | ≤ 25 km；`bus.directTrips` | 走＋等（ETA − 走路，趕不上以 10 分估）＋站數 × 1.5＋走 | 一段票 15 元 | 等車時間不明時 |
-| 高鐵／台鐵 | > 30 km；起訖 25 km 內最近車站（座標由內建地標對照 `stationPoint`） | 到站（1.2 km 內走路，否則市區轉乘 道路 ÷ 20 km/h＋5 分）＋等第一班趕得上的車＋車程＋離站 | 成人單程（台鐵依車種）＋市區轉乘 15 元 | 有市區轉乘或查不到票價時 |
-| 國道客運 | ≥ 15 km；`intercity.trips` | 走＋等（走到站牌趕得上的第一班）＋車程含路況延誤＋走 | 票價；缺資料時道路公里 × 1.3 元 | 缺票價或抵達為估算時 |
+| 高鐵／台鐵 | > 30 km；起訖 25 km 內最近車站（座標由內建地標對照 `stationPoint`） | 到站（1.2 km 內走路，否則市區轉乘 道路 ÷ 20 km/h＋5 分）＋等第一班趕得上的車（最多算 10 分，再多就把 `leaveAt` 往後延）＋車程＋離站；`arriveAt` 以實際班次計算 | 成人單程（台鐵依車種）＋市區轉乘 15 元 | 有市區轉乘或查不到票價時 |
+| 國道客運 | ≥ 15 km；`intercity.trips` | 走＋等（走到站牌趕得上的第一班，最多算 10 分）＋車程含路況延誤＋走；`arriveAt` 以實際班次計算 | 票價；缺資料時道路公里 × 1.3 元 | 缺票價或抵達為估算時 |
 | 叫車 | 一律 | 等 6 分＋道路 ÷（市區 22／長程 55 km/h）＋路況延誤 | `ridehail_link` 估價區間中位數（`costRange`） | 一律 |
 
 ### ✅ `weather_now` — 現在與接下來 3 小時天氣（pack `weather`）

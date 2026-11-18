@@ -4,6 +4,7 @@ import { api, state } from './api.js';
 import home from './pages/home.js';
 import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
+import agent from './pages/agent.js';
 import { busSearch, busRoute, busStation, favPage } from './pages/bus.js';
 
 const routes = [
@@ -14,6 +15,7 @@ const routes = [
   [/^\/bus-station\/([^/]+)\/([^/]+)$/, busStation],
   [/^\/rail\/(thsr|tra)$/, rail],
   [/^\/favs$/, favPage],
+  [/^\/agent$/, agent],
 ];
 const tabs = [['#/', '首頁', 'home'], ['#/nearby', '附近', 'pin'], ['#/bus', '公車', 'bus'], ['#/favs', '收藏', 'star']];
 

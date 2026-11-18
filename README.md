@@ -12,7 +12,7 @@
 ```
  民眾網頁（PWA）──┐                ┌─ core/tools/   Tool registry（pack・tier・speak）
  Claude／AI agent ─┼─▶ server/http.js ─┤  core/decide.js 決策引擎（資料＋使用者狀態 → 排序與理由）
- iOS／Android／LINE┘   /api/v1  /mcp    ├─ core/agent/   網頁 agent（Claude 或示範模式，NDJSON 事件）
+ iOS／Android／LINE┘   /api/v1  /mcp    ├─ core/agent/   網頁 agent（Claude、地端模型或示範模式，NDJSON 事件）
                     mcp/server.js(stdio)└─ core/services/ ＋ mock ─▶ tdx-client ─▶ 交通部 TDX、氣象署…
 ```
 
@@ -36,7 +36,7 @@ npm run e2e               # Playwright E2E 冒煙測試（截圖在 test/screens
 |---|---|---|
 | `TDX_CLIENT_ID`／`TDX_CLIENT_SECRET` | [TDX](https://tdx.transportdata.tw/register) 會員中心 → API 金鑰 | 交通資料用示範資料 |
 | `CWA_API_KEY` | [中央氣象署開放資料平臺](https://opendata.cwa.gov.tw) | 天氣用示範資料（M3） |
-| `ANTHROPIC_API_KEY` | Anthropic Console | 網頁 agent 用示範模式（M5） |
+| `ANTHROPIC_API_KEY` | Anthropic Console（付費） | 網頁 agent 改用地端模型（`LOCAL_LLM_URL`＋`LOCAL_LLM_MODEL`，例如 Ollama）或示範模式（ADR-0012） |
 
 台鐵／高鐵導訂票需另在 TDX 會員中心申請「臺鐵訂票導訂」「高鐵訂票導訂」權限。
 
@@ -94,9 +94,10 @@ API 文件：啟動後開 <http://localhost:8787/api/docs>（Swagger UI，可直
 | Endpoint | 說明 |
 |---|---|
 | `GET /api/v1/status` | 模式、工具包 |
+| `GET /api/v1/agent/profile` | 網頁 agent 的名稱、建議問題、免責、小幫手角色 |
 | `GET /api/v1/tools?pack=` | tools、工具包、分級、JSON Schema |
 | `POST /api/v1/tools/:name` | 呼叫 tool；回傳 `{ name, card, mode, data, text, speak }` |
-| `POST /api/v1/agent` | 📝 M5：網頁 agent，NDJSON 事件串流（[`docs/AGENT.md`](docs/AGENT.md)） |
+| `POST /api/v1/agent` | 網頁 agent，NDJSON 事件串流（[`docs/AGENT.md`](docs/AGENT.md)）；Claude／地端模型／示範模式；只給本站網頁（無 CORS）、每 IP 每分鐘／每日限流 |
 | `POST /mcp`、`/mcp/:pack` | 遠端 MCP（Streamable HTTP、stateless） |
 | `GET /api/v1/bus/*`、`/bike/nearby`、`/thsr/*`、`/tra/*` | 舊版 REST（PWA 使用） |
 
@@ -104,7 +105,7 @@ API 文件：啟動後開 <http://localhost:8787/api/docs>（Swagger UI，可直
 
 ## 環境變數
 
-見 [`.env.example`](.env.example)：`PORT`、`DEMO_MODE`、`TDX_*`、`CWA_API_KEY`、`ANTHROPIC_*`、`RATE_LIMIT_*`、`AGENT_*`、`TRUST_PROXY`、`MCP_PACKS`、`DEMO_WEATHER`、`DEMO_TRAFFIC`。
+見 [`.env.example`](.env.example)：`PORT`、`DEMO_MODE`、`TDX_*`、`CWA_API_KEY`、`AGENT_PROVIDER`、`ANTHROPIC_*`、`LOCAL_LLM_*`、`RATE_LIMIT_*`、`AGENT_*`、`TRUST_PROXY`、`MCP_PACKS`、`DEMO_WEATHER`、`DEMO_TRAFFIC`。
 
 ## 開發
 

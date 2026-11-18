@@ -24,7 +24,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | M2 Registry＋遠端 MCP | ✅（Claude 實機連線待驗） | — | Austin 以 cloudflared 實測 |
 | M3 交通完整版 | ✅（2026-11-18 驗收；M3-12 真實導訂票 ⛔） | — | 待 Austin：無狀態市區短程叫車排第一是否合理（ADR-0010）；`rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
 | M4 互動卡片 | 🚧（M4-01／02／03／07 ✅） | M4-04（host-mcp-app）⛔ 待新依賴同意 | M4-04 需新增依賴 `@modelcontextprotocol/ext-apps`（待 Austin 同意） |
-| M5 網頁 agent | 📝 | — | Claude 模式需 `ANTHROPIC_API_KEY`（示範模式不需要） |
+| M5 網頁 agent | ✅（2026-11-18；Claude 實機待金鑰） | — | Claude 模式需 `ANTHROPIC_API_KEY`；地端模式需自架 Ollama 等（示範模式都不需要） |
 | M6 上線 | 📝 | — | 部署帳號、網域 |
 
 建議順序：M4-04 起需新增依賴（待 Austin）；等待期間可先做 M5 不依賴卡片 host 的部分（事件協定、示範模式 agent）。
@@ -37,7 +37,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 - [ ] 本機 `npm start` ＋ `cloudflared tunnel --url http://localhost:8787`，在 Claude 新增自訂連接器 `https://<隨機>.trycloudflare.com/mcp`，確認能列出並呼叫 tools
 - [ ] 本機執行 `node scripts/verify-tdx.js`、`node scripts/record-fixtures.js`（M1 完成後），把 fixtures commit
 - [ ] 校對 `core/data/landmarks.json` 座標（201 筆，Claude 依記憶整理的近似值；可對照 Google 地圖或 M1 的 TDX／TGOS 結果，校對完把 `verified` 改為 `true`）
-- [ ] （M5）取得 `ANTHROPIC_API_KEY`，設定每日預算
+- [ ] （M5）取得 `ANTHROPIC_API_KEY`，設定每日預算；或不付費改用地端模型（`LOCAL_LLM_URL`＋`LOCAL_LLM_MODEL`，Ollama 需 `OLLAMA_CONTEXT_LENGTH=16384`）
 - [ ] （M6）選定部署平台與網域
 
 ---
@@ -130,19 +130,19 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 
 規格：`AGENT.md`、`UX.md`、ADR-0004、ADR-0009、ADR-0010；視覺依原型 `docs/prototypes/transit-discussion.html`（以真實事件驅動，不照抄假資料）。
 
-- [ ] M5-01 🧩 `core/agents/life.json` ＋ zod 驗證；prompt 組裝順序：平台政策 → 工具包護欄 → agent 設定 → 使用者
-- [ ] M5-02 `core/agent/events.js`：事件型別與建立函式（`AGENT.md` §事件）＋測試
-- [ ] M5-03 `core/agent/demo-intent.js`：規則式意圖（`AGENT.md` 示範模式表），產生與 Claude 模式相同事件
-- [ ] M5-04 `core/agent/run.js`：共用執行器（呼叫 tool → `tool_start`/`tool_result` → `plan_trip` 時發 `decision`）
-- [ ] M5-05 `core/agent/claude.js`：Claude tool-use 迴圈（`claude-haiku-5-5`），`agent_note` 來自模型、`speak` 來自資料
-- [ ] M5-06 `POST /api/v1/agent` NDJSON 串流；🧩 限流與計量以 agent id 為單位；每日預算
-- [ ] M5-07 🧩 `client_tool_call`／`clientToolResults`；網頁實作 `device_location`
-- [ ] M5-08 `public/js/pages/agent.js`：對話 UI、討論串、`@` 點名、建議問題
-- [ ] M5-09 決策圖（`decision` 事件）：資料膠囊 → 狀態標籤連回來源 → 方案連線依分數變粗 → 勝出路徑亮起；狀態 chip 可切換並即時重算（前端呼叫同一份 `decide.js`）
-- [ ] M5-10 結論卡：建議方案＋分段時間條＋備案＋行動按鈕（導航、訂票、叫車、提醒我）
-- [ ] M5-11 輕量 3D：卡片立體進場、排名翻轉；低階手機與 `prefers-reduced-motion` 降級
-- [ ] M5-12 首頁改以 agent 為主要入口，舊功能保留在格子
-- [ ] M5-13 Playwright：示範模式 6 個建議問題的手機與桌面截圖；Claude 模式以本地 mock API 測迴圈與錯誤
+- [x] M5-01 🧩 `core/agents/life.json` ＋ zod 驗證；prompt 組裝順序：平台政策 → 工具包護欄 → agent 設定 → 使用者（2026-11-18：`core/agents/index.js` 與 registry 交叉檢查；`core/agent/prompt.js`；3 項測試）
+- [x] M5-02 `core/agent/events.js`：事件型別與建立函式（`AGENT.md` §事件）＋測試（2026-11-18：`ev.*`、`toNdjson`、`mergeStates`、`TOOL_ROLES`；狀態來源統一 `user`；4 項測試）
+- [x] M5-03 `core/agent/demo-intent.js`：規則式意圖（`AGENT.md` 示範模式表），產生與 Claude 模式相同事件（2026-11-18：地標比對擷取地點、抵達時間、狀態關鍵字、6 種意圖的分段計畫與總結；6 個建議問題皆可完整執行；6 項測試）
+- [x] M5-04 `core/agent/run.js`：共用執行器（呼叫 tool → `tool_start`/`tool_result` → `plan_trip` 時發 `decision`）（2026-11-18：`validateRequest`、`execTools`（白名單、錯誤不外洩）、`runDemo`；picked 狀態帶進計分並標示；5 項測試）
+- [x] M5-05 `core/agent/claude.js`：Claude tool-use 迴圈（`claude-haiku-5-5`），`agent_note` 來自模型、`speak` 來自資料（2026-11-18：ADR-0012 三種模式 claude／local／demo；`@anthropic-ai/sdk`；地端 OpenAI 相容 fetch；共用 `model-loop.js`；預算降級；頁面標示模式；地端 qwen3:8b 實測；順手修高鐵／台鐵「下一班」：今天只列未開出班次、卡片收起已開出班次）
+- [x] M5-06 `POST /api/v1/agent` NDJSON 串流；🧩 限流與計量以 agent id 為單位；每日預算（2026-11-18：`server/agent.js`；預算降級 M5-05 接上；OpenAPI 文件；3 項測試）
+- [x] M5-07 🧩 `client_tool_call`／`clientToolResults`；網頁實作 `device_location`（2026-11-18：伺服器請求定位、`deviceLocation` 驗證台灣範圍；`public/js/agent/client.js` NDJSON 串流＋client tool 重送；2 項測試）
+- [x] M5-08 `public/js/pages/agent.js`：對話 UI、討論串、`@` 點名、建議問題（2026-11-18：`#/agent`；討論串 role=log、角色色彩頭像、metrics、收合；卡片以 renderCard 呈現；定位流程；`/api/v1/agent/profile`；E2E 截圖已檢查。決策圖 M5-09、首頁入口 M5-12）
+- [x] M5-09 決策圖（`decision` 事件）：資料膠囊 → 狀態標籤連回來源 → 方案連線依分數變粗 → 勝出路徑亮起；狀態 chip 可切換並即時重算（前端呼叫同一份 `decide.js`）（2026-11-18：`decision-graph.js`、`/core/decide.js`、重算一致性測試、E2E 驗證切換想省錢會改變建議且不呼叫伺服器；FLIP／3D 於 M5-11）
+- [x] M5-10 結論卡：建議方案＋分段時間條＋備案＋行動按鈕（導航、訂票、叫車、提醒我）（2026-11-18：trip 卡（M4-02）補「提醒我出門」：高鐵／台鐵／客運方案帶 `leaveAt`，web host `remind` 以系統通知；只提醒今天且 1 分鐘後的出門時間）
+- [x] M5-11 輕量 3D：卡片立體進場、排名翻轉；低階手機與 `prefers-reduced-motion` 降級（2026-11-18：CSS `enter3d`、決策圖 FLIP（最多 3 個）、`lite-motion` 降級；E2E 驗證兩種模式）
+- [x] M5-12 首頁改以 agent 為主要入口，舊功能保留在格子（2026-11-18：首頁搜尋框改為問阿幫（`#/agent?q=` 自動送出）＋3 個範例；格子與分頁列不變；離線 Demo 版維持公車搜尋）
+- [x] M5-13 Playwright：示範模式 6 個建議問題的手機與桌面截圖；Claude 模式以本地 mock API 測迴圈與錯誤（2026-11-18：示範模式部分 ✅——6 題 × 手機桌面皆有討論串、正確卡片、行程有決策圖、截圖已檢查；截圖發現並修正：建議題改「明天 9 點前要到左營」（示範資料 8 點前無班次）、全部遲到時卡片改說「都趕不上」、班次制等車最多算 10 分。模型模式以本地假 API 測迴圈與錯誤：`test/agent-model.test.js`）
 
 驗收：無 API Key 時完整展示；填入 `ANTHROPIC_API_KEY` 後切換 Claude，事件流與卡片相同；無假延遲。
 

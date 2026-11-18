@@ -15,6 +15,7 @@
 | [0009](0009-agent-visual-events.md) | 小幫手討論串呈現多 MCP 協作 | 已採用 | M5 UI、`speak` |
 | [0010](0010-decision-engine.md) | MCP 資料＋使用者狀態決策，由程式計分 | 已採用・引擎完成 | `core/decide.js` |
 | [0011](0011-actions-via-links-and-providers.md) | 導航、訂票、叫車以官方連結＋provider adapter 實作 | 已採用 | `core/providers/`、L2 tools |
+| [0012](0012-model-providers.md) | 網頁 agent 的模型可選 Claude 或地端模型 | 已採用・M5-05 | `core/agent/` |
 
 範本：
 

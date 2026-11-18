@@ -208,7 +208,8 @@ footer{color:var(--faint);font-size:13px;padding:24px 0}
     <tr><td>討論串＋決策圖原型</td><td><span class="pill done">完成</span></td><td>4 個情境，見「阿幫・生活」</td></tr>
     <tr><td>交通完整版（捷運、地點、路況、天氣、客運、票價、行程、導航、訂票、叫車）</td><td><span class="pill done">M3 完成</span></td><td>18 個 tools 在示範模式皆可用；真實欄位待 M1；導訂票待 TDX 權限</td></tr>
     <tr><td>TDX 真實資料驗證</td><td><span class="pill next">M1 需金鑰</span></td><td>只能在本機執行；可與 M3 並行</td></tr>
-    <tr><td>互動卡片、網頁 agent、上線</td><td><span class="pill plan">M4–M6</span></td><td>規格已定：<code>CARDS.md</code>、<code>AGENT.md</code>、<code>UX.md</code></td></tr>
+    <tr><td>網頁 agent（問阿幫：討論串、決策圖、結論卡）</td><td><span class="pill done">M5 完成</span></td><td>Claude、地端模型（Ollama 等 OpenAI 相容）、示範模式三選一（ADR-0012）；Claude 實機待金鑰</td></tr>
+    <tr><td>互動卡片（MCP App）、上線</td><td><span class="pill plan">M4、M6</span></td><td>規格已定：<code>CARDS.md</code>；M4-04 起待新依賴同意</td></tr>
   </table></div>
 </section>
 
@@ -806,7 +807,7 @@ TDX_CLIENT_SECRET=你的Secret</code></pre></li>
     <div class="card"><span class="k">M2</span><div><h4>Tool registry＋遠端 MCP</h4><p>tool 只定義一次；<code>/mcp</code>、<code>/mcp/:pack</code>；REST tools；限流；pack／tier</p></div><span class="pill done">完成</span></div>
     <div class="card"><span class="k">M3</span><div><h4>交通完整版</h4><p>✅ 決策引擎、speak；導航、路線座標、地點、捷運、票價、路況、客運、天氣、叫車、<code>plan_trip</code>（10 組 OD 測試）、導訂票、metrics</p></div><span class="pill next">進行中</span></div>
     <div class="card"><span class="k">M4</span><div><h4>互動卡片</h4><p>7 種卡片資料契約（JSON Schema）、渲染、host 介面、MCP Apps 單檔、自動刷新、AppBridge 測試</p></div><span class="pill plan">規劃</span></div>
-    <div class="card"><span class="k">M5</span><div><h4>民眾網頁 agent</h4><p>agent profile、事件、示範意圖、Claude 迴圈；討論串、決策圖、結論卡、輕量 3D；Playwright 截圖</p></div><span class="pill plan">規劃</span></div>
+    <div class="card"><span class="k">M5</span><div><h4>民眾網頁 agent</h4><p>agent profile、事件、示範意圖、Claude／地端模型迴圈；討論串、決策圖、結論卡、輕量 3D；Playwright 截圖</p></div><span class="pill done">完成</span></div>
     <div class="card"><span class="k">M6</span><div><h4>上線準備</h4><p>Docker、healthz、log、無障礙、Lighthouse、部署、文件站</p></div><span class="pill plan">規劃</span></div>
     <div class="card"><span class="k">M7</span><div><h4>反詐騙 agent</h4><p>165 資料同步、詐騙特徵規則庫、風險卡片、L2 護欄</p></div><span class="pill plan">下一階段</span></div>
     <div class="card"><span class="k">M8</span><div><h4>中小企業概念驗證</h4><p>一個產業與縣市；人工審核申辦知識庫、法規檢索、商工登記、申辦清單卡片</p></div><span class="pill plan">下一階段</span></div>
@@ -996,7 +997,7 @@ git push -u origin main</code></pre>
     http: ['HTTP 伺服器', 'server/http.js', ['/api/v1/agent（M5，NDJSON）、/api/v1/tools、/mcp','每 IP 限流、64 KB body 上限、CORS','不放商業邏輯']],
     decide: ['決策引擎', 'core/decide.js · ADR-0010', ['比較：總時間、等車、走路、費用、淋雨、體力、塞車風險','使用者狀態調權重：下雨、塞車、趕時間、帶行李、想省錢、少走路','arriveBy 硬限制；產生理由句；模型不計分']],
     tools: ['Tool registry', 'core/tools/ · ADR-0002', ['defineTool：名稱、zod 輸入、run、speak、card','每個 tool 標 pack（工具包）與 tier（L1/L2/L3）','MCP、REST、網頁 agent 共用 callTool()']],
-    agentrt: ['agent 執行環境', 'core/agent/ · M5', ['Claude tool-use 迴圈或示範意圖解析','事件：agent_note、tool_start、tool_result、decision…','合併使用者狀態：自動判斷／你說的／你選的']],
+    agentrt: ['agent 執行環境', 'core/agent/ · M5', ['Claude／地端模型 tool-use 迴圈或示範意圖解析','事件：agent_note、tool_start、tool_result、decision…','合併使用者狀態：自動判斷／你說的／你選的']],
     mock: ['示範資料', 'core/services/*-mock.js', ['沒有金鑰時自動啟用，介面完全相同','DEMO_WEATHER、DEMO_TRAFFIC 切換情境','開發、Demo、CI 都用它']],
     services: ['服務', 'core/services/', ['正規化成共用格式，不漏 TDX 原始欄位','transit ✅；metro、places、trip、traffic、weather、booking（M3）','縣市與站名容錯（台／臺）']],
     providers: ['providers', 'core/providers/ · ADR-0011', ['叫車 adapter：先 Uber 深層連結，估價待合作','mcp-client：包裝 TDX 官方 MCP 等外部 MCP','行動類為 L2：使用者確認後才產生連結']],

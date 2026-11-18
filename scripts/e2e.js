@@ -21,7 +21,7 @@ before(async () => {
   // 示範模式：清掉金鑰，確保不連外
   server = spawn(process.execPath, ['server/http.js'], {
     cwd: new URL('..', import.meta.url),
-    env: { ...process.env, PORT: String(port), DEMO_MODE: '1', TDX_CLIENT_ID: '', TDX_CLIENT_SECRET: '', CWA_API_KEY: '' },
+    env: { ...process.env, PORT: String(port), DEMO_MODE: '1', TDX_CLIENT_ID: '', TDX_CLIENT_SECRET: '', CWA_API_KEY: '', ANTHROPIC_API_KEY: '', AGENT_RPM: '500', AGENT_RPD: '5000' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   await new Promise((res, rej) => {
@@ -65,8 +65,15 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       assert.equal(await page.locator('.tabbar a').count(), 4);
       assert.ok(await page.locator('.grid .tile').count() > 0);
       await shot(page, `${dname}-home`);
-      await page.fill('.hero .search input', '307');
+      // 首頁以問阿幫為主要入口（M5-12）：輸入問題 → #/agent 自動送出
+      assert.ok(await page.locator('.hero-ask .chip').count() >= 3);
+      await page.fill('.hero .search input', '307 到哪了？我在臺北車站');
       await page.press('.hero .search input', 'Enter');
+      await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+      assert.match(page.url(), /#\/agent$/);
+      assert.equal(await page.locator('.results [data-card="bus-route"]').count(), 1);
+      // 公車搜尋仍可從分頁列進入
+      await page.goto(`${base}/#/bus?q=307`);
       await page.waitForSelector('.card.list a');
       assert.match(page.url(), /#\/bus\?q=307/);
       await shot(page, `${dname}-bus-search`);
@@ -134,6 +141,34 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       const tt = page.locator('[data-card="timetable"]').first();
       assert.match(await tt.locator('.ab-title').textContent(), /^高鐵/);
       assert.ok(await tt.locator('.ab-btn', { hasText: '訂票' }).count() > 0);
+      // 行程卡：跨城建議（高鐵）有導航與訂票；有出門時間時可設定提醒（時間已過則不顯示）
+      const tripRail = page.locator('[data-card="trip"]').first();
+      assert.ok(await tripRail.locator('.ab-option.best .ab-btn', { hasText: '訂票' }).count() === 1);
+      // 提醒我出門：以假 host 渲染一張今天、30 分鐘後出門的行程卡
+      const reminded = await page.evaluate(async () => {
+        const { renderCard } = await import('/ui/cards/index.js');
+        const pad = (n) => String(n).padStart(2, '0');
+        const d = new Date(Date.now() + 30 * 60e3);
+        const leaveAt = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+        const calls = [];
+        const host = { remind: async (at, text) => { calls.push([at, text]); return true; }, openLink() {} };
+        const el = document.createElement('div');
+        document.body.append(el);
+        const P = { name: 'A', lat: 25, lon: 121 };
+        renderCard(el, { card: 'trip', mode: 'demo', data: { from: P, to: { ...P, name: 'B' }, date: today, departAt: '09:00', best: 'thsr', states: [],
+          options: [{ id: 'thsr', role: 'thsr', name: '高鐵', minutes: 120, waitMin: 10, walkMin: 2, cost: 1300, arriveAt: '11:00', leaveAt, notes: [],
+            legs: [{ mode: 'walk', from: P, to: P, minutes: 2, detail: '走', nav: null }] }],
+          ranking: { ranked: [{ id: 'thsr', name: '高鐵', score: 90 }], excluded: [], reason: '選「高鐵」' } } }, host);
+        el.querySelector('.ab-option.best .ab-btn').click();
+        await new Promise((r) => setTimeout(r, 50));
+        const out = { calls, text: el.querySelector('.ab-option.best [role="status"]')?.textContent, leaveAt };
+        el.remove();
+        return out;
+      });
+      assert.equal(reminded.calls.length, 1);
+      assert.equal(reminded.calls[0][0], reminded.leaveAt);
+      assert.match(reminded.text, /提醒你出門/);
       assert.equal(await page.locator('.ab-card script, .ab-card img[onerror]').count(), 0);
       // 自動刷新不會在第一次後停止：連續兩次 refresh 都會呼叫 tool
       const calls = await page.evaluate(async () => {
@@ -147,6 +182,94 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       });
       assert.equal(calls, 2);
       await shot(page, `${dname}-cards`);
+    });
+  });
+
+  test(`${dname}：問阿幫（建議問題 → 討論串 → 卡片 → 總結；@ 點名；定位）`, async () => {
+    await withPage(device, '#/agent', async (page) => {
+      await page.waitForSelector('.suggest .chip');
+      await page.locator('.suggest .chip').first().click(); // 從西門町到台北 101 怎麼去？
+      await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+      assert.match(await page.locator('.msg.user').first().textContent(), /西門町/);
+      assert.match(await page.locator('.thread-sum').first().textContent(), /小幫手討論完成・\d+ 個工具/);
+      assert.ok(await page.locator('.thread .bubble.tool').count() >= 4, '小幫手發言');
+      assert.ok(await page.locator('.thread .mention').count() >= 1, '@角色 chip');
+      assert.equal(await page.locator('.results [data-card="trip"]').count(), 1);
+      // 決策圖（M5-09）：四欄、勝出方案、理由；切換狀態即時重算（不呼叫伺服器）
+      const dg = page.locator('.decision');
+      await dg.locator('.dg-svg').waitFor();
+      assert.ok(await dg.locator('.dg-opt').count() >= 3);
+      assert.equal(await dg.locator('.dg-opt.win').count(), 1);
+      assert.match(await dg.locator('.dg-why').textContent(), /選「/);
+      const before = await dg.getAttribute('data-best');
+      let calls = 0;
+      page.on('request', (r) => { if (r.url().includes('/api/')) calls++; });
+      await dg.locator('.dg-chip.add', { hasText: '想省錢' }).click();
+      assert.equal(await dg.getAttribute('data-run'), '2');
+      assert.notEqual(await dg.getAttribute('data-best'), before, '想省錢時建議應改變（叫車 → 大眾運輸）');
+      assert.equal(await dg.locator('.dg-chip.on', { hasText: '你選的：想省錢' }).count(), 1);
+      assert.equal(calls, 0, '重算不呼叫伺服器');
+      // 輕量 3D 降級（M5-11）：測試以 reduced motion 執行 → 精簡模式，不做翻轉
+      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('lite-motion')), true);
+      assert.equal(await dg.evaluate((n) => n.classList.contains('reranked')), false);
+      await dg.locator('.dg-details summary').click();
+      assert.ok(await dg.locator('.dg-bar.top').count() >= 2);
+      assert.match(await page.locator('.bubble.final .say').textContent(), /^選「/);
+      await shot(page, `${dname}-agent-trip`);
+      // 展開討論串
+      await page.locator('.thread-sum').first().click();
+      assert.equal(await page.locator('.thread.open').count(), 1);
+      // @ 點名
+      await page.fill('.chat-input', '請 @');
+      await page.locator('.chat-input').dispatchEvent('input');
+      assert.ok(await page.locator('.mention-bar .chip').count() >= 5);
+      await page.locator('.mention-bar .chip', { hasText: '@YouBike' }).click();
+      assert.equal(await page.inputValue('.chat-input'), '請 @YouBike ');
+      // 沒說起點：瀏覽器定位（測試 context 已給台北座標）
+      await page.fill('.chat-input', '我想去台北101');
+      await page.press('.chat-input', 'Enter');
+      await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
+      assert.equal(await page.locator('.results [data-card="trip"]').count(), 2);
+      assert.match(await page.locator('.results [data-card="trip"] .ab-title').nth(1).textContent(), /^你的位置/);
+      await shot(page, `${dname}-agent-location`);
+    });
+  });
+
+  test(`${dname}：完整動態時卡片 3D 進場、決策圖重算有排名翻轉`, async () => {
+    const ctx = await browser.newContext({ ...device, reducedMotion: 'no-preference' });
+    try {
+      const page = await ctx.newPage();
+      await page.addInitScript(() => Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 }));
+      await page.goto(`${base}/#/agent`);
+      await page.waitForSelector('.suggest .chip');
+      await page.locator('.suggest .chip').first().click();
+      await page.waitForSelector('.decision .dg-svg', { timeout: 20000 });
+      assert.equal(await page.evaluate(() => document.documentElement.classList.contains('lite-motion')), false);
+      assert.match(await page.locator('.results .enter3d').first().evaluate((n) => getComputedStyle(n).animationName), /ab-enter3d/);
+      await page.locator('.decision .dg-chip.add', { hasText: '想省錢' }).click();
+      assert.equal(await page.locator('.decision').evaluate((n) => n.classList.contains('reranked')), true);
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test(`${dname}：示範模式 6 個建議問題（M5-13）都有討論串、卡片與總結`, async () => {
+    const want = ['trip', 'bus-route', 'trip', 'youbike', 'trip', 'timetable']; // 依 life.json 建議問題順序
+    await withPage(device, '#/agent', async (page) => {
+      await page.waitForSelector('.suggest .chip');
+      const qs = await page.locator('.suggest .chip').allTextContents();
+      assert.equal(qs.length, 6);
+      for (let i = 0; i < qs.length; i++) {
+        await page.locator('.suggest .chip').nth(i).click();
+        await page.waitForFunction((n) => document.querySelectorAll('.bubble.final').length === n, i + 1, { timeout: 20000 });
+        const turn = page.locator('.turn').nth(i);
+        assert.equal(await turn.locator('.msg.error').count(), 0, qs[i]);
+        assert.ok(await turn.locator('.thread .bubble.tool').count() >= 1, qs[i]);
+        assert.equal(await turn.locator(`.results [data-card="${want[i]}"]`).count(), 1, `${qs[i]} → ${want[i]}`);
+        if (want[i] === 'trip') assert.equal(await turn.locator('.decision .dg-svg').count(), 1, qs[i]);
+        await turn.scrollIntoViewIfNeeded();
+        await turn.screenshot({ path: new URL(`${dname}-suggest-${i + 1}.png`, SHOTS).pathname });
+      }
     });
   });
 

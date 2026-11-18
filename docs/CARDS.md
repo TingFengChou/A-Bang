@@ -47,7 +47,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 | 實作 | 檔案 | `callTool` | `ask` | `setContext` | `openLink` |
 |---|---|---|---|---|---|
-| 網頁 | `public/ui/cards/host-web.js` | `POST /api/v1/tools/:name` | 填入輸入框並送出 | 存在下一次 agent 請求的 `context` | `window.open`（L2 先確認） |
+| 網頁 | `public/ui/cards/host-web.js` | `POST /api/v1/tools/:name` | 填入輸入框並送出 | 存在下一次 agent 請求的 `context` | `window.open`（L2 先確認）；`remind` 以系統通知（需允許通知、頁面保持開啟） |
 | MCP Apps | `public/ui/cards/host-mcp-app.js` | `app.callServerTool()` | `app.sendMessage()` | `app.updateModelContext()` | `app.openLink()`（若 host 支援；否則顯示可複製連結） |
 
 ## 4. 卡片種類與資料契約
@@ -86,7 +86,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 ### `timetable`（`thsr_timetable`、`tra_timetable`、`intercity_bus`）
 
 `{ system: 'THSR'|'TRA'|'BUS', from, to, date, trains: [{ trainNo, type?, depart, arrive, minutes, terminal?, fare?, excluded?: string }] }`；`BUS`（`intercity_bus`）另有 `traffic`、`delayRisk`，每班可有 `arriveWithDelay`、`delayMin`、`estimated`、`board`、`alight`、`walkFromM`、`walkToM`（有 `arriveWithDelay` 時以它為主、原抵達時間劃線）；
-`excluded` 有值時灰階並顯示原因（例：「會遲到」）；按「訂票」→ `rail_booking_link` → `host.openLink(url, { confirm })`。
+高鐵／台鐵查今天時預設從下一班開始列，已開出的班次收起，按「顯示今天已開出的 N 班」展開；都開走時顯示「今天的班次都開走了」（`visibleTrains`）。`excluded` 有值時灰階並顯示原因（例：「會遲到」）；按「訂票」→ `rail_booking_link` → `host.openLink(url, { confirm })`。
 
 ### `trip`（`plan_trip`）
 

@@ -80,6 +80,8 @@ export const MESSAGES = {
   'timetable.delay': '塞車多 {n} 分',
   'timetable.board': '{stop} 上車',
   'timetable.empty': '{date} 沒有符合的班次',
+  'timetable.showGone': '顯示今天已開出的 {n} 班',
+  'timetable.allGone': '今天的班次都開走了，可以改查明天。',
 
   // ── trip ──
   'trip.title': '{from} → {to}',
@@ -101,6 +103,10 @@ export const MESSAGES = {
   'trip.stateKey.budget': '想省錢',
   'trip.stateKey.lessWalk': '少走路',
   'trip.ridehail': '叫車',
+  'trip.remind': '{time} 提醒我出門',
+  'trip.reminded': '好，{time} 提醒你出門',
+  'trip.remindFailed': '這個裝置無法設定提醒',
+  'trip.remindText': '該出門了：{name}，{time} 前出發',
   'trip.ridehailConfirm': '要開啟叫車 App 嗎？上車點、車種與付款請在 App 內確認，阿幫不會取得你的付款資料。',
   'trip.book': '訂票',
   'trip.leg.walk': '走路',
@@ -112,6 +118,7 @@ export const MESSAGES = {
   'trip.leg.intercity': '客運',
   'trip.leg.ridehail': '叫車',
   'trip.none': '這段路找不到可行的交通方式',
+  'trip.allLate': '所有方式都趕不上指定時間，可以提早出發或放寬抵達時間',
 };
 
 /**

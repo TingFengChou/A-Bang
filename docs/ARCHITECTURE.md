@@ -14,7 +14,7 @@
 │ 民眾網頁（PWA）   │──▶│ server/http.js                │   │ tools/      Tool registry ✅            │   │ 交通部 TDX ✅        │
 │  對話＋討論串     │   │  /api/v1/*        REST ✅      │──▶│   transit pack（8 tools＋speak）✅       │──▶│  公車・YouBike・軌道  │
 │  ＋決策圖＋卡片   │   │  /api/v1/tools/:name ✅        │   │ decide.js   決策引擎 ✅                  │   │  路況・客運 📝        │
-├──────────────────┤   │  /api/v1/agent    NDJSON 📝    │   │ agent/      agent 執行環境 📝            │   ├─────────────────────┤
+├──────────────────┤   │  /api/v1/agent    NDJSON 📝    │   │ agent/      agent 執行環境 ✅            │   ├─────────────────────┤
 │ Claude／AI agent │──▶│  /mcp、/mcp/:pack 遠端 MCP ✅  │   │   profiles/ life ✅規格 antifraud sme 🔭 │   │ TDX 官方 MCP（外部） │
 │  （自訂連接器）   │   ├───────────────────────────────┤   │ services/   交通服務 ✅ ＋ mock ✅        │   │  導訂票・道路事件 📝  │
 ├──────────────────┤   │ mcp/                          │   │   metro・places・trip・traffic 📝        │   ├─────────────────────┤
@@ -35,8 +35,8 @@
 | `core/services/*-mock.js` | ✅ | 介面相同的示範資料，穩定可重現 | 呼叫外部網路 |
 | `core/tools/` | ✅ | Tool registry：`defineTool({ name, title, description, pack, tier, card, input, run, speak })`；`callTool()` 驗證參數並回傳 `{ name, card, mode, data, text, speak }` | 依賴特定 transport |
 | `core/decide.js` | ✅ | 決策引擎：依資料＋使用者狀態替方案計分排序、硬限制、理由句（ADR-0010） | 呼叫模型或外部 API |
-| `core/agent/` | 📝 | Claude tool-use 迴圈、示範意圖解析、事件串流、使用者狀態合併 | 直接碰 TDX |
-| `core/agents/*.json` | 📝 | agent profile（ADR-0005）：system prompt、工具白名單、建議問題、免責、模型 | 寫程式邏輯 |
+| `core/agent/` | ✅ | `prompt.js` 組裝 system prompt（平台政策 → 工具包護欄 → 角色 → 情境）；`events.js` 事件；`demo-intent.js` 示範意圖；`run.js` 執行器；`model-loop.js` 模型工具迴圈；`provider.js` 選模式；`claude.js`（SDK）、`local.js`（OpenAI 相容 fetch）（ADR-0012） | 直接碰 TDX |
+| `core/agents/*.json` | ✅ life | agent profile（ADR-0005）：角色與規則、工具白名單、建議問題、免責、模型；`index.js` 以 zod 驗證並與 registry 交叉檢查 | 寫程式邏輯 |
 | `core/providers/` | ✅ 叫車／📝 外部 MCP | 外部服務 adapter（ADR-0011）：`ridehail/index.js`（provider 註冊、`estimateFare` 距離估價、`createRidehailServices`）、`ridehail/uber.js` 深層連結（M3-09）；📝 `mcp-client.js` 包裝外部 MCP（TDX 官方 MCP） | 直接被 server 呼叫 |
 | `core/nav.js` | ✅ | 導航深層連結、步行時間、出發時機（M3-01） | 呼叫外部 API |
 | `core/metrics.js` | ✅ | 每次 tool 呼叫的計量（`AsyncLocalStorage` 隔開同時進行的請求）；TDX／CWA client 記錄取用、快取命中與筆數（M3-13） | 送出資料、跨請求累計 |
@@ -45,6 +45,7 @@
 | `server/http.js` | ✅ | REST、`/api/v1/tools/:name`、遠端 `/mcp`、`/api/docs`、靜態檔、限流、CORS；非 `UserError` 只回通用訊息、細節寫 log | 商業邏輯 |
 | `server/rest.js` | ✅ | REST 路由表（路徑、參數說明、handler）；`http.js` 與 OpenAPI 共用同一份 | 商業邏輯 |
 | `server/openapi.js` | ✅ | 由路由表＋tool registry 產生 OpenAPI 3.1（`/api/v1/openapi.json`）；`/api/docs` 提供 Swagger UI（只開放白名單檔案） | 手寫重複規格 |
+| `server/agent.js` | ✅ | `POST /api/v1/agent`：驗證 → NDJSON 串流（`runModel` 或 `runDemo`，超過每日預算降級示範）；限流（`AGENT_RPM`／`AGENT_RPD`，key＝agent id＋IP）與每日計量（requests、toolCalls、modelCalls）以 agent id 為單位；log 不記對話與座標 | 加 CORS、記錄對話 |
 | `server/rate-limit.js` | ✅ | 每 IP 固定視窗限流（之後加 agent id） | — |
 | `mcp/create-server.js` | ✅ | 由 registry 註冊 MCP tools（`_meta`：pack、tier、card），回傳 `structuredContent: { card, mode, speak, data }` | 自行定義 tool |
 | `mcp/server.js` | ✅ | stdio 入口（`MCP_PACKS` 過濾） | — |

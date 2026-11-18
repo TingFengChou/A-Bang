@@ -1,5 +1,20 @@
 // trip（plan_trip）：建議方案＋分段時間條＋備案（最多 2）＋狀態 chips＋理由句；行動：導航、叫車、訂票（CARDS.md §4、UX.md §6）
 import { h } from '../dom.js';
+
+/** 「提醒我出門」：host 支援提醒、且出門時間在 1 分鐘後才顯示 */
+function remindButton(o, { host, t, state, rerender, payload }) {
+  if (!host?.remind || !o.leaveAt) return null;
+  // 只提醒今天的行程（台灣時間）；明天的行程不設定
+  if (payload?.data?.date && payload.data.date !== new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)) return null;
+  const [hh, mm] = o.leaveAt.split(':').map(Number);
+  const now = new Date();
+  if (hh * 60 + mm <= now.getHours() * 60 + now.getMinutes() + 1) return null;
+  if (state.reminded === o.id) return h('span', { class: 'ab-sub', role: 'status' }, t('trip.reminded', { time: o.leaveAt }));
+  return h('button', { type: 'button', class: 'ab-btn', onclick: async () => {
+    const ok = await host.remind(o.leaveAt, t('trip.remindText', { name: o.name, time: o.leaveAt })).catch(() => false);
+    state.reminded = ok ? o.id : null; state.err = ok ? null : t('trip.remindFailed'); rerender();
+  } }, t('trip.remind', { time: o.leaveAt }));
+}
 import { navButton, confirmLinkButton, bookButton } from '../actions.js';
 
 const MAX_ALT = 2;
@@ -26,6 +41,7 @@ function optionBlock(o, ctx, best) {
     best && h('ul', { class: 'ab-legs-detail' }, o.legs.map((l) => h('li', {}, l.detail))),
     best && h('div', { class: 'ab-actions' },
       navButton(host, o.legs[0]?.nav),
+      remindButton(o, ctx),
       ride && confirmLinkButton(host, ride, t('trip.ridehailConfirm'), t('trip.ridehail')),
       o.train && bookButton(host, { system: o.role.toUpperCase(), trainNo: o.train.trainNo, date: o.train.date, from: o.train.from, to: o.train.to }, (m) => { ctx.state.err = m; ctx.rerender(); })));
 }
@@ -41,7 +57,7 @@ export default {
       d.states?.length > 0 && h('div', { class: 'ab-chips', 'aria-label': t('trip.states') }, d.states.map((s) => h('span', { class: 'ab-chip', title: s.detail || '' },
         `${t(`trip.stateKey.${s.key}`)}・${t(`trip.state.${s.source}`)}`))),
       state.err && h('p', { class: 'ab-fail', role: 'alert' }, state.err),
-      best ? optionBlock(best, ctx, true) : h('p', { class: 'ab-empty' }, t('trip.none')),
+      best ? optionBlock(best, ctx, true) : h('p', { class: 'ab-empty' }, t(d.ranking.excluded.length ? 'trip.allLate' : 'trip.none')),
       d.ranking.reason && h('p', { class: 'ab-reason' }, d.ranking.reason),
       alts.length > 0 && h('div', { class: 'ab-alts' }, h('h4', {}, t('trip.alternatives')), alts.map((o) => optionBlock(o, ctx, false))),
       d.ranking.excluded.length > 0 && h('div', { class: 'ab-excluded' }, h('h4', {}, t('trip.excluded')),

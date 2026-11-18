@@ -16,6 +16,21 @@ export function createWebHost({ base = '', ask, setContext, confirm = (m) => win
     },
     ask: ask || (() => {}),
     setContext: setContext || (() => {}),
+    /**
+     * 裝置端提醒（UX.md §6）：今天 HH:mm（裝置時間）以系統通知提醒；需使用者允許通知、且頁面保持開啟。
+     * @returns {Promise<boolean>} 是否設定成功
+     */
+    async remind(at, text) {
+      if (typeof Notification === 'undefined') return false;
+      const [h, m] = String(at).split(':').map(Number);
+      const when = new Date(); when.setHours(h, m, 0, 0);
+      const delay = when.getTime() - Date.now();
+      if (!(delay > 0 && delay < 12 * 3600e3)) return false;
+      const perm = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
+      if (perm !== 'granted') return false;
+      setTimeout(() => { try { new Notification('阿幫提醒', { body: text, icon: '/icons/icon.svg' }); } catch { /* 部分瀏覽器只允許 SW 通知 */ } }, delay);
+      return true;
+    },
     openLink(url, opts = {}) {
       if (!/^https:\/\//i.test(url)) return;
       // 確認文字由 tool 提供（訂票、叫車各自說明付款在哪裡完成）；這裡不再自行加句子

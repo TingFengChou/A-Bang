@@ -58,3 +58,15 @@ test('CardPayload：有卡片時帶 v、tool 與驗證後的 args（刷新用）
   const f = await callTool(createServices({ forceMock: true }), 'find_place', { query: '北車' });
   assert.equal(f.v, undefined);
 });
+
+test('timetable 卡：高鐵／台鐵查今天時預設隱藏已開出的班次，可展開；其他日期與客運不隱藏', async () => {
+  const { visibleTrains } = await import('../public/ui/cards/cards/timetable.js');
+  const NOW = Date.parse('2026-11-18T09:12:00+08:00');
+  const trains = ['06:03', '09:15', '10:31'].map((depart, i) => ({ trainNo: String(i), depart, arrive: '11:00', minutes: 50 }));
+  const d = { system: 'THSR', from: '台北', to: '台中', date: '2026-11-18', trains };
+  const v = visibleTrains(d, false, NOW);
+  assert.deepEqual([v.list.map((x) => x.depart), v.gone], [['09:15', '10:31'], 1]);
+  assert.equal(visibleTrains(d, true, NOW).list.length, 3);
+  assert.equal(visibleTrains({ ...d, date: '2026-11-19' }, false, NOW).gone, 0);
+  assert.equal(visibleTrains({ ...d, system: 'BUS' }, false, NOW).gone, 0);
+});

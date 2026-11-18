@@ -10,6 +10,8 @@
     "straightKm": { "type": "number" },
     "date": { "type": "string" },
     "departAt": { "type": "string" },
+    "arriveBy": { "type": "string" },
+    "arriveByMin": { "type": "integer" },
     "best": { "type": ["string", "null"] },
     "states": {
       "type": "array",
@@ -58,6 +60,7 @@
         "delayRisk": { "type": "number", "minimum": 0, "maximum": 1 },
         "arriveAt": { "type": "string" },
         "arriveMin": { "type": "integer" },
+        "leaveAt": { "type": "string" },
         "estimated": { "type": "boolean" },
         "notes": { "type": "array", "items": { "type": "string" } },
         "train": { "type": "object" },
