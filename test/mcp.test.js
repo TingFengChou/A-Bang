@@ -66,6 +66,22 @@ test('遠端 HTTP /mcp 與 /mcp/transit', async () => {
   assert.equal(get.status, 405);
 });
 
+test('MCP Apps（M4-06）：有卡片的 tool 指向 ui://abang/cards.html，資源為單檔 HTML、無外部資源', () => viaHttp(async (c) => {
+  const { tools } = await c.listTools();
+  const yb = tools.find((t) => t.name === 'youbike_nearby');
+  assert.equal(yb._meta.ui.resourceUri, 'ui://abang/cards.html');
+  assert.equal(yb._meta['ui/resourceUri'], 'ui://abang/cards.html');
+  assert.equal(tools.find((t) => t.name === 'rail_fare')._meta.ui, undefined); // 沒有卡片的 tool 不掛 UI
+  const { resources } = await c.listResources();
+  assert.deepEqual(resources.map((r) => [r.uri, r.mimeType]), [['ui://abang/cards.html', 'text/html;profile=mcp-app']]);
+  const { contents } = await c.readResource({ uri: 'ui://abang/cards.html' });
+  assert.equal(contents[0].mimeType, 'text/html;profile=mcp-app');
+  const html = contents[0].text;
+  assert.match(html, /^<!doctype html>/);
+  assert.match(html, /<div id="app">/);
+  assert.doesNotMatch(html, /<(script|link|img)[^>]+(src|href)=["']?https?:/i); // iframe CSP 預設拒絕外部資源
+}));
+
 test('stdio、HTTP、REST 三條路徑結果一致', async () => {
   const a = await viaStdio((c) => c.callTool({ name: 'thsr_timetable', arguments: ARGS }));
   const b = await viaHttp((c) => c.callTool({ name: 'thsr_timetable', arguments: ARGS }));

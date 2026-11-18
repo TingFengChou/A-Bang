@@ -7,6 +7,7 @@
     "start": "node server/http.js",
     "mcp": "node mcp/server.js",
     "build:demo": "node scripts/build-demo.js",
+    "build:cards": "node scripts/build-cards.js",
     "test": "node --test test/*.test.js",
     "e2e": "node --test scripts/e2e.js",
     "lint": "eslint ."
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@modelcontextprotocol/ext-apps": "^1.7.5",
     "esbuild": "^0.28.2",
     "eslint": "10.15.0",
     "globals": "17.13.0",

@@ -282,3 +282,67 @@ for (const [dname, device] of Object.entries(DEVICES)) {
     });
   });
 }
+
+// MCP Apps（M4-08，CARDS.md §6）：AppBridge 當 host（test/cards/mcp-host.js）經 /mcp 載入 ui://abang/cards.html，
+// 每種卡片都在沙箱 iframe 內渲染；點站牌 → updateModelContext；訂票 → callServerTool 往返 → 卡片內 L2 確認 → openLink。
+test('MCP Apps：AppBridge 載入 cards.html，7 種卡片、callServerTool 往返、L2 確認後開連結', async () => {
+  const { build } = await import('esbuild');
+  const js = (await build({ entryPoints: [new URL('../test/cards/mcp-host.js', import.meta.url).pathname], bundle: true, format: 'esm', write: false, logLevel: 'silent' })).outputFiles[0].text;
+  const tomorrow = new Date(Date.now() + 32 * 3600e3).toISOString().slice(0, 10); // 台灣時間的明天（今天的班次可能都開走了）
+  const P = { lat: 25.0478, lon: 121.517 };
+  const CASES = [
+    ['bus-route', 'bus_route_eta', { city: 'Taipei', routeName: '307' }],
+    ['bus-station', 'bus_station_eta', { city: 'Taipei', stationId: 'M1000' }],
+    ['nearby', 'bus_nearby_stations', P],
+    ['youbike', 'youbike_nearby', P],
+    ['metro', 'metro_live_board', { system: 'TRTC', station: '台北車站' }],
+    ['timetable', 'thsr_timetable', { from: '台北', to: '左營', date: tomorrow }],
+    ['trip', 'plan_trip', { from: '台北車站', to: '高雄車站', departAt: '09:00', prefs: { states: ['rush'], arriveBy: '12:00' } }],
+  ];
+  const ctx = await browser.newContext({ viewport: { width: 760, height: 900 }, reducedMotion: 'reduce' });
+  try {
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+    // 測試 host 的 MCP client 會試開 GET SSE，stateless 的 /mcp 回 405（預期行為），不算錯誤
+    page.on('console', (m) => m.type() === 'error' && !/status of 405/.test(m.text()) && errors.push(`console: ${m.text()}`));
+    await page.route(`${base}/__e2e/mcp-host.html*`, (r) => r.fulfill({ // 同源（瀏覽器擋公開網域連 127.0.0.1）；路徑只存在於測試攔截
+      contentType: 'text/html; charset=utf-8',
+      body: `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>MCP Apps host</title></head><body style="margin:16px;background:#f4f6f5;font-family:sans-serif"><div id="slots" style="display:grid;gap:12px"></div><script type="module">${js.replace(/<\/script/g, '<\\/script')}</script></body></html>`,
+    }));
+    await page.goto(`${base}/__e2e/mcp-host.html?mcp=${encodeURIComponent(`${base}/mcp`)}`);
+    await page.waitForFunction(() => typeof window.mountCard === 'function');
+    for (const [card, name, args] of CASES) await page.evaluate(([id, n, a]) => window.mountCard(id, n, a), [`c-${card}`, name, args]);
+    await page.waitForFunction((n) => window.__host.ready === n, CASES.length, { timeout: 20000 });
+    for (const [card] of CASES) {
+      const f = page.frameLocator(`#c-${card} iframe`);
+      await f.locator(`.ab-card[data-card="${card}"]`).waitFor({ timeout: 10000 });
+      assert.ok(await f.locator('.ab-demo').count() >= 1, `${card} 示範資料標示`);
+    }
+
+    // 點站牌 → 卡片經 updateModelContext 告訴模型使用者在看哪一站
+    await page.frameLocator('#c-bus-route iframe').locator('.ab-stop-row').first().click();
+    await page.waitForFunction(() => window.__host.context.length > 0);
+    assert.match((await page.evaluate(() => window.__host.context))[0], /307/);
+
+    // 訂票（L2）：callServerTool(rail_booking_link) → 卡片內確認框 → 前往官方網站 → host openLink
+    const tt = page.frameLocator('#c-timetable iframe');
+    await tt.locator('.ab-train .ab-btn').first().click();
+    await tt.locator('.ab-confirm[role="alertdialog"]').waitFor();
+    assert.ok((await page.evaluate(() => window.__host.calls)).includes('rail_booking_link'));
+    assert.equal((await page.evaluate(() => window.__host.opened)).length, 0, '確認前不開連結');
+    await page.waitForTimeout(300); // 等 autoResize 把 iframe 撐高，確認框才在畫面內
+    // 每張卡片各自截圖（整頁截圖時畫面外的 iframe 可能沒有繪製）
+    for (const [card] of CASES) {
+      await page.locator(`#c-${card}`).scrollIntoViewIfNeeded();
+      await page.locator(`#c-${card}`).screenshot({ path: new URL(`mcp-app-${card}.png`, SHOTS).pathname });
+    }
+    await tt.locator('.ab-confirm .ab-primary').click();
+    await page.waitForFunction(() => window.__host.opened.length === 1);
+    assert.match((await page.evaluate(() => window.__host.opened))[0], /^https:\/\//);
+    assert.equal(await tt.locator('.ab-confirm').count(), 0);
+    assert.deepEqual(errors, []);
+  } finally {
+    await ctx.close();
+  }
+});

@@ -30,6 +30,7 @@ npm run lint              # ESLint
 npm test                  # 單元＋整合測試（node:test）
 npx playwright install chromium   # 第一次跑 E2E 前下載瀏覽器
 npm run e2e               # Playwright E2E 冒煙測試（截圖在 test/screenshots/）
+npm run build:cards       # dist/cards.html：MCP Apps 互動卡片單檔（正式環境部署前要跑；開發時伺服器會自動打包）
 ```
 
 | 金鑰 | 取得 | 沒有時 |
@@ -51,7 +52,7 @@ npm start
 npx cloudflared tunnel --url http://localhost:8787   # 取得臨時 https 網址
 ```
 
-Claude「設定 → Connectors → Add custom connector」填 `https://<臨時網址>/mcp`。
+Claude「設定 → Connectors → Add custom connector」填 `https://<臨時網址>/mcp`。支援 MCP Apps 的 client 會在對話裡顯示互動卡片（公車路線、時刻表、行程…，資源 `ui://abang/cards.html`）；不支援時照樣有文字結果。
 
 ### Claude Desktop／Claude Code（stdio）
 

@@ -33,6 +33,13 @@ export const MESSAGES = {
   'confirm.cancel': '取消',
   'confirm.payNote': '付款在官方網站完成，阿幫不會取得你的付款資料',
 
+  // ── MCP Apps（Claude 等 host 內的卡片，M4-04） ──
+  'mcpApp.failed': '卡片暫時無法顯示，請看上面的文字結果。',
+  'mcpApp.noCard': '這個結果沒有卡片，請看文字說明。',
+  'mcpApp.cancelled': '查詢已取消。',
+  'mcpApp.openHint': '這裡無法直接開啟連結，請複製後到瀏覽器開啟：',
+  'mcpApp.linkLabel': '連結網址',
+
   // ── bus-route ──
   'busRoute.title': '{route} 公車',
   'busRoute.switchDir': '切換方向',
