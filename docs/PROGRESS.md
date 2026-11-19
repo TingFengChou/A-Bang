@@ -13,6 +13,14 @@
 
 ---
 
+## 2026-11-19 M10 L-09 問阿幫接上生活服務
+
+- 做了：`core/agents/life.json` v2：packs 加 `life`、工具加 `aqi_nearby`、`earthquake_recent`、`pharmacy_search`、`garbage_truck_nearby`、`fuel_price`、`invoice_lottery`；persona 與規則改為交通＋生活（座標類先 `find_place`、藥局用地區、範圍外問題說明能幫什麼）；建議問題加「大安區有哪些健保藥局？」「這期發票號碼是多少？」。`prompt.js` 加生活工具包護欄（數字以工具為準、不預測地震、藥局與發票以公告為準）。示範模式 `demo-intent.js` 加 7 種意圖（天氣、空品、地震、藥局、垃圾車、油價、發票），座標類共用 NEARBY 表與裝置定位；沒說地點／地區時用示範預設並在總結說明。網頁 @點名加空品、地震、藥局、垃圾車、油價、發票。示範藥局資料補 15 筆臺北市中正區（真實資料片段）。
+- 測試：npm test 231 項全過（新增 2 項、調整 3 項）；npm run e2e 24 項全過（建議問題改 8 題，截圖已檢查）；以真實開放資料跑示範規劃：油價、發票、藥局、垃圾車都正確
+- 文件：AGENT.md（profile、示範意圖表、定位）、PLAN.md（L-09）、PROGRESS.md、TESTING.md
+- 下一個：等使用者決定（M8 產業下一階段；M1 等 TDX）
+- 卡住：空品需 `MOENV_API_KEY`、地震需 `CWA_API_KEY`
+
 ## 2026-11-19 M10 生活開放資料（首頁格子全部接上）
 - 做了：背景 agent 實測 6 種開放資料（網址、金鑰、欄位、樣本）；`#/s/:id` 服務頁；pack `life` 6 個 tools＋7 張卡片（含 `weather_now` 補卡片）；`core/opendata-client.js`；示範片段 `core/data/demo/`（真實資料）；首頁沒有「規劃中」格子了。實測真實資料：油價、發票、藥局（1 萬筆，5.5 秒首次下載）、垃圾車（雙北 3 萬筆）。看截圖修：示範地震類型標錯、垃圾車示範點不在預設位置附近、對獎結果色彩。M8 產業移到下一階段（Austin）
 - 測試：npm run lint 無錯誤；npm test 229 項全過（新增 16 項）；npm run e2e 全過（新增首頁 8 格逐一進入）

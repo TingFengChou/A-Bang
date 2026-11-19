@@ -13,6 +13,22 @@ const STATE_WORDS = [
 ];
 const BUS_ROUTE = /(?:^|[^\d])([紅藍綠棕橘小幹]?\d{1,4}[區副]?)(?:\s*(?:號|路)?\s*(?:公車|到哪|來了|還要|什麼時候|幾分))/;
 const RAIL_WORD = /高鐵|台鐵|臺鐵|火車|自強|區間|莒光/;
+// 生活服務（M10）：依序比對，先比的優先（「發票」先於其他）。天氣在行程之後才比（「下雨了，從 A 到 B」是行程）
+const LIFE_WORDS = [
+  ['invoice', /發票|對獎|中獎號碼/],
+  ['fuel', /油價|汽油|柴油|95\s*無鉛|92\s*無鉛/],
+  ['quake', /地震|震度|震央/],
+  ['pharmacy', /藥局|藥房|領藥|拿藥/],
+  ['garbage', /垃圾車|倒垃圾|收垃圾/],
+  ['aqi', /空氣品質|空品|AQI|PM\s*2\.?5|空汙|空污|霧霾/i],
+];
+const WEATHER_WORD = /天氣|氣溫|溫度|幾度|會不會下雨|有沒有下雨|帶傘/;
+/** 「臺北市大安區」「大安區」→ 藥局搜尋的地區 */
+const AREA = /((?:[一-龥]{2}[市縣])?[一-龥]{1,2}[區鄉鎮])/;
+// 22 縣市（可省略「市／縣」：「花蓮地震」；比對時臺／台視為相同）
+const COUNTY = /((?:臺|台)北|新北|桃園|(?:臺|台)中|(?:臺|台)南|高雄|基隆|新竹|嘉義|苗栗|彰化|南投|雲林|屏東|宜蘭|花蓮|(?:臺|台)東|澎湖|金門|連江)[市縣]?/;
+const countyOf = (s) => COUNTY.exec(s)?.[0];
+const INVOICE_NO = /(?:^|\D)(\d{8}|\d{3})(?!\d)/;
 
 // 地標名稱與別名，長的優先（「台北車站」先於「台北」）
 // 車站另加去掉「高鐵／捷運」與「車站／站」的短名（「左營」→ 高鐵左營站）；同長度時完整名稱優先
@@ -54,10 +70,22 @@ export function arriveByOf(text) {
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
 
+/** 生活服務意圖與參數（沒有符合回 null） */
+function lifeIntent(s) {
+  const hit = LIFE_WORDS.find(([, re]) => re.test(s));
+  if (!hit) return null;
+  const intent = hit[0];
+  if (intent === 'invoice') return { intent, number: INVOICE_NO.exec(s)?.[1] };
+  if (intent === 'quake') return { intent, county: countyOf(s) };
+  if (intent === 'pharmacy') return { intent, area: AREA.exec(s)?.[1] || countyOf(s) };
+  return { intent };
+}
+
 /**
  * 解析一句話。
- * @returns {{ intent: 'trip'|'bus_route'|'youbike'|'nearby_bus'|'metro'|'rail'|'unknown', places: string[], states: string[], arriveBy: string|null,
- *            tomorrow: boolean, route?: string, system?: 'THSR'|'TRA', from?: string, to?: string, station?: string }}
+ * @returns {{ intent: 'trip'|'bus_route'|'youbike'|'nearby_bus'|'metro'|'rail'|'weather'|'aqi'|'quake'|'pharmacy'|'garbage'|'fuel'|'invoice'|'unknown',
+ *            places: string[], states: string[], arriveBy: string|null, tomorrow: boolean, route?: string, system?: 'THSR'|'TRA', from?: string, to?: string,
+ *            station?: string, number?: string, county?: string, area?: string }}
  */
 export function parseIntent(text) {
   const s = String(text || '').trim();
@@ -75,6 +103,8 @@ export function parseIntent(text) {
     const m = /捷運\s*([一-龥]{2,6}?)站/.exec(s);
     if (m) return { ...base, intent: 'metro', station: m[1] };
   }
+  const life = lifeIntent(s);
+  if (life) return { ...base, ...life };
   const route = BUS_ROUTE.exec(s)?.[1];
   if (route && !/從.+到/.test(s)) return { ...base, intent: 'bus_route', route };
   if (/youbike|ubike|微笑單車|單車|腳踏車/i.test(s)) return { ...base, intent: 'youbike' };
@@ -83,13 +113,25 @@ export function parseIntent(text) {
     const [from, to] = places.length >= 2 ? places : [null, places[0]];
     return { ...base, intent: 'trip', from, to };
   }
+  if (WEATHER_WORD.test(s)) return { ...base, intent: 'weather' };
   return { ...base, intent: 'unknown' };
 }
 
 export const DEFAULT_FROM = '臺北車站'; // 示範：沒說起點也拿不到裝置定位時，先從這裡算
+export const DEFAULT_AREA = '臺北市中正區'; // 示範：查藥局沒說地區時（臺北車站所在的區）
 
-/** 需要使用者所在位置嗎（行程沒起點；YouBike／附近公車沒地點） */
-export const needsLocation = (it) => (it.intent === 'trip' && !it.from) || (['youbike', 'nearby_bus'].includes(it.intent) && !it.places[0]);
+/** 以座標查「附近」的意圖：工具與點名 */
+const NEARBY = {
+  youbike: ['youbike_nearby', '@YouBike 附近還有車嗎'],
+  nearby_bus: ['bus_nearby_stations', '@公車 附近有哪些站牌'],
+  weather: ['weather_now', '@天氣 看一下現在的天氣'],
+  aqi: ['aqi_nearby', '@空品 附近測站的空氣品質'],
+  garbage: ['garbage_truck_nearby', '@垃圾車 附近的清運點和時間'],
+};
+const isNearby = (it) => Object.hasOwn(NEARBY, it.intent);
+
+/** 需要使用者所在位置嗎（行程沒起點；附近類查詢沒地點） */
+export const needsLocation = (it) => (it.intent === 'trip' && !it.from) || (isNearby(it) && !it.places[0]);
 
 /**
  * 意圖 → 分段計畫。每段 `(results) => ({ note, calls })`，results 是之前各段的 callTool 結果（依名稱）。
@@ -128,10 +170,12 @@ export function demoSteps(it, now = Date.now()) {
         (r) => ({ note: `@公車 ${it.route} 現在到哪了`, calls: [{ name: 'bus_route_eta', args: { city: point(r, 0)?.city || 'Taipei', routeName: it.route } }] }),
       ];
     case 'youbike':
-    case 'nearby_bus': {
+    case 'nearby_bus':
+    case 'weather':
+    case 'aqi':
+    case 'garbage': {
       const place = it.places[0] || DEFAULT_FROM;
-      const tool = it.intent === 'youbike' ? 'youbike_nearby' : 'bus_nearby_stations';
-      const note = it.intent === 'youbike' ? '@YouBike 附近還有車嗎' : '@公車 附近有哪些站牌';
+      const [tool, note] = NEARBY[it.intent];
       if (!it.places[0] && it.fromPoint) return [() => ({ note, calls: [{ name: tool, args: ll(it.fromPoint) }] })]; // 用裝置定位
       return [
         () => ({ note: `@地點 找「${place}」的位置`, calls: [{ name: 'find_place', args: { query: place } }] }),
@@ -145,6 +189,16 @@ export function demoSteps(it, now = Date.now()) {
       const date = it.tomorrow ? nowTW(now + 864e5).date : undefined;
       return [() => ({ note: `@${it.system === 'THSR' ? '高鐵' : '台鐵'} ${it.from}到${it.to}的班次`, calls: [{ name, args: { from: it.from, to: it.to, ...(date && { date }) } }] })];
     }
+    case 'quake':
+      return [() => ({ note: '@地震 最近的地震報告', calls: [{ name: 'earthquake_recent', args: { ...(it.county && { county: it.county }), limit: 5 } }] })];
+    case 'pharmacy': {
+      const area = it.area || DEFAULT_AREA;
+      return [() => ({ note: `@藥局 ${area}的健保藥局`, calls: [{ name: 'pharmacy_search', args: { area } }] })];
+    }
+    case 'fuel':
+      return [() => ({ note: '@油價 中油這週的牌價', calls: [{ name: 'fuel_price', args: {} }] })];
+    case 'invoice':
+      return [() => ({ note: it.number ? '@發票 幫你對獎' : '@發票 最新一期中獎號碼', calls: [{ name: 'invoice_lottery', args: { ...(it.number && { number: it.number }) } }] })];
     default:
       return [];
   }
@@ -152,7 +206,7 @@ export function demoSteps(it, now = Date.now()) {
 
 /** 示範模式的總結（取自工具結果，不經模型） */
 export function demoSummary(it, results, suggestions = []) {
-  if (it.intent === 'unknown') return `我可以幫你查公車、捷運、台鐵、高鐵、YouBike，或規劃從 A 到 B 怎麼去。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
+  if (it.intent === 'unknown') return `我可以幫你查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）和生活資訊（天氣、空品、地震、藥局、垃圾車、油價、發票）。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
   const last = Object.values(results).flat().filter(Boolean).at(-1);
   if (!last) return '這次沒查到資料，換個說法或加上地名試試看。';
   if (it.intent === 'trip') {
@@ -160,5 +214,8 @@ export function demoSummary(it, results, suggestions = []) {
     const pre = it.from || it.fromPoint ? '' : `（你沒說從哪出發，我先用「${DEFAULT_FROM}」算。）`;
     return trip ? `${pre}${trip.data.ranking.reason}${trip.data.best ? ' 要我幫你開導航嗎？' : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
   }
-  return last.speak || '查好了，結果在下面的卡片。';
+  // 沒說地點時用了示範預設，先講清楚
+  const pre = isNearby(it) && !it.places[0] && !it.fromPoint ? `（你沒說在哪，我先查「${DEFAULT_FROM}」附近。）`
+    : it.intent === 'pharmacy' && !it.area ? `（你沒說哪一區，我先查「${DEFAULT_AREA}」。）` : '';
+  return `${pre}${last.speak || '查好了，結果在下面的卡片。'}`;
 }

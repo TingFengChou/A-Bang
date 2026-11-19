@@ -15,17 +15,18 @@
 // core/agents/life.json（core/agents/index.js 以 zod 驗證：未知欄位擋下、tools 必須在 registry 且 pack 列在 packs）
 {
   "id": "life",
-  "version": 1,
+  "version": 2,
   "name": { "zh-TW": "阿幫・生活", "en": "A-Bang Life" },
   "model": "claude-haiku-5-5",
-  "packs": ["transit", "weather", "ridehail"],
+  "packs": ["transit", "weather", "ridehail", "life"],
   "tools": ["find_place", "plan_trip", "bus_route_eta", "bus_nearby_stations", "bus_station_eta", "youbike_nearby",
             "metro_live_board", "thsr_timetable", "tra_timetable", "rail_fare", "intercity_bus", "traffic_status",
-            "weather_now", "rail_booking_link", "ridehail_link"],
+            "weather_now", "rail_booking_link", "ridehail_link",
+            "aqi_nearby", "earthquake_recent", "pharmacy_search", "garbage_truck_nearby", "fuel_price", "invoice_lottery"],
   "persona": "你是「阿幫」，一隻熱心的台灣藍鵲…",   // 角色（system prompt 的「角色」段）
   "rules": ["每次呼叫工具前，先用一句話…", "…"],      // agent 專屬規則（不可覆蓋平台政策與工具包護欄）
-  "suggestions": ["從西門町到台北 101 怎麼去？", "307 到哪了？我在臺北車站", "明天 9 點前要到左營", "台北車站附近還有 YouBike 嗎？", "…（共 6 個）"],
-  "disclaimer": "資料來源：交通部 TDX。建議僅供參考，時間以實際為準。"
+  "suggestions": ["從西門町到台北 101 怎麼去？", "307 到哪了？我在臺北車站", "明天 9 點前要到左營", "台北車站附近還有 YouBike 嗎？", "…", "大安區有哪些健保藥局？", "這期發票號碼是多少？"],  // 共 8 個
+  "disclaimer": "資料來源：交通部 TDX、中央氣象署、環境部、健保署、地方環保局、台灣中油、財政部。…"
 }
 ```
 
@@ -96,7 +97,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 ### 3.4 裝置端工具（✅ M5-07）
 
-`device_location`：需要使用者位置（行程沒說起點；YouBike／附近公車沒說地點）且請求帶 `clientTools: ['device_location']` 時，伺服器送 `agent_note`＋`client_tool_call { id: 'loc1', name: 'device_location' }`＋`done` 後結束；客戶端定位後帶 `clientToolResults: [{ id: 'loc1', ok, result: { lat, lon } }]` 重送同一請求。台灣範圍內的座標才採用（起點名稱「你的位置」）；拒絕或無效時改用示範預設起點並在總結說明。客戶端：`public/js/agent/client.js`（`runAgent`：讀 NDJSON 串流、執行 client tool、最多重送 2 次；`browserLocation` 5 秒逾時）。座標不寫入 log。`T.point` 的座標物件可帶 `name`。
+`device_location`：需要使用者位置（行程沒說起點；YouBike／附近公車／天氣／空品／垃圾車沒說地點）且請求帶 `clientTools: ['device_location']` 時，伺服器送 `agent_note`＋`client_tool_call { id: 'loc1', name: 'device_location' }`＋`done` 後結束；客戶端定位後帶 `clientToolResults: [{ id: 'loc1', ok, result: { lat, lon } }]` 重送同一請求。台灣範圍內的座標才採用（起點名稱「你的位置」）；拒絕或無效時改用示範預設起點並在總結說明。客戶端：`public/js/agent/client.js`（`runAgent`：讀 NDJSON 串流、執行 client tool、最多重送 2 次；`browserLocation` 5 秒逾時）。座標不寫入 log。`T.point` 的座標物件可帶 `name`。
 
 ## 4. 模型模式（✅ M5-05，ADR-0012）
 
@@ -152,7 +153,16 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 | 附近公車 | 「附近」＋「公車／站牌」 | `bus_nearby_stations` |
 | 捷運 | 「捷運」＋站名 | `metro_live_board` |
 | 高鐵／台鐵 | 「高鐵」「台鐵／火車／自強／區間」＋兩個站名 | `thsr_timetable`／`tra_timetable` |
-| 其他 | — | 回覆可以問的範例 |
+| 發票（M10） | 發票／對獎；8 碼或末 3 碼數字 → 對獎 | `invoice_lottery` |
+| 油價 | 油價／汽油／柴油 | `fuel_price` |
+| 地震 | 地震／震度／震央；「XX 縣／市」→ 該縣市震度 | `earthquake_recent` |
+| 藥局 | 藥局／藥房／領藥；「（縣市）XX 區／鄉／鎮」或縣市 → 地區（沒說用「臺北市中正區」並在總結說明） | `pharmacy_search` |
+| 垃圾車 | 垃圾車／倒垃圾 | `find_place`（或裝置定位）→ `garbage_truck_nearby` |
+| 空品 | 空氣品質／空品／AQI／PM2.5 | `find_place`（或裝置定位）→ `aqi_nearby` |
+| 天氣 | 天氣／氣溫／幾度／帶傘（在行程之後判斷：有起訖仍是行程） | `find_place`（或裝置定位）→ `weather_now` |
+| 其他 | — | 回覆可以問的範例（交通＋生活） |
+
+生活服務在公車路線之前判斷（「發票 12345678」不會當成路線）。座標類（YouBike、附近公車、天氣、空品、垃圾車）沒說地點時請客戶端定位，拒絕時用「臺北車站」附近並在總結說明。
 
 狀態關鍵字：「趕」「來不及」→ rush；「行李」→ luggage；「省錢」「便宜」→ budget；「不想走」「長輩」→ lessWalk；「X 點前」→ arriveBy。
 

@@ -253,12 +253,12 @@ for (const [dname, device] of Object.entries(DEVICES)) {
     }
   });
 
-  test(`${dname}：示範模式 6 個建議問題（M5-13）都有討論串、卡片與總結`, async () => {
-    const want = ['trip', 'bus-route', 'trip', 'youbike', 'trip', 'timetable']; // 依 life.json 建議問題順序
+  test(`${dname}：示範模式 8 個建議問題（M5-13、M10）都有討論串、卡片與總結`, async () => {
+    const want = ['trip', 'bus-route', 'trip', 'youbike', 'trip', 'timetable', 'pharmacy', 'invoice']; // 依 life.json 建議問題順序
     await withPage(device, '#/agent', async (page) => {
       await page.waitForSelector('.suggest .chip');
       const qs = await page.locator('.suggest .chip').allTextContents();
-      assert.equal(qs.length, 6);
+      assert.equal(qs.length, want.length);
       for (let i = 0; i < qs.length; i++) {
         await page.locator('.suggest .chip').nth(i).click();
         await page.waitForFunction((n) => document.querySelectorAll('.bubble.final').length === n, i + 1, { timeout: 20000 });

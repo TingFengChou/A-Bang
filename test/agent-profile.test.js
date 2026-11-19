@@ -9,6 +9,9 @@ test('life profile 通過驗證，工具都在 registry 且工具包相符', () 
   const p = getProfile('life');
   assert.equal(p.id, 'life');
   assert.ok(p.tools.includes('plan_trip') && p.tools.includes('ridehail_link'));
+  // 生活服務（M10）：首頁格子的 6 個工具問阿幫也能用，並帶生活工具包的護欄
+  for (const t of ['aqi_nearby', 'earthquake_recent', 'pharmacy_search', 'garbage_truck_nearby', 'fuel_price', 'invoice_lottery']) assert.ok(p.tools.includes(t), t);
+  assert.match(buildSystemPrompt(p), /不要預測地震/);
   assert.deepEqual(Object.keys(PROFILES), ['life', 'antifraud']);
   assert.throws(() => getProfile('nope'), /沒有這個 agent/);
 });
