@@ -14,6 +14,7 @@
   --brand:#0f766e;--brand-soft:#e3f2ef;--fare:#7c3aed;--fare-soft:#efeafe;--ok:#15803d;--ok-soft:#e6f4ea;
   --warn:#b45309;--warn-soft:#fdf1e3;--bad:#b91c1c;--bad-soft:#fde8e8;--code:#f1f4f3}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 -apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif}
 button,input{font:inherit}
 .top{max-width:1100px;margin:0 auto;padding:16px 16px 8px}
@@ -30,6 +31,29 @@ button,input{font:inherit}
 @media (max-width:860px){.wrap{grid-template-columns:1fr}}
 /* 左：對話 */
 .phone{background:var(--bg);border:1px solid var(--line);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;height:min(78vh,760px);background:#f8faf9}
+.phone{position:relative}
+.screen{flex:1;overflow-y:auto}
+.back{border:0;background:var(--brand-soft);color:var(--brand);width:30px;height:30px;border-radius:10px;font-size:22px;line-height:1;cursor:pointer}
+.home{padding:12px}
+.hero{background:var(--brand);color:#fff;border-radius:18px;padding:14px;position:relative;overflow:hidden}
+.hero small{opacity:.85}.hero h2{margin:2px 0 10px;font-size:20px}
+.hero .hm{position:absolute;right:6px;top:6px;width:72px;height:72px}.hero .hm svg{width:72px;height:72px}
+.hero form{display:flex;background:#fff;border-radius:12px;overflow:hidden}.hero input{flex:1;min-width:0;border:0;padding:9px 12px}
+.hero .hchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.hero .hchips button{border:0;background:rgba(255,255,255,.92);color:var(--text);border-radius:999px;padding:5px 10px;font-size:12.5px;cursor:pointer}
+.ghead{display:flex;justify-content:space-between;align-items:baseline;margin:16px 2px 8px}.ghead b{font-size:15px}.ghead small{color:var(--muted);font-size:11.5px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 2px 8px;text-align:center;font-size:12.5px;cursor:pointer;color:inherit;position:relative}
+.tile .ic{width:36px;height:36px;border-radius:11px;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;margin:0 auto 4px}.tile .ic svg{width:20px;height:20px}
+.tile.live::after{content:'可點';position:absolute;top:4px;right:4px;font-size:9.5px;background:var(--fare-soft);color:var(--fare);border-radius:6px;padding:0 4px}
+.page{padding:12px;display:flex;flex-direction:column;gap:10px}
+.tabbar{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);background:var(--card)}
+.tabbar button{border:0;background:none;padding:6px 0 8px;font-size:11.5px;color:var(--muted);cursor:pointer;display:grid;justify-items:center;gap:1px}
+.tabbar svg{width:20px;height:20px}.tabbar .on{color:var(--brand);font-weight:700}
+.sched{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.sched small{color:var(--muted)}.sched .sw{border:0;border-radius:999px;padding:3px 10px;font-size:12px;cursor:pointer;background:var(--ok-soft);color:var(--ok)}.sched .sw.off{background:var(--code);color:var(--muted)}
+details.kb{border-top:1px solid var(--line);padding:6px 0}details.kb summary{cursor:pointer;font-weight:700;display:flex;justify-content:space-between;gap:6px}
+details.kb summary small{font-weight:400;color:var(--muted)}details.kb p{margin:4px 0 0}
+.ptoast{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);background:var(--text);color:#fff;border-radius:12px;padding:8px 14px;font-size:13px;max-width:85%;text-align:center}
 .phone header .av{width:34px;height:34px}.phone header .av svg{width:34px;height:34px}
 .phone header{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--card)}
 .phone header b{font-size:16px}.phone header small{color:var(--muted);font-size:12px;display:block}
@@ -41,7 +65,7 @@ button,input{font:inherit}
 .row{display:flex;gap:8px;align-items:flex-start;animation:in .25s ease both}
 .av{width:32px;height:32px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;background:var(--fare)}
 .av svg{width:18px;height:18px}.av.mascot{background:none}.av.mascot svg{width:32px;height:32px}
-.av.r-地點,.av.r-天氣,.av.r-空品{background:#1d4ed8}.av.r-路況{background:#475569}.av.r-行程,.av.r-公車{background:var(--brand)}
+.av.r-排程{background:#9a3412}.av.r-地點,.av.r-天氣,.av.r-空品{background:#1d4ed8}.av.r-路況{background:#475569}.av.r-行程,.av.r-公車{background:var(--brand)}
 .at{font-weight:700;color:var(--fare);background:var(--fare-soft);border-radius:6px;padding:0 5px}
 .tool{background:var(--card);border:1px solid var(--line);border-radius:4px 14px 14px 14px;padding:7px 11px;font-size:14px;max-width:92%}
 .tool .who{font-size:12px;color:var(--muted)}
@@ -114,7 +138,7 @@ dialog{border:0;border-radius:16px;padding:16px;width:min(92vw,380px)}dialog::ba
 <body>
 <div class="top">
   <h1>阿幫 Agent 互動模型（原型）</h1>
-  <p>點情境或自己打字。右邊看每一步送出的事件、模型看得到什麼、哪條規則生效。資料是示範片段（2026-11-19），等待只為看清楚順序。</p>
+  <p>左邊是阿幫 App：首頁每個格子都能手動查，也可以問阿幫、叫阿幫排程。點上面的情境或自己操作，右邊看每一步送出的事件、模型看得到什麼、哪條規則生效。資料是示範／假資料，等待只為看清楚順序。</p>
   <div class="bar">
     <div class="seg" role="group" aria-label="回答方式">
       <button type="button" id="m-demo" aria-pressed="true">示範模式（規則式）</button>
@@ -127,13 +151,17 @@ dialog{border:0;border-radius:16px;padding:16px;width:min(92vw,380px)}dialog::ba
 </div>
 
 <div class="wrap">
-  <section class="phone" aria-label="問阿幫">
-    <header><span id="hdr-av"></span><b>問阿幫</b><span class="mode-tag" id="mode-tag">示範模式</span></header>
-    <div class="chat" id="chat" aria-live="polite"></div>
-    <form class="composer" id="composer">
+  <section class="phone" aria-label="阿幫 App">
+    <header><button type="button" class="back" id="back" aria-label="回首頁" hidden>‹</button><span id="hdr-av"></span><b id="hdr-title">阿幫</b><span class="mode-tag" id="mode-tag">示範模式</span></header>
+    <div class="screen home" id="s-home"></div>
+    <div class="screen chat" id="chat" aria-live="polite" hidden></div>
+    <div class="screen page" id="s-page" hidden></div>
+    <form class="composer" id="composer" hidden>
       <input id="q" placeholder="例如：台積電股價多少" aria-label="問阿幫" autocomplete="off">
       <button class="btn">送出</button>
     </form>
+    <nav class="tabbar" id="tabbar" aria-label="主選單"></nav>
+    <div class="ptoast" id="ptoast" role="status" hidden></div>
   </section>
 
   <section class="panel" aria-label="互動模型">
@@ -152,6 +180,19 @@ dialog{border:0;border-radius:16px;padding:16px;width:min(92vw,380px)}dialog::ba
   <h3 style="margin:0 0 6px">公車 601 即時動態</h3>
   <div id="busdlg-body"></div>
   <button class="btn" type="button" id="busdlg-close" style="width:100%;margin-top:10px">關閉</button>
+</dialog>
+
+<dialog id="carrierdlg" aria-label="連結手機條碼載具">
+  <h3 style="margin:0 0 6px">連結手機條碼載具（規劃中）</h3>
+  <p class="foot" style="margin-top:0">阿幫會用財政部電子發票 API 抓你載具裡的發票，存進「我的發票」並在開獎後自動對獎。</p>
+  <ul class="foot" style="padding-left:18px">
+    <li>手機條碼與驗證碼是個人資料：只存在這支手機，每次同步才送給阿幫伺服器轉查財政部，伺服器不保存。</li>
+    <li>只抓發票號碼、日期、金額與店家，用來對獎；不做其他用途，可以隨時取消連結。</li>
+    <li>不要在對話裡打驗證碼；阿幫也不會在對話裡跟你要。</li>
+  </ul>
+  <div class="cform"><input id="cardno" placeholder="手機條碼，例如 /AB12+-." aria-label="手機條碼" value="/AB12+-."></div>
+  <div class="cform"><input id="cardpw" type="password" placeholder="驗證碼" aria-label="驗證碼" value="demo1234"></div>
+  <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" type="button" id="carrier-ok" style="flex:1">同意並連結</button><button class="btn alt" type="button" id="carrier-cancel">取消</button></div>
 </dialog>
 
 <dialog id="scan" aria-label="掃描發票 QR code">
@@ -196,6 +237,7 @@ const ROLE_ICON = {
   路況: I('<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/>'),
   行程: I('<circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.5"/>'),
   公車: I('<rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16"/><path d="M7 21v-3M17 21v-3"/>'),
+  排程: I('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>'),
   股市: I('<path d="M3 20h18"/><path d="M4 16l5-5 4 3 7-8"/><path d="M15 6h5v5"/>'), 發票: I('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>') };
 function av(role) {
   const a = document.createElement('span');
@@ -227,6 +269,9 @@ const norm = (s) => String(s).replace(/臺/g, '台').replace(/\s+/g, '').toUpper
 
 function parse(text, history) {
   const s = text.trim();
+  if (/載具|手機條碼/.test(s)) return { intent: 'carrier', rule: 'carrier' };
+  if (/每天|每週|每期|開獎後|自動|排程|定時|固定/.test(s) && /發票|對獎|天氣|空品|股|收盤|公車|油價|晨報|早報|提醒/.test(s)) return { intent: 'schedule', rule: 'schedule' };
+  if (/今天.*(注意|重點|要知道)|出門前|晨報|早報|今日重點/.test(s)) return { intent: 'briefing', rule: 'knowledge' };
   if (/從.+(到|去)|怎麼去|怎麼走/.test(s)) return { intent: 'trip', rule: 'bus-follow' };
   if (INVOICE_WORD.test(s)) return { intent: 'invoice', number: /(?:^|\D)(\d{8}|\d{3})(?!\d)/.exec(s)?.[1], rule: 'invoice' };
   if (STOCK_WORD.test(s)) return { intent: 'stock', query: stockQueryOf(s) || undefined, advice: ADVICE_Q.test(s), rule: 'stock' };
@@ -326,6 +371,9 @@ function drawSees(lastBody) {
     h('pre', null, wallet.length ? JSON.stringify(wallet, null, 2) : '（空的）'));
 }
 const RULES = [
+  ['schedule', '指揮阿幫排程', '「開獎後幫我對發票」「每天 8 點跟我說天氣和台積電」→ 建立排程：寫清楚做什麼、什麼時候、用哪些資料，使用者可在「排程」暫停或刪除。只排 L1 查詢與通知；訂票、叫車（L2）只能提醒，不會自動執行。誠實限制：網頁只在打開 App 時補跑；要準時推播需推播伺服器與使用者訂閱（ADR 決定）。'],
+  ['carrier', '財政部載具（規劃中）', '「把載具的發票抓進來」→ 沒連結時引導到發票頁的連結表單（同意＋手機條碼＋驗證碼，只存手機、不在對話裡輸入）；已連結 → invoice_carrier_list 抓這期發票存進「我的發票」，開獎後自動對。前提：公司向財政部財資中心申請 AppID／APIKey（只放伺服器、加簽）；驗證碼不出手機的設計要寫 ADR。'],
+  ['knowledge', '對話裡用任何資訊', '「今天出門要注意什麼？」→ 阿幫組合多個來源（天氣、空品、在盯的公車、我的發票、股市、油價…）成一張可展開的「今日重點」卡片；每段標資料來源，數字只來自工具。'],
   ['bus-follow', '選公車就盯到站', '決策（decide.js 計分）選了公車 → 阿幫接著查這條路線在上車站的即時到站（bus_route_eta），卡片每秒倒數、每 20 秒更新；「開公車頁」看車在哪一站。提醒只在使用者按下時設定（L1 查詢＋通知，不是 L2 行動）：到站前 N 分發通知。'],
   ['stock', '股市意圖', '有股價、股票、大盤、收盤、ETF、「2330 漲」等字眼 → stock_quote。去掉口語與行情字眼，剩下的是名稱或代號；沒剩下只查指數。'],
   ['follow-up', '追問', '上一個（非追問的）提問是股市，這句是短句且有「那…」「…呢」或本身是代號 → 沿用股市。「謝謝」「好」不算。'],
@@ -376,21 +424,19 @@ function invoiceCard(d) {
     h('h3', null, `統一發票 ${INVOICE.title}`, h('span', { class: 'badge' }, '示範資料')),
     d.check ? h('div', { class: 'win', style: d.check.prize ? '' : 'background:#f1f4f3;color:#5f6f6b' }, d.check.prize ? `${d.number} ${d.check.prize}！獎金 ${fmt(d.check.amount)} 元` : `${d.number} 沒有中獎`) : null,
     [['特別獎', [INVOICE.special]], ['特獎', [INVOICE.grand]], ['頭獎', INVOICE.first]].map(([l, ns]) => h('div', { class: 'inv' }, h('small', null, l), h('div', null, ns.map((n) => h('strong', null, n, ' '))))),
-    h('div', { class: 'wallet', id: 'wallet' }));
+    h('div', { class: 'wallet' }));
 }
 function drawWallet() {
-  const el = document.querySelectorAll('#wallet');
-  const last = el[el.length - 1];
-  if (!last) return;
-  last.replaceChildren(...[h('b', null, '我的發票'), h('small', { style: 'color:#5f6f6b' }, '　存在這支手機'),
-    wallet.length ? wallet.map((x) => h('div', { class: 'wrow' }, h('span', null, `${x.track}-${x.number}`, h('small', { style: 'color:#5f6f6b' }, `　${x.date ? `消費 ${x.date}` : `${x.period} 期`}`)), h('span', { class: `st ${x.status || ''}` }, x.status === 'won' ? `${x.prize}・${fmt(x.amount)} 元` : x.status === 'lost' ? '沒中' : x.status === 'pending' ? '1/25 開獎' : '待對獎'))) : h('p', { class: 'foot' }, '還沒有存發票。'),
-    h('div', { style: 'display:flex;gap:6px;margin-top:6px' }, h('button', { class: 'btn sm', type: 'button', onclick: openScan }, '掃發票 QR code'))].flat().filter(Boolean));
+  document.querySelectorAll('.wallet').forEach((last) => last.replaceChildren(...[h('b', null, '我的發票'), h('small', { style: 'color:#5f6f6b' }, '　存在這支手機'),
+    wallet.length ? wallet.map((x) => h('div', { class: 'wrow' }, h('span', null, `${x.track}-${x.number}`, h('small', { style: 'color:#5f6f6b' }, `　${x.date ? `消費 ${x.date}` : `${x.period} 期`}${x.store ? `・${x.store}` : ''}${x.from ? '・載具' : ''}`)), h('span', { class: `st ${x.status || ''}` }, x.status === 'won' ? `${x.prize}・${fmt(x.amount)} 元` : x.status === 'lost' ? '沒中' : x.status === 'pending' ? '1/25 開獎' : '待對獎'))) : h('p', { class: 'foot' }, '還沒有存發票。'),
+    h('div', { style: 'display:flex;gap:6px;margin-top:6px' }, h('button', { class: 'btn sm', type: 'button', onclick: openScan }, '掃發票 QR code'))].flat().filter(Boolean)));
 }
 
 // ── 一輪對話 ──
 let lastBody = null;
 async function send(text) {
   if (busy || !text.trim()) return;
+  go('agent');
   busy = true;
   turn++;
   const body = { messages: [...history, { role: 'user', content: text }].slice(-10), ...(context && { context }) };
@@ -407,6 +453,9 @@ async function send(text) {
   let answer = '';
   try {
     if (it.intent === 'trip') answer = await busTrip(text);
+    else if (it.intent === 'schedule') answer = await makeSchedule(text);
+    else if (it.intent === 'carrier') answer = await carrierTurn();
+    else if (it.intent === 'briefing') answer = await briefing(['天氣', '空品', '公車', '發票', '股市']);
     else if (mode === 'model') answer = await modelTurn(text, it, ctxUsed, hits);
     else answer = await demoTurn(it, ctxUsed);
   } finally {
@@ -495,6 +544,104 @@ async function modelTurn(text, it, ctx, hits) {
 }
 const d0 = (it) => (it.number ? '@發票 幫你對這張' : '@發票 查最新一期');
 
+// ── 財政部手機條碼載具（規劃中：需公司申請 AppID）──
+let carrier = null; // { cardNo（遮罩顯示）}；驗證碼只在手機
+const CARRIER_INV = [['AB', '54348835', '2026-08-03', '全家便利商店', 65], ['CD', '12340397', '2026-08-12', '星巴克', 135], ['EF', '88776655', '2026-08-21', '家樂福', 1288], ['GH', '20251119', '2026-11-18', '7-ELEVEN', 49]];
+function openCarrier(after) {
+  ev('client', '開「連結載具」表單（同意事項＋手機條碼＋驗證碼）', 'client');
+  $('#carrierdlg').showModal();
+  $('#carrier-cancel').onclick = () => $('#carrierdlg').close();
+  $('#carrier-ok').onclick = async () => {
+    const no = $('#cardno').value.trim();
+    carrier = { cardNo: no.replace(/^(\/..).*(.)$/, '$1****$2') };
+    $('#carrierdlg').close();
+    ev('client', `手機條碼與驗證碼存在這支手機（加密存放）：${carrier.cardNo}`, 'client');
+    ptoast('已連結載具');
+    await syncCarrier();
+    if (after) after();
+  };
+}
+async function syncCarrier() {
+  ev('host.callTool', json({ name: 'invoice_carrier_list', args: { cardNo: carrier.cardNo, cardEncrypt: '（手機端送出，伺服器轉查不保存）', period: '本期與上期' }, server: 'AppID＋APIKey 加簽 → 財政部 API' }), 'client');
+  await wait(400);
+  let added = 0;
+  for (const [track, number, date, store, amount] of CARRIER_INV) {
+    if (wallet.some((x) => x.number === number)) continue;
+    wallet.unshift({ track, number, date, store, amount, from: '載具' }); added++;
+  }
+  for (const x of wallet.filter((y) => !y.status)) {
+    const p = `${Number(x.date?.slice(0, 4)) - 1911}${String(Number(x.date?.slice(5, 7)) % 2 ? Number(x.date?.slice(5, 7)) : Number(x.date?.slice(5, 7)) - 1).padStart(2, '0')}`;
+    if (p === INVOICE.period) { const c = checkInvoice(x.number); Object.assign(x, c, { status: c.prize ? 'won' : 'lost' }); } else x.status = 'pending';
+  }
+  drawWallet(); drawSees(lastBody);
+  return added;
+}
+function carrierCard() {
+  return h('div', { class: 'card' }, h('h3', null, '手機條碼載具', h('span', { class: 'badge' }, '規劃中')),
+    carrier
+      ? [h('p', null, `已連結 ${carrier.cardNo}（驗證碼只存在這支手機）`), h('div', { class: 'remind' }, h('button', { class: 'btn sm', type: 'button', onclick: async () => { const n = await syncCarrier(); ptoast(n ? `抓到 ${n} 張新發票` : '沒有新發票'); } }, '同步這期發票'), h('button', { class: 'btn sm alt', type: 'button', onclick: () => { carrier = null; ev('client', '取消連結：刪除手機上的手機條碼與驗證碼', 'client'); go('invoice'); } }, '取消連結'))]
+      : [h('p', { class: 'foot' }, '連結後自動抓載具裡的發票，不用一張張掃。需要財政部核發 AppID（公司申請）後才能上線。'), h('button', { class: 'btn sm', type: 'button', onclick: () => openCarrier(() => go('invoice')) }, '連結手機條碼載具')]);
+}
+async function carrierTurn() {
+  if (!carrier) {
+    add(h('div', { class: 'card' }, h('h3', null, '先連結載具', h('span', { class: 'badge' }, '規劃中')), h('p', { class: 'foot' }, '驗證碼請在連結表單裡輸入，不要打在對話裡。'), h('button', { class: 'btn sm', type: 'button', onclick: () => openCarrier(() => send('把載具的發票抓進來對獎')) }, '連結手機條碼載具')));
+    return say('要先連結你的手機條碼載具：按上面的按鈕，在表單裡輸入手機條碼和驗證碼（只存在你的手機）。連好我就幫你把發票抓進「我的發票」並對獎。');
+  }
+  await step('發票', '@發票 從你的載具抓這期和上期的發票', [['invoice_carrier_list', { cardNo: carrier.cardNo, period: '本期與上期' }]], [`載具有 ${CARRIER_INV.length} 張發票，已存進「我的發票」。`]);
+  const box = invoiceCard({});
+  add(box); drawWallet();
+  const won = wallet.filter((x) => x.status === 'won');
+  return say(`抓好了，${CARRIER_INV.length} 張都存進「我的發票」。${won.length ? `已開獎的期別有中：${won.map((w) => `${w.number} ${w.prize}`).join('、')}！` : '已開獎的沒中。'}11 月的發票 1/25 開獎後會自動對，要我排程嗎？說「開獎後幫我自動對發票」就好。`);
+}
+
+// ── 排程與綜合知識 ──
+let schedules = [];
+const TOPICS = [['天氣', /天氣|下雨/], ['空品', /空品|空氣/], ['股市', /股|收盤|台積電|大盤/], ['公車', /公車/], ['油價', /油價/], ['發票', /發票|對獎/]];
+function scheduleCard() {
+  const box = h('div', { class: 'card', 'data-card': 'schedule' });
+  const draw = () => box.replaceChildren(...[h('h3', null, '我的排程', h('span', { class: 'badge' }, '存在這支手機')),
+    schedules.length ? schedules.map((x) => h('div', { class: 'sched' },
+      h('div', null, h('b', null, x.title), h('br'), h('small', null, `${x.when}・用：${x.sources.join('、')}`)),
+      h('div', { style: 'display:flex;gap:6px;align-items:center' },
+        x.kind === 'brief' && h('button', { class: 'alt-btn', type: 'button', onclick: () => briefing(x.topics, x.title) }, '現在跑一次'),
+        h('button', { class: `sw${x.on ? '' : ' off'}`, type: 'button', 'aria-pressed': String(x.on), onclick: () => { x.on = !x.on; ev('client', `${x.on ? '啟用' : '暫停'}排程「${x.title}」`, 'client'); draw(); } }, x.on ? '啟用中' : '已暫停'),
+        h('button', { class: 'alt-btn', type: 'button', onclick: () => { schedules = schedules.filter((y) => y !== x); ev('client', `刪除排程「${x.title}」`, 'client'); draw(); } }, '刪除'))))
+      : h('p', { class: 'foot' }, '還沒有排程。可以跟阿幫說「開獎後幫我自動對發票」或「每天早上 8 點跟我說天氣和台積電收盤」。'),
+    h('p', { class: 'foot' }, '網頁版在打開 App 時補跑到期的排程；要準時推播需要推播伺服器（待決定）。訂票、叫車只會提醒，不會自動執行。')].flat());
+  draw();
+  return box;
+}
+async function makeSchedule(text) {
+  const invoice = /發票|對獎/.test(text);
+  const time = /(\d{1,2})\s*點/.exec(text)?.[1];
+  const topics = TOPICS.filter(([, re]) => re.test(text)).map(([k]) => k);
+  const x = invoice && topics.length <= 1
+    ? { kind: 'invoice', title: '開獎後自動對「我的發票」', when: '單數月 25 日開獎後（下次 11/25）', sources: ['財政部中獎號碼', '我的發票（手機）', ...(carrier ? ['財政部載具'] : [])], topics: ['發票'], on: true }
+    : { kind: 'brief', title: `每天 ${time ? `${time.padStart(2, '0')}:00` : '08:00'} 晨報`, when: `每天 ${time ? `${time.padStart(2, '0')}:00` : '08:00'}`, sources: topics.length ? topics : ['天氣'], topics: topics.length ? topics : ['天氣'], on: true };
+  await step('排程', `@排程 幫你建立「${x.title}」`, [['schedule_create', { title: x.title, when: x.when, uses: x.sources }]], [`已建立：${x.when}，會用${x.sources.join('、')}。`]);
+  schedules.push(x);
+  add(scheduleCard());
+  drawRules(['schedule']);
+  if (x.kind === 'invoice') return say(`好，${x.when}會自動對你存在「我的發票」裡的發票，中獎就通知你。現在存了 ${wallet.length} 張；要再加可以掃 QR code（首頁 → 發票對獎）。`);
+  return say(`好，${x.when}幫你整理${x.sources.join('、')}。要不要現在先跑一次給你看？按排程卡片上的「現在跑一次」。`);
+}
+async function briefing(topics, title = '今日重點') {
+  const want = (k) => topics.includes(k);
+  const parts = [];
+  const notes = [];
+  if (want('天氣')) { notes.push(['weather_now', {}, '天氣', '陰天 24°C，3 小時降雨機率 10%。']); parts.push(['天氣', '陰天 24°C，不太會下雨，不用帶傘。', '中央氣象署']); }
+  if (want('空品')) { notes.push(['aqi_nearby', {}, '空品', '萬華測站 AQI 58（普通）。']); parts.push(['空品', 'AQI 58 普通，敏感族群長時間戶外可留意。', '環境部']); }
+  if (want('公車')) parts.push(['公車', bus.timer ? `${BUS.route} 約 ${Math.round(bus.eta / 60)} 分到「${BUS.board}」${bus.remind ? `，已設到站前 ${bus.remind} 分提醒` : ''}。` : '目前沒有在盯的公車。問我「從 A 到 B 怎麼去」，選公車後我會盯到站。', 'TDX']);
+  if (want('發票')) parts.push(['發票', wallet.length ? `「我的發票」有 ${wallet.length} 張，下次開獎 11/25，開獎後自動對。` : '「我的發票」還沒有發票；可以掃 QR code 存起來，開獎後自動對。', '財政部＋手機']);
+  if (want('股市')) { notes.push(['stock_quote', { query: '台積電' }, '股市', stockSpeak(stockQuote('台積電'))]); parts.push(['股市', `${stockSpeak(stockQuote('台積電'))}（收盤資料，不構成投資建議）`, '證交所']); }
+  if (want('油價')) parts.push(['油價', '95 無鉛 30.7 元，11/16 起生效。', '台灣中油']);
+  if (notes.length) await step(notes.map((n) => n[2]), `@${notes.map((n) => n[2]).join(' @')} 幫你整理${title}`, notes.map(([n, a]) => [n, a]), notes.map((n) => n[3]));
+  add(h('div', { class: 'card', 'data-card': 'briefing' }, h('h3', null, title, h('span', { class: 'badge' }, '示範資料')),
+    parts.map(([k, v, src], i) => h('details', { class: 'kb', ...(i < 2 && { open: '' }) }, h('summary', null, k, h('small', null, src)), h('p', null, v)))));
+  drawRules(['knowledge']);
+  return say(`${title}：${parts.slice(0, 2).map(([, v]) => v).join(' ')}其他（${parts.slice(2).map(([k]) => k).join('、')}）在卡片裡，點開看。`);
+}
+
 // ── 行程 → 選公車 → 盯到站＋提醒 ──
 async function step(role, note, calls, speaks) {
   await wait(250);
@@ -545,11 +692,8 @@ function setRemind(m) {
   bus.views.forEach((r) => r());
 }
 function openBusPage() {
-  ev('client', `開公車頁 #/bus?route=${BUS.route}&stop=${BUS.board}（同一份即時資料）`, 'client');
-  const body = $('#busdlg-body');
-  const r = busView(body, true);
-  $('#busdlg').showModal();
-  $('#busdlg-close').onclick = () => { bus.views.delete(r); $('#busdlg').close(); };
+  ev('client', `host.navigate('#/bus/Taipei/${BUS.route}?stop=${BUS.board}')：開公車頁（同一份即時資料，提醒繼續有效）`, 'client');
+  go('bus');
 }
 function startBus() {
   clearInterval(bus.timer);
@@ -641,6 +785,127 @@ $('#scan-done').addEventListener('click', async () => {
 });
 $('#scan').addEventListener('cancel', () => ev('client', '停相機', 'client'));
 
+// ── App 畫面：首頁、問阿幫、服務頁（股市、發票、公車）──
+const P = (d) => I(d);
+const TI = {
+  pin: P('<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'),
+  bus: P('<rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16"/><path d="M7 21v-3M17 21v-3"/>'),
+  bike: P('<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7"/><path d="M10 9l2 7h-6"/>'),
+  hsr: P('<path d="M4 15c0-5 4-9 10-9h3l3 4v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M4 13h16"/><path d="M7 21l2-2M17 21l-2-2"/>'),
+  train: P('<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 10h14"/><path d="M8 21l2-4M16 21l-2-4"/>'),
+  metro: P('<circle cx="12" cy="12" r="9"/><path d="M8 16V8l4 5 4-5v8"/>'),
+  sun: P('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/>'),
+  air: P('<path d="M3 8h11a3 3 0 1 0-3-3"/><path d="M3 12h15a3 3 0 1 1-3 3"/><path d="M3 16h7"/>'),
+  quake: P('<path d="M2 12h4l2-5 3 10 3-14 3 13 2-4h3"/>'),
+  pharmacy: P('<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/>'),
+  trash: P('<path d="M4 7h16"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>'),
+  shield: P('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>'),
+  fuel: P('<path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M3 21h12"/><path d="M4 10h10"/>'),
+  receipt: P('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
+  chart: P('<path d="M3 20h18"/><path d="M4 16l5-5 4 3 7-8"/><path d="M15 6h5v5"/>'),
+  home: P('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'),
+  chat: P('<path d="M4 5h16v11H9l-5 4z"/>'),
+  clock: P('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>'),
+  star: P('<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/>'),
+};
+const GROUPS = [
+  ['交通出行', '資料來源：TDX', [['附近', 'pin', 'nearby'], ['公車', 'bus', 'bus'], ['YouBike', 'bike', 'youbike'], ['高鐵', 'hsr', 'thsr'], ['台鐵', 'train', 'tra'], ['捷運', 'metro', 'metro']]],
+  ['生活與環境', '資料來源：政府開放資料', [['天氣', 'sun', 'weather'], ['空氣品質', 'air', 'aqi'], ['地震', 'quake', 'quake'], ['藥局', 'pharmacy', 'pharmacy'], ['垃圾車', 'trash', 'garbage']]],
+  ['消費與政府服務', '防詐、油價、發票、股市', [['防詐', 'shield', 'antifraud'], ['油價', 'fuel', 'fuel'], ['發票對獎', 'receipt', 'invoice'], ['股市', 'chart', 'stock']]],
+];
+// 手動查詢頁（假資料）：每個格子都能自己查，問阿幫只是另一個入口
+const row = (title, sub, right, cls = '') => h('div', { class: `stk ${cls}` }, h('div', null, h('b', null, title), sub ? [h('br'), h('small', null, sub)] : null), right != null ? h('div', { class: 'px' }, right) : null);
+const card = (title, ...kids) => h('div', { class: 'card' }, h('h3', null, title, h('span', { class: 'badge' }, '示範資料')), ...kids.flat().filter(Boolean));
+function form(fields, onSubmit, btn = '查詢') {
+  const inputs = fields.map(([name, ph, val = '']) => h('input', { name, placeholder: ph, value: val, 'aria-label': ph }));
+  const f = h('form', { class: 'cform', onsubmit: (e) => { e.preventDefault(); onSubmit(Object.fromEntries(inputs.map((i) => [i.name, i.value.trim()]))); } }, inputs, h('button', { class: 'btn sm' }, btn));
+  return f;
+}
+function manual(page, fields, render, note) {
+  const out = h('div');
+  const run = (v) => { ev('host.callTool', `手動查詢 ${JSON.stringify(v)}`, 'client'); out.replaceChildren(render(v)); };
+  page.replaceChildren(h('div', { class: 'card' }, form(fields, run), note ? h('p', { class: 'foot' }, note) : null), out);
+  run(Object.fromEntries(fields.map(([n, , v = '']) => [n, v])));
+}
+const minLater = (m) => { const d = new Date(Date.now() + m * 60000); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+const PAGES = {
+  nearby: (pg) => manual(pg, [['place', '地點，例如 臺北車站', '臺北車站']], (v) => card(`${v.place || '目前位置'}附近`,
+    row('臺北車站（忠孝）', '公車站・120 公尺・14 條路線', '307 3 分'), row('臺北車站（青島）', '公車站・210 公尺・9 條路線', '262 進站中'),
+    row('YouBike 臺北車站東三門', '90 公尺', '可借 7・可還 12'), row('捷運台北車站', '板南線、淡水信義線', '2 分'))),
+  bus: (pg) => {
+    manual(pg, [['route', '路線，例如 601、307', BUS.route]], (v) => {
+      if (v.route !== BUS.route) return card(`公車 ${v.route}`, h('p', null, `原型只有 ${BUS.route} 的即時動態；正式 App 每條路線都能查。`), h('button', { class: 'btn sm', type: 'button', onclick: () => go('bus') }, `看 ${BUS.route}`));
+      if (!bus.timer) startBus(); // 手動查也一樣盯得到、可以設提醒
+      const box = h('div', { class: 'card', 'data-card': 'bus-route' });
+      pageRender = busView(box, true);
+      return box;
+    }, '手動查一條路線也能看即時動態、設到站提醒（不一定要先問阿幫）');
+  },
+  youbike: (pg) => manual(pg, [['place', '地點', '臺北車站']], () => card('附近 YouBike', row('臺北車站東三門', '90 公尺', '可借 7・可還 12'), row('捷運台大醫院站(4號出口)', '350 公尺', '可借 0・可還 20', 'past'), row('二二八和平公園', '480 公尺', '可借 15・可還 3'))),
+  thsr: (pg) => manual(pg, [['from', '起站', '台北'], ['to', '迄站', '左營']], (v) => card(`高鐵 ${v.from} → ${v.to}`, [[7, '0803'], [22, '0609'], [37, '0811']].map(([m, no]) => row(`${no} 車次`, `行車 1 小時 34 分`, `${minLater(m)} 開`)), h('button', { class: 'btn sm alt', type: 'button', onclick: () => ptoast('L2：先確認車次、日期、張數，再開高鐵官方訂票頁') }, '訂票（官方網站）'))),
+  tra: (pg) => manual(pg, [['from', '起站', '臺北'], ['to', '迄站', '新竹']], (v) => card(`台鐵 ${v.from} → ${v.to}`, row('自強 121', '行車 1 小時 5 分', `${minLater(12)} 開`), row('區間 2153', '行車 1 小時 32 分', `${minLater(20)} 開`), row('自強 125', '行車 1 小時 4 分', `${minLater(41)} 開`))),
+  metro: (pg) => manual(pg, [['station', '站名，例如 台北車站', '台北車站']], (v) => card(`捷運 ${v.station}`, row('板南線 往南港展覽館', '月台 1', '2 分'), row('板南線 往頂埔', '月台 2', '進站中'), row('淡水信義線 往象山', '月台 3', '4 分'))),
+  weather: (pg) => manual(pg, [['place', '地點', '臺北車站']], (v) => card(`${v.place || '目前位置'} 天氣`, h('div', { class: 'stats' }, [['氣溫', '24°C'], ['1 小時雨量', '0 mm'], ['3 小時降雨機率', '10%'], ['狀況', '陰']].map(([a, b]) => h('div', { class: 'stat' }, h('small', null, a), h('strong', null, b)))))),
+  aqi: (pg) => manual(pg, [['place', '地點', '臺北車站']], () => card('萬華測站 空氣品質', h('div', { class: 'stats' }, [['AQI', '58 普通'], ['PM2.5', '21'], ['PM10', '34'], ['O₃', '28']].map(([a, b]) => h('div', { class: 'stat' }, h('small', null, a), h('strong', null, b)))))),
+  quake: (pg) => manual(pg, [['county', '看某縣市震度（選填）', '']], (v) => card('最近地震', row('11/18 23:41 規模 4.6', '花蓮縣政府東方 20 公里・深度 15 公里', `最大 3 級${v.county ? `・${v.county} 1 級` : ''}`), row('11/16 07:12 規模 3.9', '宜蘭縣南澳鄉・深度 9 公里', '最大 2 級'))),
+  pharmacy: (pg) => manual(pg, [['area', '地區，例如 臺北市大安區', '臺北市中正區'], ['q', '藥局名稱（選填）', '']], (v) => card(`健保藥局 ${v.area}`, row('杏一中正藥局', '02-2311-xxxx・忠孝西路一段', '上午、下午'), row('躍獅連鎖藥局 台北站前店', '02-2388-xxxx・館前路', '上午、下午、晚上'), row('大樹藥局 南陽店', '02-2381-xxxx・南陽街', '今天休息', 'past'))),
+  garbage: (pg) => manual(pg, [['place', '地點', '臺北車站']], () => card('附近垃圾車', row('19:30–19:36 忠孝西路一段 50 號', '160 公尺・中正 1 號線', '今天有收'), row('20:10 公園路 21 號', '420 公尺・中正 3 號線', '今天有收'))),
+  antifraud: (pg) => manual(pg, [['text', '貼上可疑訊息或網址', '【台電】電費逾期，請點擊 https://eincioiice-tw.com/pay']], (v) => {
+    const bad = /https?:|點擊|逾期|中獎|解除分期|驗證碼/.test(v.text);
+    return card('防詐檢查', h('div', { class: 'win', style: bad ? 'background:#fde8e8;color:#b91c1c' : '' }, bad ? '高風險：有常見詐騙特徵，先不要照做' : '沒有發現已知的詐騙特徵，但不代表一定安全'), h('p', { class: 'foot' }, '有疑問請撥 165 反詐騙諮詢專線。'));
+  }, '只比對 165 開放資料與規則，不開連結'),
+  fuel: (pg) => { pg.replaceChildren(card('中油油價', h('div', { class: 'stats' }, [['92 無鉛', '29.2'], ['95 無鉛', '30.7'], ['98 無鉛', '32.7'], ['超級柴油', '27.4']].map(([a, b]) => h('div', { class: 'stat' }, h('small', null, a), h('strong', null, b)))), h('p', { class: 'foot' }, '11/16 起生效・元／公升・每週一調整'))); },
+  invoice: (pg) => {
+    const res = h('div');
+    pg.replaceChildren(invoiceCard({}), carrierCard(), h('div', { class: 'card' }, h('b', null, '手動對獎'), form([['n', '發票號碼（8 碼或末 3 碼）', '']], (v) => {
+      const n = v.n.replace(/\D/g, '');
+      if (!/^\d{3}$|^\d{8}$/.test(n)) { res.replaceChildren(h('p', { class: 'foot' }, '請輸入 8 碼或末 3 碼')); return; }
+      const c = checkInvoice(n);
+      res.replaceChildren(h('div', { class: 'win', style: c.prize ? '' : 'background:#f1f4f3;color:#5f6f6b' }, c.prize ? `${n} ${c.prize}！${c.amount ? `獎金 ${fmt(c.amount)} 元` : ''}` : `${n} 沒有中獎`));
+    }, '對獎'), res));
+    drawWallet();
+  },
+  stock: (pg) => pg.replaceChildren(stockCard(stockQuote('台積電、0050'))),
+  schedule: (pg) => pg.replaceChildren(scheduleCard()),
+};
+const icon = (k, cls = 'ic') => { const e = h('span', { class: cls }); e.innerHTML = TI[k]; return e; };
+let screen = 'home';
+let pageRender = null;
+function ptoast(m) { const t = $('#ptoast'); t.textContent = m; t.hidden = false; clearTimeout(ptoast.t); ptoast.t = setTimeout(() => { t.hidden = true; }, 2200); }
+function drawHome() {
+  const q = h('input', { placeholder: '例如：從西門町到台北 101 怎麼去？', 'aria-label': '問阿幫' });
+  const hm = h('span', { class: 'hm' }); hm.innerHTML = MASCOT;
+  $('#s-home').replaceChildren(...[
+    h('div', { class: 'hero' }, hm, h('small', null, '晚安！我是阿幫，今天要去哪裡？'), h('h2', null, '想去哪裡，直接問我'),
+      h('form', { onsubmit: (e) => { e.preventDefault(); if (q.value.trim()) send(q.value.trim()); } }, q, h('button', { class: 'btn sm', style: 'border-radius:0' }, '問')),
+      h('div', { class: 'hchips' }, ['我想省錢，從西門町到台北 101 怎麼去？', '台積電股價多少', '這期發票號碼是多少？'].map((t) => h('button', { type: 'button', onclick: () => send(t) }, t)))),
+    GROUPS.map(([g, note, tiles]) => [
+      h('div', { class: 'ghead' }, h('b', null, g), h('small', null, note)),
+      h('div', { class: 'grid' }, tiles.map(([name, ic, to]) => h('button', { type: 'button', class: 'tile', onclick: () => go(to, name) }, icon(ic), name))),
+    ])].flat(2));
+}
+const TITLES = { home: '阿幫', agent: '問阿幫', stock: '股市行情', invoice: '發票對獎', bus: '公車', schedule: '我的排程' };
+function go(to, name) {
+  if (screen === to && to === 'agent') return;
+  if (pageRender) { bus.views.delete(pageRender); pageRender = null; }
+  screen = to;
+  $('#s-home').hidden = to !== 'home';
+  $('#chat').hidden = $('#composer').hidden = to !== 'agent';
+  $('#s-page').hidden = !PAGES[to];
+  $('#back').hidden = to === 'home';
+  $('#hdr-title').textContent = TITLES[to] || name || to;
+  document.querySelectorAll('#tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.to === to));
+  if (PAGES[to]) {
+    ev('client', `開 ${TITLES[to] || name} 頁（手動查詢）`, 'client');
+    PAGES[to]($('#s-page'));
+    $('#s-page').append(h('button', { class: 'btn sm alt', type: 'button', onclick: () => go('agent') }, '也可以直接問阿幫'));
+  }
+  if (to === 'agent') scroll();
+}
+$('#tabbar').append(...[['home', '首頁', 'home'], ['agent', '問阿幫', 'chat'], ['bus', '公車', 'bus'], ['schedule', '排程', 'clock']].map(([to, name, ic]) =>
+  h('button', { type: 'button', 'data-to': to, onclick: () => go(to) }, icon(ic, ''), name)));
+$('#back').addEventListener('click', () => go('home'));
+
 // ── 情境腳本 ──
 const SCENES = [
   ['查一檔', async () => send('台積電股價多少')],
@@ -659,6 +924,10 @@ const SCENES = [
   ['找不到／也可能是', async () => send('國泰、火星電的股價')],
   ['發票＋掃描', async () => { await send('發票 54348835 有沒有中？'); await wait(500); openScan(); }],
   ['選公車→盯到站＋提醒', async () => send('我想省錢，從西門町到台北 101 怎麼去？')],
+  ['排程：開獎自動對發票', async () => send('開獎後幫我自動對發票，中了通知我')],
+  ['排程：每天晨報', async () => send('每天早上 8 點跟我說天氣、空品和台積電收盤')],
+  ['綜合知識：今天要注意什麼', async () => send('今天出門要注意什麼？')],
+  ['載具：抓我的發票（規劃中）', async () => send('把我載具的發票抓進來對獎')],
 ];
 $('#chips').append(...SCENES.map(([t, fn], i) => h('button', { class: 'chip', type: 'button', onclick: () => !busy && fn() }, h('b', null, i + 1), t)));
 
@@ -679,8 +948,8 @@ $('#composer').addEventListener('submit', (e) => { e.preventDefault(); const q =
 $('#reset').addEventListener('click', () => {
   if (busy) return;
   history = []; context = ''; wallet = []; turn = 0; lastBody = null;
-  clearInterval(bus.timer); bus.views.clear(); bus.remind = null;
-  chat.replaceChildren(); $('#p-events').replaceChildren(); drawSees(); drawRules();
+  clearInterval(bus.timer); bus.timer = null; bus.views.clear(); bus.remind = null; schedules = []; carrier = null;
+  chat.replaceChildren(); $('#p-events').replaceChildren(); drawSees(); drawRules(); go('home');
   add(h('div', { class: 'sys' }, '已清空'));
 });
 document.querySelectorAll('[role=tab]').forEach((b) => b.addEventListener('click', () => {
@@ -688,6 +957,7 @@ document.querySelectorAll('[role=tab]').forEach((b) => b.addEventListener('click
   for (const id of ['events', 'sees', 'rules']) $(`#p-${id}`).hidden = id !== b.dataset.tab;
 }));
 $('#hdr-av').replaceWith(av('阿幫'));
+drawHome(); go('home'); $('#tabbar [data-to=home]').classList.add('on');
 drawSees(); drawRules();
 add(h('div', { class: 'sys' }, '點上面的情境，或直接問「台積電股價多少」'));
 </script>
