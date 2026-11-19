@@ -111,7 +111,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 共用迴圈 `core/agent/model-loop.js` `runModel(svc, body, emit, { provider })`：
 
 - tools 由 registry 產生（`describeTool(t).inputSchema`，依 profile 白名單）；請求帶 `clientTools: ['device_location']` 時多一個 `device_location`。
-- 每輪：模型回覆 → 有工具呼叫時，前面的文字轉成 `agent_note`，`execTools` 執行（參數先 `dropNulls` 去掉 null 與空字串），結果只回填 `text`（不放整包 data）；沒有工具呼叫時文字成為 `text`。
+- 每輪：模型回覆 → 有工具呼叫時，前面的文字轉成 `agent_note`，`execTools` 執行（參數先 `dropNulls` 去掉 null 與空字串），結果只回填 `text`（不放整包 data）；有卡片的工具經 `modelText` 精簡：清單最多 `MODEL_LIST_MAX`（6）筆、前面加 `speak`、最後註明「完整清單已用卡片顯示，回答不要逐條列出」（地端小模型會照抄整份清單，回答又長又慢；2026-11-19 qwen3:8b 實測「油價＋大同區藥局」66.9→23.2 秒、「大安區藥局」34.9→6.8 秒）；沒有工具呼叫時文字成為 `text`。
 - 最多 5 輪；`refusal`、`max_tokens`（截斷）、參數 JSON 壞掉都不執行工具，改回固定說明或回錯誤給模型。
 - `device_location`：沒有結果時送 `client_tool_call`＋`done` 結束（§3.4），重送後以 `clientToolResults` 回填；拒絕時回錯誤讓模型改問地點。
 - 模型錯誤（金鑰錯、連線失敗、上游 5xx）→ `error`（`retryable: true`，訊息經 `publicMessage`）＋`done`。

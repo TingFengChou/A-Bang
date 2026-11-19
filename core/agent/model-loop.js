@@ -31,6 +31,26 @@ export const FALLBACK = {
   noLocation: '使用者沒有提供位置。請改問使用者從哪裡出發（或人在哪裡），不要猜。',
 };
 
+/** 有卡片的工具，回給模型的清單最多幾筆（完整結果已在卡片上） */
+export const MODEL_LIST_MAX = 6;
+const ITEM = /^\s*-\s/;
+
+/**
+ * 回填給模型的工具結果文字（AGENT.md §4）：有卡片的工具，清單只留前幾筆並註明「已用卡片顯示」，
+ * 讓模型只講重點、不逐條重抄（地端小模型尤其會照抄，回答又長又慢）。沒有卡片的工具照原文。
+ * @param {{ text?: string, speak?: string|null, card?: string|null }} result callTool() 的結果
+ */
+export function modelText(result) {
+  const text = result.text || result.speak || FALLBACK.empty;
+  if (!result.card || !result.text) return text;
+  const lines = text.split('\n');
+  const total = lines.filter((l) => ITEM.test(l)).length;
+  if (total <= MODEL_LIST_MAX) return `${text}\n（以上已用卡片顯示給使用者；回答只講重點，不要逐條重複）`;
+  let kept = 0;
+  const out = lines.filter((l) => !ITEM.test(l) || kept++ < MODEL_LIST_MAX);
+  return [result.speak, ...out, `…（共 ${total} 筆，這裡只列前 ${MODEL_LIST_MAX} 筆；完整清單已用卡片顯示給使用者，回答不要逐條列出）`].filter(Boolean).join('\n');
+}
+
 /** 模型常把沒填的選填欄位送成 null 或空字串（尤其地端小模型）；一律視為沒給，交給 zod 用預設值 */
 export function dropNulls(v) {
   const blank = (x) => x === null || (typeof x === 'string' && !x.trim());
@@ -113,8 +133,8 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     run.forEach((c, i) => {
       const o = out[i];
       used.add(c.name);
-      // 回填模型的只有文字摘要，不放整包 data（AGENT.md §4）
-      results.set(c.id, o.ok ? { content: o.result.text || o.result.speak || FALLBACK.empty } : { content: o.error, isError: true });
+      // 回填模型的只有文字摘要（清單截短），不放整包 data（AGENT.md §4）
+      results.set(c.id, o.ok ? { content: modelText(o.result) } : { content: o.error, isError: true });
     });
     conv.addResults(turn, turn.calls.map((c) => ({ id: c.id, ...results.get(c.id) })));
   }

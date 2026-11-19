@@ -95,7 +95,10 @@ export const invoiceLottery = defineTool({
   description: '查統一發票最近 6 期中獎號碼（特別獎、特獎、頭獎）；給發票號碼（8 碼或末 3 碼）時幫忙對獎。期別格式為民國年＋起始月，例如 11507＝115 年 7–8 月。',
   pack: PACK, tier: 'L1', card: 'invoice', source: '財政部（統一發票中獎號碼）', demoNote: DEMO, modeOf: (svc) => svc.openDataMode,
   input: {
-    number: z.string().trim().regex(/^[A-Za-z]{0,2}[-\s]?\d{3}(\d{5})?$/, '發票號碼請輸入 8 位數字（或末 3 碼）').optional().describe('發票號碼（8 碼或末 3 碼，選填）'),
+    // 沒有任何數字（模型把「這期」「最新」放進來）視為沒給：只查中獎號碼
+    number: z.preprocess((v) => (typeof v === 'string' && !/\d/.test(v) ? undefined : v),
+      z.string().trim().regex(/^[A-Za-z]{0,2}[-\s]?\d{3}(\d{5})?$/, '發票號碼請輸入 8 位數字（或末 3 碼）').optional())
+      .describe('要對獎的發票號碼（8 碼或末 3 碼，只有數字）；只查中獎號碼時不要給'),
     period: z.string().regex(/^\d{5}$/, '期別例如 11507').optional().describe('期別（選填，預設最新一期）'),
   },
   speak: (d) => (d.check ? (d.check.prize ? `${d.check.prize}！${d.check.amount ? `獎金 ${money(d.check.amount)} 元。` : ''}` : '這張沒有中獎。') : `${d.period.title}：特別獎 ${d.period.special}、特獎 ${d.period.grand}。`),
