@@ -38,7 +38,7 @@ npm run build:cards       # dist/cards.html：MCP Apps 互動卡片單檔（正�
 | `TDX_CLIENT_ID`／`TDX_CLIENT_SECRET` | [TDX](https://tdx.transportdata.tw/register) 會員中心 → API 金鑰 | 交通資料用示範資料 |
 | `CWA_API_KEY` | [中央氣象署開放資料平臺](https://opendata.cwa.gov.tw) | 天氣用示範資料（M3） |
 | `MOENV_API_KEY` | [環境部環境資料開放平臺](https://data.moenv.gov.tw)（免費註冊） | 空氣品質用示範資料（M10） |
-| （不需要） | 藥局、垃圾車、油價、發票（政府開放資料） | `OPEN_DATA=0` 或 `DEMO_MODE=1` 時用示範片段（M10） |
+| （不需要） | 藥局、垃圾車、油價、發票、股市收盤（政府開放資料） | `OPEN_DATA=0` 或 `DEMO_MODE=1` 時用示範片段（M10） |
 | （不需要） | 165 防詐開放資料（data.gov.tw，免金鑰） | `OPEN_DATA=0` 或 `DEMO_MODE=1` 時用示範片段（M7） |
 | `ANTHROPIC_API_KEY` | Anthropic Console（付費） | 網頁 agent 改用地端模型（`LOCAL_LLM_URL`＋`LOCAL_LLM_MODEL`，例如 Ollama）或示範模式（ADR-0012） |
 

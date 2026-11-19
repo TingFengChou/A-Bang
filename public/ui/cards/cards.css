@@ -129,4 +129,13 @@
 .ab-inv > .ab-sub:last-child { grid-column: 2; }
 .ab-invno { font-size: 20px; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
 .ab-risk.ab-win { background: var(--ab-ok-soft); color: var(--ab-ok); }
+/* 股市：台股習慣漲紅、跌綠（另有 ▲▼ 與 aria-label，不只靠顏色） */
+.ab-chg { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13px; }
+.ab-chg.up { color: var(--ab-bad); } .ab-chg.down { color: var(--ab-ok); } .ab-chg.flat { color: var(--ab-muted); }
+.ab-stk { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--ab-line); align-items: flex-start; }
+.ab-stk p { margin: 2px 0; }
+.ab-stk-meta { display: inline-block; margin-left: 6px; } /* 代號・市場・日期整段換行，不拆字 */
+.ab-stk-px { display: grid; justify-items: end; gap: 2px; white-space: nowrap; }
+.ab-stk-px strong { font-size: 20px; font-variant-numeric: tabular-nums; }
+.ab-stk-alt { background: none; border: 0; padding: 0 4px; color: var(--ab-brand); font: inherit; text-decoration: underline; cursor: pointer; }
 .ab-input { flex: 1; min-width: 0; font: inherit; padding: 6px 10px; border: 1px solid var(--ab-line); border-radius: 10px; }

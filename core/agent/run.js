@@ -115,7 +115,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   if (notice) emit(ev.agentNote(notice));
 
   const plan = PLANNERS[profile.id] || PLANNERS.life;
-  const it = plan.parse(req.messages.at(-1).content);
+  const it = plan.parse(req.messages.at(-1).content, { history: req.messages.slice(0, -1) });
   // 需要使用者位置（M5-07）：客戶端支援 device_location 時先請它定位，拿到結果後客戶端帶 clientToolResults 重送
   if (plan.needsLocation(it) && req.clientTools?.includes('device_location')) {
     const loc = deviceLocation(req);

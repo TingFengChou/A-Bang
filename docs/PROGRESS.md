@@ -13,6 +13,15 @@
 
 ---
 
+## 2026-11-19 M10 L-12 股市收盤行情
+
+- 做了：`core/services/stock.js`（證交所上市、櫃買中心上櫃收盤＋加權／櫃買指數；民國／西元日期、「+」「---」與尾端空白、權證略過；解析後才快取、空資料視為上游錯誤）＋示範片段 `core/data/demo/stock-*.json`。tool `stock_quote`（新工具包 `finance`，L1）：代號或名稱、多檔、找不到列 `notFound`、部分相同附 `similar`；文字固定附「不構成投資建議」，漲跌寫成「漲／跌」文字。`stock` 卡片：指數、收盤、漲紅跌綠＋▲▼、卡片內查別檔並 `setContext`。首頁「股市」格子、服務頁記住上次查的股票。問阿幫（互動模型，`AGENT.md` §5.1）：股市意圖與名稱擷取、追問（「那聯發科呢？」「0056 呢」，`parseIntent(text, { history })`）、股市脈絡下「該買嗎」也接著查；問買賣先說不提供投資建議；`PACK_GUARDRAILS.finance`；輸出護欄 `no-investment-advice`（買賣建議、看漲看跌、目標價、明牌整句換掉）。SW v0.4.6
+- 量測：真實 API 4 檔查詢 1.2 秒（含上櫃 5.4 MB），第二次 0 ms（快取）。地端 qwen3:8b 5 種情境（查一檔、追問、問買賣、大盤、卡片脈絡「它」）都正確呼叫工具；原本有一次把指數漲說成跌，工具文字改成「漲 102.8 點」後正確
+- 測試：npm test 新增 `test/stock.test.js`（解析、指數、比對、tool、fetchers、追問事件流、輸出護欄）、股市意圖與追問、計畫與總結；npm run e2e 新增股市服務頁（預設查詢、漲紅跌綠、卡片內查別檔）與問阿幫（查股價 → 追問 → 問買賣）
+- 文件：DATA_SOURCES.md §5.3、MCP_TOOLS.md、CARDS.md、AGENT.md（§5 意圖、§5.1 股市互動模型）、UX.md §6–7、PLAN.md（L-12）、README、CLAUDE.md、docs/index.html
+- 下一個：掃發票 QR code
+- 卡住：無
+
 ## 2026-11-19 M10 L-11 我的發票（本機自動對獎）
 
 - 做了：使用者希望發票能自動對獎、主動提醒。評估 Gmail（讀信是 Google 高敏感權限、需安全審查，且多數發票在載具不在信箱）與財政部載具 API（需保存使用者載具驗證碼）都會保存使用者帳號資料，屬 ADR 變更，先做本機版。core：`invoicePeriodOf`、`invoiceDrawDate`、`invoiceCheckMany`；tool `invoice_check_batch`（1–50 張，號碼只比對不保存）。網頁：`public/js/invoice-wallet.js`（localStorage `invoices`，最多 100 張；新增驗證與去重；`checkWallet` 只送需要對的；`autoCheckOnOpen` 打開 App 時開獎日已到自動對獎，中獎 toast＋已允許時系統通知）；服務頁發票卡片下方「我的發票」。問阿幫：示範總結與 life 規則主動提議存到「我的發票」，不向使用者要載具、Email 或密碼。SW v0.4.5

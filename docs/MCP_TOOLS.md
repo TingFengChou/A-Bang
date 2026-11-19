@@ -62,6 +62,7 @@
 | `fuel_price` | life | L1 | `fuel` | ✅（M10） |
 | `invoice_lottery` | life | L1 | `invoice` | ✅（M10） |
 | `invoice_check_batch` | life | L1 | — | ✅（M10，網頁「我的發票」自動對獎） |
+| `stock_quote` | finance | L1 | `stock` | ✅（證交所、櫃買中心收盤行情，免金鑰） |
 | `scam_check_message` | antifraud | **L2** | `scam-risk` | ✅（M7） |
 | `scam_lookup_url` | antifraud | **L2** | — | ✅（M7） |
 | `scam_myth_search` | antifraud | L1 | — | ✅（M7） |
@@ -288,6 +289,19 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | `invoice_lottery` | `number?`（8 碼或末 3 碼；沒有任何數字的值，例如模型放進「這期」，視為沒給）, `period?`（例 11507） | `period { title, special, grand, first[] }`、`periods[6]`、`check? { prize, amount, partial?, note? }` |
 | `invoice_check_batch` | `items: [{ number（8 碼）, date?（消費日 YYYY-MM-DD，不能是未來）\| period? }]`（1–50 張） | `{ latest: { period, title }, results: [{ number, date?, period, drawDate, status: 'won'\|'lost'\|'pending'\|'unavailable', title?, prize?, amount? }], summary: { won, lost, pending, unavailable, amount } }`；期別＝民國年＋單數起始月（`invoicePeriodOf`），開獎日＝期別後單數月 25 日（`invoiceDrawDate`）；比對規則與 `invoice_lottery` 共用 `checkInvoice`；號碼只比對、不保存 |
 
+### ✅ 股市（pack `finance`）
+
+| tool | 輸入 | 輸出 `data` 重點 |
+|---|---|---|
+| `stock_quote` | `query?`：代號或名稱，多檔用「、」分隔（最多 5 檔）；不給只回指數 | `indices[{ id: taiex\|tpex, name, date, close, change, changePct }]`、`quotes[{ code, name, market: 上市\|上櫃, date, open, high, low, close, change, changePct, volumeLots（張）, value, trades, query, similar?[{ code, name }] }]`、`notFound[]`（找不到不丟錯） |
+
+- 比對：代號完全相同 → 名稱相同（臺／台視為相同）→ 名稱開頭 → 名稱包含（短名優先）；不是完全相同時附 `similar` 讓使用者改選。
+- 收盤資料，每檔帶自己的日期；文字一律附「收盤資料，非即時報價；僅供參考，不構成投資建議」。漲跌在文字中寫成「漲 5（0.23%）」「跌 54（9.93%）」，不寫「+5」「-54」（地端小模型會說反）。
+- 只報數字：`PACK_GUARDRAILS.finance` 禁止買賣建議與漲跌預測；輸出護欄 `no-investment-advice`（`core/agent/guardrails.js`）把含買賣建議、看漲看跌、目標價、明牌的句子整句換成固定說法並送 `guardrail` 事件。
+
+| speak 範例 | 「台積電 11/18 收 2175，漲 5（0.23%）；環球晶 11/19 收 490，跌 54（9.93%）。」 |
+|---|---|
+
 模式：`aqiMode`（環境部金鑰）、`quakeMode`（氣象署授權碼）、`openDataMode`（其他，免金鑰；`DEMO_MODE=1`／`OPEN_DATA=0` 用 `core/data/demo/` 片段）。來源與欄位見 `DATA_SOURCES.md` §5.2。
 
 ### ✅ 防詐（pack `antifraud`，M7）
@@ -299,4 +313,4 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 
 ## 8. 卡片種類
 
-見 `CARDS.md`：`bus-route`、`bus-station`、`nearby`、`youbike`、`metro`、`timetable`、`trip`、`scam-risk`（M7）、`weather`、`aqi`、`quake`、`pharmacy`、`garbage`、`fuel`、`invoice`（M10）。
+見 `CARDS.md`：`bus-route`、`bus-station`、`nearby`、`youbike`、`metro`、`timetable`、`trip`、`scam-risk`（M7）、`weather`、`aqi`、`quake`、`pharmacy`、`garbage`、`fuel`、`invoice`（M10）、`stock`。

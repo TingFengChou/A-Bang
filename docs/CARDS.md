@@ -124,6 +124,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 | `garbage` | 時間、地點、距離、今天有沒有收（不收則灰階）、新北車輛即時位置、導航 | 2 分 |
 | `fuel` | 92／95／98／超級柴油牌價、生效日 | — |
 | `invoice` | 特別獎、特獎、頭獎；卡片內輸入號碼對獎（`host.callTool`） | — |
+| `stock` | 加權／櫃買指數；每檔收盤價、漲跌（台股習慣漲紅跌綠，另有 ▲▼ 與 `aria-label`，不只靠顏色）、開高低、成交張數、資料日期；名稱不是完全相同時列「也可能是」按鈕；卡片內查別檔（`host.callTool`），查到後 `host.setContext` 告訴模型使用者在看哪幾檔；固定附「不構成投資建議」 | —（收盤資料） |
 
 網頁入口：首頁格子 → `#/s/:id`（`public/js/pages/service.js`，需要位置的服務先定位）。
 

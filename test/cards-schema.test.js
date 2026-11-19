@@ -34,6 +34,8 @@ const CASES = [
   ['garbage_truck_nearby', { lat: 25.0183, lon: 121.4717 }],
   ['fuel_price', {}],
   ['invoice_lottery', { number: '54348835' }],
+  ['stock_quote', { query: '台積電、環球晶、國泰、火星' }],
+  ['stock_quote', {}],
 ];
 
 test('validate：型別、必要欄位、enum、$ref、additionalProperties', () => {

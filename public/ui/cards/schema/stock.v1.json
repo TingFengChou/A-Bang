@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/stock.v1.json",
+  "title": "stock（stock_quote）",
+  "type": "object",
+  "required": [
+    "indices",
+    "quotes",
+    "notFound"
+  ],
+  "$defs": {
+    "date": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "properties": {
+    "indices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "date",
+          "close",
+          "change",
+          "changePct"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "taiex",
+              "tpex"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "date": {
+            "$ref": "#/$defs/date"
+          },
+          "close": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "change": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "changePct": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "quotes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "market",
+          "date",
+          "close",
+          "change",
+          "changePct",
+          "open",
+          "high",
+          "low",
+          "volumeLots"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "market": {
+            "enum": [
+              "上市",
+              "上櫃"
+            ]
+          },
+          "date": {
+            "$ref": "#/$defs/date"
+          },
+          "open": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "high": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "low": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "close": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "change": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "changePct": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "volumeLots": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "trades": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "query": {
+            "type": "string"
+          },
+          "similar": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "code",
+                "name"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "notFound": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

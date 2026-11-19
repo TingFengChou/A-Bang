@@ -1,7 +1,7 @@
 // 示範模式意圖（M5-03）：地點擷取、抵達時間、狀態關鍵字、意圖分類；每個建議問題的計畫都能用示範資料完整執行
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseIntent, placesInText, arriveByOf, demoSteps, demoSummary, DEFAULT_FROM } from '../core/agent/demo-intent.js';
+import { parseIntent, placesInText, arriveByOf, demoSteps, demoSummary, DEFAULT_FROM, NO_ADVICE } from '../core/agent/demo-intent.js';
 import { getProfile } from '../core/agents/index.js';
 import { callTool } from '../core/tools/index.js';
 import { createServices } from '../core/index.js';
@@ -53,6 +53,40 @@ test('parseIntent：生活服務（天氣、空品、地震、藥局、垃圾車
   assert.deepEqual(['intent', 'number'].map((k) => c('發票 12345678 有沒有中？')[k]), ['invoice', '12345678']);
   assert.deepEqual(['intent', 'number'].map((k) => c('這期發票號碼是多少？')[k]), ['invoice', undefined]);
   assert.equal(c('發票末三碼 678 對獎').number, '678');
+});
+
+test('parseIntent：股市（名稱、代號、多檔、大盤、問買賣、追問）', () => {
+  const c = (q, ...prev) => parseIntent(q, { history: prev.map((content) => ({ role: 'user', content })) });
+  assert.deepEqual(['intent', 'query', 'advice'].map((k) => c('台積電股價多少')[k]), ['stock', '台積電', false]);
+  assert.equal(c('台積電和0050今天收盤多少？').query, '台積電、0050');
+  assert.equal(c('聯發科、鴻海的股價').query, '聯發科、鴻海');
+  assert.equal(c('2330 漲了嗎').query, '2330');
+  assert.equal(c('台積電漲 5 塊嗎？股價').query, '台積電', '零散的數字不是代號');
+  assert.deepEqual(['intent', 'query'].map((k) => c('大盤今天怎麼樣')[k]), ['stock', undefined]);
+  assert.deepEqual(['query', 'advice'].map((k) => c('我該買台積電嗎？股票')[k]), ['台積電', true]);
+  assert.equal(c('今天油價多少').intent, 'fuel', '油價不是股價');
+  assert.equal(c('307 到哪了？我在臺北車站').intent, 'bus_route');
+  // 追問：上一題問股市，短句「那 X 呢」「X 呢」或代號接著查；「謝謝」不算；上一題不是股市也不算
+  assert.deepEqual(['intent', 'query', 'followUp'].map((k) => c('那聯發科呢？', '台積電股價多少')[k]), ['stock', '聯發科', true]);
+  assert.equal(c('0056 呢', '台積電股價多少', '那聯發科呢？').query, '0056', '連續追問');
+  assert.equal(c('2454', '台積電股價多少').query, '2454');
+  assert.deepEqual(['intent', 'query', 'advice'].map((k) => c('我該買台積電嗎？', '台積電股價多少')[k]), ['stock', '台積電', true]);
+  assert.equal(c('我該買傘嗎？').intent, 'unknown', '沒有股市脈絡的「該買」不算');
+  assert.equal(c('謝謝', '台積電股價多少').intent, 'unknown');
+  assert.equal(c('那聯發科呢？', '今天油價多少').intent, 'unknown');
+  assert.equal(c('那聯發科呢？').intent, 'unknown');
+});
+
+test('股市計畫與總結：問買賣時先說不提供投資建議；只問大盤回指數', async () => {
+  const svc = createServices({ forceMock: true });
+  const run = async (q) => { const it = parseIntent(q, NOW); const { results, notes } = await runPlan(svc, demoSteps(it, NOW)); return { it, results, notes, sum: demoSummary(it, results) }; };
+  const a = await run('我該買台積電嗎？股票');
+  assert.deepEqual(a.notes, ['@股市 查「台積電」的收盤行情']);
+  assert.ok(a.sum.startsWith(NO_ADVICE), a.sum);
+  assert.match(a.sum, /台積電 11\/18 收 2175/);
+  const b = await run('大盤今天怎麼樣');
+  assert.deepEqual(b.notes, ['@股市 看一下大盤收盤']);
+  assert.match(b.sum, /^加權指數/);
 });
 
 /** 依計畫逐段執行（同段平行），回傳依 tool 名稱分組的結果 */

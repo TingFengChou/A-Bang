@@ -18,7 +18,24 @@ function noSafetyClaim(text) {
   return out.join('');
 }
 
+/** 投資建議與漲跌預測（finance）：買賣建議、看漲看跌、目標價、明牌；否定句（「不建議買進」）也一併換成固定說法。
+ *  不比對單獨的「買／賣」「看多」：交通回答常有「建議買來回票」「幫你看多少錢」 */
+const ADVICE = /(建議|推薦)(你|您)?(可以)?(買進|買入|賣出|加碼|減碼|出場|進場|逢低|停損|停利|布局|佈局)|(可以|適合|值得)(買進|買入|進場|布局|佈局|入手|投資|加碼)|(股價|指數|大盤|台股|臺股|它|這檔)[^。！？\n]{0,8}(會|將|可望|有望|應該會)(繼續)?(上漲|下跌|漲|跌|反彈|回檔)|看(漲|跌)(?!倒)|看好(這檔|後市|台股|臺股|大盤|它)|目標價|明牌/;
+export const NO_ADVICE_NOTE = '阿幫不提供投資建議或漲跌預測，只能報開放資料的收盤數字。';
+
+/** 以句為單位：含指定說法的句子整句換成固定說法（連續重複只留一句） */
+const replaceSentences = (re, note) => (text) => {
+  const out = [];
+  for (const p of String(text).split(/(?<=[。！？!?\n])/)) {
+    const next = re.test(p) ? note + (p.endsWith('\n') ? '\n' : '') : p;
+    if (next.trim() === note && out.some((x) => x.trim() === note)) continue;
+    out.push(next);
+  }
+  return out.join('');
+};
+
 const OUTPUT_GUARDS = {
+  finance: [{ rule: 'no-investment-advice', apply: replaceSentences(ADVICE, NO_ADVICE_NOTE) }],
   antifraud: [
     { rule: 'no-safety-claim', apply: noSafetyClaim },
     { rule: 'call-165', apply: (t) => (/165/.test(t) ? t : `${t.trim()}\n${CALL_165}`), silent: true },

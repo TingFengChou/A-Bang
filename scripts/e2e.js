@@ -423,9 +423,9 @@ for (const [dname, device] of Object.entries(DEVICES)) {
   });
 }
 
-// 生活服務（M10）：首頁 8 個格子都進得去、各自顯示對應卡片、無錯誤；發票卡片內對獎
-test('生活服務：首頁格子 → 服務頁卡片（捷運、天氣、空品、地震、藥局、垃圾車、油價、發票）', async () => {
-  const CASES = [['metro', 'metro'], ['weather', 'weather'], ['aqi', 'aqi'], ['quake', 'quake'], ['pharmacy', 'pharmacy'], ['garbage', 'garbage'], ['fuel', 'fuel'], ['invoice', 'invoice']];
+// 生活服務（M10）：首頁 9 個格子都進得去、各自顯示對應卡片、無錯誤；發票卡片內對獎
+test('生活服務：首頁格子 → 服務頁卡片（捷運、天氣、空品、地震、藥局、垃圾車、油價、股市、發票）', async () => {
+  const CASES = [['metro', 'metro'], ['weather', 'weather'], ['aqi', 'aqi'], ['quake', 'quake'], ['pharmacy', 'pharmacy'], ['garbage', 'garbage'], ['fuel', 'fuel'], ['stock', 'stock'], ['invoice', 'invoice']];
   await withPage(DEVICES.phone, '#/', async (page) => {
     await page.waitForSelector('.grid .tile');
     assert.equal(await page.locator('.grid .tile.soon').count(), 0, '首頁沒有「規劃中」的格子');
@@ -441,6 +441,39 @@ test('生活服務：首頁格子 → 服務頁卡片（捷運、天氣、空品
     await page.press('.ab-input', 'Enter');
     await page.waitForSelector('.ab-win');
     assert.match(await page.textContent('.ab-win'), /三獎/);
+  });
+});
+
+test('股市：預設查台積電、0050，漲紅跌綠有 ▲▼；卡片內查別檔；問阿幫追問「那聯發科呢？」與問買賣', async () => {
+  await withPage(DEVICES.phone, '#/s/stock', async (page) => {
+    await page.waitForSelector('.ab-card[data-card="stock"] .ab-stk');
+    assert.equal(await page.inputValue('#f input[name=query]'), '台積電、0050');
+    assert.equal(await page.locator('.ab-card[data-card="stock"] .ab-stat').count(), 2, '加權指數與櫃買指數');
+    assert.match(await page.locator('.ab-stk').first().textContent(), /台積電.*2330.*上市/);
+    assert.match(await page.locator('.ab-stk .ab-chg.up').first().textContent(), /^▲5/);
+    assert.match(await page.textContent('.ab-card[data-card="stock"] .ab-foot'), /不構成投資建議/);
+    // 卡片內查別檔（host.callTool 往返）
+    await page.fill('.ab-card .ab-input', '環球晶');
+    await page.press('.ab-card .ab-input', 'Enter');
+    await page.waitForFunction(() => /環球晶/.test(document.querySelector('.ab-stk')?.textContent || ''));
+    assert.match(await page.locator('.ab-stk .ab-chg.down').first().textContent(), /^▼54/);
+    assert.equal(await page.locator('.error').count(), 0);
+    await shot(page, 'phone-service-stock-query');
+  });
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const ask = async (q, n) => {
+      await page.fill('.chat-input', q);
+      await page.press('.chat-input', 'Enter');
+      await page.waitForFunction((k) => document.querySelectorAll('.bubble.final').length === k, n, { timeout: 20000 });
+      return page.locator('.turn').nth(n - 1);
+    };
+    const t1 = await ask('台積電股價多少', 1);
+    assert.match(await t1.locator('.results [data-card="stock"] .ab-stk').first().textContent(), /台積電/);
+    const t2 = await ask('那聯發科呢？', 2);
+    assert.match(await t2.locator('.results [data-card="stock"] .ab-stk').first().textContent(), /聯發科/, '追問沿用股市');
+    const t3 = await ask('我該買台積電嗎？', 3);
+    assert.match(await t3.locator('.bubble.final .say').textContent(), /^阿幫不提供投資建議/);
+    await shot(page, 'phone-agent-stock');
   });
 });
 

@@ -9,10 +9,10 @@ import { renderDecision, lite } from '../../ui/agent/decision-graph.js';
 const decideModule = import('/core/decide.js').catch(() => null);
 
 const MIN_GAP_MS = 300;
-const ROLE_CLASS = { 防詐: 'bad', 網址: 'bad', 闢謠: 'fare', 號碼: 'tra', 地點: 'place', 天氣: 'place', 公車: 'bus', YouBike: 'bike', 高鐵: 'rail', 台鐵: 'tra', 捷運: 'brand', 路況: 'car', 客運: 'car', 票價: 'fare', 叫車: 'car', 訂票: 'rail', 行程: 'brand', 車站: 'tra', 定位: 'place', 空品: 'place', 地震: 'bad', 藥局: 'bike', 垃圾車: 'car', 油價: 'fare', 發票: 'fare' };
+const ROLE_CLASS = { 防詐: 'bad', 網址: 'bad', 闢謠: 'fare', 號碼: 'tra', 地點: 'place', 天氣: 'place', 公車: 'bus', YouBike: 'bike', 高鐵: 'rail', 台鐵: 'tra', 捷運: 'brand', 路況: 'car', 客運: 'car', 票價: 'fare', 叫車: 'car', 訂票: 'rail', 行程: 'brand', 車站: 'tra', 定位: 'place', 空品: 'place', 地震: 'bad', 藥局: 'bike', 垃圾車: 'car', 油價: 'fare', 發票: 'fare', 股市: 'fare' };
 /** 每個 agent 的 @點名、標題與輸入提示（角色名稱與 core/agent/events.js TOOL_ROLES 一致） */
 const AGENTS = {
-  life: { title: '問阿幫', placeholder: '想去哪裡、想查什麼？例如：從西門町到台北 101', mentions: ['地點', '天氣', '路況', '公車', 'YouBike', '捷運', '高鐵', '台鐵', '票價', '叫車', '空品', '地震', '藥局', '垃圾車', '油價', '發票'] },
+  life: { title: '問阿幫', placeholder: '想去哪裡、想查什麼？例如：從西門町到台北 101', mentions: ['地點', '天氣', '路況', '公車', 'YouBike', '捷運', '高鐵', '台鐵', '票價', '叫車', '空品', '地震', '藥局', '垃圾車', '油價', '發票', '股市'] },
   antifraud: { title: '阿幫・防詐', placeholder: '把可疑的簡訊、LINE 訊息或網址貼上來', mentions: ['防詐', '網址', '闢謠', '號碼'] },
 };
 const MENTIONS = [...new Set(Object.values(AGENTS).flatMap((a) => a.mentions))];

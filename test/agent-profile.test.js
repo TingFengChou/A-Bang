@@ -12,6 +12,9 @@ test('life profile 通過驗證，工具都在 registry 且工具包相符', () 
   // 生活服務（M10）：首頁格子的 6 個工具問阿幫也能用，並帶生活工具包的護欄
   for (const t of ['aqi_nearby', 'earthquake_recent', 'pharmacy_search', 'garbage_truck_nearby', 'fuel_price', 'invoice_lottery']) assert.ok(p.tools.includes(t), t);
   assert.match(buildSystemPrompt(p), /不要預測地震/);
+  // 股市（finance 工具包）：只報收盤數字，護欄禁止投資建議
+  assert.ok(p.tools.includes('stock_quote') && p.packs.includes('finance'));
+  assert.match(buildSystemPrompt(p), /不提供投資建議/);
   assert.deepEqual(Object.keys(PROFILES), ['life', 'antifraud']);
   assert.throws(() => getProfile('nope'), /沒有這個 agent/);
 });

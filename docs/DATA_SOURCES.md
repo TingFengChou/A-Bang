@@ -113,6 +113,19 @@
 - 發票：增開六獎已不在資料中；e-invoice API 需財政部 appID，未使用。
 - 共用 `core/opendata-client.js`：逾時 30 秒、TTL 快取、同網址只下載一次、更新失敗沿用舊資料、錯誤訊息不含網址參數。
 
+## 5.3 股市收盤行情（✅ 2026-11-19 實測）
+
+| 資料 | 網址 | 金鑰 | 欄位重點 | 快取 |
+|---|---|---|---|---|
+| 上市個股＋ETF 收盤 | `openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`（約 1,400 筆、320 KB） | 免 | `Date`（民國 1151118）、`Code`、`Name`、`OpeningPrice`／`HighestPrice`／`LowestPrice`／`ClosingPrice`、`Change`（負數帶「-」）、`TradeVolume`（股） | 30 分 |
+| 上櫃個股＋ETF 收盤 | `www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes`（約 14,000 筆、5.4 MB，多數是權證） | 免 | `SecuritiesCompanyCode`、`CompanyName`、`Close`（無成交為「 ---」）、`Change`（「+0.01」「-54.00 」「--- 」）、`TradingShares` | 30 分（解析後只留 4 碼股票與 00 開頭 ETF） |
+| 加權指數 | `openapi.twse.com.tw/v1/exchangeReport/MI_INDEX` | 免 | `指數`＝「發行量加權股價指數」、`收盤指數`、`漲跌`（+／-）、`漲跌點數` | 30 分 |
+| 櫃買指數 | `www.tpex.org.tw/openapi/v1/tpex_index`（當月每日） | 免 | 取最後一筆：`Date`（西元 20261119）、`Close`、`Change`（負數帶「-」） | 30 分 |
+
+- **收盤資料，不是即時報價**：每個交易日收盤後更新；兩個市場更新時間不同（實測 18:00 時上櫃已是 11/19、上市仍是 11/18），所以每檔都帶自己的日期。
+- 即時報價（`mis.twse.com.tw`）不是開放資料 API、有頻率限制，不使用。
+- 解析後才快取（上櫃原始檔大）；解析結果為空視為上游錯誤，沿用舊資料。示範片段：`core/data/demo/stock-*.json`（上市 31 檔、上櫃 15 檔、指數）。
+
 ## 6. 下一階段來源
 
 | 來源 | 用途 | 里程碑 |
