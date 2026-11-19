@@ -55,6 +55,12 @@
 | `rail_booking_link` | transit | **L2** | （時刻表按鈕） | 🧩 介面＋示範完成；⛔ 真實版需 TDX 導訂票權限 |
 | `ridehail_link` | ridehail | **L2** | （行程卡按鈕） | ✅ |
 | `weather_now` | weather | L1 | — | ✅（真實資料需 CWA 授權碼）⚠️ |
+| `aqi_nearby` | life | L1 | `aqi` | ✅（M10，`MOENV_API_KEY`） |
+| `earthquake_recent` | life | L1 | `quake` | ✅（M10，`CWA_API_KEY`） |
+| `pharmacy_search` | life | L1 | `pharmacy` | ✅（M10，免金鑰；無座標） |
+| `garbage_truck_nearby` | life | L1 | `garbage` | ✅（M10，臺北市、新北市） |
+| `fuel_price` | life | L1 | `fuel` | ✅（M10） |
+| `invoice_lottery` | life | L1 | `invoice` | ✅（M10） |
 | `scam_check_message` | antifraud | **L2** | `scam-risk` | ✅（M7） |
 | `scam_lookup_url` | antifraud | **L2** | — | ✅（M7） |
 | `scam_myth_search` | antifraud | L1 | — | ✅（M7） |
@@ -269,6 +275,19 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | 示範 | `DEMO_WEATHER=rain`（或 `createServices({ demo: { weather: 'rain' } })`）：雨量 2.5 mm、降雨機率 80%；預設多雲、10% |
 | speak | 「中正區現在下雨，接下來 3 小時降雨機率 80%。」 |
 
+### ✅ 生活服務（pack `life`，M10）
+
+| tool | 輸入 | 輸出 `data` 重點 |
+|---|---|---|
+| `aqi_nearby` | `lat`, `lon` | `nearest { site, county, aqi, status, level, pollutant, pm25, pm10, o3, publishTime, distanceM }`、`nearby[3]` |
+| `earthquake_recent` | `county?`, `limit`（1–10，預設 5） | `quakes[{ no, kind: significant\|local, time, magnitude, depthKm, location, maxIntensity, countyIntensity?, areas, report }]` |
+| `pharmacy_search` | `area?`（例 臺北市大安區）, `query?`（至少一個） | `weekday`、`pharmacies[{ code, name, phone, address, today: ['上午'…]\|null, openToday, nav.google（地圖搜尋） }]`（最多 20） |
+| `garbage_truck_nearby` | `lat`, `lon`, `radius`（100–1000，預設 500） | `stops[{ city, place, route, time, collectToday, days, distanceM, nav, truck? }]`、`covered`（臺北市、新北市） |
+| `fuel_price` | — | `effectiveDate`、`prices[{ name, price, unit }]`（92／95／98／超級柴油） |
+| `invoice_lottery` | `number?`（8 碼或末 3 碼）, `period?`（例 11507） | `period { title, special, grand, first[] }`、`periods[6]`、`check? { prize, amount, partial?, note? }` |
+
+模式：`aqiMode`（環境部金鑰）、`quakeMode`（氣象署授權碼）、`openDataMode`（其他，免金鑰；`DEMO_MODE=1`／`OPEN_DATA=0` 用 `core/data/demo/` 片段）。來源與欄位見 `DATA_SOURCES.md` §5.2。
+
 ### ✅ 防詐（pack `antifraud`，M7）
 
 輸入、輸出、風險等級與寄件號碼規則見 `AGENT_ANTIFRAUD.md` §3。資料：165 遭停止解析涉詐網站（約 10 萬網域）、165 詐騙闢謠專區（CSV，24 小時快取；`DEMO_MODE=1` 或 `OPEN_DATA=0` 用 `core/data/demo/` 片段）＋規則庫 `core/data/scam-rules.json`。L2：不說「安全」，查不到只說「沒有發現已知的詐騙特徵，但不代表一定安全」，一律附 165。
@@ -278,4 +297,4 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 
 ## 8. 卡片種類
 
-見 `CARDS.md`：`bus-route`、`bus-station`、`nearby`、`youbike`、`metro`、`timetable`、`trip`、`scam-risk`（M7）。
+見 `CARDS.md`：`bus-route`、`bus-station`、`nearby`、`youbike`、`metro`、`timetable`、`trip`、`scam-risk`（M7）、`weather`、`aqi`、`quake`、`pharmacy`、`garbage`、`fuel`、`invoice`（M10）。

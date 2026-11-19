@@ -11,10 +11,17 @@ import metro from './cards/metro.js';
 import timetable from './cards/timetable.js';
 import trip from './cards/trip.js';
 import scamRisk from './cards/scam-risk.js';
+import weather from './cards/weather.js';
+import aqi from './cards/aqi.js';
+import quake from './cards/quake.js';
+import pharmacy from './cards/pharmacy.js';
+import garbage from './cards/garbage.js';
+import fuel from './cards/fuel.js';
+import invoice from './cards/invoice.js';
 
 /** card → { title(data), body(data, ctx), refreshSec?, announce?(data, { t, state }) → 刷新後要念的一句話 } */
 export const CARDS = {
-  'bus-route': busRoute, 'bus-station': busStation, nearby, youbike, metro, timetable, trip, 'scam-risk': scamRisk,
+  'bus-route': busRoute, 'bus-station': busStation, nearby, youbike, metro, timetable, trip, 'scam-risk': scamRisk, weather, aqi, quake, pharmacy, garbage, fuel, invoice,
 };
 
 /**

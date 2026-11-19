@@ -5,6 +5,7 @@ import home from './pages/home.js';
 import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
 import agent from './pages/agent.js';
+import service from './pages/service.js';
 import { busSearch, busRoute, busStation, favPage } from './pages/bus.js';
 
 const routes = [
@@ -15,7 +16,8 @@ const routes = [
   [/^\/bus-station\/([^/]+)\/([^/]+)$/, busStation],
   [/^\/rail\/(thsr|tra)$/, rail],
   [/^\/favs$/, favPage],
-  [/^\/agent(?:\/([a-z][a-z0-9-]*))?$/, agent], // #/agent（生活）、#/agent/antifraud（防詐，M7）
+  [/^\/agent(?:\/([a-z][a-z0-9-]*))?$/, agent],
+  [/^\/s\/([a-z][a-z0-9-]*)$/, service], // 生活服務（天氣、捷運、空品…） // #/agent（生活）、#/agent/antifraud（防詐，M7）
 ];
 const tabs = [['#/', '首頁', 'home'], ['#/nearby', '附近', 'pin'], ['#/bus', '公車', 'bus'], ['#/favs', '收藏', 'star']];
 

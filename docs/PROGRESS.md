@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-19 M10 生活開放資料（首頁格子全部接上）
+- 做了：背景 agent 實測 6 種開放資料（網址、金鑰、欄位、樣本）；`#/s/:id` 服務頁；pack `life` 6 個 tools＋7 張卡片（含 `weather_now` 補卡片）；`core/opendata-client.js`；示範片段 `core/data/demo/`（真實資料）；首頁沒有「規劃中」格子了。實測真實資料：油價、發票、藥局（1 萬筆，5.5 秒首次下載）、垃圾車（雙北 3 萬筆）。看截圖修：示範地震類型標錯、垃圾車示範點不在預設位置附近、對獎結果色彩。M8 產業移到下一階段（Austin）
+- 測試：npm run lint 無錯誤；npm test 229 項全過（新增 16 項）；npm run e2e 全過（新增首頁 8 格逐一進入）
+- 文件：PLAN、MCP_TOOLS、CARDS、DATA_SOURCES §5.2、README、.env.example、CLAUDE、index.html
+- 下一個：問阿幫加入生活服務工具（profile 與 persona 調整）；藥局地理編碼、垃圾車其他縣市
+- 卡住：空品需 `MOENV_API_KEY`、地震需 `CWA_API_KEY`
+
 ## 2026-11-19 M7 阿幫・防詐
 - 做了：查證 165 開放資料（停止解析涉詐網站每月約 9.7 萬網域、詐騙闢謠每週；LINE ID 資料集已下架不用）；`AGENT_ANTIFRAUD.md` 規格；零依賴 CSV 解析與 `core/services/antifraud.js`（24 小時快取、更新失敗沿用舊索引、啟動預載；示範片段 `core/data/demo/`）；規則庫 17 條（待專家審核）與 `scam_check_message`／`scam_lookup_url`／`scam_myth_search`／`sms_sender_check`；`scam-risk` 卡片；多 agent 路由（`/api/v1/agent/:id`、`#/agent/:id`、`profile?id=`、首頁防詐格子）；防詐示範意圖；L2 輸出護欄（保證安全的句子整句改寫、guardrail 事件、固定附 165，示範與模型模式都套用）。SW v0.3.6
 - 測試：npm run lint 無錯誤；npm test 213 項全過（新增 15 項）；npm run e2e 全過（新增防詐手機＋桌面）；真實 165 資料實測查詢正確

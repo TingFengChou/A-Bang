@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/garbage.v1.json",
+  "title": "garbage（garbage_truck_nearby）",
+  "type": "object",
+  "required": [
+    "lat",
+    "lon",
+    "radius",
+    "weekday",
+    "stops",
+    "covered"
+  ],
+  "properties": {
+    "lat": {
+      "type": "number"
+    },
+    "lon": {
+      "type": "number"
+    },
+    "radius": {
+      "type": "integer"
+    },
+    "weekday": {
+      "type": "string"
+    },
+    "covered": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stops": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "city",
+          "place",
+          "route",
+          "time",
+          "collectToday",
+          "distanceM",
+          "lat",
+          "lon",
+          "nav"
+        ],
+        "properties": {
+          "city": {
+            "type": "string"
+          },
+          "district": {
+            "type": "string"
+          },
+          "village": {
+            "type": "string"
+          },
+          "place": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string"
+          },
+          "lineId": {
+            "type": "string"
+          },
+          "car": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "time": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "collectToday": {
+            "type": "boolean"
+          },
+          "days": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lat": {
+            "type": "number"
+          },
+          "lon": {
+            "type": "number"
+          },
+          "distanceM": {
+            "type": "integer"
+          },
+          "nav": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "truck": {
+            "type": "object",
+            "required": [
+              "car",
+              "at",
+              "location",
+              "distanceM"
+            ],
+            "properties": {
+              "car": {
+                "type": "string"
+              },
+              "at": {
+                "type": "string"
+              },
+              "location": {
+                "type": "string"
+              },
+              "distanceM": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

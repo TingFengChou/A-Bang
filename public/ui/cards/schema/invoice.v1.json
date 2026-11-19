@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/invoice.v1.json",
+  "title": "invoice（invoice_lottery）",
+  "type": "object",
+  "required": [
+    "period",
+    "periods"
+  ],
+  "properties": {
+    "period": {
+      "type": "object",
+      "required": [
+        "period",
+        "title",
+        "special",
+        "grand",
+        "first"
+      ],
+      "properties": {
+        "period": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "special": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "grand": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "first": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "link": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "periods": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "period",
+          "title"
+        ],
+        "properties": {
+          "period": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "check": {
+      "type": "object",
+      "required": [
+        "number",
+        "prize",
+        "amount"
+      ],
+      "properties": {
+        "number": {
+          "type": "string"
+        },
+        "prize": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "amount": {
+          "type": "integer"
+        },
+        "partial": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

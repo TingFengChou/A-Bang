@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/quake.v1.json",
+  "title": "quake（earthquake_recent）",
+  "type": "object",
+  "required": [
+    "county",
+    "quakes"
+  ],
+  "properties": {
+    "county": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "quakes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "no",
+          "kind",
+          "time",
+          "magnitude",
+          "depthKm",
+          "location",
+          "maxIntensity",
+          "areas"
+        ],
+        "properties": {
+          "no": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "significant",
+              "local"
+            ]
+          },
+          "time": {
+            "type": "string"
+          },
+          "magnitude": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "depthKm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "location": {
+            "type": "string"
+          },
+          "lat": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "lon": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "maxIntensity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "countyIntensity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "areas": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "county",
+                "intensity"
+              ],
+              "properties": {
+                "county": {
+                  "type": "string"
+                },
+                "intensity": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "report": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

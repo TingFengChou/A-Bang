@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/aqi.v1.json",
+  "title": "aqi（aqi_nearby）",
+  "type": "object",
+  "required": [
+    "nearest",
+    "nearby"
+  ],
+  "properties": {
+    "nearest": {
+      "type": "object",
+      "required": [
+        "site",
+        "county",
+        "aqi",
+        "status",
+        "publishTime",
+        "lat",
+        "lon",
+        "distanceM"
+      ],
+      "properties": {
+        "site": {
+          "type": "string"
+        },
+        "county": {
+          "type": "string"
+        },
+        "aqi": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "level": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pollutant": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pm25": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "pm10": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "o3": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "publishTime": {
+          "type": "string"
+        },
+        "lat": {
+          "type": "number"
+        },
+        "lon": {
+          "type": "number"
+        },
+        "distanceM": {
+          "type": "integer"
+        }
+      }
+    },
+    "nearby": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "site",
+          "county",
+          "aqi",
+          "status",
+          "publishTime",
+          "lat",
+          "lon",
+          "distanceM"
+        ],
+        "properties": {
+          "site": {
+            "type": "string"
+          },
+          "county": {
+            "type": "string"
+          },
+          "aqi": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "level": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pollutant": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pm25": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "pm10": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "o3": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "publishTime": {
+            "type": "string"
+          },
+          "lat": {
+            "type": "number"
+          },
+          "lon": {
+            "type": "number"
+          },
+          "distanceM": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}

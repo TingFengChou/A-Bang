@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/pharmacy.v1.json",
+  "title": "pharmacy（pharmacy_search）",
+  "type": "object",
+  "required": [
+    "weekday",
+    "pharmacies"
+  ],
+  "properties": {
+    "area": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "query": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "weekday": {
+      "type": "string"
+    },
+    "pharmacies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "address",
+          "today",
+          "openToday",
+          "nav"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "address": {
+            "type": "string"
+          },
+          "today": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "openToday": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "nav": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

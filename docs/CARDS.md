@@ -110,6 +110,22 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 `{ level: 'high'|'medium'|'low', score, findings: [{ id, category, label, excerpt }], urls: [{ input, domain, listed, category?, month? }], advice: string[], myths: [{ id, title, date }], rulesVersion, reviewed }`。等級以色彩＋符號＋文字呈現（不只靠顏色）；低風險標題固定「沒有發現已知的詐騙特徵」並註明不代表安全；可疑字句以引號標出；網址只顯示網域與清單比對結果，**不提供開啟使用者網址的按鈕**；行動按鈕：「165 全民防騙網」（官方網站）、「已經照做了怎麼辦」（`host.ask`，低風險不顯示）；頁尾標示規則庫版本與是否已審核。不自動刷新。
 
+### 生活服務卡片（M10）
+
+契約在 `schema/<card>.v1.json`，資料即對應 tool 的 `data`（`MCP_TOOLS.md` §生活服務）。
+
+| 卡片 | 呈現 | 刷新 |
+|---|---|---|
+| `weather` | 下雨與否、氣溫、1 小時雨量、3 小時降雨機率、測站 | 10 分 |
+| `aqi` | AQI 大數字（等級色彩＋文字）、PM2.5／PM10／O₃、附近測站 | 15 分 |
+| `quake` | 規模、震央、最大震度、深度、類型、指定縣市震度、氣象署報告連結 | 5 分 |
+| `pharmacy` | 藥局、今天時段（有營業為綠色）、地址電話、地圖搜尋（最多 10，可展開） | — |
+| `garbage` | 時間、地點、距離、今天有沒有收（不收則灰階）、新北車輛即時位置、導航 | 2 分 |
+| `fuel` | 92／95／98／超級柴油牌價、生效日 | — |
+| `invoice` | 特別獎、特獎、頭獎；卡片內輸入號碼對獎（`host.callTool`） | — |
+
+網頁入口：首頁格子 → `#/s/:id`（`public/js/pages/service.js`，需要位置的服務先定位）。
+
 ## 5. 狀態與錯誤
 
 | 狀態 | 呈現 |

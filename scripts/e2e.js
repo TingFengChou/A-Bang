@@ -407,3 +407,24 @@ for (const [dname, device] of Object.entries(DEVICES)) {
     });
   });
 }
+
+// 生活服務（M10）：首頁 8 個格子都進得去、各自顯示對應卡片、無錯誤；發票卡片內對獎
+test('生活服務：首頁格子 → 服務頁卡片（捷運、天氣、空品、地震、藥局、垃圾車、油價、發票）', async () => {
+  const CASES = [['metro', 'metro'], ['weather', 'weather'], ['aqi', 'aqi'], ['quake', 'quake'], ['pharmacy', 'pharmacy'], ['garbage', 'garbage'], ['fuel', 'fuel'], ['invoice', 'invoice']];
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.waitForSelector('.grid .tile');
+    assert.equal(await page.locator('.grid .tile.soon').count(), 0, '首頁沒有「規劃中」的格子');
+    for (const [id, card] of CASES) {
+      await page.goto(`${base}/#/`);
+      await page.click(`a.tile[href="#/s/${id}"]`);
+      await page.waitForSelector(`.ab-card[data-card="${card}"]`, { timeout: 15000 });
+      assert.equal(await page.locator('.error').count(), 0, id);
+      await shot(page, `phone-service-${id}`);
+    }
+    // 發票：卡片內輸入號碼對獎（host.callTool 往返）
+    await page.fill('.ab-input', '12348835');
+    await page.press('.ab-input', 'Enter');
+    await page.waitForSelector('.ab-win');
+    assert.match(await page.textContent('.ab-win'), /三獎/);
+  });
+});
