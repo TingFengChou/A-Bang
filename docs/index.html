@@ -210,6 +210,7 @@ footer{color:var(--faint);font-size:13px;padding:24px 0}
     <tr><td>TDX 真實資料驗證</td><td><span class="pill next">M1 需金鑰</span></td><td>只能在本機執行；可與 M3 並行</td></tr>
     <tr><td>網頁 agent（問阿幫：討論串、決策圖、結論卡）</td><td><span class="pill done">M5 完成</span></td><td>Claude、地端模型（Ollama 等 OpenAI 相容）、示範模式三選一（ADR-0012）；Claude 實機待金鑰</td></tr>
     <tr><td>互動卡片（網頁＋MCP Apps）</td><td><span class="pill done">M4 完成</span></td><td>7 種卡片共用一份渲染；<code>ui://abang/cards.html</code> 單檔；AppBridge E2E；Claude 實測待本機</td></tr>
+    <tr><td>阿幫・防詐（網頁 #/agent/antifraud、MCP /mcp/antifraud）</td><td><span class="pill done">M7 完成</span></td><td>165 停止解析涉詐網站與闢謠（免金鑰）、17 條規則（待專家審核）、風險卡片、L2 不保證安全</td></tr>
     <tr><td>上線</td><td><span class="pill next">M6 進行中</span></td><td>✅ Dockerfile、<code>/healthz</code>、結構化 log、無障礙、文件站 workflow；待：Redis、Lighthouse（新依賴）、部署帳號</td></tr>
   </table></div>
 </section>
@@ -810,7 +811,7 @@ TDX_CLIENT_SECRET=你的Secret</code></pre></li>
     <div class="card"><span class="k">M4</span><div><h4>互動卡片</h4><p>7 種卡片資料契約（JSON Schema）、渲染、host 介面、MCP Apps 單檔、自動刷新、AppBridge 測試</p></div><span class="pill done">完成</span></div>
     <div class="card"><span class="k">M5</span><div><h4>民眾網頁 agent</h4><p>agent profile、事件、示範意圖、Claude／地端模型迴圈；討論串、決策圖、結論卡、輕量 3D；Playwright 截圖</p></div><span class="pill done">完成</span></div>
     <div class="card"><span class="k">M6</span><div><h4>上線準備</h4><p>Docker、healthz、log、無障礙、Lighthouse、部署、文件站</p></div><span class="pill next">進行中</span></div>
-    <div class="card"><span class="k">M7</span><div><h4>反詐騙 agent</h4><p>165 資料同步、詐騙特徵規則庫、風險卡片、L2 護欄</p></div><span class="pill plan">下一階段</span></div>
+    <div class="card"><span class="k">M7</span><div><h4>反詐騙 agent</h4><p>165 資料同步、詐騙特徵規則庫、風險卡片、L2 護欄</p></div><span class="pill done">完成</span></div>
     <div class="card"><span class="k">M8</span><div><h4>中小企業概念驗證</h4><p>一個產業與縣市；人工審核申辦知識庫、法規檢索、商工登記、申辦清單卡片</p></div><span class="pill plan">下一階段</span></div>
     <div class="card"><span class="k">M9</span><div><h4>阿幫平台（Agent Builder）</h4><p>達啟動門檻後：M9a 內部化 → M9b 封閉測試 → M9c 公開</p></div><span class="pill plan">需過門檻</span></div>
   </div>

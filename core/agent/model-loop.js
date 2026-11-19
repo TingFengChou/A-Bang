@@ -4,7 +4,7 @@ import { describeTool, getTool } from '../tools/index.js';
 import { getProfile } from '../agents/index.js';
 import { buildSystemPrompt } from './prompt.js';
 import { ev } from './events.js';
-import { validateRequest, execTools, deviceLocation, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
+import { validateRequest, execTools, deviceLocation, guardedText, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
 
 /**
  * @typedef {{ name: string, description: string, schema: object }} ToolDef
@@ -73,7 +73,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const usage = { modelCalls: 0, inputTokens: 0, outputTokens: 0 };
   const finish = (text) => {
     if (used.size) emit(ev.discussionEnd({ tools: [...used] }));
-    emit(ev.text(text));
+    emit(ev.text(guardedText(profile, text, emit))); // L2 輸出護欄（防詐：不保證安全、固定附 165）
     emit(ev.done(usage));
   };
 

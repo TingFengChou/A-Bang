@@ -37,6 +37,7 @@ npm run build:cards       # dist/cards.html：MCP Apps 互動卡片單檔（正�
 |---|---|---|
 | `TDX_CLIENT_ID`／`TDX_CLIENT_SECRET` | [TDX](https://tdx.transportdata.tw/register) 會員中心 → API 金鑰 | 交通資料用示範資料 |
 | `CWA_API_KEY` | [中央氣象署開放資料平臺](https://opendata.cwa.gov.tw) | 天氣用示範資料（M3） |
+| （不需要） | 165 防詐開放資料（data.gov.tw，免金鑰） | `OPEN_DATA=0` 或 `DEMO_MODE=1` 時用示範片段（M7） |
 | `ANTHROPIC_API_KEY` | Anthropic Console（付費） | 網頁 agent 改用地端模型（`LOCAL_LLM_URL`＋`LOCAL_LLM_MODEL`，例如 Ollama）或示範模式（ADR-0012） |
 
 台鐵／高鐵導訂票需另在 TDX 會員中心申請「臺鐵訂票導訂」「高鐵訂票導訂」權限。
@@ -99,6 +100,7 @@ API 文件：啟動後開 <http://localhost:8787/api/docs>（Swagger UI，可直
 | `GET /api/v1/agent/profile` | 網頁 agent 的名稱、建議問題、免責、小幫手角色 |
 | `GET /api/v1/tools?pack=` | tools、工具包、分級、JSON Schema |
 | `POST /api/v1/tools/:name` | 呼叫 tool；回傳 `{ name, card, mode, data, text, speak }` |
+| `POST /api/v1/agent/:id` | 指定 agent（例：`antifraud` 阿幫・防詐）；格式同下 |
 | `POST /api/v1/agent` | 網頁 agent，NDJSON 事件串流（[`docs/AGENT.md`](docs/AGENT.md)）；Claude／地端模型／示範模式；只給本站網頁（無 CORS）、每 IP 每分鐘／每日限流 |
 | `POST /mcp`、`/mcp/:pack` | 遠端 MCP（Streamable HTTP、stateless） |
 | `GET /api/v1/bus/*`、`/bike/nearby`、`/thsr/*`、`/tra/*` | 舊版 REST（PWA 使用） |
@@ -124,7 +126,7 @@ docker compose up -d --build
 
 ## 環境變數
 
-見 [`.env.example`](.env.example)：`PORT`、`DEMO_MODE`、`TDX_*`、`CWA_API_KEY`、`AGENT_PROVIDER`、`ANTHROPIC_*`、`LOCAL_LLM_*`、`RATE_LIMIT_*`、`AGENT_*`、`TRUST_PROXY`、`MCP_PACKS`、`DEMO_WEATHER`、`DEMO_TRAFFIC`。
+見 [`.env.example`](.env.example)：`PORT`、`DEMO_MODE`、`TDX_*`、`CWA_API_KEY`、`OPEN_DATA`、`AGENT_PROVIDER`、`ANTHROPIC_*`、`LOCAL_LLM_*`、`RATE_LIMIT_*`、`AGENT_*`、`TRUST_PROXY`、`MCP_PACKS`、`DEMO_WEATHER`、`DEMO_TRAFFIC`。
 
 ## 開發
 

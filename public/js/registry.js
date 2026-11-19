@@ -14,6 +14,7 @@ export const miniApps = [
   { id: 'quake', group: 'life', name: '地震', icon: 'quake', status: 'soon', source: '中央氣象署' },
   { id: 'pharmacy', group: 'life', name: '藥局', icon: 'pharmacy', status: 'soon', source: '健保署' },
   { id: 'garbage', group: 'life', name: '垃圾車', icon: 'trash', status: 'soon', source: '各縣市環保局' },
+  { id: 'antifraud', group: 'gov', name: '防詐', icon: 'shield', route: '#/agent/antifraud' }, // M7：阿幫・防詐
   { id: 'fuel', group: 'gov', name: '油價', icon: 'fuel', status: 'soon', source: '台灣中油' },
   { id: 'invoice', group: 'gov', name: '發票對獎', icon: 'receipt', status: 'soon', source: '財政部' },
 ];
@@ -21,5 +22,5 @@ export const miniApps = [
 export const groups = [
   { id: 'transit', name: '交通出行', note: '資料來源：TDX 運輸資料流通服務' },
   { id: 'life', name: '生活與環境', note: '即將推出' },
-  { id: 'gov', name: '消費與政府服務', note: '即將推出' },
+  { id: 'gov', name: '消費與政府服務', note: '防詐：165 開放資料' },
 ];

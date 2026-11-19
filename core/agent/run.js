@@ -6,6 +6,21 @@ import { UserError, publicMessage } from '../util.js';
 import { ev } from './events.js';
 import { getProfile } from '../agents/index.js';
 import { parseIntent, demoSteps, demoSummary, needsLocation } from './demo-intent.js';
+import { parseAntifraud, antifraudSteps, antifraudSummary } from './demo-antifraud.js';
+import { applyOutputGuardrails } from './guardrails.js';
+
+/** 示範模式的規則式規劃（依 agent）：parse → steps → summary；needsLocation 只有生活 agent 用 */
+const PLANNERS = {
+  life: { parse: parseIntent, steps: demoSteps, summary: demoSummary, needsLocation },
+  antifraud: { parse: parseAntifraud, steps: antifraudSteps, summary: antifraudSummary, needsLocation: () => false },
+};
+
+/** 最後的文字經輸出護欄（L2）：有改寫時先送 guardrail 事件 */
+export function guardedText(profile, text, emit) {
+  const g = applyOutputGuardrails(profile, text);
+  for (const h of g.hits) emit(ev.guardrail(h));
+  return g.text;
+}
 import { STATES } from '../decide.js';
 
 export const MAX_MESSAGES = 10;
@@ -99,9 +114,10 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   emit(ev.status({ mode: 'demo', profile: profile.id }));
   if (notice) emit(ev.agentNote(notice));
 
-  const it = parseIntent(req.messages.at(-1).content);
+  const plan = PLANNERS[profile.id] || PLANNERS.life;
+  const it = plan.parse(req.messages.at(-1).content);
   // 需要使用者位置（M5-07）：客戶端支援 device_location 時先請它定位，拿到結果後客戶端帶 clientToolResults 重送
-  if (needsLocation(it) && req.clientTools?.includes('device_location')) {
+  if (plan.needsLocation(it) && req.clientTools?.includes('device_location')) {
     const loc = deviceLocation(req);
     if (loc === undefined) {
       emit(ev.agentNote('@定位 先看看你在哪裡'));
@@ -112,11 +128,11 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
     if (loc) it.fromPoint = loc; // 拒絕定位或無效時，照示範預設起點（總結會說明）
   }
   // 使用者點選的狀態一併交給 plan_trip 計分
-  if (picked.length) it.states = [...new Set([...it.states, ...picked])];
+  if (picked.length && it.states) it.states = [...new Set([...it.states, ...picked])];
   const results = {};
   const used = [];
   let rounds = 0;
-  for (const step of demoSteps(it, now)) {
+  for (const step of plan.steps(it, now)) {
     if (++rounds > MAX_TOOL_ROUNDS) break;
     const s = step(results);
     if (!s) break;
@@ -129,6 +145,6 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
     if (out.some((o) => !o.ok)) break; // 有一步失敗就不往下，總結會說明
   }
   if (used.length) emit(ev.discussionEnd({ tools: [...new Set(used)] }));
-  emit(ev.text(demoSummary(it, results, profile.suggestions)));
+  emit(ev.text(guardedText(profile, plan.summary(it, results, profile.suggestions), emit)));
   emit(ev.done());
 }

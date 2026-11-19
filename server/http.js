@@ -20,6 +20,7 @@ import { restRoutes } from './rest.js';
 import { buildOpenApi } from './openapi.js';
 import { createAgentHandler } from './agent.js';
 import { createLogger, routeOf } from './log.js';
+import { hasProfile } from '../core/agents/index.js';
 
 const log = createLogger(); // 一行一個 JSON（M6-02）
 const VERSION = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
@@ -96,11 +97,15 @@ createServer(async (req, res) => {
     if (doc && Object.hasOwn(SWAGGER_FILES, doc[1])) return sendRaw(res, 200, await swaggerFile(doc[1]), SWAGGER_FILES[doc[1]], { 'cache-control': 'public, max-age=86400' });
 
     // ── 網頁 agent（NDJSON 串流；只給本站網頁，不加 CORS）──
-    if (path === '/api/v1/agent') {
+    // /api/v1/agent（生活）或 /api/v1/agent/:id（例：antifraud；ADR-0005 多 agent）
+    const agentPath = path.match(/^\/api\/v1\/agent(?:\/([a-z][a-z0-9-]*))?$/);
+    if (agentPath && agentPath[1] !== 'profile') {
+      const agentId = agentPath[1] || 'life';
+      if (!hasProfile(agentId)) return send(res, 404, { error: `沒有這個 agent：${agentId}` });
       if (req.method !== 'POST') return send(res, 405, { error: '請以 POST 呼叫' }, { allow: 'POST' });
-      const lim = agent.limit('life', clientIp(req));
+      const lim = agent.limit(agentId, clientIp(req));
       if (!lim.ok) return send(res, 429, { error: `問太快了，請 ${lim.retryAfterSec} 秒後再試`, retryAfterSec: lim.retryAfterSec }, { 'retry-after': String(lim.retryAfterSec) });
-      return await agent.handle(res, await readJson(req), { agentId: 'life' });
+      return await agent.handle(res, await readJson(req), { agentId });
     }
 
     const core = path.match(/^\/core\/([\w.-]+)$/);
@@ -136,7 +141,11 @@ createServer(async (req, res) => {
     const headers = { ...(path.startsWith('/api/') || path.startsWith('/mcp') ? CORS : {}), ...(status === 413 && { connection: 'close' }) };
     if (!res.headersSent) send(res, status, { error: publicMessage(e) }, headers);
   }
-}).listen(PORT, () => log.info(`阿幫 running → http://localhost:${PORT}  (mode=${svc.mode}, agent=${agent.mode.mode}${agent.mode.model ? `:${agent.mode.model}` : ''})  MCP: http://localhost:${PORT}/mcp`, { port: PORT, version: VERSION, mode: svc.mode, agentMode: agent.mode.mode }));
+}).listen(PORT, () => {
+  // 165 開放資料約 10 萬筆，啟動後先載入，第一位使用者不用等（失敗不影響啟動，查詢時會再試）
+  if (svc.antifraudMode === 'live') svc.antifraud.stats().then((s) => log.info('antifraud data loaded', s)).catch((e) => log.warn('antifraud data not loaded', { error: e.message }));
+  log.info(`阿幫 running → http://localhost:${PORT}  (mode=${svc.mode}, agent=${agent.mode.mode}${agent.mode.model ? `:${agent.mode.model}` : ''})  MCP: http://localhost:${PORT}/mcp`, { port: PORT, version: VERSION, mode: svc.mode, agentMode: agent.mode.mode });
+});
 
 function limit(req, res, group) {
   const r = limiters[group](`${group}:${clientIp(req)}`);

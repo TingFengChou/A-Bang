@@ -41,7 +41,7 @@
 
 ## 3. API
 
-`POST /api/v1/agent`（`/api/v1/agent/:profile` 於 M7 起支援多 agent）
+`POST /api/v1/agent`（生活）或 `POST /api/v1/agent/:id`（✅ M7：`antifraud` 防詐；未知 id 回 404）。建議問題與免責：`GET /api/v1/agent/profile?id=`。網頁：`#/agent`、`#/agent/:id`。限流與計量都以 agent id 為單位。
 
 ```jsonc
 {
@@ -137,6 +137,8 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 ```
 
 ## 5. 示範模式（無 API Key）
+
+各 agent 有自己的規則式規劃（`core/agent/run.js` `PLANNERS`）：生活＝`demo-intent.js`（下表）；防詐＝`demo-antifraud.js`（可疑內容 → `scam_check_message`、只有網址 → `scam_lookup_url`、寄件號碼 → `sms_sender_check`、「是真的嗎」→ `scam_myth_search`，見 `AGENT_ANTIFRAUD.md` §6）。總結與模型回答送出前都經輸出護欄（`guardrails.js`；防詐：保證安全的句子整句改寫、送 `guardrail` 事件、固定附 165）。
 
 `core/agent/demo-intent.js`：規則式意圖解析，輸出與模型模式**相同的事件流**（含 `agent_note`、`speak`、`decision`）。不加人工延遲。
 

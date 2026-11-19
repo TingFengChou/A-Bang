@@ -55,6 +55,10 @@
 | `rail_booking_link` | transit | **L2** | （時刻表按鈕） | 🧩 介面＋示範完成；⛔ 真實版需 TDX 導訂票權限 |
 | `ridehail_link` | ridehail | **L2** | （行程卡按鈕） | ✅ |
 | `weather_now` | weather | L1 | — | ✅（真實資料需 CWA 授權碼）⚠️ |
+| `scam_check_message` | antifraud | **L2** | `scam-risk` | ✅（M7） |
+| `scam_lookup_url` | antifraud | **L2** | — | ✅（M7） |
+| `scam_myth_search` | antifraud | L1 | — | ✅（M7） |
+| `sms_sender_check` | antifraud | **L2** | — | ✅（M7，內建規則） |
 
 ## 3. 公車
 
@@ -265,6 +269,13 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | 示範 | `DEMO_WEATHER=rain`（或 `createServices({ demo: { weather: 'rain' } })`）：雨量 2.5 mm、降雨機率 80%；預設多雲、10% |
 | speak | 「中正區現在下雨，接下來 3 小時降雨機率 80%。」 |
 
+### ✅ 防詐（pack `antifraud`，M7）
+
+輸入、輸出、風險等級與寄件號碼規則見 `AGENT_ANTIFRAUD.md` §3。資料：165 遭停止解析涉詐網站（約 10 萬網域）、165 詐騙闢謠專區（CSV，24 小時快取；`DEMO_MODE=1` 或 `OPEN_DATA=0` 用 `core/data/demo/` 片段）＋規則庫 `core/data/scam-rules.json`。L2：不說「安全」，查不到只說「沒有發現已知的詐騙特徵，但不代表一定安全」，一律附 165。
+
+| speak 範例 | 「高風險：有 1 個網址在 165 涉詐清單上，先不要照做。」 |
+|---|---|
+
 ## 8. 卡片種類
 
-見 `CARDS.md`：`bus-route`、`bus-station`、`nearby`、`youbike`、`metro`、`timetable`、`trip`。
+見 `CARDS.md`：`bus-route`、`bus-station`、`nearby`、`youbike`、`metro`、`timetable`、`trip`、`scam-risk`（M7）。

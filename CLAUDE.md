@@ -10,7 +10,7 @@
 
 ## 目前進度
 
-M0 ✅、M2 ✅、決策引擎 ✅、`speak` ✅、M3-01 導航 ✅、M3-02 路線座標與形狀 ✅、M3-03 `find_place` ✅、M3-04 捷運 ✅、M3-05 票價 ✅、M3-06 路況 ✅、M3-07 國道客運 ✅、M3-08 天氣 ✅（真實資料待 CWA 授權碼）、品質基礎（E2E／Swagger／ESLint／CI）✅、M3-09 叫車連結 ✅、M3-10 `plan_trip` ✅、M3-11 固定 OD 測試 ✅、M3-13 metrics ✅、M3-14 英文名稱 ✅、M3-12 導訂票（權限前部分）🧩；**M3 交通完整版 ✅**（M3-12 真實導訂票待權限）；**M4 互動卡片 ✅**（M4-01 契約、M4-02 渲染、M4-03 字典、M4-04 MCP Apps host、M4-05 打包、M4-06 `ui://` 資源、M4-07 動態、M4-08 AppBridge E2E；M4-09 Claude 實測待 Austin）；M5（M5-01 profile ✅、M5-02 事件 ✅、M5-03 示範意圖 ✅、M5-04 執行器 ✅、M5-06 agent 端點 ✅、M5-07 裝置定位 ✅、M5-08 問阿幫頁 `#/agent` ✅、M5-09 決策圖 ✅、M5-10 結論卡提醒 ✅、M5-11 輕量 3D ✅、M5-12 首頁入口 ✅、M5-13 示範截圖 ✅、M5-05 Claude＋地端模型 ✅）；**M5 網頁 agent ✅**（Claude 實機待金鑰）；M6 上線進行中（M6-01 Docker＋`/healthz` ✅、M6-02 結構化 log ✅、M6-04 無障礙 ✅、M6-07 文件站 workflow ✅、地端 docker compose 驗證 ✅；雲端部署／Redis／Lighthouse 留到正式環境階段）（`docs/PLAN.md` 狀態看板）。M1 需 TDX 金鑰，只能在 Austin 本機做。
+M0 ✅、M2 ✅、決策引擎 ✅、`speak` ✅、M3-01 導航 ✅、M3-02 路線座標與形狀 ✅、M3-03 `find_place` ✅、M3-04 捷運 ✅、M3-05 票價 ✅、M3-06 路況 ✅、M3-07 國道客運 ✅、M3-08 天氣 ✅（真實資料待 CWA 授權碼）、品質基礎（E2E／Swagger／ESLint／CI）✅、M3-09 叫車連結 ✅、M3-10 `plan_trip` ✅、M3-11 固定 OD 測試 ✅、M3-13 metrics ✅、M3-14 英文名稱 ✅、M3-12 導訂票（權限前部分）🧩；**M3 交通完整版 ✅**（M3-12 真實導訂票待權限）；**M4 互動卡片 ✅**（M4-01 契約、M4-02 渲染、M4-03 字典、M4-04 MCP Apps host、M4-05 打包、M4-06 `ui://` 資源、M4-07 動態、M4-08 AppBridge E2E；M4-09 Claude 實測待 Austin）；M5（M5-01 profile ✅、M5-02 事件 ✅、M5-03 示範意圖 ✅、M5-04 執行器 ✅、M5-06 agent 端點 ✅、M5-07 裝置定位 ✅、M5-08 問阿幫頁 `#/agent` ✅、M5-09 決策圖 ✅、M5-10 結論卡提醒 ✅、M5-11 輕量 3D ✅、M5-12 首頁入口 ✅、M5-13 示範截圖 ✅、M5-05 Claude＋地端模型 ✅）；**M5 網頁 agent ✅**（Claude 實機待金鑰）；M6 上線進行中（M6-01 Docker＋`/healthz` ✅、M6-02 結構化 log ✅、M6-04 無障礙 ✅、M6-07 文件站 workflow ✅、地端 docker compose 驗證 ✅；雲端部署／Redis／Lighthouse 留到正式環境階段）；**M7 阿幫・防詐 ✅**（165 開放資料、規則庫待專家審核、`scam-risk` 卡片、L2 輸出護欄）（`docs/PLAN.md` 狀態看板）。M1 需 TDX 金鑰，只能在 Austin 本機做。
 
 ## 必讀文件（依序）
 
@@ -24,6 +24,7 @@ M0 ✅、M2 ✅、決策引擎 ✅、`speak` ✅、M3-01 導航 ✅、M3-02 路�
 | `docs/MCP_TOOLS.md` | tool 任務：輸入、輸出、端點、`plan_trip` 演算法 |
 | `docs/DATA_SOURCES.md` | 串資料：TDX 認證、端點、TTL、CWA、深層連結 |
 | `docs/AGENT.md` | M5：事件協定、system prompt、示範模式、成本 |
+| `docs/AGENT_ANTIFRAUD.md` | M7：防詐 agent、165 資料、規則庫、L2 護欄 |
 | `docs/UX.md` | M4／M5：畫面、討論串、決策圖動畫、文案、可及性 |
 | `docs/CARDS.md` | M4：卡片資料契約與 host 介面 |
 | `docs/TESTING.md` | 寫測試時 |
@@ -65,7 +66,8 @@ core/            唯一的資料與邏輯層
   metrics.js     每次 tool 呼叫的計量（AsyncLocalStorage）
   geo.js         WKT 路線形狀解析、路徑抽樣
   agent/         M5：prompt.js、events.js、demo-intent.js、run.js、model-loop.js、provider.js、claude.js、local.js ✅
-  agents/        life.json（agent profile）＋ index.js（zod 驗證）✅
+  agents/        life.json、antifraud.json（agent profile）＋ index.js（zod 驗證）✅
+  scam-check.js  防詐規則比對、風險等級、寄件號碼（M7）；data/scam-rules.json 規則庫；csv.js CSV 解析
   providers/     ridehail/（index.js 註冊與估價、uber.js 深層連結）✅；📝 mcp-client.js（外部 MCP）
   data/          landmarks.json（內建地標，座標待校對）
 server/          http.js（REST、/mcp、/api/docs、/healthz、靜態檔）、log.js（結構化 log）、rest.js（路由表）、openapi.js、agent.js（/api/v1/agent）、rate-limit.js

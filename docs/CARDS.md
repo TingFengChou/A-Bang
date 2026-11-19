@@ -106,6 +106,10 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 呈現：建議方案＋分段時間條＋備案（最多 2）＋行動（導航、提醒、叫車、訂票）。決策圖由網頁 agent 的 `decision` 事件另外呈現；在 MCP Apps 中，`trip` 卡片以精簡版（排名條＋理由句＋狀態 chips 可切換）呈現。
 
+### `scam-risk`（`scam_check_message`，M7）
+
+`{ level: 'high'|'medium'|'low', score, findings: [{ id, category, label, excerpt }], urls: [{ input, domain, listed, category?, month? }], advice: string[], myths: [{ id, title, date }], rulesVersion, reviewed }`。等級以色彩＋符號＋文字呈現（不只靠顏色）；低風險標題固定「沒有發現已知的詐騙特徵」並註明不代表安全；可疑字句以引號標出；網址只顯示網域與清單比對結果，**不提供開啟使用者網址的按鈕**；行動按鈕：「165 全民防騙網」（官方網站）、「已經照做了怎麼辦」（`host.ask`，低風險不顯示）；頁尾標示規則庫版本與是否已審核。不自動刷新。
+
 ## 5. 狀態與錯誤
 
 | 狀態 | 呈現 |

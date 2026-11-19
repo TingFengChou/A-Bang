@@ -8,6 +8,7 @@ export const icons = {
   bike: s('<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7"/><path d="M10 9l2 7h-6"/><path d="M14 6h2.5"/>'),
   hsr: s('<path d="M4 15c0-5 4-9 10-9h3l3 4v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M4 13h16"/><path d="M7 21l2-2M17 21l-2-2"/>'),
   train: s('<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 10h14"/><path d="M8 21l2-4M16 21l-2-4"/><circle cx="9" cy="13.5" r=".8" fill="currentColor"/><circle cx="15" cy="13.5" r=".8" fill="currentColor"/>'),
+  shield: s('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>'),
   metro: s('<circle cx="12" cy="12" r="9"/><path d="M8 16V8l4 5 4-5v8"/>'),
   sun: s('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
   air: s('<path d="M3 8h11a3 3 0 1 0-3-3"/><path d="M3 12h15a3 3 0 1 1-3 3"/><path d="M3 16h7"/>'),

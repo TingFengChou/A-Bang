@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-19 M7 阿幫・防詐
+- 做了：查證 165 開放資料（停止解析涉詐網站每月約 9.7 萬網域、詐騙闢謠每週；LINE ID 資料集已下架不用）；`AGENT_ANTIFRAUD.md` 規格；零依賴 CSV 解析與 `core/services/antifraud.js`（24 小時快取、更新失敗沿用舊索引、啟動預載；示範片段 `core/data/demo/`）；規則庫 17 條（待專家審核）與 `scam_check_message`／`scam_lookup_url`／`scam_myth_search`／`sms_sender_check`；`scam-risk` 卡片；多 agent 路由（`/api/v1/agent/:id`、`#/agent/:id`、`profile?id=`、首頁防詐格子）；防詐示範意圖；L2 輸出護欄（保證安全的句子整句改寫、guardrail 事件、固定附 165，示範與模型模式都套用）。SW v0.3.6
+- 測試：npm run lint 無錯誤；npm test 213 項全過（新增 15 項）；npm run e2e 全過（新增防詐手機＋桌面）；真實 165 資料實測查詢正確
+- 文件：AGENT_ANTIFRAUD（新）、MCP_TOOLS、CARDS、AGENT、DATA_SOURCES、README、.env.example、PLAN、CLAUDE、index.html
+- 下一個：M8 中小企業概念驗證
+- 卡住：規則庫需防詐專家審核；M1 TDX 金鑰
+
 ## 2026-11-19 M6 地端部署驗證
 - 做了：`docker-compose.yml`（讀 `.env`、地端模型指向主機 Ollama、唯讀、no-new-privileges）；`docker compose up -d --build` 實測：`/healthz` agent=local、網頁 agent 以 qwen3:8b 回答高鐵最早班（約 18 秒、答案正確）、MCP 18 個 tools、卡片資源 404 KB
 - 決定：Austin 指示雲端部署、Redis、Lighthouse 留到正式環境階段，先衝刺功能

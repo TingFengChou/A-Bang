@@ -38,12 +38,12 @@ async function* readNdjson(res) {
  * 送出一輪對話。
  * @param {{ messages: Array<{ role: string, content: string }>, userState?: object, context?: string }} body
  * @param {(e: object) => void} onEvent 每個事件（含 client_tool_call 本身，讓畫面顯示「定位中」）
- * @param {{ base?: string, locate?: () => Promise<{ lat: number, lon: number } | null>, signal?: AbortSignal }} [opts]
+ * @param {{ base?: string, agentId?: string, locate?: () => Promise<{ lat: number, lon: number } | null>, signal?: AbortSignal }} [opts] agentId：預設生活 agent
  */
-export async function runAgent(body, onEvent, { base = '', locate = browserLocation, signal } = {}) {
+export async function runAgent(body, onEvent, { base = '', agentId = 'life', locate = browserLocation, signal } = {}) {
   let clientToolResults = [];
   for (let round = 0; round <= MAX_CLIENT_ROUNDS; round++) {
-    const res = await fetch(`${base}/api/v1/agent`, {
+    const res = await fetch(`${base}/api/v1/agent${agentId === 'life' ? '' : `/${encodeURIComponent(agentId)}`}`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, signal,
       body: JSON.stringify({ ...body, clientTools: CLIENT_TOOLS, ...(clientToolResults.length && { clientToolResults }) }),
     });
