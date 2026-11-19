@@ -2,6 +2,7 @@
 // 開獎後打開 App 時自動對獎（invoice_check_batch，對獎規則只在 core）；中獎時主動通知。
 // 網頁沒有背景排程：App 沒打開時不會對獎，下次打開才對（不需推播伺服器、不保存使用者資料）。
 import { storage, esc } from './ui.js';
+import { scanSupported, openScanner } from './invoice-qr.js';
 
 const KEY = 'invoices';
 export const WALLET_MAX = 100;
@@ -73,6 +74,9 @@ function statusHtml(x) {
 export function renderWallet(el, { callTool, toast = () => {} }) {
   el.innerHTML = `
     <div class="section-title"><h2>我的發票</h2><span>存在這支手機</span></div>
+    ${scanSupported()
+    ? '<button class="btn inv-scan" id="inv-scan" type="button">掃發票 QR code</button>'
+    : '<p class="updated inv-noscan">這個瀏覽器不支援掃描（例如 iPhone Safari），請手動輸入號碼和日期。</p>'}
     <form class="form inv-add" id="inv-add">
       <div class="row"><input class="field" name="number" inputmode="numeric" maxlength="10" placeholder="發票號碼 8 碼" aria-label="發票號碼 8 碼" autocomplete="off">
       <input class="field" name="date" type="date" aria-label="消費日期" value="${todayTW()}" max="${todayTW()}"></div>
@@ -100,6 +104,17 @@ export function renderWallet(el, { callTool, toast = () => {} }) {
     wallet.remove(b.closest('[data-id]').dataset.id);
     draw();
   });
+  // 掃描：一張接一張存，關閉後一次對獎
+  el.querySelector('#inv-scan')?.addEventListener('click', () => openScanner({
+    onCode(code) {
+      try {
+        wallet.add(code);
+        draw();
+        return `已存 ${code.track}-${code.number}`;
+      } catch (err) { return `${code.track}-${code.number}：${err.message}`; }
+    },
+    onClose(count) { if (count) { toast(`已存 ${count} 張發票`); run({ all: true }); } },
+  }));
   el.querySelector('#inv-add').addEventListener('submit', async (e) => {
     e.preventDefault();
     const f = e.target;

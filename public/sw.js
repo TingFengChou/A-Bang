@@ -1,5 +1,5 @@
 // Service Worker：App shell 預先快取（離線可開啟），API 一律走網路（即時資料不快取）
-const VERSION = 'v0.4.6';
+const VERSION = 'v0.4.7';
 const SHELL = [
   '/', '/index.html', '/css/app.css', '/manifest.webmanifest', '/icons/icon.svg', '/brand/abang-default.svg',
   '/js/app.js', '/js/api.js', '/js/ui.js', '/js/icons.js', '/js/registry.js',
@@ -8,7 +8,7 @@ const SHELL = [
   '/ui/cards/cards.css', '/ui/cards/index.js', '/ui/cards/dom.js', '/ui/cards/actions.js', '/ui/cards/countdown.js', '/ui/cards/host-web.js', '/ui/cards/i18n/zh-TW.js',
   '/ui/cards/cards/bus-route.js', '/ui/cards/cards/bus-station.js', '/ui/cards/cards/nearby.js', '/ui/cards/cards/youbike.js',
   '/ui/cards/cards/metro.js', '/ui/cards/cards/timetable.js', '/ui/cards/cards/trip.js', '/ui/cards/cards/scam-risk.js',
-  '/ui/cards/cards/weather.js', '/ui/cards/cards/aqi.js', '/ui/cards/cards/quake.js', '/ui/cards/cards/pharmacy.js', '/ui/cards/cards/garbage.js', '/ui/cards/cards/fuel.js', '/ui/cards/cards/invoice.js', '/ui/cards/cards/stock.js', '/js/pages/service.js', '/js/invoice-wallet.js',
+  '/ui/cards/cards/weather.js', '/ui/cards/cards/aqi.js', '/ui/cards/cards/quake.js', '/ui/cards/cards/pharmacy.js', '/ui/cards/cards/garbage.js', '/ui/cards/cards/fuel.js', '/ui/cards/cards/invoice.js', '/ui/cards/cards/stock.js', '/js/pages/service.js', '/js/invoice-wallet.js', '/js/invoice-qr.js',
 ];
 
 self.addEventListener('install', (e) => {

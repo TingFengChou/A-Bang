@@ -147,7 +147,7 @@ export function parseIntent(text, ctx) {
 
 export const DEFAULT_FROM = '臺北車站'; // 示範：沒說起點也拿不到裝置定位時，先從這裡算
 export const DEFAULT_AREA = '臺北市中正區';
-export const INVOICE_WALLET_HINT = '要不要把發票存到「我的發票」？號碼只存在你的手機，開獎後打開阿幫就自動幫你對獎（首頁 → 發票對獎）。'; // 示範：查藥局沒說地區時（臺北車站所在的區）
+export const INVOICE_WALLET_HINT = '要不要把發票存到「我的發票」？可以直接掃發票左邊的 QR code，號碼只存在你的手機，開獎後打開阿幫就自動幫你對獎（首頁 → 發票對獎）。'; // 示範：查藥局沒說地區時（臺北車站所在的區）
 
 /** 以座標查「附近」的意圖：工具與點名 */
 const NEARBY = {
