@@ -153,7 +153,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 | 附近公車 | 「附近」＋「公車／站牌」 | `bus_nearby_stations` |
 | 捷運 | 「捷運」＋站名 | `metro_live_board` |
 | 高鐵／台鐵 | 「高鐵」「台鐵／火車／自強／區間」＋兩個站名 | `thsr_timetable`／`tra_timetable` |
-| 發票（M10） | 發票／對獎；8 碼或末 3 碼數字 → 對獎 | `invoice_lottery` |
+| 發票（M10） | 發票／對獎；8 碼或末 3 碼數字 → 對獎；總結主動提議存到「我的發票」 | `invoice_lottery` |
 | 油價 | 油價／汽油／柴油 | `fuel_price` |
 | 地震 | 地震／震度／震央；「XX 縣／市」→ 該縣市震度 | `earthquake_recent` |
 | 藥局 | 藥局／藥房／領藥；「（縣市）XX 區／鄉／鎮」或縣市 → 地區（沒說用「臺北市中正區」並在總結說明） | `pharmacy_search` |

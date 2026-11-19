@@ -2,6 +2,8 @@
 import { icons } from './icons.js';
 import { api, state } from './api.js';
 import { esc } from './ui.js';
+import { autoCheckOnOpen } from './invoice-wallet.js';
+import { createWebHost } from '../ui/cards/host-web.js';
 import home from './pages/home.js';
 import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
@@ -91,6 +93,11 @@ function bannerHtml({ mode, sources }) {
 addEventListener('hashchange', navigate);
 navigate();
 api.status().then(() => paintBanner()).catch(() => {});
+// 我的發票：開獎後打開 App 就自動對獎、中獎主動通知（本機資料，離線 Demo 沒有伺服器時不做）
+if (!globalThis.__DEMO_SERVICES__) {
+  const web = createWebHost();
+  autoCheckOnOpen((n, a) => web.callTool(n, a), { toast }).catch(() => {});
+}
 
 if ('serviceWorker' in navigator && !globalThis.__DEMO_SERVICES__ && location.protocol !== 'file:') {
   navigator.serviceWorker.register('/sw.js').catch(() => {});

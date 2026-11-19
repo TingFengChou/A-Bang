@@ -174,6 +174,46 @@ export function checkInvoice(p, number) {
   return { number: n, prize: null, amount: 0 };
 }
 
+/** 發票期別：消費日期 YYYY-MM-DD → 民國年＋單數起始月（2026-11-19 → 11511）；每兩個月一期 */
+export function invoicePeriodOf(date) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date || ''));
+  if (!m) throw new UserError('消費日期格式是 YYYY-MM-DD');
+  const mon = Number(m[2]);
+  if (mon < 1 || mon > 12) throw new UserError('消費日期的月份不對');
+  return `${Number(m[1]) - 1911}${String(mon % 2 ? mon : mon - 1).padStart(2, '0')}`;
+}
+
+/** 開獎日：期別結束後的單數月 25 日（11509 → 2026-11-25；11511 → 2027-01-25） */
+export function invoiceDrawDate(period) {
+  const y = Number(String(period).slice(0, -2)) + 1911, start = Number(String(period).slice(-2));
+  const mon = start + 2;
+  return `${mon > 12 ? y + 1 : y}-${String(mon > 12 ? mon - 12 : mon).padStart(2, '0')}-25`;
+}
+
+/**
+ * 多張發票一次對獎（網頁「我的發票」自動對獎用）：依消費日期（或期別）找期別；還沒開獎回 pending（附開獎日），
+ * 超過最近 6 期回 unavailable。號碼只用來比對，不保存。
+ * @param {Array<{ period: string, title: string, special: string, grand: string, first: string[] }>} periods parseInvoiceRss() 的結果（新到舊）
+ * @param {Array<{ number: string, date?: string, period?: string }>} items
+ */
+export function invoiceCheckMany(periods, items, now = Date.now()) {
+  const today = nowTW(now).date;
+  const latest = periods[0];
+  const results = items.map((it) => {
+    const number = String(it.number).replace(/\D/g, '');
+    if (!/^\d{8}$/.test(number)) throw new UserError('發票號碼請輸入 8 位數字');
+    if (it.date && it.date > today) throw new UserError(`消費日期 ${it.date} 還沒到`);
+    const period = it.period || invoicePeriodOf(it.date);
+    const base = { number, ...(it.date && { date: it.date }), period, drawDate: invoiceDrawDate(period) };
+    const p = periods.find((x) => x.period === period);
+    if (p) { const c = checkInvoice(p, number); return { ...base, title: p.title, status: c.prize ? 'won' : 'lost', prize: c.prize, amount: c.amount }; }
+    return { ...base, status: period > latest.period ? 'pending' : 'unavailable' };
+  });
+  const count = (s) => results.filter((r) => r.status === s).length;
+  return { latest: { period: latest.period, title: latest.title }, results,
+    summary: { won: count('won'), lost: count('lost'), pending: count('pending'), unavailable: count('unavailable'), amount: results.reduce((a, r) => a + (r.amount || 0), 0) } };
+}
+
 /**
  * @param {{ aqi: () => Promise<any[]>, quakes: () => Promise<Array<[string, any]>>, pharmacies: () => Promise<object[]>,
  *   garbage: () => Promise<{ taipei: object[], ntpc: object[], gps: object[] }>, fuel: () => Promise<any[]>, invoice: () => Promise<string> }} fx
@@ -192,6 +232,7 @@ export function createLifeServices(fx) {
         if (!p) throw new UserError(`找不到 ${period} 期的中獎號碼（只提供最近 6 期）`);
         return { period: p, periods: periods.map(({ period: id, title }) => ({ period: id, title })), ...(number && { check: checkInvoice(p, number) }) };
       },
+      invoiceCheckMany: async ({ items }, now) => invoiceCheckMany(parseInvoiceRss(await fx.invoice()), items, now),
     },
   };
 }

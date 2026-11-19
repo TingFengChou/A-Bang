@@ -111,4 +111,29 @@ export const invoiceLottery = defineTool({
   },
 });
 
-export default [aqiNearby, earthquakeRecent, pharmacySearch, garbageTruckNearby, fuelPrice, invoiceLottery];
+const STATUS_TEXT = { pending: '還沒開獎', unavailable: '超過最近 6 期，查不到' };
+
+export const invoiceCheckBatch = defineTool({
+  name: 'invoice_check_batch',
+  title: '發票批次對獎',
+  description: '一次對多張發票（最多 50 張）：每張給 8 碼號碼與消費日期（或期別），回每張是否中獎；還沒開獎的回開獎日。網頁「我的發票」開獎後自動對獎用。',
+  pack: PACK, tier: 'L1', source: '財政部（統一發票中獎號碼）', demoNote: DEMO, modeOf: (svc) => svc.openDataMode,
+  input: {
+    items: z.array(z.object({
+      number: z.string().trim().regex(/^[A-Za-z]{0,2}[-\s]?\d{8}$/, '發票號碼請輸入 8 位數字'),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '消費日期格式是 YYYY-MM-DD').optional(),
+      period: z.string().regex(/^\d{5}$/, '期別例如 11507').optional(),
+    }).refine((x) => x.date || x.period, '每張發票要有消費日期或期別')).min(1).max(50).describe('發票：[{ number, date | period }]'),
+  },
+  speak: (d) => {
+    const s = d.summary;
+    const done = s.won + s.lost;
+    return [done && (s.won ? `對了 ${done} 張，中 ${s.won} 張，共 ${money(s.amount)} 元！` : `對了 ${done} 張，這次沒有中獎。`), s.pending && `${s.pending} 張還沒開獎。`].filter(Boolean).join('') || '這些發票都超過最近 6 期，查不到。';
+  },
+  async run(svc, a) {
+    const data = await svc.life.invoiceCheckMany(a);
+    return { data, text: data.results.map((r) => `- ${r.number}（${r.period} 期）：${r.status === 'won' ? `${r.prize} ${money(r.amount)} 元` : r.status === 'lost' ? '沒有中獎' : `${STATUS_TEXT[r.status]}${r.status === 'pending' ? `，${r.drawDate} 開獎` : ''}`}`).join('\n') };
+  },
+});
+
+export default [aqiNearby, earthquakeRecent, pharmacySearch, garbageTruckNearby, fuelPrice, invoiceLottery, invoiceCheckBatch];

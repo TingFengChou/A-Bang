@@ -23,6 +23,8 @@ const ls = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return mem[k] ?? null; } },
   set(k, v) { mem[k] = v; try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } },
 };
+/** 本機儲存（給其他模組用，例如「我的發票」） */
+export const storage = ls;
 export const favs = {
   list: () => ls.get('favs') || [],
   has: (id) => favs.list().some((f) => f.id === id),

@@ -4,11 +4,12 @@ import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { loading, errorBox, locate, FALLBACK, prefs } from '../ui.js';
 import { icons } from '../icons.js';
+import { renderWallet } from '../invoice-wallet.js';
 
 const METRO = [['TRTC', '台北捷運'], ['TYMC', '桃園機場捷運'], ['TMRT', '台中捷運'], ['KRTC', '高雄捷運']];
 
 /**
- * 服務設定：title、tool、where（需要位置）、form（輸入欄位 HTML）、args(form, pos) → tool 參數、auto（進頁就查）
+ * 服務設定：title、tool、where（需要位置）、form（輸入欄位 HTML）、args(form, pos) → tool 參數、auto（進頁就查）、after(el, { callTool, toast })（卡片下方的區塊）
  * 新增服務＝這裡一筆＋registry.js 的格子＋core 的 tool 與卡片。
  */
 export const SERVICES = {
@@ -46,19 +47,20 @@ export const SERVICES = {
   },
   garbage: { title: '垃圾車', tool: 'garbage_truck_nearby', where: true, auto: true, args: (_f, p) => ({ lat: p.lat, lon: p.lon }) },
   fuel: { title: '油價', tool: 'fuel_price', auto: true, args: () => ({}) },
-  invoice: { title: '發票對獎', tool: 'invoice_lottery', auto: true, args: () => ({}) },
+  // 卡片下方是「我的發票」（本機保存，開獎後自動對獎）
+  invoice: { title: '發票對獎', tool: 'invoice_lottery', auto: true, args: () => ({}), after: renderWallet },
 };
 
 export default {
   title: '生活服務',
-  async render({ main, params: [id], setTitle, setAction, onCleanup }) {
+  async render({ main, params: [id], setTitle, setAction, onCleanup, toast }) {
     const cfg = SERVICES[id];
     if (!cfg) { main.innerHTML = errorBox('沒有這個服務'); return; }
     setTitle(cfg.title);
     if (globalThis.__DEMO_SERVICES__) { main.innerHTML = errorBox('這個服務需要連線到阿幫伺服器（npm start）。'); return; }
     const host = createWebHost({ ask: (q) => { location.hash = `#/agent?q=${encodeURIComponent(q)}`; } });
     const callTool = (name, args) => host.callTool(name, args);
-    main.innerHTML = `${cfg.form ? `<form class="form" id="f">${cfg.form}</form>` : ''}<p class="updated" id="where" hidden></p><div id="res"></div>`;
+    main.innerHTML = `${cfg.form ? `<form class="form" id="f">${cfg.form}</form>` : ''}<p class="updated" id="where" hidden></p><div id="res"></div>${cfg.after ? '<div id="after"></div>' : ''}`;
     const f = main.querySelector('#f');
     const res = main.querySelector('#res');
     let view = null;
@@ -86,6 +88,7 @@ export default {
     if (cfg.where) setAction(icons.locate, () => run(true), '重新定位');
     if (cfg.setup) await cfg.setup(f, callTool);
     if (cfg.auto) run();
+    if (cfg.after) cfg.after(main.querySelector('#after'), { callTool, toast });
   },
 };
 

@@ -61,6 +61,7 @@
 | `garbage_truck_nearby` | life | L1 | `garbage` | ✅（M10，臺北市、新北市） |
 | `fuel_price` | life | L1 | `fuel` | ✅（M10） |
 | `invoice_lottery` | life | L1 | `invoice` | ✅（M10） |
+| `invoice_check_batch` | life | L1 | — | ✅（M10，網頁「我的發票」自動對獎） |
 | `scam_check_message` | antifraud | **L2** | `scam-risk` | ✅（M7） |
 | `scam_lookup_url` | antifraud | **L2** | — | ✅（M7） |
 | `scam_myth_search` | antifraud | L1 | — | ✅（M7） |
@@ -285,6 +286,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | `garbage_truck_nearby` | `lat`, `lon`, `radius`（100–1000，預設 500） | `stops[{ city, place, route, time, collectToday, days, distanceM, nav, truck? }]`、`covered`（臺北市、新北市） |
 | `fuel_price` | — | `effectiveDate`、`prices[{ name, price, unit }]`（92／95／98／超級柴油） |
 | `invoice_lottery` | `number?`（8 碼或末 3 碼；沒有任何數字的值，例如模型放進「這期」，視為沒給）, `period?`（例 11507） | `period { title, special, grand, first[] }`、`periods[6]`、`check? { prize, amount, partial?, note? }` |
+| `invoice_check_batch` | `items: [{ number（8 碼）, date?（消費日 YYYY-MM-DD，不能是未來）\| period? }]`（1–50 張） | `{ latest: { period, title }, results: [{ number, date?, period, drawDate, status: 'won'\|'lost'\|'pending'\|'unavailable', title?, prize?, amount? }], summary: { won, lost, pending, unavailable, amount } }`；期別＝民國年＋單數起始月（`invoicePeriodOf`），開獎日＝期別後單數月 25 日（`invoiceDrawDate`）；比對規則與 `invoice_lottery` 共用 `checkInvoice`；號碼只比對、不保存 |
 
 模式：`aqiMode`（環境部金鑰）、`quakeMode`（氣象署授權碼）、`openDataMode`（其他，免金鑰；`DEMO_MODE=1`／`OPEN_DATA=0` 用 `core/data/demo/` 片段）。來源與欄位見 `DATA_SOURCES.md` §5.2。
 
