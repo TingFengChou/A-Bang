@@ -13,6 +13,14 @@
 
 ---
 
+## 2026-11-19 修正：「提醒我出門」以台灣時間判斷、E2E 不再跨午夜失敗
+
+- 做了：PR #6 的 CI 在 UTC 23:49 跑時 E2E 失敗（測試用「現在＋30 分」當出門時間，跨過午夜變成 00:19，提醒按鈕不出現）。行程卡抽出 `canRemind(leaveAt, date, now)`，日期與時間一律用台灣時間比較（原本時間用裝置時區、日期用台灣時間，裝置不在台灣時區會判錯）；E2E 以 `page.clock.setFixedTime` 固定在台灣上午 10 點。SW v0.4.2
+- 測試：npm test 234 項全過（新增 `test/cards-trip.test.js` 3 項：今天／1 分鐘內／已過／明天、UTC 與台灣日期不同、台灣深夜跨午夜）；npm run e2e 24 項全過
+- 文件：PROGRESS.md
+- 下一個：等使用者決定
+- 卡住：GitHub Pages 需在 repo 設定開啟（Source：GitHub Actions）
+
 ## 2026-11-19 M10 L-09 問阿幫接上生活服務
 
 - 做了：`core/agents/life.json` v2：packs 加 `life`、工具加 `aqi_nearby`、`earthquake_recent`、`pharmacy_search`、`garbage_truck_nearby`、`fuel_price`、`invoice_lottery`；persona 與規則改為交通＋生活（座標類先 `find_place`、藥局用地區、範圍外問題說明能幫什麼）；建議問題加「大安區有哪些健保藥局？」「這期發票號碼是多少？」。`prompt.js` 加生活工具包護欄（數字以工具為準、不預測地震、藥局與發票以公告為準）。示範模式 `demo-intent.js` 加 7 種意圖（天氣、空品、地震、藥局、垃圾車、油價、發票），座標類共用 NEARBY 表與裝置定位；沒說地點／地區時用示範預設並在總結說明。網頁 @點名加空品、地震、藥局、垃圾車、油價、發票。示範藥局資料補 15 筆臺北市中正區（真實資料片段）。
