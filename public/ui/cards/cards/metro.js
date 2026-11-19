@@ -5,6 +5,8 @@ import { navButton } from '../actions.js';
 export default {
   refreshSec: 20,
   title: (d, { t }) => t('metro.title', { station: d.station }),
+  /** 播報：最近的 2 班 */
+  announce: (d, { t }) => (d.trains?.length ? d.trains.slice(0, 2).map((x) => `${x.line} ${t('metro.toward', { dest: x.destination })} ${x.status}`).join('；') : null),
   body(d, { host, t }) {
     const list = d.trains?.length
       ? h('ul', { class: 'ab-list' }, d.trains.map((x) => h('li', { class: 'ab-row' },

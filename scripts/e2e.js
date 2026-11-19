@@ -346,3 +346,35 @@ test('MCP Apps：AppBridge 載入 cards.html，7 種卡片、callServerTool 往�
     await ctx.close();
   }
 });
+
+// 無障礙（M6-04）：鍵盤第一個 Tab 是「跳到主要內容」、焦點框看得到、分頁列 aria-current、卡片有常駐播報區、公車頁有 live region
+test('無障礙：跳到主要內容、焦點框、aria-current、播報區', async () => {
+  await withPage(DEVICES.desktop, '#/nearby', async (page) => {
+    await page.waitForSelector('.tabbar a[aria-current="page"]');
+    assert.equal(await page.getAttribute('.tabbar a[aria-current="page"]', 'data-h'), '#/nearby');
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'skip');
+    const outline = await page.evaluate(() => getComputedStyle(document.activeElement).outlineStyle);
+    assert.equal(outline, 'solid', '焦點框');
+    await page.keyboard.press('Enter');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'main');
+    await page.goto(`${base}/#/bus/Taipei/307`);
+    await page.waitForSelector('.timeline');
+    assert.equal(await page.locator('#sr[aria-live="polite"]').count(), 1);
+  });
+  await withPage(DEVICES.desktop, 'ui/cards/preview.html', async (page) => {
+    await page.waitForSelector('body[data-ready="1"]', { timeout: 20000 });
+    const cards = await page.locator('.ab-card').count();
+    assert.equal(await page.locator('.ab-sr[aria-live="polite"]').count(), cards, '每張卡片一個播報區');
+  });
+});
+
+// 首頁範例問題（M5-12）的文字要看得到：不能繼承 hero 的白字（M6-04 發現白底白字）
+test('無障礙：首頁範例問題文字對比', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.waitForSelector('.hero-ask .chip');
+    const [fg, bg] = await page.locator('.hero-ask .chip').first().evaluate((e) => [getComputedStyle(e).color, getComputedStyle(e).backgroundColor]);
+    assert.notEqual(fg, bg);
+    assert.notEqual(fg, 'rgb(255, 255, 255)');
+  });
+});

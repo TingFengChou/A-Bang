@@ -1,0 +1,13 @@
+# 不進映像：依賴（容器內重裝）、金鑰、測試、文件、建置產物、版控與編輯器設定
+node_modules
+.env
+.env.*
+!.env.example
+.git
+.github
+.claude
+dist
+test
+docs
+*.md
+.DS_Store

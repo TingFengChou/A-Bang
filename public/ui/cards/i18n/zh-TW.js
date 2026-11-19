@@ -47,12 +47,15 @@ export const MESSAGES = {
   'busRoute.plate': '車牌 {plate}',
   'busRoute.ask': '{route} 在「{stop}」下一班車什麼時候到？',
   'busRoute.context': '使用者在看 {route} 的「{stop}」站',
+  'busRoute.announceStop': '{route}「{stop}」：{eta}',
+  'busRoute.announceSoon': '{route} 即將進站：{stops}',
 
   // ── bus-station ──
   'busStation.title': '{name} 到站',
   'busStation.empty': '這個站目前沒有車要來',
   'busStation.outbound': '去程',
   'busStation.inbound': '返程',
+  'busStation.announce': '{name}：{list}',
 
   // ── nearby ──
   'nearby.title': '附近公車站',

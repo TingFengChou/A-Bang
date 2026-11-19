@@ -131,7 +131,12 @@ Claude 等外部 client 走 `/mcp` 時，順序相同，只是由 Claude 決定�
 - 座標只用於當次查詢；log 只記縣市層級或小數 2 位。
 - 不儲存對話內容；統計只記事件類型、tool 名稱、耗時。
 - 靜態檔防目錄穿越 ✅；請求 body 上限 64 KB ✅。
+- ✅ M6-02 log：`server/log.js` 一行一個 JSON（`time`、`severity`、`message`、`tenantId: first-party`，agent 帶 `agentId`）；存取 log 只記方法、路徑（不含 query）、狀態碼、耗時；錯誤只記類型、狀態碼、遮蔽金鑰後的訊息與前 6 行堆疊。
 
 ## 8. 部署（M6）
 
 單一 Node 程序提供 PWA、REST、`/mcp`、agent；容器化部署 Cloud Run／Zeabur；HTTPS 必須（Claude 自訂連接器要求）。`TRUST_PROXY=1` 時採用 `X-Forwarded-For`。
+
+✅ M6-01：`Dockerfile` 兩階段——build 階段 `npm ci` 後 `npm run build:cards`；執行階段 `npm ci --omit=dev`，只複製 `core/`、`server/`、`mcp/`、`public/` 與 `dist/cards.html`，檔案屬 root 唯讀、以 `node` 使用者執行，`HEALTHCHECK` 打 `/healthz`（回 `{ ok, version, mode, agent }`，不限流、不記 log、不碰上游）。金鑰由平台環境變數注入，`.dockerignore` 排除 `.env`。Cloud Run 會給 `PORT`（預設 8787）。
+
+✅ 地端：`docker-compose.yml`（讀 `.env`、`LOCAL_LLM_URL` 指向主機的 Ollama、唯讀根檔案系統、`no-new-privileges`）。雲端部署、Redis、Lighthouse 留到正式環境階段（2026-11-19 決定）。

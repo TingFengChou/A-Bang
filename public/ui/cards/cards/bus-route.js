@@ -7,6 +7,15 @@ const SOON_SEC = 180;
 export default {
   refreshSec: 20,
   title: (d, { t }) => t('busRoute.title', { route: d.routeName }),
+  /** 播報：使用者點開的站優先；否則目前方向即將進站的站（最多 3 個） */
+  announce(d, { t, state }) {
+    const dir = (d.directions || [])[Math.min(state.dir ?? 0, Math.max(0, (d.directions || []).length - 1))];
+    if (!dir) return null;
+    const open = dir.stops.find((s) => s.seq === state.stop);
+    if (open) return t('busRoute.announceStop', { route: d.routeName, stop: open.stopName, eta: open.statusText });
+    const soon = dir.stops.filter((s) => s.etaSec != null && s.etaSec < SOON_SEC).slice(0, 3).map((s) => s.stopName);
+    return soon.length ? t('busRoute.announceSoon', { route: d.routeName, stops: soon.join('、') }) : null;
+  },
   body(d, { host, t, state, rerender }) {
     const dirs = d.directions || [];
     const di = Math.min(state.dir ?? 0, Math.max(0, dirs.length - 1));

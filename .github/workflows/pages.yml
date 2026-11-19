@@ -1,13 +1,18 @@
-name: Docs site
+# 文件網站（M6-07）：把 docs/（index.html、規格、原型）發布到 GitHub Pages。
+# 需要在 repo Settings → Pages 把 Source 設為「GitHub Actions」（只需設定一次）。
+name: pages
 on:
   push:
     branches: [main]
-    paths: ['docs/**']
+    paths: ['docs/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
   contents: read
   pages: write
   id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
 jobs:
   deploy:
     runs-on: ubuntu-latest

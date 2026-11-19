@@ -3,6 +3,7 @@
 //   /api/v1/*            REST：PWA 頁面、卡片刷新（/api/v1/tools/:name）
 //   /api/docs            API 文件（Swagger UI，規格 /api/v1/openapi.json）
 //   /mcp、/mcp/:pack     遠端 MCP（Streamable HTTP，stateless）— Claude 自訂連接器
+//   /healthz             健康檢查（容器、Cloud Run；不限流、不碰上游）
 //   其他                 PWA 靜態檔
 // TDX 金鑰只存在伺服器端，瀏覽器與 MCP client 都拿不到。
 import { createServer } from 'node:http';
@@ -18,8 +19,12 @@ import { createRateLimiter, clientIp } from './rate-limit.js';
 import { restRoutes } from './rest.js';
 import { buildOpenApi } from './openapi.js';
 import { createAgentHandler } from './agent.js';
+import { createLogger, routeOf } from './log.js';
 
-const svc = createServices({ ...(await loadEnv()), log: console.log });
+const log = createLogger(); // 一行一個 JSON（M6-02）
+const VERSION = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
+
+const svc = createServices({ ...(await loadEnv()), log: (m) => log.info(m) });
 const PORT = Number(process.env.PORT) || 8787;
 const PUBLIC = fileURLToPath(new URL('../public/', import.meta.url));
 const MAX_BODY = 64 * 1024;
@@ -31,7 +36,8 @@ const limiters = {
 
 // REST 路由表在 server/rest.js（同時產生 Swagger 文件）
 const routes = restRoutes(svc);
-const agent = createAgentHandler({ svc, log: (o) => console.log('agent', JSON.stringify(o)) }); // 模式依 env（ADR-0012）
+// agent 計量 log：模式、次數、耗時、token；不含對話內容與座標（AGENT.md §7）
+const agent = createAgentHandler({ svc, log: ({ agent: agentId, ...o }) => log.info('agent request', { agentId, ...o }) }); // 模式依 env（ADR-0012）
 const OPENAPI = JSON.stringify(buildOpenApi(svc));
 // Swagger UI：只提供這幾個檔（白名單，不開放整個 node_modules）
 const SWAGGER_DIR = fileURLToPath(new URL('../node_modules/swagger-ui-dist/', import.meta.url));
@@ -57,7 +63,12 @@ const CORS = {
 createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const path = url.pathname;
+  const t0 = Date.now();
+  // 存取 log：方法、路徑（不含 query：可能有座標）、狀態碼、耗時；健康檢查不記
+  if (path !== '/healthz') res.on('finish', () => log.info('request', { method: req.method, route: routeOf(path), status: res.statusCode, ms: Date.now() - t0 }));
   try {
+    if (path === '/healthz') return send(res, 200, { ok: true, version: VERSION, mode: svc.mode, agent: agent.mode.mode });
+
     // ── 遠端 MCP ──
     if (path === '/mcp' || path.startsWith('/mcp/')) {
       if (req.method === 'OPTIONS') return end(res, 204, CORS);
@@ -120,12 +131,12 @@ createServer(async (req, res) => {
   } catch (e) {
     // UserError（含 413 請求過大）回原訊息；其他錯誤只在伺服器 log，對外回通用訊息
     const status = e instanceof UserError ? e.status || 400 : e.status === 429 ? 429 : 502;
-    if (!(e instanceof UserError)) console.error(e);
+    if (!(e instanceof UserError)) log.error('request failed', e, { method: req.method, route: routeOf(path) });
     // API 與 MCP 的錯誤也要帶 CORS，跨網域的 client 才讀得到錯誤訊息；413 回完就關連線（剩下的 body 不讀）
     const headers = { ...(path.startsWith('/api/') || path.startsWith('/mcp') ? CORS : {}), ...(status === 413 && { connection: 'close' }) };
     if (!res.headersSent) send(res, status, { error: publicMessage(e) }, headers);
   }
-}).listen(PORT, () => console.log(`阿幫 running → http://localhost:${PORT}  (mode=${svc.mode}, agent=${agent.mode.mode}${agent.mode.model ? `:${agent.mode.model}` : ''})  MCP: http://localhost:${PORT}/mcp`));
+}).listen(PORT, () => log.info(`阿幫 running → http://localhost:${PORT}  (mode=${svc.mode}, agent=${agent.mode.mode}${agent.mode.model ? `:${agent.mode.model}` : ''})  MCP: http://localhost:${PORT}/mcp`, { port: PORT, version: VERSION, mode: svc.mode, agentMode: agent.mode.mode }));
 
 function limit(req, res, group) {
   const r = limiters[group](`${group}:${clientIp(req)}`);
