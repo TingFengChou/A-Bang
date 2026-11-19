@@ -7,6 +7,9 @@ export const LOCALE = 'zh-TW';
 export const MESSAGES = {
   // ── 共通 ──
   'common.demo': '示範資料',
+  'common.demoHint': '示範資料：開放資料的片段或模擬資料，不是即時資訊',
+  'common.live': '真實資料',
+  'common.liveHint': '真實資料：即時取自政府開放資料',
   'common.loading': '更新中…',
   'common.updatedAt': '{time} 更新',
   'common.refreshFailed': '暫時無法更新・{time} 的資料',

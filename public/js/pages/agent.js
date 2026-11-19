@@ -175,6 +175,7 @@ export default {
               say.textContent = e.ok ? (e.speak || '查好了') : `這次沒查到（${e.error}）`;
               if (!e.ok) b.classList.add('failed');
               if (e.ok && e.metrics) b.querySelector('.src').append(` · ${metricsText(e.metrics)}`);
+              if (e.ok && e.mode === 'demo') b.querySelector('.src').append(' · ', el('span', 'src-demo', '示範資料'));
             }
             if (e.ok && e.card) {
               const slot = el('div', 'card-slot enter3d');

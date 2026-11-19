@@ -56,7 +56,9 @@ export function renderCard(el, payload, host) {
     const card = h('section', { class: 'ab-card', 'data-card': current.card, 'aria-label': def.title(current.data, ctx) },
       h('header', { class: 'ab-head' },
         h('h3', { class: 'ab-title' }, def.title(current.data, ctx)),
-        current.mode === 'demo' && h('span', { class: 'ab-badge ab-demo' }, t('common.demo')),
+        // 資料來源標示：示範（灰）或真實（品牌色）；兩種都標，使用者不必從「沒有標籤」反推
+        current.mode === 'demo' ? h('span', { class: 'ab-badge ab-demo', title: t('common.demoHint') }, t('common.demo'))
+          : current.mode === 'live' && h('span', { class: 'ab-badge ab-live', title: t('common.liveHint') }, t('common.live')),
         updated && h('span', { class: 'ab-updated' }, updated),
         status),
       def.body(current.data, ctx));

@@ -64,13 +64,27 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
     ...createRidehailServices(), // ridehail：只產生官方連結，live 與示範相同（ADR-0011）
     ...life, // life：空品、地震、藥局、垃圾車、油價、發票（M10）
     ...antifraud, // antifraud：165 開放資料（免金鑰；DEMO_MODE=1 時用示範片段，M7）
-    // 之後的領域在這裡加入，例如：
-    // env:     createAqiServices(moenvKey),     // 環境部 AQI
-    // health:  createPharmacyServices(),        // 健保特約藥局
   };
 }
 
 /** 讀取 .env（不依賴 dotenv） */
+/**
+ * 各類資料目前是真實資料還是示範資料（給 /api/v1/status 與網頁標示用；不含金鑰或環境變數名稱）。
+ * id 對應首頁格子的 `source`。
+ * @param {ReturnType<typeof createServices>} svc
+ * @returns {Array<{ id: string, name: string, mode: 'live'|'demo' }>}
+ */
+export function dataSources(svc) {
+  return [
+    { id: 'transit', name: '交通', mode: svc.mode }, // 公車、捷運、高鐵、台鐵、YouBike、客運、路況（TDX）
+    { id: 'weather', name: '天氣', mode: svc.weatherMode },
+    { id: 'aqi', name: '空氣品質', mode: svc.aqiMode },
+    { id: 'quake', name: '地震', mode: svc.quakeMode },
+    { id: 'opendata', name: '藥局、垃圾車、油價、發票', mode: svc.openDataMode },
+    { id: 'antifraud', name: '防詐', mode: svc.antifraudMode },
+  ];
+}
+
 export async function loadEnv(path = new URL('../.env', import.meta.url)) {
   try {
     const { readFile } = await import('node:fs/promises');

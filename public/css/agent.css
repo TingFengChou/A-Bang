@@ -89,3 +89,6 @@
 html.lite-motion .enter3d { animation: ab-fade .3s ease-out both; }
 @keyframes ab-fade { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .enter3d { animation: none !important; } }
+
+/* 工具回報用的是示範資料時標示（真實資料不另標，卡片上有「真實資料」） */
+.src-demo { color: var(--muted); background: var(--off-soft); border-radius: 6px; padding: 0 5px; }

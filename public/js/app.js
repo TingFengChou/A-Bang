@@ -1,6 +1,7 @@
 // App shell：hash router + 上方標題列 + 下方分頁列
 import { icons } from './icons.js';
 import { api, state } from './api.js';
+import { esc } from './ui.js';
 import home from './pages/home.js';
 import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
@@ -74,9 +75,17 @@ function navigate() {
   paintBanner();
 }
 
+/** 頂端橫幅：依各類資料的真實／示範狀態說明（卡片與首頁格子另有標示） */
 function paintBanner() {
-  $('banner').innerHTML = state.mode === 'demo'
-    ? `<div class="demo-banner">示範模式：目前為模擬資料。設定 TDX 金鑰後即顯示真實即時資訊。</div>` : '';
+  $('banner').innerHTML = bannerHtml(state);
+}
+
+function bannerHtml({ mode, sources }) {
+  if (!sources) return mode === 'demo' ? '<div class="demo-banner">示範模式：目前都是示範資料，不是即時資訊。</div>' : '';
+  const demo = sources.filter((s) => s.mode === 'demo').map((s) => s.name);
+  if (!demo.length) return '';
+  if (demo.length === sources.length) return '<div class="demo-banner">示範模式：目前都是示範資料，不是即時資訊。</div>';
+  return `<div class="demo-banner">部分示範資料：<b>${esc(demo.join('、'))}</b>目前是示範資料（標「示範」），其他為政府開放資料。</div>`;
 }
 
 addEventListener('hashchange', navigate);
