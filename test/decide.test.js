@@ -22,6 +22,15 @@ test('下雨：改搭公車，理由提到下雨', () => {
   assert.match(r.reason, /因為正在下雨/);
 });
 
+test('空品不佳：少待戶外、少騎車，改搭公車；理由說空品', () => {
+  const r = decide(XIMEN_101, { states: ['badAir'] });
+  assert.equal(r.best.id, 'bus');
+  assert.match(r.reason, /因為空氣品質不佳/);
+  assert.match(r.reason, /少待在戶外/);
+  assert.equal(r.ranked.at(-1).id, 'walk');
+  assert.match(decide(XIMEN_101, { states: ['badAir', 'rain'] }).reason, /比較不會淋雨/, '下雨時仍說淋雨');
+});
+
 test('帶行李、少走路：公車', () => {
   assert.equal(decide(XIMEN_101, { states: ['luggage'] }).best.id, 'bus');
   assert.equal(decide(XIMEN_101, { states: ['lessWalk'] }).best.id, 'bus');

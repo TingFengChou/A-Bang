@@ -112,6 +112,7 @@ export const MESSAGES = {
   'trip.stateKey.rush': '趕時間',
   'trip.stateKey.traffic': '塞車中',
   'trip.stateKey.rain': '下雨',
+  'trip.stateKey.badAir': '空品不佳',
   'trip.stateKey.luggage': '帶行李',
   'trip.stateKey.budget': '想省錢',
   'trip.stateKey.lessWalk': '少走路',

@@ -17,4 +17,10 @@ export const demoLifeFetchers = {
   invoice: () => text('invoice.xml'),
 };
 
-export const createMockLifeServices = () => createLifeServices(demoLifeFetchers);
+/** 示範空品情境：'bad' 時把測站 AQI 調成「對敏感族群不健康」（展示決策引擎的空品狀態；DEMO_AIR=bad） */
+export function demoLifeFetchersFor({ air } = {}) {
+  if (air !== 'bad') return demoLifeFetchers;
+  return { ...demoLifeFetchers, aqi: async () => (await demoLifeFetchers.aqi()).map((r) => ({ ...r, aqi: String(Number(r.aqi || 0) + 70), status: '對敏感族群不健康' })) };
+}
+
+export const createMockLifeServices = ({ air } = {}) => createLifeServices(demoLifeFetchersFor({ air }));

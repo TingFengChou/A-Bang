@@ -10,7 +10,7 @@ export const CRITERIA = [
   { key: 'waitMin', label: '等車', base: 0.10, scale: 'ratio', k: 5 },
   { key: 'walkMin', label: '走路', base: 0.15, scale: 'ratio', k: 5 },
   { key: 'cost', label: '費用', base: 0.15, scale: 'ratio', k: 20 },
-  { key: 'exposure', label: '淋雨', base: 0.10, scale: 'abs' }, // 0 = 全程室內／有遮蔽，1 = 全程戶外
+  { key: 'exposure', label: '戶外', base: 0.10, scale: 'abs' }, // 0 = 全程室內／有遮蔽，1 = 全程戶外（下雨淋雨、空品差吸髒空氣）
   { key: 'effort', label: '體力', base: 0.10, scale: 'abs' }, // 0 = 輕鬆，1 = 費力（騎車、長距離步行）
   { key: 'delayRisk', label: '塞車風險', base: 0.05, scale: 'abs' }, // 0 = 軌道／專用道，1 = 走一般道路且路況差
 ];
@@ -23,6 +23,8 @@ export const STATES = {
   luggage: { label: '帶行李', say: '你帶著行李', boost: { effort: 4 } },
   budget: { label: '想省錢', say: '你想省錢', boost: { cost: 5 } },
   lessWalk: { label: '少走路', say: '你想少走路、輕鬆一點', boost: { walkMin: 1.5, effort: 3 } },
+  // 空品不佳（AQI > 100，對敏感族群不健康以上）：少待戶外、少做費力的騎車與長距離步行（M10）
+  badAir: { label: '空品不佳', say: '空氣品質不佳', boost: { exposure: 3, effort: 2 } },
 };
 
 /**
@@ -77,7 +79,7 @@ function explain(best, second, states, excluded) {
   if (states.length) why.push(`因為${states.map((s) => STATES[s].say).join('、')}`);
   if (second) {
     const diffs = CRITERIA.map((c) => ({ c, d: best.breakdown[c.key] - second.breakdown[c.key] })).sort((a, b) => b.d - a.d);
-    const top = diffs.filter((x) => x.d > 0.01).slice(0, 2).map((x) => PHRASE[x.c.key](best, second));
+    const top = diffs.filter((x) => x.d > 0.01).slice(0, 2).map((x) => PHRASE[x.c.key](best, second, states));
     if (top.length) why.push(top.join('、'));
   }
   if (excluded.length) why.push(`${excluded.map((e) => e.name).join('、')}會遲到已排除`);
@@ -89,7 +91,7 @@ const PHRASE = {
   waitMin: (b) => (b.waitMin ? `只要等 ${b.waitMin} 分` : '不用等車'),
   walkMin: (b) => `只走 ${b.walkMin ?? 0} 分`,
   cost: (b, s) => (b.cost < s.cost ? `省 ${s.cost - b.cost} 元` : '費用較低'),
-  exposure: () => '比較不會淋雨',
+  exposure: (_b, _s, states = []) => (states.includes('badAir') && !states.includes('rain') ? '少待在戶外' : '比較不會淋雨'),
   effort: () => '比較輕鬆',
   delayRisk: () => '不受塞車影響',
 };

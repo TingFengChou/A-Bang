@@ -102,6 +102,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
   "options": [ /* plan_trip Option（MCP_TOOLS.md §7） */ ],
   "ranking": { "ranked": [{ "id": "bus", "name": "公車 307", "score": 81, "breakdown": { } }], "excluded": [{ "id": "thsr-0700", "why": "會遲到" }], "reason": "選「公車 307」：因為正在下雨…" },
   "states": [{ "key": "rain", "source": "auto", "from": "weather_now", "detail": "陰有雨，3 小時降雨機率 80%" }, { "key": "luggage", "source": "user" }] }
+// states[].key 另有 badAir（空品不佳，from: aqi_nearby，M10）；data.air = { site, aqi, status } | null
 ```
 
 呈現：建議方案＋分段時間條＋備案（最多 2）＋行動（導航、提醒、叫車、訂票）。決策圖由網頁 agent 的 `decision` 事件另外呈現；在 MCP Apps 中，`trip` 卡片以精簡版（排名條＋理由句＋狀態 chips 可切換）呈現。

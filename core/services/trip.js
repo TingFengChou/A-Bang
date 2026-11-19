@@ -204,6 +204,9 @@ async function ridehailOption(svc, from, to, straight, traffic) {
   };
 }
 
+
+/** AQI 超過這個值（對敏感族群不健康以上）就加「空品不佳」狀態 */
+export const BAD_AIR_AQI = 100;
 /**
  * 規劃 A → B。
  * @param {object} svc createServices() 的結果
@@ -213,13 +216,16 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   const depart = departOf(departAt, now);
   const straight = distanceM(from.lat, from.lon, to.lat, to.lon);
 
-  // 自動狀態：起點天氣、沿途路況（失敗不加狀態、不中斷）
-  const [weather, traffic] = await Promise.all([
+  // 自動狀態：起點天氣、空品、沿途路況（失敗不加狀態、不中斷）
+  const [weather, traffic, aqi] = await Promise.all([
     svc.weather.now({ lat: from.lat, lon: from.lon }).catch(() => null),
     svc.traffic.status({ from: { lat: from.lat, lon: from.lon }, to: { lat: to.lat, lon: to.lon } }).catch(() => null),
+    svc.life?.aqiNearby({ lat: from.lat, lon: from.lon }).catch(() => null),
   ]);
+  const air = aqi?.nearest;
   const autoStates = [
     ...(weather?.raining ? [{ key: 'rain', source: 'auto', from: 'weather_now', detail: weather.summary }] : []),
+    ...(air?.aqi > BAD_AIR_AQI ? [{ key: 'badAir', source: 'auto', from: 'aqi_nearby', detail: `${air.site}測站 AQI ${air.aqi}（${air.status}）` }] : []),
     ...(traffic?.level === 'jam' ? [{ key: 'traffic', source: 'auto', from: 'traffic_status', detail: `沿途國道塞車，多 ${traffic.delayMin} 分` }] : []),
   ];
   const risk = delayRiskOf(traffic?.covered ? traffic.level : null);
@@ -254,6 +260,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     ...(prefs.arriveBy && { arriveBy: prefs.arriveBy, arriveByMin }), // 前端重算（決策圖）用同一份 decide.js
     weather: weather && { summary: weather.summary, raining: weather.raining, pop3h: weather.pop3h },
     traffic: traffic && { level: traffic.level, delayMin: traffic.delayMin, covered: traffic.covered },
+    air: air ? { site: air.site, aqi: air.aqi, status: air.status } : null,
     options,
     ranking: {
       ranked: r.ranked.map((o) => ({ id: o.id, name: o.name, score: o.score, breakdown: o.breakdown })),

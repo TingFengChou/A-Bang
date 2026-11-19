@@ -19,7 +19,7 @@
         "type": "object",
         "required": ["key", "source"],
         "properties": {
-          "key": { "enum": ["rush", "traffic", "rain", "luggage", "budget", "lessWalk"] },
+          "key": { "enum": ["rush", "traffic", "rain", "luggage", "budget", "lessWalk", "badAir"] },
           "source": { "enum": ["auto", "user", "picked"] },
           "from": { "type": "string" },
           "detail": { "type": "string" }
@@ -28,6 +28,7 @@
     },
     "weather": { "type": ["object", "null"] },
     "traffic": { "type": ["object", "null"] },
+    "air": { "type": ["object", "null"] },
     "options": { "type": "array", "items": { "$ref": "#/$defs/option" } },
     "ranking": {
       "type": "object",
