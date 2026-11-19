@@ -23,6 +23,8 @@ const CASES = [
   ['intercity_bus', { from: '台北車站', to: '台北101' }],
   ['plan_trip', { from: '台北車站', to: '台北101', departAt: '09:00' }],
   ['plan_trip', { from: '台北車站', to: '高雄車站', departAt: '09:00', prefs: { states: ['rush'], arriveBy: '12:00' } }, { traffic: 'jam', weather: 'rain' }],
+  ['scam_check_message', { text: '【台電】電費逾期未繳，今日內未處理將停電，請點擊 https://eincioiice-tw-nat-gov.com/pay' }],
+  ['scam_check_message', { text: '明天中午一起吃飯嗎？' }],
 ];
 
 test('validate：型別、必要欄位、enum、$ref、additionalProperties', () => {
@@ -40,7 +42,7 @@ test('每個有卡片的 tool 都有契約，契約檔都對得到 tool', async 
   const cards = new Set(listTools().filter((t) => t.card).map((t) => t.card));
   const files = (await readdir(DIR)).filter((f) => f.endsWith('.v1.json')).map((f) => f.replace('.v1.json', ''));
   assert.deepEqual([...cards].sort(), files.sort());
-  assert.equal(files.length, 7);
+  assert.equal(files.length, 8);
   for (const f of files) assert.equal((await load(f)).$schema, 'https://json-schema.org/draft/2020-12/schema', f);
 });
 

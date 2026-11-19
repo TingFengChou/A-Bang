@@ -15,7 +15,7 @@ const routes = [
   [/^\/bus-station\/([^/]+)\/([^/]+)$/, busStation],
   [/^\/rail\/(thsr|tra)$/, rail],
   [/^\/favs$/, favPage],
-  [/^\/agent$/, agent],
+  [/^\/agent(?:\/([a-z][a-z0-9-]*))?$/, agent], // #/agent（生活）、#/agent/antifraud（防詐，M7）
 ];
 const tabs = [['#/', '首頁', 'home'], ['#/nearby', '附近', 'pin'], ['#/bus', '公車', 'bus'], ['#/favs', '收藏', 'star']];
 

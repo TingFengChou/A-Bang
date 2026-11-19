@@ -9,7 +9,7 @@ test('life profile 通過驗證，工具都在 registry 且工具包相符', () 
   const p = getProfile('life');
   assert.equal(p.id, 'life');
   assert.ok(p.tools.includes('plan_trip') && p.tools.includes('ridehail_link'));
-  assert.deepEqual(Object.keys(PROFILES), ['life']);
+  assert.deepEqual(Object.keys(PROFILES), ['life', 'antifraud']);
   assert.throws(() => getProfile('nope'), /沒有這個 agent/);
 });
 

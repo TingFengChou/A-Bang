@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/scam-risk.v1.json",
+  "title": "scam-risk（scam_check_message）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["level", "score", "findings", "urls", "advice", "myths", "rulesVersion", "reviewed"],
+  "properties": {
+    "level": { "enum": ["high", "medium", "low"] },
+    "score": { "type": "integer", "minimum": 0 },
+    "findings": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": false, "required": ["id", "category", "label", "excerpt"],
+        "properties": { "id": { "type": "string" }, "category": { "type": "string" }, "label": { "type": "string" }, "excerpt": { "type": "string" } } }
+    },
+    "urls": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": false, "required": ["input", "domain", "listed"],
+        "properties": { "input": { "type": "string" }, "domain": { "type": ["string", "null"] }, "listed": { "type": "boolean" }, "category": { "type": "string" }, "month": { "type": "string" } } }
+    },
+    "advice": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "myths": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": false, "required": ["id", "title", "date"],
+        "properties": { "id": { "type": "string" }, "title": { "type": "string" }, "date": { "type": "string" } } }
+    },
+    "rulesVersion": { "type": "string" },
+    "reviewed": { "type": "boolean" }
+  }
+}

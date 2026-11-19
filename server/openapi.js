@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { listTools, describeTool } from '../core/tools/index.js';
 import { restRoutes } from './rest.js';
+import { PROFILES } from '../core/agents/index.js';
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const ERR = { $ref: '#/components/schemas/Error' };
@@ -38,7 +39,7 @@ export function buildOpenApi(svc) {
   paths['/api/v1/agent'] = {
     post: {
       tags: ['Agent'], summary: '網頁 agent（NDJSON 事件串流）', operationId: 'postAgent',
-      description: '回應 `application/x-ndjson`，每行一個事件（status、agent_note、tool_start、tool_result、discussion_end、decision、text、done、error），格式見 docs/AGENT.md §3。目前為示範模式。只給本站網頁使用（無 CORS）；每 IP 每分鐘與每日限流。',
+      description: '回應 `application/x-ndjson`，每行一個事件（status、agent_note、tool_start、tool_result、discussion_end、decision、text、done、error），格式見 docs/AGENT.md §3。模式：Claude／地端模型／示範（ADR-0012）。只給本站網頁使用（無 CORS）；每 IP 每分鐘與每日限流。',
       requestBody: { required: true, content: { 'application/json': { schema: {
         type: 'object', required: ['messages'],
         properties: {
@@ -49,6 +50,14 @@ export function buildOpenApi(svc) {
         example: { messages: [{ role: 'user', content: '從西門町到台北 101 怎麼去？' }] },
       } } } },
       responses: { 200: { description: 'NDJSON 事件串流', content: { 'application/x-ndjson': { schema: { type: 'string' } } } }, 405: { description: '只接受 POST' }, ...errors },
+    },
+  };
+  // 其他 agent（ADR-0005）：同一個請求格式，例 /api/v1/agent/antifraud（阿幫・防詐）
+  paths['/api/v1/agent/{id}'] = {
+    post: {
+      ...paths['/api/v1/agent'].post, operationId: 'postAgentById', summary: '指定 agent（例：antifraud 防詐）',
+      parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', enum: Object.keys(PROFILES) }, example: 'antifraud' }],
+      responses: { ...paths['/api/v1/agent'].post.responses, 404: { description: '沒有這個 agent' } },
     },
   };
   paths['/mcp'] = {

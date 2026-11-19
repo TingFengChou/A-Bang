@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { getTool, listPacks } from '../tools/index.js';
 import life from './life.json' with { type: 'json' };
+import antifraud from './antifraud.json' with { type: 'json' };
 
 const L10n = z.object({ 'zh-TW': z.string().min(1) }).catchall(z.string());
 
@@ -35,7 +36,10 @@ export function validateProfile(raw) {
   return p;
 }
 
-export const PROFILES = Object.freeze({ life: validateProfile(life) });
+export const PROFILES = Object.freeze({ life: validateProfile(life), antifraud: validateProfile(antifraud) });
+
+/** 有這個 agent 嗎（路由用；id 來自網址） */
+export const hasProfile = (id) => Object.hasOwn(PROFILES, id);
 
 /** @param {string} id */
 export function getProfile(id = 'life') {

@@ -129,6 +129,26 @@ export const MESSAGES = {
   'trip.leg.ridehail': '叫車',
   'trip.none': '這段路找不到可行的交通方式',
   'trip.allLate': '所有方式都趕不上指定時間，可以提早出發或放寬抵達時間',
+
+  // ── scam-risk（防詐，M7-04；L2：不說「安全」） ──
+  'scam.title': '可疑訊息檢查',
+  'scam.level.high': '高風險：很可能是詐騙',
+  'scam.level.medium': '有疑點：先查證再行動',
+  'scam.level.low': '沒有發現已知的詐騙特徵',
+  'scam.levelNote.high': '先不要點連結、不要匯款、不要給驗證碼。',
+  'scam.levelNote.medium': '符合常見詐騙手法，請向官方或 165 查證。',
+  'scam.levelNote.low': '不代表一定安全；有疑問仍可撥 165 查證。',
+  'scam.findings': '可疑之處',
+  'scam.urls': '網址比對（165 停止解析清單）',
+  'scam.listed': '涉詐網站・{category}・{month}',
+  'scam.notListed': '不在清單（不代表安全）',
+  'scam.next': '下一步',
+  'scam.open165': '165 全民防騙網',
+  'scam.askWhat': '如果我已經照做了（點了連結或匯款），現在該怎麼辦？',
+  'scam.askWhatBtn': '已經照做了怎麼辦',
+  'scam.myths': '165 相關闢謠',
+  'scam.rules': '規則庫 {v}（已審核）。比對結果僅供參考，不是法律或調查結論。',
+  'scam.rulesUnreviewed': '規則庫 {v}（尚未經防詐專家審核）。比對結果僅供參考，不是法律或調查結論。',
 };
 
 /**

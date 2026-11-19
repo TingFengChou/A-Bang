@@ -81,3 +81,21 @@
 
 /* 螢幕閱讀器播報到站（M6-04）：畫面不顯示 */
 .ab-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* scam-risk（M7-04）：等級用色彩＋文字＋符號，不只靠顏色 */
+.ab-risk { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; margin: 4px 0 8px; }
+.ab-risk p { margin: 2px 0 0; }
+.ab-risk.high { background: var(--ab-bad-soft); color: var(--ab-bad); }
+.ab-risk.medium { background: var(--ab-warn-soft); color: var(--ab-warn); }
+.ab-risk.low { background: #eef1f0; color: var(--ab-text); }
+.ab-risk .ab-sub { color: inherit; }
+.ab-risk-icon { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: currentColor; }
+.ab-risk-icon { color: #fff; }
+.ab-risk.high .ab-risk-icon { background: var(--ab-bad); } .ab-risk.medium .ab-risk-icon { background: var(--ab-warn); } .ab-risk.low .ab-risk-icon { background: var(--ab-off); }
+.ab-sec h4 { font-size: 14px; margin: 10px 0 4px; }
+.ab-finding { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; padding: 4px 0; }
+.ab-excerpt { flex-basis: 100%; color: var(--ab-muted); font-size: 13px; quotes: "「" "」"; }
+.ab-domain { font-size: 13px; overflow-wrap: anywhere; }
+.ab-advice { margin: 0; padding-left: 20px; }
+.ab-advice li { margin: 2px 0; }
+.ab-foot { color: var(--ab-muted); font-size: 12px; margin: 10px 0 0; }

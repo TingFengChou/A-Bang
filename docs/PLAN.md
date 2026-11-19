@@ -25,9 +25,10 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | M3 交通完整版 | ✅（2026-11-18 驗收；M3-12 真實導訂票 ⛔） | — | 待 Austin：無狀態市區短程叫車排第一是否合理（ADR-0010）；`rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
 | M4 互動卡片 | ✅（2026-11-18；M4-09 Claude 實測 ⛔） | M4-09（Austin） | 本機 `npm start`＋cloudflared，在 Claude 自訂連接器實測卡片 |
 | M5 網頁 agent | ✅（2026-11-18；Claude 實機待金鑰） | — | Claude 模式需 `ANTHROPIC_API_KEY`；地端模式需自架 Ollama 等（示範模式都不需要） |
+| M7 反詐騙 agent | ✅（2026-11-19；規則庫待專家審核） | — | 規則庫 `reviewedBy` 待防詐專家審核 |
 | M6 上線 | 🚧（M6-01／02／04／07 ✅、地端部署驗證 ✅） | 正式環境階段再做 | 2026-11-19 Austin 決定：雲端部署（M6-06）、Redis 快取（M6-03）、Lighthouse（M6-05）留到正式環境階段；先衝刺功能。M6-07 需在 repo 設定啟用 Pages |
 
-建議順序：M4、M5 已完成；M1（TDX 金鑰）申請中；M6 正式環境項目延後；先衝刺功能（M7 起）。
+建議順序：M4、M5 已完成；M1（TDX 金鑰）申請中；M6 正式環境項目延後；先衝刺功能：M7 ✅，接著 M8（中小企業概念驗證）。
 
 ## Austin 待辦（外部條件）
 
@@ -159,15 +160,16 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 
 驗收：公開 HTTPS 網址可用網頁 agent；Claude 自訂連接器可連；文件站上線。
 
-## M7 反詐騙 agent（概要）
+## M7 反詐騙 agent
 
-詳細規格屆時寫 `docs/AGENT_ANTIFRAUD.md`。
+規格：`AGENT_ANTIFRAUD.md`、ADR-0005、ADR-0007、`PLATFORM.md`（L2）。
 
-- [ ] 網頁 `/agent/:id`、API `/api/v1/agent/:id`、MCP `/mcp/:pack` 已可依 profile 運作
-- [ ] 165 開放資料同步（詐騙 LINE ID、假投資網站、闢謠），每日更新本地索引
-- [ ] 詐騙特徵規則庫（人工維護、版本化）；`scam_check_message`、`scam_lookup_*`、`sms_sender_check`、`scam_myth_search`
-- [ ] 風險卡片：等級、可疑字句、下一步（165）
-- [ ] 護欄：不宣稱安全、不開啟可疑連結、不儲存貼上內容
+- [x] M7-01 多 agent 路由：`antifraud.json` profile、網頁 `#/agent/:id`、API `/api/v1/agent/:id`、`/api/v1/agent/profile?id=`、首頁入口；MCP `/mcp/antifraud`（2026-11-19：`antifraud.json`、`hasProfile`；`/api/v1/agent/:id`（未知 404）、`profile?id=`、OpenAPI；網頁 `#/agent/:id`（標題、提示、@點名依 agent）；首頁「防詐」格子；`/mcp/antifraud` 由 pack 自動提供）
+- [x] M7-02 165 開放資料：`core/services/antifraud.js`（停止解析涉詐網站、詐騙闢謠，CSV、24 小時快取）＋ mock／fixtures（2026-11-19：零依賴 CSV 解析；網域正規化（punycode）與上層網域比對；闢謠搜尋；24 小時快取、更新失敗沿用舊索引；啟動時預載；實測 9.7 萬網域、89 篇；示範片段在 `core/data/demo/`）
+- [x] M7-03 詐騙特徵規則庫 `core/data/scam-rules.json`（版本化、待專家審核）＋ tools `scam_check_message`、`scam_lookup_url`、`scam_myth_search`、`sms_sender_check`（2026-11-19：17 條規則（版本 2026.11.19-1，待審核）；網址抽取；風險分數與等級；寄件號碼規則；8 項測試）
+- [x] M7-04 風險卡片 `scam-risk`（契約、渲染、字典）（2026-11-19：契約 `scam-risk.v1.json`、渲染（色彩＋符號＋文字、不提供開啟使用者網址）、字典；MCP Apps 同一份）
+- [x] M7-05 示範意圖（antifraud）與 L2 輸出護欄（不宣稱安全、固定附 165）（2026-11-19：`demo-antifraud.js`；`guardrails.js` 以句為單位改寫保證安全的說法、送 guardrail、固定附 165；示範與模型模式都套用；prompt 加防詐護欄）
+- [x] M7-06 E2E：防詐頁建議問題、風險卡片、護欄（2026-11-19：手機＋桌面從首頁格子進入、5 個建議問題逐題、風險卡片高／中、總結有 165 且無安全保證；截圖已檢查）
 
 ## M8 中小企業概念驗證（概要）
 

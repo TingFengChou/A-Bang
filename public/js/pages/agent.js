@@ -9,8 +9,13 @@ import { renderDecision, lite } from '../../ui/agent/decision-graph.js';
 const decideModule = import('/core/decide.js').catch(() => null);
 
 const MIN_GAP_MS = 300;
-const ROLE_CLASS = { 地點: 'place', 天氣: 'place', 公車: 'bus', YouBike: 'bike', 高鐵: 'rail', 台鐵: 'tra', 捷運: 'brand', 路況: 'car', 客運: 'car', 票價: 'fare', 叫車: 'car', 訂票: 'rail', 行程: 'brand', 車站: 'tra', 定位: 'place' };
-const MENTIONS = ['地點', '天氣', '路況', '公車', 'YouBike', '捷運', '高鐵', '台鐵', '票價', '叫車'];
+const ROLE_CLASS = { 防詐: 'bad', 網址: 'bad', 闢謠: 'fare', 號碼: 'tra', 地點: 'place', 天氣: 'place', 公車: 'bus', YouBike: 'bike', 高鐵: 'rail', 台鐵: 'tra', 捷運: 'brand', 路況: 'car', 客運: 'car', 票價: 'fare', 叫車: 'car', 訂票: 'rail', 行程: 'brand', 車站: 'tra', 定位: 'place' };
+/** 每個 agent 的 @點名、標題與輸入提示（角色名稱與 core/agent/events.js TOOL_ROLES 一致） */
+const AGENTS = {
+  life: { title: '問阿幫', placeholder: '想去哪裡？例如：從西門町到台北 101', mentions: ['地點', '天氣', '路況', '公車', 'YouBike', '捷運', '高鐵', '台鐵', '票價', '叫車'] },
+  antifraud: { title: '阿幫・防詐', placeholder: '把可疑的簡訊、LINE 訊息或網址貼上來', mentions: ['防詐', '網址', '闢謠', '號碼'] },
+};
+const MENTIONS = [...new Set(Object.values(AGENTS).flatMap((a) => a.mentions))];
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** 安全建立元素（不用 innerHTML，事件內容來自伺服器與上游資料） */
@@ -40,8 +45,10 @@ const metricsText = (m) => (m ? [m.scanned ? `${m.scanned} 筆` : null, m.cacheH
 
 export default {
   title: '問阿幫',
-  render({ main, setTitle, onCleanup, query = {} }) {
-    setTitle('問阿幫');
+  render({ main, setTitle, onCleanup, params = [], query = {} }) {
+    const agentId = params[0] && AGENTS[params[0]] ? params[0] : 'life';
+    const A = AGENTS[agentId];
+    setTitle(A.title);
     if (globalThis.__DEMO_SERVICES__) {
       main.append(el('p', 'agent-note-offline', '問阿幫需要連線到阿幫伺服器（npm start），離線 Demo 版只能使用下方的公車、YouBike、高鐵台鐵功能。'));
       return;
@@ -60,8 +67,8 @@ export default {
     const chips = el('div', 'suggest');
     const mention = el('div', 'mention-bar');
     const input = el('input', 'chat-input');
-    Object.assign(input, { placeholder: '想去哪裡？例如：從西門町到台北 101', enterkeyhint: 'send', autocomplete: 'off', maxLength: 500 });
-    input.setAttribute('aria-label', '問阿幫');
+    Object.assign(input, { placeholder: A.placeholder, enterkeyhint: 'send', autocomplete: 'off', maxLength: 500 });
+    input.setAttribute('aria-label', A.title);
     const sendBtn = el('button', 'btn chat-send', '送出');
     sendBtn.type = 'submit';
     const form = el('form', 'chat-form', input, sendBtn);
@@ -77,7 +84,7 @@ export default {
     const host = createWebHost({ ask: (q) => send(q), setContext: (c) => { context = c; } });
 
     // 建議問題與免責（GET /api/v1/agent/profile）
-    fetch('/api/v1/agent/profile').then((r) => r.json()).then(({ data }) => {
+    fetch(`/api/v1/agent/profile?id=${agentId}`).then((r) => r.json()).then(({ data }) => {
       for (const q of data.suggestions) { const b = el('button', 'chip', q); b.type = 'button'; b.onclick = () => send(q); chips.append(b); }
       disclaimer.textContent = data.disclaimer;
     }).catch(() => {});
@@ -86,7 +93,7 @@ export default {
     input.addEventListener('input', () => {
       mention.replaceChildren();
       if (!/@$/.test(input.value)) return;
-      for (const r of MENTIONS) {
+      for (const r of A.mentions) {
         const b = el('button', `chip r-${ROLE_CLASS[r]}`, `@${r}`);
         b.type = 'button';
         b.onclick = () => { input.value = `${input.value}${r} `; mention.replaceChildren(); input.focus(); };
@@ -95,7 +102,7 @@ export default {
     });
     form.addEventListener('submit', (e) => { e.preventDefault(); send(input.value); });
     // 從首頁帶問題過來（#/agent?q=…）：直接送出，並把網址換掉，避免重新整理時重送
-    if (query.q) { const q0 = query.q; window.history.replaceState(null, '', '#/agent'); queueMicrotask(() => send(q0)); }
+    if (query.q) { const q0 = query.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); }
 
     async function send(raw) {
       const q = String(raw || '').trim().slice(0, 500);
@@ -108,9 +115,10 @@ export default {
       const view = turnView(turn);
       try {
         await runAgent({ messages: history.slice(-10), ...(context && { context }) }, (e) => {
+          // 隱私：防詐頁貼上的內容只送給本站伺服器分析，不保存（AGENT_ANTIFRAUD.md §1）
           if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = MODE_TEXT[e.mode](e.model || '');
           view.push(e);
-        });
+        }, { agentId });
         await view.flush();
         if (view.text) history.push({ role: 'assistant', content: view.text.slice(0, 500) });
       } catch {

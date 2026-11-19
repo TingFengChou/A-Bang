@@ -378,3 +378,32 @@ test('無障礙：首頁範例問題文字對比', async () => {
     assert.notEqual(fg, 'rgb(255, 255, 255)');
   });
 });
+
+// 阿幫・防詐（M7-06）：首頁格子進入、5 個建議問題逐題、風險卡片、總結有 165、沒有「安全」保證
+for (const [dname, device] of Object.entries(DEVICES)) {
+  test(`${dname}：防詐頁建議問題、風險卡片、L2 說法`, async () => {
+    await withPage(device, '#/', async (page) => {
+      await page.click('a.tile[href="#/agent/antifraud"]');
+      await page.waitForSelector('.suggest .chip');
+      assert.equal(await page.textContent('#title'), '阿幫・防詐');
+      const qs = await page.locator('.suggest .chip').allTextContents();
+      assert.equal(qs.length, 5);
+      for (let i = 0; i < qs.length; i++) {
+        await page.locator('.suggest .chip').nth(i).click();
+        await page.waitForFunction((n) => document.querySelectorAll('.bubble.final').length === n, i + 1, { timeout: 20000 });
+        const turn = page.locator('.turn').nth(i);
+        assert.equal(await turn.locator('.msg.error').count(), 0, qs[i]);
+        const say = await turn.locator('.bubble.final .say').textContent();
+        assert.match(say, /165/, qs[i]);
+        assert.doesNotMatch(say.replace(/不代表一定安全/g, ''), /安全/, qs[i]);
+        if (i < 2) {
+          const card = turn.locator('.results [data-card="scam-risk"]');
+          assert.equal(await card.count(), 1, qs[i]);
+          assert.ok(await card.locator('.ab-risk.high, .ab-risk.medium').count() === 1, `${qs[i]} 應為高風險或有疑點`);
+          await turn.screenshot({ path: new URL(`${dname}-antifraud-${i + 1}.png`, SHOTS).pathname });
+        }
+      }
+      assert.match(await page.textContent('.agent-mode'), /示範模式/);
+    });
+  });
+}

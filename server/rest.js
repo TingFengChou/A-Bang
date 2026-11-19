@@ -1,7 +1,8 @@
 // REST 路由表（唯一定義）：server/http.js 用它處理請求，server/openapi.js 用它產生 Swagger 文件。
 // PWA 既有頁面使用；新功能請優先走 /api/v1/tools/:name。
 import { listTools, listPacks, describeTool } from '../core/tools/index.js';
-import { getProfile } from '../core/agents/index.js';
+import { getProfile, hasProfile, PROFILES } from '../core/agents/index.js';
+import { UserError } from '../core/util.js';
 import { TOOL_ROLES } from '../core/agent/events.js';
 
 const num = (v) => (v == null || v === '' ? undefined : Number(v));
@@ -28,7 +29,16 @@ export function restRoutes(svc) {
     '/api/v1/thsr/timetable': { summary: '高鐵時刻表', tag: 'PWA', params: OD, handler: (p) => svc.rail.thsrTimetable(p) },
     '/api/v1/tra/stations': { summary: '台鐵車站', tag: 'PWA', params: [], handler: () => svc.rail.traStations() },
     '/api/v1/tra/timetable': { summary: '台鐵時刻表', tag: 'PWA', params: OD, handler: (p) => svc.rail.traTimetable(p) },
-    '/api/v1/agent/profile': { summary: '網頁 agent 設定（名稱、建議問題、免責、小幫手角色）', tag: 'Agent', params: [], handler: () => { const p = getProfile('life'); return { id: p.id, name: p.name, suggestions: p.suggestions, disclaimer: p.disclaimer, roles: TOOL_ROLES }; } },
+    '/api/v1/agent/profile': {
+      summary: '網頁 agent 設定（名稱、建議問題、免責、小幫手角色）', tag: 'Agent',
+      params: [q('id', `agent id：${Object.keys(PROFILES).join('、')}；預設 life`, { example: 'antifraud' })],
+      handler: (p) => {
+        const id = p.id || 'life';
+        if (!hasProfile(id)) throw new UserError(`沒有這個 agent：${id}`);
+        const a = getProfile(id);
+        return { id: a.id, name: a.name, suggestions: a.suggestions, disclaimer: a.disclaimer, roles: Object.fromEntries(a.tools.map((t) => [t, TOOL_ROLES[t]])) };
+      },
+    },
     '/api/v1/tools': { summary: '列出 tools（名稱、說明、工具包、輸入 JSON Schema）', tag: 'Tools', params: [q('pack', '只列這些工具包，逗號分隔，例如 transit,weather')], handler: (p) => listTools({ packs: p.pack ? p.pack.split(',') : undefined }).map(describeTool) },
   };
 }
