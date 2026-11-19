@@ -33,6 +33,8 @@ export const FALLBACK = {
 
 /** 有卡片的工具，回給模型的清單最多幾筆（完整結果已在卡片上） */
 export const MODEL_LIST_MAX = 6;
+/** 選公車後自動盯的到站結果，接在 plan_trip 結果後面給模型（卡片已顯示；請模型主動問要不要到站提醒） */
+export const followUpText = (f) => (f ? `\n（阿幫已自動查好：${f.speak} 已用公車卡片即時顯示；回答時說公車多久到上車站，並問使用者要不要在卡片上按「到站前 3 分提醒我」）` : '');
 const ITEM = /^\s*-\s/;
 
 /**
@@ -134,7 +136,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
       const o = out[i];
       used.add(c.name);
       // 回填模型的只有文字摘要（清單截短），不放整包 data（AGENT.md §4）
-      results.set(c.id, o.ok ? { content: modelText(o.result) } : { content: o.error, isError: true });
+      results.set(c.id, o.ok ? { content: modelText(o.result) + followUpText(o.followUp) } : { content: o.error, isError: true });
     });
     conv.addResults(turn, turn.calls.map((c) => ({ id: c.id, ...results.get(c.id) })));
   }

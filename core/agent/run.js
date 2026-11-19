@@ -58,13 +58,28 @@ export function validateRequest(body) {
 }
 
 /**
+ * 決策選了公車 → 接著盯這條路線在上車站的即時到站（L-14）。由程式決定、不靠模型記得要查（ADR-0010 精神：決策與後續一致）。
+ * @param {object} trip plan_trip 的 data
+ * @returns {{ note: string, args: object } | null}
+ */
+export function busFollowUp(trip) {
+  const best = trip?.options?.find((o) => o.id === trip.best);
+  const f = best?.role === 'bus' && best.follow;
+  if (!f?.routeName || !f.stop) return null;
+  return {
+    note: `@公車 你選了公車，我幫你盯 ${f.routeName} 在「${f.stop}」的到站`,
+    args: { city: f.city, routeName: f.routeName, stop: f.stop, ...(f.direction != null && { direction: f.direction }) },
+  };
+}
+
+/**
  * 執行一批 tool 呼叫（平行）：先送全部 tool_start，再依完成順序送 tool_result；plan_trip 成功時接著送 decision。
- * 只允許 profile 白名單內的 tool。
+ * 只允許 profile 白名單內的 tool。plan_trip 選了公車時，接著自動查上車站的即時到站（`followUp`，事件照常送出）。
  * @param {object} svc
  * @param {Array<{ name: string, args: object }>} calls
  * @param {(e: object) => void} emit
  * @param {{ profile: object, nextId: () => string, picked?: string[] }} opts
- * @returns {Promise<Array<{ name: string, ok: boolean, result?: object, error?: string }>>} 依 calls 順序
+ * @returns {Promise<Array<{ name: string, ok: boolean, result?: object, error?: string, followUp?: object }>>} 依 calls 順序
  */
 export async function execTools(svc, calls, emit, { profile, nextId, picked = [] }) {
   const started = calls.map((c) => ({ ...c, id: nextId() }));
@@ -74,8 +89,21 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
       if (!profile.tools.includes(c.name)) throw new UserError(`這個 agent 不能使用 ${c.name}`);
       const result = await callTool(svc, c.name, c.name === 'plan_trip' ? withPickedPrefs(c.args, picked) : c.args);
       emit(ev.toolResult({ id: c.id, result }));
-      if (c.name === 'plan_trip') emit(ev.decision(withPicked(result.data, picked)));
-      return { name: c.name, ok: true, result };
+      if (c.name !== 'plan_trip') return { name: c.name, ok: true, result };
+      emit(ev.decision(withPicked(result.data, picked)));
+      const f = busFollowUp(result.data);
+      if (!f || !profile.tools.includes('bus_route_eta')) return { name: c.name, ok: true, result };
+      emit(ev.agentNote(f.note));
+      const id = nextId();
+      emit(ev.toolStart({ id, name: 'bus_route_eta', input: f.args }));
+      try {
+        const followUp = await callTool(svc, 'bus_route_eta', f.args);
+        emit(ev.toolResult({ id, result: followUp }));
+        return { name: c.name, ok: true, result, followUp };
+      } catch (e) {
+        emit(ev.toolResult({ id, error: publicMessage(e) })); // 盯不到不影響行程結果
+        return { name: c.name, ok: true, result };
+      }
     } catch (e) {
       const error = publicMessage(e);
       emit(ev.toolResult({ id: c.id, error }));
@@ -141,6 +169,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
     for (const o of out) {
       used.push(o.name);
       if (o.ok) (results[o.name] ||= []).push(o.result);
+      if (o.followUp) { used.push('bus_route_eta'); (results.bus_route_eta ||= []).push(o.followUp); }
     }
     if (out.some((o) => !o.ok)) break; // 有一步失敗就不往下，總結會說明
   }

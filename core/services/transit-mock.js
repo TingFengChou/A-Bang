@@ -101,11 +101,18 @@ export function createMockTransitServices() {
       const d = distanceM(from.lat, from.lon, to.lat, to.lon);
       if (d < 800 || d > 20000) return [];
       const r = seeded(`direct${from.lat.toFixed(3)},${from.lon.toFixed(3)}>${to.lat.toFixed(3)},${to.lon.toFixed(3)}`);
+      const routeName = pick(r, ROUTES);
+      const etaSec = Math.round(60 + r() * 600); // 規劃用的到站時間固定（測試可重現）；盯到站時再查即時
+      const rides = Math.max(2, Math.round((d * 1.3) / 450));
+      // 上車站用這條示範路線真的有的站名（選公車後盯到站對得上），座標放在起點旁
+      const dir0 = (await bus.routeEta({ city: 'Taipei', routeName })).directions[0];
+      const b = dir0.stops[2];
+      const a = dir0.stops[Math.min(dir0.stops.length - 1, 2 + rides)];
       return [{
-        routeName: pick(r, ROUTES), city: 'Taipei', label: '往 示範終點',
-        board: { name: '起點附近站牌（示範）', lat: from.lat + 0.001, lon: from.lon, etaSec: Math.round(60 + r() * 600) },
-        alight: { name: '終點附近站牌（示範）', lat: to.lat - 0.001, lon: to.lon },
-        stops: Math.max(2, Math.round((d * 1.3) / 450)), walkFromM: 120, walkToM: 150,
+        routeName, city: 'Taipei', label: dir0.label, direction: 0,
+        board: { name: b.stopName, seq: b.seq, lat: from.lat + 0.001, lon: from.lon, etaSec },
+        alight: { name: a.stopName, lat: to.lat - 0.001, lon: to.lon },
+        stops: rides, walkFromM: 120, walkToM: 150,
       }];
     },
     async stationEta({ stationId }) {

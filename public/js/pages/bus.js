@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { icons } from '../icons.js';
 import { esc, loading, errorBox, empty, etaBadge, fmtTime, favs, prefs, chev } from '../ui.js';
+import { createWebHost } from '../../ui/cards/host-web.js';
 
 const CITY_CHIPS = [['Taipei', '臺北'], ['NewTaipei', '新北'], ['Taoyuan', '桃園'], ['Taichung', '臺中'], ['Tainan', '臺南'], ['Kaohsiung', '高雄'], ['Keelung', '基隆'], ['Hsinchu', '新竹']];
 const REFRESH = 20000;
@@ -64,12 +65,15 @@ export function announcer(el) {
 /** 路線即時到站 */
 export const busRoute = {
   title: '路線',
-  render({ main, params: [city, route], setTitle, setAction, toast, onCleanup }) {
+  render({ main, params: [city, route], query = {}, setTitle, setAction, toast, onCleanup }) {
     route = decodeURIComponent(route);
     setTitle(`${route} 公車`);
-    starAction(setAction, toast, { id: `route:${city}:${route}`, type: 'route', title: `${route} 公車`, sub: '路線', href: location.hash });
-    let dir = 0, data = null;
-    main.innerHTML = `<div class="seg" id="dirs"></div><div id="stops">${loading()}</div><div class="updated" id="upd"></div><p class="sr-only" aria-live="polite" aria-atomic="true" id="sr"></p>`;
+    starAction(setAction, toast, { id: `route:${city}:${route}`, type: 'route', title: `${route} 公車`, sub: '路線', href: location.hash.split('?')[0] });
+    // ?stop=&dir=：問阿幫選公車後「開公車頁看動態」帶來的上車站（L-14）；這裡也能設到站提醒
+    const myStop = query.stop || null;
+    const host = createWebHost();
+    let dir = Number(query.dir) === 1 ? 1 : 0, data = null;
+    main.innerHTML = `<div id="focus"></div><div class="seg" id="dirs"></div><div id="stops">${loading()}</div><div class="updated" id="upd"></div><p class="sr-only" aria-live="polite" aria-atomic="true" id="sr"></p>`;
     const say = announcer(main.querySelector('#sr'));
 
     async function load() {
@@ -88,11 +92,33 @@ export const busRoute = {
       dirs.querySelectorAll('button').forEach((b) => (b.onclick = () => { dir = +b.dataset.i; paint(); }));
       const d = data.directions[dir] || data.directions[0];
       main.querySelector('#stops').innerHTML = `<div class="card list timeline">${d.stops.map((s) => `
-        <div class="${s.plate ? 'here' : ''}">
-          <div class="grow"><div class="title">${esc(s.stopName)}</div>${s.plate ? `<div class="plate">${esc(s.plate)} 即將抵達</div>` : ''}</div>
+        <div class="${s.plate ? 'here' : ''}${s.stopName === myStop ? ' me' : ''}">
+          <div class="grow"><div class="title">${esc(s.stopName)}${s.stopName === myStop ? '<span class="me-tag">你在這上車</span>' : ''}</div>${s.plate ? `<div class="plate">${esc(s.plate)} 即將抵達</div>` : ''}</div>
           ${etaBadge(s)}
         </div>`).join('')}</div>`;
+      paintFocus(d);
     }
+    /** 上車站：大字到站時間＋到站提醒（與問阿幫卡片共用同一個提醒） */
+    function paintFocus(d) {
+      const box = main.querySelector('#focus');
+      const s = myStop && d.stops.find((x) => x.stopName === myStop);
+      if (!s) { box.innerHTML = ''; return; }
+      const w = host.arrivalWatch();
+      const watching = w && w.routeName === route && w.stop === myStop;
+      const live = s.status === 0 && s.etaSec != null;
+      box.innerHTML = `<div class="card bus-focus"><div class="sub">到「${esc(myStop)}」</div><div class="big">${esc(s.statusText)}</div>
+        ${watching ? `<p class="ok" role="status">已設定：到站前 ${w.minutes} 分提醒你（App 開著時）<button class="btn ghost" id="unwatch" type="button">取消提醒</button></p>`
+          : live ? `<div class="row">${[3, 5].map((n) => `<button class="btn" type="button" data-min="${n}">到站前 ${n} 分提醒我</button>`).join('')}</div>` : ''}</div>`;
+      box.querySelectorAll('[data-min]').forEach((b) => (b.onclick = async () => {
+        await host.watchArrival({ city, routeName: route, stop: myStop, direction: dir, minutes: Number(b.dataset.min) });
+        toast(`好，${route} 到「${myStop}」前 ${b.dataset.min} 分提醒你`);
+        paintFocus(data.directions[dir] || data.directions[0]);
+      }));
+      box.querySelector('#unwatch')?.addEventListener('click', () => { host.unwatchArrival(); paintFocus(d); });
+    }
+    const onWatch = () => data && paintFocus(data.directions[dir] || data.directions[0]);
+    window.addEventListener('abang:arrival-watch', onWatch);
+    onCleanup(() => window.removeEventListener('abang:arrival-watch', onWatch));
     load();
     const t = setInterval(() => document.visibilityState === 'visible' && load(), REFRESH);
     onCleanup(() => clearInterval(t));

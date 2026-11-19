@@ -126,6 +126,8 @@ async function busOption(svc, from, to, straight, risk) {
       ],
       notes: [etaMin == null || etaMin < w1 ? '下一班到站時間不明，以 10 分估' : `${t.board.name} 約 ${etaMin} 分後到站`, '票價以一段票 15 元估'],
       ...((etaMin == null || etaMin < w1) && { estimated: true }),
+      // 決策選公車時，agent 接著盯這條路線在上車站的即時到站（bus_route_eta 的 stop／direction）
+      follow: { city: t.city, routeName: t.routeName, stop: t.board.name, ...(t.direction != null && { direction: t.direction }), walkMin: w1 },
     };
   });
   return opts.sort((a, b) => a.minutes - b.minutes)[0] || null;

@@ -9,6 +9,19 @@
     "routeName": { "type": "string" },
     "updatedAt": { "type": "string" },
     "demo": { "type": "boolean" },
+    "focus": {
+      "type": "object",
+      "required": ["direction", "seq", "stopName", "etaSec", "status", "statusText"],
+      "properties": {
+        "direction": { "type": "integer" },
+        "label": { "type": "string" },
+        "seq": { "type": "integer" },
+        "stopName": { "type": "string" },
+        "etaSec": { "type": ["integer", "null"] },
+        "status": { "type": "integer" },
+        "statusText": { "type": "string" }
+      }
+    },
     "directions": {
       "type": "array",
       "items": {
