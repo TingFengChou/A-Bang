@@ -1,14 +1,24 @@
 // trip（plan_trip）：建議方案＋分段時間條＋備案（最多 2）＋狀態 chips＋理由句；行動：導航、叫車、訂票（CARDS.md §4、UX.md §6）
 import { h } from '../dom.js';
 
-/** 「提醒我出門」：host 支援提醒、且出門時間在 1 分鐘後才顯示 */
+/**
+ * 可以設定「提醒我出門」嗎：行程是今天、出門時間在 1 分鐘後。
+ * leaveAt 與 date 都是台灣時間（伺服器算的），所以一律以台灣時間比較，不看裝置時區。
+ * @param {string} leaveAt 'HH:mm'
+ * @param {string|undefined} date 'YYYY-MM-DD'（沒有視為今天）
+ * @param {number} [now]
+ */
+export function canRemind(leaveAt, date, now = Date.now()) {
+  if (!/^\d{2}:\d{2}$/.test(leaveAt || '')) return false;
+  const tw = new Date(now + 8 * 3600e3);
+  if (date && date !== tw.toISOString().slice(0, 10)) return false;
+  const [hh, mm] = leaveAt.split(':').map(Number);
+  return hh * 60 + mm > tw.getUTCHours() * 60 + tw.getUTCMinutes() + 1;
+}
+
+/** 「提醒我出門」：host 支援提醒、且 canRemind 才顯示 */
 function remindButton(o, { host, t, state, rerender, payload }) {
-  if (!host?.remind || !o.leaveAt) return null;
-  // 只提醒今天的行程（台灣時間）；明天的行程不設定
-  if (payload?.data?.date && payload.data.date !== new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)) return null;
-  const [hh, mm] = o.leaveAt.split(':').map(Number);
-  const now = new Date();
-  if (hh * 60 + mm <= now.getHours() * 60 + now.getMinutes() + 1) return null;
+  if (!host?.remind || !canRemind(o.leaveAt, payload?.data?.date)) return null;
   if (state.reminded === o.id) return h('span', { class: 'ab-sub', role: 'status' }, t('trip.reminded', { time: o.leaveAt }));
   return h('button', { type: 'button', class: 'ab-btn', onclick: async () => {
     const ok = await host.remind(o.leaveAt, t('trip.remindText', { name: o.name, time: o.leaveAt })).catch(() => false);

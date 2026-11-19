@@ -144,13 +144,13 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       // 行程卡：跨城建議（高鐵）有導航與訂票；有出門時間時可設定提醒（時間已過則不顯示）
       const tripRail = page.locator('[data-card="trip"]').first();
       assert.ok(await tripRail.locator('.ab-option.best .ab-btn', { hasText: '訂票' }).count() === 1);
-      // 提醒我出門：以假 host 渲染一張今天、30 分鐘後出門的行程卡
+      // 提醒我出門：以假 host 渲染一張今天、30 分鐘後出門的行程卡。
+      // 時鐘固定在台灣上午 10 點，避免「現在＋30 分」跨過午夜（CI 在 UTC 23:30 後跑會變成隔天而失敗）
+      await page.clock.setFixedTime(new Date('2026-11-19T10:00:00+08:00'));
       const reminded = await page.evaluate(async () => {
         const { renderCard } = await import('/ui/cards/index.js');
-        const pad = (n) => String(n).padStart(2, '0');
-        const d = new Date(Date.now() + 30 * 60e3);
-        const leaveAt = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+        const leaveAt = '10:30';
+        const today = '2026-11-19';
         const calls = [];
         const host = { remind: async (at, text) => { calls.push([at, text]); return true; }, openLink() {} };
         const el = document.createElement('div');
