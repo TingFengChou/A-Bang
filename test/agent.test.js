@@ -22,7 +22,7 @@ test('行程：status → agent_note → tool_start… → tool_result… → de
   // 每段：該段所有 tool_start 都在任一 tool_result 之前
   const starts = es.filter((e) => e.type === 'tool_start');
   for (const s of starts) assert.ok(t.indexOf('tool_result', es.indexOf(s)) > es.indexOf(s));
-  assert.deepEqual(starts.map((s) => s.name), ['find_place', 'find_place', 'weather_now', 'traffic_status', 'plan_trip']);
+  assert.deepEqual(starts.map((s) => s.name), ['find_place', 'find_place', 'weather_now', 'aqi_nearby', 'traffic_status', 'plan_trip']);
   const d = es.find((e) => e.type === 'decision');
   assert.ok(d && t.indexOf('decision') > t.lastIndexOf('tool_start'));
   assert.equal(d.states[0].key, 'rain');

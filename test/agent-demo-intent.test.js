@@ -29,6 +29,7 @@ test('parseIntent：意圖、起訖、路線、狀態', () => {
   assert.deepEqual(['intent', 'station'].map((k) => c('捷運市政府站下一班')[k]), ['metro', '市政府']);
   assert.deepEqual(c('帶著行李從板橋車站到桃園機場，很趕').states, ['rush', 'luggage']);
   assert.deepEqual(c('下雨了，從台北車站去松山車站怎麼走？').states, ['rain']);
+  assert.deepEqual(c('今天空氣很差，從台北車站到台北101').states, ['badAir']);
   assert.equal(c('今天天氣如何').intent, 'weather');
   assert.equal(c('你好').intent, 'unknown');
 });

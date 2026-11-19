@@ -3,10 +3,10 @@
 // 不用 innerHTML（資料來自上游）；動畫只用 CSS，prefers-reduced-motion 時直接顯示最終狀態。
 
 const SVG = 'http://www.w3.org/2000/svg';
-const STATE_LABEL = { rush: '趕時間', traffic: '塞車中', rain: '下雨', luggage: '帶行李', budget: '想省錢', lessWalk: '少走路' };
+const STATE_LABEL = { rush: '趕時間', traffic: '塞車中', rain: '下雨', luggage: '帶行李', budget: '想省錢', lessWalk: '少走路', badAir: '空品不佳' };
 const SOURCE_LABEL = { auto: '自動', user: '你說的', picked: '你選的' };
 /** 自動狀態連回產生它的工具（UX.md §5 CRIT_SRC） */
-const STATE_SOURCE = { rain: '天氣', traffic: '路況' };
+const STATE_SOURCE = { rain: '天氣', traffic: '路況', badAir: '空品' };
 const ROLE_CLASS = { 地點: 'place', 天氣: 'place', 公車: 'bus', YouBike: 'bike', 高鐵: 'rail', 台鐵: 'tra', 捷運: 'brand', 路況: 'car', 客運: 'car', 票價: 'fare', 叫車: 'car', 行程: 'brand' };
 const ADDABLE = ['rush', 'budget', 'lessWalk', 'luggage'];
 /** 方案名稱縮短，分數一定看得到（「叫車（Uber）」→「叫車」） */
@@ -112,7 +112,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA }) {
     const srcY = new Map(sources.map((r, i) => [r, y(i, sources.length)]));
     const hub = { x: COL[1] + NODE_W / 2, y: (H + 28) / 2 };
     const best = ranked.find((o) => o.id === bestId);
-    const winRoles = new Set(best ? keyRoles(best, ranked[1]) : []);
+    const winRoles = new Set(best ? keyRoles(best, ranked[1], active) : []);
     // 1 資料 → 阿幫（中間），資料膠囊沿線流動
     for (const [role, yy] of srcY) {
       const lit = winRoles.has(role);
@@ -156,10 +156,11 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA }) {
     return g;
   }
 
-  /** 讓勝出方案贏的關鍵項目 → 對應的資料來源（淋雨←天氣、塞車風險←路況、費用←票價／行程） */
-  function keyRoles(best, second) {
+  /** 讓勝出方案贏的關鍵項目 → 對應的資料來源（戶外←天氣或空品、塞車風險←路況、費用←票價／行程） */
+  function keyRoles(best, second, active = []) {
     if (!second) return ['行程'];
-    const crit = { exposure: '天氣', delayRisk: '路況', cost: '票價', minutes: '行程', waitMin: '行程', walkMin: '地點', effort: '行程' };
+    const outdoor = active.includes('badAir') && !active.includes('rain') ? '空品' : '天氣';
+    const crit = { exposure: outdoor, delayRisk: '路況', cost: '票價', minutes: '行程', waitMin: '行程', walkMin: '地點', effort: '行程' };
     return CRITERIA.map((c) => ({ k: c.key, d: (best.breakdown?.[c.key] ?? 0) - (second.breakdown?.[c.key] ?? 0) }))
       .sort((a, b) => b.d - a.d).slice(0, 2).filter((x) => x.d > 0.01).map((x) => crit[x.k]);
   }

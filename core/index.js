@@ -20,10 +20,10 @@ import { createAntifraudServices } from './services/antifraud.js';
 import { createMockAntifraudServices } from './services/antifraud-mock.js';
 import { createOpenDataClient } from './opendata-client.js';
 import { createLifeServices, createLiveLifeFetchers } from './services/life.js';
-import { createMockLifeServices, demoLifeFetchers } from './services/life-mock.js';
+import { createMockLifeServices, demoLifeFetchersFor } from './services/life-mock.js';
 
 /**
- * @param {{ clientId?: string, clientSecret?: string, cwaKey?: string, moenvKey?: string, openData?: boolean, forceMock?: boolean, log?: Function, demo?: { traffic?: 'smooth'|'jam', weather?: 'clear'|'rain' } }} [opts]
+ * @param {{ clientId?: string, clientSecret?: string, cwaKey?: string, moenvKey?: string, openData?: boolean, forceMock?: boolean, log?: Function, demo?: { traffic?: 'smooth'|'jam', weather?: 'clear'|'rain', air?: 'good'|'bad' } }} [opts]
  *   openData：免金鑰的政府開放資料（165 防詐）用真實下載；預設 false（測試不連網），伺服器由 loadEnv 決定
  *   cwaKey：中央氣象署授權碼；沒有時天氣用示範資料（與 TDX 金鑰各自獨立）
  *   demo：示範模式情境（docs/TESTING.md §4），測試以參數注入，手動展示用環境變數
@@ -43,8 +43,8 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
   const antifraudLive = openData && !forceMock;
   // 生活服務（M10）：免金鑰的開放資料跟著 openData；空品要環境部金鑰、地震要氣象署授權碼，沒有就用示範片段
   const life = antifraudLive
-    ? createLifeServices(createLiveLifeFetchers({ od: createOpenDataClient(), cwa, moenvKey: forceMock ? null : moenvKey, demo: demoLifeFetchers }))
-    : createMockLifeServices();
+    ? createLifeServices(createLiveLifeFetchers({ od: createOpenDataClient(), cwa, moenvKey: forceMock ? null : moenvKey, demo: demoLifeFetchersFor({ air: demo.air }) }))
+    : createMockLifeServices({ air: demo.air });
   const antifraud = antifraudLive ? createAntifraudServices() : createMockAntifraudServices();
 
   return {
@@ -101,6 +101,6 @@ export async function loadEnv(path = new URL('../.env', import.meta.url)) {
     cwaKey: process.env.CWA_API_KEY,
     moenvKey: process.env.MOENV_API_KEY, // 環境部開放資料平臺 api_key（空氣品質）
     openData: process.env.OPEN_DATA !== '0', // 免金鑰開放資料（165 防詐）；OPEN_DATA=0 或 DEMO_MODE=1 時用示範片段
-    demo: { traffic: process.env.DEMO_TRAFFIC || undefined, weather: process.env.DEMO_WEATHER || undefined },
+    demo: { traffic: process.env.DEMO_TRAFFIC || undefined, weather: process.env.DEMO_WEATHER || undefined, air: process.env.DEMO_AIR || undefined },
   };
 }

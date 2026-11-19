@@ -236,7 +236,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 
 | | |
 |---|---|
-| 輸入 | `from`, `to`：座標或地名（`T.point`）；`departAt?`：HH:mm 或 ISO（同 `intercity_bus`）；`prefs?: { states?: ('rush'\|'traffic'\|'rain'\|'luggage'\|'budget'\|'lessWalk')[], arriveBy?: 'HH:mm' }` |
+| 輸入 | `from`, `to`：座標或地名（`T.point`）；`departAt?`：HH:mm 或 ISO（同 `intercity_bus`）；`prefs?: { states?: ('rush'\|'traffic'\|'rain'\|'luggage'\|'budget'\|'lessWalk'\|'badAir')[], arriveBy?: 'HH:mm' }` |
 | 輸出 | `{ from, to, straightKm, date, departAt, best, states: [{ key, source: 'auto'\|'user', from?, detail? }], weather, traffic, options: [Option], ranking: { ranked: [{ id, name, score, breakdown }], excluded: [{ id, name, why }], weights, reason }, unavailable? }`（與 `CARDS.md` `trip` 一致；`unavailable` 列出查詢失敗而略過的方案種類） |
 | Option | `{ id, role: 'walk'\|'bike'\|'bus'\|'thsr'\|'tra'\|'intercity'\|'ridehail', name, minutes, waitMin, walkMin, cost, costRange?, exposure, effort, delayRisk, arriveAt, arriveMin（自出發日 00:00 起算，可超過 24 小時；`arriveBy` 以此比較，跨午夜不誤判）, leaveAt?（高鐵／台鐵／客運：最晚出門時間＝發車 − 到站時間）, legs: [{ mode, from: {name, lat, lon}, to: {...}, minutes, detail, nav, url? }], notes[], train?, estimated?: true }` |
 | 排序 | `core/decide.js`（ADR-0010） |
@@ -250,7 +250,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 4. 軌道：直線 > 30 km 時查最近高鐵／台鐵站與班次、票價（`rail_fare`）。`delayRisk 0`。
 5. 國道客運：`intercity_bus`；`delayRisk` 依路況。
 6. 叫車：距離與路況估算時間與價格區間（`estimated: true`）；附 `ridehail_link`。
-7. 自動狀態：查 `traffic_status`（跨城或走一般道路的方案）與 `weather_now`（起點）；`raining` → 自動狀態「下雨」，`level = jam` → 「塞車中」。查詢失敗時不加狀態、不中斷規劃。
+7. 自動狀態：查 `traffic_status`（跨城或走一般道路的方案）、`weather_now`（起點）與 `aqi_nearby`（起點，M10）；`raining` → 自動狀態「下雨」，`level = jam` → 「塞車中」，最近測站 AQI > 100 → 「空品不佳」（`detail` 帶測站與 AQI；輸出另有 `air: { site, aqi, status } | null`）。查詢失敗時不加狀態、不中斷規劃。示範：`DEMO_AIR=bad`（或 `createServices({ demo: { air: 'bad' } })`）把示範測站 AQI 調到對敏感族群不健康。
 
 實作細節（M3-10；門檻與估算常數在 `trip.js` 的 `LIMITS`、`EST`）：
 

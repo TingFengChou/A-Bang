@@ -114,3 +114,16 @@ test('班次制：很早出發時不把長時間等車算進總時間，出門�
   assert.ok(thsr.minutes < 160, `${thsr.minutes} 分`);
   assert.ok(thsr.leaveAt > '05:30', thsr.leaveAt);
 });
+
+test('空品：起點 AQI > 100 自動加「空品不佳」（附測站與 AQI）；空品正常不加；查不到空品不影響規劃', async () => {
+  const bad = await planTrip(createServices({ forceMock: true, demo: { air: 'bad' } }), { from: TPE, to: T101, now: NOW });
+  const st = bad.states.find((s) => s.key === 'badAir');
+  assert.ok(st && st.source === 'auto' && st.from === 'aqi_nearby' && /測站 AQI \d+（對敏感族群不健康）/.test(st.detail), JSON.stringify(st));
+  assert.ok(bad.air.aqi > 100 && bad.air.site);
+  const good = await planTrip(createServices({ forceMock: true }), { from: TPE, to: T101, now: NOW });
+  assert.ok(!good.states.some((s) => s.key === 'badAir') && good.air.aqi <= 100);
+  const svc = createServices({ forceMock: true });
+  const noAir = await planTrip({ ...svc, life: { ...svc.life, aqiNearby: async () => { throw new Error('down'); } } }, { from: TPE, to: T101, now: NOW });
+  assert.equal(noAir.air, null);
+  assert.ok(noAir.best);
+});

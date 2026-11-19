@@ -10,6 +10,7 @@ const STATE_WORDS = [
   ['budget', /省錢|便宜|最省/],
   ['lessWalk', /不想走|少走|長輩|老人家|腳痛|輕鬆/],
   ['rain', /下雨|雨天|雨很大/],
+  ['badAir', /空氣(很|好|有點|太)?(差|髒|不好)/],
 ];
 const BUS_ROUTE = /(?:^|[^\d])([紅藍綠棕橘小幹]?\d{1,4}[區副]?)(?:\s*(?:號|路)?\s*(?:公車|到哪|來了|還要|什麼時候|幾分))/;
 const RAIL_WORD = /高鐵|台鐵|臺鐵|火車|自強|區間|莒光/;
@@ -156,7 +157,7 @@ export function demoSteps(it, now = Date.now()) {
         () => (fp
           ? { note: `@地點 確認「${it.to}」在哪`, calls: [{ name: 'find_place', args: { query: it.to } }] }
           : { note: `@地點 先確認「${from}」和「${it.to}」在哪`, calls: [{ name: 'find_place', args: { query: from } }, { name: 'find_place', args: { query: it.to } }] }),
-        (r) => { const [a, b] = pts(r); return a && b ? { note: '@天氣 @路況 看一下外面的狀況', calls: [{ name: 'weather_now', args: ll(a) }, { name: 'traffic_status', args: { from: ll(a), to: ll(b) } }] } : null; },
+        (r) => { const [a, b] = pts(r); return a && b ? { note: '@天氣 @空品 @路況 看一下外面的狀況', calls: [{ name: 'weather_now', args: ll(a) }, { name: 'aqi_nearby', args: ll(a) }, { name: 'traffic_status', args: { from: ll(a), to: ll(b) } }] } : null; },
         (r) => { const [a, b] = pts(r); return a && b ? { note: '@行程 幫你比較幾種走法', calls: [{ name: 'plan_trip', args: {
           from: asArg(a), to: asArg(b), // 地名：卡片標題顯示地名；定位：帶座標與「你的位置」
           ...(dep && { departAt: `${date}T${dep}` }),

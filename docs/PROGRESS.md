@@ -13,6 +13,14 @@
 
 ---
 
+## 2026-11-19 M10 L-10 空品進決策引擎
+
+- 做了：`core/decide.js` 新增狀態 `badAir`（空品不佳：`exposure` ×3、`effort` ×2），比較項目 `exposure` 標籤改「戶外」，理由句在空品不佳且沒下雨時說「少待在戶外」。`plan_trip` 同時查起點空品（`svc.life.aqiNearby`，失敗不影響規劃），最近測站 AQI > 100 自動加「空品不佳」（detail 帶測站與 AQI），輸出 `air`。卡片契約 states 加 `badAir`、`air`；決策圖 空品 → 空品不佳、勝出關鍵「戶外」在空品不佳時連到空品。示範模式行程第二段多查 `aqi_nearby`；「空氣很差」→ badAir。示範情境 `DEMO_AIR=bad`。
+- 測試：npm test 238 項全過（新增 decide 空品、planTrip 空品自動狀態／正常／查不到、OD 市區短程＋空品不佳、意圖關鍵字）；npm run e2e 24 項全過；示範伺服器 `DEMO_AIR=bad` 實測：西門町→101 自動「空品不佳」、選叫車、理由「因為空氣品質不佳…少待在戶外」，決策圖畫出 空品 → 空品不佳
+- 文件：ADR-0010（狀態與權重紀錄）、MCP_TOOLS.md、CARDS.md、UX.md、AGENT.md、TESTING.md、README、.env.example、PLAN.md（L-10）
+- 下一個：地端模型提速（給模型的工具結果精簡）
+- 卡住：無
+
 ## 2026-11-19 UI 標示真實／示範資料
 
 - 做了：使用者看不出哪些是真實資料。`core/index.js` 加 `dataSources(svc)`（交通、天氣、空氣品質、地震、藥局等開放資料、防詐各自 live／demo；不含金鑰或環境變數名稱），`/api/v1/status` 回 `sources`。首頁橫幅依來源說明（原本只看 TDX，誤說「全部模擬」）：部分示範時列出示範的類別；首頁格子加 `source`，示範資料的格子標「示範」；卡片角落 live 標「真實資料」、demo 標「示範資料」；問阿幫討論串的工具回報用示範資料時標「示範資料」。SW v0.4.3

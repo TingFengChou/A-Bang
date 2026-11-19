@@ -59,6 +59,7 @@
 |---|---|---|
 | `DEMO_MODE` | `1` | 強制 mock |
 | `DEMO_WEATHER` | `rain`／`clear` | `weather_now` mock 結果（M3-08） |
+| `DEMO_AIR` | `bad`／`good` | 示範空品：`bad` 時測站 AQI 調到對敏感族群不健康，`plan_trip` 自動加「空品不佳」（M10） |
 | `DEMO_TRAFFIC` | `jam`／`smooth` | `traffic_status` mock 結果（M3-06） |
 | `DEMO_NOW` | ISO 時間 | 固定「現在」，讓時刻表與倒數可重現 |
 

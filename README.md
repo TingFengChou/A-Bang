@@ -128,7 +128,7 @@ docker compose up -d --build
 
 ## 環境變數
 
-見 [`.env.example`](.env.example)：`PORT`、`DEMO_MODE`、`TDX_*`、`CWA_API_KEY`、`OPEN_DATA`、`MOENV_API_KEY`、`AGENT_PROVIDER`、`ANTHROPIC_*`、`LOCAL_LLM_*`、`RATE_LIMIT_*`、`AGENT_*`、`TRUST_PROXY`、`MCP_PACKS`、`DEMO_WEATHER`、`DEMO_TRAFFIC`。
+見 [`.env.example`](.env.example)：`PORT`、`DEMO_MODE`、`TDX_*`、`CWA_API_KEY`、`OPEN_DATA`、`MOENV_API_KEY`、`AGENT_PROVIDER`、`ANTHROPIC_*`、`LOCAL_LLM_*`、`RATE_LIMIT_*`、`AGENT_*`、`TRUST_PROXY`、`MCP_PACKS`、`DEMO_WEATHER`、`DEMO_TRAFFIC`、`DEMO_AIR`。
 
 ## 開發
 
