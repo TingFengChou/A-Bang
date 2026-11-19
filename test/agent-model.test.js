@@ -4,7 +4,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import Anthropic from '@anthropic-ai/sdk';
-import { runModel, FALLBACK, dropNulls } from '../core/agent/model-loop.js';
+import { runModel, FALLBACK, dropNulls, modelText, MODEL_LIST_MAX } from '../core/agent/model-loop.js';
 import { createClaudeProvider } from '../core/agent/claude.js';
 import { createLocalProvider, stripThink, LocalModelError } from '../core/agent/local.js';
 import { pickProvider } from '../core/agent/provider.js';
@@ -280,4 +280,25 @@ test('pickProvider：DEMO_MODE 優先、自動偵測、指定模式、設定錯�
   assert.throws(() => pickProvider({ AGENT_PROVIDER: 'claude' }, dm), /ANTHROPIC_API_KEY/);
   assert.throws(() => pickProvider({ AGENT_PROVIDER: 'local', LOCAL_LLM_URL: 'http://x' }, dm), /LOCAL_LLM_MODEL/);
   assert.throws(() => pickProvider({ LOCAL_LLM_URL: 'file:///etc/passwd', LOCAL_LLM_MODEL: 'm' }, dm), /http／https/);
+});
+
+test('modelText：有卡片的清單只回前幾筆並註明已用卡片顯示；沒有卡片照原文', () => {
+  const items = Array.from({ length: 20 }, (_, i) => `- 藥局 ${i + 1}｜(02)1234｜地址`);
+  const long = modelText({ card: 'pharmacy', speak: '找到 20 家。', text: items.join('\n') });
+  assert.equal(long.split('\n').filter((l) => l.startsWith('- ')).length, MODEL_LIST_MAX);
+  assert.match(long, /^找到 20 家。/);
+  assert.match(long, /共 20 筆.+已用卡片顯示.+不要逐條列出/);
+  const short = modelText({ card: 'fuel', speak: 'x', text: '中油牌價：\n- 92：31.2\n- 95：32.7' });
+  assert.match(short, /^中油牌價：\n- 92：31\.2\n- 95：32\.7\n（以上已用卡片顯示/);
+  assert.equal(modelText({ card: null, text: '- a\n- b' }), '- a\n- b', '沒有卡片（例如訂票連結）不改');
+  assert.equal(modelText({ card: 'fuel' }), FALLBACK.empty);
+});
+
+test('發票：模型把「這期」放進 number → 視為只查中獎號碼（不報錯）', async () => {
+  const { callTool } = await import('../core/tools/index.js');
+  const svc = createServices({ forceMock: true });
+  const r = await callTool(svc, 'invoice_lottery', { number: '這期' });
+  assert.equal(r.data.check, undefined);
+  assert.match(r.speak, /特別獎/);
+  await assert.rejects(callTool(svc, 'invoice_lottery', { number: '12' }), /8 位數字/);
 });
