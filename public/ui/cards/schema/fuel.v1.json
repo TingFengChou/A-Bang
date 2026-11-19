@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/fuel.v1.json",
+  "title": "fuel（fuel_price）",
+  "type": "object",
+  "required": [
+    "effectiveDate",
+    "prices"
+  ],
+  "properties": {
+    "effectiveDate": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "prices": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "price",
+          "unit"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -99,3 +99,33 @@
 .ab-advice { margin: 0; padding-left: 20px; }
 .ab-advice li { margin: 2px 0; }
 .ab-foot { color: var(--ab-muted); font-size: 12px; margin: 10px 0 0; }
+
+/* 生活服務卡片共用：數值格（天氣、空氣品質、油價…） */
+.ab-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; margin: 8px 0; }
+.ab-stat { background: #f4f6f5; border-radius: 10px; padding: 8px 10px; display: grid; gap: 2px; }
+.ab-stat strong { font-size: 20px; font-variant-numeric: tabular-nums; }
+.ab-wx { font-weight: 700; margin: 4px 0; }
+.ab-wx.rain { color: var(--ab-warn); }
+.ab-aqi { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; margin: 4px 0; background: #eef1f0; }
+.ab-aqi p { margin: 2px 0 0; }
+.ab-aqi-num { font-size: 32px; font-variant-numeric: tabular-nums; min-width: 56px; text-align: center; }
+.ab-aqi.good { background: var(--ab-ok-soft); color: var(--ab-ok); }
+.ab-aqi.moderate { background: #fdf6dd; color: #8a6100; }
+.ab-aqi.sensitive, .ab-aqi.unhealthy { background: var(--ab-warn-soft); color: var(--ab-warn); }
+.ab-aqi.very, .ab-aqi.hazard { background: var(--ab-bad-soft); color: var(--ab-bad); }
+.ab-aqi .ab-sub { color: inherit; }
+.ab-chip.aqi-good { background: var(--ab-ok-soft); color: var(--ab-ok); }
+.ab-chip.aqi-sensitive, .ab-chip.aqi-unhealthy { background: var(--ab-warn-soft); color: var(--ab-warn); }
+.ab-chip.aqi-very, .ab-chip.aqi-hazard { background: var(--ab-bad-soft); color: var(--ab-bad); }
+.ab-quake, .ab-pharm, .ab-gb { padding: 8px 0; border-bottom: 1px solid var(--ab-line); }
+.ab-quake p, .ab-pharm p, .ab-gb p { margin: 2px 0; }
+.ab-mag { font-size: 18px; min-width: 52px; }
+.ab-gb.off { color: var(--ab-off); }
+.ab-time { font-variant-numeric: tabular-nums; min-width: 92px; }
+.ab-truck { color: var(--ab-brand); font-size: 13px; }
+.ab-inv { display: grid; grid-template-columns: 56px 1fr; gap: 2px 10px; padding: 8px 0; border-bottom: 1px solid var(--ab-line); align-items: baseline; }
+.ab-inv > div { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.ab-inv > .ab-sub:last-child { grid-column: 2; }
+.ab-invno { font-size: 20px; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+.ab-risk.ab-win { background: var(--ab-ok-soft); color: var(--ab-ok); }
+.ab-input { flex: 1; min-width: 0; font: inherit; padding: 6px 10px; border: 1px solid var(--ab-line); border-radius: 10px; }

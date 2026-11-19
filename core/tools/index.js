@@ -11,11 +11,12 @@ import ridehail from './ridehail.js';
 import trip from './trip.js';
 import booking from './booking.js';
 import antifraud from './antifraud.js';
+import life from './life.js';
 
 /** 卡片資料契約版本（public/ui/cards/schema/<card>.v1.json） */
 export const CARD_VERSION = 1;
 
-const ALL = [...transit, ...metro, ...traffic, ...intercity, ...weather, ...ridehail, ...trip, ...booking, ...antifraud];
+const ALL = [...transit, ...metro, ...traffic, ...intercity, ...weather, ...ridehail, ...trip, ...booking, ...antifraud, ...life];
 const byName = new Map(ALL.map((t) => [t.name, t]));
 if (byName.size !== ALL.length) throw new Error('tool 名稱重複');
 

@@ -25,6 +25,15 @@ const CASES = [
   ['plan_trip', { from: '台北車站', to: '高雄車站', departAt: '09:00', prefs: { states: ['rush'], arriveBy: '12:00' } }, { traffic: 'jam', weather: 'rain' }],
   ['scam_check_message', { text: '【台電】電費逾期未繳，今日內未處理將停電，請點擊 https://eincioiice-tw-nat-gov.com/pay' }],
   ['scam_check_message', { text: '明天中午一起吃飯嗎？' }],
+  ['weather_now', P],
+  ['weather_now', P, { weather: 'rain' }],
+  ['aqi_nearby', P],
+  ['earthquake_recent', { county: '臺南市' }],
+  ['pharmacy_search', { area: '臺北市大安區' }],
+  ['garbage_truck_nearby', P],
+  ['garbage_truck_nearby', { lat: 25.0183, lon: 121.4717 }],
+  ['fuel_price', {}],
+  ['invoice_lottery', { number: '54348835' }],
 ];
 
 test('validate：型別、必要欄位、enum、$ref、additionalProperties', () => {
@@ -42,7 +51,7 @@ test('每個有卡片的 tool 都有契約，契約檔都對得到 tool', async 
   const cards = new Set(listTools().filter((t) => t.card).map((t) => t.card));
   const files = (await readdir(DIR)).filter((f) => f.endsWith('.v1.json')).map((f) => f.replace('.v1.json', ''));
   assert.deepEqual([...cards].sort(), files.sort());
-  assert.equal(files.length, 8);
+  assert.ok(files.length >= 9); // 每種卡片一份契約（集合相等已在上一行檢查）
   for (const f of files) assert.equal((await load(f)).$schema, 'https://json-schema.org/draft/2020-12/schema', f);
 });
 

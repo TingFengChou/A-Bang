@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/weather.v1.json",
+  "title": "weather（weather_now）",
+  "type": "object",
+  "required": ["station", "distanceM", "summary", "raining"],
+  "properties": {
+    "station": { "type": "string" },
+    "town": { "type": "string" },
+    "county": { "type": "string" },
+    "distanceM": { "type": "integer", "minimum": 0 },
+    "observedAt": { "type": ["string", "null"] },
+    "tempC": { "type": ["number", "null"] },
+    "rainMm1h": { "type": ["number", "null"] },
+    "rainStation": { "type": ["string", "null"] },
+    "pop3h": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+    "raining": { "type": "boolean" },
+    "summary": { "type": "string" },
+    "demo": { "type": "boolean" }
+  }
+}
