@@ -3,6 +3,7 @@
 import { listTools, listPacks, describeTool } from '../core/tools/index.js';
 import { getProfile, hasProfile, PROFILES } from '../core/agents/index.js';
 import { UserError } from '../core/util.js';
+import { dataSources } from '../core/index.js';
 import { TOOL_ROLES } from '../core/agent/events.js';
 
 const num = (v) => (v == null || v === '' ? undefined : Number(v));
@@ -19,7 +20,7 @@ const OD = [q('from', '起站（中文站名或代碼）', { required: true, exa
  */
 export function restRoutes(svc) {
   return {
-    '/api/v1/status': { summary: '服務狀態（live／demo、工具包）', tag: 'PWA', params: [], handler: () => ({ mode: svc.mode, weatherMode: svc.weatherMode, time: new Date().toISOString(), packs: listPacks() }) },
+    '/api/v1/status': { summary: '服務狀態（live／demo、各類資料是真實或示範、工具包）', tag: 'PWA', params: [], handler: () => ({ mode: svc.mode, weatherMode: svc.weatherMode, sources: dataSources(svc), time: new Date().toISOString(), packs: listPacks() }) },
     '/api/v1/bus/routes': { summary: '搜尋公車路線', tag: 'PWA', params: [CITY, q('keyword', '路線關鍵字', { example: '307' })], handler: (p) => svc.bus.searchRoutes({ city: p.city, keyword: p.keyword || '' }) },
     '/api/v1/bus/eta': { summary: '公車路線即時到站', tag: 'PWA', params: [CITY, q('route', '完整路線名稱', { required: true, example: '307' })], handler: (p) => svc.bus.routeEta({ city: p.city, routeName: p.route }) },
     '/api/v1/bus/nearby': { summary: '附近公車站', tag: 'PWA', params: [LAT, LON, RADIUS(400)], handler: (p) => svc.bus.nearbyStations({ lat: num(p.lat), lon: num(p.lon), radius: num(p.radius) }) },

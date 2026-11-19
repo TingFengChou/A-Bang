@@ -17,6 +17,7 @@
 .ab-updated, .ab-sub, .ab-status { color: var(--ab-muted); font-size: 13px; }
 .ab-badge { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--ab-brand-soft); color: var(--ab-brand); white-space: nowrap; }
 .ab-demo { background: #eef1f0; color: var(--ab-muted); }
+.ab-live { background: var(--ab-brand-soft); color: var(--ab-brand); }
 .ab-best { background: var(--ab-brand); color: #fff; }
 .ab-fail { color: var(--ab-bad); font-size: 13px; }
 .ab-empty { color: var(--ab-muted); margin: 8px 0; }

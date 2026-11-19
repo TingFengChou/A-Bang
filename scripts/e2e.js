@@ -62,6 +62,9 @@ for (const [dname, device] of Object.entries(DEVICES)) {
     await withPage(device, '#/', async (page) => {
       await page.waitForSelector('.hero .search input');
       assert.match(await page.textContent('.demo-banner'), /示範模式/);
+      // 示範資料標示：E2E 伺服器全部示範 → 每個格子都標「示範」
+      await page.waitForSelector('a.tile .tag.demo');
+      assert.equal(await page.locator('a.tile .tag.demo').count(), await page.locator('a.tile[data-source]').count());
       assert.equal(await page.locator('.tabbar a').count(), 4);
       assert.ok(await page.locator('.grid .tile').count() > 0);
       await shot(page, `${dname}-home`);
@@ -166,6 +169,18 @@ for (const [dname, device] of Object.entries(DEVICES)) {
         el.remove();
         return out;
       });
+      // 真實資料的卡片標「真實資料」，示範標「示範資料」
+      const badges = await page.evaluate(async () => {
+        const { renderCard } = await import('/ui/cards/index.js');
+        const out = {};
+        for (const mode of ['live', 'demo']) {
+          const el = document.createElement('div');
+          renderCard(el, { card: 'fuel', mode, data: { effectiveDate: '2026-11-16', prices: [{ name: '92無鉛汽油', price: 31.2 }] } });
+          out[mode] = el.querySelector('.ab-badge')?.textContent;
+        }
+        return out;
+      });
+      assert.deepEqual(badges, { live: '真實資料', demo: '示範資料' });
       assert.equal(reminded.calls.length, 1);
       assert.equal(reminded.calls[0][0], reminded.leaveAt);
       assert.match(reminded.text, /提醒你出門/);

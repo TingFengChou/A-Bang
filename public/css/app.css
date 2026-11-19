@@ -57,6 +57,7 @@ main { padding: 4px 16px 16px; }
 .tile .ic svg { width: 22px; height: 22px; }
 .tile.soon { opacity: .55; cursor: default; }
 .tile .tag { position: absolute; top: 6px; right: 6px; font-size: 10px; padding: 0 5px; border-radius: 6px; background: var(--off-soft); color: var(--muted); }
+.tile .tag.demo { border: 1px solid var(--line); }
 
 /* Cards & lists */
 .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }

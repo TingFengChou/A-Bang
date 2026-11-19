@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { aqiNearby, aqiLevel, quakeList, todayHours, pharmacySearch, garbageNearby, fuelPrices, parseInvoiceRss, checkInvoice, rocDate, normAddr, createLiveLifeFetchers } from '../core/services/life.js';
 import { createOpenDataClient } from '../core/opendata-client.js';
 import { callTool } from '../core/tools/index.js';
-import { createServices } from '../core/index.js';
+import { createServices, dataSources } from '../core/index.js';
 
 const svc = createServices({ forceMock: true });
 const THU = Date.parse('2026-11-19T10:00:00+08:00'); // 星期四
@@ -114,4 +114,13 @@ test('開放資料 client：快取、同時只下載一次、失敗沿用舊資�
   const bad = createOpenDataClient({ fetchImpl: async () => new Response('api_key 不存在。', { status: 200 }) });
   const fx = createLiveLifeFetchers({ od: bad, cwa: null, moenvKey: 'k', demo: {} });
   await assert.rejects(fx.aqi(), /環境部空氣品質資料格式不符預期/);
+});
+
+test('dataSources：各類資料真實／示範（網頁標示用），不含金鑰', () => {
+  const ids = (x) => x.map((s) => `${s.id}:${s.mode}`);
+  assert.deepEqual(ids(dataSources(svc)), ['transit:demo', 'weather:demo', 'aqi:demo', 'quake:demo', 'opendata:demo', 'antifraud:demo']);
+  // 只開免金鑰開放資料：藥局等與防詐是真實，需金鑰的仍是示範
+  const open = createServices({ openData: true });
+  assert.deepEqual(ids(dataSources(open)), ['transit:demo', 'weather:demo', 'aqi:demo', 'quake:demo', 'opendata:live', 'antifraud:live']);
+  assert.ok(dataSources(open).every((s) => Object.keys(s).join() === 'id,name,mode'));
 });

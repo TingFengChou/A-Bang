@@ -1,7 +1,7 @@
 import { miniApps, groups } from '../registry.js';
 import { icons } from '../icons.js';
 import { esc, favs, etaBadge, chev } from '../ui.js';
-import { api } from '../api.js';
+import { api, state } from '../api.js';
 
 export default {
   title: '阿幫',
@@ -32,7 +32,9 @@ export default {
       if (q) location.hash = offline ? `#/bus?q=${encodeURIComponent(q)}` : `#/agent?q=${encodeURIComponent(q)}`;
     });
     main.querySelectorAll('.tile.soon').forEach((el) =>
-      el.addEventListener('click', () => toast(`「${el.dataset.name}」規劃中，預計串接${el.dataset.source}資料`)));
+      el.addEventListener('click', () => toast(`「${el.dataset.name}」規劃中`)));
+    // 示範資料的服務在格子上標「示範」（依 /api/v1/status 的 sources）
+    api.status().then(() => markDemoTiles(main)).catch(() => {});
 
     renderFavs(main.querySelector('#favs'));
     const t = setInterval(() => renderFavs(main.querySelector('#favs')), 30000);
@@ -40,11 +42,21 @@ export default {
   },
 };
 
+/** 資料是示範的服務：格子右上角標「示範」（離線 Demo 全部是示範） */
+function markDemoTiles(main) {
+  const demo = new Set((state.sources || []).filter((x) => x.mode === 'demo').map((x) => x.id));
+  const all = !state.sources && state.mode === 'demo';
+  for (const el of main.querySelectorAll('a.tile[data-source]')) {
+    el.querySelector('.tag.demo')?.remove();
+    if (all || demo.has(el.dataset.source)) el.insertAdjacentHTML('beforeend', '<span class="tag demo" title="目前是示範資料，不是即時資料">示範</span>');
+  }
+}
+
 function tile(a) {
   const inner = `<span class="ic">${icons[a.icon]}</span>${esc(a.name)}`;
   return a.status === 'soon'
-    ? `<button class="tile soon" data-name="${esc(a.name)}" data-source="${esc(a.source)}"><span class="tag">規劃中</span>${inner}</button>`
-    : `<a class="tile" href="${a.route}">${inner}</a>`;
+    ? `<button class="tile soon" data-name="${esc(a.name)}"><span class="tag">規劃中</span>${inner}</button>`
+    : `<a class="tile" href="${a.route}" data-source="${esc(a.source)}">${inner}</a>`;
 }
 
 async function renderFavs(el) {
