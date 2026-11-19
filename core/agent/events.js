@@ -9,7 +9,7 @@ export const TOOL_ROLES = {
   find_place: '地點', plan_trip: '行程', bus_route_eta: '公車', bus_nearby_stations: '公車', bus_station_eta: '公車', bus_search_routes: '公車',
   youbike_nearby: 'YouBike', metro_live_board: '捷運', metro_stations: '捷運', thsr_timetable: '高鐵', tra_timetable: '台鐵', rail_stations: '車站',
   rail_fare: '票價', intercity_bus: '客運', traffic_status: '路況', weather_now: '天氣', rail_booking_link: '訂票', ridehail_link: '叫車',
-  aqi_nearby: '空品', earthquake_recent: '地震', pharmacy_search: '藥局', garbage_truck_nearby: '垃圾車', fuel_price: '油價', invoice_lottery: '發票',
+  aqi_nearby: '空品', earthquake_recent: '地震', pharmacy_search: '藥局', garbage_truck_nearby: '垃圾車', fuel_price: '油價', invoice_lottery: '發票', invoice_check_batch: '發票',
   scam_check_message: '防詐', scam_lookup_url: '網址', scam_myth_search: '闢謠', sms_sender_check: '號碼',
 };
 

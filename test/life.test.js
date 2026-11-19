@@ -124,3 +124,24 @@ test('dataSources：各類資料真實／示範（網頁標示用），不含金
   assert.deepEqual(ids(dataSources(open)), ['transit:demo', 'weather:demo', 'aqi:demo', 'quake:demo', 'opendata:live', 'antifraud:live']);
   assert.ok(dataSources(open).every((s) => Object.keys(s).join() === 'id,name,mode'));
 });
+
+test('發票批次對獎：期別、開獎日、中獎／沒中／待開獎／超過範圍、未來日期與格式錯誤', async () => {
+  const { invoicePeriodOf, invoiceDrawDate } = await import('../core/services/life.js');
+  assert.deepEqual(['2026-11-19', '2026-12-31', '2026-07-01', '2026-08-31', '2027-01-05'].map(invoicePeriodOf), ['11511', '11511', '11507', '11507', '11601']);
+  assert.deepEqual(['11509', '11511', '11501'].map(invoiceDrawDate), ['2026-11-25', '2027-01-25', '2026-03-25']);
+  const NOW = Date.parse('2026-11-19T10:00:00+08:00');
+  const d = await svc.life.invoiceCheckMany({ items: [
+    { number: '54348835', period: '11507' }, { number: '12348835', date: '2026-08-03' }, { number: '00000001', date: '2026-07-10' },
+    { number: '11111111', date: '2026-10-01' }, { number: '33333333', date: '2024-01-05' },
+  ] }, NOW);
+  assert.deepEqual(d.results.map((r) => [r.status, r.prize ?? null]), [['won', '頭獎'], ['won', '三獎'], ['lost', null], ['pending', null], ['unavailable', null]]);
+  assert.equal(d.results[3].drawDate, '2026-11-25');
+  assert.deepEqual(d.summary, { won: 2, lost: 1, pending: 1, unavailable: 1, amount: 210000 });
+  await assert.rejects(svc.life.invoiceCheckMany({ items: [{ number: '12345678', date: '2026-12-01' }] }, NOW), /還沒到/);
+  const r = await callTool(svc, 'invoice_check_batch', { items: [{ number: 'AB-54348835', period: '11507' }, { number: '11111111', date: '2026-10-01' }] });
+  assert.match(r.speak, /中 1 張.+1 張還沒開獎/);
+  assert.equal(r.card, null);
+  await assert.rejects(callTool(svc, 'invoice_check_batch', { items: [{ number: '123' , date: '2026-10-01' }] }), /8 位數字/);
+  await assert.rejects(callTool(svc, 'invoice_check_batch', { items: [{ number: '12345678' }] }), /消費日期或期別/);
+  await assert.rejects(callTool(svc, 'invoice_check_batch', { items: Array.from({ length: 51 }, () => ({ number: '12345678', period: '11507' })) }));
+});

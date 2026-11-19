@@ -13,6 +13,14 @@
 
 ---
 
+## 2026-11-19 M10 L-11 我的發票（本機自動對獎）
+
+- 做了：使用者希望發票能自動對獎、主動提醒。評估 Gmail（讀信是 Google 高敏感權限、需安全審查，且多數發票在載具不在信箱）與財政部載具 API（需保存使用者載具驗證碼）都會保存使用者帳號資料，屬 ADR 變更，先做本機版。core：`invoicePeriodOf`、`invoiceDrawDate`、`invoiceCheckMany`；tool `invoice_check_batch`（1–50 張，號碼只比對不保存）。網頁：`public/js/invoice-wallet.js`（localStorage `invoices`，最多 100 張；新增驗證與去重；`checkWallet` 只送需要對的；`autoCheckOnOpen` 打開 App 時開獎日已到自動對獎，中獎 toast＋已允許時系統通知）；服務頁發票卡片下方「我的發票」。問阿幫：示範總結與 life 規則主動提議存到「我的發票」，不向使用者要載具、Email 或密碼。SW v0.4.5
+- 測試：npm test 245 項全過（新增批次對獎 1 項、`test/invoice-wallet.test.js` 4 項）；npm run e2e 25 項全過（新增：存起來立刻對獎、待開獎顯示開獎日、只存本機、打開 App 自動對獎並通知中獎；截圖已檢查）
+- 文件：MCP_TOOLS.md、UX.md §6、AGENT.md、PLAN.md（L-11）、PROGRESS.md
+- 下一個：掃發票 QR code 自動填號碼（相機，`BarcodeDetector` 支援時）；股市行情（TWSE OpenAPI）
+- 卡住：無
+
 ## 2026-11-19 地端模型提速：回給模型的工具結果精簡
 
 - 做了：量測地端模型（qwen3:8b）發現兩個問題：① 藥局清單 20 筆全回給模型，模型照抄成長篇回答（30–70 秒）；② 「這期發票號碼是多少」模型把「這期」放進 `number`，工具報錯、回答錯誤。`core/agent/model-loop.js` 新增 `modelText`：有卡片的工具清單最多 6 筆、前面加 `speak`、註明完整清單已用卡片顯示、不要逐條列出（沒有卡片的工具照原文）。`invoice_lottery` 的 `number` 沒有任何數字時視為沒給，描述改為「只查中獎號碼時不要給」。

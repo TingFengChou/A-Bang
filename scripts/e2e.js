@@ -443,3 +443,32 @@ test('生活服務：首頁格子 → 服務頁卡片（捷運、天氣、空品
     assert.match(await page.textContent('.ab-win'), /三獎/);
   });
 });
+
+test('我的發票（本機）：存起來立刻對獎、待開獎顯示開獎日、打開 App 時自動對獎並通知中獎', async () => {
+  await withPage(DEVICES.phone, '#/s/invoice', async (page) => {
+    await page.waitForSelector('#inv-add');
+    // 已開獎的期別（示範資料 11507）：存起來就出結果
+    await page.fill('#inv-add input[name=number]', '54348835');
+    await page.fill('#inv-add input[name=date]', '2026-08-03');
+    await page.click('#inv-add button');
+    await page.waitForSelector('#inv-list .inv-st.won');
+    assert.match(await page.textContent('#inv-list .inv-st.won'), /頭獎/);
+    // 還沒開獎的期別：顯示開獎日
+    await page.fill('#inv-add input[name=number]', '11111111');
+    await page.fill('#inv-add input[name=date]', '2026-10-01');
+    await page.click('#inv-add button');
+    await page.waitForFunction(() => [...document.querySelectorAll('#inv-list .inv-st.wait')].some((e) => /11\/25 開獎/.test(e.textContent)));
+    assert.equal(await page.locator('#inv-list [data-id]').count(), 2);
+    await shot(page, 'phone-invoice-wallet');
+    // 只存在本機
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('invoices')).map((x) => x.number));
+    assert.deepEqual(saved.sort(), ['11111111', '54348835']);
+    // 模擬「上次存時還沒開獎、現在開獎了」：打開 App（首頁）就自動對獎並通知
+    await page.evaluate(() => localStorage.setItem('invoices', JSON.stringify([{ id: 'x', number: '12348835', period: '11507', status: 'pending', drawDate: '2026-09-25' }])));
+    await page.goto(`${base}/#/`);
+    await page.reload();
+    await page.waitForFunction(() => [...document.querySelectorAll('[role=status]')].some((e) => /中獎了.+12348835 三獎/.test(e.textContent)), null, { timeout: 10000 });
+    const after = await page.evaluate(() => JSON.parse(localStorage.getItem('invoices'))[0]);
+    assert.equal(after.status, 'won');
+  });
+});
