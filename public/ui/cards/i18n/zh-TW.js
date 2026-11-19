@@ -204,6 +204,20 @@ export const MESSAGES = {
   'invoice.win': '{prize}！獎金 {amount} 元',
   'invoice.lose': '{n} 沒有中獎',
   'invoice.note': '對獎結果僅供參考，領獎以財政部公告為準。',
+  'stock.title': '台股收盤行情',
+  'stock.index': '{name}・{date}',
+  'stock.close': '{date} 收盤',
+  'stock.ohlv': '開 {open}・高 {high}・低 {low}・成交 {lots} 張',
+  'stock.up': '上漲 {n}',
+  'stock.down': '下跌 {n}',
+  'stock.flat': '平盤',
+  'stock.noTrade': '當日無成交',
+  'stock.similar': '也可能是：',
+  'stock.notFound': '找不到「{q}」，請用股票代號或完整名稱（目前只有上市、上櫃股票與 ETF）。',
+  'stock.placeholder': '代號或名稱，例如 2330、0050',
+  'stock.search': '查詢',
+  'stock.context': '使用者在股市卡片上查看：{names} 的收盤行情',
+  'stock.note': '資料：證交所、櫃買中心開放資料，每個交易日收盤後更新，不是即時報價。僅供參考，不構成投資建議。',
 };
 
 /**

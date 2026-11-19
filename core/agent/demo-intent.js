@@ -18,6 +18,7 @@ const RAIL_WORD = /高鐵|台鐵|臺鐵|火車|自強|區間|莒光/;
 const LIFE_WORDS = [
   ['invoice', /發票|對獎|中獎號碼/],
   ['fuel', /油價|汽油|柴油|95\s*無鉛|92\s*無鉛/],
+  ['stock', /股價|股票|股市|[台臺]股|大盤|加權指數|櫃買|收盤|漲停|跌停|\bETF\b|\d{4}\s*(?:漲|跌)/i],
   ['quake', /地震|震度|震央/],
   ['pharmacy', /藥局|藥房|領藥|拿藥/],
   ['garbage', /垃圾車|倒垃圾|收垃圾/],
@@ -30,6 +31,11 @@ const AREA = /((?:[一-龥]{2}[市縣])?[一-龥]{1,2}[區鄉鎮])/;
 const COUNTY = /((?:臺|台)北|新北|桃園|(?:臺|台)中|(?:臺|台)南|高雄|基隆|新竹|嘉義|苗栗|彰化|南投|雲林|屏東|宜蘭|花蓮|(?:臺|台)東|澎湖|金門|連江)[市縣]?/;
 const countyOf = (s) => COUNTY.exec(s)?.[0];
 const INVOICE_NO = /(?:^|\D)(\d{8}|\d{3})(?!\d)/;
+// 股市：去掉口語與行情字眼，剩下的就是股票名稱或代號（「台積電和 0050 今天收盤多少」→「台積電、0050」）
+const STOCK_FILLER = /今天|昨天|今日|現在|目前|最新|最近|股價|股票|股市|[台臺]股|大盤|加權指數|櫃買指數|指數|收盤價?|行情|報價|價格|走勢|表現|漲停|跌停|漲|跌|多少錢?|幾塊|幾元|怎麼樣|如何|查詢|查一下|查|幫我|請問|看一下|看看|看|一下|要不要|該不該|可不可以|可以|能不能|值得|推薦|建議|會不會|明牌|進場|出場|買點|賣點|買|賣|有沒有|還|該|會|嗎|呢|吧|啊|了|的|我|\bETF\b/gi;
+export const stockQueryOf = (s) => String(s).replace(STOCK_FILLER, '、').split(/[、,，;；\s？?。！!和跟與及]+/).filter((w) => (/^\d/.test(w) ? /^\d{4}/.test(w) : w.length >= 2)).slice(0, 5).join('、');
+const STOCK_ADVICE = /該不該|要不要買|可以買|能買|值得買|該買|該賣|推薦|明牌|會漲|會跌|進場|出場|買點|賣點/;
+export const NO_ADVICE = '阿幫不提供投資建議，只能報開放資料的收盤數字：';
 
 // 地標名稱與別名，長的優先（「台北車站」先於「台北」）
 // 車站另加去掉「高鐵／捷運」與「車站／站」的短名（「左營」→ 高鐵左營站）；同長度時完整名稱優先
@@ -79,17 +85,34 @@ function lifeIntent(s) {
   if (intent === 'invoice') return { intent, number: INVOICE_NO.exec(s)?.[1] };
   if (intent === 'quake') return { intent, county: countyOf(s) };
   if (intent === 'pharmacy') return { intent, area: AREA.exec(s)?.[1] || countyOf(s) };
+  if (intent === 'stock') return { intent, query: stockQueryOf(s) || undefined, advice: STOCK_ADVICE.test(s) };
   return { intent };
 }
 
+// 追問（「那聯發科呢？」「0056 呢」）：短句、沒有其他意圖時，沿用前面的股市提問
+const FOLLOW_UP = /^(?:那|那麼|還有|再查|再看|換|也查)?\s*([^\s？?，,。！!]{2,12}?)\s*(?:呢|勒|咧|的呢|也查)?\s*[？?]?$/;
+// 要有追問的語氣（「那…」「…呢」）或本身是代號，「謝謝」「好」不算
+const FOLLOW_MARK = /^(?:那|那麼|還有|再查|再看|換|也查)|(?:呢|勒|咧)\s*[？?]?$|^\d{4,6}[A-Za-z]?\s*[？?]?$/;
+const isFollowUp = (s) => FOLLOW_UP.test(s) && FOLLOW_MARK.test(s);
+/** 往回找使用者上一個「不是追問」的提問；是股市就回 true */
+function followsStock(history = []) {
+  for (const m of history.filter((x) => x.role === 'user').reverse()) {
+    const it = parseIntent(m.content);
+    if (it.intent === 'stock') return true;
+    if (it.intent !== 'unknown' || !isFollowUp(String(m.content).trim())) return false;
+  }
+  return false;
+}
+
 /**
- * 解析一句話。
- * @returns {{ intent: 'trip'|'bus_route'|'youbike'|'nearby_bus'|'metro'|'rail'|'weather'|'aqi'|'quake'|'pharmacy'|'garbage'|'fuel'|'invoice'|'unknown',
+ * 解析一句話；ctx.history（之前的訊息）用來接追問。
+ * @returns {{ intent: 'trip'|'bus_route'|'youbike'|'nearby_bus'|'metro'|'rail'|'weather'|'aqi'|'quake'|'pharmacy'|'garbage'|'fuel'|'invoice'|'stock'|'unknown',
  *            places: string[], states: string[], arriveBy: string|null, tomorrow: boolean, route?: string, system?: 'THSR'|'TRA', from?: string, to?: string,
- *            station?: string, number?: string, county?: string, area?: string }}
+ *            station?: string, number?: string, county?: string, area?: string, query?: string, advice?: boolean }}
  */
-export function parseIntent(text) {
+export function parseIntent(text, ctx) {
   const s = String(text || '').trim();
+  const history = (ctx && typeof ctx === 'object' && ctx.history) || [];
   const places = placesInText(s);
   const states = STATE_WORDS.filter(([, re]) => re.test(s)).map(([k]) => k);
   const arriveBy = arriveByOf(s);
@@ -115,6 +138,10 @@ export function parseIntent(text) {
     return { ...base, intent: 'trip', from, to };
   }
   if (WEATHER_WORD.test(s)) return { ...base, intent: 'weather' };
+  // 前面在聊股市時，「我該買台積電嗎？」沒有股市字眼也接著查（並說明不提供投資建議）
+  if (STOCK_ADVICE.test(s) && followsStock(history)) return { ...base, intent: 'stock', query: stockQueryOf(s) || undefined, advice: true, followUp: true };
+  const follow = isFollowUp(s) && FOLLOW_UP.exec(s);
+  if (follow && followsStock(history)) return { ...base, intent: 'stock', query: stockQueryOf(follow[1]) || follow[1], advice: false, followUp: true };
   return { ...base, intent: 'unknown' };
 }
 
@@ -199,6 +226,8 @@ export function demoSteps(it, now = Date.now()) {
     }
     case 'fuel':
       return [() => ({ note: '@油價 中油這週的牌價', calls: [{ name: 'fuel_price', args: {} }] })];
+    case 'stock':
+      return [() => ({ note: it.query ? `@股市 查「${it.query}」的收盤行情` : '@股市 看一下大盤收盤', calls: [{ name: 'stock_quote', args: { ...(it.query && { query: it.query }) } }] })];
     case 'invoice':
       return [() => ({ note: it.number ? '@發票 幫你對獎' : '@發票 最新一期中獎號碼', calls: [{ name: 'invoice_lottery', args: { ...(it.number && { number: it.number }) } }] })];
     default:
@@ -208,7 +237,7 @@ export function demoSteps(it, now = Date.now()) {
 
 /** 示範模式的總結（取自工具結果，不經模型） */
 export function demoSummary(it, results, suggestions = []) {
-  if (it.intent === 'unknown') return `我可以幫你查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）和生活資訊（天氣、空品、地震、藥局、垃圾車、油價、發票）。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
+  if (it.intent === 'unknown') return `我可以幫你查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）和生活資訊（天氣、空品、地震、藥局、垃圾車、油價、發票、股市收盤）。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
   const last = Object.values(results).flat().filter(Boolean).at(-1);
   if (!last) return '這次沒查到資料，換個說法或加上地名試試看。';
   if (it.intent === 'trip') {
@@ -218,7 +247,8 @@ export function demoSummary(it, results, suggestions = []) {
   }
   // 沒說地點時用了示範預設，先講清楚
   const pre = isNearby(it) && !it.places[0] && !it.fromPoint ? `（你沒說在哪，我先查「${DEFAULT_FROM}」附近。）`
-    : it.intent === 'pharmacy' && !it.area ? `（你沒說哪一區，我先查「${DEFAULT_AREA}」。）` : '';
+    : it.intent === 'pharmacy' && !it.area ? `（你沒說哪一區，我先查「${DEFAULT_AREA}」。）`
+    : it.intent === 'stock' && it.advice ? NO_ADVICE : '';
   // 發票：主動提議存到「我的發票」，開獎後自動對獎（號碼只存在手機）
   const post = it.intent === 'invoice' ? ` ${INVOICE_WALLET_HINT}` : '';
   return `${pre}${last.speak || '查好了，結果在下面的卡片。'}${post}`;

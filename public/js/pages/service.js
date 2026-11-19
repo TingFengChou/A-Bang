@@ -49,6 +49,13 @@ export const SERVICES = {
   fuel: { title: '油價', tool: 'fuel_price', auto: true, args: () => ({}) },
   // 卡片下方是「我的發票」（本機保存，開獎後自動對獎）
   invoice: { title: '發票對獎', tool: 'invoice_lottery', auto: true, args: () => ({}), after: renderWallet },
+  // 股市收盤行情（證交所、櫃買中心）：記住上次查的股票
+  stock: {
+    title: '股市行情', tool: 'stock_quote', auto: true,
+    form: `<div class="row"><input class="field" name="query" placeholder="代號或名稱，多檔用「、」分隔" aria-label="股票代號或名稱" maxlength="60"><button class="btn">查詢</button></div>`,
+    setup(f) { f.query.value = prefs.get('stock:query', '台積電、0050'); },
+    args: (f) => { const q = f.query.value.trim(); prefs.set('stock:query', q); return q ? { query: q } : {}; },
+  },
 };
 
 export default {

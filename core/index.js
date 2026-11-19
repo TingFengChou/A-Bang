@@ -21,6 +21,8 @@ import { createMockAntifraudServices } from './services/antifraud-mock.js';
 import { createOpenDataClient } from './opendata-client.js';
 import { createLifeServices, createLiveLifeFetchers } from './services/life.js';
 import { createMockLifeServices, demoLifeFetchersFor } from './services/life-mock.js';
+import { createStockServices, createLiveStockFetchers } from './services/stock.js';
+import { createMockStockServices } from './services/stock-mock.js';
 
 /**
  * @param {{ clientId?: string, clientSecret?: string, cwaKey?: string, moenvKey?: string, openData?: boolean, forceMock?: boolean, log?: Function, demo?: { traffic?: 'smooth'|'jam', weather?: 'clear'|'rain', air?: 'good'|'bad' } }} [opts]
@@ -42,16 +44,18 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
 
   const antifraudLive = openData && !forceMock;
   // 生活服務（M10）：免金鑰的開放資料跟著 openData；空品要環境部金鑰、地震要氣象署授權碼，沒有就用示範片段
-  const life = antifraudLive
-    ? createLifeServices(createLiveLifeFetchers({ od: createOpenDataClient(), cwa, moenvKey: forceMock ? null : moenvKey, demo: demoLifeFetchersFor({ air: demo.air }) }))
+  const od = antifraudLive ? createOpenDataClient() : null;
+  const life = od
+    ? createLifeServices(createLiveLifeFetchers({ od, cwa, moenvKey: forceMock ? null : moenvKey, demo: demoLifeFetchersFor({ air: demo.air }) }))
     : createMockLifeServices({ air: demo.air });
+  const stock = od ? createStockServices(createLiveStockFetchers({ od })) : createMockStockServices(); // 股市收盤（證交所、櫃買中心，免金鑰）
   const antifraud = antifraudLive ? createAntifraudServices() : createMockAntifraudServices();
 
   return {
     mode: live ? 'live' : 'demo',
     weatherMode: weatherLive ? 'live' : 'demo',
     antifraudMode: antifraudLive ? 'live' : 'demo',
-    openDataMode: antifraudLive ? 'live' : 'demo', // 免金鑰開放資料（藥局、垃圾車、油價、發票）
+    openDataMode: antifraudLive ? 'live' : 'demo', // 免金鑰開放資料（藥局、垃圾車、油價、發票、股市）
     aqiMode: antifraudLive && moenvKey ? 'live' : 'demo',
     quakeMode: antifraudLive && cwa ? 'live' : 'demo',
     ...transit, // bus, bike, rail
@@ -63,6 +67,7 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
     ...booking, // booking：導訂票（⛔ 權限前 live 回「尚未開通」）
     ...createRidehailServices(), // ridehail：只產生官方連結，live 與示範相同（ADR-0011）
     ...life, // life：空品、地震、藥局、垃圾車、油價、發票（M10）
+    ...stock, // stock：上市櫃收盤行情與指數（finance 工具包）
     ...antifraud, // antifraud：165 開放資料（免金鑰；DEMO_MODE=1 時用示範片段，M7）
   };
 }
@@ -80,7 +85,7 @@ export function dataSources(svc) {
     { id: 'weather', name: '天氣', mode: svc.weatherMode },
     { id: 'aqi', name: '空氣品質', mode: svc.aqiMode },
     { id: 'quake', name: '地震', mode: svc.quakeMode },
-    { id: 'opendata', name: '藥局、垃圾車、油價、發票', mode: svc.openDataMode },
+    { id: 'opendata', name: '藥局、垃圾車、油價、發票、股市', mode: svc.openDataMode },
     { id: 'antifraud', name: '防詐', mode: svc.antifraudMode },
   ];
 }

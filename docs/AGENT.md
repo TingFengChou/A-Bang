@@ -15,18 +15,18 @@
 // core/agents/life.json（core/agents/index.js 以 zod 驗證：未知欄位擋下、tools 必須在 registry 且 pack 列在 packs）
 {
   "id": "life",
-  "version": 2,
+  "version": 3,
   "name": { "zh-TW": "阿幫・生活", "en": "A-Bang Life" },
   "model": "claude-haiku-5-5",
-  "packs": ["transit", "weather", "ridehail", "life"],
+  "packs": ["transit", "weather", "ridehail", "life", "finance"],
   "tools": ["find_place", "plan_trip", "bus_route_eta", "bus_nearby_stations", "bus_station_eta", "youbike_nearby",
             "metro_live_board", "thsr_timetable", "tra_timetable", "rail_fare", "intercity_bus", "traffic_status",
             "weather_now", "rail_booking_link", "ridehail_link",
-            "aqi_nearby", "earthquake_recent", "pharmacy_search", "garbage_truck_nearby", "fuel_price", "invoice_lottery"],
+            "aqi_nearby", "earthquake_recent", "pharmacy_search", "garbage_truck_nearby", "fuel_price", "invoice_lottery", "stock_quote"],
   "persona": "你是「阿幫」，一隻熱心的台灣藍鵲…",   // 角色（system prompt 的「角色」段）
   "rules": ["每次呼叫工具前，先用一句話…", "…"],      // agent 專屬規則（不可覆蓋平台政策與工具包護欄）
   "suggestions": ["從西門町到台北 101 怎麼去？", "307 到哪了？我在臺北車站", "明天 9 點前要到左營", "台北車站附近還有 YouBike 嗎？", "…", "大安區有哪些健保藥局？", "這期發票號碼是多少？"],  // 共 8 個
-  "disclaimer": "資料來源：交通部 TDX、中央氣象署、環境部、健保署、地方環保局、台灣中油、財政部。…"
+  "disclaimer": "資料來源：交通部 TDX、中央氣象署、環境部、健保署、地方環保局、台灣中油、財政部、臺灣證券交易所、證券櫃檯買賣中心。…"
 }
 ```
 
@@ -155,6 +155,8 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 | 高鐵／台鐵 | 「高鐵」「台鐵／火車／自強／區間」＋兩個站名 | `thsr_timetable`／`tra_timetable` |
 | 發票（M10） | 發票／對獎；8 碼或末 3 碼數字 → 對獎；總結主動提議存到「我的發票」 | `invoice_lottery` |
 | 油價 | 油價／汽油／柴油 | `fuel_price` |
+| 股市 | 股價／股票／股市／台股／大盤／加權指數／櫃買／收盤／ETF／「2330 漲」；去掉口語與行情字眼後剩下的是名稱或代號（`stockQueryOf`，「台積電和 0050 今天收盤多少」→「台積電、0050」），沒剩下只查指數；問買賣（該買、推薦、會漲、明牌…）時總結先說「阿幫不提供投資建議，只能報開放資料的收盤數字」 | `stock_quote` |
+| 股市追問 | 前面的提問是股市時：「那聯發科呢？」「0056 呢」「2454」（短句＋「那…／…呢」或代號），以及「我該買台積電嗎？」（問買賣）都接著查；「謝謝」「好」不算 | `stock_quote` |
 | 地震 | 地震／震度／震央；「XX 縣／市」→ 該縣市震度 | `earthquake_recent` |
 | 藥局 | 藥局／藥房／領藥；「（縣市）XX 區／鄉／鎮」或縣市 → 地區（沒說用「臺北市中正區」並在總結說明） | `pharmacy_search` |
 | 垃圾車 | 垃圾車／倒垃圾 | `find_place`（或裝置定位）→ `garbage_truck_nearby` |
@@ -162,9 +164,23 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 | 天氣 | 天氣／氣溫／幾度／帶傘（在行程之後判斷：有起訖仍是行程） | `find_place`（或裝置定位）→ `weather_now` |
 | 其他 | — | 回覆可以問的範例（交通＋生活） |
 
-生活服務在公車路線之前判斷（「發票 12345678」不會當成路線）。座標類（YouBike、附近公車、天氣、空品、垃圾車）沒說地點時請客戶端定位，拒絕時用「臺北車站」附近並在總結說明。
+生活服務在公車路線之前判斷（「發票 12345678」不會當成路線）。追問：`run.js` 把之前的訊息（`messages` 去掉最後一則）交給 `parseIntent(text, { history })`，往回找使用者上一個不是追問的提問；目前只有股市支援追問。座標類（YouBike、附近公車、天氣、空品、垃圾車）沒說地點時請客戶端定位，拒絕時用「臺北車站」附近並在總結說明。
 
 狀態關鍵字：「趕」「來不及」→ rush；「行李」→ luggage；「省錢」「便宜」→ budget；「不想走」「長輩」→ lessWalk；「空氣很差／不好」→ badAir；「X 點前」→ arriveBy。行程第二段同時查天氣、空品、路況（`weather_now`、`aqi_nearby`、`traffic_status`），讓決策圖畫出自動狀態的來源。
+
+### 5.1 股市的互動模型（示範與模型模式相同）
+
+| 情境 | 使用者 | 阿幫 | 卡片／事件 |
+|---|---|---|---|
+| 查一檔 | 「台積電股價多少」 | `@股市 查「台積電」的收盤行情` → 「台積電 11/18 收 2175，漲 5（0.23%）。」 | `stock` |
+| 多檔 | 「台積電和 0050 今天收盤多少？」 | 一次查兩檔（`query: 台積電、0050`） | `stock`（兩列） |
+| 大盤 | 「今天大盤怎麼樣」 | 不給 query → 只回加權與櫃買指數，說出資料日期 | `stock`（只有指數） |
+| 追問 | 「那聯發科呢？」 | 沿用上一題的股市；模型模式靠對話歷史 | `stock` |
+| 卡片內操作 | 在卡片輸入「環球晶」或按「也可能是」 | 卡片原地更新（`host.callTool`），並 `host.setContext`「使用者在股市卡片上查看：環球晶（6488）」→ 下一句「它成交量多少？」模型知道「它」是誰 | 卡片更新，不新增訊息 |
+| 問買賣 | 「我該買台積電嗎？明天會漲嗎？」 | 先說不提供投資建議，再報收盤數字；不預測 | `stock`；模型若仍給建議 → 輸出護欄整句換掉並送 `guardrail` |
+| 找不到 | 「火星電股價」 | 「找不到「火星電」」＋請用代號或完整名稱；名稱只部分相同時附「也可能是」 | `stock`（`notFound`） |
+
+規則：只用 `stock_quote` 的數字，說出資料日期（收盤資料，不是即時）；不建議買賣、不預測漲跌、不推薦個股（`PACK_GUARDRAILS.finance`、life 規則、輸出護欄 `no-investment-advice`）。2026-11-19 地端 qwen3:8b 實測以上 5 種情境都正確呼叫工具（追問 → `聯發科`、卡片脈絡 → `6488`、問買賣先拒絕建議）；工具文字把「+102.8」改寫成「漲 102.8 點」後，模型不再把漲說成跌。
 
 ## 6. 成本與濫用防護
 

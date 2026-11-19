@@ -33,7 +33,7 @@ test('行程：status → agent_note → tool_start… → tool_result… → de
 
 test('其他意圖：公車、YouBike、高鐵、捷運、生活服務都以卡片結尾；unknown 只有 text', async () => {
   for (const [q, card] of [['307 到哪了？我在臺北車站', 'bus-route'], ['台北車站附近還有 YouBike 嗎？', 'youbike'], ['高鐵台北到台中下一班幾點？', 'timetable'], ['捷運市政府站下一班', 'metro'],
-    ['台北車站附近的空氣品質', 'aqi'], ['這期發票號碼是多少？', 'invoice'], ['今天油價多少', 'fuel']]) {
+    ['台北車站附近的空氣品質', 'aqi'], ['這期發票號碼是多少？', 'invoice'], ['今天油價多少', 'fuel'], ['台積電股價多少', 'stock']]) {
     const es = await collect(q);
     assert.equal(es.filter((e) => e.type === 'tool_result').at(-1).card, card, q);
     assert.ok(!es.some((e) => e.type === 'decision'), q);

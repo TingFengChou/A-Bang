@@ -18,10 +18,11 @@ export const miniApps = [
   { id: 'antifraud', source: 'antifraud', group: 'gov', name: '防詐', icon: 'shield', route: '#/agent/antifraud' }, // M7：阿幫・防詐
   { id: 'fuel', source: 'opendata', group: 'gov', name: '油價', icon: 'fuel', route: '#/s/fuel' },
   { id: 'invoice', source: 'opendata', group: 'gov', name: '發票對獎', icon: 'receipt', route: '#/s/invoice' },
+  { id: 'stock', source: 'opendata', group: 'gov', name: '股市', icon: 'chart', route: '#/s/stock' },
 ];
 
 export const groups = [
   { id: 'transit', name: '交通出行', note: '資料來源：TDX 運輸資料流通服務' },
   { id: 'life', name: '生活與環境', note: '資料來源：政府開放資料' },
-  { id: 'gov', name: '消費與政府服務', note: '防詐、油價、發票：政府開放資料' },
+  { id: 'gov', name: '消費與政府服務', note: '防詐、油價、發票、股市：政府開放資料' },
 ];
