@@ -1,7 +1,7 @@
 # UX 規格 — 阿幫・生活（交通）
 
-版本：v0.4（2026-11-17）。參考原型：`docs/prototypes/transit-discussion.html`（瀏覽器直接開；4 個情境）。
-正式實作在 `public/js/pages/agent.js`（✅ M5-08，`#/agent`）＋ `public/css/agent.css`，**由真實 NDJSON 事件驅動**（`AGENT.md` §3），原型中的假資料與 `sleep()` 只是示意。頭像目前以角色名縮寫＋色彩圓形呈現（線條 SVG 圖示待補）。
+版本：v0.4（2026-11-17）。參考原型：`docs/prototypes/transit-discussion.html`（瀏覽器直接開；4 個情境）；Agent 互動模型：`docs/prototypes/agent-interaction.html`（股市、發票掃描、選公車後盯到站＋提醒；右邊即時顯示事件流、模型看得到的歷史與卡片脈絡、命中的規則）。
+正式實作在 `public/js/pages/agent.js`（✅ M5-08，`#/agent`）＋ `public/css/agent.css`，**由真實 NDJSON 事件驅動**（`AGENT.md` §3），原型中的假資料與 `sleep()` 只是示意。頭像：阿幫用吉祥物（`/brand/abang-think.svg`，與原型相同），每個小幫手是角色色彩圓形＋線條圖示（`public/js/icons.js`，與首頁格子同一套；`role=img`＋`aria-label` 念角色名）。
 
 ## 1. 原則
 

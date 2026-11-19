@@ -17,7 +17,10 @@
 .bubble.failed .say { color: var(--muted); }
 .bubble .src { grid-column: 2; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .say.typing { color: var(--muted); }
-.avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff; background: var(--brand); }
+.avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff; background: var(--brand); flex: none; }
+.avatar svg { width: 18px; height: 18px; }
+.avatar.mascot { background: none; }
+.avatar.mascot img { width: 32px; height: 32px; display: block; }
 .r-place { background: var(--place); } .r-bike { background: var(--bike); } .r-rail { background: var(--rail); } .r-tra { background: var(--tra); }
 .r-fare { background: var(--fare); } .r-car { background: var(--car); } .r-bad { background: var(--bad); } .r-brand, .r-bus { background: var(--brand); }
 .mention { color: #fff; border-radius: 6px; padding: 0 4px; margin: 0 1px; font-size: 13px; }
