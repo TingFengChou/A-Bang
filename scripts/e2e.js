@@ -21,7 +21,7 @@ before(async () => {
   // 示範模式：清掉金鑰，確保不連外
   server = spawn(process.execPath, ['server/http.js'], {
     cwd: new URL('..', import.meta.url),
-    env: { ...process.env, PORT: String(port), DEMO_MODE: '1', TDX_CLIENT_ID: '', TDX_CLIENT_SECRET: '', CWA_API_KEY: '', ANTHROPIC_API_KEY: '', AGENT_RPM: '500', AGENT_RPD: '5000' },
+    env: { ...process.env, PORT: String(port), DEMO_MODE: '1', TDX_CLIENT_ID: '', TDX_CLIENT_SECRET: '', CWA_API_KEY: '', ANTHROPIC_API_KEY: '', AGENT_RPM: '500', AGENT_RPD: '5000', RATE_LIMIT_API: '2000' }, // 測試一分鐘內呼叫很多次 API，限流另在 mcp.test 測
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   await new Promise((res, rej) => {
@@ -38,13 +38,15 @@ after(async () => {
 });
 
 /** 開新的 browser context 與頁面、收集錯誤，跑完 fn（不論成敗）一定關閉 context；最後確認沒有頁面錯誤 */
-async function withPage(device, path, fn) {
+/** @param {{ init?: Function, initArg?: any }} [opts] init：頁面載入前執行（page.addInitScript），例如假相機 */
+async function withPage(device, path, fn, { init, initArg } = {}) {
   const ctx = await browser.newContext({ ...device, geolocation: TAIPEI, permissions: ['geolocation'], reducedMotion: 'reduce' });
   try {
     const page = await ctx.newPage();
     const errors = [];
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
     page.on('console', (m) => m.type() === 'error' && errors.push(`console: ${m.text()}`));
+    if (init) await page.addInitScript(init, initArg);
     await page.goto(`${base}/${path}`);
     await fn(page);
     assert.deepEqual(errors, [], path);
@@ -475,6 +477,43 @@ test('股市：預設查台積電、0050，漲紅跌綠有 ▲▼；卡片內查
     assert.match(await t3.locator('.bubble.final .say').textContent(), /^阿幫不提供投資建議/);
     await shot(page, 'phone-agent-stock');
   });
+});
+
+// 掃發票：假的 BarcodeDetector 依序吐出條碼、假相機（canvas 串流）；CI 的 Linux Chromium 本來就沒有 BarcodeDetector
+const LEFT_QR = 'AB54348835115080312340000006400000069000000001234567800000000000000000000000:**********:1:1:1:咖啡:1:65';
+function fakeScanner(codes) {
+  const queue = [...codes];
+  window.BarcodeDetector = class {
+    static async getSupportedFormats() { return ['qr_code', 'code_39']; }
+    async detect() { return queue.length ? [{ rawValue: queue.shift() }] : []; }
+  };
+  navigator.mediaDevices.getUserMedia = async () => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    c.getContext('2d').fillRect(0, 0, 64, 64);
+    return c.captureStream(5);
+  };
+}
+
+test('掃發票：右邊 QR 提示掃左邊、同一張只存一次、一維條碼存期別；完成後一次對獎；不支援的瀏覽器改手動', async () => {
+  await withPage(DEVICES.phone, '#/s/invoice', async (page) => {
+    await page.click('#inv-scan');
+    await page.waitForSelector('dialog.scan-dialog[open]');
+    await page.waitForFunction(() => /這次已存 2 張/.test(document.querySelector('.scan-status')?.textContent || ''), null, { timeout: 10000 });
+    await shot(page, 'phone-invoice-scan');
+    await page.click('.scan-done');
+    assert.equal(await page.locator('dialog.scan-dialog').count(), 0, '關閉後移除視窗並停止相機');
+    await page.waitForSelector('#inv-list .inv-st.won');
+    assert.match(await page.textContent('#inv-list .inv-st.won'), /頭獎/);
+    await page.waitForFunction(() => [...document.querySelectorAll('#inv-list .inv-st.wait')].some((e) => /1\/25 開獎/.test(e.textContent)));
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('invoices')).map((x) => [x.number, x.date || x.period]));
+    assert.deepEqual(saved.sort(), [['12345678', '11511'], ['54348835', '2026-08-03']]);
+  }, { init: fakeScanner, initArg: ['**咖啡:1:65', LEFT_QR, LEFT_QR, '11512XY123456780000'] });
+  await withPage(DEVICES.phone, '#/s/invoice', async (page) => {
+    await page.waitForSelector('#inv-add');
+    assert.equal(await page.locator('#inv-scan').count(), 0);
+    assert.match(await page.textContent('.inv-noscan'), /不支援掃描/);
+  }, { init: () => { window.BarcodeDetector = undefined; } });
 });
 
 test('我的發票（本機）：存起來立刻對獎、待開獎顯示開獎日、打開 App 時自動對獎並通知中獎', async () => {

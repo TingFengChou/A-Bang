@@ -187,6 +187,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 - [x] L-09 問阿幫也能用生活服務（2026-11-19：life profile v2 加 `life` 工具包 6 個 tool、persona／規則／生活護欄；示範模式 7 種新意圖（天氣、空品、地震、藥局、垃圾車、油價、發票）；建議問題 8 個；@點名角色；示範藥局補臺北市中正區片段）
 - [x] L-10 空品進決策引擎（2026-11-19：狀態 `badAir`「空品不佳」（`exposure` ×3、`effort` ×2）；`plan_trip` 起點 AQI > 100 自動加入、輸出 `air`；決策圖 空品 → 空品不佳；示範 `DEMO_AIR=bad`；ADR-0010 權重紀錄）
 - [x] L-11 我的發票（本機自動對獎）（2026-11-19：`invoice_check_batch`（期別、開獎日、中獎／沒中／待開獎／超過範圍）；網頁「我的發票」存在手機、打開 App 時開獎日已到自動對獎並通知；問阿幫主動提議。不串 Gmail／載具（需保存使用者憑證，屬 ADR 變更））
+- [x] L-13 掃發票 QR code（2026-11-19：`public/js/invoice-qr.js` `parseInvoiceCode`（左邊 QR：字軌＋號碼＋民國日期；右邊 `**` 提示；一維條碼 → 期別）；`BarcodeDetector`＋相機的連續掃描視窗，完成後一次對獎；不支援時改手動輸入；E2E 以假 BarcodeDetector 與 canvas 相機測試）
 - [x] L-12 股市收盤行情（2026-11-19：`stock_quote`（pack `finance`；證交所 STOCK_DAY_ALL、櫃買中心收盤、加權與櫃買指數，免金鑰，30 分快取；代號或名稱、多檔、找不到不丟錯、`similar`）；`stock` 卡片（漲紅跌綠＋▲▼、卡片內查別檔、`setContext`）；首頁「股市」格子；問阿幫：股市意圖、追問（「那聯發科呢？」）、問買賣先說不提供投資建議；`PACK_GUARDRAILS.finance`＋輸出護欄 `no-investment-advice`；地端模型 5 種情境實測）
 
 ## M8 中小企業概念驗證（概要）— 下一階段（2026-11-19 決定）

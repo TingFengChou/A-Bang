@@ -13,6 +13,14 @@
 
 ---
 
+## 2026-11-19 M10 L-13 掃發票 QR code
+
+- 做了：`public/js/invoice-qr.js`：`parseInvoiceCode` 依財政部電子發票證明聯條碼規格解析（左邊 QR 前 77 碼：字軌、號碼、民國開立日期…；右邊 `**` 開頭 → 提示掃左邊；一維條碼 Code 39 → 期別，雙數月轉單數起始月）；`openScanner` 用 `BarcodeDetector`＋後鏡頭的 `<dialog>`，連續掃描、同一張只存一次、存到時震動，完成或 Esc 停相機；只取號碼與日期，不保存統編、金額、品項。「我的發票」加「掃發票 QR code」按鈕，關閉後一次對獎；不支援的瀏覽器（iPhone Safari、Firefox）顯示改手動輸入。問阿幫的提議提到可以掃 QR code。SW v0.4.7
+- 測試：npm test 新增 `test/invoice-qr.test.js` 5 項（左右 QR、一維條碼、非發票、不支援、期別可直接對獎）；npm run e2e 新增掃發票（假 BarcodeDetector 依序吐右邊 QR、左邊 QR 兩次、一維條碼；canvas 假相機；完成後中獎與待開獎、只存號碼與日期；不支援時改手動），共 27 項全過。E2E 伺服器 `RATE_LIMIT_API` 調高（整套一分鐘內呼叫超過 120 次會被限流，限流本身在 `mcp.test` 測）
+- 文件：UX.md §6、PLAN.md（L-13）、PROGRESS.md
+- 下一個：等使用者決定
+- 卡住：真實發票的實機掃描要使用者在 Android Chrome 或這台 Mac 的瀏覽器試
+
 ## 2026-11-19 M10 L-12 股市收盤行情
 
 - 做了：`core/services/stock.js`（證交所上市、櫃買中心上櫃收盤＋加權／櫃買指數；民國／西元日期、「+」「---」與尾端空白、權證略過；解析後才快取、空資料視為上游錯誤）＋示範片段 `core/data/demo/stock-*.json`。tool `stock_quote`（新工具包 `finance`，L1）：代號或名稱、多檔、找不到列 `notFound`、部分相同附 `similar`；文字固定附「不構成投資建議」，漲跌寫成「漲／跌」文字。`stock` 卡片：指數、收盤、漲紅跌綠＋▲▼、卡片內查別檔並 `setContext`。首頁「股市」格子、服務頁記住上次查的股票。問阿幫（互動模型，`AGENT.md` §5.1）：股市意圖與名稱擷取、追問（「那聯發科呢？」「0056 呢」，`parseIntent(text, { history })`）、股市脈絡下「該買嗎」也接著查；問買賣先說不提供投資建議；`PACK_GUARDRAILS.finance`；輸出護欄 `no-investment-advice`（買賣建議、看漲看跌、目標價、明牌整句換掉）。SW v0.4.6
