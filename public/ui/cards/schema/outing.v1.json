@@ -16,7 +16,8 @@
         "pop3h": { "type": ["integer", "null"] },
         "raining": { "type": "boolean" },
         "rainMm1h": { "type": ["number", "null"] },
-        "summary": { "type": "string" }
+        "summary": { "type": "string" },
+        "demo": { "type": "boolean" }
       }
     },
     "air": {
@@ -26,9 +27,11 @@
         "site": { "type": "string" },
         "aqi": { "type": ["integer", "null"] },
         "status": { "type": "string" },
-        "level": { "type": ["string", "null"] }
+        "level": { "type": ["string", "null"] },
+        "demo": { "type": "boolean" }
       }
     },
+    "missing": { "type": "array", "items": { "enum": ["weather", "air"] } },
     "items": {
       "type": "array",
       "minItems": 1,

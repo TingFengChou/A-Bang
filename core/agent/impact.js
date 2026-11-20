@@ -23,6 +23,12 @@ export function judgeNote(j) {
   return `${st.length ? `你${st.join('、')}，` : ''}${avoid.length ? `我會避開${avoid.join('和')}，` : ''}我先看天氣、空品、路況，再比較幾種走法`.slice(0, 60);
 }
 
+/** 出門建議前的一句：帶小孩或長輩時說空品標準會放嚴（不用行程的說法）；其他回 null */
+export function outingNote(states = []) {
+  const who = states.includes('kids') ? '小孩' : states.includes('elder') ? '長輩' : null;
+  return who ? `你帶著${who}，我會把空品標準放嚴一點` : null;
+}
+
 /** 完整判斷比快速判斷多找到的狀態 → 阿幫補一句（例：「我還注意到你帶行李」）；沒有新的回 null */
 export function moreStatesNote(quick, full) {
   const extra = (full?.states || []).filter((k) => !(quick?.states || []).includes(k)).map((k) => STATE_SAY[k]).filter(Boolean);

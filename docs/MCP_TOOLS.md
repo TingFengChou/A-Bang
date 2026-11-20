@@ -276,7 +276,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 
 ### ✅ `outing_advice` — 出門建議（pack `weather`，卡片 `outing`，2026-11-21）
 
-輸入 `lat`、`lon`、`name?`（卡片標題）、`with?: 'kids'|'elder'`（同行的小孩或長輩：空品門檻放低）。同時查 `weather.now` 與 `life.aqiNearby`（`Promise.allSettled`：一邊查不到也回另一邊；兩邊都失敗才回錯誤），由 `core/agent/outing.js` `outingItems` 整理最多 3 點：`items: [{ kind: 'umbrella'|'hot'|'cold'|'mask'|'ok', level: 'warn'|'info'|'ok', text }]`（降雨 ≥ 50% 帶傘、≥ 30% 折傘；雨量站沒量到雨但已算「下雨」時說「很可能下雨」；≥ 32°C／≥ 28°C／≤ 10°C／≤ 16°C；AQI > 150／> 100、帶小孩或長輩 > 50；都正常＝安心出門）。輸出另有 `weather`（測站、氣溫、降雨機率、是否下雨）、`air`（測站、AQI、狀態）。工具文字附「請照這些重點回答」。示範與模型模式的出門建議都改用這個工具（原本天氣、空品兩張卡）。
+輸入 `lat`、`lon`（或地名 `place`，由 `find_place` 同一套地標轉座標；兩者都沒有回 `UserError`）、`name?`（卡片標題）、`with?: 'kids'|'elder'`（同行的小孩或長輩：空品門檻放低）。同時查 `weather.now` 與 `life.aqiNearby`（`Promise.allSettled`：一邊查不到也回另一邊；兩邊都失敗才回錯誤），由 `core/agent/outing.js` `outingItems` 整理最多 3 點：`items: [{ kind: 'umbrella'|'hot'|'cold'|'mask'|'ok', level: 'warn'|'info'|'ok', text }]`（降雨 ≥ 50% 帶傘、≥ 30% 折傘；雨量站沒量到雨但已算「下雨」時說「很可能下雨」；≥ 32°C／≥ 28°C／≤ 10°C／≤ 16°C；AQI > 150／> 100、帶小孩或長輩 > 50；都正常＝安心出門）。輸出另有 `weather`（測站、氣溫、降雨機率、是否下雨）、`air`（測站、AQI、狀態）。工具文字附「請照這些重點回答」；speak 只說最重要的一點（「…，還有 2 點在卡片上」）。`weather.demo`／`air.demo` 各自標示示範（只有一邊有金鑰時不把真實資料說成示範），`missing: ['weather'|'air']` 表示那一邊這次查不到（卡片寫明）。沒有任何數字時不說「安心出門」。模型模式：說了地點直接用 `place` 查、沒拿到位置先看預設地點（並請模型說明），判斷層把出門建議判成空品或行程時規則的出門建議優先。示範與模型模式的出門建議都改用這個工具（原本天氣、空品兩張卡）。
 
 ### ✅ `weather_tomorrow` — 明天的預報（pack `weather`，2026-11-21）
 

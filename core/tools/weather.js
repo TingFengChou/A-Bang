@@ -2,6 +2,8 @@
 import { z } from 'zod';
 import { defineTool, T } from './define.js';
 import { outingItems } from '../agent/outing.js';
+import { resolvePoint } from '../services/places.js';
+import { UserError } from '../util.js';
 
 export const weatherNow = defineTool({
   name: 'weather_now',
@@ -58,27 +60,37 @@ export const weatherTomorrow = defineTool({
 export const outingAdvice = defineTool({
   name: 'outing_advice',
   title: '出門建議',
-  description: '出門前要注意什麼：同時看座標附近的現在天氣（降雨機率、氣溫）與空氣品質，由程式整理成最多 3 點建議（帶傘、防曬、保暖、口罩），數字都來自中央氣象署與環境部資料。使用者問「出門要注意什麼」「要帶傘嗎」「適合出門嗎」時用這個；with 填同行的小孩（kids）或長輩（elder），空品門檻放低。地名先用 find_place 轉座標。',
+  description: '出門前要注意什麼：同時看座標（或地名 place）附近的現在天氣（降雨機率、氣溫）與空氣品質，由程式整理成最多 3 點建議（帶傘、防曬、保暖、口罩），數字都來自中央氣象署與環境部資料。使用者問「出門要注意什麼」「要帶傘嗎」「適合出門嗎」時用這個；with 填同行的小孩（kids）或長輩（elder），空品門檻放低。',
   pack: 'weather', tier: 'L1', card: 'outing',
-  source: '中央氣象署、環境部', demoNote: '【示範資料：尚未設定中央氣象署授權碼或環境部 api_key，以下非真實天氣與空品】',
+  source: '中央氣象署、環境部', demoNote: '【部分為示範資料：卡片上標「示範」的天氣或空品尚未設定金鑰，非真實資料】',
   modeOf: (svc) => (svc.weatherMode === 'live' && svc.aqiMode === 'live' ? 'live' : 'demo'),
   input: {
-    lat: T.lat, lon: T.lon,
+    lat: T.lat.optional(), lon: T.lon.optional(),
+    place: z.string().trim().min(1).max(30).optional().describe('地名（沒有座標時用，例如 台北101）'),
     name: z.string().trim().max(30).optional().describe('地點名稱（卡片標題用，選填）'),
     with: z.enum(['kids', 'elder']).optional().describe('同行的小孩或長輩（選填）'),
   },
-  speak: (d) => `出門前看了一下：${d.items.map((x) => x.text).join('；')}。`,
-  async run(svc, a) {
+  // 泡泡只說最重要的一點，其餘在卡片上（設計審查：不逐字重複卡片）
+  speak: (d) => `出門前看了一下：${d.items[0].text}${d.items.length > 1 ? `，還有 ${d.items.length - 1} 點在卡片上` : ''}。`,
+  async run(svc, input) {
+    let a = input;
+    if (a.lat == null || a.lon == null) {
+      if (!a.place) throw new UserError('請給座標（lat、lon）或地名（place）');
+      const p = await resolvePoint(svc.places, a.place);
+      a = { ...a, lat: p.lat, lon: p.lon, name: a.name || p.name };
+    }
     const [w, q] = await Promise.allSettled([svc.weather.now({ lat: a.lat, lon: a.lon }), svc.life.aqiNearby({ lat: a.lat, lon: a.lon })]);
     const weather = w.status === 'fulfilled' ? w.value : null;
     const air = q.status === 'fulfilled' ? q.value.nearest : null;
     if (!weather && !air) throw w.reason; // 兩個都查不到：照天氣的錯誤回報（UserError／上游錯誤）
     const items = outingItems({ weather, air, states: a.with ? [a.with] : [] });
+    const missing = [...(!weather ? ['weather'] : []), ...(!air ? ['air'] : [])]; // 一邊查不到：卡片寫出來（不是靜靜顯示「—」）
     const data = {
       ...(a.name && { name: a.name }),
-      weather: weather && { station: weather.station, town: weather.town || '', tempC: weather.tempC ?? null, pop3h: weather.pop3h ?? null, raining: !!weather.raining, rainMm1h: weather.rainMm1h ?? null, summary: weather.summary },
-      air: air && { site: air.site, aqi: air.aqi ?? null, status: air.status, level: air.level ?? null },
+      weather: weather && { station: weather.station, town: weather.town || '', tempC: weather.tempC ?? null, pop3h: weather.pop3h ?? null, raining: !!weather.raining, rainMm1h: weather.rainMm1h ?? null, summary: weather.summary, demo: svc.weatherMode !== 'live' },
+      air: air && { site: air.site, aqi: air.aqi ?? null, status: air.status, level: air.level ?? null, demo: svc.aqiMode !== 'live' },
       items,
+      ...(missing.length && { missing }),
     };
     const text = [
       ...(weather ? [`天氣：${weather.summary}`] : ['天氣：這次查不到']),
