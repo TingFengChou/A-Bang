@@ -13,6 +13,16 @@
 
 ---
 
+## 2026-11-21（續）T6 iOS 名稱與深色／著色圖示
+
+- 做了：`CFBundleName` 改 Abang（設定 App、權限畫面看到的名稱）；`scripts/build-icons.js` 產生 iOS 18 深色（透明底＋放大＋淡白光輪廓）與著色（灰階）圖示，`AppIcon.appiconset` 加 luminosity dark／tinted。
+- 測試：xcodebuild 模擬器 Debug 編譯成功（actool 通過、Info.plist 名稱 Abang）；深色主畫面圖示在模擬器仍顯示淺色（推測圖示快取），待實機確認。
+- 文件：PLAN T6、PROGRESS。
+- 下一個：離線與弱網、S12b 卡片英文。
+- 卡住：實機確認深色圖示需 Austin 的 iPhone。
+
+---
+
 ## 2026-11-21（續）T7 通知體驗：出門提醒可多筆、可取消、先說明再要權限
 
 - 做了：`public/js/reminders.js`（多筆、同一段路線一筆、取消、打開時過期的從通知列移除；Android 關機錯過的開機後仍會補送一次、擋不住；網頁用 service worker 通知、重新整理後還原、台灣時間）；行程卡「提醒我出門」第一次先說明為什麼要通知、被拒說怎麼開、設好可取消；設定頁「出門提醒」列表可取消；清除本機資料一起取消。
