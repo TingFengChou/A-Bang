@@ -512,14 +512,18 @@
     {
       "id": "S12-1",
       "title": "觀光客英文",
-      "todo": "S12 英文對話",
       "turns": [
         {
           "say": "How do I get to Taipei 101?",
           "expect": {
             "tools": [
               "plan_trip"
-            ]
+            ],
+            "textHas": [
+              "Taipei 101 (台北101)",
+              "Best:"
+            ],
+            "fromHere": true
           }
         }
       ]
@@ -1184,6 +1188,191 @@
             "optionHas": {
               "metro": "機場線"
             }
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-2",
+      "title": "英文：from A to B by MRT",
+      "turns": [
+        {
+          "say": "from Ximending to Taipei 101 by MRT",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "西門町",
+            "to": "台北101",
+            "bestRole": "metro",
+            "textHas": [
+              "MRT"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-3",
+      "title": "英文：會下雨嗎（現在）",
+      "turns": [
+        {
+          "say": "Is it going to rain?",
+          "expect": {
+            "tools": [
+              "weather_now"
+            ],
+            "textHas": [
+              "Right now"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-4",
+      "title": "英文：明天天氣",
+      "turns": [
+        {
+          "say": "Will it rain tomorrow?",
+          "expect": {
+            "tools": [
+              "weather_tomorrow"
+            ],
+            "textHas": [
+              "Tomorrow"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-5",
+      "title": "英文：看不懂的問題說明能做什麼",
+      "turns": [
+        {
+          "say": "hello",
+          "expect": {
+            "toolsNone": true,
+            "textHas": [
+              "Taipei 101"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-6",
+      "title": "英文：train 不是 rain",
+      "turns": [
+        {
+          "say": "next train to Taichung",
+          "expect": {
+            "toolsNot": [
+              "weather_now"
+            ],
+            "tools": [
+              "tra_timetable"
+            ],
+            "textHas": [
+              "Train"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-7",
+      "title": "英文：改條件接上一輪",
+      "turns": [
+        {
+          "say": "How do I get to Taipei 101?",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ]
+          }
+        },
+        {
+          "say": "I'm with my grandma",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "states": [
+              "elder"
+            ],
+            "to": "台北101"
+          }
+        },
+        {
+          "say": "by bus instead",
+          "expect": {
+            "bestRole": "bus"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-8",
+      "title": "英文：機場官方譯名",
+      "turns": [
+        {
+          "say": "cheapest way to Taoyuan airport",
+          "expect": {
+            "textHas": [
+              "Taoyuan International Airport"
+            ],
+            "textNot": [
+              "TPE ("
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-9",
+      "title": "英文：Eventually 不是 NTU",
+      "turns": [
+        {
+          "say": "Eventually I want to go to Taipei 101",
+          "expect": {
+            "to": "台北101"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-10",
+      "title": "英文：問的城市",
+      "turns": [
+        {
+          "say": "Is it hot in Kaohsiung tomorrow?",
+          "expect": {
+            "tools": [
+              "weather_tomorrow"
+            ],
+            "textHas": [
+              "in Kaohsiung"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-11",
+      "title": "英文問完用中文接著改：中文回答",
+      "turns": [
+        {
+          "say": "How do I get to Taipei 101?"
+        },
+        {
+          "say": "那改坐捷運",
+          "expect": {
+            "bestRole": "metro",
+            "textHas": [
+              "照你說的"
+            ]
           }
         }
       ]

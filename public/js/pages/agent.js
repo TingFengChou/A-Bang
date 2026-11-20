@@ -362,6 +362,8 @@ export default {
             if (!textEl) { textEl = el('div', 'bubble agent final', avatar('阿幫', 'happy'), el('div', 'say')); turn.append(textEl); }
             view.text += e.delta;
             textEl.querySelector('.say').textContent = view.text;
+            // 英文回答（觀光客，S12）：讀屏用英文念（頁面是 zh-Hant-TW）
+            if (/^[A-Za-z"'(]/.test(view.text)) textEl.querySelector('.say').setAttribute('lang', 'en'); else textEl.querySelector('.say').removeAttribute('lang');
             break;
           case 'error':
             turn.append(el('div', 'msg error', e.retryAfterSec && !/\d+ 秒/.test(e.message) ? `${e.message}（${e.retryAfterSec} 秒後可再試）` : e.message));

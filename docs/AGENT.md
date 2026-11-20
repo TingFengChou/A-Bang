@@ -241,6 +241,12 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 `plan_trip` 新增捷運方案（起訖點 1.2 公里內有站；不同線估轉乘一次），「坐捷運去」指定、「不要坐捷運」排除。時間票價為估算，下一步請使用者問「某某站下一班」看即時到站。
 
+### 5.2.7 英文提問（觀光客，S12，2026-11-21）
+
+- 只有英文（沒有中文字）的提問走英文規則（`isEnglish`、`englishIntent`）：行程（How do I get to…／from A to B／by MRT）、天氣（現在、tomorrow）、空品、YouBike、公車路線、MRT 下一班；常見地標有英文別名（Taipei 101、Ximending、Taoyuan Airport…，`landmarks.json` aliases）。
+- 示範總結用英文（`englishSummary`：數字取自工具資料、地名附中文），提醒卡片目前是中文；模型模式在 profile 規則裡要求英文問就英文答。
+- 待做：卡片英文字典、討論串說明英文化、更多英文地名。
+
 ### 5.3 判斷層：意圖與使用者狀態（2026-11-20，`core/agent/judge.js`）
 
 依實驗（`docs/research/decision-eval.md`，172 題）導入；**方案排序仍由 `decide.js` 計分（ADR-0010）**，判斷層只決定「使用者想做什麼」與「使用者狀態」。
