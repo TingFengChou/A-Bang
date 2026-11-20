@@ -39,7 +39,9 @@ export const STATES = {
  * @returns {{ weights: Record<string, number>, ranked: Array<object>, excluded: Array<object>, best: object|null, reason: string }}
  */
 export function decide(options, ctx = {}) {
-  const states = (ctx.states || []).filter((s) => STATES[s]);
+  let states = (ctx.states || []).filter((s) => STATES[s]);
+  // 帶長輩、帶小孩、行動不便已包含少走路：不再疊加 lessWalk（權重會重複放大；PR #36 審查）
+  if (states.some((k) => STATES[k].exclude)) states = states.filter((k) => k !== 'lessWalk');
 
   // 1. 權重：基本權重 × 狀態倍數，再正規化成總和 1
   const raw = Object.fromEntries(CRITERIA.map((c) => [c.key, c.base]));
@@ -55,9 +57,10 @@ export function decide(options, ctx = {}) {
       excluded.push({ ...o, why: `你說不要${MODE_NAME[o.role] || o.name}` });
       return false;
     }
-    const unfit = states.find((k) => STATES[k].exclude?.includes(o.role));
+    // 狀態不適合的方式（帶長輩不騎 YouBike…）；使用者明講要這種方式時照他選（理由補一句提醒）
+    const unfit = o.role !== ctx.mode && states.find((k) => STATES[k].exclude?.includes(o.role));
     if (unfit) {
-      excluded.push({ ...o, why: `${STATES[unfit].say}，不適合${MODE_NAME[o.role] || o.name}` });
+      excluded.push({ ...o, why: `${STATES[unfit].label}不建議${MODE_DO[o.role] || o.name}` });
       return false;
     }
     const late = ctx.arriveByMin != null && o.arriveMin != null ? o.arriveMin > ctx.arriveByMin : ctx.arriveBy && o.arriveAt && o.arriveAt > ctx.arriveBy;
@@ -87,7 +90,8 @@ export function decide(options, ctx = {}) {
   if (picked) {
     const top = ranked[0];
     const note = picked === top ? '' : `（分數 ${picked.score}；分數最高的是${top.name} ${top.score}）`;
-    return { weights, ranked, excluded, best: picked, mode: ctx.mode, reason: `照你說的選「${picked.name}」${note}。` };
+    const careful = states.find((k) => STATES[k].exclude?.includes(ctx.mode));
+    return { weights, ranked, excluded, best: picked, mode: ctx.mode, reason: `照你說的選「${picked.name}」${note}。${careful ? `${STATES[careful].label}要多注意安全。` : ''}` };
   }
   const best = ranked[0] || null;
   const reason = explain(best, ranked[1], states, excluded);
@@ -97,12 +101,15 @@ export function decide(options, ctx = {}) {
 }
 
 const MODE_NAME = { walk: '步行', bike: 'YouBike', bus: '公車', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
+const MODE_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
 
 /** 產生一句理由：最佳方案贏在哪裡（取貢獻差最大的項目）＋生效的狀態 */
 function explain(best, second, states, excluded) {
   if (!best) {
     const said = excluded.some((e) => !e.why.includes('超過')), late = excluded.some((e) => e.why.includes('超過'));
-    return said && late ? '排除不適合或你說不要的方式後，其他方案都會遲到。' : late ? '所有方案都趕不上指定時間。' : said ? '排除不適合或你說不要的方式後，沒有其他可行的方案。' : '沒有可比較的方案。';
+    // 行動不便時沒有可行方案（短程只有步行、YouBike，或叫車被說不要）：主動建議叫車／無障礙計程車
+    const help = excluded.some((e) => e.why.startsWith('行動不便')) ? '可以叫車，或預約各縣市的無障礙計程車（復康巴士）。' : '';
+    return (said && late ? '排除不適合或你說不要的方式後，其他方案都會遲到。' : late ? '所有方案都趕不上指定時間。' : said ? '排除不適合或你說不要的方式後，沒有其他可行的方案。' : '沒有可比較的方案。') + help;
   }
   const why = [];
   if (states.length) why.push(`因為${states.map((s) => STATES[s].say).join('、')}`);
@@ -111,9 +118,9 @@ function explain(best, second, states, excluded) {
     const top = diffs.filter((x) => x.d > 0.01).slice(0, 2).map((x) => PHRASE[x.c.key](best, second, states));
     if (top.length) why.push(top.join('、'));
   }
-  const said = excluded.filter((e) => e.why.startsWith('你說不要')), unfit = excluded.filter((e) => e.why.includes('不適合')), late = excluded.filter((e) => e.why.includes('超過'));
+  const said = excluded.filter((e) => e.why.startsWith('你說不要')), unfit = excluded.filter((e) => e.why.includes('不建議')), late = excluded.filter((e) => e.why.includes('超過'));
   if (said.length) why.push(`${said.map((e) => e.name).join('、')}照你說的不列入`);
-  if (unfit.length) why.push(`${unfit.map((e) => e.name).join('、')}不適合，不列入`);
+  if (unfit.length) why.push([...new Set(unfit.map((e) => e.why))].join('、'));
   if (late.length) why.push(`${late.map((e) => e.name).join('、')}會遲到已排除`);
   return `選「${best.name}」${why.length ? '：' + why.join('，') : ''}。`;
 }

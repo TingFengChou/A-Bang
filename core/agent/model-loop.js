@@ -57,7 +57,7 @@ export function prefetchCalls(it, j, here) {
   }
   if (it.intent === 'metro' && !it.station && (it.near || at)) return [{ name: METRO_NEAR, args: { near: it.near || { ...at, name: here.name }, ...(it.line && { line: it.line }) } }];
   if (!at) return [];
-  if (it.intent === 'outing') return [{ name: 'weather_now', args: at }, { name: 'aqi_nearby', args: at }]; // 出門建議：天氣＋空品
+  if (it.intent === 'outing' && !it.places?.length) return [{ name: 'weather_now', args: at }, { name: 'aqi_nearby', args: at }]; // 出門建議：天氣＋空品（說了地點交給模型先找位置）
   if (it.places?.length) return [];
   const intent = NEARBY_TOOL[it.intent] ? it.intent : NEARBY_TOOL[j?.intent] ? j.intent : null;
   return intent ? [{ name: NEARBY_TOOL[intent], args: at }] : [];
@@ -221,7 +221,10 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     });
     prefetched = texts.join('\n\n');
     // 出門建議：程式依天氣與空品整理好，模型照著說（數字不經模型改寫）
-    if (rulesIt.intent === 'outing') prefetched += `\n\n出門建議（程式依上面資料整理，請照這些重點回答）：${outingAdvice({ weather: out[0]?.result?.data, air: out[1]?.result?.data?.nearest }).join('；')}`;
+    if (rulesIt.intent === 'outing') {
+      const advice = outingAdvice({ weather: out[0]?.result?.data, air: out[1]?.result?.data?.nearest, states: rulesIt.states });
+      if (advice.length) prefetched += `\n\n出門建議（程式依上面資料整理；請照這些重點回答，不要另外推測）：\n${advice.map((a) => `- ${a}`).join('\n')}`;
+    }
   }
   const conv = provider.start({
     system: buildSystemPrompt(profile, { now, context: req.context, picked, locationHint, prefetched }),

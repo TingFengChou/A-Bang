@@ -6,7 +6,7 @@ import { svgIcon, modeOf, MODE_COLOR } from '../cards/mode-icons.js';
 import { motion } from '../cards/motion.js';
 
 /** 被排除方案的標籤：遲到（超過抵達時間）、不要（使用者說不要這種方式）、其他排除 */
-const exLabel = (why = '') => (why.includes('超過') ? '遲到' : why.startsWith('你說不要') ? '不要' : why.includes('不適合') ? '不適合' : '排除');
+const exLabel = (why = '') => (why.includes('超過') ? '遲到' : why.startsWith('你說不要') ? '不要' : why.includes('不建議') ? '不適合' : '排除');
 
 const SVG = 'http://www.w3.org/2000/svg';
 const STATE_LABEL = { rush: '趕時間', traffic: '塞車中', rain: '下雨', luggage: '帶行李', budget: '想省錢', lessWalk: '少走路', badAir: '空品不佳', elder: '帶長輩', kids: '帶小孩', mobility: '行動不便' };
@@ -274,8 +274,8 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       const win = o.id === bestId;
       edges.append(svg('path', { d: `M${C.x + 30},${C.y} C${C.x + 62},${C.y} ${OPT_X - 40},${y} ${OPT_X},${y}`,
         class: `dg-edge dg-out-edge ${isEx ? 'step4 excluded' : 'step3'}${win ? ' win' : ''}`, 'data-id': o.id, style: `stroke-width:${isEx ? 1 : (1 + 7 * (o.score / max)).toFixed(1)}px` })); // 連線粗細＝分數（inline，CSS 的 stroke-width 才蓋不掉）
-      const avoided = isEx && ['不要', '不適合'].includes(exLabel(o.why));
-      const n = node(OPT_X, y, isEx ? `${short(o.name)}` : short(o.name), `dg-opt ${isEx ? 'step4 excluded' : 'step3'}${avoided ? ' avoided' : ''}${win ? ' win dg-best' : ''}`, o.role, win, isEx ? exLabel(o.why) : String(o.score));
+      const avoided = isEx && exLabel(o.why) === '不要', unfit = isEx && exLabel(o.why) === '不適合';
+      const n = node(OPT_X, y, isEx ? `${short(o.name)}` : short(o.name), `dg-opt ${isEx ? 'step4 excluded' : 'step3'}${avoided ? ' avoided' : ''}${unfit ? ' unfit' : ''}${win ? ' win dg-best' : ''}`, o.role, win, isEx ? exLabel(o.why) : String(o.score));
       n.style.setProperty('--i', String(i));
       n.dataset.id = o.id;
       if (isEx) n.setAttribute('aria-label', `${o.name}，已排除：${o.why}`); // 讀屏念原因（「你說不要叫車」「…會遲到」）

@@ -228,9 +228,6 @@
             "tools": [
               "weather_now",
               "aqi_nearby"
-            ],
-            "textHas": [
-              "出門前看了一下"
             ]
           }
         }
@@ -788,6 +785,67 @@
           "expect": {
             "textHas": [
               "傘"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S8-5",
+      "title": "帶長輩仍指定騎 YouBike：照他選並提醒",
+      "turns": [
+        {
+          "say": "帶阿嬤從西門町騎YouBike去台北101",
+          "expect": {
+            "states": [
+              "elder"
+            ],
+            "bestRole": "bike",
+            "textNot": [
+              "沒有可行"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S8-6",
+      "title": "帶長輩：討論串先說會避開 YouBike",
+      "turns": [
+        {
+          "say": "帶阿嬤從西門町去台北101",
+          "expect": {
+            "states": [
+              "elder"
+            ],
+            "bestRoleNot": "bike"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S13-4",
+      "title": "明天要不要帶傘：交給天氣，不是出門建議",
+      "turns": [
+        {
+          "say": "明天出門要帶傘嗎",
+          "expect": {
+            "toolsNot": [
+              "aqi_nearby"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S13-5",
+      "title": "說了地點的出門建議：查那裡",
+      "turns": [
+        {
+          "say": "出門去台北101要注意什麼",
+          "expect": {
+            "tools": [
+              "weather_now"
             ]
           }
         }

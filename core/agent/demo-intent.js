@@ -12,7 +12,7 @@ const STATE_WORDS = [
   ['budget', /省錢|便宜|最省/],
   ['lessWalk', /不想走|少走|腳痛|輕鬆/],
   ['elder', /長輩|老人家|阿公|阿嬤|爺爺|奶奶|外公|外婆|年紀大/],
-  ['kids', /小孩|小朋友|孩子|嬰兒|寶寶|推車|娃娃車/],
+  ['kids', /小孩|小朋友|帶(?:著)?孩子|嬰兒|寶寶|娃娃車/],
   ['mobility', /輪椅|行動不便|拐杖|身障|腳受傷|骨折/],
   ['rain', /下雨|雨天|雨很大/],
   ['badAir', /空氣(很|好|有點|太)?(差|髒|不好)/],
@@ -30,7 +30,7 @@ const LIFE_WORDS = [
   ['aqi', /空氣品質|空品|空氣(?:好|差|不好|怎樣|如何)|AQI|PM\s*2\.?5|空汙|空污|霧霾|要不要戴口罩/i],
 ];
 /** 出門建議的問法 */
-const OUTING = /出門.{0,6}(?:注意|要帶|帶什麼|穿什麼|怎麼穿|帶傘|適合)|(?:今天|等一下|待會).{0,6}(?:注意什麼|要帶什麼|穿什麼)|要穿什麼|穿什麼出門/;
+const OUTING = /出門.{0,10}(?:注意|要帶|帶什麼|穿什麼|怎麼穿|帶傘|適合)|適合出門|(?:今天|等一下|待會).{0,6}(?:注意什麼|要帶什麼|穿什麼)|要穿什麼|穿什麼出門/;
 const WEATHER_WORD = /天氣|氣溫|溫度|幾度|下雨|帶傘|雨傘|會冷|會熱|颱風|出太陽/;
 // 使用者指定交通方式（「坐公車去」「改叫車」）：plan_trip prefs.mode；「不要叫車」的叫車不算
 const MODE_WORDS = [['bus', /公車|巴士/], ['bike', /youbike|ubike|單車|腳踏車/i], ['walk', /走路|步行|走過去/], ['ridehail', /叫車|計程車|小黃|uber|汽車|開車/i],
@@ -273,7 +273,8 @@ export function parseIntent(text, ctx) {
   // 句子裡有地標（「台北車站捷運下一班」）→ 找那裡最近的站（near），不用現在位置
   if ((/捷運|MRT/i.test(s) || METRO_LINE.test(s)) && METRO_ASK.test(s) && !/站/.test(s.replace(/車站/g, ''))) return { ...base, intent: 'metro', station: null, line: METRO_LINE.exec(s)?.[0] || null, ...(places[0] && { near: places[0] }) };
   // 出門建議（S13）：天氣＋空品一起看（「今天出門要注意什麼」「出門要帶傘嗎」「要穿什麼」）
-  if (OUTING.test(s) && !places.length) return { ...base, intent: 'outing' };
+  // 問明天的是天氣預報（現在的天氣答不了），交給天氣意圖
+  if (OUTING.test(s) && !tomorrow) return { ...base, intent: 'outing' };
   const life = lifeIntent(s);
   if (life) return { ...base, ...life };
   const route = BUS_ROUTE.exec(s)?.[1];
@@ -401,11 +402,12 @@ export function demoSteps(it, now = Date.now()) {
         (r) => (point(r, 0) ? { note, calls: [{ name: tool, args: ll(point(r, 0)) }] } : null),
       ];
     }
-    case 'outing': { // 天氣＋空品一起查（同一個位置）
-      const at = it.fromPoint ? ll(it.fromPoint) : null;
+    case 'outing': { // 天氣＋空品一起查（同一個位置；說了地點就查那裡）
+      const at = !it.places[0] && it.fromPoint ? ll(it.fromPoint) : null;
+      const place = it.places[0] || DEFAULT_FROM;
       if (at) return [() => ({ note: '@天氣 @空品 出門前幫你看一下', calls: [{ name: 'weather_now', args: at }, { name: 'aqi_nearby', args: at }] })];
       return [
-        () => ({ note: `@地點 找「${DEFAULT_FROM}」的位置`, calls: [{ name: 'find_place', args: { query: DEFAULT_FROM } }] }),
+        () => ({ note: `@地點 找「${place}」的位置`, calls: [{ name: 'find_place', args: { query: place } }] }),
         (r) => (point(r, 0) ? { note: '@天氣 @空品 出門前幫你看一下', calls: [{ name: 'weather_now', args: ll(point(r, 0)) }, { name: 'aqi_nearby', args: ll(point(r, 0)) }] } : null),
       ];
     }
@@ -455,8 +457,8 @@ export function contextNote(it) {
 /** 示範模式的總結（取自工具結果，不經模型） */
 export function demoSummary(it, results, suggestions = []) {
   if (it.intent === 'outing') {
-    const pre = it.fromPoint ? '' : it.noLocation ? `（沒拿到你的位置，先看「${DEFAULT_FROM}」附近。）` : `（你沒說在哪，我先看「${DEFAULT_FROM}」附近。）`;
-    return `${pre}${outingSay({ weather: results.weather_now?.at(-1)?.data, air: results.aqi_nearby?.at(-1)?.data?.nearest })}`;
+    const pre = it.fromPoint || it.places[0] ? '' : it.noLocation ? `（沒拿到你的位置，先看「${DEFAULT_FROM}」附近。）` : `（你沒說在哪，我先看「${DEFAULT_FROM}」附近。）`;
+    return `${pre}${outingSay({ weather: results.weather_now?.at(-1)?.data, air: results.aqi_nearby?.at(-1)?.data?.nearest, states: it.states })}`;
   }
   if (it.reset) return '好，重新開始。想去哪裡、想查什麼？沒說起點的話，我用你現在的位置。';
   if (it.intent === 'unknown') return `我可以幫你查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）和生活資訊（天氣、空品、地震、藥局、垃圾車、油價、發票、股市收盤）。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;

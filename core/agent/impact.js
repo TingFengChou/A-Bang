@@ -1,7 +1,9 @@
 // 討論串的「→ 影響」：每位小幫手回報的資料，對這次決策有什麼影響（真實資料＋decide.js 的規則，不經模型、不編造）。
 // 也產生行程開始前阿幫的一句（判斷層結果：你的狀況、或照你說的改成哪種交通方式），讓使用者一送出就看到阿幫在依他的狀況做事。
+import { STATES } from '../decide.js';
 import { BAD_AIR_AQI } from '../services/trip.js';
 
+const AVOID_SAY = { bike: 'YouBike', walk: '長距離步行' };
 const STATE_SAY = { rush: '趕時間', luggage: '帶行李', budget: '想省錢', lessWalk: '想少走路', rain: '遇到下雨', badAir: '覺得空氣差', elder: '帶著長輩', kids: '帶著小孩', mobility: '行動不便' };
 
 const MODE_SAY = { bus: '坐公車', bike: '騎 YouBike', walk: '走路', ridehail: '叫車', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運' };
@@ -16,7 +18,9 @@ export function judgeNote(j) {
   if (!j || j.intent !== 'trip') return null;
   const st = (j.states || []).map((k) => STATE_SAY[k]).filter(Boolean);
   if (j.followUp) return `${j.mode ? `照你說的改成${MODE_SAY[j.mode] || j.mode}` : `好，${st.length ? `你${st.join('、')}` : '換個條件'}`}，用剛才的起點和目的地重算`.slice(0, 60);
-  return `${st.length ? `你${st.join('、')}，` : ''}我先看天氣、空品、路況，再比較幾種走法`.slice(0, 60);
+  // 帶長輩、帶小孩、行動不便：先說會避開哪些方式（PR #36 設計審查）
+  const avoid = [...new Set((j.states || []).flatMap((k) => STATES[k]?.exclude || []))].map((m) => AVOID_SAY[m]).filter(Boolean);
+  return `${st.length ? `你${st.join('、')}，` : ''}${avoid.length ? `我會避開${avoid.join('和')}，` : ''}我先看天氣、空品、路況，再比較幾種走法`.slice(0, 60);
 }
 
 /** 完整判斷比快速判斷多找到的狀態 → 阿幫補一句（例：「我還注意到你帶行李」）；沒有新的回 null */

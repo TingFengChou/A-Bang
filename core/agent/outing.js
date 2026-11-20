@@ -2,10 +2,11 @@
 // 示範模式直接當總結；模型模式附在預先查詢的結果後面，請模型轉述。
 
 /**
- * @param {{ weather?: { raining?: boolean, pop3h?: number|null, tempC?: number|null }|null, air?: { aqi?: number|null, status?: string }|null }} d
- * @returns {string[]} 建議（最重要的在前）；資料都沒有時回空陣列
+ * @param {{ weather?: { raining?: boolean, pop3h?: number|null, tempC?: number|null }|null, air?: { aqi?: number|null, status?: string }|null, states?: string[] }} d
+ *   states：帶小孩、帶長輩時空品的門檻放低、說法針對他們
+ * @returns {string[]} 建議（最重要的在前，最多 3 點）；資料都沒有時回空陣列
  */
-export function outingAdvice({ weather, air } = {}) {
+export function outingAdvice({ weather, air, states = [] } = {}) {
   const out = [];
   if (weather) {
     if (weather.raining) out.push('現在正在下雨，記得帶傘');
@@ -19,12 +20,14 @@ export function outingAdvice({ weather, air } = {}) {
       else if (t <= 16) out.push(`${t}°C 偏涼，帶件外套`);
     }
   }
+  const who = states.includes('kids') ? '小孩' : states.includes('elder') ? '長輩' : null;
   if (air && Number.isFinite(air.aqi)) {
     if (air.aqi > 150) out.push(`空氣品質${air.status || '不良'}（AQI ${air.aqi}），盡量少待戶外、戴口罩`);
-    else if (air.aqi > 100) out.push(`空氣品質對敏感族群不健康（AQI ${air.aqi}），長輩小孩戴口罩、少做戶外運動`);
+    else if (air.aqi > 100) out.push(`空氣品質對敏感族群不健康（AQI ${air.aqi}），${who ? `${who}記得` : '長輩小孩'}戴口罩、少做戶外運動`);
+    else if (who && air.aqi > 50) out.push(`空氣品質普通（AQI ${air.aqi}），${who}比較敏感，少待在路邊`);
   }
   if (!out.length && (weather || air)) out.push(`天氣${weather && Number.isFinite(weather.tempC) ? ` ${weather.tempC}°C、` : ''}${air && Number.isFinite(air.aqi) ? `空氣品質${air.status || ''}（AQI ${air.aqi}）` : ''}都還不錯，安心出門`.replace('、都', '，都'));
-  return out;
+  return out.slice(0, 3);
 }
 
 /** 一句話總結（示範模式的回答） */
