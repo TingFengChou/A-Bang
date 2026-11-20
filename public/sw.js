@@ -1,7 +1,7 @@
 // Service Worker：App shell 預先快取（離線可開啟），API 一律走網路（即時資料不快取）
-const VERSION = 'v0.4.7';
+const VERSION = 'v0.4.8';
 const SHELL = [
-  '/', '/index.html', '/css/app.css', '/manifest.webmanifest', '/icons/icon.svg', '/brand/abang-default.svg',
+  '/', '/index.html', '/css/app.css', '/manifest.webmanifest', '/icons/icon.svg', '/brand/abang-default.svg', '/brand/abang-think.svg',
   '/js/app.js', '/js/api.js', '/js/ui.js', '/js/icons.js', '/js/registry.js',
   '/js/pages/home.js', '/js/pages/nearby.js', '/js/pages/bus.js', '/js/pages/rail.js',
   '/css/agent.css', '/js/pages/agent.js', '/js/agent/client.js', '/ui/agent/decision-graph.js', '/core/decide.js',

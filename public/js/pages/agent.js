@@ -1,6 +1,7 @@
 // 網頁 agent 頁（M5-08，UX.md §3–§4、§8、§10）：對話、小幫手討論串、@點名、建議問題；由真實 NDJSON 事件驅動。
 // 卡片用 public/ui/cards（renderCard＋web host）。不加假延遲：只在討論串兩則訊息之間保留最短 300ms 避免閃爍（UX.md §4）。
 import { runAgent } from '../agent/client.js';
+import { icons } from '../icons.js';
 import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { renderDecision, lite } from '../../ui/agent/decision-graph.js';
@@ -9,6 +10,9 @@ import { renderDecision, lite } from '../../ui/agent/decision-graph.js';
 const decideModule = import('/core/decide.js').catch(() => null);
 
 const MIN_GAP_MS = 300;
+// 小幫手頭像：每個角色一個線條圖示（public/js/icons.js，與首頁格子同一套）；阿幫用吉祥物
+const ROLE_ICON = { 地點: 'pin', 天氣: 'sun', 公車: 'bus', YouBike: 'bike', 高鐵: 'hsr', 台鐵: 'train', 捷運: 'metro', 路況: 'traffic', 客運: 'coach', 票價: 'ticket', 叫車: 'car', 訂票: 'ticket',
+  行程: 'route', 車站: 'train', 定位: 'locate', 空品: 'air', 地震: 'quake', 藥局: 'pharmacy', 垃圾車: 'trash', 油價: 'fuel', 發票: 'receipt', 股市: 'chart', 防詐: 'shield', 網址: 'link', 闢謠: 'myth', 號碼: 'phone' };
 const ROLE_CLASS = { 防詐: 'bad', 網址: 'bad', 闢謠: 'fare', 號碼: 'tra', 地點: 'place', 天氣: 'place', 公車: 'bus', YouBike: 'bike', 高鐵: 'rail', 台鐵: 'tra', 捷運: 'brand', 路況: 'car', 客運: 'car', 票價: 'fare', 叫車: 'car', 訂票: 'rail', 行程: 'brand', 車站: 'tra', 定位: 'place', 空品: 'place', 地震: 'bad', 藥局: 'bike', 垃圾車: 'car', 油價: 'fare', 發票: 'fare', 股市: 'fare' };
 /** 每個 agent 的 @點名、標題與輸入提示（角色名稱與 core/agent/events.js TOOL_ROLES 一致） */
 const AGENTS = {
@@ -40,7 +44,16 @@ function withMentions(text) {
   return out;
 }
 
-const avatar = (role) => el('span', `avatar r-${ROLE_CLASS[role] || 'brand'}`, role === '阿幫' ? '幫' : role.slice(0, 2));
+function avatar(role) {
+  const a = el('span', `avatar r-${ROLE_CLASS[role] || 'brand'}`);
+  a.setAttribute('role', 'img');
+  a.setAttribute('aria-label', role);
+  a.title = role;
+  if (role === '阿幫') { a.classList.add('mascot'); a.append(Object.assign(document.createElement('img'), { src: '/brand/abang-think.svg', alt: '' })); }
+  else if (icons[ROLE_ICON[role]]) a.innerHTML = icons[ROLE_ICON[role]]; // 圖示是本機常數 SVG，不含外部資料
+  else a.textContent = role.slice(0, 2);
+  return a;
+}
 const metricsText = (m) => (m ? [m.scanned ? `${m.scanned} 筆` : null, m.cacheHit ? '快取' : null, `${m.ms}ms`].filter(Boolean).join(' · ') : '');
 
 export default {

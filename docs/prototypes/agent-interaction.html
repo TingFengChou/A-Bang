@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>阿幫｜Agent 互動模型原型</title>
+<!--
+  Agent 互動模型原型（股市、發票）：左邊是問阿幫的對話，右邊即時顯示事件流、模型看得到的內容（歷史＋卡片脈絡）、命中的規則。
+  資料是 core/data/demo/ 的真實片段（2026-11-19）；規則照 core/agent/demo-intent.js 與 guardrails.js 簡化。
+  原型專用：步驟間的等待只為了看清楚順序，正式實作由真實事件驅動、不加延遲（ADR-0009）。不可被 import。
+-->
+<style>
+:root{--bg:#f4f6f5;--card:#fff;--text:#14201d;--muted:#5f6f6b;--faint:#97a5a1;--line:#e3e8e6;
+  --brand:#0f766e;--brand-soft:#e3f2ef;--fare:#7c3aed;--fare-soft:#efeafe;--ok:#15803d;--ok-soft:#e6f4ea;
+  --warn:#b45309;--warn-soft:#fdf1e3;--bad:#b91c1c;--bad-soft:#fde8e8;--code:#f1f4f3}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 -apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif}
+button,input{font:inherit}
+.top{max-width:1100px;margin:0 auto;padding:16px 16px 8px}
+.top h1{font-size:20px;margin:0 0 2px}.top p{margin:0;color:var(--muted);font-size:13px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+.seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{border:0;background:none;padding:5px 12px;border-radius:999px;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--brand);color:#fff}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:10px 0 4px}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;cursor:pointer;font-size:13.5px;white-space:nowrap}
+.chip:hover{border-color:var(--brand)}.chip b{color:var(--brand);margin-right:4px}
+.ghost{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 12px;cursor:pointer;font-size:13px}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px 24px;display:grid;grid-template-columns:420px 1fr;gap:16px;align-items:start}
+@media (max-width:860px){.wrap{grid-template-columns:1fr}}
+/* 左：對話 */
+.phone{background:var(--bg);border:1px solid var(--line);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;height:min(78vh,760px);background:#f8faf9}
+.phone{position:relative}
+.screen{flex:1;overflow-y:auto}
+.back{border:0;background:var(--brand-soft);color:var(--brand);width:30px;height:30px;border-radius:10px;font-size:22px;line-height:1;cursor:pointer}
+.home{padding:12px}
+.hero{background:var(--brand);color:#fff;border-radius:18px;padding:14px;position:relative;overflow:hidden}
+.hero small{opacity:.85}.hero h2{margin:2px 0 10px;font-size:20px}
+.hero .hm{position:absolute;right:6px;top:6px;width:72px;height:72px}.hero .hm svg{width:72px;height:72px}
+.hero form{display:flex;background:#fff;border-radius:12px;overflow:hidden}.hero input{flex:1;min-width:0;border:0;padding:9px 12px}
+.hero .hchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.hero .hchips button{border:0;background:rgba(255,255,255,.92);color:var(--text);border-radius:999px;padding:5px 10px;font-size:12.5px;cursor:pointer}
+.ghead{display:flex;justify-content:space-between;align-items:baseline;margin:16px 2px 8px}.ghead b{font-size:15px}.ghead small{color:var(--muted);font-size:11.5px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 2px 8px;text-align:center;font-size:12.5px;cursor:pointer;color:inherit;position:relative}
+.tile .ic{width:36px;height:36px;border-radius:11px;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;margin:0 auto 4px}.tile .ic svg{width:20px;height:20px}
+.tile.live::after{content:'可點';position:absolute;top:4px;right:4px;font-size:9.5px;background:var(--fare-soft);color:var(--fare);border-radius:6px;padding:0 4px}
+.page{padding:12px;display:flex;flex-direction:column;gap:10px}
+.tabbar{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);background:var(--card)}
+.tabbar button{border:0;background:none;padding:6px 0 8px;font-size:11.5px;color:var(--muted);cursor:pointer;display:grid;justify-items:center;gap:1px}
+.tabbar svg{width:20px;height:20px}.tabbar .on{color:var(--brand);font-weight:700}
+.sched{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.sched small{color:var(--muted)}.sched .sw{border:0;border-radius:999px;padding:3px 10px;font-size:12px;cursor:pointer;background:var(--ok-soft);color:var(--ok)}.sched .sw.off{background:var(--code);color:var(--muted)}
+details.kb{border-top:1px solid var(--line);padding:6px 0}details.kb summary{cursor:pointer;font-weight:700;display:flex;justify-content:space-between;gap:6px}
+details.kb summary small{font-weight:400;color:var(--muted)}details.kb p{margin:4px 0 0}
+.ptoast{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);background:var(--text);color:#fff;border-radius:12px;padding:8px 14px;font-size:13px;max-width:85%;text-align:center}
+.phone header .av{width:34px;height:34px}.phone header .av svg{width:34px;height:34px}
+.phone header{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--card)}
+.phone header b{font-size:16px}.phone header small{color:var(--muted);font-size:12px;display:block}
+.mode-tag{margin-left:auto;font-size:12px;padding:2px 8px;border-radius:999px;background:var(--warn-soft);color:var(--warn)}
+.mode-tag.model{background:var(--fare-soft);color:var(--fare)}
+.chat{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.u{align-self:flex-end;background:var(--brand);color:#fff;padding:8px 12px;border-radius:16px 16px 4px 16px;max-width:85%}
+.note{font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:baseline}
+.row{display:flex;gap:8px;align-items:flex-start;animation:in .25s ease both}
+.av{width:32px;height:32px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;background:var(--fare)}
+.av svg{width:18px;height:18px}.av.mascot{background:none}.av.mascot svg{width:32px;height:32px}
+.av.r-排程{background:#9a3412}.av.r-地點,.av.r-天氣,.av.r-空品{background:#1d4ed8}.av.r-路況{background:#475569}.av.r-行程,.av.r-公車{background:var(--brand)}
+.at{font-weight:700;color:var(--fare);background:var(--fare-soft);border-radius:6px;padding:0 5px}
+.tool{background:var(--card);border:1px solid var(--line);border-radius:4px 14px 14px 14px;padding:7px 11px;font-size:14px;max-width:92%}
+.tool .who{font-size:12px;color:var(--muted)}
+.say{background:var(--brand-soft);border-radius:4px 14px 14px 14px;padding:9px 12px;max-width:92%}
+.say.guarded{outline:2px dashed var(--warn)}
+.sys{align-self:center;font-size:12px;color:var(--faint)}
+.composer{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line);background:var(--card)}
+.composer input{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;padding:8px 12px}
+.btn{border:0;background:var(--brand);color:#fff;border-radius:12px;padding:8px 14px;cursor:pointer;font-weight:700}
+.btn.sm{padding:5px 10px;font-size:13px;border-radius:10px}
+.btn.alt{background:var(--brand-soft);color:var(--brand)}
+/* 卡片 */
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;font-size:14px}
+.card h3{margin:0 0 8px;font-size:15px;display:flex;justify-content:space-between;align-items:center}
+.badge{font-size:11px;font-weight:400;color:var(--muted);background:var(--code);border-radius:999px;padding:1px 8px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px}
+.stat{background:#f4f6f5;border-radius:10px;padding:6px 8px}.stat small{color:var(--muted);display:block;font-size:12px}
+.stat strong{font-size:18px;font-variant-numeric:tabular-nums;display:block}
+.chg{font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums}.up{color:var(--bad)}.down{color:var(--ok)}.flat{color:var(--muted)}
+.stk{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--line)}
+.stk small{color:var(--muted)}.stk .px{text-align:right;white-space:nowrap}.stk .px strong{font-size:18px;display:block}
+.alt-btn{border:0;background:none;color:var(--brand);text-decoration:underline;cursor:pointer;padding:0 3px;font-size:13px}
+.cform{display:flex;gap:6px;margin-top:8px}.cform input{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:5px 9px;font-size:13.5px}
+.foot{color:var(--muted);font-size:12px;margin:8px 0 0}
+.inv{display:grid;grid-template-columns:52px 1fr;gap:2px 8px;padding:5px 0;border-top:1px solid var(--line)}
+.inv strong{letter-spacing:1px;font-variant-numeric:tabular-nums}
+.win{background:var(--ok-soft);color:var(--ok);border-radius:10px;padding:6px 10px;font-weight:700;margin-bottom:6px}
+.wallet{border-top:1px dashed var(--line);margin-top:8px;padding-top:8px}
+.wrow{display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:13.5px}
+.st{font-size:12px;border-radius:999px;padding:1px 8px;background:var(--brand-soft);color:var(--brand)}.st.won{background:#fff1d6;color:#8a4b00;font-weight:700}.st.lost{background:var(--code);color:var(--muted)}
+/* 右：互動模型面板 */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;border:0;background:none;padding:10px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent}
+.tabs button[aria-selected=true]{color:var(--brand);border-color:var(--brand);font-weight:700}
+.pane{padding:12px;max-height:min(70vh,700px);overflow-y:auto;font-size:13.5px}
+.ev{display:grid;grid-template-columns:118px 1fr;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line);animation:in .25s ease both}
+.ev code{font-size:12px}
+.type{font:600 12px ui-monospace,Menlo,monospace;border-radius:6px;padding:1px 6px;align-self:start;justify-self:start}
+.t-status,.t-done{background:var(--code);color:var(--muted)}.t-agent_note{background:var(--fare-soft);color:var(--fare)}
+.t-tool_start,.t-tool_result{background:var(--brand-soft);color:var(--brand)}.t-guardrail{background:var(--warn-soft);color:var(--warn)}
+.t-text{background:var(--ok-soft);color:var(--ok)}.t-client{background:#e6f1fb;color:#1d4ed8}
+.turnsep{margin:10px 0 2px;font-size:12px;color:var(--faint)}
+pre{background:var(--code);border-radius:10px;padding:8px 10px;white-space:pre-wrap;word-break:break-all;font-size:12px;margin:6px 0}
+.rule{border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin-bottom:8px}
+.rule h4{margin:0 0 4px;font-size:14px}.rule p{margin:2px 0;color:var(--muted)}
+.hit{border-color:var(--brand);background:var(--brand-soft)}.hit p{color:var(--text)}
+del{color:var(--bad)}ins{color:var(--ok);text-decoration:none}
+dialog{border:0;border-radius:16px;padding:16px;width:min(92vw,380px)}dialog::backdrop{background:rgba(0,0,0,.55)}
+.cam{aspect-ratio:1;background:#1c2421;border-radius:12px;display:grid;place-items:center;position:relative}
+.cam .frame{position:absolute;inset:20%;border:3px solid #fff;border-radius:12px}
+.cam svg{width:42%;opacity:.9}
+.scanbtns{display:grid;gap:6px;margin-top:10px}
+.scanst{font-weight:700;min-height:1.5em;margin:8px 0 0}
+/* 公車：即時到站卡片、公車頁、到站提醒 */
+.bbig{display:flex;align-items:baseline;gap:8px;margin:2px 0 6px}.bbig strong{font-size:28px;font-variant-numeric:tabular-nums;color:var(--brand)}
+.bstop{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:4px 6px;font-size:13.5px}
+.bstop .dot{width:10px;height:10px;border-radius:50%;border:2px solid var(--brand);background:#fff;justify-self:center}
+.bstop.me{background:var(--brand-soft);border-radius:8px;font-weight:700}.bstop.past{color:var(--faint)}
+.bstop .bus{width:22px;height:22px;color:var(--brand)}.bstop .eta{font-variant-numeric:tabular-nums;color:var(--muted)}
+.remind{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.rset{background:var(--ok-soft);color:var(--ok);border-radius:10px;padding:6px 10px;font-size:13px;margin-top:8px}
+.rank{display:grid;gap:4px}.rank div{display:flex;justify-content:space-between;padding:4px 8px;border-radius:8px;background:#f4f6f5}.rank .win{background:var(--brand-soft);color:var(--brand);font-weight:700}
+.banner{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:20;background:#1f2a28;color:#fff;border-radius:14px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:92vw;display:flex;gap:10px;align-items:center;animation:in .3s ease both}
+.banner small{display:block;color:#b8c7c3}
+@keyframes in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>阿幫 Agent 互動模型（原型）</h1>
+  <p>左邊是阿幫 App：首頁每個格子都能手動查，也可以問阿幫、叫阿幫排程。點上面的情境或自己操作，右邊看每一步送出的事件、模型看得到什麼、哪條規則生效。資料是示範／假資料，等待只為看清楚順序。</p>
+  <div class="bar">
+    <div class="seg" role="group" aria-label="回答方式">
+      <button type="button" id="m-demo" aria-pressed="true">示範模式（規則式）</button>
+      <button type="button" id="m-model" aria-pressed="false">模型模式（Claude／地端）</button>
+    </div>
+    <button class="ghost" type="button" id="reset">清空對話</button>
+    <button class="ghost" type="button" id="speed" aria-pressed="false">時間加速 ×10</button>
+  </div>
+  <div class="chips" id="chips"></div>
+</div>
+
+<div class="wrap">
+  <section class="phone" aria-label="阿幫 App">
+    <header><button type="button" class="back" id="back" aria-label="回首頁" hidden>‹</button><span id="hdr-av"></span><b id="hdr-title">阿幫</b><span class="mode-tag" id="mode-tag">示範模式</span></header>
+    <div class="screen home" id="s-home"></div>
+    <div class="screen chat" id="chat" aria-live="polite" hidden></div>
+    <div class="screen page" id="s-page" hidden></div>
+    <form class="composer" id="composer" hidden>
+      <input id="q" placeholder="例如：台積電股價多少" aria-label="問阿幫" autocomplete="off">
+      <button class="btn">送出</button>
+    </form>
+    <nav class="tabbar" id="tabbar" aria-label="主選單"></nav>
+    <div class="ptoast" id="ptoast" role="status" hidden></div>
+  </section>
+
+  <section class="panel" aria-label="互動模型">
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="events">事件流</button>
+      <button role="tab" aria-selected="false" data-tab="sees">模型看得到的</button>
+      <button role="tab" aria-selected="false" data-tab="rules">規則</button>
+    </div>
+    <div class="pane" id="p-events"></div>
+    <div class="pane" id="p-sees" hidden></div>
+    <div class="pane" id="p-rules" hidden></div>
+  </section>
+</div>
+
+<dialog id="busdlg" aria-label="公車即時動態">
+  <h3 style="margin:0 0 6px">公車 601 即時動態</h3>
+  <div id="busdlg-body"></div>
+  <button class="btn" type="button" id="busdlg-close" style="width:100%;margin-top:10px">關閉</button>
+</dialog>
+
+<dialog id="carrierdlg" aria-label="連結手機條碼載具">
+  <h3 style="margin:0 0 6px">連結手機條碼載具（規劃中）</h3>
+  <p class="foot" style="margin-top:0">阿幫會用財政部電子發票 API 抓你載具裡的發票，存進「我的發票」並在開獎後自動對獎。</p>
+  <ul class="foot" style="padding-left:18px">
+    <li>手機條碼與驗證碼是個人資料：只存在這支手機，每次同步才送給阿幫伺服器轉查財政部，伺服器不保存。</li>
+    <li>只抓發票號碼、日期、金額與店家，用來對獎；不做其他用途，可以隨時取消連結。</li>
+    <li>不要在對話裡打驗證碼；阿幫也不會在對話裡跟你要。</li>
+  </ul>
+  <div class="cform"><input id="cardno" placeholder="手機條碼，例如 /AB12+-." aria-label="手機條碼" value="/AB12+-."></div>
+  <div class="cform"><input id="cardpw" type="password" placeholder="驗證碼" aria-label="驗證碼" value="demo1234"></div>
+  <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" type="button" id="carrier-ok" style="flex:1">同意並連結</button><button class="btn alt" type="button" id="carrier-cancel">取消</button></div>
+</dialog>
+
+<dialog id="scan" aria-label="掃描發票 QR code">
+  <div class="cam"><div class="frame"></div>
+    <svg viewBox="0 0 21 21" aria-hidden="true"><path fill="#fff" d="M0 0h7v7H0zM1 1v5h5V1zM2 2h3v3H2zM14 0h7v7h-7zm1 1v5h5V1zm1 1h3v3h-3zM0 14h7v7H0zm1 1v5h5v-5zm1 1h3v3H2zM8 0h2v2H8zm3 1h2v3h-2zM8 4h2v4H8zm4 4h3v2h-3zm-4 2h3v3H8zm9 0h2v2h-2zm-4 3h2v2h-2zm3 1h5v2h-5zm-6 2h2v5H8zm4 1h3v4h-3zm6 1h3v3h-3z"/></svg>
+  </div>
+  <p style="margin:10px 0 0">對準發票<b>左邊</b>的 QR code，可以一張接一張掃。（原型：按下面的按鈕模擬掃到）</p>
+  <div class="scanbtns">
+    <button class="btn alt sm" type="button" data-code="AB54348835115080312340000006400000069000000001234567800000000000000000000000:**********:1:1:1:咖啡:1:65">模擬：左邊 QR（AB-54348835，8/3）</button>
+    <button class="btn alt sm" type="button" data-code="CD12348835115082012340000">模擬：左邊 QR（CD-12348835，8/20）</button>
+    <button class="btn alt sm" type="button" data-code="**咖啡:1:65:蛋糕:1:80">模擬：右邊明細 QR</button>
+    <button class="btn alt sm" type="button" data-code="11512XY123456780000">模擬：中間一維條碼（11–12 月）</button>
+  </div>
+  <p class="scanst" id="scanst" role="status">對準 QR code…</p>
+  <button class="btn" type="button" id="scan-done" style="width:100%;margin-top:8px">完成</button>
+</dialog>
+
+<script>
+// ── 頭像：阿幫用吉祥物（public/brand/abang-think.svg），小幫手用線條圖示（public/js/icons.js）──
+const MASCOT = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="阿幫（查詢中）">
+<title>阿幫（查詢中）</title>
+<g transform="translate(118 124) scale(1.25)">
+  <path d="M24 20 Q50 30 60 54 L49 59 Q40 40 18 31 Z" fill="#2E6FB7"/>
+  <path d="M60 54 L49 59 L54 68 L65 63 Z" fill="#FFFFFF" stroke="#2E6FB7" stroke-width="1.5"/>
+  <rect x="34" y="-10" width="28" height="38" rx="9" fill="#0F766E"/><rect x="44" y="-3" width="14" height="9" rx="3" fill="#E1F5EE"/><circle cx="49" cy="16" r="3.5" fill="#FBBF24"/><circle cx="57" cy="22" r="3.5" fill="#F0997B"/>
+  <circle cx="0" cy="0" r="46" fill="#3B82C4"/>
+  <path d="M-46 -2 A46 46 0 0 1 46 -2 Q30 -14 0 -14 Q-30 -14 -46 -2 Z" fill="#1F2A44"/>
+  <ellipse cx="0" cy="20" rx="28" ry="22" fill="#EAF3FB"/>
+  <circle cx="-15" cy="-6" r="8" fill="#FFF"/><circle cx="15" cy="-6" r="8" fill="#FFF"/><circle cx="-12" cy="-9" r="4.5" fill="#1F2A44"/><circle cx="18" cy="-9" r="4.5" fill="#1F2A44"/><circle cx="-58" cy="-44" r="4" fill="#1F2A44" opacity=".35"/><circle cx="-68" cy="-58" r="6" fill="#1F2A44" opacity=".35"/>
+  <path d="M-6 4 L6 4 L0 13 Z" fill="#E24B4A"/>
+  <circle cx="-27" cy="8" r="6" fill="#F4C0D1"/><circle cx="27" cy="8" r="6" fill="#F4C0D1"/>
+  <path d="M-26 -42 Q0 -70 26 -42 Z" fill="#0F766E"/><rect x="-30" y="-46" width="60" height="10" rx="5" fill="#0F766E"/><rect x="16" y="-44" width="26" height="7" rx="3.5" fill="#0F766E"/><circle cx="0" cy="-60" r="3.5" fill="#FBBF24"/>
+  <path d="M-42 10 Q-54 20 -46 32" fill="none" stroke="#3B82C4" stroke-width="10" stroke-linecap="round"/>
+  <path d="M-10 44 L-12 54 M10 44 L12 54" stroke="#E24B4A" stroke-width="4" stroke-linecap="round"/>
+</g>
+<metadata><c2pa:manifest>AAAWgmp1bWIAAAAeanVtZGMycGEAEQAQgAAAqgA4m3EDYzJwYQAAABZcanVtYgAAAEdqdW1kYzJtYQARABCAAACqADibcQN1cm46YzJwYTo3ZjhlZTkzNS02MjY0LTQwOGYtYjg3OS1mMmEyNjY0MjM5ZmUAAAADl2p1bWIAAAApanVtZGMyYXMAEQAQgAAAqgA4m3EDYzJwYS5hc3NlcnRpb25zAAAAALxqdW1iAAAARGp1bWRjYm9yABEAEIAAAKoAOJtxE2MycGEuaW5ncmVkaWVudC52MwAAAAAYYzJzaMMTHZoGxhdWhLQwwnHbUcoAAABwY2JvcqNpZGM6Zm9ybWF0bWltYWdlL3N2Zyt4bWxqaW5zdGFuY2VJRHgseG1wOmlpZDo3ZDI1YTU0ZS1lODNmLTQyMDctYmU0Zi0wYTAyZjIxMjlmZjJscmVsYXRpb25zaGlwaHBhcmVudE9mAAAB4mp1bWIAAABBanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5hY3Rpb25zLnYyAAAAABhjMnNopAm0M2Rgpcmc4kv16q/+PQAAAZljYm9yomdhY3Rpb25zgqJmYWN0aW9ua2MycGEub3BlbmVkanBhcmFtZXRlcnOha2luZ3JlZGllbnRzgaJjdXJseC1zZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmluZ3JlZGllbnQudjNkaGFzaFgg4LqKxcx7ktvXTDwnjLM8plFrwjCmOqGVxKVJ0e4WOBakZmFjdGlvbngdY29tLmFudGhyb3BpYy5jbGF1ZGUucHJvdmlkZWRqcGFyYW1ldGVyc6F4H2NvbS5hbnRocm9waWMub3JpZ2luLWNvbmZpZGVuY2VndW5rbm93bmtkZXNjcmlwdGlvbnhmQ2xhdWRlIHByb3ZpZGVkIHRoaXMgZmlsZSBhdCB0aGUgcmVxdWVzdCBvZiBhIHVzZXIgYW5kIG1heSBoYXZlIGNyZWF0ZWQgb3IgbW9kaWZpZWQgdGhlIGZpbGUgY29udGVudHMubXNvZnR3YXJlQWdlbnShZG5hbWVmQ2xhdWRlcmFsbEFjdGlvbnNJbmNsdWRlZPUAAADIanVtYgAAAEBqdW1kY2JvcgARABCAAACqADibcRNjMnBhLmhhc2guZGF0YQAAAAAYYzJzaJ+EZSAo7BEveN8oVx3568cAAACAY2JvcqVjYWxnZnNoYTI1NmNwYWRMAAAAAAAAAAAAAAAAZGhhc2hYILtpJp2Ql8aniqSdA1iFFze/r30bc/3g+Osmrs8UxeKZZG5hbWVuanVtYmYgbWFuaWZlc3RqZXhjbHVzaW9uc4GiZXN0YXJ0GQbYZmxlbmd0aBkeBAAAAj5qdW1iAAAAJ2p1bWRjMmNsABEAEIAAAKoAOJtxA2MycGEuY2xhaW0udjIAAAACD2Nib3KlY2FsZ2ZzaGEyNTZpc2lnbmF0dXJleE1zZWxmI2p1bWJmPS9jMnBhL3VybjpjMnBhOjdmOGVlOTM1LTYyNjQtNDA4Zi1iODc5LWYyYTI2NjQyMzlmZS9jMnBhLnNpZ25hdHVyZWppbnN0YW5jZUlEeCx4bXA6aWlkOjY3NzQ2YWRmLTQzYWItNDc4Zi04YmJkLWFmNDkxYjU0MzM3NXJjcmVhdGVkX2Fzc2VydGlvbnODomN1cmx4LXNlbGYjanVtYmY9YzJwYS5hc3NlcnRpb25zL2MycGEuaW5ncmVkaWVudC52M2RoYXNoWCDguorFzHuS29dMPCeMszymUWvCMKY6oZXEpUnR7hY4FqJjdXJseCpzZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmFjdGlvbnMudjJkaGFzaFggWIGEftBodyrWZwG5parB3SY6HbpKyD7E0ogsd2JQor+iY3VybHgpc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5oYXNoLmRhdGFkaGFzaFggqfxrritEhBlEE3WbkM6x7QQ0gL3qONQN7RMiprsXPS90Y2xhaW1fZ2VuZXJhdG9yX2luZm+jZG5hbWVvQW50aHJvcGljIEZpbGVzZ3ZlcnNpb25lMS4wLjBrc3BlY1ZlcnNpb25lMi40LjAAABA4anVtYgAAAChqdW1kYzJjcwARABCAAACqADibcQNjMnBhLnNpZ25hdHVyZQAAABAIY2JvctKEWQISogEmGCFZAgowggIGMIIBjaADAgECAhRA5aAK7sI50L64g/oGQgU9Z1UTADAKBggqhkjOPQQDAzBJMRcwFQYDVQQKEw5BbnRocm9waWMsIFBCQzEuMCwGA1UEAxMlQW50aHJvcGljIENvbnRlbnQgQ3JlZGVudGlhbHMgUm9vdCBDQTAeFw0yNjA4MDcxODQzNTZaFw0yODA4MDYxOTQzNTZaMEQxFzAVBgNVBAoTDkFudGhyb3BpYywgUEJDMSkwJwYDVQQDEyBBbnRocm9waWMgQ2xhdWRlIENvbnRlbnQgU2lnbmluZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJh6CmvLUBgFFNU0vUKlOVtE6djd17L5SuwX0LemFisBM3dkd/3cyjxFA3Qo5S46fX0/ihY0VZ7mfb9KF703t5OjWDBWMA4GA1UdDwEB/wQEAwIHgDAVBgNVHSUEDjAMBgorBgEEAYPoXgIBMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUzlHiBIFOZFsj+OPEz5o+nMHXXMIwCgYIKoZIzj0EAwMDZwAwZAIwMXMdFJ4BetLLVY7ORuE9noqbbAZOZn/aArXyTwFAZfKrPzxF2vPoJNf1+UCdg1XGAjBwX1zd9WGqYkqmL5SFqw1QySjr1zJfpJM9+1rdDwSPLMOPOjKuiXjoU/pUUeG9RwmhY3BhZFkNngAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPZYQIjQmBRywc9TdsmNl+mKyedXjfKlwX/cEWjIsBq6lINDJOiht9uNw2ddvMZ9OL1qXLwiKQA8midJ4aMwwubXmTM=</c2pa:manifest></metadata></svg>`;
+const I = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ROLE_ICON = {
+  地點: I('<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'),
+  天氣: I('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  空品: I('<path d="M3 8h11a3 3 0 1 0-3-3"/><path d="M3 12h15a3 3 0 1 1-3 3"/><path d="M3 16h7"/>'),
+  路況: I('<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/>'),
+  行程: I('<circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.5"/>'),
+  公車: I('<rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16"/><path d="M7 21v-3M17 21v-3"/>'),
+  排程: I('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>'),
+  股市: I('<path d="M3 20h18"/><path d="M4 16l5-5 4 3 7-8"/><path d="M15 6h5v5"/>'), 發票: I('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>') };
+function av(role) {
+  const a = document.createElement('span');
+  a.className = role === '阿幫' ? 'av mascot' : `av r-${role}`;
+  a.setAttribute('role', 'img'); a.setAttribute('aria-label', role); a.title = role;
+  a.innerHTML = role === '阿幫' ? MASCOT : ROLE_ICON[role]; // 本檔常數 SVG
+  return a;
+}
+
+// ── 示範資料（core/data/demo/ 片段）──
+const Q = [["0050","元大台灣50",1,"11-18",95.7,95.95,92.35,94.1,0.1,0.11,303494],["0056","元大高股息",1,"11-18",50.6,50.9,48.4,49.48,-0.44,-0.88,93001],["006208","富邦台50",1,"11-18",216.5,216.5,208.05,212,0.1,0.05,4895],["00878","國泰永續高股息",1,"11-18",31.17,31.25,30.25,30.65,-0.21,-0.68,81005],["00919","群益台灣精選高息",1,"11-18",30.55,30.88,29.8,29.99,-0.4,-1.32,114388],["1216","統一",1,"11-18",78.6,79.6,77.9,78.8,-0.4,-0.51,11826],["1301","台塑",1,"11-18",68.5,69.4,63.3,64.4,-3.1,-4.59,43224],["2002","中鋼",1,"11-18",18.1,18.1,17.9,17.95,0,0,31471],["2303","聯電",1,"11-18",94,95.1,89.2,93,0.6,0.65,100257],["2308","台達電",1,"11-18",1100,1100,1000,1060,5,0.47,20742],["2317","鴻海",1,"11-18",222,224.5,215,221,2,0.91,44163],["2330","台積電",1,"11-18",2200,2210,2150,2175,5,0.23,50794],["2357","華碩",1,"11-18",835,850,810,841,15,1.82,2956],["2382","廣達",1,"11-18",264.5,266.5,253,265,2.5,0.95,22424],["2412","中華電",1,"11-18",164.5,165.5,163,164.5,0,0,12796],["2454","聯發科",1,"11-18",3995,4075,3775,3940,100,2.6,16765],["2603","長榮",1,"11-18",258,261,255,257.5,1,0.39,9287],["2881","富邦金",1,"11-18",152,153,147.5,149,-1.5,-1,28038],["2882","國泰金",1,"11-18",111.5,112.5,108,110,-1,-0.9,31584],["2884","玉山金",1,"11-18",46.2,46.55,42,42.15,-4.5,-9.65,96808],["2891","中信金",1,"11-18",76.9,77.8,73,73.4,-4.1,-5.29,66799],["3008","大立光",1,"11-18",4820,4820,4205,4410,-105,-2.33,2420],["3045","台灣大",1,"11-18",127.5,128.5,126,127.5,0,0,22056],["3711","日月光投控",1,"11-18",555,565,519,548,28,5.38,30070],["00687B","國泰20年美債",2,"11-19",27.31,27.46,27.31,27.39,0.15,0.55,21087],["3105","穩懋",2,"11-19",466.5,473,423,423,-47,-10,27837],["5274","信驊",2,"11-19",9415,9490,8730,8730,-970,-10,331],["6488","環球晶",2,"11-19",551,551,490,490,-54,-9.93,9738],["8299","群聯",2,"11-19",1505,1515,1425,1455,-65,-4.28,6657]]
+  .map(([code,name,m,date,open,high,low,close,change,changePct,lots]) => ({ code, name, market: m === 1 ? '上市' : '上櫃', date, open, high, low, close, change, changePct, lots }));
+const INDICES = [{ name: '加權指數', date: '11-18', close: 40194.91, change: 102.8, changePct: 0.26 }, { name: '櫃買指數', date: '11-19', close: 285.33, change: -22.22, changePct: -7.22 }];
+const INVOICE = { title: '115 年 07–08 月', period: '11507', special: '89996565', grand: '91098182', first: ['54348835', '44991397', '06595111'] };
+
+// ── 規則（照 core/agent/demo-intent.js、guardrails.js 簡化）──
+const STOCK_WORD = /股價|股票|股市|[台臺]股|大盤|加權指數|櫃買|收盤|漲停|跌停|\bETF\b|\d{4}\s*(?:漲|跌)/i;
+const FILLER = /今天|昨天|今日|現在|目前|最新|最近|股價|股票|股市|[台臺]股|大盤|加權指數|櫃買指數|指數|收盤價?|行情|報價|價格|走勢|表現|漲停|跌停|漲|跌|多少錢?|幾塊|幾元|怎麼樣|如何|查詢|查一下|查|幫我|請問|看一下|看看|看|一下|要不要|該不該|可不可以|可以|能不能|值得|推薦|建議|會不會|明牌|進場|出場|買點|賣點|買|賣|有沒有|還|該|會|嗎|呢|吧|啊|了|的|我|明天|你覺得|\bETF\b/gi;
+const ADVICE_Q = /該不該|要不要買|可以買|能買|值得買|該買|該賣|推薦|明牌|會漲|會跌|進場|出場|買點|賣點/;
+const FOLLOW_UP = /^(?:那|那麼|還有|再查|再看|換|也查)?\s*([^\s？?，,。！!]{2,12}?)\s*(?:呢|勒|咧|的呢|也查)?\s*[？?]?$/;
+const FOLLOW_MARK = /^(?:那|那麼|還有|再查|再看|換|也查)|(?:呢|勒|咧)\s*[？?]?$|^\d{4,6}[A-Za-z]?\s*[？?]?$/;
+const INVOICE_WORD = /發票|對獎|中獎號碼/;
+const ADVICE_OUT = /(建議|推薦)(你|您)?(可以)?(買進|買入|賣出|加碼|減碼|出場|進場|逢低|停損|停利|布局|佈局)|(可以|適合|值得)(買進|買入|進場|布局|佈局|入手|投資|加碼)|(股價|指數|大盤|台股|臺股|它|這檔)[^。！？\n]{0,8}(會|將|可望|有望|應該會)(繼續)?(上漲|下跌|漲|跌|反彈|回檔)|看(漲|跌)(?!倒)|看好(這檔|後市|台股|臺股|大盤|它)|目標價|明牌/;
+const NO_ADVICE = '阿幫不提供投資建議，只能報開放資料的收盤數字：';
+const NO_ADVICE_NOTE = '阿幫不提供投資建議或漲跌預測，只能報開放資料的收盤數字。';
+const stockQueryOf = (s) => s.replace(FILLER, '、').split(/[、,，;；\s？?。！!和跟與及]+/).filter((w) => (/^\d/.test(w) ? /^\d{4}/.test(w) : w.length >= 2)).slice(0, 5).join('、');
+const isFollowUp = (s) => FOLLOW_UP.test(s) && FOLLOW_MARK.test(s);
+const norm = (s) => String(s).replace(/臺/g, '台').replace(/\s+/g, '').toUpperCase();
+
+function parse(text, history) {
+  const s = text.trim();
+  if (/載具|手機條碼/.test(s)) return { intent: 'carrier', rule: 'carrier' };
+  if (/每天|每週|每期|開獎後|自動|排程|定時|固定/.test(s) && /發票|對獎|天氣|空品|股|收盤|公車|油價|晨報|早報|提醒/.test(s)) return { intent: 'schedule', rule: 'schedule' };
+  if (/今天.*(注意|重點|要知道)|出門前|晨報|早報|今日重點/.test(s)) return { intent: 'briefing', rule: 'knowledge' };
+  if (/從.+(到|去)|怎麼去|怎麼走/.test(s)) return { intent: 'trip', rule: 'bus-follow' };
+  if (INVOICE_WORD.test(s)) return { intent: 'invoice', number: /(?:^|\D)(\d{8}|\d{3})(?!\d)/.exec(s)?.[1], rule: 'invoice' };
+  if (STOCK_WORD.test(s)) return { intent: 'stock', query: stockQueryOf(s) || undefined, advice: ADVICE_Q.test(s), rule: 'stock' };
+  const prevStock = followsStock(history);
+  if (ADVICE_Q.test(s) && prevStock) return { intent: 'stock', query: stockQueryOf(s) || undefined, advice: true, rule: 'advice-follow' };
+  const m = isFollowUp(s) && FOLLOW_UP.exec(s);
+  if (m && prevStock) return { intent: 'stock', query: stockQueryOf(m[1]) || m[1], advice: false, rule: 'follow-up' };
+  return { intent: 'unknown', rule: 'unknown' };
+}
+function followsStock(history) {
+  for (const m of history.filter((x) => x.role === 'user').reverse()) {
+    if (STOCK_WORD.test(m.content)) return true;
+    if (!isFollowUp(m.content.trim()) && !ADVICE_Q.test(m.content)) return false;
+  }
+  return false;
+}
+function findStock(q) {
+  const byCode = Q.find((x) => x.code === q.toUpperCase());
+  if (byCode) return { hit: byCode, similar: [] };
+  const n = norm(q);
+  const exact = Q.find((x) => norm(x.name) === n);
+  if (exact) return { hit: exact, similar: [] };
+  const starts = Q.filter((x) => norm(x.name).startsWith(n));
+  const has = Q.filter((x) => !starts.includes(x) && norm(x.name).includes(n));
+  const list = [...starts, ...has].sort((a, b) => (starts.includes(b) - starts.includes(a)) || a.name.length - b.name.length);
+  return { hit: list[0] || null, similar: list.slice(1, 5) };
+}
+function stockQuote(query) {
+  const quotes = [], notFound = [];
+  for (const q of String(query || '').split(/[、,，\s]+/).filter(Boolean).slice(0, 5)) {
+    const { hit, similar } = findStock(q);
+    if (!hit) notFound.push(q); else if (!quotes.some((x) => x.code === hit.code)) quotes.push({ ...hit, similar });
+  }
+  return { indices: INDICES, quotes, notFound };
+}
+const md = (d) => d.replace(/^0?(\d+)-0?(\d+)$/, '$1/$2');
+const fmt = (n) => n.toLocaleString('zh-TW', { maximumFractionDigits: 2 });
+const move = (c, p, unit = '') => (c === 0 ? '平盤' : `${c > 0 ? '漲' : '跌'} ${fmt(Math.abs(c))}${unit}${p == null ? '' : `（${Math.abs(p).toFixed(2)}%）`}`);
+const stockSpeak = (d) => {
+  const q = d.quotes.map((x) => `${x.name} ${md(x.date)} 收 ${fmt(x.close)}，${move(x.change, x.changePct)}`);
+  const head = q.length ? q.join('；') : `${INDICES[0].name} ${md(INDICES[0].date)} 收 ${fmt(INDICES[0].close)}，${move(INDICES[0].change, null, ' 點')}`;
+  return `${head}。${d.notFound.length ? `找不到「${d.notFound.join('、')}」。` : ''}`;
+};
+function checkInvoice(n) {
+  if (n.length === 3) return INVOICE.first.some((f) => f.endsWith(n)) ? { prize: '可能中六獎以上', amount: 200 } : { prize: null };
+  if (n === INVOICE.special) return { prize: '特別獎', amount: 10000000 };
+  if (n === INVOICE.grand) return { prize: '特獎', amount: 2000000 };
+  if (INVOICE.first.includes(n)) return { prize: '頭獎', amount: 200000 };
+  for (const [name, k, amount] of [['二獎', 7, 40000], ['三獎', 6, 10000], ['四獎', 5, 4000], ['五獎', 4, 1000], ['六獎', 3, 200]]) if (INVOICE.first.some((f) => f.slice(-k) === n.slice(-k))) return { prize: name, amount };
+  return { prize: null, amount: 0 };
+}
+function guard(text) {
+  const parts = text.split(/(?<=[。！？!?\n])/);
+  let hit = false;
+  const out = [];
+  for (const p of parts) {
+    if (ADVICE_OUT.test(p)) { hit = true; if (!out.includes(NO_ADVICE_NOTE)) out.push(NO_ADVICE_NOTE); } else out.push(p);
+  }
+  return { text: out.join(''), hit, parts };
+}
+
+// ── 狀態 ──
+let mode = 'demo';
+let history = [];   // 送給 /api/v1/agent 的 messages（最多 10 則）
+let context = '';   // host.setContext：下一句送出後清空
+let wallet = [];    // 我的發票（原型只放記憶體）
+let busy = false;
+let turn = 0;
+const $ = (s) => document.querySelector(s);
+const chat = $('#chat');
+const wait = (ms) => new Promise((r) => setTimeout(r, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : ms));
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) { if (k.startsWith('on')) el.addEventListener(k.slice(2), v); else if (v != null && v !== false) el.setAttribute(k, v); }
+  for (const k of kids.flat()) if (k != null && k !== false) el.append(k instanceof Node ? k : document.createTextNode(String(k)));
+  return el;
+}
+const scroll = () => { chat.scrollTop = chat.scrollHeight; };
+const add = (el) => { chat.append(el); scroll(); return el; };
+
+// ── 事件流與面板 ──
+function ev(type, body, cls = type) {
+  const p = $('#p-events');
+  p.append(h('div', { class: 'ev' }, h('span', { class: `type t-${cls}` }, type), h('div', null, body)));
+  p.scrollTop = p.scrollHeight;
+}
+const json = (o) => h('code', null, JSON.stringify(o));
+function drawSees(lastBody) {
+  const p = $('#p-sees');
+  p.replaceChildren(
+    h('p', null, '每次送出時，客戶端把最近 10 則對話與卡片脈絡交給 ', h('code', null, 'POST /api/v1/agent'), '。模型模式靠這些理解追問與「它」；示範模式只用歷史判斷追問，不看卡片脈絡。'),
+    h('h4', null, '上一次送出的請求'),
+    h('pre', null, lastBody ? JSON.stringify(lastBody, null, 2) : '（還沒送出）'),
+    h('h4', null, '目前的卡片脈絡（下一句會帶上）'),
+    h('pre', null, context || '（沒有：在股市卡片裡查別檔或按「也可能是」才會設定）'),
+    h('h4', null, '我的發票（只存在手機）'),
+    h('pre', null, wallet.length ? JSON.stringify(wallet, null, 2) : '（空的）'));
+}
+const RULES = [
+  ['schedule', '指揮阿幫排程', '「開獎後幫我對發票」「每天 8 點跟我說天氣和台積電」→ 建立排程：寫清楚做什麼、什麼時候、用哪些資料，使用者可在「排程」暫停或刪除。只排 L1 查詢與通知；訂票、叫車（L2）只能提醒，不會自動執行。誠實限制：網頁只在打開 App 時補跑；要準時推播需推播伺服器與使用者訂閱（ADR 決定）。'],
+  ['carrier', '財政部載具（規劃中）', '「把載具的發票抓進來」→ 沒連結時引導到發票頁的連結表單（同意＋手機條碼＋驗證碼，只存手機、不在對話裡輸入）；已連結 → invoice_carrier_list 抓這期發票存進「我的發票」，開獎後自動對。前提：公司向財政部財資中心申請 AppID／APIKey（只放伺服器、加簽）；驗證碼不出手機的設計要寫 ADR。'],
+  ['knowledge', '對話裡用任何資訊', '「今天出門要注意什麼？」→ 阿幫組合多個來源（天氣、空品、在盯的公車、我的發票、股市、油價…）成一張可展開的「今日重點」卡片；每段標資料來源，數字只來自工具。'],
+  ['bus-follow', '選公車就盯到站', '決策（decide.js 計分）選了公車 → 阿幫接著查這條路線在上車站的即時到站（bus_route_eta），卡片每秒倒數、每 20 秒更新；「開公車頁」看車在哪一站。提醒只在使用者按下時設定（L1 查詢＋通知，不是 L2 行動）：到站前 N 分發通知。'],
+  ['stock', '股市意圖', '有股價、股票、大盤、收盤、ETF、「2330 漲」等字眼 → stock_quote。去掉口語與行情字眼，剩下的是名稱或代號；沒剩下只查指數。'],
+  ['follow-up', '追問', '上一個（非追問的）提問是股市，這句是短句且有「那…」「…呢」或本身是代號 → 沿用股市。「謝謝」「好」不算。'],
+  ['advice-follow', '股市脈絡下問買賣', '前面在聊股市時，「我該買台積電嗎？」沒有股市字眼也接著查，並先說不提供投資建議。'],
+  ['advice', '問買賣', '該買、推薦、會漲、明牌… → 總結先說「阿幫不提供投資建議」，只報收盤數字；不預測。'],
+  ['guardrail', '輸出護欄 no-investment-advice', '模型回答若出現買賣建議、看漲看跌、目標價、明牌 → 那一句整句換成固定說法，送 guardrail 事件。「建議買來回票」不受影響。'],
+  ['context', '卡片脈絡 setContext', '在股市卡片查別檔 → 卡片呼叫 host.setContext，下一句送出時帶給模型（200 字內，只當資料）。'],
+  ['invoice', '發票', '發票／對獎 → invoice_lottery；有 8 碼或末 3 碼就對獎。總結主動提議存到「我的發票」，可以掃 QR code；不索取載具、Email、密碼。'],
+  ['unknown', '其他', '說明能幫忙的範圍。'],
+];
+function drawRules(hits = []) {
+  $('#p-rules').replaceChildren(...RULES.map(([id, t, d]) => h('div', { class: `rule${hits.includes(id) ? ' hit' : ''}` }, h('h4', null, `${hits.includes(id) ? '● ' : ''}${t}`), h('p', null, d))));
+}
+
+// ── 卡片 ──
+function stockCard(data) {
+  const box = h('div', { class: 'card', 'data-card': 'stock' });
+  const render = (d) => {
+    const chg = (c, p, unit) => h('span', { class: `chg ${c > 0 ? 'up' : c < 0 ? 'down' : 'flat'}` }, `${c > 0 ? '▲' : c < 0 ? '▼' : ''}${c ? fmt(Math.abs(c)) + (unit || '') : '平盤'}${c && p != null ? `（${Math.abs(p).toFixed(2)}%）` : ''}`);
+    const input = h('input', { placeholder: '代號或名稱，例如 2330、0050', 'aria-label': '查別檔' });
+    box.replaceChildren(...[
+      h('h3', null, '台股收盤行情', h('span', { class: 'badge' }, '示範資料')),
+      h('div', { class: 'stats' }, d.indices.map((i) => h('div', { class: 'stat' }, h('small', null, `${i.name}・${md(i.date)}`), h('strong', null, fmt(i.close)), chg(i.change, i.changePct)))),
+      d.quotes.map((x) => h('div', { class: 'stk' },
+        h('div', null, h('b', null, x.name), h('small', null, ` ${x.code}・${x.market}・${md(x.date)} 收盤`), h('br'),
+          h('small', null, `開 ${fmt(x.open)}・高 ${fmt(x.high)}・低 ${fmt(x.low)}・成交 ${fmt(x.lots)} 張`),
+          x.similar?.length ? h('div', null, h('small', null, '也可能是：'), x.similar.map((s) => h('button', { type: 'button', class: 'alt-btn', onclick: () => cardQuery(s.code) }, `${s.name}（${s.code}）`))) : null),
+        h('div', { class: 'px' }, h('strong', null, fmt(x.close)), chg(x.change, x.changePct)))),
+      d.notFound.length ? h('p', { class: 'foot' }, `找不到「${d.notFound.join('、')}」，請用股票代號或完整名稱。`) : null,
+      h('form', { class: 'cform', onsubmit: (e) => { e.preventDefault(); if (input.value.trim()) cardQuery(input.value.trim()); } }, input, h('button', { class: 'btn sm' }, '查詢')),
+      h('p', { class: 'foot' }, '收盤資料，不是即時報價。僅供參考，不構成投資建議。')].flat().filter(Boolean));
+  };
+  // 卡片內查別檔：host.callTool（不新增訊息）＋ host.setContext
+  function cardQuery(q) {
+    const d = stockQuote(q);
+    ev('host.callTool', json({ name: 'stock_quote', args: { query: q } }), 'client');
+    render(d);
+    const names = d.quotes.map((x) => `${x.name}（${x.code}）`).join('、');
+    if (names) { context = `使用者在股市卡片上查看：${names} 的收盤行情`; ev('host.setContext', context, 'client'); drawRules(['context']); }
+    drawSees(lastBody);
+  }
+  render(data);
+  box.query = cardQuery;
+  return box;
+}
+function invoiceCard(d) {
+  return h('div', { class: 'card', 'data-card': 'invoice' },
+    h('h3', null, `統一發票 ${INVOICE.title}`, h('span', { class: 'badge' }, '示範資料')),
+    d.check ? h('div', { class: 'win', style: d.check.prize ? '' : 'background:#f1f4f3;color:#5f6f6b' }, d.check.prize ? `${d.number} ${d.check.prize}！獎金 ${fmt(d.check.amount)} 元` : `${d.number} 沒有中獎`) : null,
+    [['特別獎', [INVOICE.special]], ['特獎', [INVOICE.grand]], ['頭獎', INVOICE.first]].map(([l, ns]) => h('div', { class: 'inv' }, h('small', null, l), h('div', null, ns.map((n) => h('strong', null, n, ' '))))),
+    h('div', { class: 'wallet' }));
+}
+function drawWallet() {
+  document.querySelectorAll('.wallet').forEach((last) => last.replaceChildren(...[h('b', null, '我的發票'), h('small', { style: 'color:#5f6f6b' }, '　存在這支手機'),
+    wallet.length ? wallet.map((x) => h('div', { class: 'wrow' }, h('span', null, `${x.track}-${x.number}`, h('small', { style: 'color:#5f6f6b' }, `　${x.date ? `消費 ${x.date}` : `${x.period} 期`}${x.store ? `・${x.store}` : ''}${x.from ? '・載具' : ''}`)), h('span', { class: `st ${x.status || ''}` }, x.status === 'won' ? `${x.prize}・${fmt(x.amount)} 元` : x.status === 'lost' ? '沒中' : x.status === 'pending' ? '1/25 開獎' : '待對獎'))) : h('p', { class: 'foot' }, '還沒有存發票。'),
+    h('div', { style: 'display:flex;gap:6px;margin-top:6px' }, h('button', { class: 'btn sm', type: 'button', onclick: openScan }, '掃發票 QR code'))].flat().filter(Boolean)));
+}
+
+// ── 一輪對話 ──
+let lastBody = null;
+async function send(text) {
+  if (busy || !text.trim()) return;
+  go('agent');
+  busy = true;
+  turn++;
+  const body = { messages: [...history, { role: 'user', content: text }].slice(-10), ...(context && { context }) };
+  lastBody = body;
+  const ctxUsed = context;
+  context = '';
+  $('#p-events').append(h('div', { class: 'turnsep' }, `── 第 ${turn} 輪：「${text}」${ctxUsed ? '（帶卡片脈絡）' : ''}`));
+  drawSees(body);
+  add(h('div', { class: 'u' }, text));
+  history.push({ role: 'user', content: text });
+  ev('status', json({ mode, profile: 'life' }));
+  const it = parse(text, history.slice(0, -1));
+  const hits = [it.rule, ...(it.advice ? ['advice'] : [])];
+  let answer = '';
+  try {
+    if (it.intent === 'trip') answer = await busTrip(text);
+    else if (it.intent === 'schedule') answer = await makeSchedule(text);
+    else if (it.intent === 'carrier') answer = await carrierTurn();
+    else if (it.intent === 'briefing') answer = await briefing(['天氣', '空品', '公車', '發票', '股市']);
+    else if (mode === 'model') answer = await modelTurn(text, it, ctxUsed, hits);
+    else answer = await demoTurn(it, ctxUsed);
+  } finally {
+    history.push({ role: 'assistant', content: answer.slice(0, 500) });
+    ev('done', '');
+    drawRules(hits);
+    drawSees(body);
+    busy = false;
+  }
+}
+async function toolCall(note, name, args) {
+  await wait(250);
+  add(h('div', { class: 'row' }, av('阿幫'), h('div', { class: 'note', style: 'padding-top:6px' }, h('span', { class: 'at' }, note.split(' ')[0]), note.split(' ').slice(1).join(' '))));
+  ev('agent_note', note);
+  await wait(200);
+  ev('tool_start', json({ name, input: args }));
+  await wait(350);
+  if (name === 'stock_quote') {
+    const d = stockQuote(args.query);
+    const speak = stockSpeak(d);
+    add(h('div', { class: 'row' }, av('股市'), h('div', { class: 'tool' }, h('div', { class: 'who' }, '股市・證交所／櫃買中心'), speak)));
+    ev('tool_result', h('span', null, json({ card: 'stock', speak })));
+    add(stockCard(d));
+    return { d, speak };
+  }
+  const n = args.number;
+  const d = { number: n, check: n ? checkInvoice(n) : null };
+  const speak = d.check ? (d.check.prize ? `${d.check.prize}！獎金 ${fmt(d.check.amount)} 元。` : '這張沒有中獎。') : `${INVOICE.title}：特別獎 ${INVOICE.special}、特獎 ${INVOICE.grand}。`;
+  add(h('div', { class: 'row' }, av('發票'), h('div', { class: 'tool' }, h('div', { class: 'who' }, '發票・財政部'), speak)));
+  ev('tool_result', json({ card: 'invoice', speak }));
+  add(invoiceCard(d));
+  drawWallet();
+  return { d, speak };
+}
+async function say(text, { guarded } = {}) {
+  await wait(250);
+  add(h('div', { class: 'row' }, av('阿幫'), h('div', { class: `say${guarded ? ' guarded' : ''}` }, text)));
+  ev('text', text);
+  return text;
+}
+const HINT = '要不要把發票存到「我的發票」？可以直接掃發票左邊的 QR code，號碼只存在你的手機，開獎後打開阿幫就自動幫你對獎。';
+
+async function demoTurn(it, ctx) {
+  if (it.intent === 'stock') {
+    const { speak } = await toolCall(it.query ? `@股市 查「${it.query}」的收盤行情` : '@股市 看一下大盤收盤', 'stock_quote', it.query ? { query: it.query } : {});
+    return say(`${it.advice ? NO_ADVICE : ''}${speak}`);
+  }
+  if (it.intent === 'invoice') {
+    const { speak } = await toolCall(it.number ? '@發票 幫你對獎' : '@發票 最新一期中獎號碼', 'invoice_lottery', it.number ? { number: it.number } : {});
+    return say(`${speak} ${HINT}`);
+  }
+  if (ctx) add(h('div', { class: 'sys' }, '示範模式只用規則判斷、不看卡片脈絡，所以不知道「它」是誰；切到模型模式再試一次'));
+  return say('我可以幫你查交通和生活資訊（天氣、空品、地震、藥局、垃圾車、油價、發票、股市收盤）。試試：「台積電股價多少」「這期發票號碼是多少？」');
+}
+
+// 模型模式：示意模型會怎麼用歷史與脈絡（實際由 Claude／地端模型決定，這裡是腳本）
+async function modelTurn(text, it, ctx, hits) {
+  const ctxCode = /（(\w+)）/.exec(ctx)?.[1];
+  const pronoun = /它|這檔|這支/.test(text);
+  if (it.intent === 'invoice') {
+    const { d } = await toolCall(d0(it), 'invoice_lottery', it.number ? { number: it.number } : {});
+    return say(d.check ? `${d.check.prize ? `恭喜！${it.number} 中${d.check.prize}，獎金 ${fmt(d.check.amount)} 元。` : `${it.number} 這期沒有中。`}${HINT}` : `${INVOICE.title}特別獎 ${INVOICE.special}、特獎 ${INVOICE.grand}。${HINT}`);
+  }
+  if (it.intent === 'unknown' && pronoun && ctxCode) {
+    hits.push('context');
+    const { d } = await toolCall(`@股市 查你在卡片上看的 ${ctxCode}`, 'stock_quote', { query: ctxCode });
+    const x = d.quotes[0];
+    return say(`${x.name}（${x.code}）${md(x.date)} 成交 ${fmt(x.lots)} 張，收盤 ${fmt(x.close)}，${move(x.change, x.changePct)}。這是收盤資料，不是即時報價。`);
+  }
+  if (it.intent === 'unknown') return say('我可以幫你查交通和生活資訊，例如股市收盤、發票對獎。要查哪一檔股票？');
+  const { d } = await toolCall(it.query ? `@股市 查 ${it.query} 的收盤` : '@股市 看大盤收盤', 'stock_quote', it.query ? { query: it.query } : {});
+  const x = d.quotes[0];
+  const facts = x ? d.quotes.map((q) => `${q.name}（${q.code}）${md(q.date)} 收盤 ${fmt(q.close)} 元，${move(q.change, q.changePct)}`).join('；') : `加權指數 ${md(INDICES[0].date)} 收 ${fmt(INDICES[0].close)} 點，${move(INDICES[0].change, INDICES[0].changePct, ' 點')}；櫃買指數 ${md(INDICES[1].date)} 收 ${fmt(INDICES[1].close)} 點，${move(INDICES[1].change, INDICES[1].changePct, ' 點')}`;
+  if (it.advice && x) {
+    // 假設模型沒守規則：輸出護欄把建議與預測的句子整句換掉
+    const draft = `${facts}。我建議你可以逢低買進。股價應該會繼續上漲！要不要也看看 0050？`;
+    const g = guard(draft);
+    if (g.hit) {
+      hits.push('guardrail');
+      ev('guardrail', json({ tier: 'L2', rule: 'no-investment-advice' }));
+      $('#p-events').append(h('pre', null, h('span', null, '模型草稿（示意：假設沒守規則）：\n'), ...g.parts.map((p) => (ADVICE_OUT.test(p) ? h('del', null, p) : p)), h('span', null, '\n送出：\n'), h('ins', null, g.text)));
+      return say(g.text, { guarded: true });
+    }
+  }
+  return say(`${facts}。${d.notFound.length ? `找不到「${d.notFound.join('、')}」，可以用代號再試。` : ''}這是收盤資料，不是即時報價。`);
+}
+const d0 = (it) => (it.number ? '@發票 幫你對這張' : '@發票 查最新一期');
+
+// ── 財政部手機條碼載具（規劃中：需公司申請 AppID）──
+let carrier = null; // { cardNo（遮罩顯示）}；驗證碼只在手機
+const CARRIER_INV = [['AB', '54348835', '2026-08-03', '全家便利商店', 65], ['CD', '12340397', '2026-08-12', '星巴克', 135], ['EF', '88776655', '2026-08-21', '家樂福', 1288], ['GH', '20251119', '2026-11-18', '7-ELEVEN', 49]];
+function openCarrier(after) {
+  ev('client', '開「連結載具」表單（同意事項＋手機條碼＋驗證碼）', 'client');
+  $('#carrierdlg').showModal();
+  $('#carrier-cancel').onclick = () => $('#carrierdlg').close();
+  $('#carrier-ok').onclick = async () => {
+    const no = $('#cardno').value.trim();
+    carrier = { cardNo: no.replace(/^(\/..).*(.)$/, '$1****$2') };
+    $('#carrierdlg').close();
+    ev('client', `手機條碼與驗證碼存在這支手機（加密存放）：${carrier.cardNo}`, 'client');
+    ptoast('已連結載具');
+    await syncCarrier();
+    if (after) after();
+  };
+}
+async function syncCarrier() {
+  ev('host.callTool', json({ name: 'invoice_carrier_list', args: { cardNo: carrier.cardNo, cardEncrypt: '（手機端送出，伺服器轉查不保存）', period: '本期與上期' }, server: 'AppID＋APIKey 加簽 → 財政部 API' }), 'client');
+  await wait(400);
+  let added = 0;
+  for (const [track, number, date, store, amount] of CARRIER_INV) {
+    if (wallet.some((x) => x.number === number)) continue;
+    wallet.unshift({ track, number, date, store, amount, from: '載具' }); added++;
+  }
+  for (const x of wallet.filter((y) => !y.status)) {
+    const p = `${Number(x.date?.slice(0, 4)) - 1911}${String(Number(x.date?.slice(5, 7)) % 2 ? Number(x.date?.slice(5, 7)) : Number(x.date?.slice(5, 7)) - 1).padStart(2, '0')}`;
+    if (p === INVOICE.period) { const c = checkInvoice(x.number); Object.assign(x, c, { status: c.prize ? 'won' : 'lost' }); } else x.status = 'pending';
+  }
+  drawWallet(); drawSees(lastBody);
+  return added;
+}
+function carrierCard() {
+  return h('div', { class: 'card' }, h('h3', null, '手機條碼載具', h('span', { class: 'badge' }, '規劃中')),
+    carrier
+      ? [h('p', null, `已連結 ${carrier.cardNo}（驗證碼只存在這支手機）`), h('div', { class: 'remind' }, h('button', { class: 'btn sm', type: 'button', onclick: async () => { const n = await syncCarrier(); ptoast(n ? `抓到 ${n} 張新發票` : '沒有新發票'); } }, '同步這期發票'), h('button', { class: 'btn sm alt', type: 'button', onclick: () => { carrier = null; ev('client', '取消連結：刪除手機上的手機條碼與驗證碼', 'client'); go('invoice'); } }, '取消連結'))]
+      : [h('p', { class: 'foot' }, '連結後自動抓載具裡的發票，不用一張張掃。需要財政部核發 AppID（公司申請）後才能上線。'), h('button', { class: 'btn sm', type: 'button', onclick: () => openCarrier(() => go('invoice')) }, '連結手機條碼載具')]);
+}
+async function carrierTurn() {
+  if (!carrier) {
+    add(h('div', { class: 'card' }, h('h3', null, '先連結載具', h('span', { class: 'badge' }, '規劃中')), h('p', { class: 'foot' }, '驗證碼請在連結表單裡輸入，不要打在對話裡。'), h('button', { class: 'btn sm', type: 'button', onclick: () => openCarrier(() => send('把載具的發票抓進來對獎')) }, '連結手機條碼載具')));
+    return say('要先連結你的手機條碼載具：按上面的按鈕，在表單裡輸入手機條碼和驗證碼（只存在你的手機）。連好我就幫你把發票抓進「我的發票」並對獎。');
+  }
+  await step('發票', '@發票 從你的載具抓這期和上期的發票', [['invoice_carrier_list', { cardNo: carrier.cardNo, period: '本期與上期' }]], [`載具有 ${CARRIER_INV.length} 張發票，已存進「我的發票」。`]);
+  const box = invoiceCard({});
+  add(box); drawWallet();
+  const won = wallet.filter((x) => x.status === 'won');
+  return say(`抓好了，${CARRIER_INV.length} 張都存進「我的發票」。${won.length ? `已開獎的期別有中：${won.map((w) => `${w.number} ${w.prize}`).join('、')}！` : '已開獎的沒中。'}11 月的發票 1/25 開獎後會自動對，要我排程嗎？說「開獎後幫我自動對發票」就好。`);
+}
+
+// ── 排程與綜合知識 ──
+let schedules = [];
+const TOPICS = [['天氣', /天氣|下雨/], ['空品', /空品|空氣/], ['股市', /股|收盤|台積電|大盤/], ['公車', /公車/], ['油價', /油價/], ['發票', /發票|對獎/]];
+function scheduleCard() {
+  const box = h('div', { class: 'card', 'data-card': 'schedule' });
+  const draw = () => box.replaceChildren(...[h('h3', null, '我的排程', h('span', { class: 'badge' }, '存在這支手機')),
+    schedules.length ? schedules.map((x) => h('div', { class: 'sched' },
+      h('div', null, h('b', null, x.title), h('br'), h('small', null, `${x.when}・用：${x.sources.join('、')}`)),
+      h('div', { style: 'display:flex;gap:6px;align-items:center' },
+        x.kind === 'brief' && h('button', { class: 'alt-btn', type: 'button', onclick: () => briefing(x.topics, x.title) }, '現在跑一次'),
+        h('button', { class: `sw${x.on ? '' : ' off'}`, type: 'button', 'aria-pressed': String(x.on), onclick: () => { x.on = !x.on; ev('client', `${x.on ? '啟用' : '暫停'}排程「${x.title}」`, 'client'); draw(); } }, x.on ? '啟用中' : '已暫停'),
+        h('button', { class: 'alt-btn', type: 'button', onclick: () => { schedules = schedules.filter((y) => y !== x); ev('client', `刪除排程「${x.title}」`, 'client'); draw(); } }, '刪除'))))
+      : h('p', { class: 'foot' }, '還沒有排程。可以跟阿幫說「開獎後幫我自動對發票」或「每天早上 8 點跟我說天氣和台積電收盤」。'),
+    h('p', { class: 'foot' }, '網頁版在打開 App 時補跑到期的排程；要準時推播需要推播伺服器（待決定）。訂票、叫車只會提醒，不會自動執行。')].flat());
+  draw();
+  return box;
+}
+async function makeSchedule(text) {
+  const invoice = /發票|對獎/.test(text);
+  const time = /(\d{1,2})\s*點/.exec(text)?.[1];
+  const topics = TOPICS.filter(([, re]) => re.test(text)).map(([k]) => k);
+  const x = invoice && topics.length <= 1
+    ? { kind: 'invoice', title: '開獎後自動對「我的發票」', when: '單數月 25 日開獎後（下次 11/25）', sources: ['財政部中獎號碼', '我的發票（手機）', ...(carrier ? ['財政部載具'] : [])], topics: ['發票'], on: true }
+    : { kind: 'brief', title: `每天 ${time ? `${time.padStart(2, '0')}:00` : '08:00'} 晨報`, when: `每天 ${time ? `${time.padStart(2, '0')}:00` : '08:00'}`, sources: topics.length ? topics : ['天氣'], topics: topics.length ? topics : ['天氣'], on: true };
+  await step('排程', `@排程 幫你建立「${x.title}」`, [['schedule_create', { title: x.title, when: x.when, uses: x.sources }]], [`已建立：${x.when}，會用${x.sources.join('、')}。`]);
+  schedules.push(x);
+  add(scheduleCard());
+  drawRules(['schedule']);
+  if (x.kind === 'invoice') return say(`好，${x.when}會自動對你存在「我的發票」裡的發票，中獎就通知你。現在存了 ${wallet.length} 張；要再加可以掃 QR code（首頁 → 發票對獎）。`);
+  return say(`好，${x.when}幫你整理${x.sources.join('、')}。要不要現在先跑一次給你看？按排程卡片上的「現在跑一次」。`);
+}
+async function briefing(topics, title = '今日重點') {
+  const want = (k) => topics.includes(k);
+  const parts = [];
+  const notes = [];
+  if (want('天氣')) { notes.push(['weather_now', {}, '天氣', '陰天 24°C，3 小時降雨機率 10%。']); parts.push(['天氣', '陰天 24°C，不太會下雨，不用帶傘。', '中央氣象署']); }
+  if (want('空品')) { notes.push(['aqi_nearby', {}, '空品', '萬華測站 AQI 58（普通）。']); parts.push(['空品', 'AQI 58 普通，敏感族群長時間戶外可留意。', '環境部']); }
+  if (want('公車')) parts.push(['公車', bus.timer ? `${BUS.route} 約 ${Math.round(bus.eta / 60)} 分到「${BUS.board}」${bus.remind ? `，已設到站前 ${bus.remind} 分提醒` : ''}。` : '目前沒有在盯的公車。問我「從 A 到 B 怎麼去」，選公車後我會盯到站。', 'TDX']);
+  if (want('發票')) parts.push(['發票', wallet.length ? `「我的發票」有 ${wallet.length} 張，下次開獎 11/25，開獎後自動對。` : '「我的發票」還沒有發票；可以掃 QR code 存起來，開獎後自動對。', '財政部＋手機']);
+  if (want('股市')) { notes.push(['stock_quote', { query: '台積電' }, '股市', stockSpeak(stockQuote('台積電'))]); parts.push(['股市', `${stockSpeak(stockQuote('台積電'))}（收盤資料，不構成投資建議）`, '證交所']); }
+  if (want('油價')) parts.push(['油價', '95 無鉛 30.7 元，11/16 起生效。', '台灣中油']);
+  if (notes.length) await step(notes.map((n) => n[2]), `@${notes.map((n) => n[2]).join(' @')} 幫你整理${title}`, notes.map(([n, a]) => [n, a]), notes.map((n) => n[3]));
+  add(h('div', { class: 'card', 'data-card': 'briefing' }, h('h3', null, title, h('span', { class: 'badge' }, '示範資料')),
+    parts.map(([k, v, src], i) => h('details', { class: 'kb', ...(i < 2 && { open: '' }) }, h('summary', null, k, h('small', null, src)), h('p', null, v)))));
+  drawRules(['knowledge']);
+  return say(`${title}：${parts.slice(0, 2).map(([, v]) => v).join(' ')}其他（${parts.slice(2).map(([k]) => k).join('、')}）在卡片裡，點開看。`);
+}
+
+// ── 行程 → 選公車 → 盯到站＋提醒 ──
+async function step(role, note, calls, speaks) {
+  await wait(250);
+  add(h('div', { class: 'row' }, av('阿幫'), h('div', { class: 'note', style: 'padding-top:6px' }, ...note.split(/(@\S+)/).filter(Boolean).map((t) => (t.startsWith('@') ? h('span', { class: 'at' }, t) : t)))));
+  ev('agent_note', note);
+  await wait(150);
+  for (const [name, args] of calls) ev('tool_start', json({ name, input: args }));
+  for (const [i, [name]] of calls.entries()) {
+    await wait(300);
+    const [r, sp] = Array.isArray(role) ? [role[i], speaks[i]] : [role, speaks[i]];
+    add(h('div', { class: 'row' }, av(r), h('div', { class: 'tool' }, h('div', { class: 'who' }, `${r}・${name}`), sp)));
+    ev('tool_result', json({ name, speak: sp }));
+  }
+}
+const BUS = { route: '601', dir: '往 松山機場', board: '西門（成都路）', walk: 3, gap: 100, stops: ['臺北車站（忠孝）', '北門', '中華路北站', '西門（成都路）', '中山堂', '台大醫院', '捷運善導寺站'], boardIdx: 3, headway: 540 };
+const bus = { eta: 380, remind: null, notified: false, timer: null, views: new Set(), refreshes: 0, lastRefresh: 0, simT: 0 };
+let speed = 1;
+const mmss = (sec) => (sec <= 30 ? '進站中' : `${Math.floor(sec / 60)} 分 ${String(Math.round(sec % 60)).padStart(2, '0')} 秒`);
+function busView(box, big) {
+  const render = () => {
+    const at = BUS.boardIdx - Math.ceil(Math.max(bus.eta, 0) / BUS.gap); // 車目前在哪一站（之前）
+    const kids = [
+      h('h3', null, `公車 ${BUS.route} ${BUS.dir}`, h('span', { class: 'badge' }, '示範資料・即時更新')),
+      h('div', { class: 'bbig' }, h('small', null, `到「${BUS.board}」`), h('strong', null, mmss(bus.eta)), h('small', null, `下一班 ${Math.round((bus.eta + BUS.headway) / 60)} 分`)),
+      h('div', null, BUS.stops.map((name, i) => {
+        const eta = bus.eta + (i - BUS.boardIdx) * BUS.gap;
+        const here = i === Math.max(at, 0) && bus.eta > 30;
+        const busEl = here ? h('span', { class: 'bus', 'aria-label': '公車在這附近' }) : h('span', { class: 'dot' });
+        if (here) busEl.innerHTML = ROLE_ICON.公車;
+        return h('div', { class: `bstop${i === BUS.boardIdx ? ' me' : ''}${i < at ? ' past' : ''}` }, busEl, h('span', null, name, i === BUS.boardIdx ? '　← 你在這上車' : ''), h('span', { class: 'eta' }, here ? '車在這' : i < at ? '已過' : eta <= 30 ? '進站中' : `${Math.ceil(eta / 60)} 分`));
+      })),
+      bus.remind
+        ? h('div', { class: 'rset' }, `已設定：${BUS.route} 到站前 ${bus.remind} 分提醒你（頁面開著時；正式版用通知）　`, h('button', { class: 'alt-btn', type: 'button', onclick: () => setRemind(null) }, '取消'))
+        : h('div', { class: 'remind' }, [3, 5].map((m) => h('button', { class: 'btn sm', type: 'button', onclick: () => setRemind(m) }, `到站前 ${m} 分提醒我`)),
+          !big && h('button', { class: 'btn sm alt', type: 'button', onclick: openBusPage }, '開公車頁看動態')),
+      h('p', { class: 'foot' }, `走到站牌約 ${BUS.walk} 分・每 20 秒更新・倒數在手機上計算`),
+    ];
+    box.replaceChildren(...kids.flat().filter(Boolean));
+  };
+  bus.views.add(render);
+  render();
+  return render;
+}
+function setRemind(m) {
+  bus.remind = m; bus.notified = false;
+  ev('client', m ? `設定提醒：${BUS.route} 到「${BUS.board}」前 ${m} 分（Notification.requestPermission；頁面在背景時由 Service Worker 依刷新結果發通知）` : '取消提醒', 'client');
+  drawRules(['bus-follow']);
+  bus.views.forEach((r) => r());
+}
+function openBusPage() {
+  ev('client', `host.navigate('#/bus/Taipei/${BUS.route}?stop=${BUS.board}')：開公車頁（同一份即時資料，提醒繼續有效）`, 'client');
+  go('bus');
+}
+function startBus() {
+  clearInterval(bus.timer);
+  Object.assign(bus, { eta: 380, notified: false, refreshes: 0, simT: 0, lastRefresh: 0 });
+  bus.timer = setInterval(() => {
+    bus.eta -= speed; bus.simT += speed;
+    if (bus.eta < -20) { bus.eta += BUS.headway; bus.notified = false; } // 這班開走 → 換下一班
+    if (bus.simT - bus.lastRefresh >= 20) {
+      bus.lastRefresh = bus.simT; bus.refreshes++;
+      if (bus.refreshes <= 3) ev('host.callTool', json({ name: 'bus_route_eta', args: { city: 'Taipei', routeName: BUS.route }, note: bus.refreshes === 3 ? '之後每 20 秒更新，不再列出' : '刷新' }), 'client');
+    }
+    if (bus.remind && !bus.notified && bus.eta > 0 && bus.eta <= bus.remind * 60) {
+      bus.notified = true;
+      const msg = `${BUS.route} 再 ${Math.ceil(bus.eta / 60)} 分到「${BUS.board}」，走過去 ${BUS.walk} 分，該出門了！`;
+      const b = h('div', { class: 'banner', role: 'alert' }, av('公車'), h('div', null, h('b', null, '阿幫：公車快到站'), h('small', null, msg)));
+      document.body.append(b);
+      setTimeout(() => b.remove(), 6000);
+      ev('client', `通知：${msg}`, 'client');
+      add(h('div', { class: 'sys' }, `🔔 ${msg}`));
+    }
+    bus.views.forEach((r) => r());
+  }, 1000);
+}
+async function busTrip(text) {
+  const budget = /省錢|便宜/.test(text);
+  await step('地點', '@地點 找「西門町」和「台北 101」的位置', [['find_place', { query: '西門町' }], ['find_place', { query: '台北101' }]], ['西門町：萬華區，捷運西門站旁。', '台北101：信義區，信義路五段 7 號。']);
+  await step(['天氣', '空品', '路況'], '@天氣 @空品 @路況 看一下外面的狀況', [['weather_now', {}], ['aqi_nearby', {}], ['traffic_status', {}]], ['陰天 24°C，3 小時降雨機率 10%。', '萬華測站 AQI 58（普通）。', '市區路況順暢。']);
+  await step('行程', '@行程 比較四種走法', [['plan_trip', { from: '西門町', to: '台北101', prefs: budget ? { states: ['budget'] } : {} }]], ['公車 601 32 分 15 元；捷運 28 分 25 元；YouBike 40 分 20 元；叫車 18 分約 230 元。']);
+  const ranks = budget ? [['公車 601', 86], ['捷運', 79], ['YouBike', 61], ['叫車（Uber）', 34]] : [['公車 601', 80], ['捷運', 78], ['叫車（Uber）', 62], ['YouBike', 58]];
+  const reason = budget ? '選「公車 601」：因為你想省錢，15 元、只要走 3 分。' : '選「公車 601」：比捷運便宜、少走 4 分，時間只差 4 分。';
+  ev('decision', json({ best: 'bus-601', states: budget ? [{ key: 'budget', source: 'said' }] : [], reason }));
+  add(h('div', { class: 'card' }, h('h3', null, '決策：西門町 → 台北101', h('span', { class: 'badge' }, 'decide.js 計分')), h('div', { class: 'rank' }, ranks.map(([n, sc], i) => h('div', { class: i ? '' : 'win' }, h('span', null, n), h('span', null, sc)))), h('p', { class: 'foot' }, reason)));
+  // 新行為：選了公車 → 自動盯上車站的即時到站
+  await step('公車', `@公車 你選了公車，我幫你盯 ${BUS.route} 在「${BUS.board}」的到站`, [['bus_route_eta', { city: 'Taipei', routeName: BUS.route, stop: BUS.board }]], [`${BUS.route} 約 ${Math.round(380 / 60)} 分後到${BUS.board}，下一班約 ${Math.round((380 + BUS.headway) / 60)} 分。`]);
+  const box = h('div', { class: 'card', 'data-card': 'bus-route' });
+  add(box);
+  busView(box, false);
+  startBus();
+  return say(`${reason}${BUS.route} 大約 ${Math.round(bus.eta / 60)} 分後到「${BUS.board}」，走過去 ${BUS.walk} 分，現在出門剛好。要我在公車快到站時提醒你嗎？可以按卡片上的「到站前 3 分提醒我」。`);
+}
+
+// ── 掃發票（原型：按鈕模擬掃到；正式版用 BarcodeDetector＋相機）──
+function parseCode(s) {
+  if (s.startsWith('**')) return { side: 'right' };
+  let m = /^([A-Z]{2})(\d{8})(\d{3})(\d{2})(\d{2})\d{4}/.exec(s);
+  if (m) return { track: m[1], number: m[2], date: `${Number(m[3]) + 1911}-${m[4]}-${m[5]}` };
+  m = /^(\d{3})(\d{2})([A-Z]{2})(\d{8})\d{4}$/.exec(s);
+  if (m) return { track: m[3], number: m[4], period: `${m[1]}${String(Number(m[2]) - 1).padStart(2, '0')}` };
+  return null;
+}
+let scanned = 0;
+const seen = new Set();
+function openScan() {
+  scanned = 0; seen.clear();
+  $('#scanst').textContent = '對準 QR code…';
+  ev('client', '開相機（getUserMedia，影像不上傳）', 'client');
+  $('#scan').showModal();
+}
+document.querySelectorAll('#scan [data-code]').forEach((b) => b.addEventListener('click', () => {
+  const raw = b.dataset.code;
+  const st = $('#scanst');
+  if (seen.has(raw)) { st.textContent = '同一張已經掃過了'; return; }
+  seen.add(raw);
+  const c = parseCode(raw);
+  if (!c) { st.textContent = '這不是發票的條碼'; return; }
+  if (c.side === 'right') { st.textContent = '這是右邊的明細 QR code，請掃左邊那個'; return; }
+  if (wallet.some((x) => x.number === c.number)) { st.textContent = `${c.track}-${c.number}：這張已經存過了`; return; }
+  wallet.unshift({ ...c });
+  scanned++;
+  st.textContent = `已存 ${c.track}-${c.number}（這次已存 ${scanned} 張）`;
+  ev('client', `BarcodeDetector → ${JSON.stringify(c)}（只取號碼與日期）`, 'client');
+  drawWallet(); drawSees(lastBody);
+}));
+$('#scan-done').addEventListener('click', async () => {
+  $('#scan').close();
+  ev('client', '停相機', 'client');
+  if (!scanned) return;
+  const items = wallet.filter((x) => !x.status);
+  ev('host.callTool', json({ name: 'invoice_check_batch', args: { items: items.map(({ number, date, period }) => ({ number, ...(date ? { date } : { period }) })) } }), 'client');
+  await wait(300);
+  for (const x of items) {
+    const p = x.period || `${Number(x.date.slice(0, 4)) - 1911}${String(Number(x.date.slice(5, 7)) % 2 ? Number(x.date.slice(5, 7)) : Number(x.date.slice(5, 7)) - 1).padStart(2, '0')}`;
+    if (p === INVOICE.period) Object.assign(x, checkInvoice(x.number), { status: checkInvoice(x.number).prize ? 'won' : 'lost' });
+    else x.status = 'pending';
+  }
+  drawWallet(); drawSees(lastBody);
+  const won = items.filter((x) => x.status === 'won');
+  add(h('div', { class: 'sys' }, won.length ? `🎉 中獎了！${won.map((w) => `${w.number} ${w.prize}`).join('、')}` : `已對獎 ${items.length} 張`));
+});
+$('#scan').addEventListener('cancel', () => ev('client', '停相機', 'client'));
+
+// ── App 畫面：首頁、問阿幫、服務頁（股市、發票、公車）──
+const P = (d) => I(d);
+const TI = {
+  pin: P('<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'),
+  bus: P('<rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16"/><path d="M7 21v-3M17 21v-3"/>'),
+  bike: P('<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7"/><path d="M10 9l2 7h-6"/>'),
+  hsr: P('<path d="M4 15c0-5 4-9 10-9h3l3 4v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M4 13h16"/><path d="M7 21l2-2M17 21l-2-2"/>'),
+  train: P('<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 10h14"/><path d="M8 21l2-4M16 21l-2-4"/>'),
+  metro: P('<circle cx="12" cy="12" r="9"/><path d="M8 16V8l4 5 4-5v8"/>'),
+  sun: P('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/>'),
+  air: P('<path d="M3 8h11a3 3 0 1 0-3-3"/><path d="M3 12h15a3 3 0 1 1-3 3"/><path d="M3 16h7"/>'),
+  quake: P('<path d="M2 12h4l2-5 3 10 3-14 3 13 2-4h3"/>'),
+  pharmacy: P('<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/>'),
+  trash: P('<path d="M4 7h16"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>'),
+  shield: P('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>'),
+  fuel: P('<path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M3 21h12"/><path d="M4 10h10"/>'),
+  receipt: P('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
+  chart: P('<path d="M3 20h18"/><path d="M4 16l5-5 4 3 7-8"/><path d="M15 6h5v5"/>'),
+  home: P('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'),
+  chat: P('<path d="M4 5h16v11H9l-5 4z"/>'),
+  clock: P('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>'),
+  star: P('<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/>'),
+};
+const GROUPS = [
+  ['交通出行', '資料來源：TDX', [['附近', 'pin', 'nearby'], ['公車', 'bus', 'bus'], ['YouBike', 'bike', 'youbike'], ['高鐵', 'hsr', 'thsr'], ['台鐵', 'train', 'tra'], ['捷運', 'metro', 'metro']]],
+  ['生活與環境', '資料來源：政府開放資料', [['天氣', 'sun', 'weather'], ['空氣品質', 'air', 'aqi'], ['地震', 'quake', 'quake'], ['藥局', 'pharmacy', 'pharmacy'], ['垃圾車', 'trash', 'garbage']]],
+  ['消費與政府服務', '防詐、油價、發票、股市', [['防詐', 'shield', 'antifraud'], ['油價', 'fuel', 'fuel'], ['發票對獎', 'receipt', 'invoice'], ['股市', 'chart', 'stock']]],
+];
+// 手動查詢頁（假資料）：每個格子都能自己查，問阿幫只是另一個入口
+const row = (title, sub, right, cls = '') => h('div', { class: `stk ${cls}` }, h('div', null, h('b', null, title), sub ? [h('br'), h('small', null, sub)] : null), right != null ? h('div', { class: 'px' }, right) : null);
+const card = (title, ...kids) => h('div', { class: 'card' }, h('h3', null, title, h('span', { class: 'badge' }, '示範資料')), ...kids.flat().filter(Boolean));
+function form(fields, onSubmit, btn = '查詢') {
+  const inputs = fields.map(([name, ph, val = '']) => h('input', { name, placeholder: ph, value: val, 'aria-label': ph }));
+  const f = h('form', { class: 'cform', onsubmit: (e) => { e.preventDefault(); onSubmit(Object.fromEntries(inputs.map((i) => [i.name, i.value.trim()]))); } }, inputs, h('button', { class: 'btn sm' }, btn));
+  return f;
+}
+function manual(page, fields, render, note) {
+  const out = h('div');
+  const run = (v) => { ev('host.callTool', `手動查詢 ${JSON.stringify(v)}`, 'client'); out.replaceChildren(render(v)); };
+  page.replaceChildren(h('div', { class: 'card' }, form(fields, run), note ? h('p', { class: 'foot' }, note) : null), out);
+  run(Object.fromEntries(fields.map(([n, , v = '']) => [n, v])));
+}
+const minLater = (m) => { const d = new Date(Date.now() + m * 60000); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+const PAGES = {
+  nearby: (pg) => manual(pg, [['place', '地點，例如 臺北車站', '臺北車站']], (v) => card(`${v.place || '目前位置'}附近`,
+    row('臺北車站（忠孝）', '公車站・120 公尺・14 條路線', '307 3 分'), row('臺北車站（青島）', '公車站・210 公尺・9 條路線', '262 進站中'),
+    row('YouBike 臺北車站東三門', '90 公尺', '可借 7・可還 12'), row('捷運台北車站', '板南線、淡水信義線', '2 分'))),
+  bus: (pg) => {
+    manual(pg, [['route', '路線，例如 601、307', BUS.route]], (v) => {
+      if (v.route !== BUS.route) return card(`公車 ${v.route}`, h('p', null, `原型只有 ${BUS.route} 的即時動態；正式 App 每條路線都能查。`), h('button', { class: 'btn sm', type: 'button', onclick: () => go('bus') }, `看 ${BUS.route}`));
+      if (!bus.timer) startBus(); // 手動查也一樣盯得到、可以設提醒
+      const box = h('div', { class: 'card', 'data-card': 'bus-route' });
+      pageRender = busView(box, true);
+      return box;
+    }, '手動查一條路線也能看即時動態、設到站提醒（不一定要先問阿幫）');
+  },
+  youbike: (pg) => manual(pg, [['place', '地點', '臺北車站']], () => card('附近 YouBike', row('臺北車站東三門', '90 公尺', '可借 7・可還 12'), row('捷運台大醫院站(4號出口)', '350 公尺', '可借 0・可還 20', 'past'), row('二二八和平公園', '480 公尺', '可借 15・可還 3'))),
+  thsr: (pg) => manual(pg, [['from', '起站', '台北'], ['to', '迄站', '左營']], (v) => card(`高鐵 ${v.from} → ${v.to}`, [[7, '0803'], [22, '0609'], [37, '0811']].map(([m, no]) => row(`${no} 車次`, `行車 1 小時 34 分`, `${minLater(m)} 開`)), h('button', { class: 'btn sm alt', type: 'button', onclick: () => ptoast('L2：先確認車次、日期、張數，再開高鐵官方訂票頁') }, '訂票（官方網站）'))),
+  tra: (pg) => manual(pg, [['from', '起站', '臺北'], ['to', '迄站', '新竹']], (v) => card(`台鐵 ${v.from} → ${v.to}`, row('自強 121', '行車 1 小時 5 分', `${minLater(12)} 開`), row('區間 2153', '行車 1 小時 32 分', `${minLater(20)} 開`), row('自強 125', '行車 1 小時 4 分', `${minLater(41)} 開`))),
+  metro: (pg) => manual(pg, [['station', '站名，例如 台北車站', '台北車站']], (v) => card(`捷運 ${v.station}`, row('板南線 往南港展覽館', '月台 1', '2 分'), row('板南線 往頂埔', '月台 2', '進站中'), row('淡水信義線 往象山', '月台 3', '4 分'))),
+  weather: (pg) => manual(pg, [['place', '地點', '臺北車站']], (v) => card(`${v.place || '目前位置'} 天氣`, h('div', { class: 'stats' }, [['氣溫', '24°C'], ['1 小時雨量', '0 mm'], ['3 小時降雨機率', '10%'], ['狀況', '陰']].map(([a, b]) => h('div', { class: 'stat' }, h('small', null, a), h('strong', null, b)))))),
+  aqi: (pg) => manual(pg, [['place', '地點', '臺北車站']], () => card('萬華測站 空氣品質', h('div', { class: 'stats' }, [['AQI', '58 普通'], ['PM2.5', '21'], ['PM10', '34'], ['O₃', '28']].map(([a, b]) => h('div', { class: 'stat' }, h('small', null, a), h('strong', null, b)))))),
+  quake: (pg) => manual(pg, [['county', '看某縣市震度（選填）', '']], (v) => card('最近地震', row('11/18 23:41 規模 4.6', '花蓮縣政府東方 20 公里・深度 15 公里', `最大 3 級${v.county ? `・${v.county} 1 級` : ''}`), row('11/16 07:12 規模 3.9', '宜蘭縣南澳鄉・深度 9 公里', '最大 2 級'))),
+  pharmacy: (pg) => manual(pg, [['area', '地區，例如 臺北市大安區', '臺北市中正區'], ['q', '藥局名稱（選填）', '']], (v) => card(`健保藥局 ${v.area}`, row('杏一中正藥局', '02-2311-xxxx・忠孝西路一段', '上午、下午'), row('躍獅連鎖藥局 台北站前店', '02-2388-xxxx・館前路', '上午、下午、晚上'), row('大樹藥局 南陽店', '02-2381-xxxx・南陽街', '今天休息', 'past'))),
+  garbage: (pg) => manual(pg, [['place', '地點', '臺北車站']], () => card('附近垃圾車', row('19:30–19:36 忠孝西路一段 50 號', '160 公尺・中正 1 號線', '今天有收'), row('20:10 公園路 21 號', '420 公尺・中正 3 號線', '今天有收'))),
+  antifraud: (pg) => manual(pg, [['text', '貼上可疑訊息或網址', '【台電】電費逾期，請點擊 https://eincioiice-tw.com/pay']], (v) => {
+    const bad = /https?:|點擊|逾期|中獎|解除分期|驗證碼/.test(v.text);
+    return card('防詐檢查', h('div', { class: 'win', style: bad ? 'background:#fde8e8;color:#b91c1c' : '' }, bad ? '高風險：有常見詐騙特徵，先不要照做' : '沒有發現已知的詐騙特徵，但不代表一定安全'), h('p', { class: 'foot' }, '有疑問請撥 165 反詐騙諮詢專線。'));
+  }, '只比對 165 開放資料與規則，不開連結'),
+  fuel: (pg) => { pg.replaceChildren(card('中油油價', h('div', { class: 'stats' }, [['92 無鉛', '29.2'], ['95 無鉛', '30.7'], ['98 無鉛', '32.7'], ['超級柴油', '27.4']].map(([a, b]) => h('div', { class: 'stat' }, h('small', null, a), h('strong', null, b)))), h('p', { class: 'foot' }, '11/16 起生效・元／公升・每週一調整'))); },
+  invoice: (pg) => {
+    const res = h('div');
+    pg.replaceChildren(invoiceCard({}), carrierCard(), h('div', { class: 'card' }, h('b', null, '手動對獎'), form([['n', '發票號碼（8 碼或末 3 碼）', '']], (v) => {
+      const n = v.n.replace(/\D/g, '');
+      if (!/^\d{3}$|^\d{8}$/.test(n)) { res.replaceChildren(h('p', { class: 'foot' }, '請輸入 8 碼或末 3 碼')); return; }
+      const c = checkInvoice(n);
+      res.replaceChildren(h('div', { class: 'win', style: c.prize ? '' : 'background:#f1f4f3;color:#5f6f6b' }, c.prize ? `${n} ${c.prize}！${c.amount ? `獎金 ${fmt(c.amount)} 元` : ''}` : `${n} 沒有中獎`));
+    }, '對獎'), res));
+    drawWallet();
+  },
+  stock: (pg) => pg.replaceChildren(stockCard(stockQuote('台積電、0050'))),
+  schedule: (pg) => pg.replaceChildren(scheduleCard()),
+};
+const icon = (k, cls = 'ic') => { const e = h('span', { class: cls }); e.innerHTML = TI[k]; return e; };
+let screen = 'home';
+let pageRender = null;
+function ptoast(m) { const t = $('#ptoast'); t.textContent = m; t.hidden = false; clearTimeout(ptoast.t); ptoast.t = setTimeout(() => { t.hidden = true; }, 2200); }
+function drawHome() {
+  const q = h('input', { placeholder: '例如：從西門町到台北 101 怎麼去？', 'aria-label': '問阿幫' });
+  const hm = h('span', { class: 'hm' }); hm.innerHTML = MASCOT;
+  $('#s-home').replaceChildren(...[
+    h('div', { class: 'hero' }, hm, h('small', null, '晚安！我是阿幫，今天要去哪裡？'), h('h2', null, '想去哪裡，直接問我'),
+      h('form', { onsubmit: (e) => { e.preventDefault(); if (q.value.trim()) send(q.value.trim()); } }, q, h('button', { class: 'btn sm', style: 'border-radius:0' }, '問')),
+      h('div', { class: 'hchips' }, ['我想省錢，從西門町到台北 101 怎麼去？', '台積電股價多少', '這期發票號碼是多少？'].map((t) => h('button', { type: 'button', onclick: () => send(t) }, t)))),
+    GROUPS.map(([g, note, tiles]) => [
+      h('div', { class: 'ghead' }, h('b', null, g), h('small', null, note)),
+      h('div', { class: 'grid' }, tiles.map(([name, ic, to]) => h('button', { type: 'button', class: 'tile', onclick: () => go(to, name) }, icon(ic), name))),
+    ])].flat(2));
+}
+const TITLES = { home: '阿幫', agent: '問阿幫', stock: '股市行情', invoice: '發票對獎', bus: '公車', schedule: '我的排程' };
+function go(to, name) {
+  if (screen === to && to === 'agent') return;
+  if (pageRender) { bus.views.delete(pageRender); pageRender = null; }
+  screen = to;
+  $('#s-home').hidden = to !== 'home';
+  $('#chat').hidden = $('#composer').hidden = to !== 'agent';
+  $('#s-page').hidden = !PAGES[to];
+  $('#back').hidden = to === 'home';
+  $('#hdr-title').textContent = TITLES[to] || name || to;
+  document.querySelectorAll('#tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.to === to));
+  if (PAGES[to]) {
+    ev('client', `開 ${TITLES[to] || name} 頁（手動查詢）`, 'client');
+    PAGES[to]($('#s-page'));
+    $('#s-page').append(h('button', { class: 'btn sm alt', type: 'button', onclick: () => go('agent') }, '也可以直接問阿幫'));
+  }
+  if (to === 'agent') scroll();
+}
+$('#tabbar').append(...[['home', '首頁', 'home'], ['agent', '問阿幫', 'chat'], ['bus', '公車', 'bus'], ['schedule', '排程', 'clock']].map(([to, name, ic]) =>
+  h('button', { type: 'button', 'data-to': to, onclick: () => go(to) }, icon(ic, ''), name)));
+$('#back').addEventListener('click', () => go('home'));
+
+// ── 情境腳本 ──
+const SCENES = [
+  ['查一檔', async () => send('台積電股價多少')],
+  ['多檔', async () => send('台積電和 0050 今天收盤多少？')],
+  ['大盤', async () => send('今天大盤怎麼樣')],
+  ['追問', async () => { if (!followsStock([...history, { role: 'user', content: '' }].slice(0, -1)) && !history.some((m) => m.role === 'user' && STOCK_WORD.test(m.content))) await send('台積電股價多少'); await send('那聯發科呢？'); }],
+  ['卡片脈絡', async () => {
+    if (!document.querySelector('[data-card=stock]')) await send('台積電股價多少');
+    await wait(400);
+    const cards = document.querySelectorAll('[data-card=stock]');
+    cards[cards.length - 1].query('環球晶');
+    await wait(500);
+    await send('它今天成交量多少？');
+  }],
+  ['問買賣', async () => send('我該買台積電嗎？明天會漲嗎？股票')],
+  ['找不到／也可能是', async () => send('國泰、火星電的股價')],
+  ['發票＋掃描', async () => { await send('發票 54348835 有沒有中？'); await wait(500); openScan(); }],
+  ['選公車→盯到站＋提醒', async () => send('我想省錢，從西門町到台北 101 怎麼去？')],
+  ['排程：開獎自動對發票', async () => send('開獎後幫我自動對發票，中了通知我')],
+  ['排程：每天晨報', async () => send('每天早上 8 點跟我說天氣、空品和台積電收盤')],
+  ['綜合知識：今天要注意什麼', async () => send('今天出門要注意什麼？')],
+  ['載具：抓我的發票（規劃中）', async () => send('把我載具的發票抓進來對獎')],
+];
+$('#chips').append(...SCENES.map(([t, fn], i) => h('button', { class: 'chip', type: 'button', onclick: () => !busy && fn() }, h('b', null, i + 1), t)));
+
+// ── 介面 ──
+function setMode(m) {
+  mode = m;
+  $('#m-demo').setAttribute('aria-pressed', m === 'demo');
+  $('#m-model').setAttribute('aria-pressed', m === 'model');
+  const tag = $('#mode-tag');
+  tag.textContent = m === 'demo' ? '示範模式' : '模型模式（示意）';
+  tag.className = `mode-tag${m === 'model' ? ' model' : ''}`;
+  add(h('div', { class: 'sys' }, m === 'demo' ? '切到示範模式：規則式回答，不看卡片脈絡' : '切到模型模式：模型看對話歷史與卡片脈絡（回答為示意腳本）'));
+}
+$('#speed').addEventListener('click', (e) => { speed = speed === 1 ? 10 : 1; e.currentTarget.setAttribute('aria-pressed', speed === 10); e.currentTarget.textContent = speed === 10 ? '時間加速中 ×10' : '時間加速 ×10'; });
+$('#m-demo').addEventListener('click', () => setMode('demo'));
+$('#m-model').addEventListener('click', () => setMode('model'));
+$('#composer').addEventListener('submit', (e) => { e.preventDefault(); const q = $('#q').value; $('#q').value = ''; send(q); });
+$('#reset').addEventListener('click', () => {
+  if (busy) return;
+  history = []; context = ''; wallet = []; turn = 0; lastBody = null;
+  clearInterval(bus.timer); bus.timer = null; bus.views.clear(); bus.remind = null; schedules = []; carrier = null;
+  chat.replaceChildren(); $('#p-events').replaceChildren(); drawSees(); drawRules(); go('home');
+  add(h('div', { class: 'sys' }, '已清空'));
+});
+document.querySelectorAll('[role=tab]').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('[role=tab]').forEach((x) => x.setAttribute('aria-selected', x === b));
+  for (const id of ['events', 'sees', 'rules']) $(`#p-${id}`).hidden = id !== b.dataset.tab;
+}));
+$('#hdr-av').replaceWith(av('阿幫'));
+drawHome(); go('home'); $('#tabbar [data-to=home]').classList.add('on');
+drawSees(); drawRules();
+add(h('div', { class: 'sys' }, '點上面的情境，或直接問「台積電股價多少」'));
+</script>
+</body>
+</html>
