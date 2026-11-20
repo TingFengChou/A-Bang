@@ -101,6 +101,7 @@ if (!globalThis.__DEMO_SERVICES__) {
   autoCheckOnOpen((n, a) => web.callTool(n, a), { toast }).catch(() => {});
 }
 
-if ('serviceWorker' in navigator && !globalThis.__DEMO_SERVICES__ && location.protocol !== 'file:') {
+// 手機 App（ADR-0013）不註冊：畫面已在 App 裡，iOS 的 capacitor:// 也不支援
+if ('serviceWorker' in navigator && !globalThis.__DEMO_SERVICES__ && !globalThis.__ABANG_APP__ && location.protocol !== 'file:') {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }

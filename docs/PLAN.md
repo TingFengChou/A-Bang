@@ -27,6 +27,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | M5 網頁 agent | ✅（2026-11-18；Claude 實機待金鑰） | — | Claude 模式需 `ANTHROPIC_API_KEY`；地端模式需自架 Ollama 等（示範模式都不需要） |
 | M10 生活開放資料 | ✅（2026-11-19） | — | 空品需 `MOENV_API_KEY`、地震需 `CWA_API_KEY`（沒有時示範片段）；藥局資料沒有座標 |
 | M7 反詐騙 agent | ✅（2026-11-19；規則庫待專家審核） | — | 規則庫 `reviewedBy` 待防詐專家審核 |
+| M11 行動 App | 🚧（M11-01 殼 ✅） | M11-02 本機通知 | 給別人用需 HTTPS 測試環境（M6-06）與開發者帳號 |
 | M6 上線 | 🚧（M6-01／02／04／07 ✅、地端部署驗證 ✅） | 正式環境階段再做 | 2026-11-19 Austin 決定：雲端部署（M6-06）、Redis 快取（M6-03）、Lighthouse（M6-05）留到正式環境階段；先衝刺功能。M6-07 需在 repo 設定啟用 Pages |
 
 建議順序：M4、M5 已完成；M1（TDX 金鑰）申請中；M6 正式環境項目延後；先衝刺功能：M7 ✅，接著 M8（中小企業概念驗證）。
@@ -41,6 +42,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 - [ ] 校對 `core/data/landmarks.json` 座標（201 筆，Claude 依記憶整理的近似值；可對照 Google 地圖或 M1 的 TDX／TGOS 結果，校對完把 `verified` 改為 `true`）
 - [ ] （M5）取得 `ANTHROPIC_API_KEY`，設定每日預算；或不付費改用地端模型（`LOCAL_LLM_URL`＋`LOCAL_LLM_MODEL`，Ollama 需 `OLLAMA_CONTEXT_LENGTH=16384`）
 - [ ] （M6）選定部署平台與網域；部署時設定環境變數（金鑰）並用 `Dockerfile` 建置
+- [ ] （M11）決定 App 名稱與 App ID（目前 `tw.abang.app`）；申請 Apple Developer（每年 99 美元）與 Google Play 開發者帳號（一次 25 美元），公司或個人名義
 - [ ] （M6）repo Settings → Pages → Source 選「GitHub Actions」，文件站才會發布（`.github/workflows/pages.yml`）
 
 ---
@@ -218,9 +220,16 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 
 分段：M9a 內部化 → M9b 封閉測試（L1、網頁／內嵌／QR）→ M9c 公開（L2、LINE、MCP、多語）。L3 另行決定。
 
-## 行動 App（M6 之後評估）
+## M11 行動 App（ADR-0013，2026-11-20 開始）
 
-PWA 包殼（TWA／WebView）→ 原生 App 呼叫同一 agent API 與卡片契約（ADR-0008）；裝置端工具（定位、提醒、行事曆、通知）；Siri 捷徑／App Intents、Android 小工具；App Attest／Play Integrity。
+Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼叫同一 agent API 與卡片契約（ADR-0008）。
+
+- [x] M11-01 App 殼（2026-11-20：ADR-0013；`npm run build:app` 打包 `dist/app`＋注入 API 位址；`public/js/base.js` 的 `API_BASE`；伺服器對 App 來源加 CORS（`APP_ORIGINS`）；App 內不註冊 service worker；`android/`、`ios/` 原生專案；Android 只對本機位址允許明碼 http；Android 模擬器實測問阿幫可用、iOS 模擬器版編譯成功）
+- [ ] M11-02 到站提醒改手機本機通知（`@capacitor/local-notifications`；App 關著也會響；網頁維持現狀）
+- [ ] M11-03 原生相機掃發票 QR、定位（網頁退路保留）
+- [ ] M11-04 App 圖示、啟動畫面、隱私權政策頁
+- [ ] M11-05 ⛔ 測試環境部署（HTTPS，M6-06）＋ Google Play 內部測試、TestFlight（需開發者帳號）
+- [ ] 之後：推播伺服器（排程，另寫 ADR，L-16）、地端 AI（判斷層放手機）、Siri 捷徑／App Intents、Android 小工具、App Attest／Play Integrity
 
 ## 其他候選（未排程）
 

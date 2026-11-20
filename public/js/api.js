@@ -1,12 +1,14 @@
 // 前端 API client：呼叫自家 HTTP API（TDX 金鑰只在伺服器）。
 // 若頁面以「離線 Demo」打包（window.__DEMO_SERVICES__ 存在），則直接呼叫核心的示範服務。
+import { API_BASE } from './base.js';
+
 const demo = globalThis.__DEMO_SERVICES__;
 export const state = { mode: demo ? 'demo' : 'unknown', sources: null };
 
 async function call(path, params, demoFn) {
   if (demo) return demoFn(demo);
   const qs = new URLSearchParams(Object.entries(params || {}).filter(([, v]) => v != null && v !== ''));
-  const res = await fetch(`${path}?${qs}`);
+  const res = await fetch(`${API_BASE}${path}?${qs}`);
   const j = await res.json().catch(() => ({ error: `伺服器錯誤 ${res.status}` }));
   if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
   state.mode = j.mode;

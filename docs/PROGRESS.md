@@ -13,6 +13,15 @@
 
 ---
 
+## 2026-11-20 M11-01 手機 App 殼（Capacitor，ADR-0013）
+
+- 做了：ADR-0013（Capacitor 8 包現有網頁、前端打包進 App、API 位址可設定、App 來源 CORS、App 內不註冊 service worker）。`npm run build:app`（`scripts/build-app.js`：複製 public／GSAP／`core/decide.js` 到 `dist/app`，注入 `__ABANG_API_BASE__`、`__ABANG_APP__`；正式版 `APP_RELEASE=1` 只收 https）；前端 API 呼叫改經 `public/js/base.js`；伺服器 `APP_ORIGINS`（預設 `capacitor://localhost`、`https://localhost`）對問阿幫與 REST 讀取路由加 CORS（不用 `*`）；`android/`、`ios/` 原生專案，App ID `tw.abang.app`；Android 網路安全設定只對 localhost／127.0.0.1／10.0.2.2 允許明碼 http。Capacitor 套件 8.6.0 都放 devDependencies（不進 Docker 映像）。
+- 實機：Android 模擬器（API 35）裝 debug APK，首頁、狀態、問阿幫串流與決策圖正常；iOS 模擬器（iPhone 18 Pro）編譯、安裝、首頁與問阿幫正常（「我聽懂了」、影響行、自動盯公車）。第一次在 Android 上連不到：WebView 擋明碼 http → 加網路安全設定；REST 讀取路由原本沒有 CORS → 對 App 來源補上。
+- 測試：npm test 291 項全過（新增 `test/build-app.test.js` 2 項、agent-http CORS 1 項）；npm run e2e 28 項全過；lint 忽略 `android/`、`ios/`。
+- 文件：ADR-0013、adr/README、PLAN（M11、Austin 待辦：開發者帳號）、README（手機 App）、CLAUDE.md、.env.example
+- 下一個：M11-02 到站提醒改手機本機通知
+- 卡住：給別人用需要 HTTPS 測試環境（M6-06）與 Apple／Google 開發者帳號
+
 ## 2026-11-20 動態第四批：分段條、3D 吉祥物、立體路線圖（動畫清單完成）
 
 - 做了：行程分段條依真實分鐘比例（`legShares`）、代幣每段換交通方式並在轉乘點彈一下；首頁 3D 吉祥物（厚度陰影、自己轉身、跟著手指轉頭）；立體路線圖（`route3d.js`：`projector` 經緯度投影、CSS 3D 傾斜地面、路線畫出、「你」圖釘與公車代幣立起來；公車頁預設、公車卡可展開）。修：公車頁沒有卡片色彩變數時路線看不到（地圖內建預設色）。SW v0.6.4。

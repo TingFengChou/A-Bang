@@ -1,5 +1,6 @@
 // 網頁 agent 頁（M5-08，UX.md §3–§4、§8、§10）：對話、小幫手討論串、@點名、建議問題；由真實 NDJSON 事件驅動。
 // 卡片用 public/ui/cards（renderCard＋web host）。不加假延遲：只在討論串兩則訊息之間保留最短 300ms 避免閃爍（UX.md §4）。
+import { API_BASE } from '../base.js';
 import { runAgent } from '../agent/client.js';
 import { icons } from '../icons.js';
 import { motion } from '../../ui/cards/motion.js';
@@ -139,7 +140,7 @@ export default {
       chips.classList.remove('next');
       chips.replaceChildren(...defaults.map((q) => { const b = el('button', 'chip', q); b.type = 'button'; b.onclick = () => send(q); return b; }));
     };
-    fetch(`/api/v1/agent/profile?id=${agentId}`).then((r) => r.json()).then(({ data }) => {
+    fetch(`${API_BASE}/api/v1/agent/profile?id=${agentId}`).then((r) => r.json()).then(({ data }) => {
       defaults = data.suggestions;
       if (!chips.classList.contains('next')) showDefaults();
       disclaimer.textContent = data.disclaimer;

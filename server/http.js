@@ -64,6 +64,12 @@ const DOCS_HTML = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-
 const SHARED_CORE = { 'decide.js': fileURLToPath(new URL('../core/decide.js', import.meta.url)) };
 const DOCS_INIT = "window.ui = SwaggerUIBundle({ url: '/api/v1/openapi.json', dom_id: '#ui', deepLinking: true, tryItOutEnabled: true });";
 
+// 手機 App（ADR-0013）的 WebView 來源：問阿幫端點只對這些來源加 CORS（不用 *）
+const APP_ORIGINS = new Set((process.env.APP_ORIGINS ?? 'capacitor://localhost,https://localhost').split(',').map((s) => s.trim()).filter(Boolean));
+const appCors = (req) => {
+  const o = req.headers.origin;
+  return o && APP_ORIGINS.has(o) ? { 'access-control-allow-origin': o, 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '600', vary: 'Origin' } : { vary: 'Origin' };
+};
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
 const CORS = {
   'access-control-allow-origin': '*',
@@ -111,15 +117,18 @@ createServer(async (req, res) => {
     const vend = path.match(/^\/vendor\/([\w.-]+)$/);
     if (vend && Object.hasOwn(VENDOR_FILES, vend[1])) return sendRaw(res, 200, await vendorFile(vend[1]), 'text/javascript; charset=utf-8', { 'cache-control': 'public, max-age=604800' });
 
-    // ── 網頁 agent（NDJSON 串流；只給本站網頁，不加 CORS）──
+    // ── 網頁 agent（NDJSON 串流；給本站網頁與手機 App，App 來源見 APP_ORIGINS）──
     // /api/v1/agent（生活）或 /api/v1/agent/:id（例：antifraud；ADR-0005 多 agent）
     const agentPath = path.match(/^\/api\/v1\/agent(?:\/([a-z][a-z0-9-]*))?$/);
     if (agentPath && agentPath[1] !== 'profile') {
       const agentId = agentPath[1] || 'life';
-      if (!hasProfile(agentId)) return send(res, 404, { error: `沒有這個 agent：${agentId}` });
-      if (req.method !== 'POST') return send(res, 405, { error: '請以 POST 呼叫' }, { allow: 'POST' });
+      const cors = appCors(req);
+      if (req.method === 'OPTIONS') return end(res, 204, cors);
+      if (!hasProfile(agentId)) return send(res, 404, { error: `沒有這個 agent：${agentId}` }, cors);
+      if (req.method !== 'POST') return send(res, 405, { error: '請以 POST 呼叫' }, { ...cors, allow: 'POST' });
       const lim = agent.limit(agentId, clientIp(req));
-      if (!lim.ok) return send(res, 429, { error: `問太快了，請 ${lim.retryAfterSec} 秒後再試`, retryAfterSec: lim.retryAfterSec }, { 'retry-after': String(lim.retryAfterSec) });
+      if (!lim.ok) return send(res, 429, { error: `問太快了，請 ${lim.retryAfterSec} 秒後再試`, retryAfterSec: lim.retryAfterSec }, { ...cors, 'retry-after': String(lim.retryAfterSec) });
+      for (const [k, v] of Object.entries(cors)) res.setHeader(k, v);
       return await agent.handle(res, await readJson(req), { agentId });
     }
 
@@ -139,7 +148,7 @@ createServer(async (req, res) => {
       const route = routes[path];
       if (!route) return send(res, 404, { error: 'Not found' });
       const data = await route.handler(Object.fromEntries(url.searchParams));
-      return send(res, 200, { mode: svc.mode, data }, path === '/api/v1/tools' ? CORS : {});
+      return send(res, 200, { mode: svc.mode, data }, path === '/api/v1/tools' ? CORS : appCors(req)); // 其他 REST 只給本站與手機 App
     }
 
     // ── 靜態檔：防目錄穿越；找不到就回 index.html（SPA）──
@@ -153,7 +162,7 @@ createServer(async (req, res) => {
     const status = e instanceof UserError ? e.status || 400 : e.status === 429 ? 429 : 502;
     if (!(e instanceof UserError)) log.error('request failed', e, { method: req.method, route: routeOf(path) });
     // API 與 MCP 的錯誤也要帶 CORS，跨網域的 client 才讀得到錯誤訊息；413 回完就關連線（剩下的 body 不讀）
-    const headers = { ...(path.startsWith('/api/') || path.startsWith('/mcp') ? CORS : {}), ...(status === 413 && { connection: 'close' }) };
+    const headers = { ...(path.startsWith('/api/') || path.startsWith('/mcp') ? CORS : {}), ...(path.startsWith('/api/v1/agent') && appCors(req)), ...(status === 413 && { connection: 'close' }) };
     if (!res.headersSent) send(res, status, { error: publicMessage(e) }, headers);
   }
 }).listen(PORT, () => {
