@@ -137,8 +137,13 @@ async function bikeOption(svc, from, to, straight) {
   };
 }
 
-async function busOption(svc, from, to, straight, risk) {
+/** 深夜（台灣時間）：00:00～05:00 公車多已收班；23:00 後接近末班（S10，示範規則；真實以 TDX 到站狀態為準） */
+export const NIGHT = { closedFrom: 0, closedTo: 5 * 60, lateFrom: 23 * 60 };
+async function busOption(svc, from, to, straight, risk, depart) {
   if (straight > LIMITS.busMaxM) return null;
+  const m = depart ? depart.minute % (24 * 60) : null;
+  if (m != null && m >= NIGHT.closedFrom && m < NIGHT.closedTo) return { skip: { role: 'bus', why: '深夜公車多已收班（末班多在 23:00～24:00，夜間公車路線很少），可以叫車' } };
+  const late = m != null && m >= NIGHT.lateFrom;
   const list = await svc.bus.directTrips({ from, to });
   const opts = list.map((t) => {
     const w1 = walkMinutes(t.walkFromM), w2 = walkMinutes(t.walkToM);
@@ -154,7 +159,8 @@ async function busOption(svc, from, to, straight, risk) {
         leg('bus', t.board, t.alight, ride, `${t.routeName}（${t.label}）坐 ${t.stops} 站`, 'transit'),
         leg('walk', t.alight, to, w2, `步行約 ${w2} 分`),
       ],
-      notes: [etaMin == null || etaMin < w1 ? '下一班到站時間不明，以 10 分估' : `${t.board.name} 約 ${etaMin} 分後到站`, '票價以一段票 15 元估'],
+      notes: [etaMin == null || etaMin < w1 ? '下一班到站時間不明，以 10 分估' : `${t.board.name} 約 ${etaMin} 分後到站`, '票價以一段票 15 元估', ...(late ? ['接近末班車時間，可能是最後幾班；錯過就要叫車'] : [])],
+      ...(late && { lastBus: true }),
       ...((etaMin == null || etaMin < w1) && { estimated: true }),
       // 決策選公車時，agent 接著盯這條路線在上車站的即時到站（bus_route_eta 的 stop／direction）
       follow: { city: t.city, routeName: t.routeName, stop: t.board.name, ...(t.direction != null && { direction: t.direction }), walkMin: w1 },
@@ -265,7 +271,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   const tasks = {
     walk: async () => walkOption(from, to, straight),
     bike: () => bikeOption(svc, from, to, straight),
-    bus: () => busOption(svc, from, to, straight, risk),
+    bus: () => busOption(svc, from, to, straight, risk, depart),
     thsr: () => railOption(svc, 'THSR', from, to, straight, depart),
     tra: () => railOption(svc, 'TRA', from, to, straight, depart),
     intercity: () => intercityOption(svc, from, to, straight, depart),

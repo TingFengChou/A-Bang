@@ -311,7 +311,7 @@ export function parseIntent(text, ctx) {
   if (/youbike|ubike|微笑單車|單車|腳踏車/i.test(s) && !(places.length && /去|到|往/.test(s))) return { ...base, intent: 'youbike' }; // 「騎 YouBike 去 X」是行程
   if (/附近/.test(s) && /公車|站牌/.test(s)) return { ...base, intent: 'nearby_bus' };
   // 行程：只說目的地（「去台北101」「想省錢，去松山機場」，甚至只打地名）→ 起點用現在位置（needsLocation）
-  if (places.length && (/從.+(到|去)|出發\s*(?:去|到|往)|怎麼去|怎麼走|要到|前到|想去|要去|帶我去|去.+怎麼|(?:^|[，,、\s])(?:去|到|往)\s*\S|(?:坐|搭|騎|用|開車|走路|推|帶).{0,8}(?:去|到|往)/.test(s) || onlyPlace(s, places))) {
+  if (places.length && (/從.+(到|去)|出發\s*(?:去|到|往)|怎麼去|怎麼走|要到|前到|想去|要去|帶我去|去.+怎麼|(?:^|[，,、\s])(?:去|到|往)\s*\S|(?:坐|搭|騎|用|開車|走路|推|帶).{0,8}(?:去|到|往)|(?:公車|捷運|火車|客運|車)\s*(?:回|去|到)|(?:^|[，,、\s])回\s*\S/.test(s) || onlyPlace(s, places))) {
     const [from, to] = places.length >= 2 ? orderFromTo(s, places) : [FROM_TEXT.exec(s)?.[1] ?? null, places[0]]; // 明講的起點優先
     return { ...base, intent: 'trip', from, to, ...(mode && { mode }) };
   }
@@ -396,6 +396,7 @@ export function demoSteps(it, now = Date.now()) {
       const date = it.tomorrow ? nowTW(now + 864e5).date : null;
       // 明天且有指定抵達時間：示範以抵達前 4 小時（最早 05:00）出發估算；沒有指定則明天 06:00
       const dep = date && (it.arriveBy ? `${String(Math.max(5, Number(it.arriveBy.slice(0, 2)) - 4)).padStart(2, '0')}:00` : '06:00');
+      const today = !date && nowTW(now); // 今天：照現在時間出發（測試可指定 now；深夜判斷末班車）
       const userStates = it.states;
       return [
         () => (fp
@@ -404,7 +405,7 @@ export function demoSteps(it, now = Date.now()) {
         (r) => { const [a, b] = pts(r); return a && b ? { note: '@天氣 @空品 @路況 看一下外面的狀況', calls: [{ name: 'weather_now', args: ll(a) }, { name: 'aqi_nearby', args: ll(a) }, { name: 'traffic_status', args: { from: ll(a), to: ll(b) } }] } : null; },
         (r) => { const [a, b] = pts(r); return a && b ? { note: '@行程 幫你比較幾種走法', calls: [{ name: 'plan_trip', args: {
           from: asArg(a), to: asArg(b), // 地名：卡片標題顯示地名；定位：帶座標與「你的位置」
-          ...(dep && { departAt: `${date}T${dep}` }),
+          ...(dep ? { departAt: `${date}T${dep}` } : today && { departAt: `${today.date}T${today.hhmm}` }),
           ...((userStates.length || it.arriveBy || it.mode || it.avoid?.length) && { prefs: { ...(userStates.length && { states: userStates }), ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }), ...(it.avoid?.length && { avoid: it.avoid }) } }),
         } }] } : null; },
       ];
@@ -514,9 +515,11 @@ export function demoSummary(it, results, suggestions = []) {
       const miss = walk && f.status === 0 && f.etaSec != null && f.etaSec < walk * 60; // 走過去要比車到還久
       return `${pre}${trip.data.ranking.reason} ${bus.speak.replace(/。$/, '')}${walk ? `，走過去約 ${walk} 分` : ''}${miss ? '，這班可能趕不上。要我在下一班快到時提醒你嗎？' : '。要我在公車快到站時提醒你嗎？'}按卡片上的「到站前 3 分提醒我」。`;
     }
+    // 深夜：公車已收班或接近末班，先說（S10）
+    const night = trip?.data.skipped?.find((x) => x.role === 'bus' && /收班/.test(x.why)) ? '現在深夜，公車多已收班（末班多在 23:00～24:00）。' : trip?.data.options.some((o) => o.lastBus) ? '快到末班車時間了，錯過就要叫車。' : '';
     // 下一步依建議方式（叫車按官方連結、步行導航…；不再一律問「要我幫你開導航嗎」）
     const role = trip?.data.options.find((o) => o.id === trip.data.best)?.role;
-    return trip ? `${pre}${trip.data.ranking.reason}${NEXT_STEP[role] ? ` 下一步：${NEXT_STEP[role]}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
+    return trip ? `${pre}${night}${trip.data.ranking.reason}${NEXT_STEP[role] ? ` 下一步：${NEXT_STEP[role]}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
   }
   // 沒說地點時用了示範預設，先講清楚
   const pre = (isNearby(it) || (it.intent === 'metro' && !it.station && !it.near)) && !it.places[0] && !it.fromPoint

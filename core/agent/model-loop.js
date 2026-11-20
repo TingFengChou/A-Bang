@@ -215,7 +215,8 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   // 有現在位置時，程式先用它查好（不靠模型）：地端模型常常只查了目的地就反問「你從哪裡出發」。
   //   沒說起點的行程 → plan_trip（起點＝現在位置）；沒說地點的天氣／空品／YouBike／附近公車／垃圾車 → 對應工具（現在位置）
   // 結果照常出現在討論串與卡片，再交給模型轉述（AGENT.md §5.2.1）
-  const pre = prefetchCalls(rulesIt, j, here || null);
+  // 出發時間＝現在（測試與示範時鐘可指定；深夜末班車判斷）
+  const pre = prefetchCalls(rulesIt, j, here || null).map((c) => (c.name === 'plan_trip' && !c.args.departAt ? { ...c, args: { ...c.args, departAt: `${nowTW(now).date}T${nowTW(now).hhmm}` } } : c));
   let prefetched = '';
   const preDone = new Map(); // 呼叫鍵（工具＋關鍵參數）→ 給模型的文字：模型用相同參數再呼叫時沿用，不重複產生卡片與決策圖；參數不同照常執行
   if (pre.length) {

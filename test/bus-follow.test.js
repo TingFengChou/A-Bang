@@ -50,7 +50,8 @@ test('busFollowUp：決策選公車才盯；其他方式不盯', () => {
 
 test('問阿幫（示範）：想省錢選公車 → decision 後自動查上車站，卡片聚焦，總結問要不要到站提醒', async () => {
   const es = [];
-  await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '我想省錢，從西門町到台北101怎麼去？' }] }, (e) => es.push(e));
+  const day = Date.parse(`${new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)}T10:00:00+08:00`); // 白天（深夜公車收班，結果不受跑測試的時間影響）
+  await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '我想省錢，從西門町到台北101怎麼去？' }] }, (e) => es.push(e), { now: day });
   const types = es.map((e) => e.type);
   const d = types.indexOf('decision');
   assert.deepEqual(types.slice(d, d + 4), ['decision', 'agent_note', 'tool_start', 'tool_result']);
