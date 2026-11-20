@@ -196,6 +196,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - 起點預設是現在位置：只說目的地（「去台北 101」、只打地名、「坐公車去 X」）就是行程，`needsLocation` → `device_location`；天氣、空品、YouBike、附近公車、垃圾車沒說地點也用現在位置；「307 到哪了？」沒說站時 `bus_route_eta { near }` 聚焦路線上離你最近的站（`cityNear` 用最近地標推估縣市）。App 打開問阿幫就先定位，2 分鐘內重用。
 - 接著改條件（`followUp`）：沒有地名、但有改換字眼與交通方式（「改坐公車」「那叫車呢」「不要叫車，改公車」）或只說狀態（「我很趕」）時，沿用上一輪行程的起訖點與狀態；交通方式放 `plan_trip` 的 `prefs.mode`，`decide()` 照算分數，建議改成該方式裡分數最高的（理由「照你說的選…」）。判斷層遇到 `followUp` 以規則為準。
 - 點方案：決策圖上沒被選的方案、行程卡備案的「改成這個」送出「改成〈方案名〉」，走同一套流程。
+- 有現在位置就先查好（模型模式，`prefetchCalls`）：沒說起點的行程先跑 `plan_trip`（起點＝現在位置）、沒說地點的天氣／空品／YouBike／附近公車／垃圾車先跑對應工具，結果照常出現在討論串與卡片，並寫進系統提示請模型轉述（地端模型曾只查目的地就反問「從哪出發」）；模型再呼叫同一個工具時沿用結果，不重複出現卡片。
 - 起點交給程式（模型模式）：使用者沒說起點時，`plan_trip.from` 一律換成手機定位；還沒定位先送 `client_tool_call device_location`；拒絕定位且起訖點相同時回錯誤請模型改問從哪出發。
 - YouBike 兩端：`plan_trip` 的 YouBike 方案帶 `bike: { rent: { name, count, tight, backup? }, ret: { ... } }`；不可行時 `skipped: [{ role: 'bike', why }]`；`tool_result.impact` 可為陣列（行程比較結果＋YouBike 兩端）。
 

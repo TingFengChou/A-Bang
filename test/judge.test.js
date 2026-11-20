@@ -132,3 +132,29 @@ test('模型模式：需要現在位置時，問模型之前就先請 App 定位
   await runModel(svc, { messages: [{ role: 'user', content: '台北101天氣如何' }], clientTools: ['device_location'] }, () => {}, { provider });
   assert.equal(calls, 1, '有地點：直接問模型');
 });
+
+test('模型模式：有現在位置時程式先規劃好行程（模型只查目的地就想反問也沒關係），結果放進系統提示請模型轉述', async () => {
+  const svc = createServices({ forceMock: true });
+  let system = '';
+  const provider = { mode: 'local', model: 'fake', start({ system: s }) { system = s; return { next: async () => ({ text: '請問您要從哪裡出發？', calls: [], stop: 'end', usage: { input: 1, output: 1 } }), addResults() {} }; } };
+  const es = [];
+  await runModel(svc, { messages: [{ role: 'user', content: '去台北 101' }], clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 25.0478, lon: 121.517 } }] }, (e) => es.push(e), { provider });
+  const trip = es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
+  assert.ok(trip?.ok, '程式先跑了 plan_trip');
+  assert.equal(trip.data.from.name, '你的位置');
+  assert.ok(es.some((e) => e.type === 'decision'), '決策圖照常出現');
+  assert.match(system, /程式已依使用者現在的位置查好下面的結果/);
+  // 附近類：會下雨嗎 → 先查天氣
+  const es2 = [];
+  await runModel(svc, { messages: [{ role: 'user', content: '會下雨嗎？' }], clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 25.0478, lon: 121.517 } }] }, (e) => es2.push(e), { provider });
+  assert.ok(es2.some((e) => e.type === 'tool_result' && e.tool === 'weather_now' && e.ok));
+});
+
+test('模型模式：程式已依位置查好的工具，模型再呼叫時沿用結果，不重複出現卡片', async () => {
+  const svc = createServices({ forceMock: true });
+  const provider = fakeProvider('local', { name: 'plan_trip', input: { from: '台北101', to: '台北101' } });
+  const es = [];
+  await runModel(svc, { messages: [{ role: 'user', content: '去台北 101' }], clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 25.0478, lon: 121.517 } }] }, (e) => es.push(e), { provider });
+  assert.equal(es.filter((e) => e.type === 'tool_result' && e.tool === 'plan_trip').length, 1);
+  assert.equal(es.filter((e) => e.type === 'decision').length, 1, '決策圖只有一張');
+});
