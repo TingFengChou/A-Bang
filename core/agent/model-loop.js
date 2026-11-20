@@ -201,10 +201,10 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   }
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
   const heard = !req.clientToolResults?.length && (contextNote(rulesIt) || (rulesIt.intent === 'outing' ? outingNote([...(rulesIt.states || []), ...(q0?.states || [])]) : q0 && judgeNote(q0)));
-  if (heard) emit(ev.agentNote(heard));
+  if (heard && rulesIt.lang !== 'en') emit(ev.agentNote(heard)); // 「聽懂了」是中文：英文提問不說
   const j = jc ? await jc.full(q0) : null;
   const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
-  if (more) emit(ev.agentNote(more));
+  if (more && rulesIt.lang !== 'en') emit(ev.agentNote(more));
   const sure = j && (j.source === 'llm' || j.source === 'device' || (j.confidence ?? 0) >= 0.8); // 模型判斷（伺服器 B 或手機上的模型，ADR-0014）或 A 有把握
   // 這句（或接著改的上一輪）沒說起點 → 起點是現在位置（下面呼叫 plan_trip 時由程式帶入）
   const hereIsOrigin = rulesIt.intent === 'trip' && !rulesIt.from && !rulesIt.fromSaved;
@@ -215,7 +215,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const wantHere = canLocate && !namedArea && (hereIsOrigin || (!rulesIt.places?.length && (needsLocation(rulesIt) || NEARBY_INTENTS.includes(j?.intent) || j?.intent === 'trip')));
   const here = canLocate ? deviceLocation(req) : null;
   if (wantHere && here === undefined) {
-    emit(ev.agentNote('@定位 先看看你在哪裡'));
+    emit(ev.agentNote(rulesIt.lang === 'en' ? '@定位 checking where you are' : '@定位 先看看你在哪裡'));
     emit(ev.clientToolCall({ id: LOCATION_CALL_ID, name: DEVICE_LOCATION_TOOL.name }));
     emit(ev.done({ modelCalls: 0, inputTokens: 0, outputTokens: 0 }));
     return;

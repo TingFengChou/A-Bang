@@ -191,7 +191,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode: 'demo', profile: profile.id, judge: judgeInfo(q0) }));
   if (!req.clientToolResults?.length && it.reset) emit(ev.contextReset());
-  if (notice) emit(ev.agentNote(notice));
+  if (notice) emit(ev.agentNote(it.lang === 'en' ? "Today's AI quota is used up; answering in demo mode" : notice));
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
   const heard = !req.clientToolResults?.length && (contextNote(parseIntent(last, { history: req.messages.slice(0, -1) })) || (it.intent === 'outing' ? outingNote([...(it.states || []), ...(q0?.states || [])]) : q0 && judgeNote(q0)));
   if (heard && it.lang !== 'en') emit(ev.agentNote(heard)); // 「聽懂了」的句子是中文：英文那一輪不說
@@ -202,13 +202,13 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
     if (j.intent !== it.intent && !keep && !it.savedTrip && it.intent !== 'savedMissing') it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent, saved: req.savedPlaces }) || it;
     it.states = j.states;
     const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
-    if (more) emit(ev.agentNote(more));
+    if (more && it.lang !== 'en') emit(ev.agentNote(more));
   }
   // 需要使用者位置（M5-07）：客戶端支援 device_location 時先請它定位，拿到結果後客戶端帶 clientToolResults 重送
   if (plan.needsLocation(it) && req.clientTools?.includes('device_location')) {
     const loc = deviceLocation(req);
     if (loc === undefined) {
-      emit(ev.agentNote('@定位 先看看你在哪裡'));
+      emit(ev.agentNote(it.lang === 'en' ? '@定位 checking where you are' : '@定位 先看看你在哪裡'));
       emit(ev.clientToolCall({ id: LOCATION_CALL_ID, name: 'device_location' }));
       emit(ev.done());
       return;

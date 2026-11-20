@@ -17,8 +17,11 @@ const STATE_SOURCE = { rain: '天氣', rainSoon: '天氣', traffic: '路況', ba
 const ADDABLE = ['rush', 'budget', 'lessWalk', 'luggage'];
 /** 英文那一輪（S12c）的固定文字；方案名稱、理由句等資料維持原文 */
 const EN = {
-  state: { rush: 'In a hurry', traffic: 'Traffic', rain: 'Rain', luggage: 'Luggage', budget: 'Save money', lessWalk: 'Less walking', badAir: 'Poor air', elder: 'With elders', kids: 'With kids', mobility: 'Mobility needs', group: 'Group', rainSoon: 'Rain likely' },
-  source: { auto: 'Auto', user: 'You said', picked: 'You picked' },
+  state: { rush: 'In a hurry', traffic: 'Heavy traffic', rain: 'Raining', luggage: 'With luggage', budget: 'On a budget', lessWalk: 'Less walking', badAir: 'Poor air quality', elder: 'With seniors', kids: 'With kids', mobility: 'Limited mobility', group: 'Group travel', rainSoon: 'Rain likely' }, // 與 en.js trip.stateKey 相同
+  source: { auto: 'Auto-detected', user: 'You said', picked: 'You chose' },
+  mode: { walk: 'Walk', bike: 'YouBike', bus: 'Bus', metro: 'MRT', thsr: 'High Speed Rail', tra: 'Train', intercity: 'Intercity bus', ridehail: 'Taxi' },
+  role: { 地點: 'Places', 天氣: 'Weather', 空品: 'Air', 路況: 'Traffic', 票價: 'Fares', 行程: 'Trip', 公車: 'Bus', 捷運: 'MRT', YouBike: 'YouBike', 高鐵: 'THSR', 台鐵: 'Train', 叫車: 'Taxi' },
+  crit: { minutes: 'Time', waitMin: 'Wait', walkMin: 'Walking', cost: 'Cost', exposure: 'Outdoors', effort: 'Effort', delayRisk: 'Delays' },
   tag: { 遲到: 'Late', 不要: 'Skip', 不適合: 'Unfit', 收班: 'No service', 沒列入: 'N/A', 排除: 'Out' },
   cols: ['Data', 'Abang', 'Options'],
   step1: '① Gathering data', step2: '② Your situation', step3: (c) => `③ Comparing: ${c}`, step4: (n) => `④ Decision: ${n}`, decide: '④ Decision',
@@ -55,6 +58,18 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
   const SL = en ? EN.state : STATE_LABEL; // 狀態名稱
   const SRC = en ? EN.source : SOURCE_LABEL;
   const exText = (why) => (en ? EN.tag[exLabel(why)] || 'Out' : exLabel(why));
+  /** 英文：方案用交通方式稱呼（「捷運 淡水信義線」→ MRT）、來源與比較項目也是英文 */
+  const nameOf = (o) => (en ? EN.mode[o.role] || o.name : o.name);
+  const critOf = (c) => (en ? EN.crit[c.key] || c.label : c.label);
+  const roleOf = (r) => (en ? EN.role[r] || r : r);
+  /** 英文的一句理由（對照 decide.js explain：贏在差最多的兩項） */
+  const enReason = (best, second) => {
+    if (!best) return null;
+    if (!second) return `${nameOf(best)} is the only option.`;
+    const say = { minutes: () => `${Math.max(1, second.minutes - best.minutes)} min faster than ${nameOf(second)}`, waitMin: () => (best.waitMin ? 'shorter wait' : 'no waiting'), walkMin: () => (best.walkMin ? 'less walking' : 'no walking'), cost: () => (best.cost < second.cost ? `NT$${second.cost - best.cost} cheaper` : 'lower cost'), exposure: () => 'less time outdoors', effort: () => 'easier', delayRisk: () => 'avoids traffic delays' };
+    const top = CRITERIA.map((c) => ({ k: c.key, d: (best.breakdown?.[c.key] ?? 0) - (second.breakdown?.[c.key] ?? 0) })).sort((a, b) => b.d - a.d).filter((x) => x.d > 0.01).slice(0, 2).map((x) => say[x.k]?.());
+    return `${nameOf(best)} wins${top.length ? `: ${top.join(', ')}` : ''}.`;
+  };
   const initial = decision.states.map((s) => ({ ...s, on: true }));
   let states = initial;
   let run = 0;
@@ -79,12 +94,12 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     const before = new Map([...root.querySelectorAll('.dg-opt[data-id]')].map((g) => [g.dataset.id, g.getBoundingClientRect().top]));
     stopLoops();
     const bestOpt = ranked.find((o) => o.id === r.best?.id);
-    last = { ranked, excluded, bestName: bestOpt?.name };
+    last = { ranked, excluded, bestName: bestOpt && nameOf(bestOpt) };
     root.replaceChildren(...[
       chipsBar(),
-      el('p', 'dg-step', bestOpt ? (en ? EN.step4(bestOpt.name) : `④ 決定：${bestOpt.name}`) : (en ? EN.decide : '④ 決定')),
+      el('p', 'dg-step', bestOpt ? (en ? EN.step4(nameOf(bestOpt)) : `④ 決定：${bestOpt.name}`) : (en ? EN.decide : '④ 決定')),
       graph(ranked, excluded, active, r.best?.id),
-      !en && el('p', 'dg-why', reason), // 理由句是中文（伺服器與 decide.js）：英文那一輪由英文總結說明
+      el('p', 'dg-why', en ? enReason(bestOpt, ranked.find((o) => o.id !== bestOpt?.id)) : reason), // 英文：程式依分數組一句英文理由
       onPick && ranked.length > 1 && el('p', 'dg-hint', en ? EN.hint : '想換方式？點其他方案，阿幫會用它重算'), // 審查：手機沒有 hover，要寫出來
       details(ranked),
     ].filter(Boolean));
@@ -171,7 +186,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       .from(q('.dg-opt'), { x: '+=14', duration: 0.25, stagger: 0.05 }, '<');
     let acc = new Map(ranked.map((o) => [o.id, 0]));
     for (const c of CRITERIA) {
-      tl.call(step(en ? EN.step3(c.label) : `③ 比較：${c.label}`));
+      tl.call(step(en ? EN.step3(critOf(c)) : `③ 比較：${c.label}`));
       const next = new Map(ranked.map((o) => [o.id, acc.get(o.id) + (o.breakdown?.[c.key] ?? 0)]));
       for (const o of ranked) {
         const e = root.querySelector(`.dg-out-edge[data-id="${o.id}"]`);
@@ -248,7 +263,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     const ys = (n, i) => (n <= 1 ? C.y : 40 + (i * (H - 90)) / (n - 1)); // 底下留給來源名稱
     const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'dg-svg', role: 'img', 'aria-labelledby': 'dg-title dg-desc' });
     s.append(svg('title', { id: 'dg-title' }, en ? EN.title : '決策圖'),
-      svg('desc', { id: 'dg-desc' }, en ? `Data: ${sources.join(', ')}. Situation: ${active.map((k) => SL[k]).join(', ') || 'none'}. Options by score: ${ranked.map((o) => `${o.name} ${o.score}`).join(', ')}.` : `資料：${sources.join('、')}；狀態：${active.map((k) => SL[k]).join('、') || '無'}；方案依分數：${ranked.map((o) => `${o.name} ${o.score}`).join('、')}${excluded.length ? `；排除：${excluded.map((o) => `${o.name}（${exLabel(o.why) === '不要' ? '你說不要' : exLabel(o.why) === '遲到' ? '會遲到' : '排除'}）`).join('、')}` : ''}`));
+      svg('desc', { id: 'dg-desc' }, en ? `Data: ${sources.map(roleOf).join(', ')}. Situation: ${active.map((k) => SL[k]).join(', ') || 'none'}. Options by score: ${ranked.map((o) => `${nameOf(o)} ${o.score}`).join(', ')}.` : `資料：${sources.join('、')}；狀態：${active.map((k) => SL[k]).join('、') || '無'}；方案依分數：${ranked.map((o) => `${o.name} ${o.score}`).join('、')}${excluded.length ? `；排除：${excluded.map((o) => `${o.name}（${exLabel(o.why) === '不要' ? '你說不要' : exLabel(o.why) === '遲到' ? '會遲到' : '排除'}）`).join('、')}` : ''}`));
     (en ? EN.cols : ['資料', '阿幫', '方案']).forEach((t, i) => s.append(svg('text', { x: [34, C.x, OPT_X + 4][i], y: 16, class: 'dg-col', 'text-anchor': i === 2 ? 'start' : 'middle' }, t)));
     const edges = svg('g', { class: 'dg-edges' }), nodes = svg('g', { class: 'dg-nodes' });
     s.append(edges, nodes);
@@ -266,7 +281,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       g.append(svg('circle', { r: 16, class: 'dg-src-c', style: `stroke:${col}` }));
       const ic = svgIcon(role, -9, -9, 18);
       if (ic) { ic.style.color = col; g.append(ic); }
-      g.append(svg('text', { y: 30, 'text-anchor': 'middle', class: 'dg-lbl' }, role));
+      g.append(svg('text', { y: 30, 'text-anchor': 'middle', class: 'dg-lbl' }, roleOf(role)));
       nodes.append(g);
     });
     // 2 阿幫（中心）：吉祥物；狀態膠囊疊在上方，自動狀態以點線連回來源
@@ -297,7 +312,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       edges.append(svg('path', { d: `M${C.x + 30},${C.y} C${C.x + 62},${C.y} ${OPT_X - 40},${y} ${OPT_X},${y}`,
         class: `dg-edge dg-out-edge ${isEx ? 'step4 excluded' : 'step3'}${isEx && ['不要', '收班', '沒列入'].includes(exLabel(o.why)) ? ' avoided-edge' : ''}${win ? ' win' : ''}`, 'data-id': o.id, style: `stroke-width:${isEx ? 1 : (1 + 7 * (o.score / max)).toFixed(1)}px` })); // 連線粗細＝分數（inline，CSS 的 stroke-width 才蓋不掉）
       const avoided = isEx && ['不要', '收班', '沒列入'].includes(exLabel(o.why)), unfit = isEx && exLabel(o.why) === '不適合';
-      const n = node(OPT_X, y, isEx ? `${short(o.name)}` : short(o.name), `dg-opt ${isEx ? 'step4 excluded' : 'step3'}${avoided ? ' avoided' : ''}${unfit ? ' unfit' : ''}${win ? ' win dg-best' : ''}`, o.role, win, isEx ? exText(o.why) : String(o.score));
+      const n = node(OPT_X, y, short(nameOf(o)), `dg-opt ${isEx ? 'step4 excluded' : 'step3'}${avoided ? ' avoided' : ''}${unfit ? ' unfit' : ''}${win ? ' win dg-best' : ''}`, o.role, win, isEx ? exText(o.why) : String(o.score));
       n.style.setProperty('--i', String(i));
       n.dataset.id = o.id;
       if (isEx) n.setAttribute('aria-label', en ? EN.ex(o.name, exText(o.why)) : `${o.name}，已排除：${o.why}`); // 讀屏念原因（「你說不要叫車」「…會遲到」）
@@ -341,12 +356,12 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     d.append(el('summary', null, en ? EN.details : '看比較細節'));
     for (const o of ranked) {
       const top = new Set(Object.entries(o.breakdown || {}).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k]) => k));
-      d.append(el('div', 'dg-row', el('b', null, en ? EN.pts(o.name, o.score) : `${o.name}：${o.score} 分`),
+      d.append(el('div', 'dg-row', el('b', null, en ? EN.pts(nameOf(o), o.score) : `${o.name}：${o.score} 分`),
         ...CRITERIA.map((c) => {
           const v = (o.breakdown?.[c.key] ?? 0) * 100;
           const bar = el('span', `dg-bar${top.has(c.key) ? ' top' : ''}`);
           bar.style.width = `${Math.max(2, v * 2)}%`;
-          return el('div', 'dg-crit', el('span', 'dg-crit-name', c.label), bar, el('span', 'dg-crit-v', v.toFixed(1)));
+          return el('div', 'dg-crit', el('span', 'dg-crit-name', critOf(c)), bar, el('span', 'dg-crit-v', v.toFixed(1)));
         })));
     }
     return d;

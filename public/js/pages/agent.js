@@ -78,10 +78,11 @@ function handoff(box, results, decision) {
 
 /** 打字中：三個跳動的點（螢幕閱讀器念「輸入中」） */
 /** 定位結果的一句話（不分行程或附近查詢都通順；沒拿到時說下一步，CLAUDE.md 規則 6；預設起點由總結說明，這裡不先講） */
-export function locateSay({ ok, reason }) {
-  if (ok) return '拿到了，用你現在的位置';
-  if (reason === 'outside') return '你的位置不在台灣，阿幫查不到附近資料；可以直接打地點';
-  return '沒拿到你的位置；可以直接打地點，或到手機設定打開定位';
+export function locateSay({ ok, reason }, lang = null) {
+  const en = lang === 'en';
+  if (ok) return en ? 'Got it, using your location' : '拿到了，用你現在的位置';
+  if (reason === 'outside') return en ? "You're outside Taiwan; type a place instead" : '你的位置不在台灣，阿幫查不到附近資料；可以直接打地點';
+  return en ? "Couldn't get your location; type a place or turn on location" : '沒拿到你的位置；可以直接打地點，或到手機設定打開定位';
 }
 
 /** 天氣、空品、出門建議卡片：{ 鍵（工具＋測站）, 值（主要數字）, 收合時的說明 }；其他卡片不收合 */
@@ -213,10 +214,10 @@ export default {
         return undefined;
       };
       const btns = steps.map((s) => { const b = el('button', `chip next-${s.kind}`, s.label); b.type = 'button'; b.onclick = () => act(s, b); return b; });
-      const more = el('button', 'chip ghost', view.lang === 'en' ? 'Other questions' : '其他問題');
+      const more = el('button', 'chip ghost', view.lang === 'en' ? 'Ask something else' : '其他問題');
       more.type = 'button';
       more.onclick = showDefaults;
-      chips.replaceChildren(el('span', 'next-title', view.lang === 'en' ? 'Next' : '接下來可以'), ...btns, more);
+      chips.replaceChildren(el('span', 'next-title', view.lang === 'en' ? 'Try next' : '接下來可以'), ...btns, more);
     }
 
     // @ 點名：輸入 @ 時顯示可點名的小幫手
@@ -267,9 +268,9 @@ export default {
     /** 一輪對話的畫面：事件依序呈現；討論串兩則之間至少 300ms（只為避免閃爍） */
     function turnView(turn, turnLang = null) {
       const thread = el('div', 'thread live');
-      thread.setAttribute('aria-label', '小幫手討論串');
+      thread.setAttribute('aria-label', turnLang === 'en' ? 'Helper thread' : '小幫手討論串');
       // 會議感（原型 transit-discussion.html）：討論中有標題與跳動的點，結束後收合成摘要
-      thread.append(el('div', 'thread-head', el('span', 'th-title', turnLang === 'en' ? 'Helpers are checking' : '小幫手討論中'), el('span', 'say typing', ...typing(turnLang === 'en' ? 'checking' : '討論中'))));
+      thread.append(el('div', 'thread-head', el('span', 'th-title', turnLang === 'en' ? 'Checking live data…' : '小幫手討論中'), el('span', 'say typing', ...typing(turnLang === 'en' ? 'checking' : '討論中'))));
       const results = el('div', 'results');
       turn.append(thread, results);
       const bubbles = new Map();
@@ -325,14 +326,14 @@ export default {
             break;
           }
           case 'client_tool_call': {
-            const b = el('div', 'bubble tool', avatar('定位'), el('div', 'say typing', ...typing('定位中')));
+            const b = el('div', 'bubble tool', avatar('定位'), el('div', 'say typing', ...typing(turnLang === 'en' ? 'locating' : '定位中')));
             bubbles.set(`client:${e.id}`, b);
             thread.append(b);
             break;
           }
           case 'client_tool_result': { // 客戶端自己送的（client.js）：定位完成或失敗，把「定位中」換成結果
             const say = bubbles.get(`client:${e.id}`)?.querySelector('.say');
-            if (say) { say.className = 'say'; say.textContent = locateSay(e); }
+            if (say) { say.className = 'say'; say.textContent = locateSay(e, turnLang); }
             break;
           }
           case 'tool_start': {
@@ -364,7 +365,7 @@ export default {
               if (same) { // 點開才畫卡片（不播進場動畫）
                 const slot = el('div', 'card-slot');
                 const box = el('details', 'card-same');
-                box.append(el('summary', '', el('span', 'same-text', same), el('span', 'same-open', turnLang === 'en' ? 'Show' : '看完整')), slot);
+                box.append(el('summary', '', el('span', 'same-text', same), el('span', 'same-open', turnLang === 'en' ? 'Show card' : '看完整')), slot);
                 box.addEventListener('toggle', () => { if (box.open && !slot.childElementCount) cards.push(renderCard(slot, payload, host)); });
                 results.append(box);
               } else {
@@ -379,7 +380,7 @@ export default {
             const n = e.tools.length;
             // 摘要：參與的小幫手頭像疊在一起＋工具數；點開再看討論過程
             const stack = el('span', 'av-stack', ...roles.slice(0, 6).map((r) => avatar(r)));
-            const sum = el('button', 'thread-sum', stack, el('span', null, turnLang === 'en' ? `Helpers done · ${n} tool${n === 1 ? '' : 's'} · ${e.servers.length} MCP` : `小幫手討論完成・${n} 個工具・${e.servers.length} 個 MCP`));
+            const sum = el('button', 'thread-sum', stack, el('span', null, turnLang === 'en' ? `Checked ${n} source${n === 1 ? '' : 's'}` : `小幫手討論完成・${n} 個工具・${e.servers.length} 個 MCP`));
             sum.type = 'button';
             sum.setAttribute('aria-expanded', 'false');
             sum.onclick = () => {

@@ -2,7 +2,7 @@
 // 純函式：只看這一輪的工具結果（卡片資料）與決策，回傳建議；畫面（agent.js）決定怎麼執行。
 //   kind：ask＝送出一句話、remind＝到站提醒（host.watchArrival）、navigate＝開 App 內頁面、state＝在決策圖加狀態（瀏覽器重算，不呼叫伺服器）
 const STATE_LABEL = { rush: '我很趕', budget: '想省錢', lessWalk: '少走路', luggage: '帶行李' };
-const STATE_LABEL_EN = { rush: "I'm in a hurry", budget: 'Cheaper', lessWalk: 'Less walking', luggage: 'With luggage' };
+const STATE_LABEL_EN = { rush: 'In a hurry', budget: 'On a budget', lessWalk: 'Less walking', luggage: 'With luggage' }; // 與卡片字典 en.js trip.stateKey 相同
 const POPULAR_STOCKS = ['台積電', '0050', '聯發科', '鴻海'];
 const short = (s) => String(s || '').replace(/（.*?）|\(.*?\)/g, '').trim();
 
