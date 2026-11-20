@@ -28,7 +28,7 @@ export function startCountdown(root, now = () => Date.now()) {
       if (text && el.textContent !== text) {
         el.textContent = text;
         el.classList.toggle('soon', left < SOON_SEC);
-        if (!reducedMotion()) { el.classList.remove('ab-tick'); void el.offsetWidth; el.classList.add('ab-tick'); }
+        if (!reducedMotion()) { const c = el.classList.contains?.('ab-focus-eta') ? 'ab-flip' : 'ab-tick'; el.classList.remove(c); void el.offsetWidth; el.classList.add(c); } // 上車站大字倒數翻牌
       }
     }
   };

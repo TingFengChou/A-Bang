@@ -178,3 +178,14 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 .suggest .chip.next-state { border-style: dashed; }
 .suggest .chip.ghost { color: var(--muted); }
 .agent-sys { align-self: center; font-size: 12.5px; color: var(--muted); margin: 2px 0; }
+
+/* 討論串的決策感：每筆資料的「→ 影響」（不利紅、有利綠、不影響灰）；等模型時的「阿幫在想…」 */
+.bubble .impact { grid-column: 2; display: inline-flex; gap: 6px; align-items: baseline; justify-self: start; font-size: 12.5px; font-weight: 700; border-radius: 8px; padding: 2px 8px; margin-top: 3px; animation: impact-in .35s cubic-bezier(.2,.8,.2,1) .15s both; }
+.bubble .impact .arrow { font-weight: 800; }
+.bubble .impact.bad { background: var(--bad-soft); color: var(--bad); }
+.bubble .impact.good { background: var(--ok-soft); color: var(--ok); }
+.bubble .impact.neutral { background: var(--off-soft); color: var(--muted); }
+@keyframes impact-in { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+.bubble.thinking .say { display: inline-flex; align-items: center; gap: 6px; background: var(--brand-soft); }
+.bubble.thinking .th-label { font-size: 13px; color: var(--brand); font-weight: 700; }
+@media (prefers-reduced-motion: reduce) { .bubble .impact { animation: none; } }

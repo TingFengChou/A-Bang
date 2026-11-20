@@ -63,7 +63,7 @@
 | `status` | `mode: 'claude'\|'local'\|'demo'`, `model?`, `profile` | 頂部標示模式（並說明對話送到哪裡） |
 | `agent_note` | `text`（≤ 30 字，可含 `@角色`） | 討論串中阿幫的一句話 |
 | `tool_start` | `id`, `name`, `title`, `role`（公車、YouBike…）, `server`（`abang`、`tdx-official`…）, `pack`, `tier`, `input` | 被點名的小幫手出現「輸入中…」 |
-| `tool_result` | `id`, `ok`, `speak`, `card?`, `data?`, `metrics: { calls, cacheHits, cacheHit, scanned, ms }`（即 `callTool` 的 `metrics`）, `error?` | 小幫手說出 `speak`；決策圖的資料膠囊 |
+| `tool_result` | `id`, `ok`, `speak`, `card?`, `data?`, `metrics: { calls, cacheHits, cacheHit, scanned, ms }`（即 `callTool` 的 `metrics`）, `error?`, `impact?: { tone: 'bad'\|'good'\|'neutral', text }` | 小幫手說出 `speak`；`impact` 是這筆資料對決策的影響（`core/agent/impact.js`，不經模型）；決策圖的資料膠囊 |
 | `discussion_end` | `tools`, `servers` | 討論收合成一行摘要 |
 | `decision` | `states: [{ key, source: 'auto'\|'user'\|'picked', from?, detail? }]`, `arriveBy?`, `best`, `options`, `ranked`, `excluded`, `weights`, `reason` | 決策圖動畫；前端可用同一引擎即時重算 |
 | `guardrail` | `tier`, `rule` | 套用的護欄（L2 以上） |
@@ -200,7 +200,8 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - **組合**：意圖＝A 信心 ≥ 0.8 用 A，否則問 B（沒有 B 就用 A）；狀態＝規則 ∪（A ∩ B）；B 只在 A 沒把握或是行程問題時才問。實驗：意圖 94.2%、意圖＋狀態全對 89.5%（驗收集 88.4%），規則單獨 64.0%、模型單獨 58.7%。
 - **示範模式**：意圖與狀態以判斷層為準，地點、路線號碼、股票名稱等參數仍由規則抽（`parseIntent(text, { intent })`）；指定意圖抽不出必要參數時維持規則的判斷。
 - **模型模式**：`plan_trip` 的使用者狀態以判斷層為準（模型自己加的狀態只有 3 成對），再加上使用者點選的；地端模型且判斷有把握時只給該意圖的工具（`INTENT_TOOLS`，行程與其他不縮減），Claude 照常給全部。
-- `status` 事件帶 `judge: { intent, source: embed|llm|rules, confidence }`（不含對話內容）。
+- `status` 事件帶 `judge: { intent, source: embed|llm|rules, confidence }`（不含對話內容；為快速版結果）。
+- 先用快速版 `judge.quick`（A＋規則，不問模型，幾毫秒）送 `agent_note`「我聽懂了：你…」（`judgeNote`），使用者一送出就看到阿幫依他的狀況做事；之後完整版（含模型）定案，多找到的狀態再送一句「我還注意到你…」（`moreStatesNote`）。
 - 退路：`JUDGE=off`、選用依賴沒裝、模型下載失敗、載入中 → 都等同規則；CI 與 E2E 設 `JUDGE=off`，邏輯以單元測試（假的分類器）驗證。
 
 ## 6. 成本與濫用防護

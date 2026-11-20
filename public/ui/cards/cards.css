@@ -176,3 +176,37 @@
 @media (prefers-reduced-motion: reduce) { .ab-token.go, .ab-leg, .ab-runner, .ab-stop.me .ab-dot { animation: none !important; } .ab-runner { display: none; } }
 html.lite-motion .ab-token.go, html.lite-motion .ab-runner, html.lite-motion .ab-stop.me .ab-dot { animation: none !important; }
 html.lite-motion .ab-runner { display: none; }
+
+/* 車→我 進度軌（設計 review 第 3 批）：幾站外、站點、公車代幣滑到新位置；進度環；快到站轉綠發光；倒數翻牌 */
+@property --p { syntax: '<number>'; inherits: false; initial-value: 0; }
+.ab-ring { --p: 0; position: relative; display: inline-grid; place-items: center; width: 54px; height: 54px; border-radius: 50%;
+  background: conic-gradient(var(--ab-brand) calc(var(--p) * 1turn), var(--ab-line) 0); transition: --p .6s ease; flex: none; }
+.ab-ring::before { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: var(--ab-brand-soft); }
+.ab-ring > .ab-token { position: relative; }
+.ab-ring.near { background: conic-gradient(var(--ab-ok) calc(var(--p) * 1turn), var(--ab-line) 0); }
+.ab-focus.near { background: var(--ab-ok-soft); animation: ab-near 1.6s ease-in-out 2; }
+.ab-focus.near .ab-focus-eta { color: var(--ab-ok); }
+@keyframes ab-near { 0%, 100% { box-shadow: 0 0 0 0 rgba(21,128,61,0); } 50% { box-shadow: 0 0 0 6px rgba(21,128,61,.25); } }
+.ab-focus-eta.ab-flip { display: inline-block; animation: ab-flip .32s ease; transform-origin: 50% 60%; }
+@keyframes ab-flip { 0% { transform: perspective(200px) rotateX(-80deg); opacity: .2; } 100% { transform: none; opacity: 1; } }
+.ab-rail { margin: 8px 0 2px; }
+.ab-rail-head { font-size: 13px; color: var(--ab-brand); margin-bottom: 4px; }
+.ab-rail-track { position: relative; height: 26px; margin: 0 12px; }
+.ab-rail-track::before { content: ''; position: absolute; left: 0; right: 0; top: 11px; height: 4px; border-radius: 2px; background: var(--ab-line); }
+.ab-rail-fill { position: absolute; left: 0; top: 11px; height: 4px; border-radius: 2px; background: var(--ab-brand); transition: width .6s ease; }
+.ab-rail-dot { position: absolute; top: 8px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--ab-bg); border: 2px solid var(--ab-brand); }
+.ab-rail-dot.me { width: 14px; height: 14px; top: 6px; margin-left: -7px; border-color: var(--ab-ok); box-shadow: 0 0 0 4px var(--ab-ok-soft); animation: ab-ping 1.6s ease-out infinite; }
+.ab-rail-bus { position: absolute; top: -1px; margin-left: -11px; transition: left .7s cubic-bezier(.3,1.3,.5,1); z-index: 1; }
+.ab-rail-labels { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--ab-muted); margin-top: 2px; }
+@media (prefers-reduced-motion: reduce) { .ab-ring, .ab-rail-fill, .ab-rail-bus { transition: none; } .ab-focus.near, .ab-focus-eta.ab-flip, .ab-rail-dot.me { animation: none; } }
+html.lite-motion .ab-rail-bus, html.lite-motion .ab-rail-fill { transition: none; }
+
+/* 發票對獎：號碼從最後一碼往前逐位亮起，對中的位數停在綠底（動畫就是在解釋對獎規則）；沒中的淡掉 */
+.ab-digits { display: inline-flex; gap: 3px; margin-bottom: 6px; font-variant-numeric: tabular-nums; font-weight: 800; font-size: 20px; }
+.ab-digits span { display: inline-grid; place-items: center; width: 24px; height: 32px; border-radius: 6px; background: var(--ab-bg); border: 1px solid var(--ab-line); color: var(--ab-text);
+  animation: ab-digit .25s ease both; animation-delay: calc(var(--d) * 70ms); }
+.ab-digits.win span.hit { animation: ab-digit-hit .35s ease both; animation-delay: calc(var(--d) * 70ms); background: var(--ab-ok); border-color: var(--ab-ok); color: #fff; }
+.ab-digits span.miss { opacity: .45; }
+@keyframes ab-digit { from { transform: translateY(-4px); opacity: 0; } to { transform: none; } }
+@keyframes ab-digit-hit { 0% { background: var(--ab-bg); color: var(--ab-text); transform: scale(1); } 60% { transform: scale(1.18); } 100% { background: var(--ab-ok); color: #fff; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .ab-digits span { animation: none !important; } }

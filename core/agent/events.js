@@ -27,9 +27,9 @@ export const ev = {
     return need('tool_start', { id, name, title: t?.title ?? name, role: TOOL_ROLES[name] ?? '小幫手', server, pack: t?.pack ?? null, tier: t?.tier ?? null, input: input ?? {} }, ['id', 'name']);
   },
   /** tool_result：成功時帶 speak／card／data／metrics；失敗時 ok=false＋error（只放可公開的訊息） */
-  toolResult: ({ id, result, error }) => (error
+  toolResult: ({ id, result, error, impact }) => (error
     ? need('tool_result', { id, ok: false, error }, ['id'])
-    : need('tool_result', { id, ok: true, speak: result.speak ?? null, card: result.card ?? null, ...(result.v && { v: result.v }), tool: result.name, args: result.args, mode: result.mode, data: result.data, metrics: result.metrics }, ['id'])),
+    : need('tool_result', { id, ok: true, speak: result.speak ?? null, card: result.card ?? null, ...(result.v && { v: result.v }), tool: result.name, args: result.args, mode: result.mode, data: result.data, metrics: result.metrics, ...(impact && { impact }) }, ['id'])), // impact：這筆資料對決策的影響（core/agent/impact.js）
   discussionEnd: ({ tools, servers = ['abang'] }) => need('discussion_end', { tools, servers }, ['tools']),
   /** decision：由 plan_trip 的資料組成（含 options 決策欄位，讓前端切換狀態時不必再呼叫伺服器）；signals＝各資料來源的一句重點（決策圖的資料膠囊） */
   decision: (trip) => need('decision', {

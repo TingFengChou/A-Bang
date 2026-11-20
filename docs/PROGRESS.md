@@ -13,6 +13,14 @@
 
 ---
 
+## 2026-11-20 動態第二批：討論串決策感、公車進度軌、中獎紙花
+
+- 做了：討論串從「loading」變成「依資料做決定」：一送出阿幫先說聽懂了什麼（判斷層快速版 `judge.quick`，不等模型；實機原本要 5 秒才出現），完整判斷多找到的狀態再補一句；每筆資料回報下多一行「→ 影響」（`core/agent/impact.js`，`tool_result.impact`，紅扣分／綠有利／灰不影響）；最後回答前超過 600ms 無事件時出現「阿幫在想」。公車卡上車站區塊：「公車還有 N 站到你這」進度軌（`railOf`，公車代幣滑動）、倒數翻牌、進度環、快到時轉綠發光。發票：號碼從最後一碼逐位亮起、對中位數綠底（`hitDigits`）、中獎灑紙花（`confetti.js`，我的發票也會）。修：車已在視窗第一站時公車代幣位置算成負值（跑出軌道）。SW v0.6.2。
+- 測試：npm test 283 項全過（新增 `test/decision-feel.test.js` 6 項）；npm run e2e 28 項全過；另以 Playwright 截圖確認討論串影響行與進度軌。
+- 文件：UX.md §9、AGENT.md（`tool_result.impact`、§5.3 快速判斷）
+- 下一個：站間 FLIP、空品儀表、天氣氛圍
+- 卡住：無
+
 ## 2026-11-20 L-17 判斷層導入問阿幫
 
 - 做了：依實驗結果把判斷層放進 `core/agent/judge.js`。狀態組合另做比較：規則 ∪（A ∩ B）全對 89.5%（驗收集 88.4%）最好，多數決 87.8%、規則單獨 86.0%（皆以混合意圖計）；為省模型呼叫，B 只在 A 沒把握或行程問題時問。示範模式（`runDemo`）意圖與狀態以判斷層為準、參數照判斷意圖由規則抽（`parseIntent(text, { intent })`，抽不出退回規則）；模型模式（`runModel`）`plan_trip` 狀態改用判斷層＋點選、地端模型有把握時只給該意圖工具（`INTENT_TOOLS`）；`status` 帶 judge。`@huggingface/transformers` 改選用依賴；伺服器背景載入（`judgeFromEnv`，`JUDGE=off`、`JUDGE_MODEL_DIR`）；Docker 建置時先下載模型（`scripts/fetch-judge-model.js`）；CI／E2E `JUDGE=off`。修模型照抄內部備註（followUpText 改成［內部備註，不要照抄］）。

@@ -240,7 +240,24 @@ export default {
         if (wait > 0) await new Promise((r) => setTimeout(r, wait));
         lastShown = performance.now();
       };
+      // 等模型時（真實的等待，不是假延遲）：超過 0.6 秒沒有新事件就顯示「阿幫在想…」，有事件就收起
+      let thinking = null, thinkTimer = null, ended = false;
+      const stopThinking = () => { clearTimeout(thinkTimer); thinking?.remove(); thinking = null; };
+      const armThinking = () => {
+        stopThinking();
+        if (ended) return;
+        thinkTimer = setTimeout(() => {
+          if (ended) return;
+          thinking = el('div', 'bubble agent thinking', avatar('阿幫'), el('div', 'say typing', el('span', 'th-label', '阿幫在想'), ...typing('阿幫在想')));
+          (thread.classList.contains('collapsed') ? turn : thread).append(thinking); // 討論收合後（等最後回答）改放在卡片下面
+        }, 600);
+      };
       const handle = async (e) => {
+        stopThinking();
+        if (e.type === 'done' || e.type === 'error' || e.type === 'text') ended = true;
+        try { await handleEvent(e); } finally { armThinking(); }
+      };
+      const handleEvent = async (e) => {
         switch (e.type) {
           case 'status':
             turn.dataset.mode = e.mode;
@@ -269,6 +286,8 @@ export default {
               if (!e.ok) b.classList.add('failed');
               if (e.ok && e.metrics) b.querySelector('.src').append(` · ${metricsText(e.metrics)}`);
               if (e.ok && e.mode === 'demo') b.querySelector('.src').append(' · ', el('span', 'src-demo', '示範資料'));
+              // 這筆資料對決策的影響（core/agent/impact.js）：不利／有利／不影響
+              if (e.ok && e.impact) say.after(el('div', `impact ${e.impact.tone}`, el('span', 'arrow', '→'), e.impact.text));
             }
             if (e.ok) view.results.push({ tool: e.tool, card: e.card, data: e.data, args: e.args });
             if (e.ok && e.card) {
