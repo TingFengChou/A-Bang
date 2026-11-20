@@ -83,11 +83,11 @@ export function locateSay({ ok, reason }) {
   return '沒拿到你的位置；可以直接打地點，或到手機設定打開定位';
 }
 
-/** 天氣、空品卡片的比較鍵（測站＋主要數字）；其他卡片不收合 */
-function sameKey(e) {
+/** 天氣、空品卡片：{ 鍵（工具＋測站）, 值（主要數字）, 收合時的說明 }；其他卡片不收合 */
+function cardFacts(e) {
   const d = e.data || {};
-  if (e.tool === 'weather_now') return `${d.station}|${d.tempC}|${d.raining}|${d.pop3h}`;
-  if (e.tool === 'aqi_nearby') return `${d.nearest?.site}|${d.nearest?.aqi}`;
+  if (e.tool === 'weather_now') return { key: `w|${d.station}`, val: `${d.tempC}|${d.raining}|${d.pop3h}`, say: `天氣同上（${d.station} ${d.tempC ?? '—'}°C${d.pop3h != null ? `、降雨 ${d.pop3h}%` : ''}）` };
+  if (e.tool === 'aqi_nearby' && d.nearest) return { key: `a|${d.nearest.site}`, val: `${d.nearest.aqi}`, say: `空品同上（${d.nearest.site} AQI ${d.nearest.aqi}）` };
   return null;
 }
 
@@ -130,7 +130,15 @@ export default {
     let context = '';
     let busy = false;
     const cards = [];
-    const seenCards = new Map(); // 上一輪的天氣、空品（接著問時沒變就收合「同上」）
+    const seenCards = new Map(); // 上一輪的天氣、空品（接著問時沒變就收合「同上」；鍵含測站，同一輪起訖點兩張不互蓋）
+    /** 這張卡跟上一輪同一個測站的一樣嗎：一樣回收合說明，否則記下並回 null */
+    const sameAs = (e, follow) => {
+      const f = cardFacts(e);
+      if (!f) return null;
+      const same = follow && seenCards.get(f.key) === f.val;
+      seenCards.set(f.key, f.val);
+      return same ? f.say : null;
+    };
     onCleanup(() => cards.forEach((c) => c.destroy()));
 
     const log = el('div', 'chat');
@@ -295,12 +303,20 @@ export default {
             break;
           case 'agent_note':
             await gap();
+            if (/^沿用：/.test(e.text)) turn.dataset.follow = '1'; // 接著改的那一輪：沒變的天氣空品才收合（直接問天氣時卡片就是答案，不收合）
             thread.append(el('div', 'bubble agent', avatar('阿幫'), el('div', 'say', withMentions(e.text))));
             break;
-          case 'context_reset': { // 「重來」：分隔線＋前面的對話變淡（不清空，回得去看）
-            for (const t of log.querySelectorAll('.turn')) if (t !== turn) t.classList.add('past');
+          case 'context_reset': { // 「重來」：分隔線插在「重來」泡泡前面＋前面的對話與提問變淡（不清空，回得去看）
+            if (turn.dataset.reset) break; // 同一輪只處理一次
+            turn.dataset.reset = '1';
+            const ask = turn.previousElementSibling;
+            for (const t of log.querySelectorAll('.turn, .msg.user')) if (t !== turn && t !== ask) t.classList.add('past');
             seenCards.clear();
-            turn.before(el('div', 'thread-reset', el('span', '', '重新開始')));
+            const line = el('div', 'thread-reset', el('span', '', '重新開始'));
+            line.setAttribute('role', 'separator');
+            line.setAttribute('aria-label', '重新開始，前面的對話不再沿用');
+            (ask?.classList.contains('user') ? ask : turn).before(line);
+            thread.hidden = true; // 「重來」沒有查工具，不顯示空的「小幫手討論中」
             break;
           }
           case 'client_tool_call': {
@@ -337,16 +353,19 @@ export default {
             if (e.ok) view.results.push({ tool: e.tool, card: e.card, data: e.data, args: e.args });
             if (e.ok && e.card) {
               // 接著問的那一輪，天氣、空品跟上一輪一樣：收合成「天氣同上」（點開看完整卡片），畫面不會越拉越長
-              const fp = sameKey(e);
-              const same = fp && seenCards.get(e.tool) === fp;
-              if (fp) seenCards.set(e.tool, fp);
-              const slot = el('div', `card-slot ${results.children.length >= 2 ? 'scroll-in' : 'enter3d'}`); // 前兩張立體進場，後面的捲到才浮現
-              if (same) {
+              const same = sameAs(e, turn.dataset.follow === '1');
+              const payload = { card: e.card, v: e.v, mode: e.mode, speak: e.speak, data: e.data, tool: e.tool, args: e.args };
+              if (same) { // 點開才畫卡片（不播進場動畫）
+                const slot = el('div', 'card-slot');
                 const box = el('details', 'card-same');
-                box.append(el('summary', '', `${e.tool === 'aqi_nearby' ? '空品' : '天氣'}同上（${e.speak ? e.speak.replace(/。$/, '').slice(0, 24) : '跟剛才一樣'}）`), slot);
+                box.append(el('summary', '', el('span', 'same-text', same), el('span', 'same-open', '看完整')), slot);
+                box.addEventListener('toggle', () => { if (box.open && !slot.childElementCount) cards.push(renderCard(slot, payload, host)); });
                 results.append(box);
-              } else results.append(slot);
-              cards.push(renderCard(slot, { card: e.card, v: e.v, mode: e.mode, speak: e.speak, data: e.data, tool: e.tool, args: e.args }, host));
+              } else {
+                const slot = el('div', `card-slot ${results.children.length >= 2 ? 'scroll-in' : 'enter3d'}`); // 前兩張立體進場，後面的捲到才浮現
+                results.append(slot);
+                cards.push(renderCard(slot, payload, host));
+              }
             }
             break;
           }

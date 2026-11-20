@@ -187,7 +187,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   const jc = judgeCalls(judge, req, profile);
   const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode: 'demo', profile: profile.id, judge: judgeInfo(q0) }));
-  if (it.reset) emit(ev.contextReset());
+  if (!req.clientToolResults?.length && it.reset) emit(ev.contextReset());
   if (notice) emit(ev.agentNote(notice));
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
   const heard = !req.clientToolResults?.length && (contextNote(parseIntent(last, { history: req.messages.slice(0, -1) })) || (q0 && judgeNote(q0)));
