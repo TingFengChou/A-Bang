@@ -28,4 +28,25 @@ export const weatherNow = defineTool({
   },
 });
 
-export default [weatherNow];
+export const weatherTomorrow = defineTool({
+  name: 'weather_tomorrow',
+  title: '明天天氣',
+  description: '查座標所在鄉鎮明天（台灣時間）的天氣預報：降雨機率 pop（明天各時段最高）、最低／最高溫 minT／maxT、天氣現象 wx。使用者問「明天會下雨嗎」「明天要帶傘嗎」時用這個（weather_now 只有現在）。地名先用 find_place 轉座標。',
+  pack: 'weather', tier: 'L1',
+  source: '中央氣象署', demoNote: '【示範資料：尚未設定中央氣象署授權碼，以下非真實預報】',
+  modeOf: (svc) => svc.weatherMode,
+  input: { lat: T.lat, lon: T.lon },
+  speak: (d) => {
+    const where = [d.county, d.town].filter(Boolean).join('') || '你那裡';
+    const t = d.minT != null && d.maxT != null ? `，${d.minT}～${d.maxT}°C` : '';
+    const pop = d.pop != null ? `，降雨機率 ${d.pop}%` : '';
+    const umbrella = d.pop >= 50 ? '，記得帶傘' : d.pop >= 30 ? '，包包放把折傘比較保險' : '';
+    return `明天（${d.date.slice(5).replace('-', '/')}）${where}${d.wx ? d.wx.replace(/（示範）$/, '') : ''}${t}${pop}${umbrella}。`;
+  },
+  async run(svc, a) {
+    const data = await svc.weather.tomorrow(a);
+    return { data, text: `明天 ${data.date} ${[data.county, data.town].filter(Boolean).join('')}：${data.wx ?? '—'}，${data.minT ?? '—'}～${data.maxT ?? '—'}°C，降雨機率 ${data.pop ?? '—'}%` };
+  },
+});
+
+export default [weatherNow, weatherTomorrow];

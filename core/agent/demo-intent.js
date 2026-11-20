@@ -340,6 +340,7 @@ const NEARBY = {
   youbike: ['youbike_nearby', '@YouBike 附近還有車嗎'],
   nearby_bus: ['bus_nearby_stations', '@公車 附近有哪些站牌'],
   weather: ['weather_now', '@天氣 看一下現在的天氣'],
+  weatherTomorrow: ['weather_tomorrow', '@天氣 看一下明天的預報'],
   aqi: ['aqi_nearby', '@空品 附近測站的空氣品質'],
   garbage: ['garbage_truck_nearby', '@垃圾車 附近的清運點和時間'],
 };
@@ -395,7 +396,7 @@ export function demoSteps(it, now = Date.now()) {
     case 'aqi':
     case 'garbage': {
       const place = it.places[0] || DEFAULT_FROM;
-      const [tool, note] = NEARBY[it.intent];
+      const [tool, note] = NEARBY[it.intent === 'weather' && it.tomorrow ? 'weatherTomorrow' : it.intent];
       if (!it.places[0] && it.fromPoint) return [() => ({ note, calls: [{ name: tool, args: ll(it.fromPoint) }] })]; // 用裝置定位
       return [
         () => ({ note: `@地點 找「${place}」的位置`, calls: [{ name: 'find_place', args: { query: place } }] }),

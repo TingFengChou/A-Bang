@@ -40,6 +40,48 @@ export function parseRainGauges(json) {
   }).filter((s) => s.lat != null && s.lon != null && s.rainMm1h != null);
 }
 
+/** 台灣時間的日期字串 YYYY-MM-DD（時間戳加 8 小時） */
+const twDate = (ms) => new Date(ms + 8 * 3600e3).toISOString().slice(0, 10);
+
+/**
+ * 鄉鎮預報 → 明天（台灣時間）的摘要 { date, pop, minT, maxT, wx }；元素名稱與時間欄位都防禦性比對（⚠️ 待 M1 驗證）。
+ * pop：明天各時段降雨機率的最大值（3 小時或 12 小時都可）；溫度取「溫度／最高／最低溫度」的最小與最大。沒有任何明天的資料回 null。
+ */
+export function parseTomorrow(json, town, now = Date.now(), county = '') {
+  const locs = [];
+  const walk = (o, parentCounty) => {
+    if (!o || typeof o !== 'object') return;
+    if (Array.isArray(o)) { o.forEach((x) => walk(x, parentCounty)); return; }
+    const c = o.LocationsName || o.locationsName || parentCounty;
+    if ((o.LocationName || o.locationName) && (o.WeatherElement || o.weatherElement)) locs.push({ loc: o, county: c || '' });
+    for (const v of Object.values(o)) if (v && typeof v === 'object') walk(v, c);
+  };
+  walk(json?.records, '');
+  const same = locs.filter((l) => normName(l.loc.LocationName || l.loc.locationName) === normName(town));
+  const byCounty = county ? same.filter((l) => !l.county || normName(l.county) === normName(county)) : same;
+  const loc = (byCounty.find((l) => l.county) || byCounty[0] || (locs.length === 1 && !county ? locs[0] : null))?.loc;
+  if (!loc) return null;
+  const date = twDate(now + 864e5);
+  const els = loc.WeatherElement || loc.weatherElement || [];
+  const values = (re) => {
+    const el = els.find((e) => re.test(e.ElementName || e.elementName || ''));
+    const out = [];
+    for (const t of el?.Time || el?.time || []) {
+      const start = Date.parse(t.StartTime ?? t.startTime ?? t.DataTime ?? t.dataTime);
+      if (Number.isNaN(start) || twDate(start) !== date) continue;
+      const v = (t.ElementValue || t.elementValue || [])[0] || {};
+      out.push(v);
+    }
+    return out;
+  };
+  const nums = (re, key) => values(re).map((v) => num(v[key] ?? v.value ?? Object.values(v)[0])).filter((x) => x != null);
+  const pops = [...nums(/降雨機率|PoP/i, 'ProbabilityOfPrecipitation')];
+  const temps = [...nums(/^溫度$|^T$/i, 'Temperature'), ...nums(/最高溫度|MaxT/i, 'MaxTemperature'), ...nums(/最低溫度|MinT/i, 'MinTemperature')];
+  const wx = values(/天氣現象|^Wx$/i).map((v) => v.Weather ?? v.value).find((x) => typeof x === 'string' && x) || null;
+  if (!pops.length && !temps.length && !wx) return null;
+  return { date, pop: pops.length ? Math.max(...pops) : null, minT: temps.length ? Math.min(...temps) : null, maxT: temps.length ? Math.max(...temps) : null, wx };
+}
+
 /** 最近且在 RAIN_GAUGE_MAX_M 內的雨量站；沒有就 null */
 export function nearestGauge(gauges, lat, lon) {
   let best = null, bestD = Infinity;
@@ -92,8 +134,25 @@ export function buildWeather(st, gauge, pop3h, lat, lon) {
 }
 
 export function createWeatherServices(cwa) {
+  /** 最近的觀測站（含鄉鎮名稱，給鄉鎮預報用） */
+  async function nearestStation(lat, lon) {
+    const [auto, manned] = await Promise.all([cwa.get('O-A0001-001', {}, 600), cwa.get('O-A0003-001', {}, 600).catch(() => null)]);
+    const stations = [...parseStations(auto), ...parseStations(manned)].filter((s) => s.town);
+    if (!stations.length) throw new CwaError(502, '氣象署觀測資料暫時無法取得');
+    return stations.reduce((a, b) => (distanceM(lat, lon, a.lat, a.lon) <= distanceM(lat, lon, b.lat, b.lon) ? a : b));
+  }
+
   return {
     weather: {
+      /** 明天的天氣（鄉鎮預報 F-D0047-089）：降雨機率（明天各時段最高）、最低／最高溫、天氣現象 */
+      async tomorrow({ lat, lon }, now = Date.now()) {
+        [lat, lon] = assertLatLon(lat, lon);
+        const st = await nearestStation(lat, lon);
+        const fc = await cwa.get('F-D0047-089', { LocationName: st.town }, 3600);
+        const d = parseTomorrow(fc, st.town, now, st.county);
+        if (!d) throw new CwaError(502, '明天的預報暫時查不到，晚點再試');
+        return { town: st.town, county: st.county, ...d };
+      },
       async now({ lat, lon }) {
         [lat, lon] = assertLatLon(lat, lon);
         const [auto, manned, rain] = await Promise.all([

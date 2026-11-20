@@ -60,6 +60,7 @@ export function prefetchCalls(it, j, here) {
   if (it.intent === 'outing' && !it.places?.length) return [{ name: 'weather_now', args: at }, { name: 'aqi_nearby', args: at }]; // 出門建議：天氣＋空品（說了地點交給模型先找位置）
   if (it.places?.length) return [];
   const intent = NEARBY_TOOL[it.intent] ? it.intent : NEARBY_TOOL[j?.intent] ? j.intent : null;
+  if (intent === 'weather' && it.tomorrow) return [{ name: 'weather_tomorrow', args: at }]; // 問明天：預報
   return intent ? [{ name: NEARBY_TOOL[intent], args: at }] : [];
 }
 
@@ -79,7 +80,7 @@ export function callKey(name, args = {}, here = null) {
     const where = typeof args.near === 'string' ? args.near.replace(/\s/g, '') : p ? `${(+p.lat).toFixed(3)},${(+p.lon).toFixed(3)}` : null;
     return where ? `${name}|${where}|${lineCode(args.line) || ''}` : null;
   }
-  if (Object.values(NEARBY_TOOL).includes(name)) {
+  if (Object.values(NEARBY_TOOL).includes(name) || name === 'weather_tomorrow') {
     const lat = args.lat ?? here?.lat, lon = args.lon ?? here?.lon;
     return lat == null ? null : `${name}|${(+lat).toFixed(3)},${(+lon).toFixed(3)}`;
   }
@@ -138,7 +139,7 @@ export const INTENT_TOOLS = {
   nearby_bus: ['bus_nearby_stations', 'bus_station_eta', 'find_place'],
   metro: ['metro_live_board', 'metro_stations', 'find_place'],
   rail: ['thsr_timetable', 'tra_timetable', 'rail_stations', 'rail_fare', 'rail_booking_link'],
-  weather: ['weather_now', 'find_place'],
+  weather: ['weather_now', 'weather_tomorrow', 'find_place'],
   aqi: ['aqi_nearby', 'find_place'],
   quake: ['earthquake_recent'],
   pharmacy: ['pharmacy_search'],

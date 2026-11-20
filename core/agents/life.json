@@ -27,6 +27,7 @@
     "intercity_bus",
     "traffic_status",
     "weather_now",
+    "weather_tomorrow",
     "rail_booking_link",
     "ridehail_link",
     "aqi_nearby",

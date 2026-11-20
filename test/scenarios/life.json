@@ -546,7 +546,7 @@
           "say": "明天去台北101會下雨嗎",
           "expect": {
             "tools": [
-              "weather_now"
+              "weather_tomorrow"
             ],
             "toolsNot": [
               "plan_trip"
@@ -558,13 +558,12 @@
     {
       "id": "S1-3",
       "title": "問明天的天氣要講明天",
-      "todo": "S1 天氣預報（明天）",
       "turns": [
         {
           "say": "明天會下雨嗎",
           "expect": {
             "tools": [
-              "weather_now"
+              "weather_tomorrow"
             ],
             "textHas": [
               "明天"
@@ -846,6 +845,23 @@
           "expect": {
             "tools": [
               "weather_now"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S13-6",
+      "title": "明天出門要帶傘嗎：看明天的預報",
+      "turns": [
+        {
+          "say": "明天出門要帶傘嗎",
+          "expect": {
+            "tools": [
+              "weather_tomorrow"
+            ],
+            "toolsNot": [
+              "aqi_nearby"
             ]
           }
         }
