@@ -11,6 +11,8 @@ const hhmm = z.string().trim().regex(HHMM_RE, '時間格式需為 HH:mm（00:00�
 const MODES = ['walk', 'bike', 'bus', 'metro', 'thsr', 'tra', 'intercity', 'ridehail'];
 
 /** 建議方案的下一步（捷運帶上車站名：「問『台北車站下一班』看即時到站」） */
+/** 只由程式判斷的狀態（多人同行看 party、可能下雨看預報）：不給呼叫端直接指定 */
+const AUTO_ONLY = ['group', 'rainSoon', 'traffic'];
 export const nextStepOf = (o) => (!o ? null : o.role === 'metro' && o.metro ? `${NEXT_STEP.metro}；要看下一班可以問「${/站$/.test(o.metro.from) ? o.metro.from : `${o.metro.from}站`}下一班」` : NEXT_STEP[o.role] || null);
 
 /** 依建議方式的下一步（模型轉述照這句說；例：叫車不要提公車到站提醒，A2 轉述受程式約束） */
@@ -37,10 +39,11 @@ export const planTripTool = defineTool({
     from: T.point('起點'), to: T.point('終點'),
     departAt: z.string().trim().refine((s) => HHMM_RE.test(s) || ISO_RE.test(s), 'departAt 格式需為 HH:mm 或 ISO 時間，例如 18:30').optional().describe('出發時間：HH:mm（今天）或 ISO 日期時間，預設現在（台灣時間）'),
     prefs: z.object({
-      states: z.array(z.enum(Object.keys(STATES))).max(6).optional().describe('使用者狀態'),
+      states: z.array(z.enum(Object.keys(STATES).filter((k) => !AUTO_ONLY.includes(k)))).max(6).optional().describe('使用者狀態'),
       arriveBy: hhmm.optional().describe('最晚抵達時間 HH:mm'),
       mode: z.enum(MODES).optional().describe('使用者指定的交通方式（「改坐公車」→ bus、「叫車／計程車」→ ridehail）：建議改成這種方式裡分數最高的'),
       avoid: z.array(z.enum(MODES)).max(7).optional().describe('使用者說不要的交通方式（「不要叫車」→ ["ridehail"]）：直接排除'),
+      party: z.number().int().min(1).max(20).optional().describe('同行人數（「我們 4 個人」→ 4）：2 人以上叫車改用每人分攤比較（4 人一輛）；1＝自己一個人'),
     }).optional(),
   },
   speak: (d) => {
@@ -62,6 +65,7 @@ export const planTripTool = defineTool({
       }),
       ...data.ranking.excluded.map((e) => `✗ ${e.name}：${e.why}`),
       `建議：${data.ranking.reason}`,
+      ...(data.tips || []).map((t) => `提醒：${t.text}`),
       ...(nextStepOf(byId.get(data.best)) ? [`下一步：${nextStepOf(byId.get(data.best))}`] : []),
     ];
     return { data, text: clip(lines) };
