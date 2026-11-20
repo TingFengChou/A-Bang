@@ -13,6 +13,14 @@
 
 ---
 
+## 2026-11-20 交通方式圖示＋3D 動畫
+
+- 做了：使用者覺得設計不夠吸引人（「公車、步行…都要用 icon，之前都會用圖示加動畫，3D 更好」）。新增 `public/ui/cards/mode-icons.js`：交通方式與資料來源線條圖示、立體代幣 `token()`、決策圖用 `svgIcon()`。行程卡：方案代幣（建議的較大且浮動）、分段條加高並立體、每段圖示＋分鐘、依序長出、小代幣沿路線跑一趟、分段明細與排除方案也有圖示。決策圖：來源與方案節點有圖示、勝出節點厚度陰影、建議節點呼吸光暈、勝出路徑虛線流動（修 `.dg-node rect` 誤套到圖示裡的 rect → 改 `> rect`）。公車卡片與公車頁：車的位置用浮動公車代幣、上車站脈衝光圈、倒數旁公車代幣。`dom.js` 的 `style` 支援 CSS 變數。全部只用 CSS，reduced motion 與精簡模式不動。SW v0.5.1
+- 測試：npm test 268 項全過；npm run e2e 28 項全過；8787 實機（地端模型）看行程卡、決策圖、公車卡片
+- 文件：UX.md §9、CARDS.md、PROGRESS.md
+- 下一個：等使用者看過再調整
+- 卡住：無
+
 ## 2026-11-20 M10 L-14 選公車就盯到站＋到站提醒
 
 - 做了：使用者希望「決定搭公車後，agent 要開公車動態並在快到站時提醒」。core：`matchDirect` 上車站帶站序與方向；`plan_trip` 公車方案帶 `follow`；示範 `directTrips` 用示範路線真的站名（規劃用的到站時間仍固定，測試可重現）；`bus_route_eta` 加 `stop`／`direction` → `focus`（`focusStop`、`focusText`）。agent：`run.js` `busFollowUp`，`execTools` 在 `plan_trip` 的 `decision` 後自動送 `@公車` 與 `bus_route_eta`（示範與模型模式相同，查不到不影響行程）；示範總結說公車多久到、走過去幾分、趕不上就提醒下一班；模型拿到 `followUpText`；life 規則。網頁：`bus-route` 卡片聚焦上車站（大倒數、你在這上車、到站前 3／5 分提醒、開公車頁看動態）；`host-web` `watchArrival`（整頁共用、每 20 秒查、到點通知一次、設定時已趕不上就跳過這班、最多 90 分）、`navigate`；公車頁 `?stop=&dir=` 顯示上車站與同一個提醒；App toast。另：問阿幫頭像改吉祥物與線條圖示；互動模型原型（PR #16）。SW v0.4.9

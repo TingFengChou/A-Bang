@@ -166,3 +166,12 @@ main { padding: 4px 16px 16px; }
 .bus-focus .ok { color: var(--ok, #15803d); margin: 8px 0 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .timeline .me { background: var(--brand-soft); border-radius: 10px; }
 .me-tag { margin-left: 6px; font-size: 12px; color: var(--brand); font-weight: 700; }
+
+/* 公車位置：立體公車代幣取代紅點（mode-icons.js；.ab-token 樣式在 cards.css） */
+.timeline > div.here::after { display: none; }
+.timeline .bus-pos { position: absolute; left: 11px; top: 50%; margin-top: -11px; z-index: 1; }
+.timeline > div.me::after { animation: ab-ping 1.6s ease-out infinite; }
+.bus-focus { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; align-items: center; }
+.bus-focus > .ab-token { grid-row: span 2; }
+.bus-focus > .ok, .bus-focus > .row { grid-column: 1 / -1; }
+@media (prefers-reduced-motion: reduce) { .timeline > div.me::after { animation: none; } }

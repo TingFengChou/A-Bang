@@ -152,6 +152,7 @@
 - ✅ 原型已有：卡片立體進場（`translateZ`＋`rotateX` 8°）、排名翻轉。
 - 限制：只用 CSS transform，不引入 WebGL；同時進行的 3D 動畫 ≤ 3 個；低階裝置（`navigator.hardwareConcurrency ≤ 4` 或 reduced-motion）降級為淡入。
 - ✅ M5-11：問阿幫的結果卡片與決策圖以 `.enter3d` 立體進場（`rotateX(8deg)`＋`translateZ`，依序延遲）；決策圖重算時位置改變的方案以 FLIP（Web Animations）滑到新位置，同時最多 3 個；`html.lite-motion`（`hardwareConcurrency ≤ 4` 或 reduced motion）只淡入、不翻轉。
+- ✅ 2026-11-20 交通方式一律用圖示＋動畫（使用者：「公車、步行…都要用 icon，之前都有圖示加動畫，3D 更好」）：`public/ui/cards/mode-icons.js` 一套線條圖示（步行、YouBike、公車、捷運、高鐵、台鐵、客運、叫車＋地點、天氣、空品、路況、票價、行程）與**立體代幣** `token()`（漸層＋上緣高光＋厚度陰影＋微透視 `rotateX 14°／rotateY -10°`；`.go` 輕輕浮動）。用在：行程卡（方案代幣、分段條每段圖示＋分鐘、分段依序長出、一顆小代幣沿路線跑一趟、分段明細）、決策圖（資料來源與方案節點都有圖示、勝出節點厚度陰影、建議節點呼吸光暈、勝出路徑虛線流動）、公車卡片與公車頁（車的位置是浮動的公車代幣、上車站脈衝光圈、上車站大倒數旁的公車代幣）。全部只用 CSS；reduced motion 與 `html.lite-motion` 不動。
 - 🔭 評估：3D 吉祥物（靜態渲染圖）、3D 傾斜路線地圖。
 
 ## 10. 可及性

@@ -1,5 +1,6 @@
 // trip（plan_trip）：建議方案＋分段時間條＋備案（最多 2）＋狀態 chips＋理由句；行動：導航、叫車、訂票（CARDS.md §4、UX.md §6）
 import { h } from '../dom.js';
+import { token, modeSvg, modeOf } from '../mode-icons.js';
 
 /**
  * 可以設定「提醒我出門」嗎：行程是今天、出門時間在 1 分鐘後。
@@ -29,11 +30,16 @@ import { navButton, confirmLinkButton, bookButton } from '../actions.js';
 
 const MAX_ALT = 2;
 
+/** 分段條：每段有交通方式圖示＋分鐘（夠寬才放字）；上方一顆小代幣（主要交通方式）沿路線跑一趟 */
 function legsBar(o, t) {
   const total = o.legs.reduce((n, l) => n + l.minutes, 0) || 1;
-  return h('div', { class: 'ab-legs', role: 'img', 'aria-label': o.legs.map((l) => `${t(`trip.leg.${l.mode}`)} ${l.minutes} 分`).join('、') },
-    o.legs.map((l) => h('span', { class: `ab-leg ${l.mode}`, style: { flexGrow: String(Math.max(1, l.minutes)), flexBasis: `${(l.minutes / total) * 100}%` }, title: l.detail },
-      l.minutes >= 4 ? `${t(`trip.leg.${l.mode}`)} ${l.minutes}` : '')));
+  const icon = (mode) => { const i = document.createElement('span'); i.className = 'ab-leg-ic'; i.innerHTML = modeSvg(modeOf(mode) || 'walk'); return i; }; // 常數 SVG
+  const main = [...o.legs].sort((a, b) => b.minutes - a.minutes)[0];
+  return h('div', { class: 'ab-legs-wrap' },
+    token(main?.mode === 'walk' ? 'walk' : (o.role || main?.mode), { size: 'sm', cls: 'ab-runner' }),
+    h('div', { class: 'ab-legs', role: 'img', 'aria-label': o.legs.map((l) => `${t(`trip.leg.${l.mode}`)} ${l.minutes} 分`).join('、') },
+      o.legs.map((l, i) => h('span', { class: `ab-leg ${l.mode}`, style: { flexGrow: String(Math.max(1, l.minutes)), flexBasis: `${(l.minutes / total) * 100}%`, '--i': String(i) }, title: l.detail },
+        l.minutes / total >= 0.08 && icon(l.mode), l.minutes / total >= 0.2 && h('b', null, `${l.minutes}`)))));
 }
 
 function optionBlock(o, ctx, best) {
@@ -42,13 +48,14 @@ function optionBlock(o, ctx, best) {
   const ride = o.role === 'ridehail' && o.legs[0]?.url;
   return h('div', { class: best ? 'ab-option best' : 'ab-option' },
     h('div', { class: 'ab-row' },
+      token(o.role, { size: best ? 'lg' : 'md', go: best, label: o.name }),
       best && h('span', { class: 'ab-badge ab-best' }, t('trip.best')),
       h('span', { class: 'ab-name' }, o.name),
       h('span', { class: 'ab-big' }, t('common.minutes', { n: o.minutes })),
       h('span', { class: 'ab-sub' }, t('trip.arrive', { time: o.arriveAt })),
       h('span', { class: 'ab-sub' }, cost, o.estimated ? `（${t('common.estimated')}）` : '')),
     best && legsBar(o, t),
-    best && h('ul', { class: 'ab-legs-detail' }, o.legs.map((l) => h('li', {}, l.detail))),
+    best && h('ul', { class: 'ab-legs-detail' }, o.legs.map((l) => h('li', {}, token(l.mode, { size: 'xs' }), l.detail))),
     best && h('div', { class: 'ab-actions' },
       navButton(host, o.legs[0]?.nav),
       remindButton(o, ctx),
@@ -71,6 +78,6 @@ export default {
       d.ranking.reason && h('p', { class: 'ab-reason' }, d.ranking.reason),
       alts.length > 0 && h('div', { class: 'ab-alts' }, h('h4', {}, t('trip.alternatives')), alts.map((o) => optionBlock(o, ctx, false))),
       d.ranking.excluded.length > 0 && h('div', { class: 'ab-excluded' }, h('h4', {}, t('trip.excluded')),
-        h('ul', { class: 'ab-list' }, d.ranking.excluded.map((e) => h('li', { class: 'ab-row off' }, h('span', { class: 'ab-name' }, e.name || e.id), h('span', { class: 'ab-sub' }, e.why))))));
+        h('ul', { class: 'ab-list' }, d.ranking.excluded.map((e) => h('li', { class: 'ab-row off' }, token(byId.get(e.id)?.role || e.id, { size: 'sm', cls: 'off' }), h('span', { class: 'ab-name' }, e.name || e.id), h('span', { class: 'ab-sub' }, e.why))))));
   },
 };

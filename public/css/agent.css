@@ -51,19 +51,32 @@
 .dg-chip.add { color: var(--muted); border-style: dashed; }
 .dg-svg { width: 100%; height: auto; display: block; font-size: 12px; }
 .dg-col { fill: var(--muted); font-size: 11px; }
-.dg-node rect { fill: var(--card); stroke: var(--line); }
+.dg-node > rect { fill: var(--card); stroke: var(--line); }
 .dg-node text { fill: var(--text); }
-.dg-src rect { fill: var(--off-soft); }
-.dg-state rect, .dg-hub rect { fill: var(--brand-soft); stroke: var(--brand); }
-.dg-state.src-auto rect { fill: #e8effc; stroke: var(--place); }
-.dg-opt.win rect, .dg-best rect { fill: var(--brand); stroke: var(--brand); }
+.dg-src > rect { fill: var(--off-soft); }
+.dg-state > rect, .dg-hub > rect { fill: var(--brand-soft); stroke: var(--brand); }
+.dg-state.src-auto > rect { fill: #e8effc; stroke: var(--place); }
+.dg-opt.win > rect, .dg-best > rect { fill: var(--brand); stroke: var(--brand); }
 .dg-opt.win text, .dg-best text { fill: #fff; font-weight: 700; }
+/* 立體與動態：勝出節點有厚度陰影、建議節點呼吸光暈、勝出路徑上的資料沿線流動 */
+.dg-opt.win > rect, .dg-best > rect { filter: drop-shadow(0 3px 0 #0a4f49) drop-shadow(0 6px 8px rgba(15,118,110,.35)); }
+.dg-src > rect, .dg-opt > rect { filter: drop-shadow(0 2px 0 rgba(0,0,0,.08)); }
+.decision:not(.static) .dg-best > rect { animation: dg-glow 2.2s ease-in-out 2.4s infinite; }
+@keyframes dg-glow { 0%, 100% { filter: drop-shadow(0 3px 0 #0a4f49) drop-shadow(0 6px 8px rgba(15,118,110,.35)); } 50% { filter: drop-shadow(0 3px 0 #0a4f49) drop-shadow(0 0 14px rgba(20,184,166,.85)); } }
+.decision:not(.static) .dg-edge.win { stroke-dasharray: 7 5; }
+.decision:not(.static) .dg-edge.win.step1 { animation: dg-in .6s ease-out both, dg-flow 1.1s linear 2.4s infinite; }
+.decision:not(.static) .dg-edge.win.step3 { animation: dg-in .6s ease-out 1s both, dg-flow 1.1s linear 2.4s infinite; }
+.decision:not(.static) .dg-edge.win.step5 { animation: dg-in .4s ease-out 1.8s both, dg-flow 1.1s linear 2.4s infinite; }
+@keyframes dg-flow { to { stroke-dashoffset: -24; } }
+.decision:not(.static) .dg-best .dg-ic { animation: dg-hop 2.4s ease-in-out 2.4s infinite; transform-box: fill-box; }
+@keyframes dg-hop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+html.lite-motion .dg-edge.win, html.lite-motion .dg-best > rect, html.lite-motion .dg-best .dg-ic { animation: none !important; }
 .dg-opt.excluded { opacity: .45; } .dg-opt.excluded text { text-decoration: line-through; }
 .dg-edge { fill: none; stroke: var(--line); stroke-width: 1.5; }
 .dg-edge.dashed { stroke-dasharray: 4 3; stroke: var(--place); }
 .dg-edge.win { stroke: var(--brand); }
 .dg-edge.excluded { stroke-dasharray: 3 3; stroke: var(--bad); }
-.dg-src.win rect { stroke: var(--brand); stroke-width: 2; }
+.dg-src.win > rect { stroke: var(--brand); stroke-width: 2; }
 .decision:not(.static) .step1 { animation: dg-in .6s ease-out both; }
 .decision:not(.static) .step2 { animation: dg-in .4s ease-out .6s both; }
 .decision:not(.static) .step3 { animation: dg-in .6s ease-out 1s both; }
