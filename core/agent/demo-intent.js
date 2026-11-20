@@ -155,7 +155,7 @@ function onlyPlace(s, places) {
   return !rest.replace(/[我要想去到往帶很有點一下吧嗎呢啦了的，,。.!！?？\s]/g, '');
 }
 /** 「臺北市大安區」「大安區」→ 藥局搜尋的地區 */
-const AREA = /((?:[一-龥]{2}[市縣])?[一-龥]{1,2}[區鄉鎮])/;
+const AREA = /((?:[一-龥]{2}[市縣])?(?<![的近個])(?!的|社|園|校|風)[一-龥]{1,2}[區鄉鎮])/; // 「附近的社區藥局」「園區」不是行政區
 // 22 縣市（可省略「市／縣」：「花蓮地震」；比對時臺／台視為相同）
 const COUNTY = /((?:臺|台)北|新北|桃園|(?:臺|台)中|(?:臺|台)南|高雄|基隆|新竹|嘉義|苗栗|彰化|南投|雲林|屏東|宜蘭|花蓮|(?:臺|台)東|澎湖|金門|連江)[市縣]?/;
 const countyOf = (s) => COUNTY.exec(s)?.[0];
@@ -440,7 +440,7 @@ const NEARBY = {
 const isNearby = (it) => Object.hasOwn(NEARBY, it.intent);
 
 /** 需要使用者所在位置嗎（行程沒起點；附近類查詢沒地點） */
-export const needsLocation = (it) => (it.intent === 'trip' && !it.from && !it.fromSaved) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]) || (it.intent === 'metro' && !it.station && !it.near) || (it.intent === 'outing' && !it.places[0]) || (it.intent === 'rail' && !it.from && !it.near);
+export const needsLocation = (it) => (it.intent === 'pharmacy' && !it.area && !it.places?.[0]) || (it.intent === 'trip' && !it.from && !it.fromSaved) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]) || (it.intent === 'metro' && !it.station && !it.near) || (it.intent === 'outing' && !it.places[0]) || (it.intent === 'rail' && !it.from && !it.near);
 
 /**
  * 意圖 → 分段計畫。每段 `(results) => ({ note, calls })`，results 是之前各段的 callTool 結果（依名稱）。
@@ -529,6 +529,14 @@ export function demoSteps(it, now = Date.now()) {
     case 'quake':
       return [() => ({ note: '@地震 最近的地震報告', calls: [{ name: 'earthquake_recent', args: { ...(it.county && { county: it.county }), limit: 5 } }] })];
     case 'pharmacy': {
+      if (!it.area && it.places[0]) { // 「板橋車站附近的藥局」：用地標的座標推估在哪一區
+        const place = it.places[0];
+        return [
+          () => ({ note: `@地點 找「${place}」的位置`, calls: [{ name: 'find_place', args: { query: place } }] }),
+          (r) => (point(r, 0) ? { note: `@藥局 「${place}」那一區的健保藥局`, calls: [{ name: 'pharmacy_search', args: ll(point(r, 0)) }] } : null),
+        ];
+      }
+      if (!it.area && it.fromPoint) return [() => ({ note: '@藥局 依你的位置找這一區的健保藥局', calls: [{ name: 'pharmacy_search', args: ll(it.fromPoint) }] })]; // S16
       const area = it.area || DEFAULT_AREA;
       return [() => ({ note: `@藥局 ${area}的健保藥局`, calls: [{ name: 'pharmacy_search', args: { area } }] })];
     }
@@ -745,7 +753,7 @@ export function demoSummary(it, results, suggestions = []) {
   // 沒說地點時用了示範預設，先講清楚
   const pre = (isNearby(it) || (it.intent === 'metro' && !it.station && !it.near)) && !it.places[0] && !it.fromPoint
     ? (it.noLocation ? `（沒拿到你的位置，先查「${DEFAULT_FROM}」附近；告訴我地點就重查。）` : `（你沒說在哪，我先查「${DEFAULT_FROM}」附近。）`)
-    : it.intent === 'pharmacy' && !it.area ? `（你沒說哪一區，我先查「${DEFAULT_AREA}」。）`
+    : it.intent === 'pharmacy' && !it.area ? (results.pharmacy_search?.at(-1)?.data?.areaFrom ? `（依${it.places[0] ? `「${it.places[0]}」的` : '你的'}位置推估在「${results.pharmacy_search.at(-1).data.area}」，不對請說哪一區。）` : it.noLocation ? `（沒拿到你的位置，我先查「${DEFAULT_AREA}」；告訴我哪一區就重查。）` : `（你沒說哪一區，我先查「${DEFAULT_AREA}」。）`)
     : it.intent === 'stock' && it.advice ? NO_ADVICE : '';
   // 發票：主動提議存到「我的發票」，開獎後自動對獎（號碼只存在手機）
   const post = it.intent === 'invoice' ? ` ${INVOICE_WALLET_HINT}` : '';

@@ -59,7 +59,7 @@
 | `outing_advice` | weather | L1 | `outing` | ✅（2026-11-21；真實資料需 CWA 授權碼與 `MOENV_API_KEY`） |
 | `aqi_nearby` | life | L1 | `aqi` | ✅（M10，`MOENV_API_KEY`） |
 | `earthquake_recent` | life | L1 | `quake` | ✅（M10，`CWA_API_KEY`） |
-| `pharmacy_search` | life | L1 | `pharmacy` | ✅（M10，免金鑰；無座標） |
+| `pharmacy_search` | life | L1 | `pharmacy` | ✅（M10，免金鑰；資料無座標，給座標時依位置判斷行政區 S16） |
 | `garbage_truck_nearby` | life | L1 | `garbage` | ✅（M10，臺北市、新北市） |
 | `fuel_price` | life | L1 | `fuel` | ✅（M10） |
 | `invoice_lottery` | life | L1 | `invoice` | ✅（M10） |
@@ -300,7 +300,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 |---|---|---|
 | `aqi_nearby` | `lat`, `lon` | `nearest { site, county, aqi, status, level, pollutant, pm25, pm10, o3, publishTime, distanceM }`、`nearby[3]` |
 | `earthquake_recent` | `county?`, `limit`（1–10，預設 5） | `quakes[{ no, kind: significant\|local, time, magnitude, depthKm, location, maxIntensity, countyIntensity?, areas, report }]` |
-| `pharmacy_search` | `area?`（例 臺北市大安區）, `query?`（至少一個） | `weekday`、`pharmacies[{ code, name, phone, address, today: ['上午'…]\|null, openToday, nav.google（地圖搜尋） }]`（最多 20） |
+| `pharmacy_search` | `area?`（例 臺北市大安區）, `query?`, `lat?`／`lon?`（沒說地區時依位置推估縣市＋鄉鎮區：`weather.district`，真實用最近觀測站（只查測站，不抓雨量與預報）、示範用 `weather-mock.js` 內建大約中心；推估不出或只給一個座標回 `UserError`；輸出 `areaFrom: { by: 'location', station, distanceM, demo }`，文字開頭「依位置推估在「X」（最近的測站：Y），不對請說哪一區。」） | `weekday`、`pharmacies[{ code, name, phone, address, today: ['上午'…]\|null, openToday, nav.google（地圖搜尋） }]`（最多 20） |
 | `garbage_truck_nearby` | `lat`, `lon`, `radius`（100–1000，預設 500） | `stops[{ city, place, route, time, collectToday, days, distanceM, nav, truck? }]`、`covered`（臺北市、新北市） |
 | `fuel_price` | — | `effectiveDate`、`prices[{ name, price, unit }]`（92／95／98／超級柴油） |
 | `invoice_lottery` | `number?`（8 碼或末 3 碼；沒有任何數字的值，例如模型放進「這期」，視為沒給）, `period?`（例 11507） | `period { title, special, grand, first[] }`、`periods[6]`、`check? { prize, amount, partial?, note? }` |

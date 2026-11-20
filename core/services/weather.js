@@ -152,6 +152,13 @@ export function createWeatherServices(cwa) {
 
   return {
     weather: {
+      /** 座標所在的行政區（S16，藥局用）：最近觀測站的縣市＋鄉鎮，附測站與距離（測站可能在隔壁區，呼叫端要說是推估） */
+      async district({ lat, lon }) {
+        [lat, lon] = assertLatLon(lat, lon);
+        const st = await nearestStation(lat, lon);
+        if (!st.county || !st.town) return null;
+        return { county: st.county, town: st.town, area: `${st.county}${st.town}`, station: st.name, distanceM: Math.round(distanceM(lat, lon, st.lat, st.lon)), demo: false };
+      },
       /** 明天的天氣（鄉鎮預報 F-D0047-089）：降雨機率（明天各時段最高）、最低／最高溫、天氣現象 */
       async tomorrow({ lat, lon }, now = Date.now()) {
         [lat, lon] = assertLatLon(lat, lon);
