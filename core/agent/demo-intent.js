@@ -134,8 +134,9 @@ export const NO_ADVICE = '阿幫不提供投資建議，只能報開放資料的
 // 地標名稱與別名，長的優先（「台北車站」先於「台北」）
 // 車站另加去掉「高鐵／捷運」與「車站／站」的短名（「左營」→ 高鐵左營站）；同長度時完整名稱優先
 const short = (k) => normPlace(k).replace(/^(高鐵|捷運)/, '').replace(/(車站|站)$/, '');
+const ASCII = /^[\x20-\x7e]+$/;
 const PLACE_KEYS = LANDMARKS.items
-  .flatMap((x) => [x.name, ...x.aliases].flatMap((k) => [
+  .flatMap((x) => [x.name, ...x.aliases].filter((k) => !ASCII.test(k)).flatMap((k) => [
     { key: normPlace(k), name: x.name, full: true },
     ...(x.kind === 'station' ? [{ key: short(k), name: x.name, full: false }] : []),
   ]))
@@ -143,7 +144,24 @@ const PLACE_KEYS = LANDMARKS.items
   .sort((a, b) => b.key.length - a.key.length || b.full - a.full);
 
 /** 文字中出現的地標（依出現順序、不重疊、同一地標只算一次） */
+/** 英文別名：比對整個字（字的邊界、空白可有可無），長的優先（「Taipei 101」先於「Taipei」） */
+const EN_KEYS = LANDMARKS.items
+  .flatMap((x) => x.aliases.filter((k) => ASCII.test(k) && /[A-Za-z]/.test(k)).map((k) => ({ re: new RegExp(`(?<![a-z0-9])${k.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*')}(?![a-z0-9])`), len: k.length, name: x.name })))
+  .sort((a, b) => b.len - a.len);
+function englishPlaces(text) {
+  let t = String(text).toLowerCase();
+  const hits = [];
+  for (const { re, name } of EN_KEYS) {
+    const m = re.exec(t);
+    if (!m || hits.some((h) => h.name === name)) continue;
+    hits.push({ name, index: m.index });
+    t = t.slice(0, m.index) + ' '.repeat(m[0].length) + t.slice(m.index + m[0].length); // 用過的字遮掉（「Taipei 101」不會再對到「Taipei」）
+  }
+  return hits;
+}
+
 export function placesInText(text) {
+  if (isEnglish(String(text))) return englishPlaces(text).sort((a, b) => a.index - b.index).map((h) => h.name);
   const s = normPlace(text);
   const taken = new Array(s.length).fill(false);
   const hits = [];
@@ -231,6 +249,11 @@ function followsStock(history = []) {
  *            station?: string, number?: string, county?: string, area?: string, query?: string, advice?: boolean }}
  */
 export function parseIntent(text, ctx) {
+  const it = parseIntentRaw(text, ctx);
+  if (it && !isEnglish(String(text || ''))) delete it.lang;
+  return it;
+}
+function parseIntentRaw(text, ctx) {
   const s = String(text || '').trim();
   const history = (ctx && typeof ctx === 'object' && ctx.history) || [];
   const places = placesInText(s);
@@ -240,7 +263,7 @@ export function parseIntent(text, ctx) {
   const later = !tomorrow && /後天|週末|周末|禮拜[一二三四五六日天]|星期[一二三四五六日天]|下週|下禮拜|下星期/.test(s); // 天氣只查得到今天、明天
   const base = { places, states, arriveBy, tomorrow, ...(later && { later: true }) };
   // 英文（觀光客，S12）：只有英文字母沒有中文時用英文規則，回答也用英文（it.lang = 'en'）
-  if (isEnglish(s)) return { ...englishIntent(s, places), lang: 'en' };
+  if (isEnglish(s)) return { ...englishIntent(s, places, history), lang: 'en' };
   // 判斷層（judge.js）已決定意圖：照那個意圖抽參數；抽不出必要參數時回 null，呼叫端改用規則自己的判斷
   if (ctx?.intent) return slotsFor(ctx.intent, s, base);
 
@@ -510,32 +533,61 @@ export const isEnglish = (s) => /[A-Za-z]{2,}/.test(s) && !/[一-鿿]/.test(s);
 const EN_STATES = [['rush', /hurry|late|asap|quick(?:ly)?|fastest/i], ['luggage', /luggage|suitcase|\bbags?\b/i], ['budget', /cheap|budget|save money/i],
   ['lessWalk', /walk less|don'?t want to walk|tired/i], ['elder', /grand(?:ma|pa|mother|father|parents?)|elderly/i], ['kids', /\bkids?\b|child(?:ren)?|stroller|baby/i], ['mobility', /wheelchair|disabled|crutch/i]];
 const EN_MODES = [['bus', /\bbus\b/i], ['metro', /\b(?:mrt|metro|subway)\b/i], ['ridehail', /\b(?:taxi|uber|cab)\b/i], ['walk', /\bwalk(?:ing)?\b/i], ['bike', /\b(?:you)?bike\b/i], ['thsr', /high[- ]speed rail|\bhsr\b/i], ['tra', /\btrain\b|railway/i]];
-/** 英文提問 → 意圖與參數（地名已由 placesInText 依英文別名找出） */
-function englishIntent(s, places) {
+/** 英文城市名 → 台鐵／高鐵站名（「next train to Taichung」） */
+const EN_RAIL = { taipei: '臺北', banqiao: '板橋', taoyuan: '桃園', hsinchu: '新竹', miaoli: '苗栗', taichung: '臺中', changhua: '彰化', chiayi: '嘉義', tainan: '臺南', kaohsiung: '高雄', zuoying: '左營', yilan: '宜蘭', hualien: '花蓮', taitung: '臺東', keelung: '基隆', nangang: '南港' };
+const RAIN = /\brain(?:ing|y|s)?\b|umbrella|weather|temperature|\bhot\b(?!\s*springs?)|\bcold\b|\bwarm\b/i;
+/** 英文提問 → 意圖與參數（地名已由 placesInText 依英文別名找出）；接著上一輪改條件（I'm with my grandma、by bus instead） */
+function englishIntent(s, places, history = []) {
   const states = EN_STATES.filter(([, re]) => re.test(s)).map(([k]) => k);
   const tomorrow = /tomorrow/i.test(s);
-  const base = { places, states, arriveBy: null, tomorrow };
-  const mode = EN_MODES.find(([, re]) => re.test(s))?.[0];
-  const toWord = places.length > 0 && /\bto\b/i.test(s); // 「going to rain」的 to 不是去哪裡
+  const base = { places, states, arriveBy: enArriveBy(s), tomorrow };
+  const mode = EN_MODES.find(([, re]) => re.test(s) && !new RegExp(`(?:no|not|don'?t (?:want to )?(?:take|use)?)\\s*(?:the|a|by)?\\s*${re.source}`, 'i').test(s))?.[0];
+  const avoid = EN_MODES.filter(([, re]) => new RegExp(`(?:\\bno\\b|\\bnot\\b|don'?t (?:want to )?(?:take|use)?)\\s*(?:the|a|by)?\\s*(?:${re.source})`, 'i').test(s)).map(([k]) => k);
+  const toWord = places.length > 0 && /\bto\b/i.test(s);
+  // 火車在天氣之前（「train」裡有「rain」）
+  const rail = /\btrains?\b|high[- ]speed rail|\bhsr\b/i.test(s) && /(?:\bto|for)\s+([a-z]+)/i.exec(s);
+  if (rail && EN_RAIL[rail[1].toLowerCase()]) {
+    const from = /\bfrom\s+([a-z]+)/i.exec(s)?.[1]?.toLowerCase();
+    return { ...base, intent: 'rail', system: /high[- ]speed|\bhsr\b/i.test(s) ? 'THSR' : 'TRA', from: EN_RAIL[from] || null, to: EN_RAIL[rail[1].toLowerCase()] };
+  }
   if (/air quality|\baqi\b|pm ?2\.?5|smog/i.test(s)) return { ...base, intent: 'aqi' };
-  if (/weather|rain|umbrella|temperature|\bhot\b|\bcold\b/i.test(s) && !toWord) return { ...base, intent: 'weather' };
+  if (RAIN.test(s) && !toWord) return { ...base, intent: 'weather' };
   const route = /\bbus\s*(?:no\.?\s*)?([0-9]{1,4}[A-Za-z]?)\b/i.exec(s)?.[1];
   if (route && !toWord) return { ...base, intent: 'bus_route', route };
-  if (/youbike|ubike|\bbikes?\b/i.test(s) && !places.length) return { ...base, intent: 'youbike' };
-  if ((places.length && (toWord || /directions|how (?:do|can) i get|take me/i.test(s))) || (places.length === 1 && s.trim().split(/\s+/).length <= 4)) {
-    const fromWord = /\bfrom\s+(.+?)\s+to\b/i.exec(s)?.[1];
+  if ((places.length && (toWord || /directions|how (?:do|can) i get|take me|how far/i.test(s))) || (places.length === 1 && s.trim().split(/\s+/).length <= 4)) {
+    const fromWord = /\bfrom\s+(.+?)(?:\s+to\b|[?.!,]|$)/i.exec(s)?.[1]; // 「from A to B」與「to B from A」
     const fromPlace = fromWord ? placesInText(fromWord)[0] : null;
     const to = places.find((p) => p !== fromPlace) || places[0];
-    return { ...base, intent: 'trip', from: fromPlace || null, to, ...(mode && { mode }) };
+    return { ...base, intent: 'trip', from: fromPlace || null, to, ...(mode && { mode }), ...(avoid.length && { avoid }) };
   }
+  // 接著上一輪（I'm with my grandma、by bus instead、What about by MRT?、no taxi）
+  const prev = !places.length && history.length ? lastTrip(history) : null;
+  if (prev && ((mode && /instead|what about|how about|\bby\b|rather|switch|change/i.test(s)) || avoid.length || states.length || base.arriveBy)) {
+    const { mode: _m, avoid: _a, ...rest } = prev;
+    const avoidAll = [...new Set([...(prev.avoid || []), ...avoid])].filter((m) => m !== mode);
+    const useMode = mode || (avoidAll.includes(prev.mode) ? null : prev.mode);
+    return { ...rest, intent: 'trip', states: [...new Set([...prev.states, ...states])], ...(useMode && { mode: useMode }), ...(avoidAll.length && { avoid: avoidAll }), ...((base.arriveBy || prev.arriveBy) && { arriveBy: base.arriveBy || prev.arriveBy }), followUp: true };
+  }
+  if (/youbike|ubike|\bbikes?\b/i.test(s) && !places.length) return { ...base, intent: 'youbike' };
   if (/\b(?:mrt|metro|subway)\b/i.test(s) && /next|when|how long/i.test(s)) return { ...base, intent: 'metro', station: null, line: null };
+  if (/thank/i.test(s)) return { ...base, intent: 'unknown', thanks: true };
   return { ...base, intent: 'unknown' };
+}
+/** 「before 9am」「by 10:30 pm」→ 'HH:mm' */
+function enArriveBy(s) {
+  const m = /\b(?:before|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i.exec(s);
+  if (!m) return null;
+  let h = Number(m[1]);
+  if (/pm/i.test(m[3] || '') && h < 12) h += 12;
+  if (/am/i.test(m[3] || '') && h === 12) h = 0;
+  return h <= 23 ? `${String(h).padStart(2, '0')}:${m[2] || '00'}` : null;
 }
 
 /** 英文方案名稱（卡片目前仍是中文；回答用英文） */
 const EN_ROLE = { walk: 'Walking', bike: 'YouBike', metro: 'MRT', thsr: 'High Speed Rail', tra: 'Taiwan Railway', intercity: 'Intercity bus', ridehail: 'Taxi (Uber)' };
 const enName = (o) => (o.role === 'bus' ? `Bus ${o.name.replace(/^公車\s*/, '')}` : EN_ROLE[o.role] || o.name);
-const enPlace = (name) => { const l = (LANDMARKS.items || LANDMARKS).find((x) => x.name === name); const en = l?.aliases?.find((a) => /^[A-Za-z]/.test(a)); return en ? `${en} (${name})` : name; };
+const enPlace = (name) => { const l = (LANDMARKS.items || LANDMARKS).find((x) => x.name === name); const en = l?.en || l?.aliases?.find((a) => /^[A-Za-z]{4,}/.test(a)); return en ? `${en} (${name})` : name; };
+const EN_MODE_NAME = { walk: 'walking', bike: 'YouBike', bus: 'bus', metro: 'MRT', thsr: 'High Speed Rail', tra: 'train', intercity: 'intercity bus', ridehail: 'taxi' };
 /** 英文總結（S12；數字取自工具資料） */
 function englishSummary(it, results) {
   const note = ' (The cards below are in Chinese for now.)';
@@ -543,18 +595,27 @@ function englishSummary(it, results) {
     const trip = results.plan_trip?.[0]?.data;
     const best = trip?.options.find((o) => o.id === trip.best);
     if (!best) return `I couldn't find a good way to get there. Try another place name.${note}`;
-    const cost = best.costRange ? `NT$${best.costRange[0]}-${best.costRange[1]}` : `NT$${best.cost}`;
+    const cost = best.costRange ? `NT$${best.costRange[0]}-${best.costRange[1]}` : best.cost ? `NT$${best.cost}` : 'free';
     const from = it.from ? enPlace(it.from) : it.fromPoint ? 'your location' : enPlace(DEFAULT_FROM);
-    return `From ${from} to ${enPlace(it.to)}, I compared ${trip.options.length} options. Best: ${enName(best)}, about ${best.minutes} min, ${cost}, arriving ${best.arriveAt}.${note}`;
+    const missing = trip.modeUnavailable ? `I couldn't find a ${EN_MODE_NAME[trip.modeUnavailable] || trip.modeUnavailable} option, so here's the best alternative. ` : '';
+    return `${missing}From ${from} to ${enPlace(it.to)}, I compared ${trip.options.length} options. Best: ${enName(best)}, about ${best.minutes} min, ${cost}, arriving ${best.arriveAt}.${note}`;
   }
   if (it.intent === 'weather') {
+    const where = it.places[0] ? ` in ${enPlace(it.places[0]).replace(/ Station \(.*\)$/, '').replace(/ Main$/, '')}` : it.fromPoint ? ' where you are' : ` in ${enPlace(DEFAULT_FROM)}`;
     const w = results.weather_tomorrow?.at(-1)?.data, n = results.weather_now?.at(-1)?.data;
-    if (w) return `Tomorrow: ${w.minT ?? '?'}-${w.maxT ?? '?'}°C, ${w.pop ?? '?'}% chance of rain${(w.dayPop ?? w.pop) >= 50 ? ', bring an umbrella' : ''}.`;
-    if (n) return `Right now: ${n.tempC ?? '?'}°C, ${n.raining ? 'raining' : 'not raining'}${n.pop3h != null ? `, ${n.pop3h}% chance of rain in the next 3 hours` : ''}.`;
+    if (w) return `Tomorrow${where}: ${w.minT ?? '?'}-${w.maxT ?? '?'}°C, ${w.pop ?? '?'}% chance of rain${(w.dayPop ?? w.pop) >= 50 ? ', bring an umbrella' : ''}.`;
+    if (n) return `Right now${where}: ${n.tempC ?? '?'}°C, ${n.raining ? 'raining' : 'not raining'}${n.pop3h != null ? `, ${n.pop3h}% chance of rain in the next 3 hours` : ''}.`;
   }
-  if (it.intent === 'aqi') { const a = results.aqi_nearby?.at(-1)?.data?.nearest; if (a) return `Air quality near ${a.site}: AQI ${a.aqi}${a.aqi > 100 ? ', consider wearing a mask' : ''}.`; }
+  if (it.intent === 'rail') {
+    const t = (results.thsr_timetable || results.tra_timetable)?.at(-1)?.data;
+    const next = t?.trains?.[0];
+    if (next) return `${it.system === 'THSR' ? 'High Speed Rail' : 'Train'} from ${t.from} to ${t.to}: next one leaves ${next.depart}, arrives ${next.arrive}.${note}`;
+  }
+  if (it.intent === 'metro') { const m = results.metro_live_board?.at(-1)?.data; const tr = m?.trains?.find((x) => x.etaMin != null); if (m) return tr ? `MRT ${m.station}: next train to ${tr.destination} in ${tr.etaMin} min.${note}` : `MRT ${m.station}: no live arrival data right now.`; }
+  if (it.intent === 'aqi') { const a = results.aqi_nearby?.at(-1)?.data?.nearest; if (a) return `Air quality near ${a.site} station: AQI ${a.aqi}${a.aqi > 100 ? ', consider wearing a mask' : ''}.`; }
   if (it.intent === 'youbike') { const b = results.youbike_nearby?.at(-1)?.data?.stations?.[0]; if (b) return `Nearest YouBike station: ${b.name}, ${b.rent ?? '?'} bikes and ${b.returnSlots ?? '?'} free docks.${note}`; }
-  if (it.intent === 'unknown') return 'I can help you get around Taiwan (bus, MRT, train, YouBike, taxi) and check the weather. Try: "How do I get to Taipei 101?"';
+  if (it.thanks) return "You're welcome! Have a good trip.";
+  if (it.intent === 'unknown') return 'Sorry, I can only help with getting around Taiwan (bus, MRT, train, YouBike, taxi) and the weather for now. Try: "How do I get to Taipei 101?"';
   return `Here you go.${note}`;
 }
 

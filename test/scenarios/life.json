@@ -1260,6 +1260,122 @@
           }
         }
       ]
+    },
+    {
+      "id": "S12-6",
+      "title": "英文：train 不是 rain",
+      "turns": [
+        {
+          "say": "next train to Taichung",
+          "expect": {
+            "toolsNot": [
+              "weather_now"
+            ],
+            "tools": [
+              "tra_timetable"
+            ],
+            "textHas": [
+              "Train"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-7",
+      "title": "英文：改條件接上一輪",
+      "turns": [
+        {
+          "say": "How do I get to Taipei 101?",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ]
+          }
+        },
+        {
+          "say": "I'm with my grandma",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "states": [
+              "elder"
+            ],
+            "to": "台北101"
+          }
+        },
+        {
+          "say": "by bus instead",
+          "expect": {
+            "bestRole": "bus"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-8",
+      "title": "英文：機場官方譯名",
+      "turns": [
+        {
+          "say": "cheapest way to Taoyuan airport",
+          "expect": {
+            "textHas": [
+              "Taoyuan International Airport"
+            ],
+            "textNot": [
+              "TPE ("
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-9",
+      "title": "英文：Eventually 不是 NTU",
+      "turns": [
+        {
+          "say": "Eventually I want to go to Taipei 101",
+          "expect": {
+            "to": "台北101"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-10",
+      "title": "英文：問的城市",
+      "turns": [
+        {
+          "say": "Is it hot in Kaohsiung tomorrow?",
+          "expect": {
+            "tools": [
+              "weather_tomorrow"
+            ],
+            "textHas": [
+              "in Kaohsiung"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-11",
+      "title": "英文問完用中文接著改：中文回答",
+      "turns": [
+        {
+          "say": "How do I get to Taipei 101?"
+        },
+        {
+          "say": "那改坐捷運",
+          "expect": {
+            "bestRole": "metro",
+            "textHas": [
+              "照你說的"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

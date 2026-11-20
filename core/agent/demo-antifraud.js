@@ -1,5 +1,6 @@
 // 防詐示範意圖（M7-05，AGENT_ANTIFRAUD.md §6）：規則式判斷要用哪個工具，事件流與模型模式相同。
 import { extractUrls, NOT_SAFE_NOTE } from '../scam-check.js';
+import { isEnglish } from './demo-intent.js';
 
 const SENDER = /(\+\d[\d\s-]{0,16}\d|\b0\d[\d-]{7,11}\d\b|\b1\d{2}\b|\b\d{4,6}\b)/;
 
@@ -7,6 +8,8 @@ const SENDER = /(\+\d[\d\s-]{0,16}\d|\b0\d[\d-]{7,11}\d\b|\b1\d{2}\b|\b\d{4,6}\b
 export function parseAntifraud(text) {
   const s = String(text ?? '').trim();
   const urls = extractUrls(s);
+  // 英文訊息：規則庫只認中文，不能說「沒有發現」給錯誤的安心（網址仍可比對 165 清單）
+  if (isEnglish(s.replace(/https?:\/\/\S+/g, '')) && !urls.length) return { intent: 'english', text: s };
   const rest = urls.reduce((t, u) => t.replace(u, ''), s).replace(/這個?|網址|網站|連結|安全嗎|可以[點開]嗎|是真的嗎|[？?。，,:：\s]/g, '');
   if (urls.length && rest.length <= 6) return { intent: 'url', urls: urls.slice(0, 3), text: s };
   const num = s.match(SENDER);
@@ -25,11 +28,12 @@ export function antifraudSteps(it) {
     myth: { note: '@闢謠 我去 165 闢謠專區找找看', calls: [{ name: 'scam_myth_search', args: { query: it.query } }] },
     message: { note: '@防詐 我比對 165 常見詐騙手法，也查裡面的網址', calls: [{ name: 'scam_check_message', args: { text: it.text.slice(0, 2000) } }] },
   }[it.intent];
-  return [() => step];
+  return step ? [() => step] : [];
 }
 
 /** 示範總結：以工具結果為準，不保證安全（輸出護欄會再檢查一次） */
 export function antifraudSummary(it, results) {
+  if (it.intent === 'english') return "I can only check Chinese messages for now. If you're unsure, don't transfer money or share codes, and call 165 (Taiwan's anti-fraud hotline).";
   const r = (name) => results[name]?.map((x) => x.data) || [];
   if (it.intent === 'message') {
     const d = r('scam_check_message')[0];

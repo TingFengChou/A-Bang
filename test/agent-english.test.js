@@ -28,3 +28,29 @@ test('中文或中英混合不走英文規則', () => {
   assert.equal(parseIntent('去 Taipei 101').lang, undefined);
   assert.equal(isEnglish('OK'), true);
 });
+
+test('審查修正：train 不是 rain、字的邊界、官方譯名、to X from Y、英文接上一輪、中文接英文時 lang 不沿用、謝謝、hot springs', async () => {
+  const { parseIntent } = await import('../core/agent/demo-intent.js');
+  const r = parseIntent('next train to Taichung');
+  assert.deepEqual([r.intent, r.system, r.to], ['rail', 'TRA', '臺中']);
+  assert.equal(parseIntent('Eventually I want to go to Taipei 101').to, '台北101');
+  const f = parseIntent('to Shifen from Taipei Main Station');
+  assert.deepEqual([f.from, f.to], ['臺北車站', '十分老街']);
+  const H = [{ role: 'user', content: 'How do I get to Taipei 101?' }, { role: 'assistant', content: 'ok' }];
+  const g = parseIntent("I'm with my grandma", { history: H });
+  assert.deepEqual([g.intent, g.to, g.states, g.lang], ['trip', '台北101', ['elder'], 'en']);
+  const z = parseIntent('那改坐捷運', { history: H });
+  assert.deepEqual([z.intent, z.mode, z.lang], ['trip', 'metro', undefined], '這句是中文：用中文回答');
+  assert.equal(parseIntent('Thank you!').thanks, true);
+  assert.equal(parseIntent('Hot springs in Beitou').intent, 'trip', 'hot springs 不是天氣');
+  assert.equal(parseIntent('I need to be at Taipei 101 before 9am').arriveBy, '09:00');
+});
+
+test('防詐英文輸入：不說「沒有發現」，請撥 165', async () => {
+  const { parseAntifraud, antifraudSummary, antifraudSteps } = await import('../core/agent/demo-antifraud.js');
+  const it = parseAntifraud('my bank account is frozen and I must transfer money');
+  assert.equal(it.intent, 'english');
+  assert.deepEqual(antifraudSteps(it), []);
+  assert.match(antifraudSummary(it, {}), /only check Chinese.+165/);
+  assert.notEqual(parseAntifraud('http://bit.ly/x is this safe').intent, 'english', '有網址仍比對 165 清單');
+});
