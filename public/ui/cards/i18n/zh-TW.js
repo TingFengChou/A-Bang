@@ -61,6 +61,10 @@ export const MESSAGES = {
   'busRoute.openPage': '開公車頁看動態',
   'busRoute.away': '公車還有 {n} 站到你這',
   'busRoute.atStop': '公車就在你這站',
+  'busRoute.map': '看立體路線圖',
+  'busRoute.mapHide': '收起路線圖',
+  'busRoute.mapLabel': '{route} 路線圖：{n} 站，{buses} 台車在路上',
+  'busRoute.mapMe': '你',
 
   // ── bus-station ──
   'busStation.title': '{name} 到站',

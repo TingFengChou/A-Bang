@@ -14,7 +14,7 @@ export default {
     const examples = ['從西門町到台北 101 怎麼去？', '307 到哪了？', '台北車站附近還有 YouBike 嗎？'];
     main.innerHTML = `
       <section class="hero">
-        <img class="mascot main" src="/brand/abang-default.svg" alt=""><img class="mascot alt" src="/brand/abang-think.svg" alt="">
+        <span class="mascot-3d" aria-hidden="true"><i class="mascot-shadow"></i><img class="mascot main" src="/brand/abang-default.svg" alt=""><img class="mascot alt" src="/brand/abang-think.svg" alt=""></span>
         <small>${greet}！我是阿幫，今天要去哪裡？</small>
         <div class="big">${offline ? '即時公車・YouBike・高鐵台鐵' : '想去哪裡，直接問我'}</div>
         <form class="search" id="q">${icons.search}<input name="q" maxlength="500" placeholder="${offline ? '搜尋公車路線，例如 307' : '例如：從西門町到台北 101 怎麼去？'}" enterkeyhint="${offline ? 'search' : 'send'}" autocomplete="off" aria-label="${offline ? '搜尋公車路線' : '問阿幫'}"></form>
@@ -39,6 +39,7 @@ export default {
     renderFavs(main.querySelector('#favs'));
     const t = setInterval(() => renderFavs(main.querySelector('#favs')), 30000);
     onCleanup(() => clearInterval(t));
+    tiltMascot(main.querySelector('.hero'), onCleanup);
   },
 };
 
@@ -72,4 +73,23 @@ async function renderFavs(el) {
     return `<a href="${f.href}"><div class="grow"><div class="title">${esc(f.title)}</div><div class="sub">${top ? `${esc(top.routeName)} 最快` : esc(f.sub)}</div></div>${top ? etaBadge(top) : chev}</a>`;
   }));
   el.innerHTML = `<div class="section-title"><h2>我的收藏</h2><a href="#/favs"><span>全部</span></a></div><div class="card list">${rows.join('')}</div>`;
+}
+
+/** 3D 吉祥物：手指／滑鼠在首頁橫幅上移動時，阿幫轉頭看過去（±12°），陰影跟著偏；離開後回到自己輕輕轉身 */
+function tiltMascot(hero, onCleanup) {
+  const m = hero?.querySelector('.mascot-3d');
+  if (!m || document.documentElement.classList.contains('lite-motion') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const move = (e) => {
+    const r = hero.getBoundingClientRect();
+    const x = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width) * 2 - 1));
+    const y = Math.max(-1, Math.min(1, ((e.clientY - r.top) / r.height) * 2 - 1));
+    m.classList.add('looking');
+    m.style.setProperty('--ry', `${(x * 12).toFixed(1)}deg`);
+    m.style.setProperty('--rx', `${(-y * 8).toFixed(1)}deg`);
+    m.style.setProperty('--sx', `${(-x * 5).toFixed(1)}px`);
+  };
+  const leave = () => { m.classList.remove('looking'); m.style.removeProperty('--ry'); m.style.removeProperty('--rx'); m.style.removeProperty('--sx'); };
+  hero.addEventListener('pointermove', move);
+  hero.addEventListener('pointerleave', leave);
+  onCleanup?.(() => { hero.removeEventListener('pointermove', move); hero.removeEventListener('pointerleave', leave); });
 }
