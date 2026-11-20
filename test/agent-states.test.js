@@ -73,3 +73,39 @@ test('出門建議：最多 3 點；帶小孩時空品針對小孩', () => {
   assert.ok(a.length <= 3);
   assert.match(outingAdvice({ air: { aqi: 70, status: '普通' }, states: ['kids'] })[0], /小孩比較敏感/);
 });
+
+test('深夜（S10）：00:00～05:00 公車不列入並說收班；23:00 後提醒接近末班；示範時鐘只在示範模式有效', async () => {
+  const { createServices } = await import('../core/index.js');
+  const { planTrip } = await import('../core/services/trip.js');
+  const svc = createServices({ forceMock: true });
+  const from = { name: '西門町', lat: 25.0421, lon: 121.5081 }, to = { name: '台北101', lat: 25.0339, lon: 121.5645 };
+  const night = await planTrip(svc, { from, to, departAt: '2026-11-21T00:30' });
+  assert.ok(!night.options.some((o) => o.role === 'bus'));
+  assert.match(night.skipped.find((x) => x.role === 'bus').why, /深夜多數公車已收班/);
+  const late = await planTrip(svc, { from, to, departAt: '2026-11-21T23:20' });
+  assert.ok(late.options.find((o) => o.role === 'bus')?.lastBus);
+  const day = await planTrip(svc, { from, to, departAt: '2026-11-21T10:00' });
+  assert.ok(!day.options.find((o) => o.role === 'bus')?.lastBus);
+  const { demoClock } = await import('../server/agent.js');
+  const t = demoClock({ DEMO_MODE: '1', DEMO_CLOCK: '23:30' })();
+  assert.equal(new Date(t + 8 * 3600e3).toISOString().slice(11, 16), '23:30');
+  const real = demoClock({ DEMO_CLOCK: '23:30' })();
+  assert.ok(Math.abs(real - Date.now()) < 1000, '不是示範模式：用真的時間');
+});
+
+test('深夜：真實資料看到站狀態（末班已過才不列入）；明天的行程不當成深夜；公車最佳時說可能是末班', async () => {
+  const { createServices } = await import('../core/index.js');
+  const { planTrip } = await import('../core/services/trip.js');
+  const { tripDepartAt, parseIntent } = await import('../core/agent/demo-intent.js');
+  const svc = createServices({ forceMock: true });
+  const from = { name: '西門町', lat: 25.0421, lon: 121.5081 }, to = { name: '台北101', lat: 25.0339, lon: 121.5645 };
+  const live = { ...svc, mode: 'live', bus: { ...svc.bus, directTrips: async (a) => (await svc.bus.directTrips(a)).map((t) => ({ ...t, board: { ...t.board, status: 3 } })) } };
+  const r = await planTrip(live, { from, to, departAt: '2026-11-21T14:00' });
+  assert.match(r.skipped.find((x) => x.role === 'bus').why, /末班已過/);
+  const okLive = await planTrip({ ...svc, mode: 'live' }, { from, to, departAt: '2026-11-21T00:30' });
+  assert.ok(okLive.options.some((o) => o.role === 'bus'), '真實資料不只看時間');
+  const at0030 = Date.parse('2026-11-21T00:30:00+08:00');
+  assert.equal(tripDepartAt(parseIntent('明天早上回板橋'), at0030), '2026-11-22T06:00');
+  assert.equal(tripDepartAt(parseIntent('回板橋'), at0030), '2026-11-21T00:30');
+  for (const role of ['bike', 'ridehail']) assert.ok((await planTrip(svc, { from, to, departAt: '2026-11-21T00:30' })).options.some((o) => o.role === role), `${role} 深夜照列`);
+});

@@ -13,6 +13,16 @@ import { nowTW, publicMessage } from '../core/util.js';
  * @param {{ svc: object, env?: Record<string, string|undefined>, log?: (o: object) => void,
  *   provider?: import('../core/agent/model-loop.js').Provider|null, judge?: Function|null }} opts provider：測試注入；未給時依 env 決定；judge：判斷層（core/agent/judge.js judgeFromEnv）
  */
+/**
+ * 示範時鐘（只在示範模式有效）：DEMO_CLOCK=HH:mm 把「現在」固定在今天這個台灣時間（E2E 與展示用，例：23:30 看末班車提醒）。
+ * 有真實資料時一律用真的時間。
+ */
+export function demoClock(env = process.env) {
+  const m = env.DEMO_MODE === '1' && /^([01]\d|2[0-3]):[0-5]\d$/.exec(env.DEMO_CLOCK || '');
+  if (!m) return () => Date.now();
+  return () => Date.parse(`${new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)}T${env.DEMO_CLOCK}:00+08:00`);
+}
+
 export function createAgentHandler({ svc, env = process.env, log = () => {}, provider = pickProvider(env, { defaultModel: getProfile('life').model }), judge = null }) {
   const perMin = createRateLimiter({ limit: Number(env.AGENT_RPM) || 10 });
   const perDay = createRateLimiter({ limit: Number(env.AGENT_RPD) || 100, windowMs: 86_400_000 });
@@ -28,6 +38,8 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
     return meter.get(k);
   };
 
+  const clock = demoClock(env);
+  if (env.DEMO_CLOCK) log({ message: env.DEMO_MODE === '1' ? `示範時鐘：現在固定為今天 ${env.DEMO_CLOCK}` : 'DEMO_CLOCK 只在 DEMO_MODE=1 有效，已忽略', level: 'warn' }); // 避免公開站誤留設定
   return {
     /** 限流：每分鐘、每日（agent id ＋ IP）。回傳 { ok, retryAfterSec } */
     limit(agentId, ip) {
@@ -68,9 +80,9 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
       try {
         if (provider && u.modelCalls < budget) {
           mode = provider.mode;
-          await runModel(svc, body, emit, { provider, profileId: profile.id, judge, onModelCall: () => { u.modelCalls++; } });
+          await runModel(svc, body, emit, { provider, profileId: profile.id, judge, now: clock(), onModelCall: () => { u.modelCalls++; } });
         } else {
-          await runDemo(svc, body, emit, { profileId: profile.id, judge, ...(provider && { notice: '今天的 AI 額度用完了，先用示範模式回答' }) });
+          await runDemo(svc, body, emit, { profileId: profile.id, judge, now: clock(), ...(provider && { notice: '今天的 AI 額度用完了，先用示範模式回答' }) });
         }
       } catch (e) {
         failed = e?.status ? `${e.name}:${e.status}` : (e?.name || 'Error'); // 只記錯誤類型，不記訊息（可能含上游細節）
