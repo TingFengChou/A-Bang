@@ -145,6 +145,9 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       // 高鐵時刻表每班有訂票按鈕（示範：開官方網站前先確認）
       const tt = page.locator('[data-card="timetable"]').first();
       assert.match(await tt.locator('.ab-title').textContent(), /^高鐵/);
+      // 深夜（約 22 點後）示範班次都開走了：先展開已開出的班次再找訂票按鈕
+      const gone = tt.locator('.ab-btn', { hasText: '顯示今天已開出' });
+      if (await gone.count()) await gone.first().click();
       assert.ok(await tt.locator('.ab-btn', { hasText: '訂票' }).count() > 0);
       // 行程卡：跨城建議（高鐵）有導航與訂票；有出門時間時可設定提醒（時間已過則不顯示）
       const tripRail = page.locator('[data-card="trip"]').first();

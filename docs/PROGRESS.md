@@ -13,6 +13,14 @@
 
 ---
 
+## 2026-11-20 公車街景（Blender）取代立體路線圖
+
+- 做了：Austin 回饋傾斜的立體路線圖看不懂。`scripts/blender/bus-scene.py`（Blender 4.5，Cycles，程式建模）算出街景 `street.png`、公車 `bus.png` 與 `scene.json`；`public/ui/cards/bus-scene.js` 把公車依 `railOf` 的站數放到路上（停靠、一站、兩站以上停在左邊），站名與「601・還有 N 站・約 M 分」用網頁文字，刷新時開到新位置；公車頁取代立體路線圖，問阿幫公車卡拿掉地圖按鈕（保留進度軌）；刪除 `route3d.js`。SW v0.6.7。
+- 測試：npm test 全過（街景座標與 scene.json 一致、站數對應位置）；npm run e2e 28 項全過；Playwright 截圖確認遠近兩種位置文字不被切。
+- 文件：UX.md §9
+- 下一個：判斷層 A 放進 App（Edge AI）
+- 卡住：無
+
 ## 2026-11-20 M11-02 到站提醒改手機本機通知
 
 - 做了：`@capacitor/local-notifications` 8.3.1（devDependency，`cap sync` 會帶進原生專案）；`public/js/native-notify.js` 經 `Capacitor.nativePromise` 呼叫（免建置）；`host-web` 的到站提醒每次查到到站時間就把「該出門了」排到預估時間（同一則 id 覆蓋、差不到 20 秒不重排），App 到背景或被關掉時由系統送出，文字註明「依 HH:mm 的到站時間估計」；車比預估早到就馬上送；取消或逾時會取消排好的通知；出發提醒（`remind`）也改本機通知；`host.background` → 文字「App 關著也會提醒」（網頁仍「App 開著時」）。iOS `contentInset: never`（原本頂端重複留白）。

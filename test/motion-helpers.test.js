@@ -40,12 +40,13 @@ test('legShares：分段依真實分鐘比例，太短的段至少 6%；總和 1
   assert.deepEqual(legShares([]), []);
 });
 
-test('projector：經緯度投影到平面、保持比例並置中；北在上、東在右；點不夠回 null', async () => {
-  const { projector } = await import('../public/ui/cards/route3d.js');
-  const pj = projector([[25.0, 121.5], [25.01, 121.5], [25.0, 121.51]], 300, 190, 16);
-  const [a, n, e] = [[25.0, 121.5], [25.01, 121.5], [25.0, 121.51]].map(pj.xy);
-  assert.ok(n[1] < a[1], '北邊在上面');
-  assert.ok(e[0] > a[0], '東邊在右邊');
-  for (const [x, y] of [a, n, e]) assert.ok(x >= 16 && x <= 284 && y >= 16 && y <= 174, '都在留白內');
-  assert.equal(projector([[25, 121]]), null);
+test('公車街景：公車依站數停在路上（停靠／一站／太遠停在左邊），座標與 Blender 輸出的 scene.json 相同', async () => {
+  const { SCENE, busX, busShift } = await import('../public/ui/cards/bus-scene.js');
+  const { readFile } = await import('node:fs/promises');
+  assert.deepEqual(SCENE, JSON.parse(await readFile(new URL('../public/img/scene/scene.json', import.meta.url), 'utf8')));
+  assert.equal(busX(0), SCENE.busStopAt, '就在你這站：停在站牌前');
+  assert.ok(busX(1) < busX(0) && busX(2) < busX(1), '越遠越左');
+  assert.equal(busX(9), busX(3), '太遠就停在畫面左邊（文字寫實際站數）');
+  const [dx] = busShift(busX(9));
+  assert.ok(SCENE.busLabel[0] + (dx / 100) * SCENE.w > 0, '最遠時車頂的字仍在畫面內');
 });
