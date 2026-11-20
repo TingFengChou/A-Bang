@@ -147,6 +147,25 @@ ABANG_API_BASE=https://你的網域 APP_RELEASE=1 npm run app:sync   # 正式版
 
 伺服器對 App 的來源（`capacitor://localhost`、`https://localhost`）開放問阿幫與讀取 API 的 CORS，可用 `APP_ORIGINS` 調整。
 
+App 名稱 **Abang**（吉祥物仍叫阿幫）。原生功能：本機通知（到站提醒）、原生定位、Android 返回手勢、裝置端 AI（ADR-0014：Android Gemini Nano、iOS Apple Intelligence 在手機上判斷意圖，不可用時由伺服器判斷）。
+
+開發時手機不休眠：Android 開發者選項開「保持喚醒（充電時螢幕不會進入休眠狀態）」；iOS 模擬器不需要。
+
+裝置端 AI 實機評測（Android，App debug 版開著）：
+
+```bash
+adb forward tcp:9334 localabstract:webview_devtools_remote_$(adb shell pidof tw.abang.app)
+node scripts/eval-edge.js 9334
+```
+
+### Agent 情境測試
+
+`test/scenarios/life.json` 是 PM 盤點的使用情境（多輪對話＋期望），`npm test` 用示範模式跑全部；要測模型模式：
+
+```bash
+node --env-file=.env scripts/eval-scenarios.js
+```
+
 ## 開發
 
 用 Claude Code 循環開發：照 [`docs/LOOP.md`](docs/LOOP.md)，每輪一個任務（[`docs/PLAN.md`](docs/PLAN.md) 的任務代號），紀錄在 [`docs/PROGRESS.md`](docs/PROGRESS.md)。
@@ -164,6 +183,7 @@ ABANG_API_BASE=https://你的網域 APP_RELEASE=1 npm run app:sync   # 正式版
 | [`BRAND.md`](docs/BRAND.md) | 品牌 |
 | [`PLATFORM.md`](docs/PLATFORM.md) | 下一階段：阿幫平台 |
 | [`adr/`](docs/adr/README.md) | 架構決策紀錄 |
+| [`research/`](docs/research/) | 判斷層與裝置端 AI 評測 |
 
 ## 授權與資料來源
 

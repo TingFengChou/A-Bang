@@ -1,6 +1,6 @@
 # 開發計畫與里程碑
 
-版本：v0.5（2026-11-18）
+版本：v0.6（2026-11-21）
 
 規則：
 
@@ -27,10 +27,12 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | M5 網頁 agent | ✅（2026-11-18；Claude 實機待金鑰） | — | Claude 模式需 `ANTHROPIC_API_KEY`；地端模式需自架 Ollama 等（示範模式都不需要） |
 | M10 生活開放資料 | ✅（2026-11-19） | — | 空品需 `MOENV_API_KEY`、地震需 `CWA_API_KEY`（沒有時示範片段）；藥局資料沒有座標 |
 | M7 反詐騙 agent | ✅（2026-11-19；規則庫待專家審核） | — | 規則庫 `reviewedBy` 待防詐專家審核 |
-| M11 行動 App | 🚧（M11-01 殼 ✅） | M11-02 本機通知 | 給別人用需 HTTPS 測試環境（M6-06）與開發者帳號 |
+| M11 行動 App | 🚧（M11-01 殼、M11-02 本機通知、名稱 Abang 與圖示、返回手勢、原生定位、鍵盤 ✅） | M11-03 原生相機掃 QR、M11-04 啟動畫面與隱私權政策頁 | 給別人用需 HTTPS 測試環境（M6-06）與開發者帳號；iOS 實機需 Austin 的 iPhone |
+| M12 裝置端 AI（ADR-0014） | 🚧 第一階段 ✅（2026-11-21：Gemini Nano 實機、Apple Intelligence 模擬器；E3／E7／E8 待做） | E3 App 內分類器備援、E7 手機上轉述、E8 設定開關 | iOS 實機數據需 iPhone 15 Pro 以上並開啟 Apple Intelligence |
+| M13 Agent 聰明度（PM 情境 S1～S18） | 🚧（A0 情境集、A1 新狀態、A2 轉述受程式約束、A3 結構化上下文、S13 出門建議、S16 位置當起點 ✅） | S10 末班車、S7 轉乘、S12 英文、S1 明天天氣（情境集 todo 4 個） | 真實末班車與轉乘需 TDX 金鑰（先做示範） |
 | M6 上線 | 🚧（M6-01／02／04／07 ✅、地端部署驗證 ✅） | 正式環境階段再做 | 2026-11-19 Austin 決定：雲端部署（M6-06）、Redis 快取（M6-03）、Lighthouse（M6-05）留到正式環境階段；先衝刺功能。M6-07 需在 repo 設定啟用 Pages |
 
-建議順序：M4、M5 已完成；M1（TDX 金鑰）申請中；M6 正式環境項目延後；先衝刺功能：M7 ✅，接著 M8（中小企業概念驗證）。
+建議順序：M4、M5、M7、M10 已完成；M1（TDX 金鑰）申請中；M6 正式環境項目延後；目前衝刺 M11 行動 App、M12 裝置端 AI、M13 Agent 聰明度（PM 情境清單見 `test/scenarios/life.json`）；M8 中小企業概念驗證移到下一階段。
 
 ## Austin 待辦（外部條件）
 
@@ -226,9 +228,70 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 
 - [x] M11-01 App 殼（2026-11-20：ADR-0013；`npm run build:app` 打包 `dist/app`＋注入 API 位址；`public/js/base.js` 的 `API_BASE`；伺服器對 App 來源加 CORS（`APP_ORIGINS`）；App 內不註冊 service worker；`android/`、`ios/` 原生專案；Android 只對本機位址允許明碼 http；Android 模擬器實測問阿幫可用、iOS 模擬器版編譯成功）
 - [x] M11-02 到站提醒改手機本機通知（2026-11-20：`@capacitor/local-notifications` 8.3.1；`public/js/native-notify.js` 經原生橋接呼叫；每次查到到站時間就把通知排到預估時間（同一則覆蓋、差不到 20 秒不重排），App 到背景或被關掉時系統照最後一次預估送出；車比預估早到就馬上送；取消提醒＝取消排好的通知；出發提醒也改本機通知；文字「App 關著也會提醒」；網頁維持現狀。iOS 模擬器與 Android 實機（Pixel）：權限、排程、App 關閉後送達 ✅）
-- [ ] M11-03 原生相機掃發票 QR、定位（網頁退路保留）
-- [ ] M11-04 App 圖示、啟動畫面、隱私權政策頁
+- [x] M11 名稱 Abang、藍鵲 agent 造型（冠羽、耳麥、HUD）與 App 圖示（含 Android 主題單色圖示）（2026-11-21，PR #31）
+- [x] M11 Android 返回手勢回上一層、首頁離開 App（PR #31）
+- [x] M11 原生定位 `@capacitor/geolocation`（iOS 只問一次權限）、鍵盤打開收起分頁列、iOS 隱私清單（2026-11-21，PR #33）
+- [ ] M11-03 原生相機掃發票 QR（網頁退路保留）
+- [ ] M11-04 啟動畫面、隱私權政策頁（App 內連結；上架必要）
 - [ ] M11-05 ⛔ 測試環境部署（HTTPS，M6-06）＋ Google Play 內部測試、TestFlight（需開發者帳號）
+
+## M12 裝置端 AI（ADR-0014，2026-11-21）
+
+- [x] E1 ADR-0014：手機先判斷意圖與狀態，以 `deviceJudge` 提示伺服器；只收列舉值；方案仍由 `decide.js` 計分
+- [x] E2 前端降級鏈 `public/js/edge-judge.js`（1.8 秒逾時、斷路器、外掛失敗照常）
+- [x] E4 iOS Apple Intelligence（Foundation Models，`AbangEdgeAIPlugin.swift`）：模擬器可執行；實機待 iPhone 15 Pro 以上
+- [x] E5 Android Gemini Nano（ML Kit GenAI Prompt API）：Pixel 11 Pro XL 實機意圖 90.1%、p50 約 270 ms；只在 Wi-Fi 下載模型（新依賴 `com.google.mlkit:genai-prompt`：依 Austin 2026-11-21「edge ai 盡量開發」加入，正式上架前請 Austin 再確認授權條款）
+- [x] E6 實機評測 `scripts/eval-edge.js`、組合分數 `eval-edge-combo.js`（A＋規則＋Gemini Nano 全對 89.0%，`docs/research/edge-eval.md`）
+- [ ] E3 App 內 transformers.js 分類器（第三層備援）
+- [ ] E7 手機上轉述（伺服器沒有模型時仍能完整回答）
+- [ ] E8 設定頁可關閉裝置端 AI、Android 模型下載中提示、隱私權政策說明
+
+## M13 Agent 聰明度（PM 情境清單，2026-11-21）
+
+情境集：`test/scenarios/life.json`（`npm test` 示範模式；`scripts/eval-scenarios.js` 模型模式）。
+
+- [x] A0 情境對話測試集（48 個情境，todo 4 個為開發目標）
+- [x] A2 轉述受程式約束：抵達時間、交通方式、不要的方式、狀態只採使用者說的；`plan_trip` 下一步；回答不露出工具名稱；起訖點已知的行程由程式先比較（PR #34）
+- [x] S16 位置當起點：捷運沒說站找最近的站（指定路線只找該線）、拒絕定位先從臺北車站算並說明（PR #34）
+- [x] A3 結構化上下文：接著改起點、目的地、時間、不要某方式、重來；「沿用：…｜改：…」（PR #35）
+- [x] A1 新狀態（第一批）：帶長輩、帶小孩、行動不便（排除不適合的方式）；S13 出門建議（天氣＋空品）（PR #36）
+- [ ] A1b 新狀態（第二批）：`group` 多人（叫車人均）、`night` 深夜、`lateRisk` 快趕不上、`rainSoon`（降雨機率 ≥ 60% 提醒帶傘）
+- [ ] S10 深夜末班車（示範資料先做；真實需 TDX）
+- [ ] S7 多段轉乘（公車＋捷運；示範規則組合先做）
+- [ ] S12 觀光客英文對話
+- [ ] S1 明天天氣（預報）
+- [ ] S11／S15 多筆提醒、公車一直不來時重新規劃
+- [ ] 出門建議小卡、「重來」分隔線、沒變的卡片收合（設計審查建議）
+- [ ] S1 常用地點（家、公司、學校：「回家」直接成行程）
+- [ ] S16 補齊：高鐵／台鐵「最近車站」當起點、藥局定位轉行政區（目前只有捷運最近站）
+- [ ] S5 YouBike 空位預測（騎到時可能沒位）、S6 叫車人均（多人）
+- [ ] S17 長途訂票（導訂票權限 ⛔）、S18 超出範圍與安全（拒答、轉介）擴充情境
+
+## 體驗與品質補強（審查與 PM 建議，2026-11-21）
+
+- [ ] T6 Android 啟動畫面色差；iOS `PRODUCT_NAME` 改 Abang；iOS 18 深色／著色圖示
+- [ ] T7 通知體驗：第一次提醒前的說明（為什麼要通知）、`remind()` 可取消與多筆、重開機後過期通知不補送
+- [ ] T8 測試補強：busScene DOM 測試、E2E `page.clock` 固定日夜、原生 App 煙霧測試（adb／simctl，或 Maestro）
+- [ ] 首次使用引導（起點用現在位置、點方案改選、提醒 App 關著也會響；在這裡要定位與通知權限）
+- [ ] 行程中模式（選定公車後：街景＋倒數＋下車提醒，抵達自動結束）、下車提醒（到某站前 1 站）
+- [ ] 離線與弱網：快取最近一次結果，顯示「上次更新時間」
+
+## 被卡住的項目（2026-11-21 彙整）
+
+| 項目 | 卡在哪 | 誰 |
+|---|---|---|
+| 真實交通資料、M1 驗證、真實末班車與轉乘 | TDX Client ID／Secret | Austin |
+| 高鐵／台鐵導訂票（M3-12、S17） | TDX 導訂票權限 | Austin |
+| 真實天氣、地震／空品 | CWA 授權碼／MOENV 金鑰 | Austin |
+| iOS Apple Intelligence 實機（E4） | iPhone 15 Pro 以上並開啟 Apple Intelligence | Austin |
+| App 給別人用（TestFlight、Play 內測） | HTTPS 測試環境（M6-06）、Apple／Google 開發者帳號 | Austin |
+| App 名稱 Abang 商標與商店撞名 | 智慧局檢索、商店搜尋 | Austin／法務 |
+| Claude 模式與 MCP 連接器實測（M4-09） | `ANTHROPIC_API_KEY`、cloudflared | Austin |
+| MyDrama 短劇（選公車後看短劇） | mydrama-workpack、公司 Bitbucket repo、授權與分潤；需 ADR | Austin |
+| 推播排程（L-16）／手機條碼載具（L-15） | 推播伺服器與 ADR／財政部 AppID | Austin／公司 |
+| 文件站發布 | repo Settings → Pages | Austin |
+| 地標座標校對（201 筆）、正式 3D 吉祥物圖 | 人工校對、設計師 | Austin／設計資源 |
+| Jev 實驗 | Jev 金鑰（可不做） | Austin |
 - [ ] 之後：推播伺服器（排程，另寫 ADR，L-16）、地端 AI（判斷層放手機）、Siri 捷徑／App Intents、Android 小工具、App Attest／Play Integrity
 
 ## 其他候選（未排程）
