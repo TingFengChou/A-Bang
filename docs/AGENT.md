@@ -208,7 +208,8 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - `plan_trip` 給模型的文字最後一行是「下一步：…」（`NEXT_STEP`，依建議方式：公車看卡片與到站提醒、叫車按官方連結、步行導航、YouBike 借車站、高鐵台鐵訂票），模型照這句說；叫車、步行不會被提醒「到站前 3 分」。
 - 最後的回答經 `hideToolNames`：工具英文名稱（`metro_stations` 等）換成中文名稱（地端模型會照抄工具說明）。
 - 捷運沒說站（「板南線下一班幾分」）：`metro_live_board { near }` 用現在位置找 3 公里內最近的站；示範與模型模式都先查好（`prefetchCalls`）。路線名稱目前只用來判斷意圖，還沒有「找該線最近的站」（待 TDX 站序資料）。
-- 情境對話測試集：`test/scenarios/life.json`（`npm test` 示範模式）、`scripts/eval-scenarios.js`（模型模式）。
+- 起訖點都知道（明講的起點，或沒說＝現在位置）的行程由程式先跑 `plan_trip`（不只沒說起點時）：地端模型接著改「改坐公車」時常不再查、說「叫車」時直接產生叫車連結。
+- 情境對話測試集：`test/scenarios/life.json`（`npm test` 示範模式）、`scripts/eval-scenarios.js`（模型模式）。2026-11-21 地端 qwen3:8b：修正前 9／18、修正後 14／18（4 個 todo 為尚未實作的情境：S13 出門建議、S10 末班車、S9 輪椅、S7 轉乘）。
 
 ### 5.3 判斷層：意圖與使用者狀態（2026-11-20，`core/agent/judge.js`）
 

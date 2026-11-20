@@ -13,6 +13,8 @@ export function check(es, x) {
   if (x.arriveBy && d?.arriveBy !== x.arriveBy) bad.push(`抵達時間應為 ${x.arriveBy}（是 ${d?.arriveBy}）`);
   if (x.fromHere) { const r = es.find((e) => e.type === 'tool_result' && (e.tool || e.name) === 'plan_trip'); if (r?.data?.from?.name !== '你的位置') bad.push(`起點應為你的位置（是 ${r?.data?.from?.name}）`); }
   for (const w of x.textHas || []) if (!text.includes(w)) bad.push(`總結缺「${w}」`);
+  const said = es.filter((e) => e.type === 'tool_result').map((e) => e.speak || '').join('');
+  for (const w of x.resultHas || []) if (!said.includes(w)) bad.push(`工具回報缺「${w}」`);
   for (const w of x.textNot || []) if (text.includes(w)) bad.push(`總結不該有「${w}」`);
   if (es.some((e) => e.type === 'error')) bad.push(`錯誤：${es.find((e) => e.type === 'error').message}`);
   return bad;

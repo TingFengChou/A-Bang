@@ -39,13 +39,16 @@ export const MODEL_LIST_MAX = 6;
 const NEARBY_TOOL = { weather: 'weather_now', aqi: 'aqi_nearby', youbike: 'youbike_nearby', nearby_bus: 'bus_nearby_stations', garbage: 'garbage_truck_nearby' };
 /** 捷運沒說站：用現在位置找最近的站（metro_live_board 的 near） */
 const METRO_NEAR = 'metro_live_board';
-/** 有現在位置時由程式先查的工具（見 runModel） */
+/** 由程式先查的工具（見 runModel）：起訖點已知的行程、有現在位置時的附近類與捷運最近站 */
 export function prefetchCalls(it, j, here) {
-  const at = { lat: here.lat, lon: here.lon };
-  if (it.intent === 'trip' && !it.from && it.to) {
+  const at = here && { lat: here.lat, lon: here.lon };
+  // 行程：起訖點都知道（明講的起點，或沒說＝現在位置）就由程式先比較，不靠模型記得呼叫 plan_trip
+  //（地端模型接著改「改坐公車」時常不再查、說「叫車」時直接產生叫車連結，2026-11-21 情境評測）
+  if (it.intent === 'trip' && it.to && (it.from || at)) {
     const prefs = { ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }), ...(it.states?.length && { states: it.states }) };
-    return [{ name: 'plan_trip', args: { from: { ...at, name: here.name }, to: it.to, ...(Object.keys(prefs).length && { prefs }) } }];
+    return [{ name: 'plan_trip', args: { from: it.from || { ...at, name: here.name }, to: it.to, ...(Object.keys(prefs).length && { prefs }) } }];
   }
+  if (!at) return [];
   if (it.intent === 'metro' && !it.station) return [{ name: METRO_NEAR, args: { near: { ...at, name: here.name } } }];
   if (it.places?.length) return [];
   const intent = NEARBY_TOOL[it.intent] ? it.intent : NEARBY_TOOL[j?.intent] ? j.intent : null;
@@ -191,7 +194,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   // 有現在位置時，程式先用它查好（不靠模型）：地端模型常常只查了目的地就反問「你從哪裡出發」。
   //   沒說起點的行程 → plan_trip（起點＝現在位置）；沒說地點的天氣／空品／YouBike／附近公車／垃圾車 → 對應工具（現在位置）
   // 結果照常出現在討論串與卡片，再交給模型轉述（AGENT.md §5.2.1）
-  const pre = here ? prefetchCalls(rulesIt, j, here) : [];
+  const pre = prefetchCalls(rulesIt, j, here || null);
   let prefetched = '';
   const preDone = new Map(); // 呼叫鍵（工具＋關鍵參數）→ 給模型的文字：模型用相同參數再呼叫時沿用，不重複產生卡片與決策圖；參數不同照常執行
   if (pre.length) {
