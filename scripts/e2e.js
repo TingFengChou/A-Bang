@@ -205,11 +205,26 @@ for (const [dname, device] of Object.entries(DEVICES)) {
     });
   });
 
+  test(`${dname}：系統深色模式下仍是淺色（外框與卡片一致）`, async () => {
+    await withPage({ ...device, colorScheme: 'dark' }, '#/s/weather', async (page) => {
+      await page.waitForSelector('.ab-card');
+      const [bg, card] = await page.evaluate(() => [getComputedStyle(document.body).backgroundColor, getComputedStyle(document.querySelector('.ab-card')).backgroundColor]);
+      const light = (c) => { const [r, g, b] = c.match(/\d+/g).map(Number); return (r + g + b) / 3 > 200; };
+      assert.ok(light(bg) && light(card), `${bg} / ${card}`);
+    });
+  });
+
   test(`${dname}：問阿幫（建議問題 → 討論串 → 卡片 → 總結；@ 點名；定位）`, async () => {
     await withPage(device, '#/agent', async (page) => {
       await page.waitForSelector('.suggest .chip');
+      // 輸入框至少 16px（iOS 點進去才不會自動放大）
+      assert.ok(parseFloat(await page.locator('.chat-input').evaluate((e) => getComputedStyle(e).fontSize)) >= 16);
       await page.locator('.suggest .chip').first().click(); // 從西門町到台北 101 怎麼去？
       await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+      // 回答後：桌面自動聚焦輸入框；手機不聚焦（不跳鍵盤蓋住回答）
+      await page.waitForFunction(() => !document.querySelector('.chat-send')?.disabled);
+      const focused = await page.evaluate(() => document.activeElement?.classList.contains('chat-input'));
+      assert.equal(focused, dname === 'desktop', `${dname}：回答後${dname === 'desktop' ? '' : '不'}聚焦輸入框`);
       assert.match(await page.locator('.msg.user').first().textContent(), /西門町/);
       assert.match(await page.locator('.thread-sum').first().textContent(), /小幫手討論完成・\d+ 個工具/);
       assert.ok(await page.locator('.thread .bubble.tool').count() >= 4, '小幫手發言');
