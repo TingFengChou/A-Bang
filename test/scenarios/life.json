@@ -1146,6 +1146,47 @@
           }
         }
       ]
+    },
+    {
+      "id": "S7-4",
+      "title": "下雨從台北車站去南港展覽館：不淋雨的捷運",
+      "demo": {
+        "weather": "rain"
+      },
+      "turns": [
+        {
+          "say": "從台北車站去南港展覽館",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "states": [
+              "rain"
+            ],
+            "bestRoleNot": "walk",
+            "optionHas": {
+              "metro": "板南線"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "S7-5",
+      "title": "從台北車站去桃園機場：機場線（票價較高）",
+      "turns": [
+        {
+          "say": "從台北車站去桃園機場",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "optionHas": {
+              "metro": "機場線"
+            }
+          }
+        }
+      ]
     }
   ]
 }

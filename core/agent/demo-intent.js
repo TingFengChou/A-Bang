@@ -1,7 +1,7 @@
 // 示範模式意圖解析（M5-03，AGENT.md §5）：沒有 API Key 時，以規則判斷意圖、地點與使用者狀態，
 // 產生「分段的工具呼叫計畫」；由 run.js 執行並發出與 Claude 模式相同的事件流。不加人工延遲。
 import { LANDMARKS, normPlace } from '../services/places.js';
-import { NEXT_STEP } from '../tools/trip.js';
+import { nextStepOf } from '../tools/trip.js';
 import { outingSay } from './outing.js';
 import { nowTW } from '../util.js';
 
@@ -531,9 +531,9 @@ export function demoSummary(it, results, suggestions = []) {
     const closed = trip?.data.skipped?.find((x) => x.role === 'bus' && /收班|末班已過/.test(x.why));
     const night = closed ? `${closed.why}。` : trip?.data.options.some((o) => o.lastBus) ? '末班快到了，早點出門；錯過可以叫車或騎 YouBike。' : '';
     // 下一步依建議方式（叫車按官方連結、步行導航…；不再一律問「要我幫你開導航嗎」）
-    const role = trip?.data.options.find((o) => o.id === trip.data.best)?.role;
+    const bestOpt = trip?.data.options.find((o) => o.id === trip.data.best);
     const reason = closed ? trip.data.ranking.reason.replace(/^公車這次沒有可行的方案；/, '') : trip?.data.ranking.reason; // 已說收班，不再重複「公車沒有可行的方案」
-    return trip ? `${pre}${night}${reason}${NEXT_STEP[role] ? ` 下一步：${NEXT_STEP[role]}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
+    return trip ? `${pre}${night}${reason}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
   }
   // 沒說地點時用了示範預設，先講清楚
   const pre = (isNearby(it) || (it.intent === 'metro' && !it.station && !it.near)) && !it.places[0] && !it.fromPoint

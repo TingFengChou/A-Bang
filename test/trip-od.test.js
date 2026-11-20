@@ -10,10 +10,10 @@ const NOW = Date.parse('2026-11-18T08:00:00+08:00'); // 週三
 
 /** [名稱, 起點, 終點, 出發, 示範情境, prefs, 期望 { best（role）, excluded?（role）, reason: RegExp[] }] */
 const CASES = [
-  ['市區短程（無狀態）', '台北車站', '台北101', '09:00', {}, {}, { best: 'ridehail', roles: ['bike', 'bus', 'metro', 'ridehail', 'walk'], reason: [/比(?:公車|捷運) \S+快 \d+ 分/] }],
+  ['市區短程（無狀態）', '台北車站', '台北101', '09:00', {}, {}, { best: 'ridehail', roles: ['bike', 'bus', 'metro', 'ridehail', 'walk'], reason: [/^選「叫車/] }],
   ['市區短程＋下雨（自動）', '台北車站', '台北101', '09:00', { weather: 'rain' }, {}, { best: 'ridehail', auto: ['rain'], reason: [/因為正在下雨/], last: 'walk' }],
   ['市區短程＋空品不佳（自動）', '台北車站', '台北101', '09:00', { air: 'bad' }, {}, { best: 'ridehail', auto: ['badAir'], reason: [/因為空氣品質不佳/], last: 'walk' }],
-  ['市區短程＋想省錢', '台北車站', '台北101', '09:00', {}, { states: ['budget'] }, { best: 'bus', reason: [/因為你想省錢/], last: 'ridehail' }],
+  ['市區短程＋想省錢', '台北車站', '台北101', '09:00', {}, { states: ['budget'] }, { best: 'metro', reason: [/因為你想省錢/], last: 'ridehail' }], // 有捷運（S7）：比公車快 11 分、只貴 10 元
   ['市區短程＋帶行李＋少走路', '台北車站', '台北101', '09:00', {}, { states: ['luggage', 'lessWalk'] }, { best: 'ridehail', reason: [/你帶著行李/, /比較輕鬆/], last: 'walk' }],
   ['很近（約 1.5 公里）', '台北車站', '西門町', '09:00', {}, {}, { best: 'ridehail', roles: ['bike', 'bus', 'ridehail', 'walk'], reason: [/^選「叫車/] }],
   ['台中市區＋下雨', '台中車站', '逢甲夜市', '18:00', { weather: 'rain' }, {}, { best: 'ridehail', auto: ['rain'], reason: [/正在下雨/, /比較不會淋雨|只走 0 分/], notFirst: ['bike', 'walk'] }],

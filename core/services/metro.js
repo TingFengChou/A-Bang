@@ -60,7 +60,7 @@ export function createMetroServices(tdx) {
         });
       }
       // 經過的線（代碼字首：BL12 → BL；同名多線合併後有多條）
-      return [...byName.values()].map((st) => ({ ...st, lines: [...new Set(st.ids.map((i) => /^[A-Z]+/.exec(i)?.[0]).filter(Boolean))] }));
+      return [...byName.values()].map((st) => ({ ...st, lines: stationLines(op, st.ids) }));
     },
 
     /** 某站即時到站（各線各方向） */
@@ -88,4 +88,14 @@ export function createMetroServices(tdx) {
     },
   };
   return { metro };
+}
+
+/**
+ * 車站經過的線（代碼字首：BL12 → BL；同名多線合併後有多條）。⚠️ 待 M1 驗證：
+ * 台中捷運代碼是數字（103a）→ 綠線 G；機場捷運 A；高雄岡山延伸 RK → 紅線 R。
+ */
+export function stationLines(op, ids = []) {
+  const one = { TMRT: 'G', TYMC: 'A' }[op];
+  if (one) return [one];
+  return [...new Set(ids.map((i) => /^[A-Z]+/.exec(i)?.[0]).filter(Boolean).map((c) => (op === 'KRTC' && c === 'RK' ? 'R' : c)))];
 }

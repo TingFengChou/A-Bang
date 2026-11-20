@@ -1,6 +1,6 @@
 // 捷運服務（示範資料版）：介面與 metro.js 相同。站名與路線為真實名稱，座標為近似值，到站時間為模擬。
 import { seeded } from './transit-mock.js';
-import { mustSystem, findMetroStation, metroStatusText, sortByEta } from './metro.js';
+import { mustSystem, findMetroStation, metroStatusText, sortByEta, stationLines } from './metro.js';
 
 // 各線兩端的終點站
 const LINES = {
@@ -19,7 +19,7 @@ const STATIONS = {
     ['R11', '中山', ['R', 'G'], 25.0527, 121.5203], ['R07', '東門', ['R', 'O'], 25.0339, 121.5288],
     ['R05', '大安', ['R', 'BR'], 25.0330, 121.5436], ['R13', '民權西路', ['R', 'O'], 25.0623, 121.5194],
     ['R28', '淡水', ['R'], 25.1677, 121.4459], ['R02', '象山', ['R'], 25.0328, 121.5703],
-    ['G09', '古亭', ['G', 'O'], 25.0263, 121.5229], ['G19', '松山', ['G'], 25.0500, 121.5776],
+    ['R03', '台北101／世貿', ['R'], 25.0331, 121.5654], ['G09', '古亭', ['G', 'O'], 25.0263, 121.5229], ['G19', '松山', ['G'], 25.0500, 121.5776],
     ['G01', '新店', ['G'], 24.9579, 121.5379], ['BR01', '動物園', ['BR'], 24.9982, 121.5794],
     ['BL07', '板橋', ['BL'], 25.0143, 121.4625], ['BR14', '劍南路', ['BR'], 25.0848, 121.5555], ['BR15', '西湖', ['BR'], 25.0821, 121.5672],
     ['BR16', '港墘', ['BR'], 25.0800, 121.5753], ['BR17', '文德', ['BR'], 25.0785, 121.5850], ['BR18', '內湖', ['BR'], 25.0837, 121.5944],
@@ -46,7 +46,8 @@ export function createMockMetroServices() {
   const metro = {
     async stations({ system }) {
       const op = mustSystem(system);
-      return STATIONS[op].map(([id, name, lines, lat, lon]) => ({ id, ids: [id], name, lat, lon, lines }));
+      // 與真實版一樣由代碼推線別（stationLines）；轉乘站（一個代碼、多條線）用示範資料寫的線
+      return STATIONS[op].map(([id, name, lines, lat, lon]) => ({ id, ids: [id], name, lat, lon, lines: lines.length > 1 ? lines : stationLines(op, [id]) }));
     },
     async liveBoard({ system, station }) {
       const op = mustSystem(system);

@@ -79,6 +79,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | 地理編碼（TDX 或 TGOS） | 未驗證（`find_place` 目前只查內建地標） |
 | 導訂票 API 端點與參數（需權限） | 未驗證 |
 | CWA 觀測與鄉鎮預報欄位 | 未驗證（M3-08 假設 `records.Station[]`（`GeoInfo.Coordinates` WGS84、`WeatherElement.AirTemperature／Weather`）、雨量站 `O-A0002-001` 的 `RainfallElement.Past1hr.Precipitation`（`-998` 雨跡等特殊值目前視為沒有資料）、`F-D0047-089` 可用 `LocationName` 篩、上層縣市欄位 `LocationsName`（同名鄉鎮以縣市區分）、時段 `EndTime`、元素名「3小時降雨機率」；`weather_tomorrow` 另假設時段 `StartTime`（或 `DataTime`）、元素「溫度／最高溫度／最低溫度」「天氣現象」） |
+| 捷運線別與估算 | 未驗證（2026-11-21：線別由站代碼字首推（台中數字代碼→綠線、高雄 RK→紅線、機捷 A）；時間票價依距離估，真實改用 `Metro/S2STravelTime`、`Metro/ODFare`） |
 | 高鐵／台鐵車站座標與等級 | 未驗證（2026-11-21：`StationPosition.PositionLat／Lon` 給「最近車站」用；台鐵 `StationClass` 可用來優先有直達車的大站，目前改用「最近 3 站依序查、0 班換下一站」） |
 | OData 空白用 `%20`（已實作）是否必要 | 未驗證 |
 
