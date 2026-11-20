@@ -39,8 +39,8 @@ after(async () => {
 
 /** 開新的 browser context 與頁面、收集錯誤，跑完 fn（不論成敗）一定關閉 context；最後確認沒有頁面錯誤 */
 /** @param {{ init?: Function, initArg?: any }} [opts] init：頁面載入前執行（page.addInitScript），例如假相機 */
-async function withPage(device, path, fn, { init, initArg, ignore } = {}) {
-  const ctx = await browser.newContext({ ...device, geolocation: TAIPEI, permissions: ['geolocation'], reducedMotion: 'reduce' });
+async function withPage(device, path, fn, { init, initArg, ignore, geo = true } = {}) {
+  const ctx = await browser.newContext({ ...device, ...(geo && { geolocation: TAIPEI, permissions: ['geolocation'] }), reducedMotion: 'reduce' });
   try {
     const page = await ctx.newPage();
     const errors = [];
@@ -294,6 +294,8 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
       assert.equal(await page.locator('.results [data-card="trip"]').count(), 2);
       assert.match(await page.locator('.results [data-card="trip"] .ab-title').nth(1).textContent(), /^你的位置/);
+      assert.equal(await page.locator('.turn').nth(1).locator('.say.typing').count(), 0, '定位完成後不再顯示「定位中」');
+      assert.match(await page.locator('.turn').nth(1).textContent(), /拿到了，用你現在的位置/);
       await shot(page, `${dname}-agent-location`);
     });
   });
@@ -704,4 +706,33 @@ test('裝置端 AI：deviceJudge 跟著請求送出、說明來源；外掛失�
       }
     }, { init, initArg: fail, ignore: /not in test/ });
   }
+});
+
+// 手機鍵盤打開時收起底部分頁列（iOS 鍵盤彈出時分頁列會浮在鍵盤上方）：可見高度變矮＋在打字；鍵盤收起恢復
+test('手機：鍵盤打開時收起分頁列', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.waitForSelector('.chat-form input');
+    const full = page.viewportSize();
+    assert.ok(await page.locator('.tabbar').isVisible());
+    await page.focus('.chat-form input');
+    assert.ok(await page.locator('.tabbar').isVisible(), '只有焦點、沒有鍵盤：不收（避免點按鈕時版面跳動）');
+    await page.setViewportSize({ width: full.width, height: Math.round(full.height * 0.55) }); // 模擬鍵盤佔掉下半部
+    await page.waitForFunction(() => document.documentElement.classList.contains('kb-open'));
+    assert.equal(await page.locator('.tabbar').isVisible(), false);
+    await page.setViewportSize(full);
+    await page.waitForFunction(() => !document.documentElement.classList.contains('kb-open'));
+    assert.ok(await page.locator('.tabbar').isVisible());
+  });
+});
+
+// 拒絕定位：「定位中」換成「沒拿到你的位置」並說下一步；照常回答（示範預設起點，總結說明）
+test('手機：拒絕定位時說下一步、照常回答', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.fill('.chat-form input', '我想去台北101');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    const t = await page.locator('.turn').first().textContent();
+    assert.match(t, /沒拿到你的位置；可以直接打地點/);
+    assert.equal(await page.locator('.turn .say.typing').count(), 0);
+  }, { geo: false });
 });

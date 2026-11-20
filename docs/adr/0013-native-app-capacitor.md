@@ -14,7 +14,7 @@
 5. **Service worker 在 App 內不註冊**（畫面已在 App 裡；iOS 的 `capacitor://` 也不支援）。iOS 的 `contentInset` 設 `never`，安全區域只由 CSS `env(safe-area-inset-*)` 處理（`automatic` 會和 CSS 重複留白）。
 6. **開發用**：`npm run build:app` 預設 API 位址 `http://localhost:8787`；Android 模擬器先 `adb reverse tcp:8787 tcp:8787`，iOS 模擬器直接連得到本機。Android 的網路安全設定（`res/xml/network_security_config.xml`）只對 `localhost`、`127.0.0.1`、`10.0.2.2` 允許明碼 http，其他網域一律 HTTPS。
 7. App ID `tw.abang.app`、名稱「阿幫」（上架前可改）。
-8. 原生功能分批加，每批都要有網頁版的退路：① 到站提醒改手機本機通知（Local Notifications，不需要推播伺服器）、② 原生相機掃 QR、③ 定位。推播伺服器（排程、每天固定時間通知）另寫 ADR（L-16）。
+8. 原生功能分批加，每批都要有網頁版的退路：① 到站提醒改手機本機通知（Local Notifications，不需要推播伺服器）、② 原生相機掃 QR、③ 定位（2026-11-21 完成：`@capacitor/geolocation` 8.2.4，MIT；iOS 不再出現 WebView 第二次詢問「localhost 想使用你的位置」）。推播伺服器（排程、每天固定時間通知）另寫 ADR（L-16）。
 
 ## 不採用
 - **React Native／Flutter**：要重寫全部畫面與卡片，網頁版還是得留一份。

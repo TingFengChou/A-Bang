@@ -41,11 +41,13 @@ test('client_tool_call：沒起點時請客戶端定位；拿到座標後用「�
   const ok = await collect(async () => ({ lat: 25.0478, lon: 121.517 }));
   const call = ok.find((e) => e.type === 'client_tool_call');
   assert.deepEqual([call.name, call.id], ['device_location', 'loc1']);
+  assert.deepEqual(ok.find((e) => e.type === 'client_tool_result'), { type: 'client_tool_result', id: 'loc1', name: 'device_location', ok: true }, '畫面用：定位完成（不含座標）');
   const trip = ok.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
   assert.equal(trip.data.from.name, '你的位置');
   assert.ok(!ok.find((e) => e.type === 'text').delta.includes('沒說從哪出發'));
   // 拒絕定位：照示範預設起點，總結說明
   const no = await collect(async () => null);
+  assert.equal(no.find((e) => e.type === 'client_tool_result').ok, false);
   assert.match(no.find((e) => e.type === 'text').delta, /沒說從哪出發/);
 });
 

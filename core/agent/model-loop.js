@@ -143,10 +143,11 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const last = req.messages.at(-1).content;
   const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode: provider.mode, model: provider.model, profile: profile.id, judge: judgeInfo(q0) }));
-  const heard = q0 && judgeNote(q0);
+  // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
+  const heard = q0 && !req.clientToolResults?.length && judgeNote(q0);
   if (heard) emit(ev.agentNote(heard));
   const j = jc ? await jc.full(q0) : null;
-  const more = moreStatesNote(q0, j);
+  const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
   if (more) emit(ev.agentNote(more));
   const sure = j && (j.source === 'llm' || j.source === 'device' || (j.confidence ?? 0) >= 0.8); // 模型判斷（伺服器 B 或手機上的模型，ADR-0014）或 A 有把握
   // 這句（或接著改的上一輪）沒說起點 → 起點是現在位置（下面呼叫 plan_trip 時由程式帶入）

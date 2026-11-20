@@ -177,13 +177,14 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode: 'demo', profile: profile.id, judge: judgeInfo(q0) }));
   if (notice) emit(ev.agentNote(notice));
-  const heard = q0 && judgeNote(q0);
+  // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
+  const heard = q0 && !req.clientToolResults?.length && judgeNote(q0);
   if (heard) emit(ev.agentNote(heard));
   const j = jc ? await jc.full(q0) : null;
   if (j) {
     if (j.intent !== it.intent && !it.followUp) it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent }) || it;
     it.states = j.states;
-    const more = moreStatesNote(q0, j);
+    const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
     if (more) emit(ev.agentNote(more));
   }
   // 需要使用者位置（M5-07）：客戶端支援 device_location 時先請它定位，拿到結果後客戶端帶 clientToolResults 重送

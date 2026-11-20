@@ -1,4 +1,5 @@
 import { icons } from './icons.js';
+import { browserLocation } from './agent/client.js';
 
 /** HTML 跳脫 */
 export const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -43,12 +44,7 @@ export const FALLBACK = { lat: 25.0478, lon: 121.517, label: '台北車站（預
 let lastPos = null;
 export function locate({ fresh = false } = {}) {
   if (lastPos && !fresh) return Promise.resolve(lastPos);
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) return resolve(FALLBACK);
-    navigator.geolocation.getCurrentPosition(
-      (p) => resolve((lastPos = { lat: +p.coords.latitude.toFixed(6), lon: +p.coords.longitude.toFixed(6), label: '目前位置' })),
-      () => resolve(FALLBACK),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
-    );
-  });
+  // 與問阿幫共用同一個定位（App 走原生外掛，iOS 只問一次權限；2 分鐘內重用）
+  // 附近站牌、YouBike 在 400 公尺內：要精確位置（Android 12+ 不設 highAccuracy 只會拿到大概位置）
+  return browserLocation(8000, { highAccuracy: true, fresh }).then((p) => (p ? (lastPos = { lat: +p.lat.toFixed(6), lon: +p.lon.toFixed(6), label: '目前位置' }) : FALLBACK));
 }
