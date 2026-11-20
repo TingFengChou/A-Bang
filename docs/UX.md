@@ -153,7 +153,14 @@
 - 限制：只用 CSS transform，不引入 WebGL；同時進行的 3D 動畫 ≤ 3 個；低階裝置（`navigator.hardwareConcurrency ≤ 4` 或 reduced-motion）降級為淡入。
 - ✅ M5-11：問阿幫的結果卡片與決策圖以 `.enter3d` 立體進場（`rotateX(8deg)`＋`translateZ`，依序延遲）；決策圖重算時位置改變的方案以 FLIP（Web Animations）滑到新位置，同時最多 3 個；`html.lite-motion`（`hardwareConcurrency ≤ 4` 或 reduced motion）只淡入、不翻轉。
 - ✅ 2026-11-20 交通方式一律用圖示＋動畫（使用者：「公車、步行…都要用 icon，之前都有圖示加動畫，3D 更好」）：`public/ui/cards/mode-icons.js` 一套線條圖示（步行、YouBike、公車、捷運、高鐵、台鐵、客運、叫車＋地點、天氣、空品、路況、票價、行程）與**立體代幣** `token()`（漸層＋上緣高光＋厚度陰影＋微透視 `rotateX 14°／rotateY -10°`；`.go` 輕輕浮動）。用在：行程卡（方案代幣、分段條每段圖示＋分鐘、分段依序長出、一顆小代幣沿路線跑一趟、分段明細）、決策圖（資料來源與方案節點都有圖示、勝出節點厚度陰影、建議節點呼吸光暈、勝出路徑虛線流動）、公車卡片與公車頁（車的位置是浮動的公車代幣、上車站脈衝光圈、上車站大倒數旁的公車代幣）。全部只用 CSS；reduced motion 與 `html.lite-motion` 不動。
-- 🔭 評估：3D 吉祥物（靜態渲染圖）、3D 傾斜路線地圖。
+- ✅ 2026-11-20 動態設計第一輪（設計 review 後，使用者：「以能創造最佳體驗為主，可以加套件」）：引入 **GSAP 3**（Standard no-charge license；`/vendor/` 白名單提供 `gsap.min.js`、`MotionPathPlugin`、`Flip`，漸進增強，`public/ui/cards/motion.js` 的 `motion()` 在 reduced motion／精簡模式／沒載到時回 null 改用 CSS）。
+  - 按壓手感：按鈕、格子、chip 壓下 80ms 變矮、放開回彈 180ms。
+  - 討論串：泡泡進場、頭像彈出、三點打字；阿幫表情（查詢中 `think` 輕擺、回答 `happy` 跳一下）。首頁吉祥物浮動，聚焦輸入框換思考。
+  - 首頁格子：各服務代表色的立體代幣，依序浮現；「示範」標改成淡淡的小字（仍保留）。
+  - 捲動進場：問阿幫第 3 張以後的卡片用 `animation-timeline: view()` 捲到才立體浮現（不支援的瀏覽器照舊）。
+  - 決策出爐（GSAP 時間軸約 2.4 秒）：資料亮起 → 連線畫出（`pathLength`＋`stroke-dashoffset`）→ 狀態彈出 → 方案排開 → 落選變淡 → 建議浮起 → 光點沿勝出路徑跑（MotionPath）→ 虛線流動、光暈；4 秒保險直接到最終狀態。播完後勝出代幣沿弧線飛進行程卡（交棒，目標在畫面內才飛）。同一輪行程卡不再重複理由句。
+- 🔭 下一批（設計 review）：公車「車→我」進度軌＋站間 FLIP＋倒數翻牌＋進度環；發票中獎逐位高亮＋紙花；空品半圓儀表、天氣氛圍；分段條代幣依真實分鐘比例並在轉乘點換圖示。
+- 🔭 評估：3D 吉祥物（靜態渲染圖）、3D 傾斜路線地圖（可考慮 Three.js）。
 
 ## 10. 可及性
 

@@ -43,6 +43,14 @@ const OPENAPI = JSON.stringify(buildOpenApi(svc));
 // Swagger UI：只提供這幾個檔（白名單，不開放整個 node_modules）
 const SWAGGER_DIR = fileURLToPath(new URL('../node_modules/swagger-ui-dist/', import.meta.url));
 const SWAGGER_FILES = { 'swagger-ui.css': 'text/css; charset=utf-8', 'swagger-ui-bundle.js': 'text/javascript; charset=utf-8' };
+// 前端動畫套件（GSAP，Standard no-charge license）：同樣只開放白名單檔案，讀一次就快取
+const VENDOR_DIR = fileURLToPath(new URL('../node_modules/gsap/dist/', import.meta.url));
+const VENDOR_FILES = { 'gsap.min.js': 1, 'MotionPathPlugin.min.js': 1, 'Flip.min.js': 1 };
+const vendorCache = new Map();
+const vendorFile = (name) => {
+  if (!vendorCache.has(name)) vendorCache.set(name, readFile(join(VENDOR_DIR, name)).catch((e) => { vendorCache.delete(name); throw e; }));
+  return vendorCache.get(name);
+};
 const swaggerCache = new Map(); // 檔名 → Promise<Buffer>：只讀一次磁碟（約 1.5 MB）
 const swaggerFile = (name) => {
   if (!swaggerCache.has(name)) swaggerCache.set(name, readFile(join(SWAGGER_DIR, name)).catch((e) => { swaggerCache.delete(name); throw e; }));
@@ -95,6 +103,10 @@ createServer(async (req, res) => {
     if (path === '/api/docs/init.js') return sendRaw(res, 200, DOCS_INIT, 'text/javascript; charset=utf-8');
     const doc = path.match(/^\/api\/docs\/([\w.-]+)$/);
     if (doc && Object.hasOwn(SWAGGER_FILES, doc[1])) return sendRaw(res, 200, await swaggerFile(doc[1]), SWAGGER_FILES[doc[1]], { 'cache-control': 'public, max-age=86400' });
+
+    // ── 前端動畫套件（白名單）──
+    const vend = path.match(/^\/vendor\/([\w.-]+)$/);
+    if (vend && Object.hasOwn(VENDOR_FILES, vend[1])) return sendRaw(res, 200, await vendorFile(vend[1]), 'text/javascript; charset=utf-8', { 'cache-control': 'public, max-age=604800' });
 
     // ── 網頁 agent（NDJSON 串流；只給本站網頁，不加 CORS）──
     // /api/v1/agent（生活）或 /api/v1/agent/:id（例：antifraud；ADR-0005 多 agent）
