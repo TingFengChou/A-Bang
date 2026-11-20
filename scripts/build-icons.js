@@ -35,10 +35,14 @@ await out('public/icons/icon-192.png', await render(page, icon, 192));
 await out('public/icons/icon-512.png', await render(page, icon, 512));
 await out('ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png', await render(page, square, 1024)); // iOS：方形、不透明
 // iOS 18 深色與著色圖示（T6）：透明背景（系統補深色底）只放藍鵲；著色版是灰階，系統依使用者選的顏色上色
-// 前景圖是 Android 安全區的大小（四周留白多）：iOS 放大；深色底上藏青色的頭會不見，加一圈淡白光讓輪廓看得出來
-const iosFg = (gray) => `<div style="width:100%;height:100%;transform:scale(1.32);filter:drop-shadow(0 0 10px rgba(255,255,255,.55))${gray ? ' grayscale(1) brightness(1.2) contrast(1.1)' : ''}">${fg.replace('<svg ', '<svg width="100%" height="100%" ')}</div>`;
-await out('ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-dark.png', await render(page, iosFg(false), 1024, { raw: true }));
-await out('ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-tinted.png', await render(page, iosFg(true), 1024, { raw: true }));
+// 前景圖是 Android 安全區的大小（四周留白多）：iOS 放大 1.32 倍、往右上移一點置中（揮手的手臂與尾巴讓主體偏左下）。
+// 深色底上藏青色的頭會不見：照 Apple 的建議把深色部分調亮（不加光暈，PR #51 審查）；著色版的頭用中灰，肚子與眼睛最亮
+const DARK_REMAP = { '#1F2A44': '#3B5A8C', '#134E4A': '#2DD4BF', '#0F766E': '#2DD4BF' };
+const TINT_REMAP = { '#1F2A44': '#7A7A7A', '#134E4A': '#A8A8A8', '#0F766E': '#A8A8A8' };
+const remap = (svg, map) => Object.entries(map).reduce((x, [a, b]) => x.replaceAll(a, b).replaceAll(a.toLowerCase(), b), svg);
+const iosFg = (map, gray) => `<div style="width:100%;height:100%;transform:translate(4.9%,-2%) scale(1.32);${gray ? 'filter:grayscale(1);' : ''}">${remap(fg, map).replace('<svg ', '<svg width="100%" height="100%" ')}</div>`;
+await out('ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-dark.png', await render(page, iosFg(DARK_REMAP, false), 1024, { raw: true }));
+await out('ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-tinted.png', await render(page, iosFg(TINT_REMAP, true), 1024, { raw: true }));
 for (const [d, k] of Object.entries(DENSITY)) {
   const dir = `android/app/src/main/res/mipmap-${d}`;
   await out(`${dir}/ic_launcher.png`, await render(page, icon, 48 * k));

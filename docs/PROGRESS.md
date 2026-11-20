@@ -15,8 +15,8 @@
 
 ## 2026-11-21（續）T6 iOS 名稱與深色／著色圖示
 
-- 做了：`CFBundleName` 改 Abang（設定 App、權限畫面看到的名稱）；`scripts/build-icons.js` 產生 iOS 18 深色（透明底＋放大＋淡白光輪廓）與著色（灰階）圖示，`AppIcon.appiconset` 加 luminosity dark／tinted。
-- 測試：xcodebuild 模擬器 Debug 編譯成功（actool 通過、Info.plist 名稱 Abang）；深色主畫面圖示在模擬器仍顯示淺色（推測圖示快取），待實機確認。
+- 做了：確認主畫面、設定、權限畫面的名稱（`CFBundleDisplayName`）已是 Abang，`PRODUCT_NAME` 維持 App；`scripts/build-icons.js` 產生 iOS 18 深色（透明底、放大置中、深色部分調亮）與著色（灰階、頭用中灰）圖示，`AppIcon.appiconset` 加 luminosity dark／tinted。
+- 測試：xcodebuild 模擬器 Debug 編譯成功（actool 通過）；深色主畫面圖示在模擬器仍顯示淺色（推測圖示快取），待實機確認。
 - 文件：PLAN T6、PROGRESS。
 - 下一個：離線與弱網、S12b 卡片英文。
 - 卡住：實機確認深色圖示需 Austin 的 iPhone。
