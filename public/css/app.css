@@ -204,3 +204,8 @@ html.lite-motion .btn:active, html.lite-motion .tile:active, html.lite-motion .c
 }
 @media (prefers-reduced-motion: reduce) { .grid .tile, .hero .mascot, .hero .mascot-shadow, .scroll-in { animation: none !important; } .btn:active, .tile:active, .chip:active { transform: none; } }
 html.lite-motion .hero .mascot, html.lite-motion .hero .mascot-shadow { animation: none !important; }
+
+/* 鍵盤打開時（手機）收起底部分頁列：鍵盤彈出後分頁列不再浮在鍵盤上方擋住輸入框（2026-11-21 iOS 實機）。
+   由 js/keyboard.js 依可見高度判斷（不用 :focus：點輸入框下方的按鈕時分頁列會瞬間跑回來，點擊落空） */
+html.kb-open .tabbar { display: none; }
+html.kb-open .chat-dock { bottom: 0; }

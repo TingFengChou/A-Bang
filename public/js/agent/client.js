@@ -8,12 +8,36 @@ const MAX_CLIENT_ROUNDS = 2;
 
 /** 最近一次的定位（2 分鐘內重用：起點預設是現在位置，連問幾題不用每次等定位） */
 let lastFix = null;
-/** 瀏覽器定位（5 秒逾時；拒絕或失敗回 null）。座標只用來回答這一題，不存進伺服器 log */
+/** 手機 App 的原生定位外掛（@capacitor/geolocation）：iOS 只問 App 權限一次，不會再跳 WebView 的「localhost 想使用你的位置」 */
+const nativeGeo = () => {
+  const c = globalThis.Capacitor;
+  try { return c?.isNativePlatform?.() && c.isPluginAvailable?.('Geolocation') && typeof c.nativePromise === 'function' ? c : null; } catch { return null; }
+};
+
+/** 定位權限是否已允許（App：原生外掛；網頁：Permissions API）；不確定回 false */
+export async function locationGranted() {
+  const c = nativeGeo();
+  try {
+    if (c) return (await c.nativePromise('Geolocation', 'checkPermissions', {}))?.location === 'granted';
+    return (await navigator.permissions?.query({ name: 'geolocation' }))?.state === 'granted';
+  } catch { return false; }
+}
+
+/** 定位（5 秒逾時；拒絕或失敗回 null）。座標只用來回答這一題，不存進伺服器 log */
 export function browserLocation(timeout = 5000) {
   if (lastFix && Date.now() - lastFix.at < 120_000) return Promise.resolve(lastFix.pos);
+  const keep = (lat, lon) => { const pos = { lat, lon }; lastFix = { pos, at: Date.now() }; return pos; };
+  const c = nativeGeo();
+  if (c) {
+    let timer;
+    const call = c.nativePromise('Geolocation', 'getCurrentPosition', { enableHighAccuracy: false, timeout, maximumAge: 60_000 })
+      .then((p) => (Number.isFinite(p?.coords?.latitude) ? keep(p.coords.latitude, p.coords.longitude) : null)).catch(() => null);
+    // 第一次會跳系統權限框：使用者想一下的時間不算逾時（外掛自己的 timeout 從拿到權限後才開始）
+    return Promise.race([call, new Promise((r) => { timer = setTimeout(() => r(null), timeout + 30_000); })]).finally(() => clearTimeout(timer));
+  }
   if (typeof navigator === 'undefined' || !navigator.geolocation) return Promise.resolve(null);
   return new Promise((resolve) => navigator.geolocation.getCurrentPosition(
-    (p) => { const pos = { lat: p.coords.latitude, lon: p.coords.longitude }; lastFix = { pos, at: Date.now() }; resolve(pos); },
+    (p) => resolve(keep(p.coords.latitude, p.coords.longitude)),
     () => resolve(null),
     { timeout, maximumAge: 60_000, enableHighAccuracy: false },
   ));
@@ -67,6 +91,7 @@ export async function runAgent(body, onEvent, { base = API_BASE, agentId = 'life
       if (c.name === 'device_location') {
         const loc = await locate();
         results.push(loc ? { id: c.id, ok: true, result: loc } : { id: c.id, ok: false });
+        onEvent({ type: 'client_tool_result', id: c.id, name: c.name, ok: Boolean(loc) }); // 只給畫面用（不含座標）
       } else results.push({ id: c.id, ok: false });
     }
     clientToolResults = [...clientToolResults, ...results];

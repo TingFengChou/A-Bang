@@ -97,7 +97,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 ### 3.4 裝置端工具（✅ M5-07）
 
-`device_location`：需要使用者位置（行程沒說起點；YouBike／附近公車／天氣／空品／垃圾車沒說地點）且請求帶 `clientTools: ['device_location']` 時，伺服器送 `agent_note`＋`client_tool_call { id: 'loc1', name: 'device_location' }`＋`done` 後結束；客戶端定位後帶 `clientToolResults: [{ id: 'loc1', ok, result: { lat, lon } }]` 重送同一請求。台灣範圍內的座標才採用（起點名稱「你的位置」）；拒絕或無效時改用示範預設起點並在總結說明。客戶端：`public/js/agent/client.js`（`runAgent`：讀 NDJSON 串流、執行 client tool、最多重送 2 次；`browserLocation` 5 秒逾時）。座標不寫入 log。`T.point` 的座標物件可帶 `name`。
+`device_location`：需要使用者位置（行程沒說起點；YouBike／附近公車／天氣／空品／垃圾車沒說地點）且請求帶 `clientTools: ['device_location']` 時，伺服器送 `agent_note`＋`client_tool_call { id: 'loc1', name: 'device_location' }`＋`done` 後結束；客戶端定位後帶 `clientToolResults: [{ id: 'loc1', ok, result: { lat, lon } }]` 重送同一請求。台灣範圍內的座標才採用（起點名稱「你的位置」）；拒絕或無效時改用示範預設起點並在總結說明。客戶端：`public/js/agent/client.js`（`runAgent`：讀 NDJSON 串流、執行 client tool、最多重送 2 次；`browserLocation` 5 秒逾時，手機 App 改用原生定位外掛 `@capacitor/geolocation`，iOS 只問 App 權限一次）。定位完成或失敗時客戶端自己發 `client_tool_result { id, name, ok }`（不經伺服器、不含座標），畫面把「定位中」換成結果。帶 `clientToolResults` 的重送是同一輪：伺服器不再重複「我先看天氣…」等判斷說明。座標不寫入 log。`T.point` 的座標物件可帶 `name`。
 
 ## 4. 模型模式（✅ M5-05，ADR-0012）
 

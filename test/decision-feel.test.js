@@ -122,3 +122,14 @@ test('指定交通方式沒有可行方案：照分數建議並明說；最近�
   const { callTool } = await import('../core/tools/index.js');
   await assert.rejects(callTool(createServices({ forceMock: true }), 'bus_route_eta', { routeName: '307' }), /哪個縣市/, '說明下一步');
 });
+
+test('帶定位結果重送（同一輪）：不再重複「我先看天氣…」與補充狀態', async () => {
+  const judge = createJudge({ embed: async () => ({ intent: 'trip', confidence: 0.95, states: [] }) });
+  const body = { messages: [{ role: 'user', content: '我很趕，去台北101' }], clientTools: ['device_location'] };
+  const first = [], second = [];
+  await runDemo(createServices({ forceMock: true }), body, (e) => first.push(e), { judge });
+  assert.ok(first.some((e) => e.type === 'agent_note' && /我先看天氣/.test(e.text)), '第一次說');
+  await runDemo(createServices({ forceMock: true }), { ...body, clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 25.0478, lon: 121.517 } }] }, (e) => second.push(e), { judge });
+  assert.ok(!second.some((e) => e.type === 'agent_note' && /我先看天氣|我還注意到/.test(e.text)), '重送不重複');
+  assert.ok(second.some((e) => e.type === 'tool_start' && e.name === 'plan_trip'), '照常查行程');
+});

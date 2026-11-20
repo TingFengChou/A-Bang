@@ -4,6 +4,7 @@ import { api, state } from './api.js';
 import { esc } from './ui.js';
 import { autoCheckOnOpen } from './invoice-wallet.js';
 import { createWebHost } from '../ui/cards/host-web.js';
+import { watchKeyboard } from './keyboard.js';
 import home from './pages/home.js';
 import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
@@ -107,6 +108,9 @@ const cap = globalThis.Capacitor;
 if (typeof cap?.addListener === 'function' && cap.getPlatform?.() === 'android') {
   cap.addListener('App', 'backButton', (e) => { if (e?.canGoBack) history.back(); else cap.nativePromise('App', 'exitApp', {}).catch(() => {}); });
 }
+
+// 手機鍵盤打開時收起底部分頁列（css: html.kb-open）
+watchKeyboard();
 
 if ('serviceWorker' in navigator && !globalThis.__DEMO_SERVICES__ && !globalThis.__ABANG_APP__ && location.protocol !== 'file:') {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
