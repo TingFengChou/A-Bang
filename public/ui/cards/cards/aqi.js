@@ -2,17 +2,20 @@
 import { h, hhmm } from '../dom.js';
 import { aqiGauge } from '../gauge.js';
 
+/** 資料裡的中文（狀態、污染物）走字典；字典沒有就照原文（S12d） */
+export const dict = (t, prefix, x) => { if (!x) return x; const k = `${prefix}.${x}`; const v = t(k); return v === k ? x : v; };
+
 export default {
   refreshSec: 900,
   title: (d, { t }) => t('aqi.title', { site: d.nearest.site }),
-  announce: (d, { t }) => t('aqi.say', { site: d.nearest.site, aqi: d.nearest.aqi ?? '—', status: d.nearest.status }),
+  announce: (d, { t }) => t('aqi.say', { site: d.nearest.site, aqi: d.nearest.aqi ?? '—', status: dict(t, 'aqi.status', d.nearest.status) }),
   body(d, { t }) {
     const n = d.nearest;
     const stat = (label, v) => h('div', { class: 'ab-stat' }, h('span', { class: 'ab-sub' }, label), h('strong', null, v ?? '—'));
     return h('div', { class: 'ab-body' },
-      h('div', { class: `ab-aqi ${n.level || 'na'}` }, aqiGauge(n.aqi, `AQI ${n.aqi ?? '—'}，${n.status}`), h('div', null, h('strong', null, n.status), n.pollutant && h('p', { class: 'ab-sub' }, t('aqi.pollutant', { p: n.pollutant })))),
+      h('div', { class: `ab-aqi ${n.level || 'na'}` }, aqiGauge(n.aqi, `AQI ${n.aqi ?? '—'}，${dict(t, 'aqi.status', n.status)}`), h('div', null, h('strong', null, dict(t, 'aqi.status', n.status)), n.pollutant && h('p', { class: 'ab-sub' }, t('aqi.pollutant', { p: dict(t, 'aqi.pol', n.pollutant) })))),
       h('div', { class: 'ab-stats' }, stat('PM2.5', n.pm25), stat('PM10', n.pm10), stat('O₃', n.o3)),
       h('p', { class: 'ab-sub' }, t('aqi.meta', { county: n.county, km: (n.distanceM / 1000).toFixed(1), time: hhmm(n.publishTime.replace(' ', 'T') + '+08:00') })),
-      d.nearby.length > 0 && h('ul', { class: 'ab-list' }, d.nearby.map((s) => h('li', { class: 'ab-row' }, h('span', { class: 'ab-name' }, s.site), h('span', { class: `ab-chip aqi-${s.level || 'na'}` }, `AQI ${s.aqi ?? '—'} ${s.status}`)))));
+      d.nearby.length > 0 && h('ul', { class: 'ab-list' }, d.nearby.map((s) => h('li', { class: 'ab-row' }, h('span', { class: 'ab-name' }, s.site), h('span', { class: `ab-chip aqi-${s.level || 'na'}` }, `AQI ${s.aqi ?? '—'} ${dict(t, 'aqi.status', s.status)}`)))));
   },
 };

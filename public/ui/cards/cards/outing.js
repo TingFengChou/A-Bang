@@ -1,6 +1,7 @@
 // outing（outing_advice）：出門建議——帶傘、防曬、保暖、口罩（最多 3 點，要注意的醒目）＋氣溫、降雨機率、空品
 // 圖示是本檔常數字串（不含上游資料），可以安全放進 innerHTML；建議文字一律用 textContent（h()）。
 import { h } from '../dom.js';
+import { dict } from './aqi.js';
 
 /** 24×24 線條圖示（stroke=currentColor） */
 const ICON = {
@@ -34,7 +35,7 @@ export default {
       h('div', { class: 'ab-stats' },
         stat(t('weather.temp'), w?.tempC != null ? `${w.tempC}°C` : '—'),
         stat(t('outing.pop'), w?.pop3h != null ? `${w.pop3h}%` : '—'),
-        stat(a?.status ? t('outing.aqiStatus', { status: a.status }) : t('outing.aqi'), a?.aqi != null ? `${a.aqi}` : '—')),
+        stat(a?.status ? t('outing.aqiStatus', { status: dict(t, 'aqi.status', a.status) }) : t('outing.aqi'), a?.aqi != null ? `${a.aqi}` : '—')),
       meta && h('p', { class: 'ab-sub' }, meta));
   },
 };

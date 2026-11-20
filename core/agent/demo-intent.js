@@ -1,5 +1,6 @@
 // 示範模式意圖解析（M5-03，AGENT.md §5）：沒有 API Key 時，以規則判斷意圖、地點與使用者狀態，
 // 產生「分段的工具呼叫計畫」；由 run.js 執行並發出與 Claude 模式相同的事件流。不加人工延遲。
+import { enName } from '../tools/speak-en.js';
 import { LANDMARKS, normPlace } from '../services/places.js';
 import { nextStepOf } from '../tools/trip.js';
 import { outingSay } from './outing.js';
@@ -677,8 +678,6 @@ function enArriveBy(s) {
 }
 
 /** 英文方案名稱（卡片目前仍是中文；回答用英文） */
-const EN_ROLE = { walk: 'Walking', bike: 'YouBike', metro: 'MRT', thsr: 'High Speed Rail', tra: 'Taiwan Railway', intercity: 'Intercity bus', ridehail: 'Taxi (Uber)' };
-const enName = (o) => (o.role === 'bus' ? `Bus ${o.name.replace(/^公車\s*/, '')}` : EN_ROLE[o.role] || o.name);
 const enPlace = (name) => { const l = (LANDMARKS.items || LANDMARKS).find((x) => x.name === name); const en = l?.en || l?.aliases?.find((a) => /^[A-Za-z]{4,}/.test(a)); return en ? `${en} (${name})` : name; };
 const EN_MODE_NAME = { walk: 'walking', bike: 'YouBike', bus: 'bus', metro: 'MRT', thsr: 'High Speed Rail', tra: 'train', intercity: 'intercity bus', ridehail: 'taxi' };
 /** 英文總結（S12；數字取自工具資料） */

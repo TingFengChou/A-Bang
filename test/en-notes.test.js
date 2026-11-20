@@ -26,3 +26,56 @@ test('英文提問：討論串說明英文、不說中文的「聽懂了」；�
   assert.ok(steps.length >= 1 && steps.every((s) => !/[一-鿿]/.test(s.label)), steps.map((s) => s.label).join('|'));
   assert.ok(!steps.some((s) => s.kind === 'ask'), '英文不給會變成中文問句的建議');
 });
+
+test('S12d：英文那一輪的工具回報是英文（數字來自資料）、不附中文的「→ 影響」', async () => {
+  const { speakEn, SPEAK_EN } = await import('../core/tools/speak-en.js');
+  const es = [];
+  await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: 'How do I get to Taipei 101?' }] }, (e) => es.push(e));
+  const results = es.filter((e) => e.type === 'tool_result' && e.ok);
+  assert.ok(results.length >= 3);
+  for (const r of results) {
+    if (SPEAK_EN[r.tool]) assert.match(r.speak, /^[A-Z]/, `${r.tool}: ${r.speak}`); // 英文句子（地名可以是中文）
+    for (const x of [].concat(r.impact || [])) assert.match(x.text, /^[A-Z]/, `${r.tool} 的影響要是英文：${x.text}`);
+  }
+  assert.equal(speakEn('no_such_tool', {}), null);
+  assert.equal(speakEn('weather_now', { rainMm1h: 2, pop3h: 80 }), "It's raining now, 80% chance of rain in the next 3 hours.");
+  assert.match(speakEn('plan_trip', { best: 'a', options: [{ id: 'a', role: 'metro', minutes: 23 }, { id: 'b' }] }), /best is MRT \(23 min\)/);
+  assert.match(speakEn('plan_trip', { best: 'a', options: [{ id: 'a', role: 'bus', name: '公車 307', minutes: 30 }] }), /best is Bus 307/);
+  // 中文那一輪照舊
+  const zh = [];
+  await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '從臺北車站去台北101' }] }, (e) => zh.push(e));
+  assert.ok(zh.filter((e) => e.type === 'tool_result' && e.ok).some((r) => /[一-鿿]/.test(r.speak || '')));
+});
+
+test('每個英文回報都能用工具的實際輸出算出來（不丟錯、不回 null）；各種情況', async () => {
+  const { SPEAK_EN, speakEn, impactEn } = await import('../core/tools/speak-en.js');
+  const { callTool } = await import('../core/tools/index.js');
+  const svc = createServices({ forceMock: true });
+  const P = { lat: 25.0478, lon: 121.517 };
+  const ARGS = {
+    find_place: { query: '台北車站' }, plan_trip: { from: '臺北車站', to: '台北101', departAt: '09:00' }, weather_now: P, weather_tomorrow: P, aqi_nearby: P, outing_advice: P,
+    youbike_nearby: P, bus_nearby_stations: P, bus_station_eta: { city: 'Taipei', stationId: 'M1000' }, bus_route_eta: { city: 'Taipei', routeName: '307' },
+    metro_live_board: { near: '台北車站' }, thsr_timetable: { from: '台北', to: '左營' }, tra_timetable: { from: '臺北', to: '高雄' },
+    rail_fare: { system: 'THSR', from: '台北', to: '左營' }, ridehail_link: { to: '台北101', from: '臺北車站' }, traffic_status: { from: '臺北車站', to: '高雄車站' },
+  };
+  for (const name of Object.keys(SPEAK_EN)) {
+    const r = await callTool(svc, name, ARGS[name]);
+    const say = speakEn(name, r.data, r.args);
+    assert.match(say, /^[A-Z"0-9]/, `${name}: ${say}`);
+  }
+  // 公車狀態 1～4、上車站
+  for (const [st, want] of [[1, /not departed/], [2, /not stopping/], [3, /last bus/], [4, /no service/]]) assert.match(speakEn('bus_route_eta', { routeName: '307', focus: { stopName: '西門', status: st } }), want);
+  assert.equal(speakEn('bus_route_eta', { routeName: '307', focus: { stopName: '西門', status: 0, etaSec: 300 } }), '307 arrives at 西門 in 5 min.');
+  // 捷運：預設地點 vs 你
+  assert.match(speakEn('metro_live_board', { station: '台北車站', nearest: { from: '西門町', distanceM: 1200 }, trains: [] }), /Nearest MRT station to 西門町 is 台北車站 \(1\.2 km\)/);
+  assert.match(speakEn('metro_live_board', { station: '台北車站', nearest: { distanceM: 800 }, trains: [{ etaMin: 3, destination: '南港展覽館' }] }), /to you is 台北車站 \(800 m\): next train to 南港展覽館 in 3 min/);
+  // 高鐵：今天都開走了、別天
+  const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+  assert.match(speakEn('thsr_timetable', { date: today, from: '台北', to: '左營', trains: [{ depart: '00:00', arrive: '01:30' }] }), /All of today's trains have left \(last at 00:00\)/);
+  assert.match(speakEn('thsr_timetable', { date: '2030-01-05', from: '台北', to: '左營', trains: [{ depart: '06:15', arrive: '07:50' }] }), /1 train on Sat, Jan 5; first leaves 06:15/);
+  // 路況：市區短程、塞車
+  assert.match(speakEn('traffic_status', { covered: false, straightKm: 3 }), /Short trip/);
+  assert.match(speakEn('traffic_status', { covered: true, level: 'jam', delayMin: 12 }), /jammed, about 12 min/);
+  // 影響：YouBike 車位很緊
+  assert.match(impactEn('plan_trip', { options: [{ role: 'bike', bike: { ret: { tight: true, count: 1, name: '市府站', backup: { name: '信義站' } }, rent: {} } }] }).text, /only 1 dock left at 市府站; if full, return at 信義站/);
+});
