@@ -7,8 +7,9 @@ import { NEXT_STEP } from '../core/tools/trip.js';
 import { callTool } from '../core/tools/index.js';
 import { createServices } from '../core/index.js';
 
-test('groundedPrefs：抵達時間、交通方式、狀態只採使用者說過的（規則或判斷層）；其他偏好照留', () => {
-  assert.deepEqual(groundedPrefs({ arriveBy: '09:00', mode: 'thsr', states: ['rush'], avoid: ['walk'] }, {}), { avoid: ['walk'] }, '模型自加的時間、方式、狀態都丟掉');
+test('groundedPrefs：抵達時間、交通方式、不要的方式、狀態只採使用者說過的（規則或判斷層）', () => {
+  assert.deepEqual(groundedPrefs({ arriveBy: '09:00', mode: 'thsr', states: ['rush'], avoid: ['walk'] }, {}), {}, '模型自加的時間、方式、狀態、不要的方式都丟掉');
+  assert.deepEqual(groundedPrefs({}, { avoid: ['ridehail'] }), { avoid: ['ridehail'] }, '使用者說不要的方式要帶上');
   assert.deepEqual(groundedPrefs({ arriveBy: '09:00' }, { arriveBy: '10:00' }), { arriveBy: '10:00' }, '用使用者說的時間');
   assert.deepEqual(groundedPrefs({}, { mode: 'bus' }), { mode: 'bus' }, '使用者說的方式要帶上（與預先查詢一致）');
   assert.deepEqual(groundedPrefs({ mode: 'walk' }, {}, { mode: 'ridehail', states: [] }), { mode: 'ridehail' }, '判斷層的方式');
@@ -95,4 +96,47 @@ test('使用者前文說過起點：模型把起點換成現在位置也會改�
   const trips = es.filter((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
   assert.equal(trips.length, 1);
   assert.equal(trips[0].data.from.name, '西門町');
+});
+
+test('decide avoid：使用者說不要的方式直接排除並說明；全部排除時說清楚', async () => {
+  const { decide } = await import('../core/decide.js');
+  const opts = [{ id: 'r', role: 'ridehail', name: '叫車', minutes: 10, cost: 300, walkMin: 0, waitMin: 3 }, { id: 'b', role: 'bus', name: '公車 601', minutes: 25, cost: 15, walkMin: 5, waitMin: 5 }];
+  const r = decide(opts, { avoid: ['ridehail'] });
+  assert.equal(r.best.id, 'b');
+  assert.deepEqual(r.excluded.map((e) => [e.id, e.why]), [['r', '你說不要叫車']]);
+  const none = decide(opts, { avoid: ['ridehail', 'bus'] });
+  assert.equal(none.best, null);
+  assert.match(none.reason, /排除你說不要的方式後，沒有其他可行的方案/);
+});
+
+test('contextNote：接著改的那一輪說沿用什麼、改了什麼；理由不把「不要」說成遲到', async () => {
+  const { parseIntent, contextNote } = await import('../core/agent/demo-intent.js');
+  const H = (...t) => t.flatMap((x) => [{ role: 'user', content: x }, { role: 'assistant', content: '好' }]);
+  assert.equal(contextNote(parseIntent('不要叫車', { history: H('從西門町叫車去台北101') })), '沿用：西門町 → 台北101｜改：不要叫車');
+  assert.equal(contextNote(parseIntent('改坐公車', { history: H('從西門町去台北101') })), '沿用：西門町 → 台北101｜改：坐公車');
+  assert.equal(contextNote(parseIntent('九點要到', { history: H('去台北101') })), '沿用：你的位置 → 台北101｜改：09:00 前到');
+  assert.equal(contextNote(parseIntent('去台北101')), null, '不是接著改');
+  const { decide } = await import('../core/decide.js');
+  const opts = [{ id: 'r', role: 'ridehail', name: '叫車', minutes: 10, cost: 300, walkMin: 0, waitMin: 3 }, { id: 'b', role: 'bus', name: '公車 601', minutes: 25, cost: 15, walkMin: 5, waitMin: 5 }];
+  const r = decide(opts, { avoid: ['ridehail'] });
+  assert.match(r.reason, /叫車照你說的不列入/);
+  assert.doesNotMatch(r.reason, /會遲到/);
+});
+
+test('A3 負面案例：「從明天開始」「從頭開始」「我從來不坐公車」不是起點；中文一到五點；前文 10 則很快', async () => {
+  const { parseIntent, zhNum } = await import('../core/agent/demo-intent.js');
+  const H = (...t) => t.flatMap((x) => [{ role: 'user', content: x }, { role: 'assistant', content: '好' }]);
+  const h = H('從西門町去台北101');
+  assert.notEqual(parseIntent('從明天開始', { history: h }).intent, 'trip');
+  assert.equal(parseIntent('從頭開始吧', { history: h }).reset, true);
+  const never = parseIntent('我從來不坐公車', { history: h });
+  assert.deepEqual([never.from, never.avoid], ['西門町', ['bus']]);
+  const bike = parseIntent('我不想騎單車', { history: h });
+  assert.deepEqual([bike.mode, bike.avoid], [undefined, ['bike']], '「不想騎」是排除，不是要騎');
+  assert.equal(parseIntent('從這裡出發', { history: h }).from, null, '從這裡＝現在位置');
+  for (const [z, n] of [['一', 1], ['三', 3], ['五', 5], ['九', 9], ['十', 10], ['十二', 12], ['二十五', 25]]) assert.equal(zhNum(z), n, z);
+  const long = Array.from({ length: 10 }, (_, i) => ({ role: 'user', content: i % 2 ? '改坐公車' : '從西門町去台北101' }));
+  const t0 = performance.now();
+  parseIntent('我很趕', { history: long });
+  assert.ok(performance.now() - t0 < 50, '單趟累積，不再指數成長');
 });

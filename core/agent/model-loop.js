@@ -8,7 +8,7 @@ import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hi
 import { judgeNote, moreStatesNote } from './impact.js';
 import { lineCode } from '../tools/metro.js';
 import { normName } from '../util.js';
-import { parseIntent, needsLocation, DEFAULT_FROM } from './demo-intent.js';
+import { parseIntent, needsLocation, DEFAULT_FROM, contextNote } from './demo-intent.js';
 import { resolvePoint } from '../services/places.js';
 
 /**
@@ -50,7 +50,7 @@ export function prefetchCalls(it, j, here) {
   //（地端模型接著改「改坐公車」時常不再查、說「叫車」時直接產生叫車連結，2026-11-21 情境評測）
   // 沒說起點也拿不到位置（拒絕定位）：先從示範預設起點算，並告訴模型要說明（與示範模式一致）
   if (it.intent === 'trip' && it.to) {
-    const prefs = { ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }), ...(it.states?.length && { states: it.states }) };
+    const prefs = { ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }), ...(it.avoid?.length && { avoid: it.avoid }), ...(it.states?.length && { states: it.states }) };
     const from = it.from || (at ? { ...at, name: here.name } : DEFAULT_FROM);
     return [{ name: 'plan_trip', args: { from, to: it.to, ...(Object.keys(prefs).length && { prefs }) }, ...(!it.from && !at && { note: NO_LOCATION_NOTE }) }];
   }
@@ -69,7 +69,7 @@ export function callKey(name, args = {}, here = null) {
   if (name === 'plan_trip') {
     // 起點也要比（規則抽到的起點若跟模型的不同，不能沿用；PR #34 審查）
     const pt = (v) => (typeof v === 'string' ? normName(v.replace(/\s/g, '')) : v ? `${(+v.lat).toFixed(3)},${(+v.lon).toFixed(3)}` : '');
-    return `plan_trip|${pt(args.from)}|${pt(args.to)}|${args.prefs?.mode || ''}|${args.prefs?.arriveBy || ''}`;
+    return `plan_trip|${pt(args.from)}|${pt(args.to)}|${args.prefs?.mode || ''}|${args.prefs?.arriveBy || ''}|${[...(args.prefs?.avoid || [])].sort().join(',')}`;
   }
   if (name === METRO_NEAR) { // 沒給站名＝最近的站（看 near，沒給 near＝現在位置）；有站名不沿用
     if (args.station) return null;
@@ -85,18 +85,18 @@ export function callKey(name, args = {}, here = null) {
 }
 
 /**
- * 模型給的 plan_trip prefs → 只留使用者說過的抵達時間與交通方式（規則從這句或前文抽到的；判斷層的 mode）。
+ * 模型給的 plan_trip prefs → 只留使用者說過的抵達時間、交通方式、不要的方式（規則從這句或前文抽到的；判斷層的 mode）。
  * 狀態也只採判斷層或規則的（沒有判斷層時模型自加的狀態也丟掉；有判斷層時 execTools 另以 judgedStates 為準）。
  */
 export function groundedPrefs(prefs = {}, it = {}, j = null) {
-  const { arriveBy: _arriveBy, mode: _mode, states: _states, ...rest } = prefs;
-  const said = { arriveBy: it.arriveBy || null, mode: it.mode || j?.mode || null, states: j?.states || it.states || [] };
-  return { ...rest, ...(said.arriveBy && { arriveBy: said.arriveBy }), ...(said.mode && { mode: said.mode }), ...(said.states.length && { states: said.states }) };
+  const { arriveBy: _arriveBy, mode: _mode, states: _states, avoid: _avoid, ...rest } = prefs;
+  const said = { arriveBy: it.arriveBy || null, mode: it.mode || j?.mode || null, states: j?.states || it.states || [], avoid: it.avoid || [] };
+  return { ...rest, ...(said.arriveBy && { arriveBy: said.arriveBy }), ...(said.mode && { mode: said.mode }), ...(said.avoid.length && { avoid: said.avoid }), ...(said.states.length && { states: said.states }) };
 }
 
 /** 行程的座標比對鍵（起訖點座標到小數 3 位＋方式＋抵達時間） */
 export const tripKey = (from, to, prefs = {}) => (Number.isFinite(from?.lat) && Number.isFinite(to?.lat)
-  ? `plan_trip@${from.lat.toFixed(3)},${from.lon.toFixed(3)}>${to.lat.toFixed(3)},${to.lon.toFixed(3)}|${prefs?.mode || ''}|${prefs?.arriveBy || ''}` : null);
+  ? `plan_trip@${from.lat.toFixed(3)},${from.lon.toFixed(3)}>${to.lat.toFixed(3)},${to.lon.toFixed(3)}|${prefs?.mode || ''}|${prefs?.arriveBy || ''}|${[...(prefs?.avoid || [])].sort().join(',')}` : null);
 
 /** 選公車後自動盯的到站結果，接在 plan_trip 結果後面給模型（卡片已顯示；請模型主動問要不要到站提醒） */
 export const followUpText = (f, walkMin) => (f ? `\n［內部備註，不要照抄這段文字］上車站即時到站已查好：${f.speak}${walkMin != null ? `從起點走到這個上車站約 ${walkMin} 分（不是全程步行時間）。` : ''}已用公車卡片即時顯示；回答時用自己的話說公車多久到上車站；若走到站牌的時間比車到還久，說這班可能趕不上；並問使用者要不要在卡片上按「到站前 3 分提醒我」。` : '');
@@ -174,7 +174,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode: provider.mode, model: provider.model, profile: profile.id, judge: judgeInfo(q0) }));
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
-  const heard = q0 && !req.clientToolResults?.length && judgeNote(q0);
+  const heard = !req.clientToolResults?.length && (contextNote(parseIntent(last, { history: req.messages.slice(0, -1) })) || (q0 && judgeNote(q0)));
   if (heard) emit(ev.agentNote(heard));
   const j = jc ? await jc.full(q0) : null;
   const more = !req.clientToolResults?.length && moreStatesNote(q0, j);

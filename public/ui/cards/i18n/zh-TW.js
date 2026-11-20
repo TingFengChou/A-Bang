@@ -150,6 +150,7 @@ export const MESSAGES = {
   'trip.leg.ridehail': '叫車',
   'trip.none': '這段路找不到可行的交通方式',
   'trip.allLate': '所有方式都趕不上指定時間，可以提早出發或放寬抵達時間',
+  'trip.allAvoided': '排除你說不要的方式後，沒有其他可行的方案；可以說「還是叫車好了」這類的話改回來',
 
   // ── scam-risk（防詐，M7-04；L2：不說「安全」） ──
   'scam.title': '可疑訊息檢查',
