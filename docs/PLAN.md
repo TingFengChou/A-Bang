@@ -29,7 +29,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | M7 反詐騙 agent | ✅（2026-11-19；規則庫待專家審核） | — | 規則庫 `reviewedBy` 待防詐專家審核 |
 | M11 行動 App | 🚧（M11-01 殼、M11-02 本機通知、M11-04 啟動畫面與隱私權政策、名稱 Abang、iOS 18 深色／著色圖示、返回手勢、原生定位、鍵盤、首次使用引導、離線顯示上次資料 ✅） | M11-03 原生相機掃 QR（iOS） | 給別人用需 HTTPS 測試環境（M6-06）與開發者帳號；iOS 實機需 Austin 的 iPhone |
 | M12 裝置端 AI（ADR-0014） | 🚧 第一階段 ✅（2026-11-21：Gemini Nano 實機、Apple Intelligence 模擬器、E8 設定開關 ✅） | E3 App 內分類器備援、E7 手機上轉述 | iOS 實機數據需 iPhone 15 Pro 以上並開啟 Apple Intelligence |
-| M13 Agent 聰明度（PM 情境 S1～S18） | 🚧（情境集全部有第一版、todo 0：位置當起點、接著改、新狀態、出門建議、明天天氣、末班車、捷運轉乘、高鐵台鐵最近站、英文與卡片英文、常用地點、多人同行／可能下雨／時間很緊、出門建議小卡、出門提醒多筆 ✅） | S5、S12c 其餘英文化、S11／S15、S16 藥局 | 真實末班車、捷運路網需 TDX 金鑰 |
+| M13 Agent 聰明度（PM 情境 S1～S18） | 🚧（情境集全部有第一版、todo 0：位置當起點、接著改、新狀態、出門建議、明天天氣、末班車、捷運轉乘、高鐵台鐵最近站、英文與卡片英文、常用地點、多人同行／可能下雨／時間很緊、出門建議小卡、出門提醒多筆 ✅） | S5、S12c 其餘英文化、S11／S15 | 真實末班車、捷運路網需 TDX 金鑰 |
 | M6 上線 | 🚧（M6-01／02／04／07 ✅、地端部署驗證 ✅） | 正式環境階段再做 | 2026-11-19 Austin 決定：雲端部署（M6-06）、Redis 快取（M6-03）、Lighthouse（M6-05）留到正式環境階段；先衝刺功能。M6-07 需在 repo 設定啟用 Pages |
 
 建議順序：M4、M5、M7、M10 已完成；M1（TDX 金鑰）申請中；M6 正式環境項目延後；目前衝刺 M11 行動 App、M12 裝置端 AI、M13 Agent 聰明度（PM 情境清單見 `test/scenarios/life.json`）；M8 中小企業概念驗證移到下一階段。
@@ -273,7 +273,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [ ] S1c 定位失敗分原因（拒絕／定位服務關閉／逾時）＋「到設定開啟」按鈕（專案內外掛加 openAppSettings，Android ACTION_APPLICATION_DETAILS_SETTINGS、iOS openSettingsURLString）；Android `prompt-with-rationale` 顯示為已拒絕
 - [ ] S1d 本機資料改存 Capacitor Preferences（iOS 可能清掉 WKWebView 的 localStorage；新依賴要 ADR，PrivacyInfo 加 UserDefaults CA92.1；收藏、我的發票同理）
 - [x] S16 高鐵／台鐵「最近車站」當起站（2026-11-21：`near`；「下一班高鐵到台中」「台鐵回高雄幾點有車」）
-- [ ] S16 藥局定位轉行政區
+- [x] S16 藥局定位轉行政區（「附近的藥局」先定位，真實用最近氣象站的縣市鄉鎮）（2026-11-21）
 - [x] S6 叫車人均（多人：4 人一輛、超過叫多輛）（2026-11-21）
 - [ ] S5 YouBike 空位預測（騎到時可能沒位）
 - [ ] S17 長途訂票（導訂票權限 ⛔）、S18 超出範圍與安全（拒答、轉介）擴充情境

@@ -1,6 +1,8 @@
 // 工具包：life（生活服務，M10）— 風險分級 L1。首頁格子、問阿幫、MCP 共用（ADR-0002）。
 import { z } from 'zod';
 import { defineTool, T } from './define.js';
+import { districtOf } from '../services/district.js';
+import { UserError } from '../util.js';
 
 const PACK = 'life';
 const DEMO = '【示範資料：開放資料的部分片段，非即時完整資料】';
@@ -44,15 +46,23 @@ export const earthquakeRecent = defineTool({
 export const pharmacySearch = defineTool({
   name: 'pharmacy_search',
   title: '健保藥局',
-  description: '依地區（例如「臺北市大安區」）或藥局名稱查健保特約藥局：電話、地址、今天的營業時段（上午／下午／晚上）。資料沒有座標，所以用地區搜尋；附地圖搜尋連結。',
+  description: '依地區（例如「臺北市大安區」）或藥局名稱查健保特約藥局：電話、地址、今天的營業時段（上午／下午／晚上）。資料沒有座標，所以用地區搜尋；沒說地區時可給座標（lat、lon），依位置判斷在哪一區。附地圖搜尋連結。',
   pack: PACK, tier: 'L1', card: 'pharmacy', source: '衛生福利部中央健康保險署（健保特約藥局）', demoNote: DEMO, modeOf: (svc) => svc.openDataMode,
-  input: { area: z.string().trim().max(20).optional().describe('縣市＋鄉鎮區，例如 臺北市大安區'), query: z.string().trim().max(20).optional().describe('藥局名稱或路名（選填）') },
+  input: { area: z.string().trim().max(20).optional().describe('縣市＋鄉鎮區，例如 臺北市大安區'), query: z.string().trim().max(20).optional().describe('藥局名稱或路名（選填）'), lat: T.lat.optional().describe('沒說地區時：所在位置緯度'), lon: T.lon.optional().describe('沒說地區時：所在位置經度') },
   speak: (d) => (d.pharmacies.length ? `找到 ${d.pharmacies.length} 家，今天（${d.weekday}）有營業時段的 ${d.pharmacies.filter((p) => p.openToday).length} 家。` : '沒有找到符合的健保藥局。'),
-  async run(svc, a) {
-    const data = await svc.life.pharmacies(a);
-    const text = data.pharmacies.length
+  async run(svc, input) {
+    const { lat, lon, ...a } = input;
+    let areaFrom = null;
+    if (!a.area && !a.query && lat != null && lon != null) { // 「附近的藥局」：先從位置判斷行政區（S16）
+      const d = await districtOf(svc, { lat, lon });
+      if (!d) throw new UserError('沒辦法從你的位置判斷在哪一區，請說縣市和鄉鎮區，例如「大安區的藥局」。');
+      a.area = d.area;
+      areaFrom = 'location';
+    }
+    const data = { ...(await svc.life.pharmacies(a)), ...(areaFrom && { areaFrom }) };
+    const text = (areaFrom ? `依你的位置查「${data.area}」。\n` : '') + (data.pharmacies.length
       ? data.pharmacies.map((p) => `- ${p.name}｜${p.phone ?? '—'}｜${p.address}｜今天：${p.today == null ? '未提供' : p.today.length ? p.today.join('、') : '休息'}`).join('\n')
-      : '沒有找到符合的健保藥局。';
+      : '沒有找到符合的健保藥局。');
     return { data, text };
   },
 });

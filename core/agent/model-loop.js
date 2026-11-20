@@ -40,7 +40,7 @@ export const FALLBACK = {
 export const MODEL_LIST_MAX = 6;
 /** 拒絕定位時先用預設起點，模型要照這句說明 */
 export const NO_LOCATION_NOTE = `［內部備註］沒拿到使用者的位置，起點先用「${DEFAULT_FROM}」；回答時先說「沒拿到你的位置，先從${DEFAULT_FROM}算」，並請他說從哪出發就重算。`;
-const NEARBY_TOOL = { weather: 'weather_now', aqi: 'aqi_nearby', youbike: 'youbike_nearby', nearby_bus: 'bus_nearby_stations', garbage: 'garbage_truck_nearby' };
+const NEARBY_TOOL = { weather: 'weather_now', aqi: 'aqi_nearby', youbike: 'youbike_nearby', nearby_bus: 'bus_nearby_stations', garbage: 'garbage_truck_nearby', pharmacy: 'pharmacy_search' };
 /** 捷運沒說站：用現在位置找最近的站（metro_live_board 的 near） */
 const METRO_NEAR = 'metro_live_board';
 /** 由程式先查的工具（見 runModel）：起訖點已知的行程、有現在位置時的附近類與捷運最近站 */
@@ -69,6 +69,7 @@ export function prefetchCalls(it, j, here) {
   if (!at) return [];
   if (it.places?.length) return [];
   const intent = NEARBY_TOOL[it.intent] ? it.intent : NEARBY_TOOL[j?.intent] ? j.intent : null;
+  if (intent === 'pharmacy' && it.area) return [{ name: 'pharmacy_search', args: { area: it.area } }]; // 說了哪一區：查那一區（不用位置）
   if (intent === 'weather' && it.later) return []; // 後天以後：沒有工具查得到，交給模型說明
   if (intent === 'weather' && it.tomorrow) return [{ name: 'weather_tomorrow', args: at }]; // 問明天：預報
   return intent ? [{ name: NEARBY_TOOL[intent], args: at }] : [];
@@ -209,7 +210,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const hereIsOrigin = rulesIt.intent === 'trip' && !rulesIt.from && !rulesIt.fromSaved;
   // 需要現在位置（沒說起點的行程、沒說地點的天氣／YouBike／附近公車／垃圾車／公車到站）→ 問模型之前就先請 App 定位，
   // 再把位置直接告訴模型（地端模型常常不呼叫 device_location，直接反問「你在哪裡」）
-  const NEARBY_INTENTS = ['weather', 'aqi', 'youbike', 'nearby_bus', 'garbage', 'bus_route'];
+  const NEARBY_INTENTS = ['weather', 'aqi', 'youbike', 'nearby_bus', 'garbage', 'bus_route', 'pharmacy'];
   const wantHere = canLocate && (hereIsOrigin || (!rulesIt.places?.length && (needsLocation(rulesIt) || NEARBY_INTENTS.includes(j?.intent) || j?.intent === 'trip')));
   const here = canLocate ? deviceLocation(req) : null;
   if (wantHere && here === undefined) {
