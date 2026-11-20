@@ -10,6 +10,7 @@ import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
 import agent from './pages/agent.js';
 import service from './pages/service.js';
+import { settings, privacy } from './pages/settings.js';
 import { busSearch, busRoute, busStation, favPage } from './pages/bus.js';
 
 const routes = [
@@ -21,6 +22,8 @@ const routes = [
   [/^\/rail\/(thsr|tra)$/, rail],
   [/^\/favs$/, favPage],
   [/^\/agent(?:\/([a-z][a-z0-9-]*))?$/, agent],
+  [/^\/settings$/, settings], // 設定與隱私（M11-04）
+  [/^\/privacy$/, privacy],
   [/^\/s\/([a-z][a-z0-9-]*)$/, service], // 生活服務（天氣、捷運、空品…） // #/agent（生活）、#/agent/antifraud（防詐，M7）
 ];
 const tabs = [['#/', '首頁', 'home'], ['#/nearby', '附近', 'pin'], ['#/bus', '公車', 'bus'], ['#/favs', '收藏', 'star']];

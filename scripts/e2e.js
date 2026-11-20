@@ -778,3 +778,24 @@ test('問阿幫：接著問時天氣空品收合同上；重來有分隔線', as
     await shot(page, 'phone-agent-same-reset');
   });
 });
+
+// 設定與隱私（M11-04、E8）：首頁連結進入、權限狀態、網頁版裝置端 AI 開關停用、隱私權政策頁、清除本機資料要確認
+test('設定與隱私：首頁進入、狀態、隱私權政策', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.click('a[href="#/settings"]');
+    await page.waitForSelector('#edge-status:not(:empty)');
+    await page.waitForFunction(() => document.querySelector('#edge-status').textContent !== '檢查中…');
+    assert.match(await page.textContent('#edge-status'), /網頁版不使用/);
+    assert.equal(await page.locator('#edge').isDisabled(), true);
+    assert.match(await page.textContent('#loc'), /已允許|還沒允許/);
+    page.once('dialog', (d) => d.dismiss()); // 取消：不清除
+    await page.evaluate(() => localStorage.setItem('invoices', '[]'));
+    await page.click('#clear');
+    assert.equal(await page.evaluate(() => localStorage.getItem('invoices')), '[]', '取消時不清除');
+    await shot(page, 'phone-settings');
+    await page.click('a[href="#/privacy"]');
+    await page.waitForSelector('.privacy h2');
+    assert.match(await page.textContent('.privacy'), /位置只用來回答這一題/);
+    await shot(page, 'phone-privacy');
+  });
+});

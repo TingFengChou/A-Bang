@@ -210,3 +210,18 @@ html.lite-motion .hero .mascot, html.lite-motion .hero .mascot-shadow { animatio
 html.kb-open .tabbar { display: none; }
 html.kb-open .chat-dock { bottom: 0; }
 html.kb-open .app { padding-bottom: 12px; }
+
+/* 設定與隱私（M11-04） */
+.settings h2, .privacy h2 { font-size: 17px; margin: 0 0 10px; }
+.privacy h3 { font-size: 15px; margin: 18px 0 6px; }
+.privacy p, .settings .note { line-height: 1.7; color: var(--text); }
+.settings .note { font-size: 14px; color: var(--muted); }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.switch-row span { display: flex; flex-direction: column; gap: 2px; }
+.switch-row small { color: var(--muted); }
+.switch-row input[type=checkbox] { width: 48px; height: 28px; accent-color: var(--brand); flex-shrink: 0; }
+.perm { display: flex; justify-content: space-between; gap: 12px; min-height: 36px; align-items: center; margin: 0; }
+.perm b { white-space: nowrap; }
+.settings ul.local { margin: 0 0 12px; padding-left: 20px; line-height: 1.8; }
+.btn.danger { background: var(--bad-soft); color: var(--bad); border: 1px solid var(--bad); min-height: 44px; }
+.settings, .privacy { margin-bottom: 14px; padding: 16px; }
