@@ -1,6 +1,6 @@
 {
   "appId": "tw.abang.app",
-  "appName": "阿幫",
+  "appName": "Abang",
   "webDir": "dist/app",
   "android": {
     "allowMixedContent": false
