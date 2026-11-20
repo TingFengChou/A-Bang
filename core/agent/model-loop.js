@@ -56,8 +56,12 @@ export function prefetchCalls(it, j, here) {
     return [{ name: 'plan_trip', args: { from, to: it.to, ...(Object.keys(prefs).length && { prefs }) }, ...(!it.from && !at && { note: NO_LOCATION_NOTE }) }];
   }
   if (it.intent === 'metro' && !it.station && (it.near || at)) return [{ name: METRO_NEAR, args: { near: it.near || { ...at, name: here.name }, ...(it.line && { line: it.line }) } }];
+  // 高鐵／台鐵沒說起站：句中地名或現在位置最近的車站（拿不到位置用預設地點，與示範模式一致）
+  if (it.intent === 'rail' && !it.fare && !it.from && it.to) {
+    const near = it.near || (at ? { ...at, name: here.name } : DEFAULT_FROM);
+    return [{ name: it.system === 'THSR' ? 'thsr_timetable' : 'tra_timetable', args: { to: it.to, near, ...(it.tomorrow && { date: nowTW(Date.now() + 864e5).date }) }, ...(!it.near && !at && { note: NO_LOCATION_NOTE }) }];
+  }
   if (!at) return [];
-  if (it.intent === 'rail' && !it.from && it.to) return [{ name: it.system === 'THSR' ? 'thsr_timetable' : 'tra_timetable', args: { to: it.to, near: { ...at, name: here.name }, ...(it.tomorrow && { date: nowTW(Date.now() + 864e5).date }) } }]; // 沒說起站：最近的車站
   if (it.intent === 'outing' && !it.places?.length) return [{ name: 'weather_now', args: at }, { name: 'aqi_nearby', args: at }]; // 出門建議：天氣＋空品（說了地點交給模型先找位置）
   if (it.places?.length) return [];
   const intent = NEARBY_TOOL[it.intent] ? it.intent : NEARBY_TOOL[j?.intent] ? j.intent : null;
@@ -222,7 +226,9 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
       // 查詢失敗也告訴模型原因（請照實轉述），模型才不會一直重查同一個工具
       const text = o.ok ? (pre[i].note ? `${pre[i].note}\n` : '') + modelText(o.result) + followUpText(o.followUp, o.followWalkMin) : `（${pre[i].name} 查詢失敗：${o.error}。請照實告訴使用者，不要再呼叫同一個工具。）`;
       preDone.set(callKey(pre[i].name, pre[i].args), text);
-      if (o.ok && /^(thsr|tra)_timetable$/.test(pre[i].name)) preDone.set(callKey(pre[i].name, { from: o.result.data.from, to: o.result.data.to, date: pre[i].args.date }), text); // 模型用實際起站再查時沿用
+      if (o.ok && /^(thsr|tra)_timetable$/.test(pre[i].name)) { // 模型用實際起站再查時沿用（有寫日期、沒寫日期都算）
+        for (const date of [undefined, o.result.data.date]) preDone.set(callKey(pre[i].name, { from: o.result.data.from, to: o.result.data.to, date }), text);
+      }
       if (o.ok && pre[i].name === 'plan_trip') preDone.set(tripKey(o.result.data.from, o.result.data.to, pre[i].args.prefs), text); // 地名寫法不同（台北松山機場／松山機場）也算同一趟
       return text;
     });

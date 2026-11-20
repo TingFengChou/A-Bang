@@ -909,7 +909,7 @@
               "thsr_timetable"
             ],
             "resultHas": [
-              "離你最近的高鐵站"
+              "就在"
             ]
           }
         }
@@ -926,7 +926,7 @@
               "tra_timetable"
             ],
             "resultHas": [
-              "離你最近的台鐵站"
+              "就在"
             ]
           }
         }
@@ -943,7 +943,7 @@
               "thsr_timetable"
             ],
             "resultHas": [
-              "離你最近的高鐵站"
+              "就在"
             ]
           }
         }
@@ -960,6 +960,89 @@
               "plan_trip"
             ],
             "fromHere": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "S16-12",
+      "title": "火車回家幾點：家不是車站",
+      "turns": [
+        {
+          "say": "火車回家幾點",
+          "expect": {
+            "toolsNot": [
+              "tra_timetable"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S16-13",
+      "title": "我在板橋，高鐵到台中：找板橋最近的站",
+      "turns": [
+        {
+          "say": "我在板橋，高鐵到台中幾點",
+          "expect": {
+            "tools": [
+              "thsr_timetable"
+            ],
+            "resultHas": [
+              "板橋"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S16-14",
+      "title": "從台北搭高鐵到台中幾點：時刻表",
+      "turns": [
+        {
+          "say": "從台北搭高鐵到台中幾點",
+          "expect": {
+            "tools": [
+              "thsr_timetable"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S16-15",
+      "title": "高鐵票價台北到左營：票價",
+      "turns": [
+        {
+          "say": "高鐵票價台北到左營",
+          "expect": {
+            "tools": [
+              "rail_fare"
+            ],
+            "toolsNot": [
+              "thsr_timetable"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S16-16",
+      "title": "拒絕定位時下一班高鐵到台中：從臺北車站附近的站",
+      "location": false,
+      "turns": [
+        {
+          "say": "下一班高鐵到台中",
+          "expect": {
+            "tools": [
+              "thsr_timetable"
+            ],
+            "resultHas": [
+              "臺北車站"
+            ]
           }
         }
       ]

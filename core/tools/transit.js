@@ -163,8 +163,15 @@ export function upcomingTrains(data, now = Date.now()) {
 /** 工具發言：今天 → 下一班；其他日期 → 最早一班 */
 export function railSpeak(d, now = Date.now()) {
   // 沒說起站、用最近的車站時先說是哪一站（用預設地點時不說「離你」）
-  const near = d.nearest ? `${d.nearest.from ? `離「${d.nearest.from}」最近` : '離你最近'}的${d.system === 'THSR' ? '高鐵' : '台鐵'}站是${d.from}（約 ${fmtM(d.nearest.distanceM)}）。` : '';
-  return near + railSpeakBody(d, now);
+  return nearestSay(d) + railSpeakBody(d, now);
+}
+/** 「離你最近的高鐵站是南港（約 4.4 公里）。」；300 公尺內「你就在台北站附近。」；最近的站沒直達車時說改從哪站 */
+export function nearestSay(d) {
+  if (!d.nearest) return '';
+  const label = d.system === 'THSR' ? '高鐵' : '台鐵';
+  const skip = d.skipped ? `${d.skipped}站沒有直達車，改從` : '';
+  if (d.nearest.distanceM <= 300 && !skip) return `${d.nearest.from ? `「${d.nearest.from}」` : '你'}就在${d.from}站附近。`;
+  return skip ? `${skip}${d.from}站（約 ${fmtM(d.nearest.distanceM)}）。` : `${d.nearest.from ? `離「${d.nearest.from}」最近` : '離你最近'}的${label}站是${d.from}（約 ${fmtM(d.nearest.distanceM)}）。`;
 }
 function railSpeakBody(d, now) {
   if (!d.trains.length) return '那天沒有直達班次。';
@@ -177,6 +184,10 @@ function railSpeakBody(d, now) {
 
 /** 給模型的文字：今天只列還沒開出的班次，並寫明現在時間與下一班，避免把第一班當成下一班 */
 export function railText(data, label, now = Date.now()) {
+  const pre = data.nearest ? `（使用者沒說起站，用最近的車站）${nearestSay(data)}\n` : '';
+  return pre + railTextBody(data, label, now);
+}
+function railTextBody(data, label, now) {
   const row = (t) => `- ${t.trainNo} 次${t.type ? `（${t.type}）` : ''}：${t.depart} → ${t.arrive}，${t.minutes} 分`;
   if (!data.trains.length) return `${label} ${data.from} → ${data.to}（${data.date}）沒有直達班次。`;
   const up = upcomingTrains(data, now);
@@ -195,21 +206,38 @@ const RAIL_INPUT = {
 };
 const RAIL_NEAR_MAX_M = 30_000;
 
-/** 沒說起站時：最近的高鐵／台鐵車站（30 公里內；車站沒有座標或太遠時請使用者說起站） */
-async function nearestRail(svc, system, a) {
+/**
+ * 沒說起站時：最近的高鐵／台鐵車站候選（30 公里內最近 3 站，排除迄站本身；車站沒有座標或太遠時請使用者說起站）。
+ * @returns {Promise<Array<{ station: string, distanceM: number, from?: string }>|null>} 有起站時回 null
+ */
+async function railCandidates(svc, system, a) {
   if (a.from) return null;
   const label = system === 'THSR' ? '高鐵' : '台鐵';
   if (!a.near) throw new UserError(`請告訴我從哪一個${label}站出發，例如「${system === 'THSR' ? '台北到台中' : '臺北到花蓮'}」`);
   const pt = await resolvePoint(svc.places, a.near);
   const list = system === 'THSR' ? await svc.rail.thsrStations() : await svc.rail.traStations();
-  let best = null;
-  for (const s of list) {
-    if (!Number.isFinite(s.lat)) continue;
-    const m = Math.round(distanceM(pt.lat, pt.lon, s.lat, s.lon));
-    if (!best || m < best.distanceM) best = { station: s.name, distanceM: m, ...(typeof a.near === 'string' && { from: a.near }) };
+  const to = normName(a.to).replace(/站$/, '');
+  const near = list.filter((s) => Number.isFinite(s.lat) && !normName(s.name).includes(to) && !to.includes(normName(s.name)))
+    .map((s) => ({ station: s.name, distanceM: Math.round(distanceM(pt.lat, pt.lon, s.lat, s.lon)), ...(typeof a.near === 'string' && { from: a.near }) }))
+    .filter((x) => x.distanceM <= RAIL_NEAR_MAX_M).sort((x, y) => x.distanceM - y.distanceM).slice(0, 3);
+  if (!near.length) throw new UserError(`你附近 ${RAIL_NEAR_MAX_M / 1000} 公里內找不到${label}站；請告訴我從哪一站出發${system === 'THSR' ? '（花東、宜蘭沒有高鐵，要改查台鐵嗎？）' : ''}`);
+  return near;
+}
+
+/** 時刻表：有起站直接查；沒有就從最近的站依序查，0 班（支線小站沒直達）換下一站 */
+async function railTimetable(svc, system, a) {
+  const get = (from) => (system === 'THSR' ? svc.rail.thsrTimetable({ ...a, from }) : svc.rail.traTimetable({ ...a, from }));
+  const cands = await railCandidates(svc, system, a);
+  if (!cands) return get(a.from);
+  let first = null;
+  for (const c of cands) {
+    const r = await get(c.station).catch(() => null);
+    if (!r) continue;
+    first ||= { r, c };
+    if (r.trains.length) return { ...r, nearest: c, ...(c !== cands[0] && { skipped: cands[0].station }) };
   }
-  if (!best || best.distanceM > RAIL_NEAR_MAX_M) throw new UserError(`你附近 30 公里內找不到${label}站；請告訴我從哪一站出發`);
-  return best;
+  if (first) return { ...first.r, nearest: first.c };
+  throw new UserError('附近的車站查不到班次；請告訴我從哪一站出發');
 }
 
 export const thsrTimetable = defineTool({
@@ -220,8 +248,7 @@ export const thsrTimetable = defineTool({
   input: RAIL_INPUT,
   speak: (d) => railSpeak(d),
   async run(svc, a) {
-    const near = await nearestRail(svc, 'THSR', a);
-    const data = { system: 'THSR', ...(await svc.rail.thsrTimetable({ ...a, from: near?.station ?? a.from })), ...(near && { nearest: near }) }; // 卡片 timetable 依 system 決定標題與訂票
+    const data = { system: 'THSR', ...(await railTimetable(svc, 'THSR', a)) }; // 卡片 timetable 依 system 決定標題與訂票
     return { data, text: railText(data, '高鐵') };
   },
 });
@@ -234,8 +261,7 @@ export const traTimetable = defineTool({
   input: RAIL_INPUT,
   speak: (d) => railSpeak(d),
   async run(svc, a) {
-    const near = await nearestRail(svc, 'TRA', a);
-    const data = { system: 'TRA', ...(await svc.rail.traTimetable({ ...a, from: near?.station ?? a.from })), ...(near && { nearest: near }) };
+    const data = { system: 'TRA', ...(await railTimetable(svc, 'TRA', a)) };
     return { data, text: railText(data, '台鐵') };
   },
 });
