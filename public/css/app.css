@@ -175,3 +175,29 @@ main { padding: 4px 16px 16px; }
 .bus-focus > .ab-token { grid-row: span 2; }
 .bus-focus > .ok, .bus-focus > .row { grid-column: 1 / -1; }
 @media (prefers-reduced-motion: reduce) { .timeline > div.me::after { animation: none; } }
+
+/* 按壓手感（設計 review 建議 1）：壓下變矮、放開回彈；精簡模式只換顏色 */
+.btn, .tile, .chip, .icon-btn, .nav a { transition: transform .18s cubic-bezier(.3,1.6,.5,1), box-shadow .18s ease; }
+.btn:active, .tile:active, .chip:active, .icon-btn:active, .nav a:active { transform: translateY(2px) scale(.97); transition-duration: .08s; }
+html.lite-motion .btn:active, html.lite-motion .tile:active, html.lite-motion .chip:active { transform: none; }
+
+/* 首頁格子：立體代幣圖示（各服務代表色）＋依序浮現（建議 3） */
+.tile .ic.ab-token { --s: 44px; background: var(--c); background: linear-gradient(150deg, color-mix(in srgb, var(--c) 60%, #fff) 0%, var(--c) 55%, color-mix(in srgb, var(--c) 78%, #000) 100%); color: #fff; }
+.tile .ic.ab-token svg { width: 24px; height: 24px; }
+.grid .tile { animation: tile-in .32s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 40ms); }
+@keyframes tile-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.tile:hover .ic.ab-token { transform: perspective(240px) rotateX(14deg) rotateY(-10deg) translateY(-2px); }
+.tile .tag.demo { font-size: 9.5px; background: transparent; border-color: transparent; color: var(--muted); opacity: .8; }
+
+/* 首頁吉祥物：輕輕浮動，聚焦輸入框時換成思考 */
+.hero .mascot { animation: mascot-float 4s ease-in-out infinite; transition: opacity .2s ease; }
+@keyframes mascot-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+.hero .mascot.alt { opacity: 0; }
+.hero:focus-within .mascot.main { opacity: 0; } .hero:focus-within .mascot.alt { opacity: 1; }
+
+/* 捲動進場（建議 9）：支援 view timeline 的瀏覽器，卡片捲進畫面時立體浮現 */
+@supports (animation-timeline: view()) {
+  html:not(.lite-motion) .scroll-in { animation: scroll-in linear both; animation-timeline: view(); animation-range: entry 0% entry 45%; }
+  @keyframes scroll-in { from { opacity: 0; transform: perspective(900px) translateY(18px) rotateX(8deg); } to { opacity: 1; transform: none; } }
+}
+@media (prefers-reduced-motion: reduce) { .grid .tile, .hero .mascot, .scroll-in { animation: none !important; } .btn:active, .tile:active, .chip:active { transform: none; } }

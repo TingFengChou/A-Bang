@@ -14,7 +14,7 @@ export default {
     const examples = ['從西門町到台北 101 怎麼去？', '307 到哪了？', '台北車站附近還有 YouBike 嗎？'];
     main.innerHTML = `
       <section class="hero">
-        <img class="mascot" src="/brand/abang-default.svg" alt="">
+        <img class="mascot main" src="/brand/abang-default.svg" alt=""><img class="mascot alt" src="/brand/abang-think.svg" alt="">
         <small>${greet}！我是阿幫，今天要去哪裡？</small>
         <div class="big">${offline ? '即時公車・YouBike・高鐵台鐵' : '想去哪裡，直接問我'}</div>
         <form class="search" id="q">${icons.search}<input name="q" maxlength="500" placeholder="${offline ? '搜尋公車路線，例如 307' : '例如：從西門町到台北 101 怎麼去？'}" enterkeyhint="${offline ? 'search' : 'send'}" autocomplete="off" aria-label="${offline ? '搜尋公車路線' : '問阿幫'}"></form>
@@ -23,7 +23,7 @@ export default {
       <div id="favs"></div>
       ${groups.map((g) => `
         <div class="section-title"><h2>${esc(g.name)}</h2><span>${esc(g.note)}</span></div>
-        <div class="grid">${miniApps.filter((a) => a.group === g.id).map(tile).join('')}</div>`).join('')}
+        <div class="grid">${miniApps.filter((a) => a.group === g.id).map((a, i) => tile(a, i)).join('')}</div>`).join('')}
       <p class="updated" style="margin-top:24px">資料來源：交通部 TDX、政府資料開放平臺</p>`;
 
     main.querySelector('#q').addEventListener('submit', (e) => {
@@ -52,11 +52,14 @@ function markDemoTiles(main) {
   }
 }
 
-function tile(a) {
-  const inner = `<span class="ic">${icons[a.icon]}</span>${esc(a.name)}`;
+// 格子代表色（立體代幣）：交通依方式、生活與政府服務依主題
+const TILE_COLOR = { nearby: '#1d4ed8', bus: '#0f766e', bike: '#d97706', thsr: '#c2410c', tra: '#1d4ed8', metro: '#0e7490', weather: '#0284c7', aqi: '#0891b2', quake: '#b45309',
+  pharmacy: '#15803d', garbage: '#475569', antifraud: '#b91c1c', fuel: '#9a3412', invoice: '#7c3aed', stock: '#be123c' };
+function tile(a, i = 0) {
+  const inner = `<span class="ic ab-token" style="--c:${TILE_COLOR[a.id] || '#0f766e'}">${icons[a.icon]}</span>${esc(a.name)}`;
   return a.status === 'soon'
     ? `<button class="tile soon" data-name="${esc(a.name)}"><span class="tag">規劃中</span>${inner}</button>`
-    : `<a class="tile" href="${a.route}" data-source="${esc(a.source)}">${inner}</a>`;
+    : `<a class="tile" style="--i:${i}" href="${a.route}" data-source="${esc(a.source)}">${inner}</a>`;
 }
 
 async function renderFavs(el) {

@@ -2,6 +2,8 @@
 // 卡片用 public/ui/cards（renderCard＋web host）。不加假延遲：只在討論串兩則訊息之間保留最短 300ms 避免閃爍（UX.md §4）。
 import { runAgent } from '../agent/client.js';
 import { icons } from '../icons.js';
+import { motion } from '../../ui/cards/motion.js';
+import { token } from '../../ui/cards/mode-icons.js';
 import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { renderDecision, lite } from '../../ui/agent/decision-graph.js';
@@ -44,12 +46,46 @@ function withMentions(text) {
   return out;
 }
 
-function avatar(role) {
+/**
+ * 交棒（設計 review 建議 10）：決策圖播完後，勝出方案的代幣沿弧線飛進行程卡的建議方案，目標代幣彈一下。
+ * 目標不在畫面內、沒有 GSAP 或精簡模式時不飛（純裝飾，不影響內容）。
+ */
+function handoff(box, results, decision) {
+  const g = motion();
+  if (!g || !globalThis.MotionPathPlugin) return;
+  const from = box.querySelector('.dg-best');
+  const to = results.querySelector('[data-card="trip"] .ab-option.best .ab-token');
+  if (!from || !to) return;
+  const a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
+  if (b.top > innerHeight || b.bottom < 0 || a.bottom < 0 || a.top > innerHeight) return;
+  const role = decision.options?.find((o) => o.id === decision.best)?.role;
+  const fly = token(role, { size: 'md' });
+  const x0 = a.left + 6, y0 = a.top + a.height / 2 - 15;
+  fly.style.cssText = `position:fixed;left:${x0}px;top:${y0}px;z-index:50;pointer-events:none`;
+  document.body.append(fly);
+  const dx = b.left + b.width / 2 - (x0 + 15), dy = b.top + b.height / 2 - (y0 + 15);
+  g.timeline()
+    .to(fly, { duration: 0.6, ease: 'power2.inOut', scale: 1.3, motionPath: { path: [{ x: 0, y: 0 }, { x: dx * 0.5, y: dy * 0.5 - 70 }, { x: dx, y: dy }], curviness: 1.25 } })
+    .to(fly, { opacity: 0, duration: 0.15 })
+    .fromTo(to, { scale: 1.3 }, { scale: 1, duration: 0.45, ease: 'back.out(3)', clearProps: 'transform' }, '<')
+    .add(() => fly.remove());
+}
+
+/** 打字中：三個跳動的點（螢幕閱讀器念「輸入中」） */
+function typing(label = '輸入中') {
+  const d = el('span', 'dots');
+  d.append(el('i'), el('i'), el('i'));
+  const sr = el('span', 'sr-only', `${label}…`);
+  return [d, sr];
+}
+
+/** 頭像；阿幫有表情：think（查詢中，輕輕擺動）、happy（找到答案，跳一下） */
+function avatar(role, mood = 'think') {
   const a = el('span', `avatar r-${ROLE_CLASS[role] || 'brand'}`);
   a.setAttribute('role', 'img');
   a.setAttribute('aria-label', role);
   a.title = role;
-  if (role === '阿幫') { a.classList.add('mascot'); a.append(Object.assign(document.createElement('img'), { src: '/brand/abang-think.svg', alt: '' })); }
+  if (role === '阿幫') { a.classList.add('mascot', mood); a.append(Object.assign(document.createElement('img'), { src: mood === 'happy' ? '/brand/abang-happy.svg' : '/brand/abang-think.svg', alt: '' })); }
   else if (icons[ROLE_ICON[role]]) a.innerHTML = icons[ROLE_ICON[role]]; // 圖示是本機常數 SVG，不含外部資料
   else a.textContent = role.slice(0, 2);
   return a;
@@ -170,11 +206,11 @@ export default {
             thread.append(el('div', 'bubble agent', avatar('阿幫'), el('div', 'say', withMentions(e.text))));
             break;
           case 'client_tool_call':
-            thread.append(el('div', 'bubble tool', avatar('定位'), el('div', 'say typing', '定位中…')));
+            thread.append(el('div', 'bubble tool', avatar('定位'), el('div', 'say typing', ...typing('定位中'))));
             break;
           case 'tool_start': {
             if (!roles.includes(e.role)) roles.push(e.role);
-            const b = el('div', 'bubble tool', avatar(e.role), el('div', 'say typing', '輸入中…'), el('small', 'src', `${e.name} · ${e.server}`));
+            const b = el('div', 'bubble tool', avatar(e.role), el('div', 'say typing', ...typing()), el('small', 'src', `${e.name} · ${e.server}`));
             bubbles.set(e.id, b);
             thread.append(b);
             break;
@@ -191,7 +227,7 @@ export default {
               if (e.ok && e.mode === 'demo') b.querySelector('.src').append(' · ', el('span', 'src-demo', '示範資料'));
             }
             if (e.ok && e.card) {
-              const slot = el('div', 'card-slot enter3d');
+              const slot = el('div', `card-slot ${results.children.length >= 2 ? 'scroll-in' : 'enter3d'}`); // 前兩張立體進場，後面的捲到才浮現
               results.append(slot);
               cards.push(renderCard(slot, { card: e.card, v: e.v, mode: e.mode, speak: e.speak, data: e.data, tool: e.tool, args: e.args }, host));
             }
@@ -213,12 +249,12 @@ export default {
             if (reducedMotion()) box.classList.add('static');
             results.prepend(box);
             const mod = await decideModule;
-            if (mod) renderDecision(box, e, { sources: roles.filter((r) => r !== '行程'), decide: mod.decide, CRITERIA: mod.CRITERIA });
+            if (mod) renderDecision(box, e, { sources: roles.filter((r) => r !== '行程'), decide: mod.decide, CRITERIA: mod.CRITERIA }).played.then(() => handoff(box, results, e));
             else box.append(el('p', 'dg-why', e.reason)); // 載不到引擎時至少顯示理由
             break;
           }
           case 'text':
-            if (!textEl) { textEl = el('div', 'bubble agent final', avatar('阿幫'), el('div', 'say')); turn.append(textEl); }
+            if (!textEl) { textEl = el('div', 'bubble agent final', avatar('阿幫', 'happy'), el('div', 'say')); turn.append(textEl); }
             view.text += e.delta;
             textEl.querySelector('.say').textContent = view.text;
             break;

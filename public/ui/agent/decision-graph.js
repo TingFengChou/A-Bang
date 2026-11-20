@@ -3,6 +3,7 @@
 // 不用 innerHTML（資料來自上游）；動畫只用 CSS，prefers-reduced-motion 時直接顯示最終狀態。
 
 import { svgIcon, modeOf, MODE_COLOR } from '../cards/mode-icons.js';
+import { motion } from '../cards/motion.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const STATE_LABEL = { rush: '趕時間', traffic: '塞車中', rain: '下雨', luggage: '帶行李', budget: '想省錢', lessWalk: '少走路', badAir: '空品不佳' };
@@ -66,7 +67,53 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA }) {
     root.dataset.run = String(run);
     root.dataset.best = r.best?.id ?? '';
     if (before.size && !lite()) flip(before);
+    if (run > 1) root.querySelectorAll('.dg-edge.win').forEach((e) => e.classList.add('flow'));
   };
+
+  /**
+   * 決策出爐的編排（GSAP 時間軸，約 2.4 秒）：資料亮起 → 連線畫出 → 狀態彈出 → 方案排開 → 落選變淡 → 建議浮起 → 光點沿勝出路徑跑。
+   * 沒有 GSAP、reduced motion 或低階裝置時用原本的 CSS 淡入（或直接顯示）。回傳播完的 Promise（給「交棒」動畫）。
+   */
+  function intro() {
+    const g = motion();
+    if (!g) return new Promise((r) => setTimeout(r, root.classList.contains('static') ? 0 : 2400));
+    root.classList.add('gsap');
+    const q = (sel) => [...root.querySelectorAll(sel)];
+    const edges = q('.dg-edge');
+    for (const e of edges) { e.setAttribute('pathLength', '1'); e.style.strokeDasharray = '1'; e.style.strokeDashoffset = '1'; }
+    const [e1, e2, e3, e4, e5] = [1, 2, 3, 4, 5].map((n) => q(`.dg-edge.step${n}`));
+    const winEdge = q('.dg-edge.step3.win')[0], bestEdge = e5[0];
+    const svgEl = root.querySelector('.dg-svg');
+    const dot = svg('circle', { r: 4.5, class: 'dg-dot', cx: 0, cy: 0, opacity: 0 });
+    svgEl?.append(dot);
+    const tl = g.timeline({ defaults: { ease: 'power2.out' } });
+    tl.from(q('.dg-src'), { opacity: 0, x: '-=10', duration: 0.3, stagger: 0.08 })
+      .to(e1, { strokeDashoffset: 0, duration: 0.4, stagger: 0.05 }, '-=0.1')
+      .from(q('.dg-state, .dg-hub'), { opacity: 0, scale: 0.6, transformOrigin: '50% 50%', duration: 0.35, ease: 'back.out(2)', stagger: 0.06 })
+      .to(e2, { strokeDashoffset: 0, duration: 0.3 }, '<')
+      .to([...e3, ...e4], { strokeDashoffset: 0, duration: 0.45, stagger: 0.06 })
+      .from(q('.dg-opt'), { opacity: 0, x: '-=14', duration: 0.35, stagger: 0.07 }, '<0.1')
+      .to(q('.dg-opt:not(.win), .dg-edge.step3:not(.win), .dg-edge.step4'), { opacity: 0.4, duration: 0.3 }, '+=0.1')
+      .to(e5, { strokeDashoffset: 0, duration: 0.35 })
+      .from(q('.dg-best'), { opacity: 0, scale: 0.7, transformOrigin: '50% 50%', duration: 0.45, ease: 'back.out(2.2)' }, '<0.1')
+      .from(q('.dg-why'), { opacity: 0, y: 6, duration: 0.3 }, '<');
+    // 光點：從阿幫沿勝出連線跑到方案，再跑到建議（MotionPathPlugin；沒有外掛就略過）
+    if (globalThis.MotionPathPlugin && winEdge && bestEdge) {
+      tl.set(dot, { opacity: 1 })
+        .to(dot, { duration: 0.6, ease: 'power1.inOut', motionPath: { path: winEdge, align: winEdge, alignOrigin: [0.5, 0.5] } })
+        .to(dot, { duration: 0.35, ease: 'power1.in', motionPath: { path: bestEdge, align: bestEdge, alignOrigin: [0.5, 0.5] } })
+        .to(dot, { opacity: 0, scale: 2.4, transformOrigin: '50% 50%', duration: 0.25 })
+        .fromTo(q('.dg-best'), { scale: 1 }, { scale: 1.06, transformOrigin: '50% 50%', duration: 0.18, yoyo: true, repeat: 1, ease: 'power1.inOut' }, '<');
+    }
+    tl.add(() => {
+      for (const e of edges) { e.style.strokeDasharray = ''; e.style.strokeDashoffset = ''; e.removeAttribute('pathLength'); }
+      q('.dg-edge.win').forEach((e) => e.classList.add('flow'));
+      dot.remove();
+    });
+    // 保險：畫面在背景（requestAnimationFrame 暫停）或裝置太慢時，4 秒後直接跳到最終狀態，內容不會一直藏著
+    const guard = setTimeout(() => tl.progress(1), 4000);
+    return tl.then(() => clearTimeout(guard));
+  }
 
   /** 排名翻轉：位置改變的方案從舊位置滑入並輕微翻轉（最多 3 個同時，UX.md §9） */
   function flip(before) {
@@ -190,5 +237,6 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA }) {
   }
 
   draw();
-  return { states: () => states, redraw: draw };
+  const played = intro();
+  return { states: () => states, redraw: draw, played };
 }

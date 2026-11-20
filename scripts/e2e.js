@@ -263,6 +263,15 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       await page.waitForSelector('.decision .dg-svg', { timeout: 20000 });
       assert.equal(await page.evaluate(() => document.documentElement.classList.contains('lite-motion')), false);
       assert.match(await page.locator('.results .enter3d').first().evaluate((n) => getComputedStyle(n).animationName), /ab-enter3d/);
+      // 決策出爐（GSAP 時間軸）：中途截圖檢查編排；播完後節點都看得到、勝出路徑開始流動
+      assert.equal(await page.evaluate(() => typeof window.gsap), 'object', 'GSAP 有載入');
+      assert.ok(await page.locator('.decision.gsap').count(), '決策圖由 GSAP 編排');
+      await page.waitForTimeout(900);
+      await shot(page, `${dname}-motion-decision-mid`);
+      await page.waitForFunction(() => document.querySelector('.decision .dg-edge.win.flow'), null, { timeout: 6000 });
+      await shot(page, `${dname}-motion-decision-done`);
+      assert.ok(await page.locator('.decision .dg-node').evaluateAll((ns) => ns.every((n) => Number(getComputedStyle(n).opacity) > 0.3)), '播完後節點都看得到');
+      assert.equal(await page.locator('.decision .dg-dot').count(), 0, '光點播完就移除');
       await page.locator('.decision .dg-chip.add', { hasText: '想省錢' }).click();
       assert.equal(await page.locator('.decision').evaluate((n) => n.classList.contains('reranked')), true);
     } finally {

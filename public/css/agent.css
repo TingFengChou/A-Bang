@@ -108,3 +108,29 @@ html.lite-motion .enter3d { animation: ab-fade .3s ease-out both; }
 
 /* 工具回報用的是示範資料時標示（真實資料不另標，卡片上有「真實資料」） */
 .src-demo { color: var(--muted); background: var(--off-soft); border-radius: 6px; padding: 0 5px; }
+
+/* 討論串生命感（設計 review 建議 2、5）：泡泡進場、頭像彈出、三點打字、吉祥物思考擺動與找到答案跳一下 */
+.bubble { animation: bub-in .22s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes bub-in { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
+.bubble > .avatar { animation: av-pop .26s cubic-bezier(.3,1.6,.5,1) both; }
+@keyframes av-pop { from { transform: scale(.6); } 70% { transform: scale(1.08); } to { transform: scale(1); } }
+.say.typing .dots { display: inline-flex; gap: 4px; padding: 6px 2px; }
+.say.typing .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); opacity: .35; animation: dot 1s infinite; }
+.say.typing .dots i:nth-child(2) { animation-delay: .15s; } .say.typing .dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes dot { 0%, 60%, 100% { opacity: .3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
+.avatar.mascot.think img { transform-origin: 50% 100%; animation: mascot-sway 2s ease-in-out infinite; }
+@keyframes mascot-sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+.avatar.mascot.happy img { animation: mascot-hop .45s cubic-bezier(.3,1.6,.5,1) .1s both; }
+@keyframes mascot-hop { 0% { transform: translateY(0) scale(1); } 45% { transform: translateY(-6px) scale(1.05); } 100% { transform: none; } }
+html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .avatar.mascot img { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .bubble, .bubble > .avatar, .say.typing .dots i, .avatar.mascot img { animation: none !important; } }
+
+/* 決策圖由 GSAP 編排時（.gsap）：關掉 CSS 的分步淡入，改由時間軸控制；勝出路徑播完後才開始虛線流動 */
+.decision.gsap .dg-node, .decision.gsap .dg-edge, .decision.gsap .dg-why, .decision.gsap .dg-best > rect, .decision.gsap .dg-best .dg-ic { animation: none !important; }
+.decision.gsap .dg-edge.win:not(.flow) { stroke-dasharray: none; }
+.decision.gsap .dg-edge.win.flow { stroke-dasharray: 7 5 !important; animation: dg-flow 1.1s linear infinite !important; }
+.decision.gsap .dg-best.win > rect { animation: dg-glow 2.2s ease-in-out .3s infinite !important; }
+.decision.gsap .dg-svg:has(.win) .dg-edge.step3:not(.win), .decision.gsap .dg-svg:has(.win) .dg-edge.step4, .decision.gsap .dg-opt:not(.win) { opacity: .4; }
+.dg-dot { fill: #5eead4; stroke: #fff; stroke-width: 2; filter: drop-shadow(0 0 6px rgba(20,184,166,.9)); }
+/* 決策圖已經講了理由：同一輪的行程卡不再重複一次（設計 review：結論出現三次） */
+.results:has(.decision) [data-card="trip"] .ab-reason { display: none; }
