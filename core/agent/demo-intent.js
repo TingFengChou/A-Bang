@@ -45,7 +45,7 @@ export function modeOf(s) {
   for (const [mode, re] of MODE_WORDS) {
     const g = new RegExp(re.source, `${re.flags}g`);
     for (let m = g.exec(s); m; m = g.exec(s)) {
-      if (/(不要|不想|別|不用|不坐|不搭)\s*(坐|搭|改)?\s*$/.test(s.slice(Math.max(0, m.index - 5), m.index))) continue;
+      if (NOT_MODE.test(s.slice(Math.max(0, m.index - 5), m.index))) continue; // 「不想騎單車」「不要叫車」不是要
       if (!best || m.index > best.i) best = { mode, i: m.index };
     }
   }
@@ -54,10 +54,11 @@ export function modeOf(s) {
 /** 前面最近一次的行程（起訖點、狀態），給「改坐公車」這種接著改的句子沿用 */
 function lastTrip(history) {
   // 逐輪往後疊：第 1 輪行程、第 2 輪「改坐公車」、第 3 輪「我趕時間」→ 起訖點、交通方式、狀態都沿用（PR #30 審查）
+  // 單趟累積：每一則把目前累積的行程（prev）交給 parseIntent，不再遞迴重算前文（PR #35 審查：原本是指數成長）
   let cur = null;
   history.forEach((m, i) => {
     if (m.role !== 'user') return;
-    const it = parseIntent(String(m.content), { history: history.slice(0, i) });
+    const it = parseIntent(String(m.content), { history: history.slice(0, i), prev: cur });
     if (it.reset) cur = null; // 「重來」：之前的行程不再沿用
     else if (it.intent === 'trip') cur = it;
   });
@@ -66,11 +67,19 @@ function lastTrip(history) {
 // 改交通方式要有明確的改換字眼（「坐」「搭」「騎」單獨出現不算：「搭 307 到哪了」是查公車）
 const CHANGE_WORD = /改|換|那.*呢|還是|不要|不坐|不搭/;
 /** 「重來」：清掉前面的行程（之後只說目的地就從現在位置算） */
-const RESET = /^(?:重來|重新開始|從頭開始|從頭來|清除|清掉|算了)[。！!.]?$/;
+const RESET = /^(?:重來|重新開始|從頭開始|從頭來|從頭|清除|清掉|算了)(?:吧|啦)?[。！!.]?$/;
 /** 接著改目的地（「改去松山機場」「那去松山機場呢」「換到西門町」） */
 const CHANGE_TO = /(?:改|換|那|還是)\s*(?:成)?\s*(?:去|到|往)/;
 /** 只說起點（「我其實從板橋出發」「改從板橋」）：地標庫沒有也採用 */
-const FROM_START = /(?:從|改從)\s*([^\s，,。、到去往]{2,12}?)\s*(?:出發|開始|過去)?\s*[。！!]?$/;
+const FROM_START = /(?:^|[其改])?(從)\s*([^\s，,。、到去往]{2,12}?)\s*(出發|過去)?\s*[。！!]?$/;
+/** 不是地名的「從…」（從明天、從頭、從來、從現在、從這裡） */
+const NOT_PLACE = /^(?:明天|今天|昨天|頭|來|現在|這裡|這邊|那裡|剛剛|以前|小)|開始|不坐|不搭|算/;
+/** 地標庫沒有的起點：句尾有「出發」或「改從／其實從」才採用 */
+function fromStartOf(s) {
+  const m = FROM_START.exec(s);
+  if (!m || NOT_PLACE.test(m[2])) return null;
+  return m[3] || /(?:改|其實|我是|是)從/.test(s) ? m[2] : null;
+}
 /** 阿幫上一輪在問起點（「你從哪裡出發？」）→ 使用者只回地名＝起點 */
 const ASKED_ORIGIN = /從哪(裡|兒)?出發|你(現在)?在哪|起點是/;
 /** 句中明講的起點（「從桃園高鐵站到台北101」）：地標庫沒有也要用它，不能被手機定位蓋掉 */
@@ -141,7 +150,7 @@ export function zhNum(t) {
   const D = { 零: 0, 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
   const m = /^([一二三四五]?)(十?)([一二兩三四五六七八九]?)$/.exec(t);
   if (!m || !t) return NaN;
-  if (!m[2]) return m[1] ? NaN : D[m[3]] ?? NaN; // 「九」
+  if (!m[2]) return m[1] && m[3] ? NaN : D[m[1] || m[3]] ?? NaN; // 「三」「九」
   return (m[1] ? D[m[1]] : 1) * 10 + (m[3] ? D[m[3]] : 0); // 「十」「十二」「二十五」
 }
 
@@ -207,22 +216,27 @@ export function parseIntent(text, ctx) {
 
   // 接著上一輪（先於其他判斷：「改騎 YouBike」「改坐高鐵」也是改行程）改條件（「改坐公車」「那叫車呢」「我趕時間」）：沿用上一輪的起訖點與狀態重算
   const mode = modeOf(s);
-  const otherQuery = RAIL_WORD.test(s) || BUS_ROUTE.test(s) || WEATHER_WORD.test(s) || lifeIntent(s); // 查高鐵、公車路線、天氣等不是改行程
+  const sPos = s.replace(/(?:不要|不想|別|不用|不坐|不搭)\s*(?:坐|搭|騎|叫)?\s*(?:高鐵|台鐵|臺鐵|火車|客運)/g, ''); // 「不要坐高鐵」是改行程（排除），不是查高鐵
+  const otherQuery = RAIL_WORD.test(sPos) || BUS_ROUTE.test(s) || WEATHER_WORD.test(s) || lifeIntent(s); // 查高鐵、公車路線、天氣等不是改行程
   if (RESET.test(s)) return { ...base, intent: 'unknown', reset: true };
-  const before = history.length && !otherQuery ? lastTrip(history) : null; // 結構化上下文（A3）：前面累積的行程條件
+  let tripMemo;
+  const tripBefore = () => (tripMemo !== undefined ? tripMemo : (tripMemo = ctx && 'prev' in ctx ? ctx.prev : lastTrip(history)));
+  const before = history.length && !otherQuery ? tripBefore() : null; // 結構化上下文（A3）：前面累積的行程條件
   // 接著改起點或目的地（只有一個地名＋提示詞；起點可以是地標庫沒有的地名，例「板橋」）：其他條件沿用
   if (before) {
     const keep = { ...before, states: [...new Set([...before.states, ...states])], ...(arriveBy && { arriveBy }), intent: 'trip', followUp: true };
-    const fromText = FROM_START.exec(s)?.[1];
-    if (!CHANGE_TO.test(s) && (fromText || (places.length === 1 && /從|出發/.test(s)))) {
+    // 「從這裡出發」「從我現在的位置」→ 起點改回現在位置
+    if (/從\s*(?:這裡|這邊|我這|我現在|現在的?位置)/.test(s) && !CHANGE_TO.test(s) && before.from) return { ...keep, from: null, changed: ['from'] };
+    const fromText = fromStartOf(s);
+    if (!CHANGE_TO.test(s) && (fromText || (places.length === 1 && /從\s*\S|出發/.test(s) && !NOT_PLACE.test(s.replace(/^.*?從\s*/, ''))))) {
       const p = places.length === 1 ? places[0] : fromText;
-      if (p && p !== before.to) return { ...keep, from: p };
+      if (p && p !== before.to) return { ...keep, from: p, changed: ['from', ...(arriveBy ? ['arriveBy'] : [])] };
     }
-    if (places.length === 1 && CHANGE_TO.test(s) && places[0] !== before.from) return { ...keep, to: places[0] };
+    if (places.length === 1 && CHANGE_TO.test(s) && places[0] !== before.from) return { ...keep, to: places[0], changed: ['to', ...(arriveBy ? ['arriveBy'] : [])] };
   }
   const prev = !places.length ? before : null;
   const avoid = avoidOf(s);
-  if (prev && ((mode && CHANGE_WORD.test(s)) || (states.length && s.length <= 12) || avoid.length || (arriveBy && s.length <= 12))) {
+  if (prev && ((mode && CHANGE_WORD.test(s)) || (states.length && s.length <= 12) || avoid.length || arriveBy)) {
     // 說不要的方式累積（「不要叫車」後「也不要走路」）；改成某方式時從不要的清單拿掉
     const avoidAll = [...new Set([...(prev.avoid || []), ...avoid])].filter((m) => m !== mode); // 這句明講要坐的不算不要
     const useMode = mode || (avoidAll.includes(prev.mode) ? null : prev.mode); // 上一輪指定的方式被說不要了 → 取消指定
@@ -231,13 +245,14 @@ export function parseIntent(text, ctx) {
       ...rest, states: [...new Set([...prev.states, ...states])], intent: 'trip',
       ...(useMode && { mode: useMode }),
       ...(avoidAll.length && { avoid: avoidAll }), ...((arriveBy || prev.arriveBy) && { arriveBy: arriveBy || prev.arriveBy }), followUp: true,
+      changed: [...(mode ? ['mode'] : []), ...(avoid.length ? ['avoid'] : []), ...(arriveBy ? ['arriveBy'] : []), ...(states.length ? ['states'] : [])],
     };
   }
   // 阿幫剛問「你從哪裡出發？」，使用者只回地名 → 那是起點，目的地沿用上一輪
   const lastBot = [...history].reverse().find((m) => m.role === 'assistant');
   if (places.length === 1 && lastBot && ASKED_ORIGIN.test(String(lastBot.content)) && onlyPlace(s, places)) {
-    const before = lastTrip(history);
-    if (before?.to && before.to !== places[0]) return { ...before, from: places[0], intent: 'trip', followUp: true };
+    const asked = tripBefore();
+    if (asked?.to && asked.to !== places[0]) return { ...asked, from: places[0], intent: 'trip', followUp: true, changed: ['from'] };
   }
 
   if (RAIL_WORD.test(s)) {
@@ -405,6 +420,20 @@ export function demoSteps(it, now = Date.now()) {
     default:
       return [];
   }
+}
+
+const MODE_SAY = { walk: '走路', bike: 'YouBike', bus: '公車', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
+const MODE_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
+const STATE_SAY = { rush: '趕時間', luggage: '帶行李', budget: '想省錢', lessWalk: '少走路', rain: '下雨', badAir: '空氣差', traffic: '塞車' };
+/**
+ * 接著改的那一輪，討論串第一句說清楚沿用什麼、改了什麼（PR #35 設計審查）：「沿用：西門町 → 台北101｜改：不要叫車」
+ * @returns {string|null}
+ */
+export function contextNote(it) {
+  if (!it?.followUp || it.intent !== 'trip' || !it.to || !it.changed?.length) return null;
+  const say = { from: `起點${it.from || '你的位置'}`, to: `目的地${it.to}`, arriveBy: `${it.arriveBy} 前到`, mode: MODE_DO[it.mode] || '換方式', avoid: `不要${(it.avoid || []).map((m) => MODE_SAY[m]).join('、')}`, states: (it.states || []).map((k) => STATE_SAY[k]).filter(Boolean).join('、') };
+  const changed = it.changed.map((k) => say[k]).filter(Boolean).join('、');
+  return `沿用：${it.from || '你的位置'} → ${it.to}｜改：${changed}`.slice(0, 60);
 }
 
 /** 示範模式的總結（取自工具結果，不經模型） */

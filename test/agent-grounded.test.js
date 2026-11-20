@@ -108,3 +108,35 @@ test('decide avoid：使用者說不要的方式直接排除並說明；全部�
   assert.equal(none.best, null);
   assert.match(none.reason, /排除你說不要的方式後，沒有其他可行的方案/);
 });
+
+test('contextNote：接著改的那一輪說沿用什麼、改了什麼；理由不把「不要」說成遲到', async () => {
+  const { parseIntent, contextNote } = await import('../core/agent/demo-intent.js');
+  const H = (...t) => t.flatMap((x) => [{ role: 'user', content: x }, { role: 'assistant', content: '好' }]);
+  assert.equal(contextNote(parseIntent('不要叫車', { history: H('從西門町叫車去台北101') })), '沿用：西門町 → 台北101｜改：不要叫車');
+  assert.equal(contextNote(parseIntent('改坐公車', { history: H('從西門町去台北101') })), '沿用：西門町 → 台北101｜改：坐公車');
+  assert.equal(contextNote(parseIntent('九點要到', { history: H('去台北101') })), '沿用：你的位置 → 台北101｜改：09:00 前到');
+  assert.equal(contextNote(parseIntent('去台北101')), null, '不是接著改');
+  const { decide } = await import('../core/decide.js');
+  const opts = [{ id: 'r', role: 'ridehail', name: '叫車', minutes: 10, cost: 300, walkMin: 0, waitMin: 3 }, { id: 'b', role: 'bus', name: '公車 601', minutes: 25, cost: 15, walkMin: 5, waitMin: 5 }];
+  const r = decide(opts, { avoid: ['ridehail'] });
+  assert.match(r.reason, /叫車照你說的不列入/);
+  assert.doesNotMatch(r.reason, /會遲到/);
+});
+
+test('A3 負面案例：「從明天開始」「從頭開始」「我從來不坐公車」不是起點；中文一到五點；前文 10 則很快', async () => {
+  const { parseIntent, zhNum } = await import('../core/agent/demo-intent.js');
+  const H = (...t) => t.flatMap((x) => [{ role: 'user', content: x }, { role: 'assistant', content: '好' }]);
+  const h = H('從西門町去台北101');
+  assert.notEqual(parseIntent('從明天開始', { history: h }).intent, 'trip');
+  assert.equal(parseIntent('從頭開始吧', { history: h }).reset, true);
+  const never = parseIntent('我從來不坐公車', { history: h });
+  assert.deepEqual([never.from, never.avoid], ['西門町', ['bus']]);
+  const bike = parseIntent('我不想騎單車', { history: h });
+  assert.deepEqual([bike.mode, bike.avoid], [undefined, ['bike']], '「不想騎」是排除，不是要騎');
+  assert.equal(parseIntent('從這裡出發', { history: h }).from, null, '從這裡＝現在位置');
+  for (const [z, n] of [['一', 1], ['三', 3], ['五', 5], ['九', 9], ['十', 10], ['十二', 12], ['二十五', 25]]) assert.equal(zhNum(z), n, z);
+  const long = Array.from({ length: 10 }, (_, i) => ({ role: 'user', content: i % 2 ? '改坐公車' : '從西門町去台北101' }));
+  const t0 = performance.now();
+  parseIntent('我很趕', { history: long });
+  assert.ok(performance.now() - t0 < 50, '單趟累積，不再指數成長');
+});

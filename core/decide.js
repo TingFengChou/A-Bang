@@ -91,7 +91,10 @@ const MODE_NAME = { walk: '步行', bike: 'YouBike', bus: '公車', thsr: '高�
 
 /** 產生一句理由：最佳方案贏在哪裡（取貢獻差最大的項目）＋生效的狀態 */
 function explain(best, second, states, excluded) {
-  if (!best) return excluded.some((e) => !e.why.startsWith('你說不要')) ? '所有方案都趕不上指定時間。' : excluded.length ? '排除你說不要的方式後，沒有其他可行的方案。' : '沒有可比較的方案。';
+  if (!best) {
+    const said = excluded.some((e) => e.why.startsWith('你說不要')), late = excluded.some((e) => !e.why.startsWith('你說不要'));
+    return said && late ? '排除你說不要的方式後，其他方案都會遲到。' : late ? '所有方案都趕不上指定時間。' : said ? '排除你說不要的方式後，沒有其他可行的方案。' : '沒有可比較的方案。';
+  }
   const why = [];
   if (states.length) why.push(`因為${states.map((s) => STATES[s].say).join('、')}`);
   if (second) {
@@ -99,7 +102,9 @@ function explain(best, second, states, excluded) {
     const top = diffs.filter((x) => x.d > 0.01).slice(0, 2).map((x) => PHRASE[x.c.key](best, second, states));
     if (top.length) why.push(top.join('、'));
   }
-  if (excluded.length) why.push(`${excluded.map((e) => e.name).join('、')}會遲到已排除`);
+  const said = excluded.filter((e) => e.why.startsWith('你說不要')), late = excluded.filter((e) => !e.why.startsWith('你說不要'));
+  if (said.length) why.push(`${said.map((e) => e.name).join('、')}照你說的不列入`);
+  if (late.length) why.push(`${late.map((e) => e.name).join('、')}會遲到已排除`);
   return `選「${best.name}」${why.length ? '：' + why.join('，') : ''}。`;
 }
 

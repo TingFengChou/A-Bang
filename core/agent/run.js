@@ -5,7 +5,7 @@ import { callTool, listTools } from '../tools/index.js';
 import { UserError, publicMessage } from '../util.js';
 import { ev } from './events.js';
 import { getProfile } from '../agents/index.js';
-import { parseIntent, demoSteps, demoSummary, needsLocation } from './demo-intent.js';
+import { parseIntent, demoSteps, demoSummary, needsLocation, contextNote } from './demo-intent.js';
 import { parseAntifraud, antifraudSteps, antifraudSummary } from './demo-antifraud.js';
 import { applyOutputGuardrails } from './guardrails.js';
 import { impactOf, judgeNote, moreStatesNote } from './impact.js';
@@ -189,7 +189,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   emit(ev.status({ mode: 'demo', profile: profile.id, judge: judgeInfo(q0) }));
   if (notice) emit(ev.agentNote(notice));
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
-  const heard = q0 && !req.clientToolResults?.length && judgeNote(q0);
+  const heard = !req.clientToolResults?.length && (contextNote(parseIntent(last, { history: req.messages.slice(0, -1) })) || (q0 && judgeNote(q0)));
   if (heard) emit(ev.agentNote(heard));
   const j = jc ? await jc.full(q0) : null;
   if (j) {

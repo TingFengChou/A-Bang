@@ -747,7 +747,9 @@ test('問阿幫：接著說「不要叫車」→ 排除叫車重算', async () =
     }
     const turn = page.locator('.turn').nth(1);
     assert.equal(await turn.locator('.msg.error').count(), 0);
-    assert.match(await turn.textContent(), /不要/);
+    assert.match(await turn.textContent(), /沿用：西門町 → 台北101｜改：不要叫車/, '第一句說清楚沿用什麼、改了什麼');
+    assert.equal(await turn.locator('.dg-opt.avoided').count(), 1, '叫車標「不要」（灰色、不劃線）');
+    assert.match(await turn.locator('.dg-opt.avoided').getAttribute('aria-label'), /已排除：你說不要叫車/);
     assert.doesNotMatch(await turn.locator('.bubble.final .say').textContent(), /選「叫車/);
     await shot(page, 'phone-agent-avoid');
   });

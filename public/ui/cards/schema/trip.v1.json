@@ -42,6 +42,7 @@
     },
     "unavailable": { "type": "array", "items": { "type": "string" } },
     "mode": { "enum": ["walk", "bike", "bus", "thsr", "tra", "intercity", "ridehail"] },
+    "avoid": { "type": "array", "items": { "enum": ["walk", "bike", "bus", "thsr", "tra", "intercity", "ridehail"] } },
     "skipped": { "type": "array", "items": { "type": "object", "required": ["role", "why"], "properties": { "role": { "type": "string" }, "why": { "type": "string" } } } }
   },
   "$defs": {

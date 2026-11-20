@@ -226,7 +226,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     const ys = (n, i) => (n <= 1 ? C.y : 40 + (i * (H - 90)) / (n - 1)); // 底下留給來源名稱
     const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'dg-svg', role: 'img', 'aria-labelledby': 'dg-title dg-desc' });
     s.append(svg('title', { id: 'dg-title' }, '決策圖'),
-      svg('desc', { id: 'dg-desc' }, `資料：${sources.join('、')}；狀態：${active.map((k) => STATE_LABEL[k]).join('、') || '無'}；方案依分數：${ranked.map((o) => `${o.name} ${o.score}`).join('、')}${excluded.length ? `；排除：${excluded.map((o) => o.name).join('、')}` : ''}`));
+      svg('desc', { id: 'dg-desc' }, `資料：${sources.join('、')}；狀態：${active.map((k) => STATE_LABEL[k]).join('、') || '無'}；方案依分數：${ranked.map((o) => `${o.name} ${o.score}`).join('、')}${excluded.length ? `；排除：${excluded.map((o) => `${o.name}（${exLabel(o.why) === '不要' ? '你說不要' : exLabel(o.why) === '遲到' ? '會遲到' : '排除'}）`).join('、')}` : ''}`));
     ['資料', '阿幫', '方案'].forEach((t, i) => s.append(svg('text', { x: [34, C.x, OPT_X + 4][i], y: 16, class: 'dg-col', 'text-anchor': i === 2 ? 'start' : 'middle' }, t)));
     const edges = svg('g', { class: 'dg-edges' }), nodes = svg('g', { class: 'dg-nodes' });
     s.append(edges, nodes);
@@ -274,9 +274,11 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       const win = o.id === bestId;
       edges.append(svg('path', { d: `M${C.x + 30},${C.y} C${C.x + 62},${C.y} ${OPT_X - 40},${y} ${OPT_X},${y}`,
         class: `dg-edge dg-out-edge ${isEx ? 'step4 excluded' : 'step3'}${win ? ' win' : ''}`, 'data-id': o.id, style: `stroke-width:${isEx ? 1 : (1 + 7 * (o.score / max)).toFixed(1)}px` })); // 連線粗細＝分數（inline，CSS 的 stroke-width 才蓋不掉）
-      const n = node(OPT_X, y, isEx ? `${short(o.name)}` : short(o.name), `dg-opt ${isEx ? 'step4 excluded' : 'step3'}${win ? ' win dg-best' : ''}`, o.role, win, isEx ? exLabel(o.why) : String(o.score));
+      const avoided = isEx && exLabel(o.why) === '不要';
+      const n = node(OPT_X, y, isEx ? `${short(o.name)}` : short(o.name), `dg-opt ${isEx ? 'step4 excluded' : 'step3'}${avoided ? ' avoided' : ''}${win ? ' win dg-best' : ''}`, o.role, win, isEx ? exLabel(o.why) : String(o.score));
       n.style.setProperty('--i', String(i));
       n.dataset.id = o.id;
+      if (isEx) n.setAttribute('aria-label', `${o.name}，已排除：${o.why}`); // 讀屏念原因（「你說不要叫車」「…會遲到」）
       if (onPick && !isEx && !win) { // 點方案＝「改成這個」（沿用起訖點重算；公車會自動盯到站）
         n.classList.add('pickable');
         n.setAttribute('role', 'button');

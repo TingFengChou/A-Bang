@@ -614,6 +614,94 @@
           }
         }
       ]
+    },
+    {
+      "id": "S2-11",
+      "title": "「我從來不坐公車」：排除公車，起點不變",
+      "turns": [
+        {
+          "say": "從西門町去台北101"
+        },
+        {
+          "say": "我從來不坐公車",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "西門町",
+            "bestRoleNot": "bus"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S2-12",
+      "title": "不想騎單車：不會反而選單車",
+      "turns": [
+        {
+          "say": "從西門町騎YouBike去台北101"
+        },
+        {
+          "say": "我不想騎單車",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "bestRoleNot": "bike"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S2-13",
+      "title": "「從明天開始」不是起點",
+      "turns": [
+        {
+          "say": "從西門町去台北101"
+        },
+        {
+          "say": "從明天開始",
+          "expect": {
+            "toolsNot": [
+              "plan_trip"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S2-14",
+      "title": "下午三點前要到",
+      "turns": [
+        {
+          "say": "從西門町去台北101"
+        },
+        {
+          "say": "下午三點前要到",
+          "expect": {
+            "arriveBy": "15:00",
+            "from": "西門町"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S2-15",
+      "title": "不要坐高鐵：長途排除高鐵",
+      "turns": [
+        {
+          "say": "從台北車站去台中車站"
+        },
+        {
+          "say": "不要坐高鐵",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "bestRoleNot": "thsr"
+          }
+        }
+      ]
     }
   ]
 }

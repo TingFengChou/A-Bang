@@ -112,6 +112,8 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
   "ranking": { "ranked": [{ "id": "bus", "name": "公車 307", "score": 81, "breakdown": { } }], "excluded": [{ "id": "thsr-0700", "why": "會遲到" }], "reason": "選「公車 307」：因為正在下雨…" },
   "states": [{ "key": "rain", "source": "auto", "from": "weather_now", "detail": "陰有雨，3 小時降雨機率 80%" }, { "key": "luggage", "source": "user" }] }
 // states[].key 另有 badAir（空品不佳，from: aqi_nearby，M10）；data.air = { site, aqi, status } | null
+// mode：使用者指定的方式；avoid：使用者說不要的方式（A3，ranking.excluded[].why「你說不要叫車」；全部被排除時卡片說「排除你說不要的方式後，沒有其他可行的方案」，與「都趕不上」分開）
+// 同時給 mode=X 與 avoid 含 X：X 被排除、回 modeUnavailable（照分數建議並明說）
 ```
 
 呈現：建議方案＋分段時間條＋備案（最多 2）＋行動（導航、提醒、叫車、訂票）。決策圖由網頁 agent 的 `decision` 事件另外呈現；在 MCP Apps 中，`trip` 卡片以精簡版（排名條＋理由句＋狀態 chips 可切換）呈現。
