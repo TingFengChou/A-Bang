@@ -3,6 +3,7 @@ import { icons } from '../icons.js';
 import { esc, loading, errorBox, empty, etaBadge, fmtTime, favs, prefs, chev } from '../ui.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { modeSvg } from '../../ui/cards/mode-icons.js';
+import { snapshot, slide } from '../../ui/cards/slide.js';
 
 const CITY_CHIPS = [['Taipei', '臺北'], ['NewTaipei', '新北'], ['Taoyuan', '桃園'], ['Taichung', '臺中'], ['Tainan', '臺南'], ['Kaohsiung', '高雄'], ['Keelung', '基隆'], ['Hsinchu', '新竹']];
 const REFRESH = 20000;
@@ -80,24 +81,27 @@ export const busRoute = {
     async function load() {
       try {
         data = await api.busEta(city, route);
-        paint();
+        paint({ fresh: true });
         const d = data.directions[dir] || data.directions[0];
         const soon = (d?.stops || []).filter((s) => s.status === 0 && s.etaSec != null && s.etaSec < 180).slice(0, 3).map((s) => s.stopName);
         say(soon.length ? `${route} 即將進站：${soon.join('、')}` : '');
         main.querySelector('#upd').textContent = `更新於 ${fmtTime()}・每 20 秒自動更新`;
       } catch (e) { main.querySelector('#stops').innerHTML = errorBox(e); }
     }
-    function paint() {
+    function paint({ fresh = false } = {}) {
       const dirs = main.querySelector('#dirs');
       dirs.innerHTML = data.directions.map((d, i) => `<button data-i="${i}" class="${i === dir ? 'on' : ''}">${esc(d.label)}</button>`).join('');
       dirs.querySelectorAll('button').forEach((b) => (b.onclick = () => { dir = +b.dataset.i; paint(); }));
       const d = data.directions[dir] || data.directions[0];
-      main.querySelector('#stops').innerHTML = `<div class="card list timeline">${d.stops.map((s) => `
+      const stopsEl = main.querySelector('#stops');
+      const before = fresh ? snapshot(stopsEl) : null; // 刷新：車從上一站滑到這一站
+      stopsEl.innerHTML = `<div class="card list timeline">${d.stops.map((s) => `
         <div class="${s.plate ? 'here' : ''}${s.stopName === myStop ? ' me' : ''}">
-          ${s.plate ? `<span class="ab-token sm go bus-pos" style="--c:#0f766e" role="img" aria-label="公車在這附近">${modeSvg('bus')}</span>` : ''}
+          ${s.plate ? `<span class="ab-token sm go bus-pos" data-plate="${esc(s.plate)}" style="--c:#0f766e" role="img" aria-label="公車在這附近">${modeSvg('bus')}</span>` : ''}
           <div class="grow"><div class="title">${esc(s.stopName)}${s.stopName === myStop ? '<span class="me-tag">你在這上車</span>' : ''}</div>${s.plate ? `<div class="plate">${esc(s.plate)} 即將抵達</div>` : ''}</div>
           ${etaBadge(s)}
         </div>`).join('')}</div>`;
+      if (before) slide(stopsEl, before);
       paintFocus(d);
     }
     /** 上車站：大字到站時間＋到站提醒（與問阿幫卡片共用同一個提醒） */

@@ -210,3 +210,35 @@ html.lite-motion .ab-rail-bus, html.lite-motion .ab-rail-fill { transition: none
 @keyframes ab-digit { from { transform: translateY(-4px); opacity: 0; } to { transform: none; } }
 @keyframes ab-digit-hit { 0% { background: var(--ab-bg); color: var(--ab-text); transform: scale(1); } 60% { transform: scale(1.18); } 100% { background: var(--ab-ok); color: #fff; transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .ab-digits span { animation: none !important; } }
+
+/* 空品半圓儀表：六色弧依序亮起、指針從 0 轉到數值、數字跳上去 */
+.ab-gauge { display: inline-flex; flex-direction: column; align-items: center; width: 120px; flex: none; }
+.ab-gauge svg { display: block; overflow: visible; }
+.ab-gauge .ab-aqi-num { font-size: 26px; min-width: 0; line-height: 1; margin-top: 4px; }
+.ab-gauge-band { animation: ab-band .3s ease both; animation-delay: calc(var(--i) * 60ms); }
+@keyframes ab-band { from { opacity: 0; } to { opacity: 1; } }
+.ab-gauge-needle { transform-origin: 60px 62px; transform-box: view-box; transition: transform .9s cubic-bezier(.3, 1.35, .5, 1); color: var(--ab-text); }
+.ab-aqi .ab-gauge .ab-aqi-num { color: inherit; }
+
+/* 天氣氛圍：卡片上方一條情境畫面（下雨＝雨絲＋雲、可能下雨＝雲、白天＝太陽、晚上＝月亮與星星） */
+.ab-scene { position: relative; height: 56px; margin: -4px 0 6px; border-radius: 12px; overflow: hidden; background: linear-gradient(180deg, #dff1fb, #f3fafd); }
+.ab-scene.rain { background: linear-gradient(180deg, #8fa3b3, #c9d5de); }
+.ab-scene.cloud { background: linear-gradient(180deg, #c7d3dc, #e9eef2); }
+.ab-scene.night { background: linear-gradient(180deg, #1e2a4a, #34466e); }
+.ab-scene .sun { position: absolute; right: 22px; top: 10px; width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle, #fde047 55%, #facc15 56%); box-shadow: 0 0 0 6px rgba(250, 204, 21, .25), 0 0 22px rgba(250, 204, 21, .6); animation: ab-sun 3s ease-in-out infinite; }
+@keyframes ab-sun { 50% { box-shadow: 0 0 0 10px rgba(250, 204, 21, .15), 0 0 30px rgba(250, 204, 21, .7); } }
+.ab-scene .moon { position: absolute; right: 24px; top: 10px; width: 26px; height: 26px; border-radius: 50%; box-shadow: -7px 3px 0 0 #fef3c7; }
+.ab-scene.night i { position: absolute; left: var(--x); top: var(--y); width: 3px; height: 3px; border-radius: 50%; background: #fff; animation: ab-twinkle 2.4s ease-in-out infinite; animation-delay: var(--d); }
+@keyframes ab-twinkle { 50% { opacity: .2; } }
+.ab-scene .cloud { position: absolute; left: -70px; top: 10px; width: 64px; height: 20px; border-radius: 20px; background: #fff; opacity: .9; animation: ab-cloud 9s linear infinite; }
+.ab-scene .cloud::before, .ab-scene .cloud::after { content: ''; position: absolute; border-radius: 50%; background: inherit; }
+.ab-scene .cloud::before { width: 28px; height: 28px; left: 10px; top: -14px; }
+.ab-scene .cloud::after { width: 22px; height: 22px; left: 32px; top: -9px; }
+.ab-scene.rain .cloud { background: #e5e9ee; }
+@keyframes ab-cloud { to { transform: translateX(calc(100cqw + 140px)); } }
+.ab-scene { container-type: inline-size; }
+.ab-scene.rain i { position: absolute; left: var(--x); top: -14px; width: 2px; height: 12px; border-radius: 1px; background: rgba(255, 255, 255, .85); transform: rotate(12deg); animation: ab-rain .8s linear infinite; animation-delay: var(--d); }
+@keyframes ab-rain { to { transform: translate(-12px, 74px) rotate(12deg); } }
+@media (prefers-reduced-motion: reduce) { .ab-scene *, .ab-gauge-band { animation: none !important; } .ab-gauge-needle { transition: none; } .ab-scene.rain i { top: 20px; } }
+html.lite-motion .ab-scene *, html.lite-motion .ab-gauge-band { animation: none !important; }
+html.lite-motion .ab-gauge-needle { transition: none; }
