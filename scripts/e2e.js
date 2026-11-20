@@ -802,6 +802,31 @@ test('問阿幫：接著問時天氣空品收合同上；重來有分隔線', as
   });
 });
 
+// 公車一直不來（S15）：盯著的這班延誤時，公車卡片說明並給「改其他方式」（送給阿幫：沿用起訖、排除公車）
+test('公車一直不來：卡片建議改其他方式', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    const out = await page.evaluate(async () => {
+      const { renderCard } = await import('/ui/cards/index.js');
+      const call = (a) => fetch('/api/v1/tools/bus_route_eta', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(a) }).then((x) => x.json());
+      const stop = (await call({ city: 'Taipei', routeName: '307' })).data.directions[0].stops[3].stopName;
+      const r = await call({ city: 'Taipei', routeName: '307', stop });
+      const asked = [];
+      const f = r.data.focus;
+      const host = { ask: (q) => asked.push(q), arrivalWatch: () => ({ routeName: r.data.routeName, stop: f.stopName, minutes: 3, stuck: 'late' }), watchArrival() {}, unwatchArrival() {}, openLink() {} };
+      const el = document.createElement('div');
+      document.body.append(el);
+      renderCard(el, { card: r.card, mode: r.mode, data: r.data }, host);
+      const box = el.querySelector('.ab-stuck');
+      box?.querySelector('button')?.click();
+      const res = { text: box?.textContent || '', asked };
+      el.remove();
+      return res;
+    });
+    assert.match(out.text, /晚了 10 分以上/);
+    assert.deepEqual(out.asked, ['不要坐公車了，改別的方式']);
+  });
+});
+
 // 觀光客用英文問（S12b）：卡片標籤用英文（lang=en）、地名維持中文；接著用中文問又回到中文卡片
 test('英文提問：卡片用英文標籤', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {

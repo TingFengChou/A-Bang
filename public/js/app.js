@@ -6,6 +6,7 @@ import { autoCheckOnOpen } from './invoice-wallet.js';
 import { createWebHost } from '../ui/cards/host-web.js';
 import { watchKeyboard } from './keyboard.js';
 import { showOnboarding } from './onboarding.js';
+import { t as cardT } from '../ui/cards/i18n/zh-TW.js';
 import { restoreReminders } from './reminders.js';
 import home from './pages/home.js';
 import nearby from './pages/nearby.js';
@@ -58,6 +59,8 @@ function toast(msg, ms = 2200) {
 }
 // 公車到站提醒（L-14，host-web.js）：任何頁面都顯示（沒開通知權限也看得到）
 window.addEventListener('abang:arrival', (e) => toast(`🚌 ${e.detail.text}`, 8000));
+// 公車一直不來（S15）：提示可以改其他方式（卡片上有按鈕）
+window.addEventListener('abang:arrival-stuck', (e) => toast(cardT('busRoute.stuckToast', { route: e.detail.routeName }), 8000));
 
 function navigate() {
   cleanups.forEach((f) => f()); cleanups = [];

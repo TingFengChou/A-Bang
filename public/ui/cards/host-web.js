@@ -65,6 +65,27 @@ function fireArrival(f) {
   try { navigator.vibrate?.([200, 100, 200]); } catch { /* 不支援 */ }
   signal('abang:arrival', { text }); // App 顯示 toast（沒開通知權限時也看得到）
 }
+/** 公車一直不來（S15）：比第一次預估晚 10 分以上、或連續 3 次未發車／末班已過／今日未營運 */
+export const LATE_SEC = 600;
+export const NOT_RUNNING_POLLS = 3;
+/**
+ * 盯著的這班是不是「一直不來」（只判斷，不改狀態以外的東西）。
+ * @param {{ base?: { etaSec: number, at: number }, notRunning?: number }} w  盯的狀態（會被更新）
+ * @param {{ status: number, etaSec: number|null }} f  上車站這次的到站資訊
+ * @returns {'late'|'notRunning'|null}
+ */
+export function stuckReason(w, f, now = Date.now()) {
+  if (f.status !== 0 || f.etaSec == null) {
+    w.notRunning = (w.notRunning || 0) + 1;
+    return w.notRunning >= NOT_RUNNING_POLLS ? 'notRunning' : null;
+  }
+  w.notRunning = 0;
+  if (!w.base) { w.base = { etaSec: f.etaSec, at: now }; return null; }
+  const expected = w.base.etaSec - (now - w.base.at) / 1000; // 照第一次預估，現在應該剩多少秒
+  if (f.etaSec > w.base.etaSec + 120 && expected < 0) return null; // 那班已經開走、換成下一班：不算延誤（另外由 skip 處理）
+  return f.etaSec - Math.max(expected, 0) >= LATE_SEC ? 'late' : null;
+}
+
 async function pollWatch(callTool) {
   const w = watch.w;
   if (!w) return;
@@ -74,6 +95,10 @@ async function pollWatch(callTool) {
     const f = r?.data?.focus;
     if (!f || watch.w !== w) return;
     w.last = { etaSec: f.etaSec, statusText: f.statusText, at: Date.now() };
+    if (!w.stuck && !w.skip) {
+      const why = stuckReason(w, f);
+      if (why) { w.stuck = why; signal('abang:arrival-stuck', { routeName: w.routeName, stop: w.stop, reason: why }); } // 只說一次
+    }
     signal('abang:arrival-watch', w);
     if (f.status !== 0 || f.etaSec == null) return; // 未發車、末班已過：繼續看下一次
     const left = f.etaSec - w.minutes * 60;

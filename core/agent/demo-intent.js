@@ -307,7 +307,7 @@ function parseIntentRaw(text, ctx) {
   if (ctx?.intent) return slotsFor(ctx.intent, s, base);
 
   // 接著上一輪（先於其他判斷：「改騎 YouBike」「改坐高鐵」也是改行程）改條件（「改坐公車」「那叫車呢」「我趕時間」）：沿用上一輪的起訖點與狀態重算
-  const mode = modeOf(s);
+  let mode = modeOf(s);
   const sPos = s.replace(/(?:不要|不想|別|不用|不坐|不搭)\s*(?:坐|搭|騎|叫)?\s*(?:高鐵|台鐵|臺鐵|火車|客運)/g, ''); // 「不要坐高鐵」是改行程（排除），不是查高鐵
   const otherQuery = RAIL_WORD.test(sPos) || BUS_ROUTE.test(s) || WEATHER_WORD.test(s) || lifeIntent(s); // 查高鐵、公車路線、天氣等不是改行程
   if (RESET.test(s)) return { ...base, intent: 'unknown', reset: true };
@@ -328,6 +328,7 @@ function parseIntentRaw(text, ctx) {
   }
   const prev = !places.length ? before : null;
   const avoid = avoidOf(s);
+  if (mode && avoid.includes(mode)) mode = null; // 「公車一直沒來，不要坐公車了」：同一種方式又提到又說不要＝不要
   if (prev && ((mode && CHANGE_WORD.test(s)) || (states.length && s.length <= 12) || avoid.length || arriveBy || party)) {
     // 說不要的方式累積（「不要叫車」後「也不要走路」）；改成某方式時從不要的清單拿掉
     const avoidAll = [...new Set([...(prev.avoid || []), ...avoid])].filter((m) => m !== mode); // 這句明講要坐的不算不要
