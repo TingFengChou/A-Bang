@@ -41,6 +41,8 @@
  * @property {(at: string, text: string) => Promise<boolean>} [remind]  提醒（裝置端；不支援時不顯示按鈕）
  * @property {(w: { city, routeName, stop, direction?, minutes }) => Promise<boolean>} [watchArrival]  公車到站前 N 分提醒（L-14）
  * @property {() => void} [unwatchArrival]
+ * @property {boolean} [background]  App 關著也會提醒（手機 App 有通知權限）
+ * @property {() => string} [arrivalNote]  提醒說明文字鍵：whenAlways／whenOpenPage／whenNoPermission
  * @property {() => object|null} [arrivalWatch]  目前的到站提醒
  * @property {(hash: string) => void} [navigate]  開 App 內頁面（只接受 #/ 開頭）
  * @property {'light'} theme
@@ -51,7 +53,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 | 實作 | 檔案 | `callTool` | `ask` | `setContext` | `openLink` |
 |---|---|---|---|---|---|
-| 網頁 | `public/ui/cards/host-web.js` | `POST /api/v1/tools/:name` | 填入輸入框並送出 | 存在下一次 agent 請求的 `context` | `window.open`（L2 先確認）；`remind` 以系統通知（需允許通知、頁面保持開啟）；`watchArrival`：整個頁面共用一個提醒，每 20 秒查上車站到站時間，剩下 ≤ N 分通知一次（系統通知＋App 內 toast `abang:arrival`），設定時這班已在範圍內就跳過等下一班，最多盯 90 分；`navigate` 換 hash |
+| 網頁 | `public/ui/cards/host-web.js` | `POST /api/v1/tools/:name` | 填入輸入框並送出 | 存在下一次 agent 請求的 `context` | `window.open`（L2 先確認）；`remind` 以系統通知（需允許通知、頁面保持開啟）；`watchArrival`：整個頁面共用一個提醒，每 20 秒查上車站到站時間，剩下 ≤ N 分通知一次（系統通知＋App 內 toast `abang:arrival`），設定時這班已在範圍內就跳過等下一班，最多盯 90 分；手機 App（M11-02）改用系統本機通知：每次查到就把「該出門了」排到預估時間（提早 30 秒，Android 不用精準鬧鐘），App 關著也會響，App 被關掉重開會恢復提醒；`background`／`arrivalNote()` 告訴卡片能不能在背景提醒（沒有通知權限時說明「App 開著時才會提醒」）；`navigate` 換 hash |
 | MCP Apps | `public/ui/cards/host-mcp-app.js` | `app.callServerTool()` → `structuredContent` | `app.sendMessage()`（host 支援 `message` 時） | `app.updateModelContext()`（host 支援時） | L2 先在卡片下方顯示確認框（iframe 沙箱不允許 `window.confirm`）→ `app.openLink()`；host 不支援或拒絕時顯示網址與「複製連結」；不提供 `remind`、`watchArrival`、`navigate`（卡片不顯示那些按鈕） |
 
 ## 3.1 MCP Apps 打包與資源（✅ M4-04～06）
