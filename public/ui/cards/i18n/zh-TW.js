@@ -230,6 +230,7 @@ export const MESSAGES = {
   'aqi.status.非常不健康': '非常不健康',
   'aqi.status.危害': '危害',
   'aqi.status.設備維護': '設備維護',
+  'aqi.status.資料維護中': '資料維護中',
   'aqi.pol.細懸浮微粒': '細懸浮微粒',
   'aqi.pol.懸浮微粒': '懸浮微粒',
   'aqi.pol.臭氧八小時': '臭氧八小時',

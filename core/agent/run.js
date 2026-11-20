@@ -1,7 +1,7 @@
 // Agent 共用執行器（M5-04，AGENT.md §2–§3）：呼叫 tool → tool_start／tool_result；plan_trip 時發 decision。
 // 示範模式（demo-intent）與模型模式（model-loop.js：Claude／地端，M5-05）共用 execTools，事件流相同。不加假延遲（ADR-0009）。
 import { enNote } from './en-notes.js';
-import { speakEn } from '../tools/speak-en.js';
+import { speakEn, impactEn } from '../tools/speak-en.js';
 import { z } from 'zod';
 import { callTool, listTools } from '../tools/index.js';
 import { UserError, publicMessage } from '../util.js';
@@ -106,7 +106,7 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
   // 英文提問（S12d）：小幫手的一句話用英文版；「→ 影響」是中文，英文那一輪不附
   const en = lang === 'en';
   const shown = (name, r) => (en ? { ...r, speak: speakEn(name, r.data, r.args) ?? r.speak } : r);
-  const impactFor = (name, data) => (en ? undefined : impactOf(name, data));
+  const impactFor = (name, data) => (en ? impactEn(name, data) ?? undefined : impactOf(name, data)); // 英文：只留要馬上注意的（YouBike 車位、公車趕不趕得上）
   for (const c of started) emit(ev.toolStart({ id: c.id, name: c.name, input: c.args }));
   return Promise.all(started.map(async (c) => {
     try {

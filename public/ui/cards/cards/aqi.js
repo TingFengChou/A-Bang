@@ -3,7 +3,7 @@ import { h, hhmm } from '../dom.js';
 import { aqiGauge } from '../gauge.js';
 
 /** 資料裡的中文（狀態、污染物）走字典；字典沒有就照原文（S12d） */
-const dict = (t, prefix, x) => { if (!x) return x; const k = `${prefix}.${x}`; const v = t(k); return v === k ? x : v; };
+export const dict = (t, prefix, x) => { if (!x) return x; const k = `${prefix}.${x}`; const v = t(k); return v === k ? x : v; };
 
 export default {
   refreshSec: 900,

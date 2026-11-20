@@ -236,6 +236,7 @@ export const MESSAGES = {
   'aqi.status.非常不健康': 'Very unhealthy',
   'aqi.status.危害': 'Hazardous',
   'aqi.status.設備維護': 'Station maintenance',
+  'aqi.status.資料維護中': 'Data under maintenance',
   'aqi.pol.細懸浮微粒': 'PM2.5',
   'aqi.pol.懸浮微粒': 'PM10',
   'aqi.pol.臭氧八小時': 'Ozone (8-hour)',
