@@ -136,14 +136,16 @@ export const busRoute = {
       box.querySelector('#unwatch')?.addEventListener('click', () => { host.unwatchArrival(); toast(cardT('busRoute.alertCanceled')); paintFocus(d); });
     }
     let pickedDest = null;
-    /** 下車提醒：上車後選下車站，快到時提醒（App 關著也會響）；進行中顯示剩多久與取消 */
+    /** 下車提醒：上車後（或車快到時）選下車站，快到時提醒（App 關著也會響）；進行中顯示剩多久與取消 */
     function alightBlock(d, me) {
       const wrap = document.createElement('div');
       wrap.className = 'alight';
       const a = alightWatch();
-      if (a && a.routeName === route) {
+      const dirOf = d.direction ?? dir;
+      if (a && a.routeName === route && a.direction === dirOf && a.board === myStop) {
         const left = a.last?.etaSec;
-        wrap.innerHTML = `<p class="ok" role="status">下車提醒：快到「${esc(a.dest)}」時提醒你${left != null ? `（約 ${Math.max(1, Math.round(left / 60))} 分後到）` : ''}</p>`;
+        // 剩幾分每 20 秒會變：不加 live role（設定時的 toast 已念過）
+        wrap.innerHTML = `<p class="ok">下車提醒：快到「${esc(a.dest)}」時提醒你${left != null ? `（約 ${Math.max(1, Math.round(left / 60))} 分後到）` : ''}</p>${a.nativeFailed ? '<p class="note">沒有通知權限：App 關著時不會提醒，請開著畫面。</p>' : ''}`;
         const cancel = Object.assign(document.createElement('button'), { type: 'button', className: 'btn ghost', textContent: '取消下車提醒' });
         cancel.addEventListener('click', () => { stopAlight(); toast('已取消下車提醒'); paintFocus(d); });
         wrap.append(cancel);
@@ -151,14 +153,16 @@ export const busRoute = {
       }
       const after = d.stops.filter((x) => x.seq > me.seq);
       if (!after.length || stale) return wrap;
-      wrap.innerHTML = `<label class="alight-pick"><span>上車了嗎？在哪一站下車</span><select id="alight-dest">${after.map((x) => `<option value="${esc(x.stopName)}"${x.stopName === pickedDest ? ' selected' : ''}>${esc(x.stopName)}</option>`).join('')}</select></label>`;
-      wrap.querySelector('select').addEventListener('change', (e) => { pickedDest = e.target.value; }); // 每 20 秒重畫：選好的站保留
+      wrap.innerHTML = `<label class="alight-pick"><span>上車了嗎？要在哪一站下車？</span><select id="alight-dest">${after.map((x) => `<option value="${x.seq}"${x.seq === pickedDest ? ' selected' : ''}>${esc(x.stopName)}</option>`).join('')}</select></label>`;
+      wrap.querySelector('select').addEventListener('change', (e) => { pickedDest = Number(e.target.value); }); // 每 20 秒重畫：選好的站保留
       const go = Object.assign(document.createElement('button'), { type: 'button', className: 'btn', textContent: '快到時提醒我下車' });
       go.addEventListener('click', async () => {
-        const dest = wrap.querySelector('#alight-dest').value;
-        const rideSec = rideEstimate(d.stops, myStop, dest) ?? 600;
-        await watchAlight({ city, routeName: route, direction: dir, board: myStop, dest, plate: me.plate || null, rideSec }, (n, a2) => host.callTool(n, a2));
-        toast(`好，快到「${dest}」時提醒你下車`);
+        const destSeq = Number(wrap.querySelector('#alight-dest').value);
+        const dest = d.stops.find((x) => x.seq === destSeq)?.stopName;
+        const est = rideEstimate(d.stops, me.seq, destSeq);
+        if (!est || !dest) { toast('估不出要坐多久，請重新整理後再試'); return; }
+        const watching = await watchAlight({ city, routeName: route, direction: dirOf, board: myStop, boardSeq: me.seq, dest, destSeq, ...est }, (n, a2) => host.callTool(n, a2));
+        if (watching) toast(`好，快到「${dest}」時提醒你下車`); // 太近：設定當下已經提醒過，不再說「好」
         paintFocus(data.directions[dir] || data.directions[0]);
       });
       wrap.append(go);
