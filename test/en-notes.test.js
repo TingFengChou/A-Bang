@@ -26,3 +26,22 @@ test('英文提問：討論串說明英文、不說中文的「聽懂了」；�
   assert.ok(steps.length >= 1 && steps.every((s) => !/[一-鿿]/.test(s.label)), steps.map((s) => s.label).join('|'));
   assert.ok(!steps.some((s) => s.kind === 'ask'), '英文不給會變成中文問句的建議');
 });
+
+test('S12d：英文那一輪的工具回報是英文（數字來自資料）、不附中文的「→ 影響」', async () => {
+  const { speakEn, SPEAK_EN } = await import('../core/tools/speak-en.js');
+  const es = [];
+  await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: 'How do I get to Taipei 101?' }] }, (e) => es.push(e));
+  const results = es.filter((e) => e.type === 'tool_result' && e.ok);
+  assert.ok(results.length >= 3);
+  for (const r of results) {
+    if (SPEAK_EN[r.tool]) assert.match(r.speak, /^[A-Z]/, `${r.tool}: ${r.speak}`); // 英文句子（地名可以是中文）
+    assert.equal(r.impact, undefined, `${r.tool} 不附中文影響`);
+  }
+  assert.equal(speakEn('no_such_tool', {}), null);
+  assert.equal(speakEn('weather_now', { rainMm1h: 2, pop3h: 80 }), "It's raining now, 80% chance of rain in the next 3 hours.");
+  assert.match(speakEn('plan_trip', { best: 'a', options: [{ id: 'a', role: 'metro', minutes: 23 }, { id: 'b' }] }), /best is MRT \(23 min\)/);
+  // 中文那一輪照舊
+  const zh = [];
+  await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '從臺北車站去台北101' }] }, (e) => zh.push(e));
+  assert.ok(zh.filter((e) => e.type === 'tool_result' && e.ok).some((r) => /[一-鿿]/.test(r.speak || '')));
+});

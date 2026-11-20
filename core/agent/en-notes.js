@@ -20,6 +20,7 @@ const RULES = [
   [/^找(.+)最近的站，看到(.+)的班次$/, (m) => `nearest station, trains to ${m[2]}`],
   [/^(.+)到(.+)的班次$/, (m) => `trains from ${m[1]} to ${m[2]}`],
   [/^(.+)到(.+)的票價$/, (m) => `fares from ${m[1]} to ${m[2]}`],
+  [/^你選了公車，我幫你盯 (\S+) 在「(.+)」的到站$/, (m) => `you picked the bus; watching ${m[1]} at ${m[2]}`],
 ];
 
 /** 「@天氣 看一下現在的天氣」→「@天氣 checking the weather now」；對不上照原文 */

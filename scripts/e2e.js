@@ -883,6 +883,12 @@ test('英文提問：卡片用英文標籤', async () => {
     assert.equal(await card.getAttribute('lang'), 'en');
     assert.equal(await card.locator('.ab-badge.ab-best').first().textContent(), 'Best');
     assert.match(await card.textContent(), /台北101|臺北車站/, '地名維持中文');
+    // S12d：資料裡的中文（空品狀態、你的位置）走字典；小幫手回報英文
+    const aqi = page.locator('[data-card="aqi"] .ab-aqi strong').first();
+    if (await aqi.count()) assert.doesNotMatch(await aqi.textContent(), /[一-鿿]/);
+    assert.doesNotMatch(await card.locator('.ab-title').textContent(), /你的位置/);
+    const says = await page.locator('.thread .bubble.tool .say').allTextContents();
+    assert.ok(says.some((x) => /Compared \d+ options/.test(x)), says.join('|'));
     assert.doesNotMatch(await page.locator('.bubble.final').last().textContent(), /in Chinese for now/);
     // S12c：討論串標題、決策圖固定文字、接下來可以 都是英文
     assert.match(await page.locator('.thread-sum').first().textContent(), /Checked \d+ source/);

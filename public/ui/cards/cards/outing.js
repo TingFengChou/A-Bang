@@ -34,7 +34,7 @@ export default {
       h('div', { class: 'ab-stats' },
         stat(t('weather.temp'), w?.tempC != null ? `${w.tempC}°C` : '—'),
         stat(t('outing.pop'), w?.pop3h != null ? `${w.pop3h}%` : '—'),
-        stat(a?.status ? t('outing.aqiStatus', { status: a.status }) : t('outing.aqi'), a?.aqi != null ? `${a.aqi}` : '—')),
+        stat(a?.status ? t('outing.aqiStatus', { status: ((k) => (t(k) === k ? a.status : t(k)))(`aqi.status.${a.status}`) }) : t('outing.aqi'), a?.aqi != null ? `${a.aqi}` : '—')),
       meta && h('p', { class: 'ab-sub' }, meta));
   },
 };
