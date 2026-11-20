@@ -75,11 +75,11 @@ export const busRoute = {
     route = decodeURIComponent(route);
     setTitle(`${route} 公車`);
     starAction(setAction, toast, { id: `route:${city}:${route}`, type: 'route', title: `${route} 公車`, sub: '路線', href: location.hash.split('?')[0] });
-    // ?stop=&dir=：問阿幫選公車後「開公車頁看動態」帶來的上車站（L-14）；這裡也能設到站提醒
-    const myStop = query.stop || null;
+    // ?stop=&dir=：問阿幫選公車後「開公車頁看動態」帶來的上車站（L-14）；也可以在時間軸點站名設定（到站提醒、下車提醒都從這裡開始）
+    let myStop = query.stop || null;
     const host = createWebHost();
     let dir = Number(query.dir) === 1 ? 1 : 0, data = null, stale = null;
-    main.innerHTML = `<div id="focus"></div><div id="scene"></div><div class="seg" id="dirs"></div><div id="stops">${loading()}</div><div class="updated" id="upd"></div><p class="sr-only" aria-live="polite" aria-atomic="true" id="sr"></p>`;
+    main.innerHTML = `<div id="focus"></div><div id="scene"></div><div class="seg" id="dirs"></div><p class="note pick-hint" id="pick-hint">點站名設成上車站，就能設到站提醒和下車提醒。</p><div id="stops">${loading()}</div><div class="updated" id="upd"></div><p class="sr-only" aria-live="polite" aria-atomic="true" id="sr"></p>`;
     const say = announcer(main.querySelector('#sr'));
     let sceneState = {}; // 公車在街景裡上一次的位置（刷新時從那裡開過來）
 
@@ -108,10 +108,22 @@ export const busRoute = {
       stopsEl.innerHTML = `<div class="card list timeline">${d.stops.map((s) => `
         <div class="${s.plate ? 'here' : ''}${s.stopName === myStop ? ' me' : ''}">
           ${s.plate ? `<span class="ab-token sm go bus-pos" data-plate="${esc(s.plate)}" style="--c:#0f766e" role="img" aria-label="公車在這附近">${modeSvg('bus')}</span>` : ''}
-          <div class="grow"><div class="title">${esc(s.stopName)}${s.stopName === myStop ? '<span class="me-tag">你在這上車</span>' : ''}</div>${s.plate ? `<div class="plate">${esc(s.plate)} 即將抵達</div>` : ''}</div>
+          <div class="grow"><div class="title"><button type="button" class="stop-pick" data-stop="${esc(s.stopName)}" aria-label="在「${esc(s.stopName)}」上車${s.stopName === myStop ? '（目前的上車站）' : ''}" aria-pressed="${s.stopName === myStop}">${esc(s.stopName)}</button>${s.stopName === myStop ? '<span class="me-tag">你在這上車</span>' : ''}</div>${s.plate ? `<div class="plate">${esc(s.plate)} 即將抵達</div>` : ''}</div>
           ${etaBadge(s)}
         </div>`).join('')}</div>`;
       if (before) slide(stopsEl, before);
+      // 點站名＝設成上車站（網址一起改，重新整理或分享都一樣；不觸發換頁）
+      stopsEl.querySelectorAll('.stop-pick').forEach((b) => (b.onclick = () => {
+        myStop = b.dataset.stop;
+        const qs = new URLSearchParams({ stop: myStop, dir: String(dir) });
+        history.replaceState(null, '', `${location.hash.split('?')[0]}?${qs}`);
+        sceneState = {};
+        paint();
+        main.querySelector('#focus').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        main.querySelector('#focus .big')?.focus?.();
+        toast(`上車站設成「${myStop}」：可以設到站提醒和下車提醒`);
+      }));
+      main.querySelector('#pick-hint').hidden = Boolean(myStop);
       paintFocus(d);
     }
     /** 上車站：大字到站時間＋到站提醒（與問阿幫卡片共用同一個提醒） */

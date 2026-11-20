@@ -802,6 +802,21 @@ test('問阿幫：接著問時天氣空品收合同上；重來有分隔線', as
   });
 });
 
+// 路線時間軸點站名＝設成上車站（到站提醒、下車提醒從這裡開始）
+test('路線時間軸：點站名設成上車站', async () => {
+  await withPage(DEVICES.phone, '#/bus/Taipei/307', async (page) => {
+    await page.waitForSelector('.timeline .stop-pick');
+    assert.equal(await page.locator('#pick-hint').isVisible(), true);
+    const name = await page.locator('.timeline .stop-pick').nth(4).textContent();
+    await page.locator('.timeline .stop-pick').nth(4).click();
+    await page.waitForSelector('.bus-focus .alight select');
+    assert.match(await page.locator('.bus-focus').textContent(), new RegExp(`到「${name}」`));
+    assert.match(await page.evaluate(() => location.hash), /stop=/);
+    assert.equal(await page.locator('#pick-hint').isVisible(), false);
+    assert.equal(await page.locator('.timeline .stop-pick[aria-pressed="true"]').textContent(), name);
+  });
+});
+
 // 下車提醒：公車頁選了上車站，上車後選下車站 → 進行中顯示剩多久與取消
 test('下車提醒：選下車站、進行中、取消', async () => {
   await withPage(DEVICES.phone, '#/bus/Taipei/307?stop=%E6%95%A6%E5%8C%96%E5%B8%82%E5%A0%B4&dir=0', async (page) => {
