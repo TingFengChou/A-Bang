@@ -512,14 +512,18 @@
     {
       "id": "S12-1",
       "title": "觀光客英文",
-      "todo": "S12 英文對話",
       "turns": [
         {
           "say": "How do I get to Taipei 101?",
           "expect": {
             "tools": [
               "plan_trip"
-            ]
+            ],
+            "textHas": [
+              "Taipei 101 (台北101)",
+              "Best:"
+            ],
+            "fromHere": true
           }
         }
       ]
@@ -1184,6 +1188,75 @@
             "optionHas": {
               "metro": "機場線"
             }
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-2",
+      "title": "英文：from A to B by MRT",
+      "turns": [
+        {
+          "say": "from Ximending to Taipei 101 by MRT",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "西門町",
+            "to": "台北101",
+            "bestRole": "metro",
+            "textHas": [
+              "MRT"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-3",
+      "title": "英文：會下雨嗎（現在）",
+      "turns": [
+        {
+          "say": "Is it going to rain?",
+          "expect": {
+            "tools": [
+              "weather_now"
+            ],
+            "textHas": [
+              "Right now"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-4",
+      "title": "英文：明天天氣",
+      "turns": [
+        {
+          "say": "Will it rain tomorrow?",
+          "expect": {
+            "tools": [
+              "weather_tomorrow"
+            ],
+            "textHas": [
+              "Tomorrow"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-5",
+      "title": "英文：看不懂的問題說明能做什麼",
+      "turns": [
+        {
+          "say": "hello",
+          "expect": {
+            "toolsNone": true,
+            "textHas": [
+              "Taipei 101"
+            ]
           }
         }
       ]
