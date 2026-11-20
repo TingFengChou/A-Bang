@@ -13,6 +13,15 @@
 
 ---
 
+## 2026-11-20 L-17 判斷層導入問阿幫
+
+- 做了：依實驗結果把判斷層放進 `core/agent/judge.js`。狀態組合另做比較：規則 ∪（A ∩ B）全對 89.5%（驗收集 88.4%）最好，多數決 87.8%、規則單獨 86.0%（皆以混合意圖計）；為省模型呼叫，B 只在 A 沒把握或行程問題時問。示範模式（`runDemo`）意圖與狀態以判斷層為準、參數照判斷意圖由規則抽（`parseIntent(text, { intent })`，抽不出退回規則）；模型模式（`runModel`）`plan_trip` 狀態改用判斷層＋點選、地端模型有把握時只給該意圖工具（`INTENT_TOOLS`）；`status` 帶 judge。`@huggingface/transformers` 改選用依賴；伺服器背景載入（`judgeFromEnv`，`JUDGE=off`、`JUDGE_MODEL_DIR`）；Docker 建置時先下載模型（`scripts/fetch-judge-model.js`）；CI／E2E `JUDGE=off`。修模型照抄內部備註（followUpText 改成［內部備註，不要照抄］）。
+- 實機（8787，地端 qwen3:8b）：「我在等的那班 299 怎麼還沒來」判斷公車（0.98，規則原本判不出）；「很趕，而且想省點錢，從公館到市政府」狀態趕時間＋想省錢、自動盯 212，約 18 秒。
+- 測試：npm test 274 項全過（新增 `test/judge.test.js` 6 項）；npm run e2e 28 項全過
+- 文件：AGENT.md §5.3、CLAUDE.md、README、.env.example、PLAN.md（L-17）、docs/index.html 實驗結論
+- 下一個：狀態信心低時在決策圖請使用者確認；真實提問擴充評估集（隱私做法待定）
+- 卡住：無
+
 ## 2026-11-20 實驗（續）：A 嵌入分類器、B 自動優化提示詞、混合
 
 - 做了：使用者會議提到 Google Harness²、Pi agent（都開源）。評估後：Pi 是 TypeScript agent 執行核心（不影響判斷準確度，之後要多模型或裝置上 agent 再考慮）；Harness² 是研究程式碼、偏 coding agent，採用其概念（提出修改 → 試跑 → 只留變好的）。A：`@huggingface/transformers`（dev 依賴）＋multilingual-e5-small，類別中心＋信心、狀態 logistic regression，參數只用訓練範例（`decision-train.json` 176 筆，不與評估集重複）交叉驗證挑；B：`scripts/eval-optimize-prompt.js`，優化集（單數 id）提出／試跑／保留，驗收集（雙數 id）驗收；共用 `scripts/eval/lib.js`。

@@ -82,13 +82,13 @@ export function busFollowUp(trip) {
  * @param {{ profile: object, nextId: () => string, picked?: string[] }} opts
  * @returns {Promise<Array<{ name: string, ok: boolean, result?: object, error?: string, followUp?: object }>>} 依 calls 順序
  */
-export async function execTools(svc, calls, emit, { profile, nextId, picked = [] }) {
+export async function execTools(svc, calls, emit, { profile, nextId, picked = [], judgedStates }) {
   const started = calls.map((c) => ({ ...c, id: nextId() }));
   for (const c of started) emit(ev.toolStart({ id: c.id, name: c.name, input: c.args }));
   return Promise.all(started.map(async (c) => {
     try {
       if (!profile.tools.includes(c.name)) throw new UserError(`這個 agent 不能使用 ${c.name}`);
-      const result = await callTool(svc, c.name, c.name === 'plan_trip' ? withPickedPrefs(c.args, picked) : c.args);
+      const result = await callTool(svc, c.name, c.name === 'plan_trip' ? withPickedPrefs(c.args, picked, judgedStates) : c.args);
       emit(ev.toolResult({ id: c.id, result }));
       if (c.name !== 'plan_trip') return { name: c.name, ok: true, result };
       emit(ev.decision(withPicked(result.data, picked)));
@@ -114,12 +114,20 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
 }
 
 /** 使用者點選的狀態一律交給 plan_trip 計分（Claude／地端模型可能漏帶；示範模式已帶，重複無妨） */
-function withPickedPrefs(args, picked) {
-  if (!picked.length || !args || typeof args !== 'object') return args;
+function withPickedPrefs(args, picked, judgedStates) {
+  if (!args || typeof args !== 'object' || (!picked.length && !judgedStates)) return args;
   const prefs = args.prefs && typeof args.prefs === 'object' ? args.prefs : {};
-  const states = [...new Set([...(Array.isArray(prefs.states) ? prefs.states : []), ...picked])];
+  // 有判斷層時，使用者狀態以判斷層為準（實驗：模型自己加的狀態只有 3 成對），不採用模型猜的
+  const said = judgedStates ?? (Array.isArray(prefs.states) ? prefs.states : []);
+  const states = [...new Set([...said, ...picked])];
   return { ...args, prefs: { ...prefs, states } };
 }
+
+/** 對話裡之前的使用者訊息（判斷層看追問用） */
+export const priorUserTexts = (messages) => messages.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content);
+
+/** 判斷層結果給前端看（不含對話內容） */
+export const judgeInfo = (j) => (j ? { intent: j.intent, source: j.source, ...(j.confidence != null && { confidence: Math.round(j.confidence * 100) / 100 }) } : undefined);
 
 /** 使用者在畫面上點選的狀態（picked）標示來源；plan_trip 已依 prefs 計分，這裡只改標示 */
 function withPicked(trip, picked) {
@@ -134,17 +142,23 @@ function withPicked(trip, picked) {
  * @param {(e: object) => void} emit
  * @param {{ profileId?: string, now?: number, notice?: string }} [opts] notice：模型額度用完而降級時，在 status 後先說明
  */
-export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.now(), notice } = {}) {
+export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.now(), notice, judge } = {}) {
   const req = validateRequest(body);
   const profile = getProfile(profileId);
   const picked = req.userState?.picked || [];
   let n = 0;
   const nextId = () => `t${++n}`;
-  emit(ev.status({ mode: 'demo', profile: profile.id }));
-  if (notice) emit(ev.agentNote(notice));
-
   const plan = PLANNERS[profile.id] || PLANNERS.life;
-  const it = plan.parse(req.messages.at(-1).content, { history: req.messages.slice(0, -1) });
+  const last = req.messages.at(-1).content;
+  let it = plan.parse(last, { history: req.messages.slice(0, -1) });
+  // 判斷層（judge.js）：意圖與狀態以它為準，參數仍由規則抽；指定意圖抽不出參數時維持規則的判斷
+  const j = judge && profile.id === 'life' ? await judge(last, priorUserTexts(req.messages)).catch(() => null) : null;
+  if (j) {
+    if (j.intent !== it.intent) it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent }) || it;
+    it.states = j.states;
+  }
+  emit(ev.status({ mode: 'demo', profile: profile.id, judge: judgeInfo(j) }));
+  if (notice) emit(ev.agentNote(notice));
   // 需要使用者位置（M5-07）：客戶端支援 device_location 時先請它定位，拿到結果後客戶端帶 clientToolResults 重送
   if (plan.needsLocation(it) && req.clientTools?.includes('device_location')) {
     const loc = deviceLocation(req);

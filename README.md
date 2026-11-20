@@ -122,6 +122,8 @@ docker run -p 8787:8787 --env-file .env abang
 docker compose up -d --build
 ```
 
+**判斷層**（AGENT.md §5.3）：伺服器啟動時在背景載入嵌入分類器（首次下載約 120 MB 到 `JUDGE_MODEL_DIR`，Docker 建置時已先下載）；載入前或 `JUDGE=off` 時用規則判斷，功能不受影響。
+
 `docker-compose.yml` 會讀 `.env`（沒有就用示範模式），並把 `LOCAL_LLM_URL` 改指向主機（`host.docker.internal:11434`）；容器唯讀、`no-new-privileges`。Linux 主機需讓 Ollama 監聽 `0.0.0.0`。停止：`docker compose down`。
 
 映像只含正式依賴與預先打包的 `dist/cards.html`，以 `node` 使用者執行；log 為一行一個 JSON（Cloud Logging 相容，不含對話內容、座標與金鑰）。金鑰請用部署平台的環境變數設定，不要放進映像。

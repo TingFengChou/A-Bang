@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DEMO_MODE: '1'   # CI 不連 TDX／氣象署，一律示範模式 + fixture
+      JUDGE: 'off'     # 判斷層的嵌入模型（約 120 MB）不在 CI 下載；邏輯以單元測試（假的分類器）驗證
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

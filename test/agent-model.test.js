@@ -101,7 +101,7 @@ test('Claude：工具前的文字 → agent_note、工具事件與 decision、�
 
   // 請求內容：工具由 registry 產生（無 $schema）、最後一個工具與 system 有快取斷點、回填只有文字摘要
   const [r0, r1] = state.reqs;
-  assert.match(JSON.stringify(state.reqs[2]), /阿幫已自動查好.+走到這個上車站約 \d+ 分.+到站前 3 分提醒我/, '盯到站的結果（含走到上車站的時間）接在 plan_trip 結果後面給模型');
+  assert.match(JSON.stringify(state.reqs[2]), /內部備註，不要照抄.+上車站即時到站已查好.+走到這個上車站約 \d+ 分.+到站前 3 分提醒我/, '盯到站的結果（含走到上車站的時間）接在 plan_trip 結果後面給模型');
   assert.equal(r0.model, 'claude-haiku-5-5');
   assert.ok(r0.tools.some((t) => t.name === 'plan_trip' && t.input_schema.type === 'object' && !('$schema' in t.input_schema)));
   assert.ok(!r0.tools.some((t) => t.name === 'device_location'), '客戶端沒說支援定位就不提供');

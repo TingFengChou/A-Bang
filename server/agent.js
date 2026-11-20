@@ -11,9 +11,9 @@ import { nowTW, publicMessage } from '../core/util.js';
 
 /**
  * @param {{ svc: object, env?: Record<string, string|undefined>, log?: (o: object) => void,
- *   provider?: import('../core/agent/model-loop.js').Provider|null }} opts provider：測試注入；未給時依 env 決定
+ *   provider?: import('../core/agent/model-loop.js').Provider|null, judge?: Function|null }} opts provider：測試注入；未給時依 env 決定；judge：判斷層（core/agent/judge.js judgeFromEnv）
  */
-export function createAgentHandler({ svc, env = process.env, log = () => {}, provider = pickProvider(env, { defaultModel: getProfile('life').model }) }) {
+export function createAgentHandler({ svc, env = process.env, log = () => {}, provider = pickProvider(env, { defaultModel: getProfile('life').model }), judge = null }) {
   const perMin = createRateLimiter({ limit: Number(env.AGENT_RPM) || 10 });
   const perDay = createRateLimiter({ limit: Number(env.AGENT_RPD) || 100, windowMs: 86_400_000 });
   const budget = Number(env.AGENT_DAILY_BUDGET) || 5000;
@@ -66,9 +66,9 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
       try {
         if (provider && u.modelCalls < budget) {
           mode = provider.mode;
-          await runModel(svc, body, emit, { provider, profileId: profile.id, onModelCall: () => { u.modelCalls++; } });
+          await runModel(svc, body, emit, { provider, profileId: profile.id, judge, onModelCall: () => { u.modelCalls++; } });
         } else {
-          await runDemo(svc, body, emit, { profileId: profile.id, ...(provider && { notice: '今天的 AI 額度用完了，先用示範模式回答' }) });
+          await runDemo(svc, body, emit, { profileId: profile.id, judge, ...(provider && { notice: '今天的 AI 額度用完了，先用示範模式回答' }) });
         }
       } catch (e) {
         failed = e?.status ? `${e.name}:${e.status}` : (e?.name || 'Error'); // 只記錯誤類型，不記訊息（可能含上游細節）

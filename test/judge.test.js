@@ -1,0 +1,89 @@
+// 判斷層（core/agent/judge.js）：用假的嵌入分類器與模型判斷驗證組合規則、示範模式與模型模式的接法（不下載模型）
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createJudge, judgeFromEnv } from '../core/agent/judge.js';
+import { runDemo } from '../core/agent/run.js';
+import { runModel } from '../core/agent/model-loop.js';
+import { createServices } from '../core/index.js';
+
+const fake = (out) => { const f = async () => { f.calls++; if (out instanceof Error) throw out; return out; }; f.calls = 0; return f; };
+
+test('組合：A 有把握就用 A、不問模型；A 沒把握改問模型；狀態＝規則 ∪（A ∩ B）', async () => {
+  const llm = fake({ intent: 'bus_route', states: [] });
+  const j1 = await createJudge({ embed: fake({ intent: 'stock', confidence: 0.93, states: [] }), llm })('聯發科現在多少錢一股');
+  assert.deepEqual([j1.intent, j1.source, j1.llmUsed, llm.calls], ['stock', 'embed', false, 0], '非行程又有把握：不花模型呼叫');
+
+  const j2 = await createJudge({ embed: fake({ intent: 'unknown', confidence: 0.4, states: [] }), llm })('我在等的那班 299 怎麼還沒來');
+  assert.deepEqual([j2.intent, j2.source, j2.llmUsed], ['bus_route', 'llm', true]);
+
+  // 行程：狀態才有用，所以就算 A 有把握也問模型；A、B 都說「趕時間」才加，A 單獨說的「想省錢」不加；規則抓到的「帶行李」保留
+  const j3 = await createJudge({ embed: fake({ intent: 'trip', confidence: 0.95, states: ['rush', 'budget'] }), llm: fake({ intent: 'trip', states: ['rush', 'lessWalk'] }) })('帶行李從台北車站到松山機場');
+  assert.equal(j3.intent, 'trip');
+  assert.deepEqual(j3.states.sort(), ['luggage', 'rush']);
+});
+
+test('退路：沒有分類器與模型等同規則；模型出錯用 A；A 出錯用規則', async () => {
+  const r = await createJudge()('今天油價多少');
+  assert.deepEqual([r.intent, r.source, r.confidence], ['fuel', 'rules', null]);
+  const a = await createJudge({ embed: fake({ intent: 'quake', confidence: 0.5, states: [] }), llm: fake(new Error('down')) })('剛剛是不是有在搖');
+  assert.deepEqual([a.intent, a.source, a.llmUsed], ['quake', 'embed', false]);
+  const b = await createJudge({ embed: fake(new Error('onnx')) })('今天油價多少');
+  assert.equal(b.intent, 'fuel');
+  assert.equal(judgeFromEnv({ JUDGE: 'off' }).judge, null);
+});
+
+test('示範模式：判斷層改了意圖就照它抽參數（規則判不出的「299 怎麼還沒來」），status 帶判斷結果', async () => {
+  const judge = createJudge({ embed: fake({ intent: 'bus_route', confidence: 0.92, states: [] }) });
+  const es = [];
+  await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '我在等的那班 299 怎麼還沒來' }] }, (e) => es.push(e), { judge });
+  assert.deepEqual(es[0].judge, { intent: 'bus_route', source: 'embed', confidence: 0.92 });
+  const start = es.find((e) => e.type === 'tool_start');
+  assert.equal(start.name, 'bus_route_eta');
+  assert.equal(start.input.routeName, '299');
+});
+
+test('示範模式：狀態以判斷層為準（規則沒抓到的「膝蓋不好」→ 少走路）', async () => {
+  const judge = async () => ({ intent: 'trip', states: ['lessWalk'], confidence: 0.9, source: 'embed', llmUsed: false });
+  const es = [];
+  await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '我膝蓋不好，從西門町到台北101' }] }, (e) => es.push(e), { judge });
+  const trip = es.find((e) => e.type === 'tool_start' && e.name === 'plan_trip');
+  assert.deepEqual(trip.input.prefs.states, ['lessWalk']);
+});
+
+/** 假的模型 provider：記下給模型的工具；第一輪呼叫指定工具，第二輪回文字 */
+function fakeProvider(mode, firstCall) {
+  const seen = {};
+  return {
+    seen, mode, model: 'fake',
+    start({ tools }) {
+      seen.tools = tools.map((t) => t.name);
+      let n = 0;
+      return {
+        next: async () => (n++ === 0 && firstCall
+          ? { text: '', calls: [{ id: 'c1', ...firstCall }], stop: 'tool', usage: { input: 1, output: 1 } }
+          : { text: '好的', calls: [], stop: 'end', usage: { input: 1, output: 1 } }),
+        addResults() {},
+      };
+    },
+  };
+}
+
+test('模型模式：地端模型且判斷有把握 → 只給該意圖的工具；Claude 照常給全部', async () => {
+  const judge = createJudge({ embed: fake({ intent: 'stock', confidence: 0.95, states: [] }) });
+  const svc = createServices({ forceMock: true });
+  const local = fakeProvider('local');
+  await runModel(svc, { messages: [{ role: 'user', content: '聯發科多少' }] }, () => {}, { provider: local, judge });
+  assert.deepEqual(local.seen.tools, ['stock_quote']);
+  const claude = fakeProvider('claude');
+  await runModel(svc, { messages: [{ role: 'user', content: '聯發科多少' }] }, () => {}, { provider: claude, judge });
+  assert.ok(claude.seen.tools.length > 20);
+});
+
+test('模型模式：plan_trip 的狀態以判斷層為準，不採用模型自己加的', async () => {
+  const judge = async () => ({ intent: 'trip', states: ['rush'], confidence: 0.9, source: 'embed', llmUsed: false });
+  const provider = fakeProvider('local', { name: 'plan_trip', input: { from: '西門町', to: '台北101', prefs: { states: ['lessWalk', 'budget'] } } });
+  const es = [];
+  await runModel(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '很趕，西門町到台北101' }], userState: { picked: ['luggage'] } }, (e) => es.push(e), { provider, judge });
+  const r = es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
+  assert.deepEqual(r.args.prefs.states.sort(), ['luggage', 'rush'], '判斷層的狀態＋使用者點選的；模型猜的少走路、想省錢不採用');
+});

@@ -14,7 +14,7 @@ let http;
 let out = ''; // 伺服器 stdout（結構化 log）
 
 before(async () => {
-  http = spawn(process.execPath, ['server/http.js'], { env: { ...process.env, PORT: String(PORT), DEMO_MODE: '1', RATE_LIMIT_API: '30' }, stdio: ['ignore', 'pipe', 'inherit'] });
+  http = spawn(process.execPath, ['server/http.js'], { env: { ...process.env, PORT: String(PORT), DEMO_MODE: '1', RATE_LIMIT_API: '30', JUDGE: 'off' }, stdio: ['ignore', 'pipe', 'inherit'] });
   await new Promise((resolve, reject) => {
     http.stdout.on('data', (d) => { out += d; if (String(d).includes('running')) resolve(); });
     http.on('exit', (c) => reject(new Error(`server exited ${c}`)));
