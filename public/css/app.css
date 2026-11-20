@@ -167,7 +167,7 @@ main { padding: 4px 16px 16px; }
 .timeline > div.me::after { animation: ab-ping 1.6s ease-out infinite; }
 .bus-focus { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; align-items: center; }
 .bus-focus > .ab-token { grid-row: span 2; }
-.bus-focus > .ok, .bus-focus > .row { grid-column: 1 / -1; }
+.bus-focus > .ok, .bus-focus > .row, .bus-focus > .stuck, .bus-focus > .alight { grid-column: 1 / -1; } /* 整列寬：不擠進右欄 */
 @media (prefers-reduced-motion: reduce) { .timeline > div.me::after { animation: none; } }
 
 /* 按壓手感（設計 review 建議 1）：壓下變矮、放開回彈；精簡模式只換顏色 */
@@ -264,3 +264,9 @@ html.kb-open .app { padding-bottom: 12px; }
 .bus-focus .stuck { margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: #fef3c7; color: #78350f; display: grid; gap: 6px; }
 .bus-focus .stuck p { margin: 0; }
 .bus-focus .stuck .btn { justify-self: start; min-height: 44px; display: inline-flex; align-items: center; text-decoration: none; }
+
+/* 下車提醒：上車站卡片下方 */
+.bus-focus .alight { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.bus-focus .alight-pick { display: grid; gap: 6px; font-size: 14px; }
+.bus-focus .alight-pick select { min-height: 44px; border-radius: 10px; border: 1px solid var(--line); padding: 0 10px; font: inherit; background: var(--card, #fff); }
+.bus-focus .alight .btn { min-height: 44px; justify-self: start; }

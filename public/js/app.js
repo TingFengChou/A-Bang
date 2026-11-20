@@ -8,6 +8,7 @@ import { watchKeyboard } from './keyboard.js';
 import { showOnboarding } from './onboarding.js';
 import { t as cardT } from '../ui/cards/i18n/zh-TW.js';
 import { restoreReminders } from './reminders.js';
+import { resumeAlight } from './alight.js';
 import home from './pages/home.js';
 import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
@@ -65,6 +66,7 @@ function toast(msg, ms = 2200, action = null) {
 }
 // 公車到站提醒（L-14，host-web.js）：任何頁面都顯示（沒開通知權限也看得到）
 window.addEventListener('abang:arrival', (e) => toast(`🚌 ${e.detail.text}`, 8000));
+window.addEventListener('abang:alight', (e) => toast(`🔔 ${e.detail.text}`, 10000)); // 下車提醒
 // 公車一直不來（S15）：提示可以改其他方式（卡片上有按鈕）
 window.addEventListener('abang:arrival-stuck', (e) => {
   if (location.hash.startsWith('#/agent')) return;
@@ -133,6 +135,8 @@ navigate();
 api.status().then(() => paintBanner()).catch(() => {});
 // 出門提醒（T7）：過期的取消（重開機後不補送）、網頁版重新整理後把還沒到的排回去
 try { restoreReminders(); } catch { /* 無痕模式 */ }
+// 下車提醒：App 被系統關掉再打開時恢復（沒逾時才恢復）
+if (globalThis.Capacitor?.isNativePlatform?.()) { const web = createWebHost(); resumeAlight((n, a) => web.callTool(n, a)); }
 // 我的發票：開獎後打開 App 就自動對獎、中獎主動通知（本機資料，離線 Demo 沒有伺服器時不做）
 const checkPrizes = () => {
   if (globalThis.__DEMO_SERVICES__) return;

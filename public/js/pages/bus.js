@@ -7,6 +7,7 @@ import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
 import { snapshot, slide } from '../../ui/cards/slide.js';
 import { busScene } from '../../ui/cards/bus-scene.js';
 import { railOf } from '../../ui/cards/cards/bus-route.js';
+import { watchAlight, stopAlight, alightWatch, rideEstimate } from '../alight.js';
 
 const CITY_CHIPS = [['Taipei', '臺北'], ['NewTaipei', '新北'], ['Taoyuan', '桃園'], ['Taichung', '臺中'], ['Tainan', '臺南'], ['Kaohsiung', '高雄'], ['Keelung', '基隆'], ['Hsinchu', '新竹']];
 const REFRESH = 20000;
@@ -126,6 +127,7 @@ export const busRoute = {
         ${watching && w.stuck ? `<div class="stuck"><p>${esc(cardT(`busRoute.stuck.${w.stuck}`, { route }))}</p><a class="btn" href="#/agent?q=${encodeURIComponent(w.trip?.to ? cardT('busRoute.stuckAskTo', { to: w.trip.to }) : cardT('busRoute.stuckAsk'))}">${esc(cardT('busRoute.stuckBtn'))}</a></div>` : ''}
         ${watching ? `<p class="ok" role="status">${w.skip ? `這班快到了、可能趕不上；下一班到站前 ${w.minutes} 分提醒你（${when}）` : `已設定：到站前 ${w.minutes} 分提醒你（${when}）`}<button class="btn ghost" id="unwatch" type="button">取消提醒</button></p>`
           : live ? `<div class="row">${[3, 5].map((n) => `<button class="btn" type="button" data-min="${n}">到站前 ${n} 分提醒我</button>`).join('')}</div>` : ''}</div>`;
+      box.querySelector('.bus-focus').append(alightBlock(d, s));
       box.querySelectorAll('[data-min]').forEach((b) => (b.onclick = async () => {
         await host.watchArrival({ city, routeName: route, stop: myStop, direction: dir, minutes: Number(b.dataset.min) });
         toast(`好，${route} 到「${myStop}」前 ${b.dataset.min} 分提醒你`);
@@ -133,7 +135,38 @@ export const busRoute = {
       }));
       box.querySelector('#unwatch')?.addEventListener('click', () => { host.unwatchArrival(); toast(cardT('busRoute.alertCanceled')); paintFocus(d); });
     }
+    let pickedDest = null;
+    /** 下車提醒：上車後選下車站，快到時提醒（App 關著也會響）；進行中顯示剩多久與取消 */
+    function alightBlock(d, me) {
+      const wrap = document.createElement('div');
+      wrap.className = 'alight';
+      const a = alightWatch();
+      if (a && a.routeName === route) {
+        const left = a.last?.etaSec;
+        wrap.innerHTML = `<p class="ok" role="status">下車提醒：快到「${esc(a.dest)}」時提醒你${left != null ? `（約 ${Math.max(1, Math.round(left / 60))} 分後到）` : ''}</p>`;
+        const cancel = Object.assign(document.createElement('button'), { type: 'button', className: 'btn ghost', textContent: '取消下車提醒' });
+        cancel.addEventListener('click', () => { stopAlight(); toast('已取消下車提醒'); paintFocus(d); });
+        wrap.append(cancel);
+        return wrap;
+      }
+      const after = d.stops.filter((x) => x.seq > me.seq);
+      if (!after.length || stale) return wrap;
+      wrap.innerHTML = `<label class="alight-pick"><span>上車了嗎？在哪一站下車</span><select id="alight-dest">${after.map((x) => `<option value="${esc(x.stopName)}"${x.stopName === pickedDest ? ' selected' : ''}>${esc(x.stopName)}</option>`).join('')}</select></label>`;
+      wrap.querySelector('select').addEventListener('change', (e) => { pickedDest = e.target.value; }); // 每 20 秒重畫：選好的站保留
+      const go = Object.assign(document.createElement('button'), { type: 'button', className: 'btn', textContent: '快到時提醒我下車' });
+      go.addEventListener('click', async () => {
+        const dest = wrap.querySelector('#alight-dest').value;
+        const rideSec = rideEstimate(d.stops, myStop, dest) ?? 600;
+        await watchAlight({ city, routeName: route, direction: dir, board: myStop, dest, plate: me.plate || null, rideSec }, (n, a2) => host.callTool(n, a2));
+        toast(`好，快到「${dest}」時提醒你下車`);
+        paintFocus(data.directions[dir] || data.directions[0]);
+      });
+      wrap.append(go);
+      return wrap;
+    }
     const onWatch = () => data && paintFocus(data.directions[dir] || data.directions[0]);
+    window.addEventListener('abang:alight-watch', onWatch);
+    onCleanup(() => window.removeEventListener('abang:alight-watch', onWatch));
     window.addEventListener('abang:arrival-watch', onWatch);
     onCleanup(() => window.removeEventListener('abang:arrival-watch', onWatch));
     load();
