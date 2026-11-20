@@ -182,6 +182,8 @@ export function parseIntent(text, ctx) {
     const m = /捷運\s*([一-龥]{2,6}?)站/.exec(s);
     if (m) return { ...base, intent: 'metro', station: m[1] };
   }
+  // 問捷運下一班但沒說站（「板南線下一班幾分」「捷運還要等多久」）→ 用現在位置最近的站（needsLocation）
+  if ((/捷運|MRT/i.test(s) || METRO_LINE.test(s)) && METRO_ASK.test(s) && !/站/.test(s.replace(/車站/g, ''))) return { ...base, intent: 'metro', station: null, line: METRO_LINE.exec(s)?.[0] || null };
   const life = lifeIntent(s);
   if (life) return { ...base, ...life };
   const route = BUS_ROUTE.exec(s)?.[1];
@@ -213,7 +215,7 @@ function slotsFor(intent, s, base) {
     }
     case 'metro': {
       const m = /(?:捷運|MRT)?\s*([一-龥]{2,6}?)站/i.exec(s);
-      return m ? { ...base, intent, station: m[1] } : null;
+      return m ? { ...base, intent, station: m[1] } : { ...base, intent, station: null, line: METRO_LINE.exec(s)?.[0] || null }; // 沒說站：最近的站
     }
     case 'bus_route': {
       const route = BUS_ROUTE.exec(s)?.[1] || /(?:^|[^\d])([紅藍綠棕橘小幹]?\d{1,4}[區副]?)(?!\d)/.exec(s)?.[1];
@@ -238,6 +240,10 @@ export const DEFAULT_FROM = '臺北車站'; // 示範：沒說起點也拿不到
 export const DEFAULT_AREA = '臺北市中正區';
 export const INVOICE_WALLET_HINT = '要不要把發票存到「我的發票」？可以直接掃發票左邊的 QR code，號碼只存在你的手機，開獎後打開阿幫就自動幫你對獎（首頁 → 發票對獎）。'; // 示範：查藥局沒說地區時（臺北車站所在的區）
 
+/** 捷運路線名（台北、桃園、台中、高雄）與「下一班」類問法 */
+const METRO_LINE = /(?:板南|淡水信義|淡水|信義|松山新店|松山|新店|中和新蘆|新蘆|文湖|環狀|萬大|機場|綠|紅|橘|藍|棕|黃)線/;
+const METRO_ASK = /下一班|幾分|多久|還要等|到站|來了沒|什麼時候來/;
+
 /** 以座標查「附近」的意圖：工具與點名 */
 const NEARBY = {
   youbike: ['youbike_nearby', '@YouBike 附近還有車嗎'],
@@ -249,7 +255,7 @@ const NEARBY = {
 const isNearby = (it) => Object.hasOwn(NEARBY, it.intent);
 
 /** 需要使用者所在位置嗎（行程沒起點；附近類查詢沒地點） */
-export const needsLocation = (it) => (it.intent === 'trip' && !it.from) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]);
+export const needsLocation = (it) => (it.intent === 'trip' && !it.from) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]) || (it.intent === 'metro' && !it.station);
 
 /**
  * 意圖 → 分段計畫。每段 `(results) => ({ note, calls })`，results 是之前各段的 callTool 結果（依名稱）。
@@ -306,6 +312,10 @@ export function demoSteps(it, now = Date.now()) {
       ];
     }
     case 'metro':
+      if (!it.station) { // 沒說站：用現在位置找最近的捷運站（拿不到位置就用預設地點）
+        const near = it.fromPoint ? ll(it.fromPoint) : DEFAULT_FROM;
+        return [() => ({ note: `@捷運 找${it.fromPoint ? '離你' : `「${DEFAULT_FROM}」`}最近的站，看下一班`, calls: [{ name: 'metro_live_board', args: { near } }] })];
+      }
       return [() => ({ note: `@捷運 ${it.station}站下一班`, calls: [{ name: 'metro_live_board', args: { system: 'TRTC', station: it.station } }] })];
     case 'rail': {
       const name = it.system === 'THSR' ? 'thsr_timetable' : 'tra_timetable';

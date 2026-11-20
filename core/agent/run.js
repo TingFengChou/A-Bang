@@ -1,7 +1,7 @@
 // Agent 共用執行器（M5-04，AGENT.md §2–§3）：呼叫 tool → tool_start／tool_result；plan_trip 時發 decision。
 // 示範模式（demo-intent）與模型模式（model-loop.js：Claude／地端，M5-05）共用 execTools，事件流相同。不加假延遲（ADR-0009）。
 import { z } from 'zod';
-import { callTool } from '../tools/index.js';
+import { callTool, listTools } from '../tools/index.js';
 import { UserError, publicMessage } from '../util.js';
 import { ev } from './events.js';
 import { getProfile } from '../agents/index.js';
@@ -17,9 +17,15 @@ const PLANNERS = {
   antifraud: { parse: parseAntifraud, steps: antifraudSteps, summary: antifraudSummary, needsLocation: () => false },
 };
 
+/** 工具英文名稱（metro_stations、plan_trip…）→ 中文名稱：使用者不該看到內部名稱（地端模型會照抄工具說明，2026-11-21 實機） */
+const TOOL_TITLES = new Map(listTools().map((t) => [t.name, t.title || '查詢']));
+export function hideToolNames(text) {
+  return String(text ?? '').replace(/[「『"`]?\b([a-z]+(?:_[a-z0-9]+)+)\b[」』"`]?/g, (m, name) => (TOOL_TITLES.has(name) ? `「${TOOL_TITLES.get(name)}」` : m));
+}
+
 /** 最後的文字經輸出護欄（L2）：有改寫時先送 guardrail 事件 */
 export function guardedText(profile, text, emit) {
-  const g = applyOutputGuardrails(profile, text);
+  const g = applyOutputGuardrails(profile, hideToolNames(text));
   for (const h of g.hits) emit(ev.guardrail(h));
   return g.text;
 }

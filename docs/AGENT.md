@@ -202,6 +202,14 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - 起點交給程式（模型模式）：使用者沒說起點時，`plan_trip.from` 一律換成手機定位；還沒定位先送 `client_tool_call device_location`；拒絕定位且起訖點相同時回錯誤請模型改問從哪出發。
 - YouBike 兩端：`plan_trip` 的 YouBike 方案帶 `bike: { rent: { name, count, tight, backup? }, ret: { ... } }`；不可行時 `skipped: [{ role: 'bike', why }]`；`tool_result.impact` 可為陣列（行程比較結果＋YouBike 兩端）。
 
+### 5.2.2 轉述受程式約束（A2，2026-11-21）
+
+- 模型呼叫 `plan_trip` 時，`prefs.arriveBy`、`prefs.mode` 只採使用者說過的（規則從這句或前文抽到的、判斷層的 mode；`groundedPrefs`），模型自己加的丟掉（地端模型曾自加抵達時間，結果「所有方式都趕不上」）。改完與預先查詢相同就沿用結果，不再出現第二張行程卡。
+- `plan_trip` 給模型的文字最後一行是「下一步：…」（`NEXT_STEP`，依建議方式：公車看卡片與到站提醒、叫車按官方連結、步行導航、YouBike 借車站、高鐵台鐵訂票），模型照這句說；叫車、步行不會被提醒「到站前 3 分」。
+- 最後的回答經 `hideToolNames`：工具英文名稱（`metro_stations` 等）換成中文名稱（地端模型會照抄工具說明）。
+- 捷運沒說站（「板南線下一班幾分」）：`metro_live_board { near }` 用現在位置找 3 公里內最近的站；示範與模型模式都先查好（`prefetchCalls`）。路線名稱目前只用來判斷意圖，還沒有「找該線最近的站」（待 TDX 站序資料）。
+- 情境對話測試集：`test/scenarios/life.json`（`npm test` 示範模式）、`scripts/eval-scenarios.js`（模型模式）。
+
 ### 5.3 判斷層：意圖與使用者狀態（2026-11-20，`core/agent/judge.js`）
 
 依實驗（`docs/research/decision-eval.md`，172 題）導入；**方案排序仍由 `decide.js` 計分（ADR-0010）**，判斷層只決定「使用者想做什麼」與「使用者狀態」。

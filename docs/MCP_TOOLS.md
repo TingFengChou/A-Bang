@@ -131,12 +131,12 @@ TDX：高鐵 `/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}`；台鐵 
 
 | | `metro_stations` | `metro_live_board`（卡片 `metro`） |
 |---|---|---|
-| 輸入 | `system: 'TRTC'\|'TYMC'\|'TMRT'\|'KRTC'` | `system`、`station`（站名或代碼，台／臺通用，例 台北車站、BL12） |
+| 輸入 | `system: 'TRTC'\|'TYMC'\|'TMRT'\|'KRTC'` | `system`、`station`（站名或代碼，台／臺通用，例 台北車站、BL12）；或 `near`（使用者位置，沒說站名時；`system` 可省略，各系統找 3 公里內最近的站，輸出加 `nearest: { distanceM, from? }`；超過 3 公里回 UserError 請使用者說站名，2026-11-21） |
 | 輸出 | `[{ id, ids, name, lat?, lon?, nav }]`；同名多線合併成一站，`ids` 列出所有代碼 | `{ system, station, stationId, lat?, lon?, nav, updatedAt, trains: [{ line, lineId, destination, etaMin, status }] }`，依 `etaMin` 排序、沒有時間的在後 |
 | TDX | `/basic/v2/Rail/Metro/Station/{Op}`（24h） | 先查車站，再 `/basic/v2/Rail/Metro/LiveBoard/{Op}`（20s，`$filter` 該站所有代碼） |
 | 欄位 | `StationID`、`StationName`、`StationPosition` | `LineName`／`LineID`／`LineNO`、`DestinationStationName`（缺時用 `TripHeadSign`）、`EstimateTime`（分鐘）、`UpdateTime` |
 | status | — | 0 分「進站中」、1 分「即將進站」、其他「N 分」、無資料「—」 |
-| speak | 「桃園機場捷運共有 6 個車站。」 | 「美麗島最快 3 分鐘後有往小港的車。」；沒資料時「…目前沒有即時到站資料。」 |
+| speak | 「桃園機場捷運共有 6 個車站。」 | 「美麗島最快 3 分鐘後有往小港的車。」；沒資料時「…目前沒有即時到站資料。」；`near`：「離你最近的是市政府（約 89 公尺）：…」（給地名時「離「臺北車站」最近的是…」） |
 
 看板沒有資料時回空 `trains`（不報錯）。北捷看板資料有限，M1 實測後決定是否以 `StationTimeTable` 推算。示範模式：四個系統的主要車站（真實站名、近似座標），每 6 分鐘一班的模擬到站，終點站不顯示往自己方向的車。
 

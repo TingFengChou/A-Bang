@@ -1,0 +1,45 @@
+{
+  "about": "生活 agent 情境對話（PM 盤點 S1～S18，abang-backlog 三之二）。每個情境＝多輪輸入＋期望；npm test 在示範模式（規則＋判斷層規則）跑全部。todo＝目前還做不到、列為開發目標（node:test 標 todo，不算失敗）。",
+  "here": { "lat": 25.0478, "lon": 121.517 },
+  "scenarios": [
+    { "id": "S16-1", "title": "只說目的地：起點用現在位置", "turns": [
+      { "say": "去台北101", "expect": { "tools": ["plan_trip"], "fromHere": true, "textNot": ["沒說從哪出發"] } } ] },
+    { "id": "S16-2", "title": "附近 YouBike 用現在位置", "turns": [
+      { "say": "附近還有 YouBike 嗎？", "expect": { "tools": ["youbike_nearby"], "textNot": ["沒說在哪"] } } ] },
+    { "id": "S16-3", "title": "捷運沒說站：最近的站", "turns": [
+      { "say": "板南線下一班幾分", "expect": { "tools": ["metro_live_board"], "textHas": ["離你最近的是"] } } ] },
+    { "id": "S16-4", "title": "沒說站的公車：路線上離你最近的站", "turns": [
+      { "say": "307 到哪了？", "expect": { "tools": ["bus_route_eta"] } } ] },
+    { "id": "S2-1", "title": "多輪改條件：叫車 → 改公車", "turns": [
+      { "say": "從西門町去台北101", "expect": { "tools": ["plan_trip"] } },
+      { "say": "改坐公車", "expect": { "tools": ["plan_trip"], "bestRole": "bus", "textHas": ["公車"] } } ] },
+    { "id": "S2-2", "title": "多輪疊加：改公車後再說很趕，仍是公車", "turns": [
+      { "say": "從西門町去台北101", "expect": { "tools": ["plan_trip"] } },
+      { "say": "改坐公車", "expect": { "bestRole": "bus" } },
+      { "say": "我很趕", "expect": { "tools": ["plan_trip"], "bestRole": "bus", "states": ["rush"] } } ] },
+    { "id": "S3-1", "title": "趕時間：狀態 rush 算進決策", "turns": [
+      { "say": "我快遲到了，從西門町去信義區最快怎麼走", "expect": { "tools": ["plan_trip"], "states": ["rush"] } } ] },
+    { "id": "S3-2", "title": "幾點前要到：抵達時間來自使用者", "turns": [
+      { "say": "10點前要到台北101", "expect": { "tools": ["plan_trip"], "arriveBy": "10:00" } } ] },
+    { "id": "S8-1", "title": "帶行李不想走：luggage＋lessWalk", "turns": [
+      { "say": "我帶著大行李箱，不想走太多路，要去松山機場", "expect": { "tools": ["plan_trip"], "states": ["luggage", "lessWalk"] } } ] },
+    { "id": "S4-1", "title": "下雨天出門：自動查天氣並算進決策", "demo": { "weather": "rain" }, "turns": [
+      { "say": "從西門町去台北101", "expect": { "tools": ["plan_trip"], "states": ["rain"] } } ] },
+    { "id": "S5-1", "title": "騎 YouBike：兩端車位都要看", "turns": [
+      { "say": "騎YouBike去台北101", "expect": { "tools": ["plan_trip"], "textHas": ["YouBike"] } } ] },
+    { "id": "S13-1", "title": "出門建議：天氣＋空品一起看", "todo": "S13 尚未實作（組合查詢）", "turns": [
+      { "say": "今天出門要注意什麼？", "expect": { "tools": ["weather_now", "aqi_nearby"] } } ] },
+    { "id": "S10-1", "title": "深夜末班車", "todo": "S10 末班車判斷尚未實作", "turns": [
+      { "say": "現在還有公車回板橋嗎", "expect": { "tools": ["plan_trip"], "textHas": ["末班"] } } ] },
+    { "id": "S9-1", "title": "輪椅：排除 YouBike、步行", "todo": "A1 新狀態 mobility 尚未實作", "turns": [
+      { "say": "我坐輪椅，要去台北101", "expect": { "tools": ["plan_trip"], "states": ["mobility"] } } ] },
+    { "id": "S7-1", "title": "轉乘：公車＋捷運", "todo": "T3 多段轉乘尚未實作", "turns": [
+      { "say": "從板橋去內湖科學園區", "expect": { "tools": ["plan_trip"], "textHas": ["轉"] } } ] },
+    { "id": "S18-1", "title": "超出範圍：不亂答", "turns": [
+      { "say": "幫我訂今晚的餐廳", "expect": { "toolsNone": true } } ] },
+    { "id": "S1-1", "title": "查天氣：沒說地點用現在位置", "turns": [
+      { "say": "會下雨嗎", "expect": { "tools": ["weather_now"], "textNot": ["沒說在哪"] } } ] },
+    { "id": "S6-1", "title": "叫車：只給官方連結，不提到站提醒", "turns": [
+      { "say": "從西門町叫車去台北101", "expect": { "tools": ["plan_trip"], "bestRole": "ridehail", "textNot": ["到站前"] } } ] }
+  ]
+}

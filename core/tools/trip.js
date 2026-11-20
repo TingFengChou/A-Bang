@@ -8,6 +8,17 @@ import { STATES } from '../decide.js';
 
 const hhmm = z.string().trim().regex(HHMM_RE, '時間格式需為 HH:mm（00:00～23:59）');
 
+/** 依建議方式的下一步（模型轉述照這句說；例：叫車不要提公車到站提醒，A2 轉述受程式約束） */
+export const NEXT_STEP = {
+  bus: '卡片上看公車多久到上車站，可以按「到站前 3 分提醒我」',
+  ridehail: '按卡片的「叫車」用官方 App 叫車（會先請你確認，付款在對方 App 完成）',
+  walk: '按「導航」用地圖 App 走過去',
+  bike: '照卡片走到借車站借車，還車站的空位也看過了',
+  thsr: '按「訂票」到高鐵官方訂票（會先請你確認）',
+  tra: '按「訂票」到台鐵官方訂票（會先請你確認）',
+  intercity: '看卡片上的班次時間，到上車站搭車',
+};
+
 export const planTripTool = defineTool({
   name: 'plan_trip',
   title: '從 A 到 B 怎麼去',
@@ -44,6 +55,7 @@ export const planTripTool = defineTool({
       }),
       ...data.ranking.excluded.map((e) => `✗ ${e.name}：${e.why}`),
       `建議：${data.ranking.reason}`,
+      ...(NEXT_STEP[byId.get(data.best)?.role] ? [`下一步：${NEXT_STEP[byId.get(data.best).role]}`] : []),
     ];
     return { data, text: clip(lines) };
   },

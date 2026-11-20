@@ -37,6 +37,8 @@ export const FALLBACK = {
 /** 有卡片的工具，回給模型的清單最多幾筆（完整結果已在卡片上） */
 export const MODEL_LIST_MAX = 6;
 const NEARBY_TOOL = { weather: 'weather_now', aqi: 'aqi_nearby', youbike: 'youbike_nearby', nearby_bus: 'bus_nearby_stations', garbage: 'garbage_truck_nearby' };
+/** 捷運沒說站：用現在位置找最近的站（metro_live_board 的 near） */
+const METRO_NEAR = 'metro_live_board';
 /** 有現在位置時由程式先查的工具（見 runModel） */
 export function prefetchCalls(it, j, here) {
   const at = { lat: here.lat, lon: here.lon };
@@ -44,6 +46,7 @@ export function prefetchCalls(it, j, here) {
     const prefs = { ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }), ...(it.states?.length && { states: it.states }) };
     return [{ name: 'plan_trip', args: { from: { ...at, name: here.name }, to: it.to, ...(Object.keys(prefs).length && { prefs }) } }];
   }
+  if (it.intent === 'metro' && !it.station) return [{ name: METRO_NEAR, args: { near: { ...at, name: here.name } } }];
   if (it.places?.length) return [];
   const intent = NEARBY_TOOL[it.intent] ? it.intent : NEARBY_TOOL[j?.intent] ? j.intent : null;
   return intent ? [{ name: NEARBY_TOOL[intent], args: at }] : [];
@@ -58,11 +61,26 @@ export function callKey(name, args = {}, here = null) {
     const to = typeof args.to === 'string' ? args.to.replace(/\s/g, '') : args.to ? `${(+args.to.lat).toFixed(3)},${(+args.to.lon).toFixed(3)}` : '';
     return `plan_trip|${to}|${args.prefs?.mode || ''}|${args.prefs?.arriveBy || ''}`;
   }
+  if (name === METRO_NEAR) { // 沒給站名＝最近的站（看 near，沒給 near＝現在位置）；有站名不沿用
+    if (args.station) return null;
+    const p = args.near && typeof args.near === 'object' ? args.near : here;
+    return p ? `${name}|${(+p.lat).toFixed(3)},${(+p.lon).toFixed(3)}` : null;
+  }
   if (Object.values(NEARBY_TOOL).includes(name)) {
     const lat = args.lat ?? here?.lat, lon = args.lon ?? here?.lon;
     return lat == null ? null : `${name}|${(+lat).toFixed(3)},${(+lon).toFixed(3)}`;
   }
   return null;
+}
+
+/**
+ * 模型給的 plan_trip prefs → 只留使用者說過的抵達時間與交通方式（規則從這句或前文抽到的；判斷層的 mode）。
+ * 狀態另由判斷層決定（execTools 的 judgedStates），這裡不動。
+ */
+export function groundedPrefs(prefs = {}, it = {}, j = null) {
+  const { arriveBy: _arriveBy, mode: _mode, ...rest } = prefs;
+  const said = { arriveBy: it.arriveBy || null, mode: it.mode || j?.mode || null };
+  return { ...rest, ...(said.arriveBy && { arriveBy: said.arriveBy }), ...(said.mode && { mode: said.mode }) };
 }
 
 /** 兩個地點參數是不是同一個字串（「台北101」與「台北 101」視為相同） */
@@ -230,6 +248,10 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
       for (const c of locCalls) results.set(c.id, loc ? { content: JSON.stringify(loc) } : { content: FALLBACK.noLocation, isError: true });
     }
     for (const c of turn.calls) if (!results.has(c.id) && c.bad !== undefined) results.set(c.id, { content: `參數不是有效的 JSON：${c.bad}`, isError: true });
+
+    // 轉述受程式約束（A2）：抵達時間、交通方式只採使用者說過的（規則抽到的），模型自己加的丟掉
+    //（地端模型曾自加 arriveBy，結果「所有方式都趕不上指定時間」，2026-11-21 實機）
+    for (const c of turn.calls) if (c.name === 'plan_trip' && c.input?.prefs) c.input = { ...c.input, prefs: groundedPrefs(c.input.prefs, rulesIt, j) };
 
     // 已由程式依現在位置查好的工具：模型再呼叫就沿用結果（避免同一張卡片、決策圖出現兩次）
     for (const c of turn.calls) {
