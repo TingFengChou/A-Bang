@@ -1,0 +1,1008 @@
+{
+"version": 1,
+"note": "嵌入分類器的訓練範例；與評估集分開撰寫，不重複。",
+"items": [
+{
+"text": "從南港到西門要怎麼過去",
+"intent": "trip",
+"states": []
+},
+{
+"text": "我想去國父紀念館，現在在中山站",
+"intent": "trip",
+"states": []
+},
+{
+"text": "大稻埕要怎麼去比較方便",
+"intent": "trip",
+"states": []
+},
+{
+"text": "從家裡到公司通勤怎麼搭",
+"intent": "trip",
+"states": []
+},
+{
+"text": "板橋到信義區的交通方式",
+"intent": "trip",
+"states": []
+},
+{
+"text": "去北投溫泉要搭什麼",
+"intent": "trip",
+"states": []
+},
+{
+"text": "從士林去松菸文創園區",
+"intent": "trip",
+"states": []
+},
+{
+"text": "要到新竹科學園區，人在台北",
+"intent": "trip",
+"states": []
+},
+{
+"text": "611 幾分到",
+"intent": "bus_route",
+"states": []
+},
+{
+"text": "市民小巴 5 號到哪裡了",
+"intent": "bus_route",
+"states": []
+},
+{
+"text": "藍27 還要等幾分鐘",
+"intent": "bus_route",
+"states": []
+},
+{
+"text": "945 這班公車末班幾點",
+"intent": "bus_route",
+"states": []
+},
+{
+"text": "我在等 33 號，怎麼一直不來",
+"intent": "bus_route",
+"states": []
+},
+{
+"text": "紅2 開到哪一站了",
+"intent": "bus_route",
+"states": []
+},
+{
+"text": "672 往大鵬新城還有多久",
+"intent": "bus_route",
+"states": []
+},
+{
+"text": "敦化幹線現在位置",
+"intent": "bus_route",
+"states": []
+},
+{
+"text": "哪裡有 YouBike 可以借",
+"intent": "youbike",
+"states": []
+},
+{
+"text": "捷運站出口的公共自行車還有車嗎",
+"intent": "youbike",
+"states": []
+},
+{
+"text": "我要還 ubike，最近哪站有位子",
+"intent": "youbike",
+"states": []
+},
+{
+"text": "附近單車站剩幾台",
+"intent": "youbike",
+"states": []
+},
+{
+"text": "YouBike 2.0 站點在哪",
+"intent": "youbike",
+"states": []
+},
+{
+"text": "想租腳踏車騎去河濱",
+"intent": "youbike",
+"states": []
+},
+{
+"text": "台大校園的 youbike 還有車嗎",
+"intent": "youbike",
+"states": []
+},
+{
+"text": "微笑單車還車位",
+"intent": "youbike",
+"states": []
+},
+{
+"text": "這裡有公車站嗎",
+"intent": "nearby_bus",
+"states": []
+},
+{
+"text": "最近的公車站在哪個方向",
+"intent": "nearby_bus",
+"states": []
+},
+{
+"text": "附近站牌可以搭哪幾路",
+"intent": "nearby_bus",
+"states": []
+},
+{
+"text": "我旁邊有哪些公車站",
+"intent": "nearby_bus",
+"states": []
+},
+{
+"text": "最近的站牌叫什麼名字",
+"intent": "nearby_bus",
+"states": []
+},
+{
+"text": "周圍公車站有哪些車經過",
+"intent": "nearby_bus",
+"states": []
+},
+{
+"text": "找附近的公車亭",
+"intent": "nearby_bus",
+"states": []
+},
+{
+"text": "這附近有沒有站牌",
+"intent": "nearby_bus",
+"states": []
+},
+{
+"text": "淡水線下一班幾分鐘",
+"intent": "metro",
+"states": []
+},
+{
+"text": "捷運中正紀念堂站往新店多久到",
+"intent": "metro",
+"states": []
+},
+{
+"text": "環狀線的車還有多久",
+"intent": "metro",
+"states": []
+},
+{
+"text": "捷運現在還有車嗎",
+"intent": "metro",
+"states": []
+},
+{
+"text": "藍線往頂埔下一班",
+"intent": "metro",
+"states": []
+},
+{
+"text": "捷運科技大樓站文湖線",
+"intent": "metro",
+"states": []
+},
+{
+"text": "綠線往松山的車",
+"intent": "metro",
+"states": []
+},
+{
+"text": "捷運到站時間",
+"intent": "metro",
+"states": []
+},
+{
+"text": "高鐵左營回台北的班次",
+"intent": "rail",
+"states": []
+},
+{
+"text": "台鐵花蓮到台東幾點有車",
+"intent": "rail",
+"states": []
+},
+{
+"text": "坐普悠瑪去宜蘭",
+"intent": "rail",
+"states": []
+},
+{
+"text": "高鐵早鳥票還有嗎",
+"intent": "rail",
+"states": []
+},
+{
+"text": "火車從台中到彰化",
+"intent": "rail",
+"states": []
+},
+{
+"text": "南下的自強號時刻",
+"intent": "rail",
+"states": []
+},
+{
+"text": "太魯閣號班次",
+"intent": "rail",
+"states": []
+},
+{
+"text": "今晚還有北上的高鐵嗎",
+"intent": "rail",
+"states": []
+},
+{
+"text": "明天台北天氣",
+"intent": "weather",
+"states": []
+},
+{
+"text": "今天會熱嗎",
+"intent": "weather",
+"states": []
+},
+{
+"text": "下午會下雨嗎",
+"intent": "weather",
+"states": []
+},
+{
+"text": "外面溫度幾度",
+"intent": "weather",
+"states": []
+},
+{
+"text": "這週天氣預報",
+"intent": "weather",
+"states": []
+},
+{
+"text": "要帶外套嗎",
+"intent": "weather",
+"states": []
+},
+{
+"text": "高雄現在天氣",
+"intent": "weather",
+"states": []
+},
+{
+"text": "有沒有寒流",
+"intent": "weather",
+"states": []
+},
+{
+"text": "空氣品質指數多少",
+"intent": "aqi",
+"states": []
+},
+{
+"text": "今天PM10高不高",
+"intent": "aqi",
+"states": []
+},
+{
+"text": "外面空氣好嗎",
+"intent": "aqi",
+"states": []
+},
+{
+"text": "空污嚴重嗎",
+"intent": "aqi",
+"states": []
+},
+{
+"text": "臭氧濃度",
+"intent": "aqi",
+"states": []
+},
+{
+"text": "附近測站的 AQI",
+"intent": "aqi",
+"states": []
+},
+{
+"text": "今天適合開窗嗎",
+"intent": "aqi",
+"states": []
+},
+{
+"text": "過敏的人今天出門要注意空氣嗎",
+"intent": "aqi",
+"states": []
+},
+{
+"text": "剛剛那個地震規模多少",
+"intent": "quake",
+"states": []
+},
+{
+"text": "地震中心在哪裡",
+"intent": "quake",
+"states": []
+},
+{
+"text": "台中有感覺到地震嗎",
+"intent": "quake",
+"states": []
+},
+{
+"text": "今天有幾個地震",
+"intent": "quake",
+"states": []
+},
+{
+"text": "剛才晃得好大",
+"intent": "quake",
+"states": []
+},
+{
+"text": "最近一次有感地震",
+"intent": "quake",
+"states": []
+},
+{
+"text": "宜蘭外海地震",
+"intent": "quake",
+"states": []
+},
+{
+"text": "震度四級是哪裡",
+"intent": "quake",
+"states": []
+},
+{
+"text": "哪裡有健保特約藥局",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "信義區藥局",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "週日有開的藥局",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "附近可以領處方箋的地方",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "中山區有哪些藥房",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "要買感冒藥去哪",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "藥局電話",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "晚上九點後還開的藥局",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "垃圾車時間表",
+"intent": "garbage",
+"states": []
+},
+{
+"text": "垃圾車現在在哪",
+"intent": "garbage",
+"states": []
+},
+{
+"text": "明天收不收垃圾",
+"intent": "garbage",
+"states": []
+},
+{
+"text": "廚餘回收車幾點",
+"intent": "garbage",
+"states": []
+},
+{
+"text": "垃圾車路線",
+"intent": "garbage",
+"states": []
+},
+{
+"text": "週日有收垃圾嗎",
+"intent": "garbage",
+"states": []
+},
+{
+"text": "倒垃圾地點",
+"intent": "garbage",
+"states": []
+},
+{
+"text": "垃圾車快到了嗎",
+"intent": "garbage",
+"states": []
+},
+{
+"text": "98 無鉛多少錢",
+"intent": "fuel",
+"states": []
+},
+{
+"text": "中油今天的牌價",
+"intent": "fuel",
+"states": []
+},
+{
+"text": "汽油價格",
+"intent": "fuel",
+"states": []
+},
+{
+"text": "下週油價",
+"intent": "fuel",
+"states": []
+},
+{
+"text": "超級柴油一公升",
+"intent": "fuel",
+"states": []
+},
+{
+"text": "加油要多少錢",
+"intent": "fuel",
+"states": []
+},
+{
+"text": "油價漲了嗎",
+"intent": "fuel",
+"states": []
+},
+{
+"text": "92 現在多少",
+"intent": "fuel",
+"states": []
+},
+{
+"text": "統一發票中獎號碼",
+"intent": "invoice",
+"states": []
+},
+{
+"text": "這期頭獎號碼",
+"intent": "invoice",
+"states": []
+},
+{
+"text": "我要對發票",
+"intent": "invoice",
+"states": []
+},
+{
+"text": "發票開獎日",
+"intent": "invoice",
+"states": []
+},
+{
+"text": "發票中了要怎麼領",
+"intent": "invoice",
+"states": []
+},
+{
+"text": "11-12月發票中獎號碼",
+"intent": "invoice",
+"states": []
+},
+{
+"text": "對一下 87654321",
+"intent": "invoice",
+"states": []
+},
+{
+"text": "特獎號碼多少",
+"intent": "invoice",
+"states": []
+},
+{
+"text": "2454 收盤多少",
+"intent": "stock",
+"states": []
+},
+{
+"text": "台股今天漲多少",
+"intent": "stock",
+"states": []
+},
+{
+"text": "國泰金股價",
+"intent": "stock",
+"states": []
+},
+{
+"text": "0050 現在價格",
+"intent": "stock",
+"states": []
+},
+{
+"text": "大盤指數",
+"intent": "stock",
+"states": []
+},
+{
+"text": "台積電今天收在哪",
+"intent": "stock",
+"states": []
+},
+{
+"text": "上櫃指數",
+"intent": "stock",
+"states": []
+},
+{
+"text": "中華電股價",
+"intent": "stock",
+"states": []
+},
+{
+"text": "早安",
+"intent": "unknown",
+"states": []
+},
+{
+"text": "你會做什麼",
+"intent": "unknown",
+"states": []
+},
+{
+"text": "幫我查電影時刻",
+"intent": "unknown",
+"states": []
+},
+{
+"text": "今天樂透號碼",
+"intent": "unknown",
+"states": []
+},
+{
+"text": "幫我翻譯英文",
+"intent": "unknown",
+"states": []
+},
+{
+"text": "哪裡有停車位",
+"intent": "unknown",
+"states": []
+},
+{
+"text": "幫我記帳",
+"intent": "unknown",
+"states": []
+},
+{
+"text": "晚安",
+"intent": "unknown",
+"states": []
+},
+{
+"text": "我趕時間，從松山到大安",
+"intent": "trip",
+"states": [
+"rush"
+]
+},
+{
+"text": "快來不及了，去台北車站",
+"intent": "trip",
+"states": [
+"rush"
+]
+},
+{
+"text": "急著要到醫院",
+"intent": "trip",
+"states": [
+"rush"
+]
+},
+{
+"text": "時間很緊，從板橋到公館",
+"intent": "trip",
+"states": [
+"rush"
+]
+},
+{
+"text": "要遲到了，最快的方式到西門",
+"intent": "trip",
+"states": [
+"rush"
+]
+},
+{
+"text": "趕著搭飛機，去松山機場",
+"intent": "trip",
+"states": [
+"rush"
+]
+},
+{
+"text": "十五分鐘內要到",
+"intent": "trip",
+"states": [
+"rush"
+]
+},
+{
+"text": "我很急要去101",
+"intent": "trip",
+"states": [
+"rush"
+]
+},
+{
+"text": "帶著行李箱去車站",
+"intent": "trip",
+"states": [
+"luggage"
+]
+},
+{
+"text": "大包小包要回家",
+"intent": "trip",
+"states": [
+"luggage"
+]
+},
+{
+"text": "推嬰兒車要去動物園",
+"intent": "trip",
+"states": [
+"luggage"
+]
+},
+{
+"text": "扛著吉他要去練團室",
+"intent": "trip",
+"states": [
+"luggage"
+]
+},
+{
+"text": "搬著箱子要去郵局",
+"intent": "trip",
+"states": [
+"luggage"
+]
+},
+{
+"text": "帶很多東西去機場",
+"intent": "trip",
+"states": [
+"luggage"
+]
+},
+{
+"text": "拖著大行李去高鐵站",
+"intent": "trip",
+"states": [
+"luggage"
+]
+},
+{
+"text": "行李很重，去轉運站",
+"intent": "trip",
+"states": [
+"luggage"
+]
+},
+{
+"text": "想用最便宜的方式去板橋",
+"intent": "trip",
+"states": [
+"budget"
+]
+},
+{
+"text": "沒什麼錢，回家怎麼走",
+"intent": "trip",
+"states": [
+"budget"
+]
+},
+{
+"text": "省錢一點的方式去淡水",
+"intent": "trip",
+"states": [
+"budget"
+]
+},
+{
+"text": "不想花太多錢去機場",
+"intent": "trip",
+"states": [
+"budget"
+]
+},
+{
+"text": "最便宜的交通方式到台中",
+"intent": "trip",
+"states": [
+"budget"
+]
+},
+{
+"text": "學生預算，去西門町",
+"intent": "trip",
+"states": [
+"budget"
+]
+},
+{
+"text": "要省車資，去大安",
+"intent": "trip",
+"states": [
+"budget"
+]
+},
+{
+"text": "便宜就好，到中和",
+"intent": "trip",
+"states": [
+"budget"
+]
+},
+{
+"text": "我腳痛，從公館去台大醫院",
+"intent": "trip",
+"states": [
+"lessWalk"
+]
+},
+{
+"text": "帶阿嬤去看醫生",
+"intent": "trip",
+"states": [
+"lessWalk"
+]
+},
+{
+"text": "少走一點路去101",
+"intent": "trip",
+"states": [
+"lessWalk"
+]
+},
+{
+"text": "行動不便，去市政府",
+"intent": "trip",
+"states": [
+"lessWalk"
+]
+},
+{
+"text": "剛開完刀不能走太遠",
+"intent": "trip",
+"states": [
+"lessWalk"
+]
+},
+{
+"text": "坐輪椅要去台北車站",
+"intent": "trip",
+"states": [
+"lessWalk"
+]
+},
+{
+"text": "懷孕了不想走太多路，去醫院",
+"intent": "trip",
+"states": [
+"lessWalk"
+]
+},
+{
+"text": "老人家要去龍山寺",
+"intent": "trip",
+"states": [
+"lessWalk"
+]
+},
+{
+"text": "外面在下大雨，要去公司",
+"intent": "trip",
+"states": [
+"rain"
+]
+},
+{
+"text": "雨下得好大，從捷運站回家",
+"intent": "trip",
+"states": [
+"rain"
+]
+},
+{
+"text": "下雨天去車站",
+"intent": "trip",
+"states": [
+"rain"
+]
+},
+{
+"text": "暴雨中要去學校",
+"intent": "trip",
+"states": [
+"rain"
+]
+},
+{
+"text": "正在下雨，怎麼去101",
+"intent": "trip",
+"states": [
+"rain"
+]
+},
+{
+"text": "雨很大不想淋到，去百貨公司",
+"intent": "trip",
+"states": [
+"rain"
+]
+},
+{
+"text": "颱風下雨中要回家",
+"intent": "trip",
+"states": [
+"rain"
+]
+},
+{
+"text": "外面下雨，去超市",
+"intent": "trip",
+"states": [
+"rain"
+]
+},
+{
+"text": "空汙很嚴重，要去公園",
+"intent": "trip",
+"states": [
+"badAir"
+]
+},
+{
+"text": "霧霾好重，帶小孩去醫院",
+"intent": "trip",
+"states": [
+"badAir"
+]
+},
+{
+"text": "空氣超差，去學校",
+"intent": "trip",
+"states": [
+"badAir"
+]
+},
+{
+"text": "今天空氣很髒，要去市場",
+"intent": "trip",
+"states": [
+"badAir"
+]
+},
+{
+"text": "沙塵暴，要去車站",
+"intent": "trip",
+"states": [
+"badAir"
+]
+},
+{
+"text": "PM2.5 爆表，要出門去公司",
+"intent": "trip",
+"states": [
+"badAir"
+]
+},
+{
+"text": "空氣不好，去圖書館",
+"intent": "trip",
+"states": [
+"badAir"
+]
+},
+{
+"text": "紫爆了還要出門去台大",
+"intent": "trip",
+"states": [
+"badAir"
+]
+},
+{
+"text": "那到台南呢",
+"intent": "rail",
+"states": [],
+"history": [
+"高鐵台北到台中"
+]
+},
+{
+"text": "那富邦金呢",
+"intent": "stock",
+"states": [],
+"history": [
+"國泰金股價"
+]
+},
+{
+"text": "那 612 呢",
+"intent": "bus_route",
+"states": [],
+"history": [
+"611 幾分到"
+]
+},
+{
+"text": "那台中呢",
+"intent": "weather",
+"states": [],
+"history": [
+"明天台北天氣"
+]
+},
+{
+"text": "那大安區呢",
+"intent": "pharmacy",
+"states": [],
+"history": [
+"信義區藥局"
+]
+},
+{
+"text": "那 98 呢",
+"intent": "fuel",
+"states": [],
+"history": [
+"今天油價"
+]
+},
+{
+"text": "好的謝謝",
+"intent": "unknown",
+"states": [],
+"history": [
+"0050 現在價格"
+]
+},
+{
+"text": "我很趕喔",
+"intent": "trip",
+"states": [
+"rush"
+],
+"history": [
+"從士林去松菸"
+]
+}
+]
+}

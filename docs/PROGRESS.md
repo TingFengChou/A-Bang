@@ -13,6 +13,21 @@
 
 ---
 
+## 2026-11-20 實驗（續）：A 嵌入分類器、B 自動優化提示詞、混合
+
+- 做了：使用者會議提到 Google Harness²、Pi agent（都開源）。評估後：Pi 是 TypeScript agent 執行核心（不影響判斷準確度，之後要多模型或裝置上 agent 再考慮）；Harness² 是研究程式碼、偏 coding agent，採用其概念（提出修改 → 試跑 → 只留變好的）。A：`@huggingface/transformers`（dev 依賴）＋multilingual-e5-small，類別中心＋信心、狀態 logistic regression，參數只用訓練範例（`decision-train.json` 176 筆，不與評估集重複）交叉驗證挑；B：`scripts/eval-optimize-prompt.js`，優化集（單數 id）提出／試跑／保留，驗收集（雙數 id）驗收；共用 `scripts/eval/lib.js`。
+- 結果（172 題）：規則 68.0%／全對 64.0%；A 86.6%／73.3%（< 5 ms）；混合（A 信心 ≥ 0.8 用 A，否則 qwen3:8b）94.2%／80.2%、驗收集全對 84.9%、69% 題目不用問模型；qwen3:8b 94.8%／58.7%；B 94.2%／81.4%、狀態 F1 45.7% → 70.5%、驗收集全對 61.6% → 80.2%（20.5 分鐘，兩個候選讓分數掉到 21–26%，被擋掉）。
+- 文件：`docs/research/decision-eval.md`、`prompt-optimization.json`、`docs/index.html` 新增「13 實驗紀錄」
+- 下一個：混合＋B 組合、Jev 待金鑰、A 在瀏覽器／App 實測
+- 卡住：Jev 金鑰
+
+## 2026-11-20 實驗：意圖與狀態判斷（規則 vs 地端模型 vs Jev）
+
+- 做了：使用者想評估 TypeSafe Jev（System One 決策模型）能不能用在阿幫的「判斷層」（不取代 `decide.js` 計分）。`scripts/eval/decision-set.json` 172 題自行撰寫的繁中提問（63 容易、109 困難：口語、沒有關鍵字、追問；15 類意圖、6 種狀態，29 題有狀態）。`scripts/eval-decision.js`（`npm run eval:decision`，Node 內建 fetch、不加依賴）：規則（`parseIntent`）、地端模型（OpenAI 相容、JSON 輸出、關閉思考）、Jev（`/v1/systemone`：意圖 choice＋各狀態 noul，信心門檻涵蓋率與正確率）；報告寫到 `docs/research/decision-eval.md`。
+- 結果（Jev 待金鑰）：規則意圖 68.0%（困難 51.4%）、狀態 F1 76.7%、0 ms；qwen3:8b 意圖 94.8%（困難 91.7%）、狀態 F1 45.7%（precision 30.2%：常自己加「少走路」「想省錢」）、約 0.7 秒。
+- 下一個：取得 Jev 金鑰（TypeSafe console waitlist，或 Requesty／APIMaster 代理）放 `.env` 的 `JEV_API_KEY` 後重跑，比較意圖正確率、狀態 precision、信心門檻
+- 卡住：Jev 金鑰（使用者申請）
+
 ## 2026-11-20「阿幫在想」會議感（原型的思考過程動畫）
 
 - 做了：使用者希望思考過程像原型 `transit-discussion.html` 一樣以動畫呈現、有 agent 感。decision 事件加 `signals`（`tripSignals`：天氣、空品、路況、地點的一句真實重點）。決策圖改成原型版面（來源圓點 → 阿幫吉祥物 → 方案膠囊、狀態膠囊在上方）；GSAP 編排四步驟（資料膠囊沿線飛進阿幫、狀態彈出、逐項累加真實分數讓連線變粗、決定後阿幫換開心與光點持續流動），步驟列、7 秒保險；方案連線粗細改 inline（原本被 CSS 蓋掉）。討論串會議感：討論中虛線框＋標題跳點，結束收合成頭像堆摘要。
