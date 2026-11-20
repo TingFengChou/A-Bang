@@ -145,6 +145,9 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       // 高鐵時刻表每班有訂票按鈕（示範：開官方網站前先確認）
       const tt = page.locator('[data-card="timetable"]').first();
       assert.match(await tt.locator('.ab-title').textContent(), /^高鐵/);
+      // 深夜（約 22 點後）示範班次都開走了：先展開已開出的班次再找訂票按鈕
+      const gone = tt.locator('.ab-btn', { hasText: '顯示今天已開出' });
+      if (await gone.count()) await gone.first().click();
       assert.ok(await tt.locator('.ab-btn', { hasText: '訂票' }).count() > 0);
       // 行程卡：跨城建議（高鐵）有導航與訂票；有出門時間時可設定提醒（時間已過則不顯示）
       const tripRail = page.locator('[data-card="trip"]').first();
@@ -202,11 +205,26 @@ for (const [dname, device] of Object.entries(DEVICES)) {
     });
   });
 
+  test(`${dname}：系統深色模式下仍是淺色（外框與卡片一致）`, async () => {
+    await withPage({ ...device, colorScheme: 'dark' }, '#/s/weather', async (page) => {
+      await page.waitForSelector('.ab-card');
+      const [bg, card] = await page.evaluate(() => [getComputedStyle(document.body).backgroundColor, getComputedStyle(document.querySelector('.ab-card')).backgroundColor]);
+      const light = (c) => { const [r, g, b] = c.match(/\d+/g).map(Number); return (r + g + b) / 3 > 200; };
+      assert.ok(light(bg) && light(card), `${bg} / ${card}`);
+    });
+  });
+
   test(`${dname}：問阿幫（建議問題 → 討論串 → 卡片 → 總結；@ 點名；定位）`, async () => {
     await withPage(device, '#/agent', async (page) => {
       await page.waitForSelector('.suggest .chip');
+      // 輸入框至少 16px（iOS 點進去才不會自動放大）
+      assert.ok(parseFloat(await page.locator('.chat-input').evaluate((e) => getComputedStyle(e).fontSize)) >= 16);
       await page.locator('.suggest .chip').first().click(); // 從西門町到台北 101 怎麼去？
       await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+      // 回答後：桌面自動聚焦輸入框；手機不聚焦（不跳鍵盤蓋住回答）
+      await page.waitForFunction(() => !document.querySelector('.chat-send')?.disabled);
+      const focused = await page.evaluate(() => document.activeElement?.classList.contains('chat-input'));
+      assert.equal(focused, dname === 'desktop', `${dname}：回答後${dname === 'desktop' ? '' : '不'}聚焦輸入框`);
       assert.match(await page.locator('.msg.user').first().textContent(), /西門町/);
       assert.match(await page.locator('.thread-sum').first().textContent(), /小幫手討論完成・\d+ 個工具/);
       assert.ok(await page.locator('.thread .bubble.tool').count() >= 4, '小幫手發言');
