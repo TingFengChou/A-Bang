@@ -754,3 +754,20 @@ test('問阿幫：接著說「不要叫車」→ 排除叫車重算', async () =
     await shot(page, 'phone-agent-avoid');
   });
 });
+
+// 討論串體驗（2026-11-21 設計審查）：接著問時沒變的天氣、空品收合「同上」；「重來」加分隔線、前面的對話變淡
+test('問阿幫：接著問時天氣空品收合同上；重來有分隔線', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    for (const [i, q] of ['從西門町去台北101', '改坐公車', '重來'].entries()) {
+      await page.fill('.chat-form input', q);
+      await page.press('.chat-form input', 'Enter');
+      await page.waitForFunction((n) => document.querySelectorAll('.bubble.final').length === n, i + 1, { timeout: 20000 });
+    }
+    const second = page.locator('.turn').nth(1);
+    assert.ok(await second.locator('.card-same summary').count() >= 1, '第二輪天氣或空品收合');
+    assert.match(await second.locator('.card-same summary').first().textContent(), /同上/);
+    assert.equal(await page.locator('.thread-reset').count(), 1);
+    assert.equal(await page.locator('.turn.past').count(), 2, '前兩輪變淡');
+    await shot(page, 'phone-agent-same-reset');
+  });
+});

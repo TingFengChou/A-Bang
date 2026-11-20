@@ -83,6 +83,14 @@ export function locateSay({ ok, reason }) {
   return '沒拿到你的位置；可以直接打地點，或到手機設定打開定位';
 }
 
+/** 天氣、空品卡片的比較鍵（測站＋主要數字）；其他卡片不收合 */
+function sameKey(e) {
+  const d = e.data || {};
+  if (e.tool === 'weather_now') return `${d.station}|${d.tempC}|${d.raining}|${d.pop3h}`;
+  if (e.tool === 'aqi_nearby') return `${d.nearest?.site}|${d.nearest?.aqi}`;
+  return null;
+}
+
 function typing(label = '輸入中') {
   const d = el('span', 'dots');
   d.append(el('i'), el('i'), el('i'));
@@ -122,6 +130,7 @@ export default {
     let context = '';
     let busy = false;
     const cards = [];
+    const seenCards = new Map(); // 上一輪的天氣、空品（接著問時沒變就收合「同上」）
     onCleanup(() => cards.forEach((c) => c.destroy()));
 
     const log = el('div', 'chat');
@@ -288,6 +297,12 @@ export default {
             await gap();
             thread.append(el('div', 'bubble agent', avatar('阿幫'), el('div', 'say', withMentions(e.text))));
             break;
+          case 'context_reset': { // 「重來」：分隔線＋前面的對話變淡（不清空，回得去看）
+            for (const t of log.querySelectorAll('.turn')) if (t !== turn) t.classList.add('past');
+            seenCards.clear();
+            turn.before(el('div', 'thread-reset', el('span', '', '重新開始')));
+            break;
+          }
           case 'client_tool_call': {
             const b = el('div', 'bubble tool', avatar('定位'), el('div', 'say typing', ...typing('定位中')));
             bubbles.set(`client:${e.id}`, b);
@@ -321,8 +336,16 @@ export default {
             }
             if (e.ok) view.results.push({ tool: e.tool, card: e.card, data: e.data, args: e.args });
             if (e.ok && e.card) {
+              // 接著問的那一輪，天氣、空品跟上一輪一樣：收合成「天氣同上」（點開看完整卡片），畫面不會越拉越長
+              const fp = sameKey(e);
+              const same = fp && seenCards.get(e.tool) === fp;
+              if (fp) seenCards.set(e.tool, fp);
               const slot = el('div', `card-slot ${results.children.length >= 2 ? 'scroll-in' : 'enter3d'}`); // 前兩張立體進場，後面的捲到才浮現
-              results.append(slot);
+              if (same) {
+                const box = el('details', 'card-same');
+                box.append(el('summary', '', `${e.tool === 'aqi_nearby' ? '空品' : '天氣'}同上（${e.speak ? e.speak.replace(/。$/, '').slice(0, 24) : '跟剛才一樣'}）`), slot);
+                results.append(box);
+              } else results.append(slot);
               cards.push(renderCard(slot, { card: e.card, v: e.v, mode: e.mode, speak: e.speak, data: e.data, tool: e.tool, args: e.args }, host));
             }
             break;

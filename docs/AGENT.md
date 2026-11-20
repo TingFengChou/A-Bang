@@ -68,6 +68,7 @@
 | `decision` | `states: [{ key, source: 'auto'\|'user'\|'picked', from?, detail? }]`, `arriveBy?`, `best`, `options`, `ranked`, `excluded`, `weights`, `reason` | 決策圖動畫；前端可用同一引擎即時重算 |
 | `guardrail` | `tier`, `rule` | 套用的護欄（L2 以上） |
 | `client_tool_call` | `id`, `name`, `input` | 請客戶端執行裝置端工具（`device_location`、`notify_at`） |
+| `context_reset` | — | 使用者說「重來」：畫面加「重新開始」分隔線、前面的對話變淡（2026-11-21） |
 | `text` | `delta` | 阿幫的總結（可串流） |
 | `done` | `usage?` | 結束 |
 | `error` | `message`, `retryable`, `retryAfterSec?` | 錯誤或限流 |

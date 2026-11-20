@@ -198,3 +198,11 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 .dg-opt.pickable:focus, .dg-opt.pickable:focus-visible { outline: none; } /* 點了不要出現瀏覽器的橘色焦點框；鍵盤焦點用上面的邊框 */
 .dg-node > rect.dg-hit { fill: transparent !important; stroke: none !important; }
 .dg-hint { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+
+/* 「重來」分隔線、前面的對話變淡（不清空）；接著問時沒變的天氣空品卡片收合（2026-11-21 設計審查） */
+.thread-reset { display: flex; align-items: center; gap: 10px; margin: 18px 0 10px; color: var(--muted); font-size: 13px; }
+.thread-reset::before, .thread-reset::after { content: ''; flex: 1; border-top: 1px dashed var(--line); }
+.turn.past { opacity: .55; }
+.card-same { margin: 6px 0; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.card-same > summary { cursor: pointer; padding: 10px 14px; font-size: 14px; color: var(--muted); min-height: 44px; display: flex; align-items: center; }
+.card-same[open] > summary { border-bottom: 1px solid var(--line); }
