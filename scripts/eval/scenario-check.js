@@ -1,6 +1,6 @@
 // 情境對話的期望檢查（test/scenarios.test.js 示範模式、scripts/eval-scenarios.js 模型模式共用）
 // 期望欄位：tools／toolsNot／toolsNone、states／statesNot、bestRole／bestRoleNot、arriveBy（null＝不該有）、
-// fromHere、from／to（地名，台／臺相同）、textHas／textNot、resultHas。一律檢查：決策最多一次、沒有錯誤、回答不露出工具英文名稱。
+// fromHere、from／to／fromNot（地名，台／臺相同）、textHas／textNot、resultHas。一律檢查：決策最多一次、沒有錯誤、回答不露出工具英文名稱。
 const norm = (s) => String(s ?? '').replace(/臺/g, '台').replace(/\s/g, '');
 const TOOL_NAME = /\b[a-z]+(?:_[a-z0-9]+)+\b/;
 
@@ -23,6 +23,7 @@ export function check(es, x = {}) {
   if ('arriveBy' in x && (d?.arriveBy ?? null) !== x.arriveBy) bad.push(`抵達時間應為 ${x.arriveBy}（是 ${d?.arriveBy ?? null}）`);
   if (x.fromHere && trip?.data?.from?.name !== '你的位置') bad.push(`起點應為你的位置（是 ${trip?.data?.from?.name}）`);
   if (x.from && !norm(trip?.data?.from?.name).includes(norm(x.from))) bad.push(`起點應為 ${x.from}（是 ${trip?.data?.from?.name}）`);
+  if (x.fromNot && trip && norm(trip.data?.from?.name).includes(norm(x.fromNot))) bad.push(`起點不該是 ${x.fromNot}`);
   if (x.to && !norm(trip?.data?.to?.name).includes(norm(x.to))) bad.push(`終點應為 ${x.to}（是 ${trip?.data?.to?.name}）`);
   for (const w of x.textHas || []) if (!text.includes(w)) bad.push(`總結缺「${w}」`);
   for (const w of x.textNot || []) if (text.includes(w)) bad.push(`總結不該有「${w}」`);
