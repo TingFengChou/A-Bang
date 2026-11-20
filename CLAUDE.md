@@ -10,7 +10,7 @@
 
 ## 目前進度
 
-M0 ✅、M2 ✅、決策引擎 ✅、`speak` ✅、M3-01 導航 ✅、M3-02 路線座標與形狀 ✅、M3-03 `find_place` ✅、M3-04 捷運 ✅、M3-05 票價 ✅、M3-06 路況 ✅、M3-07 國道客運 ✅、M3-08 天氣 ✅（真實資料待 CWA 授權碼）、品質基礎（E2E／Swagger／ESLint／CI）✅、M3-09 叫車連結 ✅、M3-10 `plan_trip` ✅、M3-11 固定 OD 測試 ✅、M3-13 metrics ✅、M3-14 英文名稱 ✅、M3-12 導訂票（權限前部分）🧩；**M3 交通完整版 ✅**（M3-12 真實導訂票待權限）；**M4 互動卡片 ✅**（M4-01 契約、M4-02 渲染、M4-03 字典、M4-04 MCP Apps host、M4-05 打包、M4-06 `ui://` 資源、M4-07 動態、M4-08 AppBridge E2E；M4-09 Claude 實測待 Austin）；M5（M5-01 profile ✅、M5-02 事件 ✅、M5-03 示範意圖 ✅、M5-04 執行器 ✅、M5-06 agent 端點 ✅、M5-07 裝置定位 ✅、M5-08 問阿幫頁 `#/agent` ✅、M5-09 決策圖 ✅、M5-10 結論卡提醒 ✅、M5-11 輕量 3D ✅、M5-12 首頁入口 ✅、M5-13 示範截圖 ✅、M5-05 Claude＋地端模型 ✅）；**M5 網頁 agent ✅**（Claude 實機待金鑰）；M6 上線進行中（M6-01 Docker＋`/healthz` ✅、M6-02 結構化 log ✅、M6-04 無障礙 ✅、M6-07 文件站 workflow ✅、地端 docker compose 驗證 ✅；雲端部署／Redis／Lighthouse 留到正式環境階段）；**M7 阿幫・防詐 ✅**（165 開放資料、規則庫待專家審核、`scam-risk` 卡片、L2 輸出護欄）；**M10 生活開放資料 ✅**（首頁格子：捷運、天氣、空品、地震、藥局、垃圾車、油價、發票、股市收盤；`#/s/:id`）；M8 產業移到下一階段（`docs/PLAN.md` 狀態看板）。M1 需 TDX 金鑰，只能在 Austin 本機做。
+M0 ✅、M2 ✅、決策引擎 ✅、`speak` ✅、M3-01 導航 ✅、M3-02 路線座標與形狀 ✅、M3-03 `find_place` ✅、M3-04 捷運 ✅、M3-05 票價 ✅、M3-06 路況 ✅、M3-07 國道客運 ✅、M3-08 天氣 ✅（真實資料待 CWA 授權碼）、品質基礎（E2E／Swagger／ESLint／CI）✅、M3-09 叫車連結 ✅、M3-10 `plan_trip` ✅、M3-11 固定 OD 測試 ✅、M3-13 metrics ✅、M3-14 英文名稱 ✅、M3-12 導訂票（權限前部分）🧩；**M3 交通完整版 ✅**（M3-12 真實導訂票待權限）；**M4 互動卡片 ✅**（M4-01 契約、M4-02 渲染、M4-03 字典、M4-04 MCP Apps host、M4-05 打包、M4-06 `ui://` 資源、M4-07 動態、M4-08 AppBridge E2E；M4-09 Claude 實測待 Austin）；M5（M5-01 profile ✅、M5-02 事件 ✅、M5-03 示範意圖 ✅、M5-04 執行器 ✅、M5-06 agent 端點 ✅、M5-07 裝置定位 ✅、M5-08 問阿幫頁 `#/agent` ✅、M5-09 決策圖 ✅、M5-10 結論卡提醒 ✅、M5-11 輕量 3D ✅、M5-12 首頁入口 ✅、M5-13 示範截圖 ✅、M5-05 Claude＋地端模型 ✅）；**M5 網頁 agent ✅**（Claude 實機待金鑰）；M6 上線進行中（M6-01 Docker＋`/healthz` ✅、M6-02 結構化 log ✅、M6-04 無障礙 ✅、M6-07 文件站 workflow ✅、地端 docker compose 驗證 ✅；雲端部署／Redis／Lighthouse 留到正式環境階段）；**M7 阿幫・防詐 ✅**（165 開放資料、規則庫待專家審核、`scam-risk` 卡片、L2 輸出護欄）；**M10 生活開放資料 ✅**（首頁格子：捷運、天氣、空品、地震、藥局、垃圾車、油價、發票、股市收盤；`#/s/:id`）；M11 行動 App 進行中（M11-01 Capacitor 殼 ✅）；M8 產業移到下一階段（`docs/PLAN.md` 狀態看板）。M1 需 TDX 金鑰，只能在 Austin 本機做。
 
 ## 必讀文件（依序）
 
@@ -46,6 +46,7 @@ npm test             # node:test，全部要過
 npm run e2e          # Playwright E2E 冒煙測試（示範模式、手機＋桌面，截圖在 test/screenshots/）
 npm run build:demo   # dist/demo.html 單檔示範版
 npm run build:cards  # dist/cards.html MCP Apps 卡片單檔（正式環境部署前要跑）
+npm run app:sync     # 手機 App（ADR-0013）：打包 dist/app（ABANG_API_BASE）＋ cap sync；再 npx cap open android／ios
 docker build -t abang .   # 容器映像（兩階段；/healthz 健康檢查）
 ```
 
@@ -75,6 +76,7 @@ server/          http.js（REST、/mcp、/api/docs、/healthz、靜態檔）、l
 mcp/             create-server.js、server.js（stdio）、cards-resource.js（ui://abang/cards.html）
 public/          PWA；ui/cards/（卡片渲染、契約、字典、web host、MCP Apps host 與入口 mcp-app.js；預覽 /ui/cards/preview.html）；js/pages/agent.js（問阿幫 #/agent）、js/agent/client.js、css/agent.css
 test/            node:test；fixtures/
+android/、ios/   Capacitor 原生專案（ADR-0013）；前端仍在 public/，打包到 dist/app
 docs/            規格、ADR、原型、文件網站
 ```
 

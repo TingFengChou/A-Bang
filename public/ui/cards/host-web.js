@@ -53,7 +53,7 @@ async function pollWatch(callTool) {
  * @param {{ base?: string, ask?: (text: string) => void, setContext?: (text: string) => void, confirm?: (text: string) => boolean }} [opts]
  * @returns {import('./host.js').Host}
  */
-export function createWebHost({ base = '', ask, setContext, confirm = (m) => window.confirm(m) } = {}) {
+export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '').replace(/\/+$/, ''), ask, setContext, confirm = (m) => window.confirm(m) } = {}) {
   return {
     kind: 'web', theme: 'light',
     async callTool(name, args) {

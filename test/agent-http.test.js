@@ -60,6 +60,22 @@ test('驗證 400、方法 405、超過每分鐘上限 429', async () => {
   assert.match((await last.json()).error, /問太快了/);
 });
 
+test('手機 App 來源（ADR-0013）：預檢與回應帶 CORS；其他網站不帶', async () => {
+  const pre = (origin) => fetch(`${BASE}/api/v1/agent`, { method: 'OPTIONS', headers: { origin, 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type' } });
+  for (const o of ['capacitor://localhost', 'https://localhost']) {
+    const r = await pre(o);
+    assert.equal(r.status, 204);
+    assert.equal(r.headers.get('access-control-allow-origin'), o);
+  }
+  assert.equal((await pre('https://evil.example')).headers.get('access-control-allow-origin'), null);
+  const r = await fetch(`${BASE}/api/v1/agent`, { method: 'POST', headers: { origin: 'capacitor://localhost', 'content-type': 'application/json' }, body: JSON.stringify({ messages: [{ role: 'user', content: '今天天氣如何' }] }) });
+  assert.equal(r.headers.get('access-control-allow-origin'), 'capacitor://localhost', '就算被限流（429）也要讓 App 讀得到訊息');
+  await r.body?.cancel();
+  const rest = (origin) => fetch(`${BASE}/api/v1/status`, { headers: { origin } }).then((x) => x.headers.get('access-control-allow-origin'));
+  assert.equal(await rest('https://localhost'), 'https://localhost', 'REST 讀取路由（公車、天氣…）也給 App');
+  assert.equal(await rest('https://evil.example'), null);
+});
+
 test('handler：計量以 agent id 為單位、上游錯誤以 error 事件結束', async () => {
   const svc = createServices({ forceMock: true });
   const h = createAgentHandler({ svc, env: { AGENT_RPM: '2', AGENT_RPD: '100' } });

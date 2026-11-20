@@ -9,6 +9,8 @@
     "build:demo": "node scripts/build-demo.js",
     "eval:decision": "node scripts/eval-decision.js",
     "build:cards": "node scripts/build-cards.js",
+    "build:app": "node scripts/build-app.js",
+    "app:sync": "node scripts/build-app.js && cap sync",
     "test": "node --test test/*.test.js",
     "e2e": "node --test scripts/e2e.js",
     "lint": "eslint .",
@@ -30,6 +32,10 @@
     "node": ">=20"
   },
   "devDependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/cli": "8.6.0",
+    "@capacitor/core": "8.6.0",
+    "@capacitor/ios": "8.6.0",
     "@eslint/js": "10.0.1",
     "@modelcontextprotocol/ext-apps": "^1.7.5",
     "esbuild": "^0.28.2",

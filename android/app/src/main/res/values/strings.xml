@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">阿幫</string>
+    <string name="title_activity_main">阿幫</string>
+    <string name="package_name">tw.abang.app</string>
+    <string name="custom_url_scheme">tw.abang.app</string>
+</resources>

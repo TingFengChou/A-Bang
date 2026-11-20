@@ -31,6 +31,7 @@ npm test                  # 單元＋整合測試（node:test）
 npx playwright install chromium   # 第一次跑 E2E 前下載瀏覽器
 npm run e2e               # Playwright E2E 冒煙測試（截圖在 test/screenshots/）
 npm run build:cards       # dist/cards.html：MCP Apps 互動卡片單檔（正式環境部署前要跑；開發時伺服器會自動打包）
+npm run app:sync          # 手機 App：打包 dist/app 並同步到 android/、ios/（見下方「手機 App」）
 ```
 
 | 金鑰 | 取得 | 沒有時 |
@@ -131,6 +132,20 @@ docker compose up -d --build
 ## 環境變數
 
 見 [`.env.example`](.env.example)：`PORT`、`DEMO_MODE`、`TDX_*`、`CWA_API_KEY`、`OPEN_DATA`、`MOENV_API_KEY`、`AGENT_PROVIDER`、`ANTHROPIC_*`、`LOCAL_LLM_*`、`RATE_LIMIT_*`、`AGENT_*`、`TRUST_PROXY`、`MCP_PACKS`、`DEMO_WEATHER`、`DEMO_TRAFFIC`、`DEMO_AIR`。
+
+## 手機 App（Capacitor，ADR-0013）
+
+網頁原樣包成 Android／iOS App。App 的畫面打包在 App 裡，資料連到伺服器（`ABANG_API_BASE`）。
+
+```bash
+npm run app:sync                       # 預設連 http://localhost:8787（開發）
+npx cap open android                   # Android Studio 開專案、按執行
+adb reverse tcp:8787 tcp:8787          # Android 模擬器連本機伺服器
+npx cap open ios                       # Xcode 開專案、選模擬器執行
+ABANG_API_BASE=https://你的網域 APP_RELEASE=1 npm run app:sync   # 正式版（必須 https）
+```
+
+伺服器對 App 的來源（`capacitor://localhost`、`https://localhost`）開放問阿幫與讀取 API 的 CORS，可用 `APP_ORIGINS` 調整。
 
 ## 開發
 
