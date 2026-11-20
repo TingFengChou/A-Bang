@@ -20,7 +20,7 @@ const out = async (path, buf) => { await mkdir(root(path).replace(/\/[^/]+$/, ''
 /** 啟動畫面（M11-04）：淺色底、藍鵲置中、下方 Abang 字樣；iOS 用 aspect fill 裁切，主體放在中間安全區 */
 const SPLASH_BG = '#F4F6F5';
 async function renderSplash(page, mascot, w, h) {
-  const m = Math.round(Math.min(w, h) * 0.34);
+  const m = Math.round(Math.min(w, h) * (w === h ? 0.28 : 0.34)); // iOS 方形圖 aspect fill：主體小一點
   await page.setViewportSize({ width: w, height: h });
   await page.setContent(`<html><body style="margin:0;width:${w}px;height:${h}px;background:${SPLASH_BG};display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:-apple-system,'Noto Sans TC',sans-serif">
     <div style="width:${m}px;height:${m}px">${mascot.replace('<svg ', `<svg width="${m}" height="${m}" `)}</div>
@@ -52,6 +52,8 @@ for (const [d, [w, h]] of Object.entries(ANDROID_SPLASH)) {
   await out(`android/app/src/main/res/drawable-land-${d}/splash.png`, await renderSplash(page, mascot, h, w));
 }
 await out('android/app/src/main/res/drawable/splash.png', await renderSplash(page, mascot, 480, 320));
+// Android 12+ 系統啟動畫面圖示：288dp 方形（各密度），自適應前景的主體本來就在中間約 61%，落在 192dp 圓內
+for (const [d, k] of Object.entries(DENSITY)) await out(`android/app/src/main/res/drawable-${d}/splash_icon.png`, await render(page, fg, Math.round(288 * k)));
 
 await browser.close();
 console.log('icons written');

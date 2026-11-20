@@ -786,8 +786,9 @@ test('設定與隱私：首頁進入、狀態、隱私權政策', async () => {
     await page.waitForSelector('#edge-status:not(:empty)');
     await page.waitForFunction(() => document.querySelector('#edge-status').textContent !== '檢查中…');
     assert.match(await page.textContent('#edge-status'), /網頁版不使用/);
-    assert.equal(await page.locator('#edge').isDisabled(), true);
-    assert.match(await page.textContent('#loc'), /已允許|還沒允許/);
+    assert.equal(await page.locator('#edge').isHidden(), true, '網頁版不顯示開關');
+    await page.waitForFunction(() => document.querySelector('#loc').textContent !== '檢查中…');
+    assert.match(await page.textContent('#loc'), /已允許|已拒絕|還沒問過/);
     page.once('dialog', (d) => d.dismiss()); // 取消：不清除
     await page.evaluate(() => localStorage.setItem('invoices', '[]'));
     await page.click('#clear');
@@ -795,7 +796,8 @@ test('設定與隱私：首頁進入、狀態、隱私權政策', async () => {
     await shot(page, 'phone-settings');
     await page.click('a[href="#/privacy"]');
     await page.waitForSelector('.privacy h2');
-    assert.match(await page.textContent('.privacy'), /位置只用來回答這一題/);
+    const text = await page.textContent('.privacy');
+    for (const w of ['IP 位址', 'Anthropic', '相機', '你的權利', '不提供的影響']) assert.ok(text.includes(w), w);
     await shot(page, 'phone-privacy');
   });
 });
