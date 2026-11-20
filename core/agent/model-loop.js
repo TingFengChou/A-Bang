@@ -10,7 +10,6 @@ import { lineCode } from '../tools/metro.js';
 import { normName, nowTW } from '../util.js';
 import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, demoSummary } from './demo-intent.js';
 import { resolvePoint } from '../services/places.js';
-import { outingAdvice } from './outing.js';
 
 /**
  * @typedef {{ name: string, description: string, schema: object }} ToolDef
@@ -62,7 +61,10 @@ export function prefetchCalls(it, j, here) {
     return [{ name: it.system === 'THSR' ? 'thsr_timetable' : 'tra_timetable', args: { to: it.to, near, ...(it.tomorrow && { date: nowTW(Date.now() + 864e5).date }) }, ...(!it.near && !at && { note: NO_LOCATION_NOTE }) }];
   }
   if (!at) return [];
-  if (it.intent === 'outing' && !it.places?.length) return [{ name: 'weather_now', args: at }, { name: 'aqi_nearby', args: at }]; // 出門建議：天氣＋空品（說了地點交給模型先找位置）
+  if (it.intent === 'outing' && !it.places?.length) { // 出門建議：天氣＋空品一張卡（說了地點交給模型先找位置）
+    const who = it.states?.includes('kids') ? 'kids' : it.states?.includes('elder') ? 'elder' : null;
+    return [{ name: 'outing_advice', args: { ...at, ...(who && { with: who }) } }];
+  }
   if (it.places?.length) return [];
   const intent = NEARBY_TOOL[it.intent] ? it.intent : NEARBY_TOOL[j?.intent] ? j.intent : null;
   if (intent === 'weather' && it.later) return []; // 後天以後：沒有工具查得到，交給模型說明
@@ -89,7 +91,7 @@ export function callKey(name, args = {}, here = null) {
     const where = typeof args.near === 'string' ? args.near.replace(/\s/g, '') : p ? `${(+p.lat).toFixed(3)},${(+p.lon).toFixed(3)}` : null;
     return where ? `${name}|${where}|${lineCode(args.line) || ''}` : null;
   }
-  if (Object.values(NEARBY_TOOL).includes(name) || name === 'weather_tomorrow') {
+  if (Object.values(NEARBY_TOOL).includes(name) || name === 'weather_tomorrow' || name === 'outing_advice') { // 出門建議：模型再查同一點就沿用（不再出第二張卡）
     const lat = args.lat ?? here?.lat, lon = args.lon ?? here?.lon;
     return lat == null ? null : `${name}|${(+lat).toFixed(3)},${(+lon).toFixed(3)}`;
   }
@@ -241,11 +243,6 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
       return text;
     });
     prefetched = texts.join('\n\n');
-    // 出門建議：程式依天氣與空品整理好，模型照著說（數字不經模型改寫）
-    if (rulesIt.intent === 'outing') {
-      const advice = outingAdvice({ weather: out[0]?.result?.data, air: out[1]?.result?.data?.nearest, states: rulesIt.states });
-      if (advice.length) prefetched += `\n\n出門建議（程式依上面資料整理；請照這些重點回答，不要另外推測）：\n${advice.map((a) => `- ${a}`).join('\n')}`;
-    }
   }
   const conv = provider.start({
     system: buildSystemPrompt(profile, { now, context: req.context, picked, locationHint, prefetched }),

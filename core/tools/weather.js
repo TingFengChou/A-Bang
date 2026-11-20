@@ -1,5 +1,7 @@
 // 工具包：weather（天氣）— 風險分級 L1
+import { z } from 'zod';
 import { defineTool, T } from './define.js';
+import { outingItems } from '../agent/outing.js';
 
 export const weatherNow = defineTool({
   name: 'weather_now',
@@ -53,4 +55,39 @@ export const weatherTomorrow = defineTool({
   },
 });
 
-export default [weatherNow, weatherTomorrow];
+export const outingAdvice = defineTool({
+  name: 'outing_advice',
+  title: '出門建議',
+  description: '出門前要注意什麼：同時看座標附近的現在天氣（降雨機率、氣溫）與空氣品質，由程式整理成最多 3 點建議（帶傘、防曬、保暖、口罩），數字都來自中央氣象署與環境部資料。使用者問「出門要注意什麼」「要帶傘嗎」「適合出門嗎」時用這個；with 填同行的小孩（kids）或長輩（elder），空品門檻放低。地名先用 find_place 轉座標。',
+  pack: 'weather', tier: 'L1', card: 'outing',
+  source: '中央氣象署、環境部', demoNote: '【示範資料：尚未設定中央氣象署授權碼或環境部 api_key，以下非真實天氣與空品】',
+  modeOf: (svc) => (svc.weatherMode === 'live' && svc.aqiMode === 'live' ? 'live' : 'demo'),
+  input: {
+    lat: T.lat, lon: T.lon,
+    name: z.string().trim().max(30).optional().describe('地點名稱（卡片標題用，選填）'),
+    with: z.enum(['kids', 'elder']).optional().describe('同行的小孩或長輩（選填）'),
+  },
+  speak: (d) => `出門前看了一下：${d.items.map((x) => x.text).join('；')}。`,
+  async run(svc, a) {
+    const [w, q] = await Promise.allSettled([svc.weather.now({ lat: a.lat, lon: a.lon }), svc.life.aqiNearby({ lat: a.lat, lon: a.lon })]);
+    const weather = w.status === 'fulfilled' ? w.value : null;
+    const air = q.status === 'fulfilled' ? q.value.nearest : null;
+    if (!weather && !air) throw w.reason; // 兩個都查不到：照天氣的錯誤回報（UserError／上游錯誤）
+    const items = outingItems({ weather, air, states: a.with ? [a.with] : [] });
+    const data = {
+      ...(a.name && { name: a.name }),
+      weather: weather && { station: weather.station, town: weather.town || '', tempC: weather.tempC ?? null, pop3h: weather.pop3h ?? null, raining: !!weather.raining, rainMm1h: weather.rainMm1h ?? null, summary: weather.summary },
+      air: air && { site: air.site, aqi: air.aqi ?? null, status: air.status, level: air.level ?? null },
+      items,
+    };
+    const text = [
+      ...(weather ? [`天氣：${weather.summary}`] : ['天氣：這次查不到']),
+      ...(air ? [`空品：${air.site}測站 AQI ${air.aqi ?? '—'}（${air.status}）`] : ['空品：這次查不到']),
+      '出門建議（程式依上面資料整理；請照這些重點回答，不要另外推測）：',
+      ...items.map((x) => `- ${x.text}`),
+    ].join('\n');
+    return { data, text };
+  },
+});
+
+export default [weatherNow, weatherTomorrow, outingAdvice];

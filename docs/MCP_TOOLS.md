@@ -56,6 +56,7 @@
 | `ridehail_link` | ridehail | **L2** | （行程卡按鈕） | ✅ |
 | `weather_now` | weather | L1 | — | ✅（真實資料需 CWA 授權碼）⚠️ |
 | `weather_tomorrow` | weather | L1 | — | ✅（2026-11-21；真實資料需 CWA 授權碼）⚠️ |
+| `outing_advice` | weather | L1 | `outing` | ✅（2026-11-21；真實資料需 CWA 授權碼與 `MOENV_API_KEY`） |
 | `aqi_nearby` | life | L1 | `aqi` | ✅（M10，`MOENV_API_KEY`） |
 | `earthquake_recent` | life | L1 | `quake` | ✅（M10，`CWA_API_KEY`） |
 | `pharmacy_search` | life | L1 | `pharmacy` | ✅（M10，免金鑰；無座標） |
@@ -272,6 +273,10 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | 高鐵／台鐵 | > 30 km；起訖 25 km 內最近車站（座標由內建地標對照 `stationPoint`） | 到站（1.2 km 內走路，否則市區轉乘 道路 ÷ 20 km/h＋5 分）＋等第一班趕得上的車（最多算 10 分，再多就把 `leaveAt` 往後延）＋車程＋離站；`arriveAt` 以實際班次計算 | 成人單程（台鐵依車種）＋市區轉乘 15 元 | 有市區轉乘或查不到票價時 |
 | 國道客運 | ≥ 15 km；`intercity.trips` | 走＋等（走到站牌趕得上的第一班，最多算 10 分）＋車程含路況延誤＋走；`arriveAt` 以實際班次計算 | 票價；缺資料時道路公里 × 1.3 元 | 缺票價或抵達為估算時 |
 | 叫車 | 一律 | 等 6 分＋道路 ÷（市區 22／長程 55 km/h）＋路況延誤 | `ridehail_link` 估價區間中位數（`costRange`） | 一律 |
+
+### ✅ `outing_advice` — 出門建議（pack `weather`，卡片 `outing`，2026-11-21）
+
+輸入 `lat`、`lon`、`name?`（卡片標題）、`with?: 'kids'|'elder'`（同行的小孩或長輩：空品門檻放低）。同時查 `weather.now` 與 `life.aqiNearby`（`Promise.allSettled`：一邊查不到也回另一邊；兩邊都失敗才回錯誤），由 `core/agent/outing.js` `outingItems` 整理最多 3 點：`items: [{ kind: 'umbrella'|'hot'|'cold'|'mask'|'ok', level: 'warn'|'info'|'ok', text }]`（降雨 ≥ 50% 帶傘、≥ 30% 折傘；雨量站沒量到雨但已算「下雨」時說「很可能下雨」；≥ 32°C／≥ 28°C／≤ 10°C／≤ 16°C；AQI > 150／> 100、帶小孩或長輩 > 50；都正常＝安心出門）。輸出另有 `weather`（測站、氣溫、降雨機率、是否下雨）、`air`（測站、AQI、狀態）。工具文字附「請照這些重點回答」。示範與模型模式的出門建議都改用這個工具（原本天氣、空品兩張卡）。
 
 ### ✅ `weather_tomorrow` — 明天的預報（pack `weather`，2026-11-21）
 

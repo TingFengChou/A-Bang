@@ -183,6 +183,11 @@ export const MESSAGES = {
   'scam.rulesUnreviewed': '規則庫 {v}（尚未經防詐專家審核）。比對結果僅供參考，不是法律或調查結論。',
 
   // ── weather（weather_now） ──
+  'outing.title': '出門建議',
+  'outing.titleAt': '{name} 出門建議',
+  'outing.items': '出門前注意',
+  'outing.aqi': '空品 AQI',
+  'outing.meta': '天氣：{station}・空品：{site}測站',
   'weather.title': '{where} 天氣',
   'weather.rain': '現在下雨，或接下來很可能下雨',
   'weather.dry': '現在沒下雨',

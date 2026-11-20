@@ -226,8 +226,7 @@
           "say": "今天出門要注意什麼？",
           "expect": {
             "tools": [
-              "weather_now",
-              "aqi_nearby"
+              "outing_advice"
             ]
           }
         }
@@ -769,8 +768,7 @@
           "say": "出門要帶傘嗎",
           "expect": {
             "tools": [
-              "weather_now",
-              "aqi_nearby"
+              "outing_advice"
             ]
           }
         }
@@ -848,7 +846,7 @@
           "say": "出門去台北101要注意什麼",
           "expect": {
             "tools": [
-              "weather_now"
+              "outing_advice"
             ]
           }
         }

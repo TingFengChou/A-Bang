@@ -28,6 +28,7 @@
     "traffic_status",
     "weather_now",
     "weather_tomorrow",
+    "outing_advice",
     "rail_booking_link",
     "ridehail_link",
     "aqi_nearby",
