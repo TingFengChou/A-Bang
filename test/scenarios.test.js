@@ -11,10 +11,10 @@ import { check } from '../scripts/eval/scenario-check.js';
 const set = JSON.parse(await readFile(new URL('./scenarios/life.json', import.meta.url), 'utf8'));
 const judge = createJudge(); // 規則（CI 不下載嵌入模型）
 
-/** 跑一輪：回傳這輪的事件（帶定位結果，等同 App 已允許定位） */
-async function turn(svc, messages) {
+/** 跑一輪：回傳這輪的事件（預設帶定位結果＝App 已允許定位；情境 location: false＝拒絕） */
+async function turn(svc, messages, located = true) {
   const es = [];
-  await runDemo(svc, { messages, clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: set.here }] }, (e) => es.push(e), { judge });
+  await runDemo(svc, { messages, clientTools: ['device_location'], clientToolResults: [located ? { id: 'loc1', ok: true, result: set.here } : { id: 'loc1', ok: false }] }, (e) => es.push(e), { judge });
   return es;
 }
 
@@ -24,7 +24,7 @@ for (const sc of set.scenarios) {
     const messages = [];
     for (const [i, t] of sc.turns.entries()) {
       messages.push({ role: 'user', content: t.say });
-      const es = await turn(svc, messages);
+      const es = await turn(svc, messages, sc.location !== false);
       const bad = check(es, t.expect);
       assert.deepEqual(bad, [], `第 ${i + 1} 輪「${t.say}」`);
       messages.push({ role: 'assistant', content: es.filter((e) => e.type === 'text').map((e) => e.delta).join('').slice(0, 500) || '好' });

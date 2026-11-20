@@ -202,7 +202,8 @@ test('模型模式：預先查詢失敗時把原因告訴模型；相同條件�
   assert.equal(es2.filter((e) => e.type === 'tool_result' && e.tool === 'weather_now').length, 2, '換地方照常查');
 
   const { callKey } = await import('../core/agent/model-loop.js');
-  assert.equal(callKey('plan_trip', { to: '台北 101' }), callKey('plan_trip', { to: '台北101', from: '別的' }), '目的地去空白比對；起點不比');
+  assert.equal(callKey('plan_trip', { to: '台北 101', from: '臺北車站' }), callKey('plan_trip', { to: '台北101', from: '台北車站' }), '去空白、台／臺比對');
+  assert.notEqual(callKey('plan_trip', { to: '台北101' }), callKey('plan_trip', { to: '台北101', from: '別的' }), '起點不同不沿用（規則抽反時不會拿錯的結果）');
   assert.notEqual(callKey('plan_trip', { to: '台北101' }), callKey('plan_trip', { to: '台北101', prefs: { mode: 'bus' } }));
   assert.equal(callKey('find_place', { query: 'x' }), null, '其他工具不沿用');
 });

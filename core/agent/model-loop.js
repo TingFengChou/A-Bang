@@ -4,8 +4,10 @@ import { describeTool, getTool } from '../tools/index.js';
 import { getProfile } from '../agents/index.js';
 import { buildSystemPrompt } from './prompt.js';
 import { ev } from './events.js';
-import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, judgeInfo, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
+import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hideToolNames, judgeInfo, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
 import { judgeNote, moreStatesNote } from './impact.js';
+import { lineCode } from '../tools/metro.js';
+import { normName } from '../util.js';
 import { parseIntent, needsLocation } from './demo-intent.js';
 
 /**
@@ -48,26 +50,28 @@ export function prefetchCalls(it, j, here) {
     const prefs = { ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }), ...(it.states?.length && { states: it.states }) };
     return [{ name: 'plan_trip', args: { from: it.from || { ...at, name: here.name }, to: it.to, ...(Object.keys(prefs).length && { prefs }) } }];
   }
+  if (it.intent === 'metro' && !it.station && (it.near || at)) return [{ name: METRO_NEAR, args: { near: it.near || { ...at, name: here.name }, ...(it.line && { line: it.line }) } }];
   if (!at) return [];
-  if (it.intent === 'metro' && !it.station) return [{ name: METRO_NEAR, args: { near: { ...at, name: here.name } } }];
   if (it.places?.length) return [];
   const intent = NEARBY_TOOL[it.intent] ? it.intent : NEARBY_TOOL[j?.intent] ? j.intent : null;
   return intent ? [{ name: NEARBY_TOOL[intent], args: at }] : [];
 }
 
 /**
- * 預先查詢的比對鍵：plan_trip 看目的地（去空白）、交通方式、抵達時間（起點一律是現在位置、狀態由判斷層定）；
+ * 預先查詢的比對鍵：plan_trip 看起點、目的地（去空白、台／臺）、交通方式、抵達時間（狀態由判斷層定）；
  * 附近類工具看座標（約 100 公尺內算同一處；模型沒給座標＝現在位置）。其他工具不沿用。
  */
 export function callKey(name, args = {}, here = null) {
   if (name === 'plan_trip') {
-    const to = typeof args.to === 'string' ? args.to.replace(/\s/g, '') : args.to ? `${(+args.to.lat).toFixed(3)},${(+args.to.lon).toFixed(3)}` : '';
-    return `plan_trip|${to}|${args.prefs?.mode || ''}|${args.prefs?.arriveBy || ''}`;
+    // 起點也要比（規則抽到的起點若跟模型的不同，不能沿用；PR #34 審查）
+    const pt = (v) => (typeof v === 'string' ? normName(v.replace(/\s/g, '')) : v ? `${(+v.lat).toFixed(3)},${(+v.lon).toFixed(3)}` : '');
+    return `plan_trip|${pt(args.from)}|${pt(args.to)}|${args.prefs?.mode || ''}|${args.prefs?.arriveBy || ''}`;
   }
   if (name === METRO_NEAR) { // 沒給站名＝最近的站（看 near，沒給 near＝現在位置）；有站名不沿用
     if (args.station) return null;
     const p = args.near && typeof args.near === 'object' ? args.near : here;
-    return p ? `${name}|${(+p.lat).toFixed(3)},${(+p.lon).toFixed(3)}` : null;
+    const where = typeof args.near === 'string' ? args.near.replace(/\s/g, '') : p ? `${(+p.lat).toFixed(3)},${(+p.lon).toFixed(3)}` : null;
+    return where ? `${name}|${where}|${lineCode(args.line) || ''}` : null;
   }
   if (Object.values(NEARBY_TOOL).includes(name)) {
     const lat = args.lat ?? here?.lat, lon = args.lon ?? here?.lon;
@@ -78,12 +82,12 @@ export function callKey(name, args = {}, here = null) {
 
 /**
  * 模型給的 plan_trip prefs → 只留使用者說過的抵達時間與交通方式（規則從這句或前文抽到的；判斷層的 mode）。
- * 狀態另由判斷層決定（execTools 的 judgedStates），這裡不動。
+ * 狀態也只採判斷層或規則的（沒有判斷層時模型自加的狀態也丟掉；有判斷層時 execTools 另以 judgedStates 為準）。
  */
 export function groundedPrefs(prefs = {}, it = {}, j = null) {
-  const { arriveBy: _arriveBy, mode: _mode, ...rest } = prefs;
-  const said = { arriveBy: it.arriveBy || null, mode: it.mode || j?.mode || null };
-  return { ...rest, ...(said.arriveBy && { arriveBy: said.arriveBy }), ...(said.mode && { mode: said.mode }) };
+  const { arriveBy: _arriveBy, mode: _mode, states: _states, ...rest } = prefs;
+  const said = { arriveBy: it.arriveBy || null, mode: it.mode || j?.mode || null, states: j?.states || it.states || [] };
+  return { ...rest, ...(said.arriveBy && { arriveBy: said.arriveBy }), ...(said.mode && { mode: said.mode }), ...(said.states.length && { states: said.states }) };
 }
 
 /** 兩個地點參數是不是同一個字串（「台北101」與「台北 101」視為相同） */
@@ -235,7 +239,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     }
     if (turn.stop === 'max_tokens') return finish(FALLBACK.truncated); // 工具參數可能被截斷，不執行
     if (round >= MAX_TOOL_ROUNDS) return finish(FALLBACK.rounds); // 第 6 輪還要查 → 不再呼叫工具
-    if (text) emit(ev.agentNote(text));
+    if (text) emit(ev.agentNote(hideToolNames(text))); // 中間的話也不露出工具英文名稱
 
     /** @type {Map<string, { content: string, isError?: boolean }>} */
     const results = new Map();
@@ -252,16 +256,6 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     }
     for (const c of turn.calls) if (!results.has(c.id) && c.bad !== undefined) results.set(c.id, { content: `參數不是有效的 JSON：${c.bad}`, isError: true });
 
-    // 轉述受程式約束（A2）：抵達時間、交通方式只採使用者說過的（規則抽到的），模型自己加的丟掉
-    //（地端模型曾自加 arriveBy，結果「所有方式都趕不上指定時間」，2026-11-21 實機）
-    for (const c of turn.calls) if (c.name === 'plan_trip' && c.input?.prefs) c.input = { ...c.input, prefs: groundedPrefs(c.input.prefs, rulesIt, j) };
-
-    // 已由程式依現在位置查好的工具：模型再呼叫就沿用結果（避免同一張卡片、決策圖出現兩次）
-    for (const c of turn.calls) {
-      const k = !results.has(c.id) && callKey(c.name, c.input, here);
-      if (k && preDone.has(k)) results.set(c.id, { content: `（已查好，結果同上）\n${preDone.get(k)}` });
-    }
-
     // 起點交給程式（不交給模型）：使用者沒說起點（「去台北 101」、接著改而上一輪也沒說）→ plan_trip 的起點一律是手機定位。
     // 地端小模型常把目的地也填成起點（台北101 → 台北101），這裡直接改掉；還沒定位就先請客戶端定位。
     const trips = turn.calls.filter((c) => c.name === 'plan_trip' && !results.has(c.id));
@@ -276,6 +270,16 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
         if (loc) c.input = { ...c.input, from: { lat: loc.lat, lon: loc.lon, name: loc.name } };
         else if (sameText(c.input?.from, c.input?.to)) results.set(c.id, { content: FALLBACK.sameFromTo, isError: true });
       }
+    }
+
+    // 轉述受程式約束（A2）：抵達時間、交通方式只採使用者說過的（規則抽到的），模型自己加的丟掉
+    //（地端模型曾自加 arriveBy，結果「所有方式都趕不上指定時間」，2026-11-21 實機）
+    for (const c of turn.calls) if (c.name === 'plan_trip' && c.input?.prefs) c.input = { ...c.input, prefs: groundedPrefs(c.input.prefs, rulesIt, j) };
+
+    // 已由程式依現在位置查好的工具：模型再呼叫就沿用結果（避免同一張卡片、決策圖出現兩次）
+    for (const c of turn.calls) {
+      const k = !results.has(c.id) && callKey(c.name, c.input, here);
+      if (k && preDone.has(k)) results.set(c.id, { content: `（已查好，結果同上）\n${preDone.get(k)}` });
     }
 
     const run = turn.calls.filter((c) => !results.has(c.id));

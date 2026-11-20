@@ -24,7 +24,7 @@ for (const sc of set.scenarios.filter((x) => !only.length || only.includes(x.id)
   for (const t of sc.turns) {
     messages.push({ role: 'user', content: t.say });
     const es = [];
-    await runModel(svc, { messages, clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: set.here }] }, (e) => es.push(e), { provider, judge });
+    await runModel(svc, { messages, clientTools: ['device_location'], clientToolResults: [sc.location === false ? { id: 'loc1', ok: false } : { id: 'loc1', ok: true, result: set.here }] }, (e) => es.push(e), { provider, judge });
     const bad = check(es, t.expect);
     if (bad.length) fails.push(`「${t.say}」${bad.join('；')}`);
     messages.push({ role: 'assistant', content: es.filter((e) => e.type === 'text').map((e) => e.delta).join('').slice(0, 500) || '好' });

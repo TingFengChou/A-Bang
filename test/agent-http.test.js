@@ -48,7 +48,7 @@ test('client_tool_call：沒起點時請客戶端定位；拿到座標後用「�
   // 拒絕定位：照示範預設起點，總結說明
   const no = await collect(async () => null);
   assert.equal(no.find((e) => e.type === 'client_tool_result').ok, false);
-  assert.match(no.find((e) => e.type === 'text').delta, /沒說從哪出發/);
+  assert.match(no.find((e) => e.type === 'text').delta, /沒拿到你的位置，先從「臺北車站」算；告訴我從哪出發就重算/, '拒絕定位不是「你沒說」');
 });
 
 

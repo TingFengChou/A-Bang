@@ -18,7 +18,8 @@
             "fromHere": true,
             "textNot": [
               "沒說從哪出發"
-            ]
+            ],
+            "arriveBy": null
           }
         }
       ]
@@ -66,6 +67,9 @@
           "expect": {
             "tools": [
               "bus_route_eta"
+            ],
+            "textNot": [
+              "沒說在哪"
             ]
           }
         }
@@ -325,7 +329,250 @@
             ],
             "bestRole": "ridehail",
             "textNot": [
-              "到站前"
+              "到站前",
+              "要我幫你開導航"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S16-5",
+      "title": "指定路線：只找那條線最近的站",
+      "turns": [
+        {
+          "say": "文湖線下一班幾分",
+          "expect": {
+            "tools": [
+              "metro_live_board"
+            ],
+            "resultHas": [
+              "文湖線"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S16-6",
+      "title": "拒絕定位：說明用預設起點與下一步，不說「你沒說」",
+      "location": false,
+      "turns": [
+        {
+          "say": "去台北101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "textHas": [
+              "沒拿到你的位置"
+            ],
+            "textNot": [
+              "你沒說"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S16-7",
+      "title": "句子裡有地標的捷運：找那裡最近的站",
+      "turns": [
+        {
+          "say": "西門町捷運下一班幾分",
+          "expect": {
+            "tools": [
+              "metro_live_board"
+            ],
+            "resultHas": [
+              "西門"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3-3",
+      "title": "中文時間：九點半前",
+      "turns": [
+        {
+          "say": "九點半前到台北101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "arriveBy": "09:30"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S2-8",
+      "title": "起點在後面說：去 X，從 Y 出發",
+      "turns": [
+        {
+          "say": "去台北101，從西門町出發",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "西門町",
+            "to": "台北101"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S2-3",
+      "title": "接著改起點",
+      "todo": "A3 結構化上下文",
+      "turns": [
+        {
+          "say": "去台北101",
+          "expect": {
+            "fromHere": true
+          }
+        },
+        {
+          "say": "我其實從板橋出發",
+          "expect": {
+            "from": "板橋",
+            "to": "台北101"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S2-4",
+      "title": "接著加抵達時間",
+      "todo": "A3 結構化上下文",
+      "turns": [
+        {
+          "say": "去台北101"
+        },
+        {
+          "say": "九點要到",
+          "expect": {
+            "arriveBy": "09:00",
+            "to": "台北101"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S2-5",
+      "title": "接著改目的地",
+      "todo": "A3 結構化上下文",
+      "turns": [
+        {
+          "say": "從西門町去台北101"
+        },
+        {
+          "say": "改去松山機場",
+          "expect": {
+            "from": "西門町",
+            "to": "松山機場"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S2-6",
+      "title": "不要叫車",
+      "todo": "S2 排除某方式",
+      "turns": [
+        {
+          "say": "從西門町去台北101"
+        },
+        {
+          "say": "不要叫車",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "bestRoleNot": "ridehail"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S2-7",
+      "title": "說「重來」後只說目的地：起點回到現在位置",
+      "turns": [
+        {
+          "say": "從西門町去台北101"
+        },
+        {
+          "say": "重來"
+        },
+        {
+          "say": "去松山機場",
+          "expect": {
+            "fromHere": true,
+            "to": "松山機場"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12-1",
+      "title": "觀光客英文",
+      "todo": "S12 英文對話",
+      "turns": [
+        {
+          "say": "How do I get to Taipei 101?",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S14-2",
+      "title": "防詐不誤判：去車站問有沒有詐騙集團是行程",
+      "turns": [
+        {
+          "say": "我要去台北車站，那邊有詐騙集團嗎",
+          "expect": {
+            "toolsNot": [
+              "scam_check_message"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S1-2",
+      "title": "天氣問句不觸發行程",
+      "turns": [
+        {
+          "say": "明天去台北101會下雨嗎",
+          "expect": {
+            "tools": [
+              "weather_now"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S1-3",
+      "title": "問明天的天氣要講明天",
+      "todo": "S1 天氣預報（明天）",
+      "turns": [
+        {
+          "say": "明天會下雨嗎",
+          "expect": {
+            "tools": [
+              "weather_now"
+            ],
+            "textHas": [
+              "明天"
             ]
           }
         }
