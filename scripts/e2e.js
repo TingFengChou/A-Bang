@@ -884,6 +884,13 @@ test('英文提問：卡片用英文標籤', async () => {
     assert.equal(await card.locator('.ab-badge.ab-best').first().textContent(), 'Best');
     assert.match(await card.textContent(), /台北101|臺北車站/, '地名維持中文');
     assert.doesNotMatch(await page.locator('.bubble.final').last().textContent(), /in Chinese for now/);
+    // S12c：討論串標題、決策圖固定文字、接下來可以 都是英文
+    assert.match(await page.locator('.thread-sum').first().textContent(), /Helpers done/);
+    await page.waitForSelector('.decision .dg-step');
+    assert.match(await page.locator('.decision .dg-step').first().textContent(), /Decision/);
+    assert.equal(await page.locator('.decision .dg-why').count(), 0, '中文理由句不顯示（英文總結說明）');
+    const chips = await page.locator('.suggest .chip').allTextContents();
+    assert.ok(chips.length && chips.every((c) => !/[一-鿿]/.test(c)), chips.join('|'));
     await shot(page, 'phone-agent-english');
     await page.fill('.chat-form input', '去西門町');
     await page.press('.chat-form input', 'Enter');

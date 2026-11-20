@@ -1,5 +1,6 @@
 // Agent 共用執行器（M5-04，AGENT.md §2–§3）：呼叫 tool → tool_start／tool_result；plan_trip 時發 decision。
 // 示範模式（demo-intent）與模型模式（model-loop.js：Claude／地端，M5-05）共用 execTools，事件流相同。不加假延遲（ADR-0009）。
+import { enNote } from './en-notes.js';
 import { z } from 'zod';
 import { callTool, listTools } from '../tools/index.js';
 import { UserError, publicMessage } from '../util.js';
@@ -193,7 +194,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   if (notice) emit(ev.agentNote(notice));
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
   const heard = !req.clientToolResults?.length && (contextNote(parseIntent(last, { history: req.messages.slice(0, -1) })) || (it.intent === 'outing' ? outingNote([...(it.states || []), ...(q0?.states || [])]) : q0 && judgeNote(q0)));
-  if (heard) emit(ev.agentNote(heard));
+  if (heard && it.lang !== 'en') emit(ev.agentNote(heard)); // 「聽懂了」的句子是中文：英文那一輪不說
   const j = jc ? await jc.full(q0) : null;
   if (j) {
     // 出門建議是天氣＋空品的組合：判斷層說天氣或空品時保留（判斷層沒有 outing 這個意圖）
@@ -224,7 +225,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
     if (++rounds > MAX_TOOL_ROUNDS) break;
     const s = step(results);
     if (!s) break;
-    emit(ev.agentNote(s.note));
+    emit(ev.agentNote(it.lang === 'en' ? enNote(s.note) : s.note)); // 英文提問：說明用英文（S12c）
     const out = await execTools(svc, s.calls, emit, { profile, nextId, picked });
     for (const o of out) {
       used.push(o.name);
