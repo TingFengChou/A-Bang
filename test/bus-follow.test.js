@@ -101,3 +101,50 @@ test('網頁 host 到站提醒：設定時這班已趕不上就跳過、下一�
     delete globalThis.window; delete globalThis.Notification;
   }
 });
+
+test('手機 App 到站提醒（M11-02）：排本機通知到預估時間、差不到 20 秒不重排、車提早到就馬上送、取消會一起取消', async () => {
+  const calls = [], events = [];
+  globalThis.window = { dispatchEvent: (e) => events.push([e.type, e.detail]) };
+  globalThis.Capacitor = { isNativePlatform: () => true, nativePromise: async (plugin, method, o) => { calls.push([plugin, method, o]); return method.endsWith('Permissions') ? { display: 'granted' } : {}; } };
+  let eta = 600;
+  globalThis.fetch = async () => new Response(JSON.stringify({ data: { focus: { etaSec: eta, status: 0, statusText: '10 分' } } }));
+  const { createWebHost } = await import('../public/ui/cards/host-web.js');
+  const host = createWebHost();
+  assert.equal(host.background, true, 'App 關著也會提醒');
+  const flush = () => new Promise((r) => setImmediate(r));
+  const scheduled = () => calls.filter(([, m]) => m === 'schedule').map(([, , o]) => o.notifications[0]);
+  mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now: 1_000_000 });
+  try {
+    await host.watchArrival({ city: 'Taipei', routeName: '601', stop: '西門', minutes: 3 });
+    await flush();
+    assert.equal(scheduled().length, 1);
+    const n0 = scheduled()[0];
+    assert.equal(n0.id, 1001);
+    assert.equal(n0.schedule.at.getTime(), 1_000_000 + 420_000, '10 分後到、提前 3 分 → 7 分後通知');
+    assert.match(n0.body, /601 約 3 分後到「西門」，該出門了！（依 \d\d:\d\d 的到站時間估計）/);
+
+    eta = 590; mock.timers.tick(20_000); await flush();
+    assert.equal(scheduled().length, 1, '預估沒變（差不到 20 秒）不重排');
+    eta = 300; mock.timers.tick(20_000); await flush();
+    assert.equal(scheduled().length, 2, '車變快：重排');
+    assert.equal(scheduled()[1].schedule.at.getTime(), 1_040_000 + 120_000);
+    eta = 150; mock.timers.tick(20_000); await flush(); // 比預估更早進入 3 分內
+    assert.equal(scheduled().length, 3, '比排好的時間早到 → 馬上送');
+    assert.ok(scheduled()[2].schedule.at.getTime() <= Date.now() + 1000);
+    assert.equal(host.arrivalWatch(), null);
+
+    eta = 600;
+    await host.watchArrival({ city: 'Taipei', routeName: '601', stop: '西門', minutes: 5 });
+    await flush();
+    host.unwatchArrival(); await flush();
+    assert.deepEqual(calls.at(-1), ['LocalNotifications', 'cancel', { notifications: [{ id: 1001 }] }], '取消提醒＝取消排好的通知');
+
+    const t = new Date(Date.now() + 3_600_000);
+    const at = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+    assert.equal(await host.remind(at, '該出發了'), true);
+    assert.equal(scheduled().at(-1).id, 1002, '出發提醒也用本機通知');
+  } finally {
+    mock.timers.reset();
+    delete globalThis.window; delete globalThis.Capacitor;
+  }
+});

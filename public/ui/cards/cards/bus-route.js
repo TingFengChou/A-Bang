@@ -46,7 +46,7 @@ function focusBlock(d, f, { host, t, rerender, state }) {
       h('span', { class: 'ab-sub' }, t('busRoute.focusAt', { stop: f.stopName })),
       h('strong', { class: 'ab-focus-eta', ...(live && { 'data-eta-sec': f.etaSec }) }, f.statusText)),
     watching
-      ? h('p', { class: 'ab-sub ab-alert-on', role: 'status' }, t(w.skip ? 'busRoute.alertNext' : 'busRoute.alertSet', { n: w.minutes }),
+      ? h('p', { class: 'ab-sub ab-alert-on', role: 'status' }, t(w.skip ? 'busRoute.alertNext' : 'busRoute.alertSet', { n: w.minutes, when: t(host?.background ? 'busRoute.whenAlways' : 'busRoute.whenOpen') }),
         h('button', { type: 'button', class: 'ab-btn ab-link', onclick: () => { host.unwatchArrival?.(); rerender(); } }, t('busRoute.alertCancel')))
       : live && host?.watchArrival && h('div', { class: 'ab-actions' }, [3, 5].map((n) => h('button', { type: 'button', class: 'ab-btn', onclick: async () => {
         await host.watchArrival({ city: d.city, routeName: d.routeName, stop: f.stopName, direction: f.direction, minutes: n });

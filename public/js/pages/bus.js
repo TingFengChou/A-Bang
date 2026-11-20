@@ -120,8 +120,9 @@ export const busRoute = {
       const w = host.arrivalWatch();
       const watching = w && w.routeName === route && w.stop === myStop;
       const live = s.status === 0 && s.etaSec != null;
+      const when = host.background ? 'App 關著也會提醒' : 'App 開著時';
       box.innerHTML = `<div class="card bus-focus"><span class="ab-token lg${live ? ' go' : ''}" style="--c:#0f766e" aria-hidden="true">${modeSvg('bus')}</span><div class="sub">到「${esc(myStop)}」</div><div class="big">${esc(s.statusText)}</div>
-        ${watching ? `<p class="ok" role="status">${w.skip ? `這班快到了、可能趕不上；下一班到站前 ${w.minutes} 分提醒你（App 開著時）` : `已設定：到站前 ${w.minutes} 分提醒你（App 開著時）`}<button class="btn ghost" id="unwatch" type="button">取消提醒</button></p>`
+        ${watching ? `<p class="ok" role="status">${w.skip ? `這班快到了、可能趕不上；下一班到站前 ${w.minutes} 分提醒你（${when}）` : `已設定：到站前 ${w.minutes} 分提醒你（${when}）`}<button class="btn ghost" id="unwatch" type="button">取消提醒</button></p>`
           : live ? `<div class="row">${[3, 5].map((n) => `<button class="btn" type="button" data-min="${n}">到站前 ${n} 分提醒我</button>`).join('')}</div>` : ''}</div>`;
       box.querySelectorAll('[data-min]').forEach((b) => (b.onclick = async () => {
         await host.watchArrival({ city, routeName: route, stop: myStop, direction: dir, minutes: Number(b.dataset.min) });

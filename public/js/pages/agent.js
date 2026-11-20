@@ -168,7 +168,7 @@ export default {
         }
         if (s.kind === 'remind') {
           await host.watchArrival(s.payload);
-          log.append(el('p', 'agent-sys', `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（App 開著時）。`));
+          log.append(el('p', 'agent-sys', `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（${host.background ? 'App 關著也會提醒' : 'App 開著時'}）。`));
           return showNext(view);
         }
         return undefined;

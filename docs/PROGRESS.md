@@ -13,6 +13,15 @@
 
 ---
 
+## 2026-11-20 M11-02 到站提醒改手機本機通知
+
+- 做了：`@capacitor/local-notifications` 8.3.1（devDependency，`cap sync` 會帶進原生專案）；`public/js/native-notify.js` 經 `Capacitor.nativePromise` 呼叫（免建置）；`host-web` 的到站提醒每次查到到站時間就把「該出門了」排到預估時間（同一則 id 覆蓋、差不到 20 秒不重排），App 到背景或被關掉時由系統送出，文字註明「依 HH:mm 的到站時間估計」；車比預估早到就馬上送；取消或逾時會取消排好的通知；出發提醒（`remind`）也改本機通知；`host.background` → 文字「App 關著也會提醒」（網頁仍「App 開著時」）。iOS `contentInset: never`（原本頂端重複留白）。
+- 實機：iOS 模擬器允許通知 → 排程成功（系統記錄 Added notification request）→ App 關掉後到點送達。Android 實機（Pixel 11 Pro XL）安裝成功，通知權限對話框待解鎖手機允許。
+- 測試：npm test 292 項全過（新增 App 到站提醒 1 項）；npm run e2e 28 項全過
+- 文件：PLAN（M11-02）、UX、ADR-0013
+- 下一個：M11-03 原生相機掃 QR、定位
+- 卡住：Android 實機需 Austin 解鎖手機並允許通知；Android 精準鬧鐘權限沒開時系統可能延後幾十秒送
+
 ## 2026-11-20 M11-01 手機 App 殼（Capacitor，ADR-0013）
 
 - 做了：ADR-0013（Capacitor 8 包現有網頁、前端打包進 App、API 位址可設定、App 來源 CORS、App 內不註冊 service worker）。`npm run build:app`（`scripts/build-app.js`：複製 public／GSAP／`core/decide.js` 到 `dist/app`，注入 `__ABANG_API_BASE__`、`__ABANG_APP__`；正式版 `APP_RELEASE=1` 只收 https）；前端 API 呼叫改經 `public/js/base.js`；伺服器 `APP_ORIGINS`（預設 `capacitor://localhost`、`https://localhost`）對問阿幫與 REST 讀取路由加 CORS（不用 `*`）；`android/`、`ios/` 原生專案，App ID `tw.abang.app`；Android 網路安全設定只對 localhost／127.0.0.1／10.0.2.2 允許明碼 http。Capacitor 套件 8.6.0 都放 devDependencies（不進 Docker 映像）。

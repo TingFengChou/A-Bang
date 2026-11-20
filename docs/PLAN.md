@@ -225,7 +225,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼叫同一 agent API 與卡片契約（ADR-0008）。
 
 - [x] M11-01 App 殼（2026-11-20：ADR-0013；`npm run build:app` 打包 `dist/app`＋注入 API 位址；`public/js/base.js` 的 `API_BASE`；伺服器對 App 來源加 CORS（`APP_ORIGINS`）；App 內不註冊 service worker；`android/`、`ios/` 原生專案；Android 只對本機位址允許明碼 http；Android 模擬器實測問阿幫可用、iOS 模擬器版編譯成功）
-- [ ] M11-02 到站提醒改手機本機通知（`@capacitor/local-notifications`；App 關著也會響；網頁維持現狀）
+- [x] M11-02 到站提醒改手機本機通知（2026-11-20：`@capacitor/local-notifications` 8.3.1；`public/js/native-notify.js` 經原生橋接呼叫；每次查到到站時間就把通知排到預估時間（同一則覆蓋、差不到 20 秒不重排），App 到背景或被關掉時系統照最後一次預估送出；車比預估早到就馬上送；取消提醒＝取消排好的通知；出發提醒也改本機通知；文字「App 關著也會提醒」；網頁維持現狀。iOS 模擬器：權限、排程、App 關閉後送達 ✅；Android 實機待解鎖允許通知）
 - [ ] M11-03 原生相機掃發票 QR、定位（網頁退路保留）
 - [ ] M11-04 App 圖示、啟動畫面、隱私權政策頁
 - [ ] M11-05 ⛔ 測試環境部署（HTTPS，M6-06）＋ Google Play 內部測試、TestFlight（需開發者帳號）
