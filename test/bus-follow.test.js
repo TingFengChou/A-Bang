@@ -32,7 +32,8 @@ test('bus_route_eta 給 stop：回 focus、speak 講多久到；站名不對時�
   const stop = all.data.directions[0].stops[3].stopName;
   const r = await callTool(svc, 'bus_route_eta', { city: 'Taipei', routeName: '307', stop, direction: 0 });
   assert.equal(r.data.focus.stopName, stop);
-  assert.match(r.speak, new RegExp(`^307 (約 \\d+ 分後到|即將到|進站中)「${stop.replace(/[()]/g, '\\$&')}」`));
+  const q = stop.replace(/[()]/g, '\\$&');
+  assert.match(r.speak, new RegExp(`^307 (約 \\d+ 分後到「${q}」|即將到「${q}」|在「${q}」進站中)`));
   assert.match(r.text, /^307 /);
   const miss = await callTool(svc, 'bus_route_eta', { city: 'Taipei', routeName: '307', stop: '火星站' });
   assert.equal(miss.data.focus, undefined);
@@ -59,10 +60,11 @@ test('問阿幫（示範）：想省錢選公車 → decision 後自動查上車
   const best = trip.options.find((o) => o.id === trip.best);
   assert.equal(best.role, 'bus');
   assert.equal(bus.data.focus.stopName, best.follow.stop, '盯的是規劃的上車站');
-  assert.match(es.find((e) => e.type === 'text').delta, /走過去約 \d+ 分。要我在公車快到站時提醒你嗎？/);
+  // 示範到站時間隨時間變化：趕得上 → 問要不要提醒；走過去比車到還久 → 說這班可能趕不上、提醒下一班
+  assert.match(es.find((e) => e.type === 'text').delta, /走過去約 \d+ 分(。要我在公車快到站時提醒你嗎？|，這班可能趕不上。要我在下一班快到時提醒你嗎？)/);
 });
 
-test('網頁 host 到站提醒：剩下時間已到就馬上通知一次並結束；快到時以計時器準時提醒', async () => {
+test('網頁 host 到站提醒：設定時這班已趕不上就跳過、下一班到點通知一次；快到時以計時器準時提醒', async () => {
   const notes = [], events = [];
   globalThis.window = { dispatchEvent: (e) => events.push([e.type, e.detail]) };
   globalThis.Notification = class { static permission = 'granted'; constructor(title, o) { notes.push([title, o.body]); } };
@@ -70,14 +72,23 @@ test('網頁 host 到站提醒：剩下時間已到就馬上通知一次並結�
   globalThis.fetch = async () => new Response(JSON.stringify({ data: { focus: { etaSec: eta, status: 0, statusText: '1 分' } } }));
   const { createWebHost } = await import('../public/ui/cards/host-web.js');
   const host = createWebHost();
-  await host.watchArrival({ city: 'Taipei', routeName: '601', stop: '西門', direction: 0, minutes: 3 });
-  assert.deepEqual(notes, [['阿幫：公車快到站', '601 約 2 分後到「西門」，該出門了！']]);
-  assert.equal(host.arrivalWatch(), null, '只提醒一次');
-  assert.ok(events.some(([t, d]) => t === 'abang:arrival' && /該出門了/.test(d.text)));
-
+  const flush = () => new Promise((r) => setImmediate(r));
   mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'] });
   try {
-    eta = 190; // 剩 10 秒才到 3 分
+    // 設定時這班 100 秒就到（≤ 3 分）→ 趕不上，跳過這班
+    await host.watchArrival({ city: 'Taipei', routeName: '601', stop: '西門', direction: 0, minutes: 3 });
+    assert.equal(notes.length, 0);
+    assert.equal(host.arrivalWatch().skip, 100);
+    eta = 30; mock.timers.tick(20_000); await flush();
+    assert.equal(notes.length, 0, '同一班越來越近也不提醒');
+    eta = 600; mock.timers.tick(20_000); await flush(); // 這班開走，下一班 10 分
+    assert.equal(host.arrivalWatch().skip, null);
+    eta = 170; mock.timers.tick(20_000); await flush(); // 下一班進入 3 分內
+    assert.deepEqual(notes, [['阿幫：公車快到站', '601 約 3 分後到「西門」，該出門了！']]);
+    assert.equal(host.arrivalWatch(), null, '只提醒一次');
+    assert.ok(events.some(([t, d]) => t === 'abang:arrival' && /該出門了/.test(d.text)));
+
+    eta = 190; // 剩 10 秒才到 3 分：兩次更新之間用計時器準時提醒
     await host.watchArrival({ city: 'Taipei', routeName: '601', stop: '西門', minutes: 3 });
     assert.equal(notes.length, 1);
     assert.equal(host.arrivalWatch().minutes, 3);

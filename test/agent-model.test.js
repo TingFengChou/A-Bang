@@ -89,6 +89,7 @@ test('Claude：工具前的文字 → agent_note、工具事件與 decision、�
   assert.equal(es[12].tool, 'bus_route_eta');
   assert.equal(es[12].card, 'bus-route');
   assert.ok(es[12].data.focus, '卡片聚焦上車站');
+  assert.deepEqual(es.find((e) => e.type === 'discussion_end').tools.sort(), ['bus_route_eta', 'find_place', 'plan_trip']);
   assert.deepEqual([es[0].mode, es[0].model], ['claude', 'claude-haiku-5-5']);
   assert.equal(es[1].text, '@地點 先確認兩個地點');
   assert.ok(es.filter((e) => e.type === 'tool_result').every((e) => e.ok && e.speak));
@@ -100,7 +101,7 @@ test('Claude：工具前的文字 → agent_note、工具事件與 decision、�
 
   // 請求內容：工具由 registry 產生（無 $schema）、最後一個工具與 system 有快取斷點、回填只有文字摘要
   const [r0, r1] = state.reqs;
-  assert.match(JSON.stringify(state.reqs[2]), /阿幫已自動查好.+到站前 3 分提醒我/, '盯到站的結果接在 plan_trip 結果後面給模型');
+  assert.match(JSON.stringify(state.reqs[2]), /阿幫已自動查好.+走到這個上車站約 \d+ 分.+到站前 3 分提醒我/, '盯到站的結果（含走到上車站的時間）接在 plan_trip 結果後面給模型');
   assert.equal(r0.model, 'claude-haiku-5-5');
   assert.ok(r0.tools.some((t) => t.name === 'plan_trip' && t.input_schema.type === 'object' && !('$schema' in t.input_schema)));
   assert.ok(!r0.tools.some((t) => t.name === 'device_location'), '客戶端沒說支援定位就不提供');

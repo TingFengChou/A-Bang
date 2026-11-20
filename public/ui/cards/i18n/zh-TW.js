@@ -56,6 +56,7 @@ export const MESSAGES = {
   'busRoute.boardHere': '你在這上車',
   'busRoute.alertBtn': '到站前 {n} 分提醒我',
   'busRoute.alertSet': '已設定：到站前 {n} 分提醒你（App 開著時）',
+  'busRoute.alertNext': '這班快到了、可能趕不上；下一班到站前 {n} 分提醒你（App 開著時）',
   'busRoute.alertCancel': '取消提醒',
   'busRoute.openPage': '開公車頁看動態',
 

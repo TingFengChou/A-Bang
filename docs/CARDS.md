@@ -39,6 +39,10 @@
  * @property {(text: string) => void} setContext    更新模型脈絡（例：使用者選了哪一站）
  * @property {(url: string, opts?: { confirm?: string }) => void} openLink  開地圖、訂票、叫車；confirm 有值時先顯示確認視窗（L2）
  * @property {(at: string, text: string) => Promise<boolean>} [remind]  提醒（裝置端；不支援時不顯示按鈕）
+ * @property {(w: { city, routeName, stop, direction?, minutes }) => Promise<boolean>} [watchArrival]  公車到站前 N 分提醒（L-14）
+ * @property {() => void} [unwatchArrival]
+ * @property {() => object|null} [arrivalWatch]  目前的到站提醒
+ * @property {(hash: string) => void} [navigate]  開 App 內頁面（只接受 #/ 開頭）
  * @property {'light'} theme
  * @property {'web'|'mcp-app'|'app'} kind
  */
@@ -47,8 +51,8 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 | 實作 | 檔案 | `callTool` | `ask` | `setContext` | `openLink` |
 |---|---|---|---|---|---|
-| 網頁 | `public/ui/cards/host-web.js` | `POST /api/v1/tools/:name` | 填入輸入框並送出 | 存在下一次 agent 請求的 `context` | `window.open`（L2 先確認）；`remind` 以系統通知（需允許通知、頁面保持開啟） |
-| MCP Apps | `public/ui/cards/host-mcp-app.js` | `app.callServerTool()` → `structuredContent` | `app.sendMessage()`（host 支援 `message` 時） | `app.updateModelContext()`（host 支援時） | L2 先在卡片下方顯示確認框（iframe 沙箱不允許 `window.confirm`）→ `app.openLink()`；host 不支援或拒絕時顯示網址與「複製連結」；不提供 `remind` |
+| 網頁 | `public/ui/cards/host-web.js` | `POST /api/v1/tools/:name` | 填入輸入框並送出 | 存在下一次 agent 請求的 `context` | `window.open`（L2 先確認）；`remind` 以系統通知（需允許通知、頁面保持開啟）；`watchArrival`：整個頁面共用一個提醒，每 20 秒查上車站到站時間，剩下 ≤ N 分通知一次（系統通知＋App 內 toast `abang:arrival`），設定時這班已在範圍內就跳過等下一班，最多盯 90 分；`navigate` 換 hash |
+| MCP Apps | `public/ui/cards/host-mcp-app.js` | `app.callServerTool()` → `structuredContent` | `app.sendMessage()`（host 支援 `message` 時） | `app.updateModelContext()`（host 支援時） | L2 先在卡片下方顯示確認框（iframe 沙箱不允許 `window.confirm`）→ `app.openLink()`；host 不支援或拒絕時顯示網址與「複製連結」；不提供 `remind`、`watchArrival`、`navigate`（卡片不顯示那些按鈕） |
 
 ## 3.1 MCP Apps 打包與資源（✅ M4-04～06）
 
@@ -68,8 +72,11 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 { "city": "Taipei", "routeName": "307", "updatedAt": "…",
   "directions": [{ "direction": 0, "label": "往 板橋", "stops": [
     { "seq": 1, "stopName": "撫遠街", "lat": 25.05, "lon": 121.56, "etaSec": 120, "status": 0, "statusText": "約 2 分", "plate": "KKA-1234" } ] }],
-  "shape": [[25.05, 121.56]] }
+  "shape": [[25.05, 121.56]],
+  "focus": { "direction": 0, "label": "往 板橋", "seq": 5, "stopName": "西門", "etaSec": 360, "status": 0, "statusText": "6 分" } }   // 選填：盯的站（L-14）
 ```
+
+有 `focus`（選公車後盯的上車站，L-14）：卡片上方大字倒數（`data-eta-sec`）、自動切到該方向、站序標「你在這上車」；`host.watchArrival` 存在時顯示「到站前 3／5 分提醒我」（已設定時顯示狀態與「取消提醒」；設定時這班已趕不上則說明會提醒下一班）；`host.navigate` 存在時顯示「開公車頁看動態」（`#/bus/:city/:route?stop=&dir=`，公車頁同樣顯示上車站與同一個提醒）。
 
 互動：方向切換；點站牌 → `host.setContext('使用者在看「X」站')` 並顯示「導航」「提醒我」；每 20 秒 `callTool` 刷新；倒數每秒本地遞減。
 

@@ -13,6 +13,14 @@
 
 ---
 
+## 2026-11-20 M10 L-14 選公車就盯到站＋到站提醒
+
+- 做了：使用者希望「決定搭公車後，agent 要開公車動態並在快到站時提醒」。core：`matchDirect` 上車站帶站序與方向；`plan_trip` 公車方案帶 `follow`；示範 `directTrips` 用示範路線真的站名（規劃用的到站時間仍固定，測試可重現）；`bus_route_eta` 加 `stop`／`direction` → `focus`（`focusStop`、`focusText`）。agent：`run.js` `busFollowUp`，`execTools` 在 `plan_trip` 的 `decision` 後自動送 `@公車` 與 `bus_route_eta`（示範與模型模式相同，查不到不影響行程）；示範總結說公車多久到、走過去幾分、趕不上就提醒下一班；模型拿到 `followUpText`；life 規則。網頁：`bus-route` 卡片聚焦上車站（大倒數、你在這上車、到站前 3／5 分提醒、開公車頁看動態）；`host-web` `watchArrival`（整頁共用、每 20 秒查、到點通知一次、設定時已趕不上就跳過這班、最多 90 分）、`navigate`；公車頁 `?stop=&dir=` 顯示上車站與同一個提醒；App toast。另：問阿幫頭像改吉祥物與線條圖示；互動模型原型（PR #16）。SW v0.4.9
+- 測試：npm test 268 項全過（新增 `test/bus-follow.test.js` 6 項：聚焦、上車站方向、tool focus、`busFollowUp`、示範事件流與總結、網頁 host 提醒的跳過與準時；`agent-model` 更新：模型模式也自動盯、結果接給模型）；npm run e2e 28 項全過（新增：想省錢 → 公車卡片聚焦 → 到站前 5 分提醒 → 開公車頁同一個提醒 → toast；截圖已檢查）
+- 文件：AGENT.md §5.2、MCP_TOOLS.md、CARDS.md、UX.md §6–7、PLAN.md（L-14）、PROGRESS.md
+- 下一個：L-15 財政部載具（需公司申請 AppID）、L-16 排程（推播需 ADR）——等使用者決定
+- 卡住：提醒只在 App 開著時有效；準時推播需推播伺服器（ADR）
+
 ## 2026-11-19 M10 L-13 掃發票 QR code
 
 - 做了：`public/js/invoice-qr.js`：`parseInvoiceCode` 依財政部電子發票證明聯條碼規格解析（左邊 QR 前 77 碼：字軌、號碼、民國開立日期…；右邊 `**` 開頭 → 提示掃左邊；一維條碼 Code 39 → 期別，雙數月轉單數起始月）；`openScanner` 用 `BarcodeDetector`＋後鏡頭的 `<dialog>`，連續掃描、同一張只存一次、存到時震動，完成或 Esc 停相機；只取號碼與日期，不保存統編、金額、品項。「我的發票」加「掃發票 QR code」按鈕，關閉後一次對獎；不支援的瀏覽器（iPhone Safari、Firefox）顯示改手動輸入。問阿幫的提議提到可以掃 QR code。SW v0.4.7

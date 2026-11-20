@@ -67,6 +67,7 @@ export function busFollowUp(trip) {
   const f = best?.role === 'bus' && best.follow;
   if (!f?.routeName || !f.stop) return null;
   return {
+    walkMin: f.walkMin ?? null,
     note: `@公車 你選了公車，我幫你盯 ${f.routeName} 在「${f.stop}」的到站`,
     args: { city: f.city, routeName: f.routeName, stop: f.stop, ...(f.direction != null && { direction: f.direction }) },
   };
@@ -99,7 +100,7 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
       try {
         const followUp = await callTool(svc, 'bus_route_eta', f.args);
         emit(ev.toolResult({ id, result: followUp }));
-        return { name: c.name, ok: true, result, followUp };
+        return { name: c.name, ok: true, result, followUp, followWalkMin: f.walkMin };
       } catch (e) {
         emit(ev.toolResult({ id, error: publicMessage(e) })); // 盯不到不影響行程結果
         return { name: c.name, ok: true, result };

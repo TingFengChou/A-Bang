@@ -24,7 +24,7 @@ export function focusStop(directions, stop, direction) {
 }
 /** 「601 約 6 分到「X」」；沒有預估時用狀態文字 */
 export const focusText = (route, f) => (f.status === 0 && f.etaSec != null
-  ? `${route} ${f.etaSec < 60 ? '進站中' : f.etaSec < 180 ? '即將到' : `約 ${Math.round(f.etaSec / 60)} 分後到`}「${f.stopName}」`
+  ? (f.etaSec < 60 ? `${route} 在「${f.stopName}」進站中` : f.etaSec < 180 ? `${route} 即將到「${f.stopName}」` : `${route} 約 ${Math.round(f.etaSec / 60)} 分後到「${f.stopName}」`)
   : `${route} 在「${f.stopName}」：${f.statusText}`);
 
 export const busSearchRoutes = defineTool({
