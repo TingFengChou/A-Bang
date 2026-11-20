@@ -215,6 +215,24 @@ for (const [dname, device] of Object.entries(DEVICES)) {
     });
   });
 
+  test(`${dname}：點決策圖上的其他方案＝改成它（沿用起訖點重算）；行程卡備案有「改成…」按鈕`, async () => {
+    await withPage(device, '#/agent', async (page) => {
+      await page.fill('.chat-input', '從西門町到台北101怎麼去');
+      await page.press('.chat-input', 'Enter');
+      await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+      const pick = page.locator('.results [data-card="trip"] .ab-pick').first();
+      assert.match(await pick.textContent(), /^改成/);
+      assert.ok((await pick.boundingBox()).height >= 44, '點擊範圍 ≥ 44px');
+      assert.ok(await page.locator('.decision .dg-hint').count() >= 1, '提示可以點方案');
+      const opt = page.locator('.decision .dg-opt.pickable').first();
+      await opt.click();
+      await page.waitForFunction(() => document.querySelectorAll('.msg.user').length === 2);
+      assert.match(await page.locator('.msg.user').nth(1).textContent(), /^改成/);
+      await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
+      assert.match(await page.locator('.dg-why').last().textContent(), /照你說的選/);
+    });
+  });
+
   test(`${dname}：系統深色模式下仍是淺色（外框與卡片一致）`, async () => {
     await withPage({ ...device, colorScheme: 'dark' }, '#/s/weather', async (page) => {
       await page.waitForSelector('.ab-card');
@@ -229,13 +247,13 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       await page.waitForSelector('.suggest .chip');
       // 輸入框至少 16px（iOS 點進去才不會自動放大）
       assert.ok(parseFloat(await page.locator('.chat-input').evaluate((e) => getComputedStyle(e).fontSize)) >= 16);
-      await page.locator('.suggest .chip').first().click(); // 從西門町到台北 101 怎麼去？
+      await page.locator('.suggest .chip').first().click(); // 去台北 101（起點用現在位置）
       await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
       // 回答後：桌面自動聚焦輸入框；手機不聚焦（不跳鍵盤蓋住回答）
       await page.waitForFunction(() => !document.querySelector('.chat-send')?.disabled);
       const focused = await page.evaluate(() => document.activeElement?.classList.contains('chat-input'));
       assert.equal(focused, dname === 'desktop', `${dname}：回答後${dname === 'desktop' ? '' : '不'}聚焦輸入框`);
-      assert.match(await page.locator('.msg.user').first().textContent(), /西門町/);
+      assert.match(await page.locator('.msg.user').first().textContent(), /台北 101/);
       assert.match(await page.locator('.thread-sum').first().textContent(), /小幫手討論完成・\d+ 個工具/);
       assert.ok(await page.locator('.thread .bubble.tool').count() >= 4, '小幫手發言');
       assert.ok(await page.locator('.thread .mention').count() >= 1, '@角色 chip');
@@ -308,7 +326,7 @@ for (const [dname, device] of Object.entries(DEVICES)) {
   });
 
   test(`${dname}：示範模式 8 個建議問題（M5-13、M10）都有討論串、卡片與總結`, async () => {
-    const want = ['trip', 'bus-route', 'trip', 'youbike', 'trip', 'timetable', 'pharmacy', 'invoice']; // 依 life.json 建議問題順序
+    const want = ['trip', 'bus-route', 'youbike', 'weather', 'trip', 'trip', 'timetable', 'invoice']; // 依 life.json 建議問題順序（起點與所在地用現在位置）
     await withPage(device, '#/agent', async (page) => {
       await page.waitForSelector('.suggest .chip');
       const qs = await page.locator('.suggest .chip').allTextContents();

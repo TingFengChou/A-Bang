@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { defineTool, T, clip } from './define.js';
 import { withNav } from '../nav.js';
 import { resolveCity } from '../cities.js';
-import { nowTW, toMin, normName } from '../util.js';
+import { nowTW, toMin, normName, distanceM, UserError } from '../util.js';
+import { resolvePoint, cityNear } from '../services/places.js';
 
 const PACK = 'transit';
 const fmtM = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} 公里` : `${m} 公尺`);
@@ -21,6 +22,25 @@ export function focusStop(directions, stop, direction) {
     if (s) return { direction: directions[i].direction ?? i, label: directions[i].label, seq: s.seq, stopName: s.stopName, etaSec: s.etaSec ?? null, status: s.status, statusText: s.statusText };
   }
   return null;
+}
+const NEAREST_MAX_M = 3000;
+/**
+ * 沒說站名、但知道使用者在哪（裝置定位或地名）：路線上離他最近的站。兩個方向都有同一站時，挑車比較快到的那個方向。
+ * @returns {ReturnType<typeof focusStop> & { distanceM: number, nearest: true } | null}
+ */
+export function nearestStop(directions, pt) {
+  let best = null;
+  directions.forEach((d, i) => {
+    for (const s of d.stops) {
+      if (!Number.isFinite(s.lat) || !Number.isFinite(s.lon)) continue;
+      const m = Math.round(distanceM(pt.lat, pt.lon, s.lat, s.lon));
+      const eta = s.status === 0 && s.etaSec != null ? s.etaSec : Infinity;
+      if (!best || m < best.m - 30 || (Math.abs(m - best.m) <= 30 && eta < best.eta)) best = { m, eta, d, i, s };
+    }
+  });
+  if (!best || best.m > NEAREST_MAX_M) return null; // 太遠就不說「離你最近」（可能是別的縣市的同號路線）
+  const { d, i, s, m } = best;
+  return { direction: d.direction ?? i, label: d.label, seq: s.seq, stopName: s.stopName, etaSec: s.etaSec ?? null, status: s.status, statusText: s.statusText, distanceM: m, nearest: true };
 }
 /** 「601 約 6 分到「X」」；沒有預估時用狀態文字 */
 export const focusText = (route, f) => (f.status === 0 && f.etaSec != null
@@ -49,19 +69,25 @@ export const busRouteEta = defineTool({
   description: '查詢一條公車路線所有站牌的預估到站時間（去程與返程）。etaSec 為秒數；statusText 為易讀文字；有座標的站牌附 lat/lon 與導航連結 nav；shape 為去程路線形狀 [[lat, lon]]（資料有提供時）。',
   pack: PACK, tier: 'L1', card: 'bus-route',
   input: {
-    city: T.city, routeName: z.string().min(1).describe('完整路線名稱，例如 307'),
+    city: T.city.optional().describe('縣市，可用 Taipei／台北市；有 near 時可省略（用位置推估）'),
+    routeName: z.string().min(1).describe('完整路線名稱，例如 307'),
     stop: z.string().trim().max(40).optional().describe('要盯的站名（選填，例如上車站）：回傳 focus（該站方向、站序、到站時間），卡片聚焦這一站'),
+    near: T.point('使用者現在的位置（選填，沒說站名時用）：聚焦路線上離他最近的站').optional(),
     direction: z.number().int().min(0).max(1).optional().describe('去程 0、返程 1（選填，配合 stop）'),
   },
   speak: (d) => {
+    if (d.focus?.nearest) return `離你最近的是「${d.focus.stopName}」（約 ${fmtM(d.focus.distanceM)}）：${focusText(d.routeName, d.focus)}。${d.cityGuessed ? `（依你的位置查${d.cityName}的 ${d.routeName}）` : ''}`;
     if (d.focus) return `${focusText(d.routeName, d.focus)}。`;
     const near = d.directions.flatMap((x) => x.stops.filter((s) => s.etaSec != null && s.etaSec < 180).map((s) => s.stopName));
     return `${d.routeName} 目前有 ${near.length} 個站即將有車${near.length ? `（例如${near.slice(0, 2).join('、')}）` : ''}。`;
   },
   async run(svc, a) {
-    const raw = await svc.bus.routeEta(a);
-    const data = { ...raw, directions: raw.directions.map((d) => ({ ...d, stops: withNav(d.stops) })) };
-    const focus = focusStop(data.directions, a.stop, a.direction);
+    const here = a.near && !a.stop ? await resolvePoint(svc.places, a.near) : null;
+    const city = a.city || (here && cityNear(here));
+    if (!city) throw new UserError('請告訴我是哪個縣市的公車（例如「台北 307」）');
+    const raw = await svc.bus.routeEta({ ...a, city });
+    const data = { ...raw, directions: raw.directions.map((d) => ({ ...d, stops: withNav(d.stops) })), ...(!a.city && { cityGuessed: true, cityName: resolveCity(city)?.name || city }) };
+    const focus = focusStop(data.directions, a.stop, a.direction) || (here && nearestStop(data.directions, here));
     if (focus) data.focus = focus;
     const lines = [`${data.routeName} 公車即時到站（更新：${data.updatedAt}）`];
     if (focus) lines.unshift(`${focusText(data.routeName, focus)}（${focus.label}）`);

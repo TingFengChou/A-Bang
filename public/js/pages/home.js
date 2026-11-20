@@ -11,13 +11,13 @@ export default {
     const greet = hour < 11 ? '早安' : hour < 18 ? '午安' : '晚安';
     // M5-12：首頁以「問阿幫」為主要入口；離線 Demo（沒有伺服器）仍維持公車搜尋
     const offline = !!globalThis.__DEMO_SERVICES__;
-    const examples = ['從西門町到台北 101 怎麼去？', '307 到哪了？', '台北車站附近還有 YouBike 嗎？'];
+    const examples = ['去台北 101', '307 到哪了？', '附近還有 YouBike 嗎？']; // 起點預設是現在位置：範例只說要去哪
     main.innerHTML = `
       <section class="hero">
         <span class="mascot-3d" aria-hidden="true"><i class="mascot-shadow"></i><img class="mascot main" src="/brand/abang-default.svg" alt=""><img class="mascot alt" src="/brand/abang-think.svg" alt=""></span>
         <small>${greet}！我是阿幫，今天要去哪裡？</small>
         <div class="big">${offline ? '即時公車・YouBike・高鐵台鐵' : '想去哪裡，直接問我'}</div>
-        <form class="search" id="q">${icons.search}<input name="q" maxlength="500" placeholder="${offline ? '搜尋公車路線，例如 307' : '例如：從西門町到台北 101 怎麼去？'}" enterkeyhint="${offline ? 'search' : 'send'}" autocomplete="off" aria-label="${offline ? '搜尋公車路線' : '問阿幫'}"></form>
+        <form class="search" id="q">${icons.search}<input name="q" maxlength="500" placeholder="${offline ? '搜尋公車路線，例如 307' : '想去哪裡？例如：去台北 101'}" enterkeyhint="${offline ? 'search' : 'send'}" autocomplete="off" aria-label="${offline ? '搜尋公車路線' : '問阿幫'}"></form>
         ${offline ? '' : `<div class="hero-ask">${examples.map((q) => `<a class="chip" href="#/agent?q=${encodeURIComponent(q)}">${esc(q)}</a>`).join('')}</div>`}
       </section>
       <div id="favs"></div>

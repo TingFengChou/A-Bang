@@ -10,7 +10,7 @@ import { LANDMARKS, normPlace } from './places.js';
 // ── 候選方案的距離門檻（直線） ──
 export const LIMITS = {
   walkMaxM: 6000,        // 步行：6 公里內列出（> 3 公里通常排後）
-  bikeMinM: 500, bikeMaxM: 12000, bikeRadiusM: 500,
+  bikeMinM: 500, bikeMaxM: 12000, bikeRadiusM: 500, bikeReturnRadiusM: 800,
   busMaxM: 25000,
   railMinM: 30000,       // 軌道：直線 > 30 公里
   railAccessMaxM: 25000, // 起訖點到車站最遠 25 公里
@@ -87,12 +87,32 @@ function walkOption(from, to, straight) {
   };
 }
 
+/** 少於這個數字算「很緊」：走過去或騎到時可能被借光／停滿（資料是現在的，騎過去要十幾分鐘） */
+export const BIKE_SAFE = { bikes: 3, slots: 3 };
+/**
+ * 挑站：優先選數量夠（≥ safe）的最近站；夠的站比最近的站多走不到 300 公尺就選它，否則選最近的（標為很緊）。
+ * @returns {{ pick: object, tight: boolean, backup: object|null } | null}
+ */
+export function pickBikeStation(list, key, safe) {
+  const ok = list.filter((s) => s.inService !== false && s[key] > 0).sort((x, y) => x.distance - y.distance);
+  if (!ok.length) return null;
+  const safeOne = ok.find((s) => s[key] >= safe);
+  const pick = safeOne && safeOne.distance - ok[0].distance <= 300 ? safeOne : ok[0];
+  const tight = pick[key] < safe;
+  const backup = tight ? ok.find((s) => s !== pick && s[key] >= safe) || ok.find((s) => s !== pick) || null : null;
+  return { pick, tight, backup };
+}
+
 async function bikeOption(svc, from, to, straight) {
   if (straight < LIMITS.bikeMinM || straight > LIMITS.bikeMaxM) return null;
-  const [a, b] = await Promise.all([svc.bike.nearby({ ...from, radius: LIMITS.bikeRadiusM }), svc.bike.nearby({ ...to, radius: LIMITS.bikeRadiusM })]);
-  const rent = a.filter((s) => s.inService !== false && s.rent > 0).sort((x, y) => x.distance - y.distance)[0];
-  const ret = b.filter((s) => s.inService !== false && s.returnSlots > 0).sort((x, y) => x.distance - y.distance)[0];
-  if (!rent || !ret || rent.uid === ret.uid) return null;
+  // 終點多找一點（800 公尺）：最近的站停滿時，告訴使用者備用還車站
+  const [a, b] = await Promise.all([svc.bike.nearby({ ...from, radius: LIMITS.bikeRadiusM }), svc.bike.nearby({ ...to, radius: LIMITS.bikeReturnRadiusM })]);
+  const r1 = pickBikeStation(a, 'rent', BIKE_SAFE.bikes);
+  const r2 = pickBikeStation(b, 'returnSlots', BIKE_SAFE.slots);
+  if (!r1) return { skip: { role: 'bike', why: `出發地 ${LIMITS.bikeRadiusM} 公尺內的 YouBike 站都沒車可借` } };
+  if (!r2) return { skip: { role: 'bike', why: `目的地 ${LIMITS.bikeReturnRadiusM} 公尺內的 YouBike 站都沒有空位可還` } };
+  const rent = r1.pick, ret = r2.pick;
+  if (rent.uid === ret.uid) return null;
   const w1 = walkMinutes(rent.distance), w2 = walkMinutes(ret.distance);
   const ride = Math.max(1, Math.round((roadKm(distanceM(rent.lat, rent.lon, ret.lat, ret.lon)) / EST.bikeKmh) * 60));
   return {
@@ -103,7 +123,17 @@ async function bikeOption(svc, from, to, straight) {
       leg('bike', rent, ret, ride, `騎約 ${ride} 分到 ${ret.name}（${ret.returnSlots} 個空位）`, 'bicycling'),
       leg('walk', ret, to, w2, `步行約 ${w2} 分`),
     ],
-    notes: [`車資依 YouBike 2.0 台北市費率（前 30 分 5 元）`],
+    // 起點有車、終點有空位（兩端都要知道）：給卡片、討論串與總結用
+    bike: {
+      rent: { name: rent.name, count: rent.rent, tight: r1.tight, ...(r1.backup && { backup: { name: r1.backup.name, count: r1.backup.rent } }) },
+      ret: { name: ret.name, count: ret.returnSlots, tight: r2.tight, ...(r2.backup && { backup: { name: r2.backup.name, count: r2.backup.returnSlots, walkMin: walkMinutes(r2.backup.distance) } }) },
+    },
+    notes: [
+      ...(r1.tight ? [r1.backup ? `「${rent.name}」只剩 ${rent.rent} 台，借不到就改去「${r1.backup.name}」（${r1.backup.rent} 台）` : `「${rent.name}」只剩 ${rent.rent} 台，走過去可能被借光`] : []),
+      ...(r2.tight ? [r2.backup ? `「${ret.name}」只剩 ${ret.returnSlots} 個空位，停滿就改還「${r2.backup.name}」（${r2.backup.returnSlots} 位，到目的地走 ${walkMinutes(r2.backup.distance)} 分）` : `「${ret.name}」只剩 ${ret.returnSlots} 個空位，騎到時可能停滿`] : []),
+      '借車、還車數量是現在的資料，騎到時可能變動',
+      `車資依 YouBike 2.0 台北市費率（前 30 分 5 元）`,
+    ],
   };
 }
 
@@ -247,19 +277,22 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   const unavailable = entries.filter((_, i) => results[i] === FAILED).map(([k]) => k); // 依方案順序，結果穩定
   // arriveMin：從出發日 00:00 起算的分鐘數（可超過 24 小時），跨午夜也能正確比較抵達時間
   // arriveMin：班次制方案以實際班次計算（已帶入），其餘＝出發＋總時間
-  const options = results.filter((o) => o && o !== FAILED).map((o) => { const am = o.arriveMin ?? depart.minute + o.minutes; return { ...o, arriveAt: toHHMM(am), arriveMin: am }; });
+  const skipped = results.filter((o) => o && o !== FAILED && o.skip).map((o) => o.skip); // 查了但不可行（例：目的地沒空位可還）
+  const options = results.filter((o) => o && o !== FAILED && !o.skip).map((o) => { const am = o.arriveMin ?? depart.minute + o.minutes; return { ...o, arriveAt: toHHMM(am), arriveMin: am }; });
   // arriveBy 早於出發時間 → 視為隔天（例：23:00 出發、01:00 前到）
   const arriveByMin = prefs.arriveBy ? toMin(prefs.arriveBy) + (toMin(prefs.arriveBy) < depart.minute ? 24 * 60 : 0) : undefined;
 
   // 狀態（CARDS.md trip）：自動判斷在前，使用者說的（source: 'user'）在後，同一個 key 只留一筆
   const states = [...autoStates];
   for (const k of prefs.states || []) if (STATES[k] && !states.some((s) => s.key === k)) states.push({ key: k, source: 'user' });
-  const r = decide(options, { states: states.map((s) => s.key), arriveBy: prefs.arriveBy, arriveByMin });
+  const r = decide(options, { states: states.map((s) => s.key), arriveBy: prefs.arriveBy, arriveByMin, mode: prefs.mode });
   return {
     from: pt(from), to: pt(to), straightKm: +(straight / 1000).toFixed(1),
     date: depart.date, departAt: toHHMM(depart.minute),
     best: r.best?.id ?? null, states,
     ...(prefs.arriveBy && { arriveBy: prefs.arriveBy, arriveByMin }), // 前端重算（決策圖）用同一份 decide.js
+    ...((r.mode || r.modeUnavailable) && { mode: r.mode || r.modeUnavailable }), // 使用者指定的交通方式（前端重算也照這個）
+    ...(r.modeUnavailable && { modeUnavailable: r.modeUnavailable }),
     weather: weather && { summary: weather.summary, raining: weather.raining, pop3h: weather.pop3h },
     traffic: traffic && { level: traffic.level, delayMin: traffic.delayMin, covered: traffic.covered },
     air: air ? { site: air.site, aqi: air.aqi, status: air.status } : null,
@@ -270,5 +303,6 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
       weights: r.weights, reason: r.reason,
     },
     ...(unavailable.length && { unavailable }),
+    ...(skipped.length && { skipped }),
   };
 }

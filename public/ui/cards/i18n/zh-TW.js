@@ -110,6 +110,10 @@ export const MESSAGES = {
   'timetable.allGone': '今天的班次都開走了，可以改查明天。',
 
   // ── trip ──
+  'trip.bikeRent': '借車：{name}・{n} 台',
+  'trip.bikeReturn': '還車：{name}・{n} 位',
+  'trip.skipped': '{name}沒列入：{why}',
+  'trip.pickAsk': '改成{name}',
   'trip.title': '{from} → {to}',
   'trip.best': '建議',
   'trip.alternatives': '備案',

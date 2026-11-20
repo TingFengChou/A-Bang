@@ -6,6 +6,7 @@ import { buildSystemPrompt } from './prompt.js';
 import { ev } from './events.js';
 import { validateRequest, execTools, deviceLocation, guardedText, priorUserTexts, judgeInfo, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
 import { judgeNote, moreStatesNote } from './impact.js';
+import { parseIntent, needsLocation } from './demo-intent.js';
 
 /**
  * @typedef {{ name: string, description: string, schema: object }} ToolDef
@@ -30,10 +31,14 @@ export const FALLBACK = {
   refusal: '這個問題我沒辦法協助；我可以幫你查公車、捷運、台鐵、高鐵、YouBike，或規劃從 A 到 B 怎麼去。',
   empty: '查好了，結果在上面的卡片。',
   noLocation: '使用者沒有提供位置。請改問使用者從哪裡出發（或人在哪裡），不要猜。',
+  sameFromTo: '起點和目的地是同一個地方。使用者沒說從哪出發、也沒提供定位：請問他從哪裡出發，不要把目的地當起點。',
 };
 
 /** 有卡片的工具，回給模型的清單最多幾筆（完整結果已在卡片上） */
 export const MODEL_LIST_MAX = 6;
+/** 兩個地點參數是不是同一個字串（「台北101」與「台北 101」視為相同） */
+const sameText = (a, b) => typeof a === 'string' && typeof b === 'string' && a.replace(/\s/g, '') === b.replace(/\s/g, '');
+
 /** 選公車後自動盯的到站結果，接在 plan_trip 結果後面給模型（卡片已顯示；請模型主動問要不要到站提醒） */
 export const followUpText = (f, walkMin) => (f ? `\n［內部備註，不要照抄這段文字］上車站即時到站已查好：${f.speak}${walkMin != null ? `從起點走到這個上車站約 ${walkMin} 分（不是全程步行時間）。` : ''}已用公車卡片即時顯示；回答時用自己的話說公車多久到上車站；若走到站牌的時間比車到還久，說這班可能趕不上；並問使用者要不要在卡片上按「到站前 3 分提醒我」。` : '');
 const ITEM = /^\s*-\s/;
@@ -115,10 +120,25 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const more = moreStatesNote(q0, j);
   if (more) emit(ev.agentNote(more));
   const sure = j && (j.source === 'llm' || (j.confidence ?? 0) >= 0.8);
+  // 這句（或接著改的上一輪）沒說起點 → 起點是現在位置（下面呼叫 plan_trip 時由程式帶入）
+  const rulesIt = parseIntent(last, { history: req.messages.slice(0, -1) });
+  const hereIsOrigin = rulesIt.intent === 'trip' && !rulesIt.from;
+  // 需要現在位置（沒說起點的行程、沒說地點的天氣／YouBike／附近公車／垃圾車／公車到站）→ 問模型之前就先請 App 定位，
+  // 再把位置直接告訴模型（地端模型常常不呼叫 device_location，直接反問「你在哪裡」）
+  const NEARBY_INTENTS = ['weather', 'aqi', 'youbike', 'nearby_bus', 'garbage', 'bus_route'];
+  const wantHere = canLocate && (hereIsOrigin || (!rulesIt.places?.length && (needsLocation(rulesIt) || NEARBY_INTENTS.includes(j?.intent) || j?.intent === 'trip')));
+  const here = canLocate ? deviceLocation(req) : null;
+  if (wantHere && here === undefined) {
+    emit(ev.agentNote('@定位 先看看你在哪裡'));
+    emit(ev.clientToolCall({ id: LOCATION_CALL_ID, name: DEVICE_LOCATION_TOOL.name }));
+    emit(ev.done({ modelCalls: 0, inputTokens: 0, outputTokens: 0 }));
+    return;
+  }
+  const locationHint = here ? `使用者現在在 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（手機定位）。使用者沒說起點或地點時就用這個位置：plan_trip 的 from 用 { lat, lon, name: "你的位置" }，天氣、空品、YouBike、附近公車、垃圾車用這個 lat/lon；不要再問他在哪裡。` : '';
   const only = sure && provider.mode === 'local' ? INTENT_TOOLS[j.intent] : undefined;
 
   const conv = provider.start({
-    system: buildSystemPrompt(profile, { now, context: req.context, picked }),
+    system: buildSystemPrompt(profile, { now, context: req.context, picked, locationHint }),
     tools: toolDefs(profile, { deviceLocation: canLocate, only }),
     messages: req.messages,
   });
@@ -162,6 +182,22 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
       for (const c of locCalls) results.set(c.id, loc ? { content: JSON.stringify(loc) } : { content: FALLBACK.noLocation, isError: true });
     }
     for (const c of turn.calls) if (!results.has(c.id) && c.bad !== undefined) results.set(c.id, { content: `參數不是有效的 JSON：${c.bad}`, isError: true });
+
+    // 起點交給程式（不交給模型）：使用者沒說起點（「去台北 101」、接著改而上一輪也沒說）→ plan_trip 的起點一律是手機定位。
+    // 地端小模型常把目的地也填成起點（台北101 → 台北101），這裡直接改掉；還沒定位就先請客戶端定位。
+    const trips = turn.calls.filter((c) => c.name === 'plan_trip' && !results.has(c.id));
+    if (trips.length && hereIsOrigin) {
+      const loc = here;
+      if (loc === undefined) {
+        emit(ev.clientToolCall({ id: LOCATION_CALL_ID, name: DEVICE_LOCATION_TOOL.name }));
+        emit(ev.done(usage));
+        return;
+      }
+      for (const c of trips) {
+        if (loc) c.input = { ...c.input, from: { lat: loc.lat, lon: loc.lon, name: loc.name } };
+        else if (sameText(c.input?.from, c.input?.to)) results.set(c.id, { content: FALLBACK.sameFromTo, isError: true });
+      }
+    }
 
     const run = turn.calls.filter((c) => !results.has(c.id));
     const out = await execTools(svc, run.map((c) => ({ name: c.name, args: dropNulls(c.input) })), emit, { profile, nextId, picked, ...(j && { judgedStates: j.states }) });

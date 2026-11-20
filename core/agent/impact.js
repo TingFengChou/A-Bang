@@ -1,22 +1,22 @@
 // 討論串的「→ 影響」：每位小幫手回報的資料，對這次決策有什麼影響（真實資料＋decide.js 的規則，不經模型、不編造）。
-// 也產生阿幫一開始的「我聽懂了」（判斷層結果），讓使用者一送出就看到阿幫在依他的狀況做事，而不是只有 loading。
+// 也產生行程開始前阿幫的一句（判斷層結果：你的狀況、或照你說的改成哪種交通方式），讓使用者一送出就看到阿幫在依他的狀況做事。
 import { BAD_AIR_AQI } from '../services/trip.js';
 
-const INTENT_SAY = {
-  trip: '想知道怎麼去', bus_route: '在等公車', youbike: '想找 YouBike', nearby_bus: '想找附近站牌', metro: '想搭捷運', rail: '想查高鐵台鐵',
-  weather: '想知道天氣', aqi: '想知道空氣品質', quake: '想知道地震', pharmacy: '在找藥局', garbage: '想知道垃圾車', fuel: '想看油價', invoice: '想對發票', stock: '想看股市',
-};
 const STATE_SAY = { rush: '趕時間', luggage: '帶行李', budget: '想省錢', lessWalk: '想少走路', rain: '遇到下雨', badAir: '覺得空氣差' };
 
+const MODE_SAY = { bus: '坐公車', bike: '騎 YouBike', walk: '走路', ridehail: '叫車', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運' };
+
 /**
- * 判斷層結果 → 阿幫的第一句（≤ 60 字；agent_note）。意圖不明時回 null。
- * @param {{ intent: string, states: string[] }} j
+ * 判斷層結果 → 阿幫在行程開始前的一句（≤ 60 字；agent_note）。只在行程時說，而且要有資訊（不再每次都說「我聽懂了」）：
+ *   接著改：「照你說的改成坐公車，用剛才的起點和目的地重算」；新行程：「你想省錢，我先看天氣、空品、路況，再比較幾種走法」。
+ * 其他查詢回 null（小幫手的第一句就說明在查什麼）。
+ * @param {{ intent: string, states: string[], followUp?: boolean, mode?: string }} j
  */
 export function judgeNote(j) {
-  if (!j || !INTENT_SAY[j.intent]) return null;
+  if (!j || j.intent !== 'trip') return null;
   const st = (j.states || []).map((k) => STATE_SAY[k]).filter(Boolean);
-  const tail = j.intent === 'trip' ? '我先看地點、天氣、空品、路況，再比較幾種走法' : '我請小幫手查一下';
-  return `我聽懂了：你${INTENT_SAY[j.intent]}${st.length ? `，而且${st.join('、')}` : ''}。${tail}`.slice(0, 60);
+  if (j.followUp) return `${j.mode ? `照你說的改成${MODE_SAY[j.mode] || j.mode}` : `好，${st.length ? `你${st.join('、')}` : '換個條件'}`}，用剛才的起點和目的地重算`.slice(0, 60);
+  return `${st.length ? `你${st.join('、')}，` : ''}我先看天氣、空品、路況，再比較幾種走法`.slice(0, 60);
 }
 
 /** 完整判斷比快速判斷多找到的狀態 → 阿幫補一句（例：「我還注意到你帶行李」）；沒有新的回 null */
@@ -25,9 +25,20 @@ export function moreStatesNote(quick, full) {
   return extra.length ? `我還注意到你${extra.join('、')}，會一起算進去` : null;
 }
 
+/** YouBike 兩端（起點有車、終點有空位）：很緊或不可行時一定要說 */
+function bikeImpact(data) {
+  const skip = data.skipped?.find((s) => s.role === 'bike');
+  if (skip) return { tone: 'bad', text: `YouBike：${skip.why}，不列入` };
+  const b = data.options?.find((o) => o.role === 'bike')?.bike;
+  if (!b) return null;
+  if (b.ret.tight) return { tone: 'bad', text: b.ret.backup ? `YouBike：「${b.ret.name}」只剩 ${b.ret.count} 個空位，停滿就改還「${b.ret.backup.name}」` : `YouBike：「${b.ret.name}」只剩 ${b.ret.count} 個空位，騎到時可能停滿` };
+  if (b.rent.tight) return { tone: 'bad', text: b.rent.backup ? `YouBike：「${b.rent.name}」只剩 ${b.rent.count} 台，借不到就改去「${b.rent.backup.name}」` : `YouBike：「${b.rent.name}」只剩 ${b.rent.count} 台，可能被借光` };
+  return { tone: 'good', text: `YouBike：「${b.rent.name}」${b.rent.count} 台可借、「${b.ret.name}」${b.ret.count} 個空位` };
+}
+
 /**
  * 工具結果對決策的影響。tone：bad（讓某些方式扣分）、good（有利或確認可行）、neutral（不影響）。
- * @returns {{ tone: 'bad'|'good'|'neutral', text: string } | null}
+ * @returns {{ tone: 'bad'|'good'|'neutral', text: string } | Array<{ tone: string, text: string }> | null} 行程可能有兩行（比較結果＋YouBike 兩端）
  */
 export function impactOf(name, data) {
   if (!data) return null;
@@ -48,7 +59,10 @@ export function impactOf(name, data) {
     case 'plan_trip': {
       const top = data.ranking?.ranked?.[0];
       const best = data.options?.find((o) => o.id === data.best);
-      return best && top ? { tone: 'good', text: `比了 ${data.options.length} 種走法：${best.name} ${top.score} 分最高` } : { tone: 'bad', text: '這次沒有可行的走法' };
+      if (data.modeUnavailable && best) return [{ tone: 'bad', text: `沒有可行的${{ walk: '步行', bike: 'YouBike', bus: '公車', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' }[data.modeUnavailable] || ''}方案：改建議${best.name}` }, bikeImpact(data)].filter(Boolean);
+      const main = best && top ? { tone: 'good', text: data.mode ? `照你說的選${best.name}（${data.ranking.ranked.find((r) => r.id === best.id)?.score ?? '?'} 分）` : `比了 ${data.options.length} 種走法：${best.name} ${top.score} 分最高` } : { tone: 'bad', text: '這次沒有可行的走法' };
+      const bike = bikeImpact(data);
+      return bike ? [main, bike] : main;
     }
     case 'bus_route_eta': {
       const f = data.focus;

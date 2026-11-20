@@ -1,8 +1,8 @@
 // 網頁 agent 頁（M5-08，UX.md §3–§4、§8、§10）：對話、小幫手討論串、@點名、建議問題；由真實 NDJSON 事件驅動。
 // 卡片用 public/ui/cards（renderCard＋web host）。不加假延遲：只在討論串兩則訊息之間保留最短 300ms 避免閃爍（UX.md §4）。
-import { API_BASE } from '../base.js';
+import { API_BASE, IN_APP } from '../base.js';
 import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
-import { runAgent } from '../agent/client.js';
+import { runAgent, browserLocation } from '../agent/client.js';
 import { icons } from '../icons.js';
 import { motion } from '../../ui/cards/motion.js';
 import { token } from '../../ui/cards/mode-icons.js';
@@ -21,7 +21,7 @@ const ROLE_ICON = { 地點: 'pin', 天氣: 'sun', 公車: 'bus', YouBike: 'bike'
 const ROLE_CLASS = { 防詐: 'bad', 網址: 'bad', 闢謠: 'fare', 號碼: 'tra', 地點: 'place', 天氣: 'place', 公車: 'bus', YouBike: 'bike', 高鐵: 'rail', 台鐵: 'tra', 捷運: 'brand', 路況: 'car', 客運: 'car', 票價: 'fare', 叫車: 'car', 訂票: 'rail', 行程: 'brand', 車站: 'tra', 定位: 'place', 空品: 'place', 地震: 'bad', 藥局: 'bike', 垃圾車: 'car', 油價: 'fare', 發票: 'fare', 股市: 'fare' };
 /** 每個 agent 的 @點名、標題與輸入提示（角色名稱與 core/agent/events.js TOOL_ROLES 一致） */
 const AGENTS = {
-  life: { title: '問阿幫', placeholder: '想去哪裡、想查什麼？例如：從西門町到台北 101', mentions: ['地點', '天氣', '路況', '公車', 'YouBike', '捷運', '高鐵', '台鐵', '票價', '叫車', '空品', '地震', '藥局', '垃圾車', '油價', '發票', '股市'] },
+  life: { title: '問阿幫', placeholder: '想去哪裡、想查什麼？例如：去台北 101', mentions: ['地點', '天氣', '路況', '公車', 'YouBike', '捷運', '高鐵', '台鐵', '票價', '叫車', '空品', '地震', '藥局', '垃圾車', '油價', '發票', '股市'] },
   antifraud: { title: '阿幫・防詐', placeholder: '把可疑的簡訊、LINE 訊息或網址貼上來', mentions: ['防詐', '網址', '闢謠', '號碼'] },
 };
 const MENTIONS = [...new Set(Object.values(AGENTS).flatMap((a) => a.mentions))];
@@ -98,6 +98,9 @@ const metricsText = (m) => (m ? [m.scanned ? `${m.scanned} 筆` : null, m.cacheH
 export default {
   title: '問阿幫',
   render({ main, setTitle, onCleanup, params = [], query = {} }) {
+    // 手機 App：起點預設是現在位置
+    // 已經允許過定位才先定位（不在使用者還沒發問時就跳權限框；第一次在需要位置時才問，審查建議）
+    if (IN_APP) navigator.permissions?.query({ name: 'geolocation' }).then((p) => { if (p.state === 'granted') browserLocation(); }).catch(() => {});
     const agentId = params[0] && AGENTS[params[0]] ? params[0] : 'life';
     const A = AGENTS[agentId];
     setTitle(A.title);
@@ -126,7 +129,9 @@ export default {
     const form = el('form', 'chat-form', input, sendBtn);
     const disclaimer = el('p', 'updated');
     const modeLine = el('p', 'updated agent-mode'); // 由誰回答（ADR-0012；Claude 模式說明對話會送 Anthropic，AGENT.md §7）
-    main.append(log, el('div', 'chat-dock', chips, mention, form), disclaimer, modeLine);
+    // 說明起點是現在位置（第一次需要位置時才跳權限框，先讓使用者知道為什麼）；拒絕定位時阿幫會問從哪出發
+    const hereHint = agentId === 'life' && el('p', 'updated here-hint', '沒說起點時，阿幫用你現在的位置當出發點。');
+    main.append(log, el('div', 'chat-dock', chips, mention, form), ...(hereHint ? [hereHint] : []), disclaimer, modeLine);
     const MODE_TEXT = {
       claude: (m) => `由 Claude（${m}）回答；對話會送 Anthropic 處理。`,
       local: (m) => `由地端模型（${m}）回答；對話只送到本站設定的模型伺服器。`,
@@ -289,7 +294,7 @@ export default {
               if (e.ok && e.metrics) b.querySelector('.src').append(` · ${metricsText(e.metrics)}`);
               if (e.ok && e.mode === 'demo') b.querySelector('.src').append(' · ', el('span', 'src-demo', '示範資料'));
               // 這筆資料對決策的影響（core/agent/impact.js）：不利／有利／不影響
-              if (e.ok && e.impact) say.after(el('div', `impact ${e.impact.tone}`, el('span', 'arrow', '→'), e.impact.text));
+              if (e.ok && e.impact) say.after(...[e.impact].flat().map((x) => el('div', `impact ${x.tone}`, el('span', 'arrow', '→'), x.text)));
             }
             if (e.ok) view.results.push({ tool: e.tool, card: e.card, data: e.data, args: e.args });
             if (e.ok && e.card) {
@@ -326,7 +331,7 @@ export default {
             results.prepend(box);
             view.decision = e; view.box = box;
             const mod = await decideModule;
-            if (mod) renderDecision(box, e, { sources: roles.filter((r) => r !== '行程'), decide: mod.decide, CRITERIA: mod.CRITERIA }).played.then(() => handoff(box, results, e));
+            if (mod) renderDecision(box, e, { sources: roles.filter((r) => r !== '行程'), decide: mod.decide, CRITERIA: mod.CRITERIA, onPick: (o) => !busy && send(`改成${o.name}`) }).played.then(() => handoff(box, results, e));
             else box.append(el('p', 'dg-why', e.reason)); // 載不到引擎時至少顯示理由
             break;
           }

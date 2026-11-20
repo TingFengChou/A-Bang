@@ -87,3 +87,57 @@ test('模型模式：plan_trip 的狀態以判斷層為準，不採用模型自�
   const r = es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
   assert.deepEqual(r.args.prefs.states.sort(), ['luggage', 'rush'], '判斷層的狀態＋使用者點選的；模型猜的少走路、想省錢不採用');
 });
+
+test('接著上一輪改行程：規則看得到前文，就算分類器以為是查公車路線也照行程（不問模型）', async () => {
+  const llm = fake({ intent: 'bus_route', states: [] });
+  const j = await createJudge({ embed: fake({ intent: 'bus_route', confidence: 0.97, states: [] }), llm })('改成公車 601', ['想省錢，從西門町到台北101']);
+  assert.deepEqual([j.intent, j.followUp, j.mode, llm.calls], ['trip', true, 'bus', 0]);
+  assert.ok(j.states.includes('budget'), '上一輪的狀態沿用');
+});
+
+test('模型模式：使用者沒說起點時，plan_trip 的起點一律是手機定位（模型把目的地也填成起點會被改掉）', async () => {
+  const svc = createServices({ forceMock: true });
+  const call = { name: 'plan_trip', input: { from: '台北101', to: '台北101' } };
+  const body = { messages: [{ role: 'user', content: '去台北 101' }], clientTools: ['device_location'] };
+  const first = [];
+  await runModel(svc, body, (e) => first.push(e), { provider: fakeProvider('local', call) });
+  assert.ok(first.some((e) => e.type === 'client_tool_call' && e.name === 'device_location'), '還沒定位：先請 App 定位');
+  assert.ok(!first.some((e) => e.type === 'tool_result'), '不拿錯的起點去算');
+
+  const es = [];
+  await runModel(svc, { ...body, clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 25.0478, lon: 121.517 } }] }, (e) => es.push(e), { provider: fakeProvider('local', call) });
+  const r = es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
+  assert.deepEqual(r.args.from, { lat: 25.0478, lon: 121.517, name: '你的位置' });
+  assert.equal(r.data.from.name, '你的位置');
+
+  const denied = [];
+  await runModel(svc, { ...body, clientToolResults: [{ id: 'loc1', ok: false }] }, (e) => denied.push(e), { provider: fakeProvider('local', call) });
+  assert.ok(!denied.some((e) => e.type === 'tool_result' && e.tool === 'plan_trip' && e.ok), '拒絕定位又把目的地當起點：請模型改問從哪出發');
+});
+
+test('模型模式：需要現在位置時，問模型之前就先請 App 定位，再把位置告訴模型（模型不會再反問你在哪）', async () => {
+  const svc = createServices({ forceMock: true });
+  let calls = 0, system = '';
+  const provider = { mode: 'local', model: 'fake', start({ system: s }) { calls++; system = s; return { next: async () => ({ text: '好的', calls: [], stop: 'end', usage: { input: 1, output: 1 } }), addResults() {} }; } };
+  const body = { messages: [{ role: 'user', content: '會下雨嗎？' }], clientTools: ['device_location'] };
+  const first = [];
+  await runModel(svc, body, (e) => first.push(e), { provider });
+  assert.equal(calls, 0, '還沒定位：先不問模型');
+  assert.ok(first.some((e) => e.type === 'client_tool_call' && e.name === 'device_location'));
+  await runModel(svc, { ...body, clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 25.0478, lon: 121.517 } }] }, () => {}, { provider });
+  assert.equal(calls, 1);
+  assert.match(system, /使用者現在在 25\.04780, 121\.51700（手機定位）/);
+  // 說了地點就不用定位
+  calls = 0;
+  await runModel(svc, { messages: [{ role: 'user', content: '台北101天氣如何' }], clientTools: ['device_location'] }, () => {}, { provider });
+  assert.equal(calls, 1, '有地點：直接問模型');
+});
+
+test('模型模式：拒絕定位但使用者講了不同的起訖點 → 照常規劃（不擋）', async () => {
+  const svc = createServices({ forceMock: true });
+  const es = [];
+  await runModel(svc, { messages: [{ role: 'user', content: '從西門町到台北101' }], clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: false }] }, (e) => es.push(e), { provider: fakeProvider('local', { name: 'plan_trip', input: { from: '西門町', to: '台北101' } }) });
+  const r = es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
+  assert.ok(r?.ok);
+  assert.equal(r.data.from.name, '西門町');
+});

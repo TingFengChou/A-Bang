@@ -139,9 +139,15 @@ test(`Claude：最多 ${MAX_TOOL_ROUNDS} 輪工具，之後改用固定總結`, 
 });
 
 test('Claude：device_location → client_tool_call 後結束；帶定位重送時把座標回填給模型', async () => {
-  reset([{ text: '@定位 先看看你在哪', tools: [{ id: 'loc', name: 'device_location', input: {} }] }]);
   const body = { clientTools: ['device_location'] };
-  const first = await run(claude(), '我想去台北101', body);
+  // 沒說起點的行程：程式在問模型之前就先請 App 定位（不靠模型記得呼叫）
+  reset([{ text: '你從哪裡出發？' }]);
+  const pre = await run(claude(), '我想去台北101', body);
+  assert.deepEqual(types(pre), ['status', 'agent_note', 'client_tool_call', 'done']);
+  assert.equal(state.reqs.length, 0, '還沒定位先不問模型');
+  // 其他問題由模型自己決定要不要定位
+  reset([{ text: '@定位 先看看你在哪', tools: [{ id: 'loc', name: 'device_location', input: {} }] }]);
+  const first = await run(claude(), '附近有什麼好玩的', body);
   assert.deepEqual(types(first), ['status', 'agent_note', 'client_tool_call', 'done']);
   assert.equal(first[2].id, 'loc1');
   assert.ok(state.reqs[0].tools.some((t) => t.name === 'device_location'));

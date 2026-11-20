@@ -75,6 +75,8 @@ function optionBlock(o, ctx, best) {
   const { host, t } = ctx;
   const cost = o.costRange ? t('common.priceRange', { low: o.costRange[0], high: o.costRange[1] }) : t('common.price', { n: o.cost });
   const ride = o.role === 'ridehail' && o.legs[0]?.url;
+  // 備案：「改成這個」＝跟阿幫說改成它（沿用起訖點重算；公車會自動盯到站）
+  const pick = !best && host?.ask && h('button', { type: 'button', class: 'ab-btn ab-pick', onclick: () => host.ask(t('trip.pickAsk', { name: o.name })) }, t('trip.pickAsk', { name: o.name })); // 審查：要像按鈕、≥ 44px、寫出方案名
   return h('div', { class: best ? 'ab-option best' : 'ab-option' },
     h('div', { class: 'ab-row' },
       token(o.role, { size: best ? 'lg' : 'md', go: best, label: o.name }),
@@ -85,11 +87,17 @@ function optionBlock(o, ctx, best) {
       h('span', { class: 'ab-sub' }, cost, o.estimated ? `（${t('common.estimated')}）` : '')),
     best && legsBar(o, t),
     best && h('ul', { class: 'ab-legs-detail' }, o.legs.map((l) => h('li', {}, token(l.mode, { size: 'xs' }), l.detail))),
+    // YouBike 兩端都要看：起點有車、終點有空位；很緊時警告並給備用站
+    o.bike && h('div', { class: 'ab-bike-ends' },
+      h('span', { class: `ab-chip${o.bike.rent.tight ? ' warn' : ' ok'}` }, t('trip.bikeRent', { name: o.bike.rent.name, n: o.bike.rent.count })),
+      h('span', { class: `ab-chip${o.bike.ret.tight ? ' warn' : ' ok'}` }, t('trip.bikeReturn', { name: o.bike.ret.name, n: o.bike.ret.count }))),
+    o.bike && (o.bike.rent.tight || o.bike.ret.tight) && h('ul', { class: 'ab-bike-warn' }, o.notes.filter((n) => /可能/.test(n) && !/變動/.test(n)).map((n) => h('li', {}, n))),
     best && h('div', { class: 'ab-actions' },
       navButton(host, o.legs[0]?.nav),
       remindButton(o, ctx),
       ride && confirmLinkButton(host, ride, t('trip.ridehailConfirm'), t('trip.ridehail')),
-      o.train && bookButton(host, { system: o.role.toUpperCase(), trainNo: o.train.trainNo, date: o.train.date, from: o.train.from, to: o.train.to }, (m) => { ctx.state.err = m; ctx.rerender(); })));
+      o.train && bookButton(host, { system: o.role.toUpperCase(), trainNo: o.train.trainNo, date: o.train.date, from: o.train.from, to: o.train.to }, (m) => { ctx.state.err = m; ctx.rerender(); })),
+    pick);
 }
 
 export default {
@@ -106,6 +114,7 @@ export default {
       best ? optionBlock(best, ctx, true) : h('p', { class: 'ab-empty' }, t(d.ranking.excluded.length ? 'trip.allLate' : 'trip.none')),
       d.ranking.reason && h('p', { class: 'ab-reason' }, d.ranking.reason),
       alts.length > 0 && h('div', { class: 'ab-alts' }, h('h4', {}, t('trip.alternatives')), alts.map((o) => optionBlock(o, ctx, false))),
+      d.skipped?.length > 0 && h('ul', { class: 'ab-skipped' }, d.skipped.map((s) => h('li', {}, token(s.role, { size: 'xs' }), t('trip.skipped', { name: { bike: 'YouBike', bus: '公車', walk: '步行', ridehail: '叫車' }[s.role] || s.role, why: s.why })))),
       d.ranking.excluded.length > 0 && h('div', { class: 'ab-excluded' }, h('h4', {}, t('trip.excluded')),
         h('ul', { class: 'ab-list' }, d.ranking.excluded.map((e) => h('li', { class: 'ab-row off' }, token(byId.get(e.id)?.role || e.id, { size: 'sm', cls: 'off' }), h('span', { class: 'ab-name' }, e.name || e.id), h('span', { class: 'ab-sub' }, e.why))))));
   },

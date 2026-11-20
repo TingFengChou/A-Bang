@@ -40,7 +40,9 @@
         "reason": { "type": "string" }
       }
     },
-    "unavailable": { "type": "array", "items": { "type": "string" } }
+    "unavailable": { "type": "array", "items": { "type": "string" } },
+    "mode": { "enum": ["walk", "bike", "bus", "thsr", "tra", "intercity", "ridehail"] },
+    "skipped": { "type": "array", "items": { "type": "object", "required": ["role", "why"], "properties": { "role": { "type": "string" }, "why": { "type": "string" } } } }
   },
   "$defs": {
     "place": { "type": "object", "required": ["name", "lat", "lon"], "properties": { "name": { "type": "string" }, "lat": { "type": ["number", "null"] }, "lon": { "type": ["number", "null"] } } },
@@ -58,6 +60,7 @@
         "costRange": { "type": "array", "items": { "type": "integer" } },
         "exposure": { "type": "number", "minimum": 0, "maximum": 1 },
         "effort": { "type": "number", "minimum": 0, "maximum": 1 },
+        "bike": { "type": "object", "description": "YouBike：起點借車站（count＝可借台數）、終點還車站（count＝空位）；tight＝數量少可能借不到／還不了；backup＝備用站" },
         "delayRisk": { "type": "number", "minimum": 0, "maximum": 1 },
         "arriveAt": { "type": "string" },
         "arriveMin": { "type": "integer" },

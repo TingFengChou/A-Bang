@@ -6,11 +6,14 @@ import { API_BASE } from '../base.js';
 export const CLIENT_TOOLS = ['device_location'];
 const MAX_CLIENT_ROUNDS = 2;
 
-/** 瀏覽器定位（5 秒逾時；拒絕或失敗回 null） */
+/** 最近一次的定位（2 分鐘內重用：起點預設是現在位置，連問幾題不用每次等定位） */
+let lastFix = null;
+/** 瀏覽器定位（5 秒逾時；拒絕或失敗回 null）。座標只用來回答這一題，不存進伺服器 log */
 export function browserLocation(timeout = 5000) {
+  if (lastFix && Date.now() - lastFix.at < 120_000) return Promise.resolve(lastFix.pos);
   if (typeof navigator === 'undefined' || !navigator.geolocation) return Promise.resolve(null);
   return new Promise((resolve) => navigator.geolocation.getCurrentPosition(
-    (p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
+    (p) => { const pos = { lat: p.coords.latitude, lon: p.coords.longitude }; lastFix = { pos, at: Date.now() }; resolve(pos); },
     () => resolve(null),
     { timeout, maximumAge: 60_000, enableHighAccuracy: false },
   ));

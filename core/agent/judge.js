@@ -112,12 +112,13 @@ export function createJudge({ embed = null, llm = null, threshold = CONFIDENT } 
     const rules = parseIntent(text, { history: history.map((content) => ({ role: 'user', content })) });
     const a = embed ? await embed(it).catch(() => null) : null;
     const sure = a && a.confidence >= threshold;
-    const wantLlm = !quick && llm && (!sure || a.intent === 'trip' || rules.intent === 'trip');
+    const wantLlm = !quick && !rules.followUp && llm && (!sure || a.intent === 'trip' || rules.intent === 'trip');
     const b = wantLlm ? await llm(it).catch(() => null) : null;
-    const intent = sure ? a.intent : b ? b.intent : a ? a.intent : rules.intent;
+    // 接著上一輪改行程（「改成公車 601」「我很趕」）：規則看得到前文，以它為準（分類器只看這一句，會誤判成查公車）
+    const intent = rules.followUp ? 'trip' : sure ? a.intent : b ? b.intent : a ? a.intent : rules.intent;
     const agree = a && b ? a.states.filter((k) => b.states.includes(k)) : [];
     const states = [...new Set([...rules.states.filter((k) => JUDGE_STATES.includes(k)), ...agree])];
-    return { intent, states, confidence: a?.confidence ?? null, source: sure ? 'embed' : b ? 'llm' : a ? 'embed' : 'rules', llmUsed: Boolean(b) };
+    return { intent, states, confidence: a?.confidence ?? null, source: rules.followUp ? 'rules' : sure ? 'embed' : b ? 'llm' : a ? 'embed' : 'rules', llmUsed: Boolean(b), ...(rules.followUp && { followUp: true, states: [...new Set([...rules.states, ...states])] }), ...(rules.mode && { mode: rules.mode }) };
   };
   const judge = (text, history) => run(text, history);
   /** 快速版：只用 A＋規則（幾毫秒），讓阿幫一送出就能說聽懂了什麼；完整版（含模型）之後再補狀態 */
