@@ -700,7 +700,7 @@ test('裝置端 AI：deviceJudge 跟著請求送出、說明來源；外掛失�
         assert.doesNotMatch(await page.textContent('.agent-mode'), /Apple Intelligence/);
       } else {
         assert.deepEqual(bodies[0].deviceJudge, { intent: 'aqi', states: [], engine: 'apple' });
-        assert.match(await page.textContent('.agent-mode'), /先在手機上以 Apple Intelligence 判斷/);
+        assert.match(await page.textContent('.agent-mode'), /先在手機上用 Apple Intelligence 聽懂你要做什麼/);
       }
     }, { init, initArg: fail, ignore: /not in test/ });
   }

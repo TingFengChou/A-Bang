@@ -31,7 +31,8 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func prewarm(_ call: CAPPluginCall) {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *), AppleJudge.status().available {
-            AppleJudge.shared.prewarm(instructions: call.getString("instructions") ?? "")
+            let ins = call.getString("instructions") ?? ""
+            Task { await AppleJudge.shared.prewarm(instructions: ins) }
         }
         #endif
         call.resolve()
@@ -52,7 +53,7 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
                     CAPLog.print("AbangEdgeAI: judged in \(Int(Date().timeIntervalSince(t0) * 1000)) ms") // 只記耗時，不記內容
                     call.resolve(["engine": "apple", "result": ["intent": r.intent, "states": r.states]])
                 } catch {
-                    CAPLog.print("AbangEdgeAI: judge failed \(type(of: error))") // 不印句子內容
+                    CAPLog.print("AbangEdgeAI: judge failed \(AppleJudge.code(error))") // 錯誤種類，不印句子內容
                     call.reject("judge failed")
                 }
             }
@@ -74,18 +75,19 @@ let edgeStates = ["rush", "luggage", "budget", "lessWalk", "rain", "badAir"]
 struct EdgeJudgement {
     @Guide(description: "使用者想做什麼，只能選一個", .anyOf(edgeIntents))
     var intent: String
-    @Guide(description: "使用者明講的狀態（rush luggage budget lessWalk rain badAir），沒有就空陣列", .maximumCount(6))
+    @Guide(description: "使用者明講的狀態，沒有就空陣列", .maximumCount(6), .element(.anyOf(edgeStates)))
     var states: [String]
 }
 
+/// actor：備用 session 會被 prewarm（Capacitor 佇列）與 judge（Task）同時存取（PR #32 審查）
 @available(iOS 26.0, *)
-final class AppleJudge {
+actor AppleJudge {
     static let shared = AppleJudge()
     private var ready: LanguageModelSession?
     private var readyInstructions = ""
 
     /// 系統模型能不能用（不能用時說原因，JS 只用來決定要不要等）
-    static func status() -> (available: Bool, reason: String) {
+    nonisolated static func status() -> (available: Bool, reason: String) {
         let model = SystemLanguageModel.default
         switch model.availability {
         case .available:
@@ -108,6 +110,20 @@ final class AppleJudge {
         s.prewarm()
         ready = s
         readyInstructions = instructions
+    }
+
+    /// 錯誤種類（GenerationError 的 case 名；不含句子內容）
+    nonisolated static func code(_ error: Error) -> String {
+        if let g = error as? LanguageModelSession.GenerationError {
+            switch g {
+            case .guardrailViolation: return "guardrail"
+            case .rateLimited: return "rateLimited"
+            case .exceededContextWindowSize: return "context"
+            case .unsupportedLanguageOrLocale: return "language"
+            default: return "generation"
+            }
+        }
+        return String(describing: type(of: error))
     }
 
     func judge(text: String, history: [String], instructions: String) async throws -> (intent: String, states: [String]) {

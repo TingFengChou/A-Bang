@@ -12,13 +12,14 @@
    - iOS：`ios/App/App/AbangEdgeAIPlugin.swift`，Foundation Models，`@Generable` 結構化輸出（意圖用 `.anyOf` 限定），`GenerationOptions(sampling: .greedy)`；每題新的 session，先 `prewarm()` 一個備用。
    - Android：`android/app/src/main/java/tw/abang/app/AbangEdgeAIPlugin.java`，ML Kit GenAI Prompt API（`com.google.mlkit:genai-prompt:1.0.0-beta5`），溫度 0、要求只回 JSON；模型由系統 AICore 管理（多個 App 共用），可下載時背景下載。
    - 指示詞在 `public/js/edge-judge.js`（`EDGE_INSTRUCTIONS`，判斷層提示詞的精簡版），兩個平台共用。
-2. **信任邊界**：`deviceJudge` 由使用者的裝置送來，視同使用者輸入。伺服器用 zod 只收列舉值（15 種意圖、6 種狀態、引擎 `apple`／`gemini-nano`／`web`），不合就整個請求 400。它只影響這位使用者自己的意圖與狀態判斷：**方案排序仍由 `decide.js` 計分（ADR-0010）**、數字只來自工具資料、L2 行動仍要確認（ADR-0011）；不能指定工具、不能跳過護欄。
+2. **信任邊界**：`deviceJudge` 由使用者的裝置送來，視同使用者輸入。伺服器用 zod 只收列舉值（15 種意圖、6 種狀態、引擎 `apple`／`gemini-nano`），不合就整個請求 400。它只影響這位使用者自己的意圖與狀態判斷：**方案排序仍由 `decide.js` 計分（ADR-0010）**、數字只來自工具資料、L2 行動仍要確認（ADR-0011）；不能指定工具、不能跳過護欄。
 3. **怎麼組合**（`createJudge`）：
-   - 伺服器**沒有**自己的模型（B）時，裝置結果當 B：意圖＝A 有把握（≥ 0.8）用 A，否則用裝置；狀態＝規則 ∪（A ∩ 裝置）。伺服器連 A 都沒有（`JUDGE=off`）時用規則＋裝置。
+   - 伺服器**沒有**自己的模型（B）時，裝置結果當 B：意圖＝A 有把握（≥ 0.8）用 A，否則用裝置；狀態＝規則 ∪（A ∩ 裝置）。伺服器連 A 都沒有（`JUDGE=off` 或模型還在載入）時：意圖用裝置、狀態只看規則（A ∩ 裝置為空；裝置狀態單獨不夠準）。
+   - 地端模型模式下，裝置判斷與伺服器 B 一樣可讓伺服器依意圖縮小給模型的工具（`INTENT_TOOLS`，伺服器自己的對照表，仍在 profile 白名單內）；裝置不能指定工具名稱。
    - 伺服器**有** B 時，完整判斷仍用 B（評測較準），裝置結果只用在快速版（先說聽懂了什麼）。
-4. **降級**：網頁版、iOS 26 以下、機型不支援、沒開 Apple Intelligence、模型下載中、語言不支援、外掛錯誤、超過 1.8 秒（`EDGE_TIMEOUT_MS`）→ 不帶 `deviceJudge`，伺服器照原本的判斷層。使用者看不出差別。不提高 App 最低版本（iOS 15、Android API 24；外掛在 iOS 26／API 26 以下直接回不可用）。
+4. **降級與斷路器**：上一題原生端還沒跑完就不呼叫（不排隊，晚到的結果丟掉）；外掛回不可用就這次開 App 不再試；Android 遇到配額或背景被擋暫停 10 分鐘。網頁版、iOS 26 以下、機型不支援、沒開 Apple Intelligence、模型下載中、語言不支援、外掛錯誤、超過 1.8 秒（`EDGE_TIMEOUT_MS`；Android 原生端 1.5 秒取消）→ 不帶 `deviceJudge`，伺服器照原本的判斷層。使用者看不出差別。不提高 App 最低版本（iOS 15、Android API 24；外掛在 iOS 26／API 26 以下直接回不可用）。
 5. **隱私**：只送意圖、狀態、引擎三個欄位（使用者的句子本來就會送伺服器回答）；外掛只記耗時與錯誤類型，不記句子。使用者可關閉（`localStorage abang.edgeAI = off`，設定畫面 E8 再做）。
-6. **看得到**：status 事件的 `judge` 帶 `source: 'device'`、`engine`；問阿幫頁的模式說明加一句「意圖先在手機上以 Apple Intelligence／Gemini Nano 判斷」；伺服器 log 記 `judge` 來源（不含內容），作為計量。
+6. **看得到**：status 事件的 `judge` 帶 `source: 'device'`、`engine`；問阿幫頁的模式說明加一句「阿幫先在手機上用 Apple Intelligence／Gemini Nano 聽懂你要做什麼」（aria-live 唸出）；地端模型模式下裝置判斷與伺服器 B 一樣可縮小給模型的工具（`INTENT_TOOLS`）；伺服器 log 記 `judge` 來源（不含內容），作為計量。
 
 ## 評測（`scripts/eval-edge.js` 實機、`scripts/eval-edge-combo.js` 組合；`docs/research/edge-eval.md`）
 同一份 172 題評估集：Pixel 11 Pro XL 上的 Gemini Nano 單獨意圖 90.1%、全對 85.5%，延遲 p50 約 270 ms；與 A＋規則組合後全對 89.0%、驗收集 88.4%（A＋規則 77.9%；伺服器 A＋qwen3:8b 89.5%、驗收集 88.4%）。兩者相當，之後若實機數據穩定，可改成「有裝置結果就不呼叫伺服器模型」省成本。iOS 模擬器（Mac 的 Apple Intelligence）第一題冷啟動約 5 秒、超過逾時，實機數據待 iPhone 15 Pro 以上。
@@ -26,9 +27,11 @@
 ## 不採用
 - **在 WebView 跑 transformers.js 分類器**（E3）：模型約 120 MB、手機上首次載入慢；系統模型免下載。保留為之後的第三層備援。
 - **手機上直接回答**（不經伺服器）：數字一定要來自工具資料、計分要一致（ADR-0010），第一階段只做判斷。手機上轉述（E7）另議。
-- **讓裝置結果指定工具**：等同讓用戶端決定伺服器執行什麼，信任邊界不清楚。
+- **讓裝置結果指定工具名稱**：等同讓用戶端決定伺服器執行什麼，信任邊界不清楚（只給意圖，工具範圍由伺服器對照）。
 
 ## 影響
+- Android 模型下載只在不計流量的網路（Wi-Fi）進行；行動網路時 `status` 回 `needs-wifi`，判斷交給伺服器。
+- iOS：FoundationModels 由編譯器自動弱連結（`LC_LOAD_WEAK_DYLIB`，已用 otool 確認），iOS 15～25 不會因找不到 framework 而無法啟動。
 - 新增 Android 依賴 `com.google.mlkit:genai-prompt:1.0.0-beta5`（Google ML Kit，帶入 kotlin-stdlib、coroutines、guava listenablefuture；APK 約 +2 MB），`AndroidManifest.xml` 用 `tools:overrideLibrary` 保留 API 24。Gemini Nano 不能在解鎖 bootloader 的手機上使用；AICore 對每個 App 有呼叫配額。
 - iOS 新增 `MainViewController`（註冊專案內外掛；`SceneDelegate` 與 storyboard 都改用它）；需要 Xcode 26 以上編譯（`#if canImport(FoundationModels)` 與 `#available(iOS 26, *)` 包住）。
 - 卡住：iOS 實機數據要 Austin 提供 iPhone 15 Pro 以上並開啟 Apple Intelligence；Apple Intelligence 的繁體中文在台灣地區的可用性以 `supportsLocale(zh-Hant-TW)` 判斷，不支援就降級。

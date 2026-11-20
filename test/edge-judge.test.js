@@ -2,7 +2,8 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { EDGE_INTENTS, EDGE_STATES, EDGE_ENGINES, normalizeJudge, edgeJudge, edgeStatus } from '../public/js/edge-judge.js';
+import { EDGE_INTENTS, EDGE_STATES, EDGE_ENGINES, normalizeJudge, edgeJudge, edgeStatus, edgePrewarm, _resetEdge } from '../public/js/edge-judge.js';
+import { runModel, INTENT_TOOLS } from '../core/agent/model-loop.js';
 import { JUDGE_INTENTS, JUDGE_STATES, DEVICE_ENGINES, createJudge } from '../core/agent/judge.js';
 import { validateRequest, runDemo } from '../core/agent/run.js';
 import { createServices } from '../core/index.js';
@@ -13,7 +14,7 @@ function fakeCap(impl) {
   globalThis.Capacitor = { isNativePlatform: () => true, nativePromise: (plugin, method, args) => { calls.push({ plugin, method, args }); return impl(method, args); } };
   return calls;
 }
-afterEach(() => { delete globalThis.Capacitor; delete globalThis.localStorage; });
+afterEach(() => { delete globalThis.Capacitor; delete globalThis.localStorage; _resetEdge(); });
 
 test('意圖、狀態、引擎與伺服器（judge.js）和 iOS 外掛（Swift）一致', async () => {
   assert.deepEqual(EDGE_INTENTS, Object.keys(JUDGE_INTENTS));
@@ -35,6 +36,7 @@ test('normalizeJudge：iOS 物件、Android JSON 字串（前後有字也行）�
   assert.equal(normalizeJudge('不是 JSON', 'gemini-nano'), null);
   assert.equal(normalizeJudge({ intent: 'trip', states: [] }, 'other-engine'), null, '不認得的引擎');
   assert.equal(normalizeJudge(null, 'apple'), null);
+  assert.deepEqual(normalizeJudge('{"intent":"aqi","states":[]}\n{"intent":"trip","states":[]}', 'gemini-nano'), { intent: 'aqi', states: [], engine: 'gemini-nano' }, '兩個物件取第一個');
   assert.deepEqual(normalizeJudge({ intent: 'trip', states: 'rush' }, 'apple'), { intent: 'trip', states: [], engine: 'apple' }, 'states 不是陣列就當空');
 });
 
@@ -99,4 +101,58 @@ test('請求驗證：deviceJudge 只收列舉值；示範模式（伺服器沒�
   const st = es.find((e) => e.type === 'status');
   assert.deepEqual(st.judge, { intent: 'aqi', source: 'device', engine: 'apple' });
   assert.ok(es.some((e) => e.type === 'tool_start' && e.name === 'aqi_nearby'));
+});
+
+test('斷路器：上一題原生端還沒跑完就不等也不排隊、晚到的結果丟掉；外掛說不可用就不再試；prewarm 失敗不丟錯', async () => {
+  let release;
+  const calls = fakeCap((m) => (m === 'judge' ? new Promise((r) => { release = () => r({ engine: 'apple', result: { intent: 'trip', states: [] } }); }) : Promise.reject(new Error('x'))));
+  edgePrewarm(); // reject 不會變成未處理的錯誤
+  assert.equal(await edgeJudge('去台北101', [], { timeout: 30 }), null, '冷啟動逾時');
+  assert.equal(await edgeJudge('改坐公車', [], { timeout: 30 }), null, '上一題還在跑：不呼叫');
+  assert.equal(calls.filter((c) => c.method === 'judge').length, 1);
+  release();
+  await new Promise((r) => setTimeout(r, 0));
+  const p = edgeJudge('會下雨嗎', [], { timeout: 1000 });
+  release();
+  assert.deepEqual(await p, { intent: 'trip', states: [], engine: 'apple' }, '跑完後恢復呼叫（拿到的是這一題的結果）');
+
+  _resetEdge();
+  const c2 = fakeCap(() => Promise.reject(new Error('unavailable: disabled')));
+  assert.equal(await edgeJudge('去台北101'), null);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(await edgeJudge('去台北101'), null);
+  assert.equal(c2.length, 1, '不可用之後不再呼叫外掛');
+});
+
+test('模型模式帶 deviceJudge：伺服器沒有判斷層時用裝置意圖縮小地端模型的工具；防詐 agent 忽略裝置判斷', async () => {
+  const svc = createServices({ forceMock: true });
+  const seen = {};
+  const provider = { mode: 'local', model: 'fake', start({ tools }) { seen.tools = tools.map((t) => t.name); return { next: async () => ({ text: '好', calls: [], stop: 'end', usage: { input: 1, output: 1 } }), addResults() {} }; } };
+  const es = [];
+  await runModel(svc, { messages: [{ role: 'user', content: '板南線下一班幾分' }], deviceJudge: { intent: 'metro', states: [], engine: 'gemini-nano' } }, (e) => es.push(e), { provider, judge: null });
+  const given = seen.tools.filter((n) => n !== 'device_location');
+  assert.ok(given.includes('metro_live_board') && given.every((n) => INTENT_TOOLS.metro.includes(n)), given.join());
+  assert.deepEqual(es.find((e) => e.type === 'status').judge, { intent: 'metro', source: 'device', engine: 'gemini-nano' });
+
+  const fr = [];
+  await runDemo(svc, { messages: [{ role: 'user', content: '這則簡訊說我中獎了 http://x.y' }], deviceJudge: { intent: 'trip', states: [], engine: 'apple' } }, (e) => fr.push(e), { profileId: 'antifraud', judge: null });
+  assert.equal(fr.find((e) => e.type === 'status').judge, undefined, '防詐 agent 不用判斷層');
+});
+
+test('伺服器沒有分類器（A）時：意圖用裝置、狀態只看規則', async () => {
+  const j = await createJudge()('這附近空氣好嗎，我在趕時間', [], { device: { intent: 'aqi', states: ['badAir', 'luggage'], engine: 'apple' } });
+  assert.equal(j.intent, 'aqi');
+  assert.ok(!j.states.includes('luggage'), '裝置單獨說的狀態不採用');
+  assert.ok(j.states.includes('rush'), '規則抓到的狀態照用');
+});
+
+test('伺服器 log：記判斷來源與收到的手機引擎，不記對話內容', async () => {
+  const { createAgentHandler } = await import('../server/agent.js');
+  const logs = [];
+  const h = createAgentHandler({ svc: createServices({ forceMock: true }), env: {}, provider: null, log: (o) => logs.push(o) });
+  const res = { writableEnded: false, writeHead() {}, write() {}, end() { this.writableEnded = true; } };
+  await h.handle(res, { messages: [{ role: 'user', content: '今天油價多少' }], deviceJudge: { intent: 'fuel', states: [], engine: 'gemini-nano' } });
+  assert.equal(logs[0].judge, 'device');
+  assert.equal(logs[0].device, 'gemini-nano');
+  assert.ok(!JSON.stringify(logs).includes('油價'), 'log 不記對話內容');
 });

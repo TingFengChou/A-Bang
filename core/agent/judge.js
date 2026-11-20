@@ -28,8 +28,8 @@ export const JUDGE_INTENTS = {
 };
 export const JUDGE_STATES = ['rush', 'luggage', 'budget', 'lessWalk', 'rain', 'badAir'];
 export const CONFIDENT = 0.8;
-/** 裝置端判斷的引擎（ADR-0014）：Apple Intelligence（Foundation Models）、Gemini Nano（ML Kit GenAI）、App 內分類器 */
-export const DEVICE_ENGINES = ['apple', 'gemini-nano', 'web'];
+/** 裝置端判斷的引擎（ADR-0014）：Apple Intelligence（Foundation Models）、Gemini Nano（ML Kit GenAI） */
+export const DEVICE_ENGINES = ['apple', 'gemini-nano'];
 
 const embedText = (it) => `query: ${it.history?.length ? `前文：${it.history.at(-1)}；這句：` : ''}${it.text}`;
 const dot = (a, b) => a.reduce((s, v, i) => s + v * b[i], 0);

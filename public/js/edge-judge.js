@@ -1,5 +1,5 @@
 // 裝置端 AI 判斷（ADR-0014）：手機 App 裡用系統內建的模型先判斷「使用者想做什麼」與「使用者狀態」，
-// 結果當作提示（deviceJudge）跟著問題送到伺服器，伺服器就不用再呼叫模型判斷（省時間、省成本）。
+// 結果當作提示（deviceJudge）跟著問題送到伺服器；伺服器沒有自己的判斷模型時（例：Claude 模式）由它補上，省時間、省成本。
 //   iOS：Apple Intelligence（Foundation Models，iOS 26 以上、支援的機型且已開啟）
 //   Android：Gemini Nano（ML Kit GenAI Prompt API，經 AICore；支援的機型）
 // 網頁版、系統模型不可用、逾時或回傳看不懂 → 回 null，伺服器照原本的判斷層（使用者看不出差別）。
@@ -36,8 +36,9 @@ export function edgeEnabled() {
 export function normalizeJudge(raw, engine) {
   let o = raw;
   if (typeof o === 'string') {
-    const m = o.match(/\{[\s\S]*\}/); // Android 模型偶爾在 JSON 前後加字
-    try { o = m ? JSON.parse(m[0]) : null; } catch { o = null; }
+    // Android 模型偶爾在 JSON 前後加字、或輸出兩個物件：取第一個解析得出來的
+    o = null;
+    for (const m of raw.match(/\{[^{}]*\}/g) || []) { try { o = JSON.parse(m); break; } catch { /* 下一個 */ } }
   }
   if (!o || typeof o !== 'object' || !EDGE_INTENTS.includes(o.intent) || !EDGE_ENGINES.includes(engine)) return null;
   const states = [...new Set((Array.isArray(o.states) ? o.states : []).filter((k) => EDGE_STATES.includes(k)))];
@@ -57,6 +58,12 @@ export function edgePrewarm() {
   if (c && edgeEnabled()) c.nativePromise(PLUGIN, 'prewarm', { instructions: EDGE_INSTRUCTIONS }).catch(() => {});
 }
 
+// 斷路器（PR #32 審查）：上一題還沒跑完（例：iOS 冷啟動 5 秒）就不等；外掛說不可用就這次開 App 都不再試
+let inflight = null;
+let unavailable = false;
+/** 測試用：重設斷路器 */
+export const _resetEdge = () => { inflight = null; unavailable = false; };
+
 /**
  * 在手機上判斷這一句。
  * @param {string} text 使用者這一句
@@ -65,10 +72,12 @@ export function edgePrewarm() {
  */
 export async function edgeJudge(text, history = [], { timeout = EDGE_TIMEOUT_MS } = {}) {
   const c = cap();
-  if (!c || !edgeEnabled() || !text) return null;
+  if (!c || unavailable || inflight || !edgeEnabled() || !text) return null;
   let timer;
   try {
     const call = c.nativePromise(PLUGIN, 'judge', { text: String(text).slice(0, 500), history: history.slice(-2).map((h) => String(h).slice(0, 200)), instructions: EDGE_INSTRUCTIONS, intents: EDGE_INTENTS, states: EDGE_STATES });
+    // 逾時後原生端仍在跑：跑完前下一題不再呼叫（避免排隊），跑完的結果丟掉（不會用到下一題）
+    inflight = call.catch((e) => { if (/unavailable/.test(e?.message || '')) unavailable = true; }).finally(() => { inflight = null; });
     const r = await Promise.race([call, new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeout); })]);
     return r ? normalizeJudge(r.result, r.engine) : null;
   } catch {

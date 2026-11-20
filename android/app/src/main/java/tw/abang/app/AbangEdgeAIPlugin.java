@@ -1,5 +1,6 @@
 package tw.abang.app;
 
+import android.net.ConnectivityManager;
 import android.os.Build;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -20,6 +21,8 @@ import com.google.mlkit.genai.prompt.java.GenerativeModelFutures;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * 裝置端 AI 判斷（ADR-0014）：Gemini Nano（ML Kit GenAI Prompt API，經系統的 AICore）在手機上判斷意圖與狀態。
@@ -31,8 +34,14 @@ import java.util.concurrent.Executors;
 public class AbangEdgeAIPlugin extends Plugin {
     private static final String TAG = "AbangEdgeAI";
     private final ExecutorService exec = Executors.newSingleThreadExecutor();
+    /** 一題最多跑這麼久（JS 只等 1.8 秒；原生端也要停，否則下一題排在後面一起逾時） */
+    private static final long JUDGE_TIMEOUT_MS = 1500;
     private GenerativeModelFutures model;
-    private boolean downloading = false;
+    private volatile boolean downloading = false;
+    /** 確認可用之後就不必每題再問系統 */
+    private volatile boolean available = false;
+    /** 配額用完或被系統擋下時，暫停到這個時間（毫秒）再試 */
+    private volatile long pausedUntil = 0;
 
     private GenerativeModelFutures model() {
         if (model == null) model = GenerativeModelFutures.from(Generation.INSTANCE.getClient());
@@ -43,12 +52,34 @@ public class AbangEdgeAIPlugin extends Plugin {
 
     /** 0 不支援、1 可下載、2 下載中、3 可用（FeatureStatus）；取不到回 -1 */
     private int featureStatus() {
-        try { return model().checkStatus().get(); } catch (Exception e) { return -1; }
+        if (available) return FeatureStatus.AVAILABLE;
+        try {
+            int s = model().checkStatus().get(1000, TimeUnit.MILLISECONDS);
+            available = s == FeatureStatus.AVAILABLE;
+            return s;
+        } catch (Exception e) { return -1; }
+    }
+
+    /** 只在不計流量的網路（Wi-Fi）下載：模型數百 MB 以上，不在行動網路偷偷下載 */
+    private boolean unmetered() {
+        ConnectivityManager cm = getContext().getSystemService(ConnectivityManager.class);
+        return cm != null && !cm.isActiveNetworkMetered();
+    }
+
+    /** 錯誤代碼（不含句子內容）；配額、忙碌、背景被擋時暫停 10 分鐘 */
+    private String errorCode(Throwable e) {
+        Throwable c = e.getCause() != null ? e.getCause() : e;
+        if (c instanceof GenAiException) {
+            GenAiException g = (GenAiException) c;
+            pausedUntil = System.currentTimeMillis() + 10 * 60_000;
+            return "GenAiException:" + g.getErrorCode();
+        }
+        return c.getClass().getSimpleName();
     }
 
     /** 可下載時在背景下載（模型由系統的 AICore 管理，多個 App 共用） */
     private void startDownload() {
-        if (downloading) return;
+        if (downloading || !unmetered()) return;
         downloading = true;
         model().download(new DownloadCallback() {
             @Override public void onDownloadCompleted() { downloading = false; Logger.info(TAG, "Gemini Nano 下載完成"); }
@@ -62,7 +93,7 @@ public class AbangEdgeAIPlugin extends Plugin {
         exec.execute(() -> {
             int s = featureStatus();
             if (s == FeatureStatus.DOWNLOADABLE) startDownload();
-            String reason = s == FeatureStatus.AVAILABLE ? "ok" : s == FeatureStatus.DOWNLOADABLE || s == FeatureStatus.DOWNLOADING ? "downloading" : s == FeatureStatus.UNAVAILABLE ? "unsupported" : "unavailable";
+            String reason = s == FeatureStatus.AVAILABLE ? "ok" : s == FeatureStatus.DOWNLOADING || (s == FeatureStatus.DOWNLOADABLE && downloading) ? "downloading" : s == FeatureStatus.DOWNLOADABLE ? "needs-wifi" : s == FeatureStatus.UNAVAILABLE ? "unsupported" : "unavailable";
             call.resolve(result(s == FeatureStatus.AVAILABLE, reason));
         });
     }
@@ -88,7 +119,7 @@ public class AbangEdgeAIPlugin extends Plugin {
         exec.execute(() -> {
             long t0 = System.currentTimeMillis();
             try {
-                if (featureStatus() != FeatureStatus.AVAILABLE) { call.reject("unavailable"); return; }
+                if (System.currentTimeMillis() < pausedUntil || featureStatus() != FeatureStatus.AVAILABLE) { call.reject("unavailable"); return; }
                 StringBuilder prompt = new StringBuilder(instructions)
                     .append("\n只回一行 JSON，不要其他文字：{\"intent\":\"意圖\",\"states\":[\"狀態\"]}\n");
                 List<String> prior = hist.toList();
@@ -99,7 +130,9 @@ public class AbangEdgeAIPlugin extends Plugin {
                 b.setTopK(1);
                 b.setMaxOutputTokens(80);
                 ListenableFuture<GenerateContentResponse> f = model().generateContent(b.build());
-                GenerateContentResponse r = f.get();
+                GenerateContentResponse r;
+                try { r = f.get(JUDGE_TIMEOUT_MS, TimeUnit.MILLISECONDS); }
+                catch (TimeoutException te) { f.cancel(true); Logger.warn(TAG, "judge timeout"); call.reject("timeout"); return; }
                 String out = r.getCandidates().isEmpty() ? "" : r.getCandidates().get(0).getText();
                 Logger.info(TAG, "judged in " + (System.currentTimeMillis() - t0) + " ms"); // 只記耗時，不記內容
                 JSObject ret = new JSObject();
@@ -107,10 +140,16 @@ public class AbangEdgeAIPlugin extends Plugin {
                 ret.put("result", out == null ? "" : out);
                 call.resolve(ret);
             } catch (Exception e) {
-                Logger.warn(TAG, "judge failed: " + e.getClass().getSimpleName());
+                Logger.warn(TAG, "judge failed: " + errorCode(e));
                 call.reject("judge failed");
             }
         });
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        exec.shutdownNow();
+        super.handleOnDestroy();
     }
 
     private static JSObject result(boolean available, String reason) {

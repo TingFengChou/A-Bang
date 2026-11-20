@@ -60,7 +60,7 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
       let failed = null;
       let judgeSrc = null;
       const emit = (e) => {
-        if (e.type === 'status' && e.judge) judgeSrc = e.judge.engine ? `${e.judge.source}:${e.judge.engine}` : e.judge.source;
+        if (e.type === 'status' && e.judge) judgeSrc = e.judge.source; // 快速版的來源（完整版有伺服器模型時可能改由模型定案）
         if (e.type === 'tool_start') u.toolCalls++;
         if (e.type === 'done' && e.usage) tokens = { in: e.usage.inputTokens, out: e.usage.outputTokens };
         if (!res.writableEnded) res.write(toNdjson(e));
@@ -78,8 +78,8 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
         emit(ev.done());
       } finally {
         res.end();
-        // 隱私（AGENT.md §7）：只記模式、事件數量、耗時、token 與判斷來源（embed／llm／device:apple…），不記對話內容與座標
-        log({ agent: profile.id, mode, ms: Date.now() - t0, toolCalls: u.toolCalls, modelCalls: u.modelCalls, ...(tokens && { tokens }), ...(judgeSrc && { judge: judgeSrc }), ...(failed && { error: failed }) });
+        // 隱私（AGENT.md §7）：只記模式、事件數量、耗時、token 與判斷來源（embed／llm／device:apple…），不記對話內容與座標；device＝有收到手機判斷（引擎名）
+        log({ agent: profile.id, mode, ms: Date.now() - t0, toolCalls: u.toolCalls, modelCalls: u.modelCalls, ...(tokens && { tokens }), ...(judgeSrc && { judge: judgeSrc }), ...(body?.deviceJudge && { device: body.deviceJudge.engine }), ...(failed && { error: failed }) });
       }
     },
   };

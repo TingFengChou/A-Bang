@@ -129,7 +129,8 @@ export default {
     sendBtn.type = 'submit';
     const form = el('form', 'chat-form', input, sendBtn);
     const disclaimer = el('p', 'updated');
-    const modeLine = el('p', 'updated agent-mode'); // 由誰回答（ADR-0012；Claude 模式說明對話會送 Anthropic，AGENT.md §7）
+    const modeLine = el('p', 'updated agent-mode');
+    modeLine.setAttribute('aria-live', 'polite'); // 換模式或改在手機上判斷時唸出來 // 由誰回答（ADR-0012；Claude 模式說明對話會送 Anthropic，AGENT.md §7）
     // 說明起點是現在位置（第一次需要位置時才跳權限框，先讓使用者知道為什麼）；拒絕定位時阿幫會問從哪出發
     const hereHint = agentId === 'life' && el('p', 'updated here-hint', '沒說起點時，阿幫用你現在的位置當出發點。');
     main.append(log, el('div', 'chat-dock', chips, mention, form), ...(hereHint ? [hereHint] : []), disclaimer, modeLine);
@@ -140,7 +141,7 @@ export default {
     };
     // 裝置端 AI（ADR-0014）：在手機上判斷時，說明多一句（判斷不離開手機的模型，只送結果）
     const ENGINE_TEXT = { apple: 'Apple Intelligence', 'gemini-nano': 'Gemini Nano' };
-    const modeText = (e) => `${MODE_TEXT[e.mode](e.model || '')}${e.judge?.source === 'device' && ENGINE_TEXT[e.judge.engine] ? `意圖先在手機上以 ${ENGINE_TEXT[e.judge.engine]} 判斷。` : ''}`;
+    const modeText = (e) => `${MODE_TEXT[e.mode](e.model || '')}${e.judge?.source === 'device' && ENGINE_TEXT[e.judge.engine] ? `阿幫先在手機上用 ${ENGINE_TEXT[e.judge.engine]} 聽懂你要做什麼。` : ''}`;
     if (agentId === 'life') edgePrewarm();
 
     const host = createWebHost({ ask: (q) => send(q), setContext: (c) => { context = c; } });
