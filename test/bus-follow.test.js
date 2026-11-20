@@ -102,49 +102,153 @@ test('網頁 host 到站提醒：設定時這班已趕不上就跳過、下一�
   }
 });
 
-test('手機 App 到站提醒（M11-02）：排本機通知到預估時間、差不到 20 秒不重排、車提早到就馬上送、取消會一起取消', async () => {
-  const calls = [], events = [];
+// ── 手機 App 本機通知（M11-02；PR #28 審查後）：假的 Capacitor 橋接 ──
+function fakeNative({ grant = 'granted', failSchedule = false } = {}) {
+  const calls = [];
+  globalThis.Capacitor = { isNativePlatform: () => true, nativePromise: async (plugin, method, o) => {
+    calls.push([method, o]);
+    if (method.endsWith('Permissions')) return { display: grant };
+    if (method === 'schedule' && failSchedule) throw new Error('denied');
+    return {};
+  } };
+  return calls;
+}
+const scheduled = (calls) => calls.filter(([m]) => m === 'schedule').map(([, o]) => o.notifications[0]);
+const etaServer = (get) => { globalThis.fetch = async () => new Response(JSON.stringify({ data: { focus: { etaSec: get(), status: 0, statusText: '10 分' } } })); };
+async function withNativeHost(opts, fn) {
+  const events = [];
   globalThis.window = { dispatchEvent: (e) => events.push([e.type, e.detail]) };
-  globalThis.Capacitor = { isNativePlatform: () => true, nativePromise: async (plugin, method, o) => { calls.push([plugin, method, o]); return method.endsWith('Permissions') ? { display: 'granted' } : {}; } };
-  let eta = 600;
-  globalThis.fetch = async () => new Response(JSON.stringify({ data: { focus: { etaSec: eta, status: 0, statusText: '10 分' } } }));
+  const calls = fakeNative(opts);
   const { createWebHost } = await import('../public/ui/cards/host-web.js');
-  const host = createWebHost();
-  assert.equal(host.background, true, 'App 關著也會提醒');
-  const flush = () => new Promise((r) => setImmediate(r));
-  const scheduled = () => calls.filter(([, m]) => m === 'schedule').map(([, , o]) => o.notifications[0]);
   mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now: 1_000_000 });
-  try {
+  const host = createWebHost();
+  try { await fn({ host, calls, events, flush: () => new Promise((r) => setImmediate(r)) }); } finally {
+    host.unwatchArrival();
+    mock.timers.reset();
+    delete globalThis.window; delete globalThis.Capacitor; delete globalThis.document;
+  }
+}
+
+test('手機 App 到站提醒：排到預估時間（提早 30 秒、一般排程、高重要性頻道）、差不到 20 秒不重排、車變快重排；前景到點只出 toast', async () => {
+  let eta = 600;
+  etaServer(() => eta);
+  await withNativeHost({}, async ({ host, calls, events, flush }) => {
+    assert.equal(host.background, true);
+    assert.equal(host.arrivalNote(), 'whenAlways');
     await host.watchArrival({ city: 'Taipei', routeName: '601', stop: '西門', minutes: 3 });
     await flush();
-    assert.equal(scheduled().length, 1);
-    const n0 = scheduled()[0];
+    const [n0] = scheduled(calls);
     assert.equal(n0.id, 1001);
-    assert.equal(n0.schedule.at.getTime(), 1_000_000 + 420_000, '10 分後到、提前 3 分 → 7 分後通知');
-    assert.match(n0.body, /601 約 3 分後到「西門」，該出門了！（依 \d\d:\d\d 的到站時間估計）/);
+    assert.equal(n0.schedule.at.getTime(), 1_000_000 + 420_000 - 30_000, '10 分後到、提前 3 分、再提早 30 秒');
+    assert.equal(n0.title, '阿幫：該出門了');
+    assert.match(n0.body, /^601 約 3 分後到「西門」（\d\d:\d\d 的預估）$/);
+    assert.deepEqual([n0.channelId, n0.isExactNotification], ['arrival', false], 'Android 不用精準鬧鐘、走高重要性頻道');
+    assert.ok(calls.some(([m, o]) => m === 'createChannel' && o.importance === 4));
 
     eta = 590; mock.timers.tick(20_000); await flush();
-    assert.equal(scheduled().length, 1, '預估沒變（差不到 20 秒）不重排');
+    assert.equal(scheduled(calls).length, 1, '預估沒變（差不到 20 秒）不重排');
     eta = 300; mock.timers.tick(20_000); await flush();
-    assert.equal(scheduled().length, 2, '車變快：重排');
-    assert.equal(scheduled()[1].schedule.at.getTime(), 1_040_000 + 120_000);
-    eta = 150; mock.timers.tick(20_000); await flush(); // 比預估更早進入 3 分內
-    assert.equal(scheduled().length, 3, '比排好的時間早到 → 馬上送');
-    assert.ok(scheduled()[2].schedule.at.getTime() <= Date.now() + 1000);
-    assert.equal(host.arrivalWatch(), null);
+    assert.equal(scheduled(calls).length, 2, '車變快：重排');
+    eta = 150; mock.timers.tick(20_000); await flush(); // App 在前景時進入 3 分內
+    assert.equal(scheduled(calls).length, 2, '前景：不再送系統通知（toast 就夠，不重複）');
+    assert.deepEqual(calls.at(-1), ['cancel', { notifications: [{ id: 1001 }] }], '排好的通知也取消');
+    assert.ok(events.some(([t, d]) => t === 'abang:arrival' && /該出門了/.test(d.text)));
+  });
+});
+
+test('手機 App 到站提醒：背景時到點（車比預估早到）馬上送；取消提醒＝取消排好的通知；逾時也取消', async () => {
+  let eta = 600;
+  etaServer(() => eta);
+  await withNativeHost({}, async ({ host, calls, flush }) => {
+    globalThis.document = { visibilityState: 'hidden' };
+    await host.watchArrival({ city: 'Taipei', routeName: '601', stop: '西門', minutes: 3 });
+    await flush();
+    eta = 100; mock.timers.tick(20_000); await flush();
+    assert.equal(scheduled(calls).length, 2);
+    assert.ok(scheduled(calls)[1].schedule.at.getTime() <= Date.now() + 1000, '背景：比預估早到就馬上送');
 
     eta = 600;
     await host.watchArrival({ city: 'Taipei', routeName: '601', stop: '西門', minutes: 5 });
     await flush();
     host.unwatchArrival(); await flush();
-    assert.deepEqual(calls.at(-1), ['LocalNotifications', 'cancel', { notifications: [{ id: 1001 }] }], '取消提醒＝取消排好的通知');
+    assert.deepEqual(calls.at(-1), ['cancel', { notifications: [{ id: 1001 }] }]);
 
+    await host.watchArrival({ city: 'Taipei', routeName: '601', stop: '西門', minutes: 5 });
+    await flush();
+    const n = calls.length;
+    mock.timers.tick(91 * 60_000); await flush();
+    assert.ok(calls.slice(n).some(([m]) => m === 'cancel'), '90 分鐘還沒到：放棄並取消');
+    assert.equal(host.arrivalWatch(), null);
+  });
+});
+
+test('手機 App 到站提醒：權限被拒 → 畫面說「App 開著時才會提醒」、仍照常盯；出發提醒回 false 不排程', async () => {
+  etaServer(() => 600);
+  await withNativeHost({ grant: 'denied' }, async ({ host, calls, flush }) => {
+    await host.watchArrival({ city: 'Taipei', routeName: '601', stop: '西門', minutes: 3 });
+    await flush();
+    assert.equal(host.background, false);
+    assert.equal(host.arrivalNote(), 'whenNoPermission');
+    assert.ok(host.arrivalWatch(), '仍照常盯（App 開著時 toast 提醒）');
     const t = new Date(Date.now() + 3_600_000);
-    const at = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
-    assert.equal(await host.remind(at, '該出發了'), true);
-    assert.equal(scheduled().at(-1).id, 1002, '出發提醒也用本機通知');
+    assert.equal(await host.remind(`${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`, '出發'), false);
+    assert.ok(!scheduled(calls).some((x) => x.id === 1002));
+  });
+});
+
+test('手機 App 到站提醒：排程失敗（外掛錯誤）→ 畫面不說 App 關著也會提醒、下次輪詢重試；這班趕不上時不排、下一班才排', async () => {
+  let eta = 600;
+  etaServer(() => eta);
+  await withNativeHost({ failSchedule: true }, async ({ host, calls, flush }) => {
+    await host.watchArrival({ city: 'Taipei', routeName: '601', stop: '西門', minutes: 3 });
+    await flush();
+    assert.equal(host.background, false, '排程失敗');
+    const tried = calls.filter(([m]) => m === 'schedule').length;
+    mock.timers.tick(20_000); await flush();
+    assert.ok(calls.filter(([m]) => m === 'schedule').length > tried, '下次輪詢重試（不被 20 秒門檻擋住）');
+  });
+  eta = 100; // 設定時這班已在 3 分內
+  await withNativeHost({}, async ({ host, calls, flush }) => {
+    await host.watchArrival({ city: 'Taipei', routeName: '601', stop: '西門', minutes: 3 });
+    await flush();
+    assert.equal(scheduled(calls).length, 0, '這班趕不上：不排');
+    eta = 600; mock.timers.tick(20_000); await flush();
+    assert.equal(scheduled(calls).length, 1, '下一班：排');
+  });
+});
+
+test('網頁版（沒有 Capacitor）：不呼叫原生、background 為 false、說明「頁面開著時」', async () => {
+  globalThis.window = { dispatchEvent: () => {} };
+  const { createWebHost } = await import('../public/ui/cards/host-web.js');
+  const host = createWebHost();
+  assert.equal(host.background, false);
+  assert.equal(host.arrivalNote(), 'whenOpenPage');
+  delete globalThis.window;
+});
+
+test('App 被關掉重開：恢復上次的到站提醒（沒過期才恢復；過期清掉並取消排好的通知）', async () => {
+  const mem = new Map();
+  globalThis.localStorage = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v), removeItem: (k) => mem.delete(k) };
+  globalThis.window = { dispatchEvent: () => {} };
+  etaServer(() => 600);
+  try {
+    mem.set('abang.arrivalWatch', JSON.stringify({ w: { city: 'Taipei', routeName: '601', stop: '西門', minutes: 3 }, until: Date.now() + 600_000 }));
+    fakeNative();
+    const a = await import('../public/ui/cards/host-web.js?resume-1');
+    const host = a.createWebHost();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(host.arrivalWatch()?.routeName, '601', '恢復提醒');
+    host.unwatchArrival();
+    assert.equal(mem.has('abang.arrivalWatch'), false, '取消後清掉');
+
+    mem.set('abang.arrivalWatch', JSON.stringify({ w: { city: 'Taipei', routeName: '601', stop: '西門', minutes: 3 }, until: Date.now() - 1 }));
+    const calls = fakeNative();
+    const b = await import('../public/ui/cards/host-web.js?resume-2');
+    const h2 = b.createWebHost();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(h2.arrivalWatch(), null, '過期不恢復');
+    assert.ok(calls.some(([m, o]) => m === 'cancel' && o.notifications[0].id === 1001), '過期：取消排好的通知');
   } finally {
-    mock.timers.reset();
-    delete globalThis.window; delete globalThis.Capacitor;
+    delete globalThis.localStorage; delete globalThis.window; delete globalThis.Capacitor;
   }
 });

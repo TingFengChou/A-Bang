@@ -1,6 +1,7 @@
 // 網頁 agent 頁（M5-08，UX.md §3–§4、§8、§10）：對話、小幫手討論串、@點名、建議問題；由真實 NDJSON 事件驅動。
 // 卡片用 public/ui/cards（renderCard＋web host）。不加假延遲：只在討論串兩則訊息之間保留最短 300ms 避免閃爍（UX.md §4）。
 import { API_BASE, IN_APP } from '../base.js';
+import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
 import { runAgent, browserLocation } from '../agent/client.js';
 import { icons } from '../icons.js';
 import { motion } from '../../ui/cards/motion.js';
@@ -170,7 +171,7 @@ export default {
         }
         if (s.kind === 'remind') {
           await host.watchArrival(s.payload);
-          log.append(el('p', 'agent-sys', `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（${host.background ? 'App 關著也會提醒' : 'App 開著時'}）。`));
+          log.append(el('p', 'agent-sys', `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（${cardT(`busRoute.${host.arrivalNote?.() || 'whenOpenPage'}`)}）。`));
           return showNext(view);
         }
         return undefined;

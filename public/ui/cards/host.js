@@ -9,6 +9,8 @@
  * @property {(w: { city: string, routeName: string, stop: string, direction?: number, minutes: number }) => Promise<boolean>} [watchArrival]  公車到站前 N 分提醒（L-14）
  * @property {() => void} [unwatchArrival]
  * @property {() => ({ city: string, routeName: string, stop: string, minutes: number } | null)} [arrivalWatch]
+ * @property {boolean} [background]  提醒在 App 關著時也會響（手機 App 有通知權限才是 true；沒有這個屬性＝只有開著時）
+ * @property {() => 'whenAlways'|'whenOpenPage'|'whenNoPermission'} [arrivalNote]  設定提醒後的說明文字鍵（i18n busRoute.*）；沒有時用 whenOpenPage
  * @property {(hash: string) => void} [navigate]  開 App 內頁面（網頁 host 才有）
  * @property {'light'} theme
  * @property {'web'|'mcp-app'|'app'} kind

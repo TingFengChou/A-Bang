@@ -49,6 +49,7 @@ test('色彩對比：文字色在底色上 ≥ 4.5（一律淺色主題）', asy
   const blocks = [...css.matchAll(/(--bg:[^}]*)/g)].map((m) => Object.fromEntries([...m[1].matchAll(/--([a-z-]+):\s*(#[0-9a-f]{6}|#[0-9a-f]{3})\b/gi)].map((x) => [x[1], x[2]])));
   assert.equal(blocks.length, 1, '只有淺色一組變數（不跟系統深色模式，卡片也是淺色）');
   assert.match(css, /color-scheme: light;/);
+  assert.doesNotMatch(css, /prefers-color-scheme/, '不跟系統深色模式');
   for (const v of blocks) {
     for (const fg of ['text', 'muted', 'off']) {
       for (const bg of ['bg', 'card']) assert.ok(contrast(v[fg], v[bg]) >= 4.5, `${fg} on ${bg}: ${contrast(v[fg], v[bg]).toFixed(2)}`);
@@ -58,4 +59,16 @@ test('色彩對比：文字色在底色上 ≥ 4.5（一律淺色主題）', asy
   const cards = await readFile(new URL('../public/ui/cards/cards.css', import.meta.url), 'utf8');
   const cv = Object.fromEntries([...cards.matchAll(/--(ab-[a-z-]+):\s*(#[0-9a-f]{6}|#[0-9a-f]{3})\b/gi)].map((x) => [x[1], x[2]]));
   for (const fg of ['ab-text', 'ab-muted', 'ab-off', 'ab-brand', 'ab-ok', 'ab-warn', 'ab-bad']) assert.ok(contrast(cv[fg], cv['ab-bg']) >= 4.5, `${fg}: ${contrast(cv[fg], cv['ab-bg']).toFixed(2)}`);
+});
+
+test('一律淺色：卡片 CSS 沒有深色規則；App 原生設定固定淺色（iOS、Android、狀態列圖示）', async () => {
+  const read = (p) => readFile(new URL(`../${p}`, import.meta.url), 'utf8');
+  assert.doesNotMatch(await read('public/ui/cards/cards.css'), /prefers-color-scheme:\s*dark/);
+  assert.doesNotMatch(await read('public/css/agent.css'), /prefers-color-scheme:\s*dark/);
+  assert.match(await read('ios/App/App/Info.plist'), /<key>UIUserInterfaceStyle<\/key>\s*<string>Light<\/string>/);
+  const styles = await read('android/app/src/main/res/values/styles.xml');
+  assert.doesNotMatch(styles, /DayNight/, 'Android 主題不跟系統深色');
+  assert.match(styles, /windowLightStatusBar">true/, '啟動畫面狀態列圖示深色');
+  assert.equal(JSON.parse(await read('capacitor.config.json')).plugins?.SystemBars?.style, 'LIGHT');
+  assert.match(await read('public/css/app.css'), /^input, select, textarea \{ font-size: max\(16px, 1em\); \}/m, '輸入框至少 16px（iOS 不自動放大）');
 });
