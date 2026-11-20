@@ -72,8 +72,9 @@
 @keyframes dg-hop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
 html.lite-motion .dg-edge.win, html.lite-motion .dg-best > rect, html.lite-motion .dg-best .dg-ic { animation: none !important; }
 .dg-opt.excluded { opacity: .55; } .dg-opt.excluded .dg-name { text-decoration: line-through; }
-/* 使用者說不要的方式：灰色、不劃線、不透明（與紅色「遲到」區分；PR #35 設計審查） */
+/* 使用者說不要的方式：灰色、不劃線、不透明（與紅色「遲到」區分；PR #35 設計審查）；阿幫判斷不適合的（帶長輩不騎 YouBike）：淺橘虛線框（PR #36） */
 .dg-opt.excluded.avoided { opacity: .8; } .dg-opt.excluded.avoided .dg-name { text-decoration: none; } .dg-opt.excluded.avoided .dg-score { fill: var(--muted); }
+.dg-opt.excluded.unfit { opacity: .85; } .dg-opt.excluded.unfit .dg-name { text-decoration: none; } .dg-opt.excluded.unfit > rect { stroke: #E8A33D; stroke-dasharray: 4 3; fill: #FFF8EC; } .dg-opt.excluded.unfit .dg-score { fill: #B26A00; }
 .dg-edge { fill: none; stroke: var(--line); stroke-width: 1.5; }
 .dg-edge.dashed { stroke-dasharray: 4 3; stroke: var(--place); }
 .dg-edge.win { stroke: var(--brand); }

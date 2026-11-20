@@ -1,4 +1,5 @@
 // OpenAPI 3.1 文件（Swagger）：由 REST 路由表與 tool registry 自動產生，不手寫、不會與實作脫節。
+import { STATES } from '../core/decide.js';
 import { readFileSync } from 'node:fs';
 import { listTools, describeTool } from '../core/tools/index.js';
 import { restRoutes } from './rest.js';
@@ -44,7 +45,7 @@ export function buildOpenApi(svc) {
         type: 'object', required: ['messages'],
         properties: {
           messages: { type: 'array', maxItems: 10, items: { type: 'object', required: ['role', 'content'], properties: { role: { enum: ['user', 'assistant'] }, content: { type: 'string', maxLength: 500 } } } },
-          userState: { type: 'object', properties: { picked: { type: 'array', items: { enum: ['rush', 'traffic', 'rain', 'luggage', 'budget', 'lessWalk'] } } } },
+          userState: { type: 'object', properties: { picked: { type: 'array', items: { enum: Object.keys(STATES) } } } },
           context: { type: 'string', maxLength: 200 },
         },
         example: { messages: [{ role: 'user', content: '從西門町到台北 101 怎麼去？' }] },

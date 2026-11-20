@@ -1,6 +1,6 @@
 {
 "version": 1,
-"note": "阿幫意圖與狀態判斷的評估集（自行撰寫的假想提問，不含使用者資料）。intent 15 類、states 6 種（使用者說的狀態）。",
+"note": "阿幫意圖與狀態判斷的評估集（自行撰寫的假想提問，不含使用者資料）。intent 15 類、states 9 種（2026-11-21 加 elder、kids、mobility）（使用者說的狀態）。",
 "items": [
 {
 "id": 1,
@@ -134,7 +134,8 @@
 "text": "霧霾好重，帶著小孩要從內湖去動物園",
 "intent": "trip",
 "states": [
-"badAir"
+"badAir",
+"kids"
 ],
 "level": "hard"
 },
@@ -170,6 +171,7 @@
 "text": "帶著嬰兒車和行李去高鐵站，從民生社區出發",
 "intent": "trip",
 "states": [
+"kids",
 "luggage"
 ],
 "level": "hard"
@@ -229,7 +231,7 @@
 "text": "長輩同行，空氣又不好，從萬華到大安",
 "intent": "trip",
 "states": [
-"lessWalk",
+"elder",
 "badAir"
 ],
 "level": "hard"
@@ -304,7 +306,8 @@
 "text": "有長輩跟小孩，空氣也很髒，去兒童新樂園",
 "intent": "trip",
 "states": [
-"lessWalk",
+"elder",
+"kids",
 "badAir"
 ],
 "level": "hard"

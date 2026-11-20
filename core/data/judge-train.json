@@ -676,7 +676,7 @@
 "text": "推嬰兒車要去動物園",
 "intent": "trip",
 "states": [
-"luggage"
+"kids"
 ]
 },
 {
@@ -781,7 +781,7 @@
 "text": "帶阿嬤去看醫生",
 "intent": "trip",
 "states": [
-"lessWalk"
+"elder"
 ]
 },
 {
@@ -795,7 +795,7 @@
 "text": "行動不便，去市政府",
 "intent": "trip",
 "states": [
-"lessWalk"
+"mobility"
 ]
 },
 {
@@ -809,7 +809,7 @@
 "text": "坐輪椅要去台北車站",
 "intent": "trip",
 "states": [
-"lessWalk"
+"mobility"
 ]
 },
 {
@@ -823,7 +823,7 @@
 "text": "老人家要去龍山寺",
 "intent": "trip",
 "states": [
-"lessWalk"
+"elder"
 ]
 },
 {
@@ -893,7 +893,8 @@
 "text": "霧霾好重，帶小孩去醫院",
 "intent": "trip",
 "states": [
-"badAir"
+"badAir",
+"kids"
 ]
 },
 {
@@ -1002,6 +1003,175 @@
 ],
 "history": [
 "從士林去松菸"
+]
+},
+{
+"text": "帶我爸媽去車站，他們年紀大了",
+"intent": "trip",
+"states": [
+"elder"
+]
+},
+{
+"text": "阿公要去醫院回診",
+"intent": "trip",
+"states": [
+"elder"
+]
+},
+{
+"text": "陪奶奶去市場",
+"intent": "trip",
+"states": [
+"elder"
+]
+},
+{
+"text": "跟爺爺一起去龍山寺拜拜",
+"intent": "trip",
+"states": [
+"elder"
+]
+},
+{
+"text": "外婆要去台大醫院，怎麼去比較好",
+"intent": "trip",
+"states": [
+"elder"
+]
+},
+{
+"text": "帶長輩去看展覽",
+"intent": "trip",
+"states": [
+"elder"
+]
+},
+{
+"text": "我媽七十幾歲了，要去中正紀念堂",
+"intent": "trip",
+"states": [
+"elder"
+]
+},
+{
+"text": "帶老人家去士林夜市",
+"intent": "trip",
+"states": [
+"elder"
+]
+},
+{
+"text": "帶小孩去動物園",
+"intent": "trip",
+"states": [
+"kids"
+]
+},
+{
+"text": "推嬰兒車去大安森林公園",
+"intent": "trip",
+"states": [
+"kids"
+]
+},
+{
+"text": "帶兩個小朋友去兒童新樂園",
+"intent": "trip",
+"states": [
+"kids"
+]
+},
+{
+"text": "寶寶還小，要去醫院打預防針",
+"intent": "trip",
+"states": [
+"kids"
+]
+},
+{
+"text": "帶孩子去科教館",
+"intent": "trip",
+"states": [
+"kids"
+]
+},
+{
+"text": "推著娃娃車要去百貨公司",
+"intent": "trip",
+"states": [
+"kids"
+]
+},
+{
+"text": "跟小孩一起去圖書館",
+"intent": "trip",
+"states": [
+"kids"
+]
+},
+{
+"text": "嬰兒推車可以搭公車嗎，要去西門町",
+"intent": "trip",
+"states": [
+"kids"
+]
+},
+{
+"text": "我坐輪椅，要去台北101",
+"intent": "trip",
+"states": [
+"mobility"
+]
+},
+{
+"text": "拄拐杖要去復健",
+"intent": "trip",
+"states": [
+"mobility"
+]
+},
+{
+"text": "腳骨折了，要去醫院換藥",
+"intent": "trip",
+"states": [
+"mobility"
+]
+},
+{
+"text": "身障人士怎麼去松山機場",
+"intent": "trip",
+"states": [
+"mobility"
+]
+},
+{
+"text": "我行動不便，想去國父紀念館",
+"intent": "trip",
+"states": [
+"mobility"
+]
+},
+{
+"text": "推輪椅帶爸爸去看醫生",
+"intent": "trip",
+"states": [
+"mobility",
+"elder"
+]
+},
+{
+"text": "腳受傷走不太動，要去公司",
+"intent": "trip",
+"states": [
+"mobility"
+]
+},
+{
+"text": "坐輪椅可以搭捷運去淡水嗎",
+"intent": "trip",
+"states": [
+"mobility"
 ]
 }
 ]

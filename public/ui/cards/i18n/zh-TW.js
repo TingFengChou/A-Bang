@@ -133,6 +133,9 @@ export const MESSAGES = {
   'trip.stateKey.luggage': '帶行李',
   'trip.stateKey.budget': '想省錢',
   'trip.stateKey.lessWalk': '少走路',
+  'trip.stateKey.elder': '帶長輩',
+  'trip.stateKey.kids': '帶小孩',
+  'trip.stateKey.mobility': '行動不便',
   'trip.ridehail': '叫車',
   'trip.remind': '{time} 提醒我出門',
   'trip.reminded': '好，{time} 提醒你出門',
@@ -150,7 +153,7 @@ export const MESSAGES = {
   'trip.leg.ridehail': '叫車',
   'trip.none': '這段路找不到可行的交通方式',
   'trip.allLate': '所有方式都趕不上指定時間，可以提早出發或放寬抵達時間',
-  'trip.allAvoided': '排除你說不要的方式後，沒有其他可行的方案；可以說「還是叫車好了」這類的話改回來',
+  'trip.allAvoided': '排除不適合或你說不要的方式後，沒有其他可行的方案；可以說「還是叫車好了」這類的話改回來',
 
   // ── scam-risk（防詐，M7-04；L2：不說「安全」） ──
   'scam.title': '可疑訊息檢查',

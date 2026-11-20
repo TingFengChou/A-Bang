@@ -2,6 +2,7 @@
 // 產生「分段的工具呼叫計畫」；由 run.js 執行並發出與 Claude 模式相同的事件流。不加人工延遲。
 import { LANDMARKS, normPlace } from '../services/places.js';
 import { NEXT_STEP } from '../tools/trip.js';
+import { outingSay } from './outing.js';
 import { nowTW } from '../util.js';
 
 // ── 使用者狀態關鍵字（AGENT.md §5） ──
@@ -9,7 +10,10 @@ const STATE_WORDS = [
   ['rush', /趕|來不及|快一點|最快/],
   ['luggage', /行李|大包小包/],
   ['budget', /省錢|便宜|最省/],
-  ['lessWalk', /不想走|少走|長輩|老人家|腳痛|輕鬆/],
+  ['lessWalk', /不想走|少走|腳痛|輕鬆/],
+  ['elder', /長輩|老人家|阿公|阿嬤|爺爺|奶奶|外公|外婆|年紀大/],
+  ['kids', /小孩|小朋友|帶(?:著)?孩子|嬰兒|寶寶|娃娃車/],
+  ['mobility', /輪椅|行動不便|拐杖|身障|腳受傷|骨折/],
   ['rain', /下雨|雨天|雨很大/],
   ['badAir', /空氣(很|好|有點|太)?(差|髒|不好)/],
 ];
@@ -25,6 +29,8 @@ const LIFE_WORDS = [
   ['garbage', /垃圾車|倒垃圾|收垃圾/],
   ['aqi', /空氣品質|空品|空氣(?:好|差|不好|怎樣|如何)|AQI|PM\s*2\.?5|空汙|空污|霧霾|要不要戴口罩/i],
 ];
+/** 出門建議的問法 */
+const OUTING = /出門.{0,10}(?:注意|要帶|帶什麼|穿什麼|怎麼穿|帶傘|適合)|適合出門|(?:今天|等一下|待會).{0,6}(?:注意什麼|要帶什麼|穿什麼)|要穿什麼|穿什麼出門/;
 const WEATHER_WORD = /天氣|氣溫|溫度|幾度|下雨|帶傘|雨傘|會冷|會熱|颱風|出太陽/;
 // 使用者指定交通方式（「坐公車去」「改叫車」）：plan_trip prefs.mode；「不要叫車」的叫車不算
 const MODE_WORDS = [['bus', /公車|巴士/], ['bike', /youbike|ubike|單車|腳踏車/i], ['walk', /走路|步行|走過去/], ['ridehail', /叫車|計程車|小黃|uber|汽車|開車/i],
@@ -266,6 +272,9 @@ export function parseIntent(text, ctx) {
   // 問捷運下一班但沒說站（「板南線下一班幾分」「捷運還要等多久」）→ 用現在位置最近的站（needsLocation）
   // 句子裡有地標（「台北車站捷運下一班」）→ 找那裡最近的站（near），不用現在位置
   if ((/捷運|MRT/i.test(s) || METRO_LINE.test(s)) && METRO_ASK.test(s) && !/站/.test(s.replace(/車站/g, ''))) return { ...base, intent: 'metro', station: null, line: METRO_LINE.exec(s)?.[0] || null, ...(places[0] && { near: places[0] }) };
+  // 出門建議（S13）：天氣＋空品一起看（「今天出門要注意什麼」「出門要帶傘嗎」「要穿什麼」）
+  // 問明天的是天氣預報（現在的天氣答不了），交給天氣意圖
+  if (OUTING.test(s) && !tomorrow) return { ...base, intent: 'outing' };
   const life = lifeIntent(s);
   if (life) return { ...base, ...life };
   const route = BUS_ROUTE.exec(s)?.[1];
@@ -273,7 +282,7 @@ export function parseIntent(text, ctx) {
   if (/youbike|ubike|微笑單車|單車|腳踏車/i.test(s) && !(places.length && /去|到|往/.test(s))) return { ...base, intent: 'youbike' }; // 「騎 YouBike 去 X」是行程
   if (/附近/.test(s) && /公車|站牌/.test(s)) return { ...base, intent: 'nearby_bus' };
   // 行程：只說目的地（「去台北101」「想省錢，去松山機場」，甚至只打地名）→ 起點用現在位置（needsLocation）
-  if (places.length && (/從.+(到|去)|出發\s*(?:去|到|往)|怎麼去|怎麼走|要到|前到|想去|要去|帶我去|去.+怎麼|(?:^|[，,、\s])(?:去|到|往)\s*\S|(?:坐|搭|騎|用|開車|走路).{0,8}(?:去|到|往)/.test(s) || onlyPlace(s, places))) {
+  if (places.length && (/從.+(到|去)|出發\s*(?:去|到|往)|怎麼去|怎麼走|要到|前到|想去|要去|帶我去|去.+怎麼|(?:^|[，,、\s])(?:去|到|往)\s*\S|(?:坐|搭|騎|用|開車|走路|推|帶).{0,8}(?:去|到|往)/.test(s) || onlyPlace(s, places))) {
     const [from, to] = places.length >= 2 ? orderFromTo(s, places) : [FROM_TEXT.exec(s)?.[1] ?? null, places[0]]; // 明講的起點優先
     return { ...base, intent: 'trip', from, to, ...(mode && { mode }) };
   }
@@ -337,7 +346,7 @@ const NEARBY = {
 const isNearby = (it) => Object.hasOwn(NEARBY, it.intent);
 
 /** 需要使用者所在位置嗎（行程沒起點；附近類查詢沒地點） */
-export const needsLocation = (it) => (it.intent === 'trip' && !it.from) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]) || (it.intent === 'metro' && !it.station && !it.near);
+export const needsLocation = (it) => (it.intent === 'trip' && !it.from) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]) || (it.intent === 'metro' && !it.station && !it.near) || (it.intent === 'outing' && !it.places[0]);
 
 /**
  * 意圖 → 分段計畫。每段 `(results) => ({ note, calls })`，results 是之前各段的 callTool 結果（依名稱）。
@@ -393,6 +402,15 @@ export function demoSteps(it, now = Date.now()) {
         (r) => (point(r, 0) ? { note, calls: [{ name: tool, args: ll(point(r, 0)) }] } : null),
       ];
     }
+    case 'outing': { // 天氣＋空品一起查（同一個位置；說了地點就查那裡）
+      const at = !it.places[0] && it.fromPoint ? ll(it.fromPoint) : null;
+      const place = it.places[0] || DEFAULT_FROM;
+      if (at) return [() => ({ note: '@天氣 @空品 出門前幫你看一下', calls: [{ name: 'weather_now', args: at }, { name: 'aqi_nearby', args: at }] })];
+      return [
+        () => ({ note: `@地點 找「${place}」的位置`, calls: [{ name: 'find_place', args: { query: place } }] }),
+        (r) => (point(r, 0) ? { note: '@天氣 @空品 出門前幫你看一下', calls: [{ name: 'weather_now', args: ll(point(r, 0)) }, { name: 'aqi_nearby', args: ll(point(r, 0)) }] } : null),
+      ];
+    }
     case 'metro':
       if (!it.station) { // 沒說站：句子裡的地標或現在位置最近的捷運站（拿不到位置就用預設地點）；說了路線只找這條線
         const near = it.near || (it.fromPoint ? ll(it.fromPoint) : DEFAULT_FROM);
@@ -424,7 +442,7 @@ export function demoSteps(it, now = Date.now()) {
 
 const MODE_SAY = { walk: '走路', bike: 'YouBike', bus: '公車', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
 const MODE_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
-const STATE_SAY = { rush: '趕時間', luggage: '帶行李', budget: '想省錢', lessWalk: '少走路', rain: '下雨', badAir: '空氣差', traffic: '塞車' };
+const STATE_SAY = { rush: '趕時間', luggage: '帶行李', budget: '想省錢', lessWalk: '少走路', rain: '下雨', badAir: '空氣差', traffic: '塞車', elder: '帶長輩', kids: '帶小孩', mobility: '行動不便' };
 /**
  * 接著改的那一輪，討論串第一句說清楚沿用什麼、改了什麼（PR #35 設計審查）：「沿用：西門町 → 台北101｜改：不要叫車」
  * @returns {string|null}
@@ -438,6 +456,10 @@ export function contextNote(it) {
 
 /** 示範模式的總結（取自工具結果，不經模型） */
 export function demoSummary(it, results, suggestions = []) {
+  if (it.intent === 'outing') {
+    const pre = it.fromPoint || it.places[0] ? '' : it.noLocation ? `（沒拿到你的位置，先看「${DEFAULT_FROM}」附近。）` : `（你沒說在哪，我先看「${DEFAULT_FROM}」附近。）`;
+    return `${pre}${outingSay({ weather: results.weather_now?.at(-1)?.data, air: results.aqi_nearby?.at(-1)?.data?.nearest, states: it.states })}`;
+  }
   if (it.reset) return '好，重新開始。想去哪裡、想查什麼？沒說起點的話，我用你現在的位置。';
   if (it.intent === 'unknown') return `我可以幫你查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）和生活資訊（天氣、空品、地震、藥局、垃圾車、油價、發票、股市收盤）。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
   const last = Object.values(results).flat().filter(Boolean).at(-1);

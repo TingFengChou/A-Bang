@@ -106,7 +106,7 @@ test('decide avoid：使用者說不要的方式直接排除並說明；全部�
   assert.deepEqual(r.excluded.map((e) => [e.id, e.why]), [['r', '你說不要叫車']]);
   const none = decide(opts, { avoid: ['ridehail', 'bus'] });
   assert.equal(none.best, null);
-  assert.match(none.reason, /排除你說不要的方式後，沒有其他可行的方案/);
+  assert.match(none.reason, /排除不適合或你說不要的方式後，沒有其他可行的方案/);
 });
 
 test('contextNote：接著改的那一輪說沿用什麼、改了什麼；理由不把「不要」說成遲到', async () => {
