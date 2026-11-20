@@ -18,16 +18,38 @@ const STATE_WORDS = [
   ['badAir', /空氣(很|好|有點|太)?(差|髒|不好)/],
 ];
 /** 同行人數（A1b／S6）：「我們 4 個人」「三個人」「一家五口」；1 人或沒說回 null */
+/** 人數的數字：阿拉伯數字或中文（含「十二」「二十」） */
+const PN = '(\\d{1,2}|[一二兩三四五六七八九]?十[一二三四五六七八九]?|[兩二三四五六七八九])';
+/** N 人（「2人座」「三人份」「第3個人」「10人以上」不算） */
+const PARTY_N = new RegExp(`(?<![第前後])${PN}\\s*(?:(?:個|位)?\\s*人(?![行民潮員工家生座份房組以內左])|位(?![置子於數]))`);
+/** 「4位大人2位小孩」「2大1小」「兩大兩小」：大人＋小孩 */
+const PARTY_AK = new RegExp(`${PN}\\s*(?:個|位)?\\s*大(?:人)?\\s*${PN}\\s*(?:個|位)?\\s*小(?:孩|朋友)?`);
+/** 「我們兩個」「我跟我媽兩個」：後面接動作或句尾 */
+const PARTY_US = new RegExp(`(?:我們|[跟和][^\\s，,。]{1,3})\\s*${PN}\\s*個(?=\\s*(?:$|[，,。!！?？]|去|要|一起|到|坐|搭|出發))`);
+/** 自己一個人（清掉前面說的人數） */
+const PARTY_ONE = /只有我(?:一個)?|就我一個|我自己一個|(?<![第前後\d])一個人(?![份座])|\bjust me\b|\balone\b|\bby myself\b/i;
 /** 說人數的字（整句只有地名＋人數也算要去那裡） */
-const PARTY_WORDS = /(?:我們|一共|總共)?(?:\d{1,2}|[兩二三四五六七八九十])\s*(?:(?:個|位)?\s*人(?![行民潮員工家生])|位(?![置子於數]))|一家\s*(?:\d|[二三四五六七八])\s*口|一起/g;
-const ZH_PARTY = { 兩: 2, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
+const PARTY_WORDS = new RegExp(`(?:我們|一共|總共)?(?:${PARTY_AK.source}|${PARTY_N.source}|${PARTY_US.source})|一家\\s*(?:\\d|[二三四五六七八])\\s*口|一起|${PARTY_ONE.source}`, 'g');
 const EN_PARTY = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8 };
+/**
+ * 同行人數（A1b／S6）：「我們 4 個人」「十二個人」「一家五口」「2大1小」「我們兩個」、英文；「只有我一個人」→ 1（清掉前面說的人數）。
+ * @returns {number|null} 1～20；沒說回 null
+ */
 export function partyOf(s) {
-  const m = /(\d{1,2}|[兩二三四五六七八九十])\s*(?:(?:個|位)?\s*人(?![行民潮員工家生])|位(?![置子於數]))/.exec(s) || /一家\s*(\d|[二三四五六七八])\s*口/.exec(s)
-    || /\b(\d{1,2}|two|three|four|five|six|seven|eight)\s+(?:of us|people|persons|adults)\b/i.exec(s) || /\bparty of\s+(\d{1,2}|two|three|four|five|six)\b/i.exec(s);
-  if (!m) return null;
-  const n = Number(m[1]) || ZH_PARTY[m[1]] || EN_PARTY[m[1].toLowerCase()];
-  return n >= 2 && n <= 20 ? n : null;
+  const num = (t) => (/^\d+$/.test(t) ? Number(t) : zhNum(t.replace(/^一十/, '十')));
+  let n = null;
+  const ak = PARTY_AK.exec(s);
+  if (ak) n = num(ak[1]) + num(ak[2]);
+  else {
+    const m = PARTY_N.exec(s) || PARTY_US.exec(s) || /一家\s*(\d|[二三四五六七八])\s*口/.exec(s);
+    if (m) n = num(m[1]);
+    else {
+      const e = /\b(\d{1,2}|two|three|four|five|six|seven|eight)\s+(?:of us|people|persons|adults)\b/i.exec(s) || /\bparty of\s+(\d{1,2}|two|three|four|five|six)\b/i.exec(s);
+      if (e) n = Number(e[1]) || EN_PARTY[e[1].toLowerCase()];
+      else if (PARTY_ONE.test(s)) n = 1;
+    }
+  }
+  return Number.isInteger(n) && n >= 1 && n <= 20 ? n : null;
 }
 const BUS_ROUTE = /(?:^|[^\d])([紅藍綠棕橘小幹]?\d{1,4}[區副]?)(?:\s*(?:號|路)?\s*(?:公車|到哪|來了|還要|什麼時候|幾分))/;
 const RAIL_WORD = /高鐵|台鐵|臺鐵|火車|自強|區間|莒光/;
@@ -528,7 +550,7 @@ const STATE_SAY = { rush: '趕時間', luggage: '帶行李', budget: '想省錢'
  */
 export function contextNote(it) {
   if (!it?.followUp || it.intent !== 'trip' || !it.to || !it.changed?.length) return null;
-  const say = { from: `起點${it.from || '你的位置'}`, to: `目的地${it.to}`, arriveBy: `${it.arriveBy} 前到`, mode: MODE_DO[it.mode] || '換方式', avoid: `不要${(it.avoid || []).map((m) => MODE_SAY[m]).join('、')}`, party: `${it.party} 人`, states: (it.states || []).map((k) => STATE_SAY[k]).filter(Boolean).join('、') };
+  const say = { from: `起點${it.from || '你的位置'}`, to: `目的地${it.to}`, arriveBy: `${it.arriveBy} 前到`, mode: MODE_DO[it.mode] || '換方式', avoid: `不要${(it.avoid || []).map((m) => MODE_SAY[m]).join('、')}`, party: it.party > 1 ? `${it.party} 人` : '自己一個人', states: (it.states || []).map((k) => STATE_SAY[k]).filter(Boolean).join('、') };
   const changed = it.changed.map((k) => say[k]).filter(Boolean).join('、');
   return `沿用：${it.from || '你的位置'} → ${it.to}｜改：${changed}`.slice(0, 60);
 }
@@ -713,7 +735,8 @@ export function demoSummary(it, results, suggestions = []) {
     // 下一步依建議方式（叫車按官方連結、步行導航…；不再一律問「要我幫你開導航嗎」）
     const bestOpt = trip?.data.options.find((o) => o.id === trip.data.best);
     const reason = closed ? trip.data.ranking.reason.replace(/^公車這次沒有可行的方案；/, '') : trip?.data.ranking.reason; // 已說收班，不再重複「公車沒有可行的方案」
-    const tips = trip?.data.tips?.length ? ` ${trip.data.tips.map((x) => `${x}。`).join('')}` : '';
+    const urgent = (trip?.data.tips || []).filter((x) => x.kind !== 'cost'); // 分攤金額在卡片上，泡泡只說要馬上注意的
+    const tips = urgent.length ? ` ${urgent.map((x) => `${x.text}。`).join('')}` : '';
     return trip ? `${pre}${night}${reason}${tips}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
   }
   // 沒說地點時用了示範預設，先講清楚

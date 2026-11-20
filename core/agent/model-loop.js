@@ -51,7 +51,7 @@ export function prefetchCalls(it, j, here) {
   //（地端模型接著改「改坐公車」時常不再查、說「叫車」時直接產生叫車連結，2026-11-21 情境評測）
   // 沒說起點也拿不到位置（拒絕定位）：先從示範預設起點算，並告訴模型要說明（與示範模式一致）
   if (it.intent === 'trip' && (it.to || it.toSaved)) {
-    const prefs = { ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }), ...(it.avoid?.length && { avoid: it.avoid }), ...(it.states?.length && { states: it.states }) };
+    const prefs = { ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }), ...(it.avoid?.length && { avoid: it.avoid }), ...(it.states?.length && { states: it.states }), ...(it.party && { party: it.party }) };
     const from = it.fromSaved || it.from || (at ? { ...at, name: here.name } : DEFAULT_FROM); // 常用地點（家、公司）直接用座標
     return [{ name: 'plan_trip', args: { from, to: it.toSaved || it.to, ...(Object.keys(prefs).length && { prefs }) }, ...(!it.from && !at && { note: NO_LOCATION_NOTE }) }];
   }
@@ -78,7 +78,7 @@ export function callKey(name, args = {}, here = null) {
   if (name === 'plan_trip') {
     // 起點也要比（規則抽到的起點若跟模型的不同，不能沿用；PR #34 審查）
     const pt = (v) => (typeof v === 'string' ? normName(v.replace(/\s/g, '')) : v ? `${(+v.lat).toFixed(3)},${(+v.lon).toFixed(3)}` : '');
-    return `plan_trip|${pt(args.from)}|${pt(args.to)}|${args.prefs?.mode || ''}|${args.prefs?.arriveBy || ''}|${[...(args.prefs?.avoid || [])].sort().join(',')}`;
+    return `plan_trip|${pt(args.from)}|${pt(args.to)}|${args.prefs?.mode || ''}|${args.prefs?.arriveBy || ''}|${[...(args.prefs?.avoid || [])].sort().join(',')}|${args.prefs?.party || ''}`;
   }
   if (name === 'thsr_timetable' || name === 'tra_timetable') { // 時刻表：起訖站＋日期（預先查詢用最近車站時，以實際起站另存一把鑰匙）
     return args.from && args.to ? `${name}|${normName(args.from)}|${normName(args.to)}|${args.date || ''}` : null;
@@ -108,7 +108,7 @@ export function groundedPrefs(prefs = {}, it = {}, j = null) {
 
 /** 行程的座標比對鍵（起訖點座標到小數 3 位＋方式＋抵達時間） */
 export const tripKey = (from, to, prefs = {}) => (Number.isFinite(from?.lat) && Number.isFinite(to?.lat)
-  ? `plan_trip@${from.lat.toFixed(3)},${from.lon.toFixed(3)}>${to.lat.toFixed(3)},${to.lon.toFixed(3)}|${prefs?.mode || ''}|${prefs?.arriveBy || ''}|${[...(prefs?.avoid || [])].sort().join(',')}` : null);
+  ? `plan_trip@${from.lat.toFixed(3)},${from.lon.toFixed(3)}>${to.lat.toFixed(3)},${to.lon.toFixed(3)}|${prefs?.mode || ''}|${prefs?.arriveBy || ''}|${[...(prefs?.avoid || [])].sort().join(',')}|${prefs?.party || ''}` : null);
 
 /** 選公車後自動盯的到站結果，接在 plan_trip 結果後面給模型（卡片已顯示；請模型主動問要不要到站提醒） */
 export const followUpText = (f, walkMin) => (f ? `\n［內部備註，不要照抄這段文字］上車站即時到站已查好：${f.speak}${walkMin != null ? `從起點走到這個上車站約 ${walkMin} 分（不是全程步行時間）。` : ''}已用公車卡片即時顯示；回答時用自己的話說公車多久到上車站；若走到站牌的時間比車到還久，說這班可能趕不上；並問使用者要不要在卡片上按「到站前 3 分提醒我」。` : '');

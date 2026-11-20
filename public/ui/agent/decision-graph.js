@@ -13,7 +13,7 @@ const SVG = 'http://www.w3.org/2000/svg';
 const STATE_LABEL = { rush: '趕時間', traffic: '塞車中', rain: '下雨', luggage: '帶行李', budget: '想省錢', lessWalk: '少走路', badAir: '空品不佳', elder: '帶長輩', kids: '帶小孩', mobility: '行動不便', group: '多人同行', rainSoon: '可能下雨' };
 const SOURCE_LABEL = { auto: '自動', user: '你說的', picked: '你選的' };
 /** 自動狀態連回產生它的工具（UX.md §5 CRIT_SRC） */
-const STATE_SOURCE = { rain: '天氣', traffic: '路況', badAir: '空品' };
+const STATE_SOURCE = { rain: '天氣', rainSoon: '天氣', traffic: '路況', badAir: '空品' };
 const ADDABLE = ['rush', 'budget', 'lessWalk', 'luggage'];
 /** 方案名稱縮短，分數一定看得到（「叫車（Uber）」→「叫車」） */
 const short = (n) => { const x = String(n).replace(/（.*?）|\(.*?\)/g, ''); return x.length > 6 ? `${x.slice(0, 5)}…` : x; };
@@ -209,7 +209,11 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       b.type = 'button';
       b.setAttribute('aria-pressed', String(s.on));
       if (s.detail) b.title = s.detail;
-      b.onclick = () => { states = states.map((x) => (x.key === s.key ? { ...x, on: !x.on } : x)); draw(); };
+      if (s.key === 'group') { // 叫車已換成每人分攤，關掉也還原不了：固定顯示，要改人數就跟阿幫說
+        b.disabled = true;
+        b.title = `${s.detail || ''}（要改人數，跟阿幫說「我們 N 個人」）`;
+        b.textContent = `${SOURCE_LABEL[s.source]}：${STATE_LABEL[s.key]}${s.detail ? `・${s.detail}` : ''}`;
+      } else b.onclick = () => { states = states.map((x) => (x.key === s.key ? { ...x, on: !x.on } : x)); draw(); };
       bar.append(b);
     }
     for (const k of ADDABLE.filter((k) => !states.some((s) => s.key === k))) {

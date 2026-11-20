@@ -105,7 +105,9 @@
 .ab-reason { background: var(--ab-brand-soft); border-radius: 10px; padding: 8px 10px; margin: 6px 0; }
 .ab-tips { list-style: none; margin: 4px 0 6px; padding: 0; display: grid; gap: 4px; }
 .ab-tips li { position: relative; padding-left: 18px; font-size: 14px; }
-.ab-tips li::before { content: '•'; position: absolute; left: 6px; color: var(--ab-brand); font-weight: 700; }
+.ab-tips li::before { content: '•' / ''; position: absolute; left: 6px; color: var(--ab-brand); font-weight: 700; }
+.ab-tips.warn li { background: var(--ab-warn-soft); color: var(--ab-warn); border-radius: 8px; padding: 6px 10px 6px 22px; font-weight: 600; }
+.ab-tips.warn li::before { content: '!' / ''; left: 9px; color: var(--ab-warn); }
 .ab-alts h4, .ab-excluded h4 { font-size: 14px; margin: 10px 0 2px; color: var(--ab-muted); }
 /* 動態（M4-07）：倒數數字變化輕微提示；公車所在站的車牌標記 */
 .ab-tick { animation: ab-tick .6s ease-out; }

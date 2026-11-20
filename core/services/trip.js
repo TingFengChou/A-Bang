@@ -354,11 +354,14 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   ]);
   const air = aqi?.nearest;
   const party = Number.isInteger(prefs.party) && prefs.party >= 2 ? prefs.party : null;
+  // 可能下雨：現在沒下、3 小時降雨機率 60～69%（≥ 70% 依 weather.js RAIN_POP 已算「下雨」狀態）
   const rainSoon = !weather?.raining && weather?.pop3h >= RAIN_SOON_POP;
+  // 帶傘提醒：雨量站沒量到雨、但降雨機率 ≥ 60%（含已算「下雨」的 ≥ 70%）
+  const umbrella = weather?.pop3h >= RAIN_SOON_POP && !(weather?.rainMm1h > 0);
   const autoStates = [
     ...(weather?.raining ? [{ key: 'rain', source: 'auto', from: 'weather_now', detail: weather.summary }] : []),
     ...(rainSoon ? [{ key: 'rainSoon', source: 'auto', from: 'weather_now', detail: `3 小時內降雨機率 ${weather.pop3h}%` }] : []),
-    ...(party ? [{ key: 'group', source: 'auto', from: 'prefs', detail: `${party} 人` }] : []),
+
     ...(air?.aqi > BAD_AIR_AQI ? [{ key: 'badAir', source: 'auto', from: 'aqi_nearby', detail: `${air.site}測站 AQI ${air.aqi}（${air.status}）` }] : []),
     ...(traffic?.level === 'jam' ? [{ key: 'traffic', source: 'auto', from: 'traffic_status', detail: `沿途國道塞車，多 ${traffic.delayMin} 分` }] : []),
   ];
@@ -389,15 +392,19 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   // 狀態（CARDS.md trip）：自動判斷在前，使用者說的（source: 'user'）在後，同一個 key 只留一筆
   const states = [...autoStates];
   for (const k of prefs.states || []) if (STATES[k] && !states.some((s) => s.key === k)) states.push({ key: k, source: 'user' });
+  if (party) states.push({ key: 'group', source: 'user', detail: `${party} 人` }); // 人數是使用者說的（決策圖不能關：車資已是每人）
   const r = decide(options, { states: states.map((s) => s.key), arriveBy: prefs.arriveBy, arriveByMin, mode: prefs.mode, avoid: prefs.avoid });
-  // 提醒（卡片與總結照列；數字都來自上面的資料）：多人分攤、可能下雨帶傘、時間很緊
+  // 提醒（卡片與總結照列；數字都來自上面的資料）：kind＝tight 時間很緊、rain 帶傘（醒目、總結也說）、cost 多人分攤（卡片上）
   const bestOpt = options.find((o) => o.id === r.best?.id);
   const slack = arriveByMin != null && bestOpt ? arriveByMin - bestOpt.arriveMin : null;
+  const tight = slack != null && slack >= 0 && slack < TIGHT_MIN;
   const ride = options.find((o) => o.role === 'ridehail');
+  // 卡片上看得到叫車（建議或備案）、使用者也沒指定別的方式，才說分攤（「不要叫車」已被排除，不在 ranked）
+  const rideShown = ride && r.ranked.slice(0, 3).some((o) => o.id === ride.id) && (!prefs.mode || prefs.mode === 'ridehail');
   const tips = [
-    ...(party && ride?.share ? [`${party} 人叫車${ride.share.cars > 1 ? `要 ${ride.share.cars} 輛車，` : ''}每人約 ${ride.cost} 元（全部約 ${ride.share.total} 元）`] : []),
-    ...(rainSoon ? [`3 小時內降雨機率 ${weather.pop3h}%，記得帶傘`] : []),
-    ...(slack != null && slack >= 0 && slack < TIGHT_MIN ? [`時間很緊：預計 ${bestOpt.arriveAt} 到，只比 ${prefs.arriveBy} 早 ${slack} 分，建議現在就出發`] : []),
+    ...(tight ? [{ kind: 'tight', text: `時間很緊：預計 ${bestOpt.arriveAt} 抵達，比 ${prefs.arriveBy} 早到 ${slack} 分鐘，建議現在就出發` }] : []),
+    ...(umbrella ? [{ kind: 'rain', text: `3 小時內降雨機率 ${weather.pop3h}%，記得帶傘` }] : []),
+    ...(party && ride?.share && rideShown ? [{ kind: 'cost', text: `${party} 人叫車${ride.share.cars > 1 ? `要 ${ride.share.cars} 輛車，` : ''}共約 ${ride.share.total} 元，每人分攤約 ${ride.cost} 元` }] : []),
   ];
   return {
     from: pt(from), to: pt(to), straightKm: +(straight / 1000).toFixed(1),
@@ -419,7 +426,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     ...(unavailable.length && { unavailable }),
     ...(skipped.length && { skipped }),
     ...(party && { party }),
-    ...(slack != null && slack >= 0 && slack < TIGHT_MIN && { tight: { slackMin: slack } }),
+    ...(tight && { tight: { slackMin: slack } }),
     ...(tips.length && { tips }),
   };
 }

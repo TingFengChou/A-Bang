@@ -1,6 +1,6 @@
 // 情境對話的期望檢查（test/scenarios.test.js 示範模式、scripts/eval-scenarios.js 模型模式共用）
 // 期望欄位：tools／toolsNot／toolsNone、states／statesNot、bestRole／bestRoleNot、arriveBy（null＝不該有）、
-// fromHere、from／to／fromNot（地名，台／臺相同）、optionHas（{ role: 名稱要含的字 }）、textHas／textNot、resultHas。一律檢查：決策最多一次、沒有錯誤、回答不露出工具英文名稱。
+// fromHere、from／to／fromNot（地名，台／臺相同）、optionHas（{ role: 名稱要含的字 }）、textHas／textNot、resultHas、tipHas（行程卡提醒）。一律檢查：決策最多一次、沒有錯誤、回答不露出工具英文名稱。
 const norm = (s) => String(s ?? '').replace(/臺/g, '台').replace(/\s/g, '');
 const TOOL_NAME = /\b[a-z]+(?:_[a-z0-9]+)+\b/;
 
@@ -29,6 +29,7 @@ export function check(es, x = {}) {
   for (const w of x.textNot || []) if (text.includes(w)) bad.push(`總結不該有「${w}」`);
   const said = es.filter((e) => e.type === 'tool_result').map((e) => e.speak || '').join('');
   for (const w of x.resultHas || []) if (!said.includes(w)) bad.push(`工具回報缺「${w}」`);
+  for (const w of x.tipHas || []) if (!(trip?.data?.tips || []).some((t) => t.text.includes(w))) bad.push(`行程提醒缺「${w}」`);
   for (const [role, word] of Object.entries(x.optionHas || {})) { const o = d?.options.find((y) => y.role === role); if (!o) bad.push(`沒有 ${role} 方案`); else if (word && !o.name.includes(word)) bad.push(`${role} 方案名稱缺「${word}」（${o.name}）`); }
   if (decisions.length > 1) bad.push(`決策出現 ${decisions.length} 次（重複的行程卡）`);
   if (TOOL_NAME.test(text.replace(/https?:\/\/\S+/g, ''))) bad.push(`回答露出工具名稱（${TOOL_NAME.exec(text)[0]}）`);

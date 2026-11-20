@@ -73,7 +73,10 @@ function legsBar(o, t) {
 
 function optionBlock(o, ctx, best) {
   const { host, t } = ctx;
-  const cost = o.costRange ? t('common.priceRange', { low: o.costRange[0], high: o.costRange[1] }) : t('common.price', { n: o.cost });
+  const range = o.costRange || [o.cost, o.cost];
+  const cost = o.share // 多人叫車：每人分攤（多輛車寫出車數）
+    ? `${t('common.pricePerPerson', { low: range[0], high: range[1] })}${o.share.cars > 1 ? t('trip.cars', { n: o.share.cars }) : ''}`
+    : o.costRange ? t('common.priceRange', { low: o.costRange[0], high: o.costRange[1] }) : t('common.price', { n: o.cost });
   const ride = o.role === 'ridehail' && o.legs[0]?.url;
   // 備案：「改成這個」＝跟阿幫說改成它（沿用起訖點重算；公車會自動盯到站）
   const pick = !best && host?.ask && h('button', { type: 'button', class: 'ab-btn ab-pick', onclick: () => host.ask(t('trip.pickAsk', { name: o.name })) }, t('trip.pickAsk', { name: o.name })); // 審查：要像按鈕、≥ 44px、寫出方案名
@@ -106,14 +109,17 @@ export default {
     const { t, state } = ctx;
     const byId = new Map(d.options.map((o) => [o.id, o]));
     const best = byId.get(d.best);
+    const warnTips = (d.tips || []).filter((x) => x.kind !== 'cost'); // 時間很緊、帶傘：放在建議方案上面
+    const costTips = (d.tips || []).filter((x) => x.kind === 'cost');
     const alts = d.ranking.ranked.filter((r) => r.id !== d.best).slice(0, MAX_ALT).map((r) => byId.get(r.id)).filter(Boolean);
     return h('div', { class: 'ab-body' },
       d.states?.length > 0 && h('div', { class: 'ab-chips', 'aria-label': t('trip.states') }, d.states.map((s) => h('span', { class: 'ab-chip', title: s.detail || '' },
         `${t(`trip.stateKey.${s.key}`)}・${t(`trip.state.${s.source}`)}`))),
       state.err && h('p', { class: 'ab-fail', role: 'alert' }, state.err),
+      warnTips.length > 0 && h('ul', { class: 'ab-tips warn', 'aria-label': t('trip.tips') }, warnTips.map((x) => h('li', {}, x.text))),
       best ? optionBlock(best, ctx, true) : h('p', { class: 'ab-empty' }, t(!d.ranking.excluded.length ? 'trip.none' : d.ranking.excluded.every((e) => !String(e.why).includes('超過')) ? 'trip.allAvoided' : 'trip.allLate')),
       d.ranking.reason && h('p', { class: 'ab-reason' }, d.ranking.reason),
-      d.tips?.length > 0 && h('ul', { class: 'ab-tips', 'aria-label': t('trip.tips') }, d.tips.map((x) => h('li', {}, x))),
+      costTips.length > 0 && h('ul', { class: 'ab-tips', 'aria-label': t('trip.costTips') }, costTips.map((x) => h('li', {}, x.text))),
       alts.length > 0 && h('div', { class: 'ab-alts' }, h('h4', {}, t('trip.alternatives')), alts.map((o) => optionBlock(o, ctx, false))),
       d.skipped?.length > 0 && h('ul', { class: 'ab-skipped' }, d.skipped.map((s) => h('li', {}, token(s.role, { size: 'xs' }), t('trip.skipped', { name: { bike: 'YouBike', bus: '公車', metro: '捷運', walk: '步行', ridehail: '叫車' }[s.role] || s.role, why: s.why })))),
       d.ranking.excluded.length > 0 && h('div', { class: 'ab-excluded' }, h('h4', {}, t('trip.excluded')),

@@ -256,7 +256,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 4. 軌道：直線 > 30 km 時查最近高鐵／台鐵站與班次、票價（`rail_fare`）。`delayRisk 0`。
 5. 國道客運：`intercity_bus`；`delayRisk` 依路況。
 6. 叫車：距離與路況估算時間與價格區間（`estimated: true`）；附 `ridehail_link`。
-6.5 第二批狀態（2026-11-21，A1b／S6）：`prefs.party`（同行人數 1～20，「我們 4 個人」）→ 叫車改用每人分攤比較（`TAXI_SEATS` 4 人一輛，超過叫多輛；`cost`／`costRange` 為每人，`share: { party, cars, total }`），自動狀態 `group`（多人同行）。起點天氣現在沒下雨、3 小時降雨機率 ≥ 60% → 自動狀態 `rainSoon`（可能下雨，`exposure` ×2）。指定 `arriveBy` 且最佳方案只早到 10 分內 → `tight: { slackMin }`。輸出 `tips[]`（多人分攤、帶傘、時間很緊；數字都來自上面的資料），工具文字以「提醒：…」給模型。模型模式的 `party` 只採規則從使用者的話抽到的（`groundedPrefs`）。
+6.5 第二批狀態（2026-11-21，A1b／S6）：`prefs.party`（同行人數 1～20，「我們 4 個人」）→ 叫車改用每人分攤比較（`TAXI_SEATS` 4 人一輛，超過叫多輛；`cost`／`costRange` 為每人，`share: { party, cars, total }`），自動狀態 `group`（多人同行）。起點天氣現在沒下雨、3 小時降雨機率 ≥ 60% → 自動狀態 `rainSoon`（可能下雨，`exposure` ×2）。指定 `arriveBy` 且最佳方案只早到 10 分內 → `tight: { slackMin }`。輸出 `tips[]`：`{ kind: 'tight'|'rain'|'cost', text }`（時間很緊、帶傘＝降雨機率 ≥ 60% 且雨量站沒量到雨、多人分攤＝叫車在卡片上看得到且沒指定別的方式；數字都來自上面的資料），工具文字以「提醒：…」給模型。`group` 的 `source` 是 `user`（人數是使用者說的）；`group`、`rainSoon`、`traffic` 不能由 `prefs.states` 直接指定。模型模式的 `party` 只採規則從使用者的話抽到的（`groundedPrefs`），預先查詢與比對鍵都含人數。人數 1（「只有我一個人」）清掉前面說的人數。
 
 6.4 捷運（2026-11-21，S7）：起訖點各自 1.2 公里內有捷運站（同一系統）就列「捷運」方案：同一條線直達，不同線估轉乘一次（＋5 分、名稱「捷運（板南線轉文湖線）」）；時間＝兩站直線距離約每公里 2 分＋進出站，票價依距離估（20～65 元），都標 `estimated`。真實路網與轉乘站待 TDX `Metro/S2STravelTime`、`Metro/ODFare`。`prefs.mode`／`avoid` 可用 `metro`。
 6.5 深夜（2026-11-21，S10）：出發時間 00:00～05:00 公車不列入（`skipped` 寫原因、建議叫車），23:00 後公車方案帶 `lastBus: true` 與提醒。
