@@ -321,10 +321,26 @@ async function ridehailOption(svc, from, to, straight, traffic) {
 
 /** AQI 超過這個值（對敏感族群不健康以上）就加「空品不佳」狀態 */
 export const BAD_AIR_AQI = 100;
+/** 現在沒下雨、3 小時內降雨機率到這個值就加「可能下雨」狀態並提醒帶傘 */
+export const RAIN_SOON_POP = 60;
+/** 指定抵達時間時，最佳方案只早到這幾分鐘以內＝時間很緊 */
+export const TIGHT_MIN = 10;
+/** 計程車一輛最多坐幾人（超過要叫多輛） */
+export const TAXI_SEATS = 4;
+/** 多人叫車：車資換成每人分攤（cost、costRange 都是每人；share 留總額與車數） */
+export function shareRide(o, party) {
+  const cars = Math.ceil(party / TAXI_SEATS);
+  const per = (n) => Math.round((n * cars) / party / 5) * 5;
+  return {
+    ...o, cost: per(o.cost), ...(o.costRange && { costRange: o.costRange.map(per) }),
+    share: { party, cars, total: o.cost * cars },
+    notes: [...(o.notes || []), `${party} 人${cars > 1 ? `、${cars} 輛車` : ''}分攤，每人約 ${per(o.cost)} 元`],
+  };
+}
 /**
  * 規劃 A → B。
  * @param {object} svc createServices() 的結果
- * @param {{ from: { name, lat, lon }, to: { name, lat, lon }, departAt?: string, prefs?: { states?: string[], arriveBy?: string }, now?: number }} p
+ * @param {{ from: { name, lat, lon }, to: { name, lat, lon }, departAt?: string, prefs?: { states?: string[], arriveBy?: string, party?: number }, now?: number }} p
  */
 export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date.now() }) {
   const depart = departOf(departAt, now);
@@ -337,8 +353,12 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     svc.life?.aqiNearby({ lat: from.lat, lon: from.lon }).catch(() => null),
   ]);
   const air = aqi?.nearest;
+  const party = Number.isInteger(prefs.party) && prefs.party >= 2 ? prefs.party : null;
+  const rainSoon = !weather?.raining && weather?.pop3h >= RAIN_SOON_POP;
   const autoStates = [
     ...(weather?.raining ? [{ key: 'rain', source: 'auto', from: 'weather_now', detail: weather.summary }] : []),
+    ...(rainSoon ? [{ key: 'rainSoon', source: 'auto', from: 'weather_now', detail: `3 小時內降雨機率 ${weather.pop3h}%` }] : []),
+    ...(party ? [{ key: 'group', source: 'auto', from: 'prefs', detail: `${party} 人` }] : []),
     ...(air?.aqi > BAD_AIR_AQI ? [{ key: 'badAir', source: 'auto', from: 'aqi_nearby', detail: `${air.site}測站 AQI ${air.aqi}（${air.status}）` }] : []),
     ...(traffic?.level === 'jam' ? [{ key: 'traffic', source: 'auto', from: 'traffic_status', detail: `沿途國道塞車，多 ${traffic.delayMin} 分` }] : []),
   ];
@@ -362,6 +382,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   // arriveMin：班次制方案以實際班次計算（已帶入），其餘＝出發＋總時間
   const skipped = results.filter((o) => o && o !== FAILED && o.skip).map((o) => o.skip); // 查了但不可行（例：目的地沒空位可還）
   const options = results.filter((o) => o && o !== FAILED && !o.skip).map((o) => { const am = o.arriveMin ?? depart.minute + o.minutes; return { ...o, arriveAt: toHHMM(am), arriveMin: am }; });
+  if (party) for (const [i, o] of options.entries()) if (o.role === 'ridehail') options[i] = shareRide(o, party); // 多人：叫車用每人分攤比較（其他方式本來就是每人）
   // arriveBy 早於出發時間 → 視為隔天（例：23:00 出發、01:00 前到）
   const arriveByMin = prefs.arriveBy ? toMin(prefs.arriveBy) + (toMin(prefs.arriveBy) < depart.minute ? 24 * 60 : 0) : undefined;
 
@@ -369,6 +390,15 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   const states = [...autoStates];
   for (const k of prefs.states || []) if (STATES[k] && !states.some((s) => s.key === k)) states.push({ key: k, source: 'user' });
   const r = decide(options, { states: states.map((s) => s.key), arriveBy: prefs.arriveBy, arriveByMin, mode: prefs.mode, avoid: prefs.avoid });
+  // 提醒（卡片與總結照列；數字都來自上面的資料）：多人分攤、可能下雨帶傘、時間很緊
+  const bestOpt = options.find((o) => o.id === r.best?.id);
+  const slack = arriveByMin != null && bestOpt ? arriveByMin - bestOpt.arriveMin : null;
+  const ride = options.find((o) => o.role === 'ridehail');
+  const tips = [
+    ...(party && ride?.share ? [`${party} 人叫車${ride.share.cars > 1 ? `要 ${ride.share.cars} 輛車，` : ''}每人約 ${ride.cost} 元（全部約 ${ride.share.total} 元）`] : []),
+    ...(rainSoon ? [`3 小時內降雨機率 ${weather.pop3h}%，記得帶傘`] : []),
+    ...(slack != null && slack >= 0 && slack < TIGHT_MIN ? [`時間很緊：預計 ${bestOpt.arriveAt} 到，只比 ${prefs.arriveBy} 早 ${slack} 分，建議現在就出發`] : []),
+  ];
   return {
     from: pt(from), to: pt(to), straightKm: +(straight / 1000).toFixed(1),
     date: depart.date, departAt: toHHMM(depart.minute),
@@ -388,5 +418,8 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     },
     ...(unavailable.length && { unavailable }),
     ...(skipped.length && { skipped }),
+    ...(party && { party }),
+    ...(slack != null && slack >= 0 && slack < TIGHT_MIN && { tight: { slackMin: slack } }),
+    ...(tips.length && { tips }),
   };
 }

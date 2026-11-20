@@ -101,9 +101,9 @@ export function callKey(name, args = {}, here = null) {
  * 狀態也只採判斷層或規則的（沒有判斷層時模型自加的狀態也丟掉；有判斷層時 execTools 另以 judgedStates 為準）。
  */
 export function groundedPrefs(prefs = {}, it = {}, j = null) {
-  const { arriveBy: _arriveBy, mode: _mode, states: _states, avoid: _avoid, ...rest } = prefs;
-  const said = { arriveBy: it.arriveBy || null, mode: it.mode || j?.mode || null, states: j?.states || it.states || [], avoid: it.avoid || [] };
-  return { ...rest, ...(said.arriveBy && { arriveBy: said.arriveBy }), ...(said.mode && { mode: said.mode }), ...(said.avoid.length && { avoid: said.avoid }), ...(said.states.length && { states: said.states }) };
+  const { arriveBy: _arriveBy, mode: _mode, states: _states, avoid: _avoid, party: _party, ...rest } = prefs;
+  const said = { arriveBy: it.arriveBy || null, mode: it.mode || j?.mode || null, states: j?.states || it.states || [], avoid: it.avoid || [], party: it.party || null };
+  return { ...rest, ...(said.arriveBy && { arriveBy: said.arriveBy }), ...(said.mode && { mode: said.mode }), ...(said.avoid.length && { avoid: said.avoid }), ...(said.states.length && { states: said.states }), ...(said.party && { party: said.party }) };
 }
 
 /** 行程的座標比對鍵（起訖點座標到小數 3 位＋方式＋抵達時間） */

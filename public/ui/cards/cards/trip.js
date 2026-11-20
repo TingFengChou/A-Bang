@@ -113,6 +113,7 @@ export default {
       state.err && h('p', { class: 'ab-fail', role: 'alert' }, state.err),
       best ? optionBlock(best, ctx, true) : h('p', { class: 'ab-empty' }, t(!d.ranking.excluded.length ? 'trip.none' : d.ranking.excluded.every((e) => !String(e.why).includes('超過')) ? 'trip.allAvoided' : 'trip.allLate')),
       d.ranking.reason && h('p', { class: 'ab-reason' }, d.ranking.reason),
+      d.tips?.length > 0 && h('ul', { class: 'ab-tips', 'aria-label': t('trip.tips') }, d.tips.map((x) => h('li', {}, x))),
       alts.length > 0 && h('div', { class: 'ab-alts' }, h('h4', {}, t('trip.alternatives')), alts.map((o) => optionBlock(o, ctx, false))),
       d.skipped?.length > 0 && h('ul', { class: 'ab-skipped' }, d.skipped.map((s) => h('li', {}, token(s.role, { size: 'xs' }), t('trip.skipped', { name: { bike: 'YouBike', bus: '公車', metro: '捷運', walk: '步行', ridehail: '叫車' }[s.role] || s.role, why: s.why })))),
       d.ranking.excluded.length > 0 && h('div', { class: 'ab-excluded' }, h('h4', {}, t('trip.excluded')),

@@ -117,6 +117,8 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 // options[].lastBus：接近末班（示範 23:00 後）；skipped[]：沒列入的方式與原因（深夜收班、末班已過、YouBike 沒車位…）
 ```
 
+新增（A1b，2026-11-21）：`states[].key` 加 `group`（多人同行）、`rainSoon`（可能下雨）；選填 `party`、`tips[]`（理由下方的提醒列，最多 5 條）、`tight: { slackMin }`；多人時叫車方案的 `cost`／`costRange` 是每人分攤、`share` 有總額與車數。
+
 呈現：建議方案＋分段時間條＋備案（最多 2）＋行動（導航、提醒、叫車、訂票）。決策圖由網頁 agent 的 `decision` 事件另外呈現；在 MCP Apps 中，`trip` 卡片以精簡版（排名條＋理由句＋狀態 chips 可切換）呈現。
 
 ### `scam-risk`（`scam_check_message`，M7）

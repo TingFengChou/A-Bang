@@ -10,6 +10,9 @@
     "straightKm": { "type": "number" },
     "date": { "type": "string" },
     "departAt": { "type": "string" },
+    "party": { "type": "integer", "minimum": 2 },
+    "tips": { "type": "array", "items": { "type": "string" }, "maxItems": 5 },
+    "tight": { "type": "object", "properties": { "slackMin": { "type": "integer" } } },
     "arriveBy": { "type": "string" },
     "arriveByMin": { "type": "integer" },
     "best": { "type": ["string", "null"] },
@@ -19,7 +22,7 @@
         "type": "object",
         "required": ["key", "source"],
         "properties": {
-          "key": { "enum": ["rush", "traffic", "rain", "luggage", "budget", "lessWalk", "badAir", "elder", "kids", "mobility"] },
+          "key": { "enum": ["rush", "traffic", "rain", "luggage", "budget", "lessWalk", "badAir", "elder", "kids", "mobility", "group", "rainSoon"] },
           "source": { "enum": ["auto", "user", "picked"] },
           "from": { "type": "string" },
           "detail": { "type": "string" }

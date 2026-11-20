@@ -10,7 +10,7 @@ const exLabel = (why = '') => (why.includes('超過') ? '遲到' : why.startsWit
 const ROLE_NAME = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
 
 const SVG = 'http://www.w3.org/2000/svg';
-const STATE_LABEL = { rush: '趕時間', traffic: '塞車中', rain: '下雨', luggage: '帶行李', budget: '想省錢', lessWalk: '少走路', badAir: '空品不佳', elder: '帶長輩', kids: '帶小孩', mobility: '行動不便' };
+const STATE_LABEL = { rush: '趕時間', traffic: '塞車中', rain: '下雨', luggage: '帶行李', budget: '想省錢', lessWalk: '少走路', badAir: '空品不佳', elder: '帶長輩', kids: '帶小孩', mobility: '行動不便', group: '多人同行', rainSoon: '可能下雨' };
 const SOURCE_LABEL = { auto: '自動', user: '你說的', picked: '你選的' };
 /** 自動狀態連回產生它的工具（UX.md §5 CRIT_SRC） */
 const STATE_SOURCE = { rain: '天氣', traffic: '路況', badAir: '空品' };

@@ -17,6 +17,18 @@ const STATE_WORDS = [
   ['rain', /下雨|雨天|雨很大/],
   ['badAir', /空氣(很|好|有點|太)?(差|髒|不好)/],
 ];
+/** 同行人數（A1b／S6）：「我們 4 個人」「三個人」「一家五口」；1 人或沒說回 null */
+/** 說人數的字（整句只有地名＋人數也算要去那裡） */
+const PARTY_WORDS = /(?:我們|一共|總共)?(?:\d{1,2}|[兩二三四五六七八九十])\s*(?:(?:個|位)?\s*人(?![行民潮員工家生])|位(?![置子於數]))|一家\s*(?:\d|[二三四五六七八])\s*口|一起/g;
+const ZH_PARTY = { 兩: 2, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
+const EN_PARTY = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8 };
+export function partyOf(s) {
+  const m = /(\d{1,2}|[兩二三四五六七八九十])\s*(?:(?:個|位)?\s*人(?![行民潮員工家生])|位(?![置子於數]))/.exec(s) || /一家\s*(\d|[二三四五六七八])\s*口/.exec(s)
+    || /\b(\d{1,2}|two|three|four|five|six|seven|eight)\s+(?:of us|people|persons|adults)\b/i.exec(s) || /\bparty of\s+(\d{1,2}|two|three|four|five|six)\b/i.exec(s);
+  if (!m) return null;
+  const n = Number(m[1]) || ZH_PARTY[m[1]] || EN_PARTY[m[1].toLowerCase()];
+  return n >= 2 && n <= 20 ? n : null;
+}
 const BUS_ROUTE = /(?:^|[^\d])([紅藍綠棕橘小幹]?\d{1,4}[區副]?)(?:\s*(?:號|路)?\s*(?:公車|到哪|來了|還要|什麼時候|幾分))/;
 const RAIL_WORD = /高鐵|台鐵|臺鐵|火車|自強|區間|莒光/;
 /** 問班次的說法（沒說起站時才用最近車站） */
@@ -117,6 +129,7 @@ function onlyPlace(s, places) {
   let rest = normPlace(s); // 地名可能是別名（「松山機場」→ 臺北松山機場）：用比對時的字去掉
   for (const { key, name } of PLACE_KEYS) if (places.includes(name)) rest = rest.split(key).join('');
   for (const [, re] of STATE_WORDS) rest = rest.replace(new RegExp(re.source, 'g'), '');
+  rest = rest.replace(PARTY_WORDS, ''); // 「三個人去西門町」「一家五口」
   return !rest.replace(/[我要想去到往帶很有點一下吧嗎呢啦了的，,。.!！?？\s]/g, '');
 }
 /** 「臺北市大安區」「大安區」→ 藥局搜尋的地區 */
@@ -261,7 +274,8 @@ function parseIntentRaw(text, ctx) {
   const arriveBy = arriveByOf(s);
   const tomorrow = /明天|明早|明晚|明日/.test(s);
   const later = !tomorrow && /後天|週末|周末|禮拜[一二三四五六日天]|星期[一二三四五六日天]|下週|下禮拜|下星期/.test(s); // 天氣只查得到今天、明天
-  const base = { places, states, arriveBy, tomorrow, ...(later && { later: true }) };
+  const party = partyOf(s);
+  const base = { places, states, arriveBy, tomorrow, ...(later && { later: true }), ...(party && { party }) };
   // 常用地點（S1）：「回家」「去公司」「從公司回家」——座標存在手機、只有提到時才送來
   const saved = savedTrip(s, places, ctx?.saved);
   if (saved) return { ...base, ...saved };
@@ -280,7 +294,7 @@ function parseIntentRaw(text, ctx) {
   const before = history.length && !otherQuery ? tripBefore() : null; // 結構化上下文（A3）：前面累積的行程條件
   // 接著改起點或目的地（只有一個地名＋提示詞；起點可以是地標庫沒有的地名，例「板橋」）：其他條件沿用
   if (before) {
-    const keep = { ...before, states: [...new Set([...before.states, ...states])], ...(arriveBy && { arriveBy }), intent: 'trip', followUp: true };
+    const keep = { ...before, states: [...new Set([...before.states, ...states])], ...(arriveBy && { arriveBy }), ...(party && { party }), intent: 'trip', followUp: true };
     // 「從這裡出發」「從我現在的位置」→ 起點改回現在位置
     if (/從\s*(?:這裡|這邊|我這|我現在|現在的?位置)/.test(s) && !CHANGE_TO.test(s) && before.from) return { ...keep, from: null, changed: ['from'] };
     const fromText = fromStartOf(s);
@@ -292,7 +306,7 @@ function parseIntentRaw(text, ctx) {
   }
   const prev = !places.length ? before : null;
   const avoid = avoidOf(s);
-  if (prev && ((mode && CHANGE_WORD.test(s)) || (states.length && s.length <= 12) || avoid.length || arriveBy)) {
+  if (prev && ((mode && CHANGE_WORD.test(s)) || (states.length && s.length <= 12) || avoid.length || arriveBy || party)) {
     // 說不要的方式累積（「不要叫車」後「也不要走路」）；改成某方式時從不要的清單拿掉
     const avoidAll = [...new Set([...(prev.avoid || []), ...avoid])].filter((m) => m !== mode); // 這句明講要坐的不算不要
     const useMode = mode || (avoidAll.includes(prev.mode) ? null : prev.mode); // 上一輪指定的方式被說不要了 → 取消指定
@@ -300,8 +314,8 @@ function parseIntentRaw(text, ctx) {
     return {
       ...rest, states: [...new Set([...prev.states, ...states])], intent: 'trip',
       ...(useMode && { mode: useMode }),
-      ...(avoidAll.length && { avoid: avoidAll }), ...((arriveBy || prev.arriveBy) && { arriveBy: arriveBy || prev.arriveBy }), followUp: true,
-      changed: [...(mode ? ['mode'] : []), ...(avoid.length ? ['avoid'] : []), ...(arriveBy ? ['arriveBy'] : []), ...(states.length ? ['states'] : [])],
+      ...(avoidAll.length && { avoid: avoidAll }), ...((arriveBy || prev.arriveBy) && { arriveBy: arriveBy || prev.arriveBy }), ...(party && { party }), followUp: true,
+      changed: [...(mode ? ['mode'] : []), ...(avoid.length ? ['avoid'] : []), ...(arriveBy ? ['arriveBy'] : []), ...(states.length ? ['states'] : []), ...(party ? ['party'] : [])],
     };
   }
   // 阿幫剛問「你從哪裡出發？」，使用者只回地名 → 那是起點，目的地沿用上一輪
@@ -432,7 +446,7 @@ export function demoSteps(it, now = Date.now()) {
         (r) => { const [a, b] = pts(r); return a && b ? { note: '@行程 幫你比較幾種走法', calls: [{ name: 'plan_trip', args: {
           from: asArg(a), to: asArg(b), // 地名：卡片標題顯示地名；定位：帶座標與「你的位置」
           departAt,
-          ...((userStates.length || it.arriveBy || it.mode || it.avoid?.length) && { prefs: { ...(userStates.length && { states: userStates }), ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }), ...(it.avoid?.length && { avoid: it.avoid }) } }),
+          ...((userStates.length || it.arriveBy || it.mode || it.avoid?.length || it.party) && { prefs: { ...(userStates.length && { states: userStates }), ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }), ...(it.avoid?.length && { avoid: it.avoid }), ...(it.party && { party: it.party }) } }),
         } }] } : null; },
       ];
     }
@@ -514,7 +528,7 @@ const STATE_SAY = { rush: '趕時間', luggage: '帶行李', budget: '想省錢'
  */
 export function contextNote(it) {
   if (!it?.followUp || it.intent !== 'trip' || !it.to || !it.changed?.length) return null;
-  const say = { from: `起點${it.from || '你的位置'}`, to: `目的地${it.to}`, arriveBy: `${it.arriveBy} 前到`, mode: MODE_DO[it.mode] || '換方式', avoid: `不要${(it.avoid || []).map((m) => MODE_SAY[m]).join('、')}`, states: (it.states || []).map((k) => STATE_SAY[k]).filter(Boolean).join('、') };
+  const say = { from: `起點${it.from || '你的位置'}`, to: `目的地${it.to}`, arriveBy: `${it.arriveBy} 前到`, mode: MODE_DO[it.mode] || '換方式', avoid: `不要${(it.avoid || []).map((m) => MODE_SAY[m]).join('、')}`, party: `${it.party} 人`, states: (it.states || []).map((k) => STATE_SAY[k]).filter(Boolean).join('、') };
   const changed = it.changed.map((k) => say[k]).filter(Boolean).join('、');
   return `沿用：${it.from || '你的位置'} → ${it.to}｜改：${changed}`.slice(0, 60);
 }
@@ -585,7 +599,8 @@ const RAIN = /\brain(?:ing|y|s)?\b|umbrella|weather|temperature|\bhot\b(?!\s*spr
 function englishIntent(s, places, history = []) {
   const states = EN_STATES.filter(([, re]) => re.test(s)).map(([k]) => k);
   const tomorrow = /tomorrow/i.test(s);
-  const base = { places, states, arriveBy: enArriveBy(s), tomorrow };
+  const party = partyOf(s);
+  const base = { places, states, arriveBy: enArriveBy(s), tomorrow, ...(party && { party }) };
   const mode = EN_MODES.find(([, re]) => re.test(s) && !new RegExp(`(?:no|not|don'?t (?:want to )?(?:take|use)?)\\s*(?:the|a|by)?\\s*${re.source}`, 'i').test(s))?.[0];
   const avoid = EN_MODES.filter(([, re]) => new RegExp(`(?:\\bno\\b|\\bnot\\b|don'?t (?:want to )?(?:take|use)?)\\s*(?:the|a|by)?\\s*(?:${re.source})`, 'i').test(s)).map(([k]) => k);
   const toWord = places.length > 0 && /\bto\b/i.test(s);
@@ -607,11 +622,11 @@ function englishIntent(s, places, history = []) {
   }
   // 接著上一輪（I'm with my grandma、by bus instead、What about by MRT?、no taxi）
   const prev = !places.length && history.length ? lastTrip(history) : null;
-  if (prev && ((mode && /instead|what about|how about|\bby\b|rather|switch|change/i.test(s)) || avoid.length || states.length || base.arriveBy)) {
+  if (prev && ((mode && /instead|what about|how about|\bby\b|rather|switch|change/i.test(s)) || avoid.length || states.length || base.arriveBy || base.party)) {
     const { mode: _m, avoid: _a, ...rest } = prev;
     const avoidAll = [...new Set([...(prev.avoid || []), ...avoid])].filter((m) => m !== mode);
     const useMode = mode || (avoidAll.includes(prev.mode) ? null : prev.mode);
-    return { ...rest, intent: 'trip', states: [...new Set([...prev.states, ...states])], ...(useMode && { mode: useMode }), ...(avoidAll.length && { avoid: avoidAll }), ...((base.arriveBy || prev.arriveBy) && { arriveBy: base.arriveBy || prev.arriveBy }), followUp: true };
+    return { ...rest, intent: 'trip', states: [...new Set([...prev.states, ...states])], ...(useMode && { mode: useMode }), ...(avoidAll.length && { avoid: avoidAll }), ...((base.arriveBy || prev.arriveBy) && { arriveBy: base.arriveBy || prev.arriveBy }), ...(base.party && { party: base.party }), followUp: true };
   }
   if (/youbike|ubike|\bbikes?\b/i.test(s) && !places.length) return { ...base, intent: 'youbike' };
   if (/\b(?:mrt|metro|subway)\b/i.test(s) && /next|when|how long/i.test(s)) return { ...base, intent: 'metro', station: null, line: null };
@@ -640,10 +655,12 @@ function englishSummary(it, results) {
     const trip = results.plan_trip?.[0]?.data;
     const best = trip?.options.find((o) => o.id === trip.best);
     if (!best) return `I couldn't find a good way to get there. Try another place name.${note}`;
-    const cost = best.costRange ? `NT$${best.costRange[0]}-${best.costRange[1]}` : best.cost ? `NT$${best.cost}` : 'free';
+    const cost = `${best.costRange ? `NT$${best.costRange[0]}-${best.costRange[1]}` : best.cost ? `NT$${best.cost}` : 'free'}${best.share ? ` per person (${best.share.party} people)` : ''}`;
+    const rainSoon = trip.states?.some((x) => x.key === 'rainSoon') ? ` Rain is likely within 3 hours (${trip.weather?.pop3h}%), bring an umbrella.` : '';
+    const tight = trip.tight ? ` Time is tight: only ${trip.tight.slackMin} min to spare, leave now.` : '';
     const from = it.from ? enPlace(it.from) : it.fromPoint ? 'your location' : enPlace(DEFAULT_FROM);
     const missing = trip.modeUnavailable ? `I couldn't find a ${EN_MODE_NAME[trip.modeUnavailable] || trip.modeUnavailable} option, so here's the best alternative. ` : '';
-    return `${missing}From ${from} to ${enPlace(it.to)}, I compared ${trip.options.length} options. Best: ${enName(best)}, about ${best.minutes} min, ${cost}, arriving ${best.arriveAt}.${note}`;
+    return `${missing}From ${from} to ${enPlace(it.to)}, I compared ${trip.options.length} options. Best: ${enName(best)}, about ${best.minutes} min, ${cost}, arriving ${best.arriveAt}.${rainSoon}${tight}${note}`;
   }
   if (it.intent === 'weather') {
     const where = it.places[0] ? ` in ${enPlace(it.places[0]).replace(/ Station \(.*\)$/, '').replace(/ Main$/, '')}` : it.fromPoint ? ' where you are' : ` in ${enPlace(DEFAULT_FROM)}`;
@@ -696,7 +713,8 @@ export function demoSummary(it, results, suggestions = []) {
     // 下一步依建議方式（叫車按官方連結、步行導航…；不再一律問「要我幫你開導航嗎」）
     const bestOpt = trip?.data.options.find((o) => o.id === trip.data.best);
     const reason = closed ? trip.data.ranking.reason.replace(/^公車這次沒有可行的方案；/, '') : trip?.data.ranking.reason; // 已說收班，不再重複「公車沒有可行的方案」
-    return trip ? `${pre}${night}${reason}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
+    const tips = trip?.data.tips?.length ? ` ${trip.data.tips.map((x) => `${x}。`).join('')}` : '';
+    return trip ? `${pre}${night}${reason}${tips}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
   }
   // 沒說地點時用了示範預設，先講清楚
   const pre = (isNearby(it) || (it.intent === 'metro' && !it.station && !it.near)) && !it.places[0] && !it.fromPoint

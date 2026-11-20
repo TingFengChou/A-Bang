@@ -41,6 +41,7 @@ export const planTripTool = defineTool({
       arriveBy: hhmm.optional().describe('最晚抵達時間 HH:mm'),
       mode: z.enum(MODES).optional().describe('使用者指定的交通方式（「改坐公車」→ bus、「叫車／計程車」→ ridehail）：建議改成這種方式裡分數最高的'),
       avoid: z.array(z.enum(MODES)).max(7).optional().describe('使用者說不要的交通方式（「不要叫車」→ ["ridehail"]）：直接排除'),
+      party: z.number().int().min(1).max(20).optional().describe('同行人數（「我們 4 個人」→ 4）：叫車改用每人分攤比較'),
     }).optional(),
   },
   speak: (d) => {
@@ -62,6 +63,7 @@ export const planTripTool = defineTool({
       }),
       ...data.ranking.excluded.map((e) => `✗ ${e.name}：${e.why}`),
       `建議：${data.ranking.reason}`,
+      ...(data.tips || []).map((t) => `提醒：${t}`),
       ...(nextStepOf(byId.get(data.best)) ? [`下一步：${nextStepOf(byId.get(data.best))}`] : []),
     ];
     return { data, text: clip(lines) };

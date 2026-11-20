@@ -29,6 +29,9 @@ export const STATES = {
   elder: { label: '帶長輩', say: '你帶著長輩', boost: { walkMin: 2, effort: 3, waitMin: 1.3 }, exclude: ['bike'] },
   kids: { label: '帶小孩', say: '你帶著小孩', boost: { walkMin: 1.5, effort: 3 }, exclude: ['bike'] },
   mobility: { label: '行動不便', say: '你行動不便', boost: { walkMin: 3, effort: 4 }, exclude: ['bike', 'walk'] },
+  // 第二批（A1b，2026-11-21）：都由程式自動判斷（plan_trip 依 prefs.party、天氣預報），不靠模型
+  group: { label: '多人同行', say: '你們好幾個人一起', boost: { effort: 1.3 } }, // 叫車車資已換成每人分攤（trip.js），這裡只略看重好不好帶隊
+  rainSoon: { label: '可能下雨', say: '等一下可能下雨', boost: { exposure: 2 } }, // 現在沒下、3 小時降雨機率 ≥ 60%
 };
 
 /**
