@@ -754,3 +754,27 @@ test('問阿幫：接著說「不要叫車」→ 排除叫車重算', async () =
     await shot(page, 'phone-agent-avoid');
   });
 });
+
+// 討論串體驗（2026-11-21 設計審查）：接著問時沒變的天氣、空品收合「同上」；「重來」加分隔線、前面的對話變淡
+test('問阿幫：接著問時天氣空品收合同上；重來有分隔線', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    for (const [i, q] of ['從西門町去台北101', '改坐公車', '重來'].entries()) {
+      await page.fill('.chat-form input', q);
+      await page.press('.chat-form input', 'Enter');
+      await page.waitForFunction((n) => document.querySelectorAll('.bubble.final').length === n, i + 1, { timeout: 20000 });
+    }
+    const second = page.locator('.turn').nth(1);
+    assert.ok(await second.locator('.card-same summary').count() >= 1, '第二輪天氣或空品收合');
+    assert.match(await second.locator('.card-same summary').first().textContent(), /同上（.+）看完整/);
+    assert.equal(await second.locator('.card-same .ab-card').count(), 0, '收合時還沒畫卡片');
+    await second.locator('.card-same summary').first().click();
+    await page.waitForFunction(() => document.querySelector('.card-same[open] .ab-card'));
+    assert.equal(await page.locator('.thread-reset[role=separator]').count(), 1);
+    assert.equal(await page.locator('.turn.past').count(), 2, '前兩輪變淡');
+    assert.equal(await page.locator('.msg.user.past').count(), 2, '前兩輪的提問也變淡');
+    assert.equal(await page.locator('.thread-reset + .msg.user').count(), 1, '分隔線在「重來」泡泡前面');
+    const pastColor = await page.locator('.turn.past').first().evaluate((e) => getComputedStyle(e).opacity);
+    assert.equal(pastColor, '1', '變淡用字色，不降不透明度（對比）');
+    await shot(page, 'phone-agent-same-reset');
+  });
+});

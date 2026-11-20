@@ -6,7 +6,8 @@ import { svgIcon, modeOf, MODE_COLOR } from '../cards/mode-icons.js';
 import { motion } from '../cards/motion.js';
 
 /** 被排除方案的標籤：遲到（超過抵達時間）、不要（使用者說不要這種方式）、其他排除 */
-const exLabel = (why = '') => (why.includes('超過') ? '遲到' : why.startsWith('你說不要') ? '不要' : why.includes('不建議') ? '不適合' : '排除');
+const exLabel = (why = '') => (why.includes('超過') ? '遲到' : why.startsWith('你說不要') ? '不要' : why.includes('不建議') ? '不適合' : /收班|末班已過/.test(why) ? '收班' : /沒車|沒有車|空位/.test(why) ? '沒列入' : '排除');
+const ROLE_NAME = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
 
 const SVG = 'http://www.w3.org/2000/svg';
 const STATE_LABEL = { rush: '趕時間', traffic: '塞車中', rain: '下雨', luggage: '帶行李', budget: '想省錢', lessWalk: '少走路', badAir: '空品不佳', elder: '帶長輩', kids: '帶小孩', mobility: '行動不便' };
@@ -54,7 +55,9 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       : { ranked: decision.ranked, excluded: decision.excluded, reason: decision.reason, best: { id: decision.best } };
     const byId = new Map(decision.options.map((o) => [o.id, o]));
     const ranked = r.ranked.map((x) => ({ ...byId.get(x.id), score: x.score, breakdown: x.breakdown }));
-    const excluded = r.excluded.map((x) => ({ ...byId.get(x.id), why: x.why }));
+    // 沒列入比較的方式（深夜公車收班、YouBike 沒車位…）：也畫出來，灰色並寫原因（設計審查）
+    const skipped = (decision.skipped || []).map((x) => ({ id: `skip-${x.role}`, role: x.role, name: ROLE_NAME[x.role] || x.role, why: x.why, skipped: true }));
+    const excluded = [...r.excluded.map((x) => ({ ...byId.get(x.id), why: x.why })), ...skipped];
     const off = states.filter((s) => !s.on && s.source === 'auto').map((s) => STATE_LABEL[s.key]);
     const reason = (off.length ? `不考慮「${off.join('、')}」的話，` : '') + r.reason;
 
@@ -169,7 +172,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     tl.call(step(`④ 決定：${last.bestName || ''}`))
       .call(() => { for (const o of ranked) { const t = scoreOf.get(o.id); if (t) t.textContent = String(o.score); } for (const o of excluded) { const t = scoreOf.get(o.id); if (t) t.textContent = exLabel(o.why); } })
       .to(root.querySelectorAll('.dg-out-edge.step4'), { strokeWidth: 1, duration: 0.2 })
-      .to(q('.dg-opt:not(.win), .dg-out-edge:not(.win)'), { opacity: 0.45, duration: 0.3 }, '<')
+      .to(q('.dg-opt:not(.win):not(.avoided), .dg-out-edge:not(.win):not(.avoided-edge)'), { opacity: 0.45, duration: 0.3 }, '<')
       .fromTo(q('.dg-opt.win'), { scale: 1 }, { scale: 1.08, yoyo: true, repeat: 1, duration: 0.2, transformOrigin: '50% 50%', ease: 'power1.inOut' }, '<')
       .fromTo(hub, { scale: 1 }, { scale: 1.15, yoyo: true, repeat: 1, duration: 0.18, transformOrigin: '50% 50%' }, '<')
       .from(q('.dg-why'), { opacity: 0, y: 6, duration: 0.3 }, '<')
@@ -273,8 +276,8 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       const isEx = i >= ranked.length;
       const win = o.id === bestId;
       edges.append(svg('path', { d: `M${C.x + 30},${C.y} C${C.x + 62},${C.y} ${OPT_X - 40},${y} ${OPT_X},${y}`,
-        class: `dg-edge dg-out-edge ${isEx ? 'step4 excluded' : 'step3'}${win ? ' win' : ''}`, 'data-id': o.id, style: `stroke-width:${isEx ? 1 : (1 + 7 * (o.score / max)).toFixed(1)}px` })); // 連線粗細＝分數（inline，CSS 的 stroke-width 才蓋不掉）
-      const avoided = isEx && exLabel(o.why) === '不要', unfit = isEx && exLabel(o.why) === '不適合';
+        class: `dg-edge dg-out-edge ${isEx ? 'step4 excluded' : 'step3'}${isEx && ['不要', '收班', '沒列入'].includes(exLabel(o.why)) ? ' avoided-edge' : ''}${win ? ' win' : ''}`, 'data-id': o.id, style: `stroke-width:${isEx ? 1 : (1 + 7 * (o.score / max)).toFixed(1)}px` })); // 連線粗細＝分數（inline，CSS 的 stroke-width 才蓋不掉）
+      const avoided = isEx && ['不要', '收班', '沒列入'].includes(exLabel(o.why)), unfit = isEx && exLabel(o.why) === '不適合';
       const n = node(OPT_X, y, isEx ? `${short(o.name)}` : short(o.name), `dg-opt ${isEx ? 'step4 excluded' : 'step3'}${avoided ? ' avoided' : ''}${unfit ? ' unfit' : ''}${win ? ' win dg-best' : ''}`, o.role, win, isEx ? exLabel(o.why) : String(o.score));
       n.style.setProperty('--i', String(i));
       n.dataset.id = o.id;

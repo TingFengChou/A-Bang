@@ -109,3 +109,15 @@ test('深夜：真實資料看到站狀態（末班已過才不列入）；明�
   assert.equal(tripDepartAt(parseIntent('回板橋'), at0030), '2026-11-21T00:30');
   for (const role of ['bike', 'ridehail']) assert.ok((await planTrip(svc, { from, to, departAt: '2026-11-21T00:30' })).options.some((o) => o.role === role), `${role} 深夜照列`);
 });
+
+test('decision 事件帶 skipped（決策圖畫出沒列入的方式與原因）；「重來」送 context_reset', async () => {
+  const { runDemo } = await import('../core/agent/run.js');
+  const { createServices } = await import('../core/index.js');
+  const es = [];
+  await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '從西門町去台北101' }] }, (e) => es.push(e), { now: Date.parse('2026-11-21T00:30:00+08:00') });
+  const d = es.find((e) => e.type === 'decision');
+  assert.ok(d.skipped?.some((x) => x.role === 'bus' && /收班/.test(x.why)));
+  const r = [];
+  await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '從西門町去台北101' }, { role: 'assistant', content: '好' }, { role: 'user', content: '重來' }] }, (e) => r.push(e));
+  assert.ok(r.some((e) => e.type === 'context_reset'));
+});

@@ -185,6 +185,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const last = req.messages.at(-1).content;
   const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode: provider.mode, model: provider.model, profile: profile.id, judge: judgeInfo(q0) }));
+  if (!req.clientToolResults?.length && parseIntent(last, { history: req.messages.slice(0, -1) }).reset) emit(ev.contextReset());
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
   const heard = !req.clientToolResults?.length && (contextNote(parseIntent(last, { history: req.messages.slice(0, -1) })) || (q0 && judgeNote(q0)));
   if (heard) emit(ev.agentNote(heard));

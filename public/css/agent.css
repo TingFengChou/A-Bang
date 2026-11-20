@@ -73,7 +73,8 @@
 html.lite-motion .dg-edge.win, html.lite-motion .dg-best > rect, html.lite-motion .dg-best .dg-ic { animation: none !important; }
 .dg-opt.excluded { opacity: .55; } .dg-opt.excluded .dg-name { text-decoration: line-through; }
 /* 使用者說不要的方式：灰色、不劃線、不透明（與紅色「遲到」區分；PR #35 設計審查）；阿幫判斷不適合的（帶長輩不騎 YouBike）：淺橘虛線框（PR #36） */
-.dg-opt.excluded.avoided { opacity: .8; } .dg-opt.excluded.avoided .dg-name { text-decoration: none; } .dg-opt.excluded.avoided .dg-score { fill: var(--muted); }
+.dg-opt.excluded.avoided, .decision.gsap .dg-opt.excluded.avoided { opacity: .85 !important; } /* gsap 的 .4 不蓋掉（收班、不要要看得清楚） */
+.dg-edge.excluded.avoided-edge { stroke: var(--muted); } .dg-opt.excluded.avoided .dg-name { text-decoration: none; } .dg-opt.excluded.avoided .dg-score { fill: var(--muted); }
 .dg-opt.excluded.unfit { opacity: .85; } .dg-opt.excluded.unfit .dg-name { text-decoration: none; } .dg-opt.excluded.unfit > rect { stroke: #E8A33D; stroke-dasharray: 4 3; fill: #FFF8EC; } .dg-opt.excluded.unfit .dg-score { fill: #B26A00; }
 .dg-edge { fill: none; stroke: var(--line); stroke-width: 1.5; }
 .dg-edge.dashed { stroke-dasharray: 4 3; stroke: var(--place); }
@@ -198,3 +199,18 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 .dg-opt.pickable:focus, .dg-opt.pickable:focus-visible { outline: none; } /* 點了不要出現瀏覽器的橘色焦點框；鍵盤焦點用上面的邊框 */
 .dg-node > rect.dg-hit { fill: transparent !important; stroke: none !important; }
 .dg-hint { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+
+/* 「重來」分隔線、前面的對話變淡（不清空）；接著問時沒變的天氣空品卡片收合（2026-11-21 設計審查） */
+.thread-reset { display: flex; align-items: center; gap: 10px; margin: 18px 0 10px; color: var(--muted); font-size: 13px; }
+.thread-reset::before, .thread-reset::after { content: ''; flex: 1; border-top: 1px dashed var(--line); }
+.turn.past, .msg.user.past { color: var(--muted); }
+.turn.past .card-slot, .turn.past .card-same { filter: saturate(.6); }
+.turn.past:focus-within, .turn.past:hover { color: inherit; } .turn.past:focus-within .card-slot, .turn.past:hover .card-slot { filter: none; }
+.card-same { margin: 6px 0; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.card-same > summary { cursor: pointer; padding: 10px 14px; font-size: 14px; color: var(--text); min-height: 44px; display: flex; align-items: center; gap: 8px; list-style: none; }
+.card-same > summary::-webkit-details-marker { display: none; }
+.card-same .same-text { flex: 1; }
+.card-same .same-open { color: var(--brand); font-weight: 600; white-space: nowrap; }
+.card-same .same-open::after { content: ' ▾'; }
+.card-same[open] .same-open::after { content: ' ▴'; }
+.card-same[open] > summary { border-bottom: 1px solid var(--line); }
