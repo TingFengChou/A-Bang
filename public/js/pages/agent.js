@@ -4,6 +4,7 @@ import { runAgent } from '../agent/client.js';
 import { icons } from '../icons.js';
 import { motion } from '../../ui/cards/motion.js';
 import { token } from '../../ui/cards/mode-icons.js';
+import { nextSteps } from '../agent/next-steps.js';
 import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { renderDecision, lite } from '../../ui/agent/decision-graph.js';
@@ -132,11 +133,51 @@ export default {
 
     const host = createWebHost({ ask: (q) => send(q), setContext: (c) => { context = c; } });
 
-    // 建議問題與免責（GET /api/v1/agent/profile）
+    // 建議問題與免責（GET /api/v1/agent/profile）；回答後換成「接下來可以…」（依這一輪結果，next-steps.js）
+    let defaults = [];
+    const showDefaults = () => {
+      chips.classList.remove('next');
+      chips.replaceChildren(...defaults.map((q) => { const b = el('button', 'chip', q); b.type = 'button'; b.onclick = () => send(q); return b; }));
+    };
     fetch(`/api/v1/agent/profile?id=${agentId}`).then((r) => r.json()).then(({ data }) => {
-      for (const q of data.suggestions) { const b = el('button', 'chip', q); b.type = 'button'; b.onclick = () => send(q); chips.append(b); }
+      defaults = data.suggestions;
+      if (!chips.classList.contains('next')) showDefaults();
       disclaimer.textContent = data.disclaimer;
     }).catch(() => {});
+    const STATE_CHIP = { rush: '趕時間', budget: '想省錢', lessWalk: '少走路', luggage: '帶行李' };
+    let lastView = null;
+    // 在卡片或公車頁設定／取消到站提醒後，下一步建議跟著更新（已提醒就不再建議）
+    const onWatch = () => { if (lastView && chips.classList.contains('next')) showNext(lastView); };
+    window.addEventListener('abang:arrival-watch', onWatch);
+    onCleanup(() => window.removeEventListener('abang:arrival-watch', onWatch));
+    function showNext(view) {
+      lastView = view;
+      const steps = nextSteps(view.results, view.decision, { watching: host.arrivalWatch?.() });
+      if (!steps.length) { showDefaults(); return; }
+      chips.classList.add('next');
+      const act = async (s, b) => {
+        if (s.kind === 'ask') return send(s.payload);
+        if (s.kind === 'navigate') return host.navigate(s.payload);
+        if (s.kind === 'state') { // 在這一輪的決策圖加狀態，瀏覽器立即重算
+          const add = [...(view.box?.querySelectorAll('.dg-chip.add') || [])].find((x) => x.textContent.includes(STATE_CHIP[s.payload]));
+          add?.click();
+          view.box?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          b.remove();
+          return undefined;
+        }
+        if (s.kind === 'remind') {
+          await host.watchArrival(s.payload);
+          log.append(el('p', 'agent-sys', `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（App 開著時）。`));
+          return showNext(view);
+        }
+        return undefined;
+      };
+      const btns = steps.map((s) => { const b = el('button', `chip next-${s.kind}`, s.label); b.type = 'button'; b.onclick = () => act(s, b); return b; });
+      const more = el('button', 'chip ghost', '其他問題');
+      more.type = 'button';
+      more.onclick = showDefaults;
+      chips.replaceChildren(el('span', 'next-title', '接下來可以'), ...btns, more);
+    }
 
     // @ 點名：輸入 @ 時顯示可點名的小幫手
     input.addEventListener('input', () => {
@@ -170,6 +211,7 @@ export default {
         }, { agentId });
         await view.flush();
         if (view.text) history.push({ role: 'assistant', content: view.text.slice(0, 500) });
+        showNext(view);
       } catch {
         turn.append(el('div', 'msg error', '連線中斷了，請再試一次。'));
       } finally {
@@ -191,7 +233,7 @@ export default {
       let queue = Promise.resolve();
       let lastShown = 0;
       let textEl = null;
-      const view = { text: '' };
+      const view = { text: '', results: [], decision: null, box: null }; // results／decision：給「接下來可以…」
       const gap = async () => {
         if (reducedMotion()) return;
         const wait = MIN_GAP_MS - (performance.now() - lastShown);
@@ -228,6 +270,7 @@ export default {
               if (e.ok && e.metrics) b.querySelector('.src').append(` · ${metricsText(e.metrics)}`);
               if (e.ok && e.mode === 'demo') b.querySelector('.src').append(' · ', el('span', 'src-demo', '示範資料'));
             }
+            if (e.ok) view.results.push({ tool: e.tool, card: e.card, data: e.data, args: e.args });
             if (e.ok && e.card) {
               const slot = el('div', `card-slot ${results.children.length >= 2 ? 'scroll-in' : 'enter3d'}`); // 前兩張立體進場，後面的捲到才浮現
               results.append(slot);
@@ -260,6 +303,7 @@ export default {
             box.setAttribute('aria-label', '決策圖');
             if (reducedMotion()) box.classList.add('static');
             results.prepend(box);
+            view.decision = e; view.box = box;
             const mod = await decideModule;
             if (mod) renderDecision(box, e, { sources: roles.filter((r) => r !== '行程'), decide: mod.decide, CRITERIA: mod.CRITERIA }).played.then(() => handoff(box, results, e));
             else box.append(el('p', 'dg-why', e.reason)); // 載不到引擎時至少顯示理由
