@@ -5,6 +5,7 @@ import { esc } from './ui.js';
 import { autoCheckOnOpen } from './invoice-wallet.js';
 import { createWebHost } from '../ui/cards/host-web.js';
 import { watchKeyboard } from './keyboard.js';
+import { showOnboarding } from './onboarding.js';
 import home from './pages/home.js';
 import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
@@ -100,16 +101,26 @@ addEventListener('hashchange', navigate);
 navigate();
 api.status().then(() => paintBanner()).catch(() => {});
 // 我的發票：開獎後打開 App 就自動對獎、中獎主動通知（本機資料，離線 Demo 沒有伺服器時不做）
-if (!globalThis.__DEMO_SERVICES__) {
+const checkPrizes = () => {
+  if (globalThis.__DEMO_SERVICES__) return;
   const web = createWebHost();
   autoCheckOnOpen((n, a) => web.callTool(n, a), { toast }).catch(() => {});
-}
+};
+// 首次使用引導：只在首頁（深層連結直接打開的頁面不打斷）；看過就不再顯示。
+// 引導開著時背後的頁面讀不到、提示也被蓋住：對獎等引導關掉再做（PR #49 審查）；引導出錯不能擋住啟動
+let guide = null;
+try { if (!location.hash || location.hash === '#/') guide = showOnboarding({ onClose: checkPrizes }); } catch { guide = null; }
+if (!guide) checkPrizes();
 
 // 手機 App（ADR-0013）不註冊：畫面已在 App 裡，iOS 的 capacitor:// 也不支援
 // Android 返回鍵／手勢（@capacitor/app）：有上一頁就回上一頁，在首頁才離開 App（PR #31 審查：沒有這段在首頁按返回會卡住）
 const cap = globalThis.Capacitor;
 if (typeof cap?.addListener === 'function' && cap.getPlatform?.() === 'android') {
-  cap.addListener('App', 'backButton', (e) => { if (e?.canGoBack) history.back(); else cap.nativePromise('App', 'exitApp', {}).catch(() => {}); });
+  cap.addListener('App', 'backButton', (e) => {
+    const open = document.querySelector('dialog[open]'); // 對話框開著（使用說明、掃發票）：返回鍵先關它
+    if (open) { open.close(); return; }
+    if (e?.canGoBack) history.back(); else cap.nativePromise('App', 'exitApp', {}).catch(() => {});
+  });
 }
 
 // 手機鍵盤打開時收起底部分頁列（css: html.kb-open）
