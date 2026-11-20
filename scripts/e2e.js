@@ -802,6 +802,36 @@ test('問阿幫：接著問時天氣空品收合同上；重來有分隔線', as
   });
 });
 
+// 路線時間軸點站名＝設成上車站（到站提醒、下車提醒從這裡開始）
+test('路線時間軸：點站名設成上車站', async () => {
+  await withPage(DEVICES.phone, '#/bus/Taipei/307', async (page) => {
+    await page.waitForSelector('.timeline .stop-pick');
+    assert.equal(await page.locator('#pick-hint').isVisible(), true);
+    const name = await page.locator('.timeline .stop-pick').nth(4).textContent();
+    await page.locator('.timeline .stop-pick').nth(4).click();
+    await page.waitForSelector('.bus-focus .alight select');
+    assert.match(await page.locator('.bus-focus').textContent(), new RegExp(`到「${name}」`));
+    assert.match(await page.evaluate(() => location.hash), /stop=/);
+    assert.match(await page.locator('#pick-hint').textContent(), /點其他站名可以改上車站/);
+    assert.equal(await page.locator('.timeline .stop-pick[aria-pressed="true"]').textContent(), name);
+    assert.equal(await page.evaluate(() => document.activeElement?.classList.contains('bus-focus')), true, '焦點移到上車站卡片');
+    // 設了到站提醒後改上車站：原本的提醒還在、看得到、可以取消
+    const alert = page.locator('.bus-focus [data-min="5"]');
+    if (await alert.count()) {
+      await alert.click();
+      await page.waitForSelector('#unwatch');
+      await page.locator('.timeline .stop-pick').nth(8).click();
+      await page.waitForSelector('.bus-focus .other-watch');
+      assert.match(await page.locator('.bus-focus .other-watch').textContent(), new RegExp(`另有提醒：「${name}」到站前 5 分`));
+      await page.locator('.bus-focus .other-watch button').click();
+      await page.waitForSelector('.bus-focus .other-watch', { state: 'detached' });
+    }
+    // 換方向：網址的 dir 跟著改
+    await page.locator('#dirs button:not(.on)').click();
+    assert.match(await page.evaluate(() => location.hash), /dir=1/);
+  });
+});
+
 // 下車提醒：公車頁選了上車站，上車後選下車站 → 進行中顯示剩多久與取消
 test('下車提醒：選下車站、進行中、取消', async () => {
   await withPage(DEVICES.phone, '#/bus/Taipei/307?stop=%E6%95%A6%E5%8C%96%E5%B8%82%E5%A0%B4&dir=0', async (page) => {
