@@ -41,8 +41,8 @@
       }
     },
     "unavailable": { "type": "array", "items": { "type": "string" } },
-    "mode": { "enum": ["walk", "bike", "bus", "thsr", "tra", "intercity", "ridehail"] },
-    "avoid": { "type": "array", "items": { "enum": ["walk", "bike", "bus", "thsr", "tra", "intercity", "ridehail"] } },
+    "mode": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail"] },
+    "avoid": { "type": "array", "items": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail"] } },
     "skipped": { "type": "array", "items": { "type": "object", "required": ["role", "why"], "properties": { "role": { "type": "string" }, "why": { "type": "string" } } } }
   },
   "$defs": {
@@ -52,7 +52,7 @@
       "required": ["id", "role", "name", "minutes", "waitMin", "walkMin", "cost", "arriveAt", "legs", "notes"],
       "properties": {
         "id": { "type": "string" },
-        "role": { "enum": ["walk", "bike", "bus", "thsr", "tra", "intercity", "ridehail"] },
+        "role": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail"] },
         "name": { "type": "string" },
         "minutes": { "type": "integer", "minimum": 0 },
         "waitMin": { "type": "integer", "minimum": 0 },
@@ -75,7 +75,7 @@
             "type": "object",
             "required": ["mode", "from", "to", "minutes", "detail"],
             "properties": {
-              "mode": { "enum": ["walk", "bike", "bus", "transit", "thsr", "tra", "intercity", "ridehail"] },
+              "mode": { "enum": ["walk", "bike", "bus", "transit", "metro", "thsr", "tra", "intercity", "ridehail"] },
               "from": { "$ref": "#/$defs/place" },
               "to": { "$ref": "#/$defs/place" },
               "minutes": { "type": "integer", "minimum": 0 },

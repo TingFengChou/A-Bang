@@ -35,11 +35,11 @@ test('matchDirect：以座標找上下車站、驗證方向；commonRoutes 取�
   assert.deepEqual(commonRoutes([{ routes: ['307', '601'] }, { routes: ['307'] }], [{ routes: ['307', '235'] }, { routes: ['601'] }]), ['307', '601']);
 });
 
-test('市區短程（示範）：步行、YouBike、公車、叫車都列出，排序與理由由 decide 產生', async () => {
+test('市區短程（示範）：步行、YouBike、公車、捷運、叫車都列出，排序與理由由 decide 產生', async () => {
   const r = await planTrip(createServices({ forceMock: true }), { from: TPE, to: T101, now: NOW });
-  assert.deepEqual(r.options.map((o) => o.role).sort(), ['bike', 'bus', 'ridehail', 'walk']);
+  assert.deepEqual(r.options.map((o) => o.role).sort(), ['bike', 'bus', 'metro', 'ridehail', 'walk']);
   assert.equal(r.states.length, 0);
-  assert.ok(r.best && r.ranking.ranked.length === 4 && /^選「/.test(r.ranking.reason));
+  assert.ok(r.best && r.ranking.ranked.length === 5 && /^選「/.test(r.ranking.reason));
   for (const o of r.options) {
     assert.ok(o.minutes > 0 && o.legs.length && /^\d{2}:\d{2}$/.test(o.arriveAt), o.id);
     assert.ok(o.legs.every((l) => l.nav === null || l.nav.google.startsWith('https://www.google.com/maps/')), o.id);

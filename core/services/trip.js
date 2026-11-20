@@ -140,6 +140,52 @@ async function bikeOption(svc, from, to, straight) {
 /** 深夜（台灣時間）：示範資料 00:00～05:00 公車不列入、23:00 後提醒末班（S10）；真實資料改看到站狀態 */
 export const NIGHT = { closedFrom: 0, closedTo: 5 * 60, lateFrom: 23 * 60 };
 const NIGHT_CLOSED = '深夜多數公車已收班（以站牌即時資訊為準），先幫你看叫車、YouBike';
+/** 捷運路線名（代碼字首；各系統） */
+const METRO_LINE_NAME = {
+  TRTC: { BL: '板南線', R: '淡水信義線', G: '松山新店線', O: '中和新蘆線', BR: '文湖線', Y: '環狀線', LG: '萬大線' },
+  TYMC: { A: '機場線' }, TMRT: { G: '綠線' }, KRTC: { R: '紅線', O: '橘線' },
+};
+/** 捷運票價估算（台北捷運：5 公里內 20 元，之後每 3 公里加 5 元，最多 65 元） */
+const metroFare = (km) => Math.min(65, 20 + 5 * Math.ceil(Math.max(0, km - 5) / 3));
+
+/**
+ * 捷運（S7）：起訖點各自 1.2 公里內有捷運站（同一系統）；同一條線直達，不同線估轉乘一次。
+ * 時間與票價以兩站直線距離估算（約每公里 2 分＋進出站），標示估算；真實路網與轉乘站待 TDX（Metro/S2STravelTime）。
+ */
+async function metroOption(svc, from, to, straight) {
+  if (straight < 1500 || straight > 30000 || !svc.metro) return null;
+  let best = null;
+  for (const sys of Object.keys(METRO_LINE_NAME)) {
+    const list = await svc.metro.stations({ system: sys }).catch(() => []);
+    const near = (p) => list.filter((x) => Number.isFinite(x.lat)).map((x) => ({ ...x, m: distanceM(p.lat, p.lon, x.lat, x.lon) })).filter((x) => x.m <= 1200).sort((a, b) => a.m - b.m)[0];
+    const o = near(from), d = near(to);
+    if (!o || !d || o.name === d.name) continue;
+    if (!best || o.m + d.m < best.o.m + best.d.m) best = { sys, o, d };
+  }
+  if (!best) return null;
+  const { sys, o, d } = best;
+  const shared = (o.lines || []).find((l) => (d.lines || []).includes(l));
+  const transfer = !shared && (o.lines || []).length > 0 && (d.lines || []).length > 0;
+  const km = distanceM(o.lat, o.lon, d.lat, d.lon) / 1000;
+  const w1 = walkMinutes(o.m), w2 = walkMinutes(d.m);
+  const ride = Math.round(km * 2 + 2 + (transfer ? 5 : 0));
+  const wait = transfer ? 7 : 4;
+  const lineName = (l) => METRO_LINE_NAME[sys]?.[l] || '捷運';
+  const lines = shared ? lineName(shared) : `${lineName(o.lines?.[0])}轉${lineName(d.lines?.[0])}`;
+  return {
+    id: 'metro', role: 'metro', name: transfer ? `捷運（${lines}）` : `捷運 ${lines}`, minutes: w1 + wait + ride + w2, waitMin: wait, walkMin: w1 + w2,
+    cost: metroFare(km), exposure: 0.1, effort: 0.2, delayRisk: 0,
+    legs: [
+      leg('walk', from, o, w1, `走到捷運${o.name}站`),
+      leg('metro', o, d, ride, `${lines}：${o.name} → ${d.name}${transfer ? '（轉乘一次）' : ''}`, 'transit'),
+      leg('walk', d, to, w2, `步行約 ${w2} 分`),
+    ],
+    notes: ['捷運時間與票價依距離估算（未含實際路網）', ...(transfer ? [`需轉乘一次（${lines}，估算多 5 分）`] : [])],
+    estimated: true,
+    metro: { system: sys, from: o.name, to: d.name, lines, transfer },
+  };
+}
+
 async function busOption(svc, from, to, straight, risk, depart) {
   if (straight > LIMITS.busMaxM) return null;
   // 深夜（S10）：示範資料只能看時間；真實資料看上車站的到站狀態（3 末班已過、4 今日未營運），全部收班才不列入
@@ -277,6 +323,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     walk: async () => walkOption(from, to, straight),
     bike: () => bikeOption(svc, from, to, straight),
     bus: () => busOption(svc, from, to, straight, risk, depart),
+    metro: () => metroOption(svc, from, to, straight),
     thsr: () => railOption(svc, 'THSR', from, to, straight, depart),
     tra: () => railOption(svc, 'TRA', from, to, straight, depart),
     intercity: () => intercityOption(svc, from, to, straight, depart),
