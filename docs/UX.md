@@ -104,6 +104,10 @@
 
 ✅ M5-09：`public/ui/agent/decision-graph.js`（`renderDecision(root, decision, { sources, decide, CRITERIA })`，SVG 以 DOM API 建立、含 `<title>`／`<desc>` 文字替代）；伺服器以白名單提供 `/core/decide.js`；`plan_trip` 輸出與 `decision` 事件帶 `arriveBy`／`arriveByMin` 讓前端重算與伺服器一致（`test/agent-events.test.js` 驗證）。動畫為 CSS 分段淡入（步驟 1–6），排名翻轉（FLIP）與 3D 留待 M5-11。
 
+### 5.0 設定與隱私（M11-04，2026-11-21）
+
+首頁底部「設定與隱私」→ `#/settings`：裝置端 AI 開關（網頁版停用）與狀態、定位與通知權限狀態（改權限到手機設定）、本機資料清單與清除（要確認）、連到 `#/privacy` 隱私權政策（實際做法：不收集可識別個人的資料、問題與位置只用來回答、本機通知、本機資料）。啟動畫面：淺色底＋藍鵲＋Abang（`node scripts/build-icons.js` 產生）。
+
 ### 5.1 接著改、排除與不適合（2026-11-21）
 
 - 接著改的那一輪，討論串第一句由程式產生：「沿用：西門町 → 台北101｜改：不要叫車」（只改使用者提到的部分）。

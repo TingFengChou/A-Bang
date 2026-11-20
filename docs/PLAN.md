@@ -234,7 +234,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] M11 Android 返回手勢回上一層、首頁離開 App（PR #31）
 - [x] M11 原生定位 `@capacitor/geolocation`（iOS 只問一次權限）、鍵盤打開收起分頁列、iOS 隱私清單（2026-11-21，PR #33）
 - [ ] M11-03 原生相機掃發票 QR（網頁退路保留）
-- [ ] M11-04 啟動畫面、隱私權政策頁（App 內連結；上架必要）
+- [x] M11-04 啟動畫面（藍鵲＋Abang，iOS／Android 舊版圖片、Android 12+ 系統啟動畫面底色與圖示）、隱私權政策頁 `#/privacy`、設定頁 `#/settings`（2026-11-21；聯絡方式待營運單位補上）
 - [ ] M11-05 ⛔ 測試環境部署（HTTPS，M6-06）＋ Google Play 內部測試、TestFlight（需開發者帳號）
 
 ## M12 裝置端 AI（ADR-0014，2026-11-21）
@@ -246,7 +246,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] E6 實機評測 `scripts/eval-edge.js`、組合分數 `eval-edge-combo.js`（A＋規則＋Gemini Nano 全對 89.0%，`docs/research/edge-eval.md`）
 - [ ] E3 App 內 transformers.js 分類器（第三層備援）
 - [ ] E7 手機上轉述（伺服器沒有模型時仍能完整回答）
-- [ ] E8 設定頁可關閉裝置端 AI、Android 模型下載中提示、隱私權政策說明
+- [x] E8 設定頁可關閉裝置端 AI、顯示模型狀態（下載中、需要 Wi-Fi…）、隱私權政策說明（2026-11-21）
 
 ## M13 Agent 聰明度（PM 情境清單，2026-11-21）
 
@@ -275,7 +275,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 
 ## 體驗與品質補強（審查與 PM 建議，2026-11-21）
 
-- [ ] T6 Android 啟動畫面色差；iOS `PRODUCT_NAME` 改 Abang；iOS 18 深色／著色圖示
+- [ ] T6 iOS `PRODUCT_NAME` 改 Abang；iOS 18 深色／著色圖示（Android 啟動畫面色差 ✅ M11-04）
 - [ ] T7 通知體驗：第一次提醒前的說明（為什麼要通知）、`remind()` 可取消與多筆、重開機後過期通知不補送
 - [ ] T8 測試補強：busScene DOM 測試、E2E `page.clock` 固定日夜、原生 App 煙霧測試（adb／simctl，或 Maestro）
 - [ ] 首次使用引導（起點用現在位置、點方案改選、提醒 App 關著也會響；在這裡要定位與通知權限）

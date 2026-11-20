@@ -2,6 +2,7 @@
   "appId": "tw.abang.app",
   "appName": "Abang",
   "webDir": "dist/app",
+  "backgroundColor": "#F4F6F5",
   "android": {
     "allowMixedContent": false
   },

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 啟動畫面底色（與網頁背景色相同，M11-04；Android 12+ 系統啟動畫面也用這個色，避免與 App 色差） -->
+<resources>
+    <color name="abang_splash_bg">#F4F6F5</color>
+</resources>

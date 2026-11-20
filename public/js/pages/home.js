@@ -24,7 +24,7 @@ export default {
       ${groups.map((g) => `
         <div class="section-title"><h2>${esc(g.name)}</h2><span>${esc(g.note)}</span></div>
         <div class="grid">${miniApps.filter((a) => a.group === g.id).map((a, i) => tile(a, i)).join('')}</div>`).join('')}
-      <p class="updated" style="margin-top:24px">資料來源：交通部 TDX、政府資料開放平臺</p>`;
+      <p class="updated" style="margin-top:24px">資料來源：交通部 TDX、政府資料開放平臺・<a href="#/settings">設定與隱私</a></p>`;
 
     main.querySelector('#q').addEventListener('submit', (e) => {
       e.preventDefault();
