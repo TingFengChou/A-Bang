@@ -6,13 +6,14 @@ import { locationGranted, browserLocation, inTaiwan } from '../agent/client.js';
 import { cancelNotify, NOTIFY_ID } from '../native-notify.js';
 import { loadPlaces, savePlace, SAVED_KEYS } from '../saved-places.js';
 import { showOnboarding } from '../onboarding.js';
+import { listReminders, cancelReminder, cancelAllReminders } from '../reminders.js';
 
 const EDGE_KEY = 'abang.edgeAI';
 const ENGINE = { apple: 'Apple Intelligence', 'gemini-nano': 'Gemini Nano' };
 const REASON = { ok: '可以使用', unsupported: '這支手機不支援', disabled: '手機沒有開啟 Apple Intelligence', downloading: '模型下載中', 'needs-wifi': '連上 Wi-Fi 後會自動下載模型', 'os-too-old': '系統版本太舊', language: '目前不支援繁體中文', web: '網頁版不使用（只在手機 App）', 'no-plugin': '這個版本沒有裝置端 AI' };
 
 /** 本機資料：存在這支手機的瀏覽器儲存（不上傳） */
-const LOCAL = [['abang.places', '常用地點（家、公司、學校）'], ['favs', '收藏的公車站與路線'], ['invoices', '我的發票'], ['abang.arrivalWatch', '進行中的到站提醒'], ['pref:', '常用的縣市、藥局地區、股票等偏好（pref:*）'], [EDGE_KEY, '裝置端 AI 設定'], ['abang.onboarded', '看過使用說明（清除後下次會再顯示）']];
+const LOCAL = [['abang.places', '常用地點（家、公司、學校）'], ['favs', '收藏的公車站與路線'], ['invoices', '我的發票'], ['abang.arrivalWatch', '進行中的到站提醒'], ['abang.reminders', '出門提醒'], ['pref:', '常用的縣市、藥局地區、股票等偏好（pref:*）'], [EDGE_KEY, '裝置端 AI 設定'], ['abang.onboarded', '看過使用說明（清除後下次會再顯示）']];
 
 /** 權限狀態文字：已允許／已拒絕（到手機設定開）／還沒問過 */
 const PERM_SAY = { granted: '已允許', denied: '已拒絕', prompt: '還沒問過' };
@@ -38,7 +39,7 @@ async function locationState() {
 
 export const settings = {
   title: '設定與隱私',
-  async render({ main, toast }) {
+  async render({ main, toast, onCleanup }) {
     main.innerHTML = `
       <section class="card settings">
         <h2>裝置端 AI</h2>
@@ -50,6 +51,10 @@ export const settings = {
         <h2>常用地點</h2>
         <p class="note">請在家、公司或學校時按「設成現在位置」，阿幫會記住那裡的位置。設好以後說「回家」「去公司」就能直接規劃。座標只存在這支手機，只有你提到時才跟問題一起送出。</p>
         <div id="saved" role="list"></div>
+      </section>
+      <section class="card settings" id="reminders-card">
+        <h2>出門提醒</h2>
+        <div id="reminders" role="list"></div>
       </section>
       <section class="card settings">
         <h2>權限</h2>
@@ -112,6 +117,29 @@ export const settings = {
     const renderSaved = () => SAVED_KEYS.forEach(update);
     renderSaved();
 
+    // 出門提醒：列出還沒到的、可以取消（App 關著也會響的系統通知一起取消）
+    const remBox = main.querySelector('#reminders');
+    const hhmm = (ms) => new Date(ms).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const renderReminders = () => {
+      const list = listReminders();
+      remBox.replaceChildren();
+      if (!list.length) { remBox.append(Object.assign(document.createElement('p'), { className: 'note', textContent: '目前沒有出門提醒。在行程卡按「提醒我出門」就會出現在這裡。' })); return; }
+      for (const r of list) {
+        const row = document.createElement('div');
+        row.className = 'saved-row';
+        row.setAttribute('role', 'listitem');
+        row.innerHTML = `<span><b>今天 ${esc(hhmm(r.at))}</b><small>${esc(r.text.replace(/^該出門了：/, ''))}</small></span>`;
+        const del = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small quiet', textContent: '取消' });
+        del.setAttribute('aria-label', `取消 ${hhmm(r.at)} 的提醒`);
+        del.addEventListener('click', () => { cancelReminder(r.id); toast('已取消提醒'); main.querySelector('#reminders-card h2').setAttribute('tabindex', '-1'); main.querySelector('#reminders-card h2').focus(); });
+        row.append(del);
+        remBox.append(row);
+      }
+    };
+    renderReminders();
+    addEventListener('abang:reminders', renderReminders);
+    onCleanup?.(() => removeEventListener('abang:reminders', renderReminders));
+
     main.querySelector('#guide').addEventListener('click', () => showOnboarding({ force: true }));
     const edge = main.querySelector('#edge');
     edge.addEventListener('change', () => {
@@ -132,7 +160,8 @@ export const settings = {
           else localStorage.removeItem(k);
         }
       } catch { /* 無痕模式 */ }
-      cancelNotify(NOTIFY_ID.arrival); cancelNotify(NOTIFY_ID.leave); // 已排好的提醒一起取消
+      cancelNotify(NOTIFY_ID.arrival); cancelNotify(NOTIFY_ID.leave); cancelAllReminders(); // 已排好的提醒一起取消
+      renderReminders();
       renderSaved();
       edge.checked = true;
       toast('已清除這支手機上的阿幫資料');

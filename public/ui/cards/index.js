@@ -53,7 +53,8 @@ export function renderCard(el, payload, host) {
   };
 
   const draw = ({ fresh = false } = {}) => {
-    const ctx = { host, t, state, payload: current, rerender: draw };
+    const say = (text) => { live.textContent = ''; setTimeout(() => { live.textContent = text; }, 30); };
+    const ctx = { host, t, state, payload: current, rerender: draw, say };
     const updated = current.data?.updatedAt ? t('common.updatedAt', { time: hhmm(current.data.updatedAt) }) : null;
     status = h('span', { class: 'ab-status', role: 'status', 'aria-live': 'polite' });
     const card = h('section', { class: 'ab-card', 'data-card': current.card, 'aria-label': def.title(current.data, ctx) },

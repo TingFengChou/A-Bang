@@ -177,7 +177,9 @@ for (const [dname, device] of Object.entries(DEVICES)) {
         const leaveAt = '10:30';
         const today = '2026-11-19';
         const calls = [];
-        const host = { remind: async (at, text) => { calls.push([at, text]); return true; }, openLink() {} };
+        const canceled = [];
+        // 第一次要通知權限：先說明，按「好，允許通知並提醒我」才設定；設好後可以取消（T7）
+        const host = { remind: async (at, text) => { calls.push([at, text]); return 'r1'; }, cancelRemind: (id) => canceled.push(id), notifyState: async () => 'prompt', openLink() {} };
         const el = document.createElement('div');
         document.body.append(el);
         const P = { name: 'A', lat: 25, lon: 121 };
@@ -185,9 +187,18 @@ for (const [dname, device] of Object.entries(DEVICES)) {
           options: [{ id: 'thsr', role: 'thsr', name: '高鐵', minutes: 120, waitMin: 10, walkMin: 2, cost: 1300, arriveAt: '11:00', leaveAt, notes: [],
             legs: [{ mode: 'walk', from: P, to: P, minutes: 2, detail: '走', nav: null }] }],
           ranking: { ranked: [{ id: 'thsr', name: '高鐵', score: 90 }], excluded: [], reason: '選「高鐵」' } } }, host);
+        const wait = () => new Promise((r) => setTimeout(r, 50));
         el.querySelector('.ab-option.best .ab-btn').click();
-        await new Promise((r) => setTimeout(r, 50));
-        const out = { calls, text: el.querySelector('.ab-option.best [role="status"]')?.textContent, leaveAt };
+        await wait();
+        const why = el.querySelector('.ab-explain')?.textContent || '';
+        const before = calls.length;
+        [...el.querySelectorAll('.ab-explain .ab-btn')].find((b) => /允許通知/.test(b.textContent)).click();
+        await wait();
+        const text = el.querySelector('.ab-remind p')?.textContent;
+        const focused = document.activeElement?.textContent;
+        [...el.querySelectorAll('.ab-remind .ab-btn')].find((b) => b.textContent === '取消提醒').click();
+        await wait();
+        const out = { calls, text, leaveAt, why, before, canceled, after: el.querySelector('.ab-remind')?.textContent, focused };
         el.remove();
         return out;
       });
@@ -203,9 +214,14 @@ for (const [dname, device] of Object.entries(DEVICES)) {
         return out;
       });
       assert.deepEqual(badges, { live: '真實資料', demo: '示範資料' });
+      assert.match(reminded.why, /會問你是否允許通知/);
+      assert.equal(reminded.before, 0, '說明前不要權限、不設定');
       assert.equal(reminded.calls.length, 1);
       assert.equal(reminded.calls[0][0], reminded.leaveAt);
       assert.match(reminded.text, /提醒你出門/);
+      assert.deepEqual(reminded.canceled, ['r1']);
+      assert.match(reminded.after, /已取消出門提醒/);
+      assert.equal(reminded.focused, '取消提醒', '設好後焦點在「取消提醒」（整張卡重畫）');
       assert.equal(await page.locator('.ab-card script, .ab-card img[onerror]').count(), 0);
       // 自動刷新不會在第一次後停止：連續兩次 refresh 都會呼叫 tool
       const calls = await page.evaluate(async () => {

@@ -5,7 +5,11 @@
  * @property {(text: string) => void} ask           代使用者提問
  * @property {(text: string) => void} setContext    更新模型脈絡
  * @property {(url: string, opts?: { confirm?: string }) => void} openLink  confirm 有值時先顯示確認視窗（L2）
- * @property {(at: string, text: string) => Promise<boolean>} [remind]
+ * @property {(at: string, text: string) => Promise<string|boolean>} [remind]  回傳提醒 id（或 true）；失敗 false
+ * @property {(id: string) => boolean} [cancelRemind]  取消出門提醒（已響過或已取消回 false）
+ * @property {(key: string) => { id: string, at: number, opt?: string }|null} [reminderFor]  這段路線目前的出門提醒
+ * @property {boolean} [canNotify]  這個裝置能不能發通知（false 時不顯示提醒按鈕）
+ * @property {() => Promise<'granted'|'denied'|'prompt'|'unsupported'>} [notifyState]  通知權限現況（不跳對話框）
  * @property {(w: { city: string, routeName: string, stop: string, direction?: number, minutes: number }) => Promise<boolean>} [watchArrival]  公車到站前 N 分提醒（L-14）
  * @property {() => void} [unwatchArrival]
  * @property {() => ({ city: string, routeName: string, stop: string, minutes: number } | null)} [arrivalWatch]

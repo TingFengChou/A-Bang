@@ -288,3 +288,11 @@ html.lite-motion .ab-scene-bus .ab-scene-img { animation: none; }
 .ab-skipped { list-style: none; margin: 8px 0 0; padding: 0; color: var(--ab-muted); font-size: 13px; }
 .ab-skipped li { display: flex; align-items: center; gap: 6px; }
 .ab-btn.ab-pick { min-height: 44px; margin-top: 8px; border: 1px solid var(--ab-brand); color: var(--ab-brand); background: #fff; font-weight: 700; }
+
+/* 出門提醒（T7）：說明＋允許／先不要；設好後可取消 */
+.ab-remind { display: grid; gap: 6px; margin: 6px 0 2px; justify-items: start; }
+.ab-remind .ab-btn { min-height: 44px; }
+.ab-remind.ab-explain .ab-btn.ab-primary { width: 100%; }
+.ab-remind .ab-btn.ab-link { min-height: 44px; padding: 0 4px; text-decoration: underline; }
+.ab-remind p { margin: 0; }
+.ab-btn.ab-quiet { background: transparent; color: var(--ab-text); border: 1px solid var(--ab-line); }
