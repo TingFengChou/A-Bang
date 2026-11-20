@@ -104,7 +104,7 @@ function legsBar(o, t) {
   const xfers = sh.slice(1).map((s) => h('span', { class: 'ab-xfer', style: { '--at': String(s.from), '--d': `${(0.6 + s.from * RUN_SEC).toFixed(2)}s` } }));
   return h('div', { class: 'ab-legs-wrap' },
     runners,
-    h('div', { class: 'ab-legs', role: 'img', 'aria-label': o.legs.map((l) => `${t(`trip.leg.${l.mode}`)} ${l.minutes} 分`).join('、') },
+    h('div', { class: 'ab-legs', role: 'img', 'aria-label': o.legs.map((l) => `${t(`trip.leg.${l.mode}`)} ${t('common.minutes', { n: l.minutes })}`).join(t('common.listSep')) },
       o.legs.map((l, i) => h('span', { class: `ab-leg ${l.mode}`, style: { flex: `0 0 ${((sh[i].to - sh[i].from) * 100).toFixed(2)}%`, '--i': String(i) }, title: l.detail },
         sh[i].to - sh[i].from >= 0.08 && icon(l.mode), sh[i].to - sh[i].from >= 0.2 && h('b', null, `${l.minutes}`)))),
     xfers);
@@ -160,7 +160,7 @@ export default {
       d.ranking.reason && h('p', { class: 'ab-reason' }, d.ranking.reason),
       costTips.length > 0 && h('ul', { class: 'ab-tips', 'aria-label': t('trip.costTips') }, costTips.map((x) => h('li', {}, x.text))),
       alts.length > 0 && h('div', { class: 'ab-alts' }, h('h4', {}, t('trip.alternatives')), alts.map((o) => optionBlock(o, ctx, false))),
-      d.skipped?.length > 0 && h('ul', { class: 'ab-skipped' }, d.skipped.map((s) => h('li', {}, token(s.role, { size: 'xs' }), t('trip.skipped', { name: { bike: 'YouBike', bus: '公車', metro: '捷運', walk: '步行', ridehail: '叫車' }[s.role] || s.role, why: s.why })))),
+      d.skipped?.length > 0 && h('ul', { class: 'ab-skipped' }, d.skipped.map((s) => h('li', {}, token(s.role, { size: 'xs' }), t('trip.skipped', { name: t(`trip.leg.${s.role}`), why: s.why })))),
       d.ranking.excluded.length > 0 && h('div', { class: 'ab-excluded' }, h('h4', {}, t('trip.excluded')),
         h('ul', { class: 'ab-list' }, d.ranking.excluded.map((e) => h('li', { class: 'ab-row off' }, token(byId.get(e.id)?.role || e.id, { size: 'sm', cls: 'off' }), h('span', { class: 'ab-name' }, e.name || e.id), h('span', { class: 'ab-sub' }, e.why))))));
   },

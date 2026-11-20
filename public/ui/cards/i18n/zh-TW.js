@@ -19,6 +19,7 @@ export const MESSAGES = {
   'common.more': '看更多',
   'common.less': '收起',
   'common.estimated': '估算',
+  'common.listSep': '、',
   'common.estimatedTag': '（估算）',
   'common.minutes': '{n} 分',
   'common.meters': '{n} 公尺',

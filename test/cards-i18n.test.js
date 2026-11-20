@@ -29,7 +29,9 @@ test('每種卡片與 L2 確認視窗都有標題或必要文字', () => {
 test('英文字典：鍵相同、佔位符相同、不含中文', async () => {
   const en = await import('../public/ui/cards/i18n/en.js');
   assert.equal(en.LOCALE, 'en');
-  assert.deepEqual(Object.keys(en.MESSAGES).sort(), Object.keys(MESSAGES).sort());
+  const base = Object.keys(en.MESSAGES).filter((k) => !k.endsWith('.one'));
+  assert.deepEqual(base.sort(), Object.keys(MESSAGES).sort());
+  for (const k of Object.keys(en.MESSAGES).filter((x) => x.endsWith('.one'))) assert.ok(MESSAGES[k.slice(0, -4)], `${k} 沒有對應的鍵`); // 英文單數
   const ph = (v) => [...new Set(v.match(/\{\w+\}/g) || [])].sort();
   for (const [k, v] of Object.entries(MESSAGES)) {
     assert.deepEqual(ph(en.MESSAGES[k]), ph(v), k);
@@ -45,4 +47,16 @@ test('i18n runtime：tFor、withLocale、退回中文', async () => {
   assert.equal(withLocale('en', () => cur('common.demo')), tFor('en')('common.demo'));
   assert.equal(cur('common.demo'), t('common.demo'), '離開 withLocale 後還原中文');
   assert.equal(tFor('en')('no.such.key'), 'no.such.key');
+  assert.equal(tFor('en')('youbike.rent', { n: 1 }), '1 bike');
+  assert.equal(tFor('en')('youbike.rent', { n: 3 }), '3 bikes');
+  assert.equal(tFor('zh-TW')('youbike.rent', { n: 1 }), t('youbike.rent', { n: 1 }), '中文沒有單複數');
+});
+
+test('卡片程式只用 ctx.t（不直接 import 字典，否則英文卡片會漏中文）', async () => {
+  const { readdir, readFile } = await import('node:fs/promises');
+  const dir = new URL('../public/ui/cards/cards/', import.meta.url);
+  for (const f of await readdir(dir)) {
+    if (!f.endsWith('.js')) continue;
+    assert.doesNotMatch(await readFile(new URL(f, dir), 'utf8'), /from ['"]\.\.\/i18n\//, f);
+  }
 });

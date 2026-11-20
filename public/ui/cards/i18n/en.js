@@ -19,6 +19,7 @@ export const MESSAGES = {
   'common.more': 'Show more',
   'common.less': 'Show less',
   'common.estimated': 'Estimated',
+  'common.listSep': ', ',
   'common.estimatedTag': ' (est.)',
   'common.minutes': '{n} min',
   'common.meters': '{n} m',
@@ -54,18 +55,19 @@ export const MESSAGES = {
   'busRoute.context': 'The user is looking at the "{stop}" stop on route {route}',
   'busRoute.announceStop': '{route} at "{stop}": {eta}',
   'busRoute.announceSoon': '{route} arriving soon: {stops}',
-  'busRoute.focusAt': 'To "{stop}"',
+  'busRoute.focusAt': 'At "{stop}"',
   'busRoute.boardHere': 'You board here',
   'busRoute.alertBtn': 'Remind me {n} min before',
   'busRoute.alertSet': "Set: I'll remind you {n} min before it arrives ({when})",
   'busRoute.alertNext': "This bus is almost here and you may miss it. I'll remind you {n} min before the next one ({when})",
   'busRoute.whenOpenPage': 'while this page is open',
   'busRoute.whenAlways': 'even when the app is closed',
-  'busRoute.whenNoPermission': 'only while the app is open. Turn on notifications for Abang in your phone settings to get reminders when the app is closed',
+  'busRoute.whenNoPermission': 'only while the app is open; turn on notifications in Settings for more',
   'busRoute.alertCanceled': 'Reminder cancelled',
   'busRoute.alertCancel': 'Cancel reminder',
   'busRoute.openPage': 'Open live bus page',
   'busRoute.away': 'Bus is {n} stops away',
+  'busRoute.away.one': 'Bus is {n} stop away',
   'busRoute.atStop': 'Bus is at your stop',
 
   // ── bus-station ──
@@ -87,8 +89,11 @@ export const MESSAGES = {
   'youbike.sortRent': 'Rent',
   'youbike.sortReturn': 'Return',
   'youbike.rent': '{n} bikes',
+  'youbike.rent.one': '{n} bike',
   'youbike.electric': '{n} e-bikes',
+  'youbike.electric.one': '{n} e-bike',
   'youbike.return': '{n} docks',
+  'youbike.return.one': '{n} dock',
   'youbike.outOfService': 'Out of service',
   'youbike.empty': 'No YouBike stations within {radius} m',
 
@@ -109,6 +114,7 @@ export const MESSAGES = {
   'timetable.board': 'Board at {stop}',
   'timetable.empty': 'No matching trips on {date}',
   'timetable.showGone': "Show {n} trips that already left today",
+  'timetable.showGone.one': "Show {n} trip that already left today",
   'timetable.allGone': "All of today's trips have left. Try tomorrow instead.",
 
   // ── trip ──
@@ -143,14 +149,15 @@ export const MESSAGES = {
   'trip.tips': 'Tips',
   'trip.costTips': 'Cost notes',
   'trip.cars': ' ({n} cars)',
-  'trip.ridehail': 'Ride',
+  'trip.cars.one': ' ({n} car)',
+  'trip.ridehail': 'Taxi',
   'trip.remind': 'Remind me at {time}',
   'trip.reminded': "OK, I'll remind you to leave at {time}",
   'trip.remindFailed': "Reminders aren't available on this device",
   'trip.remindDenied': 'Notifications are turned off, so I can\'t remind you. On your phone, go to Settings → Abang → Notifications. In a browser, click the lock icon left of the address bar → Notifications.',
   'trip.remindWhy': "At {time}, Abang will send a notification reminding you to leave. Your phone or browser will ask you to allow notifications next.",
   'trip.remindWhenPage': ' (while this page is open)',
-  'trip.remindAllow': 'Allow notifications and remind me',
+  'trip.remindAllow': 'Allow & remind me',
   'trip.remindNotNow': 'Not now',
   'trip.remindCancel': 'Cancel reminder',
   'trip.remindCanceled': 'Departure reminder cancelled',
@@ -209,8 +216,8 @@ export const MESSAGES = {
   'weather.rain': "It's raining now, or rain is likely soon",
   'weather.dry': 'Not raining now',
   'weather.temp': 'Temperature',
-  'weather.rain1h': 'Rain in past hour',
-  'weather.pop3h': '3-hour chance of rain',
+  'weather.rain1h': 'Rain (1 h)',
+  'weather.pop3h': 'Rain chance (3 h)',
   'weather.station': '{station} · {km} km away · observed {time}',
 
   // ── Daily life services (M10) ──
@@ -227,7 +234,7 @@ export const MESSAGES = {
   'quake.kind.local': 'Local',
   'quake.none': 'Not felt or not listed',
   'quake.report': 'CWA earthquake report',
-  'pharmacy.title': 'NHI pharmacies {area}',
+  'pharmacy.title': 'NHI pharmacies · {area}',
   'pharmacy.empty': 'No matching NHI pharmacies found. Try another area or name.',
   'pharmacy.today': 'Opening hours today ({day})',
   'pharmacy.unknown': 'Hours not provided',
@@ -242,7 +249,7 @@ export const MESSAGES = {
   'garbage.note': 'Source: {covered} Environmental Protection Bureau open data. Times may shift with traffic; on national holidays, check the bureau\'s notices.',
   'fuel.title': 'CPC fuel prices',
   'fuel.meta': 'Effective {date} · {unit} · adjusted every Monday',
-  'invoice.title': 'Receipt lottery {period}',
+  'invoice.title': 'Uniform Invoice lottery {period}',
   'invoice.special': 'Special Prize',
   'invoice.specialNote': 'All 8 digits: NT$10 million',
   'invoice.grand': 'Grand Prize',
@@ -252,7 +259,7 @@ export const MESSAGES = {
   'invoice.placeholder': 'Receipt number (8 digits or last 3)',
   'invoice.check': 'Check',
   'invoice.win': '{prize}! You win NT${amount}',
-  'invoice.lose': '{n} did not win',
+  'invoice.lose': 'No prize for {n}',
   'invoice.note': 'Results are for reference only; the Ministry of Finance announcement is final.',
   'stock.title': 'Taiwan stock closing prices',
   'stock.index': '{name} · {date}',
@@ -269,14 +276,3 @@ export const MESSAGES = {
   'stock.context': 'The user is viewing closing prices for {names} on the stock card',
   'stock.note': 'Source: TWSE and TPEx open data, updated after each trading day\'s close. Not real-time quotes. For reference only, not investment advice.',
 };
-
-/**
- * 取字典文字並帶入佔位符。
- * @param {string} key
- * @param {Record<string, string|number>} [vars]
- */
-export function t(key, vars = {}) {
-  const msg = MESSAGES[key];
-  if (msg == null) return key;
-  return msg.replace(/\{(\w+)\}/g, (m, k) => (vars[k] == null ? m : String(vars[k])));
-}

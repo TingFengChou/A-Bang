@@ -14,7 +14,7 @@ export const localeOf = (lang) => (DICTS[lang] ? lang : 'zh-TW');
 export function tFor(locale) {
   const dict = DICTS[localeOf(locale)];
   return (key, vars = {}) => {
-    const msg = dict[key] ?? ZH[key];
+    const msg = (vars.n === 1 && dict[`${key}.one`]) || dict[key] || ZH[key]; // 英文單數：key.one（只有英文有）
     if (msg == null) return key;
     return msg.replace(/\{(\w+)\}/g, (m, k) => (vars[k] == null ? m : String(vars[k])));
   };
