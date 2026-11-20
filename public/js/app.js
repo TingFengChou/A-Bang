@@ -6,6 +6,7 @@ import { autoCheckOnOpen } from './invoice-wallet.js';
 import { createWebHost } from '../ui/cards/host-web.js';
 import { watchKeyboard } from './keyboard.js';
 import { showOnboarding } from './onboarding.js';
+import { t as cardT } from '../ui/cards/i18n/zh-TW.js';
 import { restoreReminders } from './reminders.js';
 import home from './pages/home.js';
 import nearby from './pages/nearby.js';
@@ -48,9 +49,15 @@ $('back').onclick = () => (history.length > 1 ? history.back() : (location.hash 
 $('skip').onclick = () => $('main').focus(); // hash 路由：不能用 href="#main"（會被當成頁面）
 
 let cleanups = [];
-function toast(msg, ms = 2200) {
+function toast(msg, ms = 2200, action = null) {
   const t = document.createElement('div');
   t.textContent = msg;
+  if (action) { // 提示上的動作（例：公車一直不來 → 到問阿幫改其他方式）
+    const a = Object.assign(document.createElement('a'), { href: action.href, textContent: action.label });
+    a.style.cssText = 'display:inline-block;margin-left:10px;color:inherit;font-weight:700;text-decoration:underline;min-height:32px;line-height:32px';
+    a.addEventListener('click', () => t.remove());
+    t.append(a);
+  }
   t.setAttribute('role', 'status'); // 螢幕閱讀器會念出提示
   t.style.cssText = 'position:fixed;left:50%;bottom:calc(var(--nav-h) + 24px);transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;z-index:99;max-width:85vw;text-align:center';
   document.body.appendChild(t);
@@ -58,6 +65,11 @@ function toast(msg, ms = 2200) {
 }
 // 公車到站提醒（L-14，host-web.js）：任何頁面都顯示（沒開通知權限也看得到）
 window.addEventListener('abang:arrival', (e) => toast(`🚌 ${e.detail.text}`, 8000));
+// 公車一直不來（S15）：提示可以改其他方式（卡片上有按鈕）
+window.addEventListener('abang:arrival-stuck', (e) => {
+  if (location.hash.startsWith('#/agent')) return;
+  toast(cardT('busRoute.stuckToast', { route: e.detail.routeName }), 10000, { label: '改其他方式', href: `#/agent?q=${encodeURIComponent(e.detail.ask)}` });
+});
 
 function navigate() {
   cleanups.forEach((f) => f()); cleanups = [];

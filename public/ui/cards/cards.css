@@ -296,3 +296,8 @@ html.lite-motion .ab-scene-bus .ab-scene-img { animation: none; }
 .ab-remind .ab-btn.ab-link { min-height: 44px; padding: 0 4px; text-decoration: underline; }
 .ab-remind p { margin: 0; }
 .ab-btn.ab-quiet { background: transparent; color: var(--ab-text); border: 1px solid var(--ab-line); }
+
+/* 公車一直不來（S15）：警示＋改其他方式 */
+.ab-stuck { margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: var(--ab-warn-soft); color: #92400e; display: grid; gap: 6px; }
+.ab-stuck p { margin: 0; }
+.ab-stuck .ab-btn { justify-self: start; min-height: 44px; }
