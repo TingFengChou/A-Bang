@@ -37,10 +37,17 @@ after(async () => {
   server?.kill();
 });
 
+/** 新的 browser context：預設已看過首次使用引導（其他測試不被對話框擋住）；onboard: true 時照第一次使用 */
+async function newCtx(opts, { onboard = false } = {}) {
+  const ctx = await browser.newContext(opts);
+  if (!onboard) await ctx.addInitScript(() => { try { localStorage.setItem('abang.onboarded', '1'); } catch { /* 無痕 */ } });
+  return ctx;
+}
+
 /** 開新的 browser context 與頁面、收集錯誤，跑完 fn（不論成敗）一定關閉 context；最後確認沒有頁面錯誤 */
 /** @param {{ init?: Function, initArg?: any }} [opts] init：頁面載入前執行（page.addInitScript），例如假相機 */
 async function withPage(device, path, fn, { init, initArg, ignore, geo = true } = {}) {
-  const ctx = await browser.newContext({ ...device, ...(geo && { geolocation: TAIPEI, permissions: ['geolocation'] }), reducedMotion: 'reduce' });
+  const ctx = await newCtx({ ...device, ...(geo && { geolocation: TAIPEI, permissions: ['geolocation'] }), reducedMotion: 'reduce' });
   try {
     const page = await ctx.newPage();
     const errors = [];
@@ -301,7 +308,7 @@ for (const [dname, device] of Object.entries(DEVICES)) {
   });
 
   test(`${dname}：完整動態時卡片 3D 進場、決策圖重算有排名翻轉`, async () => {
-    const ctx = await browser.newContext({ ...device, reducedMotion: 'no-preference' });
+    const ctx = await newCtx({ ...device, reducedMotion: 'no-preference' });
     try {
       const page = await ctx.newPage();
       await page.addInitScript(() => Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 }));
@@ -375,7 +382,7 @@ test('MCP Apps：AppBridge 載入 cards.html，7 種卡片、callServerTool 往�
     ['timetable', 'thsr_timetable', { from: '台北', to: '左營', date: tomorrow }],
     ['trip', 'plan_trip', { from: '台北車站', to: '高雄車站', departAt: '09:00', prefs: { states: ['rush'], arriveBy: '12:00' } }],
   ];
-  const ctx = await browser.newContext({ viewport: { width: 760, height: 900 }, reducedMotion: 'reduce' });
+  const ctx = await newCtx({ viewport: { width: 760, height: 900 }, reducedMotion: 'reduce' });
   try {
     const page = await ctx.newPage();
     const errors = [];
@@ -777,6 +784,45 @@ test('問阿幫：接著問時天氣空品收合同上；重來有分隔線', as
     assert.equal(pastColor, '1', '變淡用字色，不降不透明度（對比）');
     await shot(page, 'phone-agent-same-reset');
   });
+});
+
+// 首次使用引導：第一次打開首頁跳出、按「允許定位」才要權限、可略過、看過不再跳、設定頁可再看一次
+test('首次使用引導：三步、要權限、看過不再顯示', async () => {
+  const ctx = await newCtx({ ...DEVICES.phone, geolocation: TAIPEI, permissions: ['geolocation'], reducedMotion: 'reduce' }, { onboard: true });
+  try {
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`${base}/#/`);
+    const dlg = page.locator('dialog.onboard[open]');
+    await dlg.waitFor();
+    assert.match(await dlg.locator('h2').textContent(), /我是阿幫/);
+    await shot(page, 'phone-onboarding');
+    await dlg.getByRole('button', { name: '下一步' }).click();
+    await dlg.getByRole('button', { name: '允許定位' }).click();
+    await page.waitForFunction(() => /已允許定位/.test(document.querySelector('.onboard-status')?.textContent || ''));
+    await dlg.getByRole('button', { name: '下一步' }).click();
+    assert.match(await dlg.locator('h2').textContent(), /提醒你/);
+    await dlg.getByRole('button', { name: /開始使用/ }).click();
+    await page.locator('dialog.onboard').waitFor({ state: 'detached' }); // close 事件之後才移除
+    await page.reload();
+    await page.waitForSelector('.tabbar');
+    assert.equal(await page.locator('dialog.onboard').count(), 0, '看過不再顯示');
+    // 深層連結（直接打開問阿幫）不跳引導
+    await page.evaluate(() => localStorage.removeItem('abang.onboarded'));
+    await page.goto(`${base}/#/agent`);
+    await page.waitForSelector('.chat-form input');
+    assert.equal(await page.locator('dialog.onboard').count(), 0);
+    // 設定頁「再看一次使用說明」，Esc 關閉
+    await page.goto(`${base}/#/settings`);
+    await page.click('#guide');
+    await page.locator('dialog.onboard[open]').waitFor();
+    await page.keyboard.press('Escape');
+    await page.locator('dialog.onboard').waitFor({ state: 'detached' });
+    assert.deepEqual(errors, []);
+  } finally {
+    await ctx.close();
+  }
 });
 
 // 設定與隱私（M11-04、E8）：首頁連結進入、權限狀態、網頁版裝置端 AI 開關停用、隱私權政策頁、清除本機資料要確認

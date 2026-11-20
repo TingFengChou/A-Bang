@@ -5,6 +5,7 @@ import { esc } from './ui.js';
 import { autoCheckOnOpen } from './invoice-wallet.js';
 import { createWebHost } from '../ui/cards/host-web.js';
 import { watchKeyboard } from './keyboard.js';
+import { showOnboarding } from './onboarding.js';
 import home from './pages/home.js';
 import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
@@ -98,6 +99,8 @@ function bannerHtml({ mode, sources }) {
 
 addEventListener('hashchange', navigate);
 navigate();
+// 首次使用引導：只在首頁（深層連結直接打開的頁面不打斷）；看過就不再顯示
+if (!location.hash || location.hash === '#/') showOnboarding();
 api.status().then(() => paintBanner()).catch(() => {});
 // 我的發票：開獎後打開 App 就自動對獎、中獎主動通知（本機資料，離線 Demo 沒有伺服器時不做）
 if (!globalThis.__DEMO_SERVICES__) {
