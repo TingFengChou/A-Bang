@@ -180,8 +180,10 @@ export default {
 
     /** 一輪對話的畫面：事件依序呈現；討論串兩則之間至少 300ms（只為避免閃爍） */
     function turnView(turn) {
-      const thread = el('div', 'thread');
+      const thread = el('div', 'thread live');
       thread.setAttribute('aria-label', '小幫手討論串');
+      // 會議感（原型 transit-discussion.html）：討論中有標題與跳動的點，結束後收合成摘要
+      thread.append(el('div', 'thread-head', el('span', 'th-title', '小幫手討論中'), el('span', 'say typing', ...typing('討論中'))));
       const results = el('div', 'results');
       turn.append(thread, results);
       const bubbles = new Map();
@@ -235,12 +237,22 @@ export default {
           }
           case 'discussion_end': {
             const n = e.tools.length;
-            const sum = el('button', 'thread-sum', `小幫手討論完成・${n} 個工具・${e.servers.length} 個 MCP`);
+            // 摘要：參與的小幫手頭像疊在一起＋工具數；點開再看討論過程
+            const stack = el('span', 'av-stack', ...roles.slice(0, 6).map((r) => avatar(r)));
+            const sum = el('button', 'thread-sum', stack, el('span', null, `小幫手討論完成・${n} 個工具・${e.servers.length} 個 MCP`));
             sum.type = 'button';
             sum.setAttribute('aria-expanded', 'false');
-            sum.onclick = () => { const open = thread.classList.toggle('open'); sum.setAttribute('aria-expanded', String(open)); };
-            thread.classList.add('collapsed');
-            thread.before(sum);
+            sum.onclick = () => {
+              const open = thread.classList.toggle('open');
+              sum.setAttribute('aria-expanded', String(open));
+              if (open) motion()?.fromTo(thread, { height: 0, opacity: 0 }, { height: 'auto', opacity: 1, duration: 0.3, ease: 'power2.out', clearProps: 'height,opacity' });
+            };
+            thread.classList.remove('live');
+            thread.querySelector('.thread-head')?.remove();
+            const g = motion();
+            const collapse = () => { thread.classList.add('collapsed'); thread.before(sum); };
+            if (g) g.to(thread, { height: 0, opacity: 0, marginTop: 0, duration: 0.35, ease: 'power2.inOut', onComplete: () => { g.set(thread, { clearProps: 'height,opacity,marginTop' }); collapse(); g.from(sum.querySelectorAll('.avatar'), { scale: 0, duration: 0.25, stagger: 0.05, ease: 'back.out(2.5)', clearProps: 'transform' }); } });
+            else collapse();
             break;
           }
           case 'decision': {
