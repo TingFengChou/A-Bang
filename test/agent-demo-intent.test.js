@@ -200,3 +200,33 @@ test('剛查完行程後問「會下雨嗎」「附近還有 YouBike 嗎」不�
   assert.equal(parseIntent('附近還有 YouBike 嗎？', { ...NOW, history }).intent, 'youbike');
   assert.equal(parseIntent('那改騎 YouBike 呢', { ...NOW, history }).intent, 'trip');
 });
+
+test('規則負面案例：查高鐵、查公車路線、否定、「改天」都不是改行程；沒有前文時不會憑空產生起訖點', () => {
+  const history = [{ role: 'user', content: '從西門町到台北101' }, { role: 'assistant', content: '選「叫車」…' }];
+  const at = (q, h = history) => parseIntent(q, { ...NOW, history: h });
+  assert.equal(at('搭 307 到哪了？').intent, 'bus_route', '「搭」單獨出現不算改交通方式');
+  assert.equal(at('趕時間，高鐵台北到台中下一班幾點？').intent, 'rail');
+  assert.notEqual(at('我不想坐公車').followUp, true);
+  assert.notEqual(at('改天再說').intent, 'trip');
+  assert.notEqual(at('改成明天').mode, 'bus');
+  assert.equal(at('不叫車，改走路').mode, 'walk');
+  assert.notEqual(at('我很趕', []).followUp, true, '沒有前文');
+  assert.notEqual(at('改公車', []).intent, 'trip');
+});
+
+test('上下文：多輪疊加交通方式與狀態；阿幫問起點後只回地名＝起點；明講的起點（地標庫沒有）不會被定位蓋掉', () => {
+  const h = [
+    { role: 'user', content: '從西門町到台北101' }, { role: 'assistant', content: '選「叫車」' },
+    { role: 'user', content: '改坐公車' }, { role: 'assistant', content: '照你說的選公車' },
+  ];
+  const it = parseIntent('我很趕', { ...NOW, history: h });
+  assert.deepEqual([it.intent, it.from, it.to, it.mode, it.states.includes('rush')], ['trip', '西門町', '台北101', 'bus', true], '第 2 輪的公車沿用');
+
+  const asked = [{ role: 'user', content: '去台北101' }, { role: 'assistant', content: '請問您要從哪裡出發到台北101呢？' }];
+  const o = parseIntent('台北車站', { ...NOW, history: asked });
+  assert.deepEqual([o.intent, o.from, o.to], ['trip', '臺北車站', '台北101'], '回答起點');
+
+  const e = parseIntent('從我家巷口到台北101怎麼去', NOW);
+  assert.deepEqual([e.intent, e.from, e.to], ['trip', '我家巷口', '台北101']);
+  assert.equal(needsLocation(e), false, '明講起點：不用定位');
+});

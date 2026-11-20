@@ -39,7 +39,7 @@ after(async () => {
 
 /** 開新的 browser context 與頁面、收集錯誤，跑完 fn（不論成敗）一定關閉 context；最後確認沒有頁面錯誤 */
 /** @param {{ init?: Function, initArg?: any }} [opts] init：頁面載入前執行（page.addInitScript），例如假相機 */
-async function withPage(device, path, fn, { init, initArg } = {}) {
+async function withPage(device, path, fn, { init, initArg, ignore } = {}) {
   const ctx = await browser.newContext({ ...device, geolocation: TAIPEI, permissions: ['geolocation'], reducedMotion: 'reduce' });
   try {
     const page = await ctx.newPage();
@@ -49,7 +49,7 @@ async function withPage(device, path, fn, { init, initArg } = {}) {
     if (init) await page.addInitScript(init, initArg);
     await page.goto(`${base}/${path}`);
     await fn(page);
-    assert.deepEqual(errors, [], path);
+    assert.deepEqual(errors.filter((e) => !ignore?.test(e)), [], path);
   } finally {
     await ctx.close();
   }
@@ -83,6 +83,16 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       assert.match(page.url(), /#\/bus\?q=307/);
       await shot(page, `${dname}-bus-search`);
     });
+  });
+
+  test(`${dname}：公車街景圖片載不到時只留文字（不顯示破圖）`, async () => {
+    await withPage({ ...device, serviceWorkers: 'block' }, '#/bus/Taipei/601?stop=' + encodeURIComponent('民生捷運站(1號出口)') + '&dir=0', async (page) => { // service worker 會直接回快取，攔不到
+      await page.route('**/img/scene/*', (r) => r.abort());
+      await page.reload();
+      await page.waitForSelector('#scene .ab-scene3d');
+      await page.waitForFunction(() => [...document.querySelectorAll('#scene img')].every((i) => i.hidden));
+      assert.equal(await page.locator('#scene .ab-scene-label.stop').textContent(), '民生捷運站(1號出口)');
+    }, { ignore: /Failed to load resource/ }); // 故意擋掉圖片
   });
 
   test(`${dname}：公車路線即時到站（去返程切換）`, async () => {
@@ -205,11 +215,44 @@ for (const [dname, device] of Object.entries(DEVICES)) {
     });
   });
 
+  test(`${dname}：點決策圖上的其他方案＝改成它（沿用起訖點重算）；行程卡備案有「改成…」按鈕`, async () => {
+    await withPage(device, '#/agent', async (page) => {
+      await page.fill('.chat-input', '從西門町到台北101怎麼去');
+      await page.press('.chat-input', 'Enter');
+      await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+      const pick = page.locator('.results [data-card="trip"] .ab-pick').first();
+      assert.match(await pick.textContent(), /^改成/);
+      assert.ok((await pick.boundingBox()).height >= 44, '點擊範圍 ≥ 44px');
+      assert.ok(await page.locator('.decision .dg-hint').count() >= 1, '提示可以點方案');
+      const opt = page.locator('.decision .dg-opt.pickable').first();
+      await opt.click();
+      await page.waitForFunction(() => document.querySelectorAll('.msg.user').length === 2);
+      assert.match(await page.locator('.msg.user').nth(1).textContent(), /^改成/);
+      await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
+      assert.match(await page.locator('.dg-why').last().textContent(), /照你說的選/);
+    });
+  });
+
+  test(`${dname}：系統深色模式下仍是淺色（外框與卡片一致）`, async () => {
+    await withPage({ ...device, colorScheme: 'dark' }, '#/s/weather', async (page) => {
+      await page.waitForSelector('.ab-card');
+      const [bg, card] = await page.evaluate(() => [getComputedStyle(document.body).backgroundColor, getComputedStyle(document.querySelector('.ab-card')).backgroundColor]);
+      const light = (c) => { const [r, g, b] = c.match(/\d+/g).map(Number); return (r + g + b) / 3 > 200; };
+      assert.ok(light(bg) && light(card), `${bg} / ${card}`);
+    });
+  });
+
   test(`${dname}：問阿幫（建議問題 → 討論串 → 卡片 → 總結；@ 點名；定位）`, async () => {
     await withPage(device, '#/agent', async (page) => {
       await page.waitForSelector('.suggest .chip');
-      await page.locator('.suggest .chip').first().click(); // 去台北 101（起點用現在位置；E2E 沒給定位權限 → 示範預設起點）
+      // 輸入框至少 16px（iOS 點進去才不會自動放大）
+      assert.ok(parseFloat(await page.locator('.chat-input').evaluate((e) => getComputedStyle(e).fontSize)) >= 16);
+      await page.locator('.suggest .chip').first().click(); // 去台北 101（起點用現在位置）
       await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+      // 回答後：桌面自動聚焦輸入框；手機不聚焦（不跳鍵盤蓋住回答）
+      await page.waitForFunction(() => !document.querySelector('.chat-send')?.disabled);
+      const focused = await page.evaluate(() => document.activeElement?.classList.contains('chat-input'));
+      assert.equal(focused, dname === 'desktop', `${dname}：回答後${dname === 'desktop' ? '' : '不'}聚焦輸入框`);
       assert.match(await page.locator('.msg.user').first().textContent(), /台北 101/);
       assert.match(await page.locator('.thread-sum').first().textContent(), /小幫手討論完成・\d+ 個工具/);
       assert.ok(await page.locator('.thread .bubble.tool').count() >= 4, '小幫手發言');
@@ -486,6 +529,7 @@ test('選公車就盯到站（L-14）：想省錢 → 公車卡片聚焦上車�
     await card.getByRole('button', { name: '到站前 5 分提醒我' }).click();
     await card.locator('.ab-alert-on').waitFor();
     assert.match(await card.locator('.ab-alert-on').textContent(), /到站前 5 分提醒你/);
+    assert.equal(await card.locator('.ab-map-btn, .ab-map3d').count(), 0, '問阿幫公車卡沒有地圖（改在公車頁看街景）');
     await shot(page, 'phone-agent-bus-follow');
     // 開公車頁：同一個上車站、同一個提醒
     await card.getByRole('button', { name: '開公車頁看動態' }).click();
@@ -493,6 +537,15 @@ test('選公車就盯到站（L-14）：想省錢 → 公車卡片聚焦上車�
     assert.match(page.url(), /#\/bus\/Taipei\/[^?]+\?stop=/);
     assert.equal(await page.locator('.timeline .me').count(), 1);
     assert.match(await page.textContent('.bus-focus'), /已設定：到站前 5 分提醒你/);
+    // 公車街景（Blender）：站名標籤＝上車站；說明有分鐘；站名不超出畫面
+    const scene = page.locator('#scene .ab-scene3d');
+    await scene.waitFor();
+    const stopName = await page.locator('.timeline .me .title').evaluate((e) => e.firstChild.textContent.trim());
+    assert.equal(await scene.locator('.ab-scene-label.stop').textContent(), stopName);
+    assert.match(await scene.locator('.ab-scene-label.bus').textContent(), /\d+ 分|進站|即將/);
+    const [sb, lb] = await Promise.all([scene.boundingBox(), scene.locator('.ab-scene-label.stop').boundingBox()]);
+    assert.ok(lb.x >= sb.x && lb.x + lb.width <= sb.x + sb.width + 1, '站名在畫面內');
+    assert.match(await scene.getAttribute('aria-label'), new RegExp(`你在「${stopName.replace(/[()]/g, '\\$&')}」等車`));
     await shot(page, 'phone-bus-follow-page');
     // 到點：App 內 toast（通知權限另外）
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('abang:arrival', { detail: { text: '601 約 5 分後到「測試站」，該出門了！' } })));

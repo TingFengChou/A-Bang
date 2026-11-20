@@ -84,7 +84,7 @@ test('YouBike 兩端：優先選車夠、空位夠的站；很緊時警告並給
 
   const base = { options: [{ id: 'walk', role: 'walk', name: '步行' }], best: 'walk', ranking: { ranked: [{ id: 'walk', score: 80 }] } };
   const [, tight] = impactOf('plan_trip', { ...base, options: [...base.options, { id: 'bike', role: 'bike', bike: { rent: { name: 'A', count: 9, tight: false }, ret: { name: '市府站', count: 1, tight: true, backup: { name: '松壽廣場', count: 12 } } } }] });
-  assert.deepEqual(tight, { tone: 'bad', text: 'YouBike：「市府站」只剩 1 個空位，騎到時可能停滿（備用「松壽廣場」）' });
+  assert.deepEqual(tight, { tone: 'bad', text: 'YouBike：「市府站」只剩 1 個空位，停滿就改還「松壽廣場」' }, '給下一步（審查建議）');
   const [, skip] = impactOf('plan_trip', { ...base, skipped: [{ role: 'bike', why: '目的地 800 公尺內的 YouBike 站都沒有空位可還' }] });
   assert.match(skip.text, /^YouBike：目的地 800 公尺內.*沒有空位可還，不列入$/);
   assert.equal(impactOf('plan_trip', base).tone, 'good', '沒有 YouBike 方案就只有一行');
@@ -94,4 +94,31 @@ test('YouBike 兩端：優先選車夠、空位夠的站；很緊時警告並給
   const r2 = await callTool(createServices({ forceMock: true }), 'plan_trip', { from: '西門町', to: '台北101' });
   const bike = r2.data.options.find((o) => o.role === 'bike');
   assert.ok(bike ? bike.bike.rent.name && bike.bike.ret.name : r2.data.skipped?.some((x) => x.role === 'bike'), 'YouBike 兩端都要知道');
+});
+
+test('指定交通方式沒有可行方案：照分數建議並明說；最近站與縣市推估的邊界；沒有縣市也沒有位置回錯誤', async () => {
+  const { decide } = await import('../core/decide.js');
+  const opts = [{ id: 'walk', role: 'walk', name: '步行', minutes: 30, waitMin: 0, walkMin: 30, cost: 0, exposure: 1, effort: 1 }, { id: 'bus', role: 'bus', name: '公車 1', minutes: 20, waitMin: 5, walkMin: 5, cost: 15, exposure: 0.2, effort: 0.2 }];
+  const plain = decide(opts, {});
+  const r = decide(opts, { mode: 'ridehail' });
+  assert.equal(r.best.id, plain.best.id, '照分數');
+  assert.equal(r.modeUnavailable, 'ridehail');
+  assert.match(r.reason, /^叫車這次沒有可行的方案；/);
+  assert.equal(decide(opts, { mode: 'walk' }).best.id, 'walk', '有的話照指定');
+  const [main] = [impactOf('plan_trip', { options: opts, best: 'bus', modeUnavailable: 'ridehail', ranking: { ranked: [{ id: 'bus', score: 70 }] } })].flat();
+  assert.match(main.text, /^沒有可行的叫車方案：改建議公車 1/);
+
+  const { cityNear } = await import('../core/services/places.js');
+  assert.equal(cityNear({ lat: 25.0339, lon: 121.5645 }), 'Taipei', '台北 101 附近');
+  assert.equal(cityNear({ lat: 22.3, lon: 122.6 }), null, '外海：40 公里內沒有地標');
+  const { nearestStop } = await import('../core/tools/transit.js');
+  const st = (seq, name, lat, etaSec) => ({ seq, stopName: name, lat, lon: 121.5, etaSec, status: 0, statusText: '' });
+  const dirs = [{ direction: 0, label: '去', stops: [st(1, 'A', 25.0, 600), st(2, 'B', 25.01, 300)] }, { direction: 1, label: '返', stops: [st(1, 'B', 25.01, 120)] }];
+  const f = nearestStop(dirs, { lat: 25.0101, lon: 121.5 });
+  assert.deepEqual([f.stopName, f.direction], ['B', 1], '兩個方向都有 B：挑車比較快到的');
+  assert.equal(nearestStop([], { lat: 25, lon: 121.5 }), null);
+  assert.equal(nearestStop(dirs, { lat: 25.2, lon: 121.5 }), null, '超過 3 公里不說離你最近');
+
+  const { callTool } = await import('../core/tools/index.js');
+  await assert.rejects(callTool(createServices({ forceMock: true }), 'bus_route_eta', { routeName: '307' }), /哪個縣市/, '說明下一步');
 });

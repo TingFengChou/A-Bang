@@ -157,4 +157,11 @@ test('模型模式：程式已依位置查好的工具，模型再呼叫時沿�
   await runModel(svc, { messages: [{ role: 'user', content: '去台北 101' }], clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 25.0478, lon: 121.517 } }] }, (e) => es.push(e), { provider });
   assert.equal(es.filter((e) => e.type === 'tool_result' && e.tool === 'plan_trip').length, 1);
   assert.equal(es.filter((e) => e.type === 'decision').length, 1, '決策圖只有一張');
+test('模型模式：拒絕定位但使用者講了不同的起訖點 → 照常規劃（不擋）', async () => {
+  const svc = createServices({ forceMock: true });
+  const es = [];
+  await runModel(svc, { messages: [{ role: 'user', content: '從西門町到台北101' }], clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: false }] }, (e) => es.push(e), { provider: fakeProvider('local', { name: 'plan_trip', input: { from: '西門町', to: '台北101' } }) });
+  const r = es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
+  assert.ok(r?.ok);
+  assert.equal(r.data.from.name, '西門町');
 });

@@ -1,6 +1,7 @@
 // 網頁 agent 頁（M5-08，UX.md §3–§4、§8、§10）：對話、小幫手討論串、@點名、建議問題；由真實 NDJSON 事件驅動。
 // 卡片用 public/ui/cards（renderCard＋web host）。不加假延遲：只在討論串兩則訊息之間保留最短 300ms 避免閃爍（UX.md §4）。
 import { API_BASE, IN_APP } from '../base.js';
+import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
 import { runAgent, browserLocation } from '../agent/client.js';
 import { icons } from '../icons.js';
 import { motion } from '../../ui/cards/motion.js';
@@ -97,8 +98,9 @@ const metricsText = (m) => (m ? [m.scanned ? `${m.scanned} 筆` : null, m.cacheH
 export default {
   title: '問阿幫',
   render({ main, setTitle, onCleanup, params = [], query = {} }) {
-    // 手機 App：起點預設是現在位置，打開問阿幫就先定位（第一次會問權限），之後問「去台北 101」不用等
-    if (IN_APP) browserLocation().catch(() => {});
+    // 手機 App：起點預設是現在位置
+    // 已經允許過定位才先定位（不在使用者還沒發問時就跳權限框；第一次在需要位置時才問，審查建議）
+    if (IN_APP) navigator.permissions?.query({ name: 'geolocation' }).then((p) => { if (p.state === 'granted') browserLocation(); }).catch(() => {});
     const agentId = params[0] && AGENTS[params[0]] ? params[0] : 'life';
     const A = AGENTS[agentId];
     setTitle(A.title);
@@ -127,7 +129,9 @@ export default {
     const form = el('form', 'chat-form', input, sendBtn);
     const disclaimer = el('p', 'updated');
     const modeLine = el('p', 'updated agent-mode'); // 由誰回答（ADR-0012；Claude 模式說明對話會送 Anthropic，AGENT.md §7）
-    main.append(log, el('div', 'chat-dock', chips, mention, form), disclaimer, modeLine);
+    // 說明起點是現在位置（第一次需要位置時才跳權限框，先讓使用者知道為什麼）；拒絕定位時阿幫會問從哪出發
+    const hereHint = agentId === 'life' && el('p', 'updated here-hint', '沒說起點時，阿幫用你現在的位置當出發點。');
+    main.append(log, el('div', 'chat-dock', chips, mention, form), ...(hereHint ? [hereHint] : []), disclaimer, modeLine);
     const MODE_TEXT = {
       claude: (m) => `由 Claude（${m}）回答；對話會送 Anthropic 處理。`,
       local: (m) => `由地端模型（${m}）回答；對話只送到本站設定的模型伺服器。`,
@@ -170,7 +174,7 @@ export default {
         }
         if (s.kind === 'remind') {
           await host.watchArrival(s.payload);
-          log.append(el('p', 'agent-sys', `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（${host.background ? 'App 關著也會提醒' : 'App 開著時'}）。`));
+          log.append(el('p', 'agent-sys', `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（${cardT(`busRoute.${host.arrivalNote?.() || 'whenOpenPage'}`)}）。`));
           return showNext(view);
         }
         return undefined;

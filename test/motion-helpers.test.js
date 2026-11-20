@@ -50,3 +50,11 @@ test('公車街景：公車依站數停在路上（停靠／一站／太遠停�
   const [dx] = busShift(busX(9));
   assert.ok(SCENE.busLabel[0] + (dx / 100) * SCENE.w > 0, '最遠時車頂的字仍在畫面內');
 });
+
+test('公車街景說明：分鐘單獨標出；只有 1 分鐘內才說「就在你這站」（還有 0 站不代表車在你這站）', async () => {
+  const { sceneSay } = await import('../public/ui/cards/bus-scene.js');
+  assert.deepEqual(sceneSay({ routeName: '601', away: 2, etaSec: 420, etaText: '7 分' }), { head: '601・還有 2 站', eta: '7 分', near: false });
+  assert.deepEqual(sceneSay({ routeName: '601', away: 0, etaSec: 40, etaText: '即將進站' }), { head: '601・就在你這站', eta: '即將進站', near: true });
+  assert.deepEqual(sceneSay({ routeName: '601', away: 0, etaSec: 600, etaText: '10 分' }), { head: '601', eta: '10 分', near: false }, '上一站沒資料：不說就在你這站');
+  assert.deepEqual(sceneSay({ routeName: '601', away: null, etaSec: null, etaText: '尚未發車' }), { head: '601', eta: '尚未發車', near: false });
+});
