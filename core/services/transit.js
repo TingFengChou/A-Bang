@@ -119,8 +119,8 @@ export function createTransitServices(tdx) {
   // ───────── 軌道：高鐵 / 台鐵 ─────────
   const rail = {
     async thsrStations() {
-      const rows = await tdx.get('/basic/v2/Rail/THSR/Station', { $select: 'StationID,StationName' }, 86400);
-      return rows.map((s) => ({ id: s.StationID, name: zh(s.StationName), ...enField('nameEn', s.StationName) }));
+      const rows = await tdx.get('/basic/v2/Rail/THSR/Station', { $select: 'StationID,StationName,StationPosition' }, 86400);
+      return rows.map((s) => ({ id: s.StationID, name: zh(s.StationName), ...enField('nameEn', s.StationName), ...stationPos(s) }));
     },
     async thsrTimetable({ from, to, date = todayTW() }) {
       const st = await rail.thsrStations();
@@ -145,8 +145,8 @@ export function createTransitServices(tdx) {
       return { system: 'THSR', from: o.name, to: d.name, fares: normFares(od?.Fares, 'THSR') };
     },
     async traStations() {
-      const j = await tdx.get('/basic/v3/Rail/TRA/Station', { $select: 'StationID,StationName' }, 86400);
-      return (j.Stations || j).map((s) => ({ id: s.StationID, name: zh(s.StationName), ...enField('nameEn', s.StationName) }));
+      const j = await tdx.get('/basic/v3/Rail/TRA/Station', { $select: 'StationID,StationName,StationPosition' }, 86400);
+      return (j.Stations || j).map((s) => ({ id: s.StationID, name: zh(s.StationName), ...enField('nameEn', s.StationName), ...stationPos(s) }));
     },
     async traTimetable({ from, to, date = todayTW() }) {
       const st = await rail.traStations();
@@ -231,6 +231,13 @@ function mustCity(city) {
   const c = resolveCity(city);
   if (!c) throw new UserError(`無法辨識縣市「${city}」，可用 Taipei / 台北市 / TPE 等寫法`);
   return c;
+}
+
+/** 車站座標（StationPosition.PositionLat／Lon；⚠️ 待 M1 驗證，沒有就不帶） */
+function stationPos(s) {
+  const p = s.StationPosition || {};
+  const lat = Number(p.PositionLat), lon = Number(p.PositionLon);
+  return Number.isFinite(lat) && Number.isFinite(lon) && lat ? { lat, lon } : {};
 }
 
 export function findStation(list, input, label) {

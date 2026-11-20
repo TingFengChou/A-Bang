@@ -19,6 +19,19 @@ const STATE_WORDS = [
 ];
 const BUS_ROUTE = /(?:^|[^\d])([紅藍綠棕橘小幹]?\d{1,4}[區副]?)(?:\s*(?:號|路)?\s*(?:公車|到哪|來了|還要|什麼時候|幾分))/;
 const RAIL_WORD = /高鐵|台鐵|臺鐵|火車|自強|區間|莒光/;
+/** 問班次的說法（沒說起站時才用最近車站） */
+const RAIL_ASK = /下一班|幾點|班次|時刻|末班|首班|還有車|有車嗎|幾班/;
+/** 不是站名的「起站」（「下一班高鐵到台中」「我要坐高鐵去左營」） */
+const NOT_STATION = /[我要坐搭想你在]|下一班|一班|最近|現在|明天|今天|後天|早上|晚上|下午/;
+/** 高鐵／台鐵的起訖站：「台北到台中」→ { from, to }；只有「到／去／回 X」→ { from: null, to }；都沒有回 null */
+function railOD(s) {
+  const t = s.replace(RAIL_WORD, ' ');
+  const STOP = '(?=下一班|首班|末班|幾點|的|班|車|站|要|有|[\\s？?。，,！!]|$)';
+  const m = new RegExp(`([一-龥]{2,3}?)\\s*(?:到|→|去|往|回)\\s*([一-龥]{2,3}?)${STOP}`).exec(t);
+  if (m && !NOT_STATION.test(m[1])) return { from: m[1], to: m[2] };
+  const only = new RegExp(`(?:到|→|去|往|回)\\s*([一-龥]{2,3}?)${STOP}`).exec(t);
+  return only ? { from: null, to: only[1] } : null;
+}
 // 生活服務（M10）：依序比對，先比的優先（「發票」先於其他）。天氣在行程之後才比（「下雨了，從 A 到 B」是行程）
 const LIFE_WORDS = [
   ['invoice', /發票|對獎|中獎號碼/],
@@ -263,8 +276,9 @@ export function parseIntent(text, ctx) {
   }
 
   if (RAIL_WORD.test(s)) {
-    const m = /([一-龥]{2,3}?)\s*(?:到|→|去|往)\s*([一-龥]{2,3}?)(?=下一班|幾點|的|班|車|站|[\s？?。，,！!]|$)/.exec(s.replace(RAIL_WORD, ' '));
-    if (m) return { ...base, intent: 'rail', system: /高鐵/.test(s) ? 'THSR' : 'TRA', from: m[1], to: m[2] };
+    const r = railOD(s);
+    // 有起站，或問班次（下一班、幾點、末班…）但沒說起站 → 用現在位置最近的車站（「坐火車去花蓮」沒問班次是行程）
+    if (r && (r.from || RAIL_ASK.test(s))) return { ...base, intent: 'rail', system: /高鐵/.test(s) ? 'THSR' : 'TRA', from: r.from, to: r.to };
   }
   if (/捷運/.test(s)) {
     const m = /捷運\s*([一-龥]{2,6}?)站/.exec(s);
@@ -302,8 +316,8 @@ export function parseIntent(text, ctx) {
 function slotsFor(intent, s, base) {
   switch (intent) {
     case 'rail': {
-      const m = /([一-龥]{2,3}?)\s*(?:到|→|去|往|回)\s*([一-龥]{2,3}?)(?=下一班|幾點|的|班|車|站|要|有|[\s？?。，,！!]|$)/.exec(s.replace(RAIL_WORD, ' '));
-      return m && !/[我要坐搭想你在]/.test(m[1]) ? { ...base, intent, system: /高鐵/.test(s) ? 'THSR' : 'TRA', from: m[1], to: m[2] } : null; // 「我要坐火車去花蓮」沒有起站
+      const r = railOD(s);
+      return r ? { ...base, intent, system: /高鐵/.test(s) ? 'THSR' : 'TRA', from: r.from, to: r.to } : null; // 沒說起站：from null（用最近的車站）
     }
     case 'metro': {
       const m = /(?:捷運|MRT)?\s*([一-龥]{2,6}?)站/i.exec(s);
@@ -348,7 +362,7 @@ const NEARBY = {
 const isNearby = (it) => Object.hasOwn(NEARBY, it.intent);
 
 /** 需要使用者所在位置嗎（行程沒起點；附近類查詢沒地點） */
-export const needsLocation = (it) => (it.intent === 'trip' && !it.from) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]) || (it.intent === 'metro' && !it.station && !it.near) || (it.intent === 'outing' && !it.places[0]);
+export const needsLocation = (it) => (it.intent === 'trip' && !it.from) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]) || (it.intent === 'metro' && !it.station && !it.near) || (it.intent === 'outing' && !it.places[0]) || (it.intent === 'rail' && !it.from);
 
 /**
  * 意圖 → 分段計畫。每段 `(results) => ({ note, calls })`，results 是之前各段的 callTool 結果（依名稱）。
@@ -423,8 +437,13 @@ export function demoSteps(it, now = Date.now()) {
       return [() => ({ note: `@捷運 ${it.station}站下一班`, calls: [{ name: 'metro_live_board', args: { system: 'TRTC', station: it.station } }] })];
     case 'rail': {
       const name = it.system === 'THSR' ? 'thsr_timetable' : 'tra_timetable';
+      const label = it.system === 'THSR' ? '高鐵' : '台鐵';
       const date = it.tomorrow ? nowTW(now + 864e5).date : undefined;
-      return [() => ({ note: `@${it.system === 'THSR' ? '高鐵' : '台鐵'} ${it.from}到${it.to}的班次`, calls: [{ name, args: { from: it.from, to: it.to, ...(date && { date }) } }] })];
+      if (!it.from) { // 沒說起站：現在位置（拿不到就預設地點）最近的車站
+        const near = it.fromPoint ? ll(it.fromPoint) : DEFAULT_FROM;
+        return [() => ({ note: `@${label} 找${it.fromPoint ? '離你' : `「${DEFAULT_FROM}」`}最近的站，看到${it.to}的班次`, calls: [{ name, args: { to: it.to, near, ...(date && { date }) } }] })];
+      }
+      return [() => ({ note: `@${label} ${it.from}到${it.to}的班次`, calls: [{ name, args: { from: it.from, to: it.to, ...(date && { date }) } }] })];
     }
     case 'quake':
       return [() => ({ note: '@地震 最近的地震報告', calls: [{ name: 'earthquake_recent', args: { ...(it.county && { county: it.county }), limit: 5 } }] })];

@@ -897,6 +897,72 @@
           }
         }
       ]
+    },
+    {
+      "id": "S16-8",
+      "title": "下一班高鐵到台中：用最近的高鐵站",
+      "turns": [
+        {
+          "say": "下一班高鐵到台中",
+          "expect": {
+            "tools": [
+              "thsr_timetable"
+            ],
+            "resultHas": [
+              "離你最近的高鐵站"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S16-9",
+      "title": "台鐵回高雄幾點有車：最近的台鐵站",
+      "turns": [
+        {
+          "say": "台鐵回高雄幾點有車",
+          "expect": {
+            "tools": [
+              "tra_timetable"
+            ],
+            "resultHas": [
+              "離你最近的台鐵站"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S16-10",
+      "title": "明天高鐵到左營首班：明天、最近的站，「明天」不是起站",
+      "turns": [
+        {
+          "say": "明天高鐵到左營首班幾點",
+          "expect": {
+            "tools": [
+              "thsr_timetable"
+            ],
+            "resultHas": [
+              "離你最近的高鐵站"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S16-11",
+      "title": "坐火車去花蓮（沒問班次）：是行程",
+      "turns": [
+        {
+          "say": "坐火車去花蓮",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "fromHere": true
+          }
+        }
+      ]
     }
   ]
 }
