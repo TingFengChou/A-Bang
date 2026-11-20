@@ -94,3 +94,23 @@ test('接著上一輪改行程：規則看得到前文，就算分類器以為�
   assert.deepEqual([j.intent, j.followUp, j.mode, llm.calls], ['trip', true, 'bus', 0]);
   assert.ok(j.states.includes('budget'), '上一輪的狀態沿用');
 });
+
+test('模型模式：使用者沒說起點時，plan_trip 的起點一律是手機定位（模型把目的地也填成起點會被改掉）', async () => {
+  const svc = createServices({ forceMock: true });
+  const call = { name: 'plan_trip', input: { from: '台北101', to: '台北101' } };
+  const body = { messages: [{ role: 'user', content: '去台北 101' }], clientTools: ['device_location'] };
+  const first = [];
+  await runModel(svc, body, (e) => first.push(e), { provider: fakeProvider('local', call) });
+  assert.ok(first.some((e) => e.type === 'client_tool_call' && e.name === 'device_location'), '還沒定位：先請 App 定位');
+  assert.ok(!first.some((e) => e.type === 'tool_result'), '不拿錯的起點去算');
+
+  const es = [];
+  await runModel(svc, { ...body, clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 25.0478, lon: 121.517 } }] }, (e) => es.push(e), { provider: fakeProvider('local', call) });
+  const r = es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
+  assert.deepEqual(r.args.from, { lat: 25.0478, lon: 121.517, name: '你的位置' });
+  assert.equal(r.data.from.name, '你的位置');
+
+  const denied = [];
+  await runModel(svc, { ...body, clientToolResults: [{ id: 'loc1', ok: false }] }, (e) => denied.push(e), { provider: fakeProvider('local', call) });
+  assert.ok(!denied.some((e) => e.type === 'tool_result' && e.tool === 'plan_trip' && e.ok), '拒絕定位又把目的地當起點：請模型改問從哪出發');
+});

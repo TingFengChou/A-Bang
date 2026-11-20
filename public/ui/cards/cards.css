@@ -263,3 +263,11 @@ html.lite-motion .ab-gauge-needle { transition: none; }
 @media (prefers-reduced-motion: reduce) { .ab-scene-bus, .ab-scene3d > .ab-scene-label.bus { transition: none; } .ab-scene-bus .ab-scene-img { animation: none; } }
 html.lite-motion .ab-scene-bus { transition: none; }
 html.lite-motion .ab-scene-bus .ab-scene-img { animation: none; }
+
+/* YouBike 兩端：借車站有車、還車站有空位；很緊時黃色警告與備用站 */
+.ab-bike-ends { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
+.ab-chip.ok { background: var(--ab-ok-soft); color: var(--ab-ok); }
+.ab-chip.warn { background: var(--ab-warn-soft); color: var(--ab-warn); }
+.ab-bike-warn { list-style: none; margin: 4px 0; padding: 6px 10px; border-radius: 10px; background: var(--ab-warn-soft); color: var(--ab-warn); font-size: 13px; }
+.ab-skipped { list-style: none; margin: 8px 0 0; padding: 0; color: var(--ab-muted); font-size: 13px; }
+.ab-skipped li { display: flex; align-items: center; gap: 6px; }

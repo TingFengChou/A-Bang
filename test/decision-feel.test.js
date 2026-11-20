@@ -16,7 +16,7 @@ test('impactOf：下雨／空品／路況／比較結果對決策的影響（不
   assert.equal(impactOf('aqi_nearby', { nearest: { aqi: 58 } }).tone, 'neutral');
   assert.match(impactOf('traffic_status', { covered: true, level: 'jam', delayMin: 49 }).text, /塞車約 49 分/);
   assert.equal(impactOf('traffic_status', { covered: false }).tone, 'neutral');
-  assert.match(impactOf('plan_trip', { best: 'bus-601', options: [{ id: 'bus-601', name: '公車 601' }, { id: 'walk' }], ranking: { ranked: [{ id: 'bus-601', score: 69 }] } }).text, /比了 2 種走法：公車 601 69 分最高/);
+  assert.match([impactOf('plan_trip', { best: 'bus-601', options: [{ id: 'bus-601', name: '公車 601' }, { id: 'walk' }], ranking: { ranked: [{ id: 'bus-601', score: 69 }] } })].flat()[0].text, /比了 2 種走法：公車 601 69 分最高/);
   assert.equal(impactOf('find_place', {}), null);
 });
 
@@ -70,4 +70,28 @@ test('快速判斷先說聽懂了（不等模型），完整判斷多找到的�
   await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '帶行李從台北車站到松山機場' }] }, (e) => es.push(e), { judge });
   assert.equal(llmCalls, 1, '完整版仍會問一次模型');
   assert.match(es.find((e) => e.type === 'agent_note').text, /^你帶行李，我先看天氣/);
+});
+
+test('YouBike 兩端：優先選車夠、空位夠的站；很緊時警告並給備用站；起點沒車或終點沒空位寫出原因', async () => {
+  const { pickBikeStation, BIKE_SAFE } = await import('../core/services/trip.js');
+  const st = (name, distance, rent, returnSlots) => ({ uid: name, name, distance, rent, returnSlots });
+  // 最近的只剩 1 個空位、多走 200 公尺有 8 個 → 選空位多的
+  assert.equal(pickBikeStation([st('近', 80, 5, 1), st('遠一點', 280, 5, 8)], 'returnSlots', BIKE_SAFE.slots).pick.name, '遠一點');
+  // 夠的站太遠（多 600 公尺）→ 選近的，但標為很緊、備用是遠的
+  const r = pickBikeStation([st('近', 80, 5, 1), st('很遠', 680, 5, 8)], 'returnSlots', BIKE_SAFE.slots);
+  assert.deepEqual([r.pick.name, r.tight, r.backup.name], ['近', true, '很遠']);
+  assert.equal(pickBikeStation([st('滿', 50, 5, 0)], 'returnSlots', 3), null, '都沒空位');
+
+  const base = { options: [{ id: 'walk', role: 'walk', name: '步行' }], best: 'walk', ranking: { ranked: [{ id: 'walk', score: 80 }] } };
+  const [, tight] = impactOf('plan_trip', { ...base, options: [...base.options, { id: 'bike', role: 'bike', bike: { rent: { name: 'A', count: 9, tight: false }, ret: { name: '市府站', count: 1, tight: true, backup: { name: '松壽廣場', count: 12 } } } }] });
+  assert.deepEqual(tight, { tone: 'bad', text: 'YouBike：「市府站」只剩 1 個空位，騎到時可能停滿（備用「松壽廣場」）' });
+  const [, skip] = impactOf('plan_trip', { ...base, skipped: [{ role: 'bike', why: '目的地 800 公尺內的 YouBike 站都沒有空位可還' }] });
+  assert.match(skip.text, /^YouBike：目的地 800 公尺內.*沒有空位可還，不列入$/);
+  assert.equal(impactOf('plan_trip', base).tone, 'good', '沒有 YouBike 方案就只有一行');
+
+  // 實際行程（示範資料）：YouBike 方案帶兩端資訊，或寫出不列入的原因
+  const { callTool } = await import('../core/tools/index.js');
+  const r2 = await callTool(createServices({ forceMock: true }), 'plan_trip', { from: '西門町', to: '台北101' });
+  const bike = r2.data.options.find((o) => o.role === 'bike');
+  assert.ok(bike ? bike.bike.rent.name && bike.bike.ret.name : r2.data.skipped?.some((x) => x.role === 'bike'), 'YouBike 兩端都要知道');
 });

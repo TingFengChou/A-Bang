@@ -25,9 +25,20 @@ export function moreStatesNote(quick, full) {
   return extra.length ? `我還注意到你${extra.join('、')}，會一起算進去` : null;
 }
 
+/** YouBike 兩端（起點有車、終點有空位）：很緊或不可行時一定要說 */
+function bikeImpact(data) {
+  const skip = data.skipped?.find((s) => s.role === 'bike');
+  if (skip) return { tone: 'bad', text: `YouBike：${skip.why}，不列入` };
+  const b = data.options?.find((o) => o.role === 'bike')?.bike;
+  if (!b) return null;
+  if (b.ret.tight) return { tone: 'bad', text: `YouBike：「${b.ret.name}」只剩 ${b.ret.count} 個空位，騎到時可能停滿${b.ret.backup ? `（備用「${b.ret.backup.name}」）` : ''}` };
+  if (b.rent.tight) return { tone: 'bad', text: `YouBike：「${b.rent.name}」只剩 ${b.rent.count} 台，可能被借光${b.rent.backup ? `（備用「${b.rent.backup.name}」）` : ''}` };
+  return { tone: 'good', text: `YouBike：「${b.rent.name}」${b.rent.count} 台可借、「${b.ret.name}」${b.ret.count} 個空位` };
+}
+
 /**
  * 工具結果對決策的影響。tone：bad（讓某些方式扣分）、good（有利或確認可行）、neutral（不影響）。
- * @returns {{ tone: 'bad'|'good'|'neutral', text: string } | null}
+ * @returns {{ tone: 'bad'|'good'|'neutral', text: string } | Array<{ tone: string, text: string }> | null} 行程可能有兩行（比較結果＋YouBike 兩端）
  */
 export function impactOf(name, data) {
   if (!data) return null;
@@ -48,7 +59,9 @@ export function impactOf(name, data) {
     case 'plan_trip': {
       const top = data.ranking?.ranked?.[0];
       const best = data.options?.find((o) => o.id === data.best);
-      return best && top ? { tone: 'good', text: `比了 ${data.options.length} 種走法：${best.name} ${top.score} 分最高` } : { tone: 'bad', text: '這次沒有可行的走法' };
+      const main = best && top ? { tone: 'good', text: data.mode ? `照你說的選${best.name}（${data.ranking.ranked.find((r) => r.id === best.id)?.score ?? '?'} 分）` : `比了 ${data.options.length} 種走法：${best.name} ${top.score} 分最高` } : { tone: 'bad', text: '這次沒有可行的走法' };
+      const bike = bikeImpact(data);
+      return bike ? [main, bike] : main;
     }
     case 'bus_route_eta': {
       const f = data.focus;

@@ -290,7 +290,7 @@ export default {
               if (e.ok && e.metrics) b.querySelector('.src').append(` · ${metricsText(e.metrics)}`);
               if (e.ok && e.mode === 'demo') b.querySelector('.src').append(' · ', el('span', 'src-demo', '示範資料'));
               // 這筆資料對決策的影響（core/agent/impact.js）：不利／有利／不影響
-              if (e.ok && e.impact) say.after(el('div', `impact ${e.impact.tone}`, el('span', 'arrow', '→'), e.impact.text));
+              if (e.ok && e.impact) say.after(...[e.impact].flat().map((x) => el('div', `impact ${x.tone}`, el('span', 'arrow', '→'), x.text)));
             }
             if (e.ok) view.results.push({ tool: e.tool, card: e.card, data: e.data, args: e.args });
             if (e.ok && e.card) {

@@ -192,4 +192,4 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 /* 決策圖：點沒被選的方案＝改成它 */
 .dg-opt.pickable { cursor: pointer; }
 .dg-opt.pickable:hover rect, .dg-opt.pickable:focus-visible rect { stroke: var(--brand); stroke-width: 2; }
-.dg-opt.pickable:focus-visible { outline: none; }
+.dg-opt.pickable:focus, .dg-opt.pickable:focus-visible { outline: none; } /* 點了不要出現瀏覽器的橘色焦點框；鍵盤焦點用上面的邊框 */
