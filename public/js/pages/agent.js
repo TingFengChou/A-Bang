@@ -78,18 +78,20 @@ function handoff(box, results, decision) {
 
 /** 打字中：三個跳動的點（螢幕閱讀器念「輸入中」） */
 /** 定位結果的一句話（不分行程或附近查詢都通順；沒拿到時說下一步，CLAUDE.md 規則 6；預設起點由總結說明，這裡不先講） */
-export function locateSay({ ok, reason }) {
-  if (ok) return '拿到了，用你現在的位置';
-  if (reason === 'outside') return '你的位置不在台灣，阿幫查不到附近資料；可以直接打地點';
-  return '沒拿到你的位置；可以直接打地點，或到手機設定打開定位';
+export function locateSay({ ok, reason }, lang = null) {
+  const en = lang === 'en';
+  if (ok) return en ? 'Got it, using your location' : '拿到了，用你現在的位置';
+  if (reason === 'outside') return en ? "You're outside Taiwan; type a place instead" : '你的位置不在台灣，阿幫查不到附近資料；可以直接打地點';
+  return en ? "Couldn't get your location; type a place or turn on location" : '沒拿到你的位置；可以直接打地點，或到手機設定打開定位';
 }
 
 /** 天氣、空品、出門建議卡片：{ 鍵（工具＋測站）, 值（主要數字）, 收合時的說明 }；其他卡片不收合 */
-function cardFacts(e) {
+function cardFacts(e, lang) {
   const d = e.data || {};
-  if (e.tool === 'weather_now') return { key: `w|${d.station}`, val: `${d.tempC}|${d.raining}|${d.pop3h}`, say: `天氣同上（${d.station} ${d.tempC ?? '—'}°C${d.pop3h != null ? `、降雨 ${d.pop3h}%` : ''}）` };
-  if (e.tool === 'aqi_nearby' && d.nearest) return { key: `a|${d.nearest.site}`, val: `${d.nearest.aqi}`, say: `空品同上（${d.nearest.site} AQI ${d.nearest.aqi}）` };
-  if (e.tool === 'outing_advice' && d.items) return { key: `o|${d.weather?.station}|${d.air?.site}`, val: `${d.weather?.tempC}|${d.weather?.pop3h}|${d.air?.aqi}|${d.items.map((x) => x.kind).join(',')}`, say: `出門建議同上（${d.items.map((x) => x.text.split('，')[0]).join('、').slice(0, 30)}）` };
+  const en = lang === 'en';
+  if (e.tool === 'weather_now') return { key: `w|${d.station}`, val: `${d.tempC}|${d.raining}|${d.pop3h}`, say: en ? `Weather same as above (${d.tempC ?? '—'}°C${d.pop3h != null ? `, rain ${d.pop3h}%` : ''})` : `天氣同上（${d.station} ${d.tempC ?? '—'}°C${d.pop3h != null ? `、降雨 ${d.pop3h}%` : ''}）` };
+  if (e.tool === 'aqi_nearby' && d.nearest) return { key: `a|${d.nearest.site}`, val: `${d.nearest.aqi}`, say: en ? `Air same as above (AQI ${d.nearest.aqi})` : `空品同上（${d.nearest.site} AQI ${d.nearest.aqi}）` };
+  if (e.tool === 'outing_advice' && d.items) return { key: `o|${d.weather?.station}|${d.air?.site}`, val: `${d.weather?.tempC}|${d.weather?.pop3h}|${d.air?.aqi}|${d.items.map((x) => x.kind).join(',')}`, say: en ? 'Outing tips same as above' : `出門建議同上（${d.items.map((x) => x.text.split('，')[0]).join('、').slice(0, 30)}）` };
   return null;
 }
 
@@ -134,8 +136,8 @@ export default {
     const cards = [];
     const seenCards = new Map(); // 上一輪的天氣、空品（接著問時沒變就收合「同上」；鍵含測站，同一輪起訖點兩張不互蓋）
     /** 這張卡跟上一輪同一個測站的一樣嗎：一樣回收合說明，否則記下並回 null */
-    const sameAs = (e, follow) => {
-      const f = cardFacts(e);
+    const sameAs = (e, follow, lang) => {
+      const f = cardFacts(e, lang);
       if (!f) return null;
       const same = follow && seenCards.get(f.key) === f.val;
       seenCards.set(f.key, f.val);
@@ -184,7 +186,6 @@ export default {
       if (!chips.classList.contains('next')) showDefaults();
       disclaimer.textContent = data.disclaimer;
     }).catch(() => {});
-    const STATE_CHIP = { rush: '趕時間', budget: '想省錢', lessWalk: '少走路', luggage: '帶行李' };
     let lastView = null;
     // 在卡片或公車頁設定／取消到站提醒後，下一步建議跟著更新（已提醒就不再建議）
     const onWatch = () => { if (lastView && chips.classList.contains('next')) showNext(lastView); };
@@ -192,14 +193,14 @@ export default {
     onCleanup(() => window.removeEventListener('abang:arrival-watch', onWatch));
     function showNext(view) {
       lastView = view;
-      const steps = nextSteps(view.results, view.decision, { watching: host.arrivalWatch?.() });
+      const steps = nextSteps(view.results, view.decision, { watching: host.arrivalWatch?.(), lang: view.lang });
       if (!steps.length) { showDefaults(); return; }
       chips.classList.add('next');
       const act = async (s, b) => {
         if (s.kind === 'ask') return send(s.payload);
         if (s.kind === 'navigate') return host.navigate(s.payload);
         if (s.kind === 'state') { // 在這一輪的決策圖加狀態，瀏覽器立即重算
-          const add = [...(view.box?.querySelectorAll('.dg-chip.add') || [])].find((x) => x.textContent.includes(STATE_CHIP[s.payload]));
+          const add = view.box?.querySelector(`.dg-chip.add[data-state="${s.payload}"]`); // 用狀態鍵對（英文的決策圖文字不同）
           add?.click();
           view.box?.scrollIntoView({ behavior: 'smooth', block: 'start' });
           b.remove();
@@ -207,16 +208,16 @@ export default {
         }
         if (s.kind === 'remind') {
           await host.watchArrival(s.payload);
-          log.append(el('p', 'agent-sys', `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（${cardT(`busRoute.${host.arrivalNote?.() || 'whenOpenPage'}`)}）。`));
+          log.append(el('p', 'agent-sys', view.lang === 'en' ? `OK, I'll remind you ${s.payload.minutes} min before bus ${s.payload.routeName} reaches ${s.payload.stop}.` : `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（${cardT(`busRoute.${host.arrivalNote?.() || 'whenOpenPage'}`)}）。`));
           return showNext(view);
         }
         return undefined;
       };
       const btns = steps.map((s) => { const b = el('button', `chip next-${s.kind}`, s.label); b.type = 'button'; b.onclick = () => act(s, b); return b; });
-      const more = el('button', 'chip ghost', '其他問題');
+      const more = el('button', 'chip ghost', view.lang === 'en' ? 'Ask something else' : '其他問題');
       more.type = 'button';
       more.onclick = showDefaults;
-      chips.replaceChildren(el('span', 'next-title', '接下來可以'), ...btns, more);
+      chips.replaceChildren(el('span', 'next-title', view.lang === 'en' ? 'Try next' : '接下來可以'), ...btns, more);
     }
 
     // @ 點名：輸入 @ 時顯示可點名的小幫手
@@ -267,9 +268,9 @@ export default {
     /** 一輪對話的畫面：事件依序呈現；討論串兩則之間至少 300ms（只為避免閃爍） */
     function turnView(turn, turnLang = null) {
       const thread = el('div', 'thread live');
-      thread.setAttribute('aria-label', '小幫手討論串');
+      thread.setAttribute('aria-label', turnLang === 'en' ? 'Helper thread' : '小幫手討論串');
       // 會議感（原型 transit-discussion.html）：討論中有標題與跳動的點，結束後收合成摘要
-      thread.append(el('div', 'thread-head', el('span', 'th-title', '小幫手討論中'), el('span', 'say typing', ...typing('討論中'))));
+      thread.append(el('div', 'thread-head', el('span', 'th-title', turnLang === 'en' ? 'Checking live data…' : '小幫手討論中'), el('span', 'say typing', ...typing(turnLang === 'en' ? 'checking' : '討論中'))));
       const results = el('div', 'results');
       turn.append(thread, results);
       const bubbles = new Map();
@@ -277,7 +278,7 @@ export default {
       let queue = Promise.resolve();
       let lastShown = 0;
       let textEl = null;
-      const view = { text: '', results: [], decision: null, box: null }; // results／decision：給「接下來可以…」
+      const view = { text: '', results: [], decision: null, box: null, lang: turnLang }; // results／decision：給「接下來可以…」；lang：英文那一輪
       const gap = async () => {
         if (reducedMotion()) return;
         const wait = MIN_GAP_MS - (performance.now() - lastShown);
@@ -325,14 +326,14 @@ export default {
             break;
           }
           case 'client_tool_call': {
-            const b = el('div', 'bubble tool', avatar('定位'), el('div', 'say typing', ...typing('定位中')));
+            const b = el('div', 'bubble tool', avatar('定位'), el('div', 'say typing', ...typing(turnLang === 'en' ? 'locating' : '定位中')));
             bubbles.set(`client:${e.id}`, b);
             thread.append(b);
             break;
           }
           case 'client_tool_result': { // 客戶端自己送的（client.js）：定位完成或失敗，把「定位中」換成結果
             const say = bubbles.get(`client:${e.id}`)?.querySelector('.say');
-            if (say) { say.className = 'say'; say.textContent = locateSay(e); }
+            if (say) { say.className = 'say'; say.textContent = locateSay(e, turnLang); }
             break;
           }
           case 'tool_start': {
@@ -359,12 +360,12 @@ export default {
             if (e.ok) view.results.push({ tool: e.tool, card: e.card, data: e.data, args: e.args });
             if (e.ok && e.card) {
               // 接著問的那一輪，天氣、空品跟上一輪一樣：收合成「天氣同上」（點開看完整卡片），畫面不會越拉越長
-              const same = sameAs(e, turn.dataset.follow === '1');
+              const same = sameAs(e, turn.dataset.follow === '1', turnLang);
               const payload = { card: e.card, v: e.v, mode: e.mode, speak: e.speak, data: e.data, tool: e.tool, args: e.args, ...(turnLang === 'en' && { lang: 'en' }) }; // 觀光客用英文問：卡片標籤用英文（S12b）
               if (same) { // 點開才畫卡片（不播進場動畫）
                 const slot = el('div', 'card-slot');
                 const box = el('details', 'card-same');
-                box.append(el('summary', '', el('span', 'same-text', same), el('span', 'same-open', '看完整')), slot);
+                box.append(el('summary', '', el('span', 'same-text', same), el('span', 'same-open', turnLang === 'en' ? 'Show card' : '看完整')), slot);
                 box.addEventListener('toggle', () => { if (box.open && !slot.childElementCount) cards.push(renderCard(slot, payload, host)); });
                 results.append(box);
               } else {
@@ -379,7 +380,7 @@ export default {
             const n = e.tools.length;
             // 摘要：參與的小幫手頭像疊在一起＋工具數；點開再看討論過程
             const stack = el('span', 'av-stack', ...roles.slice(0, 6).map((r) => avatar(r)));
-            const sum = el('button', 'thread-sum', stack, el('span', null, `小幫手討論完成・${n} 個工具・${e.servers.length} 個 MCP`));
+            const sum = el('button', 'thread-sum', stack, el('span', null, turnLang === 'en' ? `Checked ${n} source${n === 1 ? '' : 's'}` : `小幫手討論完成・${n} 個工具・${e.servers.length} 個 MCP`));
             sum.type = 'button';
             sum.setAttribute('aria-expanded', 'false');
             sum.onclick = () => {
@@ -397,12 +398,12 @@ export default {
           }
           case 'decision': {
             const box = el('section', 'decision enter3d');
-            box.setAttribute('aria-label', '決策圖');
+            box.setAttribute('aria-label', turnLang === 'en' ? 'How Abang decided' : '決策圖');
             if (reducedMotion()) box.classList.add('static');
             results.prepend(box);
             view.decision = e; view.box = box;
             const mod = await decideModule;
-            if (mod) renderDecision(box, e, { sources: roles.filter((r) => r !== '行程'), decide: mod.decide, CRITERIA: mod.CRITERIA, onPick: (o) => !busy && send(`改成${o.name}`) }).played.then(() => handoff(box, results, e));
+            if (mod) renderDecision(box, e, { sources: roles.filter((r) => r !== '行程'), decide: mod.decide, CRITERIA: mod.CRITERIA, lang: turnLang, onPick: (o) => !busy && send(turnLang === 'en' ? `Switch to ${({ walk: 'walking', bike: 'YouBike', bus: 'bus', metro: 'MRT', thsr: 'high speed rail', tra: 'train', intercity: 'intercity bus', ridehail: 'taxi' })[o.role] || o.name} instead` : `改成${o.name}`) }).played.then(() => handoff(box, results, e));
             else box.append(el('p', 'dg-why', e.reason)); // 載不到引擎時至少顯示理由
             break;
           }
