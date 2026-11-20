@@ -87,7 +87,16 @@ function navigate() {
 
 /** 頂端橫幅：依各類資料的真實／示範狀態說明（卡片與首頁格子另有標示） */
 function paintBanner() {
-  $('banner').innerHTML = bannerHtml(state);
+  $('banner').innerHTML = offlineHtml(state) + bannerHtml(state);
+}
+
+/** 離線與弱網：沒有網路、或畫面是上次存下的資料時，在最上面說清楚（role=status） */
+function offlineHtml({ staleAt }) {
+  const off = globalThis.navigator?.onLine === false;
+  if (!off && !staleAt) return '';
+  const at = staleAt ? new Date(staleAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false }) : null;
+  const text = at ? `${off ? '目前離線' : '目前連不上伺服器'}：顯示 ${at} 存下的資料，可能不是最新。` : '目前離線：連上網路後再查詢。';
+  return `<div class="offline-banner" role="status">${esc(text)}</div>`;
 }
 
 function bannerHtml({ mode, sources }) {
@@ -99,6 +108,7 @@ function bannerHtml({ mode, sources }) {
 }
 
 addEventListener('hashchange', navigate);
+for (const ev of ['online', 'offline', 'abang:stale', 'abang:fresh']) addEventListener(ev, () => { if (ev === 'online') state.staleAt = null; paintBanner(); });
 navigate();
 api.status().then(() => paintBanner()).catch(() => {});
 // 出門提醒（T7）：過期的取消（重開機後不補送）、網頁版重新整理後把還沒到的排回去

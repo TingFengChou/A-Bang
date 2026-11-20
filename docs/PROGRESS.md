@@ -13,6 +13,16 @@
 
 ---
 
+## 2026-11-21（續）離線與弱網
+
+- 做了：`api.js` 成功的回應存在手機（24 小時、30 筆；附近查詢含座標不存），連不上時顯示上次的資料與黃底橫幅「目前離線：顯示 HH:mm 存下的資料」；連回來或下一次成功時消失；隱私權政策與清除清單加上離線資料。
+- 測試：npm test 485 項全過（新增 offline 三項）；E2E 44 項（看過的公車路線離線仍顯示、連回來恢復）。
+- 文件：UX §4.10、PLAN、PROGRESS。
+- 下一個：S12b 卡片英文。
+- 卡住：無。
+
+---
+
 ## 2026-11-21（續）T6 iOS 名稱與深色／著色圖示
 
 - 做了：確認主畫面、設定、權限畫面的名稱（`CFBundleDisplayName`）已是 Abang，`PRODUCT_NAME` 維持 App；`scripts/build-icons.js` 產生 iOS 18 深色（透明底、放大置中、深色部分調亮）與著色（灰階、頭用中灰）圖示，`AppIcon.appiconset` 加 luminosity dark／tinted。

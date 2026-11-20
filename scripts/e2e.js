@@ -802,6 +802,28 @@ test('問阿幫：接著問時天氣空品收合同上；重來有分隔線', as
   });
 });
 
+// 離線與弱網：看過的公車路線離線時仍顯示上次的資料，最上面說是幾點存下的；沒看過的說連不上；連回來後標示消失
+test('離線：顯示上次存下的資料與時間、連回來恢復', async () => {
+  const ctx = await newCtx({ ...DEVICES.phone, reducedMotion: 'reduce' });
+  try {
+    const page = await ctx.newPage();
+    await page.goto(`${base}/#/bus/Taipei/307`);
+    await page.waitForSelector('.timeline .title');
+    await page.goto(`${base}/#/`);
+    await page.waitForSelector('.tabbar');
+    await ctx.setOffline(true);
+    await page.evaluate(() => { location.hash = '#/bus/Taipei/307'; });
+    await page.waitForSelector('.timeline .title');
+    const banner = await page.locator('.offline-banner').textContent();
+    assert.match(banner, /目前離線：顯示 \d{2}:\d{2} 存下的資料/);
+    await shot(page, 'phone-offline');
+    await ctx.setOffline(false);
+    await page.waitForFunction(() => !document.querySelector('.offline-banner'));
+  } finally {
+    await ctx.close();
+  }
+});
+
 // 首次使用引導：第一次打開首頁跳出、按「允許定位」才要權限（失敗說原因）、已允許的步驟跳過、可略過、看過不再跳、設定頁可再看一次
 test('首次使用引導：要權限、失敗說原因、看過不再顯示、深層連結不跳', async () => {
   const ctx = await newCtx({ ...DEVICES.phone, reducedMotion: 'reduce' }, { onboard: true }); // 沒給定位權限
