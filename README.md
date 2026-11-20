@@ -86,9 +86,15 @@ claude mcp add abang -e TDX_CLIENT_ID=… -e TDX_CLIENT_SECRET=… -- node /絕�
 | `traffic_status` | 沿途國道路況（順暢／車多／塞車、延誤分鐘） | ✅ |
 | `intercity_bus` | 國道客運班次（含塞車延誤的預估抵達） | ✅ |
 | `weather_now` | 現在天氣與 3 小時降雨機率（中央氣象署；沒有授權碼時用示範資料） | ✅ |
+| `weather_tomorrow` | 明天的天氣預報（降雨機率、溫度） | ✅ |
+| `outing_advice` | 出門建議：天氣＋空品一張卡（帶傘、防曬、保暖、口罩） | ✅ |
 | `plan_trip` | 從 A 到 B：比較步行、YouBike、公車、高鐵、台鐵、客運、叫車，依天氣、路況與你的狀態排序並說明理由 | ✅ |
 | `ridehail_link` | 叫車 App（Uber）官方連結＋距離估算車資（L2，需使用者確認） | ✅ |
 | `rail_booking_link` | 台鐵／高鐵官方訂票連結（L2，需使用者確認） | 🧩 介面與示範完成；真實版需 TDX 導訂票權限 |
+| `aqi_nearby`／`earthquake_recent`／`pharmacy_search`／`garbage_truck_nearby`／`fuel_price` | 生活：空品、地震、健保藥局、垃圾車、油價 | ✅（空品、地震真實資料需金鑰） |
+| `invoice_lottery`／`invoice_check_batch` | 統一發票對獎（單張、我的發票批次） | ✅ |
+| `stock_quote` | 上市櫃收盤行情（不提供投資建議） | ✅ |
+| `scam_check_message`／`scam_lookup_url`／`scam_myth_search`／`sms_sender_check` | 阿幫・防詐：可疑訊息、涉詐網址、闢謠、簡訊寄件號碼 | ✅ |
 
 完整規格：[`docs/MCP_TOOLS.md`](docs/MCP_TOOLS.md)。所有 tools 唯讀（`readOnlyHint`）；結果附 `structuredContent: { card, mode, speak, data }`。
 
@@ -147,7 +153,7 @@ ABANG_API_BASE=https://你的網域 APP_RELEASE=1 npm run app:sync   # 正式版
 
 伺服器對 App 的來源（`capacitor://localhost`、`https://localhost`）開放問阿幫與讀取 API 的 CORS，可用 `APP_ORIGINS` 調整。
 
-App 名稱 **Abang**（吉祥物仍叫阿幫）。原生功能：本機通知（到站提醒）、原生定位、Android 返回手勢、裝置端 AI（ADR-0014：Android Gemini Nano、iOS Apple Intelligence 在手機上判斷意圖，不可用時由伺服器判斷）。
+App 名稱 **Abang**（吉祥物仍叫阿幫）。原生功能：本機通知（到站提醒、出門提醒，可多筆可取消）、原生定位、Android 返回手勢、裝置端 AI（ADR-0014：Android Gemini Nano、iOS Apple Intelligence 在手機上判斷意圖，不可用時由伺服器判斷，可在「設定與隱私」關閉）。第一次打開有使用說明（要定位與通知權限）；常用地點（家、公司、學校）與離線資料只存在手機；iOS 18 有深色與著色圖示。
 
 開發時手機不休眠：Android 開發者選項開「保持喚醒（充電時螢幕不會進入休眠狀態）」；iOS 模擬器不需要。
 
