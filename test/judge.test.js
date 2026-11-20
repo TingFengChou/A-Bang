@@ -132,3 +132,12 @@ test('模型模式：需要現在位置時，問模型之前就先請 App 定位
   await runModel(svc, { messages: [{ role: 'user', content: '台北101天氣如何' }], clientTools: ['device_location'] }, () => {}, { provider });
   assert.equal(calls, 1, '有地點：直接問模型');
 });
+
+test('模型模式：拒絕定位但使用者講了不同的起訖點 → 照常規劃（不擋）', async () => {
+  const svc = createServices({ forceMock: true });
+  const es = [];
+  await runModel(svc, { messages: [{ role: 'user', content: '從西門町到台北101' }], clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: false }] }, (e) => es.push(e), { provider: fakeProvider('local', { name: 'plan_trip', input: { from: '西門町', to: '台北101' } }) });
+  const r = es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
+  assert.ok(r?.ok);
+  assert.equal(r.data.from.name, '西門町');
+});

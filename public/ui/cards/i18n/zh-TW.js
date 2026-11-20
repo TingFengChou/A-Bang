@@ -112,8 +112,7 @@ export const MESSAGES = {
   // ── trip ──
   'trip.bikeRent': '借車：{name}・{n} 台',
   'trip.bikeReturn': '還車：{name}・{n} 位',
-  'trip.skipped': '沒列入：{why}',
-  'trip.pick': '改成這個',
+  'trip.skipped': '{name}沒列入：{why}',
   'trip.pickAsk': '改成{name}',
   'trip.title': '{from} → {to}',
   'trip.best': '建議',

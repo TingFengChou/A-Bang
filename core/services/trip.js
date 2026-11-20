@@ -129,8 +129,8 @@ async function bikeOption(svc, from, to, straight) {
       ret: { name: ret.name, count: ret.returnSlots, tight: r2.tight, ...(r2.backup && { backup: { name: r2.backup.name, count: r2.backup.returnSlots, walkMin: walkMinutes(r2.backup.distance) } }) },
     },
     notes: [
-      ...(r1.tight ? [`「${rent.name}」只剩 ${rent.rent} 台，走過去可能被借光${r1.backup ? `；備用「${r1.backup.name}」（${r1.backup.rent} 台）` : ''}`] : []),
-      ...(r2.tight ? [`「${ret.name}」只剩 ${ret.returnSlots} 個空位，騎到時可能停滿${r2.backup ? `；備用還車站「${r2.backup.name}」（${r2.backup.returnSlots} 位，到目的地走 ${walkMinutes(r2.backup.distance)} 分）` : ''}`] : []),
+      ...(r1.tight ? [r1.backup ? `「${rent.name}」只剩 ${rent.rent} 台，借不到就改去「${r1.backup.name}」（${r1.backup.rent} 台）` : `「${rent.name}」只剩 ${rent.rent} 台，走過去可能被借光`] : []),
+      ...(r2.tight ? [r2.backup ? `「${ret.name}」只剩 ${ret.returnSlots} 個空位，停滿就改還「${r2.backup.name}」（${r2.backup.returnSlots} 位，到目的地走 ${walkMinutes(r2.backup.distance)} 分）` : `「${ret.name}」只剩 ${ret.returnSlots} 個空位，騎到時可能停滿`] : []),
       '借車、還車數量是現在的資料，騎到時可能變動',
       `車資依 YouBike 2.0 台北市費率（前 30 分 5 元）`,
     ],
@@ -291,7 +291,8 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     date: depart.date, departAt: toHHMM(depart.minute),
     best: r.best?.id ?? null, states,
     ...(prefs.arriveBy && { arriveBy: prefs.arriveBy, arriveByMin }), // 前端重算（決策圖）用同一份 decide.js
-    ...(r.mode && { mode: r.mode }), // 使用者指定的交通方式（前端重算也照這個）
+    ...((r.mode || r.modeUnavailable) && { mode: r.mode || r.modeUnavailable }), // 使用者指定的交通方式（前端重算也照這個）
+    ...(r.modeUnavailable && { modeUnavailable: r.modeUnavailable }),
     weather: weather && { summary: weather.summary, raining: weather.raining, pop3h: weather.pop3h },
     traffic: traffic && { level: traffic.level, delayMin: traffic.delayMin, covered: traffic.covered },
     air: air ? { site: air.site, aqi: air.aqi, status: air.status } : null,

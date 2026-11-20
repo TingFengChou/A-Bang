@@ -215,6 +215,24 @@ for (const [dname, device] of Object.entries(DEVICES)) {
     });
   });
 
+  test(`${dname}：點決策圖上的其他方案＝改成它（沿用起訖點重算）；行程卡備案有「改成…」按鈕`, async () => {
+    await withPage(device, '#/agent', async (page) => {
+      await page.fill('.chat-input', '從西門町到台北101怎麼去');
+      await page.press('.chat-input', 'Enter');
+      await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+      const pick = page.locator('.results [data-card="trip"] .ab-pick').first();
+      assert.match(await pick.textContent(), /^改成/);
+      assert.ok((await pick.boundingBox()).height >= 44, '點擊範圍 ≥ 44px');
+      assert.ok(await page.locator('.decision .dg-hint').count() >= 1, '提示可以點方案');
+      const opt = page.locator('.decision .dg-opt.pickable').first();
+      await opt.click();
+      await page.waitForFunction(() => document.querySelectorAll('.msg.user').length === 2);
+      assert.match(await page.locator('.msg.user').nth(1).textContent(), /^改成/);
+      await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
+      assert.match(await page.locator('.dg-why').last().textContent(), /照你說的選/);
+    });
+  });
+
   test(`${dname}：系統深色模式下仍是淺色（外框與卡片一致）`, async () => {
     await withPage({ ...device, colorScheme: 'dark' }, '#/s/weather', async (page) => {
       await page.waitForSelector('.ab-card');

@@ -31,8 +31,8 @@ function bikeImpact(data) {
   if (skip) return { tone: 'bad', text: `YouBike：${skip.why}，不列入` };
   const b = data.options?.find((o) => o.role === 'bike')?.bike;
   if (!b) return null;
-  if (b.ret.tight) return { tone: 'bad', text: `YouBike：「${b.ret.name}」只剩 ${b.ret.count} 個空位，騎到時可能停滿${b.ret.backup ? `（備用「${b.ret.backup.name}」）` : ''}` };
-  if (b.rent.tight) return { tone: 'bad', text: `YouBike：「${b.rent.name}」只剩 ${b.rent.count} 台，可能被借光${b.rent.backup ? `（備用「${b.rent.backup.name}」）` : ''}` };
+  if (b.ret.tight) return { tone: 'bad', text: b.ret.backup ? `YouBike：「${b.ret.name}」只剩 ${b.ret.count} 個空位，停滿就改還「${b.ret.backup.name}」` : `YouBike：「${b.ret.name}」只剩 ${b.ret.count} 個空位，騎到時可能停滿` };
+  if (b.rent.tight) return { tone: 'bad', text: b.rent.backup ? `YouBike：「${b.rent.name}」只剩 ${b.rent.count} 台，借不到就改去「${b.rent.backup.name}」` : `YouBike：「${b.rent.name}」只剩 ${b.rent.count} 台，可能被借光` };
   return { tone: 'good', text: `YouBike：「${b.rent.name}」${b.rent.count} 台可借、「${b.ret.name}」${b.ret.count} 個空位` };
 }
 
@@ -59,6 +59,7 @@ export function impactOf(name, data) {
     case 'plan_trip': {
       const top = data.ranking?.ranked?.[0];
       const best = data.options?.find((o) => o.id === data.best);
+      if (data.modeUnavailable && best) return [{ tone: 'bad', text: `沒有可行的${{ walk: '步行', bike: 'YouBike', bus: '公車', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' }[data.modeUnavailable] || ''}方案：改建議${best.name}` }, bikeImpact(data)].filter(Boolean);
       const main = best && top ? { tone: 'good', text: data.mode ? `照你說的選${best.name}（${data.ranking.ranked.find((r) => r.id === best.id)?.score ?? '?'} 分）` : `比了 ${data.options.length} 種走法：${best.name} ${top.score} 分最高` } : { tone: 'bad', text: '這次沒有可行的走法' };
       const bike = bikeImpact(data);
       return bike ? [main, bike] : main;

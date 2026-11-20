@@ -273,3 +273,4 @@ html.lite-motion .ab-scene-bus .ab-scene-img { animation: none; }
 .ab-bike-warn { list-style: none; margin: 4px 0; padding: 6px 10px; border-radius: 10px; background: var(--ab-warn-soft); color: var(--ab-warn); font-size: 13px; }
 .ab-skipped { list-style: none; margin: 8px 0 0; padding: 0; color: var(--ab-muted); font-size: 13px; }
 .ab-skipped li { display: flex; align-items: center; gap: 6px; }
+.ab-btn.ab-pick { min-height: 44px; margin-top: 8px; border: 1px solid var(--ab-brand); color: var(--ab-brand); background: #fff; font-weight: 700; }

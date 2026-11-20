@@ -41,14 +41,21 @@ export function modeOf(s) {
 }
 /** 前面最近一次的行程（起訖點、狀態），給「改坐公車」這種接著改的句子沿用 */
 function lastTrip(history) {
-  for (const m of [...history].reverse()) {
-    if (m.role !== 'user') continue;
-    const it = parseIntent(String(m.content), { history: [] });
-    if (it.intent === 'trip') return it;
-  }
-  return null;
+  // 逐輪往後疊：第 1 輪行程、第 2 輪「改坐公車」、第 3 輪「我趕時間」→ 起訖點、交通方式、狀態都沿用（PR #30 審查）
+  let cur = null;
+  history.forEach((m, i) => {
+    if (m.role !== 'user') return;
+    const it = parseIntent(String(m.content), { history: history.slice(0, i) });
+    if (it.intent === 'trip') cur = it;
+  });
+  return cur;
 }
-const CHANGE_WORD = /改|換|那.*呢|還是|坐|搭|騎|不要/;
+// 改交通方式要有明確的改換字眼（「坐」「搭」「騎」單獨出現不算：「搭 307 到哪了」是查公車）
+const CHANGE_WORD = /改|換|那.*呢|還是|不要|不坐|不搭/;
+/** 阿幫上一輪在問起點（「你從哪裡出發？」）→ 使用者只回地名＝起點 */
+const ASKED_ORIGIN = /從哪(裡|兒)?出發|你(現在)?在哪|起點是/;
+/** 句中明講的起點（「從桃園高鐵站到台北101」）：地標庫沒有也要用它，不能被手機定位蓋掉 */
+const FROM_TEXT = /從\s*([^\s，,。、到去往]{2,12}?)\s*(?:到|去|往)/;
 
 /** 整句只有地名（加上語氣詞、狀態詞）：當成「要去那裡」 */
 function onlyPlace(s, places) {
@@ -155,9 +162,16 @@ export function parseIntent(text, ctx) {
 
   // 接著上一輪（先於其他判斷：「改騎 YouBike」「改坐高鐵」也是改行程）改條件（「改坐公車」「那叫車呢」「我趕時間」）：沿用上一輪的起訖點與狀態重算
   const mode = modeOf(s);
-  const prev = !places.length && history.length ? lastTrip(history) : null;
-  if (prev && ((mode && CHANGE_WORD.test(s)) || (states.length && s.length <= 12 && !WEATHER_WORD.test(s) && !lifeIntent(s)))) {
-    return { ...prev, states: [...new Set([...prev.states, ...states])], intent: 'trip', ...(mode && { mode }), followUp: true };
+  const otherQuery = RAIL_WORD.test(s) || BUS_ROUTE.test(s) || WEATHER_WORD.test(s) || lifeIntent(s); // 查高鐵、公車路線、天氣等不是改行程
+  const prev = !places.length && history.length && !otherQuery ? lastTrip(history) : null;
+  if (prev && ((mode && CHANGE_WORD.test(s)) || (states.length && s.length <= 12))) {
+    return { ...prev, states: [...new Set([...prev.states, ...states])], intent: 'trip', ...((mode || prev.mode) && { mode: mode || prev.mode }), followUp: true };
+  }
+  // 阿幫剛問「你從哪裡出發？」，使用者只回地名 → 那是起點，目的地沿用上一輪
+  const lastBot = [...history].reverse().find((m) => m.role === 'assistant');
+  if (places.length === 1 && lastBot && ASKED_ORIGIN.test(String(lastBot.content)) && onlyPlace(s, places)) {
+    const before = lastTrip(history);
+    if (before?.to && before.to !== places[0]) return { ...before, from: places[0], intent: 'trip', followUp: true };
   }
 
   if (RAIL_WORD.test(s)) {
@@ -176,7 +190,7 @@ export function parseIntent(text, ctx) {
   if (/附近/.test(s) && /公車|站牌/.test(s)) return { ...base, intent: 'nearby_bus' };
   // 行程：只說目的地（「去台北101」「想省錢，去松山機場」，甚至只打地名）→ 起點用現在位置（needsLocation）
   if (places.length && (/從.+(到|去)|怎麼去|怎麼走|要到|前到|想去|要去|帶我去|去.+怎麼|(?:^|[，,、\s])(?:去|到|往)\s*\S|(?:坐|搭|騎|用|開車|走路).{0,8}(?:去|到|往)/.test(s) || onlyPlace(s, places))) {
-    const [from, to] = places.length >= 2 ? places : [null, places[0]];
+    const [from, to] = places.length >= 2 ? places : [FROM_TEXT.exec(s)?.[1] ?? null, places[0]]; // 明講的起點優先
     return { ...base, intent: 'trip', from, to, ...(mode && { mode }) };
   }
   if (WEATHER_WORD.test(s)) return { ...base, intent: 'weather' };

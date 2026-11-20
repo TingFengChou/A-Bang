@@ -23,6 +23,7 @@ export function focusStop(directions, stop, direction) {
   }
   return null;
 }
+const NEAREST_MAX_M = 3000;
 /**
  * 沒說站名、但知道使用者在哪（裝置定位或地名）：路線上離他最近的站。兩個方向都有同一站時，挑車比較快到的那個方向。
  * @returns {ReturnType<typeof focusStop> & { distanceM: number, nearest: true } | null}
@@ -37,7 +38,7 @@ export function nearestStop(directions, pt) {
       if (!best || m < best.m - 30 || (Math.abs(m - best.m) <= 30 && eta < best.eta)) best = { m, eta, d, i, s };
     }
   });
-  if (!best) return null;
+  if (!best || best.m > NEAREST_MAX_M) return null; // 太遠就不說「離你最近」（可能是別的縣市的同號路線）
   const { d, i, s, m } = best;
   return { direction: d.direction ?? i, label: d.label, seq: s.seq, stopName: s.stopName, etaSec: s.etaSec ?? null, status: s.status, statusText: s.statusText, distanceM: m, nearest: true };
 }
@@ -75,7 +76,7 @@ export const busRouteEta = defineTool({
     direction: z.number().int().min(0).max(1).optional().describe('去程 0、返程 1（選填，配合 stop）'),
   },
   speak: (d) => {
-    if (d.focus?.nearest) return `離你最近的是「${d.focus.stopName}」（約 ${fmtM(d.focus.distanceM)}）：${focusText(d.routeName, d.focus)}。`;
+    if (d.focus?.nearest) return `離你最近的是「${d.focus.stopName}」（約 ${fmtM(d.focus.distanceM)}）：${focusText(d.routeName, d.focus)}。${d.cityGuessed ? `（依你的位置查${d.cityName}的 ${d.routeName}）` : ''}`;
     if (d.focus) return `${focusText(d.routeName, d.focus)}。`;
     const near = d.directions.flatMap((x) => x.stops.filter((s) => s.etaSec != null && s.etaSec < 180).map((s) => s.stopName));
     return `${d.routeName} 目前有 ${near.length} 個站即將有車${near.length ? `（例如${near.slice(0, 2).join('、')}）` : ''}。`;
@@ -85,7 +86,7 @@ export const busRouteEta = defineTool({
     const city = a.city || (here && cityNear(here));
     if (!city) throw new UserError('請告訴我是哪個縣市的公車（例如「台北 307」）');
     const raw = await svc.bus.routeEta({ ...a, city });
-    const data = { ...raw, directions: raw.directions.map((d) => ({ ...d, stops: withNav(d.stops) })) };
+    const data = { ...raw, directions: raw.directions.map((d) => ({ ...d, stops: withNav(d.stops) })), ...(!a.city && { cityGuessed: true, cityName: resolveCity(city)?.name || city }) };
     const focus = focusStop(data.directions, a.stop, a.direction) || (here && nearestStop(data.directions, here));
     if (focus) data.focus = focus;
     const lines = [`${data.routeName} 公車即時到站（更新：${data.updatedAt}）`];

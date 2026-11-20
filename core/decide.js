@@ -76,8 +76,13 @@ export function decide(options, ctx = {}) {
     return { weights, ranked, excluded, best: picked, mode: ctx.mode, reason: `照你說的選「${picked.name}」${note}。` };
   }
   const best = ranked[0] || null;
-  return { weights, ranked, excluded, best, reason: explain(best, ranked[1], states, excluded) };
+  const reason = explain(best, ranked[1], states, excluded);
+  // 指定的交通方式沒有可行方案：照分數建議，但要明說（使用者才不會以為已經改成功）
+  if (ctx.mode) return { weights, ranked, excluded, best, modeUnavailable: ctx.mode, reason: `${MODE_NAME[ctx.mode] || '你指定的方式'}這次沒有可行的方案；${reason}` };
+  return { weights, ranked, excluded, best, reason };
 }
+
+const MODE_NAME = { walk: '步行', bike: 'YouBike', bus: '公車', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
 
 /** 產生一句理由：最佳方案贏在哪裡（取貢獻差最大的項目）＋生效的狀態 */
 function explain(best, second, states, excluded) {
