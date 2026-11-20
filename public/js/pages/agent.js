@@ -217,7 +217,7 @@ export default {
         turn.append(el('div', 'msg error', '連線中斷了，請再試一次。'));
       } finally {
         busy = false; sendBtn.disabled = false; context = '';
-        input.focus();
+        if (!matchMedia('(pointer: coarse)').matches) input.focus(); // 手機不自動聚焦：鍵盤會跳出來蓋住回答
       }
     }
 
