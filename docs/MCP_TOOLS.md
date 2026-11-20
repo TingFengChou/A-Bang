@@ -300,7 +300,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 |---|---|---|
 | `aqi_nearby` | `lat`, `lon` | `nearest { site, county, aqi, status, level, pollutant, pm25, pm10, o3, publishTime, distanceM }`、`nearby[3]` |
 | `earthquake_recent` | `county?`, `limit`（1–10，預設 5） | `quakes[{ no, kind: significant\|local, time, magnitude, depthKm, location, maxIntensity, countyIntensity?, areas, report }]` |
-| `pharmacy_search` | `area?`（例 臺北市大安區）, `query?`, `lat?`／`lon?`（沒說地區時：`core/services/district.js` 依位置判斷縣市＋鄉鎮區：真實用最近氣象站、示範用內建大約中心；判斷不出回 `UserError` 請使用者說哪一區；輸出 `areaFrom: 'location'`） | `weekday`、`pharmacies[{ code, name, phone, address, today: ['上午'…]\|null, openToday, nav.google（地圖搜尋） }]`（最多 20） |
+| `pharmacy_search` | `area?`（例 臺北市大安區）, `query?`, `lat?`／`lon?`（沒說地區時依位置推估縣市＋鄉鎮區：`weather.district`，真實用最近觀測站（只查測站，不抓雨量與預報）、示範用 `weather-mock.js` 內建大約中心；推估不出或只給一個座標回 `UserError`；輸出 `areaFrom: { by: 'location', station, distanceM, demo }`，文字開頭「依位置推估在「X」（最近的測站：Y），不對請說哪一區。」） | `weekday`、`pharmacies[{ code, name, phone, address, today: ['上午'…]\|null, openToday, nav.google（地圖搜尋） }]`（最多 20） |
 | `garbage_truck_nearby` | `lat`, `lon`, `radius`（100–1000，預設 500） | `stops[{ city, place, route, time, collectToday, days, distanceM, nav, truck? }]`、`covered`（臺北市、新北市） |
 | `fuel_price` | — | `effectiveDate`、`prices[{ name, price, unit }]`（92／95／98／超級柴油） |
 | `invoice_lottery` | `number?`（8 碼或末 3 碼；沒有任何數字的值，例如模型放進「這期」，視為沒給）, `period?`（例 11507） | `period { title, special, grand, first[] }`、`periods[6]`、`check? { prize, amount, partial?, note? }` |

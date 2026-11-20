@@ -1,7 +1,6 @@
 // 工具包：life（生活服務，M10）— 風險分級 L1。首頁格子、問阿幫、MCP 共用（ADR-0002）。
 import { z } from 'zod';
 import { defineTool, T } from './define.js';
-import { districtOf } from '../services/district.js';
 import { UserError } from '../util.js';
 
 const PACK = 'life';
@@ -53,14 +52,16 @@ export const pharmacySearch = defineTool({
   async run(svc, input) {
     const { lat, lon, ...a } = input;
     let areaFrom = null;
-    if (!a.area && !a.query && lat != null && lon != null) { // 「附近的藥局」：先從位置判斷行政區（S16）
-      const d = await districtOf(svc, { lat, lon });
-      if (!d) throw new UserError('沒辦法從你的位置判斷在哪一區，請說縣市和鄉鎮區，例如「大安區的藥局」。');
+    if ((lat == null) !== (lon == null)) throw new UserError('座標要同時給緯度和經度。');
+    if (!a.area && lat != null) { // 「附近的藥局」：先從位置推估行政區（S16；最近的測站可能在隔壁區）
+      const d = await svc.weather.district({ lat, lon }).catch(() => null);
+      if (!d) throw new UserError('沒辦法從位置判斷在哪一區，請說縣市和鄉鎮區，例如「大安區的藥局」。');
       a.area = d.area;
-      areaFrom = 'location';
+      areaFrom = { by: 'location', station: d.station, distanceM: d.distanceM, demo: d.demo };
     }
     const data = { ...(await svc.life.pharmacies(a)), ...(areaFrom && { areaFrom }) };
-    const text = (areaFrom ? `依你的位置查「${data.area}」。\n` : '') + (data.pharmacies.length
+    const guess = areaFrom && `依位置推估在「${data.area}」${areaFrom.demo ? '（示範）' : `（最近的測站：${areaFrom.station}）`}，不對請說哪一區。`;
+    const text = (guess ? `${guess}\n` : '') + (data.pharmacies.length
       ? data.pharmacies.map((p) => `- ${p.name}｜${p.phone ?? '—'}｜${p.address}｜今天：${p.today == null ? '未提供' : p.today.length ? p.today.join('、') : '休息'}`).join('\n')
       : '沒有找到符合的健保藥局。');
     return { data, text };

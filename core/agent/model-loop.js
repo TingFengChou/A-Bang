@@ -66,10 +66,10 @@ export function prefetchCalls(it, j, here) {
     const where = it.places?.[0] ? { place: it.places[0] } : at ? at : { place: DEFAULT_FROM };
     return [{ name: 'outing_advice', args: { ...where, ...(who && { with: who }) }, ...(!it.places?.[0] && !at && { note: NO_LOCATION_NOTE.replace('起點先用', '先看').replace('先從', '先看').replace('算」，並請他說從哪出發就重算', '附近」，並請他說在哪就重查') }) }];
   }
+  if (it.intent === 'pharmacy' && it.area) return [{ name: 'pharmacy_search', args: { area: it.area } }]; // 說了哪一區：查那一區（不用位置）
   if (!at) return [];
   if (it.places?.length) return [];
   const intent = NEARBY_TOOL[it.intent] ? it.intent : NEARBY_TOOL[j?.intent] ? j.intent : null;
-  if (intent === 'pharmacy' && it.area) return [{ name: 'pharmacy_search', args: { area: it.area } }]; // 說了哪一區：查那一區（不用位置）
   if (intent === 'weather' && it.later) return []; // 後天以後：沒有工具查得到，交給模型說明
   if (intent === 'weather' && it.tomorrow) return [{ name: 'weather_tomorrow', args: at }]; // 問明天：預報
   return intent ? [{ name: NEARBY_TOOL[intent], args: at }] : [];
@@ -211,7 +211,8 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   // 需要現在位置（沒說起點的行程、沒說地點的天氣／YouBike／附近公車／垃圾車／公車到站）→ 問模型之前就先請 App 定位，
   // 再把位置直接告訴模型（地端模型常常不呼叫 device_location，直接反問「你在哪裡」）
   const NEARBY_INTENTS = ['weather', 'aqi', 'youbike', 'nearby_bus', 'garbage', 'bus_route', 'pharmacy'];
-  const wantHere = canLocate && (hereIsOrigin || (!rulesIt.places?.length && (needsLocation(rulesIt) || NEARBY_INTENTS.includes(j?.intent) || j?.intent === 'trip')));
+  const namedArea = rulesIt.intent === 'pharmacy' && rulesIt.area; // 「大安區的藥局」：不用位置
+  const wantHere = canLocate && !namedArea && (hereIsOrigin || (!rulesIt.places?.length && (needsLocation(rulesIt) || NEARBY_INTENTS.includes(j?.intent) || j?.intent === 'trip')));
   const here = canLocate ? deviceLocation(req) : null;
   if (wantHere && here === undefined) {
     emit(ev.agentNote('@定位 先看看你在哪裡'));
