@@ -23,7 +23,7 @@ export function createMockWeatherServices({ scenario = 'clear' } = {}) {
         [lat, lon] = assertLatLon(lat, lon);
         const r = seeded(`wxt${lat.toFixed(2)},${lon.toFixed(2)}`);
         const minT = Math.round((rain ? 17 : 20) + r() * 3);
-        return { town: '', county: '', date: new Date(now + 8 * 3600e3 + 864e5).toISOString().slice(0, 10), pop: rain ? 70 : 20, minT, maxT: minT + 6, wx: rain ? '短暫陣雨（示範）' : '多雲時晴（示範）', demo: true };
+        return { town: '', county: '', date: new Date(now + 8 * 3600e3 + 864e5).toISOString().slice(0, 10), pop: rain ? 70 : 20, dayPop: rain ? 70 : 20, minT, maxT: minT + 6, wx: rain ? '短暫陣雨（示範）' : '多雲時晴（示範）', demo: true };
       },
     },
   };

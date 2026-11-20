@@ -60,6 +60,7 @@ export function prefetchCalls(it, j, here) {
   if (it.intent === 'outing' && !it.places?.length) return [{ name: 'weather_now', args: at }, { name: 'aqi_nearby', args: at }]; // 出門建議：天氣＋空品（說了地點交給模型先找位置）
   if (it.places?.length) return [];
   const intent = NEARBY_TOOL[it.intent] ? it.intent : NEARBY_TOOL[j?.intent] ? j.intent : null;
+  if (intent === 'weather' && it.later) return []; // 後天以後：沒有工具查得到，交給模型說明
   if (intent === 'weather' && it.tomorrow) return [{ name: 'weather_tomorrow', args: at }]; // 問明天：預報
   return intent ? [{ name: NEARBY_TOOL[intent], args: at }] : [];
 }

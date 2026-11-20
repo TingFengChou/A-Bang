@@ -866,6 +866,37 @@
           }
         }
       ]
+    },
+    {
+      "id": "S1-4",
+      "title": "後天、週末：說明查不到，不拿現在的天氣充數",
+      "turns": [
+        {
+          "say": "後天會下雨嗎",
+          "expect": {
+            "toolsNot": [
+              "weather_now"
+            ],
+            "textHas": [
+              "只查得到現在和明天"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S1-5",
+      "title": "明晚：看明天的預報",
+      "turns": [
+        {
+          "say": "明晚會下雨嗎",
+          "expect": {
+            "tools": [
+              "weather_tomorrow"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

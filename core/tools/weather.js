@@ -28,6 +28,9 @@ export const weatherNow = defineTool({
   },
 });
 
+/** 2026-01-05 → 1/5（一） */
+const dayLabel = (date) => { const [y, m, d] = date.split('-').map(Number); return `${m}/${d}（${'日一二三四五六'[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}）`; };
+
 export const weatherTomorrow = defineTool({
   name: 'weather_tomorrow',
   title: '明天天氣',
@@ -37,11 +40,12 @@ export const weatherTomorrow = defineTool({
   modeOf: (svc) => svc.weatherMode,
   input: { lat: T.lat, lon: T.lon },
   speak: (d) => {
-    const where = [d.county, d.town].filter(Boolean).join('') || '你那裡';
+    const where = [d.county, d.town].filter(Boolean).join('') || '那一帶';
     const t = d.minT != null && d.maxT != null ? `，${d.minT}～${d.maxT}°C` : '';
     const pop = d.pop != null ? `，降雨機率 ${d.pop}%` : '';
-    const umbrella = d.pop >= 50 ? '，記得帶傘' : d.pop >= 30 ? '，包包放把折傘比較保險' : '';
-    return `明天（${d.date.slice(5).replace('-', '/')}）${where}${d.wx ? d.wx.replace(/（示範）$/, '') : ''}${t}${pop}${umbrella}。`;
+    const p = d.dayPop ?? d.pop; // 帶傘看白天
+    const umbrella = p >= 50 ? '，記得帶傘' : p >= 30 ? '，包包放把折傘比較保險' : '';
+    return `明天 ${dayLabel(d.date)} ${where}${d.wx ? d.wx.replace(/（示範）$/, '') : ''}${t}${pop}${umbrella}。`;
   },
   async run(svc, a) {
     const data = await svc.weather.tomorrow(a);

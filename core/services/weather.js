@@ -42,6 +42,13 @@ export function parseRainGauges(json) {
 
 /** 台灣時間的日期字串 YYYY-MM-DD（時間戳加 8 小時） */
 const twDate = (ms) => new Date(ms + 8 * 3600e3).toISOString().slice(0, 10);
+/** 預報時間字串 → 時間戳：沒有時區（「2026-11-21 21:00:00」）一律當台灣時間，不看主機時區（Docker 預設 UTC） */
+export const twParse = (v) => {
+  if (typeof v !== 'string' || !v) return NaN;
+  const t = v.trim().replace(' ', 'T');
+  return Date.parse(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(t) ? t : `${t}+08:00`);
+};
+const twHour = (ms) => new Date(ms + 8 * 3600e3).getUTCHours();
 
 /**
  * 鄉鎮預報 → 明天（台灣時間）的摘要 { date, pop, minT, maxT, wx }；元素名稱與時間欄位都防禦性比對（⚠️ 待 M1 驗證）。
@@ -67,19 +74,20 @@ export function parseTomorrow(json, town, now = Date.now(), county = '') {
     const el = els.find((e) => re.test(e.ElementName || e.elementName || ''));
     const out = [];
     for (const t of el?.Time || el?.time || []) {
-      const start = Date.parse(t.StartTime ?? t.startTime ?? t.DataTime ?? t.dataTime);
+      const start = twParse(t.StartTime ?? t.startTime ?? t.DataTime ?? t.dataTime);
       if (Number.isNaN(start) || twDate(start) !== date) continue;
       const v = (t.ElementValue || t.elementValue || [])[0] || {};
-      out.push(v);
+      out.push({ v, hour: twHour(start) });
     }
     return out;
   };
-  const nums = (re, key) => values(re).map((v) => num(v[key] ?? v.value ?? Object.values(v)[0])).filter((x) => x != null);
-  const pops = [...nums(/降雨機率|PoP/i, 'ProbabilityOfPrecipitation')];
+  const nums = (re, key, day = false) => values(re).filter((x) => !day || (x.hour >= 6 && x.hour < 18)).map(({ v }) => num(v[key] ?? v.value ?? Object.values(v)[0])).filter((x) => x != null);
+  const pops = nums(/降雨機率|PoP/i, 'ProbabilityOfPrecipitation');
+  const dayPops = nums(/降雨機率|PoP/i, 'ProbabilityOfPrecipitation', true); // 白天（06～18 時）：帶傘看這個，半夜的雨不提醒
   const temps = [...nums(/^溫度$|^T$/i, 'Temperature'), ...nums(/最高溫度|MaxT/i, 'MaxTemperature'), ...nums(/最低溫度|MinT/i, 'MinTemperature')];
-  const wx = values(/天氣現象|^Wx$/i).map((v) => v.Weather ?? v.value).find((x) => typeof x === 'string' && x) || null;
+  const wx = values(/天氣現象|^Wx$/i).map(({ v }) => v.Weather ?? v.value).find((x) => typeof x === 'string' && x) || null;
   if (!pops.length && !temps.length && !wx) return null;
-  return { date, pop: pops.length ? Math.max(...pops) : null, minT: temps.length ? Math.min(...temps) : null, maxT: temps.length ? Math.max(...temps) : null, wx };
+  return { date, pop: pops.length ? Math.max(...pops) : null, dayPop: dayPops.length ? Math.max(...dayPops) : null, minT: temps.length ? Math.min(...temps) : null, maxT: temps.length ? Math.max(...temps) : null, wx };
 }
 
 /** 最近且在 RAIN_GAUGE_MAX_M 內的雨量站；沒有就 null */
