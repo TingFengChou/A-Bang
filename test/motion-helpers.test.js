@@ -27,3 +27,25 @@ test('slide：同一台車（車牌）位置變了才從舊位置滑過來；新
   assert.deepEqual(calls, [['A', 'translate(0px, -60px) scale(1.15)']]);
   assert.equal(slide(null, before), 0);
 });
+
+test('legShares：分段依真實分鐘比例，太短的段至少 6%；總和 1，前後相接', async () => {
+  const { legShares } = await import('../public/ui/cards/cards/trip.js');
+  const s = legShares([{ mode: 'walk', minutes: 3 }, { mode: 'bus', minutes: 26 }, { mode: 'walk', minutes: 3 }]);
+  assert.deepEqual(s.map((x) => x.mode), ['walk', 'bus', 'walk']);
+  assert.equal(s[0].from, 0); assert.equal(s.at(-1).to, 1);
+  assert.equal(s[1].from, s[0].to);
+  assert.ok(Math.abs((s[1].to - s[1].from) - 26 / 32) < 0.01, '公車那段約 81%');
+  const tiny = legShares([{ mode: 'walk', minutes: 1 }, { mode: 'thsr', minutes: 99 }]);
+  assert.equal(tiny[0].to, 0.06, '1 分鐘的步行至少 6%，看得到');
+  assert.deepEqual(legShares([]), []);
+});
+
+test('projector：經緯度投影到平面、保持比例並置中；北在上、東在右；點不夠回 null', async () => {
+  const { projector } = await import('../public/ui/cards/route3d.js');
+  const pj = projector([[25.0, 121.5], [25.01, 121.5], [25.0, 121.51]], 300, 190, 16);
+  const [a, n, e] = [[25.0, 121.5], [25.01, 121.5], [25.0, 121.51]].map(pj.xy);
+  assert.ok(n[1] < a[1], '北邊在上面');
+  assert.ok(e[0] > a[0], '東邊在右邊');
+  for (const [x, y] of [a, n, e]) assert.ok(x >= 16 && x <= 284 && y >= 16 && y <= 174, '都在留白內');
+  assert.equal(projector([[25, 121]]), null);
+});

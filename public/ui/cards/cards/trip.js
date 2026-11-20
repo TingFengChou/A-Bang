@@ -30,16 +30,45 @@ import { navButton, confirmLinkButton, bookButton } from '../actions.js';
 
 const MAX_ALT = 2;
 
-/** 分段條：每段有交通方式圖示＋分鐘（夠寬才放字）；上方一顆小代幣（主要交通方式）沿路線跑一趟 */
+/**
+ * 每段在分段條上的位置（依真實分鐘比例）；太短的段至少佔 minShare，其餘依比例縮，總和 1。
+ * @returns {Array<{ mode: string, minutes: number, from: number, to: number }>}
+ */
+export function legShares(legs, minShare = 0.06) {
+  const total = legs.reduce((n, l) => n + Math.max(0, l.minutes || 0), 0);
+  if (!legs.length) return [];
+  let raw = legs.map((l) => (total ? Math.max(0, l.minutes || 0) / total : 1 / legs.length));
+  const small = raw.map((r) => r < minShare);
+  const fixed = small.filter(Boolean).length * minShare;
+  const rest = raw.reduce((n, r, i) => n + (small[i] ? 0 : r), 0);
+  if (fixed < 1 && rest > 0) raw = raw.map((r, i) => (small[i] ? minShare : (r / rest) * (1 - fixed)));
+  let at = 0;
+  return legs.map((l, i) => { const from = at; at = i === legs.length - 1 ? 1 : at + raw[i]; return { mode: l.mode, minutes: l.minutes, from: +from.toFixed(4), to: +at.toFixed(4) }; });
+}
+
+const RUN_SEC = 3.2;
+/**
+ * 分段條：每段寬度依真實分鐘比例，有交通方式圖示＋分鐘（夠寬才放字）。
+ * 上方的小代幣沿路線跑一趟，每段的時間也依分鐘比例；到轉乘點換成下一段的交通方式（走路 → 公車 → 走路），轉乘點亮一下。
+ */
 function legsBar(o, t) {
-  const total = o.legs.reduce((n, l) => n + l.minutes, 0) || 1;
   const icon = (mode) => { const i = document.createElement('span'); i.className = 'ab-leg-ic'; i.innerHTML = modeSvg(modeOf(mode) || 'walk'); return i; }; // 常數 SVG
-  const main = [...o.legs].sort((a, b) => b.minutes - a.minutes)[0];
+  const sh = legShares(o.legs);
+  const runners = sh.map((s, i) => {
+    const r = token(s.mode === 'walk' ? 'walk' : (modeOf(s.mode) || o.role), { size: 'sm', cls: `ab-runner${i === sh.length - 1 ? ' last' : ''}` });
+    r.style.setProperty('--from', String(s.from));
+    r.style.setProperty('--to', String(s.to));
+    r.style.setProperty('--d', `${(0.6 + s.from * RUN_SEC).toFixed(2)}s`);
+    r.style.setProperty('--t', `${Math.max(0.25, (s.to - s.from) * RUN_SEC).toFixed(2)}s`);
+    return r;
+  });
+  const xfers = sh.slice(1).map((s) => h('span', { class: 'ab-xfer', style: { '--at': String(s.from), '--d': `${(0.6 + s.from * RUN_SEC).toFixed(2)}s` } }));
   return h('div', { class: 'ab-legs-wrap' },
-    token(main?.mode === 'walk' ? 'walk' : (o.role || main?.mode), { size: 'sm', cls: 'ab-runner' }),
+    runners,
     h('div', { class: 'ab-legs', role: 'img', 'aria-label': o.legs.map((l) => `${t(`trip.leg.${l.mode}`)} ${l.minutes} 分`).join('、') },
-      o.legs.map((l, i) => h('span', { class: `ab-leg ${l.mode}`, style: { flexGrow: String(Math.max(1, l.minutes)), flexBasis: `${(l.minutes / total) * 100}%`, '--i': String(i) }, title: l.detail },
-        l.minutes / total >= 0.08 && icon(l.mode), l.minutes / total >= 0.2 && h('b', null, `${l.minutes}`)))));
+      o.legs.map((l, i) => h('span', { class: `ab-leg ${l.mode}`, style: { flex: `0 0 ${((sh[i].to - sh[i].from) * 100).toFixed(2)}%`, '--i': String(i) }, title: l.detail },
+        sh[i].to - sh[i].from >= 0.08 && icon(l.mode), sh[i].to - sh[i].from >= 0.2 && h('b', null, `${l.minutes}`)))),
+    xfers);
 }
 
 function optionBlock(o, ctx, best) {

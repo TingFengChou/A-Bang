@@ -4,6 +4,7 @@ import { esc, loading, errorBox, empty, etaBadge, fmtTime, favs, prefs, chev } f
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { modeSvg } from '../../ui/cards/mode-icons.js';
 import { snapshot, slide } from '../../ui/cards/slide.js';
+import { routeMap3d } from '../../ui/cards/route3d.js';
 
 const CITY_CHIPS = [['Taipei', '臺北'], ['NewTaipei', '新北'], ['Taoyuan', '桃園'], ['Taichung', '臺中'], ['Tainan', '臺南'], ['Kaohsiung', '高雄'], ['Keelung', '基隆'], ['Hsinchu', '新竹']];
 const REFRESH = 20000;
@@ -75,8 +76,9 @@ export const busRoute = {
     const myStop = query.stop || null;
     const host = createWebHost();
     let dir = Number(query.dir) === 1 ? 1 : 0, data = null;
-    main.innerHTML = `<div id="focus"></div><div class="seg" id="dirs"></div><div id="stops">${loading()}</div><div class="updated" id="upd"></div><p class="sr-only" aria-live="polite" aria-atomic="true" id="sr"></p>`;
+    main.innerHTML = `<div id="focus"></div><div class="seg" id="dirs"></div><div id="map3d"></div><div id="stops">${loading()}</div><div class="updated" id="upd"></div><p class="sr-only" aria-live="polite" aria-atomic="true" id="sr"></p>`;
     const say = announcer(main.querySelector('#sr'));
+    let mapSeen = false;
 
     async function load() {
       try {
@@ -91,8 +93,14 @@ export const busRoute = {
     function paint({ fresh = false } = {}) {
       const dirs = main.querySelector('#dirs');
       dirs.innerHTML = data.directions.map((d, i) => `<button data-i="${i}" class="${i === dir ? 'on' : ''}">${esc(d.label)}</button>`).join('');
-      dirs.querySelectorAll('button').forEach((b) => (b.onclick = () => { dir = +b.dataset.i; paint(); }));
+      dirs.querySelectorAll('button').forEach((b) => (b.onclick = () => { dir = +b.dataset.i; mapSeen = false; paint(); }));
       const d = data.directions[dir] || data.directions[0];
+      // 立體路線圖：路線形狀只有去程，回程用站點連線；刷新時不再播進場
+      const me = myStop && d.stops.find((x) => x.stopName === myStop);
+      const map = routeMap3d({ stops: d.stops, shape: (d.direction ?? dir) === 0 ? data.shape : null, meSeq: me?.seq ?? null, seen: mapSeen,
+        label: `${route} 路線圖：${d.stops.length} 站，${d.stops.filter((x) => x.plate).length} 台車在路上` });
+      main.querySelector('#map3d').replaceChildren(...(map ? [map] : []));
+      if (map) mapSeen = true;
       const stopsEl = main.querySelector('#stops');
       const before = fresh ? snapshot(stopsEl) : null; // 刷新：車從上一站滑到這一站
       stopsEl.innerHTML = `<div class="card list timeline">${d.stops.map((s) => `
