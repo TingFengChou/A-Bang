@@ -1,6 +1,6 @@
-import { api } from '../api.js';
+import { api, state as apiState } from '../api.js';
 import { icons } from '../icons.js';
-import { esc, loading, errorBox, empty, etaBadge, fmtTime, favs, prefs, chev } from '../ui.js';
+import { esc, loading, errorBox, empty, etaBadge, fmtTime, favs, prefs, chev, staleNote } from '../ui.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { modeSvg } from '../../ui/cards/mode-icons.js';
 import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
@@ -77,7 +77,7 @@ export const busRoute = {
     // ?stop=&dir=：問阿幫選公車後「開公車頁看動態」帶來的上車站（L-14）；這裡也能設到站提醒
     const myStop = query.stop || null;
     const host = createWebHost();
-    let dir = Number(query.dir) === 1 ? 1 : 0, data = null;
+    let dir = Number(query.dir) === 1 ? 1 : 0, data = null, stale = null;
     main.innerHTML = `<div id="focus"></div><div id="scene"></div><div class="seg" id="dirs"></div><div id="stops">${loading()}</div><div class="updated" id="upd"></div><p class="sr-only" aria-live="polite" aria-atomic="true" id="sr"></p>`;
     const say = announcer(main.querySelector('#sr'));
     let sceneState = {}; // 公車在街景裡上一次的位置（刷新時從那裡開過來）
@@ -85,11 +85,12 @@ export const busRoute = {
     async function load() {
       try {
         data = await api.busEta(city, route);
+        stale = apiState.staleAt; // 連不上時拿到的是上次存下的資料：不當成即時
         paint({ fresh: true });
         const d = data.directions[dir] || data.directions[0];
-        const soon = (d?.stops || []).filter((s) => s.status === 0 && s.etaSec != null && s.etaSec < 180).slice(0, 3).map((s) => s.stopName);
+        const soon = stale ? [] : (d?.stops || []).filter((s) => s.status === 0 && s.etaSec != null && s.etaSec < 180).slice(0, 3).map((s) => s.stopName);
         say(soon.length ? `${route} 即將進站：${soon.join('、')}` : '');
-        main.querySelector('#upd').textContent = `更新於 ${fmtTime()}・每 20 秒自動更新`;
+        main.querySelector('#upd').textContent = stale ? staleNote(stale) : `更新於 ${fmtTime()}・每 20 秒自動更新`;
       } catch (e) { main.querySelector('#stops').innerHTML = errorBox(e); }
     }
     function paint({ fresh = false } = {}) {
@@ -119,7 +120,7 @@ export const busRoute = {
       if (!s) { box.innerHTML = ''; return; }
       const w = host.arrivalWatch();
       const watching = w && w.routeName === route && w.stop === myStop;
-      const live = s.status === 0 && s.etaSec != null;
+      const live = !stale && s.status === 0 && s.etaSec != null; // 舊資料不給到站提醒（時間不準）
       const when = cardT(`busRoute.${host.arrivalNote?.() || 'whenOpenPage'}`);
       box.innerHTML = `<div class="card bus-focus"><span class="ab-token lg${live ? ' go' : ''}" style="--c:#0f766e" aria-hidden="true">${modeSvg('bus')}</span><div class="sub">到「${esc(myStop)}」</div><div class="big">${esc(s.statusText)}</div>
         ${watching ? `<p class="ok" role="status">${w.skip ? `這班快到了、可能趕不上；下一班到站前 ${w.minutes} 分提醒你（${when}）` : `已設定：到站前 ${w.minutes} 分提醒你（${when}）`}<button class="btn ghost" id="unwatch" type="button">取消提醒</button></p>`
@@ -153,14 +154,15 @@ export const busStation = {
     async function load() {
       try {
         const rows = await api.busStationEta(city, stationId);
-        say(rows.slice(0, 3).map((r) => `${r.routeName} ${r.statusText}`).join('；'));
+        const stale = apiState.staleAt;
+        say(stale ? '' : rows.slice(0, 3).map((r) => `${r.routeName} ${r.statusText}`).join('；'));
         main.querySelector('#list').innerHTML = rows.length
           ? `<div class="card list">${rows.map((r) => `
               <a href="#/bus/${city}/${encodeURIComponent(r.routeName)}">
                 <div class="grow"><div class="title">${esc(r.routeName)}</div><div class="sub">${r.direction ? '返程' : '去程'}</div></div>${etaBadge(r)}
               </a>`).join('')}</div>`
           : empty('目前沒有到站資訊');
-        main.querySelector('#upd').textContent = `更新於 ${fmtTime()}・每 20 秒自動更新`;
+        main.querySelector('#upd').textContent = stale ? staleNote(stale) : `更新於 ${fmtTime()}・每 20 秒自動更新`;
       } catch (e) { main.querySelector('#list').innerHTML = errorBox(e); }
     }
     load();

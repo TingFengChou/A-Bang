@@ -1,7 +1,7 @@
 // App shell：hash router + 上方標題列 + 下方分頁列
 import { icons } from './icons.js';
 import { api, state } from './api.js';
-import { esc } from './ui.js';
+import { esc, savedWhen } from './ui.js';
 import { autoCheckOnOpen } from './invoice-wallet.js';
 import { createWebHost } from '../ui/cards/host-web.js';
 import { watchKeyboard } from './keyboard.js';
@@ -38,6 +38,7 @@ root.innerHTML = `
     <h1 id="title"></h1>
     <button class="icon-btn" id="action" hidden></button>
   </header>
+  <div id="offline" class="offline-banner" role="status" hidden></div>
   <div id="banner"></div>
   <main id="main" tabindex="-1"></main>
   <div class="tabbar"><nav>${tabs.map(([h, n, i]) => `<a href="${h}" data-h="${h}">${icons[i]}<span>${n}</span></a>`).join('')}</nav></div>`;
@@ -60,6 +61,7 @@ window.addEventListener('abang:arrival', (e) => toast(`🚌 ${e.detail.text}`, 8
 
 function navigate() {
   cleanups.forEach((f) => f()); cleanups = [];
+  state.staleAt = null; // 舊資料標示只屬於那一頁；新頁面查詢失敗會再標
   const [path, qs = ''] = location.hash.slice(1).split('?');
   const query = Object.fromEntries(new URLSearchParams(qs));
   let page = home, params = [];
@@ -87,7 +89,20 @@ function navigate() {
 
 /** 頂端橫幅：依各類資料的真實／示範狀態說明（卡片與首頁格子另有標示） */
 function paintBanner() {
+  // 常駐的 live region（index 外殼裡），文字變了才換：讀屏不會每次換頁都重念
+  const off = $('offline');
+  const text = offlineText(state);
+  if (off.textContent !== text) off.textContent = text;
+  off.hidden = !text;
   $('banner').innerHTML = bannerHtml(state);
+}
+
+/** 離線與弱網：沒有網路、或畫面是上次存下的資料時，在最上面說清楚。示範單檔版（全部在手機上）不顯示 */
+function offlineText({ staleAt }) {
+  if (globalThis.__DEMO_SERVICES__) return '';
+  const off = globalThis.navigator?.onLine === false;
+  if (staleAt) return `${off ? '目前離線' : '目前連不上伺服器'}：顯示 ${savedWhen(staleAt)} 存下的資料，可能不是最新。`;
+  return off ? '目前離線：連上網路後再查詢。' : '';
 }
 
 function bannerHtml({ mode, sources }) {
@@ -99,6 +114,9 @@ function bannerHtml({ mode, sources }) {
 }
 
 addEventListener('hashchange', navigate);
+// 連回來：重新載入這一頁（時刻表等不會自動刷新的頁面也換成最新）
+for (const ev of ['offline', 'abang:stale', 'abang:fresh']) addEventListener(ev, paintBanner);
+addEventListener('online', () => { if (state.staleAt) navigate(); else paintBanner(); });
 navigate();
 api.status().then(() => paintBanner()).catch(() => {});
 // 出門提醒（T7）：過期的取消（重開機後不補送）、網頁版重新整理後把還沒到的排回去
