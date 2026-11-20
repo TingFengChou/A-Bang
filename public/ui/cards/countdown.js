@@ -1,6 +1,6 @@
 // 卡片動態（M4-07）：到站倒數每秒在本地遞減（不額外呼叫 API），數字變化時輕微提示；
 // prefers-reduced-motion 時只更新文字、不做動畫。資料仍以每 20～30 秒的刷新為準（ADR-0009：不造假）。
-import { t } from './i18n/zh-TW.js';
+import { t, withLocale } from './i18n/index.js';
 
 export const SOON_SEC = 180;
 
@@ -18,8 +18,9 @@ const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(pre
  * 每秒更新 root 內所有 [data-eta-sec]（秒，相對於 root.dataset.drawnAt 的時間點）。
  * @returns {() => void} 停止
  */
-export function startCountdown(root, now = () => Date.now()) {
-  const tick = () => {
+export function startCountdown(root, now = () => Date.now(), locale = 'zh-TW') {
+  const tick = () => withLocale(locale, tickNow);
+  const tickNow = () => {
     const base = Number(root.dataset.drawnAt) || now();
     const elapsed = (now() - base) / 1000;
     for (const el of root.querySelectorAll('[data-eta-sec]')) {

@@ -123,6 +123,8 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 新增（A1b，2026-11-21）：`states[].key` 加 `group`（多人同行）、`rainSoon`（可能下雨）；選填 `party`、`tips[]`（`{ kind, text }`：`tight`／`rain` 以警示色列在建議方案上面，`cost` 列在理由下方；最多 5 條）、`tight: { slackMin }`；多人時叫車方案的 `cost`／`costRange` 是每人分攤（價格寫「每人 55～75 元」，多輛寫車數）、`share` 有總額與車數。決策圖的「多人同行」不能點掉（車資已是每人，要改人數跟阿幫說）。
 
+多語（S12b，2026-11-21）：`renderCard` 的 payload 可帶 `lang: 'en'`，卡片標籤改用 `i18n/en.js`（鍵與佔位符與 zh-TW 相同，測試比對；缺鍵退回中文），`<section lang="en">`；地名、站名等資料維持原文。共用按鈕與倒數經 `i18n/index.js` 的 `withLocale` 取同一個語言。問阿幫頁：只有英文的提問那一輪卡片用英文。
+
 呈現：建議方案＋分段時間條＋備案（最多 2）＋行動（導航、提醒、叫車、訂票）。決策圖由網頁 agent 的 `decision` 事件另外呈現；在 MCP Apps 中，`trip` 卡片以精簡版（排名條＋理由句＋狀態 chips 可切換）呈現。
 
 ### `scam-risk`（`scam_check_message`，M7）

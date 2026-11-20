@@ -802,6 +802,25 @@ test('問阿幫：接著問時天氣空品收合同上；重來有分隔線', as
   });
 });
 
+// 觀光客用英文問（S12b）：卡片標籤用英文（lang=en）、地名維持中文；接著用中文問又回到中文卡片
+test('英文提問：卡片用英文標籤', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.fill('.chat-form input', 'How do I get to Taipei 101?');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    const card = page.locator('[data-card="trip"]').first();
+    assert.equal(await card.getAttribute('lang'), 'en');
+    assert.equal(await card.locator('.ab-badge.ab-best').first().textContent(), 'Best');
+    assert.match(await card.textContent(), /台北101|臺北車站/, '地名維持中文');
+    assert.doesNotMatch(await page.locator('.bubble.final').last().textContent(), /in Chinese for now/);
+    await shot(page, 'phone-agent-english');
+    await page.fill('.chat-form input', '去西門町');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length >= 2, null, { timeout: 20000 });
+    assert.equal(await page.locator('[data-card="trip"]').last().getAttribute('lang'), null, '中文提問回到中文卡片');
+  });
+});
+
 // 離線與弱網：看過的公車路線離線時仍顯示上次的資料，最上面說是幾點存下的；沒看過的說連不上；連回來後標示消失
 test('離線：顯示上次存下的資料與時間、連回來恢復', async () => {
   const ctx = await newCtx({ ...DEVICES.phone, reducedMotion: 'reduce' });
