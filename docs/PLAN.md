@@ -279,7 +279,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 
 ## 體驗與品質補強（審查與 PM 建議，2026-11-21）
 
-- [ ] T6 iOS `PRODUCT_NAME` 改 Abang；iOS 18 深色／著色圖示（Android 啟動畫面色差 ✅ M11-04）
+- [x] T6 iOS 名稱 Abang（主畫面、設定、權限畫面用的 `CFBundleDisplayName` 早已是 Abang；`PRODUCT_NAME` 維持 App 以免動到 Capacitor 的目標與路徑）；iOS 18 深色／著色圖示（`scripts/build-icons.js`；Xcode 編譯通過，實機深色主畫面待確認）（2026-11-21）
 - [x] T7 通知體驗：第一次提醒前的說明（為什麼要通知）、`remind()` 可取消與多筆、重開機後過期通知不補送；設定頁列出出門提醒（2026-11-21）
 - [ ] T8 測試補強：busScene DOM 測試、E2E `page.clock` 固定日夜、原生 App 煙霧測試（adb／simctl，或 Maestro）
 - [x] 首次使用引導（起點用現在位置、點方案改選、提醒 App 關著也會響；在這裡要定位與通知權限）（2026-11-21）
