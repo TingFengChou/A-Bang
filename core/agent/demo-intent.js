@@ -1,7 +1,7 @@
 // 示範模式意圖解析（M5-03，AGENT.md §5）：沒有 API Key 時，以規則判斷意圖、地點與使用者狀態，
 // 產生「分段的工具呼叫計畫」；由 run.js 執行並發出與 Claude 模式相同的事件流。不加人工延遲。
 import { LANDMARKS, normPlace } from '../services/places.js';
-import { NEXT_STEP } from '../tools/trip.js';
+import { nextStepOf } from '../tools/trip.js';
 import { outingSay } from './outing.js';
 import { nowTW } from '../util.js';
 
@@ -54,7 +54,7 @@ const LIFE_WORDS = [
 const OUTING = /出門.{0,10}(?:注意|要帶|帶什麼|穿什麼|怎麼穿|帶傘|適合)|適合出門|(?:今天|等一下|待會).{0,6}(?:注意什麼|要帶什麼|穿什麼)|要穿什麼|穿什麼出門/;
 const WEATHER_WORD = /天氣|氣溫|溫度|幾度|下雨|帶傘|雨傘|會冷|會熱|颱風|出太陽/;
 // 使用者指定交通方式（「坐公車去」「改叫車」）：plan_trip prefs.mode；「不要叫車」的叫車不算
-const MODE_WORDS = [['bus', /公車|巴士/], ['bike', /youbike|ubike|單車|腳踏車/i], ['walk', /走路|步行|走過去/], ['ridehail', /叫車|計程車|小黃|uber|汽車|開車/i],
+const MODE_WORDS = [['bus', /公車|巴士/], ['metro', /捷運|MRT/i], ['bike', /youbike|ubike|單車|腳踏車/i], ['walk', /走路|步行|走過去/], ['ridehail', /叫車|計程車|小黃|uber|汽車|開車/i],
   ['thsr', /高鐵/], ['tra', /台鐵|臺鐵|火車/], ['intercity', /客運/]];
 /** 使用者說不要的交通方式（「不要叫車」「不想坐公車」「別走路」）→ ['ridehail', …] */
 const NOT_MODE = /(不要|不想|別|不用|不坐|不搭)\s*(坐|搭|改|騎|叫)?\s*$/;
@@ -476,8 +476,8 @@ export function demoSteps(it, now = Date.now()) {
   }
 }
 
-const MODE_SAY = { walk: '走路', bike: 'YouBike', bus: '公車', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
-const MODE_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
+const MODE_SAY = { walk: '走路', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
+const MODE_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro: '坐捷運', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
 const STATE_SAY = { rush: '趕時間', luggage: '帶行李', budget: '想省錢', lessWalk: '少走路', rain: '下雨', badAir: '空氣差', traffic: '塞車', elder: '帶長輩', kids: '帶小孩', mobility: '行動不便' };
 /**
  * 接著改的那一輪，討論串第一句說清楚沿用什麼、改了什麼（PR #35 設計審查）：「沿用：西門町 → 台北101｜改：不要叫車」
@@ -531,9 +531,9 @@ export function demoSummary(it, results, suggestions = []) {
     const closed = trip?.data.skipped?.find((x) => x.role === 'bus' && /收班|末班已過/.test(x.why));
     const night = closed ? `${closed.why}。` : trip?.data.options.some((o) => o.lastBus) ? '末班快到了，早點出門；錯過可以叫車或騎 YouBike。' : '';
     // 下一步依建議方式（叫車按官方連結、步行導航…；不再一律問「要我幫你開導航嗎」）
-    const role = trip?.data.options.find((o) => o.id === trip.data.best)?.role;
+    const bestOpt = trip?.data.options.find((o) => o.id === trip.data.best);
     const reason = closed ? trip.data.ranking.reason.replace(/^公車這次沒有可行的方案；/, '') : trip?.data.ranking.reason; // 已說收班，不再重複「公車沒有可行的方案」
-    return trip ? `${pre}${night}${reason}${NEXT_STEP[role] ? ` 下一步：${NEXT_STEP[role]}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
+    return trip ? `${pre}${night}${reason}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
   }
   // 沒說地點時用了示範預設，先講清楚
   const pre = (isNearby(it) || (it.intent === 'metro' && !it.station && !it.near)) && !it.places[0] && !it.fromPoint

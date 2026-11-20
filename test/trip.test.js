@@ -35,11 +35,11 @@ test('matchDirect：以座標找上下車站、驗證方向；commonRoutes 取�
   assert.deepEqual(commonRoutes([{ routes: ['307', '601'] }, { routes: ['307'] }], [{ routes: ['307', '235'] }, { routes: ['601'] }]), ['307', '601']);
 });
 
-test('市區短程（示範）：步行、YouBike、公車、叫車都列出，排序與理由由 decide 產生', async () => {
+test('市區短程（示範）：步行、YouBike、公車、捷運、叫車都列出，排序與理由由 decide 產生', async () => {
   const r = await planTrip(createServices({ forceMock: true }), { from: TPE, to: T101, now: NOW });
-  assert.deepEqual(r.options.map((o) => o.role).sort(), ['bike', 'bus', 'ridehail', 'walk']);
+  assert.deepEqual(r.options.map((o) => o.role).sort(), ['bike', 'bus', 'metro', 'ridehail', 'walk']);
   assert.equal(r.states.length, 0);
-  assert.ok(r.best && r.ranking.ranked.length === 4 && /^選「/.test(r.ranking.reason));
+  assert.ok(r.best && r.ranking.ranked.length === 5 && /^選「/.test(r.ranking.reason));
   for (const o of r.options) {
     assert.ok(o.minutes > 0 && o.legs.length && /^\d{2}:\d{2}$/.test(o.arriveAt), o.id);
     assert.ok(o.legs.every((l) => l.nav === null || l.nav.google.startsWith('https://www.google.com/maps/')), o.id);
@@ -126,4 +126,30 @@ test('空品：起點 AQI > 100 自動加「空品不佳」（附測站與 AQI�
   const noAir = await planTrip({ ...svc, life: { ...svc.life, aqiNearby: async () => { throw new Error('down'); } } }, { from: TPE, to: T101, now: NOW });
   assert.equal(noAir.air, null);
   assert.ok(noAir.best);
+});
+
+test('捷運方案（S7）：同線直達、轉乘站（在台北車站轉乘）、走到站太遠不列、機捷票價、台中代碼推線別、站表全失敗進 unavailable', async () => {
+  const svc = createServices({ forceMock: true });
+  const P = (name, lat, lon) => ({ name, lat, lon });
+  const direct = await planTrip(svc, { from: P('台北車站', 25.0478, 121.517), to: P('南港展覽館', 25.0553, 121.6175), departAt: '2026-11-21T10:00' });
+  const dm = direct.options.find((o) => o.role === 'metro');
+  assert.equal(dm.name, '捷運 板南線');
+  assert.ok(!dm.metro.transfer);
+  const tr = await planTrip(svc, { from: P('西門町', 25.0421, 121.5081), to: P('台北101', 25.0339, 121.5645), departAt: '2026-11-21T10:00' });
+  const tm = tr.options.find((o) => o.role === 'metro');
+  assert.equal(tm.metro.via, '台北車站');
+  assert.match(tm.legs[1].detail, /在台北車站轉乘/);
+  assert.ok(!/站站|車轉乘/.test(JSON.stringify(tm)), '站名不重複「站」');
+  const far = await planTrip(svc, { from: P('A', 25.0478, 121.5275), to: P('B', 25.0553, 121.6075), departAt: '2026-11-21T10:00' }); // 兩端各離站約 1 公里，直線約 8 公里
+  assert.ok(far.options.every((o) => o.role !== 'metro' || o.walkMin < 30));
+  const air = await planTrip(svc, { from: P('台北車站', 25.0478, 121.517), to: P('機場第一航廈', 25.0812, 121.2384), departAt: '2026-11-21T10:00' });
+  const am = air.options.find((o) => o.role === 'metro');
+  assert.ok(am && am.cost >= 120 && am.waitMin >= 10, `機捷票價與班距（${am?.cost} 元、等 ${am?.waitMin} 分）`);
+  const { stationLines } = await import('../core/services/metro.js');
+  assert.deepEqual(stationLines('TMRT', ['103a']), ['G']);
+  assert.deepEqual(stationLines('KRTC', ['RK1']), ['R']);
+  assert.deepEqual(stationLines('TRTC', ['BL12', 'R10']), ['BL', 'R']);
+  const broken = { ...svc, metro: { ...svc.metro, stations: async () => { throw new Error('down'); } } };
+  const b = await planTrip(broken, { from: P('台北車站', 25.0478, 121.517), to: P('南港展覽館', 25.0553, 121.6175), departAt: '2026-11-21T10:00' });
+  assert.ok(b.unavailable.includes('metro'));
 });

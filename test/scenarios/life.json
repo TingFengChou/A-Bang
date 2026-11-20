@@ -272,8 +272,7 @@
     },
     {
       "id": "S7-1",
-      "title": "轉乘：公車＋捷運",
-      "todo": "T3 多段轉乘尚未實作",
+      "title": "轉乘：板橋去內湖科學園區，捷運要轉乘",
       "turns": [
         {
           "say": "從板橋去內湖科學園區",
@@ -281,9 +280,9 @@
             "tools": [
               "plan_trip"
             ],
-            "textHas": [
-              "轉"
-            ]
+            "optionHas": {
+              "metro": "轉"
+            }
           }
         }
       ]
@@ -1111,6 +1110,80 @@
             "toolsNot": [
               "plan_trip"
             ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S7-2",
+      "title": "坐捷運去：照指定選捷運",
+      "turns": [
+        {
+          "say": "從台北車站坐捷運去南港展覽館",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "bestRole": "metro"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S7-3",
+      "title": "不要坐捷運：排除",
+      "turns": [
+        {
+          "say": "從台北車站去南港展覽館"
+        },
+        {
+          "say": "不要坐捷運",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "bestRoleNot": "metro"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S7-4",
+      "title": "下雨從台北車站去南港展覽館：不淋雨的捷運",
+      "demo": {
+        "weather": "rain"
+      },
+      "turns": [
+        {
+          "say": "從台北車站去南港展覽館",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "states": [
+              "rain"
+            ],
+            "bestRoleNot": "walk",
+            "optionHas": {
+              "metro": "板南線"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "S7-5",
+      "title": "從台北車站去桃園機場：機場線（票價較高）",
+      "turns": [
+        {
+          "say": "從台北車站去桃園機場",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "optionHas": {
+              "metro": "機場線"
+            }
           }
         }
       ]

@@ -79,6 +79,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | 地理編碼（TDX 或 TGOS） | 未驗證（`find_place` 目前只查內建地標） |
 | 導訂票 API 端點與參數（需權限） | 未驗證 |
 | CWA 觀測與鄉鎮預報欄位 | 未驗證（M3-08 假設 `records.Station[]`（`GeoInfo.Coordinates` WGS84、`WeatherElement.AirTemperature／Weather`）、雨量站 `O-A0002-001` 的 `RainfallElement.Past1hr.Precipitation`（`-998` 雨跡等特殊值目前視為沒有資料）、`F-D0047-089` 可用 `LocationName` 篩、上層縣市欄位 `LocationsName`（同名鄉鎮以縣市區分）、時段 `EndTime`、元素名「3小時降雨機率」；`weather_tomorrow` 另假設時段 `StartTime`（或 `DataTime`）、元素「溫度／最高溫度／最低溫度」「天氣現象」） |
+| 捷運線別與估算 | 未驗證（2026-11-21：線別由站代碼字首推（台中數字代碼→綠線、高雄 RK→紅線、機捷 A）；時間票價依距離估，真實改用 `Metro/S2STravelTime`、`Metro/ODFare`） |
 | 高鐵／台鐵車站座標與等級 | 未驗證（2026-11-21：`StationPosition.PositionLat／Lon` 給「最近車站」用；台鐵 `StationClass` 可用來優先有直達車的大站，目前改用「最近 3 站依序查、0 班換下一站」） |
 | OData 空白用 `%20`（已實作）是否必要 | 未驗證 |
 
@@ -258,7 +259,8 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] A1 新狀態（第一批）：帶長輩、帶小孩、行動不便（排除不適合的方式）；S13 出門建議（天氣＋空品）（PR #36）
 - [ ] A1b 新狀態（第二批）：`group` 多人（叫車人均）、`night` 深夜、`lateRisk` 快趕不上、`rainSoon`（降雨機率 ≥ 60% 提醒帶傘）
 - [x] S10 深夜末班車（示範規則：00～05 時公車不列入、23 時後提醒末班；真實以 TDX 到站狀態為準）（2026-11-21）
-- [ ] S7 多段轉乘（公車＋捷運；示範規則組合先做）
+- [x] S7 捷運方案與轉乘（捷運線間轉乘一次，估算；2026-11-21）
+- [ ] S7b 公車＋捷運混合轉乘、真實捷運路網（TDX S2STravelTime／ODFare）
 - [ ] S12 觀光客英文對話
 - [x] S1 明天天氣（預報）：`weather_tomorrow`（2026-11-21）
 - [ ] S11／S15 多筆提醒、公車一直不來時重新規劃

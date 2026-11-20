@@ -256,6 +256,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 4. 軌道：直線 > 30 km 時查最近高鐵／台鐵站與班次、票價（`rail_fare`）。`delayRisk 0`。
 5. 國道客運：`intercity_bus`；`delayRisk` 依路況。
 6. 叫車：距離與路況估算時間與價格區間（`estimated: true`）；附 `ridehail_link`。
+6.4 捷運（2026-11-21，S7）：起訖點各自 1.2 公里內有捷運站（同一系統）就列「捷運」方案：同一條線直達，不同線估轉乘一次（＋5 分、名稱「捷運（板南線轉文湖線）」）；時間＝兩站直線距離約每公里 2 分＋進出站，票價依距離估（20～65 元），都標 `estimated`。真實路網與轉乘站待 TDX `Metro/S2STravelTime`、`Metro/ODFare`。`prefs.mode`／`avoid` 可用 `metro`。
 6.5 深夜（2026-11-21，S10）：出發時間 00:00～05:00 公車不列入（`skipped` 寫原因、建議叫車），23:00 後公車方案帶 `lastBus: true` 與提醒。
 7. 自動狀態：查 `traffic_status`（跨城或走一般道路的方案）、`weather_now`（起點）與 `aqi_nearby`（起點，M10）；`raining` → 自動狀態「下雨」，`level = jam` → 「塞車中」，最近測站 AQI > 100 → 「空品不佳」（`detail` 帶測站與 AQI；輸出另有 `air: { site, aqi, status } | null`）。查詢失敗時不加狀態、不中斷規劃。示範：`DEMO_AIR=bad`（或 `createServices({ demo: { air: 'bad' } })`）把示範測站 AQI 調到對敏感族群不健康。
 

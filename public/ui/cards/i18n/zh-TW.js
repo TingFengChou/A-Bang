@@ -146,6 +146,7 @@ export const MESSAGES = {
   'trip.leg.walk': '走路',
   'trip.leg.bike': 'YouBike',
   'trip.leg.bus': '公車',
+  'trip.leg.metro': '捷運',
   'trip.leg.transit': '市區轉乘',
   'trip.leg.thsr': '高鐵',
   'trip.leg.tra': '台鐵',

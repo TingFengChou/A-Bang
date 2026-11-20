@@ -100,8 +100,8 @@ export function decide(options, ctx = {}) {
   return { weights, ranked, excluded, best, reason };
 }
 
-const MODE_NAME = { walk: '步行', bike: 'YouBike', bus: '公車', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
-const MODE_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
+const MODE_NAME = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
+const MODE_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro: '坐捷運', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
 
 /** 產生一句理由：最佳方案贏在哪裡（取貢獻差最大的項目）＋生效的狀態 */
 function explain(best, second, states, excluded) {
