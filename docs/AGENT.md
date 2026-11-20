@@ -191,6 +191,18 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 3. 示範總結：「601 約 6 分後到「西門」，走過去約 3 分。要我在公車快到站時提醒你嗎？」；走過去比車到還久時改說「這班可能趕不上。要我在下一班快到時提醒你嗎？」。模型模式：盯到站的結果接在 `plan_trip` 的工具結果後面（`followUpText`），請模型說公車多久到、趕不上要說、並問要不要提醒；life 規則也要求不要重複呼叫。
 4. 卡片「到站前 3／5 分提醒我」→ `host.watchArrival`（CARDS.md §3）；「開公車頁看動態」→ `#/bus/:city/:route?stop=&dir=`，公車頁顯示同一個上車站與提醒。提醒只在 App 開著時有效；背景準時推播需推播伺服器與使用者訂閱（屬 ADR，PLAN L-16）。
 
+### 5.3 判斷層：意圖與使用者狀態（2026-11-20，`core/agent/judge.js`）
+
+依實驗（`docs/research/decision-eval.md`，172 題）導入；**方案排序仍由 `decide.js` 計分（ADR-0010）**，判斷層只決定「使用者想做什麼」與「使用者狀態」。
+
+- **A 嵌入分類器**：`@huggingface/transformers`（選用依賴）＋ multilingual-e5-small（約 120 MB，首次啟動下載到 `JUDGE_MODEL_DIR`，Docker 建置時先下載進映像）；各意圖類別中心＋信心，狀態各一個 logistic regression；訓練範例 `core/data/judge-train.json`（與評估集分開）。每題約 3 毫秒。
+- **B 模型判斷**：有 `LOCAL_LLM_URL` 時，地端模型＋自動優化過的提示詞（`core/agent/judge-prompt.txt`，由 `scripts/eval-optimize-prompt.js` 產生）。
+- **組合**：意圖＝A 信心 ≥ 0.8 用 A，否則問 B（沒有 B 就用 A）；狀態＝規則 ∪（A ∩ B）；B 只在 A 沒把握或是行程問題時才問。實驗：意圖 94.2%、意圖＋狀態全對 89.5%（驗收集 88.4%），規則單獨 64.0%、模型單獨 58.7%。
+- **示範模式**：意圖與狀態以判斷層為準，地點、路線號碼、股票名稱等參數仍由規則抽（`parseIntent(text, { intent })`）；指定意圖抽不出必要參數時維持規則的判斷。
+- **模型模式**：`plan_trip` 的使用者狀態以判斷層為準（模型自己加的狀態只有 3 成對），再加上使用者點選的；地端模型且判斷有把握時只給該意圖的工具（`INTENT_TOOLS`，行程與其他不縮減），Claude 照常給全部。
+- `status` 事件帶 `judge: { intent, source: embed|llm|rules, confidence }`（不含對話內容）。
+- 退路：`JUDGE=off`、選用依賴沒裝、模型下載失敗、載入中 → 都等同規則；CI 與 E2E 設 `JUDGE=off`，邏輯以單元測試（假的分類器）驗證。
+
 ## 6. 成本與濫用防護
 
 | 項目 | 環境變數 | 預設 |

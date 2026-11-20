@@ -12,7 +12,7 @@ let http, BASE;
 before(async () => {
   const port = await freePort();
   BASE = `http://127.0.0.1:${port}`;
-  http = spawn(process.execPath, ['server/http.js'], { env: { ...process.env, PORT: String(port), DEMO_MODE: '1', AGENT_RPM: '10' }, stdio: ['ignore', 'pipe', 'inherit'] });
+  http = spawn(process.execPath, ['server/http.js'], { env: { ...process.env, PORT: String(port), DEMO_MODE: '1', AGENT_RPM: '10', JUDGE: 'off' }, stdio: ['ignore', 'pipe', 'inherit'] });
   await new Promise((resolve, reject) => {
     http.stdout.on('data', (d) => String(d).includes('running') && resolve());
     http.on('exit', (c) => reject(new Error(`server exited ${c}`)));

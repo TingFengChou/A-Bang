@@ -21,7 +21,7 @@ before(async () => {
   // 示範模式：清掉金鑰，確保不連外
   server = spawn(process.execPath, ['server/http.js'], {
     cwd: new URL('..', import.meta.url),
-    env: { ...process.env, PORT: String(port), DEMO_MODE: '1', TDX_CLIENT_ID: '', TDX_CLIENT_SECRET: '', CWA_API_KEY: '', ANTHROPIC_API_KEY: '', AGENT_RPM: '500', AGENT_RPD: '5000', RATE_LIMIT_API: '2000' }, // 測試一分鐘內呼叫很多次 API，限流另在 mcp.test 測
+    env: { ...process.env, PORT: String(port), DEMO_MODE: '1', TDX_CLIENT_ID: '', TDX_CLIENT_SECRET: '', CWA_API_KEY: '', ANTHROPIC_API_KEY: '', AGENT_RPM: '500', AGENT_RPD: '5000', RATE_LIMIT_API: '2000', JUDGE: 'off' }, // 判斷層要下載模型，E2E 用規則（判斷層另有單元測試）; // 測試一分鐘內呼叫很多次 API，限流另在 mcp.test 測
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   await new Promise((res, rej) => {
@@ -286,6 +286,8 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       const qs = await page.locator('.suggest .chip').allTextContents();
       assert.equal(qs.length, want.length);
       for (let i = 0; i < qs.length; i++) {
+        // 回答後建議會換成「接下來可以…」；按「其他問題」回到一般建議再點下一題
+        if (await page.locator('.suggest.next').count()) await page.locator('.suggest .chip', { hasText: '其他問題' }).click();
         await page.locator('.suggest .chip').nth(i).click();
         await page.waitForFunction((n) => document.querySelectorAll('.bubble.final').length === n, i + 1, { timeout: 20000 });
         const turn = page.locator('.turn').nth(i);
@@ -473,6 +475,11 @@ test('選公車就盯到站（L-14）：想省錢 → 公車卡片聚焦上車�
       if (j.data?.focus) Object.assign(j.data.focus, { etaSec: 900, status: 0, statusText: '15 分' });
       await route.fulfill({ response: res, json: j });
     });
+    // 接下來可以…：輸入框上方換成這一輪的下一步（到站提醒、開公車頁、回程…），不是一開始的通用範例
+    await page.waitForSelector('.suggest.next .next-title');
+    const nextLabels = await page.locator('.suggest.next .chip').allTextContents();
+    assert.ok(nextLabels.includes('開公車頁看動態') && nextLabels.includes('其他問題'), nextLabels.join('、'));
+    assert.ok(!nextLabels.includes('307 到哪了？我在臺北車站'), '通用範例收起來');
     await card.getByRole('button', { name: '到站前 5 分提醒我' }).click();
     await card.locator('.ab-alert-on').waitFor();
     assert.match(await card.locator('.ab-alert-on').textContent(), /到站前 5 分提醒你/);

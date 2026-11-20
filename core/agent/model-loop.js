@@ -4,7 +4,7 @@ import { describeTool, getTool } from '../tools/index.js';
 import { getProfile } from '../agents/index.js';
 import { buildSystemPrompt } from './prompt.js';
 import { ev } from './events.js';
-import { validateRequest, execTools, deviceLocation, guardedText, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
+import { validateRequest, execTools, deviceLocation, guardedText, priorUserTexts, judgeInfo, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
 
 /**
  * @typedef {{ name: string, description: string, schema: object }} ToolDef
@@ -34,7 +34,7 @@ export const FALLBACK = {
 /** 有卡片的工具，回給模型的清單最多幾筆（完整結果已在卡片上） */
 export const MODEL_LIST_MAX = 6;
 /** 選公車後自動盯的到站結果，接在 plan_trip 結果後面給模型（卡片已顯示；請模型主動問要不要到站提醒） */
-export const followUpText = (f, walkMin) => (f ? `\n（阿幫已自動查好：${f.speak}${walkMin != null ? `從起點走到這個上車站約 ${walkMin} 分（不是全程步行時間）。` : ''}已用公車卡片即時顯示；回答時說公車多久到上車站；若走到站牌的時間比車到還久，說這班可能趕不上；並問使用者要不要在卡片上按「到站前 3 分提醒我」）` : '');
+export const followUpText = (f, walkMin) => (f ? `\n［內部備註，不要照抄這段文字］上車站即時到站已查好：${f.speak}${walkMin != null ? `從起點走到這個上車站約 ${walkMin} 分（不是全程步行時間）。` : ''}已用公車卡片即時顯示；回答時用自己的話說公車多久到上車站；若走到站牌的時間比車到還久，說這班可能趕不上；並問使用者要不要在卡片上按「到站前 3 分提醒我」。` : '');
 const ITEM = /^\s*-\s/;
 
 /**
@@ -61,9 +61,30 @@ export function dropNulls(v) {
   return v;
 }
 
-/** profile 的工具 → 模型看的工具定義（registry 產生，ADR-0002） */
-export function toolDefs(profile, { deviceLocation: withLocation = false } = {}) {
-  const defs = profile.tools.map((n) => {
+/**
+ * 判斷層有把握時，地端模型只看這個意圖會用到的工具（實驗：30 個工具小模型容易選錯、提示詞也長）。
+ * trip 與 unknown 不縮減。Claude 等大模型照常看全部工具。
+ */
+export const INTENT_TOOLS = {
+  bus_route: ['bus_route_eta', 'bus_search_routes', 'bus_station_eta', 'bus_nearby_stations', 'find_place'],
+  youbike: ['youbike_nearby', 'find_place'],
+  nearby_bus: ['bus_nearby_stations', 'bus_station_eta', 'find_place'],
+  metro: ['metro_live_board', 'metro_stations', 'find_place'],
+  rail: ['thsr_timetable', 'tra_timetable', 'rail_stations', 'rail_fare', 'rail_booking_link'],
+  weather: ['weather_now', 'find_place'],
+  aqi: ['aqi_nearby', 'find_place'],
+  quake: ['earthquake_recent'],
+  pharmacy: ['pharmacy_search'],
+  garbage: ['garbage_truck_nearby', 'find_place'],
+  fuel: ['fuel_price'],
+  invoice: ['invoice_lottery'],
+  stock: ['stock_quote'],
+};
+
+/** profile 的工具 → 模型看的工具定義（registry 產生，ADR-0002）；only＝只給這些（判斷層縮減） */
+export function toolDefs(profile, { deviceLocation: withLocation = false, only } = {}) {
+  const names = only ? profile.tools.filter((n) => only.includes(n)) : profile.tools;
+  const defs = (names.length ? names : profile.tools).map((n) => {
     const d = describeTool(getTool(n));
     const { $schema, ...schema } = d.inputSchema; // eslint-disable-line no-unused-vars
     return { name: d.name, description: `${d.title}：${d.description}`, schema };
@@ -77,16 +98,20 @@ export function toolDefs(profile, { deviceLocation: withLocation = false } = {})
  * @param {(e: object) => void} emit
  * @param {{ provider: Provider, profileId?: string, now?: number, onModelCall?: () => void }} opts
  */
-export async function runModel(svc, body, emit, { provider, profileId = 'life', now = Date.now(), onModelCall = () => {} }) {
+export async function runModel(svc, body, emit, { provider, profileId = 'life', now = Date.now(), onModelCall = () => {}, judge }) {
   const req = validateRequest(body);
   const profile = getProfile(profileId);
   const picked = req.userState?.picked || [];
   const canLocate = !!req.clientTools?.includes(DEVICE_LOCATION_TOOL.name);
-  emit(ev.status({ mode: provider.mode, model: provider.model, profile: profile.id }));
+  // 判斷層：plan_trip 的使用者狀態以它為準；有把握且是地端模型時只給相關工具
+  const j = judge && profile.id === 'life' ? await judge(req.messages.at(-1).content, priorUserTexts(req.messages)).catch(() => null) : null;
+  const sure = j && (j.source === 'llm' || (j.confidence ?? 0) >= 0.8);
+  const only = sure && provider.mode === 'local' ? INTENT_TOOLS[j.intent] : undefined;
+  emit(ev.status({ mode: provider.mode, model: provider.model, profile: profile.id, judge: judgeInfo(j) }));
 
   const conv = provider.start({
     system: buildSystemPrompt(profile, { now, context: req.context, picked }),
-    tools: toolDefs(profile, { deviceLocation: canLocate }),
+    tools: toolDefs(profile, { deviceLocation: canLocate, only }),
     messages: req.messages,
   });
   let n = 0;
@@ -131,7 +156,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     for (const c of turn.calls) if (!results.has(c.id) && c.bad !== undefined) results.set(c.id, { content: `參數不是有效的 JSON：${c.bad}`, isError: true });
 
     const run = turn.calls.filter((c) => !results.has(c.id));
-    const out = await execTools(svc, run.map((c) => ({ name: c.name, args: dropNulls(c.input) })), emit, { profile, nextId, picked });
+    const out = await execTools(svc, run.map((c) => ({ name: c.name, args: dropNulls(c.input) })), emit, { profile, nextId, picked, ...(j && { judgedStates: j.states }) });
     run.forEach((c, i) => {
       const o = out[i];
       used.add(c.name);

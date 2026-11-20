@@ -21,6 +21,10 @@ COPY server ./server
 COPY mcp ./mcp
 COPY public ./public
 COPY --from=build /app/dist/cards.html ./dist/cards.html
+# 判斷層的嵌入模型（core/agent/judge.js）在建置時先下載進映像，容器啟動不必連網；下載失敗時伺服器自動退回規則判斷
+ENV JUDGE_MODEL_DIR=/app/models
+COPY scripts/fetch-judge-model.js ./scripts/fetch-judge-model.js
+RUN node scripts/fetch-judge-model.js || echo "判斷層模型下載失敗，執行時退回規則判斷"
 # 檔案屬 root、對執行者唯讀（本機目錄權限可能是 700，COPY 會保留）
 RUN chmod -R a+rX,go-w /app
 USER node

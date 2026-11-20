@@ -19,6 +19,7 @@ import { createRateLimiter, clientIp } from './rate-limit.js';
 import { restRoutes } from './rest.js';
 import { buildOpenApi } from './openapi.js';
 import { createAgentHandler } from './agent.js';
+import { judgeFromEnv } from '../core/agent/judge.js';
 import { createLogger, routeOf } from './log.js';
 import { hasProfile } from '../core/agents/index.js';
 
@@ -38,7 +39,9 @@ const limiters = {
 // REST 路由表在 server/rest.js（同時產生 Swagger 文件）
 const routes = restRoutes(svc);
 // agent 計量 log：模式、次數、耗時、token；不含對話內容與座標（AGENT.md §7）
-const agent = createAgentHandler({ svc, log: ({ agent: agentId, ...o }) => log.info('agent request', { agentId, ...o }) }); // 模式依 env（ADR-0012）
+// 判斷層（core/agent/judge.js）：嵌入分類器在背景載入（首次會下載約 120 MB 模型），載入前與載入失敗時都退回規則；JUDGE=off 關閉
+const judgeSetup = judgeFromEnv(process.env, { log: ({ message, ...o }) => log.info(message, o) });
+const agent = createAgentHandler({ svc, judge: judgeSetup.judge, log: ({ agent: agentId, ...o }) => log.info('agent request', { agentId, ...o }) }); // 模式依 env（ADR-0012）
 const OPENAPI = JSON.stringify(buildOpenApi(svc));
 // Swagger UI：只提供這幾個檔（白名單，不開放整個 node_modules）
 const SWAGGER_DIR = fileURLToPath(new URL('../node_modules/swagger-ui-dist/', import.meta.url));

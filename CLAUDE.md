@@ -65,7 +65,7 @@ core/            唯一的資料與邏輯層
   nav.js         導航連結、步行時間、出發時機（ADR-0011）
   metrics.js     每次 tool 呼叫的計量（AsyncLocalStorage）
   geo.js         WKT 路線形狀解析、路徑抽樣
-  agent/         M5：prompt.js、events.js、demo-intent.js、run.js、model-loop.js、provider.js、claude.js、local.js ✅
+  agent/         M5：prompt.js、events.js、demo-intent.js、run.js、model-loop.js、provider.js、claude.js、local.js ✅；judge.js 判斷層（意圖與狀態：嵌入分類器＋模型＋規則，AGENT.md §5.3）
   agents/        life.json、antifraud.json（agent profile）＋ index.js（zod 驗證）✅
   opendata-client.js 免金鑰開放資料下載與快取（M10）；services/life.js 生活服務（空品、地震、藥局、垃圾車、油價、發票）；services/stock.js 股市收盤（證交所、櫃買中心）
   scam-check.js  防詐規則比對、風險等級、寄件號碼（M7）；data/scam-rules.json 規則庫；csv.js CSV 解析

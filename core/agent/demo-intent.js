@@ -32,7 +32,7 @@ const COUNTY = /((?:臺|台)北|新北|桃園|(?:臺|台)中|(?:臺|台)南|高�
 const countyOf = (s) => COUNTY.exec(s)?.[0];
 const INVOICE_NO = /(?:^|\D)(\d{8}|\d{3})(?!\d)/;
 // 股市：去掉口語與行情字眼，剩下的就是股票名稱或代號（「台積電和 0050 今天收盤多少」→「台積電、0050」）
-const STOCK_FILLER = /今天|昨天|今日|現在|目前|最新|最近|股價|股票|股市|[台臺]股|大盤|加權指數|櫃買指數|指數|收盤價?|行情|報價|價格|走勢|表現|漲停|跌停|漲|跌|多少錢?|幾塊|幾元|怎麼樣|如何|查詢|查一下|查|幫我|請問|看一下|看看|看|一下|要不要|該不該|可不可以|可以|能不能|值得|推薦|建議|會不會|明牌|進場|出場|買點|賣點|買|賣|有沒有|還|該|會|嗎|呢|吧|啊|了|的|我|\bETF\b/gi;
+const STOCK_FILLER = /今天|昨天|今日|現在|目前|最新|最近|股價|股票|股市|[台臺]股|大盤|加權指數|櫃買指數|指數|收盤價?|行情|報價|價格|走勢|表現|漲停|跌停|漲|跌|多少錢?|一股|每股|一張|幾塊|幾元|怎麼樣|如何|查詢|查一下|查|幫我|請問|看一下|看看|看|一下|要不要|該不該|可不可以|可以|能不能|值得|推薦|建議|會不會|明牌|進場|出場|買點|賣點|買|賣|有沒有|還|該|會|嗎|呢|吧|啊|了|的|我|\bETF\b/gi;
 export const stockQueryOf = (s) => String(s).replace(STOCK_FILLER, '、').split(/[、,，;；\s？?。！!和跟與及]+/).filter((w) => (/^\d/.test(w) ? /^\d{4}/.test(w) : w.length >= 2)).slice(0, 5).join('、');
 const STOCK_ADVICE = /該不該|要不要買|可以買|能買|值得買|該買|該賣|推薦|明牌|會漲|會跌|進場|出場|買點|賣點/;
 export const NO_ADVICE = '阿幫不提供投資建議，只能報開放資料的收盤數字：';
@@ -118,6 +118,8 @@ export function parseIntent(text, ctx) {
   const arriveBy = arriveByOf(s);
   const tomorrow = /明天|明早/.test(s);
   const base = { places, states, arriveBy, tomorrow };
+  // 判斷層（judge.js）已決定意圖：照那個意圖抽參數；抽不出必要參數時回 null，呼叫端改用規則自己的判斷
+  if (ctx?.intent) return slotsFor(ctx.intent, s, base);
 
   if (RAIL_WORD.test(s)) {
     const m = /([一-龥]{2,3}?)\s*(?:到|→|去|往)\s*([一-龥]{2,3}?)(?=下一班|幾點|的|班|車|站|[\s？?。，,！!]|$)/.exec(s.replace(RAIL_WORD, ' '));
@@ -143,6 +145,39 @@ export function parseIntent(text, ctx) {
   const follow = isFollowUp(s) && FOLLOW_UP.exec(s);
   if (follow && followsStock(history)) return { ...base, intent: 'stock', query: stockQueryOf(follow[1]) || follow[1], advice: false, followUp: true };
   return { ...base, intent: 'unknown' };
+}
+
+/**
+ * 指定意圖下抽參數（給判斷層用）：例如判斷層說是公車，就找路線號碼；找不到必要參數回 null。
+ * @returns {ReturnType<typeof parseIntent>|null}
+ */
+function slotsFor(intent, s, base) {
+  switch (intent) {
+    case 'rail': {
+      const m = /([一-龥]{2,3}?)\s*(?:到|→|去|往|回)\s*([一-龥]{2,3}?)(?=下一班|幾點|的|班|車|站|要|有|[\s？?。，,！!]|$)/.exec(s.replace(RAIL_WORD, ' '));
+      return m && !/[我要坐搭想你在]/.test(m[1]) ? { ...base, intent, system: /高鐵/.test(s) ? 'THSR' : 'TRA', from: m[1], to: m[2] } : null; // 「我要坐火車去花蓮」沒有起站
+    }
+    case 'metro': {
+      const m = /(?:捷運|MRT)?\s*([一-龥]{2,6}?)站/i.exec(s);
+      return m ? { ...base, intent, station: m[1] } : null;
+    }
+    case 'bus_route': {
+      const route = BUS_ROUTE.exec(s)?.[1] || /(?:^|[^\d])([紅藍綠棕橘小幹]?\d{1,4}[區副]?)(?!\d)/.exec(s)?.[1];
+      return route ? { ...base, intent, route } : null;
+    }
+    case 'trip': {
+      if (!base.places.length) return null;
+      const [from, to] = base.places.length >= 2 ? base.places : [null, base.places[0]];
+      return { ...base, intent, from, to };
+    }
+    case 'invoice': return { ...base, intent, number: INVOICE_NO.exec(s)?.[1] };
+    case 'quake': return { ...base, intent, county: countyOf(s) };
+    case 'pharmacy': return { ...base, intent, area: AREA.exec(s)?.[1] || countyOf(s) };
+    case 'stock': return { ...base, intent, query: stockQueryOf(s) || undefined, advice: STOCK_ADVICE.test(s) || undefined };
+    case 'youbike': case 'nearby_bus': case 'weather': case 'aqi': case 'garbage': case 'fuel': case 'unknown':
+      return { ...base, intent };
+    default: return null;
+  }
 }
 
 export const DEFAULT_FROM = '臺北車站'; // 示範：沒說起點也拿不到裝置定位時，先從這裡算
