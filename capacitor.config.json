@@ -2,6 +2,15 @@
   "appId": "tw.abang.app",
   "appName": "阿幫",
   "webDir": "dist/app",
-  "android": { "allowMixedContent": false },
-  "ios": { "contentInset": "automatic" }
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "automatic"
+  },
+  "plugins": {
+    "SystemBars": {
+      "style": "LIGHT"
+    }
+  }
 }

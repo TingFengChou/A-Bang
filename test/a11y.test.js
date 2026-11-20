@@ -44,10 +44,11 @@ function contrast(a, b) {
   return (x + 0.05) / (y + 0.05);
 }
 
-test('色彩對比：文字色在底色上 ≥ 4.5（淺色與深色主題）', async () => {
+test('色彩對比：文字色在底色上 ≥ 4.5（一律淺色主題）', async () => {
   const css = await readFile(new URL('../public/css/app.css', import.meta.url), 'utf8');
   const blocks = [...css.matchAll(/(--bg:[^}]*)/g)].map((m) => Object.fromEntries([...m[1].matchAll(/--([a-z-]+):\s*(#[0-9a-f]{6}|#[0-9a-f]{3})\b/gi)].map((x) => [x[1], x[2]])));
-  assert.ok(blocks.length >= 2, '淺色與深色兩組變數');
+  assert.equal(blocks.length, 1, '只有淺色一組變數（不跟系統深色模式，卡片也是淺色）');
+  assert.match(css, /color-scheme: light;/);
   for (const v of blocks) {
     for (const fg of ['text', 'muted', 'off']) {
       for (const bg of ['bg', 'card']) assert.ok(contrast(v[fg], v[bg]) >= 4.5, `${fg} on ${bg}: ${contrast(v[fg], v[bg]).toFixed(2)}`);
