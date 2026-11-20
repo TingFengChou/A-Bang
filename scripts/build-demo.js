@@ -7,8 +7,11 @@ const r = await build({
   stdin: { contents: "import './scripts/demo-setup.js'; import './public/js/app.js';", resolveDir: root.pathname, loader: 'js' },
   bundle: true, minify: true, format: 'esm', write: false, target: 'es2020',
 });
-const mascot = Buffer.from(await readFile(new URL('public/brand/abang-default.svg', root))).toString('base64');
-const js = r.outputFiles[0].text.replace(/<\/script/g, '<\\/script').replaceAll('/brand/abang-default.svg', `data:image/svg+xml;base64,${mascot}`);
+const svg64 = async (name) => Buffer.from(await readFile(new URL(`public/brand/${name}`, root))).toString('base64');
+const mascot = await svg64('abang-default.svg');
+const happy = await svg64('abang-happy.svg');
+const think = await svg64('abang-think.svg');
+const js = r.outputFiles[0].text.replace(/<\/script/g, '<\\/script').replaceAll('/brand/abang-default.svg', `data:image/svg+xml;base64,${mascot}`).replaceAll('/brand/abang-happy.svg', `data:image/svg+xml;base64,${happy}`).replaceAll('/brand/abang-think.svg', `data:image/svg+xml;base64,${think}`); // 首次使用引導、問阿幫頭像（file:// 讀不到 /brand）
 const css = await readFile(new URL('public/css/app.css', root), 'utf8');
 const icon = Buffer.from(await readFile(new URL('public/icons/icon.svg', root))).toString('base64');
 const html = (await readFile(new URL('public/index.html', root), 'utf8'))

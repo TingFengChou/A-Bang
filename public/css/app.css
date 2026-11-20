@@ -239,14 +239,19 @@ html.kb-open .app { padding-bottom: 12px; }
 .saved-row .btn[hidden] { display: none; }
 
 /* 首次使用引導（<dialog>）：淺色、置中、藍鵲插圖；按鈕 ≥ 44px */
-.onboard { border: 0; border-radius: 20px; padding: 20px 20px 16px; width: min(92vw, 400px); background: var(--card, #fff); color: var(--text); text-align: center; position: relative; }
+.onboard { border: 0; border-radius: 20px; padding: 20px 20px 16px; width: min(92vw, 400px); max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px); overflow: auto; background: var(--card, #fff); color: var(--text); text-align: center; position: relative; }
 .onboard::backdrop { background: rgba(15, 23, 42, .45); }
 .onboard h2 { margin: 4px 0 8px; font-size: 20px; }
 .onboard p { margin: 0 0 8px; line-height: 1.6; color: var(--text); }
 .onboard .onboard-img { display: block; margin: 4px auto 6px; }
 .onboard .onboard-step { font-size: 13px; color: var(--muted); margin: 0; }
 .onboard .onboard-status { min-height: 1.6em; color: var(--brand); font-weight: 600; }
+.onboard .onboard-status.fail { color: var(--muted); font-weight: 400; }
+.onboard h2:focus { outline: none; }
+.onboard h2:focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; border-radius: 6px; }
 .onboard-actions { display: grid; gap: 8px; margin-top: 8px; }
 .onboard-actions .btn { min-height: 48px; width: 100%; }
-.onboard-skip { position: absolute; top: 10px; right: 10px; min-height: 44px; min-width: 44px; padding: 0 10px; border: 0; background: transparent; color: var(--muted); font-size: 15px; cursor: pointer; }
+.onboard-skip { position: sticky; top: 0; float: right; margin: -10px -10px 0 0; z-index: 1; background: var(--card, #fff) !important; border-radius: 10px; min-height: 44px; min-width: 44px; padding: 0 10px; border: 0; background: transparent; color: var(--muted); font-size: 15px; cursor: pointer; }
 .linkish { border: 0; background: none; padding: 0; color: var(--brand); font: inherit; text-decoration: underline; cursor: pointer; min-height: 32px; }
+/* 矮螢幕（手機橫放）：插圖收起，略過與按鈕都看得到 */
+@media (max-height: 480px) { .onboard .onboard-img { display: none; } }

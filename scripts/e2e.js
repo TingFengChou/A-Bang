@@ -786,9 +786,9 @@ test('問阿幫：接著問時天氣空品收合同上；重來有分隔線', as
   });
 });
 
-// 首次使用引導：第一次打開首頁跳出、按「允許定位」才要權限、可略過、看過不再跳、設定頁可再看一次
-test('首次使用引導：三步、要權限、看過不再顯示', async () => {
-  const ctx = await newCtx({ ...DEVICES.phone, geolocation: TAIPEI, permissions: ['geolocation'], reducedMotion: 'reduce' }, { onboard: true });
+// 首次使用引導：第一次打開首頁跳出、按「允許定位」才要權限（失敗說原因）、已允許的步驟跳過、可略過、看過不再跳、設定頁可再看一次
+test('首次使用引導：要權限、失敗說原因、看過不再顯示、深層連結不跳', async () => {
+  const ctx = await newCtx({ ...DEVICES.phone, reducedMotion: 'reduce' }, { onboard: true }); // 沒給定位權限
   try {
     const page = await ctx.newPage();
     const errors = [];
@@ -797,13 +797,13 @@ test('首次使用引導：三步、要權限、看過不再顯示', async () =>
     const dlg = page.locator('dialog.onboard[open]');
     await dlg.waitFor();
     assert.match(await dlg.locator('h2').textContent(), /我是阿幫/);
+    assert.match(await dlg.locator('.onboard-step').textContent(), /共 2 步/, '網頁版不在這裡要通知');
     await shot(page, 'phone-onboarding');
     await dlg.getByRole('button', { name: '下一步' }).click();
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'onboard-title', '換步驟時焦點在標題');
     await dlg.getByRole('button', { name: '允許定位' }).click();
-    await page.waitForFunction(() => /已允許定位/.test(document.querySelector('.onboard-status')?.textContent || ''));
-    await dlg.getByRole('button', { name: '下一步' }).click();
-    assert.match(await dlg.locator('h2').textContent(), /提醒你/);
-    await dlg.getByRole('button', { name: /開始使用/ }).click();
+    await page.waitForFunction(() => /沒拿到位置/.test(document.querySelector('.onboard-status')?.textContent || ''));
+    await dlg.getByRole('button', { name: '開始使用' }).click();
     await page.locator('dialog.onboard').waitFor({ state: 'detached' }); // close 事件之後才移除
     await page.reload();
     await page.waitForSelector('.tabbar');
@@ -820,6 +820,32 @@ test('首次使用引導：三步、要權限、看過不再顯示', async () =>
     await page.keyboard.press('Escape');
     await page.locator('dialog.onboard').waitFor({ state: 'detached' });
     assert.deepEqual(errors, []);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test('首次使用引導：已允許定位就跳過那一步、略過、清除資料後再出現', async () => {
+  const ctx = await newCtx({ ...DEVICES.phone, geolocation: TAIPEI, permissions: ['geolocation'], reducedMotion: 'reduce' }, { onboard: true });
+  try {
+    const page = await ctx.newPage();
+    await page.goto(`${base}/#/`);
+    const dlg = page.locator('dialog.onboard[open]');
+    await dlg.waitFor();
+    await page.waitForTimeout(300); // 背景檢查權限
+    await dlg.getByRole('button', { name: /下一步|開始使用/ }).click();
+    await page.locator('dialog.onboard').waitFor({ state: 'detached' }); // 定位已允許：不再問
+    await page.goto(`${base}/#/settings`);
+    await page.click('#guide');
+    await page.locator('dialog.onboard[open]').waitFor();
+    await page.getByRole('button', { name: '略過使用說明' }).click();
+    await page.locator('dialog.onboard').waitFor({ state: 'detached' });
+    // 設定頁清除本機資料 → 下次打開首頁再顯示
+    page.once('dialog', (d) => d.accept());
+    await page.click('#clear');
+    await page.goto(`${base}/#/`);
+    await page.reload();
+    await page.locator('dialog.onboard[open]').waitFor();
   } finally {
     await ctx.close();
   }
