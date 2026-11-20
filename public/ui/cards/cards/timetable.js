@@ -40,7 +40,7 @@ export default {
           x.excluded && t('timetable.excluded', { why: x.excluded }),
           x.delayMin && t('timetable.delay', { n: x.delayMin }),
           x.board && ` ${t('timetable.board', { stop: x.board })}`,
-          x.estimated && ` （${t('common.estimated')}）`),
+          x.estimated && t('common.estimatedTag')),
         !x.excluded && bookButton(host, { system: d.system, trainNo: x.trainNo, date: d.date, from: d.from, to: d.to }, onError)))),
       list.length > MAX_ROWS && h('button', { type: 'button', class: 'ab-btn ab-link', onclick: () => { state.all = !state.all; rerender(); } }, state.all ? t('common.less') : t('common.more')));
   },

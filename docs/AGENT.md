@@ -246,7 +246,8 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 - 只有英文（沒有中文字）的提問走英文規則（`isEnglish`、`englishIntent`）：行程（How do I get to…／from A to B／by MRT）、天氣（現在、tomorrow）、空品、YouBike、公車路線、MRT 下一班；常見地標有英文別名（Taipei 101、Ximending、Taoyuan Airport…，`landmarks.json` aliases）。
 - 示範總結用英文（`englishSummary`：數字取自工具資料、地名附中文），提醒卡片目前是中文；模型模式在 profile 規則裡要求英文問就英文答。
-- 待做：卡片英文字典、討論串說明英文化、更多英文地名。
+- 卡片英文（S12b）：英文提問那一輪的卡片標籤用英文（`lang: 'en'`），地名維持中文；行程卡「改成…」送出交通方式（「Switch to MRT」英文規則聽得懂）。
+- 待做（S12c）：討論串說明、決策圖、「接下來可以」英文化；更多英文地名。
 
 ### 5.2.8 常用地點（S1，2026-11-21）
 

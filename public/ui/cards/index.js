@@ -2,7 +2,7 @@
 // 卡片不直接 fetch，只透過 host（CARDS.md §3）。網頁、MCP Apps、App 共用同一份程式。
 import { snapshot, slide } from './slide.js';
 import { h, hhmm } from './dom.js';
-import { t } from './i18n/zh-TW.js';
+import { tFor, withLocale, localeOf } from './i18n/index.js';
 import { startCountdown } from './countdown.js';
 import busRoute from './cards/bus-route.js';
 import busStation from './cards/bus-station.js';
@@ -30,13 +30,15 @@ export const CARDS = {
 /**
  * 在 el 內渲染卡片。
  * @param {HTMLElement} el
- * @param {{ card: string, v?: number, mode: 'live'|'demo', speak?: string, data: any, tool?: string, args?: object }} payload
+ * @param {{ card: string, v?: number, mode: 'live'|'demo', speak?: string, data: any, tool?: string, args?: object, lang?: 'en' }} payload  lang：卡片文字的語言（觀光客用英文問時 'en'；地名等資料維持原文）
  * @param {import('./host.js').Host} host
  * @returns {{ update: (p: object) => void, refresh: () => Promise<void>, destroy: () => void }}
  */
 export function renderCard(el, payload, host) {
   const def = CARDS[payload?.card];
   if (!def) throw new Error(`沒有這種卡片：${payload?.card}`);
+  const locale = localeOf(payload?.lang);
+  const t = tFor(locale); // 刷新後的資料沒有 lang：語言在第一次就決定
   const state = {}; // 卡片內的使用者選擇（方向、排序…），刷新時保留
   let current = payload;
   let timer = null;
@@ -52,12 +54,13 @@ export function renderCard(el, payload, host) {
     said = text;
   };
 
-  const draw = ({ fresh = false } = {}) => {
+  const draw = (opts) => withLocale(locale, () => drawNow(opts)); // 共用按鈕與字典用同一個語言
+  const drawNow = ({ fresh = false } = {}) => {
     const say = (text) => { live.textContent = ''; setTimeout(() => { live.textContent = text; }, 30); };
     const ctx = { host, t, state, payload: current, rerender: draw, say };
     const updated = current.data?.updatedAt ? t('common.updatedAt', { time: hhmm(current.data.updatedAt) }) : null;
     status = h('span', { class: 'ab-status', role: 'status', 'aria-live': 'polite' });
-    const card = h('section', { class: 'ab-card', 'data-card': current.card, 'aria-label': def.title(current.data, ctx) },
+    const card = h('section', { class: 'ab-card', 'data-card': current.card, 'aria-label': def.title(current.data, ctx), ...(locale !== 'zh-TW' && { lang: locale }) },
       h('header', { class: 'ab-head' },
         h('h3', { class: 'ab-title' }, def.title(current.data, ctx)),
         // 資料來源標示：示範（灰）或真實（品牌色）；兩種都標，使用者不必從「沒有標籤」反推
@@ -90,7 +93,7 @@ export function renderCard(el, payload, host) {
 
   draw();
   announce(false); // 第一次不念（內容本身就會被讀到），之後刷新有變化才念
-  const stopCountdown = startCountdown(el);
+  const stopCountdown = startCountdown(el, undefined, locale);
   if (def.refreshSec && current.tool && host?.callTool) timer = setInterval(refresh, def.refreshSec * 1000);
   return {
     update(p) { current = merge(p); draw({ fresh: true }); announce(true); },
@@ -99,4 +102,4 @@ export function renderCard(el, payload, host) {
   };
 }
 
-export { t };
+export { t } from './i18n/index.js';

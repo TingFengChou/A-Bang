@@ -2,7 +2,7 @@
 // 不 import ext-apps：由入口（mcp-app.js）傳入已建立的 App，這裡只做介面轉接（方便測試、打包時才帶 SDK）。
 // iframe 沙箱常不允許 window.confirm／window.open：L2 確認與「無法開啟時複製連結」都在卡片內呈現。
 import { h, safeUrl } from './dom.js';
-import { t } from './i18n/zh-TW.js';
+import { t } from './i18n/index.js';
 
 /** CallToolResult → structuredContent（有卡片的 tool 即 CardPayload；rail_booking_link 等只有 data）；isError 或沒有結構化資料時丟錯（訊息用 tool 的文字） */
 export function payloadOf(result) {

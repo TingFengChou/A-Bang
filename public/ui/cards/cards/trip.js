@@ -118,7 +118,7 @@ function optionBlock(o, ctx, best) {
     : o.costRange ? t('common.priceRange', { low: o.costRange[0], high: o.costRange[1] }) : t('common.price', { n: o.cost });
   const ride = o.role === 'ridehail' && o.legs[0]?.url;
   // 備案：「改成這個」＝跟阿幫說改成它（沿用起訖點重算；公車會自動盯到站）
-  const pick = !best && host?.ask && h('button', { type: 'button', class: 'ab-btn ab-pick', onclick: () => host.ask(t('trip.pickAsk', { name: o.name })) }, t('trip.pickAsk', { name: o.name })); // 審查：要像按鈕、≥ 44px、寫出方案名
+  const pick = !best && host?.ask && h('button', { type: 'button', class: 'ab-btn ab-pick', onclick: () => host.ask(t('trip.pickAsk', { name: t(`trip.leg.${o.role}`) === `trip.leg.${o.role}` ? o.name : t(`trip.leg.${o.role}`) })) } /* 送出的話用交通方式（英文時「Switch to MRT」伺服器聽得懂）；按鈕寫完整名稱 */, t('trip.pickAsk', { name: o.name })); // 審查：要像按鈕、≥ 44px、寫出方案名
   return h('div', { class: best ? 'ab-option best' : 'ab-option' },
     h('div', { class: 'ab-row' },
       token(o.role, { size: best ? 'lg' : 'md', go: best, label: o.name }),
@@ -126,7 +126,7 @@ function optionBlock(o, ctx, best) {
       h('span', { class: 'ab-name' }, o.name),
       h('span', { class: 'ab-big' }, t('common.minutes', { n: o.minutes })),
       h('span', { class: 'ab-sub' }, t('trip.arrive', { time: o.arriveAt })),
-      h('span', { class: 'ab-sub' }, cost, o.estimated ? `（${t('common.estimated')}）` : '')),
+      h('span', { class: 'ab-sub' }, cost, o.estimated ? t('common.estimatedTag') : '')),
     best && legsBar(o, t),
     best && h('ul', { class: 'ab-legs-detail' }, o.legs.map((l) => h('li', {}, token(l.mode, { size: 'xs' }), l.detail))),
     // YouBike 兩端都要看：起點有車、終點有空位；很緊時警告並給備用站

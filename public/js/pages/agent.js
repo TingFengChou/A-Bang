@@ -241,7 +241,7 @@ export default {
       log.append(el('div', 'msg user', q));
       const turn = el('div', 'turn');
       log.append(turn);
-      const view = turnView(turn);
+      const view = turnView(turn, /[A-Za-z]{2,}/.test(q) && !/[一-鿿]/.test(q) ? 'en' : null); // 只有英文＝觀光客：卡片用英文（與伺服器 isEnglish 相同）
       try {
         // 手機 App：先在裝置上判斷意圖與狀態（最多等 1.8 秒；不可用就不帶，伺服器照常判斷）
         const deviceJudge = agentId === 'life' ? await edgeJudge(q, history.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content)) : null;
@@ -264,7 +264,7 @@ export default {
     }
 
     /** 一輪對話的畫面：事件依序呈現；討論串兩則之間至少 300ms（只為避免閃爍） */
-    function turnView(turn) {
+    function turnView(turn, turnLang = null) {
       const thread = el('div', 'thread live');
       thread.setAttribute('aria-label', '小幫手討論串');
       // 會議感（原型 transit-discussion.html）：討論中有標題與跳動的點，結束後收合成摘要
@@ -358,7 +358,7 @@ export default {
             if (e.ok && e.card) {
               // 接著問的那一輪，天氣、空品跟上一輪一樣：收合成「天氣同上」（點開看完整卡片），畫面不會越拉越長
               const same = sameAs(e, turn.dataset.follow === '1');
-              const payload = { card: e.card, v: e.v, mode: e.mode, speak: e.speak, data: e.data, tool: e.tool, args: e.args };
+              const payload = { card: e.card, v: e.v, mode: e.mode, speak: e.speak, data: e.data, tool: e.tool, args: e.args, ...(turnLang === 'en' && { lang: 'en' }) }; // 觀光客用英文問：卡片標籤用英文（S12b）
               if (same) { // 點開才畫卡片（不播進場動畫）
                 const slot = el('div', 'card-slot');
                 const box = el('details', 'card-same');

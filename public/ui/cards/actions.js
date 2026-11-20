@@ -1,6 +1,6 @@
 // 卡片共用的行動按鈕：導航、L2 連結（叫車、訂票）。L2 一律帶 confirm，由 host 顯示確認視窗（ADR-0011）。
 import { h, safeUrl } from './dom.js';
-import { t } from './i18n/zh-TW.js';
+import { t } from './i18n/index.js';
 
 /** 導航按鈕（nav 為 { google, apple }；沒有就不顯示） */
 export function navButton(host, nav, label = t('common.navigate')) {
@@ -13,7 +13,8 @@ export function navButton(host, nav, label = t('common.navigate')) {
 export function confirmLinkButton(host, url, confirmText, label) {
   const u = safeUrl(url);
   if (!u || !host?.openLink) return null;
-  return h('button', { class: 'ab-btn ab-primary', type: 'button', onclick: (e) => { e.stopPropagation(); host.openLink(u, { confirm: confirmText || t('confirm.title') }); } }, label);
+  const confirm = confirmText || t('confirm.title'); // 畫的時候就取字（點的時候已不在卡片的語言裡）
+  return h('button', { class: 'ab-btn ab-primary', type: 'button', onclick: (e) => { e.stopPropagation(); host.openLink(u, { confirm }); } }, label);
 }
 
 /**

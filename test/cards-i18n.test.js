@@ -24,3 +24,25 @@ test('每種卡片與 L2 確認視窗都有標題或必要文字', () => {
     assert.ok(MESSAGES[k], k);
   }
 });
+
+// S12b 卡片英文：鍵與佔位符跟中文一樣；英文沒有的鍵退回中文；withLocale 只在同步範圍內有效
+test('英文字典：鍵相同、佔位符相同、不含中文', async () => {
+  const en = await import('../public/ui/cards/i18n/en.js');
+  assert.equal(en.LOCALE, 'en');
+  assert.deepEqual(Object.keys(en.MESSAGES).sort(), Object.keys(MESSAGES).sort());
+  const ph = (v) => [...new Set(v.match(/\{\w+\}/g) || [])].sort();
+  for (const [k, v] of Object.entries(MESSAGES)) {
+    assert.deepEqual(ph(en.MESSAGES[k]), ph(v), k);
+    assert.doesNotMatch(en.MESSAGES[k], /[一-鿿]/, k);
+  }
+});
+
+test('i18n runtime：tFor、withLocale、退回中文', async () => {
+  const { t: cur, tFor, withLocale, localeOf } = await import('../public/ui/cards/i18n/index.js');
+  assert.equal(localeOf('fr'), 'zh-TW');
+  assert.equal(tFor('zh-TW')('common.minutes', { n: 3 }), t('common.minutes', { n: 3 }));
+  assert.notEqual(tFor('en')('common.minutes', { n: 3 }), t('common.minutes', { n: 3 }));
+  assert.equal(withLocale('en', () => cur('common.demo')), tFor('en')('common.demo'));
+  assert.equal(cur('common.demo'), t('common.demo'), '離開 withLocale 後還原中文');
+  assert.equal(tFor('en')('no.such.key'), 'no.such.key');
+});

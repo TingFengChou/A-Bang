@@ -83,7 +83,7 @@ export async function addReminder(when, text, { key, opt } = {}) {
   const delay = at - Date.now();
   if (!(delay > 0 && delay < 12 * 3600e3)) return false;
   let list = listReminders();
-  const same = list.find((r) => r.at === at && r.text === text);
+  const same = list.find((r) => Math.floor(r.at / 60000) === Math.floor(at / 60000) && r.text === text); // 同一分鐘同一段文字＝同一筆（連點兩下）
   if (same) return same.id;
   const old = key ? list.find((r) => r.key === key) : null;
   if (!old && list.length >= MAX_REMINDERS) return false;
