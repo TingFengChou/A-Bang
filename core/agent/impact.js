@@ -2,7 +2,7 @@
 // 也產生行程開始前阿幫的一句（判斷層結果：你的狀況、或照你說的改成哪種交通方式），讓使用者一送出就看到阿幫在依他的狀況做事。
 import { BAD_AIR_AQI } from '../services/trip.js';
 
-const STATE_SAY = { rush: '趕時間', luggage: '帶行李', budget: '想省錢', lessWalk: '想少走路', rain: '遇到下雨', badAir: '覺得空氣差' };
+const STATE_SAY = { rush: '趕時間', luggage: '帶行李', budget: '想省錢', lessWalk: '想少走路', rain: '遇到下雨', badAir: '覺得空氣差', elder: '帶著長輩', kids: '帶著小孩', mobility: '行動不便' };
 
 const MODE_SAY = { bus: '坐公車', bike: '騎 YouBike', walk: '走路', ridehail: '叫車', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運' };
 

@@ -68,14 +68,14 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
 /// 意圖（與 core/agent/judge.js JUDGE_INTENTS 相同；test/edge-judge.test.js 比對）
 let edgeIntents = ["trip", "bus_route", "youbike", "nearby_bus", "metro", "rail", "weather", "aqi", "quake", "pharmacy", "garbage", "fuel", "invoice", "stock", "unknown"]
 /// 狀態（與 JUDGE_STATES 相同）
-let edgeStates = ["rush", "luggage", "budget", "lessWalk", "rain", "badAir"]
+let edgeStates = ["rush", "luggage", "budget", "lessWalk", "rain", "badAir", "elder", "kids", "mobility"]
 
 @available(iOS 26.0, *)
 @Generable
 struct EdgeJudgement {
     @Guide(description: "使用者想做什麼，只能選一個", .anyOf(edgeIntents))
     var intent: String
-    @Guide(description: "使用者明講的狀態，沒有就空陣列", .maximumCount(6), .element(.anyOf(edgeStates)))
+    @Guide(description: "使用者明講的狀態，沒有就空陣列", .maximumCount(9), .element(.anyOf(edgeStates)))
     var states: [String]
 }
 

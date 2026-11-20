@@ -193,7 +193,9 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   if (heard) emit(ev.agentNote(heard));
   const j = jc ? await jc.full(q0) : null;
   if (j) {
-    if (j.intent !== it.intent && !it.followUp) it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent }) || it;
+    // 出門建議是天氣＋空品的組合：判斷層說天氣或空品時保留（判斷層沒有 outing 這個意圖）
+    const keep = it.followUp || (it.intent === 'outing' && ['weather', 'aqi'].includes(j.intent));
+    if (j.intent !== it.intent && !keep) it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent }) || it;
     it.states = j.states;
     const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
     if (more) emit(ev.agentNote(more));

@@ -25,6 +25,10 @@ export const STATES = {
   lessWalk: { label: '少走路', say: '你想少走路、輕鬆一點', boost: { walkMin: 1.5, effort: 3 } },
   // 空品不佳（AQI > 100，對敏感族群不健康以上）：少待戶外、少做費力的騎車與長距離步行（M10）
   badAir: { label: '空品不佳', say: '空氣品質不佳', boost: { exposure: 3, effort: 2 } },
+  // 同行者與行動能力（A1，2026-11-21）：exclude＝不適合的方式直接排除（原因寫明）
+  elder: { label: '帶長輩', say: '你帶著長輩', boost: { walkMin: 2, effort: 3, waitMin: 1.3 }, exclude: ['bike'] },
+  kids: { label: '帶小孩', say: '你帶著小孩', boost: { walkMin: 1.5, effort: 3 }, exclude: ['bike'] },
+  mobility: { label: '行動不便', say: '你行動不便', boost: { walkMin: 3, effort: 4 }, exclude: ['bike', 'walk'] },
 };
 
 /**
@@ -49,6 +53,11 @@ export function decide(options, ctx = {}) {
   const pool = options.filter((o) => {
     if (avoid.has(o.role)) {
       excluded.push({ ...o, why: `你說不要${MODE_NAME[o.role] || o.name}` });
+      return false;
+    }
+    const unfit = states.find((k) => STATES[k].exclude?.includes(o.role));
+    if (unfit) {
+      excluded.push({ ...o, why: `${STATES[unfit].say}，不適合${MODE_NAME[o.role] || o.name}` });
       return false;
     }
     const late = ctx.arriveByMin != null && o.arriveMin != null ? o.arriveMin > ctx.arriveByMin : ctx.arriveBy && o.arriveAt && o.arriveAt > ctx.arriveBy;
@@ -92,8 +101,8 @@ const MODE_NAME = { walk: '步行', bike: 'YouBike', bus: '公車', thsr: '高�
 /** 產生一句理由：最佳方案贏在哪裡（取貢獻差最大的項目）＋生效的狀態 */
 function explain(best, second, states, excluded) {
   if (!best) {
-    const said = excluded.some((e) => e.why.startsWith('你說不要')), late = excluded.some((e) => !e.why.startsWith('你說不要'));
-    return said && late ? '排除你說不要的方式後，其他方案都會遲到。' : late ? '所有方案都趕不上指定時間。' : said ? '排除你說不要的方式後，沒有其他可行的方案。' : '沒有可比較的方案。';
+    const said = excluded.some((e) => !e.why.includes('超過')), late = excluded.some((e) => e.why.includes('超過'));
+    return said && late ? '排除不適合或你說不要的方式後，其他方案都會遲到。' : late ? '所有方案都趕不上指定時間。' : said ? '排除不適合或你說不要的方式後，沒有其他可行的方案。' : '沒有可比較的方案。';
   }
   const why = [];
   if (states.length) why.push(`因為${states.map((s) => STATES[s].say).join('、')}`);
@@ -102,8 +111,9 @@ function explain(best, second, states, excluded) {
     const top = diffs.filter((x) => x.d > 0.01).slice(0, 2).map((x) => PHRASE[x.c.key](best, second, states));
     if (top.length) why.push(top.join('、'));
   }
-  const said = excluded.filter((e) => e.why.startsWith('你說不要')), late = excluded.filter((e) => !e.why.startsWith('你說不要'));
+  const said = excluded.filter((e) => e.why.startsWith('你說不要')), unfit = excluded.filter((e) => e.why.includes('不適合')), late = excluded.filter((e) => e.why.includes('超過'));
   if (said.length) why.push(`${said.map((e) => e.name).join('、')}照你說的不列入`);
+  if (unfit.length) why.push(`${unfit.map((e) => e.name).join('、')}不適合，不列入`);
   if (late.length) why.push(`${late.map((e) => e.name).join('、')}會遲到已排除`);
   return `選「${best.name}」${why.length ? '：' + why.join('，') : ''}。`;
 }

@@ -26,7 +26,7 @@ export const JUDGE_INTENTS = {
   stock: '台股股價、大盤、指數、個股（含問該不該買）',
   unknown: '以上都不是：閒聊、其他服務、阿幫不提供的資訊',
 };
-export const JUDGE_STATES = ['rush', 'luggage', 'budget', 'lessWalk', 'rain', 'badAir'];
+export const JUDGE_STATES = ['rush', 'luggage', 'budget', 'lessWalk', 'rain', 'badAir', 'elder', 'kids', 'mobility'];
 export const CONFIDENT = 0.8;
 /** 裝置端判斷的引擎（ADR-0014）：Apple Intelligence（Foundation Models）、Gemini Nano（ML Kit GenAI） */
 export const DEVICE_ENGINES = ['apple', 'gemini-nano'];

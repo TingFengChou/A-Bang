@@ -19,7 +19,7 @@
         "type": "object",
         "required": ["key", "source"],
         "properties": {
-          "key": { "enum": ["rush", "traffic", "rain", "luggage", "budget", "lessWalk", "badAir"] },
+          "key": { "enum": ["rush", "traffic", "rain", "luggage", "budget", "lessWalk", "badAir", "elder", "kids", "mobility"] },
           "source": { "enum": ["auto", "user", "picked"] },
           "from": { "type": "string" },
           "detail": { "type": "string" }
