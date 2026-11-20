@@ -209,3 +209,4 @@ html.lite-motion .hero .mascot, html.lite-motion .hero .mascot-shadow { animatio
    由 js/keyboard.js 依可見高度判斷（不用 :focus：點輸入框下方的按鈕時分頁列會瞬間跑回來，點擊落空） */
 html.kb-open .tabbar { display: none; }
 html.kb-open .chat-dock { bottom: 0; }
+html.kb-open .app { padding-bottom: 12px; }

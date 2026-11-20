@@ -45,5 +45,6 @@ let lastPos = null;
 export function locate({ fresh = false } = {}) {
   if (lastPos && !fresh) return Promise.resolve(lastPos);
   // 與問阿幫共用同一個定位（App 走原生外掛，iOS 只問一次權限；2 分鐘內重用）
-  return browserLocation(8000).then((p) => (p ? (lastPos = { lat: +p.lat.toFixed(6), lon: +p.lon.toFixed(6), label: '目前位置' }) : FALLBACK));
+  // 附近站牌、YouBike 在 400 公尺內：要精確位置（Android 12+ 不設 highAccuracy 只會拿到大概位置）
+  return browserLocation(8000, { highAccuracy: true, fresh }).then((p) => (p ? (lastPos = { lat: +p.lat.toFixed(6), lon: +p.lon.toFixed(6), label: '目前位置' }) : FALLBACK));
 }

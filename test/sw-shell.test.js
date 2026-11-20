@@ -13,14 +13,21 @@ async function graph(entry) {
   const walk = async (file) => {
     if (seen.has(file)) return;
     seen.add(file);
-    const src = await readFile(file, 'utf8');
-    for (const m of src.matchAll(/^\s*import\s[^'"]*?from\s+['"](\.{1,2}\/[^'"]+)['"]/gm)) await walk(resolve(dirname(file), m[1]));
+    // 去掉註解（JSDoc 的 import('./host.js').Host 是型別，不是載入）
+    const src = (await readFile(file, 'utf8')).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    // import … from、export … from、import './x.js'（副作用）、import('…')（動態，字串常數）；相對路徑或站內絕對路徑
+    const specs = [
+      ...src.matchAll(/^\s*(?:import|export)\s[^'"]*?from\s*['"]([./][^'"]+)['"]/gm),
+      ...src.matchAll(/^\s*import\s*['"]([./][^'"]+)['"]/gm),
+      ...src.matchAll(/\bimport\(\s*['"]([./][^'"]+)['"]\s*\)/g),
+    ].map((m) => m[1]);
+    for (const spec of specs) await walk(spec.startsWith('/') ? resolve(spec.startsWith('/core/') ? ROOT : PUBLIC, `.${spec}`) : resolve(dirname(file), spec));
   };
   await walk(entry);
   return [...seen];
 }
 
-test('app.js 的所有靜態 import 都在 sw.js 的 SHELL 裡', async () => {
+test('app.js 的所有 import（靜態、副作用、export from、動態字串）都在 sw.js 的 SHELL 裡', async () => {
   const sw = await readFile(`${PUBLIC}sw.js`, 'utf8');
   const shell = new Set([...sw.matchAll(/'(\/[^']+)'/g)].map((m) => m[1]));
   const missing = (await graph(`${PUBLIC}js/app.js`))

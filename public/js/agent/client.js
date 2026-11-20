@@ -14,32 +14,55 @@ const nativeGeo = () => {
   try { return c?.isNativePlatform?.() && c.isPluginAvailable?.('Geolocation') && typeof c.nativePromise === 'function' ? c : null; } catch { return null; }
 };
 
+/** 台灣範圍（與伺服器 core/agent/run.js deviceLocation 相同）：範圍外伺服器不採用，畫面也不能說「拿到了」 */
+export const inTaiwan = (p) => !!p && p.lat >= 21 && p.lat <= 27 && p.lon >= 118 && p.lon <= 123;
+
+/** 原生外掛的權限是否已允許（Android 12+ 使用者可能只給「大概位置」：coarseLocation） */
+const nativeGranted = async (c) => {
+  const r = await c.nativePromise('Geolocation', 'checkPermissions', {});
+  return r?.location === 'granted' || r?.coarseLocation === 'granted';
+};
+
 /** 定位權限是否已允許（App：原生外掛；網頁：Permissions API）；不確定回 false */
 export async function locationGranted() {
   const c = nativeGeo();
   try {
-    if (c) return (await c.nativePromise('Geolocation', 'checkPermissions', {}))?.location === 'granted';
-    return (await navigator.permissions?.query({ name: 'geolocation' }))?.state === 'granted';
+    if (c) return await nativeGranted(c);
+    return (await globalThis.navigator?.permissions?.query({ name: 'geolocation' }))?.state === 'granted';
   } catch { return false; }
 }
 
-/** 定位（5 秒逾時；拒絕或失敗回 null）。座標只用來回答這一題，不存進伺服器 log */
-export function browserLocation(timeout = 5000) {
-  if (lastFix && Date.now() - lastFix.at < 120_000) return Promise.resolve(lastFix.pos);
-  const keep = (lat, lon) => { const pos = { lat, lon }; lastFix = { pos, at: Date.now() }; return pos; };
+/** 正在進行的原生定位（問阿幫先定位與 runAgent 同時要位置時共用，不發兩個原生呼叫） */
+let pending = null;
+
+/**
+ * 定位（拒絕或失敗回 null）。座標只用來回答這一題，不存進伺服器 log。
+ * @param {number} [timeout] 毫秒
+ * @param {{ highAccuracy?: boolean, fresh?: boolean }} [opts] highAccuracy：附近站牌要精準（Android 12+ 才會要求「精確位置」）；fresh：不用 2 分鐘內的結果（「重新定位」）
+ */
+export function browserLocation(timeout = 5000, { highAccuracy = false, fresh = false } = {}) {
+  if (!fresh && lastFix && Date.now() - lastFix.at < 120_000 && (lastFix.high || !highAccuracy)) return Promise.resolve(lastFix.pos);
+  const keep = (lat, lon) => { const pos = { lat, lon }; lastFix = { pos, at: Date.now(), high: highAccuracy }; return pos; };
+  const opts = { enableHighAccuracy: highAccuracy, timeout, maximumAge: fresh ? 0 : 60_000 };
   const c = nativeGeo();
   if (c) {
+    if (pending && !fresh) return pending;
     let timer;
-    const call = c.nativePromise('Geolocation', 'getCurrentPosition', { enableHighAccuracy: false, timeout, maximumAge: 60_000 })
-      .then((p) => (Number.isFinite(p?.coords?.latitude) ? keep(p.coords.latitude, p.coords.longitude) : null)).catch(() => null);
-    // 第一次會跳系統權限框：使用者想一下的時間不算逾時（外掛自己的 timeout 從拿到權限後才開始）
-    return Promise.race([call, new Promise((r) => { timer = setTimeout(() => r(null), timeout + 30_000); })]).finally(() => clearTimeout(timer));
+    pending = (async () => {
+      // 第一次會跳系統權限框：使用者想一下的時間不算逾時（外掛的 timeout 從拿到權限後才開始）；已允許只多等 3 秒
+      const granted = await nativeGranted(c).catch(() => false);
+      const call = c.nativePromise('Geolocation', 'getCurrentPosition', opts)
+        .then((p) => (Number.isFinite(p?.coords?.latitude) ? keep(p.coords.latitude, p.coords.longitude) : null)).catch(() => null);
+      return Promise.race([call, new Promise((r) => { timer = setTimeout(() => r(null), timeout + (granted ? 3000 : 30_000)); })]);
+    })().finally(() => { clearTimeout(timer); pending = null; });
+    return pending;
   }
-  if (typeof navigator === 'undefined' || !navigator.geolocation) return Promise.resolve(null);
-  return new Promise((resolve) => navigator.geolocation.getCurrentPosition(
+  const geo = globalThis.navigator?.geolocation;
+  if (!geo) return Promise.resolve(null);
+  return new Promise((resolve) => geo.getCurrentPosition(
     (p) => resolve(keep(p.coords.latitude, p.coords.longitude)),
     () => resolve(null),
-    { timeout, maximumAge: 60_000, enableHighAccuracy: false },
+    opts,
   ));
 }
 
@@ -91,7 +114,8 @@ export async function runAgent(body, onEvent, { base = API_BASE, agentId = 'life
       if (c.name === 'device_location') {
         const loc = await locate();
         results.push(loc ? { id: c.id, ok: true, result: loc } : { id: c.id, ok: false });
-        onEvent({ type: 'client_tool_result', id: c.id, name: c.name, ok: Boolean(loc) }); // 只給畫面用（不含座標）
+        // 只給畫面用（不含座標）；台灣以外伺服器不採用，畫面要一致
+        onEvent({ type: 'client_tool_result', id: c.id, name: c.name, ok: inTaiwan(loc), ...(loc && !inTaiwan(loc) && { reason: 'outside' }) });
       } else results.push({ id: c.id, ok: false });
     }
     clientToolResults = [...clientToolResults, ...results];

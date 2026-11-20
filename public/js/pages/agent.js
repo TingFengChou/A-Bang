@@ -76,6 +76,13 @@ function handoff(box, results, decision) {
 }
 
 /** 打字中：三個跳動的點（螢幕閱讀器念「輸入中」） */
+/** 定位結果的一句話（不分行程或附近查詢都通順；沒拿到時說下一步，CLAUDE.md 規則 6；預設起點由總結說明，這裡不先講） */
+export function locateSay({ ok, reason }) {
+  if (ok) return '拿到了，用你現在的位置';
+  if (reason === 'outside') return '你的位置不在台灣，阿幫查不到附近資料；可以直接打地點';
+  return '沒拿到你的位置；可以直接打地點，或到手機設定打開定位';
+}
+
 function typing(label = '輸入中') {
   const d = el('span', 'dots');
   d.append(el('i'), el('i'), el('i'));
@@ -289,7 +296,7 @@ export default {
           }
           case 'client_tool_result': { // 客戶端自己送的（client.js）：定位完成或失敗，把「定位中」換成結果
             const say = bubbles.get(`client:${e.id}`)?.querySelector('.say');
-            if (say) { say.className = 'say'; say.textContent = e.ok ? '拿到了，從你現在的位置出發' : '沒拿到你的位置'; }
+            if (say) { say.className = 'say'; say.textContent = locateSay(e); }
             break;
           }
           case 'tool_start': {
