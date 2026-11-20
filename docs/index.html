@@ -185,8 +185,9 @@ footer{color:var(--faint);font-size:13px;padding:24px 0}
   <div class="group">技術與開發</div>
   <a href="#mcp"><span>11</span>MCP tools</a>
   <a href="#roadmap"><span>12</span>開發計畫</a>
-  <a href="#handoff"><span>13</span>GitHub 與 Claude Code</a>
-  <a href="#docs"><span>14</span>文件索引</a>
+  <a href="#experiments"><span>13</span>實驗紀錄</a>
+  <a href="#handoff"><span>14</span>GitHub 與 Claude Code</a>
+  <a href="#docs"><span>15</span>文件索引</a>
 </nav>
 <main>
 
@@ -828,8 +829,44 @@ TDX_CLIENT_SECRET=你的Secret</code></pre></li>
   </table></div>
 </section>
 
+<section id="experiments">
+  <div class="eyebrow">13 · EXPERIMENTS</div>
+  <h2>實驗紀錄</h2>
+  <p class="lead">技術選型前先做小實驗、用數字決定。每個實驗都有可重跑的腳本與完整報告（<code>docs/research/</code>）。</p>
+
+  <h3>2026-11-20　意圖與狀態判斷：規則 vs 嵌入分類器 vs 地端模型 vs 自動優化提示詞（Jev 待金鑰）</h3>
+  <div class="grid">
+    <div class="card"><span class="pill">問題</span><h4>判斷層要用什麼？</h4><p>阿幫的方案排序由程式計分（<code>decide.js</code>，ADR-0010），但「使用者想做什麼（意圖）」與「使用者狀態（趕時間、帶行李、想省錢…）」要靠判斷。狀態判錯會直接改變決策圖的排序。</p></div>
+    <div class="card"><span class="pill">評估集</span><h4>172 題繁中假想提問</h4><p>63 題容易、109 題困難（口語、沒有關鍵字、追問）；15 類意圖、6 種狀態。雙數題號 86 題當驗收集（優化時沒看過）。訓練範例另外撰寫、不重複。不含使用者資料。</p></div>
+    <div class="card"><span class="pill">A 嵌入分類器</span><h4>開源、可在手機上跑</h4><p>transformers.js＋multilingual-e5-small（約 120 MB）。各意圖類別中心＋餘弦相似度，附信心；每種狀態一個 logistic regression。參數只用訓練範例交叉驗證挑。</p></div>
+    <div class="card"><span class="pill">B 自動優化提示詞</span><h4>Harness² 的概念</h4><p>地端模型自己提出提示詞修改 → 在優化集試跑 → 只留下變好的；最後在驗收集驗收。4 輪×2 候選，約 20 分鐘；有兩個候選讓全對掉到 21–26%，被擋掉。</p></div>
+  </div>
+  <div class="tbl"><table>
+    <tr><th>方法</th><th>意圖正確率（困難題）</th><th>狀態 F1</th><th>意圖＋狀態全對</th><th>驗收集全對</th><th>速度</th><th>需要</th></tr>
+    <tr><td>規則（示範模式）</td><td>68.0%（51.4%）</td><td>76.7%</td><td>64.0%</td><td>66.3%</td><td>即時</td><td>無</td></tr>
+    <tr><td>A 嵌入分類器</td><td>86.6%（83.5%）</td><td>65.9%</td><td>73.3%</td><td>77.9%</td><td>&lt; 5 ms</td><td>120 MB 模型，可在裝置上</td></tr>
+    <tr><td><b>混合：A 信心 ≥ 0.8 用 A，否則地端模型</b></td><td><b>94.2%（90.8%）</b></td><td>65.9%</td><td>80.2%</td><td><b>84.9%</b></td><td><b>中位數 3 ms</b>，31% 題目才問模型</td><td>A＋模型</td></tr>
+    <tr><td>地端模型 qwen3:8b（原提示詞）</td><td>94.8%（91.7%）</td><td>45.7%（常自己加狀態）</td><td>58.7%</td><td>61.6%</td><td>約 0.7 秒</td><td>模型</td></tr>
+    <tr><td><b>B 地端模型＋自動優化提示詞</b></td><td>94.2%（90.8%）</td><td><b>70.5%</b></td><td><b>81.4%</b></td><td>80.2%</td><td>約 0.7 秒</td><td>模型</td></tr>
+    <tr><td>Jev（TypeSafe）</td><td colspan="6">待金鑰（<code>JEV_API_KEY</code>）後重跑</td></tr>
+  </table></div>
+  <h3>結論</h3>
+  <ul>
+    <li><b>混合最划算</b>：A 先判，信心 ≥ 0.8 的 69% 題目直接用（意圖正確 96.6%），其餘才問模型；意圖正確率跟全程用模型一樣（94%），但多數題目 3 毫秒就有答案，驗收集全對 84.9% 是最好的。</li>
+    <li><b>B 把「亂加狀態」修好了</b>：狀態 precision 30% → 57%、驗收集全對 61.6% → 80.2%，不用換模型。</li>
+    <li><b>規則仍有價值</b>：簡單題 96.8% 正確、零成本，當沒有模型時的保底。</li>
+    <li><b>建議架構</b>：A（裝置上）→ 信心不足時問模型（用 B 優化後的提示詞）→ 規則保底；狀態再加「信心低就請使用者在決策圖上點選確認」。</li>
+  </ul>
+  <h3>限制與下一步</h3>
+  <ul>
+    <li>評估集是自行撰寫的 172 題、不是真實使用紀錄；上線後應以匿名化的真實提問擴充（需另訂隱私做法）。</li>
+    <li>下一步：混合＋B（模型那 31% 用優化提示詞、狀態合併 A 與 B）、Jev 取得金鑰後補測、A 改在瀏覽器／App 裡實測。</li>
+  </ul>
+  <p>重跑：<code>npm run eval:decision</code>、<code>node scripts/eval-optimize-prompt.js</code>。完整報告：<code>docs/research/decision-eval.md</code>（含逐題答錯清單）、<code>docs/research/prompt-optimization.json</code>（每輪紀錄）；優化後提示詞：<code>scripts/eval/local-prompt.optimized.txt</code>。</p>
+</section>
+
 <section id="handoff">
-  <div class="eyebrow">13 · HANDOFF</div>
+  <div class="eyebrow">14 · HANDOFF</div>
   <h2>GitHub 與 Claude Code</h2>
   <p class="lead">專案已備好 CI、文件站發布、PR 與 Issue 範本，以及給 Claude Code 的 <code>CLAUDE.md</code> 與循環開發協定 <code>docs/LOOP.md</code>。完整步驟見 <code>docs/HANDOFF.md</code>。</p>
   <h3>上 GitHub</h3>
@@ -861,7 +898,7 @@ git push -u origin main</code></pre>
 </section>
 
 <section id="docs">
-  <div class="eyebrow">14 · INDEX</div>
+  <div class="eyebrow">15 · INDEX</div>
   <h2>文件索引</h2>
   <div class="tbl"><table>
     <tr><th>文件</th><th>讀者</th><th>內容</th></tr>
