@@ -3,7 +3,7 @@
 // 不呼叫外部 API，live 與示範模式共用同一份資料。
 import landmarks from '../data/landmarks.json' with { type: 'json' };
 import { resolveCity } from '../cities.js';
-import { UserError } from '../util.js';
+import { UserError, distanceM } from '../util.js';
 
 export const MAX_RESULTS = 5;
 
@@ -67,6 +67,19 @@ export async function resolvePoint(places, x) {
     return { name: p.name, lat: p.lat, lon: p.lon };
   }
   return { name: x.name || `${x.lat.toFixed(4)}, ${x.lon.toFixed(4)}`, lat: x.lat, lon: x.lon };
+}
+
+/**
+ * 座標所在的縣市（用最近的內建地標推估；40 公里內都沒有地標回 null）。給只有裝置定位、沒說縣市的查詢用（例：「307 到哪了？」）。
+ * @returns {string|null} 縣市代碼（例 Taipei）
+ */
+export function cityNear({ lat, lon }) {
+  let best = null, bestD = 40_000;
+  for (const x of ITEMS) {
+    const d = distanceM(lat, lon, x.lat, x.lon);
+    if (d < bestD) { bestD = d; best = x; }
+  }
+  return best?.city ?? null;
 }
 
 /** 測試與資料檢查用 */

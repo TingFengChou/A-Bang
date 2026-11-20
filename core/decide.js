@@ -68,6 +68,13 @@ export function decide(options, ctx = {}) {
     return { ...o, score: Math.round(score * 100), breakdown };
   }).sort((a, b) => b.score - a.score || a.minutes - b.minutes);
 
+  // 4. 使用者指定交通方式（「改坐公車」）：分數與排名照算，建議改成該方式裡分數最高的（沒有這種方式就照分數）
+  const picked = ctx.mode ? ranked.find((o) => o.role === ctx.mode) : null;
+  if (picked) {
+    const top = ranked[0];
+    const note = picked === top ? '' : `（分數 ${picked.score}；分數最高的是${top.name} ${top.score}）`;
+    return { weights, ranked, excluded, best: picked, mode: ctx.mode, reason: `照你說的選「${picked.name}」${note}。` };
+  }
   const best = ranked[0] || null;
   return { weights, ranked, excluded, best, reason: explain(best, ranked[1], states, excluded) };
 }

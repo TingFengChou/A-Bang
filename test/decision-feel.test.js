@@ -1,4 +1,4 @@
-// 決策感與動畫背後的資料：資料對決策的影響、阿幫的「我聽懂了」、公車還有幾站、發票對中幾碼（都來自真實資料，不編造）
+// 決策感與動畫背後的資料：資料對決策的影響、行程前阿幫的一句、公車還有幾站、發票對中幾碼（都來自真實資料，不編造）
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { impactOf, judgeNote, moreStatesNote } from '../core/agent/impact.js';
@@ -20,17 +20,18 @@ test('impactOf：下雨／空品／路況／比較結果對決策的影響（不
   assert.equal(impactOf('find_place', {}), null);
 });
 
-test('judgeNote：一送出就說聽懂了什麼（意圖不明不說）', () => {
-  assert.equal(judgeNote({ intent: 'trip', states: ['rush', 'budget'] }), '我聽懂了：你想知道怎麼去，而且趕時間、想省錢。我先看地點、天氣、空品、路況，再比較幾種走法');
+test('judgeNote：行程前說一句有資訊的話；接著改交通方式說照你說的重算；其他查詢不說', () => {
+  assert.equal(judgeNote({ intent: 'trip', states: ['rush', 'budget'] }), '你趕時間、想省錢，我先看天氣、空品、路況，再比較幾種走法');
+  assert.equal(judgeNote({ intent: 'trip', states: [], followUp: true, mode: 'bus' }), '照你說的改成坐公車，用剛才的起點和目的地重算');
+  assert.equal(judgeNote({ intent: 'weather', states: [] }), null, '不是行程不說（不再每次都說「我聽懂了」）');
   assert.equal(judgeNote({ intent: 'unknown', states: [] }), null);
-  assert.ok(judgeNote({ intent: 'stock', states: [] }).length <= 60);
 });
 
-test('示範模式＋判斷層：第一句是「我聽懂了」，資料回報帶 impact', async () => {
+test('示範模式＋判斷層：第一句說你的狀況與要查什麼，資料回報帶 impact', async () => {
   const judge = createJudge({ embed: async () => ({ intent: 'trip', confidence: 0.95, states: [] }) });
   const es = [];
   await runDemo(createServices({ forceMock: true, demo: { weather: 'rain' } }), { messages: [{ role: 'user', content: '想省錢，從西門町到台北101' }] }, (e) => es.push(e), { judge });
-  assert.match(es.find((e) => e.type === 'agent_note').text, /^我聽懂了：你想知道怎麼去，而且想省錢/);
+  assert.match(es.find((e) => e.type === 'agent_note').text, /^你想省錢，我先看天氣/);
   const w = es.find((e) => e.type === 'tool_result' && e.tool === 'weather_now');
   assert.deepEqual(w.impact, { tone: 'bad', text: '下雨：走路、YouBike 在「戶外」會扣分' });
 });
@@ -68,5 +69,5 @@ test('快速判斷先說聽懂了（不等模型），完整判斷多找到的�
   const es = [];
   await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '帶行李從台北車站到松山機場' }] }, (e) => es.push(e), { judge });
   assert.equal(llmCalls, 1, '完整版仍會問一次模型');
-  assert.match(es.find((e) => e.type === 'agent_note').text, /^我聽懂了/);
+  assert.match(es.find((e) => e.type === 'agent_note').text, /^你帶行李，我先看天氣/);
 });

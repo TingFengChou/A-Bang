@@ -22,6 +22,7 @@ export const planTripTool = defineTool({
     prefs: z.object({
       states: z.array(z.enum(Object.keys(STATES))).max(6).optional().describe('使用者狀態'),
       arriveBy: hhmm.optional().describe('最晚抵達時間 HH:mm'),
+      mode: z.enum(['walk', 'bike', 'bus', 'thsr', 'tra', 'intercity', 'ridehail']).optional().describe('使用者指定的交通方式（「改坐公車」→ bus、「叫車／計程車」→ ridehail）：建議改成這種方式裡分數最高的'),
     }).optional(),
   },
   speak: (d) => {

@@ -22,9 +22,41 @@ const LIFE_WORDS = [
   ['quake', /地震|震度|震央/],
   ['pharmacy', /藥局|藥房|領藥|拿藥/],
   ['garbage', /垃圾車|倒垃圾|收垃圾/],
-  ['aqi', /空氣品質|空品|AQI|PM\s*2\.?5|空汙|空污|霧霾/i],
+  ['aqi', /空氣品質|空品|空氣(?:好|差|不好|怎樣|如何)|AQI|PM\s*2\.?5|空汙|空污|霧霾|要不要戴口罩/i],
 ];
-const WEATHER_WORD = /天氣|氣溫|溫度|幾度|會不會下雨|有沒有下雨|帶傘/;
+const WEATHER_WORD = /天氣|氣溫|溫度|幾度|下雨|帶傘|雨傘|會冷|會熱|颱風|出太陽/;
+// 使用者指定交通方式（「坐公車去」「改叫車」）：plan_trip prefs.mode；「不要叫車」的叫車不算
+const MODE_WORDS = [['bus', /公車|巴士/], ['bike', /youbike|ubike|單車|腳踏車/i], ['walk', /走路|步行|走過去/], ['ridehail', /叫車|計程車|小黃|uber|汽車|開車/i],
+  ['thsr', /高鐵/], ['tra', /台鐵|臺鐵|火車/], ['intercity', /客運/]];
+export function modeOf(s) {
+  let best = null;
+  for (const [mode, re] of MODE_WORDS) {
+    const g = new RegExp(re.source, `${re.flags}g`);
+    for (let m = g.exec(s); m; m = g.exec(s)) {
+      if (/(不要|不想|別|不用|不坐|不搭)\s*(坐|搭|改)?\s*$/.test(s.slice(Math.max(0, m.index - 5), m.index))) continue;
+      if (!best || m.index > best.i) best = { mode, i: m.index };
+    }
+  }
+  return best?.mode ?? null;
+}
+/** 前面最近一次的行程（起訖點、狀態），給「改坐公車」這種接著改的句子沿用 */
+function lastTrip(history) {
+  for (const m of [...history].reverse()) {
+    if (m.role !== 'user') continue;
+    const it = parseIntent(String(m.content), { history: [] });
+    if (it.intent === 'trip') return it;
+  }
+  return null;
+}
+const CHANGE_WORD = /改|換|那.*呢|還是|坐|搭|騎|不要/;
+
+/** 整句只有地名（加上語氣詞、狀態詞）：當成「要去那裡」 */
+function onlyPlace(s, places) {
+  let rest = normPlace(s); // 地名可能是別名（「松山機場」→ 臺北松山機場）：用比對時的字去掉
+  for (const { key, name } of PLACE_KEYS) if (places.includes(name)) rest = rest.split(key).join('');
+  for (const [, re] of STATE_WORDS) rest = rest.replace(new RegExp(re.source, 'g'), '');
+  return !rest.replace(/[我要想去到往帶很有點一下吧嗎呢啦了的，,。.!！?？\s]/g, '');
+}
 /** 「臺北市大安區」「大安區」→ 藥局搜尋的地區 */
 const AREA = /((?:[一-龥]{2}[市縣])?[一-龥]{1,2}[區鄉鎮])/;
 // 22 縣市（可省略「市／縣」：「花蓮地震」；比對時臺／台視為相同）
@@ -121,6 +153,13 @@ export function parseIntent(text, ctx) {
   // 判斷層（judge.js）已決定意圖：照那個意圖抽參數；抽不出必要參數時回 null，呼叫端改用規則自己的判斷
   if (ctx?.intent) return slotsFor(ctx.intent, s, base);
 
+  // 接著上一輪（先於其他判斷：「改騎 YouBike」「改坐高鐵」也是改行程）改條件（「改坐公車」「那叫車呢」「我趕時間」）：沿用上一輪的起訖點與狀態重算
+  const mode = modeOf(s);
+  const prev = !places.length && history.length ? lastTrip(history) : null;
+  if (prev && ((mode && CHANGE_WORD.test(s)) || (states.length && s.length <= 12 && !WEATHER_WORD.test(s) && !lifeIntent(s)))) {
+    return { ...prev, states: [...new Set([...prev.states, ...states])], intent: 'trip', ...(mode && { mode }), followUp: true };
+  }
+
   if (RAIL_WORD.test(s)) {
     const m = /([一-龥]{2,3}?)\s*(?:到|→|去|往)\s*([一-龥]{2,3}?)(?=下一班|幾點|的|班|車|站|[\s？?。，,！!]|$)/.exec(s.replace(RAIL_WORD, ' '));
     if (m) return { ...base, intent: 'rail', system: /高鐵/.test(s) ? 'THSR' : 'TRA', from: m[1], to: m[2] };
@@ -133,11 +172,12 @@ export function parseIntent(text, ctx) {
   if (life) return { ...base, ...life };
   const route = BUS_ROUTE.exec(s)?.[1];
   if (route && !/從.+到/.test(s)) return { ...base, intent: 'bus_route', route };
-  if (/youbike|ubike|微笑單車|單車|腳踏車/i.test(s)) return { ...base, intent: 'youbike' };
+  if (/youbike|ubike|微笑單車|單車|腳踏車/i.test(s) && !(places.length && /去|到|往/.test(s))) return { ...base, intent: 'youbike' }; // 「騎 YouBike 去 X」是行程
   if (/附近/.test(s) && /公車|站牌/.test(s)) return { ...base, intent: 'nearby_bus' };
-  if (/從.+(到|去)|怎麼去|怎麼走|要到|前到|想去|要去|帶我去|去.+怎麼/.test(s) && places.length) {
+  // 行程：只說目的地（「去台北101」「想省錢，去松山機場」，甚至只打地名）→ 起點用現在位置（needsLocation）
+  if (places.length && (/從.+(到|去)|怎麼去|怎麼走|要到|前到|想去|要去|帶我去|去.+怎麼|(?:^|[，,、\s])(?:去|到|往)\s*\S|(?:坐|搭|騎|用|開車|走路).{0,8}(?:去|到|往)/.test(s) || onlyPlace(s, places))) {
     const [from, to] = places.length >= 2 ? places : [null, places[0]];
-    return { ...base, intent: 'trip', from, to };
+    return { ...base, intent: 'trip', from, to, ...(mode && { mode }) };
   }
   if (WEATHER_WORD.test(s)) return { ...base, intent: 'weather' };
   // 前面在聊股市時，「我該買台積電嗎？」沒有股市字眼也接著查（並說明不提供投資建議）
@@ -195,7 +235,7 @@ const NEARBY = {
 const isNearby = (it) => Object.hasOwn(NEARBY, it.intent);
 
 /** 需要使用者所在位置嗎（行程沒起點；附近類查詢沒地點） */
-export const needsLocation = (it) => (it.intent === 'trip' && !it.from) || (isNearby(it) && !it.places[0]);
+export const needsLocation = (it) => (it.intent === 'trip' && !it.from) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]);
 
 /**
  * 意圖 → 分段計畫。每段 `(results) => ({ note, calls })`，results 是之前各段的 callTool 結果（依名稱）。
@@ -224,14 +264,19 @@ export function demoSteps(it, now = Date.now()) {
         (r) => { const [a, b] = pts(r); return a && b ? { note: '@行程 幫你比較幾種走法', calls: [{ name: 'plan_trip', args: {
           from: asArg(a), to: asArg(b), // 地名：卡片標題顯示地名；定位：帶座標與「你的位置」
           ...(dep && { departAt: `${date}T${dep}` }),
-          ...((userStates.length || it.arriveBy) && { prefs: { ...(userStates.length && { states: userStates }), ...(it.arriveBy && { arriveBy: it.arriveBy }) } }),
+          ...((userStates.length || it.arriveBy || it.mode) && { prefs: { ...(userStates.length && { states: userStates }), ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }) } }),
         } }] } : null; },
       ];
     }
     case 'bus_route':
       return [
         ...(it.places[0] ? [() => ({ note: `@地點 「${it.places[0]}」在哪個縣市`, calls: [{ name: 'find_place', args: { query: it.places[0] } }] })] : []),
-        (r) => ({ note: `@公車 ${it.route} 現在到哪了`, calls: [{ name: 'bus_route_eta', args: { city: point(r, 0)?.city || 'Taipei', routeName: it.route } }] }),
+        // 說了地點 → 離那裡最近的站；沒說 → 離你（裝置定位）最近的站；都沒有 → 全線
+        (r) => {
+          const p = point(r, 0);
+          const near = p ? { lat: p.lat, lon: p.lon, name: p.name } : it.fromPoint ? ll(it.fromPoint) : null;
+          return { note: `@公車 ${it.route} 現在到哪了${near ? '，離你最近的站多久到' : ''}`, calls: [{ name: 'bus_route_eta', args: { ...(p ? { city: p.city } : near ? {} : { city: 'Taipei' }), routeName: it.route, ...(near && { near }) } }] };
+        },
       ];
     case 'youbike':
     case 'nearby_bus':

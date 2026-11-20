@@ -1,7 +1,7 @@
 // 示範模式意圖（M5-03）：地點擷取、抵達時間、狀態關鍵字、意圖分類；每個建議問題的計畫都能用示範資料完整執行
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseIntent, placesInText, arriveByOf, demoSteps, demoSummary, DEFAULT_FROM, NO_ADVICE } from '../core/agent/demo-intent.js';
+import { parseIntent, needsLocation, placesInText, arriveByOf, demoSteps, demoSummary, DEFAULT_FROM, NO_ADVICE } from '../core/agent/demo-intent.js';
 import { getProfile } from '../core/agents/index.js';
 import { callTool } from '../core/tools/index.js';
 import { createServices } from '../core/index.js';
@@ -105,7 +105,7 @@ async function runPlan(svc, steps) {
 
 test('每個建議問題的計畫都能用示範資料完整執行，最後有卡片', async () => {
   const svc = createServices({ forceMock: true });
-  const want = { trip: 'trip', bus_route: 'bus-route', youbike: 'youbike', rail: 'timetable', nearby_bus: 'nearby', metro: 'metro', pharmacy: 'pharmacy', invoice: 'invoice' };
+  const want = { trip: 'trip', bus_route: 'bus-route', youbike: 'youbike', rail: 'timetable', nearby_bus: 'nearby', metro: 'metro', pharmacy: 'pharmacy', invoice: 'invoice', weather: 'weather', aqi: 'aqi' };
   for (const q of getProfile().suggestions) {
     const it = parseIntent(q, NOW);
     assert.notEqual(it.intent, 'unknown', q);
@@ -153,4 +153,50 @@ test('生活服務的計畫都能用示範資料執行；沒說地點時用示�
 test('unknown：回覆可以問的範例', () => {
   const s = demoSummary(parseIntent('你好'), {}, getProfile().suggestions);
   assert.match(s, /可以幫你查.+試試看：「/);
+});
+
+test('以現在位置為起點：只說目的地或地名就是行程；「會下雨嗎」「空氣好嗎」查現在位置；公車沒說站就找離你最近的站', async () => {
+  for (const q of ['去台北101', '想省錢，去台北101', '台北101', '帶行李，松山機場', '到松山機場']) {
+    const it = parseIntent(q, NOW);
+    assert.equal(it.intent, 'trip', q);
+    assert.equal(it.from, null, `${q}：起點用現在位置`);
+    assert.ok(needsLocation(it), q);
+  }
+  assert.deepEqual(['會下雨嗎', '空氣好嗎', '307 到哪了？'].map((q) => { const it = parseIntent(q, NOW); return [it.intent, needsLocation(it)]; }), [['weather', true], ['aqi', true], ['bus_route', true]]);
+  assert.equal(parseIntent('我在台北車站', NOW).intent, 'unknown', '只說自己在哪不是行程');
+
+  const svc = createServices({ forceMock: true });
+  const it = { ...parseIntent('307 到哪了？', NOW), fromPoint: { lat: 25.0478, lon: 121.517 } };
+  const { results } = await runPlan(svc, demoSteps(it, NOW));
+  const r = results.bus_route_eta[0];
+  assert.equal(r.args.near.lat, 25.0478, '帶現在位置');
+  assert.ok(r.data.focus?.nearest, '聚焦最近的站');
+  assert.match(r.speak, /^離你最近的是「.+」（約 \d+ 公尺）：307/);
+});
+
+test('接著上一輪改交通方式（「改成公車」「我很趕」）：沿用起訖點與狀態，plan_trip 照指定方式選；「不要叫車，改公車」選公車', async () => {
+  const history = [{ role: 'user', content: '想省錢，從西門町到台北101' }, { role: 'assistant', content: '選「叫車（Uber）」…' }];
+  const it = parseIntent('我想改公車', { ...NOW, history });
+  assert.deepEqual([it.intent, it.from, it.to, it.mode, it.followUp], ['trip', '西門町', '台北101', 'bus', true]);
+  assert.deepEqual(it.states, ['budget'], '上一輪的狀態沿用');
+  assert.equal(parseIntent('不要叫車，改公車', { ...NOW, history }).mode, 'bus');
+  assert.deepEqual(parseIntent('我很趕', { ...NOW, history }).states.sort(), ['budget', 'rush']);
+  assert.equal(parseIntent('坐公車去台北101', NOW).mode, 'bus', '第一句就指定也算');
+  assert.equal(parseIntent('改成公車 601', { ...NOW, history }).intent, 'trip', '點決策圖的公車＝「改成公車 601」，不是查 601 路線');
+
+  const svc = createServices({ forceMock: true });
+  const { results } = await runPlan(svc, demoSteps(it, NOW));
+  const trip = results.plan_trip[0];
+  assert.equal(trip.args.prefs.mode, 'bus');
+  const best = trip.data.options.find((o) => o.id === trip.data.best);
+  assert.equal(best.role, 'bus', '照你說的選公車');
+  assert.match(trip.data.ranking.reason, /^照你說的選「公車/);
+  assert.equal(trip.data.mode, 'bus', '前端重算決策圖也照指定方式');
+});
+
+test('剛查完行程後問「會下雨嗎」「附近還有 YouBike 嗎」不是改行程', () => {
+  const history = [{ role: 'user', content: '從西門町到台北101' }];
+  assert.equal(parseIntent('會下雨嗎？', { ...NOW, history }).intent, 'weather');
+  assert.equal(parseIntent('附近還有 YouBike 嗎？', { ...NOW, history }).intent, 'youbike');
+  assert.equal(parseIntent('那改騎 YouBike 呢', { ...NOW, history }).intent, 'trip');
 });

@@ -208,9 +208,9 @@ for (const [dname, device] of Object.entries(DEVICES)) {
   test(`${dname}：問阿幫（建議問題 → 討論串 → 卡片 → 總結；@ 點名；定位）`, async () => {
     await withPage(device, '#/agent', async (page) => {
       await page.waitForSelector('.suggest .chip');
-      await page.locator('.suggest .chip').first().click(); // 從西門町到台北 101 怎麼去？
+      await page.locator('.suggest .chip').first().click(); // 去台北 101（起點用現在位置；E2E 沒給定位權限 → 示範預設起點）
       await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
-      assert.match(await page.locator('.msg.user').first().textContent(), /西門町/);
+      assert.match(await page.locator('.msg.user').first().textContent(), /台北 101/);
       assert.match(await page.locator('.thread-sum').first().textContent(), /小幫手討論完成・\d+ 個工具/);
       assert.ok(await page.locator('.thread .bubble.tool').count() >= 4, '小幫手發言');
       assert.ok(await page.locator('.thread .mention').count() >= 1, '@角色 chip');
@@ -283,7 +283,7 @@ for (const [dname, device] of Object.entries(DEVICES)) {
   });
 
   test(`${dname}：示範模式 8 個建議問題（M5-13、M10）都有討論串、卡片與總結`, async () => {
-    const want = ['trip', 'bus-route', 'trip', 'youbike', 'trip', 'timetable', 'pharmacy', 'invoice']; // 依 life.json 建議問題順序
+    const want = ['trip', 'bus-route', 'youbike', 'weather', 'trip', 'trip', 'timetable', 'invoice']; // 依 life.json 建議問題順序（起點與所在地用現在位置）
     await withPage(device, '#/agent', async (page) => {
       await page.waitForSelector('.suggest .chip');
       const qs = await page.locator('.suggest .chip').allTextContents();

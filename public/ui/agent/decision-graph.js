@@ -34,9 +34,9 @@ function svg(tag, attrs = {}, text) {
 /**
  * @param {HTMLElement} root
  * @param {object} decision decision 事件
- * @param {{ sources: string[], decide: Function, CRITERIA: Array<{ key: string, label: string }> }} opts sources＝本輪回報的小幫手角色
+ * @param {{ sources: string[], decide: Function, CRITERIA: Array<{ key: string, label: string }>, onPick?: (o: object) => void }} opts sources＝本輪回報的小幫手角色；onPick：點沒被選的方案＝改選它
  */
-export function renderDecision(root, decision, { sources, decide, CRITERIA }) {
+export function renderDecision(root, decision, { sources, decide, CRITERIA, onPick }) {
   const initial = decision.states.map((s) => ({ ...s, on: true }));
   let states = initial;
   let run = 0;
@@ -47,7 +47,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA }) {
     // 與伺服器相同的引擎與輸入；初次（狀態未變）直接用伺服器結果，避免任何差異
     const changed = states.some((s) => !s.on) || states.length !== initial.length;
     const r = changed
-      ? decide(decision.options, { states: active, arriveBy: decision.arriveBy ?? undefined, arriveByMin: decision.arriveByMin })
+      ? decide(decision.options, { states: active, arriveBy: decision.arriveBy ?? undefined, arriveByMin: decision.arriveByMin, mode: decision.mode })
       : { ranked: decision.ranked, excluded: decision.excluded, reason: decision.reason, best: { id: decision.best } };
     const byId = new Map(decision.options.map((o) => [o.id, o]));
     const ranked = r.ranked.map((x) => ({ ...byId.get(x.id), score: x.score, breakdown: x.breakdown }));
@@ -273,6 +273,14 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA }) {
       const n = node(OPT_X, y, isEx ? `${short(o.name)}` : short(o.name), `dg-opt ${isEx ? 'step4 excluded' : 'step3'}${win ? ' win dg-best' : ''}`, o.role, win, isEx ? (o.why.includes('超過') ? '遲到' : '排除') : String(o.score));
       n.style.setProperty('--i', String(i));
       n.dataset.id = o.id;
+      if (onPick && !isEx && !win) { // 點方案＝「改成這個」（沿用起訖點重算；公車會自動盯到站）
+        n.classList.add('pickable');
+        n.setAttribute('role', 'button');
+        n.setAttribute('tabindex', '0');
+        n.setAttribute('aria-label', `改成${o.name}`);
+        n.addEventListener('click', () => onPick(o));
+        n.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(o); } });
+      }
       nodes.append(n);
     });
     return s;

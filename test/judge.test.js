@@ -87,3 +87,10 @@ test('模型模式：plan_trip 的狀態以判斷層為準，不採用模型自�
   const r = es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
   assert.deepEqual(r.args.prefs.states.sort(), ['luggage', 'rush'], '判斷層的狀態＋使用者點選的；模型猜的少走路、想省錢不採用');
 });
+
+test('接著上一輪改行程：規則看得到前文，就算分類器以為是查公車路線也照行程（不問模型）', async () => {
+  const llm = fake({ intent: 'bus_route', states: [] });
+  const j = await createJudge({ embed: fake({ intent: 'bus_route', confidence: 0.97, states: [] }), llm })('改成公車 601', ['想省錢，從西門町到台北101']);
+  assert.deepEqual([j.intent, j.followUp, j.mode, llm.calls], ['trip', true, 'bus', 0]);
+  assert.ok(j.states.includes('budget'), '上一輪的狀態沿用');
+});

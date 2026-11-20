@@ -75,6 +75,8 @@ function optionBlock(o, ctx, best) {
   const { host, t } = ctx;
   const cost = o.costRange ? t('common.priceRange', { low: o.costRange[0], high: o.costRange[1] }) : t('common.price', { n: o.cost });
   const ride = o.role === 'ridehail' && o.legs[0]?.url;
+  // 備案：「改成這個」＝跟阿幫說改成它（沿用起訖點重算；公車會自動盯到站）
+  const pick = !best && host?.ask && h('button', { type: 'button', class: 'ab-btn ab-link ab-pick', onclick: () => host.ask(t('trip.pickAsk', { name: o.name })) }, t('trip.pick'));
   return h('div', { class: best ? 'ab-option best' : 'ab-option' },
     h('div', { class: 'ab-row' },
       token(o.role, { size: best ? 'lg' : 'md', go: best, label: o.name }),
@@ -89,7 +91,8 @@ function optionBlock(o, ctx, best) {
       navButton(host, o.legs[0]?.nav),
       remindButton(o, ctx),
       ride && confirmLinkButton(host, ride, t('trip.ridehailConfirm'), t('trip.ridehail')),
-      o.train && bookButton(host, { system: o.role.toUpperCase(), trainNo: o.train.trainNo, date: o.train.date, from: o.train.from, to: o.train.to }, (m) => { ctx.state.err = m; ctx.rerender(); })));
+      o.train && bookButton(host, { system: o.role.toUpperCase(), trainNo: o.train.trainNo, date: o.train.date, from: o.train.from, to: o.train.to }, (m) => { ctx.state.err = m; ctx.rerender(); })),
+    pick);
 }
 
 export default {

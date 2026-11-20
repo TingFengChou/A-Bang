@@ -161,7 +161,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   if (heard) emit(ev.agentNote(heard));
   const j = useJudge ? (judge.quick ? await judge(last, priorUserTexts(req.messages)).catch(() => q0) : q0) : null;
   if (j) {
-    if (j.intent !== it.intent) it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent }) || it;
+    if (j.intent !== it.intent && !it.followUp) it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent }) || it;
     it.states = j.states;
     const more = moreStatesNote(q0, j);
     if (more) emit(ev.agentNote(more));

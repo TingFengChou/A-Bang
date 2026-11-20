@@ -189,3 +189,7 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 .bubble.thinking .say { display: inline-flex; align-items: center; gap: 6px; background: var(--brand-soft); }
 .bubble.thinking .th-label { font-size: 13px; color: var(--brand); font-weight: 700; }
 @media (prefers-reduced-motion: reduce) { .bubble .impact { animation: none; } }
+/* 決策圖：點沒被選的方案＝改成它 */
+.dg-opt.pickable { cursor: pointer; }
+.dg-opt.pickable:hover rect, .dg-opt.pickable:focus-visible rect { stroke: var(--brand); stroke-width: 2; }
+.dg-opt.pickable:focus-visible { outline: none; }

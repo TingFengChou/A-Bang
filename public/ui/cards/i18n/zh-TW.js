@@ -108,6 +108,8 @@ export const MESSAGES = {
   'timetable.allGone': '今天的班次都開走了，可以改查明天。',
 
   // ── trip ──
+  'trip.pick': '改成這個',
+  'trip.pickAsk': '改成{name}',
   'trip.title': '{from} → {to}',
   'trip.best': '建議',
   'trip.alternatives': '備案',

@@ -1,22 +1,22 @@
 // 討論串的「→ 影響」：每位小幫手回報的資料，對這次決策有什麼影響（真實資料＋decide.js 的規則，不經模型、不編造）。
-// 也產生阿幫一開始的「我聽懂了」（判斷層結果），讓使用者一送出就看到阿幫在依他的狀況做事，而不是只有 loading。
+// 也產生行程開始前阿幫的一句（判斷層結果：你的狀況、或照你說的改成哪種交通方式），讓使用者一送出就看到阿幫在依他的狀況做事。
 import { BAD_AIR_AQI } from '../services/trip.js';
 
-const INTENT_SAY = {
-  trip: '想知道怎麼去', bus_route: '在等公車', youbike: '想找 YouBike', nearby_bus: '想找附近站牌', metro: '想搭捷運', rail: '想查高鐵台鐵',
-  weather: '想知道天氣', aqi: '想知道空氣品質', quake: '想知道地震', pharmacy: '在找藥局', garbage: '想知道垃圾車', fuel: '想看油價', invoice: '想對發票', stock: '想看股市',
-};
 const STATE_SAY = { rush: '趕時間', luggage: '帶行李', budget: '想省錢', lessWalk: '想少走路', rain: '遇到下雨', badAir: '覺得空氣差' };
 
+const MODE_SAY = { bus: '坐公車', bike: '騎 YouBike', walk: '走路', ridehail: '叫車', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運' };
+
 /**
- * 判斷層結果 → 阿幫的第一句（≤ 60 字；agent_note）。意圖不明時回 null。
- * @param {{ intent: string, states: string[] }} j
+ * 判斷層結果 → 阿幫在行程開始前的一句（≤ 60 字；agent_note）。只在行程時說，而且要有資訊（不再每次都說「我聽懂了」）：
+ *   接著改：「照你說的改成坐公車，用剛才的起點和目的地重算」；新行程：「你想省錢，我先看天氣、空品、路況，再比較幾種走法」。
+ * 其他查詢回 null（小幫手的第一句就說明在查什麼）。
+ * @param {{ intent: string, states: string[], followUp?: boolean, mode?: string }} j
  */
 export function judgeNote(j) {
-  if (!j || !INTENT_SAY[j.intent]) return null;
+  if (!j || j.intent !== 'trip') return null;
   const st = (j.states || []).map((k) => STATE_SAY[k]).filter(Boolean);
-  const tail = j.intent === 'trip' ? '我先看地點、天氣、空品、路況，再比較幾種走法' : '我請小幫手查一下';
-  return `我聽懂了：你${INTENT_SAY[j.intent]}${st.length ? `，而且${st.join('、')}` : ''}。${tail}`.slice(0, 60);
+  if (j.followUp) return `${j.mode ? `照你說的改成${MODE_SAY[j.mode] || j.mode}` : `好，${st.length ? `你${st.join('、')}` : '換個條件'}`}，用剛才的起點和目的地重算`.slice(0, 60);
+  return `${st.length ? `你${st.join('、')}，` : ''}我先看天氣、空品、路況，再比較幾種走法`.slice(0, 60);
 }
 
 /** 完整判斷比快速判斷多找到的狀態 → 阿幫補一句（例：「我還注意到你帶行李」）；沒有新的回 null */
