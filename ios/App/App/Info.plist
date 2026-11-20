@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>阿幫用你現在的位置當出發點，找附近的公車站、YouBike、天氣與空品。位置只用來回答你的問題，不會被保存。</string>
+	<string>阿幫用你現在的位置當出發點，找附近的公車站、YouBike、天氣與空品。位置只用來回答你的問題；你設定的常用地點（家、公司、學校）只存在這支手機。</string>
 	<key>UIUserInterfaceStyle</key>
 	<string>Light</string>
   <key>CAPACITOR_DEBUG</key>

@@ -40,27 +40,29 @@ let pending = null;
  * @param {number} [timeout] 毫秒
  * @param {{ highAccuracy?: boolean, fresh?: boolean }} [opts] highAccuracy：附近站牌要精準（Android 12+ 才會要求「精確位置」）；fresh：不用 2 分鐘內的結果（「重新定位」）
  */
-export function browserLocation(timeout = 5000, { highAccuracy = false, fresh = false } = {}) {
+export function browserLocation(timeout = 5000, { highAccuracy = false, fresh = false, withAccuracy = false } = {}) {
   if (!fresh && lastFix && Date.now() - lastFix.at < 120_000 && (lastFix.high || !highAccuracy)) return Promise.resolve(lastFix.pos);
-  const keep = (lat, lon) => { const pos = { lat, lon }; lastFix = { pos, at: Date.now(), high: highAccuracy }; return pos; };
+  // withAccuracy：多回誤差公尺數（設定常用地點時檢查「大概位置」）；一般定位不帶，送給伺服器的還是只有 lat／lon
+  const keep = (lat, lon, acc) => { const pos = { lat, lon }; lastFix = { pos, at: Date.now(), high: highAccuracy }; return withAccuracy ? { ...pos, accuracy: Number.isFinite(acc) ? acc : null } : pos; };
   const opts = { enableHighAccuracy: highAccuracy, timeout, maximumAge: fresh ? 0 : 60_000 };
   const c = nativeGeo();
   if (c) {
     if (pending && !fresh) return pending;
     let timer;
-    pending = (async () => {
+    const p = (async () => {
       // 第一次會跳系統權限框：使用者想一下的時間不算逾時（外掛的 timeout 從拿到權限後才開始）；已允許只多等 3 秒
       const granted = await nativeGranted(c).catch(() => false);
       const call = c.nativePromise('Geolocation', 'getCurrentPosition', opts)
-        .then((p) => (Number.isFinite(p?.coords?.latitude) ? keep(p.coords.latitude, p.coords.longitude) : null)).catch(() => null);
+        .then((r) => (Number.isFinite(r?.coords?.latitude) ? keep(r.coords.latitude, r.coords.longitude, r.coords.accuracy) : null)).catch(() => null);
       return Promise.race([call, new Promise((r) => { timer = setTimeout(() => r(null), timeout + (granted ? 3000 : 30_000)); })]);
-    })().finally(() => { clearTimeout(timer); pending = null; });
-    return pending;
+    })().finally(() => { clearTimeout(timer); if (pending === p) pending = null; }); // fresh 另起的呼叫不被舊的清掉
+    if (!fresh) pending = p;
+    return p;
   }
   const geo = globalThis.navigator?.geolocation;
   if (!geo) return Promise.resolve(null);
   return new Promise((resolve) => geo.getCurrentPosition(
-    (p) => resolve(keep(p.coords.latitude, p.coords.longitude)),
+    (p) => resolve(keep(p.coords.latitude, p.coords.longitude, p.coords.accuracy)),
     () => resolve(null),
     opts,
   ));

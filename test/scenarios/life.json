@@ -1,5 +1,5 @@
 {
-  "about": "生活 agent 情境對話（PM 盤點 S1～S18，abang-backlog 三之二）。每個情境＝多輪輸入＋期望；npm test 在示範模式（規則＋判斷層規則）跑全部。at＝情境的台灣時間（HH:mm，今天；深夜末班車用）。todo＝目前還做不到、列為開發目標（node:test 標 todo，不算失敗）。",
+  "about": "生活 agent 情境對話（PM 盤點 S1～S18，abang-backlog 三之二）。每個情境＝多輪輸入＋期望；npm test 在示範模式（規則＋判斷層規則）跑全部。saved＝常用地點（手機存的家、公司座標）。at＝情境的台灣時間（HH:mm，今天；深夜末班車用）。todo＝目前還做不到、列為開發目標（node:test 標 todo，不算失敗）。",
   "here": {
     "lat": 25.0478,
     "lon": 121.517
@@ -1373,6 +1373,172 @@
             "textHas": [
               "照你說的"
             ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S1-6",
+      "title": "常用地點：回家（現在位置 → 家）",
+      "saved": {
+        "家": {
+          "name": "家",
+          "lat": 25.0143,
+          "lon": 121.4635
+        },
+        "公司": {
+          "name": "公司",
+          "lat": 25.0791,
+          "lon": 121.576
+        }
+      },
+      "turns": [
+        {
+          "say": "回家",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "fromHere": true,
+            "to": "家"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S1-7",
+      "title": "常用地點：從公司回家，接著改坐公車",
+      "saved": {
+        "家": {
+          "name": "家",
+          "lat": 25.0143,
+          "lon": 121.4635
+        },
+        "公司": {
+          "name": "公司",
+          "lat": 25.0791,
+          "lon": 121.576
+        }
+      },
+      "turns": [
+        {
+          "say": "從公司回家",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "公司",
+            "to": "家"
+          }
+        },
+        {
+          "say": "改坐公車",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "公司",
+            "to": "家"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S1-8",
+      "title": "常用地點沒設定：回家不亂規劃，告訴他去哪裡設定",
+      "turns": [
+        {
+          "say": "回家",
+          "expect": {
+            "toolsNone": true,
+            "textHas": [
+              "設定與隱私"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S1-9",
+      "title": "常用地點沒設定時，「公司附近的藥局」照常查藥局",
+      "turns": [
+        {
+          "say": "公司附近的藥局",
+          "expect": {
+            "tools": [
+              "pharmacy_search"
+            ],
+            "textNot": [
+              "設定與隱私"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S1-10",
+      "title": "設好常用地點後，只是提到不當成行程：我家附近的藥局、明天上班會下雨嗎",
+      "saved": {
+        "家": {
+          "name": "家",
+          "lat": 25.0143,
+          "lon": 121.4635
+        },
+        "公司": {
+          "name": "公司",
+          "lat": 25.0791,
+          "lon": 121.576
+        }
+      },
+      "turns": [
+        {
+          "say": "我家附近的藥局",
+          "expect": {
+            "tools": [
+              "pharmacy_search"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ]
+          }
+        },
+        {
+          "say": "明天上班會下雨嗎",
+          "expect": {
+            "tools": [
+              "weather_tomorrow"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S1-11",
+      "title": "從家去公司：兩端都用常用地點",
+      "saved": {
+        "家": {
+          "name": "家",
+          "lat": 25.0143,
+          "lon": 121.4635
+        },
+        "公司": {
+          "name": "公司",
+          "lat": 25.0791,
+          "lon": 121.576
+        }
+      },
+      "turns": [
+        {
+          "say": "從家去公司",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "家",
+            "to": "公司"
           }
         }
       ]

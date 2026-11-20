@@ -4,6 +4,7 @@ import { API_BASE, IN_APP } from '../base.js';
 import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
 import { runAgent, browserLocation, locationGranted } from '../agent/client.js';
 import { edgeJudge, edgePrewarm } from '../edge-judge.js';
+import { placesFor } from '../saved-places.js';
 import { icons } from '../icons.js';
 import { motion } from '../../ui/cards/motion.js';
 import { token } from '../../ui/cards/mode-icons.js';
@@ -243,7 +244,9 @@ export default {
       try {
         // 手機 App：先在裝置上判斷意圖與狀態（最多等 1.8 秒；不可用就不帶，伺服器照常判斷）
         const deviceJudge = agentId === 'life' ? await edgeJudge(q, history.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content)) : null;
-        await runAgent({ messages: history.slice(-10), ...(context && { context }), ...(deviceJudge && { deviceJudge }) }, (e) => {
+        // 常用地點：只送這段對話提到的（「回家」才送家）
+        const savedPlaces = agentId === 'life' ? placesFor(history.slice(-10).filter((m) => m.role === 'user').map((m) => m.content)) : undefined;
+        await runAgent({ messages: history.slice(-10), ...(context && { context }), ...(deviceJudge && { deviceJudge }), ...(savedPlaces && { savedPlaces }) }, (e) => {
           // 隱私：防詐頁貼上的內容只送給本站伺服器分析，不保存（AGENT_ANTIFRAUD.md §1）
           if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = modeText(e);
           view.push(e);
@@ -406,6 +409,11 @@ export default {
             textEl.querySelector('.say').textContent = view.text;
             // 英文回答（觀光客，S12）：讀屏用英文念（頁面是 zh-Hant-TW）
             if (/^[A-Za-z"'(]/.test(view.text)) textEl.querySelector('.say').setAttribute('lang', 'en'); else textEl.querySelector('.say').removeAttribute('lang');
+            if (view.text.includes('設定與隱私 → 常用地點') && !textEl.querySelector('.go-settings')) { // 「回家」但沒設定家：給一個直接過去的按鈕
+              const a = el('a', 'btn small go-settings', '到常用地點設定');
+              a.href = '#/settings';
+              textEl.append(a);
+            }
             break;
           case 'error':
             turn.append(el('div', 'msg error', e.retryAfterSec && !/\d+ 秒/.test(e.message) ? `${e.message}（${e.retryAfterSec} 秒後可再試）` : e.message));

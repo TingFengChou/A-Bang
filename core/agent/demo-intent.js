@@ -79,13 +79,13 @@ export function modeOf(s) {
   return best?.mode ?? null;
 }
 /** 前面最近一次的行程（起訖點、狀態），給「改坐公車」這種接著改的句子沿用 */
-function lastTrip(history) {
+function lastTrip(history, saved) {
   // 逐輪往後疊：第 1 輪行程、第 2 輪「改坐公車」、第 3 輪「我趕時間」→ 起訖點、交通方式、狀態都沿用（PR #30 審查）
   // 單趟累積：每一則把目前累積的行程（prev）交給 parseIntent，不再遞迴重算前文（PR #35 審查：原本是指數成長）
   let cur = null;
   history.forEach((m, i) => {
     if (m.role !== 'user') return;
-    const it = parseIntent(String(m.content), { history: history.slice(0, i), prev: cur });
+    const it = parseIntent(String(m.content), { history: history.slice(0, i), prev: cur, saved });
     if (it.reset) cur = null; // 「重來」：之前的行程不再沿用
     else if (it.intent === 'trip') cur = it;
   });
@@ -262,6 +262,9 @@ function parseIntentRaw(text, ctx) {
   const tomorrow = /明天|明早|明晚|明日/.test(s);
   const later = !tomorrow && /後天|週末|周末|禮拜[一二三四五六日天]|星期[一二三四五六日天]|下週|下禮拜|下星期/.test(s); // 天氣只查得到今天、明天
   const base = { places, states, arriveBy, tomorrow, ...(later && { later: true }) };
+  // 常用地點（S1）：「回家」「去公司」「從公司回家」——座標存在手機、只有提到時才送來
+  const saved = savedTrip(s, places, ctx?.saved);
+  if (saved) return { ...base, ...saved };
   // 英文（觀光客，S12）：只有英文字母沒有中文時用英文規則，回答也用英文（it.lang = 'en'）
   if (isEnglish(s)) return { ...englishIntent(s, places, history), lang: 'en' };
   // 判斷層（judge.js）已決定意圖：照那個意圖抽參數；抽不出必要參數時回 null，呼叫端改用規則自己的判斷
@@ -273,7 +276,7 @@ function parseIntentRaw(text, ctx) {
   const otherQuery = RAIL_WORD.test(sPos) || BUS_ROUTE.test(s) || WEATHER_WORD.test(s) || lifeIntent(s); // 查高鐵、公車路線、天氣等不是改行程
   if (RESET.test(s)) return { ...base, intent: 'unknown', reset: true };
   let tripMemo;
-  const tripBefore = () => (tripMemo !== undefined ? tripMemo : (tripMemo = ctx && 'prev' in ctx ? ctx.prev : lastTrip(history)));
+  const tripBefore = () => (tripMemo !== undefined ? tripMemo : (tripMemo = ctx && 'prev' in ctx ? ctx.prev : lastTrip(history, ctx?.saved)));
   const before = history.length && !otherQuery ? tripBefore() : null; // 結構化上下文（A3）：前面累積的行程條件
   // 接著改起點或目的地（只有一個地名＋提示詞；起點可以是地標庫沒有的地名，例「板橋」）：其他條件沿用
   if (before) {
@@ -401,7 +404,7 @@ const NEARBY = {
 const isNearby = (it) => Object.hasOwn(NEARBY, it.intent);
 
 /** 需要使用者所在位置嗎（行程沒起點；附近類查詢沒地點） */
-export const needsLocation = (it) => (it.intent === 'trip' && !it.from) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]) || (it.intent === 'metro' && !it.station && !it.near) || (it.intent === 'outing' && !it.places[0]) || (it.intent === 'rail' && !it.from && !it.near);
+export const needsLocation = (it) => (it.intent === 'trip' && !it.from && !it.fromSaved) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]) || (it.intent === 'metro' && !it.station && !it.near) || (it.intent === 'outing' && !it.places[0]) || (it.intent === 'rail' && !it.from && !it.near);
 
 /**
  * 意圖 → 分段計畫。每段 `(results) => ({ note, calls })`，results 是之前各段的 callTool 結果（依名稱）。
@@ -414,16 +417,17 @@ export function demoSteps(it, now = Date.now()) {
   switch (it.intent) {
     case 'trip': {
       // 起點：說了地名 → 查地標；沒說但有裝置定位（M5-07）→ 直接用座標；都沒有 → 示範預設
-      const fp = !it.from && it.fromPoint;
+      // 起訖點可以是座標（現在位置、常用地點：家、公司）或地名（查地標）
+      const fp = it.fromSaved || (!it.from && it.fromPoint);
+      const tp = it.toSaved || null;
       const from = it.from || DEFAULT_FROM;
-      const pts = (r) => (fp ? [fp, point(r, 0)] : [point(r, 0), point(r, 1)]);
-      const asArg = (p) => (p === fp ? { lat: p.lat, lon: p.lon, name: p.name } : p.name);
+      const names = [fp ? null : from, tp ? null : it.to].filter(Boolean);
+      const pts = (r) => { const a = fp || point(r, 0); const b = tp || point(r, fp ? 0 : 1); return [a, b]; };
+      const asArg = (p) => (p === fp || p === tp ? { lat: p.lat, lon: p.lon, name: p.name } : p.name);
       const departAt = tripDepartAt(it, now); // 明天：抵達前 4 小時或 06:00；今天：現在
       const userStates = it.states;
       return [
-        () => (fp
-          ? { note: `@地點 確認「${it.to}」在哪`, calls: [{ name: 'find_place', args: { query: it.to } }] }
-          : { note: `@地點 先確認「${from}」和「${it.to}」在哪`, calls: [{ name: 'find_place', args: { query: from } }, { name: 'find_place', args: { query: it.to } }] }),
+        ...(names.length ? [() => ({ note: `@地點 ${names.length === 2 ? `先確認「${names[0]}」和「${names[1]}」在哪` : `確認「${names[0]}」在哪`}`, calls: names.map((q) => ({ name: 'find_place', args: { query: q } })) })] : []),
         (r) => { const [a, b] = pts(r); return a && b ? { note: '@天氣 @空品 @路況 看一下外面的狀況', calls: [{ name: 'weather_now', args: ll(a) }, { name: 'aqi_nearby', args: ll(a) }, { name: 'traffic_status', args: { from: ll(a), to: ll(b) } }] } : null; },
         (r) => { const [a, b] = pts(r); return a && b ? { note: '@行程 幫你比較幾種走法', calls: [{ name: 'plan_trip', args: {
           from: asArg(a), to: asArg(b), // 地名：卡片標題顯示地名；定位：帶座標與「你的位置」
@@ -528,6 +532,47 @@ export function tripDepartAt(it, now = Date.now()) {
   return `${t.date}T${t.hhmm}`;
 }
 
+/** 常用地點有被提到（手機端 public/js/saved-places.js WORDS 相同：提到才送座標；test/saved-places.test.js 比對） */
+export const SAVED_WORDS = { 家: /回家|到家|去家|家裡|我家|回去家|從家|家出發/, 公司: /公司|上班|下班/, 學校: /學校|上學|上課|放學/ };
+/** 地點後面接這些＝說的是別的地方（「從我家巷口」「回家的路」「公司樓下」） */
+const NB = '(?!巷|口|附近|旁|對面|樓|門口|那|這|前面|後面|隔壁|的|鄉|族|具|人)';
+const SAVED_TO = {
+  家: new RegExp(`(?:回|到|去)(?:我)?家(?:裡)?${NB}|回去家`),
+  公司: new RegExp(`(?:去|到|回)(?:我的?)?公司${NB}|上班`),
+  學校: new RegExp(`(?:去|到|回)(?:我的?)?學校${NB}|上學|去上課`),
+};
+/** 從那裡出發（起點） */
+const SAVED_FROM = {
+  家: new RegExp(`從\\s*(?:我)?家(?:裡)?${NB}|(?:我)?家(?:裡)?\\s*出發`),
+  公司: new RegExp(`從\\s*(?:我的?)?公司${NB}|公司\\s*出發|下班`),
+  學校: new RegExp(`從\\s*(?:我的?)?學校${NB}|學校\\s*出發|放學`),
+};
+/** 提到常用地點但不是要規劃去那裡：附近查詢、天氣、路上、正在那裡、已經到了、多站行程（「回家前先去全聯」交給一般規則） */
+const SAVED_NOT_TRIP = /附近|周邊|周圍|旁邊|路上|下雨|帶傘|天氣|氣溫|溫度|空品|空氣|藥局|垃圾車|youbike|ubike|地震|油價|發票|股|電話|地址|前先|之前|順便|我在(?:家|公司|學校|上班|上課)|在家|到家了|了[。!！~～]?$/i;
+/**
+ * 常用地點的行程（S1）：句子要「去／回／從」常用地點才算（「我家附近的藥局」「明天上班會下雨嗎」不算）。
+ * 目的地＝SAVED_TO 的那個，起點＝SAVED_FROM 的那個；另一端可以是地標或現在位置。要用的地點手機上沒設定 → savedMissing（不猜）。
+ * @returns {object|null} { intent: 'trip', from, to, fromSaved?, toSaved?, savedTrip: true } 或 { intent: 'savedMissing', missing }
+ */
+export function savedTrip(s, places, saved = {}) {
+  if (SAVED_NOT_TRIP.test(s)) return null;
+  const keys = Object.keys(SAVED_TO);
+  const fromKey = keys.find((k) => SAVED_FROM[k].test(s)) || null;
+  const toKey = keys.find((k) => k !== fromKey && SAVED_TO[k].test(s)) || null;
+  if (!fromKey && !toKey) return null;
+  const fromPlace = !fromKey && /從/.test(s) ? places[0] : null; // 「從台北101回家」
+  const toPlace = !toKey ? places.find((p) => p !== fromPlace) : null; // 「從公司去台北101」
+  if (!toKey && !toPlace) return null; // 「從家出發」沒說去哪：交給一般規則
+  const missing = [toKey, fromKey].find((k) => k && !saved?.[k]);
+  if (missing) return { intent: 'savedMissing', missing };
+  const pt = (k) => ({ lat: saved[k].lat, lon: saved[k].lon, name: k });
+  return {
+    intent: 'trip', savedTrip: true,
+    from: fromKey || fromPlace || null, to: toKey || toPlace,
+    ...(fromKey && { fromSaved: pt(fromKey) }), ...(toKey && { toSaved: pt(toKey) }),
+  };
+}
+
 /** 只有英文（沒有中文字）＝英文提問 */
 export const isEnglish = (s) => /[A-Za-z]{2,}/.test(s) && !/[一-鿿]/.test(s);
 const EN_STATES = [['rush', /hurry|late|asap|quick(?:ly)?|fastest/i], ['luggage', /luggage|suitcase|\bbags?\b/i], ['budget', /cheap|budget|save money/i],
@@ -627,6 +672,7 @@ export function demoSummary(it, results, suggestions = []) {
     return `${pre}${outingSay({ weather: results.weather_now?.at(-1)?.data, air: results.aqi_nearby?.at(-1)?.data?.nearest, states: it.states })}`;
   }
   if (it.intent === 'weather' && it.later) return '我目前只查得到現在和明天的天氣，後天以後的預報還沒辦法；要不要先看明天的？';
+  if (it.intent === 'savedMissing') return `我還不知道你的「${it.missing}」在哪。下次在${it.missing === '家' ? '家' : it.missing}時，到「設定與隱私 → 常用地點」按「設成現在位置」，之後說「${it.missing === '家' ? '回家' : `去${it.missing}`}」就能直接規劃。現在也可以直接說地名，例如「${it.missing === '家' ? '回板橋' : '去台北車站'}」。`;
   if (it.reset) return '好，重新開始。想去哪裡、想查什麼？沒說起點的話，我用你現在的位置。';
   if (it.intent === 'unknown') return `我可以幫你查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）和生活資訊（天氣、空品、地震、藥局、垃圾車、油價、發票、股市收盤）。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
   const last = Object.values(results).flat().filter(Boolean).at(-1);

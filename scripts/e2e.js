@@ -793,11 +793,23 @@ test('設定與隱私：首頁進入、狀態、隱私權政策', async () => {
     await page.evaluate(() => localStorage.setItem('invoices', '[]'));
     await page.click('#clear');
     assert.equal(await page.evaluate(() => localStorage.getItem('invoices')), '[]', '取消時不清除');
+    // 常用地點：把現在位置設成「家」，問阿幫說「回家」就規劃到家（座標只在提到時送出）
+    await page.locator('.saved-row', { hasText: '家' }).first().locator('button').first().click();
+    await page.waitForFunction(() => /已設定/.test(document.querySelector('.saved-row').textContent));
     await shot(page, 'phone-settings');
     await page.click('a[href="#/privacy"]');
     await page.waitForSelector('.privacy h2');
     const text = await page.textContent('.privacy');
-    for (const w of ['IP 位址', 'Anthropic', '相機', '你的權利', '不提供的影響']) assert.ok(text.includes(w), w);
+    for (const w of ['IP 位址', 'Anthropic', '相機', '你的權利', '不提供的影響', '常用地點']) assert.ok(text.includes(w), w);
     await shot(page, 'phone-privacy');
+    const bodies = [];
+    page.on('request', (r) => { if (r.url().endsWith('/api/v1/agent') && r.method() === 'POST') bodies.push(JSON.parse(r.postData())); });
+    await page.goto(`${base}/#/agent`);
+    await page.fill('.chat-form input', '回家');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    assert.ok(bodies[0].savedPlaces?.家, '提到家才送家');
+    assert.equal(bodies[0].savedPlaces.公司, undefined);
+    assert.match(await page.locator('.results [data-card="trip"] .ab-title').first().textContent(), /→ 家/);
   });
 });

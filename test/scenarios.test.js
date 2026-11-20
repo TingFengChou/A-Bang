@@ -15,9 +15,9 @@ const judge = createJudge(); // 規則（CI 不下載嵌入模型）
 const atTW = (hhmm = '10:00') => Date.parse(`${new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)}T${hhmm}:00+08:00`); // 沒指定用白天 10:00（結果不受跑測試的時間影響）
 
 /** 跑一輪：回傳這輪的事件（預設帶定位結果＝App 已允許定位；情境 location: false＝拒絕） */
-async function turn(svc, messages, located = true, now = Date.now()) {
+async function turn(svc, messages, located = true, now = Date.now(), saved = undefined) {
   const es = [];
-  await runDemo(svc, { messages, clientTools: ['device_location'], clientToolResults: [located ? { id: 'loc1', ok: true, result: set.here } : { id: 'loc1', ok: false }] }, (e) => es.push(e), { judge, now });
+  await runDemo(svc, { messages, clientTools: ['device_location'], clientToolResults: [located ? { id: 'loc1', ok: true, result: set.here } : { id: 'loc1', ok: false }], ...(saved && { savedPlaces: saved }) }, (e) => es.push(e), { judge, now });
   return es;
 }
 
@@ -27,7 +27,7 @@ for (const sc of set.scenarios) {
     const messages = [];
     for (const [i, t] of sc.turns.entries()) {
       messages.push({ role: 'user', content: t.say });
-      const es = await turn(svc, messages, sc.location !== false, atTW(sc.at));
+      const es = await turn(svc, messages, sc.location !== false, atTW(sc.at), sc.saved);
       const bad = check(es, t.expect);
       assert.deepEqual(bad, [], `第 ${i + 1} 輪「${t.say}」`);
       messages.push({ role: 'assistant', content: es.filter((e) => e.type === 'text').map((e) => e.delta).join('').slice(0, 500) || '好' });
