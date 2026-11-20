@@ -28,6 +28,8 @@ const CASES = [
   ['weather_now', P],
   ['weather_now', P, { weather: 'rain' }],
   ['aqi_nearby', P],
+  ['outing_advice', { ...P, name: '臺北車站' }],
+  ['outing_advice', { ...P, with: 'kids' }, { weather: 'rain' }],
   ['earthquake_recent', { county: '臺南市' }],
   ['pharmacy_search', { area: '臺北市大安區' }],
   ['garbage_truck_nearby', P],

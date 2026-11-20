@@ -34,7 +34,7 @@ test('規則：長輩、小孩、輪椅的說法；「帶阿嬤」「推嬰兒�
 });
 
 test('出門建議：下雨、降雨機率、冷熱、空品；資料正常時說安心出門；沒有資料不亂說', () => {
-  assert.deepEqual(outingAdvice({ weather: { raining: true, pop3h: 90, tempC: 33 }, air: { aqi: 160, status: '不健康' } }), ['現在正在下雨，記得帶傘', '33°C 很熱，注意防曬、多喝水', '空氣品質不健康（AQI 160），盡量少待戶外、戴口罩']);
+  assert.deepEqual(outingAdvice({ weather: { raining: true, rainMm1h: 2, pop3h: 90, tempC: 33 }, air: { aqi: 160, status: '不健康' } }), ['現在正在下雨，記得帶傘', '33°C 很熱，注意防曬、多喝水', '空氣品質不健康（AQI 160），盡量少待戶外、戴口罩']);
   assert.deepEqual(outingAdvice({ weather: { pop3h: 60, tempC: 14 } }), ['接下來 3 小時降雨機率 60%，帶把傘', '14°C 偏涼，帶件外套']);
   assert.match(outingSay({ weather: { pop3h: 10, tempC: 24 }, air: { aqi: 40, status: '良好' } }), /都還不錯，安心出門/);
   assert.equal(outingSay({}), '這次沒查到天氣和空品資料，晚點再試。');

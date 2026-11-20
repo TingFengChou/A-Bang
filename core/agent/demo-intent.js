@@ -499,10 +499,12 @@ export function demoSteps(it, now = Date.now()) {
     case 'outing': { // 天氣＋空品一起查（同一個位置；說了地點就查那裡）
       const at = !it.places[0] && it.fromPoint ? ll(it.fromPoint) : null;
       const place = it.places[0] || DEFAULT_FROM;
-      if (at) return [() => ({ note: '@天氣 @空品 出門前幫你看一下', calls: [{ name: 'weather_now', args: at }, { name: 'aqi_nearby', args: at }] })];
+      const who = it.states?.includes('kids') ? 'kids' : it.states?.includes('elder') ? 'elder' : null;
+      const args = (p, name) => ({ ...ll(p), ...(name && { name }), ...(who && { with: who }) });
+      if (at) return [() => ({ note: '@天氣 @空品 出門前幫你看一下', calls: [{ name: 'outing_advice', args: args(it.fromPoint) }] })];
       return [
         () => ({ note: `@地點 找「${place}」的位置`, calls: [{ name: 'find_place', args: { query: place } }] }),
-        (r) => (point(r, 0) ? { note: '@天氣 @空品 出門前幫你看一下', calls: [{ name: 'weather_now', args: ll(point(r, 0)) }, { name: 'aqi_nearby', args: ll(point(r, 0)) }] } : null),
+        (r) => (point(r, 0) ? { note: '@天氣 @空品 出門前幫你看一下', calls: [{ name: 'outing_advice', args: args(point(r, 0), point(r, 0).name || place) }] } : null),
       ];
     }
     case 'metro':
@@ -708,7 +710,8 @@ export function demoSummary(it, results, suggestions = []) {
   if (it.lang === 'en') return englishSummary(it, results);
   if (it.intent === 'outing') {
     const pre = it.fromPoint || it.places[0] ? '' : it.noLocation ? `（沒拿到你的位置，先看「${DEFAULT_FROM}」附近。）` : `（你沒說在哪，我先看「${DEFAULT_FROM}」附近。）`;
-    return `${pre}${outingSay({ weather: results.weather_now?.at(-1)?.data, air: results.aqi_nearby?.at(-1)?.data?.nearest, states: it.states })}`;
+    const o = results.outing_advice?.at(-1);
+    return `${pre}${o ? o.speak : outingSay({})}`;
   }
   if (it.intent === 'weather' && it.later) return '我目前只查得到現在和明天的天氣，後天以後的預報還沒辦法；要不要先看明天的？';
   if (it.intent === 'savedMissing') return `我還不知道你的「${it.missing}」在哪。下次在${it.missing === '家' ? '家' : it.missing}時，到「設定與隱私 → 常用地點」按「設成現在位置」，之後說「${it.missing === '家' ? '回家' : `去${it.missing}`}」就能直接規劃。現在也可以直接說地名，例如「${it.missing === '家' ? '回板橋' : '去台北車站'}」。`;

@@ -5,12 +5,11 @@ import { getProfile } from '../agents/index.js';
 import { buildSystemPrompt } from './prompt.js';
 import { ev } from './events.js';
 import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hideToolNames, judgeInfo, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
-import { judgeNote, moreStatesNote } from './impact.js';
+import { judgeNote, outingNote, moreStatesNote } from './impact.js';
 import { lineCode } from '../tools/metro.js';
 import { normName, nowTW } from '../util.js';
 import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, demoSummary } from './demo-intent.js';
 import { resolvePoint } from '../services/places.js';
-import { outingAdvice } from './outing.js';
 
 /**
  * @typedef {{ name: string, description: string, schema: object }} ToolDef
@@ -61,8 +60,13 @@ export function prefetchCalls(it, j, here) {
     const near = it.near || (at ? { ...at, name: here.name } : DEFAULT_FROM);
     return [{ name: it.system === 'THSR' ? 'thsr_timetable' : 'tra_timetable', args: { to: it.to, near, ...(it.tomorrow && { date: nowTW(Date.now() + 864e5).date }) }, ...(!it.near && !at && { note: NO_LOCATION_NOTE }) }];
   }
+  if (it.intent === 'outing') { // 出門建議：天氣＋空品一張卡；說了地點查那裡、沒拿到位置先看預設地點（與示範模式一致）
+    const st = [...(it.states || []), ...(j?.states || [])]; // 判斷層聽出的同行者也算
+    const who = st.includes('kids') ? 'kids' : st.includes('elder') ? 'elder' : null;
+    const where = it.places?.[0] ? { place: it.places[0] } : at ? at : { place: DEFAULT_FROM };
+    return [{ name: 'outing_advice', args: { ...where, ...(who && { with: who }) }, ...(!it.places?.[0] && !at && { note: NO_LOCATION_NOTE.replace('起點先用', '先看').replace('先從', '先看').replace('算」，並請他說從哪出發就重算', '附近」，並請他說在哪就重查') }) }];
+  }
   if (!at) return [];
-  if (it.intent === 'outing' && !it.places?.length) return [{ name: 'weather_now', args: at }, { name: 'aqi_nearby', args: at }]; // 出門建議：天氣＋空品（說了地點交給模型先找位置）
   if (it.places?.length) return [];
   const intent = NEARBY_TOOL[it.intent] ? it.intent : NEARBY_TOOL[j?.intent] ? j.intent : null;
   if (intent === 'weather' && it.later) return []; // 後天以後：沒有工具查得到，交給模型說明
@@ -89,7 +93,8 @@ export function callKey(name, args = {}, here = null) {
     const where = typeof args.near === 'string' ? args.near.replace(/\s/g, '') : p ? `${(+p.lat).toFixed(3)},${(+p.lon).toFixed(3)}` : null;
     return where ? `${name}|${where}|${lineCode(args.line) || ''}` : null;
   }
-  if (Object.values(NEARBY_TOOL).includes(name) || name === 'weather_tomorrow') {
+  if (name === 'outing_advice' && args.place) return `${name}|${normName(String(args.place).replace(/\s/g, ''))}`;
+  if (Object.values(NEARBY_TOOL).includes(name) || name === 'weather_tomorrow' || name === 'outing_advice') { // 出門建議：模型再查同一點就沿用（不再出第二張卡）
     const lat = args.lat ?? here?.lat, lon = args.lon ?? here?.lon;
     return lat == null ? null : `${name}|${(+lat).toFixed(3)},${(+lon).toFixed(3)}`;
   }
@@ -148,8 +153,8 @@ export const INTENT_TOOLS = {
   nearby_bus: ['bus_nearby_stations', 'bus_station_eta', 'find_place'],
   metro: ['metro_live_board', 'metro_stations', 'find_place'],
   rail: ['thsr_timetable', 'tra_timetable', 'rail_stations', 'rail_fare', 'rail_booking_link'],
-  weather: ['weather_now', 'weather_tomorrow', 'find_place'],
-  aqi: ['aqi_nearby', 'find_place'],
+  weather: ['weather_now', 'weather_tomorrow', 'outing_advice', 'find_place'],
+  aqi: ['aqi_nearby', 'outing_advice', 'find_place'],
   quake: ['earthquake_recent'],
   pharmacy: ['pharmacy_search'],
   garbage: ['garbage_truck_nearby', 'find_place'],
@@ -194,7 +199,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     return;
   }
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
-  const heard = !req.clientToolResults?.length && (contextNote(rulesIt) || (q0 && judgeNote(q0)));
+  const heard = !req.clientToolResults?.length && (contextNote(rulesIt) || (rulesIt.intent === 'outing' ? outingNote([...(rulesIt.states || []), ...(q0?.states || [])]) : q0 && judgeNote(q0)));
   if (heard) emit(ev.agentNote(heard));
   const j = jc ? await jc.full(q0) : null;
   const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
@@ -214,7 +219,8 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     return;
   }
   const locationHint = here ? `使用者現在在 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（手機定位）。使用者沒說起點或地點時就用這個位置：plan_trip 的 from 用 { lat, lon, name: "你的位置" }，天氣、空品、YouBike、附近公車、垃圾車用這個 lat/lon；不要再問他在哪裡。` : '';
-  const only = sure && provider.mode === 'local' ? INTENT_TOOLS[j.intent] : undefined;
+  const only0 = sure && provider.mode === 'local' ? INTENT_TOOLS[j.intent] : undefined;
+  const only = only0 && rulesIt.intent === 'outing' && !only0.includes('outing_advice') ? [...only0, 'outing_advice'] : only0;
 
   let n = 0;
   const nextId = () => `t${++n}`;
@@ -241,11 +247,6 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
       return text;
     });
     prefetched = texts.join('\n\n');
-    // 出門建議：程式依天氣與空品整理好，模型照著說（數字不經模型改寫）
-    if (rulesIt.intent === 'outing') {
-      const advice = outingAdvice({ weather: out[0]?.result?.data, air: out[1]?.result?.data?.nearest, states: rulesIt.states });
-      if (advice.length) prefetched += `\n\n出門建議（程式依上面資料整理；請照這些重點回答，不要另外推測）：\n${advice.map((a) => `- ${a}`).join('\n')}`;
-    }
   }
   const conv = provider.start({
     system: buildSystemPrompt(profile, { now, context: req.context, picked, locationHint, prefetched }),

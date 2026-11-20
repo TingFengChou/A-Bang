@@ -84,11 +84,12 @@ export function locateSay({ ok, reason }) {
   return '沒拿到你的位置；可以直接打地點，或到手機設定打開定位';
 }
 
-/** 天氣、空品卡片：{ 鍵（工具＋測站）, 值（主要數字）, 收合時的說明 }；其他卡片不收合 */
+/** 天氣、空品、出門建議卡片：{ 鍵（工具＋測站）, 值（主要數字）, 收合時的說明 }；其他卡片不收合 */
 function cardFacts(e) {
   const d = e.data || {};
   if (e.tool === 'weather_now') return { key: `w|${d.station}`, val: `${d.tempC}|${d.raining}|${d.pop3h}`, say: `天氣同上（${d.station} ${d.tempC ?? '—'}°C${d.pop3h != null ? `、降雨 ${d.pop3h}%` : ''}）` };
   if (e.tool === 'aqi_nearby' && d.nearest) return { key: `a|${d.nearest.site}`, val: `${d.nearest.aqi}`, say: `空品同上（${d.nearest.site} AQI ${d.nearest.aqi}）` };
+  if (e.tool === 'outing_advice' && d.items) return { key: `o|${d.weather?.station}|${d.air?.site}`, val: `${d.weather?.tempC}|${d.weather?.pop3h}|${d.air?.aqi}|${d.items.map((x) => x.kind).join(',')}`, say: `出門建議同上（${d.items.map((x) => x.text.split('，')[0]).join('、').slice(0, 30)}）` };
   return null;
 }
 

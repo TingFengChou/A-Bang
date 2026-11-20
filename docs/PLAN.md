@@ -266,7 +266,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] S1 明天天氣（預報）：`weather_tomorrow`（2026-11-21）
 - [ ] S11／S15 多筆提醒、公車一直不來時重新規劃
 - [x] 「重來」分隔線、沒變的卡片收合、決策圖收班節點（2026-11-21）
-- [ ] 出門建議小卡（傘、衣著、口罩）
+- [x] 出門建議小卡（傘、衣著、口罩）：`outing_advice` 工具＋`outing` 卡片（2026-11-21）
 - [x] S1 常用地點（家、公司、學校：「回家」直接成行程；座標只在手機、提到才送）（2026-11-21）
 - [ ] S1b 常用地點：輸入地址或地名設定（`find_place` 選結果）、顯示「已設定：XX 附近」讓人確認；設在別處（不必人在現場）
 - [ ] S1c 定位失敗分原因（拒絕／定位服務關閉／逾時）＋「到設定開啟」按鈕（專案內外掛加 openAppSettings，Android ACTION_APPLICATION_DETAILS_SETTINGS、iOS openSettingsURLString）；Android `prompt-with-rationale` 顯示為已拒絕

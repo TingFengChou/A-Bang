@@ -20,10 +20,11 @@ import garbage from './cards/garbage.js';
 import fuel from './cards/fuel.js';
 import invoice from './cards/invoice.js';
 import stock from './cards/stock.js';
+import outing from './cards/outing.js';
 
 /** card → { title(data), body(data, ctx), refreshSec?, announce?(data, { t, state }) → 刷新後要念的一句話 } */
 export const CARDS = {
-  'bus-route': busRoute, 'bus-station': busStation, nearby, youbike, metro, timetable, trip, 'scam-risk': scamRisk, weather, aqi, quake, pharmacy, garbage, fuel, invoice, stock,
+  'bus-route': busRoute, 'bus-station': busStation, nearby, youbike, metro, timetable, trip, 'scam-risk': scamRisk, weather, aqi, quake, pharmacy, garbage, fuel, invoice, stock, outing,
 };
 
 /**
