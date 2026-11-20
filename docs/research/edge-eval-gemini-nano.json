@@ -1,0 +1,1026 @@
+{
+  "engine": "gemini-nano",
+  "date": "2026-11-20",
+  "n": 172,
+  "all": {
+    "n": 172,
+    "intentAcc": 0.9011627906976745,
+    "prec": 0.9285714285714286,
+    "rec": 0.7647058823529411,
+    "f1": 0.8387096774193549,
+    "exact": 0.8546511627906976
+  },
+  "holdout": {
+    "n": 86,
+    "intentAcc": 0.9186046511627907,
+    "prec": 0.875,
+    "rec": 0.8235294117647058,
+    "f1": 0.8484848484848485,
+    "exact": 0.8604651162790697
+  },
+  "latencyMs": {
+    "p50": 268,
+    "p95": 325
+  },
+  "failed": [
+    {
+      "id": 31,
+      "want": "trip",
+      "got": "bus_route"
+    },
+    {
+      "id": 35,
+      "want": "trip",
+      "got": "unknown"
+    },
+    {
+      "id": 41,
+      "want": "trip",
+      "got": "nearby_bus"
+    },
+    {
+      "id": 50,
+      "want": "bus_route",
+      "got": "trip"
+    },
+    {
+      "id": 68,
+      "want": "metro",
+      "got": "bus_route"
+    },
+    {
+      "id": 76,
+      "want": "rail",
+      "got": "trip"
+    },
+    {
+      "id": 78,
+      "want": "rail",
+      "got": "trip"
+    },
+    {
+      "id": 82,
+      "want": "rail",
+      "got": "trip"
+    },
+    {
+      "id": 97,
+      "want": "aqi",
+      "got": "weather"
+    },
+    {
+      "id": 101,
+      "want": "aqi",
+      "got": "weather"
+    },
+    {
+      "id": 104,
+      "want": "quake",
+      "got": "unknown"
+    },
+    {
+      "id": 134,
+      "want": "invoice",
+      "got": "unknown"
+    },
+    {
+      "id": 141,
+      "want": "stock",
+      "got": "fuel"
+    },
+    {
+      "id": 145,
+      "want": "stock",
+      "got": "unknown"
+    },
+    {
+      "id": 157,
+      "want": "unknown",
+      "got": "stock"
+    },
+    {
+      "id": 167,
+      "want": "unknown",
+      "got": "stock"
+    },
+    {
+      "id": 171,
+      "want": "unknown",
+      "got": "trip"
+    }
+  ],
+  "results": [
+    {
+      "id": 1,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 2,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 3,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 4,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 5,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 6,
+      "intent": "trip",
+      "states": [
+        "luggage"
+      ]
+    },
+    {
+      "id": 7,
+      "intent": "trip",
+      "states": [
+        "budget"
+      ]
+    },
+    {
+      "id": 8,
+      "intent": "trip",
+      "states": [
+        "rain"
+      ]
+    },
+    {
+      "id": 9,
+      "intent": "trip",
+      "states": [
+        "lessWalk"
+      ]
+    },
+    {
+      "id": 10,
+      "intent": "trip",
+      "states": [
+        "badAir"
+      ]
+    },
+    {
+      "id": 11,
+      "intent": "trip",
+      "states": [
+        "rush"
+      ]
+    },
+    {
+      "id": 12,
+      "intent": "trip",
+      "states": [
+        "luggage"
+      ]
+    },
+    {
+      "id": 13,
+      "intent": "trip",
+      "states": [
+        "budget"
+      ]
+    },
+    {
+      "id": 14,
+      "intent": "trip",
+      "states": [
+        "lessWalk"
+      ]
+    },
+    {
+      "id": 15,
+      "intent": "trip",
+      "states": [
+        "rain"
+      ]
+    },
+    {
+      "id": 16,
+      "intent": "trip",
+      "states": [
+        "badAir",
+        "luggage"
+      ]
+    },
+    {
+      "id": 17,
+      "intent": "trip",
+      "states": [
+        "lessWalk"
+      ]
+    },
+    {
+      "id": 18,
+      "intent": "trip",
+      "states": [
+        "rush"
+      ]
+    },
+    {
+      "id": 19,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 20,
+      "intent": "trip",
+      "states": [
+        "luggage"
+      ]
+    },
+    {
+      "id": 21,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 22,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 23,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 24,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 25,
+      "intent": "trip",
+      "states": [
+        "luggage"
+      ]
+    },
+    {
+      "id": 26,
+      "intent": "trip",
+      "states": [
+        "rush",
+        "budget"
+      ]
+    },
+    {
+      "id": 27,
+      "intent": "trip",
+      "states": [
+        "lessWalk",
+        "badAir"
+      ]
+    },
+    {
+      "id": 28,
+      "intent": "trip",
+      "states": [
+        "budget"
+      ]
+    },
+    {
+      "id": 29,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 30,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 31,
+      "intent": "bus_route",
+      "states": []
+    },
+    {
+      "id": 32,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 33,
+      "intent": "trip",
+      "states": [
+        "lessWalk"
+      ]
+    },
+    {
+      "id": 34,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 35,
+      "intent": "unknown",
+      "states": []
+    },
+    {
+      "id": 36,
+      "intent": "trip",
+      "states": [
+        "lessWalk",
+        "badAir"
+      ]
+    },
+    {
+      "id": 37,
+      "intent": "trip",
+      "states": [
+        "rush"
+      ]
+    },
+    {
+      "id": 38,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 39,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 40,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 41,
+      "intent": "nearby_bus",
+      "states": []
+    },
+    {
+      "id": 42,
+      "intent": "bus_route",
+      "states": []
+    },
+    {
+      "id": 43,
+      "intent": "bus_route",
+      "states": []
+    },
+    {
+      "id": 44,
+      "intent": "bus_route",
+      "states": []
+    },
+    {
+      "id": 45,
+      "intent": "bus_route",
+      "states": []
+    },
+    {
+      "id": 46,
+      "intent": "bus_route",
+      "states": []
+    },
+    {
+      "id": 47,
+      "intent": "bus_route",
+      "states": []
+    },
+    {
+      "id": 48,
+      "intent": "bus_route",
+      "states": []
+    },
+    {
+      "id": 49,
+      "intent": "bus_route",
+      "states": []
+    },
+    {
+      "id": 50,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 51,
+      "intent": "bus_route",
+      "states": []
+    },
+    {
+      "id": 52,
+      "intent": "bus_route",
+      "states": []
+    },
+    {
+      "id": 53,
+      "intent": "bus_route",
+      "states": []
+    },
+    {
+      "id": 54,
+      "intent": "youbike",
+      "states": []
+    },
+    {
+      "id": 55,
+      "intent": "youbike",
+      "states": []
+    },
+    {
+      "id": 56,
+      "intent": "youbike",
+      "states": []
+    },
+    {
+      "id": 57,
+      "intent": "youbike",
+      "states": []
+    },
+    {
+      "id": 58,
+      "intent": "youbike",
+      "states": []
+    },
+    {
+      "id": 59,
+      "intent": "youbike",
+      "states": []
+    },
+    {
+      "id": 60,
+      "intent": "youbike",
+      "states": []
+    },
+    {
+      "id": 61,
+      "intent": "nearby_bus",
+      "states": []
+    },
+    {
+      "id": 62,
+      "intent": "nearby_bus",
+      "states": []
+    },
+    {
+      "id": 63,
+      "intent": "nearby_bus",
+      "states": []
+    },
+    {
+      "id": 64,
+      "intent": "nearby_bus",
+      "states": []
+    },
+    {
+      "id": 65,
+      "intent": "nearby_bus",
+      "states": []
+    },
+    {
+      "id": 66,
+      "intent": "metro",
+      "states": []
+    },
+    {
+      "id": 67,
+      "intent": "metro",
+      "states": []
+    },
+    {
+      "id": 68,
+      "intent": "bus_route",
+      "states": []
+    },
+    {
+      "id": 69,
+      "intent": "metro",
+      "states": []
+    },
+    {
+      "id": 70,
+      "intent": "metro",
+      "states": []
+    },
+    {
+      "id": 71,
+      "intent": "metro",
+      "states": []
+    },
+    {
+      "id": 72,
+      "intent": "metro",
+      "states": []
+    },
+    {
+      "id": 73,
+      "intent": "metro",
+      "states": []
+    },
+    {
+      "id": 74,
+      "intent": "rail",
+      "states": []
+    },
+    {
+      "id": 75,
+      "intent": "rail",
+      "states": []
+    },
+    {
+      "id": 76,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 77,
+      "intent": "rail",
+      "states": []
+    },
+    {
+      "id": 78,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 79,
+      "intent": "rail",
+      "states": []
+    },
+    {
+      "id": 80,
+      "intent": "rail",
+      "states": []
+    },
+    {
+      "id": 81,
+      "intent": "rail",
+      "states": []
+    },
+    {
+      "id": 82,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 83,
+      "intent": "rail",
+      "states": []
+    },
+    {
+      "id": 84,
+      "intent": "weather",
+      "states": []
+    },
+    {
+      "id": 85,
+      "intent": "weather",
+      "states": []
+    },
+    {
+      "id": 86,
+      "intent": "weather",
+      "states": []
+    },
+    {
+      "id": 87,
+      "intent": "weather",
+      "states": []
+    },
+    {
+      "id": 88,
+      "intent": "weather",
+      "states": []
+    },
+    {
+      "id": 89,
+      "intent": "weather",
+      "states": []
+    },
+    {
+      "id": 90,
+      "intent": "weather",
+      "states": []
+    },
+    {
+      "id": 91,
+      "intent": "weather",
+      "states": []
+    },
+    {
+      "id": 92,
+      "intent": "weather",
+      "states": []
+    },
+    {
+      "id": 93,
+      "intent": "weather",
+      "states": []
+    },
+    {
+      "id": 94,
+      "intent": "aqi",
+      "states": []
+    },
+    {
+      "id": 95,
+      "intent": "aqi",
+      "states": []
+    },
+    {
+      "id": 96,
+      "intent": "aqi",
+      "states": []
+    },
+    {
+      "id": 97,
+      "intent": "weather",
+      "states": []
+    },
+    {
+      "id": 98,
+      "intent": "aqi",
+      "states": []
+    },
+    {
+      "id": 99,
+      "intent": "aqi",
+      "states": []
+    },
+    {
+      "id": 100,
+      "intent": "aqi",
+      "states": [
+        "badAir"
+      ]
+    },
+    {
+      "id": 101,
+      "intent": "weather",
+      "states": []
+    },
+    {
+      "id": 102,
+      "intent": "quake",
+      "states": []
+    },
+    {
+      "id": 103,
+      "intent": "quake",
+      "states": []
+    },
+    {
+      "id": 104,
+      "intent": "unknown",
+      "states": []
+    },
+    {
+      "id": 105,
+      "intent": "quake",
+      "states": []
+    },
+    {
+      "id": 106,
+      "intent": "quake",
+      "states": []
+    },
+    {
+      "id": 107,
+      "intent": "quake",
+      "states": []
+    },
+    {
+      "id": 108,
+      "intent": "pharmacy",
+      "states": []
+    },
+    {
+      "id": 109,
+      "intent": "pharmacy",
+      "states": []
+    },
+    {
+      "id": 110,
+      "intent": "pharmacy",
+      "states": []
+    },
+    {
+      "id": 111,
+      "intent": "pharmacy",
+      "states": []
+    },
+    {
+      "id": 112,
+      "intent": "pharmacy",
+      "states": []
+    },
+    {
+      "id": 113,
+      "intent": "pharmacy",
+      "states": []
+    },
+    {
+      "id": 114,
+      "intent": "pharmacy",
+      "states": []
+    },
+    {
+      "id": 115,
+      "intent": "garbage",
+      "states": []
+    },
+    {
+      "id": 116,
+      "intent": "garbage",
+      "states": []
+    },
+    {
+      "id": 117,
+      "intent": "garbage",
+      "states": []
+    },
+    {
+      "id": 118,
+      "intent": "garbage",
+      "states": []
+    },
+    {
+      "id": 119,
+      "intent": "garbage",
+      "states": []
+    },
+    {
+      "id": 120,
+      "intent": "garbage",
+      "states": []
+    },
+    {
+      "id": 121,
+      "intent": "garbage",
+      "states": []
+    },
+    {
+      "id": 122,
+      "intent": "fuel",
+      "states": []
+    },
+    {
+      "id": 123,
+      "intent": "fuel",
+      "states": []
+    },
+    {
+      "id": 124,
+      "intent": "fuel",
+      "states": []
+    },
+    {
+      "id": 125,
+      "intent": "fuel",
+      "states": []
+    },
+    {
+      "id": 126,
+      "intent": "fuel",
+      "states": []
+    },
+    {
+      "id": 127,
+      "intent": "fuel",
+      "states": []
+    },
+    {
+      "id": 128,
+      "intent": "fuel",
+      "states": []
+    },
+    {
+      "id": 129,
+      "intent": "invoice",
+      "states": []
+    },
+    {
+      "id": 130,
+      "intent": "invoice",
+      "states": []
+    },
+    {
+      "id": 131,
+      "intent": "invoice",
+      "states": []
+    },
+    {
+      "id": 132,
+      "intent": "invoice",
+      "states": []
+    },
+    {
+      "id": 133,
+      "intent": "invoice",
+      "states": []
+    },
+    {
+      "id": 134,
+      "intent": "unknown",
+      "states": []
+    },
+    {
+      "id": 135,
+      "intent": "invoice",
+      "states": []
+    },
+    {
+      "id": 136,
+      "intent": "invoice",
+      "states": []
+    },
+    {
+      "id": 137,
+      "intent": "invoice",
+      "states": []
+    },
+    {
+      "id": 138,
+      "intent": "stock",
+      "states": []
+    },
+    {
+      "id": 139,
+      "intent": "stock",
+      "states": []
+    },
+    {
+      "id": 140,
+      "intent": "stock",
+      "states": []
+    },
+    {
+      "id": 141,
+      "intent": "fuel",
+      "states": []
+    },
+    {
+      "id": 142,
+      "intent": "stock",
+      "states": []
+    },
+    {
+      "id": 143,
+      "intent": "stock",
+      "states": []
+    },
+    {
+      "id": 144,
+      "intent": "stock",
+      "states": []
+    },
+    {
+      "id": 145,
+      "intent": "unknown",
+      "states": []
+    },
+    {
+      "id": 146,
+      "intent": "stock",
+      "states": []
+    },
+    {
+      "id": 147,
+      "intent": "stock",
+      "states": []
+    },
+    {
+      "id": 148,
+      "intent": "stock",
+      "states": []
+    },
+    {
+      "id": 149,
+      "intent": "stock",
+      "states": []
+    },
+    {
+      "id": 150,
+      "intent": "stock",
+      "states": []
+    },
+    {
+      "id": 151,
+      "intent": "stock",
+      "states": []
+    },
+    {
+      "id": 152,
+      "intent": "stock",
+      "states": []
+    },
+    {
+      "id": 153,
+      "intent": "fuel",
+      "states": []
+    },
+    {
+      "id": 154,
+      "intent": "bus_route",
+      "states": []
+    },
+    {
+      "id": 155,
+      "intent": "pharmacy",
+      "states": []
+    },
+    {
+      "id": 156,
+      "intent": "weather",
+      "states": []
+    },
+    {
+      "id": 157,
+      "intent": "stock",
+      "states": []
+    },
+    {
+      "id": 158,
+      "intent": "trip",
+      "states": [
+        "rush"
+      ]
+    },
+    {
+      "id": 159,
+      "intent": "trip",
+      "states": [
+        "luggage"
+      ]
+    },
+    {
+      "id": 160,
+      "intent": "invoice",
+      "states": []
+    },
+    {
+      "id": 161,
+      "intent": "unknown",
+      "states": []
+    },
+    {
+      "id": 162,
+      "intent": "unknown",
+      "states": []
+    },
+    {
+      "id": 163,
+      "intent": "unknown",
+      "states": []
+    },
+    {
+      "id": 164,
+      "intent": "unknown",
+      "states": []
+    },
+    {
+      "id": 165,
+      "intent": "unknown",
+      "states": []
+    },
+    {
+      "id": 166,
+      "intent": "unknown",
+      "states": []
+    },
+    {
+      "id": 167,
+      "intent": "stock",
+      "states": []
+    },
+    {
+      "id": 168,
+      "intent": "unknown",
+      "states": []
+    },
+    {
+      "id": 169,
+      "intent": "unknown",
+      "states": []
+    },
+    {
+      "id": 170,
+      "intent": "unknown",
+      "states": []
+    },
+    {
+      "id": 171,
+      "intent": "trip",
+      "states": []
+    },
+    {
+      "id": 172,
+      "intent": "unknown",
+      "states": []
+    }
+  ]
+}

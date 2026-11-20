@@ -3,6 +3,7 @@
 import { API_BASE, IN_APP } from '../base.js';
 import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
 import { runAgent, browserLocation } from '../agent/client.js';
+import { edgeJudge, edgePrewarm } from '../edge-judge.js';
 import { icons } from '../icons.js';
 import { motion } from '../../ui/cards/motion.js';
 import { token } from '../../ui/cards/mode-icons.js';
@@ -128,7 +129,8 @@ export default {
     sendBtn.type = 'submit';
     const form = el('form', 'chat-form', input, sendBtn);
     const disclaimer = el('p', 'updated');
-    const modeLine = el('p', 'updated agent-mode'); // 由誰回答（ADR-0012；Claude 模式說明對話會送 Anthropic，AGENT.md §7）
+    const modeLine = el('p', 'updated agent-mode');
+    modeLine.setAttribute('aria-live', 'polite'); // 換模式或改在手機上判斷時唸出來 // 由誰回答（ADR-0012；Claude 模式說明對話會送 Anthropic，AGENT.md §7）
     // 說明起點是現在位置（第一次需要位置時才跳權限框，先讓使用者知道為什麼）；拒絕定位時阿幫會問從哪出發
     const hereHint = agentId === 'life' && el('p', 'updated here-hint', '沒說起點時，阿幫用你現在的位置當出發點。');
     main.append(log, el('div', 'chat-dock', chips, mention, form), ...(hereHint ? [hereHint] : []), disclaimer, modeLine);
@@ -137,6 +139,10 @@ export default {
       local: (m) => `由地端模型（${m}）回答；對話只送到本站設定的模型伺服器。`,
       demo: () => '示範模式：規則式回答，不經 AI 模型。',
     };
+    // 裝置端 AI（ADR-0014）：在手機上判斷時，說明多一句（判斷不離開手機的模型，只送結果）
+    const ENGINE_TEXT = { apple: 'Apple Intelligence', 'gemini-nano': 'Gemini Nano' };
+    const modeText = (e) => `${MODE_TEXT[e.mode](e.model || '')}${e.judge?.source === 'device' && ENGINE_TEXT[e.judge.engine] ? `阿幫先在手機上用 ${ENGINE_TEXT[e.judge.engine]} 聽懂你要做什麼。` : ''}`;
+    if (agentId === 'life') edgePrewarm();
 
     const host = createWebHost({ ask: (q) => send(q), setContext: (c) => { context = c; } });
 
@@ -211,9 +217,11 @@ export default {
       log.append(turn);
       const view = turnView(turn);
       try {
-        await runAgent({ messages: history.slice(-10), ...(context && { context }) }, (e) => {
+        // 手機 App：先在裝置上判斷意圖與狀態（最多等 1.8 秒；不可用就不帶，伺服器照常判斷）
+        const deviceJudge = agentId === 'life' ? await edgeJudge(q, history.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content)) : null;
+        await runAgent({ messages: history.slice(-10), ...(context && { context }), ...(deviceJudge && { deviceJudge }) }, (e) => {
           // 隱私：防詐頁貼上的內容只送給本站伺服器分析，不保存（AGENT_ANTIFRAUD.md §1）
-          if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = MODE_TEXT[e.mode](e.model || '');
+          if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = modeText(e);
           view.push(e);
         }, { agentId });
         await view.flush();
