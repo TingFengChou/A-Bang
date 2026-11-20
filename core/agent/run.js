@@ -9,6 +9,7 @@ import { parseIntent, demoSteps, demoSummary, needsLocation } from './demo-inten
 import { parseAntifraud, antifraudSteps, antifraudSummary } from './demo-antifraud.js';
 import { applyOutputGuardrails } from './guardrails.js';
 import { impactOf, judgeNote, moreStatesNote } from './impact.js';
+import { createJudge, JUDGE_INTENTS, JUDGE_STATES, DEVICE_ENGINES } from './judge.js';
 
 /** 示範模式的規則式規劃（依 agent）：parse → steps → summary；needsLocation 只有生活 agent 用 */
 const PLANNERS = {
@@ -45,6 +46,8 @@ const RequestSchema = z.object({
   clientTools: z.array(z.string()).max(10).optional(),
   clientToolResults: z.array(z.object({ id: z.string(), ok: z.boolean(), result: z.any().optional() })).max(10).optional(),
   context: z.string().max(200).optional(),
+  // 手機上的模型先判斷好的意圖與狀態（ADR-0014）：只是提示，列舉值以外一律拒絕；方案排序仍由 decide.js 計分
+  deviceJudge: z.object({ intent: z.enum(Object.keys(JUDGE_INTENTS)), states: z.array(z.enum(JUDGE_STATES)).max(JUDGE_STATES.length), engine: z.enum(DEVICE_ENGINES) }).optional(),
 });
 
 /** 驗證 /api/v1/agent 請求；錯誤丟 UserError（繁體中文、可行動） */
@@ -128,7 +131,24 @@ function withPickedPrefs(args, picked, judgedStates) {
 export const priorUserTexts = (messages) => messages.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content);
 
 /** 判斷層結果給前端看（不含對話內容） */
-export const judgeInfo = (j) => (j ? { intent: j.intent, source: j.source, ...(j.confidence != null && { confidence: Math.round(j.confidence * 100) / 100 }) } : undefined);
+export const judgeInfo = (j) => (j ? { intent: j.intent, source: j.source, ...(j.engine && { engine: j.engine }), ...(j.confidence != null && { confidence: Math.round(j.confidence * 100) / 100 }) } : undefined);
+
+/**
+ * 判斷層的兩段呼叫（快速版先說聽懂了什麼、完整版定案）。帶 deviceJudge 時一起交給判斷層；
+ * 伺服器沒有判斷層（JUDGE=off）但手機有判斷時，用規則＋裝置提示。只有生活 agent 用。
+ * @returns {{ quick: () => Promise<object|null>, full: (q0: object|null) => Promise<object|null> } | null}
+ */
+export function judgeCalls(judge, req, profile) {
+  if (profile.id !== 'life') return null;
+  const device = req.deviceJudge;
+  const J = judge || (device ? createJudge() : null);
+  if (!J) return null;
+  const last = req.messages.at(-1).content, prior = priorUserTexts(req.messages), opts = device ? { device } : {};
+  return {
+    quick: () => (J.quick || J)(last, prior, opts).catch(() => null),
+    full: (q0) => (J.quick ? J(last, prior, opts).catch(() => q0) : Promise.resolve(q0)),
+  };
+}
 
 /** 使用者在畫面上點選的狀態（picked）標示來源；plan_trip 已依 prefs 計分，這裡只改標示 */
 function withPicked(trip, picked) {
@@ -153,13 +173,13 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   const last = req.messages.at(-1).content;
   let it = plan.parse(last, { history: req.messages.slice(0, -1) });
   // 判斷層（judge.js）：先用快速版（A＋規則，幾毫秒）說聽懂了什麼，再用完整版（含模型）定案意圖與狀態
-  const useJudge = judge && profile.id === 'life';
-  const q0 = useJudge ? await (judge.quick || judge)(last, priorUserTexts(req.messages)).catch(() => null) : null;
+  const jc = judgeCalls(judge, req, profile);
+  const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode: 'demo', profile: profile.id, judge: judgeInfo(q0) }));
   if (notice) emit(ev.agentNote(notice));
   const heard = q0 && judgeNote(q0);
   if (heard) emit(ev.agentNote(heard));
-  const j = useJudge ? (judge.quick ? await judge(last, priorUserTexts(req.messages)).catch(() => q0) : q0) : null;
+  const j = jc ? await jc.full(q0) : null;
   if (j) {
     if (j.intent !== it.intent && !it.followUp) it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent }) || it;
     it.states = j.states;

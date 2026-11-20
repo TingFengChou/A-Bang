@@ -674,3 +674,34 @@ test('Android 返回：高鐵頁 → 首頁 → 離開 App', async () => {
     assert.deepEqual(await page.evaluate(() => window.__capCalls), ['App.exitApp']);
   }, { init });
 });
+
+// 裝置端 AI（ADR-0014）：App 裡先用系統模型判斷，請求帶 deviceJudge，畫面說明「在手機上判斷」；外掛壞掉時照常回答
+test('裝置端 AI：deviceJudge 跟著請求送出、說明來源；外掛失敗時照常回答', async () => {
+  const init = (fail) => {
+    window.Capacitor = {
+      isNativePlatform: () => true, getPlatform: () => 'ios', addListener: () => ({ remove() {} }),
+      nativePromise: (plugin, method) => {
+        if (plugin !== 'AbangEdgeAI') return Promise.reject(new Error('not in test'));
+        if (fail) return Promise.reject(new Error('unavailable'));
+        return Promise.resolve(method === 'judge' ? { engine: 'apple', result: { intent: 'aqi', states: [] } } : {});
+      },
+    };
+  };
+  for (const fail of [false, true]) {
+    await withPage(DEVICES.phone, '#/agent', async (page) => {
+      const bodies = [];
+      page.on('request', (r) => { if (r.url().endsWith('/api/v1/agent') && r.method() === 'POST') bodies.push(JSON.parse(r.postData())); });
+      await page.fill('.chat-form input', '今天空氣好嗎');
+      await page.press('.chat-form input', 'Enter');
+      await page.waitForSelector('.bubble.final', { timeout: 20000 });
+      assert.equal(await page.locator('.msg.error').count(), 0);
+      if (fail) {
+        assert.ok(bodies.every((b) => !b.deviceJudge), '外掛失敗：不帶提示');
+        assert.doesNotMatch(await page.textContent('.agent-mode'), /Apple Intelligence/);
+      } else {
+        assert.deepEqual(bodies[0].deviceJudge, { intent: 'aqi', states: [], engine: 'apple' });
+        assert.match(await page.textContent('.agent-mode'), /先在手機上以 Apple Intelligence 判斷/);
+      }
+    }, { init, initArg: fail, ignore: /not in test/ });
+  }
+});

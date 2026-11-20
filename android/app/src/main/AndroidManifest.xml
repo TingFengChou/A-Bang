@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- ML Kit GenAI 需要 API 26；App 仍支援 24，外掛在 26 以下直接回不可用（AbangEdgeAIPlugin.osOk） -->
+    <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.prompt,com.google.mlkit.genai.common,com.google.mlkit.genai.schema" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

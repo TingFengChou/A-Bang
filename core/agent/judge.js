@@ -28,6 +28,8 @@ export const JUDGE_INTENTS = {
 };
 export const JUDGE_STATES = ['rush', 'luggage', 'budget', 'lessWalk', 'rain', 'badAir'];
 export const CONFIDENT = 0.8;
+/** 裝置端判斷的引擎（ADR-0014）：Apple Intelligence（Foundation Models）、Gemini Nano（ML Kit GenAI）、App 內分類器 */
+export const DEVICE_ENGINES = ['apple', 'gemini-nano', 'web'];
 
 const embedText = (it) => `query: ${it.history?.length ? `前文：${it.history.at(-1)}；這句：` : ''}${it.text}`;
 const dot = (a, b) => a.reduce((s, v, i) => s + v * b[i], 0);
@@ -104,25 +106,28 @@ export function createLlmJudge({ url, model, apiKey, prompt, fetchImpl = fetch, 
 /**
  * 組合判斷（見檔頭）。embed／llm 任一可為 null；兩個都沒有時等同規則。
  * @param {{ embed?: Function|null, llm?: Function|null, threshold?: number }} parts
- * @returns {(text: string, history?: string[]) => Promise<{ intent: string, states: string[], confidence: number|null, source: 'embed'|'llm'|'rules', llmUsed: boolean }>}
+ * @returns {(text: string, history?: string[], opts?: { device?: { intent: string, states: string[], engine: string } }) => Promise<{ intent: string, states: string[], confidence: number|null, source: 'embed'|'llm'|'device'|'rules', llmUsed: boolean, engine?: string }>}
  */
 export function createJudge({ embed = null, llm = null, threshold = CONFIDENT } = {}) {
-  const run = async (text, history = [], { quick = false } = {}) => {
+  const run = async (text, history = [], { quick = false, device = null } = {}) => {
+    // 裝置端提示（ADR-0014：手機上的 Apple Intelligence／Gemini Nano 先判斷好）：伺服器沒有自己的模型（B）時當作 B；
+    // 有 B 時只用在快速版（評測：A＋規則＋Gemini Nano 全對 89.0%，A＋規則＋地端 qwen3:8b 89.5%，docs/research/edge-eval.md）
+    const dev = device && (quick || !llm) ? { intent: device.intent, states: device.states || [] } : null;
     const it = { text, ...(history.length && { history }) };
     const rules = parseIntent(text, { history: history.map((content) => ({ role: 'user', content })) });
     const a = embed ? await embed(it).catch(() => null) : null;
     const sure = a && a.confidence >= threshold;
-    const wantLlm = !quick && !rules.followUp && llm && (!sure || a.intent === 'trip' || rules.intent === 'trip');
-    const b = wantLlm ? await llm(it).catch(() => null) : null;
+    const wantLlm = !dev && !quick && !rules.followUp && llm && (!sure || a.intent === 'trip' || rules.intent === 'trip');
+    const b = dev || (wantLlm ? await llm(it).catch(() => null) : null);
     // 接著上一輪改行程（「改成公車 601」「我很趕」）：規則看得到前文，以它為準（分類器只看這一句，會誤判成查公車）
     const intent = rules.followUp ? 'trip' : sure ? a.intent : b ? b.intent : a ? a.intent : rules.intent;
     const agree = a && b ? a.states.filter((k) => b.states.includes(k)) : [];
     const states = [...new Set([...rules.states.filter((k) => JUDGE_STATES.includes(k)), ...agree])];
-    return { intent, states, confidence: a?.confidence ?? null, source: rules.followUp ? 'rules' : sure ? 'embed' : b ? 'llm' : a ? 'embed' : 'rules', llmUsed: Boolean(b), ...(rules.followUp && { followUp: true, states: [...new Set([...rules.states, ...states])] }), ...(rules.mode && { mode: rules.mode }) };
+    return { intent, states, confidence: a?.confidence ?? null, source: rules.followUp ? 'rules' : sure ? 'embed' : b ? (dev ? 'device' : 'llm') : a ? 'embed' : 'rules', llmUsed: Boolean(b && !dev), ...(dev && { engine: device.engine }), ...(rules.followUp && { followUp: true, states: [...new Set([...rules.states, ...states])] }), ...(rules.mode && { mode: rules.mode }) };
   };
-  const judge = (text, history) => run(text, history);
-  /** 快速版：只用 A＋規則（幾毫秒），讓阿幫一送出就能說聽懂了什麼；完整版（含模型）之後再補狀態 */
-  judge.quick = (text, history) => run(text, history, { quick: true });
+  const judge = (text, history, opts = {}) => run(text, history, opts);
+  /** 快速版：只用 A＋規則（幾毫秒；有裝置端提示也一起用），讓阿幫一送出就能說聽懂了什麼；完整版（含模型）之後再補狀態 */
+  judge.quick = (text, history, opts = {}) => run(text, history, { ...opts, quick: true });
   return judge;
 }
 
@@ -154,7 +159,7 @@ export function judgeFromEnv(env = process.env, { log = () => {} } = {}) {
       return false;
     }
   })();
-  const judge = (text, history) => current(text, history);
-  judge.quick = (text, history) => current.quick(text, history);
+  const judge = (text, history, opts) => current(text, history, opts);
+  judge.quick = (text, history, opts) => current.quick(text, history, opts);
   return { judge, ready, info: () => ({ enabled: true, embed: Boolean(state.embed), llm: Boolean(state.llm), ...(state.error && { error: state.error }) }) };
 }

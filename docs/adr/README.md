@@ -17,6 +17,7 @@
 | [0011](0011-actions-via-links-and-providers.md) | 導航、訂票、叫車以官方連結＋provider adapter 實作 | 已採用 | `core/providers/`、L2 tools |
 | [0012](0012-model-providers.md) | 網頁 agent 的模型可選 Claude 或地端模型 | 已採用・M5-05 | `core/agent/` |
 | [0013](0013-native-app-capacitor.md) | 手機 App 用 Capacitor 包現有網頁 | 已採用 | `android/`、`ios/`、`scripts/build-app.js` |
+| [0014](0014-edge-ai.md) | 裝置端 AI：手機上判斷意圖與狀態（Apple Intelligence、Gemini Nano） | 已採用 | `AbangEdgeAI` 外掛、`public/js/edge-judge.js`、`judge.js` |
 
 範本：
 
