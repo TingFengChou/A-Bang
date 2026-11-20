@@ -1,7 +1,7 @@
 // Agent 共用執行器（M5-04，AGENT.md §2–§3）：呼叫 tool → tool_start／tool_result；plan_trip 時發 decision。
 // 示範模式（demo-intent）與模型模式（model-loop.js：Claude／地端，M5-05）共用 execTools，事件流相同。不加假延遲（ADR-0009）。
 import { z } from 'zod';
-import { callTool } from '../tools/index.js';
+import { callTool, listTools } from '../tools/index.js';
 import { UserError, publicMessage } from '../util.js';
 import { ev } from './events.js';
 import { getProfile } from '../agents/index.js';
@@ -17,9 +17,20 @@ const PLANNERS = {
   antifraud: { parse: parseAntifraud, steps: antifraudSteps, summary: antifraudSummary, needsLocation: () => false },
 };
 
+/** 工具英文名稱（metro_stations、plan_trip…）→ 口語名稱「…」：使用者不該看到內部名稱（地端模型會照抄工具說明，2026-11-21 實機）。
+ *  網址裡的字不動；名稱前後的引號、空白、() 一起換掉，句子才通順。 */
+const TOOL_SAY = { plan_trip: '行程比較', find_place: '地點查詢' };
+const TOOL_NAMES = new Map(listTools().map((t) => [t.name, TOOL_SAY[t.name] || t.title || '查詢']));
+export function hideToolNames(text) {
+  return String(text ?? '').replace(/(https?:\/\/\S+)|\s?[「『"`]?\b([a-z]+(?:_[a-z0-9]+)+)\b(?:\(\))?[」』"`]?\s?/g, (m, url, name) => {
+    if (url || !TOOL_NAMES.has(name)) return m;
+    return `「${TOOL_NAMES.get(name)}」`;
+  });
+}
+
 /** 最後的文字經輸出護欄（L2）：有改寫時先送 guardrail 事件 */
 export function guardedText(profile, text, emit) {
-  const g = applyOutputGuardrails(profile, text);
+  const g = applyOutputGuardrails(profile, hideToolNames(text));
   for (const h of g.hits) emit(ev.guardrail(h));
   return g.text;
 }
@@ -197,6 +208,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
       return;
     }
     if (loc) it.fromPoint = loc; // 拒絕定位或無效時，照示範預設起點（總結會說明）
+    else it.noLocation = true; // 總結說「沒拿到你的位置」（不是「你沒說」）
   }
   // 使用者點選的狀態一併交給 plan_trip 計分
   if (picked.length && it.states) it.states = [...new Set([...it.states, ...picked])];

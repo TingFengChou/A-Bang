@@ -44,7 +44,7 @@ export function createMockMetroServices() {
   const metro = {
     async stations({ system }) {
       const op = mustSystem(system);
-      return STATIONS[op].map(([id, name, , lat, lon]) => ({ id, ids: [id], name, lat, lon }));
+      return STATIONS[op].map(([id, name, lines, lat, lon]) => ({ id, ids: [id], name, lat, lon, lines }));
     },
     async liveBoard({ system, station }) {
       const op = mustSystem(system);

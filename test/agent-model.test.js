@@ -83,15 +83,17 @@ test('Claude：工具前的文字 → agent_note、工具事件與 decision、�
     { text: '建議搭捷運，大約 20 分鐘。要我幫你開導航嗎？' },
   ]);
   const es = await run(claude(), '從西門町到台北 101 怎麼去？', { userState: { picked: ['budget'] } });
-  // 想省錢 → 決策選公車 → 阿幫自動盯上車站（L-14：不靠模型記得要查）
-  assert.deepEqual(types(es), ['status', 'agent_note', 'tool_start', 'tool_start', 'tool_result', 'tool_result', 'agent_note', 'tool_start', 'tool_result', 'decision', 'agent_note', 'tool_start', 'tool_result', 'discussion_end', 'text', 'done']);
-  assert.match(es[10].text, /^@公車 你選了公車，我幫你盯/);
-  assert.equal(es[12].tool, 'bus_route_eta');
-  assert.equal(es[12].card, 'bus-route');
-  assert.ok(es[12].data.focus, '卡片聚焦上車站');
+  // 起訖點都知道 → 程式先比較（plan_trip），想省錢 → 決策選公車 → 阿幫自動盯上車站（L-14：不靠模型記得要查）；
+  // 模型之後用同樣條件呼叫 plan_trip 沿用結果（不再出現第二張卡片）
+  assert.deepEqual(types(es), ['status', 'tool_start', 'tool_result', 'decision', 'agent_note', 'tool_start', 'tool_result', 'agent_note', 'tool_start', 'tool_start', 'tool_result', 'tool_result', 'agent_note', 'discussion_end', 'text', 'done']);
+  assert.match(es[4].text, /^@公車 你選了公車，我幫你盯/);
+  assert.equal(es[6].tool, 'bus_route_eta');
+  assert.equal(es[6].card, 'bus-route');
+  assert.ok(es[6].data.focus, '卡片聚焦上車站');
+  assert.equal(es.filter((e) => e.type === 'decision').length, 1);
   assert.deepEqual(es.find((e) => e.type === 'discussion_end').tools.sort(), ['bus_route_eta', 'find_place', 'plan_trip']);
   assert.deepEqual([es[0].mode, es[0].model], ['claude', 'claude-haiku-5-5']);
-  assert.equal(es[1].text, '@地點 先確認兩個地點');
+  assert.equal(es[7].text, '@地點 先確認兩個地點');
   assert.ok(es.filter((e) => e.type === 'tool_result').every((e) => e.ok && e.speak));
   // 使用者點選的狀態一律交給 plan_trip（模型沒帶也會補上）
   assert.ok(es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip').args.prefs.states.includes('budget'));
@@ -245,7 +247,7 @@ test('地端：參數不是 JSON → 不執行該工具，回填錯誤讓模型�
     { message: { role: 'assistant', content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 'find_place', arguments: '{query:台北' } }] } },
     { message: { role: 'assistant', content: '請再說一次地名。' } },
   ]);
-  const es = await run(local(), '台北');
+  const es = await run(local(), '幫我找一個地方'); // 不是行程（只打地名會由程式先比較行程）
   assert.ok(!es.some((e) => e.type === 'tool_start'));
   assert.match(state.reqs[1].messages.at(-1).content, /不是有效的 JSON/);
 });

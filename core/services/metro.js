@@ -59,7 +59,8 @@ export function createMetroServices(tdx) {
           ...(Number.isFinite(p.PositionLat) && Number.isFinite(p.PositionLon) && { lat: p.PositionLat, lon: p.PositionLon }),
         });
       }
-      return [...byName.values()];
+      // 經過的線（代碼字首：BL12 → BL；同名多線合併後有多條）
+      return [...byName.values()].map((st) => ({ ...st, lines: [...new Set(st.ids.map((i) => /^[A-Z]+/.exec(i)?.[0]).filter(Boolean))] }));
     },
 
     /** 某站即時到站（各線各方向） */

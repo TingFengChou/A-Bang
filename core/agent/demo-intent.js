@@ -1,6 +1,7 @@
 // 示範模式意圖解析（M5-03，AGENT.md §5）：沒有 API Key 時，以規則判斷意圖、地點與使用者狀態，
 // 產生「分段的工具呼叫計畫」；由 run.js 執行並發出與 Claude 模式相同的事件流。不加人工延遲。
 import { LANDMARKS, normPlace } from '../services/places.js';
+import { NEXT_STEP } from '../tools/trip.js';
 import { nowTW } from '../util.js';
 
 // ── 使用者狀態關鍵字（AGENT.md §5） ──
@@ -105,13 +106,39 @@ export function placesInText(text) {
   return hits.sort((a, b) => a.index - b.index).map((h) => h.name);
 }
 
-/** 「8 點前」「8:30 前」「早上 8 點半前」→ 'HH:mm' */
+/** 兩個地點的起訖：「從 X」「X 出發」是起點，「去／到／往 Y」是終點；看不出來照出現順序（「X 到 Y」） */
+function orderFromTo(s, places) {
+  const at = (p) => s.indexOf(p);
+  const from = places.find((p) => at(p) >= 0 && (new RegExp(`從\\s*$`).test(s.slice(0, at(p))) || /^\s*出發/.test(s.slice(at(p) + p.length))));
+  const to = places.find((p) => p !== from && at(p) >= 0 && /(?:去|到|往|抵達)\s*$/.test(s.slice(0, at(p))));
+  if (from && to) return [from, to];
+  if (from) return [from, places.find((p) => p !== from)];
+  if (to && !/^(?:到|去|往)/.test(s.trim())) return [places.find((p) => p !== to), to];
+  return places.slice(0, 2);
+}
+
+/** 中文數字（一～五十九、兩）→ 數字；阿拉伯數字照轉；看不懂回 NaN */
+export function zhNum(t) {
+  if (/^\d+$/.test(t)) return Number(t);
+  const D = { 零: 0, 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+  const m = /^([一二三四五]?)(十?)([一二兩三四五六七八九]?)$/.exec(t);
+  if (!m || !t) return NaN;
+  if (!m[2]) return m[1] ? NaN : D[m[3]] ?? NaN; // 「九」
+  return (m[1] ? D[m[1]] : 1) * 10 + (m[3] ? D[m[3]] : 0); // 「十」「十二」「二十五」
+}
+
+/**
+ * 抵達時間 → 'HH:mm'：「8 點前」「8:30 前」「早上 8 點半前」「九點半前」「下午兩點前到」「早上10點到」「10點要到」。
+ * 只認「前」或「到／抵達」（「10點出發」是出發時間，不算）。下午、晚上、傍晚的 1～11 點加 12。
+ */
 export function arriveByOf(text) {
-  const m = /(\d{1,2})\s*(?:[點:：時])\s*(半|\d{1,2})?\s*分?\s*(?:以前|之前|前)/.exec(text);
+  const N = '\\d{1,2}|[一二兩三四五六七八九十]{1,3}';
+  const m = new RegExp(`(${N})\\s*(?:[點:：時])\\s*(半|${N})?\\s*分?\\s*(?:以前|之前|前|(?:要|會|得)?(?:到|抵達))`).exec(text);
   if (!m) return null;
-  let h = Number(m[1]);
-  const min = m[2] === '半' ? 30 : Number(m[2] || 0);
-  if (/下午|晚上/.test(text) && h < 12) h += 12;
+  let h = zhNum(m[1]);
+  const min = m[2] === '半' ? 30 : m[2] ? zhNum(m[2]) : 0;
+  if (!Number.isFinite(h) || !Number.isFinite(min)) return null;
+  if (/下午|晚上|傍晚/.test(text) && h < 12) h += 12;
   if (h > 23 || min > 59) return null;
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
@@ -182,6 +209,9 @@ export function parseIntent(text, ctx) {
     const m = /捷運\s*([一-龥]{2,6}?)站/.exec(s);
     if (m) return { ...base, intent: 'metro', station: m[1] };
   }
+  // 問捷運下一班但沒說站（「板南線下一班幾分」「捷運還要等多久」）→ 用現在位置最近的站（needsLocation）
+  // 句子裡有地標（「台北車站捷運下一班」）→ 找那裡最近的站（near），不用現在位置
+  if ((/捷運|MRT/i.test(s) || METRO_LINE.test(s)) && METRO_ASK.test(s) && !/站/.test(s.replace(/車站/g, ''))) return { ...base, intent: 'metro', station: null, line: METRO_LINE.exec(s)?.[0] || null, ...(places[0] && { near: places[0] }) };
   const life = lifeIntent(s);
   if (life) return { ...base, ...life };
   const route = BUS_ROUTE.exec(s)?.[1];
@@ -189,8 +219,8 @@ export function parseIntent(text, ctx) {
   if (/youbike|ubike|微笑單車|單車|腳踏車/i.test(s) && !(places.length && /去|到|往/.test(s))) return { ...base, intent: 'youbike' }; // 「騎 YouBike 去 X」是行程
   if (/附近/.test(s) && /公車|站牌/.test(s)) return { ...base, intent: 'nearby_bus' };
   // 行程：只說目的地（「去台北101」「想省錢，去松山機場」，甚至只打地名）→ 起點用現在位置（needsLocation）
-  if (places.length && (/從.+(到|去)|怎麼去|怎麼走|要到|前到|想去|要去|帶我去|去.+怎麼|(?:^|[，,、\s])(?:去|到|往)\s*\S|(?:坐|搭|騎|用|開車|走路).{0,8}(?:去|到|往)/.test(s) || onlyPlace(s, places))) {
-    const [from, to] = places.length >= 2 ? places : [FROM_TEXT.exec(s)?.[1] ?? null, places[0]]; // 明講的起點優先
+  if (places.length && (/從.+(到|去)|出發\s*(?:去|到|往)|怎麼去|怎麼走|要到|前到|想去|要去|帶我去|去.+怎麼|(?:^|[，,、\s])(?:去|到|往)\s*\S|(?:坐|搭|騎|用|開車|走路).{0,8}(?:去|到|往)/.test(s) || onlyPlace(s, places))) {
+    const [from, to] = places.length >= 2 ? orderFromTo(s, places) : [FROM_TEXT.exec(s)?.[1] ?? null, places[0]]; // 明講的起點優先
     return { ...base, intent: 'trip', from, to, ...(mode && { mode }) };
   }
   if (WEATHER_WORD.test(s)) return { ...base, intent: 'weather' };
@@ -213,7 +243,7 @@ function slotsFor(intent, s, base) {
     }
     case 'metro': {
       const m = /(?:捷運|MRT)?\s*([一-龥]{2,6}?)站/i.exec(s);
-      return m ? { ...base, intent, station: m[1] } : null;
+      return m ? { ...base, intent, station: m[1] } : { ...base, intent, station: null, line: METRO_LINE.exec(s)?.[0] || null, ...(base.places?.[0] && { near: base.places[0] }) }; // 沒說站：最近的站
     }
     case 'bus_route': {
       const route = BUS_ROUTE.exec(s)?.[1] || /(?:^|[^\d])([紅藍綠棕橘小幹]?\d{1,4}[區副]?)(?!\d)/.exec(s)?.[1];
@@ -238,6 +268,10 @@ export const DEFAULT_FROM = '臺北車站'; // 示範：沒說起點也拿不到
 export const DEFAULT_AREA = '臺北市中正區';
 export const INVOICE_WALLET_HINT = '要不要把發票存到「我的發票」？可以直接掃發票左邊的 QR code，號碼只存在你的手機，開獎後打開阿幫就自動幫你對獎（首頁 → 發票對獎）。'; // 示範：查藥局沒說地區時（臺北車站所在的區）
 
+/** 捷運路線名（台北、桃園、台中、高雄）與「下一班」類問法 */
+const METRO_LINE = /(?:板南|淡水信義|淡水|信義|松山新店|松山|新店|中和新蘆|新蘆|文湖|環狀|萬大|機場|綠|紅|橘|藍|棕|黃)線/;
+const METRO_ASK = /下一班|幾分|多久|還要等|到站|來了沒|什麼時候來/;
+
 /** 以座標查「附近」的意圖：工具與點名 */
 const NEARBY = {
   youbike: ['youbike_nearby', '@YouBike 附近還有車嗎'],
@@ -249,7 +283,7 @@ const NEARBY = {
 const isNearby = (it) => Object.hasOwn(NEARBY, it.intent);
 
 /** 需要使用者所在位置嗎（行程沒起點；附近類查詢沒地點） */
-export const needsLocation = (it) => (it.intent === 'trip' && !it.from) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]);
+export const needsLocation = (it) => (it.intent === 'trip' && !it.from) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]) || (it.intent === 'metro' && !it.station && !it.near);
 
 /**
  * 意圖 → 分段計畫。每段 `(results) => ({ note, calls })`，results 是之前各段的 callTool 結果（依名稱）。
@@ -306,6 +340,11 @@ export function demoSteps(it, now = Date.now()) {
       ];
     }
     case 'metro':
+      if (!it.station) { // 沒說站：句子裡的地標或現在位置最近的捷運站（拿不到位置就用預設地點）；說了路線只找這條線
+        const near = it.near || (it.fromPoint ? ll(it.fromPoint) : DEFAULT_FROM);
+        const where = it.near ? `「${it.near}」` : it.fromPoint ? '離你' : `「${DEFAULT_FROM}」`;
+        return [() => ({ note: `@捷運 找${where}最近的${it.line || ''}站，看下一班`, calls: [{ name: 'metro_live_board', args: { near, ...(it.line && { line: it.line }) } }] })];
+      }
       return [() => ({ note: `@捷運 ${it.station}站下一班`, calls: [{ name: 'metro_live_board', args: { system: 'TRTC', station: it.station } }] })];
     case 'rail': {
       const name = it.system === 'THSR' ? 'thsr_timetable' : 'tra_timetable';
@@ -336,7 +375,7 @@ export function demoSummary(it, results, suggestions = []) {
   if (!last) return '這次沒查到資料，換個說法或加上地名試試看。';
   if (it.intent === 'trip') {
     const trip = results.plan_trip?.[0];
-    const pre = it.from || it.fromPoint ? '' : `（你沒說從哪出發，我先用「${DEFAULT_FROM}」算。）`;
+    const pre = it.from || it.fromPoint ? '' : it.noLocation ? `（沒拿到你的位置，先從「${DEFAULT_FROM}」算；告訴我從哪出發就重算。）` : `（你沒說從哪出發，我先用「${DEFAULT_FROM}」算。）`;
     // 選了公車：阿幫已自動盯上車站（run.js busFollowUp）→ 講公車多久到、主動問要不要到站提醒
     const bus = results.bus_route_eta?.at(-1)?.data?.focus && results.bus_route_eta.at(-1);
     if (trip && bus) {
@@ -345,10 +384,13 @@ export function demoSummary(it, results, suggestions = []) {
       const miss = walk && f.status === 0 && f.etaSec != null && f.etaSec < walk * 60; // 走過去要比車到還久
       return `${pre}${trip.data.ranking.reason} ${bus.speak.replace(/。$/, '')}${walk ? `，走過去約 ${walk} 分` : ''}${miss ? '，這班可能趕不上。要我在下一班快到時提醒你嗎？' : '。要我在公車快到站時提醒你嗎？'}按卡片上的「到站前 3 分提醒我」。`;
     }
-    return trip ? `${pre}${trip.data.ranking.reason}${trip.data.best ? ' 要我幫你開導航嗎？' : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
+    // 下一步依建議方式（叫車按官方連結、步行導航…；不再一律問「要我幫你開導航嗎」）
+    const role = trip?.data.options.find((o) => o.id === trip.data.best)?.role;
+    return trip ? `${pre}${trip.data.ranking.reason}${NEXT_STEP[role] ? ` 下一步：${NEXT_STEP[role]}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
   }
   // 沒說地點時用了示範預設，先講清楚
-  const pre = isNearby(it) && !it.places[0] && !it.fromPoint ? `（你沒說在哪，我先查「${DEFAULT_FROM}」附近。）`
+  const pre = (isNearby(it) || (it.intent === 'metro' && !it.station && !it.near)) && !it.places[0] && !it.fromPoint
+    ? (it.noLocation ? `（沒拿到你的位置，先查「${DEFAULT_FROM}」附近；告訴我地點就重查。）` : `（你沒說在哪，我先查「${DEFAULT_FROM}」附近。）`)
     : it.intent === 'pharmacy' && !it.area ? `（你沒說哪一區，我先查「${DEFAULT_AREA}」。）`
     : it.intent === 'stock' && it.advice ? NO_ADVICE : '';
   // 發票：主動提議存到「我的發票」，開獎後自動對獎（號碼只存在手機）

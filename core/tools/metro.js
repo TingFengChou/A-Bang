@@ -1,6 +1,9 @@
 // 工具包：transit（交通）／捷運 — 風險分級 L1
 import { z } from 'zod';
-import { defineTool, clip } from './define.js';
+import { defineTool, T, clip } from './define.js';
+import { distanceM, normName, UserError } from '../util.js';
+import { TdxError } from '../tdx-client.js';
+import { resolvePoint } from '../services/places.js';
 import { withNav, navLinks } from '../nav.js';
 import { METRO_SYSTEMS } from '../services/metro.js';
 
@@ -23,22 +26,70 @@ export const metroStations = defineTool({
 export const metroLiveBoard = defineTool({
   name: 'metro_live_board',
   title: '捷運即時到站',
-  description: '查詢捷運某一站各線各方向的下一班車還有幾分鐘到站（etaMin 為分鐘），依到站時間排序；附車站導航連結 nav。站名不確定時先用 metro_stations。',
+  description: '查詢捷運某一站各線各方向的下一班車還有幾分鐘到站（etaMin 為分鐘），依到站時間排序；附車站導航連結 nav。站名不確定時先用 metro_stations。使用者沒說站名時給 near（他現在的位置），自動用離他最近的捷運站（3 公里內）；說了路線（例：文湖線）時給 line，只找這條線的站、只列這條線的車。',
   pack: PACK, tier: 'L1', card: 'metro',
-  input: { system, station: z.string().trim().min(1).max(30).describe('站名或代碼，例如 台北車站、市政府、BL12') },
+  input: {
+    system: system.optional().describe('捷運系統；有 near 時可省略（找各系統裡最近的站）'),
+    station: z.string().trim().min(1).max(30).optional().describe('站名或代碼，例如 台北車站、市政府、BL12；沒說站名時省略並給 near'),
+    near: T.point('使用者現在的位置（沒說站名時用）：自動找最近的捷運站').optional(),
+    line: z.string().trim().max(10).optional().describe('路線名稱或代碼（選填），例如 板南線、文湖線、BL、BR'),
+  },
   speak: (d) => {
     const t = d.trains.find((x) => x.etaMin != null);
+    const lineSay = t?.line ? `${t.line}` : '';
+    const train = t && (t.etaMin <= 1 ? `${lineSay}往${t.destination}的車${t.status}` : `${lineSay}最快 ${t.etaMin} 分鐘後有往${t.destination}的車`);
+    if (d.nearest) {
+      // 用預設地點（沒拿到位置）時不說「離你」；地點就是那一站時不重複（「臺北車站」→ 台北車站）
+      const same = d.nearest.from && normName(d.nearest.from).replace(/站$/, '') === normName(d.station).replace(/站$/, '');
+      const who = !d.nearest.from ? `離你最近的是${d.station}（約 ${fmtM(d.nearest.distanceM)}）` : same ? d.station.replace(/(?<!站)$/, '站') : `離「${d.nearest.from}」最近的是${d.station}（約 ${fmtM(d.nearest.distanceM)}）`;
+      return train ? `${who}：${train}。` : `${who}目前沒有即時到站資料。`;
+    }
     if (!t) return `${d.station}目前沒有即時到站資料。`;
-    return t.etaMin <= 1 ? `${d.station}往${t.destination}的車${t.status}。` : `${d.station}最快 ${t.etaMin} 分鐘後有往${t.destination}的車。`;
+    return `${d.station}${t.etaMin <= 1 ? `往${t.destination}的車${t.status}` : `最快 ${t.etaMin} 分鐘後有往${t.destination}的車`}。`;
   },
   async run(svc, a) {
-    const raw = await svc.metro.liveBoard(a);
-    const data = { ...raw, nav: navLinks(raw.lat, raw.lon) };
+    const line = lineCode(a.line);
+    const near = !a.station && a.near ? await nearestMetro(svc, await resolvePoint(svc.places, a.near), a.system, line) : null;
+    if (!a.station && !near) throw new UserError(a.near ? `你附近 3 公里內沒有${a.line ? `${a.line}的` : ''}捷運站；請告訴我站名，例如「市政府站下一班」` : '請告訴我哪一站，例如「市政府站下一班」');
+    // 只給站名沒給系統：台北捷運（改版前一律要 system，模型通常帶 TRTC）
+    const raw = await svc.metro.liveBoard(near ? { system: near.system, station: near.station } : { system: a.system || 'TRTC', station: a.station });
+    // 指定路線：只列這條線的車（看板其他線的車放後面不列）
+    const trains = line ? raw.trains.filter((t) => (t.lineId || '').startsWith(line)) : raw.trains;
+    const data = { ...raw, trains: line && trains.length ? trains : raw.trains, nav: navLinks(raw.lat, raw.lon), ...(near && { nearest: { distanceM: near.distanceM, ...(typeof a.near === 'string' && { from: a.near }) } }) };
     const text = data.trains.length
       ? clip([`${METRO_SYSTEMS[data.system]} ${data.station} 即時到站（更新：${data.updatedAt}）`, ...data.trains.map((t) => `- ${t.line} 往 ${t.destination}：${t.status}`)])
       : `${METRO_SYSTEMS[data.system]} ${data.station} 目前沒有即時到站資料（部分系統只在營運時段、或只提供部分車站看板）。`;
     return { data, text };
   },
 });
+
+const fmtM = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} 公里` : `${m} 公尺`);
+const NEAR_MAX_M = 3000;
+
+/** 路線名稱 → 代碼字首（台北、桃園；顏色也通）；看不懂回 null */
+const LINE_CODES = [[/板南|藍/, 'BL'], [/淡水信義|淡水|信義|紅/, 'R'], [/松山新店|松山|新店|綠/, 'G'], [/中和新蘆|新蘆|橘/, 'O'], [/文湖|棕/, 'BR'], [/環狀|黃/, 'Y'], [/萬大/, 'LG'], [/機場/, 'A']];
+export function lineCode(line) {
+  if (!line) return null;
+  const s = String(line).trim();
+  if (/^[A-Z]{1,2}$/i.test(s)) return s.toUpperCase();
+  return LINE_CODES.find(([re]) => re.test(s))?.[1] || null;
+}
+
+/** 離某點最近的捷運站（指定系統只找該系統；指定路線只找這條線的站）；超過 3 公里回 null；各系統都查不到丟 TdxError */
+export async function nearestMetro(svc, pt, only, line = null) {
+  if (!pt) return null;
+  const systems = only ? [only] : Object.keys(METRO_SYSTEMS);
+  const lists = await Promise.allSettled(systems.map((sys) => svc.metro.stations({ system: sys })));
+  if (lists.every((r) => r.status === 'rejected')) throw new TdxError(503, '捷運車站資料暫時查不到，請稍後再試');
+  let best = null;
+  lists.forEach((r, i) => {
+    for (const s of r.status === 'fulfilled' ? r.value : []) {
+      if (!Number.isFinite(s.lat) || (line && !(s.lines || []).includes(line))) continue;
+      const m = Math.round(distanceM(pt.lat, pt.lon, s.lat, s.lon));
+      if (!best || m < best.distanceM) best = { system: systems[i], station: s.name, distanceM: m };
+    }
+  });
+  return best && best.distanceM <= NEAR_MAX_M ? best : null;
+}
 
 export default [metroStations, metroLiveBoard];
