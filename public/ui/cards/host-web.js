@@ -2,6 +2,7 @@
 // MCP Apps 版（host-mcp-app.js）於 M4-04 實作。
 
 import { hasNativeNotify, ensureNotifyPermission, scheduleNotify, cancelNotify, NOTIFY_ID, EARLY_MS } from '../../js/native-notify.js';
+import { addReminder, cancelReminder, notifyState } from '../../js/reminders.js';
 
 // 到站提醒（L-14）：整個頁面共用一個；SPA 換頁仍繼續，網頁版關掉就停止（網頁沒有背景推播）。
 // 手機 App（M11-02）：每次查到到站時間，就把「該出門了」的本機通知排到預估的時間（同一則覆蓋更新）；
@@ -107,22 +108,19 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
     ask: ask || (() => {}),
     setContext: setContext || (() => {}),
     /**
-     * 裝置端提醒（UX.md §6）：今天 HH:mm（裝置時間）以系統通知提醒；需使用者允許通知、且頁面保持開啟。
-     * @returns {Promise<boolean>} 是否設定成功
+     * 出門提醒（UX.md §6、T7）：今天 HH:mm（裝置時間）。可以有多筆、可以取消（public/js/reminders.js）。
+     * 手機 App 用系統本機通知（App 關著也會響）；網頁要允許通知、頁面開著才會響。
+     * @returns {Promise<string|false>} 提醒 id（可傳給 cancelRemind）；失敗回 false
      */
     async remind(at, text) {
       const [h, m] = String(at).split(':').map(Number);
       const when = new Date(); when.setHours(h, m, 0, 0);
-      const delay = when.getTime() - Date.now();
-      if (!(delay > 0 && delay < 12 * 3600e3)) return false;
-      // 手機 App：系統本機通知，App 關著也會響
-      if (hasNativeNotify()) return (await ensureNotifyPermission()) && scheduleNotify(NOTIFY_ID.leave, when, '阿幫提醒', text);
-      if (typeof Notification === 'undefined') return false;
-      const perm = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
-      if (perm !== 'granted') return false;
-      setTimeout(() => { try { new Notification('阿幫提醒', { body: text, icon: '/icons/icon.svg' }); } catch { /* 部分瀏覽器只允許 SW 通知 */ } }, delay);
-      return true;
+      return addReminder(when, text);
     },
+    /** 取消出門提醒 */
+    cancelRemind: (id) => cancelReminder(id),
+    /** 通知權限現況（不跳對話框）：卡片在第一次要權限前先說明為什麼 */
+    notifyState: () => notifyState(),
     /**
      * 公車到站提醒（L-14）：到站前 minutes 分通知一次。先要通知權限（拒絕時仍以 App 內 toast 提醒）。
      * @param {{ city: string, routeName: string, stop: string, direction?: number, minutes: number }} w

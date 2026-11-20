@@ -6,6 +6,7 @@ import { autoCheckOnOpen } from './invoice-wallet.js';
 import { createWebHost } from '../ui/cards/host-web.js';
 import { watchKeyboard } from './keyboard.js';
 import { showOnboarding } from './onboarding.js';
+import { restoreReminders } from './reminders.js';
 import home from './pages/home.js';
 import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
@@ -100,6 +101,8 @@ function bannerHtml({ mode, sources }) {
 addEventListener('hashchange', navigate);
 navigate();
 api.status().then(() => paintBanner()).catch(() => {});
+// 出門提醒（T7）：過期的取消（重開機後不補送）、網頁版重新整理後把還沒到的排回去
+try { restoreReminders(); } catch { /* 無痕模式 */ }
 // 我的發票：開獎後打開 App 就自動對獎、中獎主動通知（本機資料，離線 Demo 沒有伺服器時不做）
 const checkPrizes = () => {
   if (globalThis.__DEMO_SERVICES__) return;
