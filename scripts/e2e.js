@@ -802,6 +802,22 @@ test('問阿幫：接著問時天氣空品收合同上；重來有分隔線', as
   });
 });
 
+// 下車提醒：公車頁選了上車站，上車後選下車站 → 進行中顯示剩多久與取消
+test('下車提醒：選下車站、進行中、取消', async () => {
+  await withPage(DEVICES.phone, '#/bus/Taipei/307?stop=%E6%95%A6%E5%8C%96%E5%B8%82%E5%A0%B4&dir=0', async (page) => {
+    await page.waitForSelector('.bus-focus .alight select');
+    const options = await page.locator('#alight-dest option').allTextContents();
+    assert.ok(options.length > 3 && !options.includes('敦化市場'), '只列上車站之後的站');
+    const far = options.at(-1); // 選最遠的站（太近的站設定當下就會提醒並結束）
+    await page.selectOption('#alight-dest', far);
+    await page.click('.bus-focus .alight .btn');
+    await page.waitForFunction((d) => document.querySelector('.bus-focus .alight .ok')?.textContent.includes(`快到「${d}」時提醒你`), far);
+    await shot(page, 'phone-alight');
+    await page.click('.bus-focus .alight .btn.ghost');
+    await page.waitForSelector('#alight-dest');
+  });
+});
+
 // 公車一直不來（S15）：盯著的這班延誤時，公車卡片說明並給「改其他方式」（送給阿幫：沿用起訖、排除公車）
 test('公車一直不來：卡片建議改其他方式', async () => {
   await withPage(DEVICES.phone, '#/', async (page) => {
