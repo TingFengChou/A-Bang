@@ -134,3 +134,39 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 .dg-dot { fill: #5eead4; stroke: #fff; stroke-width: 2; filter: drop-shadow(0 0 6px rgba(20,184,166,.9)); }
 /* 決策圖已經講了理由：同一輪的行程卡不再重複一次（設計 review：結論出現三次） */
 .results:has(.decision) [data-card="trip"] .ab-reason { display: none; }
+
+/* 決策圖（會議感版面，2026-11-20）：左資料來源圓點、中間阿幫、右方案膠囊；步驟列；資料膠囊；勝出路徑光點 */
+.dg-step { margin: 0 0 2px; font-size: 12.5px; font-weight: 700; color: var(--brand); min-height: 18px; }
+.dg-src-c { fill: var(--card); stroke-width: 1.6; filter: drop-shadow(0 2px 0 rgba(0,0,0,.08)); }
+.dg-src.win .dg-src-c { stroke-width: 3; }
+.dg-lbl { font-size: 10px; fill: var(--muted); }
+.dg-hub-c { fill: var(--card); stroke: var(--brand); stroke-width: 2; filter: drop-shadow(0 3px 0 rgba(15,118,110,.25)) drop-shadow(0 6px 10px rgba(15,118,110,.2)); }
+.dg-state > rect { fill: var(--card); stroke: var(--brand); }
+.dg-state.src-auto > rect { fill: #eef4fe; stroke: var(--place); }
+.dg-state text { font-size: 10.5px; font-weight: 700; fill: var(--brand); }
+.dg-state.src-auto text { fill: var(--place); }
+.dg-tag { font-weight: 400; font-size: 9.5px; fill: var(--muted); }
+.dg-name { font-size: 12px; font-weight: 600; }
+.dg-score { font-size: 12px; font-weight: 800; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.dg-opt.win .dg-score, .dg-opt.win .dg-name { fill: #fff; }
+.dg-opt.excluded .dg-name { text-decoration: line-through; fill: var(--muted); }
+.dg-opt.excluded .dg-score { fill: var(--bad); font-size: 10px; }
+.dg-out-edge { stroke: #b9cfca; }
+.dg-out-edge.excluded { stroke: #f3b4b4; stroke-dasharray: 3 4; }
+.dg-svg:has(.dg-opt.win) .dg-opt:not(.win):not(.excluded), .dg-svg:has(.dg-opt.win) .dg-out-edge:not(.win) { opacity: .5; }
+.dg-pkt text { font-size: 10.5px; font-weight: 700; fill: #fff; }
+.dg-pkt rect { filter: drop-shadow(0 2px 4px rgba(0,0,0,.2)); }
+.dg-flow-dot { fill: #14b8a6; filter: drop-shadow(0 0 4px rgba(20,184,166,.9)); }
+.decision.gsap .dg-hub, .decision.gsap .dg-src, .decision.gsap .dg-state { animation: none !important; }
+
+/* 小幫手會議（原型的會議感）：討論中虛線框＋標題跳點；結束收合成「頭像堆＋工具數」摘要 */
+.thread.live { border-style: dashed; background: color-mix(in srgb, var(--card) 60%, transparent); }
+.thread-head { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.thread-head .th-title { font-weight: 700; color: var(--brand); }
+.thread-head .say.typing { padding: 0; background: none; border: 0; }
+.thread-sum { display: inline-flex; align-items: center; gap: 8px; }
+.av-stack { display: inline-flex; }
+.av-stack .avatar { width: 22px; height: 22px; margin-left: -6px; box-shadow: 0 0 0 2px var(--card); animation: none; }
+.av-stack .avatar:first-child { margin-left: 0; }
+.av-stack .avatar svg { width: 13px; height: 13px; }
+.av-stack .avatar.mascot img { width: 22px; height: 22px; }

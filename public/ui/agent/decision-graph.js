@@ -10,14 +10,13 @@ const STATE_LABEL = { rush: '趕時間', traffic: '塞車中', rain: '下雨', l
 const SOURCE_LABEL = { auto: '自動', user: '你說的', picked: '你選的' };
 /** 自動狀態連回產生它的工具（UX.md §5 CRIT_SRC） */
 const STATE_SOURCE = { rain: '天氣', traffic: '路況', badAir: '空品' };
-const ROLE_CLASS = { 地點: 'place', 天氣: 'place', 公車: 'bus', YouBike: 'bike', 高鐵: 'rail', 台鐵: 'tra', 捷運: 'brand', 路況: 'car', 客運: 'car', 票價: 'fare', 叫車: 'car', 行程: 'brand' };
 const ADDABLE = ['rush', 'budget', 'lessWalk', 'luggage'];
 /** 方案名稱縮短，分數一定看得到（「叫車（Uber）」→「叫車」） */
 const short = (n) => { const x = String(n).replace(/（.*?）|\(.*?\)/g, ''); return x.length > 6 ? `${x.slice(0, 5)}…` : x; };
 /** 精簡模式：低階裝置或 reduced motion（UX.md §9）——只淡入、不做翻轉與 3D */
 export const lite = () => (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches)
   || (typeof navigator !== 'undefined' && navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4);
-const ROW = 44, COL = [8, 128, 248, 368], W = 480, NODE_W = 104;
+const W = 440, OPT_X = 300, OPT_W = 128;
 
 function el(tag, cls, ...kids) {
   const e = document.createElement(tag);
@@ -58,8 +57,12 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA }) {
 
     // FLIP（M5-11）：記下重算前各方案節點的位置，重畫後從舊位置滑到新位置（重算才做；精簡模式不做）
     const before = new Map([...root.querySelectorAll('.dg-opt[data-id]')].map((g) => [g.dataset.id, g.getBoundingClientRect().top]));
+    stopLoops();
+    const bestOpt = ranked.find((o) => o.id === r.best?.id);
+    last = { ranked, excluded, bestName: bestOpt?.name };
     root.replaceChildren(
       chipsBar(),
+      el('p', 'dg-step', bestOpt ? `④ 決定：${bestOpt.name}` : '④ 決定'),
       graph(ranked, excluded, active, r.best?.id),
       el('p', 'dg-why', reason),
       details(ranked),
@@ -67,51 +70,113 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA }) {
     root.dataset.run = String(run);
     root.dataset.best = r.best?.id ?? '';
     if (before.size && !lite()) flip(before);
-    if (run > 1) root.querySelectorAll('.dg-edge.win').forEach((e) => e.classList.add('flow'));
+    if (run > 1) settle();
   };
 
+  let last = null;
+  let loops = [];
+  const stopLoops = () => { loops.forEach((t) => t.kill?.()); loops = []; };
+
+  /** 決定後的狀態：吉祥物換開心、勝出路徑虛線流動＋光點持續沿勝出連線流向方案 */
+  function settle() {
+    root.querySelector('.dg-mascot')?.setAttribute('href', '/brand/abang-happy.svg');
+    root.querySelectorAll('.dg-edge.win').forEach((e) => e.classList.add('flow'));
+    const g = motion();
+    const winEdge = root.querySelector('.dg-out-edge.win');
+    const svgEl = root.querySelector('.dg-svg');
+    if (!g || !globalThis.MotionPathPlugin || !winEdge || !svgEl) return;
+    for (let i = 0; i < 3; i++) {
+      const dot = svg('circle', { r: 3, class: 'dg-flow-dot' });
+      svgEl.append(dot);
+      loops.push(g.to(dot, { duration: 1.6, delay: i * 0.53, repeat: -1, ease: 'none', motionPath: { path: winEdge, align: winEdge, alignOrigin: [0.5, 0.5] } }));
+    }
+  }
+
   /**
-   * 決策出爐的編排（GSAP 時間軸，約 2.4 秒）：資料亮起 → 連線畫出 → 狀態彈出 → 方案排開 → 落選變淡 → 建議浮起 → 光點沿勝出路徑跑。
-   * 沒有 GSAP、reduced motion 或低階裝置時用原本的 CSS 淡入（或直接顯示）。回傳播完的 Promise（給「交棒」動畫）。
+   * 「阿幫在想」的編排（原型 transit-discussion.html 的會議感，GSAP 時間軸約 4 秒）：
+   * ① 收集資料：來源依序亮起，帶著真實重點的資料膠囊（decision.signals）沿線飛進阿幫，阿幫每收到一個就彈一下
+   * ② 看你的狀況：狀態膠囊彈出，自動狀態以點線連回來源
+   * ③ 比較：逐項（總時間、等車、走路…）累加真實分數，方案連線依累計分數變粗、分數跟著更新
+   * ④ 決定：落選變淡、勝出彈一下、阿幫換開心、光點沿勝出路徑持續流動
+   * 資料已經都在畫面上（行程卡、回答不等動畫）；沒有 GSAP、reduced motion 或低階裝置時直接顯示最終狀態。
    */
   function intro() {
     const g = motion();
-    if (!g) return new Promise((r) => setTimeout(r, root.classList.contains('static') ? 0 : 2400));
+    const stepEl = root.querySelector('.dg-step');
+    if (!g || !last) { if (!root.classList.contains('static')) settle(); else root.querySelector('.dg-mascot')?.setAttribute('href', '/brand/abang-happy.svg'); return Promise.resolve(); }
     root.classList.add('gsap');
     const q = (sel) => [...root.querySelectorAll(sel)];
-    const edges = q('.dg-edge');
-    for (const e of edges) { e.setAttribute('pathLength', '1'); e.style.strokeDasharray = '1'; e.style.strokeDashoffset = '1'; }
-    const [e1, e2, e3, e4, e5] = [1, 2, 3, 4, 5].map((n) => q(`.dg-edge.step${n}`));
-    const winEdge = q('.dg-edge.step3.win')[0], bestEdge = e5[0];
     const svgEl = root.querySelector('.dg-svg');
-    const dot = svg('circle', { r: 4.5, class: 'dg-dot', cx: 0, cy: 0, opacity: 0 });
-    svgEl?.append(dot);
+    const hub = root.querySelector('.dg-hub');
+    const step = (t) => () => { if (stepEl) stepEl.textContent = t; };
+    const drawable = q('.dg-in-edge, .dg-link');
+    for (const e of drawable) { e.setAttribute('pathLength', '1'); e.style.strokeDasharray = '1'; e.style.strokeDashoffset = '1'; }
+    const outEdges = q('.dg-out-edge');
+    const scoreOf = new Map(q('.dg-opt').map((n) => [n.dataset.id, n.querySelector('.dg-score')]));
+    g.set(q('.dg-src, .dg-state, .dg-opt'), { opacity: 0 });
+    g.set(outEdges, { strokeWidth: 0 });
+    for (const t of scoreOf.values()) t.textContent = '';
     const tl = g.timeline({ defaults: { ease: 'power2.out' } });
-    tl.from(q('.dg-src'), { opacity: 0, x: '-=10', duration: 0.3, stagger: 0.08 })
-      .to(e1, { strokeDashoffset: 0, duration: 0.4, stagger: 0.05 }, '-=0.1')
-      .from(q('.dg-state, .dg-hub'), { opacity: 0, scale: 0.6, transformOrigin: '50% 50%', duration: 0.35, ease: 'back.out(2)', stagger: 0.06 })
-      .to(e2, { strokeDashoffset: 0, duration: 0.3 }, '<')
-      .to([...e3, ...e4], { strokeDashoffset: 0, duration: 0.45, stagger: 0.06 })
-      .from(q('.dg-opt'), { opacity: 0, x: '-=14', duration: 0.35, stagger: 0.07 }, '<0.1')
-      .to(q('.dg-opt:not(.win), .dg-edge.step3:not(.win), .dg-edge.step4'), { opacity: 0.4, duration: 0.3 }, '+=0.1')
-      .to(e5, { strokeDashoffset: 0, duration: 0.35 })
-      .from(q('.dg-best'), { opacity: 0, scale: 0.7, transformOrigin: '50% 50%', duration: 0.45, ease: 'back.out(2.2)' }, '<0.1')
-      .from(q('.dg-why'), { opacity: 0, y: 6, duration: 0.3 }, '<');
-    // 光點：從阿幫沿勝出連線跑到方案，再跑到建議（MotionPathPlugin；沒有外掛就略過）
-    if (globalThis.MotionPathPlugin && winEdge && bestEdge) {
-      tl.set(dot, { opacity: 1 })
-        .to(dot, { duration: 0.6, ease: 'power1.inOut', motionPath: { path: winEdge, align: winEdge, alignOrigin: [0.5, 0.5] } })
-        .to(dot, { duration: 0.35, ease: 'power1.in', motionPath: { path: bestEdge, align: bestEdge, alignOrigin: [0.5, 0.5] } })
-        .to(dot, { opacity: 0, scale: 2.4, transformOrigin: '50% 50%', duration: 0.25 })
-        .fromTo(q('.dg-best'), { scale: 1 }, { scale: 1.06, transformOrigin: '50% 50%', duration: 0.18, yoyo: true, repeat: 1, ease: 'power1.inOut' }, '<');
-    }
-    tl.add(() => {
-      for (const e of edges) { e.style.strokeDasharray = ''; e.style.strokeDashoffset = ''; e.removeAttribute('pathLength'); }
-      q('.dg-edge.win').forEach((e) => e.classList.add('flow'));
-      dot.remove();
+    // ① 收集資料
+    tl.call(step('① 收集資料'));
+    sources.forEach((role, i) => {
+      const node = root.querySelector(`.dg-src[data-role="${role}"]`), edge = root.querySelector(`.dg-in-edge[data-role="${role}"]`);
+      if (!node || !edge) return;
+      const at = 0.1 + i * 0.42;
+      tl.to(node, { opacity: 1, duration: 0.2 }, at)
+        .fromTo(node, { scale: 1 }, { scale: 1.25, yoyo: true, repeat: 1, duration: 0.14, transformOrigin: '50% 50%' }, at)
+        .to(edge, { strokeDashoffset: 0, duration: 0.35 }, at);
+      const label = decision.signals?.[role];
+      if (label && globalThis.MotionPathPlugin) {
+        const col = MODE_COLOR[modeOf(role)] || '#0f766e';
+        const w = Math.max(30, [...label].length * 10 + 14);
+        const p = svg('g', { class: 'dg-pkt', opacity: 0 });
+        p.append(svg('rect', { x: -w / 2, y: -10, width: w, height: 20, rx: 10, style: `fill:${col}` }), svg('text', { y: 4, 'text-anchor': 'middle' }, label));
+        svgEl.append(p);
+        tl.set(p, { opacity: 1 }, at + 0.12)
+          .to(p, { duration: 0.6, ease: 'power2.inOut', motionPath: { path: edge, align: edge, alignOrigin: [0.5, 0.5] } }, at + 0.12)
+          .to(p, { opacity: 0, scale: 0.5, transformOrigin: '50% 50%', duration: 0.12, onComplete: () => p.remove() }, at + 0.72)
+          .fromTo(hub, { scale: 1 }, { scale: 1.12, yoyo: true, repeat: 1, duration: 0.12, transformOrigin: '50% 50%' }, at + 0.7);
+      }
     });
-    // 保險：畫面在背景（requestAnimationFrame 暫停）或裝置太慢時，4 秒後直接跳到最終狀態，內容不會一直藏著
-    const guard = setTimeout(() => tl.progress(1), 4000);
+    // ② 看你的狀況
+    tl.call(step('② 看你的狀況'))
+      .fromTo(q('.dg-state'), { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, transformOrigin: '50% 50%', ease: 'back.out(2)', duration: 0.3, stagger: 0.08 })
+      .to(q('.dg-link'), { strokeDashoffset: 0, duration: 0.3 }, '<');
+    // ③ 比較：方案出現，逐項累加真實分數（breakdown），連線依累計分數變粗
+    const { ranked, excluded } = last;
+    const max = Math.max(...ranked.map((o) => o.score), 1);
+    tl.to(q('.dg-opt'), { opacity: 1, duration: 0.25, stagger: 0.05 })
+      .from(q('.dg-opt'), { x: '+=14', duration: 0.25, stagger: 0.05 }, '<');
+    let acc = new Map(ranked.map((o) => [o.id, 0]));
+    for (const c of CRITERIA) {
+      tl.call(step(`③ 比較：${c.label}`));
+      const next = new Map(ranked.map((o) => [o.id, acc.get(o.id) + (o.breakdown?.[c.key] ?? 0)]));
+      for (const o of ranked) {
+        const e = root.querySelector(`.dg-out-edge[data-id="${o.id}"]`);
+        const pts = Math.round(next.get(o.id) * 100);
+        if (e) tl.to(e, { strokeWidth: (1 + 7 * (pts / max)).toFixed(1), duration: 0.18 }, '<');
+        tl.call(() => { const t = scoreOf.get(o.id); if (t) t.textContent = String(pts); }, null, '<');
+      }
+      acc = next;
+      tl.to({}, { duration: 0.12 });
+    }
+    // ④ 決定
+    tl.call(step(`④ 決定：${last.bestName || ''}`))
+      .call(() => { for (const o of ranked) { const t = scoreOf.get(o.id); if (t) t.textContent = String(o.score); } for (const o of excluded) { const t = scoreOf.get(o.id); if (t) t.textContent = o.why.includes('超過') ? '遲到' : '排除'; } })
+      .to(root.querySelectorAll('.dg-out-edge.step4'), { strokeWidth: 1, duration: 0.2 })
+      .to(q('.dg-opt:not(.win), .dg-out-edge:not(.win)'), { opacity: 0.45, duration: 0.3 }, '<')
+      .fromTo(q('.dg-opt.win'), { scale: 1 }, { scale: 1.08, yoyo: true, repeat: 1, duration: 0.2, transformOrigin: '50% 50%', ease: 'power1.inOut' }, '<')
+      .fromTo(hub, { scale: 1 }, { scale: 1.15, yoyo: true, repeat: 1, duration: 0.18, transformOrigin: '50% 50%' }, '<')
+      .from(q('.dg-why'), { opacity: 0, y: 6, duration: 0.3 }, '<')
+      .add(() => {
+        for (const e of drawable) { e.style.strokeDasharray = ''; e.style.strokeDashoffset = ''; e.removeAttribute('pathLength'); }
+        q('.dg-opt:not(.win), .dg-out-edge:not(.win)').forEach((n) => { n.style.opacity = ''; });
+        root.querySelectorAll('.dg-pkt').forEach((p) => p.remove());
+        settle();
+      });
+    // 保險：畫面在背景（requestAnimationFrame 暫停）或裝置太慢時，7 秒後直接跳到最終狀態
+    const guard = setTimeout(() => tl.progress(1), 7000);
     return tl.then(() => clearTimeout(guard));
   }
 
@@ -149,64 +214,78 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA }) {
     return bar;
   }
 
+  // 版面（原型 transit-discussion.html 的會議感）：左＝資料來源圓點、中＝阿幫（吉祥物）、右＝方案；狀態膠囊在阿幫上方
   function graph(ranked, excluded, active, bestId) {
     const opts = [...ranked, ...excluded];
-    const rows = Math.max(sources.length, active.length, opts.length, 1);
-    const H = rows * ROW + 28;
-    const y = (i, n) => 28 + (i + 0.5) * ((H - 28) / Math.max(n, 1));
+    const H = Math.max(240, Math.max(sources.length, opts.length) * 50 + 56);
+    const C = { x: 196, y: H / 2 + 10 };
+    const ys = (n, i) => (n <= 1 ? C.y : 40 + (i * (H - 90)) / (n - 1)); // 底下留給來源名稱
     const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'dg-svg', role: 'img', 'aria-labelledby': 'dg-title dg-desc' });
     s.append(svg('title', { id: 'dg-title' }, '決策圖'),
       svg('desc', { id: 'dg-desc' }, `資料：${sources.join('、')}；狀態：${active.map((k) => STATE_LABEL[k]).join('、') || '無'}；方案依分數：${ranked.map((o) => `${o.name} ${o.score}`).join('、')}${excluded.length ? `；排除：${excluded.map((o) => o.name).join('、')}` : ''}`));
-    ['資料', '你的狀態', '方案', '建議'].forEach((t, i) => s.append(svg('text', { x: COL[i], y: 16, class: 'dg-col' }, t)));
-    const srcY = new Map(sources.map((r, i) => [r, y(i, sources.length)]));
-    const hub = { x: COL[1] + NODE_W / 2, y: (H + 28) / 2 };
+    ['資料', '阿幫', '方案'].forEach((t, i) => s.append(svg('text', { x: [34, C.x, OPT_X + 4][i], y: 16, class: 'dg-col', 'text-anchor': i === 2 ? 'start' : 'middle' }, t)));
+    const edges = svg('g', { class: 'dg-edges' }), nodes = svg('g', { class: 'dg-nodes' });
+    s.append(edges, nodes);
     const best = ranked.find((o) => o.id === bestId);
     const winRoles = new Set(best ? keyRoles(best, ranked[1], active) : []);
-    // 1 資料 → 阿幫（中間），資料膠囊沿線流動
-    for (const [role, yy] of srcY) {
+    // 1 資料來源 → 阿幫
+    const srcY = new Map();
+    sources.forEach((role, i) => {
+      const y = ys(sources.length, i), x = 34;
+      srcY.set(role, y);
       const lit = winRoles.has(role);
-      s.append(svg('path', { d: `M${COL[0] + NODE_W},${yy} C${COL[1] - 10},${yy} ${COL[1] - 10},${hub.y} ${hub.x - 30},${hub.y}`, class: `dg-edge step1${lit ? ' win' : ''}` }));
-      s.append(node(COL[0], yy, role, `dg-src r-${ROLE_CLASS[role] || 'brand'} step1${lit ? ' win' : ''}`, role));
-    }
-    // 2 狀態：標籤；自動狀態以虛線連回來源工具
-    active.forEach((k, i) => {
-      const yy = y(i, active.length);
-      const from = srcY.get(STATE_SOURCE[k]);
-      const st = states.find((x) => x.key === k);
-      if (st?.source === 'auto' && from != null) s.append(svg('path', { d: `M${COL[0] + NODE_W},${from} L${COL[1]},${yy}`, class: 'dg-edge dashed step2' }));
-      s.append(node(COL[1], yy, STATE_LABEL[k], `dg-state step2 src-${st?.source}`));
+      edges.append(svg('path', { d: `M${x + 16},${y} C${x + 70},${y} ${C.x - 80},${C.y} ${C.x - 30},${C.y}`, class: `dg-edge dg-in-edge step1${lit ? ' win' : ''}`, 'data-role': role }));
+      const g = svg('g', { class: `dg-node dg-src step1${lit ? ' win' : ''}`, 'data-role': role, transform: `translate(${x},${y})` });
+      const col = MODE_COLOR[modeOf(role)] || '#0f766e';
+      g.append(svg('circle', { r: 16, class: 'dg-src-c', style: `stroke:${col}` }));
+      const ic = svgIcon(role, -9, -9, 18);
+      if (ic) { ic.style.color = col; g.append(ic); }
+      g.append(svg('text', { y: 30, 'text-anchor': 'middle', class: 'dg-lbl' }, role));
+      nodes.append(g);
     });
-    if (!active.length) s.append(node(COL[1], hub.y, '阿幫', 'dg-hub step2'));
-    // 3 方案：連線粗細＝分數；4 排除：灰階刪除線
+    // 2 阿幫（中心）：吉祥物；狀態膠囊疊在上方，自動狀態以點線連回來源
+    const hub = svg('g', { class: 'dg-node dg-hub step2', transform: `translate(${C.x},${C.y})` });
+    hub.append(svg('circle', { r: 30, class: 'dg-hub-c' }));
+    const img = svg('image', { href: '/brand/abang-think.svg', x: -27, y: -29, width: 54, height: 54, class: 'dg-mascot' });
+    hub.append(img);
+    nodes.append(hub);
+    active.forEach((k, i) => {
+      const st = states.find((x) => x.key === k);
+      const label = STATE_LABEL[k], tag = SOURCE_LABEL[st?.source] || '';
+      const y = C.y - 52 - i * 24, w = label.length * 12 + tag.length * 10 + 24;
+      const from = srcY.get(STATE_SOURCE[k]);
+      if (st?.source === 'auto' && from != null) edges.append(svg('path', { d: `M50,${from} Q${C.x - 70},${y} ${C.x - w / 2},${y}`, class: 'dg-edge dashed dg-link step2' }));
+      const g = svg('g', { class: `dg-node dg-state step2 src-${st?.source}`, transform: `translate(${C.x},${y})` });
+      g.append(svg('rect', { x: -w / 2, y: -10, width: w, height: 20, rx: 10 }));
+      const t = svg('text', { y: 4, 'text-anchor': 'middle' }, label);
+      t.append(svg('tspan', { dx: 4, class: 'dg-tag' }, tag));
+      g.append(t);
+      nodes.append(g);
+    });
+    // 3 方案：連線粗細＝分數；排除的灰階刪除線
     const max = Math.max(...ranked.map((o) => o.score), 1);
     opts.forEach((o, i) => {
-      const yy = y(i, opts.length);
+      const y = ys(opts.length, i);
       const isEx = i >= ranked.length;
       const win = o.id === bestId;
-      s.append(svg('path', { d: `M${COL[1] + NODE_W},${hub.y} C${COL[2] - 20},${hub.y} ${COL[2] - 20},${yy} ${COL[2]},${yy}`,
-        class: `dg-edge ${isEx ? 'step4 excluded' : 'step3'}${win ? ' win' : ''}`, 'stroke-width': isEx ? 1 : (1 + 7 * (o.score / max)).toFixed(1) }));
-      const n = node(COL[2], yy, isEx ? `${short(o.name)}（${o.why.includes('超過') ? '會遲到' : '排除'}）` : `${short(o.name)} ${o.score}`, `dg-opt ${isEx ? 'step4 excluded' : 'step3'}${win ? ' win' : ''}`, o.role, win);
+      edges.append(svg('path', { d: `M${C.x + 30},${C.y} C${C.x + 62},${C.y} ${OPT_X - 40},${y} ${OPT_X},${y}`,
+        class: `dg-edge dg-out-edge ${isEx ? 'step4 excluded' : 'step3'}${win ? ' win' : ''}`, 'data-id': o.id, style: `stroke-width:${isEx ? 1 : (1 + 7 * (o.score / max)).toFixed(1)}px` })); // 連線粗細＝分數（inline，CSS 的 stroke-width 才蓋不掉）
+      const n = node(OPT_X, y, isEx ? `${short(o.name)}` : short(o.name), `dg-opt ${isEx ? 'step4 excluded' : 'step3'}${win ? ' win dg-best' : ''}`, o.role, win, isEx ? (o.why.includes('超過') ? '遲到' : '排除') : String(o.score));
       n.style.setProperty('--i', String(i));
       n.dataset.id = o.id;
-      s.append(n);
+      nodes.append(n);
     });
-    // 5 勝出路徑 → 建議
-    if (best) {
-      const yy = y(0, opts.length);
-      s.append(svg('path', { d: `M${COL[2] + NODE_W},${yy} L${COL[3]},${hub.y}`, class: 'dg-edge win step5' }));
-      s.append(node(COL[3], hub.y, short(best.name), 'dg-best win step5', best.role, true));
-    }
     return s;
   }
 
-  /** 節點：有交通方式或資料來源時左邊放圖示（勝出用白色、其他用代表色），文字往右移 */
-  function node(x, y, label, cls, icon, onBrand = false) {
-    const g = svg('g', { class: `dg-node ${cls}`, transform: `translate(${x},${y - 14})` });
-    const ic = icon && svgIcon(icon, 6, 6, 16);
+  /** 方案節點：左邊圖示（勝出白色、其他代表色）、名稱、右邊分數 */
+  function node(x, y, label, cls, icon, onBrand = false, score = '') {
+    const g = svg('g', { class: `dg-node ${cls}`, transform: `translate(${x},${y - 15})` });
+    const ic = icon && svgIcon(icon, 8, 7, 16);
     if (ic) ic.style.color = onBrand ? '#fff' : (MODE_COLOR[modeOf(icon)] || 'currentColor');
-    const max = ic ? 7 : 9;
-    g.append(svg('rect', { width: NODE_W, height: 28, rx: 8 }), ...(ic ? [ic] : []),
-      svg('text', { x: ic ? NODE_W / 2 + 9 : NODE_W / 2, y: 18, 'text-anchor': 'middle' }, label.length > max ? `${label.slice(0, max - 1)}…` : label));
+    g.append(svg('rect', { width: OPT_W, height: 30, rx: 15 }), ...(ic ? [ic] : []),
+      svg('text', { x: ic ? 30 : 12, y: 19, class: 'dg-name' }, label.length > 7 ? `${label.slice(0, 6)}…` : label),
+      svg('text', { x: OPT_W - 12, y: 19, 'text-anchor': 'end', class: 'dg-score' }, score));
     return g;
   }
 
