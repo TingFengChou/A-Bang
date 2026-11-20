@@ -409,6 +409,11 @@ export default {
             textEl.querySelector('.say').textContent = view.text;
             // 英文回答（觀光客，S12）：讀屏用英文念（頁面是 zh-Hant-TW）
             if (/^[A-Za-z"'(]/.test(view.text)) textEl.querySelector('.say').setAttribute('lang', 'en'); else textEl.querySelector('.say').removeAttribute('lang');
+            if (view.text.includes('設定與隱私 → 常用地點') && !textEl.querySelector('.go-settings')) { // 「回家」但沒設定家：給一個直接過去的按鈕
+              const a = el('a', 'btn small go-settings', '到常用地點設定');
+              a.href = '#/settings';
+              textEl.append(a);
+            }
             break;
           case 'error':
             turn.append(el('div', 'msg error', e.retryAfterSec && !/\d+ 秒/.test(e.message) ? `${e.message}（${e.retryAfterSec} 秒後可再試）` : e.message));

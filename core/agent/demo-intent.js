@@ -532,31 +532,40 @@ export function tripDepartAt(it, now = Date.now()) {
   return `${t.date}T${t.hhmm}`;
 }
 
-/** 常用地點的說法（家、公司、學校） */
-const SAVED_WORDS = { 家: /回家|到家|去家|家裡|我家|回去家/, 公司: /公司|上班/, 學校: /學校|上學|上課/ };
-/** 明確要去常用地點的說法（沒設定時才用來提示） */
-const SAVED_GO = {
-  家: /^(?:我要|我想|要|我)?\s*(?:怎麼)?(?:回|到)家(?:了|囉|啦|吧)?\s*(?:怎麼(?:走|去)|要多久)?[?？。!！]?$/,
-  公司: /^(?:我要|我想|要|我)?\s*(?:怎麼)?(?:(?:去|到)公司(?:怎麼(?:走|去)|要多久)?|去?上班(?:了|囉|啦)?)[?？。!！]?$/,
-  學校: /^(?:我要|我想|要|我)?\s*(?:怎麼)?(?:(?:去|到)學校(?:怎麼(?:走|去)|要多久)?|去?上學(?:了|囉|啦)?)[?？。!！]?$/,
+/** 常用地點有被提到（手機端 public/js/saved-places.js WORDS 相同：提到才送座標；test/saved-places.test.js 比對） */
+export const SAVED_WORDS = { 家: /回家|到家|去家|家裡|我家|回去家|從家|家出發/, 公司: /公司|上班|下班/, 學校: /學校|上學|上課|放學/ };
+/** 地點後面接這些＝說的是別的地方（「從我家巷口」「回家的路」「公司樓下」） */
+const NB = '(?!巷|口|附近|旁|對面|樓|門口|那|這|前面|後面|隔壁|的|鄉|族|具|人)';
+const SAVED_TO = {
+  家: new RegExp(`(?:回|到|去)(?:我)?家(?:裡)?${NB}|回去家`),
+  公司: new RegExp(`(?:去|到|回)(?:我的?)?公司${NB}|上班`),
+  學校: new RegExp(`(?:去|到|回)(?:我的?)?學校${NB}|上學|去上課`),
 };
+/** 從那裡出發（起點） */
+const SAVED_FROM = {
+  家: new RegExp(`從\\s*(?:我)?家(?:裡)?${NB}|(?:我)?家(?:裡)?\\s*出發`),
+  公司: new RegExp(`從\\s*(?:我的?)?公司${NB}|公司\\s*出發|下班`),
+  學校: new RegExp(`從\\s*(?:我的?)?學校${NB}|學校\\s*出發|放學`),
+};
+/** 提到常用地點但不是要規劃去那裡：附近查詢、天氣、路上、正在那裡、已經到了、多站行程（「回家前先去全聯」交給一般規則） */
+const SAVED_NOT_TRIP = /附近|周邊|周圍|旁邊|路上|下雨|帶傘|天氣|氣溫|溫度|空品|空氣|藥局|垃圾車|youbike|ubike|地震|油價|發票|股|電話|地址|前先|之前|順便|我在(?:家|公司|學校|上班|上課)|在家|到家了|了[。!！~～]?$/i;
 /**
- * 常用地點的行程：目的地＝「回／去／到」後面的那個（或唯一提到的那個），起點＝「從 X」或「X 出發」；另一端可以是地標或現在位置。
- * @returns {object|null} { intent: 'trip', from, to, fromSaved?, toSaved?, savedTrip: true }
+ * 常用地點的行程（S1）：句子要「去／回／從」常用地點才算（「我家附近的藥局」「明天上班會下雨嗎」不算）。
+ * 目的地＝SAVED_TO 的那個，起點＝SAVED_FROM 的那個；另一端可以是地標或現在位置。要用的地點手機上沒設定 → savedMissing（不猜）。
+ * @returns {object|null} { intent: 'trip', from, to, fromSaved?, toSaved?, savedTrip: true } 或 { intent: 'savedMissing', missing }
  */
 export function savedTrip(s, places, saved = {}) {
-  const hit = Object.entries(SAVED_WORDS).filter(([k, re]) => saved[k] && re.test(s)).map(([k]) => k);
-  if (!hit.length) {
-    // 「回家」但手機上沒設定家，也沒說其他地點：不猜，告訴他去哪裡設定（「公司附近的藥局」不算）
-    const missing = !places.length && Object.entries(SAVED_GO).find(([k, re]) => !saved[k] && re.test(s))?.[0];
-    return missing ? { intent: 'savedMissing', missing } : null;
-  }
-  const pt = (k) => ({ lat: saved[k].lat, lon: saved[k].lon, name: k === '家' ? '家' : k });
-  const fromKey = hit.find((k) => new RegExp(`從\\s*(?:我)?${k}|${k}\\s*出發`).test(s));
-  const toKey = hit.find((k) => k !== fromKey) || (!fromKey ? hit[0] : null);
+  if (SAVED_NOT_TRIP.test(s)) return null;
+  const keys = Object.keys(SAVED_TO);
+  const fromKey = keys.find((k) => SAVED_FROM[k].test(s)) || null;
+  const toKey = keys.find((k) => k !== fromKey && SAVED_TO[k].test(s)) || null;
+  if (!fromKey && !toKey) return null;
   const fromPlace = !fromKey && /從/.test(s) ? places[0] : null; // 「從台北101回家」
   const toPlace = !toKey ? places.find((p) => p !== fromPlace) : null; // 「從公司去台北101」
-  if (!toKey && !toPlace) return null;
+  if (!toKey && !toPlace) return null; // 「從家出發」沒說去哪：交給一般規則
+  const missing = [toKey, fromKey].find((k) => k && !saved?.[k]);
+  if (missing) return { intent: 'savedMissing', missing };
+  const pt = (k) => ({ lat: saved[k].lat, lon: saved[k].lon, name: k });
   return {
     intent: 'trip', savedTrip: true,
     from: fromKey || fromPlace || null, to: toKey || toPlace,
@@ -663,7 +672,7 @@ export function demoSummary(it, results, suggestions = []) {
     return `${pre}${outingSay({ weather: results.weather_now?.at(-1)?.data, air: results.aqi_nearby?.at(-1)?.data?.nearest, states: it.states })}`;
   }
   if (it.intent === 'weather' && it.later) return '我目前只查得到現在和明天的天氣，後天以後的預報還沒辦法；要不要先看明天的？';
-  if (it.intent === 'savedMissing') return `還不知道你的「${it.missing}」在哪裡。到「設定與隱私 → 常用地點」把現在位置設成「${it.missing}」，下次說「${it.missing === '家' ? '回家' : `去${it.missing}`}」就能直接規劃；或直接說地名，例如「去台北車站」。`;
+  if (it.intent === 'savedMissing') return `我還不知道你的「${it.missing}」在哪。下次在${it.missing === '家' ? '家' : it.missing}時，到「設定與隱私 → 常用地點」按「設成現在位置」，之後說「${it.missing === '家' ? '回家' : `去${it.missing}`}」就能直接規劃。現在也可以直接說地名，例如「${it.missing === '家' ? '回板橋' : '去台北車站'}」。`;
   if (it.reset) return '好，重新開始。想去哪裡、想查什麼？沒說起點的話，我用你現在的位置。';
   if (it.intent === 'unknown') return `我可以幫你查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）和生活資訊（天氣、空品、地震、藥局、垃圾車、油價、發票、股市收盤）。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
   const last = Object.values(results).flat().filter(Boolean).at(-1);

@@ -185,22 +185,23 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const last = req.messages.at(-1).content;
   const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode: provider.mode, model: provider.model, profile: profile.id, judge: judgeInfo(q0) }));
-  if (!req.clientToolResults?.length && parseIntent(last, { history: req.messages.slice(0, -1) }).reset) emit(ev.contextReset());
+  // 規則先解析一次（含常用地點）：重來、聽懂了什麼、沒設定常用地點都用同一個結果
+  const rulesIt = parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces });
+  if (!req.clientToolResults?.length && rulesIt.reset) emit(ev.contextReset());
+  if (rulesIt.intent === 'savedMissing') { // 「回家」但沒設定家：不給模型猜（也不必等判斷層的模型），直接說去哪裡設定
+    emit(ev.text(demoSummary(rulesIt, {})));
+    emit(ev.done());
+    return;
+  }
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
-  const heard = !req.clientToolResults?.length && (contextNote(parseIntent(last, { history: req.messages.slice(0, -1) })) || (q0 && judgeNote(q0)));
+  const heard = !req.clientToolResults?.length && (contextNote(rulesIt) || (q0 && judgeNote(q0)));
   if (heard) emit(ev.agentNote(heard));
   const j = jc ? await jc.full(q0) : null;
   const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
   if (more) emit(ev.agentNote(more));
   const sure = j && (j.source === 'llm' || j.source === 'device' || (j.confidence ?? 0) >= 0.8); // 模型判斷（伺服器 B 或手機上的模型，ADR-0014）或 A 有把握
   // 這句（或接著改的上一輪）沒說起點 → 起點是現在位置（下面呼叫 plan_trip 時由程式帶入）
-  const rulesIt = parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces });
   const hereIsOrigin = rulesIt.intent === 'trip' && !rulesIt.from && !rulesIt.fromSaved;
-  if (rulesIt.intent === 'savedMissing') { // 「回家」但沒設定家：不給模型猜，直接說去哪裡設定
-    emit(ev.text(demoSummary(rulesIt, {})));
-    emit(ev.done());
-    return;
-  }
   // 需要現在位置（沒說起點的行程、沒說地點的天氣／YouBike／附近公車／垃圾車／公車到站）→ 問模型之前就先請 App 定位，
   // 再把位置直接告訴模型（地端模型常常不呼叫 device_location，直接反問「你在哪裡」）
   const NEARBY_INTENTS = ['weather', 'aqi', 'youbike', 'nearby_bus', 'garbage', 'bus_route'];

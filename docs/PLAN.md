@@ -268,6 +268,9 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] 「重來」分隔線、沒變的卡片收合、決策圖收班節點（2026-11-21）
 - [ ] 出門建議小卡（傘、衣著、口罩）
 - [x] S1 常用地點（家、公司、學校：「回家」直接成行程；座標只在手機、提到才送）（2026-11-21）
+- [ ] S1b 常用地點：輸入地址或地名設定（`find_place` 選結果）、顯示「已設定：XX 附近」讓人確認；設在別處（不必人在現場）
+- [ ] S1c 定位失敗分原因（拒絕／定位服務關閉／逾時）＋「到設定開啟」按鈕（專案內外掛加 openAppSettings，Android ACTION_APPLICATION_DETAILS_SETTINGS、iOS openSettingsURLString）；Android `prompt-with-rationale` 顯示為已拒絕
+- [ ] S1d 本機資料改存 Capacitor Preferences（iOS 可能清掉 WKWebView 的 localStorage；新依賴要 ADR，PrivacyInfo 加 UserDefaults CA92.1；收藏、我的發票同理）
 - [x] S16 高鐵／台鐵「最近車站」當起站（2026-11-21：`near`；「下一班高鐵到台中」「台鐵回高雄幾點有車」）
 - [ ] S16 藥局定位轉行政區
 - [ ] S5 YouBike 空位預測（騎到時可能沒位）、S6 叫車人均（多人）

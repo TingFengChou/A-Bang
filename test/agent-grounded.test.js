@@ -156,6 +156,35 @@ test('常用地點（S1）：回家、去公司、從公司回家、從台北101
   assert.equal(savedTrip('公司附近的藥局', [], {}), null);
   assert.equal(savedTrip('上班', [], {}).missing, '公司');
   assert.equal(parseIntent('去公司', { saved }).to, '公司');
+  // 設好以後，只是提到不算要去（審查發現：我家附近的垃圾車、明天上班會下雨嗎都被當成行程）
+  for (const q of ['我家附近的垃圾車', '家裡附近的藥局', '公司附近天氣', '明天上班會下雨嗎', '回家路上會下雨嗎', '我在上課', '到家了', '去台電公司', '捷運公司電話', '回家前先去全聯', '從我家巷口去台北101', '公司樓下的YouBike']) {
+    assert.equal(savedTrip(q, [], saved)?.intent, undefined, q);
+  }
+  assert.notEqual(parseIntent('我家附近的垃圾車', { saved }).intent, 'trip');
+  const d = savedTrip('從家去公司', [], saved);
+  assert.deepEqual([d.from, d.to, Boolean(d.fromSaved && d.toSaved)], ['家', '公司', true], '從家去公司');
+  const e = savedTrip('下班回家', [], saved);
+  assert.deepEqual([e.from, e.to], ['公司', '家']);
+  assert.deepEqual(savedTrip('從公司回家', [], { 公司: saved.公司 }), { intent: 'savedMissing', missing: '家' }, '只設公司：說缺家');
+  assert.deepEqual(savedTrip('上學', [], saved), { intent: 'savedMissing', missing: '學校' });
   assert.throws(() => validateRequest({ messages: [{ role: 'user', content: '回家' }], savedPlaces: { 家: { name: '家', lat: 35.6, lon: 139.7 } } }), /請求格式錯誤/);
   assert.throws(() => validateRequest({ messages: [{ role: 'user', content: '回家' }], savedPlaces: { 宿舍: { name: 'x', lat: 25, lon: 121 } } }), /請求格式錯誤/);
+});
+
+test('常用地點在模型模式：預先查到家、起訖強制；沒設定直接回設定說明、不問模型', async () => {
+  const here = { lat: 25.0478, lon: 121.517 };
+  const home = { name: '家', lat: 25.0143, lon: 121.4635 };
+  const es = [];
+  let calls = 0;
+  const provider = { mode: 'local', model: 'fake', start() { calls++; let n = 0; return { next: async () => (n++ === 0 ? { text: '', calls: [{ id: 'c1', name: 'plan_trip', input: { from: '你的位置', to: '台北101' } }], stop: 'tool', usage: { input: 1, output: 1 } } : { text: '好', calls: [], stop: 'end', usage: { input: 1, output: 1 } }), addResults() {} }; } };
+  await runModel(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '回家' }], savedPlaces: { 家: home }, clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: here }] }, (e) => es.push(e), { provider, judge: null });
+  const trips = es.filter((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
+  assert.ok(trips.length >= 1);
+  for (const t of trips) assert.equal(t.data.to.name, '家', '模型改了目的地也會改回家');
+  const es2 = [];
+  calls = 0;
+  await runModel(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '回家' }] }, (e) => es2.push(e), { provider, judge: null });
+  assert.equal(calls, 0, '不問模型');
+  assert.match(es2.find((e) => e.type === 'text').delta, /設定與隱私 → 常用地點/);
+  assert.equal(es2.at(-1).type, 'done');
 });

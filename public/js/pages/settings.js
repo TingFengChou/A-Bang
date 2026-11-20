@@ -2,7 +2,7 @@
 // 上架必要：App Store／Google Play 都要求隱私權政策頁，且 App 內要能找到。內容以「實際怎麼做」寫，不寫做不到的保證。
 import { esc } from '../ui.js';
 import { edgeEnabled, edgeStatus } from '../edge-judge.js';
-import { locationGranted, browserLocation } from '../agent/client.js';
+import { locationGranted, browserLocation, inTaiwan } from '../agent/client.js';
 import { cancelNotify, NOTIFY_ID } from '../native-notify.js';
 import { loadPlaces, savePlace, SAVED_KEYS } from '../saved-places.js';
 
@@ -47,8 +47,8 @@ export const settings = {
       </section>
       <section class="card settings">
         <h2>常用地點</h2>
-        <p class="note">設好以後說「回家」「去公司」就能直接規劃。座標只存在這支手機，只有你提到時才跟問題一起送出。</p>
-        <div id="saved"></div>
+        <p class="note">請在家、公司或學校時按「設成現在位置」，阿幫會記住那裡的位置。設好以後說「回家」「去公司」就能直接規劃。座標只存在這支手機，只有你提到時才跟問題一起送出。</p>
+        <div id="saved" role="list"></div>
       </section>
       <section class="card settings">
         <h2>權限</h2>
@@ -63,33 +63,52 @@ export const settings = {
       </section>
       <p class="updated"><a href="#/privacy">隱私權政策</a>・資料來源：交通部 TDX、中央氣象署、環境部、政府資料開放平臺</p>`;
 
-    const renderSaved = () => {
-      const all = loadPlaces();
-      const box = main.querySelector('#saved');
-      box.replaceChildren();
-      for (const k of SAVED_KEYS) {
-        const row = document.createElement('div');
-        row.className = 'saved-row';
-        row.innerHTML = `<span><b>${esc(k)}</b><small>${all[k] ? '已設定' : '還沒設定'}</small></span>`;
-        const set = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small', textContent: all[k] ? '改成現在位置' : '設成現在位置' });
-        set.addEventListener('click', async () => {
-          set.disabled = true;
-          const p = await browserLocation(8000, { highAccuracy: true, fresh: true });
-          set.disabled = false;
-          if (!p) { toast('沒拿到你的位置；到手機設定打開定位再試一次'); return; }
-          savePlace(k, { ...p, name: k });
-          toast(`已把現在位置設成「${k}」`);
-          renderSaved();
-        });
-        row.append(set);
-        if (all[k]) {
-          const del = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small ghost', textContent: '清除' });
-          del.addEventListener('click', () => { savePlace(k, null); renderSaved(); });
-          row.append(del);
-        }
-        box.append(row);
-      }
+    // 每個地點一列：更新時只換文字與按鈕狀態（不重建，鍵盤與讀屏的焦點留在原處）
+    const rows = {};
+    const box = main.querySelector('#saved');
+    for (const k of SAVED_KEYS) {
+      const row = document.createElement('div');
+      row.className = 'saved-row';
+      row.setAttribute('role', 'listitem');
+      row.innerHTML = `<span><b>${esc(k)}</b><small></small></span>`;
+      const set = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small' });
+      const del = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small quiet', textContent: '清除' });
+      del.setAttribute('aria-label', `清除「${k}」`);
+      set.addEventListener('click', async () => {
+        if (loadPlaces()[k] && !window.confirm(`要把「${k}」改成你現在的位置嗎？`)) return;
+        set.disabled = true; set.textContent = '定位中…'; set.setAttribute('aria-busy', 'true');
+        const p = await browserLocation(8000, { highAccuracy: true, fresh: true, withAccuracy: true });
+        set.disabled = false; set.removeAttribute('aria-busy');
+        if (!p) {
+          const denied = (await locationState()) === 'denied';
+          toast(denied ? '定位權限沒有打開：到手機的「設定 → Abang → 位置」允許後再試一次' : '沒拿到位置。請確認定位已開啟、權限已允許，再試一次', 5000);
+        } else if (!inTaiwan(p)) toast(`現在位置不在台灣，不能設成「${k}」`, 5000);
+        else if (p.accuracy > 300) toast(`手機只給了大概位置（誤差約 ${p.accuracy >= 1000 ? `${Math.round(p.accuracy / 100) / 10} 公里` : `${Math.round(p.accuracy)} 公尺`}），設成「${k}」會不準。請打開「精確位置」或到窗邊再試一次`, 6000);
+        else if (savePlace(k, { lat: p.lat, lon: p.lon, name: k })) toast(`已把現在位置設成「${k}」`);
+        else toast('這個瀏覽器不能存資料（無痕模式？）', 5000);
+        update(k);
+      });
+      del.addEventListener('click', () => {
+        if (!window.confirm(`要清除「${k}」嗎？`)) return;
+        savePlace(k, null);
+        toast(`已清除「${k}」`);
+        update(k);
+        set.focus(); // 「清除」按鈕會隱藏，焦點移到同一列的主要按鈕
+      });
+      row.append(set, del);
+      box.append(row);
+      rows[k] = { row, set, del };
+    }
+    const update = (k) => {
+      const has = !!loadPlaces()[k];
+      const { row, set, del } = rows[k];
+      row.querySelector('small').textContent = has ? '已設定' : '還沒設定';
+      set.textContent = has ? '重設' : '設成現在位置';
+      set.className = `btn small${has ? ' quiet' : ''}`; // 已設定時降為次要（避免不小心蓋掉）
+      set.setAttribute('aria-label', has ? `把「${k}」重設成現在位置` : `把現在位置設成「${k}」`);
+      del.hidden = !has;
     };
+    const renderSaved = () => SAVED_KEYS.forEach(update);
     renderSaved();
 
     const edge = main.querySelector('#edge');
@@ -104,7 +123,7 @@ export const settings = {
     locationState().then((st) => { main.querySelector('#loc').textContent = PERM_SAY[st] || '還沒問過'; });
     notifyState().then((st) => { main.querySelector('#notify').textContent = PERM_SAY[st] || '還沒問過'; });
     main.querySelector('#clear').addEventListener('click', () => {
-      if (!window.confirm('要清除收藏、我的發票與提醒嗎？清除後無法復原。')) return;
+      if (!window.confirm('要清除常用地點、收藏、我的發票與提醒嗎？清除後無法復原。')) return;
       try {
         for (const [k] of LOCAL) {
           if (k.endsWith(':')) for (const key of Object.keys(localStorage)) { if (key.startsWith(k)) localStorage.removeItem(key); }
@@ -138,7 +157,7 @@ export const privacy = {
         <p><b>裝置端 AI：</b>手機 App 可用手機內建的模型（Apple Intelligence、Gemini Nano）先判斷問題類型，只送出判斷結果（例如「行程、趕時間」）；可在「設定與隱私」關閉。</p>
         <p><b>相機（掃發票 QR code）：</b>影像只在手機上解讀號碼與日期，不上傳、不保存影像。</p>
         <p><b>通知：</b>到站與出門提醒是手機上的本機通知，不經過推播伺服器。</p>
-        <p><b>存在你手機上的資料：</b>收藏、我的發票（號碼與日期）、偏好、進行中的提醒、常用地點（家、公司、學校的座標）只存在這支手機；常用地點只有在你提到（例如「回家」）時，那一個的座標才跟問題一起送出用來規劃。可在「設定與隱私」清除。</p>
+        <p><b>存在你手機上的資料：</b>收藏、我的發票（號碼與日期）、偏好、進行中的提醒、常用地點（家、公司、學校的座標）只存在這支手機；常用地點只有在你提到（例如「回家」）時，那一個的座標才跟問題一起送出用來規劃；Claude 模式下，座標不給模型，但依座標查到的站名、路線、天氣等結果會給模型轉述。可在「設定與隱私」清除。</p>
         <h3>4. 利用期間、地區、對象、方式</h3>
         <p>期間：回答當下處理；記憶體快取與限流資料自動清除；不建立使用者檔案。地區：〔待補：伺服器所在地〕；Claude 模式另有美國。對象：營運單位、上述資料來源（只送查詢需要的座標或地名）、Claude 模式下的 Anthropic。方式：以電腦自動處理。</p>
         <h3>5. 你的權利</h3>

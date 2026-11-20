@@ -198,7 +198,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   if (j) {
     // 出門建議是天氣＋空品的組合：判斷層說天氣或空品時保留（判斷層沒有 outing 這個意圖）
     const keep = it.followUp || (it.intent === 'outing' && ['weather', 'aqi'].includes(j.intent));
-    if (j.intent !== it.intent && !keep && !it.savedTrip && it.intent !== 'savedMissing') it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent }) || it;
+    if (j.intent !== it.intent && !keep && !it.savedTrip && it.intent !== 'savedMissing') it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent, saved: req.savedPlaces }) || it;
     it.states = j.states;
     const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
     if (more) emit(ev.agentNote(more));
