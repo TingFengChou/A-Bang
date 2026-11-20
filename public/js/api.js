@@ -7,50 +7,72 @@ const demo = globalThis.__DEMO_SERVICES__;
 export const state = { mode: demo ? 'demo' : 'unknown', sources: null, staleAt: null };
 
 // 離線與弱網：成功的回應存在這支手機，連不上時先顯示上次的資料並標出時間（不假裝是最新的）。
-// 附近查詢（含使用者座標）不存，避免留下位置紀錄；服務狀態也不存。
+// 只存明確允許的查詢（cache：保留多久）：到站時間 10 分鐘、路線與時刻表 24 小時；參數有座標的一律不存（不留位置紀錄）。
 const CACHE_KEY = 'abang.offline';
 export const CACHE_MAX = 30;
-export const CACHE_TTL = 24 * 3600e3;
-const cacheable = (path) => !/nearby|status/.test(path);
-function readCache() {
-  try { const v = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch { return {}; }
+/** 整份離線資料最多多大（跟收藏、我的發票共用手機空間，不能擠掉它們） */
+export const CACHE_BYTES = 300_000;
+export const TTL = { eta: 10 * 60e3, day: 24 * 3600e3 };
+/** 弱網：等這麼久還沒回應就當連不上（用上次的資料） */
+export const TIMEOUT_MS = 8000;
+const valid = (e, now) => e && typeof e === 'object' && Number.isFinite(e.at) && Number.isFinite(e.ttl) && now - e.at < e.ttl && 'data' in e;
+function readCache(now = Date.now()) {
+  try {
+    const v = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+    return Object.fromEntries(Object.entries(v && typeof v === 'object' && !Array.isArray(v) ? v : {}).filter(([, e]) => valid(e, now))); // 過期的不留（隱私權政策：24 小時內）
+  } catch { return {}; }
 }
 function writeCache(key, entry) {
-  const all = readCache();
-  all[key] = entry;
-  const keys = Object.keys(all).sort((a, b) => all[b].at - all[a].at);
-  for (const k of keys.slice(CACHE_MAX)) delete all[k];
-  for (let n = keys.length; n > 0; n--) { // 空間不夠：從最舊的丟
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify(all)); return; } catch { delete all[Object.keys(all).sort((a, b) => all[a].at - all[b].at)[0]]; }
-  }
+  try {
+    const all = { ...readCache(), [key]: entry };
+    let keys = Object.keys(all).sort((a, b) => all[b].at - all[a].at).slice(0, CACHE_MAX); // 新的在前
+    for (;;) {
+      if (!keys.length) { localStorage.removeItem(CACHE_KEY); return; }
+      const text = JSON.stringify(Object.fromEntries(keys.map((k) => [k, all[k]])));
+      if (text.length <= CACHE_BYTES) {
+        try { localStorage.setItem(CACHE_KEY, text); return; } catch { /* 手機空間不夠：再丟舊的 */ }
+      }
+      keys = keys.slice(0, -1);
+    }
+  } catch { /* 存不了就算了，不影響這次查詢 */ }
 }
 const signal = (type, detail) => globalThis.dispatchEvent?.(new CustomEvent(type, { detail }));
+const OFFLINE_MSG = '目前連不上網路，連上後再試一次';
+/** 連線層的錯誤（離線、逾時、被中斷）→ 中文說明（Safari 是英文「Load failed」） */
+export const isNetworkError = (e) => e?.name === 'TypeError' || e?.name === 'AbortError' || e?.name === 'TimeoutError';
+export const networkMessage = (e) => (isNetworkError(e) ? OFFLINE_MSG : e?.message || OFFLINE_MSG);
 
-async function call(path, params, demoFn) {
+async function call(path, params, demoFn, { cache = 0 } = {}) {
   if (demo) return demoFn(demo);
-  const qs = new URLSearchParams(Object.entries(params || {}).filter(([, v]) => v != null && v !== ''));
+  const entries = Object.entries(params || {}).filter(([, v]) => v != null && v !== '');
+  const qs = new URLSearchParams(entries);
   const key = `${path}?${qs}`;
-  let res;
-  try {
-    res = await fetch(`${API_BASE}${key}`);
-  } catch (e) { // 連不上（離線、弱網逾時）：有上次的資料就先用
-    const hit = cacheable(path) && readCache()[key];
-    if (hit && Date.now() - hit.at < CACHE_TTL) {
+  const canCache = cache > 0 && !entries.some(([k]) => /^(lat|lon|lng|near)$/i.test(k)); // 有座標的不存
+  const fallback = (cause) => {
+    const hit = canCache && readCache()[key];
+    if (hit) {
       state.staleAt = hit.at;
       signal('abang:stale', { at: hit.at });
       return hit.data;
     }
-    throw new Error('目前連不上網路，連上後再試一次', { cause: e });
-  }
-  const j = await res.json().catch(() => ({ error: `伺服器錯誤 ${res.status}` }));
-  if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+    throw new Error(OFFLINE_MSG, { cause });
+  };
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${key}`, { signal: AbortSignal.timeout?.(TIMEOUT_MS) });
+  } catch (e) { return fallback(e); } // 連不上、逾時
+  if ([502, 503, 504].includes(res.status)) return fallback(new Error(`HTTP ${res.status}`)); // 閘道錯誤＝伺服器那頭連不上
+  const j = await res.json().catch(() => null);
+  // 200 但不是我們的 JSON（公共 Wi-Fi 的登入頁、代理伺服器）：當作連不上，不覆蓋好的資料
+  if (res.ok && !(j && typeof j === 'object' && 'data' in j)) return fallback(new Error('unexpected response'));
+  if (!res.ok) throw new Error(j?.error || `HTTP ${res.status}`);
   state.mode = j.mode;
-  if (cacheable(path)) writeCache(key, { at: Date.now(), data: j.data });
-  if (state.staleAt) { state.staleAt = null; signal('abang:fresh'); }
+  if (canCache) writeCache(key, { at: Date.now(), ttl: cache, data: j.data });
+  if (state.staleAt && canCache) { state.staleAt = null; signal('abang:fresh'); }
   return j.data;
 }
 
-/** 清掉存在手機的離線資料（設定頁「清除這些資料」） */
+/** 清掉存在手機的離線資料 */
 export function clearOfflineCache() {
   try { localStorage.removeItem(CACHE_KEY); } catch { /* 無痕模式 */ }
 }
@@ -58,13 +80,13 @@ export function clearOfflineCache() {
 export const api = {
   /** 服務狀態；sources（各類資料真實／示範）存進 state.sources */
   status: () => call('/api/v1/status', {}, () => ({ mode: 'demo' })).then((d) => { state.sources = d?.sources || null; return d; }),
-  busRoutes: (city, keyword) => call('/api/v1/bus/routes', { city, keyword }, (s) => s.bus.searchRoutes({ city, keyword })),
-  busEta: (city, route) => call('/api/v1/bus/eta', { city, route }, (s) => s.bus.routeEta({ city, routeName: route })),
+  busRoutes: (city, keyword) => call('/api/v1/bus/routes', { city, keyword }, (s) => s.bus.searchRoutes({ city, keyword }), { cache: TTL.day }),
+  busEta: (city, route) => call('/api/v1/bus/eta', { city, route }, (s) => s.bus.routeEta({ city, routeName: route }), { cache: TTL.eta }),
   busNearby: (lat, lon) => call('/api/v1/bus/nearby', { lat, lon }, (s) => s.bus.nearbyStations({ lat, lon })),
-  busStationEta: (city, station) => call('/api/v1/bus/station-eta', { city, station }, (s) => s.bus.stationEta({ city, stationId: station })),
+  busStationEta: (city, station) => call('/api/v1/bus/station-eta', { city, station }, (s) => s.bus.stationEta({ city, stationId: station }), { cache: TTL.eta }),
   bikeNearby: (lat, lon) => call('/api/v1/bike/nearby', { lat, lon }, (s) => s.bike.nearby({ lat, lon })),
-  thsrStations: () => call('/api/v1/thsr/stations', {}, (s) => s.rail.thsrStations()),
-  thsrTimetable: (from, to, date) => call('/api/v1/thsr/timetable', { from, to, date }, (s) => s.rail.thsrTimetable({ from, to, date })),
-  traStations: () => call('/api/v1/tra/stations', {}, (s) => s.rail.traStations()),
-  traTimetable: (from, to, date) => call('/api/v1/tra/timetable', { from, to, date }, (s) => s.rail.traTimetable({ from, to, date })),
+  thsrStations: () => call('/api/v1/thsr/stations', {}, (s) => s.rail.thsrStations(), { cache: TTL.day }),
+  thsrTimetable: (from, to, date) => call('/api/v1/thsr/timetable', { from, to, date }, (s) => s.rail.thsrTimetable({ from, to, date }), { cache: TTL.day }),
+  traStations: () => call('/api/v1/tra/stations', {}, (s) => s.rail.traStations(), { cache: TTL.day }),
+  traTimetable: (from, to, date) => call('/api/v1/tra/timetable', { from, to, date }, (s) => s.rail.traTimetable({ from, to, date }), { cache: TTL.day }),
 };

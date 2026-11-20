@@ -5,7 +5,8 @@ import { browserLocation } from './agent/client.js';
 export const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export const loading = (msg = '載入中…') => `<div class="loading"><div class="spinner"></div>${esc(msg)}</div>`;
-export const errorBox = (e) => `<div class="error">${esc(e?.message || e)}</div>`;
+const NET_ERR = /^(TypeError|AbortError|TimeoutError)$/;
+export const errorBox = (e) => `<div class="error">${esc(NET_ERR.test(e?.name) ? '目前連不上網路，連上後再試一次' : e?.message || e)}</div>`;
 export const empty = (msg) => `<div class="empty">${esc(msg)}</div>`;
 
 export function etaBadge({ etaSec, status, statusText }) {
@@ -15,6 +16,15 @@ export function etaBadge({ etaSec, status, statusText }) {
 }
 
 export const fmtDist = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`);
+/** 存下資料的時間：今天 14:05／昨天 14:05／11/20 14:05 */
+export function savedWhen(at, now = Date.now()) {
+  const d = new Date(at);
+  const hm = d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const day = (x) => new Date(x).toDateString();
+  return day(at) === day(now) ? hm : day(at) === day(now - 864e5) ? `昨天 ${hm}` : `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
+}
+/** 舊資料的頁尾說明 */
+export const staleNote = (at) => `離線：這是 ${savedWhen(at)} 存下的資料，連上網路後自動更新`;
 export const fmtTime = (d = new Date()) => d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 export const chev = icons.chev.replace('<svg', '<svg class="chev"');
 

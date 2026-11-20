@@ -257,4 +257,5 @@ html.kb-open .app { padding-bottom: 12px; }
 @media (max-height: 480px) { .onboard .onboard-img { display: none; } }
 
 /* 離線與弱網：比示範橫幅醒目（黃底深字，對比 ≥ 7:1） */
+.offline-banner[hidden] { display: none; }
 .offline-banner { margin: 8px 16px 0; padding: 8px 12px; border-radius: 10px; background: #fef3c7; color: #78350f; font-size: 14px; }

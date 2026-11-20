@@ -100,7 +100,10 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
   const host = {
     kind: 'web', theme: 'light',
     async callTool(name, args) {
-      const res = await fetch(`${base}/api/v1/tools/${encodeURIComponent(name)}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(args || {}) });
+      let res;
+      try {
+        res = await fetch(`${base}/api/v1/tools/${encodeURIComponent(name)}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(args || {}), signal: AbortSignal.timeout?.(15000) });
+      } catch { throw new Error('目前連不上網路，連上後再試一次'); } // Safari 是英文「Load failed」
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
       return body;

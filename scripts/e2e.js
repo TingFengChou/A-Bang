@@ -814,11 +814,14 @@ test('離線：顯示上次存下的資料與時間、連回來恢復', async ()
     await ctx.setOffline(true);
     await page.evaluate(() => { location.hash = '#/bus/Taipei/307'; });
     await page.waitForSelector('.timeline .title');
-    const banner = await page.locator('.offline-banner').textContent();
+    await page.waitForSelector('#offline:not([hidden])');
+    const banner = await page.locator('#offline').textContent();
     assert.match(banner, /目前離線：顯示 \d{2}:\d{2} 存下的資料/);
+    assert.match(await page.locator('#upd').textContent(), /存下的資料/, '頁尾不說「更新於」現在時間');
     await shot(page, 'phone-offline');
     await ctx.setOffline(false);
-    await page.waitForFunction(() => !document.querySelector('.offline-banner'));
+    await page.waitForSelector('#offline', { state: 'hidden' }); // 連回來：重新載入這一頁
+    await page.waitForFunction(() => /更新於/.test(document.querySelector('#upd')?.textContent || ''));
   } finally {
     await ctx.close();
   }
