@@ -162,6 +162,18 @@ export function upcomingTrains(data, now = Date.now()) {
 
 /** 工具發言：今天 → 下一班；其他日期 → 最早一班 */
 export function railSpeak(d, now = Date.now()) {
+  // 沒說起站、用最近的車站時先說是哪一站（用預設地點時不說「離你」）
+  return nearestSay(d) + railSpeakBody(d, now);
+}
+/** 「離你最近的高鐵站是南港（約 4.4 公里）。」；300 公尺內「你就在台北站附近。」；最近的站沒直達車時說改從哪站 */
+export function nearestSay(d) {
+  if (!d.nearest) return '';
+  const label = d.system === 'THSR' ? '高鐵' : '台鐵';
+  const skip = d.skipped ? `${d.skipped}站沒有直達車，改從` : '';
+  if (d.nearest.distanceM <= 300 && !skip) return `${d.nearest.from ? `「${d.nearest.from}」` : '你'}就在${d.from}站附近。`;
+  return skip ? `${skip}${d.from}站（約 ${fmtM(d.nearest.distanceM)}）。` : `${d.nearest.from ? `離「${d.nearest.from}」最近` : '離你最近'}的${label}站是${d.from}（約 ${fmtM(d.nearest.distanceM)}）。`;
+}
+function railSpeakBody(d, now) {
   if (!d.trains.length) return '那天沒有直達班次。';
   const type = (x) => (d.system === 'TRA' && x.type ? `（${x.type}）` : '');
   const up = upcomingTrains(d, now);
@@ -172,6 +184,10 @@ export function railSpeak(d, now = Date.now()) {
 
 /** 給模型的文字：今天只列還沒開出的班次，並寫明現在時間與下一班，避免把第一班當成下一班 */
 export function railText(data, label, now = Date.now()) {
+  const pre = data.nearest ? `（使用者沒說起站，用最近的車站）${nearestSay(data)}\n` : '';
+  return pre + railTextBody(data, label, now);
+}
+function railTextBody(data, label, now) {
   const row = (t) => `- ${t.trainNo} 次${t.type ? `（${t.type}）` : ''}：${t.depart} → ${t.arrive}，${t.minutes} 分`;
   if (!data.trains.length) return `${label} ${data.from} → ${data.to}（${data.date}）沒有直達班次。`;
   const up = upcomingTrains(data, now);
@@ -181,15 +197,58 @@ export function railText(data, label, now = Date.now()) {
   return clip([`${head}：今天還有 ${up.length} 班（全天 ${data.trains.length} 班），下一班 ${up[0].depart} 出發。尚未開出的班次：`, ...up.map(row)]);
 }
 
+/** 高鐵／台鐵時刻表的輸入：起站可省略改給 near（使用者位置），用最近的車站 */
+const RAIL_INPUT = {
+  from: z.string().min(1).optional().describe('起站；使用者沒說時省略並給 near'),
+  to: z.string().min(1).describe('迄站'),
+  date: T.date,
+  near: T.point('使用者現在的位置（沒說起站時用）：找 30 公里內最近的車站').optional(),
+};
+const RAIL_NEAR_MAX_M = 30_000;
+
+/**
+ * 沒說起站時：最近的高鐵／台鐵車站候選（30 公里內最近 3 站，排除迄站本身；車站沒有座標或太遠時請使用者說起站）。
+ * @returns {Promise<Array<{ station: string, distanceM: number, from?: string }>|null>} 有起站時回 null
+ */
+async function railCandidates(svc, system, a) {
+  if (a.from) return null;
+  const label = system === 'THSR' ? '高鐵' : '台鐵';
+  if (!a.near) throw new UserError(`請告訴我從哪一個${label}站出發，例如「${system === 'THSR' ? '台北到台中' : '臺北到花蓮'}」`);
+  const pt = await resolvePoint(svc.places, a.near);
+  const list = system === 'THSR' ? await svc.rail.thsrStations() : await svc.rail.traStations();
+  const to = normName(a.to).replace(/站$/, '');
+  const near = list.filter((s) => Number.isFinite(s.lat) && !normName(s.name).includes(to) && !to.includes(normName(s.name)))
+    .map((s) => ({ station: s.name, distanceM: Math.round(distanceM(pt.lat, pt.lon, s.lat, s.lon)), ...(typeof a.near === 'string' && { from: a.near }) }))
+    .filter((x) => x.distanceM <= RAIL_NEAR_MAX_M).sort((x, y) => x.distanceM - y.distanceM).slice(0, 3);
+  if (!near.length) throw new UserError(`你附近 ${RAIL_NEAR_MAX_M / 1000} 公里內找不到${label}站；請告訴我從哪一站出發${system === 'THSR' ? '（花東、宜蘭沒有高鐵，要改查台鐵嗎？）' : ''}`);
+  return near;
+}
+
+/** 時刻表：有起站直接查；沒有就從最近的站依序查，0 班（支線小站沒直達）換下一站 */
+async function railTimetable(svc, system, a) {
+  const get = (from) => (system === 'THSR' ? svc.rail.thsrTimetable({ ...a, from }) : svc.rail.traTimetable({ ...a, from }));
+  const cands = await railCandidates(svc, system, a);
+  if (!cands) return get(a.from);
+  let first = null;
+  for (const c of cands) {
+    const r = await get(c.station).catch(() => null);
+    if (!r) continue;
+    first ||= { r, c };
+    if (r.trains.length) return { ...r, nearest: c, ...(c !== cands[0] && { skipped: cands[0].station }) };
+  }
+  if (first) return { ...first.r, nearest: first.c };
+  throw new UserError('附近的車站查不到班次；請告訴我從哪一站出發');
+}
+
 export const thsrTimetable = defineTool({
   name: 'thsr_timetable',
   title: '高鐵時刻表',
   description: '查詢指定日期兩個高鐵站之間的班次（出發、抵達、行車分鐘數）。站名可用中文，例如「台北」「左營」。',
   pack: PACK, tier: 'L1', card: 'timetable',
-  input: { from: z.string().min(1).describe('起站'), to: z.string().min(1).describe('迄站'), date: T.date },
+  input: RAIL_INPUT,
   speak: (d) => railSpeak(d),
   async run(svc, a) {
-    const data = { system: 'THSR', ...(await svc.rail.thsrTimetable(a)) }; // 卡片 timetable 依 system 決定標題與訂票
+    const data = { system: 'THSR', ...(await railTimetable(svc, 'THSR', a)) }; // 卡片 timetable 依 system 決定標題與訂票
     return { data, text: railText(data, '高鐵') };
   },
 });
@@ -199,10 +258,10 @@ export const traTimetable = defineTool({
   title: '台鐵時刻表',
   description: '查詢指定日期兩個台鐵車站之間的班次（車種、出發、抵達、行車分鐘數）。站名可用中文，例如「臺北」「花蓮」。',
   pack: PACK, tier: 'L1', card: 'timetable',
-  input: { from: z.string().min(1).describe('起站'), to: z.string().min(1).describe('迄站'), date: T.date },
+  input: RAIL_INPUT,
   speak: (d) => railSpeak(d),
   async run(svc, a) {
-    const data = { system: 'TRA', ...(await svc.rail.traTimetable(a)) };
+    const data = { system: 'TRA', ...(await railTimetable(svc, 'TRA', a)) };
     return { data, text: railText(data, '台鐵') };
   },
 });

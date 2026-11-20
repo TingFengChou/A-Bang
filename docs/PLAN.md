@@ -79,6 +79,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | 地理編碼（TDX 或 TGOS） | 未驗證（`find_place` 目前只查內建地標） |
 | 導訂票 API 端點與參數（需權限） | 未驗證 |
 | CWA 觀測與鄉鎮預報欄位 | 未驗證（M3-08 假設 `records.Station[]`（`GeoInfo.Coordinates` WGS84、`WeatherElement.AirTemperature／Weather`）、雨量站 `O-A0002-001` 的 `RainfallElement.Past1hr.Precipitation`（`-998` 雨跡等特殊值目前視為沒有資料）、`F-D0047-089` 可用 `LocationName` 篩、上層縣市欄位 `LocationsName`（同名鄉鎮以縣市區分）、時段 `EndTime`、元素名「3小時降雨機率」；`weather_tomorrow` 另假設時段 `StartTime`（或 `DataTime`）、元素「溫度／最高溫度／最低溫度」「天氣現象」） |
+| 高鐵／台鐵車站座標與等級 | 未驗證（2026-11-21：`StationPosition.PositionLat／Lon` 給「最近車站」用；台鐵 `StationClass` 可用來優先有直達車的大站，目前改用「最近 3 站依序查、0 班換下一站」） |
 | OData 空白用 `%20`（已實作）是否必要 | 未驗證 |
 
 ## M2 Tool registry＋遠端 MCP ✅
@@ -263,7 +264,8 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [ ] S11／S15 多筆提醒、公車一直不來時重新規劃
 - [ ] 出門建議小卡、「重來」分隔線、沒變的卡片收合（設計審查建議）
 - [ ] S1 常用地點（家、公司、學校：「回家」直接成行程）
-- [ ] S16 補齊：高鐵／台鐵「最近車站」當起點、藥局定位轉行政區（目前只有捷運最近站）
+- [x] S16 高鐵／台鐵「最近車站」當起站（2026-11-21：`near`；「下一班高鐵到台中」「台鐵回高雄幾點有車」）
+- [ ] S16 藥局定位轉行政區
 - [ ] S5 YouBike 空位預測（騎到時可能沒位）、S6 叫車人均（多人）
 - [ ] S17 長途訂票（導訂票權限 ⛔）、S18 超出範圍與安全（拒答、轉介）擴充情境
 
