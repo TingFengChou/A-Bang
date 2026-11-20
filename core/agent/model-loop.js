@@ -8,7 +8,7 @@ import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hi
 import { judgeNote, moreStatesNote } from './impact.js';
 import { lineCode } from '../tools/metro.js';
 import { normName, nowTW } from '../util.js';
-import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt } from './demo-intent.js';
+import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, demoSummary } from './demo-intent.js';
 import { resolvePoint } from '../services/places.js';
 import { outingAdvice } from './outing.js';
 
@@ -50,10 +50,10 @@ export function prefetchCalls(it, j, here) {
   // 行程：起訖點都知道（明講的起點，或沒說＝現在位置）就由程式先比較，不靠模型記得呼叫 plan_trip
   //（地端模型接著改「改坐公車」時常不再查、說「叫車」時直接產生叫車連結，2026-11-21 情境評測）
   // 沒說起點也拿不到位置（拒絕定位）：先從示範預設起點算，並告訴模型要說明（與示範模式一致）
-  if (it.intent === 'trip' && it.to) {
+  if (it.intent === 'trip' && (it.to || it.toSaved)) {
     const prefs = { ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }), ...(it.avoid?.length && { avoid: it.avoid }), ...(it.states?.length && { states: it.states }) };
-    const from = it.from || (at ? { ...at, name: here.name } : DEFAULT_FROM);
-    return [{ name: 'plan_trip', args: { from, to: it.to, ...(Object.keys(prefs).length && { prefs }) }, ...(!it.from && !at && { note: NO_LOCATION_NOTE }) }];
+    const from = it.fromSaved || it.from || (at ? { ...at, name: here.name } : DEFAULT_FROM); // 常用地點（家、公司）直接用座標
+    return [{ name: 'plan_trip', args: { from, to: it.toSaved || it.to, ...(Object.keys(prefs).length && { prefs }) }, ...(!it.from && !at && { note: NO_LOCATION_NOTE }) }];
   }
   if (it.intent === 'metro' && !it.station && (it.near || at)) return [{ name: METRO_NEAR, args: { near: it.near || { ...at, name: here.name }, ...(it.line && { line: it.line }) } }];
   // 高鐵／台鐵沒說起站：句中地名或現在位置最近的車站（拿不到位置用預設地點，與示範模式一致）
@@ -194,8 +194,13 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   if (more) emit(ev.agentNote(more));
   const sure = j && (j.source === 'llm' || j.source === 'device' || (j.confidence ?? 0) >= 0.8); // 模型判斷（伺服器 B 或手機上的模型，ADR-0014）或 A 有把握
   // 這句（或接著改的上一輪）沒說起點 → 起點是現在位置（下面呼叫 plan_trip 時由程式帶入）
-  const rulesIt = parseIntent(last, { history: req.messages.slice(0, -1) });
-  const hereIsOrigin = rulesIt.intent === 'trip' && !rulesIt.from;
+  const rulesIt = parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces });
+  const hereIsOrigin = rulesIt.intent === 'trip' && !rulesIt.from && !rulesIt.fromSaved;
+  if (rulesIt.intent === 'savedMissing') { // 「回家」但沒設定家：不給模型猜，直接說去哪裡設定
+    emit(ev.text(demoSummary(rulesIt, {})));
+    emit(ev.done());
+    return;
+  }
   // 需要現在位置（沒說起點的行程、沒說地點的天氣／YouBike／附近公車／垃圾車／公車到站）→ 問模型之前就先請 App 定位，
   // 再把位置直接告訴模型（地端模型常常不呼叫 device_location，直接反問「你在哪裡」）
   const NEARBY_INTENTS = ['weather', 'aqi', 'youbike', 'nearby_bus', 'garbage', 'bus_route'];
@@ -288,7 +293,8 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     // 地端小模型常把目的地也填成起點（台北101 → 台北101），這裡直接改掉；還沒定位就先請客戶端定位。
     const trips = turn.calls.filter((c) => c.name === 'plan_trip' && !results.has(c.id));
     // 使用者說過起點（這句或前文，例：「從西門町去台北101」→「改坐公車」→「我很趕」）：起點照他說的，模型不能換成現在位置
-    if (trips.length && rulesIt.intent === 'trip' && rulesIt.from) for (const c of trips) c.input = { ...c.input, from: rulesIt.from };
+    if (trips.length && rulesIt.intent === 'trip' && (rulesIt.from || rulesIt.fromSaved)) for (const c of trips) c.input = { ...c.input, from: rulesIt.fromSaved || rulesIt.from };
+    if (trips.length && rulesIt.intent === 'trip' && rulesIt.toSaved) for (const c of trips) c.input = { ...c.input, to: rulesIt.toSaved }; // 「回家」：目的地是存在手機的家
     if (trips.length && hereIsOrigin) {
       const loc = here;
       if (loc === undefined) {

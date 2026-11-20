@@ -140,3 +140,22 @@ test('A3 負面案例：「從明天開始」「從頭開始」「我從來不�
   parseIntent('我很趕', { history: long });
   assert.ok(performance.now() - t0 < 50, '單趟累積，不再指數成長');
 });
+
+test('常用地點（S1）：回家、去公司、從公司回家、從台北101回家；沒設定不當地點；請求驗證只收台灣座標', async () => {
+  const { savedTrip, parseIntent } = await import('../core/agent/demo-intent.js');
+  const { validateRequest } = await import('../core/agent/run.js');
+  const saved = { 家: { name: '家', lat: 25.0143, lon: 121.4635 }, 公司: { name: '公司', lat: 25.0791, lon: 121.576 } };
+  const a = savedTrip('回家', [], saved);
+  assert.deepEqual([a.from, a.to, a.toSaved.lat], [null, '家', 25.0143]);
+  const b = savedTrip('從公司回家', [], saved);
+  assert.deepEqual([b.from, b.to, Boolean(b.fromSaved && b.toSaved)], ['公司', '家', true]);
+  const c = parseIntent('從台北101回家', { saved });
+  assert.deepEqual([c.intent, c.from, c.to], ['trip', '台北101', '家']);
+  assert.deepEqual(savedTrip('回家', [], {}), { intent: 'savedMissing', missing: '家' }, '沒設定：提示去設定');
+  assert.equal(savedTrip('回家路上會下雨嗎', [], {}), null, '不是要規劃回家');
+  assert.equal(savedTrip('公司附近的藥局', [], {}), null);
+  assert.equal(savedTrip('上班', [], {}).missing, '公司');
+  assert.equal(parseIntent('去公司', { saved }).to, '公司');
+  assert.throws(() => validateRequest({ messages: [{ role: 'user', content: '回家' }], savedPlaces: { 家: { name: '家', lat: 35.6, lon: 139.7 } } }), /請求格式錯誤/);
+  assert.throws(() => validateRequest({ messages: [{ role: 'user', content: '回家' }], savedPlaces: { 宿舍: { name: 'x', lat: 25, lon: 121 } } }), /請求格式錯誤/);
+});

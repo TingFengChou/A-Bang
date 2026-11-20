@@ -57,6 +57,8 @@ const RequestSchema = z.object({
   clientTools: z.array(z.string()).max(10).optional(),
   clientToolResults: z.array(z.object({ id: z.string(), ok: z.boolean(), result: z.any().optional() })).max(10).optional(),
   context: z.string().max(200).optional(),
+  // 常用地點（S1）：存在手機，只在使用者提到時送（「回家」→ 家）；台灣範圍內的座標
+  savedPlaces: z.partialRecord(z.enum(['家', '公司', '學校']), z.object({ name: z.string().trim().min(1).max(40), lat: z.number().min(21).max(27), lon: z.number().min(118).max(123) })).optional(),
   // 手機上的模型先判斷好的意圖與狀態（ADR-0014）：只是提示，列舉值以外一律拒絕；方案排序仍由 decide.js 計分
   deviceJudge: z.object({ intent: z.enum(Object.keys(JUDGE_INTENTS)), states: z.array(z.enum(JUDGE_STATES)).max(JUDGE_STATES.length), engine: z.enum(DEVICE_ENGINES) }).optional(),
 });
@@ -182,7 +184,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   const nextId = () => `t${++n}`;
   const plan = PLANNERS[profile.id] || PLANNERS.life;
   const last = req.messages.at(-1).content;
-  let it = plan.parse(last, { history: req.messages.slice(0, -1) });
+  let it = plan.parse(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces });
   // 判斷層（judge.js）：先用快速版（A＋規則，幾毫秒）說聽懂了什麼，再用完整版（含模型）定案意圖與狀態
   const jc = judgeCalls(judge, req, profile);
   const q0 = jc ? await jc.quick() : null;
@@ -196,7 +198,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   if (j) {
     // 出門建議是天氣＋空品的組合：判斷層說天氣或空品時保留（判斷層沒有 outing 這個意圖）
     const keep = it.followUp || (it.intent === 'outing' && ['weather', 'aqi'].includes(j.intent));
-    if (j.intent !== it.intent && !keep) it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent }) || it;
+    if (j.intent !== it.intent && !keep && !it.savedTrip && it.intent !== 'savedMissing') it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent }) || it;
     it.states = j.states;
     const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
     if (more) emit(ev.agentNote(more));
