@@ -17,31 +17,53 @@ export function canRemind(leaveAt, date, now = Date.now()) {
   return hh * 60 + mm > tw.getUTCHours() * 60 + tw.getUTCMinutes() + 1;
 }
 
-/** 「提醒我出門」：host 支援提醒、且 canRemind 才顯示。第一次要通知權限前先說明為什麼（T7）；設好後可以取消 */
-function remindButton(o, { host, t, state, rerender, payload }) {
-  if (!host?.remind || !canRemind(o.leaveAt, payload?.data?.date)) return null;
+/** 重畫後把焦點放回這個按鈕（整張卡重畫，原本按的按鈕會消失） */
+const focusLater = (el, want, state) => { if (want && state.remindFocus === want) { state.remindFocus = null; setTimeout(() => el.focus(), 0); } return el; };
+
+/**
+ * 「提醒我出門」區塊（放在行動按鈕列下面）：host 支援提醒、裝置能發通知、且 canRemind 才顯示。
+ * 第一次要通知權限前先說明為什麼（T7）；設好後可以取消；訊息就寫在這一區（不放到卡片最上面）。
+ * 已設定與否從 host 讀（同一段路線一筆）：卡片重畫、重新規劃、在設定頁取消後都一致。
+ */
+function remindBlock(o, { host, t, state, rerender, payload, say = () => {} }) {
+  if (!host?.remind || host.canNotify === false || !canRemind(o.leaveAt, payload?.data?.date)) return null;
+  const d = payload?.data || {};
+  const key = `${d.from?.name || ''}→${d.to?.name || ''}`;
+  const cur = host.reminderFor ? host.reminderFor(key) : state.reminded;
+  const msg = (text, kind = 'note') => { state.remindMsg = text && { text, kind }; if (text) say(text); };
+  const when = host.arrivalNote?.() === 'whenOpenPage' ? t('trip.remindWhenPage') : '';
   const set = async () => {
-    state.explain = null;
-    const id = await host.remind(o.leaveAt, t('trip.remindText', { name: o.name, time: o.leaveAt })).catch(() => false);
-    state.reminded = id ? { opt: o.id, id } : null; state.err = id ? null : t('trip.remindFailed'); rerender();
+    state.explain = null; msg(null);
+    const id = await host.remind(o.leaveAt, t('trip.remindText', { name: o.name, time: o.leaveAt }), { key, opt: o.id }).catch(() => false);
+    state.reminded = id ? { opt: o.id, id } : null;
+    if (id) { msg(t('trip.reminded', { time: o.leaveAt }) + when); state.remindFocus = 'cancel'; }
+    else { msg(t((host.notifyState && (await host.notifyState().catch(() => 'prompt')) === 'denied') ? 'trip.remindDenied' : 'trip.remindFailed'), 'err'); state.remindFocus = 'trigger'; }
+    rerender();
   };
-  if (state.reminded?.opt === o.id) {
+  const note = state.remindMsg && h('p', { class: state.remindMsg.kind === 'err' ? 'ab-fail' : 'ab-sub' }, state.remindMsg.text);
+  if (cur?.opt === o.id) {
     return h('div', { class: 'ab-remind' },
-      h('span', { class: 'ab-sub', role: 'status' }, t('trip.reminded', { time: o.leaveAt })),
-      host.cancelRemind && typeof state.reminded.id === 'string' && h('button', { type: 'button', class: 'ab-btn ab-quiet', onclick: () => { host.cancelRemind(state.reminded.id); state.reminded = null; state.note = t('trip.remindCanceled'); rerender(); } }, t('trip.remindCancel')));
+      h('p', { class: 'ab-sub' }, t('trip.reminded', { time: o.leaveAt }) + when),
+      host.cancelRemind && typeof cur.id === 'string' && focusLater(h('button', { type: 'button', class: 'ab-btn ab-link', onclick: () => {
+        const ok = host.cancelRemind(cur.id);
+        state.reminded = null; msg(t(ok === false ? 'trip.remindGone' : 'trip.remindCanceled')); state.remindFocus = 'trigger'; rerender();
+      } }, t('trip.remindCancel')), 'cancel', state));
   }
   if (state.explain === o.id) { // 說明為什麼要通知，再跳系統對話框（拒絕過一次就很難再要）
     return h('div', { class: 'ab-remind ab-explain' },
       h('p', { class: 'ab-sub' }, t('trip.remindWhy', { time: o.leaveAt })),
-      h('button', { type: 'button', class: 'ab-btn', onclick: set }, t('trip.remindAllow')),
-      h('button', { type: 'button', class: 'ab-btn ab-quiet', onclick: () => { state.explain = null; rerender(); } }, t('trip.remindNotNow')));
+      focusLater(h('button', { type: 'button', class: 'ab-btn ab-primary', onclick: set }, t('trip.remindAllow')), 'allow', state),
+      h('button', { type: 'button', class: 'ab-btn ab-link', onclick: () => { state.explain = null; msg(null); state.remindFocus = 'trigger'; rerender(); } }, t('trip.remindNotNow')));
   }
-  return h('button', { type: 'button', class: 'ab-btn', onclick: async () => {
-    const st = host.notifyState ? await host.notifyState().catch(() => 'prompt') : 'granted';
-    if (st === 'prompt') { state.explain = o.id; state.note = null; rerender(); return; }
-    if (st === 'denied' || st === 'unsupported') { state.err = t(st === 'denied' ? 'trip.remindDenied' : 'trip.remindFailed'); rerender(); return; }
-    await set();
-  } }, t('trip.remind', { time: o.leaveAt }));
+  return h('div', { class: 'ab-remind' },
+    focusLater(h('button', { type: 'button', class: 'ab-btn', onclick: async () => {
+      msg(null);
+      const st = host.notifyState ? await host.notifyState().catch(() => 'prompt') : 'granted';
+      if (st === 'prompt') { state.explain = o.id; state.remindFocus = 'allow'; rerender(); return; }
+      if (st === 'denied' || st === 'unsupported') { msg(t(st === 'denied' ? 'trip.remindDenied' : 'trip.remindFailed'), 'err'); rerender(); return; }
+      await set();
+    } }, t(cur ? 'trip.remindMove' : 'trip.remind', { time: o.leaveAt })), 'trigger', state),
+    note);
 }
 import { navButton, confirmLinkButton, bookButton } from '../actions.js';
 
@@ -114,9 +136,9 @@ function optionBlock(o, ctx, best) {
     o.bike && (o.bike.rent.tight || o.bike.ret.tight) && h('ul', { class: 'ab-bike-warn' }, o.notes.filter((n) => /可能/.test(n) && !/變動/.test(n)).map((n) => h('li', {}, n))),
     best && h('div', { class: 'ab-actions' },
       navButton(host, o.legs[0]?.nav),
-      remindButton(o, ctx),
       ride && confirmLinkButton(host, ride, t('trip.ridehailConfirm'), t('trip.ridehail')),
       o.train && bookButton(host, { system: o.role.toUpperCase(), trainNo: o.train.trainNo, date: o.train.date, from: o.train.from, to: o.train.to }, (m) => { ctx.state.err = m; ctx.rerender(); })),
+    best && remindBlock(o, ctx),
     pick);
 }
 
@@ -133,7 +155,6 @@ export default {
       d.states?.length > 0 && h('div', { class: 'ab-chips', 'aria-label': t('trip.states') }, d.states.map((s) => h('span', { class: 'ab-chip', title: s.detail || '' },
         `${t(`trip.stateKey.${s.key}`)}・${t(`trip.state.${s.source}`)}`))),
       state.err && h('p', { class: 'ab-fail', role: 'alert' }, state.err),
-      state.note && h('p', { class: 'ab-sub', role: 'status' }, state.note),
       warnTips.length > 0 && h('ul', { class: 'ab-tips warn', 'aria-label': t('trip.tips') }, warnTips.map((x) => h('li', {}, x.text))),
       best ? optionBlock(best, ctx, true) : h('p', { class: 'ab-empty' }, t(!d.ranking.excluded.length ? 'trip.none' : d.ranking.excluded.every((e) => !String(e.why).includes('超過')) ? 'trip.allAvoided' : 'trip.allLate')),
       d.ranking.reason && h('p', { class: 'ab-reason' }, d.ranking.reason),

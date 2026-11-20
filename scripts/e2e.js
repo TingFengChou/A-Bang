@@ -194,10 +194,11 @@ for (const [dname, device] of Object.entries(DEVICES)) {
         const before = calls.length;
         [...el.querySelectorAll('.ab-explain .ab-btn')].find((b) => /允許通知/.test(b.textContent)).click();
         await wait();
-        const text = el.querySelector('.ab-option.best [role="status"]')?.textContent;
+        const text = el.querySelector('.ab-remind p')?.textContent;
+        const focused = document.activeElement?.textContent;
         [...el.querySelectorAll('.ab-remind .ab-btn')].find((b) => b.textContent === '取消提醒').click();
         await wait();
-        const out = { calls, text, leaveAt, why, before, canceled, after: [...el.querySelectorAll('[role="status"]')].map((x) => x.textContent).join('｜') };
+        const out = { calls, text, leaveAt, why, before, canceled, after: el.querySelector('.ab-remind')?.textContent, focused };
         el.remove();
         return out;
       });
@@ -213,13 +214,14 @@ for (const [dname, device] of Object.entries(DEVICES)) {
         return out;
       });
       assert.deepEqual(badges, { live: '真實資料', demo: '示範資料' });
-      assert.match(reminded.why, /會問你要不要允許通知/);
+      assert.match(reminded.why, /會問你是否允許通知/);
       assert.equal(reminded.before, 0, '說明前不要權限、不設定');
       assert.equal(reminded.calls.length, 1);
       assert.equal(reminded.calls[0][0], reminded.leaveAt);
       assert.match(reminded.text, /提醒你出門/);
       assert.deepEqual(reminded.canceled, ['r1']);
       assert.match(reminded.after, /已取消出門提醒/);
+      assert.equal(reminded.focused, '取消提醒', '設好後焦點在「取消提醒」（整張卡重畫）');
       assert.equal(await page.locator('.ab-card script, .ab-card img[onerror]').count(), 0);
       // 自動刷新不會在第一次後停止：連續兩次 refresh 都會呼叫 tool
       const calls = await page.evaluate(async () => {

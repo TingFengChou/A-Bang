@@ -48,3 +48,28 @@ test('打開時：過期的清掉；網頁版把還沒到的排回去', async ()
   assert.deepEqual(shown, [['阿幫提醒', '快到了']], '重新整理後還是會響');
   assert.deepEqual(listReminders(), [], '響過就移除');
 });
+
+test('同一段路線只留一筆（改時間）；別的分頁取消後不響；網頁優先用 service worker 通知', async () => {
+  const a = await addReminder(inMin(30), '該出門了：捷運，10:30 前出發', { key: '臺北車站→台北101', opt: 'metro' });
+  const b = await addReminder(inMin(35), '該出門了：捷運，10:35 前出發', { key: '臺北車站→台北101', opt: 'metro' });
+  assert.notEqual(a, b);
+  assert.deepEqual(listReminders().map((r) => r.id), [b], '重新規劃後改時間，不是兩筆');
+  const { reminderFor } = await import('../public/js/reminders.js');
+  assert.equal(reminderFor('臺北車站→台北101').opt, 'metro');
+  assert.equal(cancelReminder(b), true);
+  assert.equal(cancelReminder(b), false, '已取消回 false');
+  // 別的分頁取消：計時器到了也不響
+  const c = await addReminder(new Date(Date.now() + 60), '快到了', { key: 'x' });
+  store.set('abang.reminders', JSON.stringify([]));
+  await new Promise((r) => setTimeout(r, 120));
+  assert.deepEqual(shown, []);
+  assert.ok(c);
+  // service worker 的 showNotification（Android Chrome 不能 new Notification）
+  const swShown = [];
+  const nav = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { serviceWorker: { getRegistration: async () => ({ showNotification: async (title, o) => swShown.push([title, o.body, o.tag]) }) } } });
+  const d = await addReminder(new Date(Date.now() + 60), '用 SW 通知');
+  await new Promise((r) => setTimeout(r, 150));
+  assert.deepEqual(swShown, [['阿幫提醒', '用 SW 通知', d]]);
+  if (nav) Object.defineProperty(globalThis, 'navigator', nav); else delete globalThis.navigator;
+});

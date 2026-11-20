@@ -2,7 +2,7 @@
 // MCP Apps 版（host-mcp-app.js）於 M4-04 實作。
 
 import { hasNativeNotify, ensureNotifyPermission, scheduleNotify, cancelNotify, NOTIFY_ID, EARLY_MS } from '../../js/native-notify.js';
-import { addReminder, cancelReminder, notifyState } from '../../js/reminders.js';
+import { addReminder, cancelReminder, notifyState, reminderFor, canNotify } from '../../js/reminders.js';
 
 // 到站提醒（L-14）：整個頁面共用一個；SPA 換頁仍繼續，網頁版關掉就停止（網頁沒有背景推播）。
 // 手機 App（M11-02）：每次查到到站時間，就把「該出門了」的本機通知排到預估的時間（同一則覆蓋更新）；
@@ -112,11 +112,17 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
      * 手機 App 用系統本機通知（App 關著也會響）；網頁要允許通知、頁面開著才會響。
      * @returns {Promise<string|false>} 提醒 id（可傳給 cancelRemind）；失敗回 false
      */
-    async remind(at, text) {
+    async remind(at, text, meta) {
+      // at 是台灣時間（伺服器算的）：不看裝置時區（觀光客手機可能是別的時區，PR #50 審查）
       const [h, m] = String(at).split(':').map(Number);
-      const when = new Date(); when.setHours(h, m, 0, 0);
-      return addReminder(when, text);
+      const tw = new Date(Date.now() + 8 * 3600e3);
+      const when = new Date(Date.UTC(tw.getUTCFullYear(), tw.getUTCMonth(), tw.getUTCDate(), h - 8, m));
+      return addReminder(when, text, meta);
     },
+    /** 這段路線目前的出門提醒（卡片重畫、重新規劃後也知道已經設了） */
+    reminderFor: (key) => reminderFor(key),
+    /** 這個裝置能不能發通知（iOS Safari 沒加到主畫面就不能：不顯示提醒按鈕） */
+    get canNotify() { return canNotify(); },
     /** 取消出門提醒 */
     cancelRemind: (id) => cancelReminder(id),
     /** 通知權限現況（不跳對話框）：卡片在第一次要權限前先說明為什麼 */

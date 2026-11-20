@@ -39,7 +39,9 @@
  * @property {(text: string) => void} setContext    更新模型脈絡（例：使用者選了哪一站）
  * @property {(url: string, opts?: { confirm?: string }) => void} openLink  開地圖、訂票、叫車；confirm 有值時先顯示確認視窗（L2）
  * @property {(at: string, text: string) => Promise<string|boolean>} [remind]  出門提醒（裝置端；回傳提醒 id；不支援時不顯示按鈕）
- * @property {(id: string) => boolean} [cancelRemind]  取消出門提醒（T7）
+ * @property {(id: string) => boolean} [cancelRemind]  取消出門提醒（T7；已響過或已取消回 false）
+ * @property {(key: string) => object|null} [reminderFor]  這段路線（起訖）目前的出門提醒：卡片重畫、重新規劃後也知道已設定
+ * @property {boolean} [canNotify]  這個裝置能不能發通知（iOS Safari 沒加到主畫面：false，不顯示提醒按鈕）
  * @property {() => Promise<'granted'|'denied'|'prompt'|'unsupported'>} [notifyState]  通知權限現況：'prompt' 時卡片先說明為什麼要通知，按了才要權限
  * @property {(w: { city, routeName, stop, direction?, minutes }) => Promise<boolean>} [watchArrival]  公車到站前 N 分提醒（L-14）
  * @property {() => void} [unwatchArrival]
@@ -55,7 +57,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 | 實作 | 檔案 | `callTool` | `ask` | `setContext` | `openLink` |
 |---|---|---|---|---|---|
-| 網頁 | `public/ui/cards/host-web.js` | `POST /api/v1/tools/:name` | 填入輸入框並送出 | 存在下一次 agent 請求的 `context` | `window.open`（L2 先確認）；`remind`（T7，`public/js/reminders.js`）：可多筆（最多 5）、可取消（`cancelRemind`），存在 `localStorage` `abang.reminders`；App 用系統本機通知（每筆一個編號 2000～2999，App 關著也會響），網頁用瀏覽器通知（頁面開著才響，重新整理後還原）；打開時清掉過期的並取消其系統通知（重開機不補送）；`notifyState` 讓卡片在第一次要權限前先說明；`watchArrival`：整個頁面共用一個提醒，每 20 秒查上車站到站時間，剩下 ≤ N 分通知一次（系統通知＋App 內 toast `abang:arrival`），設定時這班已在範圍內就跳過等下一班，最多盯 90 分；手機 App（M11-02）改用系統本機通知：每次查到就把「該出門了」排到預估時間（提早 30 秒，Android 不用精準鬧鐘），App 關著也會響，App 被關掉重開會恢復提醒；`background`／`arrivalNote()` 告訴卡片能不能在背景提醒（沒有通知權限時說明「App 開著時才會提醒」）；`navigate` 換 hash |
+| 網頁 | `public/ui/cards/host-web.js` | `POST /api/v1/tools/:name` | 填入輸入框並送出 | 存在下一次 agent 請求的 `context` | `window.open`（L2 先確認）；`remind`（T7，`public/js/reminders.js`）：可多筆（最多 5）、同一段路線只留一筆（重新規劃後是改時間）、可取消（`cancelRemind`），存在 `localStorage` `abang.reminders`；時間一律台灣時間（不看裝置時區）；App 用系統本機通知（每筆一個編號 2000～2999，App 關著也會響），網頁用 service worker 通知（沒有再用 `new Notification`；頁面開著才響，重新整理後還原，別的分頁取消後不響）；關機期間錯過的提醒 Android 開機後約 15 秒會補送（App 還沒打開，擋不住），打開 App 時把過期的從通知列移除並刪掉；`notifyState` 讓卡片在第一次要權限前先說明；`watchArrival`：整個頁面共用一個提醒，每 20 秒查上車站到站時間，剩下 ≤ N 分通知一次（系統通知＋App 內 toast `abang:arrival`），設定時這班已在範圍內就跳過等下一班，最多盯 90 分；手機 App（M11-02）改用系統本機通知：每次查到就把「該出門了」排到預估時間（提早 30 秒，Android 不用精準鬧鐘），App 關著也會響，App 被關掉重開會恢復提醒；`background`／`arrivalNote()` 告訴卡片能不能在背景提醒（沒有通知權限時說明「App 開著時才會提醒」）；`navigate` 換 hash |
 | MCP Apps | `public/ui/cards/host-mcp-app.js` | `app.callServerTool()` → `structuredContent` | `app.sendMessage()`（host 支援 `message` 時） | `app.updateModelContext()`（host 支援時） | L2 先在卡片下方顯示確認框（iframe 沙箱不允許 `window.confirm`）→ `app.openLink()`；host 不支援或拒絕時顯示網址與「複製連結」；不提供 `remind`、`watchArrival`、`navigate`（卡片不顯示那些按鈕） |
 
 ## 3.1 MCP Apps 打包與資源（✅ M4-04～06）

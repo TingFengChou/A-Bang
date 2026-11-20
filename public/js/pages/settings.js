@@ -128,10 +128,10 @@ export const settings = {
         const row = document.createElement('div');
         row.className = 'saved-row';
         row.setAttribute('role', 'listitem');
-        row.innerHTML = `<span><b>${esc(hhmm(r.at))}</b><small>${esc(r.text)}</small></span>`;
+        row.innerHTML = `<span><b>今天 ${esc(hhmm(r.at))}</b><small>${esc(r.text.replace(/^該出門了：/, ''))}</small></span>`;
         const del = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small quiet', textContent: '取消' });
         del.setAttribute('aria-label', `取消 ${hhmm(r.at)} 的提醒`);
-        del.addEventListener('click', () => { cancelReminder(r.id); toast('已取消提醒'); });
+        del.addEventListener('click', () => { cancelReminder(r.id); toast('已取消提醒'); main.querySelector('#reminders-card h2').setAttribute('tabindex', '-1'); main.querySelector('#reminders-card h2').focus(); });
         row.append(del);
         remBox.append(row);
       }
