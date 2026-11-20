@@ -44,9 +44,9 @@ function focusBlock(d, f, { host, t, rerender, state }) {
       ring,
       h('span', { class: 'ab-sub' }, t('busRoute.focusAt', { stop: f.stopName })),
       h('strong', { class: 'ab-focus-eta', ...(live && { 'data-eta-sec': f.etaSec }) }, f.statusText)),
-    watching && w.stuck && h('div', { class: 'ab-stuck', role: 'alert' },
-      h('p', {}, t(w.stuck === 'late' ? 'busRoute.stuckLate' : 'busRoute.stuckNotRunning', { route: d.routeName })),
-      host?.ask && h('button', { type: 'button', class: 'ab-btn ab-primary', onclick: () => host.ask(t('busRoute.stuckAsk')) }, t('busRoute.stuckBtn'))),
+    watching && w.stuck && h('div', { class: 'ab-stuck' }, // 外殼的 toast 已念過一次：這裡不加 live role（每 20 秒重畫不重念）
+      h('p', {}, t(`busRoute.stuck.${w.stuck}`, { route: d.routeName })),
+      host?.ask && h('button', { type: 'button', class: 'ab-btn ab-primary', onclick: () => host.ask(w.trip?.to ? t('busRoute.stuckAskTo', { to: w.trip.to }) : t('busRoute.stuckAsk')) }, t('busRoute.stuckBtn'))),
     watching
       ? h('p', { class: 'ab-sub ab-alert-on', role: 'status' }, t(w.skip ? 'busRoute.alertNext' : 'busRoute.alertSet', { n: w.minutes, when: t(`busRoute.${host?.arrivalNote?.() || 'whenOpenPage'}`) }),
         h('button', { type: 'button', class: 'ab-btn ab-link', onclick: () => { host.unwatchArrival?.(); state.alertMsg = t('busRoute.alertCanceled'); rerender(); } }, t('busRoute.alertCancel')))

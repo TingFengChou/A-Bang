@@ -170,7 +170,8 @@ export default {
     const modeText = (e) => `${MODE_TEXT[e.mode](e.model || '')}${e.judge?.source === 'device' && ENGINE_TEXT[e.judge.engine] ? `阿幫先在手機上用 ${ENGINE_TEXT[e.judge.engine]} 聽懂你要做什麼。` : ''}`;
     if (agentId === 'life') edgePrewarm();
 
-    const host = createWebHost({ ask: (q) => send(q), setContext: (c) => { context = c; } });
+    let lastTripTo = null; // 最後一次行程的目的地：設定到站提醒時記下（公車一直不來時改其他方式）
+    const host = createWebHost({ ask: (q) => send(q), setContext: (c) => { context = c; }, tripContext: () => lastTripTo && { to: lastTripTo } });
 
     // 建議問題與免責（GET /api/v1/agent/profile）；回答後換成「接下來可以…」（依這一輪結果，next-steps.js）
     let defaults = [];
@@ -343,6 +344,7 @@ export default {
           }
           case 'tool_result': {
             await gap();
+            if (e.ok && e.tool === 'plan_trip' && e.data?.to?.name) lastTripTo = e.data.to.name;
             const b = bubbles.get(e.id);
             const say = b?.querySelector('.say');
             if (say) {

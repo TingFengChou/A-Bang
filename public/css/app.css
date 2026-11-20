@@ -259,3 +259,8 @@ html.kb-open .app { padding-bottom: 12px; }
 /* 離線與弱網：比示範橫幅醒目（黃底深字，對比 ≥ 7:1） */
 .offline-banner[hidden] { display: none; }
 .offline-banner { margin: 8px 16px 0; padding: 8px 12px; border-radius: 10px; background: #fef3c7; color: #78350f; font-size: 14px; }
+
+/* 公車一直不來（S15）：公車頁 */
+.bus-focus .stuck { margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: #fef3c7; color: #78350f; display: grid; gap: 6px; }
+.bus-focus .stuck p { margin: 0; }
+.bus-focus .stuck .btn { justify-self: start; min-height: 44px; display: inline-flex; align-items: center; text-decoration: none; }

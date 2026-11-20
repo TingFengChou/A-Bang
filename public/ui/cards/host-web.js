@@ -17,7 +17,7 @@ const canBackground = () => hasNativeNotify() && native.granted !== false && !na
 // App 被系統關掉再打開：恢復提醒（只存路線與站，不存位置）
 const STORE = 'abang.arrivalWatch';
 const store = {
-  save: () => { try { if (hasNativeNotify() && watch.w) localStorage.setItem(STORE, JSON.stringify({ w: { city: watch.w.city, routeName: watch.w.routeName, stop: watch.w.stop, direction: watch.w.direction, minutes: watch.w.minutes }, until: watch.until })); } catch { /* 無痕或停用 */ } },
+  save: () => { try { if (hasNativeNotify() && watch.w) localStorage.setItem(STORE, JSON.stringify({ w: { city: watch.w.city, routeName: watch.w.routeName, stop: watch.w.stop, direction: watch.w.direction, minutes: watch.w.minutes, ...(watch.w.trip && { trip: watch.w.trip }) }, until: watch.until })); } catch { /* 無痕或停用 */ } },
   clear: () => { try { localStorage.removeItem(STORE); } catch { /* 無痕或停用 */ } },
   load: () => { try { return JSON.parse(localStorage.getItem(STORE) || 'null'); } catch { return null; } },
 };
@@ -34,6 +34,11 @@ function stopWatch({ cancel = true } = {}) {
 const hm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 /** 通知標題與內文（鎖定畫面先看到「該出門了」；預估時間放最後） */
 export const NOTIFY_TITLE = '阿幫：該出門了';
+export const STUCK_TITLE = '阿幫：公車一直不來';
+/** 「307 一直不來，可以到「問阿幫」改其他方式」 */
+export const stuckText = (w) => `${w.routeName} ${w.stuck === 'late' ? '比預估晚了 10 分以上' : '一直沒有要來'}，可以到「問阿幫」改其他方式`;
+/** 改其他方式要送給阿幫的話：知道行程目的地就帶上（換頁後對話不在了也能重算） */
+export const stuckAsk = (w) => (w.trip?.to ? `不要坐公車，改別的方式去${w.trip.to}` : '不要坐公車了，改別的方式');
 export const nativeBody = (route, stop, minutes, at = new Date()) => `${route} 約 ${minutes} 分後到「${stop}」（${hm(at)} 的預估）`;
 /** App：把「該出門了」排到 at（提早 EARLY_MS 吸收一般排程的延遲；差不到 20 秒就不重排；失敗下次再試） */
 function planNative(w, at) {
@@ -65,28 +70,30 @@ function fireArrival(f) {
   try { navigator.vibrate?.([200, 100, 200]); } catch { /* 不支援 */ }
   signal('abang:arrival', { text }); // App 顯示 toast（沒開通知權限時也看得到）
 }
-/** 公車一直不來（S15）：比第一次預估晚 10 分以上、或連續 3 次未發車／末班已過／今日未營運 */
+/** 公車一直不來（S15）：預估抵達比第一次說的晚 10 分以上；末班已過／今日未營運；未發車超過 10 分鐘；交管不停靠 */
 export const LATE_SEC = 600;
-export const NOT_RUNNING_POLLS = 3;
+export const NOT_DEPARTED_MS = 10 * 60_000;
 /**
- * 盯著的這班是不是「一直不來」（只判斷，不改狀態以外的東西）。
- * @param {{ base?: { etaSec: number, at: number }, notRunning?: number }} w  盯的狀態（會被更新）
- * @param {{ status: number, etaSec: number|null }} f  上車站這次的到站資訊
- * @returns {'late'|'notRunning'|null}
+ * 盯著的這班是不是「一直不來」。
+ * @param {{ base?: { etaSec: number, at: number }|null, notDepartedSince?: number|null }} w  盯的狀態（會被更新）
+ * @param {{ status: number, etaSec: number|null }} f  上車站這次的到站資訊（status：0 正常、1 尚未發車、2 交管不停靠、3 末班已過、4 今日未營運）
+ * @returns {'late'|'notRunning'|'notDeparted'|'noStop'|null}
  */
 export function stuckReason(w, f, now = Date.now()) {
-  if (f.status !== 0 || f.etaSec == null) {
-    w.notRunning = (w.notRunning || 0) + 1;
-    return w.notRunning >= NOT_RUNNING_POLLS ? 'notRunning' : null;
+  if (f.status === 3 || f.status === 4) return 'notRunning'; // 確定不會來：馬上說
+  if (f.status === 2) return 'noStop';
+  if (f.status !== 0 || f.etaSec == null) { // 尚未發車：起站附近幾分鐘很正常，超過 10 分鐘才說
+    w.notDepartedSince ??= now;
+    return now - w.notDepartedSince >= NOT_DEPARTED_MS ? 'notDeparted' : null;
   }
-  w.notRunning = 0;
+  w.notDepartedSince = null;
   if (!w.base) { w.base = { etaSec: f.etaSec, at: now }; return null; }
-  const expected = w.base.etaSec - (now - w.base.at) / 1000; // 照第一次預估，現在應該剩多少秒
-  if (f.etaSec > w.base.etaSec + 120 && expected < 0) return null; // 那班已經開走、換成下一班：不算延誤（另外由 skip 處理）
-  return f.etaSec - Math.max(expected, 0) >= LATE_SEC ? 'late' : null;
+  const expected = w.base.etaSec - (now - w.base.at) / 1000; // 照第一次預估，現在應該剩幾秒（過了就是負的）
+  return f.etaSec - expected >= LATE_SEC ? 'late' : null; // 預估抵達時間往後延了多少
 }
 
-async function pollWatch(callTool) {
+/** 查一次上車站到站時間（每 20 秒；測試直接呼叫） */
+export async function pollWatch(callTool) {
   const w = watch.w;
   if (!w) return;
   if (Date.now() > watch.until) { stopWatch(); return; } // 90 分鐘還沒到：放棄（排好的通知也取消）
@@ -97,14 +104,19 @@ async function pollWatch(callTool) {
     w.last = { etaSec: f.etaSec, statusText: f.statusText, at: Date.now() };
     if (!w.stuck && !w.skip) {
       const why = stuckReason(w, f);
-      if (why) { w.stuck = why; signal('abang:arrival-stuck', { routeName: w.routeName, stop: w.stop, reason: why }); } // 只說一次
+      if (why) { // 只說一次
+        w.stuck = why;
+        signal('abang:arrival-stuck', { routeName: w.routeName, stop: w.stop, reason: why, ask: stuckAsk(w) });
+        const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+        if (hidden && hasNativeNotify()) scheduleNotify(NOTIFY_ID.stuck, new Date(), STUCK_TITLE, stuckText(w)); // App 在背景：畫面上的提示看不到
+      }
     }
     signal('abang:arrival-watch', w);
     if (f.status !== 0 || f.etaSec == null) return; // 未發車、末班已過：繼續看下一次
     const left = f.etaSec - w.minutes * 60;
     if (w.skip) {
       // 跳過的那班開走後，到站時間會變大（下一班）
-      if (f.etaSec > w.skip + 60) w.skip = null;
+      if (f.etaSec > w.skip + 60) { w.skip = null; w.base = null; } // 下一班：延誤從這班重新算
       else { w.skip = f.etaSec; signal('abang:arrival-watch', w); return; }
     } else if (w.first && left <= 0) {
       w.first = false; w.skip = f.etaSec; signal('abang:arrival-watch', w); return;
@@ -121,7 +133,7 @@ async function pollWatch(callTool) {
  * @param {{ base?: string, ask?: (text: string) => void, setContext?: (text: string) => void, confirm?: (text: string) => boolean }} [opts]
  * @returns {import('./host.js').Host}
  */
-export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '').replace(/\/+$/, ''), ask, setContext, confirm = (m) => window.confirm(m) } = {}) {
+export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '').replace(/\/+$/, ''), ask, setContext, confirm = (m) => window.confirm(m), tripContext } = {}) {
   const host = {
     kind: 'web', theme: 'light',
     async callTool(name, args) {
@@ -133,7 +145,7 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
       return body;
     },
-    ask: ask || (() => {}),
+    ...(ask && { ask }), // 沒有對話的頁面（公車頁）不給：卡片上要問阿幫的按鈕就不顯示
     setContext: setContext || (() => {}),
     /**
      * 出門提醒（UX.md §6、T7）：今天 HH:mm（裝置時間）。可以有多筆、可以取消（public/js/reminders.js）。
@@ -163,7 +175,8 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
       if (hasNativeNotify()) { native.granted = await ensureNotifyPermission(); native.failed = false; }
       else if (typeof Notification !== 'undefined' && Notification.permission === 'default') await Notification.requestPermission().catch(() => {});
       stopWatch();
-      watch.w = { ...w, first: true, skip: null };
+      const trip = w.trip || tripContext?.(); // 問阿幫規劃的行程目的地（公車一直不來時改其他方式用）
+      watch.w = { ...w, ...(trip?.to && { trip: { to: trip.to } }), first: true, skip: null };
       watch.until = w.until ?? Date.now() + MAX_MS;
       store.save();
       signal('abang:arrival-watch', watch.w);
