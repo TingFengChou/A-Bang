@@ -8,7 +8,8 @@ import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hi
 import { judgeNote, moreStatesNote } from './impact.js';
 import { lineCode } from '../tools/metro.js';
 import { normName } from '../util.js';
-import { parseIntent, needsLocation } from './demo-intent.js';
+import { parseIntent, needsLocation, DEFAULT_FROM } from './demo-intent.js';
+import { resolvePoint } from '../services/places.js';
 
 /**
  * @typedef {{ name: string, description: string, schema: object }} ToolDef
@@ -33,11 +34,12 @@ export const FALLBACK = {
   refusal: '這個問題我沒辦法協助；我可以幫你查公車、捷運、台鐵、高鐵、YouBike，或規劃從 A 到 B 怎麼去。',
   empty: '查好了，結果在上面的卡片。',
   noLocation: '使用者沒有提供位置。請改問使用者從哪裡出發（或人在哪裡），不要猜。',
-  sameFromTo: '起點和目的地是同一個地方。使用者沒說從哪出發、也沒提供定位：請問他從哪裡出發，不要把目的地當起點。',
 };
 
 /** 有卡片的工具，回給模型的清單最多幾筆（完整結果已在卡片上） */
 export const MODEL_LIST_MAX = 6;
+/** 拒絕定位時先用預設起點，模型要照這句說明 */
+export const NO_LOCATION_NOTE = `［內部備註］沒拿到使用者的位置，起點先用「${DEFAULT_FROM}」；回答時先說「沒拿到你的位置，先從${DEFAULT_FROM}算」，並請他說從哪出發就重算。`;
 const NEARBY_TOOL = { weather: 'weather_now', aqi: 'aqi_nearby', youbike: 'youbike_nearby', nearby_bus: 'bus_nearby_stations', garbage: 'garbage_truck_nearby' };
 /** 捷運沒說站：用現在位置找最近的站（metro_live_board 的 near） */
 const METRO_NEAR = 'metro_live_board';
@@ -46,9 +48,11 @@ export function prefetchCalls(it, j, here) {
   const at = here && { lat: here.lat, lon: here.lon };
   // 行程：起訖點都知道（明講的起點，或沒說＝現在位置）就由程式先比較，不靠模型記得呼叫 plan_trip
   //（地端模型接著改「改坐公車」時常不再查、說「叫車」時直接產生叫車連結，2026-11-21 情境評測）
-  if (it.intent === 'trip' && it.to && (it.from || at)) {
+  // 沒說起點也拿不到位置（拒絕定位）：先從示範預設起點算，並告訴模型要說明（與示範模式一致）
+  if (it.intent === 'trip' && it.to) {
     const prefs = { ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }), ...(it.states?.length && { states: it.states }) };
-    return [{ name: 'plan_trip', args: { from: it.from || { ...at, name: here.name }, to: it.to, ...(Object.keys(prefs).length && { prefs }) } }];
+    const from = it.from || (at ? { ...at, name: here.name } : DEFAULT_FROM);
+    return [{ name: 'plan_trip', args: { from, to: it.to, ...(Object.keys(prefs).length && { prefs }) }, ...(!it.from && !at && { note: NO_LOCATION_NOTE }) }];
   }
   if (it.intent === 'metro' && !it.station && (it.near || at)) return [{ name: METRO_NEAR, args: { near: it.near || { ...at, name: here.name }, ...(it.line && { line: it.line }) } }];
   if (!at) return [];
@@ -90,8 +94,9 @@ export function groundedPrefs(prefs = {}, it = {}, j = null) {
   return { ...rest, ...(said.arriveBy && { arriveBy: said.arriveBy }), ...(said.mode && { mode: said.mode }), ...(said.states.length && { states: said.states }) };
 }
 
-/** 兩個地點參數是不是同一個字串（「台北101」與「台北 101」視為相同） */
-const sameText = (a, b) => typeof a === 'string' && typeof b === 'string' && a.replace(/\s/g, '') === b.replace(/\s/g, '');
+/** 行程的座標比對鍵（起訖點座標到小數 3 位＋方式＋抵達時間） */
+export const tripKey = (from, to, prefs = {}) => (Number.isFinite(from?.lat) && Number.isFinite(to?.lat)
+  ? `plan_trip@${from.lat.toFixed(3)},${from.lon.toFixed(3)}>${to.lat.toFixed(3)},${to.lon.toFixed(3)}|${prefs?.mode || ''}|${prefs?.arriveBy || ''}` : null);
 
 /** 選公車後自動盯的到站結果，接在 plan_trip 結果後面給模型（卡片已顯示；請模型主動問要不要到站提醒） */
 export const followUpText = (f, walkMin) => (f ? `\n［內部備註，不要照抄這段文字］上車站即時到站已查好：${f.speak}${walkMin != null ? `從起點走到這個上車站約 ${walkMin} 分（不是全程步行時間）。` : ''}已用公車卡片即時顯示；回答時用自己的話說公車多久到上車站；若走到站牌的時間比車到還久，說這班可能趕不上；並問使用者要不要在卡片上按「到站前 3 分提醒我」。` : '');
@@ -207,8 +212,9 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
       used.add(pre[i].name);
       if (o.followUp) used.add('bus_route_eta');
       // 查詢失敗也告訴模型原因（請照實轉述），模型才不會一直重查同一個工具
-      const text = o.ok ? modelText(o.result) + followUpText(o.followUp, o.followWalkMin) : `（${pre[i].name} 查詢失敗：${o.error}。請照實告訴使用者，不要再呼叫同一個工具。）`;
+      const text = o.ok ? (pre[i].note ? `${pre[i].note}\n` : '') + modelText(o.result) + followUpText(o.followUp, o.followWalkMin) : `（${pre[i].name} 查詢失敗：${o.error}。請照實告訴使用者，不要再呼叫同一個工具。）`;
       preDone.set(callKey(pre[i].name, pre[i].args), text);
+      if (o.ok && pre[i].name === 'plan_trip') preDone.set(tripKey(o.result.data.from, o.result.data.to, pre[i].args.prefs), text); // 地名寫法不同（台北松山機場／松山機場）也算同一趟
       return text;
     });
     prefetched = texts.join('\n\n');
@@ -259,6 +265,8 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     // 起點交給程式（不交給模型）：使用者沒說起點（「去台北 101」、接著改而上一輪也沒說）→ plan_trip 的起點一律是手機定位。
     // 地端小模型常把目的地也填成起點（台北101 → 台北101），這裡直接改掉；還沒定位就先請客戶端定位。
     const trips = turn.calls.filter((c) => c.name === 'plan_trip' && !results.has(c.id));
+    // 使用者說過起點（這句或前文，例：「從西門町去台北101」→「改坐公車」→「我很趕」）：起點照他說的，模型不能換成現在位置
+    if (trips.length && rulesIt.intent === 'trip' && rulesIt.from) for (const c of trips) c.input = { ...c.input, from: rulesIt.from };
     if (trips.length && hereIsOrigin) {
       const loc = here;
       if (loc === undefined) {
@@ -267,18 +275,29 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
         return;
       }
       for (const c of trips) {
-        if (loc) c.input = { ...c.input, from: { lat: loc.lat, lon: loc.lon, name: loc.name } };
-        else if (sameText(c.input?.from, c.input?.to)) results.set(c.id, { content: FALLBACK.sameFromTo, isError: true });
+        // 拒絕定位：與預先查詢相同，先從預設起點算（模型照備註說明、請使用者說起點）
+        c.input = { ...c.input, from: loc ? { lat: loc.lat, lon: loc.lon, name: loc.name } : DEFAULT_FROM };
       }
     }
 
     // 轉述受程式約束（A2）：抵達時間、交通方式只採使用者說過的（規則抽到的），模型自己加的丟掉
     //（地端模型曾自加 arriveBy，結果「所有方式都趕不上指定時間」，2026-11-21 實機）
-    for (const c of turn.calls) if (c.name === 'plan_trip' && c.input?.prefs) c.input = { ...c.input, prefs: groundedPrefs(c.input.prefs, rulesIt, j) };
+    for (const c of turn.calls) {
+      if (c.name !== 'plan_trip' || !c.input) continue;
+      const prefs = groundedPrefs(c.input.prefs || {}, rulesIt, j); // 模型沒給 prefs 也補上使用者說過的（與預先查詢一致）
+      c.input = { ...c.input, ...(Object.keys(prefs).length ? { prefs } : {}) };
+      if (!Object.keys(prefs).length) delete c.input.prefs;
+    }
 
     // 已由程式依現在位置查好的工具：模型再呼叫就沿用結果（避免同一張卡片、決策圖出現兩次）
     for (const c of turn.calls) {
-      const k = !results.has(c.id) && callKey(c.name, c.input, here);
+      if (results.has(c.id)) continue;
+      let k = callKey(c.name, c.input, here);
+      // 行程：文字不同時比座標（地名寫法不同、加了「站」）
+      if (c.name === 'plan_trip' && !(k && preDone.has(k)) && c.input?.to) {
+        const [f, t] = await Promise.all([c.input.from, c.input.to].map((x) => (x ? resolvePoint(svc.places, x).catch(() => null) : null)));
+        if (f && t) k = tripKey(f, t, c.input.prefs);
+      }
       if (k && preDone.has(k)) results.set(c.id, { content: `（已查好，結果同上）\n${preDone.get(k)}` });
     }
 

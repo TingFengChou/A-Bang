@@ -1,6 +1,6 @@
 // 情境對話評測（A0，模型模式）：用 test/scenarios/life.json 跑真的模型（地端或 Claude，依 .env），報告每個情境過不過。
 // 不進 CI（要模型、會花時間或額度）。PR 改了 agent 行為時附上結果。
-//   node --env-file=.env scripts/eval-scenarios.js [情境 id…]
+//   node --env-file=.env scripts/eval-scenarios.js [情境 id…]（EVAL_DEBUG=1 印出每個工具呼叫的參數）
 import { readFile } from 'node:fs/promises';
 import { runModel } from '../core/agent/model-loop.js';
 import { pickProvider } from '../core/agent/provider.js';
@@ -25,6 +25,7 @@ for (const sc of set.scenarios.filter((x) => !only.length || only.includes(x.id)
     messages.push({ role: 'user', content: t.say });
     const es = [];
     await runModel(svc, { messages, clientTools: ['device_location'], clientToolResults: [sc.location === false ? { id: 'loc1', ok: false } : { id: 'loc1', ok: true, result: set.here }] }, (e) => es.push(e), { provider, judge });
+    if (process.env.EVAL_DEBUG) for (const e of es) if (e.type === 'tool_start') console.log(`    · ${e.name} ${JSON.stringify(e.input)}`);
     const bad = check(es, t.expect);
     if (bad.length) fails.push(`「${t.say}」${bad.join('；')}`);
     messages.push({ role: 'assistant', content: es.filter((e) => e.type === 'text').map((e) => e.delta).join('').slice(0, 500) || '好' });

@@ -110,9 +110,17 @@ test('模型模式：使用者沒說起點時，plan_trip 的起點一律是手�
   assert.deepEqual(r.args.from, { lat: 25.0478, lon: 121.517, name: '你的位置' });
   assert.equal(r.data.from.name, '你的位置');
 
+  // 拒絕定位：與示範模式一致，先從預設起點（臺北車站）算並請模型說明；模型把目的地當起點也會被改成預設起點
   const denied = [];
-  await runModel(svc, { ...body, clientToolResults: [{ id: 'loc1', ok: false }] }, (e) => denied.push(e), { provider: fakeProvider('local', call) });
-  assert.ok(!denied.some((e) => e.type === 'tool_result' && e.tool === 'plan_trip' && e.ok), '拒絕定位又把目的地當起點：請模型改問從哪出發');
+  let system = '';
+  const p = fakeProvider('local', call);
+  const start = p.start.bind(p);
+  p.start = (o) => { system = o.system; return start(o); };
+  await runModel(svc, { ...body, clientToolResults: [{ id: 'loc1', ok: false }] }, (e) => denied.push(e), { provider: p });
+  const trips = denied.filter((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
+  assert.equal(trips.length, 1, '模型再呼叫沿用預先查詢');
+  assert.equal(trips[0].data.from.name, '臺北車站');
+  assert.match(system, /沒拿到使用者的位置，起點先用「臺北車站」/);
 });
 
 test('模型模式：需要現在位置時，問模型之前就先請 App 定位，再把位置告訴模型（模型不會再反問你在哪）', async () => {

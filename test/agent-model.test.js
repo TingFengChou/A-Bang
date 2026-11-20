@@ -247,7 +247,7 @@ test('地端：參數不是 JSON → 不執行該工具，回填錯誤讓模型�
     { message: { role: 'assistant', content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 'find_place', arguments: '{query:台北' } }] } },
     { message: { role: 'assistant', content: '請再說一次地名。' } },
   ]);
-  const es = await run(local(), '台北');
+  const es = await run(local(), '幫我找一個地方'); // 不是行程（只打地名會由程式先比較行程）
   assert.ok(!es.some((e) => e.type === 'tool_start'));
   assert.match(state.reqs[1].messages.at(-1).content, /不是有效的 JSON/);
 });

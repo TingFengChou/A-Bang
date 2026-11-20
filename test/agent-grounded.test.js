@@ -85,3 +85,14 @@ test('模型自加抵達時間：丟掉後與預先查詢相同，沿用結果�
   assert.equal(es.filter((e) => e.type === 'decision').length, 1);
   assert.ok(!es.some((e) => e.type === 'decision' && e.arriveBy === '00:30'));
 });
+
+test('使用者前文說過起點：模型把起點換成現在位置也會改回來（不出現第二張行程卡）', async () => {
+  const here = { lat: 25.0478, lon: 121.517 };
+  const es = [];
+  const provider = { mode: 'local', model: 'fake', start() { let n = 0; return { next: async () => (n++ === 0 ? { text: '', calls: [{ id: 'c1', name: 'plan_trip', input: { from: { ...here, name: '你的位置' }, to: '台北101', prefs: { mode: 'bus' } } }], stop: 'tool', usage: { input: 1, output: 1 } } : { text: '好', calls: [], stop: 'end', usage: { input: 1, output: 1 } }), addResults() {} }; } };
+  const messages = [{ role: 'user', content: '從西門町去台北101' }, { role: 'assistant', content: '建議叫車。' }, { role: 'user', content: '改坐公車' }];
+  await runModel(createServices({ forceMock: true }), { messages, clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: here }] }, (e) => es.push(e), { provider, judge: null });
+  const trips = es.filter((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
+  assert.equal(trips.length, 1);
+  assert.equal(trips[0].data.from.name, '西門町');
+});
