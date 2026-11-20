@@ -100,7 +100,7 @@ export const busRoute = {
       // 公車街景：有上車站才畫；公車依真實「還有幾站」停在路上（怎麼走到站牌交給導航）
       const me = myStop && d.stops.find((x) => x.stopName === myStop);
       const rail = me && railOf(d, { seq: me.seq, etaSec: me.etaSec, status: me.status });
-      main.querySelector('#scene').replaceChildren(...(me ? [busScene({ routeName: route, stopName: me.stopName, away: rail ? rail.away : null, etaText: me.statusText, state: sceneState })] : []));
+      main.querySelector('#scene').replaceChildren(...(me ? [busScene({ routeName: route, stopName: me.stopName, away: rail ? rail.away : null, etaSec: me.status === 0 ? me.etaSec : null, etaText: me.statusText, state: sceneState })] : []));
       const stopsEl = main.querySelector('#stops');
       const before = fresh ? snapshot(stopsEl) : null; // 刷新：車從上一站滑到這一站
       stopsEl.innerHTML = `<div class="card list timeline">${d.stops.map((s) => `

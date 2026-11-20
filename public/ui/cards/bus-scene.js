@@ -18,42 +18,52 @@ const still = () => (typeof matchMedia === 'function' && matchMedia('(prefers-re
   || document.documentElement.classList.contains('lite-motion');
 
 /**
- * @param {{ routeName: string, stopName: string, away: number|null, etaText: string, state?: { sceneX?: number } }} o
+ * 街景的說明（左上角固定；分鐘最重要，單獨加粗）。只有 1 分鐘內才說「就在你這站」：
+ * away＝0 只代表前面沒有更早到的站（上一站沒資料時車可能還要 10 分）。PR #29 審查修正。
+ * @returns {{ head: string, eta: string, near: boolean }}
+ */
+export function sceneSay({ routeName, away, etaSec, etaText }) {
+  if (away == null) return { head: routeName, eta: etaText, near: false };
+  if (away === 0) return etaSec != null && etaSec <= 60 ? { head: `${routeName}・就在你這站`, eta: etaText, near: true } : { head: routeName, eta: etaText, near: false };
+  return { head: `${routeName}・還有 ${away} 站`, eta: etaText, near: false };
+}
+
+/**
+ * @param {{ routeName: string, stopName: string, away: number|null, etaSec?: number|null, etaText: string, state?: { sceneX?: number } }} o
  *   away：公車還有幾站（railOf）；null＝推估不出來（未發車等）→ 不畫公車，只寫狀態
  * @returns {HTMLElement}
  */
-export function busScene({ routeName, stopName, away, etaText, state = {} }) {
+export function busScene({ routeName, stopName, away, etaSec = null, etaText, state = {} }) {
   const box = document.createElement('div');
   box.className = 'ab-scene3d';
-  const say = away == null ? `${routeName}・${etaText}` : away === 0 ? `${routeName}・就在你這站・${etaText}` : `${routeName}・還有 ${away} 站・${etaText}`;
+  const say = sceneSay({ routeName, away, etaSec, etaText });
   box.setAttribute('role', 'img');
-  box.setAttribute('aria-label', `${say}；你在「${stopName}」等車`);
-  const pct = (p, i) => `${(p[i] / (i ? SCENE.h : SCENE.w)) * 100}%`;
-  const img = (src, cls) => { const i = document.createElement('img'); i.src = src; i.alt = ''; i.className = cls; i.decoding = 'async'; i.draggable = false; return i; };
-  const label = (text, at, cls) => { const l = document.createElement('span'); l.className = `ab-scene-label ${cls}`; l.textContent = text; l.style.left = pct(at, 0); l.style.top = pct(at, 1); return l; };
-  box.append(img('/img/scene/street.png', 'ab-scene-bg'), label(stopName, SCENE.sign, 'stop'));
+  box.setAttribute('aria-label', `${say.head}・${say.eta}；你在「${stopName}」等車`);
+  const img = (src, cls) => {
+    const i = document.createElement('img');
+    Object.assign(i, { src, alt: '', className: cls, decoding: 'async', draggable: false });
+    i.onerror = () => { i.hidden = true; }; // 圖片載不到：只留底色與文字，不顯示破圖
+    return i;
+  };
+  const el = (tag, cls, text) => { const e = document.createElement(tag); e.className = cls; if (text != null) e.textContent = text; return e; };
+  // 站名：右上角靠右（長站名截斷，完整名稱在 title）；說明：左上角固定（公車的位置表示距離）——兩個標籤不會重疊
+  const stop = el('span', 'ab-scene-label stop', stopName);
+  stop.title = stopName;
+  const caption = el('span', `ab-scene-label bus${say.near ? ' near' : ''}`);
+  caption.append(el('span', '', `${say.head}・`), el('b', '', say.eta));
+  const top = el('div', 'ab-scene-top'); // 上方一列：說明（分鐘優先完整）＋站名（空間不夠時截斷）
+  top.append(caption, stop);
+  box.append(img('/img/scene/street.webp', 'ab-scene-bg'), top);
   if (away != null) {
-    const x = busX(away);
-    const bus = document.createElement('div');
-    bus.className = 'ab-scene-bus';
-    bus.append(img('/img/scene/bus.png', 'ab-scene-img'));
-    // 車頂的字：跟著公車移動；靠近左緣時改成靠左對齊，不被切掉
-    const tag = label(say, SCENE.busLabel, 'bus');
+    const x = away === 0 && !say.near ? busX(0.6) : busX(away); // 還沒到但前面沒有更早的站：停在站牌前一點
+    const bus = el('div', 'ab-scene-bus');
+    bus.append(img('/img/scene/bus.webp', 'ab-scene-img'));
     const from = state.sceneX ?? busX(MAX_SHOWN) - 3; // 第一次從畫面左邊開進來
     state.sceneX = x;
-    const place = (wx) => {
-      const [dx, dy] = busShift(wx);
-      bus.style.transform = `translate(${dx}%, ${dy}%)`;
-      const cx = (SCENE.busLabel[0] / SCENE.w) * 100 + dx;
-      tag.style.left = cx < 30 ? `${Math.max(2, cx - 12)}%` : `${cx}%`;
-      tag.style.top = `${(SCENE.busLabel[1] / SCENE.h) * 100 + dy}%`;
-      tag.classList.toggle('start', cx < 30);
-    };
+    const place = (wx) => { const [dx, dy] = busShift(wx); bus.style.transform = `translate(${dx}%, ${dy}%)`; };
     place(still() ? x : from);
     if (!still() && from !== x) requestAnimationFrame(() => requestAnimationFrame(() => place(x)));
-    box.append(bus, tag);
-  } else {
-    box.append(label(say, [SCENE.w * 0.28, SCENE.h * 0.3], 'bus'));
+    box.append(bus);
   }
   return box;
 }

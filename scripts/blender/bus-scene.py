@@ -1,5 +1,5 @@
 # 公車街景素材（Blender 4.5，低多邊形）：給公車頁「公車還有幾站到你這」的街景示意用。
-# 執行：Blender --background --factory-startup --python scripts/blender/bus-scene.py -- public/img/scene
+# 執行：Blender --background --factory-startup --python scripts/blender/bus-scene.py -- public/img/scene && node scripts/scene-webp.js（轉成 WebP）
 # 輸出（同一台正交相機、同樣畫布大小，網頁直接疊起來）：
 #   street.png 路、人行道、站牌與候車亭、樹與房子（背景）
 #   bus.png    公車（世界座標 x=0，朝 +x 往站牌開）；網頁依站數左右平移
