@@ -6,7 +6,7 @@ import { buildSystemPrompt } from './prompt.js';
 import { ev } from './events.js';
 import { validateRequest, execTools, deviceLocation, guardedText, priorUserTexts, judgeInfo, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
 import { judgeNote, moreStatesNote } from './impact.js';
-import { parseIntent } from './demo-intent.js';
+import { parseIntent, needsLocation } from './demo-intent.js';
 
 /**
  * @typedef {{ name: string, description: string, schema: object }} ToolDef
@@ -123,10 +123,22 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   // 這句（或接著改的上一輪）沒說起點 → 起點是現在位置（下面呼叫 plan_trip 時由程式帶入）
   const rulesIt = parseIntent(last, { history: req.messages.slice(0, -1) });
   const hereIsOrigin = rulesIt.intent === 'trip' && !rulesIt.from;
+  // 需要現在位置（沒說起點的行程、沒說地點的天氣／YouBike／附近公車／垃圾車／公車到站）→ 問模型之前就先請 App 定位，
+  // 再把位置直接告訴模型（地端模型常常不呼叫 device_location，直接反問「你在哪裡」）
+  const NEARBY_INTENTS = ['weather', 'aqi', 'youbike', 'nearby_bus', 'garbage', 'bus_route'];
+  const wantHere = canLocate && (hereIsOrigin || (!rulesIt.places?.length && (needsLocation(rulesIt) || NEARBY_INTENTS.includes(j?.intent) || j?.intent === 'trip')));
+  const here = canLocate ? deviceLocation(req) : null;
+  if (wantHere && here === undefined) {
+    emit(ev.agentNote('@定位 先看看你在哪裡'));
+    emit(ev.clientToolCall({ id: LOCATION_CALL_ID, name: DEVICE_LOCATION_TOOL.name }));
+    emit(ev.done({ modelCalls: 0, inputTokens: 0, outputTokens: 0 }));
+    return;
+  }
+  const locationHint = here ? `使用者現在在 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（手機定位）。使用者沒說起點或地點時就用這個位置：plan_trip 的 from 用 { lat, lon, name: "你的位置" }，天氣、空品、YouBike、附近公車、垃圾車用這個 lat/lon；不要再問他在哪裡。` : '';
   const only = sure && provider.mode === 'local' ? INTENT_TOOLS[j.intent] : undefined;
 
   const conv = provider.start({
-    system: buildSystemPrompt(profile, { now, context: req.context, picked }),
+    system: buildSystemPrompt(profile, { now, context: req.context, picked, locationHint }),
     tools: toolDefs(profile, { deviceLocation: canLocate, only }),
     messages: req.messages,
   });
@@ -175,7 +187,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     // 地端小模型常把目的地也填成起點（台北101 → 台北101），這裡直接改掉；還沒定位就先請客戶端定位。
     const trips = turn.calls.filter((c) => c.name === 'plan_trip' && !results.has(c.id));
     if (trips.length && hereIsOrigin) {
-      const loc = canLocate ? deviceLocation(req) : null;
+      const loc = here;
       if (loc === undefined) {
         emit(ev.clientToolCall({ id: LOCATION_CALL_ID, name: DEVICE_LOCATION_TOOL.name }));
         emit(ev.done(usage));

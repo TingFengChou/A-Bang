@@ -114,3 +114,21 @@ test('模型模式：使用者沒說起點時，plan_trip 的起點一律是手�
   await runModel(svc, { ...body, clientToolResults: [{ id: 'loc1', ok: false }] }, (e) => denied.push(e), { provider: fakeProvider('local', call) });
   assert.ok(!denied.some((e) => e.type === 'tool_result' && e.tool === 'plan_trip' && e.ok), '拒絕定位又把目的地當起點：請模型改問從哪出發');
 });
+
+test('模型模式：需要現在位置時，問模型之前就先請 App 定位，再把位置告訴模型（模型不會再反問你在哪）', async () => {
+  const svc = createServices({ forceMock: true });
+  let calls = 0, system = '';
+  const provider = { mode: 'local', model: 'fake', start({ system: s }) { calls++; system = s; return { next: async () => ({ text: '好的', calls: [], stop: 'end', usage: { input: 1, output: 1 } }), addResults() {} }; } };
+  const body = { messages: [{ role: 'user', content: '會下雨嗎？' }], clientTools: ['device_location'] };
+  const first = [];
+  await runModel(svc, body, (e) => first.push(e), { provider });
+  assert.equal(calls, 0, '還沒定位：先不問模型');
+  assert.ok(first.some((e) => e.type === 'client_tool_call' && e.name === 'device_location'));
+  await runModel(svc, { ...body, clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 25.0478, lon: 121.517 } }] }, () => {}, { provider });
+  assert.equal(calls, 1);
+  assert.match(system, /使用者現在在 25\.04780, 121\.51700（手機定位）/);
+  // 說了地點就不用定位
+  calls = 0;
+  await runModel(svc, { messages: [{ role: 'user', content: '台北101天氣如何' }], clientTools: ['device_location'] }, () => {}, { provider });
+  assert.equal(calls, 1, '有地點：直接問模型');
+});
