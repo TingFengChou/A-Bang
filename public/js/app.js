@@ -102,6 +102,12 @@ if (!globalThis.__DEMO_SERVICES__) {
 }
 
 // 手機 App（ADR-0013）不註冊：畫面已在 App 裡，iOS 的 capacitor:// 也不支援
+// Android 返回鍵／手勢（@capacitor/app）：有上一頁就回上一頁，在首頁才離開 App（PR #31 審查：沒有這段在首頁按返回會卡住）
+const cap = globalThis.Capacitor;
+if (typeof cap?.addListener === 'function' && cap.getPlatform?.() === 'android') {
+  cap.addListener('App', 'backButton', (e) => { if (e?.canGoBack) history.back(); else cap.nativePromise('App', 'exitApp', {}).catch(() => {}); });
+}
+
 if ('serviceWorker' in navigator && !globalThis.__DEMO_SERVICES__ && !globalThis.__ABANG_APP__ && location.protocol !== 'file:') {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }

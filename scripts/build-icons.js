@@ -9,9 +9,9 @@ const svgOf = (name) => readFile(root(`public/brand/${name}`), 'utf8');
 const DENSITY = { mdpi: 1, hdpi: 1.5, xhdpi: 2, xxhdpi: 3, xxxhdpi: 4 };
 
 /** @returns {Promise<Buffer>} */
-async function render(page, svg, size, { round = false } = {}) {
+async function render(page, svg, size, { round = false, mono = false } = {}) {
   await page.setViewportSize({ width: size, height: size });
-  await page.setContent(`<html><body style="margin:0;background:transparent"><div style="width:${size}px;height:${size}px;${round ? 'border-radius:50%;overflow:hidden;' : ''}">${svg.replace('<svg ', `<svg width="${size}" height="${size}" `)}</div></body></html>`);
+  await page.setContent(`<html><body style="margin:0;background:transparent"><div style="width:${size}px;height:${size}px;${round ? 'border-radius:50%;overflow:hidden;' : ''}${mono ? 'filter:brightness(0);' : ''}">${svg.replace('<svg ', `<svg width="${size}" height="${size}" `)}</div></body></html>`);
   return page.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width: size, height: size } });
 }
 
@@ -29,6 +29,7 @@ for (const [d, k] of Object.entries(DENSITY)) {
   await out(`${dir}/ic_launcher_round.png`, await render(page, square, 48 * k, { round: true }));
   await out(`${dir}/ic_launcher_foreground.png`, await render(page, fg, 108 * k));
   await out(`${dir}/ic_launcher_background.png`, await render(page, bg, 108 * k));
+  await out(`${dir}/ic_launcher_monochrome.png`, await render(page, fg, 108 * k, { mono: true })); // Android 13+ 主題圖示（單色剪影）
 }
 await browser.close();
 console.log('icons written');

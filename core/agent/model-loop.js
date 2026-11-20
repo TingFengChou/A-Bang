@@ -49,6 +49,22 @@ export function prefetchCalls(it, j, here) {
   return intent ? [{ name: NEARBY_TOOL[intent], args: at }] : [];
 }
 
+/**
+ * 預先查詢的比對鍵：plan_trip 看目的地（去空白）、交通方式、抵達時間（起點一律是現在位置、狀態由判斷層定）；
+ * 附近類工具看座標（約 100 公尺內算同一處；模型沒給座標＝現在位置）。其他工具不沿用。
+ */
+export function callKey(name, args = {}, here = null) {
+  if (name === 'plan_trip') {
+    const to = typeof args.to === 'string' ? args.to.replace(/\s/g, '') : args.to ? `${(+args.to.lat).toFixed(3)},${(+args.to.lon).toFixed(3)}` : '';
+    return `plan_trip|${to}|${args.prefs?.mode || ''}|${args.prefs?.arriveBy || ''}`;
+  }
+  if (Object.values(NEARBY_TOOL).includes(name)) {
+    const lat = args.lat ?? here?.lat, lon = args.lon ?? here?.lon;
+    return lat == null ? null : `${name}|${(+lat).toFixed(3)},${(+lon).toFixed(3)}`;
+  }
+  return null;
+}
+
 /** 兩個地點參數是不是同一個字串（「台北101」與「台北 101」視為相同） */
 const sameText = (a, b) => typeof a === 'string' && typeof b === 'string' && a.replace(/\s/g, '') === b.replace(/\s/g, '');
 
@@ -158,11 +174,18 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   // 結果照常出現在討論串與卡片，再交給模型轉述（AGENT.md §5.2.1）
   const pre = here ? prefetchCalls(rulesIt, j, here) : [];
   let prefetched = '';
-  const preDone = new Map(); // 工具名稱 → 給模型的文字（模型再呼叫同一個工具時直接沿用，不重複產生卡片與決策圖）
+  const preDone = new Map(); // 呼叫鍵（工具＋關鍵參數）→ 給模型的文字：模型用相同參數再呼叫時沿用，不重複產生卡片與決策圖；參數不同照常執行
   if (pre.length) {
     const out = await execTools(svc, pre, emit, { profile, nextId, picked, ...(j && { judgedStates: j.states }) });
-    out.forEach((o, i) => { used.add(pre[i].name); if (o.followUp) used.add('bus_route_eta'); if (o.ok) preDone.set(pre[i].name, modelText(o.result) + followUpText(o.followUp, o.followWalkMin)); });
-    prefetched = out.filter((o) => o.ok).map((o) => modelText(o.result) + followUpText(o.followUp, o.followWalkMin)).join('\n\n');
+    const texts = out.map((o, i) => {
+      used.add(pre[i].name);
+      if (o.followUp) used.add('bus_route_eta');
+      // 查詢失敗也告訴模型原因（請照實轉述），模型才不會一直重查同一個工具
+      const text = o.ok ? modelText(o.result) + followUpText(o.followUp, o.followWalkMin) : `（${pre[i].name} 查詢失敗：${o.error}。請照實告訴使用者，不要再呼叫同一個工具。）`;
+      preDone.set(callKey(pre[i].name, pre[i].args), text);
+      return text;
+    });
+    prefetched = texts.join('\n\n');
   }
   const conv = provider.start({
     system: buildSystemPrompt(profile, { now, context: req.context, picked, locationHint, prefetched }),
@@ -208,7 +231,10 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     for (const c of turn.calls) if (!results.has(c.id) && c.bad !== undefined) results.set(c.id, { content: `參數不是有效的 JSON：${c.bad}`, isError: true });
 
     // 已由程式依現在位置查好的工具：模型再呼叫就沿用結果（避免同一張卡片、決策圖出現兩次）
-    for (const c of turn.calls) if (!results.has(c.id) && preDone.has(c.name)) results.set(c.id, { content: `（已查好，結果同上）\n${preDone.get(c.name)}` });
+    for (const c of turn.calls) {
+      const k = !results.has(c.id) && callKey(c.name, c.input, here);
+      if (k && preDone.has(k)) results.set(c.id, { content: `（已查好，結果同上）\n${preDone.get(k)}` });
+    }
 
     // 起點交給程式（不交給模型）：使用者沒說起點（「去台北 101」、接著改而上一輪也沒說）→ plan_trip 的起點一律是手機定位。
     // 地端小模型常把目的地也填成起點（台北101 → 台北101），這裡直接改掉；還沒定位就先請客戶端定位。

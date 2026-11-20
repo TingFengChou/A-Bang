@@ -653,3 +653,24 @@ test('我的發票（本機）：存起來立刻對獎、待開獎顯示開獎�
     assert.equal(after.status, 'won');
   });
 });
+
+// Android 返回手勢（PR #31）：下一層按返回回到上一層；首頁再按返回離開 App（不是卡在首頁）
+test('Android 返回：高鐵頁 → 首頁 → 離開 App', async () => {
+  const init = () => {
+    const calls = (window.__capCalls = []);
+    window.Capacitor = {
+      isNativePlatform: () => false, getPlatform: () => 'android',
+      addListener: (plugin, ev, fn) => { if (plugin === 'App' && ev === 'backButton') window.__back = fn; return { remove() {} }; },
+      nativePromise: (plugin, method) => { calls.push(`${plugin}.${method}`); return Promise.resolve({}); },
+    };
+  };
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.waitForSelector('a.tile[href="#/rail/thsr"]');
+    await page.click('a.tile[href="#/rail/thsr"]');
+    await page.waitForFunction(() => location.hash === '#/rail/thsr');
+    await page.evaluate(() => window.__back({ canGoBack: true }));
+    await page.waitForFunction(() => location.hash === '#/' || location.hash === '');
+    await page.evaluate(() => window.__back({ canGoBack: false }));
+    assert.deepEqual(await page.evaluate(() => window.__capCalls), ['App.exitApp']);
+  }, { init });
+});

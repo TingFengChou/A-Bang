@@ -25,7 +25,7 @@
 
 - **角色**：一隻圓滾滾的**台灣藍鵲**（台灣特有種），熱心的鄰居型角色。
 - **App 名稱**：**Abang**（2026-11-20 Austin 決定；不加 Bot，像 Grok、Claude 一樣名字就是那個 agent）。吉祥物與對話裡仍叫「阿幫」。
-- **agent 感**（2026-11-20）：**冠羽**（招牌；三根往後梳、前長後短，不加光點。Austin：「鳥類最漂亮的應是他的冠」）、耳麥（左耳罩與麥克風，隨時待命、跟小幫手通話）、右眼 HUD 鏡片（查詢中顯示進度條、完成時打勾）、背包天線。不戴帽子。
+- **agent 感**（2026-11-20）：**冠羽**（招牌；三根往後梳、前長後短、前後深藍中間亮藍（有層次），不加光點。Austin：「鳥類最漂亮的應是他的冠」）、耳麥（左耳罩與麥克風，隨時待命、跟小幫手通話）、右眼 HUD 鏡片（查詢中顯示進度條、完成時打勾）、背包天線。不戴帽子。
 - **招牌配件**：
   - 往後梳的冠羽（取代原本的鴨舌帽）；耳麥與 HUD 鏡片
   - 小背包，上面的徽章代表「工具包」：交通、防詐、開業、旅遊。每多一個工具包，就多一枚徽章，呼應平台架構
@@ -37,10 +37,10 @@
 | `abang-default.svg` | 揮手 | 首頁、歡迎畫面、一般狀態 |
 | `abang-think.svg` | 查詢中 | 工具呼叫中、載入中 |
 | `abang-happy.svg` | 開心 | 查詢完成、任務完成 |
-| `icon.svg` | App 圖示 | PWA、favicon（深青綠漸層＋細網格＋光暈，藍鵲戴耳麥與 HUD 鏡片） |
-| `icon-square.svg`、`icon-fg.svg`、`icon-bg.svg` | 原生 App 圖示 | iOS（方形不透明）、Android 自適應圖示前景／背景；`node scripts/build-icons.js` 轉成各尺寸 PNG |
+| `icon.svg` | App 圖示 | PWA、favicon（深青綠漸層＋細網格＋光暈，藍鵲戴耳麥與 HUD 鏡片，保留長尾巴） |
+| `icon-square.svg`、`icon-fg.svg`、`icon-bg.svg` | 原生 App 圖示 | iOS（方形不透明）、Android 自適應圖示前景／背景（另產生主題單色 `ic_launcher_monochrome`，Android 13+ 主題圖示）；`node scripts/build-icons.js` 轉成各尺寸 PNG |
 
-修改吉祥物請改 `scripts/build-brand.py` 後執行 `python3 scripts/build-brand.py`，再執行 `node scripts/build-icons.js` 產生圖示 PNG（網頁 192／512、Android mipmap、iOS 1024），不要手改 SVG 或 PNG。
+修改吉祥物請改 `scripts/build-brand.py` 後執行 `python3 scripts/build-brand.py`，再執行 `node scripts/build-icons.js` 產生圖示 PNG（網頁 192／512、Android mipmap、iOS 1024），不要手改 SVG 或 PNG。CI 會重跑 `build-brand.py` 檢查 SVG 與產生結果一致。
 
 ### 不要做的事
 
