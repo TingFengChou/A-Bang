@@ -3,6 +3,7 @@ import { icons } from '../icons.js';
 import { esc, loading, errorBox, empty, etaBadge, fmtTime, favs, prefs, chev } from '../ui.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { modeSvg } from '../../ui/cards/mode-icons.js';
+import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
 import { snapshot, slide } from '../../ui/cards/slide.js';
 import { busScene } from '../../ui/cards/bus-scene.js';
 import { railOf } from '../../ui/cards/cards/bus-route.js';
@@ -119,7 +120,7 @@ export const busRoute = {
       const w = host.arrivalWatch();
       const watching = w && w.routeName === route && w.stop === myStop;
       const live = s.status === 0 && s.etaSec != null;
-      const when = host.background ? 'App 關著也會提醒' : 'App 開著時';
+      const when = cardT(`busRoute.${host.arrivalNote?.() || 'whenOpenPage'}`);
       box.innerHTML = `<div class="card bus-focus"><span class="ab-token lg${live ? ' go' : ''}" style="--c:#0f766e" aria-hidden="true">${modeSvg('bus')}</span><div class="sub">到「${esc(myStop)}」</div><div class="big">${esc(s.statusText)}</div>
         ${watching ? `<p class="ok" role="status">${w.skip ? `這班快到了、可能趕不上；下一班到站前 ${w.minutes} 分提醒你（${when}）` : `已設定：到站前 ${w.minutes} 分提醒你（${when}）`}<button class="btn ghost" id="unwatch" type="button">取消提醒</button></p>`
           : live ? `<div class="row">${[3, 5].map((n) => `<button class="btn" type="button" data-min="${n}">到站前 ${n} 分提醒我</button>`).join('')}</div>` : ''}</div>`;
@@ -128,7 +129,7 @@ export const busRoute = {
         toast(`好，${route} 到「${myStop}」前 ${b.dataset.min} 分提醒你`);
         paintFocus(data.directions[dir] || data.directions[0]);
       }));
-      box.querySelector('#unwatch')?.addEventListener('click', () => { host.unwatchArrival(); paintFocus(d); });
+      box.querySelector('#unwatch')?.addEventListener('click', () => { host.unwatchArrival(); toast(cardT('busRoute.alertCanceled')); paintFocus(d); });
     }
     const onWatch = () => data && paintFocus(data.directions[dir] || data.directions[0]);
     window.addEventListener('abang:arrival-watch', onWatch);
