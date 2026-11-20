@@ -107,18 +107,22 @@ export function createLlmJudge({ url, model, apiKey, prompt, fetchImpl = fetch, 
  * @returns {(text: string, history?: string[]) => Promise<{ intent: string, states: string[], confidence: number|null, source: 'embed'|'llm'|'rules', llmUsed: boolean }>}
  */
 export function createJudge({ embed = null, llm = null, threshold = CONFIDENT } = {}) {
-  return async (text, history = []) => {
+  const run = async (text, history = [], { quick = false } = {}) => {
     const it = { text, ...(history.length && { history }) };
     const rules = parseIntent(text, { history: history.map((content) => ({ role: 'user', content })) });
     const a = embed ? await embed(it).catch(() => null) : null;
     const sure = a && a.confidence >= threshold;
-    const wantLlm = llm && (!sure || a.intent === 'trip' || rules.intent === 'trip');
+    const wantLlm = !quick && llm && (!sure || a.intent === 'trip' || rules.intent === 'trip');
     const b = wantLlm ? await llm(it).catch(() => null) : null;
     const intent = sure ? a.intent : b ? b.intent : a ? a.intent : rules.intent;
     const agree = a && b ? a.states.filter((k) => b.states.includes(k)) : [];
     const states = [...new Set([...rules.states.filter((k) => JUDGE_STATES.includes(k)), ...agree])];
     return { intent, states, confidence: a?.confidence ?? null, source: sure ? 'embed' : b ? 'llm' : a ? 'embed' : 'rules', llmUsed: Boolean(b) };
   };
+  const judge = (text, history) => run(text, history);
+  /** 快速版：只用 A＋規則（幾毫秒），讓阿幫一送出就能說聽懂了什麼；完整版（含模型）之後再補狀態 */
+  judge.quick = (text, history) => run(text, history, { quick: true });
+  return judge;
 }
 
 /**
@@ -149,5 +153,7 @@ export function judgeFromEnv(env = process.env, { log = () => {} } = {}) {
       return false;
     }
   })();
-  return { judge: (text, history) => current(text, history), ready, info: () => ({ enabled: true, embed: Boolean(state.embed), llm: Boolean(state.llm), ...(state.error && { error: state.error }) }) };
+  const judge = (text, history) => current(text, history);
+  judge.quick = (text, history) => current.quick(text, history);
+  return { judge, ready, info: () => ({ enabled: true, embed: Boolean(state.embed), llm: Boolean(state.llm), ...(state.error && { error: state.error }) }) };
 }

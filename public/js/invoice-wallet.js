@@ -2,6 +2,7 @@
 // 開獎後打開 App 時自動對獎（invoice_check_batch，對獎規則只在 core）；中獎時主動通知。
 // 網頁沒有背景排程：App 沒打開時不會對獎，下次打開才對（不需推播伺服器、不保存使用者資料）。
 import { storage, esc } from './ui.js';
+import { confetti } from '../ui/cards/confetti.js';
 import { scanSupported, openScanner } from './invoice-qr.js';
 
 const KEY = 'invoices';
@@ -95,7 +96,7 @@ export function renderWallet(el, { callTool, toast = () => {} }) {
     try {
       const r = await checkWallet(callTool, opts);
       draw();
-      if (r?.won.length) toast(`🎉 中獎了！${r.won.map((w) => `${w.number} ${w.prize}`).join('、')}`);
+      if (r?.won.length) { toast(`🎉 中獎了！${r.won.map((w) => `${w.number} ${w.prize}`).join('、')}`); confetti(listEl); }
     } catch (e) { toast(`對獎失敗：${e.message}`); }
   };
   listEl.addEventListener('click', (e) => {
@@ -140,6 +141,7 @@ export async function autoCheckOnOpen(callTool, { toast = () => {} } = {}) {
   if (r.won.length) {
     const msg = `🎉 你存的發票中獎了：${r.won.map((w) => `${w.number} ${w.prize}`).join('、')}`;
     toast(msg);
+    if (typeof document !== 'undefined') confetti(document.body);
     try { if (typeof Notification !== 'undefined' && Notification.permission === 'granted') new Notification('阿幫：發票中獎', { body: msg, icon: '/icons/icon.svg' }); } catch { /* 部分瀏覽器只允許 SW 通知 */ }
   } else if (r.decided) toast(`你存的 ${r.decided} 張發票已對獎，這期沒中`);
   return r;

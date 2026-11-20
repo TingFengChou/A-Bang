@@ -5,6 +5,7 @@ import { getProfile } from '../agents/index.js';
 import { buildSystemPrompt } from './prompt.js';
 import { ev } from './events.js';
 import { validateRequest, execTools, deviceLocation, guardedText, priorUserTexts, judgeInfo, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
+import { judgeNote, moreStatesNote } from './impact.js';
 
 /**
  * @typedef {{ name: string, description: string, schema: object }} ToolDef
@@ -103,11 +104,18 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const profile = getProfile(profileId);
   const picked = req.userState?.picked || [];
   const canLocate = !!req.clientTools?.includes(DEVICE_LOCATION_TOOL.name);
-  // 判斷層：plan_trip 的使用者狀態以它為準；有把握且是地端模型時只給相關工具
-  const j = judge && profile.id === 'life' ? await judge(req.messages.at(-1).content, priorUserTexts(req.messages)).catch(() => null) : null;
+  // 判斷層：先用快速版（A＋規則，幾毫秒）說聽懂了什麼，不用等 loading；完整版（含模型）定案狀態與工具範圍
+  const useJudge = judge && profile.id === 'life';
+  const last = req.messages.at(-1).content;
+  const q0 = useJudge ? await (judge.quick || judge)(last, priorUserTexts(req.messages)).catch(() => null) : null;
+  emit(ev.status({ mode: provider.mode, model: provider.model, profile: profile.id, judge: judgeInfo(q0) }));
+  const heard = q0 && judgeNote(q0);
+  if (heard) emit(ev.agentNote(heard));
+  const j = useJudge ? (judge.quick ? await judge(last, priorUserTexts(req.messages)).catch(() => q0) : q0) : null;
+  const more = moreStatesNote(q0, j);
+  if (more) emit(ev.agentNote(more));
   const sure = j && (j.source === 'llm' || (j.confidence ?? 0) >= 0.8);
   const only = sure && provider.mode === 'local' ? INTENT_TOOLS[j.intent] : undefined;
-  emit(ev.status({ mode: provider.mode, model: provider.model, profile: profile.id, judge: judgeInfo(j) }));
 
   const conv = provider.start({
     system: buildSystemPrompt(profile, { now, context: req.context, picked }),

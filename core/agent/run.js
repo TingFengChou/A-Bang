@@ -8,6 +8,7 @@ import { getProfile } from '../agents/index.js';
 import { parseIntent, demoSteps, demoSummary, needsLocation } from './demo-intent.js';
 import { parseAntifraud, antifraudSteps, antifraudSummary } from './demo-antifraud.js';
 import { applyOutputGuardrails } from './guardrails.js';
+import { impactOf, judgeNote, moreStatesNote } from './impact.js';
 
 /** 示範模式的規則式規劃（依 agent）：parse → steps → summary；needsLocation 只有生活 agent 用 */
 const PLANNERS = {
@@ -89,7 +90,7 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
     try {
       if (!profile.tools.includes(c.name)) throw new UserError(`這個 agent 不能使用 ${c.name}`);
       const result = await callTool(svc, c.name, c.name === 'plan_trip' ? withPickedPrefs(c.args, picked, judgedStates) : c.args);
-      emit(ev.toolResult({ id: c.id, result }));
+      emit(ev.toolResult({ id: c.id, result, impact: impactOf(c.name, result.data) }));
       if (c.name !== 'plan_trip') return { name: c.name, ok: true, result };
       emit(ev.decision(withPicked(result.data, picked)));
       const f = busFollowUp(result.data);
@@ -99,7 +100,7 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
       emit(ev.toolStart({ id, name: 'bus_route_eta', input: f.args }));
       try {
         const followUp = await callTool(svc, 'bus_route_eta', f.args);
-        emit(ev.toolResult({ id, result: followUp }));
+        emit(ev.toolResult({ id, result: followUp, impact: impactOf('bus_route_eta', followUp.data) }));
         return { name: c.name, ok: true, result, followUp, followWalkMin: f.walkMin };
       } catch (e) {
         emit(ev.toolResult({ id, error: publicMessage(e) })); // 盯不到不影響行程結果
@@ -151,14 +152,20 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   const plan = PLANNERS[profile.id] || PLANNERS.life;
   const last = req.messages.at(-1).content;
   let it = plan.parse(last, { history: req.messages.slice(0, -1) });
-  // 判斷層（judge.js）：意圖與狀態以它為準，參數仍由規則抽；指定意圖抽不出參數時維持規則的判斷
-  const j = judge && profile.id === 'life' ? await judge(last, priorUserTexts(req.messages)).catch(() => null) : null;
+  // 判斷層（judge.js）：先用快速版（A＋規則，幾毫秒）說聽懂了什麼，再用完整版（含模型）定案意圖與狀態
+  const useJudge = judge && profile.id === 'life';
+  const q0 = useJudge ? await (judge.quick || judge)(last, priorUserTexts(req.messages)).catch(() => null) : null;
+  emit(ev.status({ mode: 'demo', profile: profile.id, judge: judgeInfo(q0) }));
+  if (notice) emit(ev.agentNote(notice));
+  const heard = q0 && judgeNote(q0);
+  if (heard) emit(ev.agentNote(heard));
+  const j = useJudge ? (judge.quick ? await judge(last, priorUserTexts(req.messages)).catch(() => q0) : q0) : null;
   if (j) {
     if (j.intent !== it.intent) it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent }) || it;
     it.states = j.states;
+    const more = moreStatesNote(q0, j);
+    if (more) emit(ev.agentNote(more));
   }
-  emit(ev.status({ mode: 'demo', profile: profile.id, judge: judgeInfo(j) }));
-  if (notice) emit(ev.agentNote(notice));
   // 需要使用者位置（M5-07）：客戶端支援 device_location 時先請它定位，拿到結果後客戶端帶 clientToolResults 重送
   if (plan.needsLocation(it) && req.clientTools?.includes('device_location')) {
     const loc = deviceLocation(req);
