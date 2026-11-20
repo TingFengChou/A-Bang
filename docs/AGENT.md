@@ -147,7 +147,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 | 意圖 | 判斷 | 呼叫 |
 |---|---|---|
-| 行程規劃 | 「從…到…」「到…怎麼去」「幾點前要到」 | `find_place` ×2 → `weather_now`、`traffic_status`（跨城）→ `plan_trip` |
+| 行程規劃 | 「從…到…」「到…怎麼去」「幾點前要到」 | `find_place` ×2 → `weather_now`、`aqi_nearby`、`traffic_status` → `plan_trip`；決策選公車 → 自動 `bus_route_eta`（§5.2） |
 | 公車路線 | 含「公車」或路線號（`/^[紅藍綠棕橘小幹]?\d{1,4}[區副]?/`） | `bus_route_eta` |
 | YouBike | YouBike／單車／腳踏車 | `find_place` → `youbike_nearby` |
 | 附近公車 | 「附近」＋「公車／站牌」 | `bus_nearby_stations` |
@@ -181,6 +181,15 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 | 找不到 | 「火星電股價」 | 「找不到「火星電」」＋請用代號或完整名稱；名稱只部分相同時附「也可能是」 | `stock`（`notFound`） |
 
 規則：只用 `stock_quote` 的數字，說出資料日期（收盤資料，不是即時）；不建議買賣、不預測漲跌、不推薦個股（`PACK_GUARDRAILS.finance`、life 規則、輸出護欄 `no-investment-advice`）。2026-11-19 地端 qwen3:8b 實測以上 5 種情境都正確呼叫工具（追問 → `聯發科`、卡片脈絡 → `6488`、問買賣先拒絕建議）；工具文字把「+102.8」改寫成「漲 102.8 點」後，模型不再把漲說成跌。
+
+### 5.2 選公車就盯到站＋到站提醒（L-14，示範與模型模式相同）
+
+使用者要的是「決定搭公車後，阿幫要夠聰明：開公車即時動態，還能在公車快到站時提醒」。
+
+1. `plan_trip` 的公車方案帶 `follow`（路線、上車站、方向、走到站牌的分鐘）。
+2. 執行器 `execTools`（`core/agent/run.js`）在 `plan_trip` 的 `decision` 之後檢查 `busFollowUp`：選的是公車 → 送 `agent_note`「@公車 你選了公車，我幫你盯 601 在「西門」的到站」→ `bus_route_eta { city, routeName, stop, direction }`（事件照常送出、卡片聚焦上車站）。由程式決定，不靠模型記得要查；查不到不影響行程結果。
+3. 示範總結：「601 約 6 分後到「西門」，走過去約 3 分。要我在公車快到站時提醒你嗎？」；走過去比車到還久時改說「這班可能趕不上。要我在下一班快到時提醒你嗎？」。模型模式：盯到站的結果接在 `plan_trip` 的工具結果後面（`followUpText`），請模型說公車多久到、趕不上要說、並問要不要提醒；life 規則也要求不要重複呼叫。
+4. 卡片「到站前 3／5 分提醒我」→ `host.watchArrival`（CARDS.md §3）；「開公車頁看動態」→ `#/bus/:city/:route?stop=&dir=`，公車頁顯示同一個上車站與提醒。提醒只在 App 開著時有效；背景準時推播需推播伺服器與使用者訂閱（屬 ADR，PLAN L-16）。
 
 ## 6. 成本與濫用防護
 

@@ -243,6 +243,14 @@ export function demoSummary(it, results, suggestions = []) {
   if (it.intent === 'trip') {
     const trip = results.plan_trip?.[0];
     const pre = it.from || it.fromPoint ? '' : `（你沒說從哪出發，我先用「${DEFAULT_FROM}」算。）`;
+    // 選了公車：阿幫已自動盯上車站（run.js busFollowUp）→ 講公車多久到、主動問要不要到站提醒
+    const bus = results.bus_route_eta?.at(-1)?.data?.focus && results.bus_route_eta.at(-1);
+    if (trip && bus) {
+      const walk = trip.data.options.find((o) => o.id === trip.data.best)?.follow?.walkMin;
+      const f = bus.data.focus;
+      const miss = walk && f.status === 0 && f.etaSec != null && f.etaSec < walk * 60; // 走過去要比車到還久
+      return `${pre}${trip.data.ranking.reason} ${bus.speak.replace(/。$/, '')}${walk ? `，走過去約 ${walk} 分` : ''}${miss ? '，這班可能趕不上。要我在下一班快到時提醒你嗎？' : '。要我在公車快到站時提醒你嗎？'}按卡片上的「到站前 3 分提醒我」。`;
+    }
     return trip ? `${pre}${trip.data.ranking.reason}${trip.data.best ? ' 要我幫你開導航嗎？' : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
   }
   // 沒說地點時用了示範預設，先講清楚

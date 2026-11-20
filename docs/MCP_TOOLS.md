@@ -74,11 +74,12 @@
 
 | | |
 |---|---|
-| 輸入 | `city: City`, `routeName: string` |
-| 輸出 | `{ city, routeName, updatedAt, directions: [{ direction, label, stops: [{ seq, stopName, lat?, lon?, ...Eta, plate, nav }] }], shape?: [[lat, lon]] }` |
+| 輸入 | `city: City`, `routeName: string`, `stop?: string`（要盯的站，例如上車站）, `direction?: 0\|1` |
+| 輸出 | `{ city, routeName, updatedAt, directions: [{ direction, label, stops: [{ seq, stopName, lat?, lon?, ...Eta, plate, nav }] }], shape?: [[lat, lon]], focus?: { direction, label, seq, stopName, etaSec, status, statusText } }`；給 `stop` 時依站名（臺／台相同）找站、先找 `direction` 那一邊，找到才有 `focus`，找不到文字說明「這條路線沒有…這一站」 |
 | TDX | `/basic/v2/Bus/DisplayStopOfRoute/City/{City}/{Route}`（1h）、`/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/{Route}`（20s）、`/basic/v2/Bus/Route/City/{City}/{Route}`（1h）、`/basic/v2/Bus/Shape/City/{City}/{Route}`（1h，WKT）⚠️ |
 | 篩選 | `$filter=RouteName/Zh_tw eq '{Route}'`（路徑參數會模糊比對） |
-| speak | 「307 目前有 3 個站即將有車（例如北門、中山堂）。」 |
+| speak | 「307 目前有 3 個站即將有車（例如北門、中山堂）。」；有 `focus` 時「601 約 6 分後到「西門」。」（不到 3 分「即將到」、不到 1 分「在「西門」進站中」） |
+| 選公車就盯（L-14） | `plan_trip` 的公車方案帶 `follow: { city, routeName, stop, direction?, walkMin }`；決策選公車時 agent 執行器（`core/agent/run.js` `busFollowUp`）自動呼叫本 tool 盯上車站，示範與模型模式相同 |
 | 座標 | 站點 `lat/lon` 取 `StopPosition`（缺座標的站不帶 `lat/lon`，`nav` 為 `null`）；`nav` 在 tool 層加（§6） |
 | shape | ✅ M3-02：取 `Direction = 0` 那筆（沒有就第一筆）的 `Geometry`（WKT），`core/geo.js` 解析 `LINESTRING`／`MULTILINESTRING`（`lon lat` → `[lat, lon]`，順序寫反會自動換回）、串接成一條、超過 400 點等距抽樣；形狀端點失敗或格式不明時省略 `shape`，到站資料照常。示範模式以站點加中點產生 |
 
@@ -239,7 +240,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | | |
 |---|---|
 | 輸入 | `from`, `to`：座標或地名（`T.point`）；`departAt?`：HH:mm 或 ISO（同 `intercity_bus`）；`prefs?: { states?: ('rush'\|'traffic'\|'rain'\|'luggage'\|'budget'\|'lessWalk'\|'badAir')[], arriveBy?: 'HH:mm' }` |
-| 輸出 | `{ from, to, straightKm, date, departAt, best, states: [{ key, source: 'auto'\|'user', from?, detail? }], weather, traffic, options: [Option], ranking: { ranked: [{ id, name, score, breakdown }], excluded: [{ id, name, why }], weights, reason }, unavailable? }`（與 `CARDS.md` `trip` 一致；`unavailable` 列出查詢失敗而略過的方案種類） |
+| 輸出 | `{ from, to, straightKm, date, departAt, best, states: [{ key, source: 'auto'\|'user', from?, detail? }], weather, traffic, options: [Option], ranking: { ranked: [{ id, name, score, breakdown }], excluded: [{ id, name, why }], weights, reason }, unavailable? }`（與 `CARDS.md` `trip` 一致；`unavailable` 列出查詢失敗而略過的方案種類；公車方案另有 `follow`，見 `bus_route_eta`） |
 | Option | `{ id, role: 'walk'\|'bike'\|'bus'\|'thsr'\|'tra'\|'intercity'\|'ridehail', name, minutes, waitMin, walkMin, cost, costRange?, exposure, effort, delayRisk, arriveAt, arriveMin（自出發日 00:00 起算，可超過 24 小時；`arriveBy` 以此比較，跨午夜不誤判）, leaveAt?（高鐵／台鐵／客運：最晚出門時間＝發車 − 到站時間）, legs: [{ mode, from: {name, lat, lon}, to: {...}, minutes, detail, nav, url? }], notes[], train?, estimated?: true }` |
 | 排序 | `core/decide.js`（ADR-0010） |
 | speak | 「比了 4 種方式，因為路上在塞車，建議台鐵自強。」 |

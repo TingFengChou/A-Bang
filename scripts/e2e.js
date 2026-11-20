@@ -446,6 +446,43 @@ test('生活服務：首頁格子 → 服務頁卡片（捷運、天氣、空品
   });
 });
 
+test('選公車就盯到站（L-14）：想省錢 → 公車卡片聚焦上車站 → 到站前 5 分提醒 → 開公車頁（同一個提醒）→ 到點通知', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.fill('.chat-input', '我想省錢，從西門町到台北101怎麼去？');
+    await page.press('.chat-input', 'Enter');
+    await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+    const card = page.locator('.results [data-card="bus-route"]');
+    await card.waitFor();
+    assert.equal(await card.locator('.ab-focus').count(), 1, '上車站大倒數');
+    assert.equal(await card.locator('.ab-stop.me').count(), 1, '標出你在這上車');
+    assert.match(await card.locator('.ab-stop.me').textContent(), /你在這上車/);
+    assert.match(await page.locator('.bubble.final .say').textContent(), /要我在(公車快到站|下一班快到)時提醒你嗎/);
+    // 示範到站時間隨時間變化；之後的查詢固定成 15 分，提醒才不會一設定就到點（到點通知在 test/bus-follow.test.js 測）
+    await page.route('**/api/v1/tools/bus_route_eta', async (route) => {
+      const res = await route.fetch();
+      const j = await res.json();
+      if (j.data?.focus) Object.assign(j.data.focus, { etaSec: 900, status: 0, statusText: '15 分' });
+      await route.fulfill({ response: res, json: j });
+    });
+    await card.getByRole('button', { name: '到站前 5 分提醒我' }).click();
+    await card.locator('.ab-alert-on').waitFor();
+    assert.match(await card.locator('.ab-alert-on').textContent(), /到站前 5 分提醒你/);
+    await shot(page, 'phone-agent-bus-follow');
+    // 開公車頁：同一個上車站、同一個提醒
+    await card.getByRole('button', { name: '開公車頁看動態' }).click();
+    await page.waitForSelector('.bus-focus');
+    assert.match(page.url(), /#\/bus\/Taipei\/[^?]+\?stop=/);
+    assert.equal(await page.locator('.timeline .me').count(), 1);
+    assert.match(await page.textContent('.bus-focus'), /已設定：到站前 5 分提醒你/);
+    await shot(page, 'phone-bus-follow-page');
+    // 到點：App 內 toast（通知權限另外）
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('abang:arrival', { detail: { text: '601 約 5 分後到「測試站」，該出門了！' } })));
+    await page.waitForFunction(() => [...document.querySelectorAll('[role=status]')].some((e) => /🚌 601 約 5 分後到「測試站」/.test(e.textContent)));
+    await page.click('.bus-focus #unwatch');
+    await page.waitForFunction(() => /到站前 3 分提醒我/.test(document.querySelector('.bus-focus')?.textContent || ''));
+  }, { init: () => { window.Notification = class { static permission = 'granted'; static requestPermission() { return Promise.resolve('granted'); } }; } });
+});
+
 test('股市：預設查台積電、0050，漲紅跌綠有 ▲▼；卡片內查別檔；問阿幫追問「那聯發科呢？」與問買賣', async () => {
   await withPage(DEVICES.phone, '#/s/stock', async (page) => {
     await page.waitForSelector('.ab-card[data-card="stock"] .ab-stk');

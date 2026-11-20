@@ -41,14 +41,16 @@ $('back').onclick = () => (history.length > 1 ? history.back() : (location.hash 
 $('skip').onclick = () => $('main').focus(); // hash 路由：不能用 href="#main"（會被當成頁面）
 
 let cleanups = [];
-function toast(msg) {
+function toast(msg, ms = 2200) {
   const t = document.createElement('div');
   t.textContent = msg;
   t.setAttribute('role', 'status'); // 螢幕閱讀器會念出提示
   t.style.cssText = 'position:fixed;left:50%;bottom:calc(var(--nav-h) + 24px);transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;z-index:99;max-width:85vw;text-align:center';
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2200);
+  setTimeout(() => t.remove(), ms);
 }
+// 公車到站提醒（L-14，host-web.js）：任何頁面都顯示（沒開通知權限也看得到）
+window.addEventListener('abang:arrival', (e) => toast(`🚌 ${e.detail.text}`, 8000));
 
 function navigate() {
   cleanups.forEach((f) => f()); cleanups = [];

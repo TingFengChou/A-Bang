@@ -55,6 +55,14 @@
 .ab-stop.soon .ab-dot { background: var(--ab-ok); border-color: var(--ab-ok); }
 .ab-stop.open { background: var(--ab-brand-soft); border-radius: 8px; }
 .ab-stop .ab-actions { padding-left: 12px; }
+/* 盯上車站（L-14）：大倒數、你在這上車、提醒 */
+.ab-focus { background: var(--ab-brand-soft); border-radius: 12px; padding: 10px 12px; margin: 0 0 8px; }
+.ab-focus-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ab-focus-eta { font-size: 26px; color: var(--ab-brand); font-variant-numeric: tabular-nums; }
+.ab-focus .ab-actions { margin-top: 6px; }
+.ab-alert-on { color: var(--ab-ok); margin: 6px 0 0; }
+.ab-stop.me { background: var(--ab-brand-soft); border-radius: 8px; font-weight: 700; }
+.ab-me { margin-left: 6px; font-size: 12px; color: var(--ab-brand); }
 /* 行程 */
 .ab-option { border: 1px solid var(--ab-line); border-radius: 12px; padding: 6px 10px; margin: 6px 0; }
 .ab-option.best { border-color: var(--ab-brand); background: #fbfefd; }

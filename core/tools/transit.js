@@ -3,10 +3,29 @@ import { z } from 'zod';
 import { defineTool, T, clip } from './define.js';
 import { withNav } from '../nav.js';
 import { resolveCity } from '../cities.js';
-import { nowTW, toMin } from '../util.js';
+import { nowTW, toMin, normName } from '../util.js';
 
 const PACK = 'transit';
 const fmtM = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} 公里` : `${m} 公尺`);
+
+/**
+ * 盯一個站（選公車後的上車站）：依站名（臺／台視為相同）找方向與站；給 direction 時先找那個方向。
+ * @returns {{ direction: number, seq: number, stopName: string, etaSec: number|null, status: number, statusText: string } | null}
+ */
+export function focusStop(directions, stop, direction) {
+  if (!stop) return null;
+  const n = normName(stop);
+  const order = [...directions.keys()].sort((a, b) => (directions[b].direction === direction) - (directions[a].direction === direction));
+  for (const i of order) {
+    const s = directions[i].stops.find((x) => normName(x.stopName) === n);
+    if (s) return { direction: directions[i].direction ?? i, label: directions[i].label, seq: s.seq, stopName: s.stopName, etaSec: s.etaSec ?? null, status: s.status, statusText: s.statusText };
+  }
+  return null;
+}
+/** 「601 約 6 分到「X」」；沒有預估時用狀態文字 */
+export const focusText = (route, f) => (f.status === 0 && f.etaSec != null
+  ? (f.etaSec < 60 ? `${route} 在「${f.stopName}」進站中` : f.etaSec < 180 ? `${route} 即將到「${f.stopName}」` : `${route} 約 ${Math.round(f.etaSec / 60)} 分後到「${f.stopName}」`)
+  : `${route} 在「${f.stopName}」：${f.statusText}`);
 
 export const busSearchRoutes = defineTool({
   name: 'bus_search_routes',
@@ -29,15 +48,24 @@ export const busRouteEta = defineTool({
   title: '公車路線即時到站',
   description: '查詢一條公車路線所有站牌的預估到站時間（去程與返程）。etaSec 為秒數；statusText 為易讀文字；有座標的站牌附 lat/lon 與導航連結 nav；shape 為去程路線形狀 [[lat, lon]]（資料有提供時）。',
   pack: PACK, tier: 'L1', card: 'bus-route',
-  input: { city: T.city, routeName: z.string().min(1).describe('完整路線名稱，例如 307') },
+  input: {
+    city: T.city, routeName: z.string().min(1).describe('完整路線名稱，例如 307'),
+    stop: z.string().trim().max(40).optional().describe('要盯的站名（選填，例如上車站）：回傳 focus（該站方向、站序、到站時間），卡片聚焦這一站'),
+    direction: z.number().int().min(0).max(1).optional().describe('去程 0、返程 1（選填，配合 stop）'),
+  },
   speak: (d) => {
+    if (d.focus) return `${focusText(d.routeName, d.focus)}。`;
     const near = d.directions.flatMap((x) => x.stops.filter((s) => s.etaSec != null && s.etaSec < 180).map((s) => s.stopName));
     return `${d.routeName} 目前有 ${near.length} 個站即將有車${near.length ? `（例如${near.slice(0, 2).join('、')}）` : ''}。`;
   },
   async run(svc, a) {
     const raw = await svc.bus.routeEta(a);
     const data = { ...raw, directions: raw.directions.map((d) => ({ ...d, stops: withNav(d.stops) })) };
+    const focus = focusStop(data.directions, a.stop, a.direction);
+    if (focus) data.focus = focus;
     const lines = [`${data.routeName} 公車即時到站（更新：${data.updatedAt}）`];
+    if (focus) lines.unshift(`${focusText(data.routeName, focus)}（${focus.label}）`);
+    else if (a.stop) lines.unshift(`這條路線沒有「${a.stop}」這一站，以下是全線到站時間。`);
     for (const d of data.directions) {
       const near = d.stops.filter((s) => s.etaSec != null && s.etaSec < 180).map((s) => s.stopName);
       lines.push(`【${d.label}】共 ${d.stops.length} 站${near.length ? `；即將到站：${near.slice(0, 5).join('、')}` : ''}`);

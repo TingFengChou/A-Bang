@@ -11,7 +11,7 @@ export const MAX_ROUTES = 3;        // 最多驗證幾條共同路線（每條�
  */
 export function matchDirect(directions, from, to, radius = DIRECT_RADIUS_M) {
   let best = null;
-  for (const d of directions || []) {
+  for (const [di, d] of (directions || []).entries()) {
     const stops = (d.stops || []).filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lon));
     for (const b of stops) {
       const wb = distanceM(from.lat, from.lon, b.lat, b.lon);
@@ -22,8 +22,8 @@ export function matchDirect(directions, from, to, radius = DIRECT_RADIUS_M) {
         if (wa > radius) continue;
         if (!best || wb + wa < best.walkFromM + best.walkToM) {
           best = {
-            label: d.label,
-            board: { name: b.stopName, lat: b.lat, lon: b.lon, etaSec: b.etaSec ?? null },
+            label: d.label, direction: d.direction ?? di,
+            board: { name: b.stopName, seq: b.seq, lat: b.lat, lon: b.lon, etaSec: b.etaSec ?? null },
             alight: { name: a.stopName, lat: a.lat, lon: a.lon },
             stops: a.seq - b.seq, walkFromM: wb, walkToM: wa,
           };
