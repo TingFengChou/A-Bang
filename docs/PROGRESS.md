@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-20 實驗：意圖與狀態判斷（規則 vs 地端模型 vs Jev）
+
+- 做了：使用者想評估 TypeSafe Jev（System One 決策模型）能不能用在阿幫的「判斷層」（不取代 `decide.js` 計分）。`scripts/eval/decision-set.json` 172 題自行撰寫的繁中提問（63 容易、109 困難：口語、沒有關鍵字、追問；15 類意圖、6 種狀態，29 題有狀態）。`scripts/eval-decision.js`（`npm run eval:decision`，Node 內建 fetch、不加依賴）：規則（`parseIntent`）、地端模型（OpenAI 相容、JSON 輸出、關閉思考）、Jev（`/v1/systemone`：意圖 choice＋各狀態 noul，信心門檻涵蓋率與正確率）；報告寫到 `docs/research/decision-eval.md`。
+- 結果（Jev 待金鑰）：規則意圖 68.0%（困難 51.4%）、狀態 F1 76.7%、0 ms；qwen3:8b 意圖 94.8%（困難 91.7%）、狀態 F1 45.7%（precision 30.2%：常自己加「少走路」「想省錢」）、約 0.7 秒。
+- 下一個：取得 Jev 金鑰（TypeSafe console waitlist，或 Requesty／APIMaster 代理）放 `.env` 的 `JEV_API_KEY` 後重跑，比較意圖正確率、狀態 precision、信心門檻
+- 卡住：Jev 金鑰（使用者申請）
+
 ## 2026-11-20「阿幫在想」會議感（原型的思考過程動畫）
 
 - 做了：使用者希望思考過程像原型 `transit-discussion.html` 一樣以動畫呈現、有 agent 感。decision 事件加 `signals`（`tripSignals`：天氣、空品、路況、地點的一句真實重點）。決策圖改成原型版面（來源圓點 → 阿幫吉祥物 → 方案膠囊、狀態膠囊在上方）；GSAP 編排四步驟（資料膠囊沿線飛進阿幫、狀態彈出、逐項累加真實分數讓連線變粗、決定後阿幫換開心與光點持續流動），步驟列、7 秒保險；方案連線粗細改 inline（原本被 CSS 蓋掉）。討論串會議感：討論中虛線框＋標題跳點，結束收合成頭像堆摘要。

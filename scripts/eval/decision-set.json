@@ -1,0 +1,1304 @@
+{
+"version": 1,
+"note": "阿幫意圖與狀態判斷的評估集（自行撰寫的假想提問，不含使用者資料）。intent 15 類、states 6 種（使用者說的狀態）。",
+"items": [
+{
+"id": 1,
+"text": "從西門町到台北101怎麼去？",
+"intent": "trip",
+"states": [],
+"level": "easy"
+},
+{
+"id": 2,
+"text": "台北車站到松山機場要怎麼走",
+"intent": "trip",
+"states": [],
+"level": "easy"
+},
+{
+"id": 3,
+"text": "我要去台北101，從國父紀念館出發",
+"intent": "trip",
+"states": [],
+"level": "easy"
+},
+{
+"id": 4,
+"text": "明天9點前要到左營",
+"intent": "trip",
+"states": [],
+"level": "easy"
+},
+{
+"id": 5,
+"text": "從板橋去淡水最快的方法",
+"intent": "trip",
+"states": [
+"rush"
+],
+"level": "easy"
+},
+{
+"id": 6,
+"text": "帶行李從台北車站到松山機場",
+"intent": "trip",
+"states": [
+"luggage"
+],
+"level": "easy"
+},
+{
+"id": 7,
+"text": "想省錢，從西門町到台北101",
+"intent": "trip",
+"states": [
+"budget"
+],
+"level": "easy"
+},
+{
+"id": 8,
+"text": "下雨了，從台北車站去松山車站怎麼走？",
+"intent": "trip",
+"states": [
+"rain"
+],
+"level": "easy"
+},
+{
+"id": 9,
+"text": "我不想走太多路，從市府站到101",
+"intent": "trip",
+"states": [
+"lessWalk"
+],
+"level": "easy"
+},
+{
+"id": 10,
+"text": "空氣很差，從大安森林公園到台北車站怎麼去",
+"intent": "trip",
+"states": [
+"badAir"
+],
+"level": "easy"
+},
+{
+"id": 11,
+"text": "我快遲到了！現在人在台大，要趕去南港展覽館",
+"intent": "trip",
+"states": [
+"rush"
+],
+"level": "hard"
+},
+{
+"id": 12,
+"text": "拖著兩個大行李箱要去桃園機場，從中山站出發",
+"intent": "trip",
+"states": [
+"luggage"
+],
+"level": "hard"
+},
+{
+"id": 13,
+"text": "預算有限，從師大夜市回台北車站有什麼便宜的方式",
+"intent": "trip",
+"states": [
+"budget"
+],
+"level": "hard"
+},
+{
+"id": 14,
+"text": "我膝蓋不好，從永康街到中正紀念堂怎麼去比較輕鬆",
+"intent": "trip",
+"states": [
+"lessWalk"
+],
+"level": "hard"
+},
+{
+"id": 15,
+"text": "外面雨好大，等等要從公司（信義區）回家（板橋）",
+"intent": "trip",
+"states": [
+"rain"
+],
+"level": "hard"
+},
+{
+"id": 16,
+"text": "霧霾好重，帶著小孩要從內湖去動物園",
+"intent": "trip",
+"states": [
+"badAir"
+],
+"level": "hard"
+},
+{
+"id": 17,
+"text": "陪爸媽從台北車站去故宮，他們走不太動",
+"intent": "trip",
+"states": [
+"lessWalk"
+],
+"level": "hard"
+},
+{
+"id": 18,
+"text": "十分鐘內要到台北車站，人在西門",
+"intent": "trip",
+"states": [
+"rush"
+],
+"level": "hard"
+},
+{
+"id": 19,
+"text": "我在台北101，等下要去新竹，有沒有便宜一點的走法",
+"intent": "trip",
+"states": [
+"budget"
+],
+"level": "hard"
+},
+{
+"id": 20,
+"text": "帶著嬰兒車和行李去高鐵站，從民生社區出發",
+"intent": "trip",
+"states": [
+"luggage"
+],
+"level": "hard"
+},
+{
+"id": 21,
+"text": "下午三點以前要到台中，從台北出發",
+"intent": "trip",
+"states": [],
+"level": "hard"
+},
+{
+"id": 22,
+"text": "怎麼從信義區到士林夜市",
+"intent": "trip",
+"states": [],
+"level": "easy"
+},
+{
+"id": 23,
+"text": "我現在在台北車站 想去 象山步道",
+"intent": "trip",
+"states": [],
+"level": "hard"
+},
+{
+"id": 24,
+"text": "去九份怎麼去比較快",
+"intent": "trip",
+"states": [
+"rush"
+],
+"level": "hard"
+},
+{
+"id": 25,
+"text": "雨天又帶著大包小包，從東門到松山機場",
+"intent": "trip",
+"states": [
+"rain",
+"luggage"
+],
+"level": "hard"
+},
+{
+"id": 26,
+"text": "很趕，而且想省點錢，從公館到市政府",
+"intent": "trip",
+"states": [
+"rush",
+"budget"
+],
+"level": "hard"
+},
+{
+"id": 27,
+"text": "長輩同行，空氣又不好，從萬華到大安",
+"intent": "trip",
+"states": [
+"lessWalk",
+"badAir"
+],
+"level": "hard"
+},
+{
+"id": 28,
+"text": "回家的路怎麼走最省錢？我在101，家在中和",
+"intent": "trip",
+"states": [
+"budget"
+],
+"level": "hard"
+},
+{
+"id": 29,
+"text": "怎麼去小巨蛋",
+"intent": "trip",
+"states": [],
+"level": "hard"
+},
+{
+"id": 30,
+"text": "到桃園機場最快的方式，我在台北車站",
+"intent": "trip",
+"states": [
+"rush"
+],
+"level": "hard"
+},
+{
+"id": 31,
+"text": "去陽明山有公車嗎",
+"intent": "trip",
+"states": [],
+"level": "hard"
+},
+{
+"id": 32,
+"text": "從家裡（新店）到內湖科學園區通勤",
+"intent": "trip",
+"states": [],
+"level": "hard"
+},
+{
+"id": 33,
+"text": "我腳受傷，從台大醫院回永和",
+"intent": "trip",
+"states": [
+"lessWalk"
+],
+"level": "hard"
+},
+{
+"id": 34,
+"text": "YouBike 還是公車比較快？從公館到台北車站",
+"intent": "trip",
+"states": [],
+"level": "hard"
+},
+{
+"id": 35,
+"text": "雨太大了不想走路，從捷運站到101",
+"intent": "trip",
+"states": [
+"rain",
+"lessWalk"
+],
+"level": "hard"
+},
+{
+"id": 36,
+"text": "有長輩跟小孩，空氣也很髒，去兒童新樂園",
+"intent": "trip",
+"states": [
+"lessWalk",
+"badAir"
+],
+"level": "hard"
+},
+{
+"id": 37,
+"text": "很急！西門到松山機場",
+"intent": "trip",
+"states": [
+"rush"
+],
+"level": "hard"
+},
+{
+"id": 38,
+"text": "坐什麼最便宜？台北到台中",
+"intent": "trip",
+"states": [
+"budget"
+],
+"level": "hard"
+},
+{
+"id": 39,
+"text": "高雄車站到駁二怎麼走",
+"intent": "trip",
+"states": [],
+"level": "easy"
+},
+{
+"id": 40,
+"text": "我要去101",
+"intent": "trip",
+"states": [],
+"level": "hard"
+},
+{
+"id": 41,
+"text": "附近可以坐什麼公車去101",
+"intent": "trip",
+"states": [],
+"level": "hard"
+},
+{
+"id": 42,
+"text": "307 到哪了？我在臺北車站",
+"intent": "bus_route",
+"states": [],
+"level": "easy"
+},
+{
+"id": 43,
+"text": "262公車什麼時候來",
+"intent": "bus_route",
+"states": [],
+"level": "easy"
+},
+{
+"id": 44,
+"text": "紅30還要等多久",
+"intent": "bus_route",
+"states": [],
+"level": "easy"
+},
+{
+"id": 45,
+"text": "藍15到站時間",
+"intent": "bus_route",
+"states": [],
+"level": "easy"
+},
+{
+"id": 46,
+"text": "我在等的那班 299 怎麼還沒來",
+"intent": "bus_route",
+"states": [],
+"level": "hard"
+},
+{
+"id": 47,
+"text": "幫我看一下 綠1 現在開到哪",
+"intent": "bus_route",
+"states": [],
+"level": "hard"
+},
+{
+"id": 48,
+"text": "235 公車還有幾站到忠孝復興",
+"intent": "bus_route",
+"states": [],
+"level": "hard"
+},
+{
+"id": 49,
+"text": "想知道棕9末班車走了沒",
+"intent": "bus_route",
+"states": [],
+"level": "hard"
+},
+{
+"id": 50,
+"text": "1503 往基隆的車還要多久",
+"intent": "bus_route",
+"states": [],
+"level": "hard"
+},
+{
+"id": 51,
+"text": "601 現在在哪一站",
+"intent": "bus_route",
+"states": [],
+"level": "hard"
+},
+{
+"id": 52,
+"text": "我在公車站等307，還要多久",
+"intent": "bus_route",
+"states": [],
+"level": "hard"
+},
+{
+"id": 53,
+"text": "299 末班車幾點",
+"intent": "bus_route",
+"states": [],
+"level": "hard"
+},
+{
+"id": 54,
+"text": "台北車站附近還有 YouBike 嗎？",
+"intent": "youbike",
+"states": [],
+"level": "easy"
+},
+{
+"id": 55,
+"text": "附近有沒有微笑單車可以借",
+"intent": "youbike",
+"states": [],
+"level": "easy"
+},
+{
+"id": 56,
+"text": "我想騎腳踏車，最近的站有車嗎",
+"intent": "youbike",
+"states": [],
+"level": "hard"
+},
+{
+"id": 57,
+"text": "101 附近 ubike 還有空位可以還嗎",
+"intent": "youbike",
+"states": [],
+"level": "hard"
+},
+{
+"id": 58,
+"text": "公館這邊的YouBike站還有幾台",
+"intent": "youbike",
+"states": [],
+"level": "easy"
+},
+{
+"id": 59,
+"text": "想找地方還單車",
+"intent": "youbike",
+"states": [],
+"level": "hard"
+},
+{
+"id": 60,
+"text": "單車站在哪",
+"intent": "youbike",
+"states": [],
+"level": "hard"
+},
+{
+"id": 61,
+"text": "附近有什麼公車站牌",
+"intent": "nearby_bus",
+"states": [],
+"level": "easy"
+},
+{
+"id": 62,
+"text": "我附近的公車站有哪些路線",
+"intent": "nearby_bus",
+"states": [],
+"level": "easy"
+},
+{
+"id": 63,
+"text": "離我最近的站牌在哪",
+"intent": "nearby_bus",
+"states": [],
+"level": "hard"
+},
+{
+"id": 64,
+"text": "這附近哪裡可以搭公車",
+"intent": "nearby_bus",
+"states": [],
+"level": "hard"
+},
+{
+"id": 65,
+"text": "市政府站附近的公車站",
+"intent": "nearby_bus",
+"states": [],
+"level": "hard"
+},
+{
+"id": 66,
+"text": "捷運市政府站下一班",
+"intent": "metro",
+"states": [],
+"level": "easy"
+},
+{
+"id": 67,
+"text": "捷運台北車站往淡水的下一班幾分到",
+"intent": "metro",
+"states": [],
+"level": "easy"
+},
+{
+"id": 68,
+"text": "板南線往南港的車還要多久",
+"intent": "metro",
+"states": [],
+"level": "hard"
+},
+{
+"id": 69,
+"text": "忠孝復興站文湖線多久一班",
+"intent": "metro",
+"states": [],
+"level": "hard"
+},
+{
+"id": 70,
+"text": "MRT 西門站下一班車",
+"intent": "metro",
+"states": [],
+"level": "hard"
+},
+{
+"id": 71,
+"text": "中山站的紅線下一班",
+"intent": "metro",
+"states": [],
+"level": "hard"
+},
+{
+"id": 72,
+"text": "文湖線現在有沒有誤點",
+"intent": "metro",
+"states": [],
+"level": "hard"
+},
+{
+"id": 73,
+"text": "淡水信義線往象山多久一班",
+"intent": "metro",
+"states": [],
+"level": "hard"
+},
+{
+"id": 74,
+"text": "高鐵台北到台中下一班幾點？",
+"intent": "rail",
+"states": [],
+"level": "easy"
+},
+{
+"id": 75,
+"text": "台鐵臺北到高雄的自強號",
+"intent": "rail",
+"states": [],
+"level": "easy"
+},
+{
+"id": 76,
+"text": "明天早上高鐵台北到左營",
+"intent": "rail",
+"states": [],
+"level": "easy"
+},
+{
+"id": 77,
+"text": "我要坐火車去花蓮，有哪些班次",
+"intent": "rail",
+"states": [],
+"level": "hard"
+},
+{
+"id": 78,
+"text": "區間車從板橋到新竹",
+"intent": "rail",
+"states": [],
+"level": "hard"
+},
+{
+"id": 79,
+"text": "搭高鐵去台南要多久，幾點有車",
+"intent": "rail",
+"states": [],
+"level": "hard"
+},
+{
+"id": 80,
+"text": "莒光號松山到宜蘭",
+"intent": "rail",
+"states": [],
+"level": "hard"
+},
+{
+"id": 81,
+"text": "今天還有回台中的高鐵嗎",
+"intent": "rail",
+"states": [],
+"level": "hard"
+},
+{
+"id": 82,
+"text": "高鐵還有票嗎 台北到台南",
+"intent": "rail",
+"states": [],
+"level": "hard"
+},
+{
+"id": 83,
+"text": "自強號幾點開",
+"intent": "rail",
+"states": [],
+"level": "hard"
+},
+{
+"id": 84,
+"text": "今天天氣如何",
+"intent": "weather",
+"states": [],
+"level": "easy"
+},
+{
+"id": 85,
+"text": "台中天氣如何？",
+"intent": "weather",
+"states": [],
+"level": "easy"
+},
+{
+"id": 86,
+"text": "等下會不會下雨",
+"intent": "weather",
+"states": [],
+"level": "easy"
+},
+{
+"id": 87,
+"text": "要不要帶傘",
+"intent": "weather",
+"states": [],
+"level": "easy"
+},
+{
+"id": 88,
+"text": "現在外面幾度",
+"intent": "weather",
+"states": [],
+"level": "hard"
+},
+{
+"id": 89,
+"text": "週末去墾丁天氣好嗎",
+"intent": "weather",
+"states": [],
+"level": "hard"
+},
+{
+"id": 90,
+"text": "晚上會很冷嗎",
+"intent": "weather",
+"states": [],
+"level": "hard"
+},
+{
+"id": 91,
+"text": "外面在下雨嗎",
+"intent": "weather",
+"states": [],
+"level": "hard"
+},
+{
+"id": 92,
+"text": "明天會下雨嗎",
+"intent": "weather",
+"states": [],
+"level": "easy"
+},
+{
+"id": 93,
+"text": "颱風要來了嗎",
+"intent": "weather",
+"states": [],
+"level": "hard"
+},
+{
+"id": 94,
+"text": "台北車站附近的空氣品質",
+"intent": "aqi",
+"states": [],
+"level": "easy"
+},
+{
+"id": 95,
+"text": "外面 PM2.5 高嗎",
+"intent": "aqi",
+"states": [],
+"level": "easy"
+},
+{
+"id": 96,
+"text": "今天空品怎樣",
+"intent": "aqi",
+"states": [],
+"level": "easy"
+},
+{
+"id": 97,
+"text": "現在適合出門跑步嗎？空氣會不會很髒",
+"intent": "aqi",
+"states": [],
+"level": "hard"
+},
+{
+"id": 98,
+"text": "AQI多少",
+"intent": "aqi",
+"states": [],
+"level": "easy"
+},
+{
+"id": 99,
+"text": "霧濛濛的是空汙嗎",
+"intent": "aqi",
+"states": [],
+"level": "hard"
+},
+{
+"id": 100,
+"text": "小孩氣喘，今天空氣ok嗎",
+"intent": "aqi",
+"states": [],
+"level": "hard"
+},
+{
+"id": 101,
+"text": "今天要戴口罩嗎",
+"intent": "aqi",
+"states": [],
+"level": "hard"
+},
+{
+"id": 102,
+"text": "最近有地震嗎",
+"intent": "quake",
+"states": [],
+"level": "easy"
+},
+{
+"id": 103,
+"text": "剛剛花蓮地震了嗎",
+"intent": "quake",
+"states": [],
+"level": "easy"
+},
+{
+"id": 104,
+"text": "剛剛是不是有在搖",
+"intent": "quake",
+"states": [],
+"level": "hard"
+},
+{
+"id": 105,
+"text": "昨天晚上那個地震幾級",
+"intent": "quake",
+"states": [],
+"level": "hard"
+},
+{
+"id": 106,
+"text": "台北剛剛震度多少",
+"intent": "quake",
+"states": [],
+"level": "easy"
+},
+{
+"id": 107,
+"text": "好像晃了一下，震央在哪",
+"intent": "quake",
+"states": [],
+"level": "hard"
+},
+{
+"id": 108,
+"text": "大安區有哪些健保藥局？",
+"intent": "pharmacy",
+"states": [],
+"level": "easy"
+},
+{
+"id": 109,
+"text": "附近的藥局",
+"intent": "pharmacy",
+"states": [],
+"level": "easy"
+},
+{
+"id": 110,
+"text": "我要領慢性處方箋，哪裡可以拿藥",
+"intent": "pharmacy",
+"states": [],
+"level": "hard"
+},
+{
+"id": 111,
+"text": "板橋區晚上還有開的藥局",
+"intent": "pharmacy",
+"states": [],
+"level": "hard"
+},
+{
+"id": 112,
+"text": "中正區藥房",
+"intent": "pharmacy",
+"states": [],
+"level": "easy"
+},
+{
+"id": 113,
+"text": "哪裡可以買退燒藥",
+"intent": "pharmacy",
+"states": [],
+"level": "hard"
+},
+{
+"id": 114,
+"text": "新北市板橋區的藥局",
+"intent": "pharmacy",
+"states": [],
+"level": "easy"
+},
+{
+"id": 115,
+"text": "垃圾車幾點來？",
+"intent": "garbage",
+"states": [],
+"level": "easy"
+},
+{
+"id": 116,
+"text": "今天有收垃圾嗎",
+"intent": "garbage",
+"states": [],
+"level": "easy"
+},
+{
+"id": 117,
+"text": "我家附近倒垃圾的時間",
+"intent": "garbage",
+"states": [],
+"level": "easy"
+},
+{
+"id": 118,
+"text": "錯過垃圾車了，附近還有別的點嗎",
+"intent": "garbage",
+"states": [],
+"level": "hard"
+},
+{
+"id": 119,
+"text": "星期三有沒有收垃圾",
+"intent": "garbage",
+"states": [],
+"level": "hard"
+},
+{
+"id": 120,
+"text": "資源回收車幾點到",
+"intent": "garbage",
+"states": [],
+"level": "hard"
+},
+{
+"id": 121,
+"text": "新北的垃圾車到哪了",
+"intent": "garbage",
+"states": [],
+"level": "hard"
+},
+{
+"id": 122,
+"text": "今天油價多少",
+"intent": "fuel",
+"states": [],
+"level": "easy"
+},
+{
+"id": 123,
+"text": "95 無鉛現在一公升多少",
+"intent": "fuel",
+"states": [],
+"level": "easy"
+},
+{
+"id": 124,
+"text": "這週汽油有漲嗎",
+"intent": "fuel",
+"states": [],
+"level": "hard"
+},
+{
+"id": 125,
+"text": "加滿一桶油大概要多少錢",
+"intent": "fuel",
+"states": [],
+"level": "hard"
+},
+{
+"id": 126,
+"text": "柴油價格",
+"intent": "fuel",
+"states": [],
+"level": "easy"
+},
+{
+"id": 127,
+"text": "明天油價會調整嗎",
+"intent": "fuel",
+"states": [],
+"level": "hard"
+},
+{
+"id": 128,
+"text": "92 汽油多少",
+"intent": "fuel",
+"states": [],
+"level": "easy"
+},
+{
+"id": 129,
+"text": "這期發票號碼是多少？",
+"intent": "invoice",
+"states": [],
+"level": "easy"
+},
+{
+"id": 130,
+"text": "發票 12345678 有沒有中？",
+"intent": "invoice",
+"states": [],
+"level": "easy"
+},
+{
+"id": 131,
+"text": "發票末三碼 678 對獎",
+"intent": "invoice",
+"states": [],
+"level": "easy"
+},
+{
+"id": 132,
+"text": "我的發票有中獎嗎",
+"intent": "invoice",
+"states": [],
+"level": "hard"
+},
+{
+"id": 133,
+"text": "統一發票什麼時候開獎",
+"intent": "invoice",
+"states": [],
+"level": "hard"
+},
+{
+"id": 134,
+"text": "幫我對一下 54348835 這張",
+"intent": "invoice",
+"states": [],
+"level": "hard"
+},
+{
+"id": 135,
+"text": "特別獎號碼",
+"intent": "invoice",
+"states": [],
+"level": "hard"
+},
+{
+"id": 136,
+"text": "上一期的頭獎是多少",
+"intent": "invoice",
+"states": [],
+"level": "hard"
+},
+{
+"id": 137,
+"text": "雲端發票怎麼對獎",
+"intent": "invoice",
+"states": [],
+"level": "hard"
+},
+{
+"id": 138,
+"text": "台積電股價多少",
+"intent": "stock",
+"states": [],
+"level": "easy"
+},
+{
+"id": 139,
+"text": "台積電和0050今天收盤多少？",
+"intent": "stock",
+"states": [],
+"level": "easy"
+},
+{
+"id": 140,
+"text": "大盤今天怎麼樣",
+"intent": "stock",
+"states": [],
+"level": "easy"
+},
+{
+"id": 141,
+"text": "2330 漲了嗎",
+"intent": "stock",
+"states": [],
+"level": "easy"
+},
+{
+"id": 142,
+"text": "聯發科現在多少錢一股",
+"intent": "stock",
+"states": [],
+"level": "hard"
+},
+{
+"id": 143,
+"text": "我該買台積電嗎？",
+"intent": "stock",
+"states": [],
+"level": "hard"
+},
+{
+"id": 144,
+"text": "今天台股收紅還是收黑",
+"intent": "stock",
+"states": [],
+"level": "hard"
+},
+{
+"id": 145,
+"text": "0056 殖利率",
+"intent": "stock",
+"states": [],
+"level": "hard"
+},
+{
+"id": 146,
+"text": "鴻海今天表現如何",
+"intent": "stock",
+"states": [],
+"level": "hard"
+},
+{
+"id": 147,
+"text": "加權指數",
+"intent": "stock",
+"states": [],
+"level": "easy"
+},
+{
+"id": 148,
+"text": "今天櫃買指數",
+"intent": "stock",
+"states": [],
+"level": "easy"
+},
+{
+"id": 149,
+"text": "環球晶跌停了嗎",
+"intent": "stock",
+"states": [],
+"level": "hard"
+},
+{
+"id": 150,
+"text": "長榮股價",
+"intent": "stock",
+"states": [],
+"level": "easy"
+},
+{
+"id": 151,
+"text": "那聯發科呢？",
+"intent": "stock",
+"states": [],
+"level": "hard",
+"history": [
+"台積電股價多少"
+]
+},
+{
+"id": 152,
+"text": "0056 呢",
+"intent": "stock",
+"states": [],
+"level": "hard",
+"history": [
+"台積電股價多少",
+"那聯發科呢？"
+]
+},
+{
+"id": 153,
+"text": "那柴油呢",
+"intent": "fuel",
+"states": [],
+"level": "hard",
+"history": [
+"今天油價多少"
+]
+},
+{
+"id": 154,
+"text": "那 262 呢",
+"intent": "bus_route",
+"states": [],
+"level": "hard",
+"history": [
+"307 到哪了？"
+]
+},
+{
+"id": 155,
+"text": "那中山區呢",
+"intent": "pharmacy",
+"states": [],
+"level": "hard",
+"history": [
+"大安區有哪些藥局"
+]
+},
+{
+"id": 156,
+"text": "那高雄呢",
+"intent": "weather",
+"states": [],
+"level": "hard",
+"history": [
+"台中天氣如何"
+]
+},
+{
+"id": 157,
+"text": "謝謝",
+"intent": "unknown",
+"states": [],
+"level": "hard",
+"history": [
+"台積電股價多少"
+]
+},
+{
+"id": 158,
+"text": "可是我很趕",
+"intent": "trip",
+"states": [
+"rush"
+],
+"level": "hard",
+"history": [
+"從西門町到台北101怎麼去"
+]
+},
+{
+"id": 159,
+"text": "我有帶行李喔",
+"intent": "trip",
+"states": [
+"luggage"
+],
+"level": "hard",
+"history": [
+"從台北車站到松山機場"
+]
+},
+{
+"id": 160,
+"text": "那 87654321 呢",
+"intent": "invoice",
+"states": [],
+"level": "hard",
+"history": [
+"發票 12345678 有沒有中"
+]
+},
+{
+"id": 161,
+"text": "你好",
+"intent": "unknown",
+"states": [],
+"level": "easy"
+},
+{
+"id": 162,
+"text": "你是誰",
+"intent": "unknown",
+"states": [],
+"level": "easy"
+},
+{
+"id": 163,
+"text": "講個笑話",
+"intent": "unknown",
+"states": [],
+"level": "easy"
+},
+{
+"id": 164,
+"text": "幫我訂餐廳",
+"intent": "unknown",
+"states": [],
+"level": "hard"
+},
+{
+"id": 165,
+"text": "今天NBA比賽結果",
+"intent": "unknown",
+"states": [],
+"level": "hard"
+},
+{
+"id": 166,
+"text": "幫我寫一封信給老闆",
+"intent": "unknown",
+"states": [],
+"level": "hard"
+},
+{
+"id": 167,
+"text": "比特幣現在多少",
+"intent": "unknown",
+"states": [],
+"level": "hard"
+},
+{
+"id": 168,
+"text": "謝謝你",
+"intent": "unknown",
+"states": [],
+"level": "easy"
+},
+{
+"id": 169,
+"text": "推薦台北好吃的牛肉麵",
+"intent": "unknown",
+"states": [],
+"level": "hard"
+},
+{
+"id": 170,
+"text": "明天要開會提醒我",
+"intent": "unknown",
+"states": [],
+"level": "hard"
+},
+{
+"id": 171,
+"text": "幫我叫外送",
+"intent": "unknown",
+"states": [],
+"level": "hard"
+},
+{
+"id": 172,
+"text": "今天幾號",
+"intent": "unknown",
+"states": [],
+"level": "hard"
+}
+]
+}
