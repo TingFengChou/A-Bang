@@ -1,5 +1,6 @@
 // 卡片入口（M4-02，CARDS.md）：依 payload.card 分派到各卡片；外框、示範標示、刷新與錯誤狀態在這裡共用。
 // 卡片不直接 fetch，只透過 host（CARDS.md §3）。網頁、MCP Apps、App 共用同一份程式。
+import { snapshot, slide } from './slide.js';
 import { h, hhmm } from './dom.js';
 import { t } from './i18n/zh-TW.js';
 import { startCountdown } from './countdown.js';
@@ -50,7 +51,7 @@ export function renderCard(el, payload, host) {
     said = text;
   };
 
-  const draw = () => {
+  const draw = ({ fresh = false } = {}) => {
     const ctx = { host, t, state, payload: current, rerender: draw };
     const updated = current.data?.updatedAt ? t('common.updatedAt', { time: hhmm(current.data.updatedAt) }) : null;
     status = h('span', { class: 'ab-status', role: 'status', 'aria-live': 'polite' });
@@ -64,7 +65,9 @@ export function renderCard(el, payload, host) {
         status),
       def.body(current.data, ctx));
     card.dataset.drawnAt = String(Date.now()); // 倒數的基準時間（每次重畫＝收到新資料）
+    const before = fresh ? snapshot(slot) : null; // 刷新：公車從舊位置滑到新位置
     slot.replaceChildren(card);
+    if (before) slide(slot, before);
   };
 
   // REST 回傳 name 而不是 tool；刷新結果缺 tool／args 時沿用原本的，避免只刷新一次就停
@@ -76,7 +79,7 @@ export function renderCard(el, payload, host) {
     status?.replaceChildren(t('common.loading'));
     try {
       const next = await host.callTool(current.tool, current.args || {});
-      if (next?.card === current.card) { current = merge(next); draw(); announce(true); }
+      if (next?.card === current.card) { current = merge(next); draw({ fresh: true }); announce(true); }
     } catch {
       const at = hhmm(current.data?.updatedAt || new Date().toISOString());
       status?.replaceChildren(h('span', { class: 'ab-fail' }, t('common.refreshFailed', { time: at })));
@@ -88,7 +91,7 @@ export function renderCard(el, payload, host) {
   const stopCountdown = startCountdown(el);
   if (def.refreshSec && current.tool && host?.callTool) timer = setInterval(refresh, def.refreshSec * 1000);
   return {
-    update(p) { current = merge(p); draw(); announce(true); },
+    update(p) { current = merge(p); draw({ fresh: true }); announce(true); },
     refresh,
     destroy() { clearInterval(timer); stopCountdown(); el.replaceChildren(); },
   };

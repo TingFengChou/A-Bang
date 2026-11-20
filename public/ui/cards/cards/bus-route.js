@@ -56,6 +56,9 @@ function focusBlock(d, f, { host, t, rerender, state }) {
 }
 
 /** 車→我 進度軌：幾站外、站點、公車代幣（刷新時從上次的位置滑到新位置；位置只依真實站序，不在兩次刷新之間推估） */
+/** 車牌當鍵：刷新時同一台車從舊位置滑到新位置（slide.js） */
+const plated = (el, plate) => { el.dataset.plate = plate; return el; };
+
 function railView(rail, t, state) {
   const n = rail.window.length;
   const pct = (x) => (n <= 1 ? 100 : (x / (n - 1)) * 100);
@@ -106,7 +109,7 @@ export default {
           if (!open) host?.setContext?.(t('busRoute.context', { route: d.routeName, stop: s.stopName }));
           rerender();
         } },
-        s.plate ? token('bus', { size: 'sm', go: true, label: t('busRoute.busHere') }) : h('span', { class: 'ab-dot', 'aria-hidden': 'true' }),
+        s.plate ? plated(token('bus', { size: 'sm', go: true, label: t('busRoute.busHere') }), s.plate) : h('span', { class: 'ab-dot', 'aria-hidden': 'true' }),
         h('span', { class: 'ab-name' }, s.stopName, me && h('span', { class: 'ab-me' }, t('busRoute.boardHere'))),
         h('span', { class: soon ? 'ab-eta soon' : 'ab-eta', ...(s.status === 0 && s.etaSec != null && { 'data-eta-sec': s.etaSec }) }, s.statusText),
         s.plate && h('span', { class: 'ab-bus', title: t('busRoute.busHere') }, t('busRoute.plate', { plate: s.plate }))),
