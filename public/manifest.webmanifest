@@ -1,7 +1,7 @@
 {
-  "name": "阿幫",
-  "short_name": "阿幫",
-  "description": "阿幫：用台灣公共資料幫你查交通、防詐騙、辦事情",
+  "name": "Abang（阿幫）",
+  "short_name": "Abang",
+  "description": "Abang：台灣生活 AI agent，用台灣公共資料幫你查交通、防詐騙、辦事情",
   "lang": "zh-Hant-TW",
   "start_url": "/#/",
   "scope": "/",

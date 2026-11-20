@@ -4,7 +4,7 @@ import { esc, favs, etaBadge, chev } from '../ui.js';
 import { api, state } from '../api.js';
 
 export default {
-  title: '阿幫',
+  title: 'Abang', // App 名稱（2026-11-20 Austin 決定）；吉祥物與對話裡仍叫「阿幫」
   root: true,
   render({ main, toast, onCleanup }) {
     const hour = new Date().getHours();

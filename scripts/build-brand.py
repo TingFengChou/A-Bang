@@ -4,9 +4,12 @@
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 C = dict(blue='#3B82C4', tail='#2E6FB7', navy='#1F2A44', belly='#EAF3FB', red='#E24B4A',
-         blush='#F4C0D1', teal='#0F766E', mint='#E1F5EE', yellow='#FBBF24', coral='#F0997B')
+         blush='#F4C0D1', teal='#0F766E', mint='#E1F5EE', yellow='#FBBF24', coral='#F0997B',
+         glow='#5EEAD4', deep='#134E4A')
+# 2026-11-20 agent 感（Austin：「藍鵲可以改成 agent 感嗎」）：耳麥（隨時待命、跟小幫手通話）、右眼 HUD 鏡片（看資料）、
+# 帽頂鈕扣變成訊號燈、背包加天線（工具包連線中）。帽子、背包、主色保留（BRAND.md）。
 
-def bird(eyes='open', cap=True, pack=True, wave=True, tail=True):
+def bird(eyes='open', cap=False, pack=True, wave=True, tail=True, agent=True):  # 2026-11-20 Austin：不要帽子（招牌改成耳麥）
     c = C; g = []
     if tail:
         g.append(f'<path d="M24 20 Q50 30 60 54 L49 59 Q40 40 18 31 Z" fill="{c["tail"]}"/>')
@@ -15,6 +18,8 @@ def bird(eyes='open', cap=True, pack=True, wave=True, tail=True):
         g.append(f'<rect x="34" y="-10" width="28" height="38" rx="9" fill="{c["teal"]}"/>'
                  f'<rect x="44" y="-3" width="14" height="9" rx="3" fill="{c["mint"]}"/>'
                  f'<circle cx="49" cy="16" r="3.5" fill="{c["yellow"]}"/><circle cx="57" cy="22" r="3.5" fill="{c["coral"]}"/>')
+        if agent:  # 背包天線：工具包連線中
+            g.append(f'<path d="M56 -10 L62 -30" stroke="{c["navy"]}" stroke-width="2.5" stroke-linecap="round"/><circle cx="62" cy="-31" r="3.5" fill="{c["glow"]}"/>')
     g.append(f'<circle cx="0" cy="0" r="46" fill="{c["blue"]}"/>')
     g.append(f'<path d="M-46 -2 A46 46 0 0 1 46 -2 Q30 -14 0 -14 Q-30 -14 -46 -2 Z" fill="{c["navy"]}"/>')
     g.append(f'<ellipse cx="0" cy="20" rx="28" ry="22" fill="{c["belly"]}"/>')
@@ -28,18 +33,41 @@ def bird(eyes='open', cap=True, pack=True, wave=True, tail=True):
     elif eyes == 'think':
         g.append(f'<circle cx="-15" cy="-6" r="8" fill="#FFF"/><circle cx="15" cy="-6" r="8" fill="#FFF"/>'
                  f'<circle cx="-12" cy="-9" r="4.5" fill="{c["navy"]}"/><circle cx="18" cy="-9" r="4.5" fill="{c["navy"]}"/>'
-                 f'<circle cx="-58" cy="-44" r="4" fill="{c["navy"]}" opacity=".35"/><circle cx="-68" cy="-58" r="6" fill="{c["navy"]}" opacity=".35"/>')
+                 + ('' if agent else f'<circle cx="-58" cy="-44" r="4" fill="{c["navy"]}" opacity=".35"/><circle cx="-68" cy="-58" r="6" fill="{c["navy"]}" opacity=".35"/>'))
+    if agent:  # 右眼 HUD 鏡片：半透明青色，邊框與小刻度（看得到資料）
+        g.append(f'<rect x="3" y="-19" width="27" height="22" rx="7" fill="{c["glow"]}" fill-opacity=".28" stroke="{c["teal"]}" stroke-width="2.5"/>'
+                 f'<path d="M30 -12 L40 -16" stroke="{c["teal"]}" stroke-width="2.5" stroke-linecap="round"/>')
+        if eyes == 'think':  # 查詢中：鏡片上跑一條進度
+            g.append(f'<rect x="8" y="-2" width="17" height="2.5" rx="1.2" fill="{c["teal"]}" opacity=".35"/><rect x="8" y="-2" width="9" height="2.5" rx="1.2" fill="{c["teal"]}"/>')
+        if eyes == 'happy':  # 完成：鏡片上打勾
+            g.append(f'<path d="M10 -9 L15 -4 L23 -13" fill="none" stroke="{c["teal"]}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>')
     g.append(f'<path d="M-6 4 L6 4 L0 13 Z" fill="{c["red"]}"/>')
     g.append(f'<circle cx="-27" cy="8" r="6" fill="{c["blush"]}"/><circle cx="27" cy="8" r="6" fill="{c["blush"]}"/>')
+    if agent:  # 冠羽（招牌，2026-11-20 Austin：「鳥類最漂亮的應是他的冠」）：三根往後梳、前長後短的冠羽（不加光點，Austin：頭上不需要光點）
+        g.append(f'<path d="M-6 -44 C-10 -64 4 -80 26 -76 C12 -70 6 -58 6 -44 Z" fill="{c["navy"]}"/>'
+                 f'<path d="M4 -44 C4 -62 18 -72 36 -66 C22 -62 16 -54 14 -42 Z" fill="{c["tail"]}"/>'
+                 f'<path d="M14 -42 C18 -56 30 -62 44 -54 C32 -52 26 -46 22 -38 Z" fill="{c["navy"]}"/>')
+        # 耳麥：左耳罩（指示燈）、麥克風桿到嘴邊（不用頭帶，冠羽露出來）
+        g.append(
+                 f'<rect x="-54" y="-18" width="16" height="24" rx="7" fill="{c["deep"]}"/><rect x="-50" y="-13" width="8" height="14" rx="4" fill="{c["glow"]}"/>'
+                 f'<path d="M-46 4 Q-40 20 -16 17" fill="none" stroke="{c["deep"]}" stroke-width="3.5" stroke-linecap="round"/><circle cx="-15" cy="17" r="4" fill="{c["deep"]}"/>')
     if cap:
         g.append(f'<path d="M-26 -42 Q0 -70 26 -42 Z" fill="{c["teal"]}"/><rect x="-30" y="-46" width="60" height="10" rx="5" fill="{c["teal"]}"/>'
                  f'<rect x="16" y="-44" width="26" height="7" rx="3.5" fill="{c["teal"]}"/><circle cx="0" cy="-60" r="3.5" fill="{c["yellow"]}"/>')
+        if agent:  # 帽頂指示燈（鈕扣發光、外圈光暈）＋帽沿 LED 燈條：待命中的 agent（2026-11-20 改：拿掉像 Wi-Fi 的訊號弧線）
+            g.append(f'<circle cx="0" cy="-60" r="8" fill="{c["glow"]}" opacity=".35"/><circle cx="0" cy="-60" r="4.5" fill="{c["glow"]}"/><circle cx="-1.3" cy="-61.3" r="1.5" fill="#FFF"/>'
+                     f'<rect x="-24" y="-42.5" width="48" height="3" rx="1.5" fill="{c["glow"]}" opacity=".9"/>')
     if wave:
         g.append(f'<path d="M-44 8 Q-64 -6 -58 -26" fill="none" stroke="{c["blue"]}" stroke-width="10" stroke-linecap="round"/>')
     else:
         g.append(f'<path d="M-42 10 Q-54 20 -46 32" fill="none" stroke="{c["blue"]}" stroke-width="10" stroke-linecap="round"/>')
     g.append(f'<path d="M-10 44 L-12 54 M10 44 L12 54" stroke="{c["red"]}" stroke-width="4" stroke-linecap="round"/>')
     return '\n  '.join(g)
+
+ICON_BG = ('<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#14B8A6"/><stop offset="1" stop-color="#0B4F4A"/></linearGradient>'
+           '<radialGradient id="halo" cx=".5" cy=".55" r=".5"><stop offset="0" stop-color="#5EEAD4" stop-opacity=".55"/><stop offset="1" stop-color="#5EEAD4" stop-opacity="0"/></radialGradient>'
+           '<pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0 L0 0 0 20" fill="none" stroke="#FFFFFF" stroke-opacity=".08" stroke-width="1"/></pattern></defs>\n'
+           '<rect width="240" height="240" rx="{rx}" fill="url(#bg)"/><rect width="240" height="240" rx="{rx}" fill="url(#grid)"/><circle cx="120" cy="132" r="104" fill="url(#halo)"/>\n')
 
 def svg(inner, title, tx=118, ty=124, sc=1.25, bg=''):
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="{title}">\n'
@@ -49,8 +77,12 @@ FILES = {
     'abang-default.svg': svg(bird('open'), '阿幫（預設：揮手）'),
     'abang-happy.svg': svg(bird('happy', wave=False), '阿幫（開心）'),
     'abang-think.svg': svg(bird('think', wave=False), '阿幫（查詢中）'),
-    'icon.svg': svg(bird('open', pack=False, tail=False), '阿幫 App 圖示', tx=120, ty=130, sc=1.3,
-                    bg=f'<rect width="240" height="240" rx="52" fill="{C["mint"]}"/>\n'),
+    # App 圖示（Abang）：深青綠漸層＋中央光暈＋細網格（agent／科技感），藍鵲戴耳麥與 HUD 鏡片
+    'icon.svg': svg(bird('open', pack=False, tail=False), 'Abang App 圖示', tx=116, ty=142, sc=1.42, bg=ICON_BG.format(rx=52)),
+    # 原生 App 用（scripts/build-icons.js 轉 PNG）：iOS 不要圓角與透明；Android 自適應圖示分前景（只有藍鵲，放在中間安全區）與背景
+    'icon-square.svg': svg(bird('open', pack=False, tail=False), 'Abang App 圖示', tx=116, ty=142, sc=1.42, bg=ICON_BG.format(rx=0)),
+    'icon-fg.svg': svg(bird('open', pack=False, tail=False), 'Abang App 圖示前景', tx=116, ty=134, sc=0.9),
+    'icon-bg.svg': svg('', 'Abang App 圖示背景', bg=ICON_BG.format(rx=0)),
 }
 if __name__ == '__main__':
     out = ROOT / 'public' / 'brand'; out.mkdir(parents=True, exist_ok=True)

@@ -72,7 +72,7 @@ function navigate() {
   window.scrollTo(0, 0);
   page.render({
     main, params, query, toast,
-    setTitle: (t) => { $('title').textContent = t; document.title = `${t}｜阿幫`; },
+    setTitle: (t) => { $('title').textContent = t; document.title = t === 'Abang' ? t : `${t}｜Abang`; },
     setAction: (svg, fn, label, on = false) => { act.innerHTML = svg; act.onclick = fn; act.hidden = false; act.setAttribute('aria-label', label); act.classList.toggle('on', on); },
     onCleanup: (f) => cleanups.push(f),
   });
