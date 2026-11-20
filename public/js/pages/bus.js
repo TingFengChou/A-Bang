@@ -2,6 +2,7 @@ import { api } from '../api.js';
 import { icons } from '../icons.js';
 import { esc, loading, errorBox, empty, etaBadge, fmtTime, favs, prefs, chev } from '../ui.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
+import { modeSvg } from '../../ui/cards/mode-icons.js';
 
 const CITY_CHIPS = [['Taipei', '臺北'], ['NewTaipei', '新北'], ['Taoyuan', '桃園'], ['Taichung', '臺中'], ['Tainan', '臺南'], ['Kaohsiung', '高雄'], ['Keelung', '基隆'], ['Hsinchu', '新竹']];
 const REFRESH = 20000;
@@ -93,6 +94,7 @@ export const busRoute = {
       const d = data.directions[dir] || data.directions[0];
       main.querySelector('#stops').innerHTML = `<div class="card list timeline">${d.stops.map((s) => `
         <div class="${s.plate ? 'here' : ''}${s.stopName === myStop ? ' me' : ''}">
+          ${s.plate ? `<span class="ab-token sm go bus-pos" style="--c:#0f766e" role="img" aria-label="公車在這附近">${modeSvg('bus')}</span>` : ''}
           <div class="grow"><div class="title">${esc(s.stopName)}${s.stopName === myStop ? '<span class="me-tag">你在這上車</span>' : ''}</div>${s.plate ? `<div class="plate">${esc(s.plate)} 即將抵達</div>` : ''}</div>
           ${etaBadge(s)}
         </div>`).join('')}</div>`;
@@ -106,7 +108,7 @@ export const busRoute = {
       const w = host.arrivalWatch();
       const watching = w && w.routeName === route && w.stop === myStop;
       const live = s.status === 0 && s.etaSec != null;
-      box.innerHTML = `<div class="card bus-focus"><div class="sub">到「${esc(myStop)}」</div><div class="big">${esc(s.statusText)}</div>
+      box.innerHTML = `<div class="card bus-focus"><span class="ab-token lg${live ? ' go' : ''}" style="--c:#0f766e" aria-hidden="true">${modeSvg('bus')}</span><div class="sub">到「${esc(myStop)}」</div><div class="big">${esc(s.statusText)}</div>
         ${watching ? `<p class="ok" role="status">${w.skip ? `這班快到了、可能趕不上；下一班到站前 ${w.minutes} 分提醒你（App 開著時）` : `已設定：到站前 ${w.minutes} 分提醒你（App 開著時）`}<button class="btn ghost" id="unwatch" type="button">取消提醒</button></p>`
           : live ? `<div class="row">${[3, 5].map((n) => `<button class="btn" type="button" data-min="${n}">到站前 ${n} 分提醒我</button>`).join('')}</div>` : ''}</div>`;
       box.querySelectorAll('[data-min]').forEach((b) => (b.onclick = async () => {

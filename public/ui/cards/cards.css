@@ -62,16 +62,40 @@
 .ab-focus .ab-actions { margin-top: 6px; }
 .ab-alert-on { color: var(--ab-ok); margin: 6px 0 0; }
 .ab-stop.me { background: var(--ab-brand-soft); border-radius: 8px; font-weight: 700; }
+.ab-stop.me .ab-dot { animation: ab-ping 1.6s ease-out infinite; }
+@keyframes ab-ping { 0% { box-shadow: 0 0 0 0 rgba(15,118,110,.55); } 100% { box-shadow: 0 0 0 9px rgba(15,118,110,0); } }
+.ab-stop-row > .ab-token { position: absolute; left: -12px; }
+.ab-focus-row > .ab-token { align-self: center; }
 .ab-me { margin-left: 6px; font-size: 12px; color: var(--ab-brand); }
 /* 行程 */
+/* 立體代幣（mode-icons.js token()）：漸層＋上緣高光＋厚度陰影＋微透視；.go 輕輕浮動 */
+.ab-token { --c: var(--ab-brand); --s: 30px; width: var(--s); height: var(--s); border-radius: calc(var(--s) * .32); display: inline-grid; place-items: center; flex: none; color: #fff;
+  background: var(--c); background: linear-gradient(150deg, color-mix(in srgb, var(--c) 60%, #fff) 0%, var(--c) 55%, color-mix(in srgb, var(--c) 78%, #000) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 -2px 0 rgba(0,0,0,.14), 0 3px 0 color-mix(in srgb, var(--c) 58%, #000), 0 7px 12px -3px rgba(0,0,0,.28);
+  transform: perspective(240px) rotateX(14deg) rotateY(-10deg); transform-origin: 50% 100%; }
+.ab-token svg { width: 60%; height: 60%; filter: drop-shadow(0 1px 0 rgba(0,0,0,.28)); }
+.ab-token.sm { --s: 22px; } .ab-token.lg { --s: 42px; } .ab-token.xs { --s: 18px; border-radius: 6px; }
+.ab-token.off { filter: grayscale(1); opacity: .55; }
+.ab-token.go { animation: ab-hop 2.4s ease-in-out infinite; }
+@keyframes ab-hop { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
 .ab-option { border: 1px solid var(--ab-line); border-radius: 12px; padding: 6px 10px; margin: 6px 0; }
+.ab-option .ab-row > .ab-token { margin-right: 2px; }
 .ab-option.best { border-color: var(--ab-brand); background: #fbfefd; }
 .ab-big { font-size: 20px; font-weight: 700; }
-.ab-legs { display: flex; height: 22px; border-radius: 6px; overflow: hidden; margin: 6px 0; font-size: 12px; }
-.ab-leg { display: flex; align-items: center; justify-content: center; color: #fff; white-space: nowrap; overflow: hidden; min-width: 6px; background: var(--ab-off); }
+/* 分段條：立體（上亮下暗）、依序長出、一顆小代幣沿路線跑一趟 */
+.ab-legs-wrap { position: relative; margin: 8px 0 6px; padding-top: 26px; }
+.ab-legs { display: flex; height: 30px; border-radius: 9px; overflow: hidden; font-size: 12px; box-shadow: 0 3px 0 rgba(0,0,0,.12), 0 6px 12px -4px rgba(0,0,0,.2); }
+.ab-leg { display: flex; align-items: center; justify-content: center; gap: 3px; color: #fff; white-space: nowrap; overflow: hidden; min-width: 8px; background: var(--ab-off);
+  background-image: linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,0) 45%, rgba(0,0,0,.14)); transform-origin: left; animation: ab-grow .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * .18s); }
+.ab-leg svg { width: 15px; height: 15px; flex: none; }
+.ab-leg b { font-weight: 700; font-variant-numeric: tabular-nums; }
+@keyframes ab-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.ab-runner { position: absolute; top: 0; left: 0; animation: ab-run 3.2s cubic-bezier(.45,.05,.55,.95) .6s both; }
+@keyframes ab-run { 0% { left: 0; opacity: 0; } 8% { opacity: 1; } 92% { opacity: 1; } 100% { left: calc(100% - 22px); opacity: 1; } }
+.ab-legs-detail li { display: flex; align-items: center; gap: 6px; }
 .ab-leg.walk { background: #8a9592; } .ab-leg.bike { background: #d97706; } .ab-leg.bus, .ab-leg.transit { background: #0f766e; }
 .ab-leg.thsr { background: #c2410c; } .ab-leg.tra { background: #1d4ed8; } .ab-leg.intercity { background: #7c3aed; } .ab-leg.ridehail { background: #14201d; }
-.ab-legs-detail li { color: var(--ab-muted); font-size: 13px; padding: 1px 0; }
+.ab-legs-detail li { color: var(--ab-muted); font-size: 13px; padding: 2px 0; }
 .ab-reason { background: var(--ab-brand-soft); border-radius: 10px; padding: 8px 10px; margin: 6px 0; }
 .ab-alts h4, .ab-excluded h4 { font-size: 14px; margin: 10px 0 2px; color: var(--ab-muted); }
 /* 動態（M4-07）：倒數數字變化輕微提示；公車所在站的車牌標記 */
@@ -147,3 +171,8 @@
 .ab-stk-px strong { font-size: 20px; font-variant-numeric: tabular-nums; }
 .ab-stk-alt { background: none; border: 0; padding: 0 4px; color: var(--ab-brand); font: inherit; text-decoration: underline; cursor: pointer; }
 .ab-input { flex: 1; min-width: 0; font: inherit; padding: 6px 10px; border: 1px solid var(--ab-line); border-radius: 10px; }
+
+/* 動畫一律尊重 reduced motion 與精簡模式（低階裝置） */
+@media (prefers-reduced-motion: reduce) { .ab-token.go, .ab-leg, .ab-runner, .ab-stop.me .ab-dot { animation: none !important; } .ab-runner { display: none; } }
+html.lite-motion .ab-token.go, html.lite-motion .ab-runner, html.lite-motion .ab-stop.me .ab-dot { animation: none !important; }
+html.lite-motion .ab-runner { display: none; }

@@ -2,6 +2,8 @@
 // 數字全部來自 decision 事件（plan_trip 的真實資料與 decide.js 計分）；切換狀態 chip 時用同一份 decide.js 在瀏覽器重算，不呼叫伺服器。
 // 不用 innerHTML（資料來自上游）；動畫只用 CSS，prefers-reduced-motion 時直接顯示最終狀態。
 
+import { svgIcon, modeOf, MODE_COLOR } from '../cards/mode-icons.js';
+
 const SVG = 'http://www.w3.org/2000/svg';
 const STATE_LABEL = { rush: '趕時間', traffic: '塞車中', rain: '下雨', luggage: '帶行李', budget: '想省錢', lessWalk: '少走路', badAir: '空品不佳' };
 const SOURCE_LABEL = { auto: '自動', user: '你說的', picked: '你選的' };
@@ -117,7 +119,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA }) {
     for (const [role, yy] of srcY) {
       const lit = winRoles.has(role);
       s.append(svg('path', { d: `M${COL[0] + NODE_W},${yy} C${COL[1] - 10},${yy} ${COL[1] - 10},${hub.y} ${hub.x - 30},${hub.y}`, class: `dg-edge step1${lit ? ' win' : ''}` }));
-      s.append(node(COL[0], yy, role, `dg-src r-${ROLE_CLASS[role] || 'brand'} step1${lit ? ' win' : ''}`));
+      s.append(node(COL[0], yy, role, `dg-src r-${ROLE_CLASS[role] || 'brand'} step1${lit ? ' win' : ''}`, role));
     }
     // 2 狀態：標籤；自動狀態以虛線連回來源工具
     active.forEach((k, i) => {
@@ -136,7 +138,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA }) {
       const win = o.id === bestId;
       s.append(svg('path', { d: `M${COL[1] + NODE_W},${hub.y} C${COL[2] - 20},${hub.y} ${COL[2] - 20},${yy} ${COL[2]},${yy}`,
         class: `dg-edge ${isEx ? 'step4 excluded' : 'step3'}${win ? ' win' : ''}`, 'stroke-width': isEx ? 1 : (1 + 7 * (o.score / max)).toFixed(1) }));
-      const n = node(COL[2], yy, isEx ? `${short(o.name)}（${o.why.includes('超過') ? '會遲到' : '排除'}）` : `${short(o.name)} ${o.score}`, `dg-opt ${isEx ? 'step4 excluded' : 'step3'}${win ? ' win' : ''}`);
+      const n = node(COL[2], yy, isEx ? `${short(o.name)}（${o.why.includes('超過') ? '會遲到' : '排除'}）` : `${short(o.name)} ${o.score}`, `dg-opt ${isEx ? 'step4 excluded' : 'step3'}${win ? ' win' : ''}`, o.role, win);
       n.style.setProperty('--i', String(i));
       n.dataset.id = o.id;
       s.append(n);
@@ -145,14 +147,19 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA }) {
     if (best) {
       const yy = y(0, opts.length);
       s.append(svg('path', { d: `M${COL[2] + NODE_W},${yy} L${COL[3]},${hub.y}`, class: 'dg-edge win step5' }));
-      s.append(node(COL[3], hub.y, best.name, 'dg-best win step5'));
+      s.append(node(COL[3], hub.y, short(best.name), 'dg-best win step5', best.role, true));
     }
     return s;
   }
 
-  function node(x, y, label, cls) {
+  /** 節點：有交通方式或資料來源時左邊放圖示（勝出用白色、其他用代表色），文字往右移 */
+  function node(x, y, label, cls, icon, onBrand = false) {
     const g = svg('g', { class: `dg-node ${cls}`, transform: `translate(${x},${y - 14})` });
-    g.append(svg('rect', { width: NODE_W, height: 28, rx: 8 }), svg('text', { x: NODE_W / 2, y: 18, 'text-anchor': 'middle' }, label.length > 9 ? `${label.slice(0, 8)}…` : label));
+    const ic = icon && svgIcon(icon, 6, 6, 16);
+    if (ic) ic.style.color = onBrand ? '#fff' : (MODE_COLOR[modeOf(icon)] || 'currentColor');
+    const max = ic ? 7 : 9;
+    g.append(svg('rect', { width: NODE_W, height: 28, rx: 8 }), ...(ic ? [ic] : []),
+      svg('text', { x: ic ? NODE_W / 2 + 9 : NODE_W / 2, y: 18, 'text-anchor': 'middle' }, label.length > max ? `${label.slice(0, max - 1)}…` : label));
     return g;
   }
 

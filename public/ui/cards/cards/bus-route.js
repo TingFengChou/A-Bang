@@ -2,6 +2,7 @@
 // 有 focus（選公車後盯的上車站，L-14）：上方大倒數、標「你在這上車」、到站前 3／5 分提醒、開公車頁看動態
 import { h } from '../dom.js';
 import { navButton } from '../actions.js';
+import { token } from '../mode-icons.js';
 
 const SOON_SEC = 180;
 
@@ -12,6 +13,7 @@ function focusBlock(d, f, { host, t, rerender }) {
   const live = f.status === 0 && f.etaSec != null;
   return h('div', { class: 'ab-focus' },
     h('div', { class: 'ab-focus-row' },
+      token('bus', { size: 'lg', go: live }),
       h('span', { class: 'ab-sub' }, t('busRoute.focusAt', { stop: f.stopName })),
       h('strong', { class: 'ab-focus-eta', ...(live && { 'data-eta-sec': f.etaSec }) }, f.statusText)),
     watching
@@ -56,7 +58,7 @@ export default {
           if (!open) host?.setContext?.(t('busRoute.context', { route: d.routeName, stop: s.stopName }));
           rerender();
         } },
-        h('span', { class: 'ab-dot', 'aria-hidden': 'true' }),
+        s.plate ? token('bus', { size: 'sm', go: true, label: t('busRoute.busHere') }) : h('span', { class: 'ab-dot', 'aria-hidden': 'true' }),
         h('span', { class: 'ab-name' }, s.stopName, me && h('span', { class: 'ab-me' }, t('busRoute.boardHere'))),
         h('span', { class: soon ? 'ab-eta soon' : 'ab-eta', ...(s.status === 0 && s.etaSec != null && { 'data-eta-sec': s.etaSec }) }, s.statusText),
         s.plate && h('span', { class: 'ab-bus', title: t('busRoute.busHere') }, t('busRoute.plate', { plate: s.plate }))),
