@@ -137,14 +137,19 @@ async function bikeOption(svc, from, to, straight) {
   };
 }
 
-/** 深夜（台灣時間）：00:00～05:00 公車多已收班；23:00 後接近末班（S10，示範規則；真實以 TDX 到站狀態為準） */
+/** 深夜（台灣時間）：示範資料 00:00～05:00 公車不列入、23:00 後提醒末班（S10）；真實資料改看到站狀態 */
 export const NIGHT = { closedFrom: 0, closedTo: 5 * 60, lateFrom: 23 * 60 };
+const NIGHT_CLOSED = '深夜多數公車已收班（以站牌即時資訊為準），先幫你看叫車、YouBike';
 async function busOption(svc, from, to, straight, risk, depart) {
   if (straight > LIMITS.busMaxM) return null;
+  // 深夜（S10）：示範資料只能看時間；真實資料看上車站的到站狀態（3 末班已過、4 今日未營運），全部收班才不列入
   const m = depart ? depart.minute % (24 * 60) : null;
-  if (m != null && m >= NIGHT.closedFrom && m < NIGHT.closedTo) return { skip: { role: 'bus', why: '深夜公車多已收班（末班多在 23:00～24:00，夜間公車路線很少），可以叫車' } };
-  const late = m != null && m >= NIGHT.lateFrom;
-  const list = await svc.bus.directTrips({ from, to });
+  const live = svc.mode === 'live';
+  if (!live && m != null && m >= NIGHT.closedFrom && m < NIGHT.closedTo) return { skip: { role: 'bus', why: NIGHT_CLOSED } };
+  const late = !live && m != null && m >= NIGHT.lateFrom;
+  const all = await svc.bus.directTrips({ from, to });
+  const list = all.filter((t) => ![3, 4].includes(t.board?.status));
+  if (all.length && !list.length) return { skip: { role: 'bus', why: '附近直達的公車末班已過（站牌即時資訊），可以叫車或騎 YouBike' } };
   const opts = list.map((t) => {
     const w1 = walkMinutes(t.walkFromM), w2 = walkMinutes(t.walkToM);
     // 走到站牌前車子就來了 → 等下一班（不知道下一班時間，以 10 分估）
@@ -159,7 +164,7 @@ async function busOption(svc, from, to, straight, risk, depart) {
         leg('bus', t.board, t.alight, ride, `${t.routeName}（${t.label}）坐 ${t.stops} 站`, 'transit'),
         leg('walk', t.alight, to, w2, `步行約 ${w2} 分`),
       ],
-      notes: [etaMin == null || etaMin < w1 ? '下一班到站時間不明，以 10 分估' : `${t.board.name} 約 ${etaMin} 分後到站`, '票價以一段票 15 元估', ...(late ? ['接近末班車時間，可能是最後幾班；錯過就要叫車'] : [])],
+      notes: [etaMin == null || etaMin < w1 ? '下一班到站時間不明，以 10 分估' : `${t.board.name} 約 ${etaMin} 分後到站`, '票價以一段票 15 元估', ...(late ? ['末班快到了，早點出門；錯過可以叫車或騎 YouBike'] : [])],
       ...(late && { lastBus: true }),
       ...((etaMin == null || etaMin < w1) && { estimated: true }),
       // 決策選公車時，agent 接著盯這條路線在上車站的即時到站（bus_route_eta 的 stop／direction）

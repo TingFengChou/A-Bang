@@ -39,6 +39,7 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
   };
 
   const clock = demoClock(env);
+  if (env.DEMO_CLOCK) log({ message: env.DEMO_MODE === '1' ? `示範時鐘：現在固定為今天 ${env.DEMO_CLOCK}` : 'DEMO_CLOCK 只在 DEMO_MODE=1 有效，已忽略', level: 'warn' }); // 避免公開站誤留設定
   return {
     /** 限流：每分鐘、每日（agent id ＋ IP）。回傳 { ok, retryAfterSec } */
     limit(agentId, ip) {

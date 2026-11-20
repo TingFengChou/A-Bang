@@ -1058,6 +1058,58 @@
           "expect": {
             "tools": [
               "plan_trip"
+            ],
+            "textHas": [
+              "末班"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S10-3",
+      "title": "00:30 問明天早上：不說收班",
+      "at": "00:30",
+      "turns": [
+        {
+          "say": "明天早上回板橋",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "textNot": [
+              "收班"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S18-2",
+      "title": "「回到剛剛的問題，台北101天氣」不是行程",
+      "turns": [
+        {
+          "say": "回到剛剛的問題，台北101天氣",
+          "expect": {
+            "tools": [
+              "weather_now"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S18-3",
+      "title": "「公車到板橋了嗎」不是行程",
+      "turns": [
+        {
+          "say": "公車到板橋了嗎",
+          "expect": {
+            "toolsNot": [
+              "plan_trip"
             ]
           }
         }
