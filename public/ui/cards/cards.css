@@ -249,28 +249,19 @@ html.lite-motion .ab-rail-bus, html.lite-motion .ab-rail-fill { transition: none
 html.lite-motion .ab-scene *, html.lite-motion .ab-gauge-band { animation: none !important; }
 html.lite-motion .ab-gauge-needle { transition: none; }
 
-/* 立體路線圖：傾斜的地面（格線像地圖）、路線依序畫出並有地面陰影、你這站的圖釘與公車代幣立起來 */
-.ab-map3d { --tilt: 44deg; --turn: -8deg; --m-brand: var(--ab-brand, #0f766e); --m-ok: var(--ab-ok, #15803d); height: 190px; display: grid; place-items: center; perspective: 720px; margin: 6px 0 2px; overflow: hidden; border-radius: 14px;
-  background: radial-gradient(ellipse at 50% 30%, #f1f7f6, #e3eeec); }
-.ab-map3d-plane { position: relative; width: min(300px, 92%); aspect-ratio: 300 / 190; transform-style: preserve-3d; transform: rotateX(var(--tilt)) rotateZ(var(--turn)); border-radius: 14px;
-  background-color: #fbfdfc; background-image: linear-gradient(rgba(15,118,110,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(15,118,110,.07) 1px, transparent 1px); background-size: 20px 20px;
-  box-shadow: 0 18px 30px -12px rgba(0,0,0,.3); animation: ab-map-in .7s cubic-bezier(.2,.8,.2,1) both; }
-@keyframes ab-map-in { from { transform: rotateX(0deg) rotateZ(0deg) scale(.9); opacity: 0; } }
-.ab-map3d-plane svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.ab-map3d-line { fill: none; stroke: var(--m-brand); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: ab-map-draw 1.4s ease .3s forwards; }
-.ab-map3d-shadow { fill: none; stroke: rgba(0,0,0,.12); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; transform: translate(2px, 3px); }
-@keyframes ab-map-draw { to { stroke-dashoffset: 0; } }
-.ab-map3d-stop { fill: #fff; stroke: var(--m-brand); stroke-width: 1.5; }
-.ab-map3d-stop.me { stroke: var(--m-ok); stroke-width: 2.5; }
-.ab-map3d-up { position: absolute; transform-origin: 50% 100%; transform: translate(-50%, -100%) rotateZ(calc(var(--turn) * -1)) rotateX(calc(var(--tilt) * -1)); }
-.ab-map3d-up.bus { z-index: 2; animation: ab-map-pop .4s cubic-bezier(.3,1.5,.5,1) 1.2s both; }
-.ab-map3d-up.me { z-index: 3; animation: ab-map-pop .4s cubic-bezier(.3,1.5,.5,1) 1s both; }
-@keyframes ab-map-pop { from { opacity: 0; scale: .3; } }
-.ab-map3d-pin { position: relative; margin-bottom: 14px; display: inline-block; padding: 2px 7px 3px; border-radius: 9px 9px 9px 2px; background: var(--m-ok); color: #fff; font-size: 11px; font-weight: 700; box-shadow: 0 3px 6px rgba(0,0,0,.25); }
-@media (prefers-reduced-motion: reduce) { .ab-map3d-plane { transform: none; animation: none; } .ab-map3d-line { animation: none; stroke-dashoffset: 0; } .ab-map3d-up { transform: translate(-50%, -100%); animation: none !important; } }
-html.lite-motion .ab-map3d-plane { transform: none; animation: none; }
-html.lite-motion .ab-map3d-line { animation: none; stroke-dashoffset: 0; }
-html.lite-motion .ab-map3d-up { transform: translate(-50%, -100%); animation: none !important; }
-.ab-map3d.seen .ab-map3d-plane, .ab-map3d.seen .ab-map3d-up { animation: none !important; }
-.ab-map3d.seen .ab-map3d-line { animation: none; stroke-dashoffset: 0; }
-.ab-map3d-pin::after { content: ''; position: absolute; left: 50%; bottom: -14px; width: 2px; height: 14px; margin-left: -1px; background: var(--m-ok); }
+/* 公車街景（Blender 低多邊形素材）：街景背景＋公車依站數停在路上；站名與「還有 N 站」用網頁文字 */
+.ab-scene3d { position: relative; width: 100%; aspect-ratio: 960 / 420; overflow: hidden; border-radius: 14px; margin: 8px 0; background: #cfe3d6; }
+.ab-scene3d img { position: absolute; inset: 0; width: 100%; height: 100%; user-select: none; pointer-events: none; }
+.ab-scene-bus { position: absolute; inset: 0; transition: transform 1.1s cubic-bezier(.25, .9, .35, 1); }
+.ab-scene-bus .ab-scene-img { animation: ab-bus-bob 1.6s ease-in-out infinite; }
+@keyframes ab-bus-bob { 50% { transform: translateY(-0.3%); } }
+.ab-scene-top { position: absolute; top: 4%; left: 3%; right: 3%; z-index: 2; display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
+.ab-scene-label { white-space: nowrap; font-weight: 700; font-size: 14px; line-height: 1.25; padding: 4px 10px; border-radius: 9px; box-shadow: 0 2px 6px rgba(0,0,0,.18); overflow: hidden; text-overflow: ellipsis; }
+.ab-scene-label.stop { flex: 0 1 auto; min-width: 3em; background: #0f766e; color: #fff; }
+.ab-scene-label.bus { flex: 0 0 auto; max-width: 70%; background: #fff; color: #14201d; }
+.ab-scene-label.bus b { color: #0f766e; font-size: 15px; }
+.ab-scene-label.bus.near { background: #e6f4ea; }
+.ab-scene-label.bus.near b { color: #15803d; }
+@media (prefers-reduced-motion: reduce) { .ab-scene-bus { transition: none; } .ab-scene-bus .ab-scene-img { animation: none; } }
+html.lite-motion .ab-scene-bus { transition: none; }
+html.lite-motion .ab-scene-bus .ab-scene-img { animation: none; }

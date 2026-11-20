@@ -1,6 +1,5 @@
 // bus-route（bus_route_eta）：方向切換、站序時間軸、即將到站高亮、點站牌 → 導航／提問（CARDS.md §4）
 // 有 focus（選公車後盯的上車站，L-14）：上方大倒數、標「你在這上車」、到站前 3／5 分提醒、開公車頁看動態
-import { routeMap3d } from '../route3d.js';
 import { h } from '../dom.js';
 import { navButton } from '../actions.js';
 import { token } from '../mode-icons.js';
@@ -99,7 +98,7 @@ export default {
     const dir = dirs[di];
     const tabs = dirs.length > 1 && h('div', { class: 'ab-tabs', role: 'tablist', 'aria-label': t('busRoute.switchDir') },
       dirs.map((x, i) => h('button', { type: 'button', role: 'tab', class: i === di ? 'ab-tab on' : 'ab-tab', 'aria-selected': i === di ? 'true' : 'false',
-        onclick: () => { state.dir = i; state.stop = null; state.mapSeen = false; rerender(); } }, x.label)));
+        onclick: () => { state.dir = i; state.stop = null; rerender(); } }, x.label)));
     if (!dir) return h('div', { class: 'ab-body' }, h('p', { class: 'ab-empty' }, t('common.empty')));
     const list = h('ol', { class: 'ab-timeline' }, dir.stops.map((s) => {
       const soon = s.etaSec != null && s.etaSec < SOON_SEC;
@@ -119,13 +118,6 @@ export default {
           navButton(host, s.nav),
           host?.ask && h('button', { type: 'button', class: 'ab-btn', onclick: () => host.ask(t('busRoute.ask', { route: d.routeName, stop: s.stopName })) }, t('common.more'))));
     }));
-    // 立體路線圖（真實路線形狀；形狀只有去程，回程用站點連線）
-    const meSeq = f && (dir?.direction ?? di) === f.direction ? f.seq : null;
-    const map = state.map && dir && routeMap3d({ stops: dir.stops, shape: (dir.direction ?? di) === 0 ? d.shape : null, meSeq, seen: state.mapSeen,
-      meText: t('busRoute.mapMe'), label: t('busRoute.mapLabel', { route: d.routeName, n: dir.stops.length, buses: dir.stops.filter((s) => s.plate).length }) });
-    if (map) state.mapSeen = true;
-    const mapBtn = dir?.stops.some((s) => Number.isFinite(s.lat)) && h('button', { type: 'button', class: 'ab-btn ab-link ab-map-btn', 'aria-expanded': state.map ? 'true' : 'false',
-      onclick: () => { state.map = !state.map; state.mapSeen = false; rerender(); } }, t(state.map ? 'busRoute.mapHide' : 'busRoute.map'));
-    return h('div', { class: 'ab-body' }, f && focusBlock(d, f, { host, t, rerender, state }), tabs, mapBtn, map, list);
+    return h('div', { class: 'ab-body' }, f && focusBlock(d, f, { host, t, rerender, state }), tabs, list);
   },
 };
