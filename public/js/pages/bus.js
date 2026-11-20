@@ -9,6 +9,8 @@ import { busScene } from '../../ui/cards/bus-scene.js';
 import { railOf } from '../../ui/cards/cards/bus-route.js';
 import { watchAlight, stopAlight, alightWatch, rideEstimate } from '../alight.js';
 
+const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
 const CITY_CHIPS = [['Taipei', '臺北'], ['NewTaipei', '新北'], ['Taoyuan', '桃園'], ['Taichung', '臺中'], ['Tainan', '臺南'], ['Kaohsiung', '高雄'], ['Keelung', '基隆'], ['Hsinchu', '新竹']];
 const REFRESH = 20000;
 
@@ -94,10 +96,14 @@ export const busRoute = {
         main.querySelector('#upd').textContent = stale ? staleNote(stale) : `更新於 ${fmtTime()}・每 20 秒自動更新`;
       } catch (e) { main.querySelector('#stops').innerHTML = errorBox(e); }
     }
+    const setUrl = () => { const qs = new URLSearchParams({ ...(myStop && { stop: myStop }), dir: String(dir) }); history.replaceState(null, '', `${location.hash.split('?')[0]}?${qs}`); };
     function paint({ fresh = false } = {}) {
+      // 每 20 秒重畫：記下焦點在哪個站名或方向按鈕，畫完放回去（鍵盤與讀屏不會掉到頁首）
+      const act = document.activeElement;
+      const keep = act?.dataset?.stop != null ? `.stop-pick[data-stop="${CSS.escape(act.dataset.stop)}"]` : act?.dataset?.i != null && act.closest?.('#dirs') ? `#dirs button[data-i="${act.dataset.i}"]` : null;
       const dirs = main.querySelector('#dirs');
-      dirs.innerHTML = data.directions.map((d, i) => `<button data-i="${i}" class="${i === dir ? 'on' : ''}">${esc(d.label)}</button>`).join('');
-      dirs.querySelectorAll('button').forEach((b) => (b.onclick = () => { dir = +b.dataset.i; sceneState = {}; paint(); }));
+      dirs.innerHTML = data.directions.map((d, i) => `<button data-i="${i}" class="${i === dir ? 'on' : ''}" aria-pressed="${i === dir}">${esc(d.label)}</button>`).join('');
+      dirs.querySelectorAll('button').forEach((b) => (b.onclick = () => { dir = +b.dataset.i; sceneState = {}; setUrl(); paint(); }));
       const d = data.directions[dir] || data.directions[0];
       // 公車街景：有上車站才畫；公車依真實「還有幾站」停在路上（怎麼走到站牌交給導航）
       const me = myStop && d.stops.find((x) => x.stopName === myStop);
@@ -108,23 +114,35 @@ export const busRoute = {
       stopsEl.innerHTML = `<div class="card list timeline">${d.stops.map((s) => `
         <div class="${s.plate ? 'here' : ''}${s.stopName === myStop ? ' me' : ''}">
           ${s.plate ? `<span class="ab-token sm go bus-pos" data-plate="${esc(s.plate)}" style="--c:#0f766e" role="img" aria-label="公車在這附近">${modeSvg('bus')}</span>` : ''}
-          <div class="grow"><div class="title"><button type="button" class="stop-pick" data-stop="${esc(s.stopName)}" aria-label="在「${esc(s.stopName)}」上車${s.stopName === myStop ? '（目前的上車站）' : ''}" aria-pressed="${s.stopName === myStop}">${esc(s.stopName)}</button>${s.stopName === myStop ? '<span class="me-tag">你在這上車</span>' : ''}</div>${s.plate ? `<div class="plate">${esc(s.plate)} 即將抵達</div>` : ''}</div>
+          <div class="grow"><div class="title"><button type="button" class="stop-pick" data-stop="${esc(s.stopName)}" aria-label="${esc(s.stopName)}，設為上車站" aria-pressed="${s.stopName === myStop}">${esc(s.stopName)}</button>${s.stopName === myStop ? '<span class="me-tag">你在這上車</span>' : ''}</div>${s.plate ? `<div class="plate">${esc(s.plate)} 即將抵達</div>` : ''}</div>
           ${etaBadge(s)}
         </div>`).join('')}</div>`;
       if (before) slide(stopsEl, before);
       // 點站名＝設成上車站（網址一起改，重新整理或分享都一樣；不觸發換頁）
       stopsEl.querySelectorAll('.stop-pick').forEach((b) => (b.onclick = () => {
+        const had = otherWatches().length; // 換上車站前已經有提醒：提醒照舊，在上車站卡片上看得到、可以取消
         myStop = b.dataset.stop;
-        const qs = new URLSearchParams({ stop: myStop, dir: String(dir) });
-        history.replaceState(null, '', `${location.hash.split('?')[0]}?${qs}`);
+        setUrl();
         sceneState = {};
         paint();
-        main.querySelector('#focus').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        main.querySelector('#focus .big')?.focus?.();
-        toast(`上車站設成「${myStop}」：可以設到站提醒和下車提醒`);
+        const card = main.querySelector('#focus .bus-focus');
+        card?.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
+        card?.focus({ preventScroll: true }); // 焦點移到上車站卡片（按的站名按鈕已重畫）
+        toast(had ? `上車站：${myStop}。原本的提醒還在，可在上方取消` : `上車站：${myStop}。可以設提醒了`);
       }));
-      main.querySelector('#pick-hint').hidden = Boolean(myStop);
+      const hint = main.querySelector('#pick-hint');
+      hint.textContent = me ? '點其他站名可以改上車站。' : '點站名設成上車站，就能設到站提醒和下車提醒。';
       paintFocus(d);
+      if (keep) main.querySelector(keep)?.focus({ preventScroll: true });
+    }
+    /** 這條路線、但不是目前上車站（或方向）的提醒：換上車站後還看得到、可以取消 */
+    function otherWatches() {
+      const out = [];
+      const w = host.arrivalWatch();
+      if (w && w.routeName === route && (w.stop !== myStop || (w.direction != null && w.direction !== dir))) out.push({ text: `另有提醒：「${w.stop}」到站前 ${w.minutes} 分`, cancel: () => host.unwatchArrival() });
+      const a = alightWatch();
+      if (a && a.routeName === route && (a.board !== myStop || a.direction !== dir)) out.push({ text: `另有下車提醒：在「${a.dest}」下車`, cancel: () => stopAlight() });
+      return out;
     }
     /** 上車站：大字到站時間＋到站提醒（與問阿幫卡片共用同一個提醒） */
     function paintFocus(d) {
@@ -132,13 +150,27 @@ export const busRoute = {
       const s = myStop && d.stops.find((x) => x.stopName === myStop);
       if (!s) { box.innerHTML = ''; return; }
       const w = host.arrivalWatch();
-      const watching = w && w.routeName === route && w.stop === myStop;
+      const watching = w && w.routeName === route && w.stop === myStop && (w.direction == null || w.direction === (d.direction ?? dir));
       const live = !stale && s.status === 0 && s.etaSec != null; // 舊資料不給到站提醒（時間不準）
       const when = cardT(`busRoute.${host.arrivalNote?.() || 'whenOpenPage'}`);
-      box.innerHTML = `<div class="card bus-focus"><span class="ab-token lg${live ? ' go' : ''}" style="--c:#0f766e" aria-hidden="true">${modeSvg('bus')}</span><div class="sub">到「${esc(myStop)}」</div><div class="big">${esc(s.statusText)}</div>
+      const others = otherWatches();
+      box.innerHTML = `<div class="card bus-focus" tabindex="-1" aria-labelledby="focus-at"><span class="ab-token lg${live ? ' go' : ''}" style="--c:#0f766e" aria-hidden="true">${modeSvg('bus')}</span><div class="sub" id="focus-at">到「${esc(myStop)}」</div><div class="big">${esc(s.statusText)}</div>
         ${watching && w.stuck ? `<div class="stuck"><p>${esc(cardT(`busRoute.stuck.${w.stuck}`, { route }))}</p><a class="btn" href="#/agent?q=${encodeURIComponent(w.trip?.to ? cardT('busRoute.stuckAskTo', { to: w.trip.to }) : cardT('busRoute.stuckAsk'))}">${esc(cardT('busRoute.stuckBtn'))}</a></div>` : ''}
         ${watching ? `<p class="ok" role="status">${w.skip ? `這班快到了、可能趕不上；下一班到站前 ${w.minutes} 分提醒你（${when}）` : `已設定：到站前 ${w.minutes} 分提醒你（${when}）`}<button class="btn ghost" id="unwatch" type="button">取消提醒</button></p>`
           : live ? `<div class="row">${[3, 5].map((n) => `<button class="btn" type="button" data-min="${n}">到站前 ${n} 分提醒我</button>`).join('')}</div>` : ''}</div>`;
+      if (others.length) { // 這條路線還有別站（或別方向）的提醒：寫出來、可以取消
+        const o = document.createElement('div');
+        o.className = 'other-watch';
+        for (const x of others) {
+          const p2 = Object.assign(document.createElement('p'), { textContent: x.text });
+          const c = Object.assign(document.createElement('button'), { type: 'button', className: 'btn ghost', textContent: '取消' });
+          c.setAttribute('aria-label', `取消：${x.text}`);
+          c.addEventListener('click', () => { x.cancel(); toast('已取消提醒'); paintFocus(d); });
+          p2.append(c);
+          o.append(p2);
+        }
+        box.querySelector('.bus-focus').append(o);
+      }
       box.querySelector('.bus-focus').append(alightBlock(d, s));
       box.querySelectorAll('[data-min]').forEach((b) => (b.onclick = async () => {
         await host.watchArrival({ city, routeName: route, stop: myStop, direction: dir, minutes: Number(b.dataset.min) });
