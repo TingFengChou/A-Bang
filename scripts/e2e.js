@@ -736,3 +736,19 @@ test('手機：拒絕定位時說下一步、照常回答', async () => {
     assert.equal(await page.locator('.turn .say.typing').count(), 0);
   }, { geo: false });
 });
+
+// 接著說「不要叫車」（A3）：同一段行程重算、叫車被標「不要」、建議不是叫車
+test('問阿幫：接著說「不要叫車」→ 排除叫車重算', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    for (const [i, q] of ['從西門町叫車去台北101', '不要叫車'].entries()) {
+      await page.fill('.chat-form input', q);
+      await page.press('.chat-form input', 'Enter');
+      await page.waitForFunction((n) => document.querySelectorAll('.bubble.final').length === n, i + 1, { timeout: 20000 });
+    }
+    const turn = page.locator('.turn').nth(1);
+    assert.equal(await turn.locator('.msg.error').count(), 0);
+    assert.match(await turn.textContent(), /不要/);
+    assert.doesNotMatch(await turn.locator('.bubble.final .say').textContent(), /選「叫車/);
+    await shot(page, 'phone-agent-avoid');
+  });
+});

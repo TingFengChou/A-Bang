@@ -8,6 +8,8 @@ import { STATES } from '../decide.js';
 
 const hhmm = z.string().trim().regex(HHMM_RE, '時間格式需為 HH:mm（00:00～23:59）');
 
+const MODES = ['walk', 'bike', 'bus', 'thsr', 'tra', 'intercity', 'ridehail'];
+
 /** 依建議方式的下一步（模型轉述照這句說；例：叫車不要提公車到站提醒，A2 轉述受程式約束） */
 export const NEXT_STEP = {
   bus: '卡片上看公車多久到上車站，可以按「到站前 3 分提醒我」',
@@ -33,12 +35,13 @@ export const planTripTool = defineTool({
     prefs: z.object({
       states: z.array(z.enum(Object.keys(STATES))).max(6).optional().describe('使用者狀態'),
       arriveBy: hhmm.optional().describe('最晚抵達時間 HH:mm'),
-      mode: z.enum(['walk', 'bike', 'bus', 'thsr', 'tra', 'intercity', 'ridehail']).optional().describe('使用者指定的交通方式（「改坐公車」→ bus、「叫車／計程車」→ ridehail）：建議改成這種方式裡分數最高的'),
+      mode: z.enum(MODES).optional().describe('使用者指定的交通方式（「改坐公車」→ bus、「叫車／計程車」→ ridehail）：建議改成這種方式裡分數最高的'),
+      avoid: z.array(z.enum(MODES)).max(7).optional().describe('使用者說不要的交通方式（「不要叫車」→ ["ridehail"]）：直接排除'),
     }).optional(),
   },
   speak: (d) => {
     const best = d.options.find((o) => o.id === d.best);
-    if (!best) return d.ranking.excluded.length ? '所有方式都趕不上指定時間。' : '這段路找不到可行的交通方式。';
+    if (!best) return d.ranking.excluded.length ? d.ranking.reason : '這段路找不到可行的交通方式。';
     const why = d.states.length ? `，因為${d.states.map((s) => STATES[s.key].say).join('、')}` : '';
     return `比了 ${d.options.length} 種方式${why}，建議${best.name}。`;
   },

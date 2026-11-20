@@ -7,8 +7,9 @@ import { NEXT_STEP } from '../core/tools/trip.js';
 import { callTool } from '../core/tools/index.js';
 import { createServices } from '../core/index.js';
 
-test('groundedPrefs：抵達時間、交通方式、狀態只採使用者說過的（規則或判斷層）；其他偏好照留', () => {
-  assert.deepEqual(groundedPrefs({ arriveBy: '09:00', mode: 'thsr', states: ['rush'], avoid: ['walk'] }, {}), { avoid: ['walk'] }, '模型自加的時間、方式、狀態都丟掉');
+test('groundedPrefs：抵達時間、交通方式、不要的方式、狀態只採使用者說過的（規則或判斷層）', () => {
+  assert.deepEqual(groundedPrefs({ arriveBy: '09:00', mode: 'thsr', states: ['rush'], avoid: ['walk'] }, {}), {}, '模型自加的時間、方式、狀態、不要的方式都丟掉');
+  assert.deepEqual(groundedPrefs({}, { avoid: ['ridehail'] }), { avoid: ['ridehail'] }, '使用者說不要的方式要帶上');
   assert.deepEqual(groundedPrefs({ arriveBy: '09:00' }, { arriveBy: '10:00' }), { arriveBy: '10:00' }, '用使用者說的時間');
   assert.deepEqual(groundedPrefs({}, { mode: 'bus' }), { mode: 'bus' }, '使用者說的方式要帶上（與預先查詢一致）');
   assert.deepEqual(groundedPrefs({ mode: 'walk' }, {}, { mode: 'ridehail', states: [] }), { mode: 'ridehail' }, '判斷層的方式');
@@ -95,4 +96,15 @@ test('使用者前文說過起點：模型把起點換成現在位置也會改�
   const trips = es.filter((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
   assert.equal(trips.length, 1);
   assert.equal(trips[0].data.from.name, '西門町');
+});
+
+test('decide avoid：使用者說不要的方式直接排除並說明；全部排除時說清楚', async () => {
+  const { decide } = await import('../core/decide.js');
+  const opts = [{ id: 'r', role: 'ridehail', name: '叫車', minutes: 10, cost: 300, walkMin: 0, waitMin: 3 }, { id: 'b', role: 'bus', name: '公車 601', minutes: 25, cost: 15, walkMin: 5, waitMin: 5 }];
+  const r = decide(opts, { avoid: ['ridehail'] });
+  assert.equal(r.best.id, 'b');
+  assert.deepEqual(r.excluded.map((e) => [e.id, e.why]), [['r', '你說不要叫車']]);
+  const none = decide(opts, { avoid: ['ridehail', 'bus'] });
+  assert.equal(none.best, null);
+  assert.match(none.reason, /排除你說不要的方式後，沒有其他可行的方案/);
 });

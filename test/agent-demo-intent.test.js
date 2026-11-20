@@ -206,7 +206,8 @@ test('規則負面案例：查高鐵、查公車路線、否定、「改天」�
   const at = (q, h = history) => parseIntent(q, { ...NOW, history: h });
   assert.equal(at('搭 307 到哪了？').intent, 'bus_route', '「搭」單獨出現不算改交通方式');
   assert.equal(at('趕時間，高鐵台北到台中下一班幾點？').intent, 'rail');
-  assert.notEqual(at('我不想坐公車').followUp, true);
+  const no = at('我不想坐公車'); // A3（2026-11-21）：「不想坐 X」＝排除 X（以前不處理），不是改成坐 X
+  assert.deepEqual([no.followUp, no.mode, no.avoid], [true, undefined, ['bus']]);
   assert.notEqual(at('改天再說').intent, 'trip');
   assert.notEqual(at('改成明天').mode, 'bus');
   assert.equal(at('不叫車，改走路').mode, 'walk');

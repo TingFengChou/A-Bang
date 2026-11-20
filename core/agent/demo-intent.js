@@ -29,6 +29,17 @@ const WEATHER_WORD = /天氣|氣溫|溫度|幾度|下雨|帶傘|雨傘|會冷|�
 // 使用者指定交通方式（「坐公車去」「改叫車」）：plan_trip prefs.mode；「不要叫車」的叫車不算
 const MODE_WORDS = [['bus', /公車|巴士/], ['bike', /youbike|ubike|單車|腳踏車/i], ['walk', /走路|步行|走過去/], ['ridehail', /叫車|計程車|小黃|uber|汽車|開車/i],
   ['thsr', /高鐵/], ['tra', /台鐵|臺鐵|火車/], ['intercity', /客運/]];
+/** 使用者說不要的交通方式（「不要叫車」「不想坐公車」「別走路」）→ ['ridehail', …] */
+const NOT_MODE = /(不要|不想|別|不用|不坐|不搭)\s*(坐|搭|改|騎|叫)?\s*$/;
+export function avoidOf(s) {
+  const out = [];
+  for (const [mode, re] of MODE_WORDS) {
+    const g = new RegExp(re.source, `${re.flags}g`);
+    for (let m = g.exec(s); m; m = g.exec(s)) if (NOT_MODE.test(s.slice(Math.max(0, m.index - 5), m.index)) && !out.includes(mode)) out.push(mode);
+  }
+  return out;
+}
+
 export function modeOf(s) {
   let best = null;
   for (const [mode, re] of MODE_WORDS) {
@@ -47,12 +58,19 @@ function lastTrip(history) {
   history.forEach((m, i) => {
     if (m.role !== 'user') return;
     const it = parseIntent(String(m.content), { history: history.slice(0, i) });
-    if (it.intent === 'trip') cur = it;
+    if (it.reset) cur = null; // 「重來」：之前的行程不再沿用
+    else if (it.intent === 'trip') cur = it;
   });
   return cur;
 }
 // 改交通方式要有明確的改換字眼（「坐」「搭」「騎」單獨出現不算：「搭 307 到哪了」是查公車）
 const CHANGE_WORD = /改|換|那.*呢|還是|不要|不坐|不搭/;
+/** 「重來」：清掉前面的行程（之後只說目的地就從現在位置算） */
+const RESET = /^(?:重來|重新開始|從頭開始|從頭來|清除|清掉|算了)[。！!.]?$/;
+/** 接著改目的地（「改去松山機場」「那去松山機場呢」「換到西門町」） */
+const CHANGE_TO = /(?:改|換|那|還是)\s*(?:成)?\s*(?:去|到|往)/;
+/** 只說起點（「我其實從板橋出發」「改從板橋」）：地標庫沒有也採用 */
+const FROM_START = /(?:從|改從)\s*([^\s，,。、到去往]{2,12}?)\s*(?:出發|開始|過去)?\s*[。！!]?$/;
 /** 阿幫上一輪在問起點（「你從哪裡出發？」）→ 使用者只回地名＝起點 */
 const ASKED_ORIGIN = /從哪(裡|兒)?出發|你(現在)?在哪|起點是/;
 /** 句中明講的起點（「從桃園高鐵站到台北101」）：地標庫沒有也要用它，不能被手機定位蓋掉 */
@@ -190,9 +208,30 @@ export function parseIntent(text, ctx) {
   // 接著上一輪（先於其他判斷：「改騎 YouBike」「改坐高鐵」也是改行程）改條件（「改坐公車」「那叫車呢」「我趕時間」）：沿用上一輪的起訖點與狀態重算
   const mode = modeOf(s);
   const otherQuery = RAIL_WORD.test(s) || BUS_ROUTE.test(s) || WEATHER_WORD.test(s) || lifeIntent(s); // 查高鐵、公車路線、天氣等不是改行程
-  const prev = !places.length && history.length && !otherQuery ? lastTrip(history) : null;
-  if (prev && ((mode && CHANGE_WORD.test(s)) || (states.length && s.length <= 12))) {
-    return { ...prev, states: [...new Set([...prev.states, ...states])], intent: 'trip', ...((mode || prev.mode) && { mode: mode || prev.mode }), followUp: true };
+  if (RESET.test(s)) return { ...base, intent: 'unknown', reset: true };
+  const before = history.length && !otherQuery ? lastTrip(history) : null; // 結構化上下文（A3）：前面累積的行程條件
+  // 接著改起點或目的地（只有一個地名＋提示詞；起點可以是地標庫沒有的地名，例「板橋」）：其他條件沿用
+  if (before) {
+    const keep = { ...before, states: [...new Set([...before.states, ...states])], ...(arriveBy && { arriveBy }), intent: 'trip', followUp: true };
+    const fromText = FROM_START.exec(s)?.[1];
+    if (!CHANGE_TO.test(s) && (fromText || (places.length === 1 && /從|出發/.test(s)))) {
+      const p = places.length === 1 ? places[0] : fromText;
+      if (p && p !== before.to) return { ...keep, from: p };
+    }
+    if (places.length === 1 && CHANGE_TO.test(s) && places[0] !== before.from) return { ...keep, to: places[0] };
+  }
+  const prev = !places.length ? before : null;
+  const avoid = avoidOf(s);
+  if (prev && ((mode && CHANGE_WORD.test(s)) || (states.length && s.length <= 12) || avoid.length || (arriveBy && s.length <= 12))) {
+    // 說不要的方式累積（「不要叫車」後「也不要走路」）；改成某方式時從不要的清單拿掉
+    const avoidAll = [...new Set([...(prev.avoid || []), ...avoid])].filter((m) => m !== mode); // 這句明講要坐的不算不要
+    const useMode = mode || (avoidAll.includes(prev.mode) ? null : prev.mode); // 上一輪指定的方式被說不要了 → 取消指定
+    const { mode: _m, avoid: _a, ...rest } = prev;
+    return {
+      ...rest, states: [...new Set([...prev.states, ...states])], intent: 'trip',
+      ...(useMode && { mode: useMode }),
+      ...(avoidAll.length && { avoid: avoidAll }), ...((arriveBy || prev.arriveBy) && { arriveBy: arriveBy || prev.arriveBy }), followUp: true,
+    };
   }
   // 阿幫剛問「你從哪裡出發？」，使用者只回地名 → 那是起點，目的地沿用上一輪
   const lastBot = [...history].reverse().find((m) => m.role === 'assistant');
@@ -312,7 +351,7 @@ export function demoSteps(it, now = Date.now()) {
         (r) => { const [a, b] = pts(r); return a && b ? { note: '@行程 幫你比較幾種走法', calls: [{ name: 'plan_trip', args: {
           from: asArg(a), to: asArg(b), // 地名：卡片標題顯示地名；定位：帶座標與「你的位置」
           ...(dep && { departAt: `${date}T${dep}` }),
-          ...((userStates.length || it.arriveBy || it.mode) && { prefs: { ...(userStates.length && { states: userStates }), ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }) } }),
+          ...((userStates.length || it.arriveBy || it.mode || it.avoid?.length) && { prefs: { ...(userStates.length && { states: userStates }), ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }), ...(it.avoid?.length && { avoid: it.avoid }) } }),
         } }] } : null; },
       ];
     }
@@ -370,6 +409,7 @@ export function demoSteps(it, now = Date.now()) {
 
 /** 示範模式的總結（取自工具結果，不經模型） */
 export function demoSummary(it, results, suggestions = []) {
+  if (it.reset) return '好，重新開始。想去哪裡、想查什麼？沒說起點的話，我用你現在的位置。';
   if (it.intent === 'unknown') return `我可以幫你查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）和生活資訊（天氣、空品、地震、藥局、垃圾車、油價、發票、股市收盤）。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
   const last = Object.values(results).flat().filter(Boolean).at(-1);
   if (!last) return '這次沒查到資料，換個說法或加上地名試試看。';
