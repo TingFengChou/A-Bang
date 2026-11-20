@@ -215,8 +215,9 @@ export function parseIntent(text, ctx) {
   const places = placesInText(s);
   const states = STATE_WORDS.filter(([, re]) => re.test(s)).map(([k]) => k);
   const arriveBy = arriveByOf(s);
-  const tomorrow = /明天|明早/.test(s);
-  const base = { places, states, arriveBy, tomorrow };
+  const tomorrow = /明天|明早|明晚|明日/.test(s);
+  const later = !tomorrow && /後天|週末|周末|禮拜[一二三四五六日天]|星期[一二三四五六日天]|下週|下禮拜|下星期/.test(s); // 天氣只查得到今天、明天
+  const base = { places, states, arriveBy, tomorrow, ...(later && { later: true }) };
   // 判斷層（judge.js）已決定意圖：照那個意圖抽參數；抽不出必要參數時回 null，呼叫端改用規則自己的判斷
   if (ctx?.intent) return slotsFor(ctx.intent, s, base);
 
@@ -340,6 +341,7 @@ const NEARBY = {
   youbike: ['youbike_nearby', '@YouBike 附近還有車嗎'],
   nearby_bus: ['bus_nearby_stations', '@公車 附近有哪些站牌'],
   weather: ['weather_now', '@天氣 看一下現在的天氣'],
+  weatherTomorrow: ['weather_tomorrow', '@天氣 看一下明天的預報'],
   aqi: ['aqi_nearby', '@空品 附近測站的空氣品質'],
   garbage: ['garbage_truck_nearby', '@垃圾車 附近的清運點和時間'],
 };
@@ -395,7 +397,8 @@ export function demoSteps(it, now = Date.now()) {
     case 'aqi':
     case 'garbage': {
       const place = it.places[0] || DEFAULT_FROM;
-      const [tool, note] = NEARBY[it.intent];
+      if (it.intent === 'weather' && it.later) return []; // 後天以後：說明查不到，不拿現在的天氣充數
+      const [tool, note] = NEARBY[it.intent === 'weather' && it.tomorrow ? 'weatherTomorrow' : it.intent];
       if (!it.places[0] && it.fromPoint) return [() => ({ note, calls: [{ name: tool, args: ll(it.fromPoint) }] })]; // 用裝置定位
       return [
         () => ({ note: `@地點 找「${place}」的位置`, calls: [{ name: 'find_place', args: { query: place } }] }),
@@ -460,6 +463,7 @@ export function demoSummary(it, results, suggestions = []) {
     const pre = it.fromPoint || it.places[0] ? '' : it.noLocation ? `（沒拿到你的位置，先看「${DEFAULT_FROM}」附近。）` : `（你沒說在哪，我先看「${DEFAULT_FROM}」附近。）`;
     return `${pre}${outingSay({ weather: results.weather_now?.at(-1)?.data, air: results.aqi_nearby?.at(-1)?.data?.nearest, states: it.states })}`;
   }
+  if (it.intent === 'weather' && it.later) return '我目前只查得到現在和明天的天氣，後天以後的預報還沒辦法；要不要先看明天的？';
   if (it.reset) return '好，重新開始。想去哪裡、想查什麼？沒說起點的話，我用你現在的位置。';
   if (it.intent === 'unknown') return `我可以幫你查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）和生活資訊（天氣、空品、地震、藥局、垃圾車、油價、發票、股市收盤）。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
   const last = Object.values(results).flat().filter(Boolean).at(-1);

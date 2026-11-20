@@ -65,7 +65,7 @@
 | 網站 | https://opendata.cwa.gov.tw （登入取得授權碼） |
 | 呼叫 | `GET https://opendata.cwa.gov.tw/api/v1/rest/datastore/{DataID}?Authorization={key}&format=JSON` |
 | 環境變數 | `CWA_API_KEY`（留空 → `weather_now` 用 mock） |
-| 用到的資料集 | ✅ `O-A0001-001` 自動氣象站觀測、`O-A0003-001` 局屬氣象站觀測（10m，兩者合併取最近且有氣溫或天氣的站；局屬站失敗只用自動站；`WeatherElement.Now.Precipitation` 是當日累積雨量，**不**用來判斷下雨）、`O-A0002-001` 雨量站觀測（10m，取 5 公里內最近一站的 `RainfallElement.Past1hr.Precipitation` 當 `rainMm1h`；失敗或附近沒站時為 null）、`F-D0047-089` 鄉鎮天氣預報（1h，`LocationName={鄉鎮}`，取「3小時降雨機率」第一個時段；失敗時 `pop3h` 為 null） ⚠️ |
+| 用到的資料集 | ✅ `O-A0001-001` 自動氣象站觀測、`O-A0003-001` 局屬氣象站觀測（10m，兩者合併取最近且有氣溫或天氣的站；局屬站失敗只用自動站；`WeatherElement.Now.Precipitation` 是當日累積雨量，**不**用來判斷下雨）、`O-A0002-001` 雨量站觀測（10m，取 5 公里內最近一站的 `RainfallElement.Past1hr.Precipitation` 當 `rainMm1h`；失敗或附近沒站時為 null）、`F-D0047-089` 鄉鎮天氣預報（1h，`LocationName={鄉鎮}`，取「3小時降雨機率」第一個時段；失敗時 `pop3h` 為 null；`weather_tomorrow` 取明天各時段的降雨機率最高值、溫度範圍、天氣現象） ⚠️ |
 | 實作 | `core/cwa-client.js`、`core/services/weather.js`；`-99` 等異常觀測值視為沒有資料；座標取 `CoordinateName=WGS84` |
 | 用於 | `weather_now` → 自動狀態「下雨」 |
 | 標示 | 「資料來源：中央氣象署」 |

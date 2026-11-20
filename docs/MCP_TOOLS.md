@@ -55,6 +55,7 @@
 | `rail_booking_link` | transit | **L2** | （時刻表按鈕） | 🧩 介面＋示範完成；⛔ 真實版需 TDX 導訂票權限 |
 | `ridehail_link` | ridehail | **L2** | （行程卡按鈕） | ✅ |
 | `weather_now` | weather | L1 | — | ✅（真實資料需 CWA 授權碼）⚠️ |
+| `weather_tomorrow` | weather | L1 | — | ✅（2026-11-21；真實資料需 CWA 授權碼）⚠️ |
 | `aqi_nearby` | life | L1 | `aqi` | ✅（M10，`MOENV_API_KEY`） |
 | `earthquake_recent` | life | L1 | `quake` | ✅（M10，`CWA_API_KEY`） |
 | `pharmacy_search` | life | L1 | `pharmacy` | ✅（M10，免金鑰；無座標） |
@@ -265,6 +266,10 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | 高鐵／台鐵 | > 30 km；起訖 25 km 內最近車站（座標由內建地標對照 `stationPoint`） | 到站（1.2 km 內走路，否則市區轉乘 道路 ÷ 20 km/h＋5 分）＋等第一班趕得上的車（最多算 10 分，再多就把 `leaveAt` 往後延）＋車程＋離站；`arriveAt` 以實際班次計算 | 成人單程（台鐵依車種）＋市區轉乘 15 元 | 有市區轉乘或查不到票價時 |
 | 國道客運 | ≥ 15 km；`intercity.trips` | 走＋等（走到站牌趕得上的第一班，最多算 10 分）＋車程含路況延誤＋走；`arriveAt` 以實際班次計算 | 票價；缺資料時道路公里 × 1.3 元 | 缺票價或抵達為估算時 |
 | 叫車 | 一律 | 等 6 分＋道路 ÷（市區 22／長程 55 km/h）＋路況延誤 | `ridehail_link` 估價區間中位數（`costRange`） | 一律 |
+
+### ✅ `weather_tomorrow` — 明天的預報（pack `weather`，2026-11-21）
+
+輸入 `lat`、`lon`。最近觀測站的鄉鎮 → `F-D0047-089` 鄉鎮預報（1h 快取）取**明天（台灣時間）**的時段：`{ town, county, date: 'YYYY-MM-DD', pop: 明天各時段降雨機率最高值, dayPop: 白天（06～18 時）最高值, minT, maxT, wx }`；沒有時區的時間一律當台灣時間；元素名稱防禦性比對（「3小時／12小時降雨機率」「溫度／最高溫度／最低溫度」「天氣現象」）⚠️。沒有明天的資料回 `CwaError`。speak：「明天 11/22（日） 臺北市中正區多雲短暫雨，18～26°C，降雨機率 60%，記得帶傘。」（看白天降雨機率：≥ 50% 帶傘、≥ 30% 折傘；沒有鄉鎮名稱說「那一帶」）。「後天」「週末」「禮拜X」：說明只查得到現在和明天，不拿現在的天氣充數。示範：雨天情境 70%、晴 20%。問「明天會下雨嗎」「明天出門要帶傘嗎」用這個（`weather_now` 只有現在）。
 
 ### ✅ `weather_now` — 現在與接下來 3 小時天氣（pack `weather`）
 

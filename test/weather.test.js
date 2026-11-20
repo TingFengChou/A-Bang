@@ -123,3 +123,49 @@ test('示範情境與 weather_now tool：mode 看氣象授權碼、來源與提�
   const mixed = createServices({ clientId: 'a', clientSecret: 'b' });
   assert.deepEqual([mixed.mode, mixed.weatherMode], ['live', 'demo']);
 });
+
+test('parseTomorrow：明天（台灣時間）的降雨機率取最高、溫度取最低與最高、天氣現象；同名鄉鎮看縣市；沒有明天的資料回 null', async () => {
+  const { parseTomorrow } = await import('../core/services/weather.js');
+  const now = Date.parse('2026-11-21T02:00:00Z'); // 台灣 11/21 10:00 → 明天 11/22
+  const el = (name, times) => ({ ElementName: name, Time: times });
+  const t = (start, v) => ({ StartTime: start, EndTime: start, ElementValue: [v] });
+  const loc = (county, town, pops) => ({ LocationsName: county, Location: [{ LocationName: town, WeatherElement: [
+    el('3小時降雨機率', pops.map(([s, p]) => t(s, { ProbabilityOfPrecipitation: String(p) }))),
+    el('溫度', [t('2026-11-22T06:00:00+08:00', { Temperature: '18' }), t('2026-11-22T15:00:00+08:00', { Temperature: '26' }), t('2026-11-21T15:00:00+08:00', { Temperature: '30' })]),
+    el('天氣現象', [t('2026-11-22T06:00:00+08:00', { Weather: '多雲短暫雨' })]),
+  ] }] });
+  const json = { records: { Locations: [
+    loc('臺北市', '中正區', [['2026-11-21T21:00:00+08:00', 90], ['2026-11-22T00:00:00+08:00', 20], ['2026-11-22T12:00:00+08:00', 60]]),
+    loc('基隆市', '中正區', [['2026-11-22T12:00:00+08:00', 10]]),
+  ] } };
+  assert.deepEqual(parseTomorrow(json, '中正區', now, '臺北市'), { date: '2026-11-22', pop: 60, dayPop: 60, minT: 18, maxT: 26, wx: '多雲短暫雨' });
+  assert.equal(parseTomorrow(json, '中正區', now, '基隆市').pop, 10, '同名鄉鎮看縣市');
+  assert.equal(parseTomorrow(json, '大安區', now, '臺北市'), null);
+  assert.equal(parseTomorrow({ records: {} }, '中正區', now), null);
+});
+
+test('weather_tomorrow（示範）：說明天日期、溫度範圍、降雨機率；雨天提醒帶傘', async () => {
+  const { createServices } = await import('../core/index.js');
+  const { callTool } = await import('../core/tools/index.js');
+  const r = await callTool(createServices({ forceMock: true, demo: { weather: 'rain' } }), 'weather_tomorrow', { lat: 25.0478, lon: 121.517 });
+  assert.match(r.speak, /^明天 \d{1,2}\/\d{1,2}（[日一二三四五六]） 那一帶.+\d+～\d+°C，降雨機率 70%，記得帶傘。$/);
+});
+
+test('parseTomorrow：沒有時區的時間一律當台灣時間（主機是 UTC 也一樣）；小寫欄位、DataTime；白天降雨機率 dayPop（半夜的雨不提醒帶傘）', async () => {
+  const { parseTomorrow, twParse } = await import('../core/services/weather.js');
+  assert.equal(twParse('2026-11-21 21:00:00'), Date.parse('2026-11-21T21:00:00+08:00'));
+  assert.equal(twParse('2026-11-21T13:00:00Z'), Date.parse('2026-11-21T13:00:00Z'));
+  const now = Date.parse('2026-11-21T02:00:00Z');
+  const json = { records: { locations: [{ locationsName: '臺北市', location: [{ locationName: '大安區', weatherElement: [
+    { elementName: '3小時降雨機率', time: [
+      { startTime: '2026-11-21 21:00:00', elementValue: [{ value: '90' }] }, // 今晚（不是明天）
+      { startTime: '2026-11-22 03:00:00', elementValue: [{ value: '80' }] }, // 明天半夜
+      { startTime: '2026-11-22 12:00:00', elementValue: [{ value: '20' }] },
+    ] },
+    { elementName: '溫度', time: [{ dataTime: '2026-11-22 09:00:00', elementValue: [{ value: '21' }] }] },
+  ] }] }] } };
+  const d = parseTomorrow(json, '大安區', now, '臺北市');
+  assert.deepEqual([d.pop, d.dayPop, d.minT, d.maxT], [80, 20, 21, 21]);
+  const { weatherTomorrow } = await import('../core/tools/weather.js');
+  assert.match(weatherTomorrow.speak({ ...d, county: '臺北市', town: '大安區' }), /^明天 11\/22（日） 臺北市大安區，21～21°C，降雨機率 80%。$/, '白天 20%：不提醒帶傘');
+});
