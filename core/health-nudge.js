@@ -5,7 +5,7 @@
 // 判斷規則由程式決定（ADR-0010 精神），門檻都是下面的常數，改了要更新 test/health.test.js。
 import { walkMinutes, navLinks } from './nav.js';
 
-/** 「動得少」：步數依時段比例、近 7 天運動分鐘的進度 */
+/** 「動得少」：步數低於時段比例，**而且**近 7 天運動也沒達進度（近 7 天完全沒有運動紀錄時只看步數；2026-11-22 產品負責人） */
 export const MOVE = Object.freeze({
   STEP_GOAL: 6000, // 一天的目標步數
   STEP_PACE: 0.6, // 到現在應有的步數（目標按時間比例）的 60% 以下才算少
@@ -65,7 +65,7 @@ export function normalizeHealth(raw, now = Date.now()) {
 
 /**
  * 動得多少（只在手機上算）。
- * low：步數低於「到現在應有步數」的 60%，或近 7 天運動分鐘低於進度（已達標就不算少）
+ * low：步數低於「到現在應有步數」的 60%，而且近 7 天運動分鐘也低於進度（近 7 天沒有運動紀錄時只看步數；已達標就不算少）
  * met：今天步數達到目標，或近 7 天運動分鐘達到 150 分
  * @param {ReturnType<typeof normalizeHealth>} h
  */
@@ -78,13 +78,13 @@ export function movement(h, now = Date.now()) {
   const expectedSteps = Math.round(MOVE.STEP_GOAL * prog);
   const stepsLow = steps != null && expectedSteps >= MOVE.MIN_EXPECTED_STEPS && steps < expectedSteps * MOVE.STEP_PACE;
   const exDays = days.filter((d) => d.exerciseMin != null);
-  const exKnown = exDays.length > 0;
+  const exKnown = exDays.some((d) => d.exerciseMin > 0); // 近 7 天有真的運動紀錄（全是 0 或沒有＝沒有紀錄：只看步數、不提運動分鐘）
   const weekMin = exDays.reduce((s, d) => s + d.exerciseMin, 0);
   const pastDays = Math.min(6, exDays.filter((d) => d.date < today).length);
   const expectedWeekMin = Math.round((MOVE.WEEK_EXERCISE_MIN * Math.min(7, pastDays + prog)) / 7);
   const exerciseLow = exKnown && expectedWeekMin > 0 && weekMin < expectedWeekMin;
   const met = (steps != null && steps >= MOVE.STEP_GOAL) || (exKnown && weekMin >= MOVE.WEEK_EXERCISE_MIN);
-  return { steps, weekMin: exKnown ? weekMin : null, expectedSteps, expectedWeekMin, stepsLow, exerciseLow, low: !met && (stepsLow || exerciseLow), met, known: steps != null || exKnown };
+  return { steps, weekMin: exKnown ? weekMin : null, expectedSteps, expectedWeekMin, stepsLow, exerciseLow, low: !met && stepsLow && (!exKnown || exerciseLow), met, known: steps != null || exKnown };
 }
 
 /**
@@ -162,8 +162,9 @@ export function nudgeFor({ health, weather = null, air = null, pos = null, spots
   const demo = !!health?.demo;
   const out = (kind, text = '', en = '', spot = null) => ({ kind, text, en, spot, demo, mv, wx });
   if (!health || !mv.known) return asked ? out('none', '這次讀不到你的步數，到「設定與隱私 → 健康與運動」看看權限。', "I couldn't read your steps this time. Check Settings → Health & exercise.") : out('none');
-  const moveZh = mv.stepsLow || mv.weekMin == null ? `今天才走 ${fmt(mv.steps ?? 0)} 步` : `這 7 天才運動 ${mv.weekMin} 分鐘`;
-  const moveEn = mv.stepsLow || mv.weekMin == null ? `you've only walked ${fmt(mv.steps ?? 0)} steps today` : `you've only exercised ${mv.weekMin} min this week`;
+  // 運動分鐘只在有真的運動紀錄時才提（不說「運動 0 分鐘」）
+  const moveZh = `今天才走 ${fmt(mv.steps ?? 0)} 步${mv.weekMin ? `，這 7 天運動 ${mv.weekMin} 分鐘` : ''}`;
+  const moveEn = `you've only walked ${fmt(mv.steps ?? 0)} steps today${mv.weekMin ? ` and exercised ${mv.weekMin} min this week` : ''}`;
   if (mv.met) {
     const zh = mv.steps != null && mv.steps >= MOVE.STEP_GOAL ? `今天走了 ${fmt(mv.steps)} 步，達標了，很棒！` : `這 7 天運動了 ${mv.weekMin} 分鐘，達標了，很棒！`;
     const en = mv.steps != null && mv.steps >= MOVE.STEP_GOAL ? `${fmt(mv.steps)} steps today. Goal reached, nice!` : `${mv.weekMin} min of exercise this week. Goal reached, nice!`;

@@ -349,7 +349,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 
 ## M15 健康與運動（產品負責人，2026-11-22；ADR-0018）
 
-- [x] M15-01 天氣好又動得少時建議去走走（2026-11-22，UX.md §5.0.5、AGENT.md §5.2.16）：外掛 `AbangHealth`（Android Health Connect `connect-client:1.1.0`，READ_STEPS／READ_EXERCISE、權限說明畫面；iOS HealthKit stepCount／appleExerciseTime、entitlement、NSHealthShareUsageDescription）、`core/health-nudge.js`（門檻常數、時段比例、天氣好、散步地點 10～25 分、文案、一天一次）、`public/js/health.js`（預設關閉、示範資料、權限、只在記憶體）、`public/js/health-ui.js`（首頁小卡、問阿幫補一句、設定頁與「我的」開關）；`weather_now` 加體感溫度 `feelsC`；地標庫加 `walk` 欄位與 13 個公園河濱步道；健康資料不送伺服器（單元測試＋E2E 檢查請求內容）。npm test 新增 18 項、E2E 4 項
+- [x] M15-01 天氣好又動得少時建議去走走（2026-11-22，UX.md §5.0.5、AGENT.md §5.2.16）：外掛 `AbangHealth`（Android Health Connect `connect-client:1.1.0`，READ_STEPS／READ_EXERCISE、權限說明畫面；iOS HealthKit stepCount／appleExerciseTime、entitlement、NSHealthShareUsageDescription）、`core/health-nudge.js`（門檻常數、時段比例、天氣好、動得少＝步數少而且運動未達進度〔沒有運動紀錄只看步數〕、散步地點 10～25 分、文案、一天一次）、`public/js/health.js`（預設關閉、示範資料、權限、只在記憶體）、`public/js/health-ui.js`（首頁小卡、問阿幫補一句、設定頁與「我的」開關）；`weather_now` 加體感溫度 `feelsC`；地標庫加 `walk` 欄位與 13 個公園河濱步道；健康資料不送伺服器（單元測試＋E2E 檢查請求內容）。npm test 新增 18 項、E2E 4 項
 - [ ] M15-01b 實機確認：Pixel（Health Connect 權限畫面與 rationale 畫面、步數與運動分鐘、沒裝 Health Connect 的舊手機）、iPhone（個人開發團隊能不能簽 HealthKit、權限畫面、讀取）
 - [ ] M15-02 上架準備：Play Console 健康資料權限聲明與資料安全表單、App Store HealthKit 用途說明（付費開發者帳號）
 
@@ -372,7 +372,8 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 | 安全情境用語與電話（S19） | 心理衛生、緊急應變專業人員確認 | Austin／專業人員 |
 | 隱私權政策〔待補〕欄位 | 營運單位資料、法務確認 | Austin／法務 |
 | 常用地點門牌地址（S1e） | 地址轉座標資料來源（TGOS 等）評估 | Austin |
-| iPhone 讀步數（M15-01b） | 免費個人開發團隊可能不能簽 HealthKit；需付費 Apple 開發者帳號 | Austin |
+| iPhone 讀步數（M15-01b） | 免費個人開發團隊可能不能簽 HealthKit；需付費 Apple 開發者帳號（2026-11-22 決定：維持簽不過就裝不含健康的版本、反白說原因；之後 iOS 改用模擬器安裝） | Austin |
+| 健康資料上架（M15-02） | Play Console 健康資料權限聲明與資料安全表單；App Store HealthKit 用途說明與 App ID capability（付費帳號）；13 個新散步地點座標校對 | Austin |
 - [ ] 之後：推播伺服器（排程，另寫 ADR，L-16）、地端 AI（判斷層放手機）、Siri 捷徑／App Intents、Android 小工具、App Attest／Play Integrity
 
 ## 其他候選（未排程）

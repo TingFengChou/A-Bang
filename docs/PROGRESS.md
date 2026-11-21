@@ -14,10 +14,11 @@
 ---
 
 ## 2026-11-22 M15-01 健康與運動：天氣好又動得少時建議去走走（ADR-0018）
-- 做了：專案內外掛 `AbangHealth`（Android：Health Connect `connect-client:1.1.0`，只要 READ_STEPS、READ_EXERCISE，`aggregateGroupByPeriod` 每天加總、Kotlin suspend 用 Continuation 從 Java 呼叫、權限說明畫面 `HealthRationaleActivity`〔rationale intent＋Android 14 activity-alias〕、到 Health Connect 允許／到 Play 商店安裝；iOS：HealthKit stepCount、appleExerciseTime 每天加總、`App.entitlements`、`NSHealthShareUsageDescription`，沒有 entitlement 回 no-entitlement）。規則與文案 `core/health-nudge.js`（純函式，前端以 /core/ 共用）：天氣好（沒下雨、降雨 < 30%、體感 15～31°C、AQI ≤ 100、06:00～19:30）、動得少（步數 < 6,000 按清醒時段比例的 60%，或近 7 天運動 < 150 分的進度）、散步地點（內建地標庫 `walk` 欄位，走路 10～25 分最近的）、一天一次。`public/js/health.js`（預設關閉、示範資料與外掛介面相同、步數只在記憶體）、`public/js/health-ui.js`：首頁「現在」散步小卡（今天不用到明天）、問阿幫回答下面補一句（不進對話紀錄）、設定頁與「我的」同一個開關（第一次打開才問權限；被拒說原因；不能用反白）、隱私權政策段落。`weather_now`／`outing_advice` 加體感溫度 `feelsC`；地標庫加 13 個公園、河濱、步道。iOS 開發安裝腳本：個人團隊不能簽 HealthKit 時改用不含 entitlement 的建置。SW v1.0.0-health。
+- 做了：專案內外掛 `AbangHealth`（Android：Health Connect `connect-client:1.1.0`，只要 READ_STEPS、READ_EXERCISE，`aggregateGroupByPeriod` 每天加總、Kotlin suspend 用 Continuation 從 Java 呼叫、權限說明畫面 `HealthRationaleActivity`〔rationale intent＋Android 14 activity-alias〕、到 Health Connect 允許／到 Play 商店安裝；iOS：HealthKit stepCount、appleExerciseTime 每天加總、`App.entitlements`、`NSHealthShareUsageDescription`，沒有 entitlement 回 no-entitlement）。規則與文案 `core/health-nudge.js`（純函式，前端以 /core/ 共用）：天氣好（沒下雨、降雨 < 30%、體感 15～31°C、AQI ≤ 100、06:00～19:30）、動得少（步數 < 6,000 按清醒時段比例的 60%，而且近 7 天運動 < 150 分的進度；沒有運動紀錄只看步數、不提運動分鐘——產品負責人 2026-11-22 定案）、散步地點（內建地標庫 `walk` 欄位，走路 10～25 分最近的）、一天一次。`public/js/health.js`（預設關閉、示範資料與外掛介面相同、步數只在記憶體）、`public/js/health-ui.js`：首頁「現在」散步小卡（今天不用到明天）、問阿幫回答下面補一句（不進對話紀錄）、設定頁與「我的」同一個開關（第一次打開才問權限；被拒說原因；不能用反白）、隱私權政策段落。`weather_now`／`outing_advice` 加體感溫度 `feelsC`；地標庫加 13 個公園、河濱、步道。iOS 開發安裝腳本：個人團隊不能簽 HealthKit 時改用不含 entitlement 的建置。SW v1.0.0-health。
 - 測試：npm test 新增 18 項（health.test.js 17、ios-dev-install 1）；E2E 新增 4 項（首頁小卡與今天不用、問阿幫補一句與一天一次、預設關閉與開關、App 被拒／沒有 Health Connect／達標），請求內容檢查沒有健康資料；Android assembleDebug、iOS xcodebuild（不簽署，模擬器與實機架構）成功
 - 文件：ADR-0018、adr/README、UX.md §3.1、§5.0.5、AGENT.md §5.2.16、§7、MCP_TOOLS.md、DATA_SOURCES.md、PLAN.md M15、CLAUDE.md、PROGRESS.md
-- 下一個：產品負責人看截圖；M15-01b 實機確認（Pixel、iPhone）
+- 決定（產品負責人 2026-11-22）：截圖可以；iPhone 維持簽不過就裝不含健康的版本；動得少改成「而且」；網頁版維持示範資料並標示；上架事項列進卡住項目
+- 下一個：M15-01b 實機確認（Pixel；iOS 改用模擬器）
 - 卡住：iPhone 免費個人開發團隊可能不能簽 HealthKit（需要付費帳號才能在 iPhone 上真的讀步數；開發版會反白說原因）
 
 ## 2026-11-21 R1 判斷看得到：討論串與決策圖逐項說明天氣、空品、路況怎麼影響建議

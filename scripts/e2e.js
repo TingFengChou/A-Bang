@@ -2773,7 +2773,7 @@ test('健康與運動：首頁「現在」散步小卡（地點＋時間）、�
     await card.waitFor({ timeout: 15000 });
     assert.equal(await card.getAttribute('data-kind'), 'go');
     assert.equal(await card.locator('b').first().textContent(), '去走走吧');
-    assert.match(await card.locator('p').textContent(), /^天氣好、AQI \d+，今天才走 1,600 步；走到二二八和平紀念公園約 1\d 分。$/);
+    assert.match(await card.locator('p').textContent(), /^天氣好、AQI \d+，今天才走 1,600 步，這 7 天運動 70 分鐘；走到二二八和平紀念公園約 1\d 分。$/);
     assert.match(await card.locator('.mv-note').textContent(), /示範資料，不是你的步數・步數只在手機上看，不上傳/);
     assert.equal(await card.locator('.tag.demo').count(), 1);
     assert.equal(await card.locator('button[data-act="nav"]').textContent(), '走到二二八和平紀念公園');
@@ -2805,7 +2805,7 @@ test('健康與運動：問「我要不要去運動」→ 回答下面在手機�
     const say = page.locator('.bubble.health-say');
     await say.waitFor({ timeout: 20000 });
     assert.equal(await say.getAttribute('data-kind'), 'go');
-    assert.match(await say.locator('.say').textContent(), /^天氣好、AQI \d+，今天才走 1,600 步；走到二二八和平紀念公園約 1\d 分。$/);
+    assert.match(await say.locator('.say').textContent(), /^天氣好、AQI \d+，今天才走 1,600 步，這 7 天運動 70 分鐘；走到二二八和平紀念公園約 1\d 分。$/);
     assert.match(await say.locator('.hs-note').textContent(), /步數只在手機上看，不上傳，也沒有跟問題一起送出/);
     assert.equal(await say.locator('.hs-acts button').count(), 2);
     await page.waitForTimeout(400);

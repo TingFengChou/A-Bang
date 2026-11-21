@@ -39,18 +39,25 @@ test('動得少：步數低於「到現在應有步數」的 60%（目標 6,000 
   assert.equal(MOVE.STEP_PACE, 0.6);
 });
 
-test('動得少：近 7 天運動分鐘低於 150 分的進度（資料只有幾天時按天數比例）', () => {
-  const now = at('22:00'); // 今天整天
+test('動得少：步數少「而且」近 7 天運動也未達 150 分的進度；沒有運動紀錄時只看步數', () => {
+  const now = at('22:00'); // 今天整天：應有 6,000 步，60% 是 3,600
   const full = [['2026-11-16', 6000, 20], ['2026-11-17', 6000, 20], ['2026-11-18', 6000, 20], ['2026-11-19', 6000, 20], ['2026-11-20', 6000, 20], ['2026-11-21', 6000, 20]];
-  const mv = movement(normalizeHealth(days({ steps: 5000, exerciseMin: 20 }, full), now), now);
+  const mv = movement(normalizeHealth(days({ steps: 3000, exerciseMin: 20 }, full), now), now);
   assert.equal(mv.weekMin, 140);
   assert.equal(mv.expectedWeekMin, 150);
   assert.equal(mv.exerciseLow, true);
-  assert.equal(mv.low, true, '步數沒達標、運動不夠 → 動得少');
+  assert.equal(mv.low, true, '步數少、運動也不夠 → 動得少');
+  assert.equal(movement(normalizeHealth(days({ steps: 5000, exerciseMin: 20 }, full), now), now).low, false, '運動不夠但步數不少：不推');
+  const moved = [['2026-11-16', 3000, 60], ['2026-11-17', 3000, 60]];
+  assert.equal(movement(normalizeHealth(days({ steps: 1000, exerciseMin: 0 }, moved), now), now).low, false, '步數少但運動有達進度：不推');
+  // 近 7 天完全沒有運動紀錄（都沒有或都是 0）：只看步數
+  const none = movement(normalizeHealth(days({ steps: 3000, exerciseMin: 0 }, [['2026-11-20', 3000, 0]]), now), now);
+  assert.deepEqual([none.weekMin, none.low], [null, true]);
   // 只有今天的資料：進度只算今天那一份
-  const one = movement(normalizeHealth(days({ steps: 5000, exerciseMin: 22 }), now), now);
+  const one = movement(normalizeHealth(days({ steps: 3000, exerciseMin: 22 }), now), now);
   assert.equal(one.expectedWeekMin, Math.round(150 / 7));
   assert.equal(one.exerciseLow, false);
+  assert.equal(one.low, false, '今天運動 22 分已達一天的進度');
   // 今天步數達標：就算運動分鐘不夠也算達標（不推）
   const met = movement(normalizeHealth(days({ steps: 6000, exerciseMin: 0 }, full), now), now);
   assert.deepEqual([met.met, met.low], [true, false]);
@@ -123,8 +130,12 @@ test('文案：天氣好又動得少 → 去走走（地點＋時間）；沒有
   assert.equal(n.kind, 'go');
   assert.match(n.text, /^天氣好、AQI 35，今天才走 2,100 步；走到大安森林公園約 \d+ 分。$/);
   assert.match(n.en, /Nice weather and AQI 35, and you've only walked 2,100 steps today\. Daan Forest Park is about a \d+-min walk\./);
+  assert.ok(!/運動/.test(n.text), '沒有運動紀錄：不提運動 0 分鐘');
   const none = nudgeFor({ health, ...NICE, pos: null, spots: SPOTS }, now);
   assert.equal(none.text, '天氣好、AQI 35，今天才走 2,100 步；附近走走 20 分鐘也好。');
+  // 有運動紀錄、也沒達進度：一起說
+  const withEx = normalizeHealth(days({ steps: 2100, exerciseMin: 0 }, [['2026-11-20', 5000, 10], ['2026-11-21', 4000, 5]]), now);
+  assert.equal(nudgeFor({ health: withEx, ...NICE }, now).text, '天氣好、AQI 35，今天才走 2,100 步，這 7 天運動 15 分鐘；附近走走 20 分鐘也好。');
   // 下雨：沒問就不說；自己問就說原因
   const rain = { ...NICE, weather: { ...NICE.weather, pop3h: 60 } };
   assert.equal(nudgeFor({ health, ...rain }, now).kind, 'none');
