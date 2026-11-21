@@ -416,3 +416,4 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
 .bike-fill.low i { background: var(--bad); }
 .chips.recent .chip { min-height: 44px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 .chips.recent .chip small { color: var(--muted); font-size: 12px; }
+.abang-sheet h2:focus { outline: none; } /* 打開時焦點放在標題（讀屏先念「問阿幫」），不用框 */

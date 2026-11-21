@@ -14,7 +14,7 @@
 ---
 
 ## 2026-11-21 T8b Android 實機煙霧測試
-- 做了：`scripts/smoke-android.js`（`npm run smoke:android`）：adb＋WebView 偵錯通道＋Playwright connectOverCDP，檢查原生外掛註冊、6 頁、浮動阿幫、返回鍵、沒有錯誤、截圖。實機跑出一個真問題：浮動阿幫打開時自動聚焦輸入框，手機會跳鍵盤蓋住半個對話、第一次按返回只收鍵盤 → 手機不自動聚焦（與問阿幫頁相同）。Pixel 實機全過。
+- 做了：`scripts/smoke-android.js`（`npm run smoke:android`）：adb＋WebView 偵錯通道＋Playwright connectOverCDP，檢查原生外掛註冊、6 頁、浮動阿幫、返回鍵、沒有錯誤、截圖。審查修正：多個 pid、多台裝置（ANDROID_SERIAL）、forward 與連線失敗也清掉、先設引導旗標再重新載入（開機錯誤也收）、結束時還原手機上的旗標、截圖改用 adb screencap（手機實際畫面）、沒拉出對話不按返回；打開浮動對話時焦點在「問阿幫」標題（讀屏先念）。實機跑出一個真問題：浮動阿幫打開時自動聚焦輸入框，手機會跳鍵盤蓋住半個對話、第一次按返回只收鍵盤 → 手機不自動聚焦（與問阿幫頁相同）。Pixel 實機全過。
 - 測試：npm test 534 項全過；E2E 59 項全過；smoke:android 全過
 - 文件：TESTING.md、CLAUDE.md、PLAN.md（T8b ✅、T8c iOS 列入）、PROGRESS.md
 - 下一個：T8c iOS 或待辦總表其他項目
