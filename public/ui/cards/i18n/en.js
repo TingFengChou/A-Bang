@@ -208,17 +208,6 @@ export const MESSAGES = {
   'scam.rulesUnreviewed': 'Rule set {v} (not yet reviewed by anti-fraud experts). Results are for reference only, not a legal or investigative conclusion.',
 
   // ── weather (weather_now) ──
-  'outing.item.umbrella.raining': "It's raining now; bring an umbrella",
-  'outing.item.umbrella.warn': '{n}% chance of rain in the next 3 hours; bring an umbrella',
-  'outing.item.umbrella.info': '{n}% chance of rain; a folding umbrella is a good idea',
-  'outing.item.hot.warn': '{n}°C and very hot; use sunscreen and drink water',
-  'outing.item.hot.info': '{n}°C and warm; sun protection helps',
-  'outing.item.cold.warn': '{n}°C and cold; dress warmly',
-  'outing.item.cold.info': '{n}°C and cool; bring a jacket',
-  'outing.item.mask.warn': 'AQI {n}, unhealthy air; consider a mask and less time outdoors',
-  'outing.item.mask.info': 'AQI {n}, moderate; sensitive people should avoid roadsides',
-  'outing.item.ok.ok': 'All good to go out',
-  'outing.item.ok.info': 'Only partial data this time; check the weather again before you go',
   'outing.title': 'Before you go',
   'outing.titleAt': 'Before you go: {name}',
   'outing.items': 'Check before leaving',

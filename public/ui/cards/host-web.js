@@ -38,8 +38,10 @@ export const STUCK_TITLE = '阿幫：公車一直不來';
 /** 「307 一直不來，可以到「問阿幫」改其他方式」 */
 export const stuckText = (w) => (w.lang === 'en' ? `Bus ${w.routeName} ${w.stuck === 'late' ? 'is running 10+ min late' : "isn't coming"}. Ask Abang for another way.` : `${w.routeName} ${w.stuck === 'late' ? '比預估晚了 10 分以上' : '一直沒有要來'}，可以到「問阿幫」改其他方式`);
 /** 改其他方式要送給阿幫的話：知道行程目的地就帶上（換頁後對話不在了也能重算） */
-export const stuckAsk = (w) => (w.trip?.to ? `不要坐公車，改別的方式去${w.trip.to}` : '不要坐公車了，改別的方式');
+export const stuckAsk = (w) => (w.lang === 'en' ? (w.trip?.to ? `No bus, find another way to ${w.trip.to}` : "The bus isn't coming. No bus, find another way") : w.trip?.to ? `不要坐公車，改別的方式去${w.trip.to}` : '不要坐公車了，改別的方式');
 export const NOTIFY_TITLE_EN = 'Abang: time to go';
+export const STUCK_TITLE_EN = 'Abang: bus not coming';
+export const ARRIVING_TITLE_EN = 'Abang: bus arriving';
 export const nativeBody = (route, stop, minutes, at = new Date(), lang = null) => (lang === 'en' ? `Bus ${route} reaches ${stop} in about ${minutes} min (estimated at ${hm(at)})` : `${route} 約 ${minutes} 分後到「${stop}」（${hm(at)} 的預估）`);
 /** App：把「該出門了」排到 at（提早 EARLY_MS 吸收一般排程的延遲；差不到 20 秒就不重排；失敗下次再試） */
 function planNative(w, at) {
@@ -68,7 +70,7 @@ function fireArrival(f) {
     if (visible) { if (planned) cancelNotify(NOTIFY_ID.arrival); }
     else if (!planned || planned > Date.now() + 5000) scheduleNotify(NOTIFY_ID.arrival, new Date(), w.lang === 'en' ? NOTIFY_TITLE_EN : NOTIFY_TITLE, text);
   } else {
-    try { if (typeof Notification !== 'undefined' && Notification.permission === 'granted') new Notification(w.lang === 'en' ? 'Abang: bus arriving' : '阿幫：公車快到站', { body: text, icon: '/icons/icon.svg', tag: 'abang-arrival' }); } catch { /* 部分瀏覽器只允許 SW 通知 */ }
+    try { if (typeof Notification !== 'undefined' && Notification.permission === 'granted') new Notification(w.lang === 'en' ? ARRIVING_TITLE_EN : '阿幫：公車快到站', { body: text, icon: '/icons/icon.svg', tag: 'abang-arrival' }); } catch { /* 部分瀏覽器只允許 SW 通知 */ }
   }
   try { navigator.vibrate?.([200, 100, 200]); } catch { /* 不支援 */ }
   signal('abang:arrival', { text }); // App 顯示 toast（沒開通知權限時也看得到）
@@ -109,9 +111,9 @@ export async function pollWatch(callTool) {
       const why = stuckReason(w, f);
       if (why) { // 只說一次
         w.stuck = why;
-        signal('abang:arrival-stuck', { routeName: w.routeName, stop: w.stop, reason: why, ask: stuckAsk(w) });
+        signal('abang:arrival-stuck', { routeName: w.routeName, stop: w.stop, reason: why, ask: stuckAsk(w), lang: w.lang || null });
         const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
-        if (hidden && hasNativeNotify()) scheduleNotify(NOTIFY_ID.stuck, new Date(), w.lang === 'en' ? 'Abang: bus not coming' : STUCK_TITLE, stuckText(w)); // App 在背景：畫面上的提示看不到
+        if (hidden && hasNativeNotify()) scheduleNotify(NOTIFY_ID.stuck, new Date(), w.lang === 'en' ? STUCK_TITLE_EN : STUCK_TITLE, stuckText(w)); // App 在背景：畫面上的提示看不到
       }
     }
     signal('abang:arrival-watch', w);

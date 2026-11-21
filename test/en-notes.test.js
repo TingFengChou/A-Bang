@@ -95,3 +95,22 @@ test('S12e：英文問出門建議、藥局；出門建議卡片英文；英文�
   assert.match(arrivalText('307', '西門', 300), /該出門了/);
   assert.match(nativeBody('307', '西門', 3, new Date(), 'en'), /^Bus 307 reaches 西門 in about 3 min/);
 });
+
+test('S12e 審查：穿什麼與明天、出門建議不誤判、買藥；建議中英文只有一份；英文提醒與一直不來', async () => {
+  const { parseIntent } = await import('../core/agent/demo-intent.js');
+  assert.equal(parseIntent('What should I wear tomorrow?').intent, 'weather');
+  assert.equal(parseIntent('Do I need a jacket?').intent, 'outing');
+  for (const q of ['Is it safe to go out at night?', 'What do I need for the MRT?', 'going out for dinner, any night market?']) assert.notEqual(parseIntent(q).intent, 'outing', q);
+  assert.equal(parseIntent('Where can I buy medicine?').intent, 'pharmacy');
+  const { outingItems } = await import('../core/agent/outing.js');
+  const cases = [{ weather: { raining: true, rainMm1h: 2, tempC: 33 }, air: { aqi: 160, status: '不健康' } }, { weather: { raining: true, rainMm1h: 0, pop3h: 80 } }, { weather: { pop3h: 40, tempC: 12 }, air: { aqi: 120 }, states: ['kids'] }, { weather: { pop3h: 10, tempC: 24 }, air: { aqi: 40 } }, { air: { aqi: null } }];
+  for (const c of cases) for (const x of outingItems(c)) assert.match(x.en, /^[A-Z0-9]/, `${x.text} → ${x.en}`);
+  assert.match(outingItems(cases[2]).find((x) => x.kind === 'mask').en, /unhealthy for sensitive groups; kids should wear a mask/);
+  assert.equal(outingItems(cases[3])[0].en, '24°C, AQI 40; all good to go out');
+  const { nextSteps } = await import('../public/js/agent/next-steps.js');
+  const steps = nextSteps([{ tool: 'bus_route_eta', data: { city: 'Taipei', routeName: '307', focus: { stopName: '西門', status: 0, etaSec: 400, direction: 0 } } }], null, { lang: 'en' });
+  assert.equal(steps.find((s) => s.kind === 'remind').payload.lang, 'en', '英文的提醒建議：通知也英文');
+  const { stuckAsk } = await import('../public/ui/cards/host-web.js');
+  assert.equal(stuckAsk({ lang: 'en', trip: { to: '台北101' } }), 'No bus, find another way to 台北101');
+  assert.equal(parseIntent('No bus, find another way to Taipei 101').avoid?.[0], 'bus');
+});
