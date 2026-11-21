@@ -1975,7 +1975,7 @@ const agentBodies = (page) => {
   return bodies;
 };
 
-test('回答在手機上寫：思考動畫出現「在手機上寫回答」→ 顯示改寫後的文字與「由手機上的 Gemini Nano 寫」；截圖', async () => {
+test('回答在手機上寫：思考動畫出現「在手機上寫回答」→ 顯示改寫後的文字與「手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答」；截圖', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = agentBodies(page);
     await page.fill('.chat-form input', '從西門町去台北101');
@@ -1990,7 +1990,7 @@ test('回答在手機上寫：思考動畫出現「在手機上寫回答」→ �
     const say = await page.textContent('.bubble.final .say');
     assert.match(say, /^報你知，建議坐「/);
     assert.equal(say, `報你知，${w[0].draft.replace(/^選/, '建議坐')}`);
-    assert.equal(await page.textContent('.device-line'), '這次的回答由手機上的 Gemini Nano 寫。');
+    assert.equal(await page.textContent('.device-line'), '手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答。', '判斷與寫回答合成一行');
     assert.equal(await page.getAttribute('.turn', 'data-writer'), 'edge');
     assert.match(await page.textContent('.agent-mode'), /回答在手機上寫/);
     await page.locator('.bubble.final').scrollIntoViewIfNeeded();
@@ -2012,7 +2012,7 @@ test('回答在手機上寫：數字被改 → 顯示程式版並標示；截圖
     await page.waitForSelector('.bubble.final', { timeout: 20000 });
     const w = await page.evaluate(() => window.__writes);
     assert.equal(await page.textContent('.bubble.final .say'), w[0].draft, '用程式版總結');
-    assert.equal(await page.textContent('.device-line'), '用阿幫的固定說法（手機寫的沒通過檢查）。');
+    assert.equal(await page.textContent('.device-line'), '手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（沒通過檢查）。');
     assert.equal(await page.getAttribute('.turn', 'data-writer'), 'program');
     await page.locator('.bubble.final').scrollIntoViewIfNeeded();
     await page.screenshot({ path: new URL('phone-edge-write-fallback.png', SHOTS).pathname });
@@ -2026,7 +2026,7 @@ test('回答在手機上寫：逾時 → 程式版；網頁版不帶 clientCaps�
     await page.waitForSelector('.bubble.final', { timeout: 20000 });
     const w = await page.evaluate(() => window.__writes);
     assert.equal(await page.textContent('.bubble.final .say'), w[0].draft);
-    assert.equal(await page.textContent('.device-line'), '用阿幫的固定說法（手機寫太久）。');
+    assert.equal(await page.textContent('.device-line'), '手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（逾時）。');
   }, { init: FAKE_EDGE_WRITE('slow'), ignore: /not in test/ });
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = agentBodies(page);

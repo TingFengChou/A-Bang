@@ -109,8 +109,9 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - **伺服器**（`server/agent.js`、`core/agent/run.js` `wantsEdgeWrite`）：只有生活 agent 採用。這一輪不論 Claude／地端模型設定都**不呼叫任何 AI 模型**：`status.mode = 'edge'`，走規則路徑（`runDemo`）查資料、`decide.js` 計分；判斷層只用快速版（嵌入分類器＋規則＋`deviceJudge`，`judgeCalls(..., { noModel: true })`）。最後送 `answer_draft { text, facts, lang }` → `done`，不送 `text`。安全情境照樣直接送 `text`；防詐 agent 帶了也照原路徑。log 記 `mode: 'edge'`。
 - **事實清單** `facts`（`core/agent/answer-facts.js`）：`{ intent, lang, demo, points: [小幫手的一句話（英文那一輪用英文）], trip?: { departAt, best: { name, minutes, cost, arriveAt }, others, arriveBy?, reason?, tips? } }`。不放座標、起訖點與使用者的句子。
 - **手機**：`AbangEdgeAI.write({ draft, prompt, lang, instructions })` 改寫成約 80 字內的一兩句（指示 `WRITE_INSTRUCTIONS`）；JS 等 2.5 秒。回來後由程式護欄 `checkRewrite`（`core/edge-write.js`，經 `/core/edge-write.js` 給前端）檢查：數字與時間只能來自草稿或事實清單、草稿的關鍵數字不能少、國字或英文的數量不能多、不能說已經叫車訂票付款（ADR-0011）、不能有投資建議、重要提醒（示範、末班、停駛、沒拿到位置、帶傘、時間很緊）要留、引號裡的名稱要在資料裡、語言與長度。不過、逾時、失敗、草稿太長或數字太多 → 用程式版總結。
-- **畫面**：思考動畫「在手機上寫回答」（`answer_draft` 後、改寫完成前）；回答上方一行照實說「這次的回答由手機上的 Gemini Nano 寫。」或「用阿幫的固定說法（手機寫的沒通過檢查）。」；頁底模式說明「回答在手機上寫；伺服器只查資料、用程式排序，不經伺服器的 AI 模型。」
+- **畫面**：思考動畫「在手機上寫回答」（`answer_draft` 後、改寫完成前）；回答上方只有一行，把手機判斷與寫回答合在一起照實說：手機判斷被採用且寫好回答 →「手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答。」；只有寫回答 →「這次的回答由手機上的 Gemini Nano 寫。」；沒通過檢查或逾時 →「手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（沒通過檢查／逾時）。」（沒有手機判斷時「這次的回答用阿幫的固定說法（…）。」）；英文同理，iPhone 照實寫 Apple Intelligence（`writeLine`）；頁底模式說明「回答在手機上寫；伺服器只查資料、用程式排序，不經伺服器的 AI 模型。」
 - **網頁版與不支援的手機**：不帶 `clientCaps`，行為完全不變（伺服器的模型或規則寫回答）。
+- **規則聽不懂的開放式問題**：edge 模式一律不退回伺服器模型（產品負責人 2026-11-21），照規則的說明列出阿幫查得到的內容；「阿幫問你」（PR #107）合進主線後改用 ask 給選項（待整合）。
 
 ## 4. 模型模式（✅ M5-05，ADR-0012）
 

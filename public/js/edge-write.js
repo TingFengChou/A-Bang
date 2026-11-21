@@ -95,19 +95,24 @@ export async function edgeWrite(draft, { engine, agent = 'life', timeout = WRITE
 }
 
 /**
- * 回答上方那一行：照實說這次的回答是誰寫的。
+ * 回答上方那一行（一輪只一行）：照實說手機上的 AI 這一輪做了什麼——聽懂問題（伺服器採用了手機的判斷）、寫了回答，或回答改用固定說法。
  * @param {{ by: string, reason?: string, engine?: string }} r edgeWrite 的結果
  * @param {'en'|null} lang
+ * @param {{ judged?: boolean, judgeEngine?: string }} [o] judged：這一輪伺服器採用了手機的判斷（status.judge.source === 'device'）
  */
-export function writeLine(r, lang = null) {
+export function writeLine(r, lang = null, { judged = false, judgeEngine } = {}) {
   const en = lang === 'en';
-  const name = EDGE_ENGINE_NAME[r?.engine] || (en ? 'the on-phone AI' : '手機上的 AI');
-  if (r?.by === 'edge') return en ? `This answer was written on your phone by ${name}.` : `這次的回答由手機上的 ${name} 寫。`;
+  const name = EDGE_ENGINE_NAME[r?.engine] || EDGE_ENGINE_NAME[judgeEngine] || (en ? 'the AI' : 'AI');
+  if (r?.by === 'edge') {
+    if (judged) return en ? `${name} on your phone understood your question and wrote this answer.` : `手機上的 ${name} 聽懂你的問題，也寫了這次的回答。`;
+    return en ? `This answer was written on your phone by ${name}.` : `這次的回答由手機上的 ${name} 寫。`;
+  }
   const why = {
-    check: en ? "the phone's version didn't pass Abang's checks" : '手機寫的沒通過檢查',
-    timeout: en ? 'the phone took too long' : '手機寫太久',
-    skip: en ? 'lots of numbers, so straight from the data' : '這題數字多，直接照資料說',
-    failed: en ? "the phone couldn't write it" : '手機這次沒寫出來',
-  }[r?.reason] || (en ? "the phone couldn't write it" : '手機這次沒寫出來');
-  return en ? `Abang's standard wording (${why}).` : `用阿幫的固定說法（${why}）。`;
+    check: en ? "didn't pass the checks" : '沒通過檢查',
+    timeout: en ? 'timed out' : '逾時',
+    skip: en ? 'lots of numbers, straight from the data' : '數字多，直接照資料說',
+    failed: en ? "the phone couldn't write it" : '手機沒寫出來',
+  }[r?.reason] || (en ? "the phone couldn't write it" : '手機沒寫出來');
+  if (judged) return en ? `${name} on your phone understood your question; the answer uses Abang's standard wording (${why}).` : `手機上的 ${name} 聽懂你的問題；回答用阿幫的固定說法（${why}）。`;
+  return en ? `This answer uses Abang's standard wording (${why}).` : `這次的回答用阿幫的固定說法（${why}）。`;
 }

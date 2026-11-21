@@ -229,18 +229,23 @@ test('前端：手機改寫通過 → 用改寫；數字被改 → 程式版；�
   assert.equal(sent.draft, D);
   assert.match(sent.prompt, /草稿：/);
   assert.equal(sent.lang, 'zh');
-  assert.equal(W.writeLine(ok), '這次的回答由手機上的 Gemini Nano 寫。');
+  assert.equal(W.writeLine(ok), '這次的回答由手機上的 Gemini Nano 寫。', '只有寫回答、沒有手機判斷');
+  assert.equal(W.writeLine(ok, null, { judged: true }), '手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答。', '判斷與寫回答合成一行');
+  assert.equal(W.writeLine(ok, 'en', { judged: true }), 'Gemini Nano on your phone understood your question and wrote this answer.');
+  assert.equal(W.writeLine({ ...ok, engine: 'apple' }, null, { judged: true }), '手機上的 Apple Intelligence 聽懂你的問題，也寫了這次的回答。', 'iPhone 照實寫');
 
   fakeCap({ write: async () => ({ engine: 'gemini-nano', ms: 500, text: GOOD.replace('約 7 分', '約 4 分') }) });
   const bad = await W.edgeWrite(DRAFT, { engine: 'gemini-nano' });
   assert.deepEqual({ by: bad.by, reason: bad.reason, text: bad.text }, { by: 'program', reason: 'check', text: D });
-  assert.equal(W.writeLine(bad), '用阿幫的固定說法（手機寫的沒通過檢查）。');
+  assert.equal(W.writeLine(bad, null, { judged: true }), '手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（沒通過檢查）。');
+  assert.equal(W.writeLine(bad), '這次的回答用阿幫的固定說法（沒通過檢查）。');
 
   fakeCap({ write: () => new Promise((r) => setTimeout(() => r({ engine: 'gemini-nano', text: GOOD }), 200)) });
   const slow = await W.edgeWrite(DRAFT, { engine: 'gemini-nano', timeout: 30 });
   assert.deepEqual({ by: slow.by, reason: slow.reason, text: slow.text }, { by: 'program', reason: 'timeout', text: D });
-  assert.equal(W.writeLine(slow), '用阿幫的固定說法（手機寫太久）。');
-  assert.equal(W.writeLine(slow, 'en'), "Abang's standard wording (the phone took too long).");
+  assert.equal(W.writeLine(slow, null, { judged: true }), '手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（逾時）。');
+  assert.equal(W.writeLine(slow, 'en', { judged: true }), "Gemini Nano on your phone understood your question; the answer uses Abang's standard wording (timed out).");
+  assert.equal(W.writeLine(slow, 'en'), "This answer uses Abang's standard wording (timed out).");
   await new Promise((r) => setTimeout(r, 220));
 
   fakeCap({ write: async () => { throw new Error('write failed'); } });

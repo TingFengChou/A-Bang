@@ -480,7 +480,7 @@ export default {
             break;
           case 'answer_draft': { // 回答交給手機寫（ADR-0017）：改寫、程式護欄檢查；不過或逾時用程式版，回答上方照實說是誰寫的
             const r = await edgeWrite(e, { engine: view.writeEngine, agent: agentId });
-            view.writeLine = writeLine(r, turnLang);
+            view.writeLine = writeLine(r, turnLang, { judged: view.judge?.source === 'device', judgeEngine: view.judge?.engine }); // 手機判斷與寫回答合成一行
             turn.dataset.writer = r.by;
             await handle({ type: 'text', delta: r.text });
             break;
