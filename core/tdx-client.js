@@ -9,7 +9,25 @@ export class TdxError extends Error {
   constructor(status, msg) { super(msg); this.name = 'TdxError'; this.status = status; }
 }
 
-export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log = () => {} }) {
+/** 免費方案每秒可呼叫的次數有限：同時最多幾個請求、兩次請求至少間隔多久（2026-11-21 實測行程比較會連續呼叫數次而被擋 429） */
+export const TDX_LIMIT = { concurrent: 3, gapMs: 220, retryMs: 1200 };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log = () => {}, limit = TDX_LIMIT }) {
+  // 請求排隊：最多 limit.concurrent 個同時進行，且每次送出至少間隔 limit.gapMs
+  let active = 0;
+  let lastAt = 0;
+  const queue = [];
+  const pump = () => {
+    while (active < limit.concurrent && queue.length) {
+      const job = queue.shift();
+      active++;
+      const wait = Math.max(0, lastAt + limit.gapMs - Date.now());
+      lastAt = Date.now() + wait;
+      sleep(wait).then(job.run).then(job.resolve, job.reject).finally(() => { active--; pump(); });
+    }
+  };
+  const throttled = (run) => new Promise((resolve, reject) => { queue.push({ run, resolve, reject }); pump(); });
   let token = null;
   let tokenExp = 0;
   let tokenPromise = null;
@@ -48,12 +66,22 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
     const hit = cache.get(url);
     if (hit && Date.now() < hit.exp) { recordFetch({ cacheHit: true, data: hit.data }); return hit.data; }
 
-    const doFetch = async () =>
-      fetchImpl(url, { headers: { authorization: `Bearer ${await getToken()}`, 'accept-encoding': 'br, gzip' } });
+    const doFetch = () => throttled(async () =>
+      fetchImpl(url, { headers: { authorization: `Bearer ${await getToken()}`, 'accept-encoding': 'br, gzip' } }));
 
     let res = await doFetch();
     if (res.status === 401) { token = null; res = await doFetch(); } // token 失效重試一次
-    if (res.status === 429) throw new TdxError(429, 'TDX 呼叫次數已達方案上限，請稍後再試');
+    if (res.status === 429) { // 每秒次數超過：照 Retry-After（沒有就等一下）重試一次
+      const after = Number(res.headers?.get?.('retry-after'));
+      await sleep(Number.isFinite(after) && after > 0 ? Math.min(after * 1000, 5000) : limit.retryMs);
+      log('[tdx] 429, retry once');
+      res = await doFetch();
+    }
+    if (res.status === 429) { // 額度用完：照 TDX 回的重置秒數說清楚（免費帳號審核前每分鐘只有 5 次，2026-11-21 實測）
+      const reset = Number(res.headers?.get?.('ratelimit-reset') ?? res.headers?.get?.('retry-after'));
+      const perMin = Number(res.headers?.get?.('x-ratelimit-limit-minute'));
+      throw new TdxError(429, `TDX 呼叫次數已達方案上限${Number.isFinite(perMin) && perMin > 0 ? `（每分鐘 ${perMin} 次）` : ''}，請${Number.isFinite(reset) && reset > 0 ? `約 ${Math.ceil(reset)} 秒後` : '稍後'}再試`);
+    }
     if (!res.ok) throw new TdxError(res.status, `TDX API 錯誤 ${res.status}：${(await res.text()).slice(0, 200)}`);
     const data = await res.json();
     recordFetch({ cacheHit: false, data });

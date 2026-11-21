@@ -10,7 +10,7 @@
 | 授權 | 政府資料開放授權條款；畫面與 MCP 文字需標示「資料來源：交通部 TDX 運輸資料流通服務」 |
 | 認證 | OIDC client credentials：`POST https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token`，`grant_type=client_credentials`、`client_id`、`client_secret`；token 有效 24 小時 |
 | 呼叫 | `GET https://tdx.transportdata.tw/api{path}`，`Authorization: Bearer {token}`，`$format=JSON` |
-| 限制 | token endpoint 每 IP 每分鐘 ≤ 20 次；API 額度依會員方案（M1-04 記錄實際值）；遇 429 依 `Retry-After` 重試一次 |
+| 限制 | token endpoint 每 IP 每分鐘 ≤ 20 次；API 額度依會員方案（2026-11-21 實測：新帳號在「加值應用」審核通過前每分鐘只有 5 次，回應標頭 `x-ratelimit-limit-minute: 5`、`ratelimit-reset`）；client 端排隊（同時 3 個、間隔 220ms）；遇 429 依 `Retry-After` 重試一次 |
 | 實作 | `core/tdx-client.js`：token single-flight、到期前 5 分換新、回應快取（TTL 由呼叫端指定）、401 換 token 重試、OData 空白編碼為 `%20` |
 | 環境變數 | `TDX_CLIENT_ID`、`TDX_CLIENT_SECRET`（留空 → 示範模式） |
 
