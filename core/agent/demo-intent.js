@@ -727,7 +727,7 @@ export function demoSummary(it, results, suggestions = []) {
     return `${pre}${o ? o.speak : outingSay({})}`;
   }
   if (it.intent === 'weather' && it.later) return '我目前只查得到現在和明天的天氣，後天以後的預報還沒辦法；要不要先看明天的？';
-  if (it.intent === 'savedMissing') return `我還不知道你的「${it.missing}」在哪。下次在${it.missing === '家' ? '家' : it.missing}時，到「設定與隱私 → 常用地點」按「設成現在位置」，之後說「${it.missing === '家' ? '回家' : `去${it.missing}`}」就能直接規劃。現在也可以直接說地名，例如「${it.missing === '家' ? '回板橋' : '去台北車站'}」。`;
+  if (it.intent === 'savedMissing') return `我還不知道你的「${it.missing}」在哪。到「設定與隱私 → 常用地點」按「輸入地點」選附近的車站或地標，或下次在${it.missing === '家' ? '家' : it.missing}時按「設成現在位置」，之後說「${it.missing === '家' ? '回家' : `去${it.missing}`}」就能直接規劃。現在也可以直接說地名，例如「${it.missing === '家' ? '回板橋' : '去台北車站'}」。`;
   if (it.reset) return '好，重新開始。想去哪裡、想查什麼？沒說起點的話，我用你現在的位置。';
   if (it.intent === 'unknown') return `我可以幫你查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）和生活資訊（天氣、空品、地震、藥局、垃圾車、油價、發票、股市收盤）。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
   const last = Object.values(results).flat().filter(Boolean).at(-1);

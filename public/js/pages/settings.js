@@ -7,6 +7,7 @@ import { cancelNotify, NOTIFY_ID } from '../native-notify.js';
 import { loadPlaces, savePlace, SAVED_KEYS } from '../saved-places.js';
 import { showOnboarding } from '../onboarding.js';
 import { listReminders, cancelReminder, cancelAllReminders } from '../reminders.js';
+import { createWebHost } from '../../ui/cards/host-web.js';
 
 const EDGE_KEY = 'abang.edgeAI';
 const ENGINE = { apple: 'Apple Intelligence', 'gemini-nano': 'Gemini Nano' };
@@ -49,7 +50,7 @@ export const settings = {
       </section>
       <section class="card settings">
         <h2>常用地點</h2>
-        <p class="note">請在家、公司或學校時按「設成現在位置」，阿幫會記住那裡的位置。設好以後說「回家」「去公司」就能直接規劃。座標只存在這支手機，只有你提到時才跟問題一起送出。</p>
+        <p class="note">在家、公司或學校時按「設成現在位置」，或按「輸入地點」打地名設定。設好以後說「回家」「去公司」就能直接規劃。座標只存在這支手機，只有你提到時才跟問題一起送出。</p>
         <div id="saved" role="list"></div>
       </section>
       <section class="card settings" id="reminders-card">
@@ -69,6 +70,7 @@ export const settings = {
       </section>
       <p class="updated"><button type="button" class="linkish" id="guide">再看一次使用說明</button>・<a href="#/privacy">隱私權政策</a>・資料來源：交通部 TDX、中央氣象署、環境部、政府資料開放平臺</p>`;
 
+    const host = createWebHost(); // 輸入地點時查找地點（find_place）
     // 每個地點一列：更新時只換文字與按鈕狀態（不重建，鍵盤與讀屏的焦點留在原處）
     const rows = {};
     const box = main.querySelector('#saved');
@@ -90,7 +92,7 @@ export const settings = {
           toast(denied ? '定位權限沒有打開：到手機的「設定 → Abang → 位置」允許後再試一次' : '沒拿到位置。請確認定位已開啟、權限已允許，再試一次', 5000);
         } else if (!inTaiwan(p)) toast(`現在位置不在台灣，不能設成「${k}」`, 5000);
         else if (p.accuracy > 300) toast(`手機只給了大概位置（誤差約 ${p.accuracy >= 1000 ? `${Math.round(p.accuracy / 100) / 10} 公里` : `${Math.round(p.accuracy)} 公尺`}），設成「${k}」會不準。請打開「精確位置」或到窗邊再試一次`, 6000);
-        else if (savePlace(k, { lat: p.lat, lon: p.lon, name: k })) toast(`已把現在位置設成「${k}」`);
+        else if (savePlace(k, { lat: p.lat, lon: p.lon, name: '現在位置' })) toast(`已把現在位置設成「${k}」`);
         else toast('這個瀏覽器不能存資料（無痕模式？）', 5000);
         update(k);
       });
@@ -101,14 +103,59 @@ export const settings = {
         update(k);
         set.focus(); // 「清除」按鈕會隱藏，焦點移到同一列的主要按鈕
       });
-      row.append(set, del);
+      // 輸入地點（S1b）：不必人在那裡；用阿幫的找地點查（只送打的地名，不送位置），選一個結果存起來
+      const find = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small quiet', textContent: '輸入地點' });
+      find.setAttribute('aria-label', `輸入地點設成「${k}」`);
+      find.setAttribute('aria-expanded', 'false');
+      const panel = document.createElement('div');
+      panel.className = 'saved-find';
+      panel.hidden = true;
+      panel.innerHTML = `<label><span class="sr-only">「${esc(k)}」的地點</span><input type="search" maxlength="30" placeholder="車站、捷運站或地標，例如：板橋車站" autocomplete="off"></label><button type="button" class="btn small">搜尋</button><small class="saved-hint">目前查不到門牌地址，請選離那裡最近的車站或地標。</small><div class="saved-results" role="list" aria-live="polite"></div>`;
+      const input = panel.querySelector('input');
+      const results = panel.querySelector('.saved-results');
+      const search = async () => {
+        const q = input.value.trim();
+        if (!q) { input.focus(); return; }
+        results.textContent = '搜尋中…';
+        try {
+          const r = await host.callTool('find_place', { query: q });
+          const list = (r.data || []).filter((x) => inTaiwan(x)).slice(0, 5);
+          results.replaceChildren();
+          if (!list.length) { results.textContent = `找不到「${q}」，換個說法或加上縣市`; return; }
+          for (const x of list) {
+            const b = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small quiet', textContent: x.name });
+            b.setAttribute('role', 'listitem');
+            b.setAttribute('aria-label', `把「${k}」設成 ${x.name}`);
+            b.addEventListener('click', () => {
+              if (loadPlaces()[k] && !window.confirm(`要把「${k}」改成「${x.name}」嗎？`)) return;
+              if (savePlace(k, { lat: x.lat, lon: x.lon, name: x.name })) toast(`已把「${k}」設成 ${x.name}`);
+              panel.hidden = true; find.setAttribute('aria-expanded', 'false');
+              update(k);
+              find.focus();
+            });
+            results.append(b);
+          }
+        } catch (e) { results.textContent = e.message || '暫時查不到，稍後再試'; }
+      };
+      panel.querySelector('button').addEventListener('click', search);
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); search(); } });
+      find.addEventListener('click', () => {
+        panel.hidden = !panel.hidden;
+        find.setAttribute('aria-expanded', String(!panel.hidden));
+        if (!panel.hidden) input.focus();
+      });
+      const acts = document.createElement('div');
+      acts.className = 'saved-acts'; // 按鈕一組：放不下時整組換到下一行，地點名稱不會被擠成直排
+      acts.append(set, find, del);
+      row.append(acts, panel); // 搜尋框放在同一列裡（列表的每一項只有 listitem）
       box.append(row);
       rows[k] = { row, set, del };
     }
     const update = (k) => {
       const has = !!loadPlaces()[k];
       const { row, set, del } = rows[k];
-      row.querySelector('small').textContent = has ? '已設定' : '還沒設定';
+      const saved = loadPlaces()[k];
+      row.querySelector('small').textContent = !has ? '還沒設定' : saved.name && saved.name !== k && saved.name !== '現在位置' ? `已設定：${saved.name}` : '已設定（用當時的位置）'; // 讓人確認設對了
       set.textContent = has ? '重設' : '設成現在位置';
       set.className = `btn small${has ? ' quiet' : ''}`; // 已設定時降為次要（避免不小心蓋掉）
       set.setAttribute('aria-label', has ? `把「${k}」重設成現在位置` : `把現在位置設成「${k}」`);
@@ -188,7 +235,7 @@ export const privacy = {
         <p><b>裝置端 AI：</b>手機 App 可用手機內建的模型（Apple Intelligence、Gemini Nano）先判斷問題類型，只送出判斷結果（例如「行程、趕時間」）；可在「設定與隱私」關閉。</p>
         <p><b>相機（掃發票 QR code）：</b>影像只在手機上解讀號碼與日期，不上傳、不保存影像。</p>
         <p><b>通知：</b>到站與出門提醒是手機上的本機通知，不經過推播伺服器。</p>
-        <p><b>存在你手機上的資料：</b>收藏、我的發票（號碼與日期）、偏好、進行中的提醒、常用地點（家、公司、學校的座標）、離線時顯示的上次查詢結果（公車到站 10 分鐘內、路線與時刻表 24 小時內；不含座標，但看得出你查過哪些路線與站牌）只存在這支手機；常用地點只有在你提到（例如「回家」）時，那一個的座標才跟問題一起送出用來規劃；Claude 模式下，座標不給模型，但依座標查到的站名、路線、天氣等結果會給模型轉述。可在「設定與隱私」清除。</p>
+        <p><b>存在你手機上的資料：</b>收藏、我的發票（號碼與日期）、偏好、進行中的提醒、常用地點（家、公司、學校的座標）、離線時顯示的上次查詢結果（公車到站 10 分鐘內、路線與時刻表 24 小時內；不含座標，但看得出你查過哪些路線與站牌）只存在這支手機；常用地點只有在你提到（例如「回家」）時，那一個的座標才跟問題一起送出用來規劃；用「輸入地點」設定時，打的地名會送到阿幫伺服器查座標（不送你的位置）；Claude 模式下，座標不給模型，但依座標查到的站名、路線、天氣等結果會給模型轉述。可在「設定與隱私」清除。</p>
         <h3>4. 利用期間、地區、對象、方式</h3>
         <p>期間：回答當下處理；記憶體快取與限流資料自動清除；不建立使用者檔案。地區：〔待補：伺服器所在地〕；Claude 模式另有美國。對象：營運單位、上述資料來源（只送查詢需要的座標或地名）、Claude 模式下的 Anthropic。方式：以電腦自動處理。</p>
         <h3>5. 你的權利</h3>
