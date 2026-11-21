@@ -40,7 +40,11 @@ export function guardedText(profile, text, emit) {
   return g.text;
 }
 import { STATES } from '../decide.js';
+import { HabitSchema } from '../tools/trip.js';
+import { tripAsk, resolvePending, PENDING_SLOTS, unknownAsk, UNKNOWN_SHORT } from './ask.js';
 
+/** 「你說過」的預設狀況只能是這幾種（habits.js 叫車原因） */
+export const USUAL_STATES = ['rush', 'luggage', 'lessWalk'];
 export const MAX_MESSAGES = 10;
 export const MAX_CHARS = 500;
 export const MAX_TOOL_ROUNDS = 5;
@@ -58,11 +62,18 @@ export function deviceLocation(req) {
 
 const RequestSchema = z.object({
   messages: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(MAX_CHARS) })).min(1).max(MAX_MESSAGES),
-  userState: z.object({ picked: z.array(z.enum(Object.keys(STATES))).max(6).optional() }).optional(),
+  // habit：手機算好的常選比例（public/js/habits.js；只有方式與比例，沒有地點）。由程式帶進 plan_trip，不交給模型
+  // usual：使用者說過的預設狀況（問「你常叫車，通常是因為？」答的：趕時間、常帶東西、不想走路）；不自動套用——會改變建議時問「這次也帶東西嗎？」（ADR-0016）
+  // habitAsk：手機說「這種方式選得夠多、還沒問過」（只有方式與次數）→ 這一輪行程後問一次要不要優先推（ADR-0016）
+  userState: z.object({ picked: z.array(z.enum(Object.keys(STATES))).max(6).optional(), habit: HabitSchema.optional(), usual: z.array(z.enum(USUAL_STATES)).max(USUAL_STATES.length).optional(),
+    habitAsk: z.object({ mode: z.enum(['walk', 'bike', 'bus', 'metro', 'thsr', 'tra', 'intercity', 'ridehail']), count: z.number().int().min(1).max(50) }).optional() }).optional(),
   clientTools: z.array(z.string()).max(10).optional(),
   clientToolResults: z.array(z.object({ id: z.string(), ok: z.boolean(), result: z.any().optional() })).max(10).optional(),
   context: z.string().max(200).optional(),
   // 常用地點（S1）：存在手機，只在使用者提到時送（「回家」→ 家）；台灣範圍內的座標
+  // 阿幫問你：使用者直接打字回答上一個問題時，客戶端帶回那個問題的 pending（ADR-0016；只有 slot 與意圖，不含個資）
+  // slot 只能是有處理函式的；其他欄位只收明確的（intent 等之後有 slot 讀它時再加，不收就會被拿掉）
+  pendingAsk: z.object({ id: z.string().max(60), slot: z.enum(Object.keys(PENDING_SLOTS)), state: z.enum(Object.keys(STATES)).optional() }).optional(),
   savedPlaces: z.partialRecord(z.enum(['家', '公司', '學校']), z.object({ name: z.string().trim().min(1).max(40), lat: z.number().min(21).max(27), lon: z.number().min(118).max(123) })).optional(),
   // 手機上的模型先判斷好的意圖與狀態（ADR-0014）：只是提示，列舉值以外一律拒絕；方案排序仍由 decide.js 計分
   deviceJudge: z.object({ intent: z.enum(Object.keys(JUDGE_INTENTS)), states: z.array(z.enum(JUDGE_STATES)).max(JUDGE_STATES.length), engine: z.enum(DEVICE_ENGINES) }).optional(),
@@ -81,6 +92,9 @@ export function validateRequest(body) {
     throw new UserError(`請求格式錯誤：${i.path.join('.') || '內容'}（${i.message}）；訊息最多 ${MAX_CHARS} 字、最多 ${MAX_MESSAGES} 則`);
   }
   if (r.data.messages.at(-1).role !== 'user') throw new UserError('最後一則訊息必須是使用者的提問');
+  // 等待中的答案：「好」「台中」→ 完整的一句（「我趕時間」），規則與模型都看改寫後的話；不是答案就照原句
+  const said = resolvePending(r.data.pendingAsk, r.data.messages.at(-1).content);
+  if (said) r.data.messages = [...r.data.messages.slice(0, -1), { role: 'user', content: said }];
   return r.data;
 }
 
@@ -106,10 +120,10 @@ export function busFollowUp(trip) {
  * @param {object} svc
  * @param {Array<{ name: string, args: object }>} calls
  * @param {(e: object) => void} emit
- * @param {{ profile: object, nextId: () => string, picked?: string[] }} opts
+ * @param {{ profile: object, nextId: () => string, picked?: string[], habit?: Record<string, number>, ask?: { done: boolean, habitAsk?: object, usual?: string[] } }} opts habit：手機送來、使用者同意過的常選比例（plan_trip 一律用這個，模型給的不採用）；ask：這一輪的「阿幫問你」（一輪最多一個；usual＝說過的預設狀況，會改變建議時問一句）
  * @returns {Promise<Array<{ name: string, ok: boolean, result?: object, error?: string, followUp?: object }>>} 依 calls 順序
  */
-export async function execTools(svc, calls, emit, { profile, nextId, picked = [], judgedStates, lang = null }) {
+export async function execTools(svc, calls, emit, { profile, nextId, picked = [], judgedStates, lang = null, habit = null, ask = null }) {
   const started = calls.map((c) => ({ ...c, id: nextId() }));
   // 英文提問（S12d）：小幫手的一句話用英文版；「→ 影響」是中文，英文那一輪不附
   const en = lang === 'en';
@@ -119,10 +133,16 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
   return Promise.all(started.map(async (c) => {
     try {
       if (!profile.tools.includes(c.name)) throw new UserError(`這個 agent 不能使用 ${c.name}`);
-      const result = await callTool(svc, c.name, c.name === 'plan_trip' ? withPickedPrefs(c.args, picked, judgedStates) : c.args);
+      const args = c.name === 'plan_trip' ? withHabit(withPickedPrefs(c.args, picked, judgedStates), habit) : c.args;
+      const result = await callTool(svc, c.name, args);
+      // 行程比較內部查的天氣、空品、路況：各出一行「資料＋影響」（程式產生；排在行程的結論前面）
+      if (c.name === 'plan_trip') for (const item of result.data?.considered || []) emit(ev.dataNote({ parent: c.id, item, lang }));
       emit(ev.toolResult({ id: c.id, result: shown(c.name, result), impact: impactFor(c.name, result.data) }));
       if (c.name !== 'plan_trip') return { name: c.name, ok: true, result };
       emit(ev.decision(withPicked(result.data, picked)));
+      // 阿幫問你（ADR-0016）：這一輪還沒問過才問（ask 是整輪共用的 { done, habitAsk }）
+      const q = ask && !ask.done ? tripAsk(result.data, { habitAsk: ask.habitAsk, usual: ask.usual, lang }) : null;
+      if (q) { ask.done = true; emit(ev.ask({ id: `ask-${nextId()}`, ...q })); }
       const f = busFollowUp(result.data);
       if (!f || !profile.tools.includes('bus_route_eta')) return { name: c.name, ok: true, result };
       emit(ev.agentNote(en ? enNote(f.note) : f.note));
@@ -152,6 +172,15 @@ function withPickedPrefs(args, picked, judgedStates) {
   const said = judgedStates ?? (Array.isArray(prefs.states) ? prefs.states : []);
   const states = [...new Set([...said, ...picked])];
   return { ...args, prefs: { ...prefs, states } };
+}
+
+/** 習慣只採用手機送來的（模型或規則帶的一律拿掉；手機沒送就不帶） */
+export function withHabit(args, habit) {
+  if (!args || typeof args !== 'object') return args;
+  const { habit: _model, ...prefs } = args.prefs && typeof args.prefs === 'object' ? args.prefs : {};
+  const next = { ...prefs, ...(habit && Object.keys(habit).length && { habit }) };
+  const { prefs: _p, ...rest } = args;
+  return Object.keys(next).length ? { ...rest, prefs: next } : rest;
 }
 
 /** 對話裡之前的使用者訊息（判斷層看追問用） */
@@ -241,12 +270,13 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   const results = {};
   const used = [];
   let rounds = 0;
+  const ask = { done: false, habitAsk: req.userState?.habitAsk, usual: req.userState?.usual }; // 阿幫問你：這一輪最多一個
   for (const step of plan.steps(it, now)) {
     if (++rounds > MAX_TOOL_ROUNDS) break;
     const s = step(results);
     if (!s) break;
     emit(ev.agentNote(it.lang === 'en' ? enNote(s.note) : s.note)); // 英文提問：說明用英文（S12c）
-    const out = await execTools(svc, s.calls, emit, { profile, nextId, picked, lang: it.lang });
+    const out = await execTools(svc, s.calls, emit, { profile, nextId, picked, lang: it.lang, habit: req.userState?.habit, ask });
     for (const o of out) {
       used.push(o.name);
       if (o.ok) (results[o.name] ||= []).push(o.result);
@@ -255,7 +285,10 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
     if (out.some((o) => !o.ok)) break; // 有一步失敗就不往下，總結會說明
   }
   if (used.length) emit(ev.discussionEnd({ tools: [...new Set(used)] }));
-  const summary = guardedText(profile, plan.summary(it, results, profile.suggestions), emit);
+  // 手機寫回答的那一輪聽不懂（ADR-0017：不退回伺服器模型）：問一句給幾個查得到的選項，回答只留一句短的
+  const lost = edgeWrite && it.intent === 'unknown' && !it.thanks && !it.sorry && !it.reset;
+  if (lost) emit(ev.ask({ id: `ask-${nextId()}`, ...unknownAsk(it.lang) }));
+  const summary = lost ? UNKNOWN_SHORT[it.lang === 'en' ? 'en' : 'zh'] : guardedText(profile, plan.summary(it, results, profile.suggestions), emit);
   if (edgeWrite) { // 手機改寫；程式版總結與事實清單都只來自這一輪的資料（不含座標）
     const lang = it.lang === 'en' ? 'en' : 'zh';
     emit(ev.answerDraft({ text: summary, facts: answerFacts(it, results, { lang }), lang }));

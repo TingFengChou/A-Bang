@@ -47,7 +47,8 @@
 ```jsonc
 {
   "messages": [{ "role": "user", "content": "從西門町到台北 101 怎麼去？" }], // 最多 10 輪，只含文字
-  "userState": { "picked": ["budget"] },        // 使用者點選的狀態（選填）
+  "userState": { "picked": ["budget"], "habit": { "metro": 0.6 }, "usual": ["luggage"], "habitAsk": { "mode": "metro", "count": 6 } }, // 點選的狀態；habit＝使用者同意過的常選比例；usual＝說過的預設狀況；habitAsk＝可以問的候選（都選填、只在手機算，ADR-0016）
+  "pendingAsk": { "id": "ask-t7", "slot": "state", "state": "rush" }, // 選填：使用者直接打字回答上一個「阿幫問你」時帶回（ADR-0016）
   "clientTools": ["device_location"],           // 客戶端支援的裝置端工具（ADR-0008）
   "clientToolResults": [{ "id": "c1", "ok": true, "result": { "lat": 25.04, "lon": 121.51 } }], // 選填
   "context": "使用者在卡片上選了『從西門站出發』",    // 選填，來自 host.setContext()
@@ -65,8 +66,10 @@
 | `agent_note` | `text`（≤ 30 字，可含 `@角色`） | 討論串中阿幫的一句話 |
 | `tool_start` | `id`, `name`, `title`, `role`（公車、YouBike…）, `server`（`abang`、`tdx-official`…）, `pack`, `tier`, `input` | 被點名的小幫手出現「輸入中…」 |
 | `tool_result` | `id`, `ok`, `speak`, `card?`, `data?`, `metrics: { calls, cacheHits, cacheHit, scanned, ms }`（即 `callTool` 的 `metrics`）, `error?`, `impact?: { tone: 'bad'\|'good'\|'neutral', text }` | 小幫手說出 `speak`；`impact` 是這筆資料對決策的影響（`core/agent/impact.js`，不經模型）；決策圖的資料膠囊 |
+| `data_note` | `parent`（那次工具呼叫的 id）, `role`（天氣、空品、路況）, `source`, `text`, `impact: { tone, text }`, `effect`（`none`／`score`／狀態 key）, `available`, `mode: 'demo'\|'live'` | 工具內部用到的一項資料＋對這次判斷的影響（目前是 `plan_trip` 查的天氣、空品、國道路況；`core/services/trip-considered.js` 產生，不經模型）。以工具發言樣式排在 `parent` 的發言前面；`mode: 'demo'` 標「示範資料」；同一輪已點名該角色的工具（看 `tool_start`；工具平行，結果可能比 data_note 晚到；示範模式另外查過）時客戶端不重複顯示（2026-11-21） |
 | `discussion_end` | `tools`, `servers` | 討論收合成一行摘要 |
-| `decision` | `states: [{ key, source: 'auto'\|'user'\|'picked', from?, detail? }]`, `arriveBy?`, `best`, `options`, `ranked`, `excluded`, `weights`, `reason` | 決策圖動畫；前端可用同一引擎即時重算 |
+| `decision` | `states: [{ key, source: 'auto'\|'user'\|'picked'\|'usual', from?, detail? }]`, `arriveBy?`, `best`, `options`, `ranked`, `excluded`, `weights`, `reason`, `habit?`, `habitOn?`, `considered`（同 `plan_trip.considered`）, `single?: { text, textEn, suggest: [{ label, ask }] }` | 決策圖動畫；前端可用同一引擎即時重算；`considered`＝「資料」欄每個來源一個節點；`single`＝只有一種方式時的說明與「接下來可以」的建議 |
+| `ask` | `id`, `question`, `key?`（同一題的鍵，客戶端 24 小時內不重問）, `options: [{ label, kind: 'state'\|'reply'\|'store'\|'dismiss'\|'action', state?\|say?\|value?\|action?, guess? }]`, `why?`, `about?`, `pending?: { slot, state?, intent? }` | 阿幫問你（ADR-0016）：一輪最多一個，由程式產生。state＝加狀態即時重算（`say` 給不能重算的客戶端）、reply＝送出 `say`（完整的一句）、store＝存手機偏好（`value`）、action＝手機做事（`openLink`／`watchArrival`／`remind`，L2 先確認）、dismiss＝不改。直接打字回答時前端先比對按鈕文字，對不上就把 `pending` 當 `pendingAsk` 帶回，`validateRequest` 用 `resolvePending` 把短答改寫成完整的一句 |
 | `guardrail` | `tier`, `rule` | 套用的護欄（L2 以上） |
 | `client_tool_call` | `id`, `name`, `input` | 請客戶端執行裝置端工具（`device_location`、`notify_at`） |
 | `context_reset` | — | 使用者說「重來」：畫面加「重新開始」分隔線、前面的對話變淡（2026-11-21） |
@@ -96,7 +99,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 ### 3.3 執行器（✅ M5-04）
 
-`core/agent/run.js`：`validateRequest`（訊息 ≤ 500 字、≤ 10 則、最後一則是使用者、`userState.picked` 只能是已知狀態）；`execTools(svc, calls, emit, { profile, nextId, picked })`（平行：先送全部 `tool_start`，再依完成順序送 `tool_result`；`plan_trip` 成功後送 `decision`；不在 profile 白名單的 tool 回 `ok:false`；錯誤訊息經 `publicMessage`，不外洩上游細節）；`runDemo(svc, body, emit)`（示範模式：`status` → 每段 `agent_note`＋工具 → `discussion_end` → `text` → `done`；某段失敗就停止往下；最多 5 輪）。模型模式（M5-05，§4）共用 `execTools`；`plan_trip` 會自動併入畫面上點選的狀態（`withPickedPrefs`）。
+`core/agent/run.js`：`validateRequest`（訊息 ≤ 500 字、≤ 10 則、最後一則是使用者、`userState.picked` 只能是已知狀態；`userState.habit` 鍵限定 8 種交通方式、值 0～1、總和 ≤ 1.01；`userState.usual` 只能是 rush／luggage／lessWalk；`userState.habitAsk` 是方式＋次數；`pendingAsk` ≤ 1000 字元）；`execTools(svc, calls, emit, { profile, nextId, picked })`（平行：先送全部 `tool_start`，再依完成順序送 `tool_result`；`plan_trip` 成功後送 `decision`；不在 profile 白名單的 tool 回 `ok:false`；錯誤訊息經 `publicMessage`，不外洩上游細節）；`runDemo(svc, body, emit)`（示範模式：`status` → 每段 `agent_note`＋工具 → `discussion_end` → `text` → `done`；某段失敗就停止往下；最多 5 輪）。模型模式（M5-05，§4）共用 `execTools`；`plan_trip` 會自動併入畫面上點選的狀態（`withPickedPrefs`）；`prefs.habit` 一律由程式換成手機送來的 `userState.habit`（`withHabit`：手機沒送就拿掉，模型或規則帶的不採用；`groundedPrefs` 也丟掉模型的 habit），示範與模型模式相同。`decision` 事件帶 `habit`（比例）與 `habitOn`（這次有沒有加分），決策圖的「你同意：優先推捷運」chip 與前端重算用。`userState.usual`（說過的預設狀況）**不自動套用**：這一輪沒說狀況、沒指定方式，而且加上它會換建議時，問「這次也帶東西嗎？」〔是（猜的，kind state、source usual）〕〔這次沒有〕，點〔是〕才在決策圖加上「你說過：常帶東西」重算。`plan_trip` 之後 `execTools` 依整輪共用的 `ask = { done, habitAsk }` 送最多一個 `ask` 事件（`tripAsk`：① 習慣確認 ② 說過的預設狀況「這次也…嗎？」③ `plan_trip` 的關鍵問題 `ask`，帶 `key`＝同一段起訖〔座標到小數 2 位〕同一題，手機 24 小時內問過就不顯示，只存雜湊）。個人化與互動確認見 ADR-0010、ADR-0016。
 
 ### 3.4 裝置端工具（✅ M5-07）
 
@@ -111,7 +114,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - **手機**：`AbangEdgeAI.write({ draft, prompt, lang, instructions })` 改寫成約 80 字內的一兩句（指示 `WRITE_INSTRUCTIONS`）；JS 等 2.5 秒。回來後由程式護欄 `checkRewrite`（`core/edge-write.js`，經 `/core/edge-write.js` 給前端）檢查：數字與時間只能來自草稿或事實清單、草稿的關鍵數字不能少、國字或英文的數量不能多、不能說已經叫車訂票付款（ADR-0011）、不能有投資建議、重要提醒（示範、末班、停駛、沒拿到位置、帶傘、時間很緊）要留、引號裡的名稱要在資料裡、語言與長度。不過、逾時、失敗、草稿太長或數字太多 → 用程式版總結。
 - **畫面**：思考動畫「在手機上寫回答」（`answer_draft` 後、改寫完成前）；回答上方只有一行，把手機判斷與寫回答合在一起照實說：手機判斷被採用且寫好回答 →「手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答。」；只有寫回答 →「這次的回答由手機上的 Gemini Nano 寫。」；沒通過檢查或逾時 →「手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（沒通過檢查／逾時）。」（沒有手機判斷時「這次的回答用阿幫的固定說法（…）。」）；英文同理，iPhone 照實寫 Apple Intelligence（`writeLine`）；頁底模式說明「回答在手機上寫；伺服器只查資料、用程式排序，不經伺服器的 AI 模型。」
 - **網頁版與不支援的手機**：不帶 `clientCaps`，行為完全不變（伺服器的模型或規則寫回答）。
-- **規則聽不懂的開放式問題**：edge 模式一律不退回伺服器模型（產品負責人 2026-11-21），照規則的說明列出阿幫查得到的內容；「阿幫問你」（PR #107）合進主線後改用 ask 給選項（待整合）。
+- **規則聽不懂的開放式問題**：edge 模式一律不退回伺服器模型（產品負責人 2026-11-21），改用「阿幫問你」的 `ask`（`core/agent/ask.js` `unknownAsk`，`about: 'unknown'`）給 4 個查得到的選項（怎麼去台北101、附近公車站、現在天氣、發票對獎；英文另一組），都是 `reply`：按了就把規則聽得懂的完整一句送出；`answer_draft` 只留一句短的（`UNKNOWN_SHORT`），不再列一串例句。道謝、道歉、重來不算聽不懂。
 
 ## 4. 模型模式（✅ M5-05，ADR-0012）
 
@@ -325,6 +328,12 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - 模型模式：以本地假 Anthropic SSE 伺服器（`ANTHROPIC_BASE_URL`）與假 OpenAI 相容伺服器測試工具迴圈、`agent_note` 轉換、錯誤、5 輪上限、定位、refusal／截斷、預算降級（`test/agent-model.test.js`）。
 - 狀態：說「我帶行李」→ `decision.states` 含 `{ key: 'luggage', source: 'said' }`。
 - 限流：第 11 次請求收到 `error`（`retryable: true`）。
+
+### 5.2.10b 判斷看得到：天氣、空品、路況逐項說明（2026-11-21，產品負責人：「他說會看天氣空氣品質，但都只顯示詢問定位，其他真的有一起考慮嗎？」）
+
+- `plan_trip` 輸出 `considered`：天氣、空品、國道路況各一筆 `{ source, role, available, demo, value, text, say, effect, tone }`（`core/services/trip-considered.js`）。`effect`：`none` 不影響、`score` 只影響延誤風險分數（國道車多）、其餘是加入的自動狀態（`rain`、`rainSoon`、`badAir`、`traffic`），與 `states` 的自動狀態同一套門檻。查不到照實說「查不到」；最近的空品測站超過 25 公里（`AIR_MAX_M`）不採用（真實與示範相同；示範資料只有雙北、桃園、台中的測站）；出發日不是今天時天氣說「現在…（出發時可能不同）」。每一項的 `demo` 看該來源自己（天氣看氣象署授權碼、空品看環境部金鑰、路況看 TDX）；TDX 額度用完改用示範資料時（`withTdxFallback`），路況那一行 `demo: true`、`fallback: 'tdx-limit'`，文字加「（TDX 額度用完，這次先用示範資料）」。
+- `execTools` 在 `plan_trip` 成功後、`tool_result` 前送三個 `data_note`（示範與模型模式相同，不靠模型）；`plan_trip` 給模型的文字多一行「判斷用到的資料：…」。開頭「我先看天氣、空品、路況…」因此一定有對應的三行。
+- 只有一種方式時 `plan_trip.single`：依各方式沒列出的原因（太遠、附近沒有站、某時間以後查不到趕得上的班次、不可行）組一句說明，示範資料加註「班次與站牌是模擬的；設定金鑰後就是即時資料」；`suggest`：沒有班次時「改成明天早上出發」（使用者說了起點就帶著：「明天早上 8 點從西門町到台北101」）、示範資料時「改從台北車站出發比較看看」；真實模式但這次 TDX 額度用完改用示範資料（`metrics.currentFallback()`）時，說明加「（TDX 額度用完，這次先用示範資料…）」，不當成真的沒有班次（「接下來可以」的 chip，點了送出那一句；之後可改用「阿幫問你」）。`speak` 改說「只找到○○一種方式」，`impact` 與示範總結說原因。
 
 ### 5.2.11 模型模式情境評測與程式補強（2026-11-21）
 

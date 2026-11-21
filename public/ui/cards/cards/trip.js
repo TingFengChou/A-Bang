@@ -69,6 +69,12 @@ import { navButton, confirmLinkButton, bookButton } from '../actions.js';
 
 const MAX_ALT = 2;
 
+/** 按建議方案的導航、叫車、訂票＝選了這種方式：送 abang:choice（網頁 App 的 habits.js 記常選的方式，只有方式；MCP Apps 裡沒人聽） */
+const chose = (el, role) => {
+  el.addEventListener('click', (e) => { if (e.target?.closest?.('button') && typeof CustomEvent === 'function') globalThis.dispatchEvent?.(new CustomEvent('abang:choice', { detail: { role } })); }, true); // 捕捉階段：按鈕自己 stopPropagation
+  return el;
+};
+
 /**
  * 每段在分段條上的位置（依真實分鐘比例）；太短的段至少佔 minShare，其餘依比例縮，總和 1。
  * @returns {Array<{ mode: string, minutes: number, from: number, to: number }>}
@@ -147,10 +153,10 @@ function optionBlock(o, ctx, best) {
       h('span', { class: `ab-chip${o.bike.rent.tight ? ' warn' : ' ok'}` }, t('trip.bikeRent', { name: o.bike.rent.name, n: o.bike.rent.count })),
       h('span', { class: `ab-chip${o.bike.ret.tight ? ' warn' : ' ok'}` }, t('trip.bikeReturn', { name: o.bike.ret.name, n: o.bike.ret.count }))),
     o.bike && (o.bike.rent.tight || o.bike.ret.tight) && h('ul', { class: 'ab-bike-warn' }, o.notes.filter((n) => /可能/.test(n) && !/變動/.test(n)).map((n) => h('li', {}, n))),
-    best && h('div', { class: 'ab-actions' },
+    best && chose(h('div', { class: 'ab-actions' },
       navButton(host, o.legs[0]?.nav),
       ride && confirmLinkButton(host, ride, t('trip.ridehailConfirm'), t('trip.ridehail')),
-      o.train && bookButton(host, { system: o.role.toUpperCase(), trainNo: o.train.trainNo, date: o.train.date, from: o.train.from, to: o.train.to }, (m) => { ctx.state.err = m; ctx.rerender(); })),
+      o.train && bookButton(host, { system: o.role.toUpperCase(), trainNo: o.train.trainNo, date: o.train.date, from: o.train.from, to: o.train.to }, (m) => { ctx.state.err = m; ctx.rerender(); })), o.role),
     best && remindBlock(o, ctx),
     pick);
 }

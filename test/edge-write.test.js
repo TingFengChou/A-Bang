@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { checkRewrite, cleanRewrite, numbersIn, keyNumbers, worthRewriting, writePrompt, WRITE_INSTRUCTIONS } from '../core/edge-write.js';
 import { runDemo, validateRequest, wantsEdgeWrite } from '../core/agent/run.js';
 import { answerFacts } from '../core/agent/answer-facts.js';
+import { parseIntent } from '../core/agent/demo-intent.js';
 import { createServices } from '../core/index.js';
 import { createAgentHandler } from '../server/agent.js';
 import { thinkStart, thinkStep, thinkText } from '../public/js/agent/thinking.js';
@@ -137,6 +138,29 @@ test('edge：英文那一輪 lang=en；安全情境照樣直接送 text（不交
   assert.equal(en.find((e) => e.type === 'answer_draft').lang, 'en');
   const safe = await run('我不想活了');
   assert.ok(safe.some((e) => e.type === 'text') && !safe.some((e) => e.type === 'answer_draft'));
+});
+
+test('edge：聽不懂時不退回伺服器模型，用 ask 給 2～4 個查得到的選項（按了送出的句子規則都聽得懂）', async () => {
+  for (const [q, lang] of [['幫我寫一首關於秋天的詩', 'zh'], ['tell me a joke', 'en']]) {
+    const es = await run(q);
+    const a = es.find((e) => e.type === 'ask');
+    assert.ok(a, q);
+    assert.equal(a.about, 'unknown');
+    assert.ok(a.options.length >= 2 && a.options.length <= 4);
+    for (const o of a.options) {
+      assert.equal(o.kind, 'reply');
+      assert.notEqual(parseIntent(o.say).intent, 'unknown', `${o.label}：${o.say}`);
+    }
+    const d = es.find((e) => e.type === 'answer_draft');
+    assert.equal(d.lang, lang);
+    assert.ok(es.indexOf(a) < es.indexOf(d), '問句在回答前面');
+    assert.ok(d.text.length <= 120 && !/試試看：「/.test(d.text), '選項在上面，回答只留一句短的（不再列一串例句）');
+  }
+  const thanks = await run('謝謝');
+  assert.ok(!thanks.some((e) => e.type === 'ask'), '道謝不是聽不懂');
+  const web = await run('幫我寫一首關於秋天的詩', { mode: 'demo' }, {});
+  assert.ok(!web.some((e) => e.type === 'ask'), '網頁版（沒帶 clientCaps）照舊');
+  assert.match(web.find((e) => e.type === 'text').delta, /^我可以幫你查交通/);
 });
 
 test('edge：防詐 agent 不改寫（照樣送 text，模式不是 edge）', async () => {

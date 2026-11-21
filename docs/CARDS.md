@@ -119,6 +119,9 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 // mode：使用者指定的方式；avoid：使用者說不要的方式（A3，ranking.excluded[].why「你說不要叫車」；全部被排除時卡片說「排除你說不要的方式後，沒有其他可行的方案」，與「都趕不上」分開）
 // 同時給 mode=X 與 avoid 含 X：X 被排除、回 modeUnavailable（照分數建議並明說）
 // options[].lastBus：接近末班（示範 23:00 後）；skipped[]：沒列入的方式與原因（深夜收班、末班已過、YouBike 沒車位…）
+// habit：使用者同意過的常選比例（{ metro: 0.6 }，選填）；habitOn：這次有沒有加分；ranking.ranked[].breakdown.habit：習慣加分（ADR-0010 2026-11-21）
+// ask：關鍵問題（{ state, text, textEn, from, to, dMin, dCost }，ADR-0016）；states[].source 另有 usual（你說過，i18n trip.state.usual）
+// 卡片：按建議方案的導航／叫車／訂票時送 window 事件 abang:choice { role }（網頁 App 記常選的方式；MCP Apps 裡沒人聽）
 ```
 
 新增（A1b，2026-11-21）：`states[].key` 加 `group`（多人同行）、`rainSoon`（可能下雨）；選填 `party`、`tips[]`（`{ kind, text }`：`tight`／`rain` 以警示色列在建議方案上面，`cost` 列在理由下方；最多 5 條）、`tight: { slackMin }`；多人時叫車方案的 `cost`／`costRange` 是每人分攤（價格寫「每人 55～75 元」，多輛寫車數）、`share` 有總額與車數。決策圖的「多人同行」不能點掉（車資已是每人，要改人數跟阿幫說）。
