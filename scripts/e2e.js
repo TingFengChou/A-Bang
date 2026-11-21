@@ -72,6 +72,12 @@ async function withPage(device, path, fn, { init, initArg, ignore, geo = true, m
 const shot = (page, name) => page.screenshot({ path: new URL(`${name}.png`, SHOTS).pathname, fullPage: true });
 
 const DEVICES = { phone: devices['iPhone 13'], desktop: { viewport: { width: 1280, height: 860 } } };
+/** 問阿幫（生活）一開始是動態建議（依時段與情境）：按「更多例子」列出固定範例（life.json） */
+async function moreExamples(page) {
+  await page.waitForSelector('.suggest .chip');
+  const more = page.locator('.suggest .chip.ghost', { hasText: '更多例子' });
+  if (await more.count()) { await more.click(); await page.waitForFunction(() => !document.querySelector('.suggest .chip.ghost')); }
+}
 
 for (const [dname, device] of Object.entries(DEVICES)) {
   test(`${dname}：首頁、示範橫幅、分頁列、搜尋公車`, async () => {
@@ -307,6 +313,7 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       await page.waitForSelector('.suggest .chip');
       // 輸入框至少 16px（iOS 點進去才不會自動放大）
       assert.ok(parseFloat(await page.locator('.chat-input').evaluate((e) => getComputedStyle(e).fontSize)) >= 16);
+      await moreExamples(page);
       await page.locator('.suggest .chip').first().click(); // 去台北 101（起點用現在位置）
       await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
       // 回答後：桌面自動聚焦輸入框；手機不聚焦（不跳鍵盤蓋住回答）
@@ -368,7 +375,7 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       const page = await ctx.newPage();
       await page.addInitScript(() => Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 }));
       await page.goto(`${base}/#/agent`);
-      await page.waitForSelector('.suggest .chip');
+      await moreExamples(page);
       await page.locator('.suggest .chip').first().click();
       await page.waitForSelector('.decision .dg-svg', { timeout: 20000 });
       assert.equal(await page.evaluate(() => document.documentElement.classList.contains('lite-motion')), false);
@@ -392,13 +399,14 @@ for (const [dname, device] of Object.entries(DEVICES)) {
   test(`${dname}：示範模式 8 個建議問題（M5-13、M10）都有討論串、卡片與總結`, async () => {
     const want = ['trip', 'bus-route', 'youbike', 'weather', 'trip', 'trip', 'timetable', 'invoice']; // 依 life.json 建議問題順序（起點與所在地用現在位置）
     await withPage(device, '#/agent', async (page) => {
-      await page.waitForSelector('.suggest .chip');
+      await moreExamples(page);
       const qs = await page.locator('.suggest .chip').allTextContents();
       assert.equal(qs.length, want.length);
       for (let i = 0; i < qs.length; i++) {
-        // 回答後建議會換成「接下來可以…」；按「其他問題」回到一般建議再點下一題
-        if (await page.locator('.suggest.next').count()) await page.locator('.suggest .chip', { hasText: '其他問題' }).click();
-        await page.locator('.suggest .chip').nth(i).click();
+        // 回答後建議會換成「接下來可以…」（動態的下一句）；按「其他問題」回到一般建議再點下一題
+        if (i > 0) { await page.waitForSelector('.suggest.next'); await page.locator('.suggest .chip', { hasText: '其他問題' }).click(); }
+        assert.equal(await page.locator('.suggest:not(.page-ask) .chip').nth(i).textContent(), qs[i]);
+        await page.locator('.suggest:not(.page-ask) .chip').nth(i).click();
         await page.waitForFunction((n) => document.querySelectorAll('.bubble.final').length === n, i + 1, { timeout: 20000 });
         const turn = page.locator('.turn').nth(i);
         assert.equal(await turn.locator('.msg.error').count(), 0, qs[i]);
@@ -2754,6 +2762,170 @@ test('語音問阿幫：第一次按麥克風跳權限框（App 暫時看不見�
   }, { init: FAKE_VOICE({ mode: 'auto', startDelay: 800 }), ignore: VOICE_IGNORE });
 });
 
+// ───── 動態「下一句」建議（UX.md §3.2、AGENT.md §5.5） ─────
+/** 假的裝置端 AI：suggest 依情境回句子（查完行程後回 5 句：1 句查不到、1 句跟畫面重複）；記下呼叫與收到的情境 */
+const FAKE_SUGGEST = `window.__sug = { calls: [], contexts: [] };
+window.Capacitor = {
+  isNativePlatform: () => true, getPlatform: () => 'android', isPluginAvailable: () => false, addListener: () => ({ remove() {} }),
+  nativePromise: (plugin, method, args) => {
+    if (plugin !== 'AbangEdgeAI') return Promise.reject(new Error('not in test'));
+    window.__sug.calls.push(method);
+    if (method === 'status') return Promise.resolve({ available: true, engine: 'gemini-nano', reason: 'ok' });
+    if (method === 'judge') return Promise.resolve({ engine: 'gemini-nano', ms: 40, result: '{"intent":"trip","states":[]}' });
+    if (method === 'suggest') {
+      window.__sug.contexts.push(args.context);
+      const after = /剛剛問：/.test(args.context);
+      const list = after ? ['捷運現在多久一班？', '台北101附近有藥局嗎？', '從台北101到西門町怎麼去？', '從西門町到台北101怎麼去？', '晚上回程怎麼走？'] : ['明天會下雨嗎？', '附近 YouBike 還有車嗎？', '高鐵台北到台中下一班幾點？', '幫我訂餐廳'];
+      return new Promise((res) => setTimeout(() => res({ engine: 'gemini-nano', ms: 300, result: list.map((x, i) => (i + 1) + '. ' + x).join('\\n') }), 300));
+    }
+    return Promise.resolve({});
+  },
+};`;
+
+test('動態建議（網頁版）：依情境用規則；查完行程後 chips 與提示都換了；點 chip 直接送出', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.waitForSelector('.suggest .chip[data-src]');
+    const first = await page.locator('.suggest .chip[data-src]').allTextContents();
+    const ph0 = await page.getAttribute('.chat-input', 'placeholder');
+    assert.match(ph0, /^例如：/);
+    assert.equal(await page.getAttribute('.suggest:not(.page-ask)', 'role'), 'group');
+    assert.ok(first.length >= 3, first.join('|'));
+    let checks = 0;
+    page.on('request', (r) => { if (r.url().includes('/api/v1/suggest/check')) checks++; });
+    await page.fill('.chat-input', '從西門町到台北101怎麼去');
+    await page.press('.chat-input', 'Enter');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    await page.waitForSelector('.suggest.next .next-title');
+    const after = await page.locator('.suggest .chip[data-src]').allTextContents();
+    assert.notDeepEqual(after, first, `${after} vs ${first}`);
+    assert.ok(after.some((x) => /回程|YouBike|公車還要多久|捷運/.test(x)), after.join('|'));
+    const ph1 = await page.getAttribute('.chat-input', 'placeholder');
+    assert.notEqual(ph1, ph0, 'placeholder 跟著換');
+    assert.equal(checks, 0, '網頁版只用規則，不驗證也不呼叫模型');
+    await page.locator('.suggest .chip.next-ask').first().click();
+    await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
+    assert.equal(await page.locator('.msg.user').count(), 2, '點了直接送出');
+    assert.equal(await page.locator('.turn').nth(1).locator('.msg.error').count(), 0);
+  });
+});
+
+test('動態建議（App）：手機上的 AI 回 5 句 → 只出現 3 句且都查得到（丟掉查不到的、跟畫面重複的）；只送句子去驗證；截圖', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const checkBodies = [];
+    page.on('request', (r) => { if (r.url().includes('/api/v1/suggest/check')) checkBodies.push(JSON.parse(r.postData())); });
+    await page.waitForSelector('.suggest .chip[data-src="edge"]');
+    assert.ok(!(await page.locator('.suggest .chip').allTextContents()).includes('幫我訂餐廳'), '首次：查不到的不顯示');
+    await page.fill('.chat-input', '從西門町到台北101怎麼去');
+    await page.press('.chat-input', 'Enter');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    await page.waitForFunction(() => [...document.querySelectorAll('.suggest.next .chip[data-src="edge"]')].some((b) => b.textContent === '從台北101到西門町怎麼去？'), null, { timeout: 8000 });
+    const edge = await page.locator('.suggest .chip[data-src="edge"]').allTextContents();
+    assert.equal(edge.length, 3, edge.join('|'));
+    assert.ok(!edge.includes('晚上回程怎麼走？'), '查不到的丟掉');
+    assert.ok(!edge.includes('從西門町到台北101怎麼去？'), '跟畫面上的行程重複的丟掉');
+    for (const q of edge) { // 每一句都是阿幫查得到的
+      const r = await page.request.post(`${base}/api/v1/suggest/check`, { data: { asks: [q] } });
+      assert.equal((await r.json()).data[0].ok, true, q);
+    }
+    assert.equal(await page.getAttribute('.chat-input', 'placeholder'), `例如：${edge[0]}`, 'placeholder 是最可能的那一句');
+    // 隱私：驗證只送句子；情境（含剛剛的問題與結果）只給手機上的模型
+    assert.ok(checkBodies.length >= 1 && checkBodies.every((b) => Object.keys(b).join() === 'asks'), JSON.stringify(checkBodies));
+    const ctxs = await page.evaluate(() => window.__sug.contexts);
+    assert.ok(ctxs.some((c) => /剛剛問：從西門町到台北101怎麼去/.test(c)), ctxs.join('\n---\n'));
+    assert.ok(ctxs.every((c) => !/\d{2,3}\.\d{3,}/.test(c)), '情境沒有座標');
+    await page.locator('.suggest:not(.page-ask)').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: new URL('phone-suggest-after-trip.png', SHOTS).pathname });
+    await page.locator('.suggest .chip[data-src="edge"]', { hasText: '台北101附近有藥局嗎？' }).click();
+    await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
+    assert.match(await page.locator('.msg.user').nth(1).textContent(), /台北101附近有藥局嗎/);
+  }, { init: FAKE_SUGGEST, ignore: /not in test/ });
+});
+
+test('動態建議：設定關掉「用手機上的 AI 猜」就不呼叫 suggest，改用規則', async () => {
+  await withPage(DEVICES.phone, '#/settings', async (page) => {
+    await page.waitForSelector('#edge-suggest');
+    assert.equal(await page.isChecked('#edge-suggest'), true, '預設開');
+    await page.locator('#suggest-row').click();
+    assert.equal(await page.evaluate(() => localStorage.getItem('abang.edgeSuggest')), 'off');
+    await page.goto(`${base}/#/agent`);
+    await page.waitForSelector('.suggest .chip[data-src]');
+    await page.waitForTimeout(400);
+    assert.ok(!(await page.evaluate(() => window.__sug.calls)).includes('suggest'));
+    assert.equal(await page.locator('.suggest .chip[data-src="edge"]').count(), 0);
+  }, { init: FAKE_SUGGEST, ignore: /not in test/ });
+});
+
+test('動態建議：中央鍵從公車頁拉出對話 → 下車前提醒我排第一、附近還有哪些公車；截圖', async () => {
+  await withPage(DEVICES.phone, `#/bus/Taipei/307?stop=${encodeURIComponent('民權二段')}&dir=0`, async (page) => {
+    await page.waitForSelector('.bus-focus');
+    await page.click('#abang-fab');
+    await page.waitForSelector('#abang-sheet[open] .suggest .chip[data-src]');
+    const labels = await page.locator('#abang-sheet .suggest:not(.page-ask) .chip').allTextContents();
+    assert.equal(labels[0], '下車前提醒我', `公車頁：提醒類動作排第一 ${labels.join('|')}`);
+    assert.ok(labels.includes('附近還有哪些公車？'), labels.join('|'));
+    assert.match(await page.locator('#abang-sheet .page-ask').textContent(), /307/, '這一頁的問題仍在上面那排');
+    await page.screenshot({ path: new URL('phone-suggest-bus-page.png', SHOTS).pathname });
+    await page.locator('#abang-sheet .suggest .chip', { hasText: '下車前提醒我' }).click();
+    await page.waitForFunction(() => /alight=1/.test(location.hash));
+  });
+});
+
+test('首頁範例問題依時段變（早上通勤 vs 深夜），四個領域都有；截圖', async () => {
+  const texts = {};
+  for (const [name, iso] of [['morning', '2026-11-18T07:40:00+08:00'], ['night', '2026-11-18T23:30:00+08:00']]) {
+    const ctx = await newCtx({ ...DEVICES.phone, reducedMotion: 'reduce' });
+    try {
+      const page = await ctx.newPage();
+      await page.clock.setFixedTime(new Date(iso));
+      await page.goto(`${base}/#/`);
+      await page.waitForSelector('.hero-ask .chip');
+      texts[name] = await page.locator('.hero-ask .chip').allTextContents();
+      assert.equal(texts[name].length, 4);
+      assert.equal(await page.getAttribute('.hero-ask .chip:has-text("詐騙")', 'href'), '#/agent/antifraud');
+      await page.locator('.hero').screenshot({ path: new URL(name === 'morning' ? 'phone-home-dynamic.png' : 'phone-home-dynamic-night.png', SHOTS).pathname });
+    } finally {
+      await ctx.close();
+    }
+  }
+  assert.notDeepEqual(texts.morning, texts.night);
+  assert.ok(texts.night.includes('捷運幾點收班？'), texts.night.join('|'));
+});
+
+/** 假的 Android 外掛：原生端一條執行緒排隊（suggest 佔 4 秒，cancelSuggest 才讓出來）；judge 排在佇列後面 */
+const FAKE_SERIAL = `window.__q = { calls: [] };
+let busy = Promise.resolve(), stop = null;
+window.Capacitor = {
+  isNativePlatform: () => true, getPlatform: () => 'android', isPluginAvailable: () => false, addListener: () => ({ remove() {} }),
+  nativePromise: (plugin, method) => {
+    if (plugin !== 'AbangEdgeAI') return Promise.reject(new Error('not in test'));
+    window.__q.calls.push(method);
+    if (method === 'status') return Promise.resolve({ available: true, engine: 'gemini-nano', reason: 'ok' });
+    if (method === 'cancelSuggest') { const had = !!stop; stop?.(); stop = null; return Promise.resolve({ cancelled: had }); }
+    if (method === 'suggest') {
+      const run = new Promise((res, rej) => { const t = setTimeout(() => { stop = null; res({ engine: 'gemini-nano', result: '明天會下雨嗎？' }); }, 4000); stop = () => { clearTimeout(t); rej(new Error('cancelled')); }; });
+      busy = run.catch(() => {});
+      return run;
+    }
+    if (method === 'judge') return busy.then(() => ({ engine: 'gemini-nano', ms: 40, result: '{"intent":"trip","states":[]}' }));
+    return Promise.resolve({});
+  },
+};`;
+
+test('動態建議：建議產生中送出問題 → 先取消手機上的 suggest，judge 不排在後面（deviceJudge 有帶到）', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = [];
+    page.on('request', (r) => { if (r.url().endsWith('/api/v1/agent') && r.method() === 'POST') bodies.push(JSON.parse(r.postData())); });
+    await page.waitForFunction(() => window.__q.calls.includes('suggest'));
+    await page.fill('.chat-input', '從西門町到台北101怎麼去');
+    await page.press('.chat-input', 'Enter');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    const calls = await page.evaluate(() => window.__q.calls);
+    assert.ok(calls.indexOf('cancelSuggest') > -1 && calls.indexOf('cancelSuggest') < calls.indexOf('judge'), calls.join(','));
+    assert.deepEqual(bodies[0].deviceJudge, { intent: 'trip', states: [], engine: 'gemini-nano' }, 'judge 沒有因為排在 suggest 後面而逾時');
+    assert.equal(await page.locator('.msg.error').count(), 0);
+  }, { init: FAKE_SERIAL, ignore: /not in test/ });
+});
+
 // 長對話（UX.md §4.17，2026-11-21 PM）：舊的輪收成一行、換話題分隔線、「這次問過」目錄、回到最新、提醒頁回到當時的對話、底部對話面板一樣收合
 test('長對話：連問 5 題只有最新一輪展開、換話題分段、目錄、回到最新、提醒頁看當時的對話、底部面板', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
@@ -3243,5 +3415,61 @@ test('長對話審查：動畫開著但低階裝置（lite-motion）收合不播
     const [nav, chat] = await page.evaluate(() => [getComputedStyle(document.querySelector('.chat-index')).maxWidth, getComputedStyle(document.querySelector('.chat')).maxWidth]);
     assert.equal(nav, '640px');
     assert.equal(chat, '640px');
+  });
+});
+
+// ───── PR #112 獨立審查 ─────
+test('動態建議：網址帶問題進來（?q=）先不請手機猜，judge 先跑', async () => {
+  await withPage(DEVICES.phone, `#/agent?q=${encodeURIComponent('明天會下雨嗎')}`, async (page) => {
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    const calls = await page.evaluate(() => window.__sug.calls);
+    assert.ok(calls.includes('judge'), calls.join(','));
+    const firstSuggest = calls.indexOf('suggest');
+    assert.ok(firstSuggest === -1 || firstSuggest > calls.indexOf('judge'), `進頁就要送出：不先猜 ${calls.join(',')}`);
+  }, { init: FAKE_SUGGEST, ignore: /not in test/ });
+});
+
+test('動態建議：送出中到站提醒變了不換建議；先拿掉跟送出那句相同的建議', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.waitForSelector('.suggest .chip[data-src]');
+    const first = page.locator('.suggest .chip.next-ask').first();
+    const q = await first.getAttribute('data-q');
+    let release;
+    const hold = new Promise((r) => { release = r; });
+    await page.route('**/api/v1/agent', async (route) => { if (route.request().method() === 'POST') await hold; await route.fallback(); });
+    await first.click();
+    await page.waitForFunction(() => document.querySelector('.chat-send').disabled);
+    assert.equal(await page.locator(`.suggest .chip[data-q="${q}"]`).count(), 0, '剛送出的那句先拿掉');
+    const sig = await page.getAttribute('.suggest:not(.page-ask)', 'data-sig');
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('abang:arrival-watch')));
+    await page.waitForTimeout(100);
+    assert.equal(await page.getAttribute('.suggest:not(.page-ask)', 'data-sig'), sig, '送出中不換');
+    release();
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    await page.waitForSelector('.suggest.next .next-title');
+  });
+});
+
+test('動態建議：手機猜太久（接近 1.5 秒）就不驗證、用規則；總等待不超過 1.5 秒', async () => {
+  const slow = FAKE_SUGGEST.replace('setTimeout(() => res({', 'setTimeout(() => res({').replace('}), 300));', '}), 1470));');
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    let checks = 0;
+    page.on('request', (r) => { if (r.url().includes('/api/v1/suggest/check')) checks++; });
+    await page.waitForFunction(() => window.__sug.calls.includes('suggest'));
+    await page.waitForTimeout(2200);
+    assert.equal(checks, 0, '剩下的時間不夠驗證：不送');
+    assert.equal(await page.locator('.suggest .chip[data-src="edge"]').count(), 0);
+    assert.ok(await page.locator('.suggest .chip[data-src="rule"]').count() >= 1);
+  }, { init: slow, ignore: /not in test/ });
+});
+
+test('動態建議：英文公車頁打開對話，動作與建議都是英文', async () => {
+  await withPage(DEVICES.phone, `#/bus/Taipei/307?stop=${encodeURIComponent('民權二段')}&dir=0&lang=en`, async (page) => {
+    await page.waitForSelector('.bus-focus');
+    await page.click('#abang-fab');
+    await page.waitForSelector('#abang-sheet[open] .suggest .chip[data-src]');
+    const labels = await page.locator('#abang-sheet .suggest:not(.page-ask) .chip[data-src]').allTextContents();
+    assert.equal(labels[0], 'Remind me before my stop', labels.join('|'));
+    assert.ok(labels.every((x) => !/[一-鿿]/.test(x)), labels.join('|'));
   });
 });

@@ -19,10 +19,13 @@ import com.google.mlkit.genai.prompt.Generation;
 import com.google.mlkit.genai.prompt.TextPart;
 import com.google.mlkit.genai.prompt.java.GenerativeModelFutures;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 裝置端 AI 判斷（ADR-0014）：Gemini Nano（ML Kit GenAI Prompt API，經系統的 AICore）在手機上判斷意圖與狀態。
@@ -32,6 +35,8 @@ import java.util.concurrent.TimeoutException;
  * status 另外回報系統查得到的模型資訊（「阿幫的腦袋」#/ai 顯示；查不到的欄位就不回傳，不編造）：
  * featureStatus、modelName（基礎模型名稱）、tokenLimit、下載進度、aicoreVersion、osVersion、device。
  * write（ADR-0017）：把伺服器的程式版總結改寫成自然的一兩句；數字由 JS 的程式護欄檢查，不過就用程式版。
+ * suggest（AGENT.md §5.5）：猜使用者接下來想問的話。三個任務的優先順序 judge ＞ write ＞ suggest：judge、write 在 exec 上依序跑，
+ * suggest 用自己的執行緒，judge 或 write 一進來就取消它（stopSuggest），取消後 3 秒內的忙碌錯誤不暫停。
  */
 @CapacitorPlugin(name = "AbangEdgeAI")
 public class AbangEdgeAIPlugin extends Plugin {
@@ -86,12 +91,25 @@ public class AbangEdgeAIPlugin extends Plugin {
     /** 錯誤代碼（不含句子內容）；配額、忙碌、背景被擋時暫停 10 分鐘 */
     private String errorCode(Throwable e) {
         Throwable c = e.getCause() != null ? e.getCause() : e;
+        long since = System.currentTimeMillis() - suggestCancelledAt;
         if (c instanceof GenAiException) {
             GenAiException g = (GenAiException) c;
+            if (busyAfterCancel(g.getErrorCode(), since)) return BUSY_CODE + ":" + g.getErrorCode(); // 剛取消建議、模型還在收尾：這一題交給伺服器，不暫停
             pausedUntil = System.currentTimeMillis() + 10 * 60_000;
             return "GenAiException:" + g.getErrorCode();
         }
+        if (c instanceof CancellationException && since < BUSY_GRACE_MS) return BUSY_CODE;
         return c.getClass().getSimpleName();
+    }
+
+    /** 取消建議後這段時間內的「忙碌」類錯誤不算模型壞掉（產品負責人 2026-11-21） */
+    static final long BUSY_GRACE_MS = 3000;
+    static final String BUSY_CODE = "busy-after-cancel";
+    /** 最近一次取消 suggest 的時間（毫秒） */
+    private volatile long suggestCancelledAt = 0;
+    /** 剛取消建議（3 秒內）又拿到 BUSY（已有請求在跑）或 CANCELLED（取消中）：只是讓位造成的，不暫停 10 分鐘 */
+    static boolean busyAfterCancel(int code, long sinceCancelMs) {
+        return sinceCancelMs >= 0 && sinceCancelMs < BUSY_GRACE_MS && (code == GenAiException.ErrorCode.BUSY || code == GenAiException.ErrorCode.CANCELLED);
     }
 
     /** 可下載時在背景下載（模型由系統的 AICore 管理，多個 App 共用） */
@@ -164,6 +182,7 @@ public class AbangEdgeAIPlugin extends Plugin {
         if (!osOk()) { call.reject("unavailable: os-too-old"); return; }
         String instructions = call.getString("instructions", "");
         JSArray hist = call.getArray("history", new JSArray());
+        stopSuggest(); // judge 優先：正在猜下一句就先取消，模型讓給這一題
         exec.execute(() -> {
             long t0 = System.currentTimeMillis();
             try {
@@ -190,8 +209,9 @@ public class AbangEdgeAIPlugin extends Plugin {
                 ret.put("result", out == null ? "" : out);
                 call.resolve(ret);
             } catch (Exception e) {
-                Logger.warn(TAG, "judge failed: " + errorCode(e));
-                call.reject("judge failed");
+                String code = errorCode(e);
+                Logger.warn(TAG, "judge failed: " + code);
+                call.reject(code.startsWith(BUSY_CODE) ? "busy" : "judge failed"); // busy：這一題改由伺服器判斷，JS 不當成不可用
             }
         });
     }
@@ -210,6 +230,7 @@ public class AbangEdgeAIPlugin extends Plugin {
         if (instructions == null) instructions = "";
         if (prompt.length() + instructions.length() > WRITE_MAX_INPUT) { call.reject("too long"); return; } // 與 core/edge-write.js WRITE_MAX_INPUT 相同
         final String input = instructions + "\n\n" + prompt;
+        stopSuggest(); // write 也比猜下一句優先：模型讓給這一題的回答
         exec.execute(() -> {
             long t0 = System.currentTimeMillis();
             try {
@@ -231,16 +252,113 @@ public class AbangEdgeAIPlugin extends Plugin {
                 ret.put("text", out == null ? "" : out);
                 call.resolve(ret);
             } catch (Exception e) {
-                Logger.warn(TAG, "write failed: " + errorCode(e));
-                call.reject("write failed");
+                String code = errorCode(e);
+                Logger.warn(TAG, "write failed: " + code);
+                call.reject(code.startsWith(BUSY_CODE) ? "busy" : "write failed"); // busy：剛讓位，不暫停；這一題用程式版
             }
         });
+    }
+
+    /** 猜使用者接下來想問的話：一次最多跑這麼久（JS 只等 1.5 秒） */
+    private static final long SUGGEST_TIMEOUT_MS = 1500;
+    /** 猜下一句用自己的執行緒：judge 在 exec 上，不會排在 suggest 後面（產品負責人 2026-11-21：judge 優先） */
+    private final ExecutorService suggestExec = Executors.newSingleThreadExecutor();
+    /** 正在跑的 suggest（judge 或 cancelSuggest 來時取消） */
+    private volatile ListenableFuture<GenerateContentResponse> suggestFuture;
+    /** 取消記號：每次取消加一；排隊中、還沒呼叫模型的 suggest 看到記號變了就不跑（PR #112 審查） */
+    private final AtomicLong suggestToken = new AtomicLong();
+    /** 排隊中或正在跑的 suggest 數（有的話取消時才記取消時間） */
+    private final AtomicInteger suggestPending = new AtomicInteger();
+
+    /**
+     * 取消 suggest：不論 future 設好了沒有——排隊中的看到記號變了就不跑、已在跑的取消 future；
+     * 有 suggest 排隊或在跑就記取消時間（之後 3 秒內 judge／write 的忙碌錯誤不暫停）。回傳有沒有取消到。
+     */
+    private boolean stopSuggest() {
+        suggestToken.incrementAndGet();
+        boolean had = suggestPending.get() > 0;
+        if (had) suggestCancelledAt = System.currentTimeMillis();
+        ListenableFuture<GenerateContentResponse> f = suggestFuture;
+        suggestFuture = null;
+        if (f != null && !f.isDone()) f.cancel(true);
+        return had;
+    }
+
+    /**
+     * 動態「下一句」建議（AGENT.md §5.5）：依情境（頁面、最近的問題與結果摘要、時段；JS 組好、不含座標）猜使用者接下來最可能問的幾句。
+     * 只回 { engine, ms, result: "每行一句" }，句子由 JS 送伺服器規則驗證、程式排序。不記錄情境與句子，只記耗時與錯誤類型。
+     * 使用者送出問題時 judge 優先：judge 一進來（或 JS 呼叫 cancelSuggest）就取消，回 "cancelled"。
+     * suggest 的任何錯誤都不設 pausedUntil（背景任務失敗不該停掉 judge／write）；自己逾時也記取消時間（模型可能還在收尾）。
+     */
+    @PluginMethod
+    public void suggest(PluginCall call) {
+        String context = call.getString("context", "");
+        if (context == null || context.isEmpty()) { call.reject("沒有情境"); return; }
+        if (!osOk()) { call.reject("unavailable: os-too-old"); return; }
+        String instructions = call.getString("instructions", "");
+        Integer maxArg = call.getInt("max", 4);
+        int max = Math.max(1, Math.min(6, maxArg == null ? 4 : maxArg));
+        final long my = suggestToken.get();
+        suggestPending.incrementAndGet();
+        suggestExec.execute(() -> {
+            long t0 = System.currentTimeMillis();
+            ListenableFuture<GenerateContentResponse> f = null;
+            try {
+                if (suggestToken.get() != my) { call.reject("cancelled"); return; } // 排隊時就被取消了：不呼叫模型
+                if (System.currentTimeMillis() < pausedUntil || featureStatus() != FeatureStatus.AVAILABLE) { call.reject("unavailable"); return; }
+                String prompt = instructions + "\n每行一句，共 " + max + " 句；不要編號、不要引號、不要其他文字。\n情境：\n" + context;
+                GenerateContentRequest.Builder b = new GenerateContentRequest.Builder(new TextPart(prompt));
+                b.setTemperature(0.4f); // 有一點變化（每次不完全一樣），但不亂編
+                b.setTopK(16);
+                b.setMaxOutputTokens(160);
+                if (suggestToken.get() != my) { call.reject("cancelled"); return; }
+                f = model().generateContent(b.build());
+                suggestFuture = f;
+                if (suggestToken.get() != my) { f.cancel(true); call.reject("cancelled"); return; } // 剛設好就被取消
+                GenerateContentResponse r;
+                try { r = f.get(SUGGEST_TIMEOUT_MS, TimeUnit.MILLISECONDS); }
+                catch (TimeoutException te) { f.cancel(true); suggestCancelledAt = System.currentTimeMillis(); Logger.warn(TAG, "suggest timeout"); call.reject("timeout"); return; }
+                String out = r.getCandidates().isEmpty() ? "" : r.getCandidates().get(0).getText();
+                long ms = System.currentTimeMillis() - t0;
+                Logger.info(TAG, "suggested in " + ms + " ms"); // 只記耗時，不記內容
+                JSObject ret = new JSObject();
+                ret.put("engine", "gemini-nano");
+                ret.put("ms", ms);
+                ret.put("result", out == null ? "" : out);
+                call.resolve(ret);
+            } catch (CancellationException | InterruptedException e) {
+                Logger.info(TAG, "suggest cancelled for judge");
+                call.reject("cancelled");
+            } catch (Exception e) {
+                if (f != null && f.isCancelled()) { call.reject("cancelled"); return; } // 被 judge 取消
+                Logger.warn(TAG, "suggest failed: " + suggestErrorCode(e)); // 不暫停（不用 errorCode）
+                call.reject("suggest failed");
+            } finally {
+                if (suggestFuture == f) suggestFuture = null;
+                suggestPending.decrementAndGet();
+            }
+        });
+    }
+
+    /** suggest 的錯誤種類（只記，不設 pausedUntil） */
+    static String suggestErrorCode(Throwable e) {
+        Throwable c = e.getCause() != null ? e.getCause() : e;
+        return c instanceof GenAiException ? "GenAiException:" + ((GenAiException) c).getErrorCode() : c.getClass().getSimpleName();
+    }
+
+    /** 使用者送出問題了：取消正在跑的 suggest（JS edge-judge.js cancelSuggest；judge 自己也會先取消） */
+    @PluginMethod
+    public void cancelSuggest(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("cancelled", stopSuggest());
+        call.resolve(ret);
     }
 
     @Override
     protected void handleOnDestroy() {
         exec.shutdownNow();
         infoExec.shutdownNow();
+        suggestExec.shutdownNow();
         super.handleOnDestroy();
     }
 
@@ -250,6 +368,7 @@ public class AbangEdgeAIPlugin extends Plugin {
         o.put("engine", "gemini-nano");
         o.put("reason", reason);
         o.put("write", true); // 這個版本的外掛也能寫回答（ADR-0017）；JS 看到才帶 clientCaps.edgeWrite
+        o.put("suggest", true); // 也能猜下一句（AGENT.md §5.5）
         return o;
     }
 }
