@@ -144,6 +144,15 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 .dg-src-c { fill: var(--card); stroke-width: 1.6; filter: drop-shadow(0 2px 0 rgba(0,0,0,.08)); }
 .dg-src.win .dg-src-c { stroke-width: 3; }
 .dg-lbl { font-size: 10px; fill: var(--muted); }
+/* 資料欄（判斷看得到，2026-11-21）：值＋影響；不影響、查不到淡色；有影響的連到狀態（虛線） */
+.dg-lbl .dg-val { font-weight: 700; fill: var(--text); }
+.dg-eff { font-size: 9.5px; fill: var(--muted); }
+.dg-src.affects .dg-eff { fill: var(--bad); font-weight: 700; }
+.dg-src.quiet > * { opacity: .6; } /* 子元素（GSAP 進場只改節點本身的 opacity） */
+.dg-src.na .dg-val { fill: var(--muted); font-weight: 400; }
+.dg-edge.quiet { opacity: .45; }
+.dg-single { margin: 6px 0 0; font-size: 12.5px; color: var(--text); background: var(--off-soft); border-radius: 10px; padding: 7px 10px; }
+.bubble.data-note .say { font-size: 13.5px; }
 .dg-hub-c { fill: var(--card); stroke: var(--brand); stroke-width: 2; filter: drop-shadow(0 3px 0 rgba(15,118,110,.25)) drop-shadow(0 6px 10px rgba(15,118,110,.2)); }
 .dg-state > rect { fill: var(--card); stroke: var(--brand); }
 .dg-state.src-auto > rect { fill: #eef4fe; stroke: var(--place); }

@@ -1146,7 +1146,8 @@ function summaryCore(it, results, suggestions = []) {
     const reason = closed ? trip.data.ranking.reason.replace(/^公車這次沒有可行的方案；/, '') : trip?.data.ranking.reason; // 已說收班，不再重複「公車沒有可行的方案」
     const urgent = (trip?.data.tips || []).filter((x) => x.kind !== 'cost'); // 分攤金額在卡片上，泡泡只說要馬上注意的
     const tips = urgent.length ? ` ${urgent.map((x) => `${x.text}。`).join('')}` : '';
-    return trip ? `${pre}${night}${reason}${tips}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
+    const one = trip?.data.single ? `${trip.data.single.text.replace(/（現在是示範資料.*）$/, '')}。` : ''; // 只有一種方式：先說其他方式為什麼不在（數字來自 plan_trip）
+    return trip ? `${pre}${night}${one}${reason}${tips}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
   }
   // 沒說地點時用了示範預設，先講清楚
   const pre = (isNearby(it) || (it.intent === 'metro' && !it.station && !it.near)) && !it.places[0] && !it.fromPoint

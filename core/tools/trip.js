@@ -50,6 +50,7 @@ export const planTripTool = defineTool({
     const best = d.options.find((o) => o.id === d.best);
     if (!best) return d.ranking.excluded.length ? d.ranking.reason : '這段路找不到可行的交通方式。';
     const why = d.states.length ? `，因為${d.states.map((s) => STATES[s.key].say).join('、')}` : '';
+    if (d.single) return `只找到${best.name}一種方式${why}。`; // 原因在 impact 與決策圖（single.text）
     return `比了 ${d.options.length} 種方式${why}，建議${best.name}。`;
   },
   async run(svc, a) {
@@ -58,6 +59,9 @@ export const planTripTool = defineTool({
     const byId = new Map(data.options.map((o) => [o.id, o]));
     const lines = [
       `${from.name} → ${to.name}（直線 ${data.straightKm} 公里，${data.departAt} 出發）`,
+      // 判斷用到的資料（程式產生）：模型照這幾行轉述，不要自己說「天氣很好」之類沒有資料的話
+      `判斷用到的資料：${(data.considered || []).map((c) => `${c.role}「${c.text}」→ ${c.say}${c.demo ? '（示範資料）' : ''}`).join('；')}`,
+      ...(data.single ? [`只有一種方式：${data.single.text}`] : []),
       ...(data.states.length ? [`狀態：${data.states.map((s) => `${STATES[s.key].label}（${s.source === 'auto' ? `自動：${s.detail}` : '你說的'}）`).join('、')}`] : []),
       ...data.ranking.ranked.map((r, i) => {
         const o = byId.get(r.id);

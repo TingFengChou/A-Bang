@@ -262,6 +262,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 6.4 捷運（2026-11-21，S7）：起訖點各自 1.2 公里內有捷運站（同一系統）就列「捷運」方案：同一條線直達，不同線估轉乘一次（＋5 分、名稱「捷運（板南線轉文湖線）」）；時間＝兩站直線距離約每公里 2 分＋進出站，票價依距離估（20～65 元），都標 `estimated`。真實路網與轉乘站待 TDX `Metro/S2STravelTime`、`Metro/ODFare`。`prefs.mode`／`avoid` 可用 `metro`。
 6.5 深夜（2026-11-21，S10）：出發時間 00:00～05:00 公車不列入（`skipped` 寫原因、建議叫車），23:00 後公車方案帶 `lastBus: true` 與提醒。
 7. 自動狀態：查 `traffic_status`（跨城或走一般道路的方案）、`weather_now`（起點）與 `aqi_nearby`（起點，M10）；`raining` → 自動狀態「下雨」，`level = jam` → 「塞車中」，最近測站 AQI > 100 → 「空品不佳」（`detail` 帶測站與 AQI；輸出另有 `air: { site, aqi, status } | null`）。查詢失敗時不加狀態、不中斷規劃。示範：`DEMO_AIR=bad`（或 `createServices({ demo: { air: 'bad' } })`）把示範測站 AQI 調到對敏感族群不健康。
+7.1 判斷用到的資料（2026-11-21）：輸出 `considered[]`（天氣、空品、路況各一筆：`{ source, role, available, demo, value, valueEn, text, textEn, say, sayEn, effect: 'none'|'score'|狀態 key, tone }`，`core/services/trip-considered.js`；討論串 `data_note` 與決策圖資料欄用）。最近的空品測站超過 25 公里（`AIR_MAX_M`）不採用：`air` 為 null、不加 `badAir`。只有一種方式時輸出 `single: { text, textEn, suggest: [{ label, ask }] }`（各方式沒列出的原因：太遠、附近沒有站、某時間以後查不到趕得上的班次、不可行；示範資料加註），工具文字多「判斷用到的資料：…」「只有一種方式：…」兩行給模型。
 
 實作細節（M3-10；門檻與估算常數在 `trip.js` 的 `LIMITS`、`EST`）：
 
