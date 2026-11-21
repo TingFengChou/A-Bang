@@ -227,6 +227,9 @@ export function mustSay(text, trip, it = null) {
   // 訂票（「幫我訂明天的高鐵票」）：阿幫只給官方連結（ADR-0011；P2-10）
   if (it?.intent === 'rail' && it.book && !/官方/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}訂票請按卡片上的官方訂票連結，在${it.system === 'THSR' ? '高鐵' : '台鐵'}官網或 App 完成（阿幫不代訂、不付款）。`;
   if (it?.intent === 'weather' && it.tomorrow && !/明天|明日|明早|明晚/.test(out)) out = `明天的天氣：${out}`; // 問明天要講明天（S1-3：小模型常只說「會下雨」）
+  // 明天（或後天）出發的行程、模型沒說是哪一天：開頭補上（P5-2 模型模式；「改成明天早上8點出發」）
+  const days = it?.departDays ?? (it?.tomorrow ? 1 : 0);
+  if (it?.intent === 'trip' && days > 0 && !/明天|後天|明早|明晚|明日/.test(out)) out = `${days === 2 ? '後天' : '明天'}${it.departTime ? ` ${it.departTime}` : ''} 出發：${out}`;
   if (!trip) return out;
   const picked = trip.options?.find((o) => o.id === trip.best)?.name;
   // 程式排序時用了使用者指定的方式（ranking.reason 這樣開頭）、模型沒說到 → 開頭補一句（不帶分數）
