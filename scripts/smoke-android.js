@@ -28,6 +28,7 @@ const PAGES = [
   { name: 'weather', hash: '#/s/weather', want: '#pagehero .page-hero', fab: true },
   { name: 'nearby', hash: '#/nearby', want: '#pagehero .page-hero', fab: true },
   { name: 'settings', hash: '#/settings', want: '#saved', fab: true },
+  { name: 'ai', hash: '#/ai', want: '.ai-hero #ai-chip:not([hidden])', fab: true }, // 阿幫的腦袋：外掛 status() 回來、主視覺畫好
 ];
 
 function fail(msg) { console.error(`✗ ${msg}`); process.exitCode = 1; }

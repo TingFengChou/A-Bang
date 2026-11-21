@@ -18,6 +18,7 @@ import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
 import agent, { keptKey } from './pages/agent.js';
 import service from './pages/service.js';
+import ai from './pages/ai.js';
 import { settings, privacy } from './pages/settings.js';
 import { busSearch, busRoute, busStation, favPage } from './pages/bus.js';
 
@@ -32,6 +33,7 @@ const routes = [
   [/^\/agent(?:\/([a-z][a-z0-9-]*))?$/, agent],
   [/^\/settings$/, settings], // 設定與隱私（M11-04）
   [/^\/privacy$/, privacy],
+  [/^\/ai$/, ai], // 阿幫的腦袋：裝置端 AI 的視覺與模型資訊（ADR-0014）
   [/^\/s\/([a-z][a-z0-9-]*)$/, service], // 生活服務（天氣、捷運、空品…） // #/agent（生活）、#/agent/antifraud（防詐，M7）
 ];
 const tabs = [['#/', 'tab.home', 'home'], ['#/nearby', 'tab.nearby', 'pin'], ['#/bus', 'tab.bus', 'bus'], ['#/favs', 'tab.favs', 'star']];

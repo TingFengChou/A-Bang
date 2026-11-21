@@ -32,6 +32,32 @@ export function edgeEnabled() {
   try { return globalThis.localStorage?.getItem(OFF_KEY) !== 'off'; } catch { return true; }
 }
 
+/** 設定頁與「阿幫的腦袋」（#/ai）共用的開關；存不了（無痕模式）回 false */
+export function setEdgeEnabled(on) {
+  try { if (on) globalThis.localStorage.removeItem(OFF_KEY); else globalThis.localStorage.setItem(OFF_KEY, 'off'); return true; } catch { return false; }
+}
+
+// 在手機上判斷了幾次、上次花多久（#/ai 顯示）：只記數字、只存在這支手機，不上傳、不含句子
+export const EDGE_STATS_KEY = 'abang.edgeStats';
+const dayKey = (now) => { const d = new Date(now); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const readStats = () => {
+  try { const o = JSON.parse(globalThis.localStorage?.getItem(EDGE_STATS_KEY) || 'null'); return o && typeof o === 'object' ? o : {}; } catch { return {}; }
+};
+const validMs = (v) => (Number.isFinite(v) && v >= 0 && v <= 60_000 ? Math.round(v) : null);
+/**
+ * 今天在手機上判斷了幾次（換日歸零）、上次花多久（毫秒；沒判斷過是 null）。
+ * @returns {{ today: number, lastMs: number|null }}
+ */
+export function edgeStats(now = Date.now()) {
+  const o = readStats();
+  return { today: o.d === dayKey(now) && Number.isInteger(o.n) && o.n > 0 ? o.n : 0, lastMs: validMs(o.ms) };
+}
+/** 記一次成功的裝置判斷（ms：花多久） */
+export function noteEdgeJudge(ms, now = Date.now()) {
+  const { today, lastMs } = edgeStats(now);
+  try { globalThis.localStorage?.setItem(EDGE_STATS_KEY, JSON.stringify({ d: dayKey(now), n: today + 1, ms: validMs(ms) ?? lastMs })); } catch { /* 無痕模式：不記 */ }
+}
+
 /** 把外掛回傳整理成 deviceJudge；任何欄位不對就整個不用（回 null） */
 export function normalizeJudge(raw, engine) {
   let o = raw;
@@ -74,12 +100,15 @@ export async function edgeJudge(text, history = [], { timeout = EDGE_TIMEOUT_MS 
   const c = cap();
   if (!c || unavailable || inflight || !edgeEnabled() || !text) return null;
   let timer;
+  const t0 = Date.now();
   try {
     const call = c.nativePromise(PLUGIN, 'judge', { text: String(text).slice(0, 500), history: history.slice(-2).map((h) => String(h).slice(0, 200)), instructions: EDGE_INSTRUCTIONS, intents: EDGE_INTENTS, states: EDGE_STATES });
     // 逾時後原生端仍在跑：跑完前下一題不再呼叫（避免排隊），跑完的結果丟掉（不會用到下一題）
     inflight = call.catch((e) => { if (/unavailable/.test(e?.message || '')) unavailable = true; }).finally(() => { inflight = null; });
     const r = await Promise.race([call, new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeout); })]);
-    return r ? normalizeJudge(r.result, r.engine) : null;
+    const out = r ? normalizeJudge(r.result, r.engine) : null;
+    if (out) noteEdgeJudge(validMs(r.ms) ?? Date.now() - t0); // 外掛有回模型耗時就用它，否則用這裡量到的（含橋接）
+    return out;
   } catch {
     return null;
   } finally {

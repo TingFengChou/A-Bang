@@ -1395,3 +1395,109 @@ test('設定與隱私：首頁進入、狀態、隱私權政策', async () => {
     assert.match(await page.locator('.results [data-card="trip"] .ab-title').first().textContent(), /→ 家/);
   });
 });
+
+// 阿幫的腦袋（#/ai，ADR-0014）：網頁版沒有手機上的模型——照實說判斷在伺服器做，頁面仍完整（伺服器的判斷層、資料怎麼走），不給「試試看」
+for (const [dname, device] of Object.entries(DEVICES)) {
+  test(`${dname}：阿幫的腦袋（網頁版）核心不點亮、說明判斷在伺服器做`, async () => {
+    await withPage(device, '#/ai', async (page) => {
+      await page.waitForSelector('.ai-hero[data-core="off"] #ai-chip:not([hidden])');
+      assert.equal(await page.textContent('#title'), '阿幫的腦袋');
+      assert.equal(await page.textContent('#ai-engine'), '判斷在伺服器做');
+      assert.match(await page.textContent('#ai-chip'), /網頁版沒有/);
+      assert.match(await page.textContent('#ai-live'), /核心沒有點亮/);
+      assert.equal(await page.getAttribute('#ai-stage', 'aria-hidden'), 'true');
+      assert.deepEqual(await page.locator('.ai-v').allTextContents(), ['由伺服器判斷', '由伺服器判斷']);
+      assert.equal(await page.locator('#ai-form').count(), 0, '沒有手機上的模型：不給試');
+      assert.match(await page.textContent('#ai-try-body'), /網頁版沒有手機上的 AI/);
+      assert.equal(await page.locator('#ai-model .ai-dl > div').count(), 1, '模型資訊只有「狀態」一列（不編造）');
+      assert.doesNotMatch(await page.textContent('#ai-model .ai-dl'), /Gemini Nano|Apple Intelligence|token|毫秒/);
+      await page.waitForFunction(() => /示範模式/.test(document.querySelector('#ai-answer')?.textContent || '')); // /api/v1/status 的 agent
+      assert.equal(await page.locator('.ai-members li').count(), 4);
+      assert.match(await page.locator('.ai-members li').nth(0).textContent(), /現在：沒有/);
+      assert.match(await page.locator('.ai-members li').nth(1).textContent(), /這台伺服器：沒有/, 'E2E 的伺服器 JUDGE=off：照實顯示');
+      assert.match(await page.locator('.ai-flow li').nth(1).textContent(), /伺服器.*這一步在伺服器做/);
+      assert.equal(await page.locator('.ai-flow li.core').count(), 0);
+      assert.equal(await page.locator('#ai-edge').count(), 0, '網頁版沒有開關');
+      await shot(page, dname === 'phone' ? 'phone-ai-web' : 'desktop-ai');
+    });
+  });
+}
+
+// 阿幫的腦袋：App 裡（假的 Capacitor 外掛：Gemini Nano 可用）列出系統回報的模型資訊；「試試看」只呼叫手機上的外掛、沒有網路請求，結果用核心動畫與同一句文字呈現
+test('阿幫的腦袋：手機上的模型資訊、現場試試看、開關、英文、設定頁入口', async () => {
+  const init = () => {
+    const calls = (window.__aiCalls = []);
+    window.Capacitor = {
+      isNativePlatform: () => true, getPlatform: () => 'android', isPluginAvailable: () => false, addListener: () => ({ remove() {} }),
+      nativePromise: (plugin, method, args) => {
+        if (plugin !== 'AbangEdgeAI') return Promise.reject(new Error('not in test'));
+        calls.push({ method, text: args?.text });
+        if (method === 'status') return Promise.resolve({ available: true, engine: 'gemini-nano', reason: 'ok', featureStatus: 'available', modelName: 'nano-e2e', tokenLimit: 4096, osVersion: '16', device: 'Google Pixel E2E' });
+        if (method === 'judge') return Promise.resolve({ engine: 'gemini-nano', ms: 412, result: '{"intent":"trip","states":["rush"]}' });
+        return Promise.resolve({});
+      },
+    };
+  };
+  await withPage(DEVICES.phone, '#/ai', async (page) => {
+    await page.waitForSelector('.ai-hero[data-core="on"] #ai-chip.on');
+    assert.equal(await page.textContent('#ai-engine'), 'Gemini Nano');
+    assert.equal(await page.textContent('#ai-chip'), '可以使用');
+    assert.match(await page.textContent('#ai-live'), /核心待機中/);
+    const model = await page.textContent('#ai-model .ai-dl');
+    for (const w of ['Gemini Nano', 'AICore', '這支手機（Google Pixel E2E）', '可以使用', 'nano-e2e', '4,096 個 token', 'Android 16', '0 次']) assert.ok(model.includes(w), w);
+    assert.doesNotMatch(model, /AICore 版本|支援語言|上次判斷/, '外掛沒回的欄位不顯示');
+    assert.match(await page.locator('.ai-members li').first().textContent(), /現在：開著.*Gemini Nano 先判斷/);
+    assert.match(await page.locator('.ai-flow li.core').textContent(), /手機.*Gemini Nano 在手機上判斷/);
+    await shot(page, 'phone-ai');
+
+    // 試試看：點範例 → 判斷 → 點亮；這段時間沒有任何請求送到伺服器
+    const sent = [];
+    page.on('request', (r) => { if (r.method() !== 'GET' || r.url().includes('/api/')) sent.push(r.url()); });
+    await page.locator('.ai-ex .chip').first().click();
+    await page.waitForSelector('.ai-hero[data-stage="done"]');
+    assert.equal(await page.textContent('#ai-live'), '聽懂了：意圖是「行程規劃」；狀態是「趕時間」。花了 412 毫秒，沒有離開手機。');
+    assert.deepEqual(await page.locator('.ai-v').allTextContents(), ['行程規劃', '趕時間']);
+    assert.deepEqual(sent, [], '這一步沒有離開手機');
+    const judged = (await page.evaluate(() => window.__aiCalls)).filter((c) => c.method === 'judge');
+    assert.deepEqual(judged, [{ method: 'judge', text: '我快遲到了，怎麼去台北車站' }]);
+    const after = await page.textContent('#ai-model .ai-dl');
+    assert.ok(after.includes('412 毫秒') && after.includes('1 次（只記在這支手機）'), after);
+    assert.deepEqual(await page.evaluate(() => { const o = JSON.parse(localStorage.getItem('abang.edgeStats')); return [o.n, o.ms]; }), [1, 412]);
+    assert.match(await page.textContent('.ai-local'), /這一步沒有離開手機/);
+    await shot(page, 'phone-ai-judged');
+    // 自己打一句也行（Enter 送出）
+    await page.fill('#ai-input', '307 到哪了');
+    await page.press('#ai-input', 'Enter');
+    await page.waitForFunction(() => /2 次/.test(document.querySelector('#ai-model .ai-dl').textContent));
+
+    // 開關（跟設定頁同一個）：關掉 → 核心不點亮、不給試、說明改由伺服器；再打開恢復
+    await page.click('#ai-edge');
+    await page.waitForSelector('.ai-hero[data-core="off"]');
+    assert.equal(await page.evaluate(() => localStorage.getItem('abang.edgeAI')), 'off');
+    assert.equal(await page.textContent('#ai-engine'), 'Gemini Nano（已關閉）');
+    assert.equal(await page.locator('#ai-form').count(), 0);
+    assert.match(await page.locator('.ai-flow li').nth(1).textContent(), /這一步在伺服器做/);
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'ai-edge', '焦點留在開關上');
+    await page.click('#ai-edge');
+    await page.waitForSelector('.ai-hero[data-core="on"]');
+    await page.waitForSelector('#ai-form');
+    assert.equal(await page.evaluate(() => localStorage.getItem('abang.edgeAI')), null);
+
+    // 英文（lang=en）：固定文字換英文，模型名稱照原文
+    await page.goto(`${base}/#/ai?lang=en`);
+    await page.waitForSelector('.ai-page[lang="en"] .ai-hero[data-core="on"] #ai-chip.on');
+    assert.equal(await page.textContent('#title'), "Abang's brain");
+    assert.equal(await page.textContent('.ai-eyebrow'), 'On-device AI');
+    assert.equal(await page.textContent('#ai-chip'), 'Ready');
+    await page.locator('.ai-ex .chip').first().click();
+    await page.waitForSelector('.ai-hero[data-stage="done"]');
+    assert.equal(await page.textContent('#ai-live'), 'Got it: intent is "Trip planning"; situation is "In a hurry". Took 412 ms, never left the phone.');
+    assert.doesNotMatch(await page.textContent('.ai-page'), /[一-鿿]/, '英文頁沒有中文');
+
+    // 入口：設定頁的裝置端 AI 區塊
+    await page.goto(`${base}/#/settings`);
+    await page.click('.settings a[href="#/ai"]');
+    await page.waitForSelector('.ai-hero');
+    assert.equal(await page.textContent('#title'), '阿幫的腦袋');
+  }, { init, ignore: /not in test/ });
+});

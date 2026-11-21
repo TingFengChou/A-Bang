@@ -5,6 +5,7 @@ import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
 import { runAgent, browserLocation, locationGranted } from '../agent/client.js';
 import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-help.js';
 import { edgeJudge, edgePrewarm } from '../edge-judge.js';
+import { noteAgentStatus } from '../ai-info.js';
 import { placesFor } from '../saved-places.js';
 import { icons } from '../icons.js';
 import { motion } from '../../ui/cards/motion.js';
@@ -296,6 +297,7 @@ export default {
         await runAgent({ messages: history.slice(-10), ...(ctxText && { context: ctxText }), ...(deviceJudge && { deviceJudge }), ...(savedPlaces && { savedPlaces }) }, (e) => {
           // 隱私：防詐頁貼上的內容只送給本站伺服器分析，不保存（AGENT_ANTIFRAUD.md §1）
           if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = modeText(e);
+          if (e.type === 'status' && agentId === 'life') noteAgentStatus(e); // 「阿幫的腦袋」（#/ai）顯示最近一輪由誰回答、誰先聽懂（只記模式與來源，不含內容）
           view.push(e);
         }, { agentId });
         await view.flush();

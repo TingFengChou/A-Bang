@@ -5,6 +5,11 @@
     <!-- ML Kit GenAI 需要 API 26；App 仍支援 24，外掛在 26 以下直接回不可用（AbangEdgeAIPlugin.osOk） -->
     <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.prompt,com.google.mlkit.genai.common,com.google.mlkit.genai.schema" />
 
+    <!-- 「阿幫的腦袋」（#/ai）顯示 AICore（系統裡管理 Gemini Nano 的元件）的版本：Android 11 以上要宣告才看得到這個套件 -->
+    <queries>
+        <package android:name="com.google.android.aicore" />
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

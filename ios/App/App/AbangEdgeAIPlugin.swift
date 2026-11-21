@@ -1,6 +1,7 @@
 // 裝置端 AI 判斷（ADR-0014）：Apple Intelligence（Foundation Models）在手機上判斷意圖與狀態。
 // JS 端：public/js/edge-judge.js（Capacitor 外掛名 AbangEdgeAI）。只回 { engine, result: { intent, states } }，
 // iOS 26 以下、機型不支援、沒開 Apple Intelligence、模型還在下載、語言不支援 → status 回 available: false，judge 回錯誤，JS 改由伺服器判斷。
+// status 另外回報系統查得到的模型資訊（「阿幫的腦袋」#/ai 顯示；查不到的欄位就不回傳，不編造）：availability、languages、contextSize、osVersion。
 import Foundation
 import Capacitor
 #if canImport(FoundationModels)
@@ -21,11 +22,19 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
             let s = AppleJudge.status()
-            call.resolve(["available": s.available, "engine": "apple", "reason": s.reason])
+            var out: [String: Any] = ["available": s.available, "engine": "apple", "reason": s.reason, "osVersion": Self.osVersion]
+            for (k, v) in AppleJudge.info() { out[k] = v }
+            call.resolve(out)
             return
         }
         #endif
-        call.resolve(["available": false, "engine": "apple", "reason": "os-too-old"])
+        call.resolve(["available": false, "engine": "apple", "reason": "os-too-old", "osVersion": Self.osVersion])
+    }
+
+    /// 系統版本（例：26.1；只在這支手機上顯示）
+    private static var osVersion: String {
+        let v = ProcessInfo.processInfo.operatingSystemVersion
+        return v.patchVersion > 0 ? "\(v.majorVersion).\(v.minorVersion).\(v.patchVersion)" : "\(v.majorVersion).\(v.minorVersion)"
     }
 
     @objc func prewarm(_ call: CAPPluginCall) {
@@ -50,8 +59,9 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
                 let t0 = Date()
                 do {
                     let r = try await AppleJudge.shared.judge(text: text, history: history, instructions: instructions)
-                    CAPLog.print("AbangEdgeAI: judged in \(Int(Date().timeIntervalSince(t0) * 1000)) ms") // 只記耗時，不記內容
-                    call.resolve(["engine": "apple", "result": ["intent": r.intent, "states": r.states]])
+                    let ms = Int(Date().timeIntervalSince(t0) * 1000)
+                    CAPLog.print("AbangEdgeAI: judged in \(ms) ms") // 只記耗時，不記內容
+                    call.resolve(["engine": "apple", "ms": ms, "result": ["intent": r.intent, "states": r.states]]) // ms：模型花多久（#/ai 顯示）
                 } catch {
                     CAPLog.print("AbangEdgeAI: judge failed \(AppleJudge.code(error))") // 錯誤種類，不印句子內容
                     call.reject("judge failed")
@@ -97,6 +107,23 @@ actor AppleJudge {
         case .unavailable(.modelNotReady): return (false, "downloading")
         case .unavailable: return (false, "unavailable")
         }
+    }
+
+    /// 系統回報的模型資訊（#/ai 顯示）：可用性原文、支援的語言、一次能讀多少 token；沒有的就不放
+    nonisolated static func info() -> [String: Any] {
+        let model = SystemLanguageModel.default
+        var o: [String: Any] = [:]
+        switch model.availability {
+        case .available: o["availability"] = "available"
+        case .unavailable(.deviceNotEligible): o["availability"] = "deviceNotEligible"
+        case .unavailable(.appleIntelligenceNotEnabled): o["availability"] = "appleIntelligenceNotEnabled"
+        case .unavailable(.modelNotReady): o["availability"] = "modelNotReady"
+        case .unavailable: break
+        }
+        let langs = model.supportedLanguages.map { $0.minimalIdentifier }.sorted()
+        if !langs.isEmpty { o["languages"] = langs }
+        if case .available = model.availability, model.contextSize > 0 { o["contextSize"] = model.contextSize }
+        return o
     }
 
     /// 每一題用新的 session（不累積前一題的對話）；先準備好一個並預先載入，下一題就快

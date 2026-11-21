@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-21 E9 阿幫的腦袋——裝置端 AI 視覺與模型資訊頁（#/ai）
+- 做了：新頁 `#/ai`（設定頁裝置端 AI 區塊進入）。主視覺用 App 圖示的「Λ＋琥珀色發光核心＋軌道」：待機呼吸、判斷時脈動、訊號流到「意圖」「狀態」並點亮；圖下方 role=status 的一句話是等義文字，reduced motion 直接顯示結果。「現場試試看」只呼叫手機上的外掛（沒有網路請求）。模型資訊只列系統回報的：外掛 `status()` 擴充（Android：featureStatus、modelName、tokenLimit、下載進度、aicoreVersion、osVersion、device；iOS：availability、languages、contextSize、osVersion），`judge()` 回 `ms`；本機計數 `abang.edgeStats`。`/api/v1/status` 加 `agent`（由誰回答、判斷層成員）。沒有裝置端模型（網頁版、不支援、關掉）時核心不點亮、照實說判斷在伺服器做。設定頁與本頁共用開關（`setEdgeEnabled`）。字典 `ai-i18n.js`（`lang=en`）。
+- 測試：npm test 648 項全過（新增 test/ai-info.test.js 11 項）；E2E 64 項全過（新增 3 項：網頁版手機／桌面、假外掛的模型資訊＋試試看＋開關＋英文＋入口）；Android `assembleDebug`、iOS 模擬器 `xcodebuild` 都編譯成功
+- 文件：UX.md §5.0.1、ADR-0014 第 7 點、AGENT.md §5.3、PLAN.md E9、README、CLAUDE.md；SW v0.9.3-ai
+- 下一個：首頁「手機上的 AI」狀態列接到 `#/ai`（另一個分支）；實機確認欄位
+- 卡住：外掛新欄位還沒在實機看過（Pixel：`getBaseModelName`／`getTokenLimit`／AICore 版本實際回什麼；iPhone：`supportedLanguages` 的寫法）——查不到時畫面只是少那一列
+
 ## 2026-11-21 PM 第五批情境 P5-1～P5-10（更正、出發時間、台語、錯字、一句多件事、防詐話術與事後求助）
 - 做了：PM 提 10 個（34 輪只過 11 輪），分兩組同時修：生活 agent——中途更正保留起點、出發時間解析（明天早上 8 點出發）、台語與錯字正規化、「去火車站」最近車站、英文 there 與 YouBike near X、一句問多件事都查、禮貌話；防詐 agent——規則疊加計分（stack）與正常通知例外（except）、補假檢警／假親友／投資群組／誤設批發商／和解金／按 9／欠費停話寫法、貼上的詐騙訊息不被 119 攔、「已經匯款了」給 165／110／止付步驟。
 - 測試：npm test 637 項全過（test/pm5-intents.test.js、test/pm5-antifraud.test.js；情境 127 個＋防詐情境 2 個）；E2E 61 項全過。審查修正：防詐頁急症仍給 119、事後求助不誤判擔心或一般付款、宣導新聞不疊加、半夜 12 點、一句多件事不丟件、出發與抵達衝突、禮貌詞開頭；實機發現叫車提醒重複一句已修

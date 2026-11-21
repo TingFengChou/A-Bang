@@ -1,0 +1,113 @@
+/* 阿幫的腦袋（#/ai）：主視覺區用品牌深青綠漸層（App 圖示同色：#0B3B39 → #0F766E）＋細網格＋光暈，其餘淺色卡片（UX 原則：不做黑底 HUD）。
+   核心＝琥珀色（#FBBF24，品牌的鈕扣黃）。動畫只用 transform／opacity／stroke-dashoffset（手機上順）；
+   prefers-reduced-motion 與 html.lite-motion 全部關掉，直接顯示結果（同樣的資訊在 .ai-live 那一句）。 */
+.ai-hero { position: relative; overflow: hidden; margin-bottom: 12px; padding: 18px 16px 14px; border-radius: 20px; color: #fff;
+  background: linear-gradient(155deg, #0b3b39 0%, #0d5750 55%, #0f766e 100%); box-shadow: var(--shadow); scroll-margin-top: 64px; }
+.ai-hero::before { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(rgba(153, 246, 228, .08) 1px, transparent 1px), linear-gradient(90deg, rgba(153, 246, 228, .08) 1px, transparent 1px);
+  background-size: 24px 24px; -webkit-mask-image: radial-gradient(circle at 50% 58%, #000 0, transparent 72%); mask-image: radial-gradient(circle at 50% 58%, #000 0, transparent 72%); }
+.ai-hero > * { position: relative; }
+.ai-eyebrow { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 1.5px; color: #99f6e4; }
+.ai-engine { margin: 2px 0 4px; font-size: 26px; line-height: 1.25; font-weight: 800; letter-spacing: .2px; }
+.ai-sub { margin: 0; font-size: 14px; line-height: 1.6; color: #ccfbf1; }
+.ai-chip { display: inline-flex; align-items: center; gap: 7px; margin: 10px 0 0; padding: 4px 11px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  background: rgba(255, 255, 255, .13); border: 1px solid rgba(204, 251, 241, .4); }
+.ai-chip::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #99a8a5; flex: none; }
+.ai-chip.on::before { background: #fbbf24; box-shadow: 0 0 0 3px rgba(251, 191, 36, .3); }
+.ai-stage { margin: 4px -6px 0; scroll-margin-top: 64px; }
+.ai-svg { display: block; width: 100%; height: auto; }
+.ai-live { margin: 8px 0 0; min-height: 3.2em; font-size: 15px; line-height: 1.6; text-align: center; }
+
+/* 軌道、Λ、線 */
+.ai-ring { fill: none; stroke: #99f6e4; stroke-opacity: .28; stroke-width: 2; }
+.ai-ring2 { fill: none; stroke: #99f6e4; stroke-opacity: .22; stroke-width: 1.5; stroke-dasharray: 2 10; }
+.ai-arc { fill: none; stroke: #ccfbf1; stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: 72 468.4; }
+.ai-sat { fill: #fde68a; }
+.ai-orbit { transform-origin: 180px 128px; }
+.ai-wire { fill: none; stroke: #99f6e4; stroke-opacity: .4; stroke-width: 1.5; stroke-dasharray: .025 .035; }
+.ai-lambda { fill: none; stroke: url(#ai-lam); stroke-width: 13; stroke-linecap: round; stroke-linejoin: round; }
+.ai-sig { fill: none; stroke: #fde68a; stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: .24 1; stroke-dashoffset: .24; opacity: 0; }
+/* 核心 */
+.ai-core { fill: #fbbf24; transform-origin: 180px 160px; }
+.ai-core-ring { fill: none; stroke: #fde68a; stroke-opacity: .55; stroke-width: 3; }
+.ai-halo { transform-origin: 180px 160px; }
+.ai-pulse { fill: none; stroke: #fde68a; stroke-width: 2; opacity: 0; transform-origin: 180px 160px; }
+/* 節點 */
+.ai-node rect { fill: rgba(9, 52, 49, .82); stroke: #99f6e4; stroke-opacity: .5; stroke-width: 1.5; }
+.ai-node text { fill: #fff; text-anchor: middle; font-size: 13px; font-weight: 600; }
+.ai-node .ai-k { font-size: 11px; font-weight: 500; fill: #99f6e4; letter-spacing: .5px; }
+.ai-node .ai-v { font-size: 15px; font-weight: 700; }
+.ai-node .ai-v.long { font-size: 12px; }
+
+/* 待機：核心慢慢呼吸、軌道慢慢轉 */
+.ai-hero[data-core="on"] .ai-orbit { animation: ai-spin 22s linear infinite; }
+.ai-hero[data-core="on"] .ai-core { animation: ai-breathe 3.6s ease-in-out infinite alternate; }
+.ai-hero[data-core="on"] .ai-halo { animation: ai-halo 3.6s ease-in-out infinite alternate; }
+/* 判斷中：核心脈動、訊號從「你說的話」流進核心 */
+.ai-hero[data-stage="thinking"] .ai-orbit { animation-duration: 2.6s; }
+.ai-hero[data-stage="thinking"] .ai-core { animation: ai-beat .45s ease-in-out infinite alternate; }
+.ai-hero[data-stage="thinking"] .ai-pulse { animation: ai-ripple .9s ease-out infinite; }
+.ai-hero[data-stage="thinking"] .ai-sig-in { animation: ai-flow .75s linear infinite; }
+/* 聽懂了：訊號流到「意圖」「狀態」，節點點亮 */
+.ai-hero[data-stage="done"] .ai-pulse { animation: ai-ripple .7s ease-out 1; }
+.ai-hero[data-stage="done"] .ai-sig-out { animation: ai-flow .55s ease-in 1; }
+.ai-hero[data-stage="done"] .ai-out rect { fill: #fbbf24; stroke: #fde68a; stroke-opacity: 1; animation: ai-lit .5s ease-out 1 both; }
+.ai-hero[data-stage="done"] .ai-out .ai-k { fill: #713f12; }
+.ai-hero[data-stage="done"] .ai-out .ai-v { fill: #1f2a44; }
+.ai-hero[data-stage="done"] .ai-out text { animation: ai-pop .3s ease-out .42s 1 both; }
+/* 沒有手機上的模型：核心不點亮（虛線空心）、軌道不轉 */
+.ai-hero[data-core="off"] .ai-core { fill: none; stroke: #99f6e4; stroke-opacity: .75; stroke-width: 2; stroke-dasharray: 4 4; }
+.ai-hero[data-core="off"] .ai-halo, .ai-hero[data-core="off"] .ai-core-ring { display: none; }
+.ai-hero[data-core="off"] .ai-arc, .ai-hero[data-core="off"] .ai-sat { opacity: .35; }
+.ai-hero[data-core="off"] .ai-lambda { opacity: .45; }
+.ai-hero[data-core="off"] .ai-node .ai-v { font-size: 13px; fill: #ccfbf1; }
+
+@keyframes ai-spin { to { transform: rotate(360deg); } }
+@keyframes ai-breathe { from { transform: scale(.94); } to { transform: scale(1.1); } }
+@keyframes ai-halo { from { opacity: .55; transform: scale(.9); } to { opacity: 1; transform: scale(1.12); } }
+@keyframes ai-beat { from { transform: scale(.9); } to { transform: scale(1.22); } }
+@keyframes ai-ripple { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(3.2); } }
+@keyframes ai-flow { 0% { opacity: 1; stroke-dashoffset: .24; } 85% { opacity: 1; } 100% { opacity: 0; stroke-dashoffset: -1; } }
+@keyframes ai-lit { 0%, 70% { fill: rgba(9, 52, 49, .82); stroke: #99f6e4; } 100% { fill: #fbbf24; stroke: #fde68a; } }
+@keyframes ai-pop { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ai-hero *, .ai-hero *::before { animation: none !important; transition: none !important; } }
+html.lite-motion .ai-hero * { animation: none !important; transition: none !important; }
+
+/* 淺色卡片 */
+.ai-card { padding: 16px; margin-bottom: 12px; }
+.ai-card h2 { font-size: 17px; margin: 0 0 10px; }
+.ai-card h3 { font-size: 15px; margin: 16px 0 8px; }
+.ai-card .note { margin: 0 0 10px; font-size: 14px; line-height: 1.7; color: var(--muted); }
+.ai-card .ai-foot { margin: 12px 0 0; }
+.ai-card .btn.small { display: inline-flex; align-items: center; text-decoration: none; }
+.ai-try-form { display: grid; gap: 8px; } /* 輸入框整行（長句看得完），按鈕在下面整行（不被浮動阿幫擋住） */
+.ai-try-form .btn { min-height: 48px; white-space: nowrap; }
+.ai-try-form .btn[disabled] { opacity: .6; }
+.ai-ex { flex-wrap: wrap; overflow: visible; margin-top: 10px; }
+.ai-ex .chip { min-height: 44px; white-space: normal; text-align: left; line-height: 1.4; }
+.ai-local { display: flex; gap: 8px; align-items: flex-start; margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--brand-soft); color: #0b4f49; font-size: 14px; line-height: 1.6; }
+.ai-local svg { flex: none; margin-top: 2px; }
+.ai-dl { margin: 0; }
+.ai-dl > div { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-top: 1px solid var(--line); }
+.ai-dl > div:first-child { border-top: 0; padding-top: 0; }
+.ai-dl dt { flex: 0 0 auto; max-width: 46%; color: var(--muted); }
+.ai-dl dd { margin: 0; text-align: right; font-weight: 600; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.ai-members { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ai-members li { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.ai-m-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ai-members p { margin: 4px 0 0; font-size: 14px; line-height: 1.6; color: var(--muted); }
+.ai-tag { flex: none; padding: 2px 8px; border-radius: 999px; font-size: 12px; white-space: nowrap; background: var(--off-soft); color: var(--off); }
+.ai-tag.on { background: var(--ok-soft); color: var(--ok); }
+.ai-flow { list-style: none; margin: 0; padding: 0; counter-reset: ai-step; }
+.ai-flow li { position: relative; padding: 2px 0 16px 40px; counter-increment: ai-step; }
+.ai-flow li::before { content: counter(ai-step); position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--brand-soft); color: var(--brand); font-size: 14px; font-weight: 700; }
+.ai-flow li::after { content: ''; position: absolute; left: 13px; top: 32px; bottom: 4px; width: 2px; background: var(--line); }
+.ai-flow li:last-child { padding-bottom: 0; }
+.ai-flow li:last-child::after { display: none; }
+.ai-flow li.core::before { background: #fbbf24; color: #1f2a44; box-shadow: 0 0 0 4px rgba(251, 191, 36, .25); }
+.ai-flow b { display: block; }
+.ai-at { margin-left: 8px; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 500; background: var(--off-soft); color: var(--off); white-space: nowrap; }
+.ai-flow p { margin: 2px 0 0; font-size: 14px; line-height: 1.6; color: var(--muted); }
+.ai-privacy { margin: 0 0 12px; padding-left: 20px; font-size: 14px; line-height: 1.8; }
+.settings .ai-link { display: inline-flex; align-items: center; margin-top: 10px; text-decoration: none; white-space: normal; }

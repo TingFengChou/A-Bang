@@ -20,6 +20,10 @@
 4. **降級與斷路器**：上一題原生端還沒跑完就不呼叫（不排隊，晚到的結果丟掉）；外掛回不可用就這次開 App 不再試；Android 遇到配額或背景被擋暫停 10 分鐘。網頁版、iOS 26 以下、機型不支援、沒開 Apple Intelligence、模型下載中、語言不支援、外掛錯誤、超過 1.8 秒（`EDGE_TIMEOUT_MS`；Android 原生端 1.5 秒取消）→ 不帶 `deviceJudge`，伺服器照原本的判斷層。使用者看不出差別。不提高 App 最低版本（iOS 15、Android API 24；外掛在 iOS 26／API 26 以下直接回不可用）。
 5. **隱私**：只送意圖、狀態、引擎三個欄位（使用者的句子本來就會送伺服器回答）；外掛只記耗時與錯誤類型，不記句子。使用者可關閉（`localStorage abang.edgeAI = off`，設定畫面 E8 再做）。
 6. **看得到**：status 事件的 `judge` 帶 `source: 'device'`、`engine`；問阿幫頁的模式說明加一句「阿幫先在手機上用 Apple Intelligence／Gemini Nano 聽懂你要做什麼」（aria-live 唸出）；地端模型模式下裝置判斷與伺服器 B 一樣可縮小給模型的工具（`INTENT_TOOLS`）；伺服器 log 記 `judge` 來源（不含內容），作為計量。
+7. **讓使用者看得到模型（2026-11-21）**：「阿幫的腦袋」頁（`#/ai`，UX.md §5.0.1；入口在設定頁的裝置端 AI 區塊）顯示手機上的模型資訊、現場試判斷、資料怎麼走。外掛 `status()` 多回系統查得到的欄位，**查不到就不回傳、畫面就不顯示，不編造版本或參數**：
+   - Android（ML Kit GenAI Prompt API）：`featureStatus`（available／downloadable／downloading／unavailable）、`modelName`（`getBaseModelName()`）、`tokenLimit`（`getTokenLimit()`）、下載中的 `downloadTotalBytes`／`downloadedBytes`（`DownloadCallback`）、`aicoreVersion`（AICore 套件版本；manifest 加 `<queries>`）、`osVersion`、`device`。ML Kit 不回報支援語言與模型大小，所以不顯示。
+   - iOS（Foundation Models）：`availability`（available／deviceNotEligible／appleIntelligenceNotEnabled／modelNotReady）、`languages`（`supportedLanguages`）、`contextSize`、`osVersion`。系統不回報模型名稱與版本，所以不顯示。
+   - `judge()` 多回 `ms`（模型花多久）；JS 只在本機記「今天判斷幾次、上次花多久」（`localStorage abang.edgeStats`，只有數字），不上傳。`deviceJudge` 仍然只有意圖、狀態、引擎三個欄位。
 
 ## 評測（`scripts/eval-edge.js` 實機、`scripts/eval-edge-combo.js` 組合；`docs/research/edge-eval.md`）
 同一份 172 題評估集：Pixel 11 Pro XL 上的 Gemini Nano 單獨意圖 90.1%、全對 85.5%，延遲 p50 約 270 ms；與 A＋規則組合後全對 89.0%、驗收集 88.4%（A＋規則 77.9%；伺服器 A＋qwen3:8b 89.5%、驗收集 88.4%）。兩者相當，之後若實機數據穩定，可改成「有裝置結果就不呼叫伺服器模型」省成本。iOS 模擬器（Mac 的 Apple Intelligence）第一題冷啟動約 5 秒、超過逾時，實機數據待 iPhone 15 Pro 以上。
