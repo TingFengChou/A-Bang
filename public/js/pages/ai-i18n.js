@@ -1,6 +1,7 @@
 // 「阿幫的腦袋」（#/ai）的文字字典：網址帶 lang=en 時整頁英文。
 // 跟公車頁字典（bus-i18n.js）同一套做法：鍵相同、佔位符 {name}、英文缺鍵退回中文、缺鍵回傳鍵本身（測試抓得到）。
-// 模型名稱、版本、語言清單是系統回報的資料，照原文；這裡只放阿幫自己寫的字。
+// 模型名稱、版本、語言清單是系統回報的資料，照原文；這裡只放阿幫自己寫的字。現場試判斷的字在 ai-trial-i18n.js（併進來）。
+import { TRIAL_ZH, TRIAL_EN } from './ai-trial-i18n.js';
 
 export const ZH = {
   'title': '阿幫的腦袋',
@@ -42,24 +43,9 @@ export const ZH = {
   'reason.no-plugin': '這個版本沒有裝置端 AI',
   'reason.unavailable': '系統回報目前不能使用',
   // 現場試試看
-  'try.title': '現場試試看',
-  'try.lead': '打一句話，讓手機上的 {engine} 判斷你想做什麼。',
-  'try.label': '要判斷的一句話',
-  'try.placeholder': '例如：我快遲到了，怎麼去台北車站',
-  'try.go': '在手機上判斷',
-  'try.examples': '範例',
-  'try.ex1': '我快遲到了，怎麼去台北車站',
-  'try.ex2': '307 到哪了',
-  'try.ex3': '明天會下雨嗎',
-  'try.ex4': '帶爸媽去故宮，不想走太多路',
-  'try.local': '這一步沒有離開手機：句子只交給手機內建的模型，不會送到阿幫的伺服器。',
+  'try.placeholder': '例如：我快遲到了，怎麼去台北101',
   'try.fail': '這次手機沒有判斷出來（模型在忙、太久沒回應，或回答看不懂）。平常遇到這種情況，阿幫會改由伺服器判斷，你不會感覺到差別。',
   'try.empty': '先打一句話。',
-  'try.no.web': '這裡試不了：網頁版沒有手機上的 AI。到問阿幫問一句，判斷會在伺服器做。',
-  'try.no.off': '手機上的 AI 現在關著。打開下面「資料怎麼走」的開關，就能在這裡試。',
-  'try.no.downloading': '模型還沒準備好，下載完成後就能在這裡試。',
-  'try.no.unsupported': '這裡試不了：這支手機現在不能用手機上的 AI（{reason}）。到問阿幫問一句，判斷會在伺服器做。',
-  'try.ask': '去問阿幫',
   'judged.intent': '聽懂了：意圖是「{intent}」；',
   'judged.states': '狀態是「{states}」。',
   'judged.noStates': '沒有特別提到狀態。',
@@ -248,6 +234,7 @@ export const ZH = {
   'vision.on': '開著',
   'vision.off': '關著（到設定打開）',
   'vision.honest': '只列系統真的回報的能力；照片只在手機上讀字。',
+  ...TRIAL_ZH,
 };
 
 export const EN = {
@@ -287,24 +274,9 @@ export const EN = {
   'reason.web': 'not used on the web (phone app only)',
   'reason.no-plugin': 'this version has no on-device AI',
   'reason.unavailable': 'the system says it is unavailable right now',
-  'try.title': 'Try it live',
-  'try.lead': 'Type a sentence and let {engine} on this phone work out what you want.',
-  'try.label': 'Sentence to understand',
-  'try.placeholder': "e.g. I'm late, how do I get to Taipei Main Station",
-  'try.go': 'Understand on phone',
-  'try.examples': 'Examples',
-  'try.ex1': "I'm running late, how do I get to Taipei Main Station",
-  'try.ex2': 'Where is bus 307',
-  'try.ex3': 'Will it rain tomorrow',
-  'try.ex4': "Taking my parents to the Palace Museum, they can't walk much",
-  'try.local': "This step never leaves your phone: the sentence only goes to the phone's built-in model, not to Abang's server.",
+  'try.placeholder': "e.g. I'm late, how do I get to Taipei 101",
   'try.fail': "The phone didn't get an answer this time (the model was busy, too slow, or unclear). When that happens, Abang lets the server do it and you won't notice a difference.",
   'try.empty': 'Type a sentence first.',
-  'try.no.web': "Can't try here: the web version has no on-device AI. Ask Abang a question and the server will do this step.",
-  'try.no.off': 'On-device AI is off. Turn on the switch under "Where your data goes" to try it here.',
-  'try.no.downloading': "The model isn't ready yet. You can try here once it finishes downloading.",
-  'try.no.unsupported': "Can't try here: this phone can't use on-device AI right now ({reason}). Ask Abang a question and the server will do this step.",
-  'try.ask': 'Ask Abang',
   'judged.intent': 'Got it: intent is "{intent}"; ',
   'judged.states': 'situation is "{states}". ',
   'judged.noStates': 'no special situation mentioned. ',
@@ -486,6 +458,7 @@ export const EN = {
   'vision.on': 'On',
   'vision.off': 'Off (turn it on in Settings)',
   'vision.honest': 'Only capabilities the system actually reports are listed; photos are read on the phone only.',
+  ...TRIAL_EN,
 };
 
 /** 網址的 lang：只認 en，其他一律中文 */

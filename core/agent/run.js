@@ -15,6 +15,7 @@ import { impactOf, judgeNote, outingNote, moreStatesNote } from './impact.js';
 import { createJudge, JUDGE_INTENTS, JUDGE_STATES, DEVICE_ENGINES } from './judge.js';
 import { waitDrama } from './wait-drama.js';
 import { answerFacts } from './answer-facts.js';
+import { trialInfo } from './trial.js';
 import { WRITE_AGENTS } from '../edge-write.js';
 
 /** 示範模式的規則式規劃（依 agent）：parse → steps → summary；needsLocation 只有生活 agent 用 */
@@ -83,8 +84,14 @@ const RequestSchema = z.object({
   // 手機上的模型先判斷好的意圖與狀態（ADR-0014）：只是提示，列舉值以外一律拒絕；方案排序仍由 decide.js 計分
   deviceJudge: z.object({ intent: z.enum(Object.keys(JUDGE_INTENTS)), states: z.array(z.enum(JUDGE_STATES)).max(JUDGE_STATES.length), engine: z.enum(DEVICE_ENGINES) }).optional(),
   // 手機能自己寫回答（ADR-0017）：伺服器不呼叫模型，送程式版總結（answer_draft）由手機改寫
-  clientCaps: z.object({ edgeWrite: z.boolean(), engine: z.enum(DEVICE_ENGINES) }).strict().optional(),
+  // trial：「阿幫的腦袋」的現場試判斷（#/ai）：同樣走 edge 模式（不呼叫任何伺服器模型），另外送 trial 事件（資料夠不夠、資料來源）；
+  // 網頁版沒有手機上的模型，所以 trial 時 engine 可以不帶（一般請求一定要帶）
+  clientCaps: z.object({ edgeWrite: z.boolean(), engine: z.enum(DEVICE_ENGINES).optional(), trial: z.literal(true).optional() }).strict()
+    .refine((c) => c.engine || (c.trial && c.edgeWrite), { message: '要有 engine' }).optional(),
 });
+
+/** 這個請求是「阿幫的腦袋」的試判斷（只有生活 agent；一定走 edge 模式） */
+export const isTrial = (req, profileId = 'life') => req?.clientCaps?.trial === true && req.clientCaps.edgeWrite === true && WRITE_AGENTS.includes(profileId);
 
 /** 這個請求的回答要交給手機寫（只有生活 agent；防詐的固定安全句不改寫） */
 export const wantsEdgeWrite = (req, profileId = 'life') => req?.clientCaps?.edgeWrite === true && WRITE_AGENTS.includes(profileId);
@@ -262,7 +269,8 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   emit(ev.status({ mode, profile: profile.id, judge: judgeInfo(q0), lang: isEnglish(last) ? 'en' : 'zh' }));
   // 安全情境（S18）：提到自傷或正在發生的緊急狀況 → 先給求助電話，不查交通（所有 agent 都一樣）
   const safe = safetyCheck(last, { profileId: profile.id }); // 安全情境在請定位之前就回答，不會有帶定位的重送
-  if (safe) { emit(ev.guardrail({ tier: 'L0', rule: `safety:${safe.kind}`, calls: safe.calls })); emit(ev.text(safe.reply)); emit(ev.done()); return; }
+  const trial = edgeWrite && isTrial(req, profile.id) && !req.clientToolResults?.length; // 試判斷：帶定位結果的重送不再送一次
+  if (safe) { if (trial) emit(ev.trial(trialInfo(svc, it, { judge: q0, lang: isEnglish(last) ? 'en' : 'zh', now, safety: safe.kind }))); emit(ev.guardrail({ tier: 'L0', rule: `safety:${safe.kind}`, calls: safe.calls })); emit(ev.text(safe.reply)); emit(ev.done()); return; }
   if (!req.clientToolResults?.length && it.reset) emit(ev.contextReset());
   if (notice) emit(ev.agentNote(it.lang === 'en' ? "Today's AI quota is used up; answering in demo mode" : notice));
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
@@ -277,6 +285,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
     const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
     if (more && it.lang !== 'en') emit(ev.agentNote(more));
   }
+  if (trial) emit(ev.trial(trialInfo(svc, it, { judge: j || q0, lang: it.lang === 'en' ? 'en' : 'zh', now }))); // 資料夠不夠、會查哪些資料（程式算，不經模型）
   // 需要使用者位置（M5-07）：客戶端支援 device_location 時先請它定位，拿到結果後客戶端帶 clientToolResults 重送
   if (plan.needsLocation(it) && req.clientTools?.includes('device_location')) {
     const loc = deviceLocation(req);

@@ -95,7 +95,7 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
       } finally {
         res.end();
         // 隱私（AGENT.md §7）：只記模式、事件數量、耗時、token 與判斷來源（embed／llm／device:apple…），不記對話內容與座標；device＝有收到手機判斷（引擎名）
-        log({ agent: profile.id, mode, ms: Date.now() - t0, toolCalls: u.toolCalls, modelCalls: u.modelCalls, ...(tokens && { tokens }), ...(judgeSrc && { judge: judgeSrc }), ...(body?.deviceJudge && { device: body.deviceJudge.engine }), ...(failed && { error: failed }) });
+        log({ agent: profile.id, mode, ms: Date.now() - t0, toolCalls: u.toolCalls, modelCalls: u.modelCalls, ...(tokens && { tokens }), ...(judgeSrc && { judge: judgeSrc }), ...(body?.deviceJudge && { device: body.deviceJudge.engine }), ...(edgeWrite && req.clientCaps?.trial && { trial: true }), ...(failed && { error: failed }) }); // trial：#/ai 的試判斷（只記有這件事，不記句子）
       }
     },
   };

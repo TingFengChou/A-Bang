@@ -142,7 +142,7 @@ test('字典：中英文鍵相同；每個意圖、狀態、原因、模型狀�
     for (const k of EDGE_REASONS) assert.ok(dict[`reason.${k}`], `${lang} reason.${k}`);
     for (const k of ['ready', 'off', 'downloading', 'downloadingPct', 'downloadable', 'unsupported', 'web']) assert.ok(dict[`status.${k}`], `${lang} status.${k}`);
     for (const k of ['ready', 'off', 'downloading', 'downloadable', 'unsupported', 'web']) assert.ok(dict[`hero.sub.${k}`], `${lang} hero.sub.${k}`);
-    for (const k of ['web', 'off', 'downloading', 'unsupported']) assert.ok(dict[`try.no.${k}`], `${lang} try.no.${k}`);
+    for (const k of ['web', 'off', 'downloading', 'downloadable', 'unsupported', 'failed']) assert.ok(dict[`trial.why.${k}`], `${lang} trial.why.${k}`); // 試判斷第 1 段改用伺服器判斷的原因
     for (const k of Object.keys(ENGINE_NAME)) assert.ok(dict[`model.provider.${k}`], `${lang} model.provider.${k}`);
     for (const k of ['claude', 'local', 'demo', 'rules']) assert.ok(dict[`server.who.${k}`] && dict[`server.mode.${k}`], `${lang} server ${k}`);
     for (const k of ['device', 'embed', 'llm', 'rules']) assert.ok(dict[`server.src.${k}`], `${lang} server.src.${k}`);
@@ -185,7 +185,9 @@ test('入口與外殼：路由、設定頁連結、離線清單、樣式；動�
   const page = await read('public/js/pages/ai.js');
   assert.match(page, /class="ai-stage" id="ai-stage" aria-hidden="true"/, '動畫對讀屏隱藏');
   assert.match(page, /id="ai-live" role="status"/, '同樣的資訊用文字說');
-  assert.doesNotMatch(page, /fetch\(|runAgent/, '試試看不發網路請求（只有 api.status 查伺服器模式）');
+  // 試判斷（2026-11-22）：第 2～4 段才用網路——agent（只送句子）與建議驗證；不取定位、不送常用地點
+  assert.deepEqual([...page.matchAll(/fetch\(`([^`]+)`/g)].map((m) => m[1]), ['${API_BASE}/api/v1/suggest/check']);
+  assert.doesNotMatch(page, /browserLocation|getCurrentPosition|loadPlaces|savedPlaces|habit/, '試判斷不取定位、不送常用地點與習慣');
 });
 
 test('原生外掛：status 回報系統查得到的欄位、judge 回耗時（兩個平台）', async () => {

@@ -76,6 +76,7 @@
 | `context_reset` | — | 使用者說「重來」：畫面加「重新開始」分隔線、前面的對話變淡（2026-11-21） |
 | `text` | `delta` | 阿幫的總結（可串流） |
 | `answer_draft` | `text`（程式版總結）, `facts`（事實清單）, `lang: 'zh'\|'en'` | 只在請求帶 `clientCaps.edgeWrite` 時取代 `text`：手機改寫後顯示（§3.5、ADR-0017） |
+| `trial` | `lang`, `judge: { intent, states, source, engine?, confidence? }`, `intent`, `judged`, `target`, `slots: [{ key, required, have, value?, fill? }]`, `missing`, `fixed`, `location`, `enough`, `blocked`, `heard`, `sources: [{ id, mode, reason, minutesAgo? }]`, `safety?` | 只在請求帶 `clientCaps.trial` 時：「阿幫的腦袋」試判斷的「資料夠不夠」（§3.6） |
 | `done` | `usage?` | 結束 |
 | `error` | `message`, `retryable`, `retryAfterSec?` | 錯誤或限流 |
 
@@ -116,6 +117,14 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - **畫面**：思考動畫「在手機上寫回答」（`answer_draft` 後、改寫完成前）；回答上方只有一行，把手機判斷與寫回答合在一起照實說：手機判斷被採用且寫好回答 →「手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答。」；只有寫回答 →「這次的回答由手機上的 Gemini Nano 寫。」；沒通過檢查或逾時 →「手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（沒通過檢查／逾時）。」（沒有手機判斷時「這次的回答用阿幫的固定說法（…）。」）；英文同理，iPhone 照實寫 Apple Intelligence（`writeLine`）；頁底模式說明「回答在手機上寫；伺服器只查資料、用程式排序，不經伺服器的 AI 模型。」
 - **網頁版與不支援的手機**：不帶 `clientCaps`，行為完全不變（伺服器的模型或規則寫回答）。
 - **規則聽不懂的開放式問題**：edge 模式一律不退回伺服器模型（產品負責人 2026-11-21），改用「阿幫問你」的 `ask`（`core/agent/ask.js` `unknownAsk`，`about: 'unknown'`）給 4 個查得到的選項（怎麼去台北101、附近公車站、現在天氣、發票對獎；英文另一組），都是 `reply`：按了就把規則聽得懂的完整一句送出；`answer_draft` 只留一句短的（`UNKNOWN_SHORT`），不再列一串例句。道謝、道歉、重來不算聽不懂。
+
+### 3.6 試判斷（「阿幫的腦袋」#/ai，2026-11-22）
+
+產品負責人要能評估阿幫夠不夠聰明：意圖與狀態之外，看資料夠不夠、預計怎麼回答、下一個會問什麼（UX.md §5.0.1）。**重用 `/api/v1/agent`，不加新端點**；**只有生活 agent 走 edge／trial**（`WRITE_AGENTS`），防詐 agent 帶了 `clientCaps.trial` 也照原路徑、不送 `trial` 事件：
+- 請求帶 `clientCaps: { edgeWrite: true, trial: true, engine? }`（網頁版沒有手機上的模型，`trial` 且 `edgeWrite` 時 `engine` 可省略；一般請求仍必填）。一律走 edge 模式：伺服器只跑規則與程式計分，不呼叫任何伺服器模型。客戶端只送這一句（與手機判斷的 `deviceJudge`），不送 `userState`、`savedPlaces`；伺服器請定位（`client_tool_call device_location`）時回 `ok: false`，回答就是不給定位時的樣子。
+- 伺服器在判斷完、請定位前送一個 `trial` 事件（`core/agent/trial.js` `trialInfo`，程式算）：`slotReport` 依 `INTENT_SLOTS`（各意圖需要的欄位、是否必要、沒說時怎麼補：location／now／today／all／index／hot／saved）比對這一輪實際用的意圖；規則聽不懂但判斷層有意圖時照判斷層列欄位（`target`），`enough=false`；固定說明（防詐請到防詐頁、代按代付…）與禮貌話（謝謝、對不起、重來，同 `runDemo` 聽不懂的判斷）`fixed=true`；後天天氣、投資建議、油價漲跌 `blocked`。`sourceReport` 依 `INTENT_SOURCES` 列會查的資料來源（`dataSources`）與原因：`live`、`forced`（伺服器設定示範）、`no-key`、`no-download`、`no-source`、`tdx-limit`（`withTdxFallback` 遇到 429 記下時間；2 分鐘內 `mode` 仍是 `live`、附 `minutesAgo`，畫面說「N 分鐘前曾用完額度」，這一輪實際有沒有改用示範以工具結果的 `mode` 為準）。帶定位結果的重送不再送；安全情境照樣送（`safety`）後回求助電話。
+- 客戶端（`public/js/ai-trial.js` `runTrial`）組四段：手機判斷 → agent 事件（`trial`、工具、`decision`、`ask`、`answer_draft`）→ 手機改寫（`edgeWrite`，沒通過也回被擋的改寫 `candidate` 與原因）→ 動態建議（`trialSuggest`：同 §5.5，手機猜＋`/api/v1/suggest/check` 只送句子，不能用就規則；試判斷不用常用地點）。
+- log 只多記 `trial: true`（不記句子）；限流與一般問阿幫相同（一次試判斷約 2 個請求：請定位＋不給定位的重送）。
 
 ## 4. 模型模式（✅ M5-05，ADR-0012）
 

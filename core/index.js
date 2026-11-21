@@ -38,12 +38,12 @@ import { createMockDramaServices } from './services/drama-mock.js';
  * TDX 額度用完（429）時，這一次改用示範資料，不讓整個查詢失敗（2026-11-21：Austin 先不申請加值應用，新帳號每分鐘只有 5 次）。
  * 只包會回 Promise 的方法；工具結果會標成示範資料（metrics.fallback → mode: 'demo'）。
  */
-export function withTdxFallback(live, mock) {
+export function withTdxFallback(live, mock, quota = null) {
   return new Proxy(live, {
     get(target, key) {
       const v = target[key];
       // 服務是分層的（transit.bus.routeEta、metro.metro.liveBoard）：子物件也包起來
-      if (v && typeof v === 'object' && mock?.[key] && typeof mock[key] === 'object') return withTdxFallback(v, mock[key]);
+      if (v && typeof v === 'object' && mock?.[key] && typeof mock[key] === 'object') return withTdxFallback(v, mock[key], quota);
       if (typeof v !== 'function' || typeof mock?.[key] !== 'function') return v;
       return (...args) => {
         const out = v.apply(target, args);
@@ -51,6 +51,7 @@ export function withTdxFallback(live, mock) {
         return out.catch((e) => {
           if (e?.name !== 'TdxError' || e.status !== 429) throw e;
           markFallback(key);
+          if (quota) quota.at = Date.now(); // 「阿幫的腦袋」試判斷：資料來源照實說「TDX 額度剛用完，改用示範」（core/agent/trial.js）
           return mock[key](...args);
         });
       };
@@ -61,10 +62,11 @@ export function withTdxFallback(live, mock) {
 export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openData = false, forceMock = false, log, demo = {}, drama: dramaCfg = {} } = {}) {
   const live = Boolean(clientId && clientSecret) && !forceMock;
   const tdx = live ? createTdxClient({ clientId, clientSecret, log }) : null;
-  const transit = live ? withTdxFallback(createTransitServices(tdx), createMockTransitServices()) : createMockTransitServices();
-  const metro = live ? withTdxFallback(createMetroServices(tdx), createMockMetroServices()) : createMockMetroServices();
-  const traffic = live ? withTdxFallback(createTrafficServices(tdx), createMockTrafficServices({ scenario: demo.traffic })) : createMockTrafficServices({ scenario: demo.traffic });
-  const intercity = live ? withTdxFallback(createIntercityServices(tdx, traffic), createMockIntercityServices(traffic)) : createMockIntercityServices(traffic);
+  const quota = { at: 0 }; // 最近一次 TDX 額度用完（429）的時間
+  const transit = live ? withTdxFallback(createTransitServices(tdx), createMockTransitServices(), quota) : createMockTransitServices();
+  const metro = live ? withTdxFallback(createMetroServices(tdx), createMockMetroServices(), quota) : createMockMetroServices();
+  const traffic = live ? withTdxFallback(createTrafficServices(tdx), createMockTrafficServices({ scenario: demo.traffic }), quota) : createMockTrafficServices({ scenario: demo.traffic });
+  const intercity = live ? withTdxFallback(createIntercityServices(tdx, traffic), createMockIntercityServices(traffic), quota) : createMockIntercityServices(traffic);
   const booking = live ? createBookingServices(tdx, transit) : createMockBookingServices(transit);
   const weatherLive = Boolean(cwaKey) && !forceMock;
   const cwa = weatherLive ? createCwaClient({ apiKey: cwaKey }) : null;
@@ -90,6 +92,8 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
     aqiMode: antifraudLive && moenvKey ? 'live' : 'demo',
     quakeMode: antifraudLive && cwa ? 'live' : 'demo',
     dramaMode: dramaFx ? 'live' : 'demo', // 短劇（MyDrama 公開片庫）
+    demoForced: Boolean(forceMock), // 伺服器設定成只用示範資料（DEMO_MODE）：試判斷說明為什麼是示範資料
+    tdxLimitedAt: () => quota.at || null, // 最近一次 TDX 額度用完（改用示範）的時間；沒有回 null
     ...transit, // bus, bike, rail
     ...metro, // metro
     ...traffic, // traffic

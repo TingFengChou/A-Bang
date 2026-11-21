@@ -60,7 +60,7 @@ let inflight = null; // 正在寫的那一次（物件當記號；強制清掉�
  * 請手機改寫 answer_draft。
  * @param {{ text: string, facts?: object, lang?: 'zh'|'en' }} draft answer_draft 事件
  * @param {{ engine?: string, agent?: string, timeout?: number, release?: number }} [o]
- * @returns {Promise<{ text: string, by: 'edge'|'program', reason?: 'skip'|'timeout'|'busy'|'failed'|'check', engine?: string, ms?: number, detail?: string }>}
+ * @returns {Promise<{ text: string, by: 'edge'|'program', reason?: 'skip'|'timeout'|'busy'|'failed'|'check', engine?: string, ms?: number, detail?: string, candidate?: string }>}
  */
 export async function edgeWrite(draft, { engine, agent = 'life', timeout = WRITE_TIMEOUT_MS, release = INFLIGHT_RELEASE_MS } = {}) {
   const text = String(draft?.text ?? '');
@@ -88,7 +88,7 @@ export async function edgeWrite(draft, { engine, agent = 'life', timeout = WRITE
     const ms = validMs(r?.ms) ?? Date.now() - t0;
     const chk = checkRewrite(r?.text, { draft: text, facts, lang, agent });
     noteEdgeWrite(chk.ok, ms);
-    return chk.ok ? { text: chk.text, by: 'edge', engine: eng, ms } : program('check', { engine: eng, ms, detail: chk.reason });
+    return chk.ok ? { text: chk.text, by: 'edge', engine: eng, ms } : program('check', { engine: eng, ms, detail: chk.reason, ...(chk.detail && { why: String(chk.detail).slice(0, 60) }), candidate: String(r?.text ?? '').slice(0, 400) }); // candidate：沒通過的改寫（只給「阿幫的腦袋」試判斷看，回答不用它）
   } catch {
     free();
     return program('failed');
