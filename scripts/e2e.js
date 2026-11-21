@@ -47,8 +47,8 @@ async function newCtx(opts, { onboard = false } = {}) {
 /** 開新的 browser context 與頁面、收集錯誤，跑完 fn（不論成敗）一定關閉 context；最後確認沒有頁面錯誤 */
 /** @param {{ init?: Function, initArg?: any }} [opts] init：頁面載入前執行（page.addInitScript），例如假相機 */
 /** motion: true＝動畫開著（不是 reduced motion、不是精簡動畫），用來檢查會動的畫面 */
-async function withPage(device, path, fn, { init, initArg, ignore, geo = true, motion = false } = {}) {
-  const ctx = await newCtx({ ...device, ...(geo && { geolocation: TAIPEI, permissions: ['geolocation'] }), reducedMotion: motion ? 'no-preference' : 'reduce' });
+async function withPage(device, path, fn, { init, initArg, ignore, geo = true, motion = false } = {}) { // geo：true＝台北車站、物件＝指定位置、false＝不給定位
+  const ctx = await newCtx({ ...device, ...(geo && { geolocation: geo === true ? TAIPEI : geo, permissions: ['geolocation'] }), reducedMotion: motion ? 'no-preference' : 'reduce' });
   try {
     const page = await ctx.newPage();
     if (motion) await page.addInitScript(() => Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 }));
@@ -2482,4 +2482,103 @@ test('語音問阿幫：第一次按麥克風跳權限框（App 暫時看不見�
     assert.ok(!(await page.evaluate(() => window.__voice.calls)).includes('cancel'), '權限框不算離開');
     await page.waitForSelector('.msg.user.spoken', { timeout: 5000 });
   }, { init: FAKE_VOICE({ mode: 'auto', startDelay: 800 }), ignore: VOICE_IGNORE });
+});
+
+// 判斷看得到（2026-11-21 PM 回饋「會看天氣空品，但都只顯示詢問定位」）：行程比較用到的天氣、空品、路況逐項說明＋影響；
+// 決策圖資料欄每個來源一個節點（值、影響、查不到）；只剩一種方式時說原因並給換條件的建議
+/** 模擬模型模式：拿掉示範模式另外查的天氣、空品、路況（模型模式只呼叫行程比較），討論串只能靠 data_note 說明 */
+const ONLY_PLAN_TRIP = async (route) => {
+  if (route.request().method() !== 'POST') return route.fallback();
+  const res = await route.fetch();
+  const drop = new Set();
+  const lines = (await res.text()).split('\n').filter((l) => {
+    if (!l.trim()) return false;
+    const e = JSON.parse(l);
+    if (e.type === 'agent_note' && /@天氣 @空品 @路況/.test(e.text)) return false;
+    if (e.type === 'tool_start' && ['weather_now', 'aqi_nearby', 'traffic_status'].includes(e.name)) { drop.add(e.id); return false; }
+    return !(e.type === 'tool_result' && drop.has(e.id));
+  });
+  return route.fulfill({ response: res, body: `${lines.join('\n')}\n` });
+};
+
+test('問阿幫：判斷看得到——討論串逐項說天氣、空品、路況的影響；決策圖資料欄有節點', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.route('**/api/v1/agent', ONLY_PLAN_TRIP);
+    await page.fill('.chat-form input', '去台北 101');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+    const notes = page.locator('.thread .bubble.data-note');
+    assert.equal(await notes.count(), 3, '天氣、空品、路況各一行');
+    for (const [role, re] of [['天氣', /°C，3 小時降雨 \d+%/], ['空品', /測站 AQI \d+/]]) {
+      const b = page.locator(`.thread .bubble.data-note[data-role="${role}"]`);
+      assert.equal(await b.count(), 1, `@${role} 一行`);
+      assert.match(await b.locator('.say').textContent(), re);
+      assert.match(await b.locator('.impact').textContent(), /→\S+/, `@${role} 有影響說明`);
+      assert.match(await b.locator('.src').textContent(), /示範資料/);
+    }
+    // 資料排在行程結論前面
+    const order = await page.evaluate(() => [...document.querySelectorAll('.thread .bubble.tool')].map((b) => b.dataset.role));
+    assert.ok(order.indexOf('天氣') < order.indexOf('行程') && order.indexOf('路況') < order.indexOf('行程'), order.join(','));
+    // 決策圖資料欄：每個來源一個節點，帶值與影響
+    const dg = page.locator('.decision');
+    await dg.locator('.dg-svg').waitFor();
+    for (const role of ['天氣', '空品', '路況']) assert.equal(await dg.locator(`.dg-src[data-role="${role}"]`).count(), 1, `資料欄有 ${role}`);
+    assert.match(await dg.locator('.dg-src[data-role="空品"] .dg-val').textContent(), /AQI \d+/);
+    assert.equal(await dg.locator('.dg-src[data-role="天氣"] .dg-eff').textContent(), '不影響');
+    assert.ok(await dg.locator('.dg-src.quiet').count() >= 1, '不影響的來源淡色');
+    await page.locator('.thread-sum').first().click();
+    await page.locator('.thread.open').waitFor();
+    await page.locator('.thread .bubble.agent', { hasText: '@地點' }).evaluate((n) => n.scrollIntoView({ block: 'start' })); // 從找地點到天氣、空品、路況、行程結論
+    await page.screenshot({ path: new URL('phone-reasoning-thread.png', SHOTS).pathname });
+    await page.setViewportSize({ width: 390, height: 1800 }); // 決策圖整張（不被固定在底部的輸入列蓋住）
+    await dg.evaluate((n) => n.scrollIntoView({ block: 'start' }));
+    await dg.screenshot({ path: new URL('phone-reasoning-graph.png', SHOTS).pathname });
+  });
+});
+
+test('問阿幫：天氣小幫手比行程晚回報時，data_note 也不重複（tool_start 就記下角色）', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.route('**/api/v1/agent', async (route) => { // 模擬平行查詢：weather_now 的結果晚於 plan_trip 的 data_note 才到
+      if (route.request().method() !== 'POST') return route.fallback();
+      const res = await route.fetch();
+      const lines = (await res.text()).split('\n').filter((l) => l.trim());
+      const ev = lines.map((l) => JSON.parse(l));
+      const wid = ev.find((e) => e.type === 'tool_start' && e.name === 'weather_now')?.id;
+      const wi = ev.findIndex((e) => e.type === 'tool_result' && e.id === wid);
+      if (wi < 0) return route.fulfill({ response: res, body: `${lines.join('\n')}\n` });
+      const [late] = lines.splice(wi, 1);
+      const last = lines.map((l) => JSON.parse(l)).findLastIndex((e) => e.type === 'data_note');
+      lines.splice(last + 1, 0, late);
+      return route.fulfill({ response: res, body: `${lines.join('\n')}\n` });
+    });
+    await page.fill('.chat-form input', '去台北 101');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+    assert.equal(await page.locator('.thread .bubble.tool[data-role="天氣"]').count(), 1, '天氣只講一次');
+    assert.equal(await page.locator('.thread .bubble.data-note').count(), 0, '示範模式三個角色都另外查過');
+    assert.match(await page.locator('.thread .bubble.tool[data-role="天氣"] .say').textContent(), /°C/);
+  });
+});
+
+test('問阿幫：在示範範圍外、深夜只剩叫車——說明原因、空品查不到照實說、給換條件的建議', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.fill('.chat-form input', '晚上 11 點半去台北101');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+    const dg = page.locator('.decision');
+    await dg.locator('.dg-svg').waitFor();
+    assert.equal(await dg.locator('.dg-opt').count(), 1, '只有叫車');
+    assert.match(await dg.locator('.dg-single').textContent(), /^只找到叫車一種方式：距離 \d+(\.\d)? 公里，走路、YouBike、公車都太遠；客運 23:30 以後今天沒有趕得上的班次.*示範資料/);
+    assert.ok(await dg.locator('.dg-src').count() >= 3, '資料欄不是空的');
+    assert.match(await page.locator('.bubble.final .say').textContent(), /只找到叫車一種方式/);
+    const chips = page.locator('.suggest .chip.next-ask');
+    assert.match((await chips.allTextContents()).join('|'), /改成明天早上出發\|改從台北車站出發比較看看/);
+    await page.locator('.bubble.final').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: new URL('phone-reasoning-far.png', SHOTS).pathname });
+    // 點建議＝送出那一句，從台北車站就比得到好幾種方式
+    await chips.filter({ hasText: '改從台北車站出發比較看看' }).click();
+    await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
+    assert.match(await page.locator('.msg.user').last().textContent(), /從台北車站到台北101怎麼去/);
+    assert.ok(await page.locator('.decision').last().locator('.dg-opt').count() >= 3);
+  }, { geo: { latitude: 24.99, longitude: 121.31 } }); // 桃園（26 公里外）
 });

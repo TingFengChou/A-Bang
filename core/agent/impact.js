@@ -1,7 +1,7 @@
 // 討論串的「→ 影響」：每位小幫手回報的資料，對這次決策有什麼影響（真實資料＋decide.js 的規則，不經模型、不編造）。
 // 也產生行程開始前阿幫的一句（判斷層結果：你的狀況、或照你說的改成哪種交通方式），讓使用者一送出就看到阿幫在依他的狀況做事。
 import { STATES } from '../decide.js';
-import { BAD_AIR_AQI } from '../services/trip.js';
+import { BAD_AIR_AQI, AIR_MAX_M } from '../services/trip.js';
 
 const AVOID_SAY = { bike: 'YouBike', walk: '長距離步行' };
 const STATE_SAY = { rush: '趕時間', luggage: '帶行李', budget: '想省錢', lessWalk: '想少走路', rain: '遇到下雨', badAir: '覺得空氣差', elder: '帶著長輩', kids: '帶著小孩', mobility: '行動不便' };
@@ -60,6 +60,7 @@ export function impactOf(name, data) {
     case 'aqi_nearby': {
       const a = data.nearest?.aqi;
       if (a == null) return null;
+      if (data.nearest.distanceM > AIR_MAX_M) return { tone: 'neutral', text: `最近的測站在 ${Math.round(data.nearest.distanceM / 1000)} 公里外：不列入判斷` }; // 與 plan_trip 相同的上限
       return a > BAD_AIR_AQI ? { tone: 'bad', text: `AQI ${a}：空品不佳，戶外方式扣分` } : { tone: 'neutral', text: `AQI ${a}：不影響這次決定` };
     }
     case 'traffic_status':
@@ -70,6 +71,7 @@ export function impactOf(name, data) {
       const top = data.ranking?.ranked?.[0];
       const best = data.options?.find((o) => o.id === data.best);
       if (data.modeUnavailable && best) return [{ tone: 'bad', text: `沒有可行的${{ walk: '步行', bike: 'YouBike', bus: '公車', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' }[data.modeUnavailable] || ''}方案：改建議${best.name}` }, bikeImpact(data)].filter(Boolean);
+      if (data.single && best) return [{ tone: 'bad', text: data.single.text }, bikeImpact(data)].filter(Boolean); // 只有一種方式：說明其他方式為什麼不在
       const main = best && top ? { tone: 'good', text: data.mode ? `照你說的選${best.name}（${data.ranking.ranked.find((r) => r.id === best.id)?.score ?? '?'} 分）` : `比了 ${data.options.length} 種走法：${best.name} ${top.score} 分最高` } : { tone: 'bad', text: '這次沒有可行的走法' };
       const bike = bikeImpact(data);
       return bike ? [main, bike] : main;

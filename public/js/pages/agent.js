@@ -339,6 +339,7 @@ export default {
       turn.append(thread, results, think.el);
       const bubbles = new Map();
       const roles = []; // 本輪回報的小幫手角色（決策圖的資料欄）
+      const reported = new Set(); // 本輪已經點名過的工具角色（示範模式另外查了天氣、空品、路況：data_note 不重複）。tool_start 就記：工具平行，weather_now 可能比 plan_trip 晚完成
       let queue = Promise.resolve();
       let lastShown = 0;
       let textEl = null;
@@ -403,6 +404,8 @@ export default {
           case 'tool_start': {
             if (!roles.includes(e.role)) roles.push(e.role);
             const b = el('div', 'bubble tool', avatar(e.role, 'think', turnLang), el('div', 'say typing', ...typing(turnLang === 'en' ? 'checking' : '輸入中')), el('small', 'src', `${e.name} · ${e.server}`));
+            b.dataset.role = e.role;
+            if (e.name !== 'plan_trip') reported.add(e.role); // tool_start 一定比 data_note 早送
             bubbles.set(e.id, b);
             thread.append(b);
             break;
@@ -438,6 +441,20 @@ export default {
                 cards.push(Object.assign(renderCard(slot, payload, host), { turn: turnNo }));
               }
             }
+            break;
+          }
+          case 'data_note': { // 行程比較內部用到的資料（天氣、空品、路況）＋影響：工具發言樣式，排在行程結論前面（AGENT.md §3.1）
+            if (!roles.includes(e.role)) roles.push(e.role);
+            if (reported.has(e.role)) break; // 這一輪已經有這位小幫手的發言（示範模式另外查過），不重複
+            await gap();
+            const src = el('small', 'src', turnLang === 'en' ? 'used in trip comparison' : '行程比較用到的資料');
+            if (e.mode === 'demo') src.append(' · ', el('span', 'src-demo', turnLang === 'en' ? 'Demo data' : '示範資料'));
+            const say = el('div', 'say', e.text);
+            const b = el('div', `bubble tool data-note${e.available === false ? ' missing' : ''}`, avatar(e.role, 'think', turnLang), say, src);
+            b.dataset.role = e.role;
+            if (e.impact?.text) say.after(el('div', `impact ${e.impact.tone || 'neutral'}`, el('span', 'arrow', '→'), e.impact.text));
+            const parent = bubbles.get(e.parent);
+            if (parent?.parentNode === thread) parent.before(b); else thread.append(b);
             break;
           }
           case 'discussion_end': {

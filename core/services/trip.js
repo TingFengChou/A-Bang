@@ -1,11 +1,15 @@
 // 行程規劃 plan_trip（docs/MCP_TOOLS.md §7、ADR-0010）：組合各服務產生候選方案 → 自動狀態 → decide() 排序。
 // 只用 svc 的既有服務（live 與 mock 介面相同），不直接呼叫外部 API；任何一個來源失敗只略過該方案，不中斷規劃。
 // 估算值（市區轉乘、叫車時間與車資、客運票價缺資料時）一律標 estimated，並在 notes 說明依據。
-import { distanceM, toHHMM, toMin, normName } from '../util.js';
+import { distanceM, toHHMM, toMin, normName, nowTW } from '../util.js';
 import { walkMinutes, navLinks } from '../nav.js';
 import { decide, STATES } from '../decide.js';
 import { departOf, delayRiskOf } from './intercity.js';
 import { LANDMARKS, normPlace } from './places.js';
+import { currentFallback } from '../metrics.js';
+import { consideredOf, missingModes, singleNote, AIR_MAX_M, BAD_AIR_AQI, RAIN_SOON_POP } from './trip-considered.js';
+
+export { AIR_MAX_M, BAD_AIR_AQI, RAIN_SOON_POP };
 
 // ── 候選方案的距離門檻（直線） ──
 export const LIMITS = {
@@ -243,7 +247,7 @@ async function busOption(svc, from, to, straight, risk, depart) {
       follow: { city: t.city, routeName: t.routeName, stop: t.board.name, ...(t.direction != null && { direction: t.direction }), walkMin: w1 },
     };
   });
-  return opts.sort((a, b) => a.minutes - b.minutes)[0] || null;
+  return opts.sort((a, b) => a.minutes - b.minutes)[0] || { none: { kind: 'none', why: '起點附近查不到直達目的地的公車' } };
 }
 
 async function railOption(svc, system, from, to, straight, depart) {
@@ -251,12 +255,13 @@ async function railOption(svc, system, from, to, straight, depart) {
   const stations = (await (system === 'THSR' ? svc.rail.thsrStations() : svc.rail.traStations()))
     .map((s) => stationPoint(system, s.name)).filter(Boolean);
   const o = nearestStation(stations, from), d = nearestStation(stations, to);
-  if (!o || !d || normName(o.name) === normName(d.name)) return null;
+  if (!o || !d) return { none: { kind: 'none', why: `起點或目的地 ${LIMITS.railAccessMaxM / 1000} 公里內沒有車站` } };
+  if (normName(o.name) === normName(d.name)) return null;
   const a1 = access(from, o, o.d), a2 = access(d, to, d.d);
   const tt = await (system === 'THSR' ? svc.rail.thsrTimetable : svc.rail.traTimetable)({ from: o.name, to: d.name, date: depart.date });
   const ready = depart.minute + a1.minutes;
   const train = (tt.trains || []).filter((t) => toMin(t.depart) >= ready).sort((x, y) => toMin(x.depart) - toMin(y.depart))[0];
-  if (!train) return null;
+  if (!train) return { none: { kind: 'noService', why: '查不到趕得上的班次' } };
   const fares = await (system === 'THSR' ? svc.rail.thsrFare : svc.rail.traFare)({ from: o.name, to: d.name }).then((f) => f.fares).catch(() => []);
   const fare = fares.find((f) => f.adultOneWay && (!train.type || !f.trainType || f.trainType === train.type)) || fares.find((f) => f.adultOneWay);
   // 班次制：等太久就晚點出門，等車最多算 maxIdleWaitMin；抵達以實際班次計算
@@ -281,7 +286,7 @@ async function intercityOption(svc, from, to, straight, depart) {
   const r = await svc.intercity.trips({ from, to, departAt: `${depart.date}T${toHHMM(depart.minute)}` });
   const waitOf = (t) => toMin(t.depart) + (t.nextDay ? 24 * 60 : 0) - depart.minute - walkMinutes(t.walkFromM);
   const t = r.trains.find((x) => waitOf(x) >= 0); // 走到站牌還趕得上的第一班
-  if (!t) return null;
+  if (!t) return { none: { kind: 'noService', why: '查不到趕得上的直達班次' } };
   const w1 = walkMinutes(t.walkFromM), w2 = walkMinutes(t.walkToM);
   const realWait = waitOf(t);
   const wait = Math.min(realWait, EST.maxIdleWaitMin);
@@ -320,10 +325,6 @@ async function ridehailOption(svc, from, to, straight, traffic) {
 }
 
 
-/** AQI 超過這個值（對敏感族群不健康以上）就加「空品不佳」狀態 */
-export const BAD_AIR_AQI = 100;
-/** 現在沒下雨、3 小時內降雨機率到這個值就加「可能下雨」狀態並提醒帶傘 */
-export const RAIN_SOON_POP = 60;
 /** 指定抵達時間時，最佳方案只早到這幾分鐘以內＝時間很緊 */
 export const TIGHT_MIN = 10;
 /** 計程車一輛最多坐幾人（超過要叫多輛） */
@@ -353,7 +354,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     svc.traffic.status({ from: { lat: from.lat, lon: from.lon }, to: { lat: to.lat, lon: to.lon } }).catch(() => null),
     svc.life?.aqiNearby({ lat: from.lat, lon: from.lon }).catch(() => null),
   ]);
-  const air = aqi?.nearest;
+  const air = aqi?.nearest && aqi.nearest.distanceM <= AIR_MAX_M ? aqi.nearest : null; // 最近測站太遠（> 25 公里）不採用
   const party = Number.isInteger(prefs.party) && prefs.party >= 2 ? prefs.party : null;
   // 可能下雨：現在沒下、3 小時降雨機率 60～69%（≥ 70% 依 weather.js RAIN_POP 已算「下雨」狀態）
   const rainSoon = !weather?.raining && weather?.pop3h >= RAIN_SOON_POP;
@@ -382,10 +383,11 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   const entries = Object.entries(tasks);
   const results = await Promise.all(entries.map(([, f]) => f().catch(() => FAILED)));
   const unavailable = entries.filter((_, i) => results[i] === FAILED).map(([k]) => k); // 依方案順序，結果穩定
+  const byRole = Object.fromEntries(entries.map(([k], i) => [k, results[i] === FAILED ? 'failed' : results[i]]));
   // arriveMin：從出發日 00:00 起算的分鐘數（可超過 24 小時），跨午夜也能正確比較抵達時間
   // arriveMin：班次制方案以實際班次計算（已帶入），其餘＝出發＋總時間
   const skipped = results.filter((o) => o && o !== FAILED && o.skip).map((o) => o.skip); // 查了但不可行（例：目的地沒空位可還）
-  const options = results.filter((o) => o && o !== FAILED && !o.skip).map((o) => { const am = o.arriveMin ?? depart.minute + o.minutes; return { ...o, arriveAt: toHHMM(am), arriveMin: am }; });
+  const options = results.filter((o) => o && o !== FAILED && !o.skip && !o.none).map((o) => { const am = o.arriveMin ?? depart.minute + o.minutes; return { ...o, arriveAt: toHHMM(am), arriveMin: am }; });
   if (party) for (const [i, o] of options.entries()) if (o.role === 'ridehail') options[i] = shareRide(o, party); // 多人：叫車用每人分攤比較（其他方式本來就是每人）
   // arriveBy 早於出發時間 → 視為隔天（例：23:00 出發、01:00 前到）
   const arriveByMin = prefs.arriveBy ? toMin(prefs.arriveBy) + (toMin(prefs.arriveBy) < depart.minute ? 24 * 60 : 0) : undefined;
@@ -407,6 +409,14 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     ...(umbrella ? [{ kind: 'rain', text: `3 小時內降雨機率 ${weather.pop3h}%，記得帶傘` }] : []),
     ...(party && ride?.share && rideShown ? [{ kind: 'cost', text: `${party} 人叫車${ride.share.cars > 1 ? `要 ${ride.share.cars} 輛車，` : ''}共約 ${ride.share.total} 元，每人分攤約 ${ride.cost} 元` }] : []),
   ];
+  // 判斷用到的資料（天氣、空品、路況）各自的值與影響：討論串、決策圖資料欄、模型文字共用（trip-considered.js）
+  const considered = consideredOf({
+    weather, aqi, traffic, today: depart.date === nowTW(now).date,
+    demo: { weather: svc.weatherMode !== 'live' || Boolean(weather?.demo), air: svc.aqiMode !== 'live', traffic: svc.mode !== 'live' || Boolean(traffic?.demo) },
+  }).map((c) => (c.source === 'traffic' && svc.mode === 'live' && traffic?.demo // TDX 額度用完改用示範資料（withTdxFallback）：這一行照實說
+    ? { ...c, fallback: 'tdx-limit', text: `${c.text}（TDX 額度用完，這次先用示範資料）`, textEn: `${c.textEn} (TDX quota used up; demo data this time)` } : c));
+  // 只有一種方式：說明其他方式為什麼不在（太遠、附近沒有站、沒有趕得上的班次…）
+  const single = singleNote({ options, missingList: missingModes({ straight, roles: byRole, skipped, limits: LIMITS }), straight, departMin: depart.minute, demo: svc.mode !== 'live', fallback: currentFallback(), toName: to.name, fromName: from.name }); // fallback：TDX 額度用完時公車、高鐵等可能是示範資料（withTdxFallback 逐個方法改用）
   return {
     from: pt(from), to: pt(to), straightKm: +(straight / 1000).toFixed(1),
     date: depart.date, departAt: toHHMM(depart.minute),
@@ -418,6 +428,8 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     weather: weather && { summary: weather.summary, raining: weather.raining, pop3h: weather.pop3h },
     traffic: traffic && { level: traffic.level, delayMin: traffic.delayMin, covered: traffic.covered },
     air: air ? { site: air.site, aqi: air.aqi, status: air.status } : null,
+    considered,
+    ...(single && { single }),
     options,
     ranking: {
       ranked: r.ranked.map((o) => ({ id: o.id, name: o.name, score: o.score, breakdown: o.breakdown })),
