@@ -318,3 +318,10 @@ html.lite-motion .ab-scene-bus .ab-scene-img { animation: none !important; }
 .ab-stk.up, .ab-stk.down { border-left: 3px solid transparent; padding-left: 8px; }
 .ab-stk.up { border-left-color: #dc2626; }
 .ab-stk.down { border-left-color: #16a34a; }
+
+/* 捷運：路線色條用官方代表色（core/metro-colors.js）；進站中前面一個閃的點 */
+.ab-line { border-left-width: 6px; border-radius: 2px; box-shadow: inset 1px 0 rgba(0, 0, 0, .15); } /* 黃、橘色條在白底上也看得到邊 */
+.ab-eta .ab-pulse { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: currentColor; vertical-align: 1px; animation: ab-pulse 1.2s ease-in-out 4; } /* 閃 4 下（4.8 秒）就停（WCAG 2.2.2） */
+@keyframes ab-pulse { 50% { opacity: .25; transform: scale(.7); } }
+@media (prefers-reduced-motion: reduce) { .ab-eta .ab-pulse { animation: none; } }
+html.lite-motion .ab-eta .ab-pulse { animation: none; }

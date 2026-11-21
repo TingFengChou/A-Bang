@@ -1,4 +1,5 @@
 import { miniApps, groups, TILE_COLOR } from '../registry.js';
+import { canMorph } from '../page-hero.js';
 import { icons } from '../icons.js';
 import { esc, favs, etaBadge, chev } from '../ui.js';
 import { api, state } from '../api.js';
@@ -35,6 +36,7 @@ export default {
     main.querySelectorAll('a.tile').forEach((a) => a.addEventListener('click', (e) => {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || !canMorph()) return;
       e.preventDefault();
+      main.querySelectorAll('.tile .ic').forEach((x) => { x.style.viewTransitionName = ''; });
       a.querySelector('.ic').style.viewTransitionName = 'ph-token';
       dispatchEvent(new CustomEvent('abang:go', { detail: { hash: a.getAttribute('href') } }));
     }));
@@ -49,8 +51,6 @@ export default {
     tiltMascot(main.querySelector('.hero'), onCleanup);
   },
 };
-
-const canMorph = () => typeof document.startViewTransition === 'function' && !matchMedia('(prefers-reduced-motion: reduce)').matches && !document.documentElement.classList.contains('lite-motion');
 
 /** 資料是示範的服務：格子右上角標「示範」（離線 Demo 全部是示範） */
 function markDemoTiles(main) {

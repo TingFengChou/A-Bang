@@ -12,7 +12,7 @@ export default {
       ? h('ul', { class: 'ab-list' }, d.trains.map((x) => h('li', { class: 'ab-row' },
         h('span', { class: 'ab-line', style: x.lineColor ? { borderColor: x.lineColor } : null }, x.line),
         h('span', { class: 'ab-name' }, t('metro.toward', { dest: x.destination })),
-        h('span', { class: x.etaMin != null && x.etaMin <= 1 ? 'ab-eta soon' : 'ab-eta' }, x.status))))
+        h('span', { class: x.etaMin != null && x.etaMin <= 1 ? 'ab-eta soon' : 'ab-eta' }, x.etaMin != null && x.etaMin <= 1 && h('i', { class: 'ab-pulse', 'aria-hidden': 'true' }), x.status))))
       : h('p', { class: 'ab-empty' }, t('metro.empty'));
     return h('div', { class: 'ab-body' }, list, h('div', { class: 'ab-actions' }, navButton(host, d.nav)));
   },

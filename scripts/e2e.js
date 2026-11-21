@@ -936,6 +936,23 @@ test('浮動阿幫：在天氣頁打開，建議天氣問題並帶上這一頁',
   });
 });
 
+// 各頁小巧思第二批：捷運官方路線色、YouBike 可借比例條、公車最近查過、回首頁圖示飛回格子
+test('小巧思第二批：捷運路線色、YouBike 比例條、最近查過的路線', async () => {
+  await withPage(DEVICES.phone, '#/s/metro', async (page) => {
+    await page.waitForSelector('.ab-card[data-card="metro"] .ab-line');
+    const colors = await page.$$eval('.ab-card[data-card="metro"] .ab-line', (els) => els.map((e) => getComputedStyle(e).borderLeftColor));
+    assert.ok(colors.some((c) => c === 'rgb(0, 112, 189)'), `板南線藍 ${colors.join(',')}`);
+    await page.goto(`${base}/#/nearby?tab=bike`);
+    await page.waitForSelector('.card.list .bike-fill i');
+    await page.goto(`${base}/#/bus/Taipei/307`);
+    await page.waitForSelector('.timeline');
+    await page.goto(`${base}/#/bus`);
+    await page.waitForSelector('.chips.recent a.chip');
+    assert.match(await page.textContent('.chips.recent'), /307\s*臺北/);
+    await shot(page, 'phone-bus-recent');
+  });
+});
+
 // 公車會動（Austin）：兩次更新之間照到站時間往站牌開；重新整理資料時不往回跳（不減少動態時）
 test('公車街景：公車往站牌開、不往回跳', async () => {
   await withPage(DEVICES.phone, '#/bus/Taipei/307?stop=%E6%95%A6%E5%8C%96%E5%B8%82%E5%A0%B4&dir=0', async (page) => {

@@ -409,3 +409,10 @@ html.kb-open .abang-sheet { height: min(calc(var(--vvh, 88dvh) - 8px), 820px); m
 html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { animation: none !important; }
 
 .list .sub.wrap { white-space: normal; overflow: visible; text-overflow: clip; } /* 空狀態說明：完整顯示 */
+
+/* YouBike 可借比例細條；公車搜尋「最近查過」 */
+.bike-fill { height: 4px; margin-top: 6px; border-radius: 2px; background: var(--off-soft); overflow: hidden; max-width: 160px; }
+.bike-fill i { display: block; height: 100%; background: var(--brand); border-radius: 2px; }
+.bike-fill.low i { background: var(--bad); }
+.chips.recent .chip { min-height: 44px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+.chips.recent .chip small { color: var(--muted); font-size: 12px; }

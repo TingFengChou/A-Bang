@@ -5,7 +5,15 @@ import { locationNotice } from '../location-help.js';
 import { pageHero } from '../page-hero.js';
 
 /** 切換公車站／YouBike 時頁首跟著換（換分頁不經過 app.js 換頁） */
-const swapHero = (tab) => { const h = pageHero(tab === 'bike' ? 'bike' : 'nearby'); const box = document.getElementById('pagehero'); if (h && box) box.replaceChildren(h); };
+const swapHero = (tab) => { const id = tab === 'bike' ? 'bike' : 'nearby'; const h = pageHero(id); const box = document.getElementById('pagehero'); if (h && box) { box.replaceChildren(h); dispatchEvent(new CustomEvent('abang:hero', { detail: id })); } }; // 回首頁時飛回對的格子
+
+/** YouBike 可借比例細條（可借 ÷ 可借＋可還；數字旁邊已寫，條只是一眼看出多寡，讀屏跳過） */
+export function bikeFill(s) {
+  const total = (s.rent ?? 0) + (s.returnSlots ?? 0);
+  if (!total || s.rent == null) return '';
+  const pct = Math.round((s.rent / total) * 100);
+  return `<div class="bike-fill${pct < 20 ? ' low' : ''}" aria-hidden="true"><i style="width:${pct}%"></i></div>`;
+}
 
 export default {
   title: '附近',
@@ -55,6 +63,7 @@ export default {
           <div class="grow">
             <div class="title">${esc(s.name)}</div>
             <div class="sub">${fmtDist(s.distance)}・${esc(s.type)}${s.electric ? `・電輔 ${s.electric}` : ''}${s.inService ? '' : '・暫停營運'}</div>
+            ${bikeFill(s)}
           </div>
           <div class="bikebar">
             <div class="${s.rent ? '' : 'zero'}"><b>${s.rent ?? '-'}</b><span>可借</span></div>
