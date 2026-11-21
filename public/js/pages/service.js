@@ -65,7 +65,7 @@ export const SERVICES = {
  */
 export function heroTint(id, d) {
   if (id === 'weather' && Number.isFinite(d?.tempC)) { const c = d.tempC; return c <= 15 ? '#1d4ed8' : c <= 22 ? '#0284c7' : c <= 28 ? '#d97706' : '#ea580c'; }
-  if (id === 'aqi' && Number.isFinite(d?.nearest?.aqi)) { const a = d.nearest.aqi; return a <= 50 ? '#15803d' : a <= 100 ? '#ca8a04' : a <= 150 ? '#ea580c' : '#b91c1c'; }
+  if (id === 'aqi' && Number.isFinite(d?.nearest?.aqi)) { const a = d.nearest.aqi; return a <= 50 ? '#15803d' : a <= 100 ? '#a16207' : a <= 150 ? '#ea580c' : '#b91c1c'; }
   return null;
 }
 function tintHero(id, d) {
