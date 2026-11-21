@@ -276,7 +276,7 @@ export function busScene({ routeName, stopName, away, etaSec = null, etaText, st
   state.eta = etaSec;
   if (!state.bus) {
     const b = makeBus(phase, riding, lang);
-    b.addEventListener('transitionend', () => { if (b.style.transition.includes('linear')) b.classList.remove('moving'); }); // 開到了（沒有新資料）：不再震動
+    b.addEventListener('transitionend', (e) => { if (e.target === b && b.style.transition.includes('linear')) b.classList.remove('moving'); }); // 開到了（沒有新資料）：不再震動；子層（開門）的 transition 冒泡上來不算
     v.busAnchor.before(b);
     state.bus = b;
   }

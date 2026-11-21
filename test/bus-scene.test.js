@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { dayPhase, stopMarks, waitingPeople, seeded, project, markAt, farLayer, nearLayer, lightsLayer, busOverlay, STOP_X, PER_STOP } from '../public/ui/cards/bus-scene-art.js';
+import { dayPhase, stopMarks, waitingPeople, seeded, shuffled, project, markAt, farLayer, nearLayer, lightsLayer, busOverlay, STOP_X, PER_STOP } from '../public/ui/cards/bus-scene-art.js';
 import { SCENE, busX, departed, sceneSay } from '../public/ui/cards/bus-scene.js';
 import { tFor } from '../public/ui/cards/i18n/index.js';
 
@@ -56,6 +56,25 @@ test('waitingPeople：1～3 個，同一站同一班每次都一樣，換一班�
   assert.deepEqual([...counts].sort(), [1, 2, 3]);
   assert.ok(looks.size > 20, '各站不一樣');
   assert.notDeepEqual(waitingPeople('敦化市場|1'), a, '下一班換一批人');
+});
+
+test('shuffled：同種子結果固定（不靠引擎的排序實作，Android／iOS 看到的一樣）、不改原陣列、元素不變', () => {
+  const src = ['a', 'b', 'c', 'd', 'e', 'f'];
+  const one = shuffled(seeded('西門'), src);
+  assert.deepEqual(shuffled(seeded('西門'), src), one, '同種子每次一樣');
+  assert.deepEqual(src, ['a', 'b', 'c', 'd', 'e', 'f'], '不改原陣列');
+  assert.deepEqual([...one].sort(), src, '元素不多不少');
+  // 照 Fisher-Yates 的定義用同一串亂數手算一次：跟實作逐項相同（結果只由亂數決定，跟 Array.prototype.sort 無關）
+  const rnd = seeded('西門');
+  const want = [...src];
+  for (let i = want.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [want[i], want[j]] = [want[j], want[i]]; }
+  assert.deepEqual(one, want);
+  const orders = new Set(Array.from({ length: 30 }, (_, i) => shuffled(seeded(`站${i}`), src).join('')));
+  assert.ok(orders.size > 20, '不同種子排出不同順序');
+  assert.deepEqual(shuffled(seeded('x'), []), []);
+  // 用到洗牌的地方：等車的人位置、近側人行道小物，同種子固定
+  assert.deepEqual(waitingPeople('市府|2').map((p) => p.x), waitingPeople('市府|2').map((p) => p.x));
+  assert.equal(nearLayer('市府'), nearLayer('市府'));
 });
 
 test('seeded：同一個字串同一串數字，0～1', () => {

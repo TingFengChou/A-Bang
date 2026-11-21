@@ -58,6 +58,18 @@ export function seeded(str) {
   };
 }
 const pick = (rnd, arr) => arr[Math.floor(rnd() * arr.length)];
+/**
+ * 洗牌（Fisher-Yates，用同一個固定亂數）：回傳新陣列。
+ * 不用 sort(() => rnd() - 0.5)：各家引擎排序實作不同（Android V8、iOS JavaScriptCore），同一個種子會排出不同結果。
+ */
+export function shuffled(rnd, arr) {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
 
 /**
  * 中間經過的小站牌（最多 max 個）：第 k 個＝你這站前 k 站。公車還沒開到的（k ≤ away）清楚、旁邊標「還有 k 站」；開過的變淡。
@@ -74,7 +86,7 @@ export function stopMarks(away, max = 2) {
 export function waitingPeople(seed) {
   const rnd = seeded(`people|${seed}`);
   const n = 1 + Math.floor(rnd() * 3);
-  const slots = [7.5, 8.25, 9.0, 9.75].sort(() => rnd() - 0.5).slice(0, n);
+  const slots = shuffled(rnd, [7.5, 8.25, 9.0, 9.75]).slice(0, n);
   const people = slots.map((x) => ({
     x: x + (rnd() - 0.5) * 0.25,
     y: 2.05 + rnd() * 0.45,
@@ -244,7 +256,7 @@ export function nearLayer(seed) {
   for (let x = -11; x < 18; x += 1.6) s += line(P(x, y0, z), P(x - 0.05, y1, z), '#dde4e1', 1.2);
   const items = [];
   // 每種最多一次（機車一排 2～3 台）；有的格子空著
-  const kinds = ['scooters', 'mail', 'planter', 'bench', 'hydrant', 'planter'].sort(() => rnd() - 0.5);
+  const kinds = shuffled(rnd, ['scooters', 'mail', 'planter', 'bench', 'hydrant', 'planter']);
   const slots = [-5.6, -1.6, 2.4, 6.6, 10.6];
   for (const x of slots) {
     if (rnd() < 0.25 || !kinds.length) continue;
