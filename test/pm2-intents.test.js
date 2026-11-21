@@ -43,3 +43,19 @@ test('審查：新規則不誤判平常的話', () => {
   assert.equal(p('我來得及坐到台中的末班高鐵嗎').intent, 'rail', '問末班高鐵不是去車站的行程');
   assert.equal(p('那 262 呢', [...h('307 到哪了'), ...h('那 299 咧')]).route, '262', '連續追問');
 });
+
+test('PM 第三批：高鐵高雄＝左營、票價沒說起站從台北算、回程起訖對調、解除分期詐騙', async () => {
+  const { findStation } = await import('../core/services/transit.js');
+  assert.equal(findStation([{ id: '1', name: '臺北' }, { id: '2', name: '左營' }], '高雄', '高鐵').name, '左營');
+  assert.equal(findStation([{ id: '1', name: '高雄' }, { id: '2', name: '左營' }], '高雄', '台鐵').name, '高雄', '台鐵有高雄站');
+  const f = parseIntent('高鐵到高雄多少錢');
+  assert.deepEqual([f.fare, f.from, f.fromGuess], [true, '臺北', true]);
+  const e = parseIntent('How much is the HSR ticket to Kaohsiung?');
+  assert.deepEqual([e.intent, e.fare, e.to], ['rail', true, '高雄']);
+  const back = parseIntent('那回程呢', { history: [{ role: 'user', content: '從台北車站去台北101' }, { role: 'assistant', content: '好' }] });
+  assert.deepEqual([back.from, back.to], ['台北101', '臺北車站']);
+  const { matchRules, riskLevel } = await import('../core/scam-check.js');
+  const score = (t) => matchRules(t).reduce((n, x) => n + (x.weight || 0), 0);
+  assert.equal(riskLevel(score('您好，這裡是購物網客服，因系統疏失將您的訂單設為12期分期付款，請依指示至ATM操作取消'), false), 'high');
+  assert.equal(riskLevel(score('【XX銀行】您的信用卡本期帳單已出，應繳金額3,250元，繳款截止日11/30。'), false), 'low', '正常銀行簡訊不誤判');
+});
