@@ -61,6 +61,7 @@ export const SERVICES = {
 
 export default {
   title: '生活服務',
+  hero: ({ params: [id] }) => id, // 頁首（page-hero.js）
   async render({ main, params: [id], setTitle, setAction, onCleanup, toast }) {
     const cfg = SERVICES[id];
     if (!cfg) { main.innerHTML = errorBox('沒有這個服務'); return; }

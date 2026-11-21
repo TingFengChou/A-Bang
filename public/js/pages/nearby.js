@@ -6,6 +6,7 @@ import { locationNotice } from '../location-help.js';
 export default {
   title: '附近',
   root: true,
+  hero: ({ query }) => (query.tab === 'bike' ? 'bike' : 'nearby'),
   render({ main, query, setAction, onCleanup }) {
     let tab = query.tab === 'bike' ? 'bike' : 'bus';
     let pos = null;
