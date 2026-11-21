@@ -5,7 +5,8 @@ import { parseIntent } from '../core/agent/demo-intent.js';
 import { checkAsks, checkRequest } from '../core/agent/suggest-check.js';
 import { answerable, sameAsk, slimAsk, shownAsks } from '../core/suggest.js';
 import { suggestContext, contextText, ruleAsks, rankAsks, pickSuggestions, validateAsks, homeAsks, timeOf, resultFacts, orderSuggest } from '../public/js/agent/suggest.js';
-import { normalizeSuggest, edgeSuggest, edgeJudge, cancelSuggest, _resetEdge } from '../public/js/edge-judge.js';
+import { normalizeSuggest, edgeSuggest, edgeJudge, cancelSuggest, edgeTrips, EDGE_BUSY_GRACE_MS, _resetEdge } from '../public/js/edge-judge.js';
+import { readFile } from 'node:fs/promises';
 import { nextSteps } from '../public/js/agent/next-steps.js';
 
 const at = (hhmm, day = '2026-11-18') => new Date(`${day}T${hhmm}:00+08:00`).getTime(); // 2026-11-18 是週三
@@ -244,4 +245,44 @@ test('judge 優先：建議產生中送出問題 → 先請手機取消 suggest�
     delete globalThis.Capacitor;
     _resetEdge();
   }
+});
+
+test('取消建議後 3 秒內的忙碌類錯誤：不跳斷路器（這一題交給伺服器），之後照常在手機上判斷；原生端同樣不暫停', async () => {
+  assert.equal(EDGE_BUSY_GRACE_MS, 3000);
+  for (const m of ['busy', 'cancelled', 'unavailable: busy', 'rateLimited', 'concurrentRequests']) assert.equal(edgeTrips(m, 500), false, m);
+  assert.equal(edgeTrips('unavailable: busy', 3500), true, '過了 3 秒仍說不可用：照舊跳斷路器');
+  assert.equal(edgeTrips('unavailable', 500), true, '真的不可用（不是忙碌）：照舊');
+  assert.equal(edgeTrips('judge failed', 500), false);
+  // 流程：建議產生中送出 → 原生端回 busy → 這題 null（伺服器判斷）；下一題照常呼叫手機
+  const calls = [];
+  let judgeN = 0;
+  globalThis.Capacitor = {
+    isNativePlatform: () => true,
+    nativePromise: (plugin, method) => {
+      calls.push(method);
+      if (method === 'suggest') return new Promise(() => {});
+      if (method === 'judge') return ++judgeN === 1 ? Promise.reject(new Error('unavailable: busy')) : Promise.resolve({ engine: 'gemini-nano', result: '{"intent":"weather","states":[]}' });
+      return Promise.resolve({});
+    },
+  };
+  try {
+    edgeSuggest('現在：平日白天 14 點', { timeout: 50 });
+    await new Promise((r) => setTimeout(r, 5));
+    assert.equal(await edgeJudge('從西門町到台北101怎麼去'), null, '這一題交給伺服器');
+    await new Promise((r) => setTimeout(r, 5));
+    assert.deepEqual(await edgeJudge('明天會下雨嗎'), { intent: 'weather', states: [], engine: 'gemini-nano' }, '沒有因為讓位就停用手機上的 AI');
+    assert.deepEqual(calls, ['suggest', 'cancelSuggest', 'judge', 'judge']);
+  } finally {
+    delete globalThis.Capacitor;
+    _resetEdge();
+  }
+  // 原生端：BUSY／CANCELLED 在 3 秒內不暫停 10 分鐘、回 busy；iOS 同樣
+  const java = String(await readFile(new URL('../android/app/src/main/java/tw/abang/app/AbangEdgeAIPlugin.java', import.meta.url)));
+  assert.match(java, /BUSY_GRACE_MS = 3000/);
+  assert.match(java, /code == GenAiException\.ErrorCode\.BUSY \|\| code == GenAiException\.ErrorCode\.CANCELLED/);
+  assert.match(java, /if \(busyAfterCancel\(g\.getErrorCode\(\), since\)\) return BUSY_CODE[^\n]*\n\s*pausedUntil =/, '忙碌先回、不設 pausedUntil');
+  assert.match(java, /call\.reject\(code\.startsWith\(BUSY_CODE\) \? "busy" : "judge failed"\)/);
+  const swift = String(await readFile(new URL('../ios/App/App/AbangEdgeAIPlugin.swift', import.meta.url)));
+  assert.match(swift, /static let busyGrace: TimeInterval = 3/);
+  assert.match(swift, /call\.reject\(self\.busyAfterCancel\(error\) \? "busy" : "judge failed"\)/);
 });

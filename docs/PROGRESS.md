@@ -15,9 +15,10 @@
 
 ## 2026-11-21 動態「下一句」：手機上的 AI 猜使用者接下來想問什麼（程式驗證查得到）
 - 做了：產品負責人回饋「輸入 hint 都一樣」。輸入框 placeholder、輸入框上方建議（問阿幫頁與底部對話面板）、首頁範例改成依情境動態：情境只在手機上組（頁面、最近兩輪問題與結果摘要、時段、常用地點標籤、進行中提醒；不含座標）；App 裡手機上的 AI（外掛 `AbangEdgeAI.suggest()`，Android Gemini Nano、iOS Foundation Models）猜 3～4 句 → `POST /api/v1/suggest/check` 只送句子、用 `parseIntent` 驗證查得到 → 丟掉畫面上已回答的；網頁版、不可用、逾時 1.5 秒或不足 3 句用情境規則補（下雨少淋雨的走法、建議捷運就問下一班、深夜收班、早上去公司、公車頁下車提醒…）；程式計分排序（相關、即時資料優先）；產生中保留舊的、好了再淡入，鍵盤焦點留在建議群組；設定頁「用手機上的 AI 猜我接下來想問什麼」；sw `v0.9.9-suggest`。
-- 測試：npm test 735 項全過（新增 test/suggest.test.js 13 項：情境不含座標、驗證、規則逐句 parseIntent、排序與排列、首頁、模型回傳整理、log、judge 優先）；E2E 101 項全過，新增 6 項（建議產生中送出問題、網頁版規則隨情境變、App 假外掛 5 句只留 3 句、設定關閉、公車頁、首頁早上 vs 深夜）；Android assembleDebug、iOS xcodebuild 通過
+- 測試：npm test 736 項全過（新增 test/suggest.test.js 14 項：情境不含座標、驗證、規則逐句 parseIntent、排序與排列、首頁、模型回傳整理、log、judge 優先、讓位後的忙碌錯誤不暫停）；E2E 101 項全過，新增 6 項（建議產生中送出問題、網頁版規則隨情境變、App 假外掛 5 句只留 3 句、設定關閉、公車頁、首頁早上 vs 深夜）；Android assembleDebug、iOS xcodebuild 通過
 - 文件：UX.md §3.2、§6、§10，AGENT.md §5.4、§7，ADR-0014 第 8 點，PLAN.md
 - 定案（產品負責人看過截圖）：公車／捷運頁或剛查過公車到站時提醒類動作排第一，其他情境問句在前；驗證端點 log 只記句數、設定頁寫明「只送句子、不存」；judge 優先（送出問題時取消正在跑的 suggest，Android suggest 另用執行緒）；規則句地名維持（反正經 parseIntent 驗證）。單元測試 +3（排列、log 不記句子、建議產生中送出問題）、E2E +1（假的單執行緒外掛：建議產生中送出，deviceJudge 仍帶到）。
+- 實機風險先處理：取消建議後 3 秒內 judge 遇到忙碌類錯誤（ML Kit `BUSY`／`CANCELLED`；iOS 取消中、限流、同時有請求）回 `busy`、不暫停 10 分鐘、不跳 JS 斷路器，這一題改由伺服器判斷（單元測試 +1）。
 - 下一個：實機確認句子品質；與另一分支 `write()` 整併外掛
 - 卡住：無
 

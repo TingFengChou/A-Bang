@@ -90,8 +90,20 @@ export function edgePrewarm() {
 // 斷路器（PR #32 審查）：上一題還沒跑完（例：iOS 冷啟動 5 秒）就不等；外掛說不可用就這次開 App 都不再試
 let inflight = null;
 let unavailable = false;
+/** 取消建議後這段時間內的「忙碌」類錯誤不算模型壞掉（與 Android BUSY_GRACE_MS、iOS busyGrace 相同） */
+export const EDGE_BUSY_GRACE_MS = 3000;
+let lastCancelAt = -Infinity;
+/**
+ * 外掛的錯誤要不要讓這次開 App 都不再用手機上的 AI（斷路器）。
+ * 只有「不可用」才算；剛取消建議（3 秒內）又遇到忙碌、取消中、同時有請求、限流 → 只是讓位，這一題交給伺服器，不跳斷路器。
+ */
+export function edgeTrips(message, sinceCancelMs = Infinity) {
+  const m = String(message || '');
+  if (sinceCancelMs < EDGE_BUSY_GRACE_MS && /busy|cancel|concurren|rate.?limit/i.test(m)) return false;
+  return /unavailable/.test(m);
+}
 /** 測試用：重設斷路器 */
-export const _resetEdge = () => { inflight = null; unavailable = false; suggestInflight = null; suggestOff = false; suggestAbort = null; };
+export const _resetEdge = () => { inflight = null; unavailable = false; suggestInflight = null; suggestOff = false; suggestAbort = null; lastCancelAt = -Infinity; };
 
 /**
  * 在手機上判斷這一句。
@@ -108,7 +120,7 @@ export async function edgeJudge(text, history = [], { timeout = EDGE_TIMEOUT_MS 
   try {
     const call = c.nativePromise(PLUGIN, 'judge', { text: String(text).slice(0, 500), history: history.slice(-2).map((h) => String(h).slice(0, 200)), instructions: EDGE_INSTRUCTIONS, intents: EDGE_INTENTS, states: EDGE_STATES });
     // 逾時後原生端仍在跑：跑完前下一題不再呼叫（避免排隊），跑完的結果丟掉（不會用到下一題）
-    inflight = call.catch((e) => { if (/unavailable/.test(e?.message || '')) unavailable = true; }).finally(() => { inflight = null; });
+    inflight = call.catch((e) => { if (edgeTrips(e?.message, Date.now() - lastCancelAt)) unavailable = true; }).finally(() => { inflight = null; });
     const r = await Promise.race([call, new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeout); })]);
     const out = r ? normalizeJudge(r.result, r.engine) : null;
     if (out) noteEdgeJudge(validMs(r.ms) ?? Date.now() - t0); // 外掛有回模型耗時就用它，否則用這裡量到的（含橋接）
@@ -163,6 +175,7 @@ export function cancelSuggest() {
   const c = cap();
   if (!c || !suggestInflight) return false;
   c.nativePromise(PLUGIN, 'cancelSuggest', {}).catch(() => {});
+  lastCancelAt = Date.now();
   suggestAbort?.();
   suggestAbort = null;
   suggestInflight = null;

@@ -82,12 +82,25 @@ public class AbangEdgeAIPlugin extends Plugin {
     /** 錯誤代碼（不含句子內容）；配額、忙碌、背景被擋時暫停 10 分鐘 */
     private String errorCode(Throwable e) {
         Throwable c = e.getCause() != null ? e.getCause() : e;
+        long since = System.currentTimeMillis() - suggestCancelledAt;
         if (c instanceof GenAiException) {
             GenAiException g = (GenAiException) c;
+            if (busyAfterCancel(g.getErrorCode(), since)) return BUSY_CODE + ":" + g.getErrorCode(); // 剛取消建議、模型還在收尾：這一題交給伺服器，不暫停
             pausedUntil = System.currentTimeMillis() + 10 * 60_000;
             return "GenAiException:" + g.getErrorCode();
         }
+        if (c instanceof CancellationException && since < BUSY_GRACE_MS) return BUSY_CODE;
         return c.getClass().getSimpleName();
+    }
+
+    /** 取消建議後這段時間內的「忙碌」類錯誤不算模型壞掉（產品負責人 2026-11-21） */
+    static final long BUSY_GRACE_MS = 3000;
+    static final String BUSY_CODE = "busy-after-cancel";
+    /** 最近一次取消 suggest 的時間（毫秒） */
+    private volatile long suggestCancelledAt = 0;
+    /** 剛取消建議（3 秒內）又拿到 BUSY（已有請求在跑）或 CANCELLED（取消中）：只是讓位造成的，不暫停 10 分鐘 */
+    static boolean busyAfterCancel(int code, long sinceCancelMs) {
+        return sinceCancelMs >= 0 && sinceCancelMs < BUSY_GRACE_MS && (code == GenAiException.ErrorCode.BUSY || code == GenAiException.ErrorCode.CANCELLED);
     }
 
     /** 可下載時在背景下載（模型由系統的 AICore 管理，多個 App 共用） */
@@ -187,8 +200,9 @@ public class AbangEdgeAIPlugin extends Plugin {
                 ret.put("result", out == null ? "" : out);
                 call.resolve(ret);
             } catch (Exception e) {
-                Logger.warn(TAG, "judge failed: " + errorCode(e));
-                call.reject("judge failed");
+                String code = errorCode(e);
+                Logger.warn(TAG, "judge failed: " + code);
+                call.reject(code.startsWith(BUSY_CODE) ? "busy" : "judge failed"); // busy：這一題改由伺服器判斷，JS 不當成不可用
             }
         });
     }
@@ -204,7 +218,9 @@ public class AbangEdgeAIPlugin extends Plugin {
     private boolean stopSuggest() {
         ListenableFuture<GenerateContentResponse> f = suggestFuture;
         suggestFuture = null;
-        return f != null && !f.isDone() && f.cancel(true);
+        boolean stopped = f != null && !f.isDone() && f.cancel(true);
+        if (stopped) suggestCancelledAt = System.currentTimeMillis();
+        return stopped;
     }
 
     /**
