@@ -22,23 +22,23 @@ const still = () => (typeof matchMedia === 'function' && matchMedia('(prefers-re
  * away＝0 只代表前面沒有更早到的站（上一站沒資料時車可能還要 10 分）。PR #29 審查修正。
  * @returns {{ head: string, eta: string, near: boolean }}
  */
-export function sceneSay({ routeName, away, etaSec, etaText }) {
+export function sceneSay({ routeName, away, etaSec, etaText, riding = false }) {
   if (away == null) return { head: routeName, eta: etaText, near: false };
-  if (away === 0) return etaSec != null && etaSec <= 60 ? { head: `${routeName}・就在你這站`, eta: etaText, near: true } : { head: routeName, eta: etaText, near: false };
+  if (away === 0) return etaSec != null && etaSec <= 60 ? { head: `${routeName}・${riding ? '快到了，準備下車' : '就在你這站'}`, eta: etaText, near: true } : { head: routeName, eta: etaText, near: false };
   return { head: `${routeName}・還有 ${away} 站`, eta: etaText, near: false };
 }
 
 /**
- * @param {{ routeName: string, stopName: string, away: number|null, etaSec?: number|null, etaText: string, state?: { sceneX?: number } }} o
+ * @param {{ routeName: string, stopName: string, away: number|null, etaSec?: number|null, etaText: string, state?: { sceneX?: number }, riding?: boolean }} o
  *   away：公車還有幾站（railOf）；null＝推估不出來（未發車等）→ 不畫公車，只寫狀態
  * @returns {HTMLElement}
  */
-export function busScene({ routeName, stopName, away, etaSec = null, etaText, state = {} }) {
+export function busScene({ routeName, stopName, away, etaSec = null, etaText, state = {}, riding = false }) {
   const box = document.createElement('div');
   box.className = 'ab-scene3d';
-  const say = sceneSay({ routeName, away, etaSec, etaText });
+  const say = sceneSay({ routeName, away, etaSec, etaText, riding });
   box.setAttribute('role', 'img');
-  box.setAttribute('aria-label', `${say.head}・${say.eta}；你在「${stopName}」等車`);
+  box.setAttribute('aria-label', `${say.head}・${say.eta}；${riding ? `你在車上，在「${stopName}」下車` : `你在「${stopName}」等車`}`); // riding：行程中模式，站牌是下車站
   const img = (src, cls) => {
     const i = document.createElement('img');
     Object.assign(i, { src, alt: '', className: cls, decoding: 'async', draggable: false });

@@ -296,3 +296,15 @@ html.kb-open .app { padding-bottom: 12px; }
 .loc-help p { margin: 0; }
 .loc-help-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .settings .perm + .btn.small { margin: -4px 0 8px; }
+
+/* 行程中模式：進行中列（每一頁上方，回到公車頁） */
+.trip-bar { margin: 0 16px 10px; }
+.trip-bar a { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; border-radius: 12px; background: var(--brand); color: #fff; text-decoration: none; font-size: 14px; font-weight: 600; }
+.trip-bar.waiting a { background: var(--brand-soft); color: var(--brand); border: 1px solid var(--brand); }
+.trip-bar .t { flex: 1; min-width: 0; }
+.trip-bar .go { white-space: nowrap; font-weight: 700; }
+.trip-bar .dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex: none; animation: trip-pulse 1.6s ease-in-out infinite; }
+@keyframes trip-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .trip-bar .dot { animation: none; } }
+.bus-focus.riding .big { font-size: 26px; }
+.me-tag.off { color: #b45309; }

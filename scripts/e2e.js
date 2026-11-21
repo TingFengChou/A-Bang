@@ -853,10 +853,34 @@ test('下車提醒：選下車站、進行中、取消', async () => {
     const far = options.at(-1); // 選最遠的站（太近的站設定當下就會提醒並結束）
     await page.selectOption('#alight-dest', far);
     await page.click('.bus-focus .alight .btn');
-    await page.waitForFunction((d) => document.querySelector('.bus-focus .alight .ok')?.textContent.includes(`快到「${d}」時提醒你`), far);
+    await page.waitForFunction((d) => document.querySelector('.bus-focus .alight .ok')?.textContent.includes(`快到「${d}」前約 2 分提醒你`), far);
     await shot(page, 'phone-alight');
+    // 行程中模式：坐車中大字是到下車站還要多久、時間軸標下車站、不再給到站提醒按鈕
+    assert.match(await page.textContent('.bus-focus.riding .sub'), /坐車中・從「敦化市場」上車/);
+    assert.match(await page.textContent('.bus-focus.riding .big'), new RegExp(`(約 \\d+ 分到|快到)「${far}」`));
+    assert.equal(await page.locator('.bus-focus [data-min]').count(), 0, '坐車中不給到站提醒');
+    assert.match(await page.locator('.timeline .me-tag.off').locator('..').textContent(), new RegExp(far));
+    assert.match(await page.getAttribute('.ab-scene3d', 'aria-label'), new RegExp(`你在車上，在「${far}」下車`));
+    assert.equal(await page.locator('#tripbar').isHidden(), true, '在這條路線的公車頁不顯示進行中列');
+    // 到首頁：上方有進行中列，點了回到公車頁
+    await page.goto(`${base}/#/`);
+    await page.waitForSelector('#tripbar.riding');
+    assert.match(await page.textContent('#tripbar'), new RegExp(`307 坐車中・.*${far}.*看行程`));
+    await shot(page, 'phone-tripbar');
+    await page.click('#tripbar a');
+    await page.waitForSelector('.bus-focus.riding');
+    assert.equal(await page.locator('#tripbar').isHidden(), true);
     await page.click('.bus-focus .alight .btn.ghost');
     await page.waitForSelector('#alight-dest');
+    assert.equal(await page.locator('.bus-focus.riding').count(), 0, '取消後回到等車中');
+  });
+});
+
+// 問阿幫「上車後提醒我下車」：到公車頁、焦點在選下車站
+test('上車後提醒我下車：公車頁直接選下車站', async () => {
+  await withPage(DEVICES.phone, '#/bus/Taipei/307?stop=%E6%95%A6%E5%8C%96%E5%B8%82%E5%A0%B4&dir=0&alight=1', async (page) => {
+    await page.waitForSelector('#alight-dest');
+    await page.waitForFunction(() => document.activeElement?.id === 'alight-dest');
   });
 });
 

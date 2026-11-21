@@ -151,6 +151,19 @@ export async function watchAlight(w, callTool) {
   return Boolean(state.w);
 }
 
+/**
+ * 到下車站還要幾秒（行程中模式）：最近一次查到的時間扣掉經過的時間；還沒查到用設定時的估計。
+ * @returns {number|null}
+ */
+export function rideLeftSec(w, now = Date.now()) {
+  if (!w) return null;
+  if (w.last?.etaSec != null) return Math.max(0, Math.round(w.last.etaSec - (now - w.last.at) / 1000));
+  if (Number.isFinite(w.rideSec)) return Math.max(0, Math.round(w.rideSec - Math.max(0, now - w.boardAt) / 1000 + Math.max(0, w.boardAt - now) / 1000));
+  return null;
+}
+/** 「約 6 分到「市府」」／「快到「市府」了」 */
+export const rideLeftText = (w, now = Date.now()) => { const s = rideLeftSec(w, now); return s == null ? `往「${w.dest}」` : s < 60 ? `快到「${w.dest}」了` : `約 ${Math.round(s / 60)} 分到「${w.dest}」`; };
+
 /** 目前的下車提醒（沒有回 null） */
 export const alightWatch = () => state.w;
 

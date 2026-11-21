@@ -9,6 +9,7 @@ import { showOnboarding } from './onboarding.js';
 import { t as cardT } from '../ui/cards/i18n/zh-TW.js';
 import { restoreReminders } from './reminders.js';
 import { resumeAlight } from './alight.js';
+import { mountTripBar } from './trip-bar.js';
 import home from './pages/home.js';
 import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
@@ -42,6 +43,7 @@ root.innerHTML = `
   </header>
   <div id="offline" class="offline-banner" role="status" hidden></div>
   <div id="banner"></div>
+  <div id="tripbar" hidden></div>
   <main id="main" tabindex="-1"></main>
   <div class="tabbar"><nav>${tabs.map(([h, n, i]) => `<a href="${h}" data-h="${h}">${icons[i]}<span>${n}</span></a>`).join('')}</nav></div>`;
 
@@ -137,6 +139,7 @@ api.status().then(() => paintBanner()).catch(() => {});
 // 出門提醒（T7）：過期的取消（重開機後不補送）、網頁版重新整理後把還沒到的排回去
 try { restoreReminders(); } catch { /* 無痕模式 */ }
 // 下車提醒：App 被系統關掉再打開時恢復（沒逾時才恢復）
+mountTripBar($('tripbar')); // 行程中：每一頁上方可回到公車頁
 if (globalThis.Capacitor?.isNativePlatform?.()) { const web = createWebHost(); resumeAlight((n, a) => web.callTool(n, a)); }
 // 我的發票：開獎後打開 App 就自動對獎、中獎主動通知（本機資料，離線 Demo 沒有伺服器時不做）
 const checkPrizes = () => {
