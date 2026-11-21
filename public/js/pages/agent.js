@@ -21,6 +21,7 @@ import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { renderDecision, lite, roleEn } from '../../ui/agent/decision-graph.js';
 import { mountVisionButton, handOff, takeHandoff } from '../vision.js';
+import { mountDramaHint, dramaHintOn } from '../drama-hint.js';
 
 // 決策圖重算用的同一份 decide.js（伺服器以 /core/decide.js 提供；UX.md §5）
 const decideModule = import('/core/decide.js').catch(() => null);
@@ -28,13 +29,13 @@ const decideModule = import('/core/decide.js').catch(() => null);
 const MIN_GAP_MS = 300;
 // 小幫手頭像：每個角色一個線條圖示（public/js/icons.js，與首頁格子同一套）；阿幫用吉祥物
 const ROLE_ICON = { 地點: 'pin', 天氣: 'sun', 公車: 'bus', YouBike: 'bike', 高鐵: 'hsr', 台鐵: 'train', 捷運: 'metro', 路況: 'traffic', 客運: 'coach', 票價: 'ticket', 叫車: 'car', 訂票: 'ticket',
-  行程: 'route', 車站: 'train', 定位: 'locate', 空品: 'air', 地震: 'quake', 藥局: 'pharmacy', 垃圾車: 'trash', 油價: 'fuel', 發票: 'receipt', 股市: 'chart', 防詐: 'shield', 網址: 'link', 闢謠: 'myth', 號碼: 'phone' };
-const ROLE_CLASS = { 防詐: 'bad', 網址: 'bad', 闢謠: 'fare', 號碼: 'tra', 地點: 'place', 天氣: 'place', 公車: 'bus', YouBike: 'bike', 高鐵: 'rail', 台鐵: 'tra', 捷運: 'brand', 路況: 'car', 客運: 'car', 票價: 'fare', 叫車: 'car', 訂票: 'rail', 行程: 'brand', 車站: 'tra', 定位: 'place', 空品: 'place', 地震: 'bad', 藥局: 'bike', 垃圾車: 'car', 油價: 'fare', 發票: 'fare', 股市: 'fare' };
+  行程: 'route', 車站: 'train', 定位: 'locate', 空品: 'air', 地震: 'quake', 藥局: 'pharmacy', 垃圾車: 'trash', 油價: 'fuel', 發票: 'receipt', 股市: 'chart', 防詐: 'shield', 網址: 'link', 闢謠: 'myth', 號碼: 'phone', 短劇: 'play' };
+const ROLE_CLASS = { 防詐: 'bad', 網址: 'bad', 闢謠: 'fare', 號碼: 'tra', 地點: 'place', 天氣: 'place', 公車: 'bus', YouBike: 'bike', 高鐵: 'rail', 台鐵: 'tra', 捷運: 'brand', 路況: 'car', 客運: 'car', 票價: 'fare', 叫車: 'car', 訂票: 'rail', 行程: 'brand', 車站: 'tra', 定位: 'place', 空品: 'place', 地震: 'bad', 藥局: 'bike', 垃圾車: 'car', 油價: 'fare', 發票: 'fare', 股市: 'fare', 短劇: 'drama' };
 /** 每個 agent 的 @點名、標題與輸入提示（角色名稱與 core/agent/events.js TOOL_ROLES 一致） */
 /** 保留對話的鍵：只有生活 agent 保留（防詐貼上的內容離開就清掉，共用手機時不留在畫面上） */
 export const keptKey = (id) => (!id || id === 'life' || !AGENTS[id] ? 'agent' : null);
 const AGENTS = {
-  life: { title: '問阿幫', placeholder: '想去哪裡、想查什麼？例如：去台北 101', mentions: ['地點', '天氣', '路況', '公車', 'YouBike', '捷運', '高鐵', '台鐵', '票價', '叫車', '空品', '地震', '藥局', '垃圾車', '油價', '發票', '股市'] },
+  life: { title: '問阿幫', placeholder: '想去哪裡、想查什麼？例如：去台北 101', mentions: ['地點', '天氣', '路況', '公車', 'YouBike', '捷運', '高鐵', '台鐵', '票價', '叫車', '空品', '地震', '藥局', '垃圾車', '油價', '發票', '股市', '短劇'] },
   antifraud: { title: '阿幫・防詐', placeholder: '把可疑的簡訊、LINE 訊息或網址貼上來', mentions: ['防詐', '網址', '闢謠', '號碼'] },
 };
 // 討論串裡認得的點名：可點名的小幫手＋程式自己會點的（定位、行程…）；長的先比（「垃圾車」不被「垃圾」截掉）
@@ -316,7 +317,8 @@ export default {
         // 常用地點：只送這段對話提到的（「回家」才送家）
         const savedPlaces = agentId === 'life' ? placesFor(history.slice(-10).filter((m) => m.role === 'user').map((m) => m.content)) : undefined;
         const ctxText = [context, pageContext].filter(Boolean).join('；').slice(0, 200);
-        const userState = agentId === 'life' ? habitRequest() : null; // 同意過的偏好比例、說過的預設狀況、可以問的候選（只有方式與次數；habits.js）
+        const habitState = agentId === 'life' ? habitRequest() : null; // 同意過的偏好比例、說過的預設狀況、可以問的候選（只有方式與次數；habits.js）
+        const userState = agentId === 'life' && !dramaHintOn() ? { ...habitState, dramaHint: false } : habitState; // 設定關掉等車推短劇：伺服器就不查也不推（ADR-0019）
         await runAgent({ messages: history.slice(-10), ...(ctxText && { context: ctxText }), ...(deviceJudge && { deviceJudge }), ...(savedPlaces && { savedPlaces }), ...(userState && { userState }), ...(pendingAsk && { pendingAsk }) }, (e) => {
           // 隱私：防詐頁貼上的內容只送給本站伺服器分析，不保存（AGENT_ANTIFRAUD.md §1）
           if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = modeText(e);
@@ -350,6 +352,7 @@ export default {
       const think = mountThinking({ lang: turnLang, roleName: (r) => (turnLang === 'en' ? roleEn(r) || r : r) });
       turn.append(thread, results, think.el);
       const bubbles = new Map();
+      const slots = new Map(); // 工具呼叫 id → 卡片（等車推短劇接在那張卡片下面）
       const roles = []; // 本輪回報的小幫手角色（決策圖的資料欄）
       const reported = new Set(); // 本輪已經點名過的工具角色（示範模式另外查了天氣、空品、路況：data_note 不重複）。tool_start 就記：工具平行，weather_now 可能比 plan_trip 晚完成
       let queue = Promise.resolve();
@@ -447,9 +450,11 @@ export default {
                 box.append(el('summary', '', el('span', 'same-text', same), el('span', 'same-open', turnLang === 'en' ? 'Show card' : '看完整')), slot);
                 box.addEventListener('toggle', () => { if (box.open && !slot.childElementCount) cards.push(Object.assign(renderCard(slot, payload, host), { turn: turnNo })); });
                 results.append(box);
+                slots.set(e.id, box);
               } else {
                 const slot = el('div', `card-slot ${results.children.length >= 2 ? 'scroll-in' : 'enter3d'}`); // 前兩張立體進場，後面的捲到才浮現
                 results.append(slot);
+                slots.set(e.id, slot);
                 cards.push(Object.assign(renderCard(slot, payload, host), { turn: turnNo }));
               }
             }
@@ -509,6 +514,13 @@ export default {
             openAsk = ctl;
             if (/^habit:/.test(e.about || '')) markAsked(e.about.slice(6)); // 問過了（沒回答也 3 天內不再問）
             if (view.box?.isConnected) view.box.before(ctl.el); else results.append(ctl.el);
+            break;
+          }
+          case 'aside': { // 等車推短劇（ADR-0019）：接在那張到站卡片下面，一行小字；設定關掉就不顯示
+            if (e.kind !== 'drama' || !dramaHintOn()) break;
+            const hint = mountDramaHint(e, { host, ask: (q) => send(q), lang: turnLang });
+            const slot = slots.get(e.parent);
+            if (slot?.isConnected) slot.after(hint); else results.append(hint);
             break;
           }
           case 'guardrail': // 安全情境（S18）：求助電話做成一鍵撥號，接在回答下面

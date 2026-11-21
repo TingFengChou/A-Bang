@@ -24,7 +24,7 @@ export function createOpenDataClient({ fetchImpl = fetch, now = () => Date.now()
     const pending = (async () => {
       let res;
       try { res = await fetchImpl(url, { signal: AbortSignal.timeout(timeoutMs), ...(headers && { headers }) }); } catch { throw new OpenDataError(`${label}連線失敗，請稍後再試`); }
-      if (!res.ok) throw new OpenDataError(`${label}回應錯誤（HTTP ${res.status}）`);
+      if (!res.ok) throw Object.assign(new OpenDataError(`${label}回應錯誤（HTTP ${res.status}）`), { upstreamStatus: res.status }); // upstreamStatus：服務層分辨「找不到」與上游故障
       let data;
       try { data = parse(as === 'json' ? await res.json() : await res.text()); } catch (e) { throw new OpenDataError(`${label}格式不符預期：${e.message}`); }
       recordFetch({ cacheHit: false, data });

@@ -2,8 +2,9 @@
 // 建立函式只組欄位並檢查必要欄位，不做假延遲；數字一律由呼叫端傳入真實資料（ADR-0009）。
 import { getTool } from '../tools/index.js';
 import { ASK_KINDS, ASK_ACTIONS } from './ask.js';
+import { isAppLink, isStoreLink } from '../drama-say.js';
 
-export const EVENT_TYPES = ['status', 'agent_note', 'tool_start', 'tool_result', 'data_note', 'discussion_end', 'decision', 'ask', 'guardrail', 'client_tool_call', 'text', 'done', 'error'];
+export const EVENT_TYPES = ['status', 'agent_note', 'tool_start', 'tool_result', 'data_note', 'discussion_end', 'decision', 'ask', 'aside', 'guardrail', 'client_tool_call', 'text', 'done', 'error'];
 
 /** 小幫手角色（討論串中被 @ 點名的名字） */
 export const TOOL_ROLES = {
@@ -12,6 +13,7 @@ export const TOOL_ROLES = {
   rail_fare: '票價', intercity_bus: '客運', traffic_status: '路況', weather_now: '天氣', weather_tomorrow: '天氣', outing_advice: '天氣', rail_booking_link: '訂票', ridehail_link: '叫車',
   aqi_nearby: '空品', earthquake_recent: '地震', pharmacy_search: '藥局', garbage_truck_nearby: '垃圾車', fuel_price: '油價', invoice_lottery: '發票', invoice_check_batch: '發票', stock_quote: '股市',
   scam_check_message: '防詐', scam_lookup_url: '網址', scam_myth_search: '闢謠', sms_sender_check: '號碼',
+  drama_picks: '短劇', drama_search: '短劇', drama_series: '短劇',
 };
 
 const need = (type, obj, keys) => {
@@ -74,6 +76,19 @@ export const ev = {
       return base;
     });
     return need('ask', { id, question: String(question).slice(0, 120), options: opts, ...(why && { why: String(why).slice(0, 80) }),  ...(about && { about: String(about) }), ...(key && { key: String(key).slice(0, 80) }), ...(pending?.slot && { pending }) }, ['id', 'question']);
+  },
+  /**
+   * aside：卡片下方的小提示（不進回答文字，交通資訊仍是主角）。目前只有 kind 'drama'＝等車推一集短劇（core/agent/wait-drama.js，ADR-0019）；
+   * parent＝那次到站工具呼叫的 id（客戶端接在那張卡片下面）；一輪最多一個；連結只收安全的 App 連結與 https 商店頁。
+   */
+  aside: ({ parent, kind, text, waitMin, mode, data, labels }) => {
+    if (kind !== 'drama') throw new Error(`事件 aside 的 kind 不對：${kind}`);
+    const store = data?.store && { ios: isStoreLink(data.store.ios) ? data.store.ios : null, android: isStoreLink(data.store.android) ? data.store.android : null };
+    return need('aside', {
+      parent, kind, text: String(text).slice(0, 120), ...(waitMin != null && { waitMin }), mode: mode === 'live' ? 'live' : 'demo',
+      data: { id: String(data.id), title: String(data.title).slice(0, 40), ep: data.ep, freeEpisodes: data.freeEpisodes ?? null, appLink: isAppLink(data.appLink) ? data.appLink : null, store: store && (store.ios || store.android) ? store : null },
+      labels: { watch: String(labels?.watch || ''), dismiss: String(labels?.dismiss || ''), note: String(labels?.note || '') },
+    }, ['parent', 'kind', 'text']);
   },
   guardrail: ({ tier, rule, calls }) => need('guardrail', { tier, rule, ...(calls?.length && { calls: calls.map((c) => ({ label: String(c.label), tel: String(c.tel).replace(/[^0-9]/g, '') })) }) }, ['tier', 'rule']), // calls：一鍵撥號（安全情境）
   clientToolCall: ({ id, name, input = {} }) => need('client_tool_call', { id, name, input }, ['id', 'name']),

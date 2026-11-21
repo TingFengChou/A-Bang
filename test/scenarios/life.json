@@ -2900,6 +2900,146 @@
           }
         }
       ]
+    },
+    {
+      "id": "D1-1",
+      "title": "找短劇：最近有什麼好看的（MyDrama 熱門排行，ADR-0019）",
+      "turns": [
+        {
+          "say": "最近有什麼好看的短劇",
+          "expect": {
+            "tools": [
+              "drama_picks"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "textHas": [
+              "熱門排行"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "D1-2",
+      "title": "找短劇：類型（甜寵）",
+      "turns": [
+        {
+          "say": "有沒有甜寵劇",
+          "expect": {
+            "tools": [
+              "drama_search"
+            ],
+            "resultHas": [
+              "「甜寵」找到"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "D1-3",
+      "title": "找短劇：推薦一部",
+      "turns": [
+        {
+          "say": "推薦一部短劇",
+          "expect": {
+            "tools": [
+              "drama_picks"
+            ],
+            "toolsNot": [
+              "find_place"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "D1-4",
+      "title": "找短劇：劇名問劇情 → 搜尋＋簡介",
+      "turns": [
+        {
+          "say": "《捷運末班車》在演什麼",
+          "expect": {
+            "tools": [
+              "drama_search",
+              "drama_series"
+            ],
+            "textHas": [
+              "簡介"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "D1-5",
+      "title": "找短劇：沒有的題材照實說、改給熱門",
+      "turns": [
+        {
+          "say": "有沒有殭屍的短劇",
+          "expect": {
+            "tools": [
+              "drama_search",
+              "drama_picks"
+            ],
+            "textHas": [
+              "沒有找到「殭屍」"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "D1-6",
+      "title": "找短劇（英文）：Any good short dramas?",
+      "turns": [
+        {
+          "say": "Any good short dramas?",
+          "expect": {
+            "tools": [
+              "drama_picks"
+            ],
+            "textHas": [
+              "Popular short dramas",
+              "in Chinese"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "D1-7",
+      "title": "找短劇（英文）：romance → 甜寵",
+      "turns": [
+        {
+          "say": "Recommend a romance drama",
+          "expect": {
+            "tools": [
+              "drama_search"
+            ],
+            "textHas": [
+              "MyDrama"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "D1-8",
+      "title": "去戲劇院是行程，不是找劇",
+      "turns": [
+        {
+          "say": "去國家戲劇院怎麼走",
+          "expect": {
+            "toolsNot": [
+              "drama_picks",
+              "drama_search"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

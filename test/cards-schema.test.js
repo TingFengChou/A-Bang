@@ -38,6 +38,11 @@ const CASES = [
   ['invoice_lottery', { number: '54348835' }],
   ['stock_quote', { query: '台積電、環球晶、國泰、火星' }],
   ['stock_quote', {}],
+  ['drama_picks', {}],
+  ['drama_picks', { list: 'taiwan', limit: 3 }],
+  ['drama_search', { query: '甜寵' }],
+  ['drama_search', { query: '殭屍' }],
+  ['drama_series', { id: 'demo-last-train' }],
 ];
 
 test('validate：型別、必要欄位、enum、$ref、additionalProperties', () => {

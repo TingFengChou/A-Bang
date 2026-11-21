@@ -24,9 +24,12 @@ import { createLifeServices, createLiveLifeFetchers } from './services/life.js';
 import { createMockLifeServices, demoLifeFetchersFor } from './services/life-mock.js';
 import { createStockServices, createLiveStockFetchers } from './services/stock.js';
 import { createMockStockServices } from './services/stock-mock.js';
+import { createDramaServices, createLiveDramaFetchers } from './services/drama.js';
+import { createMockDramaServices } from './services/drama-mock.js';
 
 /**
- * @param {{ clientId?: string, clientSecret?: string, cwaKey?: string, moenvKey?: string, openData?: boolean, forceMock?: boolean, log?: Function, demo?: { traffic?: 'smooth'|'jam', weather?: 'clear'|'rain', air?: 'good'|'bad' } }} [opts]
+ * @param {{ clientId?: string, clientSecret?: string, cwaKey?: string, moenvKey?: string, openData?: boolean, forceMock?: boolean, log?: Function, demo?: { traffic?: 'smooth'|'jam', weather?: 'clear'|'rain', air?: 'good'|'bad' }, drama?: { apiBase?: string, links?: object } }} [opts]
+ *   drama：MyDrama 短劇（ADR-0019）；apiBase 沒設定時用虛構的示範片庫；links＝深層連結與商店頁範本（環境變數）
  *   openData：免金鑰的政府開放資料（165 防詐）用真實下載；預設 false（測試不連網），伺服器由 loadEnv 決定
  *   cwaKey：中央氣象署授權碼；沒有時天氣用示範資料（與 TDX 金鑰各自獨立）
  *   demo：示範模式情境（docs/TESTING.md §4），測試以參數注入，手動展示用環境變數
@@ -55,7 +58,7 @@ export function withTdxFallback(live, mock) {
   });
 }
 
-export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openData = false, forceMock = false, log, demo = {} } = {}) {
+export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openData = false, forceMock = false, log, demo = {}, drama: dramaCfg = {} } = {}) {
   const live = Boolean(clientId && clientSecret) && !forceMock;
   const tdx = live ? createTdxClient({ clientId, clientSecret, log }) : null;
   const transit = live ? withTdxFallback(createTransitServices(tdx), createMockTransitServices()) : createMockTransitServices();
@@ -75,6 +78,9 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
     : createMockLifeServices({ air: demo.air });
   const stock = od ? createStockServices(createLiveStockFetchers({ od })) : createMockStockServices(); // 股市收盤（證交所、櫃買中心，免金鑰）
   const antifraud = antifraudLive ? createAntifraudServices() : createMockAntifraudServices();
+  // 短劇（ADR-0019）：MyDrama 公開讀取端點，網址只在環境變數；沒設定（或 DEMO_MODE=1）用虛構示範片庫
+  const dramaFx = dramaCfg.apiBase && !forceMock ? createLiveDramaFetchers({ od: createOpenDataClient(), base: dramaCfg.apiBase }) : null;
+  const drama = dramaFx ? createDramaServices(dramaFx, { links: dramaCfg.links }) : createMockDramaServices({ links: dramaCfg.links });
 
   return {
     mode: live ? 'live' : 'demo',
@@ -83,6 +89,7 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
     openDataMode: antifraudLive ? 'live' : 'demo', // 免金鑰開放資料（藥局、垃圾車、油價、發票、股市）
     aqiMode: antifraudLive && moenvKey ? 'live' : 'demo',
     quakeMode: antifraudLive && cwa ? 'live' : 'demo',
+    dramaMode: dramaFx ? 'live' : 'demo', // 短劇（MyDrama 公開片庫）
     ...transit, // bus, bike, rail
     ...metro, // metro
     ...traffic, // traffic
@@ -94,6 +101,7 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
     ...life, // life：空品、地震、藥局、垃圾車、油價、發票（M10）
     ...stock, // stock：上市櫃收盤行情與指數（finance 工具包）
     ...antifraud, // antifraud：165 開放資料（免金鑰；DEMO_MODE=1 時用示範片段，M7）
+    ...drama, // drama：MyDrama 短劇排行、搜尋、簡介（ADR-0019）
   };
 }
 
@@ -112,6 +120,7 @@ export function dataSources(svc) {
     { id: 'quake', name: '地震', mode: svc.quakeMode },
     { id: 'opendata', name: '藥局、垃圾車、油價、發票、股市', mode: svc.openDataMode },
     { id: 'antifraud', name: '防詐', mode: svc.antifraudMode },
+    { id: 'drama', name: '短劇（MyDrama）', mode: svc.dramaMode },
   ];
 }
 
@@ -132,5 +141,10 @@ export async function loadEnv(path = new URL('../.env', import.meta.url)) {
     moenvKey: process.env.MOENV_API_KEY, // 環境部開放資料平臺 api_key（空氣品質）
     openData: process.env.OPEN_DATA !== '0', // 免金鑰開放資料（165 防詐）；OPEN_DATA=0 或 DEMO_MODE=1 時用示範片段
     demo: { traffic: process.env.DEMO_TRAFFIC || undefined, weather: process.env.DEMO_WEATHER || undefined, air: process.env.DEMO_AIR || undefined },
+    // MyDrama 短劇（ADR-0019）：網址、深層連結、商店頁都只放 .env（repo 是公開的）
+    drama: {
+      apiBase: process.env.MYDRAMA_API_BASE || undefined,
+      links: { episode: process.env.MYDRAMA_LINK_EPISODE, exercise: process.env.MYDRAMA_LINK_EXERCISE, storeIos: process.env.MYDRAMA_STORE_IOS, storeAndroid: process.env.MYDRAMA_STORE_ANDROID },
+    },
   };
 }

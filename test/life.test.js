@@ -118,10 +118,10 @@ test('開放資料 client：快取、同時只下載一次、失敗沿用舊資�
 
 test('dataSources：各類資料真實／示範（網頁標示用），不含金鑰', () => {
   const ids = (x) => x.map((s) => `${s.id}:${s.mode}`);
-  assert.deepEqual(ids(dataSources(svc)), ['transit:demo', 'weather:demo', 'aqi:demo', 'quake:demo', 'opendata:demo', 'antifraud:demo']);
+  assert.deepEqual(ids(dataSources(svc)), ['transit:demo', 'weather:demo', 'aqi:demo', 'quake:demo', 'opendata:demo', 'antifraud:demo', 'drama:demo']);
   // 只開免金鑰開放資料：藥局等與防詐是真實，需金鑰的仍是示範
   const open = createServices({ openData: true });
-  assert.deepEqual(ids(dataSources(open)), ['transit:demo', 'weather:demo', 'aqi:demo', 'quake:demo', 'opendata:live', 'antifraud:live']);
+  assert.deepEqual(ids(dataSources(open)), ['transit:demo', 'weather:demo', 'aqi:demo', 'quake:demo', 'opendata:live', 'antifraud:live', 'drama:demo']); // 短劇要 MYDRAMA_API_BASE，跟開放資料無關
   assert.ok(dataSources(open).every((s) => Object.keys(s).join() === 'id,name,mode'));
 });
 
