@@ -919,6 +919,31 @@ test('阿幫常駐：開公車頁再回來對話還在、浮動阿幫拉出同�
   });
 });
 
+// 公車會動（Austin）：兩次更新之間照到站時間往站牌開；重新整理資料時不往回跳（不減少動態時）
+test('公車街景：公車往站牌開、不往回跳', async () => {
+  await withPage(DEVICES.phone, '#/bus/Taipei/307?stop=%E6%95%A6%E5%8C%96%E5%B8%82%E5%A0%B4&dir=0', async (page) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.reload();
+    await page.waitForSelector('#scene .ab-scene-bus');
+    const x = () => page.evaluate(() => new DOMMatrix(getComputedStyle(document.querySelector('#scene .ab-scene-bus')).transform).m41);
+    const cls = await page.getAttribute('#scene .ab-scene-bus', 'class');
+    if (/moving/.test(cls)) {
+      await page.waitForTimeout(1500);
+      const a = await x();
+      await page.waitForTimeout(2500);
+      const b = await x();
+      assert.ok(b > a, `往站牌開（${a} → ${b}）`);
+      // 資料更新（站數沒變）：從剛剛開到的地方繼續
+      await page.evaluate(() => window.dispatchEvent(new CustomEvent('abang:alight-watch')));
+      await page.waitForTimeout(300);
+      assert.ok(await x() >= b - 1, '不往回跳');
+    } else { // 示範資料剛好到站（停著）或還很遠（停在畫面左邊、不動）
+      const label = await page.textContent('#scene .ab-scene-label.bus');
+      assert.ok(/at-stop/.test(cls) || /還有 ([3-9]|\d\d) 站/.test(label), `${cls}｜${label}`);
+    }
+  });
+});
+
 // 問阿幫「上車後提醒我下車」：到公車頁、焦點在選下車站
 test('上車後提醒我下車：公車頁直接選下車站', async () => {
   await withPage(DEVICES.phone, '#/bus/Taipei/307?stop=%E6%95%A6%E5%8C%96%E5%B8%82%E5%A0%B4&dir=0&alight=1', async (page) => {
