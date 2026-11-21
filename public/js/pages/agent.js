@@ -122,6 +122,7 @@ const metricsText = (m) => (m ? [m.scanned ? `${m.scanned} 筆` : null, m.cacheH
 
 export default {
   title: '問阿幫',
+  keepAlive: true, // 換頁不清掉對話（app.js、abang-dock.js）；浮動阿幫的底部對話也是這一個
   render({ main, setTitle, onCleanup, params = [], query = {} }) {
     // 手機 App：起點預設是現在位置
     // 已經允許過定位才先定位（不在使用者還沒發問時就跳權限框；第一次在需要位置時才問，審查建議）
@@ -237,8 +238,9 @@ export default {
       }
     });
     form.addEventListener('submit', (e) => { e.preventDefault(); send(input.value); });
-    // 從首頁帶問題過來（#/agent?q=…）：直接送出，並把網址換掉，避免重新整理時重送
-    if (query.q) { const q0 = query.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); }
+    // 從首頁帶問題過來（#/agent?q=…）：直接送出，並把網址換掉，避免重新整理時重送（對話保留時，回來帶的問題接在後面）
+    const takeQuery = (qy = {}) => { if (qy.q) { const q0 = qy.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); } };
+    takeQuery(query);
 
     async function send(raw) {
       const q = String(raw || '').trim().slice(0, 500);
@@ -450,5 +452,18 @@ export default {
       view.flush = () => queue;
       return view;
     }
+    // 給 app.js／浮動阿幫用：回到這頁、阿幫主動說一句（提醒）、聚焦輸入框、代問、有沒有對話
+    return {
+      show: (qy) => takeQuery(qy),
+      say(text, action = null) {
+        const p = el('div', 'agent-say');
+        p.append(avatar('阿幫', 'happy'), el('p', 'say', text));
+        if (action?.ask) { const b = el('button', 'btn small', action.label || '問阿幫'); b.type = 'button'; b.onclick = () => send(action.ask); p.append(b); }
+        log.append(p);
+      },
+      focus: () => input.focus({ preventScroll: true }),
+      ask: (q) => send(q),
+      hasChat: () => history.length > 0,
+    };
   },
 };

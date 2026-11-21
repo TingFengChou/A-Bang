@@ -6,10 +6,10 @@ import { autoCheckOnOpen } from './invoice-wallet.js';
 import { createWebHost } from '../ui/cards/host-web.js';
 import { watchKeyboard } from './keyboard.js';
 import { showOnboarding } from './onboarding.js';
-import { t as cardT } from '../ui/cards/i18n/zh-TW.js';
 import { restoreReminders } from './reminders.js';
 import { resumeAlight } from './alight.js';
 import { mountTripBar } from './trip-bar.js';
+import { detachMain, attachMain, mountFab, syncFab, abangSays } from './abang-dock.js';
 import home from './pages/home.js';
 import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
@@ -45,7 +45,9 @@ root.innerHTML = `
   <div id="banner"></div>
   <div id="tripbar" hidden></div>
   <main id="main" tabindex="-1"></main>
-  <div class="tabbar"><nav>${tabs.map(([h, n, i]) => `<a href="${h}" data-h="${h}">${icons[i]}<span>${n}</span></a>`).join('')}</nav></div>`;
+  <div class="tabbar"><nav>${tabs.map(([h, n, i]) => `<a href="${h}" data-h="${h}">${icons[i]}<span>${n}</span></a>`).join('')}</nav></div>
+  <div class="abang-float"><div id="abang-bubble" class="fab-bubble" role="status" hidden></div><button id="abang-fab" class="abang-fab" type="button" aria-label="問阿幫"><img src="/brand/abang-default.svg" alt=""><i class="fab-dot" aria-hidden="true"></i></button></div>
+  <dialog id="abang-sheet" class="abang-sheet" aria-labelledby="abang-sheet-title"><div class="sheet-head"><span class="sheet-grip" aria-hidden="true"></span><h2 id="abang-sheet-title">問阿幫</h2><button type="button" class="btn small quiet sheet-full">整頁</button><button type="button" class="icon-btn sheet-close" aria-label="收起對話（對話會保留）"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div><div class="sheet-body"></div></dialog>`;
 
 const $ = (id) => document.getElementById(id);
 $('back').onclick = () => (history.length > 1 ? history.back() : (location.hash = '#/'));
@@ -66,14 +68,20 @@ function toast(msg, ms = 2200, action = null) {
   document.body.appendChild(t);
   setTimeout(() => t.remove(), ms);
 }
-// 公車到站提醒（L-14，host-web.js）：任何頁面都顯示（沒開通知權限也看得到）
-window.addEventListener('abang:arrival', (e) => toast(`🚌 ${e.detail.text}`, 8000));
-window.addEventListener('abang:alight', (e) => toast(`🔔 ${e.detail.text}`, 10000)); // 下車提醒
-// 公車一直不來（S15）：提示可以改其他方式（卡片上有按鈕）
+// 提醒由阿幫說（2026-11-21 Austin：阿幫要實體化、能提醒與互動）：記在對話裡；在其他頁面由浮動阿幫冒泡泡。
+// 生活對話看得到（問阿幫頁或底部對話開著）就不再跳提示；防詐頁等看不到的地方用提示。
+const lifeVisible = () => /^#\/agent(?:\?|$)/.test(location.hash) || !!document.getElementById('abang-sheet')?.open;
+function remind(text, action, ms) {
+  if (abangSays(text, action) || lifeVisible()) return;
+  toast(text, ms, action?.ask ? { label: action.label, href: `#/agent?q=${encodeURIComponent(action.ask)}` } : null);
+}
+// 公車到站提醒（L-14，host-web.js）：任何頁面都看得到（沒開通知權限也看得到）
+window.addEventListener('abang:arrival', (e) => remind(`🚌 ${e.detail.text}`, null, 8000));
+window.addEventListener('abang:alight', (e) => remind(`🔔 ${e.detail.text}`, null, 10000)); // 下車提醒
+// 公車一直不來（S15）：可以改其他方式（點了打開對話直接問阿幫；卡片上也有按鈕）
 window.addEventListener('abang:arrival-stuck', (e) => {
-  if (location.hash.startsWith('#/agent')) return;
   const en = e.detail.lang === 'en';
-  toast(en ? `Bus ${e.detail.routeName} isn't coming. Ask Abang for another way` : cardT('busRoute.stuckToast', { route: e.detail.routeName }), 10000, { label: en ? 'Another way' : '改其他方式', href: `#/agent?q=${encodeURIComponent(e.detail.ask)}` });
+  remind(en ? `Bus ${e.detail.routeName} isn't coming. Want me to find another way?` : `${e.detail.routeName} 一直沒來，要我幫你改其他方式嗎？`, { label: en ? 'Another way' : '改其他方式', ask: e.detail.ask }, 10000); // 阿幫自己說（不再說「到問阿幫」）
 });
 
 function navigate() {
@@ -93,14 +101,20 @@ function navigate() {
     if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
   const main = $('main');
+  detachMain(); // 問阿幫的對話不清掉：先收起來，回來原樣接上
   main.innerHTML = '';
-  window.scrollTo(0, 0);
-  page.render({
-    main, params, query, toast,
-    setTitle: (t) => { $('title').textContent = t; document.title = t === 'Abang' ? t : `${t}｜Abang`; },
-    setAction: (svg, fn, label, on = false) => { act.innerHTML = svg; act.onclick = fn; act.hidden = false; act.setAttribute('aria-label', label); act.classList.toggle('on', on); },
-    onCleanup: (f) => cleanups.push(f),
-  });
+  syncFab();
+  const setTitle = (t) => { $('title').textContent = t; document.title = t === 'Abang' ? t : `${t}｜Abang`; };
+  const setAction = (svg, fn, label, on = false) => { act.innerHTML = svg; act.onclick = fn; act.hidden = false; act.setAttribute('aria-label', label); act.classList.toggle('on', on); };
+  if (page.keepAlive) { // 問阿幫（生活、防詐）：只建一次；卡片、決策圖、捲動位置都保留
+    const key = params[0] ? `agent/${params[0]}` : 'agent';
+    const { k } = attachMain(main, key, ({ root, setTitle: keepTitle }) => page.render({ main: root, params, query, toast, setAction: () => {}, setTitle: (t) => { keepTitle(t); setTitle(t); }, onCleanup: () => {} }), query);
+    setTitle(k.title || page.title);
+    syncFab();
+  } else {
+    window.scrollTo(0, 0);
+    page.render({ main, params, query, toast, setTitle, setAction, onCleanup: (f) => cleanups.push(f) });
+  }
   paintBanner();
 }
 
@@ -140,6 +154,8 @@ api.status().then(() => paintBanner()).catch(() => {});
 try { restoreReminders(); } catch { /* 無痕模式 */ }
 // 下車提醒：App 被系統關掉再打開時恢復（沒逾時才恢復）
 mountTripBar($('tripbar')); // 行程中：每一頁上方可回到公車頁
+// 浮動阿幫：每一頁右下角，點了從下方拉出同一段對話（不用離開現在的頁面）
+mountFab({ buildLife: ({ root, setTitle: keepTitle }) => agent.render({ main: root, params: [], query: {}, toast, setAction: () => {}, setTitle: keepTitle, onCleanup: () => {} }) });
 if (globalThis.Capacitor?.isNativePlatform?.()) { const web = createWebHost(); resumeAlight((n, a) => web.callTool(n, a)); }
 // 我的發票：開獎後打開 App 就自動對獎、中獎主動通知（本機資料，離線 Demo 沒有伺服器時不做）
 const checkPrizes = () => {
