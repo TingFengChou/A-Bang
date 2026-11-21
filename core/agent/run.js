@@ -1,5 +1,6 @@
 // Agent 共用執行器（M5-04，AGENT.md §2–§3）：呼叫 tool → tool_start／tool_result；plan_trip 時發 decision。
 // 示範模式（demo-intent）與模型模式（model-loop.js：Claude／地端，M5-05）共用 execTools，事件流相同。不加假延遲（ADR-0009）。
+import { safetyCheck } from './safety.js';
 import { enNote } from './en-notes.js';
 import { speakEn, impactEn } from '../tools/speak-en.js';
 import { z } from 'zod';
@@ -195,6 +196,9 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   const jc = judgeCalls(judge, req, profile);
   const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode: 'demo', profile: profile.id, judge: judgeInfo(q0) }));
+  // 安全情境（S18）：提到自傷或正在發生的緊急狀況 → 先給求助電話，不查交通（所有 agent 都一樣）
+  const safe = safetyCheck(last); // 安全情境在請定位之前就回答，不會有帶定位的重送
+  if (safe) { emit(ev.guardrail({ tier: 'L0', rule: `safety:${safe.kind}` })); emit(ev.text(safe.reply)); emit(ev.done()); return; }
   if (!req.clientToolResults?.length && it.reset) emit(ev.contextReset());
   if (notice) emit(ev.agentNote(it.lang === 'en' ? "Today's AI quota is used up; answering in demo mode" : notice));
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
