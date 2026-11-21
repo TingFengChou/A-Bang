@@ -112,7 +112,10 @@ const armHide = () => { clearTimeout(bubbleTimer); bubbleTimer = setTimeout(hide
 export function abangSays(text, action = null) {
   const api = keptIf('agent')?.api;
   if (api?.say) { api.say(text, action); if (onLifePage() || sheet?.open) return true; } // 對話看得到：說在對話裡就好
-  if (!fab || kbOpen()) return false; // 打字中（鍵盤開著，分頁列收起）：交給提示
+  if (!fab) return false;
+  unread = true; // 對話裡多了一句你還沒看到的（鍵盤開著改用提示時也亮，鍵盤收起就看得到）
+  syncDot();
+  if (kbOpen()) return false; // 打字中（鍵盤開著，分頁列收起）：交給提示
   clearTimeout(bubbleTimer);
   bubble.replaceChildren();
   const t = shellT(/[一-鿿]/.test(String(text)) ? null : currentShellLang()); // 提醒本文是中文就整個泡泡用中文（不混「Abang: 中文」）
@@ -133,8 +136,6 @@ export function abangSays(text, action = null) {
   bubble.hidden = false;
   if (live) { live.textContent = ''; setTimeout(() => { live.textContent = t('liveSays', { text }); }, 50); } // 讀屏：常駐的即時區域只放文字
   fab.classList.remove('nudge'); void fab.offsetWidth; fab.classList.add('nudge'); // 藍鵲跳一下
-  unread = true; // 對話裡多了一句你還沒看到的
-  syncDot();
   armHide();
   return true;
 }

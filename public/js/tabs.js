@@ -42,3 +42,15 @@ export const currentAttr = (tabId, path) => {
   const a = activeTab(path);
   return a.tab !== tabId ? null : a.exact ? 'page' : 'true';
 };
+
+/**
+ * Android 返回鍵（不含對話框：app.js 先關對話框）：首頁＝離開 App；分頁本身（服務、提醒、我的、問阿幫）＝回首頁（不走分頁之間的歷史）；
+ * 其他頁有上一頁就回上一頁，沒有（深層連結打開）回首頁。
+ * @returns {'exit'|'back'|'#/'}
+ */
+export function backTarget(path = '/', canGoBack = false) {
+  const a = activeTab(path);
+  if (a.tab === 'home' && a.exact) return 'exit';
+  if (a.exact) return '#/';
+  return canGoBack ? 'back' : '#/';
+}

@@ -22,41 +22,50 @@ export function edgeLine(st, enabled = true) {
 
 /**
  * 「現在」的格子（最多三格：天氣、空品、提醒）。查不到的那格不出現；提醒一定有（沒有就說沒有）。
- * @param {{ weather?: object|null, aqi?: object|null, next?: { title: string, sub?: string }|null, place?: string, offline?: boolean }} o
- * @returns {Array<{ id: string, icon: string, href: string, main: string, sub: string }>}
+ * @param {{ weather?: object|null, aqi?: object|null, next?: { title: string, sub?: string }|null, place?: string, offline?: boolean, demo?: { weather?: boolean, aqi?: boolean } }} o  demo：那一類是示範資料（標「示範」）
+ * @returns {Array<{ id: string, icon: string, href: string, main: string, sub: string, demo?: true }>}
  */
-export function nowItems({ weather = null, aqi = null, next = null, place = '', offline = false } = {}) {
+export function nowItems({ weather = null, aqi = null, next = null, place = '', offline = false, demo = {} } = {}) {
   const out = [];
   if (weather && (Number.isFinite(weather.tempC) || weather.summary)) {
     const rainy = weather.rainMm1h > 0 ? '正在下雨' : weather.raining ? '可能會下雨' : weather.pop3h != null ? `降雨 ${weather.pop3h}%` : weather.summary || '';
-    out.push({ id: 'weather', icon: 'sun', href: '#/s/weather', main: Number.isFinite(weather.tempC) ? `${Math.round(weather.tempC)}°C` : '天氣', sub: [rainy, place].filter(Boolean).join('・') });
+    out.push({ id: 'weather', icon: 'sun', href: '#/s/weather', main: Number.isFinite(weather.tempC) ? `${Math.round(weather.tempC)}°C` : '天氣', sub: [rainy, place].filter(Boolean).join('・'), ...(demo.weather && { demo: true }) });
   }
   const n = aqi?.nearest;
-  if (n && n.aqi != null && n.aqi !== '') out.push({ id: 'aqi', icon: 'air', href: '#/s/aqi', main: `AQI ${n.aqi}`, sub: n.status || '' });
+  if (n && n.aqi != null && n.aqi !== '') out.push({ id: 'aqi', icon: 'air', href: '#/s/aqi', main: `AQI ${n.aqi}`, sub: n.status || '', ...(demo.aqi && { demo: true }) });
   if (offline && !out.length) out.push({ id: 'offline', icon: 'sun', href: '#/s/weather', main: '離線中', sub: '連上網路再看天氣、空品' });
   out.push(next ? { id: 'reminder', icon: 'bell', href: '#/reminders', main: next.title, sub: next.sub || '' } : { id: 'reminder', icon: 'bell', href: '#/reminders', main: '沒有提醒', sub: '看怎麼設' });
   return out;
 }
 
 const TTL = 10 * 60_000; // 首頁來回切換不重查（10 分鐘）
+/** @type {{ at: number, located: boolean, v: { weather: object, aqi: object, place: string, offline: false } }|null} */
 let cache = null;
+
+/** 還有效的上次結果（同步；回首頁時直接畫，不先閃骨架）；沒有回 null */
+export const peekNow = (now = Date.now()) => (cache && now - cache.at < TTL ? cache.v : null);
 
 /**
  * 查天氣與空品（不阻擋畫面；任何失敗都回 null 那一格）。
+ * 快取：天氣與空品都查到才整包記 10 分鐘（只查到一個，下次兩個都重查）；記下當時有沒有用到你的位置，
+ * 之後才允許定位就作廢（不會 10 分鐘內一直顯示台北車站附近）。
  * @param {{ callTool: Function, granted: () => Promise<boolean>, locate: () => Promise<{lat:number,lon:number}|null>, fallback: { lat: number, lon: number } }} deps
  * @returns {Promise<{ weather: object|null, aqi: object|null, place: string, offline: boolean }>}
  */
 export async function loadNow({ callTool, granted, locate, fallback }, now = Date.now()) {
   if (globalThis.navigator?.onLine === false) return { weather: null, aqi: null, place: '', offline: true };
-  if (cache && now - cache.at < TTL) return cache.v;
+  let ok;
+  try { ok = !!(await granted()); } catch { ok = false; } // 沒給過權限就不問（不在首頁跳權限框）
+  if (peekNow(now) && (cache.located || !ok)) return cache.v;
   let pos = null;
-  try { if (await granted()) pos = await locate(); } catch { pos = null; } // 沒給過權限就不問（不在首頁跳權限框）
+  try { if (ok) pos = await locate(); } catch { pos = null; }
   const place = pos ? '你附近' : '台北車站附近';
   const p = pos || fallback;
   const get = (name) => callTool(name, { lat: p.lat, lon: p.lon }).then((r) => r?.data || null, () => null);
   const [weather, aqi] = await Promise.all([get('weather_now'), get('aqi_nearby')]);
   const v = { weather, aqi, place, offline: false };
-  if (weather || aqi) cache = { at: now, v }; // 都沒拿到不記（下次再試）
+  if (weather && aqi) cache = { at: now, located: !!pos, v };
+  else cache = null; // 少一個：下次重查
   return v;
 }
 /** 測試用 */

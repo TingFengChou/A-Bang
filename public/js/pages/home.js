@@ -7,7 +7,7 @@ import { icons } from '../icons.js';
 import { esc, favs, etaBadge, chev, FALLBACK } from '../ui.js';
 import { api, state } from '../api.js';
 import { edgeEnabled, edgeStatus } from '../edge-judge.js';
-import { edgeLine, nowItems, loadNow } from '../home-now.js';
+import { edgeLine, nowItems, loadNow, peekNow } from '../home-now.js';
 import { reminderItems } from '../reminder-items.js';
 import { listReminders } from '../reminders.js';
 import { alightWatch } from '../alight.js';
@@ -74,7 +74,7 @@ export default {
     main.querySelectorAll('.tile.soon').forEach((el) =>
       el.addEventListener('click', () => toast(`「${el.dataset.name}」規劃中`)));
     // 示範資料的服務在格子上標「示範」（依 /api/v1/status 的 sources）
-    api.status().then(() => markDemoTiles(main)).catch(() => {});
+    api.status().then(() => { markDemoTiles(main); paintNow(main, offline, { quick: true }); }).catch(() => {}); // 現在的天氣空品也標示範
 
     paintAi(main);
     paintNow(main, offline);
@@ -116,24 +116,37 @@ function paintAi(main) {
   edgeStatus().then(put, () => put({ available: false, reason: 'no-plugin' }));
 }
 
-/** 現在：先畫提醒那格（本機，立刻有）＋天氣空品的佔位，查到再補；quick：只換提醒（提醒變了） */
+/** 那一類資料是示範的（/api/v1/status 的 sources；還沒查到時看整體模式） */
+const isDemo = (id) => (state.sources ? state.sources.some((x) => x.id === id && x.mode === 'demo') : state.mode === 'demo');
+
+/**
+ * 現在：提醒那格是本機的（立刻有）；天氣空品有效的上次結果就直接畫，沒有才先放佔位、查到再補。
+ * quick：只換提醒（提醒變了）。內容跟上次一樣就不動 DOM（到站、下車提醒每 20 秒送事件：不能讓鍵盤與讀屏的焦點掉）
+ */
 let lastNow = null;
+let nowLoading = false;
 async function paintNow(main, offline, { quick = false } = {}) {
   const box = main.querySelector('#now');
   if (!box) return;
   const next = reminderItems({ arrival: currentArrivalWatch(), alight: alightWatch(), leave: listReminders() })[0] || null;
   const draw = (v, loading) => {
-    const items = nowItems({ ...(v || {}), next });
+    const items = nowItems({ ...(v || {}), next, demo: { weather: isDemo('weather'), aqi: isDemo('aqi') } });
+    const sig = JSON.stringify([items, !!loading]);
+    if (box.dataset.sig === sig) return;
+    box.dataset.sig = sig;
     box.innerHTML = (loading ? '<span class="now-item skel" aria-hidden="true"></span><span class="now-item skel" aria-hidden="true"></span>' : '')
-      + items.map((x) => `<a class="now-item" href="${x.href}" data-now="${x.id}"><span class="ab-token sm" style="--c:${NOW_COLOR[x.id] || '#0f766e'}" aria-hidden="true">${icons[x.icon]}</span><span class="now-t"><b>${esc(x.main)}</b><small>${esc(x.sub)}</small></span></a>`).join('');
+      + items.map((x) => `<a class="now-item" href="${x.href}" data-now="${x.id}"><span class="ab-token sm" style="--c:${NOW_COLOR[x.id] || '#0f766e'}" aria-hidden="true">${icons[x.icon]}</span><span class="now-t"><b>${esc(x.main)}</b><small>${esc(x.sub)}</small></span>${x.demo ? '<span class="tag demo" title="目前是示範資料，不是即時資料">示範</span>' : ''}</a>`).join('');
     box.setAttribute('aria-busy', String(!!loading));
   };
   const when = main.querySelector('#now-when');
-  if (when) when.textContent = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
-  if (quick || offline) { draw(offline ? null : lastNow, false); return; }
-  draw(null, true);
+  if (when && !quick) when.textContent = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+  if (quick || offline) { draw(offline ? null : lastNow, !offline && nowLoading); return; }
+  const seen = peekNow();
+  if (seen) { lastNow = seen; draw(seen, false); } else draw(null, true); // 回首頁：上次的結果還有效就不閃骨架
   const host = createWebHost();
+  nowLoading = !seen;
   lastNow = await loadNow({ callTool: (n, a) => host.callTool(n, a), granted: locationGranted, locate: () => browserLocation(4000), fallback: FALLBACK }).catch(() => null);
+  nowLoading = false;
   if (main.isConnected) draw(lastNow, false);
 }
 const NOW_COLOR = { weather: '#0284c7', aqi: '#0d9488', reminder: '#b45309', offline: '#5d6966' };

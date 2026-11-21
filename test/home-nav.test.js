@@ -3,9 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { TABS, activeTab, currentAttr } from '../public/js/tabs.js';
+import { TABS, activeTab, currentAttr, backTarget } from '../public/js/tabs.js';
 import { reminderItems } from '../public/js/reminder-items.js';
-import { edgeLine, nowItems, loadNow, _resetNow } from '../public/js/home-now.js';
+import { edgeLine, nowItems, loadNow, peekNow, _resetNow } from '../public/js/home-now.js';
 import { miniApps, groups, descOf } from '../public/js/registry.js';
 
 test('分頁列：五格、中央是問阿幫、不再是公車相關的附近／公車／收藏', () => {
@@ -84,26 +84,53 @@ test('現在：天氣、空品、提醒；查不到的那格不出現、提醒�
   assert.deepEqual(nowItems({ aqi: { nearest: { aqi: null } } }).map((x) => x.id), ['reminder'], 'AQI 沒有值不顯示');
 });
 
-test('現在：沒給過定位不問權限（用台北車站附近並寫明）；查不到回 null 不丟錯；結果快取 10 分鐘', async () => {
+test('現在：沒給定位不問權限（用台北車站附近並寫明）；查不到回 null 不丟錯；兩者都查到才快取 10 分鐘', async () => {
   _resetNow();
   const calls = [];
   let located = 0;
-  const deps = (ok, fail = false) => ({
-    callTool: async (n, a) => { calls.push([n, a]); if (fail) throw new Error('down'); return { data: n === 'weather_now' ? { tempC: 20 } : { nearest: { aqi: 40, status: '良好' } } }; },
+  const deps = (ok, fail = null) => ({
+    callTool: async (n, a) => { calls.push([n, a]); if (fail === true || fail === n) throw new Error('down'); return { data: n === 'weather_now' ? { tempC: 20 } : { nearest: { aqi: 40, status: '良好' } } }; },
     granted: async () => ok, locate: async () => { located++; return { lat: 22.6, lon: 120.3 }; }, fallback: { lat: 25.0478, lon: 121.517 },
   });
   const failed = await loadNow(deps(false, true), 1000);
   assert.deepEqual(failed, { weather: null, aqi: null, place: '台北車站附近', offline: false });
   assert.equal(located, 0, '沒給過權限：不定位');
+  assert.equal(peekNow(1000), null);
+  // 只查到天氣：不快取，下次重查（失敗的空品會再試）
   calls.length = 0;
+  const half = await loadNow(deps(false, 'aqi_nearby'), 1500);
+  assert.ok(half.weather && !half.aqi);
+  assert.equal(peekNow(1500), null, '少一個不快取');
   const v = await loadNow(deps(false), 2000);
   assert.equal(v.place, '台北車站附近');
-  assert.deepEqual(calls.map((c) => c[1].lat), [25.0478, 25.0478]);
-  assert.equal(await loadNow(deps(true), 3000), v, '10 分鐘內用快取');
-  _resetNow();
+  assert.deepEqual(calls.slice(-2).map((c) => c[1].lat), [25.0478, 25.0478]);
+  assert.equal(peekNow(2000), v, '兩者都查到：快取');
+  calls.length = 0;
+  assert.equal(await loadNow(deps(false), 3000), v, '10 分鐘內、權限沒變：用快取');
+  assert.equal(calls.length, 0);
+  // 之後允許了定位：用台北車站的快取作廢，改查你附近
   const mine = await loadNow(deps(true), 4000);
   assert.equal(mine.place, '你附近');
   assert.equal(located, 1);
+  assert.equal(await loadNow(deps(true), 5000), mine, '用你的位置查的快取：照用');
+  assert.equal(peekNow(4000 + 10 * 60_000 + 1), null, '過 10 分鐘失效');
+});
+
+test('現在：示範資料的天氣、空品標示範', () => {
+  const items = nowItems({ weather: { tempC: 20 }, aqi: { nearest: { aqi: 40, status: '良好' } }, demo: { weather: true, aqi: false } });
+  assert.equal(items.find((x) => x.id === 'weather').demo, true);
+  assert.equal(items.find((x) => x.id === 'aqi').demo, undefined);
+  assert.equal(items.find((x) => x.id === 'reminder').demo, undefined);
+});
+
+test('Android 返回鍵：首頁離開 App；分頁本身回首頁（不走分頁歷史）；其他頁回上一頁、沒有上一頁回首頁', () => {
+  assert.equal(backTarget('/', true), 'exit');
+  assert.equal(backTarget('', false), 'exit');
+  for (const p of ['/services', '/reminders', '/me', '/agent']) assert.equal(backTarget(p, true), '#/', p);
+  assert.equal(backTarget('/bus/Taipei/307', true), 'back');
+  assert.equal(backTarget('/bus/Taipei/307', false), '#/');
+  assert.equal(backTarget('/agent/antifraud', true), 'back');
+  assert.equal(backTarget('/settings', true), 'back');
 });
 
 test('首頁：範例問題各領域都有（防詐開防詐頁）；不新增伺服器端點（只用現有工具路由）', async () => {

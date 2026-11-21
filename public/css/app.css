@@ -510,3 +510,5 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
   .tabbar nav { background: color-mix(in srgb, var(--card) 94%, transparent); backdrop-filter: blur(14px); border: 1px solid var(--line); border-bottom: 0; border-radius: 20px 20px 0 0; box-shadow: 0 -4px 18px rgba(16, 40, 34, .06); }
 }
 .svc-list .svc .title, .svc-list .svc .sub { display: block; }
+.now-item { position: relative; }
+.now-item .tag.demo { position: absolute; top: 6px; right: 8px; font-size: 9.5px; color: var(--muted); opacity: .85; }

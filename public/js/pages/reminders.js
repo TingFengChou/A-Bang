@@ -31,8 +31,13 @@ export default {
         </div>
       </section>`;
     const box = main.querySelector('#rem-list');
+    let lastSig = null;
     const paint = () => {
       const items = reminderItems({ arrival: currentArrivalWatch(), alight: alightWatch(), leave: listReminders() });
+      // 到站、下車提醒每 20 秒查一次就送一次事件：內容沒變就不重畫（鍵盤與讀屏的焦點不會掉）
+      const sig = JSON.stringify(items);
+      if (sig === lastSig) return;
+      lastSig = sig;
       main.querySelector('#rem-count').textContent = items.length ? `${items.length} 個` : '';
       box.replaceChildren();
       if (!items.length) {

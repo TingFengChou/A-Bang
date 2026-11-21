@@ -77,6 +77,8 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       await page.waitForSelector('#now[aria-busy="false"] [data-now="weather"]');
       assert.deepEqual(await page.locator('#now .now-item').evaluateAll((els) => els.map((e) => e.dataset.now)), ['weather', 'aqi', 'reminder']);
       assert.match(await page.textContent('#now [data-now="weather"]'), /°C.*你附近/);
+      assert.equal(await page.locator('#now [data-now="weather"] .tag.demo').count(), 1, '示範資料標示範');
+      assert.equal(await page.locator('#now [data-now="aqi"] .tag.demo').count(), 1);
       const order = await page.locator('#main section h2').allTextContents();
       assert.ok(order.indexOf('防詐') > -1 && order.indexOf('防詐') < order.indexOf('交通'), order.join('|'));
       assert.match(await page.textContent('.demo-banner'), /示範模式/);
@@ -725,7 +727,25 @@ test('Android 返回：高鐵頁 → 首頁 → 離開 App', async () => {
     await page.waitForFunction(() => location.hash === '#/rail/thsr');
     await page.evaluate(() => window.__back({ canGoBack: true }));
     await page.waitForFunction(() => location.hash === '#/' || location.hash === '');
-    await page.evaluate(() => window.__back({ canGoBack: false }));
+    // 分頁本身（服務、我的、問阿幫）：回首頁，不走分頁之間的歷史
+    for (const tab of ['services', 'me', 'reminders']) {
+      await page.click(`.tabbar [data-tab="${tab}"]`);
+      await page.waitForFunction((t) => location.hash === `#/${t}`, tab);
+    }
+    await page.evaluate(() => window.__back({ canGoBack: true }));
+    await page.waitForFunction(() => location.hash === '#/');
+    assert.deepEqual(await page.evaluate(() => window.__capCalls), [], '還沒離開');
+    // 底部對話開著：先收面板
+    await page.goto(`${base}/#/services`);
+    await page.click('#abang-fab');
+    await page.waitForSelector('#abang-sheet[open]');
+    await page.evaluate(() => window.__back({ canGoBack: true }));
+    await page.waitForFunction(() => !document.getElementById('abang-sheet').open);
+    assert.equal(await page.evaluate(() => location.hash), '#/services');
+    await page.evaluate(() => window.__back({ canGoBack: true }));
+    await page.waitForFunction(() => location.hash === '#/');
+    // 首頁：有上一頁也離開 App
+    await page.evaluate(() => window.__back({ canGoBack: true }));
     assert.deepEqual(await page.evaluate(() => window.__capCalls), ['App.exitApp']);
   }, { init });
 });
@@ -1545,5 +1565,50 @@ test('桌面：分頁列跟內容一樣寬', async () => {
     await page.waitForSelector('#now[aria-busy="false"]');
     const nav = await page.locator('.tabbar nav').boundingBox();
     assert.ok(nav.width <= 560, `分頁列寬 ${nav.width}`);
+  });
+});
+
+test('到站提醒每 20 秒的事件不重畫：提醒頁與首頁「現在」的焦點不會掉；回首頁不閃骨架', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.waitForSelector('#now[aria-busy="false"] [data-now="weather"]');
+    await page.evaluate(async () => {
+      const call = (a) => fetch('/api/v1/tools/bus_route_eta', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(a) }).then((x) => x.json());
+      const s = (await call({ city: 'Taipei', routeName: '307' })).data.directions[0].stops[6].stopName;
+      const { createWebHost } = await import('/ui/cards/host-web.js');
+      await createWebHost().watchArrival({ city: 'Taipei', routeName: '307', stop: s, direction: 0, minutes: 3 });
+      localStorage.setItem('abang.reminders', JSON.stringify([{ id: 'rk', at: Date.now() + 3600e3, text: '該出門了：x', nid: 2002 }]));
+      window.dispatchEvent(new CustomEvent('abang:reminders'));
+    });
+    await page.focus('#now [data-now="weather"]');
+    const fire = () => page.evaluate(() => { for (const t of ['abang:arrival-watch', 'abang:alight-watch', 'abang:reminders']) window.dispatchEvent(new CustomEvent(t)); });
+    await page.evaluate(() => { window.__el = document.activeElement; });
+    await fire();
+    await page.waitForTimeout(100);
+    assert.equal(await page.evaluate(() => document.activeElement === window.__el && window.__el.isConnected), true, '首頁焦點還在同一個元素');
+    // 回首頁：上次的結果還有效，直接畫（不先閃骨架）
+    await page.click('.tabbar [data-tab="reminders"]');
+    await page.waitForSelector('.rem-row');
+    await page.locator('.rem-row button').first().focus();
+    await page.evaluate(() => { window.__el = document.activeElement; });
+    await fire();
+    await page.waitForTimeout(100);
+    assert.equal(await page.evaluate(() => document.activeElement === window.__el && window.__el.isConnected), true, '提醒頁焦點還在取消鈕上');
+    await page.click('.tabbar [data-tab="home"]');
+    await page.waitForSelector('#now');
+    assert.equal(await page.locator('#now .skel').count(), 0, '不閃骨架');
+    assert.equal(await page.getAttribute('#now', 'aria-busy'), 'false');
+    await page.evaluate(async () => { const { createWebHost } = await import('/ui/cards/host-web.js'); createWebHost().unwatchArrival(); });
+  });
+});
+
+test('鍵盤開著時阿幫說話：改用提示，中央鍵仍亮未讀點', async () => {
+  await withPage(DEVICES.phone, '#/s/weather', async (page) => {
+    await page.waitForSelector('#abang-fab');
+    await page.evaluate(() => { document.documentElement.classList.add('kb-open'); window.dispatchEvent(new CustomEvent('abang:arrival', { detail: { text: '307 快到了' } })); });
+    await page.waitForSelector('[role="status"]:has-text("307 快到了")');
+    assert.equal(await page.locator('#abang-bubble').isHidden(), true);
+    await page.evaluate(() => document.documentElement.classList.remove('kb-open'));
+    assert.match(await page.getAttribute('#abang-fab', 'class'), /unread/);
+    assert.equal(await page.getAttribute('#abang-fab', 'aria-label'), '問阿幫（阿幫有話跟你說）');
   });
 });

@@ -12,7 +12,7 @@ import { detachMain, attachMain, mountFab, syncFab, syncFabLabel, abangSays } fr
 import { shellT, shellLang, applyShell } from './shell-i18n.js';
 import { pageHero, canMorph } from './page-hero.js';
 import { miniApps } from './registry.js';
-import { TABS, currentAttr } from './tabs.js';
+import { TABS, currentAttr, backTarget } from './tabs.js';
 import { reminderItems } from './reminder-items.js';
 import { listReminders, restoreReminders } from './reminders.js';
 import { alightWatch } from './alight.js';
@@ -136,6 +136,7 @@ function paintShell() {
   const lang = langNow();
   applyShell(lang, document, { docLang: resolve().query?.lang === 'en' ? 'en' : null });
   syncFabLabel();
+  paintBadge();
   if (onLifeAgent(resolve())) setDocTitle(lang === 'en' ? shellT('en')('agentTitle') : agent.title);
 }
 addEventListener('abang:agent-lang', (e) => {
@@ -201,6 +202,7 @@ function render() {
     page.render({ main, params, query, toast, setTitle, setAction, onCleanup: (f) => cleanups.push(f) });
   }
   paintBanner();
+  paintBadge(); // 提醒數字的讀屏文字跟著這一頁的語言
   afterNav?.(); afterNav = null; // 圖示飛進頁首的換頁：新畫面好了
 }
 
@@ -282,10 +284,12 @@ if (!guide) checkPrizes();
 const cap = globalThis.Capacitor;
 if (typeof cap?.addListener === 'function' && cap.getPlatform?.() === 'android') {
   cap.addListener('App', 'backButton', (e) => {
-    const open = document.querySelector('dialog[open]'); // 對話框開著（使用說明、掃發票）：返回鍵先關它
+    const open = document.querySelector('dialog[open]'); // 對話框開著（底部對話、使用說明、掃發票）：返回鍵先關它
     if (open) { open.close(); return; }
-    if (e?.canGoBack) history.back(); else cap.nativePromise('App', 'exitApp', {}).catch(() => {});
-  });
+    const to = backTarget(resolve().path, !!e?.canGoBack);
+    if (to === 'exit') cap.nativePromise('App', 'exitApp', {}).catch(() => {});
+    else if (to === 'back') history.back();
+    else location.hash = to;  });
 }
 
 // 手機鍵盤打開時收起底部分頁列（css: html.kb-open）
