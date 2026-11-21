@@ -111,12 +111,15 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
 
   let last = null;
   let loops = [];
-  const stopLoops = () => { loops.forEach((t) => t.kill?.()); loops = []; };
+  const stopLoops = () => { loops.forEach((t) => t.kill?.()); loops = []; root.querySelectorAll('.dg-flow-dot').forEach((d) => d.remove()); };
+  let paused = false, settled = false; // 長對話：收起的那一輪停掉光點（collapse.js），展開再開始
 
   /** 決定後的狀態：吉祥物換開心、勝出路徑虛線流動＋光點持續沿勝出連線流向方案 */
   function settle() {
+    settled = true;
     root.querySelector('.dg-mascot')?.setAttribute('href', '/brand/abang-happy.svg');
     root.querySelectorAll('.dg-edge.win').forEach((e) => e.classList.add('flow'));
+    if (paused) return;
     const g = motion();
     const winEdge = root.querySelector('.dg-out-edge.win');
     const svgEl = root.querySelector('.dg-svg');
@@ -369,7 +372,12 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
 
   draw();
   const played = intro();
-  return { states: () => states, redraw: draw, played };
+  return {
+    states: () => states, redraw: draw, played,
+    /** 收起（長對話）：停掉持續的光點；CSS 的流動在 display:none 時本來就不跑 */
+    pause() { paused = true; stopLoops(); },
+    resume() { if (!paused) return; paused = false; if (settled) { stopLoops(); settle(); } },
+  };
 }
 
 /** 小幫手角色的英文（討論串 @點名、頭像讀屏、決策圖共用；沒有就照原文） */

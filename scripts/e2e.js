@@ -850,6 +850,7 @@ test('問阿幫：接著問時天氣空品收合同上；重來有分隔線', as
       await page.waitForFunction((n) => document.querySelectorAll('.bubble.final').length === n, i + 1, { timeout: 20000 });
     }
     const second = page.locator('.turn').nth(1);
+    await page.locator('.round').nth(1).locator('.round-sum').click(); // 長對話：舊的輪收成一行，先展開（UX.md §4.17）
     assert.ok(await second.locator('.card-same summary').count() >= 1, '第二輪天氣或空品收合');
     assert.match(await second.locator('.card-same summary').first().textContent(), /同上（.+）看完整/);
     assert.equal(await second.locator('.card-same .ab-card').count(), 0, '收合時還沒畫卡片');
@@ -2482,4 +2483,112 @@ test('語音問阿幫：第一次按麥克風跳權限框（App 暫時看不見�
     assert.ok(!(await page.evaluate(() => window.__voice.calls)).includes('cancel'), '權限框不算離開');
     await page.waitForSelector('.msg.user.spoken', { timeout: 5000 });
   }, { init: FAKE_VOICE({ mode: 'auto', startDelay: 800 }), ignore: VOICE_IGNORE });
+});
+
+// 長對話（UX.md §4.17，2026-11-21 PM）：舊的輪收成一行、換話題分隔線、「今天問過」目錄、回到最新、提醒頁回到當時的對話、底部對話面板一樣收合
+test('長對話：連問 5 題只有最新一輪展開、換話題分段、目錄、回到最新、提醒頁看當時的對話、底部面板', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const qs = ['從西門町到台北101怎麼去', '307 到哪了？', '現在天氣如何', '附近空氣品質', '這期發票號碼是多少？'];
+    for (const [i, q] of qs.entries()) {
+      await page.fill('.chat-form input', q);
+      await page.press('.chat-form input', 'Enter');
+      await page.waitForFunction((n) => document.querySelectorAll('.bubble.final').length === n, i + 1, { timeout: 20000 });
+    }
+    await page.waitForFunction(() => document.querySelectorAll('.round.folded').length === 4);
+    const rounds = page.locator('.chat .round');
+    assert.equal(await rounds.count(), 5);
+    assert.equal(await rounds.nth(4).evaluate((r) => r.classList.contains('folded')), false, '最新一輪完整展開');
+    assert.equal(await rounds.nth(4).locator('.round-sum').isVisible(), false, '最新一輪沒有摘要列');
+    assert.ok(await rounds.nth(4).locator('[data-card="invoice"]').isVisible());
+    // 舊的每一輪是一行摘要按鈕（讀屏：第 N 輪：…，已收起）；決策圖、卡片收起，只留「決定：…」小標
+    const first = rounds.nth(0).locator('.round-sum');
+    assert.match(await first.getAttribute('aria-label'), /^第 1 輪：西門町到台北101，.+ \d+ 分，已收起$/);
+    assert.equal(await first.getAttribute('aria-expanded'), 'false');
+    assert.match(await first.locator('.rs-tag').textContent(), /^決定：/);
+    assert.equal(await rounds.nth(0).locator('.decision').isVisible(), false, '收起的輪不顯示決策圖');
+    assert.match(await rounds.nth(1).locator('.round-sum').textContent(), /^307：/);
+    assert.match(await rounds.nth(2).locator('.round-sum').textContent(), /^天氣：.+°C/);
+    assert.match(await rounds.nth(3).locator('.round-sum').textContent(), /^空品：.+AQI \d+/);
+    assert.ok((await first.boundingBox()).height >= 44, '摘要按鈕夠大');
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shot(page, 'phone-chat-collapsed');
+    // 換話題：行程 → 公車 → 天氣（空品同一類，不分）→ 發票
+    const seps = page.locator('.chat .topic-sep[role=separator]');
+    assert.equal(await seps.count(), 3);
+    assert.match(await seps.first().textContent(), /^新的話題・\d{2}:\d{2}$/);
+    assert.match(await seps.first().getAttribute('aria-label'), /^新的話題，\d{2}:\d{2}$/);
+    assert.equal(await page.locator('.chat .topic-sep + .round').count(), 3, '分隔線在那一輪前面');
+    await seps.nth(1).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: new URL('phone-chat-topic.png', SHOTS).pathname }); // 畫面內（不是整頁）：看得到分隔線與前後的摘要
+    // 點摘要展開、再點收起（鍵盤也可以）；展開時決策圖照舊
+    await first.click();
+    assert.equal(await first.getAttribute('aria-expanded'), 'true');
+    assert.match(await first.getAttribute('aria-label'), /已展開$/);
+    assert.ok(await rounds.nth(0).locator('.decision .dg-svg').isVisible(), '展開時決策圖照舊');
+    await first.focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await first.getAttribute('aria-expanded'), 'false', '鍵盤 Enter 收起');
+    assert.equal(await page.evaluate(() => document.activeElement?.classList.contains('round-sum')), true, '焦點留在摘要按鈕');
+    // 「今天問過」目錄（超過 3 輪；nav 有名稱）：點了捲到那一輪並展開，焦點在那一輪的摘要
+    const nav = page.getByRole('navigation', { name: '今天問過' });
+    assert.ok(await nav.isVisible());
+    assert.deepEqual(await nav.locator('.ci-item').allTextContents(), ['台北101', '307', '天氣', '空品', '發票']);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const toLatest = page.getByRole('button', { name: '回到最新的對話' });
+    await toLatest.waitFor();
+    await page.screenshot({ path: new URL('phone-chat-index.png', SHOTS).pathname }); // 畫面內：頂端目錄＋右下「回到最新」
+    await nav.locator('.ci-item', { hasText: '307' }).click();
+    const bus = rounds.nth(1);
+    assert.equal(await bus.locator('.round-sum').getAttribute('aria-expanded'), 'true');
+    assert.ok(await bus.locator('[data-card="bus-route"]').isVisible());
+    assert.equal(await page.evaluate(() => document.activeElement?.closest('.round')?.dataset.round), '2', '焦點在那一輪');
+    assert.ok(await bus.evaluate((r) => { const t = r.getBoundingClientRect().top; return t >= 0 && t < innerHeight / 2; }), '捲到那一輪');
+    // 在那一輪設到站提醒 → 提醒頁那一筆「看當時的對話」→ 回到問阿幫、那一輪展開
+    await bus.locator('[data-card="bus-route"] .ab-btn', { hasText: '到站前 3 分提醒我' }).click();
+    await bus.locator('.round-sum').click();
+    assert.equal(await bus.evaluate((r) => r.classList.contains('folded')), true);
+    await page.goto(`${base}/#/reminders`);
+    const link = page.locator('.rem-row[data-kind="arrival"] .rem-chat');
+    assert.equal(await link.textContent(), '看當時的對話 ›');
+    assert.equal(await link.getAttribute('href'), '#/agent?turn=2');
+    await link.click();
+    await page.waitForFunction(() => document.querySelector('.round[data-round="2"]') && !document.querySelector('.round[data-round="2"]').classList.contains('folded'));
+    await page.waitForFunction(() => document.activeElement?.closest('.round')?.dataset.round === '2');
+    assert.match(page.url(), /#\/agent$/, '網址換回 #/agent（重新整理不會再跳）');
+    // 回到最新：按了捲到最新一輪
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await toLatest.waitFor();
+    await toLatest.click();
+    await page.waitForFunction(() => document.querySelector('.to-latest').hidden);
+    // 底部對話面板（其他頁打開）：同一段對話一樣收合；目錄只在整頁
+    await page.goto(`${base}/#/`);
+    await page.click('#abang-fab');
+    await page.waitForSelector('#abang-sheet[open] .round');
+    assert.ok(await page.locator('#abang-sheet .round.folded').count() >= 3, '面板裡舊的輪也收成一行');
+    assert.equal(await page.locator('#abang-sheet .round').last().evaluate((r) => r.classList.contains('folded')), false);
+    assert.equal(await page.locator('#abang-sheet .chat-index').isVisible(), false, '面板空間小：不顯示目錄');
+    // 新的一輪在面板裡問：前一輪收起
+    await page.fill('#abang-sheet .chat-form input', '台積電股價');
+    await page.press('#abang-sheet .chat-form input', 'Enter');
+    await page.waitForFunction(() => document.querySelectorAll('#abang-sheet .bubble.final').length === 6, null, { timeout: 20000 });
+    assert.equal(await page.locator('#abang-sheet .round').nth(4).evaluate((r) => r.classList.contains('folded')), true);
+    assert.match(await page.locator('#abang-sheet .round').nth(4).locator('.round-sum').textContent(), /^發票：/);
+  });
+});
+
+test('長對話：動畫開著時前一輪平順收起（不留中間狀態）、收起的決策圖停止光點', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    for (const [i, q] of ['從西門町到台北101怎麼去', '307 到哪了？'].entries()) {
+      await page.fill('.chat-form input', q);
+      await page.press('.chat-form input', 'Enter');
+      await page.waitForFunction((n) => document.querySelectorAll('.bubble.final').length === n, i + 1, { timeout: 20000 });
+      if (!i) await page.waitForFunction(() => document.querySelector('.decision .dg-edge.win.flow'), null, { timeout: 8000 });
+    }
+    await page.waitForFunction(() => document.querySelector('.round').classList.contains('folded') && !document.querySelector('.round.folding'));
+    assert.equal(await page.locator('.round').first().evaluate((r) => r.style.overflow), '', '動畫結束後不留 overflow');
+    assert.equal(await page.locator('.round.folded .dg-flow-dot').count(), 0, '收起的決策圖沒有光點在跑');
+    await page.locator('.round-sum').first().click();
+    await page.waitForFunction(() => !document.querySelector('.round').classList.contains('folded'));
+    await page.waitForFunction(() => document.querySelector('.round .dg-edge.win.flow'));
+  }, { motion: true });
 });
