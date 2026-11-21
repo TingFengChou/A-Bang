@@ -266,13 +266,14 @@ html.lite-motion .ab-gauge-needle { transition: none; }
 /* 公車街景（Blender 低多邊形素材）：街景背景＋公車依站數停在路上；站名與「還有 N 站」用網頁文字 */
 .ab-scene3d { position: relative; width: 100%; aspect-ratio: 960 / 420; overflow: hidden; border-radius: 14px; margin: 8px 0; background: #cfe3d6; }
 .ab-scene3d img { position: absolute; inset: 0; width: 100%; height: 100%; user-select: none; pointer-events: none; }
-.ab-scene-bus { position: absolute; inset: 0; transition: transform 1.1s cubic-bezier(.25, .9, .35, 1); }
+.ab-scene-bus { position: absolute; inset: 0; }
 .ab-scene-bus .ab-scene-img { animation: ab-bus-bob 1.6s ease-in-out infinite; transform-origin: 40% 60%; }
 @keyframes ab-bus-bob { 50% { transform: translateY(-0.3%); } }
 /* 開車中：引擎震動、車身微微前後晃（看得出在動）；到站：煞車點一下再停著 */
 .ab-scene-bus.moving .ab-scene-img { animation: ab-bus-drive .42s ease-in-out infinite alternate; }
 @keyframes ab-bus-drive { from { transform: translateY(0) rotate(0deg); } to { transform: translateY(-0.45%) rotate(-0.35deg); } }
-.ab-scene-bus.at-stop .ab-scene-img { animation: ab-bus-brake .6s ease-out 1, ab-bus-bob 2.4s ease-in-out .6s infinite; }
+.ab-scene-bus.at-stop .ab-scene-img { animation: ab-bus-bob 2.4s ease-in-out infinite; }
+.ab-scene-bus.at-stop.braking .ab-scene-img { animation: ab-bus-brake .6s ease-out 1, ab-bus-bob 2.4s ease-in-out .6s infinite; }
 @keyframes ab-bus-brake { 40% { transform: rotate(0.8deg) translateY(0.3%); } 100% { transform: none; } }
 .ab-scene-top { position: absolute; top: 4%; left: 3%; right: 3%; z-index: 2; display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
 .ab-scene-label { white-space: nowrap; font-weight: 700; font-size: 14px; line-height: 1.25; padding: 4px 10px; border-radius: 9px; box-shadow: 0 2px 6px rgba(0,0,0,.18); overflow: hidden; text-overflow: ellipsis; }
