@@ -1247,6 +1247,112 @@ test('公車街景與天氣卡日夜', async () => {
   });
 });
 
+// 公車街景更有變化（2026-11-21，「只有即將進站似乎很少」）：中間小站牌與「還有 N 站」、白天／夜晚、等車的人、
+// 到站開門上車、這班開走下一班從左邊進來、未發車畫空的路；同一個 state 沿用同一個街景（不每 20 秒重建）
+test('公車街景：遠近、時段、等車的人、開走與沿用', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    const out = await page.evaluate(async () => {
+      const { busScene } = await import('/ui/cards/bus-scene.js');
+      document.body.innerHTML = '<div id="shots" style="width:374px;padding:8px;background:#fff"></div>';
+      const host = document.getElementById('shots');
+      const day = Date.parse('2026-11-21T10:00:00+08:00'), night = Date.parse('2026-11-21T21:00:00+08:00');
+      const mk = (id, o) => { const el = busScene({ routeName: '307', stopName: '敦化市場', etaText: '5 分', ...o }); el.id = id; host.append(el); return el; };
+      const dayFar = mk('day-far', { away: 4, etaSec: 700, etaText: '12 分', time: day });
+      const dayNear = mk('day-near', { away: 0, etaSec: 40, etaText: '進站中', time: day });
+      const nightFar = mk('night-far', { away: 2, etaSec: 420, etaText: '7 分', time: night });
+      const nightNear = mk('night-near', { away: 0, etaSec: 30, etaText: '進站中', time: night, stopName: '市府' });
+      const empty = mk('empty', { away: null, etaText: '末班已過', time: night });
+      const en = mk('en', { away: 1, etaSec: 150, etaText: '3 min', time: day, lang: 'en', riding: true, stopName: '市府' });
+      const marks = (el) => [...el.querySelectorAll('.ab-scene-mark')].map((m) => m.textContent);
+      // 同一個 state：第二次回傳同一個元素（不重建）；就在你這站 → 換成下一班：這班開走（減少動態時直接畫最終狀態：沒有開走的車）
+      const state = {};
+      const a = busScene({ routeName: '307', stopName: '西門', away: 0, etaSec: 30, etaText: '進站中', state, time: day });
+      const b = busScene({ routeName: '307', stopName: '西門', away: 3, etaSec: 600, etaText: '10 分', state, time: day });
+      return {
+        dayFar: { cls: dayFar.className, marks: marks(dayFar), people: dayFar.querySelectorAll('.ab-scene-person').length, passed: dayFar.querySelectorAll('.ab-sign.passed').length },
+        dayNear: { open: dayNear.querySelector('.ab-scene-bus').classList.contains('open'), people: dayNear.querySelectorAll('.ab-scene-person').length, halo: dayNear.querySelector('.ab-scene-halo').className, passed: dayNear.querySelectorAll('.ab-sign.passed').length },
+        nightFar: { cls: nightFar.className, marks: marks(nightFar), glow: nightFar.querySelectorAll('.ab-scene-lights circle').length },
+        nightNear: { label: nightNear.getAttribute('aria-label') },
+        empty: { bus: empty.querySelectorAll('.ab-scene-bus').length, note: empty.querySelector('.ab-scene-empty')?.textContent, label: empty.getAttribute('aria-label'), people: empty.querySelectorAll('.ab-scene-person').length },
+        en: { marks: marks(en), you: en.querySelector('.ab-scene-you')?.textContent, label: en.getAttribute('aria-label') },
+        reuse: a === b, buses: b.querySelectorAll('.ab-scene-bus').length, leaving: b.querySelectorAll('.ab-scene-bus.leaving').length, peopleAfter: b.querySelectorAll('.ab-scene-person').length,
+        traffic: document.querySelectorAll('#shots .ab-scene-rider, #shots .ab-scene-taxi').length,
+      };
+    });
+    assert.match(out.dayFar.cls, /\bday\b/);
+    assert.deepEqual(out.dayFar.marks, ['還有 1 站', '還有 2 站'], '還很遠：中間兩個小站牌都標');
+    assert.ok(out.dayFar.people >= 1 && out.dayFar.people <= 3, '有人在等車');
+    assert.equal(out.dayFar.passed, 0);
+    assert.equal(out.dayNear.open, true, '到站開門');
+    assert.equal(out.dayNear.people, 0, '減少動態：直接畫上車後（沒有人在等）');
+    assert.match(out.dayNear.halo, /\bon\b/, '你這站的站牌亮起來');
+    assert.equal(out.dayNear.passed, 2, '中間的站都開過了');
+    assert.match(out.nightFar.cls, /\bnight\b/);
+    assert.deepEqual(out.nightFar.marks, ['還有 1 站', '還有 2 站']);
+    assert.ok(out.nightFar.glow >= 2, '夜晚路燈亮');
+    assert.match(out.nightNear.label, /307・就在你這站・進站中；你在「市府」等車/);
+    assert.equal(out.empty.bus, 0);
+    assert.equal(out.empty.note, '目前路上沒有這班車');
+    assert.match(out.empty.label, /307・末班已過；你在「敦化市場」等車；目前路上沒有這班車/);
+    assert.ok(out.empty.people >= 1);
+    assert.deepEqual(out.en.marks, ['1 stop']);
+    assert.equal(out.en.you, 'You', '坐車中：車上標你');
+    assert.match(out.en.label, /^307 · 1 stop away · 3 min\. You're on the bus, getting off at 市府$/);
+    assert.equal(out.reuse, true, '同一個 state 沿用同一個街景');
+    assert.equal(out.buses, 1);
+    assert.equal(out.leaving, 0, '減少動態：不畫開走的過程');
+    assert.ok(out.peopleAfter >= 1, '這班開走：換一批人等下一班');
+    assert.equal(out.traffic, 0, '減少動態：不畫經過的車');
+    for (const id of ['day-far', 'day-near', 'night-far', 'night-near', 'empty', 'en']) await page.locator(`#${id}`).screenshot({ path: new URL(`bus-scene-${id}.png`, SHOTS).pathname });
+  });
+});
+
+test('公車街景：這班開走往右開出畫面、下一班從左邊進來、等車的人上車（不減少動態）', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const out = await page.evaluate(async () => {
+      const { busScene } = await import('/ui/cards/bus-scene.js');
+      document.body.innerHTML = '';
+      const state = {};
+      const day = Date.parse('2026-11-21T10:00:00+08:00');
+      const el = busScene({ routeName: '307', stopName: '西門', away: 0, etaSec: 30, etaText: '進站中', state, time: day });
+      document.body.append(el);
+      const waiting = el.querySelectorAll('.ab-scene-person').length;
+      const traffic = el.querySelectorAll('.ab-scene-rider, .ab-scene-taxi').length;
+      await new Promise((r) => setTimeout(r, 300));
+      const boarding = el.querySelectorAll('.ab-scene-person.boarding').length;
+      busScene({ routeName: '307', stopName: '西門', away: 3, etaSec: 600, etaText: '10 分', state, time: day });
+      const leaving = el.querySelector('.ab-scene-bus.leaving');
+      const x = (b) => new DOMMatrix(getComputedStyle(b).transform).m41;
+      const x0 = x(leaving);
+      await new Promise((r) => setTimeout(r, 900));
+      const x1 = x(leaving);
+      await new Promise((r) => setTimeout(r, 2000));
+      const after = { leaving: el.querySelectorAll('.ab-scene-bus.leaving').length, buses: el.querySelectorAll('.ab-scene-bus').length, people: el.querySelectorAll('.ab-scene-person').length, newX: x(el.querySelector('.ab-scene-bus')) };
+      return { waiting, traffic, boarding, x0, x1, ...after };
+    });
+    assert.ok(out.waiting >= 1, '有人在等');
+    assert.equal(out.traffic, 2, '偶爾經過的機車與計程車');
+    assert.equal(out.boarding, out.waiting, '公車到站：等車的人上車');
+    assert.ok(out.x1 > out.x0, `這班往右開走（${out.x0} → ${out.x1}）`);
+    assert.equal(out.leaving, 0, '開出畫面後拿掉');
+    assert.equal(out.buses, 1, '下一班');
+    assert.ok(out.newX < 0, `下一班停在左邊（${out.newX}）`);
+    assert.ok(out.people >= 1, '換一批人等下一班');
+  });
+});
+
+// 公車頁夜晚（台灣時間 21 點）：街景換夜晚、文字標籤不變
+test('公車頁街景：夜晚', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.clock.setFixedTime(new Date('2026-11-21T21:00:00+08:00'));
+    await page.goto(`${base}/#/bus/Taipei/307?stop=%E6%95%A6%E5%8C%96%E5%B8%82%E5%A0%B4&dir=0`);
+    await page.waitForSelector('#scene .ab-scene3d.night');
+    assert.equal(await page.locator('#scene .ab-scene-label.stop').textContent(), '敦化市場');
+    await page.locator('#scene .ab-scene3d').screenshot({ path: new URL('bus-scene-page-night.png', SHOTS).pathname });
+  });
+});
+
 // S19 安全情境：提到自傷 → 回答下面有一鍵撥號（tel:1925 等），不出現小幫手討論與卡片
 test('安全情境：求助電話一鍵撥號', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {

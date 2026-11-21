@@ -207,7 +207,11 @@ export const busRoute = {
       // 坐車中：下車站的「下一班」不一定是我這台（前面可能還有一台）；看得出是我這台才畫公車與站數，否則只寫剩多久。還沒上車也不畫（上車站之後第一台是前一班）
       const mine = !ride || (!notBoarded(ride) && at && busToDest(d.stops, d.stops.findIndex((x) => (ride.boardSeq != null ? x.seq === ride.boardSeq : x.stopName === myStop)), d.stops.indexOf(at)).where === 'ahead');
       const rail = at && mine && railOf(d, { seq: at.seq, etaSec: at.etaSec, status: at.status });
-      main.querySelector('#scene').replaceChildren(...(at ? [busScene({ routeName: route, stopName: at.stopName, away: rail ? rail.away : null, etaSec: at.status === 0 ? at.etaSec : null, etaText: ride ? rideLeftShort(ride, T) : L.eta(at), state: sceneState, riding: !!ride, dataAt: loadedAt, lang })] : []));
+      const host = main.querySelector('#scene');
+      if (!at) { host.replaceChildren(); return; }
+      // 同一個街景跨更新沿用（sceneState.box）：已經放好就不再搬動（搬動會讓動畫重來）
+      const el = busScene({ routeName: route, stopName: at.stopName, away: rail ? rail.away : null, etaSec: at.status === 0 ? at.etaSec : null, etaText: ride ? rideLeftShort(ride, T) : L.eta(at), state: sceneState, riding: !!ride, dataAt: loadedAt, lang });
+      if (host.firstElementChild !== el || host.childElementCount !== 1) host.replaceChildren(el);
     }
     /** 重畫前記下焦點（站名、方向、上車站卡片裡的按鈕與選單），畫完放回去 */
     function keepSel(act) {
