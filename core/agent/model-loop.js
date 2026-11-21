@@ -208,6 +208,7 @@ export function mustSay(text, trip, it = null) {
   let out = text;
   // 訂票（「幫我訂明天的高鐵票」）：阿幫只給官方連結（ADR-0011；P2-10）
   if (it?.intent === 'rail' && it.book && !/官方/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}訂票請按卡片上的官方訂票連結，在${it.system === 'THSR' ? '高鐵' : '台鐵'}官網或 App 完成（阿幫不代訂、不付款）。`;
+  if (it?.intent === 'weather' && it.tomorrow && !/明天|明日|明早|明晚/.test(out)) out = `明天的天氣：${out}`; // 問明天要講明天（S1-3：小模型常只說「會下雨」）
   if (!trip) return out;
   const picked = trip.options?.find((o) => o.id === trip.best)?.name;
   // 程式排序時用了使用者指定的方式（ranking.reason 這樣開頭）、模型沒說到 → 開頭補一句（不帶分數）
@@ -404,6 +405,8 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
         const [f, t] = await Promise.all([c.input.from, c.input.to].map((x) => (x ? resolvePoint(svc.places, x).catch(() => null) : null)));
         // 小模型有時給對的地名、錯的座標：地名相同也算；起點或指定的方式不同（「從板橋呢」「坐公車還是叫車」）照常查
         const same = (x, pt, ref) => sameSpot(pt, ref) || sameName(x, ref);
+        // 起訖點是同一個地方（「台北101 → 台北101」，小模型接回程時常見）：不是新的一趟
+        if (sameSpot(f, t) || (c.input.from && sameName(c.input.from, c.input.to))) { results.set(c.id, { content: `（起點和終點是同一個地方，不用再查；這一趟已查好，結果同上）\n${turnTrips.at(-1).text}` }); continue; }
         const hit = turnTrips.find((p) => same(c.input.to, t, p.to) && (!c.input.from || same(c.input.from, f, p.from)) && (c.input.prefs?.mode || null) === p.mode);
         if (hit) results.set(c.id, { content: `（這一趟已查好，結果同上；不要再查）\n${hit.text}` });
       }

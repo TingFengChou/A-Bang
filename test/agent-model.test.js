@@ -346,3 +346,15 @@ test('同一輪：模型給對的地名、錯的座標（小模型常見）也�
   const es = await run(claude(), '從西門町到台北101怎麼去？');
   assert.equal(es.filter((e) => e.type === 'decision').length, 1);
 });
+
+test('同一輪：模型查起訖點相同的行程（「台北101 → 台北101」）不出第二張卡（P3-8 模型模式）', async () => {
+  reset([
+    { tools: [{ id: 'd4', name: 'plan_trip', input: { from: '台北101', to: '台北101' } }] },
+    { text: '好。' },
+  ]);
+  const es = [];
+  const messages = [{ role: 'user', content: '從台北車站去台北101' }, { role: 'assistant', content: '建議搭捷運。' }, { role: 'user', content: '那回程呢' }];
+  await runModel(svc, { messages }, (e) => es.push(e), { provider: claude(), now: NOW });
+  assert.equal(es.filter((e) => e.type === 'decision').length, 1, '只有程式先查的回程（台北101 → 台北車站）');
+  assert.match(JSON.stringify(state.reqs[1]), /起點和終點是同一個地方/);
+});
