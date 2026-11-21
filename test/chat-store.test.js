@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 
 const mem = new Map();
 globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
-const { saveChat, loadChat, clearChat, CHAT_TTL_MS, CHAT_MAX } = await import('../public/js/chat-store.js');
+const { saveChat, loadChat, clearChat, maskPrivate, CHAT_TTL_MS, CHAT_MAX } = await import('../public/js/chat-store.js');
 beforeEach(() => mem.clear());
 
 test('只存使用者與阿幫的文字、最近 10 則、每則最多 500 字', () => {
@@ -30,4 +30,14 @@ test('12 小時後過期並清掉；壞掉的資料當作沒有；清除', () =>
   assert.equal(loadChat(1), null);
   saveChat([], 0);
   assert.equal(mem.has('abang.chat'), false, '沒有對話就不存');
+});
+
+test('存到手機前遮掉個資號碼（身分證、手機、卡號）；發票號碼不遮（P4-10）', () => {
+  assert.equal(maskPrivate('我的身分證字號是 A123456789'), '我的身分證字號是 ●●●●●●●●●●');
+  assert.equal(maskPrivate('打 0912-345-678 給我'), '打 ●●●●●●●●●● 給我');
+  assert.equal(maskPrivate('卡號 4111 1111 1111 1111'), '卡號 ●●●●●●●●●●●●');
+  assert.equal(maskPrivate('發票 12345678 有中嗎'), '發票 12345678 有中嗎');
+  assert.equal(maskPrivate('307 公車'), '307 公車');
+  saveChat([{ role: 'user', content: '我的身分證字號是 A123456789' }], 0);
+  assert.ok(!mem.get('abang.chat').includes('A123456789'));
 });

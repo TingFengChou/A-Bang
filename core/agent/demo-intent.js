@@ -85,15 +85,15 @@ function railOD(s) {
 // 生活服務（M10）：依序比對，先比的優先（「發票」先於其他）。天氣在行程之後才比（「下雨了，從 A 到 B」是行程）
 const LIFE_WORDS = [
   ['invoice', /發票|對獎|中獎號碼/],
-  ['fuel', /油價|汽油|柴油|95\s*無鉛|92\s*無鉛/],
-  ['stock', /股價|股票|股市|[台臺]股|大盤|加權指數|櫃買|收盤|漲停|跌停|\bETF\b|\d{4}\s*(?:漲|跌)/i],
+  ['fuel', /油價|汽油|柴油|(?:92|95|98)\s*無鉛|加油.{0,6}(?:多少|價|錢)|(?<!\d)(?:92|95|98)\s*(?:一公升|每公升)/],
+  ['stock', /股價|股票|股市|[台臺]股|大盤|加權指數|櫃買|收盤|(?<!垃圾車?|回收|資源回收)(?:今天|昨天|今日)收(?:多少|在多少|幾塊|了多少)|漲停|跌停|\bETF\b|\d{4}\s*(?:漲|跌)/i],
   ['quake', /地震|震度|震央/],
   ['pharmacy', /藥局|藥房|領藥|拿藥|慢箋|慢性處方|處方箋|領處方/], // 「領慢箋」是長輩最常找藥局的原因（P2-8）
   ['garbage', /垃圾車|倒垃圾|收垃圾/],
   ['aqi', /空氣品質|空品|空氣(?:好|差|不好|怎樣|如何)|AQI|PM\s*2\.?5|空汙|空污|霧霾|要不要戴口罩/i],
 ];
 /** 出門建議的問法 */
-const OUTING = /出門.{0,10}(?:注意|要帶|帶什麼|穿什麼|怎麼穿|帶傘|適合)|適合出門|(?:可以|能|適合|要不要)\s*(?:帶.{0,4})?(?:去|出去)\s*(?:公園|郊外|河濱|戶外|玩|散步|運動|爬山|踏青|野餐)|適合(?:出去|戶外)|(?:今天|等一下|待會).{0,6}(?:注意什麼|要帶什麼|穿什麼)|要穿什麼|穿什麼出門/;
+const OUTING = /(?:適合|可以|能|要不要).{0,4}(?:慢跑|跑步|運動|騎車兜風|散步)|(?:慢跑|跑步|運動|散步).{0,4}(?:好嗎|可以嗎|適合嗎|嗎)|出門.{0,10}(?:注意|要帶|帶什麼|穿什麼|怎麼穿|帶傘|適合)|適合出門|(?:可以|能|適合|要不要)\s*(?:帶.{0,4})?(?:去|出去)\s*(?:公園|郊外|河濱|戶外|玩|散步|運動|爬山|踏青|野餐)|適合(?:出去|戶外)|(?:今天|等一下|待會).{0,6}(?:注意什麼|要帶什麼|穿什麼)|要穿什麼|穿什麼出門/;
 const WEATHER_WORD = /天氣|氣溫|溫度|幾度|下雨|帶傘|雨傘|會冷|會熱|颱風|出太陽/;
 // 使用者指定交通方式（「坐公車去」「改叫車」）：plan_trip prefs.mode；「不要叫車」的叫車不算
 const MODE_WORDS = [['bus', /公車|巴士/], ['metro', /捷運|MRT/i], ['bike', /youbike|ubike|單車|腳踏車/i], ['walk', /走路|步行|走過去/], ['ridehail', /叫車|叫(?:一|1)?(?:台|輛)車|計程車|小黃|uber|汽車|開車/i],
@@ -169,7 +169,7 @@ const COUNTY = /((?:臺|台)北|新北|桃園|(?:臺|台)中|(?:臺|台)南|高�
 const countyOf = (s) => COUNTY.exec(s)?.[0];
 const INVOICE_NO = /(?:^|\D)(\d{8}|\d{3})(?!\d)/;
 // 股市：去掉口語與行情字眼，剩下的就是股票名稱或代號（「台積電和 0050 今天收盤多少」→「台積電、0050」）
-const STOCK_FILLER = /今天|昨天|今日|現在|目前|最新|最近|股價|股票|股市|[台臺]股|大盤|加權指數|櫃買指數|指數|收盤價?|行情|報價|價格|走勢|表現|漲停|跌停|漲|跌|多少錢?|一股|每股|一張|幾塊|幾元|怎麼樣|如何|查詢|查一下|查|幫我|請問|看一下|看看|看|一下|要不要|該不該|可不可以|可以|能不能|值得|推薦|建議|會不會|明牌|進場|出場|買點|賣點|買|賣|有沒有|還|該|會|嗎|呢|吧|啊|了|的|我|\bETF\b/gi;
+const STOCK_FILLER = /^(?:所以|那麼|那(?!斯達克))|收(?:多少|在多少|幾塊|了多少)|今天|昨天|今日|現在|目前|最新|最近|股價|股票|股市|[台臺]股|大盤|加權指數|櫃買指數|指數|收盤價?|行情|報價|價格|走勢|表現|漲停|跌停|漲|跌|多少錢?|一股|每股|一張|幾塊|幾元|怎麼樣|如何|查詢|查一下|查|幫我|請問|看一下|看看|看|一下|要不要|該不該|可不可以|可以|能不能|值得|推薦|建議|會不會|明牌|進場|出場|買點|賣點|買|賣|有沒有|還|該|會|嗎|呢|吧|啊|了|的|我|\bETF\b/gi;
 export const stockQueryOf = (s) => String(s).replace(STOCK_FILLER, '、').split(/[、,，;；\s？?。！!和跟與及]+/).filter((w) => (/^\d/.test(w) ? /^\d{4}/.test(w) : w.length >= 2)).slice(0, 5).join('、');
 const STOCK_ADVICE = /該不該|要不要買|可以買|能買|值得買|該買|該賣|推薦|明牌|會漲|會跌|進場|出場|買點|賣點/;
 export const NO_ADVICE = '阿幫不提供投資建議，只能報開放資料的收盤數字：';
@@ -314,13 +314,28 @@ function followsBus(history = []) {
   return i >= 0 && parseIntent(history[i].content, { history: history.slice(0, i) }).intent === 'bus_route'; // 帶前文：連續追問也認得
 }
 /** 要阿幫代替按、付、訂（只給官方連結，ADR-0011） */
-const ACT_FOR_ME = /(?:直接|幫我|替我|你來|你去)\s*(?:按(?!照|時|順序|電梯|讚|鈕|最|一下讚)|叫好|下單|付(?:款|錢)|刷卡|訂(?:好|票)|買票)|代(?:付|訂|叫)|錢.{0,4}幫我付/;
+const ACT_FOR_ME = /(?:直接|幫我|替我|你來|你去)\s*(?:按(?!照|時|順序|電梯|讚|鈕|最|一下讚)|叫好|下單|付(?:款|錢)|刷卡|訂(?:好|票)|買票)|代(?:付|訂|叫)|錢.{0,4}幫我付|幫我付.{0,6}錢|(?:錢|車資).{0,6}(?:轉給|付給)|刷卡買/;
 const LIFE_LABEL = { pharmacy: '藥局', weather: '天氣', aqi: '空氣品質', garbage: '垃圾車', youbike: 'YouBike', nearby_bus: '公車站' };
 /** 前一句問的生活服務（換地點接著問用） */
 function followsLife(history = []) {
   const i = history.findLastIndex((x) => x.role === 'user');
   const k = i >= 0 && parseIntent(history[i].content, { history: history.slice(0, i) }).intent;
   return LIFE_LABEL[k] ? k : null;
+}
+/** 上一句使用者問的意圖（追問用） */
+function lastUserIntent(history = []) {
+  const i = history.findLastIndex((x) => x.role === 'user');
+  return i >= 0 ? parseIntent(String(history[i].content), { history: history.slice(0, i) }) : null;
+}
+/** 最近一次查的股票（「那該不該買」沿用） */
+function lastStockQuery(history = []) {
+  const users = history.filter((x) => x.role === 'user');
+  for (let i = users.length - 1; i >= 0; i--) {
+    const it = parseIntent(String(users[i].content), { history: history.slice(0, history.indexOf(users[i])) });
+    if (it.intent === 'stock' && it.query) return it.query;
+    if (it.intent !== 'stock') return undefined;
+  }
+  return undefined;
 }
 function followsStock(history = []) {
   for (const m of history.filter((x) => x.role === 'user').reverse()) {
@@ -356,11 +371,16 @@ export function parseIntent(text, ctx) {
     const k = Object.keys(SAVED_WORDS).find((x) => ctx.saved[x] && new RegExp(`(?:^|[^\u4e00-\u9fa5]|我|回)${x}(?:這邊|那邊|附近|旁邊|周邊|這裡|那裡)`).test(String(text)));
     if (k) { it.fromPoint = { lat: ctx.saved[k].lat, lon: ctx.saved[k].lon, name: k }; it.savedAt = k; }
   }
+  if (it?.intent === 'fuel') { // 只問一種油（「92 一公升多少」）、問漲跌（「這禮拜油價漲還跌」）
+    const g = !it.grade && (/柴油/.test(String(text)) ? '柴油' : String(text).match(/(?<!\d)(?:92|95|98)(?!\d)/)?.[0]);
+    if (g) it.grade = g;
+    if (/漲|跌|調/.test(String(text))) it.trend = true;
+  }
   if (it && !isEnglish(String(text || ''))) delete it.lang;
   return it;
 }
 function parseIntentRaw(text, ctx) {
-  const s = String(text || '').trim();
+  const s = String(text || '').trim().replace(/ㄇ(?=[\s？?。！!～~]*$)/, '嗎').replace(/ㄋ(?=[\s？?。！!～~]*$)/, '呢'); // 注音文句尾（「還有車ㄇ」）
   const history = (ctx && typeof ctx === 'object' && ctx.history) || [];
   const places = placesInText(s);
   // 「會下雨嗎」是在問、不是正在下雨（P2-4）：問句不算下雨狀態
@@ -384,7 +404,9 @@ function parseIntentRaw(text, ctx) {
   const otherQuery = RAIL_WORD.test(sPos) || BUS_ROUTE.test(s) || WEATHER_WORD.test(s) || lifeIntent(s); // 查高鐵、公車路線、天氣等不是改行程
   if (RESET.test(s)) return { ...base, intent: 'unknown', reset: true };
   // 要阿幫直接動手（「你直接幫我按叫車啦」「幫我付錢」）：說明只給官方連結（ADR-0011；P2-10）
-  if (ACT_FOR_ME.test(s) && !places.length && !RAIL_WORD.test(s)) return { ...base, intent: 'limits' };
+  // 問電梯、無障礙設施（「捷運哪一站有電梯」「台北車站有電梯嗎」）：沒有這份資料，照實說（P4 探查）
+  if (/電梯|無障礙(?:設施|廁所|出口)?|斜坡|坡道/.test(s) && /嗎|哪|有沒有|在哪|方便|\?|？/.test(s) && !/從.+(?:到|去)|怎麼去|怎麼走/.test(s)) return { ...base, intent: 'access' };
+  if (ACT_FOR_ME.test(s) && !places.length && (!RAIL_WORD.test(s) || /刷卡|付款|付錢|代付/.test(s))) return { ...base, intent: 'limits' };
   let tripMemo;
   const tripBefore = () => (tripMemo !== undefined ? tripMemo : (tripMemo = ctx && 'prev' in ctx ? ctx.prev : lastTrip(history, ctx?.saved)));
   const before = history.length && !otherQuery ? tripBefore() : null; // 結構化上下文（A3）：前面累積的行程條件
@@ -451,14 +473,14 @@ function parseIntentRaw(text, ctx) {
   }
   if (/捷運/.test(s)) {
     const m = /捷運\s*([一-龥]{2,6}?)站/.exec(s);
-    if (m) return { ...base, intent: 'metro', station: m[1] };
+    if (m && !/^(?:哪|什麼|那|這|最近|附近)/.test(m[1])) return { ...base, intent: 'metro', station: m[1] }; // 「捷運哪個站比較近」不是站名
   }
   // 問捷運下一班但沒說站（「板南線下一班幾分」「捷運還要等多久」）→ 用現在位置最近的站（needsLocation）
   // 句子裡有地標（「台北車站捷運下一班」）→ 找那裡最近的站（near），不用現在位置
-  if ((/捷運|MRT/i.test(s) || METRO_LINE.test(s)) && METRO_ASK.test(s) && !/站/.test(s.replace(/車站/g, ''))) return { ...base, intent: 'metro', station: null, line: METRO_LINE.exec(s)?.[0] || null, ...(places[0] && { near: places[0] }) };
+  if ((/捷運|MRT/i.test(s) || METRO_LINE.test(s)) && METRO_ASK.test(s) && !/站/.test(s.replace(/車站|(?:最近|附近|哪一?個?)的?站/g, ''))) return { ...base, intent: 'metro', station: null, line: METRO_LINE.exec(s)?.[0] || null, ...(places[0] && { near: places[0] }) };
   // 出門建議（S13）：天氣＋空品一起看（「今天出門要注意什麼」「出門要帶傘嗎」「要穿什麼」）
   // 問明天的是天氣預報（現在的天氣答不了），交給天氣意圖
-  if (OUTING.test(s) && !tomorrow && !(places.length && /怎麼|從/.test(s))) return { ...base, intent: 'outing' };
+  if (OUTING.test(s) && !tomorrow && !(places.length && (/怎麼|從/.test(s) || (/到|往|去/.test(s) && !/注意|帶|穿|適合/.test(s))))) return { ...base, intent: 'outing' };
   const life = lifeIntent(s);
   if (life) return { ...base, ...life };
   // 「剛剛那班還要等多久」：那班＝上一輪選的公車（阿幫回答裡的「公車 棕9」；P2-7）
@@ -481,7 +503,10 @@ function parseIntentRaw(text, ctx) {
   }
   const busNext = BUS_FOLLOW.exec(s)?.[1];
   if (busNext && followsBus(history)) return { ...base, intent: 'bus_route', route: busNext, followUp: true };
-  if (/youbike|ubike|微笑單車|單車|腳踏車/i.test(s) && !(places.length && /去|到|往/.test(s))) return { ...base, intent: 'youbike' }; // 「騎 YouBike 去 X」是行程
+  if (/youbike|ubike|微笑單車|單車|腳踏車/i.test(s) && !(places.length && /去|到|往/.test(s))) { // 「那邊有 YouBike 嗎」：那邊＝上一趟的目的地（P4-6）
+    const there = !places.length && THERE.test(s) && tripBefore()?.to;
+    return { ...base, intent: 'youbike', ...(there && { places: [there] }) };
+  } // 「騎 YouBike 去 X」是行程
   if (/附近/.test(s) && /公車|站牌/.test(s)) return { ...base, intent: 'nearby_bus' };
   // 行程：只說目的地（「去台北101」「想省錢，去松山機場」，甚至只打地名）→ 起點用現在位置（needsLocation）
   if (places.length && (/從.+(到|去)|出發\s*(?:去|到|往)|怎麼去|怎麼走|怎麼坐|怎麼搭|(?:坐|搭)什麼|要到|前到|想去|要去|帶我去|去.+怎麼|(?:^|[，,、\s])(?:去|到|往)\s*\S|(?:坐|搭|騎|用|開車|走路|推|帶|叫).{0,8}(?:去|到|往)|(?:公車|捷運|火車|客運)\s*(?:回|去)(?!到|覆|頭)|(?:^|[，,、\s]|要|想|早上|晚上|下午|現在|下班|放學|等等|明天)回(?!到|覆|頭|饋|去|來|應)\s*\S/.test(s) || onlyPlace(s, places))) {
@@ -490,11 +515,16 @@ function parseIntentRaw(text, ctx) {
   }
   if (WEATHER_WORD.test(s)) {
     // 「那裡現在會下雨嗎」：那裡＝上一輪行程的目的地（P2-7）
-    if (!places.length && /那裡|那邊|那兒|那附近|目的地/.test(s)) { const to = tripBefore()?.to; if (to) return { ...base, places: [to], intent: 'weather' }; }
+    if (!places.length && THERE.test(s)) { const to = tripBefore()?.to; if (to) return { ...base, places: [to], intent: 'weather' }; }
     return { ...base, intent: 'weather' };
   }
-  // 前面在聊股市時，「我該買台積電嗎？」沒有股市字眼也接著查（並說明不提供投資建議）
-  if (STOCK_ADVICE.test(s) && followsStock(history)) return { ...base, intent: 'stock', query: stockQueryOf(s) || undefined, advice: true, followUp: true };
+  // 前一句問的生活資料，接著追問（P4）：「那95呢」「12345678 有中嗎」「那明天呢」
+  const prevIt = lastUserIntent(history);
+  if (prevIt?.intent === 'fuel' && /^(?:那|那麼)?\s*(?:92|95|98|柴油|超級柴油)/.test(s)) return { ...base, intent: 'fuel', grade: /柴油/.test(s) ? '柴油' : s.match(/92|95|98/)[0], followUp: true };
+  if (prevIt?.intent === 'invoice' && /(?:^|\D)\d{8}(?!\d)/.test(s) && s.length <= 24) return { ...base, intent: 'invoice', number: s.match(/(?:^|\D)(\d{8})(?!\d)/)[1], followUp: true };
+  if (tomorrow && /^(?:那|那麼)?\s*明天(?:呢|咧|勒|的呢|會怎樣|怎麼樣)?\s*[？?]?$/.test(s) && ['weather', 'aqi', 'outing'].includes(prevIt?.intent)) return { ...base, intent: 'weather', places: prevIt.places || [], ...(prevIt.fromPoint && { fromPoint: prevIt.fromPoint }), followUp: true };
+  // 前面在聊股市時，「我該買台積電嗎？」沒有股市字眼也接著查（並說明不提供投資建議）；「那該不該買」沿用上一句的股票
+  if (STOCK_ADVICE.test(s) && followsStock(history)) return { ...base, intent: 'stock', query: stockQueryOf(s) || lastStockQuery(history), advice: true, followUp: true };
   const follow = isFollowUp(s) && FOLLOW_UP.exec(s);
   if (follow && followsStock(history)) return { ...base, intent: 'stock', query: stockQueryOf(follow[1]) || follow[1], advice: false, followUp: true };
   return { ...base, intent: 'unknown' };
@@ -539,7 +569,7 @@ export const INVOICE_WALLET_HINT = '要不要把發票存到「我的發票」�
 
 /** 捷運路線名（台北、桃園、台中、高雄）與「下一班」類問法 */
 const METRO_LINE = /(?:板南|淡水信義|淡水|信義|松山新店|松山|新店|中和新蘆|新蘆|文湖|環狀|萬大|機場|綠|紅|橘|藍|棕|黃)線/;
-const METRO_ASK = /下一班|幾分|多久|還要等|到站|來了沒|什麼時候來/;
+const METRO_ASK = /下一班|幾分|多久|還要等|到站|來了沒|什麼時候來|幾點收|收班|還有車|還有沒有車|還在跑|營運到/; // 「捷運幾點收」「還有車嗎」（P4-8）
 
 /** 以座標查「附近」的意圖：工具與點名 */
 const NEARBY = {
@@ -697,6 +727,7 @@ export function tripDepartAt(it, now = Date.now()) {
 
 /** 常用地點有被提到（手機端 public/js/saved-places.js WORDS 相同：提到才送座標；test/saved-places.test.js 比對） */
 /** 會延續到下一趟的狀況（跟「人」有關，不是一時的：趕時間、想省錢不延續） */
+const THERE = /那裡|那邊|那兒|那附近|目的地/;
 const LASTING_STATES = new Set(['mobility', 'elder', 'kids', 'luggage']);
 const OTHER_PERSON = /朋友|同學|同事|(?<![其吉])[他她]|別人|自己一個人|一個人去|不帶|幫.{0,3}(?:家人|爸|媽)/;
 /** 可以用常用地點當位置的附近查詢 */
@@ -864,6 +895,14 @@ export function demoSummary(it, results, suggestions = []) {
   }
   // 一句兩件事（公車＋天氣）：兩個都說（P2-2）
   if (it.intent === 'bus_route' && it.alsoWeather && !it.lang) { const b = results.bus_route_eta?.at(-1)?.speak; const w = results.weather_now?.at(-1)?.speak; if (b || w) return [b, w].filter(Boolean).join(' '); }
+  if (it.intent === 'fuel' && !it.lang) { // 只報問的那一種；問漲跌要照實說資料只有這週（P4-1）
+    const f = results.fuel_price?.at(-1)?.data;
+    if (f?.prices?.length) {
+      const one = it.grade && f.prices.find((x) => (it.grade === '柴油' ? /^柴油|^超級柴油/.test(x.name) : x.name.startsWith(it.grade)));
+      const head = one ? `${one.name.replace('無鉛汽油', ' 無鉛')}：${one.price} 元／公升（${f.effectiveDate ?? '本週'} 起）。` : summaryCore(it, results, suggestions);
+      return `${head}${it.trend ? ' 漲跌：開放資料只有這週的牌價，沒有上週可以比；調整幅度請看中油每週日的公告。' : ''}`;
+    }
+  }
   if (it.intent === 'rail' && it.fare && !it.from) return it.lang === 'en' ? 'Which station are you starting from? Tell me and I\'ll look up the fare.' : `你要從哪一站出發？告訴我起站，我幫你查到${it.to}的票價。`;
   const text = summaryCore(it, results, suggestions);
   // 要訂票（「幫我訂明天的高鐵票」）：阿幫只給官方連結（ADR-0011；P2-10）
@@ -881,6 +920,7 @@ function summaryCore(it, results, suggestions = []) {
   if (it.intent === 'weather' && it.later) return '我目前只查得到現在和明天的天氣，後天以後的預報還沒辦法；要不要先看明天的？';
   if (it.intent === 'savedMissing') return `我還不知道你的「${it.missing}」在哪。到「設定與隱私 → 常用地點」按「輸入地點」選附近的車站或地標，或下次在${it.missing === '家' ? '家' : it.missing}時按「設成現在位置」，之後說「${it.missing === '家' ? '回家' : `去${it.missing}`}」就能直接規劃。現在也可以直接說地名，例如「${it.missing === '家' ? '回板橋' : '去台北車站'}」。`;
   if (it.reset) return '好，重新開始。想去哪裡、想查什麼？沒說起點的話，我用你現在的位置。';
+  if (it.intent === 'access') return '阿幫目前拿到的開放資料沒有電梯、無障礙出口的位置，還查不到是哪一站、哪個出口。台北捷運各站都設有無障礙電梯，位置可以看站內指標，或撥台北捷運客服 (02)218-12345 問；告訴我要去哪裡，我可以幫你排少走路的路線（記得說坐輪椅或行動不便）。';
   if (it.intent === 'limits') return '我不能替你按叫車、付款或訂票（安全與隱私，付款與個資只在官方 App 裡處理）：我會給你官方 App 或網站的連結，由你自己確認、付款。要的話告訴我要去哪裡，我比較怎麼去、附上官方叫車連結。';
   if (it.intent === 'unknown') return `我可以幫你查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）和生活資訊（天氣、空品、地震、藥局、垃圾車、油價、發票、股市收盤）。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
   const last = Object.values(results).flat().filter(Boolean).at(-1);

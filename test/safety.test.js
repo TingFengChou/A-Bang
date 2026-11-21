@@ -50,3 +50,17 @@ test('示範與模型模式：先給求助電話、不查工具、不問模型�
   await runDemo(svc, { messages: [{ role: 'user', content: '被詐騙了，不想活了' }] }, (e) => anti.push(e), { profileId: 'antifraud' });
   assert.match(anti.find((e) => e.type === 'text').delta, /1925/, '防詐 agent 也一樣');
 });
+
+test('急症先叫 119；問用藥不做醫療判斷；打了個資提醒不要輸入（P4-9、P4-10）', () => {
+  assert.equal(safetyCheck('我胸口好痛，喘不過氣').kind, 'medical');
+  assert.deepEqual(safetyCheck('我胸口好痛，喘不過氣').calls.map((c) => c.tel), ['119']);
+  assert.equal(safetyCheck('my dad has chest pain').kind, 'medical');
+  assert.equal(safetyCheck('我頭很痛要吃什麼藥').kind, 'health');
+  assert.match(safetyCheck('我發燒了怎麼辦').reply, /醫師或藥師/);
+  const p = safetyCheck('我的身分證字號是 A123456789，幫我記起來');
+  assert.equal(p.kind, 'privacy');
+  assert.ok(!p.reply.includes('A123456789'), '不覆述號碼');
+  for (const t of ['晚餐要吃什麼', '附近有藥局嗎', '我要去藥局領慢箋', '我要去馬偕看醫生', '我的身分證被冒用怎麼辦', '【XX銀行】您的驗證碼：482913，請勿告知他人', '台北101附近吃什麼', '發票 12345678 有中嗎']) {
+    assert.equal(safetyCheck(t), null, `不誤判：${t}`);
+  }
+});
