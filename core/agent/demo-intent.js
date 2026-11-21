@@ -5,7 +5,7 @@ import { LANDMARKS, normPlace } from '../services/places.js';
 import { nextStepOf } from '../tools/trip.js';
 import { upcomingTrains } from '../tools/transit.js';
 import { outingSay } from './outing.js';
-import { nowTW } from '../util.js';
+import { nowTW, distanceM } from '../util.js';
 
 /** 問會不會下雨（不是正在下雨；判斷層的下雨狀態也要拿掉，P2-4） */
 export const RAIN_ASK = /會不會下雨|會下雨[嗎吧]?|下雨[嗎沒]|下不下雨|有沒有下雨/g;
@@ -153,6 +153,30 @@ function fromStartOf(s) {
 const ASKED_ORIGIN = /從哪(裡|兒)?出發|你(現在)?在哪|起點是/;
 /** 句中明講的起點（「從桃園高鐵站到台北101」）：地標庫沒有也要用它，不能被手機定位蓋掉 */
 const FROM_TEXT = /從\s*([^\s，,。、到去往]{2,12}?)\s*(?:要|該)?\s*(?:怎麼|怎樣)?\s*(?:到|去|往)/; // 「從板橋怎麼去」的起點是板橋（不是「板橋怎麼」）
+
+// ───── 缺必要欄位（「該問就問、不要自己猜」，ADR-0016）：it.needs＝要問的欄位，runDemo／模型模式在查資料前問一句 ─────
+/** 問公車但沒說哪一路（「公車還要多久？」「等公車等好久」） */
+const BUS_WORD = /公車|巴士/;
+const BUS_WHEN = /多久|還要|到哪|幾分|來了沒|什麼時候來|幾點來|怎麼還沒來|還沒來|快到了|到了沒|要等|等好久|等很久/;
+export const busNoRoute = (s) => BUS_WORD.test(s) && BUS_WHEN.test(s) && !/附近|站牌|哪些公車|哪幾路|有什麼公車|搭什麼|坐什麼|怎麼去|怎麼走|從.+到/.test(s) && !/[紅藍綠棕橘小幹]?\d{1,4}[區副]?/.test(s);
+/** 只說起點、要出發了（「從台北車站出發」「我在板橋，要出發了」）：句子裡沒有要去哪裡 */
+const ORIGIN_ONLY = /(?:^|[，,\s])(?:我)?(?:現在)?(?:人)?(?:在|從)\s*\S{2,12}?\s*(?:出發|[，,]?\s*(?:要|準備|快)?(?:出發|出門|走)了?)\s*(?:了|囉|啦)?[。！!～~]?$/;
+export function originOnly(s, places) {
+  if (places.length !== 1 || !ORIGIN_ONLY.test(s)) return null;
+  if (/(?:去|到|往|回)\s*\S/.test(s.replace(/(?:出發|出門)/g, ''))) return null; // 「從板橋出發去 101」有目的地
+  return places[0];
+}
+/** 想去某處但沒說哪裡（「我要去」「怎麼去？」「帶我去」） */
+const NO_DEST = /^(?:我|阿幫)?(?:要|想)?(?:出發|去)(?:了|啦|囉)?[。！!～~]?$|^(?:要|該)?怎麼(?:去|走)[？?。]?$|^(?:帶我|載我)去[？?。]?$/;
+export const noDestination = (s, places) => !places.length && NO_DEST.test(s.trim());
+/** 預設起點（沒定位時）跟目的地很近（< 300 公尺）：從臺北車站算到臺北車站沒有意義，要問起點 */
+export const NEAR_DEFAULT_M = 300;
+const landmarkOf = (name) => { const n = normPlace(name); return n ? LANDMARKS.items.find((x) => [x.name, ...x.aliases].some((k) => normPlace(k) === n)) || null : null; };
+export function nearDefaultFrom(to) {
+  const a = landmarkOf(DEFAULT_FROM), b = to && landmarkOf(to);
+  if (!a || !b) return false;
+  return distanceM(a.lat, a.lon, b.lat, b.lon) < NEAR_DEFAULT_M;
+}
 
 /** 沒說哪一站的「火車站／高鐵站」（前面是去、到、往） */
 const NEAR_RAIL = /(?:去|到|往)\s*(?:最近的?|附近的?)?\s*(?:火車站|[台臺]鐵站|高鐵站)/;
@@ -642,6 +666,11 @@ function parseIntentRaw(text, ctx) {
     if (asked?.to && asked.to !== places[0]) return { ...asked, from: places[0], intent: 'trip', followUp: true, changed: ['from'] };
   }
 
+  // 缺必要欄位：只說起點 → 起點，問要去哪；想去但沒說哪裡 → 問要去哪；問公車沒說哪一路 → 問哪一路（ADR-0016「該問就問」）
+  const origin = originOnly(s, places);
+  if (origin) return { ...base, intent: 'trip', from: origin, to: null, needs: 'to' };
+  if (noDestination(s, places)) return { ...base, intent: 'trip', from: null, to: null, needs: 'to' };
+  if (busNoRoute(s) && !places.length) return { ...base, intent: 'bus_route', route: null, needs: 'route' };
   // 趕車（「我的高鐵 20 分鐘後開，現在在西門町，來得及去台北車站嗎」）：是去車站的行程（有時限），不是查高鐵班次（P2-5）
   if (/來得及|來不來得及|趕得上|趕不趕得上/.test(s) && places.length && /(?:去|到)\s*\S/.test(s) && !/末班|首班/.test(s) && !/(?:坐|搭|趕)[^，,。]{0,6}(?:高鐵|台鐵|臺鐵|火車)/.test(s)) {
     const [from, to] = places.length >= 2 ? orderFromTo(s, places) : [null, places[0]];
@@ -747,10 +776,13 @@ function slotsFor(intent, s, base) {
     }
     case 'bus_route': {
       const route = BUS_ROUTE.exec(s)?.[1] || /(?:^|[^\d])([紅藍綠棕橘小幹]?\d{1,4}[區副]?)(?!\d)/.exec(s)?.[1];
+      if (!route && BUS_WORD.test(s)) return { ...base, intent, route: null, needs: 'route' }; // 判斷層說查公車、句子有公車但沒路線：問哪一路
       return route ? { ...base, intent, route } : null;
     }
     case 'trip': {
-      if (!base.places.length) return null;
+      if (!base.places.length) return noDestination(s, base.places) ? { ...base, intent, from: null, to: null, needs: 'to' } : null;
+      const origin = originOnly(s, base.places); // 「從台北車站出發」：那是起點，不是目的地
+      if (origin) return { ...base, intent, from: origin, to: null, needs: 'to' };
       const [from, to] = base.places.length >= 2 ? base.places : [null, base.places[0]];
       return { ...base, intent, from, to };
     }
@@ -1047,6 +1079,9 @@ function englishIntent(s, places, history = []) {
   if (/youbike|ubike|\bbikes?\b/i.test(s) && places.length && /\b(?:near|around|close to|next to|by|at)\b/i.test(s) && !/\bto\b(?!\s+(?:rent|borrow))/i.test(s.replace(/\b(?:close|next) to\b/gi, ''))) return { ...base, intent: 'youbike' };
   const route = /\bbus\s*(?:no\.?\s*)?([0-9]{1,4}[A-Za-z]?)\b/i.exec(s)?.[1];
   if (route && !toWord) return { ...base, intent: 'bus_route', route };
+  // 缺必要欄位（ADR-0016）：問公車沒說哪一路；只說從哪裡出發
+  if (/\bbus\b/i.test(s) && !/\d/.test(s) && /how long|when|where is|coming|arriv|next|late|waiting/i.test(s) && !places.length && !/\bnear(?:by)?\b|\bstops?\b/i.test(s)) return { ...base, intent: 'bus_route', route: null, needs: 'route' };
+  if (places.length === 1 && /\b(?:leaving|starting|departing|setting off|heading out)\s+from\b|\bI'?m (?:at|in)\b.*\b(?:leaving|heading out|about to (?:go|leave)|setting off)\b/i.test(s) && !/\bto\b(?!\s+(?:go|leave))/i.test(s.replace(/\babout to\b/gi, ''))) return { ...base, intent: 'trip', from: places[0], to: null, needs: 'to' };
   if ((places.length && (toWord || /directions|how (?:do|can) i get|take me|how far/i.test(s))) || (places.length === 1 && s.trim().split(/\s+/).length <= 4)) {
     const fromWord = /\bfrom\s+(.+?)(?:\s+to\b|[?.!,]|$)/i.exec(s)?.[1]; // 「from A to B」與「to B from A」
     const fromPlace = fromWord ? placesInText(fromWord)[0] : null;

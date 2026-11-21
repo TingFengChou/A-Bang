@@ -65,7 +65,7 @@ export const ev = {
       if (!ASK_KINDS.includes(o?.kind)) throw new Error(`事件 ask 的 kind 不對：${o?.kind}`);
       const base = { label: String(o.label).slice(0, 20), kind: o.kind, ...(o.guess && { guess: true }) };
       if (o.kind === 'state') { if (!o.state) throw new Error('事件 ask 的 state 選項要有 state'); return { ...base, state: String(o.state), ...(o.source === 'usual' && { source: 'usual' }), ...(o.say && { say: String(o.say).slice(0, 200) }) }; }
-      if (o.kind === 'reply') { if (!o.say) throw new Error('事件 ask 的 reply 選項要有 say（完整的一句）'); return { ...base, say: String(o.say).slice(0, 200) }; }
+      if (o.kind === 'reply') { if (!o.say) throw new Error('事件 ask 的 reply 選項要有 say（完整的一句）'); return { ...base, say: String(o.say).slice(0, 200), ...(['家', '公司', '學校'].includes(o.saved) && { saved: o.saved }) }; } // saved：手機有設定這個常用地點才顯示
       if (o.kind === 'store') { if (!o.value) throw new Error('事件 ask 的 store 選項要有 value'); return { ...base, value: String(o.value).slice(0, 100) }; }
       if (o.kind === 'action') {
         const a = o.action;

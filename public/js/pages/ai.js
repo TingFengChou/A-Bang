@@ -257,14 +257,14 @@ export default {
         const ul = h('ul', 'ai-ask-opts');
         for (const o of s.ask.options || []) {
           const li = h('li');
-          li.append(h('b', '', o.label), h('span', '', `${t(`kind.${o.kind}`)}${o.guess ? `・${t('trial.ask.guess')}` : ''}`));
+          li.append(h('b', '', o.label), h('span', '', `${t(`kind.${o.kind}`)}${o.guess ? `・${t('trial.ask.guess')}` : ''}${o.saved ? `・${t('trial.ask.saved')}` : ''}`));
           ul.append(li);
         }
         box.append(ul);
         if (s.ask.why) box.append(h('p', 'note', s.ask.why));
         body.append(box);
       } else body.append(h('p', 'note', t('trial.ask.none')));
-      if (s.missing?.length) body.append(h('p', 'note ai-gap', t('trial.ask.missing', { missing: s.missing.map((k) => t(`slot.${k}`)).join(t('trial.sep')) })));
+      if (s.missing?.length && !s.missing.some((k) => s.ask?.about === `slot:${k}`)) body.append(h('p', 'note ai-gap', t('trial.ask.missing', { missing: s.missing.map((k) => t(`slot.${k}`)).join(t('trial.sep')) })));
       if (s.location) body.append(h('p', 'note', t('trial.ask.location')));
       body.append(h('h4', '', t('trial.suggest')));
       const sug = s.suggest || {};

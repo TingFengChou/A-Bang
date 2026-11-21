@@ -3123,6 +3123,175 @@
           }
         }
       ]
+    },
+    {
+      "id": "AS-1",
+      "title": "問公車沒說哪一路：先問「哪一路公車？」，打 307 接回原問題（ADR-0016 該問就問）",
+      "turns": [
+        {
+          "say": "公車還要多久？",
+          "expect": {
+            "asks": [
+              "哪一路公車"
+            ],
+            "toolsNone": true,
+            "askKind": "reply"
+          }
+        },
+        {
+          "say": "307",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "AS-2",
+      "title": "只說起點「從台北車站出發」：那是起點，問要去哪裡；回地名就從起點算",
+      "turns": [
+        {
+          "say": "從台北車站出發",
+          "expect": {
+            "asks": [
+              "要去哪裡"
+            ],
+            "toolsNone": true
+          }
+        },
+        {
+          "say": "台北101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "台北車站",
+            "to": "台北101"
+          }
+        }
+      ]
+    },
+    {
+      "id": "AS-3",
+      "title": "我在板橋，要出發了：問要去哪裡；接著問別的（天氣）不能被當成目的地",
+      "turns": [
+        {
+          "say": "我在板橋，要出發了",
+          "expect": {
+            "asks": [
+              "要去哪裡"
+            ],
+            "toolsNone": true
+          }
+        },
+        {
+          "say": "明天會下雨嗎",
+          "expect": {
+            "tools": [
+              "weather_tomorrow"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AS-4",
+      "title": "沒定位、目的地就是預設起點（臺北車站）：不算臺北車站到臺北車站，問從哪裡出發；回西門町接回去",
+      "location": false,
+      "turns": [
+        {
+          "say": "我快遲到了，怎麼去台北車站",
+          "expect": {
+            "asks": [
+              "從哪裡出發"
+            ],
+            "toolsNone": true,
+            "askOptions": [
+              "用我的位置"
+            ]
+          }
+        },
+        {
+          "say": "西門町",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "西門町",
+            "to": "台北車站"
+          }
+        }
+      ]
+    },
+    {
+      "id": "AS-5",
+      "title": "英文：問公車沒說哪一路 → Which bus route?；打 307 接回",
+      "turns": [
+        {
+          "say": "How long until the bus comes?",
+          "expect": {
+            "asks": [
+              "Which bus route"
+            ],
+            "toolsNone": true
+          }
+        },
+        {
+          "say": "307",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AS-6",
+      "title": "英文：只說從哪裡出發 → Where are you going?；回 Taipei 101 從起點算",
+      "turns": [
+        {
+          "say": "I'm leaving from Taipei Main Station",
+          "expect": {
+            "asks": [
+              "Where are you going"
+            ],
+            "toolsNone": true
+          }
+        },
+        {
+          "say": "Taipei 101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "台北車站",
+            "to": "台北101"
+          }
+        }
+      ]
+    },
+    {
+      "id": "AS-7",
+      "title": "有定位時目的地是臺北車站照常算（只有沒定位才問起點）",
+      "turns": [
+        {
+          "say": "我快遲到了，怎麼去台北車站",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "fromHere": true,
+            "asksNone": true
+          }
+        }
+      ]
     }
   ]
 }

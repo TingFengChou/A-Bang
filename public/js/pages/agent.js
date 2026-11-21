@@ -612,7 +612,9 @@ export default {
             if (e.key && questionAskedRecently(e.key)) break; // 同一段起訖同一題，24 小時內問過（手機上只存雜湊）
             if (e.key) markQuestion(e.key);
             openAsk?.skip();
-            const ctl = mountAsk(e, { lang: turnLang, onAnswer: (o) => answerAsk(o, view, turnLang) });
+            const mine = loadPlaces(); // 常用地點的選項（回家、從公司出發）：這支手機有設定才顯示
+            const shown = { ...e, options: (e.options || []).filter((o) => !o.saved || mine[o.saved]) };
+            const ctl = mountAsk(shown, { lang: turnLang, onAnswer: (o) => answerAsk(o, view, turnLang) });
             openAsk = ctl;
             view.askOpen = () => ctl.open(); // 長對話：問題還開著，這一輪先不收
             if (/^habit:/.test(e.about || '')) markAsked(e.about.slice(6)); // 問過了（沒回答也 3 天內不再問）

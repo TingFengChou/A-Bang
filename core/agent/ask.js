@@ -13,6 +13,8 @@ export const ASK_KINDS = ['state', 'reply', 'store', 'dismiss', 'action'];
 export const ASK_ACTIONS = ['openLink', 'watchArrival', 'remind'];
 
 import { decide } from '../decide.js';
+import { placesInText, parseIntent, isEnglish } from './demo-intent.js';
+import { LANDMARKS, normPlace } from '../services/places.js';
 
 const MODE = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
 const MODE_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro: '搭捷運', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
@@ -143,3 +145,121 @@ export const UNKNOWN_SHORT = {
   zh: '我能查交通和生活的即時資料（公車、捷運、台鐵、高鐵、YouBike、天氣、空品、發票…），點上面一個試試看。',
   en: 'I can look up live transit and daily-life data (bus, MRT, trains, YouBike, weather…). Tap one above to try.',
 };
+
+// ───── 缺必要欄位就問那個欄位（2026-11-22，「該問就問、不要自己猜」；試判斷看出的缺口）─────
+// parseIntent 標 it.needs（route＝哪一路公車、to＝要去哪裡），runDemo 與模型模式在查資料前問一句；
+// 沒定位、預設起點又就在目的地旁邊時（臺北車站到臺北車站），runDemo 問「你從哪裡出發？」（slot from）。
+// 選項都是 reply（按了送出完整的一句）；直接打字回答時 pendingAsk 帶回 slot，validateRequest 用 PENDING_SLOTS 接回原問題。
+
+/** 常用地點的標籤：選項帶 saved，手機有設定才顯示（伺服器不知道手機設了哪些） */
+export const SAVED_LABELS = ['家', '公司', '學校'];
+const ROUTE_RE = /^[紅藍綠棕橘小幹]?\d{1,4}[區副]?$/;
+/** 對話裡最近提到的公車路線（使用者問過的、阿幫回答裡的「公車 601」），新的在前 */
+export function recentRoutes(history = [], max = 3) {
+  const out = [];
+  for (const m of [...history].reverse()) {
+    const t = String(m?.content || '');
+    const re = m?.role === 'assistant' ? /公車\s*([紅藍綠棕橘小幹]?\d{1,4}[區副]?)/g : /(?:^|[^\d])([紅藍綠棕橘小幹]?\d{1,4}[區副]?)(?=\s*(?:號|路)?\s*(?:公車|還要|多久|到哪|什麼時候|幾分|在哪|呢|怎麼還沒))/g;
+    for (const x of t.matchAll(re)) if (!out.includes(x[1])) out.push(x[1]);
+    if (out.length >= max) break;
+  }
+  return out.slice(0, max);
+}
+/** 對話裡最近提到的地點（使用者說過的），新的在前；不含 except */
+export function recentPlaces(history = [], except = [], max = 3) {
+  const out = [];
+  const skip = except.filter(Boolean).map(normPlace);
+  for (const m of [...history].reverse()) {
+    if (m?.role !== 'user') continue;
+    for (const p of placesInText(String(m.content || '')).reverse()) if (!out.includes(p) && !skip.includes(normPlace(p))) out.push(p);
+    if (out.length >= max) break;
+  }
+  return out.slice(0, max);
+}
+/** 英文那一輪：地標的英文名稱（沒有就照原名） */
+const enName = (name) => { const n = normPlace(name); return LANDMARKS.items.find((x) => [x.name, ...x.aliases].some((k) => normPlace(k) === n))?.en || name; };
+
+/**
+ * 缺必要欄位要問的一句（it.needs）。沒缺回 null。
+ * @param {object} it parseIntent 的結果
+ * @param {{ lang?: 'en'|null, history?: Array<{ role: string, content: string }> }} [o]
+ * @returns {{ ask: object, short: string } | null} ask＝ask 事件的內容；short＝這一輪的回答（只有一句，選項在上面）
+ */
+export function slotAsk(it, { lang = null, history = [] } = {}) {
+  const en = lang === 'en' || it?.lang === 'en';
+  if (it?.needs === 'route') {
+    const opts = recentRoutes(history).map((r) => ({ label: en ? `Bus ${r}` : r, kind: 'reply', say: en ? `How long until bus ${r}?` : `${r} 公車還要多久？` }));
+    opts.push(en ? { label: 'Bus stops nearby', kind: 'reply', say: 'Any bus stops nearby?' } : { label: '看附近有哪些公車', kind: 'reply', say: '附近的公車站' });
+    return {
+      ask: { about: 'slot:route', question: en ? 'Which bus route?' : '哪一路公車？', why: en ? 'Or just type the route number, e.g. 307.' : '直接打路線號碼也可以，例如 307。', options: opts, pending: { slot: 'route', ...(en && { lang: 'en' }) } },
+      short: en ? "Which bus route? Tell me the number (e.g. 307) and I'll check how long until it comes." : '你要查哪一路公車？告訴我路線號碼（例如 307），我幫你看還要多久。',
+    };
+  }
+  if (it?.needs === 'to') {
+    const from = it.from || null;
+    const fromSay = en && from ? enName(from) : from;
+    const tripSay = (p) => (en ? (from ? `How do I get from ${fromSay} to ${enName(p)}?` : `How do I get to ${enName(p)}?`) : from ? `從${from}到${p}怎麼去？` : `怎麼去${p}？`);
+    const opts = recentPlaces(history, [from]).map((p) => ({ label: (en ? enName(p) : p).slice(0, 20), kind: 'reply', say: tripSay(p) }));
+    if (!en) opts.push({ label: '回家', kind: 'reply', say: from ? `從${from}回家怎麼走？` : '回家怎麼走？', saved: '家' }, { label: '去公司', kind: 'reply', say: from ? `從${from}去公司怎麼走？` : '去公司怎麼走？', saved: '公司' });
+    if (!opts.length) opts.push({ label: 'Taipei 101', kind: 'reply', say: tripSay('台北101') }); // 英文、沒有說過的地點：給一個例子（也可以直接打）
+    return {
+      ask: { about: 'slot:to', question: en ? 'Where are you going?' : '要去哪裡？', why: en ? 'Or just type the place.' : '直接打地名也可以。', options: opts.slice(0, 6), pending: { slot: 'to', ...(fromSay && { from: fromSay }), ...(en && { lang: 'en' }) } },
+      short: en ? `Where are you going?${from ? ` Starting from ${fromSay}, tell` : ' Tell'} me the destination and I'll compare the ways to get there.` : `要去哪裡？${from ? `從「${from}」出發，` : ''}告訴我目的地，我幫你比較怎麼去。`,
+    };
+  }
+  return null;
+}
+
+/**
+ * 沒有定位、預設起點又就在目的地旁邊（臺北車站到臺北車站）：問「你從哪裡出發？」，不亂算（2026-11-22）。
+ * @param {string} to 目的地
+ * @param {'en'|null} [lang]
+ */
+export function originAsk(to, lang = null) {
+  const en = lang === 'en';
+  const toSay = en ? enName(to) : to;
+  const opts = [{ label: en ? 'Use my location' : '用我的位置', kind: 'reply', say: en ? `How do I get to ${toSay}?` : `怎麼去${to}？` }];
+  if (!en) opts.push({ label: '從家出發', kind: 'reply', say: `從家到${to}怎麼去？`, saved: '家' }, { label: '從公司出發', kind: 'reply', say: `從公司到${to}怎麼去？`, saved: '公司' });
+  return {
+    ask: { about: 'slot:from', question: en ? 'Where are you starting from?' : '你從哪裡出發？', why: en ? "I didn't get your location. Or just type where you are." : '沒拿到你的位置；直接打你在哪裡也可以。', options: opts, pending: { slot: 'from', to: toSay, ...(en && { lang: 'en' }) } },
+    short: en ? `Where are you starting from? I didn't get your location, and ${toSay} is right next to the default start, so I won't guess. Tell me where you are and I'll compare the ways.` : `你從哪裡出發？沒拿到你的位置，「${to}」又就在預設起點旁邊，我先不亂算。告訴我你在哪裡，我幫你比較怎麼去。`,
+  };
+}
+
+/** 打字回答時：這句是不是在問別的（天氣、公車、油價…）——是就不當答案（寧可略過，不能把新問題吞成答案） */
+const OTHER_ASK = /[?？嗎呢]|天氣|下雨|空氣|空品|地震|藥局|垃圾車|油價|發票|股|捷運|高鐵|台鐵|臺鐵|火車|youbike|ubike|詐騙|短劇|公車|怎麼|幾點|多久|\bhow\b|\bwhat\b|\bwhen\b|\bweather\b/i;
+function placeAnswer(t, prefix) {
+  const c = String(t || '').trim().replace(prefix, '').replace(/\s*(?:出發|這邊|那邊|附近)?\s*(?:啦|喔|吧|囉|呀)?[。！!～~.]*$/u, '').trim();
+  if (SAVED_LABELS.includes(c)) return c; // 常用地點的標籤（「家」「公司」）只有一兩個字
+  if (c.length < 2 || c.length > 20 || /[\n\r]/.test(c) || OTHER_ASK.test(c)) return null;
+  const it = parseIntent(c, {});
+  return ['unknown', 'trip', 'savedMissing'].includes(it.intent) ? c : null;
+}
+const textField = (v) => (typeof v === 'string' && v.trim() && v.length <= 40 && !/[\n\r]/.test(v) ? v.trim() : null);
+Object.assign(PENDING_SLOTS, {
+  // 哪一路公車：「307」「坐 307」「307 號」「bus 307」→「307 公車還要多久？」
+  route: (p, t) => {
+    const m = /^(?:我)?(?:要)?(?:坐|搭|等|查)?\s*([紅藍綠棕橘小幹]?\d{1,4}[區副]?)\s*(?:號|路)?\s*(?:公車)?\s*(?:的|啦|喔|吧|呀)?[。!！.]?$/u.exec(t) || /^(?:the\s+)?(?:bus\s*)?(?:no\.?\s*)?(\d{1,4}[a-z]?)\.?$/i.exec(t);
+    if (!m || !ROUTE_RE.test(m[1])) return null;
+    return p.lang === 'en' || /^(?:the\s+)?bus/i.test(t) ? `How long until bus ${m[1]}?` : `${m[1]} 公車還要多久？`;
+  },
+  // 要去哪裡：「台北101」「去西門町」→「從起點到台北101怎麼去？」（有起點）或「怎麼去台北101？」
+  to: (p, t) => {
+    const c = placeAnswer(t, /^(?:我)?(?:要|想)?(?:去|到|往)\s*/u);
+    if (!c) return null;
+    const from = textField(p.from);
+    if (p.lang === 'en' || isEnglish(c)) return from ? `How do I get from ${from} to ${c}?` : `How do I get to ${c}?`;
+    if (SAVED_LABELS.includes(c)) return from ? `從${from}到${c}怎麼去？` : `去${c}怎麼走？`;
+    return from ? `從${from}到${c}怎麼去？` : `怎麼去${c}？`;
+  },
+  // 你從哪裡出發：「板橋」「我在西門町」→「從板橋到目的地怎麼去？」；「用我的位置」→「怎麼去目的地？」（手機會定位）
+  from: (p, t) => {
+    const to = textField(p.to);
+    if (!to) return null;
+    if (/^(?:用)?(?:我的位置|我現在的位置|現在位置|這裡|這邊|use my location|my location|here)[。.!！]?$/iu.test(t.trim())) return p.lang === 'en' ? `How do I get to ${to}?` : `怎麼去${to}？`;
+    const c = placeAnswer(t, /^(?:我)?(?:現在)?(?:人)?(?:在|從)\s*|^(?:i'?m\s+(?:at|in)|from)\s+/iu);
+    if (!c) return null;
+    if (p.lang === 'en' || isEnglish(c)) return `How do I get from ${c} to ${to}?`;
+    return `從${c}到${to}怎麼去？`;
+  },
+});
