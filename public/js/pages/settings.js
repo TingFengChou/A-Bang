@@ -9,12 +9,12 @@ import { loadPlaces, savePlace, SAVED_KEYS } from '../saved-places.js';
 import { showOnboarding } from '../onboarding.js';
 import { cancelAllReminders } from '../reminders.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
-import { HABITS_KEY, habitsOn, setHabitsOn, habitSummary, clearHabits, habitName } from '../habits.js';
+import { HABITS_KEY, habitsOn, setHabitsOn, habitSummary, clearHabits, habitName, revokeHabit, revokeUsual, USUAL_LABEL } from '../habits.js';
 
 const EDGE_KEY = 'abang.edgeAI';
 
 /** 本機資料：存在這支手機的瀏覽器儲存（不上傳） */
-const LOCAL = [['abang.places', '常用地點（家、公司、學校）'], ['favs', '收藏的公車站與路線'], ['invoices', '我的發票'], ['abang.arrivalWatch', '進行中的到站提醒'], ['abang.alightWatch', '進行中的下車提醒'], ['abang.reminders', '出門提醒'], ['pref:', '常用的縣市、藥局地區、股票、最近查過的公車路線等偏好（pref:*）'], [EDGE_KEY, '裝置端 AI 設定'], [EDGE_STATS_KEY, '今天在手機上判斷了幾次、上次花多久（只有數字）'], ['abang.onboarded', '看過使用說明（清除後下次會再顯示）'], ['abang.offline', '離線時顯示的上次資料（看過的路線、站牌、時刻表；不含座標）'], ['abang.chat', '問阿幫的對話（只有文字，最近 10 則，最後一次對話 12 小時後自動清掉）'], [HABITS_KEY, '常選的交通方式（只有方式與時間，最近 50 次；不含地點）']];
+const LOCAL = [['abang.places', '常用地點（家、公司、學校）'], ['favs', '收藏的公車站與路線'], ['invoices', '我的發票'], ['abang.arrivalWatch', '進行中的到站提醒'], ['abang.alightWatch', '進行中的下車提醒'], ['abang.reminders', '出門提醒'], ['pref:', '常用的縣市、藥局地區、股票、最近查過的公車路線等偏好（pref:*）'], [EDGE_KEY, '裝置端 AI 設定'], [EDGE_STATS_KEY, '今天在手機上判斷了幾次、上次花多久（只有數字）'], ['abang.onboarded', '看過使用說明（清除後下次會再顯示）'], ['abang.offline', '離線時顯示的上次資料（看過的路線、站牌、時刻表；不含座標）'], ['abang.chat', '問阿幫的對話（只有文字，最近 10 則，最後一次對話 12 小時後自動清掉）'], [HABITS_KEY, '常選的交通方式（只有方式與時間，最近 50 次；你同意的偏好、說過的狀況；不含地點）']];
 
 /** 權限狀態文字：已允許／已拒絕（到手機設定開）／還沒問過 */
 const PERM_SAY = { granted: '已允許', denied: '已拒絕', prompt: '還沒問過', rationale: '拒絕過一次（下次用到會再問）', off: '手機定位服務關閉' };
@@ -58,7 +58,8 @@ export const settings = {
         <h2>個人化</h2>
         <label class="switch-row"><span><b>記住我常選的交通方式</b><small id="habit-status"></small></span>
           <input type="checkbox" id="habit" class="switch" role="switch" aria-describedby="habit-note" ${habitsOn() ? 'checked' : ''}></label>
-        <p class="note" id="habit-note">你按導航、叫車、訂票、「改成…」或設公車提醒時，阿幫記下選了哪種交通方式（只有方式與時間，不記地點）。選過 5 次以上，沒說狀況時常選的方式會小幅加分，決策圖會標「你常選」。只存在這支手機。</p>
+        <p class="note" id="habit-note">你按導航、叫車、訂票、「改成…」或設公車提醒時，阿幫記下選了哪種交通方式（只有方式與時間，不記地點，只存在這支手機）。只記不用：某種方式選得夠多時，阿幫會先問你一句，你說「好」才會優先推。</p>
+        <ul class="habit-agreed" id="habit-agreed" aria-label="你同意或說過的"></ul>
         <button class="btn small quiet" id="habit-clear" type="button">清除常選紀錄</button>
       </section>
       <section class="card settings" id="reminders-card">
@@ -196,13 +197,25 @@ export const settings = {
     const habitStatus = () => {
       const h = habitSummary();
       const list = Object.entries(h.counts).sort((a, b) => b[1] - a[1]).map(([m, n]) => `${habitName(m)} ${n}`).join('、');
-      main.querySelector('#habit-status').textContent = !h.on ? '已關閉，不記也不加分' : !h.total ? '還沒有紀錄' : `記了 ${h.total} 次（${list}）${h.active ? '' : '，選滿 5 次才會加分'}`;
-      main.querySelector('#habit-clear').hidden = !h.total;
+      main.querySelector('#habit-status').textContent = !h.on ? '已關閉，不記、不問、不加分' : !h.total ? '還沒有紀錄' : `記了 ${h.total} 次（${list}）`;
+      main.querySelector('#habit-clear').hidden = !h.total && !h.confirmed.length && !h.usual.length;
+      // 你同意的偏好、說過的預設狀況：一筆一列，可以撤銷（撤銷後 90 天內不再問）
+      const agreed = main.querySelector('#habit-agreed');
+      const rows = [...h.confirmed.map((m) => [`已同意：優先推${habitName(m)}`, () => revokeHabit(m)]), ...h.usual.map((k) => [`你說過：${USUAL_LABEL[k]}（沒說條件時照這個算）`, () => revokeUsual(k)])];
+      agreed.replaceChildren(...rows.map(([text, undo]) => {
+        const li = document.createElement('li');
+        const b = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small quiet', textContent: '撤銷' });
+        b.setAttribute('aria-label', `撤銷「${text}」`);
+        b.addEventListener('click', () => { undo(); habitStatus(); toast(`已撤銷：${text.replace(/（.*）/, '')}`); habit.focus(); });
+        li.append(document.createTextNode(text), ' ', b);
+        return li;
+      }));
+      agreed.hidden = !rows.length;
     };
     habitStatus();
-    habit.addEventListener('change', () => { setHabitsOn(habit.checked); habitStatus(); toast(habit.checked ? '會記住你常選的交通方式' : '已關閉，不再記也不加分（紀錄要清除請按「清除常選紀錄」）'); });
+    habit.addEventListener('change', () => { setHabitsOn(habit.checked); habitStatus(); toast(habit.checked ? '會記住你常選的交通方式（要優先推之前會先問你）' : '已關閉，不記、不問、不加分（紀錄要清除請按「清除常選紀錄」）'); });
     main.querySelector('#habit-clear').addEventListener('click', () => {
-      if (!window.confirm('要清除常選的交通方式紀錄嗎？')) return;
+      if (!window.confirm('要清除常選的交通方式紀錄、你同意的偏好與說過的狀況嗎？')) return;
       clearHabits(); habitStatus(); habit.focus(); toast('已清除常選紀錄');
     });
     const edge = main.querySelector('#edge');
@@ -269,7 +282,7 @@ export const privacy = {
         <p><b>IP 位址：</b>用來限制同一來源的請求次數（只存在伺服器記憶體、數分鐘到一天內清除），主機服務商的存取紀錄也可能記錄 IP〔待補：主機服務商與保存期間〕。</p>
         <p><b>裝置端 AI：</b>手機 App 可用手機內建的模型（Apple Intelligence、Gemini Nano）先判斷問題類型，只送出判斷結果（例如「行程、趕時間」）；今天判斷了幾次、上次花多久只記在手機上（只有數字，不上傳）；「阿幫的腦袋」頁的「現場試試看」只在手機上判斷，句子不送出；可在「設定與隱私」關閉。</p>
         <p><b>相機（掃發票 QR code）：</b>影像只在手機上解讀號碼與日期，不上傳、不保存影像。</p>
-        <p><b>常選的交通方式：</b>你按導航、叫車、訂票、「改成…」或設公車提醒時，只記選了哪種交通方式（例如捷運）與時間，最近 50 次，不記地點、路線或站名，只存在這支手機；問阿幫時只送出各方式的比例（例如捷運 60%），用來在你沒說狀況時替常選的方式小幅加分（Claude 模式下這個比例會跟行程比較結果一起給模型轉述）。可在「設定與隱私」關閉或清除。</p>
+        <p><b>常選的交通方式：</b>你按導航、叫車、訂票、「改成…」或設公車提醒時，只記選了哪種交通方式（例如捷運）與時間，最近 50 次，不記地點、路線或站名，只存在這支手機。某種方式選得夠多時，阿幫會先問你要不要優先推；問阿幫時只送出你同意的方式的比例（例如捷運 60%）、你說過的狀況（例如常帶東西），以及「可以問」的方式與次數，用來在你沒說狀況時小幅加分或照你說過的狀況比較（Claude 模式下這些會跟行程比較結果一起給模型轉述）。可在「設定與隱私」關閉、撤銷或清除。</p>
         <p><b>通知：</b>到站與出門提醒是手機上的本機通知，不經過推播伺服器。</p>
         <p><b>存在你手機上的資料：</b>收藏、我的發票（號碼與日期）、偏好、進行中的提醒、常用地點（家、公司、學校的座標）、離線時顯示的上次查詢結果（公車到站 10 分鐘內、路線與時刻表 24 小時內；不含座標，但看得出你查過哪些路線與站牌）只存在這支手機；常用地點只有在你提到（例如「回家」）時，那一個的座標與名稱才跟問題一起送出用來規劃；用「輸入地點」設定時，打的地名會送到阿幫伺服器查座標（不送你的位置）；問阿幫的對話文字（最近 10 則，不含卡片與座標，最後一次對話 12 小時後自動清掉）也存在這支手機；下次打開只顯示，按「接著上次問」才會跟下一個問題一起送出；從浮動阿幫點「在這頁可以問」的問題時，會一起送出你正在看的頁面（例如哪一條公車路線與上車站），自己打的問題不會帶；Claude 模式下，座標不給模型，但依座標查到的站名、路線、天氣等結果會給模型轉述。可在「設定與隱私」清除。</p>
         <h3>4. 利用期間、地區、對象、方式</h3>

@@ -38,7 +38,7 @@ export const planTripTool = defineTool({
   description: '比較從起點到終點的交通方式（步行、YouBike、公車直達、高鐵、台鐵、國道客運、叫車），依使用者狀態排序並給一句理由。'
     + '自動查起點天氣與沿途國道路況：下雨、塞車會自動加入狀態（states 中 source=auto）。prefs.states 放使用者說的狀態：'
     + Object.entries(STATES).map(([k, v]) => `${k}=${v.label}`).join('、')
-    + '；prefs.arriveBy 指定最晚抵達時間（會遲到的方案排除）；prefs.habit 是使用者手機記的常選比例（選填，例 {"metro":0.6}，沒說狀況時常選的方式小幅加分）。排序與理由由程式計分（ranking），請照 ranking.reason 轉述，不要自行改排名。estimated=true 的時間或車資是估算。',
+    + '；prefs.arriveBy 指定最晚抵達時間（會遲到的方案排除）；prefs.habit 是使用者同意過的常選比例（選填，例 {"metro":0.6}，沒說狀況時小幅加分）；輸出 ask 是畫面上會問使用者的一句（趕不趕、帶不帶行李…）。排序與理由由程式計分（ranking），請照 ranking.reason 轉述，不要自行改排名。estimated=true 的時間或車資是估算。',
   pack: 'transit', tier: 'L1', card: 'trip',
   input: {
     from: T.point('起點'), to: T.point('終點'),
@@ -49,7 +49,7 @@ export const planTripTool = defineTool({
       mode: z.enum(MODES).optional().describe('使用者指定的交通方式（「改坐公車」→ bus、「叫車／計程車」→ ridehail）：建議改成這種方式裡分數最高的'),
       avoid: z.array(z.enum(MODES)).max(7).optional().describe('使用者說不要的交通方式（「不要叫車」→ ["ridehail"]）：直接排除'),
       party: z.number().int().min(1).max(20).optional().describe('同行人數（「我們 4 個人」→ 4）：2 人以上叫車改用每人分攤比較（4 人一輛）；1＝自己一個人'),
-      habit: HabitSchema.optional().describe('常選的交通方式比例（使用者裝置記的，例 {"metro":0.6,"bus":0.3}）：沒指定方式、沒說狀況時常選的方式最多加 8 分；不知道就不要帶'),
+      habit: HabitSchema.optional().describe('使用者同意過的常選交通方式比例（裝置記的、使用者按過「好」，例 {"metro":0.6}）：沒指定方式、沒說狀況時最多加 8 分；不知道就不要帶'),
     }).optional(),
   },
   speak: (d) => {
@@ -65,7 +65,7 @@ export const planTripTool = defineTool({
     const lines = [
       `${from.name} → ${to.name}（直線 ${data.straightKm} 公里，${data.departAt} 出發）`,
       ...(data.states.length ? [`狀態：${data.states.map((s) => `${STATES[s.key].label}（${s.source === 'auto' ? `自動：${s.detail}` : '你說的'}）`).join('、')}`] : []),
-      ...(data.habitOn ? [`習慣（使用者手機記的常選方式，已小幅加分）：${Object.entries(data.habit).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${MODE_LABEL[k]} ${Math.round(v * 100)}%`).join('、')}`] : []),
+      ...(data.habitOn ? [`習慣（使用者同意過的常選方式，已小幅加分）：${Object.entries(data.habit).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${MODE_LABEL[k]} ${Math.round(v * 100)}%`).join('、')}`] : []),
       ...data.ranking.ranked.map((r, i) => {
         const o = byId.get(r.id);
         return `${i + 1}. ${o.name}：${o.minutes} 分（等 ${o.waitMin}、走 ${o.walkMin}），${o.costRange ? `${o.costRange[0]}～${o.costRange[1]}` : o.cost} 元，${o.arriveAt} 到${o.estimated ? '（含估算）' : ''}，分數 ${r.score}`;

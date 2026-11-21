@@ -23,10 +23,13 @@ for (const sc of set.scenarios.filter((x) => !only.length || only.includes(x.id)
   const messages = [];
   const fails = [];
   const t0 = Date.now();
+  let pendingAsk; // 上一輪「阿幫問你」在等的答案（與 test/scenarios.test.js 相同，ADR-0016）
   for (const t of sc.turns) {
     messages.push({ role: 'user', content: t.say });
     const es = [];
-    await runModel(svc, { messages, clientTools: ['device_location'], clientToolResults: [sc.location === false ? { id: 'loc1', ok: false } : { id: 'loc1', ok: true, result: set.here }], ...(sc.saved && { savedPlaces: sc.saved }) }, (e) => es.push(e), { provider, judge, now: atTW(sc.at), ...(sc.profile && { profileId: sc.profile }) }); // profile：情境指定的 agent（例 antifraud）
+    await runModel(svc, { messages, clientTools: ['device_location'], clientToolResults: [sc.location === false ? { id: 'loc1', ok: false } : { id: 'loc1', ok: true, result: sc.here || set.here }], ...(sc.saved && { savedPlaces: sc.saved }), ...(pendingAsk && { pendingAsk }) }, (e) => es.push(e), { provider, judge, now: atTW(sc.at), ...(sc.profile && { profileId: sc.profile }) }); // profile：情境指定的 agent（例 antifraud）；here：情境的定位
+    const ask = es.find((e) => e.type === 'ask');
+    pendingAsk = ask?.pending ? { id: ask.id, ...ask.pending } : undefined;
     if (process.env.EVAL_DEBUG) for (const e of es) if (e.type === 'tool_start') console.log(`    · ${e.name} ${JSON.stringify(e.input)}`);
     const bad = check(es, t.expect);
     if (bad.length) fails.push(`「${t.say}」${bad.join('；')}`);

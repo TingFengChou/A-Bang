@@ -1,8 +1,9 @@
 // Agent 事件（M5-02，AGENT.md §3.1）：型別、建立函式與 NDJSON 序列化。Claude 模式與示範模式共用同一套事件。
 // 建立函式只組欄位並檢查必要欄位，不做假延遲；數字一律由呼叫端傳入真實資料（ADR-0009）。
 import { getTool } from '../tools/index.js';
+import { ASK_KINDS, ASK_ACTIONS } from './ask.js';
 
-export const EVENT_TYPES = ['status', 'agent_note', 'tool_start', 'tool_result', 'discussion_end', 'decision', 'guardrail', 'client_tool_call', 'text', 'done', 'error'];
+export const EVENT_TYPES = ['status', 'agent_note', 'tool_start', 'tool_result', 'discussion_end', 'decision', 'ask', 'guardrail', 'client_tool_call', 'text', 'done', 'error'];
 
 /** 小幫手角色（討論串中被 @ 點名的名字） */
 export const TOOL_ROLES = {
@@ -35,9 +36,32 @@ export const ev = {
   decision: (trip) => need('decision', {
     signals: tripSignals(trip),
     signalsEn: tripSignals(trip, 'en'), // 英文那一輪的資料膠囊（S12f）
-    states: trip.states, arriveBy: trip.arriveBy ?? null, ...(trip.arriveByMin != null && { arriveByMin: trip.arriveByMin }), ...(trip.mode && { mode: trip.mode }), ...(trip.avoid && { avoid: trip.avoid }), ...(trip.skipped?.length && { skipped: trip.skipped }), ...(trip.habit && { habit: trip.habit, habitOn: !!trip.habitOn }), best: trip.best,
+    states: trip.states, arriveBy: trip.arriveBy ?? null, ...(trip.arriveByMin != null && { arriveByMin: trip.arriveByMin }), ...(trip.mode && { mode: trip.mode }), ...(trip.avoid && { avoid: trip.avoid }), ...(trip.skipped?.length && { skipped: trip.skipped }), ...(trip.habit && { habit: trip.habit, habitOn: !!trip.habitOn }), ...(trip.ask && { ask: trip.ask }), best: trip.best,
     options: trip.options, ranked: trip.ranking.ranked, excluded: trip.ranking.excluded, weights: trip.ranking.weights, reason: trip.ranking.reason,
   }, ['states', 'options', 'ranked', 'excluded', 'reason']),
+  /**
+   * ask：阿幫問你（ADR-0016）——一輪最多一個；question 與選項由程式產生（core/agent/ask.js），不交給模型。
+   * options[]：{ label, kind, guess? }＋依 kind：state { state, say? }、reply { say }、store { value }、action { action: { name, ... } }、dismiss
+   * pending：{ slot, state?, intent? }＝在等什麼答案（使用者直接打字時客戶端帶 pendingAsk 回來）
+   */
+  ask: ({ id, question, options, why, about, pending }) => {
+    if (!Array.isArray(options) || !options.length || options.length > 6) throw new Error('事件 ask 的 options 要 1～6 個');
+    const opts = options.map((o) => {
+      if (!ASK_KINDS.includes(o?.kind)) throw new Error(`事件 ask 的 kind 不對：${o?.kind}`);
+      const base = { label: String(o.label).slice(0, 20), kind: o.kind, ...(o.guess && { guess: true }) };
+      if (o.kind === 'state') { if (!o.state) throw new Error('事件 ask 的 state 選項要有 state'); return { ...base, state: String(o.state), ...(o.say && { say: String(o.say).slice(0, 200) }) }; }
+      if (o.kind === 'reply') { if (!o.say) throw new Error('事件 ask 的 reply 選項要有 say（完整的一句）'); return { ...base, say: String(o.say).slice(0, 200) }; }
+      if (o.kind === 'store') { if (!o.value) throw new Error('事件 ask 的 store 選項要有 value'); return { ...base, value: String(o.value).slice(0, 100) }; }
+      if (o.kind === 'action') {
+        const a = o.action;
+        if (!ASK_ACTIONS.includes(a?.name)) throw new Error(`事件 ask 的 action 不對：${a?.name}`);
+        if (a.name === 'openLink' && !/^https:\/\//.test(String(a.url))) throw new Error('事件 ask 的 openLink 只能是 https 連結');
+        return { ...base, action: a };
+      }
+      return base;
+    });
+    return need('ask', { id, question: String(question).slice(0, 120), options: opts, ...(why && { why: String(why).slice(0, 80) }), ...(about && { about: String(about) }), ...(pending?.slot && { pending }) }, ['id', 'question']);
+  },
   guardrail: ({ tier, rule, calls }) => need('guardrail', { tier, rule, ...(calls?.length && { calls: calls.map((c) => ({ label: String(c.label), tel: String(c.tel).replace(/[^0-9]/g, '') })) }) }, ['tier', 'rule']), // calls：一鍵撥號（安全情境）
   clientToolCall: ({ id, name, input = {} }) => need('client_tool_call', { id, name, input }, ['id', 'name']),
   text: (delta) => need('text', { delta: String(delta) }, ['delta']),

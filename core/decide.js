@@ -43,6 +43,7 @@ export const STATES = {
 export const HABIT = { max: 0.08, full: 0.6 };
 const HABIT_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro: '搭捷運', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
 
+/** 習慣只在使用者確認後才送來（public/js/habits.js 先問「以後要我優先推捷運嗎？」）：未確認的推測不加分（2026-11-21 互動確認） */
 /** 每個方案的習慣加分（0～HABIT.max）；不適用時回 0 */
 export function habitBonus(o, habit, fastest) {
   const share = Number(habit?.[o.role]);
@@ -139,7 +140,7 @@ function explain(best, second, states, excluded) {
   }
   const why = [];
   if (states.length) why.push(`因為${states.map((s) => STATES[s].say).join('、')}`);
-  const often = best.breakdown?.habit > 0 && (!second || best.breakdown.habit >= (second.breakdown?.habit || 0)) ? [`你常${HABIT_DO[best.role] || `選${best.name}`}`] : []; // 習慣（你常搭捷運）
+  const often = best.breakdown?.habit > 0 && (!second || best.breakdown.habit >= (second.breakdown?.habit || 0)) ? [`你想優先${HABIT_DO[best.role] || `選${best.name}`}`] : []; // 習慣（使用者同意過：你想優先搭捷運）
   if (second) {
     const diffs = CRITERIA.map((c) => ({ c, d: best.breakdown[c.key] - second.breakdown[c.key] })).sort((a, b) => b.d - a.d);
     const top = diffs.filter((x) => x.d > 0.01).slice(0, 2).map((x) => PHRASE[x.c.key](best, second, states));
@@ -161,3 +162,57 @@ const PHRASE = {
   effort: () => '比較輕鬆',
   delayRisk: () => '不受塞車影響',
 };
+
+/** 關鍵問題會試的狀態（使用者自己最清楚、程式猜不到的） */
+export const ASK_STATES = ['rush', 'budget', 'luggage', 'lessWalk'];
+/** 值得問的差別：時間差 ≥ 5 分或費用差 ≥ 50 元 */
+export const ASK_MIN = { minutes: 5, cost: 50 };
+const MODE_EN = { walk: 'Walking', bike: 'YouBike', bus: 'The bus', metro: 'The MRT', thsr: 'High speed rail', tra: 'The train', intercity: 'The coach', ridehail: 'A taxi' };
+
+/**
+ * 關鍵問題（2026-11-21 互動確認，ADR-0010）：答案取決於使用者時，直接問一句，不默默推測。
+ * 對這次的方案，試著各加上一個狀態（趕時間、想省錢、帶行李、少走路）重算：建議會換、而且差別值得問（時間差 ≥ 5 分或費用差 ≥ 50 元），
+ * 就產生一個問題；一次最多一個（挑影響最大的）。使用者已經說了（或點了、說過）狀況、指定了方式，或怎麼加都不會換時不問。
+ * 純函式：伺服器（plan_trip 輸出 ask）與決策圖（按了以後即時重算）共用。
+ * @param {Array<object>} options 同 decide()
+ * @param {object} [ctx] 同 decide()（含 said、mode、habit）
+ * @returns {{ state: string, from: string, to: string, dMin: number, dCost: number, text: string, textEn: string } | null}
+ */
+export function keyQuestion(options, ctx = {}) {
+  if (ctx.mode || ctx.said) return null;
+  const states = (ctx.states || []).filter((k) => STATES[k]);
+  const base = decide(options, ctx).best;
+  if (!base) return null;
+  const fastest = Math.min(...options.map((o) => Number(o.minutes)));
+  let pick = null;
+  for (const k of ASK_STATES) {
+    if (states.includes(k)) continue;
+    const alt = decide(options, { ...ctx, states: [...states, k], said: true }).best;
+    if (!alt || alt.id === base.id) continue;
+    const dMin = Number(base.minutes) - Number(alt.minutes); // 正＝換過去比較快
+    const dCost = Number(alt.cost ?? 0) - Number(base.cost ?? 0); // 正＝換過去比較貴
+    const dWalk = Number(base.walkMin ?? 0) - Number(alt.walkMin ?? 0);
+    if (Math.abs(dMin) < ASK_MIN.minutes && Math.abs(dCost) < ASK_MIN.cost) continue; // 差不多：不值得打擾
+    if ((k === 'rush' && dMin <= 0) || (k === 'budget' && dCost >= 0) || (k === 'lessWalk' && dWalk <= 0)) continue; // 問句要說得通
+    if (Number(alt.minutes) > Math.max(fastest * 2, fastest + 20)) continue; // 不推明顯不合理的（想省錢就走 70 分鐘）
+    const impact = Math.abs(dMin) + Math.abs(dCost) / 20;
+    if (!pick || impact > pick.impact) pick = { k, base, alt, dMin, dCost, dWalk, impact };
+  }
+  if (!pick) return null;
+  const { k, alt, dMin, dCost, dWalk } = pick;
+  const more = dCost > 0 ? `多 ${dCost} 元` : '', moreEn = dCost > 0 ? `NT$${dCost} more` : '';
+  const en = MODE_EN[alt.role] || alt.name;
+  const text = {
+    rush: `${alt.name}快 ${dMin} 分${more ? `但${more}` : ''}，你趕時間嗎？`,
+    budget: `${alt.name}省 ${-dCost} 元${dMin < 0 ? `但慢 ${-dMin} 分` : ''}，想省錢嗎？`,
+    luggage: `有帶行李或大包小包嗎？有的話${alt.name}比較輕鬆${more ? `（${more}）` : ''}。`,
+    lessWalk: `想少走路嗎？${alt.name}少走 ${dWalk} 分${more ? `（${more}）` : ''}。`,
+  }[k];
+  const textEn = {
+    rush: `${en} is ${dMin} min faster${moreEn ? ` but costs ${moreEn}` : ''}. In a hurry?`,
+    budget: `${en} saves NT$${-dCost}${dMin < 0 ? ` but takes ${-dMin} min longer` : ''}. Want to save money?`,
+    luggage: `Carrying luggage or bags? If so, ${en} is easier${moreEn ? ` (${moreEn})` : ''}.`,
+    lessWalk: `Prefer less walking? ${en} walks ${dWalk} min less${moreEn ? ` (${moreEn})` : ''}.`,
+  }[k];
+  return { state: k, from: pick.base.id, to: alt.id, dMin, dCost, text, textEn };
+}

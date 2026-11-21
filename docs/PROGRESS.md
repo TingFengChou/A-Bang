@@ -15,6 +15,13 @@
 
 
 
+## 2026-11-21 P2 阿幫問你：答案取決於使用者時問一句（習慣要確認、叫車問原因、關鍵因子）
+- 做了：產品負責人「重要因子應可與用戶互動後完成」「需要使用者互動得到答案會讓整體變快就問」。通用機制 ADR-0016：事件 `ask`（`core/agent/events.js`；options 的 kind：state 加狀態即時重算、reply 送完整的一句、store 存手機偏好、action 手機做事、dismiss；guess；pending）、`core/agent/ask.js`（`tripAsk`、`resolvePending`／`PENDING_SLOTS`）、`core/decide.js` `keyQuestion`（試加趕時間／想省錢／帶行李／少走路，建議會換且差 ≥ 5 分或 ≥ 50 元才問，挑影響最大的）、前端共用區塊 `public/ui/agent/ask.js`（`mountAsk`、`matchAnswer`：直接打「我不趕」「好」也是答案，對不上＝略過並帶 `pendingAsk`）。一輪最多一個（execTools 整輪共用）。習慣改成問過才用：≥ 5 次且 6 成以上問「以後要我優先推捷運嗎？」，說好才送 `userState.habit`；常叫車問原因 → `userState.usual`（你說過的預設狀況，沒說條件時帶入）或叫車加分或不再問。決策圖 chip「你同意：優先推捷運」「你說過：常帶東西」、`addState`／`setHabit`；設定頁列出同意與說過的、可撤銷。情境檢查加 asks／asksNone／askOptions／askKind／askGuess／toNot，情境可指定 `here`、多輪帶 pendingAsk。
+- 測試：npm test 717 項（新增 `test/ask.test.js` 14 項、`test/habits.test.js` 改寫 12 項）；E2E「阿幫問你」3 項（截圖 `phone-habit-ask.png`、`phone-key-question.png`、`phone-habit-settings.png`）
+- 文件：ADR-0016（新）、adr/README、ADR-0010、AGENT.md §2／§3.1／§3.3、UX.md §5／§5.0、MCP_TOOLS.md、CARDS.md、PLAN.md、PROGRESS.md
+- 下一個：P2b PM 的 27 個情境接上 `PENDING_SLOTS`
+- 卡住：無
+
 ## 2026-11-21 P1 個人化：記住常選的交通方式（只在手機、可關、程式計分）
 - 做了：`public/js/habits.js`（localStorage `abang.habits`：只記交通方式與時間，最近 50 次、60 天半衰期、180 天前不算、30 分鐘內同一方式算一次、選滿 5 次才送比例；開關預設開、清除時關著的仍是關的）。「選了」＝行程卡建議方案按導航／叫車／訂票（卡片送 `abang:choice`）、指定方式的決策（「改成 X」、決策圖點方案）、設公車到站提醒或下車提醒（App 重開恢復的不算）。問阿幫送 `userState.habit`（zod：鍵限定、0～1、總和 ≤ 1.01），`execTools` 一律以手機送來的帶進 `plan_trip` `prefs.habit`（模型帶的不採用），示範與模型模式相同。`decide.js` 新增 `HABIT`（最多 +8 分、比例 60% 加滿）：說了／點了狀況、指定方式、不要、抵達時間優先；比最快慢 2 倍且多 20 分以上不加分；理由句「你常搭捷運、省 230 元」。決策圖「你常選：捷運」chip（紫色、可點掉即時重算、「為什麼」看次數、第一次說明一次）、明細「習慣 +8.0」。設定頁「個人化」開關、次數、清除；本機資料清單與隱私權政策補上。sw.js `v0.9.7-habit`。
 - 測試：npm test 700 項（新增 19 項：`test/habits.test.js`、`test/decide-habit.test.js`）；E2E 新增 1 項（截圖 `phone-habit-chip.png`、`phone-habit-settings.png`）

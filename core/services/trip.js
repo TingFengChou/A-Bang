@@ -3,7 +3,7 @@
 // 估算值（市區轉乘、叫車時間與車資、客運票價缺資料時）一律標 estimated，並在 notes 說明依據。
 import { distanceM, toHHMM, toMin, normName } from '../util.js';
 import { walkMinutes, navLinks } from '../nav.js';
-import { decide, STATES } from '../decide.js';
+import { decide, keyQuestion, STATES } from '../decide.js';
 import { departOf, delayRiskOf } from './intercity.js';
 import { LANDMARKS, normPlace } from './places.js';
 
@@ -397,7 +397,9 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   if (party) states.push({ key: 'group', source: 'user', detail: `${party} 人` }); // 人數是使用者說的（決策圖不能關：車資已是每人）
   const habit = prefs.habit && Object.keys(prefs.habit).length ? prefs.habit : null;
   // 習慣：使用者自己說了狀況（你說的）時以狀況為準；決策圖重算用同一條規則（狀態 source 不是 auto）
-  const r = decide(options, { states: states.map((s) => s.key), arriveBy: prefs.arriveBy, arriveByMin, mode: prefs.mode, avoid: prefs.avoid, habit, said: states.some((s) => s.source !== 'auto') });
+  const ctx = { states: states.map((s) => s.key), arriveBy: prefs.arriveBy, arriveByMin, mode: prefs.mode, avoid: prefs.avoid, habit, said: states.some((s) => s.source !== 'auto') };
+  const r = decide(options, ctx);
+  const ask = keyQuestion(options, ctx); // 答案取決於使用者（趕不趕、帶不帶行李…）時，畫面上問一句（決策圖；不交給模型）
   // 提醒（卡片與總結照列；數字都來自上面的資料）：kind＝tight 時間很緊、rain 帶傘（醒目、總結也說）、cost 多人分攤（卡片上）
   const bestOpt = options.find((o) => o.id === r.best?.id);
   const slack = arriveByMin != null && bestOpt ? arriveByMin - bestOpt.arriveMin : null;
@@ -418,7 +420,8 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     ...((r.mode || r.modeUnavailable) && { mode: r.mode || r.modeUnavailable }), // 使用者指定的交通方式（前端重算也照這個）
     ...(r.modeUnavailable && { modeUnavailable: r.modeUnavailable }),
     ...(prefs.avoid?.length && { avoid: prefs.avoid }), // 使用者說不要的方式（前端重算也排除）
-    ...(habit && { habit, habitOn: !!r.habitOn }), // 常選比例（決策圖的「你常選」chip、前端重算）；habitOn＝這次有沒有加分
+    ...(habit && { habit, habitOn: !!r.habitOn }),
+    ...(ask && { ask }), // 關鍵問題（core/decide.js keyQuestion） // 常選比例（決策圖的「你常選」chip、前端重算）；habitOn＝這次有沒有加分
     weather: weather && { summary: weather.summary, raining: weather.raining, pop3h: weather.pop3h },
     traffic: traffic && { level: traffic.level, delayMin: traffic.delayMin, covered: traffic.covered },
     air: air ? { site: air.site, aqi: air.aqi, status: air.status } : null,

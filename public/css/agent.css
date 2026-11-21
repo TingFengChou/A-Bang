@@ -263,10 +263,26 @@ html.lite-motion .think-core, html.lite-motion .think-core * { animation: none !
 /* 回答上方：這一輪手機上的 AI 有判斷時，照實說伺服器有沒有採用 */
 .device-line { margin: 10px 0 -2px; font-size: 12.5px; color: var(--muted); }
 
-/* 個人化（2026-11-21）：「你常選：捷運」chip（source habit，紫色，與你說的／自動區分）、為什麼、第一次說明 */
+/* 個人化（2026-11-21）：「你同意：優先推捷運」chip（source habit，紫色）、「你說過：常帶東西」（source usual）、為什麼 */
 .dg-chip.on.src-habit { background: #f1edfb; border-color: #6d4fc2; color: #5b3fb0; }
 .dg-chip.on.src-habit.paused { border-style: dashed; color: var(--muted); }
 .dg-chip.dg-why-btn { color: #5b3fb0; border-color: transparent; text-decoration: underline; padding: 4px 6px; }
 .dg-habit-note { margin: 0 0 6px; font-size: 12.5px; color: var(--muted); }
-.dg-habit-note.first { background: #f1edfb; border-radius: 10px; padding: 6px 10px; color: #3f2d80; }
+.dg-chip.on.src-usual { background: #fdf6e7; border-color: var(--warn); color: #8a4a06; }
 .dg-crit.habit .dg-bar { background: #6d4fc2; }
+
+/* 阿幫問你（ADR-0016）：問句＋選項按鈕；最可能的選項在第一個、標「猜的」；可略過；不搶焦點 */
+.ask { background: #f1edfb; border: 1px solid #d9cff5; border-radius: 14px; padding: 8px 12px 10px; margin: 0 0 8px; }
+.ask-head { margin: 0; font-size: 12px; font-weight: 700; color: #5b3fb0; }
+.ask-q { margin: 2px 0 8px; font-size: 15px; font-weight: 600; color: var(--text); }
+.ask-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.ask-opt { min-height: 44px; padding: 6px 14px; border-radius: 999px; border: 1px solid #6d4fc2; background: var(--card); color: #4a2f9e; font-size: 14px; font-weight: 600; cursor: pointer; }
+.ask-opt.guess { background: #6d4fc2; color: #fff; }
+.ask-guess { font-size: 11px; font-weight: 400; opacity: .85; }
+.ask-skip { min-height: 44px; padding: 6px 10px; border: 0; background: none; color: var(--muted); text-decoration: underline; font-size: 13px; cursor: pointer; }
+.ask-why { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+.ask-done { margin: 2px 0 0; font-size: 13.5px; color: #3f2d80; outline: none; }
+@media (prefers-reduced-motion: no-preference) { .ask:not(.answered) { animation: ask-in .3s ease-out; } }
+@keyframes ask-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.habit-agreed { list-style: none; padding: 0; margin: 4px 0 8px; display: grid; gap: 6px; }
+.habit-agreed li { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }

@@ -158,6 +158,7 @@ export const MESSAGES = {
   'trip.state.auto': 'Auto-detected',
   'trip.state.user': 'You said',
   'trip.state.picked': 'You chose',
+  'trip.state.usual': 'You told me',
   'trip.stateKey.rush': 'In a hurry',
   'trip.stateKey.traffic': 'Heavy traffic',
   'trip.stateKey.rain': 'Raining',

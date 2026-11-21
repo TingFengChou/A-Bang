@@ -33,13 +33,13 @@ test('加分上限：常選比例 60% 以上加滿 8 分，比例越低加越少
   assert.ok(habitBonus({ role: 'bike', minutes: 46 }, { bike: 1 }, 27) > 0, '46 分（2 倍內）照加');
 });
 
-test('西門町 → 台北101：沒有習慣時公車第一；常搭捷運時捷運勝出，理由說「你常搭捷運」', async () => {
+test('西門町 → 台北101：沒有習慣時公車第一；常搭捷運時捷運勝出，理由說「你想優先搭捷運」', async () => {
   const base = await trip('西門町', '台北101');
   assert.equal(base.roleOf(base.best), 'bus');
   assert.equal(base.habit, undefined);
   const r = await trip('西門町', '台北101', { habit: METRO });
   assert.equal(r.roleOf(r.best), 'metro', r.ranking.reason);
-  assert.match(r.ranking.reason, /^選「捷運.*」：你常搭捷運/);
+  assert.match(r.ranking.reason, /^選「捷運.*」：你想優先搭捷運/);
   assert.deepEqual([r.habit, r.habitOn], [METRO, true]);
   const m = r.ranking.ranked.find((x) => r.roleOf(x.id) === 'metro');
   assert.ok(Math.abs(m.breakdown.habit - HABIT.max) < 1e-9, '明細列出習慣加分');
@@ -47,9 +47,9 @@ test('西門町 → 台北101：沒有習慣時公車第一；常搭捷運時捷
   assert.deepEqual(validate(schema, r), [], '卡片契約');
 });
 
-test('台北車站 → 台北101：本來就推捷運，理由補上「你常搭捷運、省 … 元」', async () => {
+test('台北車站 → 台北101：本來就推捷運，理由補上「你想優先搭捷運、省 … 元」', async () => {
   const r = await trip('台北車站', '台北101', { habit: METRO });
-  assert.match(r.ranking.reason, /^選「捷運 淡水信義線」：你常搭捷運、省 \d+ 元/);
+  assert.match(r.ranking.reason, /^選「捷運 淡水信義線」：你想優先搭捷運、省 \d+ 元/);
 });
 
 test('差距大時不翻盤：常叫車，台北到高雄仍推台鐵；走路 100 分不會因習慣勝出', async () => {
@@ -95,7 +95,7 @@ test('plan_trip 驗證：habit 鍵限定交通方式、值 0～1、總和 ≤ 1.
     await assert.rejects(callTool(svc, 'plan_trip', args(bad)), (e) => e.name === 'UserError', JSON.stringify(bad));
   }
   const ok = await callTool(svc, 'plan_trip', args({ metro: 0.6, bus: 0.4 }));
-  assert.match(ok.text, /習慣（使用者手機記的常選方式，已小幅加分）：捷運 60%、公車 40%/);
+  assert.match(ok.text, /習慣（使用者同意過的常選方式，已小幅加分）：捷運 60%、公車 40%/);
   assert.throws(() => validateRequest({ messages: [{ role: 'user', content: 'hi' }], userState: { habit: { metro: 2 } } }), /請求格式錯誤/);
   assert.throws(() => validateRequest({ messages: [{ role: 'user', content: 'hi' }], userState: { habit: { home: 0.5 } } }), /請求格式錯誤/);
   assert.ok(validateRequest({ messages: [{ role: 'user', content: 'hi' }], userState: { habit: { metro: 0.6, bus: 0.41 } } }), '四捨五入誤差 0.01 內可以');
@@ -114,7 +114,7 @@ test('示範模式：userState.habit 帶進 plan_trip、決策事件有 habit；
   assert.deepEqual(r.args.prefs.habit, METRO);
   const d = es.find((e) => e.type === 'decision');
   assert.deepEqual([d.habit, d.habitOn], [METRO, true]);
-  assert.match(d.reason, /你常搭捷運/);
+  assert.match(d.reason, /你想優先搭捷運/);
   assert.match(es.find((e) => e.type === 'text').delta, /捷運/);
   const none = await run({});
   assert.equal(none.find((e) => e.type === 'decision').habit, undefined);
@@ -127,7 +127,7 @@ test('模型模式：模型自己帶的 habit 不採用，用手機送來的', a
   const calls = es.filter((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
   assert.ok(calls.length >= 1);
   for (const c of calls) assert.deepEqual(c.args.prefs.habit, METRO, '預先查詢與模型呼叫都用手機的比例');
-  assert.match(es.find((e) => e.type === 'decision').reason, /你常搭捷運/);
+  assert.match(es.find((e) => e.type === 'decision').reason, /你想優先搭捷運/);
 });
 
 test('execTools：手機沒送 habit 時，模型帶的也拿掉', async () => {

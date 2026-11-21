@@ -151,6 +151,7 @@ export const MESSAGES = {
   'trip.state.auto': '自動判斷',
   'trip.state.user': '你說的',
   'trip.state.picked': '你選的',
+  'trip.state.usual': '你說過',
   'trip.stateKey.rush': '趕時間',
   'trip.stateKey.traffic': '塞車中',
   'trip.stateKey.rain': '下雨',

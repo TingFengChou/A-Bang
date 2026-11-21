@@ -616,71 +616,138 @@ test('選公車就盯到站（L-14）：想省錢 → 公車卡片聚焦上車�
   }, { init: () => { window.Notification = class { static permission = 'granted'; static requestPermission() { return Promise.resolve('granted'); } }; } });
 });
 
-// 個人化（ADR-0010 習慣）：手機記的常選方式 → 決策圖「你常選」chip、理由說常搭、點掉重算；設定頁關閉後不帶、清除
-test('個人化：常選捷運 → 決策圖「你常選：捷運」、點掉重算；按導航也記；設定頁關閉後不帶、清除', async () => {
+// 阿幫問你（ADR-0016）＋個人化（ADR-0010 習慣）：不默默套用推測，在關鍵時刻問一句
+/** 問阿幫：送出一句、等這一輪回答完；回傳這一輪送出的請求內容 */
+async function askAbang(page, q, n, bodies) {
+  await page.fill('.chat-input', q);
+  await page.press('.chat-input', 'Enter');
+  await page.waitForFunction((k) => document.querySelectorAll('.bubble.final').length === k, n, { timeout: 20000 });
+  await page.waitForFunction(() => !document.querySelector('.chat-send')?.disabled);
+  return bodies.at(-1);
+}
+/** 截「阿幫問你」＋決策圖那一段（不截整串卡片） */
+async function shotAsk(page, ask, name) {
+  await ask.scrollIntoViewIfNeeded();
+  const a = await ask.boundingBox(), d = await page.locator('.decision').last().boundingBox();
+  const hidden = await page.evaluate(() => [...document.querySelectorAll('body *')].filter((n) => /fixed|sticky/.test(getComputedStyle(n).position) && !n.closest('.results')).map((n) => { n.dataset.shotHide = n.style.visibility; n.style.visibility = 'hidden'; return 1; }).length); // 截圖時藏起固定在底部的輸入列、分頁列
+  await page.screenshot({ path: new URL(name, SHOTS).pathname, fullPage: true, clip: { x: 0, y: a.y + (await page.evaluate(() => scrollY)) - 8, width: page.viewportSize().width, height: d.y + d.height - a.y + 16 } });
+  if (hidden) await page.evaluate(() => document.querySelectorAll('[data-shot-hide]').forEach((n) => { n.style.visibility = n.dataset.shotHide; delete n.dataset.shotHide; }));
+}
+const recordBodies = (page) => { const bodies = []; page.on('request', (r) => { if (r.url().endsWith('/api/v1/agent') && r.method() === 'POST') bodies.push(JSON.parse(r.postData() || '{}')); }); return bodies; };
+/** 手機上已經記了的選擇（只有方式與時間；1～N 小時前）；導航不真的開地圖 */
+const seedPicks = ({ mode, n }) => { // page.addInitScript 只傳函式原始碼：參數用 initArg 帶
+  window.open = () => null;
+  try { if (!sessionStorage.getItem('habit-seeded')) { sessionStorage.setItem('habit-seeded', '1'); localStorage.setItem('abang.habits', JSON.stringify({ v: 2, on: true, picks: Array.from({ length: n }, (_, i) => ({ m: mode, t: Date.now() - (n - i) * 3600e3 })) })); } } catch { /* 無痕 */ }
+};
+
+test('阿幫問你：常搭捷運 → 問要不要優先推 → 好 →「你同意」chip 與加分；設定頁撤銷、關閉、清除', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
-    const bodies = [];
-    page.on('request', (r) => { if (r.url().endsWith('/api/v1/agent') && r.method() === 'POST') bodies.push(JSON.parse(r.postData() || '{}')); });
-    const ask = async (q, n) => {
-      await page.fill('.chat-input', q);
-      await page.press('.chat-input', 'Enter');
-      await page.waitForFunction((k) => document.querySelectorAll('.bubble.final').length === k, n, { timeout: 20000 });
-      await page.waitForFunction(() => !document.querySelector('.chat-send')?.disabled);
-    };
-    await ask('從西門町去台北101', 1);
-    assert.deepEqual(bodies[0].userState, { habit: { metro: 1 } }, '只送各方式的比例');
+    const bodies = recordBodies(page);
+    const b1 = await askAbang(page, '從西門町去台北101', 1, bodies);
+    assert.deepEqual(b1.userState, { habitAsk: { mode: 'metro', count: 6 } }, '沒同意之前不送比例，只說「可以問」');
+    const ask = page.locator('.turn').last().locator('.ask');
+    await ask.waitFor();
+    assert.equal(await ask.locator('.ask-q').textContent(), '我注意到你最近常搭捷運（6 次）。以後你沒說條件時，要我優先推捷運嗎？');
+    assert.equal(await ask.getAttribute('role'), 'group');
+    assert.match(await ask.locator('.ask-opt').first().textContent(), /^好 猜的$/, '最可能的選項在第一個、標「猜的」');
     const dg = page.locator('.decision').last();
-    await dg.locator('.dg-svg').waitFor();
-    const chip = dg.locator('.dg-chip.src-habit');
-    assert.equal(await chip.textContent(), '你常選：捷運 ✕');
-    assert.match(await dg.getAttribute('data-best'), /^metro/, '沒有習慣時是公車；常搭捷運時捷運勝出');
-    assert.match(await dg.locator('.dg-why').textContent(), /^選「捷運.*」：你常搭捷運/);
-    assert.match(await dg.locator('.dg-habit-note.first').textContent(), /只存在這支手機/, '第一次生效時說明');
-    await dg.getByRole('button', { name: '為什麼' }).click();
-    assert.match(await dg.locator('.dg-habit-note').first().textContent(), /最近 30 天選捷運 6 次/);
-    await dg.screenshot({ path: new URL('phone-habit-chip.png', SHOTS).pathname });
-    // 點掉「你常選」：不看習慣即時重算（不呼叫伺服器）→ 公車
-    await dg.locator('.dg-chip.src-habit').click();
+    assert.equal(await dg.locator('.dg-chip.src-habit').count(), 0, '未確認的習慣不顯示、不加分');
     assert.match(await dg.getAttribute('data-best'), /^bus/);
-    assert.match(await dg.locator('.dg-why').textContent(), /^不看你的習慣的話，選「公車/);
-    assert.equal(await dg.locator('.dg-chip.src-habit.off').count(), 1);
-    assert.equal(bodies.length, 1);
-    // 按建議方案的導航＝選了捷運（只記方式）
-    await page.locator('.results [data-card="trip"] .ab-option.best').last().getByRole('button', { name: '導航' }).click();
-    const raw = await page.evaluate(() => JSON.parse(localStorage.getItem('abang.habits')));
-    assert.equal(raw.picks.length, 7);
-    assert.ok(raw.picks.every((p) => Object.keys(p).sort().join() === 'm,t') && raw.picks.at(-1).m === 'metro', '只記方式與時間');
-    // 設定頁：清單、開關、次數
-    await page.goto(`${base}/#/settings`);
-    await page.waitForSelector('#habit-status:not(:empty)');
-    assert.match(await page.textContent('#habit-status'), /記了 7 次（捷運 7）/);
-    assert.match(await page.textContent('.local'), /常選的交通方式/);
-    await page.locator('#habits-card').scrollIntoViewIfNeeded();
-    await page.locator('#habits-card').screenshot({ path: new URL('phone-habit-settings.png', SHOTS).pathname });
-    await page.locator('#habit').uncheck();
-    assert.match(await page.textContent('#habit-status'), /已關閉/);
-    // 關掉後：問阿幫不帶比例、決策圖沒有「你常選」
-    await page.goto(`${base}/#/agent`);
-    await ask('從西門町去台北101', 2);
-    assert.equal(bodies[1].userState, undefined);
+    assert.ok(await ask.evaluate((n) => n.nextElementSibling?.classList.contains('decision')), '問題在決策圖上方');
+    await shotAsk(page, ask, 'phone-habit-ask.png');
+    await ask.getByRole('button', { name: /^好/ }).click();
+    assert.match(await ask.locator('.ask-done').textContent(), /以後你沒說條件時，優先推捷運/);
+    assert.equal(await dg.locator('.dg-chip.src-habit').textContent(), '你同意：優先推捷運 ✕');
+    assert.match(await dg.getAttribute('data-best'), /^metro/, '同意後即時重算：捷運');
+    assert.match(await dg.locator('.dg-why').textContent(), /你想優先搭捷運/);
+    assert.equal(bodies.length, 1, '按了不呼叫伺服器');
+    // 下一次：送同意的比例、不再問
+    const b2 = await askAbang(page, '從西門町去台北101', 2, bodies);
+    assert.ok(b2.userState.habit.metro > 0.9 && !b2.userState.habitAsk);
     const dg2 = page.locator('.decision').last();
     await dg2.locator('.dg-svg').waitFor();
-    assert.equal(await dg2.locator('.dg-chip.src-habit').count(), 0);
+    assert.equal(await dg2.locator('.dg-chip.src-habit').count(), 1);
+    assert.match(await dg2.getAttribute('data-best'), /^metro/);
+    // 點掉「你同意」：不看偏好重算
+    await dg2.locator('.dg-chip.src-habit').click();
     assert.match(await dg2.getAttribute('data-best'), /^bus/);
-    // 打開再清除
+    assert.match(await dg2.locator('.dg-why').textContent(), /^不看你的偏好的話，/);
+    // 設定頁：同意的列出來、可撤銷；開關與清除
+    await page.goto(`${base}/#/settings`);
+    await page.waitForSelector('#habit-status:not(:empty)');
+    assert.match(await page.textContent('#habit-status'), /記了 6 次（捷運 6）/);
+    assert.match(await page.textContent('#habit-agreed'), /已同意：優先推捷運/);
+    await page.locator('#habits-card').scrollIntoViewIfNeeded();
+    await page.locator('#habits-card').screenshot({ path: new URL('phone-habit-settings.png', SHOTS).pathname });
+    await page.getByRole('button', { name: '撤銷「已同意：優先推捷運」' }).click();
+    assert.equal(await page.locator('#habit-agreed').isHidden(), true);
+    await page.locator('#habit').uncheck();
+    assert.match(await page.textContent('#habit-status'), /已關閉/);
+    await page.goto(`${base}/#/agent`);
+    const b3 = await askAbang(page, '從西門町去台北101', 3, bodies);
+    assert.equal(b3.userState, undefined, '關閉：不送、不問');
     await page.goto(`${base}/#/settings`);
     await page.locator('#habit').check();
-    assert.match(await page.textContent('#habit-status'), /記了 7 次/);
     page.once('dialog', (d) => d.accept());
     await page.click('#habit-clear');
     assert.match(await page.textContent('#habit-status'), /還沒有紀錄/);
     assert.equal(await page.evaluate(() => localStorage.getItem('abang.habits')), null);
-  }, {
-    // 選過 6 次捷運（1～6 小時前；只有方式與時間）；導航不真的開地圖
-    init: () => {
-      window.open = () => null;
-      try { if (!sessionStorage.getItem('habit-seeded')) { sessionStorage.setItem('habit-seeded', '1'); localStorage.setItem('abang.habits', JSON.stringify({ v: 1, on: true, picks: [6, 5, 4, 3, 2, 1].map((h) => ({ m: 'metro', t: Date.now() - h * 3600e3 })) })); } } catch { /* 無痕 */ }
-    },
+  }, { init: seedPicks, initArg: { mode: 'metro', n: 6 } });
+});
+
+test('阿幫問你：常叫車 → 問原因 → 常帶東西 →「你說過：常帶東西」，之後沒說條件時自動帶入、不再問', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = recordBodies(page);
+    await askAbang(page, '從西門町去台北101', 1, bodies);
+    const ask = page.locator('.turn').last().locator('.ask');
+    await ask.waitFor();
+    assert.equal(await ask.locator('.ask-q').textContent(), '你常叫車（5 次），通常是因為？');
+    assert.deepEqual(await ask.locator('.ask-opt').allTextContents(), ['趕時間', '常帶東西', '不想走路', '就是喜歡叫車', '不一定']);
+    await ask.getByRole('button', { name: '常帶東西' }).click();
+    const dg = page.locator('.decision').last();
+    assert.equal(await dg.locator('.dg-chip.src-usual').textContent(), '你說過：常帶東西 ✕');
+    assert.equal(await dg.getAttribute('data-best'), 'ridehail');
+    const b2 = await askAbang(page, '從西門町去台北101', 2, bodies);
+    assert.deepEqual(b2.userState.usual, ['luggage']);
+    const dg2 = page.locator('.decision').last();
+    await dg2.locator('.dg-svg').waitFor();
+    assert.equal(await dg2.locator('.dg-chip.src-usual').count(), 1, '伺服器帶入、標「你說過」');
+    assert.equal(await dg2.getAttribute('data-best'), 'ridehail');
+    assert.equal(await page.locator('.turn').last().locator('.ask').count(), 0, '說過了：不再問');
+  }, { init: seedPicks, initArg: { mode: 'ridehail', n: 5 } });
+});
+
+test('阿幫問你：關鍵因子「叫車快 5 分但多 270 元，你趕時間嗎？」→ 趕 → 即時重算成叫車；直接打「我不趕」也是回答', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = recordBodies(page);
+    await askAbang(page, '從西門町去台北101', 1, bodies);
+    const ask = page.locator('.turn').last().locator('.ask');
+    await ask.waitFor();
+    assert.equal(await ask.locator('.ask-q').textContent(), '叫車（Uber）快 5 分但多 270 元，你趕時間嗎？');
+    assert.equal(await ask.locator('.ask-q').getAttribute('aria-live'), 'polite', '讀屏念問句');
+    await shotAsk(page, ask, 'phone-key-question.png');
+    const dg = page.locator('.decision').last();
+    assert.match(await dg.getAttribute('data-best'), /^bus/);
+    await ask.getByRole('button', { name: '趕', exact: true }).click();
+    assert.equal(await dg.getAttribute('data-best'), 'ridehail');
+    assert.equal(await dg.locator('.dg-chip.on', { hasText: '你選的：趕時間' }).count(), 1);
+    assert.equal(await ask.locator('.ask-done').evaluate((n) => n === document.activeElement), true, '焦點留在結果句');
+    assert.equal(bodies.length, 1);
+    // 第二次：直接打字回答
+    await askAbang(page, '從西門町去台北101', 2, bodies);
+    const ask2 = page.locator('.turn').last().locator('.ask');
+    await ask2.waitFor();
+    await page.fill('.chat-input', '我不趕');
+    await page.press('.chat-input', 'Enter');
+    await ask2.locator('.ask-done').waitFor();
+    assert.match(await ask2.locator('.ask-done').textContent(), /照原本的建議/);
+    assert.equal(bodies.length, 2, '是答案：不送伺服器');
+    // 問了之後直接問別的＝略過（問題收起來、照常送出）
+    await askAbang(page, '從西門町去台北101', 3, bodies);
+    const ask3 = page.locator('.turn').last().locator('.ask');
+    await ask3.waitFor();
+    await askAbang(page, '台北101附近有 YouBike 嗎', 4, bodies);
+    assert.equal(await ask3.isHidden(), true);
   });
 });
 
