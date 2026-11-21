@@ -208,7 +208,7 @@ export default {
       const heard = [...(s.heard?.places || []), ...(s.heard?.states || []).map((k) => stateNames([k])), s.heard?.arriveBy, s.heard?.departTime].filter(Boolean);
       if (!s.slots?.length && heard.length) body.append(h('p', 'note', t('trial.heard', { x: heard.join(t('trial.sep')) })));
       if (s.safety) return;
-      body.append(h('h4', '', t('trial.sources')));
+      body.append(h('h4', '', t(s.target !== s.intent ? 'trial.sources.if' : 'trial.sources'))); // 規則聽不懂：這些是「如果聽懂會查」的
       if (!s.sources?.length) { body.append(h('p', 'note', t('trial.sources.none'))); return; }
       const ul = h('ul', 'ai-sources');
       for (const x of s.sources) {
@@ -278,6 +278,10 @@ export default {
     const PAINT = { judge: paintJudge, data: paintData, answer: paintAnswer, next: paintNext };
 
     function paintTry() {
+      // 重畫（例：切了開關）：舊的一輪先停掉，它晚到的結果不會寫進新畫面
+      trialCtl?.abort();
+      trialCtl = null;
+      busy = false;
       const body = $('#ai-try-body');
       const presets = TRIAL_PRESETS.map((k) => `<button type="button" class="chip" data-q="${esc(t(k))}">${esc(t(k))}${k === 'trial.p2' ? `<small>${esc(t('trial.p.note'))}</small>` : ''}</button>`).join('');
       body.innerHTML = `
@@ -292,14 +296,17 @@ export default {
           <li>${esc(t(info.active ? 'trial.net.1.device' : 'trial.net.1.server'))}</li><li>${esc(t('trial.net.rest'))}</li><li>${esc(t('trial.net.privacy'))}</li></ul></div>
         <div id="ai-think" class="ai-think"></div>
         <ol class="ai-trial" id="ai-trial" hidden></ol>
-        <p class="ai-trial-foot" id="ai-trial-foot" hidden><button type="button" class="btn small ghost" id="ai-copy">${esc(t('trial.copy'))}</button></p>
+        <p class="ai-trial-foot" id="ai-trial-foot" hidden><button type="button" class="btn small ghost" id="ai-copy" disabled>${esc(t('trial.copy'))}</button></p>
         <p class="sr-only" id="ai-trial-live" role="status"></p>`;
       const input = $('#ai-input');
       const go = $('#ai-go');
       const list = $('#ai-trial');
       const tlive = $('#ai-trial-live');
+      const foot = $('#ai-trial-foot');
+      const copy = $('#ai-copy');
+      const thinkBox = $('#ai-think');
       let report = null;
-      $('#ai-copy').addEventListener('click', () => copyText(reportJson(report)).then((ok) => toast(t(ok ? 'trial.copied' : 'trial.copyFail'))));
+      copy.addEventListener('click', () => { if (report) copyText(reportJson(report)).then((ok) => toast(t(ok ? 'trial.copied' : 'trial.copyFail'))); });
 
       // 第 1 段在手機上判斷時：主視覺照原本的核心動畫（至少播 MIN_PLAY_MS；結果文字不等動畫，立刻寫進 role=status）
       let heroT0 = 0, heroStill = true;
@@ -333,40 +340,44 @@ export default {
         if (!q) { live.textContent = t('try.empty'); input.focus(); return; }
         busy = true;
         go.disabled = true; go.setAttribute('aria-busy', 'true');
-        list.replaceChildren(); list.hidden = true; $('#ai-trial-foot').hidden = true;
+        list.replaceChildren(); list.hidden = true; foot.hidden = true;
+        report = null; copy.disabled = true; // 這一輪好了才能複製
         tlive.textContent = t('trial.running');
         if (matchMedia('(pointer: coarse)').matches) input.blur(); // 手機：收鍵盤
         const device = { active: info.active, engine: info.engine || null, write: info.active && raw?.write === true && edgeWriteEnabled(), reason: info.state };
         if (device.active) { heroStart(); $('#ai-stage').scrollIntoView({ block: 'start', behavior: calm() ? 'auto' : 'smooth' }); }
         const think = mountThinking({ lang, roleName: (r) => (lang ? roleEn(r) || r : r) }); // 「阿幫在想」核心動畫：判斷 → 查資料 → 寫 → 猜下一句（真實事件推進）
-        $('#ai-think').replaceChildren(think.el);
+        thinkBox.replaceChildren(think.el);
         trialCtl?.abort();
-        trialCtl = new AbortController();
+        const ctl = new AbortController();
+        trialCtl = ctl;
+        const mine = () => alive && trialCtl === ctl && !ctl.signal.aborted; // 這一輪還是目前的那一輪（沒被重畫或離開頁面取代）
         try {
-          report = await runTrial(q, {
+          const rep = await runTrial(q, {
             device,
             judge: (x) => edgeJudge(x, [], { timeout: TRY_TIMEOUT_MS }), // 只呼叫手機上的外掛，沒有網路
             judgeMs: () => edgeStats().lastMs,
             agent: (b, onEv, o) => runAgent(b, onEv, o),
             write: (d, o) => edgeWrite(d, o),
             suggest: ({ q: qq, run: r }) => trialSuggest({ q: qq, run: r, canEdge: edgeCanSuggest, edgeSuggest, check: checkRemote, wait: SUGGEST_WAIT_MS }),
-            signal: trialCtl.signal,
+            signal: ctl.signal,
           }, (key, sec) => {
-            if (!alive) return;
+            if (!mine()) return;
             const old = list.querySelector(`[data-sec="${key}"]`); // 第 1 段之後補上「伺服器怎麼看」：原地換掉
             if (key === 'judge' && device.active && !old) heroEnd(sec.by === 'device' ? { intent: sec.intent, states: sec.states } : null);
             const { li, body: b } = section(key, sec, SRC[key](sec));
             PAINT[key](b, sec);
             if (old) { li.querySelector('details').open = old.querySelector('details').open; old.replaceWith(li); } else list.append(li);
             list.hidden = false;
-          }, (e) => think.step(e));
-          if (alive) { tlive.textContent = t('trial.done'); $('#ai-trial-foot').hidden = false; }
+          }, (e) => { if (mine()) think.step(e); });
+          if (mine()) { report = rep; copy.disabled = false; tlive.textContent = t('trial.done'); foot.hidden = false; }
         } catch (e) {
-          if (alive) tlive.textContent = t('trial.error', { msg: e?.message || '' });
+          if (mine()) tlive.textContent = t('trial.error', { msg: e?.message || '' });
         } finally {
           think.stop();
-          busy = false;
-          if (alive) { go.disabled = false; go.removeAttribute('aria-busy'); }
+          // 只動這一輪自己的元素；被重畫取代的舊一輪不改 busy（新畫面已重設）
+          if (trialCtl === ctl) { busy = false; trialCtl = null; }
+          go.disabled = false; go.removeAttribute('aria-busy');
         }
       };
       $('#ai-form').addEventListener('submit', (e) => { e.preventDefault(); run(input.value); });

@@ -1972,12 +1972,12 @@ test('阿幫的腦袋：手機上的模型資訊、現場試試看、開關、�
     assert.ok(agentSent.length >= 1 && sent.every((x) => /\/api\/v1\/(agent|suggest\/check)$/.test(x.url)), JSON.stringify(sent.map((x) => x.url)));
     for (const x of agentSent) {
       const b = JSON.parse(x.body);
-      assert.deepEqual(b.messages, [{ role: 'user', content: '我快遲到了，怎麼去台北車站' }]);
+      assert.deepEqual(b.messages, [{ role: 'user', content: '我快遲到了，怎麼去台北101' }]);
       assert.ok(!('savedPlaces' in b) && !('userState' in b), '不送常用地點與習慣');
       assert.ok(!JSON.stringify(b.clientToolResults || []).includes('lat'), '不送定位');
     }
     const judged = (await page.evaluate(() => window.__aiCalls)).filter((c) => c.method === 'judge');
-    assert.deepEqual(judged, [{ method: 'judge', text: '我快遲到了，怎麼去台北車站' }]);
+    assert.deepEqual(judged, [{ method: 'judge', text: '我快遲到了，怎麼去台北101' }]);
     const after = await page.textContent('#ai-model .ai-dl');
     assert.ok(after.includes('412 毫秒') && after.includes('1 次（只記在這支手機）'), after);
     assert.deepEqual(await page.evaluate(() => { const o = JSON.parse(localStorage.getItem('abang.edgeStats')); return [o.n, o.ms]; }), [1, 412]);
@@ -2272,6 +2272,8 @@ test('阿幫的腦袋：試判斷（手機）四段——手機判斷、資料�
     assert.match(await secText(page, 'data'), /判斷是「查公車」，但句子裡沒有公車路線/);
     assert.match(await page.textContent('.ai-slots li.miss'), /公車路線缺（一定要有）/);
     assert.match(await page.textContent('.ai-sources'), /交通（TDX.*示範資料（伺服器設定成示範模式）/);
+    assert.equal(await page.textContent('.ai-sec[data-sec="data"] h4'), '如果聽懂了會查的資料', '規則聽不懂：不說「會查」');
+    assert.equal(await page.isDisabled('#ai-copy'), false, '這一輪好了才能複製');
     assert.match(await secText(page, 'answer'), /程式版.*手機改寫（Gemini Nano）報你知，.*通過護欄/);
     assert.match(await page.textContent('.ai-ask-q'), /這題我查不到/);
     assert.equal(await page.locator('.ai-ask-opts li').count(), 4);
@@ -2294,7 +2296,7 @@ test('阿幫的腦袋：試判斷（手機）四段——手機判斷、資料�
     assert.equal(copied.q, '公車還要多久？');
     assert.deepEqual(Object.keys(copied.sections), ['judge', 'data', 'answer', 'next']);
     // 行程：資料夠、會先問你在哪（不送定位）、程式計分的建議
-    await page.fill('#ai-input', '我快遲到了，怎麼去台北車站');
+    await page.fill('#ai-input', '我快遲到了，怎麼去台北101');
     await page.click('#ai-go');
     await page.waitForFunction(() => /資料夠/.test(document.querySelector('.ai-verdict')?.textContent || ''), null, { timeout: 20000 });
     await page.waitForSelector('#ai-trial-foot:not([hidden])', { timeout: 20000 });

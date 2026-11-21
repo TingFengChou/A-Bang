@@ -43,7 +43,7 @@ export const ZH = {
   'reason.no-plugin': '這個版本沒有裝置端 AI',
   'reason.unavailable': '系統回報目前不能使用',
   // 現場試試看
-  'try.placeholder': '例如：我快遲到了，怎麼去台北車站',
+  'try.placeholder': '例如：我快遲到了，怎麼去台北101',
   'try.fail': '這次手機沒有判斷出來（模型在忙、太久沒回應，或回答看不懂）。平常遇到這種情況，阿幫會改由伺服器判斷，你不會感覺到差別。',
   'try.empty': '先打一句話。',
   'judged.intent': '聽懂了：意圖是「{intent}」；',
@@ -274,7 +274,7 @@ export const EN = {
   'reason.web': 'not used on the web (phone app only)',
   'reason.no-plugin': 'this version has no on-device AI',
   'reason.unavailable': 'the system says it is unavailable right now',
-  'try.placeholder': "e.g. I'm late, how do I get to Taipei Main Station",
+  'try.placeholder': "e.g. I'm late, how do I get to Taipei 101",
   'try.fail': "The phone didn't get an answer this time (the model was busy, too slow, or unclear). When that happens, Abang lets the server do it and you won't notice a difference.",
   'try.empty': 'Type a sentence first.',
   'judged.intent': 'Got it: intent is "{intent}"; ',

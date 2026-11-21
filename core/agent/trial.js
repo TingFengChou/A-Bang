@@ -74,7 +74,7 @@ export function slotReport(it, { judged = null, lang = 'zh' } = {}) {
   const en = lang === 'en';
   const ruleIntent = it?.intent || 'unknown';
   // 規則聽不懂、判斷層有意圖：用判斷層的意圖列欄位（這一輪仍會當成聽不懂，enough＝false）
-  const target = ruleIntent === 'unknown' && judged && judged !== 'unknown' && Object.hasOwn(INTENT_SLOTS, judged) ? judged : ruleIntent;
+  const target = ruleIntent === 'unknown' && !(it?.thanks || it?.sorry || it?.reset) && judged && judged !== 'unknown' && Object.hasOwn(INTENT_SLOTS, judged) ? judged : ruleIntent;
   const spec = Object.hasOwn(INTENT_SLOTS, target) ? INTENT_SLOTS[target] : null;
   const slots = (spec || []).map(([key, required, fill]) => {
     const value = SLOT_VALUE[key](it || {}, en);
@@ -83,8 +83,9 @@ export function slotReport(it, { judged = null, lang = 'zh' } = {}) {
   const missing = slots.filter((s) => s.required && !s.have).map((s) => s.key);
   const blocked = blockedOf(it || {});
   const understood = target === ruleIntent && !!spec;
-  // 固定說明（防詐請到防詐頁、阿幫不能代按代付、道謝…）：不用查資料，算「夠」
-  const fixed = !spec && ruleIntent !== 'unknown';
+  // 固定說明（防詐請到防詐頁、阿幫不能代按代付）與禮貌話（謝謝、對不起、重來；同 run.js 聽不懂的判斷）：不用查資料，算「夠」，不說聽不懂
+  const polite = !!(it?.thanks || it?.sorry || it?.reset);
+  const fixed = !spec && (ruleIntent !== 'unknown' || polite);
   const enough = fixed || (understood && !missing.length && !blocked && (ruleIntent === 'savedMissing' ? false : answerable(it)));
   const heard = {
     ...(it?.places?.length && { places: it.places.slice(0, 3).map((p) => String(p).slice(0, 40)) }),
@@ -97,12 +98,13 @@ export function slotReport(it, { judged = null, lang = 'zh' } = {}) {
   return { intent: ruleIntent, judged: judged || null, target, slots, missing, fixed, location: !!it && Object.hasOwn(INTENT_SLOTS, ruleIntent) && needsLocation(it), enough, blocked, heard };
 }
 
-/** TDX 額度用完多久內算「現在改用示範」 */
-export const TDX_LIMIT_WINDOW_MS = 10 * 60_000;
+/** TDX 額度用完多久內提一句「N 分鐘前曾用完額度」（只是提醒；這一輪的工具結果才知道實際是不是示範） */
+export const TDX_LIMIT_WINDOW_MS = 2 * 60_000;
 
 /**
  * 會查的資料來源與現在的狀態（真實／示範、為什麼）。不含金鑰、網址或環境變數名稱。
- * reason：live 正常｜forced 伺服器設定成只用示範資料｜no-key 沒有金鑰或授權碼｜no-download 沒開開放資料下載｜tdx-limit TDX 額度剛用完（改示範）｜no-source 沒有設定片庫
+ * reason：live 正常｜forced 伺服器設定成只用示範資料｜no-key 沒有金鑰或授權碼｜no-download 沒開開放資料下載｜no-source 沒有設定片庫
+ *   tdx-limit：真實資料，但 TDX 在 2 分鐘內曾用完額度（mode 仍是 live；這一輪各工具實際是不是示範看第 3 段的工具結果）
  * @param {object} svc createServices() 的結果
  * @param {string} intent
  * @param {{ now?: number }} [o]
@@ -115,7 +117,7 @@ export function sourceReport(svc, intent, { now = Date.now() } = {}) {
   return ids.map((id) => {
     const src = all.find((s) => s.id === id);
     const mode = src?.mode === 'live' ? 'live' : 'demo';
-    if (id === 'transit' && mode === 'live' && limitedAt && now - limitedAt < TDX_LIMIT_WINDOW_MS) return { id, mode: 'demo', reason: 'tdx-limit', minutesAgo: Math.max(0, Math.round((now - limitedAt) / 60_000)) };
+    if (id === 'transit' && mode === 'live' && limitedAt && now - limitedAt < TDX_LIMIT_WINDOW_MS) return { id, mode, reason: 'tdx-limit', minutesAgo: Math.max(0, Math.floor((now - limitedAt) / 60_000)) };
     if (mode === 'live') return { id, mode, reason: 'live' };
     const reason = svc.demoForced ? 'forced' : id === 'opendata' ? 'no-download' : id === 'drama' ? 'no-source' : (id === 'aqi' || id === 'quake') && svc.openDataMode !== 'live' ? 'no-download' : 'no-key';
     return { id, mode, reason };

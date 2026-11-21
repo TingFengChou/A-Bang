@@ -87,7 +87,7 @@ const RequestSchema = z.object({
   // trial：「阿幫的腦袋」的現場試判斷（#/ai）：同樣走 edge 模式（不呼叫任何伺服器模型），另外送 trial 事件（資料夠不夠、資料來源）；
   // 網頁版沒有手機上的模型，所以 trial 時 engine 可以不帶（一般請求一定要帶）
   clientCaps: z.object({ edgeWrite: z.boolean(), engine: z.enum(DEVICE_ENGINES).optional(), trial: z.literal(true).optional() }).strict()
-    .refine((c) => c.engine || c.trial, { message: '要有 engine' }).optional(),
+    .refine((c) => c.engine || (c.trial && c.edgeWrite), { message: '要有 engine' }).optional(),
 });
 
 /** 這個請求是「阿幫的腦袋」的試判斷（只有生活 agent；一定走 edge 模式） */

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { createServices, withTdxFallback } from '../core/index.js';
 import { TdxError } from '../core/tdx-client.js';
 import { runDemo, validateRequest } from '../core/agent/run.js';
+import { createAgentHandler } from '../server/agent.js';
 import { parseIntent } from '../core/agent/demo-intent.js';
 import { slotReport, sourceReport, trialInfo, INTENT_SLOTS, INTENT_SOURCES, TDX_LIMIT_WINDOW_MS } from '../core/agent/trial.js';
 import { EVENT_TYPES } from '../core/agent/events.js';
@@ -43,6 +44,10 @@ test('資料夠不夠：固定說明（防詐）算夠；後天天氣、投資�
   assert.equal(scam.intent, 'scamAsk');
   assert.equal(scam.fixed, true);
   assert.equal(scam.enough, true);
+  for (const q of ['謝謝', '對不起', '重來']) {
+    const r = slotReport(it(q), { judged: 'trip' });
+    assert.deepEqual([r.fixed, r.enough, r.target], [true, true, 'unknown'], `${q}：不說聽不懂，也不照判斷層列欄位`);
+  }
   const later = slotReport(it('後天會下雨嗎'));
   assert.equal(later.blocked, 'later');
   assert.equal(later.enough, false);
@@ -65,8 +70,10 @@ test('資料來源：示範模式照實說原因；TDX 額度剛用完改示範�
   assert.deepEqual(sourceReport(svc, 'trip'), [{ id: 'transit', mode: 'demo', reason: 'forced' }, { id: 'weather', mode: 'demo', reason: 'forced' }, { id: 'aqi', mode: 'demo', reason: 'forced' }]);
   assert.deepEqual(sourceReport(svc, 'scamAsk'), []);
   const now = Date.now();
-  const live = { mode: 'live', weatherMode: 'demo', aqiMode: 'demo', quakeMode: 'demo', openDataMode: 'live', antifraudMode: 'live', dramaMode: 'demo', tdxLimitedAt: () => now - 3 * 60_000 };
-  assert.deepEqual(sourceReport(live, 'trip', { now }), [{ id: 'transit', mode: 'demo', reason: 'tdx-limit', minutesAgo: 3 }, { id: 'weather', mode: 'demo', reason: 'no-key' }, { id: 'aqi', mode: 'demo', reason: 'no-key' }]);
+  const live = { mode: 'live', weatherMode: 'demo', aqiMode: 'demo', quakeMode: 'demo', openDataMode: 'live', antifraudMode: 'live', dramaMode: 'demo', tdxLimitedAt: () => now - 90_000 };
+  // 2 分鐘內曾用完額度：仍是真實資料（這一輪實際是不是示範看工具結果），只附「N 分鐘前曾用完」
+  assert.deepEqual(sourceReport(live, 'trip', { now }), [{ id: 'transit', mode: 'live', reason: 'tdx-limit', minutesAgo: 1 }, { id: 'weather', mode: 'demo', reason: 'no-key' }, { id: 'aqi', mode: 'demo', reason: 'no-key' }]);
+  assert.equal(TDX_LIMIT_WINDOW_MS, 120_000);
   assert.deepEqual(sourceReport({ ...live, tdxLimitedAt: () => now - TDX_LIMIT_WINDOW_MS - 1 }, 'bus_route', { now }), [{ id: 'transit', mode: 'live', reason: 'live' }]);
   assert.deepEqual(sourceReport({ ...live, openDataMode: 'demo' }, 'aqi', { now }), [{ id: 'aqi', mode: 'demo', reason: 'no-download' }]);
   assert.deepEqual(sourceReport(live, 'drama'), [{ id: 'drama', mode: 'demo', reason: 'no-source' }]);
@@ -86,6 +93,7 @@ test('請求：clientCaps.trial 可以不帶 engine（網頁版）；一般請�
   assert.throws(() => validateRequest({ messages: m, clientCaps: { edgeWrite: true } }), /engine/);
   assert.throws(() => validateRequest({ messages: m, clientCaps: { edgeWrite: true, trial: false } }));
   assert.throws(() => validateRequest({ messages: m, clientCaps: { edgeWrite: true, trial: true, lat: 25 } }));
+  assert.throws(() => validateRequest({ messages: m, clientCaps: { edgeWrite: false, trial: true } }), /engine/, '沒有 edgeWrite 的 trial 仍要 engine');
   assert.ok(EVENT_TYPES.includes('trial'));
 });
 
@@ -159,7 +167,7 @@ const fakeAgent = (bodies) => async (body, onEvent, { locate }) => {
 
 test('runTrial（網頁版）：四段依序；第 1 段用伺服器規則並說原因；不送定位；只送這一句', async () => {
   const bodies = [], order = [], steps = [];
-  const rep = await runTrial('我快遲到了，怎麼去台北車站', {
+  const rep = await runTrial('我快遲到了，怎麼去台北101', {
     device: { active: false, reason: 'web' },
     judge: async () => assert.fail('網頁版不呼叫手機判斷'),
     agent: fakeAgent(bodies),
@@ -186,7 +194,7 @@ test('runTrial（網頁版）：四段依序；第 1 段用伺服器規則並說
   assert.ok(!JSON.stringify(bodies).match(/lat|lon/));
   assert.deepEqual(steps.filter((x) => ['device', 'suggest'].includes(x)), ['device', 'suggest'], '動畫：判斷 → … → 猜下一句');
   assert.ok(steps.includes('tool_start'));
-  assert.match(reportJson(rep), /"q": "我快遲到了，怎麼去台北車站"/);
+  assert.match(reportJson(rep), /"q": "我快遲到了，怎麼去台北101"/);
 });
 
 test('runTrial（手機）：手機判斷帶給伺服器；改寫通過與沒通過都列出；手機猜的句子驗證後標來源', async () => {
@@ -251,4 +259,60 @@ test('字典與動畫：試判斷的鍵中英都有；測試句 5 句（含資�
   assert.equal(s.phase, 'suggest');
   assert.equal(thinkText(s, null).stage, '在猜你接下來想問什麼');
   assert.equal(thinkText(s, 'en').stage, aiT('en')('think.suggest'));
+});
+
+test('handler：帶 trial 時不呼叫任何伺服器模型（modelCalls 0）、log 記 trial: true、不記句子；防詐 agent 不送 trial 事件', async () => {
+  let starts = 0;
+  const provider = { mode: 'local', model: 'fake', start() { starts++; return { next: async () => ({ text: '好', calls: [], stop: 'end', usage: { input: 1, output: 1 } }), addResults() {} }; } };
+  const logs = [];
+  const h = createAgentHandler({ svc, env: {}, provider, log: (o) => logs.push(o) });
+  const call = async (body, agentId) => {
+    const chunks = [];
+    const res = { writableEnded: false, writeHead() {}, write: (c) => chunks.push(c), end() { this.writableEnded = true; } };
+    await h.handle(res, body, agentId ? { agentId } : {});
+    return chunks.join('').trim().split('\n').map((l) => JSON.parse(l));
+  };
+  const es = await call(ask('從西門町到台北101怎麼去'));
+  assert.equal(starts, 0);
+  assert.equal(h.usage('life').modelCalls, 0);
+  assert.ok(es.some((e) => e.type === 'trial') && es.some((e) => e.type === 'answer_draft'));
+  assert.equal(logs.at(-1).mode, 'edge');
+  assert.equal(logs.at(-1).trial, true);
+  assert.ok(!JSON.stringify(logs).includes('西門町'), 'log 不記句子');
+  const af = await call({ messages: [{ role: 'user', content: '這個網址安全嗎 https://tw388.xyz/p' }], clientCaps: { edgeWrite: true, trial: true, engine: 'gemini-nano' } }, 'antifraud');
+  assert.equal(af.filter((e) => e.type === 'trial').length, 0, '防詐 agent 不送 trial');
+  assert.ok(!logs.at(-1).trial);
+  const ev = [];
+  await runDemo(svc, { messages: [{ role: 'user', content: '這是詐騙嗎' }], clientCaps: { edgeWrite: true, trial: true } }, (e) => ev.push(e), { profileId: 'antifraud', mode: 'edge' });
+  assert.equal(ev.filter((e) => e.type === 'trial').length, 0);
+});
+
+test('edge-write（前端）：改寫沒過護欄時回被擋的改寫 candidate（最多 400 字）與原因 why（最多 60 字）', async () => {
+  const store = new Map();
+  globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+  const W = await import('../public/js/edge-write.js');
+  const D = '選「公車 601」：省 270 元、不用等車。 601 約 7 分後到「民生捷運站」，走過去約 3 分。';
+  const F = { intent: 'trip', demo: false, points: [], trip: { departAt: '08:00', best: { name: '公車 601', minutes: 32, cost: 15, arriveAt: '08:32' }, others: [] } };
+  const setWrite = (text) => {
+    globalThis.Capacitor = { isNativePlatform: () => true, nativePromise: (p, m) => (m === 'write' ? Promise.resolve({ engine: 'gemini-nano', ms: 300, text }) : Promise.resolve({ available: true, engine: 'gemini-nano', write: true })) };
+    W._resetEdgeWrite();
+  };
+  try {
+    setWrite(D.replace('7 分', '9 分'));
+    const bad = await W.edgeWrite({ text: D, facts: F, lang: 'zh' }, { engine: 'gemini-nano' });
+    assert.deepEqual([bad.by, bad.reason, bad.detail], ['program', 'check', 'number']);
+    assert.equal(bad.text, D, '回答仍用程式版');
+    assert.equal(bad.candidate, D.replace('7 分', '9 分'));
+    assert.ok(bad.why && bad.why.length <= 60);
+    setWrite(`${'很長的改寫 9 分。'.repeat(80)}`);
+    const long = await W.edgeWrite({ text: D, facts: F, lang: 'zh' }, { engine: 'gemini-nano' });
+    assert.equal(long.reason, 'check');
+    assert.equal(long.candidate.length, 400);
+    setWrite(D);
+    const ok = await W.edgeWrite({ text: D, facts: F, lang: 'zh' }, { engine: 'gemini-nano' });
+    assert.equal(ok.by, 'edge');
+    assert.ok(!('candidate' in ok));
+  } finally {
+    delete globalThis.Capacitor;
+  }
 });
