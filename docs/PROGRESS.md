@@ -18,10 +18,23 @@
 - 測試：npm test 新增 18 項（health.test.js 17、ios-dev-install 1）；E2E 新增 4 項（首頁小卡與今天不用、問阿幫補一句與一天一次、預設關閉與開關、App 被拒／沒有 Health Connect／達標），請求內容檢查沒有健康資料；Android assembleDebug、iOS xcodebuild（不簽署，模擬器與實機架構）成功
 - 文件：ADR-0018、adr/README、UX.md §3.1、§5.0.5、AGENT.md §5.2.16、§7、MCP_TOOLS.md、DATA_SOURCES.md、PLAN.md M15、CLAUDE.md、PROGRESS.md
 - 決定（產品負責人 2026-11-22）：截圖可以；iPhone 維持簽不過就裝不含健康的版本；動得少改成「而且」；網頁版維持示範資料並標示；上架事項列進卡住項目
-- 獨立審查修正（2026-11-22）：①Android 7（API 24、25）開 App 閃退——外掛類別的 static `ZoneId` 在類別初始化就碰 java.time；改成外掛類別不碰 java.time 與 Health Connect（`HealthConnectReader` 只在 Android 9 以上呼叫，不開 desugaring），單元測試檢查外掛類別的 static 欄位與 import ②沒有定位時不拿台北車站備用天氣建議散步（首頁不出小卡；問阿幫只用離手機定位 3 公里內的天氣，座標只在手機上比對，公園也用你的位置找） ③「自己問運動」排除捷運動物園、看運動比賽、運動中心等，不再蓋過「今天不用」 ④進度文案照實說（步數少但運動跟上、讀不到步數＋運動落後） ⑤Android 8.x 回「需要 Android 9 以上」 ⑥E2E 比對健康開／關時送到伺服器的請求（GET 網址、參數、POST 內容、數量與順序）一樣 ⑦ADR-0018、Swift 註解照實寫（aggregateGroupByDuration、固定 Asia/Taipei）。合併主線 #109（長對話）、#110（深夜原因）、#111（短劇），SW v1.0.7。
+- 獨立審查修正（2026-11-22）：①Android 7（API 24、25）開 App 閃退——外掛類別的 static `ZoneId` 在類別初始化就碰 java.time；改成外掛類別不碰 java.time 與 Health Connect（`HealthConnectReader` 只在 Android 9 以上呼叫，不開 desugaring），單元測試檢查外掛類別的 static 欄位與 import ②沒有定位時不拿台北車站備用天氣建議散步（首頁不出小卡；問阿幫只用離手機定位 3 公里內的天氣，座標只在手機上比對，公園也用你的位置找） ③「自己問運動」排除捷運動物園、看運動比賽、運動中心等，不再蓋過「今天不用」 ④進度文案照實說（步數少但運動跟上、讀不到步數＋運動落後） ⑤Android 8.x 回「需要 Android 9 以上」 ⑥E2E 比對健康開／關時送到伺服器的請求（GET 網址、參數、POST 內容、數量與順序）一樣 ⑦ADR-0018、Swift 註解照實寫（aggregateGroupByDuration、固定 Asia/Taipei）。合併主線 #109（長對話）、#110（深夜原因）、#111（短劇）、#112（動態下一句），SW v1.0.9。
 - 接上短劇運動提示（ADR-0019 D-05）：建議去走走時，伺服器設定了 `MYDRAMA_LINK_EXERCISE` 而且沒關短劇提示，就在小卡與補句多一個淡色「看 MyDrama 活動頁」（`host.openApp`）；連結放進 `/api/v1/status` 的 `partner`（每次開 App 都查，跟健康狀態無關），健康資料不交給短劇服務。單元測試 1 項、E2E 1 項（有設定才顯示、請求沒有健康資料），截圖 phone-health-drama.png。
 - 下一個：M15-01b 實機確認（Pixel；iOS 改用模擬器）
 - 卡住：iPhone 免費個人開發團隊可能不能簽 HealthKit（需要付費帳號才能在 iPhone 上真的讀步數；開發版會反白說原因）
+
+## 2026-11-22 動態「下一句」：手機上的 AI 猜使用者接下來想問什麼（程式驗證查得到）
+- 做了：產品負責人回饋「輸入 hint 都一樣」。輸入框 placeholder、輸入框上方建議（問阿幫頁與底部對話面板）、首頁範例改成依情境動態：情境只在手機上組（頁面、最近兩輪問題與結果摘要、時段、常用地點標籤、進行中提醒；不含座標）；App 裡手機上的 AI（外掛 `AbangEdgeAI.suggest()`，Android Gemini Nano、iOS Foundation Models）猜 3～4 句 → `POST /api/v1/suggest/check` 只送句子、用 `parseIntent` 驗證查得到 → 丟掉畫面上已回答的；網頁版、不可用、逾時 1.5 秒或不足 3 句用情境規則補（下雨少淋雨的走法、建議捷運就問下一班、深夜收班、早上去公司、公車頁下車提醒…）；程式計分排序（相關、即時資料優先）；產生中保留舊的、好了再淡入，鍵盤焦點留在建議群組；設定頁「用手機上的 AI 猜我接下來想問什麼」；sw `v0.9.9-suggest`。
+- 測試：npm test 736 項全過（新增 test/suggest.test.js 14 項：情境不含座標、驗證、規則逐句 parseIntent、排序與排列、首頁、模型回傳整理、log、judge 優先、讓位後的忙碌錯誤不暫停）；E2E 101 項全過，新增 6 項（建議產生中送出問題、網頁版規則隨情境變、App 假外掛 5 句只留 3 句、設定關閉、公車頁、首頁早上 vs 深夜）；Android assembleDebug、iOS xcodebuild 通過
+- 文件：UX.md §3.2、§6、§10，AGENT.md §5.4、§7，ADR-0014 第 8 點，PLAN.md
+- 定案（產品負責人看過截圖）：公車／捷運頁或剛查過公車到站時提醒類動作排第一，其他情境問句在前；驗證端點 log 只記句數、設定頁寫明「只送句子、不存」；judge 優先（送出問題時取消正在跑的 suggest，Android suggest 另用執行緒）；規則句地名維持（反正經 parseIntent 驗證）。單元測試 +3（排列、log 不記句子、建議產生中送出問題）、E2E +1（假的單執行緒外掛：建議產生中送出，deviceJudge 仍帶到）。
+- 實機風險先處理：取消建議後 3 秒內 judge 遇到忙碌類錯誤（ML Kit `BUSY`／`CANCELLED`；iOS 取消中、限流、同時有請求）回 `busy`、不暫停 10 分鐘、不跳 JS 斷路器，這一題改由伺服器判斷（單元測試 +1）。
+- 合主線（#107 阿幫問你、#108 回答在手機上寫）：外掛與斷路器整併——judge ＞ write ＞ suggest：judge 與 write 開始前都先取消正在跑的 suggest（JS `cancelSuggest`、原生端 `stopSuggest`），手機正在寫回答時不猜下一句；write 也用同一個斷路器（`edgeTrips`、取消後 3 秒內的忙碌錯誤不暫停）；`edge-write.js` 改用 `edge-judge.js` 的外掛存取；只剩一種方式時的換條件建議（#108 R1 的 `single.suggest`）標 `pin`，動態建議一律排最前面；sw `v1.0.3`。合主線後 npm test 818 項、npm run e2e 111 項全過，Android assembleDebug、iOS xcodebuild 通過。
+- PR #112 獨立審查修正（合主線 #109 長對話後）：suggest 的錯誤一律不設 Android 10 分鐘暫停、取消記號在呼叫模型前檢查、自己逾時記取消時間、iOS 結束時清掉同一個 task；正在判斷或寫回答、網址帶問題進頁時不猜；suggest 不可用只停 suggest；伺服器驗證與手機整理都擋網址、網域、email、@帳號、長號碼、電話、加 LINE、匯款、點連結、座標，去掉意圖欄位後剩超過 16 字也擋；情境遮「25.04,121.51」這類座標；送出中換頁或提醒變了不換建議、送出時先拿掉同一句與上一輪的動作；猜＋驗證共用 1.5 秒；英文句上限 60、英文公車頁動作用英文；保留 #109 的 rounds.touch、follow、確認句寫在那一輪、clear 一起重設（follow 規則寫進 UX.md §3.2）；設定與隱私頁補「句子可能含你剛問過的地名」。單元測試 +6、E2E +4。
+- 合主線 #110（深夜原因）：`single.suggest` 與 `missing` 照 #110；「只剩一種方式」的換條件建議仍標 `pin` 排最前面；sw `v1.0.8`。
+- CI（UTC）修正：時段、平日／假日改用台灣時間計算（`core/suggest.js` `twClock`，與 `nowTW` 相同，不用 getHours／getDay）；`TZ=UTC npm test`、`TZ=UTC npm run e2e` 全過（單元測試 +1）。
+- 合主線 #111（短劇）：動態建議認得找短劇（`drama` 算查得到、比對劇名與排行、等車與晚上有短劇建議、手機模型指示加短劇）；我的規格改為 AGENT.md §5.5（§5.4 是短劇）；首頁問候語也改用台灣時間；sw 維持 `v1.0.8`（單元測試 +2）。
+- 下一個：實機確認句子品質與三個任務輪流用模型的延遲
 
 ## 2026-11-22 D 審查修正（PR #111 獨立審查）
 - 做了：①限制級：分級比對加英文代碼（restrict、R18…），缺分級或不是字串也不推；示範資料改用英文代碼。②找劇不搶交通與天氣：歌劇、京劇、舞台劇、兒童劇、音樂劇、話劇、布袋戲、劇院、藝文中心不算；句子有交通或天氣字眼、說了要去的地名（沒有《劇名》）不判找劇；英文「去劇院怎麼走」也不算。③手機寫回答的護欄比對《劇名》：截短、改字、資料沒有的劇都擋。④repo 掃描加子網域、不帶協定的網域、合作方英文名稱（雜湊比對）、private/ 也掃。⑤測試假資料不用合作方的欄位名；文件、隱私頁改成泛稱（合作的短劇 App、App 內活動頁），DATA_SOURCES 用自己的話寫。⑥下載後先正規化再快取（最多 50 部），回應超過 2 MB 不解析。⑦等車推劇的排行在一輪開始就並行拿，不拖慢回答。⑧輪替輪次改用手機送的 `turn`（訊息只送最近 10 則）。合主線 #109、#110。

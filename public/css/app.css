@@ -150,6 +150,8 @@ main { padding: 4px 16px 16px; }
 .hero-ask .chip { color: var(--text); text-decoration: none; border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 12px 6px 6px; min-height: 40px; font-size: 13.5px; display: inline-flex; align-items: center; gap: 6px; }
 .hero-ask .chip-ic { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 14%, #fff); color: var(--c); flex: none; }
 .hero-ask .chip-ic svg { width: 16px; height: 16px; }
+.hero-ask.fade-in .chip { animation: sg-fade-h .22s ease-out both; } /* 範例跟著天氣換時淡入（reduced motion 不加這個 class） */
+@keyframes sg-fade-h { from { opacity: 0; } to { opacity: 1; } }
 
 /* 無障礙（M6-04）：鍵盤焦點一律看得到；螢幕閱讀器專用文字；跳到主要內容 */
 :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }

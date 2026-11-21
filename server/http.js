@@ -20,6 +20,7 @@ import { restRoutes } from './rest.js';
 import { buildOpenApi } from './openapi.js';
 import { createAgentHandler } from './agent.js';
 import { judgeFromEnv } from '../core/agent/judge.js';
+import { checkRequest } from '../core/agent/suggest-check.js';
 import { createLogger, routeOf } from './log.js';
 import { hasProfile } from '../core/agents/index.js';
 
@@ -71,6 +72,7 @@ const SHARED_CORE = {
   'health-nudge.js': fileURLToPath(new URL('../core/health-nudge.js', import.meta.url)),
   'nav.js': fileURLToPath(new URL('../core/nav.js', import.meta.url)),
   'drama-say.js': fileURLToPath(new URL('../core/drama-say.js', import.meta.url)), // 短劇提示句（ADR-0019）
+  'suggest.js': fileURLToPath(new URL('../core/suggest.js', import.meta.url)), // 動態下一句（#112）
   'landmarks.json': fileURLToPath(new URL('../core/data/landmarks.json', import.meta.url)),
 };
 const DOCS_INIT = "window.ui = SwaggerUIBundle({ url: '/api/v1/openapi.json', dom_id: '#ui', deepLinking: true, tryItOutEnabled: true });";
@@ -141,6 +143,16 @@ createServer(async (req, res) => {
       if (!lim.ok) return send(res, 429, { error: `問太快了，請 ${lim.retryAfterSec} 秒後再試`, retryAfterSec: lim.retryAfterSec }, { ...cors, 'retry-after': String(lim.retryAfterSec) });
       for (const [k, v] of Object.entries(cors)) res.setHeader(k, v);
       return await agent.handle(res, await readJson(req), { agentId });
+    }
+
+    // 動態「下一句」建議的驗證（core/agent/suggest-check.js）：只收候選句子，不收情境；規則解析，不呼叫模型
+    if (path === '/api/v1/suggest/check') {
+      const cors = appCors(req);
+      if (req.method === 'OPTIONS') return end(res, 204, cors);
+      if (req.method !== 'POST') return send(res, 405, { error: '請以 POST 呼叫' }, { ...cors, allow: 'POST' });
+      if (!limit(req, res, 'api')) return;
+      const body = await readJson(req);
+      return send(res, 200, { data: checkRequest(body, { log: (m, o) => log.info(m, o) }) }, cors); // log 只記數量，不記句子
     }
 
     const core = path.match(/^\/core\/([\w.-]+)$/);

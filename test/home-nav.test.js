@@ -137,7 +137,9 @@ test('Android 返回鍵：首頁離開 App；分頁本身回首頁（不走分�
 
 test('首頁：範例問題各領域都有（防詐開防詐頁）；不新增伺服器端點（只用現有工具路由）', async () => {
   const src = await readFile(new URL('../public/js/pages/home.js', import.meta.url), 'utf8');
-  for (const q of ['去台北 101', '會下雨嗎？', '發票', '詐騙']) assert.ok(src.includes(q), q);
+  // 交通、生活、消費依時段與情境動態（agent/suggest.js homeAsks，test/suggest.test.js 測各領域都有）；防詐固定
+  assert.match(src, /homeAsks\(ctx\)/);
+  assert.ok(src.includes('詐騙'));
   assert.match(src, /href: '#\/agent\/antifraud'/);
   const now = await readFile(new URL('../public/js/home-now.js', import.meta.url), 'utf8');
   assert.doesNotMatch(now, /fetch\(/, '經 host.callTool（/api/v1/tools/:name）');

@@ -62,6 +62,14 @@ export function buildOpenApi(svc) {
       responses: { ...paths['/api/v1/agent'].post.responses, 404: { description: '沒有這個 agent' } },
     },
   };
+  paths['/api/v1/suggest/check'] = {
+    post: {
+      tags: ['Agent'], summary: '動態「下一句」建議的驗證（候選句子阿幫查不查得到）', operationId: 'postSuggestCheck',
+      description: '手機 App 用手機上的 AI 猜使用者接下來想問的話，送來這裡用規則（與示範模式相同的 parseIntent）確認查得到才顯示。只收句子，不收情境與座標；不呼叫模型。docs/AGENT.md §5.5。',
+      requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['asks'], properties: { asks: { type: 'array', minItems: 1, maxItems: 8, items: { type: 'string', maxLength: 60 } } }, example: { asks: ['捷運現在多久一班？', '台北101附近還有 YouBike 嗎？'] } } } } },
+      responses: { 200: { description: '每句的結果：ok（查得到）、needSaved（要用到的常用地點）、ask（意圖與比對欄位）' }, 405: { description: '只接受 POST' }, ...errors },
+    },
+  };
   paths['/mcp'] = {
     post: {
       tags: ['MCP'], summary: '遠端 MCP（Streamable HTTP，stateless）',

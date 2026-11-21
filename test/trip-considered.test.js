@@ -128,7 +128,7 @@ test('決策圖資料欄 dataNodes：considered 在前（值、影響、查不�
 test('接下來可以：只有一種方式時先給換條件的建議（送出那一句）', () => {
   const single = { text: '只找到叫車一種方式', suggest: [{ label: '改從台北車站出發比較看看', ask: '從台北車站到台北101怎麼去' }] };
   const steps = nextSteps([{ tool: 'plan_trip', data: { from: { name: '你的位置' }, to: { name: '台北101' }, states: [], single } }], { states: [], single });
-  assert.deepEqual(steps[0], { label: '改從台北車站出發比較看看', kind: 'ask', payload: '從台北車站到台北101怎麼去' });
+  assert.deepEqual(steps[0], { label: '改從台北車站出發比較看看', kind: 'ask', payload: '從台北車站到台北101怎麼去', pin: true }); // pin：動態建議也排最前面（agent/suggest.js）
 });
 
 test('TDX 額度用完改用示範資料（#105 withTdxFallback）：路況那一行標示範並照實說', async () => {

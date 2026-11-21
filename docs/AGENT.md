@@ -322,6 +322,19 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - **等車推劇**（`core/agent/wait-drama.js`，程式決定、不經模型）：`execTools` 在 `bus_route_eta`／`metro_live_board` 的結果（含選公車後自動盯的上車站）之後，算在站牌還要等幾分——公車＝盯的站（`focus`，正常行駛）到站時間扣掉走過去的時間（行程用 `walkMin`；「離你最近的站」超過 100 公尺用 `walkMinutes(distanceM)`），捷運＝最快的一班。≥ 5 分、< 40 分才從熱門排行前 5 部裡有免費集數、第 1 集已上架的挑一部（`pickForWait`：依台灣日期＋這段對話第幾輪輪替，同一天同一輪重問不換），送 `aside`（句子在 `core/drama-say.js`，例：「等車還要 9 分，剛好夠看一集短劇：《…》第 1 集（前 10 集免費）。」）。一輪最多一次（`asideState`：`{ on, done, turn, pick }`，平行的工具也只推一次）；排行在這一輪一開始就並行拿（`pick`，有快取），推劇不拖慢回答；輪次用手機送的 `turn`（這段對話第幾輪，整數；訊息只送最近 10 則，沒送才退回用訊息數）；`userState.dramaHint: false`（設定頁關掉）、英文提問、防詐 agent（沒有 drama 工具包）不推；查不到劇或 1.5 秒內沒回應就這一輪不提，交通結果照常。
 - **運動建議連動**（✅ 2026-11-22 接上，ADR-0018 第 7 點）：`exerciseNudge({ weatherOk, movedLittle, link })` 回提示句與按鈕文字；連結由 `svc.drama.exerciseLink()`（`MYDRAMA_LINK_EXERCISE`，App 內活動頁）提供。健康與運動的散步建議（首頁小卡、問阿幫補句）在建議去走走時用 `exerciseNudge` 的按鈕文字顯示淡色連結「看 MyDrama 活動頁」；連結由 `/api/v1/status` 的 `partner` 帶到手機（不因為健康狀態另外問伺服器），健康資料不交給短劇服務；阿幫不代替登入或參加活動。
 
+### 5.5 動態「下一句」建議（2026-11-21，UX.md §3.2）
+
+產品負責人：輸入提示都一樣；要像 Claude 那樣用模型猜使用者下一句想問什麼，**以 App 取得到的資料為優先**。分三段，模型只提出候選，查不查得到、怎麼排由程式決定（同 ADR-0010 的精神）：
+1. **情境**（`public/js/agent/suggest.js` `suggestContext`／`contextText`，只在手機上組、不送伺服器）：時段（平日／假日、早上／白天／傍晚／深夜）、目前頁面（浮動阿幫的 `askHint`：公車頁哪條路線哪一站、天氣頁…）、最近兩輪的問題與結果摘要（「行程 西門町→台北101，建議捷運；天氣 正在下雨 18°C；AQI 58」，只取名稱與數字）、常用地點的**標籤**（家／公司／學校）、進行中的到站／下車提醒。不含座標（問題裡像座標的數字也遮掉：成對的小數 2 位以上，例「25.04,121.51」，與單獨的小數 3 位以上）、不含常用地點的地址。
+2. **產生**：App 裡手機上的 AI 可用、設定開著時，外掛 `AbangEdgeAI.suggest({ context, instructions, lang, max })` 回 3～4 句（Android Gemini Nano 每行一句、溫度 0.4、原生 1.5 秒取消；iOS Foundation Models `@Generable` 字串陣列、溫度 0.5）；指示詞 `SUGGEST_INSTRUCTIONS`（每句單獨看得懂、寫出地名路線、只問阿幫查得到的；英文那一輪用英文）。猜＋驗證總共最多等 1.5 秒（`SUGGEST_WAIT_MS`，驗證用剩下的時間，剩不到 50 毫秒就不驗證、改用規則），上一次還沒跑完、正在判斷（judge）或寫回答（write）時不叫；網址帶問題（`?q=`）或從「阿幫會看」交過來、進頁就要送出時也先不叫。外掛沒有這個方法、或 suggest 回「不可用」：**只停 suggest**（這次開 App 不再猜，改用規則），不停 judge／write——suggest 是背景任務，失敗不影響回答；原生端 suggest 的任何錯誤也都不設 Android 的 10 分鐘暫停（`suggestErrorCode`），自己逾時時記取消時間。**judge 優先**（產品負責人 2026-11-21）：使用者送出問題時 `edgeJudge` 先呼叫 `cancelSuggest`（原生端取消：Android 取消 ML Kit 的 future、iOS 取消 Task），正在等的建議結果丟掉；原生端 `judge` 進來也會先取消 suggest，Android 的 suggest 另用一條執行緒，judge 不會排在它後面；被取消回 `cancelled`，不算模型錯誤（不觸發暫停）。取消建議後 3 秒內 judge 若遇到忙碌類錯誤（Android ML Kit `ErrorCode.BUSY`／`CANCELLED`；iOS 取消中、限流、同時有請求），原生端回 `busy`、不暫停 10 分鐘，JS 也不跳斷路器（`edgeTrips`），這一題改由伺服器判斷，下一題照常在手機上。**與「回答在手機上寫」（§3.5、ADR-0017）共用外掛與斷路器**：優先順序 judge ＞ write ＞ suggest——write 開始前也先取消正在跑的 suggest（JS 與原生端都做），手機正在寫回答時不猜下一句（`edgeTasks`）；judge 或 write 回「不可用」跳同一個斷路器（`noteEdgeError`／`edgeTripped`），suggest 回不可用只停 suggest，取消後 3 秒內的忙碌錯誤 write 也回 `busy`、不暫停，該輪用程式版總結。
+3. **驗證**（一律）：句子送 `POST /api/v1/suggest/check { asks }`（**只送句子**，不送情境；最多 8 句、每句 60 字；一般 API 限流；不保存，結構化 log 只記 `{ count, ok, needSaved }` 數量、不記句子，`checkRequest`）→ `core/agent/suggest-check.js` 用示範模式同一套 `parseIntent` 解析：意圖不是 unknown／說明類、需要的欄位齊全（行程要有目的地、公車要有路線、高鐵台鐵要有站、股票不是問買賣、天氣不是後天、油價不是問漲跌；沒說的位置可以用定位補）才 `ok`；用到常用地點時回 `needSaved`，手機有設定才算。另外一律擋掉夾帶誘導內容的句子（`unsafeAsk`：網址、網域、email、@帳號、連續 6 位以上數字、電話格式、LINE／加好友／匯款／帳號／轉帳／點連結／驗證碼等字、座標），去掉意圖欄位（地名、路線、站名、股票）後剩超過 16 字的也不要（`leftoverUnits`，避免在查得到的問題後面接一串別的話）；手機上整理模型回傳時（`normalizeSuggest`）也先擋一次。回傳只有意圖與比對欄位（`core/suggest.js` `slimAsk`），不呼叫模型、不查資料。手機再丟掉跟畫面上已回答的重複的（`shownAsks`＋`sameAsk`：同起訖的行程、已顯示的天氣空品、同一條公車…）、剛問過的、頁面列已有的。
+4. **規則補**：網頁版、手機上的 AI 不可用／關掉／逾時、或驗證後不足 3 句 → `ruleAsks(ctx)`：依最近結果（行程：下雨少淋雨的走法、建議捷運就問捷運下一班、建議公車就問那條公車、回程或回家、目的地附近 YouBike；公車：附近還有哪些公車、上車後提醒我下車）、頁面、時段、常用地點、進行中提醒，加上原本 `next-steps.js` 的問句。每一句規則都在 `test/suggest.test.js` 用 `parseIntent` 逐句驗證查得到、規則標的意圖與解析結果一致。
+5. **排序**（`scoreAsk`，程式計分）：提到情境裡的地名路線 +3、規則標的相關度（從這一輪結果推的 +2～3）、跟結果一起出現的意圖 +1、頁面相符 +2、時段相符 +1、有即時資料（行程、公車、捷運、YouBike、附近站牌、高鐵台鐵、天氣、空品、出門建議）+1；同分照模型或規則原本的順序。手機上的 AI 有 3 句以上就用它的（彼此排序），不足才把規則接在後面。
+
+短劇（§5.4）：找短劇（`drama`）也算查得到（`dramaQuery`／`dramaList` 一起比對；已顯示的排行或同一個類型不重複）；等車時建議「等車無聊，推薦一部短劇」、傍晚與深夜建議「最近有什麼好看的短劇？」。
+
+成本：伺服器不呼叫模型（驗證是規則），手機上的模型每次換情境才叫一次（同一個情境不重問）。防詐阿幫維持固定建議與「接下來可以」。
+
 ## 6. 成本與濫用防護
 
 | 項目 | 環境變數 | 預設 |
@@ -336,7 +349,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 ## 7. 隱私
 
-健康資料（步數、運動時間、「動得少」）不進請求：不在 `userState`、`deviceJudge`、`context`、`messages` 裡，散步建議在手機上補（§5.2.16、ADR-0018）。不儲存對話；log 只記事件類型、tool、耗時、token；回答在手機上寫的那一輪（§3.5）問題不送任何模型伺服器，只送本站伺服器查資料；座標不寫 log（統計時捨去至小數 2 位）；問阿幫頁依 `status.mode` 說明對話送到哪裡：Claude 模式「對話會送 Anthropic 處理」、地端模式「只送到本站設定的模型伺服器」、示範模式「不經 AI 模型」。
+健康資料（步數、運動時間、「動得少」）不進請求：不在 `userState`、`deviceJudge`、`context`、`messages` 裡，散步建議在手機上補（§5.2.16、ADR-0018）。不儲存對話；動態建議的情境只在手機上（§5.5，驗證端點只收句子、不記內容）；log 只記事件類型、tool、耗時、token；回答在手機上寫的那一輪（§3.5）問題不送任何模型伺服器，只送本站伺服器查資料；座標不寫 log（統計時捨去至小數 2 位）；問阿幫頁依 `status.mode` 說明對話送到哪裡：Claude 模式「對話會送 Anthropic 處理」、地端模式「只送到本站設定的模型伺服器」、示範模式「不經 AI 模型」。
 
 ## 8. 驗收
 

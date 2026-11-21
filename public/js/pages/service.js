@@ -84,7 +84,7 @@ const ASK = {
 
 export default {
   title: '生活服務',
-  askHint: ({ params: [id] }) => (ASK[id] ? { context: `使用者正在看「${SERVICES[id]?.title || id}」頁`, chips: ASK[id] } : null),
+  askHint: ({ params: [id] }) => (ASK[id] ? { kind: id, context: `使用者正在看「${SERVICES[id]?.title || id}」頁`, chips: ASK[id] } : null),
   hero: ({ params: [id] }) => id, // 頁首（page-hero.js）
   async render({ main, params: [id], setTitle, setAction, onCleanup, toast }) {
     const cfg = SERVICES[id];
