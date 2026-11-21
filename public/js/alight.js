@@ -45,6 +45,10 @@ export function alightDue(w, stops, now = Date.now()) {
   const di = indexOf(stops, w.destSeq, w.dest);
   const d = stops[di];
   if (w.plate && ok(d) && d.plate === w.plate) return { due: d.etaSec <= ALIGHT_SEC, etaSec: d.etaSec, by: 'plate' };
+  if (now < w.boardAt) { // 還沒上車（車正要進上車站）：上車站之後第一台是前一班，不能當我這台；照設定時的估計
+    const left = w.rideSec + (w.boardAt - now) / 1000;
+    return { due: left <= ALIGHT_SEC, etaSec: Math.round(left), by: left <= ALIGHT_SEC ? 'time' : null };
+  }
   const pos = busToDest(stops, bi, di);
   if (pos.where === 'ahead') { w.seen = true; return { due: pos.etaSec <= ALIGHT_SEC, etaSec: pos.etaSec, by: 'bus' }; }
   if (pos.where === 'passed' && w.seen) return { due: true, etaSec: 0, by: 'passed' }; // 看過在路上、現在已經過了目的站：馬上提醒
@@ -151,8 +155,23 @@ export async function watchAlight(w, callTool) {
   return Boolean(state.w);
 }
 
+/**
+ * 到下車站還要幾秒（行程中模式）：最近一次查到的時間扣掉經過的時間；還沒查到用設定時的估計。
+ * @returns {number|null}
+ */
+export function rideLeftSec(w, now = Date.now()) {
+  if (!w) return null;
+  if (w.last?.etaSec != null) return Math.max(0, Math.round(w.last.etaSec - (now - w.last.at) / 1000));
+  if (Number.isFinite(w.rideSec)) return Math.max(0, Math.round(w.rideSec - Math.max(0, now - w.boardAt) / 1000 + Math.max(0, w.boardAt - now) / 1000));
+  return null;
+}
+/** 「約 6 分到「市府」」／「快到「市府」了」 */
+export const rideLeftText = (w, now = Date.now()) => { const s = rideLeftSec(w, now); return s == null ? `往「${w.dest}」` : s < 60 ? `快到「${w.dest}」了` : `約 ${Math.round(s / 60)} 分到「${w.dest}」`; };
+
 /** 目前的下車提醒（沒有回 null） */
 export const alightWatch = () => state.w;
+/** 還沒上車（車正要進上車站，設定時已算好上車時間） */
+export const notBoarded = (w, now = Date.now()) => !!w && now < w.boardAt;
 
 /** App 被關掉再打開：通知已經響過或逾時就清掉；否則恢復 */
 export function resumeAlight(callTool, now = Date.now()) {

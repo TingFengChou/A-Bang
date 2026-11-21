@@ -9,10 +9,10 @@ const short = (s) => String(s || '').replace(/（.*?）|\(.*?\)/g, '').trim();
 /**
  * @param {Array<{ tool: string, card?: string|null, data: any, args?: object }>} results 這一輪成功的工具結果（依出現順序）
  * @param {{ states?: Array<{ key: string, on?: boolean }> } | null} decision 這一輪的 decision 事件（有行程時）
- * @param {{ watching?: { routeName: string, stop: string } | null, lang?: 'en' }} [ctx] 目前的到站提醒（已設定就不再建議）；lang：英文那一輪（S12c）
+ * @param {{ watching?: { routeName: string, stop: string } | null, riding?: object | null, lang?: 'en' }} [ctx] 目前的到站提醒（已設定就不再建議）；riding：進行中的下車提醒（已設定就不再建議「上車後提醒我下車」）；lang：英文那一輪（S12c）
  * @returns {Array<{ label: string, kind: 'ask'|'remind'|'navigate'|'state', payload?: any }>} 最多 4 個
  */
-export function nextSteps(results, decision, { watching = null, lang = null } = {}) {
+export function nextSteps(results, decision, { watching = null, riding = null, lang = null } = {}) {
   const en = lang === 'en';
   const out = [];
   const add = (s) => { if (s && !out.some((x) => x.label === s.label)) out.push(s); };
@@ -23,7 +23,10 @@ export function nextSteps(results, decision, { watching = null, lang = null } = 
   if (f) {
     const on = watching && watching.routeName === bus.data.routeName && watching.stop === f.stopName;
     if (!on && f.status === 0 && f.etaSec != null) add({ label: en ? 'Remind me 3 min before' : '到站前 3 分提醒我', kind: 'remind', payload: { city: bus.data.city, routeName: bus.data.routeName, stop: f.stopName, direction: f.direction, minutes: 3, ...(en && { lang: 'en' }) } });
-    add({ label: en ? 'Open bus page' : '開公車頁看動態', kind: 'navigate', payload: `#/bus/${encodeURIComponent(bus.data.city)}/${encodeURIComponent(bus.data.routeName)}?stop=${encodeURIComponent(f.stopName)}&dir=${f.direction}` });
+    const page = `#/bus/${encodeURIComponent(bus.data.city)}/${encodeURIComponent(bus.data.routeName)}?stop=${encodeURIComponent(f.stopName)}&dir=${f.direction}`;
+    // 行程中模式：有車要來、還沒設下車提醒 →「上車後提醒我下車」（同樣開公車頁、焦點在選下車站）；否則開公車頁看動態
+    if (f.status === 0 && !riding) add({ label: en ? 'Remind me to get off' : '上車後提醒我下車', kind: 'navigate', payload: `${page}&alight=1` });
+    else add({ label: en ? 'Open bus page' : '開公車頁看動態', kind: 'navigate', payload: page });
   } else if (bus) {
     add({ label: en ? 'Open bus page' : '開公車頁看動態', kind: 'navigate', payload: `#/bus/${encodeURIComponent(bus.data.city)}/${encodeURIComponent(bus.data.routeName)}` });
   }

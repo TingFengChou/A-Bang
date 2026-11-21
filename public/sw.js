@@ -1,5 +1,5 @@
 // Service Worker：App shell 預先快取（離線可開啟），API 一律走網路（即時資料不快取）
-const VERSION = 'v0.8.4';
+const VERSION = 'v0.8.5';
 const SHELL = [
   '/', '/index.html', '/css/app.css', '/manifest.webmanifest', '/icons/icon.svg', '/brand/abang-default.svg', '/brand/abang-think.svg', '/brand/abang-happy.svg',
   '/js/app.js', '/js/api.js', '/js/ui.js', '/js/icons.js', '/js/registry.js',
@@ -8,7 +8,7 @@ const SHELL = [
   '/ui/cards/cards.css', '/ui/cards/index.js', '/ui/cards/dom.js', '/ui/cards/actions.js', '/ui/cards/countdown.js', '/ui/cards/host-web.js', '/ui/cards/i18n/zh-TW.js', '/ui/cards/i18n/en.js', '/ui/cards/i18n/index.js',
   '/ui/cards/cards/bus-route.js', '/ui/cards/cards/bus-station.js', '/ui/cards/cards/nearby.js', '/ui/cards/cards/youbike.js',
   '/ui/cards/cards/metro.js', '/ui/cards/cards/timetable.js', '/ui/cards/cards/trip.js', '/ui/cards/cards/scam-risk.js',
-  '/ui/cards/cards/weather.js', '/ui/cards/cards/aqi.js', '/ui/cards/cards/quake.js', '/ui/cards/cards/pharmacy.js', '/ui/cards/cards/garbage.js', '/ui/cards/cards/fuel.js', '/ui/cards/cards/invoice.js', '/ui/cards/cards/stock.js', '/ui/cards/cards/outing.js', '/ui/cards/mode-icons.js', '/ui/cards/motion.js', '/ui/cards/confetti.js', '/ui/cards/slide.js', '/ui/cards/gauge.js', '/ui/cards/bus-scene.js', '/img/scene/street.webp', '/img/scene/bus.webp', '/vendor/gsap.min.js', '/vendor/MotionPathPlugin.min.js', '/vendor/Flip.min.js', '/js/pages/service.js', '/js/invoice-wallet.js', '/js/invoice-qr.js', '/js/agent/next-steps.js', '/js/base.js', '/js/native-notify.js', '/js/edge-judge.js', '/js/keyboard.js', '/js/pages/settings.js', '/js/saved-places.js', '/js/onboarding.js', '/js/reminders.js', '/js/alight.js', '/js/location-help.js',
+  '/ui/cards/cards/weather.js', '/ui/cards/cards/aqi.js', '/ui/cards/cards/quake.js', '/ui/cards/cards/pharmacy.js', '/ui/cards/cards/garbage.js', '/ui/cards/cards/fuel.js', '/ui/cards/cards/invoice.js', '/ui/cards/cards/stock.js', '/ui/cards/cards/outing.js', '/ui/cards/mode-icons.js', '/ui/cards/motion.js', '/ui/cards/confetti.js', '/ui/cards/slide.js', '/ui/cards/gauge.js', '/ui/cards/bus-scene.js', '/img/scene/street.webp', '/img/scene/bus.webp', '/vendor/gsap.min.js', '/vendor/MotionPathPlugin.min.js', '/vendor/Flip.min.js', '/js/pages/service.js', '/js/invoice-wallet.js', '/js/invoice-qr.js', '/js/agent/next-steps.js', '/js/base.js', '/js/native-notify.js', '/js/edge-judge.js', '/js/keyboard.js', '/js/pages/settings.js', '/js/saved-places.js', '/js/onboarding.js', '/js/reminders.js', '/js/alight.js', '/js/location-help.js', '/js/trip-bar.js',
 ];
 
 self.addEventListener('install', (e) => {

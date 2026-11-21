@@ -22,6 +22,8 @@ const store = {
   load: () => { try { return JSON.parse(localStorage.getItem(STORE) || 'null'); } catch { return null; } },
 };
 let resumed = false;
+/** 目前的到站提醒（不用建 host；進行中列用） */
+export const currentArrivalWatch = () => watch.w;
 const signal = (type, detail) => { try { window.dispatchEvent(new CustomEvent(type, { detail })); } catch { /* 非瀏覽器 */ } };
 function stopWatch({ cancel = true } = {}) {
   clearInterval(watch.poll); clearTimeout(watch.fire);
