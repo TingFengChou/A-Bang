@@ -200,7 +200,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | | |
 |---|---|
 | 輸入 | `query: string`（1–50 字）、`city?: City` |
-| 輸出 | `[{ name, lat, lon, city, source: 'landmark'\|'station'\|'geocode', kind, nav }]`（≤ 5，最符合的在前） |
+| 輸出 | `[{ name, lat, lon, city, cityName, source: 'landmark'\|'station'\|'geocode', kind, nav }]`（`cityName` 中文縣市名）（≤ 5，最符合的在前） |
 | 資料 | 內建地標 `core/data/landmarks.json`（201 筆；車站類 `kind=station` 回 `source: 'station'`）；地理編碼（TDX 或 TGOS）⚠️ 待 M1 驗證，尚未串接 |
 | 比對 | `normPlace()`：臺→台、去空白與括號、英文小寫，**不去「站」**（「西門站」≠「西門」）。分數：名稱或別名完全相同 3 → 以查詢開頭 2 → 互相包含 1（「我要去逢甲夜市」也能找到）；同分車站優先，再取名稱短的 |
 | 錯誤 | 空白查詢、無法辨識的 `city` → `UserError`；找不到回空陣列 |

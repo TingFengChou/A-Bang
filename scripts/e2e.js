@@ -1076,6 +1076,15 @@ test('設定與隱私：首頁進入、狀態、隱私權政策', async () => {
     // 常用地點：把現在位置設成「家」，問阿幫說「回家」就規劃到家（座標只在提到時送出）
     await page.locator('.saved-row', { hasText: '家' }).first().locator('button').first().click();
     await page.waitForFunction(() => /已設定/.test(document.querySelector('.saved-row').textContent));
+    // S1b：不在那裡也能設：「輸入地點」打地名、選結果，列上顯示設成哪裡
+    const work = page.locator('.saved-row', { hasText: '公司' }).first();
+    await work.getByRole('button', { name: '輸入地點設成「公司」' }).click();
+    await work.locator('.saved-find input').fill('板橋車站');
+    await work.locator('.saved-find input').press('Enter');
+    await work.getByRole('listitem').getByRole('button', { name: /設成 板橋車站（新北市）/ }).click();
+    await page.waitForFunction(() => /已設定：板橋車站/.test([...document.querySelectorAll('.saved-row')].find((r) => r.textContent.includes('公司')).textContent));
+    assert.equal(await work.locator('.saved-find').isHidden(), true, '選好就收起來');
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('abang.places')).公司.name), '板橋車站');
     await shot(page, 'phone-settings');
     await page.click('a[href="#/privacy"]');
     await page.waitForSelector('.privacy h2');

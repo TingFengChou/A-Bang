@@ -77,6 +77,7 @@ test('find_place tool：附 nav、speak、找不到的文字', async () => {
   const r = await callTool(svc, 'find_place', { query: '逢甲夜市' });
   assert.equal(r.data[0].name, '逢甲夜市');
   assert.ok(r.data[0].nav.google.includes('maps/dir'));
+  assert.equal(r.data[0].cityName, '臺中市', '中文縣市名：同名地點分得出來（設定頁輸入地點）');
   assert.match(r.speak, /最符合的是逢甲夜市（臺中市）/);
   assert.match(r.text, /lat=24\.\d+, lon=120\.\d+/);
   const none = await callTool(svc, 'find_place', { query: '不存在的地方xyz' });
