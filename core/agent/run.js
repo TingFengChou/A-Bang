@@ -286,10 +286,11 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   }
   if (used.length) emit(ev.discussionEnd({ tools: [...new Set(used)] }));
   // 手機寫回答的那一輪聽不懂（ADR-0017：不退回伺服器模型）：問一句給幾個查得到的選項，回答只留一句短的
-  const lost = edgeWrite && it.intent === 'unknown' && !it.thanks && !it.sorry && !it.reset;
-  if (lost) emit(ev.ask({ id: `ask-${nextId()}`, ...unknownAsk(it.lang) }));
+  const lost = edgeWrite && it.intent === 'unknown' && !it.thanks && !it.sorry && !it.reset && !ask.done;
+  if (lost) { ask.done = true; emit(ev.ask({ id: `ask-${nextId()}`, ...unknownAsk(it.lang) })); } // 一輪最多一個問題
   const summary = lost ? UNKNOWN_SHORT[it.lang === 'en' ? 'en' : 'zh'] : guardedText(profile, plan.summary(it, results, profile.suggestions), emit);
-  if (edgeWrite) { // 手機改寫；程式版總結與事實清單都只來自這一輪的資料（不含座標）
+  // 畫面靠固定字串放按鈕的回答（還沒設定常用地點：「設定與隱私 → 常用地點」）不交給手機改寫
+  if (edgeWrite && it.intent !== 'savedMissing') { // 手機改寫；程式版總結與事實清單都只來自這一輪的資料（不含座標）
     const lang = it.lang === 'en' ? 'en' : 'zh';
     emit(ev.answerDraft({ text: summary, facts: answerFacts(it, results, { lang }), lang }));
   } else emit(ev.text(summary));

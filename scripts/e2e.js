@@ -2146,13 +2146,19 @@ test('回答在手機上寫：思考動畫出現「在手機上寫回答」→ �
     assert.match(await page.textContent('.agent-mode'), /回答在手機上寫/);
     await page.locator('.bubble.final').scrollIntoViewIfNeeded();
     await page.screenshot({ path: new URL('phone-edge-write.png', SHOTS).pathname });
-    // 阿幫的腦袋：「寫回答」那一格記下今天寫了 1 次、通過 1／1
+    // 接著問：送伺服器的前文是程式版總結（規則路徑讀得懂「剛剛那班」），畫面上是改寫
+    await page.fill('.chat-form input', '剛剛那班還要等多久');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length >= 2, null, { timeout: 20000 });
+    const prior = bodies.at(-1).messages.find((m) => m.role === 'assistant');
+    assert.equal(prior.content, w[0].draft);
+    // 阿幫的腦袋：「寫回答」那一格記下今天寫了 2 次、通過 2／2
     await page.goto(`${base}/#/ai`);
     await page.waitForFunction(() => /今天在手機上寫了幾次/.test(document.querySelector('#ai-write')?.textContent || ''));
     const card = await page.textContent('#ai-write');
     assert.match(card, /Gemini Nano/);
-    assert.match(card, /1 次（只記在這支手機）/);
-    assert.match(card, /1／1 次（100%）/);
+    assert.match(card, /[12] 次（只記在這支手機）/); // 第二題的程式版太長時不改寫（不算）
+    assert.match(card, /([12])／\1 次（100%）/);
   }, { init: THINK_RECORDER + FAKE_EDGE_WRITE('ok'), motion: true, ignore: /not in test/ });
 });
 
@@ -2165,6 +2171,7 @@ test('回答在手機上寫：數字被改 → 顯示程式版並標示；截圖
     assert.equal(await page.textContent('.bubble.final .say'), w[0].draft, '用程式版總結');
     assert.equal(await page.textContent('.device-line'), '手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（沒通過檢查）。');
     assert.equal(await page.getAttribute('.turn', 'data-writer'), 'program');
+    assert.match(await page.textContent('.agent-mode'), /^這次的回答用阿幫的固定說法/, '頁底照實說：沒用上手機寫的');
     await page.locator('.bubble.final').scrollIntoViewIfNeeded();
     await page.screenshot({ path: new URL('phone-edge-write-fallback.png', SHOTS).pathname });
   }, { init: FAKE_EDGE_WRITE('bad'), ignore: /not in test/ });

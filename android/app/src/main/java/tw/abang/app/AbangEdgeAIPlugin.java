@@ -43,6 +43,8 @@ public class AbangEdgeAIPlugin extends Plugin {
     private static final long JUDGE_TIMEOUT_MS = 1500;
     /** 寫回答最多跑這麼久（ADR-0017；JS 等 2.5 秒，逾時就用程式版總結） */
     private static final long WRITE_TIMEOUT_MS = 2300;
+    /** 寫回答的輸入上限（指示＋草稿與事實，字數）：超過就拒絕，不送進模型 */
+    private static final int WRITE_MAX_INPUT = 4000;
     private GenerativeModelFutures model;
     private volatile boolean downloading = false;
     /** 確認可用之後就不必每題再問系統 */
@@ -205,11 +207,14 @@ public class AbangEdgeAIPlugin extends Plugin {
         if (prompt == null || prompt.isEmpty()) { call.reject("沒有草稿"); return; }
         if (!osOk()) { call.reject("unavailable: os-too-old"); return; }
         String instructions = call.getString("instructions", "");
+        if (instructions == null) instructions = "";
+        if (prompt.length() + instructions.length() > WRITE_MAX_INPUT) { call.reject("too long"); return; } // 與 core/edge-write.js WRITE_MAX_INPUT 相同
+        final String input = instructions + "\n\n" + prompt;
         exec.execute(() -> {
             long t0 = System.currentTimeMillis();
             try {
                 if (System.currentTimeMillis() < pausedUntil || featureStatus() != FeatureStatus.AVAILABLE) { call.reject("unavailable"); return; }
-                GenerateContentRequest.Builder b = new GenerateContentRequest.Builder(new TextPart(instructions + "\n\n" + prompt));
+                GenerateContentRequest.Builder b = new GenerateContentRequest.Builder(new TextPart(input));
                 b.setTemperature(0.2f);
                 b.setTopK(3);
                 b.setMaxOutputTokens(160);

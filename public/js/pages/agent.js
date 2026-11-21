@@ -5,7 +5,7 @@ import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
 import { runAgent, browserLocation, locationGranted } from '../agent/client.js';
 import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-help.js';
 import { edgeJudge, edgePrewarm } from '../edge-judge.js';
-import { edgeWrite, edgeWriteCaps, writeLine } from '../edge-write.js';
+import { edgeWrite, edgeWriteCaps, writeLine, writeModeText } from '../edge-write.js';
 import { noteAgentStatus } from '../ai-info.js';
 import { mountThinking, deviceLine } from '../agent/thinking.js';
 import { mountVoiceUI } from '../agent/voice-ui.js';
@@ -329,7 +329,7 @@ export default {
         }, { agentId });
         await view.flush();
         if (myGen !== gen) return; // 回答途中按了清除本機資料：不寫回、不存
-        if (view.text) history.push({ role: 'assistant', content: view.text.slice(0, 500) });
+        if (view.text) history.push({ role: 'assistant', content: (view.draft ?? view.text).slice(0, 500) }); // 手機改寫的那一輪：前文用程式版（規則路徑讀得到「剛剛那班」「沒拿到你的位置」），畫面顯示改寫
         if (agentId === 'life') saveChat(history); // 只存文字（chat-store.js）
         showNext(view);
       } catch {
@@ -521,6 +521,8 @@ export default {
           case 'answer_draft': { // 回答交給手機寫（ADR-0017）：改寫、程式護欄檢查；不過或逾時用程式版，回答上方照實說是誰寫的
             const r = await edgeWrite(e, { engine: view.writeEngine, agent: agentId });
             view.writeLine = writeLine(r, turnLang, { judged: view.judge?.source === 'device', judgeEngine: view.judge?.engine }); // 手機判斷與寫回答合成一行
+            view.draft = e.text;
+            modeLine.textContent = writeModeText(r);
             turn.dataset.writer = r.by;
             await handle({ type: 'text', delta: r.text });
             break;

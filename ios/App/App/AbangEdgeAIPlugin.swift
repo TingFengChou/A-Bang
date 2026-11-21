@@ -80,6 +80,8 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func write(_ call: CAPPluginCall) {
         guard let prompt = call.getString("prompt"), !prompt.isEmpty else { call.reject("沒有草稿"); return }
         let instructions = call.getString("instructions") ?? ""
+        // 輸入上限（指示＋草稿與事實，字數；與 core/edge-write.js WRITE_MAX_INPUT 相同）：超過就拒絕，不送進模型
+        guard prompt.count + instructions.count <= 4000 else { call.reject("too long"); return }
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
             let s = AppleJudge.status()

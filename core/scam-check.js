@@ -4,7 +4,8 @@ import RULES from './data/scam-rules.json' with { type: 'json' };
 
 export const RULES_VERSION = RULES.version;
 export const RULES_REVIEWED = RULES.reviewedBy !== '待審核';
-export const CALL_165 = '有疑問請撥打 165 反詐騙諮詢專線（免付費）查證。';
+import { CALL_165 } from './output-guards.js'; // 固定句只定義一次（輸出護欄也用）
+export { CALL_165 };
 export const NOT_SAFE_NOTE = '沒有發現已知的詐騙特徵，但不代表一定安全。';
 
 const COMPILED = RULES.rules.map((r) => ({ ...r, re: r.patterns.map((p) => new RegExp(p, 'i')), exceptRe: (r.except || []).map((p) => new RegExp(p, 'i')) }));
