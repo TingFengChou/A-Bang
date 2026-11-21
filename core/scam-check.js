@@ -7,7 +7,26 @@ export const RULES_REVIEWED = RULES.reviewedBy !== '待審核';
 export const CALL_165 = '有疑問請撥打 165 反詐騙諮詢專線（免付費）查證。';
 export const NOT_SAFE_NOTE = '沒有發現已知的詐騙特徵，但不代表一定安全。';
 
-const COMPILED = RULES.rules.map((r) => ({ ...r, re: r.patterns.map((p) => new RegExp(p, 'i')) }));
+const COMPILED = RULES.rules.map((r) => ({ ...r, re: r.patterns.map((p) => new RegExp(p, 'i')), exceptRe: (r.except || []).map((p) => new RegExp(p, 'i')) }));
+/** 同一條規則命中多個不重疊的特徵時，最多再加幾次 stack 權重（AGENT_ANTIFRAUD.md §4） */
+export const MAX_STACK = 2;
+/** 宣導、新聞語境不疊加（「新聞：檢察官起訴涉嫌洗錢」不是對你說的話術） */
+const STACK_OFF = new RegExp(RULES.stackOff || '(?!)');
+/** except 只排除短的、沒有其他請求的正常通知（「驗證碼是 123456，請勿告訴任何人，你告訴我一下」不排除） */
+const EXCEPT_OFF = new RegExp(RULES.exceptOff || '(?!)');
+const EXCEPT_MAX = RULES.exceptMaxLength || 80;
+
+/** 不重疊的命中片段數（「穩賺」「穩賺不賠」同一處只算一次） */
+function distinctHits(spans) {
+  let n = 0;
+  let end = -1;
+  for (const sp of [...spans].sort((a, b) => a.i - b.i || b.len - a.len)) {
+    if (sp.i < end) continue;
+    n++;
+    end = sp.i + sp.len;
+  }
+  return n;
+}
 
 /** 從文字找出網址與網域（含沒有 http 的 xxx.com/abc）；最多 10 個 */
 export function extractUrls(text) {
@@ -24,19 +43,28 @@ export function extractUrls(text) {
   return out;
 }
 
-/** 規則比對：每條規則最多算一次，附上命中的原文片段（前後各 8 字） */
+/**
+ * 規則比對：每條規則一筆結果，附上第一個命中的原文片段（前後各 8 字）。
+ * 規則有 stack 時，另外命中的不重疊特徵每個再加 stack 權重（最多 MAX_STACK 個；例：假檢警同時說「涉嫌洗錢」「轉接檢察官」）；宣導、新聞語境（stackOff）不疊加。
+ * 規則有 except 且符合時整條不算（例：「驗證碼是 123456，請勿告訴任何人」是正常的驗證碼通知）；內容太長或另有請求（exceptOff）時不排除。
+ */
 export function matchRules(text) {
   const s = String(text ?? '');
   const findings = [];
+  const canExcept = s.length <= EXCEPT_MAX && !EXCEPT_OFF.test(s);
+  const canStack = !STACK_OFF.test(s);
   for (const r of COMPILED) {
+    if (canExcept && r.exceptRe.some((re) => re.test(s))) continue;
+    const spans = [];
     for (const re of r.re) {
       const m = s.match(re);
-      if (!m) continue;
-      const i = m.index ?? 0;
-      const excerpt = `${i > 8 ? '…' : ''}${s.slice(Math.max(0, i - 8), i + m[0].length + 8).replace(/\s+/g, ' ')}${i + m[0].length + 8 < s.length ? '…' : ''}`;
-      findings.push({ id: r.id, category: r.category, label: r.label, weight: r.weight, match: m[0], excerpt, advice: r.advice });
-      break;
+      if (m) spans.push({ i: m.index ?? 0, len: m[0].length, m: m[0] });
     }
+    if (!spans.length) continue;
+    const { i, m } = spans[0];
+    const excerpt = `${i > 8 ? '…' : ''}${s.slice(Math.max(0, i - 8), i + m.length + 8).replace(/\s+/g, ' ')}${i + m.length + 8 < s.length ? '…' : ''}`;
+    const extra = r.stack && canStack ? Math.min(distinctHits(spans) - 1, MAX_STACK) * r.stack : 0;
+    findings.push({ id: r.id, category: r.category, label: r.label, weight: r.weight + extra, match: m, excerpt, advice: r.advice });
   }
   return findings.sort((a, b) => b.weight - a.weight);
 }

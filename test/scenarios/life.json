@@ -2535,6 +2535,371 @@
           }
         }
       ]
+    },
+    {
+      "id": "P5-1",
+      "title": "中途更正地點：「不對，我是說從板橋出發」改起點；「欸不是啦，我是要去松山機場」改目的地、起點保留板橋（不是退回看不懂、也不是回到現在位置）",
+      "turns": [
+        {
+          "say": "從西門町去台北101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "西門町",
+            "to": "台北101"
+          }
+        },
+        {
+          "say": "不對，我是說從板橋出發",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "板橋",
+            "to": "台北101"
+          }
+        },
+        {
+          "say": "欸不是啦，我是要去松山機場",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "板橋",
+            "to": "松山機場",
+            "textNot": [
+              "我可以幫你查"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "P5-2",
+      "title": "中途更正方式與時間：「不要公車，坐捷運」改捷運；「改成明天早上8點出發」沿用起訖與捷運、出發時間改明天 08:00，總結要說明天",
+      "turns": [
+        {
+          "say": "從西門町坐公車去台北101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "bestRole": "bus"
+          }
+        },
+        {
+          "say": "不要公車，坐捷運",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "西門町",
+            "to": "台北101",
+            "bestRole": "metro"
+          }
+        },
+        {
+          "say": "改成明天早上8點出發",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "西門町",
+            "to": "台北101",
+            "bestRole": "metro",
+            "textHas": [
+              "明天"
+            ],
+            "textNot": [
+              "我可以幫你查"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "P5-3",
+      "title": "台語：「今仔日足熱，敢會落雨」查天氣；「307 啥物時陣會來」查公車；「歹勢，欲去火車頭按怎坐」火車頭＝火車站的行程",
+      "turns": [
+        {
+          "say": "今仔日足熱，敢會落雨",
+          "expect": {
+            "tools": [
+              "weather_now"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "textNot": [
+              "我可以幫你查"
+            ]
+          }
+        },
+        {
+          "say": "307 啥物時陣會來",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "textHas": [
+              "307"
+            ]
+          }
+        },
+        {
+          "say": "歹勢，欲去火車頭按怎坐",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "車站",
+            "textNot": [
+              "我可以幫你查"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "P5-4",
+      "title": "華語口語也漏接：「去火車站怎麼坐」（最近的火車站）、「今天會很熱嗎」（天氣）、「307 幾點來」（公車）",
+      "turns": [
+        {
+          "say": "去火車站怎麼坐",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "車站",
+            "textNot": [
+              "我可以幫你查"
+            ]
+          }
+        },
+        {
+          "say": "今天會很熱嗎",
+          "expect": {
+            "tools": [
+              "weather_now"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "textNot": [
+              "我可以幫你查"
+            ]
+          }
+        },
+        {
+          "say": "307 幾點來",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "textHas": [
+              "307"
+            ],
+            "textNot": [
+              "我可以幫你查"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "P5-5",
+      "title": "錯字：「台北車戰到西門町」（句尾沒有怎麼坐也是行程）、「改去松山機常」是松山機場不是松山車站、「捷運西門站下一般」",
+      "turns": [
+        {
+          "say": "台北車戰到西門町",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "台北車站",
+            "to": "西門町",
+            "textNot": [
+              "我可以幫你查"
+            ]
+          }
+        },
+        {
+          "say": "改去松山機常",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "台北車站",
+            "to": "松山機場"
+          }
+        },
+        {
+          "say": "捷運西門站下一般",
+          "expect": {
+            "tools": [
+              "metro_live_board"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "textHas": [
+              "西門"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "P5-6",
+      "title": "觀光客英文：去九份後「Is it raining there?」查九份（不是現在位置）；「Will it rain at Taroko tomorrow?」查太魯閣明天",
+      "turns": [
+        {
+          "say": "How do I get to Jiufen?",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "九份"
+          }
+        },
+        {
+          "say": "Is it raining there?",
+          "expect": {
+            "tools": [
+              "weather_now"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "textHas": [
+              "Jiufen"
+            ],
+            "textNot": [
+              "where you are"
+            ]
+          }
+        },
+        {
+          "say": "Will it rain at Taroko tomorrow?",
+          "expect": {
+            "tools": [
+              "weather_tomorrow"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "textHas": [
+              "Taroko"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "P5-7",
+      "title": "觀光客英文 YouBike：景點附近的 YouBike（淡水漁人碼頭、駁二）要查那裡，不是說只能查交通；接著從高雄車站去墾丁",
+      "turns": [
+        {
+          "say": "Any YouBike near Tamsui Fisherman's Wharf?",
+          "expect": {
+            "tools": [
+              "youbike_nearby"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "resultHas": [
+              "淡水漁人碼頭"
+            ],
+            "textNot": [
+              "Sorry"
+            ]
+          }
+        },
+        {
+          "say": "Is there YouBike near Pier-2?",
+          "expect": {
+            "tools": [
+              "youbike_nearby"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "resultHas": [
+              "駁二"
+            ],
+            "textNot": [
+              "Sorry"
+            ]
+          }
+        },
+        {
+          "say": "How do I get to Kenting from Kaohsiung Main Station?",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "高雄車站",
+            "to": "墾丁"
+          }
+        }
+      ]
+    },
+    {
+      "id": "P5-8",
+      "title": "奇怪輸入：只有標點不查工具；一長段抱怨裡夾一句「等一下會不會下雨」只查天氣；一句問三件事三件都查；「謝謝阿幫」回禮貌話，不是功能清單",
+      "turns": [
+        {
+          "say": "  ？？？ ",
+          "expect": {
+            "toolsNone": true,
+            "textHas": [
+              "試試看"
+            ]
+          }
+        },
+        {
+          "say": "今天真的好累喔，早上被老闆罵，中午便當又很難吃，下午開會開到快睡著，想說晚上去吃個好吃的犒賞自己，結果朋友又放我鴿子，算了，我想問一下等一下會不會下雨，然後就這樣",
+          "expect": {
+            "tools": [
+              "weather_now"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ]
+          }
+        },
+        {
+          "say": "307還要多久、會不會下雨、油價多少",
+          "expect": {
+            "tools": [
+              "bus_route_eta",
+              "weather_now",
+              "fuel_price"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "textHas": [
+              "307",
+              "92"
+            ]
+          }
+        },
+        {
+          "say": "謝謝阿幫",
+          "expect": {
+            "toolsNone": true,
+            "textNot": [
+              "我可以幫你查"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

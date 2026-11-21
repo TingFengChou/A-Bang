@@ -28,6 +28,13 @@ const HEALTH = /(?:要|該|可以|能)吃(?:什麼|哪種|哪一種|啥)藥|吃.
 // 個資（打了身分證字號、卡號、密碼）：不需要、不記，提醒不要輸入（P4-10）；只說「身分證被冒用」照常（防詐）
 const PRIVATE = /(?<![A-Za-z0-9])[A-Za-z][12]\d{8}(?!\d)|(?:卡號|信用卡).{0,4}(?:是|：|:)?\s*\d{4}(?:[-\s]?\d{4}){3}|(?:我的)?密碼(?:是|：|:)\s*(?!什麼|啥|多少|幾)\S/; // 真的打了號碼（貼上的詐騙簡訊常有「驗證碼：123456」，不算）
 
+// 防詐 agent：使用者貼上的「我出車禍了，對方要和解金，先匯 5 萬給我」是冒充親友的話術，不是本人正在求救（P5-9）。
+// 只有「出事（車禍、被抓）＋要你把錢給他（和解金、保釋金、匯給我、借我）」且句中沒有本人症狀或受傷字眼時，緊急規則不攔；
+// 有症狀（痛、喘、暈、流血、呼吸、受傷…）一律照給 119，急症規則（胸痛、喘不過氣）不受影響；自傷一律先給 1925。
+const RELATIVE_MONEY = /和解金|保釋金|賠償金|交保|(匯|轉|給)(錢)?.{0,8}給我|借我.{0,6}(錢|萬|千)|先匯.{0,6}給我/;
+const RELATIVE_TROUBLE = /車禍|被撞|撞到人|撞傷人|被抓|被關|被扣/;
+const SYMPTOM = /痛|喘|暈|昏|血|呼吸|傷|骨折|叫不醒|救護車|不能動|動不了/;
+
 /** 這次回應要給的電話（畫面做成一鍵撥號；資料決定，畫面不寫死） */
 const CALLS = {
   selfHarm: [{ label: '撥 1925 安心專線', labelEn: 'Call 1925', tel: '1925' }, { label: '撥 1995 生命線', labelEn: 'Call 1995 Lifeline', tel: '1995' }, { label: '撥 119', labelEn: 'Call 119', tel: '119' }],
@@ -37,7 +44,7 @@ const CALLS = {
 
 /**
  * @param {string} text 使用者這一句
- * @param {{ profileId?: string }} [opt] 防詐 agent 不擋個資（使用者會貼上詐騙簡訊）
+ * @param {{ profileId?: string }} [opt] 防詐 agent 不擋個資（使用者會貼上詐騙簡訊）；貼上的冒充親友車禍要錢話術（沒有症狀字眼）不走緊急（急症、自傷照常）
  * @returns {{ kind: 'selfHarm'|'emergency'|'medical'|'privacy'|'health', reply: string, calls: Array<{ label: string, tel: string }> }|null}
  */
 export function safetyCheck(text, { profileId } = {}) {
@@ -54,7 +61,9 @@ export function safetyCheck(text, { profileId } = {}) {
         : '聽起來你現在很辛苦，謝謝你願意說出來。你不用一個人撐：可以撥安心專線 1925（24 小時、免費），或生命線 1995、張老師 1980。如果有立即的危險，請馬上撥 119。如果你願意，可以繼續跟我說；也可以告訴我信任的人在哪，我幫你查怎麼過去。',
     };
   }
-  if (EMERGENCY.some((re) => re.test(s))) {
+  // 防詐：貼上的冒充親友話術（車禍要和解金、先匯給我）照常判斷詐騙，不回 119；有本人症狀照給
+  const relativeScam = profileId === 'antifraud' && RELATIVE_TROUBLE.test(s) && RELATIVE_MONEY.test(s) && !SYMPTOM.test(s);
+  if (!relativeScam && EMERGENCY.some((re) => re.test(s))) {
     const protect = /被打|被跟蹤|being (?:followed|attacked)/i.test(s);
     return {
       kind: 'emergency',

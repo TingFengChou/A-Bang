@@ -207,7 +207,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   const j = jc ? await jc.full(q0) : null;
   if (j) {
     // 出門建議是天氣＋空品的組合：判斷層說天氣或空品時保留（判斷層沒有 outing 這個意圖）
-    const keep = it.followUp || it.intent === 'outing'; // 判斷層常把「出門要注意什麼」判成空品或行程（設計審查實測）
+    const keep = it.followUp || it.intent === 'outing' || it.also?.length; // 判斷層常把「出門要注意什麼」判成空品或行程（設計審查實測）；一句問好幾件事以規則分段為準（P5-8）
     if (j.intent !== it.intent && !keep && !it.savedTrip && it.intent !== 'savedMissing') it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent, saved: req.savedPlaces, now }) || it;
     it.states = j.states;
     const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
