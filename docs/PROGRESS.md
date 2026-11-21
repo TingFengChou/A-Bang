@@ -18,6 +18,13 @@
 - 測試：npm test 651 項全過（合併主線後；新增 test/bus-scene.test.js 9 項：時段、小站牌、等車的人、固定亂數與洗牌、投影對 scene.json、圖層、開走判斷、字典）；E2E 64 項全過（新增 3 項：遠近時段與沿用、開走與上車、公車頁夜晚；截圖 test/screenshots/bus-scene-*.png）
 - 文件：UX.md §4.15、PROGRESS.md；SW v0.9.4（合併主線後）
 - 下一個：手機實機看夜晚對比與動畫順不順
+
+## 2026-11-21 iPhone 實機安裝（npm run ios:dev）與 Apple Intelligence 實機確認
+- 做了：Austin 的 iPhone 17 Pro Max 第一次裝上開發版（個人開發團隊簽署；要先在 Xcode 登入 Apple 帳號）。iPhone 走同一個 Wi-Fi 連本機伺服器，建置時暫時加 NSAllowsLocalNetworking（建置完還原）。做成 `npm run ios:dev`（scripts/ios-dev-install.js）。伺服器紀錄確認 iPhone 的提問帶著 Apple Intelligence 的判斷（device: apple）；Pixel 上 Gemini Nano 判斷一句約 0.4 秒。
+- 發現：伺服器自己有判斷器時，畫面不會顯示手機判斷過（待修：照實顯示一行）。
+- 測試：test/ios-dev-install.test.js 2 項
+- 文件：CLAUDE.md 指令、PROGRESS.md
+- 下一個：手機判斷的顯示、阿幫的腦袋頁
 - 卡住：無
 
 ## 2026-11-21 App 圖示改用 Λ 標誌（C2），藍鵲留在 App 內
