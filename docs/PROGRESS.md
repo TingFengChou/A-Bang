@@ -14,7 +14,7 @@
 ---
 
 ## 2026-11-21 S12f 英文其餘
-- 做了：用英文實際問 8 種問題、逐一找畫面上的中文。伺服器：行程每段說明帶 `detailEn`（`leg()` 收 [中文, 英文]）、決策事件帶 `signalsEn`（km、City、Clear、Rain）。卡片：公車到站文字依狀態與秒數自己說（Arriving、5 min、Not departed yet）、方向「To X」；行程方案名稱（Bus 棕9、MRT 淡水信義線、Taxi）；藥局星期。問阿幫：英文那一輪的 @點名、頭像讀屏、「Demo data」「Abang is thinking」；點名認得程式自己用的角色（定位、行程）。地名、站名、路線名維持中文（S12b 決定）。
+- 做了：用英文實際問 8 種問題、逐一找畫面上的中文。伺服器：行程每段說明帶 `detailEn`（`leg()` 收 [中文, 英文]）、決策事件帶 `signalsEn`（km、City、Clear、Rain）。卡片：公車到站文字依狀態與秒數自己說（Arriving、5 min、Not departed yet）、方向「To X」；行程方案名稱（Bus 棕9、MRT 淡水信義線、Taxi）；藥局星期。問阿幫：英文那一輪的 @點名、頭像讀屏、「Demo data」「Abang is thinking」；點名認得程式自己用的角色（定位、行程）。地名、站名、路線名維持中文（S12b 決定）。審查修正：英文到站文字跟每秒倒數同一套規則（不會一秒後換字）；客運留路線號（Coach 1610）、叫車留平台（Taxi (Uber)）、捷運轉乘括號改半形；單複數（1 bike）；(est.)；路況 Local roads／Slow；防詐角色英文。
 - 測試：npm test 534 項全過（新增 test/english-s12f.test.js 4 項）；E2E 59 項全過
 - 文件：PLAN.md（S12f ✅、S12g 列入）、CARDS.md、PROGRESS.md
 - 下一個：S12g 或其他

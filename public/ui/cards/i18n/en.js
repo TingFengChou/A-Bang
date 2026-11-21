@@ -22,7 +22,6 @@ export const MESSAGES = {
   'common.listSep': ', ',
   'common.estimatedTag': ' (est.)',
   'common.minutes': '{n} min',
-  'busRoute.st.arriving': 'Arriving',
   'busRoute.st.1': 'Not departed yet',
   'busRoute.st.2': 'Not stopping (traffic control)',
   'busRoute.st.3': 'Last bus has left',

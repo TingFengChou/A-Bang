@@ -1,5 +1,6 @@
 // bus-route（bus_route_eta）：方向切換、站序時間軸、即將到站高亮、點站牌 → 導航／提問（CARDS.md §4）
 // 有 focus（選公車後盯的上車站，L-14）：上方大倒數、標「你在這上車」、到站前 3／5 分提醒、開公車頁看動態
+import { etaLabel } from '../countdown.js';
 import { h } from '../dom.js';
 import { navButton } from '../actions.js';
 import { token } from '../mode-icons.js';
@@ -84,7 +85,7 @@ function railView(rail, t, state) {
 /** 到站文字：中文用資料的 statusText；英文依狀態與秒數自己說（S12f） */
 export const etaText = (s, t, locale) => {
   if (locale !== 'en' || !s) return s?.statusText;
-  if (s.status === 0 && s.etaSec != null) return s.etaSec <= 60 ? t('busRoute.st.arriving') : t('common.minutes', { n: Math.round(s.etaSec / 60) });
+  if (s.status === 0 && s.etaSec != null) return etaLabel(s.etaSec); // 跟每秒倒數同一套規則（不會一秒後換字）
   const k = `busRoute.st.${s.status}`;
   return t(k) === k ? s.statusText : t(k);
 };

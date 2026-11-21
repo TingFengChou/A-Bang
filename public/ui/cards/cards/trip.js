@@ -90,7 +90,7 @@ const RUN_SEC = 3.2;
  * 分段條：每段寬度依真實分鐘比例，有交通方式圖示＋分鐘（夠寬才放字）。
  * 上方的小代幣沿路線跑一趟，每段的時間也依分鐘比例；到轉乘點換成下一段的交通方式（走路 → 公車 → 走路），轉乘點亮一下。
  */
-function legsBar(o, t) {
+function legsBar(o, t, locale = null) {
   const icon = (mode) => { const i = document.createElement('span'); i.className = 'ab-leg-ic'; i.innerHTML = modeSvg(modeOf(mode) || 'walk'); return i; }; // 常數 SVG
   const sh = legShares(o.legs);
   const runners = sh.map((s, i) => {
@@ -105,7 +105,7 @@ function legsBar(o, t) {
   return h('div', { class: 'ab-legs-wrap' },
     runners,
     h('div', { class: 'ab-legs', role: 'img', 'aria-label': o.legs.map((l) => `${t(`trip.leg.${l.mode}`)} ${t('common.minutes', { n: l.minutes })}`).join(t('common.listSep')) },
-      o.legs.map((l, i) => h('span', { class: `ab-leg ${l.mode}`, style: { flex: `0 0 ${((sh[i].to - sh[i].from) * 100).toFixed(2)}%`, '--i': String(i) }, title: l.detailEn && t('common.listSep') === ', ' ? l.detailEn : l.detail },
+      o.legs.map((l, i) => h('span', { class: `ab-leg ${l.mode}`, style: { flex: `0 0 ${((sh[i].to - sh[i].from) * 100).toFixed(2)}%`, '--i': String(i) }, title: locale === 'en' && l.detailEn ? l.detailEn : l.detail },
         sh[i].to - sh[i].from >= 0.08 && icon(l.mode), sh[i].to - sh[i].from >= 0.2 && h('b', null, `${l.minutes}`)))),
     xfers);
 }
@@ -115,7 +115,9 @@ export function optName(o, t, locale) {
   if (locale !== 'en') return o.name;
   const n = String(o.name || '');
   if (o.role === 'bus') return `Bus ${n.replace(/^公車\s*/, '')}`.trim();
-  if (o.role === 'metro') return `MRT ${n.replace(/^捷運\s*/, '')}`.trim();
+  if (o.role === 'metro') return `MRT ${n.replace(/^捷運\s*/, '')}`.replace(/（/g, ' (').replace(/）/g, ')').replace(/\s+/g, ' ').trim();
+  if (o.role === 'intercity') return `Coach ${n.replace(/^國道客運\s*/, '')}`.trim(); // 留路線號
+  if (o.role === 'ridehail') { const p = /（(.+?)）/.exec(n)?.[1]; return p ? `Taxi (${p})` : 'Taxi'; } // 留叫車平台
   const k = `trip.leg.${o.role}`;
   return t(k) === k ? n : t(k);
 }
@@ -138,7 +140,7 @@ function optionBlock(o, ctx, best) {
       h('span', { class: 'ab-big' }, t('common.minutes', { n: o.minutes })),
       h('span', { class: 'ab-sub' }, t('trip.arrive', { time: o.arriveAt })),
       h('span', { class: 'ab-sub' }, cost, o.estimated ? t('common.estimatedTag') : '')),
-    best && legsBar(o, t),
+    best && legsBar(o, t, ctx.locale),
     best && h('ul', { class: 'ab-legs-detail' }, o.legs.map((l) => h('li', {}, token(l.mode, { size: 'xs' }), ctx.locale === 'en' && l.detailEn ? l.detailEn : l.detail))),
     // YouBike 兩端都要看：起點有車、終點有空位；很緊時警告並給備用站
     o.bike && h('div', { class: 'ab-bike-ends' },

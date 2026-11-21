@@ -61,7 +61,7 @@ export function tripSignals(trip, lang = null) {
   if (trip.air?.aqi != null) out['空品'] = `AQI ${trip.air.aqi}`;
   const t = trip.traffic;
   if (t) out['路況'] = en
-    ? (!t.covered ? 'City' : t.level === 'jam' ? `+${t.delayMin ?? '?'} min` : t.level === 'slow' ? 'Busy' : 'Clear')
+    ? (!t.covered ? 'Local roads' : t.level === 'jam' ? `+${t.delayMin ?? '?'} min` : t.level === 'slow' ? 'Slow' : 'Clear')
     : (!t.covered ? '市區' : t.level === 'jam' ? `塞 ${t.delayMin ?? '?'} 分` : t.level === 'slow' ? '車多' : '順暢');
   return out;
 }

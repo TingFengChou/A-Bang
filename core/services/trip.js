@@ -74,7 +74,7 @@ function access(fromP, toP, d) {
     return { minutes: m, walkMin: m, cost: 0, estimated: false, leg: leg('walk', fromP, toP, m, [`步行約 ${m} 分`, `Walk about ${m} min`]) };
   }
   const m = Math.round((roadKm(d) / EST.cityKmh) * 60) + EST.cityWaitMin;
-  return { minutes: m, walkMin: 3, cost: EST.cityFare, estimated: true, leg: leg('transit', fromP, toP, m, [`市區公車／捷運約 ${m} 分（估算）`, `City bus/MRT about ${m} min (estimate)`], 'transit') };
+  return { minutes: m, walkMin: 3, cost: EST.cityFare, estimated: true, leg: leg('transit', fromP, toP, m, [`市區公車／捷運約 ${m} 分（估算）`, `City bus/MRT about ${m} min (est.)`], 'transit') };
 }
 
 // ───────── 各種方案 ─────────
@@ -120,8 +120,8 @@ async function bikeOption(svc, from, to, straight) {
     id: 'bike', role: 'bike', name: 'YouBike', minutes: w1 + ride + w2, waitMin: 0, walkMin: w1 + w2, cost: bikeFare(ride),
     exposure: 1, effort: 0.8, delayRisk: 0,
     legs: [
-      leg('walk', from, rent, w1, [`走到 ${rent.name}（${rent.rent} 台可借）`, `Walk to ${rent.name} (${rent.rent} bikes)`]),
-      leg('bike', rent, ret, ride, [`騎約 ${ride} 分到 ${ret.name}（${ret.returnSlots} 個空位）`, `Ride about ${ride} min to ${ret.name} (${ret.returnSlots} docks free)`], 'bicycling'),
+      leg('walk', from, rent, w1, [`走到 ${rent.name}（${rent.rent} 台可借）`, `Walk to ${rent.name} (${rent.rent} ${rent.rent === 1 ? 'bike' : 'bikes'} available)`]),
+      leg('bike', rent, ret, ride, [`騎約 ${ride} 分到 ${ret.name}（${ret.returnSlots} 個空位）`, `Ride about ${ride} min to ${ret.name} (${ret.returnSlots} ${ret.returnSlots === 1 ? 'dock' : 'docks'} free)`], 'bicycling'),
       leg('walk', ret, to, w2, [`步行約 ${w2} 分`, `Walk about ${w2} min`]),
     ],
     // 起點有車、終點有空位（兩端都要知道）：給卡片、討論串與總結用
@@ -314,7 +314,7 @@ async function ridehailOption(svc, from, to, straight, traffic) {
     minutes: EST.ridehailWaitMin + drive, waitMin: EST.ridehailWaitMin, walkMin: 0,
     cost: Math.round((e.low + e.high) / 2 / 5) * 5, costRange: [e.low, e.high],
     exposure: 0, effort: 0, delayRisk: delayRiskOf(traffic?.level ?? null), estimated: true,
-    legs: [{ ...leg('ridehail', from, to, drive, [`車程約 ${drive} 分（估算）`, `About ${drive} min by car (estimate)`], 'driving'), url: link.url }],
+    legs: [{ ...leg('ridehail', from, to, drive, [`車程約 ${drive} 分（估算）`, `About ${drive} min by car (est.)`], 'driving'), url: link.url }],
     notes: [`車資 ${e.low}～${e.high} 元（${e.basis}）`, '叫車前需你確認（ridehail_link）'],
   };
 }

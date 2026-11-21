@@ -22,7 +22,6 @@ export const MESSAGES = {
   'common.listSep': '、',
   'common.estimatedTag': '（估算）',
   'common.minutes': '{n} 分',
-  'busRoute.st.arriving': '進站中',
   'busRoute.st.1': '尚未發車',
   'busRoute.st.2': '交管不停靠',
   'busRoute.st.3': '末班車已過',

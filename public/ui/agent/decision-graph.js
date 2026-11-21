@@ -20,7 +20,7 @@ const EN = {
   state: { rush: 'In a hurry', traffic: 'Heavy traffic', rain: 'Raining', luggage: 'With luggage', budget: 'On a budget', lessWalk: 'Less walking', badAir: 'Poor air quality', elder: 'With seniors', kids: 'With kids', mobility: 'Limited mobility', group: 'Group travel', rainSoon: 'Rain likely' }, // 與 en.js trip.stateKey 相同
   source: { auto: 'Auto-detected', user: 'You said', picked: 'You chose' },
   mode: { walk: 'Walk', bike: 'YouBike', bus: 'Bus', metro: 'MRT', thsr: 'High Speed Rail', tra: 'Train', intercity: 'Intercity bus', ridehail: 'Taxi' },
-  role: { 地點: 'Places', 定位: 'Location', 天氣: 'Weather', 空品: 'Air', 路況: 'Traffic', 票價: 'Fares', 行程: 'Trip', 公車: 'Bus', 捷運: 'MRT', YouBike: 'YouBike', 高鐵: 'THSR', 台鐵: 'Train', 叫車: 'Taxi', 客運: 'Coach', 訂票: 'Booking', 車站: 'Stations', 地震: 'Quakes', 藥局: 'Pharmacy', 垃圾車: 'Garbage', 油價: 'Fuel', 發票: 'Invoices', 股市: 'Stocks', 阿幫: 'Abang' },
+  role: { 地點: 'Places', 定位: 'Location', 天氣: 'Weather', 空品: 'Air', 路況: 'Traffic', 票價: 'Fares', 行程: 'Trip', 公車: 'Bus', 捷運: 'MRT', YouBike: 'YouBike', 高鐵: 'THSR', 台鐵: 'Train', 叫車: 'Taxi', 客運: 'Coach', 訂票: 'Booking', 車站: 'Stations', 地震: 'Quakes', 藥局: 'Pharmacy', 垃圾車: 'Garbage', 油價: 'Fuel', 發票: 'Invoices', 股市: 'Stocks', 阿幫: 'Abang', 防詐: 'Anti-fraud', 網址: 'Links', 闢謠: 'Fact check', 號碼: 'Numbers' },
   crit: { minutes: 'Time', waitMin: 'Wait', walkMin: 'Walking', cost: 'Cost', exposure: 'Outdoors', effort: 'Effort', delayRisk: 'Delays' },
   tag: { 遲到: 'Late', 不要: 'Skip', 不適合: 'Unfit', 收班: 'No service', 沒列入: 'N/A', 排除: 'Out' },
   cols: ['Data', 'Abang', 'Options'],
