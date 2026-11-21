@@ -966,7 +966,8 @@ test('公車頁英文：標題、到站、提醒、下車提醒都是英文', as
       assert.equal(await alert.textContent(), 'Remind me 3 min before');
       await alert.click();
       await page.waitForSelector('#unwatch');
-      assert.match(await page.textContent('.bus-focus .ok'), /^Set: I'll remind you 3 min before it arrives \(while this page is open\)/);
+      // 示範資料隨時間變：這班快到了會改提醒下一班（兩種都是英文）
+      assert.match(await page.textContent('.bus-focus .ok'), /^(?:Set: I'll remind you 3 min before it arrives|This bus is almost here and you may miss it\. I'll remind you 3 min before the next one) \(while this page is open\)/);
       assert.equal(await page.textContent('#unwatch'), 'Cancel reminder');
       await page.click('#unwatch');
       await page.waitForSelector('.bus-focus [data-min="3"]');
