@@ -14,7 +14,7 @@ import { token } from '../../ui/cards/mode-icons.js';
 import { nextSteps } from '../agent/next-steps.js';
 import { alightWatch } from '../alight.js';
 import { loadChat, saveChat, clearChat } from '../chat-store.js';
-import { habitRequest, noteDecision, applyStore, markAsked } from '../habits.js';
+import { habitRequest, noteDecision, applyStore, markAsked, questionAskedRecently, markQuestion } from '../habits.js';
 import { mountAsk, matchAnswer } from '../../ui/agent/ask.js';
 import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
@@ -476,6 +476,8 @@ export default {
             break;
           }
           case 'ask': { // 阿幫問你（ADR-0016）：一輪最多一個；有決策圖就放在它上方，否則接在後面
+            if (e.key && questionAskedRecently(e.key)) break; // 同一段起訖同一題，24 小時內問過（手機上只存雜湊）
+            if (e.key) markQuestion(e.key);
             openAsk?.skip();
             const ctl = mountAsk(e, { lang: turnLang, onAnswer: (o) => answerAsk(o, view, turnLang) });
             openAsk = ctl;
@@ -524,7 +526,7 @@ export default {
     function answerAsk(o, view, lang) {
       const en = lang === 'en';
       if (o.kind === 'state') {
-        if (view.dg) { view.dg.addState(o.state, 'picked'); return en ? `Recalculated: ${o.label}.` : `好，照「${o.label}」重算了。`; }
+        if (view.dg) { view.dg.addState(o.state, o.source === 'usual' ? 'usual' : 'picked'); return en ? `Recalculated: ${o.label}.` : `好，照「${o.label}」重算了。`; } // 「這次也帶東西嗎？」→ 是＝你說過：常帶東西
         if (o.say) queueMicrotask(() => send(o.say)); // 沒有決策圖可以即時重算：說成一句送出
         return '';
       }
@@ -538,7 +540,6 @@ export default {
       }
       if (o.kind === 'store') {
         const r = applyStore(o.value);
-        if (r.state) view.dg?.addState(r.state, 'usual');
         if (r.habit) view.dg?.setHabit(r.habit);
         return en ? 'Saved on this phone. You can change it in Settings.' : r.say;
       }

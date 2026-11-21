@@ -695,7 +695,7 @@ test('阿幫問你：常搭捷運 → 問要不要優先推 → 好 →「你同
   }, { init: seedPicks, initArg: { mode: 'metro', n: 6 } });
 });
 
-test('阿幫問你：常叫車 → 問原因 → 常帶東西 →「你說過：常帶東西」，之後沒說條件時自動帶入、不再問', async () => {
+test('阿幫問你：常叫車 → 問原因 → 常帶東西（不自動套用）→ 下次「這次也帶東西嗎？」→ 是 →「你說過：常帶東西」重算', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = recordBodies(page);
     await askAbang(page, '從西門町去台北101', 1, bodies);
@@ -704,20 +704,30 @@ test('阿幫問你：常叫車 → 問原因 → 常帶東西 →「你說過：
     assert.equal(await ask.locator('.ask-q').textContent(), '你常叫車（5 次），通常是因為？');
     assert.deepEqual(await ask.locator('.ask-opt').allTextContents(), ['趕時間', '常帶東西', '不想走路', '就是喜歡叫車', '不一定']);
     await ask.getByRole('button', { name: '常帶東西' }).click();
+    assert.match(await ask.locator('.ask-done').textContent(), /會影響建議時，我會先問你/);
     const dg = page.locator('.decision').last();
-    assert.equal(await dg.locator('.dg-chip.src-usual').textContent(), '你說過：常帶東西 ✕');
-    assert.equal(await dg.getAttribute('data-best'), 'ridehail');
+    assert.equal(await dg.locator('.dg-chip.src-usual').count(), 0, '不自動套用');
+    assert.match(await dg.getAttribute('data-best'), /^bus/);
     const b2 = await askAbang(page, '從西門町去台北101', 2, bodies);
     assert.deepEqual(b2.userState.usual, ['luggage']);
     const dg2 = page.locator('.decision').last();
     await dg2.locator('.dg-svg').waitFor();
-    assert.equal(await dg2.locator('.dg-chip.src-usual').count(), 1, '伺服器帶入、標「你說過」');
+    assert.equal(await dg2.locator('.dg-chip.src-usual').count(), 0, '沒點「是」之前不出現「你說過」');
+    assert.match(await dg2.getAttribute('data-best'), /^bus/);
+    const ask2 = page.locator('.turn').last().locator('.ask');
+    await ask2.waitFor();
+    assert.equal(await ask2.locator('.ask-q').textContent(), '這次也帶東西嗎？');
+    assert.match(await ask2.locator('.ask-opt').first().textContent(), /^是 猜的$/);
+    assert.match(await ask2.locator('.ask-why').textContent(), /你說過常帶東西；是的話改推叫車/);
+    await shotAsk(page, ask2, 'phone-usual-ask.png');
+    await ask2.getByRole('button', { name: /^是/ }).click();
+    assert.equal(await dg2.locator('.dg-chip.src-usual').textContent(), '你說過：常帶東西 ✕');
     assert.equal(await dg2.getAttribute('data-best'), 'ridehail');
-    assert.equal(await page.locator('.turn').last().locator('.ask').count(), 0, '說過了：不再問');
+    assert.equal(bodies.length, 2, '按了不呼叫伺服器');
   }, { init: seedPicks, initArg: { mode: 'ridehail', n: 5 } });
 });
 
-test('阿幫問你：關鍵因子「叫車快 5 分但多 270 元，你趕時間嗎？」→ 趕 → 即時重算成叫車；直接打「我不趕」也是回答', async () => {
+test('阿幫問你：關鍵因子「叫車快 5 分但多 270 元，你趕時間嗎？」→ 趕 → 即時重算成叫車；同一段 24 小時內不再問；直接打「沒有」也是回答', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = recordBodies(page);
     await askAbang(page, '從西門町去台北101', 1, bodies);
@@ -733,21 +743,27 @@ test('阿幫問你：關鍵因子「叫車快 5 分但多 270 元，你趕時間
     assert.equal(await dg.locator('.dg-chip.on', { hasText: '你選的：趕時間' }).count(), 1);
     assert.equal(await ask.locator('.ask-done').evaluate((n) => n === document.activeElement), true, '焦點留在結果句');
     assert.equal(bodies.length, 1);
-    // 第二次：直接打字回答
-    await askAbang(page, '從西門町去台北101', 2, bodies);
-    const ask2 = page.locator('.turn').last().locator('.ask');
-    await ask2.waitFor();
-    await page.fill('.chat-input', '我不趕');
-    await page.press('.chat-input', 'Enter');
-    await ask2.locator('.ask-done').waitFor();
-    assert.match(await ask2.locator('.ask-done').textContent(), /照原本的建議/);
-    assert.equal(bodies.length, 2, '是答案：不送伺服器');
-    // 問了之後直接問別的＝略過（問題收起來、照常送出）
-    await askAbang(page, '從西門町去台北101', 3, bodies);
+    // 同一段起訖、同一題：24 小時內不再問（手機只存雜湊）
+    await askAbang(page, '西門町到台北101怎麼去', 2, bodies);
+    await page.locator('.decision').last().locator('.dg-svg').waitFor();
+    assert.equal(await page.locator('.turn').last().locator('.ask').count(), 0);
+    assert.doesNotMatch(await page.evaluate(() => localStorage.getItem('abang.habits')), /25\.0|121\./, '不存地點');
+    // 換一段：直接打字回答
+    await askAbang(page, '從台北車站去台北101', 3, bodies);
     const ask3 = page.locator('.turn').last().locator('.ask');
     await ask3.waitFor();
-    await askAbang(page, '台北101附近有 YouBike 嗎', 4, bodies);
-    assert.equal(await ask3.isHidden(), true);
+    assert.match(await ask3.locator('.ask-q').textContent(), /^有帶行李或大包小包嗎？/);
+    await page.fill('.chat-input', '沒有');
+    await page.press('.chat-input', 'Enter');
+    await ask3.locator('.ask-done').waitFor();
+    assert.match(await ask3.locator('.ask-done').textContent(), /照原本的建議/);
+    assert.equal(bodies.length, 3, '是答案：不送伺服器');
+    // 問了之後直接問別的＝略過（問題收起來、照常送出）
+    await askAbang(page, '從台北車站去高雄車站', 4, bodies);
+    const ask4 = page.locator('.turn').last().locator('.ask');
+    await ask4.waitFor();
+    await askAbang(page, '台北101附近有 YouBike 嗎', 5, bodies);
+    assert.equal(await ask4.isHidden(), true);
   });
 });
 

@@ -9,6 +9,7 @@ const bus = new EventTarget();
 globalThis.addEventListener = bus.addEventListener.bind(bus);
 globalThis.dispatchEvent = bus.dispatchEvent.bind(bus);
 const H = await import('../public/js/habits.js');
+const { questionHash, questionAskedRecently, markQuestion, QUESTION_MAX } = H;
 const { HABITS_KEY, noteChoice, noteDecision, habitShare, habitCandidate, habitRequest, habitSummary, habitWhy, setHabitsOn, habitsOn, clearHabits, applyStore, markAsked, revokeHabit, revokeUsual, usualStates, HABIT_MAX_PICKS, HABIT_SAME_MS } = H;
 beforeEach(() => mem.clear());
 
@@ -61,7 +62,7 @@ test('常叫車：問原因。趕時間／常帶東西／不想走路 → 說過
   pick(rides);
   assert.equal(habitCandidate(T0 + DAY).mode, 'ridehail');
   const r = applyStore('ride:luggage', T0 + DAY);
-  assert.deepEqual([r.state, usualStates()], ['luggage', ['luggage']]);
+  assert.deepEqual([r.state, usualStates()], [undefined, ['luggage']], '存起來但不自動套用（會改變建議時先問）');
   assert.match(r.say, /常帶東西/);
   assert.equal(habitShare(T0 + DAY), null, '說了原因：叫車本身不加分');
   assert.equal(habitCandidate(T0 + 200 * DAY), null, '答過就不再問');
@@ -152,4 +153,20 @@ test('壞掉的資料不會讓 App 出錯：當作沒有紀錄、預設開', () 
   mem.set(HABITS_KEY, JSON.stringify({ picks: [{ m: 'metro', t: 'x' }, { m: 'rocket', t: 1 }, null], confirmed: { home: 1 }, usual: ['sleepy'] }));
   assert.equal(habitSummary(T0).total, 0);
   assert.deepEqual([habitSummary(T0).confirmed, usualStates()], [[], []]);
+});
+
+test('關鍵問題：同一段起訖同一題 24 小時內不再問；只存雜湊（不存地點）、最多 50 筆', () => {
+  const key = 'rush@25.04,121.51>25.03,121.56';
+  assert.equal(questionAskedRecently(key, T0), false);
+  markQuestion(key, T0);
+  assert.equal(questionAskedRecently(key, T0 + 3600e3), true);
+  assert.equal(questionAskedRecently('luggage@25.04,121.51>25.03,121.56', T0 + 3600e3), false, '不同題照問');
+  assert.equal(questionAskedRecently('rush@25.05,121.52>25.03,121.56', T0 + 3600e3), false, '換地點照問');
+  assert.equal(questionAskedRecently(key, T0 + 24 * 3600e3 + 1), false, '隔天再問');
+  assert.doesNotMatch(mem.get(HABITS_KEY), /25\.0|121\./, '不存座標');
+  assert.match(questionHash(key), /^[0-9a-f]{8}$/);
+  for (let i = 0; i < 70; i++) markQuestion(`k${i}`, T0 + i);
+  assert.equal(Object.keys(JSON.parse(mem.get(HABITS_KEY)).seenQ).length, QUESTION_MAX);
+  markQuestion('new', T0 + 25 * 3600e3);
+  assert.equal(Object.keys(JSON.parse(mem.get(HABITS_KEY)).seenQ).length, 1, '過期的清掉');
 });

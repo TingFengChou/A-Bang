@@ -15,6 +15,13 @@
 
 
 
+## 2026-11-21 P2 阿幫問你（調整）：同一題 24 小時只問一次；說過的狀況改成每次確認
+- 做了：關鍵問題事件帶 `key`（狀態＋起訖座標到小數 2 位），手機 24 小時內問過就不顯示（`habits.js` `seenQ` 只存 8 碼雜湊、最多 50 筆、點「不趕」也算問過）。叫車原因（常帶東西／趕時間／不想走路）不再自動套用：這一輪沒說條件、而且會換建議時問「這次也帶東西嗎？」〔是（猜的）〕〔這次沒有〕，點〔是〕才加上「你說過：常帶東西」重算（`tripAsk` 的 `usualAsk`；kind state＋source usual）。移除 `withUsual`。習慣上限維持 8 分。
+- 測試：npm test 全過（`test/ask.test.js`、`test/habits.test.js` 新增題目鍵與「這次也…嗎」）；E2E「阿幫問你」3 項（截圖 `phone-key-question.png`、`phone-usual-ask.png`）
+- 文件：ADR-0016、ADR-0010、AGENT.md、UX.md、PROGRESS.md
+- 下一個：合併主線（判斷看得到、語音、視覺）
+- 卡住：無
+
 ## 2026-11-21 P2 阿幫問你：答案取決於使用者時問一句（習慣要確認、叫車問原因、關鍵因子）
 - 做了：產品負責人「重要因子應可與用戶互動後完成」「需要使用者互動得到答案會讓整體變快就問」。通用機制 ADR-0016：事件 `ask`（`core/agent/events.js`；options 的 kind：state 加狀態即時重算、reply 送完整的一句、store 存手機偏好、action 手機做事、dismiss；guess；pending）、`core/agent/ask.js`（`tripAsk`、`resolvePending`／`PENDING_SLOTS`）、`core/decide.js` `keyQuestion`（試加趕時間／想省錢／帶行李／少走路，建議會換且差 ≥ 5 分或 ≥ 50 元才問，挑影響最大的）、前端共用區塊 `public/ui/agent/ask.js`（`mountAsk`、`matchAnswer`：直接打「我不趕」「好」也是答案，對不上＝略過並帶 `pendingAsk`）。一輪最多一個（execTools 整輪共用）。習慣改成問過才用：≥ 5 次且 6 成以上問「以後要我優先推捷運嗎？」，說好才送 `userState.habit`；常叫車問原因 → `userState.usual`（你說過的預設狀況，沒說條件時帶入）或叫車加分或不再問。決策圖 chip「你同意：優先推捷運」「你說過：常帶東西」、`addState`／`setHabit`；設定頁列出同意與說過的、可撤銷。情境檢查加 asks／asksNone／askOptions／askKind／askGuess／toNot，情境可指定 `here`、多輪帶 pendingAsk。
 - 測試：npm test 717 項（新增 `test/ask.test.js` 14 項、`test/habits.test.js` 改寫 12 項）；E2E「阿幫問你」3 項（截圖 `phone-habit-ask.png`、`phone-key-question.png`、`phone-habit-settings.png`）

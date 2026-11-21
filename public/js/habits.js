@@ -2,7 +2,9 @@
 // 記錄：只記「選了哪種交通方式」與時間，不記地點、路線、站名或其他任何東西（記錄預設開：只記不用，不影響建議）。
 //   「選了」＝在行程卡按建議方案的導航／叫車／訂票、說或按「改成 X」（決策圖點方案也是）、設公車到站提醒或下車提醒。
 // 使用：不默默套用推測——某種方式選得夠多時，阿幫在那一輪問一次（「以後要我優先推捷運嗎？」），說「好」才加分；
-//   常叫車另外問原因（有理由才推叫車）：趕時間／常帶東西／不想走路 → 存成「你說過」的預設狀況；就是喜歡叫車 → 叫車加分；不一定 → 不加分、不再問。
+//   常叫車另外問原因（有理由才推叫車）：趕時間／常帶東西／不想走路 → 存成「你說過」的預設狀況（不自動套用：會改變建議時問「這次也帶東西嗎？」）；
+//   就是喜歡叫車 → 叫車加分；不一定 → 不加分、不再問。
+// 關鍵問題（「你趕時間嗎？」）：同一段起訖同一題 24 小時內只問一次——只存那一題的雜湊與時間（不存地點），最多 50 筆。
 export const HABITS_KEY = 'abang.habits';
 export const HABIT_MODES = ['walk', 'bike', 'bus', 'metro', 'tra', 'thsr', 'intercity', 'ridehail'];
 export const HABIT_MAX_PICKS = 50; // 最近 50 次
@@ -12,6 +14,8 @@ export const HABIT_MIN_PICKS = 5; // 同一種方式選過 5 次以上才問
 export const HABIT_ASK_SHARE = 0.6; // 而且佔（時間衰減後）6 成以上
 export const HABIT_DECLINE_DAYS = 90; // 說「不用」或撤銷後 90 天內不再問
 export const HABIT_REASK_DAYS = 3; // 問了沒回答（直接問別的）：3 天後才再問
+export const QUESTION_TTL_MS = 24 * 3600e3; // 同一題 24 小時內不再問
+export const QUESTION_MAX = 50;
 export const HABIT_SAME_MS = 30 * 60e3; // 30 分鐘內同一種方式只算一次（同一趟按導航又按叫車不重複算）
 /** 叫車原因 → 「你說過」的預設狀況 */
 export const RIDE_REASONS = { rush: 'rush', luggage: 'luggage', lessWalk: 'lessWalk' };
@@ -21,7 +25,7 @@ export const habitName = (m) => NAME[m] || m;
 /** 「你說過」的預設狀況怎麼稱呼（決策圖、設定頁） */
 export const USUAL_LABEL = { rush: '常趕時間', luggage: '常帶東西', lessWalk: '不想走路' };
 
-const empty = () => ({ on: true, picks: [], confirmed: {}, declined: {}, asked: {}, usual: [], ride: null });
+const empty = () => ({ on: true, picks: [], confirmed: {}, declined: {}, asked: {}, usual: [], ride: null, seenQ: {} });
 const times = (o) => Object.fromEntries(Object.entries(o && typeof o === 'object' ? o : {}).filter(([m, t]) => HABIT_MODES.includes(m) && Number.isFinite(t)));
 /** 讀出（壞掉或沒有：記錄開、沒有紀錄） */
 function load() {
@@ -34,6 +38,7 @@ function load() {
       confirmed: times(v.confirmed), declined: times(v.declined), asked: times(v.asked),
       usual: Array.isArray(v.usual) ? v.usual.filter((k) => RIDE_REASONS[k]).slice(0, 3) : [],
       ride: ['rush', 'luggage', 'lessWalk', 'love', 'depends'].includes(v.ride) ? v.ride : null,
+      seenQ: Object.fromEntries(Object.entries(v.seenQ && typeof v.seenQ === 'object' ? v.seenQ : {}).filter(([k, t]) => /^[0-9a-f]{8}$/.test(k) && Number.isFinite(t))),
     };
   } catch { return empty(); }
 }
@@ -112,13 +117,32 @@ export function habitRequest(now = Date.now()) {
   return Object.keys(u).length ? u : null;
 }
 
+/** 問題的鍵（含起訖粗座標）→ 不可讀的 8 碼雜湊（FNV-1a）：手機上只存這個，不存地點 */
+export function questionHash(key) {
+  let h = 0x811c9dc5;
+  for (const ch of String(key)) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, '0');
+}
+/** 這一題（同一段起訖、同一個狀態）24 小時內問過嗎 */
+export function questionAskedRecently(key, now = Date.now()) {
+  const t = load().seenQ[questionHash(key)];
+  return Number.isFinite(t) && now - t >= 0 && now - t < QUESTION_TTL_MS;
+}
+/** 記下問過這一題（出現就算；點了「不趕」也是問過）；過期的清掉、最多 50 筆 */
+export function markQuestion(key, now = Date.now()) {
+  const s = load();
+  const keep = Object.entries(s.seenQ).filter(([, t]) => now - t < QUESTION_TTL_MS).sort((a, b) => b[1] - a[1]).slice(0, QUESTION_MAX - 1);
+  s.seenQ = Object.fromEntries([[questionHash(key), now], ...keep]);
+  save(s);
+}
+
 /** 問題出現了（沒回答也算問過：3 天內不再問） */
 export function markAsked(mode, now = Date.now()) { if (!HABIT_MODES.includes(mode)) return; const s = load(); s.asked[mode] = now; save(s); }
 
 /**
  * 「阿幫問你」的 store 答案（core/agent/ask.js 產生的 value）：
  *   habit:yes:<mode>｜habit:no:<mode>｜ride:rush｜ride:luggage｜ride:lessWalk｜ride:love｜ride:depends
- * @returns {{ ok: boolean, state?: string, habit?: Record<string, number>|null, say?: string }} 要套到這一輪決策圖的效果
+ * @returns {{ ok: boolean, habit?: Record<string, number>|null, say?: string }} 要套到這一輪決策圖的效果（說過的狀況不自動套用）
  */
 export function applyStore(value, now = Date.now()) {
   const [kind, a, b] = String(value).split(':');
@@ -133,7 +157,7 @@ export function applyStore(value, now = Date.now()) {
     if (RIDE_REASONS[a]) s.usual = [a];
     if (a === 'love') { s.confirmed.ridehail = now; delete s.declined.ridehail; }
     save(s);
-    if (RIDE_REASONS[a]) return { ok: true, state: a, say: `記住了：你${USUAL_LABEL[a]}。以後沒說條件時會照這個算，決策圖標「你說過」，可以點掉或在設定撤銷。` };
+    if (RIDE_REASONS[a]) return { ok: true, say: `記住了：你${USUAL_LABEL[a]}。之後沒說條件、而且會影響建議時，我會先問你一句。可以在設定撤銷。` };
     return a === 'love' ? { ok: true, habit: habitShare(now), say: '好，以後你沒說條件時，叫車會優先一點。可以在設定撤銷。' } : { ok: true, say: '好，叫車照每次的狀況算，不會再問。' };
   }
   return { ok: false };

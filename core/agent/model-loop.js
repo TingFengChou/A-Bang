@@ -311,7 +311,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const nextId = () => `t${++n}`;
   const used = new Set();
   let lastTrip = null; // 這一輪最後一次比較的行程（總結補上程式知道、模型漏講的重點）
-  const ask = { done: false, habitAsk: req.userState?.habitAsk }; // 阿幫問你：這一輪最多一個（ADR-0016）
+  const ask = { done: false, habitAsk: req.userState?.habitAsk, usual: req.userState?.usual }; // 阿幫問你：這一輪最多一個（ADR-0016）
   // 有現在位置時，程式先用它查好（不靠模型）：地端模型常常只查了目的地就反問「你從哪裡出發」。
   //   沒說起點的行程 → plan_trip（起點＝現在位置）；沒說地點的天氣／空品／YouBike／附近公車／垃圾車 → 對應工具（現在位置）
   // 結果照常出現在討論串與卡片，再交給模型轉述（AGENT.md §5.2.1）
@@ -324,7 +324,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const turnTrips = []; // 這一輪已經出過的行程卡（同起點、同目的地、同方式只出一張：模型換個說法再查也沿用）
   const preDone = new Map(); // 呼叫鍵（工具＋關鍵參數）→ 給模型的文字：模型用相同參數再呼叫時沿用，不重複產生卡片與決策圖；參數不同照常執行
   if (pre.length) {
-    const out = await execTools(svc, pre, emit, { profile, nextId, picked, lang: rulesIt.lang, habit: req.userState?.habit, usual: req.userState?.usual, ask, ...(j && { judgedStates: j.states }) });
+    const out = await execTools(svc, pre, emit, { profile, nextId, picked, lang: rulesIt.lang, habit: req.userState?.habit, ask, ...(j && { judgedStates: j.states }) });
     const texts = out.map((o, i) => {
       used.add(pre[i].name);
       if (o.followUp) used.add('bus_route_eta');
@@ -441,7 +441,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     }
 
     const run = turn.calls.filter((c) => !results.has(c.id));
-    const out = await execTools(svc, run.map((c) => ({ name: c.name, args: dropNulls(c.input) })), emit, { profile, nextId, picked, lang: rulesIt.lang, habit: req.userState?.habit, usual: req.userState?.usual, ask, ...(j && { judgedStates: j.states }) });
+    const out = await execTools(svc, run.map((c) => ({ name: c.name, args: dropNulls(c.input) })), emit, { profile, nextId, picked, lang: rulesIt.lang, habit: req.userState?.habit, ask, ...(j && { judgedStates: j.states }) });
     run.forEach((c, i) => {
       const o = out[i];
       used.add(c.name);

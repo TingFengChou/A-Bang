@@ -14,7 +14,7 @@ import { HABITS_KEY, habitsOn, setHabitsOn, habitSummary, clearHabits, habitName
 const EDGE_KEY = 'abang.edgeAI';
 
 /** 本機資料：存在這支手機的瀏覽器儲存（不上傳） */
-const LOCAL = [['abang.places', '常用地點（家、公司、學校）'], ['favs', '收藏的公車站與路線'], ['invoices', '我的發票'], ['abang.arrivalWatch', '進行中的到站提醒'], ['abang.alightWatch', '進行中的下車提醒'], ['abang.reminders', '出門提醒'], ['pref:', '常用的縣市、藥局地區、股票、最近查過的公車路線等偏好（pref:*）'], [EDGE_KEY, '裝置端 AI 設定'], [EDGE_STATS_KEY, '今天在手機上判斷了幾次、上次花多久（只有數字）'], ['abang.onboarded', '看過使用說明（清除後下次會再顯示）'], ['abang.offline', '離線時顯示的上次資料（看過的路線、站牌、時刻表；不含座標）'], ['abang.chat', '問阿幫的對話（只有文字，最近 10 則，最後一次對話 12 小時後自動清掉）'], [HABITS_KEY, '常選的交通方式（只有方式與時間，最近 50 次；你同意的偏好、說過的狀況；不含地點）']];
+const LOCAL = [['abang.places', '常用地點（家、公司、學校）'], ['favs', '收藏的公車站與路線'], ['invoices', '我的發票'], ['abang.arrivalWatch', '進行中的到站提醒'], ['abang.alightWatch', '進行中的下車提醒'], ['abang.reminders', '出門提醒'], ['pref:', '常用的縣市、藥局地區、股票、最近查過的公車路線等偏好（pref:*）'], [EDGE_KEY, '裝置端 AI 設定'], [EDGE_STATS_KEY, '今天在手機上判斷了幾次、上次花多久（只有數字）'], ['abang.onboarded', '看過使用說明（清除後下次會再顯示）'], ['abang.offline', '離線時顯示的上次資料（看過的路線、站牌、時刻表；不含座標）'], ['abang.chat', '問阿幫的對話（只有文字，最近 10 則，最後一次對話 12 小時後自動清掉）'], [HABITS_KEY, '常選的交通方式（只有方式與時間，最近 50 次；你同意的偏好、說過的狀況；24 小時內問過的題目只存雜湊；不含地點）']];
 
 /** 權限狀態文字：已允許／已拒絕（到手機設定開）／還沒問過 */
 const PERM_SAY = { granted: '已允許', denied: '已拒絕', prompt: '還沒問過', rationale: '拒絕過一次（下次用到會再問）', off: '手機定位服務關閉' };
@@ -201,7 +201,7 @@ export const settings = {
       main.querySelector('#habit-clear').hidden = !h.total && !h.confirmed.length && !h.usual.length;
       // 你同意的偏好、說過的預設狀況：一筆一列，可以撤銷（撤銷後 90 天內不再問）
       const agreed = main.querySelector('#habit-agreed');
-      const rows = [...h.confirmed.map((m) => [`已同意：優先推${habitName(m)}`, () => revokeHabit(m)]), ...h.usual.map((k) => [`你說過：${USUAL_LABEL[k]}（沒說條件時照這個算）`, () => revokeUsual(k)])];
+      const rows = [...h.confirmed.map((m) => [`已同意：優先推${habitName(m)}`, () => revokeHabit(m)]), ...h.usual.map((k) => [`你說過：${USUAL_LABEL[k]}（會影響建議時先問你）`, () => revokeUsual(k)])];
       agreed.replaceChildren(...rows.map(([text, undo]) => {
         const li = document.createElement('li');
         const b = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small quiet', textContent: '撤銷' });

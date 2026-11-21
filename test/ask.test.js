@@ -7,7 +7,7 @@ import { ev, EVENT_TYPES } from '../core/agent/events.js';
 import { planTrip } from '../core/services/trip.js';
 import { resolvePoint } from '../core/services/places.js';
 import { createServices } from '../core/index.js';
-import { runDemo, validateRequest, withUsual } from '../core/agent/run.js';
+import { runDemo, validateRequest } from '../core/agent/run.js';
 import { runModel } from '../core/agent/model-loop.js';
 import { matchAnswer } from '../public/ui/agent/ask.js';
 
@@ -151,16 +151,34 @@ test('示範模式：手機說有習慣候選 → 先問習慣（一輪只問一
   assert.equal(asks[0].about, 'habit:metro');
 });
 
-test('說過的預設狀況（usual）：沒說條件時帶入、標「你說過」、不再問；這一輪說了別的狀況或指定方式就不帶', async () => {
+test('說過的預設狀況（usual）：不自動套用；會改變建議時問「這次也帶東西嗎？」〔是（猜的）〕〔這次沒有〕；不會改變、說了別的狀況、指定方式就不問', async () => {
   const es = await demo('從西門町去台北101', { userState: { usual: ['luggage'] } });
   const d = es.find((e) => e.type === 'decision');
-  assert.deepEqual(d.states.map((s) => [s.key, s.source]), [['luggage', 'usual']]);
-  assert.equal(es.some((e) => e.type === 'ask'), false, '已經說過：不問');
-  const rush = (await demo('我很趕，從西門町去台北101', { userState: { usual: ['luggage'] } })).find((e) => e.type === 'decision');
-  assert.deepEqual(rush.states.map((s) => s.key), ['rush'], '這一輪說的為準');
-  assert.deepEqual(withUsual({ from: 'a', to: 'b', prefs: { mode: 'bus' } }, ['luggage']).prefs, { mode: 'bus' });
+  assert.deepEqual(d.states, [], '不自動帶入');
+  assert.equal(d.options.find((o) => o.id === d.best).role, 'bus');
+  const a = es.find((e) => e.type === 'ask');
+  assert.equal(a.question, '這次也帶東西嗎？');
+  assert.equal(a.about, 'usual:luggage');
+  assert.match(a.why, /你說過常帶東西；是的話改推叫車/);
+  assert.deepEqual(a.options.map((o) => [o.label, o.kind, o.state, o.source, !!o.guess]), [['是', 'state', 'luggage', 'usual', true], ['這次沒有', 'dismiss', undefined, undefined, false]]);
+  assert.equal(a.key, undefined, '「這次」的問題每次都問（不受 24 小時限制）');
+  assert.equal((await demo('我很趕，從西門町去台北101', { userState: { usual: ['luggage'] } })).some((e) => e.type === 'ask'), false, '這一輪說了狀況');
+  assert.equal((await demo('坐公車從西門町去台北101', { userState: { usual: ['luggage'] } })).some((e) => e.type === 'ask'), false, '指定方式');
+  // 不會改變建議（台北到高雄，帶行李也還是台鐵）→ 不問這題，照常問關鍵因子
+  const far = (await demo('從台北車站去高雄車站', { userState: { usual: ['luggage'] } })).find((e) => e.type === 'ask');
+  assert.notEqual(far?.about, 'usual:luggage');
+  // 直接打「是」：前端對到按鈕；伺服器端 pending 也接得上（「好」→「我有帶行李」）
+  assert.deepEqual(a.pending, { slot: 'state', state: 'luggage' });
+  assert.equal(resolvePending(a.pending, '好'), '我有帶行李');
   assert.throws(() => validateRequest({ messages: [{ role: 'user', content: 'hi' }], userState: { usual: ['budget'] } }), /請求格式錯誤/, '只能是趕時間、常帶東西、不想走路');
   assert.throws(() => validateRequest({ messages: [{ role: 'user', content: 'hi' }], userState: { habitAsk: { mode: 'home', count: 5 } } }), /請求格式錯誤/);
+});
+
+test('關鍵問題帶 key（同一段起訖、同一題；座標到小數 2 位）：手機 24 小時內問過就不顯示', async () => {
+  const a = (await demo('從西門町去台北101')).find((e) => e.type === 'ask');
+  assert.match(a.key, /^rush@25\.04,121\.51>25\.03,121\.56$/);
+  const b = (await demo('西門町到台北101怎麼去')).find((e) => e.type === 'ask');
+  assert.equal(b.key, a.key, '說法不同也是同一題');
 });
 
 test('模型模式：也由程式送 ask（不交給模型），一輪最多一個', async () => {

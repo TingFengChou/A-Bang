@@ -61,7 +61,7 @@ export function deviceLocation(req) {
 const RequestSchema = z.object({
   messages: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(MAX_CHARS) })).min(1).max(MAX_MESSAGES),
   // habit：手機算好的常選比例（public/js/habits.js；只有方式與比例，沒有地點）。由程式帶進 plan_trip，不交給模型
-  // usual：使用者說過的預設狀況（問「你常叫車，通常是因為？」答的：趕時間、常帶東西、不想走路）；這一輪沒說狀況、沒指定方式時自動帶入，標「你說過」
+  // usual：使用者說過的預設狀況（問「你常叫車，通常是因為？」答的：趕時間、常帶東西、不想走路）；不自動套用——會改變建議時問「這次也帶東西嗎？」（ADR-0016）
   // habitAsk：手機說「這種方式選得夠多、還沒問過」（只有方式與次數）→ 這一輪行程後問一次要不要優先推（ADR-0016）
   userState: z.object({ picked: z.array(z.enum(Object.keys(STATES))).max(6).optional(), habit: HabitSchema.optional(), usual: z.array(z.enum(USUAL_STATES)).max(USUAL_STATES.length).optional(),
     habitAsk: z.object({ mode: z.enum(['walk', 'bike', 'bus', 'metro', 'thsr', 'tra', 'intercity', 'ridehail']), count: z.number().int().min(1).max(50) }).optional() }).optional(),
@@ -113,10 +113,10 @@ export function busFollowUp(trip) {
  * @param {object} svc
  * @param {Array<{ name: string, args: object }>} calls
  * @param {(e: object) => void} emit
- * @param {{ profile: object, nextId: () => string, picked?: string[], habit?: Record<string, number>, usual?: string[], ask?: { done: boolean, habitAsk?: object } }} opts habit：手機送來、使用者同意過的常選比例（plan_trip 一律用這個，模型給的不採用）；usual：說過的預設狀況；ask：這一輪的「阿幫問你」（一輪最多一個）
+ * @param {{ profile: object, nextId: () => string, picked?: string[], habit?: Record<string, number>, ask?: { done: boolean, habitAsk?: object, usual?: string[] } }} opts habit：手機送來、使用者同意過的常選比例（plan_trip 一律用這個，模型給的不採用）；ask：這一輪的「阿幫問你」（一輪最多一個；usual＝說過的預設狀況，會改變建議時問一句）
  * @returns {Promise<Array<{ name: string, ok: boolean, result?: object, error?: string, followUp?: object }>>} 依 calls 順序
  */
-export async function execTools(svc, calls, emit, { profile, nextId, picked = [], judgedStates, lang = null, habit = null, usual = [], ask = null }) {
+export async function execTools(svc, calls, emit, { profile, nextId, picked = [], judgedStates, lang = null, habit = null, ask = null }) {
   const started = calls.map((c) => ({ ...c, id: nextId() }));
   // 英文提問（S12d）：小幫手的一句話用英文版；「→ 影響」是中文，英文那一輪不附
   const en = lang === 'en';
@@ -126,13 +126,13 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
   return Promise.all(started.map(async (c) => {
     try {
       if (!profile.tools.includes(c.name)) throw new UserError(`這個 agent 不能使用 ${c.name}`);
-      const args = c.name === 'plan_trip' ? withUsual(withHabit(withPickedPrefs(c.args, picked, judgedStates), habit), usual) : c.args;
+      const args = c.name === 'plan_trip' ? withHabit(withPickedPrefs(c.args, picked, judgedStates), habit) : c.args;
       const result = await callTool(svc, c.name, args);
       emit(ev.toolResult({ id: c.id, result: shown(c.name, result), impact: impactFor(c.name, result.data) }));
       if (c.name !== 'plan_trip') return { name: c.name, ok: true, result };
-      emit(ev.decision(withPicked(result.data, picked, args.usual || [])));
+      emit(ev.decision(withPicked(result.data, picked)));
       // 阿幫問你（ADR-0016）：這一輪還沒問過才問（ask 是整輪共用的 { done, habitAsk }）
-      const q = ask && !ask.done ? tripAsk(result.data, { habitAsk: ask.habitAsk, lang }) : null;
+      const q = ask && !ask.done ? tripAsk(result.data, { habitAsk: ask.habitAsk, usual: ask.usual, lang }) : null;
       if (q) { ask.done = true; emit(ev.ask({ id: `ask-${nextId()}`, ...q })); }
       const f = busFollowUp(result.data);
       if (!f || !profile.tools.includes('bus_route_eta')) return { name: c.name, ok: true, result };
@@ -174,17 +174,6 @@ export function withHabit(args, habit) {
   return Object.keys(next).length ? { ...rest, prefs: next } : rest;
 }
 
-/**
- * 「你說過」的預設狀況：這一輪沒有任何使用者狀態、也沒指定方式時才帶入（說了「不趕」以外的新狀況就以這次說的為準）。
- * 回傳的 args.usual 只給 execTools 標示來源用，不會送進工具。
- */
-export function withUsual(args, usual = []) {
-  if (!args || typeof args !== 'object' || !usual?.length) return args;
-  const prefs = args.prefs && typeof args.prefs === 'object' ? args.prefs : {};
-  if (prefs.states?.length || prefs.mode) return args;
-  return Object.defineProperty({ ...args, prefs: { ...prefs, states: [...usual] } }, 'usual', { value: [...usual], enumerable: false });
-}
-
 /** 對話裡之前的使用者訊息（判斷層看追問用） */
 export const priorUserTexts = (messages) => messages.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content);
 
@@ -208,11 +197,10 @@ export function judgeCalls(judge, req, profile) {
   };
 }
 
-/** 使用者在畫面上點選的狀態（picked）、說過的預設狀況（usual）標示來源；plan_trip 已依 prefs 計分，這裡只改標示 */
-function withPicked(trip, picked, usual = []) {
-  if (!picked.length && !usual.length) return trip;
-  const src = (k) => (picked.includes(k) ? 'picked' : usual.includes(k) ? 'usual' : null);
-  return { ...trip, states: trip.states.map((s) => (s.source === 'user' && src(s.key) ? { ...s, source: src(s.key) } : s)) };
+/** 使用者在畫面上點選的狀態（picked）標示來源；plan_trip 已依 prefs 計分，這裡只改標示 */
+function withPicked(trip, picked) {
+  if (!picked.length) return trip;
+  return { ...trip, states: trip.states.map((s) => (s.source === 'user' && picked.includes(s.key) ? { ...s, source: 'picked' } : s)) };
 }
 
 /**
@@ -269,13 +257,13 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   const results = {};
   const used = [];
   let rounds = 0;
-  const ask = { done: false, habitAsk: req.userState?.habitAsk }; // 阿幫問你：這一輪最多一個
+  const ask = { done: false, habitAsk: req.userState?.habitAsk, usual: req.userState?.usual }; // 阿幫問你：這一輪最多一個
   for (const step of plan.steps(it, now)) {
     if (++rounds > MAX_TOOL_ROUNDS) break;
     const s = step(results);
     if (!s) break;
     emit(ev.agentNote(it.lang === 'en' ? enNote(s.note) : s.note)); // 英文提問：說明用英文（S12c）
-    const out = await execTools(svc, s.calls, emit, { profile, nextId, picked, lang: it.lang, habit: req.userState?.habit, usual: req.userState?.usual, ask });
+    const out = await execTools(svc, s.calls, emit, { profile, nextId, picked, lang: it.lang, habit: req.userState?.habit, ask });
     for (const o of out) {
       used.push(o.name);
       if (o.ok) (results[o.name] ||= []).push(o.result);
