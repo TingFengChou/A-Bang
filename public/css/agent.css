@@ -235,3 +235,7 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 .chat-past summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; }
 .chat-past .msg { margin: 6px 0; }
 .chat-past .past-answer { background: var(--card, #fff); border-radius: 12px; padding: 8px 10px; color: var(--text); white-space: pre-wrap; }
+.chat-past-wrap { margin: 4px 0 10px; }
+.chat-past-wrap .chat-past { margin: 0 0 6px; }
+.past-acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.past-note { font-size: 13px; color: var(--muted); }

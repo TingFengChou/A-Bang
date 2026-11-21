@@ -893,34 +893,7 @@ test('阿幫常駐：開公車頁再回來對話還在、浮動阿幫拉出同�
     await page.click('#abang-fab');
     await page.waitForSelector('#abang-sheet[open] .bubble.final');
     assert.equal(await page.locator('#abang-sheet .bubble.final .say').textContent(), answer, '同一段對話');
-    // 對話在 App 重開後還在（只有文字、12 小時內）：重新整理後收合顯示「上次的對話」，接著問帶著前面的話；設定頁清除會清掉
-test('問阿幫：重新整理後還有上次的對話，接著問接得上；清除本機資料會清掉', async () => {
-  await withPage(DEVICES.phone, '#/agent', async (page) => {
-    await page.fill('.chat-form input', '從西門町叫車去台北101');
-    await page.press('.chat-form input', 'Enter');
-    await page.waitForSelector('.bubble.final', { timeout: 20000 });
-    await page.reload();
-    await page.waitForSelector('.chat-past summary');
-    assert.match(await page.textContent('.chat-past summary'), /上次的對話（\d{2}:\d{2}，2 則）/);
-    const bodies = [];
-    page.on('request', (r) => { if (r.url().endsWith('/api/v1/agent') && r.method() === 'POST') bodies.push(JSON.parse(r.postData())); });
-    await page.fill('.chat-form input', '不要叫車');
-    await page.press('.chat-form input', 'Enter');
-    await page.waitForSelector('.bubble.final', { timeout: 20000 });
-    assert.equal(bodies[0].messages[0].content, '從西門町叫車去台北101', '接著問帶著上次的話');
-    assert.match(await page.locator('.turn').last().textContent(), /沿用：西門町 → 台北101/);
-    // 設定頁清除本機資料：對話也清掉
-    await page.goto(`${base}/#/settings`);
-    page.once('dialog', (d) => d.accept());
-    await page.click('#clear');
-    assert.equal(await page.evaluate(() => localStorage.getItem('abang.chat')), null);
-    await page.goto(`${base}/#/agent`);
-    await page.waitForSelector('.chat-form');
-    assert.equal(await page.locator('.chat .turn, .chat-past').count(), 0, '畫面上的對話也清掉');
-  });
-});
-
-// 浮動阿幫知道你在看哪一頁：公車頁打開 →「在這頁可以問」這條路線到哪了（帶上車站）
+    // 浮動阿幫知道你在看哪一頁：公車頁打開 →「在這頁可以問」這條路線到哪了（帶上車站）
     assert.match(await page.textContent('#abang-sheet .page-ask'), /在這頁可以問\s*307 到哪了？我在/);
     assert.equal(await page.locator('#main .bus-focus').count(), 1, '背後的公車頁還在');
     await shot(page, 'phone-abang-sheet');
@@ -945,6 +918,44 @@ test('問阿幫：重新整理後還有上次的對話，接著問接得上；�
     await page.waitForSelector('#main .bubble.final');
     assert.equal(await page.locator('#main .msg.user').count(), 2);
     assert.equal(await page.locator('#main .agent-say').count(), 1, '阿幫說過的提醒記在對話裡');
+  });
+});
+
+// 對話在 App 重開後還在（只有文字、12 小時內）：重新整理後收合顯示「上次的對話」，接著問帶著前面的話；設定頁清除會清掉
+test('問阿幫：重新整理後還有上次的對話，接著問接得上；清除本機資料會清掉', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.fill('.chat-form input', '從西門町叫車去台北101');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    await page.reload();
+    await page.waitForSelector('.chat-past summary');
+    assert.match(await page.textContent('.chat-past summary'), /上次的對話（今天 \d{2}:\d{2}，2 則）/);
+    await page.click('.past-acts button:has-text("接著上次問")'); // 按了才把上次的話當前文送（隱私）
+    const bodies = [];
+    page.on('request', (r) => { if (r.url().endsWith('/api/v1/agent') && r.method() === 'POST') bodies.push(JSON.parse(r.postData())); });
+    await page.fill('.chat-form input', '不要叫車');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    assert.equal(bodies[0].messages[0].content, '從西門町叫車去台北101', '接著問帶著上次的話');
+    assert.match(await page.locator('.turn').last().textContent(), /沿用：西門町 → 台北101/);
+    // 沒按「接著上次問」：上次的話只顯示、不送
+    await page.reload();
+    await page.waitForSelector('.chat-past summary');
+    bodies.length = 0;
+    await page.fill('.chat-form input', '會下雨嗎？');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.turn .bubble.final', { timeout: 20000 });
+    assert.equal(bodies[0].messages.length, 1, '沒按接著問：只送這一句');
+    assert.match(await page.textContent('.past-acts'), /這次重新問/);
+    // 設定頁清除本機資料：對話也清掉
+    await page.goto(`${base}/#/settings`);
+    page.once('dialog', (d) => d.accept());
+    await page.click('#clear');
+    assert.equal(await page.evaluate(() => localStorage.getItem('abang.chat')), null);
+    await page.goto(`${base}/#/agent`);
+    await page.waitForSelector('.chat-form');
+    assert.equal(await page.locator('.chat .turn, .chat-past').count(), 0, '畫面上的對話也清掉');
+    assert.equal(await page.evaluate(() => localStorage.getItem('abang.chat')), null, '清除後不會被寫回');
   });
 });
 
