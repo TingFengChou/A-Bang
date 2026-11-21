@@ -165,7 +165,7 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
  * 這一輪「等車推短劇」的狀態（ADR-0019）：profile 有 drama 工具包、使用者沒在設定關掉才開；一輪最多一次（done）。
  * @returns {{ on: boolean, done: boolean }}
  */
-export const asideState = (req, profile) => ({ on: req.userState?.dramaHint !== false && !!profile.packs?.includes('drama'), done: false });
+export const asideState = (req, profile, now = Date.now()) => ({ on: req.userState?.dramaHint !== false && !!profile.packs?.includes('drama'), done: false, turn: (req.messages || []).filter((m) => m.role === 'user').length, now }); // turn＋now：推哪一部依台灣日期與對話輪次輪替
 
 /** 到站結果之後：等得夠久就在卡片下方推一集短劇（失敗或逾時都不影響交通結果） */
 async function emitAside(svc, emit, aside, a) {
@@ -276,7 +276,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   const used = [];
   let rounds = 0;
   const ask = { done: false, habitAsk: req.userState?.habitAsk, usual: req.userState?.usual }; // 阿幫問你：這一輪最多一個
-  const aside = asideState(req, profile); // 等車推短劇：這一輪最多一次
+  const aside = asideState(req, profile, now); // 等車推短劇：這一輪最多一次
   for (const step of plan.steps(it, now)) {
     if (++rounds > MAX_TOOL_ROUNDS) break;
     const s = step(results);

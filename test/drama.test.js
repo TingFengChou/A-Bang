@@ -130,11 +130,32 @@ test('Mock 對等：示範與真實版方法相同、輸出欄位相同；示範
   assert.equal(keys(s.items[0]), keys(p.items[0]).replace('rank,', ''));
   assert.ok(raw.series.every((x) => x.id.startsWith('demo-')), '示範 id 都是 demo- 開頭（虛構）');
   await assert.rejects(mock.drama.series({ id: 'nope' }), UserError);
-  const w = await mock.drama.waitPick();
-  assert.deepEqual([w.title, w.ep, w.appLink], ['夜班公車的約定', 1, 'example-drama://watch/demo-night-bus/1']);
+  const DAY = Date.parse('2026-11-23T09:00:00+08:00');
+  const w = await mock.drama.waitPick({ turn: 1, now: DAY });
+  assert.equal(w.ep, 1);
+  assert.equal(w.appLink, `example-drama://watch/${w.id}/1`);
   assert.equal(pickForWait([{ id: 'a', title: 'A', freeEpisodes: 0 }, { id: 'b', title: 'B', freeEpisodes: 2, ready: 0 }, { id: 'c', title: 'C', freeEpisodes: 1 }]).id, 'c', '要有免費集數、第 1 集已上架');
   assert.equal(mock.drama.exerciseLink(), 'example-drama://unlock');
   assert.equal(createMockDramaServices().drama.exerciseLink(), null);
+});
+
+test('等車推劇輪替：熱門前 5 部裡可看的，依台灣日期＋對話輪次換；同一天同一輪重問是同一部；第 6 名以後不推', async () => {
+  const mock = createMockDramaServices({ links: LINKS });
+  const DAY = Date.parse('2026-11-23T09:00:00+08:00');
+  const top5 = (await mock.drama.picks({ limit: 5 })).items.filter((x) => x.freeEpisodes >= 1).map((x) => x.id);
+  const at = async (turn, now = DAY) => (await mock.drama.waitPick({ turn, now })).id;
+  assert.equal(await at(1), await at(1), '同一輪重問不換（畫面不閃動）');
+  assert.equal(await at(1, DAY + 3600e3 * 10), await at(1), '同一個台灣日期（晚上 7 點）還是同一部');
+  const turns = await Promise.all([1, 2, 3, 4, 5].map((t) => at(t)));
+  assert.deepEqual([...new Set(turns)].sort(), [...top5].sort(), '連續 5 輪輪過前 5 部');
+  assert.notEqual(await at(1, DAY + 864e5), await at(1), '隔天換一部');
+  assert.ok(turns.every((id) => top5.includes(id)), '只從前 5 部挑');
+  // 前 5 部裡沒有免費集數的跳過；台灣日期用 +8 時區（UTC 16:00 已是隔天）
+  const list = ['a', 'b', 'c', 'd', 'e', 'f'].map((id, i) => ({ id, title: id, freeEpisodes: i === 1 ? 0 : 1 }));
+  for (let t = 0; t < 8; t++) assert.ok(['a', 'c', 'd', 'e'].includes(pickForWait(list, { turn: t, now: DAY }).id));
+  assert.notEqual(pickForWait(list, { turn: 0, now: Date.parse('2026-11-23T15:59:00Z') }).id, pickForWait(list, { turn: 0, now: Date.parse('2026-11-23T16:01:00Z') }).id);
+  // 問阿幫：同一段對話第幾句（使用者第幾則）決定輪次
+  assert.equal(asideState({ messages: [{ role: 'user', content: 'a' }, { role: 'assistant', content: 'b' }, { role: 'user', content: 'c' }] }, getProfile('life'), DAY).turn, 2);
 });
 
 test('工具：drama_picks／drama_search／drama_series（示範）；mode 看 MYDRAMA_API_BASE；搜尋沒結果照實說', async () => {
@@ -175,8 +196,8 @@ test('等車推劇：≥ 5 分才推、一輪一次、關掉不推、英文不�
   assert.equal(await waitDrama(svc, { tool: 'bus_route_eta', data: bus(299), parent: 't1' }, on()), null, '4 分 59 秒不推');
   const st = on();
   const a = await waitDrama(svc, { tool: 'bus_route_eta', data: bus(300), parent: 't1' }, st);
-  assert.equal(a.text, '等車還要 5 分，剛好夠看一集短劇：《夜班公車的約定》第 1 集（前 10 集免費）。');
-  assert.deepEqual([a.parent, a.kind, a.waitMin, a.mode, a.data.appLink], ['t1', 'drama', 5, 'demo', 'example-drama://watch/demo-night-bus/1']);
+  assert.match(a.text, /^等車還要 5 分，剛好夠看一集短劇：《.+》第 1 集（前 \d+ 集免費）。$/);
+  assert.deepEqual([a.parent, a.kind, a.waitMin, a.mode, a.data.appLink], ['t1', 'drama', 5, 'demo', `example-drama://watch/${a.data.id}/1`]);
   assert.equal(st.done, true);
   assert.equal(await waitDrama(svc, { tool: 'bus_route_eta', data: bus(900), parent: 't2' }, st), null, '一輪最多一次');
   assert.equal(await waitDrama(svc, { tool: 'bus_route_eta', data: bus(900), parent: 't1' }, { on: false, done: false }), null, '設定關掉');

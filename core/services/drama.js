@@ -86,12 +86,22 @@ export function dramaLinks(cfg = {}) {
 /** 卡片與模型看的一部劇：加上第 1 集的 App 連結（ready 是內部欄位，不往上傳） */
 const shown = (links) => ({ ready: _r, ...s }, rank) => ({ ...s, ...(rank != null && { rank }), appLink: links.episode(s.id, 1) });
 
+/** 等車推劇從熱門排行前幾部裡輪替（產品負責人 2026-11-22：不要永遠推同一部） */
+export const WAIT_POOL = 5;
+/** 台灣日期 → 從 1970-01-01 起第幾天（同一天同一個數） */
+const twDay = (now) => Math.floor((now + 8 * 3600e3) / 864e5);
+
 /**
- * 從排行挑一部「等車時看一集」的劇：熱門、非限制級、有免費集數、第 1 集已上架。
+ * 從排行挑一部「等車時看一集」的劇：熱門前 5 部裡非限制級、有免費集數、第 1 集已上架的，
+ * 依台灣日期＋這段對話的輪次輪替（同一天、同一輪重問仍是同一部，畫面不閃動；換一輪或隔天換一部）。
  * @param {ReturnType<typeof normSeries>[]} list
+ * @param {{ turn?: number, now?: number }} [at] turn：這段對話第幾輪（使用者第幾句）
  */
-export function pickForWait(list) {
-  return (list || []).find((s) => (s.freeEpisodes ?? 0) >= 1 && (s.ready == null || s.ready >= 1)) || null;
+export function pickForWait(list, { turn = 0, now = Date.now() } = {}) {
+  const pool = (list || []).slice(0, WAIT_POOL).filter((s) => (s.freeEpisodes ?? 0) >= 1 && (s.ready == null || s.ready >= 1));
+  if (!pool.length) return null;
+  const k = twDay(now) + (Number.isInteger(turn) && turn > 0 ? turn : 0);
+  return pool[((k % pool.length) + pool.length) % pool.length];
 }
 
 /**
@@ -132,9 +142,9 @@ export function createDramaServices(fx, { links: cfg } = {}) {
         const syn = await fx.synopsis(id).then((r) => str(r?.seriesId === id || r?.seriesId == null ? r?.synopsis : '', 600)).catch(() => '');
         return { kind: 'series', items: [show({ ...s, synopsis: syn || s.synopsis })], store: links.store() };
       },
-      /** 等車推劇：熱門排行第一部可以從第 1 集看的（找不到回 null；上游失敗也回 null，不影響交通資訊） */
-      async waitPick() {
-        const s = pickForWait(normList(await fx.ranking('hot').catch(() => [])));
+      /** 等車推劇：熱門前 5 部可以從第 1 集看的，依日期＋輪次輪替（找不到回 null；上游失敗也回 null，不影響交通資訊） */
+      async waitPick({ turn = 0, now = Date.now() } = {}) {
+        const s = pickForWait(normList(await fx.ranking('hot').catch(() => [])), { turn, now });
         return s ? { ...show(s), ep: 1 } : null;
       },
       /** 運動解鎖頁的 App 連結（給「天氣好、動得少」的運動建議接用；沒設定回 null） */

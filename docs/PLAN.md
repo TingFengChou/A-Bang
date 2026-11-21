@@ -355,8 +355,9 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] D-04 等車推短劇：`core/agent/wait-drama.js`、事件 `aside`、卡片下方提示（看這集／不用了）、設定頁開關（預設開）、`host.openApp`（App 連結＋商店頁備援）；一輪最多一次、≥ 5 分才推、英文不推
 - [x] D-05 運動解鎖提示句與連結（`core/drama-say.js` `exerciseNudge`、`svc.drama.exerciseLink()`）；**接線留給運動建議那個分支**
 - [ ] D-06 產品負責人看截圖（`test/screenshots/phone-drama-wait.png`、`phone-drama-card.png`、`desktop-drama-card.png`、`phone-drama-setting.png`）後決定合併
-- [ ] D-07 公司提供 `.env`：`MYDRAMA_API_BASE`、`MYDRAMA_LINK_EPISODE`、`MYDRAMA_LINK_EXERCISE`、`MYDRAMA_STORE_IOS`／`ANDROID`；實機確認 App 連結與商店備援（Pixel、iPhone）
-- [ ] D-08 每集長度：公開端點沒有每集秒數，「一集看得完」先用 ≥ 5 分代替；MyDrama 提供欄位後改精準比較
+- [ ] D-07 ⛔ 公司提供 `.env`（產品負責人 2026-11-22：連結與商店網址先留空，`.env.example` 只有變數名）：`MYDRAMA_API_BASE`、`MYDRAMA_LINK_EPISODE`、`MYDRAMA_LINK_EXERCISE`、`MYDRAMA_STORE_IOS`／`ANDROID`；實機確認 App 連結與商店備援（Pixel、iPhone）
+- [x] D-09 推薦輪替（產品負責人 2026-11-22）：熱門前 5 部裡可看的，依台灣日期＋對話輪次輪替；同一輪重問同一部
+- [ ] D-08 待辦：請 MyDrama 片庫加「每集長度」欄位；之後把「一集看得完」從 ≥ 5 分改成精準比較（門檻維持 ≥ 5 分、< 40 分，產品負責人 2026-11-22）
 
 ## 被卡住的項目（2026-11-21 彙整）
 

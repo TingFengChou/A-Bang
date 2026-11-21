@@ -33,7 +33,7 @@ export function waitMinutes(tool, data, { walkMin = null } = {}) {
  * 這一輪要不要推、推什麼：回傳 aside 事件的內容或 null。
  * @param {object} svc
  * @param {{ tool: string, data: any, parent: string, walkMin?: number|null, lang?: 'en'|null }} a
- * @param {{ on: boolean, done: boolean }} state 這一輪的狀態（on＝使用者沒關掉；done＝這一輪已經推過）
+ * @param {{ on: boolean, done: boolean, turn?: number, now?: number }} state 這一輪的狀態（on＝使用者沒關掉；done＝這一輪已經推過；turn、now＝推哪一部的輪替依據）
  */
 export async function waitDrama(svc, { tool, data, parent, walkMin = null, lang = null }, state) {
   if (!state?.on || state.done || lang === 'en' || !svc?.drama?.waitPick) return null; // 英文（觀光客）不推：片庫是中文
@@ -42,7 +42,7 @@ export async function waitDrama(svc, { tool, data, parent, walkMin = null, lang 
   state.done = true; // 有機會推就算這一輪的那一次（就算這次沒推成，也不在同一輪再試）
   let timer;
   const pick = await Promise.race([
-    svc.drama.waitPick().catch(() => null),
+    svc.drama.waitPick({ turn: state.turn, now: state.now }).catch(() => null),
     new Promise((r) => { timer = setTimeout(() => r(null), PICK_TIMEOUT_MS); }),
   ]).finally(() => clearTimeout(timer));
   const hint = pick && waitHint({ waitMin: min, pick, lang });
