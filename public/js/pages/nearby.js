@@ -2,10 +2,15 @@ import { api } from '../api.js';
 import { icons } from '../icons.js';
 import { esc, loading, errorBox, empty, fmtDist, fmtTime, locate, chev, FALLBACK } from '../ui.js';
 import { locationNotice } from '../location-help.js';
+import { pageHero } from '../page-hero.js';
+
+/** 切換公車站／YouBike 時頁首跟著換（換分頁不經過 app.js 換頁） */
+const swapHero = (tab) => { const h = pageHero(tab === 'bike' ? 'bike' : 'nearby'); const box = document.getElementById('pagehero'); if (h && box) box.replaceChildren(h); };
 
 export default {
   title: '附近',
   root: true,
+  hero: ({ query }) => (query.tab === 'bike' ? 'bike' : 'nearby'),
   render({ main, query, setAction, onCleanup }) {
     let tab = query.tab === 'bike' ? 'bike' : 'bus';
     let pos = null;
@@ -17,7 +22,7 @@ export default {
     const list = main.querySelector('#list');
     const seg = main.querySelectorAll('.seg button');
     const paint = () => seg.forEach((b) => b.classList.toggle('on', b.dataset.t === tab));
-    seg.forEach((b) => b.addEventListener('click', () => { tab = b.dataset.t; paint(); history.replaceState(null, '', `#/nearby${tab === 'bike' ? '?tab=bike' : ''}`); load(); }));
+    seg.forEach((b) => b.addEventListener('click', () => { tab = b.dataset.t; paint(); history.replaceState(null, '', `#/nearby${tab === 'bike' ? '?tab=bike' : ''}`); swapHero(tab); load(); }));
     paint();
 
     async function load(fresh = false) {

@@ -10,6 +10,7 @@ import { restoreReminders } from './reminders.js';
 import { resumeAlight } from './alight.js';
 import { mountTripBar } from './trip-bar.js';
 import { detachMain, attachMain, mountFab, syncFab, abangSays } from './abang-dock.js';
+import { pageHero } from './page-hero.js';
 import home from './pages/home.js';
 import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
@@ -44,6 +45,7 @@ root.innerHTML = `
   <div id="offline" class="offline-banner" role="status" hidden></div>
   <div id="banner"></div>
   <div id="tripbar" hidden></div>
+  <div id="pagehero"></div>
   <main id="main" tabindex="-1"></main>
   <div class="tabbar"><nav>${tabs.map(([h, n, i]) => `<a href="${h}" data-h="${h}">${icons[i]}<span>${n}</span></a>`).join('')}</nav></div>
   <p id="abang-live" class="sr-only" aria-live="polite"></p><div class="abang-float"><div id="abang-bubble" class="fab-bubble" hidden></div><button id="abang-fab" class="abang-fab" type="button" aria-label="問阿幫"><img src="/brand/abang-default.svg" alt=""><i class="fab-dot" aria-hidden="true"></i></button></div>
@@ -83,6 +85,15 @@ window.addEventListener('abang:arrival-stuck', (e) => {
   remind(en ? `Bus ${e.detail.routeName} isn't coming. Want me to find another way?` : `${e.detail.routeName} 一直沒來，要我幫你改其他方式嗎？`, { label: en ? 'Another way' : '改其他方式', ask: e.detail.ask }, 10000); // 阿幫自己說（不再說「到問阿幫」）
 });
 
+// 點首頁格子：用 View Transitions 讓格子的圖示飛進新頁面的頁首（home.js 送 abang:go；不支援時直接換頁）
+let afterNav = null;
+addEventListener('abang:go', (e) => {
+  const hash = e.detail?.hash;
+  if (!/^#\/[^\s<>"']*$/.test(hash || '')) return;
+  if (typeof document.startViewTransition !== 'function') { location.hash = hash; return; }
+  document.startViewTransition(() => new Promise((done) => { afterNav = done; location.hash = hash; setTimeout(done, 800); })); // 最多等 0.8 秒
+});
+
 function navigate() {
   cleanups.forEach((f) => f()); cleanups = [];
   state.staleAt = null; // 舊資料標示只屬於那一頁；新頁面查詢失敗會再標
@@ -99,6 +110,10 @@ function navigate() {
     a.classList.toggle('on', on);
     if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
+  // 首頁格子點進來的頁面：頁首（立體圖示＋說明＋動畫，page-hero.js）
+  const heroId = page.hero?.({ params, query });
+  const hero = heroId && pageHero(heroId);
+  $('pagehero').replaceChildren(...(hero ? [hero] : []));
   const main = $('main');
   detachMain(); // 問阿幫的對話不清掉：先收起來，回來原樣接上
   main.innerHTML = '';
@@ -115,6 +130,7 @@ function navigate() {
     page.render({ main, params, query, toast, setTitle, setAction, onCleanup: (f) => cleanups.push(f) });
   }
   paintBanner();
+  afterNav?.(); afterNav = null; // 圖示飛進頁首的換頁：新畫面好了
 }
 
 /** 頂端橫幅：依各類資料的真實／示範狀態說明（卡片與首頁格子另有標示） */

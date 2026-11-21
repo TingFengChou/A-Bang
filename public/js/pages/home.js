@@ -1,4 +1,4 @@
-import { miniApps, groups } from '../registry.js';
+import { miniApps, groups, TILE_COLOR } from '../registry.js';
 import { icons } from '../icons.js';
 import { esc, favs, etaBadge, chev } from '../ui.js';
 import { api, state } from '../api.js';
@@ -31,6 +31,13 @@ export default {
       const q = new FormData(e.target).get('q').trim();
       if (q) location.hash = offline ? `#/bus?q=${encodeURIComponent(q)}` : `#/agent?q=${encodeURIComponent(q)}`;
     });
+    // 點格子：格子的圖示飛進下一頁的頁首（View Transitions；不支援或減少動態時照常換頁）
+    main.querySelectorAll('a.tile').forEach((a) => a.addEventListener('click', (e) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || !canMorph()) return;
+      e.preventDefault();
+      a.querySelector('.ic').style.viewTransitionName = 'ph-token';
+      dispatchEvent(new CustomEvent('abang:go', { detail: { hash: a.getAttribute('href') } }));
+    }));
     main.querySelectorAll('.tile.soon').forEach((el) =>
       el.addEventListener('click', () => toast(`「${el.dataset.name}」規劃中`)));
     // 示範資料的服務在格子上標「示範」（依 /api/v1/status 的 sources）
@@ -43,6 +50,8 @@ export default {
   },
 };
 
+const canMorph = () => typeof document.startViewTransition === 'function' && !matchMedia('(prefers-reduced-motion: reduce)').matches && !document.documentElement.classList.contains('lite-motion');
+
 /** 資料是示範的服務：格子右上角標「示範」（離線 Demo 全部是示範） */
 function markDemoTiles(main) {
   const demo = new Set((state.sources || []).filter((x) => x.mode === 'demo').map((x) => x.id));
@@ -53,9 +62,6 @@ function markDemoTiles(main) {
   }
 }
 
-// 格子代表色（立體代幣）：交通依方式、生活與政府服務依主題
-const TILE_COLOR = { nearby: '#1d4ed8', bus: '#0f766e', bike: '#d97706', thsr: '#c2410c', tra: '#1d4ed8', metro: '#0e7490', weather: '#0284c7', aqi: '#0891b2', quake: '#b45309',
-  pharmacy: '#15803d', garbage: '#475569', antifraud: '#b91c1c', fuel: '#9a3412', invoice: '#7c3aed', stock: '#be123c' };
 function tile(a, i = 0) {
   const inner = `<span class="ic ab-token" style="--c:${TILE_COLOR[a.id] || '#0f766e'}">${icons[a.icon]}</span>${esc(a.name)}`;
   return a.status === 'soon'

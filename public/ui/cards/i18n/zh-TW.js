@@ -218,8 +218,8 @@ export const MESSAGES = {
   'weather.rain': '現在下雨，或接下來很可能下雨',
   'weather.dry': '現在沒下雨',
   'weather.temp': '氣溫',
-  'weather.rain1h': '過去 1 小時雨量',
-  'weather.pop3h': '3 小時降雨機率',
+  'weather.rain1h': '1 小時雨量',
+  'weather.pop3h': '降雨機率',
   'weather.station': '{station}・距離 {km} 公里・{time} 觀測',
 
   // ── 生活服務（M10） ──

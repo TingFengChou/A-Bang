@@ -9,6 +9,7 @@ const CFG = {
 
 export default {
   title: '時刻表',
+  hero: ({ params: [sys] }) => (sys === 'tra' ? 'tra' : 'thsr'),
   async render({ main, params: [sys], setTitle }) {
     const cfg = CFG[sys] || CFG.thsr;
     setTitle(cfg.title);

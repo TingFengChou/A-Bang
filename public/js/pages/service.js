@@ -36,7 +36,7 @@ export const SERVICES = {
   aqi: { title: '空氣品質', tool: 'aqi_nearby', where: true, auto: true, args: (_f, p) => ({ lat: p.lat, lon: p.lon }) },
   quake: {
     title: '地震', tool: 'earthquake_recent', auto: true,
-    form: `<div class="row"><input class="field" name="county" placeholder="看某縣市的震度（選填），例如 臺北市" aria-label="縣市" maxlength="10"><button class="btn">查詢</button></div>`,
+    form: `<div class="row"><input class="field" name="county" placeholder="看某縣市的震度（選填）" aria-label="縣市" maxlength="10"><button class="btn">查詢</button></div>`,
     args: (f) => ({ ...(f.county.value.trim() && { county: f.county.value.trim() }), limit: 5 }),
   },
   pharmacy: {
@@ -61,6 +61,7 @@ export const SERVICES = {
 
 export default {
   title: '生活服務',
+  hero: ({ params: [id] }) => id, // 頁首（page-hero.js）
   async render({ main, params: [id], setTitle, setAction, onCleanup, toast }) {
     const cfg = SERVICES[id];
     if (!cfg) { main.innerHTML = errorBox('沒有這個服務'); return; }
@@ -84,6 +85,9 @@ export default {
           const w = main.querySelector('#where');
           w.hidden = false;
           w.textContent = pos === FALLBACK ? `位置：${FALLBACK.label}（沒有取得定位）` : '位置：目前位置附近';
+          // 有頁首：位置寫在頁首的資料來源後面（不另起一行）
+          const src = document.querySelector('#pagehero .ph-src');
+          if (src) { src.dataset.base ??= src.textContent; src.textContent = `${src.dataset.base}・${pos === FALLBACK ? '台北車站附近（沒有取得定位）' : '目前位置附近'}`; w.hidden = true; }
           main.querySelector('.loc-help')?.remove();
           if (pos === FALLBACK) w.after(locationNotice({ retry: () => run(true), onCleanup })); // 說原因與下一步（S1c）
         }

@@ -28,6 +28,7 @@ function starAction(setAction, toast, item) {
 export const busSearch = {
   title: '公車',
   root: true,
+  hero: () => 'bus',
   render({ main, query }) {
     let city = prefs.get('city', 'Taipei');
     main.innerHTML = `
