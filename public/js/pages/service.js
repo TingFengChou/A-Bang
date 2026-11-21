@@ -76,8 +76,15 @@ function tintHero(id, d) {
   box.querySelector('.ph-token')?.style.setProperty('--c', c);
 }
 
+/** 浮動阿幫：在各服務頁可以問什麼（都是阿幫聽得懂的說法） */
+const ASK = {
+  weather: ['明天會下雨嗎？', '出門要帶什麼？'], aqi: ['現在空氣品質好嗎？'], quake: ['最近有地震嗎？'], pharmacy: ['附近的藥局有開嗎？'],
+  garbage: ['垃圾車幾點來？'], fuel: ['這週油價多少？'], invoice: ['這期發票號碼是多少？'], stock: ['台積電收盤多少？'], metro: ['捷運台北車站下一班？'],
+};
+
 export default {
   title: '生活服務',
+  askHint: ({ params: [id] }) => (ASK[id] ? { context: `使用者正在看「${SERVICES[id]?.title || id}」頁`, chips: ASK[id] } : null),
   hero: ({ params: [id] }) => id, // 頁首（page-hero.js）
   async render({ main, params: [id], setTitle, setAction, onCleanup, toast }) {
     const cfg = SERVICES[id];

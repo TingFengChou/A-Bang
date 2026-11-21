@@ -77,6 +77,11 @@ export function announcer(el) {
 /** 路線即時到站 */
 export const busRoute = {
   title: '路線',
+  /** 浮動阿幫：你在看這條路線（有上車站時問到站） */
+  askHint: ({ params: [, route], query }) => ({
+    context: `使用者正在看 ${route} 公車的即時動態${query.stop ? `，上車站「${query.stop}」` : ''}`.slice(0, 200),
+    chips: query.stop ? [`${route} 到哪了？我在${query.stop}`] : [`${route} 到哪了？`],
+  }),
   render({ main, params: [city, route], query = {}, setTitle, setAction, toast, onCleanup }) {
     route = decodeURIComponent(route);
     setTitle(`${route} 公車`);

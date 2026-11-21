@@ -225,3 +225,7 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 /* 阿幫主動說的提醒（到站、下車、公車一直不來）：記在對話裡 */
 .agent-say { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; align-self: flex-start; background: var(--brand-soft); border-radius: 14px; padding: 8px 12px; margin: 4px 0; }
 .agent-say .say { margin: 0; flex: 1; min-width: 0; }
+
+/* 浮動阿幫：在這一頁可以問（從哪一頁打開就建議那一頁的問題） */
+.suggest.page-ask { border-bottom: 1px dashed var(--line); padding-bottom: 6px; }
+.suggest.page-ask[hidden] { display: none; }
