@@ -37,11 +37,27 @@ export const STATES = {
   rainSoon: { label: '可能下雨', say: '等一下可能下雨', boost: { exposure: 7 } }, // 現在沒下、3 小時降雨機率 ≥ 60%
 };
 
+/** 習慣（個人化，2026-11-21）：手機記的「常選的交通方式」比例（public/js/habits.js），只小幅加分、不改權重。
+ *  max：最多加幾分（滿分 1＝100 分）；full：常選比例到這裡就加滿（60% 捷運＋40% 公車 → 捷運 +8、公車 +5.3，混著選的人差距自然變小）
+ *  只有「沒指定方式、使用者沒說狀況」才看習慣；比最快的方案慢太多（超過 2 倍且多 20 分以上）的不加分（走路 100 分鐘不會因為習慣勝出） */
+export const HABIT = { max: 0.08, full: 0.6 };
+const HABIT_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro: '搭捷運', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
+
+/** 習慣只在使用者確認後才送來（public/js/habits.js 先問「以後要我優先推捷運嗎？」）：未確認的推測不加分（2026-11-21 互動確認） */
+/** 每個方案的習慣加分（0～HABIT.max）；不適用時回 0 */
+export function habitBonus(o, habit, fastest) {
+  const share = Number(habit?.[o.role]);
+  if (!(share > 0) || !Number.isFinite(share)) return 0;
+  if (Number(o.minutes) > Math.max(fastest * 2, fastest + 20)) return 0;
+  return HABIT.max * Math.min(1, share / HABIT.full);
+}
+
 /**
  * @param {Array<{ id: string, name: string, minutes: number, waitMin?: number, walkMin?: number, cost?: number,
  *                 exposure?: number, effort?: number, arriveAt?: string }>} options
- * @param {{ states?: string[], arriveBy?: string, arriveByMin?: number }} [ctx]  states 例如 ['rain','luggage']；arriveBy 例如 '08:00'
+ * @param {{ states?: string[], arriveBy?: string, arriveByMin?: number, habit?: Record<string, number>, said?: boolean }} [ctx]  states 例如 ['rain','luggage']；arriveBy 例如 '08:00'
  *   arriveByMin 與方案的 arriveMin（自出發日 00:00 起算、可超過 24 小時）同時存在時以分鐘比較，跨午夜才不會誤判
+ *   habit：常選比例（{ metro: 0.6, bus: 0.3 }）；said：使用者自己說了（或點選了）狀態 → 這次以狀況為準、不看習慣
  * @returns {{ weights: Record<string, number>, ranked: Array<object>, excluded: Array<object>, best: object|null, reason: string }}
  */
 export function decide(options, ctx = {}) {
@@ -77,8 +93,10 @@ export function decide(options, ctx = {}) {
     return true;
   });
 
-  // 3. 各項正規化（越小越好 → 分數越高），乘上權重
+  // 3. 各項正規化（越小越好 → 分數越高），乘上權重；習慣另外小幅加分（breakdown.habit）
   const val = (o, k) => Number(o[k] ?? 0);
+  const habitOn = !!ctx.habit && !ctx.mode && !ctx.said;
+  const fastest = Math.min(...pool.map((p) => val(p, 'minutes')));
   const ranked = pool.map((o) => {
     const breakdown = {};
     for (const c of CRITERIA) {
@@ -87,6 +105,8 @@ export function decide(options, ctx = {}) {
       else { const lo = Math.min(...pool.map((p) => val(p, c.key))); norm = (lo + c.k) / (val(o, c.key) + c.k); }
       breakdown[c.key] = norm * weights[c.key];
     }
+    const bonus = habitOn ? habitBonus(o, ctx.habit, fastest) : 0;
+    if (bonus > 0) breakdown.habit = bonus;
     const score = Object.values(breakdown).reduce((a, b) => a + b, 0);
     return { ...o, score: Math.round(score * 100), breakdown };
   }).sort((a, b) => b.score - a.score || a.minutes - b.minutes);
@@ -100,7 +120,8 @@ export function decide(options, ctx = {}) {
     return { weights, ranked, excluded, best: picked, mode: ctx.mode, reason: `照你說的選「${picked.name}」${note}。${careful ? `${STATES[careful].label}要多注意安全。` : ''}` };
   }
   const best = ranked[0] || null;
-  const reason = explain(best, ranked[1], states, excluded);
+  const reason = explain(best, ranked[1], states, excluded, ranked);
+  if (habitOn) return { weights, ranked, excluded, best, reason, habitOn };
   // 指定的交通方式沒有可行方案：照分數建議，但要明說（使用者才不會以為已經改成功）
   if (ctx.mode) return { weights, ranked, excluded, best, modeUnavailable: ctx.mode, reason: `${MODE_NAME[ctx.mode] || '你指定的方式'}這次沒有可行的方案；${reason}` };
   return { weights, ranked, excluded, best, reason };
@@ -110,7 +131,7 @@ const MODE_NAME = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷�
 const MODE_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro: '坐捷運', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
 
 /** 產生一句理由：最佳方案贏在哪裡（取貢獻差最大的項目）＋生效的狀態 */
-function explain(best, second, states, excluded) {
+function explain(best, second, states, excluded, ranked = []) {
   if (!best) {
     const said = excluded.some((e) => !e.why.includes('超過')), late = excluded.some((e) => e.why.includes('超過'));
     // 行動不便時沒有可行方案（短程只有步行、YouBike，或叫車被說不要）：主動建議叫車／無障礙計程車
@@ -119,16 +140,24 @@ function explain(best, second, states, excluded) {
   }
   const why = [];
   if (states.length) why.push(`因為${states.map((s) => STATES[s].say).join('、')}`);
+  const often = habitFlipped(best, ranked) ? [`你想優先${HABIT_DO[best.role] || `選${best.name}`}`] : []; // 只有拿掉偏好加分會換第一名時才說（否則不是因為偏好）
   if (second) {
     const diffs = CRITERIA.map((c) => ({ c, d: best.breakdown[c.key] - second.breakdown[c.key] })).sort((a, b) => b.d - a.d);
     const top = diffs.filter((x) => x.d > 0.01).slice(0, 2).map((x) => PHRASE[x.c.key](best, second, states));
-    if (top.length) why.push(top.join('、'));
-  }
+    if (often.length || top.length) why.push([...often, ...top].join('、'));
+  } else if (often.length) why.push(often[0]);
   const said = excluded.filter((e) => e.why.startsWith('你說不要')), unfit = excluded.filter((e) => e.why.includes('不建議')), late = excluded.filter((e) => e.why.includes('超過'));
   if (said.length) why.push(`${said.map((e) => e.name).join('、')}照你說的不列入`);
   if (unfit.length) why.push([...new Set(unfit.map((e) => e.why))].join('、'));
   if (late.length) why.push(`${late.map((e) => e.name).join('、')}會遲到已排除`);
   return `選「${best.name}」${why.length ? '：' + why.join('，') : ''}。`;
+}
+
+/** 拿掉偏好加分後第一名會不會換（決策圖英文理由也用這個） */
+export function habitFlipped(best, ranked = []) {
+  if (!(best?.breakdown?.habit > 0)) return false;
+  const base = (o) => Object.entries(o.breakdown || {}).reduce((a, [k, v]) => a + (k === 'habit' ? 0 : v), 0);
+  return ranked.some((o) => o.id !== best.id && base(o) > base(best));
 }
 
 const PHRASE = {
@@ -140,3 +169,57 @@ const PHRASE = {
   effort: () => '比較輕鬆',
   delayRisk: () => '不受塞車影響',
 };
+
+/** 關鍵問題會試的狀態（使用者自己最清楚、程式猜不到的） */
+export const ASK_STATES = ['rush', 'budget', 'luggage', 'lessWalk'];
+/** 值得問的差別：時間差 ≥ 5 分或費用差 ≥ 50 元 */
+export const ASK_MIN = { minutes: 5, cost: 50 };
+const MODE_EN = { walk: 'Walking', bike: 'YouBike', bus: 'The bus', metro: 'The MRT', thsr: 'High speed rail', tra: 'The train', intercity: 'The coach', ridehail: 'A taxi' };
+
+/**
+ * 關鍵問題（2026-11-21 互動確認，ADR-0010）：答案取決於使用者時，直接問一句，不默默推測。
+ * 對這次的方案，試著各加上一個狀態（趕時間、想省錢、帶行李、少走路）重算：建議會換、而且差別值得問（時間差 ≥ 5 分或費用差 ≥ 50 元），
+ * 就產生一個問題；一次最多一個（挑影響最大的）。使用者已經說了（或點了、說過）狀況、指定了方式，或怎麼加都不會換時不問。
+ * 純函式：伺服器（plan_trip 輸出 ask）與決策圖（按了以後即時重算）共用。
+ * @param {Array<object>} options 同 decide()
+ * @param {object} [ctx] 同 decide()（含 said、mode、habit）
+ * @returns {{ state: string, from: string, to: string, dMin: number, dCost: number, text: string, textEn: string } | null}
+ */
+export function keyQuestion(options, ctx = {}) {
+  if (ctx.mode || ctx.said) return null;
+  const states = (ctx.states || []).filter((k) => STATES[k]);
+  const base = decide(options, ctx).best;
+  if (!base) return null;
+  const fastest = Math.min(...options.map((o) => Number(o.minutes)));
+  let pick = null;
+  for (const k of ASK_STATES) {
+    if (states.includes(k)) continue;
+    const alt = decide(options, { ...ctx, states: [...states, k], said: true }).best;
+    if (!alt || alt.id === base.id) continue;
+    const dMin = Number(base.minutes) - Number(alt.minutes); // 正＝換過去比較快
+    const dCost = Number(alt.cost ?? 0) - Number(base.cost ?? 0); // 正＝換過去比較貴
+    const dWalk = Number(base.walkMin ?? 0) - Number(alt.walkMin ?? 0);
+    if (Math.abs(dMin) < ASK_MIN.minutes && Math.abs(dCost) < ASK_MIN.cost) continue; // 差不多：不值得打擾
+    if ((k === 'rush' && dMin <= 0) || (k === 'budget' && dCost >= 0) || (k === 'lessWalk' && dWalk <= 0)) continue; // 問句要說得通
+    if (Number(alt.minutes) > Math.max(fastest * 2, fastest + 20)) continue; // 不推明顯不合理的（想省錢就走 70 分鐘）
+    const impact = Math.abs(dMin) + Math.abs(dCost) / 20;
+    if (!pick || impact > pick.impact) pick = { k, base, alt, dMin, dCost, dWalk, impact };
+  }
+  if (!pick) return null;
+  const { k, alt, dMin, dCost, dWalk } = pick;
+  const more = dCost > 0 ? `多 ${dCost} 元` : '', moreEn = dCost > 0 ? `NT$${dCost} more` : '';
+  const en = MODE_EN[alt.role] || alt.name;
+  const text = {
+    rush: `${alt.name}快 ${dMin} 分${more ? `但${more}` : ''}，你趕時間嗎？`,
+    budget: `${alt.name}省 ${-dCost} 元${dMin < 0 ? `但慢 ${-dMin} 分` : ''}，想省錢嗎？`,
+    luggage: `有帶行李或大包小包嗎？有的話${alt.name}比較輕鬆${more ? `（${more}）` : ''}。`,
+    lessWalk: `想少走路嗎？${alt.name}少走 ${dWalk} 分${more ? `（${more}）` : ''}。`,
+  }[k];
+  const textEn = {
+    rush: `${en} is ${dMin} min faster${moreEn ? ` but costs ${moreEn}` : ''}. In a hurry?`,
+    budget: `${en} saves NT$${-dCost}${dMin < 0 ? ` but takes ${-dMin} min longer` : ''}. Want to save money?`,
+    luggage: `Carrying luggage or bags? If so, ${en} is easier${moreEn ? ` (${moreEn})` : ''}.`,
+    lessWalk: `Prefer less walking? ${en} walks ${dWalk} min less${moreEn ? ` (${moreEn})` : ''}.`,
+  }[k];
+  return { state: k, from: pick.base.id, to: alt.id, dMin, dCost, text, textEn };
+}

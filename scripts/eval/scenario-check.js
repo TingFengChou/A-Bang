@@ -1,6 +1,8 @@
 // 情境對話的期望檢查（test/scenarios.test.js 示範模式、scripts/eval-scenarios.js 模型模式共用）
 // 期望欄位：tools／toolsNot／toolsNone、states／statesNot、bestRole／bestRoleNot、arriveBy（null＝不該有）、
-// fromHere、from／to／fromNot（地名，台／臺相同）、optionHas（{ role: 名稱要含的字 }）、textHas／textNot、resultHas、tipHas（行程卡提醒）。一律檢查：決策最多一次、沒有錯誤、回答不露出工具英文名稱。
+// fromHere、from／to／fromNot／toNot（地名，台／臺相同）、optionHas（{ role: 名稱要含的字 }）、textHas／textNot、resultHas、tipHas（行程卡提醒）、
+// 阿幫問你（ADR-0016）：asks（問句要含這些字；沒有 ask 事件算失敗）、asksNone（這輪不該問）、askOptions（第 1 個在 options[0].label，其餘在任一選項）、askKind（options[0].kind）、askGuess（options[0].guess）。
+// 一律檢查：決策最多一次、ask 最多一次、沒有錯誤、回答不露出工具英文名稱。
 const norm = (s) => String(s ?? '').replace(/臺/g, '台').replace(/\s/g, '');
 const TOOL_NAME = /\b[a-z]+(?:_[a-z0-9]+)+\b/;
 
@@ -25,6 +27,22 @@ export function check(es, x = {}) {
   if (x.from && !norm(trip?.data?.from?.name).includes(norm(x.from))) bad.push(`起點應為 ${x.from}（是 ${trip?.data?.from?.name}）`);
   if (x.fromNot && trip && norm(trip.data?.from?.name).includes(norm(x.fromNot))) bad.push(`起點不該是 ${x.fromNot}`);
   if (x.to && !norm(trip?.data?.to?.name).includes(norm(x.to))) bad.push(`終點應為 ${x.to}（是 ${trip?.data?.to?.name}）`);
+  if (x.toNot && trip && norm(trip.data?.to?.name).includes(norm(x.toNot))) bad.push(`終點不該是 ${x.toNot}（是 ${trip.data?.to?.name}）`);
+  const asks = es.filter((e) => e.type === 'ask'), ask = asks[0];
+  if (asks.length > 1) bad.push(`一輪問了 ${asks.length} 個問題（最多一個）`);
+  if (x.asks) { if (!ask) bad.push('應該問使用者（沒有 ask 事件）'); else for (const w of [].concat(x.asks)) if (!ask.question.includes(w)) bad.push(`問句缺「${w}」（${ask.question}）`); }
+  if (x.asksNone && ask) bad.push(`這輪不該問（問了「${ask.question}」）`);
+  if (x.askOptions) {
+    const [first, ...rest] = [].concat(x.askOptions);
+    const labels = ask?.options?.map((o) => o.label) || [];
+    if (!ask) bad.push('應該有選項（沒有 ask 事件）');
+    else {
+      if (first && !labels[0]?.includes(first)) bad.push(`第一個選項應含「${first}」（是 ${labels[0]}）`);
+      for (const w of rest) if (!labels.some((l) => l.includes(w))) bad.push(`選項缺「${w}」（${labels.join('、')}）`);
+    }
+  }
+  if (x.askKind && ask?.options?.[0]?.kind !== x.askKind) bad.push(`第一個選項的 kind 應為 ${x.askKind}（是 ${ask?.options?.[0]?.kind ?? '無'}）`);
+  if ('askGuess' in x && !!ask?.options?.[0]?.guess !== !!x.askGuess) bad.push(`第一個選項${x.askGuess ? '應' : '不該'}標「猜的」`);
   for (const w of x.textHas || []) if (!text.includes(w)) bad.push(`總結缺「${w}」`);
   for (const w of x.textNot || []) if (text.includes(w)) bad.push(`總結不該有「${w}」`);
   const said = es.filter((e) => e.type === 'tool_result').map((e) => e.speak || '').join('');

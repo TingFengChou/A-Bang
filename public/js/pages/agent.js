@@ -15,6 +15,8 @@ import { token } from '../../ui/cards/mode-icons.js';
 import { nextSteps } from '../agent/next-steps.js';
 import { alightWatch } from '../alight.js';
 import { loadChat, saveChat, clearChat } from '../chat-store.js';
+import { habitRequest, noteDecision, applyStore, markAsked, questionAskedRecently, markQuestion } from '../habits.js';
+import { mountAsk, matchAnswer } from '../../ui/agent/ask.js';
 import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { renderDecision, lite, roleEn } from '../../ui/agent/decision-graph.js';
@@ -150,6 +152,7 @@ export default {
     let busy = false;
     const cards = [];
     let turnNo = 0; // 第幾輪：只有最近兩輪的卡片自動刷新（對話一直保留，舊卡片不再查，省流量與電）
+    let openAsk = null; // 阿幫問你（ADR-0016）：目前開著的問題；下一句對得上就是答案，對不上＝略過
     let pendingQ = null; // 阿幫還在回答時又問（提醒泡泡、首頁帶來的問題）：答完接著問，不丟掉（含這一頁的說明）
     const seenCards = new Map(); // 上一輪的天氣、空品（接著問時沒變就收合「同上」；鍵含測站，同一輪起訖點兩張不互蓋）
     /** 這張卡跟上一輪同一個測站的一樣嗎：一樣回收合說明，否則記下並回 null */
@@ -286,6 +289,14 @@ export default {
     async function send(raw, { pageContext = '', voice: spoken = false } = {}) {
       const q = String(raw || '').trim().slice(0, 500);
       if (!q) return;
+      let pendingAsk = null;
+      if (openAsk?.open()) { // 用打的或說的回答「阿幫問你」：對得上按鈕就是答案（不送伺服器）；對不上就略過，照常問（帶 pending，伺服器看得懂短答）
+        const a = openAsk, hit = matchAnswer(a.ask, q);
+        openAsk = null;
+        if (hit) { input.value = ''; if (hit.kind !== 'reply') log.append(el('div', 'msg user', q)); a.answer(hit); return; }
+        if (a.ask.pending?.slot) pendingAsk = { id: a.ask.id, ...a.ask.pending };
+        a.skip();
+      }
       if (busy) { pendingQ = { q, pageContext, voice: spoken }; return; }
       turnNo += 1;
       pastWrap?.querySelector('.past-acts button') && pastWrap.querySelector('.past-acts').replaceChildren(el('span', 'past-note', history.length ? '接著上次的話問' : '這次重新問（上次的對話只留著看）'));
@@ -305,7 +316,8 @@ export default {
         // 常用地點：只送這段對話提到的（「回家」才送家）
         const savedPlaces = agentId === 'life' ? placesFor(history.slice(-10).filter((m) => m.role === 'user').map((m) => m.content)) : undefined;
         const ctxText = [context, pageContext].filter(Boolean).join('；').slice(0, 200);
-        await runAgent({ messages: history.slice(-10), ...(ctxText && { context: ctxText }), ...(deviceJudge && { deviceJudge }), ...(savedPlaces && { savedPlaces }) }, (e) => {
+        const userState = agentId === 'life' ? habitRequest() : null; // 同意過的偏好比例、說過的預設狀況、可以問的候選（只有方式與次數；habits.js）
+        await runAgent({ messages: history.slice(-10), ...(ctxText && { context: ctxText }), ...(deviceJudge && { deviceJudge }), ...(savedPlaces && { savedPlaces }), ...(userState && { userState }), ...(pendingAsk && { pendingAsk }) }, (e) => {
           // 隱私：防詐頁貼上的內容只送給本站伺服器分析，不保存（AGENT_ANTIFRAUD.md §1）
           if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = modeText(e);
           if (e.type === 'status' && agentId === 'life') noteAgentStatus(e); // 「阿幫的腦袋」（#/ai）顯示最近一輪由誰回答、誰先聽懂（只記模式與來源，不含內容）
@@ -483,9 +495,20 @@ export default {
             if (reducedMotion()) box.classList.add('static');
             results.prepend(box);
             view.decision = e; view.box = box;
+            noteDecision(e); // 指定方式（改成 X、點決策圖的方案）＝選了這種方式（habits.js，只記方式）
             const mod = await decideModule;
-            if (mod) renderDecision(box, e, { sources: roles.filter((r) => r !== '行程'), decide: mod.decide, CRITERIA: mod.CRITERIA, lang: turnLang, onPick: (o) => !busy && send(turnLang === 'en' ? `Switch to ${({ walk: 'walking', bike: 'YouBike', bus: 'bus', metro: 'MRT', thsr: 'high speed rail', tra: 'train', intercity: 'intercity bus', ridehail: 'taxi' })[o.role] || o.name} instead` : `改成${o.name}`) }).played.then(() => handoff(box, results, e));
+            if (mod) { view.dg = renderDecision(box, e, { sources: roles.filter((r) => r !== '行程'), decide: mod.decide, CRITERIA: mod.CRITERIA, lang: turnLang, onPick: (o) => !busy && send(turnLang === 'en' ? `Switch to ${({ walk: 'walking', bike: 'YouBike', bus: 'bus', metro: 'MRT', thsr: 'high speed rail', tra: 'train', intercity: 'intercity bus', ridehail: 'taxi' })[o.role] || o.name} instead` : `改成${o.name}`) }); view.dg.played.then(() => handoff(box, results, e)); }
             else box.append(el('p', 'dg-why', e.reason)); // 載不到引擎時至少顯示理由
+            break;
+          }
+          case 'ask': { // 阿幫問你（ADR-0016）：一輪最多一個；有決策圖就放在它上方，否則接在後面
+            if (e.key && questionAskedRecently(e.key)) break; // 同一段起訖同一題，24 小時內問過（手機上只存雜湊）
+            if (e.key) markQuestion(e.key);
+            openAsk?.skip();
+            const ctl = mountAsk(e, { lang: turnLang, onAnswer: (o) => answerAsk(o, view, turnLang) });
+            openAsk = ctl;
+            if (/^habit:/.test(e.about || '')) markAsked(e.about.slice(6)); // 問過了（沒回答也 3 天內不再問）
+            if (view.box?.isConnected) view.box.before(ctl.el); else results.append(ctl.el);
             break;
           }
           case 'guardrail': // 安全情境（S18）：求助電話做成一鍵撥號，接在回答下面
@@ -525,6 +548,29 @@ export default {
       view.flush = () => queue;
       return view;
     }
+    /** 「阿幫問你」的答案（ADR-0016）：state＝加狀態即時重算、reply＝送出完整的一句、store＝存手機並套到這一輪、action＝手機做事、dismiss＝照原本；回傳顯示在問題區塊的一句 */
+    function answerAsk(o, view, lang) {
+      const en = lang === 'en';
+      if (o.kind === 'state') {
+        if (view.dg) { view.dg.addState(o.state, o.source === 'usual' ? 'usual' : 'picked'); return en ? `Recalculated: ${o.label}.` : `好，照「${o.label}」重算了。`; } // 「這次也帶東西嗎？」→ 是＝你說過：常帶東西
+        if (o.say) queueMicrotask(() => send(o.say)); // 沒有決策圖可以即時重算：說成一句送出
+        return '';
+      }
+      if (o.kind === 'reply') { queueMicrotask(() => send(o.say)); return ''; }
+      if (o.kind === 'action') { // 沿用卡片的 host 動作；連結類由 host 先確認（ADR-0011）
+        const a = o.action || {};
+        if (a.name === 'openLink') host.openLink(a.url, a.confirm ? { confirm: a.confirm } : {});
+        else if (a.name === 'watchArrival') host.watchArrival(a).catch(() => {});
+        else if (a.name === 'remind') host.remind(a.at, a.text, a.meta).catch(() => {});
+        return en ? 'Done.' : '好了。';
+      }
+      if (o.kind === 'store') {
+        const r = applyStore(o.value);
+        if (r.habit) view.dg?.setHabit(r.habit);
+        return en ? 'Saved on this phone. You can change it in Settings.' : r.say;
+      }
+      return en ? 'OK, keeping this plan.' : '好，照原本的建議。';
+    }
     // 給 app.js／浮動阿幫用：回到這頁、阿幫主動說一句（提醒）、聚焦輸入框、代問、有沒有對話
     const api = {
       show: (qy) => { api.setPage(null); takeQuery(qy); }, // 整頁：不是從哪一頁打開，拿掉「在這頁可以問」
@@ -543,7 +589,7 @@ export default {
       voiceRelease: () => voice?.release(),
       voiceCancel: () => voice?.cancel(),
       /** 設定頁清除本機資料：畫面上的對話也一起清掉 */
-      clear() { gen++; clearChat(); history.length = 0; pendingQ = null; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); showDefaults(); },
+      clear() { gen++; clearChat(); history.length = 0; pendingQ = null; openAsk = null; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); showDefaults(); },
       /** 從哪一頁打開（浮動阿幫）：那一頁可以問的問題；點了才把這一頁的說明一起送（自己打的問題不帶）；null＝清掉 */
       setPage(hint) {
         const pc = String(hint?.context || '');

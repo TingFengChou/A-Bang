@@ -47,7 +47,8 @@
 ```jsonc
 {
   "messages": [{ "role": "user", "content": "從西門町到台北 101 怎麼去？" }], // 最多 10 輪，只含文字
-  "userState": { "picked": ["budget"] },        // 使用者點選的狀態（選填）
+  "userState": { "picked": ["budget"], "habit": { "metro": 0.6 }, "usual": ["luggage"], "habitAsk": { "mode": "metro", "count": 6 } }, // 點選的狀態；habit＝使用者同意過的常選比例；usual＝說過的預設狀況；habitAsk＝可以問的候選（都選填、只在手機算，ADR-0016）
+  "pendingAsk": { "id": "ask-t7", "slot": "state", "state": "rush" }, // 選填：使用者直接打字回答上一個「阿幫問你」時帶回（ADR-0016）
   "clientTools": ["device_location"],           // 客戶端支援的裝置端工具（ADR-0008）
   "clientToolResults": [{ "id": "c1", "ok": true, "result": { "lat": 25.04, "lon": 121.51 } }], // 選填
   "context": "使用者在卡片上選了『從西門站出發』"     // 選填，來自 host.setContext()
@@ -66,7 +67,8 @@
 | `tool_result` | `id`, `ok`, `speak`, `card?`, `data?`, `metrics: { calls, cacheHits, cacheHit, scanned, ms }`（即 `callTool` 的 `metrics`）, `error?`, `impact?: { tone: 'bad'\|'good'\|'neutral', text }` | 小幫手說出 `speak`；`impact` 是這筆資料對決策的影響（`core/agent/impact.js`，不經模型）；決策圖的資料膠囊 |
 | `data_note` | `parent`（那次工具呼叫的 id）, `role`（天氣、空品、路況）, `source`, `text`, `impact: { tone, text }`, `effect`（`none`／`score`／狀態 key）, `available`, `mode: 'demo'\|'live'` | 工具內部用到的一項資料＋對這次判斷的影響（目前是 `plan_trip` 查的天氣、空品、國道路況；`core/services/trip-considered.js` 產生，不經模型）。以工具發言樣式排在 `parent` 的發言前面；`mode: 'demo'` 標「示範資料」；同一輪已點名該角色的工具（看 `tool_start`；工具平行，結果可能比 data_note 晚到；示範模式另外查過）時客戶端不重複顯示（2026-11-21） |
 | `discussion_end` | `tools`, `servers` | 討論收合成一行摘要 |
-| `decision` | `states: [{ key, source: 'auto'\|'user'\|'picked', from?, detail? }]`, `arriveBy?`, `best`, `options`, `ranked`, `excluded`, `weights`, `reason`, `considered`（同 `plan_trip.considered`）, `single?: { text, textEn, suggest: [{ label, ask }] }` | 決策圖動畫；前端可用同一引擎即時重算；`considered`＝「資料」欄每個來源一個節點；`single`＝只有一種方式時的說明與「接下來可以」的建議 |
+| `decision` | `states: [{ key, source: 'auto'\|'user'\|'picked'\|'usual', from?, detail? }]`, `arriveBy?`, `best`, `options`, `ranked`, `excluded`, `weights`, `reason`, `habit?`, `habitOn?`, `considered`（同 `plan_trip.considered`）, `single?: { text, textEn, suggest: [{ label, ask }] }` | 決策圖動畫；前端可用同一引擎即時重算；`considered`＝「資料」欄每個來源一個節點；`single`＝只有一種方式時的說明與「接下來可以」的建議 |
+| `ask` | `id`, `question`, `key?`（同一題的鍵，客戶端 24 小時內不重問）, `options: [{ label, kind: 'state'\|'reply'\|'store'\|'dismiss'\|'action', state?\|say?\|value?\|action?, guess? }]`, `why?`, `about?`, `pending?: { slot, state?, intent? }` | 阿幫問你（ADR-0016）：一輪最多一個，由程式產生。state＝加狀態即時重算（`say` 給不能重算的客戶端）、reply＝送出 `say`（完整的一句）、store＝存手機偏好（`value`）、action＝手機做事（`openLink`／`watchArrival`／`remind`，L2 先確認）、dismiss＝不改。直接打字回答時前端先比對按鈕文字，對不上就把 `pending` 當 `pendingAsk` 帶回，`validateRequest` 用 `resolvePending` 把短答改寫成完整的一句 |
 | `guardrail` | `tier`, `rule` | 套用的護欄（L2 以上） |
 | `client_tool_call` | `id`, `name`, `input` | 請客戶端執行裝置端工具（`device_location`、`notify_at`） |
 | `context_reset` | — | 使用者說「重來」：畫面加「重新開始」分隔線、前面的對話變淡（2026-11-21） |
@@ -95,7 +97,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 ### 3.3 執行器（✅ M5-04）
 
-`core/agent/run.js`：`validateRequest`（訊息 ≤ 500 字、≤ 10 則、最後一則是使用者、`userState.picked` 只能是已知狀態）；`execTools(svc, calls, emit, { profile, nextId, picked })`（平行：先送全部 `tool_start`，再依完成順序送 `tool_result`；`plan_trip` 成功後送 `decision`；不在 profile 白名單的 tool 回 `ok:false`；錯誤訊息經 `publicMessage`，不外洩上游細節）；`runDemo(svc, body, emit)`（示範模式：`status` → 每段 `agent_note`＋工具 → `discussion_end` → `text` → `done`；某段失敗就停止往下；最多 5 輪）。模型模式（M5-05，§4）共用 `execTools`；`plan_trip` 會自動併入畫面上點選的狀態（`withPickedPrefs`）。
+`core/agent/run.js`：`validateRequest`（訊息 ≤ 500 字、≤ 10 則、最後一則是使用者、`userState.picked` 只能是已知狀態；`userState.habit` 鍵限定 8 種交通方式、值 0～1、總和 ≤ 1.01；`userState.usual` 只能是 rush／luggage／lessWalk；`userState.habitAsk` 是方式＋次數；`pendingAsk` ≤ 1000 字元）；`execTools(svc, calls, emit, { profile, nextId, picked })`（平行：先送全部 `tool_start`，再依完成順序送 `tool_result`；`plan_trip` 成功後送 `decision`；不在 profile 白名單的 tool 回 `ok:false`；錯誤訊息經 `publicMessage`，不外洩上游細節）；`runDemo(svc, body, emit)`（示範模式：`status` → 每段 `agent_note`＋工具 → `discussion_end` → `text` → `done`；某段失敗就停止往下；最多 5 輪）。模型模式（M5-05，§4）共用 `execTools`；`plan_trip` 會自動併入畫面上點選的狀態（`withPickedPrefs`）；`prefs.habit` 一律由程式換成手機送來的 `userState.habit`（`withHabit`：手機沒送就拿掉，模型或規則帶的不採用；`groundedPrefs` 也丟掉模型的 habit），示範與模型模式相同。`decision` 事件帶 `habit`（比例）與 `habitOn`（這次有沒有加分），決策圖的「你同意：優先推捷運」chip 與前端重算用。`userState.usual`（說過的預設狀況）**不自動套用**：這一輪沒說狀況、沒指定方式，而且加上它會換建議時，問「這次也帶東西嗎？」〔是（猜的，kind state、source usual）〕〔這次沒有〕，點〔是〕才在決策圖加上「你說過：常帶東西」重算。`plan_trip` 之後 `execTools` 依整輪共用的 `ask = { done, habitAsk }` 送最多一個 `ask` 事件（`tripAsk`：① 習慣確認 ② 說過的預設狀況「這次也…嗎？」③ `plan_trip` 的關鍵問題 `ask`，帶 `key`＝同一段起訖〔座標到小數 2 位〕同一題，手機 24 小時內問過就不顯示，只存雜湊）。個人化與互動確認見 ADR-0010、ADR-0016。
 
 ### 3.4 裝置端工具（✅ M5-07）
 

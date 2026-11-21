@@ -23,7 +23,7 @@
         "required": ["key", "source"],
         "properties": {
           "key": { "enum": ["rush", "traffic", "rain", "luggage", "budget", "lessWalk", "badAir", "elder", "kids", "mobility", "group", "rainSoon"] },
-          "source": { "enum": ["auto", "user", "picked"] },
+          "source": { "enum": ["auto", "user", "picked", "usual"] },
           "from": { "type": "string" },
           "detail": { "type": "string" }
         }
@@ -46,6 +46,9 @@
     "unavailable": { "type": "array", "items": { "type": "string" } },
     "mode": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail"] },
     "avoid": { "type": "array", "items": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail"] } },
+    "habit": { "type": "object" },
+    "habitOn": { "type": "boolean" },
+    "ask": { "type": "object", "required": ["state", "text"], "properties": { "state": { "enum": ["rush", "budget", "luggage", "lessWalk"] }, "text": { "type": "string" }, "textEn": { "type": "string" } } },
     "skipped": { "type": "array", "items": { "type": "object", "required": ["role", "why"], "properties": { "role": { "type": "string" }, "why": { "type": "string" } } } }
   },
   "$defs": {
