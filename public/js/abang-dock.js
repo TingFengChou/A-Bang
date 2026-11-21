@@ -7,6 +7,7 @@
 // 只存在這次開著的 App／分頁裡（記憶體），不寫到手機或伺服器。
 
 import { shellT, currentShellLang } from './shell-i18n.js';
+import { voiceSupport, voiceEnabled } from './voice.js';
 
 /** @type {Map<string, { root: HTMLElement, api: { show?: Function, say?: Function, focus?: Function }, title: string, scrollY: number }>} */
 const alive = new Map();
@@ -35,7 +36,7 @@ export const keptIf = (key) => alive.get(key) || null;
 export function detachMain() {
   if (!current) return;
   const k = alive.get(current);
-  if (k?.root.parentNode && !k.root.closest('dialog')) { k.scrollY = window.scrollY; k.root.remove(); }
+  if (k?.root.parentNode && !k.root.closest('dialog')) { k.api.voiceCancel?.(); k.scrollY = window.scrollY; k.root.remove(); } // 換頁：不在背後開著麥克風
   current = null;
 }
 
@@ -82,7 +83,9 @@ export function closeSheet({ silent = false } = {}) {
 }
 function onSheetClosed() {
   sheet.classList.remove('open');
-  const root = keptIf('agent')?.root;
+  const k = keptIf('agent');
+  k?.api.voiceCancel?.(); // 收起對話：不在背後開著麥克風
+  const root = k?.root;
   if (root?.parentNode === sheetBody) root.remove(); // 已經接到整頁的不動
   if (!quiet) fab?.focus();
   quiet = false;
@@ -153,6 +156,7 @@ export function syncFab() {
 
 /** 點中央鍵：問阿幫頁回到輸入框（捲到最新）；其他頁拉出底部對話 */
 function onKey() {
+  if (held) { held = false; return; } // 剛剛是長按（用說的），不是點
   if (onLifePage()) {
     const k = keptIf('agent');
     window.scrollTo({ top: document.documentElement.scrollHeight });
@@ -160,6 +164,31 @@ function onKey() {
     return;
   }
   openSheet();
+}
+
+// 長按中央鍵直接用說的（M14-01，放開送出）；短按照舊。長按對讀屏、鍵盤、切換控制不友善：
+// 一樣的功能在輸入列的麥克風鍵（有可及名稱），長按只是捷徑。語音能用（voice.js）而且設定開著才有。
+const HOLD_MS = 450;
+let holdTimer = 0, held = false, holding = false, voiceOk = false;
+function onFabDown(e) {
+  if (!voiceOk || !voiceEnabled() || e.button !== 0 || !e.isPrimary) return;
+  held = false;
+  clearTimeout(holdTimer);
+  holdTimer = setTimeout(() => {
+    held = true; holding = true;
+    if (!onLifePage()) openSheet();
+    keptIf('agent')?.api.voiceHold?.();
+  }, HOLD_MS);
+  // 對話面板打開後中央鍵在背後（inert），放開的事件不一定送到它：在 window 上接
+  addEventListener('pointerup', onFabUp, true);
+  addEventListener('pointercancel', onFabUp, true);
+}
+function onFabUp() {
+  removeEventListener('pointerup', onFabUp, true);
+  removeEventListener('pointercancel', onFabUp, true);
+  clearTimeout(holdTimer);
+  if (holding) { holding = false; keptIf('agent')?.api.voiceRelease?.(); }
+  setTimeout(() => { held = false; }, 400); // 放開後的 click 不算點；沒有 click 時也不擋下一次
 }
 
 /**
@@ -179,6 +208,9 @@ export function mountFab(o) {
   sheet = document.getElementById('abang-sheet');
   sheetBody = sheet?.querySelector('.sheet-body');
   fab.addEventListener('click', onKey);
+  fab.addEventListener('pointerdown', onFabDown);
+  fab.addEventListener('contextmenu', (e) => { if (voiceOk && voiceEnabled()) e.preventDefault(); }); // 長按不跳系統選單
+  voiceSupport().then((r) => { voiceOk = !!r.available; }).catch(() => {});
   sheet?.querySelector('.sheet-close')?.addEventListener('click', () => closeSheet());
   sheet?.querySelector('.sheet-full')?.addEventListener('click', () => { const k = keptIf('agent'); if (k) k.scrollY = 1e9; location.hash = '#/agent'; }); // 整頁：停在最新的對話
   sheet?.addEventListener('cancel', (e) => { e.preventDefault(); closeSheet(); }); // Esc

@@ -227,6 +227,20 @@ Austin：「現在最下面都是公車相關（首頁／附近／公車／收�
 - 讀屏：只念「阿幫在想…」與「聽懂了／伺服器判斷中」兩次（`role=status`）；查資料的過程討論串本來就會念。reduced motion／lite-motion：不動，只顯示文字。動畫只動 transform／opacity。
 - 回答上方一行（這一輪手機上的 AI 有判斷時）：伺服器採用 →「阿幫先在手機上用 Gemini Nano 聽懂你要做什麼。」；伺服器用自己的判斷 →「手機上的 Gemini Nano 先聽了一遍；這一輪以伺服器的判斷為準。」（引擎名照實；英文提問時用英文）。一輪只說一次：頁底的模式說明只說由誰回答，不重複。
 
+### 5.0.3 語音問阿幫（M14-01，2026-11-21，產品負責人：「讓阿幫聽得懂」、手機上優先）
+
+把你說的話**在手機上**轉成文字，文字當作一般提問送出（跟打字一樣接上「阿幫在想」）；在手機上辨識時語音不離開手機，阿幫不錄音存檔、不把聲音傳到阿幫的伺服器。實作 `public/js/voice.js`（狀態機＋控制器＋辨識來源，與平台無關）、`public/js/voice-i18n.js`（中英字典）、`public/js/agent/voice-ui.js`（畫面）、原生外掛 `AbangVoice`（Android `AbangVoicePlugin.java`、iOS `AbangVoicePlugin.swift`）。
+- **入口**：問阿幫輸入列的麥克風鍵（輸入框與「送出」之間，44×44，可及名稱「用說的問阿幫」；在聽時變成停止圖示、`aria-pressed="true"`、名稱「說完了，送出」）。底部對話面板是同一個畫面，所以也有。**長按中央「問阿幫」鍵**（0.45 秒）是捷徑：其他頁先拉出底部對話再開始聽，放開就送出；短按維持原本的行為（長按後的 click 不算）；鍵外圈亮琥珀色。長按對讀屏、鍵盤、切換控制不友善，所以只是捷徑，同樣的功能一定有麥克風鍵；中央鍵的讀屏名稱不變。
+- **在聽面板**（輸入列上方）：左邊是思考動畫同一顆核心（Λ＋琥珀核心＋軌道），核心與光暈跟著音量放大（外掛的 level 事件 → CSS 變數 `--lv`，只動 transform／opacity）；右邊「在聽…」＋即時的辨識文字（還沒聽到字時是灰色提示「請說，例如：去台北 101 怎麼走」）＋怎麼結束（「說完停一下就會送出」／長按時「放開就送出」）＋在哪裡轉文字（「在手機上轉成文字，語音不離開手機」；不是在手機上時用警示色照實說「由系統的語音服務轉文字（可能經過網路）」）。按鈕：「取消」「說完了」（長按時不給「說完了」）。Esc 取消（不關掉底部對話）。
+- **結束與送出**：停頓 1.5 秒（有聽到字之後才計時）、按「說完了」、放開中央鍵 → 等最後的文字（最多 3 秒，沒來就用已聽到的）→ 自動送出（長按時阿幫不看停頓，但手機的辨識在停頓後也可能自己收尾，那時就先送出）（用說的那一句泡泡上有小麥克風）。開始 8 秒都沒聽到字 →「沒有聽到聲音」；一次最多 30 秒。換頁、收起底部對話、切到別的 App／鎖螢幕 → 取消，不在背後開著麥克風。
+- **語言**：最近一輪是英文（伺服器 status 事件的 `lang`）就用 en-US 辨識，面板也用英文；其他用 zh-TW。
+- **錯誤**（外掛與網頁版共用的種類 `VOICE_ERRORS`，字典 `err.*`）：權限被拒 →「麥克風權限沒有打開。可以直接打字，或到設定允許麥克風。」＋「到設定開啟」（`AbangSystem.openSettings`）；沒聽到、沒聽清楚 →「再說一次」；已經聽到字才報「沒聽清楚」時直接送出聽到的。錯誤面板改暖色底。
+- **讀屏**：只念「開始聽了，請說。」「取消了，沒有送出。」與錯誤（`role=status`）；辨識中的文字一直變，不念（`aria-hidden`），送出後對話紀錄（`role=log`）會念你說的話。
+- **reduced motion／lite-motion**：核心不跟音量動、軌道不轉、面板不淡入，只有「在聽…」與辨識文字。
+- **網頁版**：只在 Google Chrome 且 `SpeechRecognition.available({ langs, processLocally: true })` 回 `available` 時顯示麥克風，並設 `processLocally = true`（舊草案 `availableOnDevice`／`mode = 'ondevice-only'` 也支援）；屬性不存在就不開始。不能在本機辨識就不顯示，不把語音送到瀏覽器廠商的伺服器。只限 Google Chrome：無頭 Chromium 156 呼叫 `available()` 會讓整頁當掉（E2E 實測），其他 Chromium 系瀏覽器與 App 的 WebView 不確定。
+- **手機 App**：Android 優先 `createOnDeviceSpeechRecognizer`（API 31+、`isOnDeviceRecognitionAvailable`；API 33+ 用 `checkRecognitionSupport` 確認語言包已安裝，可下載時 `triggerModelDownload`，這次先用系統辨識；手機上的辨識器回語言不能用時自動改系統辨識並送 `engine` 事件），否則一般 `SpeechRecognizer`＋`EXTRA_PREFER_OFFLINE`，回報 `onDevice: false`。iOS `SFSpeechRecognizer`＋`AVAudioEngine`，`supportsOnDeviceRecognition` 為 true 時 `requiresOnDeviceRecognition = true`，否則退回 Apple 的伺服器辨識並回報 `onDevice: false`（`voice.js` 的 `NATIVE_FALLBACK` 改 false 就改成不能在手機上就不顯示）。權限第一次按麥克風才問（Android `RECORD_AUDIO`；iOS 麥克風＋語音辨識）。
+- **設定與隱私**：設定頁「語音」區塊「用語音問阿幫」開關（`localStorage abang.voice`，關掉就沒有麥克風鍵、長按中央鍵也不會聽）＋狀態（在手機上／不是在手機上／為什麼不能用）；權限區多「麥克風」一列（App）。隱私權政策第 3 節加「語音問阿幫」段落。「阿幫的腦袋」（`#/ai`）多一張「聽」卡片：語音辨識引擎、在哪裡轉成文字、語言、麥克風權限、狀態；只顯示系統真的回報的（`normalizeVoiceInfo`）。
+
 ### 5.1 接著改、排除與不適合（2026-11-21）
 
 - 接著改的那一輪，討論串第一句由程式產生：「沿用：西門町 → 台北101｜改：不要叫車」（只改使用者提到的部分）。
