@@ -120,9 +120,11 @@ actor AppleJudge {
         case .unavailable(.modelNotReady): o["availability"] = "modelNotReady"
         case .unavailable: break
         }
+        // supportedLanguages：Set<Locale.Language>（iOS 26.0 起）
         let langs = model.supportedLanguages.map { $0.minimalIdentifier }.sorted()
         if !langs.isEmpty { o["languages"] = langs }
-        if case .available = model.availability, model.contextSize > 0 { o["contextSize"] = model.contextSize }
+        // contextSize：SDK 標成 iOS 26.0 起可用，但 26.x 是 @backDeployed 寫死回 4096（不是系統查到的）；iOS 27 起才是系統回報的值，之前不放
+        if #available(iOS 27.0, *), case .available = model.availability, model.contextSize > 0 { o["contextSize"] = model.contextSize }
         return o
     }
 

@@ -36,6 +36,8 @@ import java.util.concurrent.TimeoutException;
 public class AbangEdgeAIPlugin extends Plugin {
     private static final String TAG = "AbangEdgeAI";
     private final ExecutorService exec = Executors.newSingleThreadExecutor();
+    /** 查模型資訊（名稱、token 上限）用另一條執行緒：最多等 2 秒，不能擋住排在 exec 上的 judge／prewarm（PR 審查） */
+    private final ExecutorService infoExec = Executors.newSingleThreadExecutor();
     /** 一題最多跑這麼久（JS 只等 1.8 秒；原生端也要停，否則下一題排在後面一起逾時） */
     private static final long JUDGE_TIMEOUT_MS = 1500;
     private GenerativeModelFutures model;
@@ -47,6 +49,8 @@ public class AbangEdgeAIPlugin extends Plugin {
     /** 模型資訊（系統回報；確認可用後查一次就記住）：基礎模型名稱、一次最多能讀的 token 數 */
     private volatile String modelName = null;
     private volatile int tokenLimit = 0;
+    /** 查過就不再查（查不到也記住：每次 status 都等 2 秒沒有意義） */
+    private volatile boolean infoTried = false;
     /** 下載進度（位元組；DownloadCallback 回報，沒回報就是 0） */
     private volatile long downloadTotal = 0;
     private volatile long downloadDone = 0;
@@ -104,7 +108,8 @@ public class AbangEdgeAIPlugin extends Plugin {
             int s = featureStatus();
             if (s == FeatureStatus.DOWNLOADABLE) startDownload();
             String reason = s == FeatureStatus.AVAILABLE ? "ok" : s == FeatureStatus.DOWNLOADING || (s == FeatureStatus.DOWNLOADABLE && downloading) ? "downloading" : s == FeatureStatus.DOWNLOADABLE ? "needs-wifi" : s == FeatureStatus.UNAVAILABLE ? "unsupported" : "unavailable";
-            call.resolve(describe(result(s == FeatureStatus.AVAILABLE, reason), s));
+            JSObject o = result(s == FeatureStatus.AVAILABLE, reason);
+            infoExec.execute(() -> call.resolve(describe(o, s))); // 查模型資訊不佔 exec（judge 不排隊）
         });
     }
 
@@ -119,8 +124,7 @@ public class AbangEdgeAIPlugin extends Plugin {
             if (v != null && !v.isEmpty()) o.put("aicoreVersion", v);
         } catch (Exception e) { /* 沒有 AICore 或看不到：不顯示 */ }
         if (s == FeatureStatus.AVAILABLE) {
-            if (modelName == null) { try { String n = model().getBaseModelName().get(1000, TimeUnit.MILLISECONDS); if (n != null && !n.isEmpty()) modelName = n; } catch (Exception e) { /* 查不到：不顯示 */ } }
-            if (tokenLimit <= 0) { try { Integer n = model().getTokenLimit().get(1000, TimeUnit.MILLISECONDS); if (n != null && n > 0) tokenLimit = n; } catch (Exception e) { /* 查不到：不顯示 */ } }
+            if (!infoTried) queryModelInfo();
             if (modelName != null) o.put("modelName", modelName);
             if (tokenLimit > 0) o.put("tokenLimit", tokenLimit);
         } else if (downloading && downloadTotal > 0) {
@@ -128,6 +132,13 @@ public class AbangEdgeAIPlugin extends Plugin {
             o.put("downloadedBytes", Math.min(downloadDone, downloadTotal));
         }
         return o;
+    }
+
+    /** 模型名稱與 token 上限：只查一次（成功或失敗都記住），在 infoExec 上跑 */
+    private void queryModelInfo() {
+        infoTried = true;
+        try { String n = model().getBaseModelName().get(1000, TimeUnit.MILLISECONDS); if (n != null && !n.isEmpty()) modelName = n; } catch (Exception e) { /* 查不到：不顯示 */ }
+        try { Integer n = model().getTokenLimit().get(1000, TimeUnit.MILLISECONDS); if (n != null && n > 0) tokenLimit = n; } catch (Exception e) { /* 查不到：不顯示 */ }
     }
 
     @PluginMethod
@@ -183,6 +194,7 @@ public class AbangEdgeAIPlugin extends Plugin {
     @Override
     protected void handleOnDestroy() {
         exec.shutdownNow();
+        infoExec.shutdownNow();
         super.handleOnDestroy();
     }
 

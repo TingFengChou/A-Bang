@@ -1,7 +1,9 @@
 // 阿幫常駐（2026-11-21 Austin：「請阿幫跳去看公車動態，整個紀錄都會不見」）：
 // 1. 對話保留：問阿幫頁（生活、防詐）只建一次，換頁時把整個畫面先收起來（不重建、不清掉），回來原樣接上（卡片、決策圖、捲動位置都在）。
-// 2. 浮動阿幫：其他頁面右下角有藍鵲按鈕，點了從下方拉出同一段對話（背後的頁面還在）；阿幫帶你去別頁時對話收回按鈕，不會不見。
-// 3. 提醒與互動：到站、下車、公車一直不來時，浮動阿幫冒出對話泡泡（點了打開對話），同一句也記在對話裡。
+// 2. 中央「問阿幫」鍵（2026-11-21 首頁與導覽重新設計：取代原本右下角的浮動阿幫，不再兩個並存）：在分頁列正中間，
+//    其他頁面點了從下方拉出同一段對話（背後的頁面還在、知道你在哪一頁）；在問阿幫頁點了回到輸入框。阿幫帶你去別頁時對話收回，不會不見。
+// 3. 提醒與互動：到站、下車、公車一直不來時，中央鍵上方冒出對話泡泡（點了打開對話），同一句也記在對話裡；看不到對話時鍵上亮「有話跟你說」的點。
+// 元素 id 沿用 abang-fab（中央鍵）、abang-bubble、abang-sheet。
 // 只存在這次開著的 App／分頁裡（記憶體），不寫到手機或伺服器。
 
 import { shellT, currentShellLang } from './shell-i18n.js';
@@ -54,15 +56,15 @@ export function attachMain(main, key, build, query) {
   return { fresh: !had, k };
 }
 
-// ───── 浮動阿幫與底部對話面板 ─────
-let fab = null, sheet = null, bubble = null, live = null, sheetBody = null, buildLife = null, pageAsk = null, bubbleTimer = 0, quiet = false;
-const onAgentPage = () => /^#\/agent(?:[/?]|$)/.test(location.hash);
+// ───── 中央「問阿幫」鍵與底部對話面板 ─────
+let fab = null, sheet = null, bubble = null, live = null, sheetBody = null, buildLife = null, pageAsk = null, bubbleTimer = 0, quiet = false, unread = false;
 const onLifePage = () => /^#\/agent(?:\?|$)/.test(location.hash);
 const kbOpen = () => document.documentElement.classList.contains('kb-open');
 
 /** 打開底部對話（不支援 <dialog> 的舊瀏覽器改到問阿幫頁） */
 export function openSheet() {
   hideBubble();
+  unread = false;
   if (!sheet?.showModal || !buildLife) { location.hash = '#/agent'; return; }
   const k = kept('agent', buildLife);
   k.api.setPage?.(pageAsk?.() || null); // 你在看哪一頁：建議問題＋說明（跟下一個問題一起送出）
@@ -86,12 +88,14 @@ function onSheetClosed() {
   quiet = false;
   syncDot();
 }
-/** 浮動阿幫的小點與讀屏標籤（外殼語言跟著目前頁面，shell-i18n.js） */
+/** 中央鍵的小點與讀屏標籤（外殼語言跟著目前頁面，shell-i18n.js）：有對話＝小點；阿幫說了話你還沒看＝暖色點 */
 export function syncFabLabel() {
   if (!fab) return;
   const has = !!keptIf('agent')?.api.hasChat?.();
   fab.classList.toggle('has-chat', has);
-  fab.setAttribute('aria-label', shellT(currentShellLang())(has ? 'fabChat' : 'fab'));
+  fab.classList.toggle('unread', unread);
+  fab.setAttribute('aria-label', shellT(currentShellLang())(unread ? 'fabUnread' : has ? 'fabChat' : 'fab'));
+  fab.setAttribute('aria-haspopup', onLifePage() ? 'false' : 'dialog'); // 問阿幫頁：回到輸入框，不開面板
   if (currentShellLang() === 'en' && document.documentElement.lang !== 'en') fab.setAttribute('lang', 'en'); else fab.removeAttribute('lang');
 }
 const syncDot = syncFabLabel;
@@ -108,7 +112,10 @@ const armHide = () => { clearTimeout(bubbleTimer); bubbleTimer = setTimeout(hide
 export function abangSays(text, action = null) {
   const api = keptIf('agent')?.api;
   if (api?.say) { api.say(text, action); if (onLifePage() || sheet?.open) return true; } // 對話看得到：說在對話裡就好
-  if (onAgentPage() || !fab || fab.hidden || kbOpen()) return false; // 看不到浮動阿幫（防詐頁、打字中）：交給提示
+  if (!fab) return false;
+  unread = true; // 對話裡多了一句你還沒看到的（鍵盤開著改用提示時也亮，鍵盤收起就看得到）
+  syncDot();
+  if (kbOpen()) return false; // 打字中（鍵盤開著，分頁列收起）：交給提示
   clearTimeout(bubbleTimer);
   bubble.replaceChildren();
   const t = shellT(/[一-鿿]/.test(String(text)) ? null : currentShellLang()); // 提醒本文是中文就整個泡泡用中文（不混「Abang: 中文」）
@@ -136,18 +143,27 @@ export function abangSays(text, action = null) {
 // 設定頁清除本機資料：開著的問阿幫對話也清掉
 addEventListener('abang:clear-local', () => { keptIf('agent')?.api.clear?.(); syncDot(); });
 
-/** 換頁時：問阿幫頁不顯示浮動按鈕；面板開著就收起來（阿幫帶你去別頁） */
+/** 換頁時：面板開著就收起來（阿幫帶你去別頁）；到問阿幫頁＝看到對話了（清掉未讀、收泡泡） */
 export function syncFab() {
   if (!fab) return;
   if (sheet?.open) closeSheet({ silent: true });
-  fab.hidden = onAgentPage();
-  document.body.classList.toggle('fab-on', !fab.hidden); // 頁面底部留空間（問阿幫頁不用）
-  if (fab.hidden) hideBubble();
+  if (onLifePage()) { unread = false; hideBubble(); }
   syncDot();
 }
 
+/** 點中央鍵：問阿幫頁回到輸入框（捲到最新）；其他頁拉出底部對話 */
+function onKey() {
+  if (onLifePage()) {
+    const k = keptIf('agent');
+    window.scrollTo({ top: document.documentElement.scrollHeight });
+    k?.api.focus?.();
+    return;
+  }
+  openSheet();
+}
+
 /**
- * 掛上浮動阿幫（app.js 外殼）。
+ * 掛上中央「問阿幫」鍵（app.js 外殼）。
  * @param {{ buildLife: (ctx: { root: HTMLElement, setTitle: Function }) => any, pageAsk?: () => ({ context?: string, chips?: string[] }|null) }} o 生活 agent 的建立方式（與問阿幫頁同一個）；pageAsk：現在這一頁可以問什麼
  */
 export function mountFab(o) {
@@ -160,12 +176,9 @@ export function mountFab(o) {
   bubble.addEventListener('pointerleave', armHide);
   bubble.addEventListener('focusin', () => clearTimeout(bubbleTimer));
   bubble.addEventListener('focusout', armHide);
-  // 捲動時浮動阿幫縮小變淡，不蓋住內容（停下來恢復）
-  let still = 0;
-  addEventListener('scroll', () => { fab.classList.add('scrolling'); clearTimeout(still); still = setTimeout(() => fab.classList.remove('scrolling'), 600); }, { passive: true });
   sheet = document.getElementById('abang-sheet');
   sheetBody = sheet?.querySelector('.sheet-body');
-  fab.addEventListener('click', openSheet);
+  fab.addEventListener('click', onKey);
   sheet?.querySelector('.sheet-close')?.addEventListener('click', () => closeSheet());
   sheet?.querySelector('.sheet-full')?.addEventListener('click', () => { const k = keptIf('agent'); if (k) k.scrollY = 1e9; location.hash = '#/agent'; }); // 整頁：停在最新的對話
   sheet?.addEventListener('cancel', (e) => { e.preventDefault(); closeSheet(); }); // Esc

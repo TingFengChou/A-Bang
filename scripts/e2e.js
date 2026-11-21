@@ -72,21 +72,38 @@ for (const [dname, device] of Object.entries(DEVICES)) {
   test(`${dname}：首頁、示範橫幅、分頁列、搜尋公車`, async () => {
     await withPage(device, '#/', async (page) => {
       await page.waitForSelector('.hero .search input');
+      // 首頁重新設計（阿幫為中心）：手機上的 AI 照實說（網頁版由伺服器判斷）、現在（天氣、空品、提醒）、防詐大卡在格子前面
+      await page.waitForFunction(() => document.querySelector('#ai-line')?.dataset.tone !== 'wait');
+      assert.match(await page.textContent('#ai-line'), /網頁版.*伺服器判斷/);
+      assert.equal(await page.getAttribute('.search input', 'placeholder'), '想查什麼？');
+      await page.waitForSelector('#now[aria-busy="false"] [data-now="weather"]');
+      assert.deepEqual(await page.locator('#now .now-item').evaluateAll((els) => els.map((e) => e.dataset.now)), ['weather', 'aqi', 'reminder']);
+      assert.match(await page.textContent('#now [data-now="weather"]'), /°C.*你附近/);
+      assert.equal(await page.locator('#now [data-now="weather"] .tag.demo').count(), 1, '示範資料標示範');
+      assert.equal(await page.locator('#now [data-now="aqi"] .tag.demo').count(), 1);
+      const order = await page.locator('#main section h2').allTextContents();
+      assert.ok(order.indexOf('防詐') > -1 && order.indexOf('防詐') < order.indexOf('交通'), order.join('|'));
       assert.match(await page.textContent('.demo-banner'), /示範模式/);
       // 示範資料標示：E2E 伺服器全部示範 → 每個格子都標「示範」
       await page.waitForSelector('a.tile .tag.demo');
       assert.equal(await page.locator('a.tile .tag.demo').count(), await page.locator('a.tile[data-source]').count());
-      assert.equal(await page.locator('.tabbar a').count(), 4);
+      // 分頁列：首頁｜服務｜問阿幫（中央鍵）｜提醒｜我的
+      assert.deepEqual(await page.locator('.tabbar [data-shell^="tab."]').allTextContents(), ['首頁', '服務', '問阿幫', '提醒', '我的']);
+      assert.equal(await page.getAttribute('.tabbar nav', 'aria-label'), '主要分頁');
+      assert.equal(await page.getAttribute('.tabbar [data-tab="home"]', 'aria-current'), 'page');
+      assert.equal(await page.getAttribute('#abang-fab', 'aria-haspopup'), 'dialog');
+      for (const box of await page.locator('.tabbar [data-tab]').evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return [r.width, r.height]; }))) assert.ok(box[0] >= 44 && box[1] >= 44, `觸控目標 ${box}`);
       assert.ok(await page.locator('.grid .tile').count() > 0);
       await shot(page, `${dname}-home`);
       // 首頁以問阿幫為主要入口（M5-12）：輸入問題 → #/agent 自動送出
-      assert.ok(await page.locator('.hero-ask .chip').count() >= 3);
+      assert.ok(await page.locator('.hero-ask .chip').count() >= 4);
+      assert.equal(await page.getAttribute('.hero-ask .chip:has-text("詐騙")', 'href'), '#/agent/antifraud');
       await page.fill('.hero .search input', '307 到哪了？我在臺北車站');
       await page.press('.hero .search input', 'Enter');
       await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
       assert.match(page.url(), /#\/agent$/);
       assert.equal(await page.locator('.results [data-card="bus-route"]').count(), 1);
-      // 公車搜尋仍可從分頁列進入
+      // 公車搜尋（舊網址）仍可用
       await page.goto(`${base}/#/bus?q=307`);
       await page.waitForSelector('.card.list a');
       assert.match(page.url(), /#\/bus\?q=307/);
@@ -464,8 +481,9 @@ test('MCP Apps：AppBridge 載入 cards.html，7 種卡片、callServerTool 往�
 // 無障礙（M6-04）：鍵盤第一個 Tab 是「跳到主要內容」、焦點框看得到、分頁列 aria-current、卡片有常駐播報區、公車頁有 live region
 test('無障礙：跳到主要內容、焦點框、aria-current、播報區', async () => {
   await withPage(DEVICES.desktop, '#/nearby', async (page) => {
-    await page.waitForSelector('.tabbar a[aria-current="page"]');
-    assert.equal(await page.getAttribute('.tabbar a[aria-current="page"]', 'data-h'), '#/nearby');
+    await page.waitForSelector('.tabbar [aria-current]');
+    assert.equal(await page.getAttribute('.tabbar [data-tab="services"]', 'aria-current'), 'true', '附近屬於服務這一區（子頁 aria-current=true）');
+    assert.equal(await page.locator('.tabbar [aria-current="page"]').count(), 0);
     await page.keyboard.press('Tab');
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'skip');
     const outline = await page.evaluate(() => getComputedStyle(document.activeElement).outlineStyle);
@@ -711,7 +729,25 @@ test('Android 返回：高鐵頁 → 首頁 → 離開 App', async () => {
     await page.waitForFunction(() => location.hash === '#/rail/thsr');
     await page.evaluate(() => window.__back({ canGoBack: true }));
     await page.waitForFunction(() => location.hash === '#/' || location.hash === '');
-    await page.evaluate(() => window.__back({ canGoBack: false }));
+    // 分頁本身（服務、我的、問阿幫）：回首頁，不走分頁之間的歷史
+    for (const tab of ['services', 'me', 'reminders']) {
+      await page.click(`.tabbar [data-tab="${tab}"]`);
+      await page.waitForFunction((t) => location.hash === `#/${t}`, tab);
+    }
+    await page.evaluate(() => window.__back({ canGoBack: true }));
+    await page.waitForFunction(() => location.hash === '#/');
+    assert.deepEqual(await page.evaluate(() => window.__capCalls), [], '還沒離開');
+    // 底部對話開著：先收面板
+    await page.goto(`${base}/#/services`);
+    await page.click('#abang-fab');
+    await page.waitForSelector('#abang-sheet[open]');
+    await page.evaluate(() => window.__back({ canGoBack: true }));
+    await page.waitForFunction(() => !document.getElementById('abang-sheet').open);
+    assert.equal(await page.evaluate(() => location.hash), '#/services');
+    await page.evaluate(() => window.__back({ canGoBack: true }));
+    await page.waitForFunction(() => location.hash === '#/');
+    // 首頁：有上一頁也離開 App
+    await page.evaluate(() => window.__back({ canGoBack: true }));
     assert.deepEqual(await page.evaluate(() => window.__capCalls), ['App.exitApp']);
   }, { init });
 });
@@ -739,9 +775,18 @@ test('裝置端 AI：deviceJudge 跟著請求送出、說明來源；外掛失�
       if (fail) {
         assert.ok(bodies.every((b) => !b.deviceJudge), '外掛失敗：不帶提示');
         assert.doesNotMatch(await page.textContent('.agent-mode'), /Apple Intelligence/);
+        assert.equal(await page.locator('.device-line').count(), 0, '外掛失敗：回答上方不說');
       } else {
         assert.deepEqual(bodies[0].deviceJudge, { intent: 'aqi', states: [], engine: 'apple' });
-        assert.match(await page.textContent('.agent-mode'), /先在手機上用 Apple Intelligence 聽懂你要做什麼/);
+        assert.deepEqual(await page.locator('.device-line').allTextContents(), ['阿幫先在手機上用 Apple Intelligence 聽懂你要做什麼。'], '一輪只說一次（在回答上方）');
+        assert.doesNotMatch(await page.textContent('.agent-mode'), /Apple Intelligence/, '頁底不重複');
+        // 英文提問：那一行跟著用英文
+        await page.fill('.chat-form input', 'How is the air today');
+        await page.press('.chat-form input', 'Enter');
+        await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length >= 2, null, { timeout: 20000 });
+        const lines = await page.locator('.device-line').allTextContents();
+        assert.equal(lines.length, 2);
+        assert.match(lines[1], /^(Abang first worked out what you want on your phone with Apple Intelligence\.|Apple Intelligence on your phone listened first; this time the server's own judgment was used\.)$/, '英文提問：英文、沒有中文');
       }
     }, { init, initArg: fail, ignore: /not in test/ });
   }
@@ -890,7 +935,8 @@ test('公車頁英文：標題、到站、提醒、下車提醒都是英文', as
     assert.equal(await page.textContent('#banner'), 'Demo mode: all data here is sample data, not live.', '頂端示範說明也用英文');
     // 外殼也跟著英文（分頁列、返回、浮動阿幫、底部對話面板；<html lang> 讓讀屏念對）
     assert.equal(await page.getAttribute('html', 'lang'), 'en');
-    assert.deepEqual(await page.locator('.tabbar a span').allTextContents(), ['Home', 'Nearby', 'Bus', 'Saved']);
+    assert.deepEqual(await page.locator('.tabbar [data-shell^="tab."]').allTextContents(), ['Home', 'Services', 'Ask Abang', 'Reminders', 'Me']);
+    assert.equal(await page.getAttribute('.tabbar nav', 'aria-label'), 'Main tabs');
     assert.equal(await page.getAttribute('#back', 'aria-label'), 'Back');
     assert.equal(await page.getAttribute('#abang-fab', 'aria-label'), 'Ask Abang');
     assert.equal(await page.textContent('#abang-sheet-title'), 'Ask Abang');
@@ -943,7 +989,7 @@ test('公車頁英文：標題、到站、提醒、下車提醒都是英文', as
     // 回到首頁（沒帶 lang）：外殼恢復中文
     await page.evaluate(() => { location.hash = '#/'; });
     await page.waitForFunction(() => document.documentElement.lang === 'zh-Hant-TW');
-    assert.deepEqual(await page.locator('.tabbar a span').allTextContents(), ['首頁', '附近', '公車', '收藏']);
+    assert.deepEqual(await page.locator('.tabbar [data-shell^="tab."]').allTextContents(), ['首頁', '服務', '問阿幫', '提醒', '我的']);
     assert.equal(await page.getAttribute('#abang-fab', 'aria-label'), '問阿幫');
     assert.equal(await page.textContent('#abang-sheet-title'), '問阿幫');
     assert.equal(await page.textContent('#skip'), '跳到主要內容');
@@ -953,14 +999,20 @@ test('公車頁英文：標題、到站、提醒、下車提醒都是英文', as
 // 阿幫常駐（2026-11-21 Austin：跳去看公車動態，對話不能不見）：換頁回來對話原樣；浮動阿幫拉出同一段對話；提醒由阿幫說
 test('阿幫常駐：開公車頁再回來對話還在、浮動阿幫拉出同一段對話、提醒泡泡', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
-    assert.equal(await page.locator('#abang-fab').isHidden(), true, '問阿幫頁不顯示浮動阿幫');
+    // 中央「問阿幫」鍵取代浮動阿幫：在問阿幫頁是目前這一頁，點了回到輸入框（不開面板）
+    assert.equal(await page.locator('.abang-fab').count(), 0, '沒有另一個浮動按鈕');
+    assert.equal(await page.getAttribute('#abang-fab', 'aria-current'), 'page');
+    assert.equal(await page.getAttribute('#abang-fab', 'aria-haspopup'), 'false');
+    await page.click('#abang-fab');
+    assert.equal(await page.evaluate(() => document.activeElement?.classList.contains('chat-input')), true, '回到輸入框');
+    assert.equal(await page.evaluate(() => document.getElementById('abang-sheet').open), false);
     await page.fill('.chat-form input', '307 到哪了？我在臺北車站');
     await page.press('.chat-form input', 'Enter');
     await page.waitForSelector('.bubble.final', { timeout: 20000 });
     const answer = await page.locator('.bubble.final .say').textContent();
     await page.locator('.results [data-card="bus-route"]').getByRole('button', { name: '開公車頁看動態' }).click();
     await page.waitForSelector('.bus-focus');
-    // 其他頁面：浮動阿幫（有對話的小點），點了拉出同一段對話，背後還是公車頁
+    // 其他頁面：中央鍵（有對話的小點），點了拉出同一段對話，背後還是公車頁
     await page.waitForSelector('#abang-fab.has-chat');
     await page.click('#abang-fab');
     await page.waitForSelector('#abang-sheet[open] .bubble.final');
@@ -971,11 +1023,13 @@ test('阿幫常駐：開公車頁再回來對話還在、浮動阿幫拉出同�
     await shot(page, 'phone-abang-sheet');
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => !document.getElementById('abang-sheet').open);
-    assert.equal(await page.evaluate(() => document.activeElement?.id), 'abang-fab', '收起後焦點回到浮動阿幫');
-    // 提醒：浮動阿幫冒泡泡，也記在對話裡；點「改其他方式」打開對話並問阿幫
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'abang-fab', '收起後焦點回到中央鍵');
+    // 提醒：中央鍵上方冒泡泡、鍵上亮「有話跟你說」，也記在對話裡；點「改其他方式」打開對話並問阿幫
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('abang:arrival-stuck', { detail: { routeName: '307', stop: 'x', reason: 'late', ask: '不要坐公車了，改別的方式' } })));
     await page.waitForSelector('#abang-bubble:not([hidden])');
     assert.match(await page.textContent('#abang-bubble'), /307 一直沒來，要我幫你改其他方式嗎？/);
+    assert.equal(await page.getAttribute('#abang-fab', 'aria-label'), '問阿幫（阿幫有話跟你說）');
+    assert.match(await page.getAttribute('#abang-fab', 'class'), /unread/);
     await shot(page, 'phone-abang-bubble');
     await page.click('#abang-bubble button:has-text("改其他方式")');
     await page.waitForSelector('#abang-sheet[open]');
@@ -984,7 +1038,7 @@ test('阿幫常駐：開公車頁再回來對話還在、浮動阿幫拉出同�
     // Android 返回鍵（app.js 直接 dialog.close()）：一樣收尾，對話不留在關掉的面板裡
     await page.evaluate(() => document.getElementById('abang-sheet').close());
     await page.waitForFunction(() => !document.querySelector('#abang-sheet .kept-page') && document.activeElement?.id === 'abang-fab');
-    assert.equal(await page.getAttribute('#abang-fab', 'aria-label'), '打開跟阿幫的對話（對話還在）');
+    assert.equal(await page.getAttribute('#abang-fab', 'aria-label'), '問阿幫（對話還在）', '打開過對話：未讀清掉');
     // 回到問阿幫頁：兩輪對話與提醒都在
     await page.goto(`${base}/#/agent`);
     await page.waitForSelector('#main .bubble.final');
@@ -1186,16 +1240,16 @@ test('英文提問：卡片用英文標籤', async () => {
     await shot(page, 'phone-agent-english');
     // 最近一輪是英文：外殼也英文（S12g）；整頁 lang 不變（上面還有中文對話），外殼元素標 lang="en"
     assert.equal(await page.getAttribute('html', 'lang'), 'zh-Hant-TW');
-    assert.equal(await page.locator('.tabbar a span').first().getAttribute('lang'), 'en');
+    assert.equal(await page.locator('.tabbar [data-shell="tab.home"]').getAttribute('lang'), 'en');
     assert.equal(await page.textContent('#title'), 'Ask Abang');
-    assert.deepEqual(await page.locator('.tabbar a span').allTextContents(), ['Home', 'Nearby', 'Bus', 'Saved']);
+    assert.deepEqual(await page.locator('.tabbar [data-shell^="tab."]').allTextContents(), ['Home', 'Services', 'Ask Abang', 'Reminders', 'Me']);
     await page.fill('.chat-form input', '去西門町');
     await page.press('.chat-form input', 'Enter');
     await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length >= 2, null, { timeout: 20000 });
     assert.equal(await page.locator('[data-card="trip"]').last().getAttribute('lang'), null, '中文提問回到中文卡片');
     assert.equal(await page.getAttribute('html', 'lang'), 'zh-Hant-TW', '中文提問：外殼回中文');
     assert.equal(await page.textContent('#title'), '問阿幫');
-    assert.deepEqual(await page.locator('.tabbar a span').allTextContents(), ['首頁', '附近', '公車', '收藏']);
+    assert.deepEqual(await page.locator('.tabbar [data-shell^="tab."]').allTextContents(), ['首頁', '服務', '問阿幫', '提醒', '我的']);
   });
 });
 
@@ -1246,6 +1300,114 @@ test('公車街景與天氣卡日夜', async () => {
     assert.equal(out.textStill, '西門');
     assert.match(out.night, /night/);
     assert.match(out.day, /sun/);
+  });
+});
+
+// 公車街景更有變化（2026-11-21，「只有即將進站似乎很少」）：中間小站牌與「還有 N 站」、白天／夜晚、等車的人、
+// 到站開門上車、這班開走下一班從左邊進來、未發車畫空的路；同一個 state 沿用同一個街景（不每 20 秒重建）
+test('公車街景：遠近、時段、等車的人、開走與沿用', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    const out = await page.evaluate(async () => {
+      const { busScene } = await import('/ui/cards/bus-scene.js');
+      document.body.innerHTML = '<div id="shots" style="width:374px;padding:8px;background:#fff"></div>';
+      const host = document.getElementById('shots');
+      const day = Date.parse('2026-11-21T10:00:00+08:00'), night = Date.parse('2026-11-21T21:00:00+08:00');
+      const mk = (id, o) => { const el = busScene({ routeName: '307', stopName: '敦化市場', etaText: '5 分', ...o }); el.id = id; host.append(el); return el; };
+      const dayFar = mk('day-far', { away: 4, etaSec: 700, etaText: '12 分', time: day });
+      const dayNear = mk('day-near', { away: 0, etaSec: 40, etaText: '進站中', time: day });
+      const nightFar = mk('night-far', { away: 2, etaSec: 420, etaText: '7 分', time: night });
+      const nightNear = mk('night-near', { away: 0, etaSec: 30, etaText: '進站中', time: night, stopName: '市府' });
+      const empty = mk('empty', { away: null, etaText: '末班已過', time: night });
+      const en = mk('en', { away: 1, etaSec: 150, etaText: '3 min', time: day, lang: 'en', riding: true, stopName: '市府' });
+      const marks = (el) => [...el.querySelectorAll('.ab-scene-mark')].map((m) => m.textContent);
+      // 同一個 state：第二次回傳同一個元素（不重建）；就在你這站 → 換成下一班：這班開走（減少動態時直接畫最終狀態：沒有開走的車）
+      const state = {};
+      const a = busScene({ routeName: '307', stopName: '西門', away: 0, etaSec: 30, etaText: '進站中', state, time: day });
+      const b = busScene({ routeName: '307', stopName: '西門', away: 3, etaSec: 600, etaText: '10 分', state, time: day });
+      return {
+        dayFar: { cls: dayFar.className, marks: marks(dayFar), people: dayFar.querySelectorAll('.ab-scene-person').length, passed: dayFar.querySelectorAll('.ab-sign.passed').length },
+        dayNear: { open: dayNear.querySelector('.ab-scene-bus').classList.contains('open'), people: dayNear.querySelectorAll('.ab-scene-person').length, halo: dayNear.querySelector('.ab-scene-halo').className, passed: dayNear.querySelectorAll('.ab-sign.passed').length },
+        nightFar: { cls: nightFar.className, marks: marks(nightFar), glow: nightFar.querySelectorAll('.ab-scene-lights circle').length },
+        nightNear: { label: nightNear.getAttribute('aria-label') },
+        empty: { bus: empty.querySelectorAll('.ab-scene-bus').length, note: empty.querySelector('.ab-scene-empty')?.textContent, label: empty.getAttribute('aria-label'), people: empty.querySelectorAll('.ab-scene-person').length },
+        en: { marks: marks(en), you: en.querySelector('.ab-scene-you')?.textContent, label: en.getAttribute('aria-label') },
+        reuse: a === b, buses: b.querySelectorAll('.ab-scene-bus').length, leaving: b.querySelectorAll('.ab-scene-bus.leaving').length, peopleAfter: b.querySelectorAll('.ab-scene-person').length,
+        traffic: document.querySelectorAll('#shots .ab-scene-rider, #shots .ab-scene-taxi').length,
+      };
+    });
+    assert.match(out.dayFar.cls, /\bday\b/);
+    assert.deepEqual(out.dayFar.marks, ['還有 1 站', '還有 2 站'], '還很遠：中間兩個小站牌都標');
+    assert.ok(out.dayFar.people >= 1 && out.dayFar.people <= 3, '有人在等車');
+    assert.equal(out.dayFar.passed, 0);
+    assert.equal(out.dayNear.open, true, '到站開門');
+    assert.equal(out.dayNear.people, 0, '減少動態：直接畫上車後（沒有人在等）');
+    assert.match(out.dayNear.halo, /\bon\b/, '你這站的站牌亮起來');
+    assert.equal(out.dayNear.passed, 2, '中間的站都開過了');
+    assert.match(out.nightFar.cls, /\bnight\b/);
+    assert.deepEqual(out.nightFar.marks, ['還有 1 站', '還有 2 站']);
+    assert.ok(out.nightFar.glow >= 2, '夜晚路燈亮');
+    assert.match(out.nightNear.label, /307・就在你這站・進站中；你在「市府」等車/);
+    assert.equal(out.empty.bus, 0);
+    assert.equal(out.empty.note, '目前路上沒有這班車');
+    assert.match(out.empty.label, /307・末班已過；你在「敦化市場」等車；目前路上沒有這班車/);
+    assert.ok(out.empty.people >= 1);
+    assert.deepEqual(out.en.marks, ['1 stop']);
+    assert.equal(out.en.you, 'You', '坐車中：車上標你');
+    assert.match(out.en.label, /^307 · 1 stop away · 3 min\. You're on the bus, getting off at 市府$/);
+    assert.equal(out.reuse, true, '同一個 state 沿用同一個街景');
+    assert.equal(out.buses, 1);
+    assert.equal(out.leaving, 0, '減少動態：不畫開走的過程');
+    assert.ok(out.peopleAfter >= 1, '這班開走：換一批人等下一班');
+    assert.equal(out.traffic, 0, '減少動態：不畫經過的車');
+    for (const id of ['day-far', 'day-near', 'night-far', 'night-near', 'empty', 'en']) await page.locator(`#${id}`).screenshot({ path: new URL(`bus-scene-${id}.png`, SHOTS).pathname });
+  });
+});
+
+test('公車街景：這班開走往右開出畫面、下一班從左邊進來、等車的人上車（不減少動態）', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const out = await page.evaluate(async () => {
+      const { busScene } = await import('/ui/cards/bus-scene.js');
+      document.body.innerHTML = '';
+      const state = {};
+      const day = Date.parse('2026-11-21T10:00:00+08:00');
+      const el = busScene({ routeName: '307', stopName: '西門', away: 0, etaSec: 30, etaText: '進站中', state, time: day });
+      document.body.append(el);
+      const waiting = el.querySelectorAll('.ab-scene-person').length;
+      const traffic = el.querySelectorAll('.ab-scene-rider, .ab-scene-taxi').length;
+      const parkedCls = el.querySelector('.ab-scene-bus').className;
+      await new Promise((r) => setTimeout(r, 300));
+      const boarding = el.querySelectorAll('.ab-scene-person.boarding').length;
+      busScene({ routeName: '307', stopName: '西門', away: 3, etaSec: 600, etaText: '10 分', state, time: day });
+      const leaving = el.querySelector('.ab-scene-bus.leaving');
+      const x = (b) => new DOMMatrix(getComputedStyle(b).transform).m41;
+      const x0 = x(leaving);
+      await new Promise((r) => setTimeout(r, 900));
+      const x1 = x(leaving);
+      await new Promise((r) => setTimeout(r, 2000));
+      const after = { leaving: el.querySelectorAll('.ab-scene-bus.leaving').length, buses: el.querySelectorAll('.ab-scene-bus').length, people: el.querySelectorAll('.ab-scene-person').length, newX: x(el.querySelector('.ab-scene-bus')) };
+      return { waiting, traffic, boarding, parkedCls, x0, x1, ...after };
+    });
+    assert.ok(/at-stop/.test(out.parkedCls) && !/moving/.test(out.parkedCls), `開進來停在站牌：不算開車中（${out.parkedCls}）`);
+    assert.ok(out.waiting >= 1, '有人在等');
+    assert.equal(out.traffic, 2, '偶爾經過的機車與計程車');
+    assert.equal(out.boarding, out.waiting, '公車到站：等車的人上車');
+    assert.ok(out.x1 > out.x0, `這班往右開走（${out.x0} → ${out.x1}）`);
+    assert.equal(out.leaving, 0, '開出畫面後拿掉');
+    assert.equal(out.buses, 1, '下一班');
+    assert.ok(out.newX < 0, `下一班停在左邊（${out.newX}）`);
+    assert.ok(out.people >= 1, '換一批人等下一班');
+  });
+});
+
+// 公車頁夜晚（台灣時間 21 點）：街景換夜晚、文字標籤不變
+test('公車頁街景：夜晚', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.clock.setFixedTime(new Date('2026-11-21T21:00:00+08:00'));
+    await page.goto(`${base}/#/bus/Taipei/307?stop=%E6%95%A6%E5%8C%96%E5%B8%82%E5%A0%B4&dir=0`);
+    await page.waitForSelector('#scene .ab-scene3d.night');
+    assert.equal(await page.locator('#scene .ab-scene-label.stop').textContent(), '敦化市場');
+    await page.locator('#scene .ab-scene3d').screenshot({ path: new URL('bus-scene-page-night.png', SHOTS).pathname });
   });
 });
 
@@ -1354,10 +1516,11 @@ test('首次使用引導：已允許定位就跳過那一步、略過、清除�
   }
 });
 
-// 設定與隱私（M11-04、E8）：首頁連結進入、權限狀態、網頁版裝置端 AI 開關停用、隱私權政策頁、清除本機資料要確認
-test('設定與隱私：首頁進入、狀態、隱私權政策', async () => {
+// 設定與隱私（M11-04、E8）：「我的」進入、權限狀態、網頁版裝置端 AI 開關停用、隱私權政策頁、清除本機資料要確認
+test('設定與隱私：我的進入、狀態、隱私權政策', async () => {
   await withPage(DEVICES.phone, '#/', async (page) => {
-    await page.click('a[href="#/settings"]');
+    await page.click('.tabbar [data-tab="me"]');
+    await page.click('#main a[href="#/settings"] >> nth=0');
     await page.waitForSelector('#edge-status:not(:empty)');
     await page.waitForFunction(() => document.querySelector('#edge-status').textContent !== '檢查中…');
     assert.match(await page.textContent('#edge-status'), /網頁版不使用/);
@@ -1395,6 +1558,182 @@ test('設定與隱私：首頁進入、狀態、隱私權政策', async () => {
     assert.ok(bodies[0].savedPlaces?.家, '提到家才送家');
     assert.equal(bodies[0].savedPlaces.公司, undefined);
     assert.match(await page.locator('.results [data-card="trip"] .ab-title').first().textContent(), /→ 家/);
+  });
+});
+
+// 首頁與導覽重新設計（2026-11-21，阿幫為中心）：服務總覽、提醒頁取消、我的、舊網址仍可用、「現在」摘要降級
+test('服務：四組總覽（含附近、公車）、點了進服務頁、子頁有返回且分頁列標在服務', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.click('.tabbar [data-tab="services"]');
+    await page.waitForSelector('.svc-list .svc');
+    assert.equal(await page.textContent('#title'), '服務');
+    assert.equal(await page.getAttribute('.tabbar [data-tab="services"]', 'aria-current'), 'page');
+    assert.deepEqual(await page.locator('#main section h2').allTextContents(), ['防詐', '交通', '生活', '消費與政府']);
+    assert.match(await page.textContent('.svc[href="#/nearby"]'), /附近.*身邊有哪些公車站/);
+    assert.match(await page.textContent('.svc[href="#/agent/antifraud"]'), /貼上來/);
+    assert.equal(await page.locator('.svc').count(), 15);
+    await shot(page, 'phone-services');
+    await page.click('.svc[href="#/bus"]');
+    await page.waitForSelector('#pagehero .ph-bus');
+    assert.equal(await page.locator('#back').isVisible(), true, '公車搜尋不再是分頁：有返回');
+    assert.equal(await page.getAttribute('.tabbar [data-tab="services"]', 'aria-current'), 'true');
+  });
+});
+
+test('提醒：列出進行中的出門與到站提醒、分頁列數字、逐一取消、沒有時教怎麼設', async () => {
+  const at = Date.now() + 45 * 60_000;
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.waitForSelector('.tabbar');
+    await page.evaluate((t) => { localStorage.setItem('abang.reminders', JSON.stringify([{ id: 'rtest', at: t, text: '該出門了：搭捷運去台北101', nid: 2001 }])); window.dispatchEvent(new CustomEvent('abang:reminders')); }, at);
+    await page.waitForSelector('.tabbar .tab-badge:not([hidden])');
+    assert.equal(await page.textContent('.tabbar .tab-badge'), '1');
+    assert.equal(await page.textContent('.tabbar .tab-badge-sr'), '，1 個進行中');
+    // 首頁「現在」的提醒那格是最近的一個
+    await page.waitForFunction(() => /出門提醒/.test(document.querySelector('#now [data-now="reminder"]')?.textContent || ''));
+    await page.click('.tabbar [data-tab="reminders"]');
+    await page.waitForSelector('.rem-row');
+    assert.equal(await page.getAttribute('.tabbar [data-tab="reminders"]', 'aria-current'), 'page');
+    assert.match(await page.textContent('.rem-row[data-kind="leave"]'), /出門提醒.*搭捷運去台北101/);
+    // 到站提醒（公車頁設的）也列在這裡
+    const stop = await page.evaluate(async () => {
+      const call = (a) => fetch('/api/v1/tools/bus_route_eta', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(a) }).then((x) => x.json());
+      const s = (await call({ city: 'Taipei', routeName: '307' })).data.directions[0].stops[6].stopName;
+      const { createWebHost } = await import('/ui/cards/host-web.js');
+      await createWebHost().watchArrival({ city: 'Taipei', routeName: '307', stop: s, direction: 0, minutes: 3 });
+      return s;
+    });
+    const arrival = page.locator('.rem-row[data-kind="arrival"]');
+    if (await arrival.count()) { // 示範資料剛好已經在提醒範圍內時提醒會直接結束
+      assert.match(await arrival.textContent(), new RegExp(`307 到站提醒.*${stop.replace(/[()]/g, '.')}`));
+      assert.match(await arrival.locator('a.rem-open').getAttribute('href'), /^#\/bus\/Taipei\/307\?stop=.+&dir=0$/);
+      await shot(page, 'phone-reminders');
+      await arrival.getByRole('button', { name: '取消 307 的到站提醒' }).click();
+      await page.waitForSelector('.rem-row[data-kind="arrival"]', { state: 'detached' });
+    } else await shot(page, 'phone-reminders');
+    await page.getByRole('button', { name: /^取消 \d{2}:\d{2} 的出門提醒$/ }).click();
+    await page.waitForSelector('.rem-empty');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'rem-h', '取消後焦點回到標題');
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('abang.reminders') || '[]').length), 0);
+    assert.equal(await page.locator('.tabbar .tab-badge').isHidden(), true);
+    assert.match(await page.textContent('.rem-how'), /到站前 3 分提醒我[\s\S]*選下車站[\s\S]*提醒我出門/);
+    // 設定頁不再有出門提醒清單：連到提醒分頁
+    await page.goto(`${base}/#/settings`);
+    await page.waitForSelector('#reminders-card a[href="#/reminders"]');
+  });
+});
+
+test('我的：收藏、常用地點、發票、提醒、手機上的 AI（網頁版照實說）、設定與關於；首頁 AI 那條點進阿幫的腦袋', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.waitForFunction(() => document.querySelector('#ai-line')?.dataset.tone !== 'wait');
+    await page.click('#ai-line');
+    await page.waitForSelector('.ai-hero #ai-chip:not([hidden])');
+    assert.match(page.url(), /#\/ai$/);
+    assert.equal(await page.getAttribute('.tabbar [data-tab="me"]', 'aria-current'), 'true', '阿幫的腦袋屬於「我的」');
+    assert.equal(await page.locator('#back').isVisible(), true, '有返回鈕');
+    await page.goto(`${base}/#/me?sec=ai`);
+    await page.waitForSelector('.me-ai a[href="#/ai"]');
+    assert.match(page.url(), /#\/me\?sec=ai$/);
+    assert.equal(await page.getAttribute('.tabbar [data-tab="me"]', 'aria-current'), 'page');
+    await page.waitForFunction(() => document.querySelector('#me-ai-label')?.textContent !== '檢查中…');
+    assert.match(await page.textContent('.me-ai'), /網頁版[\s\S]*伺服器判斷[\s\S]*Apple Intelligence[\s\S]*Gemini Nano/);
+    for (const href of ['#/favs', '#/settings', '#/s/invoice', '#/reminders', '#/privacy']) assert.ok(await page.locator(`#main a[href="${href}"]`).count() >= 1, href);
+    assert.match(await page.textContent('.me-about'), /165 全民防騙網/);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shot(page, 'phone-me');
+    await page.click('#main a[href="#/favs"]');
+    await page.waitForSelector('#main .empty');
+    assert.equal(await page.locator('#back').isVisible(), true);
+    assert.equal(await page.getAttribute('.tabbar [data-tab="me"]', 'aria-current'), 'true');
+  });
+});
+
+test('舊網址都還能用（#/nearby、#/bus、#/favs、#/settings、#/privacy、#/s/weather、#/rail/thsr）', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    const want = { '#/nearby': '#pagehero .ph-nearby', '#/bus': '#pagehero .ph-bus', '#/favs': '#main .empty', '#/settings': '#saved', '#/privacy': '.privacy h2', '#/s/weather': '.ab-card[data-card="weather"]', '#/rail/thsr': '#pagehero .ph-thsr' };
+    for (const [h, sel] of Object.entries(want)) {
+      await page.goto(`${base}/${h}`);
+      await page.waitForSelector(sel);
+      assert.equal(await page.locator('.tabbar [aria-current]').count(), 1, h);
+    }
+  });
+});
+
+test('首頁「現在」降級：沒給定位用台北車站附近、查不到只留提醒、離線說離線（都不擋畫面）', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.waitForSelector('#now[aria-busy="false"] [data-now="weather"]');
+    assert.match(await page.textContent('#now [data-now="weather"]'), /台北車站附近/, '沒給過權限不跳權限框');
+  }, { geo: false });
+  await withPage({ ...DEVICES.phone, serviceWorkers: 'block' }, '#/', async (page) => {
+    await page.route(/\/api\/v1\/tools\/(weather_now|aqi_nearby)$/, (r) => r.abort());
+    await page.reload();
+    await page.waitForSelector('#now[aria-busy="false"]');
+    assert.deepEqual(await page.locator('#now .now-item').evaluateAll((els) => els.map((e) => e.dataset.now)), ['reminder']);
+    assert.ok(await page.locator('.grid .tile').count() > 10, '格子照常');
+  }, { ignore: /Failed to load resource/ });
+  const ctx = await newCtx({ ...DEVICES.phone, reducedMotion: 'reduce' });
+  try {
+    const page = await ctx.newPage();
+    await page.goto(`${base}/#/services`);
+    await page.waitForSelector('.svc');
+    await ctx.setOffline(true);
+    await page.evaluate(() => { location.hash = '#/'; });
+    await page.waitForSelector('#now [data-now="offline"]');
+    assert.match(await page.textContent('#now'), /離線中[\s\S]*沒有提醒/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test('桌面：分頁列跟內容一樣寬', async () => {
+  await withPage(DEVICES.desktop, '#/', async (page) => {
+    await page.waitForSelector('#now[aria-busy="false"]');
+    const nav = await page.locator('.tabbar nav').boundingBox();
+    assert.ok(nav.width <= 560, `分頁列寬 ${nav.width}`);
+  });
+});
+
+test('到站提醒每 20 秒的事件不重畫：提醒頁與首頁「現在」的焦點不會掉；回首頁不閃骨架', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.waitForSelector('#now[aria-busy="false"] [data-now="weather"]');
+    await page.evaluate(async () => {
+      const call = (a) => fetch('/api/v1/tools/bus_route_eta', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(a) }).then((x) => x.json());
+      const s = (await call({ city: 'Taipei', routeName: '307' })).data.directions[0].stops[6].stopName;
+      const { createWebHost } = await import('/ui/cards/host-web.js');
+      await createWebHost().watchArrival({ city: 'Taipei', routeName: '307', stop: s, direction: 0, minutes: 3 });
+      localStorage.setItem('abang.reminders', JSON.stringify([{ id: 'rk', at: Date.now() + 3600e3, text: '該出門了：x', nid: 2002 }]));
+      window.dispatchEvent(new CustomEvent('abang:reminders'));
+    });
+    await page.focus('#now [data-now="weather"]');
+    const fire = () => page.evaluate(() => { for (const t of ['abang:arrival-watch', 'abang:alight-watch', 'abang:reminders']) window.dispatchEvent(new CustomEvent(t)); });
+    await page.evaluate(() => { window.__el = document.activeElement; });
+    await fire();
+    await page.waitForTimeout(100);
+    assert.equal(await page.evaluate(() => document.activeElement === window.__el && window.__el.isConnected), true, '首頁焦點還在同一個元素');
+    // 回首頁：上次的結果還有效，直接畫（不先閃骨架）
+    await page.click('.tabbar [data-tab="reminders"]');
+    await page.waitForSelector('.rem-row');
+    await page.locator('.rem-row button').first().focus();
+    await page.evaluate(() => { window.__el = document.activeElement; });
+    await fire();
+    await page.waitForTimeout(100);
+    assert.equal(await page.evaluate(() => document.activeElement === window.__el && window.__el.isConnected), true, '提醒頁焦點還在取消鈕上');
+    await page.click('.tabbar [data-tab="home"]');
+    await page.waitForSelector('#now');
+    assert.equal(await page.locator('#now .skel').count(), 0, '不閃骨架');
+    assert.equal(await page.getAttribute('#now', 'aria-busy'), 'false');
+    await page.evaluate(async () => { const { createWebHost } = await import('/ui/cards/host-web.js'); createWebHost().unwatchArrival(); });
+  });
+});
+
+test('鍵盤開著時阿幫說話：改用提示，中央鍵仍亮未讀點', async () => {
+  await withPage(DEVICES.phone, '#/s/weather', async (page) => {
+    await page.waitForSelector('#abang-fab');
+    await page.evaluate(() => { document.documentElement.classList.add('kb-open'); window.dispatchEvent(new CustomEvent('abang:arrival', { detail: { text: '307 快到了' } })); });
+    await page.waitForSelector('[role="status"]:has-text("307 快到了")');
+    assert.equal(await page.locator('#abang-bubble').isHidden(), true);
+    await page.evaluate(() => document.documentElement.classList.remove('kb-open'));
+    assert.match(await page.getAttribute('#abang-fab', 'class'), /unread/);
+    assert.equal(await page.getAttribute('#abang-fab', 'aria-label'), '問阿幫（阿幫有話跟你說）');
   });
 });
 
@@ -1592,4 +1931,19 @@ test('阿幫的腦袋：試試看的動畫至少播 1.2 秒（Gemini Nano 0.1 �
     assert.equal(await page.getAttribute('.ai-hero', 'data-stage'), 'done');
     assert.deepEqual(await page.locator('.ai-v').allTextContents(), ['行程規劃', '趕時間']);
   }, { init: THINK_RECORDER + FAKE_EDGE(100), motion: true, ignore: /not in test/ });
+});
+
+test('中央鍵拉出的底部對話面板：「阿幫在想」一樣會出現、會動、回答來了就收起', async () => {
+  await withPage(DEVICES.phone, '#/s/weather', async (page) => {
+    await page.waitForSelector('#abang-fab');
+    await page.click('#abang-fab');
+    await page.waitForSelector('#abang-sheet[open] .chat-form input');
+    await page.fill('#abang-sheet .chat-form input', '從西門町到台北101怎麼去');
+    await page.press('#abang-sheet .chat-form input', 'Enter');
+    await page.waitForSelector('#abang-sheet .bubble.final', { timeout: 20000 });
+    const r = await page.evaluate(() => window.__think);
+    assert.ok(r.texts.some((x) => /^阿幫在想…/.test(x)) && r.texts.some((x) => /正在查：/.test(x)), r.texts.join(' | '));
+    assert.ok(r.anims.includes('tc-beat'));
+    assert.equal(await page.locator('#abang-sheet .think-core').count(), 0);
+  }, { init: THINK_RECORDER, motion: true });
 });

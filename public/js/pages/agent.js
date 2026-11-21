@@ -206,8 +206,8 @@ export default {
       rules: () => '這題由內建規則回答（英文提問、油價發票股市地震這類查數字的，地端模型還不穩）；資料照常是即時的。',
     };
     // 裝置端 AI（ADR-0014）：在手機上判斷時，說明多一句（判斷不離開手機的模型，只送結果）
-    // 伺服器沒採用手機的判斷時也照實說（手機上的模型先聽了一遍，這一輪以伺服器的判斷為準；agent/thinking.js deviceLine）
-    const modeText = (e, sent) => `${MODE_TEXT[e.mode](e.model || '')}${deviceLine({ sent, judge: e.judge }) || ''}`;
+    // 頁底只說由誰回答；手機上的 AI 有沒有被採用寫在那一輪的回答上方（deviceLine，跟著那一輪的語言；不在兩處重複）
+    const modeText = (e) => MODE_TEXT[e.mode](e.model || '');
     if (agentId === 'life') edgePrewarm();
 
     let lastTripTo = null; // 最後一次行程的目的地：設定到站提醒時記下（公車一直不來時改其他方式）
@@ -298,7 +298,7 @@ export default {
         const ctxText = [context, pageContext].filter(Boolean).join('；').slice(0, 200);
         await runAgent({ messages: history.slice(-10), ...(ctxText && { context: ctxText }), ...(deviceJudge && { deviceJudge }), ...(savedPlaces && { savedPlaces }) }, (e) => {
           // 隱私：防詐頁貼上的內容只送給本站伺服器分析，不保存（AGENT_ANTIFRAUD.md §1）
-          if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = modeText(e, deviceJudge);
+          if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = modeText(e);
           if (e.type === 'status' && agentId === 'life') noteAgentStatus(e); // 「阿幫的腦袋」（#/ai）顯示最近一輪由誰回答、誰先聽懂（只記模式與來源，不含內容）
           view.push(e);
         }, { agentId });

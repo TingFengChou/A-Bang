@@ -20,15 +20,18 @@ let serial = '';
 const screencap = () => execFileSync('adb', [...(serial ? ['-s', serial] : []), 'exec-out', 'screencap', '-p'], { maxBuffer: 64 * 1024 * 1024 });
 const adb = (...a) => execFileSync('adb', [...(serial ? ['-s', serial] : []), ...a], { encoding: 'utf8' }).trim();
 
-/** 每一頁要看到什麼（選擇器）；fab：浮動阿幫要不要出現 */
+/** 每一頁要看到什麼（選擇器）；tab：分頁列哪一格標 aria-current（中央「問阿幫」鍵每一頁都在，2026-11-21 取代浮動阿幫） */
 const PAGES = [
-  { name: 'home', hash: '#/', want: '.hero', fab: true },
-  { name: 'agent', hash: '#/agent', want: '.chat-form', fab: false },
-  { name: 'bus', hash: `#/bus/Taipei/307?stop=${encodeURIComponent('敦化市場')}&dir=0`, want: '.timeline', fab: true },
-  { name: 'weather', hash: '#/s/weather', want: '#pagehero .page-hero', fab: true },
-  { name: 'nearby', hash: '#/nearby', want: '#pagehero .page-hero', fab: true },
-  { name: 'settings', hash: '#/settings', want: '#saved', fab: true },
-  { name: 'ai', hash: '#/ai', want: '.ai-hero #ai-chip:not([hidden])', fab: true }, // 阿幫的腦袋：外掛 status() 回來、主視覺畫好
+  { name: 'home', hash: '#/', want: '#now', tab: 'home' },
+  { name: 'services', hash: '#/services', want: '.svc-list', tab: 'services' },
+  { name: 'reminders', hash: '#/reminders', want: '#rem-list', tab: 'reminders' },
+  { name: 'me', hash: '#/me', want: '.me-ai', tab: 'me' },
+  { name: 'agent', hash: '#/agent', want: '.chat-form', tab: 'ask' },
+  { name: 'bus', hash: `#/bus/Taipei/307?stop=${encodeURIComponent('敦化市場')}&dir=0`, want: '.timeline', tab: 'services' },
+  { name: 'weather', hash: '#/s/weather', want: '#pagehero .page-hero', tab: 'services' },
+  { name: 'nearby', hash: '#/nearby', want: '#pagehero .page-hero', tab: 'services' },
+  { name: 'settings', hash: '#/settings', want: '#saved', tab: 'me' },
+  { name: 'ai', hash: '#/ai', want: '.ai-hero #ai-chip:not([hidden])', tab: 'me' }, // 阿幫的腦袋：外掛 status() 回來、主視覺畫好
 ];
 
 function fail(msg) { console.error(`✗ ${msg}`); process.exitCode = 1; }
@@ -67,21 +70,22 @@ async function main() {
       await page.evaluate((h) => { globalThis.location.hash = h; }, p.hash);
       try {
         await page.waitForSelector(p.want, { timeout: 15000 });
-        const fab = await page.evaluate(() => { const b = globalThis.document.getElementById('abang-fab'); return !!b && !b.hidden; });
-        if (fab !== p.fab) fail(`${p.name}：浮動阿幫${p.fab ? '沒有出現' : '不該出現'}`);
+        const st = await page.evaluate(() => { const d = globalThis.document; const b = d.getElementById('abang-fab'); return { key: !!b && b.offsetParent !== null, cur: d.querySelector('.tabbar [aria-current]')?.dataset.tab || null }; });
+        if (!st.key) fail(`${p.name}：中央「問阿幫」鍵沒有出現`);
+        else if (st.cur !== p.tab) fail(`${p.name}：分頁列標在 ${st.cur}，應該是 ${p.tab}`);
         else console.log(`✓ ${p.name}`);
       } catch { fail(`${p.name}：15 秒內沒看到 ${p.want}`); }
       await sleep(600);
       try { writeFileSync(fileURLToPath(new URL(`android-${p.name}.png`, OUT)), screencap()); } catch (e) { console.warn(`  （${p.name} 截圖失敗：${e.message}）`); } // 用手機實際畫面（WebView 截圖在重新載入後可能卡住）
     }
-    // 浮動阿幫拉出對話、Android 返回鍵收起（dialog.close）；沒拉出來就不按返回（--keep 時前面可能是別的 App）
+    // 中央「問阿幫」鍵拉出對話、Android 返回鍵收起（dialog.close）；沒拉出來就不按返回（--keep 時前面可能是別的 App）
     await page.evaluate(() => { globalThis.location.hash = '#/s/weather'; });
-    await page.waitForSelector('#abang-fab:not([hidden])');
+    await page.waitForSelector('#abang-fab');
     await page.$eval('#abang-fab', (b) => b.click()); // 直接點（手機螢幕變暗或沒在畫畫面時，等「穩定」會一直等不到）
     const opened = await page.waitForSelector('#abang-sheet[open] .chat-form', { timeout: 8000 }).then(() => true, () => false);
-    if (!opened) fail('浮動阿幫沒有拉出對話');
+    if (!opened) fail('中央鍵沒有拉出對話');
     else {
-      console.log('✓ 浮動阿幫拉出對話');
+      console.log('✓ 中央鍵拉出對話');
       await sleep(400);
       if (!/mWakefulness=Awake/.test(adb('shell', 'dumpsys', 'power'))) { console.warn('－ 手機螢幕關著：返回鍵這項略過（不喚醒、不解鎖手機；螢幕亮著時再跑一次）'); await page.evaluate(() => globalThis.document.getElementById('abang-sheet').close()); }
       else {

@@ -153,7 +153,7 @@ ABANG_API_BASE=https://你的網域 APP_RELEASE=1 npm run app:sync   # 正式版
 
 伺服器對 App 的來源（`capacitor://localhost`、`https://localhost`）開放問阿幫與讀取 API 的 CORS，可用 `APP_ORIGINS` 調整。
 
-App 名稱 **Abang**（吉祥物仍叫阿幫）。原生功能：本機通知（到站提醒、出門提醒，可多筆可取消）、原生定位、Android 返回手勢、裝置端 AI（ADR-0014：Android Gemini Nano、iOS Apple Intelligence 在手機上判斷意圖，不可用時由伺服器判斷，可在「設定與隱私」關閉）。第一次打開有使用說明（要定位與通知權限）；常用地點（家、公司、學校）與離線資料只存在手機；iOS 18 有深色與著色圖示。
+App 名稱 **Abang**（吉祥物仍叫阿幫）。原生功能：本機通知（到站提醒、出門提醒，可多筆可取消）、原生定位、Android 返回手勢、裝置端 AI（ADR-0014：Android Gemini Nano、iOS Apple Intelligence 在手機上判斷意圖，不可用時由伺服器判斷，可在「設定與隱私」關閉）。第一次打開有使用說明（要定位與通知權限）；常用地點（家、公司、學校）與離線資料只存在手機；iOS 18 有深色與著色圖示。App 圖示是 Λ 標誌（`docs/BRAND.md` §2.1），藍鵲是 App 內的吉祥物。
 
 開發時手機不休眠：Android 開發者選項開「保持喚醒（充電時螢幕不會進入休眠狀態）」；iOS 模擬器不需要。
 

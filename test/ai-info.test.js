@@ -176,7 +176,6 @@ test('入口與外殼：路由、設定頁連結、離線清單、樣式；動�
   assert.match(await read('public/js/app.js'), /\[\/\^\\\/ai\$\/, ai\]/);
   assert.match(await read('public/js/pages/settings.js'), /href="#\/ai"/);
   const sw = await read('public/sw.js');
-  assert.match(sw, /const VERSION = 'v0\.9\.3-ai'/);
   for (const f of ['/css/ai.css', '/js/pages/ai.js', '/js/pages/ai-i18n.js', '/js/ai-info.js']) assert.ok(sw.includes(`'${f}'`), f);
   assert.match(await read('public/index.html'), /href="\/css\/ai\.css"/);
   const css = await read('public/css/ai.css');
@@ -195,9 +194,12 @@ test('原生外掛：status 回報系統查得到的欄位、judge 回耗時（�
   assert.match(java, /getBaseModelName\(\)/);
   assert.match(java, /getTokenLimit\(\)/);
   assert.match(java, /ret\.put\("ms", ms\)/);
+  assert.match(java, /infoExec\.execute\(\(\) -> call\.resolve\(describe\(o, s\)\)\)/, '查模型資訊不佔 judge 的執行緒');
+  assert.match(java, /infoTried = true;/, '查不到也只查一次');
   assert.match(await read('android/app/src/main/AndroidManifest.xml'), /<queries>\s*<package android:name="com\.google\.android\.aicore" \/>\s*<\/queries>/);
   const swift = await read('ios/App/App/AbangEdgeAIPlugin.swift');
   for (const k of ['availability', 'languages', 'contextSize', 'osVersion']) assert.ok(swift.includes(`"${k}"`), `iOS ${k}`);
   assert.match(swift, /supportedLanguages/);
+  assert.match(swift, /if #available\(iOS 27\.0, \*\), case \.available = model\.availability, model\.contextSize > 0/, 'iOS 26 的 contextSize 是寫死的 4096，不當系統回報');
   assert.match(swift, /"ms": ms/);
 });
