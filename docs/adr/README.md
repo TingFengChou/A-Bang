@@ -20,6 +20,7 @@
 | [0014](0014-edge-ai.md) | 裝置端 AI：手機上判斷意圖與狀態（Apple Intelligence、Gemini Nano） | 已採用 | `AbangEdgeAI` 外掛、`public/js/edge-judge.js`、`judge.js` |
 | [0015](0015-see-and-hear.md) | 裝置端的聽與看：手機上先讀懂，只送文字 | 已採用 | `AbangVision`／`AbangVoice` 外掛、`public/js/vision.js`、`core/vision-text.js` |
 | [0016](0016-ask-the-user.md) | 阿幫問你：答案取決於使用者時問一句（事件 `ask`、pending、什麼時候問／不問） | 已採用 | `core/agent/ask.js`、`keyQuestion`、`public/ui/agent/ask.js` |
+| [0017](0017-edge-write.md) | 回答也在手機上寫（Gemini Nano／Apple Intelligence，程式護欄檢查數字） | 已採用 | `AbangEdgeAI.write`、`core/edge-write.js`、`public/js/edge-write.js`、`answer_draft` |
 | [0018](0018-health-on-device.md) | 健康資料只在手機、只讀、預設關閉（步數與運動時間；天氣好又動得少時建議去走走） | 已採用 | `AbangHealth` 外掛、`core/health-nudge.js`、`public/js/health.js` |
 
 範本：

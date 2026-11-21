@@ -121,3 +121,25 @@ export const PENDING_SLOTS = Object.assign(Object.create(null), {
     return /^[a-z]/i.test(t) ? A.sayEn : A.say;
   },
 });
+
+/**
+ * 聽不懂的問題（意圖 unknown）在手機寫回答的那一輪（ADR-0017：一律不退回伺服器模型）：不只列清單，
+ * 給幾個阿幫查得到的選項，按了就把完整的一句當成下一句送出（reply）。選項的句子都是規則聽得懂的（test/edge-write.test.js 驗證）。
+ * @param {'en'|null} [lang]
+ */
+export function unknownAsk(lang = null) {
+  const en = lang === 'en';
+  const opts = en
+    ? [['Get to Taipei 101', 'How do I get to Taipei 101?'], ['YouBike nearby', 'Is YouBike available nearby?'], ['Weather now', "What's the weather now?"], ['Next MRT', 'Next MRT train']]
+    : [['怎麼去台北101', '怎麼去台北101'], ['附近公車站', '附近的公車站'], ['現在天氣', '現在天氣如何'], ['發票對獎', '這期發票號碼是多少？']];
+  return {
+    about: 'unknown',
+    question: en ? "I can't look that up. Want one of these instead?" : '這題我查不到，要不要改查這些？',
+    options: opts.map(([label, say]) => ({ label, kind: 'reply', say })),
+  };
+}
+/** 配合 unknownAsk 的簡短回答（選項在上面，不再列一長串） */
+export const UNKNOWN_SHORT = {
+  zh: '我能查交通和生活的即時資料（公車、捷運、台鐵、高鐵、YouBike、天氣、空品、發票…），點上面一個試試看。',
+  en: 'I can look up live transit and daily-life data (bus, MRT, trains, YouBike, weather…). Tap one above to try.',
+};

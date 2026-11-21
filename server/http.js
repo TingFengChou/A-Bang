@@ -65,6 +65,8 @@ const DOCS_HTML = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-
 const SHARED_CORE = {
   'decide.js': fileURLToPath(new URL('../core/decide.js', import.meta.url)),
   'vision-text.js': fileURLToPath(new URL('../core/vision-text.js', import.meta.url)), // 阿幫會看在手機上分類讀到的字（M14-02）
+  'edge-write.js': fileURLToPath(new URL('../core/edge-write.js', import.meta.url)), // 手機寫的回答的程式護欄（ADR-0017）
+  'output-guards.js': fileURLToPath(new URL('../core/output-guards.js', import.meta.url)),
   // 天氣好又動得少時建議去走走（ADR-0018）：判斷在手機上（health-nudge.js 用 nav.js 的步行時間與導航連結），散步地點來自內建地標庫
   'health-nudge.js': fileURLToPath(new URL('../core/health-nudge.js', import.meta.url)),
   'nav.js': fileURLToPath(new URL('../core/nav.js', import.meta.url)),

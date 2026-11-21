@@ -14,12 +14,19 @@
 ---
 
 ## 2026-11-22 M15-01 健康與運動：天氣好又動得少時建議去走走（ADR-0018）
-- 做了：專案內外掛 `AbangHealth`（Android：Health Connect `connect-client:1.1.0`，只要 READ_STEPS、READ_EXERCISE，`aggregateGroupByPeriod` 每天加總、Kotlin suspend 用 Continuation 從 Java 呼叫、權限說明畫面 `HealthRationaleActivity`〔rationale intent＋Android 14 activity-alias〕、到 Health Connect 允許／到 Play 商店安裝；iOS：HealthKit stepCount、appleExerciseTime 每天加總、`App.entitlements`、`NSHealthShareUsageDescription`，沒有 entitlement 回 no-entitlement）。規則與文案 `core/health-nudge.js`（純函式，前端以 /core/ 共用）：天氣好（沒下雨、降雨 < 30%、體感 15～31°C、AQI ≤ 100、06:00～19:30）、動得少（步數 < 6,000 按清醒時段比例的 60%，而且近 7 天運動 < 150 分的進度；沒有運動紀錄只看步數、不提運動分鐘——產品負責人 2026-11-22 定案）、散步地點（內建地標庫 `walk` 欄位，走路 10～25 分最近的）、一天一次。`public/js/health.js`（預設關閉、示範資料與外掛介面相同、步數只在記憶體）、`public/js/health-ui.js`：首頁「現在」散步小卡（今天不用到明天）、問阿幫回答下面補一句（不進對話紀錄）、設定頁與「我的」同一個開關（第一次打開才問權限；被拒說原因；不能用反白）、隱私權政策段落。`weather_now`／`outing_advice` 加體感溫度 `feelsC`；地標庫加 13 個公園、河濱、步道。iOS 開發安裝腳本：個人團隊不能簽 HealthKit 時改用不含 entitlement 的建置。SW v1.0.0-health。
+- 做了：專案內外掛 `AbangHealth`（Android：Health Connect `connect-client:1.1.0`，只要 READ_STEPS、READ_EXERCISE，`aggregateGroupByPeriod` 每天加總、Kotlin suspend 用 Continuation 從 Java 呼叫、權限說明畫面 `HealthRationaleActivity`〔rationale intent＋Android 14 activity-alias〕、到 Health Connect 允許／到 Play 商店安裝；iOS：HealthKit stepCount、appleExerciseTime 每天加總、`App.entitlements`、`NSHealthShareUsageDescription`，沒有 entitlement 回 no-entitlement）。規則與文案 `core/health-nudge.js`（純函式，前端以 /core/ 共用）：天氣好（沒下雨、降雨 < 30%、體感 15～31°C、AQI ≤ 100、06:00～19:30）、動得少（步數 < 6,000 按清醒時段比例的 60%，而且近 7 天運動 < 150 分的進度；沒有運動紀錄只看步數、不提運動分鐘——產品負責人 2026-11-22 定案）、散步地點（內建地標庫 `walk` 欄位，走路 10～25 分最近的）、一天一次。`public/js/health.js`（預設關閉、示範資料與外掛介面相同、步數只在記憶體）、`public/js/health-ui.js`：首頁「現在」散步小卡（今天不用到明天）、問阿幫回答下面補一句（不進對話紀錄）、設定頁與「我的」同一個開關（第一次打開才問權限；被拒說原因；不能用反白）、隱私權政策段落。`weather_now`／`outing_advice` 加體感溫度 `feelsC`；地標庫加 13 個公園、河濱、步道。iOS 開發安裝腳本：個人團隊不能簽 HealthKit 時改用不含 entitlement 的建置。SW v1.0.4（合併主線 #107、#108 後）。
 - 測試：npm test 新增 18 項（health.test.js 17、ios-dev-install 1）；E2E 新增 4 項（首頁小卡與今天不用、問阿幫補一句與一天一次、預設關閉與開關、App 被拒／沒有 Health Connect／達標），請求內容檢查沒有健康資料；Android assembleDebug、iOS xcodebuild（不簽署，模擬器與實機架構）成功
 - 文件：ADR-0018、adr/README、UX.md §3.1、§5.0.5、AGENT.md §5.2.16、§7、MCP_TOOLS.md、DATA_SOURCES.md、PLAN.md M15、CLAUDE.md、PROGRESS.md
 - 決定（產品負責人 2026-11-22）：截圖可以；iPhone 維持簽不過就裝不含健康的版本；動得少改成「而且」；網頁版維持示範資料並標示；上架事項列進卡住項目
 - 下一個：M15-01b 實機確認（Pixel；iOS 改用模擬器）
 - 卡住：iPhone 免費個人開發團隊可能不能簽 HealthKit（需要付費帳號才能在 iPhone 上真的讀步數；開發版會反白說原因）
+
+## 2026-11-22 M12-E7 審查修正：回答也在手機上寫（PR #108 獨立審查）
+- 做了：程式護欄改成比對「數字＋單位」（同義單位正規化），其他方案的數字只能用在提到它的那一句，關鍵數字順序要一樣；國字（一小時、半小時、一一九、八成、八點）、英文數量（two-minute、one hour、dozen、eighty）、時段（早上…）擋下；ADR-0011 代辦說法（已幫你安排／預約、司機已在路上、已幫你設好提醒、Your Uber is on its way）；L2 輸出護欄直接重用（規則本體搬到 `core/output-guards.js`，`guardrails.js` 改為重新匯出，前端以 /core/ 取得）；提醒或數字前加否定（不用帶傘、不是末班、不用打 119）；沒加引號的站名路名、裸網域、markdown 連結。多輪：送伺服器的前文用程式版總結（畫面顯示改寫）。「聽不懂」與 reply 選項只接受全字相符。上一題還在寫回 busy、逾時 5 秒後強制放掉；給模型的事實帶鍵名與單位、不截掉其他方案；常用地點沒設定那一輪不改寫；原生 write() 輸入超過 4000 字拒絕；頁底照實說、「今天寫了幾次」只算通過的、聽不懂的問句也檢查一輪只問一個。順手修 test/en-notes.test.js 的時間相依（固定時間）。
+- 測試：npm test、npm run e2e 全過（test/edge-write.test.js 新增審查案例 9 項；E2E 加接著問的前文檢查、頁底說明）
+- 文件：ADR-0017（護欄細節與限制照實寫）、AGENT.md §3.5、PROGRESS.md
+- 下一個：實機量 Gemini Nano／Apple Intelligence 的通過率（規則變嚴，預期通過率下降，看實機數據再調）
+- 卡住：無
 
 ## 2026-11-21 R1 判斷看得到：討論串與決策圖逐項說明天氣、空品、路況怎麼影響建議
 - 做了：`core/services/trip-considered.js`：`plan_trip` 輸出 `considered`（天氣、空品、國道路況各一筆：值、資料一句、影響一句、`effect`＝none／score／自動狀態 key、查不到、示範標記）與 `single`（只有一種方式時，依各方式沒列出的原因組說明＋建議）。`execTools` 在行程結論前送三個 `data_note`（新事件；示範與模型模式相同，不經模型），前端以工具發言樣式排在行程發言前面，示範模式另外查過的角色不重複。決策圖資料欄改用 `decision.considered`：每個來源一個節點、帶值與影響，不影響與查不到淡色、不標成勝出關鍵。最近的空品測站超過 25 公里不採用（之前墾丁會拿台中大里測站判斷）；另外查的 `aqi_nearby` 影響也一樣。只有一種方式：`speak`「只找到叫車一種方式」、討論串影響與示範總結說原因（太遠、附近沒有站、幾點以後沒有趕得上的班次、示範資料是模擬的），「接下來可以」給「改成明天早上出發」「改從台北車站出發比較看看」。模型看到的工具文字多「判斷用到的資料」「只有一種方式」兩行。合併主線（#101～#105）後：TDX 額度用完改用示範資料時，路況那一行標示範並說明。審查修正：建議 chip 帶著使用者說的起點；只有一種方式的說明看這次有沒有 TDX fallback（`currentFallback()`）；data_note 去重改在 tool_start 記角色（工具平行時天氣可能晚到）。SW v0.9.9。
@@ -28,6 +35,14 @@
 - 文件：AGENT.md §3.1、§5.2.10b；UX.md §4、§5；MCP_TOOLS.md plan_trip 7.1；ADR-0009 補充；PLAN.md R1；PROGRESS.md
 - 下一個：「阿幫問你」合進來後，single.suggest 改用它
 - 卡住：無
+
+## 2026-11-21 M12-E7 回答也在手機上寫（ADR-0017）
+- 做了：手機 App 的系統模型可用、外掛回 `write: true`、開關開著時，請求帶 `clientCaps: { edgeWrite, engine }`（zod strict）；伺服器不論 Claude／地端設定都不呼叫任何 AI 模型（判斷層只用快速版），走規則路徑查資料、`decide.js` 計分，送 `answer_draft { text: 程式版總結, facts: 事實清單（不含座標與起訖點）, lang }` 取代 `text`，`status.mode = 'edge'`。外掛 `AbangEdgeAI.write`：Android ML Kit GenAI Prompt API（Gemini Nano）、iOS Foundation Models（Apple Intelligence），原生 2.3 秒取消、JS 等 2.5 秒。程式護欄 `core/edge-write.js`（`checkRewrite`，經 `/core/` 給前端）：數字與時間只能來自草稿或事實清單、關鍵數字不能少、國字／英文數量、ADR-0011「已幫你叫好／訂好／付款」、投資建議、重要提醒（示範、末班…）、引號名稱、語言、長度；不過、逾時、失敗、草稿太長 → 程式版。防詐不改寫、安全情境照舊。畫面：思考動畫「在手機上寫回答」、回答上方合成一行（「手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答。」／只有寫回答「這次的回答由手機上的 Gemini Nano 寫。」／「手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（沒通過檢查／逾時）。」，產品負責人決定）、設定頁開關「回答也在手機上寫」（預設開）與隱私權政策、`#/ai`「寫回答」一格（引擎、今天幾次、上次多久、通過比例，只存手機）。sw.js `v0.9.9-write`。
+- 測試：npm test 739 項全過（新增 test/edge-write.test.js 17 項）；npm run e2e 98 項全過（新增 3 項，截圖 phone-edge-write.png、phone-edge-write-fallback.png）；Android assembleDebug、iOS xcodebuild（不簽署）編譯成功
+- 文件：ADR-0017（新）、adr/README.md、ADR-0014、AGENT.md §3.1／§3.5／§7、UX.md §5.0.2、PLAN.md、CLAUDE.md
+- 合主線（阿幫問你 #107）後：edge 模式聽不懂時改用 `ask` 給 4 個查得到的選項（`unknownAsk`，產品負責人：edge 模式一律不用伺服器模型）；sw.js `v1.0.1`
+- 下一個：實機量 Gemini Nano／Apple Intelligence 的改寫通過率與延遲
+- 卡住：實機（Pixel、iPhone 15 Pro 以上）改寫品質待 Austin 確認
 
 ## 2026-11-21 真實資料接上：TDX、氣象署、環境部金鑰；TDX 頻率限制
 - 做了：Austin 申請並放好 TDX、氣象署、環境部金鑰（只在 .env），交通、天氣、空品、地震都變成即時資料。實測 TDX 新帳號在「加值應用」審核前每分鐘只有 5 次（429），行程比較會連續呼叫而失敗：tdx-client 加請求排隊（同時 3 個、間隔 220ms）、429 時照 Retry-After 重試一次；Austin 決定先不申請加值應用，所以額度用完時這一次改用示範資料（`withTdxFallback`，結果標示範並說明），不讓查詢失敗。

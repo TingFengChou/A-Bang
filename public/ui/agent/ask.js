@@ -10,7 +10,7 @@ const NO = /^(不|不用|不要|不必|沒|沒有|不是|no|nope|no thanks)$/i;
  * 使用者用打的（或說的）回答：下一句就是答案——但寧可略過，也不能把新問題當成答案（尤其是會存進手機的偏好）。
  * 1. 全字等於某個選項（去掉句尾標點）→ 那個選項
  * 2. 整句就是 YES／NO 說法（好、好啊、是、對、要、不用、不要、沒有、yes、no…）且只有兩個選項 → 第一／第二個
- * 3. 「包含」比對只用在：不是 store 類（存偏好只接受 1、2）、沒有問號、而且選項 ≥ 3 字或這句只比選項多 2 字以內（「我不趕」→ 不趕）
+ * 3. 「包含」比對只用在：不是 store 類（存偏好只接受 1、2）、不是 reply 類（會整句送出，只接受 1）、不是「聽不懂」那一題、沒有問號、而且選項 ≥ 3 字或這句只比選項多 2 字以內（「我不趕」→ 不趕）
  * 其他都回 null＝略過，這句照常送出（帶 pendingAsk）。「好像要下雨，明天天氣如何」「不用轉乘的路線」「趕快帶我去台北車站」都不算答案。
  * @param {{ options: Array<{ label: string, kind?: string }> }} ask
  * @param {string} text
@@ -22,10 +22,12 @@ export function matchAnswer(ask, text) {
   const low = bare.toLowerCase();
   const exact = ask.options.find((o) => o.label.toLowerCase() === low);
   if (exact) return exact;
+  if (ask.about === 'unknown') return null; // 「聽不懂」給的選項會送出完整的一句：「台中現在天氣」不能被當成「現在天氣」（PR #108 審查）
   if (ask.options.length === 2 && YES.test(bare)) return ask.options[0];
   if (ask.options.length === 2 && NO.test(bare)) return ask.options[1];
   if (/[?？嗎呢]/.test(t)) return null; // 看起來是在問問題
-  const hit = [...ask.options].filter((o) => o.kind !== 'store').sort((a, b) => b.label.length - a.label.length)
+  // reply 會把選項的句子整句送出：只接受全字相符
+  const hit = [...ask.options].filter((o) => o.kind !== 'store' && o.kind !== 'reply').sort((a, b) => b.label.length - a.label.length)
     .find((o) => (o.label.length >= 3 || bare.length <= o.label.length + 2) && low.includes(o.label.toLowerCase()));
   return hit || null;
 }

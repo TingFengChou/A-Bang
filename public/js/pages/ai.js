@@ -10,6 +10,7 @@ import { aiT, pageLang } from './ai-i18n.js';
 import { visionStatus, visionEnabled } from '../vision.js';
 import { voiceStatus, voiceEnabled } from '../voice.js';
 import { voiceT, whyText } from '../voice-i18n.js';
+import { edgeWriteEnabled, edgeWriteStats } from '../edge-write.js';
 
 /** 「試試看」等久一點（使用者正看著；平常問阿幫只等 1.8 秒就交給伺服器） */
 const TRY_TIMEOUT_MS = 6000;
@@ -78,6 +79,7 @@ export default {
         </section>
         <section class="card ai-card" id="ai-try" aria-labelledby="ai-try-h"><h2 id="ai-try-h">${esc(t('try.title'))}</h2><div id="ai-try-body"></div></section>
         <section class="card ai-card" id="ai-model" aria-labelledby="ai-model-h"><h2 id="ai-model-h">${esc(t('model.title'))}</h2><div id="ai-model-body"></div></section>
+        <section class="card ai-card" id="ai-write" aria-labelledby="ai-write-h"><h2 id="ai-write-h">${esc(t('write.title'))}</h2><div id="ai-write-body"></div></section>
         <section class="card ai-card" id="ai-vision" aria-labelledby="ai-vision-h"><h2 id="ai-vision-h">${esc(t('vision.title'))}</h2><div id="ai-vision-body"></div></section>
         <section class="card ai-card" id="ai-ear" aria-labelledby="ai-ear-h"><h2 id="ai-ear-h">${esc(t('ear.title'))}</h2><div id="ai-ear-body"><p class="note">${esc(t('hero.checking'))}</p></div></section>
         <section class="card ai-card" id="ai-server" aria-labelledby="ai-server-h"><h2 id="ai-server-h">${esc(t('server.title'))}</h2><div id="ai-server-body"></div></section>
@@ -199,6 +201,20 @@ export default {
       $('#ai-model-body').innerHTML = `${lead ? `<p class="note">${esc(lead)}</p>` : ''}<dl class="ai-dl">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>${has ? `<p class="note ai-foot">${esc(t('model.honest'))}</p>` : ''}`;
     }
 
+    /** 寫回答（ADR-0017）：引擎、開關、今天在手機上寫了幾次、上次花多久、改寫通過檢查的比例（只存這支手機） */
+    function paintWrite() {
+      const can = raw?.write === true && HAS_MODEL.includes(info.state) && info.engine;
+      const on = can && info.active && edgeWriteEnabled();
+      const w = edgeWriteStats();
+      const rows = [];
+      if (can) rows.push([t('write.engine'), engineName(info)], [t('write.switch'), t(on ? 'write.on' : 'write.off')]);
+      if (can && w.lastMs != null) rows.push([t('write.last'), t('write.last.v', { ms: w.lastMs })]);
+      if (can && (on || w.today > 0)) rows.push([t('write.today'), t('write.today.v', { n: w.today })]);
+      if (can && w.tried > 0) rows.push([t('write.pass'), t('write.pass.v', { passed: w.passed, tried: w.tried, pct: Math.round((w.passed / w.tried) * 100) })]);
+      const lead = info.state === 'web' ? t('write.lead.web') : on ? t('write.lead.on', { engine: engineName(info) }) : can ? t('write.lead.off') : t('write.lead.none');
+      $('#ai-write-body').innerHTML = `<p class="note">${esc(lead)}</p>${rows.length ? `<dl class="ai-dl">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}${can ? `<p class="note ai-foot">${esc(t('write.honest'))}</p>` : ''}`;
+    }
+
     function paintServer() {
       const who = (m, model) => (m === 'claude' || m === 'local' ? t(`server.mode.${m}${model ? '' : 'NoModel'}`, { model }) : t(`server.mode.${m}`));
       const answer = server.mode ? who(server.mode, server.model) : t('server.mode.unknown');
@@ -264,7 +280,7 @@ export default {
       $('#ai-ear-body').innerHTML = `<p class="note">${esc(lead)}</p><dl class="ai-dl">${rows.map(([k, x]) => `<div><dt>${esc(k)}</dt><dd>${esc(x)}</dd></div>`).join('')}</dl><p class="note ai-foot">${esc(t('ear.privacy'))}</p>`;
     }
 
-    function paintAll() { paintHero(); paintTry(); paintModel(); paintServer(); paintFlow(); }
+    function paintAll() { paintHero(); paintTry(); paintModel(); paintWrite(); paintServer(); paintFlow(); }
 
     // 阿幫會看（M14-02）：讀字、條碼、看懂圖片；只列外掛真的回報的（網頁版照實說只有瀏覽器內建的）
     visionStatus().then((v) => {
@@ -277,6 +293,7 @@ export default {
       $('#ai-vision-body').innerHTML = `<p class="note">${esc(t(v.where === 'app' ? 'vision.lead.app' : 'vision.lead.web'))}</p><dl class="ai-dl">${rows.map(([k, x]) => `<div><dt>${esc(k)}</dt><dd>${esc(x)}</dd></div>`).join('')}</dl><p class="note ai-foot">${esc(t('vision.honest'))}</p>`;
     });
     paintServer(); // 判斷層說明不必等（伺服器資訊到了再補）
+    paintWrite();
     voiceStatus().then((v) => { if (alive) paintEar(v); });
     edgeStatus().then((s) => {
       if (!alive) return;
