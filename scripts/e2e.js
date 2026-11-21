@@ -322,10 +322,12 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       const before = await dg.getAttribute('data-best');
       let calls = 0;
       page.on('request', (r) => { if (r.url().includes('/api/')) calls++; });
-      await dg.locator('.dg-chip.add', { hasText: '想省錢' }).click();
+      // 沒有狀態時以大眾運輸為主（ADR-0010 2026-11-21）；加「帶行李」才改推叫車
+      assert.notEqual(before, 'ridehail', '沒有狀態時不推叫車');
+      await dg.locator('.dg-chip.add', { hasText: '帶行李' }).click();
       assert.equal(await dg.getAttribute('data-run'), '2');
-      assert.notEqual(await dg.getAttribute('data-best'), before, '想省錢時建議應改變（叫車 → 大眾運輸）');
-      assert.equal(await dg.locator('.dg-chip.on', { hasText: '你選的：想省錢' }).count(), 1);
+      assert.equal(await dg.getAttribute('data-best'), 'ridehail', '帶行李時改推叫車');
+      assert.equal(await dg.locator('.dg-chip.on', { hasText: '你選的：帶行李' }).count(), 1);
       assert.equal(calls, 0, '重算不呼叫伺服器');
       // 輕量 3D 降級（M5-11）：測試以 reduced motion 執行 → 精簡模式，不做翻轉
       assert.equal(await page.evaluate(() => document.documentElement.classList.contains('lite-motion')), true);

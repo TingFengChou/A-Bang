@@ -312,7 +312,7 @@ const hm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 6
  * @param {string|null} [arriveBy] 'HH:mm'
  * @returns {{ hhmm: string, tomorrow: boolean, days: number }|null}
  */
-export function departTimeOf(text, arriveBy = null) {
+export function departTimeOf(text, arriveBy = null, nowMs = parseNow) { // nowMs：現在時間（測試或示範時鐘指定；預設這一輪的 parseNow）
   const s = String(text || '');
   const m = DEPART.exec(s);
   if (!m) return null;
@@ -334,7 +334,7 @@ export function departTimeOf(text, arriveBy = null) {
     return t == null || days !== (/明/.test(day) ? 1 : 0) ? null : { hhmm: hm(t), tomorrow: days >= 1, days };
   }
   if (!day && days === 0) { // 沒說哪一天：已經過了的時間往後推
-    const now = nowTW(parseNow ?? Date.now()).hhmm;
+    const now = nowTW(nowMs ?? Date.now()).hhmm;
     const cur = Number(now.slice(0, 2)) * 60 + Number(now.slice(3, 5));
     const at = (x) => x * 60 + min;
     if (at(h) < cur - 30) {

@@ -5,13 +5,16 @@
 /** 比較項目（都是越小越好）。
  *  ratio：以「最佳值 / 本方案」比例計分（加 k 避免 0），不會被極端值（例如很貴的叫車）壓扁差距
  *  abs：本身是 0–1 的程度值，直接以 1 - 值 計分 */
+// 2026-11-21 權重調整（產品負責人：「點去 101 幾乎都是叫車」）：叫車在等車、走路、戶外、體力永遠最好，原本這四項佔 45%、費用只佔 15%，
+// 沒有任何狀態也幾乎都推叫車。改成費用 20%、戶外 3%、體力 5%、走路 12%：預設推大眾運輸；趕時間、帶行李、下雨、帶長輩、行動不便時才推叫車。
+// 戶外與體力的基本權重降了，下雨、空品、行李、少走路等狀態的倍數等比例調高（否則下雨會推騎 YouBike）。
 export const CRITERIA = [
   { key: 'minutes', label: '總時間', base: 0.40, scale: 'ratio', k: 5 },
   { key: 'waitMin', label: '等車', base: 0.10, scale: 'ratio', k: 5 },
-  { key: 'walkMin', label: '走路', base: 0.15, scale: 'ratio', k: 5 },
-  { key: 'cost', label: '費用', base: 0.15, scale: 'ratio', k: 20 },
-  { key: 'exposure', label: '戶外', base: 0.10, scale: 'abs' }, // 0 = 全程室內／有遮蔽，1 = 全程戶外（下雨淋雨、空品差吸髒空氣）
-  { key: 'effort', label: '體力', base: 0.10, scale: 'abs' }, // 0 = 輕鬆，1 = 費力（騎車、長距離步行）
+  { key: 'walkMin', label: '走路', base: 0.12, scale: 'ratio', k: 5 },
+  { key: 'cost', label: '費用', base: 0.20, scale: 'ratio', k: 20 },
+  { key: 'exposure', label: '戶外', base: 0.03, scale: 'abs' }, // 0 = 全程室內／有遮蔽，1 = 全程戶外（下雨淋雨、空品差吸髒空氣）
+  { key: 'effort', label: '體力', base: 0.05, scale: 'abs' }, // 0 = 輕鬆，1 = 費力（騎車、長距離步行）
   { key: 'delayRisk', label: '塞車風險', base: 0.05, scale: 'abs' }, // 0 = 軌道／專用道，1 = 走一般道路且路況差
 ];
 
@@ -19,19 +22,19 @@ export const CRITERIA = [
 export const STATES = {
   rush: { label: '趕時間', say: '你趕時間', boost: { minutes: 2, waitMin: 1.5, delayRisk: 2 } },
   traffic: { label: '塞車中', say: '路上正在塞車', boost: { delayRisk: 6, minutes: 1.2 } },
-  rain: { label: '下雨', say: '正在下雨', boost: { exposure: 4, walkMin: 1.5 } },
-  luggage: { label: '帶行李', say: '你帶著行李', boost: { effort: 4 } },
-  budget: { label: '想省錢', say: '你想省錢', boost: { cost: 5 } },
-  lessWalk: { label: '少走路', say: '你想少走路、輕鬆一點', boost: { walkMin: 1.5, effort: 3 } },
+  rain: { label: '下雨', say: '正在下雨', boost: { exposure: 13, walkMin: 1.5 } },
+  luggage: { label: '帶行李', say: '你帶著行李', boost: { effort: 8 } },
+  budget: { label: '想省錢', say: '你想省錢', boost: { cost: 3 } }, // ×5 時「想省錢」會推走路 100 分鐘（2026-11-21 權重調整）
+  lessWalk: { label: '少走路', say: '你想少走路、輕鬆一點', boost: { walkMin: 1.5, effort: 6 } },
   // 空品不佳（AQI > 100，對敏感族群不健康以上）：少待戶外、少做費力的騎車與長距離步行（M10）
-  badAir: { label: '空品不佳', say: '空氣品質不佳', boost: { exposure: 3, effort: 2 } },
+  badAir: { label: '空品不佳', say: '空氣品質不佳', boost: { exposure: 10, effort: 4 } },
   // 同行者與行動能力（A1，2026-11-21）：exclude＝不適合的方式直接排除（原因寫明）
-  elder: { label: '帶長輩', say: '你帶著長輩', boost: { walkMin: 2, effort: 3, waitMin: 1.3 }, exclude: ['bike'] },
-  kids: { label: '帶小孩', say: '你帶著小孩', boost: { walkMin: 1.5, effort: 3 }, exclude: ['bike'] },
-  mobility: { label: '行動不便', say: '你行動不便', boost: { walkMin: 3, effort: 4 }, exclude: ['bike', 'walk'] },
+  elder: { label: '帶長輩', say: '你帶著長輩', boost: { walkMin: 2, effort: 6, waitMin: 1.3 }, exclude: ['bike'] },
+  kids: { label: '帶小孩', say: '你帶著小孩', boost: { walkMin: 1.5, effort: 6 }, exclude: ['bike'] },
+  mobility: { label: '行動不便', say: '你行動不便', boost: { walkMin: 3, effort: 8 }, exclude: ['bike', 'walk'] },
   // 第二批（A1b，2026-11-21）：都由程式自動判斷（plan_trip 依 prefs.party、天氣預報），不靠模型
-  group: { label: '多人同行', say: '你們好幾個人一起', boost: { effort: 1.3 } }, // 叫車車資已換成每人分攤（trip.js），這裡只略看重好不好帶隊
-  rainSoon: { label: '可能下雨', say: '等一下可能下雨', boost: { exposure: 2 } }, // 現在沒下、3 小時降雨機率 ≥ 60%
+  group: { label: '多人同行', say: '你們好幾個人一起', boost: { effort: 2.6 } }, // 叫車車資已換成每人分攤（trip.js），這裡只略看重好不好帶隊
+  rainSoon: { label: '可能下雨', say: '等一下可能下雨', boost: { exposure: 7 } }, // 現在沒下、3 小時降雨機率 ≥ 60%
 };
 
 /**

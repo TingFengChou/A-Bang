@@ -29,11 +29,18 @@
 - 卡住：無
 
 ## 2026-11-21 M14-01 阿幫聽得懂：語音問阿幫（手機上辨識）
-- 做了：原生外掛 `AbangVoice`（Android `AbangVoicePlugin.java`：API 31+ 手機上辨識器、API 33+ 查語言包、否則系統辨識＋EXTRA_PREFER_OFFLINE；iOS `AbangVoicePlugin.swift`：SFSpeechRecognizer＋AVAudioEngine、`requiresOnDeviceRecognition`、停頓 1.5 秒收尾；都回報 onDevice、partial／level／final／error 事件、錯誤碼對應、到背景就停）。前端 `voice.js`（狀態機、控制器、原生與網頁兩種來源）、`voice-i18n.js`、`agent/voice-ui.js`（麥克風鍵、在聽面板、核心跟著音量）；長按中央鍵放開送出（`abang-dock.js`）；用說的那一句泡泡有小麥克風；設定頁開關與麥克風權限、隱私權政策、`#/ai`「聽」卡片。網頁版只在 Google Chrome 能本機辨識時顯示（無頭 Chromium 呼叫 `available()` 會當掉）。SW v0.9.7-voice。
+- 做了：原生外掛 `AbangVoice`（Android `AbangVoicePlugin.java`：API 31+ 手機上辨識器、API 33+ 查語言包、否則系統辨識＋EXTRA_PREFER_OFFLINE；iOS `AbangVoicePlugin.swift`：SFSpeechRecognizer＋AVAudioEngine、`requiresOnDeviceRecognition`、停頓 1.5 秒收尾；都回報 onDevice、partial／level／final／error 事件、錯誤碼對應、到背景就停）。前端 `voice.js`（狀態機、控制器、原生與網頁兩種來源）、`voice-i18n.js`、`agent/voice-ui.js`（麥克風鍵、在聽面板、核心跟著音量）；長按中央鍵放開送出（`abang-dock.js`）；用說的那一句泡泡有小麥克風；設定頁開關與麥克風權限、隱私權政策、`#/ai`「聽」卡片。網頁版只在 Google Chrome 能本機辨識時顯示（無頭 Chromium 呼叫 `available()` 會當掉）。SW v0.9.7。
 - 測試：npm test 新增 11 項（voice.test.js）；E2E 新增 6 項（假外掛：麥克風鍵、在聽與即時文字、自動送出接上阿幫在想、長按中央鍵、停頓自動結束、英文辨識、取消、權限被拒、網頁版不顯示／本機辨識才顯示、reduced motion、`#/ai` 與設定）；截圖 phone-voice-listening.png、phone-voice-sent.png；`smoke:android` 外掛清單加 AbangVoice 並檢查麥克風鍵；Android assembleDebug、iOS xcodebuild（不簽署）成功
 - 文件：UX.md §5.0.3、PLAN.md M14、CLAUDE.md、PROGRESS.md
 - 下一個：M14-01b 實機確認（Pixel、iPhone）
 - 卡住：無（實機需 Austin 的手機）
+
+## 2026-11-21 決策權重調整：沒有狀態時以大眾運輸為主，有理由才推叫車
+- 做了：Austin 回饋「點去 101 幾乎都是叫車」。叫車在等車、走路、戶外、體力四項永遠最好（合計 45%），費用只佔 15%，無狀態 11 種常見起訖有 10 種推叫車。調整基本權重（費用 20%、戶外 3%、體力 5%、走路 12%）並等比例調高相關狀態倍數；想省錢 ×5 → ×3。結果：無狀態推捷運或公車；趕時間、帶行李、下雨、帶長輩推叫車。ADR-0010 權重調整紀錄。
+- 測試：npm test 全過（固定起訖 OD 測試「市區短程（無狀態）」期望改為捷運）
+- 文件：ADR-0010、PROGRESS.md
+- 下一個：個人化（依使用者過去的選擇微調，只存在手機）
+- 卡住：無
 
 ## 2026-11-21 模型模式 P5：明確的規則不交給小模型、判斷層不改判
 - 做了：PM 第五批地端模型模式 5／8 → 8／8。禮貌話、只有標點、一句多件事、「去火車站」、說了站名的捷運改由規則回答（`ruleFirst`）；runDemo 裡判斷層不再把這幾種改判（「捷運西門站下一般」原本被嵌入分類器判成行程）。另修 ios:dev 在 iPhone 鎖著時誤報失敗、英文公車頁 E2E 隨示範資料時間偶發失敗。
