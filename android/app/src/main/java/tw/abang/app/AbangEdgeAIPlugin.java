@@ -31,6 +31,7 @@ import java.util.concurrent.TimeoutException;
  * 不記錄使用者的句子，只記耗時與錯誤類型。
  * status 另外回報系統查得到的模型資訊（「阿幫的腦袋」#/ai 顯示；查不到的欄位就不回傳，不編造）：
  * featureStatus、modelName（基礎模型名稱）、tokenLimit、下載進度、aicoreVersion、osVersion、device。
+ * write（ADR-0017）：把伺服器的程式版總結改寫成自然的一兩句；數字由 JS 的程式護欄檢查，不過就用程式版。
  */
 @CapacitorPlugin(name = "AbangEdgeAI")
 public class AbangEdgeAIPlugin extends Plugin {
@@ -40,6 +41,8 @@ public class AbangEdgeAIPlugin extends Plugin {
     private final ExecutorService infoExec = Executors.newSingleThreadExecutor();
     /** 一題最多跑這麼久（JS 只等 1.8 秒；原生端也要停，否則下一題排在後面一起逾時） */
     private static final long JUDGE_TIMEOUT_MS = 1500;
+    /** 寫回答最多跑這麼久（ADR-0017；JS 等 2.5 秒，逾時就用程式版總結） */
+    private static final long WRITE_TIMEOUT_MS = 2300;
     private GenerativeModelFutures model;
     private volatile boolean downloading = false;
     /** 確認可用之後就不必每題再問系統 */
@@ -191,6 +194,44 @@ public class AbangEdgeAIPlugin extends Plugin {
         });
     }
 
+    /**
+     * 回答也在手機上寫（ADR-0017）：把伺服器的程式版總結改寫成自然的一兩句。
+     * JS 端（public/js/edge-write.js）組好指示與輸入（草稿＋事實清單），回來後由程式護欄（core/edge-write.js）檢查數字；
+     * 這裡只負責跑模型。只回 { engine, ms, text }；不記內容，只記耗時與錯誤類型。
+     */
+    @PluginMethod
+    public void write(PluginCall call) {
+        String prompt = call.getString("prompt", "");
+        if (prompt == null || prompt.isEmpty()) { call.reject("沒有草稿"); return; }
+        if (!osOk()) { call.reject("unavailable: os-too-old"); return; }
+        String instructions = call.getString("instructions", "");
+        exec.execute(() -> {
+            long t0 = System.currentTimeMillis();
+            try {
+                if (System.currentTimeMillis() < pausedUntil || featureStatus() != FeatureStatus.AVAILABLE) { call.reject("unavailable"); return; }
+                GenerateContentRequest.Builder b = new GenerateContentRequest.Builder(new TextPart(instructions + "\n\n" + prompt));
+                b.setTemperature(0.2f);
+                b.setTopK(3);
+                b.setMaxOutputTokens(160);
+                ListenableFuture<GenerateContentResponse> f = model().generateContent(b.build());
+                GenerateContentResponse r;
+                try { r = f.get(WRITE_TIMEOUT_MS, TimeUnit.MILLISECONDS); }
+                catch (TimeoutException te) { f.cancel(true); Logger.warn(TAG, "write timeout"); call.reject("timeout"); return; }
+                String out = r.getCandidates().isEmpty() ? "" : r.getCandidates().get(0).getText();
+                long ms = System.currentTimeMillis() - t0;
+                Logger.info(TAG, "wrote in " + ms + " ms"); // 只記耗時，不記內容
+                JSObject ret = new JSObject();
+                ret.put("engine", "gemini-nano");
+                ret.put("ms", ms);
+                ret.put("text", out == null ? "" : out);
+                call.resolve(ret);
+            } catch (Exception e) {
+                Logger.warn(TAG, "write failed: " + errorCode(e));
+                call.reject("write failed");
+            }
+        });
+    }
+
     @Override
     protected void handleOnDestroy() {
         exec.shutdownNow();
@@ -203,6 +244,7 @@ public class AbangEdgeAIPlugin extends Plugin {
         o.put("available", available);
         o.put("engine", "gemini-nano");
         o.put("reason", reason);
+        o.put("write", true); // 這個版本的外掛也能寫回答（ADR-0017）；JS 看到才帶 clientCaps.edgeWrite
         return o;
     }
 }

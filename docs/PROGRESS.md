@@ -14,6 +14,13 @@
 ---
 
 
+## 2026-11-21 M12-E7 回答也在手機上寫（ADR-0017）
+- 做了：手機 App 的系統模型可用、外掛回 `write: true`、開關開著時，請求帶 `clientCaps: { edgeWrite, engine }`（zod strict）；伺服器不論 Claude／地端設定都不呼叫任何 AI 模型（判斷層只用快速版），走規則路徑查資料、`decide.js` 計分，送 `answer_draft { text: 程式版總結, facts: 事實清單（不含座標與起訖點）, lang }` 取代 `text`，`status.mode = 'edge'`。外掛 `AbangEdgeAI.write`：Android ML Kit GenAI Prompt API（Gemini Nano）、iOS Foundation Models（Apple Intelligence），原生 2.3 秒取消、JS 等 2.5 秒。程式護欄 `core/edge-write.js`（`checkRewrite`，經 `/core/` 給前端）：數字與時間只能來自草稿或事實清單、關鍵數字不能少、國字／英文數量、ADR-0011「已幫你叫好／訂好／付款」、投資建議、重要提醒（示範、末班…）、引號名稱、語言、長度；不過、逾時、失敗、草稿太長 → 程式版。防詐不改寫、安全情境照舊。畫面：思考動畫「在手機上寫回答」、回答上方「這次的回答由手機上的 Gemini Nano 寫。」／「用阿幫的固定說法（…）。」、設定頁開關「回答也在手機上寫」（預設開）與隱私權政策、`#/ai`「寫回答」一格（引擎、今天幾次、上次多久、通過比例，只存手機）。sw.js `v0.9.9-write`。
+- 測試：npm test 739 項全過（新增 test/edge-write.test.js 17 項）；npm run e2e 98 項全過（新增 3 項，截圖 phone-edge-write.png、phone-edge-write-fallback.png）；Android assembleDebug、iOS xcodebuild（不簽署）編譯成功
+- 文件：ADR-0017（新）、adr/README.md、ADR-0014、AGENT.md §3.1／§3.5／§7、UX.md §5.0.2、PLAN.md、CLAUDE.md
+- 下一個：實機量 Gemini Nano／Apple Intelligence 的改寫通過率與延遲；規則聽不懂的題目要不要改回伺服器模型
+- 卡住：實機（Pixel、iPhone 15 Pro 以上）改寫品質待 Austin 確認
+
 ## 2026-11-21 真實資料接上：TDX、氣象署、環境部金鑰；TDX 頻率限制
 - 做了：Austin 申請並放好 TDX、氣象署、環境部金鑰（只在 .env），交通、天氣、空品、地震都變成即時資料。實測 TDX 新帳號在「加值應用」審核前每分鐘只有 5 次（429），行程比較會連續呼叫而失敗：tdx-client 加請求排隊（同時 3 個、間隔 220ms）、429 時照 Retry-After 重試一次；Austin 決定先不申請加值應用，所以額度用完時這一次改用示範資料（`withTdxFallback`，結果標示範並說明），不讓查詢失敗。
 - 測試：npm test 722 項全過（test/tdx-rate-limit.test.js 5 項）

@@ -50,7 +50,8 @@
   "userState": { "picked": ["budget"] },        // 使用者點選的狀態（選填）
   "clientTools": ["device_location"],           // 客戶端支援的裝置端工具（ADR-0008）
   "clientToolResults": [{ "id": "c1", "ok": true, "result": { "lat": 25.04, "lon": 121.51 } }], // 選填
-  "context": "使用者在卡片上選了『從西門站出發』"     // 選填，來自 host.setContext()
+  "context": "使用者在卡片上選了『從西門站出發』",    // 選填，來自 host.setContext()
+  "clientCaps": { "edgeWrite": true, "engine": "gemini-nano" } // 選填：手機自己寫回答（§3.5、ADR-0017）
 }
 ```
 
@@ -60,7 +61,7 @@
 
 | type | 欄位 | 畫面（UX.md） |
 |---|---|---|
-| `status` | `mode: 'claude'\|'local'\|'demo'`, `model?`, `profile`, `lang?: 'en'\|'zh'` | 頂部標示模式（並說明對話送到哪裡）；`lang`＝這一輪用哪種語言回答（S12g，前端卡片與討論串照這個） |
+| `status` | `mode: 'claude'\|'local'\|'demo'\|'rules'\|'edge'`, `model?`, `profile`, `lang?: 'en'\|'zh'` | 頂部標示模式（並說明對話送到哪裡）；`lang`＝這一輪用哪種語言回答（S12g，前端卡片與討論串照這個） |
 | `agent_note` | `text`（≤ 30 字，可含 `@角色`） | 討論串中阿幫的一句話 |
 | `tool_start` | `id`, `name`, `title`, `role`（公車、YouBike…）, `server`（`abang`、`tdx-official`…）, `pack`, `tier`, `input` | 被點名的小幫手出現「輸入中…」 |
 | `tool_result` | `id`, `ok`, `speak`, `card?`, `data?`, `metrics: { calls, cacheHits, cacheHit, scanned, ms }`（即 `callTool` 的 `metrics`）, `error?`, `impact?: { tone: 'bad'\|'good'\|'neutral', text }` | 小幫手說出 `speak`；`impact` 是這筆資料對決策的影響（`core/agent/impact.js`，不經模型）；決策圖的資料膠囊 |
@@ -70,6 +71,7 @@
 | `client_tool_call` | `id`, `name`, `input` | 請客戶端執行裝置端工具（`device_location`、`notify_at`） |
 | `context_reset` | — | 使用者說「重來」：畫面加「重新開始」分隔線、前面的對話變淡（2026-11-21） |
 | `text` | `delta` | 阿幫的總結（可串流） |
+| `answer_draft` | `text`（程式版總結）, `facts`（事實清單）, `lang: 'zh'\|'en'` | 只在請求帶 `clientCaps.edgeWrite` 時取代 `text`：手機改寫後顯示（§3.5、ADR-0017） |
 | `done` | `usage?` | 結束 |
 | `error` | `message`, `retryable`, `retryAfterSec?` | 錯誤或限流 |
 
@@ -99,6 +101,16 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 ### 3.4 裝置端工具（✅ M5-07）
 
 `device_location`：需要使用者位置（行程沒說起點；YouBike／附近公車／天氣／空品／垃圾車沒說地點）且請求帶 `clientTools: ['device_location']` 時，伺服器送 `agent_note`＋`client_tool_call { id: 'loc1', name: 'device_location' }`＋`done` 後結束；客戶端定位後帶 `clientToolResults: [{ id: 'loc1', ok, result: { lat, lon } }]` 重送同一請求。台灣範圍內的座標才採用（起點名稱「你的位置」）；拒絕或無效時改用示範預設起點並在總結說明。客戶端：`public/js/agent/client.js`（`runAgent`：讀 NDJSON 串流、執行 client tool、最多重送 2 次；`browserLocation` 5 秒逾時，手機 App 改用原生定位外掛 `@capacitor/geolocation`，iOS 只問 App 權限一次）。定位完成或失敗時客戶端自己發 `client_tool_result { id, name, ok }`（不經伺服器、不含座標），畫面把「定位中」換成結果。帶 `clientToolResults` 的重送是同一輪：伺服器不再重複「我先看天氣…」等判斷說明。座標不寫入 log。`T.point` 的座標物件可帶 `name`。
+
+### 3.5 回答也在手機上寫（ADR-0017，2026-11-21）
+
+手機 App 的系統模型（Android 的 Gemini Nano、iPhone 的 Apple Intelligence）可用、外掛 `status()` 回 `write: true`、設定頁「裝置端 AI」與「回答也在手機上寫」都開著時，前端（`public/js/edge-write.js` `edgeWriteCaps`）在請求帶 `clientCaps: { edgeWrite: true, engine }`。
+
+- **伺服器**（`server/agent.js`、`core/agent/run.js` `wantsEdgeWrite`）：只有生活 agent 採用。這一輪不論 Claude／地端模型設定都**不呼叫任何 AI 模型**：`status.mode = 'edge'`，走規則路徑（`runDemo`）查資料、`decide.js` 計分；判斷層只用快速版（嵌入分類器＋規則＋`deviceJudge`，`judgeCalls(..., { noModel: true })`）。最後送 `answer_draft { text, facts, lang }` → `done`，不送 `text`。安全情境照樣直接送 `text`；防詐 agent 帶了也照原路徑。log 記 `mode: 'edge'`。
+- **事實清單** `facts`（`core/agent/answer-facts.js`）：`{ intent, lang, demo, points: [小幫手的一句話（英文那一輪用英文）], trip?: { departAt, best: { name, minutes, cost, arriveAt }, others, arriveBy?, reason?, tips? } }`。不放座標、起訖點與使用者的句子。
+- **手機**：`AbangEdgeAI.write({ draft, prompt, lang, instructions })` 改寫成約 80 字內的一兩句（指示 `WRITE_INSTRUCTIONS`）；JS 等 2.5 秒。回來後由程式護欄 `checkRewrite`（`core/edge-write.js`，經 `/core/edge-write.js` 給前端）檢查：數字與時間只能來自草稿或事實清單、草稿的關鍵數字不能少、國字或英文的數量不能多、不能說已經叫車訂票付款（ADR-0011）、不能有投資建議、重要提醒（示範、末班、停駛、沒拿到位置、帶傘、時間很緊）要留、引號裡的名稱要在資料裡、語言與長度。不過、逾時、失敗、草稿太長或數字太多 → 用程式版總結。
+- **畫面**：思考動畫「在手機上寫回答」（`answer_draft` 後、改寫完成前）；回答上方一行照實說「這次的回答由手機上的 Gemini Nano 寫。」或「用阿幫的固定說法（手機寫的沒通過檢查）。」；頁底模式說明「回答在手機上寫；伺服器只查資料、用程式排序，不經伺服器的 AI 模型。」
+- **網頁版與不支援的手機**：不帶 `clientCaps`，行為完全不變（伺服器的模型或規則寫回答）。
 
 ## 4. 模型模式（✅ M5-05，ADR-0012）
 
@@ -304,7 +316,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 ## 7. 隱私
 
-不儲存對話；log 只記事件類型、tool、耗時、token；座標不寫 log（統計時捨去至小數 2 位）；問阿幫頁依 `status.mode` 說明對話送到哪裡：Claude 模式「對話會送 Anthropic 處理」、地端模式「只送到本站設定的模型伺服器」、示範模式「不經 AI 模型」。
+不儲存對話；log 只記事件類型、tool、耗時、token；回答在手機上寫的那一輪（§3.5）問題不送任何模型伺服器，只送本站伺服器查資料；座標不寫 log（統計時捨去至小數 2 位）；問阿幫頁依 `status.mode` 說明對話送到哪裡：Claude 模式「對話會送 Anthropic 處理」、地端模式「只送到本站設定的模型伺服器」、示範模式「不經 AI 模型」。
 
 ## 8. 驗收
 

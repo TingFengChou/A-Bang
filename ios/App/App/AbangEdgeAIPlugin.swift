@@ -1,6 +1,7 @@
 // 裝置端 AI 判斷（ADR-0014）：Apple Intelligence（Foundation Models）在手機上判斷意圖與狀態。
 // JS 端：public/js/edge-judge.js（Capacitor 外掛名 AbangEdgeAI）。只回 { engine, result: { intent, states } }，
 // iOS 26 以下、機型不支援、沒開 Apple Intelligence、模型還在下載、語言不支援 → status 回 available: false，judge 回錯誤，JS 改由伺服器判斷。
+// write（ADR-0017）：把伺服器的程式版總結改寫成自然的一兩句；數字由 JS 的程式護欄檢查，不過就用程式版。
 // status 另外回報系統查得到的模型資訊（「阿幫的腦袋」#/ai 顯示；查不到的欄位就不回傳，不編造）：availability、languages、contextSize、osVersion。
 import Foundation
 import Capacitor
@@ -16,13 +17,14 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "status", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "prewarm", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "judge", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "write", returnType: CAPPluginReturnPromise),
     ]
 
     @objc func status(_ call: CAPPluginCall) {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
             let s = AppleJudge.status()
-            var out: [String: Any] = ["available": s.available, "engine": "apple", "reason": s.reason, "osVersion": Self.osVersion]
+            var out: [String: Any] = ["available": s.available, "engine": "apple", "reason": s.reason, "osVersion": Self.osVersion, "write": true] // write：也能寫回答（ADR-0017）
             for (k, v) in AppleJudge.info() { out[k] = v }
             call.resolve(out)
             return
@@ -72,7 +74,37 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
         #endif
         call.reject("unavailable: os-too-old")
     }
+
+    /// 回答也在手機上寫（ADR-0017）：把伺服器的程式版總結改寫成自然的一兩句。
+    /// JS（public/js/edge-write.js）組好指示與輸入，回來後由程式護欄（core/edge-write.js）檢查數字；這裡只跑模型。不記內容，只記耗時。
+    @objc func write(_ call: CAPPluginCall) {
+        guard let prompt = call.getString("prompt"), !prompt.isEmpty else { call.reject("沒有草稿"); return }
+        let instructions = call.getString("instructions") ?? ""
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            let s = AppleJudge.status()
+            guard s.available else { call.reject("unavailable: \(s.reason)"); return }
+            Task {
+                let t0 = Date()
+                do {
+                    let text = try await AppleJudge.write(prompt: prompt, instructions: instructions)
+                    let ms = Int(Date().timeIntervalSince(t0) * 1000)
+                    CAPLog.print("AbangEdgeAI: wrote in \(ms) ms") // 只記耗時，不記內容
+                    call.resolve(["engine": "apple", "ms": ms, "text": text])
+                } catch {
+                    CAPLog.print("AbangEdgeAI: write failed \(AppleJudge.code(error))")
+                    call.reject("write failed")
+                }
+            }
+            return
+        }
+        #endif
+        call.reject("unavailable: os-too-old")
+    }
 }
+
+/// 寫回答逾時（2.3 秒；JS 只等 2.5 秒）
+struct EdgeWriteTimeout: Error {}
 
 #if canImport(FoundationModels)
 /// 意圖（與 core/agent/judge.js JUDGE_INTENTS 相同；test/edge-judge.test.js 比對）
@@ -153,6 +185,25 @@ actor AppleJudge {
             }
         }
         return String(describing: type(of: error))
+    }
+
+    /// 寫回答：每次新的 session（不帶前一題）；2.3 秒沒寫完就取消
+    nonisolated static func write(prompt: String, instructions: String) async throws -> String {
+        try await withThrowingTaskGroup(of: String?.self) { group in
+            group.addTask {
+                let session = LanguageModelSession(instructions: instructions)
+                let r = try await session.respond(to: prompt, options: GenerationOptions(temperature: 0.2, maximumResponseTokens: 160))
+                return r.content
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: 2_300_000_000)
+                return nil
+            }
+            let first = try await group.next() ?? nil
+            group.cancelAll()
+            guard let text = first else { throw EdgeWriteTimeout() }
+            return text
+        }
     }
 
     func judge(text: String, history: [String], instructions: String) async throws -> (intent: String, states: [String]) {
