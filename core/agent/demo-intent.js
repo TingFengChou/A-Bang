@@ -55,12 +55,14 @@ export function partyOf(s) {
   }
   return Number.isInteger(n) && n >= 1 && n <= 20 ? n : null;
 }
-const BUS_ROUTE = /(?:^|[^\d])([紅藍綠棕橘小幹]?\d{1,4}[區副]?)(?:\s*(?:號|路)?\s*(?:公車|到哪|來了|還要|什麼時候|幾分|怎麼還沒|還沒來|多久|要等|來了沒|快到了沒|在哪))/; // 口語：「307 怎麼還沒來」「307 多久」（P2-1）
+/** 公車路線後面的說法（BUS_ROUTE 與數字地名共用：「101 多久」是公車不是台北101） */
+const BUS_ASK = '公車|到哪|來了|還要|什麼時候|幾分|怎麼還沒|還沒來|多久|要等|來了沒|快到了沒|在哪';
+const BUS_ROUTE = new RegExp(`(?:^|[^\\d])([紅藍綠棕橘小幹]?\\d{1,4}[區副]?)(?:\\s*(?:號|路)?\\s*(?:${BUS_ASK}))`); // 口語：「307 怎麼還沒來」「307 多久」（P2-1）
 const RAIL_WORD = /高鐵|台鐵|臺鐵|火車|自強|區間|莒光/;
 /** 問班次的說法（沒說起站時才用最近車站） */
 const RAIL_ASK = /下一班|幾點|班次|時刻|末班|首班|還有車|有車嗎|幾班/;
 /** 不是站名的「起站」（「下一班高鐵到台中」「我要坐高鐵去左營」） */
-const NOT_STATION = /[我要坐搭想你在]|下一班|一班|最近|現在|明天|今天|後天|早上|晚上|下午|票價|價/;
+const NOT_STATION = /[我要坐搭想你在]|下一班|一班|最近|現在|明天|今天|後天|早上|晚上|下午|票價|價|來得及|趕得上|來不及/;
 /** 不是車站的目的地（「火車回家幾點」） */
 const NOT_DEST = /^(?:家|公司|學校|宿舍|老家)|幾|點/;
 /** 問票價（交給 rail_fare，不是時刻表） */
@@ -149,7 +151,7 @@ function fromStartOf(s) {
 /** 阿幫上一輪在問起點（「你從哪裡出發？」）→ 使用者只回地名＝起點 */
 const ASKED_ORIGIN = /從哪(裡|兒)?出發|你(現在)?在哪|起點是/;
 /** 句中明講的起點（「從桃園高鐵站到台北101」）：地標庫沒有也要用它，不能被手機定位蓋掉 */
-const FROM_TEXT = /從\s*([^\s，,。、到去往]{2,12}?)\s*(?:到|去|往)/;
+const FROM_TEXT = /從\s*([^\s，,。、到去往]{2,12}?)\s*(?:要|該)?\s*(?:怎麼|怎樣)?\s*(?:到|去|往)/; // 「從板橋怎麼去」的起點是板橋（不是「板橋怎麼」）
 
 /** 整句只有地名（加上語氣詞、狀態詞）：當成「要去那裡」 */
 function onlyPlace(s, places) {
@@ -189,7 +191,7 @@ const EN_KEYS = LANDMARKS.items
   .flatMap((x) => x.aliases.filter((k) => ASCII.test(k) && /[A-Za-z]/.test(k)).map((k) => ({ re: new RegExp(`(?<![a-z0-9])${k.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*')}(?![a-z0-9])`), len: k.length, name: x.name })))
   .sort((a, b) => b.len - a.len);
 /** 純數字的地名別名（「101」＝台北101）：前後不是數字、後面不是公車說法（「101 到哪了」可能是公車）時才算（P2-3、P2-6） */
-const NUM_PLACES = LANDMARKS.items.flatMap((x) => x.aliases.filter((k) => /^\d{3,}$/.test(k)).map((k) => ({ re: new RegExp(`(?<!\\d)${k}(?!\\d)(?!\\s*(?:公車|號|路|到哪|還要|來了|什麼時候|幾分|bus|is\\s+coming))`, 'i'), name: x.name })));
+const NUM_PLACES = LANDMARKS.items.flatMap((x) => x.aliases.filter((k) => /^\d{3,}$/.test(k)).map((k) => ({ re: new RegExp(`(?<!\\d)${k}(?!\\d)(?!\\s*(?:號|路|${BUS_ASK}|bus|is\\s+coming))`, 'i'), name: x.name })));
 function englishPlaces(text) {
   let t = String(text).toLowerCase();
   const hits = [];
@@ -206,7 +208,8 @@ function englishPlaces(text) {
 
 export function placesInText(text) {
   if (isEnglish(String(text))) return englishPlaces(text).sort((a, b) => a.index - b.index).map((h) => h.name);
-  const s = normPlace(text);
+  // 「三十分鐘內」的「十分」不是十分老街：時間說法先遮掉（長度不變）
+  const s = normPlace(text).replace(/[0-9一二兩三四五六七八九十半]+\s*分鐘?/g, (x) => ' '.repeat(x.length));
   const taken = new Array(s.length).fill(false);
   const hits = [];
   for (const { key, name } of PLACE_KEYS) {
@@ -241,7 +244,7 @@ function orderFromTo(s, places) {
 export function zhNum(t) {
   if (/^\d+$/.test(t)) return Number(t);
   const D = { 零: 0, 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
-  const m = /^([一二三四五]?)(十?)([一二兩三四五六七八九]?)$/.exec(t);
+  const m = /^([一二三四五六七八九]?)(十?)([一二兩三四五六七八九]?)$/.exec(t);
   if (!m || !t) return NaN;
   if (!m[2]) return m[1] && m[3] ? NaN : D[m[1] || m[3]] ?? NaN; // 「三」「九」
   return (m[1] ? D[m[1]] : 1) * 10 + (m[3] ? D[m[3]] : 0); // 「十」「十二」「二十五」
@@ -260,7 +263,7 @@ export function relMinutes(text) {
   if (zh) { const n = zhNum(zh[1]); return Number.isFinite(n) && n > 0 && n <= 180 ? n : null; }
   if (/半\s*(?:個)?\s*(?:小時|鐘頭)\s*(?:後|以?內)/.test(s)) return 30;
   const zhH = /(\d|[一兩二三])\s*(?:個)?\s*(?:小時|鐘頭)\s*(?:後|以?內)/.exec(s);
-  if (zhH) return zhNum(zhH[1]) * 60 || null;
+  if (zhH) { const n = zhNum(zhH[1]) * 60; return n > 0 && n <= 180 ? n : null; }
   const en = /\b(?:in|within)\s+(\d{1,3})\s*(?:min|mins|minutes)\b/i.exec(s);
   if (en) return Number(en[1]) > 0 && Number(en[1]) <= 180 ? Number(en[1]) : null;
   if (/\b(?:in|within)\s+half\s+an\s+hour\b/i.test(s)) return 30;
@@ -268,7 +271,10 @@ export function relMinutes(text) {
   return null;
 }
 /** 相對時間 → 幾點（台灣時間）；parseIntent 沒給現在時間就用現在 */
-const relArrive = (text) => { const m = relMinutes(text); return m ? nowTW((parseNow ?? Date.now()) + m * 60e3).hhmm : null; };
+/** 相對時間是不是「要到（或車要開）」：「20 分鐘後開」「半小時內要到」「be there in 30 minutes」算；「半小時後出發」「十分鐘內走得到」不算 */
+const REL_ARRIVE_ZH = /(?:分(?:鐘)?|小時|鐘頭)\s*(?:後|以?內)\s*(?:就|要|得|才|會|必須)?\s*(?:到|抵達|開|發車)/;
+const REL_ARRIVE_EN = /\b(?:be there|get there|arrive|be at|reach|make it)\b[^.?!]*\b(?:in|within)\s|\b(?:leaves?|departs?)\s+(?:in|within)\s/i;
+const relArrive = (text) => { const s = String(text || ''); const m = relMinutes(s); return m && (REL_ARRIVE_ZH.test(s) || REL_ARRIVE_EN.test(s)) ? nowTW((parseNow ?? Date.now()) + m * 60e3).hhmm : null; };
 
 export function arriveByOf(text) {
   const N = '\\d{1,2}|[一二兩三四五六七八九十]{1,3}';
@@ -303,16 +309,16 @@ const isFollowUp = (s) => FOLLOW_UP.test(s) && FOLLOW_MARK.test(s);
 /** 前一句在問公車：「那 299 咧」「換 紅30 呢」接著查那一路（P2-1） */
 const BUS_FOLLOW = /^(?:那|那麼|換|還有|再看)?\s*([紅藍綠棕橘小幹]?\d{1,4}[區副]?)\s*(?:號|路)?\s*(?:呢|咧|勒|的呢)?\s*[？?]?$/;
 function followsBus(history = []) {
-  const last = history.filter((x) => x.role === 'user').at(-1);
-  return !!last && parseIntent(last.content).intent === 'bus_route';
+  const i = history.findLastIndex((x) => x.role === 'user');
+  return i >= 0 && parseIntent(history[i].content, { history: history.slice(0, i) }).intent === 'bus_route'; // 帶前文：連續追問也認得
 }
 /** 要阿幫代替按、付、訂（只給官方連結，ADR-0011） */
-const ACT_FOR_ME = /(?:直接|幫我|替我|你來|你去)\s*(?:按|叫好|下單|付(?:款|錢)?|刷卡|訂(?:好|票)?|買票|預約)|代(?:付|訂|叫)|錢.{0,4}幫我付/;
+const ACT_FOR_ME = /(?:直接|幫我|替我|你來|你去)\s*(?:按(?!照|時|順序|電梯|讚|鈕|最|一下讚)|叫好|下單|付(?:款|錢)|刷卡|訂(?:好|票)|買票)|代(?:付|訂|叫)|錢.{0,4}幫我付/;
 const LIFE_LABEL = { pharmacy: '藥局', weather: '天氣', aqi: '空氣品質', garbage: '垃圾車', youbike: 'YouBike', nearby_bus: '公車站' };
 /** 前一句問的生活服務（換地點接著問用） */
 function followsLife(history = []) {
-  const last = history.filter((x) => x.role === 'user').at(-1);
-  const k = last && parseIntent(last.content).intent;
+  const i = history.findLastIndex((x) => x.role === 'user');
+  const k = i >= 0 && parseIntent(history[i].content, { history: history.slice(0, i) }).intent;
   return LIFE_LABEL[k] ? k : null;
 }
 function followsStock(history = []) {
@@ -404,7 +410,7 @@ function parseIntentRaw(text, ctx) {
   }
 
   // 趕車（「我的高鐵 20 分鐘後開，現在在西門町，來得及去台北車站嗎」）：是去車站的行程（有時限），不是查高鐵班次（P2-5）
-  if (/來得及|來不來得及|趕得上|趕不趕得上/.test(s) && places.length && /(?:去|到)\s*\S/.test(s)) {
+  if (/來得及|來不來得及|趕得上|趕不趕得上/.test(s) && places.length && /(?:去|到)\s*\S/.test(s) && !/末班|首班/.test(s) && !/(?:坐|搭|趕)[^，,。]{0,6}(?:高鐵|台鐵|臺鐵|火車)/.test(s)) {
     const [from, to] = places.length >= 2 ? orderFromTo(s, places) : [null, places[0]];
     return { ...base, intent: 'trip', from, to, states: [...new Set([...base.states, 'rush'])] };
   }
@@ -428,7 +434,7 @@ function parseIntentRaw(text, ctx) {
   if ((/捷運|MRT/i.test(s) || METRO_LINE.test(s)) && METRO_ASK.test(s) && !/站/.test(s.replace(/車站/g, ''))) return { ...base, intent: 'metro', station: null, line: METRO_LINE.exec(s)?.[0] || null, ...(places[0] && { near: places[0] }) };
   // 出門建議（S13）：天氣＋空品一起看（「今天出門要注意什麼」「出門要帶傘嗎」「要穿什麼」）
   // 問明天的是天氣預報（現在的天氣答不了），交給天氣意圖
-  if (OUTING.test(s) && !tomorrow) return { ...base, intent: 'outing' };
+  if (OUTING.test(s) && !tomorrow && !(places.length && /怎麼|從/.test(s))) return { ...base, intent: 'outing' };
   const life = lifeIntent(s);
   if (life) return { ...base, ...life };
   // 「剛剛那班還要等多久」：那班＝上一輪選的公車（阿幫回答裡的「公車 棕9」；P2-7）
@@ -441,9 +447,13 @@ function parseIntentRaw(text, ctx) {
   // 一句兩件事（「等等會不會下雨？順便看 307 還要多久」）：查公車也看天氣（P2-2）
   if (route && !/從.+到/.test(s)) return { ...base, intent: 'bus_route', route, ...(WEATHER_WORD.test(s) && { alsoWeather: true }) };
   // 生活服務接著問另一個地方（「附近哪裡可以領慢箋」→「那板橋車站那邊呢」）：同一個服務、換地點（P2-8）
-  if (places.length === 1 && /那|呢|咧|勒/.test(s) && s.length <= 16) {
+  //（「那去板橋怎麼走」是行程、「板橋那邊有 YouBike 嗎」是 YouBike：有行程字、交通方式、別的服務就不算）
+  if (places.length === 1 && /那|呢|咧|勒/.test(s) && s.length <= 16 && !/去|到|往|回|怎麼|怎樣/.test(s) && !modeOf(s) && !lifeIntent(s) && !/youbike|ubike|單車|公車|站牌/i.test(s)) {
     const prevLife = followsLife(history);
-    if (prevLife) return parseIntentRaw(`${places[0]}附近的${LIFE_LABEL[prevLife]}`, { history: [] });
+    if (prevLife) {
+      const r = parseIntentRaw(`${places[0]}附近的${LIFE_LABEL[prevLife]}`, { history: [] });
+      return { ...r, ...(tomorrow && { tomorrow }), states: [...new Set([...(r.states || []), ...states])] }; // 「那台中明天呢」：明天、狀態帶過去
+    }
   }
   const busNext = BUS_FOLLOW.exec(s)?.[1];
   if (busNext && followsBus(history)) return { ...base, intent: 'bus_route', route: busNext, followUp: true };
