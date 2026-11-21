@@ -1,6 +1,7 @@
 // 語音問阿幫（M14-01）：iOS Speech（SFSpeechRecognizer）＋AVAudioEngine 把你說的話轉成文字。JS 端：public/js/voice.js（外掛名 AbangVoice）。
-// 手機上優先：supportsOnDeviceRecognition 為 true 時 requiresOnDeviceRecognition = true（語音不離開手機）；
-// 為 false（機型或語言不支援）時退回系統辨識，並照實回報 onDevice: false（Apple 的伺服器辨識）。
+// 只在手機上辨識（產品負責人 2026-11-21）：requiresOnDeviceRecognition = true；supportsOnDeviceRecognition 為 false
+// （機型不支援、聽寫的語音資料沒下載）就回報不能用（reason ios-no-ondevice，JS 讓麥克風反白並說怎麼開聽寫），不退回 Apple 的伺服器辨識。
+// SFSpeechRecognizer 沒有公開的「下載語音資料」API（iOS 26 的 SpeechAnalyzer／AssetInventory 才有，之後另評估）。
 // 事件：partial { text }、level { level: 0–1 }、final { text, onDevice }、error { code, message }。iOS 不會自己停：停頓 1.5 秒就收尾（JS 也會）。
 // 權限：麥克風（NSMicrophoneUsageDescription）、語音辨識（NSSpeechRecognitionUsageDescription），第一次 start() 才問。
 // 不錄音存檔、不上傳；log 只記錯誤代碼，不記辨識內容。App 到背景就停止。
@@ -99,9 +100,10 @@ public class AbangVoicePlugin: CAPPlugin, CAPBridgedPlugin {
         guard let r = SFSpeechRecognizer(locale: Locale(identifier: lang)) else {
             o["available"] = false; o["reason"] = "language"; call.resolve(o); return
         }
-        o["available"] = r.isAvailable
-        o["onDevice"] = r.supportsOnDeviceRecognition
-        if !r.isAvailable { o["reason"] = "no-service" }
+        let ok = r.supportsOnDeviceRecognition
+        o["available"] = ok
+        o["onDevice"] = ok
+        if !ok { o["reason"] = "ios-no-ondevice" }
         call.resolve(o)
     }
 
@@ -120,11 +122,12 @@ public class AbangVoicePlugin: CAPPlugin, CAPBridgedPlugin {
         teardown()
         let my = session
         guard let rec = SFSpeechRecognizer(locale: Locale(identifier: lang)) else { call.reject("語音辨識不支援這個語言", "language"); return }
+        guard rec.supportsOnDeviceRecognition else { call.reject("這支 iPhone 現在不能在手機上辨識這個語言", "language-missing"); return } // 不退回伺服器辨識
         guard rec.isAvailable else { call.reject("語音辨識現在不能用", "no-service"); return }
         let req = SFSpeechAudioBufferRecognitionRequest()
         req.shouldReportPartialResults = true
-        onDevice = rec.supportsOnDeviceRecognition
-        req.requiresOnDeviceRecognition = onDevice // 能在手機上就一定在手機上
+        onDevice = true
+        req.requiresOnDeviceRecognition = true // 一定在手機上
         if #available(iOS 16.0, *) { req.addsPunctuation = true }
         let audio = AVAudioSession.sharedInstance()
         do {

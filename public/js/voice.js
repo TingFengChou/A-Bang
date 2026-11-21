@@ -1,7 +1,8 @@
 // 語音問阿幫（M14-01，2026-11-21，產品負責人：「讓阿幫聽得懂」、手機上優先）：
-// 把你說的話在手機上轉成文字，文字當作一般提問送出（在手機上辨識時語音不離開手機；阿幫不錄音存檔、不把聲音傳到阿幫的伺服器）。
-// 這個檔與平台無關：狀態機（純函式，test/voice.test.js）＋控制器（計時：停頓 1.5 秒自動結束）＋兩種辨識來源：
-//   手機 App：專案內原生外掛 AbangVoice（Android SpeechRecognizer、iOS SFSpeechRecognizer；照實回報是不是在手機上辨識）
+// 把你說的話在手機上轉成文字，文字當作一般提問送出（語音只在手機上轉成文字，不錄音、不上傳）。
+// 2026-11-21 產品負責人：「語言包要協助用戶裝，除非真的手機無法支援；不支援就反白，點擊後顯示原因」——不退回系統／雲端辨識。
+// 這個檔與平台無關：狀態機（純函式，test/voice.test.js）＋控制器（計時：停頓 1.5 秒自動結束）＋語言包下載＋兩種辨識來源：
+//   手機 App：專案內原生外掛 AbangVoice（Android 手機上的 SpeechRecognizer、iOS SFSpeechRecognizer requiresOnDeviceRecognition）
 //   網頁版：只有瀏覽器支援「在本機辨識」（Web Speech API 的 processLocally）才用；不支援就不顯示麥克風，
 //          不把語音送給瀏覽器廠商的伺服器。
 // 畫面在 agent/voice-ui.js（問阿幫輸入列的麥克風鍵、在聽的面板）與 abang-dock.js（長按中央鍵）。
@@ -14,13 +15,21 @@ export const NO_SPEECH_MS = 8000;
 export const FINAL_WAIT_MS = 3000;
 /** 一次最多聽這麼久（避免一直開著麥克風） */
 export const MAX_MS = 30000;
-/** 手機 App 在不能「在手機上辨識」時，可退回系統語音辨識（畫面標示「不是在手機上」）；網頁版一律不退回 */
-export const NATIVE_FALLBACK = true;
+/** 語言包下載中：每隔這麼久再問一次系統好了沒（Android 13 沒有下載進度回呼） */
+export const DOWNLOAD_POLL_MS = 3000;
+/** 下載最多等這麼久（之後背景繼續下載，下次打開或回到畫面再查） */
+export const DOWNLOAD_MAX_MS = 180000;
 export const VOICE_KEY = 'abang.voice';
 /** 錯誤種類（外掛與網頁版共用；畫面文字在 voice-i18n.js 的 err.*） */
-export const VOICE_ERRORS = ['permission', 'speech-permission', 'no-service', 'no-speech', 'no-match', 'network', 'audio', 'busy', 'language', 'service', 'client'];
-/** 辨識引擎（外掛回報；#/ai 顯示） */
-export const VOICE_ENGINES = ['android-ondevice', 'android-system', 'ios-speech', 'web-ondevice'];
+export const VOICE_ERRORS = ['permission', 'speech-permission', 'no-service', 'no-speech', 'no-match', 'network', 'audio', 'busy', 'language', 'language-missing', 'service', 'client'];
+/** 辨識引擎（外掛回報；#/ai 顯示）：都是在手機上（或瀏覽器本機）辨識 */
+export const VOICE_ENGINES = ['android-ondevice', 'ios-speech', 'web-ondevice'];
+/**
+ * 不能用的原因（外掛回報；畫面文字 voice-i18n.js 的 why.*）：
+ * os Android 12 以下｜no-ondevice 沒有手機上的辨識器｜language 手機上的辨識不支援這個語言｜ios-no-ondevice iPhone 現在不能在手機上辨識這個語言
+ * language-download 語言包可以下載（第一次按麥克風時下載）｜downloading 語言包下載中｜no-plugin 這個版本沒有｜web-unsupported、web-download 網頁版
+ */
+export const VOICE_REASONS = ['os', 'no-ondevice', 'language', 'ios-no-ondevice', 'language-download', 'downloading', 'no-plugin', 'web-unsupported', 'web-download'];
 
 /** 使用者可在設定關掉（讀不到就當開著） */
 export function voiceEnabled() {
@@ -49,7 +58,7 @@ const cleanText = (v) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, 50
 /**
  * 事件 → 下一個狀態。
  * 使用者：start { hold }、stop（說完了）、release（放開中央鍵）、cancel、reset
- * 辨識：ready { onDevice, engine }、engine { onDevice, engine }（Android 手機上的語言包不能用時改系統辨識）、partial { text }、level { level }、final { text }、error { code }
+ * 辨識：ready { onDevice, engine }、partial { text }、level { level }、final { text }、error { code }
  * @param {ReturnType<typeof voiceIdle>} s
  * @param {{ type: string, [k: string]: any }} e
  */
@@ -62,9 +71,6 @@ export function voiceStep(s, e) {
     case 'ready':
       if (s.phase !== 'starting') return s;
       return { ...s, phase: 'listening', onDevice: typeof e.onDevice === 'boolean' ? e.onDevice : null, engine: VOICE_ENGINES.includes(e.engine) ? e.engine : null };
-    case 'engine':
-      if (!active(s.phase)) return s;
-      return { ...s, onDevice: typeof e.onDevice === 'boolean' ? e.onDevice : s.onDevice, engine: VOICE_ENGINES.includes(e.engine) ? e.engine : s.engine };
     case 'partial': {
       if (s.phase !== 'listening' && s.phase !== 'finishing') return s;
       const text = cleanText(e.text);
@@ -113,13 +119,13 @@ const codeOf = (err) => {
   return VOICE_ERRORS.find((k) => m.startsWith(`${k}:`)) || 'service';
 };
 
-/** 手機 App：原生外掛 AbangVoice（事件 partial／level／final／error／engine） */
+/** 手機 App：原生外掛 AbangVoice（事件 partial／level／final／error；語言包 download） */
 function nativeBackend(c) {
   let subs = null;
   let handler = () => {};
   const listen = () => {
     if (subs) return;
-    subs = ['partial', 'level', 'final', 'error', 'engine'].map((ev) => c.addListener?.(PLUGIN, ev, (d) => handler({ ...(d || {}), type: ev })));
+    subs = ['partial', 'level', 'final', 'error'].map((ev) => c.addListener?.(PLUGIN, ev, (d) => handler({ ...(d || {}), type: ev })));
   };
   return {
     kind: 'native',
@@ -131,6 +137,14 @@ function nativeBackend(c) {
     },
     stop: () => c.nativePromise(PLUGIN, 'stop', {}).catch(() => {}),
     cancel: () => { handler = () => {}; return c.nativePromise(PLUGIN, 'cancel', {}).catch(() => {}); },
+    /** 請系統下載這個語言的手機上語言包；進度以 download 事件回報（Android 14 以上，其他版本只能再問 available） */
+    download(lang, onEvent) {
+      const sub = c.addListener?.(PLUGIN, 'download', (d) => onEvent({ ...(d || {}) }));
+      this.unsub = () => sub?.remove?.(); // downloadPack 結束時拿掉
+      return c.nativePromise(PLUGIN, 'download', { lang });
+    },
+    /** 開手機的語音輸入設定（下載語言包；Android）；打不開回 false */
+    openSettings: () => c.nativePromise(PLUGIN, 'openSettings', {}).then(() => true, () => false),
   };
 }
 
@@ -192,6 +206,8 @@ function webBackend() {
     },
     stop: async () => { try { rec?.stop(); } catch { /* 已結束 */ } },
     cancel: async () => { const r = rec; rec = null; handler = () => {}; try { r?.abort(); } catch { /* 已結束 */ } },
+    download: async () => { throw Object.assign(new Error('no-service'), { code: 'no-service' }); }, // 網頁版不下載：不能本機辨識就不顯示
+    openSettings: async () => false,
   };
 }
 
@@ -202,33 +218,76 @@ export function voiceBackend() {
 }
 
 /**
- * 外掛（或瀏覽器）回報 → #/ai、設定頁要的樣子；只留真的拿得到、認得的欄位（不編造）。
- * @returns {{ available: boolean, reason?: string, onDevice?: boolean, engine?: string, lang?: string, permission?: string, platform: 'native'|'web', osVersion?: string }}
+ * 外掛（或瀏覽器）回報 → 畫面要的樣子；只留真的拿得到、認得的欄位（不編造）。
+ * state：ready 可以說｜download 語言包可下載（按麥克風就下載）｜downloading 語言包下載中（麥克風「準備中」）
+ *        unsupported 這支手機不能在手機上辨識（App：麥克風反白、點了說原因）｜none 不顯示（網頁版不能本機辨識、沒有外掛）
+ * @returns {{ state: string, available: boolean, platform: 'native'|'web', reason?: string, onDevice?: boolean, engine?: string, lang?: string, permission?: string, osVersion?: string, progress?: number }}
  */
 export function normalizeVoiceInfo(raw, platform = 'web') {
   const r = raw && typeof raw === 'object' ? raw : {};
-  const out = { available: r.available === true, platform };
-  if (typeof r.onDevice === 'boolean') out.onDevice = r.onDevice;
+  // 只在手機上（或瀏覽器本機）辨識才算能用：不退回系統或雲端辨識
+  const available = r.available === true && r.onDevice === true;
+  const out = { state: 'ready', available, platform };
+  if (available) out.onDevice = true;
   if (VOICE_ENGINES.includes(r.engine)) out.engine = r.engine;
   if (typeof r.lang === 'string' && /^[a-z]{2}-[A-Z]{2}$/.test(r.lang)) out.lang = r.lang;
   if (['granted', 'denied', 'prompt', 'prompt-with-rationale'].includes(r.permission)) out.permission = r.permission;
   if (typeof r.osVersion === 'string' && /^[\w.]{1,20}$/.test(r.osVersion)) out.osVersion = r.osVersion;
-  if (!out.available) out.reason = ['no-service', 'language', 'web-unsupported', 'web-download', 'no-plugin'].includes(r.reason) ? r.reason : platform === 'web' ? 'web-unsupported' : 'no-service';
-  // 網頁版：只有在本機辨識才算能用；App：不在手機上又不允許退回 → 不能用
-  if (out.available && out.onDevice !== true && (platform === 'web' || !NATIVE_FALLBACK)) { out.available = false; out.reason = platform === 'web' ? 'web-unsupported' : 'no-service'; }
+  if (Number.isFinite(r.progress) && r.progress >= 0 && r.progress <= 100) out.progress = Math.round(r.progress);
+  if (available) return out;
+  const reason = VOICE_REASONS.includes(r.reason) ? r.reason : platform === 'web' ? 'web-unsupported' : 'no-ondevice';
+  out.reason = reason;
+  if (platform === 'web' || reason === 'no-plugin') out.state = 'none'; // 網頁版沒有語言包可裝：不顯示就好
+  else if (reason === 'language-download') out.state = 'download';
+  else if (reason === 'downloading') out.state = 'downloading';
+  else out.state = 'unsupported';
   return out;
 }
 
-/** 現在能不能用語音（每次都重新問；#/ai、設定頁用） */
+let last = null;
+/** 現在能不能用語音（每次都重新問；#/ai、設定頁、下載中用） */
 export async function voiceStatus(lang = 'zh-TW') {
   const b = voiceBackend();
-  try { return normalizeVoiceInfo(await b.available(lang), b.kind); } catch { return normalizeVoiceInfo({ available: false, reason: b.kind === 'native' ? 'no-plugin' : 'web-unsupported' }, b.kind); }
+  try { last = normalizeVoiceInfo(await b.available(lang), b.kind); } catch { last = normalizeVoiceInfo({ available: false, reason: b.kind === 'native' ? 'no-plugin' : 'web-unsupported' }, b.kind); }
+  return last;
 }
 let support = null;
-/** 要不要顯示麥克風（這次開 App 只問一次） */
-export const voiceSupport = () => (support ||= voiceStatus());
+/** 麥克風怎麼顯示（這次開 App 問一次；fresh：語言包下好了、從設定回來時重問） */
+export const voiceSupport = ({ fresh = false } = {}) => (fresh || !support ? (support = voiceStatus()) : support);
+/** 最近一次問到的（同步；長按中央鍵時用） */
+export const voiceInfoNow = () => last;
 /** 測試用 */
-export const _resetVoice = () => { support = null; };
+export const _resetVoice = () => { support = null; last = null; };
+
+/**
+ * 協助下載語言包（產品負責人 2026-11-21：Android 第一次按麥克風時自動下載）。
+ * 外掛有進度就照進度（Android 14 以上）；沒有就每 3 秒問一次 available，好了就結束。
+ * onUpdate({ status })：start 開始｜progress { percent }｜scheduled 系統排在之後（例如等 Wi-Fi）｜done 好了｜fail 失敗｜slow 等太久（背景繼續）
+ * @returns {() => void} 停止追蹤（不會取消系統的下載）
+ */
+export function downloadPack({ backend = voiceBackend(), lang = 'zh-TW', onUpdate = () => {}, check = () => voiceStatus(lang), timers = { set: (f, ms) => setTimeout(f, ms), clear: (t) => clearTimeout(t) }, pollMs = DOWNLOAD_POLL_MS, maxMs = DOWNLOAD_MAX_MS } = {}) {
+  let over = false;
+  let poll = null, cap = null;
+  const end = (u) => { if (over) return; over = true; if (poll) timers.clear(poll); if (cap) timers.clear(cap); backend.unsub?.(); onUpdate(u); };
+  const tick = async () => {
+    if (over) return;
+    const v = await check().catch(() => null);
+    if (over) return;
+    if (v?.state === 'ready') return end({ status: 'done' });
+    if (v?.state === 'unsupported') return end({ status: 'fail' });
+    poll = timers.set(tick, pollMs);
+  };
+  onUpdate({ status: 'start' });
+  cap = timers.set(() => end({ status: 'slow' }), maxMs);
+  backend.download(lang, (e) => {
+    if (over || !e) return;
+    if (e.status === 'progress' && Number.isFinite(e.percent)) onUpdate({ status: 'progress', percent: Math.max(0, Math.min(100, Math.round(e.percent))) });
+    else if (e.status === 'scheduled') onUpdate({ status: 'scheduled' });
+    else if (e.status === 'done') tick(); // 系統說好了：再問一次確定能用
+    else if (e.status === 'error') end({ status: 'fail' });
+  }).then(() => { if (!over) poll = timers.set(tick, pollMs); }, () => end({ status: 'fail' }));
+  return () => { over = true; if (poll) timers.clear(poll); if (cap) timers.clear(cap); backend.unsub?.(); };
+}
 
 // ───── 控制器 ─────
 /**

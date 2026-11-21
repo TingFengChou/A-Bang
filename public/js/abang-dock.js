@@ -7,7 +7,7 @@
 // 只存在這次開著的 App／分頁裡（記憶體），不寫到手機或伺服器。
 
 import { shellT, currentShellLang } from './shell-i18n.js';
-import { voiceSupport, voiceEnabled } from './voice.js';
+import { voiceSupport, voiceEnabled, voiceInfoNow } from './voice.js';
 
 /** @type {Map<string, { root: HTMLElement, api: { show?: Function, say?: Function, focus?: Function }, title: string, scrollY: number }>} */
 const alive = new Map();
@@ -169,9 +169,10 @@ function onKey() {
 // 長按中央鍵直接用說的（M14-01，放開送出）；短按照舊。長按對讀屏、鍵盤、切換控制不友善：
 // 一樣的功能在輸入列的麥克風鍵（有可及名稱），長按只是捷徑。語音能用（voice.js）而且設定開著才有。
 const HOLD_MS = 450;
-let holdTimer = 0, held = false, holding = false, voiceOk = false;
+let holdTimer = 0, held = false, holding = false;
+const voiceOk = () => voiceInfoNow()?.state === 'ready'; // 手機上辨識能用（語言包下載好後也會變）
 function onFabDown(e) {
-  if (!voiceOk || !voiceEnabled() || e.button !== 0 || !e.isPrimary) return;
+  if (!voiceOk() || !voiceEnabled() || e.button !== 0 || !e.isPrimary) return;
   held = false;
   clearTimeout(holdTimer);
   holdTimer = setTimeout(() => {
@@ -209,8 +210,8 @@ export function mountFab(o) {
   sheetBody = sheet?.querySelector('.sheet-body');
   fab.addEventListener('click', onKey);
   fab.addEventListener('pointerdown', onFabDown);
-  fab.addEventListener('contextmenu', (e) => { if (voiceOk && voiceEnabled()) e.preventDefault(); }); // 長按不跳系統選單
-  voiceSupport().then((r) => { voiceOk = !!r.available; }).catch(() => {});
+  fab.addEventListener('contextmenu', (e) => { if (voiceOk() && voiceEnabled()) e.preventDefault(); }); // 長按不跳系統選單
+  voiceSupport().catch(() => {}); // 先問一次（長按時要同步知道能不能用）
   sheet?.querySelector('.sheet-close')?.addEventListener('click', () => closeSheet());
   sheet?.querySelector('.sheet-full')?.addEventListener('click', () => { const k = keptIf('agent'); if (k) k.scrollY = 1e9; location.hash = '#/agent'; }); // 整頁：停在最新的對話
   sheet?.addEventListener('cancel', (e) => { e.preventDefault(); closeSheet(); }); // Esc

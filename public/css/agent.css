@@ -269,6 +269,12 @@ html.lite-motion .think-core, html.lite-motion .think-core * { animation: none !
 .chat-mic[hidden] { display: none; }
 .chat-mic.on { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
 .chat-mic:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+/* 反白：這支手機不能在手機上辨識（仍可點，點了說原因）；準備中：語言包下載中（外圈轉） */
+.chat-mic.unavailable { background: var(--off-soft); color: var(--off); border-style: dashed; }
+.chat-mic.prep { position: relative; color: var(--muted); }
+.chat-mic.prep::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; border: 2px solid var(--brand); border-right-color: transparent; animation: tc-spin 1s linear infinite; }
+html.lite-motion .chat-mic.prep::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .chat-mic.prep::after { animation: none; } }
 .voice-panel { --lv: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 12px 10px 10px; border-radius: 16px; background: var(--brand-soft); animation: bub-in .22s cubic-bezier(.2,.8,.2,1) both; }
 .voice-panel[hidden] { display: none; }
 .voice-panel .vc-orb { flex: none; width: 52px; height: 52px; border-radius: 15px; box-shadow: 0 2px 12px rgba(15, 118, 110, .3); }
@@ -279,7 +285,6 @@ html.lite-motion .think-core, html.lite-motion .think-core * { animation: none !
 .voice-panel .vc-heard.placeholder { color: var(--muted); font-size: 14px; }
 .voice-panel .vc-heard:empty, .voice-panel small:empty { display: none; }
 .voice-panel small { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
-.voice-panel .vc-where.system { color: var(--warn); }
 .voice-panel .vc-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
 .voice-panel .vc-acts .btn { min-height: 44px; }
 .voice-panel[data-phase="error"] { background: var(--warn-soft); }
@@ -289,7 +294,11 @@ html.lite-motion .think-core, html.lite-motion .think-core * { animation: none !
 .voice-panel .vc-core { transform-origin: 24px 31px; transform: scale(calc(.9 + var(--lv) * .7)); transition: transform .09s linear; }
 .voice-panel .vc-halo { transform-origin: 24px 31px; transform: scale(calc(1 + var(--lv) * 1.6)); opacity: calc(.25 + var(--lv) * .45); transition: transform .12s linear, opacity .12s linear; }
 .voice-panel[data-phase="starting"] .vc-core, .voice-panel[data-phase="finishing"] .vc-core { animation: tc-beat .5s ease-in-out infinite alternate; transition: none; }
-.voice-panel[data-phase="error"] .vc-orbit { animation: none; }
+.voice-panel[data-phase="error"] .vc-orbit, .voice-panel[data-phase="why"] .vc-orbit, .voice-panel[data-phase="note"] .vc-orbit { animation: none; }
+.voice-panel[data-phase="why"] { background: var(--off-soft); }
+.voice-panel[data-phase="why"] .vc-orb { opacity: .5; filter: grayscale(.6); }
+.voice-panel[data-phase="why"] .vc-heard, .voice-panel[data-phase="note"] .vc-heard, .voice-panel[data-phase="download"] .vc-heard { font-size: 14.5px; }
+.voice-panel[data-phase="download"] .vc-core { animation: tc-beat .8s ease-in-out infinite alternate; transition: none; }
 html.lite-motion .voice-panel, html.lite-motion .voice-panel * { animation: none !important; transition: none !important; }
 html.lite-motion .voice-panel .vc-core, html.lite-motion .voice-panel .vc-halo { transform: none !important; }
 @media (prefers-reduced-motion: reduce) {

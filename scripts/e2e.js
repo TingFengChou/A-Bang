@@ -1951,6 +1951,7 @@ test('中央鍵拉出的底部對話面板：「阿幫在想」一樣會出現�
 
 // 語音問阿幫（M14-01，voice.js、agent/voice-ui.js）：假的原生外掛 AbangVoice 送出 level、partial、final 事件。
 // mode：auto＝像 Android 一樣自己收尾（0.7 秒送 final）；manual＝要等「說完了」、停頓 1.5 秒或放開中央鍵（stop）才送 final。deny：權限被拒。
+// reason：這支手機不能在手機上辨識（os、ios-no-ondevice…）；pack：語言包還沒裝（download 後 progress 30、70、done，之後就能用）；platform：android／ios
 const FAKE_VOICE = (o = {}) => `(() => {
   const o = ${JSON.stringify(o)};
   const L = {};
@@ -1958,16 +1959,26 @@ const FAKE_VOICE = (o = {}) => `(() => {
   const emit = (ev, d) => (L[ev] || []).slice().forEach((cb) => cb(d));
   const later = (ms, f) => V.timers.push(setTimeout(f, ms));
   const text = o.text || '從西門町到台北101怎麼去';
-  const engine = o.onDevice === false ? 'android-system' : 'android-ondevice';
+  const engine = o.platform === 'ios' ? 'ios-speech' : 'android-ondevice';
+  let packReady = !o.pack;
   window.Capacitor = {
-    isNativePlatform: () => true, getPlatform: () => 'android',
+    isNativePlatform: () => true, getPlatform: () => o.platform || 'android',
     isPluginAvailable: (n) => n === 'AbangVoice' || n === 'AbangSystem',
     addListener: (plugin, ev, cb) => { if (plugin === 'AbangVoice') (L[ev] ||= []).push(cb); return { remove() { L[ev] = (L[ev] || []).filter((x) => x !== cb); } }; },
     nativePromise: (plugin, method, args) => {
       if (plugin === 'AbangSystem') { V.calls.push('AbangSystem.' + method); return Promise.resolve({}); }
       if (plugin !== 'AbangVoice') return Promise.reject(new Error('not in test'));
       V.calls.push(method + (args && args.lang ? ':' + args.lang : ''));
-      if (method === 'available') return Promise.resolve({ available: true, onDevice: o.onDevice !== false, engine, lang: args.lang, permission: o.deny ? 'denied' : 'prompt', osVersion: '16' });
+      const base = { engine, lang: args && args.lang, permission: o.deny ? 'denied' : 'prompt', osVersion: '16' };
+      if (method === 'available') return Promise.resolve(o.reason ? { ...base, available: false, onDevice: false, reason: o.reason } : !packReady ? { ...base, available: false, onDevice: false, reason: V.downloading ? 'downloading' : 'language-download' } : { ...base, available: true, onDevice: true });
+      if (method === 'download') {
+        V.downloading = true;
+        later(300, () => emit('download', { status: 'progress', percent: 30 }));
+        later(900, () => emit('download', { status: 'progress', percent: 70 }));
+        later(o.packMs || 2500, () => { packReady = true; V.downloading = false; emit('download', { status: 'done' }); });
+        return Promise.resolve({ progress: true });
+      }
+      if (method === 'openSettings') return Promise.resolve({});
       if (method === 'start') {
         if (o.deny) return Promise.reject(Object.assign(new Error('麥克風權限沒有打開'), { code: 'permission' }));
         later(150, () => emit('level', { level: 0.9 }));
@@ -1975,7 +1986,7 @@ const FAKE_VOICE = (o = {}) => `(() => {
         later(400, () => emit('partial', { text: '從西門町到台北101' }));
         later(500, () => emit('level', { level: 0.6 }));
         if (o.mode === 'auto') later(700, () => emit('final', { text, onDevice: true }));
-        return Promise.resolve({ onDevice: o.onDevice !== false, engine, lang: args.lang });
+        return Promise.resolve({ onDevice: true, engine, lang: args.lang });
       }
       if (method === 'stop') { later(80, () => emit('final', { text, onDevice: true })); return Promise.resolve({}); }
       if (method === 'cancel') { V.timers.forEach(clearTimeout); V.timers = []; return Promise.resolve({}); }
@@ -2101,10 +2112,10 @@ test('語音問阿幫：麥克風權限被拒 → 說明＋到設定開啟；red
     assert.equal(await page.locator('.voice-panel .vc-core').evaluate((n) => getComputedStyle(n).transform), 'none', '不跟著音量動');
     assert.equal(await page.locator('.voice-panel .vc-orbit').evaluate((n) => getComputedStyle(n).animationName), 'none');
     assert.equal(await page.locator('.voice-panel').evaluate((n) => getComputedStyle(n).animationName), 'none');
-    assert.match(await page.textContent('.voice-panel .vc-where'), /系統的語音服務/, '不是在手機上辨識時照實說');
+    assert.equal(await page.textContent('.voice-panel .vc-where'), '在手機上轉成文字，語音不離開手機');
     await page.click('.voice-panel .vc-done');
     await page.waitForSelector('.msg.user.spoken');
-  }, { init: FAKE_VOICE({ mode: 'manual', onDevice: false }), ignore: VOICE_IGNORE });
+  }, { init: FAKE_VOICE({ mode: 'manual' }), ignore: VOICE_IGNORE });
 });
 
 test('語音問阿幫（網頁版）：瀏覽器不能在本機辨識就沒有麥克風；能在本機辨識才有（processLocally）', async () => {
@@ -2144,7 +2155,7 @@ test('語音問阿幫：阿幫的腦袋顯示「聽」（系統回報的引擎�
   await withPage(DEVICES.phone, '#/ai', async (page) => {
     await page.waitForFunction(() => /Android 手機上的語音辨識/.test(document.querySelector('#ai-ear')?.textContent || ''));
     const t = await page.textContent('#ai-ear');
-    assert.match(t, /這支手機（語音不離開手機）/);
+    assert.match(t, /手機上辨識可用（語音不離開手機）/);
     assert.match(t, /中文/);
     assert.match(t, /還沒問過/);
     await page.goto(`${base}/#/settings`);
@@ -2157,4 +2168,59 @@ test('語音問阿幫：阿幫的腦袋顯示「聽」（系統回報的引擎�
     await page.waitForTimeout(300);
     assert.ok(await page.locator('.chat-form .chat-mic').isHidden());
   }, { init: FAKE_VOICE({ mode: 'manual' }), ignore: VOICE_IGNORE });
+});
+
+test('語音問阿幫：手機不支援在手機上辨識 → 麥克風反白（仍可點）、點了說原因、不開始聽；iPhone 說怎麼開聽寫；截圖', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const mic = page.locator('.chat-form .chat-mic');
+    await mic.waitFor({ state: 'visible' });
+    assert.equal(await mic.getAttribute('aria-disabled'), 'true');
+    assert.match(await mic.getAttribute('aria-label'), /這支手機不能用/);
+    assert.ok(await mic.evaluate((n) => n.classList.contains('unavailable') && !n.disabled), '反白但仍可點');
+    await mic.click({ force: true }); // aria-disabled：Playwright 當成停用，但使用者與讀屏仍可按
+    await page.waitForSelector('.voice-panel[data-phase="why"]');
+    assert.equal(await page.textContent('.voice-panel .vc-title'), '這支手機現在不能用說的問阿幫');
+    assert.match(await page.textContent('.voice-panel .vc-heard'), /需要 Android 12 以上/);
+    assert.match(await page.textContent('.voice-panel .vc-where'), /不錄音、不上傳/);
+    await page.waitForFunction(() => /需要 Android 12 以上/.test(document.querySelector('.chat-dock [role=status]').textContent));
+    assert.ok(!(await page.evaluate(() => window.__voice.calls)).some((c) => c.startsWith('start')), '不開始聽');
+    await page.locator('.voice-panel').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: new URL('phone-voice-unsupported.png', SHOTS).pathname });
+    await page.click('.voice-panel button:has-text("知道了")');
+    assert.ok(await page.locator('.voice-panel').isHidden());
+    // 長按中央鍵也不會聽（只有能用時才是捷徑）
+    await page.goto(`${base}/#/ai`);
+    await page.waitForFunction(() => /不支援：/.test(document.querySelector('#ai-ear')?.textContent || ''));
+    assert.match(await page.textContent('#ai-ear'), /麥克風會反白/);
+  }, { init: FAKE_VOICE({ reason: 'os' }), ignore: VOICE_IGNORE });
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.locator('.chat-form .chat-mic').waitFor({ state: 'visible' });
+    await page.click('.chat-form .chat-mic', { force: true });
+    await page.waitForSelector('.voice-panel[data-phase="why"]');
+    assert.match(await page.textContent('.voice-panel .vc-heard'), /設定 → 一般 → 鍵盤.*啟用聽寫.*中文（台灣）/);
+    assert.equal(await page.locator('.voice-panel button:has-text("到手機設定下載")').count(), 0, 'iPhone 開不到聽寫設定：只說路徑');
+  }, { init: FAKE_VOICE({ reason: 'ios-no-ondevice', platform: 'ios' }), ignore: VOICE_IGNORE });
+});
+
+test('語音問阿幫：語言包還沒裝 → 第一次按麥克風就下載（準備中、進度）→ 好了就能說', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const mic = page.locator('.chat-form .chat-mic');
+    await mic.waitFor({ state: 'visible' });
+    assert.equal(await mic.getAttribute('aria-disabled'), null);
+    assert.match(await mic.getAttribute('aria-label'), /第一次要先下載中文語音包/);
+    await mic.click();
+    await page.waitForSelector('.voice-panel[data-phase="download"]');
+    assert.match(await page.textContent('.voice-panel .vc-title'), /正在下載中文語音包/);
+    assert.equal(await mic.getAttribute('aria-disabled'), 'true');
+    assert.match(await mic.getAttribute('aria-label'), /準備中/);
+    await page.waitForFunction(() => /70%/.test(document.querySelector('.voice-panel .vc-title').textContent));
+    await mic.click({ force: true }); // 下載中再按：不開始聽
+    assert.ok(!(await page.evaluate(() => window.__voice.calls)).some((c) => c.startsWith('start')));
+    await page.waitForFunction(() => /語音包好了/.test(document.querySelector('.voice-panel .vc-title').textContent), null, { timeout: 8000 });
+    assert.equal(await mic.getAttribute('aria-disabled'), null);
+    assert.ok((await page.evaluate(() => window.__voice.calls)).includes('download:zh-TW'));
+    await page.click('.voice-panel .vc-go');
+    await page.waitForSelector('.voice-panel[data-phase="listening"]');
+    await page.waitForSelector('.msg.user.spoken', { timeout: 5000 });
+  }, { init: FAKE_VOICE({ pack: true, mode: 'auto' }), ignore: VOICE_IGNORE });
 });

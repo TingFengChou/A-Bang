@@ -6,6 +6,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
+import android.speech.ModelDownloadListener;
 import android.speech.RecognitionListener;
 import android.speech.RecognitionSupport;
 import android.speech.RecognitionSupportCallback;
@@ -25,11 +27,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 語音問阿幫（M14-01）：Android SpeechRecognizer 把你說的話轉成文字。JS 端：public/js/voice.js（外掛名 AbangVoice）。
- * 手機上優先：API 31 以上且 isOnDeviceRecognitionAvailable → createOnDeviceSpeechRecognizer（語音不離開手機）；
- * API 33 以上再用 checkRecognitionSupport 確認這個語言的語言包已裝好（沒裝好、支援下載時請系統背景下載，這次先用系統辨識）。
- * 不能在手機上辨識時用一般的 SpeechRecognizer＋EXTRA_PREFER_OFFLINE，並照實回報 onDevice: false（系統可能經網路）。
- * 事件：partial { text }、level { level: 0–1 }、final { text, onDevice }、error { code, message }、engine { onDevice, engine }（手機上的語言包不能用、改系統辨識時）。
+ * 語音問阿幫（M14-01）：Android 手機上的 SpeechRecognizer 把你說的話轉成文字。JS 端：public/js/voice.js（外掛名 AbangVoice）。
+ * 只在手機上辨識（產品負責人 2026-11-21：語言包要協助用戶裝，除非真的手機無法支援；不退回系統／雲端辨識）：
+ * - API 31 以上且 isOnDeviceRecognitionAvailable → createOnDeviceSpeechRecognizer；否則回報不能用（reason os／no-ondevice）。
+ * - API 33 以上用 checkRecognitionSupport 看這個語言：已安裝 → 能用；下載中 → downloading；可下載 → language-download（JS 第一次按麥克風就呼叫 download）；都不是 → language。
+ * - download()：triggerModelDownload；API 34 以上用 ModelDownloadListener 回報 download 事件（progress／scheduled／done／error），33 只能由 JS 再問 available。
+ * - API 31、32 查不到語言包：先試，辨識器說語言不能用時回 error language-missing（JS 說怎麼到設定下載）。
+ * 事件：partial { text }、level { level: 0–1 }、final { text, onDevice }、error { code, message }、download { status, percent }。
  * 權限 RECORD_AUDIO：第一次 start() 才要。不錄音存檔、不上傳；log 只記錯誤代碼，不記辨識內容。
  */
 @CapacitorPlugin(name = "AbangVoice", permissions = { @Permission(alias = "microphone", strings = { Manifest.permission.RECORD_AUDIO }) })
@@ -40,27 +44,22 @@ public class AbangVoicePlugin extends Plugin {
     private SpeechRecognizer rec;
     /** 第幾段：取消或重新開始後，舊的回呼不算 */
     private int session = 0;
-    private boolean onDevice = false;
-    private boolean heard = false;
-    private boolean fellBack = false;
     private String lang = "zh-TW";
     private long lastLevelAt = 0;
-    /** API 33 以上查過的「手機上的語言包」：已安裝、可下載（查不到是 null，就照 isOnDeviceRecognitionAvailable） */
+    /** API 33 以上查過的手機上語言包（查不到是 null：照 isOnDeviceRecognitionAvailable 先試） */
     private List<String> installedLangs = null;
-    private List<String> downloadableLangs = null;
-    private boolean downloadAsked = false;
 
     static String normLang(String s) { return s != null && s.toLowerCase().startsWith("en") ? "en-US" : "zh-TW"; }
 
     private static boolean hasLang(List<String> list, String lang) {
         if (list == null) return false;
         String want = lang.toLowerCase().replace('_', '-');
-        String base = want.substring(0, 2);
+        boolean zh = want.startsWith("zh");
         for (String l : list) {
             String x = l.toLowerCase().replace('_', '-');
-            // zh-TW 也接受 cmn-Hant-TW／zh-Hant-TW 這類寫法；en-US 接受 en-US
+            // zh-TW 也接受 cmn-Hant-TW／zh-Hant-TW 這類寫法
             if (x.equals(want)) return true;
-            if (base.equals("zh") && (x.equals("cmn-hant-tw") || x.equals("zh-hant-tw"))) return true;
+            if (zh && (x.equals("cmn-hant-tw") || x.equals("zh-hant-tw"))) return true;
         }
         return false;
     }
@@ -69,20 +68,19 @@ public class AbangVoicePlugin extends Plugin {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(getContext());
     }
 
-    /** 這個語言能不能在手機上辨識（API 33 以上看語言包；31、32 只能先試，失敗再改系統辨識） */
-    private boolean useOnDevice(String lang) {
+    /** 這個語言現在能不能在手機上辨識（API 33 以上看語言包；31、32 只能先試） */
+    private boolean ready(String l) {
         if (!deviceRecognizer()) return false;
-        if (installedLangs == null) return true;
-        return hasLang(installedLangs, lang);
+        return installedLangs == null || hasLang(installedLangs, l);
     }
 
-    private Intent intent(String lang) {
+    private Intent intent(String l) {
         Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang);
+        i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, l);
         i.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
         i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
-        i.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true); // 系統辨識也盡量在手機上（不保證，所以回報 onDevice: false）
+        i.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
         i.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L);
         i.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L);
         i.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getContext().getPackageName());
@@ -96,47 +94,100 @@ public class AbangVoicePlugin extends Plugin {
 
     @PluginMethod
     public void available(PluginCall call) {
-        String lang = normLang(call.getString("lang"));
+        String l = normLang(call.getString("lang"));
         main.post(() -> {
-            boolean sys = SpeechRecognizer.isRecognitionAvailable(getContext());
-            boolean dev = deviceRecognizer();
             JSObject o = new JSObject();
-            o.put("lang", lang);
+            o.put("lang", l);
+            o.put("engine", "android-ondevice");
             o.put("permission", permission());
             o.put("osVersion", Build.VERSION.RELEASE);
-            if (dev && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                // 查手機上的語言包（只查一次就記住；查不到就照 isOnDeviceRecognitionAvailable）
-                SpeechRecognizer probe;
-                try { probe = SpeechRecognizer.createOnDeviceSpeechRecognizer(getContext()); }
-                catch (Exception e) { finishAvailable(call, o, sys, dev, lang); return; }
-                final SpeechRecognizer p = probe;
-                p.checkRecognitionSupport(intent(lang), getContext().getMainExecutor(), new RecognitionSupportCallback() {
-                    @Override public void onSupportResult(RecognitionSupport s) {
-                        installedLangs = new ArrayList<>(s.getInstalledOnDeviceLanguages());
-                        downloadableLangs = new ArrayList<>(s.getSupportedOnDeviceLanguages());
-                        downloadableLangs.addAll(s.getPendingOnDeviceLanguages());
-                        p.destroy();
-                        JSArray langs = new JSArray();
-                        for (String l : installedLangs) langs.put(l);
-                        o.put("onDeviceLanguages", langs);
-                        if (!hasLang(installedLangs, lang) && hasLang(downloadableLangs, lang)) o.put("onDeviceDownloadable", true);
-                        finishAvailable(call, o, sys, dev, lang);
-                    }
-                    @Override public void onError(int error) { p.destroy(); finishAvailable(call, o, sys, dev, lang); }
-                });
-                return;
-            }
-            finishAvailable(call, o, sys, dev, lang);
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) { done(call, o, false, "os"); return; }
+            if (!SpeechRecognizer.isOnDeviceRecognitionAvailable(getContext())) { done(call, o, false, "no-ondevice"); return; }
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) { done(call, o, true, null); return; } // 查不到語言包：先試
+            SpeechRecognizer probe;
+            try { probe = SpeechRecognizer.createOnDeviceSpeechRecognizer(getContext()); }
+            catch (Exception e) { done(call, o, true, null); return; }
+            final SpeechRecognizer p = probe;
+            p.checkRecognitionSupport(intent(l), getContext().getMainExecutor(), new RecognitionSupportCallback() {
+                @Override public void onSupportResult(RecognitionSupport s) {
+                    p.destroy();
+                    installedLangs = new ArrayList<>(s.getInstalledOnDeviceLanguages());
+                    JSArray langs = new JSArray();
+                    for (String x : installedLangs) langs.put(x);
+                    o.put("onDeviceLanguages", langs);
+                    if (hasLang(installedLangs, l)) done(call, o, true, null);
+                    else if (hasLang(s.getPendingOnDeviceLanguages(), l)) done(call, o, false, "downloading");
+                    else if (hasLang(s.getSupportedOnDeviceLanguages(), l)) done(call, o, false, "language-download");
+                    else done(call, o, false, "language");
+                }
+                @Override public void onError(int error) { p.destroy(); done(call, o, true, null); } // 查不到：先試
+            });
         });
     }
 
-    private void finishAvailable(PluginCall call, JSObject o, boolean sys, boolean dev, String lang) {
-        boolean here = dev && useOnDevice(lang);
-        o.put("available", here || sys);
-        o.put("onDevice", here);
-        o.put("engine", here ? "android-ondevice" : "android-system");
-        if (!here && !sys) o.put("reason", "no-service");
+    private static void done(PluginCall call, JSObject o, boolean ok, String reason) {
+        o.put("available", ok);
+        o.put("onDevice", ok);
+        if (reason != null) o.put("reason", reason);
         call.resolve(o);
+    }
+
+    /** 請系統下載這個語言的手機上語言包（第一次按麥克風時，產品負責人同意自動下載） */
+    @PluginMethod
+    public void download(PluginCall call) {
+        String l = normLang(call.getString("lang"));
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || !deviceRecognizer()) { call.reject("這支手機不能下載手機上的語音包", "no-service"); return; }
+        main.post(() -> {
+            SpeechRecognizer r;
+            try { r = SpeechRecognizer.createOnDeviceSpeechRecognizer(getContext()); }
+            catch (Exception e) { call.reject("語音辨識開不起來", "no-service"); return; }
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    final SpeechRecognizer d = r;
+                    r.triggerModelDownload(intent(l), getContext().getMainExecutor(), new ModelDownloadListener() {
+                        @Override public void onProgress(int percent) { emit("progress", percent); }
+                        @Override public void onSuccess() { installedLangs = null; emit("done", -1); d.destroy(); }
+                        @Override public void onScheduled() { emit("scheduled", -1); d.destroy(); }
+                        @Override public void onError(int error) { Logger.warn(TAG, "download error " + error); emit("error", -1); d.destroy(); }
+                    });
+                    JSObject o = new JSObject();
+                    o.put("progress", true);
+                    call.resolve(o);
+                } else {
+                    r.triggerModelDownload(intent(l)); // Android 13：沒有進度回呼，JS 每 3 秒再問 available
+                    r.destroy();
+                    JSObject o = new JSObject();
+                    o.put("progress", false);
+                    call.resolve(o);
+                }
+            } catch (Exception e) {
+                Logger.warn(TAG, "triggerModelDownload：" + e.getClass().getSimpleName());
+                try { r.destroy(); } catch (Exception x) { /* 已結束 */ }
+                call.reject("語音包沒有開始下載", "service");
+            }
+        });
+    }
+
+    private void emit(String status, int percent) {
+        JSObject o = new JSObject();
+        o.put("status", status);
+        if (percent >= 0) o.put("percent", percent);
+        notifyListeners("download", o);
+    }
+
+    /** 開手機的語音輸入設定（下載語言包）；打不開就開系統設定 */
+    @PluginMethod
+    public void openSettings(PluginCall call) {
+        for (String action : new String[] { Settings.ACTION_VOICE_INPUT_SETTINGS, Settings.ACTION_SETTINGS }) {
+            try {
+                Intent i = new Intent(action);
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(i);
+                call.resolve();
+                return;
+            } catch (Exception e) { /* 下一個 */ }
+        }
+        call.reject("打不開設定");
     }
 
     @PluginMethod
@@ -155,29 +206,22 @@ public class AbangVoicePlugin extends Plugin {
         String l = normLang(call.getString("lang"));
         main.post(() -> {
             teardown();
-            boolean dev = useOnDevice(l);
-            if (!dev && deviceRecognizer() && downloadableLangs != null && hasLang(downloadableLangs, l) && !downloadAsked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                downloadAsked = true; // 請系統下載這個語言的手機上語言包（下次就能在手機上辨識）；這次先用系統辨識
-                try { SpeechRecognizer r = SpeechRecognizer.createOnDeviceSpeechRecognizer(getContext()); r.triggerModelDownload(intent(l)); r.destroy(); }
-                catch (Exception e) { Logger.warn(TAG, "triggerModelDownload：" + e.getClass().getSimpleName()); }
-            }
-            if (!dev && !SpeechRecognizer.isRecognitionAvailable(getContext())) { call.reject("這支手機沒有語音辨識服務", "no-service"); return; }
-            if (!listen(l, dev)) { call.reject("語音辨識開不起來", "no-service"); return; }
-            fellBack = false;
+            if (!ready(l)) { call.reject("這支手機現在不能在手機上辨識這個語言", deviceRecognizer() ? "language-missing" : "no-service"); return; } // 不退回系統／雲端辨識
+            if (!listen(l)) { call.reject("語音辨識開不起來", "no-service"); return; }
             JSObject o = new JSObject();
-            o.put("onDevice", dev);
-            o.put("engine", dev ? "android-ondevice" : "android-system");
+            o.put("onDevice", true);
+            o.put("engine", "android-ondevice");
             o.put("lang", l);
             call.resolve(o);
         });
     }
 
-    /** 建立辨識器並開始聽（主執行緒） */
-    private boolean listen(String l, boolean dev) {
+    /** 建立手機上的辨識器並開始聽（主執行緒） */
+    private boolean listen(String l) {
         final int my = ++session;
-        try { rec = dev ? SpeechRecognizer.createOnDeviceSpeechRecognizer(getContext()) : SpeechRecognizer.createSpeechRecognizer(getContext()); }
+        try { rec = SpeechRecognizer.createOnDeviceSpeechRecognizer(getContext()); }
         catch (Exception e) { Logger.warn(TAG, "create：" + e.getClass().getSimpleName()); rec = null; return false; }
-        onDevice = dev; lang = l; heard = false; lastLevelAt = 0;
+        lang = l; lastLevelAt = 0;
         rec.setRecognitionListener(new RecognitionListener() {
             @Override public void onReadyForSpeech(Bundle b) { }
             @Override public void onBeginningOfSpeech() { }
@@ -197,7 +241,6 @@ public class AbangVoicePlugin extends Plugin {
                 if (my != session) return;
                 String t = first(b);
                 if (t.isEmpty()) return;
-                heard = true;
                 JSObject o = new JSObject();
                 o.put("text", t);
                 notifyListeners("partial", o);
@@ -206,25 +249,12 @@ public class AbangVoicePlugin extends Plugin {
                 if (my != session) return;
                 JSObject o = new JSObject();
                 o.put("text", first(b));
-                o.put("onDevice", onDevice);
+                o.put("onDevice", true);
                 teardown();
                 notifyListeners("final", o);
             }
             @Override public void onError(int error) {
                 if (my != session) return;
-                // 手機上的辨識器說這個語言不能用（語言包沒裝好）：還沒聽到字就改用系統辨識，照實回報
-                if (onDevice && !heard && !fellBack && (error == SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED || error == SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE) && SpeechRecognizer.isRecognitionAvailable(getContext())) {
-                    Logger.info(TAG, "on-device language unavailable, using system recognizer");
-                    teardown();
-                    fellBack = true;
-                    if (listen(lang, false)) {
-                        JSObject e = new JSObject();
-                        e.put("onDevice", false);
-                        e.put("engine", "android-system");
-                        notifyListeners("engine", e);
-                        return;
-                    }
-                }
                 Logger.warn(TAG, "error " + error); // 只記代碼
                 teardown();
                 JSObject o = new JSObject();
@@ -252,13 +282,13 @@ public class AbangVoicePlugin extends Plugin {
             case SpeechRecognizer.ERROR_NO_MATCH: return "no-match";
             case SpeechRecognizer.ERROR_RECOGNIZER_BUSY: case SpeechRecognizer.ERROR_TOO_MANY_REQUESTS: return "busy";
             case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS: return "permission";
-            case SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED: case SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE: return "language";
+            case SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED: case SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE: return "language-missing"; // 語言包沒裝好（JS 說怎麼下載）
             case SpeechRecognizer.ERROR_CLIENT: return "client";
             default: return "service"; // ERROR_SERVER、ERROR_SERVER_DISCONNECTED、ERROR_CANNOT_CHECK_SUPPORT…
         }
     }
 
-    /** 中文說明（JS 依 code 用字典顯示；這段給 log 以外的除錯與沒有字典時） */
+    /** 中文說明（JS 依 code 用字典顯示；這段是沒有字典時的備用） */
     static String message(int e) {
         switch (code(e)) {
             case "network": return "語音辨識連不上";
@@ -267,7 +297,7 @@ public class AbangVoicePlugin extends Plugin {
             case "no-match": return "沒聽清楚";
             case "busy": return "語音辨識正在忙";
             case "permission": return "麥克風權限沒有打開";
-            case "language": return "語音辨識不支援這個語言";
+            case "language-missing": return "還沒有這個語言的手機上語音包";
             case "client": return "語音辨識被中斷";
             default: return "語音辨識出了問題";
         }

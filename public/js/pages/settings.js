@@ -10,6 +10,7 @@ import { showOnboarding } from '../onboarding.js';
 import { cancelAllReminders } from '../reminders.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { voiceEnabled, setVoiceEnabled, voiceStatus, VOICE_KEY } from '../voice.js';
+import { whyText } from '../voice-i18n.js';
 
 const EDGE_KEY = 'abang.edgeAI';
 
@@ -53,7 +54,7 @@ export const settings = {
         <h2>語音</h2>
         <label class="switch-row"><span><b>用語音問阿幫</b><small id="voice-status">檢查中…</small></span>
           <input type="checkbox" id="voice" class="switch" role="switch" aria-describedby="voice-note" ${voiceEnabled() ? 'checked' : ''}></label>
-        <p class="note" id="voice-note">開著時，問阿幫的輸入列有麥克風鍵，也可以長按中央「問阿幫」鍵說話（放開就送出）。聲音在手機上轉成文字（手機不支援時改由系統的語音服務轉，狀態會標示），轉好的文字跟打字一樣送出；阿幫不錄音存檔，也不把聲音傳到阿幫的伺服器。第一次按麥克風才會問麥克風權限。</p>
+        <p class="note" id="voice-note">開著時，問阿幫的輸入列有麥克風鍵，也可以長按中央「問阿幫」鍵說話（放開就送出）。語音只在手機上轉成文字，不錄音、不上傳；轉好的文字跟打字一樣送出。手機還沒有中文語音包時，第一次按麥克風會協助下載；手機不支援在手機上辨識時麥克風會反白，阿幫不改用網路上的語音辨識。第一次按麥克風才會問麥克風權限。</p>
       </section>
       <section class="card settings">
         <h2>常用地點</h2>
@@ -206,11 +207,13 @@ export const settings = {
       setVoiceEnabled(voice.checked);
       toast(voice.checked ? '已開啟語音問阿幫' : '已關閉語音問阿幫');
     });
-    const VOICE_WHY = { 'no-service': '這支手機沒有可以用的語音辨識', language: '語音辨識不支援繁體中文', 'web-unsupported': '這個瀏覽器不能在本機辨識語音（不把聲音送到瀏覽器廠商的伺服器，所以不提供）', 'web-download': '瀏覽器的本機語音辨識還沒下載', 'no-plugin': '這個版本沒有語音問阿幫' };
+    const VOICE_WHY = { 'web-unsupported': '這個瀏覽器不能在本機辨識語音（不把聲音送到瀏覽器廠商的伺服器，所以不提供）', 'web-download': '瀏覽器的本機語音辨識還沒下載', 'no-plugin': '這個版本沒有語音問阿幫' };
+    const VOICE_SAY = { ready: '可以使用：在手機上轉成文字', download: '可以使用：第一次按麥克風會先下載中文語音包', downloading: v => `中文語音包下載中${v.progress != null ? `（${v.progress}%）` : ''}` };
     const MIC_SAY = { granted: '已允許', denied: '已拒絕', prompt: '還沒問過', 'prompt-with-rationale': '拒絕過一次（下次用到會再問）' };
     const refreshVoice = () => voiceStatus().then((v) => {
-      main.querySelector('#voice-status').textContent = v.available ? (v.onDevice ? '可以使用：在手機上轉成文字' : '可以使用：這支手機不能在手機上辨識，由系統的語音服務轉文字（可能經過網路）') : VOICE_WHY[v.reason] || '目前不能使用';
-      voice.hidden = !v.available; // 不能用：不顯示開關（灰色已勾選會讓人誤會）
+      const say = VOICE_SAY[v.state];
+      main.querySelector('#voice-status').textContent = say ? (typeof say === 'function' ? say(v) : say) : v.state === 'unsupported' ? `不能使用：${whyText(v)}` : VOICE_WHY[v.reason] || '目前不能使用';
+      voice.hidden = v.state === 'none' || v.state === 'unsupported'; // 不能用：不顯示開關（灰色已勾選會讓人誤會）
       const row = main.querySelector('#mic-row');
       row.hidden = !v.permission;
       if (v.permission) main.querySelector('#mic').textContent = MIC_SAY[v.permission] || '還沒問過';
@@ -269,7 +272,7 @@ export const privacy = {
         <p><b>位置（你允許時）：</b>用來當出發點、找附近的站與天氣。位置會送到阿幫伺服器，伺服器再拿去向資料來源（例如交通部 TDX、中央氣象署）查詢；Claude 模式下也會寫進給模型的提示。伺服器不把位置寫進紀錄；為了加快查詢，查詢結果會在記憶體中短暫快取後自動清除。不給定位也能用。</p>
         <p><b>IP 位址：</b>用來限制同一來源的請求次數（只存在伺服器記憶體、數分鐘到一天內清除），主機服務商的存取紀錄也可能記錄 IP〔待補：主機服務商與保存期間〕。</p>
         <p><b>裝置端 AI：</b>手機 App 可用手機內建的模型（Apple Intelligence、Gemini Nano）先判斷問題類型，只送出判斷結果（例如「行程、趕時間」）；今天判斷了幾次、上次花多久只記在手機上（只有數字，不上傳）；「阿幫的腦袋」頁的「現場試試看」只在手機上判斷，句子不送出；可在「設定與隱私」關閉。</p>
-        <p><b>語音問阿幫（你按麥克風或長按「問阿幫」鍵時）：</b>聲音只用來在手機上轉成文字（Android 的手機上語音辨識、iPhone 的 Speech），轉好的文字跟打字的問題一樣送出；阿幫不錄音存檔，也不把聲音傳到阿幫的伺服器。手機不支援在手機上辨識時（畫面會標示「不是在手機上」），改由手機系統的語音服務轉文字，可能經過 Google 或 Apple 的伺服器，依其隱私權政策處理。網頁版只有瀏覽器能在本機辨識時才提供。第一次使用才會問麥克風權限；可在「設定與隱私」關閉。</p>
+        <p><b>語音問阿幫（你按麥克風或長按「問阿幫」鍵時）：</b>語音只在手機上轉成文字（Android 的手機上語音辨識、iPhone 的語音辨識設定為只在手機上），不錄音、不上傳；轉好的文字跟打字的問題一樣送出。手機還沒有該語言的語音包時，第一次按麥克風會請手機系統下載（由 Google 或 Apple 提供的語音包，只下載、不送出你的聲音）。手機不支援在手機上辨識時不提供語音（麥克風反白），不改用網路上的語音辨識。網頁版只有瀏覽器能在本機辨識時才提供。第一次使用才會問麥克風權限；可在「設定與隱私」關閉。</p>
         <p><b>相機（掃發票 QR code）：</b>影像只在手機上解讀號碼與日期，不上傳、不保存影像。</p>
         <p><b>通知：</b>到站與出門提醒是手機上的本機通知，不經過推播伺服器。</p>
         <p><b>存在你手機上的資料：</b>收藏、我的發票（號碼與日期）、偏好、進行中的提醒、常用地點（家、公司、學校的座標）、離線時顯示的上次查詢結果（公車到站 10 分鐘內、路線與時刻表 24 小時內；不含座標，但看得出你查過哪些路線與站牌）只存在這支手機；常用地點只有在你提到（例如「回家」）時，那一個的座標與名稱才跟問題一起送出用來規劃；用「輸入地點」設定時，打的地名會送到阿幫伺服器查座標（不送你的位置）；問阿幫的對話文字（最近 10 則，不含卡片與座標，最後一次對話 12 小時後自動清掉）也存在這支手機；下次打開只顯示，按「接著上次問」才會跟下一個問題一起送出；從浮動阿幫點「在這頁可以問」的問題時，會一起送出你正在看的頁面（例如哪一條公車路線與上車站），自己打的問題不會帶；Claude 模式下，座標不給模型，但依座標查到的站名、路線、天氣等結果會給模型轉述。可在「設定與隱私」清除。</p>

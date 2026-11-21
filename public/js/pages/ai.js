@@ -8,6 +8,7 @@ import { edgeEnabled, edgeStatus, edgeJudge, edgePrewarm, edgeStats, setEdgeEnab
 import { ENGINE_NAME, normalizeEdgeInfo, normalizeServerInfo, lastAgentStatus, languageNames, nodeText, judgedText } from '../ai-info.js';
 import { aiT, pageLang } from './ai-i18n.js';
 import { voiceStatus, voiceEnabled } from '../voice.js';
+import { voiceT, whyText } from '../voice-i18n.js';
 
 /** 「試試看」等久一點（使用者正看著；平常問阿幫只等 1.8 秒就交給伺服器） */
 const TRY_TIMEOUT_MS = 6000;
@@ -251,11 +252,13 @@ export default {
     function paintEar(v) {
       const rows = [];
       if (v.engine) rows.push([t('ear.engine'), t(`ear.engine.${v.engine}`)]);
-      if (typeof v.onDevice === 'boolean') rows.push([t('ear.where'), t(v.onDevice ? 'ear.where.device' : 'ear.where.system')]);
+      const name = voiceT(lang)(String(v.lang || 'zh-TW').startsWith('en') ? 'lang.en' : 'lang.zh');
+      if (v.state === 'none') rows.push([t('ear.ondevice'), t(`ear.reason.${v.reason}`)]);
+      else rows.push([t('ear.ondevice'), v.state === 'unsupported' ? t('ear.ondevice.unsupported', { why: whyText(v, lang, v.lang) }) : v.state === 'downloading' && v.progress != null ? t('ear.ondevice.downloadingPct', { pct: v.progress }) : t(`ear.ondevice.${v.state}`, { lang: name })]);
       if (v.lang) rows.push([t('ear.lang'), languageNames([v.lang], lang)[0]]);
       if (v.permission) rows.push([t('ear.perm'), t(`ear.perm.${v.permission}`)]);
-      rows.push([t('model.state'), v.available ? t(voiceEnabled() ? 'status.ready' : 'status.off') : t(`ear.reason.${v.reason}`)]);
-      const lead = v.available ? t('ear.how') : v.platform === 'web' ? t('ear.none.web') : t('ear.none.app');
+      if (v.state !== 'none' && v.state !== 'unsupported') rows.push([t('model.state'), t(voiceEnabled() ? 'status.ready' : 'status.off')]); // 開關
+      const lead = v.state === 'ready' ? t('ear.how') : v.state === 'none' ? (v.platform === 'web' ? t('ear.none.web') : t(`ear.reason.${v.reason}`)) : v.state === 'unsupported' ? t('ear.none.app') : t('ear.none.download', { lang: name });
       $('#ai-ear-body').innerHTML = `<p class="note">${esc(lead)}</p><dl class="ai-dl">${rows.map(([k, x]) => `<div><dt>${esc(k)}</dt><dd>${esc(x)}</dd></div>`).join('')}</dl><p class="note ai-foot">${esc(t('ear.privacy'))}</p>`;
     }
 

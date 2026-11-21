@@ -338,6 +338,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 ## M14 阿幫聽得懂、看得懂（產品負責人，2026-11-21）
 
 - [x] M14-01 語音問阿幫（2026-11-21，UX.md §5.0.3）：原生外掛 `AbangVoice`（Android SpeechRecognizer 手機上優先、iOS SFSpeechRecognizer `requiresOnDeviceRecognition`；照實回報是不是在手機上辨識）、`public/js/voice.js` 狀態機與控制器（停頓 1.5 秒自動送出、取消、錯誤）、輸入列麥克風鍵與在聽面板（核心跟著音量）、長按中央鍵放開送出、網頁版只在能本機辨識時顯示、英文那一輪用英文、設定開關、隱私權政策、`#/ai`「聽」卡片
+- [x] M14-01a 只在手機上辨識（產品負責人 2026-11-21）：不退回系統／雲端辨識；語言包第一次按麥克風時協助下載（Android 13+，進度、準備中、到設定）；真的不支援就反白、點了說原因（iPhone 說怎麼開聽寫）；`#/ai` 照實顯示可用／下載中／不支援
 - [ ] M14-01b 實機確認：Pixel（手機上 zh-TW 語言包、音量、停頓收尾、長按中央鍵）、iPhone（權限框文字、`supportsOnDeviceRecognition`、收尾）
 
 ## 被卡住的項目（2026-11-21 彙整）
