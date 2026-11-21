@@ -168,7 +168,8 @@ async function paintMove(main, toast) {
   const v = lastNow || peekNow();
   const n = v && !v.offline ? await homeNudge({ weather: v.weather, air: v.aqi?.nearest || null, pos: v.pos || null }).catch(() => null) : null;
   if (my !== moveSeq || !main.isConnected) return;
-  renderMoveCard(box, n, { openLink: (url) => createWebHost().openLink(url), toast });
+  const host = createWebHost();
+  renderMoveCard(box, n, { openLink: (url) => host.openLink(url), openApp: (t) => host.openApp(t), toast });
 }
 const NOW_COLOR = { weather: '#0284c7', aqi: '#0d9488', reminder: '#b45309', offline: '#5d6966' };
 

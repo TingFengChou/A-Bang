@@ -357,3 +357,28 @@ test('Android 7 不閃退：外掛類別不碰 java.time 與 Health Connect（�
   assert.match(reader, /aggregateGroupByDuration/);
   assert.match(H.HEALTH_WHY.os, /Android 9 以上/);
 });
+
+test('MyDrama 運動活動頁（ADR-0019 D-05）：建議去走走、有設定連結、沒關短劇提示才給；連結從開 App 的狀態來，不帶健康資料', async () => {
+  const { dramaExercise } = await import('../public/js/health-ui.js');
+  const partner = { exercise: 'example-drama://unlock', store: { ios: 'https://example.com/i', android: null } };
+  assert.deepEqual(dramaExercise({ kind: 'go' }, { partner, hintOn: true }), { label: '看 MyDrama 活動頁', app: 'example-drama://unlock', store: partner.store });
+  assert.equal(dramaExercise({ kind: 'go' }, { partner, hintOn: true, lang: 'en' }).label, 'MyDrama activity page');
+  assert.equal(dramaExercise({ kind: 'go' }, { partner: { exercise: null }, hintOn: true }), null, '沒設定就不顯示');
+  assert.equal(dramaExercise({ kind: 'go' }, { partner: null, hintOn: true }), null);
+  assert.equal(dramaExercise({ kind: 'cheer' }, { partner, hintOn: true }), null, '只有建議去走走時');
+  assert.equal(dramaExercise({ kind: 'go' }, { partner, hintOn: false }), null, '設定關掉短劇提示就不給');
+  assert.equal(dramaExercise({ kind: 'go' }, { partner: { exercise: 'javascript://x' }, hintOn: true }), null, '不安全的連結不給');
+  // 伺服器：/api/v1/status 一律帶合作連結（跟健康狀態無關），沒設定是 null
+  const { restRoutes, partnerLinks } = await import('../server/rest.js');
+  const { createMockDramaServices } = await import('../core/services/drama-mock.js');
+  assert.deepEqual(partnerLinks(createMockDramaServices({ links: { exercise: 'example-drama://unlock' } })), { exercise: 'example-drama://unlock', store: null });
+  assert.deepEqual(partnerLinks({}), { exercise: null, store: null });
+  const { createServices } = await import('../core/index.js');
+  const st = restRoutes(createServices({ forceMock: true }))['/api/v1/status'].handler({});
+  assert.deepEqual(st.partner, { exercise: null, store: null });
+  // 開活動頁只用固定連結：health-ui 的 openApp 只帶 app 與 store
+  const src = await readFile(new URL('../public/js/health-ui.js', import.meta.url), 'utf8');
+  const calls = [...src.matchAll(/openApp\(\{([^}]*)\}\)/g)];
+  assert.equal(calls.length, 2);
+  for (const m of calls) assert.equal(m[1].replace(/\s/g, ''), 'app:drama.app,store:drama.store');
+});

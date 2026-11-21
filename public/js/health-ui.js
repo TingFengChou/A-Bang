@@ -2,9 +2,24 @@
 // 文字都在手機上組（public/js/health.js → /core/health-nudge.js）；這裡只畫，不送任何東西到伺服器。
 import { icons } from './icons.js';
 import { esc } from './ui.js';
+import { state } from './api.js';
+import { dramaHintOn } from './drama-hint.js';
+import { exerciseNudge } from '../../core/drama-say.js';
 import { healthEnabled, setHealthEnabled, healthStatus, requestHealthPermission, openHealthSettings, dismissToday, healthSummary, HEALTH_WHY, HEALTH_DENIED } from './health.js';
 
 const PRIVATE = '步數只在手機上看，不上傳';
+
+/**
+ * 建議去走走時的 MyDrama 運動活動頁（ADR-0019 D-05）：伺服器設定了連結（開 App 時查的服務狀態就帶來，不另外問），
+ * 而且你沒在設定關掉短劇提示才給；沒設定就不顯示。只開合作 App 的固定連結，不帶任何健康資料。
+ * @param {object} n 散步建議（只有 go 才給）
+ * @returns {{ label: string, app: string, store: object|null }|null}
+ */
+export function dramaExercise(n, { partner = state.partner, lang = null, hintOn = dramaHintOn() } = {}) {
+  if (n?.kind !== 'go' || !hintOn || !partner?.exercise) return null;
+  const x = exerciseNudge({ weatherOk: true, movedLittle: true, lang, link: partner.exercise });
+  return x?.cta && x.link ? { label: x.cta, app: x.link, store: partner.store || null } : null;
+}
 const PRIVATE_EN = 'Your steps stay on this phone';
 
 /**
@@ -13,9 +28,10 @@ const PRIVATE_EN = 'Your steps stay on this phone';
  * @param {object|null} n health.js homeNudge() 的結果（null＝收起）
  * @param {{ openLink: (url: string) => void, toast?: Function }} o
  */
-export function renderMoveCard(box, n, { openLink, toast } = {}) {
+export function renderMoveCard(box, n, { openLink, openApp, toast } = {}) {
   if (!box) return;
-  const sig = n ? JSON.stringify([n.kind, n.text, n.demo]) : '';
+  const drama = openApp ? dramaExercise(n) : null;
+  const sig = n ? JSON.stringify([n.kind, n.text, n.demo, drama?.app || '']) : '';
   if (box.dataset.sig === sig) return; // 一樣就不重畫（焦點不掉）
   box.dataset.sig = sig;
   if (!n) { box.replaceChildren(); box.hidden = true; return; }
@@ -26,11 +42,12 @@ export function renderMoveCard(box, n, { openLink, toast } = {}) {
     <div class="mv-t">
       <b id="mv-title">${go ? '去走走吧' : '今天達標了'}</b>
       <p>${esc(n.text)}</p>
-      <div class="mv-acts">${go && n.spot?.nav?.google ? `<button type="button" class="btn small" data-act="nav">走到${esc(n.spot.name)}</button>` : ''}<button type="button" class="btn small quiet" data-act="off">${go ? '今天不用' : '知道了'}</button></div>
+      <div class="mv-acts">${go && n.spot?.nav?.google ? `<button type="button" class="btn small" data-act="nav">走到${esc(n.spot.name)}</button>` : ''}<button type="button" class="btn small quiet" data-act="off">${go ? '今天不用' : '知道了'}</button>${drama ? `<button type="button" class="linkish mv-partner" data-act="drama">${esc(drama.label)}</button>` : ''}</div>
       <small class="mv-note">${n.demo ? '示範資料，不是你的步數・' : ''}${PRIVATE}</small>
     </div>${n.demo ? '<span class="tag demo" title="網頁版用示範健康資料">示範</span>' : ''}
   </div>`;
   box.querySelector('[data-act="nav"]')?.addEventListener('click', () => openLink?.(n.spot.nav.google)); // 官方地圖的步行導航（ADR-0011），只帶目的地
+  box.querySelector('[data-act="drama"]')?.addEventListener('click', () => openApp({ app: drama.app, store: drama.store })); // 合作 App 的固定連結，不帶健康資料
   box.querySelector('[data-act="off"]').addEventListener('click', () => {
     dismissToday();
     renderMoveCard(box, null);
@@ -43,7 +60,7 @@ export function renderMoveCard(box, n, { openLink, toast } = {}) {
  * @param {object} n health.js agentNudge() 的結果
  * @param {{ avatar: HTMLElement, lang?: string|null, openLink: Function }} o
  */
-export function healthBubble(n, { avatar, lang = null, openLink } = {}) {
+export function healthBubble(n, { avatar, lang = null, openLink, openApp } = {}) {
   const en = lang === 'en';
   const wrap = document.createElement('div');
   wrap.className = 'bubble agent health-say';
@@ -66,6 +83,12 @@ export function healthBubble(n, { avatar, lang = null, openLink } = {}) {
     const off = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small quiet', textContent: en ? 'Not today' : '今天不用' });
     off.addEventListener('click', () => { dismissToday(); acts.replaceChildren(Object.assign(document.createElement('span'), { className: 'hs-done', textContent: en ? "OK, I won't mention it again today." : '好，今天不提了，明天再說。' })); });
     acts.append(off);
+    const drama = openApp ? dramaExercise(n, { lang }) : null;
+    if (drama) {
+      const d = Object.assign(document.createElement('button'), { type: 'button', className: 'linkish hs-partner', textContent: drama.label });
+      d.addEventListener('click', () => openApp({ app: drama.app, store: drama.store })); // 合作 App 的固定連結，不帶健康資料
+      acts.append(d);
+    }
   }
   wrap.append(avatar, say, note);
   if (acts.childElementCount) wrap.append(acts);

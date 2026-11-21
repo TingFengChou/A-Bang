@@ -362,7 +362,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] D-02 工具 `drama_picks`、`drama_search`、`drama_series`（pack `drama`、L1、卡片 `drama`；JSON Schema `drama.v1.json`、字典 zh-TW／en）
 - [x] D-03 問阿幫找劇：示範意圖 `drama`（排行、類型、其他題材、劇名問劇情、沒找到改熱門、英文）；情境 D1-1～D1-8；地端模型模式由規則回答
 - [x] D-04 等車推短劇：`core/agent/wait-drama.js`、事件 `aside`、卡片下方提示（看這集／不用了）、設定頁開關（預設開）、`host.openApp`（App 連結＋商店頁備援）；一輪最多一次、≥ 5 分才推、英文不推
-- [x] D-05 運動建議提示句與連結（`core/drama-say.js` `exerciseNudge`、`svc.drama.exerciseLink()`）；**接線留給運動建議那個分支**
+- [x] D-05 運動建議提示句與連結（`core/drama-say.js` `exerciseNudge`、`svc.drama.exerciseLink()`）；2026-11-22 已在健康與運動分支接上（散步小卡與問阿幫補句的「看 MyDrama 活動頁」，連結經 `/api/v1/status` 的 `partner`，健康資料不交出去）
 - [ ] D-06 產品負責人看截圖（`test/screenshots/phone-drama-wait.png`、`phone-drama-card.png`、`desktop-drama-card.png`、`phone-drama-setting.png`）後決定合併
 - [ ] D-07 ⛔ 合作方提供 `.env`（產品負責人 2026-11-22：連結與商店網址先留空，`.env.example` 只有變數名）：`MYDRAMA_API_BASE`、`MYDRAMA_LINK_EPISODE`、`MYDRAMA_LINK_EXERCISE`、`MYDRAMA_STORE_IOS`／`ANDROID`；實機確認 App 連結與商店備援（Pixel、iPhone）
 - [x] D-09 推薦輪替（產品負責人 2026-11-22）：熱門前 5 部裡可看的，依台灣日期＋對話輪次輪替；同一輪重問同一部

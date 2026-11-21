@@ -606,7 +606,7 @@ export default {
       const fill = seen?.pos && nearMe(seen.pos, me) ? seen : null;
       const n = await agentNudge({ weather: wx.weather || fill?.weather || null, air: wx.air || fill?.aqi?.nearest || null, pos: me }, { asked }); // 公園用你的位置找
       if (!n || myGen !== gen || !turn.isConnected) return;
-      turn.append(healthBubble(n, { avatar: avatar('阿幫', 'happy', view.lang), lang: view.lang, openLink: (u) => host.openLink(u) }));
+      turn.append(healthBubble(n, { avatar: avatar('阿幫', 'happy', view.lang), lang: view.lang, openLink: (u) => host.openLink(u), openApp: (t) => host.openApp(t) }));
     }
     /** 「阿幫問你」的答案（ADR-0016）：state＝加狀態即時重算、reply＝送出完整的一句、store＝存手機並套到這一輪、action＝手機做事、dismiss＝照原本；回傳顯示在問題區塊的一句 */
     function answerAsk(o, view, lang) {

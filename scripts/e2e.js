@@ -3475,3 +3475,36 @@ test('健康與運動：隱私——打開與關掉時送到伺服器的請求�
   const strip = (b) => b.replace(/"(?:id|ts|at|requestId)":"?[\w.:-]+"?/g, '');
   assert.deepEqual(on.map((r) => strip(r.body)), off.map((r) => strip(r.body)), '內容也一樣');
 });
+
+test('健康與運動＋MyDrama：設定了運動活動頁連結時，散步小卡與問阿幫補句多一個淡色「看 MyDrama 活動頁」；沒設定不顯示；請求沒有健康資料', async () => {
+  const s = await startServer({ MYDRAMA_LINK_EXERCISE: 'example-drama://unlock' });
+  try {
+    await withPage(DEVICES.phone, '#/', async (page) => {
+      await page.clock.setFixedTime(HEALTH_TIME);
+      const bodies = postBodies(page);
+      await page.reload();
+      const card = page.locator('#move .move-card');
+      await card.waitFor({ timeout: 15000 });
+      const link = card.locator('button[data-act="drama"]');
+      await link.waitFor();
+      assert.equal(await link.textContent(), '看 MyDrama 活動頁');
+      assert.ok(await link.evaluate((n) => n.classList.contains('linkish')), '淡色次要連結');
+      await page.locator('.now').evaluate((n) => n.scrollIntoView({ block: 'start' }));
+      await page.screenshot({ path: new URL('phone-health-drama.png', SHOTS).pathname });
+      await page.goto(`${s.base}/#/agent?q=${encodeURIComponent('我要不要去運動')}`);
+      const say = page.locator('.bubble.health-say');
+      await say.waitFor({ timeout: 20000 });
+      assert.equal(await say.locator('.hs-partner').textContent(), '看 MyDrama 活動頁');
+      noHealthIn(bodies);
+    }, { origin: s.base, init: HEALTH_ON });
+  } finally {
+    s.proc.kill();
+  }
+  // 沒設定（預設伺服器）：不顯示
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.clock.setFixedTime(HEALTH_TIME);
+    await page.reload();
+    await page.locator('#move .move-card').waitFor({ timeout: 15000 });
+    assert.equal(await page.locator('#move button[data-act="drama"]').count(), 0);
+  }, { init: HEALTH_ON });
+});

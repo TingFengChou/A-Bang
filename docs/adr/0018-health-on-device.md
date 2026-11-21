@@ -25,6 +25,8 @@
    - iOS（`AbangHealthPlugin.swift`）：`HKStatisticsCollectionQuery` 每天加總，固定以 Asia/Taipei 切日；`App.entitlements`（`com.apple.developer.healthkit`）、`NSHealthShareUsageDescription`。iOS 不告訴 App 使用者有沒有允許「讀取」：問過就回 `asked`，讀不到資料時說怎麼到「健康」App 打開。
    - **免費個人開發團隊**：Apple 的免費帳號（Personal Team）可能不能簽 HealthKit capability。`scripts/ios-dev-install.js` 簽章失敗且錯誤提到 HealthKit 時，改用不含 entitlement 的建置（`CODE_SIGN_ENTITLEMENTS=`、`ABANG_HEALTHKIT=NO`）；外掛讀 Info.plist 的 `AbangHealthKit` 回 `no-entitlement`，App 裡開關反白並說原因。正式上架用付費開發者帳號就有 HealthKit。
 
+7. **MyDrama 運動活動頁**（ADR-0019 D-05，2026-11-22）：建議去走走時，若伺服器設定了活動頁連結（`svc.drama.exerciseLink()`）且使用者沒關短劇提示，多一個淡色次要連結「看 MyDrama 活動頁」。連結放在每次開 App 都會查的 `/api/v1/status`（`partner: { exercise, store }`），前端顯示時不另外問伺服器；打開只用合作 App 的固定連結，不帶任何健康資料。
+
 ## 不採用
 - **把步數（或「動得少」）當 `userState` 送給 agent、讓模型決定要不要建議**：模型轉述會比較自然，但健康資料會離開手機、進到 Anthropic 的提示；規則本來就很簡單，由手機上的程式決定即可。
 - **伺服器端新 tool（例如 `walk_spots`）查附近公園**：只在動得少時才呼叫，伺服器就能從請求推出「這個人今天動得少」。改成手機上讀整份內建地標庫。
