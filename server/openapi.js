@@ -40,13 +40,14 @@ export function buildOpenApi(svc) {
   paths['/api/v1/agent'] = {
     post: {
       tags: ['Agent'], summary: '網頁 agent（NDJSON 事件串流）', operationId: 'postAgent',
-      description: '回應 `application/x-ndjson`，每行一個事件（status、agent_note、tool_start、tool_result、discussion_end、decision、ask、guardrail、client_tool_call、text、done、error），格式見 docs/AGENT.md §3。模式：Claude／地端模型／示範（ADR-0012）。只給本站網頁使用（無 CORS）；每 IP 每分鐘與每日限流。',
+      description: '回應 `application/x-ndjson`，每行一個事件（status、agent_note、tool_start、tool_result、discussion_end、decision、ask、guardrail、client_tool_call、text、answer_draft、done、error），格式見 docs/AGENT.md §3。模式：Claude／地端模型／示範（ADR-0012）；請求帶 `clientCaps.edgeWrite` 時伺服器不呼叫模型，送 `answer_draft` 由手機寫回答（ADR-0017）。只給本站網頁使用（無 CORS）；每 IP 每分鐘與每日限流。',
       requestBody: { required: true, content: { 'application/json': { schema: {
         type: 'object', required: ['messages'],
         properties: {
           messages: { type: 'array', maxItems: 10, items: { type: 'object', required: ['role', 'content'], properties: { role: { enum: ['user', 'assistant'] }, content: { type: 'string', maxLength: 500 } } } },
           userState: { type: 'object', properties: { picked: { type: 'array', items: { enum: Object.keys(STATES) } } } },
           context: { type: 'string', maxLength: 200 },
+          clientCaps: { type: 'object', additionalProperties: false, required: ['edgeWrite', 'engine'], properties: { edgeWrite: { type: 'boolean' }, engine: { enum: ['apple', 'gemini-nano'] } }, description: '手機能自己寫回答（ADR-0017）' },
         },
         example: { messages: [{ role: 'user', content: '從西門町到台北 101 怎麼去？' }] },
       } } } },

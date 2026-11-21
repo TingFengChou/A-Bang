@@ -2102,6 +2102,119 @@ test('中央鍵拉出的底部對話面板：「阿幫在想」一樣會出現�
   }, { init: THINK_RECORDER, motion: true });
 });
 
+// ───── 回答也在手機上寫（ADR-0017）：假的 AbangEdgeAI（status 可用且支援 write、judge、write 依情境回改寫文字）─────
+// write：ok＝照草稿改寫（數字不動）；bad＝把第一個數字改掉（護欄要擋）；slow＝4 秒才回（超過 2.5 秒用程式版）
+const FAKE_EDGE_WRITE = (kind) => `window.__writes = [];
+window.Capacitor = {
+  isNativePlatform: () => true, getPlatform: () => 'android', isPluginAvailable: () => false, addListener: () => ({ remove() {} }),
+  nativePromise: (plugin, method, args) => {
+    if (plugin !== 'AbangEdgeAI') return Promise.reject(new Error('not in test'));
+    if (method === 'status') return Promise.resolve({ available: true, engine: 'gemini-nano', reason: 'ok', write: true });
+    if (method === 'judge') return Promise.resolve({ engine: 'gemini-nano', ms: 120, result: '{"intent":"trip","states":[]}' });
+    if (method === 'write') {
+      window.__writes.push(args);
+      const d = args.draft;
+      const text = ${JSON.stringify(kind)} === 'bad' ? d.replace(/\\d+/, (n) => String(Number(n) + 7)) : '報你知，' + d.replace(/^選/, '建議坐');
+      return new Promise((res) => setTimeout(() => res({ engine: 'gemini-nano', ms: 420, text }), ${kind === 'slow' ? 4000 : 400}));
+    }
+    return Promise.resolve({});
+  },
+};`;
+const agentBodies = (page) => {
+  const bodies = [];
+  page.on('request', (r) => { if (r.method() === 'POST' && r.url().endsWith('/api/v1/agent')) bodies.push(r.postDataJSON()); });
+  return bodies;
+};
+
+test('回答在手機上寫：思考動畫出現「在手機上寫回答」→ 顯示改寫後的文字與「手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答」；截圖', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = agentBodies(page);
+    await page.fill('.chat-form input', '從西門町去台北101');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    assert.deepEqual(bodies[0].clientCaps, { edgeWrite: true, engine: 'gemini-nano' });
+    const r = await page.evaluate(() => window.__think);
+    assert.ok(r.texts.some((x) => /在手機上寫回答/.test(x)), r.texts.join(' | '));
+    const w = await page.evaluate(() => window.__writes);
+    assert.equal(w.length, 1);
+    assert.match(w[0].draft, /^選「/);
+    const say = await page.textContent('.bubble.final .say');
+    assert.match(say, /^報你知，建議坐「/);
+    assert.equal(say, `報你知，${w[0].draft.replace(/^選/, '建議坐')}`);
+    assert.equal(await page.textContent('.device-line'), '手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答。', '判斷與寫回答合成一行');
+    assert.equal(await page.getAttribute('.turn', 'data-writer'), 'edge');
+    assert.match(await page.textContent('.agent-mode'), /回答在手機上寫/);
+    await page.locator('.bubble.final').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: new URL('phone-edge-write.png', SHOTS).pathname });
+    // 接著問：送伺服器的前文是程式版總結（規則路徑讀得懂「剛剛那班」），畫面上是改寫
+    await page.fill('.chat-form input', '剛剛那班還要等多久');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length >= 2, null, { timeout: 20000 });
+    const prior = bodies.at(-1).messages.find((m) => m.role === 'assistant');
+    assert.equal(prior.content, w[0].draft);
+    // 阿幫的腦袋：「寫回答」那一格記下今天寫了 2 次、通過 2／2
+    await page.goto(`${base}/#/ai`);
+    await page.waitForFunction(() => /今天在手機上寫了幾次/.test(document.querySelector('#ai-write')?.textContent || ''));
+    const card = await page.textContent('#ai-write');
+    assert.match(card, /Gemini Nano/);
+    assert.match(card, /[12] 次（只記在這支手機）/); // 第二題的程式版太長時不改寫（不算）
+    assert.match(card, /([12])／\1 次（100%）/);
+  }, { init: THINK_RECORDER + FAKE_EDGE_WRITE('ok'), motion: true, ignore: /not in test/ });
+});
+
+test('回答在手機上寫：數字被改 → 顯示程式版並標示；截圖', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.fill('.chat-form input', '從西門町去台北101');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    const w = await page.evaluate(() => window.__writes);
+    assert.equal(await page.textContent('.bubble.final .say'), w[0].draft, '用程式版總結');
+    assert.equal(await page.textContent('.device-line'), '手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（沒通過檢查）。');
+    assert.equal(await page.getAttribute('.turn', 'data-writer'), 'program');
+    assert.match(await page.textContent('.agent-mode'), /^這次的回答用阿幫的固定說法/, '頁底照實說：沒用上手機寫的');
+    await page.locator('.bubble.final').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: new URL('phone-edge-write-fallback.png', SHOTS).pathname });
+  }, { init: FAKE_EDGE_WRITE('bad'), ignore: /not in test/ });
+});
+
+test('回答在手機上寫：逾時 → 程式版；網頁版不帶 clientCaps、行為不變', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.fill('.chat-form input', '從西門町去台北101');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    const w = await page.evaluate(() => window.__writes);
+    assert.equal(await page.textContent('.bubble.final .say'), w[0].draft);
+    assert.equal(await page.textContent('.device-line'), '手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（逾時）。');
+  }, { init: FAKE_EDGE_WRITE('slow'), ignore: /not in test/ });
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = agentBodies(page);
+    await page.fill('.chat-form input', '從西門町去台北101');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    assert.ok(bodies.length && bodies.every((b) => !('clientCaps' in b)), '網頁版不帶 clientCaps');
+    assert.match(await page.textContent('.bubble.final .say'), /^選「/);
+    assert.equal(await page.locator('.device-line').count(), 0);
+    assert.match(await page.textContent('.agent-mode'), /示範模式/);
+  });
+});
+
+test('回答在手機上寫：聽不懂時不用伺服器模型，阿幫問你給幾個查得到的選項，點了就查', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = agentBodies(page);
+    await page.fill('.chat-form input', '幫我寫一首關於秋天的詩');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    const ask = page.locator('.ask');
+    assert.equal(await ask.locator('.ask-q').textContent(), '這題我查不到，要不要改查這些？');
+    assert.deepEqual(await ask.locator('.ask-opt').allTextContents(), ['怎麼去台北101', '附近公車站', '現在天氣', '發票對獎']);
+    assert.match(await page.textContent('.bubble.final .say'), /點上面一個試試看/);
+    await ask.locator('.ask-opt', { hasText: '現在天氣' }).click();
+    await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length >= 2, null, { timeout: 20000 });
+    assert.equal(bodies.at(-1).messages.at(-1).content, '現在天氣如何');
+    assert.deepEqual(bodies.at(-1).clientCaps, { edgeWrite: true, engine: 'gemini-nano' });
+  }, { init: FAKE_EDGE_WRITE('ok'), ignore: /not in test/ });
+});
+
 // ───── 阿幫會看（M14-02，ADR-0015）：假的 AbangVision 外掛（不開相機，依序回傳讀到的字或條碼）─────
 // 一般 Android 手機的樣子：讀字 ML Kit 中文、條碼 ML Kit、Gemini Nano 看圖還沒試過；語音（AbangVoice）可用，所以輸入列有相機＋麥克風；AbangSystem 只記錄被呼叫
 function fakeVision(readings) {
