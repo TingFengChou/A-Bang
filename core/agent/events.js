@@ -4,7 +4,7 @@ import { getTool } from '../tools/index.js';
 import { ASK_KINDS, ASK_ACTIONS } from './ask.js';
 import { isAppLink, isStoreLink } from '../drama-say.js';
 
-export const EVENT_TYPES = ['status', 'agent_note', 'tool_start', 'tool_result', 'data_note', 'discussion_end', 'decision', 'ask', 'aside', 'guardrail', 'client_tool_call', 'text', 'done', 'error'];
+export const EVENT_TYPES = ['status', 'agent_note', 'tool_start', 'tool_result', 'data_note', 'discussion_end', 'decision', 'ask', 'aside', 'guardrail', 'client_tool_call', 'text', 'answer_draft', 'done', 'error'];
 
 /** 小幫手角色（討論串中被 @ 點名的名字） */
 export const TOOL_ROLES = {
@@ -93,6 +93,8 @@ export const ev = {
   guardrail: ({ tier, rule, calls }) => need('guardrail', { tier, rule, ...(calls?.length && { calls: calls.map((c) => ({ label: String(c.label), tel: String(c.tel).replace(/[^0-9]/g, '') })) }) }, ['tier', 'rule']), // calls：一鍵撥號（安全情境）
   clientToolCall: ({ id, name, input = {} }) => need('client_tool_call', { id, name, input }, ['id', 'name']),
   text: (delta) => need('text', { delta: String(delta) }, ['delta']),
+  /** 回答交給手機寫（ADR-0017，請求帶 clientCaps.edgeWrite）：程式版總結＋事實清單；不送 text，手機改寫不過就照 text 顯示程式版 */
+  answerDraft: ({ text, facts, lang }) => need('answer_draft', { text: String(text), facts: facts ?? {}, lang: lang === 'en' ? 'en' : 'zh' }, ['text']),
   /** 使用者說「重來」：前面的行程不再沿用（畫面加分隔線、前面的對話變淡） */
   contextReset: () => ({ type: 'context_reset' }),
   done: (usage) => ({ type: 'done', ...(usage && { usage }) }),

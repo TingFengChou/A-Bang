@@ -14,6 +14,8 @@ import { applyOutputGuardrails } from './guardrails.js';
 import { impactOf, judgeNote, outingNote, moreStatesNote } from './impact.js';
 import { createJudge, JUDGE_INTENTS, JUDGE_STATES, DEVICE_ENGINES } from './judge.js';
 import { waitDrama } from './wait-drama.js';
+import { answerFacts } from './answer-facts.js';
+import { WRITE_AGENTS } from '../edge-write.js';
 
 /** 示範模式的規則式規劃（依 agent）：parse → steps → summary；needsLocation 只有生活 agent 用 */
 const PLANNERS = {
@@ -40,7 +42,7 @@ export function guardedText(profile, text, emit) {
 }
 import { STATES } from '../decide.js';
 import { HabitSchema } from '../tools/trip.js';
-import { tripAsk, resolvePending, PENDING_SLOTS } from './ask.js';
+import { tripAsk, resolvePending, PENDING_SLOTS, unknownAsk, UNKNOWN_SHORT } from './ask.js';
 
 /** 「你說過」的預設狀況只能是這幾種（habits.js 叫車原因） */
 export const USUAL_STATES = ['rush', 'luggage', 'lessWalk'];
@@ -78,7 +80,12 @@ const RequestSchema = z.object({
   savedPlaces: z.partialRecord(z.enum(['家', '公司', '學校']), z.object({ name: z.string().trim().min(1).max(40), lat: z.number().min(21).max(27), lon: z.number().min(118).max(123) })).optional(),
   // 手機上的模型先判斷好的意圖與狀態（ADR-0014）：只是提示，列舉值以外一律拒絕；方案排序仍由 decide.js 計分
   deviceJudge: z.object({ intent: z.enum(Object.keys(JUDGE_INTENTS)), states: z.array(z.enum(JUDGE_STATES)).max(JUDGE_STATES.length), engine: z.enum(DEVICE_ENGINES) }).optional(),
+  // 手機能自己寫回答（ADR-0017）：伺服器不呼叫模型，送程式版總結（answer_draft）由手機改寫
+  clientCaps: z.object({ edgeWrite: z.boolean(), engine: z.enum(DEVICE_ENGINES) }).strict().optional(),
 });
+
+/** 這個請求的回答要交給手機寫（只有生活 agent；防詐的固定安全句不改寫） */
+export const wantsEdgeWrite = (req, profileId = 'life') => req?.clientCaps?.edgeWrite === true && WRITE_AGENTS.includes(profileId);
 
 /** 驗證 /api/v1/agent 請求；錯誤丟 UserError（繁體中文、可行動） */
 export function validateRequest(body) {
@@ -201,9 +208,10 @@ export const judgeInfo = (j) => (j ? { intent: j.intent, source: j.source, ...(j
 /**
  * 判斷層的兩段呼叫（快速版先說聽懂了什麼、完整版定案）。帶 deviceJudge 時一起交給判斷層；
  * 伺服器沒有判斷層（JUDGE=off）但手機有判斷時，用規則＋裝置提示。只有生活 agent 用。
+ * noModel：這一輪伺服器不呼叫任何 AI 模型（手機寫回答，ADR-0017），完整版直接沿用快速版。
  * @returns {{ quick: () => Promise<object|null>, full: (q0: object|null) => Promise<object|null> } | null}
  */
-export function judgeCalls(judge, req, profile) {
+export function judgeCalls(judge, req, profile, { noModel = false } = {}) {
   if (profile.id !== 'life') return null;
   const device = req.deviceJudge;
   const J = judge || (device ? createJudge() : null);
@@ -211,7 +219,7 @@ export function judgeCalls(judge, req, profile) {
   const last = req.messages.at(-1).content, prior = priorUserTexts(req.messages), opts = device ? { device } : {};
   return {
     quick: () => (J.quick || J)(last, prior, opts).catch(() => null),
-    full: (q0) => (J.quick ? J(last, prior, opts).catch(() => q0) : Promise.resolve(q0)),
+    full: (q0) => (J.quick && !noModel ? J(last, prior, opts).catch(() => q0) : Promise.resolve(q0)), // noModel（手機寫回答，ADR-0017）：不呼叫伺服器的判斷模型，快速版（分類器＋規則＋手機判斷）就定案
   };
 }
 
@@ -226,11 +234,14 @@ function withPicked(trip, picked) {
  * @param {object} svc createServices() 的結果
  * @param {object} body /api/v1/agent 的請求（會驗證）
  * @param {(e: object) => void} emit
- * @param {{ profileId?: string, now?: number, notice?: string, mode?: 'demo'|'rules' }} [opts] notice：模型額度用完而降級時，在 status 後先說明；mode：rules＝地端模型的英文提問改由規則回答（資料照常是真的，不是示範）
+ * @param {{ profileId?: string, now?: number, notice?: string, mode?: 'demo'|'rules'|'edge' }} [opts] notice：模型額度用完而降級時，在 status 後先說明；mode：rules＝地端模型的英文提問改由規則回答（資料照常是真的，不是示範）；
+ *   edge＝回答交給手機寫（ADR-0017）：最後送 answer_draft（程式版總結＋事實清單）而不是 text
  */
 export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.now(), notice, judge, mode = 'demo' } = {}) {
   const req = validateRequest(body);
   const profile = getProfile(profileId);
+  const edgeWrite = mode === 'edge' && wantsEdgeWrite(req, profile.id);
+  if (mode === 'edge' && !edgeWrite) mode = 'demo';
   const picked = req.userState?.picked || [];
   let n = 0;
   const nextId = () => `t${++n}`;
@@ -238,7 +249,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   const last = req.messages.at(-1).content;
   let it = plan.parse(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces, now });
   // 判斷層（judge.js）：先用快速版（A＋規則，幾毫秒）說聽懂了什麼，再用完整版（含模型）定案意圖與狀態
-  const jc = judgeCalls(judge, req, profile);
+  const jc = judgeCalls(judge, req, profile, { noModel: edgeWrite });
   const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode, profile: profile.id, judge: judgeInfo(q0), lang: isEnglish(last) ? 'en' : 'zh' }));
   // 安全情境（S18）：提到自傷或正在發生的緊急狀況 → 先給求助電話，不查交通（所有 agent 都一樣）
@@ -291,6 +302,14 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
     if (out.some((o) => !o.ok)) break; // 有一步失敗就不往下，總結會說明
   }
   if (used.length) emit(ev.discussionEnd({ tools: [...new Set(used)] }));
-  emit(ev.text(guardedText(profile, plan.summary(it, results, profile.suggestions), emit)));
+  // 手機寫回答的那一輪聽不懂（ADR-0017：不退回伺服器模型）：問一句給幾個查得到的選項，回答只留一句短的
+  const lost = edgeWrite && it.intent === 'unknown' && !it.thanks && !it.sorry && !it.reset && !ask.done;
+  if (lost) { ask.done = true; emit(ev.ask({ id: `ask-${nextId()}`, ...unknownAsk(it.lang) })); } // 一輪最多一個問題
+  const summary = lost ? UNKNOWN_SHORT[it.lang === 'en' ? 'en' : 'zh'] : guardedText(profile, plan.summary(it, results, profile.suggestions), emit);
+  // 畫面靠固定字串放按鈕的回答（還沒設定常用地點：「設定與隱私 → 常用地點」）不交給手機改寫
+  if (edgeWrite && it.intent !== 'savedMissing') { // 手機改寫；程式版總結與事實清單都只來自這一輪的資料（不含座標）
+    const lang = it.lang === 'en' ? 'en' : 'zh';
+    emit(ev.answerDraft({ text: summary, facts: answerFacts(it, results, { lang }), lang }));
+  } else emit(ev.text(summary));
   emit(ev.done());
 }

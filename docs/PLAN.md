@@ -28,7 +28,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | M10 生活開放資料 | ✅（2026-11-19） | — | 空品需 `MOENV_API_KEY`、地震需 `CWA_API_KEY`（沒有時示範片段）；藥局資料沒有座標 |
 | M7 反詐騙 agent | ✅（2026-11-19；規則庫待專家審核） | — | 規則庫 `reviewedBy` 待防詐專家審核 |
 | M11 行動 App | 🚧（M11-01 殼、M11-02 本機通知、M11-03 原生相機掃發票、M11-04 啟動畫面與隱私權政策、名稱 Abang、iOS 18 深色／著色圖示、返回手勢、原生定位、鍵盤、首次使用引導、離線顯示上次資料 ✅） | M11-05 測試環境與上架 | 給別人用需 HTTPS 測試環境（M6-06）與開發者帳號；iOS 實機需 Austin 的 iPhone |
-| M12 裝置端 AI（ADR-0014） | 🚧 第一階段 ✅（2026-11-21：Gemini Nano 實機、Apple Intelligence 模擬器、E8 設定開關 ✅） | E3 App 內分類器備援、E7 手機上轉述 | iOS 實機數據需 iPhone 15 Pro 以上並開啟 Apple Intelligence |
+| M12 裝置端 AI（ADR-0014） | 🚧 第一階段 ✅（2026-11-21：Gemini Nano 實機、Apple Intelligence 模擬器、E8 設定開關 ✅；E7 回答也在手機上寫 ✅ ADR-0017） | E3 App 內分類器備援 | iOS 實機數據需 iPhone 15 Pro 以上並開啟 Apple Intelligence |
 | 阿幫常駐與頁面質感（Austin 2026-11-21） | ✅（PR #69～#81：對話保留、浮動阿幫、提醒泡泡、知道你在哪一頁、App 重開後上次的對話、公車會動、格子頁首動畫、各頁小巧思兩批、英文其餘、Android 實機煙霧測試） | — | — |
 | Agent 聰明度：模型模式與 PM 第二批（2026-11-21） | ✅（PR #79、#82：地端模型模式 72→97／99；PM P2-1～10 全過） | PM 第三批 | — |
 | M13 Agent 聰明度（PM 情境 S1～S19） | 🚧（情境集 89 個、todo 0：位置當起點、接著改、新狀態、出門建議、明天天氣、末班車、捷運轉乘、高鐵台鐵最近站、英文與卡片／討論串／決策圖英文、常用地點、多人同行／可能下雨／時間很緊、出門建議小卡、出門提醒多筆、附近藥局依位置、公車一直不來、下車提醒、安全情境（求助電話）、常用地點用地名設定、定位失敗說原因、行程中模式 ✅） | S12f 英文其餘、E3／E7 | 真實末班車、捷運路網需 TDX 金鑰 |
@@ -47,7 +47,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | 行程中模式第二版 | Doze 備援通知、鎖定畫面倒數（Live Activity／持續通知） |
 | 油價週漲跌 | 需要上週牌價資料 |
 | S12g 英文 | 更多英文地名 |
-| E3／E7 裝置端 AI | App 內分類器備援；手機上轉述 |
+| E3 裝置端 AI | App 內分類器備援（E7 手機上寫回答 ✅ ADR-0017） |
 | T8c iOS 煙霧測試 | simctl＋Web Inspector 或 XCUITest（不在 CI） |
 | S1d 本機資料改存 Capacitor Preferences | 新依賴，要先寫 ADR |
 | S1e 常用地點用門牌地址 | 需要地址轉座標資料來源（例如 TGOS），先評估 |
@@ -267,7 +267,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] E5 Android Gemini Nano（ML Kit GenAI Prompt API）：Pixel 11 Pro XL 實機意圖 90.1%、p50 約 270 ms；只在 Wi-Fi 下載模型（新依賴 `com.google.mlkit:genai-prompt`：依 Austin 2026-11-21「edge ai 盡量開發」加入，正式上架前請 Austin 再確認授權條款）
 - [x] E6 實機評測 `scripts/eval-edge.js`、組合分數 `eval-edge-combo.js`（A＋規則＋Gemini Nano 全對 89.0%，`docs/research/edge-eval.md`）
 - [ ] E3 App 內 transformers.js 分類器（第三層備援）
-- [ ] E7 手機上轉述（伺服器沒有模型時仍能完整回答）
+- [x] E7 回答也在手機上寫（ADR-0017，2026-11-21）：手機支援時伺服器不呼叫任何 AI 模型（`clientCaps.edgeWrite` → `answer_draft`），`AbangEdgeAI.write`（Gemini Nano／Apple Intelligence）改寫程式版總結，程式護欄 `core/edge-write.js` 檢查數字、時間、ADR-0011；防詐不改寫；設定開關、`#/ai`「寫回答」、思考動畫「在手機上寫回答」（實機改寫品質與通過率待 Pixel／iPhone 量）
 - [x] E8 設定頁可關閉裝置端 AI、顯示模型狀態（下載中、需要 Wi-Fi…）、隱私權政策說明（2026-11-21）
 - [x] E9 阿幫的腦袋 `#/ai`：核心動畫、系統回報的模型資訊（外掛 `status()` 擴充）、現場試判斷、資料怎麼走（2026-11-21；實機欄位待 Pixel／iPhone 確認，首頁「手機上的 AI」狀態列入口另一個分支接）
 

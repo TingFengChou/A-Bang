@@ -14,11 +14,18 @@
 ---
 
 ## 2026-11-22 D-01～D-05 阿幫・短劇（MyDrama，ADR-0019）
-- 做了：第一個非政府開放資料的內容合作來源。`core/services/drama.js`（公開讀取端點：排行、搜尋、單劇、簡介、熱搜；網址、App 連結範本、商店頁只在 `.env`；防禦解析、正規化成阿幫欄位、限制級不列、404／410 轉 UserError、上游錯誤不含網址；快取排行／搜尋 10 分、單劇 1 小時）＋`drama-mock.js`（虛構示範片庫，同一套解析）。工具 `drama_picks`／`drama_search`／`drama_series`（pack `drama`、L1、卡片 `drama`）。找劇意圖（排行、類型、其他題材、《劇名》劇情、沒找到改熱門、英文）。等車推短劇：`execTools` 在到站結果後算在站牌要等幾分（公車扣走過去的時間、捷運最快一班），≥ 5 分、< 40 分從熱門前 5 部可從第 1 集看的裡依台灣日期＋對話輪次輪替推一部（產品負責人定案），新事件 `aside` 接在卡片下方（看這集／不用了），一輪一次、設定可關、英文不推、1.5 秒拿不到劇就不提。`host.openApp`：先開 App，1.6 秒沒離開畫面開商店頁；連結在伺服器、事件、前端三處檢查。運動解鎖：`exerciseNudge` 句子與 `exerciseLink()`，接線留給運動建議分支。SW v1.0.0-drama。
+- 做了：第一個非政府開放資料的內容合作來源。`core/services/drama.js`（公開讀取端點：排行、搜尋、單劇、簡介、熱搜；網址、App 連結範本、商店頁只在 `.env`；防禦解析、正規化成阿幫欄位、限制級不列、404／410 轉 UserError、上游錯誤不含網址；快取排行／搜尋 10 分、單劇 1 小時）＋`drama-mock.js`（虛構示範片庫，同一套解析）。工具 `drama_picks`／`drama_search`／`drama_series`（pack `drama`、L1、卡片 `drama`）。找劇意圖（排行、類型、其他題材、《劇名》劇情、沒找到改熱門、英文）。等車推短劇：`execTools` 在到站結果後算在站牌要等幾分（公車扣走過去的時間、捷運最快一班），≥ 5 分、< 40 分從熱門前 5 部可從第 1 集看的裡依台灣日期＋對話輪次輪替推一部（產品負責人定案），新事件 `aside` 接在卡片下方（看這集／不用了），一輪一次、設定可關、英文不推、1.5 秒拿不到劇就不提。`host.openApp`：先開 App，1.6 秒沒離開畫面開商店頁；連結在伺服器、事件、前端三處檢查。運動解鎖：`exerciseNudge` 句子與 `exerciseLink()`，接線留給運動建議分支。合併主線（#107、#108）後事件型別同時有 ask、answer_draft、aside；手機寫回答的工具包加 drama。SW v1.0.6。
 - 測試：npm test 新增 drama.test.js 16 項（含 repo 不含 MyDrama 網址的掃描）、契約 5 項、情境 8 個；既有測試更新工具數、事件數、資料來源。E2E 新增 4 項（等公車出現短劇提示＋設定關掉、手機與桌面短劇卡片、甜寵搜尋與劇情簡介）
 - 文件：ADR-0019；MCP_TOOLS.md、CARDS.md、AGENT.md §3.1／§5.4、UX.md §5.0.5、DATA_SOURCES.md §5.4、PLAN.md、README、.env.example
 - 下一個：產品負責人看截圖（D-06）；公司提供 `.env`（D-07）
 - 卡住：真實片庫與 App 連結需要 `MYDRAMA_*`；公開端點沒有每集長度（D-08）
+
+## 2026-11-22 M12-E7 審查修正：回答也在手機上寫（PR #108 獨立審查）
+- 做了：程式護欄改成比對「數字＋單位」（同義單位正規化），其他方案的數字只能用在提到它的那一句，關鍵數字順序要一樣；國字（一小時、半小時、一一九、八成、八點）、英文數量（two-minute、one hour、dozen、eighty）、時段（早上…）擋下；ADR-0011 代辦說法（已幫你安排／預約、司機已在路上、已幫你設好提醒、Your Uber is on its way）；L2 輸出護欄直接重用（規則本體搬到 `core/output-guards.js`，`guardrails.js` 改為重新匯出，前端以 /core/ 取得）；提醒或數字前加否定（不用帶傘、不是末班、不用打 119）；沒加引號的站名路名、裸網域、markdown 連結。多輪：送伺服器的前文用程式版總結（畫面顯示改寫）。「聽不懂」與 reply 選項只接受全字相符。上一題還在寫回 busy、逾時 5 秒後強制放掉；給模型的事實帶鍵名與單位、不截掉其他方案；常用地點沒設定那一輪不改寫；原生 write() 輸入超過 4000 字拒絕；頁底照實說、「今天寫了幾次」只算通過的、聽不懂的問句也檢查一輪只問一個。順手修 test/en-notes.test.js 的時間相依（固定時間）。
+- 測試：npm test、npm run e2e 全過（test/edge-write.test.js 新增審查案例 9 項；E2E 加接著問的前文檢查、頁底說明）
+- 文件：ADR-0017（護欄細節與限制照實寫）、AGENT.md §3.5、PROGRESS.md
+- 下一個：實機量 Gemini Nano／Apple Intelligence 的通過率（規則變嚴，預期通過率下降，看實機數據再調）
+- 卡住：無
 
 ## 2026-11-21 R1 判斷看得到：討論串與決策圖逐項說明天氣、空品、路況怎麼影響建議
 - 做了：`core/services/trip-considered.js`：`plan_trip` 輸出 `considered`（天氣、空品、國道路況各一筆：值、資料一句、影響一句、`effect`＝none／score／自動狀態 key、查不到、示範標記）與 `single`（只有一種方式時，依各方式沒列出的原因組說明＋建議）。`execTools` 在行程結論前送三個 `data_note`（新事件；示範與模型模式相同，不經模型），前端以工具發言樣式排在行程發言前面，示範模式另外查過的角色不重複。決策圖資料欄改用 `decision.considered`：每個來源一個節點、帶值與影響，不影響與查不到淡色、不標成勝出關鍵。最近的空品測站超過 25 公里不採用（之前墾丁會拿台中大里測站判斷）；另外查的 `aqi_nearby` 影響也一樣。只有一種方式：`speak`「只找到叫車一種方式」、討論串影響與示範總結說原因（太遠、附近沒有站、幾點以後沒有趕得上的班次、示範資料是模擬的），「接下來可以」給「改成明天早上出發」「改從台北車站出發比較看看」。模型看到的工具文字多「判斷用到的資料」「只有一種方式」兩行。合併主線（#101～#105）後：TDX 額度用完改用示範資料時，路況那一行標示範並說明。審查修正：建議 chip 帶著使用者說的起點；只有一種方式的說明看這次有沒有 TDX fallback（`currentFallback()`）；data_note 去重改在 tool_start 記角色（工具平行時天氣可能晚到）。SW v0.9.9。
@@ -27,6 +34,14 @@
 - 文件：AGENT.md §3.1、§5.2.10b；UX.md §4、§5；MCP_TOOLS.md plan_trip 7.1；ADR-0009 補充；PLAN.md R1；PROGRESS.md
 - 下一個：「阿幫問你」合進來後，single.suggest 改用它
 - 卡住：無
+
+## 2026-11-21 M12-E7 回答也在手機上寫（ADR-0017）
+- 做了：手機 App 的系統模型可用、外掛回 `write: true`、開關開著時，請求帶 `clientCaps: { edgeWrite, engine }`（zod strict）；伺服器不論 Claude／地端設定都不呼叫任何 AI 模型（判斷層只用快速版），走規則路徑查資料、`decide.js` 計分，送 `answer_draft { text: 程式版總結, facts: 事實清單（不含座標與起訖點）, lang }` 取代 `text`，`status.mode = 'edge'`。外掛 `AbangEdgeAI.write`：Android ML Kit GenAI Prompt API（Gemini Nano）、iOS Foundation Models（Apple Intelligence），原生 2.3 秒取消、JS 等 2.5 秒。程式護欄 `core/edge-write.js`（`checkRewrite`，經 `/core/` 給前端）：數字與時間只能來自草稿或事實清單、關鍵數字不能少、國字／英文數量、ADR-0011「已幫你叫好／訂好／付款」、投資建議、重要提醒（示範、末班…）、引號名稱、語言、長度；不過、逾時、失敗、草稿太長 → 程式版。防詐不改寫、安全情境照舊。畫面：思考動畫「在手機上寫回答」、回答上方合成一行（「手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答。」／只有寫回答「這次的回答由手機上的 Gemini Nano 寫。」／「手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（沒通過檢查／逾時）。」，產品負責人決定）、設定頁開關「回答也在手機上寫」（預設開）與隱私權政策、`#/ai`「寫回答」一格（引擎、今天幾次、上次多久、通過比例，只存手機）。sw.js `v0.9.9-write`。
+- 測試：npm test 739 項全過（新增 test/edge-write.test.js 17 項）；npm run e2e 98 項全過（新增 3 項，截圖 phone-edge-write.png、phone-edge-write-fallback.png）；Android assembleDebug、iOS xcodebuild（不簽署）編譯成功
+- 文件：ADR-0017（新）、adr/README.md、ADR-0014、AGENT.md §3.1／§3.5／§7、UX.md §5.0.2、PLAN.md、CLAUDE.md
+- 合主線（阿幫問你 #107）後：edge 模式聽不懂時改用 `ask` 給 4 個查得到的選項（`unknownAsk`，產品負責人：edge 模式一律不用伺服器模型）；sw.js `v1.0.1`
+- 下一個：實機量 Gemini Nano／Apple Intelligence 的改寫通過率與延遲
+- 卡住：實機（Pixel、iPhone 15 Pro 以上）改寫品質待 Austin 確認
 
 ## 2026-11-21 真實資料接上：TDX、氣象署、環境部金鑰；TDX 頻率限制
 - 做了：Austin 申請並放好 TDX、氣象署、環境部金鑰（只在 .env），交通、天氣、空品、地震都變成即時資料。實測 TDX 新帳號在「加值應用」審核前每分鐘只有 5 次（429），行程比較會連續呼叫而失敗：tdx-client 加請求排隊（同時 3 個、間隔 220ms）、429 時照 Retry-After 重試一次；Austin 決定先不申請加值應用，所以額度用完時這一次改用示範資料（`withTdxFallback`，結果標示範並說明），不讓查詢失敗。

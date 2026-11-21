@@ -5,6 +5,7 @@ import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
 import { runAgent, browserLocation, locationGranted } from '../agent/client.js';
 import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-help.js';
 import { edgeJudge, edgePrewarm } from '../edge-judge.js';
+import { edgeWrite, edgeWriteCaps, writeLine, writeModeText } from '../edge-write.js';
 import { noteAgentStatus } from '../ai-info.js';
 import { mountThinking, deviceLine } from '../agent/thinking.js';
 import { mountVoiceUI } from '../agent/voice-ui.js';
@@ -217,6 +218,7 @@ export default {
       local: (m) => `由地端模型（${m}）回答；對話只送到本站設定的模型伺服器。`,
       demo: () => '示範模式：規則式回答，不經 AI 模型。',
       rules: () => '這題由內建規則回答（英文提問、油價發票股市地震這類查數字的，地端模型還不穩）；資料照常是即時的。',
+      edge: () => '回答在手機上寫；伺服器只查資料、用程式排序，不經伺服器的 AI 模型。', // ADR-0017
     };
     // 裝置端 AI（ADR-0014）：在手機上判斷時，說明多一句（判斷不離開手機的模型，只送結果）
     // 頁底只說由誰回答；手機上的 AI 有沒有被採用寫在那一輪的回答上方（deviceLine，跟著那一輪的語言；不在兩處重複）
@@ -313,13 +315,15 @@ export default {
       try {
         // 手機 App：先在裝置上判斷意圖與狀態（最多等 1.8 秒；不可用就不帶，伺服器照常判斷）
         const deviceJudge = agentId === 'life' ? await edgeJudge(q, history.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content)) : null;
+        const clientCaps = agentId === 'life' ? await edgeWriteCaps() : null; // 回答也在手機上寫（ADR-0017）：伺服器不呼叫模型
+        view.writeEngine = clientCaps?.engine;
         view.device(deviceJudge); // 「阿幫在想」：手機上聽懂了什麼（沒有就改由伺服器判斷）
         // 常用地點：只送這段對話提到的（「回家」才送家）
         const savedPlaces = agentId === 'life' ? placesFor(history.slice(-10).filter((m) => m.role === 'user').map((m) => m.content)) : undefined;
         const ctxText = [context, pageContext].filter(Boolean).join('；').slice(0, 200);
         const habitState = agentId === 'life' ? habitRequest() : null; // 同意過的偏好比例、說過的預設狀況、可以問的候選（只有方式與次數；habits.js）
         const userState = agentId === 'life' && !dramaHintOn() ? { ...habitState, dramaHint: false } : habitState; // 設定關掉等車推短劇：伺服器就不查也不推（ADR-0019）
-        await runAgent({ messages: history.slice(-10), ...(ctxText && { context: ctxText }), ...(deviceJudge && { deviceJudge }), ...(savedPlaces && { savedPlaces }), ...(userState && { userState }), ...(pendingAsk && { pendingAsk }) }, (e) => {
+        await runAgent({ messages: history.slice(-10), ...(ctxText && { context: ctxText }), ...(deviceJudge && { deviceJudge }), ...(clientCaps && { clientCaps }), ...(savedPlaces && { savedPlaces }), ...(userState && { userState }), ...(pendingAsk && { pendingAsk }) }, (e) => {
           // 隱私：防詐頁貼上的內容只送給本站伺服器分析，不保存（AGENT_ANTIFRAUD.md §1）
           if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = modeText(e);
           if (e.type === 'status' && agentId === 'life') noteAgentStatus(e); // 「阿幫的腦袋」（#/ai）顯示最近一輪由誰回答、誰先聽懂（只記模式與來源，不含內容）
@@ -327,7 +331,7 @@ export default {
         }, { agentId });
         await view.flush();
         if (myGen !== gen) return; // 回答途中按了清除本機資料：不寫回、不存
-        if (view.text) history.push({ role: 'assistant', content: view.text.slice(0, 500) });
+        if (view.text) history.push({ role: 'assistant', content: (view.draft ?? view.text).slice(0, 500) }); // 手機改寫的那一輪：前文用程式版（規則路徑讀得到「剛剛那班」「沒拿到你的位置」），畫面顯示改寫
         if (agentId === 'life') saveChat(history); // 只存文字（chat-store.js）
         showNext(view);
       } catch {
@@ -526,10 +530,19 @@ export default {
           case 'guardrail': // 安全情境（S18）：求助電話做成一鍵撥號，接在回答下面
             if (e.calls?.length) view.calls = e.calls;
             break;
+          case 'answer_draft': { // 回答交給手機寫（ADR-0017）：改寫、程式護欄檢查；不過或逾時用程式版，回答上方照實說是誰寫的
+            const r = await edgeWrite(e, { engine: view.writeEngine, agent: agentId });
+            view.writeLine = writeLine(r, turnLang, { judged: view.judge?.source === 'device', judgeEngine: view.judge?.engine }); // 手機判斷與寫回答合成一行
+            view.draft = e.text;
+            modeLine.textContent = writeModeText(r);
+            turn.dataset.writer = r.by;
+            await handle({ type: 'text', delta: r.text });
+            break;
+          }
           case 'text':
             if (!textEl) {
-              // 這一輪手機上的 AI 有判斷：回答上方照實說伺服器有沒有採用
-              const line = deviceLine({ sent: view.sent, judge: view.judge }, turnLang);
+              // 這一輪手機上的 AI 有判斷：回答上方照實說伺服器有沒有採用；回答是手機寫的就說是誰寫的
+              const line = view.writeLine || deviceLine({ sent: view.sent, judge: view.judge }, turnLang);
               if (line) turn.append(el('p', 'device-line', line));
               textEl = el('div', 'bubble agent final', avatar('阿幫', 'happy', turnLang), el('div', 'say')); turn.append(textEl);
             }

@@ -71,8 +71,11 @@ test('每個英文回報都能用工具的實際輸出算出來（不丟錯、�
   assert.match(speakEn('metro_live_board', { station: '台北車站', nearest: { from: '西門町', distanceM: 1200 }, trains: [] }), /Nearest MRT station to 西門町 is 台北車站 \(1\.2 km\)/);
   assert.match(speakEn('metro_live_board', { station: '台北車站', nearest: { distanceM: 800 }, trains: [{ etaMin: 3, destination: '南港展覽館' }] }), /to you is 台北車站 \(800 m\): next train to 南港展覽館 in 3 min/);
   // 高鐵：今天都開走了、別天
-  const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
-  assert.match(speakEn('thsr_timetable', { date: today, from: '台北', to: '左營', trains: [{ depart: '00:00', arrive: '01:30' }] }), /All of today's trains have left \(last at 00:00\)/);
+  const realNow = Date.now; // 固定在台灣時間中午（原本用現在時間，00:00 那一分鐘會失敗）
+  Date.now = () => Date.parse('2026-11-18T12:00:00+08:00');
+  try {
+    assert.match(speakEn('thsr_timetable', { date: '2026-11-18', from: '台北', to: '左營', trains: [{ depart: '00:00', arrive: '01:30' }] }), /All of today's trains have left \(last at 00:00\)/);
+  } finally { Date.now = realNow; }
   assert.match(speakEn('thsr_timetable', { date: '2030-01-05', from: '台北', to: '左營', trains: [{ depart: '06:15', arrive: '07:50' }] }), /1 train on Sat, Jan 5; first leaves 06:15/);
   // 路況：市區短程、塞車
   assert.match(speakEn('traffic_status', { covered: false, straightKm: 3 }), /Short trip/);
