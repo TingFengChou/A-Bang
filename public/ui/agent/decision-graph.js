@@ -149,12 +149,15 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
 
   let last = null;
   let loops = [];
-  const stopLoops = () => { loops.forEach((t) => t.kill?.()); loops = []; };
+  const stopLoops = () => { loops.forEach((t) => t.kill?.()); loops = []; root.querySelectorAll('.dg-flow-dot').forEach((d) => d.remove()); };
+  let paused = false, settled = false; // 長對話：收起的那一輪停掉光點（collapse.js），展開再開始
 
   /** 決定後的狀態：吉祥物換開心、勝出路徑虛線流動＋光點持續沿勝出連線流向方案 */
   function settle() {
+    settled = true;
     root.querySelector('.dg-mascot')?.setAttribute('href', '/brand/abang-happy.svg');
     root.querySelectorAll('.dg-edge.win').forEach((e) => e.classList.add('flow'));
+    if (paused) return;
     const g = motion();
     const winEdge = root.querySelector('.dg-out-edge.win');
     const svgEl = root.querySelector('.dg-svg');
@@ -440,6 +443,9 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
   const played = intro();
   return {
     states: () => states, redraw: draw, played,
+    /** 收起（長對話）：停掉持續的光點；CSS 的流動在 display:none 時本來就不跑 */
+    pause() { paused = true; stopLoops(); },
+    resume() { if (!paused) return; paused = false; if (settled) { stopLoops(); settle(); } },
     /** 阿幫問你（ADR-0016）的答案套到這一輪：加一個狀態（kind state＝你選的；說過的預設狀況＝你說過）後即時重算 */
     addState(key, source = 'picked') {
       states = states.some((s) => s.key === key) ? states.map((s) => (s.key === key ? { ...s, on: true } : s)) : [...states, { key, source, on: true }];
