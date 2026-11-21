@@ -1,6 +1,7 @@
 // 捷運服務（真實 TDX 版）：車站清單與即時到站看板（docs/MCP_TOOLS.md §5）
 // ⚠️ 端點與欄位待 M1 驗證：欄位依 TDX Swagger 防禦性解析；北捷看板資料有限，空資料時回傳空 trains。
 import { UserError, normName, zh, enField, arr, odataStr as q } from '../util.js';
+import { metroLineColor } from '../metro-colors.js';
 
 /** 支援的捷運系統（TDX Operator 代碼） */
 export const METRO_SYSTEMS = {
@@ -75,6 +76,7 @@ export function createMetroServices(tdx) {
         return {
           line: zh(r.LineName) || r.LineID || r.LineNO || '', ...enField('lineEn', r.LineName),
           lineId: r.LineID || r.LineNO || null,
+          ...(metroLineColor(op, r.LineID || r.LineNO) && { lineColor: metroLineColor(op, r.LineID || r.LineNO) }), // 路線代表色（色條）
           destination: zh(r.DestinationStationName) || zh(r.TripHeadSign) || '', ...enField('destinationEn', r.DestinationStationName),
           etaMin, status: metroStatusText(etaMin),
         };

@@ -11,6 +11,7 @@ import { resumeAlight } from './alight.js';
 import { mountTripBar } from './trip-bar.js';
 import { detachMain, attachMain, mountFab, syncFab, abangSays } from './abang-dock.js';
 import { pageHero } from './page-hero.js';
+import { miniApps } from './registry.js';
 import home from './pages/home.js';
 import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
@@ -103,7 +104,23 @@ function resolve() {
   return { path, query, page, params };
 }
 
+// 從格子點進去的頁面回到首頁：圖示從頁首飛回格子（View Transitions；換頁前先拍舊畫面）
+let heroNow = null;
 function navigate() {
+  const back = heroNow && resolve().page === home && typeof document.startViewTransition === 'function' && !matchMedia('(prefers-reduced-motion: reduce)').matches && !document.documentElement.classList.contains('lite-motion');
+  if (!back) { render(); return; }
+  const id = heroNow;
+  let ic = null;
+  const vt = document.startViewTransition(() => {
+    render();
+    const a = miniApps.find((x) => x.id === id);
+    ic = a && document.querySelector(`#main a.tile[href="${a.route}"] .ic`);
+    if (ic) ic.style.viewTransitionName = 'ph-token'; // 新畫面裡同名的是那個格子的圖示
+  });
+  vt.finished.finally(() => { if (ic) ic.style.viewTransitionName = ''; }); // 飛完拿掉（同名只能有一個）
+}
+
+function render() {
   cleanups.forEach((f) => f()); cleanups = [];
   state.staleAt = null; // 舊資料標示只屬於那一頁；新頁面查詢失敗會再標
   const { path, query, page, params } = resolve();
@@ -120,6 +137,7 @@ function navigate() {
   const heroId = page.hero?.({ params, query });
   const hero = heroId && pageHero(heroId);
   $('pagehero').replaceChildren(...(hero ? [hero] : []));
+  heroNow = hero ? heroId : null;
   const main = $('main');
   detachMain(); // 問阿幫的對話不清掉：先收起來，回來原樣接上
   main.innerHTML = '';

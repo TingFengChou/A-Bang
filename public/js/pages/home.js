@@ -35,6 +35,7 @@ export default {
     main.querySelectorAll('a.tile').forEach((a) => a.addEventListener('click', (e) => {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || !canMorph()) return;
       e.preventDefault();
+      main.querySelectorAll('.tile .ic').forEach((x) => { x.style.viewTransitionName = ''; });
       a.querySelector('.ic').style.viewTransitionName = 'ph-token';
       dispatchEvent(new CustomEvent('abang:go', { detail: { hash: a.getAttribute('href') } }));
     }));

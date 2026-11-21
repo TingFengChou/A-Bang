@@ -16,6 +16,13 @@ const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: re
 
 const CITY_CHIPS = [['Taipei', '臺北'], ['NewTaipei', '新北'], ['Taoyuan', '桃園'], ['Taichung', '臺中'], ['Tainan', '臺南'], ['Kaohsiung', '高雄'], ['Keelung', '基隆'], ['Hsinchu', '新竹']];
 const REFRESH = 20000;
+const cityName = (c) => CITY_CHIPS.find(([v]) => v === c)?.[1] || '';
+/** 記下最近查過的路線（最多 6 條，最新的在前；偏好 pref:bus:recent） */
+export function rememberRoute(city, route, list = prefs.get('bus:recent', [])) {
+  const next = [{ city, route }, ...list.filter((r) => !(r.city === city && r.route === route))].slice(0, 6);
+  prefs.set('bus:recent', next);
+  return next;
+}
 
 function starAction(setAction, toast, item) {
   const draw = () => setAction(favs.has(item.id) ? icons.starFill : icons.star, () => {
@@ -45,7 +52,13 @@ export const busSearch = {
 
     async function search() {
       const q = main.querySelector('[name=q]').value.trim();
-      if (!q) return (res.innerHTML = empty('輸入路線號碼開始查詢'));
+      if (!q) { // 沒輸入：最近查過的路線（只存在這支手機）
+        const recent = prefs.get('bus:recent', []);
+        res.innerHTML = recent.length
+          ? `<div class="section-title"><h2>最近查過</h2></div><div class="chips recent">${recent.map((r) => `<a class="chip" href="#/bus/${encodeURIComponent(r.city)}/${encodeURIComponent(r.route)}">${esc(r.route)}<small>${esc(cityName(r.city))}</small></a>`).join('')}</div>`
+          : empty('輸入路線號碼開始查詢');
+        return;
+      }
       res.innerHTML = loading();
       try {
         const rows = await api.busRoutes(city, q);
@@ -85,6 +98,7 @@ export const busRoute = {
   render({ main, params: [city, route], query = {}, setTitle, setAction, toast, onCleanup }) {
     route = decodeURIComponent(route);
     setTitle(`${route} 公車`);
+    rememberRoute(city, route);
     starAction(setAction, toast, { id: `route:${city}:${route}`, type: 'route', title: `${route} 公車`, sub: '路線', href: location.hash.split('?')[0] });
     // ?stop=&dir=：問阿幫選公車後「開公車頁看動態」帶來的上車站（L-14）；也可以在時間軸點站名設定（到站提醒、下車提醒都從這裡開始）
     let myStop = query.stop || null;
