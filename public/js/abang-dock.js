@@ -4,6 +4,8 @@
 // 3. 提醒與互動：到站、下車、公車一直不來時，浮動阿幫冒出對話泡泡（點了打開對話），同一句也記在對話裡。
 // 只存在這次開著的 App／分頁裡（記憶體），不寫到手機或伺服器。
 
+import { shellT, currentShellLang } from './shell-i18n.js';
+
 /** @type {Map<string, { root: HTMLElement, api: { show?: Function, say?: Function, focus?: Function }, title: string, scrollY: number }>} */
 const alive = new Map();
 let current = null; // 目前接在 #main 上的那一個（key）
@@ -84,12 +86,15 @@ function onSheetClosed() {
   quiet = false;
   syncDot();
 }
-const syncDot = () => {
+/** 浮動阿幫的小點與讀屏標籤（外殼語言跟著目前頁面，shell-i18n.js） */
+export function syncFabLabel() {
   if (!fab) return;
   const has = !!keptIf('agent')?.api.hasChat?.();
   fab.classList.toggle('has-chat', has);
-  fab.setAttribute('aria-label', has ? '打開跟阿幫的對話（對話還在）' : '問阿幫');
-};
+  fab.setAttribute('aria-label', shellT(currentShellLang())(has ? 'fabChat' : 'fab'));
+  if (currentShellLang() === 'en' && document.documentElement.lang !== 'en') fab.setAttribute('lang', 'en'); else fab.removeAttribute('lang');
+}
+const syncDot = syncFabLabel;
 
 function hideBubble() { clearTimeout(bubbleTimer); if (bubble) { bubble.hidden = true; bubble.replaceChildren(); } }
 /** 泡泡自動收起（手指或焦點在泡泡上時不收，WCAG 2.2.1） */
@@ -106,22 +111,23 @@ export function abangSays(text, action = null) {
   if (onAgentPage() || !fab || fab.hidden || kbOpen()) return false; // 看不到浮動阿幫（防詐頁、打字中）：交給提示
   clearTimeout(bubbleTimer);
   bubble.replaceChildren();
+  const t = shellT(/[一-鿿]/.test(String(text)) ? null : currentShellLang()); // 提醒本文是中文就整個泡泡用中文（不混「Abang: 中文」）
   const p = document.createElement('p');
   p.textContent = text;
   bubble.append(p);
   const row = document.createElement('div');
   row.className = 'fab-bubble-acts';
   if (action?.ask) {
-    const b = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small', textContent: action.label || '問阿幫' });
+    const b = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small', textContent: action.label || t('bubbleAsk') });
     b.addEventListener('click', () => { openSheet(); const api = keptIf('agent')?.api; api?.setPage?.(null); api?.ask?.(action.ask); }); // 提醒的問題跟現在這一頁無關：不帶頁面
     row.append(b);
   }
-  const close = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small quiet', textContent: '知道了' });
+  const close = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small quiet', textContent: t('bubbleOk') });
   close.addEventListener('click', hideBubble);
   row.append(close);
   bubble.append(row);
   bubble.hidden = false;
-  if (live) { live.textContent = ''; setTimeout(() => { live.textContent = `阿幫：${text}`; }, 50); } // 讀屏：常駐的即時區域只放文字
+  if (live) { live.textContent = ''; setTimeout(() => { live.textContent = t('liveSays', { text }); }, 50); } // 讀屏：常駐的即時區域只放文字
   fab.classList.remove('nudge'); void fab.offsetWidth; fab.classList.add('nudge'); // 藍鵲跳一下
   armHide();
   return true;

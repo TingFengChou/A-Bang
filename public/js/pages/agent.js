@@ -353,7 +353,10 @@ export default {
         switch (e.type) {
           case 'status':
             turn.dataset.mode = e.mode;
-            if (e.lang) { turnLang = e.lang === 'en' ? 'en' : null; view.lang = turnLang; } // 伺服器說這一輪用哪種語言（S12g）；送出前的猜測只用在「討論中」等第一個畫面
+            if (e.lang) {
+              turnLang = e.lang === 'en' ? 'en' : null; view.lang = turnLang; // 伺服器說這一輪用哪種語言（S12g）；送出前的猜測只用在「討論中」等第一個畫面
+              if (agentId === 'life') window.dispatchEvent(new CustomEvent('abang:agent-lang', { detail: { lang: turnLang } })); // 外殼（分頁列、浮動阿幫、<html lang>）跟著最近一輪的語言（app.js）
+            }
             break;
           case 'agent_note':
             await gap();

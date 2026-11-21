@@ -9,7 +9,8 @@ import { showOnboarding } from './onboarding.js';
 import { restoreReminders } from './reminders.js';
 import { resumeAlight } from './alight.js';
 import { mountTripBar } from './trip-bar.js';
-import { detachMain, attachMain, mountFab, syncFab, abangSays } from './abang-dock.js';
+import { detachMain, attachMain, mountFab, syncFab, syncFabLabel, abangSays } from './abang-dock.js';
+import { shellT, shellLang, applyShell } from './shell-i18n.js';
 import { pageHero, canMorph } from './page-hero.js';
 import { miniApps } from './registry.js';
 import home from './pages/home.js';
@@ -33,13 +34,14 @@ const routes = [
   [/^\/privacy$/, privacy],
   [/^\/s\/([a-z][a-z0-9-]*)$/, service], // 生活服務（天氣、捷運、空品…） // #/agent（生活）、#/agent/antifraud（防詐，M7）
 ];
-const tabs = [['#/', '首頁', 'home'], ['#/nearby', '附近', 'pin'], ['#/bus', '公車', 'bus'], ['#/favs', '收藏', 'star']];
+const tabs = [['#/', 'tab.home', 'home'], ['#/nearby', 'tab.nearby', 'pin'], ['#/bus', 'tab.bus', 'bus'], ['#/favs', 'tab.favs', 'star']];
+const zh = shellT(null); // 外殼一開始用中文；網址帶 lang=en 或問阿幫最近一輪是英文時換英文（shell-i18n.js）
 
 const root = document.getElementById('app');
 root.innerHTML = `
-  <button class="skip" id="skip" type="button">跳到主要內容</button>
+  <button class="skip" id="skip" type="button" data-shell="skip">${zh('skip')}</button>
   <header class="topbar">
-    <button class="icon-btn" id="back" aria-label="返回">${icons.back}</button>
+    <button class="icon-btn" id="back" aria-label="${zh('back')}" data-shell-label="back">${icons.back}</button>
     <h1 id="title"></h1>
     <button class="icon-btn" id="action" hidden></button>
   </header>
@@ -48,9 +50,9 @@ root.innerHTML = `
   <div id="tripbar" hidden></div>
   <div id="pagehero"></div>
   <main id="main" tabindex="-1"></main>
-  <div class="tabbar"><nav>${tabs.map(([h, n, i]) => `<a href="${h}" data-h="${h}">${icons[i]}<span>${n}</span></a>`).join('')}</nav></div>
-  <p id="abang-live" class="sr-only" aria-live="polite"></p><div class="abang-float"><div id="abang-bubble" class="fab-bubble" hidden></div><button id="abang-fab" class="abang-fab" type="button" aria-label="問阿幫"><img src="/brand/abang-default.svg" alt=""><i class="fab-dot" aria-hidden="true"></i></button></div>
-  <dialog id="abang-sheet" class="abang-sheet" aria-labelledby="abang-sheet-title"><div class="sheet-head"><span class="sheet-grip" aria-hidden="true"></span><h2 id="abang-sheet-title" tabindex="-1" autofocus>問阿幫</h2><button type="button" class="btn small quiet sheet-full">放大成整頁</button><button type="button" class="icon-btn sheet-close" aria-label="收起對話（對話會保留）"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div><div class="sheet-body"></div></dialog>`;
+  <div class="tabbar"><nav>${tabs.map(([h, k, i]) => `<a href="${h}" data-h="${h}">${icons[i]}<span data-shell="${k}">${zh(k)}</span></a>`).join('')}</nav></div>
+  <p id="abang-live" class="sr-only" aria-live="polite"></p><div class="abang-float"><div id="abang-bubble" class="fab-bubble" hidden></div><button id="abang-fab" class="abang-fab" type="button" aria-label="${zh('fab')}"><img src="/brand/abang-default.svg" alt=""><i class="fab-dot" aria-hidden="true"></i></button></div>
+  <dialog id="abang-sheet" class="abang-sheet" aria-labelledby="abang-sheet-title"><div class="sheet-head"><span class="sheet-grip" aria-hidden="true"></span><h2 id="abang-sheet-title" tabindex="-1" autofocus data-shell="sheetTitle">${zh('sheetTitle')}</h2><button type="button" class="btn small quiet sheet-full" data-shell="sheetFull">${zh('sheetFull')}</button><button type="button" class="icon-btn sheet-close" aria-label="${zh('sheetClose')}" data-shell-label="sheetClose"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div><div class="sheet-body"></div></dialog>`;
 
 const $ = (id) => document.getElementById(id);
 $('back').onclick = () => (history.length > 1 ? history.back() : (location.hash = '#/'));
@@ -104,6 +106,28 @@ function resolve() {
   return { path, query, page, params };
 }
 
+// 外殼語言（S12g）：每次換頁依網址決定（lang=en＝英文），不存設定；問阿幫（生活）頁另看最近一輪的語言（agent.js 送 abang:agent-lang）
+let agentLang = null;
+const onLifeAgent = ({ page, params }) => page === agent && keptKey(params[0]) === 'agent';
+function langNow() {
+  const r = resolve();
+  return shellLang({ query: r.query, onLifeAgent: onLifeAgent(r), agentLang });
+}
+const setDocTitle = (t) => { $('title').textContent = t; document.title = t === 'Abang' ? t : `${t}｜Abang`; };
+/** 外殼文字（分頁列、返回、浮動阿幫、底部對話）跟著語言；問阿幫頁的標題也是 */
+function paintShell() {
+  const lang = langNow();
+  applyShell(lang, document, { docLang: resolve().query?.lang === 'en' ? 'en' : null });
+  syncFabLabel();
+  if (onLifeAgent(resolve())) setDocTitle(lang === 'en' ? shellT('en')('agentTitle') : agent.title);
+}
+addEventListener('abang:agent-lang', (e) => {
+  agentLang = e.detail?.lang === 'en' ? 'en' : null;
+  if (onLifeAgent(resolve())) { paintShell(); paintBanner(); }
+  else { const sheet = document.getElementById('abang-sheet'); if (sheet?.open) applyShell(agentLang, document, { root: sheet, docLang: resolve().query?.lang === 'en' ? 'en' : null }); } // 浮動面板裡問英文：面板的字跟著（PR 審查）
+});
+addEventListener('abang:clear-local', () => { agentLang = null; if (onLifeAgent(resolve())) { paintShell(); paintBanner(); } });
+
 // 從格子點進去的頁面回到首頁：圖示從頁首飛回格子（View Transitions；換頁前先拍舊畫面）
 let heroNow = null;
 addEventListener('abang:hero', (e) => { heroNow = e.detail || null; }); // 頁面內換頁首（附近切到 YouBike）
@@ -143,14 +167,16 @@ function render() {
   const main = $('main');
   detachMain(); // 問阿幫的對話不清掉：先收起來，回來原樣接上
   main.innerHTML = '';
+  applyShell(langNow(), document, { docLang: resolve().query?.lang === 'en' ? 'en' : null }); // 外殼文字跟著這一頁的語言（浮動阿幫的讀屏標籤在 syncFab 裡）
   syncFab();
-  const setTitle = (t) => { $('title').textContent = t; document.title = t === 'Abang' ? t : `${t}｜Abang`; };
+  const setTitle = setDocTitle;
   const setAction = (svg, fn, label, on = false) => { act.innerHTML = svg; act.onclick = fn; act.hidden = false; act.setAttribute('aria-label', label); act.classList.toggle('on', on); };
   const key = page.keepAlive && keptKey(params[0]);
   if (key) { // 問阿幫（生活）：只建一次；卡片、決策圖、捲動位置都保留（防詐不保留：貼上的內容離開就清掉）
     const { k } = attachMain(main, key, ({ root, setTitle: keepTitle }) => page.render({ main: root, params, query, toast, setAction: () => {}, setTitle: (t) => { keepTitle(t); setTitle(t); }, onCleanup: () => {} }), query);
     setTitle(k.title || page.title);
     syncFab();
+    if (onLifeAgent({ page, params })) paintShell(); // 最近一輪是英文：標題也英文
   } else {
     window.scrollTo(0, 0);
     page.render({ main, params, query, toast, setTitle, setAction, onCleanup: (f) => cleanups.push(f) });
@@ -163,7 +189,7 @@ function render() {
 function paintBanner() {
   // 常駐的 live region（index 外殼裡），文字變了才換：讀屏不會每次換頁都重念
   const off = $('offline');
-  const en = resolve().query.lang === 'en'; // 英文公車頁（S12g，?lang=en）：頂端說明也用英文
+  const en = langNow() === 'en'; // 英文公車頁（S12g，?lang=en）、英文的問阿幫：頂端說明也用英文
   const text = offlineText(state, en);
   if (off.textContent !== text) off.textContent = text;
   off.hidden = !text;

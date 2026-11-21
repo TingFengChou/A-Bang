@@ -886,6 +886,13 @@ test('公車頁英文：標題、到站、提醒、下車提醒都是英文', as
     assert.equal(await page.textContent('#title'), 'Bus 307');
     await page.waitForSelector('#banner .demo-banner');
     assert.equal(await page.textContent('#banner'), 'Demo mode: all data here is sample data, not live.', '頂端示範說明也用英文');
+    // 外殼也跟著英文（分頁列、返回、浮動阿幫、底部對話面板；<html lang> 讓讀屏念對）
+    assert.equal(await page.getAttribute('html', 'lang'), 'en');
+    assert.deepEqual(await page.locator('.tabbar a span').allTextContents(), ['Home', 'Nearby', 'Bus', 'Saved']);
+    assert.equal(await page.getAttribute('#back', 'aria-label'), 'Back');
+    assert.equal(await page.getAttribute('#abang-fab', 'aria-label'), 'Ask Abang');
+    assert.equal(await page.textContent('#abang-sheet-title'), 'Ask Abang');
+    assert.equal(await page.getAttribute('#abang-sheet .sheet-close', 'aria-label'), 'Minimize chat (it stays here)');
     assert.equal(await page.textContent('#focus-at'), 'At 敦化市場', '站名照原文');
     assert.match(await page.textContent('.bus-focus .big'), /^(\d+ min|Arriving|Arriving soon|Not departed yet|Last bus has left|No service today|Not stopping \(traffic control\))$/);
     assert.match(await page.textContent('#upd'), /^Updated .+ · refreshes every 20 sec$/);
@@ -930,6 +937,14 @@ test('公車頁英文：標題、到站、提醒、下車提醒都是英文', as
     await page.waitForSelector('#alight-dest');
     await page.locator('#dirs button:not(.on)').click();
     assert.match(await page.evaluate(() => location.hash), /dir=1&lang=en$/, '換方向後網址仍帶 lang=en');
+    assert.equal(await page.getAttribute('html', 'lang'), 'en', '換方向後外殼仍英文');
+    // 回到首頁（沒帶 lang）：外殼恢復中文
+    await page.evaluate(() => { location.hash = '#/'; });
+    await page.waitForFunction(() => document.documentElement.lang === 'zh-Hant-TW');
+    assert.deepEqual(await page.locator('.tabbar a span').allTextContents(), ['首頁', '附近', '公車', '收藏']);
+    assert.equal(await page.getAttribute('#abang-fab', 'aria-label'), '問阿幫');
+    assert.equal(await page.textContent('#abang-sheet-title'), '問阿幫');
+    assert.equal(await page.textContent('#skip'), '跳到主要內容');
   });
 });
 
@@ -1167,10 +1182,18 @@ test('英文提問：卡片用英文標籤', async () => {
     const chips = await page.locator('.suggest .chip').allTextContents();
     assert.ok(chips.length && chips.every((c) => !/[一-鿿]/.test(c)), chips.join('|'));
     await shot(page, 'phone-agent-english');
+    // 最近一輪是英文：外殼也英文（S12g）；整頁 lang 不變（上面還有中文對話），外殼元素標 lang="en"
+    assert.equal(await page.getAttribute('html', 'lang'), 'zh-Hant-TW');
+    assert.equal(await page.locator('.tabbar a span').first().getAttribute('lang'), 'en');
+    assert.equal(await page.textContent('#title'), 'Ask Abang');
+    assert.deepEqual(await page.locator('.tabbar a span').allTextContents(), ['Home', 'Nearby', 'Bus', 'Saved']);
     await page.fill('.chat-form input', '去西門町');
     await page.press('.chat-form input', 'Enter');
     await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length >= 2, null, { timeout: 20000 });
     assert.equal(await page.locator('[data-card="trip"]').last().getAttribute('lang'), null, '中文提問回到中文卡片');
+    assert.equal(await page.getAttribute('html', 'lang'), 'zh-Hant-TW', '中文提問：外殼回中文');
+    assert.equal(await page.textContent('#title'), '問阿幫');
+    assert.deepEqual(await page.locator('.tabbar a span').allTextContents(), ['首頁', '附近', '公車', '收藏']);
   });
 });
 
