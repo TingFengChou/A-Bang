@@ -85,6 +85,10 @@ export const SPEAK_EN = {
   tra_timetable: (d) => railEn(d, 'Train', Date.now()),
   rail_fare: (d) => { const a = d.fares.filter((f) => f.adultOneWay); return a.length ? `Adult one-way ${d.from} to ${d.to}: from NT$${a[0].price}.` : `No fare data for ${d.from} to ${d.to} right now.`; },
   ridehail_link: (d) => `${d.providerName} link ready${d.estimate ? `, about NT$${d.estimate.low}–${d.estimate.high} (estimate)` : ''}; confirm in the app.`,
+  // 短劇（ADR-0019）：劇名是中文，照原文
+  drama_picks: (d) => (d.items.length ? `Top on MyDrama (${({ hot: 'popular', new: 'new', completed: 'completed', taiwan: 'made in Taiwan' })[d.list] || 'popular'}): ${d.items.slice(0, 3).map((x) => `《${x.title}》`).join(', ')}.` : 'No short dramas to recommend right now.'),
+  drama_search: (d) => (d.items.length ? `Found ${plural(d.total, 'short drama')} for "${d.query}": ${d.items.slice(0, 3).map((x) => `《${x.title}》`).join(', ')}.` : `No short dramas found for "${d.query}".`),
+  drama_series: (d) => { const x = d.items[0]; return `About 《${x.title}》: ${x.episodes != null ? `${x.episodes} episodes` : 'episodes vary'}${x.freeEpisodes ? `, first ${x.freeEpisodes} free` : ''}, ${x.completed ? 'completed' : 'ongoing'}.`; },
   traffic_status: (d) => (!d.covered ? (d.straightKm < 15 ? 'Short trip; no need to check freeway traffic.' : 'No freeway traffic data for this route.') : !d.level ? 'No freeway speed data right now.' : d.level === 'smooth' ? 'Freeway traffic is smooth.' : `Freeway traffic is ${d.level === 'jam' ? 'jammed' : 'heavy'}, about ${d.delayMin} min extra.`),
 };
 

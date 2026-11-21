@@ -3,6 +3,7 @@
 
 import { hasNativeNotify, ensureNotifyPermission, scheduleNotify, cancelNotify, NOTIFY_ID, EARLY_MS } from '../../js/native-notify.js';
 import { addReminder, cancelReminder, notifyState, reminderFor, canNotify } from '../../js/reminders.js';
+import { isAppLink, isStoreLink } from '../../../core/drama-say.js';
 
 // 到站提醒（L-14）：整個頁面共用一個；SPA 換頁仍繼續，網頁版關掉就停止（網頁沒有背景推播）。
 // 手機 App（M11-02）：每次查到到站時間，就把「該出門了」的本機通知排到預估的時間（同一則覆蓋更新）；
@@ -22,6 +23,43 @@ const store = {
   load: () => { try { return JSON.parse(localStorage.getItem(STORE) || 'null'); } catch { return null; } },
 };
 let resumed = false;
+
+/** 沒裝 App 時多久改開商店頁（毫秒）：開得了 App 的話畫面會在這之前離開（visibilitychange／pagehide） */
+export const STORE_FALLBACK_MS = 1600;
+/** 商店頁：iPhone／iPad 用 App Store，其他用 Google Play（沒有就用另一個）；只收 https */
+export function storePage(store, ua = typeof navigator === 'undefined' ? '' : navigator.userAgent) {
+  if (!store) return null;
+  const ios = /iPhone|iPad|iPod/i.test(ua) || globalThis.Capacitor?.getPlatform?.() === 'ios';
+  const u = ios ? store.ios || store.android : store.android || store.ios;
+  return isStoreLink(u) ? u : null;
+}
+/**
+ * 開合作 App（目前只有 MyDrama 看短劇，ADR-0019）：連結格式由伺服器設定（環境變數），這裡再檢查一次（只收安全的 App 連結、https 商店頁）。
+ * 先開 App；1.6 秒內畫面沒離開＝沒裝（或開不了），改開商店頁。不帶使用者資料。
+ * @param {{ app?: string|null, store?: { ios: string|null, android: string|null }|null }} target
+ * @returns {'app'|'store'|null} 做了什麼（測試用）
+ */
+export function openApp({ app, store } = {}, { win = globalThis.window, doc = globalThis.document, wait = STORE_FALLBACK_MS } = {}) {
+  const shop = storePage(store);
+  const link = isAppLink(app) ? app : null;
+  // 計時器裡的 window.open 可能被擋（iOS Safari 等）：被擋就在這一頁開商店頁
+  const openShop = () => { const w = win.open(shop, '_blank'); if (w) { try { w.opener = null; } catch { /* 跨來源 */ } } else win.location.href = shop; };
+  if (!link) { if (shop) openShop(); return shop ? 'store' : null; }
+  let left = false;
+  const away = () => { if (doc.visibilityState === 'hidden') left = true; };
+  const gone = () => { left = true; };
+  doc.addEventListener('visibilitychange', away);
+  win.addEventListener('pagehide', gone);
+  win.setTimeout(() => {
+    doc.removeEventListener('visibilitychange', away);
+    win.removeEventListener('pagehide', gone);
+    if (!left && shop) openShop();
+  }, wait);
+  if (/^https:\/\//i.test(link)) win.open(link, '_blank', 'noopener'); // universal link／app link
+  else win.location.href = link; // 自訂 scheme：App 內 WebView 交給系統開 App
+  return 'app';
+}
+
 /** 目前的到站提醒（不用建 host；進行中列用） */
 export const currentArrivalWatch = () => watch.w;
 const signal = (type, detail) => { try { window.dispatchEvent(new CustomEvent(type, { detail })); } catch { /* 非瀏覽器 */ } };
@@ -208,6 +246,8 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
       if (opts.confirm && !confirm(opts.confirm)) return;
       window.open(url, '_blank', 'noopener');
     },
+    /** 開合作 App（MyDrama，ADR-0019）：先開 App 連結，沒裝（畫面一直沒離開）就到商店頁 */
+    openApp: (target) => openApp(target),
   };
   // App 被系統關掉再打開：恢復上次的到站提醒（沒過期才恢復；過期就清掉並取消排好的通知）
   if (!resumed && hasNativeNotify()) {

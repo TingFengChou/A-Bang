@@ -41,6 +41,7 @@ npm run app:sync          # 手機 App：打包 dist/app 並同步到 android/�
 | `MOENV_API_KEY` | [環境部環境資料開放平臺](https://data.moenv.gov.tw)（免費註冊） | 空氣品質用示範資料（M10） |
 | （不需要） | 藥局、垃圾車、油價、發票、股市收盤（政府開放資料） | `OPEN_DATA=0` 或 `DEMO_MODE=1` 時用示範片段（M10） |
 | （不需要） | 165 防詐開放資料（data.gov.tw，免金鑰） | `OPEN_DATA=0` 或 `DEMO_MODE=1` 時用示範片段（M7） |
+| `MYDRAMA_API_BASE`、`MYDRAMA_LINK_*`、`MYDRAMA_STORE_*` | 合作方提供（MyDrama 短劇，ADR-0019；只放 `.env`） | 短劇用虛構的示範片庫；沒有連結時卡片不給「在 MyDrama 看」 |
 | `ANTHROPIC_API_KEY` | Anthropic Console（付費） | 網頁 agent 改用地端模型（`LOCAL_LLM_URL`＋`LOCAL_LLM_MODEL`，例如 Ollama）或示範模式（ADR-0012） |
 
 台鐵／高鐵導訂票需另在 TDX 會員中心申請「臺鐵訂票導訂」「高鐵訂票導訂」權限。
@@ -137,7 +138,7 @@ docker compose up -d --build
 
 ## 環境變數
 
-見 [`.env.example`](.env.example)：`PORT`、`DEMO_MODE`、`TDX_*`、`CWA_API_KEY`、`OPEN_DATA`、`MOENV_API_KEY`、`AGENT_PROVIDER`、`ANTHROPIC_*`、`LOCAL_LLM_*`、`RATE_LIMIT_*`、`AGENT_*`、`TRUST_PROXY`、`MCP_PACKS`、`DEMO_WEATHER`、`DEMO_TRAFFIC`、`DEMO_AIR`。
+見 [`.env.example`](.env.example)：`PORT`、`DEMO_MODE`、`TDX_*`、`CWA_API_KEY`、`OPEN_DATA`、`MOENV_API_KEY`、`AGENT_PROVIDER`、`ANTHROPIC_*`、`LOCAL_LLM_*`、`RATE_LIMIT_*`、`AGENT_*`、`TRUST_PROXY`、`MCP_PACKS`、`DEMO_WEATHER`、`DEMO_TRAFFIC`、`DEMO_AIR`、`MYDRAMA_*`。
 
 ## 手機 App（Capacitor，ADR-0013）
 

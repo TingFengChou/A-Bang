@@ -359,3 +359,23 @@ html.lite-motion :is(.ab-scene-body, .ab-scene-person, .ab-scene-halo) { animati
 @keyframes ab-pulse { 50% { opacity: .25; transform: scale(.7); } }
 @media (prefers-reduced-motion: reduce) { .ab-eta .ab-pulse { animation: none; } }
 html.lite-motion .ab-eta .ab-pulse { animation: none; }
+
+/* 短劇（MyDrama，ADR-0019）：直式封面示意（劇名第一個字＋漸層，不載外部圖片）、集數與免費集數、類型標籤、簡介兩行收合 */
+.ab-drama-list .ab-drama { display: grid; grid-template-columns: 56px 1fr; gap: 12px; padding: 10px 0; border-top: 1px solid var(--ab-line); }
+.ab-drama-list .ab-drama:first-child { border-top: 0; padding-top: 2px; }
+.ab-poster { position: relative; width: 56px; height: 76px; border-radius: 10px; background: linear-gradient(155deg, var(--pb), var(--pa)); display: grid; place-items: center; overflow: hidden; box-shadow: 0 2px 6px rgba(15, 23, 42, .12); }
+.ab-poster::after { content: ""; position: absolute; inset: auto 0 0 0; height: 40%; background: linear-gradient(transparent, rgba(0, 0, 0, .18)); }
+.ab-poster-ch { font-size: 26px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
+.ab-poster-rank { position: absolute; top: 4px; left: 4px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: rgba(255, 255, 255, .92); color: var(--ab-text); font-size: 11px; font-weight: 800; display: grid; place-items: center; z-index: 1; }
+.ab-poster-new { position: absolute; bottom: 4px; right: 4px; padding: 0 5px; border-radius: 6px; background: #fff; color: #be185d; font-size: 11px; font-weight: 700; z-index: 1; }
+.ab-drama-main { min-width: 0; display: grid; gap: 3px; align-content: start; }
+.ab-drama-title { font-size: 16px; line-height: 1.3; }
+.ab-drama-meta { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.ab-drama-tw { font-size: 12px; padding: 0 6px; border-radius: 6px; background: var(--ab-brand-soft); color: var(--ab-brand); }
+.ab-drama-main .ab-chips { margin: 2px 0; }
+.ab-drama-syn { margin: 0; font-size: 14px; line-height: 1.5; color: #334155; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ab-drama-syn.open { display: block; -webkit-line-clamp: unset; }
+.ab-drama-acts { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-top: 4px; }
+.ab-drama-acts .ab-btn { min-height: 44px; }
+.ab-drama-kw { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+.ab-drama-kw .ab-tab { min-height: 36px; }
