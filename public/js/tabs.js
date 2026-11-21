@@ -11,7 +11,7 @@ export const TABS = [
   { id: 'me', href: '#/me', key: 'tab.me', icon: 'user' },
 ];
 
-/** 子頁面屬於哪一個分頁（分頁列標「目前在這一區」）：資料服務 → 服務；收藏、設定、隱私 → 我的 */
+/** 子頁面屬於哪一個分頁（分頁列標「目前在這一區」）：資料服務 → 服務；收藏、設定、隱私、阿幫的腦袋 → 我的 */
 const SECTIONS = [
   [/^\/?$/, 'home'],
   [/^\/services$/, 'services'],
@@ -19,7 +19,7 @@ const SECTIONS = [
   [/^\/agent\/(?!life$)[a-z]/, 'services'], // 防詐等其他 agent 是服務；生活 agent 是中央鍵
   [/^\/agent(\/life)?$/, 'ask'],
   [/^\/reminders$/, 'reminders'],
-  [/^\/(me|favs|settings|privacy)$/, 'me'],
+  [/^\/(me|favs|settings|privacy|ai)$/, 'me'], // ai：阿幫的腦袋（手機上的 AI）
 ];
 
 /**

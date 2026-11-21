@@ -500,6 +500,8 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
 .me-ai-st small { color: var(--muted); font-size: 13px; }
 .me-ai .note { font-size: 14px; color: var(--muted); line-height: 1.7; margin: 0 0 10px; }
 #me-ai:focus { outline: none; }
+.me-ai-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.me-ai-acts .btn { white-space: normal; text-align: center; }
 .me-about .card { padding: 14px 16px; font-size: 14px; line-height: 1.7; }
 .me-about p { margin: 0 0 6px; }
 .me-about a { color: var(--brand); font-weight: 700; text-decoration: underline; }

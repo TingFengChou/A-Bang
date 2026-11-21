@@ -29,11 +29,15 @@ import java.util.concurrent.TimeoutException;
  * JS 端：public/js/edge-judge.js（外掛名 AbangEdgeAI）。只回 { engine, result: "模型輸出的 JSON 字串" }，由 JS 驗證列舉值。
  * Android 8 以下、機型不支援、模型還沒下載 → status 回 available: false，judge 回錯誤，JS 改由伺服器判斷。
  * 不記錄使用者的句子，只記耗時與錯誤類型。
+ * status 另外回報系統查得到的模型資訊（「阿幫的腦袋」#/ai 顯示；查不到的欄位就不回傳，不編造）：
+ * featureStatus、modelName（基礎模型名稱）、tokenLimit、下載進度、aicoreVersion、osVersion、device。
  */
 @CapacitorPlugin(name = "AbangEdgeAI")
 public class AbangEdgeAIPlugin extends Plugin {
     private static final String TAG = "AbangEdgeAI";
     private final ExecutorService exec = Executors.newSingleThreadExecutor();
+    /** 查模型資訊（名稱、token 上限）用另一條執行緒：最多等 2 秒，不能擋住排在 exec 上的 judge／prewarm（PR 審查） */
+    private final ExecutorService infoExec = Executors.newSingleThreadExecutor();
     /** 一題最多跑這麼久（JS 只等 1.8 秒；原生端也要停，否則下一題排在後面一起逾時） */
     private static final long JUDGE_TIMEOUT_MS = 1500;
     private GenerativeModelFutures model;
@@ -42,6 +46,14 @@ public class AbangEdgeAIPlugin extends Plugin {
     private volatile boolean available = false;
     /** 配額用完或被系統擋下時，暫停到這個時間（毫秒）再試 */
     private volatile long pausedUntil = 0;
+    /** 模型資訊（系統回報；確認可用後查一次就記住）：基礎模型名稱、一次最多能讀的 token 數 */
+    private volatile String modelName = null;
+    private volatile int tokenLimit = 0;
+    /** 查過就不再查（查不到也記住：每次 status 都等 2 秒沒有意義） */
+    private volatile boolean infoTried = false;
+    /** 下載進度（位元組；DownloadCallback 回報，沒回報就是 0） */
+    private volatile long downloadTotal = 0;
+    private volatile long downloadDone = 0;
 
     private GenerativeModelFutures model() {
         if (model == null) model = GenerativeModelFutures.from(Generation.INSTANCE.getClient());
@@ -82,6 +94,8 @@ public class AbangEdgeAIPlugin extends Plugin {
         if (downloading || !unmetered()) return;
         downloading = true;
         model().download(new DownloadCallback() {
+            @Override public void onDownloadStarted(long bytesToDownload) { downloadTotal = bytesToDownload; downloadDone = 0; }
+            @Override public void onDownloadProgress(long totalBytesDownloaded) { downloadDone = totalBytesDownloaded; }
             @Override public void onDownloadCompleted() { downloading = false; Logger.info(TAG, "Gemini Nano 下載完成"); }
             @Override public void onDownloadFailed(GenAiException e) { downloading = false; Logger.warn(TAG, "Gemini Nano 下載失敗：" + e.getClass().getSimpleName()); }
         });
@@ -89,13 +103,42 @@ public class AbangEdgeAIPlugin extends Plugin {
 
     @PluginMethod
     public void status(PluginCall call) {
-        if (!osOk()) { call.resolve(result(false, "os-too-old")); return; }
+        if (!osOk()) { call.resolve(describe(result(false, "os-too-old"), -1)); return; }
         exec.execute(() -> {
             int s = featureStatus();
             if (s == FeatureStatus.DOWNLOADABLE) startDownload();
             String reason = s == FeatureStatus.AVAILABLE ? "ok" : s == FeatureStatus.DOWNLOADING || (s == FeatureStatus.DOWNLOADABLE && downloading) ? "downloading" : s == FeatureStatus.DOWNLOADABLE ? "needs-wifi" : s == FeatureStatus.UNAVAILABLE ? "unsupported" : "unavailable";
-            call.resolve(result(s == FeatureStatus.AVAILABLE, reason));
+            JSObject o = result(s == FeatureStatus.AVAILABLE, reason);
+            infoExec.execute(() -> call.resolve(describe(o, s))); // 查模型資訊不佔 exec（judge 不排隊）
         });
+    }
+
+    /** 加上系統查得到的資訊（只在這支手機上顯示，不送伺服器）；任何一項查不到就不放 */
+    private JSObject describe(JSObject o, int s) {
+        o.put("osVersion", Build.VERSION.RELEASE);
+        o.put("device", (Build.MANUFACTURER + " " + Build.MODEL).trim());
+        String fs = s == FeatureStatus.AVAILABLE ? "available" : s == FeatureStatus.DOWNLOADING ? "downloading" : s == FeatureStatus.DOWNLOADABLE ? "downloadable" : s == FeatureStatus.UNAVAILABLE ? "unavailable" : null;
+        if (fs != null) o.put("featureStatus", fs);
+        try { // AICore：系統裡管理 Gemini Nano 的元件（AndroidManifest 的 <queries> 讓 App 看得到它的版本）
+            String v = getContext().getPackageManager().getPackageInfo("com.google.android.aicore", 0).versionName;
+            if (v != null && !v.isEmpty()) o.put("aicoreVersion", v);
+        } catch (Exception e) { /* 沒有 AICore 或看不到：不顯示 */ }
+        if (s == FeatureStatus.AVAILABLE) {
+            if (!infoTried) queryModelInfo();
+            if (modelName != null) o.put("modelName", modelName);
+            if (tokenLimit > 0) o.put("tokenLimit", tokenLimit);
+        } else if (downloading && downloadTotal > 0) {
+            o.put("downloadTotalBytes", downloadTotal);
+            o.put("downloadedBytes", Math.min(downloadDone, downloadTotal));
+        }
+        return o;
+    }
+
+    /** 模型名稱與 token 上限：只查一次（成功或失敗都記住），在 infoExec 上跑 */
+    private void queryModelInfo() {
+        infoTried = true;
+        try { String n = model().getBaseModelName().get(1000, TimeUnit.MILLISECONDS); if (n != null && !n.isEmpty()) modelName = n; } catch (Exception e) { /* 查不到：不顯示 */ }
+        try { Integer n = model().getTokenLimit().get(1000, TimeUnit.MILLISECONDS); if (n != null && n > 0) tokenLimit = n; } catch (Exception e) { /* 查不到：不顯示 */ }
     }
 
     @PluginMethod
@@ -134,9 +177,11 @@ public class AbangEdgeAIPlugin extends Plugin {
                 try { r = f.get(JUDGE_TIMEOUT_MS, TimeUnit.MILLISECONDS); }
                 catch (TimeoutException te) { f.cancel(true); Logger.warn(TAG, "judge timeout"); call.reject("timeout"); return; }
                 String out = r.getCandidates().isEmpty() ? "" : r.getCandidates().get(0).getText();
-                Logger.info(TAG, "judged in " + (System.currentTimeMillis() - t0) + " ms"); // 只記耗時，不記內容
+                long ms = System.currentTimeMillis() - t0;
+                Logger.info(TAG, "judged in " + ms + " ms"); // 只記耗時，不記內容
                 JSObject ret = new JSObject();
                 ret.put("engine", "gemini-nano");
+                ret.put("ms", ms); // 模型花多久（#/ai 顯示「上次判斷花多久」）
                 ret.put("result", out == null ? "" : out);
                 call.resolve(ret);
             } catch (Exception e) {
@@ -149,6 +194,7 @@ public class AbangEdgeAIPlugin extends Plugin {
     @Override
     protected void handleOnDestroy() {
         exec.shutdownNow();
+        infoExec.shutdownNow();
         super.handleOnDestroy();
     }
 

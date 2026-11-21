@@ -32,7 +32,7 @@ export default {
     const offline = !!globalThis.__DEMO_SERVICES__;
     const safe = miniApps.find((a) => a.id === 'antifraud');
     main.innerHTML = `
-      <a class="ai-line" id="ai-line" href="#/me?sec=ai" data-tone="wait">
+      <a class="ai-line" id="ai-line" href="#/ai" data-tone="wait">
         <span class="ai-ic" aria-hidden="true">${icons.chip}</span>
         <span class="ai-txt"><b id="ai-label">手機上的 AI</b><small id="ai-text">檢查中…</small></span>${chev}
       </a>

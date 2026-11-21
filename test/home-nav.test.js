@@ -20,7 +20,7 @@ test('子頁屬於哪一區：公車、附近、生活服務、防詐 → 服務
     '/nearby': ['services', false], '/bus': ['services', false], '/bus/Taipei/307': ['services', false], '/bus-station/Taipei/x': ['services', false],
     '/rail/thsr': ['services', false], '/s/weather': ['services', false], '/agent/antifraud': ['services', false],
     '/agent': ['ask', true], '/agent/life': ['ask', true],
-    '/favs': ['me', false], '/settings': ['me', false], '/privacy': ['me', false],
+    '/favs': ['me', false], '/settings': ['me', false], '/privacy': ['me', false], '/ai': ['me', false],
     '/nope': [null, false],
   };
   for (const [p, [tab, exact]] of Object.entries(cases)) assert.deepEqual(activeTab(p), { tab, exact }, p);
@@ -131,6 +131,8 @@ test('Android 返回鍵：首頁離開 App；分頁本身回首頁（不走分�
   assert.equal(backTarget('/bus/Taipei/307', false), '#/');
   assert.equal(backTarget('/agent/antifraud', true), 'back');
   assert.equal(backTarget('/settings', true), 'back');
+  assert.equal(backTarget('/ai', true), 'back', '阿幫的腦袋：回上一頁');
+  assert.equal(backTarget('/ai', false), '#/', '深層連結打開：回首頁');
 });
 
 test('首頁：範例問題各領域都有（防詐開防詐頁）；不新增伺服器端點（只用現有工具路由）', async () => {

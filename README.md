@@ -105,7 +105,7 @@ API 文件：啟動後開 <http://localhost:8787/api/docs>（Swagger UI，可直
 | Endpoint | 說明 |
 |---|---|
 | `GET /healthz` | 健康檢查 `{ ok, version, mode, agent }`（容器、Cloud Run；不限流） |
-| `GET /api/v1/status` | 模式、工具包 |
+| `GET /api/v1/status` | 模式、工具包、`agent`（由誰回答：claude／local／demo 與模型名稱、判斷層成員有沒有） |
 | `GET /api/v1/agent/profile` | 網頁 agent 的名稱、建議問題、免責、小幫手角色 |
 | `GET /api/v1/tools?pack=` | tools、工具包、分級、JSON Schema |
 | `POST /api/v1/tools/:name` | 呼叫 tool；回傳 `{ name, card, mode, data, text, speak }` |

@@ -37,11 +37,12 @@ const limiters = {
 };
 
 // REST 路由表在 server/rest.js（同時產生 Swagger 文件）
-const routes = restRoutes(svc);
 // agent 計量 log：模式、次數、耗時、token；不含對話內容與座標（AGENT.md §7）
 // 判斷層（core/agent/judge.js）：嵌入分類器在背景載入（首次會下載約 120 MB 模型），載入前與載入失敗時都退回規則；JUDGE=off 關閉
 const judgeSetup = judgeFromEnv(process.env, { log: ({ message, ...o }) => log.info(message, o) });
 const agent = createAgentHandler({ svc, judge: judgeSetup.judge, log: ({ agent: agentId, ...o }) => log.info('agent request', { agentId, ...o }) }); // 模式依 env（ADR-0012）
+// /api/v1/status 的 agent：由誰回答（claude／local／demo、模型名稱）與判斷層成員（嵌入分類器、伺服器模型有沒有）；「阿幫的腦袋」頁（#/ai）照實顯示。不含金鑰與網址
+const routes = restRoutes(svc, { agentInfo: () => { const j = judgeSetup.info(); return { ...agent.mode, judge: { embed: Boolean(j.embed), llm: Boolean(j.llm) } }; } });
 const OPENAPI = JSON.stringify(buildOpenApi(svc));
 // Swagger UI：只提供這幾個檔（白名單，不開放整個 node_modules）
 const SWAGGER_DIR = fileURLToPath(new URL('../node_modules/swagger-ui-dist/', import.meta.url));

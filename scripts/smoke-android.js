@@ -31,6 +31,7 @@ const PAGES = [
   { name: 'weather', hash: '#/s/weather', want: '#pagehero .page-hero', tab: 'services' },
   { name: 'nearby', hash: '#/nearby', want: '#pagehero .page-hero', tab: 'services' },
   { name: 'settings', hash: '#/settings', want: '#saved', tab: 'me' },
+  { name: 'ai', hash: '#/ai', want: '.ai-hero #ai-chip:not([hidden])', tab: 'me' }, // 阿幫的腦袋：外掛 status() 回來、主視覺畫好
 ];
 
 function fail(msg) { console.error(`✗ ${msg}`); process.exitCode = 1; }

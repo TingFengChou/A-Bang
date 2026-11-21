@@ -13,6 +13,27 @@
 
 ---
 
+## 2026-11-21 E9c 合併主線（首頁與導覽重新設計）＋審查修正
+- 做了：合進主線（PM 第五批、Λ 圖示、ios:dev、公車街景、首頁與導覽重新設計）。入口接起來：首頁「手機上的 AI」狀態列改連 `#/ai`、我的頁「手機上的 AI」區塊加「看阿幫的腦袋」；`#/ai` 屬於「我的」分區（tabs.js SECTIONS），返回鍵照 backTarget。思考動畫在中央鍵拉出的底部對話面板也正常（E2E）。審查修正：手機判斷那句只在回答上方說一次（頁底不重複，英文提問時英文）；iOS `contextSize` 在 26.x 是 SDK back-deploy 寫死的 4096，改成 iOS 27 起才回報；Android 查模型名稱與 token 上限移到另一條執行緒且只查一次（不擋 judge）；測試不綁 SW 版本號。SW v0.9.6。
+- 測試：npm test 678 項全過；E2E 80 項全過；Android assembleDebug、iOS 實機目標 xcodebuild（不簽署）都成功
+- 文件：UX.md §5.0.1、§5.0.2、ADR-0014 第 6 點、PROGRESS.md、CLAUDE.md
+- 下一個：實機確認（Pixel、iPhone）
+- 卡住：無
+
+## 2026-11-21 E9b 思考時的動畫（阿幫在想、試試看至少 1.2 秒）
+- 做了：Austin「思考時候一定要有動畫」。問阿幫（含底部對話面板）送出後在回答的位置顯示核心小版本＋「阿幫在想…」，依真實事件換成「手機上聽懂了：行程規劃・趕時間」／「伺服器判斷中」→「正在查：公車・天氣」→「整理答案中」，第一段回答來了就拿掉（`public/js/agent/thinking.js`，取代原本 0.6 秒後才出現的泡泡）。回答上方照實說手機判斷有沒有被伺服器採用。腦袋頁試試看：結果文字立刻寫出，動畫至少播 1.2 秒；訊號改成依序亮起的小光點（只動 opacity）。
+- 測試：npm test 新增 test/thinking.test.js 4 項；E2E 新增 4 項（思考指示出現、正在查、收起；手機判斷小標＋回答上方說明；reduced motion 靜態；試試看動畫 ≥ 1.2 秒）
+- 文件：UX.md §5.0.1、§5.0.2、CLAUDE.md
+- 下一個：實機看動畫流暢度（Pixel）
+- 卡住：無
+
+## 2026-11-21 E9 阿幫的腦袋——裝置端 AI 視覺與模型資訊頁（#/ai）
+- 做了：新頁 `#/ai`（設定頁裝置端 AI 區塊進入）。主視覺用 App 圖示的「Λ＋琥珀色發光核心＋軌道」：待機呼吸、判斷時脈動、訊號流到「意圖」「狀態」並點亮；圖下方 role=status 的一句話是等義文字，reduced motion 直接顯示結果。「現場試試看」只呼叫手機上的外掛（沒有網路請求）。模型資訊只列系統回報的：外掛 `status()` 擴充（Android：featureStatus、modelName、tokenLimit、下載進度、aicoreVersion、osVersion、device；iOS：availability、languages、contextSize、osVersion），`judge()` 回 `ms`；本機計數 `abang.edgeStats`。`/api/v1/status` 加 `agent`（由誰回答、判斷層成員）。沒有裝置端模型（網頁版、不支援、關掉）時核心不點亮、照實說判斷在伺服器做。設定頁與本頁共用開關（`setEdgeEnabled`）。字典 `ai-i18n.js`（`lang=en`）。
+- 測試：npm test 648 項全過（新增 test/ai-info.test.js 11 項）；E2E 64 項全過（新增 3 項：網頁版手機／桌面、假外掛的模型資訊＋試試看＋開關＋英文＋入口）；Android `assembleDebug`、iOS 模擬器 `xcodebuild` 都編譯成功
+- 文件：UX.md §5.0.1、ADR-0014 第 7 點、AGENT.md §5.3、PLAN.md E9、README、CLAUDE.md；SW v0.9.3-ai
+- 下一個：首頁「手機上的 AI」狀態列接到 `#/ai`（另一個分支）；實機確認欄位
+- 卡住：外掛新欄位還沒在實機看過（Pixel：`getBaseModelName`／`getTokenLimit`／AICore 版本實際回什麼；iPhone：`supportedLanguages` 的寫法）——查不到時畫面只是少那一列
+
 ## 2026-11-21 首頁與導覽重新設計（阿幫為中心）
 - 做了：Austin 回饋「最下面都是公車相關，跟全方位資料整合＋edge AI 的 App 不相符」。底部分頁列改成 首頁｜服務｜問阿幫（中央大鍵）｜提醒｜我的（public/js/tabs.js；子頁標在所屬那一區 aria-current="true"）。中央鍵取代右下角浮動阿幫（同一個 #abang-fab，不兩個並存）：其他頁拉出同一段對話、問阿幫頁回到輸入框；有對話小點、阿幫說了你還沒看的橘點（讀屏「問阿幫（阿幫有話跟你說）」）；提醒泡泡從中央鍵上方冒出（防詐頁也看得到）。首頁：「手機上的 AI」照實說誰在判斷、主視覺「有事問阿幫」＋各領域範例、「現在」（天氣、空品、最近一個提醒；沒定位用台北車站附近並寫明、查不到只留提醒、離線說離線；用現有 /api/v1/tools，不新增端點）、防詐大卡放在格子前面、格子一組一塊面板。新頁：#/services（四組服務＋一句說明，含附近、公車）、#/reminders（到站、下車、出門提醒逐一取消、教怎麼設；設定頁的出門提醒清單搬過來）、#/me（我存的、手機上的 AI 說明、設定與隱私、關於與資料來源）。附近、公車搜尋、收藏不再是分頁（有返回鈕）；舊網址都可用。英文外殼鍵更新（Home／Services／Ask Abang／Reminders／Me）。
 - 測試：npm test 全過（新增 test/home-nav.test.js 8 項、shell-en 更新）；E2E 全過（新增服務、提醒取消、我的、舊網址、現在降級、桌面分頁列；常駐、英文外殼、無障礙、設定測試改成新導覽）；smoke-android 的 PAGES 改成檢查中央鍵與分頁列目前位置（要接實機再跑）
