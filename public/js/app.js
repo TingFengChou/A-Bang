@@ -94,13 +94,19 @@ addEventListener('abang:go', (e) => {
   document.startViewTransition(() => new Promise((done) => { afterNav = done; location.hash = hash; setTimeout(done, 800); })); // 最多等 0.8 秒
 });
 
-function navigate() {
-  cleanups.forEach((f) => f()); cleanups = [];
-  state.staleAt = null; // 舊資料標示只屬於那一頁；新頁面查詢失敗會再標
+/** 目前網址對應的頁面（換頁與浮動阿幫「你在看什麼」共用；頁面內改網址（換上車站）也讀得到） */
+function resolve() {
   const [path, qs = ''] = location.hash.slice(1).split('?');
   const query = Object.fromEntries(new URLSearchParams(qs));
   let page = home, params = [];
   for (const [re, p] of routes) { const m = path.match(re); if (m) { page = p; params = m.slice(1); break; } }
+  return { path, query, page, params };
+}
+
+function navigate() {
+  cleanups.forEach((f) => f()); cleanups = [];
+  state.staleAt = null; // 舊資料標示只屬於那一頁；新頁面查詢失敗會再標
+  const { path, query, page, params } = resolve();
 
   $('title').textContent = page.title;
   $('back').hidden = !!page.root;
@@ -170,7 +176,10 @@ try { restoreReminders(); } catch { /* 無痕模式 */ }
 // 下車提醒：App 被系統關掉再打開時恢復（沒逾時才恢復）
 mountTripBar($('tripbar')); // 行程中：每一頁上方可回到公車頁
 // 浮動阿幫：每一頁右下角，點了從下方拉出同一段對話（不用離開現在的頁面）
-mountFab({ buildLife: ({ root, setTitle: keepTitle }) => agent.render({ main: root, params: [], query: {}, toast, setAction: () => {}, setTitle: keepTitle, onCleanup: () => {} }) });
+mountFab({
+  // 浮動阿幫知道你在看哪一頁：建議問題＋這一頁的說明（跟下一個問題一起送出）
+  pageAsk: () => { try { const { page, params, query } = resolve(); return page.askHint?.({ params: params.map((x) => (x == null ? x : decodeURIComponent(x))), query }) || null; } catch { return null; } },
+  buildLife: ({ root, setTitle: keepTitle }) => agent.render({ main: root, params: [], query: {}, toast, setAction: () => {}, setTitle: keepTitle, onCleanup: () => {} }) });
 if (globalThis.Capacitor?.isNativePlatform?.()) { const web = createWebHost(); resumeAlight((n, a) => web.callTool(n, a)); }
 // 我的發票：開獎後打開 App 就自動對獎、中獎主動通知（本機資料，離線 Demo 沒有伺服器時不做）
 const checkPrizes = () => {

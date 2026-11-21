@@ -10,6 +10,7 @@ const CFG = {
 export default {
   title: '時刻表',
   hero: ({ params: [sys] }) => (sys === 'tra' ? 'tra' : 'thsr'),
+  askHint: ({ params: [sys] }) => ({ context: `使用者正在看${sys === 'tra' ? '台鐵' : '高鐵'}時刻表`, chips: [sys === 'tra' ? '台鐵到台中下一班幾點？' : '下一班高鐵到台中幾點？'] }),
   async render({ main, params: [sys], setTitle }) {
     const cfg = CFG[sys] || CFG.thsr;
     setTitle(cfg.title);

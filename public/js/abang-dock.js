@@ -53,7 +53,7 @@ export function attachMain(main, key, build, query) {
 }
 
 // ───── 浮動阿幫與底部對話面板 ─────
-let fab = null, sheet = null, bubble = null, live = null, sheetBody = null, buildLife = null, bubbleTimer = 0, quiet = false;
+let fab = null, sheet = null, bubble = null, live = null, sheetBody = null, buildLife = null, pageAsk = null, bubbleTimer = 0, quiet = false;
 const onAgentPage = () => /^#\/agent(?:[/?]|$)/.test(location.hash);
 const onLifePage = () => /^#\/agent(?:\?|$)/.test(location.hash);
 const kbOpen = () => document.documentElement.classList.contains('kb-open');
@@ -63,6 +63,7 @@ export function openSheet() {
   hideBubble();
   if (!sheet?.showModal || !buildLife) { location.hash = '#/agent'; return; }
   const k = kept('agent', buildLife);
+  k.api.setPage?.(pageAsk?.() || null); // 你在看哪一頁：建議問題＋說明（跟下一個問題一起送出）
   sheetBody.append(k.root);
   sheet.showModal();
   sheet.classList.add('open');
@@ -137,10 +138,11 @@ export function syncFab() {
 
 /**
  * 掛上浮動阿幫（app.js 外殼）。
- * @param {{ buildLife: (ctx: { root: HTMLElement, setTitle: Function }) => any }} o 生活 agent 的建立方式（與問阿幫頁同一個）
+ * @param {{ buildLife: (ctx: { root: HTMLElement, setTitle: Function }) => any, pageAsk?: () => ({ context?: string, chips?: string[] }|null) }} o 生活 agent 的建立方式（與問阿幫頁同一個）；pageAsk：現在這一頁可以問什麼
  */
 export function mountFab(o) {
   buildLife = o.buildLife;
+  pageAsk = o.pageAsk || null;
   fab = document.getElementById('abang-fab');
   bubble = document.getElementById('abang-bubble');
   live = document.getElementById('abang-live');

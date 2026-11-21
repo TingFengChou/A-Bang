@@ -159,6 +159,9 @@ export default {
     log.setAttribute('role', 'log');
     log.setAttribute('aria-live', 'polite');
     const chips = el('div', 'suggest');
+    const pageRow = el('div', 'suggest page-ask'); // 浮動阿幫：在這一頁可以問（abang-dock.js setPage）
+    pageRow.hidden = true;
+    let pageContext = '';
     const mention = el('div', 'mention-bar');
     const input = el('input', 'chat-input');
     Object.assign(input, { placeholder: A.placeholder, enterkeyhint: 'send', autocomplete: 'off', maxLength: 500 });
@@ -171,7 +174,7 @@ export default {
     modeLine.setAttribute('aria-live', 'polite'); // 換模式或改在手機上判斷時唸出來 // 由誰回答（ADR-0012；Claude 模式說明對話會送 Anthropic，AGENT.md §7）
     // 說明起點是現在位置（第一次需要位置時才跳權限框，先讓使用者知道為什麼）；拒絕定位時阿幫會問從哪出發
     const hereHint = agentId === 'life' && el('p', 'updated here-hint', '沒說起點時，阿幫用你現在的位置當出發點。');
-    main.append(log, el('div', 'chat-dock', chips, mention, form), ...(hereHint ? [hereHint] : []), disclaimer, modeLine);
+    main.append(log, el('div', 'chat-dock', pageRow, chips, mention, form), ...(hereHint ? [hereHint] : []), disclaimer, modeLine);
     const MODE_TEXT = {
       claude: (m) => `由 Claude（${m}）回答；對話會送 Anthropic 處理。`,
       local: (m) => `由地端模型（${m}）回答；對話只送到本站設定的模型伺服器。`,
@@ -253,6 +256,7 @@ export default {
       turnNo += 1;
       for (const c of cards) if (c.turn < turnNo - 1) c.stop?.();
       busy = true; sendBtn.disabled = true; input.value = ''; mention.replaceChildren();
+      pageRow.hidden = true;
       history.push({ role: 'user', content: q });
       log.append(el('div', 'msg user', q));
       const turn = el('div', 'turn');
@@ -263,7 +267,8 @@ export default {
         const deviceJudge = agentId === 'life' ? await edgeJudge(q, history.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content)) : null;
         // 常用地點：只送這段對話提到的（「回家」才送家）
         const savedPlaces = agentId === 'life' ? placesFor(history.slice(-10).filter((m) => m.role === 'user').map((m) => m.content)) : undefined;
-        await runAgent({ messages: history.slice(-10), ...(context && { context }), ...(deviceJudge && { deviceJudge }), ...(savedPlaces && { savedPlaces }) }, (e) => {
+        const ctxText = [context, pageContext].filter(Boolean).join('；').slice(0, 200);
+        await runAgent({ messages: history.slice(-10), ...(ctxText && { context: ctxText }), ...(deviceJudge && { deviceJudge }), ...(savedPlaces && { savedPlaces }) }, (e) => {
           // 隱私：防詐頁貼上的內容只送給本站伺服器分析，不保存（AGENT_ANTIFRAUD.md §1）
           if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = modeText(e);
           view.push(e);
@@ -274,7 +279,7 @@ export default {
       } catch {
         turn.append(el('div', 'msg error', '連線中斷了，請再試一次。'));
       } finally {
-        busy = false; sendBtn.disabled = false; context = '';
+        busy = false; sendBtn.disabled = false; context = ''; pageContext = '';
         if (pendingQ) { const p = pendingQ; pendingQ = null; queueMicrotask(() => send(p)); }
         if (!matchMedia('(pointer: coarse)').matches) input.focus(); // 手機不自動聚焦：鍵盤會跳出來蓋住回答
       }
@@ -461,8 +466,8 @@ export default {
       return view;
     }
     // 給 app.js／浮動阿幫用：回到這頁、阿幫主動說一句（提醒）、聚焦輸入框、代問、有沒有對話
-    return {
-      show: (qy) => takeQuery(qy),
+    const api = {
+      show: (qy) => { api.setPage(null); takeQuery(qy); }, // 整頁：不是從哪一頁打開，拿掉「在這頁可以問」
       say(text, action = null) {
         const p = el('div', 'agent-say');
         p.append(avatar('阿幫', 'happy'), el('p', 'say', text));
@@ -472,6 +477,14 @@ export default {
       focus: () => input.focus({ preventScroll: true }),
       ask: (q) => send(q),
       hasChat: () => history.length > 0,
+      /** 從哪一頁打開（浮動阿幫）：那一頁可以問的問題，說明跟下一個問題一起送；null＝清掉 */
+      setPage(hint) {
+        pageContext = hint?.context || '';
+        const qs = (hint?.chips || []).slice(0, 3);
+        pageRow.hidden = !qs.length;
+        pageRow.replaceChildren(...(qs.length ? [el('span', 'next-title', '在這頁可以問'), ...qs.map((q) => { const b = el('button', 'chip', q); b.type = 'button'; b.onclick = () => send(q); return b; })] : []));
+      },
     };
+    return api;
   },
 };

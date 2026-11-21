@@ -893,6 +893,8 @@ test('阿幫常駐：開公車頁再回來對話還在、浮動阿幫拉出同�
     await page.click('#abang-fab');
     await page.waitForSelector('#abang-sheet[open] .bubble.final');
     assert.equal(await page.locator('#abang-sheet .bubble.final .say').textContent(), answer, '同一段對話');
+    // 浮動阿幫知道你在看哪一頁：公車頁打開 →「在這頁可以問」這條路線到哪了（帶上車站）
+    assert.match(await page.textContent('#abang-sheet .page-ask'), /在這頁可以問\s*307 到哪了？我在/);
     assert.equal(await page.locator('#main .bus-focus').count(), 1, '背後的公車頁還在');
     await shot(page, 'phone-abang-sheet');
     await page.keyboard.press('Escape');
@@ -916,6 +918,21 @@ test('阿幫常駐：開公車頁再回來對話還在、浮動阿幫拉出同�
     await page.waitForSelector('#main .bubble.final');
     assert.equal(await page.locator('#main .msg.user').count(), 2);
     assert.equal(await page.locator('#main .agent-say').count(), 1, '阿幫說過的提醒記在對話裡');
+  });
+});
+
+// 浮動阿幫知道你在看哪一頁：天氣頁打開 → 建議天氣的問題；點了送出，這一頁的說明跟著送（只送這一次）
+test('浮動阿幫：在天氣頁打開，建議天氣問題並帶上這一頁', async () => {
+  await withPage(DEVICES.phone, '#/s/weather', async (page) => {
+    await page.waitForSelector('.ab-card[data-card="weather"]');
+    const bodies = [];
+    page.on('request', (r) => { if (r.url().endsWith('/api/v1/agent') && r.method() === 'POST') bodies.push(JSON.parse(r.postData())); });
+    await page.click('#abang-fab');
+    await page.waitForSelector('#abang-sheet[open] .page-ask:not([hidden])');
+    await page.click('#abang-sheet .page-ask button:has-text("明天會下雨嗎？")');
+    await page.waitForSelector('#abang-sheet .bubble.final', { timeout: 20000 });
+    assert.match(bodies[0].context, /使用者正在看「天氣」頁/);
+    assert.equal(await page.locator('#abang-sheet .page-ask').isHidden(), true, '問了就收起來');
   });
 });
 
