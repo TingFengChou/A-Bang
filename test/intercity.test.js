@@ -92,7 +92,8 @@ test('departMinutes 與 delayRiskOf', () => {
   assert.throws(() => departMinutes('明天'), /departAt 格式/);
   // ISO 用該日的日期與星期，不是今天
   assert.deepEqual(departOf('2026-11-21T09:15:00+08:00', NOW), { date: '2026-11-21', weekday: 6, minute: 555 });
-  assert.deepEqual(departOf('07:05', NOW), { date: '2026-11-17', weekday: 2, minute: 425 });
+  assert.deepEqual(departOf('07:05', NOW), { date: '2026-11-18', weekday: 3, minute: 425 }, 'HH:mm 比現在（17:30）早超過 1 小時＝明天（PR #110 審查）');
+  assert.deepEqual(departOf('17:00', NOW), { date: '2026-11-17', weekday: 2, minute: 1020 }, '剛過不久仍算今天');
   // 沒有時區的 ISO 視為台灣時間（不受伺服器時區影響）；只有日期＝當天 00:00
   assert.deepEqual(departOf('2026-11-18T19:00', NOW), { date: '2026-11-18', weekday: 3, minute: 1140 });
   assert.deepEqual(departOf('2026-11-18', NOW), { date: '2026-11-18', weekday: 3, minute: 0 });

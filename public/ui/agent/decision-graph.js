@@ -24,7 +24,7 @@ const EN = {
   mode: { walk: 'Walk', bike: 'YouBike', bus: 'Bus', metro: 'MRT', thsr: 'High Speed Rail', tra: 'Train', intercity: 'Intercity bus', ridehail: 'Taxi' },
   role: { 地點: 'Places', 定位: 'Location', 天氣: 'Weather', 空品: 'Air', 路況: 'Traffic', 票價: 'Fares', 行程: 'Trip', 公車: 'Bus', 捷運: 'MRT', YouBike: 'YouBike', 高鐵: 'THSR', 台鐵: 'Train', 叫車: 'Taxi', 客運: 'Coach', 訂票: 'Booking', 車站: 'Stations', 地震: 'Quakes', 藥局: 'Pharmacy', 垃圾車: 'Garbage', 油價: 'Fuel', 發票: 'Invoices', 股市: 'Stocks', 阿幫: 'Abang', 防詐: 'Anti-fraud', 網址: 'Links', 闢謠: 'Fact check', 號碼: 'Numbers' },
   crit: { minutes: 'Time', waitMin: 'Wait', walkMin: 'Walking', cost: 'Cost', exposure: 'Outdoors', effort: 'Effort', delayRisk: 'Delays' },
-  tag: { 遲到: 'Late', 不要: 'Skip', 不適合: 'Unfit', 收班: 'No service', 沒列入: 'N/A', 排除: 'Out' },
+  tag: { 遲到: 'Late', 不要: 'Skip', 不適合: 'Unfit', 收班: 'No service', 未發車: 'Not yet', 沒列入: 'N/A', 排除: 'Out' },
   cols: ['Data', 'Abang', 'Options'],
   step1: '① Gathering data', step2: '② Your situation', step3: (c) => `③ Comparing: ${c}`, step4: (n) => `④ Decision: ${n}`, decide: '④ Decision',
   hint: 'Want another way? Tap an option and Abang recalculates', chips: 'Your situation (tap to toggle, recalculates right away)',
@@ -120,7 +120,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     const byId = new Map(decision.options.map((o) => [o.id, o]));
     const ranked = r.ranked.map((x) => ({ ...byId.get(x.id), score: x.score, breakdown: x.breakdown }));
     // 沒列入比較的方式（深夜公車、捷運收班、YouBike 沒車位、附近沒有捷運站…）：也畫出來，灰色、標籤寫「收班」或「沒列入」，原因寫在圖下（設計審查）
-    const skipped = notIn.map((x) => ({ id: `skip-${x.role}`, role: x.role, name: ROLE_NAME[x.role] || x.role, why: (en && x.whyEn) || x.why, tag: x.closed || /收班|末班已過/.test(x.why) ? '收班' : '沒列入', skipped: true }));
+    const skipped = notIn.map((x) => ({ id: `skip-${x.role}`, role: x.role, name: ROLE_NAME[x.role] || x.role, why: (en && x.whyEn) || x.why, tag: x.notYet ? '未發車' : x.closed || /收班|末班已過/.test(x.why) ? '收班' : '沒列入', skipped: true }));
     const excluded = [...r.excluded.map((x) => ({ ...byId.get(x.id), why: x.why })), ...skipped];
     const off = states.filter((s) => !s.on && s.source === 'auto').map((s) => SL[s.key]);
     const reason = (off.length ? `不考慮「${off.join('、')}」的話，` : '') + (habitTop && !habitOn ? '不看你的偏好的話，' : '') + r.reason;
@@ -378,12 +378,12 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       const isEx = i >= ranked.length;
       const win = o.id === bestId;
       edges.append(svg('path', { d: `M${C.x + 30},${C.y} C${C.x + 62},${C.y} ${OPT_X - 40},${y} ${OPT_X},${y}`,
-        class: `dg-edge dg-out-edge ${isEx ? 'step4 excluded' : 'step3'}${isEx && ['不要', '收班', '沒列入'].includes(tagOf(o)) ? ' avoided-edge' : ''}${win ? ' win' : ''}`, 'data-id': o.id, style: `stroke-width:${isEx ? 1 : (1 + 7 * (o.score / max)).toFixed(1)}px` })); // 連線粗細＝分數（inline，CSS 的 stroke-width 才蓋不掉）
-      const avoided = isEx && ['不要', '收班', '沒列入'].includes(tagOf(o)), unfit = isEx && tagOf(o) === '不適合';
+        class: `dg-edge dg-out-edge ${isEx ? 'step4 excluded' : 'step3'}${isEx && ['不要', '收班', '未發車', '沒列入'].includes(tagOf(o)) ? ' avoided-edge' : ''}${win ? ' win' : ''}`, 'data-id': o.id, style: `stroke-width:${isEx ? 1 : (1 + 7 * (o.score / max)).toFixed(1)}px` })); // 連線粗細＝分數（inline，CSS 的 stroke-width 才蓋不掉）
+      const avoided = isEx && ['不要', '收班', '未發車', '沒列入'].includes(tagOf(o)), unfit = isEx && tagOf(o) === '不適合';
       const n = node(OPT_X, y, short(nameOf(o)), `dg-opt ${isEx ? 'step4 excluded' : 'step3'}${avoided ? ' avoided' : ''}${unfit ? ' unfit' : ''}${win ? ' win dg-best' : ''}`, o.role, win, isEx ? exText(o.why, o.tag) : String(o.score));
       n.style.setProperty('--i', String(i));
       n.dataset.id = o.id;
-      if (isEx) n.setAttribute('aria-label', en ? EN.ex(o.name, exText(o.why, o.tag)) : `${o.name}，${o.skipped ? '沒列入' : '已排除'}：${o.why}`); // 讀屏念原因（「你說不要叫車」「…會遲到」）
+      if (isEx) n.setAttribute('aria-label', en ? EN.ex(nameOf(o), o.skipped ? o.why : exText(o.why, o.tag)) : `${o.name}，${o.skipped ? '沒列入' : '已排除'}：${o.why}`); // 讀屏念原因（「你說不要叫車」「…會遲到」）
       if (onPick && !isEx && !win) { // 點方案＝「改成這個」（沿用起訖點重算；公車會自動盯到站）
         n.classList.add('pickable');
         n.setAttribute('role', 'button');

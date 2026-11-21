@@ -2892,6 +2892,7 @@ test('問阿幫：深夜 00:10 去台北101——第一句說公車和捷運收�
       assert.ok((await card.locator('.ab-skipped li').allTextContents()).includes('MRT not included: The MRT has stopped for the night (first train around 06:00)'));
       await page.waitForSelector('.decision .dg-missing');
       assert.doesNotMatch(await page.locator('.decision .dg-missing').textContent(), /[一-鿿]/, '決策圖原因是英文');
+      assert.equal(await page.locator('.decision .dg-opt[data-id="skip-metro"]').getAttribute('aria-label'), 'MRT, excluded: The MRT has stopped for the night (first train around 06:00)', '英文讀屏：英文名稱與原因（審查 8）');
       await page.locator('.bubble.final').scrollIntoViewIfNeeded();
       await page.screenshot({ path: new URL('phone-trip-night-en.png', SHOTS).pathname });
     }, { origin: night.base });

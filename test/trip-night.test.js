@@ -12,7 +12,7 @@ import { callTool } from '../core/tools/index.js';
 import { speakEn } from '../core/tools/speak-en.js';
 import { impactOf } from '../core/agent/impact.js';
 import { mustSay } from '../core/agent/model-loop.js';
-import { nightNote, demoSummary, parseIntent } from '../core/agent/demo-intent.js';
+import { nightNote, demoSummary, parseIntent, tripDepartAt } from '../core/agent/demo-intent.js';
 
 const MAIN = { name: '台北車站', lat: 25.0478, lon: 121.517 };
 const T101 = { name: '台北101', lat: 25.033964, lon: 121.564468 };
@@ -22,7 +22,7 @@ const roles = (r) => r.options.map((o) => o.role);
 
 test('metroHours：各系統約 06:00 首班、24:00 前後收班（⚠️ 大約值）；收班前 30 分提醒末班', () => {
   assert.deepEqual(metroHours('TRTC', 10), { closed: true, first: '06:00' });
-  assert.deepEqual(metroHours('TRTC', 5 * 60 + 59), { closed: true, first: '06:00' });
+  assert.deepEqual(metroHours('TRTC', 5 * 60 + 59), { closed: true, first: '06:00', notYet: true }, '首班前 1 小時內：還沒發車');
   assert.deepEqual(metroHours('TRTC', 6 * 60), {});
   assert.deepEqual(metroHours('TRTC', 23 * 60 + 29), {});
   assert.deepEqual(metroHours('TRTC', 23 * 60 + 40), { late: true, last: '24:00' });
@@ -68,11 +68,11 @@ test('真實資料也套用捷運營運時間（捷運沒有收班即時狀態�
   assert.ok(!roles(r).includes('metro'));
   assert.ok(roles(r).includes('bus'), '真實資料公車看站牌狀態，不只看時間');
   assert.deepEqual(r.night.closed, ['metro']);
-  assert.match(r.night.text, /^現在 00:10，捷運已收班（捷運約 06:00 首班），先比走路、YouBike、公車、叫車$/);
+  assert.match(r.night.text, /^現在 00:10，捷運已收班（約 06:00 首班），先比走路、YouBike、公車、叫車$/);
 });
 
 test('有好幾種方式時 missing 仍帶原因（白天沒有捷運站：卡片、討論串、回答都說）', async () => {
-  const r = await planTrip(createServices({ forceMock: true }), { from: { name: '墾丁', lat: 21.95, lon: 120.79 }, to: { name: '恆春', lat: 22.0, lon: 120.75 }, now: at('10:00') });
+  const r = await planTrip(createServices({ forceMock: true }), { from: MAIN, to: { name: '萬華一帶', lat: 25.0278, lon: 121.497 }, now: at('10:00') });
   assert.ok(r.options.length > 1 && !r.single);
   assert.deepEqual(r.missing, [{ role: 'metro', kind: 'none', why: '起點或目的地附近沒有捷運站', whyEn: 'No MRT station near the start or destination' }]);
   assert.equal(r.night, undefined);
@@ -135,4 +135,139 @@ test('示範回答與英文：深夜第一句就說；模型模式漏講時程�
   const trip = await plan(svc, '00:10');
   assert.equal(nightNote(trip), `${trip.night.text}。`);
   assert.match(mustSay('建議叫車，約 24 分。', trip), /^現在 00:10，公車和捷運都收班了.*。建議叫車，約 24 分。/);
+});
+
+// ───────── PR #110 獨立審查修正 ─────────
+const text = (es) => es.filter((e) => e.type === 'text').map((e) => e.delta).join('');
+const demo = async (q, hhmm) => { const es = []; await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: q }] }, (e) => es.push(e), { now: at(hhmm) }); return es; };
+
+test('審查 1：「明天早上9點前…」合成的出發時間不早於捷運首班，回答不講合成的「05:00 出發」、照樣推捷運', async () => {
+  const it = parseIntent('明天早上9點前從台北車站到台北101');
+  assert.equal(tripDepartAt(it, at('20:00')), '2026-11-23T06:00');
+  assert.equal(tripDepartAt(parseIntent('明天早上6點半前從台北車站到台北101'), at('20:00')), '2026-11-23T05:00', '抵達時間本身在 07:00 前：至少提早 1 小時');
+  assert.equal(tripDepartAt(parseIntent('明天下午3點前從台北車站到台北101'), at('20:00')), '2026-11-23T11:00', '抵達前 4 小時照舊');
+  const es = await demo('明天早上9點前從台北車站到台北101', '20:00');
+  const said = text(es);
+  assert.doesNotMatch(said, /0[56]:00 出發|收班|還沒發車/, said);
+  assert.ok(es.find((e) => e.type === 'decision').options.some((o) => o.role === 'metro'), '捷運在比較裡');
+  // 使用者沒說出發時間、深夜一句也不帶合成的時間（bare）
+  const trip = { night: { text: '05:00 出發，捷運還沒發車（約 06:00 首班）', body: '捷運還沒發車（約 06:00 首班）' } };
+  assert.equal(nightNote(trip, { bare: true }), '捷運還沒發車（約 06:00 首班）。');
+  assert.match(mustSay('建議叫車。', trip, { intent: 'trip', tomorrow: true }), /^明天 出發：捷運還沒發車（約 06:00 首班）。建議叫車/);
+});
+
+test('審查 2：營運判斷看走到捷運站的時刻（05:55 出發走 7 分＝06:02 到站可搭；23:55 出發走到站已過 24:00）', async () => {
+  const svc = createServices({ forceMock: true });
+  const from = { name: '承德路一帶', lat: 25.0508, lon: 121.517 };
+  const go = (hhmm) => planTrip(svc, { from, to: T101, departAt: `2026-11-22T${hhmm}`, now: at(hhmm) });
+  const early = await go('05:55');
+  const m = early.options.find((o) => o.role === 'metro');
+  assert.ok(m && m.legs[0].minutes >= 5, '走到站時已過 06:00');
+  assert.ok(!early.night?.closed.includes('metro'));
+  const late = await go('23:55');
+  assert.equal(late.missing.find((x) => x.role === 'metro').why, '捷運已收班（約 06:00 首班）');
+  assert.match((await go('05:50')).missing.find((x) => x.role === 'metro').why, /還沒發車/, '05:50＋7 分＝05:57 還沒發車');
+});
+
+test('審查 3：05:00～05:59 說「還沒發車（約 06:00 首班）」，英文不說 stopped for the night', async () => {
+  const r = await plan(createServices({ forceMock: true }), '05:30');
+  const metro = r.missing.find((x) => x.role === 'metro');
+  assert.deepEqual([metro.notYet, metro.why, metro.whyEn], [true, '捷運還沒發車（約 06:00 首班）', "The MRT hasn't started yet (first train around 06:00)"]);
+  assert.match(r.night.text, /^現在 05:30，捷運還沒發車（約 06:00 首班），先比/);
+  assert.match(r.night.textEn, /^It's 05:30 now: the MRT hasn't started yet \(first train around 06:00\)/);
+  assert.doesNotMatch(r.night.textEn, /stopped/);
+  assert.doesNotMatch(r.night.text, /收班/);
+  assert.equal(r.night.notYet, true);
+  const mix = nightOf({ skipped: [{ role: 'bus', closed: true }, { role: 'metro', closed: true, notYet: true, first: '06:00' }], options: [{ role: 'ridehail' }], departMin: 290, isNow: true });
+  assert.equal(mix.text, '現在 04:50，公車已收班，捷運還沒發車（約 06:00 首班），先比叫車', '兩個都不能說「都收班了」');
+});
+
+test('審查 4：只有一種方式＋深夜不重複；「明天 00:10 出發：00:10 出發…」去重', async () => {
+  const svc = createServices({ forceMock: true });
+  const noCoach = { ...svc, intercity: { ...svc.intercity, trips: async () => ({ trains: [] }) } }; // 客運也沒班次：只剩叫車
+  const r = await planTrip(noCoach, { from: { name: '淡水', lat: 25.1677, lon: 121.4456 }, to: T101, departAt: '2026-11-22T00:10', now: at('00:10') });
+  assert.deepEqual([r.options.map((o) => o.role), Boolean(r.single), r.night?.closed], [['ridehail'], true, ['bus', 'metro']]);
+  assert.equal(r.night.text, '現在 00:10，公車和捷運都收班了（捷運約 06:00 首班）');
+  assert.doesNotMatch(r.single.text, /收班/, '收班已由 night 說，single 不再列');
+  const { planTripTool } = await import('../core/tools/trip.js');
+  assert.match(planTripTool.speak(r), /^現在 00:10，公車和捷運都收班了（捷運約 06:00 首班）。只找到叫車（Uber）一種方式。$/);
+  const sum = demoSummary(parseIntent('從淡水去台北101'), { plan_trip: [{ data: r }] });
+  assert.equal((sum.match(/收班/g) || []).length, 1, sum);
+  const n = nightOf({ skipped: [{ role: 'bus', closed: true }, { role: 'metro', closed: true, first: '06:00' }], options: [{ role: 'ridehail' }], departMin: 10, isNow: true, single: true });
+  assert.equal(n.text, '現在 00:10，公車和捷運都收班了（捷運約 06:00 首班）', '只有一種方式時不說「先比叫車」');
+  // 只有一種方式的 single 說明：收班的方式不重複
+  const { singleNote, missingModes } = await import('../core/services/trip-considered.js');
+  const { LIMITS } = await import('../core/services/trip.js');
+  const ml = missingModes({ straight: 9000, roles: { ridehail: { id: 'ridehail' } }, skipped: [{ role: 'bus', closed: true, why: '深夜多數公車已收班' }, { role: 'metro', closed: true, why: '捷運已收班（約 06:00 首班）' }], limits: LIMITS });
+  const s = singleNote({ options: [{ role: 'ridehail', name: '叫車' }], missingList: ml.filter((x) => !x.closed), straight: 9000, departMin: 10, demo: false, toName: 'X' });
+  assert.doesNotMatch(s.text, /收班/);
+  const es = await demo('明天凌晨12點10分從台北車站去台北101', '20:00');
+  const said = text(es);
+  assert.match(said, /^明天 00:10 出發：公車和捷運都收班了（捷運約 06:00 首班）/);
+  assert.equal((said.match(/00:10 出發/g) || []).length, 1, said);
+  const trip = es.find((e) => e.type === 'decision');
+  assert.match(mustSay('建議叫車。', { ...trip, ranking: {} }, { intent: 'trip', tomorrow: true, departTime: '00:10' }), /^明天 00:10 出發：公車和捷運都收班了.*。建議叫車/);
+});
+
+test('審查 5：directTrips 內部 routeEta 429 記下來，公車原因照實說額度用完（不說查不到直達公車）', async () => {
+  const { createTransitServices } = await import('../core/services/transit.js');
+  const { markLimited } = await import('../core/metrics.js');
+  // 真實服務的 directTrips：站牌查得到、routeEta 429 → 該路線略過並記下
+  const stops = (lat, lon) => [{ name: 'A', city: 'Taipei', lat, lon, routes: ['307'] }];
+  const tdx = { get: async () => { throw new TdxError(429, 'rate limit'); } };
+  const live = createTransitServices(tdx);
+  live.bus.nearbyStations = async ({ lat, lon }) => stops(lat, lon);
+  live.bus.routeEta = async () => { throw new TdxError(429, 'rate limit'); };
+  const { result, metrics } = await measure(async () => {
+    const out = await live.bus.directTrips({ from: MAIN, to: T101 });
+    const { limited } = await import('../core/metrics.js');
+    return { out, hit: limited('routeEta') };
+  });
+  assert.deepEqual(result.out, []);
+  assert.equal(result.hit, true, '429 記下來');
+  assert.equal(metrics.limitedOn, undefined, '不進計量');
+  // plan_trip：沒有可用路線又有 429 → 照實說
+  const svc = { ...createServices({ forceMock: true }), mode: 'live' };
+  svc.bus = { ...svc.bus, directTrips: async () => { markLimited('routeEta'); return []; } };
+  const { result: r } = await measure(() => plan(svc, '10:00'));
+  const bus = r.missing.find((x) => x.role === 'bus');
+  assert.deepEqual([bus.why, bus.fallback], ['TDX 額度用完，公車資料這次查不到（稍後再問一次）', 'tdx-limit']);
+  assert.match(bus.whyEn, /TDX quota used up/);
+});
+
+test('審查 6：站牌狀態 4（今日未營運）不當收班、不觸發深夜第一句；只有 3 算收班', async () => {
+  const base = createServices({ forceMock: true });
+  const withStatus = (s) => ({ ...base, mode: 'live', bus: { ...base.bus, directTrips: async (a) => (await base.bus.directTrips(a)).map((t) => ({ ...t, board: { ...t.board, status: s } })) } });
+  const r4 = await plan(withStatus(4), '14:00');
+  const b4 = r4.skipped.find((x) => x.role === 'bus');
+  assert.equal(b4.why, '附近直達的公車今天沒有營運（站牌即時資訊）');
+  assert.ok(!b4.closed);
+  assert.equal(r4.night, undefined, '不說「公車已收班」');
+  const r3 = await plan(withStatus(3), '23:10');
+  assert.ok(r3.skipped.find((x) => x.role === 'bus').closed);
+  assert.deepEqual(r3.night.closed, ['bus']);
+});
+
+test('審查 7：沒有捷運的地方（起訖 10 公里內沒有捷運站）不說「捷運沒列入」', async () => {
+  const r = await planTrip(createServices({ forceMock: true }), { from: { name: '墾丁', lat: 21.95, lon: 120.79 }, to: { name: '恆春', lat: 22.0, lon: 120.75 }, now: at('10:00') });
+  assert.equal(r.missing, undefined);
+  assert.ok(![impactOf('plan_trip', r)].flat().some((l) => /捷運/.test(l.text)));
+  const said = demoSummary(parseIntent('從墾丁去恆春'), { plan_trip: [{ data: r }] });
+  assert.doesNotMatch(said, /捷運沒列入/);
+});
+
+test('審查 9、10：深夜＋TDX 額度用完時 speak 只說一次額度；HH:mm 早於現在＝明天（火車查隔天）', async () => {
+  const base = createServices({ forceMock: true });
+  const live = { bus: { directTrips: async () => { throw new TdxError(429, 'rate limit'); } } };
+  const svc = { ...base, mode: 'live', now: at('00:05'), ...withTdxFallback(live, { bus: base.bus }) };
+  const r = await callTool(svc, 'plan_trip', { from: '台北車站', to: '台北101', departAt: '00:10' });
+  assert.equal(r.fallback, 'tdx-limit');
+  assert.equal((r.speak.match(/TDX/g) || []).length, 1, r.speak);
+  const { departOf } = await import('../core/services/intercity.js');
+  assert.deepEqual(departOf('00:10', at('23:50')), { date: '2026-11-23', weekday: 1, minute: 10 });
+  assert.equal(departOf('23:20', at('23:50')).date, '2026-11-22', '剛過半小時仍算今天');
+  const far = await planTrip(base, { from: MAIN, to: { name: '高雄車站', lat: 22.6394, lon: 120.3025 }, departAt: '06:30', now: at('23:50') });
+  assert.equal(far.date, '2026-11-23');
+  const rail = far.options.find((o) => o.train);
+  if (rail) assert.equal(rail.train.date, '2026-11-23', '火車時刻表查隔天');
 });

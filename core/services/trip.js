@@ -6,7 +6,7 @@ import { walkMinutes, navLinks } from '../nav.js';
 import { decide, keyQuestion, STATES } from '../decide.js';
 import { departOf, delayRiskOf } from './intercity.js';
 import { LANDMARKS, normPlace } from './places.js';
-import { currentFallback, fellBack } from '../metrics.js';
+import { currentFallback, fellBack, limited } from '../metrics.js';
 import { consideredOf, missingModes, singleNote, nightOf, AIR_MAX_M, BAD_AIR_AQI, RAIN_SOON_POP } from './trip-considered.js';
 
 export { AIR_MAX_M, BAD_AIR_AQI, RAIN_SOON_POP };
@@ -166,15 +166,17 @@ export const METRO_HOURS = {
   KRTC: { open: 6 * 60, close: 24 * 60 },      // 高雄捷運：約 06:00～24:00
 };
 export const METRO_LATE_MIN = 30;
+/** 起訖 10 公里內都沒有捷運站＝這一帶沒有捷運：不說「捷運沒列入」 */
+export const METRO_NA_M = 10000;
 const hhmmOf = (min) => (min >= 24 * 60 ? '24:00' : toHHMM(min));
 /**
- * 某系統在某時刻（當日分鐘，可超過 24 小時）：closed 已收班（first＝首班約幾點）、late 末班快到了（last＝末班約幾點）、都不是回 {}
- * @returns {{ closed?: true, first?: string, late?: true, last?: string }}
+ * 某系統在某時刻（當日分鐘，可超過 24 小時）：closed 已收班（first＝首班約幾點；首班前 1 小時內 notYet＝還沒發車）、late 末班快到了（last＝末班約幾點）、都不是回 {}
+ * @returns {{ closed?: true, notYet?: true, first?: string, late?: true, last?: string }}
  */
 export function metroHours(system, minute) {
   const h = METRO_HOURS[system] || METRO_HOURS.TRTC;
   const m = ((minute % (24 * 60)) + 24 * 60) % (24 * 60);
-  if (m >= h.close || m < h.open) return { closed: true, first: hhmmOf(h.open) };
+  if (m >= h.close || m < h.open) return { closed: true, first: hhmmOf(h.open), ...(m < h.open && m >= h.open - 60 && { notYet: true }) };
   if (m >= h.close - METRO_LATE_MIN) return { late: true, last: hhmmOf(h.close) };
   return {};
 }
@@ -205,9 +207,10 @@ async function metroOption(svc, from, to, straight, depart) {
   const systems = Object.keys(METRO_LINE_NAME);
   const lists = await Promise.allSettled(systems.map((sys) => svc.metro.stations({ system: sys })));
   if (lists.every((r) => r.status === 'rejected')) throw new Error('metro stations unavailable'); // 進 unavailable
-  let best = null, same = false;
+  let best = null, same = false, nearest = Infinity;
   lists.forEach((r, i) => {
     const list = (r.status === 'fulfilled' ? r.value : []).filter((x) => Number.isFinite(x.lat));
+    for (const x of list) nearest = Math.min(nearest, distanceM(from.lat, from.lon, x.lat, x.lon), distanceM(to.lat, to.lon, x.lat, x.lon));
     const near = (p) => list.map((x) => ({ ...x, m: distanceM(p.lat, p.lon, x.lat, x.lon) })).filter((x) => x.m <= 1200).sort((a, b) => a.m - b.m)[0];
     const o = near(from), d = near(to);
     if (o && d && o.name === d.name) same = true;
@@ -215,15 +218,21 @@ async function metroOption(svc, from, to, straight, depart) {
     if (!best || o.m + d.m < best.o.m + best.d.m) best = { sys: systems[i], list, o, d };
   });
   // 沒列入也要說原因（深夜 00:10 問 101 沒有捷運，使用者以為是 bug）
-  if (!best) return { none: same ? { kind: 'near', why: '起點和目的地最近的捷運站是同一站', whyEn: 'Same MRT station at both ends' } : { kind: 'none', why: '起點或目的地附近沒有捷運站', whyEn: 'No MRT station near the start or destination' } };
+  // 沒有捷運的地方（起訖 10 公里內都沒有捷運站）：kind 'na'，不列入 missing（不要每趟都說「捷運沒列入」）
+  if (!best) return { none: same ? { kind: 'near', why: '起點和目的地最近的捷運站是同一站', whyEn: 'Same MRT station at both ends' } : nearest > METRO_NA_M ? { kind: 'na', why: '這一帶沒有捷運', whyEn: 'No MRT in this area' } : { kind: 'none', why: '起點或目的地附近沒有捷運站', whyEn: 'No MRT station near the start or destination' } };
   const { sys, list, o, d } = best;
   if (o.m + d.m >= straight * 0.6 || o.m + d.m > 1500) { // 走到站太遠（比坐捷運還遠、或兩段直線加起來超過 1.5 公里，約走 25 分）
     const w = walkMinutes(o.m) + walkMinutes(d.m);
     return { none: { kind: 'none', why: `走到捷運站太遠（兩端加起來約走 ${w} 分）`, whyEn: `Too far to walk to the MRT stations (about ${w} min in total)` } };
   }
-  // 營運時間（⚠️ 大約值，以各系統公告為準）：收班不列入並說首班時間；接近末班列入但提醒
-  const hours = depart ? metroHours(sys, depart.minute) : {};
-  if (hours.closed) return { skip: { role: 'metro', closed: true, first: hours.first, why: `捷運已收班（約 ${hours.first} 首班）`, whyEn: `The MRT has stopped for the night (first train around ${hours.first})` } };
+  // 營運時間（⚠️ 大約值，以各系統公告為準）：看走到站的時刻（23:59 出發走到站已過 24:00；05:50 出發 06:02 到站可搭）
+  // 收班不列入並說首班時間（首班前 1 小時內說「還沒發車」）；接近末班列入但提醒
+  const hours = depart ? metroHours(sys, depart.minute + walkMinutes(o.m)) : {};
+  if (hours.closed) {
+    return { skip: hours.notYet
+      ? { role: 'metro', closed: true, notYet: true, first: hours.first, why: `捷運還沒發車（約 ${hours.first} 首班）`, whyEn: `The MRT hasn't started yet (first train around ${hours.first})` }
+      : { role: 'metro', closed: true, first: hours.first, why: `捷運已收班（約 ${hours.first} 首班）`, whyEn: `The MRT has stopped for the night (first train around ${hours.first})` } };
+  }
   const est = METRO_EST[sys];
   const lineName = (l) => METRO_LINE_NAME[sys]?.[l] || '捷運';
   const shared = (o.lines || []).find((l) => (d.lines || []).includes(l));
@@ -271,7 +280,14 @@ async function busOption(svc, from, to, straight, risk, depart) {
   if (est && night) return { skip: busNightClosed(true) };
   const late = (!live || est) && m != null && m >= NIGHT.lateFrom;
   const list = all.filter((t) => ![3, 4].includes(t.board?.status));
-  if (all.length && !list.length) return { skip: { role: 'bus', closed: true, why: '附近直達的公車末班已過（站牌即時資訊），可以叫車或騎 YouBike', whyEn: 'The last direct bus has left (live stop info); try a taxi or YouBike' } };
+  // 站牌狀態：3 末班已過＝收班；4 今日未營運不是深夜收班（不觸發深夜第一句）
+  if (all.length && !list.length) {
+    return { skip: all.some((t) => t.board?.status === 3)
+      ? { role: 'bus', closed: true, why: '附近直達的公車末班已過（站牌即時資訊），可以叫車或騎 YouBike', whyEn: 'The last direct bus has left (live stop info); try a taxi or YouBike' }
+      : { role: 'bus', why: '附近直達的公車今天沒有營運（站牌即時資訊）', whyEn: 'Direct buses nearby are not running today (live stop info)' } };
+  }
+  // TDX 額度用完：有些路線的到站資料查不到（directTrips 內部 routeEta 429），照實說，不說成「查不到直達公車」
+  if (!list.length && limited('routeEta')) return { none: { kind: 'none', why: 'TDX 額度用完，公車資料這次查不到（稍後再問一次）', whyEn: 'TDX quota used up; bus data unavailable this time (try again shortly)', fallback: 'tdx-limit' } };
   const opts = list.map((t) => {
     const w1 = walkMinutes(t.walkFromM), w2 = walkMinutes(t.walkToM);
     // 走到站牌前車子就來了 → 等下一班（不知道下一班時間，以 10 分估）
@@ -468,13 +484,13 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     ? { ...c, fallback: 'tdx-limit', text: `${c.text}（TDX 額度用完，這次先用示範資料）`, textEn: `${c.textEn} (TDX quota used up; demo data this time)` } : c));
   // 沒列入的方式與原因（任何時候都說：深夜 00:10 問 101 沒有公車和捷運，使用者以為是 bug）；太近、太遠是顯而易見的，不列
   const missingList = missingModes({ straight, roles: byRole, skipped, limits: LIMITS });
-  const missing = missingList.filter((x) => x.kind !== 'near' && x.kind !== 'far');
+  const missing = missingList.filter((x) => !['near', 'far', 'na'].includes(x.kind));
   // 深夜：公車、捷運收班或末班快到了，回答第一句就說（「現在 00:10，公車和捷運都收班了（捷運約 06:00 首班），先比走路、YouBike、叫車」）
   const tw = nowTW(now);
   const isNow = depart.date === tw.date && Math.abs(depart.minute - toMin(tw.hhmm)) <= 2;
-  const night = nightOf({ skipped, options, departMin: depart.minute, isNow });
-  // 只有一種方式：說明其他方式為什麼不在（太遠、附近沒有站、沒有趕得上的班次…）
-  const single = singleNote({ options, missingList, straight, departMin: depart.minute, demo: svc.mode !== 'live', fallback: currentFallback(), toName: to.name, fromName: from.name }); // fallback：TDX 額度用完時公車、高鐵等可能是示範資料（withTdxFallback 逐個方法改用）
+  const night = nightOf({ skipped, options, departMin: depart.minute, isNow, single: options.length === 1 });
+  // 只有一種方式：說明其他方式為什麼不在（太遠、附近沒有站、沒有趕得上的班次…）；深夜收班已由 night 說，不重複
+  const single = singleNote({ options, missingList: night ? missingList.filter((x) => !(x.closed && night.closed.includes(x.role))) : missingList, straight, departMin: depart.minute, demo: svc.mode !== 'live', fallback: currentFallback(), toName: to.name, fromName: from.name }); // fallback：TDX 額度用完時公車、高鐵等可能是示範資料（withTdxFallback 逐個方法改用）
   return {
     from: pt(from), to: pt(to), straightKm: +(straight / 1000).toFixed(1),
     date: depart.date, departAt: toHHMM(depart.minute),

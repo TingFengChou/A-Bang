@@ -238,9 +238,13 @@ export function mustSay(text, trip, it = null) {
   // 建議叫車：付款在叫車 App（阿幫不代付；P2-10）
   const rideShown = trip.best === 'ridehail' || (it?.mode === 'ridehail' && !trip.modeUnavailable && trip.options?.some((o) => o.role === 'ridehail')); // 卡片上真的有叫車
   if (rideShown && !/付款在叫車|叫車 ?App.{0,8}付款/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}${/「叫車」|叫車 ?App|官方 ?App/.test(out) ? '' : '按卡片上的「叫車」用官方 App 叫車，'}付款在叫車 App 完成（阿幫不代付）。`; // 模型已經說了按叫車：只補付款（不重複，2026-11-21 實機）
-  const night = nightNote(trip);
+  const dated = it?.intent === 'trip' && Boolean(it.departTime || it.tomorrow); // 使用者說了幾點／明天：不重複「00:10 出發」，也不講合成的出發時間
+  const night = nightNote(trip, { bare: dated });
   // 深夜一句（plan_trip 的 night）：第一句就說（使用者才知道公車、捷運為什麼不在）；舊資料只有 skipped 時補在後面
-  if (night && !/收班|末班/.test(out)) out = trip.night?.text ? `${night}${out}` : `${out}${/[。！？]$/.test(out) ? '' : '。'}${night}`;
+  if (night && !/收班|末班/.test(out)) {
+    const lead = /^(明天|後天)[^：]*出發：/.exec(out)?.[0] || ''; // 「明天 00:10 出發：」後面接深夜那句
+    out = trip.night?.text ? `${lead}${night}${out.slice(lead.length)}` : `${out}${/[。！？]$/.test(out) ? '' : '。'}${night}`;
+  }
   return out;
 }
 

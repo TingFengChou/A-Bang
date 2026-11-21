@@ -3,6 +3,7 @@ import { resolveCity, cityFromUID } from '../cities.js';
 import { distanceM, busStatusText, minutesBetween, normName, todayTW, assertLatLon, UserError, zh, enField, odataStr as q } from '../util.js';
 import { pathFromWkt, thinPath } from '../geo.js';
 import { matchDirect, commonRoutes, DIRECT_RADIUS_M } from './bus-direct.js';
+import { markLimited } from '../metrics.js';
 
 
 export function createTransitServices(tdx) {
@@ -186,7 +187,7 @@ export function createTransitServices(tdx) {
     const city = a[0]?.city;
     if (!city) return [];
     const out = await Promise.all(commonRoutes(a, b).map(async (routeName) => {
-      const eta = await bus.routeEta({ city, routeName }).catch(() => null);
+      const eta = await bus.routeEta({ city, routeName }).catch((e) => { if (e?.status === 429) markLimited('routeEta'); return null; }); // 額度用完要記下（plan_trip 照實說，不說成查不到直達公車）
       const m = eta && matchDirect(eta.directions, from, to, radius);
       return m && { routeName, city, ...m };
     }));
