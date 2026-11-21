@@ -70,7 +70,7 @@ export function normalizeServerInfo(agent, last = null) {
     if (typeof agent.judge.llm === 'boolean') out.llm = agent.judge.llm;
   }
   // 最近一輪：rules＝這題由內建規則回答（英文、查數字的），也照實顯示
-  if (last && typeof last === 'object' && [...MODES, 'rules'].includes(last.mode)) {
+  if (last && typeof last === 'object' && [...MODES, 'rules', 'edge'].includes(last.mode)) { // edge：回答在手機上寫（ADR-0017）
     const model = ['claude', 'local'].includes(last.mode) ? clean(last.model, 80) : undefined;
     const source = SOURCES.includes(last.judge?.source) ? last.judge.source : undefined;
     const engine = source === 'device' && EDGE_ENGINES.includes(last.judge?.engine) ? last.judge.engine : undefined;

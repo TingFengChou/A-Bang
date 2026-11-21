@@ -21,6 +21,14 @@
 - 合主線（#107 阿幫問你）：「阿幫問你」用打的回答時，那句話接在問題那一輪裡（收起時一起收）；決策圖沿用 #107 的 `view.dg`（收起時 pause）。sw.js `v1.0.2`。
 - 卡住：無
 - 產品負責人定案（看過截圖後）：交通類（行程、公車、捷運、高鐵台鐵、YouBike、叫車、路況）算同一個話題，天氣／空品／出門建議一類，30 分鐘規則不變；送出新問題後自動捲到最新一輪（收起動畫播完才捲，reduced motion 直接跳；換話題時連分隔線一起看到），「回到最新」留給自己往上捲時用（露出判斷扣掉輸入列高度）；「今天問過」改「這次問過」（英文 This chat）；「正在操作」5 秒不變。回答途中只用判斷層的意圖判斷換話題（行程會先查天氣，半途的工具結果會誤判），沒有意圖時答完再看全部結果。npm test 730 項、E2E 97 項全過。
+- PR #109 獨立審查修正：判斷層 `followUp` 帶到前端、status 只記候選話題（第一個 agent_note／tool_start 再定案），接著改不再誤分段；換話題往前比最近有話題的輪；自動收起時焦點在那一輪裡就移到摘要按鈕，剛出現的摘要先 `aria-hidden` 0.8 秒（讀屏待實機確認）；收起的輪卡片停止刷新、展開（最近兩輪）恢復；lite-motion 不播收合動畫；`?turn` 只收數字、網址依頁面；提醒連結只連 10 分鐘內操作過的輪、取消就拿掉；「阿幫問你」開著或帶 pendingAsk 時上一輪先留著（答完查出自己的卡片就照常收）；到站提醒確認句接在那一輪；排隊的問題保留 follow；桌面目錄 640px 置中。合主線 #108（answer_draft 手機寫回答在同一輪裡、前文送程式版 draft），sw `v1.0.2`。test/chat-collapse.test.js 12 項、E2E 長對話 7 項。
+
+## 2026-11-22 M12-E7 審查修正：回答也在手機上寫（PR #108 獨立審查）
+- 做了：程式護欄改成比對「數字＋單位」（同義單位正規化），其他方案的數字只能用在提到它的那一句，關鍵數字順序要一樣；國字（一小時、半小時、一一九、八成、八點）、英文數量（two-minute、one hour、dozen、eighty）、時段（早上…）擋下；ADR-0011 代辦說法（已幫你安排／預約、司機已在路上、已幫你設好提醒、Your Uber is on its way）；L2 輸出護欄直接重用（規則本體搬到 `core/output-guards.js`，`guardrails.js` 改為重新匯出，前端以 /core/ 取得）；提醒或數字前加否定（不用帶傘、不是末班、不用打 119）；沒加引號的站名路名、裸網域、markdown 連結。多輪：送伺服器的前文用程式版總結（畫面顯示改寫）。「聽不懂」與 reply 選項只接受全字相符。上一題還在寫回 busy、逾時 5 秒後強制放掉；給模型的事實帶鍵名與單位、不截掉其他方案；常用地點沒設定那一輪不改寫；原生 write() 輸入超過 4000 字拒絕；頁底照實說、「今天寫了幾次」只算通過的、聽不懂的問句也檢查一輪只問一個。順手修 test/en-notes.test.js 的時間相依（固定時間）。
+- 測試：npm test、npm run e2e 全過（test/edge-write.test.js 新增審查案例 9 項；E2E 加接著問的前文檢查、頁底說明）
+- 文件：ADR-0017（護欄細節與限制照實寫）、AGENT.md §3.5、PROGRESS.md
+- 下一個：實機量 Gemini Nano／Apple Intelligence 的通過率（規則變嚴，預期通過率下降，看實機數據再調）
+- 卡住：無
 
 ## 2026-11-21 R1 判斷看得到：討論串與決策圖逐項說明天氣、空品、路況怎麼影響建議
 - 做了：`core/services/trip-considered.js`：`plan_trip` 輸出 `considered`（天氣、空品、國道路況各一筆：值、資料一句、影響一句、`effect`＝none／score／自動狀態 key、查不到、示範標記）與 `single`（只有一種方式時，依各方式沒列出的原因組說明＋建議）。`execTools` 在行程結論前送三個 `data_note`（新事件；示範與模型模式相同，不經模型），前端以工具發言樣式排在行程發言前面，示範模式另外查過的角色不重複。決策圖資料欄改用 `decision.considered`：每個來源一個節點、帶值與影響，不影響與查不到淡色、不標成勝出關鍵。最近的空品測站超過 25 公里不採用（之前墾丁會拿台中大里測站判斷）；另外查的 `aqi_nearby` 影響也一樣。只有一種方式：`speak`「只找到叫車一種方式」、討論串影響與示範總結說原因（太遠、附近沒有站、幾點以後沒有趕得上的班次、示範資料是模擬的），「接下來可以」給「改成明天早上出發」「改從台北車站出發比較看看」。模型看到的工具文字多「判斷用到的資料」「只有一種方式」兩行。合併主線（#101～#105）後：TDX 額度用完改用示範資料時，路況那一行標示範並說明。審查修正：建議 chip 帶著使用者說的起點；只有一種方式的說明看這次有沒有 TDX fallback（`currentFallback()`）；data_note 去重改在 tool_start 記角色（工具平行時天氣可能晚到）。SW v0.9.9。
@@ -29,6 +37,14 @@
 - 文件：AGENT.md §3.1、§5.2.10b；UX.md §4、§5；MCP_TOOLS.md plan_trip 7.1；ADR-0009 補充；PLAN.md R1；PROGRESS.md
 - 下一個：「阿幫問你」合進來後，single.suggest 改用它
 - 卡住：無
+
+## 2026-11-21 M12-E7 回答也在手機上寫（ADR-0017）
+- 做了：手機 App 的系統模型可用、外掛回 `write: true`、開關開著時，請求帶 `clientCaps: { edgeWrite, engine }`（zod strict）；伺服器不論 Claude／地端設定都不呼叫任何 AI 模型（判斷層只用快速版），走規則路徑查資料、`decide.js` 計分，送 `answer_draft { text: 程式版總結, facts: 事實清單（不含座標與起訖點）, lang }` 取代 `text`，`status.mode = 'edge'`。外掛 `AbangEdgeAI.write`：Android ML Kit GenAI Prompt API（Gemini Nano）、iOS Foundation Models（Apple Intelligence），原生 2.3 秒取消、JS 等 2.5 秒。程式護欄 `core/edge-write.js`（`checkRewrite`，經 `/core/` 給前端）：數字與時間只能來自草稿或事實清單、關鍵數字不能少、國字／英文數量、ADR-0011「已幫你叫好／訂好／付款」、投資建議、重要提醒（示範、末班…）、引號名稱、語言、長度；不過、逾時、失敗、草稿太長 → 程式版。防詐不改寫、安全情境照舊。畫面：思考動畫「在手機上寫回答」、回答上方合成一行（「手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答。」／只有寫回答「這次的回答由手機上的 Gemini Nano 寫。」／「手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（沒通過檢查／逾時）。」，產品負責人決定）、設定頁開關「回答也在手機上寫」（預設開）與隱私權政策、`#/ai`「寫回答」一格（引擎、今天幾次、上次多久、通過比例，只存手機）。sw.js `v0.9.9-write`。
+- 測試：npm test 739 項全過（新增 test/edge-write.test.js 17 項）；npm run e2e 98 項全過（新增 3 項，截圖 phone-edge-write.png、phone-edge-write-fallback.png）；Android assembleDebug、iOS xcodebuild（不簽署）編譯成功
+- 文件：ADR-0017（新）、adr/README.md、ADR-0014、AGENT.md §3.1／§3.5／§7、UX.md §5.0.2、PLAN.md、CLAUDE.md
+- 合主線（阿幫問你 #107）後：edge 模式聽不懂時改用 `ask` 給 4 個查得到的選項（`unknownAsk`，產品負責人：edge 模式一律不用伺服器模型）；sw.js `v1.0.1`
+- 下一個：實機量 Gemini Nano／Apple Intelligence 的改寫通過率與延遲
+- 卡住：實機（Pixel、iPhone 15 Pro 以上）改寫品質待 Austin 確認
 
 ## 2026-11-21 真實資料接上：TDX、氣象署、環境部金鑰；TDX 頻率限制
 - 做了：Austin 申請並放好 TDX、氣象署、環境部金鑰（只在 .env），交通、天氣、空品、地震都變成即時資料。實測 TDX 新帳號在「加值應用」審核前每分鐘只有 5 次（429），行程比較會連續呼叫而失敗：tdx-client 加請求排隊（同時 3 個、間隔 220ms）、429 時照 Retry-After 重試一次；Austin 決定先不申請加值應用，所以額度用完時這一次改用示範資料（`withTdxFallback`，結果標示範並說明），不讓查詢失敗。
