@@ -43,11 +43,18 @@ public class AbangVoicePlugin extends Plugin {
     private final Handler main = new Handler(Looper.getMainLooper());
     private SpeechRecognizer rec;
     /** 第幾段：取消或重新開始後，舊的回呼不算 */
-    private int session = 0;
+    private volatile int session = 0;
     private String lang = "zh-TW";
     private long lastLevelAt = 0;
     /** API 33 以上查過的手機上語言包（查不到是 null：照 isOnDeviceRecognitionAvailable 先試） */
     private List<String> installedLangs = null;
+    /** 正在跳麥克風權限框：這時 Activity 會 onPause，不能當成使用者離開而拆掉（審查 1） */
+    private volatile boolean askingPermission = false;
+    /** Android 13 請系統下載語言包用的辨識器：馬上 destroy 可能中斷下載，晚一點再拆（審查 4，待實機驗證） */
+    private SpeechRecognizer dlRec = null;
+    private static final long DL_REC_KEEP_MS = 10 * 60_000;
+    /** 長按中央鍵：放開才結束，停頓收尾拉長到 8 秒（JS 遇到提早結束會接著聽、累加文字） */
+    private static final long HOLD_SILENCE_MS = 8000L;
 
     static String normLang(String s) { return s != null && s.toLowerCase().startsWith("en") ? "en-US" : "zh-TW"; }
 
@@ -74,15 +81,18 @@ public class AbangVoicePlugin extends Plugin {
         return installedLangs == null || hasLang(installedLangs, l);
     }
 
-    private Intent intent(String l) {
+    private Intent intent(String l) { return intent(l, false); }
+
+    private Intent intent(String l, boolean hold) {
+        long silence = hold ? HOLD_SILENCE_MS : 1500L;
         Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, l);
         i.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
         i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
         i.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
-        i.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L);
-        i.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L);
+        i.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, silence);
+        i.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, silence);
         i.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getContext().getPackageName());
         return i;
     }
@@ -104,26 +114,50 @@ public class AbangVoicePlugin extends Plugin {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) { done(call, o, false, "os"); return; }
             if (!SpeechRecognizer.isOnDeviceRecognitionAvailable(getContext())) { done(call, o, false, "no-ondevice"); return; }
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) { done(call, o, true, null); return; } // 查不到語言包：先試
-            SpeechRecognizer probe;
-            try { probe = SpeechRecognizer.createOnDeviceSpeechRecognizer(getContext()); }
-            catch (Exception e) { done(call, o, true, null); return; }
-            final SpeechRecognizer p = probe;
-            p.checkRecognitionSupport(intent(l), getContext().getMainExecutor(), new RecognitionSupportCallback() {
-                @Override public void onSupportResult(RecognitionSupport s) {
-                    p.destroy();
-                    installedLangs = new ArrayList<>(s.getInstalledOnDeviceLanguages());
-                    JSArray langs = new JSArray();
-                    for (String x : installedLangs) langs.put(x);
-                    o.put("onDeviceLanguages", langs);
-                    if (hasLang(installedLangs, l)) done(call, o, true, null);
-                    else if (hasLang(s.getPendingOnDeviceLanguages(), l)) done(call, o, false, "downloading");
-                    else if (hasLang(s.getSupportedOnDeviceLanguages(), l)) done(call, o, false, "language-download");
-                    else done(call, o, false, "language");
-                }
-                @Override public void onError(int error) { p.destroy(); done(call, o, true, null); } // 查不到：先試
-            });
+            // 查語言包：有些機型會丟例外、或回呼一直不來（審查 3）→ 失敗就「先試」，最多等 3 秒
+            final boolean[] over = { false };
+            final SpeechRecognizer[] probe = { null };
+            Runnable fallback = () -> {
+                if (over[0]) return;
+                over[0] = true;
+                destroyQuietly(probe[0]);
+                done(call, o, true, null);
+            };
+            try {
+                probe[0] = SpeechRecognizer.createOnDeviceSpeechRecognizer(getContext());
+                final SpeechRecognizer p = probe[0];
+                main.postDelayed(fallback, 3000);
+                p.checkRecognitionSupport(intent(l), getContext().getMainExecutor(), new RecognitionSupportCallback() {
+                    @Override public void onSupportResult(RecognitionSupport s) {
+                        if (over[0]) return;
+                        over[0] = true;
+                        main.removeCallbacks(fallback);
+                        destroyQuietly(p);
+                        installedLangs = new ArrayList<>(s.getInstalledOnDeviceLanguages());
+                        JSArray langs = new JSArray();
+                        for (String x : installedLangs) langs.put(x);
+                        o.put("onDeviceLanguages", langs);
+                        if (hasLang(installedLangs, l)) { releaseDlRec(); done(call, o, true, null); }
+                        else if (hasLang(s.getPendingOnDeviceLanguages(), l)) done(call, o, false, "downloading");
+                        else if (hasLang(s.getSupportedOnDeviceLanguages(), l)) done(call, o, false, "language-download");
+                        else done(call, o, false, "language");
+                    }
+                    @Override public void onError(int error) { main.removeCallbacks(fallback); fallback.run(); } // 查不到：先試
+                });
+            } catch (Exception e) {
+                Logger.warn(TAG, "checkRecognitionSupport：" + e.getClass().getSimpleName());
+                main.removeCallbacks(fallback);
+                fallback.run();
+            }
         });
     }
+
+    private static void destroyQuietly(SpeechRecognizer r) {
+        if (r == null) return;
+        try { r.destroy(); } catch (Exception e) { /* 已結束 */ }
+    }
+
+    private void releaseDlRec() { destroyQuietly(dlRec); dlRec = null; }
 
     private static void done(PluginCall call, JSObject o, boolean ok, String reason) {
         o.put("available", ok);
@@ -155,7 +189,9 @@ public class AbangVoicePlugin extends Plugin {
                     call.resolve(o);
                 } else {
                     r.triggerModelDownload(intent(l)); // Android 13：沒有進度回呼，JS 每 3 秒再問 available
-                    r.destroy();
+                    releaseDlRec();
+                    dlRec = r; // 馬上 destroy 可能中斷下載：留著，語言包裝好（available 查到）或 10 分鐘後再拆
+                    main.postDelayed(() -> { if (dlRec == r) releaseDlRec(); }, DL_REC_KEEP_MS);
                     JSObject o = new JSObject();
                     o.put("progress", false);
                     call.resolve(o);
@@ -190,24 +226,35 @@ public class AbangVoicePlugin extends Plugin {
         call.reject("打不開設定");
     }
 
+    /** 這次 start 的號碼：權限框之後、begin 之前若被 cancel（session 變了）就不開麥克風（審查 1） */
+    private volatile int startToken = 0;
+
     @PluginMethod
     public void start(PluginCall call) {
-        if (getPermissionState("microphone") != PermissionState.GRANTED) { requestPermissionForAlias("microphone", call, "micPermission"); return; }
-        begin(call);
+        startToken = ++session;
+        if (getPermissionState("microphone") != PermissionState.GRANTED) {
+            askingPermission = true; // 權限框會讓 Activity onPause：不要當成離開
+            requestPermissionForAlias("microphone", call, "micPermission");
+            return;
+        }
+        begin(call, startToken);
     }
 
     @PermissionCallback
     private void micPermission(PluginCall call) {
-        if (getPermissionState("microphone") == PermissionState.GRANTED) begin(call);
+        askingPermission = false;
+        if (getPermissionState("microphone") == PermissionState.GRANTED) begin(call, startToken);
         else call.reject("麥克風權限沒有打開", "permission");
     }
 
-    private void begin(PluginCall call) {
+    private void begin(PluginCall call, int token) {
         String l = normLang(call.getString("lang"));
+        boolean hold = Boolean.TRUE.equals(call.getBoolean("hold", false));
         main.post(() -> {
+            if (token != session) { call.reject("已經取消", "client"); return; } // 等權限框時被取消：不開麥克風
             teardown();
             if (!ready(l)) { call.reject("這支手機現在不能在手機上辨識這個語言", deviceRecognizer() ? "language-missing" : "no-service"); return; } // 不退回系統／雲端辨識
-            if (!listen(l)) { call.reject("語音辨識開不起來", "no-service"); return; }
+            if (!listen(l, hold)) { call.reject("語音辨識開不起來", "no-service"); return; }
             JSObject o = new JSObject();
             o.put("onDevice", true);
             o.put("engine", "android-ondevice");
@@ -217,7 +264,7 @@ public class AbangVoicePlugin extends Plugin {
     }
 
     /** 建立手機上的辨識器並開始聽（主執行緒） */
-    private boolean listen(String l) {
+    private boolean listen(String l, boolean hold) {
         final int my = ++session;
         try { rec = SpeechRecognizer.createOnDeviceSpeechRecognizer(getContext()); }
         catch (Exception e) { Logger.warn(TAG, "create：" + e.getClass().getSimpleName()); rec = null; return false; }
@@ -263,7 +310,7 @@ public class AbangVoicePlugin extends Plugin {
                 notifyListeners("error", o);
             }
         });
-        try { rec.startListening(intent(l)); }
+        try { rec.startListening(intent(l, hold)); }
         catch (Exception e) { Logger.warn(TAG, "startListening：" + e.getClass().getSimpleName()); teardown(); return false; }
         return true;
     }
@@ -320,16 +367,26 @@ public class AbangVoicePlugin extends Plugin {
         rec = null;
     }
 
-    /** App 到背景：不在背景開著麥克風 */
+    /** App 到背景：不在背景開著麥克風，並告訴 JS（畫面不卡在聽）；權限框造成的 onPause 不算（審查 1、6） */
     @Override
     protected void handleOnPause() {
-        main.post(() -> { session++; teardown(); });
+        if (!askingPermission) main.post(() -> {
+            boolean was = rec != null;
+            session++;
+            teardown();
+            if (was) {
+                JSObject o = new JSObject();
+                o.put("code", "client");
+                o.put("message", "App 到背景，停止聽");
+                notifyListeners("error", o);
+            }
+        });
         super.handleOnPause();
     }
 
     @Override
     protected void handleOnDestroy() {
-        main.post(() -> { session++; teardown(); });
+        main.post(() -> { session++; teardown(); releaseDlRec(); });
         super.handleOnDestroy();
     }
 }

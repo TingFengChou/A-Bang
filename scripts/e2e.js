@@ -1955,7 +1955,7 @@ test('中央鍵拉出的底部對話面板：「阿幫在想」一樣會出現�
 const FAKE_VOICE = (o = {}) => `(() => {
   const o = ${JSON.stringify(o)};
   const L = {};
-  const V = (window.__voice = { calls: [], timers: [] });
+  const V = (window.__voice = { calls: [], timers: [], starts: [] });
   const emit = (ev, d) => (L[ev] || []).slice().forEach((cb) => cb(d));
   const later = (ms, f) => V.timers.push(setTimeout(f, ms));
   const text = o.text || '從西門町到台北101怎麼去';
@@ -1980,6 +1980,8 @@ const FAKE_VOICE = (o = {}) => `(() => {
       }
       if (method === 'openSettings') return Promise.resolve({});
       if (method === 'start') {
+        V.starts.push(args);
+        if (o.startDelay && !V.asked) { V.asked = true; return new Promise((res) => setTimeout(res, o.startDelay)).then(() => window.Capacitor.nativePromise(plugin, method, args)); } // 第一次：權限框
         if (o.deny) return Promise.reject(Object.assign(new Error('麥克風權限沒有打開'), { code: 'permission' }));
         later(150, () => emit('level', { level: 0.9 }));
         later(250, () => emit('partial', { text: '從西門町' }));
@@ -2044,6 +2046,7 @@ test('語音問阿幫：長按中央鍵拉出對話、在聽，放開就送出�
     assert.equal(await page.textContent('#abang-sheet .vc-hint'), '放開就送出');
     assert.equal(await page.locator('#abang-sheet .vc-done').count(), 0, '長按時放開就是說完了，不另外給按鈕');
     assert.ok(await fab.evaluate((n) => n.classList.contains('listening')));
+    assert.equal(await page.evaluate(() => window.__voice.starts[0].hold), true, '原生端也知道是長按（不因停頓收尾）');
     await page.waitForTimeout(1700); // 長按時不因停頓結束
     assert.equal(await page.getAttribute('#abang-sheet .voice-panel', 'data-phase'), 'listening');
     await page.screenshot({ path: new URL('phone-voice-listening.png', SHOTS).pathname });
@@ -2223,4 +2226,23 @@ test('語音問阿幫：語言包還沒裝 → 第一次按麥克風就下載（
     await page.waitForSelector('.voice-panel[data-phase="listening"]');
     await page.waitForSelector('.msg.user.spoken', { timeout: 5000 });
   }, { init: FAKE_VOICE({ pack: true, mode: 'auto' }), ignore: VOICE_IGNORE });
+});
+
+test('語音問阿幫：第一次按麥克風跳權限框（App 暫時看不見）不會被取消，允許後就開始聽', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const mic = page.locator('.chat-form .chat-mic');
+    await mic.waitFor({ state: 'visible' });
+    await mic.click();
+    await page.waitForSelector('.voice-panel[data-phase="starting"]');
+    // Android 的權限框讓 Activity onPause：WebView 送 visibilitychange hidden，按「允許」後回來
+    await page.evaluate(() => {
+      let vis = 'hidden';
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => vis });
+      document.dispatchEvent(new Event('visibilitychange'));
+      setTimeout(() => { vis = 'visible'; document.dispatchEvent(new Event('visibilitychange')); }, 300);
+    });
+    await page.waitForSelector('.voice-panel[data-phase="listening"]', { timeout: 5000 });
+    assert.ok(!(await page.evaluate(() => window.__voice.calls)).includes('cancel'), '權限框不算離開');
+    await page.waitForSelector('.msg.user.spoken', { timeout: 5000 });
+  }, { init: FAKE_VOICE({ mode: 'auto', startDelay: 800 }), ignore: VOICE_IGNORE });
 });

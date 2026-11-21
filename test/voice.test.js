@@ -64,11 +64,12 @@ test('狀態機：不認得的引擎不顯示（只有手機上／瀏覽器本�
 function harness({ startFails = null } = {}) {
   const timers = [];
   const calls = [];
+  const holds = [];
   let emit = null;
   const backend = {
     kind: 'native',
     available: async () => ({ available: true }),
-    start: async (lang, onEvent) => { calls.push(`start:${lang}`); emit = onEvent; if (startFails) throw Object.assign(new Error('x'), { code: startFails }); return { onDevice: true, engine: 'ios-speech' }; },
+    start: async (lang, onEvent, o = {}) => { calls.push(`start:${lang}`); holds.push(!!o.hold); emit = onEvent; if (startFails) throw Object.assign(new Error('x'), { code: startFails }); return { onDevice: true, engine: 'ios-speech' }; },
     stop: () => { calls.push('stop'); },
     cancel: () => { calls.push('cancel'); },
   };
@@ -80,7 +81,7 @@ function harness({ startFails = null } = {}) {
   const sent = [];
   const changes = [];
   const v = createVoice({ backend, timers: t, lang: () => 'en-US', onSend: (x) => sent.push(x), onChange: (s) => changes.push(s.phase) });
-  return { v, calls, sent, changes, fire, emit: (e) => emit(e), timers };
+  return { v, calls, holds, sent, changes, fire, emit: (e) => emit(e), timers };
 }
 
 test('控制器：停頓 1.5 秒自動結束 → 等最後的文字 → 送出', async () => {
@@ -224,4 +225,43 @@ test('字典：中英鍵相同、每種錯誤都有說明；面板上的字', ()
   for (const k of ['start', 'progress', 'scheduled', 'done', 'fail', 'slow']) assert.ok(ZH[`dl.${k}`] && EN[`dl.${k}`], k);
   assert.equal(voiceText(run([{ type: 'start' }, { type: 'error', code: 'permission' }])).announce, ZH['err.permission']);
   assert.ok(needsSettings('permission') && needsSettings('speech-permission') && !needsSettings('no-speech'));
+});
+
+test('狀態機：長按時辨識器提早收尾的那一段先記著（segment），接著聽的字接在後面，放開才送', () => {
+  let s = run([{ type: 'start', hold: true }, { type: 'ready', onDevice: true }, { type: 'partial', text: '從西門町' }, { type: 'segment', text: '從西門町' }]);
+  assert.deepEqual([s.phase, s.acc, s.text], ['listening', '從西門町', '從西門町']);
+  s = voiceStep(s, { type: 'partial', text: '到台北101' });
+  assert.equal(s.text, '從西門町到台北101');
+  s = run([{ type: 'release' }, { type: 'final', text: '到台北101怎麼去' }], s);
+  assert.equal(s.sent, '從西門町到台北101怎麼去');
+  const en = run([{ type: 'start', hold: true }, { type: 'ready' }, { type: 'segment', text: 'How do I get' }, { type: 'partial', text: 'to Taipei 101' }]);
+  assert.equal(en.text, 'How do I get to Taipei 101', '英文字之間空一格');
+  assert.equal(voiceStep(run([{ type: 'start' }, { type: 'ready' }, { type: 'stop' }]), { type: 'segment', text: 'x' }).acc, '', '收尾時不算 segment');
+});
+
+test('控制器：長按時原生 start 帶 hold；辨識器提早給最後結果 → 不送出、接著聽；放開才送（含重新開始中放開）', async () => {
+  const flush = () => new Promise((r) => setImmediate(r));
+  const h = harness();
+  await h.v.start({ hold: true });
+  assert.deepEqual(h.holds, [true]);
+  h.emit({ type: 'partial', text: '從西門町' });
+  h.emit({ type: 'final', text: '從西門町' }); // Android 停頓 8 秒自己收尾
+  assert.deepEqual(h.sent, [], '還按著：不送');
+  await flush();
+  assert.deepEqual(h.holds, [true, true], '接著聽（hold）');
+  assert.equal(h.v.state.phase, 'listening');
+  h.emit({ type: 'partial', text: '到台北101' });
+  assert.equal(h.v.state.text, '從西門町到台北101');
+  h.v.release();
+  h.emit({ type: 'final', text: '到台北101怎麼去' });
+  assert.deepEqual(h.sent, ['從西門町到台北101怎麼去']);
+  // 重新開始的那一瞬間放開：不等，直接送出聽到的；之後晚到的開始要取消（不留著麥克風）
+  const g = harness();
+  await g.v.start({ hold: true });
+  g.emit({ type: 'partial', text: '天氣' });
+  g.emit({ type: 'final', text: '天氣' });
+  g.v.release();
+  assert.deepEqual(g.sent, ['天氣']);
+  await flush();
+  assert.ok(g.calls.includes('cancel'), '重新開始晚到：取消');
 });

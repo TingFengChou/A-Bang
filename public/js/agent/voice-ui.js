@@ -197,6 +197,7 @@ export function mountVoiceUI({ form, sendBtn, dock, send }) {
     }
     userCancel = false;
     shownPhase = st.phase;
+    if (st.phase === 'listening' && document.visibilityState === 'hidden') queueMicrotask(() => ctrl.cancel()); // 權限框之外的離開：不在背景聽
     document.getElementById('abang-fab')?.classList.toggle('listening', st.phase === 'listening' && st.hold);
   }
 
@@ -241,8 +242,10 @@ export function mountVoiceUI({ form, sendBtn, dock, send }) {
   });
   const refresh = async () => { info = await voiceSupport({ fresh: true }); paintMic(); };
   // 切到別的 App、鎖螢幕：不在背景開著麥克風；回來時重查（可能剛在設定下載了語言包）
+  // 第一次按麥克風時 Android 跳權限框，App 會暫時看不見（visibilitychange hidden）：這時（starting）不取消，等權限回來；
+  // 開始聽時如果畫面真的不在前景，再取消（審查 1）
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') ctrl.cancel();
+    if (document.visibilityState === 'hidden') { if (ctrl.state.phase !== 'starting') ctrl.cancel(); }
     else if (info && info.state !== 'ready' && info.state !== 'none' && !stopDl) refresh();
   });
   addEventListener('abang:agent-lang', (e) => { lang = e.detail?.lang === 'en' ? 'en' : null; paintMic(); });

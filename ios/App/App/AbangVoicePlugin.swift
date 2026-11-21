@@ -33,13 +33,38 @@ public class AbangVoicePlugin: CAPPlugin, CAPBridgedPlugin {
     private var lastLevelAt: TimeInterval = 0
     /// 有裝 tap 才拿掉（沒用過麥克風時不碰 inputNode）
     private var tapped = false
+    /// 長按中央鍵：放開才結束，不因停頓收尾（審查 2；JS 一次最多 30 秒）
+    private var holdMode = false
     private static let silenceSeconds = 1.5
 
     override public func load() {
-        NotificationCenter.default.addObserver(self, selector: #selector(onBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+        let nc = NotificationCenter.default
+        nc.addObserver(self, selector: #selector(onBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+        // 來電、其他 App 搶走音訊、耳機拔掉等：停止聽並告訴 JS（畫面不卡在聽；審查 6）
+        nc.addObserver(self, selector: #selector(onInterrupted), name: AVAudioSession.interruptionNotification, object: nil)
+        nc.addObserver(self, selector: #selector(onInterrupted), name: .AVAudioEngineConfigurationChange, object: engine)
     }
 
-    @objc private func onBackground() { DispatchQueue.main.async { self.session += 1; self.teardown() } }
+    /// 聽到一半被打斷：拆掉並送 error 事件
+    private func interrupt(_ code: String, _ message: String) {
+        let was = task != nil
+        session += 1
+        teardown()
+        if was { notifyListeners("error", data: ["code": code, "message": message]) }
+    }
+
+    @objc private func onBackground() { DispatchQueue.main.async { self.interrupt("client", "App 到背景，停止聽") } }
+
+    @objc private func onInterrupted(_ n: Notification) {
+        if n.name == AVAudioSession.interruptionNotification {
+            guard let raw = n.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt, AVAudioSession.InterruptionType(rawValue: raw) == .began else { return }
+        }
+        DispatchQueue.main.async {
+            // 設定改變（例如耳機拔掉）時引擎會自己停下；還在跑就是不影響聽，不打斷
+            if n.name == .AVAudioEngineConfigurationChange && self.engine.isRunning { return }
+            self.interrupt("audio", "麥克風被其他聲音打斷了")
+        }
+    }
 
     static func lang(_ s: String?) -> String { (s ?? "").lowercased().hasPrefix("en") ? "en-US" : "zh-TW" }
 
@@ -109,17 +134,22 @@ public class AbangVoicePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func start(_ call: CAPPluginCall) {
         let lang = Self.lang(call.getString("lang"))
+        let hold = call.getBool("hold") ?? false
         DispatchQueue.main.async {
+            self.session += 1
+            let token = self.session // 等權限框時被取消（session 變了）就不開麥克風（審查 1）
             self.ensurePermissions { code, msg in
                 if let code = code { call.reject(msg ?? code, code); return }
-                self.begin(call, lang)
+                guard token == self.session else { call.reject("已經取消", "client"); return }
+                self.begin(call, lang, hold)
             }
         }
     }
 
-    private func begin(_ call: CAPPluginCall, _ lang: String) {
+    private func begin(_ call: CAPPluginCall, _ lang: String, _ hold: Bool) {
         session += 1
         teardown()
+        holdMode = hold
         let my = session
         guard let rec = SFSpeechRecognizer(locale: Locale(identifier: lang)) else { call.reject("語音辨識不支援這個語言", "language"); return }
         guard rec.supportsOnDeviceRecognition else { call.reject("這支 iPhone 現在不能在手機上辨識這個語言", "language-missing"); return } // 不退回伺服器辨識
@@ -167,7 +197,7 @@ public class AbangVoicePlugin: CAPPlugin, CAPBridgedPlugin {
             if !text.isEmpty && text != lastText {
                 lastText = text
                 notifyListeners("partial", data: ["text": text])
-                armSilence(my)
+                if !holdMode { armSilence(my) } // 長按時放開才收尾
             }
         }
         if let e = error {
@@ -247,6 +277,8 @@ public class AbangVoicePlugin: CAPPlugin, CAPBridgedPlugin {
         task?.cancel()
         request = nil
         task = nil
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        let audio = AVAudioSession.sharedInstance()
+        try? audio.setActive(false, options: .notifyOthersOnDeactivation)
+        try? audio.setCategory(.ambient) // 設回一般類別：之後加語音朗讀等才不會沒聲音（審查 5）
     }
 }

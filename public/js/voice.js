@@ -49,16 +49,19 @@ export const voiceLang = (turnLang) => (turnLang === 'en' ? 'en-US' : 'zh-TW');
  * phase：idle 沒在聽｜starting 開麥克風中（第一次會問權限）｜listening 在聽｜finishing 說完了、等最後的文字｜sent 送出了｜error 出錯
  * hold：長按中央鍵（放開才結束，不看停頓）
  */
-export const voiceIdle = () => ({ phase: 'idle', text: '', level: 0, onDevice: null, engine: null, error: null, hold: false, sent: null, heard: false });
+export const voiceIdle = () => ({ phase: 'idle', text: '', acc: '', level: 0, onDevice: null, engine: null, error: null, hold: false, sent: null, heard: false });
 
 const active = (p) => p === 'starting' || p === 'listening' || p === 'finishing';
 const clamp01 = (v) => (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0);
 const cleanText = (v) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, 500);
+/** 長按時一段一段接起來：英文字之間空一格，中文直接接 */
+const join = (a, b) => (!a ? b : !b ? a : `${a}${/[A-Za-z0-9.,?!]$/.test(a) && /^[A-Za-z0-9]/.test(b) ? ' ' : ''}${b}`).slice(0, 500);
 
 /**
  * 事件 → 下一個狀態。
  * 使用者：start { hold }、stop（說完了）、release（放開中央鍵）、cancel、reset
  * 辨識：ready { onDevice, engine }、partial { text }、level { level }、final { text }、error { code }
+ *       segment { text }：長按時辨識器提早收尾的那一段（先記在 acc，接著聽，放開才送）
  * @param {ReturnType<typeof voiceIdle>} s
  * @param {{ type: string, [k: string]: any }} e
  */
@@ -74,7 +77,13 @@ export function voiceStep(s, e) {
     case 'partial': {
       if (s.phase !== 'listening' && s.phase !== 'finishing') return s;
       const text = cleanText(e.text);
-      return text ? { ...s, text, heard: true } : s;
+      return text ? { ...s, text: join(s.acc, text), heard: true } : s;
+    }
+    case 'segment': {
+      if (s.phase !== 'listening') return s;
+      const seg = cleanText(e.text);
+      const acc = seg ? join(s.acc, seg) : s.text;
+      return { ...s, acc, text: acc, heard: s.heard || !!acc };
     }
     case 'level':
       if (s.phase !== 'listening') return s;
@@ -88,7 +97,8 @@ export function voiceStep(s, e) {
       return s;
     case 'final': {
       if (!active(s.phase)) return s;
-      const text = cleanText(e.text) || s.text; // 有些引擎最後一筆是空的：用最後聽到的
+      const last = cleanText(e.text);
+      const text = last ? join(s.acc, last) : s.text; // 有些引擎最後一筆是空的：用最後聽到的
       return text ? { ...s, phase: 'sent', text, sent: text, level: 0, heard: true } : { ...s, phase: 'error', error: 'no-speech', level: 0 };
     }
     case 'error': {
@@ -130,10 +140,10 @@ function nativeBackend(c) {
   return {
     kind: 'native',
     available: (lang = 'zh-TW') => c.nativePromise(PLUGIN, 'available', { lang }),
-    async start(lang, onEvent) {
+    async start(lang, onEvent, { hold = false } = {}) {
       handler = onEvent;
       listen();
-      return c.nativePromise(PLUGIN, 'start', { lang });
+      return c.nativePromise(PLUGIN, 'start', { lang, hold }); // hold：原生端不因停頓收尾（iOS），或拉長到 8 秒（Android）
     },
     stop: () => c.nativePromise(PLUGIN, 'stop', {}).catch(() => {}),
     cancel: () => { handler = () => {}; return c.nativePromise(PLUGIN, 'cancel', {}).catch(() => {}); },
@@ -299,6 +309,7 @@ export function createVoice({ backend = voiceBackend(), lang = () => 'zh-TW', on
   let s = voiceIdle();
   let run = 0; // 第幾段：取消後晚到的事件不算
   let tSilence = null, tNoSpeech = null, tMax = null, tFinal = null;
+  let between = false; // 長按時辨識器提早收尾、正在重新開始（這時沒有辨識器在聽）
   const clearAll = () => { for (const t of [tSilence, tNoSpeech, tMax, tFinal]) if (t) timers.clear(t); tSilence = tNoSpeech = tMax = tFinal = null; };
   const dispatch = (e) => {
     const prev = s;
@@ -319,6 +330,7 @@ export function createVoice({ backend = voiceBackend(), lang = () => 'zh-TW', on
     dispatch({ type });
     if (s.phase !== 'finishing') return;
     const my = run;
+    if (between) { dispatch({ type: 'final', text: '' }); return; } // 沒有辨識器在聽：送出已經聽到的
     backend.stop();
     tFinal = timers.set(() => { if (my === run) dispatch({ type: 'final', text: '' }); }, FINAL_WAIT_MS);
   };
@@ -329,6 +341,19 @@ export function createVoice({ backend = voiceBackend(), lang = () => 'zh-TW', on
   };
   const onEvent = (my) => (e) => {
     if (my !== run || !e) return;
+    if (e.type === 'final' && s.phase === 'listening' && s.hold) {
+      // 長按中：辨識器自己提早收尾（Android 停頓太久）→ 記下這段、接著聽，放開才送（審查 2）
+      dispatch({ type: 'segment', text: e.text });
+      between = true;
+      backend.start(lang(), onEvent(my), { hold: true }).then(() => {
+        between = false;
+        if (my !== run || s.phase !== 'listening') backend.cancel(); // 重新開始前已經放開或取消：不留著麥克風
+      }, () => {
+        between = false;
+        if (my === run && s.phase === 'listening') dispatch({ type: 'final', text: '' }); // 接不下去：送出已經聽到的
+      });
+      return;
+    }
     if (e.type === 'partial') {
       const before = s.text;
       dispatch(e);
@@ -345,7 +370,7 @@ export function createVoice({ backend = voiceBackend(), lang = () => 'zh-TW', on
       const my = ++run;
       dispatch({ type: 'start', hold });
       try {
-        const r = await backend.start(lang(), onEvent(my));
+        const r = await backend.start(lang(), onEvent(my), { hold });
         if (my !== run) return;
         dispatch({ type: 'ready', onDevice: r?.onDevice, engine: r?.engine });
         if (s.phase !== 'listening') return;
@@ -365,6 +390,7 @@ export function createVoice({ backend = voiceBackend(), lang = () => 'zh-TW', on
     cancel() {
       if (s.phase === 'idle') return;
       run++;
+      between = false;
       const wasActive = active(s.phase);
       clearAll();
       if (wasActive) backend.cancel();

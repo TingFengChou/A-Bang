@@ -14,6 +14,13 @@
 ---
 
 
+## 2026-11-21 M14-01c 語音審查修正
+- 做了：權限框與取消的競爭（原生 start 記號碼、權限回來先比對，被取消就 reject client 不開麥克風；Android 權限框的 onPause 不拆；JS 準備聽時的 visibilitychange 不取消）；長按真的放開才結束（start 帶 hold：iOS 不因停頓收尾、Android 停頓 8 秒；提早收尾時 JS 累加那一段接著聽）；Android available 的 checkRecognitionSupport 包 try/catch＋3 秒逾時；Android 13 下載語言包的辨識器延後拆（待實機驗證）；iOS teardown 把音訊類別設回 ambient、監聽音訊中斷與引擎設定改變；原生到背景時送 error 事件。
+- 測試：voice.test.js 14 項；E2E 新增權限框不取消、長按帶 hold
+- 文件：UX.md §5.0.3、PROGRESS.md
+- 下一個：合併主線、送 PR
+- 卡住：無
+
 ## 2026-11-21 M14-01a 語音只在手機上辨識、協助下載語言包、不支援就反白
 - 做了：依產品負責人決定拿掉「退回系統／雲端辨識」：Android 只用手機上的辨識器，API 33+ 看語言包（可下載 → 第一次按麥克風就 `triggerModelDownload`，Android 14+ 用 ModelDownloadListener 回報進度，13 每 3 秒再問；下載中麥克風「準備中」；排在 Wi-Fi／失敗 → 「到手機設定下載」開語音輸入設定）；API 31、32 語言不能用回 `language-missing`。iOS 只在 `supportsOnDeviceRecognition` 時用（SFSpeechRecognizer 沒有下載 API，說怎麼開聽寫）。不支援就反白（`aria-disabled`、仍可按、按了說原因）；網頁版不能本機辨識仍不顯示。`#/ai`「聽」卡片、設定頁、隱私權政策、Info.plist 文案改成「語音只在手機上轉成文字，不錄音、不上傳」。
 - 測試：voice.test.js 12 項（新增語言包下載）；E2E 新增 2 項（反白與原因、語言包下載），截圖 phone-voice-unsupported.png
