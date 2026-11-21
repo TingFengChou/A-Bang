@@ -13,7 +13,6 @@
 
 ---
 
-
 ## 2026-11-21 iPhone 實機安裝（npm run ios:dev）與 Apple Intelligence 實機確認
 - 做了：Austin 的 iPhone 17 Pro Max 第一次裝上開發版（個人開發團隊簽署；要先在 Xcode 登入 Apple 帳號）。iPhone 走同一個 Wi-Fi 連本機伺服器，建置時暫時加 NSAllowsLocalNetworking（建置完還原）。做成 `npm run ios:dev`（scripts/ios-dev-install.js）。伺服器紀錄確認 iPhone 的提問帶著 Apple Intelligence 的判斷（device: apple）；Pixel 上 Gemini Nano 判斷一句約 0.4 秒。
 - 發現：伺服器自己有判斷器時，畫面不會顯示手機判斷過（待修：照實顯示一行）。
@@ -21,6 +20,13 @@
 - 文件：CLAUDE.md 指令、PROGRESS.md
 - 下一個：手機判斷的顯示、阿幫的腦袋頁
 - 卡住：無
+
+## 2026-11-21 App 圖示改用 Λ 標誌（C2），藍鵲留在 App 內
+- 做了：產品負責人決定 App 圖示不用藍鵲、改用比較有科技感的標誌（定稿 C2：品牌青綠漸層底、亮白薄荷色的 Λ、琥珀色發光核心、一圈軌道）。`scripts/build-brand.py` 產生 `icon.svg`（圓角）、`icon-square.svg`（方形不透明）、`icon-fg.svg`／`icon-bg.svg`（Android 自適應：前景縮成 2/3 在 66dp 安全區內、背景漸層對齊露出的 72dp，遮罩裁出來和 iOS 一樣）、新增 `icon-mono.svg`（Λ＋核心剪影）。`scripts/build-icons.js` 整理掉藍鵲的換色與位移特例：iOS 深色＝前景放大 1.5 倍（不換色）、著色＝同一張灰階；Android 主題單色用 `icon-mono.svg`；啟動畫面改成圓角圖示＋Abang；Android 12+ `splash_icon` 改放整個圓角圖示（白色 Λ 單獨放在淺色底看不到）。順手修：PWA maskable 改用方形不透明版 `icon-maskable-512.png`、`apple-touch-icon.png`（180，透明角在 iOS 會變黑）；Android 通知小圖示原本沒設定（用系統的 i 圖示），新增 `ic_stat_abang`（Λ 剪影）並在 `capacitor.config.json` 指定（找不到資源時外掛會退回系統圖示）。吉祥物 `abang-*.svg`、對話頭像不動。
+- 測試：npm test 642 項全過（test/brand.test.js 新增 5 項：圖示是 Λ 不是藍鵲、前景與單色在安全區內、iOS 深色／著色透明底、通知小圖示、啟動畫面）；lint 零錯誤；重跑 build-brand.py 後 git diff 無差異
+- 文件：BRAND.md §2.1（Λ 標誌、檔案、顏色）、UX.md、PLAN.md、README、CLAUDE.md、docs/index.html（品牌區的 App 圖示）；SW 0.9.3-icon
+- 下一個：合併後裝到手機看桌面圖示、主題圖示、通知小圖示、啟動畫面
+- 卡住：實機確認（Pixel 主題圖示與通知小圖示、iOS 深色／著色）；商標圖形要不要改用 Λ 標誌由營運單位決定
 
 ## 2026-11-21 PM 第五批情境 P5-1～P5-10（更正、出發時間、台語、錯字、一句多件事、防詐話術與事後求助）
 - 做了：PM 提 10 個（34 輪只過 11 輪），分兩組同時修：生活 agent——中途更正保留起點、出發時間解析（明天早上 8 點出發）、台語與錯字正規化、「去火車站」最近車站、英文 there 與 YouBike near X、一句問多件事都查、禮貌話；防詐 agent——規則疊加計分（stack）與正常通知例外（except）、補假檢警／假親友／投資群組／誤設批發商／和解金／按 9／欠費停話寫法、貼上的詐騙訊息不被 119 攔、「已經匯款了」給 165／110／止付步驟。
