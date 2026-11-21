@@ -9,13 +9,19 @@ export const SEC_PER_STOP = 90;
 const POLL_MS = 20_000;
 const MAX_MS = 3 * 3600e3;
 const TITLE = '阿幫：準備下車';
+const TITLE_EN = 'Abang: get off soon';
+const titleOf = (w) => (w?.lang === 'en' ? TITLE_EN : TITLE);
 const KEY = 'abang.alightWatch';
 const state = { w: null, poll: null };
 const signal = (type, detail) => { try { globalThis.dispatchEvent?.(new CustomEvent(type, { detail })); } catch { /* 非瀏覽器 */ } };
 const ok = (s) => s && s.status === 0 && s.etaSec != null;
 
-/** 「約 2 分後到「市府」，準備下車」／「快到「市府」了，準備下車！」 */
-export const alightText = (dest, sec) => (sec != null && sec < 60 ? `快到「${dest}」了，準備下車！` : `約 ${Math.max(1, Math.round((sec ?? ALIGHT_SEC) / 60))} 分後到「${dest}」，準備下車`);
+/** 「約 2 分後到「市府」，準備下車」／「快到「市府」了，準備下車！」；lang＝'en'（英文公車頁設的，S12g）用英文 */
+export const alightText = (dest, sec, lang = null) => {
+  const near = sec != null && sec < 60, n = Math.max(1, Math.round((sec ?? ALIGHT_SEC) / 60));
+  if (lang === 'en') return near ? `Almost at ${dest}. Get ready to get off!` : `About ${n} min to ${dest}. Get ready to get off.`;
+  return near ? `快到「${dest}」了，準備下車！` : `約 ${n} 分後到「${dest}」，準備下車`;
+};
 
 /** 用站序找站（沒有站序時才用站名） */
 const indexOf = (stops, seq, name) => { const i = seq != null ? stops.findIndex((s) => s.seq === seq) : -1; return i >= 0 ? i : stops.findIndex((s) => s.stopName === name); };
@@ -83,7 +89,7 @@ async function planNative(w, etaSec, now = Date.now()) {
   if (!hasNativeNotify() || etaSec == null) return;
   const at = now + Math.max(0, etaSec - ALIGHT_SEC) * 1000;
   if (w.nativeAt && Math.abs(at - w.nativeAt) < 20_000) return;
-  const done = await scheduleNotify(NOTIFY_ID.alight, new Date(at - EARLY_MS), TITLE, alightText(w.dest, ALIGHT_SEC));
+  const done = await scheduleNotify(NOTIFY_ID.alight, new Date(at - EARLY_MS), titleOf(w), alightText(w.dest, ALIGHT_SEC, w.lang));
   if (state.w !== w) return;
   w.nativeAt = done ? at : 0;
   w.nativeFailed = !done;
@@ -102,15 +108,15 @@ export function stopAlight({ cancel = true } = {}) {
 function fire(etaSec) {
   const w = state.w;
   if (!w) return;
-  const text = alightText(w.dest, etaSec);
+  const text = alightText(w.dest, etaSec, w.lang);
   const planned = w.nativeAt;
   stopAlight({ cancel: false });
   const visible = typeof document === 'undefined' || document.visibilityState !== 'hidden';
   if (hasNativeNotify()) {
     if (visible) { if (planned) cancelNotify(NOTIFY_ID.alight); } // 畫面上看得到：不重複
-    else if (!planned || planned > Date.now() + 5000) scheduleNotify(NOTIFY_ID.alight, new Date(), TITLE, text);
+    else if (!planned || planned > Date.now() + 5000) scheduleNotify(NOTIFY_ID.alight, new Date(), titleOf(w), text);
   } else {
-    try { if (typeof Notification !== 'undefined' && Notification.permission === 'granted') new Notification(TITLE, { body: text, icon: '/icons/icon.svg', tag: 'abang-alight' }); } catch { /* 部分瀏覽器只允許 SW 通知 */ }
+    try { if (typeof Notification !== 'undefined' && Notification.permission === 'granted') new Notification(titleOf(w), { body: text, icon: '/icons/icon.svg', tag: 'abang-alight' }); } catch { /* 部分瀏覽器只允許 SW 通知 */ }
   }
   try { globalThis.navigator?.vibrate?.([300, 120, 300]); } catch { /* 不支援 */ }
   signal('abang:alight', { text });
@@ -138,7 +144,7 @@ export async function pollAlight(callTool, now = Date.now()) {
 
 /**
  * 開始下車提醒（同時只有一個）。
- * @param {{ city: string, routeName: string, direction?: number, board: string, boardSeq?: number, dest: string, destSeq?: number, plate?: string|null, rideSec: number, boardAt?: number }} w
+ * @param {{ city: string, routeName: string, direction?: number, board: string, boardSeq?: number, dest: string, destSeq?: number, plate?: string|null, rideSec: number, boardAt?: number, lang?: 'en' }} w  lang：英文公車頁設的（通知用英文）
  * @returns {Promise<boolean>} 是否還在提醒（目的站太近，設定當下就提醒並結束時回 false）
  */
 export async function watchAlight(w, callTool) {

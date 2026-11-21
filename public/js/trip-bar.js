@@ -1,23 +1,27 @@
 // 進行中列（行程中模式，2026-11-21）：有到站提醒或下車提醒時，每一頁上方都有一條「回到公車頁」的列。
 // 坐車中（下車提醒）優先：「307 坐車中・約 6 分到「市府」」；等車中（到站提醒）：「307 到「和平體育館」・到站前 3 分提醒你」。
 // 已經在那條路線的公車頁就不顯示（頁面本身就是行程中畫面）。不是即時區域：每 20 秒的更新不打斷讀屏。
-import { alightWatch, rideLeftText } from './alight.js';
+import { alightWatch, rideLeftText, rideLeftSec } from './alight.js';
 import { currentArrivalWatch } from '../ui/cards/host-web.js';
 import { esc } from './ui.js';
 
-const busHref = (city, route, stop, dir) => `#/bus/${encodeURIComponent(city)}/${encodeURIComponent(route)}?${new URLSearchParams({ ...(stop && { stop }), ...(dir != null && { dir: String(dir) }) })}`;
+const busHref = (city, route, stop, dir, lang) => `#/bus/${encodeURIComponent(city)}/${encodeURIComponent(route)}?${new URLSearchParams({ ...(stop && { stop }), ...(dir != null && { dir: String(dir) }), ...(lang === 'en' && { lang }) })}`; // 英文設的提醒：回到英文公車頁
 
 /**
  * 要顯示什麼（純函式，測試用）。
  * @returns {{ kind: 'riding'|'waiting', href: string, text: string, route: string, city: string, stop: string, direction?: number }|null}
  */
+/** 英文的坐車中剩餘時間（觀光客設的下車提醒） */
+const rideLeftEn = (w, now) => { const s = rideLeftSec(w, now); return s == null ? `to ${w.dest}` : s < 60 ? `almost at ${w.dest}` : `${Math.round(s / 60)} min to ${w.dest}`; };
+
 export function tripOf({ alight = null, arrival = null, now = Date.now() } = {}) {
-  if (alight) return { kind: 'riding', city: alight.city, route: alight.routeName, stop: alight.board, direction: alight.direction, href: busHref(alight.city, alight.routeName, alight.board, alight.direction), text: `${alight.routeName} 坐車中・${rideLeftText(alight, now)}` };
+  if (alight) return { kind: 'riding', city: alight.city, route: alight.routeName, stop: alight.board, direction: alight.direction, href: busHref(alight.city, alight.routeName, alight.board, alight.direction, alight.lang), text: alight.lang === 'en' ? `${alight.routeName} on board · ${rideLeftEn(alight, now)}` : `${alight.routeName} 坐車中・${rideLeftText(alight, now)}`, ...(alight.lang === 'en' && { lang: 'en' }) };
   if (arrival) {
     // 「在 X 上車」（不是目的地）；查到過到站時間就說還有幾分（扣掉經過的時間）
     const left = arrival.last?.etaSec != null ? Math.round((arrival.last.etaSec - (now - arrival.last.at) / 1000) / 60) : null;
-    const when = left != null && !arrival.skip ? (left <= 1 ? '車快到了' : `約 ${left} 分到站`) : `到站前 ${arrival.minutes} 分提醒你`;
-    return { kind: 'waiting', city: arrival.city, route: arrival.routeName, stop: arrival.stop, direction: arrival.direction, href: busHref(arrival.city, arrival.routeName, arrival.stop, arrival.direction), text: `${arrival.routeName} 在「${arrival.stop}」上車・${when}` };
+    const en = arrival.lang === 'en';
+    const when = left != null && !arrival.skip ? (left <= 1 ? (en ? 'arriving now' : '車快到了') : (en ? `about ${left} min` : `約 ${left} 分到站`)) : (en ? `reminder ${arrival.minutes} min before` : `到站前 ${arrival.minutes} 分提醒你`);
+    return { kind: 'waiting', city: arrival.city, route: arrival.routeName, stop: arrival.stop, direction: arrival.direction, href: busHref(arrival.city, arrival.routeName, arrival.stop, arrival.direction, arrival.lang), text: en ? `${arrival.routeName} from ${arrival.stop} · ${when}` : `${arrival.routeName} 在「${arrival.stop}」上車・${when}`, ...(en && { lang: 'en' }) };
   }
   return null;
 }
@@ -37,7 +41,7 @@ export function mountTripBar(el) {
     if (!t || onBusPage(t, location.hash)) { el.hidden = true; el.replaceChildren(); return; }
     el.hidden = false;
     el.className = `trip-bar ${t.kind}`;
-    el.innerHTML = `<a href="${esc(t.href)}"><span class="dot" aria-hidden="true"></span><span class="t">${esc(t.text)}</span><span class="go">${t.kind === 'riding' ? '看行程' : '看公車'}<span aria-hidden="true"> ›</span></span></a>`;
+    el.innerHTML = `<a href="${esc(t.href)}"><span class="dot" aria-hidden="true"></span><span class="t">${esc(t.text)}</span><span class="go">${t.lang === 'en' ? (t.kind === 'riding' ? 'My ride' : 'Bus') : t.kind === 'riding' ? '看行程' : '看公車'}<span aria-hidden="true"> ›</span></span></a>`;
   };
   for (const ev of ['abang:alight-watch', 'abang:arrival-watch', 'hashchange']) window.addEventListener(ev, paint);
   // 剩幾分會隨時間變：查詢失敗（隧道、離線）或從背景回來時也要更新

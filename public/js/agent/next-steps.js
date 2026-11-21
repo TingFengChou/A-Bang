@@ -23,12 +23,12 @@ export function nextSteps(results, decision, { watching = null, riding = null, l
   if (f) {
     const on = watching && watching.routeName === bus.data.routeName && watching.stop === f.stopName;
     if (!on && f.status === 0 && f.etaSec != null) add({ label: en ? 'Remind me 3 min before' : '到站前 3 分提醒我', kind: 'remind', payload: { city: bus.data.city, routeName: bus.data.routeName, stop: f.stopName, direction: f.direction, minutes: 3, ...(en && { lang: 'en' }) } });
-    const page = `#/bus/${encodeURIComponent(bus.data.city)}/${encodeURIComponent(bus.data.routeName)}?stop=${encodeURIComponent(f.stopName)}&dir=${f.direction}`;
+    const page = `#/bus/${encodeURIComponent(bus.data.city)}/${encodeURIComponent(bus.data.routeName)}?stop=${encodeURIComponent(f.stopName)}&dir=${f.direction}${en ? '&lang=en' : ''}`; // 英文：公車頁也用英文（S12g）
     // 行程中模式：有車要來、還沒設下車提醒 →「上車後提醒我下車」（同樣開公車頁、焦點在選下車站）；否則開公車頁看動態
     if (f.status === 0 && !riding) add({ label: en ? 'Remind me to get off' : '上車後提醒我下車', kind: 'navigate', payload: `${page}&alight=1` });
     else add({ label: en ? 'Open bus page' : '開公車頁看動態', kind: 'navigate', payload: page });
   } else if (bus) {
-    add({ label: en ? 'Open bus page' : '開公車頁看動態', kind: 'navigate', payload: `#/bus/${encodeURIComponent(bus.data.city)}/${encodeURIComponent(bus.data.routeName)}` });
+    add({ label: en ? 'Open bus page' : '開公車頁看動態', kind: 'navigate', payload: `#/bus/${encodeURIComponent(bus.data.city)}/${encodeURIComponent(bus.data.routeName)}${en ? '?lang=en' : ''}` });
   }
 
   const trip = byTool('plan_trip')?.data;

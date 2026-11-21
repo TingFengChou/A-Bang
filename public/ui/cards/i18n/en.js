@@ -81,6 +81,14 @@ export const MESSAGES = {
   'busRoute.away': 'Bus is {n} stops away',
   'busRoute.away.one': 'Bus is {n} stop away',
   'busRoute.atStop': 'Bus is at your stop',
+  // Bus page street scene (bus-scene.js; S12g English bus page)
+  'scene.alight': 'almost there, get ready to get off',
+  'scene.here': 'at your stop',
+  'scene.away': '{n} stops away',
+  'scene.away.one': '{n} stop away',
+  'scene.sep': ' · ',
+  'scene.riding': "You're on the bus, getting off at {stop}",
+  'scene.waiting': "You're waiting at {stop}",
 
   // ── bus-station ──
   'busStation.title': '{name} arrivals',

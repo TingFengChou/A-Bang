@@ -16,12 +16,12 @@ export function etaBadge({ etaSec, status, statusText }) {
 }
 
 export const fmtDist = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`);
-/** 存下資料的時間：今天 14:05／昨天 14:05／11/20 14:05 */
-export function savedWhen(at, now = Date.now()) {
+/** 存下資料的時間：今天 14:05／昨天 14:05／11/20 14:05（yesterday：別的語言怎麼說昨天，公車頁英文用） */
+export function savedWhen(at, now = Date.now(), yesterday = (hm) => `昨天 ${hm}`) {
   const d = new Date(at);
   const hm = d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
   const day = (x) => new Date(x).toDateString();
-  return day(at) === day(now) ? hm : day(at) === day(now - 864e5) ? `昨天 ${hm}` : `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
+  return day(at) === day(now) ? hm : day(at) === day(now - 864e5) ? yesterday(hm) : `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
 }
 /** 舊資料的頁尾說明 */
 export const staleNote = (at) => `離線：這是 ${savedWhen(at)} 存下的資料，連上網路後自動更新`;
