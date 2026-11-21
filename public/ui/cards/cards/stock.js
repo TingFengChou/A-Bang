@@ -25,7 +25,7 @@ export default {
     const idx = d.indices.length > 0 && h('div', { class: 'ab-stats' }, d.indices.map((i) => h('div', { class: 'ab-stat' },
       h('span', { class: 'ab-sub' }, t('stock.index', { name: i.name, date: md(i.date) })), h('strong', null, fmt(i.close)),
       h('span', { class: `ab-chg ${dir(i.change)}`, 'aria-label': t(`stock.${dir(i.change)}`, { n: changeText(i.change, i.changePct) }) }, changeText(i.change, i.changePct)))));
-    const rows = d.quotes.map((q) => h('li', { class: 'ab-stk' },
+    const rows = d.quotes.map((q) => h('li', { class: `ab-stk ${q.close == null ? '' : dir(q.change)}` }, // 左邊細色條：漲紅跌綠
       h('div', null,
         h('strong', null, q.name), h('span', { class: 'ab-sub ab-stk-meta' }, `${q.code}・${q.market}・${t('stock.close', { date: md(q.date) })}`),
         q.close != null && h('p', { class: 'ab-sub' }, t('stock.ohlv', { open: fmt(q.open), high: fmt(q.high), low: fmt(q.low), lots: fmt(q.volumeLots) })),

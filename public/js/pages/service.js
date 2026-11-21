@@ -59,6 +59,23 @@ export const SERVICES = {
   },
 };
 
+/**
+ * 頁首依資料變色（設計審查）：天氣依氣溫（涼藍 → 暖橘）、空品依 AQI 等級（綠、黃、橘、紅）。
+ * @returns {string|null} 顏色；不適用回 null
+ */
+export function heroTint(id, d) {
+  if (id === 'weather' && Number.isFinite(d?.tempC)) { const c = d.tempC; return c <= 15 ? '#1d4ed8' : c <= 22 ? '#0284c7' : c <= 28 ? '#d97706' : '#ea580c'; }
+  if (id === 'aqi' && Number.isFinite(d?.nearest?.aqi)) { const a = d.nearest.aqi; return a <= 50 ? '#15803d' : a <= 100 ? '#a16207' : a <= 150 ? '#ea580c' : '#b91c1c'; }
+  return null;
+}
+function tintHero(id, d) {
+  const c = heroTint(id, d);
+  const box = c && document.querySelector('#pagehero .page-hero');
+  if (!box) return;
+  box.style.setProperty('--c', c);
+  box.querySelector('.ph-token')?.style.setProperty('--c', c);
+}
+
 export default {
   title: '生活服務',
   hero: ({ params: [id] }) => id, // 頁首（page-hero.js）
@@ -96,6 +113,7 @@ export default {
         const slot = document.createElement('div');
         res.append(slot);
         view = renderCard(slot, { ...payload, tool: payload.name }, host);
+        tintHero(id, payload.data);
       } catch (e) { res.innerHTML = errorBox(e); }
     }
     if (f) f.addEventListener('submit', (e) => { e.preventDefault(); run(); });

@@ -307,3 +307,14 @@ html.lite-motion .ab-scene-bus .ab-scene-img { animation: none !important; }
 .ab-stuck { margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: var(--ab-warn-soft); color: #92400e; display: grid; gap: 6px; }
 .ab-stuck p { margin: 0; }
 .ab-stuck .ab-btn { justify-self: start; min-height: 44px; }
+
+/* 各頁資料小巧思（設計審查）：按鈕 ≥ 44px、藥局現在時段有開、地震震度分色、股市漲跌色條 */
+.ab-actions .ab-btn { min-height: 44px; display: inline-flex; align-items: center; text-decoration: none; }
+.ab-open-now { display: flex; align-items: center; gap: 6px; color: var(--ab-ok); font-size: 13px; font-weight: 700; }
+.ab-dot-ok { width: 8px; height: 8px; border-radius: 50%; background: var(--ab-ok); box-shadow: 0 0 0 3px var(--ab-ok-soft); }
+.ab-chip.ab-int.lo { background: #eef1f0; color: #475569; }
+.ab-chip.ab-int.mid { background: #fef3c7; color: #92400e; }
+.ab-chip.ab-int.hi { background: #fde8e8; color: #b91c1c; font-weight: 700; }
+.ab-stk.up, .ab-stk.down { border-left: 3px solid transparent; padding-left: 8px; }
+.ab-stk.up { border-left-color: #dc2626; }
+.ab-stk.down { border-left-color: #16a34a; }
