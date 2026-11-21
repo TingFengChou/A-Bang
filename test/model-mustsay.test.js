@@ -36,3 +36,12 @@ test('叫車：付款在叫車 App（阿幫不代付）；訂票：只給官方�
   assert.equal(mustSay('叫車最快，付款在叫車 App。', { best: 'ridehail', ranking: {}, options: [] }), '叫車最快，付款在叫車 App。');
   assert.match(mustSay('明天 06:03 有一班。', null, { intent: 'rail', book: true, system: 'THSR' }), /官方訂票連結.*高鐵官網/);
 });
+
+test('說要叫車：卡片上有叫車才補付款句；叫車選不到不補（PR 審查）', () => {
+  const ok = { best: 'bus', options: [{ id: 'bus', role: 'bus', name: '公車 307' }, { id: 'ridehail', role: 'ridehail', name: '叫車（Uber）' }], ranking: {} };
+  assert.match(mustSay('搭公車比較快。', ok, { intent: 'trip', mode: 'ridehail' }), /付款在叫車 App 完成/);
+  const none = { best: 'bus', modeUnavailable: 'ridehail', options: [{ id: 'bus', role: 'bus', name: '公車 307' }], ranking: {} };
+  assert.doesNotMatch(mustSay('叫車這次沒有可行方案，建議搭公車。', none, { intent: 'trip', mode: 'ridehail' }), /付款在叫車/);
+  const best = { best: 'ridehail', options: [{ id: 'ridehail', role: 'ridehail', name: '叫車（Uber）' }], ranking: {} };
+  assert.equal(mustSay('用叫車 App 叫車，付款也在 App 裡。', best), '用叫車 App 叫車，付款也在 App 裡。', '已經說了就不重複');
+});

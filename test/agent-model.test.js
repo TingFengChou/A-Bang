@@ -317,3 +317,32 @@ test('發票：模型把「這期」放進 number → 視為只查中獎號碼�
   assert.match(r.speak, /特別獎/);
   await assert.rejects(callTool(svc, 'invoice_lottery', { number: '12' }), /8 位數字/);
 });
+
+test('同一輪同一個目的地只出一張行程卡：模型換起點寫法或條件再查也沿用（模型模式情境 S2-5、P3-1、P3-9）', async () => {
+  reset([
+    { tools: [{ id: 'd1', name: 'plan_trip', input: { from: '西門町', to: { name: '台北101' } } }] },
+    { text: '建議搭捷運。' },
+  ]);
+  const es = await run(claude(), '從西門町到台北101怎麼去？');
+  assert.equal(es.filter((e) => e.type === 'decision').length, 1, '只有程式先查的那一張');
+  assert.match(JSON.stringify(state.reqs[1]), /已查好/);
+});
+
+test('常用地點附近（「垃圾車幾點會到我家這邊」）：用家的座標先查，不先要定位（P3-2）', async () => {
+  reset([{ text: '你家附近的垃圾車資訊在卡片上。' }]);
+  const home = { lat: 25.0597, lon: 121.5440 };
+  const es = await run(claude(), '今天垃圾車幾點會到我家這邊', { client: { location: true }, savedPlaces: { 家: { name: '我家', ...home } } });
+  assert.ok(!es.some((e) => e.type === 'client_tool_call'), '不必先定位');
+  const g = es.find((e) => e.type === 'tool_result' && e.tool === 'garbage_truck_nearby');
+  assert.ok(g, '先查了垃圾車');
+  assert.deepEqual([g.args.lat, g.args.lon], [home.lat, home.lon]);
+});
+
+test('同一輪：模型給對的地名、錯的座標（小模型常見）也不出第二張行程卡', async () => {
+  reset([
+    { tools: [{ id: 'd3', name: 'plan_trip', input: { from: '西門町', to: { lat: 25.0478, lon: 121.517, name: '台北101' } } }] },
+    { text: '好。' },
+  ]);
+  const es = await run(claude(), '從西門町到台北101怎麼去？');
+  assert.equal(es.filter((e) => e.type === 'decision').length, 1);
+});
