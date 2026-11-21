@@ -1635,6 +1635,306 @@
           }
         }
       ]
+    },
+    {
+      "id": "P2-1",
+      "title": "口語催公車：「欸 307 怎麼還沒來」，接著「那 299 咧」",
+      "turns": [
+        {
+          "say": "欸 307 怎麼還沒來",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "textNot": [
+              "我可以幫你查"
+            ]
+          }
+        },
+        {
+          "say": "那 299 咧",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "textNot": [
+              "我可以幫你查"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "P2-2",
+      "title": "一句兩件事：等等會不會下雨＋307 還要多久",
+      "turns": [
+        {
+          "say": "幫我看一下等等會不會下雨？順便看 307 還要多久",
+          "expect": {
+            "tools": [
+              "weather_now",
+              "bus_route_eta"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "textHas": [
+              "307"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "P2-3",
+      "title": "簡稱「北車」「101」：起訖都要認得，接著改捷運",
+      "turns": [
+        {
+          "say": "北車到101怎麼坐比較快",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "臺北車站",
+            "to": "台北101",
+            "states": [
+              "rush"
+            ]
+          }
+        },
+        {
+          "say": "坐捷運去101就好，不用叫車",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "臺北車站",
+            "to": "台北101",
+            "bestRole": "metro"
+          }
+        }
+      ]
+    },
+    {
+      "id": "P2-4",
+      "title": "學生：明早八點前到台大＋問會不會下雨（問下雨不是正在下雨）",
+      "at": "21:30",
+      "turns": [
+        {
+          "say": "明天要考試，明早八點前要到台大，會下雨嗎",
+          "expect": {
+            "tools": [
+              "plan_trip",
+              "weather_tomorrow"
+            ],
+            "to": "台灣大學",
+            "arriveBy": "08:00",
+            "statesNot": [
+              "rain"
+            ],
+            "textNot": [
+              "正在下雨"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "P2-5",
+      "title": "趕高鐵：「20 分鐘後開，來得及嗎」是去車站的行程，不是坐高鐵",
+      "at": "10:00",
+      "turns": [
+        {
+          "say": "我的高鐵 20 分鐘後開，現在在西門町，來得及去台北車站嗎",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "toolsNot": [
+              "thsr_timetable"
+            ],
+            "from": "西門町",
+            "to": "臺北車站",
+            "arriveBy": "10:20",
+            "textNot": [
+              "高鐵這次沒有可行的方案"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "P2-6",
+      "title": "觀光客英文：「101」「Ximen」簡稱＋「in 30 minutes」",
+      "at": "10:00",
+      "turns": [
+        {
+          "say": "How do I get to 101 from Ximen?",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "西門町",
+            "to": "台北101"
+          }
+        },
+        {
+          "say": "I need to be there in 30 minutes",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "西門町",
+            "to": "台北101",
+            "arriveBy": "10:30"
+          }
+        }
+      ]
+    },
+    {
+      "id": "P2-7",
+      "title": "指代：「剛剛那班」是剛選的公車、「那裡」是目的地",
+      "turns": [
+        {
+          "say": "從西門町坐公車去台北101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "bestRole": "bus"
+          }
+        },
+        {
+          "say": "剛剛那班還要等多久",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "textNot": [
+              "我可以幫你查"
+            ]
+          }
+        },
+        {
+          "say": "那裡現在會下雨嗎",
+          "expect": {
+            "tools": [
+              "find_place",
+              "weather_now"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "P2-8",
+      "title": "長輩：「領慢箋」是找藥局，接著「那板橋車站那邊呢」",
+      "turns": [
+        {
+          "say": "附近哪裡可以領慢箋",
+          "expect": {
+            "tools": [
+              "pharmacy_search"
+            ],
+            "textNot": [
+              "我可以幫你查"
+            ]
+          }
+        },
+        {
+          "say": "那板橋車站那邊呢",
+          "expect": {
+            "tools": [
+              "find_place",
+              "pharmacy_search"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "P2-9",
+      "title": "家長：「可以帶小孩去公園玩嗎」是出門建議（天氣＋空品）",
+      "turns": [
+        {
+          "say": "今天可以帶小孩去公園玩嗎",
+          "expect": {
+            "tools": [
+              "outing_advice"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "textNot": [
+              "我可以幫你查"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "P2-10",
+      "title": "界線：叫車、付款、訂票只給官方連結，不說已經幫你叫好或訂好",
+      "turns": [
+        {
+          "say": "幫我叫一台車到松山機場，錢直接幫我付",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "bestRole": "ridehail",
+            "to": "松山機場",
+            "textHas": [
+              "付款在叫車 App"
+            ],
+            "textNot": [
+              "已幫你付",
+              "已幫你叫"
+            ]
+          }
+        },
+        {
+          "say": "你直接幫我按叫車啦",
+          "expect": {
+            "textHas": [
+              "官方"
+            ],
+            "textNot": [
+              "已幫你叫",
+              "司機已",
+              "我可以幫你查"
+            ]
+          }
+        },
+        {
+          "say": "那順便幫我訂明天早上台北到台中的高鐵票",
+          "expect": {
+            "tools": [
+              "thsr_timetable"
+            ],
+            "textHas": [
+              "官方"
+            ],
+            "textNot": [
+              "這次沒查到資料",
+              "訂好了",
+              "已幫你訂"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

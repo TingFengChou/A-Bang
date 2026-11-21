@@ -9,7 +9,7 @@ import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hi
 import { judgeNote, outingNote, moreStatesNote } from './impact.js';
 import { lineCode } from '../tools/metro.js';
 import { normName, nowTW } from '../util.js';
-import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, demoSummary, isEnglish, nightNote } from './demo-intent.js';
+import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, demoSummary, isEnglish, nightNote, rainAsked } from './demo-intent.js';
 import { resolvePoint } from '../services/places.js';
 
 /**
@@ -45,8 +45,18 @@ const NEARBY_TOOL = { weather: 'weather_now', aqi: 'aqi_nearby', youbike: 'youbi
 /** 捷運沒說站：用現在位置找最近的站（metro_live_board 的 near） */
 const METRO_NEAR = 'metro_live_board';
 /** 由程式先查的工具（見 runModel）：起訖點已知的行程、有現在位置時的附近類與捷運最近站 */
-export function prefetchCalls(it, j, here) {
+/** 說了地點時，先找地點再查的工具（與示範模式相同） */
+const PLACE_TOOL = { weather: 'weather_now', aqi: 'aqi_nearby', garbage: 'garbage_truck_nearby', youbike: 'youbike_nearby', nearby_bus: 'bus_nearby_stations', pharmacy: 'pharmacy_search' };
+export function prefetchCalls(it, j, here, placePt = null) {
   const at = here && { lat: here.lat, lon: here.lon };
+  if (placePt && PLACE_TOOL[it.intent]) { // 「那裡會下雨嗎」「板橋車站附近的藥局」：地點＋那裡的資料
+    const tool = it.intent === 'weather' && it.tomorrow ? 'weather_tomorrow' : PLACE_TOOL[it.intent];
+    return it.intent === 'weather' && it.later ? [] : [{ name: 'find_place', args: { query: it.places[0] } }, { name: tool, args: { lat: placePt.lat, lon: placePt.lon } }];
+  }
+  // 公車路線（含「那 299 咧」「剛剛那班」）：離你最近的站多久到；一句兩件事順便看天氣
+  if (it.intent === 'bus_route' && it.route && !it.places?.length) return [{ name: 'bus_route_eta', args: { routeName: it.route, ...(at && { near: { ...at, name: here.name } }) } }, ...(it.alsoWeather && at ? [{ name: 'weather_now', args: at }] : [])];
+  // 高鐵／台鐵說了起訖站：直接查班次（「明天早上台北到台中的高鐵」）
+  if (it.intent === 'rail' && !it.fare && it.from && it.to) return [{ name: it.system === 'THSR' ? 'thsr_timetable' : 'tra_timetable', args: { from: it.from, to: it.to, ...(it.tomorrow && { date: nowTW(Date.now() + 864e5).date }) } }];
   // 行程：起訖點都知道（明講的起點，或沒說＝現在位置）就由程式先比較，不靠模型記得呼叫 plan_trip
   //（地端模型接著改「改坐公車」時常不再查、說「叫車」時直接產生叫車連結，2026-11-21 情境評測）
   // 沒說起點也拿不到位置（拒絕定位）：先從示範預設起點算，並告訴模型要說明（與示範模式一致）
@@ -181,12 +191,17 @@ export function toolDefs(profile, { deviceLocation: withLocation = false, only }
  * 模型漏講的重點由程式補上（地端小模型常省略；模型模式情境 S10、S12-11）：
  * 照你說的改了交通方式 → 開頭先說「照你說的選…」；深夜公車收班或接近末班 → 補一句。
  */
-export function mustSay(text, trip) {
-  if (!trip || !text) return text;
+export function mustSay(text, trip, it = null) {
+  if (!text) return text;
   let out = text;
+  // 訂票（「幫我訂明天的高鐵票」）：阿幫只給官方連結（ADR-0011；P2-10）
+  if (it?.intent === 'rail' && it.book && !/官方/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}訂票請按卡片上的官方訂票連結，在${it.system === 'THSR' ? '高鐵' : '台鐵'}官網或 App 完成（阿幫不代訂、不付款）。`;
+  if (!trip) return out;
   const picked = trip.options?.find((o) => o.id === trip.best)?.name;
   // 程式排序時用了使用者指定的方式（ranking.reason 這樣開頭）、模型沒說到 → 開頭補一句（不帶分數）
-  if (picked && /^照你說的/.test(trip.ranking?.reason || '') && !/(照|依|按)你(所)?說|你說要/.test(out) && !out.includes(picked)) out = `照你說的選「${picked}」。${out}`;
+  if (picked && /^照你說的/.test(trip.ranking?.reason || '') && !/(照|依|按)你(所)?說|你說要/.test(out)) out = out.includes(picked) ? `照你說的，${out}` : `照你說的選「${picked}」。${out}`; // 已講到方案名稱：只加「照你說的，」
+  // 建議叫車：付款在叫車 App（阿幫不代付；P2-10）
+  if (trip.best === 'ridehail' && !/付款在叫車|叫車 ?App/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}按卡片上的「叫車」用官方 App 叫車，付款在叫車 App 完成（阿幫不代付）。`;
   const night = nightNote(trip);
   if (night && !/收班|末班/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}${night}`;
   return out;
@@ -214,9 +229,9 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const safe = safetyCheck(last); // 安全情境在請定位之前就回答，不會有帶定位的重送
   if (safe) { emit(ev.guardrail({ tier: 'L0', rule: `safety:${safe.kind}`, calls: safe.calls })); emit(ev.text(safe.reply)); emit(ev.done()); return; }
   // 規則先解析一次（含常用地點）：重來、聽懂了什麼、沒設定常用地點都用同一個結果
-  const rulesIt = parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces });
+  const rulesIt = parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces, now });
   if (!req.clientToolResults?.length && rulesIt.reset) emit(ev.contextReset());
-  if (rulesIt.intent === 'savedMissing' || (profile.id === 'life' && rulesIt.intent === 'weather' && rulesIt.later)) { // 「回家」但沒設定家、問後天以後的天氣：不給模型猜（模型會拿現在的天氣充數），直接照實說
+  if (rulesIt.intent === 'savedMissing' || (profile.id === 'life' && ((rulesIt.intent === 'weather' && rulesIt.later) || rulesIt.intent === 'limits'))) { // 要阿幫代按、代付：固定說明只給官方連結（ADR-0011） // 「回家」但沒設定家、問後天以後的天氣：不給模型猜（模型會拿現在的天氣充數），直接照實說
     emit(ev.text(demoSummary(rulesIt, {})));
     emit(ev.done());
     return;
@@ -225,6 +240,8 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const heard = !req.clientToolResults?.length && (contextNote(rulesIt) || (rulesIt.intent === 'outing' ? outingNote([...(rulesIt.states || []), ...(q0?.states || [])]) : q0 && judgeNote(q0)));
   if (heard && rulesIt.lang !== 'en') emit(ev.agentNote(heard)); // 「聽懂了」是中文：英文提問不說
   const j = jc ? await jc.full(q0) : null;
+  // 「會下雨嗎」是在問（P2-4）：判斷層聽成「正在下雨」就拿掉
+  if (j?.states?.includes('rain') && !rulesIt.states?.includes('rain') && rainAsked(last)) j.states = j.states.filter((x) => x !== 'rain');
   const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
   if (more && rulesIt.lang !== 'en') emit(ev.agentNote(more));
   const sure = j && (j.source === 'llm' || j.source === 'device' || (j.confidence ?? 0) >= 0.8); // 模型判斷（伺服器 B 或手機上的模型，ADR-0014）或 A 有把握
@@ -243,7 +260,11 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     return;
   }
   const locationHint = here ? `使用者現在在 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（手機定位）。使用者沒說起點或地點時就用這個位置：plan_trip 的 from 用 { lat, lon, name: "你的位置" }，天氣、空品、YouBike、附近公車、垃圾車用這個 lat/lon；不要再問他在哪裡。` : '';
-  const only0 = sure && provider.mode === 'local' ? INTENT_TOOLS[j.intent] : undefined;
+  // 地端小模型只給這個意圖用得到的工具：規則聽得懂就照規則（P2：判斷層把「來得及去台北車站嗎」聽成查高鐵）
+  //   行程：工具不縮減，但拿掉查時刻表（程式已經比較好路線，模型自己去查高鐵班次會答非所問）
+  const only0 = provider.mode !== 'local' ? undefined
+    : rulesIt.intent === 'trip' ? (!/^(thsr|tra)$/.test(rulesIt.mode || '') ? profile.tools.filter((x) => !/_timetable$/.test(x)) : undefined)
+      : INTENT_TOOLS[rulesIt.intent] || (sure ? INTENT_TOOLS[j.intent] : undefined);
   const only = only0 && rulesIt.intent === 'outing' && !only0.includes('outing_advice') ? [...only0, 'outing_advice'] : only0;
 
   let n = 0;
@@ -254,7 +275,9 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   //   沒說起點的行程 → plan_trip（起點＝現在位置）；沒說地點的天氣／空品／YouBike／附近公車／垃圾車 → 對應工具（現在位置）
   // 結果照常出現在討論串與卡片，再交給模型轉述（AGENT.md §5.2.1）
   // 出發時間＝現在（測試與示範時鐘可指定；深夜末班車判斷）
-  const pre = prefetchCalls(rulesIt, j, here || null).map((c) => (c.name === 'plan_trip' && !c.args.departAt ? { ...c, args: { ...c.args, departAt: tripDepartAt(rulesIt, now) } } : c)); // 與示範模式同一個出發時間（明天用明天早上）
+  // 說了地點的附近查詢（「那裡會下雨嗎」「那板橋車站那邊呢」）：程式先找到地點再查（與示範模式一樣，不靠模型記得先 find_place）
+  const placePt = rulesIt.places?.[0] && PLACE_TOOL[rulesIt.intent] && !(rulesIt.intent === 'pharmacy' && rulesIt.area) ? await resolvePoint(svc.places, rulesIt.places[0]).catch(() => null) : null;
+  const pre = prefetchCalls(rulesIt, j, here || null, placePt).map((c) => (c.name === 'plan_trip' && !c.args.departAt ? { ...c, args: { ...c.args, departAt: tripDepartAt(rulesIt, now) } } : c)); // 與示範模式同一個出發時間（明天用明天早上）
   let prefetched = '';
   const preDone = new Map(); // 呼叫鍵（工具＋關鍵參數）→ 給模型的文字：模型用相同參數再呼叫時沿用，不重複產生卡片與決策圖；參數不同照常執行
   if (pre.length) {
@@ -283,7 +306,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const en = isEnglish(last);
   const finish = (text, fromModel = false) => {
     if (used.size) emit(ev.discussionEnd({ tools: [...used] }));
-    emit(ev.text(guardedText(profile, fromModel && !en ? mustSay(text, lastTrip) : text, emit))); // 程式補重點只補模型寫的中文回答（不補到英文、退回說明） // L2 輸出護欄（防詐：不保證安全、固定附 165）
+    emit(ev.text(guardedText(profile, fromModel && !en ? mustSay(text, lastTrip, rulesIt) : text, emit))); // 程式補重點只補模型寫的中文回答（不補到英文、退回說明） // L2 輸出護欄（防詐：不保證安全、固定附 165）
     emit(ev.done(usage));
   };
 

@@ -7,9 +7,9 @@ test('照你說的改交通方式：模型沒說就補在開頭', () => {
   const trip = { best: 'metro', ranking: { reason: '照你說的選「捷運」（分數 62；分數最高的是叫車 77）。' }, options: [{ id: 'metro', name: '捷運 淡水信義線' }] };
   assert.equal(mustSay('大概 23 分會到。', trip), '照你說的選「捷運 淡水信義線」。大概 23 分會到。', '只補一句、不帶分數');
   assert.equal(mustSay('照你所說，搭捷運約 23 分。', trip), '照你所說，搭捷運約 23 分。', '換句話說也不重複');
-  assert.equal(mustSay('捷運 淡水信義線約 23 分。', trip), '捷運 淡水信義線約 23 分。', '已經講到方案名稱就不補');
+  assert.equal(mustSay('捷運 淡水信義線約 23 分。', trip), '照你說的，捷運 淡水信義線約 23 分。', '已經講到方案名稱：只加「照你說的，」');
   assert.equal(mustSay('照你說的改捷運，約 23 分。', trip), '照你說的改捷運，約 23 分。', '已經說了就不重複');
-  assert.equal(mustSay('很快。', { best: 'ridehail', ranking: { reason: '叫車 78 分最高。' }, options: [{ id: 'ridehail', name: '叫車' }] }), '很快。', '沒有指定方式不加');
+  assert.ok(!mustSay('很快。', { best: 'ridehail', ranking: { reason: '叫車 78 分最高。' }, options: [{ id: 'ridehail', name: '叫車' }] }).includes('照你說的'), '沒有指定方式不加');
 });
 
 test('深夜：公車收班或接近末班，模型沒說就補一句', () => {
@@ -29,4 +29,10 @@ test('預先比較的行程也帶判斷層聽懂的方式（與模型呼叫時�
   const f = { lat: 25.04, lon: 121.51 }, t = { lat: 25.034, lon: 121.5645 };
   assert.equal(tripKey(f, t, c.args.prefs), tripKey(f, t, groundedPrefs({}, it, j)), '模型再呼叫時同一趟（沿用、不出兩張卡）');
   assert.notEqual(tripKey(f, t, {}), tripKey(f, t, { mode: 'ridehail' }), '條件不同照常查');
+});
+
+test('叫車：付款在叫車 App（阿幫不代付）；訂票：只給官方連結', () => {
+  assert.match(mustSay('叫車最快。', { best: 'ridehail', ranking: {}, options: [] }), /付款在叫車 App 完成（阿幫不代付）/);
+  assert.equal(mustSay('叫車最快，付款在叫車 App。', { best: 'ridehail', ranking: {}, options: [] }), '叫車最快，付款在叫車 App。');
+  assert.match(mustSay('明天 06:03 有一班。', null, { intent: 'rail', book: true, system: 'THSR' }), /官方訂票連結.*高鐵官網/);
 });
