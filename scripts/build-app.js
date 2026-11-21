@@ -9,7 +9,7 @@ const root = (p) => fileURLToPath(new URL(`../${p}`, import.meta.url));
 const OUT = root('dist/app');
 // 與 server/http.js 的白名單相同（/vendor/、/core/）
 const VENDOR = ['gsap.min.js', 'MotionPathPlugin.min.js', 'Flip.min.js'];
-const CORE = ['decide.js', 'vision-text.js', 'suggest.js'];
+const CORE = ['decide.js', 'vision-text.js', 'edge-write.js', 'output-guards.js', 'suggest.js'];
 
 /** 驗證並正規化 API 位址：只收 http(s)、去掉結尾斜線；正式版（APP_RELEASE=1）只收 https */
 export function apiBase(raw, { release = false } = {}) {

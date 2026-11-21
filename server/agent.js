@@ -2,7 +2,7 @@
 // 模式（ADR-0012）：pickProvider 依環境變數選 Claude／地端模型／示範；全站每日模型呼叫超過 AGENT_DAILY_BUDGET 時降級示範模式。
 // 只給本站網頁使用：不加 CORS（避免其他網站耗用模型預算）。
 import { createRateLimiter } from './rate-limit.js';
-import { runDemo, validateRequest } from '../core/agent/run.js';
+import { runDemo, validateRequest, wantsEdgeWrite } from '../core/agent/run.js';
 import { runModel } from '../core/agent/model-loop.js';
 import { pickProvider } from '../core/agent/provider.js';
 import { ev, toNdjson } from '../core/agent/events.js';
@@ -61,8 +61,9 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
      * @param {import('node:http').ServerResponse} res
      */
     async handle(res, body, { agentId = 'life' } = {}) {
-      validateRequest(body);
+      const req = validateRequest(body);
       const profile = getProfile(agentId);
+      const edgeWrite = wantsEdgeWrite(req, profile.id); // 手機自己寫回答（ADR-0017）：伺服器不呼叫模型
       const u = usageOf(profile.id);
       u.requests++;
       res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
@@ -78,7 +79,10 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
         if (!res.writableEnded) res.write(toNdjson(e));
       };
       try {
-        if (provider && u.modelCalls < budget) {
+        if (edgeWrite) {
+          mode = 'edge';
+          await runDemo(svc, body, emit, { profileId: profile.id, judge, now: clock(), mode: 'edge' });
+        } else if (provider && u.modelCalls < budget) {
           mode = provider.mode;
           await runModel(svc, body, emit, { provider, profileId: profile.id, judge, now: clock(), onModelCall: () => { u.modelCalls++; } });
         } else {

@@ -47,10 +47,12 @@
 ```jsonc
 {
   "messages": [{ "role": "user", "content": "從西門町到台北 101 怎麼去？" }], // 最多 10 輪，只含文字
-  "userState": { "picked": ["budget"] },        // 使用者點選的狀態（選填）
+  "userState": { "picked": ["budget"], "habit": { "metro": 0.6 }, "usual": ["luggage"], "habitAsk": { "mode": "metro", "count": 6 } }, // 點選的狀態；habit＝使用者同意過的常選比例；usual＝說過的預設狀況；habitAsk＝可以問的候選（都選填、只在手機算，ADR-0016）
+  "pendingAsk": { "id": "ask-t7", "slot": "state", "state": "rush" }, // 選填：使用者直接打字回答上一個「阿幫問你」時帶回（ADR-0016）
   "clientTools": ["device_location"],           // 客戶端支援的裝置端工具（ADR-0008）
   "clientToolResults": [{ "id": "c1", "ok": true, "result": { "lat": 25.04, "lon": 121.51 } }], // 選填
-  "context": "使用者在卡片上選了『從西門站出發』"     // 選填，來自 host.setContext()
+  "context": "使用者在卡片上選了『從西門站出發』",    // 選填，來自 host.setContext()
+  "clientCaps": { "edgeWrite": true, "engine": "gemini-nano" } // 選填：手機自己寫回答（§3.5、ADR-0017）
 }
 ```
 
@@ -60,16 +62,19 @@
 
 | type | 欄位 | 畫面（UX.md） |
 |---|---|---|
-| `status` | `mode: 'claude'\|'local'\|'demo'`, `model?`, `profile`, `lang?: 'en'\|'zh'` | 頂部標示模式（並說明對話送到哪裡）；`lang`＝這一輪用哪種語言回答（S12g，前端卡片與討論串照這個） |
+| `status` | `mode: 'claude'\|'local'\|'demo'\|'rules'\|'edge'`, `model?`, `profile`, `lang?: 'en'\|'zh'` | 頂部標示模式（並說明對話送到哪裡）；`lang`＝這一輪用哪種語言回答（S12g，前端卡片與討論串照這個） |
 | `agent_note` | `text`（≤ 30 字，可含 `@角色`） | 討論串中阿幫的一句話 |
 | `tool_start` | `id`, `name`, `title`, `role`（公車、YouBike…）, `server`（`abang`、`tdx-official`…）, `pack`, `tier`, `input` | 被點名的小幫手出現「輸入中…」 |
 | `tool_result` | `id`, `ok`, `speak`, `card?`, `data?`, `metrics: { calls, cacheHits, cacheHit, scanned, ms }`（即 `callTool` 的 `metrics`）, `error?`, `impact?: { tone: 'bad'\|'good'\|'neutral', text }` | 小幫手說出 `speak`；`impact` 是這筆資料對決策的影響（`core/agent/impact.js`，不經模型）；決策圖的資料膠囊 |
+| `data_note` | `parent`（那次工具呼叫的 id）, `role`（天氣、空品、路況）, `source`, `text`, `impact: { tone, text }`, `effect`（`none`／`score`／狀態 key）, `available`, `mode: 'demo'\|'live'` | 工具內部用到的一項資料＋對這次判斷的影響（目前是 `plan_trip` 查的天氣、空品、國道路況；`core/services/trip-considered.js` 產生，不經模型）。以工具發言樣式排在 `parent` 的發言前面；`mode: 'demo'` 標「示範資料」；同一輪已點名該角色的工具（看 `tool_start`；工具平行，結果可能比 data_note 晚到；示範模式另外查過）時客戶端不重複顯示（2026-11-21） |
 | `discussion_end` | `tools`, `servers` | 討論收合成一行摘要 |
-| `decision` | `states: [{ key, source: 'auto'\|'user'\|'picked', from?, detail? }]`, `arriveBy?`, `best`, `options`, `ranked`, `excluded`, `weights`, `reason` | 決策圖動畫；前端可用同一引擎即時重算 |
+| `decision` | `states: [{ key, source: 'auto'\|'user'\|'picked'\|'usual', from?, detail? }]`, `arriveBy?`, `best`, `options`, `ranked`, `excluded`, `weights`, `reason`, `habit?`, `habitOn?`, `considered`（同 `plan_trip.considered`）, `single?: { text, textEn, suggest: [{ label, ask }] }` | 決策圖動畫；前端可用同一引擎即時重算；`considered`＝「資料」欄每個來源一個節點；`single`＝只有一種方式時的說明與「接下來可以」的建議 |
+| `ask` | `id`, `question`, `key?`（同一題的鍵，客戶端 24 小時內不重問）, `options: [{ label, kind: 'state'\|'reply'\|'store'\|'dismiss'\|'action', state?\|say?\|value?\|action?, guess? }]`, `why?`, `about?`, `pending?: { slot, state?, intent? }` | 阿幫問你（ADR-0016）：一輪最多一個，由程式產生。state＝加狀態即時重算（`say` 給不能重算的客戶端）、reply＝送出 `say`（完整的一句）、store＝存手機偏好（`value`）、action＝手機做事（`openLink`／`watchArrival`／`remind`，L2 先確認）、dismiss＝不改。直接打字回答時前端先比對按鈕文字，對不上就把 `pending` 當 `pendingAsk` 帶回，`validateRequest` 用 `resolvePending` 把短答改寫成完整的一句 |
 | `guardrail` | `tier`, `rule` | 套用的護欄（L2 以上） |
 | `client_tool_call` | `id`, `name`, `input` | 請客戶端執行裝置端工具（`device_location`、`notify_at`） |
 | `context_reset` | — | 使用者說「重來」：畫面加「重新開始」分隔線、前面的對話變淡（2026-11-21） |
 | `text` | `delta` | 阿幫的總結（可串流） |
+| `answer_draft` | `text`（程式版總結）, `facts`（事實清單）, `lang: 'zh'\|'en'` | 只在請求帶 `clientCaps.edgeWrite` 時取代 `text`：手機改寫後顯示（§3.5、ADR-0017） |
 | `done` | `usage?` | 結束 |
 | `error` | `message`, `retryable`, `retryAfterSec?` | 錯誤或限流 |
 
@@ -94,11 +99,22 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 ### 3.3 執行器（✅ M5-04）
 
-`core/agent/run.js`：`validateRequest`（訊息 ≤ 500 字、≤ 10 則、最後一則是使用者、`userState.picked` 只能是已知狀態）；`execTools(svc, calls, emit, { profile, nextId, picked })`（平行：先送全部 `tool_start`，再依完成順序送 `tool_result`；`plan_trip` 成功後送 `decision`；不在 profile 白名單的 tool 回 `ok:false`；錯誤訊息經 `publicMessage`，不外洩上游細節）；`runDemo(svc, body, emit)`（示範模式：`status` → 每段 `agent_note`＋工具 → `discussion_end` → `text` → `done`；某段失敗就停止往下；最多 5 輪）。模型模式（M5-05，§4）共用 `execTools`；`plan_trip` 會自動併入畫面上點選的狀態（`withPickedPrefs`）。
+`core/agent/run.js`：`validateRequest`（訊息 ≤ 500 字、≤ 10 則、最後一則是使用者、`userState.picked` 只能是已知狀態；`userState.habit` 鍵限定 8 種交通方式、值 0～1、總和 ≤ 1.01；`userState.usual` 只能是 rush／luggage／lessWalk；`userState.habitAsk` 是方式＋次數；`pendingAsk` ≤ 1000 字元）；`execTools(svc, calls, emit, { profile, nextId, picked })`（平行：先送全部 `tool_start`，再依完成順序送 `tool_result`；`plan_trip` 成功後送 `decision`；不在 profile 白名單的 tool 回 `ok:false`；錯誤訊息經 `publicMessage`，不外洩上游細節）；`runDemo(svc, body, emit)`（示範模式：`status` → 每段 `agent_note`＋工具 → `discussion_end` → `text` → `done`；某段失敗就停止往下；最多 5 輪）。模型模式（M5-05，§4）共用 `execTools`；`plan_trip` 會自動併入畫面上點選的狀態（`withPickedPrefs`）；`prefs.habit` 一律由程式換成手機送來的 `userState.habit`（`withHabit`：手機沒送就拿掉，模型或規則帶的不採用；`groundedPrefs` 也丟掉模型的 habit），示範與模型模式相同。`decision` 事件帶 `habit`（比例）與 `habitOn`（這次有沒有加分），決策圖的「你同意：優先推捷運」chip 與前端重算用。`userState.usual`（說過的預設狀況）**不自動套用**：這一輪沒說狀況、沒指定方式，而且加上它會換建議時，問「這次也帶東西嗎？」〔是（猜的，kind state、source usual）〕〔這次沒有〕，點〔是〕才在決策圖加上「你說過：常帶東西」重算。`plan_trip` 之後 `execTools` 依整輪共用的 `ask = { done, habitAsk }` 送最多一個 `ask` 事件（`tripAsk`：① 習慣確認 ② 說過的預設狀況「這次也…嗎？」③ `plan_trip` 的關鍵問題 `ask`，帶 `key`＝同一段起訖〔座標到小數 2 位〕同一題，手機 24 小時內問過就不顯示，只存雜湊）。個人化與互動確認見 ADR-0010、ADR-0016。
 
 ### 3.4 裝置端工具（✅ M5-07）
 
 `device_location`：需要使用者位置（行程沒說起點；YouBike／附近公車／天氣／空品／垃圾車沒說地點）且請求帶 `clientTools: ['device_location']` 時，伺服器送 `agent_note`＋`client_tool_call { id: 'loc1', name: 'device_location' }`＋`done` 後結束；客戶端定位後帶 `clientToolResults: [{ id: 'loc1', ok, result: { lat, lon } }]` 重送同一請求。台灣範圍內的座標才採用（起點名稱「你的位置」）；拒絕或無效時改用示範預設起點並在總結說明。客戶端：`public/js/agent/client.js`（`runAgent`：讀 NDJSON 串流、執行 client tool、最多重送 2 次；`browserLocation` 5 秒逾時，手機 App 改用原生定位外掛 `@capacitor/geolocation`，iOS 只問 App 權限一次）。定位完成或失敗時客戶端自己發 `client_tool_result { id, name, ok }`（不經伺服器、不含座標），畫面把「定位中」換成結果。帶 `clientToolResults` 的重送是同一輪：伺服器不再重複「我先看天氣…」等判斷說明。座標不寫入 log。`T.point` 的座標物件可帶 `name`。
+
+### 3.5 回答也在手機上寫（ADR-0017，2026-11-21）
+
+手機 App 的系統模型（Android 的 Gemini Nano、iPhone 的 Apple Intelligence）可用、外掛 `status()` 回 `write: true`、設定頁「裝置端 AI」與「回答也在手機上寫」都開著時，前端（`public/js/edge-write.js` `edgeWriteCaps`）在請求帶 `clientCaps: { edgeWrite: true, engine }`。
+
+- **伺服器**（`server/agent.js`、`core/agent/run.js` `wantsEdgeWrite`）：只有生活 agent 採用。這一輪不論 Claude／地端模型設定都**不呼叫任何 AI 模型**：`status.mode = 'edge'`，走規則路徑（`runDemo`）查資料、`decide.js` 計分；判斷層只用快速版（嵌入分類器＋規則＋`deviceJudge`，`judgeCalls(..., { noModel: true })`）。最後送 `answer_draft { text, facts, lang }` → `done`，不送 `text`。安全情境照樣直接送 `text`；防詐 agent 帶了也照原路徑。log 記 `mode: 'edge'`。
+- **事實清單** `facts`（`core/agent/answer-facts.js`）：`{ intent, lang, demo, points: [小幫手的一句話（英文那一輪用英文）], trip?: { departAt, best: { name, minutes, cost, arriveAt }, others, arriveBy?, reason?, tips? } }`。不放座標、起訖點與使用者的句子。
+- **手機**：`AbangEdgeAI.write({ draft, prompt, lang, instructions })` 改寫成約 80 字內的一兩句（指示 `WRITE_INSTRUCTIONS`）；JS 等 2.5 秒。回來後由程式護欄 `checkRewrite`（`core/edge-write.js`，經 `/core/edge-write.js` 給前端）檢查（細節見 ADR-0017 第 4 點）：數字＋單位要在草稿或事實清單出現過同樣的組合、其他方案的數字只能用在提到它的那一句、關鍵數字不能少且順序一樣、國字英文數量與時段不能多、不能說已經叫車訂票預約設提醒付款（ADR-0011）、L2 輸出護欄直接重用 `core/output-guards.js`、重要提醒要留也不能被否定、名稱（引號裡與以站路線出口結尾的）要在資料裡、網址網域 markdown、語言與長度。不過、逾時、上一題還在寫（busy）、失敗、草稿太長或數字太多 → 用程式版總結，頁底與回答上方照實說。送回伺服器的前文用程式版總結（規則路徑讀得懂「剛剛那班」），畫面顯示改寫。
+- **畫面**：思考動畫「在手機上寫回答」（`answer_draft` 後、改寫完成前）；回答上方只有一行，把手機判斷與寫回答合在一起照實說：手機判斷被採用且寫好回答 →「手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答。」；只有寫回答 →「這次的回答由手機上的 Gemini Nano 寫。」；沒通過檢查或逾時 →「手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（沒通過檢查／逾時）。」（沒有手機判斷時「這次的回答用阿幫的固定說法（…）。」）；英文同理，iPhone 照實寫 Apple Intelligence（`writeLine`）；頁底模式說明「回答在手機上寫；伺服器只查資料、用程式排序，不經伺服器的 AI 模型。」
+- **網頁版與不支援的手機**：不帶 `clientCaps`，行為完全不變（伺服器的模型或規則寫回答）。
+- **規則聽不懂的開放式問題**：edge 模式一律不退回伺服器模型（產品負責人 2026-11-21），改用「阿幫問你」的 `ask`（`core/agent/ask.js` `unknownAsk`，`about: 'unknown'`）給 4 個查得到的選項（怎麼去台北101、附近公車站、現在天氣、發票對獎；英文另一組），都是 `reply`：按了就把規則聽得懂的完整一句送出；`answer_draft` 只留一句短的（`UNKNOWN_SHORT`），不再列一串例句。道謝、道歉、重來不算聽不懂。
 
 ## 4. 模型模式（✅ M5-05，ADR-0012）
 
@@ -294,7 +310,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 產品負責人：輸入提示都一樣；要像 Claude 那樣用模型猜使用者下一句想問什麼，**以 App 取得到的資料為優先**。分三段，模型只提出候選，查不查得到、怎麼排由程式決定（同 ADR-0010 的精神）：
 1. **情境**（`public/js/agent/suggest.js` `suggestContext`／`contextText`，只在手機上組、不送伺服器）：時段（平日／假日、早上／白天／傍晚／深夜）、目前頁面（浮動阿幫的 `askHint`：公車頁哪條路線哪一站、天氣頁…）、最近兩輪的問題與結果摘要（「行程 西門町→台北101，建議捷運；天氣 正在下雨 18°C；AQI 58」，只取名稱與數字）、常用地點的**標籤**（家／公司／學校）、進行中的到站／下車提醒。不含座標（問題裡像座標的數字也遮掉）、不含常用地點的地址。
-2. **產生**：App 裡手機上的 AI 可用、設定開著時，外掛 `AbangEdgeAI.suggest({ context, instructions, lang, max })` 回 3～4 句（Android Gemini Nano 每行一句、溫度 0.4、原生 1.5 秒取消；iOS Foundation Models `@Generable` 字串陣列、溫度 0.5）；指示詞 `SUGGEST_INSTRUCTIONS`（每句單獨看得懂、寫出地名路線、只問阿幫查得到的；英文那一輪用英文）。最多等 1.5 秒（`SUGGEST_WAIT_MS`），上一次還沒跑完不再叫，外掛沒有這個方法就這次開 App 不再試。**judge 優先**（產品負責人 2026-11-21）：使用者送出問題時 `edgeJudge` 先呼叫 `cancelSuggest`（原生端取消：Android 取消 ML Kit 的 future、iOS 取消 Task），正在等的建議結果丟掉；原生端 `judge` 進來也會先取消 suggest，Android 的 suggest 另用一條執行緒，judge 不會排在它後面；被取消回 `cancelled`，不算模型錯誤（不觸發暫停）。取消建議後 3 秒內 judge 若遇到忙碌類錯誤（Android ML Kit `ErrorCode.BUSY`／`CANCELLED`；iOS 取消中、限流、同時有請求），原生端回 `busy`、不暫停 10 分鐘，JS 也不跳斷路器（`edgeTrips`），這一題改由伺服器判斷，下一題照常在手機上。
+2. **產生**：App 裡手機上的 AI 可用、設定開著時，外掛 `AbangEdgeAI.suggest({ context, instructions, lang, max })` 回 3～4 句（Android Gemini Nano 每行一句、溫度 0.4、原生 1.5 秒取消；iOS Foundation Models `@Generable` 字串陣列、溫度 0.5）；指示詞 `SUGGEST_INSTRUCTIONS`（每句單獨看得懂、寫出地名路線、只問阿幫查得到的；英文那一輪用英文）。最多等 1.5 秒（`SUGGEST_WAIT_MS`），上一次還沒跑完不再叫，外掛沒有這個方法就這次開 App 不再試。**judge 優先**（產品負責人 2026-11-21）：使用者送出問題時 `edgeJudge` 先呼叫 `cancelSuggest`（原生端取消：Android 取消 ML Kit 的 future、iOS 取消 Task），正在等的建議結果丟掉；原生端 `judge` 進來也會先取消 suggest，Android 的 suggest 另用一條執行緒，judge 不會排在它後面；被取消回 `cancelled`，不算模型錯誤（不觸發暫停）。取消建議後 3 秒內 judge 若遇到忙碌類錯誤（Android ML Kit `ErrorCode.BUSY`／`CANCELLED`；iOS 取消中、限流、同時有請求），原生端回 `busy`、不暫停 10 分鐘，JS 也不跳斷路器（`edgeTrips`），這一題改由伺服器判斷，下一題照常在手機上。**與「回答在手機上寫」（§3.5、ADR-0017）共用外掛與斷路器**：優先順序 judge ＞ write ＞ suggest——write 開始前也先取消正在跑的 suggest（JS 與原生端都做），手機正在寫回答時不猜下一句（`edgeTasks`）；三個任務任何一個回「不可用」都跳同一個斷路器（`noteEdgeError`／`edgeTripped`），取消後 3 秒內的忙碌錯誤 write 也回 `busy`、不暫停，該輪用程式版總結。
 3. **驗證**（一律）：句子送 `POST /api/v1/suggest/check { asks }`（**只送句子**，不送情境；最多 8 句、每句 60 字；一般 API 限流；不保存，結構化 log 只記 `{ count, ok, needSaved }` 數量、不記句子，`checkRequest`）→ `core/agent/suggest-check.js` 用示範模式同一套 `parseIntent` 解析：意圖不是 unknown／說明類、需要的欄位齊全（行程要有目的地、公車要有路線、高鐵台鐵要有站、股票不是問買賣、天氣不是後天、油價不是問漲跌；沒說的位置可以用定位補）才 `ok`；用到常用地點時回 `needSaved`，手機有設定才算。回傳只有意圖與比對欄位（`core/suggest.js` `slimAsk`），不呼叫模型、不查資料。手機再丟掉跟畫面上已回答的重複的（`shownAsks`＋`sameAsk`：同起訖的行程、已顯示的天氣空品、同一條公車…）、剛問過的、頁面列已有的。
 4. **規則補**：網頁版、手機上的 AI 不可用／關掉／逾時、或驗證後不足 3 句 → `ruleAsks(ctx)`：依最近結果（行程：下雨少淋雨的走法、建議捷運就問捷運下一班、建議公車就問那條公車、回程或回家、目的地附近 YouBike；公車：附近還有哪些公車、上車後提醒我下車）、頁面、時段、常用地點、進行中提醒，加上原本 `next-steps.js` 的問句。每一句規則都在 `test/suggest.test.js` 用 `parseIntent` 逐句驗證查得到、規則標的意圖與解析結果一致。
 5. **排序**（`scoreAsk`，程式計分）：提到情境裡的地名路線 +3、規則標的相關度（從這一輪結果推的 +2～3）、跟結果一起出現的意圖 +1、頁面相符 +2、時段相符 +1、有即時資料（行程、公車、捷運、YouBike、附近站牌、高鐵台鐵、天氣、空品、出門建議）+1；同分照模型或規則原本的順序。手機上的 AI 有 3 句以上就用它的（彼此排序），不足才把規則接在後面。
@@ -315,7 +331,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 ## 7. 隱私
 
-不儲存對話；動態建議的情境只在手機上（§5.4，驗證端點只收句子、不記內容）；log 只記事件類型、tool、耗時、token；座標不寫 log（統計時捨去至小數 2 位）；問阿幫頁依 `status.mode` 說明對話送到哪裡：Claude 模式「對話會送 Anthropic 處理」、地端模式「只送到本站設定的模型伺服器」、示範模式「不經 AI 模型」。
+不儲存對話；動態建議的情境只在手機上（§5.4，驗證端點只收句子、不記內容）；log 只記事件類型、tool、耗時、token；回答在手機上寫的那一輪（§3.5）問題不送任何模型伺服器，只送本站伺服器查資料；座標不寫 log（統計時捨去至小數 2 位）；問阿幫頁依 `status.mode` 說明對話送到哪裡：Claude 模式「對話會送 Anthropic 處理」、地端模式「只送到本站設定的模型伺服器」、示範模式「不經 AI 模型」。
 
 ## 8. 驗收
 
@@ -323,6 +339,12 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - 模型模式：以本地假 Anthropic SSE 伺服器（`ANTHROPIC_BASE_URL`）與假 OpenAI 相容伺服器測試工具迴圈、`agent_note` 轉換、錯誤、5 輪上限、定位、refusal／截斷、預算降級（`test/agent-model.test.js`）。
 - 狀態：說「我帶行李」→ `decision.states` 含 `{ key: 'luggage', source: 'said' }`。
 - 限流：第 11 次請求收到 `error`（`retryable: true`）。
+
+### 5.2.10b 判斷看得到：天氣、空品、路況逐項說明（2026-11-21，產品負責人：「他說會看天氣空氣品質，但都只顯示詢問定位，其他真的有一起考慮嗎？」）
+
+- `plan_trip` 輸出 `considered`：天氣、空品、國道路況各一筆 `{ source, role, available, demo, value, text, say, effect, tone }`（`core/services/trip-considered.js`）。`effect`：`none` 不影響、`score` 只影響延誤風險分數（國道車多）、其餘是加入的自動狀態（`rain`、`rainSoon`、`badAir`、`traffic`），與 `states` 的自動狀態同一套門檻。查不到照實說「查不到」；最近的空品測站超過 25 公里（`AIR_MAX_M`）不採用（真實與示範相同；示範資料只有雙北、桃園、台中的測站）；出發日不是今天時天氣說「現在…（出發時可能不同）」。每一項的 `demo` 看該來源自己（天氣看氣象署授權碼、空品看環境部金鑰、路況看 TDX）；TDX 額度用完改用示範資料時（`withTdxFallback`），路況那一行 `demo: true`、`fallback: 'tdx-limit'`，文字加「（TDX 額度用完，這次先用示範資料）」。
+- `execTools` 在 `plan_trip` 成功後、`tool_result` 前送三個 `data_note`（示範與模型模式相同，不靠模型）；`plan_trip` 給模型的文字多一行「判斷用到的資料：…」。開頭「我先看天氣、空品、路況…」因此一定有對應的三行。
+- 只有一種方式時 `plan_trip.single`：依各方式沒列出的原因（太遠、附近沒有站、某時間以後查不到趕得上的班次、不可行）組一句說明，示範資料加註「班次與站牌是模擬的；設定金鑰後就是即時資料」；`suggest`：沒有班次時「改成明天早上出發」（使用者說了起點就帶著：「明天早上 8 點從西門町到台北101」）、示範資料時「改從台北車站出發比較看看」；真實模式但這次 TDX 額度用完改用示範資料（`metrics.currentFallback()`）時，說明加「（TDX 額度用完，這次先用示範資料…）」，不當成真的沒有班次（「接下來可以」的 chip，點了送出那一句；之後可改用「阿幫問你」）。`speak` 改說「只找到○○一種方式」，`impact` 與示範總結說原因。
 
 ### 5.2.11 模型模式情境評測與程式補強（2026-11-21）
 

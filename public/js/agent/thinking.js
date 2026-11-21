@@ -10,7 +10,7 @@ import { EDGE_INTENTS, EDGE_STATES } from '../edge-judge.js';
 export const thinkStart = () => ({ phase: 'think', device: null, pending: [], checked: 0 });
 
 /**
- * 事件 → 下一個狀態。phase：think 剛送出｜device 手機上聽懂了｜server 改由伺服器判斷｜tools 正在查｜compose 查完、整理答案｜end 收起
+ * 事件 → 下一個狀態。phase：think 剛送出｜device 手機上聽懂了｜server 改由伺服器判斷｜tools 正在查｜compose 查完、整理答案｜write 在手機上寫回答（answer_draft）｜end 收起
  * @param {ReturnType<typeof thinkStart>} s
  * @param {{ type: string, [k: string]: any }} e agent 事件；另有 { type: 'device', result }（手機上的判斷結果，沒有是 null）、{ type: 'abort' }
  */
@@ -33,6 +33,8 @@ export function thinkStep(s, e) {
       const pending = s.pending.filter((p) => p.id !== id);
       return { ...s, pending, checked: s.checked + 1, phase: pending.length ? 'tools' : 'compose' };
     }
+    case 'answer_draft': // 回答交給手機寫（ADR-0017）：收到程式版總結後、手機改寫完成前
+      return { ...s, phase: 'write' };
     case 'text': case 'done': case 'error': case 'abort':
       return { ...s, phase: 'end' };
     default:
@@ -61,6 +63,7 @@ export function thinkText(s, lang = null, roleName = (r) => r) {
     const list = roles.slice(0, 3).map(roleName).join(dot);
     stage = list ? `${en ? 'Checking: ' : '正在查：'}${list}${roles.length > 3 ? (en ? '…' : '等') : ''}` : (en ? 'Checking data' : '正在查資料');
   } else if (s.phase === 'compose') stage = en ? 'Putting the answer together' : '整理答案中';
+  else if (s.phase === 'write') stage = en ? 'Writing the answer on your phone' : '在手機上寫回答';
   const announce = s.phase === 'think' ? title : s.phase === 'device' || s.phase === 'server' ? stage : null;
   return { title, stage, announce };
 }

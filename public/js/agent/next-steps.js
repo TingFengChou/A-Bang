@@ -33,6 +33,8 @@ export function nextSteps(results, decision, { watching = null, riding = null, l
 
   const trip = byTool('plan_trip')?.data;
   if (trip) {
+    // 只有一種方式：先給換條件比較看看（例：改成明天早上出發、改從台北車站出發；點了就送出那一句）。之後可改用「阿幫問你」
+    if (!en) for (const s of (decision?.single || trip.single)?.suggest || []) add({ label: s.label, kind: 'ask', payload: s.ask, pin: true }); // pin：只剩一種方式時換條件的建議，動態建議一律排最前面
     // 決策圖上還沒有的狀態：點了在瀏覽器重算（不重問）
     const have = new Set((decision?.states || trip.states || []).map((s) => s.key));
     for (const k of ['rush', 'budget', 'lessWalk']) if (!have.has(k)) { add({ label: (en ? STATE_LABEL_EN : STATE_LABEL)[k], kind: 'state', payload: k }); if (out.length >= 3) break; }

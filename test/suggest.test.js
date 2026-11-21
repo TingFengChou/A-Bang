@@ -286,3 +286,46 @@ test('取消建議後 3 秒內的忙碌類錯誤：不跳斷路器（這一題�
   assert.match(swift, /static let busyGrace: TimeInterval = 3/);
   assert.match(swift, /call\.reject\(self\.busyAfterCancel\(error\) \? "busy" : "judge failed"\)/);
 });
+
+test('外掛三個任務共用斷路器與優先順序：judge ＞ write ＞ suggest（寫之前先取消猜，寫的時候不猜；寫說不可用就都不再用）', async () => {
+  const { edgeWrite, _resetEdgeWrite } = await import('../public/js/edge-write.js');
+  const { edgeTripped } = await import('../public/js/edge-judge.js');
+  const draft = { type: 'answer_draft', lang: 'zh', facts: {}, text: '選「公車 601」：省 270 元、不用等車。 601 約 7 分後到「民生捷運站(1號出口)」，走過去約 3 分。這可能是末班，早點出門；趕不上就叫車或騎 YouBike。' };
+  const calls = [];
+  let finishWrite;
+  globalThis.Capacitor = {
+    isNativePlatform: () => true,
+    nativePromise: (plugin, method) => {
+      calls.push(method);
+      if (method === 'suggest') return new Promise(() => {});
+      if (method === 'write') return new Promise((res, rej) => { finishWrite = rej; });
+      return Promise.resolve({});
+    },
+  };
+  try {
+    edgeSuggest('現在：平日白天 14 點', { timeout: 50 });
+    await new Promise((r) => setTimeout(r, 5));
+    const writing = edgeWrite(draft, { engine: 'gemini-nano', timeout: 1000 });
+    await new Promise((r) => setTimeout(r, 5));
+    assert.deepEqual(calls, ['suggest', 'cancelSuggest', 'write'], '寫之前先取消正在猜的');
+    assert.equal(await edgeSuggest('現在：平日傍晚 18 點'), null, '寫的時候不猜');
+    assert.equal(calls.filter((m) => m === 'suggest').length, 1);
+    finishWrite(new Error('unavailable'));
+    assert.equal((await writing).by, 'program');
+    assert.equal(edgeTripped(), true, 'write 說不可用：共用的斷路器跳了');
+    assert.equal(await edgeJudge('明天會下雨嗎'), null);
+    assert.ok(!calls.includes('judge'), '之後不再請手機判斷');
+  } finally {
+    delete globalThis.Capacitor;
+    _resetEdge();
+    _resetEdgeWrite();
+  }
+});
+
+test('程式為這一輪特別算的建議（pin，例：只剩叫車時換條件）一律排最前面，手機上的 AI 有猜也一樣', () => {
+  const ctx = suggestContext({ turns: [turn('晚上 11 點半去台北101', [trip()])], now: at('23:30') });
+  const pin = { label: '改從台北車站出發比較看看', q: '從台北車站到台北101怎麼去？', src: 'next', rel: 2, pin: true };
+  const edge = ['捷運幾點收班？', '台北101附近有藥局嗎？', '明天會下雨嗎？'].map((q, i) => ({ label: q, q, src: 'edge', ask: [{ intent: 'metro' }, { intent: 'pharmacy', places: ['台北101'] }, { intent: 'weather', tomorrow: true }][i] }));
+  assert.equal(pickSuggestions({ edge, rules: [pin, ...ruleAsks(ctx)], ctx }).asks[0].label, '改從台北車站出發比較看看');
+  assert.equal(pickSuggestions({ rules: [...ruleAsks(ctx), pin], ctx }).asks[0].label, '改從台北車站出發比較看看');
+});

@@ -24,14 +24,14 @@
    - Android（ML Kit GenAI Prompt API）：`featureStatus`（available／downloadable／downloading／unavailable）、`modelName`（`getBaseModelName()`）、`tokenLimit`（`getTokenLimit()`）、下載中的 `downloadTotalBytes`／`downloadedBytes`（`DownloadCallback`）、`aicoreVersion`（AICore 套件版本；manifest 加 `<queries>`）、`osVersion`、`device`。ML Kit 不回報支援語言與模型大小，所以不顯示。
    - iOS（Foundation Models）：`availability`（available／deviceNotEligible／appleIntelligenceNotEnabled／modelNotReady）、`languages`（`supportedLanguages`）、`contextSize`、`osVersion`。系統不回報模型名稱與版本，所以不顯示。
    - `judge()` 多回 `ms`（模型花多久）；JS 只在本機記「今天判斷幾次、上次花多久」（`localStorage abang.edgeStats`，只有數字），不上傳。`deviceJudge` 仍然只有意圖、狀態、引擎三個欄位。
-8. **猜下一句（2026-11-21，AGENT.md §5.4）**：外掛多一個 `suggest({ context, instructions, lang, max })`，手機上的模型依只在手機上組的情境（不含座標）猜使用者接下來想問的 3～4 句；句子一律送伺服器用規則驗證查得到才顯示（只送句子），排序由程式計分，不可用或逾時 1.5 秒改用規則；設定可單獨關閉（`localStorage abang.edgeSuggest = off`）。judge 優先：送出問題時先 `cancelSuggest()`（原生端取消 future／Task），Android 的 suggest 用自己的執行緒，judge 不排在後面；驗證端點只記句數、不記句子。取消建議後 3 秒內的忙碌類錯誤（BUSY／CANCELLED、取消中、限流、同時有請求）不觸發 Android 的 10 分鐘暫停、也不跳 JS 斷路器，這一題交給伺服器判斷。另一分支的 `write()`（手機上寫回答）合進主線後，兩者共用同一個外掛與斷路器，可再整併。
+8. **猜下一句（2026-11-21，AGENT.md §5.4）**：外掛多一個 `suggest({ context, instructions, lang, max })`，手機上的模型依只在手機上組的情境（不含座標）猜使用者接下來想問的 3～4 句；句子一律送伺服器用規則驗證查得到才顯示（只送句子），排序由程式計分，不可用或逾時 1.5 秒改用規則；設定可單獨關閉（`localStorage abang.edgeSuggest = off`）。judge 優先：送出問題時先 `cancelSuggest()`（原生端取消 future／Task），Android 的 suggest 用自己的執行緒，judge 不排在後面；驗證端點只記句數、不記句子。取消建議後 3 秒內的忙碌類錯誤（BUSY／CANCELLED、取消中、限流、同時有請求）不觸發 Android 的 10 分鐘暫停、也不跳 JS 斷路器，這一題交給伺服器判斷。與 ADR-0017 的 `write()` 共用同一個外掛、斷路器與優先順序（judge ＞ write ＞ suggest；write 開始前也先取消 suggest、寫的時候不猜）。另一分支的 `write()`（手機上寫回答）合進主線後，兩者共用同一個外掛與斷路器，可再整併。
 
 ## 評測（`scripts/eval-edge.js` 實機、`scripts/eval-edge-combo.js` 組合；`docs/research/edge-eval.md`）
 同一份 172 題評估集：Pixel 11 Pro XL 上的 Gemini Nano 單獨意圖 90.1%、全對 85.5%，延遲 p50 約 270 ms；與 A＋規則組合後全對 89.0%、驗收集 88.4%（A＋規則 77.9%；伺服器 A＋qwen3:8b 89.5%、驗收集 88.4%）。兩者相當，之後若實機數據穩定，可改成「有裝置結果就不呼叫伺服器模型」省成本。iOS 模擬器（Mac 的 Apple Intelligence）第一題冷啟動約 5 秒、超過逾時，實機數據待 iPhone 15 Pro 以上。
 
 ## 不採用
 - **在 WebView 跑 transformers.js 分類器**（E3）：模型約 120 MB、手機上首次載入慢；系統模型免下載。保留為之後的第三層備援。
-- **手機上直接回答**（不經伺服器）：數字一定要來自工具資料、計分要一致（ADR-0010），第一階段只做判斷。手機上轉述（E7）另議。
+- **手機上直接回答**（不經伺服器）：數字一定要來自工具資料、計分要一致（ADR-0010），第一階段只做判斷。手機上轉述（E7）另議。（2026-11-21：手機上轉述改由 ADR-0017「回答也在手機上寫」實作：伺服器照舊查資料與排序，手機把程式版總結改寫成一兩句，程式護欄檢查數字。）
 - **讓裝置結果指定工具名稱**：等同讓用戶端決定伺服器執行什麼，信任邊界不清楚（只給意圖，工具範圍由伺服器對照）。
 
 ## 影響

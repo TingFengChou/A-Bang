@@ -182,6 +182,7 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
       if (hasNativeNotify()) { native.granted = await ensureNotifyPermission(); native.failed = false; }
       else if (typeof Notification !== 'undefined' && Notification.permission === 'default') await Notification.requestPermission().catch(() => {});
       stopWatch();
+      if (w.until == null) signal('abang:choice', { role: 'bus' }); // 設到站提醒＝選了公車（habits.js；App 重開恢復的不算）
       const trip = w.trip || tripContext?.(); // 問阿幫規劃的行程目的地（公車一直不來時改其他方式用）
       watch.w = { ...w, ...(trip?.to && { trip: { to: trip.to } }), first: true, skip: null };
       watch.until = w.until ?? Date.now() + MAX_MS;

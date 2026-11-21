@@ -4,11 +4,17 @@
 //   Android：Gemini Nano（ML Kit GenAI Prompt API，經 AICore；支援的機型）
 // 網頁版、系統模型不可用、逾時或回傳看不懂 → 回 null，伺服器照原本的判斷層（使用者看不出差別）。
 // 只送「意圖、狀態、引擎」三個欄位，不送模型原文；方案排序仍由伺服器 decide.js 計分（ADR-0010）。
-const PLUGIN = 'AbangEdgeAI';
-const cap = () => {
+// 外掛 AbangEdgeAI 有三個用模型的任務：judge（聽懂問題）、write（寫回答，edge-write.js）、suggest（猜下一句）。
+// 共用這裡的外掛存取與斷路器；優先順序 judge ＞ write ＞ suggest：judge、write 開始前先取消正在跑的 suggest（cancelSuggest），
+// 手機正在寫回答時不猜下一句；任何一個任務回「不可用」就這次開 App 都不再用（取消後 3 秒內的忙碌錯誤不算，edgeTrips）。
+export const EDGE_PLUGIN = 'AbangEdgeAI';
+const PLUGIN = EDGE_PLUGIN;
+/** 手機 App 裡的 Capacitor（網頁版回 null）；edge-write.js 共用 */
+export const edgeCap = () => {
   const c = globalThis.Capacitor;
   try { return c?.isNativePlatform?.() && typeof c.nativePromise === 'function' ? c : null; } catch { return null; }
 };
+const cap = edgeCap;
 
 /** 與 core/agent/judge.js 的 JUDGE_INTENTS、JUDGE_STATES 相同（test/edge-judge.test.js 比對） */
 export const EDGE_INTENTS = ['trip', 'bus_route', 'youbike', 'nearby_bus', 'metro', 'rail', 'weather', 'aqi', 'quake', 'pharmacy', 'garbage', 'fuel', 'invoice', 'stock', 'unknown'];
@@ -102,8 +108,14 @@ export function edgeTrips(message, sinceCancelMs = Infinity) {
   if (sinceCancelMs < EDGE_BUSY_GRACE_MS && /busy|cancel|concurren|rate.?limit/i.test(m)) return false;
   return /unavailable/.test(m);
 }
+/** 斷路器跳了嗎（外掛說不可用）：跳了就這次開 App 都不再請手機做任何事 */
+export const edgeTripped = () => unavailable;
+/** 任務失敗時回報（write 也用）：不可用就跳斷路器；剛讓位的忙碌不算 */
+export function noteEdgeError(message) { if (edgeTrips(message, Date.now() - lastCancelAt)) unavailable = true; }
+/** 正在用模型的其他任務（write）：有的話不猜下一句 */
+export const edgeTasks = new Set();
 /** 測試用：重設斷路器 */
-export const _resetEdge = () => { inflight = null; unavailable = false; suggestInflight = null; suggestOff = false; suggestAbort = null; lastCancelAt = -Infinity; };
+export const _resetEdge = () => { inflight = null; unavailable = false; suggestInflight = null; suggestOff = false; suggestAbort = null; lastCancelAt = -Infinity; edgeTasks.clear(); };
 
 /**
  * 在手機上判斷這一句。
@@ -120,7 +132,7 @@ export async function edgeJudge(text, history = [], { timeout = EDGE_TIMEOUT_MS 
   try {
     const call = c.nativePromise(PLUGIN, 'judge', { text: String(text).slice(0, 500), history: history.slice(-2).map((h) => String(h).slice(0, 200)), instructions: EDGE_INSTRUCTIONS, intents: EDGE_INTENTS, states: EDGE_STATES });
     // 逾時後原生端仍在跑：跑完前下一題不再呼叫（避免排隊），跑完的結果丟掉（不會用到下一題）
-    inflight = call.catch((e) => { if (edgeTrips(e?.message, Date.now() - lastCancelAt)) unavailable = true; }).finally(() => { inflight = null; });
+    inflight = call.catch((e) => noteEdgeError(e?.message)).finally(() => { inflight = null; });
     const r = await Promise.race([call, new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeout); })]);
     const out = r ? normalizeJudge(r.result, r.engine) : null;
     if (out) noteEdgeJudge(validMs(r.ms) ?? Date.now() - t0); // 外掛有回模型耗時就用它，否則用這裡量到的（含橋接）
@@ -190,7 +202,7 @@ export const edgeCanSuggest = () => !!cap() && !unavailable && !suggestOff && ed
  */
 export async function edgeSuggest(context, { lang = null, timeout = 1500 } = {}) {
   const c = cap();
-  if (!c || unavailable || suggestOff || suggestInflight || !edgeEnabled() || !suggestEnabled() || !context) return null;
+  if (!c || unavailable || suggestOff || suggestInflight || edgeTasks.size || !edgeEnabled() || !suggestEnabled() || !context) return null; // 手機正在寫回答：不猜（write 優先）
   let timer;
   try {
     const call = c.nativePromise(PLUGIN, 'suggest', { context: String(context).slice(0, 600), instructions: lang === 'en' ? SUGGEST_INSTRUCTIONS_EN : SUGGEST_INSTRUCTIONS, lang: lang === 'en' ? 'en' : 'zh-TW', max: 4 });

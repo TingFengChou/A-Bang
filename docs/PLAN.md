@@ -28,7 +28,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | M10 生活開放資料 | ✅（2026-11-19） | — | 空品需 `MOENV_API_KEY`、地震需 `CWA_API_KEY`（沒有時示範片段）；藥局資料沒有座標 |
 | M7 反詐騙 agent | ✅（2026-11-19；規則庫待專家審核） | — | 規則庫 `reviewedBy` 待防詐專家審核 |
 | M11 行動 App | 🚧（M11-01 殼、M11-02 本機通知、M11-03 原生相機掃發票、M11-04 啟動畫面與隱私權政策、名稱 Abang、iOS 18 深色／著色圖示、返回手勢、原生定位、鍵盤、首次使用引導、離線顯示上次資料 ✅） | M11-05 測試環境與上架 | 給別人用需 HTTPS 測試環境（M6-06）與開發者帳號；iOS 實機需 Austin 的 iPhone |
-| M12 裝置端 AI（ADR-0014） | 🚧 第一階段 ✅（2026-11-21：Gemini Nano 實機、Apple Intelligence 模擬器、E8 設定開關 ✅） | E3 App 內分類器備援、E7 手機上轉述 | iOS 實機數據需 iPhone 15 Pro 以上並開啟 Apple Intelligence |
+| M12 裝置端 AI（ADR-0014） | 🚧 第一階段 ✅（2026-11-21：Gemini Nano 實機、Apple Intelligence 模擬器、E8 設定開關 ✅；E7 回答也在手機上寫 ✅ ADR-0017） | E3 App 內分類器備援 | iOS 實機數據需 iPhone 15 Pro 以上並開啟 Apple Intelligence |
 | 阿幫常駐與頁面質感（Austin 2026-11-21） | ✅（PR #69～#81：對話保留、浮動阿幫、提醒泡泡、知道你在哪一頁、App 重開後上次的對話、公車會動、格子頁首動畫、各頁小巧思兩批、英文其餘、Android 實機煙霧測試） | — | — |
 | Agent 聰明度：模型模式與 PM 第二批（2026-11-21） | ✅（PR #79、#82：地端模型模式 72→97／99；PM P2-1～10 全過） | PM 第三批 | — |
 | M13 Agent 聰明度（PM 情境 S1～S19） | 🚧（情境集 89 個、todo 0：位置當起點、接著改、新狀態、出門建議、明天天氣、末班車、捷運轉乘、高鐵台鐵最近站、英文與卡片／討論串／決策圖英文、常用地點、多人同行／可能下雨／時間很緊、出門建議小卡、出門提醒多筆、附近藥局依位置、公車一直不來、下車提醒、安全情境（求助電話）、常用地點用地名設定、定位失敗說原因、行程中模式 ✅） | S12f 英文其餘、E3／E7 | 真實末班車、捷運路網需 TDX 金鑰 |
@@ -46,7 +46,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | 行程中模式第二版 | Doze 備援通知、鎖定畫面倒數（Live Activity／持續通知） |
 | 油價週漲跌 | 需要上週牌價資料 |
 | S12g 英文 | 更多英文地名 |
-| E3／E7 裝置端 AI | App 內分類器備援；手機上轉述 |
+| E3 裝置端 AI | App 內分類器備援（E7 手機上寫回答 ✅ ADR-0017） |
 | T8c iOS 煙霧測試 | simctl＋Web Inspector 或 XCUITest（不在 CI） |
 | S1d 本機資料改存 Capacitor Preferences | 新依賴，要先寫 ADR |
 | S1e 常用地點用門牌地址 | 需要地址轉座標資料來源（例如 TGOS），先評估 |
@@ -266,7 +266,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] E5 Android Gemini Nano（ML Kit GenAI Prompt API）：Pixel 11 Pro XL 實機意圖 90.1%、p50 約 270 ms；只在 Wi-Fi 下載模型（新依賴 `com.google.mlkit:genai-prompt`：依 Austin 2026-11-21「edge ai 盡量開發」加入，正式上架前請 Austin 再確認授權條款）
 - [x] E6 實機評測 `scripts/eval-edge.js`、組合分數 `eval-edge-combo.js`（A＋規則＋Gemini Nano 全對 89.0%，`docs/research/edge-eval.md`）
 - [ ] E3 App 內 transformers.js 分類器（第三層備援）
-- [ ] E7 手機上轉述（伺服器沒有模型時仍能完整回答）
+- [x] E7 回答也在手機上寫（ADR-0017，2026-11-21）：手機支援時伺服器不呼叫任何 AI 模型（`clientCaps.edgeWrite` → `answer_draft`），`AbangEdgeAI.write`（Gemini Nano／Apple Intelligence）改寫程式版總結，程式護欄 `core/edge-write.js` 檢查數字、時間、ADR-0011；防詐不改寫；設定開關、`#/ai`「寫回答」、思考動畫「在手機上寫回答」（實機改寫品質與通過率待 Pixel／iPhone 量）
 - [x] E8 設定頁可關閉裝置端 AI、顯示模型狀態（下載中、需要 Wi-Fi…）、隱私權政策說明（2026-11-21）
 - [x] E9 阿幫的腦袋 `#/ai`：核心動畫、系統回報的模型資訊（外掛 `status()` 擴充）、現場試判斷、資料怎麼走（2026-11-21；實機欄位待 Pixel／iPhone 確認，首頁「手機上的 AI」狀態列入口另一個分支接）
 
@@ -298,6 +298,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] 「重來」分隔線、沒變的卡片收合、決策圖收班節點（2026-11-21）
 - [x] 出門建議小卡（傘、衣著、口罩）：`outing_advice` 工具＋`outing` 卡片（2026-11-21）
 - [x] S1 常用地點（家、公司、學校：「回家」直接成行程；座標只在手機、提到才送）（2026-11-21）
+- [x] R1 判斷看得到（產品負責人 2026-11-21：「他說會看天氣空氣品質，但都只顯示詢問定位」）：`plan_trip.considered`（天氣、空品、路況的值與影響）→ 討論串 `data_note` 各一行（示範與模型模式相同、不經模型）、決策圖資料欄每個來源一個節點（不影響淡色、查不到照實寫）；空品測站 > 25 公里不採用；只有一種方式時 `single` 說明原因＋「改成明天早上出發」「改從台北車站出發比較看看」建議（之後改用「阿幫問你」）
 - [x] S1b 常用地點：「輸入地點」打車站、捷運站、地標名稱（`find_place` 最多 5 個結果選一個），不必人在現場；列上顯示「已設定：板橋車站」讓人確認。門牌地址要等地址定位服務（列入 S1e）
 - [ ] S1e 常用地點用門牌地址設定（需要地址轉座標的資料來源，例如 TGOS；屬新資料來源，需評估）
 - [x] S1c 定位失敗分原因（權限／定位服務關閉／逾時）＋「到設定開啟」（專案內外掛 `AbangSystem`）；附近、生活服務、問阿幫、設定、引導都說原因；Android `prompt-with-rationale` 顯示「拒絕過一次」（2026-11-21）
@@ -308,6 +309,9 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [ ] S5 YouBike 空位預測（騎到時可能沒位）：要有各站歷史車位資料才預測得準（TDX 只有即時快照）；目前以「只剩 N 個空位＋備用站」提醒代替
 - [x] S19 安全情境：自傷與緊急狀況先給求助電話（1925、119／110／112），不查交通、不交給模型（2026-11-21）
 - [ ] S17 長途訂票（導訂票權限 ⛔）
+- [x] P2 阿幫問你（ADR-0016）：通用事件 `ask`（kind state／reply／store／action／dismiss、guess、pending）、共用區塊（問阿幫頁、底部面板）、直接打字回答（matchAnswer、pendingAsk→resolvePending）；關鍵因子 `keyQuestion`（趕不趕、省不省、行李、少走路）；習慣改成問過「好」才加分、叫車問原因（你說過的預設狀況）；情境檢查 asks／asksNone／askOptions／askKind／askGuess／toNot、情境 `here`（2026-11-21）
+- [ ] P2b PM 的 27 個「阿幫問你」情境接上（缺起站、地名有歧義、沒說目的地…：在 `PENDING_SLOTS` 加 slot）
+- [x] P1 個人化：記住常選的交通方式（只在手機 `abang.habits`、只記方式與時間、最近 50 次、60 天半衰期、選滿 5 次生效；`userState.habit` → `plan_trip` `prefs.habit`，`decide.js` 最多加 8 分、說了狀況／指定方式／不要／抵達時間優先；決策圖「你常選」chip 可點掉、看為什麼；設定頁開關（預設開）與清除；ADR-0010 習慣）（2026-11-21）
 
 ## 體驗與品質補強（審查與 PM 建議，2026-11-21）
 

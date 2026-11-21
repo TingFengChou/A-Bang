@@ -199,8 +199,10 @@ export function dropDup(cands, ctx, { pageChips = [] } = {}) {
 export function pickSuggestions({ actions = [], edge = null, rules = [], ctx, pageChips = [], max = 4 }) {
   const acts = [...actions.filter((a) => a.kind === 'remind' || a.kind === 'navigate'), ...actions.filter((a) => a.kind === 'state')].slice(0, 2);
   const need = Math.max(3, max - acts.length);
-  const fromEdge = dropDup(rankAsks(edge || [], ctx), ctx, { pageChips });
-  const asks = fromEdge.length >= 3 ? fromEdge.slice(0, need) : dropDup([...fromEdge, ...rankAsks(rules, ctx)], ctx, { pageChips }).slice(0, need);
+  // pin：程式為這一輪特別算的（例：只剩叫車時「改從台北車站出發比較看看」），不論手機上的 AI 有沒有猜都排最前面
+  const pinned = rules.filter((r) => r.pin);
+  const fromEdge = dropDup([...pinned, ...rankAsks(edge || [], ctx)], ctx, { pageChips });
+  const asks = fromEdge.length - pinned.length >= 3 ? fromEdge.slice(0, need) : dropDup([...fromEdge, ...rankAsks(rules.filter((r) => !r.pin), ctx)], ctx, { pageChips }).slice(0, need);
   return { actions: acts, asks, items: orderSuggest({ actions: acts, asks }, ctx) };
 }
 

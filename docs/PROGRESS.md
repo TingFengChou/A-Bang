@@ -13,15 +13,38 @@
 
 ---
 
-## 2026-11-21 動態「下一句」：手機上的 AI 猜使用者接下來想問什麼（程式驗證查得到）
+## 2026-11-22 動態「下一句」：手機上的 AI 猜使用者接下來想問什麼（程式驗證查得到）
 - 做了：產品負責人回饋「輸入 hint 都一樣」。輸入框 placeholder、輸入框上方建議（問阿幫頁與底部對話面板）、首頁範例改成依情境動態：情境只在手機上組（頁面、最近兩輪問題與結果摘要、時段、常用地點標籤、進行中提醒；不含座標）；App 裡手機上的 AI（外掛 `AbangEdgeAI.suggest()`，Android Gemini Nano、iOS Foundation Models）猜 3～4 句 → `POST /api/v1/suggest/check` 只送句子、用 `parseIntent` 驗證查得到 → 丟掉畫面上已回答的；網頁版、不可用、逾時 1.5 秒或不足 3 句用情境規則補（下雨少淋雨的走法、建議捷運就問下一班、深夜收班、早上去公司、公車頁下車提醒…）；程式計分排序（相關、即時資料優先）；產生中保留舊的、好了再淡入，鍵盤焦點留在建議群組；設定頁「用手機上的 AI 猜我接下來想問什麼」；sw `v0.9.9-suggest`。
 - 測試：npm test 736 項全過（新增 test/suggest.test.js 14 項：情境不含座標、驗證、規則逐句 parseIntent、排序與排列、首頁、模型回傳整理、log、judge 優先、讓位後的忙碌錯誤不暫停）；E2E 101 項全過，新增 6 項（建議產生中送出問題、網頁版規則隨情境變、App 假外掛 5 句只留 3 句、設定關閉、公車頁、首頁早上 vs 深夜）；Android assembleDebug、iOS xcodebuild 通過
 - 文件：UX.md §3.2、§6、§10，AGENT.md §5.4、§7，ADR-0014 第 8 點，PLAN.md
 - 定案（產品負責人看過截圖）：公車／捷運頁或剛查過公車到站時提醒類動作排第一，其他情境問句在前；驗證端點 log 只記句數、設定頁寫明「只送句子、不存」；judge 優先（送出問題時取消正在跑的 suggest，Android suggest 另用執行緒）；規則句地名維持（反正經 parseIntent 驗證）。單元測試 +3（排列、log 不記句子、建議產生中送出問題）、E2E +1（假的單執行緒外掛：建議產生中送出，deviceJudge 仍帶到）。
 - 實機風險先處理：取消建議後 3 秒內 judge 遇到忙碌類錯誤（ML Kit `BUSY`／`CANCELLED`；iOS 取消中、限流、同時有請求）回 `busy`、不暫停 10 分鐘、不跳 JS 斷路器，這一題改由伺服器判斷（單元測試 +1）。
-- 下一個：實機確認句子品質；與另一分支 `write()` 整併外掛
+- 合主線（#107 阿幫問你、#108 回答在手機上寫）：外掛與斷路器整併——judge ＞ write ＞ suggest：judge 與 write 開始前都先取消正在跑的 suggest（JS `cancelSuggest`、原生端 `stopSuggest`），手機正在寫回答時不猜下一句；write 也用同一個斷路器（`edgeTrips`、取消後 3 秒內的忙碌錯誤不暫停）；`edge-write.js` 改用 `edge-judge.js` 的外掛存取；只剩一種方式時的換條件建議（#108 R1 的 `single.suggest`）標 `pin`，動態建議一律排最前面；sw `v1.0.3`。合主線後 npm test 818 項、npm run e2e 111 項全過，Android assembleDebug、iOS xcodebuild 通過。
+- 下一個：實機確認句子品質與三個任務輪流用模型的延遲
 - 卡住：無
 
+## 2026-11-22 M12-E7 審查修正：回答也在手機上寫（PR #108 獨立審查）
+- 做了：程式護欄改成比對「數字＋單位」（同義單位正規化），其他方案的數字只能用在提到它的那一句，關鍵數字順序要一樣；國字（一小時、半小時、一一九、八成、八點）、英文數量（two-minute、one hour、dozen、eighty）、時段（早上…）擋下；ADR-0011 代辦說法（已幫你安排／預約、司機已在路上、已幫你設好提醒、Your Uber is on its way）；L2 輸出護欄直接重用（規則本體搬到 `core/output-guards.js`，`guardrails.js` 改為重新匯出，前端以 /core/ 取得）；提醒或數字前加否定（不用帶傘、不是末班、不用打 119）；沒加引號的站名路名、裸網域、markdown 連結。多輪：送伺服器的前文用程式版總結（畫面顯示改寫）。「聽不懂」與 reply 選項只接受全字相符。上一題還在寫回 busy、逾時 5 秒後強制放掉；給模型的事實帶鍵名與單位、不截掉其他方案；常用地點沒設定那一輪不改寫；原生 write() 輸入超過 4000 字拒絕；頁底照實說、「今天寫了幾次」只算通過的、聽不懂的問句也檢查一輪只問一個。順手修 test/en-notes.test.js 的時間相依（固定時間）。
+- 測試：npm test、npm run e2e 全過（test/edge-write.test.js 新增審查案例 9 項；E2E 加接著問的前文檢查、頁底說明）
+- 文件：ADR-0017（護欄細節與限制照實寫）、AGENT.md §3.5、PROGRESS.md
+- 下一個：實機量 Gemini Nano／Apple Intelligence 的通過率（規則變嚴，預期通過率下降，看實機數據再調）
+- 卡住：無
+
+## 2026-11-21 R1 判斷看得到：討論串與決策圖逐項說明天氣、空品、路況怎麼影響建議
+- 做了：`core/services/trip-considered.js`：`plan_trip` 輸出 `considered`（天氣、空品、國道路況各一筆：值、資料一句、影響一句、`effect`＝none／score／自動狀態 key、查不到、示範標記）與 `single`（只有一種方式時，依各方式沒列出的原因組說明＋建議）。`execTools` 在行程結論前送三個 `data_note`（新事件；示範與模型模式相同，不經模型），前端以工具發言樣式排在行程發言前面，示範模式另外查過的角色不重複。決策圖資料欄改用 `decision.considered`：每個來源一個節點、帶值與影響，不影響與查不到淡色、不標成勝出關鍵。最近的空品測站超過 25 公里不採用（之前墾丁會拿台中大里測站判斷）；另外查的 `aqi_nearby` 影響也一樣。只有一種方式：`speak`「只找到叫車一種方式」、討論串影響與示範總結說原因（太遠、附近沒有站、幾點以後沒有趕得上的班次、示範資料是模擬的），「接下來可以」給「改成明天早上出發」「改從台北車站出發比較看看」。模型看到的工具文字多「判斷用到的資料」「只有一種方式」兩行。合併主線（#101～#105）後：TDX 額度用完改用示範資料時，路況那一行標示範並說明。審查修正：建議 chip 帶著使用者說的起點；只有一種方式的說明看這次有沒有 TDX fallback（`currentFallback()`）；data_note 去重改在 tool_start 記角色（工具平行時天氣可能晚到）。SW v0.9.9。
+- 重現與判斷（第 4 點）：示範的公車、YouBike、天氣本來就以使用者位置產生；「只比了叫車」是 20 公里以上的行程在 23 點後（示範客運 06～23 點、火車沒有班次）。捷運與空品的示範資料是真實站名與真實數值片段，在台北以外「以位置為中心產生示範站」會變成假的捷運站與假測站讀數，所以不做；改成照實說原因（查不到、太遠、沒有班次）並標明示範資料範圍。
+- 測試：npm test 新增 13 項（trip-considered.test.js）、agent-model／agent-events 更新；E2E 新增 2 項（模擬模型模式的討論串與資料欄、桃園深夜只剩叫車）
+- 文件：AGENT.md §3.1、§5.2.10b；UX.md §4、§5；MCP_TOOLS.md plan_trip 7.1；ADR-0009 補充；PLAN.md R1；PROGRESS.md
+- 下一個：「阿幫問你」合進來後，single.suggest 改用它
+- 卡住：無
+
+## 2026-11-21 M12-E7 回答也在手機上寫（ADR-0017）
+- 做了：手機 App 的系統模型可用、外掛回 `write: true`、開關開著時，請求帶 `clientCaps: { edgeWrite, engine }`（zod strict）；伺服器不論 Claude／地端設定都不呼叫任何 AI 模型（判斷層只用快速版），走規則路徑查資料、`decide.js` 計分，送 `answer_draft { text: 程式版總結, facts: 事實清單（不含座標與起訖點）, lang }` 取代 `text`，`status.mode = 'edge'`。外掛 `AbangEdgeAI.write`：Android ML Kit GenAI Prompt API（Gemini Nano）、iOS Foundation Models（Apple Intelligence），原生 2.3 秒取消、JS 等 2.5 秒。程式護欄 `core/edge-write.js`（`checkRewrite`，經 `/core/` 給前端）：數字與時間只能來自草稿或事實清單、關鍵數字不能少、國字／英文數量、ADR-0011「已幫你叫好／訂好／付款」、投資建議、重要提醒（示範、末班…）、引號名稱、語言、長度；不過、逾時、失敗、草稿太長 → 程式版。防詐不改寫、安全情境照舊。畫面：思考動畫「在手機上寫回答」、回答上方合成一行（「手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答。」／只有寫回答「這次的回答由手機上的 Gemini Nano 寫。」／「手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（沒通過檢查／逾時）。」，產品負責人決定）、設定頁開關「回答也在手機上寫」（預設開）與隱私權政策、`#/ai`「寫回答」一格（引擎、今天幾次、上次多久、通過比例，只存手機）。sw.js `v0.9.9-write`。
+- 測試：npm test 739 項全過（新增 test/edge-write.test.js 17 項）；npm run e2e 98 項全過（新增 3 項，截圖 phone-edge-write.png、phone-edge-write-fallback.png）；Android assembleDebug、iOS xcodebuild（不簽署）編譯成功
+- 文件：ADR-0017（新）、adr/README.md、ADR-0014、AGENT.md §3.1／§3.5／§7、UX.md §5.0.2、PLAN.md、CLAUDE.md
+- 合主線（阿幫問你 #107）後：edge 模式聽不懂時改用 `ask` 給 4 個查得到的選項（`unknownAsk`，產品負責人：edge 模式一律不用伺服器模型）；sw.js `v1.0.1`
+- 下一個：實機量 Gemini Nano／Apple Intelligence 的改寫通過率與延遲
+- 卡住：實機（Pixel、iPhone 15 Pro 以上）改寫品質待 Austin 確認
 
 ## 2026-11-21 真實資料接上：TDX、氣象署、環境部金鑰；TDX 頻率限制
 - 做了：Austin 申請並放好 TDX、氣象署、環境部金鑰（只在 .env），交通、天氣、空品、地震都變成即時資料。實測 TDX 新帳號在「加值應用」審核前每分鐘只有 5 次（429），行程比較會連續呼叫而失敗：tdx-client 加請求排隊（同時 3 個、間隔 220ms）、429 時照 Retry-After 重試一次；Austin 決定先不申請加值應用，所以額度用完時這一次改用示範資料（`withTdxFallback`，結果標示範並說明），不讓查詢失敗。
@@ -60,6 +83,27 @@
 - 文件：UX.md §5.0.3、PLAN.md M14、CLAUDE.md、PROGRESS.md
 - 下一個：M14-01b 實機確認（Pixel、iPhone）
 - 卡住：無（實機需 Austin 的手機）
+
+## 2026-11-21 P2 阿幫問你（調整）：同一題 24 小時只問一次；說過的狀況改成每次確認
+- 做了：關鍵問題事件帶 `key`（狀態＋起訖座標到小數 2 位），手機 24 小時內問過就不顯示（`habits.js` `seenQ` 只存 8 碼雜湊、最多 50 筆、點「不趕」也算問過）。叫車原因（常帶東西／趕時間／不想走路）不再自動套用：這一輪沒說條件、而且會換建議時問「這次也帶東西嗎？」〔是（猜的）〕〔這次沒有〕，點〔是〕才加上「你說過：常帶東西」重算（`tripAsk` 的 `usualAsk`；kind state＋source usual）。移除 `withUsual`。習慣上限維持 8 分。
+- 測試：npm test 全過（`test/ask.test.js`、`test/habits.test.js` 新增題目鍵與「這次也…嗎」）；E2E「阿幫問你」3 項（截圖 `phone-key-question.png`、`phone-usual-ask.png`）
+- 文件：ADR-0016、ADR-0010、AGENT.md、UX.md、PROGRESS.md
+- 下一個：合併主線（判斷看得到、語音、視覺）
+- 卡住：無
+
+## 2026-11-21 P2 阿幫問你：答案取決於使用者時問一句（習慣要確認、叫車問原因、關鍵因子）
+- 做了：產品負責人「重要因子應可與用戶互動後完成」「需要使用者互動得到答案會讓整體變快就問」。通用機制 ADR-0016：事件 `ask`（`core/agent/events.js`；options 的 kind：state 加狀態即時重算、reply 送完整的一句、store 存手機偏好、action 手機做事、dismiss；guess；pending）、`core/agent/ask.js`（`tripAsk`、`resolvePending`／`PENDING_SLOTS`）、`core/decide.js` `keyQuestion`（試加趕時間／想省錢／帶行李／少走路，建議會換且差 ≥ 5 分或 ≥ 50 元才問，挑影響最大的）、前端共用區塊 `public/ui/agent/ask.js`（`mountAsk`、`matchAnswer`：直接打「我不趕」「好」也是答案，對不上＝略過並帶 `pendingAsk`）。一輪最多一個（execTools 整輪共用）。習慣改成問過才用：≥ 5 次且 6 成以上問「以後要我優先推捷運嗎？」，說好才送 `userState.habit`；常叫車問原因 → `userState.usual`（你說過的預設狀況，沒說條件時帶入）或叫車加分或不再問。決策圖 chip「你同意：優先推捷運」「你說過：常帶東西」、`addState`／`setHabit`；設定頁列出同意與說過的、可撤銷。情境檢查加 asks／asksNone／askOptions／askKind／askGuess／toNot，情境可指定 `here`、多輪帶 pendingAsk。
+- 測試：npm test 717 項（新增 `test/ask.test.js` 14 項、`test/habits.test.js` 改寫 12 項）；E2E「阿幫問你」3 項（截圖 `phone-habit-ask.png`、`phone-key-question.png`、`phone-habit-settings.png`）
+- 文件：ADR-0016（新）、adr/README、ADR-0010、AGENT.md §2／§3.1／§3.3、UX.md §5／§5.0、MCP_TOOLS.md、CARDS.md、PLAN.md、PROGRESS.md
+- 下一個：P2b PM 的 27 個情境接上 `PENDING_SLOTS`
+- 卡住：無
+
+## 2026-11-21 P1 個人化：記住常選的交通方式（只在手機、可關、程式計分）
+- 做了：`public/js/habits.js`（localStorage `abang.habits`：只記交通方式與時間，最近 50 次、60 天半衰期、180 天前不算、30 分鐘內同一方式算一次、選滿 5 次才送比例；開關預設開、清除時關著的仍是關的）。「選了」＝行程卡建議方案按導航／叫車／訂票（卡片送 `abang:choice`）、指定方式的決策（「改成 X」、決策圖點方案）、設公車到站提醒或下車提醒（App 重開恢復的不算）。問阿幫送 `userState.habit`（zod：鍵限定、0～1、總和 ≤ 1.01），`execTools` 一律以手機送來的帶進 `plan_trip` `prefs.habit`（模型帶的不採用），示範與模型模式相同。`decide.js` 新增 `HABIT`（最多 +8 分、比例 60% 加滿）：說了／點了狀況、指定方式、不要、抵達時間優先；比最快慢 2 倍且多 20 分以上不加分；理由句「你常搭捷運、省 230 元」。決策圖「你常選：捷運」chip（紫色、可點掉即時重算、「為什麼」看次數、第一次說明一次）、明細「習慣 +8.0」。設定頁「個人化」開關、次數、清除；本機資料清單與隱私權政策補上。sw.js `v0.9.7-habit`。
+- 測試：npm test 700 項（新增 19 項：`test/habits.test.js`、`test/decide-habit.test.js`）；E2E 新增 1 項（截圖 `phone-habit-chip.png`、`phone-habit-settings.png`）
+- 文件：ADR-0010 權重調整紀錄、UX.md §5 與 §5.0、AGENT.md §2／§3.3、MCP_TOOLS.md plan_trip、PLAN.md、PROGRESS.md
+- 下一個：Austin 確認加分上限（8 分）與「常叫車也會推叫車」是否 OK
+- 卡住：無
 
 ## 2026-11-21 決策權重調整：沒有狀態時以大眾運輸為主，有理由才推叫車
 - 做了：Austin 回饋「點去 101 幾乎都是叫車」。叫車在等車、走路、戶外、體力四項永遠最好（合計 45%），費用只佔 15%，無狀態 11 種常見起訖有 10 種推叫車。調整基本權重（費用 20%、戶外 3%、體力 5%、走路 12%）並等比例調高相關狀態倍數；想省錢 ×5 → ×3。結果：無狀態推捷運或公車；趕時間、帶行李、下雨、帶長輩推叫車。ADR-0010 權重調整紀錄。
