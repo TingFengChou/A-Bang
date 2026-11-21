@@ -34,13 +34,6 @@ export function markFallback(key) {
 /** 這次 tool 呼叫的某個服務方法（例 directTrips）有沒有因 TDX 額度用完改用示範資料 */
 export const fellBack = (key) => Boolean(als.getStore()?.fallbackOn?.has(key));
 
-/** 服務內部某個呼叫因 TDX 額度用完而查不到、但沒有改用示範資料（例 directTrips 內部的 routeEta：只略過那條路線） */
-export function markLimited(key) {
-  const m = als.getStore();
-  if (m) (m.limitedOn ||= new Set()).add(String(key));
-}
-/** 這次 tool 呼叫有沒有某個呼叫因額度用完而查不到 */
-export const limited = (key) => Boolean(als.getStore()?.limitedOn?.has(key));
 
 /** 這次 tool 呼叫到目前為止有沒有改用示範資料（plan_trip 說明「只有一種方式」時照實標示） */
 export const currentFallback = () => Boolean(als.getStore()?.fallback);
@@ -53,6 +46,6 @@ export async function measure(fn) {
   const m = { calls: 0, cacheHits: 0, scanned: 0 };
   const t0 = performance.now();
   const result = await als.run(m, fn);
-  const { fallbackOn, limitedOn, ...rest } = m; // eslint-disable-line no-unused-vars -- 方法清單只在呼叫期間用，不進計量
+  const { fallbackOn, ...rest } = m; // eslint-disable-line no-unused-vars -- 方法清單只在呼叫期間用，不進計量
   return { result, metrics: { ...rest, cacheHit: m.calls > 0 && m.cacheHits === m.calls, ms: Math.round(performance.now() - t0) } }; // m.fallback：有改用示範資料
 }

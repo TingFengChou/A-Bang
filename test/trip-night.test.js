@@ -211,25 +211,22 @@ test('審查 4：只有一種方式＋深夜不重複；「明天 00:10 出發�
 
 test('審查 5：directTrips 內部 routeEta 429 記下來，公車原因照實說額度用完（不說查不到直達公車）', async () => {
   const { createTransitServices } = await import('../core/services/transit.js');
-  const { markLimited } = await import('../core/metrics.js');
   // 真實服務的 directTrips：站牌查得到、routeEta 429 → 該路線略過並記下
   const stops = (lat, lon) => [{ name: 'A', city: 'Taipei', lat, lon, routes: ['307'] }];
   const tdx = { get: async () => { throw new TdxError(429, 'rate limit'); } };
   const live = createTransitServices(tdx);
   live.bus.nearbyStations = async ({ lat, lon }) => stops(lat, lon);
   live.bus.routeEta = async () => { throw new TdxError(429, 'rate limit'); };
-  const { result, metrics } = await measure(async () => {
-    const out = await live.bus.directTrips({ from: MAIN, to: T101 });
-    const { limited } = await import('../core/metrics.js');
-    return { out, hit: limited('routeEta') };
-  });
-  assert.deepEqual(result.out, []);
-  assert.equal(result.hit, true, '429 記下來');
-  assert.equal(metrics.limitedOn, undefined, '不進計量');
+  const out = await live.bus.directTrips({ from: MAIN, to: T101 });
+  assert.deepEqual(out, []);
+  assert.equal(out.limited, true, '429 記在結果上（不可列舉）');
+  assert.deepEqual(Object.keys(out), [], '不改資料形狀');
+  live.bus.routeEta = async () => { throw new Error('other'); };
+  assert.equal((await live.bus.directTrips({ from: MAIN, to: T101 })).limited, undefined, '其他錯誤不算額度用完');
   // plan_trip：沒有可用路線又有 429 → 照實說
   const svc = { ...createServices({ forceMock: true }), mode: 'live' };
-  svc.bus = { ...svc.bus, directTrips: async () => { markLimited('routeEta'); return []; } };
-  const { result: r } = await measure(() => plan(svc, '10:00'));
+  svc.bus = { ...svc.bus, directTrips: async () => Object.defineProperty([], 'limited', { value: true }) };
+  const r = await plan(svc, '10:00');
   const bus = r.missing.find((x) => x.role === 'bus');
   assert.deepEqual([bus.why, bus.fallback], ['TDX 額度用完，公車資料這次查不到（稍後再問一次）', 'tdx-limit']);
   assert.match(bus.whyEn, /TDX quota used up/);

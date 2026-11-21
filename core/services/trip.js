@@ -6,7 +6,7 @@ import { walkMinutes, navLinks } from '../nav.js';
 import { decide, keyQuestion, STATES } from '../decide.js';
 import { departOf, delayRiskOf } from './intercity.js';
 import { LANDMARKS, normPlace } from './places.js';
-import { currentFallback, fellBack, limited } from '../metrics.js';
+import { currentFallback, fellBack } from '../metrics.js';
 import { consideredOf, missingModes, singleNote, nightOf, AIR_MAX_M, BAD_AIR_AQI, RAIN_SOON_POP } from './trip-considered.js';
 
 export { AIR_MAX_M, BAD_AIR_AQI, RAIN_SOON_POP };
@@ -287,7 +287,7 @@ async function busOption(svc, from, to, straight, risk, depart) {
       : { role: 'bus', why: '附近直達的公車今天沒有營運（站牌即時資訊）', whyEn: 'Direct buses nearby are not running today (live stop info)' } };
   }
   // TDX 額度用完：有些路線的到站資料查不到（directTrips 內部 routeEta 429），照實說，不說成「查不到直達公車」
-  if (!list.length && limited('routeEta')) return { none: { kind: 'none', why: 'TDX 額度用完，公車資料這次查不到（稍後再問一次）', whyEn: 'TDX quota used up; bus data unavailable this time (try again shortly)', fallback: 'tdx-limit' } };
+  if (!list.length && all.limited) return { none: { kind: 'none', why: 'TDX 額度用完，公車資料這次查不到（稍後再問一次）', whyEn: 'TDX quota used up; bus data unavailable this time (try again shortly)', fallback: 'tdx-limit' } };
   const opts = list.map((t) => {
     const w1 = walkMinutes(t.walkFromM), w2 = walkMinutes(t.walkToM);
     // 走到站牌前車子就來了 → 等下一班（不知道下一班時間，以 10 分估）
