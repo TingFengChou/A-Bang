@@ -47,7 +47,7 @@ export function withTdxFallback(live, mock) {
         if (!out || typeof out.then !== 'function') return out;
         return out.catch((e) => {
           if (e?.name !== 'TdxError' || e.status !== 429) throw e;
-          markFallback();
+          markFallback(key);
           return mock[key](...args);
         });
       };

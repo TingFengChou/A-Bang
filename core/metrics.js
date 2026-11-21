@@ -24,10 +24,15 @@ export function recordFetch({ cacheHit, data }) {
 }
 
 /** 這次 tool 呼叫有一部分因上游額度用完改用示範資料（TDX 429 → mock；工具結果的 mode 標成 demo） */
-export function markFallback() {
+export function markFallback(key) {
   const m = als.getStore();
-  if (m) m.fallback = true;
+  if (!m) return;
+  m.fallback = true;
+  if (key) (m.fallbackOn ||= new Set()).add(String(key)); // 哪個方法改用了示範資料（plan_trip 判斷公車收班要知道是不是公車那一個）
 }
+
+/** 這次 tool 呼叫的某個服務方法（例 directTrips）有沒有因 TDX 額度用完改用示範資料 */
+export const fellBack = (key) => Boolean(als.getStore()?.fallbackOn?.has(key));
 
 /** 這次 tool 呼叫到目前為止有沒有改用示範資料（plan_trip 說明「只有一種方式」時照實標示） */
 export const currentFallback = () => Boolean(als.getStore()?.fallback);
@@ -40,5 +45,6 @@ export async function measure(fn) {
   const m = { calls: 0, cacheHits: 0, scanned: 0 };
   const t0 = performance.now();
   const result = await als.run(m, fn);
-  return { result, metrics: { ...m, cacheHit: m.calls > 0 && m.cacheHits === m.calls, ms: Math.round(performance.now() - t0) } }; // m.fallback：有改用示範資料
+  const { fallbackOn, ...rest } = m; // eslint-disable-line no-unused-vars -- 方法清單只在呼叫期間用，不進計量
+  return { result, metrics: { ...rest, cacheHit: m.calls > 0 && m.cacheHits === m.calls, ms: Math.round(performance.now() - t0) } }; // m.fallback：有改用示範資料
 }
