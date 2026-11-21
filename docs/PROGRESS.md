@@ -13,6 +13,15 @@
 
 ---
 
+
+## 2026-11-21 iPhone 實機安裝（npm run ios:dev）與 Apple Intelligence 實機確認
+- 做了：Austin 的 iPhone 17 Pro Max 第一次裝上開發版（個人開發團隊簽署；要先在 Xcode 登入 Apple 帳號）。iPhone 走同一個 Wi-Fi 連本機伺服器，建置時暫時加 NSAllowsLocalNetworking（建置完還原）。做成 `npm run ios:dev`（scripts/ios-dev-install.js）。伺服器紀錄確認 iPhone 的提問帶著 Apple Intelligence 的判斷（device: apple）；Pixel 上 Gemini Nano 判斷一句約 0.4 秒。
+- 發現：伺服器自己有判斷器時，畫面不會顯示手機判斷過（待修：照實顯示一行）。
+- 測試：test/ios-dev-install.test.js 2 項
+- 文件：CLAUDE.md 指令、PROGRESS.md
+- 下一個：手機判斷的顯示、阿幫的腦袋頁
+- 卡住：無
+
 ## 2026-11-21 PM 第五批情境 P5-1～P5-10（更正、出發時間、台語、錯字、一句多件事、防詐話術與事後求助）
 - 做了：PM 提 10 個（34 輪只過 11 輪），分兩組同時修：生活 agent——中途更正保留起點、出發時間解析（明天早上 8 點出發）、台語與錯字正規化、「去火車站」最近車站、英文 there 與 YouBike near X、一句問多件事都查、禮貌話；防詐 agent——規則疊加計分（stack）與正常通知例外（except）、補假檢警／假親友／投資群組／誤設批發商／和解金／按 9／欠費停話寫法、貼上的詐騙訊息不被 119 攔、「已經匯款了」給 165／110／止付步驟。
 - 測試：npm test 637 項全過（test/pm5-intents.test.js、test/pm5-antifraud.test.js；情境 127 個＋防詐情境 2 個）；E2E 61 項全過。審查修正：防詐頁急症仍給 119、事後求助不誤判擔心或一般付款、宣導新聞不疊加、半夜 12 點、一句多件事不丟件、出發與抵達衝突、禮貌詞開頭；實機發現叫車提醒重複一句已修

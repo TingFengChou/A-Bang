@@ -11,6 +11,7 @@
     "build:cards": "node scripts/build-cards.js",
     "build:app": "node scripts/build-app.js",
     "app:sync": "node scripts/build-app.js && cap sync",
+    "ios:dev": "node scripts/ios-dev-install.js",
     "test": "node --test test/*.test.js",
     "e2e": "node --test scripts/e2e.js",
     "lint": "eslint .",
