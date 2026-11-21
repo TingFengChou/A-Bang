@@ -47,8 +47,8 @@ async function newCtx(opts, { onboard = false } = {}) {
 /** 開新的 browser context 與頁面、收集錯誤，跑完 fn（不論成敗）一定關閉 context；最後確認沒有頁面錯誤 */
 /** @param {{ init?: Function, initArg?: any }} [opts] init：頁面載入前執行（page.addInitScript），例如假相機 */
 /** motion: true＝動畫開著（不是 reduced motion、不是精簡動畫），用來檢查會動的畫面 */
-async function withPage(device, path, fn, { init, initArg, ignore, geo = true, motion = false } = {}) {
-  const ctx = await newCtx({ ...device, ...(geo && { geolocation: TAIPEI, permissions: ['geolocation'] }), reducedMotion: motion ? 'no-preference' : 'reduce' });
+async function withPage(device, path, fn, { init, initArg, ignore, geo = true, motion = false } = {}) { // geo：true＝台北車站、物件＝指定位置、false＝不給定位
+  const ctx = await newCtx({ ...device, ...(geo && { geolocation: geo === true ? TAIPEI : geo, permissions: ['geolocation'] }), reducedMotion: motion ? 'no-preference' : 'reduce' });
   try {
     const page = await ctx.newPage();
     if (motion) await page.addInitScript(() => Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 }));
@@ -2100,4 +2100,636 @@ test('中央鍵拉出的底部對話面板：「阿幫在想」一樣會出現�
     assert.ok(r.anims.includes('tc-beat'));
     assert.equal(await page.locator('#abang-sheet .think-core').count(), 0);
   }, { init: THINK_RECORDER, motion: true });
+});
+
+// ───── 阿幫會看（M14-02，ADR-0015）：假的 AbangVision 外掛（不開相機，依序回傳讀到的字或條碼）─────
+// 一般 Android 手機的樣子：讀字 ML Kit 中文、條碼 ML Kit、Gemini Nano 看圖還沒試過；語音（AbangVoice）可用，所以輸入列有相機＋麥克風；AbangSystem 只記錄被呼叫
+function fakeVision(readings) {
+  const queue = [...readings];
+  const calls = (window.__vision = []);
+  const listeners = [];
+  window.Capacitor = {
+    isNativePlatform: () => true, getPlatform: () => 'android',
+    isPluginAvailable: (n) => n === 'AbangVision' || n === 'AbangSystem' || n === 'AbangVoice',
+    addListener: (plugin, ev, fn) => { if (plugin === 'AbangVision' && ev === 'stage') listeners.push(fn); return { remove() {} }; },
+    nativePromise: (plugin, method, opts) => {
+      if (plugin === 'AbangSystem') { calls.push(`${plugin}.${method}`); return Promise.resolve(); }
+      if (plugin === 'AbangVoice') return method === 'available' ? Promise.resolve({ engine: 'android-ondevice', lang: opts?.lang, permission: 'prompt', osVersion: '16', available: true, onDevice: true }) : Promise.resolve({});
+      if (plugin !== 'AbangVision') return Promise.reject(new Error('not in test'));
+      if (method === 'available') return Promise.resolve({ platform: 'android', camera: true, photos: true, cameraPermission: 'prompt', text: { available: true, engine: 'mlkit-text-chinese' }, barcode: { available: true, engine: 'mlkit-barcode' }, describe: { engine: 'gemini-nano', state: 'untested' } });
+      if (method !== 'capture') return Promise.resolve({});
+      calls.push({ source: opts.source, want: opts.want });
+      const next = queue.shift() || { reject: 'cancelled' };
+      return new Promise((res, rej) => setTimeout(() => {
+        if (next.reject) { rej(Object.assign(new Error(next.reject), { code: next.reject })); return; }
+        listeners.forEach((f) => f({ stage: 'reading' })); // 相機關了、開始讀
+        setTimeout(() => res(next.result), next.delay || 0);
+      }, 50));
+    },
+  };
+}
+const VISION_SMS = '【中華郵政】您的包裹地址不完整，暫停配送。請於24小時內點擊 https://tw388.xyz/p 補運費25元，逾期退回。客服 0912-345-678';
+const smsReading = (delay = 0) => ({ delay, result: { engine: 'mlkit', ms: 380, text: { full: VISION_SMS, lines: VISION_SMS.split('。').map((t) => ({ text: t, box: { x: 0.05, y: 0.3, w: 0.9, h: 0.03 } })) }, barcodes: [] } });
+
+test('阿幫會看：防詐頁拍可疑訊息 → 看的動畫 → 阿幫看到了、可遮號碼 → 確認後檢查 → 高風險；送出的只有文字', async () => {
+  await withPage(DEVICES.phone, '#/agent/antifraud', async (page) => {
+    const bodies = [];
+    page.on('request', (r) => { if (r.url().endsWith('/api/v1/agent/antifraud') && r.method() === 'POST') bodies.push(JSON.parse(r.postData())); });
+    const cam = page.locator('.chat-form .chat-cam');
+    await cam.waitFor({ state: 'visible' });
+    assert.equal(await cam.getAttribute('aria-label'), '拍可疑訊息或選截圖');
+    const box = await cam.boundingBox();
+    assert.ok(box.width >= 44 && box.height >= 44, '相機鍵至少 44px');
+    await cam.click();
+    await page.waitForSelector('.vision-dialog[open]');
+    assert.equal(await page.textContent('#vs-title'), '拍可疑訊息');
+    assert.deepEqual(await page.locator('.vs-choice').allTextContents(), ['拍可疑訊息', '選截圖']);
+    assert.match(await page.textContent('.vs-lock'), /不上傳、不保存/);
+    await page.click('.vs-choice[data-source="photos"]');
+    // 看的時候：核心脈動、掃描線在動（讀屏念「阿幫在看…」）
+    await page.waitForSelector('.vs-look[data-stage="look"]');
+    assert.equal(await page.locator('.vs-look .vs-core').evaluate((n) => getComputedStyle(n).animationName), 'vs-beat');
+    assert.equal(await page.locator('.vs-look .vs-scan').evaluate((n) => getComputedStyle(n).animationName), 'vs-scan');
+    await page.waitForFunction(() => /阿幫在看/.test(document.querySelector('.vision-dialog .vs-live[role=status]')?.textContent || '')); // 常駐的播報區（審查：帶內容插入的不一定會念）
+    await page.locator('.vision-dialog').screenshot({ path: new URL('phone-vision-looking.png', SHOTS).pathname });
+    await page.waitForSelector('.vision-dialog textarea');
+    assert.equal(bodies.length, 0, '還沒確認：什麼都沒送');
+    await page.waitForFunction(() => /^阿幫看到了：/.test(document.querySelector('.vision-dialog .vs-live')?.textContent || ''));
+    assert.match(await page.textContent('.vision-dialog .vs-live'), /像手機的號碼/, '個資提醒也念');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'vs-title', '手機：焦點在視窗標題（不掉到 body、不自動跳鍵盤）');
+    assert.match(await page.inputValue('.vision-dialog textarea'), /tw388\.xyz/);
+    assert.match(await page.textContent('.vs-warn'), /手機/);
+    await page.click('.vs-mask');
+    assert.doesNotMatch(await page.inputValue('.vision-dialog textarea'), /0912-345-678/);
+    await shot(page, 'phone-vision-scam-saw');
+    await page.click('.vs-go');
+    assert.equal(await page.locator('.vision-dialog').count(), 0, '確認後關閉並移除');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    assert.equal(await page.locator('.results [data-card="scam-risk"] .ab-risk.high').count(), 1);
+    assert.match(bodies[0].messages.at(-1).content, /tw388\.xyz/);
+    assert.doesNotMatch(JSON.stringify(bodies[0]), /0912-345-678|image|base64/, '遮過的號碼、照片都沒有送出');
+    assert.deepEqual(await page.evaluate(() => window.__vision), [{ source: 'photos', want: ['text'] }]);
+    await shot(page, 'phone-vision-scam');
+  }, { init: fakeVision, initArg: [smsReading(900)], motion: true, ignore: /not in test/ });
+});
+
+test('阿幫會看：輸入列相機＋麥克風 375px 不擠；生活頁讀到簡訊先問「要幫你檢查嗎」，答應才轉到防詐頁檢查（文字不放網址）', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const posts = [];
+    page.on('request', (r) => { if (r.url().includes('/api/v1/agent') && r.method() === 'POST') posts.push(r.url()); });
+    // 輸入列：相機（左）、輸入框、麥克風（語音 M14-01）、送出；375px 寬不溢出
+    await page.locator('.chat-form .chat-mic').waitFor({ state: 'visible' });
+    await page.setViewportSize({ width: 375, height: 812 });
+    const row = await page.evaluate(() => {
+      const f = document.querySelector('.chat-form');
+      const r = (s) => f.querySelector(s).getBoundingClientRect();
+      const order = [...f.children].filter((e) => !e.hidden).map((e) => e.className.split(' ').find((c) => c.startsWith('chat-')));
+      return { order, formRight: f.getBoundingClientRect().right, sendRight: r('.chat-send').right, input: r('.chat-input').width, scroll: document.documentElement.scrollWidth, vw: innerWidth, cam: r('.chat-cam').width, mic: r('.chat-mic').width };
+    });
+    assert.deepEqual(row.order, ['chat-cam', 'chat-input', 'chat-mic', 'chat-send'], '相機（左）、輸入框、麥克風、送出');
+    assert.ok(row.sendRight <= row.formRight + 0.5 && row.scroll <= row.vw, `375px 不溢出：${JSON.stringify(row)}`);
+    assert.ok(row.input >= 120 && row.cam >= 44 && row.mic >= 44, `輸入框還夠寬、兩個鍵 44px：${JSON.stringify(row)}`);
+    await page.click('.chat-form .chat-cam');
+    assert.deepEqual(await page.locator('.vs-choice').allTextContents(), ['拍照', '選截圖或照片']);
+    await page.click('.vs-choice[data-source="camera"]');
+    await page.waitForSelector('.vs-ask');
+    assert.equal(await page.textContent('.vs-ask'), '這看起來像一則訊息。要幫你檢查這則訊息是不是詐騙嗎？');
+    await shot(page, 'phone-vision-scam-ask');
+    assert.equal(posts.length, 0);
+    await page.click('.vs-go');
+    await page.waitForFunction(() => location.hash === '#/agent/antifraud');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    assert.equal(await page.locator('.results [data-card="scam-risk"]').count(), 1);
+    assert.doesNotMatch(await page.evaluate(() => location.href), /tw388|%E5%8C%85/);
+    const w = await page.evaluate(() => window.__vision[0]);
+    assert.deepEqual(w, { source: 'camera', want: ['text', 'barcode', 'describe'] }, 'Gemini Nano 看圖還沒試過：請外掛試一次');
+  }, { init: fakeVision, initArg: [smsReading()], ignore: /not in test/ });
+});
+
+test('阿幫會看：拍站牌 → 阿幫看到了站名與路線 → 組好的問題可改 → 送出查到那一站', async () => {
+  const r = await fetch(`${base}/api/v1/tools/bus_route_eta`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ city: 'Taipei', routeName: '307' }) }).then((x) => x.json());
+  const stop = r.data.directions[0].stops[4].stopName;
+  const lines = [['307', 0.05, 0.07], [stop, 0.15, 0.13], ['307 262', 0.5, 0.05], ['往 板橋', 0.6, 0.04], ['申訴專線 1999', 0.9, 0.02]].map(([text, y, h]) => ({ text, box: { x: 0.1, y, w: 0.5, h } }));
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.click('.chat-form .chat-cam');
+    await page.click('.vs-choice[data-source="camera"]');
+    await page.waitForSelector('.vision-dialog .vs-q');
+    const facts = await page.locator('.vs-facts li').allTextContents();
+    assert.deepEqual(facts, [`站名「${stop}」`, '公車 307、262', '往 板橋']);
+    assert.equal(await page.inputValue('.vs-q'), `307 公車到「${stop}」還要多久？`);
+    assert.deepEqual(await page.locator('.vs-alt .chip').allTextContents(), [`262 公車到「${stop}」還要多久？`]);
+    await shot(page, 'phone-vision-stop');
+    await page.click('.vs-go');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    assert.equal(await page.locator('.msg.user').last().textContent(), `307 公車到「${stop}」還要多久？`);
+    assert.equal(await page.locator('.results [data-card="bus-route"]').count(), 1);
+    assert.ok((await page.locator('.bubble.tool .say').allTextContents()).some((x) => x.includes(`「${stop}」`)), '盯拍到的那一站');
+  }, { init: fakeVision, initArg: [{ result: { engine: 'mlkit', text: { lines }, barcodes: [] } }], ignore: /not in test/ });
+});
+
+test('阿幫會看：拍發票 → 存進我的發票並馬上對獎；發票頁改用原生相機；底部對話也有相機鍵', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.click('.chat-form .chat-cam');
+    await page.click('.vs-choice[data-source="camera"]');
+    await page.waitForSelector('.vs-facts');
+    assert.deepEqual(await page.locator('.vs-facts li').allTextContents(), ['發票 AB-54348835', '消費 2026-08-03']);
+    assert.equal(await page.evaluate(() => localStorage.getItem('invoices')), null, '確認前不存');
+    await page.click('.vs-go');
+    await page.waitForSelector('.vs-result.won');
+    assert.match(await page.textContent('.vs-result'), /中獎了！頭獎/);
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('invoices')).map((x) => [x.number, x.date, x.status])), [['54348835', '2026-08-03', 'won']]);
+    await shot(page, 'phone-vision-invoice');
+    await page.click('.vision-dialog a[href="#/s/invoice"]');
+    await page.waitForSelector('#inv-list .inv-st.won');
+    // 發票頁（M11-03）：App 裡用原生相機拍或選照片；拍到右邊明細 QR 提示拍左邊
+    assert.equal(await page.textContent('#inv-scan'), '拍發票 QR code');
+    assert.equal(await page.textContent('#inv-pick'), '選發票照片');
+    await page.click('#inv-scan');
+    await page.waitForSelector('.vision-dialog .vs-msg');
+    assert.match(await page.textContent('.vision-dialog .vs-msg'), /右邊的明細 QR code/);
+    await page.waitForFunction(() => /右邊的明細/.test(document.querySelector('.vision-dialog .vs-live')?.textContent || ''));
+    await page.click('.vision-dialog .btn.quiet >> text=關閉');
+    await page.click('#inv-pick');
+    await page.waitForSelector('.vs-facts');
+    await page.click('.vs-go');
+    await page.waitForFunction(() => /11\/25 開獎/.test(document.querySelector('.vs-result')?.textContent || ''));
+    await page.click('.vision-dialog .btn.primary >> text=關閉');
+    await page.waitForFunction(() => document.querySelectorAll('#inv-list [data-id]').length === 2);
+    assert.deepEqual(await page.evaluate(() => window.__vision.map((x) => x.source)), ['camera', 'camera', 'photos']);
+    // 底部對話面板（同一段對話）也有相機鍵
+    await page.click('#abang-fab');
+    await page.locator('#abang-sheet .chat-cam').waitFor({ state: 'visible' });
+  }, { init: fakeVision, initArg: [{ result: { engine: 'mlkit', text: { lines: [] }, barcodes: [{ format: 'qr_code', raw: LEFT_QR }] } }, { result: { engine: 'mlkit', text: { lines: [] }, barcodes: [{ format: 'qr_code', raw: '**咖啡:1:65' }] } }, { result: { engine: 'mlkit', text: { full: '電子發票證明聯\n115年09-10月\nCD-11112222\n2026-10-01 12:00:00' }, barcodes: [] } }], ignore: /not in test/ });
+});
+
+test('阿幫會看：相機權限被拒說原因、一鍵到設定；取消回到選單；reduced motion 時看的畫面是靜態', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.click('.chat-form .chat-cam');
+    await page.click('.vs-choice[data-source="camera"]');
+    await page.waitForSelector('.vs-err');
+    assert.equal(await page.textContent('.vs-err'), '沒有相機權限。到手機設定允許「相機」後再試，或改用「選截圖」。');
+    await page.click('.vision-dialog >> text=到設定開啟');
+    await page.waitForFunction(() => window.__vision.includes('AbangSystem.openSettings'));
+    await page.click('.vision-dialog >> text=再試一次');
+    await page.click('.vs-choice[data-source="photos"]'); // 使用者取消選擇器：回到選單
+    await page.waitForSelector('.vs-choice');
+    await page.click('.vs-choice[data-source="photos"]');
+    await page.waitForSelector('.vs-look[data-stage="look"]');
+    assert.equal(await page.locator('.vs-look .vs-core').evaluate((n) => getComputedStyle(n).animationName), 'none', 'reduced motion：不動');
+    assert.equal(await page.locator('.vs-look .vs-scan').evaluate((n) => getComputedStyle(n).animationName), 'none');
+    await page.waitForSelector('.vision-dialog textarea');
+  }, { init: fakeVision, initArg: [{ reject: 'denied' }, { reject: 'cancelled' }, smsReading(800)], ignore: /not in test/ });
+});
+
+test('阿幫會看（網頁版降級）：沒有本機讀字不顯示相機鍵（只有 BarcodeDetector 也不給，發票頁用自己的掃描）；瀏覽器能讀字時在本機讀；設定可關；阿幫的腦袋照實說', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.waitForSelector('.chat-form input');
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator('.chat-cam').isHidden(), true, '沒有任何本機辨識：不給相機鍵');
+    await page.goto(`${base}/#/ai`);
+    await page.waitForFunction(() => /不支援/.test(document.querySelector('#ai-vision-body')?.textContent || ''));
+    assert.match(await page.textContent('#ai-vision-body'), /請用手機 App/);
+  }, { init: () => { window.BarcodeDetector = undefined; window.TextDetector = undefined; } });
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.waitForSelector('.chat-form input');
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator('.chat-cam').isHidden(), true, '只有 BarcodeDetector：問阿幫不給相機鍵（拍簡訊會讀不到字）');
+    await page.goto(`${base}/#/agent/antifraud`);
+    await page.waitForSelector('.chat-form input');
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator('.chat-cam').isHidden(), true, '防詐要讀字：網頁版沒有讀字就不給');
+    await page.goto(`${base}/#/s/invoice`);
+    await page.waitForSelector('#inv-scan');
+    assert.equal(await page.textContent('#inv-scan'), '掃發票 QR code', '發票頁維持網頁的連續掃描');
+  }, { init: () => { window.BarcodeDetector = class { static async getSupportedFormats() { return ['qr_code']; } async detect() { return []; } }; window.TextDetector = undefined; } });
+  // 瀏覽器有 TextDetector：在本機讀字（選檔），照片不送伺服器
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const uploads = [];
+    page.on('request', (r) => { if (r.method() === 'POST' && /image|base64/.test(r.postData() || '')) uploads.push(r.url()); });
+    await page.click('.chat-form .chat-cam');
+    await page.waitForSelector('.vs-choice');
+    assert.equal(await page.locator('.vs-web').count(), 0, '能讀字：不需要說明');
+    const chooser = page.waitForEvent('filechooser');
+    await page.click('.vs-choice[data-source="photos"]');
+    const fc = await chooser;
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAIklEQVR4AdyKMQ0AAAyDyPx73lYBrYAmcMEAm9Tw3dMxHAAAAP//n8zf4QAAAAZJREFUAwCzCQgJB3GDOQAAAABJRU5ErkJggg==', 'base64');
+    await fc.setFiles({ name: 'sms.png', mimeType: 'image/png', buffer: png });
+    await page.waitForSelector('.vs-ask');
+    assert.match(await page.inputValue('.vision-dialog textarea'), /tw388\.xyz/);
+    assert.deepEqual(uploads, [], '照片沒有送出');
+  }, { init: () => { window.TextDetector = class { async detect() { return [{ rawValue: '請於24小時內點擊 https://tw388.xyz/p 補運費', boundingBox: { x: 0, y: 0, width: 1, height: 1 } }]; } }; window.BarcodeDetector = undefined; } });
+  // App：設定頁關掉「讓阿幫看照片」→ 相機鍵不見；阿幫的腦袋列出外掛回報的引擎
+  await withPage(DEVICES.phone, '#/settings', async (page) => {
+    await page.waitForFunction(() => /ML Kit 文字辨識/.test(document.querySelector('#vision-status')?.textContent || ''));
+    await page.click('#vision');
+    assert.equal(await page.evaluate(() => localStorage.getItem('abang.vision')), 'off');
+    await page.goto(`${base}/#/agent`);
+    await page.waitForSelector('.chat-form input');
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator('.chat-cam').isHidden(), true);
+    await page.goto(`${base}/#/ai`);
+    await page.waitForFunction(() => /ML Kit 文字辨識（中文模型/.test(document.querySelector('#ai-vision-body')?.textContent || ''));
+    const t = await page.textContent('#ai-vision-body');
+    assert.match(t, /ML Kit 條碼掃描/);
+    assert.match(t, /Gemini Nano：系統沒有提供查詢/);
+    assert.match(t, /關著/);
+    await page.locator('#ai-vision').screenshot({ path: new URL('phone-ai-vision.png', SHOTS).pathname });
+  }, { init: fakeVision, initArg: [], ignore: /not in test/ });
+});
+
+// 語音問阿幫（M14-01，voice.js、agent/voice-ui.js）：假的原生外掛 AbangVoice 送出 level、partial、final 事件。
+// mode：auto＝像 Android 一樣自己收尾（0.7 秒送 final）；manual＝要等「說完了」、停頓 1.5 秒或放開中央鍵（stop）才送 final。deny：權限被拒。
+// reason：這支手機不能在手機上辨識（os、ios-no-ondevice…）；pack：語言包還沒裝（download 後 progress 30、70、done，之後就能用）；platform：android／ios
+const FAKE_VOICE = (o = {}) => `(() => {
+  const o = ${JSON.stringify(o)};
+  const L = {};
+  const V = (window.__voice = { calls: [], timers: [], starts: [] });
+  const emit = (ev, d) => (L[ev] || []).slice().forEach((cb) => cb(d));
+  const later = (ms, f) => V.timers.push(setTimeout(f, ms));
+  const text = o.text || '從西門町到台北101怎麼去';
+  const engine = o.platform === 'ios' ? 'ios-speech' : 'android-ondevice';
+  let packReady = !o.pack;
+  window.Capacitor = {
+    isNativePlatform: () => true, getPlatform: () => o.platform || 'android',
+    isPluginAvailable: (n) => n === 'AbangVoice' || n === 'AbangSystem',
+    addListener: (plugin, ev, cb) => { if (plugin === 'AbangVoice') (L[ev] ||= []).push(cb); return { remove() { L[ev] = (L[ev] || []).filter((x) => x !== cb); } }; },
+    nativePromise: (plugin, method, args) => {
+      if (plugin === 'AbangSystem') { V.calls.push('AbangSystem.' + method); return Promise.resolve({}); }
+      if (plugin !== 'AbangVoice') return Promise.reject(new Error('not in test'));
+      V.calls.push(method + (args && args.lang ? ':' + args.lang : ''));
+      const base = { engine, lang: args && args.lang, permission: o.deny ? 'denied' : 'prompt', osVersion: '16' };
+      if (method === 'available') return Promise.resolve(o.reason ? { ...base, available: false, onDevice: false, reason: o.reason } : !packReady ? { ...base, available: false, onDevice: false, reason: V.downloading ? 'downloading' : 'language-download' } : { ...base, available: true, onDevice: true });
+      if (method === 'download') {
+        V.downloading = true;
+        later(300, () => emit('download', { status: 'progress', percent: 30 }));
+        later(900, () => emit('download', { status: 'progress', percent: 70 }));
+        later(o.packMs || 2500, () => { packReady = true; V.downloading = false; emit('download', { status: 'done' }); });
+        return Promise.resolve({ progress: true });
+      }
+      if (method === 'openSettings') return Promise.resolve({});
+      if (method === 'start') {
+        V.starts.push(args);
+        if (o.startDelay && !V.asked) { V.asked = true; return new Promise((res) => setTimeout(res, o.startDelay)).then(() => window.Capacitor.nativePromise(plugin, method, args)); } // 第一次：權限框
+        if (o.deny) return Promise.reject(Object.assign(new Error('麥克風權限沒有打開'), { code: 'permission' }));
+        later(150, () => emit('level', { level: 0.9 }));
+        later(250, () => emit('partial', { text: '從西門町' }));
+        later(400, () => emit('partial', { text: '從西門町到台北101' }));
+        later(500, () => emit('level', { level: 0.6 }));
+        if (o.mode === 'auto') later(700, () => emit('final', { text, onDevice: true }));
+        return Promise.resolve({ onDevice: true, engine, lang: args.lang });
+      }
+      if (method === 'stop') { later(80, () => emit('final', { text, onDevice: true })); return Promise.resolve({}); }
+      if (method === 'cancel') { V.timers.forEach(clearTimeout); V.timers = []; return Promise.resolve({}); }
+      return Promise.resolve({});
+    },
+  };
+})();`;
+const VOICE_IGNORE = /not in test/;
+
+test('語音問阿幫（App）：麥克風鍵 → 在聽（核心跟著音量）與即時文字 → 自動送出 → 接上阿幫在想；截圖送出後', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    let release;
+    const hold = new Promise((r) => { release = r; });
+    await page.route('**/api/v1/agent', async (route) => { if (route.request().method() === 'POST') await hold; await route.fallback(); }); // 擋住伺服器回應，截到送出後的思考中
+    const mic = page.locator('.chat-form .chat-mic');
+    await mic.waitFor({ state: 'visible' });
+    assert.equal(await mic.getAttribute('aria-label'), '用說的問阿幫');
+    const box = await mic.boundingBox();
+    assert.ok(box.width >= 44 && box.height >= 44, `觸控目標 ${box.width}×${box.height}`);
+    await mic.click();
+    await page.waitForSelector('.voice-panel[data-phase="listening"]');
+    assert.equal(await page.textContent('.voice-panel .vc-title'), '在聽…');
+    assert.equal(await page.textContent('.voice-panel .vc-where'), '在手機上轉成文字，語音不離開手機');
+    assert.equal(await mic.getAttribute('aria-pressed'), 'true');
+    assert.equal(await mic.getAttribute('aria-label'), '說完了，送出');
+    await page.waitForFunction(() => /從西門町/.test(document.querySelector('.voice-panel .vc-heard')?.textContent || ''));
+    assert.notEqual(await page.locator('.voice-panel .vc-core').evaluate((n) => getComputedStyle(n).transform), 'none', '核心跟著音量放大');
+    assert.equal(await page.locator('.voice-panel .vc-orbit').evaluate((n) => getComputedStyle(n).animationName), 'tc-spin');
+    assert.match(await page.textContent('.chat-dock [role=status]'), /開始聽了/);
+    // 自己收尾（final）→ 自動送出 → 阿幫在想
+    await page.waitForSelector('.msg.user.spoken');
+    assert.equal(await page.textContent('.msg.user.spoken'), '從西門町到台北101怎麼去');
+    assert.ok(await page.locator('.voice-panel').isHidden());
+    await page.waitForSelector('.think-core');
+    assert.equal(await mic.getAttribute('aria-pressed'), 'false');
+    assert.deepEqual(await page.evaluate(() => window.__voice.calls.filter((c) => c.startsWith('start'))), ['start:zh-TW']);
+    await page.locator('.think-core').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: new URL('phone-voice-sent.png', SHOTS).pathname });
+    release();
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    assert.equal(await page.locator('.think-core').count(), 0);
+  }, { init: FAKE_VOICE({ mode: 'auto' }), motion: true, ignore: VOICE_IGNORE });
+});
+
+test('語音問阿幫：長按中央鍵拉出對話、在聽，放開就送出（短按照舊）；截圖在聽', async () => {
+  await withPage(DEVICES.phone, '#/s/weather', async (page) => {
+    const fab = page.locator('#abang-fab');
+    await fab.waitFor();
+    await page.waitForTimeout(200); // 外掛回報能用（voiceSupport）
+    const b = await fab.boundingBox();
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.waitForSelector('#abang-sheet[open] .voice-panel[data-phase="listening"]');
+    await page.waitForFunction(() => /台北101/.test(document.querySelector('#abang-sheet .vc-heard')?.textContent || ''));
+    assert.equal(await page.textContent('#abang-sheet .vc-hint'), '放開就送出');
+    assert.equal(await page.locator('#abang-sheet .vc-done').count(), 0, '長按時放開就是說完了，不另外給按鈕');
+    assert.ok(await fab.evaluate((n) => n.classList.contains('listening')));
+    assert.equal(await page.evaluate(() => window.__voice.starts[0].hold), true, '原生端也知道是長按（不因停頓收尾）');
+    await page.waitForTimeout(1700); // 長按時不因停頓結束
+    assert.equal(await page.getAttribute('#abang-sheet .voice-panel', 'data-phase'), 'listening');
+    await page.screenshot({ path: new URL('phone-voice-listening.png', SHOTS).pathname });
+    await page.mouse.up();
+    await page.waitForSelector('#abang-sheet .msg.user.spoken');
+    assert.equal(await page.textContent('#abang-sheet .msg.user.spoken'), '從西門町到台北101怎麼去');
+    assert.ok(await page.evaluate(() => document.getElementById('abang-sheet').open), '放開不會收起對話');
+    assert.ok(!(await fab.evaluate((n) => n.classList.contains('listening'))));
+    await page.waitForSelector('#abang-sheet .bubble.final', { timeout: 20000 });
+    // 短按照舊：收起後再點一下中央鍵＝拉出對話（不開始聽）
+    await page.click('#abang-sheet .sheet-close');
+    await page.waitForFunction(() => !document.getElementById('abang-sheet').open);
+    const starts = await page.evaluate(() => window.__voice.calls.filter((c) => c.startsWith('start')).length);
+    await fab.click();
+    await page.waitForSelector('#abang-sheet[open]');
+    assert.ok(await page.locator('#abang-sheet .voice-panel').isHidden());
+    assert.equal(await page.evaluate(() => window.__voice.calls.filter((c) => c.startsWith('start')).length), starts);
+  }, { init: FAKE_VOICE({ mode: 'manual' }), motion: true, ignore: VOICE_IGNORE });
+});
+
+test('語音問阿幫：停頓 1.5 秒自動結束送出；英文那一輪用英文辨識；取消不送出', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const mic = page.locator('.chat-form .chat-mic');
+    await mic.waitFor({ state: 'visible' });
+    await mic.click();
+    await page.waitForFunction(() => /台北101/.test(document.querySelector('.vc-heard')?.textContent || ''));
+    await page.waitForSelector('.msg.user.spoken', { timeout: 5000 }); // 沒按「說完了」：停頓 1.5 秒自己送出
+    assert.ok((await page.evaluate(() => window.__voice.calls)).includes('stop'));
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    // 英文提問之後：用英文辨識、面板英文
+    await page.fill('.chat-form input', 'How do I get to Taipei 101 from Ximending');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
+    await mic.click();
+    await page.waitForSelector('.voice-panel[data-phase="listening"]');
+    assert.equal(await page.textContent('.vc-title'), 'Listening…');
+    assert.equal(await mic.getAttribute('aria-label'), 'Done, send it');
+    assert.ok((await page.evaluate(() => window.__voice.calls)).includes('start:en-US'));
+    // 取消：不送出、讀屏說取消了、焦點回到麥克風
+    await page.click('.voice-panel .vc-cancel');
+    assert.ok(await page.locator('.voice-panel').isHidden());
+    assert.ok((await page.evaluate(() => window.__voice.calls)).includes('cancel'));
+    await page.waitForFunction(() => /Cancelled/.test(document.querySelector('.chat-dock [role=status]').textContent));
+    await page.waitForTimeout(1800);
+    assert.equal(await page.locator('.msg.user.spoken').count(), 1, '取消的那次沒有送出');
+    assert.ok(await mic.evaluate((n) => n === document.activeElement));
+  }, { init: FAKE_VOICE({ mode: 'manual' }), ignore: VOICE_IGNORE });
+});
+
+test('語音問阿幫：麥克風權限被拒 → 說明＋到設定開啟；reduced motion 時在聽是靜態的', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.click('.chat-form .chat-mic');
+    await page.waitForSelector('.voice-panel[data-phase="error"]');
+    assert.match(await page.textContent('.voice-panel .vc-title'), /麥克風權限沒有打開/);
+    await page.waitForFunction(() => /麥克風權限沒有打開/.test(document.querySelector('.chat-dock [role=status]').textContent));
+    await page.click('.voice-panel button:has-text("到設定開啟")');
+    await page.waitForFunction(() => window.__voice.calls.includes('AbangSystem.openSettings'));
+    await page.click('.voice-panel button:has-text("知道了")');
+    assert.ok(await page.locator('.voice-panel').isHidden());
+    assert.equal(await page.locator('.msg.user').count(), 0);
+  }, { init: FAKE_VOICE({ deny: true }), ignore: VOICE_IGNORE });
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.click('.chat-form .chat-mic');
+    await page.waitForFunction(() => /台北101/.test(document.querySelector('.vc-heard')?.textContent || ''));
+    assert.equal(await page.textContent('.voice-panel .vc-title'), '在聽…');
+    assert.equal(await page.locator('.voice-panel .vc-core').evaluate((n) => getComputedStyle(n).transform), 'none', '不跟著音量動');
+    assert.equal(await page.locator('.voice-panel .vc-orbit').evaluate((n) => getComputedStyle(n).animationName), 'none');
+    assert.equal(await page.locator('.voice-panel').evaluate((n) => getComputedStyle(n).animationName), 'none');
+    assert.equal(await page.textContent('.voice-panel .vc-where'), '在手機上轉成文字，語音不離開手機');
+    await page.click('.voice-panel .vc-done');
+    await page.waitForSelector('.msg.user.spoken');
+  }, { init: FAKE_VOICE({ mode: 'manual' }), ignore: VOICE_IGNORE });
+});
+
+test('語音問阿幫（網頁版）：瀏覽器不能在本機辨識就沒有麥克風；能在本機辨識才有（processLocally）', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.waitForSelector('.chat-form input');
+    await page.waitForTimeout(300);
+    assert.ok(await page.locator('.chat-form .chat-mic').isHidden());
+    await page.goto(`${base}/#/ai`);
+    await page.waitForFunction(() => /網頁版只有在瀏覽器/.test(document.querySelector('#ai-ear')?.textContent || ''));
+    await page.goto(`${base}/#/settings`);
+    await page.waitForFunction(() => /不能在本機辨識/.test(document.querySelector('#voice-status')?.textContent || ''));
+    assert.ok(await page.locator('#voice').isHidden(), '不能用：不顯示開關');
+  });
+  const fakeSR = () => {
+    Object.defineProperty(navigator, 'userAgentData', { get: () => ({ brands: [{ brand: 'Google Chrome', version: '156' }] }) }); // 只在 Google Chrome 問（無頭 Chromium 呼叫 available() 會當掉）
+    window.SpeechRecognition = class {
+      static async available(o) { window.__srOpts = o; return 'available'; }
+      constructor() { this.processLocally = false; }
+      start() {
+        window.__srStarted = { lang: this.lang, local: this.processLocally };
+        setTimeout(() => this.onresult?.({ results: [Object.assign([{ transcript: '明天會下雨嗎' }], { isFinal: false })] }), 100);
+        setTimeout(() => { this.onresult?.({ results: [Object.assign([{ transcript: '明天會下雨嗎' }], { isFinal: true })] }); this.onend?.(); }, 300);
+      }
+      stop() {}
+      abort() {}
+    };
+  };
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.click('.chat-form .chat-mic');
+    await page.waitForSelector('.msg.user.spoken');
+    assert.equal(await page.textContent('.msg.user.spoken'), '明天會下雨嗎');
+    assert.deepEqual(await page.evaluate(() => [window.__srOpts, window.__srStarted]), [{ langs: ['zh-TW'], processLocally: true }, { lang: 'zh-TW', local: true }]);
+  }, { init: fakeSR });
+});
+
+test('語音問阿幫：阿幫的腦袋顯示「聽」（系統回報的引擎、在手機上）；設定關掉就沒有麥克風', async () => {
+  await withPage(DEVICES.phone, '#/ai', async (page) => {
+    await page.waitForFunction(() => /Android 手機上的語音辨識/.test(document.querySelector('#ai-ear')?.textContent || ''));
+    const t = await page.textContent('#ai-ear');
+    assert.match(t, /手機上辨識可用（語音不離開手機）/);
+    assert.match(t, /中文/);
+    assert.match(t, /還沒問過/);
+    await page.goto(`${base}/#/settings`);
+    await page.waitForFunction(() => /在手機上轉成文字/.test(document.querySelector('#voice-status')?.textContent || ''));
+    assert.equal(await page.textContent('#mic'), '還沒問過');
+    await page.click('#voice');
+    assert.equal(await page.evaluate(() => localStorage.getItem('abang.voice')), 'off');
+    await page.goto(`${base}/#/agent`);
+    await page.waitForSelector('.chat-form input');
+    await page.waitForTimeout(300);
+    assert.ok(await page.locator('.chat-form .chat-mic').isHidden());
+  }, { init: FAKE_VOICE({ mode: 'manual' }), ignore: VOICE_IGNORE });
+});
+
+test('語音問阿幫：手機不支援在手機上辨識 → 麥克風反白（仍可點）、點了說原因、不開始聽；iPhone 說怎麼開聽寫；截圖', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const mic = page.locator('.chat-form .chat-mic');
+    await mic.waitFor({ state: 'visible' });
+    assert.equal(await mic.getAttribute('aria-disabled'), 'true');
+    assert.match(await mic.getAttribute('aria-label'), /這支手機不能用/);
+    assert.ok(await mic.evaluate((n) => n.classList.contains('unavailable') && !n.disabled), '反白但仍可點');
+    await mic.click({ force: true }); // aria-disabled：Playwright 當成停用，但使用者與讀屏仍可按
+    await page.waitForSelector('.voice-panel[data-phase="why"]');
+    assert.equal(await page.textContent('.voice-panel .vc-title'), '這支手機現在不能用說的問阿幫');
+    assert.match(await page.textContent('.voice-panel .vc-heard'), /需要 Android 12 以上/);
+    assert.match(await page.textContent('.voice-panel .vc-where'), /不錄音、不上傳/);
+    await page.waitForFunction(() => /需要 Android 12 以上/.test(document.querySelector('.chat-dock [role=status]').textContent));
+    assert.ok(!(await page.evaluate(() => window.__voice.calls)).some((c) => c.startsWith('start')), '不開始聽');
+    await page.locator('.voice-panel').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: new URL('phone-voice-unsupported.png', SHOTS).pathname });
+    await page.click('.voice-panel button:has-text("知道了")');
+    assert.ok(await page.locator('.voice-panel').isHidden());
+    // 長按中央鍵也不會聽（只有能用時才是捷徑）
+    await page.goto(`${base}/#/ai`);
+    await page.waitForFunction(() => /不支援：/.test(document.querySelector('#ai-ear')?.textContent || ''));
+    assert.match(await page.textContent('#ai-ear'), /麥克風會反白/);
+  }, { init: FAKE_VOICE({ reason: 'os' }), ignore: VOICE_IGNORE });
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.locator('.chat-form .chat-mic').waitFor({ state: 'visible' });
+    await page.click('.chat-form .chat-mic', { force: true });
+    await page.waitForSelector('.voice-panel[data-phase="why"]');
+    assert.match(await page.textContent('.voice-panel .vc-heard'), /設定 → 一般 → 鍵盤.*啟用聽寫.*中文（台灣）/);
+    assert.equal(await page.locator('.voice-panel button:has-text("到手機設定下載")').count(), 0, 'iPhone 開不到聽寫設定：只說路徑');
+  }, { init: FAKE_VOICE({ reason: 'ios-no-ondevice', platform: 'ios' }), ignore: VOICE_IGNORE });
+});
+
+test('語音問阿幫：語言包還沒裝 → 第一次按麥克風就下載（準備中、進度）→ 好了就能說', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const mic = page.locator('.chat-form .chat-mic');
+    await mic.waitFor({ state: 'visible' });
+    assert.equal(await mic.getAttribute('aria-disabled'), null);
+    assert.match(await mic.getAttribute('aria-label'), /第一次要先下載中文語音包/);
+    await mic.click();
+    await page.waitForSelector('.voice-panel[data-phase="download"]');
+    assert.match(await page.textContent('.voice-panel .vc-title'), /正在下載中文語音包/);
+    assert.equal(await mic.getAttribute('aria-disabled'), 'true');
+    assert.match(await mic.getAttribute('aria-label'), /準備中/);
+    await page.waitForFunction(() => /70%/.test(document.querySelector('.voice-panel .vc-title').textContent));
+    await mic.click({ force: true }); // 下載中再按：不開始聽
+    assert.ok(!(await page.evaluate(() => window.__voice.calls)).some((c) => c.startsWith('start')));
+    await page.waitForFunction(() => /語音包好了/.test(document.querySelector('.voice-panel .vc-title').textContent), null, { timeout: 8000 });
+    assert.equal(await mic.getAttribute('aria-disabled'), null);
+    assert.ok((await page.evaluate(() => window.__voice.calls)).includes('download:zh-TW'));
+    await page.click('.voice-panel .vc-go');
+    await page.waitForSelector('.voice-panel[data-phase="listening"]');
+    await page.waitForSelector('.msg.user.spoken', { timeout: 5000 });
+  }, { init: FAKE_VOICE({ pack: true, mode: 'auto' }), ignore: VOICE_IGNORE });
+});
+
+test('語音問阿幫：第一次按麥克風跳權限框（App 暫時看不見）不會被取消，允許後就開始聽', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const mic = page.locator('.chat-form .chat-mic');
+    await mic.waitFor({ state: 'visible' });
+    await mic.click();
+    await page.waitForSelector('.voice-panel[data-phase="starting"]');
+    // Android 的權限框讓 Activity onPause：WebView 送 visibilitychange hidden，按「允許」後回來
+    await page.evaluate(() => {
+      let vis = 'hidden';
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => vis });
+      document.dispatchEvent(new Event('visibilitychange'));
+      setTimeout(() => { vis = 'visible'; document.dispatchEvent(new Event('visibilitychange')); }, 300);
+    });
+    await page.waitForSelector('.voice-panel[data-phase="listening"]', { timeout: 5000 });
+    assert.ok(!(await page.evaluate(() => window.__voice.calls)).includes('cancel'), '權限框不算離開');
+    await page.waitForSelector('.msg.user.spoken', { timeout: 5000 });
+  }, { init: FAKE_VOICE({ mode: 'auto', startDelay: 800 }), ignore: VOICE_IGNORE });
+});
+
+// 判斷看得到（2026-11-21 PM 回饋「會看天氣空品，但都只顯示詢問定位」）：行程比較用到的天氣、空品、路況逐項說明＋影響；
+// 決策圖資料欄每個來源一個節點（值、影響、查不到）；只剩一種方式時說原因並給換條件的建議
+/** 模擬模型模式：拿掉示範模式另外查的天氣、空品、路況（模型模式只呼叫行程比較），討論串只能靠 data_note 說明 */
+const ONLY_PLAN_TRIP = async (route) => {
+  if (route.request().method() !== 'POST') return route.fallback();
+  const res = await route.fetch();
+  const drop = new Set();
+  const lines = (await res.text()).split('\n').filter((l) => {
+    if (!l.trim()) return false;
+    const e = JSON.parse(l);
+    if (e.type === 'agent_note' && /@天氣 @空品 @路況/.test(e.text)) return false;
+    if (e.type === 'tool_start' && ['weather_now', 'aqi_nearby', 'traffic_status'].includes(e.name)) { drop.add(e.id); return false; }
+    return !(e.type === 'tool_result' && drop.has(e.id));
+  });
+  return route.fulfill({ response: res, body: `${lines.join('\n')}\n` });
+};
+
+test('問阿幫：判斷看得到——討論串逐項說天氣、空品、路況的影響；決策圖資料欄有節點', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.route('**/api/v1/agent', ONLY_PLAN_TRIP);
+    await page.fill('.chat-form input', '去台北 101');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+    const notes = page.locator('.thread .bubble.data-note');
+    assert.equal(await notes.count(), 3, '天氣、空品、路況各一行');
+    for (const [role, re] of [['天氣', /°C，3 小時降雨 \d+%/], ['空品', /測站 AQI \d+/]]) {
+      const b = page.locator(`.thread .bubble.data-note[data-role="${role}"]`);
+      assert.equal(await b.count(), 1, `@${role} 一行`);
+      assert.match(await b.locator('.say').textContent(), re);
+      assert.match(await b.locator('.impact').textContent(), /→\S+/, `@${role} 有影響說明`);
+      assert.match(await b.locator('.src').textContent(), /示範資料/);
+    }
+    // 資料排在行程結論前面
+    const order = await page.evaluate(() => [...document.querySelectorAll('.thread .bubble.tool')].map((b) => b.dataset.role));
+    assert.ok(order.indexOf('天氣') < order.indexOf('行程') && order.indexOf('路況') < order.indexOf('行程'), order.join(','));
+    // 決策圖資料欄：每個來源一個節點，帶值與影響
+    const dg = page.locator('.decision');
+    await dg.locator('.dg-svg').waitFor();
+    for (const role of ['天氣', '空品', '路況']) assert.equal(await dg.locator(`.dg-src[data-role="${role}"]`).count(), 1, `資料欄有 ${role}`);
+    assert.match(await dg.locator('.dg-src[data-role="空品"] .dg-val').textContent(), /AQI \d+/);
+    assert.equal(await dg.locator('.dg-src[data-role="天氣"] .dg-eff').textContent(), '不影響');
+    assert.ok(await dg.locator('.dg-src.quiet').count() >= 1, '不影響的來源淡色');
+    await page.locator('.thread-sum').first().click();
+    await page.locator('.thread.open').waitFor();
+    await page.locator('.thread .bubble.agent', { hasText: '@地點' }).evaluate((n) => n.scrollIntoView({ block: 'start' })); // 從找地點到天氣、空品、路況、行程結論
+    await page.screenshot({ path: new URL('phone-reasoning-thread.png', SHOTS).pathname });
+    await page.setViewportSize({ width: 390, height: 1800 }); // 決策圖整張（不被固定在底部的輸入列蓋住）
+    await dg.evaluate((n) => n.scrollIntoView({ block: 'start' }));
+    await dg.screenshot({ path: new URL('phone-reasoning-graph.png', SHOTS).pathname });
+  });
+});
+
+test('問阿幫：天氣小幫手比行程晚回報時，data_note 也不重複（tool_start 就記下角色）', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.route('**/api/v1/agent', async (route) => { // 模擬平行查詢：weather_now 的結果晚於 plan_trip 的 data_note 才到
+      if (route.request().method() !== 'POST') return route.fallback();
+      const res = await route.fetch();
+      const lines = (await res.text()).split('\n').filter((l) => l.trim());
+      const ev = lines.map((l) => JSON.parse(l));
+      const wid = ev.find((e) => e.type === 'tool_start' && e.name === 'weather_now')?.id;
+      const wi = ev.findIndex((e) => e.type === 'tool_result' && e.id === wid);
+      if (wi < 0) return route.fulfill({ response: res, body: `${lines.join('\n')}\n` });
+      const [late] = lines.splice(wi, 1);
+      const last = lines.map((l) => JSON.parse(l)).findLastIndex((e) => e.type === 'data_note');
+      lines.splice(last + 1, 0, late);
+      return route.fulfill({ response: res, body: `${lines.join('\n')}\n` });
+    });
+    await page.fill('.chat-form input', '去台北 101');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+    assert.equal(await page.locator('.thread .bubble.tool[data-role="天氣"]').count(), 1, '天氣只講一次');
+    assert.equal(await page.locator('.thread .bubble.data-note').count(), 0, '示範模式三個角色都另外查過');
+    assert.match(await page.locator('.thread .bubble.tool[data-role="天氣"] .say').textContent(), /°C/);
+  });
+});
+
+test('問阿幫：在示範範圍外、深夜只剩叫車——說明原因、空品查不到照實說、給換條件的建議', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.fill('.chat-form input', '晚上 11 點半去台北101');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+    const dg = page.locator('.decision');
+    await dg.locator('.dg-svg').waitFor();
+    assert.equal(await dg.locator('.dg-opt').count(), 1, '只有叫車');
+    assert.match(await dg.locator('.dg-single').textContent(), /^只找到叫車一種方式：距離 \d+(\.\d)? 公里，走路、YouBike、公車都太遠；客運 23:30 以後今天沒有趕得上的班次.*示範資料/);
+    assert.ok(await dg.locator('.dg-src').count() >= 3, '資料欄不是空的');
+    assert.match(await page.locator('.bubble.final .say').textContent(), /只找到叫車一種方式/);
+    const chips = page.locator('.suggest .chip.next-ask');
+    assert.match((await chips.allTextContents()).join('|'), /改成明天早上出發\|改從台北車站出發比較看看/);
+    await page.locator('.bubble.final').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: new URL('phone-reasoning-far.png', SHOTS).pathname });
+    // 點建議＝送出那一句，從台北車站就比得到好幾種方式
+    await chips.filter({ hasText: '改從台北車站出發比較看看' }).click();
+    await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
+    assert.match(await page.locator('.msg.user').last().textContent(), /從台北車站到台北101怎麼去/);
+    assert.ok(await page.locator('.decision').last().locator('.dg-opt').count() >= 3);
+  }, { geo: { latitude: 24.99, longitude: 121.31 } }); // 桃園（26 公里外）
 });

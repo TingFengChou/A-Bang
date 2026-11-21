@@ -144,6 +144,15 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 .dg-src-c { fill: var(--card); stroke-width: 1.6; filter: drop-shadow(0 2px 0 rgba(0,0,0,.08)); }
 .dg-src.win .dg-src-c { stroke-width: 3; }
 .dg-lbl { font-size: 10px; fill: var(--muted); }
+/* 資料欄（判斷看得到，2026-11-21）：值＋影響；不影響、查不到淡色；有影響的連到狀態（虛線） */
+.dg-lbl .dg-val { font-weight: 700; fill: var(--text); }
+.dg-eff { font-size: 9.5px; fill: var(--muted); }
+.dg-src.affects .dg-eff { fill: var(--bad); font-weight: 700; }
+.dg-src.quiet > * { opacity: .6; } /* 子元素（GSAP 進場只改節點本身的 opacity） */
+.dg-src.na .dg-val { fill: var(--muted); font-weight: 400; }
+.dg-edge.quiet { opacity: .45; }
+.dg-single { margin: 6px 0 0; font-size: 12.5px; color: var(--text); background: var(--off-soft); border-radius: 10px; padding: 7px 10px; }
+.bubble.data-note .say { font-size: 13.5px; }
 .dg-hub-c { fill: var(--card); stroke: var(--brand); stroke-width: 2; filter: drop-shadow(0 3px 0 rgba(15,118,110,.25)) drop-shadow(0 6px 10px rgba(15,118,110,.2)); }
 .dg-state > rect { fill: var(--card); stroke: var(--brand); }
 .dg-state.src-auto > rect { fill: #eef4fe; stroke: var(--place); }
@@ -262,6 +271,56 @@ html.lite-motion .think-core, html.lite-motion .think-core * { animation: none !
 @media (prefers-reduced-motion: reduce) { .think-core, .think-core * { animation: none !important; } }
 /* 回答上方：這一輪手機上的 AI 有判斷時，照實說伺服器有沒有採用 */
 .device-line { margin: 10px 0 -2px; font-size: 12.5px; color: var(--muted); }
+
+/* 語音問阿幫（M14-01，agent/voice-ui.js）：輸入列的麥克風鍵＋「在聽」面板（同一套核心：Λ＋琥珀核心＋軌道，核心跟著音量 --lv 脈動）。
+   只動 transform／opacity；reduced motion／lite-motion 不動，只留「在聽…」與辨識中的文字。 */
+.chat-mic { flex: none; width: 44px; min-height: 44px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--brand); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.chat-mic[hidden] { display: none; }
+.chat-mic.on { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+.chat-mic:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+/* 反白：這支手機不能在手機上辨識（仍可點，點了說原因）；準備中：語言包下載中（外圈轉） */
+.chat-mic.unavailable { background: var(--off-soft); color: var(--off); border-style: dashed; }
+.chat-mic.prep { position: relative; color: var(--muted); }
+.chat-mic.prep::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; border: 2px solid var(--brand); border-right-color: transparent; animation: tc-spin 1s linear infinite; }
+html.lite-motion .chat-mic.prep::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .chat-mic.prep::after { animation: none; } }
+.voice-panel { --lv: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 12px 10px 10px; border-radius: 16px; background: var(--brand-soft); animation: bub-in .22s cubic-bezier(.2,.8,.2,1) both; }
+.voice-panel[hidden] { display: none; }
+.voice-panel .vc-orb { flex: none; width: 52px; height: 52px; border-radius: 15px; box-shadow: 0 2px 12px rgba(15, 118, 110, .3); }
+.voice-panel svg { display: block; }
+.voice-panel .vc-body { flex: 1 1 160px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.voice-panel .vc-title { font-size: 15px; color: #0b4f49; }
+.voice-panel .vc-heard { margin: 0; font-size: 17px; line-height: 1.45; color: var(--text); overflow-wrap: anywhere; }
+.voice-panel .vc-heard.placeholder { color: var(--muted); font-size: 14px; }
+.voice-panel .vc-heard:empty, .voice-panel small:empty { display: none; }
+.voice-panel small { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+.voice-panel .vc-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.voice-panel .vc-acts .btn { min-height: 44px; }
+.voice-panel[data-phase="error"] { background: var(--warn-soft); }
+.voice-panel[data-phase="error"] .vc-title { color: var(--text); font-weight: 600; }
+.voice-panel[data-phase="error"] .vc-orb { opacity: .55; }
+.voice-panel .vc-orbit { transform-origin: 24px 25px; animation: tc-spin 1.6s linear infinite; }
+.voice-panel .vc-core { transform-origin: 24px 31px; transform: scale(calc(.9 + var(--lv) * .7)); transition: transform .09s linear; }
+.voice-panel .vc-halo { transform-origin: 24px 31px; transform: scale(calc(1 + var(--lv) * 1.6)); opacity: calc(.25 + var(--lv) * .45); transition: transform .12s linear, opacity .12s linear; }
+.voice-panel[data-phase="starting"] .vc-core, .voice-panel[data-phase="finishing"] .vc-core { animation: tc-beat .5s ease-in-out infinite alternate; transition: none; }
+.voice-panel[data-phase="error"] .vc-orbit, .voice-panel[data-phase="why"] .vc-orbit, .voice-panel[data-phase="note"] .vc-orbit { animation: none; }
+.voice-panel[data-phase="why"] { background: var(--off-soft); }
+.voice-panel[data-phase="why"] .vc-orb { opacity: .5; filter: grayscale(.6); }
+.voice-panel[data-phase="why"] .vc-heard, .voice-panel[data-phase="note"] .vc-heard, .voice-panel[data-phase="download"] .vc-heard { font-size: 14.5px; }
+.voice-panel[data-phase="download"] .vc-core { animation: tc-beat .8s ease-in-out infinite alternate; transition: none; }
+html.lite-motion .voice-panel, html.lite-motion .voice-panel * { animation: none !important; transition: none !important; }
+html.lite-motion .voice-panel .vc-core, html.lite-motion .voice-panel .vc-halo { transform: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .voice-panel, .voice-panel * { animation: none !important; transition: none !important; }
+  .voice-panel .vc-core, .voice-panel .vc-halo { transform: none !important; }
+}
+/* 用說的那一句：泡泡左邊一個小麥克風 */
+.msg.user.spoken::before { content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px; background: currentColor; opacity: .8;
+  -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.4" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>') center / contain no-repeat;
+  mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.4" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>') center / contain no-repeat; }
+/* 長按中央鍵：不跳選字放大鏡；在聽的時候鍵外圈亮起 */
+.tab-key { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+.tab-key.listening .key-disc { box-shadow: 0 0 0 4px rgba(251, 191, 36, .55), 0 6px 18px rgba(15, 118, 110, .35); }
 
 /* 個人化（2026-11-21）：「你同意：優先推捷運」chip（source habit，紫色）、「你說過：常帶東西」（source usual）、為什麼 */
 .dg-chip.on.src-habit { background: #f1edfb; border-color: #6d4fc2; color: #5b3fb0; }

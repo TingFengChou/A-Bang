@@ -72,7 +72,7 @@ export const busRouteEta = defineTool({
     city: T.city.optional().describe('縣市，可用 Taipei／台北市；有 near 時可省略（用位置推估）'),
     routeName: z.string().min(1).describe('完整路線名稱，例如 307'),
     stop: z.string().trim().max(40).optional().describe('要盯的站名（選填，例如上車站）：回傳 focus（該站方向、站序、到站時間），卡片聚焦這一站'),
-    near: T.point('使用者現在的位置（選填，沒說站名時用）：聚焦路線上離他最近的站').optional(),
+    near: T.point('使用者現在的位置（選填）：沒說站名時聚焦路線上離他最近的站；有站名但沒給縣市時用來推縣市').optional(),
     direction: z.number().int().min(0).max(1).optional().describe('去程 0、返程 1（選填，配合 stop）'),
   },
   speak: (d) => {
@@ -82,12 +82,12 @@ export const busRouteEta = defineTool({
     return `${d.routeName} 目前有 ${near.length} 個站即將有車${near.length ? `（例如${near.slice(0, 2).join('、')}）` : ''}。`;
   },
   async run(svc, a) {
-    const here = a.near && !a.stop ? await resolvePoint(svc.places, a.near) : null;
+    const here = a.near && (!a.stop || !a.city) ? await resolvePoint(svc.places, a.near) : null; // 有站名時位置只用來推縣市（拍站牌問的，M14-02）
     const city = a.city || (here && cityNear(here));
     if (!city) throw new UserError('請告訴我是哪個縣市的公車（例如「台北 307」）');
     const raw = await svc.bus.routeEta({ ...a, city });
     const data = { ...raw, directions: raw.directions.map((d) => ({ ...d, stops: withNav(d.stops) })), ...(!a.city && { cityGuessed: true, cityName: resolveCity(city)?.name || city }) };
-    const focus = focusStop(data.directions, a.stop, a.direction) || (here && nearestStop(data.directions, here));
+    const focus = focusStop(data.directions, a.stop, a.direction) || (here && !a.stop && nearestStop(data.directions, here));
     if (focus) data.focus = focus;
     const lines = [`${data.routeName} 公車即時到站（更新：${data.updatedAt}）`];
     if (focus) lines.unshift(`${focusText(data.routeName, focus)}（${focus.label}）`);

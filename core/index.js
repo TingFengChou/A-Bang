@@ -1,6 +1,7 @@
 // 核心入口：依是否有 TDX 金鑰，回傳真實或示範資料的服務。
 // App 的 HTTP API 與 MCP Server 都只依賴這裡，新增資料領域時在此註冊即可。
 import { createTdxClient } from './tdx-client.js';
+import { markFallback } from './metrics.js';
 import { createTransitServices } from './services/transit.js';
 import { createMockTransitServices } from './services/transit-mock.js';
 import { createPlaceServices } from './services/places.js';
@@ -30,13 +31,37 @@ import { createMockStockServices } from './services/stock-mock.js';
  *   cwaKey：中央氣象署授權碼；沒有時天氣用示範資料（與 TDX 金鑰各自獨立）
  *   demo：示範模式情境（docs/TESTING.md §4），測試以參數注入，手動展示用環境變數
  */
+/**
+ * TDX 額度用完（429）時，這一次改用示範資料，不讓整個查詢失敗（2026-11-21：Austin 先不申請加值應用，新帳號每分鐘只有 5 次）。
+ * 只包會回 Promise 的方法；工具結果會標成示範資料（metrics.fallback → mode: 'demo'）。
+ */
+export function withTdxFallback(live, mock) {
+  return new Proxy(live, {
+    get(target, key) {
+      const v = target[key];
+      // 服務是分層的（transit.bus.routeEta、metro.metro.liveBoard）：子物件也包起來
+      if (v && typeof v === 'object' && mock?.[key] && typeof mock[key] === 'object') return withTdxFallback(v, mock[key]);
+      if (typeof v !== 'function' || typeof mock?.[key] !== 'function') return v;
+      return (...args) => {
+        const out = v.apply(target, args);
+        if (!out || typeof out.then !== 'function') return out;
+        return out.catch((e) => {
+          if (e?.name !== 'TdxError' || e.status !== 429) throw e;
+          markFallback();
+          return mock[key](...args);
+        });
+      };
+    },
+  });
+}
+
 export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openData = false, forceMock = false, log, demo = {} } = {}) {
   const live = Boolean(clientId && clientSecret) && !forceMock;
   const tdx = live ? createTdxClient({ clientId, clientSecret, log }) : null;
-  const transit = live ? createTransitServices(tdx) : createMockTransitServices();
-  const metro = live ? createMetroServices(tdx) : createMockMetroServices();
-  const traffic = live ? createTrafficServices(tdx) : createMockTrafficServices({ scenario: demo.traffic });
-  const intercity = live ? createIntercityServices(tdx, traffic) : createMockIntercityServices(traffic);
+  const transit = live ? withTdxFallback(createTransitServices(tdx), createMockTransitServices()) : createMockTransitServices();
+  const metro = live ? withTdxFallback(createMetroServices(tdx), createMockMetroServices()) : createMockMetroServices();
+  const traffic = live ? withTdxFallback(createTrafficServices(tdx), createMockTrafficServices({ scenario: demo.traffic })) : createMockTrafficServices({ scenario: demo.traffic });
+  const intercity = live ? withTdxFallback(createIntercityServices(tdx, traffic), createMockIntercityServices(traffic)) : createMockIntercityServices(traffic);
   const booking = live ? createBookingServices(tdx, transit) : createMockBookingServices(transit);
   const weatherLive = Boolean(cwaKey) && !forceMock;
   const cwa = weatherLive ? createCwaClient({ apiKey: cwaKey }) : null;

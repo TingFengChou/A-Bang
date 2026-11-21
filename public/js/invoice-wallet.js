@@ -4,6 +4,7 @@
 import { storage, esc } from './ui.js';
 import { confetti } from '../ui/cards/confetti.js';
 import { scanSupported, openScanner } from './invoice-qr.js';
+import { nativeVisionReady, visionEnabled, openVision } from './vision.js';
 
 const KEY = 'invoices';
 export const WALLET_MAX = 100;
@@ -73,11 +74,15 @@ function statusHtml(x) {
  * @param {{ callTool: Function, toast?: (m: string) => void }} opts
  */
 export function renderWallet(el, { callTool, toast = () => {} }) {
+  // 手機 App（M11-03、M14-02）：用原生相機拍一張，在手機上讀 QR code（ML Kit／Vision）；網頁維持瀏覽器的連續掃描
+  const native = nativeVisionReady() && visionEnabled();
   el.innerHTML = `
     <div class="section-title"><h2>我的發票</h2><span>存在這支手機</span></div>
-    ${scanSupported()
-    ? '<button class="btn inv-scan" id="inv-scan" type="button">掃發票 QR code</button>'
-    : '<p class="updated inv-noscan">這個瀏覽器不支援掃描（例如 iPhone Safari），請手動輸入號碼和日期。</p>'}
+    ${native
+    ? '<div class="row inv-native"><button class="btn inv-scan" id="inv-scan" type="button">拍發票 QR code</button><button class="btn quiet inv-pick" id="inv-pick" type="button">選發票照片</button></div>'
+    : scanSupported()
+      ? '<button class="btn inv-scan" id="inv-scan" type="button">掃發票 QR code</button>'
+      : '<p class="updated inv-noscan">這個瀏覽器不支援掃描（例如 iPhone Safari），請手動輸入號碼和日期。</p>'}
     <form class="form inv-add" id="inv-add">
       <div class="row"><input class="field" name="number" inputmode="numeric" maxlength="10" placeholder="發票號碼 8 碼" aria-label="發票號碼 8 碼" autocomplete="off">
       <input class="field" name="date" type="date" aria-label="消費日期" value="${todayTW()}" max="${todayTW()}"></div>
@@ -105,8 +110,12 @@ export function renderWallet(el, { callTool, toast = () => {} }) {
     wallet.remove(b.closest('[data-id]').dataset.id);
     draw();
   });
-  // 掃描：一張接一張存，關閉後一次對獎
-  el.querySelector('#inv-scan')?.addEventListener('click', () => openScanner({
+  // App：拍一張或選一張照片，阿幫看到了 → 確認存起來並對獎（vision.js）
+  if (native) {
+    for (const [id, source] of [['#inv-scan', 'camera'], ['#inv-pick', 'photos']]) el.querySelector(id).addEventListener('click', () => openVision({ only: 'invoice', source, callTool, onSaved: draw }));
+  }
+  // 網頁掃描：一張接一張存，關閉後一次對獎
+  if (!native) el.querySelector('#inv-scan')?.addEventListener('click', () => openScanner({
     onCode(code) {
       try {
         wallet.add(code);

@@ -3,7 +3,7 @@
 import { getTool } from '../tools/index.js';
 import { ASK_KINDS, ASK_ACTIONS } from './ask.js';
 
-export const EVENT_TYPES = ['status', 'agent_note', 'tool_start', 'tool_result', 'discussion_end', 'decision', 'ask', 'guardrail', 'client_tool_call', 'text', 'done', 'error'];
+export const EVENT_TYPES = ['status', 'agent_note', 'tool_start', 'tool_result', 'data_note', 'discussion_end', 'decision', 'ask', 'guardrail', 'client_tool_call', 'text', 'done', 'error'];
 
 /** 小幫手角色（討論串中被 @ 點名的名字） */
 export const TOOL_ROLES = {
@@ -31,12 +31,25 @@ export const ev = {
   toolResult: ({ id, result, error, impact }) => (error
     ? need('tool_result', { id, ok: false, error }, ['id'])
     : need('tool_result', { id, ok: true, speak: result.speak ?? null, card: result.card ?? null, ...(result.v && { v: result.v }), tool: result.name, args: result.args, mode: result.mode, data: result.data, metrics: result.metrics, ...(impact && { impact }) }, ['id'])), // impact：這筆資料對決策的影響（core/agent/impact.js）
+  /**
+   * data_note：工具內部用到的一項資料（plan_trip 查的天氣、空品、路況）＋對這次判斷的影響，由程式產生（trip-considered.js，不經模型）。
+   * parent＝那次工具呼叫的 id（客戶端排在它的發言前面）；mode＝demo 時標「示範資料」；英文那一輪用英文欄位。
+   */
+  dataNote: ({ parent, item, lang = null }) => {
+    const en = lang === 'en';
+    return need('data_note', {
+      parent, role: item.role, source: item.source, available: item.available, mode: item.demo ? 'demo' : 'live',
+      text: en ? item.textEn : item.text, impact: { tone: item.tone, text: en ? item.sayEn : item.say },
+      effect: item.effect,
+    }, ['parent', 'role', 'text']);
+  },
   discussionEnd: ({ tools, servers = ['abang'] }) => need('discussion_end', { tools, servers }, ['tools']),
   /** decision：由 plan_trip 的資料組成（含 options 決策欄位，讓前端切換狀態時不必再呼叫伺服器）；signals＝各資料來源的一句重點（決策圖的資料膠囊） */
   decision: (trip) => need('decision', {
     signals: tripSignals(trip),
     signalsEn: tripSignals(trip, 'en'), // 英文那一輪的資料膠囊（S12f）
     states: trip.states, arriveBy: trip.arriveBy ?? null, ...(trip.arriveByMin != null && { arriveByMin: trip.arriveByMin }), ...(trip.mode && { mode: trip.mode }), ...(trip.avoid && { avoid: trip.avoid }), ...(trip.skipped?.length && { skipped: trip.skipped }), ...(trip.habit && { habit: trip.habit, habitOn: !!trip.habitOn }), ...(trip.ask && { ask: trip.ask }), best: trip.best,
+    considered: trip.considered || [], ...(trip.single && { single: trip.single }), // 決策圖「資料」欄（每個來源一個節點）；只有一種方式時的說明與建議
     options: trip.options, ranked: trip.ranking.ranked, excluded: trip.ranking.excluded, weights: trip.ranking.weights, reason: trip.ranking.reason,
   }, ['states', 'options', 'ranked', 'excluded', 'reason']),
   /**

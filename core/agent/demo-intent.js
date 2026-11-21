@@ -488,8 +488,17 @@ export function parseIntent(text, ctx) {
     if (g) it.grade = g;
     if (/漲|跌|調/.test(String(text))) it.trend = true;
   }
+  if (it?.intent === 'bus_route' && !it.stop) { const st = busStopOf(text); if (st) it.stop = st; } // 「307 公車到「敦化市場」還要多久」（阿幫會看：拍站牌組出來的問題，M14-02）
   if (it && !isEnglish(String(text || ''))) delete it.lang;
   return it;
+}
+/** 問公車時說了哪一站：「307 公車到「敦化市場」還要多久」「307 公車在市政府站還要多久」（只收有引號或「…站」的，不猜） */
+const STOP_QUOTED = /「([^」\s]{2,20})」/;
+const STOP_SAID = /(?<!我)(?:到|在)\s*([一-龥]{2,12}站)(?=\s*(?:還|多久|要|幾分))/; // 「我在臺北車站」是使用者在哪，不是要盯的站
+export function busStopOf(text) {
+  const s = String(text || '');
+  const m = STOP_QUOTED.exec(s)?.[1] || STOP_SAID.exec(s)?.[1];
+  return m && !/^(?:公車|車)?站$/.test(m) ? m : null;
 }
 /**
  * 台語口語與常見錯字先換成華語（P5-3、P5-5）：在找地名、判斷是不是行程之前做，所以「台北車戰到西門町」也是行程、
@@ -532,6 +541,7 @@ function parseIntentRaw(text, ctx) {
   const saved = savedTrip(s, places, ctx?.saved);
   if (saved) return { ...base, ...saved };
   // 英文（觀光客，S12）：只有英文字母沒有中文時用英文規則，回答也用英文（it.lang = 'en'）
+  if (isEnglish(s) && /\b(?:scam|fraud|phishing)\b/i.test(s)) return { ...base, intent: 'scamAsk', lang: 'en' }; // 「Is this a scam?」：請他到防詐檢查（PM 盤點 Q-23）
   if (isEnglish(s)) return { ...englishIntent(s, places, history), lang: 'en' };
   // 判斷層（judge.js）已決定意圖：照那個意圖抽參數；抽不出必要參數時回 null，呼叫端改用規則自己的判斷
   if (ctx?.intent) return slotsFor(ctx.intent, s, base);
@@ -544,6 +554,8 @@ function parseIntentRaw(text, ctx) {
   // 要阿幫直接動手（「你直接幫我按叫車啦」「幫我付錢」）：說明只給官方連結（ADR-0011；P2-10）
   // 問電梯、無障礙設施（「捷運哪一站有電梯」「台北車站有電梯嗎」）：沒有這份資料，照實說（P4 探查）
   if (/電梯|無障礙(?:設施|廁所|出口)?|斜坡|坡道/.test(s) && /嗎|哪|有沒有|在哪|方便|\?|？/.test(s) && !/從.+(?:到|去)|怎麼去|怎麼走/.test(s)) return { ...base, intent: 'access' };
+  // 在生活阿幫問「這是詐騙嗎」（有沒有附內容都一樣）：不列功能清單，請他到防詐檢查（PM 盤點 Q-23）
+  if (/詐騙嗎|是不是詐騙|是詐騙|是騙人的嗎/.test(s) && !places.length) return { ...base, intent: 'scamAsk' };
   if (ACT_FOR_ME.test(s) && !places.length && (!RAIL_WORD.test(s) || /刷卡|付款|付錢|代付/.test(s))) return { ...base, intent: 'limits' };
   let tripMemo;
   const tripBefore = () => (tripMemo !== undefined ? tripMemo : (tripMemo = ctx && 'prev' in ctx ? ctx.prev : lastTrip(history, ctx?.saved)));
@@ -774,6 +786,7 @@ export function demoSteps(it, now = Date.now()) {
         (r) => {
           const p = point(r, 0);
           const near = p ? { lat: p.lat, lon: p.lon, name: p.name } : it.fromPoint ? ll(it.fromPoint) : null;
+          if (it.stop) return { note: `@公車 ${it.route} 到「${it.stop}」還要多久`, calls: [{ name: 'bus_route_eta', args: { ...(p ? { city: p.city } : near ? {} : { city: 'Taipei' }), routeName: it.route, stop: it.stop, ...(near && { near }) } }] }; // 說了站名：盯那一站（位置只用來推縣市）
           return { note: `@公車 ${it.route} 現在到哪了${near ? '，離你最近的站多久到' : ''}`, calls: [{ name: 'bus_route_eta', args: { ...(p ? { city: p.city } : near ? {} : { city: 'Taipei' }), routeName: it.route, ...(near && { near }) } }] };
         },
         ...alsoSteps(it),
@@ -1059,6 +1072,7 @@ export function nightNote(trip) {
 }
 
 export function demoSummary(it, results, suggestions = []) {
+  if (it.intent === 'scamAsk' && it.lang === 'en') return "To check a suspicious message, open Anti-fraud (Home → Anti-fraud) and paste the message, link or phone number, or take a photo of it. Until then, don't click links, transfer money, or share codes.";
   // 問藥局晚上有沒有開：補一句晚上有登記營業的（健保署只登記上午、下午、晚上時段；P3-4）
   if (it.intent === 'pharmacy' && it.evening && !it.lang) {
     const list = results.pharmacy_search?.at(-1)?.data?.pharmacies || [];
@@ -1108,6 +1122,7 @@ function summaryCore(it, results, suggestions = []) {
   if (it.intent === 'savedMissing') return `我還不知道你的「${it.missing}」在哪。到「設定與隱私 → 常用地點」按「輸入地點」選附近的車站或地標，或下次在${it.missing === '家' ? '家' : it.missing}時按「設成現在位置」，之後說「${it.missing === '家' ? '回家' : `去${it.missing}`}」就能直接規劃。現在也可以直接說地名，例如「${it.missing === '家' ? '回板橋' : '去台北車站'}」。`;
   if (it.reset) return '好，重新開始。想去哪裡、想查什麼？沒說起點的話，我用你現在的位置。';
   if (it.intent === 'access') return '阿幫目前拿到的開放資料沒有電梯、無障礙出口的位置，還查不到是哪一站、哪個出口。台北捷運各站都設有無障礙電梯，位置可以看站內指標，或撥台北捷運客服 (02)218-12345 問；告訴我要去哪裡，我可以幫你排少走路的路線（記得說坐輪椅或行動不便）。';
+  if (it.intent === 'scamAsk') return it.lang === 'en' ? "To check a suspicious message, open Anti-fraud (Home → Anti-fraud) and paste the message, link or phone number, or take a photo of it. Until then, don't click links, transfer money, or share codes." : '要檢查可疑的訊息，請到「防詐」（首頁 → 防詐）把簡訊、LINE、網址或來電號碼貼上，或拍下來，我幫你比對 165 的詐騙手法。確認之前，先不要點連結、不要匯款、不要給驗證碼。';
   if (it.intent === 'limits') return '我不能替你按叫車、付款或訂票（安全與隱私，付款與個資只在官方 App 裡處理）：我會給你官方 App 或網站的連結，由你自己確認、付款。要的話告訴我要去哪裡，我比較怎麼去、附上官方叫車連結。';
   if (it.thanks) return '不客氣！還想查什麼隨時跟我說。';
   if (it.sorry) return '沒關係！想查什麼直接說就好，例如「去台北 101」、「307 到哪了？」。';
@@ -1136,7 +1151,8 @@ function summaryCore(it, results, suggestions = []) {
     const reason = closed ? trip.data.ranking.reason.replace(/^公車這次沒有可行的方案；/, '') : trip?.data.ranking.reason; // 已說收班，不再重複「公車沒有可行的方案」
     const urgent = (trip?.data.tips || []).filter((x) => x.kind !== 'cost'); // 分攤金額在卡片上，泡泡只說要馬上注意的
     const tips = urgent.length ? ` ${urgent.map((x) => `${x.text}。`).join('')}` : '';
-    return trip ? `${pre}${night}${reason}${tips}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
+    const one = trip?.data.single ? `${trip.data.single.text.replace(/（現在是示範資料.*）$/, '')}。` : ''; // 只有一種方式：先說其他方式為什麼不在（數字來自 plan_trip）
+    return trip ? `${pre}${night}${one}${reason}${tips}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
   }
   // 沒說地點時用了示範預設，先講清楚
   const pre = (isNearby(it) || (it.intent === 'metro' && !it.station && !it.near)) && !it.places[0] && !it.fromPoint

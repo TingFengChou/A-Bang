@@ -7,6 +7,7 @@ import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-hel
 import { edgeJudge, edgePrewarm } from '../edge-judge.js';
 import { noteAgentStatus } from '../ai-info.js';
 import { mountThinking, deviceLine } from '../agent/thinking.js';
+import { mountVoiceUI } from '../agent/voice-ui.js';
 import { placesFor } from '../saved-places.js';
 import { icons } from '../icons.js';
 import { motion } from '../../ui/cards/motion.js';
@@ -19,6 +20,7 @@ import { mountAsk, matchAnswer } from '../../ui/agent/ask.js';
 import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { renderDecision, lite, roleEn } from '../../ui/agent/decision-graph.js';
+import { mountVisionButton, handOff, takeHandoff } from '../vision.js';
 
 // 決策圖重算用的同一份 decide.js（伺服器以 /core/decide.js 提供；UX.md §5）
 const decideModule = import('/core/decide.js').catch(() => null);
@@ -176,12 +178,19 @@ export default {
     const sendBtn = el('button', 'btn chat-send', '送出');
     sendBtn.type = 'submit';
     const form = el('form', 'chat-form', input, sendBtn);
+    // 阿幫會看（M14-02）：相機鍵。讀出來的字確認後才送；生活頁讀到可疑訊息先問，再轉到防詐頁（文字只在記憶體交過去）
+    mountVisionButton(form, { profile: agentId, lang: () => lastView?.lang || null, callTool: (n, a) => host.callTool(n, a), ask: (q) => send(q),
+      fill: (t) => { input.value = t; input.focus(); },
+      scam: (t) => { if (agentId === 'antifraud') send(t); else { handOff('antifraud', t); location.hash = '#/agent/antifraud'; } } });
     const disclaimer = el('p', 'updated');
     const modeLine = el('p', 'updated agent-mode');
     modeLine.setAttribute('aria-live', 'polite'); // 換模式或改在手機上判斷時唸出來 // 由誰回答（ADR-0012；Claude 模式說明對話會送 Anthropic，AGENT.md §7）
     // 說明起點是現在位置（第一次需要位置時才跳權限框，先讓使用者知道為什麼）；拒絕定位時阿幫會問從哪出發
     const hereHint = agentId === 'life' && el('p', 'updated here-hint', '沒說起點時，阿幫用你現在的位置當出發點。');
-    main.append(log, el('div', 'chat-dock', pageRow, chips, mention, form), ...(hereHint ? [hereHint] : []), disclaimer, modeLine);
+    const dock = el('div', 'chat-dock', pageRow, chips, mention, form);
+    main.append(log, dock, ...(hereHint ? [hereHint] : []), disclaimer, modeLine);
+    // 語音問阿幫（M14-01）：麥克風鍵與在聽的面板（agent/voice-ui.js）；只有生活 agent（防詐是貼上訊息）
+    const voice = agentId === 'life' ? mountVoiceUI({ form, sendBtn, dock, send: (q, o) => send(q, o) }) : null;
     // 上次的對話（只有文字、最後一次對話 12 小時內）：只顯示；按「接著上次問」才當成前文跟下一個問題一起送（隱私：沒按就不送，常用地點也不會因為昨天說過「回家」又送出）
     // 只有生活 agent（防詐不留）
     const past = agentId === 'life' ? loadChat() : null;
@@ -274,10 +283,10 @@ export default {
     });
     form.addEventListener('submit', (e) => { e.preventDefault(); send(input.value); });
     // 從首頁帶問題過來（#/agent?q=…）：直接送出，並把網址換掉，避免重新整理時重送（對話保留時，回來帶的問題接在後面）
-    const takeQuery = (qy = {}) => { if (qy.q) { const q0 = qy.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); } };
+    const takeQuery = (qy = {}) => { const seen = takeHandoff(agentId); if (seen) queueMicrotask(() => send(seen)); if (qy.q) { const q0 = qy.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); } };
     takeQuery(query);
 
-    async function send(raw, { pageContext = '' } = {}) {
+    async function send(raw, { pageContext = '', voice: spoken = false } = {}) {
       const q = String(raw || '').trim().slice(0, 500);
       if (!q) return;
       let pendingAsk = null;
@@ -288,7 +297,7 @@ export default {
         if (a.ask.pending?.slot) pendingAsk = { id: a.ask.id, ...a.ask.pending };
         a.skip();
       }
-      if (busy) { pendingQ = { q, pageContext }; return; }
+      if (busy) { pendingQ = { q, pageContext, voice: spoken }; return; }
       turnNo += 1;
       pastWrap?.querySelector('.past-acts button') && pastWrap.querySelector('.past-acts').replaceChildren(el('span', 'past-note', history.length ? '接著上次的話問' : '這次重新問（上次的對話只留著看）'));
       const myGen = gen;
@@ -296,7 +305,7 @@ export default {
       busy = true; sendBtn.disabled = true; input.value = ''; mention.replaceChildren();
       pageRow.hidden = true;
       history.push({ role: 'user', content: q });
-      log.append(el('div', 'msg user', q));
+      log.append(el('div', `msg user${spoken ? ' spoken' : ''}`, q)); // 用說的：泡泡上一個小麥克風（css）
       const turn = el('div', 'turn');
       log.append(turn);
       const view = turnView(turn, /[A-Za-z]{2,}/.test(q) && !/[一-鿿]/.test(q) ? 'en' : null); // 先猜（第一個畫面用）；伺服器的 status 事件會說這一輪真正的語言
@@ -325,7 +334,7 @@ export default {
       } finally {
         view.stop(); // 沒有回答（只有卡片、或中斷）也收起「阿幫在想」
         busy = false; sendBtn.disabled = false; context = '';
-        if (pendingQ) { const p = pendingQ; pendingQ = null; queueMicrotask(() => send(p.q, { pageContext: p.pageContext })); }
+        if (pendingQ) { const p = pendingQ; pendingQ = null; queueMicrotask(() => send(p.q, { pageContext: p.pageContext, voice: p.voice })); }
         if (!matchMedia('(pointer: coarse)').matches) input.focus(); // 手機不自動聚焦：鍵盤會跳出來蓋住回答
       }
     }
@@ -342,6 +351,7 @@ export default {
       turn.append(thread, results, think.el);
       const bubbles = new Map();
       const roles = []; // 本輪回報的小幫手角色（決策圖的資料欄）
+      const reported = new Set(); // 本輪已經點名過的工具角色（示範模式另外查了天氣、空品、路況：data_note 不重複）。tool_start 就記：工具平行，weather_now 可能比 plan_trip 晚完成
       let queue = Promise.resolve();
       let lastShown = 0;
       let textEl = null;
@@ -406,6 +416,8 @@ export default {
           case 'tool_start': {
             if (!roles.includes(e.role)) roles.push(e.role);
             const b = el('div', 'bubble tool', avatar(e.role, 'think', turnLang), el('div', 'say typing', ...typing(turnLang === 'en' ? 'checking' : '輸入中')), el('small', 'src', `${e.name} · ${e.server}`));
+            b.dataset.role = e.role;
+            if (e.name !== 'plan_trip') reported.add(e.role); // tool_start 一定比 data_note 早送
             bubbles.set(e.id, b);
             thread.append(b);
             break;
@@ -441,6 +453,20 @@ export default {
                 cards.push(Object.assign(renderCard(slot, payload, host), { turn: turnNo }));
               }
             }
+            break;
+          }
+          case 'data_note': { // 行程比較內部用到的資料（天氣、空品、路況）＋影響：工具發言樣式，排在行程結論前面（AGENT.md §3.1）
+            if (!roles.includes(e.role)) roles.push(e.role);
+            if (reported.has(e.role)) break; // 這一輪已經有這位小幫手的發言（示範模式另外查過），不重複
+            await gap();
+            const src = el('small', 'src', turnLang === 'en' ? 'used in trip comparison' : '行程比較用到的資料');
+            if (e.mode === 'demo') src.append(' · ', el('span', 'src-demo', turnLang === 'en' ? 'Demo data' : '示範資料'));
+            const say = el('div', 'say', e.text);
+            const b = el('div', `bubble tool data-note${e.available === false ? ' missing' : ''}`, avatar(e.role, 'think', turnLang), say, src);
+            b.dataset.role = e.role;
+            if (e.impact?.text) say.after(el('div', `impact ${e.impact.tone || 'neutral'}`, el('span', 'arrow', '→'), e.impact.text));
+            const parent = bubbles.get(e.parent);
+            if (parent?.parentNode === thread) parent.before(b); else thread.append(b);
             break;
           }
           case 'discussion_end': {
@@ -557,6 +583,11 @@ export default {
       focus: () => input.focus({ preventScroll: true }),
       ask: (q) => send(q),
       hasChat: () => history.length > 0,
+      /** 長按中央鍵用說的（abang-dock.js）：voiceReady 能不能用、voiceHold 開始、voiceRelease 放開送出、voiceCancel 收起時取消 */
+      voiceReady: () => !!voice?.ready(),
+      voiceHold: () => voice?.hold(),
+      voiceRelease: () => voice?.release(),
+      voiceCancel: () => voice?.cancel(),
       /** 設定頁清除本機資料：畫面上的對話也一起清掉 */
       clear() { gen++; clearChat(); history.length = 0; pendingQ = null; openAsk = null; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); showDefaults(); },
       /** 從哪一頁打開（浮動阿幫）：那一頁可以問的問題；點了才把這一頁的說明一起送（自己打的問題不帶）；null＝清掉 */

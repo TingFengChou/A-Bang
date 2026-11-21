@@ -29,14 +29,24 @@ const EN = {
   step1: '① Gathering data', step2: '② Your situation', step3: (c) => `③ Comparing: ${c}`, step4: (n) => `④ Decision: ${n}`, decide: '④ Decision',
   hint: 'Want another way? Tap an option and Abang recalculates', chips: 'Your situation (tap to toggle, recalculates right away)',
   habit: (m) => `You agreed: prefer ${m}`, habitWhy: 'Why?', habitPaused: 'You told Abang your situation, so this preference is not counted this time', habitNote: 'You said yes to preferring it. When you don\'t mention your situation it gets a small bonus (up to 8 pts). Stored only on this phone; undo it in Settings.', often: 'you prefer it', habitCrit: 'Preference',
-  details: 'Comparison details', pts: (n, s) => `${n}: ${s} pts`, title: 'How Abang decided', pick: (n) => `Switch to ${n}`, ex: (n, w) => `${n}, excluded: ${w}`,
+  details: 'Comparison details', effNone: 'No effect', effNA: 'Not used', effScore: 'Delay risk', pts: (n, s) => `${n}: ${s} pts`, title: 'How Abang decided', pick: (n) => `Switch to ${n}`, ex: (n, w) => `${n}, excluded: ${w}`,
 };
 /** 方案名稱縮短，分數一定看得到（「叫車（Uber）」→「叫車」） */
 const short = (n) => { const x = String(n).replace(/（.*?）|\(.*?\)/g, ''); return x.length > 6 ? `${x.slice(0, 5)}…` : x; };
 /** 精簡模式：低階裝置或 reduced motion（UX.md §9）——只淡入、不做翻轉與 3D */
 export const lite = () => (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches)
   || (typeof navigator !== 'undefined' && navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4);
-const W = 440, OPT_X = 300, OPT_W = 128;
+const W = 440, OPT_X = 300, OPT_W = 128, SRC_X = 38;
+
+/**
+ * 「資料」欄的節點（UX.md §5）：plan_trip 判斷用到的來源（decision.considered：天氣、空品、路況）在前，其他本輪回報的小幫手在後。
+ * 每個節點帶值與影響：effect none＝不影響（淡色）、狀態 key＝連到那個狀態、查不到照實寫。
+ * @returns {Array<{ role: string, value?: string, effect?: string, available?: boolean, text?: string, say?: string }>}
+ */
+export function dataNodes(decision, sources = [], en = false) {
+  const con = (decision.considered || []).map((c) => ({ role: c.role, value: en ? c.valueEn : c.value, effect: c.effect, available: c.available, text: c.text, say: c.say }));
+  return [...con, ...sources.filter((r) => r !== '行程' && !con.some((c) => c.role === r)).map((role) => ({ role }))];
+}
 
 function el(tag, cls, ...kids) {
   const e = document.createElement(tag);
@@ -74,6 +84,10 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     return `${nameOf(best)} wins${top.length ? `: ${top.join(', ')}` : ''}.`;
   };
   const initial = decision.states.map((s) => ({ ...s, on: true }));
+  const data = dataNodes(decision, sources, en); // 資料欄（每個來源一個節點）
+  const dataRoles = data.map((d) => d.role);
+  /** 節點第二行：影響 */
+  const effOf = (d) => (d.available === false ? (en ? EN.effNA : '不列入') : d.effect === 'none' ? (en ? EN.effNone : '不影響') : d.effect === 'score' ? (en ? EN.effScore : '延誤風險') : d.effect ? `→ ${SL[d.effect] || d.effect}` : null);
   let states = initial;
   let run = 0;
   // 習慣（「你常選：捷運」）：手機記的常選比例；可以點掉（即時重算），旁邊「為什麼」看次數；第一次出現時說明一次
@@ -113,6 +127,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       el('p', 'dg-step', bestOpt ? (en ? EN.step4(nameOf(bestOpt)) : `④ 決定：${bestOpt.name}`) : (en ? EN.decide : '④ 決定')),
       graph(ranked, excluded, active, r.best?.id),
       el('p', 'dg-why', en ? enReason(bestOpt, ranked.find((o) => o.id !== bestOpt?.id)) : reason), // 英文：程式依分數組一句英文理由
+      decision.single && el('p', 'dg-single', en ? decision.single.textEn : decision.single.text), // 只有一種方式：其他方式為什麼不在
       onPick && ranked.length > 1 && el('p', 'dg-hint', en ? EN.hint : '想換方式？點其他方案，阿幫會用它重算'), // 審查：手機沒有 hover，要寫出來
       details(ranked),
     ].filter(Boolean));
@@ -168,14 +183,14 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     const tl = g.timeline({ defaults: { ease: 'power2.out' } });
     // ① 收集資料
     tl.call(step(en ? EN.step1 : '① 收集資料'));
-    sources.forEach((role, i) => {
+    dataRoles.forEach((role, i) => {
       const node = root.querySelector(`.dg-src[data-role="${role}"]`), edge = root.querySelector(`.dg-in-edge[data-role="${role}"]`);
       if (!node || !edge) return;
       const at = 0.1 + i * 0.42;
       tl.to(node, { opacity: 1, duration: 0.2 }, at)
         .fromTo(node, { scale: 1 }, { scale: 1.25, yoyo: true, repeat: 1, duration: 0.14, transformOrigin: '50% 50%' }, at)
         .to(edge, { strokeDashoffset: 0, duration: 0.35 }, at);
-      const label = (en && decision.signalsEn?.[role]) || decision.signals?.[role]; // 英文那一輪用英文膠囊（S12f）
+      const label = data[i]?.value || (en && decision.signalsEn?.[role]) || decision.signals?.[role]; // 資料欄的值；英文那一輪用英文膠囊（S12f）
       if (label && globalThis.MotionPathPlugin) {
         const col = MODE_COLOR[modeOf(role)] || '#0f766e';
         const w = Math.max(30, [...label].length * 10 + 14);
@@ -294,30 +309,37 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
   // 版面（原型 transit-discussion.html 的會議感）：左＝資料來源圓點、中＝阿幫（吉祥物）、右＝方案；狀態膠囊在阿幫上方
   function graph(ranked, excluded, active, bestId) {
     const opts = [...ranked, ...excluded];
-    const H = Math.max(240, Math.max(sources.length, opts.length) * 50 + 56);
+    const H = Math.max(240, opts.length * 50 + 56, data.length * 66 + 56); // 資料節點多兩行字（值、影響），間距大一點
     const C = { x: 196, y: H / 2 + 10 };
     const ys = (n, i) => (n <= 1 ? C.y : 40 + (i * (H - 90)) / (n - 1)); // 底下留給來源名稱
     const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'dg-svg', role: 'img', 'aria-labelledby': 'dg-title dg-desc' });
     s.append(svg('title', { id: 'dg-title' }, en ? EN.title : '決策圖'),
-      svg('desc', { id: 'dg-desc' }, en ? `Data: ${sources.map(roleOf).join(', ')}. Situation: ${active.map((k) => SL[k]).join(', ') || 'none'}. Options by score: ${ranked.map((o) => `${nameOf(o)} ${o.score}`).join(', ')}.` : `資料：${sources.join('、')}；狀態：${active.map((k) => SL[k]).join('、') || '無'}；方案依分數：${ranked.map((o) => `${o.name} ${o.score}`).join('、')}${excluded.length ? `；排除：${excluded.map((o) => `${o.name}（${exLabel(o.why) === '不要' ? '你說不要' : exLabel(o.why) === '遲到' ? '會遲到' : '排除'}）`).join('、')}` : ''}`));
-    (en ? EN.cols : ['資料', '阿幫', '方案']).forEach((t, i) => s.append(svg('text', { x: [34, C.x, OPT_X + 4][i], y: 16, class: 'dg-col', 'text-anchor': i === 2 ? 'start' : 'middle' }, t)));
+      svg('desc', { id: 'dg-desc' }, en ? `Data: ${data.map((d) => `${roleOf(d.role)}${d.value ? ` ${d.value}` : ''}`).join(', ')}. Situation: ${active.map((k) => SL[k]).join(', ') || 'none'}. Options by score: ${ranked.map((o) => `${nameOf(o)} ${o.score}`).join(', ')}.` : `資料：${data.map((d) => `${d.role}${d.value ? ` ${d.value}（${effOf(d)}）` : ''}`).join('、')}；狀態：${active.map((k) => SL[k]).join('、') || '無'}；方案依分數：${ranked.map((o) => `${o.name} ${o.score}`).join('、')}${excluded.length ? `；排除：${excluded.map((o) => `${o.name}（${exLabel(o.why) === '不要' ? '你說不要' : exLabel(o.why) === '遲到' ? '會遲到' : '排除'}）`).join('、')}` : ''}`));
+    (en ? EN.cols : ['資料', '阿幫', '方案']).forEach((t, i) => s.append(svg('text', { x: [SRC_X, C.x, OPT_X + 4][i], y: 16, class: 'dg-col', 'text-anchor': i === 2 ? 'start' : 'middle' }, t)));
     const edges = svg('g', { class: 'dg-edges' }), nodes = svg('g', { class: 'dg-nodes' });
     s.append(edges, nodes);
     const best = ranked.find((o) => o.id === bestId);
     const winRoles = new Set(best ? keyRoles(best, ranked[1], active) : []);
     // 1 資料來源 → 阿幫
     const srcY = new Map();
-    sources.forEach((role, i) => {
-      const y = ys(sources.length, i), x = 34;
+    data.forEach((d, i) => {
+      const { role } = d;
+      const y = ys(data.length, i), x = SRC_X;
       srcY.set(role, y);
-      const lit = winRoles.has(role);
-      edges.append(svg('path', { d: `M${x + 16},${y} C${x + 70},${y} ${C.x - 80},${C.y} ${C.x - 30},${C.y}`, class: `dg-edge dg-in-edge step1${lit ? ' win' : ''}`, 'data-role': role }));
-      const g = svg('g', { class: `dg-node dg-src step1${lit ? ' win' : ''}`, 'data-role': role, transform: `translate(${x},${y})` });
+      const quiet = d.available === false || d.effect === 'none'; // 不影響、查不到：淡色
+      const lit = winRoles.has(role) && !quiet; // 說「不影響」的來源不標成勝出關鍵
+      edges.append(svg('path', { d: `M${x + 16},${y} C${x + 70},${y} ${C.x - 80},${C.y} ${C.x - 30},${C.y}`, class: `dg-edge dg-in-edge step1${lit ? ' win' : ''}${quiet ? ' quiet' : ''}`, 'data-role': role }));
+      const g = svg('g', { class: `dg-node dg-src step1${lit ? ' win' : ''}${quiet ? ' quiet' : ''}${d.available === false ? ' na' : ''}${d.effect && !quiet ? ' affects' : ''}`, 'data-role': role, ...(d.effect && { 'data-effect': d.available === false ? 'na' : d.effect }), transform: `translate(${x},${y})` });
+      if (d.text) g.append(svg('title', {}, `${d.text}：${d.say}`)); // 完整的資料與影響（滑過或讀屏）
       const col = MODE_COLOR[modeOf(role)] || '#0f766e';
       g.append(svg('circle', { r: 16, class: 'dg-src-c', style: `stroke:${col}` }));
       const ic = svgIcon(role, -9, -9, 18);
       if (ic) { ic.style.color = col; g.append(ic); }
-      g.append(svg('text', { y: 30, 'text-anchor': 'middle', class: 'dg-lbl' }, roleOf(role)));
+      const lbl = svg('text', { y: 29, 'text-anchor': 'middle', class: 'dg-lbl' }, roleOf(role));
+      if (d.value) lbl.append(svg('tspan', { dx: 3, class: 'dg-val' }, d.value));
+      g.append(lbl);
+      const eff = effOf(d);
+      if (eff) g.append(svg('text', { y: 41, 'text-anchor': 'middle', class: 'dg-eff' }, eff));
       nodes.append(g);
     });
     // 2 阿幫（中心）：吉祥物；狀態膠囊疊在上方，自動狀態以點線連回來源
@@ -331,7 +353,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       const label = SL[k], tag = SRC[st?.source] || '';
       const y = C.y - 52 - i * 24, w = label.length * 12 + tag.length * 10 + 24;
       const from = srcY.get(STATE_SOURCE[k]);
-      if (st?.source === 'auto' && from != null) edges.append(svg('path', { d: `M50,${from} Q${C.x - 70},${y} ${C.x - w / 2},${y}`, class: 'dg-edge dashed dg-link step2' }));
+      if (st?.source === 'auto' && from != null) edges.append(svg('path', { d: `M${SRC_X + 16},${from} Q${C.x - 70},${y} ${C.x - w / 2},${y}`, class: 'dg-edge dashed dg-link step2' }));
       const g = svg('g', { class: `dg-node dg-state step2 src-${st?.source}`, transform: `translate(${C.x},${y})` });
       g.append(svg('rect', { x: -w / 2, y: -10, width: w, height: 20, rx: 10 }));
       const t = svg('text', { y: 4, 'text-anchor': 'middle' }, label);

@@ -18,6 +18,7 @@
 | [0012](0012-model-providers.md) | 網頁 agent 的模型可選 Claude 或地端模型 | 已採用・M5-05 | `core/agent/` |
 | [0013](0013-native-app-capacitor.md) | 手機 App 用 Capacitor 包現有網頁 | 已採用 | `android/`、`ios/`、`scripts/build-app.js` |
 | [0014](0014-edge-ai.md) | 裝置端 AI：手機上判斷意圖與狀態（Apple Intelligence、Gemini Nano） | 已採用 | `AbangEdgeAI` 外掛、`public/js/edge-judge.js`、`judge.js` |
+| [0015](0015-see-and-hear.md) | 裝置端的聽與看：手機上先讀懂，只送文字 | 已採用 | `AbangVision`／`AbangVoice` 外掛、`public/js/vision.js`、`core/vision-text.js` |
 | [0016](0016-ask-the-user.md) | 阿幫問你：答案取決於使用者時問一句（事件 `ask`、pending、什麼時候問／不問） | 已採用 | `core/agent/ask.js`、`keyQuestion`、`public/ui/agent/ask.js` |
 
 範本：

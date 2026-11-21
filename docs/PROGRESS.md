@@ -13,7 +13,51 @@
 
 ---
 
+## 2026-11-21 R1 判斷看得到：討論串與決策圖逐項說明天氣、空品、路況怎麼影響建議
+- 做了：`core/services/trip-considered.js`：`plan_trip` 輸出 `considered`（天氣、空品、國道路況各一筆：值、資料一句、影響一句、`effect`＝none／score／自動狀態 key、查不到、示範標記）與 `single`（只有一種方式時，依各方式沒列出的原因組說明＋建議）。`execTools` 在行程結論前送三個 `data_note`（新事件；示範與模型模式相同，不經模型），前端以工具發言樣式排在行程發言前面，示範模式另外查過的角色不重複。決策圖資料欄改用 `decision.considered`：每個來源一個節點、帶值與影響，不影響與查不到淡色、不標成勝出關鍵。最近的空品測站超過 25 公里不採用（之前墾丁會拿台中大里測站判斷）；另外查的 `aqi_nearby` 影響也一樣。只有一種方式：`speak`「只找到叫車一種方式」、討論串影響與示範總結說原因（太遠、附近沒有站、幾點以後沒有趕得上的班次、示範資料是模擬的），「接下來可以」給「改成明天早上出發」「改從台北車站出發比較看看」。模型看到的工具文字多「判斷用到的資料」「只有一種方式」兩行。合併主線（#101～#105）後：TDX 額度用完改用示範資料時，路況那一行標示範並說明。審查修正：建議 chip 帶著使用者說的起點；只有一種方式的說明看這次有沒有 TDX fallback（`currentFallback()`）；data_note 去重改在 tool_start 記角色（工具平行時天氣可能晚到）。SW v0.9.9。
+- 重現與判斷（第 4 點）：示範的公車、YouBike、天氣本來就以使用者位置產生；「只比了叫車」是 20 公里以上的行程在 23 點後（示範客運 06～23 點、火車沒有班次）。捷運與空品的示範資料是真實站名與真實數值片段，在台北以外「以位置為中心產生示範站」會變成假的捷運站與假測站讀數，所以不做；改成照實說原因（查不到、太遠、沒有班次）並標明示範資料範圍。
+- 測試：npm test 新增 13 項（trip-considered.test.js）、agent-model／agent-events 更新；E2E 新增 2 項（模擬模型模式的討論串與資料欄、桃園深夜只剩叫車）
+- 文件：AGENT.md §3.1、§5.2.10b；UX.md §4、§5；MCP_TOOLS.md plan_trip 7.1；ADR-0009 補充；PLAN.md R1；PROGRESS.md
+- 下一個：「阿幫問你」合進來後，single.suggest 改用它
+- 卡住：無
 
+## 2026-11-21 真實資料接上：TDX、氣象署、環境部金鑰；TDX 頻率限制
+- 做了：Austin 申請並放好 TDX、氣象署、環境部金鑰（只在 .env），交通、天氣、空品、地震都變成即時資料。實測 TDX 新帳號在「加值應用」審核前每分鐘只有 5 次（429），行程比較會連續呼叫而失敗：tdx-client 加請求排隊（同時 3 個、間隔 220ms）、429 時照 Retry-After 重試一次；Austin 決定先不申請加值應用，所以額度用完時這一次改用示範資料（`withTdxFallback`，結果標示範並說明），不讓查詢失敗。
+- 測試：npm test 722 項全過（test/tdx-rate-limit.test.js 5 項）
+- 文件：DATA_SOURCES.md、PROGRESS.md
+- 下一個：TDX 加值應用審核通過後重測額度；行程比較減少 TDX 呼叫次數（快取、合併查詢）
+- 卡住：TDX 加值應用審核（Austin）
+
+## 2026-11-21 M14-02 阿幫會看（＋M11-03 原生相機掃發票）
+- 做了：專案內外掛 `AbangVision`（Android：系統相機寫 App 暫存檔讀完即刪、Photo Picker、ML Kit 中文文字辨識 16.0.1 與條碼掃描 17.3.0 打包版、Gemini Nano 看圖分類〔選用，試過才回報〕；iOS：UIImagePickerController、PHPicker、Vision 讀字與條碼）。前端 `public/js/vision.js`：輸入列相機鍵（問阿幫、底部對話、防詐頁）、「阿幫在看」動畫、「阿幫看到了：…」確認後才送；可疑訊息走防詐（生活頁先問）、站牌組問題可改、發票存進我的發票並對獎；個資提醒與遮號碼；網頁版只用瀏覽器本機辨識。規則 `core/vision-text.js`（共用給前端）；demo-intent 認得問題裡的站名、`bus_route_eta` 有站名沒縣市時用位置推縣市。設定頁「讓阿幫看照片」、隱私權政策、`#/ai`「阿幫會看」卡。SW v0.9.7-vision。
+- 測試：npm test 新增 18 項（vision.test.js）；E2E 新增 6 項（假外掛：簡訊、站牌、發票、權限被拒、網頁降級、reduced motion）；Android assembleDebug、iOS xcodebuild（不簽署）成功
+- 文件：ADR-0015、adr/README、UX.md §5.0.4、AGENT_ANTIFRAUD.md §1、PLAN.md（M14-02、M11-03）、CLAUDE.md、PROGRESS.md
+- 下一個：Pixel、iPhone 實機確認讀字品質與權限流程
+- 卡住：無（APK 大小：打包版 ML Kit 讓 debug APK 約 10→74 MB；產品負責人同意打包在 App 裡）
+- 審查修正：拍照暫存檔在 App 被回收時也刪、外掛啟動清空、FileProvider 只開放 cache/vision/；讀圖接住 OutOfMemoryError、解碼時就縮；Gemini Nano 只有 NOT_SUPPORTED 才記不支援；網址降為 1 分、讀到路線時不蓋過站牌；常駐播報區與每步焦點；輸入列相機鍵只在能讀字時顯示；交給防詐頁的文字 30 秒過期；iOS 擋重入、發票不做語言校正。
+- 合併主線（語音 M14-01，PR #102）：輸入列＝相機（左）、輸入框、麥克風、送出（375px 不溢出，輸入框 min-width 0，E2E 量寬度）；AbangVision＋AbangVoice 都註冊、Info.plist 相機／麥克風／語音權限都在；設定頁兩個開關與隱私段落、#/ai「聽」「看」兩張卡；「阿幫會看」改為 UX.md §5.0.4；ADR-0015 補語音細節；SW v0.9.8。
+
+
+## 2026-11-21 M14-01c 語音審查修正
+- 做了：權限框與取消的競爭（原生 start 記號碼、權限回來先比對，被取消就 reject client 不開麥克風；Android 權限框的 onPause 不拆；JS 準備聽時的 visibilitychange 不取消）；長按真的放開才結束（start 帶 hold：iOS 不因停頓收尾、Android 停頓 8 秒；提早收尾時 JS 累加那一段接著聽）；Android available 的 checkRecognitionSupport 包 try/catch＋3 秒逾時；Android 13 下載語言包的辨識器延後拆（待實機驗證）；iOS teardown 把音訊類別設回 ambient、監聽音訊中斷與引擎設定改變；原生到背景時送 error 事件。
+- 測試：voice.test.js 14 項；E2E 新增權限框不取消、長按帶 hold
+- 文件：UX.md §5.0.3、PROGRESS.md
+- 下一個：合併主線、送 PR
+- 卡住：無
+
+## 2026-11-21 M14-01a 語音只在手機上辨識、協助下載語言包、不支援就反白
+- 做了：依產品負責人決定拿掉「退回系統／雲端辨識」：Android 只用手機上的辨識器，API 33+ 看語言包（可下載 → 第一次按麥克風就 `triggerModelDownload`，Android 14+ 用 ModelDownloadListener 回報進度，13 每 3 秒再問；下載中麥克風「準備中」；排在 Wi-Fi／失敗 → 「到手機設定下載」開語音輸入設定）；API 31、32 語言不能用回 `language-missing`。iOS 只在 `supportsOnDeviceRecognition` 時用（SFSpeechRecognizer 沒有下載 API，說怎麼開聽寫）。不支援就反白（`aria-disabled`、仍可按、按了說原因）；網頁版不能本機辨識仍不顯示。`#/ai`「聽」卡片、設定頁、隱私權政策、Info.plist 文案改成「語音只在手機上轉成文字，不錄音、不上傳」。
+- 測試：voice.test.js 12 項（新增語言包下載）；E2E 新增 2 項（反白與原因、語言包下載），截圖 phone-voice-unsupported.png
+- 文件：UX.md §5.0.3、PLAN.md、PROGRESS.md
+- 下一個：M14-01b 實機確認
+- 卡住：無
+
+## 2026-11-21 M14-01 阿幫聽得懂：語音問阿幫（手機上辨識）
+- 做了：原生外掛 `AbangVoice`（Android `AbangVoicePlugin.java`：API 31+ 手機上辨識器、API 33+ 查語言包、否則系統辨識＋EXTRA_PREFER_OFFLINE；iOS `AbangVoicePlugin.swift`：SFSpeechRecognizer＋AVAudioEngine、`requiresOnDeviceRecognition`、停頓 1.5 秒收尾；都回報 onDevice、partial／level／final／error 事件、錯誤碼對應、到背景就停）。前端 `voice.js`（狀態機、控制器、原生與網頁兩種來源）、`voice-i18n.js`、`agent/voice-ui.js`（麥克風鍵、在聽面板、核心跟著音量）；長按中央鍵放開送出（`abang-dock.js`）；用說的那一句泡泡有小麥克風；設定頁開關與麥克風權限、隱私權政策、`#/ai`「聽」卡片。網頁版只在 Google Chrome 能本機辨識時顯示（無頭 Chromium 呼叫 `available()` 會當掉）。SW v0.9.7。
+- 測試：npm test 新增 11 項（voice.test.js）；E2E 新增 6 項（假外掛：麥克風鍵、在聽與即時文字、自動送出接上阿幫在想、長按中央鍵、停頓自動結束、英文辨識、取消、權限被拒、網頁版不顯示／本機辨識才顯示、reduced motion、`#/ai` 與設定）；截圖 phone-voice-listening.png、phone-voice-sent.png；`smoke:android` 外掛清單加 AbangVoice 並檢查麥克風鍵；Android assembleDebug、iOS xcodebuild（不簽署）成功
+- 文件：UX.md §5.0.3、PLAN.md M14、CLAUDE.md、PROGRESS.md
+- 下一個：M14-01b 實機確認（Pixel、iPhone）
+- 卡住：無（實機需 Austin 的手機）
 
 ## 2026-11-21 P2 阿幫問你（調整）：同一題 24 小時只問一次；說過的狀況改成每次確認
 - 做了：關鍵問題事件帶 `key`（狀態＋起訖座標到小數 2 位），手機 24 小時內問過就不顯示（`habits.js` `seenQ` 只存 8 碼雜湊、最多 50 筆、點「不趕」也算問過）。叫車原因（常帶東西／趕時間／不想走路）不再自動套用：這一輪沒說條件、而且會換建議時問「這次也帶東西嗎？」〔是（猜的）〕〔這次沒有〕，點〔是〕才加上「你說過：常帶東西」重算（`tripAsk` 的 `usualAsk`；kind state＋source usual）。移除 `withUsual`。習慣上限維持 8 分。

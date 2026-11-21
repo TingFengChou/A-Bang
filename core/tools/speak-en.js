@@ -45,6 +45,7 @@ export const SPEAK_EN = {
   plan_trip: (d) => {
     const best = d.options.find((o) => o.id === d.best);
     if (!best) return 'No workable way found for this trip.';
+    if (d.single) return `Only one option found: ${enName(best)} (${best.minutes} min).`;
     return `Compared ${plural(d.options.length, 'option')}; best is ${enName(best)} (${best.minutes} min).`;
   },
   weather_now: (d) => {
@@ -101,6 +102,7 @@ export function impactEn(name, data) {
     return f.etaSec < 180 ? { tone: 'bad', text: 'This bus is almost here; you may not make it' } : { tone: 'good', text: `About ${mins(f.etaSec)} min left, enough time to walk there` };
   }
   if (name === 'plan_trip') {
+    if (data.single) return { tone: 'bad', text: 'Only one way works for this trip (see "How Abang decided")' };
     const skip = data.skipped?.find((s) => s.role === 'bike');
     if (skip) return { tone: 'bad', text: 'YouBike: not available at one end, left out' };
     const b = data.options?.find((o) => o.role === 'bike')?.bike;

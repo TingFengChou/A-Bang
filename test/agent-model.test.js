@@ -85,15 +85,18 @@ test('Claude：工具前的文字 → agent_note、工具事件與 decision、�
   const es = await run(claude(), '從西門町到台北 101 怎麼去？', { userState: { picked: ['budget'] } });
   // 起訖點都知道 → 程式先比較（plan_trip），想省錢 → 決策選公車 → 阿幫自動盯上車站（L-14：不靠模型記得要查）；
   // 模型之後用同樣條件呼叫 plan_trip 沿用結果（不再出現第二張卡片）
-  assert.deepEqual(types(es), ['status', 'tool_start', 'tool_result', 'decision', 'agent_note', 'tool_start', 'tool_result', 'agent_note', 'tool_start', 'tool_start', 'tool_result', 'tool_result', 'agent_note', 'discussion_end', 'text', 'done']);
-  assert.match(es[4].text, /^@公車 你選了公車，我幫你盯/);
-  assert.equal(es[6].tool, 'bus_route_eta');
-  assert.equal(es[6].card, 'bus-route');
-  assert.ok(es[6].data.focus, '卡片聚焦上車站');
+  // 模型模式也由程式逐項說明行程比較用到的天氣、空品、路況（data_note，排在行程結論前面；不靠模型）
+  assert.deepEqual(types(es), ['status', 'tool_start', 'data_note', 'data_note', 'data_note', 'tool_result', 'decision', 'agent_note', 'tool_start', 'tool_result', 'agent_note', 'tool_start', 'tool_start', 'tool_result', 'tool_result', 'agent_note', 'discussion_end', 'text', 'done']);
+  assert.deepEqual(es.filter((e) => e.type === 'data_note').map((e) => e.role), ['天氣', '空品', '路況']);
+  assert.ok(es.filter((e) => e.type === 'data_note').every((e) => e.parent === es[1].id && e.impact.text && e.mode === 'demo'));
+  assert.match(es[7].text, /^@公車 你選了公車，我幫你盯/);
+  assert.equal(es[9].tool, 'bus_route_eta');
+  assert.equal(es[9].card, 'bus-route');
+  assert.ok(es[9].data.focus, '卡片聚焦上車站');
   assert.equal(es.filter((e) => e.type === 'decision').length, 1);
   assert.deepEqual(es.find((e) => e.type === 'discussion_end').tools.sort(), ['bus_route_eta', 'find_place', 'plan_trip']);
   assert.deepEqual([es[0].mode, es[0].model], ['claude', 'claude-haiku-5-5']);
-  assert.equal(es[7].text, '@地點 先確認兩個地點');
+  assert.equal(es[10].text, '@地點 先確認兩個地點');
   assert.ok(es.filter((e) => e.type === 'tool_result').every((e) => e.ok && e.speak));
   // 使用者點選的狀態一律交給 plan_trip（模型沒帶也會補上）
   assert.ok(es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip').args.prefs.states.includes('budget'));

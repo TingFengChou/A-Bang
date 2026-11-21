@@ -9,6 +9,12 @@
     <queries>
         <package android:name="com.google.android.aicore" />
     </queries>
+    <!-- 語音問阿幫（M14-01）：Android 11 以上要宣告才找得到系統的語音辨識服務（SpeechRecognizer） -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="true"
@@ -54,6 +60,9 @@
     <!-- 掃發票 QR code（WebView 相機；影像只在手機上解讀） -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- 語音問阿幫（M14-01）：第一次按麥克風才問；語音只在手機上轉成文字，不錄音存檔、不上傳 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <!-- 公車提醒不用精準鬧鐘（Google Play 只允許鬧鐘、行事曆類核心功能）：移除外掛合併進來的權限，排程改用一般排程＋提早 30 秒 -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
 </manifest>

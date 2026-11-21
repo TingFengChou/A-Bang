@@ -128,6 +128,8 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
       if (!profile.tools.includes(c.name)) throw new UserError(`這個 agent 不能使用 ${c.name}`);
       const args = c.name === 'plan_trip' ? withHabit(withPickedPrefs(c.args, picked, judgedStates), habit) : c.args;
       const result = await callTool(svc, c.name, args);
+      // 行程比較內部查的天氣、空品、路況：各出一行「資料＋影響」（程式產生；排在行程的結論前面）
+      if (c.name === 'plan_trip') for (const item of result.data?.considered || []) emit(ev.dataNote({ parent: c.id, item, lang }));
       emit(ev.toolResult({ id: c.id, result: shown(c.name, result), impact: impactFor(c.name, result.data) }));
       if (c.name !== 'plan_trip') return { name: c.name, ok: true, result };
       emit(ev.decision(withPicked(result.data, picked)));
