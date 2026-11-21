@@ -57,3 +57,10 @@ test('模型已經說了按「叫車」用官方 App：只補付款那句，不�
   assert.equal(mustSay('建議叫車。要按卡片上的「叫車」用官方 App 叫車哦！', best), '建議叫車。要按卡片上的「叫車」用官方 App 叫車哦！付款在叫車 App 完成（阿幫不代付）。');
   assert.match(mustSay('建議叫車。', best), /按卡片上的「叫車」用官方 App 叫車，付款在叫車 App 完成/);
 });
+
+test('明天出發的行程、模型沒說是哪一天：開頭補「明天 08:00 出發：」（P5-2 模型模式）', () => {
+  const trip = { best: 'metro', options: [{ id: 'metro', role: 'metro', name: '捷運' }], ranking: {} };
+  assert.equal(mustSay('搭捷運約 20 分鐘。', trip, { intent: 'trip', departDays: 1, departTime: '08:00' }), '明天 08:00 出發：搭捷運約 20 分鐘。');
+  assert.equal(mustSay('明天早上搭捷運約 20 分鐘。', trip, { intent: 'trip', departDays: 1, departTime: '08:00' }), '明天早上搭捷運約 20 分鐘。', '已經說了就不補');
+  assert.equal(mustSay('搭捷運約 20 分鐘。', trip, { intent: 'trip' }), '搭捷運約 20 分鐘。', '今天出發不補');
+});
