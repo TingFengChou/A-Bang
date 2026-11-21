@@ -878,6 +878,61 @@ test('下車提醒：選下車站、進行中、取消', async () => {
   });
 });
 
+// S12g 公車頁英文：觀光客從英文對話「Open bus page」來（lang=en）：阿幫自己寫的字全英文，站名、路線名照原文；提醒也用英文
+test('公車頁英文：標題、到站、提醒、下車提醒都是英文', async () => {
+  await withPage(DEVICES.phone, '#/bus/Taipei/307?stop=%E6%95%A6%E5%8C%96%E5%B8%82%E5%A0%B4&dir=0&lang=en', async (page) => {
+    await page.waitForSelector('.bus-focus .alight select');
+    await page.waitForFunction(() => /^Updated /.test(document.querySelector('#upd')?.textContent || ''));
+    assert.equal(await page.textContent('#title'), 'Bus 307');
+    await page.waitForSelector('#banner .demo-banner');
+    assert.equal(await page.textContent('#banner'), 'Demo mode: all data here is sample data, not live.', '頂端示範說明也用英文');
+    assert.equal(await page.textContent('#focus-at'), 'At 敦化市場', '站名照原文');
+    assert.match(await page.textContent('.bus-focus .big'), /^(\d+ min|Arriving|Arriving soon|Not departed yet|Last bus has left|No service today|Not stopping \(traffic control\))$/);
+    assert.match(await page.textContent('#upd'), /^Updated .+ · refreshes every 20 sec$/);
+    assert.equal(await page.textContent('#pick-hint'), 'Tap another stop to change where you get on.');
+    assert.equal(await page.textContent('.timeline .me-tag'), 'You get on here');
+    for (const b of await page.locator('#dirs button').allTextContents()) assert.doesNotMatch(b, /^往/, '方向：To X');
+    for (const e of await page.locator('.timeline .eta').allTextContents()) assert.match(e, /^(\d+ min|Arriving|Arriving soon|Not departed yet|Last bus has left|No service today|Not stopping \(traffic control\))$/, e);
+    assert.match(await page.getAttribute('.ab-scene3d', 'aria-label'), /You're waiting at 敦化市場/);
+    assert.match(await page.getAttribute('.timeline .stop-pick >> nth=0', 'aria-label'), /, set as your stop$/);
+    // 阿幫自己寫的中文 UI 字都不在（站名例外：檢查前先拿掉站名）
+    const ui = await page.evaluate(() => {
+      const main = document.querySelector('#main');
+      const names = new Set([...main.querySelectorAll('.stop-pick, #alight-dest option')].map((x) => x.textContent));
+      let text = main.innerText + [...main.querySelectorAll('[aria-label]')].map((x) => x.getAttribute('aria-label')).join(' ');
+      for (const n of [...names].sort((a, b) => b.length - a.length)) text = text.split(n).join('');
+      return text;
+    });
+    for (const zh of ['到站前', '提醒我', '更新於', '點站名', '點其他', '上車站', '你在這', '即將', '進站', '坐車中', '尚未發車', '設為', '公車在這', '要在哪一站下車', '等車', '還有']) assert.ok(!ui.includes(zh), `不該有「${zh}」`);
+    await shot(page, 'phone-bus-en');
+    // 到站提醒（有車要來時）：英文
+    const alert = page.locator('.bus-focus [data-min="3"]');
+    if (await alert.count()) {
+      assert.equal(await alert.textContent(), 'Remind me 3 min before');
+      await alert.click();
+      await page.waitForSelector('#unwatch');
+      assert.match(await page.textContent('.bus-focus .ok'), /^Set: I'll remind you 3 min before it arrives \(while this page is open\)/);
+      assert.equal(await page.textContent('#unwatch'), 'Cancel reminder');
+      await page.click('#unwatch');
+      await page.waitForSelector('.bus-focus [data-min="3"]');
+    }
+    // 下車提醒：英文；網址的 lang 保留
+    const far = (await page.locator('#alight-dest option').allTextContents()).at(-1);
+    await page.selectOption('#alight-dest', far);
+    assert.equal(await page.textContent('.bus-focus .alight .btn'), 'Remind me before my stop');
+    await page.click('.bus-focus .alight .btn');
+    await page.waitForFunction((d) => document.querySelector('.bus-focus .alight .ok')?.textContent === `Get-off reminder: I'll alert you about 2 min before ${d}`, far);
+    assert.match(await page.textContent('.bus-focus.riding .sub'), /^(On the bus · got on at 敦化市場|Bus is almost at 敦化市場\. Timing starts once you get on\.)$/);
+    assert.match(await page.textContent('.bus-focus.riding .big'), new RegExp(`^(\\d+ min to|Almost at) ${far}$`));
+    assert.equal(await page.textContent('.timeline .me-tag.off'), 'You get off here');
+    await shot(page, 'phone-bus-en-riding');
+    await page.click('.bus-focus .alight .btn.ghost');
+    await page.waitForSelector('#alight-dest');
+    await page.locator('#dirs button:not(.on)').click();
+    assert.match(await page.evaluate(() => location.hash), /dir=1&lang=en$/, '換方向後網址仍帶 lang=en');
+  });
+});
+
 // 阿幫常駐（2026-11-21 Austin：跳去看公車動態，對話不能不見）：換頁回來對話原樣；浮動阿幫拉出同一段對話；提醒由阿幫說
 test('阿幫常駐：開公車頁再回來對話還在、浮動阿幫拉出同一段對話、提醒泡泡', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {

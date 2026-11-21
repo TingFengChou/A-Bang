@@ -2,6 +2,8 @@
 // Blender 算好的低多邊形街景（scripts/blender/bus-scene.py → public/img/scene/），公車依真實「還有幾站」停在路上，
 // 站牌上方寫站名、公車上方寫「601・還有 2 站・約 7 分」。文字是網頁文字（清楚、可縮放、念得出來）。
 // 怎麼走到站牌交給「導航」按鈕（官方地圖 App）。reduced motion／精簡模式：公車不滑動。
+// 文字走卡片字典（scene.*）；lang＝'en'（英文公車頁，S12g）用英文，站名、路線名照原文。
+import { tFor } from './i18n/index.js';
 
 /** 與 public/img/scene/scene.json 相同（test 會比對）：畫布大小、世界 x 每 +1 的畫面位移、站牌牌面、公車 x=0 時的車頂上方 */
 export const SCENE = { w: 960, h: 420, unit: [43.7, 7.0], sign: [708.4, 102.5], busStopAt: 3.2, busLabel: [366.8, 128.6] };
@@ -37,25 +39,28 @@ const still = () => (typeof matchMedia === 'function' && matchMedia('(prefers-re
  * away＝0 只代表前面沒有更早到的站（上一站沒資料時車可能還要 10 分）。PR #29 審查修正。
  * @returns {{ head: string, eta: string, near: boolean }}
  */
-export function sceneSay({ routeName, away, etaSec, etaText, riding = false }) {
+export function sceneSay({ routeName, away, etaSec, etaText, riding = false, lang = null }) {
+  const t = tFor(lang);
   if (away == null) return { head: routeName, eta: etaText, near: false };
-  if (away === 0) return etaSec != null && etaSec <= 60 ? { head: `${routeName}・${riding ? '快到了，準備下車' : '就在你這站'}`, eta: etaText, near: true } : { head: routeName, eta: etaText, near: false };
-  return { head: `${routeName}・還有 ${away} 站`, eta: etaText, near: false };
+  if (away === 0) return etaSec != null && etaSec <= 60 ? { head: `${routeName}${t('scene.sep')}${t(riding ? 'scene.alight' : 'scene.here')}`, eta: etaText, near: true } : { head: routeName, eta: etaText, near: false };
+  return { head: `${routeName}${t('scene.sep')}${t('scene.away', { n: away })}`, eta: etaText, near: false };
 }
 
 /**
- * @param {{ routeName: string, stopName: string, away: number|null, etaSec?: number|null, etaText: string, state?: { sceneX?: number, away?: number|null, at?: boolean, drive?: { x0: number, x1: number, t0: number, ms: number }|null }, riding?: boolean, dataAt?: number|null }} o
+ * @param {{ routeName: string, stopName: string, away: number|null, etaSec?: number|null, etaText: string, state?: { sceneX?: number, away?: number|null, at?: boolean, drive?: { x0: number, x1: number, t0: number, ms: number }|null }, riding?: boolean, dataAt?: number|null, lang?: 'en'|null }} o
  *   away：公車還有幾站（railOf）；null＝推估不出來（未發車等）→ 不畫公車，只寫狀態
  *   dataAt：這筆到站時間是什麼時候查到的（毫秒；提早重畫時只開剩下的時間）
  *   state：同一個頁面跨更新保留（drive 上次慢慢開的起終點與時間、sceneX、away 上次站數）
  * @returns {HTMLElement}
  */
-export function busScene({ routeName, stopName, away, etaSec = null, etaText, state = {}, riding = false, dataAt = null }) {
+export function busScene({ routeName, stopName, away, etaSec = null, etaText, state = {}, riding = false, dataAt = null, lang = null }) {
   const box = document.createElement('div');
   box.className = 'ab-scene3d';
-  const say = sceneSay({ routeName, away, etaSec, etaText, riding });
+  const t = tFor(lang);
+  const sep = t('scene.sep');
+  const say = sceneSay({ routeName, away, etaSec, etaText, riding, lang });
   box.setAttribute('role', 'img');
-  box.setAttribute('aria-label', `${say.head}・${say.eta}；${riding ? `你在車上，在「${stopName}」下車` : `你在「${stopName}」等車`}`); // riding：行程中模式，站牌是下車站
+  box.setAttribute('aria-label', `${say.head}${sep}${say.eta}${lang === 'en' ? '. ' : '；'}${t(riding ? 'scene.riding' : 'scene.waiting', { stop: stopName })}`); // riding：行程中模式，站牌是下車站
   const img = (src, cls) => {
     const i = document.createElement('img');
     Object.assign(i, { src, alt: '', className: cls, decoding: 'async', draggable: false });
@@ -67,7 +72,7 @@ export function busScene({ routeName, stopName, away, etaSec = null, etaText, st
   const stop = el('span', 'ab-scene-label stop', stopName);
   stop.title = stopName;
   const caption = el('span', `ab-scene-label bus${say.near ? ' near' : ''}`);
-  caption.append(el('span', '', `${say.head}・`), el('b', '', say.eta));
+  caption.append(el('span', '', `${say.head}${sep}`), el('b', '', say.eta));
   const top = el('div', 'ab-scene-top'); // 上方一列：說明（分鐘優先完整）＋站名（空間不夠時截斷）
   top.append(caption, stop);
   box.append(img('/img/scene/street.webp', 'ab-scene-bg'), top);

@@ -57,7 +57,7 @@ function focusBlock(d, f, { host, t, rerender, state, locale }) {
         rerender();
       } }, t('busRoute.alertBtn', { n })))),
     rail && railView(rail, t, state),
-    host?.navigate && h('button', { type: 'button', class: 'ab-btn ab-link', onclick: () => host.navigate(`#/bus/${encodeURIComponent(d.city)}/${encodeURIComponent(d.routeName)}?stop=${encodeURIComponent(f.stopName)}&dir=${f.direction}`) }, t('busRoute.openPage')));
+    host?.navigate && h('button', { type: 'button', class: 'ab-btn ab-link', onclick: () => host.navigate(`#/bus/${encodeURIComponent(d.city)}/${encodeURIComponent(d.routeName)}?stop=${encodeURIComponent(f.stopName)}&dir=${f.direction}${locale === 'en' ? '&lang=en' : ''}`) }, t('busRoute.openPage')));
 }
 
 /** 車→我 進度軌：幾站外、站點、公車代幣（刷新時從上次的位置滑到新位置；位置只依真實站序，不在兩次刷新之間推估） */

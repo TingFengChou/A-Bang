@@ -12,6 +12,8 @@ const NID_SPAN = 1000;
 /** 最多同時幾筆（避免無限累積） */
 export const MAX_REMINDERS = 5;
 const TITLE = '阿幫提醒';
+const TITLE_EN = 'Abang reminder';
+const titleOf = (r) => (r.lang === 'en' ? TITLE_EN : TITLE);
 const timers = new Map();
 const emit = () => globalThis.dispatchEvent?.(new CustomEvent('abang:reminders'));
 
@@ -48,9 +50,9 @@ async function showWeb(r) {
   const opts = { body: r.text, icon: '/icons/icon.svg', tag: r.id };
   try {
     const reg = await globalThis.navigator?.serviceWorker?.getRegistration?.();
-    if (reg?.showNotification) { await reg.showNotification(TITLE, opts); return; }
+    if (reg?.showNotification) { await reg.showNotification(titleOf(r), opts); return; }
   } catch { /* 改用建構子 */ }
-  try { new Notification(TITLE, opts); } catch { /* 這個瀏覽器不能顯示 */ }
+  try { new Notification(titleOf(r), opts); } catch { /* 這個瀏覽器不能顯示 */ }
 }
 
 function webTimer(r) {
@@ -75,10 +77,10 @@ function drop(r) {
  * 新增提醒。同一段路線（key）已有提醒就換成新的（改時間）；同時間同文字視為同一筆。
  * @param {Date} when
  * @param {string} text
- * @param {{ key?: string, opt?: string }} [meta]  key：路線（起訖）；opt：方案 id（卡片判斷「這個方案已設定」）
+ * @param {{ key?: string, opt?: string, lang?: 'en' }} [meta]  key：路線（起訖）；opt：方案 id（卡片判斷「這個方案已設定」）；lang：英文卡片設的（通知標題用英文）
  * @returns {Promise<string|false>} 提醒 id；權限被拒、時間不對、裝置不支援回 false
  */
-export async function addReminder(when, text, { key, opt } = {}) {
+export async function addReminder(when, text, { key, opt, lang } = {}) {
   const at = when.getTime();
   const delay = at - Date.now();
   if (!(delay > 0 && delay < 12 * 3600e3)) return false;
@@ -90,11 +92,11 @@ export async function addReminder(when, text, { key, opt } = {}) {
   const used = new Set(list.filter((r) => r !== old).map((r) => r.nid));
   let nid = NID_BASE + (Math.floor(at / 60000) % NID_SPAN);
   while (used.has(nid)) nid = NID_BASE + ((nid - NID_BASE + 1) % NID_SPAN);
-  const r = { id: `r${at.toString(36)}${Math.random().toString(36).slice(2, 6)}`, at, text, nid, ...(key && { key }), ...(opt && { opt }) };
+  const r = { id: `r${at.toString(36)}${Math.random().toString(36).slice(2, 6)}`, at, text, nid, ...(key && { key }), ...(opt && { opt }), ...(lang === 'en' && { lang }) };
   if (hasNativeNotify()) {
     if (!(await ensureNotifyPermission())) return false;
     if (old && old.nid !== nid) cancelNotify(old.nid);
-    if (!(await scheduleNotify(nid, when, TITLE, text))) return false;
+    if (!(await scheduleNotify(nid, when, titleOf(r), text))) return false;
   } else {
     if (typeof Notification === 'undefined') return false;
     const perm = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;

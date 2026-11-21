@@ -25,7 +25,7 @@ const focusLater = (el, want, state) => { if (want && state.remindFocus === want
  * 第一次要通知權限前先說明為什麼（T7）；設好後可以取消；訊息就寫在這一區（不放到卡片最上面）。
  * 已設定與否從 host 讀（同一段路線一筆）：卡片重畫、重新規劃、在設定頁取消後都一致。
  */
-function remindBlock(o, { host, t, state, rerender, payload, say = () => {} }) {
+function remindBlock(o, { host, t, state, rerender, payload, say = () => {}, locale = null }) {
   if (!host?.remind || host.canNotify === false || !canRemind(o.leaveAt, payload?.data?.date)) return null;
   const d = payload?.data || {};
   const key = `${d.from?.name || ''}→${d.to?.name || ''}`;
@@ -34,7 +34,7 @@ function remindBlock(o, { host, t, state, rerender, payload, say = () => {} }) {
   const when = host.arrivalNote?.() === 'whenOpenPage' ? t('trip.remindWhenPage') : '';
   const set = async () => {
     state.explain = null; msg(null);
-    const id = await host.remind(o.leaveAt, t('trip.remindText', { name: o.name, time: o.leaveAt }), { key, opt: o.id }).catch(() => false);
+    const id = await host.remind(o.leaveAt, t('trip.remindText', { name: o.name, time: o.leaveAt }), { key, opt: o.id, ...(locale === 'en' && { lang: 'en' }) }).catch(() => false);
     state.reminded = id ? { opt: o.id, id } : null;
     if (id) { msg(t('trip.reminded', { time: o.leaveAt }) + when); state.remindFocus = 'cancel'; }
     else { msg(t((host.notifyState && (await host.notifyState().catch(() => 'prompt')) === 'denied') ? 'trip.remindDenied' : 'trip.remindFailed'), 'err'); state.remindFocus = 'trigger'; }

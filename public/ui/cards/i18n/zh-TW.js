@@ -80,6 +80,13 @@ export const MESSAGES = {
   'busRoute.openPage': '開公車頁看動態',
   'busRoute.away': '公車還有 {n} 站到你這',
   'busRoute.atStop': '公車就在你這站',
+  // 公車頁街景（bus-scene.js；S12g 英文公車頁）
+  'scene.alight': '快到了，準備下車',
+  'scene.here': '就在你這站',
+  'scene.away': '還有 {n} 站',
+  'scene.sep': '・',
+  'scene.riding': '你在車上，在「{stop}」下車',
+  'scene.waiting': '你在「{stop}」等車',
 
   // ── bus-station ──
   'busStation.title': '{name} 到站',

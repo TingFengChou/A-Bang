@@ -163,25 +163,32 @@ function render() {
 function paintBanner() {
   // 常駐的 live region（index 外殼裡），文字變了才換：讀屏不會每次換頁都重念
   const off = $('offline');
-  const text = offlineText(state);
+  const en = resolve().query.lang === 'en'; // 英文公車頁（S12g，?lang=en）：頂端說明也用英文
+  const text = offlineText(state, en);
   if (off.textContent !== text) off.textContent = text;
   off.hidden = !text;
-  $('banner').innerHTML = bannerHtml(state);
+  $('banner').innerHTML = bannerHtml(state, en);
 }
 
 /** 離線與弱網：沒有網路、或畫面是上次存下的資料時，在最上面說清楚。示範單檔版（全部在手機上）不顯示 */
-function offlineText({ staleAt }) {
+function offlineText({ staleAt }, en = false) {
   if (globalThis.__DEMO_SERVICES__) return '';
   const off = globalThis.navigator?.onLine === false;
+  if (en) {
+    if (staleAt) return `${off ? 'Offline' : "Can't reach the server"}: showing data from ${savedWhen(staleAt, Date.now(), (hm) => `yesterday ${hm}`)}. It may not be the latest.`;
+    return off ? 'Offline: connect to the internet and try again.' : '';
+  }
   if (staleAt) return `${off ? '目前離線' : '目前連不上伺服器'}：顯示 ${savedWhen(staleAt)} 存下的資料，可能不是最新。`;
   return off ? '目前離線：連上網路後再查詢。' : '';
 }
 
-function bannerHtml({ mode, sources }) {
-  if (!sources) return mode === 'demo' ? '<div class="demo-banner">示範模式：目前都是示範資料，不是即時資訊。</div>' : '';
+function bannerHtml({ mode, sources }, en = false) {
+  const all = en ? '<div class="demo-banner">Demo mode: all data here is sample data, not live.</div>' : '<div class="demo-banner">示範模式：目前都是示範資料，不是即時資訊。</div>';
+  if (!sources) return mode === 'demo' ? all : '';
   const demo = sources.filter((s) => s.mode === 'demo').map((s) => s.name);
   if (!demo.length) return '';
-  if (demo.length === sources.length) return '<div class="demo-banner">示範模式：目前都是示範資料，不是即時資訊。</div>';
+  if (demo.length === sources.length) return all;
+  if (en) return '<div class="demo-banner">Some data here is demo data, not live. The rest is government open data.</div>';
   return `<div class="demo-banner">部分示範資料：<b>${esc(demo.join('、'))}</b>目前是示範資料（標「示範」），其他為政府開放資料。</div>`;
 }
 

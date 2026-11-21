@@ -1,16 +1,19 @@
 import { api, state as apiState } from '../api.js';
 import { icons } from '../icons.js';
-import { esc, loading, errorBox, empty, etaBadge, fmtTime, favs, prefs, chev, staleNote } from '../ui.js';
+import { esc, loading, errorBox, empty, etaBadge, fmtTime, favs, prefs, chev, staleNote, savedWhen } from '../ui.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { modeSvg } from '../../ui/cards/mode-icons.js';
-import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
+import { tFor, withLocale } from '../../ui/cards/i18n/index.js';
 import { snapshot, slide } from '../../ui/cards/slide.js';
 import { busScene } from '../../ui/cards/bus-scene.js';
-import { railOf } from '../../ui/cards/cards/bus-route.js';
-import { watchAlight, stopAlight, alightWatch, rideEstimate, rideLeftText, rideLeftSec, busToDest, notBoarded } from '../alight.js';
+import { railOf, etaText } from '../../ui/cards/cards/bus-route.js';
+import { busT, pageLang } from './bus-i18n.js';
+import { watchAlight, stopAlight, alightWatch, rideEstimate, rideLeftSec, busToDest, notBoarded } from '../alight.js';
 
 /** 街景左上角放得下的短說法（站名已在站牌上） */
-const rideLeftShort = (w) => { const s = rideLeftSec(w); return s == null ? '坐車中' : s < 60 ? '快到了' : `約 ${Math.round(s / 60)} 分`; };
+const rideLeftShort = (w, T = busT(null)) => { const s = rideLeftSec(w); return s == null ? T('rideShort') : s < 60 ? T('rideShortSoon') : T('rideShortMin', { n: Math.round(s / 60) }); };
+/** 「約 6 分到「市府」」／英文「6 min to 市府」（行程中模式的大字） */
+const rideLeftLine = (w, T = busT(null)) => { const s = rideLeftSec(w); return s == null ? T('rideLeftTo', { stop: w.dest }) : s < 60 ? T('rideLeftSoon', { stop: w.dest }) : T('rideLeftMin', { n: Math.round(s / 60), stop: w.dest }); };
 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -28,11 +31,23 @@ export function rememberRoute(city, route, saved = prefs.get('bus:recent', [])) 
   return next;
 }
 
-function starAction(setAction, toast, item) {
+function starAction(setAction, toast, item, T = busT(null)) {
   const draw = () => setAction(favs.has(item.id) ? icons.starFill : icons.star, () => {
-    toast(favs.toggle(item) ? '已加入收藏' : '已取消收藏'); draw();
-  }, '收藏', favs.has(item.id));
+    toast(favs.toggle(item) ? T('saved') : T('unsaved')); draw();
+  }, T('save'), favs.has(item.id));
   draw();
+}
+
+/**
+ * 英文公車頁的到站文字與方向（S12g）：中文照資料的 statusText；英文依狀態與秒數自己說（跟英文卡片同一套），方向「往 X」→「To X」。
+ * @param {'en'|null} lang
+ */
+export function busLabels(lang) {
+  const en = lang === 'en';
+  return {
+    eta: (s) => (en ? withLocale('en', () => etaText(s, tFor('en'), 'en')) || s.statusText : s.statusText),
+    dir: (label) => (en ? String(label || '').replace(/^往\s*/, 'To ') : label),
+  };
 }
 
 /** 路線搜尋 */
@@ -95,20 +110,26 @@ export function announcer(el) {
 export const busRoute = {
   title: '路線',
   /** 浮動阿幫：你在看這條路線（有上車站時問到站） */
-  askHint: ({ params: [, route], query }) => ({
-    context: `使用者正在看 ${route} 公車的即時動態${query.stop ? `，上車站「${query.stop}」` : ''}`.slice(0, 200),
-    chips: query.stop ? [`${route} 到哪了？我在${query.stop}`] : [`${route} 到哪了？`],
-  }),
+  askHint: ({ params: [, route], query }) => {
+    const T = busT(pageLang(query)); // 英文公車頁：建議問題也用英文（阿幫聽得懂英文問法）
+    return {
+      context: (query.stop ? T('askContextStop', { route, stop: query.stop }) : T('askContext', { route })).slice(0, 200),
+      chips: [query.stop ? T('askChipStop', { route, stop: query.stop }) : T('askChip', { route })],
+    };
+  },
   render({ main, params: [city, route], query = {}, setTitle, setAction, toast, onCleanup }) {
     route = decodeURIComponent(route);
-    setTitle(`${route} 公車`);
+    // ?lang=en：觀光客從英文對話來（S12g）。阿幫自己寫的字用英文；站名、路線名是資料，照原文
+    const lang = pageLang(query), en = lang === 'en';
+    const T = busT(lang), cardT = tFor(lang), L = busLabels(lang);
+    setTitle(T('title', { route }));
     rememberRoute(city, route);
-    starAction(setAction, toast, { id: `route:${city}:${route}`, type: 'route', title: `${route} 公車`, sub: '路線', href: location.hash.split('?')[0] });
+    starAction(setAction, toast, { id: `route:${city}:${route}`, type: 'route', title: `${route} 公車`, sub: '路線', href: location.hash.split('?')[0] }, T); // 收藏頁是中文：存的標題照舊
     // ?stop=&dir=：問阿幫選公車後「開公車頁看動態」帶來的上車站（L-14）；也可以在時間軸點站名設定（到站提醒、下車提醒都從這裡開始）
     let myStop = query.stop || null;
     const host = createWebHost();
     let dir = Number(query.dir) === 1 ? 1 : 0, data = null, stale = null, dirFromUrl = query.dir != null;
-    main.innerHTML = `<div id="focus"></div><div id="scene"></div><div class="seg" id="dirs"></div><p class="note pick-hint" id="pick-hint">點站名設成上車站，就能設到站提醒和下車提醒。</p><div id="stops">${loading()}</div><div class="updated" id="upd"></div><p class="sr-only" aria-live="polite" aria-atomic="true" id="sr"></p>`;
+    main.innerHTML = `<div id="focus"></div><div id="scene"></div><div class="seg" id="dirs"></div><p class="note pick-hint" id="pick-hint">${esc(T('pickHint'))}</p><div id="stops">${loading(T('loading'))}</div><div class="updated" id="upd"></div><p class="sr-only" aria-live="polite" aria-atomic="true" id="sr"></p>`;
     const say = announcer(main.querySelector('#sr'));
     let sceneState = {}; // 公車在街景裡上一次的位置（刷新時從那裡開過來）
     let alightAsked = false;
@@ -133,17 +154,17 @@ export const busRoute = {
         }
         const d = data.directions[dir] || data.directions[0];
         const soon = stale ? [] : (d?.stops || []).filter((s) => s.status === 0 && s.etaSec != null && s.etaSec < 180).slice(0, 3).map((s) => s.stopName);
-        say(soon.length ? `${route} 即將進站：${soon.join('、')}` : '');
-        main.querySelector('#upd').textContent = stale ? staleNote(stale) : `更新於 ${fmtTime()}・每 20 秒自動更新`;
-      } catch (e) { main.querySelector('#stops').innerHTML = errorBox(e); }
+        say(soon.length ? T('announceSoon', { route, stops: soon.join(en ? ', ' : '、') }) : '');
+        main.querySelector('#upd').textContent = stale ? (en ? T('stale', { time: savedWhen(stale, Date.now(), (hm) => T('yesterday', { time: hm })) }) : staleNote(stale)) : T('updated', { time: fmtTime() });
+      } catch (e) { main.querySelector('#stops').innerHTML = en ? `<div class="error">${esc(/^(TypeError|AbortError|TimeoutError)$/.test(e?.name) ? T('netError') : T('loadFail', { route }))}</div>` : errorBox(e); } // 英文：伺服器的錯誤訊息是中文，改說英文
     }
-    const setUrl = () => { const qs = new URLSearchParams({ ...(myStop && { stop: myStop }), dir: String(data?.directions[dir]?.direction ?? dir) }); history.replaceState(null, '', `${location.hash.split('?')[0]}?${qs}`); };
+    const setUrl = () => { const qs = new URLSearchParams({ ...(myStop && { stop: myStop }), dir: String(data?.directions[dir]?.direction ?? dir), ...(en && { lang: 'en' }) }); history.replaceState(null, '', `${location.hash.split('?')[0]}?${qs}`); };
     function paint({ fresh = false } = {}) {
       // 每 20 秒重畫：記下焦點在哪個站名或方向按鈕，畫完放回去（鍵盤與讀屏不會掉到頁首）
       const act = document.activeElement;
       const keep = keepSel(act);
       const dirs = main.querySelector('#dirs');
-      dirs.innerHTML = data.directions.map((d, i) => `<button data-i="${i}" class="${i === dir ? 'on' : ''}" aria-pressed="${i === dir}">${esc(d.label)}</button>`).join('');
+      dirs.innerHTML = data.directions.map((d, i) => `<button data-i="${i}" class="${i === dir ? 'on' : ''}" aria-pressed="${i === dir}">${esc(L.dir(d.label))}</button>`).join('');
       dirs.querySelectorAll('button').forEach((b) => (b.onclick = () => { dir = +b.dataset.i; sceneState = {}; setUrl(); paint(); }));
       const d = data.directions[dir] || data.directions[0];
       // 公車街景：有上車站才畫；公車依真實「還有幾站」停在路上（怎麼走到站牌交給導航）
@@ -156,9 +177,9 @@ export const busRoute = {
       const before = fresh ? snapshot(stopsEl) : null; // 刷新：車從上一站滑到這一站
       stopsEl.innerHTML = `<div class="card list timeline">${d.stops.map((s) => `
         <div class="${s.plate ? 'here' : ''}${s.stopName === myStop ? ' me' : ''}">
-          ${s.plate ? `<span class="ab-token sm go bus-pos" data-plate="${esc(s.plate)}" style="--c:#0f766e" role="img" aria-label="公車在這附近">${modeSvg('bus')}</span>` : ''}
-          <div class="grow"><div class="title"><button type="button" class="stop-pick" data-stop="${esc(s.stopName)}" aria-label="${esc(s.stopName)}，設為上車站" aria-pressed="${s.stopName === myStop}">${esc(s.stopName)}</button>${s.stopName === myStop ? '<span class="me-tag">你在這上車</span>' : ''}${ride && (s.seq === ride.destSeq || (ride.destSeq == null && s.stopName === ride.dest)) ? '<span class="me-tag off">你在這下車</span>' : ''}</div>${s.plate ? `<div class="plate">${esc(s.plate)} 即將抵達</div>` : ''}</div>
-          ${etaBadge(s)}
+          ${s.plate ? `<span class="ab-token sm go bus-pos" data-plate="${esc(s.plate)}" style="--c:#0f766e" role="img" aria-label="${esc(T('busHere'))}">${modeSvg('bus')}</span>` : ''}
+          <div class="grow"><div class="title"><button type="button" class="stop-pick" data-stop="${esc(s.stopName)}" aria-label="${esc(T('stopPick', { stop: s.stopName }))}" aria-pressed="${s.stopName === myStop}">${esc(s.stopName)}</button>${s.stopName === myStop ? `<span class="me-tag">${esc(T('boardHere'))}</span>` : ''}${ride && (s.seq === ride.destSeq || (ride.destSeq == null && s.stopName === ride.dest)) ? `<span class="me-tag off">${esc(T('offHere'))}</span>` : ''}</div>${s.plate ? `<div class="plate">${esc(T('plateSoon', { plate: s.plate }))}</div>` : ''}</div>
+          ${etaBadge(en ? { ...s, statusText: L.eta(s) } : s)}
         </div>`).join('')}</div>`;
       if (before) slide(stopsEl, before);
       // 點站名＝設成上車站（網址一起改，重新整理或分享都一樣；不觸發換頁）
@@ -171,10 +192,10 @@ export const busRoute = {
         const card = main.querySelector('#focus .bus-focus');
         card?.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
         card?.focus({ preventScroll: true }); // 焦點移到上車站卡片（按的站名按鈕已重畫）
-        toast(had ? `上車站：${myStop}。原本的提醒還在，可在上方取消` : `上車站：${myStop}。可以設提醒了`);
+        toast(T(had ? 'pickedKeep' : 'picked', { stop: myStop }));
       }));
       const hint = main.querySelector('#pick-hint');
-      hint.textContent = me ? '點其他站名可以改上車站。' : '點站名設成上車站，就能設到站提醒和下車提醒。';
+      hint.textContent = T(me ? 'pickHintChange' : 'pickHint');
       paintFocus(d);
       if (keep) main.querySelector(keep)?.focus({ preventScroll: true });
     }
@@ -186,7 +207,7 @@ export const busRoute = {
       // 坐車中：下車站的「下一班」不一定是我這台（前面可能還有一台）；看得出是我這台才畫公車與站數，否則只寫剩多久。還沒上車也不畫（上車站之後第一台是前一班）
       const mine = !ride || (!notBoarded(ride) && at && busToDest(d.stops, d.stops.findIndex((x) => (ride.boardSeq != null ? x.seq === ride.boardSeq : x.stopName === myStop)), d.stops.indexOf(at)).where === 'ahead');
       const rail = at && mine && railOf(d, { seq: at.seq, etaSec: at.etaSec, status: at.status });
-      main.querySelector('#scene').replaceChildren(...(at ? [busScene({ routeName: route, stopName: at.stopName, away: rail ? rail.away : null, etaSec: at.status === 0 ? at.etaSec : null, etaText: ride ? rideLeftShort(ride) : at.statusText, state: sceneState, riding: !!ride, dataAt: loadedAt })] : []));
+      main.querySelector('#scene').replaceChildren(...(at ? [busScene({ routeName: route, stopName: at.stopName, away: rail ? rail.away : null, etaSec: at.status === 0 ? at.etaSec : null, etaText: ride ? rideLeftShort(ride, T) : L.eta(at), state: sceneState, riding: !!ride, dataAt: loadedAt, lang })] : []));
     }
     /** 重畫前記下焦點（站名、方向、上車站卡片裡的按鈕與選單），畫完放回去 */
     function keepSel(act) {
@@ -209,9 +230,9 @@ export const busRoute = {
     function otherWatches() {
       const out = [];
       const w = host.arrivalWatch();
-      if (w && w.routeName === route && (w.stop !== myStop || (w.direction != null && w.direction !== curDir()))) out.push({ kind: 'arrival', text: `另有提醒：「${w.stop}」到站前 ${w.minutes} 分`, cancel: () => host.unwatchArrival() });
+      if (w && w.routeName === route && (w.stop !== myStop || (w.direction != null && w.direction !== curDir()))) out.push({ kind: 'arrival', text: T('otherArrival', { stop: w.stop, n: w.minutes }), cancel: () => host.unwatchArrival() });
       const a = alightWatch();
-      if (a && a.routeName === route && (a.board !== myStop || a.direction !== curDir())) out.push({ text: `另有下車提醒：在「${a.dest}」下車`, cancel: () => stopAlight() });
+      if (a && a.routeName === route && (a.board !== myStop || a.direction !== curDir())) out.push({ text: T('otherAlight', { stop: a.dest }), cancel: () => stopAlight() });
       return out;
     }
     /** 上車站：大字到站時間＋到站提醒（與問阿幫卡片共用同一個提醒） */
@@ -227,23 +248,23 @@ export const busRoute = {
       const ride = riding(d);
       if (ride) { // 坐車中：大字是到下車站還要多久；不再顯示到站提醒按鈕（已經上車了）
         const pre = notBoarded(ride);
-        box.innerHTML = `<div class="card bus-focus riding" tabindex="-1" aria-labelledby="focus-at"><span class="ab-token lg go" style="--c:#0f766e" aria-hidden="true">${modeSvg('bus')}</span><div class="sub" id="focus-at">${pre ? `車快到「${esc(myStop)}」了，上車後開始算` : `坐車中・從「${esc(myStop)}」上車`}</div><div class="big">${esc(rideLeftText(ride))}</div></div>`;
+        box.innerHTML = `<div class="card bus-focus riding" tabindex="-1" aria-labelledby="focus-at"><span class="ab-token lg go" style="--c:#0f766e" aria-hidden="true">${modeSvg('bus')}</span><div class="sub" id="focus-at">${esc(T(pre ? 'ridingPre' : 'riding', { stop: myStop }))}</div><div class="big">${esc(rideLeftLine(ride, T))}</div></div>`;
         // 還有這條路線的到站提醒（例如恢復時兩個都在）：一樣看得到、可以取消
         const aw = host.arrivalWatch();
-        const extra = [...others, ...(aw && aw.routeName === route && !others.some((x) => x.kind === 'arrival') ? [{ kind: 'arrival', text: `另有到站提醒：「${aw.stop}」到站前 ${aw.minutes} 分`, cancel: () => host.unwatchArrival() }] : [])];
+        const extra = [...others, ...(aw && aw.routeName === route && !others.some((x) => x.kind === 'arrival') ? [{ kind: 'arrival', text: T('otherArrivalRiding', { stop: aw.stop, n: aw.minutes }), cancel: () => host.unwatchArrival() }] : [])];
         if (extra.length) box.querySelector('.bus-focus').append(othersBlock(extra, d));
         box.querySelector('.bus-focus').append(alightBlock(d, s));
         return;
       }
-      box.innerHTML = `<div class="card bus-focus" tabindex="-1" aria-labelledby="focus-at"><span class="ab-token lg${live ? ' go' : ''}" style="--c:#0f766e" aria-hidden="true">${modeSvg('bus')}</span><div class="sub" id="focus-at">到「${esc(myStop)}」</div><div class="big">${esc(s.statusText)}</div>
+      box.innerHTML = `<div class="card bus-focus" tabindex="-1" aria-labelledby="focus-at"><span class="ab-token lg${live ? ' go' : ''}" style="--c:#0f766e" aria-hidden="true">${modeSvg('bus')}</span><div class="sub" id="focus-at">${esc(T('focusAt', { stop: myStop }))}</div><div class="big">${esc(L.eta(s))}</div>
         ${watching && w.stuck ? `<div class="stuck"><p>${esc(cardT(`busRoute.stuck.${w.stuck}`, { route }))}</p><a class="btn" href="#/agent?q=${encodeURIComponent(w.trip?.to ? cardT('busRoute.stuckAskTo', { to: w.trip.to }) : cardT('busRoute.stuckAsk'))}">${esc(cardT('busRoute.stuckBtn'))}</a></div>` : ''}
-        ${watching ? `<p class="ok" role="status">${w.skip ? `這班快到了、可能趕不上；下一班到站前 ${w.minutes} 分提醒你（${when}）` : `已設定：到站前 ${w.minutes} 分提醒你（${when}）`}<button class="btn ghost" id="unwatch" type="button">取消提醒</button></p>`
-          : live ? `<div class="row">${[3, 5].map((n) => `<button class="btn" type="button" data-min="${n}">到站前 ${n} 分提醒我</button>`).join('')}</div>` : ''}</div>`;
+        ${watching ? `<p class="ok" role="status">${esc(T(w.skip ? 'alertNext' : 'alertSet', { n: w.minutes, when }))}<button class="btn ghost" id="unwatch" type="button">${esc(T('alertCancel'))}</button></p>`
+          : live ? `<div class="row">${[3, 5].map((n) => `<button class="btn" type="button" data-min="${n}">${esc(T('alertBtn', { n }))}</button>`).join('')}</div>` : ''}</div>`;
       if (others.length) box.querySelector('.bus-focus').append(othersBlock(others, d)); // 這條路線還有別站（或別方向）的提醒：寫出來、可以取消
       box.querySelector('.bus-focus').append(alightBlock(d, s));
       box.querySelectorAll('[data-min]').forEach((b) => (b.onclick = async () => {
-        await host.watchArrival({ city, routeName: route, stop: myStop, direction: dir, minutes: Number(b.dataset.min) });
-        toast(`好，${route} 到「${myStop}」前 ${b.dataset.min} 分提醒你`);
+        await host.watchArrival({ city, routeName: route, stop: myStop, direction: dir, minutes: Number(b.dataset.min), ...(en && { lang: 'en' }) }); // 英文頁：通知也用英文
+        toast(T('alertToast', { route, stop: myStop, n: b.dataset.min }));
         paintFocus(data.directions[dir] || data.directions[0]);
       }));
       box.querySelector('#unwatch')?.addEventListener('click', () => { host.unwatchArrival(); toast(cardT('busRoute.alertCanceled')); paintFocus(d); });
@@ -254,10 +275,10 @@ export const busRoute = {
       o.className = 'other-watch';
       list.forEach((x, i) => {
         const p2 = Object.assign(document.createElement('p'), { textContent: x.text });
-        const c = Object.assign(document.createElement('button'), { type: 'button', className: 'btn ghost', textContent: '取消' });
+        const c = Object.assign(document.createElement('button'), { type: 'button', className: 'btn ghost', textContent: T('cancel') });
         c.dataset.k = `other-${i}`;
-        c.setAttribute('aria-label', `取消：${x.text}`);
-        c.addEventListener('click', () => { x.cancel(); toast('已取消提醒'); paintFocus(d); });
+        c.setAttribute('aria-label', T('cancelWhat', { text: x.text }));
+        c.addEventListener('click', () => { x.cancel(); toast(T('canceled')); paintFocus(d); });
         p2.append(c);
         o.append(p2);
       });
@@ -272,30 +293,30 @@ export const busRoute = {
       const dirOf = d.direction ?? dir;
       if (a && a.routeName === route && a.direction === dirOf && a.board === myStop) {
         // 剩多久在上方大字（行程中模式），這裡只說會提醒；不加 live role（設定時的 toast 已念過）
-        wrap.innerHTML = `<p class="ok">下車提醒：快到「${esc(a.dest)}」前約 2 分提醒你</p>${a.nativeFailed ? '<p class="note">沒有通知權限：App 關著時不會提醒，請開著畫面。</p>' : ''}`;
-        const cancel = Object.assign(document.createElement('button'), { type: 'button', className: 'btn ghost', textContent: '取消下車提醒' });
+        wrap.innerHTML = `<p class="ok">${esc(T('alightOn', { stop: a.dest }))}</p>${a.nativeFailed ? `<p class="note">${esc(T('alightNoPerm'))}</p>` : ''}`;
+        const cancel = Object.assign(document.createElement('button'), { type: 'button', className: 'btn ghost', textContent: T('alightCancel') });
         cancel.dataset.k = 'alight-cancel';
-        cancel.addEventListener('click', () => { stopAlight(); toast('已取消下車提醒'); paintFocus(d); });
+        cancel.addEventListener('click', () => { stopAlight(); toast(T('alightCanceled')); paintFocus(d); });
         wrap.append(cancel);
         return wrap;
       }
       const after = d.stops.filter((x) => x.seq > me.seq);
       if (!after.length || stale) return wrap;
-      wrap.innerHTML = `<label class="alight-pick"><span>上車了嗎？要在哪一站下車？</span><select id="alight-dest">${after.map((x) => `<option value="${x.seq}"${x.seq === pickedDest ? ' selected' : ''}>${esc(x.stopName)}</option>`).join('')}</select></label>`;
+      wrap.innerHTML = `<label class="alight-pick"><span>${esc(T('alightPick'))}</span><select id="alight-dest">${after.map((x) => `<option value="${x.seq}"${x.seq === pickedDest ? ' selected' : ''}>${esc(x.stopName)}</option>`).join('')}</select></label>`;
       wrap.querySelector('select').addEventListener('change', (e) => { pickedDest = Number(e.target.value); }); // 每 20 秒重畫：選好的站保留
-      const go = Object.assign(document.createElement('button'), { type: 'button', className: 'btn', textContent: '快到時提醒我下車' });
+      const go = Object.assign(document.createElement('button'), { type: 'button', className: 'btn', textContent: T('alightGo') });
       go.dataset.k = 'alight-go';
       go.addEventListener('click', async () => {
         const destSeq = Number(wrap.querySelector('#alight-dest').value);
         const dest = d.stops.find((x) => x.seq === destSeq)?.stopName;
         const est = rideEstimate(d.stops, me.seq, destSeq);
-        if (!est || !dest) { toast('估不出要坐多久，請重新整理後再試'); return; }
-        const watching = await watchAlight({ city, routeName: route, direction: dirOf, board: myStop, boardSeq: me.seq, dest, destSeq, ...est }, (n, a2) => host.callTool(n, a2));
+        if (!est || !dest) { toast(T('alightFail')); return; }
+        const watching = await watchAlight({ city, routeName: route, direction: dirOf, board: myStop, boardSeq: me.seq, dest, destSeq, ...est, ...(en && { lang: 'en' }) }, (n, a2) => host.callTool(n, a2)); // 英文頁：下車通知也用英文
         // 已經上車：這條路線的到站提醒用不到了（不取消會在車上響「快到站」）
         const aw = host.arrivalWatch();
         const dropped = watching && aw && aw.routeName === route;
         if (dropped) host.unwatchArrival();
-        if (watching) toast(`好，快到「${dest}」時提醒你下車${dropped ? '（到站提醒已取消）' : ''}`); // 太近：設定當下已經提醒過，不再說「好」
+        if (watching) toast(T(dropped ? 'alightToastDropped' : 'alightToast', { stop: dest })); // 太近：設定當下已經提醒過，不再說「好」
         paintFocus(data.directions[dir] || data.directions[0]);
       });
       wrap.append(go);
