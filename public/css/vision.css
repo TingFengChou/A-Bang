@@ -1,10 +1,13 @@
-/* 阿幫會看（M14-02，UX.md §5.0.3）：輸入列的相機鍵、「讓阿幫看」視窗。
+/* 阿幫會看（M14-02，UX.md §5.0.4）：輸入列的相機鍵、「讓阿幫看」視窗。
    「看」的動畫跟阿幫的腦袋（#/ai）、阿幫在想（.think-core）同一套：深青綠底、亮白 Λ、琥珀核心、一圈軌道，加一條掃描線與對準框。
    只動 transform／opacity；reduced motion／lite-motion 不動（文字照樣在 role=status）。 */
 .chat-cam { flex: none; min-width: 44px; min-height: 44px; display: inline-grid; place-items: center; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--brand); cursor: pointer; padding: 0; }
 .chat-cam svg { width: 22px; height: 22px; }
 .chat-cam:hover { background: var(--brand-soft); }
 .chat-cam[hidden] { display: none; }
+.chat-cam:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+/* 相機＋麥克風都在時（ADR-0015）：輸入框可以縮（input 預設的最小寬度會把「送出」擠出去） */
+.chat-form .chat-input { min-width: 0; }
 
 .vision-dialog { border: 0; border-radius: 18px; padding: 18px 16px 16px; width: min(94vw, 440px); max-height: 88vh; overflow: auto; background: var(--card, #fff); color: var(--text); box-shadow: 0 12px 40px rgba(16, 40, 34, .25); }
 .vision-dialog::backdrop { background: rgba(8, 30, 28, .55); }

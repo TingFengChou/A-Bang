@@ -10,7 +10,7 @@ const NOW = Date.parse('2026-11-18T08:00:00+08:00'); // 週三
 
 /** [名稱, 起點, 終點, 出發, 示範情境, prefs, 期望 { best（role）, excluded?（role）, reason: RegExp[] }] */
 const CASES = [
-  ['市區短程（無狀態）', '台北車站', '台北101', '09:00', {}, {}, { best: 'ridehail', roles: ['bike', 'bus', 'metro', 'ridehail', 'walk'], reason: [/^選「叫車/] }],
+  ['市區短程（無狀態）', '台北車站', '台北101', '09:00', {}, {}, { best: 'metro', roles: ['bike', 'bus', 'metro', 'ridehail', 'walk'], reason: [/^選「捷運/] }], // 沒有任何狀態時推大眾運輸，不推叫車（2026-11-21 權重調整）
   ['市區短程＋下雨（自動）', '台北車站', '台北101', '09:00', { weather: 'rain' }, {}, { best: 'ridehail', auto: ['rain'], reason: [/因為正在下雨/], last: 'walk' }],
   ['市區短程＋空品不佳（自動）', '台北車站', '台北101', '09:00', { air: 'bad' }, {}, { best: 'ridehail', auto: ['badAir'], reason: [/因為空氣品質不佳/], last: 'walk' }],
   ['市區短程＋想省錢', '台北車站', '台北101', '09:00', {}, { states: ['budget'] }, { best: 'metro', reason: [/因為你想省錢/], last: 'ridehail' }], // 有捷運（S7）：比公車快 11 分、只貴 10 元

@@ -32,7 +32,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | 阿幫常駐與頁面質感（Austin 2026-11-21） | ✅（PR #69～#81：對話保留、浮動阿幫、提醒泡泡、知道你在哪一頁、App 重開後上次的對話、公車會動、格子頁首動畫、各頁小巧思兩批、英文其餘、Android 實機煙霧測試） | — | — |
 | Agent 聰明度：模型模式與 PM 第二批（2026-11-21） | ✅（PR #79、#82：地端模型模式 72→97／99；PM P2-1～10 全過） | PM 第三批 | — |
 | M13 Agent 聰明度（PM 情境 S1～S19） | 🚧（情境集 89 個、todo 0：位置當起點、接著改、新狀態、出門建議、明天天氣、末班車、捷運轉乘、高鐵台鐵最近站、英文與卡片／討論串／決策圖英文、常用地點、多人同行／可能下雨／時間很緊、出門建議小卡、出門提醒多筆、附近藥局依位置、公車一直不來、下車提醒、安全情境（求助電話）、常用地點用地名設定、定位失敗說原因、行程中模式 ✅） | S12f 英文其餘、E3／E7 | 真實末班車、捷運路網需 TDX 金鑰 |
-| M14 阿幫會聽、會看（ADR-0015） | 🚧（M14-02 看 ✅ 2026-11-21） | 實機確認（Pixel、iPhone） | 打包版 ML Kit 讓 APK 變大，待產品負責人決定 |
+| M14 阿幫聽得懂、看得懂（產品負責人 2026-11-21；ADR-0015） | 🚧（M14-01 語音問阿幫 ✅、M14-02 看 ✅） | 實機確認（Pixel、iPhone） | iOS 實機需 Austin 的 iPhone；打包版 ML Kit 讓 APK 變大（產品負責人已同意） |
 | M6 上線 | 🚧（M6-01／02／04／07 ✅、地端部署驗證 ✅） | 正式環境階段再做 | 2026-11-19 Austin 決定：雲端部署（M6-06）、Redis 快取（M6-03）、Lighthouse（M6-05）留到正式環境階段；先衝刺功能。M6-07 需在 repo 設定啟用 Pages |
 
 建議順序：M4、M5、M7、M10 已完成；M1（TDX 金鑰）申請中；M6 正式環境項目延後；目前衝刺 M11 行動 App、M12 裝置端 AI、M13 Agent 聰明度（PM 情境清單見 `test/scenarios/life.json`）；M8 中小企業概念驗證移到下一階段。
@@ -270,12 +270,6 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] E8 設定頁可關閉裝置端 AI、顯示模型狀態（下載中、需要 Wi-Fi…）、隱私權政策說明（2026-11-21）
 - [x] E9 阿幫的腦袋 `#/ai`：核心動畫、系統回報的模型資訊（外掛 `status()` 擴充）、現場試判斷、資料怎麼走（2026-11-21；實機欄位待 Pixel／iPhone 確認，首頁「手機上的 AI」狀態列入口另一個分支接）
 
-## M14 阿幫會聽、會看（ADR-0015，2026-11-21）
-
-手機上先讀懂（語音、照片），只把文字交給既有流程，使用者確認後才送。
-
-- [x] M14-02 看：拍可疑簡訊或選截圖查詐騙、拍站牌路牌問怎麼走、拍發票自動對獎（2026-11-21：外掛 `AbangVision`〔Android ML Kit 中文讀字＋條碼打包版、Photo Picker、系統相機；iOS Vision、PHPicker、UIImagePickerController〕、`public/js/vision.js`、`core/vision-text.js`；設定頁開關、隱私權政策、`#/ai` 卡片；E2E 假外掛三條流程＋權限被拒＋網頁降級＋reduced motion。實機讀字品質、Gemini Nano 看圖支援待 Pixel／iPhone 確認）
-
 ## M13 Agent 聰明度（PM 情境清單，2026-11-21）
 
 情境集：`test/scenarios/life.json`（`npm test` 示範模式；`scripts/eval-scenarios.js` 模型模式）。
@@ -339,6 +333,14 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] 各頁資料小巧思（第二批，2026-11-21）：捷運官方路線色（`core/metro-colors.js`）與進站中閃點、YouBike 可借比例條、公車搜尋「最近查過」、回首頁時圖示飛回格子
 - [ ] 油價週漲跌（需要上週牌價資料）
 - [x] 浮動阿幫知道你在哪一頁：從公車、天氣、空品、地震、藥局、垃圾車、油價、發票、股市、捷運、高鐵台鐵、附近打開時「在這頁可以問」，這一頁的說明跟下一個問題一起送（2026-11-21）
+
+## M14 阿幫聽得懂、看得懂（產品負責人，2026-11-21）
+
+- [x] M14-01 語音問阿幫（2026-11-21，UX.md §5.0.3）：原生外掛 `AbangVoice`（Android SpeechRecognizer 手機上優先、iOS SFSpeechRecognizer `requiresOnDeviceRecognition`；照實回報是不是在手機上辨識）、`public/js/voice.js` 狀態機與控制器（停頓 1.5 秒自動送出、取消、錯誤）、輸入列麥克風鍵與在聽面板（核心跟著音量）、長按中央鍵放開送出、網頁版只在能本機辨識時顯示、英文那一輪用英文、設定開關、隱私權政策、`#/ai`「聽」卡片
+- [x] M14-01a 只在手機上辨識（產品負責人 2026-11-21）：不退回系統／雲端辨識；語言包第一次按麥克風時協助下載（Android 13+，進度、準備中、到設定）；真的不支援就反白、點了說原因（iPhone 說怎麼開聽寫）；`#/ai` 照實顯示可用／下載中／不支援
+- [ ] M14-01b 實機確認：Pixel（手機上 zh-TW 語言包、音量、停頓收尾、長按中央鍵）、iPhone（權限框文字、`supportsOnDeviceRecognition`、收尾）
+- [x] M14-02 看：拍可疑簡訊或選截圖查詐騙、拍站牌路牌問怎麼走、拍發票自動對獎（2026-11-21，UX.md §5.0.4、ADR-0015：外掛 `AbangVision`〔Android ML Kit 中文讀字＋條碼打包版、Photo Picker、系統相機；iOS Vision、PHPicker、UIImagePickerController〕、`public/js/vision.js`、`core/vision-text.js`；設定頁開關、隱私權政策、`#/ai` 卡片；E2E 假外掛三條流程＋權限被拒＋網頁降級＋reduced motion。實機讀字品質、Gemini Nano 看圖支援待 Pixel／iPhone 確認）
+- [ ] M14-02b 實機確認：Pixel（ML Kit 中文讀字品質、相機權限流程、Photo Picker、Gemini Nano 是否能看圖）、iPhone（Vision 繁體中文讀字、相機權限文案、PHPicker）；用實拍站牌、真實簡訊截圖校正分類規則
 
 ## 被卡住的項目（2026-11-21 彙整）
 

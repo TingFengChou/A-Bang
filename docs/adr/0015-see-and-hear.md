@@ -18,10 +18,14 @@
    - iOS（`ios/App/App/AbangVisionPlugin.swift`）：拍照 `UIImagePickerController`（`NSCameraUsageDescription`，第一次才問）、選圖 `PHPickerViewController`（在 App 之外執行，不需要相簿權限）；讀字 Vision `VNRecognizeTextRequest`（accurate、`zh-Hant`＋`en-US`、語言校正）；條碼 `VNDetectBarcodesRequest`（QR、Code 39）。照片只在記憶體。發票頁讀字不做語言校正（`literal`：校正會改掉字軌或網址字元）；一進 `capture` 就擋重入（權限框開著時連點不會蓋掉前一個請求）。Foundation Models 不收圖片，**不回報**影像理解。
    - 前端 `public/js/vision.js`（與平台無關）＋規則 `core/vision-text.js`（純函式，伺服器以 `/core/vision-text.js` 提供，App 打包時一起複製）：條碼先看（發票左邊 QR → `parseInvoiceCode`），再看字：發票字樣 → 強烈詐騙訊號（驗證碼、轉帳）→ 站牌路牌（路線號碼、站名、路名）→ 其他詐騙訊號（兩個以上；網址只有 1 分，外送、物流的正常通知也有短網址，要配點擊、急迫等才算；讀到路線時網址不蓋過站牌）→ 只有字。
    - 流向：可疑訊息 → 防詐 agent 的 `scam_check_message`（跟貼上文字一樣；生活頁先問「要幫你檢查這則訊息是不是詐騙嗎？」，答應才轉到防詐頁，文字只在記憶體交過去，不放網址；30 秒內沒打開防詐頁就丟掉，不會之後才自動送出）；站牌 → 組好的問題（「307 公車到「敦化市場」還要多久？」）讓使用者改了再送；發票 → 存進「我的發票」並馬上對獎（`invoice_check_batch`）。
-3. **聽（M14-01，概要；細節由語音任務補）**：專案內外掛 `AbangVoice`，用系統的語音辨識（手機上能離線就離線），只把辨識出的文字放進輸入列，同樣由使用者送出。
+3. **聽（M14-01，UX.md §5.0.3）**：專案內外掛 `AbangVoice`（`android/…/AbangVoicePlugin.java`、`ios/App/App/AbangVoicePlugin.swift`）＋ `public/js/voice.js`（狀態機與辨識來源）、`voice-i18n.js`、`agent/voice-ui.js`。辨識出的文字當作一般提問送出（跟打字一樣），不錄音、不上傳。
+   - **只在手機上辨識，不退回系統或雲端辨識**（產品負責人：「語言包要協助用戶裝，除非真的手機無法支援；不支援就反白，點擊後顯示原因」）。Android：API 31+ `createOnDeviceSpeechRecognizer`，API 33+ `checkRecognitionSupport` 看語言包（已安裝／下載中／可下載／不支援）；iOS：`SFSpeechRecognizer`＋`AVAudioEngine`、`requiresOnDeviceRecognition = true`，`supportsOnDeviceRecognition` 為 false 就是不支援。
+   - **語言包**：可下載時第一次按麥克風就請系統下載（產品負責人同意自動下載），面板顯示進度（Android 14+），排在 Wi-Fi、失敗或太久就說清楚並給「到手機設定下載」；手機真的不支援時麥克風反白，點了說原因。
+   - **入口**：輸入列的麥克風鍵（輸入框與「送出」之間）；**長按中央「問阿幫」鍵**是捷徑（放開就送出），讀屏、鍵盤使用者一定有麥克風鍵可用。停頓 1.5 秒、按「說完了」或放開中央鍵就送出；換頁、切到背景就取消，不在背後開著麥克風。
+   - 權限：Android `RECORD_AUDIO`（第一次按時才問）、`RecognitionService` queries；iOS `NSMicrophoneUsageDescription`、`NSSpeechRecognitionUsageDescription`。網頁版只在 Chrome 的 `SpeechRecognition` 能本機辨識（`processLocally`）時顯示麥克風。
 4. **網頁版降級**：不把照片或聲音送伺服器。網頁版只有瀏覽器內建的本機辨識（Shape Detection API：`TextDetector`、`BarcodeDetector`）才提供；輸入列的相機鍵只在能讀字時顯示（只有 `BarcodeDetector` 時拍簡訊會讀不到字，所以不給；發票頁有自己的網頁掃描）。發票頁維持原本的連續掃描與手動輸入。
-5. **可以關**：設定頁「讓阿幫看照片」（`localStorage abang.vision = off`）；關掉時輸入列不顯示相機鍵、發票頁改回網頁掃描。
-6. **看得到**：「阿幫的腦袋」（`#/ai`）加「阿幫會看」卡：讀字引擎、條碼、影像理解（只在外掛回報時顯示）、相機權限、開關；只列系統真的回報的能力。
+5. **可以關**：設定頁「用語音問阿幫」（`localStorage abang.voice`）與「讓阿幫看照片」（`localStorage abang.vision = off`）兩個開關；關掉時輸入列不顯示相機鍵、發票頁改回網頁掃描。
+6. **看得到**：「阿幫的腦袋」（`#/ai`）有「聽」「阿幫會看」兩張卡；「阿幫會看」卡：讀字引擎、條碼、影像理解（只在外掛回報時顯示）、相機權限、開關；只列系統真的回報的能力。
 
 ## 不採用
 - **把照片送伺服器讓大模型看**（Claude vision 等）：效果較好，但照片含大量個資，且違反「手機上優先」；之後若要做，需另一份 ADR 與明確同意。
