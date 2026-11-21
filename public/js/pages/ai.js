@@ -7,6 +7,8 @@ import { api } from '../api.js';
 import { edgeEnabled, edgeStatus, edgeJudge, edgePrewarm, edgeStats, setEdgeEnabled } from '../edge-judge.js';
 import { ENGINE_NAME, normalizeEdgeInfo, normalizeServerInfo, lastAgentStatus, languageNames, nodeText, judgedText } from '../ai-info.js';
 import { aiT, pageLang } from './ai-i18n.js';
+import { voiceStatus, voiceEnabled } from '../voice.js';
+import { voiceT, whyText } from '../voice-i18n.js';
 
 /** 「試試看」等久一點（使用者正看著；平常問阿幫只等 1.8 秒就交給伺服器） */
 const TRY_TIMEOUT_MS = 6000;
@@ -75,6 +77,7 @@ export default {
         </section>
         <section class="card ai-card" id="ai-try" aria-labelledby="ai-try-h"><h2 id="ai-try-h">${esc(t('try.title'))}</h2><div id="ai-try-body"></div></section>
         <section class="card ai-card" id="ai-model" aria-labelledby="ai-model-h"><h2 id="ai-model-h">${esc(t('model.title'))}</h2><div id="ai-model-body"></div></section>
+        <section class="card ai-card" id="ai-ear" aria-labelledby="ai-ear-h"><h2 id="ai-ear-h">${esc(t('ear.title'))}</h2><div id="ai-ear-body"><p class="note">${esc(t('hero.checking'))}</p></div></section>
         <section class="card ai-card" id="ai-server" aria-labelledby="ai-server-h"><h2 id="ai-server-h">${esc(t('server.title'))}</h2><div id="ai-server-body"></div></section>
         <section class="card ai-card" id="ai-flow" aria-labelledby="ai-flow-h"><h2 id="ai-flow-h">${esc(t('flow.title'))}</h2><div id="ai-flow-body"></div></section>
         <p class="updated"><a class="linkish" href="#/settings">${esc(t('links.settings'))}</a>・<a class="linkish" href="#/privacy">${esc(t('links.privacy'))}</a></p>
@@ -245,9 +248,24 @@ export default {
       });
     }
 
+    /** 「聽」：語音問阿幫用哪個語音辨識、是不是在手機上（只顯示系統真的回報的；voice.js normalizeVoiceInfo） */
+    function paintEar(v) {
+      const rows = [];
+      if (v.engine) rows.push([t('ear.engine'), t(`ear.engine.${v.engine}`)]);
+      const name = voiceT(lang)(String(v.lang || 'zh-TW').startsWith('en') ? 'lang.en' : 'lang.zh');
+      if (v.state === 'none') rows.push([t('ear.ondevice'), t(`ear.reason.${v.reason}`)]);
+      else rows.push([t('ear.ondevice'), v.state === 'unsupported' ? t('ear.ondevice.unsupported', { why: whyText(v, lang, v.lang) }) : v.state === 'downloading' && v.progress != null ? t('ear.ondevice.downloadingPct', { pct: v.progress }) : t(`ear.ondevice.${v.state}`, { lang: name })]);
+      if (v.lang) rows.push([t('ear.lang'), languageNames([v.lang], lang)[0]]);
+      if (v.permission) rows.push([t('ear.perm'), t(`ear.perm.${v.permission}`)]);
+      if (v.state !== 'none' && v.state !== 'unsupported') rows.push([t('model.state'), t(voiceEnabled() ? 'status.ready' : 'status.off')]); // 開關
+      const lead = v.state === 'ready' ? t('ear.how') : v.state === 'none' ? (v.platform === 'web' ? t('ear.none.web') : t(`ear.reason.${v.reason}`)) : v.state === 'unsupported' ? t('ear.none.app') : t('ear.none.download', { lang: name });
+      $('#ai-ear-body').innerHTML = `<p class="note">${esc(lead)}</p><dl class="ai-dl">${rows.map(([k, x]) => `<div><dt>${esc(k)}</dt><dd>${esc(x)}</dd></div>`).join('')}</dl><p class="note ai-foot">${esc(t('ear.privacy'))}</p>`;
+    }
+
     function paintAll() { paintHero(); paintTry(); paintModel(); paintServer(); paintFlow(); }
 
     paintServer(); // 判斷層說明不必等（伺服器資訊到了再補）
+    voiceStatus().then((v) => { if (alive) paintEar(v); });
     edgeStatus().then((s) => {
       if (!alive) return;
       raw = s;

@@ -63,7 +63,7 @@ async function main() {
     await page.reload();
     await page.waitForSelector('#main', { timeout: 15000 });
     // 原生外掛都註冊了（專案內外掛要手動註冊，漏了不會報錯）
-    const plugins = await page.evaluate(() => ['Geolocation', 'LocalNotifications', 'AbangEdgeAI', 'AbangSystem'].map((n) => [n, !!globalThis.Capacitor?.isPluginAvailable?.(n)]));
+    const plugins = await page.evaluate(() => ['Geolocation', 'LocalNotifications', 'AbangEdgeAI', 'AbangSystem', 'AbangVoice'].map((n) => [n, !!globalThis.Capacitor?.isPluginAvailable?.(n)]));
     for (const [n, ok] of plugins) ok ? console.log(`✓ 外掛 ${n}`) : fail(`外掛 ${n} 沒有註冊`);
     mkdirSync(OUT, { recursive: true });
     for (const p of PAGES) {
@@ -77,6 +77,16 @@ async function main() {
       } catch { fail(`${p.name}：15 秒內沒看到 ${p.want}`); }
       await sleep(600);
       try { writeFileSync(fileURLToPath(new URL(`android-${p.name}.png`, OUT)), screencap()); } catch (e) { console.warn(`  （${p.name} 截圖失敗：${e.message}）`); } // 用手機實際畫面（WebView 截圖在重新載入後可能卡住）
+    }
+    // 語音問阿幫（M14-01）：外掛回報能不能用、是不是在手機上辨識；能用時問阿幫的輸入列有麥克風鍵（不按，不跳權限框、不開麥克風）
+    await page.evaluate(() => { globalThis.location.hash = '#/agent'; });
+    const v = await page.evaluate(() => globalThis.Capacitor.nativePromise('AbangVoice', 'available', { lang: 'zh-TW' }).catch((e) => ({ error: e.message })));
+    if (v.error) fail(`AbangVoice.available 失敗：${v.error}`);
+    else {
+      console.log(`✓ 語音辨識：${v.engine}，${v.onDevice ? '在手機上' : '不是在手機上'}，${v.lang}，麥克風權限 ${v.permission}${v.onDeviceLanguages ? `，手機上語言包 ${v.onDeviceLanguages.join('/')}` : ''}`);
+      const mic = await page.waitForSelector('.chat-form .chat-mic:not([hidden])', { timeout: 5000 }).then(() => true, () => false);
+      const on = await page.evaluate(() => globalThis.localStorage.getItem('abang.voice') !== 'off'); // 使用者在設定關掉了就不該有
+      if (v.available && on && !mic) fail('語音能用，但問阿幫沒有麥克風鍵'); else if (mic) console.log('✓ 麥克風鍵');
     }
     // 中央「問阿幫」鍵拉出對話、Android 返回鍵收起（dialog.close）；沒拉出來就不按返回（--keep 時前面可能是別的 App）
     await page.evaluate(() => { globalThis.location.hash = '#/s/weather'; });

@@ -14,6 +14,26 @@
 ---
 
 
+## 2026-11-21 M14-01c 語音審查修正
+- 做了：權限框與取消的競爭（原生 start 記號碼、權限回來先比對，被取消就 reject client 不開麥克風；Android 權限框的 onPause 不拆；JS 準備聽時的 visibilitychange 不取消）；長按真的放開才結束（start 帶 hold：iOS 不因停頓收尾、Android 停頓 8 秒；提早收尾時 JS 累加那一段接著聽）；Android available 的 checkRecognitionSupport 包 try/catch＋3 秒逾時；Android 13 下載語言包的辨識器延後拆（待實機驗證）；iOS teardown 把音訊類別設回 ambient、監聽音訊中斷與引擎設定改變；原生到背景時送 error 事件。
+- 測試：voice.test.js 14 項；E2E 新增權限框不取消、長按帶 hold
+- 文件：UX.md §5.0.3、PROGRESS.md
+- 下一個：合併主線、送 PR
+- 卡住：無
+
+## 2026-11-21 M14-01a 語音只在手機上辨識、協助下載語言包、不支援就反白
+- 做了：依產品負責人決定拿掉「退回系統／雲端辨識」：Android 只用手機上的辨識器，API 33+ 看語言包（可下載 → 第一次按麥克風就 `triggerModelDownload`，Android 14+ 用 ModelDownloadListener 回報進度，13 每 3 秒再問；下載中麥克風「準備中」；排在 Wi-Fi／失敗 → 「到手機設定下載」開語音輸入設定）；API 31、32 語言不能用回 `language-missing`。iOS 只在 `supportsOnDeviceRecognition` 時用（SFSpeechRecognizer 沒有下載 API，說怎麼開聽寫）。不支援就反白（`aria-disabled`、仍可按、按了說原因）；網頁版不能本機辨識仍不顯示。`#/ai`「聽」卡片、設定頁、隱私權政策、Info.plist 文案改成「語音只在手機上轉成文字，不錄音、不上傳」。
+- 測試：voice.test.js 12 項（新增語言包下載）；E2E 新增 2 項（反白與原因、語言包下載），截圖 phone-voice-unsupported.png
+- 文件：UX.md §5.0.3、PLAN.md、PROGRESS.md
+- 下一個：M14-01b 實機確認
+- 卡住：無
+
+## 2026-11-21 M14-01 阿幫聽得懂：語音問阿幫（手機上辨識）
+- 做了：原生外掛 `AbangVoice`（Android `AbangVoicePlugin.java`：API 31+ 手機上辨識器、API 33+ 查語言包、否則系統辨識＋EXTRA_PREFER_OFFLINE；iOS `AbangVoicePlugin.swift`：SFSpeechRecognizer＋AVAudioEngine、`requiresOnDeviceRecognition`、停頓 1.5 秒收尾；都回報 onDevice、partial／level／final／error 事件、錯誤碼對應、到背景就停）。前端 `voice.js`（狀態機、控制器、原生與網頁兩種來源）、`voice-i18n.js`、`agent/voice-ui.js`（麥克風鍵、在聽面板、核心跟著音量）；長按中央鍵放開送出（`abang-dock.js`）；用說的那一句泡泡有小麥克風；設定頁開關與麥克風權限、隱私權政策、`#/ai`「聽」卡片。網頁版只在 Google Chrome 能本機辨識時顯示（無頭 Chromium 呼叫 `available()` 會當掉）。SW v0.9.7。
+- 測試：npm test 新增 11 項（voice.test.js）；E2E 新增 6 項（假外掛：麥克風鍵、在聽與即時文字、自動送出接上阿幫在想、長按中央鍵、停頓自動結束、英文辨識、取消、權限被拒、網頁版不顯示／本機辨識才顯示、reduced motion、`#/ai` 與設定）；截圖 phone-voice-listening.png、phone-voice-sent.png；`smoke:android` 外掛清單加 AbangVoice 並檢查麥克風鍵；Android assembleDebug、iOS xcodebuild（不簽署）成功
+- 文件：UX.md §5.0.3、PLAN.md M14、CLAUDE.md、PROGRESS.md
+- 下一個：M14-01b 實機確認（Pixel、iPhone）
+- 卡住：無（實機需 Austin 的手機）
 
 ## 2026-11-21 決策權重調整：沒有狀態時以大眾運輸為主，有理由才推叫車
 - 做了：Austin 回饋「點去 101 幾乎都是叫車」。叫車在等車、走路、戶外、體力四項永遠最好（合計 45%），費用只佔 15%，無狀態 11 種常見起訖有 10 種推叫車。調整基本權重（費用 20%、戶外 3%、體力 5%、走路 12%）並等比例調高相關狀態倍數；想省錢 ×5 → ×3。結果：無狀態推捷運或公車；趕時間、帶行李、下雨、帶長輩推叫車。ADR-0010 權重調整紀錄。

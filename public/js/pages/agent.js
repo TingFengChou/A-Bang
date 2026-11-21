@@ -7,6 +7,7 @@ import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-hel
 import { edgeJudge, edgePrewarm } from '../edge-judge.js';
 import { noteAgentStatus } from '../ai-info.js';
 import { mountThinking, deviceLine } from '../agent/thinking.js';
+import { mountVoiceUI } from '../agent/voice-ui.js';
 import { placesFor } from '../saved-places.js';
 import { icons } from '../icons.js';
 import { motion } from '../../ui/cards/motion.js';
@@ -178,7 +179,10 @@ export default {
     modeLine.setAttribute('aria-live', 'polite'); // 換模式或改在手機上判斷時唸出來 // 由誰回答（ADR-0012；Claude 模式說明對話會送 Anthropic，AGENT.md §7）
     // 說明起點是現在位置（第一次需要位置時才跳權限框，先讓使用者知道為什麼）；拒絕定位時阿幫會問從哪出發
     const hereHint = agentId === 'life' && el('p', 'updated here-hint', '沒說起點時，阿幫用你現在的位置當出發點。');
-    main.append(log, el('div', 'chat-dock', pageRow, chips, mention, form), ...(hereHint ? [hereHint] : []), disclaimer, modeLine);
+    const dock = el('div', 'chat-dock', pageRow, chips, mention, form);
+    main.append(log, dock, ...(hereHint ? [hereHint] : []), disclaimer, modeLine);
+    // 語音問阿幫（M14-01）：麥克風鍵與在聽的面板（agent/voice-ui.js）；只有生活 agent（防詐是貼上訊息）
+    const voice = agentId === 'life' ? mountVoiceUI({ form, sendBtn, dock, send: (q, o) => send(q, o) }) : null;
     // 上次的對話（只有文字、最後一次對話 12 小時內）：只顯示；按「接著上次問」才當成前文跟下一個問題一起送（隱私：沒按就不送，常用地點也不會因為昨天說過「回家」又送出）
     // 只有生活 agent（防詐不留）
     const past = agentId === 'life' ? loadChat() : null;
@@ -274,10 +278,10 @@ export default {
     const takeQuery = (qy = {}) => { if (qy.q) { const q0 = qy.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); } };
     takeQuery(query);
 
-    async function send(raw, { pageContext = '' } = {}) {
+    async function send(raw, { pageContext = '', voice: spoken = false } = {}) {
       const q = String(raw || '').trim().slice(0, 500);
       if (!q) return;
-      if (busy) { pendingQ = { q, pageContext }; return; }
+      if (busy) { pendingQ = { q, pageContext, voice: spoken }; return; }
       turnNo += 1;
       pastWrap?.querySelector('.past-acts button') && pastWrap.querySelector('.past-acts').replaceChildren(el('span', 'past-note', history.length ? '接著上次的話問' : '這次重新問（上次的對話只留著看）'));
       const myGen = gen;
@@ -285,7 +289,7 @@ export default {
       busy = true; sendBtn.disabled = true; input.value = ''; mention.replaceChildren();
       pageRow.hidden = true;
       history.push({ role: 'user', content: q });
-      log.append(el('div', 'msg user', q));
+      log.append(el('div', `msg user${spoken ? ' spoken' : ''}`, q)); // 用說的：泡泡上一個小麥克風（css）
       const turn = el('div', 'turn');
       log.append(turn);
       const view = turnView(turn, /[A-Za-z]{2,}/.test(q) && !/[一-鿿]/.test(q) ? 'en' : null); // 先猜（第一個畫面用）；伺服器的 status 事件會說這一輪真正的語言
@@ -313,7 +317,7 @@ export default {
       } finally {
         view.stop(); // 沒有回答（只有卡片、或中斷）也收起「阿幫在想」
         busy = false; sendBtn.disabled = false; context = '';
-        if (pendingQ) { const p = pendingQ; pendingQ = null; queueMicrotask(() => send(p.q, { pageContext: p.pageContext })); }
+        if (pendingQ) { const p = pendingQ; pendingQ = null; queueMicrotask(() => send(p.q, { pageContext: p.pageContext, voice: p.voice })); }
         if (!matchMedia('(pointer: coarse)').matches) input.focus(); // 手機不自動聚焦：鍵盤會跳出來蓋住回答
       }
     }
@@ -511,6 +515,11 @@ export default {
       focus: () => input.focus({ preventScroll: true }),
       ask: (q) => send(q),
       hasChat: () => history.length > 0,
+      /** 長按中央鍵用說的（abang-dock.js）：voiceReady 能不能用、voiceHold 開始、voiceRelease 放開送出、voiceCancel 收起時取消 */
+      voiceReady: () => !!voice?.ready(),
+      voiceHold: () => voice?.hold(),
+      voiceRelease: () => voice?.release(),
+      voiceCancel: () => voice?.cancel(),
       /** 設定頁清除本機資料：畫面上的對話也一起清掉 */
       clear() { gen++; clearChat(); history.length = 0; pendingQ = null; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); showDefaults(); },
       /** 從哪一頁打開（浮動阿幫）：那一頁可以問的問題；點了才把這一頁的說明一起送（自己打的問題不帶）；null＝清掉 */
