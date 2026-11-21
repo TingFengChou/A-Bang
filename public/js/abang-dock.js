@@ -112,7 +112,7 @@ export function abangSays(text, action = null) {
   row.className = 'fab-bubble-acts';
   if (action?.ask) {
     const b = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small', textContent: action.label || '問阿幫' });
-    b.addEventListener('click', () => { openSheet(); keptIf('agent')?.api.ask?.(action.ask); });
+    b.addEventListener('click', () => { openSheet(); const api = keptIf('agent')?.api; api?.setPage?.(null); api?.ask?.(action.ask); }); // 提醒的問題跟現在這一頁無關：不帶頁面
     row.append(b);
   }
   const close = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small quiet', textContent: '知道了' });

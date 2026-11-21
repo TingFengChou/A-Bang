@@ -143,7 +143,7 @@ export default {
     let busy = false;
     const cards = [];
     let turnNo = 0; // 第幾輪：只有最近兩輪的卡片自動刷新（對話一直保留，舊卡片不再查，省流量與電）
-    let pendingQ = null; // 阿幫還在回答時又問（提醒泡泡、首頁帶來的問題）：答完接著問，不丟掉
+    let pendingQ = null; // 阿幫還在回答時又問（提醒泡泡、首頁帶來的問題）：答完接著問，不丟掉（含這一頁的說明）
     const seenCards = new Map(); // 上一輪的天氣、空品（接著問時沒變就收合「同上」；鍵含測站，同一輪起訖點兩張不互蓋）
     /** 這張卡跟上一輪同一個測站的一樣嗎：一樣回收合說明，否則記下並回 null */
     const sameAs = (e, follow, lang) => {
@@ -161,7 +161,6 @@ export default {
     const chips = el('div', 'suggest');
     const pageRow = el('div', 'suggest page-ask'); // 浮動阿幫：在這一頁可以問（abang-dock.js setPage）
     pageRow.hidden = true;
-    let pageContext = '';
     const mention = el('div', 'mention-bar');
     const input = el('input', 'chat-input');
     Object.assign(input, { placeholder: A.placeholder, enterkeyhint: 'send', autocomplete: 'off', maxLength: 500 });
@@ -249,10 +248,10 @@ export default {
     const takeQuery = (qy = {}) => { if (qy.q) { const q0 = qy.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); } };
     takeQuery(query);
 
-    async function send(raw) {
+    async function send(raw, { pageContext = '' } = {}) {
       const q = String(raw || '').trim().slice(0, 500);
       if (!q) return;
-      if (busy) { pendingQ = q; return; }
+      if (busy) { pendingQ = { q, pageContext }; return; }
       turnNo += 1;
       for (const c of cards) if (c.turn < turnNo - 1) c.stop?.();
       busy = true; sendBtn.disabled = true; input.value = ''; mention.replaceChildren();
@@ -279,8 +278,8 @@ export default {
       } catch {
         turn.append(el('div', 'msg error', '連線中斷了，請再試一次。'));
       } finally {
-        busy = false; sendBtn.disabled = false; context = ''; pageContext = '';
-        if (pendingQ) { const p = pendingQ; pendingQ = null; queueMicrotask(() => send(p)); }
+        busy = false; sendBtn.disabled = false; context = '';
+        if (pendingQ) { const p = pendingQ; pendingQ = null; queueMicrotask(() => send(p.q, { pageContext: p.pageContext })); }
         if (!matchMedia('(pointer: coarse)').matches) input.focus(); // 手機不自動聚焦：鍵盤會跳出來蓋住回答
       }
     }
@@ -477,12 +476,12 @@ export default {
       focus: () => input.focus({ preventScroll: true }),
       ask: (q) => send(q),
       hasChat: () => history.length > 0,
-      /** 從哪一頁打開（浮動阿幫）：那一頁可以問的問題，說明跟下一個問題一起送；null＝清掉 */
+      /** 從哪一頁打開（浮動阿幫）：那一頁可以問的問題；點了才把這一頁的說明一起送（自己打的問題不帶）；null＝清掉 */
       setPage(hint) {
-        pageContext = hint?.context || '';
+        const pc = String(hint?.context || '');
         const qs = (hint?.chips || []).slice(0, 3);
         pageRow.hidden = !qs.length;
-        pageRow.replaceChildren(...(qs.length ? [el('span', 'next-title', '在這頁可以問'), ...qs.map((q) => { const b = el('button', 'chip', q); b.type = 'button'; b.onclick = () => send(q); return b; })] : []));
+        pageRow.replaceChildren(...(qs.length ? [el('span', 'next-title', '在這頁可以問'), ...qs.map((q) => { const b = el('button', 'chip', q); b.type = 'button'; b.onclick = () => send(q, { pageContext: pc }); return b; })] : []));
       },
     };
     return api;
