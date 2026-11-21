@@ -24,6 +24,8 @@ const ROLE_ICON = { 地點: 'pin', 天氣: 'sun', 公車: 'bus', YouBike: 'bike'
   行程: 'route', 車站: 'train', 定位: 'locate', 空品: 'air', 地震: 'quake', 藥局: 'pharmacy', 垃圾車: 'trash', 油價: 'fuel', 發票: 'receipt', 股市: 'chart', 防詐: 'shield', 網址: 'link', 闢謠: 'myth', 號碼: 'phone' };
 const ROLE_CLASS = { 防詐: 'bad', 網址: 'bad', 闢謠: 'fare', 號碼: 'tra', 地點: 'place', 天氣: 'place', 公車: 'bus', YouBike: 'bike', 高鐵: 'rail', 台鐵: 'tra', 捷運: 'brand', 路況: 'car', 客運: 'car', 票價: 'fare', 叫車: 'car', 訂票: 'rail', 行程: 'brand', 車站: 'tra', 定位: 'place', 空品: 'place', 地震: 'bad', 藥局: 'bike', 垃圾車: 'car', 油價: 'fare', 發票: 'fare', 股市: 'fare' };
 /** 每個 agent 的 @點名、標題與輸入提示（角色名稱與 core/agent/events.js TOOL_ROLES 一致） */
+/** 保留對話的鍵：只有生活 agent 保留（防詐貼上的內容離開就清掉，共用手機時不留在畫面上） */
+export const keptKey = (id) => (!id || id === 'life' || !AGENTS[id] ? 'agent' : null);
 const AGENTS = {
   life: { title: '問阿幫', placeholder: '想去哪裡、想查什麼？例如：去台北 101', mentions: ['地點', '天氣', '路況', '公車', 'YouBike', '捷運', '高鐵', '台鐵', '票價', '叫車', '空品', '地震', '藥局', '垃圾車', '油價', '發票', '股市'] },
   antifraud: { title: '阿幫・防詐', placeholder: '把可疑的簡訊、LINE 訊息或網址貼上來', mentions: ['防詐', '網址', '闢謠', '號碼'] },
@@ -122,6 +124,7 @@ const metricsText = (m) => (m ? [m.scanned ? `${m.scanned} 筆` : null, m.cacheH
 
 export default {
   title: '問阿幫',
+  keepAlive: true, // 換頁不清掉對話（app.js、abang-dock.js）；浮動阿幫的底部對話也是這一個
   render({ main, setTitle, onCleanup, params = [], query = {} }) {
     // 手機 App：起點預設是現在位置
     // 已經允許過定位才先定位（不在使用者還沒發問時就跳權限框；第一次在需要位置時才問，審查建議）
@@ -139,6 +142,8 @@ export default {
     let context = '';
     let busy = false;
     const cards = [];
+    let turnNo = 0; // 第幾輪：只有最近兩輪的卡片自動刷新（對話一直保留，舊卡片不再查，省流量與電）
+    let pendingQ = null; // 阿幫還在回答時又問（提醒泡泡、首頁帶來的問題）：答完接著問，不丟掉
     const seenCards = new Map(); // 上一輪的天氣、空品（接著問時沒變就收合「同上」；鍵含測站，同一輪起訖點兩張不互蓋）
     /** 這張卡跟上一輪同一個測站的一樣嗎：一樣回收合說明，否則記下並回 null */
     const sameAs = (e, follow, lang) => {
@@ -237,12 +242,16 @@ export default {
       }
     });
     form.addEventListener('submit', (e) => { e.preventDefault(); send(input.value); });
-    // 從首頁帶問題過來（#/agent?q=…）：直接送出，並把網址換掉，避免重新整理時重送
-    if (query.q) { const q0 = query.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); }
+    // 從首頁帶問題過來（#/agent?q=…）：直接送出，並把網址換掉，避免重新整理時重送（對話保留時，回來帶的問題接在後面）
+    const takeQuery = (qy = {}) => { if (qy.q) { const q0 = qy.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); } };
+    takeQuery(query);
 
     async function send(raw) {
       const q = String(raw || '').trim().slice(0, 500);
-      if (!q || busy) return;
+      if (!q) return;
+      if (busy) { pendingQ = q; return; }
+      turnNo += 1;
+      for (const c of cards) if (c.turn < turnNo - 1) c.stop?.();
       busy = true; sendBtn.disabled = true; input.value = ''; mention.replaceChildren();
       history.push({ role: 'user', content: q });
       log.append(el('div', 'msg user', q));
@@ -266,6 +275,7 @@ export default {
         turn.append(el('div', 'msg error', '連線中斷了，請再試一次。'));
       } finally {
         busy = false; sendBtn.disabled = false; context = '';
+        if (pendingQ) { const p = pendingQ; pendingQ = null; queueMicrotask(() => send(p)); }
         if (!matchMedia('(pointer: coarse)').matches) input.focus(); // 手機不自動聚焦：鍵盤會跳出來蓋住回答
       }
     }
@@ -379,12 +389,12 @@ export default {
                 const slot = el('div', 'card-slot');
                 const box = el('details', 'card-same');
                 box.append(el('summary', '', el('span', 'same-text', same), el('span', 'same-open', turnLang === 'en' ? 'Show card' : '看完整')), slot);
-                box.addEventListener('toggle', () => { if (box.open && !slot.childElementCount) cards.push(renderCard(slot, payload, host)); });
+                box.addEventListener('toggle', () => { if (box.open && !slot.childElementCount) cards.push(Object.assign(renderCard(slot, payload, host), { turn: turnNo })); });
                 results.append(box);
               } else {
                 const slot = el('div', `card-slot ${results.children.length >= 2 ? 'scroll-in' : 'enter3d'}`); // 前兩張立體進場，後面的捲到才浮現
                 results.append(slot);
-                cards.push(renderCard(slot, payload, host));
+                cards.push(Object.assign(renderCard(slot, payload, host), { turn: turnNo }));
               }
             }
             break;
@@ -450,5 +460,18 @@ export default {
       view.flush = () => queue;
       return view;
     }
+    // 給 app.js／浮動阿幫用：回到這頁、阿幫主動說一句（提醒）、聚焦輸入框、代問、有沒有對話
+    return {
+      show: (qy) => takeQuery(qy),
+      say(text, action = null) {
+        const p = el('div', 'agent-say');
+        p.append(avatar('阿幫', 'happy'), el('p', 'say', text));
+        if (action?.ask) { const b = el('button', 'btn small', action.label || '問阿幫'); b.type = 'button'; b.onclick = () => send(action.ask); p.append(b); }
+        log.append(p);
+      },
+      focus: () => input.focus({ preventScroll: true }),
+      ask: (q) => send(q),
+      hasChat: () => history.length > 0,
+    };
   },
 };

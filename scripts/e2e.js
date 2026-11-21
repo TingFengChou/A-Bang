@@ -241,8 +241,9 @@ for (const [dname, device] of Object.entries(DEVICES)) {
         let n = 0;
         const host = { callTool: async () => { n++; return { card: 'metro', name: 'metro_live_board', mode: 'demo', data: { system: 'TRTC', station: 'X', stationId: 'X', updatedAt: new Date().toISOString(), trains: [], nav: null } }; } };
         const el = document.createElement('div');
+        document.body.append(el); // 不在畫面上的卡片不刷新（收起的阿幫對話）
         const c = renderCard(el, { card: 'metro', tool: 'metro_live_board', args: {}, mode: 'demo', data: { system: 'TRTC', station: 'X', stationId: 'X', updatedAt: new Date().toISOString(), trains: [], nav: null } }, host);
-        await c.refresh(); await c.refresh(); c.destroy();
+        await c.refresh(); await c.refresh(); c.destroy(); el.remove();
         return n;
       });
       assert.equal(calls, 2);
@@ -584,9 +585,10 @@ test('選公車就盯到站（L-14）：想省錢 → 公車卡片聚焦上車�
     assert.ok(lb.x >= sb.x && lb.x + lb.width <= sb.x + sb.width + 1, '站名在畫面內');
     assert.match(await scene.getAttribute('aria-label'), new RegExp(`你在「${stopName.replace(/[()]/g, '\\$&')}」等車`));
     await shot(page, 'phone-bus-follow-page');
-    // 到點：App 內 toast（通知權限另外）
+    // 到點：阿幫說（浮動阿幫冒泡泡、讀屏念、也記在對話裡；通知權限另外）
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('abang:arrival', { detail: { text: '601 約 5 分後到「測試站」，該出門了！' } })));
-    await page.waitForFunction(() => [...document.querySelectorAll('[role=status]')].some((e) => /🚌 601 約 5 分後到「測試站」/.test(e.textContent)));
+    await page.waitForFunction(() => /🚌 601 約 5 分後到「測試站」/.test(document.querySelector('#abang-bubble:not([hidden])')?.textContent || ''));
+    await page.waitForFunction(() => /阿幫：🚌 601 約 5 分後到「測試站」/.test(document.getElementById('abang-live')?.textContent || ''));
     await page.click('.bus-focus #unwatch');
     await page.waitForFunction(() => /到站前 3 分提醒我/.test(document.querySelector('.bus-focus')?.textContent || ''));
   }, { init: () => { window.Notification = class { static permission = 'granted'; static requestPermission() { return Promise.resolve('granted'); } }; } });
@@ -856,7 +858,7 @@ test('下車提醒：選下車站、進行中、取消', async () => {
     await page.waitForFunction((d) => document.querySelector('.bus-focus .alight .ok')?.textContent.includes(`快到「${d}」前約 2 分提醒你`), far);
     await shot(page, 'phone-alight');
     // 行程中模式：坐車中大字是到下車站還要多久、時間軸標下車站、不再給到站提醒按鈕
-    assert.match(await page.textContent('.bus-focus.riding .sub'), /坐車中・從「敦化市場」上車/);
+    assert.match(await page.textContent('.bus-focus.riding .sub'), /坐車中・從「敦化市場」上車|車快到「敦化市場」了，上車後開始算/); // 示範資料車剛好要進站時：還沒上車
     assert.match(await page.textContent('.bus-focus.riding .big'), new RegExp(`(約 \\d+ 分到|快到)「${far}」`));
     assert.equal(await page.locator('.bus-focus [data-min]').count(), 0, '坐車中不給到站提醒');
     assert.match(await page.locator('.timeline .me-tag.off').locator('..').textContent(), new RegExp(far));
@@ -873,6 +875,47 @@ test('下車提醒：選下車站、進行中、取消', async () => {
     await page.click('.bus-focus .alight .btn.ghost');
     await page.waitForSelector('#alight-dest');
     assert.equal(await page.locator('.bus-focus.riding').count(), 0, '取消後回到等車中');
+  });
+});
+
+// 阿幫常駐（2026-11-21 Austin：跳去看公車動態，對話不能不見）：換頁回來對話原樣；浮動阿幫拉出同一段對話；提醒由阿幫說
+test('阿幫常駐：開公車頁再回來對話還在、浮動阿幫拉出同一段對話、提醒泡泡', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    assert.equal(await page.locator('#abang-fab').isHidden(), true, '問阿幫頁不顯示浮動阿幫');
+    await page.fill('.chat-form input', '307 到哪了？我在臺北車站');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    const answer = await page.locator('.bubble.final .say').textContent();
+    await page.locator('.results [data-card="bus-route"]').getByRole('button', { name: '開公車頁看動態' }).click();
+    await page.waitForSelector('.bus-focus');
+    // 其他頁面：浮動阿幫（有對話的小點），點了拉出同一段對話，背後還是公車頁
+    await page.waitForSelector('#abang-fab.has-chat');
+    await page.click('#abang-fab');
+    await page.waitForSelector('#abang-sheet[open] .bubble.final');
+    assert.equal(await page.locator('#abang-sheet .bubble.final .say').textContent(), answer, '同一段對話');
+    assert.equal(await page.locator('#main .bus-focus').count(), 1, '背後的公車頁還在');
+    await shot(page, 'phone-abang-sheet');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.getElementById('abang-sheet').open);
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'abang-fab', '收起後焦點回到浮動阿幫');
+    // 提醒：浮動阿幫冒泡泡，也記在對話裡；點「改其他方式」打開對話並問阿幫
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('abang:arrival-stuck', { detail: { routeName: '307', stop: 'x', reason: 'late', ask: '不要坐公車了，改別的方式' } })));
+    await page.waitForSelector('#abang-bubble:not([hidden])');
+    assert.match(await page.textContent('#abang-bubble'), /307 一直沒來，要我幫你改其他方式嗎？/);
+    await shot(page, 'phone-abang-bubble');
+    await page.click('#abang-bubble button:has-text("改其他方式")');
+    await page.waitForSelector('#abang-sheet[open]');
+    await page.waitForFunction(() => [...document.querySelectorAll('#abang-sheet .msg.user')].some((m) => m.textContent.includes('改別的方式')));
+    await page.waitForFunction(() => document.querySelectorAll('#abang-sheet .bubble.final').length === 2, null, { timeout: 20000 });
+    // Android 返回鍵（app.js 直接 dialog.close()）：一樣收尾，對話不留在關掉的面板裡
+    await page.evaluate(() => document.getElementById('abang-sheet').close());
+    await page.waitForFunction(() => !document.querySelector('#abang-sheet .kept-page') && document.activeElement?.id === 'abang-fab');
+    assert.equal(await page.getAttribute('#abang-fab', 'aria-label'), '打開跟阿幫的對話（對話還在）');
+    // 回到問阿幫頁：兩輪對話與提醒都在
+    await page.goto(`${base}/#/agent`);
+    await page.waitForSelector('#main .bubble.final');
+    assert.equal(await page.locator('#main .msg.user').count(), 2);
+    assert.equal(await page.locator('#main .agent-say').count(), 1, '阿幫說過的提醒記在對話裡');
   });
 });
 

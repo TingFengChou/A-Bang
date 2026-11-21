@@ -17,7 +17,13 @@ export function watchKeyboard(win = globalThis.window) {
     const t = typing(doc);
     if (!t) full = win.innerHeight; // 沒在打字：這就是完整高度（轉向、分割畫面後也對）
     else full = Math.max(full, win.innerHeight);
-    doc.documentElement.classList.toggle('kb-open', keyboardOpen(vv.height, full, t));
+    const open = keyboardOpen(vv.height, full, t);
+    doc.documentElement.classList.toggle('kb-open', open);
+    // 底部對話面板（<dialog>）跟著可見區域：iOS 版面高度不變，鍵盤蓋住的部分要讓出來
+    const st = doc.documentElement.style;
+    if (!st) return; // 測試用的假文件
+    if (open) { st.setProperty('--vvh', `${Math.round(vv.height)}px`); st.setProperty('--kb', `${Math.max(0, Math.round(win.innerHeight - vv.height - (vv.offsetTop || 0)))}px`); }
+    else { st.removeProperty('--vvh'); st.removeProperty('--kb'); }
   };
   // 焦點移到按鈕（點「送出」、建議問題）時晚一點再判斷：鍵盤收起前分頁列不跑回來，點擊不會落空
   const onFocusOut = () => { clearTimeout(later); later = setTimeout(update, 300); };
