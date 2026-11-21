@@ -105,30 +105,41 @@ function legsBar(o, t) {
   return h('div', { class: 'ab-legs-wrap' },
     runners,
     h('div', { class: 'ab-legs', role: 'img', 'aria-label': o.legs.map((l) => `${t(`trip.leg.${l.mode}`)} ${t('common.minutes', { n: l.minutes })}`).join(t('common.listSep')) },
-      o.legs.map((l, i) => h('span', { class: `ab-leg ${l.mode}`, style: { flex: `0 0 ${((sh[i].to - sh[i].from) * 100).toFixed(2)}%`, '--i': String(i) }, title: l.detail },
+      o.legs.map((l, i) => h('span', { class: `ab-leg ${l.mode}`, style: { flex: `0 0 ${((sh[i].to - sh[i].from) * 100).toFixed(2)}%`, '--i': String(i) }, title: l.detailEn && t('common.listSep') === ', ' ? l.detailEn : l.detail },
         sh[i].to - sh[i].from >= 0.08 && icon(l.mode), sh[i].to - sh[i].from >= 0.2 && h('b', null, `${l.minutes}`)))),
     xfers);
 }
 
+/** 方案名稱：英文那一輪用交通方式英文（公車號、捷運線名維持中文：Bus 棕9、MRT 淡水信義線），中文照原名（S12f） */
+export function optName(o, t, locale) {
+  if (locale !== 'en') return o.name;
+  const n = String(o.name || '');
+  if (o.role === 'bus') return `Bus ${n.replace(/^公車\s*/, '')}`.trim();
+  if (o.role === 'metro') return `MRT ${n.replace(/^捷運\s*/, '')}`.trim();
+  const k = `trip.leg.${o.role}`;
+  return t(k) === k ? n : t(k);
+}
+
 function optionBlock(o, ctx, best) {
   const { host, t } = ctx;
+  const name = optName(o, t, ctx.locale);
   const range = o.costRange || [o.cost, o.cost];
   const cost = o.share // 多人叫車：每人分攤（多輛車寫出車數）
     ? `${t('common.pricePerPerson', { low: range[0], high: range[1] })}${o.share.cars > 1 ? t('trip.cars', { n: o.share.cars }) : ''}`
     : o.costRange ? t('common.priceRange', { low: o.costRange[0], high: o.costRange[1] }) : t('common.price', { n: o.cost });
   const ride = o.role === 'ridehail' && o.legs[0]?.url;
   // 備案：「改成這個」＝跟阿幫說改成它（沿用起訖點重算；公車會自動盯到站）
-  const pick = !best && host?.ask && h('button', { type: 'button', class: 'ab-btn ab-pick', onclick: () => host.ask(t('trip.pickAsk', { name: t(`trip.leg.${o.role}`) === `trip.leg.${o.role}` ? o.name : t(`trip.leg.${o.role}`) })) } /* 送出的話用交通方式（英文時「Switch to MRT」伺服器聽得懂）；按鈕寫完整名稱 */, t('trip.pickAsk', { name: o.name })); // 審查：要像按鈕、≥ 44px、寫出方案名
+  const pick = !best && host?.ask && h('button', { type: 'button', class: 'ab-btn ab-pick', onclick: () => host.ask(t('trip.pickAsk', { name: t(`trip.leg.${o.role}`) === `trip.leg.${o.role}` ? o.name : t(`trip.leg.${o.role}`) })) } /* 送出的話用交通方式（英文時「Switch to MRT」伺服器聽得懂）；按鈕寫完整名稱 */, t('trip.pickAsk', { name })); // 審查：要像按鈕、≥ 44px、寫出方案名
   return h('div', { class: best ? 'ab-option best' : 'ab-option' },
     h('div', { class: 'ab-row' },
-      token(o.role, { size: best ? 'lg' : 'md', go: best, label: o.name }),
+      token(o.role, { size: best ? 'lg' : 'md', go: best, label: name }),
       best && h('span', { class: 'ab-badge ab-best' }, t('trip.best')),
-      h('span', { class: 'ab-name' }, o.name),
+      h('span', { class: 'ab-name' }, name),
       h('span', { class: 'ab-big' }, t('common.minutes', { n: o.minutes })),
       h('span', { class: 'ab-sub' }, t('trip.arrive', { time: o.arriveAt })),
       h('span', { class: 'ab-sub' }, cost, o.estimated ? t('common.estimatedTag') : '')),
     best && legsBar(o, t),
-    best && h('ul', { class: 'ab-legs-detail' }, o.legs.map((l) => h('li', {}, token(l.mode, { size: 'xs' }), l.detail))),
+    best && h('ul', { class: 'ab-legs-detail' }, o.legs.map((l) => h('li', {}, token(l.mode, { size: 'xs' }), ctx.locale === 'en' && l.detailEn ? l.detailEn : l.detail))),
     // YouBike 兩端都要看：起點有車、終點有空位；很緊時警告並給備用站
     o.bike && h('div', { class: 'ab-bike-ends' },
       h('span', { class: `ab-chip${o.bike.rent.tight ? ' warn' : ' ok'}` }, t('trip.bikeRent', { name: o.bike.rent.name, n: o.bike.rent.count })),

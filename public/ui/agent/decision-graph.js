@@ -20,7 +20,7 @@ const EN = {
   state: { rush: 'In a hurry', traffic: 'Heavy traffic', rain: 'Raining', luggage: 'With luggage', budget: 'On a budget', lessWalk: 'Less walking', badAir: 'Poor air quality', elder: 'With seniors', kids: 'With kids', mobility: 'Limited mobility', group: 'Group travel', rainSoon: 'Rain likely' }, // 與 en.js trip.stateKey 相同
   source: { auto: 'Auto-detected', user: 'You said', picked: 'You chose' },
   mode: { walk: 'Walk', bike: 'YouBike', bus: 'Bus', metro: 'MRT', thsr: 'High Speed Rail', tra: 'Train', intercity: 'Intercity bus', ridehail: 'Taxi' },
-  role: { 地點: 'Places', 天氣: 'Weather', 空品: 'Air', 路況: 'Traffic', 票價: 'Fares', 行程: 'Trip', 公車: 'Bus', 捷運: 'MRT', YouBike: 'YouBike', 高鐵: 'THSR', 台鐵: 'Train', 叫車: 'Taxi' },
+  role: { 地點: 'Places', 定位: 'Location', 天氣: 'Weather', 空品: 'Air', 路況: 'Traffic', 票價: 'Fares', 行程: 'Trip', 公車: 'Bus', 捷運: 'MRT', YouBike: 'YouBike', 高鐵: 'THSR', 台鐵: 'Train', 叫車: 'Taxi', 客運: 'Coach', 訂票: 'Booking', 車站: 'Stations', 地震: 'Quakes', 藥局: 'Pharmacy', 垃圾車: 'Garbage', 油價: 'Fuel', 發票: 'Invoices', 股市: 'Stocks', 阿幫: 'Abang' },
   crit: { minutes: 'Time', waitMin: 'Wait', walkMin: 'Walking', cost: 'Cost', exposure: 'Outdoors', effort: 'Effort', delayRisk: 'Delays' },
   tag: { 遲到: 'Late', 不要: 'Skip', 不適合: 'Unfit', 收班: 'No service', 沒列入: 'N/A', 排除: 'Out' },
   cols: ['Data', 'Abang', 'Options'],
@@ -162,7 +162,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       tl.to(node, { opacity: 1, duration: 0.2 }, at)
         .fromTo(node, { scale: 1 }, { scale: 1.25, yoyo: true, repeat: 1, duration: 0.14, transformOrigin: '50% 50%' }, at)
         .to(edge, { strokeDashoffset: 0, duration: 0.35 }, at);
-      const label = decision.signals?.[role];
+      const label = (en && decision.signalsEn?.[role]) || decision.signals?.[role]; // 英文那一輪用英文膠囊（S12f）
       if (label && globalThis.MotionPathPlugin) {
         const col = MODE_COLOR[modeOf(role)] || '#0f766e';
         const w = Math.max(30, [...label].length * 10 + 14);
@@ -371,3 +371,6 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
   const played = intro();
   return { states: () => states, redraw: draw, played };
 }
+
+/** 小幫手角色的英文（討論串 @點名、頭像讀屏、決策圖共用；沒有就照原文） */
+export const roleEn = (r) => EN.role[r] || r;

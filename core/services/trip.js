@@ -34,7 +34,8 @@ export const bikeFare = (min) => (min <= 30 ? 5 : 5 + Math.ceil((min - 30) / 30)
 
 const roadKm = (m) => (m / 1000) * EST.roadFactor;
 const pt = (p) => ({ name: p.name, lat: p.lat, lon: p.lon });
-const leg = (mode, from, to, minutes, detail, navMode = 'walking') => ({ mode, from: pt(from), to: pt(to), minutes, detail, nav: navLinks(to.lat, to.lon, navMode) });
+/** detail 可以是 [中文, 英文]：英文提問的卡片用 detailEn（S12f；地名維持中文） */
+const leg = (mode, from, to, minutes, detail, navMode = 'walking') => ({ mode, from: pt(from), to: pt(to), minutes, ...(Array.isArray(detail) ? { detail: detail[0], detailEn: detail[1] } : { detail }), nav: navLinks(to.lat, to.lon, navMode) });
 
 // ── 車站座標：由內建地標對照（高鐵「高鐵○○站」或「○○車站」；台鐵「○○車站」） ──
 const STATION_ITEMS = LANDMARKS.items.filter((x) => x.kind === 'station' && !/捷運/.test(x.name));
@@ -70,10 +71,10 @@ function nearestStation(stations, p) {
 function access(fromP, toP, d) {
   if (d <= EST.stationWalkM) {
     const m = walkMinutes(d);
-    return { minutes: m, walkMin: m, cost: 0, estimated: false, leg: leg('walk', fromP, toP, m, `步行約 ${m} 分`) };
+    return { minutes: m, walkMin: m, cost: 0, estimated: false, leg: leg('walk', fromP, toP, m, [`步行約 ${m} 分`, `Walk about ${m} min`]) };
   }
   const m = Math.round((roadKm(d) / EST.cityKmh) * 60) + EST.cityWaitMin;
-  return { minutes: m, walkMin: 3, cost: EST.cityFare, estimated: true, leg: leg('transit', fromP, toP, m, `市區公車／捷運約 ${m} 分（估算）`, 'transit') };
+  return { minutes: m, walkMin: 3, cost: EST.cityFare, estimated: true, leg: leg('transit', fromP, toP, m, [`市區公車／捷運約 ${m} 分（估算）`, `City bus/MRT about ${m} min (estimate)`], 'transit') };
 }
 
 // ───────── 各種方案 ─────────
@@ -83,7 +84,7 @@ function walkOption(from, to, straight) {
   return {
     id: 'walk', role: 'walk', name: '步行', minutes: m, waitMin: 0, walkMin: m, cost: 0,
     exposure: 1, effort: Math.min(1, straight / 3000), delayRisk: 0,
-    legs: [leg('walk', from, to, m, `步行約 ${m} 分`)], notes: straight > 3000 ? ['超過 3 公里，走路比較累'] : [],
+    legs: [leg('walk', from, to, m, [`步行約 ${m} 分`, `Walk about ${m} min`])], notes: straight > 3000 ? ['超過 3 公里，走路比較累'] : [],
   };
 }
 
@@ -119,9 +120,9 @@ async function bikeOption(svc, from, to, straight) {
     id: 'bike', role: 'bike', name: 'YouBike', minutes: w1 + ride + w2, waitMin: 0, walkMin: w1 + w2, cost: bikeFare(ride),
     exposure: 1, effort: 0.8, delayRisk: 0,
     legs: [
-      leg('walk', from, rent, w1, `走到 ${rent.name}（${rent.rent} 台可借）`),
-      leg('bike', rent, ret, ride, `騎約 ${ride} 分到 ${ret.name}（${ret.returnSlots} 個空位）`, 'bicycling'),
-      leg('walk', ret, to, w2, `步行約 ${w2} 分`),
+      leg('walk', from, rent, w1, [`走到 ${rent.name}（${rent.rent} 台可借）`, `Walk to ${rent.name} (${rent.rent} bikes)`]),
+      leg('bike', rent, ret, ride, [`騎約 ${ride} 分到 ${ret.name}（${ret.returnSlots} 個空位）`, `Ride about ${ride} min to ${ret.name} (${ret.returnSlots} docks free)`], 'bicycling'),
+      leg('walk', ret, to, w2, [`步行約 ${w2} 分`, `Walk about ${w2} min`]),
     ],
     // 起點有車、終點有空位（兩端都要知道）：給卡片、討論串與總結用
     bike: {
@@ -201,9 +202,9 @@ async function metroOption(svc, from, to, straight) {
     id: 'metro', role: 'metro', name: transfer ? `捷運（${lines}）` : `捷運 ${lines}`, minutes: w1 + wait + ride + w2, waitMin: wait, walkMin: w1 + w2,
     cost: est.fare(km), exposure: 0.1, effort: transfer ? 0.3 : 0.2, delayRisk: 0,
     legs: [
-      leg('walk', from, o, w1, `走到捷運${stLabel(o.name)}`),
-      leg('metro', o, d, ride, `${lines}：${o.name} → ${d.name}${via ? `（在${stLabel(via.name)}轉乘）` : transfer ? '（轉乘一次）' : ''}`, 'transit'),
-      leg('walk', d, to, w2, `步行約 ${w2} 分`),
+      leg('walk', from, o, w1, [`走到捷運${stLabel(o.name)}`, `Walk to MRT ${o.name}`]),
+      leg('metro', o, d, ride, [`${lines}：${o.name} → ${d.name}${via ? `（在${stLabel(via.name)}轉乘）` : transfer ? '（轉乘一次）' : ''}`, `MRT ${o.name} → ${d.name}${via ? ` (change at ${via.name})` : transfer ? ' (one transfer)' : ''}`], 'transit'),
+      leg('walk', d, to, w2, [`步行約 ${w2} 分`, `Walk about ${w2} min`]),
     ],
     notes: ['捷運時間與票價依距離估算（未含實際路網）', ...(transfer ? [`需轉乘一次${via ? `（在${stLabel(via.name)}）` : ''}，估算多 5 分`] : [])],
     estimated: true,
@@ -231,9 +232,9 @@ async function busOption(svc, from, to, straight, risk, depart) {
       id: `bus-${t.routeName}`, role: 'bus', name: `公車 ${t.routeName}`, minutes: w1 + wait + ride + w2, waitMin: wait, walkMin: w1 + w2,
       cost: EST.busFare, exposure: 0.2, effort: 0.2, delayRisk: risk,
       legs: [
-        leg('walk', from, t.board, w1, `走到 ${t.board.name}`),
-        leg('bus', t.board, t.alight, ride, `${t.routeName}（${t.label}）坐 ${t.stops} 站`, 'transit'),
-        leg('walk', t.alight, to, w2, `步行約 ${w2} 分`),
+        leg('walk', from, t.board, w1, [`走到 ${t.board.name}`, `Walk to ${t.board.name}`]),
+        leg('bus', t.board, t.alight, ride, [`${t.routeName}（${t.label}）坐 ${t.stops} 站`, `Bus ${t.routeName}, ${t.stops} ${t.stops === 1 ? 'stop' : 'stops'}`], 'transit'),
+        leg('walk', t.alight, to, w2, [`步行約 ${w2} 分`, `Walk about ${w2} min`]),
       ],
       notes: [etaMin == null || etaMin < w1 ? '下一班到站時間不明，以 10 分估' : `${t.board.name} 約 ${etaMin} 分後到站`, '票價以一段票 15 元估', ...(late ? ['末班快到了，早點出門；錯過可以叫車或騎 YouBike'] : [])],
       ...(late && { lastBus: true }),
@@ -266,7 +267,7 @@ async function railOption(svc, system, from, to, straight, depart) {
     minutes: a1.minutes + wait + train.minutes + a2.minutes, waitMin: wait, walkMin: a1.walkMin + a2.walkMin,
     arriveMin: toMin(train.depart) + train.minutes + a2.minutes,
     cost: (fare?.price ?? 0) + a1.cost + a2.cost, exposure: 0.1, effort: 0.3, delayRisk: 0,
-    legs: [a1.leg, leg(system.toLowerCase(), o, d, train.minutes, `${label} ${train.trainNo} 次 ${train.depart} 開、${train.arrive} 到`, 'transit'), a2.leg],
+    legs: [a1.leg, leg(system.toLowerCase(), o, d, train.minutes, [`${label} ${train.trainNo} 次 ${train.depart} 開、${train.arrive} 到`, `${system === 'THSR' ? 'THSR' : 'Train'} ${train.trainNo}, departs ${train.depart}, arrives ${train.arrive}`], 'transit'), a2.leg],
     notes: [fare ? `${fare.trainType || fare.cabin || ''}成人單程 ${fare.price} 元` : '票價暫時查不到'],
     train: { trainNo: train.trainNo, depart: train.depart, arrive: train.arrive, from: o.name, to: d.name, date: depart.date },
     leaveAt: toHHMM(toMin(train.depart) - a1.minutes - wait), // 出門時間＝發車 − 到站 − 等車（卡片「提醒我出門」）
@@ -294,9 +295,9 @@ async function intercityOption(svc, from, to, straight, depart) {
     exposure: 0.2, effort: 0.3, delayRisk: r.delayRisk,
     // 客運站牌座標服務層沒有回傳：站牌點不附座標與導航
     legs: [
-      leg('walk', from, { name: t.board, lat: null, lon: null }, w1, `走到 ${t.board}（約 ${t.walkFromM} 公尺）`),
-      leg('intercity', { name: t.board, lat: null, lon: null }, { name: t.alight, lat: null, lon: null }, ride, `${t.trainNo} ${t.depart} 開${t.delayMin ? `，路上多 ${t.delayMin} 分` : ''}`, 'transit'),
-      leg('walk', { name: t.alight, lat: null, lon: null }, to, w2, `步行約 ${w2} 分`),
+      leg('walk', from, { name: t.board, lat: null, lon: null }, w1, [`走到 ${t.board}（約 ${t.walkFromM} 公尺）`, `Walk to ${t.board} (about ${t.walkFromM} m)`]),
+      leg('intercity', { name: t.board, lat: null, lon: null }, { name: t.alight, lat: null, lon: null }, ride, [`${t.trainNo} ${t.depart} 開${t.delayMin ? `，路上多 ${t.delayMin} 分` : ''}`, `${t.trainNo} departs ${t.depart}${t.delayMin ? `, about ${t.delayMin} min extra on the road` : ''}`], 'transit'),
+      leg('walk', { name: t.alight, lat: null, lon: null }, to, w2, [`步行約 ${w2} 分`, `Walk about ${w2} min`]),
     ],
     notes: [t.fare != null ? `票價 ${t.fare} 元` : `票價暫無資料，以道路公里 × ${EST.intercityTwdPerKm} 元估`, ...(t.estimated ? ['抵達時間依距離估算'] : [])],
     ...((t.fare == null || t.estimated) && { estimated: true }),
@@ -313,7 +314,7 @@ async function ridehailOption(svc, from, to, straight, traffic) {
     minutes: EST.ridehailWaitMin + drive, waitMin: EST.ridehailWaitMin, walkMin: 0,
     cost: Math.round((e.low + e.high) / 2 / 5) * 5, costRange: [e.low, e.high],
     exposure: 0, effort: 0, delayRisk: delayRiskOf(traffic?.level ?? null), estimated: true,
-    legs: [{ ...leg('ridehail', from, to, drive, `車程約 ${drive} 分（估算）`, 'driving'), url: link.url }],
+    legs: [{ ...leg('ridehail', from, to, drive, [`車程約 ${drive} 分（估算）`, `About ${drive} min by car (estimate)`], 'driving'), url: link.url }],
     notes: [`車資 ${e.low}～${e.high} 元（${e.basis}）`, '叫車前需你確認（ridehail_link）'],
   };
 }

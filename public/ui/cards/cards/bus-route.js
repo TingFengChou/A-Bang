@@ -43,7 +43,7 @@ function focusBlock(d, f, { host, t, rerender, state, locale }) {
     h('div', { class: 'ab-focus-row' },
       ring,
       h('span', { class: 'ab-sub' }, t('busRoute.focusAt', { stop: f.stopName })),
-      h('strong', { class: 'ab-focus-eta', ...(live && { 'data-eta-sec': f.etaSec }) }, f.statusText)),
+      h('strong', { class: 'ab-focus-eta', ...(live && { 'data-eta-sec': f.etaSec }) }, etaText(f, t, locale))),
     watching && w.stuck && h('div', { class: 'ab-stuck' }, // 外殼的 toast 已念過一次：這裡不加 live role（每 20 秒重畫不重念）
       h('p', {}, t(`busRoute.stuck.${w.stuck}`, { route: d.routeName })),
       host?.ask && h('button', { type: 'button', class: 'ab-btn ab-primary', onclick: () => host.ask(w.trip?.to ? t('busRoute.stuckAskTo', { to: w.trip.to }) : t('busRoute.stuckAsk')) }, t('busRoute.stuckBtn'))),
@@ -81,15 +81,25 @@ function railView(rail, t, state) {
     h('div', { class: 'ab-rail-labels' }, h('span', null, rail.window[0].name), h('span', null, rail.window.at(-1).name)));
 }
 
+/** 到站文字：中文用資料的 statusText；英文依狀態與秒數自己說（S12f） */
+export const etaText = (s, t, locale) => {
+  if (locale !== 'en' || !s) return s?.statusText;
+  if (s.status === 0 && s.etaSec != null) return s.etaSec <= 60 ? t('busRoute.st.arriving') : t('common.minutes', { n: Math.round(s.etaSec / 60) });
+  const k = `busRoute.st.${s.status}`;
+  return t(k) === k ? s.statusText : t(k);
+};
+/** 方向：英文把「往 X」換成「To X」（站名維持中文） */
+const dirLabel = (label, locale) => (locale === 'en' ? String(label || '').replace(/^往\s*/, 'To ') : label);
+
 export default {
   refreshSec: 20,
   title: (d, { t }) => t('busRoute.title', { route: d.routeName }),
   /** 播報：使用者點開的站優先；否則目前方向即將進站的站（最多 3 個） */
-  announce(d, { t, state }) {
+  announce(d, { t, state, locale }) {
     const dir = (d.directions || [])[Math.min(state.dir ?? 0, Math.max(0, (d.directions || []).length - 1))];
     if (!dir) return null;
     const open = dir.stops.find((s) => s.seq === state.stop);
-    if (open) return t('busRoute.announceStop', { route: d.routeName, stop: open.stopName, eta: open.statusText });
+    if (open) return t('busRoute.announceStop', { route: d.routeName, stop: open.stopName, eta: etaText(open, t, locale) });
     const soon = dir.stops.filter((s) => s.etaSec != null && s.etaSec < SOON_SEC).slice(0, 3).map((s) => s.stopName);
     return soon.length ? t('busRoute.announceSoon', { route: d.routeName, stops: soon.join('、') }) : null;
   },
@@ -101,7 +111,7 @@ export default {
     const dir = dirs[di];
     const tabs = dirs.length > 1 && h('div', { class: 'ab-tabs', role: 'tablist', 'aria-label': t('busRoute.switchDir') },
       dirs.map((x, i) => h('button', { type: 'button', role: 'tab', class: i === di ? 'ab-tab on' : 'ab-tab', 'aria-selected': i === di ? 'true' : 'false',
-        onclick: () => { state.dir = i; state.stop = null; rerender(); } }, x.label)));
+        onclick: () => { state.dir = i; state.stop = null; rerender(); } }, dirLabel(x.label, locale))));
     if (!dir) return h('div', { class: 'ab-body' }, h('p', { class: 'ab-empty' }, t('common.empty')));
     const list = h('ol', { class: 'ab-timeline' }, dir.stops.map((s) => {
       const soon = s.etaSec != null && s.etaSec < SOON_SEC;
@@ -115,7 +125,7 @@ export default {
         } },
         s.plate ? plated(token('bus', { size: 'sm', go: true, label: t('busRoute.busHere') }), s.plate) : h('span', { class: 'ab-dot', 'aria-hidden': 'true' }),
         h('span', { class: 'ab-name' }, s.stopName, me && h('span', { class: 'ab-me' }, t('busRoute.boardHere'))),
-        h('span', { class: soon ? 'ab-eta soon' : 'ab-eta', ...(s.status === 0 && s.etaSec != null && { 'data-eta-sec': s.etaSec }) }, s.statusText),
+        h('span', { class: soon ? 'ab-eta soon' : 'ab-eta', ...(s.status === 0 && s.etaSec != null && { 'data-eta-sec': s.etaSec }) }, etaText(s, t, locale)),
         s.plate && h('span', { class: 'ab-bus', title: t('busRoute.busHere') }, t('busRoute.plate', { plate: s.plate }))),
         open && h('div', { class: 'ab-actions' },
           navButton(host, s.nav),
