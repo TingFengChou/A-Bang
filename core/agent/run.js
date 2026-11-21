@@ -181,9 +181,9 @@ function withPicked(trip, picked) {
  * @param {object} svc createServices() 的結果
  * @param {object} body /api/v1/agent 的請求（會驗證）
  * @param {(e: object) => void} emit
- * @param {{ profileId?: string, now?: number, notice?: string }} [opts] notice：模型額度用完而降級時，在 status 後先說明
+ * @param {{ profileId?: string, now?: number, notice?: string, mode?: 'demo'|'rules' }} [opts] notice：模型額度用完而降級時，在 status 後先說明；mode：rules＝地端模型的英文提問改由規則回答（資料照常是真的，不是示範）
  */
-export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.now(), notice, judge } = {}) {
+export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.now(), notice, judge, mode = 'demo' } = {}) {
   const req = validateRequest(body);
   const profile = getProfile(profileId);
   const picked = req.userState?.picked || [];
@@ -195,7 +195,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   // 判斷層（judge.js）：先用快速版（A＋規則，幾毫秒）說聽懂了什麼，再用完整版（含模型）定案意圖與狀態
   const jc = judgeCalls(judge, req, profile);
   const q0 = jc ? await jc.quick() : null;
-  emit(ev.status({ mode: 'demo', profile: profile.id, judge: judgeInfo(q0), lang: isEnglish(last) ? 'en' : 'zh' }));
+  emit(ev.status({ mode, profile: profile.id, judge: judgeInfo(q0), lang: isEnglish(last) ? 'en' : 'zh' }));
   // 安全情境（S18）：提到自傷或正在發生的緊急狀況 → 先給求助電話，不查交通（所有 agent 都一樣）
   const safe = safetyCheck(last); // 安全情境在請定位之前就回答，不會有帶定位的重送
   if (safe) { emit(ev.guardrail({ tier: 'L0', rule: `safety:${safe.kind}`, calls: safe.calls })); emit(ev.text(safe.reply)); emit(ev.done()); return; }

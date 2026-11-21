@@ -180,6 +180,7 @@ export default {
       claude: (m) => `由 Claude（${m}）回答；對話會送 Anthropic 處理。`,
       local: (m) => `由地端模型（${m}）回答；對話只送到本站設定的模型伺服器。`,
       demo: () => '示範模式：規則式回答，不經 AI 模型。',
+      rules: () => '英文提問由內建規則回答（地端模型的英文還不穩）；資料照常是即時的。',
     };
     // 裝置端 AI（ADR-0014）：在手機上判斷時，說明多一句（判斷不離開手機的模型，只送結果）
     const ENGINE_TEXT = { apple: 'Apple Intelligence', 'gemini-nano': 'Gemini Nano' };

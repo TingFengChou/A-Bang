@@ -51,7 +51,8 @@ export function prefetchCalls(it, j, here) {
   //（地端模型接著改「改坐公車」時常不再查、說「叫車」時直接產生叫車連結，2026-11-21 情境評測）
   // 沒說起點也拿不到位置（拒絕定位）：先從示範預設起點算，並告訴模型要說明（與示範模式一致）
   if (it.intent === 'trip' && (it.to || it.toSaved)) {
-    const prefs = { ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }), ...(it.avoid?.length && { avoid: it.avoid }), ...(it.states?.length && { states: it.states }), ...(it.party && { party: it.party }) };
+    const mode = it.mode || j?.mode; // 與 groundedPrefs 相同：規則沒抓到、判斷層聽懂的方式也算使用者說的
+    const prefs = { ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(mode && { mode }), ...(it.avoid?.length && { avoid: it.avoid }), ...(it.states?.length && { states: it.states }), ...(it.party && { party: it.party }) };
     const from = it.fromSaved || it.from || (at ? { ...at, name: here.name } : DEFAULT_FROM); // 常用地點（家、公司）直接用座標
     return [{ name: 'plan_trip', args: { from, to: it.toSaved || it.to, ...(Object.keys(prefs).length && { prefs }) }, ...(!it.from && !at && { note: NO_LOCATION_NOTE }) }];
   }
@@ -183,7 +184,9 @@ export function toolDefs(profile, { deviceLocation: withLocation = false, only }
 export function mustSay(text, trip) {
   if (!trip || !text) return text;
   let out = text;
-  if (!/照你說的/.test(out) && /^照你說的/.test(trip.ranking?.reason || '')) out = `${trip.ranking.reason} ${out}`; // 程式排序時用了使用者指定的方式才會這樣開頭
+  const picked = trip.options?.find((o) => o.id === trip.best)?.name;
+  // 程式排序時用了使用者指定的方式（ranking.reason 這樣開頭）、模型沒說到 → 開頭補一句（不帶分數）
+  if (picked && /^照你說的/.test(trip.ranking?.reason || '') && !/(照|依|按)你(所)?說|你說要/.test(out) && !out.includes(picked)) out = `照你說的選「${picked}」。${out}`;
   const night = nightNote(trip);
   if (night && !/收班|末班/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}${night}`;
   return out;
@@ -204,7 +207,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const jc = judgeCalls(judge, req, profile);
   const last = req.messages.at(-1).content;
   // 地端小模型的英文不穩（漏英文地名、句型亂，模型模式情境 S12 九個沒過）：英文提問改用規則回答（與示範模式同一套英文總結；Claude 照常）
-  if (provider.mode === 'local' && isEnglish(last)) return runDemo(svc, body, emit, { profileId, now, judge });
+  if (provider.mode === 'local' && isEnglish(last)) return runDemo(svc, body, emit, { profileId, now, judge, mode: 'rules' });
   const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode: provider.mode, model: provider.model, profile: profile.id, judge: judgeInfo(q0), lang: isEnglish(last) ? 'en' : 'zh' }));
   // 安全情境（S18）：自傷或緊急狀況不交給模型自由回答，固定給求助電話（與示範模式相同）
@@ -213,7 +216,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   // 規則先解析一次（含常用地點）：重來、聽懂了什麼、沒設定常用地點都用同一個結果
   const rulesIt = parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces });
   if (!req.clientToolResults?.length && rulesIt.reset) emit(ev.contextReset());
-  if (rulesIt.intent === 'savedMissing' || (rulesIt.intent === 'weather' && rulesIt.later)) { // 「回家」但沒設定家、問後天以後的天氣：不給模型猜（模型會拿現在的天氣充數），直接照實說
+  if (rulesIt.intent === 'savedMissing' || (profile.id === 'life' && rulesIt.intent === 'weather' && rulesIt.later)) { // 「回家」但沒設定家、問後天以後的天氣：不給模型猜（模型會拿現在的天氣充數），直接照實說
     emit(ev.text(demoSummary(rulesIt, {})));
     emit(ev.done());
     return;
@@ -247,8 +250,6 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const nextId = () => `t${++n}`;
   const used = new Set();
   let lastTrip = null; // 這一輪最後一次比較的行程（總結補上程式知道、模型漏講的重點）
-  const tripEnds = new Map(); // 起訖座標 → 給模型的文字：同一輪同一段路只比較一次（模型換條件再呼叫也沿用，不出現兩張行程卡；情境 S7-3、S2-14）
-  const endsKey = (f, t) => (f?.lat != null && t?.lat != null ? `${f.lat.toFixed(3)},${f.lon.toFixed(3)}>${t.lat.toFixed(3)},${t.lon.toFixed(3)}` : null);
   // 有現在位置時，程式先用它查好（不靠模型）：地端模型常常只查了目的地就反問「你從哪裡出發」。
   //   沒說起點的行程 → plan_trip（起點＝現在位置）；沒說地點的天氣／空品／YouBike／附近公車／垃圾車 → 對應工具（現在位置）
   // 結果照常出現在討論串與卡片，再交給模型轉述（AGENT.md §5.2.1）
@@ -267,7 +268,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
       if (o.ok && /^(thsr|tra)_timetable$/.test(pre[i].name)) { // 模型用實際起站再查時沿用（有寫日期、沒寫日期都算）
         for (const date of [undefined, o.result.data.date]) preDone.set(callKey(pre[i].name, { from: o.result.data.from, to: o.result.data.to, date }), text);
       }
-      if (o.ok && pre[i].name === 'plan_trip') { lastTrip = o.result.data; const e = endsKey(o.result.data.from, o.result.data.to); if (e) tripEnds.set(e, text); }
+      if (o.ok && pre[i].name === 'plan_trip') lastTrip = o.result.data;
       if (o.ok && pre[i].name === 'plan_trip') preDone.set(tripKey(o.result.data.from, o.result.data.to, pre[i].args.prefs), text); // 地名寫法不同（台北松山機場／松山機場）也算同一趟
       return text;
     });
@@ -279,9 +280,10 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     messages: req.messages,
   });
   const usage = { modelCalls: 0, inputTokens: 0, outputTokens: 0 };
-  const finish = (text) => {
+  const en = isEnglish(last);
+  const finish = (text, fromModel = false) => {
     if (used.size) emit(ev.discussionEnd({ tools: [...used] }));
-    emit(ev.text(guardedText(profile, mustSay(text, lastTrip), emit))); // L2 輸出護欄（防詐：不保證安全、固定附 165）
+    emit(ev.text(guardedText(profile, fromModel && !en ? mustSay(text, lastTrip) : text, emit))); // 程式補重點只補模型寫的中文回答（不補到英文、退回說明） // L2 輸出護欄（防詐：不保證安全、固定附 165）
     emit(ev.done(usage));
   };
 
@@ -295,7 +297,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     if (turn.stop === 'refusal') return finish(FALLBACK.refusal);
     if (!turn.calls.length) {
       if (turn.stop === 'max_tokens') return finish(text ? `${text}…（${FALLBACK.truncated}）` : FALLBACK.truncated);
-      return finish(text || FALLBACK.empty);
+      return text ? finish(text, true) : finish(FALLBACK.empty);
     }
     if (turn.stop === 'max_tokens') return finish(FALLBACK.truncated); // 工具參數可能被截斷，不執行
     if (round >= MAX_TOOL_ROUNDS) return finish(FALLBACK.rounds); // 第 6 輪還要查 → 不再呼叫工具
@@ -352,8 +354,6 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
       if (c.name === 'plan_trip' && !(k && preDone.has(k)) && c.input?.to) {
         const [f, t] = await Promise.all([c.input.from, c.input.to].map((x) => (x ? resolvePoint(svc.places, x).catch(() => null) : null)));
         if (f && t) k = tripKey(f, t, c.input.prefs);
-        const e = endsKey(f, t);
-        if (e && tripEnds.has(e) && !(k && preDone.has(k))) { results.set(c.id, { content: `（這一段路已經比較過，結果同上；條件以使用者說的為準）\n${tripEnds.get(e)}` }); continue; }
       }
       if (k && preDone.has(k)) results.set(c.id, { content: `（已查好，結果同上）\n${preDone.get(k)}` });
     }
@@ -363,7 +363,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     run.forEach((c, i) => {
       const o = out[i];
       used.add(c.name);
-      if (o.ok && c.name === 'plan_trip') { lastTrip = o.result.data; const e = endsKey(o.result.data.from, o.result.data.to); if (e) tripEnds.set(e, modelText(o.result)); }
+      if (o.ok && c.name === 'plan_trip') { lastTrip = o.result.data; preDone.set(tripKey(o.result.data.from, o.result.data.to, c.input?.prefs), modelText(o.result)); } // 模型再用相同條件呼叫也沿用（不出現兩張行程卡；條件不同照常查）
       if (o.followUp) used.add('bus_route_eta'); // 選公車後自動盯到站也算一個工具
       // 回填模型的只有文字摘要（清單截短），不放整包 data（AGENT.md §4）
       results.set(c.id, o.ok ? { content: modelText(o.result) + followUpText(o.followUp, o.followWalkMin) } : { content: o.error, isError: true });
