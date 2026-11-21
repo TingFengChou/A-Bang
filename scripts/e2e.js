@@ -14,21 +14,26 @@ let server, base, browser;
 
 const freePort = () => new Promise((res) => { const s = createServer().listen(0, () => { const { port } = s.address(); s.close(() => res(port)); }); });
 
-before(async () => {
-  await mkdir(SHOTS, { recursive: true });
+/** 起一個示範模式的伺服器（env 可覆寫，例：DEMO_CLOCK 換成深夜） */
+async function startServer(env = {}) {
   const port = await freePort();
-  base = `http://127.0.0.1:${port}`;
   // 示範模式：清掉金鑰，確保不連外
-  server = spawn(process.execPath, ['server/http.js'], {
+  const proc = spawn(process.execPath, ['server/http.js'], {
     cwd: new URL('..', import.meta.url),
-    env: { ...process.env, PORT: String(port), DEMO_MODE: '1', DEMO_CLOCK: '10:00', TDX_CLIENT_ID: '', TDX_CLIENT_SECRET: '', CWA_API_KEY: '', ANTHROPIC_API_KEY: '', AGENT_RPM: '500', AGENT_RPD: '5000', RATE_LIMIT_API: '2000', JUDGE: 'off' }, // 判斷層要下載模型，E2E 用規則（判斷層另有單元測試）; // 測試一分鐘內呼叫很多次 API，限流另在 mcp.test 測
+    env: { ...process.env, PORT: String(port), DEMO_MODE: '1', DEMO_CLOCK: '10:00', TDX_CLIENT_ID: '', TDX_CLIENT_SECRET: '', CWA_API_KEY: '', ANTHROPIC_API_KEY: '', AGENT_RPM: '500', AGENT_RPD: '5000', RATE_LIMIT_API: '2000', JUDGE: 'off', ...env }, // 判斷層要下載模型，E2E 用規則（判斷層另有單元測試）; // 測試一分鐘內呼叫很多次 API，限流另在 mcp.test 測
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   await new Promise((res, rej) => {
     const t = setTimeout(() => rej(new Error('伺服器 10 秒內沒有啟動')), 10000);
-    server.stdout.on('data', (d) => { if (String(d).includes('running')) { clearTimeout(t); res(); } });
-    server.on('exit', (c) => rej(new Error(`伺服器結束 ${c}`)));
+    proc.stdout.on('data', (d) => { if (String(d).includes('running')) { clearTimeout(t); res(); } });
+    proc.on('exit', (c) => rej(new Error(`伺服器結束 ${c}`)));
   });
+  return { proc, base: `http://127.0.0.1:${port}` };
+}
+
+before(async () => {
+  await mkdir(SHOTS, { recursive: true });
+  ({ proc: server, base } = await startServer());
   browser = await chromium.launch();
 });
 
@@ -47,7 +52,7 @@ async function newCtx(opts, { onboard = false } = {}) {
 /** 開新的 browser context 與頁面、收集錯誤，跑完 fn（不論成敗）一定關閉 context；最後確認沒有頁面錯誤 */
 /** @param {{ init?: Function, initArg?: any }} [opts] init：頁面載入前執行（page.addInitScript），例如假相機 */
 /** motion: true＝動畫開著（不是 reduced motion、不是精簡動畫），用來檢查會動的畫面 */
-async function withPage(device, path, fn, { init, initArg, ignore, geo = true, motion = false } = {}) { // geo：true＝台北車站、物件＝指定位置、false＝不給定位
+async function withPage(device, path, fn, { init, initArg, ignore, geo = true, motion = false, origin = base } = {}) { // geo：true＝台北車站、物件＝指定位置、false＝不給定位
   const ctx = await newCtx({ ...device, ...(geo && { geolocation: geo === true ? TAIPEI : geo, permissions: ['geolocation'] }), reducedMotion: motion ? 'no-preference' : 'reduce' });
   try {
     const page = await ctx.newPage();
@@ -56,7 +61,7 @@ async function withPage(device, path, fn, { init, initArg, ignore, geo = true, m
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
     page.on('console', (m) => m.type() === 'error' && errors.push(`console: ${m.text()}`));
     if (init) await page.addInitScript(init, initArg);
-    await page.goto(`${base}/${path}`);
+    await page.goto(`${origin}/${path}`);
     await fn(page);
     assert.deepEqual(errors.filter((e) => !ignore?.test(e)), [], path);
   } finally {
@@ -2942,7 +2947,7 @@ test('問阿幫：在示範範圍外、深夜只剩叫車——說明原因、�
     await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
     const dg = page.locator('.decision');
     await dg.locator('.dg-svg').waitFor();
-    assert.equal(await dg.locator('.dg-opt').count(), 1, '只有叫車');
+    assert.equal(await dg.locator('.dg-opt:not(.excluded)').count(), 1, '只有叫車（沒列入的方式另外畫成灰色）');
     assert.match(await dg.locator('.dg-single').textContent(), /^只找到叫車一種方式：距離 \d+(\.\d)? 公里，走路、YouBike、公車都太遠；客運 23:30 以後今天沒有趕得上的班次.*示範資料/);
     assert.ok(await dg.locator('.dg-src').count() >= 3, '資料欄不是空的');
     assert.match(await page.locator('.bubble.final .say').textContent(), /只找到叫車一種方式/);
@@ -2956,6 +2961,55 @@ test('問阿幫：在示範範圍外、深夜只剩叫車——說明原因、�
     assert.match(await page.locator('.msg.user').last().textContent(), /從台北車站到台北101怎麼去/);
     assert.ok(await page.locator('.decision').last().locator('.dg-opt').count() >= 3);
   }, { geo: { latitude: 24.99, longitude: 121.31 } }); // 桃園（26 公里外）
+});
+
+test('問阿幫：深夜 00:10 去台北101——第一句說公車和捷運收班、卡片與決策圖列出沒列入的原因（中、英）', async () => {
+  const night = await startServer({ DEMO_CLOCK: '00:10' }); // 示範時鐘：現在固定為今天 00:10
+  try {
+    await withPage(DEVICES.phone, '#/agent', async (page) => {
+      await page.fill('.chat-form input', '去台北101');
+      await page.press('.chat-form input', 'Enter');
+      await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+      assert.match(await page.locator('.bubble.final .say').textContent(), /^現在 00:10，公車和捷運都收班了（捷運約 06:00 首班），先比走路、YouBike、叫車。/, '回答第一句就說');
+      const says = await page.locator('.thread .bubble.tool .say').allTextContents();
+      assert.ok(says.some((x) => /^現在 00:10，公車和捷運都收班了.*；建議/.test(x)), `行程小幫手第一句：${says.join('|')}`);
+      // 卡片：第一行深夜說明、沒列入清單（公車、捷運各一行原因）
+      const card = page.locator('.results [data-card="trip"]').first();
+      assert.match(await card.locator('.ab-night').textContent(), /^現在 00:10，公車和捷運都收班了/);
+      const notIn = await card.locator('.ab-skipped li').allTextContents();
+      assert.ok(notIn.some((x) => /^公車沒列入：深夜多數公車已收班/.test(x)), notIn.join('|'));
+      assert.ok(notIn.some((x) => x === '捷運沒列入：捷運已收班（約 06:00 首班）'), notIn.join('|'));
+      // 決策圖：公車、捷運畫成灰色節點、標「收班」，圖下寫原因
+      const dg = page.locator('.decision');
+      await dg.locator('.dg-svg').waitFor();
+      for (const id of ['skip-bus', 'skip-metro']) assert.equal(await dg.locator(`.dg-opt.excluded[data-id="${id}"] .dg-score`).textContent(), '收班', id);
+      assert.match(await dg.locator('.dg-opt[data-id="skip-metro"]').getAttribute('aria-label'), /^捷運，沒列入：捷運已收班（約 06:00 首班）$/);
+      assert.ok((await dg.locator('.dg-missing li').allTextContents()).includes('捷運沒列入：捷運已收班（約 06:00 首班）'));
+      await page.locator('.bubble.final').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: new URL('phone-trip-night.png', SHOTS).pathname });
+      await page.setViewportSize({ width: 390, height: 1800 }); // 決策圖整張
+      await dg.evaluate((n) => n.scrollIntoView({ block: 'start' }));
+      await dg.screenshot({ path: new URL('phone-trip-night-graph.png', SHOTS).pathname });
+      await card.screenshot({ path: new URL('phone-trip-night-card.png', SHOTS).pathname });
+    }, { origin: night.base });
+    // 英文提問：第一句、卡片、決策圖都是英文原因
+    await withPage(DEVICES.phone, '#/agent', async (page) => {
+      await page.fill('.chat-form input', 'How do I get to Taipei 101?');
+      await page.press('.chat-form input', 'Enter');
+      await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+      assert.match(await page.locator('.bubble.final .say').textContent(), /^It's 00:10 now: buses and the MRT have stopped for the night \(MRT starts around 06:00\)/);
+      const card = page.locator('[data-card="trip"]').first();
+      assert.match(await card.locator('.ab-night').textContent(), /^It's 00:10 now/);
+      assert.ok((await card.locator('.ab-skipped li').allTextContents()).includes('MRT not included: The MRT has stopped for the night (first train around 06:00)'));
+      await page.waitForSelector('.decision .dg-missing');
+      assert.doesNotMatch(await page.locator('.decision .dg-missing').textContent(), /[一-鿿]/, '決策圖原因是英文');
+      assert.equal(await page.locator('.decision .dg-opt[data-id="skip-metro"]').getAttribute('aria-label'), 'MRT, excluded: The MRT has stopped for the night (first train around 06:00)', '英文讀屏：英文名稱與原因（審查 8）');
+      await page.locator('.bubble.final').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: new URL('phone-trip-night-en.png', SHOTS).pathname });
+    }, { origin: night.base });
+  } finally {
+    night.proc.kill();
+  }
 });
 
 // PR #109 審查修正（長對話）

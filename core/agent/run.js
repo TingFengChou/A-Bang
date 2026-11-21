@@ -123,7 +123,7 @@ export function busFollowUp(trip) {
  * @param {{ profile: object, nextId: () => string, picked?: string[], habit?: Record<string, number>, ask?: { done: boolean, habitAsk?: object, usual?: string[] } }} opts habit：手機送來、使用者同意過的常選比例（plan_trip 一律用這個，模型給的不採用）；ask：這一輪的「阿幫問你」（一輪最多一個；usual＝說過的預設狀況，會改變建議時問一句）
  * @returns {Promise<Array<{ name: string, ok: boolean, result?: object, error?: string, followUp?: object }>>} 依 calls 順序
  */
-export async function execTools(svc, calls, emit, { profile, nextId, picked = [], judgedStates, lang = null, habit = null, ask = null }) {
+export async function execTools(svc, calls, emit, { profile, nextId, picked = [], judgedStates, lang = null, habit = null, ask = null, now = null }) {
   const started = calls.map((c) => ({ ...c, id: nextId() }));
   // 英文提問（S12d）：小幫手的一句話用英文版；「→ 影響」是中文，英文那一輪不附
   const en = lang === 'en';
@@ -134,7 +134,7 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
     try {
       if (!profile.tools.includes(c.name)) throw new UserError(`這個 agent 不能使用 ${c.name}`);
       const args = c.name === 'plan_trip' ? withHabit(withPickedPrefs(c.args, picked, judgedStates), habit) : c.args;
-      const result = await callTool(svc, c.name, args);
+      const result = await callTool(c.name === 'plan_trip' && now != null ? { ...svc, now } : svc, c.name, args); // 行程比較用這一輪的「現在」（示範時鐘；深夜說「現在 00:10」）
       // 行程比較內部查的天氣、空品、路況：各出一行「資料＋影響」（程式產生；排在行程的結論前面）
       if (c.name === 'plan_trip') for (const item of result.data?.considered || []) emit(ev.dataNote({ parent: c.id, item, lang }));
       emit(ev.toolResult({ id: c.id, result: shown(c.name, result), impact: impactFor(c.name, result.data) }));
@@ -276,7 +276,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
     const s = step(results);
     if (!s) break;
     emit(ev.agentNote(it.lang === 'en' ? enNote(s.note) : s.note)); // 英文提問：說明用英文（S12c）
-    const out = await execTools(svc, s.calls, emit, { profile, nextId, picked, lang: it.lang, habit: req.userState?.habit, ask });
+    const out = await execTools(svc, s.calls, emit, { profile, nextId, picked, lang: it.lang, habit: req.userState?.habit, ask, now });
     for (const o of out) {
       used.push(o.name);
       if (o.ok) (results[o.name] ||= []).push(o.result);
