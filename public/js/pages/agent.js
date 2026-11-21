@@ -13,7 +13,7 @@ import { nextSteps } from '../agent/next-steps.js';
 import { alightWatch } from '../alight.js';
 import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
-import { renderDecision, lite } from '../../ui/agent/decision-graph.js';
+import { renderDecision, lite, roleEn } from '../../ui/agent/decision-graph.js';
 
 // 決策圖重算用的同一份 decide.js（伺服器以 /core/decide.js 提供；UX.md §5）
 const decideModule = import('/core/decide.js').catch(() => null);
@@ -30,7 +30,8 @@ const AGENTS = {
   life: { title: '問阿幫', placeholder: '想去哪裡、想查什麼？例如：去台北 101', mentions: ['地點', '天氣', '路況', '公車', 'YouBike', '捷運', '高鐵', '台鐵', '票價', '叫車', '空品', '地震', '藥局', '垃圾車', '油價', '發票', '股市'] },
   antifraud: { title: '阿幫・防詐', placeholder: '把可疑的簡訊、LINE 訊息或網址貼上來', mentions: ['防詐', '網址', '闢謠', '號碼'] },
 };
-const MENTIONS = [...new Set(Object.values(AGENTS).flatMap((a) => a.mentions))];
+// 討論串裡認得的點名：可點名的小幫手＋程式自己會點的（定位、行程…）；長的先比（「垃圾車」不被「垃圾」截掉）
+const MENTIONS = [...new Set([...Object.values(AGENTS).flatMap((a) => a.mentions), ...Object.keys(ROLE_CLASS)])].sort((a, b) => b.length - a.length);
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** 安全建立元素（不用 innerHTML，事件內容來自伺服器與上游資料） */
@@ -42,13 +43,13 @@ function el(tag, cls, ...kids) {
 }
 
 /** 文字中的 @角色 換成色彩 chip */
-function withMentions(text) {
+function withMentions(text, lang = null) {
   const out = [];
   let last = 0;
   for (const m of String(text).matchAll(/@([一-龥A-Za-z]{2,7})/g)) {
     const role = MENTIONS.find((r) => m[1].startsWith(r));
     if (!role) continue;
-    out.push(text.slice(last, m.index), el('span', `mention r-${ROLE_CLASS[role] || 'brand'}`, `@${role}`));
+    out.push(text.slice(last, m.index), el('span', `mention r-${ROLE_CLASS[role] || 'brand'}`, `@${lang === 'en' ? roleEn(role) : role}`)); // 英文那一輪：點名也用英文（S12f）
     last = m.index + 1 + role.length;
   }
   out.push(text.slice(last));
@@ -110,11 +111,12 @@ function typing(label = '輸入中') {
 }
 
 /** 頭像；阿幫有表情：think（查詢中，輕輕擺動）、happy（找到答案，跳一下） */
-function avatar(role, mood = 'think') {
+function avatar(role, mood = 'think', lang = null) {
   const a = el('span', `avatar r-${ROLE_CLASS[role] || 'brand'}`);
   a.setAttribute('role', 'img');
-  a.setAttribute('aria-label', role);
-  a.title = role;
+  const name = lang === 'en' ? roleEn(role) : role; // 讀屏與提示：英文那一輪用英文
+  a.setAttribute('aria-label', name);
+  a.title = name;
   if (role === '阿幫') { a.classList.add('mascot', mood); a.append(Object.assign(document.createElement('img'), { src: mood === 'happy' ? '/brand/abang-happy.svg' : '/brand/abang-think.svg', alt: '' })); }
   else if (icons[ROLE_ICON[role]]) a.innerHTML = icons[ROLE_ICON[role]]; // 圖示是本機常數 SVG，不含外部資料
   else a.textContent = role.slice(0, 2);
@@ -312,7 +314,7 @@ export default {
         if (ended) return;
         thinkTimer = setTimeout(() => {
           if (ended) return;
-          thinking = el('div', 'bubble agent thinking', avatar('阿幫'), el('div', 'say typing', el('span', 'th-label', '阿幫在想'), ...typing('阿幫在想')));
+          thinking = el('div', 'bubble agent thinking', avatar('阿幫', 'think', turnLang), el('div', 'say typing', el('span', 'th-label', turnLang === 'en' ? 'Abang is thinking' : '阿幫在想'), ...typing(turnLang === 'en' ? 'Abang is thinking' : '阿幫在想')));
           (thread.classList.contains('collapsed') ? turn : thread).append(thinking); // 討論收合後（等最後回答）改放在卡片下面
         }, 600);
       };
@@ -329,7 +331,7 @@ export default {
           case 'agent_note':
             await gap();
             if (/^沿用：/.test(e.text)) turn.dataset.follow = '1'; // 接著改的那一輪：沒變的天氣空品才收合（直接問天氣時卡片就是答案，不收合）
-            thread.append(el('div', 'bubble agent', avatar('阿幫'), el('div', 'say', withMentions(e.text))));
+            thread.append(el('div', 'bubble agent', avatar('阿幫', 'think', turnLang), el('div', 'say', withMentions(e.text, turnLang))));
             break;
           case 'context_reset': { // 「重來」：分隔線插在「重來」泡泡前面＋前面的對話與提問變淡（不清空，回得去看）
             if (turn.dataset.reset) break; // 同一輪只處理一次
@@ -345,7 +347,7 @@ export default {
             break;
           }
           case 'client_tool_call': {
-            const b = el('div', 'bubble tool', avatar('定位'), el('div', 'say typing', ...typing(turnLang === 'en' ? 'locating' : '定位中')));
+            const b = el('div', 'bubble tool', avatar('定位', 'think', turnLang), el('div', 'say typing', ...typing(turnLang === 'en' ? 'locating' : '定位中')));
             bubbles.set(`client:${e.id}`, b);
             thread.append(b);
             break;
@@ -365,7 +367,7 @@ export default {
           }
           case 'tool_start': {
             if (!roles.includes(e.role)) roles.push(e.role);
-            const b = el('div', 'bubble tool', avatar(e.role), el('div', 'say typing', ...typing()), el('small', 'src', `${e.name} · ${e.server}`));
+            const b = el('div', 'bubble tool', avatar(e.role, 'think', turnLang), el('div', 'say typing', ...typing(turnLang === 'en' ? 'checking' : '輸入中')), el('small', 'src', `${e.name} · ${e.server}`));
             bubbles.set(e.id, b);
             thread.append(b);
             break;
@@ -380,7 +382,7 @@ export default {
               say.textContent = e.ok ? (e.speak || '查好了') : `這次沒查到（${e.error}）`;
               if (!e.ok) b.classList.add('failed');
               if (e.ok && e.metrics) b.querySelector('.src').append(` · ${metricsText(e.metrics)}`);
-              if (e.ok && e.mode === 'demo') b.querySelector('.src').append(' · ', el('span', 'src-demo', '示範資料'));
+              if (e.ok && e.mode === 'demo') b.querySelector('.src').append(' · ', el('span', 'src-demo', turnLang === 'en' ? 'Demo data' : '示範資料'));
               // 這筆資料對決策的影響（core/agent/impact.js）：不利／有利／不影響
               if (e.ok && e.impact) say.after(...[e.impact].flat().map((x) => el('div', `impact ${x.tone}`, el('span', 'arrow', '→'), x.text)));
             }
@@ -406,7 +408,7 @@ export default {
           case 'discussion_end': {
             const n = e.tools.length;
             // 摘要：參與的小幫手頭像疊在一起＋工具數；點開再看討論過程
-            const stack = el('span', 'av-stack', ...roles.slice(0, 6).map((r) => avatar(r)));
+            const stack = el('span', 'av-stack', ...roles.slice(0, 6).map((r) => avatar(r, 'think', turnLang)));
             const sum = el('button', 'thread-sum', stack, el('span', null, turnLang === 'en' ? `Checked ${n} source${n === 1 ? '' : 's'}` : `小幫手討論完成・${n} 個工具・${e.servers.length} 個 MCP`));
             sum.type = 'button';
             sum.setAttribute('aria-expanded', 'false');
@@ -438,7 +440,7 @@ export default {
             if (e.calls?.length) view.calls = e.calls;
             break;
           case 'text':
-            if (!textEl) { textEl = el('div', 'bubble agent final', avatar('阿幫', 'happy'), el('div', 'say')); turn.append(textEl); }
+            if (!textEl) { textEl = el('div', 'bubble agent final', avatar('阿幫', 'happy', turnLang), el('div', 'say')); turn.append(textEl); }
             view.text += e.delta;
             textEl.querySelector('.say').textContent = view.text;
             if (view.calls && !textEl.querySelector('.call-row')) {

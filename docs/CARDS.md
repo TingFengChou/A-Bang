@@ -100,7 +100,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 ### `metro`（`metro_live_board`）
 
-`{ system, station, stationId, lat?, lon?, nav, updatedAt, trains: [{ line, lineId, lineColor?, destination, etaMin, status }] }`；每 20 秒刷新。`trains` 為空時顯示「目前沒有即時到站資料」。`lineColor` 依 `lineId` 給各線官方代表色（`core/metro-colors.js`；未知的線不給，卡片用品牌色）。
+`{ system, station, stationId, lat?, lon?, nav, updatedAt, trains: [{ line, lineId, lineColor?, destination, etaMin, status }] }`（行程卡片每段 `legs[].detailEn` 為英文說明，英文那一輪用）；每 20 秒刷新。`trains` 為空時顯示「目前沒有即時到站資料」。`lineColor` 依 `lineId` 給各線官方代表色（`core/metro-colors.js`；未知的線不給，卡片用品牌色）。
 
 ### `timetable`（`thsr_timetable`、`tra_timetable`、`intercity_bus`）
 

@@ -34,6 +34,7 @@ export const ev = {
   /** decision：由 plan_trip 的資料組成（含 options 決策欄位，讓前端切換狀態時不必再呼叫伺服器）；signals＝各資料來源的一句重點（決策圖的資料膠囊） */
   decision: (trip) => need('decision', {
     signals: tripSignals(trip),
+    signalsEn: tripSignals(trip, 'en'), // 英文那一輪的資料膠囊（S12f）
     states: trip.states, arriveBy: trip.arriveBy ?? null, ...(trip.arriveByMin != null && { arriveByMin: trip.arriveByMin }), ...(trip.mode && { mode: trip.mode }), ...(trip.avoid && { avoid: trip.avoid }), ...(trip.skipped?.length && { skipped: trip.skipped }), best: trip.best,
     options: trip.options, ranked: trip.ranking.ranked, excluded: trip.ranking.excluded, weights: trip.ranking.weights, reason: trip.ranking.reason,
   }, ['states', 'options', 'ranked', 'excluded', 'reason']),
@@ -50,14 +51,18 @@ export const ev = {
  * 決策圖的資料膠囊：每個資料來源一句真實重點（例：天氣「27°C」或「下雨」、空品「AQI 58」、路況「塞 49 分」）。
  * @returns {Record<string, string>} 角色 → 文字
  */
-export function tripSignals(trip) {
+export function tripSignals(trip, lang = null) {
+  const en = lang === 'en';
   const out = {};
-  if (trip.straightKm != null) out['地點'] = `${trip.straightKm} 公里`;
+  if (trip.straightKm != null) out['地點'] = en ? `${trip.straightKm} km` : `${trip.straightKm} 公里`;
   const w = trip.weather;
-  if (w) out['天氣'] = w.raining ? '下雨' : w.pop3h >= 50 ? `雨 ${w.pop3h}%` : (/(-?\d+)°C/.exec(w.summary || '')?.[0] || '天氣');
+  const temp = /(-?\d+)°C/.exec(w?.summary || '')?.[0];
+  if (w) out['天氣'] = w.raining ? (en ? 'Rain' : '下雨') : w.pop3h >= 50 ? (en ? `Rain ${w.pop3h}%` : `雨 ${w.pop3h}%`) : (temp || (en ? 'Weather' : '天氣'));
   if (trip.air?.aqi != null) out['空品'] = `AQI ${trip.air.aqi}`;
   const t = trip.traffic;
-  if (t) out['路況'] = !t.covered ? '市區' : t.level === 'jam' ? `塞 ${t.delayMin ?? '?'} 分` : t.level === 'slow' ? '車多' : '順暢';
+  if (t) out['路況'] = en
+    ? (!t.covered ? 'Local roads' : t.level === 'jam' ? `+${t.delayMin ?? '?'} min` : t.level === 'slow' ? 'Slow' : 'Clear')
+    : (!t.covered ? '市區' : t.level === 'jam' ? `塞 ${t.delayMin ?? '?'} 分` : t.level === 'slow' ? '車多' : '順暢');
   return out;
 }
 

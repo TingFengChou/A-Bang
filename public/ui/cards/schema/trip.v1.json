@@ -83,6 +83,7 @@
               "to": { "$ref": "#/$defs/place" },
               "minutes": { "type": "integer", "minimum": 0 },
               "detail": { "type": "string" },
+              "detailEn": { "type": "string" },
               "nav": { "type": ["object", "null"] },
               "url": { "type": "string" }
             }
