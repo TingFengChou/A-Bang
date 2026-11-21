@@ -17,7 +17,6 @@ export function bikeFill(s) {
 
 export default {
   title: '附近',
-  root: true,
   hero: ({ query }) => (query.tab === 'bike' ? 'bike' : 'nearby'),
   askHint: ({ query }) => ({ context: `使用者正在看附近的${query.tab === 'bike' ? ' YouBike' : '公車站'}`, chips: query.tab === 'bike' ? ['附近還有 YouBike 嗎？'] : ['附近有哪些公車站？', '附近還有 YouBike 嗎？'] }),
   render({ main, query, setAction, onCleanup }) {

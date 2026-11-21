@@ -1,49 +1,86 @@
+// 首頁 #/（2026-11-21 重新設計：阿幫為中心）。由上而下：
+//   手機上的 AI（誰在判斷）→ 問阿幫主視覺（輸入框＋各領域範例）→ 現在（天氣、空品、最近一個提醒）→ 收藏 → 防詐 → 交通、生活、消費與政府格子。
+// 主視覺與格子是「問」和「直接看」兩條路；所有服務另在 #/services 有一句說明的總覽。
 import { miniApps, groups, TILE_COLOR } from '../registry.js';
 import { canMorph } from '../page-hero.js';
 import { icons } from '../icons.js';
-import { esc, favs, etaBadge, chev } from '../ui.js';
+import { esc, favs, etaBadge, chev, FALLBACK } from '../ui.js';
 import { api, state } from '../api.js';
+import { edgeEnabled, edgeStatus } from '../edge-judge.js';
+import { edgeLine, nowItems, loadNow } from '../home-now.js';
+import { reminderItems } from '../reminder-items.js';
+import { listReminders } from '../reminders.js';
+import { alightWatch } from '../alight.js';
+import { createWebHost, currentArrivalWatch } from '../../ui/cards/host-web.js';
+import { locationGranted, browserLocation } from '../agent/client.js';
+
+/** 範例問題：每個領域一句（防詐要貼訊息，開防詐頁） */
+export const EXAMPLES = [
+  { q: '去台北 101', icon: 'route', c: '#1d4ed8' },
+  { q: '會下雨嗎？', icon: 'sun', c: '#0284c7' },
+  { q: '這期發票中了嗎？', icon: 'receipt', c: '#7c3aed' },
+  { q: '這則簡訊是詐騙嗎？', icon: 'shield', c: '#b91c1c', href: '#/agent/antifraud' },
+];
 
 export default {
   title: 'Abang', // App 名稱（2026-11-20 Austin 決定）；吉祥物與對話裡仍叫「阿幫」
   root: true,
   render({ main, toast, onCleanup }) {
     const hour = new Date().getHours();
-    const greet = hour < 11 ? '早安' : hour < 18 ? '午安' : '晚安';
-    // M5-12：首頁以「問阿幫」為主要入口；離線 Demo（沒有伺服器）仍維持公車搜尋
+    const greet = hour < 5 ? '夜深了' : hour < 11 ? '早安' : hour < 18 ? '午安' : '晚安';
+    // 離線 Demo（沒有伺服器）：輸入框仍是公車搜尋
     const offline = !!globalThis.__DEMO_SERVICES__;
-    const examples = ['去台北 101', '307 到哪了？', '附近還有 YouBike 嗎？']; // 起點預設是現在位置：範例只說要去哪
+    const safe = miniApps.find((a) => a.id === 'antifraud');
     main.innerHTML = `
-      <section class="hero">
+      <a class="ai-line" id="ai-line" href="#/me?sec=ai" data-tone="wait">
+        <span class="ai-ic" aria-hidden="true">${icons.chip}</span>
+        <span class="ai-txt"><b id="ai-label">手機上的 AI</b><small id="ai-text">檢查中…</small></span>${chev}
+      </a>
+      <section class="hero" aria-labelledby="hero-big">
         <span class="mascot-3d" aria-hidden="true"><i class="mascot-shadow"></i><img class="mascot main" src="/brand/abang-default.svg" alt=""><img class="mascot alt" src="/brand/abang-think.svg" alt=""></span>
-        <small>${greet}！我是阿幫，今天要去哪裡？</small>
-        <div class="big">${offline ? '即時公車・YouBike・高鐵台鐵' : '想去哪裡，直接問我'}</div>
-        <form class="search" id="q">${icons.search}<input name="q" maxlength="500" placeholder="${offline ? '搜尋公車路線，例如 307' : '想去哪裡？例如：去台北 101'}" enterkeyhint="${offline ? 'search' : 'send'}" autocomplete="off" aria-label="${offline ? '搜尋公車路線' : '問阿幫'}"></form>
-        ${offline ? '' : `<div class="hero-ask">${examples.map((q) => `<a class="chip" href="#/agent?q=${encodeURIComponent(q)}">${esc(q)}</a>`).join('')}</div>`}
+        <small>${greet}！我是阿幫</small>
+        <h2 class="big" id="hero-big">${offline ? '即時公車・YouBike・高鐵台鐵' : '有事問阿幫'}</h2>
+        ${offline ? '' : '<p class="hero-sub">交通、生活、消費、防詐，一句話幫你查</p>'}
+        <form class="search" id="q" role="search">${icons.search}<input name="q" maxlength="500" placeholder="${offline ? '搜尋公車路線，例如 307' : '想查什麼？'}" enterkeyhint="${offline ? 'search' : 'send'}" autocomplete="off" aria-label="${offline ? '搜尋公車路線' : '問阿幫：想查什麼？'}"></form>
+        ${offline ? '' : `<div class="hero-ask">${EXAMPLES.map((x) => `<a class="chip" href="${x.href || `#/agent?q=${encodeURIComponent(x.q)}`}"><span class="chip-ic" style="--c:${x.c}" aria-hidden="true">${icons[x.icon]}</span>${esc(x.q)}</a>`).join('')}</div>`}
+      </section>
+      <section class="now" aria-labelledby="now-h">
+        <div class="section-title"><h2 id="now-h">現在</h2><span id="now-when"></span></div>
+        <div class="now-row" id="now" aria-busy="true"></div>
       </section>
       <div id="favs"></div>
-      ${groups.map((g) => `
-        <div class="section-title"><h2>${esc(g.name)}</h2><span>${esc(g.note)}</span></div>
-        <div class="grid">${miniApps.filter((a) => a.group === g.id).map((a, i) => tile(a, i)).join('')}</div>`).join('')}
-      <p class="updated" style="margin-top:24px">資料來源：交通部 TDX、政府資料開放平臺・<a href="#/settings">設定與隱私</a></p>`;
+      <section class="group safe" aria-labelledby="g-safe">
+        <div class="section-title"><h2 id="g-safe">防詐</h2><span>165 全民防騙網</span></div>
+        <a class="tile feature" href="${safe.route}" data-app="antifraud" data-source="${esc(safe.source)}">
+          <span class="ic ab-token" style="--c:${TILE_COLOR.antifraud}">${icons.shield}</span>
+          <span class="ft"><b>收到可疑訊息？</b><small>簡訊、電話、網址貼給阿幫看，看出哪裡不對勁</small></span>
+          <span class="go" aria-hidden="true">檢查 ›</span>
+        </a>
+      </section>
+      ${groups.filter((g) => g.id !== 'safe').map((g) => `
+        <section class="group" aria-labelledby="g-${g.id}">
+          <div class="section-title"><h2 id="g-${g.id}">${esc(g.name)}</h2><span>${esc(g.note)}</span></div>
+          <div class="grid panel">${miniApps.filter((a) => a.group === g.id).map((a, i) => tile(a, i)).join('')}</div>
+        </section>`).join('')}
+      <p class="more-svc"><a class="btn quiet small link-btn" href="#/services">全部服務與說明 ›</a></p>
+      <p class="updated">資料來源：交通部 TDX、中央氣象署、環境部、政府資料開放平臺・<a href="#/me">關於與設定</a></p>`;
 
     main.querySelector('#q').addEventListener('submit', (e) => {
       e.preventDefault();
       const q = new FormData(e.target).get('q').trim();
       if (q) location.hash = offline ? `#/bus?q=${encodeURIComponent(q)}` : `#/agent?q=${encodeURIComponent(q)}`;
     });
-    // 點格子：格子的圖示飛進下一頁的頁首（View Transitions；不支援或減少動態時照常換頁）
-    main.querySelectorAll('a.tile').forEach((a) => a.addEventListener('click', (e) => {
-      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || !canMorph()) return;
-      e.preventDefault();
-      main.querySelectorAll('.tile .ic').forEach((x) => { x.style.viewTransitionName = ''; });
-      a.querySelector('.ic').style.viewTransitionName = 'ph-token';
-      dispatchEvent(new CustomEvent('abang:go', { detail: { hash: a.getAttribute('href') } }));
-    }));
+    morphTiles(main);
     main.querySelectorAll('.tile.soon').forEach((el) =>
       el.addEventListener('click', () => toast(`「${el.dataset.name}」規劃中`)));
     // 示範資料的服務在格子上標「示範」（依 /api/v1/status 的 sources）
     api.status().then(() => markDemoTiles(main)).catch(() => {});
+
+    paintAi(main);
+    paintNow(main, offline);
+    const repaintNow = () => paintNow(main, offline, { quick: true });
+    for (const ev of ['abang:reminders', 'abang:alight-watch', 'abang:arrival-watch']) addEventListener(ev, repaintNow);
+    onCleanup(() => { for (const ev of ['abang:reminders', 'abang:alight-watch', 'abang:arrival-watch']) removeEventListener(ev, repaintNow); });
 
     renderFavs(main.querySelector('#favs'));
     const t = setInterval(() => renderFavs(main.querySelector('#favs')), 30000);
@@ -51,6 +88,55 @@ export default {
     tiltMascot(main.querySelector('.hero'), onCleanup);
   },
 };
+
+/** 點格子：格子的圖示飛進下一頁的頁首（View Transitions；不支援或減少動態時照常換頁）。服務總覽頁共用 */
+export function morphTiles(main, sel = 'a.tile, a.svc') {
+  main.querySelectorAll(sel).forEach((a) => a.addEventListener('click', (e) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || !canMorph()) return;
+    const ic = a.querySelector('.ic');
+    if (!ic) return;
+    e.preventDefault();
+    main.querySelectorAll('.ic').forEach((x) => { x.style.viewTransitionName = ''; });
+    ic.style.viewTransitionName = 'ph-token';
+    dispatchEvent(new CustomEvent('abang:go', { detail: { hash: a.getAttribute('href') } }));
+  }));
+}
+
+/** 手機上的 AI：照實說誰在判斷 */
+function paintAi(main) {
+  const box = main.querySelector('#ai-line');
+  const put = (st) => {
+    const l = edgeLine(st, edgeEnabled());
+    box.dataset.tone = l.tone;
+    box.querySelector('#ai-label').textContent = l.label;
+    box.querySelector('#ai-text').textContent = l.text;
+    box.setAttribute('aria-label', `${l.label}：${l.text}。看說明`);
+  };
+  put(null);
+  edgeStatus().then(put, () => put({ available: false, reason: 'no-plugin' }));
+}
+
+/** 現在：先畫提醒那格（本機，立刻有）＋天氣空品的佔位，查到再補；quick：只換提醒（提醒變了） */
+let lastNow = null;
+async function paintNow(main, offline, { quick = false } = {}) {
+  const box = main.querySelector('#now');
+  if (!box) return;
+  const next = reminderItems({ arrival: currentArrivalWatch(), alight: alightWatch(), leave: listReminders() })[0] || null;
+  const draw = (v, loading) => {
+    const items = nowItems({ ...(v || {}), next });
+    box.innerHTML = (loading ? '<span class="now-item skel" aria-hidden="true"></span><span class="now-item skel" aria-hidden="true"></span>' : '')
+      + items.map((x) => `<a class="now-item" href="${x.href}" data-now="${x.id}"><span class="ab-token sm" style="--c:${NOW_COLOR[x.id] || '#0f766e'}" aria-hidden="true">${icons[x.icon]}</span><span class="now-t"><b>${esc(x.main)}</b><small>${esc(x.sub)}</small></span></a>`).join('');
+    box.setAttribute('aria-busy', String(!!loading));
+  };
+  const when = main.querySelector('#now-when');
+  if (when) when.textContent = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+  if (quick || offline) { draw(offline ? null : lastNow, false); return; }
+  draw(null, true);
+  const host = createWebHost();
+  lastNow = await loadNow({ callTool: (n, a) => host.callTool(n, a), granted: locationGranted, locate: () => browserLocation(4000), fallback: FALLBACK }).catch(() => null);
+  if (main.isConnected) draw(lastNow, false);
+}
+const NOW_COLOR = { weather: '#0284c7', aqi: '#0d9488', reminder: '#b45309', offline: '#5d6966' };
 
 /** 資料是示範的服務：格子右上角標「示範」（離線 Demo 全部是示範） */
 function markDemoTiles(main) {
@@ -66,11 +152,12 @@ function tile(a, i = 0) {
   const inner = `<span class="ic ab-token" style="--c:${TILE_COLOR[a.id] || '#0f766e'}">${icons[a.icon]}</span>${esc(a.name)}`;
   return a.status === 'soon'
     ? `<button class="tile soon" data-name="${esc(a.name)}"><span class="tag">規劃中</span>${inner}</button>`
-    : `<a class="tile" style="--i:${i}" href="${a.route}" data-source="${esc(a.source)}">${inner}</a>`;
+    : `<a class="tile" style="--i:${i}" href="${a.route}" data-app="${esc(a.id)}" data-source="${esc(a.source)}">${inner}</a>`;
 }
 
 async function renderFavs(el) {
-  const list = favs.list().slice(0, 5);
+  if (!el) return;
+  const list = favs.list().slice(0, 3);
   if (!list.length) { el.innerHTML = ''; return; }
   const rows = await Promise.all(list.map(async (f) => {
     if (f.type !== 'station') return `<a href="${f.href}"><div class="grow"><div class="title">${esc(f.title)}</div><div class="sub">${esc(f.sub)}</div></div>${chev}</a>`;
