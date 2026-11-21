@@ -2530,7 +2530,8 @@ test('問阿幫：判斷看得到——討論串逐項說天氣、空品、路�
     await page.locator('.thread.open').waitFor();
     await page.locator('.thread .bubble.agent', { hasText: '@地點' }).evaluate((n) => n.scrollIntoView({ block: 'start' })); // 從找地點到天氣、空品、路況、行程結論
     await page.screenshot({ path: new URL('phone-reasoning-thread.png', SHOTS).pathname });
-    await dg.scrollIntoViewIfNeeded();
+    await page.setViewportSize({ width: 390, height: 1800 }); // 決策圖整張（不被固定在底部的輸入列蓋住）
+    await dg.evaluate((n) => n.scrollIntoView({ block: 'start' }));
     await dg.screenshot({ path: new URL('phone-reasoning-graph.png', SHOTS).pathname });
   });
 });

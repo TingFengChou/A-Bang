@@ -412,7 +412,8 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   const considered = consideredOf({
     weather, aqi, traffic, today: depart.date === nowTW(now).date,
     demo: { weather: svc.weatherMode !== 'live' || Boolean(weather?.demo), air: svc.aqiMode !== 'live', traffic: svc.mode !== 'live' || Boolean(traffic?.demo) },
-  });
+  }).map((c) => (c.source === 'traffic' && svc.mode === 'live' && traffic?.demo // TDX 額度用完改用示範資料（withTdxFallback）：這一行照實說
+    ? { ...c, fallback: 'tdx-limit', text: `${c.text}（TDX 額度用完，這次先用示範資料）`, textEn: `${c.textEn} (TDX quota used up; demo data this time)` } : c));
   // 只有一種方式：說明其他方式為什麼不在（太遠、附近沒有站、沒有趕得上的班次…）
   const single = singleNote({ options, missingList: missingModes({ straight, roles: byRole, skipped, limits: LIMITS }), straight, departMin: depart.minute, demo: svc.mode !== 'live', toName: to.name, fromName: from.name });
   return {

@@ -130,3 +130,18 @@ test('接下來可以：只有一種方式時先給換條件的建議（送出�
   const steps = nextSteps([{ tool: 'plan_trip', data: { from: { name: '你的位置' }, to: { name: '台北101' }, states: [], single } }], { states: [], single });
   assert.deepEqual(steps[0], { label: '改從台北車站出發比較看看', kind: 'ask', payload: '從台北車站到台北101怎麼去' });
 });
+
+test('TDX 額度用完改用示範資料（#105 withTdxFallback）：路況那一行標示範並照實說', async () => {
+  const { withTdxFallback } = await import('../core/index.js');
+  const { TdxError } = await import('../core/tdx-client.js');
+  const { createMockTrafficServices } = await import('../core/services/traffic-mock.js');
+  const base = createServices({ forceMock: true });
+  const live = { traffic: { status: async () => { throw new TdxError(429, 'rate limit'); } } };
+  const svc = { ...base, mode: 'live', weatherMode: 'live', aqiMode: 'live', ...withTdxFallback(live, createMockTrafficServices()) };
+  const r = await planTrip(svc, { from: TAOYUAN, to: T101, now: NOW });
+  const t = r.considered.find((c) => c.source === 'traffic');
+  assert.deepEqual([t.demo, t.fallback], [true, 'tdx-limit']);
+  assert.match(t.text, /TDX 額度用完，這次先用示範資料/);
+  assert.equal(ev.dataNote({ parent: 't1', item: t }).mode, 'demo');
+  assert.equal(r.considered.find((c) => c.source === 'weather').demo, true, '天氣服務本身是示範（mock 帶 demo）');
+});
