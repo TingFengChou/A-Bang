@@ -1,20 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Abang App 圖示">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Abang App 圖示">
 <title>Abang App 圖示</title>
-<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#14B8A6"/><stop offset="1" stop-color="#0B4F4A"/></linearGradient><radialGradient id="halo" cx=".5" cy=".55" r=".5"><stop offset="0" stop-color="#5EEAD4" stop-opacity=".55"/><stop offset="1" stop-color="#5EEAD4" stop-opacity="0"/></radialGradient><pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0 L0 0 0 20" fill="none" stroke="#FFFFFF" stroke-opacity=".08" stroke-width="1"/></pattern></defs>
-<rect width="240" height="240" rx="0" fill="url(#bg)"/><rect width="240" height="240" rx="0" fill="url(#grid)"/><circle cx="120" cy="132" r="104" fill="url(#halo)"/>
-<g transform="translate(108 136) scale(1.25)">
-  <path d="M24 20 Q50 30 60 54 L49 59 Q40 40 18 31 Z" fill="#2E6FB7"/>
-  <path d="M60 54 L49 59 L54 68 L65 63 Z" fill="#FFFFFF" stroke="#2E6FB7" stroke-width="1.5"/>
-  <circle cx="0" cy="0" r="46" fill="#3B82C4"/>
-  <path d="M-46 -2 A46 46 0 0 1 46 -2 Q30 -14 0 -14 Q-30 -14 -46 -2 Z" fill="#1F2A44"/>
-  <ellipse cx="0" cy="20" rx="28" ry="22" fill="#EAF3FB"/>
-  <circle cx="-15" cy="-6" r="8" fill="#FFF"/><circle cx="15" cy="-6" r="8" fill="#FFF"/><circle cx="-13" cy="-5" r="4.5" fill="#1F2A44"/><circle cx="17" cy="-5" r="4.5" fill="#1F2A44"/><circle cx="-11.5" cy="-7" r="1.5" fill="#FFF"/><circle cx="18.5" cy="-7" r="1.5" fill="#FFF"/>
-  <rect x="3" y="-19" width="27" height="22" rx="7" fill="#FFFFFF" fill-opacity=".18"/><rect x="3" y="-19" width="27" height="22" rx="7" fill="#5EEAD4" fill-opacity=".28" stroke="#134E4A" stroke-width="3"/><path d="M30 -12 L40 -16" stroke="#0F766E" stroke-width="2.5" stroke-linecap="round"/>
-  <path d="M-6 4 L6 4 L0 13 Z" fill="#E24B4A"/>
-  <circle cx="-27" cy="8" r="6" fill="#F4C0D1"/><circle cx="27" cy="8" r="6" fill="#F4C0D1"/>
-  <path d="M-6 -44 C-10 -64 4 -80 26 -76 C12 -70 6 -58 6 -44 Z" fill="#1F2A44"/><path d="M4 -44 C4 -60 16 -68 32 -64 C20 -60 15 -53 14 -42 Z" fill="#4A90D9"/><path d="M14 -42 C17 -52 26 -57 37 -52 C28 -50 24 -45 21 -39 Z" fill="#1F2A44"/>
-  <rect x="-54" y="-18" width="16" height="24" rx="7" fill="#134E4A"/><rect x="-50" y="-13" width="8" height="14" rx="4" fill="#5EEAD4"/><path d="M-46 4 Q-40 20 -16 17" fill="none" stroke="#134E4A" stroke-width="3.5" stroke-linecap="round"/><circle cx="-15" cy="17" r="4" fill="#134E4A"/>
-  <path d="M-44 8 Q-64 -6 -58 -26" fill="none" stroke="#3B82C4" stroke-width="10" stroke-linecap="round"/>
-  <path d="M-10 44 L-12 54 M10 44 L12 54" stroke="#E24B4A" stroke-width="4" stroke-linecap="round"/>
-</g>
+<defs><linearGradient id="q-g" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="512" y2="512"><stop offset="0" stop-color="#0B3B39"/><stop offset=".6" stop-color="#0F766E"/><stop offset="1" stop-color="#14A396"/></linearGradient><radialGradient id="q-h" gradientUnits="userSpaceOnUse" cx="256" cy="317.4" r="256"><stop offset="0" stop-color="#5EEAD4" stop-opacity=".55"/><stop offset="1" stop-color="#5EEAD4" stop-opacity="0"/></radialGradient></defs>
+<rect width="512" height="512" fill="url(#q-g)"/><rect width="512" height="512" fill="url(#q-h)"/>
+<defs><linearGradient id="q-s" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#CCFBF1"/><stop offset="1" stop-color="#FFFFFF"/></linearGradient></defs>
+<circle cx="256" cy="262" r="176" fill="none" stroke="#99F6E4" stroke-opacity=".28" stroke-width="5"/>
+<circle cx="256" cy="262" r="176" fill="none" stroke="#CCFBF1" stroke-width="8" stroke-linecap="round" stroke-dasharray="150 956" transform="rotate(-60 256 262)"/>
+<path d="M150 384 L256 136 L362 384" fill="none" stroke="url(#q-s)" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="256" cy="330" r="30" fill="#FBBF24"/>
+<circle cx="256" cy="330" r="46" fill="none" stroke="#FDE68A" stroke-opacity=".5" stroke-width="6"/>
 </svg>
