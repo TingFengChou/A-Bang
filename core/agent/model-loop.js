@@ -138,6 +138,21 @@ export const sameName = (a, b) => {
 
 /** 地端模型模式改由規則回答的意圖（資料查一次、照實報數字） */
 export const RULE_ANSWERS = new Set(['fuel', 'invoice', 'stock', 'quake']);
+/**
+ * 地端模型模式改由規則回答的情況（P4、P5 模型模式）：查一次就報數字的生活資料、說了站名的捷運下一班、
+ * 一句問好幾件事（規則已經拆好）、沒說哪一站的「去火車站」、禮貌話、只有標點。
+ * 規則聽得懂、而小模型常常漏查或答非所問的，才交給規則；其他照常由模型回答。
+ */
+export function ruleFirst(it, text = '') {
+  if (!it) return false;
+  if (RULE_ANSWERS.has(it.intent)) return true;
+  if (it.thanks || it.sorry) return true;
+  if (!/[\p{L}\p{N}]/u.test(String(text))) return true; // 只有標點、空白或表情符號
+  if (it.also?.length) return true;
+  if (it.intent === 'trip' && it.nearRail && !it.to) return true;
+  if (it.intent === 'metro' && it.station) return true;
+  return false;
+}
 
 /** 行程的座標比對鍵（起訖點座標到小數 3 位＋方式＋抵達時間） */
 export const tripKey = (from, to, prefs = {}) => (Number.isFinite(from?.lat) && Number.isFinite(to?.lat)
@@ -241,7 +256,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   // 地端小模型的英文不穩（漏英文地名、句型亂，模型模式情境 S12 九個沒過）：英文提問改用規則回答（與示範模式同一套英文總結；Claude 照常）
   if (provider.mode === 'local' && isEnglish(last)) return runDemo(svc, body, emit, { profileId, now, judge, mode: 'rules' });
   // 查一個數字就答的生活資料（油價、發票、股市收盤、地震）：規則聽得懂就由規則查、程式回答（地端小模型常不查或漏講日期、縣市，P4 模型模式 4 個沒過）
-  if (provider.mode === 'local' && profile.id === 'life' && !safetyCheck(last, { profileId: profile.id }) && RULE_ANSWERS.has(parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces, now }).intent)) return runDemo(svc, body, emit, { profileId, now, judge, mode: 'rules' });
+  if (provider.mode === 'local' && profile.id === 'life' && !safetyCheck(last, { profileId: profile.id }) && ruleFirst(parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces, now }), last)) return runDemo(svc, body, emit, { profileId, now, judge, mode: 'rules' });
   const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode: provider.mode, model: provider.model, profile: profile.id, judge: judgeInfo(q0), lang: isEnglish(last) ? 'en' : 'zh' }));
   // 安全情境（S18）：自傷或緊急狀況不交給模型自由回答，固定給求助電話（與示範模式相同）
