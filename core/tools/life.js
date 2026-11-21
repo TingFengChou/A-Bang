@@ -32,7 +32,14 @@ export const earthquakeRecent = defineTool({
   pack: PACK, tier: 'L1', card: 'quake', source: '中央氣象署（地震報告）',
   demoNote: '【示範資料：尚未設定中央氣象署授權碼，以下為過去的地震報告片段】', modeOf: (svc) => svc.quakeMode,
   input: { county: z.string().trim().max(10).optional().describe('縣市，例如 臺北市（選填）'), limit: z.number().int().min(1).max(10).default(5).describe('筆數') },
-  speak: (d) => (d.quakes[0] ? `最近一次：${d.quakes[0].time.slice(5, 16).replace('T', ' ')} 規模 ${d.quakes[0].magnitude?.toFixed(1)}，${d.quakes[0].location.replace(/\s*\(.*\)/, '')}，最大震度 ${d.quakes[0].maxIntensity ?? '—'}。` : '最近沒有地震報告。'),
+  speak: (d) => {
+    // 問某縣市（「花蓮剛剛是不是地震」）：講那個縣市有感的最近一次，不是只報別處那次（P4-4）
+    if (d.county && d.quakes.length) {
+      const q = d.quakes.find((x) => x.countyIntensity);
+      return q ? `${d.county}最近一次有感：${q.time.slice(5, 16).replace('T', ' ')} 規模 ${q.magnitude?.toFixed(1)}，${q.location.replace(/\s*\(.*\)/, '')}，${d.county}震度 ${q.countyIntensity}。` : `最近 ${d.quakes.length} 次地震報告都沒有列出${d.county}的震度（無感或未列）。`;
+    }
+    return d.quakes[0] ? `最近一次：${d.quakes[0].time.slice(5, 16).replace('T', ' ')} 規模 ${d.quakes[0].magnitude?.toFixed(1)}，${d.quakes[0].location.replace(/\s*\(.*\)/, '')}，最大震度 ${d.quakes[0].maxIntensity ?? '—'}。` : '最近沒有地震報告。';
+  },
   async run(svc, a) {
     const data = await svc.life.quakes(a);
     const text = data.quakes.length

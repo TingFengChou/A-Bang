@@ -240,12 +240,12 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode: provider.mode, model: provider.model, profile: profile.id, judge: judgeInfo(q0), lang: isEnglish(last) ? 'en' : 'zh' }));
   // 安全情境（S18）：自傷或緊急狀況不交給模型自由回答，固定給求助電話（與示範模式相同）
-  const safe = safetyCheck(last); // 安全情境在請定位之前就回答，不會有帶定位的重送
+  const safe = safetyCheck(last, { profileId: profile.id }); // 安全情境在請定位之前就回答，不會有帶定位的重送
   if (safe) { emit(ev.guardrail({ tier: 'L0', rule: `safety:${safe.kind}`, calls: safe.calls })); emit(ev.text(safe.reply)); emit(ev.done()); return; }
   // 規則先解析一次（含常用地點）：重來、聽懂了什麼、沒設定常用地點都用同一個結果
   const rulesIt = parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces, now });
   if (!req.clientToolResults?.length && rulesIt.reset) emit(ev.contextReset());
-  if (rulesIt.intent === 'savedMissing' || (profile.id === 'life' && ((rulesIt.intent === 'weather' && rulesIt.later) || rulesIt.intent === 'limits'))) { // 要阿幫代按、代付：固定說明只給官方連結（ADR-0011） // 「回家」但沒設定家、問後天以後的天氣：不給模型猜（模型會拿現在的天氣充數），直接照實說
+  if (rulesIt.intent === 'savedMissing' || (profile.id === 'life' && ((rulesIt.intent === 'weather' && rulesIt.later) || (rulesIt.intent === 'limits' || rulesIt.intent === 'access')))) { // 要阿幫代按、代付：固定說明只給官方連結（ADR-0011） // 「回家」但沒設定家、問後天以後的天氣：不給模型猜（模型會拿現在的天氣充數），直接照實說
     emit(ev.text(demoSummary(rulesIt, {})));
     emit(ev.done());
     return;

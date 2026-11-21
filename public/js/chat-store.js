@@ -4,11 +4,19 @@ const KEY = 'abang.chat';
 export const CHAT_TTL_MS = 12 * 3600e3;
 export const CHAT_MAX = 10;
 
-/** 存最近的對話（role＋文字；每則最多 500 字） */
+/** 像個資的號碼先遮起來再存（身分證字號、手機號碼、卡號；發票 8 碼不遮）（P4-10） */
+export function maskPrivate(text) {
+  return String(text)
+    .replace(/(?<![A-Za-z0-9])[A-Za-z][12]\d{8}(?!\d)/g, '●●●●●●●●●●')
+    .replace(/(?<!\d)09\d{2}[-\s]?\d{3}[-\s]?\d{3}(?!\d)/g, '●●●●●●●●●●')
+    .replace(/(?<!\d)\d{4}(?:[-\s]?\d{4}){2,3}(?!\d)/g, '●●●●●●●●●●●●');
+}
+
+/** 存最近的對話（role＋文字；每則最多 500 字；個資號碼遮起來） */
 export function saveChat(messages, now = Date.now()) {
   try {
     const list = messages.filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
-      .slice(-CHAT_MAX).map((m) => ({ role: m.role, content: m.content.slice(0, 500) }));
+      .slice(-CHAT_MAX).map((m) => ({ role: m.role, content: maskPrivate(m.content.slice(0, 500)) }));
     if (list.length) localStorage.setItem(KEY, JSON.stringify({ at: now, messages: list }));
     else localStorage.removeItem(KEY);
   } catch { /* 無痕模式或空間不夠：不存 */ }

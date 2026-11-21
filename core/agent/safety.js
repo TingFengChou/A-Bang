@@ -18,17 +18,29 @@ const EMERGENCY = [
   /\b(?:call (?:an )?ambulance|need (?:an )?ambulance|call the police|someone (?:collapsed|fainted|is (?:hurt|bleeding|unconscious))|(?:i|we) (?:had|were in) an accident|there(?:'s| is) a fire|i(?:'m| am) being (?:followed|attacked)|help me,? (?:please|i'?m hurt))\b/i,
 ];
 
+// 急症徵兆（胸痛、喘不過氣、中風、抽搐、嚴重過敏）：先叫 119（P4-10）；「胸口悶悶的」這類不確定的也寧可多給一次
+const MEDICAL = [
+  /胸(?:口|部)?(?:好|很|超|非常|突然)?(?:痛|悶痛|絞痛)|胸(?:口|部)?.{0,3}悶|心悸|心臟病發|流血不止|大量出血|流好多血|快昏倒|快不行了|一直抽筋|喘不過氣|呼吸困難|不能呼吸|沒辦法呼吸|吸不到氣|(?<![去到往])中風(?!路|站|復健|預防|後遺症|中心|險)|嘴歪|半邊.{0,4}(?:麻|無力|不能動)|說話.{0,2}不清楚|講話.{0,2}不清楚|抽搐|休克|意識不清|叫不醒|過敏.{0,6}(?:喘|腫|呼吸)|吐血|心臟.{0,4}(?:好痛|很痛|停)/,
+  /\b(?:chest pain|can'?t breathe|cannot breathe|trouble breathing|short(?:ness)? of breath|having a stroke|seizure|unconscious|anaphyla)/i,
+];
+// 問用藥、病情（「頭很痛要吃什麼藥」）：阿幫不做醫療判斷，請問醫師、藥師（P4-9）；找藥局、去醫院照常幫忙
+const HEALTH = /(?:要|該|可以|能)吃(?:什麼|哪種|哪一種|啥)藥|吃.{0,6}藥.{0,4}(?:有用|好嗎|可以嗎|會好)|(?:發燒|頭痛|頭很痛|頭好痛|肚子痛|拉肚子|咳嗽|喉嚨痛|感冒|過敏|腰痛|牙痛).{0,6}(?:怎麼辦|吃什麼|要吃|怎麼處理|會不會怎樣)|是不是(?:生病|得了|感染)|要不要看醫生|(?:看|掛)哪一?科|\b(?:what (?:medicine|medication|pill)s? should i take|should i take (?:medicine|aspirin|ibuprofen))/i;
+// 個資（打了身分證字號、卡號、密碼）：不需要、不記，提醒不要輸入（P4-10）；只說「身分證被冒用」照常（防詐）
+const PRIVATE = /(?<![A-Za-z0-9])[A-Za-z][12]\d{8}(?!\d)|(?:卡號|信用卡).{0,4}(?:是|：|:)?\s*\d{4}(?:[-\s]?\d{4}){3}|(?:我的)?密碼(?:是|：|:)\s*(?!什麼|啥|多少|幾)\S/; // 真的打了號碼（貼上的詐騙簡訊常有「驗證碼：123456」，不算）
+
 /** 這次回應要給的電話（畫面做成一鍵撥號；資料決定，畫面不寫死） */
 const CALLS = {
   selfHarm: [{ label: '撥 1925 安心專線', labelEn: 'Call 1925', tel: '1925' }, { label: '撥 1995 生命線', labelEn: 'Call 1995 Lifeline', tel: '1995' }, { label: '撥 119', labelEn: 'Call 119', tel: '119' }],
+  medical: [{ label: '撥 119 叫救護車', labelEn: 'Call 119 ambulance', tel: '119' }],
   emergency: [{ label: '撥 119 救護消防', labelEn: 'Call 119 ambulance/fire', tel: '119' }, { label: '撥 110 警察', labelEn: 'Call 110 police', tel: '110' }],
 };
 
 /**
  * @param {string} text 使用者這一句
- * @returns {{ kind: 'selfHarm'|'emergency', reply: string, calls: Array<{ label: string, tel: string }> }|null}
+ * @param {{ profileId?: string }} [opt] 防詐 agent 不擋個資（使用者會貼上詐騙簡訊）
+ * @returns {{ kind: 'selfHarm'|'emergency'|'medical'|'privacy'|'health', reply: string, calls: Array<{ label: string, tel: string }> }|null}
  */
-export function safetyCheck(text) {
+export function safetyCheck(text, { profileId } = {}) {
   const raw = String(text || '');
   const s = raw.replace(CASUAL, ' ');
   const en = /[A-Za-z]{2,}/.test(raw) && !/[一-鿿]/.test(raw);
@@ -50,6 +62,33 @@ export function safetyCheck(text) {
       reply: en
         ? `If anyone is hurt or in danger, call 119 now (ambulance and fire) or 110 (police). Calls are free; if you have no SIM card or your carrier has no coverage, dial 112. Stay somewhere safe.${protect ? ' For violence or being followed, the 113 protection hotline can also help.' : ''} When things are under control, tell me where you need to go and I'll find the way.`
         : `如果有人受傷或有危險，請先撥 119（救護、消防）或 110（警察），免費；手機沒有 SIM 卡、或自己的電信收不到訊號時，可撥 112。先待在安全的地方。${protect ? '遇到暴力或被跟蹤，也可以撥 113 保護專線。' : ''}狀況穩定後，告訴我要去哪裡，我幫你查怎麼過去。`,
+    };
+  }
+  if (MEDICAL.some((re) => re.test(s))) {
+    return {
+      kind: 'medical',
+      calls: calls('medical'),
+      reply: en
+        ? 'This could be an emergency. Call 119 for an ambulance now (free). Stop what you are doing, sit or lie down somewhere safe, and tell someone nearby. Don\'t drive yourself.'
+        : '這可能是緊急狀況，請馬上撥 119 叫救護車（免費）。先停下來，找安全的地方坐下或躺下，請身邊的人幫忙；不要自己開車或騎車去醫院。',
+    };
+  }
+  if (profileId !== 'antifraud' && PRIVATE.test(raw)) { // 防詐：使用者貼上的簡訊、對方要的資料本來就會有號碼，照常判斷詐騙
+    return {
+      kind: 'privacy',
+      calls: [],
+      reply: en
+        ? "Please don't type ID numbers, card numbers or passwords here. Abang doesn't need personal data and won't keep it. I can help with transit and daily info instead."
+        : '請不要在這裡輸入身分證字號、卡號、密碼這類個資。阿幫查交通和生活資訊不需要個資，也不會幫你記下來（手機上留的對話也會把號碼遮起來）。有需要查什麼再跟我說。',
+    };
+  }
+  if (HEALTH.test(s) && !/公車|捷運|怎麼去|怎麼走|怎麼坐|幾號|搭|附近|藥局|診所/.test(s)) { // 「台大醫院掛哪科要搭幾號公車」「附近有診所嗎」照常查
+    return {
+      kind: 'health',
+      calls: [],
+      reply: en
+        ? "I can't judge symptoms or recommend medicine. Please ask a doctor or pharmacist (pharmacists can advise for free). If it's severe or getting worse fast, call 119. I can find a nearby pharmacy or the way to a hospital."
+        : '阿幫不能判斷病情或建議吃什麼藥，請問醫師或藥師（藥局的藥師可以免費諮詢）；症狀很嚴重或突然變嚴重，請撥 119。我可以幫你找附近的藥局，或查怎麼去醫院。',
     };
   }
   return null;
