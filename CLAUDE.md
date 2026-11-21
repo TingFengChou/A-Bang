@@ -76,7 +76,7 @@ core/            唯一的資料與邏輯層
   data/          landmarks.json（內建地標，座標待校對）
 server/          http.js（REST、/mcp、/api/docs、/healthz、靜態檔）、log.js（結構化 log）、rest.js（路由表）、openapi.js、agent.js（/api/v1/agent）、rate-limit.js
 mcp/             create-server.js、server.js（stdio）、cards-resource.js（ui://abang/cards.html）
-public/          PWA；ui/cards/（卡片渲染、契約、字典、web host、MCP Apps host 與入口 mcp-app.js；預覽 /ui/cards/preview.html）；js/pages/agent.js（問阿幫 #/agent，keepAlive）、js/pages/ai.js（阿幫的腦袋 #/ai：裝置端 AI 核心動畫、模型資訊、現場試判斷；字典 pages/ai-i18n.js、資料整理 js/ai-info.js、css/ai.css）、js/abang-dock.js（對話保留、浮動阿幫、提醒泡泡）、js/page-hero.js（格子頁首）、js/trip-bar.js（進行中列）、js/location-help.js（定位失敗原因）、js/agent/client.js（定位：App 用原生外掛）、js/edge-judge.js（裝置端 AI）、js/keyboard.js、css/agent.css
+public/          PWA；ui/cards/（卡片渲染、契約、字典、web host、MCP Apps host 與入口 mcp-app.js；預覽 /ui/cards/preview.html）；js/pages/agent.js（問阿幫 #/agent，keepAlive）、js/pages/ai.js（阿幫的腦袋 #/ai：裝置端 AI 核心動畫、模型資訊、現場試判斷；字典 pages/ai-i18n.js、資料整理 js/ai-info.js、css/ai.css）、js/abang-dock.js（對話保留、浮動阿幫、提醒泡泡）、js/page-hero.js（格子頁首）、js/trip-bar.js（進行中列）、js/location-help.js（定位失敗原因）、js/agent/client.js（定位：App 用原生外掛）、js/agent/thinking.js（「阿幫在想」核心小動畫：事件 → 階段）、js/edge-judge.js（裝置端 AI）、js/keyboard.js、css/agent.css
 test/            node:test；fixtures/；scenarios/（情境對話集，A0）
 android/、ios/   Capacitor 原生專案（ADR-0013）；前端仍在 public/，打包到 dist/app；專案內外掛 AbangEdgeAI（ADR-0014）、AbangSystem（開 App 設定，S1c）
 docs/            規格、ADR、原型、文件網站

@@ -190,8 +190,6 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 .bubble .impact.good { background: var(--ok-soft); color: var(--ok); }
 .bubble .impact.neutral { background: var(--off-soft); color: var(--muted); }
 @keyframes impact-in { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
-.bubble.thinking .say { display: inline-flex; align-items: center; gap: 6px; background: var(--brand-soft); }
-.bubble.thinking .th-label { font-size: 13px; color: var(--brand); font-weight: 700; }
 @media (prefers-reduced-motion: reduce) { .bubble .impact { animation: none; } }
 /* 決策圖：點沒被選的方案＝改成它 */
 .dg-opt.pickable { cursor: pointer; }
@@ -239,3 +237,28 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 .chat-past-wrap .chat-past { margin: 0 0 6px; }
 .past-acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .past-note { font-size: 13px; color: var(--muted); }
+
+/* 「阿幫在想」（agent/thinking.js）：送出到第一段回答之間，在回答的位置用「阿幫的腦袋」同一顆核心的小版本。
+   只動 transform／opacity（手機 WebView 上順）；reduced motion／lite-motion 不動，只留文字。 */
+.think-core { display: flex; align-items: center; gap: 10px; margin: 10px 0 4px; padding: 8px 14px 8px 8px; border-radius: 16px; background: var(--brand-soft); width: fit-content; max-width: 100%; animation: bub-in .22s cubic-bezier(.2,.8,.2,1) both; }
+.think-core .tc-orb { flex: none; width: 44px; height: 44px; border-radius: 14px; box-shadow: 0 2px 10px rgba(15, 118, 110, .28); }
+.think-core svg { display: block; }
+.think-core .tc-text { display: flex; flex-direction: column; min-width: 0; }
+.think-core .tc-text b { font-size: 15px; color: #0b4f49; }
+.think-core .tc-text small { font-size: 13px; color: var(--muted); line-height: 1.45; }
+.think-core .tc-text small:empty { display: none; }
+.think-core .tc-text small.tc-new { animation: ab-fade .3s ease-out both; }
+.think-core .tc-orbit { transform-origin: 24px 25px; animation: tc-spin 1.6s linear infinite; }
+.think-core .tc-core { transform-origin: 24px 31px; animation: tc-beat .5s ease-in-out infinite alternate; }
+.think-core .tc-halo { transform-origin: 24px 31px; animation: tc-ripple 1s ease-out infinite; }
+.think-core[data-phase="tools"] .tc-orbit { animation-duration: .9s; }
+.think-core[data-phase="compose"] .tc-core { animation-duration: .8s; }
+.think-core.tc-flash .tc-orb { animation: tc-flash .45s ease-out 1; }
+@keyframes tc-spin { to { transform: rotate(360deg); } }
+@keyframes tc-beat { from { transform: scale(.85); } to { transform: scale(1.25); } }
+@keyframes tc-ripple { from { transform: scale(.8); opacity: .55; } to { transform: scale(2.3); opacity: 0; } }
+@keyframes tc-flash { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
+html.lite-motion .think-core, html.lite-motion .think-core * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .think-core, .think-core * { animation: none !important; } }
+/* 回答上方：這一輪手機上的 AI 有判斷時，照實說伺服器有沒有採用 */
+.device-line { margin: 10px 0 -2px; font-size: 12.5px; color: var(--muted); }

@@ -15,6 +15,19 @@ const EXAMPLES = ['try.ex1', 'try.ex2', 'try.ex3', 'try.ex4'];
 const HAS_MODEL = ['ready', 'off', 'downloading', 'downloadable'];
 const LOCK = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 
+/** 三次貝茲曲線上的點 */
+const bez = (p, t) => { const u = 1 - t; return [0, 1].map((k) => u * u * u * p[0][k] + 3 * u * u * t * p[1][k] + 3 * u * t * t * p[2][k] + t * t * t * p[3][k]); };
+// 訊號＝沿線一串小光點依序亮起（只動 opacity，手機上順；不用 stroke-dashoffset）
+const dot = (cls, [x, y], i) => `<circle class="ai-dot ${cls}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.2" style="--i:${i}"/>`;
+const SIGNAL_DOTS = [
+  ...[50, 66, 82, 98, 114, 130].map((y, i) => dot('ai-dot-in', [180, y], i)),
+  ...[[[180, 177], [180, 218], [100, 196], [86, 234]], [[180, 177], [180, 218], [260, 196], [274, 234]]].flatMap((p) => [0.12, 0.3, 0.48, 0.66, 0.84].map((t, i) => dot('ai-dot-out', bez(p, t), i))),
+].join('');
+/** 「試試看」的動畫至少播這麼久（毫秒；Gemini Nano 約 0.4 秒就判斷完，不然一閃就過）。結果文字不等它，立刻寫進 role=status */
+export const MIN_PLAY_MS = 1200;
+/** 其中「訊號流到意圖、狀態，節點點亮」這一段 */
+const FLOW_MS = 550;
+
 /** 主視覺（座標沿用 App 圖示的比例：軌道圓心在上、Λ 的開口朝下、核心在 Λ 裡面偏下） */
 const coreSvg = (t) => `
 <svg class="ai-svg" viewBox="0 0 360 292" focusable="false">
@@ -31,16 +44,14 @@ const coreSvg = (t) => `
   <path class="ai-wire" d="M180 177C180 218 100 196 86 234" pathLength="1"/>
   <path class="ai-wire" d="M180 177C180 218 260 196 274 234" pathLength="1"/>
   <path class="ai-lambda" d="M130 190L180 68L230 190"/>
-  <path class="ai-sig ai-sig-in" d="M180 38V146" pathLength="1"/>
-  <path class="ai-sig ai-sig-out" d="M180 177C180 218 100 196 86 234" pathLength="1"/>
-  <path class="ai-sig ai-sig-out" d="M180 177C180 218 260 196 274 234" pathLength="1"/>
+${SIGNAL_DOTS}
   <circle class="ai-halo" cx="180" cy="160" r="46" fill="url(#ai-halo-g)"/>
   <circle class="ai-pulse" cx="180" cy="160" r="18"/>
   <circle class="ai-core-ring" cx="180" cy="160" r="25"/>
   <circle class="ai-core" cx="180" cy="160" r="15"/>
   <g class="ai-node"><rect x="112" y="6" width="136" height="32" rx="16"/><text x="180" y="27">${esc(t('node.input'))}</text></g>
-  <g class="ai-node ai-out"><rect x="14" y="234" width="144" height="52" rx="14"/><text class="ai-k" x="86" y="253">${esc(t('node.intent'))}</text><text class="ai-v" data-v="intent" x="86" y="275">—</text></g>
-  <g class="ai-node ai-out"><rect x="202" y="234" width="144" height="52" rx="14"/><text class="ai-k" x="274" y="253">${esc(t('node.states'))}</text><text class="ai-v" data-v="states" x="274" y="275">—</text></g>
+  <g class="ai-node ai-out"><rect x="14" y="234" width="144" height="52" rx="14"/><rect class="ai-glow" x="14" y="234" width="144" height="52" rx="14"/><text class="ai-k" x="86" y="253">${esc(t('node.intent'))}</text><text class="ai-v" data-v="intent" x="86" y="275">—</text></g>
+  <g class="ai-node ai-out"><rect x="202" y="234" width="144" height="52" rx="14"/><rect class="ai-glow" x="202" y="234" width="144" height="52" rx="14"/><text class="ai-k" x="274" y="253">${esc(t('node.states'))}</text><text class="ai-v" data-v="states" x="274" y="275">—</text></g>
 </svg>`;
 
 export default {
@@ -129,27 +140,35 @@ export default {
         if (!q) { live.textContent = t('try.empty'); input.focus(); return; }
         busy = true;
         go.disabled = true; go.setAttribute('aria-busy', 'true');
+        const t0 = performance.now();
+        const still = calm();
         setNode('intent', '…'); setNode('states', '…');
         stage('thinking');
+        hero.classList.toggle('playing', !still); // 動畫播放中（至少 MIN_PLAY_MS）
         live.textContent = t('live.thinking');
         if (matchMedia('(pointer: coarse)').matches) input.blur(); // 手機：收鍵盤，核心才看得到
         $('#ai-stage').scrollIntoView({ block: 'start', behavior: calm() ? 'auto' : 'smooth' });
         const r = await edgeJudge(q, [], { timeout: TRY_TIMEOUT_MS }); // 只呼叫手機上的外掛，沒有任何網路請求
         if (!alive) return;
-        busy = false;
-        go.disabled = false; go.removeAttribute('aria-busy');
-        if (r) {
+        // 資料不等動畫：結果文字與次數立刻更新（讀屏、reduced motion 拿到的一樣多、一樣快）
+        live.textContent = r ? judgedText(r, edgeStats().lastMs, t) : t('try.fail');
+        paintModel(); // 次數與耗時更新
+        const finish = () => { hero.classList.remove('playing'); busy = false; go.disabled = false; go.removeAttribute('aria-busy'); };
+        if (!r) { setNode('intent', '—'); setNode('states', '—'); stage('idle'); finish(); return; }
+        const light = () => { // 訊號流到意圖、狀態，節點點亮
           setNode('intent', t(`intent.${r.intent}`));
           setNode('states', r.states.length ? nodeText(r.states.map((k) => t(`state.${k}`)), t('sep')) : t('node.none'));
           void hero.offsetWidth; // 連續試：讓「點亮」的動畫重新開始
           stage('done');
-          live.textContent = judgedText(r, edgeStats().lastMs, t);
-        } else {
-          setNode('intent', '—'); setNode('states', '—');
-          stage('idle');
-          live.textContent = t('try.fail');
-        }
-        paintModel(); // 次數與耗時更新
+        };
+        if (still) { light(); finish(); return; }
+        // 思考動畫（核心脈動、訊號流進核心）至少播到 MIN_PLAY_MS − FLOW_MS；判斷比這久就一直播到結果回來
+        const wait = Math.max(0, MIN_PLAY_MS - FLOW_MS - (performance.now() - t0));
+        setTimeout(() => {
+          if (!alive) return;
+          light();
+          setTimeout(() => { if (alive) finish(); }, FLOW_MS);
+        }, wait);
       };
       $('#ai-form').addEventListener('submit', (e) => { e.preventDefault(); run(input.value); });
       for (const b of body.querySelectorAll('.ai-ex .chip')) b.addEventListener('click', () => { input.value = b.textContent; run(b.textContent); });

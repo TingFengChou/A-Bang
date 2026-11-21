@@ -26,7 +26,7 @@
 .ai-orbit { transform-origin: 180px 128px; }
 .ai-wire { fill: none; stroke: #99f6e4; stroke-opacity: .4; stroke-width: 1.5; stroke-dasharray: .025 .035; }
 .ai-lambda { fill: none; stroke: url(#ai-lam); stroke-width: 13; stroke-linecap: round; stroke-linejoin: round; }
-.ai-sig { fill: none; stroke: #fde68a; stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: .24 1; stroke-dashoffset: .24; opacity: 0; }
+.ai-dot { fill: #fde68a; opacity: 0; }
 /* 核心 */
 .ai-core { fill: #fbbf24; transform-origin: 180px 160px; }
 .ai-core-ring { fill: none; stroke: #fde68a; stroke-opacity: .55; stroke-width: 3; }
@@ -34,6 +34,7 @@
 .ai-pulse { fill: none; stroke: #fde68a; stroke-width: 2; opacity: 0; transform-origin: 180px 160px; }
 /* 節點 */
 .ai-node rect { fill: rgba(9, 52, 49, .82); stroke: #99f6e4; stroke-opacity: .5; stroke-width: 1.5; }
+.ai-node rect.ai-glow { fill: #fbbf24; stroke: #fde68a; stroke-opacity: 1; opacity: 0; } /* 點亮：琥珀底淡入（只動 opacity） */
 .ai-node text { fill: #fff; text-anchor: middle; font-size: 13px; font-weight: 600; }
 .ai-node .ai-k { font-size: 11px; font-weight: 500; fill: #99f6e4; letter-spacing: .5px; }
 .ai-node .ai-v { font-size: 15px; font-weight: 700; }
@@ -47,14 +48,14 @@
 .ai-hero[data-stage="thinking"] .ai-orbit { animation-duration: 2.6s; }
 .ai-hero[data-stage="thinking"] .ai-core { animation: ai-beat .45s ease-in-out infinite alternate; }
 .ai-hero[data-stage="thinking"] .ai-pulse { animation: ai-ripple .9s ease-out infinite; }
-.ai-hero[data-stage="thinking"] .ai-sig-in { animation: ai-flow .75s linear infinite; }
+.ai-hero[data-stage="thinking"] .ai-dot-in { animation: ai-chase .72s linear infinite; animation-delay: calc(var(--i) * 100ms); }
 /* 聽懂了：訊號流到「意圖」「狀態」，節點點亮 */
 .ai-hero[data-stage="done"] .ai-pulse { animation: ai-ripple .7s ease-out 1; }
-.ai-hero[data-stage="done"] .ai-sig-out { animation: ai-flow .55s ease-in 1; }
-.ai-hero[data-stage="done"] .ai-out rect { fill: #fbbf24; stroke: #fde68a; stroke-opacity: 1; animation: ai-lit .5s ease-out 1 both; }
+.ai-hero[data-stage="done"] .ai-dot-out { animation: ai-chase .36s linear 1 both; animation-delay: calc(var(--i) * 45ms); }
+.ai-hero[data-stage="done"] .ai-out rect.ai-glow { animation: ai-pop .2s ease-out .34s 1 both; }
 .ai-hero[data-stage="done"] .ai-out .ai-k { fill: #713f12; }
 .ai-hero[data-stage="done"] .ai-out .ai-v { fill: #1f2a44; }
-.ai-hero[data-stage="done"] .ai-out text { animation: ai-pop .3s ease-out .42s 1 both; }
+.ai-hero[data-stage="done"] .ai-out text { animation: ai-pop .2s ease-out .38s 1 both; }
 /* 沒有手機上的模型：核心不點亮（虛線空心）、軌道不轉 */
 .ai-hero[data-core="off"] .ai-core { fill: none; stroke: #99f6e4; stroke-opacity: .75; stroke-width: 2; stroke-dasharray: 4 4; }
 .ai-hero[data-core="off"] .ai-halo, .ai-hero[data-core="off"] .ai-core-ring { display: none; }
@@ -67,10 +68,10 @@
 @keyframes ai-halo { from { opacity: .55; transform: scale(.9); } to { opacity: 1; transform: scale(1.12); } }
 @keyframes ai-beat { from { transform: scale(.9); } to { transform: scale(1.22); } }
 @keyframes ai-ripple { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(3.2); } }
-@keyframes ai-flow { 0% { opacity: 1; stroke-dashoffset: .24; } 85% { opacity: 1; } 100% { opacity: 0; stroke-dashoffset: -1; } }
-@keyframes ai-lit { 0%, 70% { fill: rgba(9, 52, 49, .82); stroke: #99f6e4; } 100% { fill: #fbbf24; stroke: #fde68a; } }
+@keyframes ai-chase { 0% { opacity: 0; } 20% { opacity: 1; } 70%, 100% { opacity: 0; } }
 @keyframes ai-pop { from { opacity: 0; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .ai-hero *, .ai-hero *::before { animation: none !important; transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .ai-hero *, .ai-hero *::before { animation: none !important; transition: none !important; } .ai-hero[data-stage="done"] .ai-out rect.ai-glow { opacity: 1; } }
+html.lite-motion .ai-hero[data-stage="done"] .ai-out rect.ai-glow { opacity: 1; }
 html.lite-motion .ai-hero * { animation: none !important; transition: none !important; }
 
 /* 淺色卡片 */

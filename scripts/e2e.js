@@ -46,10 +46,12 @@ async function newCtx(opts, { onboard = false } = {}) {
 
 /** 開新的 browser context 與頁面、收集錯誤，跑完 fn（不論成敗）一定關閉 context；最後確認沒有頁面錯誤 */
 /** @param {{ init?: Function, initArg?: any }} [opts] init：頁面載入前執行（page.addInitScript），例如假相機 */
-async function withPage(device, path, fn, { init, initArg, ignore, geo = true } = {}) {
-  const ctx = await newCtx({ ...device, ...(geo && { geolocation: TAIPEI, permissions: ['geolocation'] }), reducedMotion: 'reduce' });
+/** motion: true＝動畫開著（不是 reduced motion、不是精簡動畫），用來檢查會動的畫面 */
+async function withPage(device, path, fn, { init, initArg, ignore, geo = true, motion = false } = {}) {
+  const ctx = await newCtx({ ...device, ...(geo && { geolocation: TAIPEI, permissions: ['geolocation'] }), reducedMotion: motion ? 'no-preference' : 'reduce' });
   try {
     const page = await ctx.newPage();
+    if (motion) await page.addInitScript(() => Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 }));
     const errors = [];
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
     page.on('console', (m) => m.type() === 'error' && errors.push(`console: ${m.text()}`));
@@ -1500,4 +1502,94 @@ test('阿幫的腦袋：手機上的模型資訊、現場試試看、開關、�
     await page.waitForSelector('.ai-hero');
     assert.equal(await page.textContent('#title'), '阿幫的腦袋');
   }, { init, ignore: /not in test/ });
+});
+
+// 「阿幫在想」（agent/thinking.js）：送出到第一段回答之間，用同一顆核心的小版本表示在想，跟著真實事件換字；記下出現過的字與核心的動畫
+const THINK_RECORDER = `window.__think = { texts: [], anims: [], playing: [] };
+new MutationObserver(() => {
+  const r = window.__think;
+  const t = document.querySelector('.think-core');
+  if (t) {
+    const s = t.querySelector('.tc-text').textContent;
+    if (r.texts[r.texts.length - 1] !== s) r.texts.push(s);
+    const c = t.querySelector('.tc-core');
+    if (c) r.anims.push(getComputedStyle(c).animationName);
+  }
+  const h = document.querySelector('.ai-hero');
+  if (h) { const on = h.classList.contains('playing'); const L = r.playing; if (!L.length || L[L.length - 1].on !== on) L.push({ on, t: performance.now() }); }
+}).observe(document, { subtree: true, childList: true, characterData: true, attributes: true });`;
+const FAKE_EDGE = (judgeMs) => `window.Capacitor = {
+  isNativePlatform: () => true, getPlatform: () => 'android', isPluginAvailable: () => false, addListener: () => ({ remove() {} }),
+  nativePromise: (plugin, method) => {
+    if (plugin !== 'AbangEdgeAI') return Promise.reject(new Error('not in test'));
+    if (method === 'status') return Promise.resolve({ available: true, engine: 'gemini-nano', reason: 'ok' });
+    if (method === 'judge') return new Promise((res) => setTimeout(() => res({ engine: 'gemini-nano', ms: ${judgeMs}, result: '{"intent":"trip","states":["rush"]}' }), ${judgeMs}));
+    return Promise.resolve({});
+  },
+};`;
+
+test('問阿幫：送出後「阿幫在想」核心在動、出現過「正在查」，第一段回答來了就收起', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.fill('.chat-form input', '從西門町到台北101怎麼去');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    await page.waitForFunction(() => !document.querySelector('.think-core'));
+    const r = await page.evaluate(() => window.__think);
+    assert.ok(r.texts.some((x) => x.startsWith('阿幫在想…')), r.texts.join(' | '));
+    assert.ok(r.texts.some((x) => /伺服器判斷中/.test(x)), '網頁版：沒有手機上的 AI，改由伺服器判斷');
+    assert.ok(r.texts.some((x) => /正在查：/.test(x)), r.texts.join(' | '));
+    assert.ok(r.anims.includes('tc-beat'), `核心在脈動：${[...new Set(r.anims)]}`);
+    assert.equal(await page.locator('.think-core').count(), 0);
+    assert.equal(await page.locator('.device-line').count(), 0, '沒有手機判斷：回答上方不多說');
+  }, { init: THINK_RECORDER, motion: true });
+});
+
+test('問阿幫：手機上聽懂了（真實的裝置判斷）亮出小標、回答上方說明；截圖思考中', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    let release;
+    const hold = new Promise((r) => { release = r; });
+    await page.route('**/api/v1/agent', async (route) => { if (route.request().method() === 'POST') await hold; await route.fallback(); }); // 測試才擋住伺服器回應，好截到思考中
+    await page.fill('.chat-form input', '我快遲到了，怎麼去台北車站');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForFunction(() => /手機上聽懂了：行程規劃・趕時間/.test(document.querySelector('.think-core')?.textContent || ''));
+    assert.match(await page.locator('.think-core [role=status]').textContent(), /手機上聽懂了：行程規劃・趕時間/);
+    assert.equal(await page.locator('.think-core .tc-core').evaluate((n) => getComputedStyle(n).animationName), 'tc-beat');
+    await page.locator('.think-core').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: new URL('phone-agent-thinking.png', SHOTS).pathname });
+    release();
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    assert.equal(await page.locator('.think-core').count(), 0);
+    assert.equal(await page.textContent('.device-line'), '阿幫先在手機上用 Gemini Nano 聽懂你要做什麼。');
+    const order = await page.evaluate(() => { const l = document.querySelector('.device-line'); return l.nextElementSibling?.classList.contains('final'); });
+    assert.ok(order, '說明在回答正上方');
+  }, { init: THINK_RECORDER + FAKE_EDGE(300), motion: true, ignore: /not in test/ });
+});
+
+test('問阿幫：reduced motion 時「阿幫在想」是靜態文字', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.fill('.chat-form input', '從西門町到台北101怎麼去');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    const r = await page.evaluate(() => window.__think);
+    assert.ok(r.texts.some((x) => x.startsWith('阿幫在想…')));
+    assert.ok(r.anims.length && r.anims.every((a) => a === 'none'), `不動：${[...new Set(r.anims)]}`);
+    assert.equal(await page.locator('.think-core').count(), 0);
+  }, { init: THINK_RECORDER });
+});
+
+test('阿幫的腦袋：試試看的動畫至少播 1.2 秒（Gemini Nano 0.1 秒就判斷完，結果文字立刻寫出）', async () => {
+  await withPage(DEVICES.phone, '#/ai', async (page) => {
+    await page.waitForSelector('.ai-hero[data-core="on"]');
+    await page.waitForSelector('#ai-form');
+    await page.locator('.ai-ex .chip').first().click();
+    await page.waitForFunction(() => /聽懂了/.test(document.querySelector('#ai-live').textContent));
+    const early = await page.evaluate(() => document.querySelector('.ai-hero').classList.contains('playing'));
+    assert.ok(early, '結果文字已經寫出，動畫還在播');
+    await page.waitForFunction(() => { const L = window.__think.playing; return L.length >= 2 && !L[L.length - 1].on; }, null, { timeout: 5000 });
+    const L = await page.evaluate(() => window.__think.playing);
+    const on = L.find((x) => x.on), off = L.findLast((x) => !x.on);
+    assert.ok(off.t - on.t >= 1150, `播了 ${Math.round(off.t - on.t)} ms`);
+    assert.equal(await page.getAttribute('.ai-hero', 'data-stage'), 'done');
+    assert.deepEqual(await page.locator('.ai-v').allTextContents(), ['行程規劃', '趕時間']);
+  }, { init: THINK_RECORDER + FAKE_EDGE(100), motion: true, ignore: /not in test/ });
 });

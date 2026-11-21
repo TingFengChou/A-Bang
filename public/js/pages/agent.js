@@ -6,6 +6,7 @@ import { runAgent, browserLocation, locationGranted } from '../agent/client.js';
 import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-help.js';
 import { edgeJudge, edgePrewarm } from '../edge-judge.js';
 import { noteAgentStatus } from '../ai-info.js';
+import { mountThinking, deviceLine } from '../agent/thinking.js';
 import { placesFor } from '../saved-places.js';
 import { icons } from '../icons.js';
 import { motion } from '../../ui/cards/motion.js';
@@ -205,8 +206,8 @@ export default {
       rules: () => '這題由內建規則回答（英文提問、油價發票股市地震這類查數字的，地端模型還不穩）；資料照常是即時的。',
     };
     // 裝置端 AI（ADR-0014）：在手機上判斷時，說明多一句（判斷不離開手機的模型，只送結果）
-    const ENGINE_TEXT = { apple: 'Apple Intelligence', 'gemini-nano': 'Gemini Nano' };
-    const modeText = (e) => `${MODE_TEXT[e.mode](e.model || '')}${e.judge?.source === 'device' && ENGINE_TEXT[e.judge.engine] ? `阿幫先在手機上用 ${ENGINE_TEXT[e.judge.engine]} 聽懂你要做什麼。` : ''}`;
+    // 伺服器沒採用手機的判斷時也照實說（手機上的模型先聽了一遍，這一輪以伺服器的判斷為準；agent/thinking.js deviceLine）
+    const modeText = (e, sent) => `${MODE_TEXT[e.mode](e.model || '')}${deviceLine({ sent, judge: e.judge }) || ''}`;
     if (agentId === 'life') edgePrewarm();
 
     let lastTripTo = null; // 最後一次行程的目的地：設定到站提醒時記下（公車一直不來時改其他方式）
@@ -291,12 +292,13 @@ export default {
       try {
         // 手機 App：先在裝置上判斷意圖與狀態（最多等 1.8 秒；不可用就不帶，伺服器照常判斷）
         const deviceJudge = agentId === 'life' ? await edgeJudge(q, history.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content)) : null;
+        view.device(deviceJudge); // 「阿幫在想」：手機上聽懂了什麼（沒有就改由伺服器判斷）
         // 常用地點：只送這段對話提到的（「回家」才送家）
         const savedPlaces = agentId === 'life' ? placesFor(history.slice(-10).filter((m) => m.role === 'user').map((m) => m.content)) : undefined;
         const ctxText = [context, pageContext].filter(Boolean).join('；').slice(0, 200);
         await runAgent({ messages: history.slice(-10), ...(ctxText && { context: ctxText }), ...(deviceJudge && { deviceJudge }), ...(savedPlaces && { savedPlaces }) }, (e) => {
           // 隱私：防詐頁貼上的內容只送給本站伺服器分析，不保存（AGENT_ANTIFRAUD.md §1）
-          if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = modeText(e);
+          if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = modeText(e, deviceJudge);
           if (e.type === 'status' && agentId === 'life') noteAgentStatus(e); // 「阿幫的腦袋」（#/ai）顯示最近一輪由誰回答、誰先聽懂（只記模式與來源，不含內容）
           view.push(e);
         }, { agentId });
@@ -306,8 +308,10 @@ export default {
         if (agentId === 'life') saveChat(history); // 只存文字（chat-store.js）
         showNext(view);
       } catch {
+        view.stop();
         turn.append(el('div', 'msg error', '連線中斷了，請再試一次。'));
       } finally {
+        view.stop(); // 沒有回答（只有卡片、或中斷）也收起「阿幫在想」
         busy = false; sendBtn.disabled = false; context = '';
         if (pendingQ) { const p = pendingQ; pendingQ = null; queueMicrotask(() => send(p.q, { pageContext: p.pageContext })); }
         if (!matchMedia('(pointer: coarse)').matches) input.focus(); // 手機不自動聚焦：鍵盤會跳出來蓋住回答
@@ -321,42 +325,32 @@ export default {
       // 會議感（原型 transit-discussion.html）：討論中有標題與跳動的點，結束後收合成摘要
       thread.append(el('div', 'thread-head', el('span', 'th-title', turnLang === 'en' ? 'Checking live data…' : '小幫手討論中'), el('span', 'say typing', ...typing(turnLang === 'en' ? 'checking' : '討論中'))));
       const results = el('div', 'results');
-      turn.append(thread, results);
+      // 「阿幫在想」（agent/thinking.js）：送出就出現在回答的位置，跟著真實事件換字，第一段回答來了就拿掉
+      const think = mountThinking({ lang: turnLang, roleName: (r) => (turnLang === 'en' ? roleEn(r) || r : r) });
+      turn.append(thread, results, think.el);
       const bubbles = new Map();
       const roles = []; // 本輪回報的小幫手角色（決策圖的資料欄）
       let queue = Promise.resolve();
       let lastShown = 0;
       let textEl = null;
-      const view = { text: '', results: [], decision: null, box: null, lang: turnLang }; // results／decision：給「接下來可以…」；lang：英文那一輪
+      const view = { text: '', results: [], decision: null, box: null, lang: turnLang, sent: null, judge: null }; // results／decision：給「接下來可以…」；lang：英文那一輪
       const gap = async () => {
         if (reducedMotion()) return;
         const wait = MIN_GAP_MS - (performance.now() - lastShown);
         if (wait > 0) await new Promise((r) => setTimeout(r, wait));
         lastShown = performance.now();
       };
-      // 等模型時（真實的等待，不是假延遲）：超過 0.6 秒沒有新事件就顯示「阿幫在想…」，有事件就收起
-      let thinking = null, thinkTimer = null, ended = false;
-      const stopThinking = () => { clearTimeout(thinkTimer); thinking?.remove(); thinking = null; };
-      const armThinking = () => {
-        stopThinking();
-        if (ended) return;
-        thinkTimer = setTimeout(() => {
-          if (ended) return;
-          thinking = el('div', 'bubble agent thinking', avatar('阿幫', 'think', turnLang), el('div', 'say typing', el('span', 'th-label', turnLang === 'en' ? 'Abang is thinking' : '阿幫在想'), ...typing(turnLang === 'en' ? 'Abang is thinking' : '阿幫在想')));
-          (thread.classList.contains('collapsed') ? turn : thread).append(thinking); // 討論收合後（等最後回答）改放在卡片下面
-        }, 600);
-      };
       const handle = async (e) => {
-        stopThinking();
-        if (e.type === 'done' || e.type === 'error' || e.type === 'text') ended = true;
-        try { await handleEvent(e); } finally { armThinking(); }
+        think.step(e); // 「阿幫在想」換到這個階段（text／done／error 就收起）
+        await handleEvent(e);
       };
       const handleEvent = async (e) => {
         switch (e.type) {
           case 'status':
             turn.dataset.mode = e.mode;
+            view.judge = e.judge || null;
             if (e.lang) {
-              turnLang = e.lang === 'en' ? 'en' : null; view.lang = turnLang; // 伺服器說這一輪用哪種語言（S12g）；送出前的猜測只用在「討論中」等第一個畫面
+              turnLang = e.lang === 'en' ? 'en' : null; view.lang = turnLang; think.setLang(turnLang); // 伺服器說這一輪用哪種語言（S12g）；送出前的猜測只用在「討論中」等第一個畫面
               if (agentId === 'life') window.dispatchEvent(new CustomEvent('abang:agent-lang', { detail: { lang: turnLang } })); // 外殼（分頁列、浮動阿幫、<html lang>）跟著最近一輪的語言（app.js）
             }
             break;
@@ -472,7 +466,12 @@ export default {
             if (e.calls?.length) view.calls = e.calls;
             break;
           case 'text':
-            if (!textEl) { textEl = el('div', 'bubble agent final', avatar('阿幫', 'happy', turnLang), el('div', 'say')); turn.append(textEl); }
+            if (!textEl) {
+              // 這一輪手機上的 AI 有判斷：回答上方照實說伺服器有沒有採用
+              const line = deviceLine({ sent: view.sent, judge: view.judge }, turnLang);
+              if (line) turn.append(el('p', 'device-line', line));
+              textEl = el('div', 'bubble agent final', avatar('阿幫', 'happy', turnLang), el('div', 'say')); turn.append(textEl);
+            }
             view.text += e.delta;
             textEl.querySelector('.say').textContent = view.text;
             if (view.calls && !textEl.querySelector('.call-row')) {
@@ -495,6 +494,8 @@ export default {
         }
       };
       view.push = (e) => { queue = queue.then(() => handle(e)); };
+      view.device = (r) => { view.sent = r || null; think.step({ type: 'device', result: r || null }); };
+      view.stop = () => think.stop();
       view.flush = () => queue;
       return view;
     }

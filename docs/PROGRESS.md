@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-21 E9b 思考時的動畫（阿幫在想、試試看至少 1.2 秒）
+- 做了：Austin「思考時候一定要有動畫」。問阿幫（含底部對話面板）送出後在回答的位置顯示核心小版本＋「阿幫在想…」，依真實事件換成「手機上聽懂了：行程規劃・趕時間」／「伺服器判斷中」→「正在查：公車・天氣」→「整理答案中」，第一段回答來了就拿掉（`public/js/agent/thinking.js`，取代原本 0.6 秒後才出現的泡泡）。回答上方照實說手機判斷有沒有被伺服器採用。腦袋頁試試看：結果文字立刻寫出，動畫至少播 1.2 秒；訊號改成依序亮起的小光點（只動 opacity）。
+- 測試：npm test 新增 test/thinking.test.js 4 項；E2E 新增 4 項（思考指示出現、正在查、收起；手機判斷小標＋回答上方說明；reduced motion 靜態；試試看動畫 ≥ 1.2 秒）
+- 文件：UX.md §5.0.1、§5.0.2、CLAUDE.md
+- 下一個：實機看動畫流暢度（Pixel）
+- 卡住：無
+
 ## 2026-11-21 E9 阿幫的腦袋——裝置端 AI 視覺與模型資訊頁（#/ai）
 - 做了：新頁 `#/ai`（設定頁裝置端 AI 區塊進入）。主視覺用 App 圖示的「Λ＋琥珀色發光核心＋軌道」：待機呼吸、判斷時脈動、訊號流到「意圖」「狀態」並點亮；圖下方 role=status 的一句話是等義文字，reduced motion 直接顯示結果。「現場試試看」只呼叫手機上的外掛（沒有網路請求）。模型資訊只列系統回報的：外掛 `status()` 擴充（Android：featureStatus、modelName、tokenLimit、下載進度、aicoreVersion、osVersion、device；iOS：availability、languages、contextSize、osVersion），`judge()` 回 `ms`；本機計數 `abang.edgeStats`。`/api/v1/status` 加 `agent`（由誰回答、判斷層成員）。沒有裝置端模型（網頁版、不支援、關掉）時核心不點亮、照實說判斷在伺服器做。設定頁與本頁共用開關（`setEdgeEnabled`）。字典 `ai-i18n.js`（`lang=en`）。
 - 測試：npm test 648 項全過（新增 test/ai-info.test.js 11 項）；E2E 64 項全過（新增 3 項：網頁版手機／桌面、假外掛的模型資訊＋試試看＋開關＋英文＋入口）；Android `assembleDebug`、iOS 模擬器 `xcodebuild` 都編譯成功
