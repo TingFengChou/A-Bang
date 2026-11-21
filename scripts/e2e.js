@@ -1319,6 +1319,7 @@ test('公車街景：這班開走往右開出畫面、下一班從左邊進來�
       document.body.append(el);
       const waiting = el.querySelectorAll('.ab-scene-person').length;
       const traffic = el.querySelectorAll('.ab-scene-rider, .ab-scene-taxi').length;
+      const parkedCls = el.querySelector('.ab-scene-bus').className;
       await new Promise((r) => setTimeout(r, 300));
       const boarding = el.querySelectorAll('.ab-scene-person.boarding').length;
       busScene({ routeName: '307', stopName: '西門', away: 3, etaSec: 600, etaText: '10 分', state, time: day });
@@ -1329,8 +1330,9 @@ test('公車街景：這班開走往右開出畫面、下一班從左邊進來�
       const x1 = x(leaving);
       await new Promise((r) => setTimeout(r, 2000));
       const after = { leaving: el.querySelectorAll('.ab-scene-bus.leaving').length, buses: el.querySelectorAll('.ab-scene-bus').length, people: el.querySelectorAll('.ab-scene-person').length, newX: x(el.querySelector('.ab-scene-bus')) };
-      return { waiting, traffic, boarding, x0, x1, ...after };
+      return { waiting, traffic, boarding, parkedCls, x0, x1, ...after };
     });
+    assert.ok(/at-stop/.test(out.parkedCls) && !/moving/.test(out.parkedCls), `開進來停在站牌：不算開車中（${out.parkedCls}）`);
     assert.ok(out.waiting >= 1, '有人在等');
     assert.equal(out.traffic, 2, '偶爾經過的機車與計程車');
     assert.equal(out.boarding, out.waiting, '公車到站：等車的人上車');

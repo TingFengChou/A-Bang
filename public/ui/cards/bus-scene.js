@@ -292,7 +292,7 @@ export function busScene({ routeName, stopName, away, etaSec = null, etaText, st
   const lead = from !== x ? SLIDE_MS + enterDelay : 0; // 先開到現在的位置再慢慢開
   state.drive = { x0: x, x1: to, t0: now + lead, ms: win * 1000 || 1 };
   state.sceneX = x;
-  bus.classList.toggle('moving', !calm && (to > x || from !== x));
+  bus.classList.toggle('moving', !calm && to > x); // 只有真的往站牌開才震動（開進來停在站牌的不算，否則停著還在震）
   bus.classList.toggle('at-stop', at);
   if (at && !state.at && !calm) bus.classList.add('braking'); // 剛到站才煞車點一下（停著時每次更新不重播）
   if (!at) bus.classList.remove('braking');
