@@ -58,4 +58,26 @@ test('PM 第三批：高鐵高雄＝左營、票價沒說起站從台北算、�
   const score = (t) => matchRules(t).reduce((n, x) => n + (x.weight || 0), 0);
   assert.equal(riskLevel(score('您好，這裡是購物網客服，因系統疏失將您的訂單設為12期分期付款，請依指示至ATM操作取消'), false), 'high');
   assert.equal(riskLevel(score('【XX銀行】您的信用卡本期帳單已出，應繳金額3,250元，繳款截止日11/30。'), false), 'low', '正常銀行簡訊不誤判');
+  for (const t of ['分期申請已取消，如有疑問請洽客服', '帳單分期取消成功', '您已成功設定為分期付款，可隨時至網銀取消', '您的訂單已改成分期付款，共6期', '因系統錯誤，您的訂單重複出貨，我們會主動聯繫', '作業疏失導致本月扣款延後一天']) {
+    assert.equal(riskLevel(score(t), false), 'low', `正常通知不誤判：${t}`);
+  }
+});
+
+test('PR #84 審查：狀態延續、回程、票價、常用地點、英文不誤判', () => {
+  const h = [{ role: 'user', content: '我腳不方便，去台北車站' }, { role: 'assistant', content: '好' }];
+  assert.ok(parseIntent('那從西門町去台北101呢', { history: h }).states.includes('mobility'), '同一個人接著問：帶著');
+  assert.ok(!parseIntent('那我朋友從西門町去台北101怎麼走', { history: h }).states.includes('mobility'), '幫朋友問：不帶');
+  const far = [...h, { role: 'user', content: '今天天氣' }, { role: 'assistant', content: '晴' }, { role: 'user', content: '空氣品質' }, { role: 'assistant', content: '良好' }];
+  assert.ok(!parseIntent('從西門町去台北101', { history: far }).states.includes('mobility'), '很多句之前說的：不帶');
+  const h2 = [{ role: 'user', content: '從台北車站去台北101' }, { role: 'assistant', content: '好' }];
+  assert.notEqual(parseIntent('我晚上再回來', { history: h2 }).from, '台北101', '只是說會回來：不是問回程');
+  const toTp = parseIntent('台鐵到台北多少錢');
+  assert.deepEqual([toTp.fare, toTp.from, !!toTp.fromGuess], [true, null, false], '要去台北：不猜台北出發');
+  assert.equal(parseIntent('我在台中，高鐵到左營票價').from, '臺中', '句中有別的地名：用那裡');
+  assert.equal(parseIntent('How much is the HSR to Taipei?').from, null);
+  const saved = { 家: { lat: 25.03, lon: 121.5 } };
+  assert.equal(parseIntent('今天垃圾車幾點會到我家這邊', { saved }).savedAt, '家');
+  assert.equal(parseIntent('朋友家附近的藥局', { saved }).savedAt, undefined, '朋友家不是你家');
+  assert.equal(parseIntent('Is the MRT still running now?').intent, 'metro');
+  assert.notEqual(parseIntent('Is the museum near the MRT open now?').intent, 'metro', '博物館開不開：不是問捷運');
 });
