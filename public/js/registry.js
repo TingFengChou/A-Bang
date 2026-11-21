@@ -15,17 +15,22 @@ export const miniApps = [
   { id: 'quake', source: 'quake', group: 'life', name: '地震', icon: 'quake', route: '#/s/quake' },
   { id: 'pharmacy', source: 'opendata', group: 'life', name: '藥局', icon: 'pharmacy', route: '#/s/pharmacy' },
   { id: 'garbage', source: 'opendata', group: 'life', name: '垃圾車', icon: 'trash', route: '#/s/garbage' },
-  { id: 'antifraud', source: 'antifraud', group: 'gov', name: '防詐', icon: 'shield', route: '#/agent/antifraud' }, // M7：阿幫・防詐
+  { id: 'antifraud', source: 'antifraud', group: 'safe', name: '防詐', icon: 'shield', route: '#/agent/antifraud' }, // M7：阿幫・防詐
   { id: 'fuel', source: 'opendata', group: 'gov', name: '油價', icon: 'fuel', route: '#/s/fuel' },
   { id: 'invoice', source: 'opendata', group: 'gov', name: '發票對獎', icon: 'receipt', route: '#/s/invoice' },
   { id: 'stock', source: 'opendata', group: 'gov', name: '股市', icon: 'chart', route: '#/s/stock' },
 ];
 
 export const groups = [
-  { id: 'transit', name: '交通出行', note: '資料來源：TDX 運輸資料流通服務' },
-  { id: 'life', name: '生活與環境', note: '資料來源：政府開放資料' },
-  { id: 'gov', name: '消費與政府服務', note: '防詐、油價、發票、股市：政府開放資料' },
+  { id: 'transit', name: '交通', note: '交通部 TDX' },
+  { id: 'life', name: '生活', note: '氣象署、環境部、健保署、環保局' },
+  { id: 'gov', name: '消費與政府', note: '中油、財政部、證交所' },
+  { id: 'safe', name: '防詐', note: '165 全民防騙網' },
 ];
+
+/** 服務總覽（#/services）的一句說明：沿用頁首的說法（HERO），沒有頁首的另寫 */
+export const DESC = { antifraud: '可疑簡訊、電話、網址，貼上來幫你看' };
+export const descOf = (id) => DESC[id] || HERO[id]?.[0] || '';
 
 // 格子與頁首的代表色（立體代幣）：交通依方式、生活與政府服務依主題
 export const TILE_COLOR = { nearby: '#1d4ed8', bus: '#0f766e', bike: '#d97706', thsr: '#c2410c', tra: '#1e3a8a', metro: '#0e7490', weather: '#0284c7', aqi: '#0d9488', quake: '#b45309',

@@ -17,6 +17,9 @@ export const EDGE_ENGINES = ['apple', 'gemini-nano'];
 /** 等裝置判斷最多這麼久，超過就不等（使用者送出後不該卡住） */
 export const EDGE_TIMEOUT_MS = 1800;
 const OFF_KEY = 'abang.edgeAI';
+/** 引擎的顯示名稱、不能用的原因（設定頁、首頁「手機上的 AI」共用） */
+export const EDGE_ENGINE_NAME = { apple: 'Apple Intelligence', 'gemini-nano': 'Gemini Nano' };
+export const EDGE_REASON = { ok: '可以使用', unsupported: '這支手機不支援', disabled: '手機沒有開啟 Apple Intelligence', downloading: '模型下載中', 'needs-wifi': '連上 Wi-Fi 後會自動下載模型', 'os-too-old': '系統版本太舊', language: '目前不支援繁體中文', web: '網頁版不使用（只在手機 App）', 'no-plugin': '這個版本沒有裝置端 AI' };
 
 /**
  * 給裝置模型的指示（精簡版的 core/agent/judge-prompt.txt：手機模型的上下文小，越短越快）。

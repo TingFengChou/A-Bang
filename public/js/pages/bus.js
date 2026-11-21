@@ -53,7 +53,6 @@ export function busLabels(lang) {
 /** 路線搜尋 */
 export const busSearch = {
   title: '公車',
-  root: true,
   hero: () => 'bus',
   render({ main, query }) {
     let city = prefs.get('city', 'Taipei');
@@ -380,7 +379,6 @@ export const busStation = {
 /** 收藏 */
 export const favPage = {
   title: '收藏',
-  root: true,
   render({ main }) {
     const l = favs.list();
     main.innerHTML = l.length

@@ -1,4 +1,4 @@
-// App shell：hash router + 上方標題列 + 下方分頁列
+// App shell：hash router + 上方標題列 + 下方分頁列（首頁｜服務｜問阿幫（中央鍵）｜提醒｜我的，tabs.js）
 import { icons } from './icons.js';
 import { api, state } from './api.js';
 import { esc, savedWhen } from './ui.js';
@@ -6,14 +6,21 @@ import { autoCheckOnOpen } from './invoice-wallet.js';
 import { createWebHost } from '../ui/cards/host-web.js';
 import { watchKeyboard } from './keyboard.js';
 import { showOnboarding } from './onboarding.js';
-import { restoreReminders } from './reminders.js';
 import { resumeAlight } from './alight.js';
 import { mountTripBar } from './trip-bar.js';
 import { detachMain, attachMain, mountFab, syncFab, syncFabLabel, abangSays } from './abang-dock.js';
 import { shellT, shellLang, applyShell } from './shell-i18n.js';
 import { pageHero, canMorph } from './page-hero.js';
 import { miniApps } from './registry.js';
+import { TABS, currentAttr, backTarget } from './tabs.js';
+import { reminderItems } from './reminder-items.js';
+import { listReminders, restoreReminders } from './reminders.js';
+import { alightWatch } from './alight.js';
+import { currentArrivalWatch } from '../ui/cards/host-web.js';
 import home from './pages/home.js';
+import services from './pages/services.js';
+import remindersPage from './pages/reminders.js';
+import me from './pages/me.js';
 import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
 import agent, { keptKey } from './pages/agent.js';
@@ -23,6 +30,9 @@ import { busSearch, busRoute, busStation, favPage } from './pages/bus.js';
 
 const routes = [
   [/^\/?$/, home],
+  [/^\/services$/, services], // 服務總覽（原本分頁列的附近、公車在這裡）
+  [/^\/reminders$/, remindersPage], // 進行中的提醒
+  [/^\/me$/, me], // 我的：收藏、常用地點、發票、手機上的 AI、設定
   [/^\/nearby$/, nearby],
   [/^\/bus$/, busSearch],
   [/^\/bus\/([^/]+)\/([^/]+)$/, busRoute],
@@ -34,8 +44,14 @@ const routes = [
   [/^\/privacy$/, privacy],
   [/^\/s\/([a-z][a-z0-9-]*)$/, service], // 生活服務（天氣、捷運、空品…） // #/agent（生活）、#/agent/antifraud（防詐，M7）
 ];
-const tabs = [['#/', 'tab.home', 'home'], ['#/nearby', 'tab.nearby', 'pin'], ['#/bus', 'tab.bus', 'bus'], ['#/favs', 'tab.favs', 'star']];
 const zh = shellT(null); // 外殼一開始用中文；網址帶 lang=en 或問阿幫最近一輪是英文時換英文（shell-i18n.js）
+
+/** 分頁列一格；中央鍵是按鈕（其他頁拉出對話、問阿幫頁回到輸入框，abang-dock.js），id 沿用 abang-fab */
+function tabHtml(t) {
+  if (t.center) return `<button id="abang-fab" class="tab-key" type="button" data-tab="${t.id}" aria-haspopup="dialog" aria-label="${zh('fab')}"><span class="key-disc"><img src="/brand/abang-default.svg" alt=""><i class="fab-dot" aria-hidden="true"></i></span><span class="key-label" data-shell="${t.key}">${zh(t.key)}</span></button>`;
+  const badge = t.id === 'reminders' ? '<b class="tab-badge" aria-hidden="true" hidden></b><span class="sr-only tab-badge-sr"></span>' : '';
+  return `<a href="${t.href}" data-h="${t.href}" data-tab="${t.id}"><span class="tab-ic">${icons[t.icon]}${badge}</span><span class="tab-label" data-shell="${t.key}">${zh(t.key)}</span></a>`;
+}
 
 const root = document.getElementById('app');
 root.innerHTML = `
@@ -50,8 +66,9 @@ root.innerHTML = `
   <div id="tripbar" hidden></div>
   <div id="pagehero"></div>
   <main id="main" tabindex="-1"></main>
-  <div class="tabbar"><nav>${tabs.map(([h, k, i]) => `<a href="${h}" data-h="${h}">${icons[i]}<span data-shell="${k}">${zh(k)}</span></a>`).join('')}</nav></div>
-  <p id="abang-live" class="sr-only" aria-live="polite"></p><div class="abang-float"><div id="abang-bubble" class="fab-bubble" hidden></div><button id="abang-fab" class="abang-fab" type="button" aria-label="${zh('fab')}"><img src="/brand/abang-default.svg" alt=""><i class="fab-dot" aria-hidden="true"></i></button></div>
+  <div class="abang-float"><div id="abang-bubble" class="fab-bubble" hidden></div></div>
+  <div class="tabbar"><nav aria-label="${zh('tabsNav')}" data-shell-label="tabsNav">${TABS.map(tabHtml).join('')}</nav></div>
+  <p id="abang-live" class="sr-only" aria-live="polite"></p>
   <dialog id="abang-sheet" class="abang-sheet" aria-labelledby="abang-sheet-title"><div class="sheet-head"><span class="sheet-grip" aria-hidden="true"></span><h2 id="abang-sheet-title" tabindex="-1" autofocus data-shell="sheetTitle">${zh('sheetTitle')}</h2><button type="button" class="btn small quiet sheet-full" data-shell="sheetFull">${zh('sheetFull')}</button><button type="button" class="icon-btn sheet-close" aria-label="${zh('sheetClose')}" data-shell-label="sheetClose"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div><div class="sheet-body"></div></dialog>`;
 
 const $ = (id) => document.getElementById(id);
@@ -119,6 +136,7 @@ function paintShell() {
   const lang = langNow();
   applyShell(lang, document, { docLang: resolve().query?.lang === 'en' ? 'en' : null });
   syncFabLabel();
+  paintBadge();
   if (onLifeAgent(resolve())) setDocTitle(lang === 'en' ? shellT('en')('agentTitle') : agent.title);
 }
 addEventListener('abang:agent-lang', (e) => {
@@ -132,7 +150,8 @@ addEventListener('abang:clear-local', () => { agentLang = null; if (onLifeAgent(
 let heroNow = null;
 addEventListener('abang:hero', (e) => { heroNow = e.detail || null; }); // 頁面內換頁首（附近切到 YouBike）
 function navigate() {
-  const back = heroNow && resolve().page === home && canMorph();
+  const to = resolve().page;
+  const back = heroNow && (to === home || to === services) && canMorph(); // 回到有格子的頁面（首頁、服務）
   if (!back) { render(); return; }
   const id = heroNow;
   heroNow = null; // 連按兩次返回：第二次不再等這次的動畫（不會畫兩次）
@@ -140,7 +159,7 @@ function navigate() {
   const vt = document.startViewTransition(() => {
     try { render(); } catch (e) { console.error(e); } // 換頁出錯照樣看得到（不吞掉）
     const a = miniApps.find((x) => x.id === id);
-    ic = a && document.querySelector(`#main a.tile[href="${a.route}"] .ic`);
+    ic = a && document.querySelector(`#main [data-app="${a.id}"] .ic`);
     if (ic) ic.style.viewTransitionName = 'ph-token'; // 新畫面裡同名的是那個格子的圖示
   });
   vt.finished.catch(() => {}).finally(() => { if (ic) ic.style.viewTransitionName = ''; }); // 飛完拿掉（同名只能有一個）
@@ -151,13 +170,14 @@ function render() {
   state.staleAt = null; // 舊資料標示只屬於那一頁；新頁面查詢失敗會再標
   const { path, query, page, params } = resolve();
 
-  $('title').textContent = page.title;
+  $('title').textContent = page.shellTitle ? shellT(langNow())(page.shellTitle) : page.title;
   $('back').hidden = !!page.root;
   const act = $('action'); act.hidden = true; act.onclick = null; act.classList.remove('on');
-  document.querySelectorAll('.tabbar a').forEach((a) => {
-    const on = a.dataset.h === `#${path || '/'}` || (a.dataset.h === '#/' && !path);
-    a.classList.toggle('on', on);
-    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  // 分頁列：分頁本身 aria-current="page"；在這一區的子頁（公車頁屬於服務、設定屬於我的）aria-current="true"
+  document.querySelectorAll('.tabbar [data-tab]').forEach((a) => {
+    const cur = currentAttr(a.dataset.tab, path);
+    a.classList.toggle('on', !!cur);
+    if (cur) a.setAttribute('aria-current', cur); else a.removeAttribute('aria-current');
   });
   // 首頁格子點進來的頁面：頁首（立體圖示＋說明＋動畫，page-hero.js）
   const heroId = page.hero?.({ params, query });
@@ -182,6 +202,7 @@ function render() {
     page.render({ main, params, query, toast, setTitle, setAction, onCleanup: (f) => cleanups.push(f) });
   }
   paintBanner();
+  paintBadge(); // 提醒數字的讀屏文字跟著這一頁的語言
   afterNav?.(); afterNav = null; // 圖示飛進頁首的換頁：新畫面好了
 }
 
@@ -218,6 +239,17 @@ function bannerHtml({ mode, sources }, en = false) {
   return `<div class="demo-banner">部分示範資料：<b>${esc(demo.join('、'))}</b>目前是示範資料（標「示範」），其他為政府開放資料。</div>`;
 }
 
+/** 提醒分頁上的數字：進行中的到站、下車、出門提醒有幾個 */
+function paintBadge() {
+  const n = reminderItems({ arrival: currentArrivalWatch(), alight: alightWatch(), leave: listReminders() }).length;
+  const b = document.querySelector('.tabbar .tab-badge');
+  if (!b) return;
+  b.hidden = !n;
+  b.textContent = n > 9 ? '9+' : String(n);
+  document.querySelector('.tabbar .tab-badge-sr').textContent = n ? shellT(langNow())('tabBadge', { n }) : '';
+}
+for (const ev of ['abang:reminders', 'abang:alight-watch', 'abang:arrival-watch']) addEventListener(ev, paintBadge);
+
 addEventListener('hashchange', navigate);
 // 連回來：重新載入這一頁（時刻表等不會自動刷新的頁面也換成最新）
 for (const ev of ['offline', 'abang:stale', 'abang:fresh']) addEventListener(ev, paintBanner);
@@ -226,11 +258,12 @@ navigate();
 api.status().then(() => paintBanner()).catch(() => {});
 // 出門提醒（T7）：過期的取消（重開機後不補送）、網頁版重新整理後把還沒到的排回去
 try { restoreReminders(); } catch { /* 無痕模式 */ }
+paintBadge();
 // 下車提醒：App 被系統關掉再打開時恢復（沒逾時才恢復）
 mountTripBar($('tripbar')); // 行程中：每一頁上方可回到公車頁
-// 浮動阿幫：每一頁右下角，點了從下方拉出同一段對話（不用離開現在的頁面）
+// 中央「問阿幫」鍵：每一頁分頁列正中間，點了從下方拉出同一段對話（不用離開現在的頁面）
 mountFab({
-  // 浮動阿幫知道你在看哪一頁：建議問題＋這一頁的說明（跟下一個問題一起送出）
+  // 問阿幫知道你在看哪一頁：建議問題＋這一頁的說明（跟下一個問題一起送出）
   pageAsk: () => { try { const { page, params, query } = resolve(); return page.askHint?.({ params: params.map((x) => (x == null ? x : decodeURIComponent(x))), query }) || null; } catch { return null; } },
   buildLife: ({ root, setTitle: keepTitle }) => agent.render({ main: root, params: [], query: {}, toast, setAction: () => {}, setTitle: keepTitle, onCleanup: () => {} }) });
 if (globalThis.Capacitor?.isNativePlatform?.()) { const web = createWebHost(); resumeAlight((n, a) => web.callTool(n, a)); }
@@ -251,10 +284,12 @@ if (!guide) checkPrizes();
 const cap = globalThis.Capacitor;
 if (typeof cap?.addListener === 'function' && cap.getPlatform?.() === 'android') {
   cap.addListener('App', 'backButton', (e) => {
-    const open = document.querySelector('dialog[open]'); // 對話框開著（使用說明、掃發票）：返回鍵先關它
+    const open = document.querySelector('dialog[open]'); // 對話框開著（底部對話、使用說明、掃發票）：返回鍵先關它
     if (open) { open.close(); return; }
-    if (e?.canGoBack) history.back(); else cap.nativePromise('App', 'exitApp', {}).catch(() => {});
-  });
+    const to = backTarget(resolve().path, !!e?.canGoBack);
+    if (to === 'exit') cap.nativePromise('App', 'exitApp', {}).catch(() => {});
+    else if (to === 'back') history.back();
+    else location.hash = to;  });
 }
 
 // 手機鍵盤打開時收起底部分頁列（css: html.kb-open）

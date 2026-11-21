@@ -1,16 +1,23 @@
-// 外殼的文字字典（S12g，2026-11-21）：底部分頁列、返回鈕、跳到主要內容、浮動阿幫、底部對話面板、提醒泡泡。
+// 外殼的文字字典（S12g，2026-11-21）：底部分頁列（首頁／服務／問阿幫／提醒／我的，2026-11-21 重新設計）、返回鈕、跳到主要內容、中央「問阿幫」鍵、底部對話面板、提醒泡泡、新頁面標題。
 // 目前頁面網址帶 lang=en（英文公車頁），或在問阿幫頁且最近一輪是英文時用英文；其他時候中文（每次換頁依網址決定，不存設定）。
-// 跟公車頁字典（pages/bus-i18n.js）同一套做法：鍵相同、佔位符 {text}、英文缺鍵退回中文。中文的值與改版前一字不差。
+// 跟公車頁字典（pages/bus-i18n.js）同一套做法：鍵相同、佔位符 {text}、英文缺鍵退回中文。
 
 export const ZH = {
   'skip': '跳到主要內容',
   'back': '返回',
+  'tabsNav': '主要分頁',
   'tab.home': '首頁',
-  'tab.nearby': '附近',
-  'tab.bus': '公車',
-  'tab.favs': '收藏',
+  'tab.services': '服務',
+  'tab.ask': '問阿幫',
+  'tab.reminders': '提醒',
+  'tab.me': '我的',
+  'tabBadge': '，{n} 個進行中',
+  'title.services': '服務',
+  'title.reminders': '提醒',
+  'title.me': '我的',
   'fab': '問阿幫',
-  'fabChat': '打開跟阿幫的對話（對話還在）',
+  'fabChat': '問阿幫（對話還在）',
+  'fabUnread': '問阿幫（阿幫有話跟你說）',
   'sheetTitle': '問阿幫',
   'sheetFull': '放大成整頁',
   'sheetClose': '收起對話（對話會保留）',
@@ -23,12 +30,19 @@ export const ZH = {
 export const EN = {
   'skip': 'Skip to main content',
   'back': 'Back',
+  'tabsNav': 'Main tabs',
   'tab.home': 'Home',
-  'tab.nearby': 'Nearby',
-  'tab.bus': 'Bus',
-  'tab.favs': 'Saved',
+  'tab.services': 'Services',
+  'tab.ask': 'Ask Abang',
+  'tab.reminders': 'Reminders',
+  'tab.me': 'Me',
+  'tabBadge': ', {n} active',
+  'title.services': 'Services',
+  'title.reminders': 'Reminders',
+  'title.me': 'Me',
   'fab': 'Ask Abang',
-  'fabChat': 'Open your chat with Abang (still here)',
+  'fabChat': 'Ask Abang (chat still here)',
+  'fabUnread': 'Ask Abang (new message)',
   'sheetTitle': 'Ask Abang',
   'sheetFull': 'Open full page',
   'sheetClose': 'Minimize chat (it stays here)',

@@ -17,7 +17,7 @@ button, input, select { font: inherit; color: inherit; }
 /* 輸入框至少 16px，否則 iOS（Safari 與 App 的 WebView）點進去會自動放大畫面且不縮回；不限觸控（iPad 接觸控板也要） */
 input, select, textarea { font-size: max(16px, 1em); }
 a { color: inherit; text-decoration: none; }
-.app { max-width: 560px; margin: 0 auto; min-height: 100dvh; padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 12px); }
+.app { max-width: 560px; margin: 0 auto; min-height: 100dvh; padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 28px); } /* 中央鍵比分頁列高出一截 */
 
 /* Header */
 .topbar { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px);
@@ -31,12 +31,14 @@ main { padding: 4px 16px 16px; }
 .demo-banner { margin: 0 16px 10px; padding: 8px 12px; border-radius: 10px; background: var(--warn-soft); color: var(--warn); font-size: 13px; }
 
 /* Hero */
-.hero { background: var(--brand); color: var(--brand-ink); border-radius: 20px; padding: 18px; margin-bottom: 18px; position: relative; overflow: hidden; }
+.hero { background: var(--brand); background: radial-gradient(120% 90% at 100% 0%, rgba(255,255,255,.16) 0%, transparent 55%), linear-gradient(150deg, #138a80 0%, #0f766e 50%, #0d5f59 100%); color: var(--brand-ink); border-radius: 22px; padding: 18px; margin-bottom: 18px; position: relative; overflow: hidden; box-shadow: 0 8px 22px rgba(15, 118, 110, .22); }
 .hero small { opacity: .85; }
 .hero .mascot-3d { position: absolute; right: 4px; top: 2px; width: 92px; height: 100px; pointer-events: none; perspective: 420px; }
 .hero .mascot { position: absolute; left: 0; top: 0; width: 92px; height: 92px; pointer-events: none; }
 .hero small, .hero .big { padding-right: 84px; display: block; }
-.hero .big { font-size: 22px; font-weight: 700; margin: 2px 0 12px; }
+.hero .big { font-size: 24px; font-weight: 800; margin: 2px 0 4px; letter-spacing: .5px; }
+.hero .hero-sub { margin: 0 0 12px; padding-right: 84px; font-size: 14px; opacity: .92; }
+.hero .big + .search { margin-top: 12px; }
 .hero .search { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.95); color: #14201d; border-radius: 12px; padding: 10px 12px; }
 .hero .search svg { width: 18px; height: 18px; color: #5f6f6b; flex: none; }
 .hero .search input { border: 0; outline: 0; background: transparent; flex: 1; min-width: 0; color: #14201d; }
@@ -116,17 +118,38 @@ main { padding: 4px 16px 16px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .updated { text-align: center; color: var(--muted); font-size: 12px; margin: 10px 0; }
 
-/* Bottom nav */
-.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: color-mix(in srgb, var(--card) 92%, transparent); backdrop-filter: blur(14px);
-  border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
-.tabbar nav { max-width: 560px; margin: 0 auto; display: flex; height: var(--nav-h); }
-.tabbar a { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; color: var(--muted); }
+/* Bottom nav（2026-11-21 重新設計）：首頁｜服務｜問阿幫（中央鍵）｜提醒｜我的。目前這一區：圖示後面一塊淡色膠囊 */
+.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: color-mix(in srgb, var(--card) 94%, transparent); backdrop-filter: blur(14px);
+  border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); box-shadow: 0 -4px 18px rgba(16, 40, 34, .05); }
+.tabbar nav { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); height: var(--nav-h); align-items: stretch; }
+.tabbar a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11.5px; color: var(--muted); min-height: 48px; min-width: 44px; }
+.tabbar .tab-ic { position: relative; display: grid; place-items: center; width: 52px; height: 28px; border-radius: 14px; transition: background .2s ease; }
 .tabbar a svg { width: 22px; height: 22px; }
-.tabbar a.on { color: var(--brand); font-weight: 600; }
+.tabbar a.on { color: var(--brand); font-weight: 700; }
+.tabbar a.on .tab-ic { background: var(--brand-soft); }
+.tabbar .tab-badge { position: absolute; top: -3px; right: 6px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--warn); color: #fff; font-size: 10.5px; line-height: 17px; font-weight: 700; text-align: center; border: 2px solid var(--card); box-sizing: content-box; }
+/* 中央「問阿幫」鍵：藍鵲圓盤比分頁列高出一截；有對話＝青綠小點、阿幫有話跟你說＝橘點 */
+.tab-key { position: relative; border: 0; background: none; margin: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; padding: 0 0 7px; color: var(--brand); font: inherit; font-size: 11.5px; font-weight: 700; min-width: 64px; }
+.tab-key .key-disc { position: relative; width: 58px; height: 58px; margin-top: -24px; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, #fff 0%, #eef8f6 60%, #d7efea 100%); border: 3px solid var(--brand); box-shadow: 0 6px 16px rgba(15, 118, 110, .28), 0 0 0 4px var(--card); transition: transform .18s cubic-bezier(.3,1.6,.5,1); }
+.tab-key .key-disc img { width: 46px; height: 46px; }
+.tab-key:active .key-disc { transform: translateY(2px) scale(.96); }
+.tab-key:focus-visible { outline: none; }
+.tab-key:focus-visible .key-disc { outline: 3px solid var(--brand); outline-offset: 3px; }
+.tab-key.on .key-disc { background: radial-gradient(circle at 35% 30%, #fff 0%, var(--brand-soft) 100%); }
+.tab-key .fab-dot { position: absolute; top: 0; right: 0; width: 13px; height: 13px; border-radius: 50%; background: var(--brand); border: 2px solid var(--card); display: none; }
+.tab-key.has-chat .fab-dot { display: block; }
+.tab-key.unread .fab-dot { display: block; background: var(--warn); animation: key-ping 1.6s ease-out 3; }
+@keyframes key-ping { 0% { box-shadow: 0 0 0 0 rgba(180, 83, 9, .5); } 100% { box-shadow: 0 0 0 10px rgba(180, 83, 9, 0); } }
+.tab-key.nudge .key-disc { animation: fab-hop .7s ease-out 2; }
+@keyframes fab-hop { 30% { transform: translateY(-8px) rotate(-6deg); } 60% { transform: translateY(0) rotate(4deg); } }
+@media (prefers-reduced-motion: reduce) { .tab-key.nudge .key-disc, .tab-key.unread .fab-dot { animation: none; } .tab-key .key-disc, .tabbar .tab-ic { transition: none; } }
 
 /* 首頁「問阿幫」範例（M5-12） */
 .hero-ask { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-.hero-ask .chip { color: var(--text); text-decoration: none; border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 12px; min-height: 36px; font-size: 13px; display: inline-flex; align-items: center; }
+.hero-ask .chip { color: var(--text); text-decoration: none; border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 12px 6px 6px; min-height: 40px; font-size: 13.5px; display: inline-flex; align-items: center; gap: 6px; }
+.hero-ask .chip-ic { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 14%, #fff); color: var(--c); flex: none; }
+.hero-ask .chip-ic svg { width: 16px; height: 16px; }
 
 /* 無障礙（M6-04）：鍵盤焦點一律看得到；螢幕閱讀器專用文字；跳到主要內容 */
 :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
@@ -208,7 +231,7 @@ html.lite-motion .hero .mascot, html.lite-motion .hero .mascot-shadow { animatio
 /* 鍵盤打開時（手機）收起底部分頁列：鍵盤彈出後分頁列不再浮在鍵盤上方擋住輸入框（2026-11-21 iOS 實機）。
    由 js/keyboard.js 依可見高度判斷（不用 :focus：點輸入框下方的按鈕時分頁列會瞬間跑回來，點擊落空） */
 html.kb-open .tabbar { display: none; }
-html.kb-open .chat-dock { bottom: 0; }
+html.kb-open .chat-dock { bottom: 0; padding-bottom: 8px; }
 html.kb-open .app { padding-bottom: 12px; }
 
 /* 設定與隱私（M11-04） */
@@ -309,26 +332,17 @@ html.kb-open .app { padding-bottom: 12px; }
 .bus-focus.riding .big { font-size: 26px; }
 .me-tag.off { color: #b45309; }
 
-/* 浮動阿幫（2026-11-21）：每一頁右下角；點了從下方拉出同一段對話。淺色、藍鵲頭像、≥ 56px */
-.abang-float { position: fixed; right: max(16px, calc((100vw - 560px) / 2 + 16px)); bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 14px); z-index: 25; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none; }
+/* 阿幫說話的泡泡（提醒）：從中央「問阿幫」鍵上方冒出來，尾巴指向鍵 */
+.abang-float { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 30px); z-index: 25; width: min(320px, calc(100vw - 32px)); display: flex; justify-content: center; pointer-events: none; }
 .abang-float > * { pointer-events: auto; }
-.abang-fab { position: relative; width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--brand); background: var(--card, #fff); box-shadow: 0 6px 18px rgba(15, 60, 55, .22); padding: 4px; cursor: pointer; display: grid; place-items: center; }
-.abang-fab img { width: 48px; height: 48px; }
-.abang-fab[hidden] { display: none; }
-.abang-fab .fab-dot { position: absolute; top: 2px; right: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--brand); border: 2px solid var(--card, #fff); display: none; }
-.abang-fab.has-chat .fab-dot { display: block; }
-.abang-fab.nudge { animation: fab-hop .7s ease-out 2; }
-@keyframes fab-hop { 30% { transform: translateY(-8px) rotate(-6deg); } 60% { transform: translateY(0) rotate(4deg); } }
-@media (prefers-reduced-motion: reduce) { .abang-fab.nudge { animation: none; } }
 html.kb-open .abang-float { display: none; }
-.fab-bubble { max-width: min(300px, calc(100vw - 32px)); background: var(--card, #fff); color: var(--text); border: 1px solid var(--brand); border-radius: 16px 16px 4px 16px; padding: 10px 12px; box-shadow: 0 6px 18px rgba(15, 60, 55, .18); font-size: 14px; }
+.fab-bubble { position: relative; width: 100%; background: var(--card, #fff); color: var(--text); border: 1px solid var(--brand); border-radius: 16px; padding: 10px 12px; box-shadow: 0 6px 18px rgba(15, 60, 55, .18); font-size: 14px; animation: bubble-in .22s ease-out; }
+.fab-bubble::after { content: ''; position: absolute; left: 50%; bottom: -7px; width: 12px; height: 12px; margin-left: -6px; background: var(--card, #fff); border-right: 1px solid var(--brand); border-bottom: 1px solid var(--brand); transform: rotate(45deg); }
+@keyframes bubble-in { from { transform: translateY(8px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .fab-bubble { animation: none; } }
 .fab-bubble p { margin: 0 0 8px; }
 .fab-bubble-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .fab-bubble[hidden] { display: none; }
-body.fab-on main { padding-bottom: 84px; } /* 浮動阿幫不蓋住頁面最下面的內容（問阿幫頁不用） */
-.abang-fab { transition: transform .2s ease, opacity .2s ease; }
-.abang-fab.scrolling { transform: scale(.72); opacity: .55; } /* 捲動時縮小變淡，不擋住內容 */
-@media (prefers-reduced-motion: reduce) { .abang-fab { transition: none; } }
 
 /* 底部對話面板：同一段對話（卡片、決策圖都在）；背後的頁面還在 */
 .abang-sheet { width: 100%; max-width: 560px; height: min(88dvh, 820px); max-height: none; margin: auto auto 0; padding: 0; border: 0; border-radius: 20px 20px 0 0; background: var(--bg); color: var(--text); display: flex; flex-direction: column; overflow: hidden; }
@@ -338,7 +352,7 @@ body.fab-on main { padding-bottom: 84px; } /* 浮動阿幫不蓋住頁面最下�
 .abang-sheet .sheet-grip { position: absolute; top: 5px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: var(--line); }
 .abang-sheet h2 { flex: 1; margin: 0; font-size: 17px; }
 .abang-sheet .sheet-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px calc(env(safe-area-inset-bottom) + 8px); }
-.abang-sheet .chat-dock { bottom: 0; }
+.abang-sheet .chat-dock { bottom: 0; padding-bottom: 8px; }
 .abang-sheet .sheet-close { width: 44px; height: 44px; }
 /* 鍵盤打開（iOS 只縮可見區域）：面板跟著可見高度、往上讓出鍵盤 */
 html.kb-open .abang-sheet { height: min(calc(var(--vvh, 88dvh) - 8px), 820px); margin-bottom: var(--kb, 0px); }
@@ -417,3 +431,84 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
 .chips.recent .chip { min-height: 44px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 .chips.recent .chip small { color: var(--muted); font-size: 12px; }
 .abang-sheet h2:focus { outline: none; } /* 打開時焦點放在標題（讀屏先念「問阿幫」），不用框 */
+
+/* ───── 首頁與導覽重新設計（2026-11-21）───── */
+.link-btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+/* 手機上的 AI：誰在判斷（可用＝品牌色圖示；不可用照實說由伺服器） */
+.ai-line { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 12px; margin: 0 0 12px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.ai-line .ai-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
+.ai-line b { font-size: 13.5px; }
+.ai-line small { font-size: 12.5px; color: var(--muted); }
+.ai-ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex: none; background: var(--off-soft); color: var(--off); }
+.ai-ic svg { width: 19px; height: 19px; }
+[data-tone="on"] .ai-ic { background: linear-gradient(150deg, #2dd4bf 0%, var(--brand) 60%, #115e59 100%); color: #fff; }
+.ai-line[data-tone="on"] { border-color: color-mix(in srgb, var(--brand) 35%, #fff); }
+/* 現在：天氣、空品、最近一個提醒 */
+.now .section-title { margin-top: 4px; }
+.now-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.now-item { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; min-height: 84px; border-radius: 14px; background: var(--card); box-shadow: var(--shadow); min-width: 0; }
+.now-item .now-t { display: flex; flex-direction: column; min-width: 0; }
+.now-item b { font-size: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.now-item small { font-size: 12px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.now-item.skel { background: linear-gradient(90deg, var(--off-soft) 0%, #f8faf9 50%, var(--off-soft) 100%); background-size: 200% 100%; animation: skel 1.2s linear infinite; box-shadow: none; }
+@keyframes skel { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .now-item.skel { animation: none; } }
+/* 格子一組一塊白底面板（格子本身不再各自浮起） */
+.grid.panel { background: var(--card); border-radius: 18px; padding: 10px 6px; box-shadow: var(--shadow); gap: 4px 2px; }
+.grid.panel .tile { box-shadow: none; background: transparent; padding: 8px 2px; min-height: 76px; }
+.grid.panel .tile .tag.demo { top: 2px; right: 2px; }
+/* 防詐：醒目的一張大卡（不埋在最後） */
+.tile.feature { flex-direction: row; align-items: center; gap: 12px; padding: 14px; text-align: left; font-size: 14px; border: 1px solid color-mix(in srgb, var(--bad) 25%, #fff); background: linear-gradient(135deg, #fff 30%, #fdeeee 100%); min-height: 76px; }
+.tile.feature .ic { flex: none; }
+.tile.feature .ft { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tile.feature .ft b { font-size: 16px; color: #8f1616; }
+.tile.feature .ft small { font-size: 13px; color: var(--muted); line-height: 1.45; }
+.tile.feature .go { flex: none; font-weight: 700; font-size: 13.5px; color: var(--bad); background: var(--bad-soft); border-radius: 999px; padding: 6px 12px; }
+.tile.feature .tag.demo { top: 4px; right: 8px; }
+.more-svc { text-align: center; margin: 18px 0 4px; }
+.more-svc .btn { min-width: 180px; }
+/* 服務總覽 */
+.page-lead { color: var(--muted); font-size: 14px; margin: 2px 2px 4px; line-height: 1.6; }
+.page-lead a { color: var(--brand); font-weight: 600; text-decoration: underline; }
+.svc-list .svc { min-height: 64px; }
+.svc-list .ic.ab-token { --s: 40px; }
+.svc-list .ic.ab-token svg { width: 22px; height: 22px; }
+.svc-list .sub em { font-style: normal; opacity: .85; }
+.svc-group.safe .card { border: 1px solid color-mix(in srgb, var(--bad) 25%, #fff); }
+/* 提醒 */
+.rem-list .rem-row { align-items: flex-start; }
+.rem-row .ab-token { margin-top: 2px; }
+.rem-row .btn { flex: none; align-self: center; }
+.rem-open { display: inline-flex; align-items: center; min-height: 44px; color: var(--brand); font-weight: 600; font-size: 14px; }
+.rem-empty { display: flex; align-items: center; gap: 14px; padding: 16px; }
+.rem-empty img { flex: none; }
+.rem-empty b { font-size: 16px; }
+.rem-empty p { margin: 4px 0 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.rem-perm { margin: 10px 2px 0; font-size: 14px; color: var(--warn); }
+#rem-h:focus { outline: none; }
+#rem-h:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+/* 我的 */
+.me-head { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: linear-gradient(135deg, #fff 30%, var(--brand-soft) 100%); }
+.me-head b { font-size: 16px; }
+.me-head p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+.list > button { width: 100%; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.list > button:last-child { border-bottom: 0; }
+.list > a, .list > button { min-height: 56px; }
+.me-ai { padding: 14px 16px; }
+.me-ai-st { display: flex; gap: 10px; align-items: center; margin: 0 0 8px; }
+.me-ai-st > span:last-child { display: flex; flex-direction: column; }
+.me-ai-st small { color: var(--muted); font-size: 13px; }
+.me-ai .note { font-size: 14px; color: var(--muted); line-height: 1.7; margin: 0 0 10px; }
+#me-ai:focus { outline: none; }
+.me-about .card { padding: 14px 16px; font-size: 14px; line-height: 1.7; }
+.me-about p { margin: 0 0 6px; }
+.me-about a { color: var(--brand); font-weight: 700; text-decoration: underline; }
+.me-about ul { margin: 0; padding-left: 20px; color: var(--muted); }
+/* 桌面：分頁列跟內容一樣寬（不橫跨整個螢幕） */
+@media (min-width: 900px) {
+  .tabbar { border-top: 0; background: transparent; backdrop-filter: none; box-shadow: none; }
+  .tabbar nav { background: color-mix(in srgb, var(--card) 94%, transparent); backdrop-filter: blur(14px); border: 1px solid var(--line); border-bottom: 0; border-radius: 20px 20px 0 0; box-shadow: 0 -4px 18px rgba(16, 40, 34, .06); }
+}
+.svc-list .svc .title, .svc-list .svc .sub { display: block; }
+.now-item { position: relative; }
+.now-item .tag.demo { position: absolute; top: 6px; right: 8px; font-size: 9.5px; color: var(--muted); opacity: .85; }
