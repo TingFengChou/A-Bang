@@ -85,3 +85,24 @@ test('公車會動：兩次更新之間照到站時間往站牌開；不超過�
   assert.equal(driveTo(x1, null), x1, '沒有到站時間：不動');
 });
 
+
+test('各頁資料小巧思：藥局時段、垃圾車倒數、地震分色、頁首依資料變色', async () => {
+  const { periodNow } = await import('../public/ui/cards/cards/pharmacy.js');
+  const at = (h, m = 0) => Date.UTC(2026, 10, 21, h - 8, m); // 台灣時間 h:m
+  assert.equal(periodNow(at(9)), '上午');
+  assert.equal(periodNow(at(13)), '下午');
+  assert.equal(periodNow(at(19)), '晚上');
+  assert.equal(periodNow(at(23)), null, '營業時間外不說有開');
+  const { minutesUntil } = await import('../public/ui/cards/cards/garbage.js');
+  assert.equal(minutesUntil('19:30', at(19, 10)), 20);
+  assert.equal(minutesUntil('19:30', at(20)), -30);
+  assert.equal(minutesUntil('—', at(20)), null);
+  const { intensityLevel } = await import('../public/ui/cards/cards/quake.js');
+  assert.deepEqual(['1級', '3級', '4級', '5弱', '6強', null].map(intensityLevel), ['lo', 'mid', 'mid', 'hi', 'hi', '']);
+  const { heroTint } = await import('../public/js/pages/service.js');
+  assert.equal(heroTint('weather', { tempC: 12 }), '#1d4ed8');
+  assert.equal(heroTint('weather', { tempC: 32 }), '#ea580c');
+  assert.equal(heroTint('aqi', { nearest: { aqi: 40 } }), '#15803d');
+  assert.equal(heroTint('aqi', { nearest: { aqi: 160 } }), '#b91c1c');
+  assert.equal(heroTint('fuel', {}), null);
+});
