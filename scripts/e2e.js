@@ -2536,6 +2536,30 @@ test('問阿幫：判斷看得到——討論串逐項說天氣、空品、路�
   });
 });
 
+test('問阿幫：天氣小幫手比行程晚回報時，data_note 也不重複（tool_start 就記下角色）', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.route('**/api/v1/agent', async (route) => { // 模擬平行查詢：weather_now 的結果晚於 plan_trip 的 data_note 才到
+      if (route.request().method() !== 'POST') return route.fallback();
+      const res = await route.fetch();
+      const lines = (await res.text()).split('\n').filter((l) => l.trim());
+      const ev = lines.map((l) => JSON.parse(l));
+      const wid = ev.find((e) => e.type === 'tool_start' && e.name === 'weather_now')?.id;
+      const wi = ev.findIndex((e) => e.type === 'tool_result' && e.id === wid);
+      if (wi < 0) return route.fulfill({ response: res, body: `${lines.join('\n')}\n` });
+      const [late] = lines.splice(wi, 1);
+      const last = lines.map((l) => JSON.parse(l)).findLastIndex((e) => e.type === 'data_note');
+      lines.splice(last + 1, 0, late);
+      return route.fulfill({ response: res, body: `${lines.join('\n')}\n` });
+    });
+    await page.fill('.chat-form input', '去台北 101');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+    assert.equal(await page.locator('.thread .bubble.tool[data-role="天氣"]').count(), 1, '天氣只講一次');
+    assert.equal(await page.locator('.thread .bubble.data-note').count(), 0, '示範模式三個角色都另外查過');
+    assert.match(await page.locator('.thread .bubble.tool[data-role="天氣"] .say').textContent(), /°C/);
+  });
+});
+
 test('問阿幫：在示範範圍外、深夜只剩叫車——說明原因、空品查不到照實說、給換條件的建議', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     await page.fill('.chat-form input', '晚上 11 點半去台北101');

@@ -64,7 +64,7 @@
 | `agent_note` | `text`（≤ 30 字，可含 `@角色`） | 討論串中阿幫的一句話 |
 | `tool_start` | `id`, `name`, `title`, `role`（公車、YouBike…）, `server`（`abang`、`tdx-official`…）, `pack`, `tier`, `input` | 被點名的小幫手出現「輸入中…」 |
 | `tool_result` | `id`, `ok`, `speak`, `card?`, `data?`, `metrics: { calls, cacheHits, cacheHit, scanned, ms }`（即 `callTool` 的 `metrics`）, `error?`, `impact?: { tone: 'bad'\|'good'\|'neutral', text }` | 小幫手說出 `speak`；`impact` 是這筆資料對決策的影響（`core/agent/impact.js`，不經模型）；決策圖的資料膠囊 |
-| `data_note` | `parent`（那次工具呼叫的 id）, `role`（天氣、空品、路況）, `source`, `text`, `impact: { tone, text }`, `effect`（`none`／`score`／狀態 key）, `available`, `mode: 'demo'\|'live'` | 工具內部用到的一項資料＋對這次判斷的影響（目前是 `plan_trip` 查的天氣、空品、國道路況；`core/services/trip-considered.js` 產生，不經模型）。以工具發言樣式排在 `parent` 的發言前面；`mode: 'demo'` 標「示範資料」；同一輪已有該角色的工具發言（示範模式另外查過）時客戶端不重複顯示（2026-11-21） |
+| `data_note` | `parent`（那次工具呼叫的 id）, `role`（天氣、空品、路況）, `source`, `text`, `impact: { tone, text }`, `effect`（`none`／`score`／狀態 key）, `available`, `mode: 'demo'\|'live'` | 工具內部用到的一項資料＋對這次判斷的影響（目前是 `plan_trip` 查的天氣、空品、國道路況；`core/services/trip-considered.js` 產生，不經模型）。以工具發言樣式排在 `parent` 的發言前面；`mode: 'demo'` 標「示範資料」；同一輪已點名該角色的工具（看 `tool_start`；工具平行，結果可能比 data_note 晚到；示範模式另外查過）時客戶端不重複顯示（2026-11-21） |
 | `discussion_end` | `tools`, `servers` | 討論收合成一行摘要 |
 | `decision` | `states: [{ key, source: 'auto'\|'user'\|'picked', from?, detail? }]`, `arriveBy?`, `best`, `options`, `ranked`, `excluded`, `weights`, `reason`, `considered`（同 `plan_trip.considered`）, `single?: { text, textEn, suggest: [{ label, ask }] }` | 決策圖動畫；前端可用同一引擎即時重算；`considered`＝「資料」欄每個來源一個節點；`single`＝只有一種方式時的說明與「接下來可以」的建議 |
 | `guardrail` | `tier`, `rule` | 套用的護欄（L2 以上） |
@@ -318,7 +318,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 - `plan_trip` 輸出 `considered`：天氣、空品、國道路況各一筆 `{ source, role, available, demo, value, text, say, effect, tone }`（`core/services/trip-considered.js`）。`effect`：`none` 不影響、`score` 只影響延誤風險分數（國道車多）、其餘是加入的自動狀態（`rain`、`rainSoon`、`badAir`、`traffic`），與 `states` 的自動狀態同一套門檻。查不到照實說「查不到」；最近的空品測站超過 25 公里（`AIR_MAX_M`）不採用（真實與示範相同；示範資料只有雙北、桃園、台中的測站）；出發日不是今天時天氣說「現在…（出發時可能不同）」。每一項的 `demo` 看該來源自己（天氣看氣象署授權碼、空品看環境部金鑰、路況看 TDX）；TDX 額度用完改用示範資料時（`withTdxFallback`），路況那一行 `demo: true`、`fallback: 'tdx-limit'`，文字加「（TDX 額度用完，這次先用示範資料）」。
 - `execTools` 在 `plan_trip` 成功後、`tool_result` 前送三個 `data_note`（示範與模型模式相同，不靠模型）；`plan_trip` 給模型的文字多一行「判斷用到的資料：…」。開頭「我先看天氣、空品、路況…」因此一定有對應的三行。
-- 只有一種方式時 `plan_trip.single`：依各方式沒列出的原因（太遠、附近沒有站、某時間以後查不到趕得上的班次、不可行）組一句說明，示範資料加註「班次與站牌是模擬的；設定金鑰後就是即時資料」；`suggest`：沒有班次時「改成明天早上出發」、示範資料時「改從台北車站出發比較看看」（「接下來可以」的 chip，點了送出那一句；之後可改用「阿幫問你」）。`speak` 改說「只找到○○一種方式」，`impact` 與示範總結說原因。
+- 只有一種方式時 `plan_trip.single`：依各方式沒列出的原因（太遠、附近沒有站、某時間以後查不到趕得上的班次、不可行）組一句說明，示範資料加註「班次與站牌是模擬的；設定金鑰後就是即時資料」；`suggest`：沒有班次時「改成明天早上出發」（使用者說了起點就帶著：「明天早上 8 點從西門町到台北101」）、示範資料時「改從台北車站出發比較看看」；真實模式但這次 TDX 額度用完改用示範資料（`metrics.currentFallback()`）時，說明加「（TDX 額度用完，這次先用示範資料…）」，不當成真的沒有班次（「接下來可以」的 chip，點了送出那一句；之後可改用「阿幫問你」）。`speak` 改說「只找到○○一種方式」，`impact` 與示範總結說原因。
 
 ### 5.2.11 模型模式情境評測與程式補強（2026-11-21）
 

@@ -120,10 +120,11 @@ export function missingModes({ straight, roles, skipped = [], limits }) {
 
 /**
  * 只有一種方式時的說明（例：「只找到叫車一種方式：距離 26 公里，走路、YouBike、公車、捷運都太遠；高鐵、台鐵、客運 23:30 以後今天沒有趕得上的班次」）。
- * suggest：「接下來可以」的建議（點了就送出那一句）；之後可改用「阿幫問你」。
+ * suggest：「接下來可以」的建議（點了就送出那一句，起訖點照原本的說法）；之後可改用「阿幫問你」。
+ * fallback：這次有 TDX 額度用完改用示範資料（真實模式下某些方式的結果其實是示範的），照實說。
  * @returns {{ text: string, textEn: string, suggest: Array<{ label: string, ask: string }> } | null}
  */
-export function singleNote({ options, missingList, straight, departMin, demo, toName, fromName }) {
+export function singleNote({ options, missingList, straight, departMin, demo, fallback = false, toName, fromName }) {
   if (options.length !== 1) return null;
   const only = options[0];
   const name = (r) => MODE_NAME[r] || r;
@@ -135,11 +136,13 @@ export function singleNote({ options, missingList, straight, departMin, demo, to
   const noSvc = pick('noService');
   if (noSvc.length) parts.push(`${join(noSvc)} ${toHHMM(departMin)} 以後今天沒有趕得上的班次`);
   for (const m of [...pick('none'), ...pick('skipped')]) parts.push(`${name(m.role)}：${m.why}`);
-  const text = `只找到${name(only.role)}一種方式${parts.length ? `：${parts.join('；')}` : ''}${demo ? '（現在是示範資料，班次與站牌是模擬的；設定金鑰後就是即時資料）' : ''}`;
+  const text = `只找到${name(only.role)}一種方式${parts.length ? `：${parts.join('；')}` : ''}${demo ? '（現在是示範資料，班次與站牌是模擬的；設定金鑰後就是即時資料）' : fallback ? '（TDX 額度用完，這次先用示範資料，班次與站牌可能不準；稍後再問一次）' : ''}`;
   const to = String(toName || '').trim();
+  const from = String(fromName || '').trim();
+  const fromSaid = from && from !== '你的位置' ? from : ''; // 使用者說了起點：建議也帶著，不然送出後會變成定位或預設起點
   const suggest = [];
-  if (to && noSvc.length) suggest.push({ label: '改成明天早上出發', ask: `明天早上 8 點去${to}` });
+  if (to && noSvc.length) suggest.push({ label: '改成明天早上出發', ask: fromSaid ? `明天早上 8 點從${fromSaid}到${to}` : `明天早上 8 點去${to}` });
   if (to && demo && !/台北車站|臺北車站/.test(`${fromName}${to}`)) suggest.push({ label: '改從台北車站出發比較看看', ask: `從台北車站到${to}怎麼去` });
-  const textEn = `Only ${{ walk: 'walking', bike: 'YouBike', bus: 'the bus', metro: 'the MRT', thsr: 'high speed rail', tra: 'the train', intercity: 'the intercity bus', ridehail: 'a taxi' }[only.role] || only.name} works for this trip${far.length ? `: ${+(straight / 1000).toFixed(1)} km is too far for the others` : noSvc.length ? ': no more trains or coaches you can catch today' : ''}${demo ? ' (demo data)' : ''}.`;
+  const textEn = `Only ${{ walk: 'walking', bike: 'YouBike', bus: 'the bus', metro: 'the MRT', thsr: 'high speed rail', tra: 'the train', intercity: 'the intercity bus', ridehail: 'a taxi' }[only.role] || only.name} works for this trip${far.length ? `: ${+(straight / 1000).toFixed(1)} km is too far for the others` : noSvc.length ? ': no more trains or coaches you can catch today' : ''}${demo || fallback ? ' (demo data)' : ''}.`;
   return { text, textEn, suggest };
 }

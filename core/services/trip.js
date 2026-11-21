@@ -6,6 +6,7 @@ import { walkMinutes, navLinks } from '../nav.js';
 import { decide, STATES } from '../decide.js';
 import { departOf, delayRiskOf } from './intercity.js';
 import { LANDMARKS, normPlace } from './places.js';
+import { currentFallback } from '../metrics.js';
 import { consideredOf, missingModes, singleNote, AIR_MAX_M, BAD_AIR_AQI, RAIN_SOON_POP } from './trip-considered.js';
 
 export { AIR_MAX_M, BAD_AIR_AQI, RAIN_SOON_POP };
@@ -415,7 +416,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   }).map((c) => (c.source === 'traffic' && svc.mode === 'live' && traffic?.demo // TDX 額度用完改用示範資料（withTdxFallback）：這一行照實說
     ? { ...c, fallback: 'tdx-limit', text: `${c.text}（TDX 額度用完，這次先用示範資料）`, textEn: `${c.textEn} (TDX quota used up; demo data this time)` } : c));
   // 只有一種方式：說明其他方式為什麼不在（太遠、附近沒有站、沒有趕得上的班次…）
-  const single = singleNote({ options, missingList: missingModes({ straight, roles: byRole, skipped, limits: LIMITS }), straight, departMin: depart.minute, demo: svc.mode !== 'live', toName: to.name, fromName: from.name });
+  const single = singleNote({ options, missingList: missingModes({ straight, roles: byRole, skipped, limits: LIMITS }), straight, departMin: depart.minute, demo: svc.mode !== 'live', fallback: currentFallback(), toName: to.name, fromName: from.name }); // fallback：TDX 額度用完時公車、高鐵等可能是示範資料（withTdxFallback 逐個方法改用）
   return {
     from: pt(from), to: pt(to), straightKm: +(straight / 1000).toFixed(1),
     date: depart.date, departAt: toHHMM(depart.minute),

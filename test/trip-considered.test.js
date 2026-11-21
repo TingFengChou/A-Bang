@@ -145,3 +145,30 @@ test('TDX 額度用完改用示範資料（#105 withTdxFallback）：路況那�
   assert.equal(ev.dataNote({ parent: 't1', item: t }).mode, 'demo');
   assert.equal(r.considered.find((c) => c.source === 'weather').demo, true, '天氣服務本身是示範（mock 帶 demo）');
 });
+
+test('建議帶著使用者說的起點：「從西門町到台北101」→ 明天早上 8 點從西門町到台北101；你的位置不帶', () => {
+  const missingList = [{ role: 'intercity', kind: 'noService', why: 'x' }];
+  const base = { options: [{ role: 'ridehail', name: '叫車' }], missingList, straight: 26000, departMin: 23 * 60 + 30, toName: '台北101' };
+  const said = singleNote({ ...base, demo: true, fromName: '西門町' });
+  assert.deepEqual(said.suggest.map((s) => s.ask), ['明天早上 8 點從西門町到台北101', '從台北車站到台北101怎麼去']);
+  assert.equal(singleNote({ ...base, demo: true, fromName: '你的位置' }).suggest[0].ask, '明天早上 8 點去台北101');
+});
+
+test('真實模式但這次 TDX 額度用完改用示範資料：只有一種方式的說明照實標示，不當成真的沒有班次', async () => {
+  const { withTdxFallback } = await import('../core/index.js');
+  const { TdxError } = await import('../core/tdx-client.js');
+  const { measure, currentFallback } = await import('../core/metrics.js');
+  const base = createServices({ forceMock: true });
+  const limit = async () => { throw new TdxError(429, 'rate limit'); };
+  const live = { intercity: { trips: limit }, rail: { thsrStations: limit, traStations: limit } };
+  const mock = { intercity: base.intercity, rail: base.rail };
+  const svc = { ...base, mode: 'live', weatherMode: 'live', aqiMode: 'live', ...withTdxFallback(live, mock) };
+  const { result: r, metrics } = await measure(() => planTrip(svc, { from: TAOYUAN, to: T101, departAt: '23:30', now: LATE }));
+  assert.equal(metrics.fallback, true);
+  assert.match(r.single.text, /TDX 額度用完，這次先用示範資料/);
+  assert.doesNotMatch(r.single.text, /設定金鑰後/);
+  assert.ok(!r.single.suggest.some((s) => /台北車站/.test(s.label)), '不是示範模式：不建議改從台北車站');
+  assert.equal(currentFallback(), false, '計量範圍外沒有旗標');
+  // 沒有 fallback 的真實模式：不加說明
+  assert.doesNotMatch(singleNote({ options: [{ role: 'ridehail' }], missingList: [], straight: 26000, departMin: 0, demo: false, toName: '台北101' }).text, /示範|TDX/);
+});
