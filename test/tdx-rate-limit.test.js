@@ -42,3 +42,18 @@ test('額度用完：錯誤訊息說每分鐘幾次、幾秒後再試', async ()
   const c = createTdxClient({ clientId: 'a', clientSecret: 'b', fetchImpl, limit });
   await assert.rejects(c.get('/w'), (e) => e.status === 429 && /每分鐘 5 次/.test(e.message) && /約 4 秒後/.test(e.message));
 });
+
+test('TDX 額度用完：這一次改用示範資料，結果標成示範（不讓整個查詢失敗）', async () => {
+  const { withTdxFallback } = await import('../core/index.js');
+  const { measure } = await import('../core/metrics.js');
+  const live = { routeEta: async () => { throw new TdxError(429, 'x'); }, other: async () => { throw new TdxError(500, 'y'); }, sync: () => 1 };
+  const mock = { routeEta: async () => ({ demo: true }), other: async () => ({}), sync: () => 2 };
+  const svc = withTdxFallback(live, mock);
+  const { result, metrics } = await measure(() => svc.routeEta());
+  assert.deepEqual(result, { demo: true });
+  assert.equal(metrics.fallback, true);
+  await assert.rejects(svc.other(), (e) => e.status === 500, '其他錯誤照常拋出');
+  assert.equal(svc.sync(), 1, '同步方法不變');
+  const nested = withTdxFallback({ bus: { routeEta: async () => { throw new TdxError(429, 'x'); } } }, { bus: { routeEta: async () => ({ demo: 'bus' }) } });
+  assert.deepEqual((await measure(() => nested.bus.routeEta())).result, { demo: 'bus' }, '分層的服務也會改用示範資料');
+});

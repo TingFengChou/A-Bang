@@ -15,8 +15,8 @@
 
 
 ## 2026-11-21 真實資料接上：TDX、氣象署、環境部金鑰；TDX 頻率限制
-- 做了：Austin 申請並放好 TDX、氣象署、環境部金鑰（只在 .env），交通、天氣、空品、地震都變成即時資料。實測 TDX 新帳號在「加值應用」審核前每分鐘只有 5 次（429），行程比較會連續呼叫而失敗：tdx-client 加請求排隊（同時 3 個、間隔 220ms）、429 時照 Retry-After 重試一次、錯誤訊息說明每分鐘幾次與幾秒後再試。
-- 測試：npm test 721 項全過（test/tdx-rate-limit.test.js 4 項）
+- 做了：Austin 申請並放好 TDX、氣象署、環境部金鑰（只在 .env），交通、天氣、空品、地震都變成即時資料。實測 TDX 新帳號在「加值應用」審核前每分鐘只有 5 次（429），行程比較會連續呼叫而失敗：tdx-client 加請求排隊（同時 3 個、間隔 220ms）、429 時照 Retry-After 重試一次；Austin 決定先不申請加值應用，所以額度用完時這一次改用示範資料（`withTdxFallback`，結果標示範並說明），不讓查詢失敗。
+- 測試：npm test 722 項全過（test/tdx-rate-limit.test.js 5 項）
 - 文件：DATA_SOURCES.md、PROGRESS.md
 - 下一個：TDX 加值應用審核通過後重測額度；行程比較減少 TDX 呼叫次數（快取、合併查詢）
 - 卡住：TDX 加值應用審核（Austin）

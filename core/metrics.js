@@ -23,6 +23,12 @@ export function recordFetch({ cacheHit, data }) {
   m.scanned += countRecords(data);
 }
 
+/** 這次 tool 呼叫有一部分因上游額度用完改用示範資料（TDX 429 → mock；工具結果的 mode 標成 demo） */
+export function markFallback() {
+  const m = als.getStore();
+  if (m) m.fallback = true;
+}
+
 /**
  * 在計量範圍內執行 fn。
  * @returns {Promise<{ result: any, metrics: { calls: number, cacheHits: number, cacheHit: boolean, scanned: number, ms: number } }>}
@@ -31,5 +37,5 @@ export async function measure(fn) {
   const m = { calls: 0, cacheHits: 0, scanned: 0 };
   const t0 = performance.now();
   const result = await als.run(m, fn);
-  return { result, metrics: { ...m, cacheHit: m.calls > 0 && m.cacheHits === m.calls, ms: Math.round(performance.now() - t0) } };
+  return { result, metrics: { ...m, cacheHit: m.calls > 0 && m.cacheHits === m.calls, ms: Math.round(performance.now() - t0) } }; // m.fallback：有改用示範資料
 }
