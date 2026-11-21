@@ -93,3 +93,33 @@ export function shownAsks(results = [], decision = null) {
   }
   return out;
 }
+
+// ───── 誘導內容（審查 PR #112）：模型猜的句子可能夾帶網址、帳號、加好友，或亂接一長串話 ─────
+const UNSAFE = [
+  /https?:\/\/|www\./i, // 網址
+  /\b[a-z0-9][a-z0-9-]*\.[a-z]{2,}(?:\/|\b)/i, // 網域（bit.ly、x.co、example.com.tw）
+  /[\w.+-]+@[\w-]+\.[\w.]+/, // email
+  /@[a-z0-9_.]{3,}/i, // 帳號 @xxx
+  /\d{6,}/, // 連續 6 位以上數字（帳號、電話）
+  /(?:\+?886|\b0)\d{1,3}[-\s]?\d{3,4}[-\s]?\d{3,4}/, // 電話
+  /\d{2,4}[-\s]\d{3,4}[-\s]\d{3,4}/, // 分段的號碼
+  /LINE/, /加\s*line|line\s*(?:id|[:：@])/i, // LINE（英文問句的 MRT line 不算）
+  /加好友|加入好友|加我|匯款|匯錢|轉帳|轉賬|帳號|帳戶|賬號|點連結|點擊|點這|點我|連結|網址|密碼|驗證碼|信用卡|提款卡|保證獲利/,
+  /\b(?:click|link|transfer|password|account|bank|wire|whatsapp|telegram)\b/i,
+  /-?\d{1,3}\.\d{2,}\s*[,，]\s*-?\d{1,3}\.\d{2,}/, // 座標
+];
+/** 這一句有沒有夾帶誘導內容（網址、網域、email、長號碼、電話、加 LINE、匯款、點連結、座標…）：有就不顯示（伺服器驗證與手機上整理共用） */
+export const unsafeAsk = (text) => UNSAFE.some((re) => re.test(String(text || '')));
+
+/** 去掉意圖欄位（地名、路線、站名、股票）後還剩幾個「字」：中文一字一個、英文與數字一個詞一個 */
+export function leftoverUnits(text, it = {}) {
+  let s = String(text || '').replace(/臺/g, '台');
+  const slots = [it.from, it.to, it.route, it.station, it.line, it.query, it.near, ...(it.places || [])].filter((x) => typeof x === 'string' && x);
+  for (const v of slots.sort((a, b) => b.length - a.length)) {
+    const n = v.replace(/臺/g, '台');
+    for (const form of [n, n.replace(/車站$/, ''), n.replace(/站$/, '')]) if (form.length >= 2) s = s.split(form).join(' ');
+  }
+  return (s.match(/[一-鿿]|[A-Za-z0-9]+/g) || []).length;
+}
+/** 去掉意圖欄位後最多剩這麼多字（「下雨了，從西門町到台北101少走路怎麼去？」剩 11 字；夾帶一長串別的話就超過） */
+export const MAX_LEFTOVER = 16;

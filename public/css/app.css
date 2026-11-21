@@ -516,3 +516,4 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
 .svc-list .svc .title, .svc-list .svc .sub { display: block; }
 .now-item { position: relative; }
 .now-item .tag.demo { position: absolute; top: 6px; right: 8px; font-size: 9.5px; color: var(--muted); opacity: .85; }
+.rem-open + .rem-chat { margin-left: 16px; } /* 提醒頁：看當時的對話（長對話，UX.md §4.17） */

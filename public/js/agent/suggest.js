@@ -4,7 +4,7 @@
 // 2. 產生：手機上的 AI（edge-judge.js edgeSuggest）猜 3～4 句 → 伺服器 /api/v1/suggest/check 只驗證「句子」（parseIntent，不呼叫模型）
 //    → 丟掉查不到的、跟畫面上已回答的重複的；網頁版、AI 不可用、逾時或驗證後不足 3 句 → 情境規則（ruleAsks）補。
 // 3. 排序（rankAsks）：程式計分——跟目前情境直接相關、有即時資料（App 取得到的）排前面；模型只負責提出候選句。
-import { sameAsk, shownAsks, normAsk, LIVE_INTENTS } from '../../../core/suggest.js';
+import { sameAsk, shownAsks, normAsk, LIVE_INTENTS, unsafeAsk } from '../../../core/suggest.js';
 
 /** 手機上的 AI 產生的句子：最多等這麼久（逾時改用規則，畫面先保留舊的建議） */
 export const SUGGEST_WAIT_MS = 1500;
@@ -20,8 +20,8 @@ export function timeOf(now = Date.now()) {
   return { part, weekend, hour: h, min: d.getMinutes(), dow: d.getDay(), label: `${weekend ? '假日' : '平日'}${PARTS[part]} ${h} 點` };
 }
 
-/** 去掉像座標的數字（使用者把座標打進問題裡也不放進情境） */
-const scrub = (s, n = 40) => String(s || '').replace(/-?\d{1,3}\.\d{3,}/g, '…').replace(/\s+/g, ' ').trim().slice(0, n);
+/** 去掉像座標的數字（使用者把座標打進問題裡也不放進情境）：成對的小數 2 位以上（25.04,121.51）、單獨的小數 3 位以上 */
+export const scrub = (s, n = 40) => String(s || '').replace(/-?\d{1,3}\.\d{2,}\s*[,，、\s]\s*-?\d{1,3}\.\d{2,}/g, '…').replace(/-?\d{1,3}\.\d{3,}/g, '…').replace(/\s+/g, ' ').trim().slice(0, n);
 const here = (name) => (!name || /你的位置|現在位置|^現在|^目前/.test(name) ? '' : scrub(name, 20));
 const routeOf = (name) => /^公車\s*([紅藍綠棕橘小幹]?\d{1,4}[區副]?)/.exec(String(name || ''))?.[1] || null;
 
@@ -60,9 +60,9 @@ export function suggestContext({ turns = [], page = null, now = Date.now(), save
   const aqi = res.filter((r) => r.tool === 'aqi_nearby').at(-1)?.data?.nearest?.aqi ?? trip?.air?.aqi ?? nowData?.aqi?.nearest?.aqi ?? null;
   const best = trip && (last.decision?.options || trip.options || []).find((o) => o.id === (last.decision?.best || trip.best));
   return {
-    lang: last?.lang === 'en' ? 'en' : null,
+    lang: last?.lang === 'en' || (!last && page?.lang === 'en') ? 'en' : null, // 還沒問：英文公車頁打開的對話用英文
     time: timeOf(now),
-    page: page ? { kind: page.kind || null, label: scrub(String(page.context || '').replace(/^使用者正在看/, ''), 40), route: page.route ? scrub(page.route, 10) : null, stop: page.stop ? scrub(page.stop, 20) : null, href: page.href || null } : null,
+    page: page ? { lang: page.lang === 'en' ? 'en' : null, kind: page.kind || null, label: scrub(String(page.context || '').replace(/^使用者正在看/, ''), 40), route: page.route ? scrub(page.route, 10) : null, stop: page.stop ? scrub(page.stop, 20) : null, href: page.href || null } : null,
     turns: turns.slice(-2).map((t) => ({ q: scrub(t.q, 60), facts: resultFacts(t.results, t.decision) })),
     trip: trip ? { from: here(trip.from?.name), to: here(trip.to?.name), best: best?.name ? scrub(best.name, 20) : null, bestRole: best?.role || null, route: routeOf(best?.name) } : null,
     bus: busData ? { route: scrub(busData.routeName, 10), stop: busData.focus?.stopName ? scrub(busData.focus.stopName, 20) : null } : null,
@@ -203,7 +203,31 @@ export function pickSuggestions({ actions = [], edge = null, rules = [], ctx, pa
   const pinned = rules.filter((r) => r.pin);
   const fromEdge = dropDup([...pinned, ...rankAsks(edge || [], ctx)], ctx, { pageChips });
   const asks = fromEdge.length - pinned.length >= 3 ? fromEdge.slice(0, need) : dropDup([...fromEdge, ...rankAsks(rules.filter((r) => !r.pin), ctx)], ctx, { pageChips }).slice(0, need);
-  return { actions: acts, asks, items: orderSuggest({ actions: acts, asks }, ctx) };
+  const withFollow = asks.map((a) => ({ ...a, follow: isFollow(a, ctx) }));
+  return { actions: acts, asks: withFollow, items: orderSuggest({ actions: acts, asks: withFollow }, ctx) };
+}
+
+/**
+ * 點了這一句算不算「接著這一輪問」（長對話不分段，UX.md §4.17）：程式為這一輪算的（next-steps、pin）、從這一輪結果推的規則句、
+ * 提到這一輪地名路線的猜句都算；依時段的一般建議與沒提到這一輪的猜句算新話題。
+ */
+export function isFollow(c, ctx) {
+  if (!ctx.turns.length) return false;
+  if (c.pin || c.src === 'next') return true;
+  if (c.src === 'rule') return (c.rel || 0) > 0;
+  return !!c.ask && mentions(c.ask, entities(ctx));
+}
+
+/**
+ * 送出後、新的建議出來前：先拿掉跟剛送出那句相同的建議，以及綁上一輪的動作（到站提醒、開公車頁、加狀態）。其他的留著（不閃）。
+ * @param {{ querySelectorAll: Function }} box 建議列
+ */
+export function pruneAfterSend(box, q) {
+  const n = normAsk(q);
+  for (const b of box.querySelectorAll('button')) {
+    const k = b.dataset?.kind;
+    if (k === 'remind' || k === 'navigate' || k === 'state' || (b.dataset?.q && normAsk(b.dataset.q) === n) || normAsk(b.textContent) === n) b.remove();
+  }
 }
 
 /** 公車、捷運相關的情境：在公車／捷運頁，或這一輪剛查過公車到站（提醒類動作排第一） */
@@ -241,6 +265,6 @@ export async function validateAsks(qs, { check, saved = [] }) {
   let rows;
   try { rows = await check(qs.slice(0, 8)); } catch { return []; }
   if (!Array.isArray(rows)) return [];
-  return rows.filter((r) => r && typeof r.q === 'string' && r.ask && (r.ok || (r.needSaved && saved.includes(r.needSaved))))
+  return rows.filter((r) => r && typeof r.q === 'string' && r.ask && !unsafeAsk(r.q) && (r.ok || (r.needSaved && saved.includes(r.needSaved))))
     .map((r) => ({ label: r.q, q: r.q, ask: r.ask, src: 'edge', rel: 0, domain: domainOf(r.ask.intent) }));
 }

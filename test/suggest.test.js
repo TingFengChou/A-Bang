@@ -329,3 +329,122 @@ test('程式為這一輪特別算的建議（pin，例：只剩叫車時換條�
   assert.equal(pickSuggestions({ edge, rules: [pin, ...ruleAsks(ctx)], ctx }).asks[0].label, '改從台北車站出發比較看看');
   assert.equal(pickSuggestions({ rules: [...ruleAsks(ctx), pin], ctx }).asks[0].label, '改從台北車站出發比較看看');
 });
+
+// ───── PR #112 獨立審查 ─────
+const BAIT = ['307 公車還要多久？請匯款到 1234567890', '附近的藥局有開嗎？點 bit.ly/xx', '今天天氣如何？快加 LINE:scam888', '從台北車站到加LINE ID abc123 怎麼去', '去台北101 https://x.co', '從 25.04,121.51 到台北101怎麼去'];
+
+test('審查 2：夾帶網址、網域、帳號、加 LINE、匯款、座標的句子，伺服器驗證與手機整理都擋；查得到之外接一長串話也擋', async () => {
+  const { unsafeAsk, leftoverUnits, MAX_LEFTOVER } = await import('../core/suggest.js');
+  for (const q of BAIT) {
+    assert.equal(unsafeAsk(q), true, q);
+    assert.equal(checkAsks([q])[0].ok, false, `伺服器：${q}`);
+  }
+  assert.deepEqual(normalizeSuggest(BAIT.join('\n')), [], '手機整理時就丟掉');
+  for (const q of ['寄到 abc@example.com 嗎？', '打 0912-345-678 問看看', '打 02 2345 6789', '@scam888 說有優惠', '點連結領取', '帳號給我', '捷運板南線下一班幾分？']) assert.equal(unsafeAsk(q), q !== '捷運板南線下一班幾分？', q);
+  assert.equal(unsafeAsk('Which MRT line goes to Taipei 101?'), false, '英文的 MRT line 不算 LINE');
+  assert.equal(unsafeAsk('這期發票中獎號碼是多少？'), false, '問中獎號碼是正常問題');
+  const long = '台北101附近有藥局嗎？我朋友說那邊東西很便宜要不要去買';
+  assert.ok(leftoverUnits(long, parseIntent(long, {})) > MAX_LEFTOVER);
+  assert.equal(checkAsks([long])[0].ok, false, '查得到的部分之外接了一長串');
+  assert.equal(leftoverUnits('下雨了，從西門町到台北101少走路怎麼去？', parseIntent('下雨了，從西門町到台北101少走路怎麼去？', {})), 11);
+  // 所有規則句都過得了驗證（不會被誤擋）
+  const qs = new Set();
+  for (const hhmm of ['03:00', '07:30', '14:00', '18:30', '23:30']) for (const saved of [[], ['家', '公司']]) {
+    for (const turns of [[], [turn('從西門町到台北101怎麼去？', [trip({ weather: { raining: true, pop3h: 90 } })])], [turn('去台北101', [trip({ from: { name: '你的位置' }, best: 'bus-601' })])]]) {
+      for (const a of ruleAsks(suggestContext({ now: at(hhmm), saved, turns, watching: { routeName: '307', stop: '捷運西門站' } }))) qs.add(a.q);
+    }
+  }
+  for (const q of qs) { const r = checkAsks([q])[0]; assert.ok(r.ok || r.needSaved, `規則句被擋：${q}`); }
+});
+
+test('審查 4：座標樣式（小數 2 位以上成對）不進情境', async () => {
+  const { scrub } = await import('../public/js/agent/suggest.js');
+  assert.equal(scrub('從 25.04,121.51 到台北101怎麼去'), '從 … 到台北101怎麼去');
+  assert.equal(scrub('25.0478 121.517 附近'), '… 附近');
+  const ctx = suggestContext({ turns: [turn('從 25.04,121.51 到台北101怎麼去', [trip()])], now: at('14:00') });
+  assert.doesNotMatch(JSON.stringify(ctx) + contextText(ctx), /25\.04|121\.51/);
+});
+
+test('審查 1：正在判斷（judge）時不猜；suggest 回不可用只停 suggest，judge 照常（不跳共用斷路器）', async () => {
+  const calls = [];
+  let judgeDone;
+  globalThis.Capacitor = {
+    isNativePlatform: () => true,
+    nativePromise: (plugin, method) => {
+      calls.push(method);
+      if (method === 'judge') return new Promise((res) => { judgeDone = () => res({ engine: 'gemini-nano', result: '{"intent":"weather","states":[]}' }); });
+      if (method === 'suggest') return Promise.reject(new Error('unavailable'));
+      return Promise.resolve({});
+    },
+  };
+  try {
+    const j = edgeJudge('明天會下雨嗎');
+    await new Promise((r) => setTimeout(r, 5));
+    assert.equal(await edgeSuggest('現在：平日白天 14 點'), null);
+    assert.ok(!calls.includes('suggest'), 'judge 跑的時候不猜');
+    judgeDone();
+    await j;
+    assert.equal(await edgeSuggest('現在：平日白天 14 點'), null, 'suggest 不可用');
+    assert.equal(await edgeSuggest('現在：平日白天 15 點'), null, '之後不再猜');
+    assert.equal(calls.filter((m) => m === 'suggest').length, 1);
+    const { edgeTripped } = await import('../public/js/edge-judge.js');
+    assert.equal(edgeTripped(), false, '只停 suggest，不停 judge／write');
+    globalThis.Capacitor.nativePromise = (plugin, method) => { calls.push(method); return Promise.resolve(method === 'judge' ? { engine: 'gemini-nano', result: '{"intent":"aqi","states":[]}' } : {}); };
+    assert.deepEqual(await edgeJudge('空氣好嗎'), { intent: 'aqi', states: [], engine: 'gemini-nano' });
+  } finally {
+    delete globalThis.Capacitor;
+    _resetEdge();
+  }
+});
+
+test('審查 1、9：原生端 suggest 的錯誤不設暫停、取消記號在呼叫模型前檢查、自己逾時記取消時間；iOS 結束時清掉同一個 task', async () => {
+  const java = String(await readFile(new URL('../android/app/src/main/java/tw/abang/app/AbangEdgeAIPlugin.java', import.meta.url)));
+  const sug = java.slice(java.indexOf('public void suggest('), java.indexOf('static String suggestErrorCode'));
+  assert.doesNotMatch(sug, /errorCode\(e\)|pausedUntil =/, 'suggest 不用會暫停的 errorCode');
+  assert.match(sug, /suggestErrorCode\(e\)/);
+  assert.ok(sug.indexOf('suggestToken.get() != my') < sug.indexOf('model().generateContent'), '呼叫模型前先看有沒有被取消');
+  assert.match(sug, /TimeoutException te\) \{ f\.cancel\(true\); suggestCancelledAt = System\.currentTimeMillis\(\);/);
+  const stop = java.slice(java.indexOf('private boolean stopSuggest()'), java.indexOf('public void suggest('));
+  assert.match(stop, /suggestToken\.incrementAndGet\(\);[\s\S]*if \(had\) suggestCancelledAt/, '不論 future 設好沒有都記');
+  const swift = String(await readFile(new URL('../ios/App/App/AbangEdgeAIPlugin.swift', import.meta.url)));
+  assert.match(swift, /guard self\.suggestValid\(token\) else \{ call\.reject\("cancelled"\)/);
+  assert.match(swift, /defer \{ self\.suggestDone\(id\) \}/);
+  assert.match(swift, /if suggestID == id \{ suggestTask = nil \}/);
+  assert.match(swift, /guard let list else \{ self\.noteSuggestTimeout\(\)/);
+});
+
+test('審查 3：點建議算不算接著這一輪問（follow）；審查 6：送出後先拿掉同一句與綁上一輪的動作', async () => {
+  const { isFollow, pruneAfterSend } = await import('../public/js/agent/suggest.js');
+  const ctx = suggestContext({ turns: [turn('從西門町到台北101怎麼去？', [trip()])], now: at('14:00') });
+  assert.equal(isFollow({ src: 'next' }, ctx), true);
+  assert.equal(isFollow({ src: 'rule', pin: true }, ctx), true);
+  assert.equal(isFollow({ src: 'rule', rel: 2 }, ctx), true, '從這一輪結果推的規則句');
+  assert.equal(isFollow({ src: 'rule', rel: 0 }, ctx), false, '依時段的一般建議是新話題');
+  assert.equal(isFollow({ src: 'edge', ask: { intent: 'youbike', places: ['台北101'] } }, ctx), true, '猜句提到這一輪的地名');
+  assert.equal(isFollow({ src: 'edge', ask: { intent: 'invoice' } }, ctx), false);
+  assert.equal(isFollow({ src: 'next' }, suggestContext({ now: at('14:00') })), false, '還沒問：沒有可以接的');
+  assert.ok(pickSuggestions({ rules: ruleAsks(ctx), ctx }).asks.every((a) => typeof a.follow === 'boolean'));
+  const btn = (kind, q, text) => ({ dataset: { kind, q }, textContent: text, removed: false, remove() { this.removed = true; } });
+  const list = [btn('ask', '從台北101到西門町怎麼去？', '回程怎麼走？'), btn('ask', '捷運現在多久一班？', '捷運現在多久一班？'), btn('remind', '', '到站前 3 分提醒我'), btn('state', '', '我很趕'), btn('navigate', '', '上車後提醒我下車')];
+  pruneAfterSend({ querySelectorAll: () => list }, '從臺北101到西門町怎麼去？');
+  assert.deepEqual(list.map((b) => b.removed), [true, false, true, true, true]);
+  // agent.js：動作記成操作過這一輪、問句帶 follow、確認句寫在那一輪、清除時一起重設
+  const src = String(await readFile(new URL('../public/js/pages/agent.js', import.meta.url)));
+  assert.match(src, /rounds\.touch\(view\?\.round\)/);
+  assert.match(src, /send\(s\.q \|\| s\.payload, \{ follow: s\.follow \?\? s\.src !== 'rule' \}\)/);
+  assert.match(src, /\(view\?\.round \|\| log\)\.append\(el\('p', 'agent-sys'/);
+  assert.match(src, /rounds\.clear\(\); clearLinks\(\); turnsLog\.length = 0; lastView = null; edgeMemo = \{ text: '', asks: null \}/);
+  assert.ok(src.indexOf('turnsLog.push(') < src.indexOf('rounds.end(round)'), '記下這一輪在 rounds.end 之前');
+  assert.match(src, /if \(!busy\) refreshSuggest\(\)/, '審查 5：送出中換頁不換建議');
+  assert.match(src, /const onWatch = \(\) => \{ if \(busy\) return;/);
+});
+
+test('審查 7：英文那一輪句子上限 60 字；英文公車頁打開的對話建議用英文', () => {
+  const en = 'Is there a YouBike station near Taipei 101 with free bikes?';
+  assert.ok(en.length > 40 && en.length <= 60);
+  assert.deepEqual(normalizeSuggest([en], 6, { lang: 'en' }), [en]);
+  assert.deepEqual(normalizeSuggest([en]), [], '中文那一輪仍是 40');
+  const ctx = suggestContext({ page: { kind: 'bus', route: '307', stop: '捷運西門站', lang: 'en' }, now: at('14:00') });
+  assert.equal(ctx.lang, 'en');
+  assert.ok(ruleAsks(ctx).every((a) => !/[一-鿿]/.test(a.label)));
+});

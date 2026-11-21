@@ -112,7 +112,7 @@ export const busRoute = {
   askHint: ({ params: [, route], query }) => {
     const T = busT(pageLang(query)); // 英文公車頁：建議問題也用英文（阿幫聽得懂英文問法）
     return {
-      kind: 'bus', route, stop: query.stop || null, // 動態建議（agent/suggest.js）：哪條路線、哪一站（不含座標）
+      kind: 'bus', route, stop: query.stop || null, lang: pageLang(query), // 動態建議（agent/suggest.js）：哪條路線、哪一站、英文頁（不含座標）
       context: (query.stop ? T('askContextStop', { route, stop: query.stop }) : T('askContext', { route })).slice(0, 200),
       chips: [query.stop ? T('askChipStop', { route, stop: query.stop }) : T('askChip', { route })],
     };

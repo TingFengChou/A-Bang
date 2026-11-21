@@ -4,6 +4,8 @@
 //   Android：Gemini Nano（ML Kit GenAI Prompt API，經 AICore；支援的機型）
 // 網頁版、系統模型不可用、逾時或回傳看不懂 → 回 null，伺服器照原本的判斷層（使用者看不出差別）。
 // 只送「意圖、狀態、引擎」三個欄位，不送模型原文；方案排序仍由伺服器 decide.js 計分（ADR-0010）。
+import { unsafeAsk } from '../../core/suggest.js';
+
 // 外掛 AbangEdgeAI 有三個用模型的任務：judge（聽懂問題）、write（寫回答，edge-write.js）、suggest（猜下一句）。
 // 共用這裡的外掛存取與斷路器；優先順序 judge ＞ write ＞ suggest：judge、write 開始前先取消正在跑的 suggest（cancelSuggest），
 // 手機正在寫回答時不猜下一句；任何一個任務回「不可用」就這次開 App 都不再用（取消後 3 秒內的忙碌錯誤不算，edgeTrips）。
@@ -163,13 +165,14 @@ export const SUGGEST_INSTRUCTIONS = `你幫「阿幫」App 猜使用者下一句
 跟剛剛查到的結果直接相關的排前面；不要重複剛剛已經問過的；不要問投資建議；不要編地名。`;
 export const SUGGEST_INSTRUCTIONS_EN = `${SUGGEST_INSTRUCTIONS}\nThe user is asking in English: write all 4 questions in simple English.`;
 
-/** 外掛回傳 → 句子陣列：字串（每行一句）、陣列或 { questions }；去編號、引號、重複，太短太長的丟掉 */
-export function normalizeSuggest(raw, max = 6) {
+/** 外掛回傳 → 句子陣列：字串（每行一句）、陣列或 { questions }；去編號、引號、重複，太短太長（中文 40、英文 60 字）、夾帶誘導內容的丟掉 */
+export function normalizeSuggest(raw, max = 6, { lang = null } = {}) {
+  const maxLen = lang === 'en' ? 60 : 40;
   const list = Array.isArray(raw) ? raw : Array.isArray(raw?.questions) ? raw.questions : typeof raw === 'string' ? raw.split(/\n+/) : [];
   const out = [];
   for (const x of list) {
     const s = String(x ?? '').replace(/^\s*(?:[-*•‧·]|\d+\s*[.、)）]|[（(]\d+[)）])\s*/, '').replace(/^["「『“]+|["」』”]+$/g, '').trim();
-    if (s.length < 4 || s.length > 40 || /[{}[\]<>]/.test(s) || out.includes(s)) continue;
+    if (s.length < 4 || s.length > maxLen || /[{}[\]<>]/.test(s) || unsafeAsk(s) || out.includes(s)) continue;
     out.push(s);
     if (out.length >= max) break;
   }
@@ -202,7 +205,7 @@ export const edgeCanSuggest = () => !!cap() && !unavailable && !suggestOff && ed
  */
 export async function edgeSuggest(context, { lang = null, timeout = 1500 } = {}) {
   const c = cap();
-  if (!c || unavailable || suggestOff || suggestInflight || edgeTasks.size || !edgeEnabled() || !suggestEnabled() || !context) return null; // 手機正在寫回答：不猜（write 優先）
+  if (!c || unavailable || suggestOff || suggestInflight || inflight || edgeTasks.size || !edgeEnabled() || !suggestEnabled() || !context) return null; // 正在判斷（judge）或寫回答（write）：不猜（它們優先）
   let timer;
   try {
     const call = c.nativePromise(PLUGIN, 'suggest', { context: String(context).slice(0, 600), instructions: lang === 'en' ? SUGGEST_INSTRUCTIONS_EN : SUGGEST_INSTRUCTIONS, lang: lang === 'en' ? 'en' : 'zh-TW', max: 4 });
@@ -210,7 +213,7 @@ export async function edgeSuggest(context, { lang = null, timeout = 1500 } = {})
     suggestInflight = p;
     const r = await Promise.race([call, new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeout); suggestAbort = () => resolve(null); })]);
     suggestAbort = null;
-    const asks = r ? normalizeSuggest(r.result) : [];
+    const asks = r ? normalizeSuggest(r.result, 6, { lang }) : [];
     return asks.length && EDGE_ENGINES.includes(r.engine) ? { asks, engine: r.engine } : null;
   } catch {
     return null;

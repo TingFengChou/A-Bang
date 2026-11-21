@@ -22,8 +22,11 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "suggest", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cancelSuggest", returnType: CAPPluginReturnPromise),
     ]
-    /// 正在跑的 suggest（judge 或 cancelSuggest 來時取消：judge 優先）
+    /// 正在跑的 suggest（judge 或 cancelSuggest 來時取消：judge 優先）；結束時比對同一個再清掉
     private var suggestTask: Task<Void, Never>?
+    private var suggestID = 0
+    /// 取消記號：每次取消加一；還沒呼叫模型的 suggest 看到記號變了就不跑（PR #112 審查）
+    private var suggestToken = 0
     private let suggestLock = NSLock()
 
     /// 最近一次取消 suggest 的時間
@@ -31,15 +34,23 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
     /// 取消建議後這段時間內的「忙碌」類錯誤不算模型壞掉（產品負責人 2026-11-21；與 Android BUSY_GRACE_MS 相同）
     static let busyGrace: TimeInterval = 3
 
-    /// 取消正在跑的 suggest；回傳有沒有取消到
+    /// 取消 suggest：不論模型開始跑了沒有（記號加一），有 suggest 在等或在跑就記取消時間；回傳有沒有取消到
     @discardableResult private func stopSuggest() -> Bool {
         suggestLock.lock(); defer { suggestLock.unlock() }
+        suggestToken += 1
         guard let t = suggestTask else { return false }
         suggestTask = nil
         t.cancel()
         suggestCancelledAt = Date()
         return true
     }
+
+    /// 自己逾時：也記取消時間（模型可能還在收尾）
+    private func noteSuggestTimeout() { suggestLock.lock(); suggestCancelledAt = Date(); suggestLock.unlock() }
+    /// 這一次還有效嗎（沒被取消）
+    private func suggestValid(_ token: Int) -> Bool { suggestLock.lock(); defer { suggestLock.unlock() }; return suggestToken == token }
+    /// 結束時清掉（比對同一個，不清到下一次的）
+    private func suggestDone(_ id: Int) { suggestLock.lock(); if suggestID == id { suggestTask = nil }; suggestLock.unlock() }
 
     /// 剛取消建議（3 秒內）又遇到忙碌類錯誤（同時有請求在跑、被限流、取消中）：這一題回 busy 交給伺服器
     private func busyAfterCancel(_ error: Error) -> Bool {
@@ -154,21 +165,34 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
             let s = AppleJudge.status()
             guard s.available else { call.reject("unavailable: \(s.reason)"); return }
             stopSuggest()
-            let task = Task {
+            suggestLock.lock()
+            suggestID += 1
+            let id = suggestID, token = suggestToken
+            suggestTask = Task {
+                defer { self.suggestDone(id) }
+                guard self.suggestValid(token) else { call.reject("cancelled"); return } // 還沒開始就被取消：不呼叫模型
                 let t0 = Date()
                 do {
-                    let list = try await AppleJudge.shared.suggest(context: context, instructions: instructions, max: count)
+                    // 1.5 秒沒猜完就取消（JS 也只等 1.5 秒）；逾時也記取消時間
+                    let list: [String]? = try await withThrowingTaskGroup(of: [String]?.self) { group in
+                        group.addTask { try await AppleJudge.shared.suggest(context: context, instructions: instructions, max: count) }
+                        group.addTask { try await Task.sleep(nanoseconds: 1_500_000_000); return nil }
+                        let first = try await group.next() ?? nil
+                        group.cancelAll()
+                        return first
+                    }
+                    guard let list else { self.noteSuggestTimeout(); call.reject("timeout"); return }
                     try Task.checkCancellation()
                     let ms = Int(Date().timeIntervalSince(t0) * 1000)
                     CAPLog.print("AbangEdgeAI: suggested in \(ms) ms") // 只記耗時，不記內容
                     call.resolve(["engine": "apple", "ms": ms, "result": list])
                 } catch {
                     if Task.isCancelled || error is CancellationError { call.reject("cancelled"); return } // 讓給 judge，不算錯誤
-                    CAPLog.print("AbangEdgeAI: suggest failed \(AppleJudge.code(error))")
+                    CAPLog.print("AbangEdgeAI: suggest failed \(AppleJudge.code(error))") // 不影響 judge／write
                     call.reject("suggest failed")
                 }
             }
-            suggestLock.lock(); suggestTask = task; suggestLock.unlock()
+            suggestLock.unlock()
             return
         }
         #endif

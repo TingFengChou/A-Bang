@@ -24,6 +24,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 裝置端 AI 判斷（ADR-0014）：Gemini Nano（ML Kit GenAI Prompt API，經系統的 AICore）在手機上判斷意圖與狀態。
@@ -263,20 +265,30 @@ public class AbangEdgeAIPlugin extends Plugin {
     private final ExecutorService suggestExec = Executors.newSingleThreadExecutor();
     /** 正在跑的 suggest（judge 或 cancelSuggest 來時取消） */
     private volatile ListenableFuture<GenerateContentResponse> suggestFuture;
+    /** 取消記號：每次取消加一；排隊中、還沒呼叫模型的 suggest 看到記號變了就不跑（PR #112 審查） */
+    private final AtomicLong suggestToken = new AtomicLong();
+    /** 排隊中或正在跑的 suggest 數（有的話取消時才記取消時間） */
+    private final AtomicInteger suggestPending = new AtomicInteger();
 
-    /** 取消正在跑的 suggest（沒有就不做）；回傳有沒有取消到 */
+    /**
+     * 取消 suggest：不論 future 設好了沒有——排隊中的看到記號變了就不跑、已在跑的取消 future；
+     * 有 suggest 排隊或在跑就記取消時間（之後 3 秒內 judge／write 的忙碌錯誤不暫停）。回傳有沒有取消到。
+     */
     private boolean stopSuggest() {
+        suggestToken.incrementAndGet();
+        boolean had = suggestPending.get() > 0;
+        if (had) suggestCancelledAt = System.currentTimeMillis();
         ListenableFuture<GenerateContentResponse> f = suggestFuture;
         suggestFuture = null;
-        boolean stopped = f != null && !f.isDone() && f.cancel(true);
-        if (stopped) suggestCancelledAt = System.currentTimeMillis();
-        return stopped;
+        if (f != null && !f.isDone()) f.cancel(true);
+        return had;
     }
 
     /**
      * 動態「下一句」建議（AGENT.md §5.4）：依情境（頁面、最近的問題與結果摘要、時段；JS 組好、不含座標）猜使用者接下來最可能問的幾句。
      * 只回 { engine, ms, result: "每行一句" }，句子由 JS 送伺服器規則驗證、程式排序。不記錄情境與句子，只記耗時與錯誤類型。
-     * 使用者送出問題時 judge 優先：judge 一進來（或 JS 呼叫 cancelSuggest）就取消這裡的 future，回 "cancelled"；被取消不算模型錯誤（不暫停）。
+     * 使用者送出問題時 judge 優先：judge 一進來（或 JS 呼叫 cancelSuggest）就取消，回 "cancelled"。
+     * suggest 的任何錯誤都不設 pausedUntil（背景任務失敗不該停掉 judge／write）；自己逾時也記取消時間（模型可能還在收尾）。
      */
     @PluginMethod
     public void suggest(PluginCall call) {
@@ -286,21 +298,26 @@ public class AbangEdgeAIPlugin extends Plugin {
         String instructions = call.getString("instructions", "");
         Integer maxArg = call.getInt("max", 4);
         int max = Math.max(1, Math.min(6, maxArg == null ? 4 : maxArg));
+        final long my = suggestToken.get();
+        suggestPending.incrementAndGet();
         suggestExec.execute(() -> {
             long t0 = System.currentTimeMillis();
             ListenableFuture<GenerateContentResponse> f = null;
             try {
+                if (suggestToken.get() != my) { call.reject("cancelled"); return; } // 排隊時就被取消了：不呼叫模型
                 if (System.currentTimeMillis() < pausedUntil || featureStatus() != FeatureStatus.AVAILABLE) { call.reject("unavailable"); return; }
                 String prompt = instructions + "\n每行一句，共 " + max + " 句；不要編號、不要引號、不要其他文字。\n情境：\n" + context;
                 GenerateContentRequest.Builder b = new GenerateContentRequest.Builder(new TextPart(prompt));
                 b.setTemperature(0.4f); // 有一點變化（每次不完全一樣），但不亂編
                 b.setTopK(16);
                 b.setMaxOutputTokens(160);
+                if (suggestToken.get() != my) { call.reject("cancelled"); return; }
                 f = model().generateContent(b.build());
                 suggestFuture = f;
+                if (suggestToken.get() != my) { f.cancel(true); call.reject("cancelled"); return; } // 剛設好就被取消
                 GenerateContentResponse r;
                 try { r = f.get(SUGGEST_TIMEOUT_MS, TimeUnit.MILLISECONDS); }
-                catch (TimeoutException te) { f.cancel(true); Logger.warn(TAG, "suggest timeout"); call.reject("timeout"); return; }
+                catch (TimeoutException te) { f.cancel(true); suggestCancelledAt = System.currentTimeMillis(); Logger.warn(TAG, "suggest timeout"); call.reject("timeout"); return; }
                 String out = r.getCandidates().isEmpty() ? "" : r.getCandidates().get(0).getText();
                 long ms = System.currentTimeMillis() - t0;
                 Logger.info(TAG, "suggested in " + ms + " ms"); // 只記耗時，不記內容
@@ -313,13 +330,20 @@ public class AbangEdgeAIPlugin extends Plugin {
                 Logger.info(TAG, "suggest cancelled for judge");
                 call.reject("cancelled");
             } catch (Exception e) {
-                if (f != null && f.isCancelled()) { call.reject("cancelled"); return; } // 被 judge 取消：不算錯誤、不暫停
-                Logger.warn(TAG, "suggest failed: " + errorCode(e));
+                if (f != null && f.isCancelled()) { call.reject("cancelled"); return; } // 被 judge 取消
+                Logger.warn(TAG, "suggest failed: " + suggestErrorCode(e)); // 不暫停（不用 errorCode）
                 call.reject("suggest failed");
             } finally {
                 if (suggestFuture == f) suggestFuture = null;
+                suggestPending.decrementAndGet();
             }
         });
+    }
+
+    /** suggest 的錯誤種類（只記，不設 pausedUntil） */
+    static String suggestErrorCode(Throwable e) {
+        Throwable c = e.getCause() != null ? e.getCause() : e;
+        return c instanceof GenAiException ? "GenAiException:" + ((GenAiException) c).getErrorCode() : c.getClass().getSimpleName();
     }
 
     /** 使用者送出問題了：取消正在跑的 suggest（JS edge-judge.js cancelSuggest；judge 自己也會先取消） */
