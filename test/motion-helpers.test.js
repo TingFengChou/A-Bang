@@ -58,3 +58,16 @@ test('公車街景說明：分鐘單獨標出；只有 1 分鐘內才說「就�
   assert.deepEqual(sceneSay({ routeName: '601', away: 0, etaSec: 600, etaText: '10 分' }), { head: '601', eta: '10 分', near: false }, '上一站沒資料：不說就在你這站');
   assert.deepEqual(sceneSay({ routeName: '601', away: null, etaSec: null, etaText: '尚未發車' }), { head: '601', eta: '尚未發車', near: false });
 });
+
+// T8：天氣氛圍依台灣時間分日夜（不看裝置時區）；下雨、降雨機率高優先
+test('sceneOf：雨、雲、台灣時間 18～6 點是夜晚', async () => {
+  const { sceneOf } = await import('../public/ui/cards/gauge.js');
+  assert.equal(sceneOf({ raining: true, observedAt: '2026-11-21T12:00:00+08:00' }), 'rain');
+  assert.equal(sceneOf({ pop3h: 60, observedAt: '2026-11-21T12:00:00+08:00' }), 'cloud');
+  assert.equal(sceneOf({ observedAt: '2026-11-21T12:00:00+08:00' }), 'sun');
+  assert.equal(sceneOf({ observedAt: '2026-11-21T18:00:00+08:00' }), 'night');
+  assert.equal(sceneOf({ observedAt: '2026-11-21T05:59:00+08:00' }), 'night');
+  assert.equal(sceneOf({ observedAt: '2026-11-21T06:00:00+08:00' }), 'sun');
+  assert.equal(sceneOf({ observedAt: '2026-11-21T11:00:00Z' }), 'night', 'UTC 11 點＝台灣 19 點');
+  assert.equal(sceneOf({ observedAt: 'bad' }), 'sun', '時間看不懂：當白天');
+});
