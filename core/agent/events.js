@@ -37,7 +37,7 @@ export const ev = {
     states: trip.states, arriveBy: trip.arriveBy ?? null, ...(trip.arriveByMin != null && { arriveByMin: trip.arriveByMin }), ...(trip.mode && { mode: trip.mode }), ...(trip.avoid && { avoid: trip.avoid }), ...(trip.skipped?.length && { skipped: trip.skipped }), best: trip.best,
     options: trip.options, ranked: trip.ranking.ranked, excluded: trip.ranking.excluded, weights: trip.ranking.weights, reason: trip.ranking.reason,
   }, ['states', 'options', 'ranked', 'excluded', 'reason']),
-  guardrail: ({ tier, rule }) => need('guardrail', { tier, rule }, ['tier', 'rule']),
+  guardrail: ({ tier, rule, calls }) => need('guardrail', { tier, rule, ...(calls?.length && { calls: calls.map((c) => ({ label: String(c.label), tel: String(c.tel).replace(/[^0-9]/g, '') })) }) }, ['tier', 'rule']), // calls：一鍵撥號（安全情境）
   clientToolCall: ({ id, name, input = {} }) => need('client_tool_call', { id, name, input }, ['id', 'name']),
   text: (delta) => need('text', { delta: String(delta) }, ['delta']),
   /** 使用者說「重來」：前面的行程不再沿用（畫面加分隔線、前面的對話變淡） */

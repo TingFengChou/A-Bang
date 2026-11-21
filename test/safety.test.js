@@ -20,10 +20,15 @@ test('自傷：中英文都給 1925、1995 與 119', () => {
 test('緊急：第一人稱或眼前的事故給 119／110／112；問路況不算', () => {
   for (const q of ['我出車禍了', '前面有人昏倒', '救命', '我被撞了', '這裡失火了', 'someone collapsed', 'there is a fire at the station']) assert.equal(safetyCheck(q)?.kind, 'emergency', q);
   assert.match(safetyCheck('我出車禍了').reply, /119.*110.*112/s);
+  assert.match(safetyCheck('我被跟蹤了').reply, /113/);
+  assert.deepEqual(safetyCheck('我被跟蹤了').calls.map((c) => c.tel), ['119', '110', '113']);
+  for (const q of ['有人倒在地上', '有人受傷了', '救命啊', 'help', 'help me!']) assert.equal(safetyCheck(q)?.kind, 'emergency', q);
 });
 
 test('口語不誤判', () => {
-  for (const q of ['笑死我了', '跳樓大拍賣在哪', '累死了想回家', '國道有車禍嗎', '車禍路段會塞車嗎', '307 到哪了', '死忠粉絲見面會在哪', '手機快死了，附近哪裡可以充電']) assert.equal(safetyCheck(q), null, q);
+  for (const q of ['笑死我了', '跳樓大拍賣在哪', '累死了想回家', '國道有車禍嗎', '車禍路段會塞車嗎', '307 到哪了', '死忠粉絲見面會在哪', '手機快死了，附近哪裡可以充電', 'help me get to Taipei 101', '救命 307 怎麼還不來', '我迷路了很害怕', '死線快到了', '這班車要我的命']) assert.equal(safetyCheck(q), null, q);
+  // 口語先拿掉再判斷：同一句真的說了想死還是認得出來
+  for (const q of ['我被老闆氣死了想死', '笑死，想死', '想一了百了', '想從月台跳下去', 'kms', "I don't want to live anymore"]) assert.equal(safetyCheck(q)?.kind, 'selfHarm', q);
 });
 
 test('示範與模型模式：先給求助電話、不查工具、不問模型、不請定位', async () => {
@@ -32,7 +37,9 @@ test('示範與模型模式：先給求助電話、不查工具、不問模型�
   await runDemo(svc, { messages: [{ role: 'user', content: '我出車禍了' }], clientTools: ['device_location'] }, (e) => es.push(e));
   assert.ok(!es.some((e) => e.type === 'tool_start' || e.type === 'client_tool_call'));
   assert.match(es.find((e) => e.type === 'text').delta, /119/);
-  assert.equal(es.find((e) => e.type === 'guardrail').rule, 'safety:emergency');
+  const g = es.find((e) => e.type === 'guardrail');
+  assert.equal(g.rule, 'safety:emergency');
+  assert.deepEqual(g.calls.map((c) => c.tel), ['119', '110'], '一鍵撥號');
   let asked = 0;
   const provider = { mode: 'local', model: 'fake', start() { asked++; return { next: async () => ({ text: 'x', calls: [], stop: 'end', usage: { input: 1, output: 1 } }), addResults() {} }; } };
   const ms = [];

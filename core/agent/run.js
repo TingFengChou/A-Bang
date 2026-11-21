@@ -198,7 +198,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   emit(ev.status({ mode: 'demo', profile: profile.id, judge: judgeInfo(q0) }));
   // 安全情境（S18）：提到自傷或正在發生的緊急狀況 → 先給求助電話，不查交通（所有 agent 都一樣）
   const safe = safetyCheck(last); // 安全情境在請定位之前就回答，不會有帶定位的重送
-  if (safe) { emit(ev.guardrail({ tier: 'L0', rule: `safety:${safe.kind}` })); emit(ev.text(safe.reply)); emit(ev.done()); return; }
+  if (safe) { emit(ev.guardrail({ tier: 'L0', rule: `safety:${safe.kind}`, calls: safe.calls })); emit(ev.text(safe.reply)); emit(ev.done()); return; }
   if (!req.clientToolResults?.length && it.reset) emit(ev.contextReset());
   if (notice) emit(ev.agentNote(it.lang === 'en' ? "Today's AI quota is used up; answering in demo mode" : notice));
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複

@@ -407,10 +407,18 @@ export default {
             else box.append(el('p', 'dg-why', e.reason)); // 載不到引擎時至少顯示理由
             break;
           }
+          case 'guardrail': // 安全情境（S18）：求助電話做成一鍵撥號，接在回答下面
+            if (e.calls?.length) view.calls = e.calls;
+            break;
           case 'text':
             if (!textEl) { textEl = el('div', 'bubble agent final', avatar('阿幫', 'happy'), el('div', 'say')); turn.append(textEl); }
             view.text += e.delta;
             textEl.querySelector('.say').textContent = view.text;
+            if (view.calls && !textEl.querySelector('.call-row')) {
+              const row = el('div', 'call-row');
+              for (const c of view.calls) { const a = el('a', 'btn small call', c.label); a.href = `tel:${String(c.tel).replace(/[^0-9]/g, '')}`; row.append(a); }
+              textEl.append(row);
+            }
             // 英文回答（觀光客，S12）：讀屏用英文念（頁面是 zh-Hant-TW）
             if (/^[A-Za-z"'(]/.test(view.text)) textEl.querySelector('.say').setAttribute('lang', 'en'); else textEl.querySelector('.say').removeAttribute('lang');
             if (view.text.includes('設定與隱私 → 常用地點') && !textEl.querySelector('.go-settings')) { // 「回家」但沒設定家：給一個直接過去的按鈕

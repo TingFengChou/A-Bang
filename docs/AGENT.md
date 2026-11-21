@@ -272,9 +272,9 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - `plan_trip` 加 `group`（你說的）、`rainSoon` 狀態與 `tips`；總結泡泡只說時間很緊與帶傘（分攤金額在卡片上，不重複）。
 - 深夜（`night`）已由 S10 末班車規則處理，不另加狀態。
 
-### 5.2.10 安全情境（S18，2026-11-21）
+### 5.2.10 安全情境（S19，2026-11-21）
 
-`core/agent/safety.js`：提到自傷（想死、活不下去、自殺、kill myself…）或正在發生的緊急狀況（我出車禍了、有人昏倒、救命、失火、someone collapsed…）時，示範與模型模式、所有 agent 都先回固定的求助說明（安心專線 1925、生命線 1995、張老師 1980、119／110；沒有 SIM 卡或訊號撥 112），不查工具、不請定位、不交給模型；事件帶 `guardrail { tier: 'L0', rule: 'safety:selfHarm'|'safety:emergency' }`。只認明確說法：「笑死」「累死」「跳樓大拍賣」「國道有車禍嗎」不算。中英文都有。
+`core/agent/safety.js`：提到自傷（想死、活不下去、自殺、kill myself…）或正在發生的緊急狀況（我出車禍了、有人昏倒、救命、失火、someone collapsed…）時，示範與模型模式、所有 agent 都先回固定的求助說明（安心專線 1925、生命線 1995、張老師 1980、119／110；沒有 SIM 卡或自己的電信沒訊號撥 112；暴力或被跟蹤加 113），事件帶一鍵撥號 `calls`（畫面做成 `tel:` 按鈕），不查工具、不請定位、不交給模型；事件帶 `guardrail { tier: 'L0', rule: 'safety:selfHarm'|'safety:emergency' }`。只認明確說法：口語（「笑死」「累死」「氣死」）先拿掉再判斷；「國道有車禍嗎」「救命 307 怎麼還不來」「help me get to…」不算。中英文都有。
 
 ### 5.3 判斷層：意圖與使用者狀態（2026-11-20，`core/agent/judge.js`）
 
