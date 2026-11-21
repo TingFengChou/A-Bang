@@ -892,14 +892,16 @@ export function contextNote(it) {
 }
 
 /**
- * 行程的出發時間（示範與模型模式共用）：明天 → 抵達前 4 小時（最早 05:00）或 06:00；今天 → 現在（測試可指定 now；深夜判斷末班車）
+ * 行程的出發時間（示範與模型模式共用）：明天 → 抵達前 4 小時（不早於捷運首班 06:00；抵達時間在 07:00 前才更早，至少早 1 小時）或 06:00；今天 → 現在（測試可指定 now；深夜判斷末班車）
+ * 合成的出發時間不是使用者說的：不能讓 plan_trip 以為凌晨 05:00 出發而把捷運當成收班（PR #110 審查）
  * @returns {string} 'YYYY-MM-DDTHH:mm'（台灣時間）
  */
 export function tripDepartAt(it, now = Date.now()) {
   if (it.departTime) return `${nowTW(now + (it.departDays ?? (it.tomorrow ? 1 : 0)) * 864e5).date}T${it.departTime}`; // 說了幾點出發（P5-2；晚上 12 點＝隔天）
   if (it.tomorrow) {
     const date = nowTW(now + 864e5).date;
-    return `${date}T${it.arriveBy ? `${String(Math.max(5, Number(it.arriveBy.slice(0, 2)) - 4)).padStart(2, '0')}:00` : '06:00'}`;
+    const h = it.arriveBy ? Number(it.arriveBy.slice(0, 2)) : null;
+    return `${date}T${h != null ? `${String(Math.max(0, Math.min(6, h - 1), h - 4)).padStart(2, '0')}:00` : '06:00'}`;
   }
   const t = nowTW(now);
   return `${t.date}T${t.hhmm}`;
@@ -1035,7 +1037,8 @@ function englishSummary(it, results) {
     const tight = trip.tight ? ` Time is tight: only ${trip.tight.slackMin} min to spare, leave now.` : '';
     const from = it.from ? enPlace(it.from) : it.fromPoint ? 'your location' : enPlace(DEFAULT_FROM);
     const missing = trip.modeUnavailable ? `I couldn't find a ${EN_MODE_NAME[trip.modeUnavailable] || trip.modeUnavailable} option, so here's the best alternative. ` : '';
-    return `${missing}From ${from} to ${enPlace(it.to)}, I compared ${trip.options.length} options. Best: ${enName(best)}, about ${best.minutes} min, ${cost}, arriving ${best.arriveAt}.${rainSoon}${tight}${note}`;
+    const night = trip.night?.textEn ? `${trip.night.textEn} ` : ''; // 深夜：第一句先說公車、捷運收班或末班快到了
+    return `${night}${missing}From ${from} to ${enPlace(it.to)}, I compared ${trip.options.length} options. Best: ${enName(best)}, about ${best.minutes} min, ${cost}, arriving ${best.arriveAt}.${rainSoon}${tight}${note}`;
   }
   if (it.intent === 'weather') {
     const where = it.places[0] ? ` in ${enPlace(it.places[0]).replace(/ Station \(.*\)$/, '').replace(/ Main$/, '')}` : it.fromPoint ? ' where you are' : ` in ${enPlace(DEFAULT_FROM)}`;
@@ -1066,7 +1069,9 @@ function englishSummary(it, results) {
 
 /** 示範模式的總結（取自工具結果，不經模型） */
 /** 深夜：公車已收班或接近末班的一句（示範與模型模式共用，S10）；沒有回 '' */
-export function nightNote(trip) {
+/** bare：不帶「現在 00:10／00:10 出發」（回答已經說了「明天 00:10 出發：」，或出發時間是程式合成的、使用者沒說） */
+export function nightNote(trip, { bare = false } = {}) {
+  if (trip?.night?.text) return `${bare && trip.night.body ? trip.night.body : trip.night.text}。`; // plan_trip 產生的深夜一句（公車、捷運收班或末班快到了；trip-considered.js nightOf）
   const closed = trip?.skipped?.find((x) => x.role === 'bus' && /收班|末班已過/.test(x.why));
   return closed ? `${closed.why}。` : trip?.options?.some((o) => o.lastBus) ? '末班快到了，早點出門；錯過可以叫車或騎 YouBike。' : '';
 }
@@ -1144,7 +1149,7 @@ function summaryCore(it, results, suggestions = []) {
       return `${pre}${trip.data.ranking.reason} ${bus.speak.replace(/。$/, '')}${walk ? `，走過去約 ${walk} 分` : ''}${miss ? '，這班可能趕不上。要我在下一班快到時提醒你嗎？' : '。要我在公車快到站時提醒你嗎？'}按卡片上的「到站前 3 分提醒我」。`;
     }
     // 深夜：公車已收班或接近末班，先說（S10）
-    const night = nightNote(trip?.data);
+    const night = nightNote(trip?.data, { bare: Boolean(it.departTime || it.tomorrow) }); // 說了幾點（when 已說）或明天合成的時間：不再說一次時間
     const closed = trip?.data.skipped?.some((x) => x.role === 'bus' && /收班|末班已過/.test(x.why));
     // 下一步依建議方式（叫車按官方連結、步行導航…；不再一律問「要我幫你開導航嗎」）
     const bestOpt = trip?.data.options.find((o) => o.id === trip.data.best);
@@ -1152,7 +1157,10 @@ function summaryCore(it, results, suggestions = []) {
     const urgent = (trip?.data.tips || []).filter((x) => x.kind !== 'cost'); // 分攤金額在卡片上，泡泡只說要馬上注意的
     const tips = urgent.length ? ` ${urgent.map((x) => `${x.text}。`).join('')}` : '';
     const one = trip?.data.single ? `${trip.data.single.text.replace(/（現在是示範資料.*）$/, '')}。` : ''; // 只有一種方式：先說其他方式為什麼不在（數字來自 plan_trip）
-    return trip ? `${pre}${night}${one}${reason}${tips}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
+    // 公車、捷運沒列入（不是深夜收班、也不是只有一種方式）：一句說原因，使用者才不會以為是 bug
+    const miss = trip && !one ? (trip.data.missing || []).filter((m) => ['bus', 'metro'].includes(m.role) && !m.closed) : [];
+    const missSay = miss.length ? ` ${miss.map((m) => `${m.role === 'bus' ? '公車' : '捷運'}沒列入：${m.why}`).join('；')}。` : '';
+    return trip ? `${pre}${night}${one}${reason}${missSay}${tips}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
   }
   // 沒說地點時用了示範預設，先講清楚
   const pre = (isNearby(it) || (it.intent === 'metro' && !it.station && !it.near)) && !it.places[0] && !it.fromPoint

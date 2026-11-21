@@ -152,6 +152,7 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 .dg-src.na .dg-val { fill: var(--muted); font-weight: 400; }
 .dg-edge.quiet { opacity: .45; }
 .dg-single { margin: 6px 0 0; font-size: 12.5px; color: var(--text); background: var(--off-soft); border-radius: 10px; padding: 7px 10px; }
+.dg-missing { list-style: none; margin: 6px 0 0; padding: 7px 10px; font-size: 12.5px; color: var(--text); background: var(--off-soft); border-radius: 10px; display: grid; gap: 2px; } /* 沒列入的方式與原因 */
 .bubble.data-note .say { font-size: 13.5px; }
 .dg-hub-c { fill: var(--card); stroke: var(--brand); stroke-width: 2; filter: drop-shadow(0 3px 0 rgba(15,118,110,.25)) drop-shadow(0 6px 10px rgba(15,118,110,.2)); }
 .dg-state > rect { fill: var(--card); stroke: var(--brand); }

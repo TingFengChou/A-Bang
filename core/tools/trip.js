@@ -56,18 +56,24 @@ export const planTripTool = defineTool({
     const best = d.options.find((o) => o.id === d.best);
     if (!best) return d.ranking.excluded.length ? d.ranking.reason : '這段路找不到可行的交通方式。';
     const why = d.states.length ? `，因為${d.states.map((s) => STATES[s.key].say).join('、')}` : '';
-    if (d.single) return `只找到${best.name}一種方式${why}。`; // 原因在 impact 與決策圖（single.text）
-    return `比了 ${d.options.length} 種方式${why}，建議${best.name}。`;
+    // 深夜：第一句先說公車、捷運收班或末班快到了（night.text 已說「先比走路、YouBike、叫車」）
+    if (d.night?.closed.length && !d.single) return `${d.night.text}；建議${best.name}${why}。`;
+    const night = d.night ? `${d.night.text}。` : '';
+    if (d.single) return `${night}只找到${best.name}一種方式${why}。`; // 原因在 impact 與決策圖（single.text）
+    return `${night}比了 ${d.options.length} 種方式${why}，建議${best.name}。`;
   },
   async run(svc, a) {
     const [from, to] = await Promise.all([resolvePoint(svc.places, a.from), resolvePoint(svc.places, a.to)]);
-    const data = await planTrip(svc, { from, to, departAt: a.departAt, prefs: a.prefs || {} });
+    // svc.now：網頁 agent 這一輪的「現在」（示範時鐘；run.js execTools 帶入）；MCP、REST 用真的時間
+    const data = await planTrip(svc, { from, to, departAt: a.departAt, prefs: a.prefs || {}, ...(Number.isFinite(svc.now) && { now: svc.now }) });
     const byId = new Map(data.options.map((o) => [o.id, o]));
     const lines = [
       `${from.name} → ${to.name}（直線 ${data.straightKm} 公里，${data.departAt} 出發）`,
       // 判斷用到的資料（程式產生）：模型照這幾行轉述，不要自己說「天氣很好」之類沒有資料的話
       `判斷用到的資料：${(data.considered || []).map((c) => `${c.role}「${c.text}」→ ${c.say}${c.demo ? '（示範資料）' : ''}`).join('；')}`,
+      ...(data.night ? [`深夜（回答第一句先說）：${data.night.text}`] : []),
       ...(data.single ? [`只有一種方式：${data.single.text}`] : []),
+      ...(data.missing?.length ? [`沒列入：${data.missing.map((m) => `${MODE_LABEL[m.role] || m.role}（${m.why}）`).join('、')}`] : []),
       ...(data.states.length ? [`狀態：${data.states.map((s) => `${STATES[s.key].label}（${s.source === 'auto' ? `自動：${s.detail}` : '你說的'}）`).join('、')}`] : []),
       ...(data.habitOn ? [`習慣（使用者同意過的常選方式，已小幅加分）：${Object.entries(data.habit).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${MODE_LABEL[k]} ${Math.round(v * 100)}%`).join('、')}`] : []),
       ...data.ranking.ranked.map((r, i) => {

@@ -170,7 +170,11 @@ export default {
     const warnTips = (d.tips || []).filter((x) => x.kind !== 'cost'); // 時間很緊、帶傘：放在建議方案上面
     const costTips = (d.tips || []).filter((x) => x.kind === 'cost');
     const alts = d.ranking.ranked.filter((r) => r.id !== d.best).slice(0, MAX_ALT).map((r) => byId.get(r.id)).filter(Boolean);
+    const en = ctx.locale === 'en';
+    const notIn = d.missing || d.skipped || [];
+    const night = d.night && ((en && d.night.textEn) || d.night.text); // 深夜：公車、捷運收班或末班快到了（第一行就說）
     return h('div', { class: 'ab-body' },
+      night && h('p', { class: 'ab-night', role: 'note' }, night),
       d.states?.length > 0 && h('div', { class: 'ab-chips', 'aria-label': t('trip.states') }, d.states.map((s) => h('span', { class: 'ab-chip', title: s.detail || '' },
         `${t(`trip.stateKey.${s.key}`)}・${t(`trip.state.${s.source}`)}`))),
       state.err && h('p', { class: 'ab-fail', role: 'alert' }, state.err),
@@ -179,7 +183,8 @@ export default {
       d.ranking.reason && h('p', { class: 'ab-reason' }, d.ranking.reason),
       costTips.length > 0 && h('ul', { class: 'ab-tips', 'aria-label': t('trip.costTips') }, costTips.map((x) => h('li', {}, x.text))),
       alts.length > 0 && h('div', { class: 'ab-alts' }, h('h4', {}, t('trip.alternatives')), alts.map((o) => optionBlock(o, ctx, false))),
-      d.skipped?.length > 0 && h('ul', { class: 'ab-skipped' }, d.skipped.map((s) => h('li', {}, token(s.role, { size: 'xs' }), t('trip.skipped', { name: t(`trip.leg.${s.role}`), why: s.why })))),
+      // 沒列入的方式與原因（missing 已含 skipped；舊資料只有 skipped）：深夜收班、附近沒有站、沒有趕得上的班次…
+      notIn.length > 0 && h('ul', { class: 'ab-skipped', 'aria-label': t('trip.missing') }, notIn.map((s) => h('li', { 'data-role': s.role, ...(s.closed && { class: 'closed' }) }, token(s.role, { size: 'xs' }), t('trip.skipped', { name: t(`trip.leg.${s.role}`), why: (en && s.whyEn) || s.why })))),
       d.ranking.excluded.length > 0 && h('div', { class: 'ab-excluded' }, h('h4', {}, t('trip.excluded')),
         h('ul', { class: 'ab-list' }, d.ranking.excluded.map((e) => h('li', { class: 'ab-row off' }, token(byId.get(e.id)?.role || e.id, { size: 'sm', cls: 'off' }), h('span', { class: 'ab-name' }, e.name || e.id), h('span', { class: 'ab-sub' }, e.why))))));
   },

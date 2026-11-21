@@ -185,12 +185,16 @@ export function createTransitServices(tdx) {
     const [a, b] = await Promise.all([bus.nearbyStations({ ...from, radius }), bus.nearbyStations({ ...to, radius })]);
     const city = a[0]?.city;
     if (!city) return [];
+    let limited = false;
     const out = await Promise.all(commonRoutes(a, b).map(async (routeName) => {
-      const eta = await bus.routeEta({ city, routeName }).catch(() => null);
+      const eta = await bus.routeEta({ city, routeName }).catch((e) => { if (e?.status === 429) limited = true; return null; });
       const m = eta && matchDirect(eta.directions, from, to, radius);
       return m && { routeName, city, ...m };
     }));
-    return out.filter(Boolean);
+    // 額度用完（routeEta 429）略過的路線：在結果陣列上標 limited（不可列舉，不改資料形狀；core 共用，不依賴 node 的 metrics），plan_trip 照實說，不說成查不到直達公車
+    const list = out.filter(Boolean);
+    if (limited) Object.defineProperty(list, 'limited', { value: true });
+    return list;
   };
 
   return { bus, bike, rail };

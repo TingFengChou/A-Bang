@@ -14,13 +14,27 @@
 ---
 
 ## 2026-11-22 M15-01 健康與運動：天氣好又動得少時建議去走走（ADR-0018）
-- 做了：專案內外掛 `AbangHealth`（Android：Health Connect `connect-client:1.1.0`，只要 READ_STEPS、READ_EXERCISE，`aggregateGroupByPeriod` 每天加總、Kotlin suspend 用 Continuation 從 Java 呼叫、權限說明畫面 `HealthRationaleActivity`〔rationale intent＋Android 14 activity-alias〕、到 Health Connect 允許／到 Play 商店安裝；iOS：HealthKit stepCount、appleExerciseTime 每天加總、`App.entitlements`、`NSHealthShareUsageDescription`，沒有 entitlement 回 no-entitlement）。規則與文案 `core/health-nudge.js`（純函式，前端以 /core/ 共用）：天氣好（沒下雨、降雨 < 30%、體感 15～31°C、AQI ≤ 100、06:00～19:30）、動得少（步數 < 6,000 按清醒時段比例的 60%，而且近 7 天運動 < 150 分的進度；沒有運動紀錄只看步數、不提運動分鐘——產品負責人 2026-11-22 定案）、散步地點（內建地標庫 `walk` 欄位，走路 10～25 分最近的）、一天一次。`public/js/health.js`（預設關閉、示範資料與外掛介面相同、步數只在記憶體）、`public/js/health-ui.js`：首頁「現在」散步小卡（今天不用到明天）、問阿幫回答下面補一句（不進對話紀錄）、設定頁與「我的」同一個開關（第一次打開才問權限；被拒說原因；不能用反白）、隱私權政策段落。`weather_now`／`outing_advice` 加體感溫度 `feelsC`；地標庫加 13 個公園、河濱、步道。iOS 開發安裝腳本：個人團隊不能簽 HealthKit 時改用不含 entitlement 的建置。SW v1.0.4（合併主線 #107、#108 後）。
+- 做了：專案內外掛 `AbangHealth`（Android：Health Connect `connect-client:1.1.0`，只要 READ_STEPS、READ_EXERCISE，`aggregateGroupByDuration` 每天加總（固定 Asia/Taipei 切日）、Kotlin suspend 用 Continuation 從 Java 呼叫、權限說明畫面 `HealthRationaleActivity`〔rationale intent＋Android 14 activity-alias〕、到 Health Connect 允許／到 Play 商店安裝；iOS：HealthKit stepCount、appleExerciseTime 每天加總、`App.entitlements`、`NSHealthShareUsageDescription`，沒有 entitlement 回 no-entitlement）。規則與文案 `core/health-nudge.js`（純函式，前端以 /core/ 共用）：天氣好（沒下雨、降雨 < 30%、體感 15～31°C、AQI ≤ 100、06:00～19:30）、動得少（步數 < 6,000 按清醒時段比例的 60%，而且近 7 天運動 < 150 分的進度；沒有運動紀錄只看步數、不提運動分鐘——產品負責人 2026-11-22 定案）、散步地點（內建地標庫 `walk` 欄位，走路 10～25 分最近的）、一天一次。`public/js/health.js`（預設關閉、示範資料與外掛介面相同、步數只在記憶體）、`public/js/health-ui.js`：首頁「現在」散步小卡（今天不用到明天）、問阿幫回答下面補一句（不進對話紀錄）、設定頁與「我的」同一個開關（第一次打開才問權限；被拒說原因；不能用反白）、隱私權政策段落。`weather_now`／`outing_advice` 加體感溫度 `feelsC`；地標庫加 13 個公園、河濱、步道。iOS 開發安裝腳本：個人團隊不能簽 HealthKit 時改用不含 entitlement 的建置。SW 見下一行。
 - 測試：npm test 新增 18 項（health.test.js 17、ios-dev-install 1）；E2E 新增 4 項（首頁小卡與今天不用、問阿幫補一句與一天一次、預設關閉與開關、App 被拒／沒有 Health Connect／達標），請求內容檢查沒有健康資料；Android assembleDebug、iOS xcodebuild（不簽署，模擬器與實機架構）成功
 - 文件：ADR-0018、adr/README、UX.md §3.1、§5.0.5、AGENT.md §5.2.16、§7、MCP_TOOLS.md、DATA_SOURCES.md、PLAN.md M15、CLAUDE.md、PROGRESS.md
 - 決定（產品負責人 2026-11-22）：截圖可以；iPhone 維持簽不過就裝不含健康的版本；動得少改成「而且」；網頁版維持示範資料並標示；上架事項列進卡住項目
-- 獨立審查修正（2026-11-22）：①Android 7（API 24、25）開 App 閃退——外掛類別的 static `ZoneId` 在類別初始化就碰 java.time；改成外掛類別不碰 java.time 與 Health Connect（`HealthConnectReader` 只在 Android 9 以上呼叫，不開 desugaring），單元測試檢查外掛類別的 static 欄位與 import ②沒有定位時不拿台北車站備用天氣建議散步（首頁不出小卡；問阿幫只用離手機定位 3 公里內的天氣，座標只在手機上比對，公園也用你的位置找） ③「自己問運動」排除捷運動物園、看運動比賽、運動中心等，不再蓋過「今天不用」 ④進度文案照實說（步數少但運動跟上、讀不到步數＋運動落後） ⑤Android 8.x 回「需要 Android 9 以上」 ⑥E2E 比對健康開／關時送到伺服器的請求（GET 網址、參數、POST 內容、數量與順序）一樣 ⑦ADR-0018、Swift 註解照實寫（aggregateGroupByDuration、固定 Asia/Taipei）。合併主線 #109（長對話），SW 維持 v1.0.4。
+- 獨立審查修正（2026-11-22）：①Android 7（API 24、25）開 App 閃退——外掛類別的 static `ZoneId` 在類別初始化就碰 java.time；改成外掛類別不碰 java.time 與 Health Connect（`HealthConnectReader` 只在 Android 9 以上呼叫，不開 desugaring），單元測試檢查外掛類別的 static 欄位與 import ②沒有定位時不拿台北車站備用天氣建議散步（首頁不出小卡；問阿幫只用離手機定位 3 公里內的天氣，座標只在手機上比對，公園也用你的位置找） ③「自己問運動」排除捷運動物園、看運動比賽、運動中心等，不再蓋過「今天不用」 ④進度文案照實說（步數少但運動跟上、讀不到步數＋運動落後） ⑤Android 8.x 回「需要 Android 9 以上」 ⑥E2E 比對健康開／關時送到伺服器的請求（GET 網址、參數、POST 內容、數量與順序）一樣 ⑦ADR-0018、Swift 註解照實寫（aggregateGroupByDuration、固定 Asia/Taipei）。合併主線 #109（長對話）、#110（深夜原因），SW v1.0.7。
 - 下一個：M15-01b 實機確認（Pixel；iOS 改用模擬器）
 - 卡住：iPhone 免費個人開發團隊可能不能簽 HealthKit（需要付費帳號才能在 iPhone 上真的讀步數；開發版會反白說原因）
+
+## 2026-11-22 R2 審查修正（PR #110 獨立審查）
+- 做了：①「明天早上9點前從台北車站到台北101」合成的出發時間從 05:00 改為不早於 06:00（原本把捷運當收班改推叫車，退步），使用者沒說出發時間時深夜一句不帶時間；② 捷運營運判斷看走到站的時刻；③ 05:00～05:59 說「捷運還沒發車」（英文 hasn't started yet）；④ 只有一種方式＋深夜不重複，「明天 00:10 出發：00:10 出發…」去重（`night.body`）；⑤ `directTrips` 內部 routeEta 429 記下並照實說公車資料查不到；⑥ 站牌狀態 4（今日未營運）不當收班；⑦ 起訖 10 公里內沒有捷運站不說「捷運沒列入」；⑧ 決策圖英文讀屏用英文名稱與原因；⑨ 深夜＋TDX fallback 時 speak 只說一次額度；⑩ `departOf` 收到早於現在 1 小時以上的 HH:mm 視為明天（火車查隔天）。合併主線（#107、#108），SW v1.0.5。
+- 測試：test/trip-night.test.js 新增 8 項（每個審查項目）；intercity、pm5 兩項依新行為更新；E2E 英文深夜加讀屏檢查
+- 文件：MCP_TOOLS.md 6.6、ADR-0010、PROGRESS.md
+- 下一個：真實捷運首末班時刻表取代常數
+- 卡住：無
+
+## 2026-11-22 R2 深夜與沒列入的原因：00:10 問「去台北101」說清楚公車、捷運為什麼不在
+- 做了：產品負責人實機回報半夜 00:10 問「去台北101」沒有公車和捷運，以為是 bug。`core/services/trip.js`：捷運加營運時間常數 `METRO_HOURS`（台北、台中、高雄約 06:00～24:00，機場捷運約 06:00～23:59；⚠️ 以各系統公告為準），收班不列入（`skipped`：「捷運已收班（約 06:00 首班）」）、收班前 30 分列入但 `lastTrain` 提醒末班，真實與示範資料都適用；捷運沒列入也分原因（附近沒有捷運站、走到站太遠、同一站）。真實模式但公車因 TDX 額度用完改用示範資料（`metrics.fellBack('directTrips')`）時，公車深夜也依時間估並標 `fallback: 'tdx-limit'`。輸出 `missing`（任何時候都列沒列入的方式與原因，含中英；太近、太遠不列）與 `night`（`trip-considered.js nightOf`：「現在 00:10，公車和捷運都收班了（捷運約 06:00 首班），先比走路、YouBike、叫車」）。行程小幫手 `speak`、示範回答、英文回答都以這句開頭，模型模式 `mustSay` 漏講時補在最前面；白天公車、捷運沒列入時回答補一句原因、討論串「→ 影響」多「沒列入：…」。卡片「沒列入」清單改用 `missing`（英文用 `whyEn`）、最上面橘底深夜一行；決策圖沒列入節點標「收班／沒列入」、圖下 `.dg-missing` 寫原因。網頁 agent 這一輪的「現在」（示範時鐘）帶進 `plan_trip`，才說得出「現在 00:10」。SW v1.0.0-night。
+- 測試：npm test 新增 10 項（test/trip-night.test.js 8 項、cards-schema 深夜與末班 2 組）；E2E 新增 1 項（示範時鐘 00:10：回答第一句、卡片、決策圖，中英；截圖 phone-trip-night*.png），「桃園深夜只剩叫車」改數未排除的方案節點
+- 文件：MCP_TOOLS.md 6.6；CARDS.md trip；UX.md 決策圖與深夜；ADR-0010 調整紀錄；PLAN.md R2；PROGRESS.md
+- 下一個：真實末班車（TDX 捷運首末班時刻表 `StationTimeTable`／`FirstLastTimetable`）取代常數
+- 卡住：無
 
 ## 2026-11-21 長對話：舊的輪收成一行、換話題分段、今天問過目錄
 - 做了：產品負責人回饋「跟 Abang 談話很久後，整個會變很長」。每一輪包成 `.round`（提問＋回答）；只有最新一輪展開，舊的收成一行摘要按鈕（`public/js/agent/turn-summary.js` 由工具結果、決策、總結產生，不經模型；英文那一輪用英文），點了展開再收起；收起時決策圖停光點（`decision-graph` 加 `pause／resume`）。正在回答、5 秒內操作過、阿幫反問還沒回答的那一輪不收。換話題（類別不同）或隔 30 分鐘插分隔線「新的話題・22:40」。超過 3 輪對話上方「這次問過」目錄、捲上去出現「回到最新」（只在整頁；底部面板一樣收合）。在對話裡設的到站、出門、下車提醒，提醒頁那一筆加「看當時的對話」（`chat-links.js`，只在記憶體；`reminderItems` 加 `ref`）。收合與插分隔線用錨點補捲動、不跳動；reduced motion 不動畫。sw.js `v0.9.9-chat`。
