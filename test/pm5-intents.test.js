@@ -41,7 +41,7 @@ test('P5-2：「改成明天早上8點出發」沿用起訖與方式；出發時
   assert.equal(tripDepartAt(it, NOW), '2026-11-22T08:00');
   assert.equal(tripDepartAt(at('晚上8點從西門町去台北101'), NOW), '2026-11-21T20:00');
   assert.equal(tripDepartAt(at('從西門町去台北101'), NOW), '2026-11-21T10:00', '沒說時間＝現在');
-  assert.equal(tripDepartAt(at('明天早上8點前要到台大'), NOW), '2026-11-22T05:00', '明天＋抵達時間照舊（抵達前 4 小時，最早 05:00）');
+  assert.equal(tripDepartAt(at('明天早上8點前要到台大'), NOW), '2026-11-22T06:00', '明天＋抵達時間：抵達前 4 小時，但不早於捷運首班 06:00（PR #110 審查：合成 05:00 會把捷運當收班）');
   const trip = { data: { options: [{ id: 'a', role: 'metro' }], best: 'a', ranking: { reason: '選「捷運」。' }, skipped: [], tips: [] } };
   assert.match(demoSummary(it, { plan_trip: [trip] }), /^明天 08:00 出發：/);
   // 反例：前面沒有行程，「改成明天早上8點出發」不會亂猜目的地
