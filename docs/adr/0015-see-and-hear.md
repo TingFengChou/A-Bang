@@ -11,15 +11,15 @@
 1. **手機上優先，只送文字**：照片與聲音只在手機上變成文字（或發票號碼），影像、錄音不上傳、不保存。讀出來的文字先顯示給使用者（「阿幫看到了：…」），**確認後才送出**（ADR-0011 行動需確認）；可以改、可以遮住號碼。
 2. **看（M14-02）**：專案內 Capacitor 外掛 `AbangVision`（`available()`、`capture({ source: 'camera'|'photos', want: ['text','barcode','describe'] })`，讀到時送 `stage` 事件讓前端播「阿幫在看」）。
    - Android（`android/app/src/main/java/tw/abang/app/AbangVisionPlugin.java`）：
-     - 拍照：系統相機（`MediaStore.ACTION_IMAGE_CAPTURE`）寫到 App 私有暫存檔 `cache/vision/shot.jpg`，讀完立刻刪除；App 已宣告 `CAMERA`（舊的網頁掃描），所以第一次拍照時才要權限（Capacitor `requestPermissionForAlias`）。
+     - 拍照：系統相機（`MediaStore.ACTION_IMAGE_CAPTURE`）寫到 App 私有暫存檔 `cache/vision/shot.jpg`，讀完立刻刪除（App 在拍照時被系統回收、回來沒有人等結果時也刪；外掛啟動時清空 `cache/vision/`；FileProvider 只開放這個資料夾）；App 已宣告 `CAMERA`（舊的網頁掃描），所以第一次拍照時才要權限（Capacitor `requestPermissionForAlias`）。
      - 選圖：系統相片選擇器（`ActivityResultContracts.PickVisualMedia`，ImageOnly；沒有 Photo Picker 的舊手機自動改文件選擇器），不需要相簿權限。
-     - 讀字：ML Kit Text Recognition v2 中文模型 `com.google.mlkit:text-recognition-chinese:16.0.1`（打包在 App 內，離線可用）；條碼：`com.google.mlkit:barcode-scanning:17.3.0`（打包版，只找 QR、Code 39）。長邊縮到 2560 px、依 EXIF 轉正。
-     - 影像理解（選用）：Gemini Nano（ML Kit GenAI Prompt API，`ImagePart`）回一個分類提示（sms／sign／invoice／other）。系統**沒有**「是否支援影像輸入」的查詢，第一次試了才知道；結果記在 SharedPreferences（只有 ok／no）。分類仍以讀字＋規則為主，提示只在規則認不出來時參考。
-   - iOS（`ios/App/App/AbangVisionPlugin.swift`）：拍照 `UIImagePickerController`（`NSCameraUsageDescription`，第一次才問）、選圖 `PHPickerViewController`（在 App 之外執行，不需要相簿權限）；讀字 Vision `VNRecognizeTextRequest`（accurate、`zh-Hant`＋`en-US`、語言校正）；條碼 `VNDetectBarcodesRequest`（QR、Code 39）。照片只在記憶體。Foundation Models 不收圖片，**不回報**影像理解。
-   - 前端 `public/js/vision.js`（與平台無關）＋規則 `core/vision-text.js`（純函式，伺服器以 `/core/vision-text.js` 提供，App 打包時一起複製）：條碼先看（發票左邊 QR → `parseInvoiceCode`），再看字：發票字樣 → 強烈詐騙訊號（網址、驗證碼、轉帳）→ 站牌路牌（路線號碼、站名、路名）→ 其他詐騙訊號 → 只有字。
-   - 流向：可疑訊息 → 防詐 agent 的 `scam_check_message`（跟貼上文字一樣；生活頁先問「要幫你檢查這則訊息是不是詐騙嗎？」，答應才轉到防詐頁，文字只在記憶體交過去，不放網址）；站牌 → 組好的問題（「307 公車到「敦化市場」還要多久？」）讓使用者改了再送；發票 → 存進「我的發票」並馬上對獎（`invoice_check_batch`）。
+     - 讀字：ML Kit Text Recognition v2 中文模型 `com.google.mlkit:text-recognition-chinese:16.0.1`（打包在 App 內，離線可用）；條碼：`com.google.mlkit:barcode-scanning:17.3.0`（打包版，只找 QR、Code 39）。解碼時就用 `inSampleSize` 縮到長邊不超過 2560 px（不先解出原圖），只有要依 EXIF 轉正時才複製一次；記憶體不足等任何錯誤都回 `failed`。
+     - 影像理解（選用）：Gemini Nano（ML Kit GenAI Prompt API，`ImagePart`）回一個分類提示（sms／sign／invoice／other）。系統**沒有**「是否支援影像輸入」的查詢，第一次試了才知道；結果記在 SharedPreferences（只有 ok／no；只有 `NOT_SUPPORTED` 才記 no，逾時、忙碌、配額等暫時性錯誤不記）。分類仍以讀字＋規則為主，提示只在規則認不出來時參考。
+   - iOS（`ios/App/App/AbangVisionPlugin.swift`）：拍照 `UIImagePickerController`（`NSCameraUsageDescription`，第一次才問）、選圖 `PHPickerViewController`（在 App 之外執行，不需要相簿權限）；讀字 Vision `VNRecognizeTextRequest`（accurate、`zh-Hant`＋`en-US`、語言校正）；條碼 `VNDetectBarcodesRequest`（QR、Code 39）。照片只在記憶體。發票頁讀字不做語言校正（`literal`：校正會改掉字軌或網址字元）；一進 `capture` 就擋重入（權限框開著時連點不會蓋掉前一個請求）。Foundation Models 不收圖片，**不回報**影像理解。
+   - 前端 `public/js/vision.js`（與平台無關）＋規則 `core/vision-text.js`（純函式，伺服器以 `/core/vision-text.js` 提供，App 打包時一起複製）：條碼先看（發票左邊 QR → `parseInvoiceCode`），再看字：發票字樣 → 強烈詐騙訊號（驗證碼、轉帳）→ 站牌路牌（路線號碼、站名、路名）→ 其他詐騙訊號（兩個以上；網址只有 1 分，外送、物流的正常通知也有短網址，要配點擊、急迫等才算；讀到路線時網址不蓋過站牌）→ 只有字。
+   - 流向：可疑訊息 → 防詐 agent 的 `scam_check_message`（跟貼上文字一樣；生活頁先問「要幫你檢查這則訊息是不是詐騙嗎？」，答應才轉到防詐頁，文字只在記憶體交過去，不放網址；30 秒內沒打開防詐頁就丟掉，不會之後才自動送出）；站牌 → 組好的問題（「307 公車到「敦化市場」還要多久？」）讓使用者改了再送；發票 → 存進「我的發票」並馬上對獎（`invoice_check_batch`）。
 3. **聽（M14-01，概要；細節由語音任務補）**：專案內外掛 `AbangVoice`，用系統的語音辨識（手機上能離線就離線），只把辨識出的文字放進輸入列，同樣由使用者送出。
-4. **網頁版降級**：不把照片或聲音送伺服器。網頁版只有瀏覽器內建的本機辨識（Shape Detection API：`TextDetector`、`BarcodeDetector`）才提供；只有 `BarcodeDetector` 時只能讀發票（並說明讀簡訊、站牌要用 App）；都沒有就不顯示相機鍵。發票頁維持原本的連續掃描與手動輸入。
+4. **網頁版降級**：不把照片或聲音送伺服器。網頁版只有瀏覽器內建的本機辨識（Shape Detection API：`TextDetector`、`BarcodeDetector`）才提供；輸入列的相機鍵只在能讀字時顯示（只有 `BarcodeDetector` 時拍簡訊會讀不到字，所以不給；發票頁有自己的網頁掃描）。發票頁維持原本的連續掃描與手動輸入。
 5. **可以關**：設定頁「讓阿幫看照片」（`localStorage abang.vision = off`）；關掉時輸入列不顯示相機鍵、發票頁改回網頁掃描。
 6. **看得到**：「阿幫的腦袋」（`#/ai`）加「阿幫會看」卡：讀字引擎、條碼、影像理解（只在外掛回報時顯示）、相機權限、開關；只列系統真的回報的能力。
 

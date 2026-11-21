@@ -31,6 +31,7 @@ import com.getcapacitor.annotation.PermissionCallback;
 import com.google.android.gms.tasks.Tasks;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mlkit.genai.common.FeatureStatus;
+import com.google.mlkit.genai.common.GenAiException;
 import com.google.mlkit.genai.prompt.GenerateContentRequest;
 import com.google.mlkit.genai.prompt.GenerateContentResponse;
 import com.google.mlkit.genai.prompt.Generation;
@@ -61,7 +62,7 @@ import java.util.concurrent.TimeUnit;
  *   App 有宣告 CAMERA 權限（舊的網頁掃描用），所以第一次拍照時才向使用者要相機權限。
  * - 選圖：系統相片選擇器（Photo Picker，PickVisualMedia；舊手機自動改用文件選擇器），只拿到使用者選的那一張，不需要相簿權限。
  * - 讀字：ML Kit Text Recognition v2 中文模型（打包在 App 內，離線可用）；條碼：ML Kit Barcode Scanning（打包版），只找 QR 與 Code 39（發票）。
- * - 影像理解（選用）：Gemini Nano（ML Kit GenAI Prompt API）在這支手機支援影像輸入時，回一個分類提示（sms／sign／invoice／other）。
+ * - 影像理解（選用）：Gemini Nano（ML Kit GenAI Prompt API）在這支手機支援影像輸入時，回一個分類提示（sms／sign／invoice／other）；只有 NOT_SUPPORTED 才記住不再試。
  *   系統沒有「是否支援影像」的查詢，第一次試過才知道；結果記在 SharedPreferences（只有 ok／no），不記圖片或內容。
  * 只記耗時與錯誤類型，不記讀出來的字。
  */
@@ -77,6 +78,21 @@ public class AbangVisionPlugin extends Plugin {
     private BarcodeScanner barcode;
     private GenerativeModelFutures nano;
     private File shot;
+
+    /** 拍照暫存資料夾（App 私有 cache；FileProvider 只開放這裡，res/xml/file_paths.xml） */
+    private File visionDir() { return new File(getContext().getCacheDir(), "vision"); }
+
+    /** 清掉暫存資料夾裡的所有檔案（上次拍照時 App 被系統回收或殺掉，照片不能留在手機上） */
+    private void clearVisionDir() {
+        File[] files = visionDir().listFiles();
+        if (files != null) for (File f : files) { if (!f.delete()) Logger.warn(TAG, "暫存檔刪不掉"); }
+    }
+
+    @Override
+    public void load() {
+        super.load();
+        clearVisionDir(); // 外掛啟動時先清（不保存照片）
+    }
 
     private TextRecognizer text() {
         if (text == null) text = TextRecognition.getClient(new ChineseTextRecognizerOptions.Builder().build());
@@ -161,7 +177,7 @@ public class AbangVisionPlugin extends Plugin {
 
     private void takePhoto(PluginCall call) {
         try {
-            File dir = new File(getContext().getCacheDir(), "vision");
+            File dir = visionDir();
             if (!dir.exists() && !dir.mkdirs()) throw new IllegalStateException("cache");
             shot = new File(dir, "shot.jpg"); // 只有一個檔，下一次覆蓋；讀完就刪
             Uri out = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", shot);
@@ -177,8 +193,8 @@ public class AbangVisionPlugin extends Plugin {
 
     @ActivityCallback
     private void shotTaken(PluginCall call, ActivityResult result) {
-        if (call == null) return;
-        File f = shot != null ? shot : new File(new File(getContext().getCacheDir(), "vision"), "shot.jpg");
+        File f = shot != null ? shot : new File(visionDir(), "shot.jpg");
+        if (call == null) { clearVisionDir(); return; } // App 在拍照時被回收：沒有人等結果，照片也不能留著
         if (result.getResultCode() != Activity.RESULT_OK || !f.exists() || f.length() == 0) { f.delete(); call.reject("沒有拍照", "cancelled"); return; }
         read(call, Uri.fromFile(f), true);
     }
@@ -209,7 +225,7 @@ public class AbangVisionPlugin extends Plugin {
                 ret.put("ms", System.currentTimeMillis() - t0);
                 Logger.info(TAG, "read in " + (System.currentTimeMillis() - t0) + " ms"); // 只記耗時，不記內容
                 call.resolve(ret);
-            } catch (Exception e) {
+            } catch (Throwable e) { // 含 OutOfMemoryError：一定要回 JS，不能讓畫面一直「阿幫在看」
                 Logger.warn(TAG, "read failed: " + e.getClass().getSimpleName());
                 call.reject("這次沒讀到", "failed");
             } finally {
@@ -228,7 +244,7 @@ public class AbangVisionPlugin extends Plugin {
         if (edge <= 0) return null;
         BitmapFactory.Options opt = new BitmapFactory.Options();
         opt.inSampleSize = 1;
-        while (edge / (opt.inSampleSize * 2) >= MAX_EDGE) opt.inSampleSize *= 2;
+        while (edge / opt.inSampleSize > MAX_EDGE) opt.inSampleSize *= 2; // 解碼時就縮到長邊不超過 MAX_EDGE（不先解出原圖）
         Bitmap b;
         try (InputStream in = cr.openInputStream(uri)) { b = BitmapFactory.decodeStream(in, null, opt); }
         if (b == null) return null;
@@ -237,11 +253,9 @@ public class AbangVisionPlugin extends Plugin {
             int o = new ExifInterface(in).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
             deg = o == ExifInterface.ORIENTATION_ROTATE_90 ? 90 : o == ExifInterface.ORIENTATION_ROTATE_180 ? 180 : o == ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
         } catch (Exception e) { /* PNG 截圖沒有 EXIF */ }
-        float scale = Math.min(1f, (float) MAX_EDGE / Math.max(b.getWidth(), b.getHeight()));
-        if (deg == 0 && scale >= 1f) return b;
+        if (deg == 0) return b; // 不必再縮（解碼時已縮），只有要轉正時才複製一次
         Matrix m = new Matrix();
-        if (scale < 1f) m.postScale(scale, scale);
-        if (deg != 0) m.postRotate(deg);
+        m.postRotate(deg);
         Bitmap r = Bitmap.createBitmap(b, 0, 0, b.getWidth(), b.getHeight(), m, true);
         if (r != b) b.recycle();
         return r;
@@ -302,10 +316,11 @@ public class AbangVisionPlugin extends Plugin {
      */
     private JSObject describe(Bitmap bmp) {
         if (!nanoOsOk() || "no".equals(describeState())) return null;
+        Bitmap small = null;
         try {
             if (nano == null) nano = GenerativeModelFutures.from(Generation.INSTANCE.getClient());
             if (nano.checkStatus().get(1000, TimeUnit.MILLISECONDS) != FeatureStatus.AVAILABLE) return null;
-            Bitmap small = Bitmap.createScaledBitmap(bmp, Math.max(1, bmp.getWidth() / 3), Math.max(1, bmp.getHeight() / 3), true);
+            small = Bitmap.createScaledBitmap(bmp, Math.max(1, bmp.getWidth() / 3), Math.max(1, bmp.getHeight() / 3), true);
             GenerateContentRequest.Builder b = new GenerateContentRequest.Builder(new ImagePart(small),
                 new TextPart("這張圖是哪一種？sms＝手機簡訊、聊天或 Email 訊息的截圖；sign＝公車站牌、路牌或車站指標；invoice＝發票或收據；other＝其他。只回一個英文字。"));
             b.setTemperature(0f);
@@ -313,7 +328,6 @@ public class AbangVisionPlugin extends Plugin {
             b.setMaxOutputTokens(4);
             ListenableFuture<GenerateContentResponse> f = nano.generateContent(b.build());
             GenerateContentResponse r = f.get(DESCRIBE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-            if (small != bmp) small.recycle();
             String out = r.getCandidates().isEmpty() ? "" : String.valueOf(r.getCandidates().get(0).getText()).trim().toLowerCase(Locale.ROOT);
             String kind = out.startsWith("sms") ? "sms" : out.startsWith("sign") ? "sign" : out.startsWith("invoice") ? "invoice" : "other";
             prefs().edit().putString("describe", "ok").apply();
@@ -321,12 +335,17 @@ public class AbangVisionPlugin extends Plugin {
             o.put("engine", "gemini-nano");
             o.put("kind", kind);
             return o;
-        } catch (java.util.concurrent.TimeoutException e) {
-            return null; // 太慢：這次不用，不算不支援
-        } catch (Exception e) {
-            Logger.warn(TAG, "describe: " + e.getClass().getSimpleName());
-            prefs().edit().putString("describe", "no").apply(); // 不支援影像輸入（或其他錯誤）：之後不再試
+        } catch (Throwable e) {
+            // 只有確定「不支援圖片輸入」才記住不再試；逾時、忙碌、配額、背景被擋等暫時性錯誤這次跳過就好
+            Throwable c = e.getCause() != null ? e.getCause() : e;
+            if (c instanceof GenAiException) {
+                int code = ((GenAiException) c).getErrorCode();
+                if (code == GenAiException.ErrorCode.NOT_SUPPORTED) prefs().edit().putString("describe", "no").apply();
+                Logger.warn(TAG, "describe: GenAiException:" + code);
+            } else Logger.warn(TAG, "describe: " + c.getClass().getSimpleName());
             return null;
+        } finally {
+            if (small != null && small != bmp) small.recycle();
         }
     }
 

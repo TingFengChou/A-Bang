@@ -119,16 +119,16 @@ function webCapture(source, want) {
 /**
  * 拍照或選圖，在手機上讀字與條碼。
  * @param {'camera'|'photos'} source
- * @param {{ want?: string[], onReading?: () => void }} [o] onReading：相機或選擇器關了、開始讀（「阿幫在看」動畫從這裡開始）
+ * @param {{ want?: string[], onReading?: () => void, literal?: boolean }} [o] onReading：相機或選擇器關了、開始讀（「阿幫在看」動畫從這裡開始）；literal：照原樣讀（發票）
  * @returns {Promise<ReturnType<typeof normalizeReading>>} 失敗丟 Error，code：cancelled／denied／unavailable／failed／busy
  */
-export async function captureAndRead(source, { want = ['text', 'barcode'], onReading = () => {} } = {}) {
+export async function captureAndRead(source, { want = ['text', 'barcode'], onReading = () => {}, literal = false } = {}) {
   const c = cap();
   if (!c) return webCapture(source, want).then((r) => { onReading(); return r; });
   let handle = null;
   try { handle = c.addListener?.(PLUGIN, 'stage', (e) => { if (e?.stage === 'reading') onReading(); }); } catch { /* 舊版：沒有進度 */ }
   try {
-    return normalizeReading(await c.nativePromise(PLUGIN, 'capture', { source, want }));
+    return normalizeReading(await c.nativePromise(PLUGIN, 'capture', { source, want, ...(literal && { literal: true }) })); // literal：發票不做語言校正（iOS）
   } catch (e) {
     throw fail(e?.code || (/denied|權限/.test(e?.message || '') ? 'denied' : /cancel|沒有(拍照|選)/.test(e?.message || '') ? 'cancelled' : 'failed'));
   } finally {
@@ -175,12 +175,16 @@ export const maskReading = (text) => maskPrivate(String(text)).replace(ACCOUNT, 
 
 // ───── 轉到防詐頁（記憶體，不放網址）─────
 let handoff = null;
+/** 交過去的文字只在這段時間內有效：切頁失敗時，不會在之後某次打開防詐頁才自動送出（已不是確認當下） */
+export const HANDOFF_TTL_MS = 30_000;
 /** 生活頁確認「要檢查」後：把文字交給防詐頁（只在記憶體；不放網址、不存） */
-export function handOff(agentId, text) { handoff = { agentId, text: String(text).slice(0, VISION_MAX) }; }
-/** 防詐頁打開時取走（只取一次） */
-export function takeHandoff(agentId) {
+export function handOff(agentId, text, now = Date.now()) { handoff = { agentId, text: String(text).slice(0, VISION_MAX), at: now }; }
+/** 防詐頁打開時取走（只取一次；超過 30 秒丟掉） */
+export function takeHandoff(agentId, now = Date.now()) {
   if (!handoff || handoff.agentId !== agentId) return null;
-  const t = handoff.text; handoff = null; return t;
+  const { text, at } = handoff;
+  handoff = null;
+  return now - at <= HANDOFF_TTL_MS && now >= at ? text : null;
 }
 
 // ───── 文字（中英）─────
@@ -306,15 +310,31 @@ export async function openVision(o) {
   const info = o.info || await visionStatus();
   const dlg = h('dialog', { class: 'vision-dialog', 'aria-labelledby': 'vs-title' });
   if (o.lang === 'en') dlg.setAttribute('lang', 'en');
+  const title = h('h2', { id: 'vs-title', tabindex: '-1' }, t(`title.${mode}`));
   const body = h('div', { class: 'vs-body' });
-  dlg.append(h('h2', { id: 'vs-title' }, t(`title.${mode}`)), body);
+  // 無障礙（審查）：播報區開視窗時就在、一開始是空的，之後只改文字（帶內容插進去的 role=status，TalkBack／VoiceOver 常常不念）
+  const live = h('p', { class: 'sr-only vs-live', role: 'status' });
+  dlg.append(title, body, live);
   document.body.append(dlg);
   let closed = false;
-  const close = () => { if (closed) return; closed = true; if (dlg.open) dlg.close(); dlg.remove(); };
+  let sayTimer = 0;
+  const close = () => { if (closed) return; closed = true; clearTimeout(sayTimer); if (dlg.open) dlg.close(); dlg.remove(); };
   dlg.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
   dlg.addEventListener('close', close);
   dlg.showModal();
-  const show = (...kids) => { body.replaceChildren(...kids); const f = body.querySelector('textarea, input, .btn.primary, .vs-choice'); if (f && !matchMedia('(pointer: coarse)').matches) f.focus(); };
+  /** 播報：先清空再寫（同一句連續兩次也會念） */
+  const say = (text) => { live.textContent = ''; clearTimeout(sayTimer); sayTimer = setTimeout(() => { live.textContent = text; }, 60); };
+  /**
+   * 換一個步驟：內容、要念的一句、焦點。焦點一定放好（行動裝置也是，不讓它掉到 body）：
+   * 觸控裝置放標題（不自動跳鍵盤），有鍵盤滑鼠時放第一個輸入框或主要按鈕。
+   */
+  const show = (kids, { announce = null, focus = null } = {}) => {
+    body.replaceChildren(...kids.filter(Boolean));
+    if (announce) say(announce);
+    const coarse = matchMedia('(pointer: coarse)').matches;
+    const target = focus || (coarse ? title : body.querySelector('textarea, input, .vs-choice, .btn.primary, button'));
+    (target || title).focus();
+  };
   const want = mode === 'invoice' ? ['barcode', 'text'] : profile === 'antifraud' ? ['text'] : ['text', 'barcode', ...(info.describe && info.describe.state !== 'unsupported' && edgeOn() ? ['describe'] : [])];
   const canText = info.text;
   const canAny = mode === 'antifraud' ? canText : canText || info.barcode;
@@ -328,25 +348,23 @@ export async function openVision(o) {
     kids.push(choices);
     if (info.where === 'web' && !canText) kids.push(h('p', { class: 'vs-note vs-web' }, mode === 'life' && info.barcode ? `${t('web.invoiceOnly')}${t('web.noText')}` : t('web.noText')));
     kids.push(h('p', { class: 'vs-lock', html: LOCK }, t('privacy')), h('div', { class: 'vs-acts' }, btn(t('cancel'), close, 'btn quiet')));
-    show(...kids);
-    if (!matchMedia('(pointer: coarse)').matches) choices.querySelector('.vs-choice')?.focus();
+    show(kids);
   }
 
   function looking(source) {
-    const status = h('span', { class: 'sr-only', role: 'status' }, t(`open.${source}`));
     const box = h('div', { class: 'vs-look', 'data-stage': 'open', html: LOOK_SVG });
-    const title = h('b', {}, t(`open.${source}`));
+    const head = h('b', {}, t(`open.${source}`));
     const sub = h('small', {}, t('privacy'));
-    box.append(title, sub, status);
-    show(box, h('div', { class: 'vs-acts' }, btn(t('cancel'), close, 'btn quiet'))); // 網頁的檔案選擇器不一定回報取消：一定有路出去（晚到的結果丟掉）
-    return () => { box.dataset.stage = 'look'; title.textContent = t('looking'); sub.textContent = t('lookingSub'); status.textContent = t('looking'); };
+    box.append(head, sub);
+    show([box, h('div', { class: 'vs-acts' }, btn(t('cancel'), close, 'btn quiet'))], { announce: t(`open.${source}`), focus: title }); // 網頁的檔案選擇器不一定回報取消：一定有路出去（晚到的結果丟掉）
+    return () => { box.dataset.stage = 'look'; head.textContent = t('looking'); sub.textContent = t('lookingSub'); say(t('looking')); };
   }
 
   async function run(source) {
     const reading = looking(source);
     let r;
     try {
-      r = await captureAndRead(source, { want, onReading: reading });
+      r = await captureAndRead(source, { want, onReading: reading, literal: mode === 'invoice' });
     } catch (e) {
       if (closed) return;
       if (e.code === 'cancelled') { if (o.source) close(); else choose(); return; }
@@ -356,14 +374,19 @@ export async function openVision(o) {
     result(interpret(r, { profile, only: mode === 'invoice' ? 'invoice' : null }));
   }
 
+  /** 只有一句話＋按鈕的步驟（錯誤、沒看到字、拍到右邊 QR） */
+  function message(text, acts, cls = 'vs-msg') {
+    show([h('p', { class: cls }, text), h('div', { class: 'vs-acts' }, ...acts)], { announce: text });
+  }
+
   function showError(code) {
-    const kids = [h('p', { class: 'vs-err', role: 'alert' }, t(`err.${code}`) === `err.${code}` ? t('err.failed') : t(`err.${code}`))];
-    const acts = h('div', { class: 'vs-acts' });
+    const text = t(`err.${code}`) === `err.${code}` ? t('err.failed') : t(`err.${code}`);
+    const acts = [];
     if (code === 'denied' && globalThis.Capacitor?.isPluginAvailable?.('AbangSystem')) {
-      acts.append(btn(t('err.openSettings'), () => globalThis.Capacitor.nativePromise('AbangSystem', 'openSettings', { target: 'app' }).catch(() => {}), 'btn primary'));
+      acts.push(btn(t('err.openSettings'), () => globalThis.Capacitor.nativePromise('AbangSystem', 'openSettings', { target: 'app' }).catch(() => {}), 'btn primary'));
     }
-    acts.append(btn(t('retry'), () => choose(), 'btn quiet'), btn(t('close'), close, 'btn quiet'));
-    show(...kids, acts);
+    acts.push(btn(t('retry'), () => choose(), 'btn quiet'), btn(t('close'), close, 'btn quiet'));
+    message(text, acts, 'vs-err');
   }
 
   /** 讀出來的字（可改、可遮）＋個資提醒 */
@@ -372,6 +395,7 @@ export async function openVision(o) {
     area.value = text;
     const kinds = privateKinds(text);
     const kids = [area];
+    let warn = '';
     if (kinds.length) {
       let masked = false;
       const original = text;
@@ -382,25 +406,25 @@ export async function openVision(o) {
         toggle.setAttribute('aria-pressed', String(masked));
       }, 'btn small quiet vs-mask');
       toggle.setAttribute('aria-pressed', 'false');
-      kids.push(h('p', { class: 'vs-warn' }, t('private.found', { what: kinds.map((k) => t(`what.${k}`)).join(t('sep')) }), ' ', toggle));
+      warn = t('private.found', { what: kinds.map((k) => t(`what.${k}`)).join(t('sep')) });
+      kids.push(h('p', { class: 'vs-warn' }, warn, ' ', toggle));
     }
     if (text.length > VISION_MAX) kids.push(h('p', { class: 'vs-note' }, t('truncated', { n: VISION_MAX })));
-    return { area, kids };
+    return { area, kids, warn };
   }
 
   function result(x) {
     const saw = (facts) => h('div', { class: 'vs-saw' }, h('b', {}, `${t('saw')}：`), facts);
-    const status = h('span', { class: 'sr-only', role: 'status' });
-    if (x.kind === 'empty') { show(h('p', { role: 'alert' }, t('empty')), h('div', { class: 'vs-acts' }, btn(t('retry'), choose, 'btn primary'), btn(t('close'), close, 'btn quiet'))); return; }
-    if (x.kind === 'invoice-right') { show(h('p', { role: 'alert' }, t('invoice.right')), h('div', { class: 'vs-acts' }, btn(t('retry'), choose, 'btn primary'), btn(t('close'), close, 'btn quiet'))); return; }
-    if (x.kind === 'invoice') return invoiceStep(x, saw, status);
+    if (x.kind === 'empty') { message(t('empty'), [btn(t('retry'), choose, 'btn primary'), btn(t('close'), close, 'btn quiet')]); return; }
+    if (x.kind === 'invoice-right') { message(t('invoice.right'), [btn(t('retry'), choose, 'btn primary'), btn(t('close'), close, 'btn quiet')]); return; }
+    if (x.kind === 'invoice') return invoiceStep(x, saw);
     if (x.kind === 'scam') {
-      const { area, kids } = editor(x.text);
+      const { area, kids, warn } = editor(x.text);
       const go = () => { const v = area.value.trim(); if (!v) { area.focus(); return; } close(); o.scam?.(v.slice(0, VISION_MAX)); };
-      status.textContent = `${t('saw')}：${x.text.slice(0, 60)}`;
       const lead = profile === 'antifraud' ? t('scam.edit') : t('scam.ask');
-      show(status, h('p', { class: profile === 'antifraud' ? 'vs-note' : 'vs-ask' }, lead), ...kids,
-        h('div', { class: 'vs-acts' }, btn(profile === 'antifraud' ? t('scam.check') : t('scam.yes'), go, 'btn primary vs-go'), btn(profile === 'antifraud' ? t('cancel') : t('scam.no'), close, 'btn quiet')));
+      show([h('p', { class: profile === 'antifraud' ? 'vs-note' : 'vs-ask' }, lead), ...kids,
+        h('div', { class: 'vs-acts' }, btn(profile === 'antifraud' ? t('scam.check') : t('scam.yes'), go, 'btn primary vs-go'), btn(profile === 'antifraud' ? t('cancel') : t('scam.no'), close, 'btn quiet'))],
+      { announce: [`${t('saw')}：${x.text.slice(0, 60)}`, profile === 'antifraud' ? '' : lead, warn].filter(Boolean).join(' ') });
       return;
     }
     if (x.kind === 'sign') {
@@ -415,53 +439,56 @@ export async function openVision(o) {
       const go = () => { const v = q.value.trim(); if (!v) { q.focus(); return; } close(); o.ask?.(v); };
       q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
       const alts = (s.alternatives || []).length ? h('div', { class: 'vs-alt' }, ...s.alternatives.map((a) => btn(a, () => { q.value = a; q.focus(); }, 'chip'))) : null;
-      status.textContent = `${t('saw')}：${[...facts.children].map((li) => li.textContent).join(t('sep'))}`;
-      show(status, saw(facts), h('p', {}, s.needsMore ? t('sign.more') : t('sign.lead')), q, alts, h('div', { class: 'vs-acts' }, btn(t('send'), go, 'btn primary vs-go'), btn(t('cancel'), close, 'btn quiet')));
-      if (s.needsMore) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+      show([saw(facts), h('p', {}, s.needsMore ? t('sign.more') : t('sign.lead')), q, alts, h('div', { class: 'vs-acts' }, btn(t('send'), go, 'btn primary vs-go'), btn(t('cancel'), close, 'btn quiet'))],
+        { announce: `${t('saw')}：${[...facts.children].map((li) => li.textContent).join(t('sep'))}`, focus: s.needsMore ? q : null });
+      if (s.needsMore) q.setSelectionRange(q.value.length, q.value.length);
       return;
     }
     // 只有字：放進輸入框讓使用者自己改成問題
     const { area, kids } = editor(x.text);
-    status.textContent = `${t('saw')}：${x.text.slice(0, 60)}`;
-    show(status, h('p', {}, t('text.lead')), ...kids, h('div', { class: 'vs-acts' }, btn(t('text.use'), () => { const v = area.value.trim(); close(); if (v) o.fill?.(v.slice(0, VISION_MAX)); }, 'btn primary vs-go'), btn(t('cancel'), close, 'btn quiet')));
+    show([h('p', {}, t('text.lead')), ...kids, h('div', { class: 'vs-acts' }, btn(t('text.use'), () => { const v = area.value.trim(); close(); if (v) o.fill?.(v.slice(0, VISION_MAX)); }, 'btn primary vs-go'), btn(t('cancel'), close, 'btn quiet'))],
+      { announce: `${t('saw')}：${x.text.slice(0, 60)}` });
   }
 
-  function invoiceStep(x, saw, status) {
+  function invoiceStep(x, saw) {
     const inv = x.invoice;
     const when = inv.date ? t('invoice.when.date', { v: inv.date }) : inv.period ? t('invoice.when.period', { v: inv.period }) : '';
     const facts = h('ul', { class: 'vs-facts' }, h('li', {}, t('invoice.saw', inv)), when && h('li', {}, when));
     let dateIn = null;
-    const kids = [status, saw(facts)];
+    const kids = [saw(facts)];
     if (!inv.date && !inv.period) {
       dateIn = h('input', { type: 'date', 'aria-label': t('invoice.date'), max: todayTW(), value: todayTW() });
       kids.push(h('p', {}, t('invoice.needDate'), ' ', dateIn));
     }
-    status.textContent = `${t('saw')}：${facts.textContent}`;
-    const out = h('p', { class: 'vs-result', role: 'status' });
+    const out = h('p', { class: 'vs-result' }); // 結果的字照樣念（經常駐的播報區）
     const acts = h('div', { class: 'vs-acts' });
+    const report = (text, cls = '') => { out.className = `vs-result${cls ? ` ${cls}` : ''}`; out.textContent = text; say(text); };
     const save = async () => {
       acts.replaceChildren();
+      title.focus(); // 按鈕被拿掉：焦點不能掉到 body
       const code = { number: inv.number, ...(inv.date ? { date: inv.date } : inv.period ? { period: inv.period } : { date: dateIn?.value }) };
       let id = null;
       try { id = wallet.add(code).id; } catch (e) {
         const same = wallet.list().find((w) => w.number === code.number && (w.date === code.date || (code.period && w.period === code.period)));
-        if (!same) { out.className = 'vs-result vs-err'; out.textContent = e.message; acts.append(btn(t('close'), close, 'btn quiet')); return; }
+        if (!same) { report(e.message, 'vs-err'); const c = btn(t('close'), close, 'btn quiet'); acts.append(c); c.focus(); return; }
         id = same.id;
       }
-      out.textContent = t('invoice.checking');
+      report(t('invoice.checking'));
       try {
         await checkWallet(o.callTool, { all: true });
         const item = wallet.list().find((w) => w.id === id);
-        out.textContent = invoiceResultText(item, t);
-        out.classList.toggle('won', item?.status === 'won');
+        report(invoiceResultText(item, t), item?.status === 'won' ? 'won' : '');
         if (item?.status === 'won') confetti(dlg);
-      } catch (e) { out.textContent = t('invoice.fail', { msg: e.message }); }
+      } catch (e) { report(t('invoice.fail', { msg: e.message })); }
       o.onSaved?.();
+      if (closed) return;
       const link = h('a', { class: 'btn quiet', href: '#/s/invoice', onclick: close }, t('invoice.open'));
-      acts.append(...(mode === 'invoice' ? [] : [link]), btn(t('close'), close, 'btn primary'));
+      const done = btn(t('close'), close, 'btn primary');
+      acts.append(...(mode === 'invoice' ? [] : [link]), done);
+      done.focus();
     };
     acts.append(btn(t('invoice.save'), save, 'btn primary vs-go'), btn(t('cancel'), close, 'btn quiet'));
-    show(...kids, out, acts);
+    show([...kids, out, acts], { announce: `${t('saw')}：${[...facts.children].map((li) => li.textContent).join(t('sep'))}` });
   }
 
   if (o.source) run(o.source); else choose();
@@ -470,7 +497,7 @@ export async function openVision(o) {
 const edgeOn = () => { try { return globalThis.localStorage?.getItem('abang.edgeAI') !== 'off'; } catch { return true; } };
 
 /**
- * 輸入列的相機鍵（問阿幫、底部對話、防詐頁）：能看才顯示；點了開「讓阿幫看」視窗。
+ * 輸入列的相機鍵（問阿幫、底部對話、防詐頁）：能讀字才顯示；點了開「讓阿幫看」視窗。
  * @param {HTMLFormElement} form .chat-form
  * @param {{ profile: string, lang: () => ('en'|null), callTool: Function, ask: Function, fill: Function, scam: Function }} o
  */
@@ -484,7 +511,7 @@ export function mountVisionButton(form, o) {
   let info = null;
   const check = async () => {
     info = await visionStatus();
-    b.hidden = !visionEnabled() || !(profile === 'antifraud' ? info.text : info.text || info.barcode);
+    b.hidden = !visionEnabled() || !info.text; // 要讀字才給（網頁版只有 BarcodeDetector 時拍簡訊會「沒看到字」；發票頁有自己的網頁掃描）
   };
   check();
   globalThis.addEventListener?.('abang:vision-setting', check);

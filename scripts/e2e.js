@@ -1996,10 +1996,13 @@ test('阿幫會看：防詐頁拍可疑訊息 → 看的動畫 → 阿幫看到�
     await page.waitForSelector('.vs-look[data-stage="look"]');
     assert.equal(await page.locator('.vs-look .vs-core').evaluate((n) => getComputedStyle(n).animationName), 'vs-beat');
     assert.equal(await page.locator('.vs-look .vs-scan').evaluate((n) => getComputedStyle(n).animationName), 'vs-scan');
-    assert.match(await page.textContent('.vs-look [role=status]'), /阿幫在看/);
+    await page.waitForFunction(() => /阿幫在看/.test(document.querySelector('.vision-dialog .vs-live[role=status]')?.textContent || '')); // 常駐的播報區（審查：帶內容插入的不一定會念）
     await page.locator('.vision-dialog').screenshot({ path: new URL('phone-vision-looking.png', SHOTS).pathname });
     await page.waitForSelector('.vision-dialog textarea');
     assert.equal(bodies.length, 0, '還沒確認：什麼都沒送');
+    await page.waitForFunction(() => /^阿幫看到了：/.test(document.querySelector('.vision-dialog .vs-live')?.textContent || ''));
+    assert.match(await page.textContent('.vision-dialog .vs-live'), /像手機的號碼/, '個資提醒也念');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'vs-title', '手機：焦點在視窗標題（不掉到 body、不自動跳鍵盤）');
     assert.match(await page.inputValue('.vision-dialog textarea'), /tw388\.xyz/);
     assert.match(await page.textContent('.vs-warn'), /手機/);
     await page.click('.vs-mask');
@@ -2075,8 +2078,9 @@ test('阿幫會看：拍發票 → 存進我的發票並馬上對獎；發票頁
     assert.equal(await page.textContent('#inv-scan'), '拍發票 QR code');
     assert.equal(await page.textContent('#inv-pick'), '選發票照片');
     await page.click('#inv-scan');
-    await page.waitForSelector('.vision-dialog [role=alert]');
-    assert.match(await page.textContent('.vision-dialog [role=alert]'), /右邊的明細 QR code/);
+    await page.waitForSelector('.vision-dialog .vs-msg');
+    assert.match(await page.textContent('.vision-dialog .vs-msg'), /右邊的明細 QR code/);
+    await page.waitForFunction(() => /右邊的明細/.test(document.querySelector('.vision-dialog .vs-live')?.textContent || ''));
     await page.click('.vision-dialog .btn.quiet >> text=關閉');
     await page.click('#inv-pick');
     await page.waitForSelector('.vs-facts');
@@ -2110,7 +2114,7 @@ test('阿幫會看：相機權限被拒說原因、一鍵到設定；取消回�
   }, { init: fakeVision, initArg: [{ reject: 'denied' }, { reject: 'cancelled' }, smsReading(800)], ignore: /not in test/ });
 });
 
-test('阿幫會看（網頁版降級）：沒有本機辨識不顯示相機鍵；只有 BarcodeDetector 只讀發票並說明讀字要用 App；設定可關；阿幫的腦袋照實說', async () => {
+test('阿幫會看（網頁版降級）：沒有本機讀字不顯示相機鍵（只有 BarcodeDetector 也不給，發票頁用自己的掃描）；瀏覽器能讀字時在本機讀；設定可關；阿幫的腦袋照實說', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     await page.waitForSelector('.chat-form input');
     await page.waitForTimeout(300);
@@ -2120,15 +2124,33 @@ test('阿幫會看（網頁版降級）：沒有本機辨識不顯示相機鍵�
     assert.match(await page.textContent('#ai-vision-body'), /請用手機 App/);
   }, { init: () => { window.BarcodeDetector = undefined; window.TextDetector = undefined; } });
   await withPage(DEVICES.phone, '#/agent', async (page) => {
-    await page.click('.chat-form .chat-cam');
-    await page.waitForSelector('.vs-web');
-    assert.match(await page.textContent('.vs-web'), /網頁版只能讀發票的 QR code.*請用阿幫手機 App/);
-    await page.keyboard.press('Escape');
+    await page.waitForSelector('.chat-form input');
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator('.chat-cam').isHidden(), true, '只有 BarcodeDetector：問阿幫不給相機鍵（拍簡訊會讀不到字）');
     await page.goto(`${base}/#/agent/antifraud`);
     await page.waitForSelector('.chat-form input');
     await page.waitForTimeout(300);
     assert.equal(await page.locator('.chat-cam').isHidden(), true, '防詐要讀字：網頁版沒有讀字就不給');
+    await page.goto(`${base}/#/s/invoice`);
+    await page.waitForSelector('#inv-scan');
+    assert.equal(await page.textContent('#inv-scan'), '掃發票 QR code', '發票頁維持網頁的連續掃描');
   }, { init: () => { window.BarcodeDetector = class { static async getSupportedFormats() { return ['qr_code']; } async detect() { return []; } }; window.TextDetector = undefined; } });
+  // 瀏覽器有 TextDetector：在本機讀字（選檔），照片不送伺服器
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const uploads = [];
+    page.on('request', (r) => { if (r.method() === 'POST' && /image|base64/.test(r.postData() || '')) uploads.push(r.url()); });
+    await page.click('.chat-form .chat-cam');
+    await page.waitForSelector('.vs-choice');
+    assert.equal(await page.locator('.vs-web').count(), 0, '能讀字：不需要說明');
+    const chooser = page.waitForEvent('filechooser');
+    await page.click('.vs-choice[data-source="photos"]');
+    const fc = await chooser;
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAIklEQVR4AdyKMQ0AAAyDyPx73lYBrYAmcMEAm9Tw3dMxHAAAAP//n8zf4QAAAAZJREFUAwCzCQgJB3GDOQAAAABJRU5ErkJggg==', 'base64');
+    await fc.setFiles({ name: 'sms.png', mimeType: 'image/png', buffer: png });
+    await page.waitForSelector('.vs-ask');
+    assert.match(await page.inputValue('.vision-dialog textarea'), /tw388\.xyz/);
+    assert.deepEqual(uploads, [], '照片沒有送出');
+  }, { init: () => { window.TextDetector = class { async detect() { return [{ rawValue: '請於24小時內點擊 https://tw388.xyz/p 補運費', boundingBox: { x: 0, y: 0, width: 1, height: 1 } }]; } }; window.BarcodeDetector = undefined; } });
   // App：設定頁關掉「讓阿幫看照片」→ 相機鍵不見；阿幫的腦袋列出外掛回報的引擎
   await withPage(DEVICES.phone, '#/settings', async (page) => {
     await page.waitForFunction(() => /ML Kit 文字辨識/.test(document.querySelector('#vision-status')?.textContent || ''));

@@ -12,9 +12,9 @@ export function normText(s) {
 }
 
 // ───── 可疑訊息（簡訊、LINE、Email 截圖）─────
-/** [代號, 規則, 分數]：網址、驗證碼、轉帳是強訊號（單獨就算），其他要兩個以上 */
+/** [代號, 規則, 分數]：驗證碼、轉帳是強訊號（單獨就算）；網址只有 1 分（外送、物流的正常通知也有短網址），要配點擊、急迫等其他訊號才算 */
 const MESSAGE_SIGNALS = [
-  ['url', /https?:\/\/|www\.|\b[a-z0-9-]{2,}\.(?:com|net|org|tw|cc|xyz|top|info|me|io|co|ly|vip|shop|site|online|app|link|click)\b/i, 2],
+  ['url', /https?:\/\/|www\.|\b[a-z0-9-]{2,}\.(?:com|net|org|tw|cc|xyz|top|info|me|io|co|ly|vip|shop|site|online|app|link|click)\b/i, 1],
   ['otp', /驗證碼|認證碼|OTP|動態密碼|簡訊碼/i, 2],
   ['transfer', /轉帳|匯款|匯入|ATM|解除分期|監管帳戶|提款卡|帳戶.{0,4}(?:凍結|異常|鎖定)/i, 2],
   ['phone', /(?<![\d-])(?:09\d{2}[-\s]?\d{3}[-\s]?\d{3}|0\d{1,2}[-\s]?\d{3,4}[-\s]?\d{4}|\+\s?886)(?![\d-])/, 1],
@@ -147,7 +147,7 @@ export function signQuestion(info, lang = null) {
 
 /**
  * 讀出來的字是哪一種。條碼（發票 QR）由前端先用 parseInvoiceCode 判斷，這裡只看文字。
- * 順序：發票（有證明聯字樣或字軌號碼＋日期）→ 強烈的詐騙訊號（網址、驗證碼、轉帳）→ 站牌路牌 → 其他詐騙訊號 → 只有字。
+ * 順序：發票（有證明聯字樣或字軌號碼＋日期）→ 強烈的詐騙訊號（驗證碼、轉帳）→ 站牌路牌（讀到路線時，網址之類的弱訊號不蓋過站牌）→ 其他詐騙訊號（兩個以上）→ 只有字。
  * @param {{ text?: string, lines?: Array<string | { text: string, box?: object }> }} reading
  * @param {{ profile?: string, hint?: string|null }} [opt] profile：antifraud 時一律當可疑訊息；hint：裝置模型的分類（sms／sign／invoice），只在認不出來時參考
  * @returns {{ kind: 'scam'|'sign'|'invoice'|'text'|'empty', text: string, invoice?: object, sign?: object, signals?: string[] }}

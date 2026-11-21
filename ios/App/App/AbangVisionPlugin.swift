@@ -23,6 +23,10 @@ public class AbangVisionPlugin: CAPPlugin, CAPBridgedPlugin, UIImagePickerContro
     private static let maxEdge: CGFloat = 2560
     private var pending: CAPPluginCall?
     private var want: [String] = ["text", "barcode"]
+    /// 發票：字軌號碼、網址照原樣讀，不做語言校正（校正會改掉英文字母或符號）
+    private var literal = false
+    /// 一進 capture 就設（權限框還開著時連點兩次也不會蓋掉前一個 call）；結束（resolve／reject）時清掉。只在 main queue 讀寫
+    private var busy = false
 
     @objc func available(_ call: CAPPluginCall) {
         let cam = UIImagePickerController.isSourceTypeAvailable(.camera)
@@ -43,24 +47,38 @@ public class AbangVisionPlugin: CAPPlugin, CAPBridgedPlugin, UIImagePickerContro
     }
 
     @objc func capture(_ call: CAPPluginCall) {
-        if pending != nil { call.reject("上一張還在讀", "busy"); return }
+        DispatchQueue.main.async { self.start(call) }
+    }
+
+    private func start(_ call: CAPPluginCall) {
+        if busy { call.reject("上一張還在讀", "busy"); return }
+        busy = true
         want = (call.getArray("want") as? [String]) ?? ["text", "barcode"]
+        literal = call.getBool("literal") ?? false
         let source = call.getString("source") ?? "camera"
         if source == "photos" { presentPicker(call); return }
-        guard UIImagePickerController.isSourceTypeAvailable(.camera) else { call.reject("這支手機沒有相機", "unavailable"); return }
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else { finish(call, reject: "這支手機沒有相機", "unavailable"); return }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: presentCamera(call)
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .video) { ok in
-                DispatchQueue.main.async { ok ? self.presentCamera(call) : call.reject("沒有相機權限", "denied") }
+                DispatchQueue.main.async { ok ? self.presentCamera(call) : self.finish(call, reject: "沒有相機權限", "denied") }
             }
-        default: call.reject("沒有相機權限", "denied")
+        default: finish(call, reject: "沒有相機權限", "denied")
+        }
+    }
+
+    /// 結束一次 capture：放掉 busy 再回 JS（任何執行緒都可以呼叫）
+    private func finish(_ call: CAPPluginCall, reject message: String? = nil, _ code: String? = nil, resolve data: [String: Any]? = nil) {
+        DispatchQueue.main.async {
+            self.busy = false
+            if let data = data { call.resolve(data) } else { call.reject(message ?? "這次沒讀到", code ?? "failed") }
         }
     }
 
     private func presentCamera(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
-            guard let vc = self.bridge?.viewController else { call.reject("打不開相機", "unavailable"); return }
+            guard let vc = self.bridge?.viewController else { self.finish(call, reject: "打不開相機", "unavailable"); return }
             self.pending = call
             let p = UIImagePickerController()
             p.sourceType = .camera
@@ -71,7 +89,7 @@ public class AbangVisionPlugin: CAPPlugin, CAPBridgedPlugin, UIImagePickerContro
 
     private func presentPicker(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
-            guard let vc = self.bridge?.viewController else { call.reject("打不開相片選擇器", "unavailable"); return }
+            guard let vc = self.bridge?.viewController else { self.finish(call, reject: "打不開相片選擇器", "unavailable"); return }
             self.pending = call
             var cfg = PHPickerConfiguration()
             cfg.filter = .images
@@ -87,22 +105,22 @@ public class AbangVisionPlugin: CAPPlugin, CAPBridgedPlugin, UIImagePickerContro
         let img = info[.originalImage] as? UIImage
         picker.dismiss(animated: true)
         guard let call = take() else { return }
-        guard let img = img else { call.reject("沒有拍照", "cancelled"); return }
+        guard let img = img else { finish(call, reject: "沒有拍照", "cancelled"); return }
         read(call, img)
     }
 
     public func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
         picker.dismiss(animated: true)
-        take()?.reject("沒有拍照", "cancelled")
+        if let call = take() { finish(call, reject: "沒有拍照", "cancelled") }
     }
 
     // MARK: 相片選擇器
     public func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         picker.dismiss(animated: true)
         guard let call = take() else { return }
-        guard let item = results.first?.itemProvider, item.canLoadObject(ofClass: UIImage.self) else { call.reject("沒有選照片", "cancelled"); return }
+        guard let item = results.first?.itemProvider, item.canLoadObject(ofClass: UIImage.self) else { finish(call, reject: "沒有選照片", "cancelled"); return }
         item.loadObject(ofClass: UIImage.self) { obj, _ in
-            guard let img = obj as? UIImage else { call.reject("讀不到這張圖", "failed"); return }
+            guard let img = obj as? UIImage else { self.finish(call, reject: "讀不到這張圖", "failed"); return }
             self.read(call, img)
         }
     }
@@ -113,14 +131,15 @@ public class AbangVisionPlugin: CAPPlugin, CAPBridgedPlugin, UIImagePickerContro
     private func read(_ call: CAPPluginCall, _ image: UIImage) {
         notifyListeners("stage", data: ["stage": "reading"]) // JS 開始「阿幫在看」動畫
         let want = self.want
+        let literal = self.literal
         DispatchQueue.global(qos: .userInitiated).async {
             let t0 = Date()
-            guard let cg = Self.upright(image) else { call.reject("讀不到這張圖", "failed"); return }
+            guard let cg = Self.upright(image) else { self.finish(call, reject: "讀不到這張圖", "failed"); return }
             let handler = VNImageRequestHandler(cgImage: cg, orientation: .up, options: [:])
             var reqs: [VNRequest] = []
             let textReq = VNRecognizeTextRequest()
             textReq.recognitionLevel = .accurate
-            textReq.usesLanguageCorrection = true
+            textReq.usesLanguageCorrection = !literal // 發票：不校正（字軌號碼、網址照原樣）
             let langs = ["zh-Hant", "en-US"]
             let supported = (try? textReq.supportedRecognitionLanguages()) ?? []
             textReq.recognitionLanguages = langs.filter { supported.isEmpty || supported.contains($0) }
@@ -128,7 +147,7 @@ public class AbangVisionPlugin: CAPPlugin, CAPBridgedPlugin, UIImagePickerContro
             let codeReq = VNDetectBarcodesRequest()
             codeReq.symbologies = [.qr, .code39]
             if want.contains("barcode") { reqs.append(codeReq) }
-            do { try handler.perform(reqs) } catch { CAPLog.print("AbangVision: read failed"); call.reject("這次沒讀到", "failed"); return }
+            do { try handler.perform(reqs) } catch { CAPLog.print("AbangVision: read failed"); self.finish(call, reject: "這次沒讀到", "failed"); return }
             var out: [String: Any] = ["engine": "apple-vision", "width": cg.width, "height": cg.height]
             if want.contains("text") {
                 let lines: [[String: Any]] = (textReq.results ?? []).compactMap { o in
@@ -146,7 +165,7 @@ public class AbangVisionPlugin: CAPPlugin, CAPBridgedPlugin, UIImagePickerContro
             let ms = Int(Date().timeIntervalSince(t0) * 1000)
             out["ms"] = ms
             CAPLog.print("AbangVision: read in \(ms) ms") // 只記耗時，不記內容
-            call.resolve(out)
+            self.finish(call, resolve: out)
         }
     }
 

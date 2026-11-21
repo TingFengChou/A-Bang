@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 只開放阿幫會看的拍照暫存資料夾（AbangVisionPlugin：系統相機寫到 cache/vision/，讀完即刪；ADR-0015） -->
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <external-path name="my_images" path="." />
-    <cache-path name="my_cache_images" path="." />
+    <cache-path name="vision" path="vision/" />
 </paths>

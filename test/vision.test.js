@@ -32,7 +32,7 @@ test('normText：全形數字與冒號換半形、空白縮成一個', () => {
   assert.equal(normText('　３０７　 往　板橋：'), '307 往 板橋:');
 });
 
-test('可疑訊息：網址、驗證碼、轉帳單獨就算；只有電話或只有「繳費」不算', () => {
+test('可疑訊息：驗證碼、轉帳單獨就算；只有電話或只有「繳費」不算', () => {
   assert.ok(looksLikeMessage(SMS));
   assert.deepEqual(messageSignals(SMS).signals.sort(), ['click', 'lure', 'urgent', 'url']);
   assert.ok(looksLikeMessage('您的驗證碼是 123456，請勿告訴他人'));
@@ -92,6 +92,17 @@ test('分類：簡訊 → scam、站牌 → sign（有 1999 專線也不是詐�
   assert.equal(classifyText({ text: '便利商店' }, { hint: 'sign' }).kind, 'sign', '裝置模型說是站牌時才算');
   assert.equal(classifyText({ text: '  ' }).kind, 'empty');
   assert.equal(classifyText({ text: '今天晚上吃什麼' }, { profile: 'antifraud' }).kind, 'scam');
+});
+
+test('網址只有 1 分：站牌上的廣告網址不蓋過站牌、外送通知的短網址不算詐騙；網址＋點擊、急迫才算（審查）', () => {
+  const ad = classifyText({ lines: ['307', '敦化市場', '往 板橋', '廣告 www.example.com.tw'] });
+  assert.equal(ad.kind, 'sign', '讀到路線：單獨的網址不蓋過站牌');
+  assert.equal(ad.sign.question, '307 公車到「敦化市場」還要多久？');
+  assert.equal(classifyText({ text: '【Foodpanda】您的訂單已送達，祝您用餐愉快 https://fdp.ly/8kQ2' }).kind, 'text', '外送訂單通知帶短網址：不是詐騙');
+  assert.ok(!looksLikeMessage('https://tw388.xyz'), '只有網址：不夠');
+  assert.ok(looksLikeMessage('請點擊 https://tw388.xyz 更新資料'), '網址＋點擊');
+  assert.ok(looksLikeMessage('最後通知 https://tw388.xyz'), '網址＋急迫');
+  assert.equal(classifyText({ lines: ['307', '敦化市場', '您的驗證碼是 123456'] }).kind, 'scam', '驗證碼仍是強訊號，排在站牌前面');
 });
 
 test('demo-intent：組出來的站牌問題認得路線與站名（盯那一站）；沒有站名照舊', () => {
@@ -170,11 +181,17 @@ test('個資：找出手機、身分證、卡號、帳號；遮起來（發票 8
   assert.deepEqual(V.privateKinds(SMS), []);
 });
 
-test('轉到防詐頁：只在記憶體、只給指定的頁、只取一次、最多 500 字', () => {
+test('轉到防詐頁：只在記憶體、只給指定的頁、只取一次、最多 500 字、30 秒內有效', () => {
   V.handOff('antifraud', 'x'.repeat(800));
   assert.equal(V.takeHandoff('life'), null);
   assert.equal(V.takeHandoff('antifraud').length, V.VISION_MAX);
   assert.equal(V.takeHandoff('antifraud'), null);
+  // 切頁失敗、之後才打開防詐頁：超過 30 秒就丟掉，不自動送出
+  V.handOff('antifraud', '可疑訊息', 1000);
+  assert.equal(V.takeHandoff('antifraud', 1000 + V.HANDOFF_TTL_MS + 1), null);
+  assert.equal(V.takeHandoff('antifraud', 1000 + V.HANDOFF_TTL_MS + 2), null, '過期的也清掉');
+  V.handOff('antifraud', '可疑訊息', 1000);
+  assert.equal(V.takeHandoff('antifraud', 1000 + V.HANDOFF_TTL_MS), '可疑訊息');
 });
 
 test('設定開關：預設開、關掉記在本機', () => {

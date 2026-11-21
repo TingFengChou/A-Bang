@@ -18,7 +18,8 @@
 - 測試：npm test 新增 18 項（vision.test.js）；E2E 新增 6 項（假外掛：簡訊、站牌、發票、權限被拒、網頁降級、reduced motion）；Android assembleDebug、iOS xcodebuild（不簽署）成功
 - 文件：ADR-0015、adr/README、UX.md §5.0.3、AGENT_ANTIFRAUD.md §1、PLAN.md（M14-02、M11-03）、CLAUDE.md、PROGRESS.md
 - 下一個：Pixel、iPhone 實機確認讀字品質與權限流程
-- 卡住：無（APK 大小：打包版 ML Kit 讓 debug APK 約 10→74 MB，上架用 App Bundle 每支手機約多 16 MB，要產品負責人決定）
+- 卡住：無（APK 大小：打包版 ML Kit 讓 debug APK 約 10→74 MB；產品負責人同意打包在 App 裡）
+- 審查修正：拍照暫存檔在 App 被回收時也刪、外掛啟動清空、FileProvider 只開放 cache/vision/；讀圖接住 OutOfMemoryError、解碼時就縮；Gemini Nano 只有 NOT_SUPPORTED 才記不支援；網址降為 1 分、讀到路線時不蓋過站牌；常駐播報區與每步焦點；輸入列相機鍵只在能讀字時顯示；交給防詐頁的文字 30 秒過期；iOS 擋重入、發票不做語言校正。
 
 
 ## 2026-11-21 模型模式 P5：明確的規則不交給小模型、判斷層不改判
