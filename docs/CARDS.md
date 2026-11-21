@@ -119,7 +119,9 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 // states[].key 另有 badAir（空品不佳，from: aqi_nearby，M10）；data.air = { site, aqi, status } | null
 // mode：使用者指定的方式；avoid：使用者說不要的方式（A3，ranking.excluded[].why「你說不要叫車」；全部被排除時卡片說「排除你說不要的方式後，沒有其他可行的方案」，與「都趕不上」分開）
 // 同時給 mode=X 與 avoid 含 X：X 被排除、回 modeUnavailable（照分數建議並明說）
-// options[].lastBus：接近末班（示範 23:00 後）；skipped[]：沒列入的方式與原因（深夜收班、末班已過、YouBike 沒車位…）
+// options[].lastBus：接近末班（示範 23:00 後）；options[].lastTrain：捷運末班快到了（收班前 30 分）；skipped[]：查了但不可行的方式（深夜收班、末班已過、YouBike 沒車位…）
+// missing[]：所有沒列入的方式與原因（含 skipped、附近沒有捷運站、沒有趕得上的班次；{ role, kind, why, whyEn, closed? }），卡片「沒列入」清單用它（舊資料只有 skipped）；英文卡片用 whyEn
+// night：深夜的一句 { text, textEn, closed[], late[] }，卡片最上面橘底一行（.ab-night）
 // habit：使用者同意過的常選比例（{ metro: 0.6 }，選填）；habitOn：這次有沒有加分；ranking.ranked[].breakdown.habit：習慣加分（ADR-0010 2026-11-21）
 // ask：關鍵問題（{ state, text, textEn, from, to, dMin, dCost }，ADR-0016）；states[].source 另有 usual（你說過，i18n trip.state.usual）
 // 卡片：按建議方案的導航／叫車／訂票時送 window 事件 abang:choice { role }（網頁 App 記常選的方式；MCP Apps 裡沒人聽）

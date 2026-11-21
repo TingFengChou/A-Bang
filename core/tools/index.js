@@ -61,6 +61,6 @@ export async function callTool(svc, name, args = {}) {
   const { result: { data, text }, metrics } = await measure(() => t.run(svc, parsed.data));
   // speak：討論串中「工具發言」的一句話，由資料決定（ADR-0009）
   const said = t.speak ? t.speak(data, parsed.data) : null;
-  const speak = said && metrics?.fallback ? `${said}（TDX 每分鐘的查詢額度用完，這次先用示範資料）` : said;
+  const speak = said && metrics?.fallback && !/TDX/.test(said) ? `${said}（TDX 每分鐘的查詢額度用完，這次先用示範資料）` : said;
   return { name, card: t.card ?? null, ...(t.card && { v: CARD_VERSION }), mode: metrics?.fallback ? 'demo' : t.modeOf ? t.modeOf(svc) : svc.mode, ...(metrics?.fallback && { fallback: 'tdx-limit' }), data, text, speak, args: parsed.data, metrics };
 }

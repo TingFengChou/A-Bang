@@ -145,6 +145,7 @@ export const MESSAGES = {
   'trip.bikeRent': 'Rent at {name} · {n} bikes',
   'trip.bikeReturn': 'Return at {name} · {n} docks',
   'trip.skipped': '{name} not included: {why}',
+  'trip.missing': 'Ways not included and why',
   'trip.pickAsk': 'Switch to {name}',
   'trip.title': '{from} → {to}',
   'trip.best': 'Best',

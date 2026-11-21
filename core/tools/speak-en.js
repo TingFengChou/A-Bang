@@ -45,8 +45,9 @@ export const SPEAK_EN = {
   plan_trip: (d) => {
     const best = d.options.find((o) => o.id === d.best);
     if (!best) return 'No workable way found for this trip.';
-    if (d.single) return `Only one option found: ${enName(best)} (${best.minutes} min).`;
-    return `Compared ${plural(d.options.length, 'option')}; best is ${enName(best)} (${best.minutes} min).`;
+    const night = d.night?.textEn ? `${d.night.textEn} ` : ''; // 深夜：第一句先說收班或末班快到了
+    if (d.single) return `${night}Only one option found: ${enName(best)} (${best.minutes} min).`;
+    return `${night}Compared ${plural(d.options.length, 'option')}; best is ${enName(best)} (${best.minutes} min).`;
   },
   weather_now: (d) => {
     const pop = d.pop3h != null ? `, ${d.pop3h}% chance of rain in the next 3 hours` : '';

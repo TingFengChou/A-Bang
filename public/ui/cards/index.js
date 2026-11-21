@@ -95,12 +95,15 @@ export function renderCard(el, payload, host) {
   draw();
   announce(false); // 第一次不念（內容本身就會被讀到），之後刷新有變化才念
   const stopCountdown = startCountdown(el, undefined, locale);
-  if (def.refreshSec && current.tool && host?.callTool) timer = setInterval(refresh, def.refreshSec * 1000);
+  const canRefresh = () => def.refreshSec && current.tool && host?.callTool;
+  if (canRefresh()) { timer = setInterval(refresh, def.refreshSec * 1000); el.dataset.live = '1'; }
   return {
     update(p) { current = merge(p); draw({ fresh: true }); announce(true); },
     refresh,
     /** 停止自動刷新（卡片留著）：阿幫對話裡較舊的卡片 */
-    stop() { clearInterval(timer); timer = null; },
+    stop() { clearInterval(timer); timer = null; if (el.dataset.live) el.dataset.live = '0'; },
+    /** 恢復自動刷新（長對話：收起的那一輪展開時，還在「最近兩輪」才恢復；agent.js 判斷） */
+    resume() { if (timer || !canRefresh()) return; timer = setInterval(refresh, def.refreshSec * 1000); el.dataset.live = '1'; },
     destroy() { clearInterval(timer); stopCountdown(); el.replaceChildren(); },
   };
 }

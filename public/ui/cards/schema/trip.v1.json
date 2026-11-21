@@ -49,9 +49,37 @@
     "habit": { "type": "object" },
     "habitOn": { "type": "boolean" },
     "ask": { "type": "object", "required": ["state", "text"], "properties": { "state": { "enum": ["rush", "budget", "luggage", "lessWalk"] }, "text": { "type": "string" }, "textEn": { "type": "string" } } },
-    "skipped": { "type": "array", "items": { "type": "object", "required": ["role", "why"], "properties": { "role": { "type": "string" }, "why": { "type": "string" } } } }
+    "skipped": { "type": "array", "items": { "$ref": "#/$defs/notIn" } },
+    "missing": { "type": "array", "description": "沒列入的方式與原因（含 skipped；太近、太遠不列）：卡片「沒列入」清單、決策圖", "items": { "$ref": "#/$defs/notIn" } },
+    "night": {
+      "type": "object",
+      "description": "深夜的一句：公車、捷運收班（closed）或末班快到了（late）；卡片第一行、回答第一句",
+      "required": ["text", "closed", "late"],
+      "properties": {
+        "text": { "type": "string" },
+        "textEn": { "type": "string" },
+        "closed": { "type": "array", "items": { "enum": ["bus", "metro"] } },
+        "late": { "type": "array", "items": { "enum": ["bus", "metro"] } },
+        "estimated": { "type": "boolean" },
+        "fallback": { "const": "tdx-limit" }
+      }
+    }
   },
   "$defs": {
+    "notIn": {
+      "type": "object",
+      "required": ["role", "why"],
+      "properties": {
+        "role": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail"] },
+        "kind": { "enum": ["skipped", "none", "noService"], "description": "skipped 查了但不可行（收班、沒車位）、none 查不到站或路線、noService 沒有趕得上的班次" },
+        "why": { "type": "string" },
+        "whyEn": { "type": "string" },
+        "closed": { "type": "boolean", "description": "收班（深夜公車、捷運）" },
+        "first": { "type": "string", "description": "捷運收班時：首班約幾點（HH:mm）" },
+        "estimated": { "type": "boolean" },
+        "fallback": { "const": "tdx-limit" }
+      }
+    },
     "place": { "type": "object", "required": ["name", "lat", "lon"], "properties": { "name": { "type": "string" }, "lat": { "type": ["number", "null"] }, "lon": { "type": ["number", "null"] } } },
     "option": {
       "type": "object",
@@ -73,6 +101,8 @@
         "arriveMin": { "type": "integer" },
         "leaveAt": { "type": "string" },
         "estimated": { "type": "boolean" },
+        "lastBus": { "type": "boolean", "description": "公車末班快到了（23:00 後）" },
+        "lastTrain": { "type": "boolean", "description": "捷運末班快到了（收班前 30 分）" },
         "notes": { "type": "array", "items": { "type": "string" } },
         "train": { "type": "object" },
         "legs": {

@@ -20,8 +20,10 @@ export function delayRiskOf(level) {
   return { jam: 0.9, slow: 0.5, smooth: 0.2 }[level] ?? 0.4;
 }
 
+/** 'HH:mm' 比現在早超過這麼多分鐘就當成明天（剛過幾分鐘的時間仍算今天） */
+export const DEPART_PAST_MIN = 60;
 /**
- * 出發時刻（台灣時間）：'HH:mm' 視為今天、ISO 用該日的日期與星期、省略為現在。
+ * 出發時刻（台灣時間）：'HH:mm' 視為今天（比現在早超過 DEPART_PAST_MIN 分視為明天）、ISO 用該日的日期與星期、省略為現在。
  * ISO 沒有時區時一律視為台灣時間（+08:00），不受伺服器時區影響；只有日期時為當天 00:00。
  * @returns {{ date: string, weekday: number, minute: number }}
  */
@@ -35,6 +37,8 @@ export function departOf(departAt, now = Date.now()) {
     t = /^\d{4}-\d{2}-\d{2}T/.test(iso) ? Date.parse(iso) : NaN;
     if (Number.isNaN(t)) throw new UserError('departAt 格式需為 HH:mm 或 ISO 時間，例如 18:30');
   }
+  // 只給 HH:mm、而且比現在早超過 1 小時＝隔天（23:50 說「00:10」是明天 00:10；火車、客運也查隔天的班表）
+  if (hhmm && toMin(hhmm) < toMin(nowTW(now).hhmm) - DEPART_PAST_MIN) t = now + 864e5;
   const n = nowTW(t);
   return { date: n.date, weekday: n.weekday, minute: toMin(hhmm || n.hhmm) };
 }

@@ -50,7 +50,7 @@ export const ev = {
   decision: (trip) => need('decision', {
     signals: tripSignals(trip),
     signalsEn: tripSignals(trip, 'en'), // 英文那一輪的資料膠囊（S12f）
-    states: trip.states, arriveBy: trip.arriveBy ?? null, ...(trip.arriveByMin != null && { arriveByMin: trip.arriveByMin }), ...(trip.mode && { mode: trip.mode }), ...(trip.avoid && { avoid: trip.avoid }), ...(trip.skipped?.length && { skipped: trip.skipped }), ...(trip.habit && { habit: trip.habit, habitOn: !!trip.habitOn }), ...(trip.ask && { ask: trip.ask }), best: trip.best,
+    states: trip.states, arriveBy: trip.arriveBy ?? null, ...(trip.arriveByMin != null && { arriveByMin: trip.arriveByMin }), ...(trip.mode && { mode: trip.mode }), ...(trip.avoid && { avoid: trip.avoid }), ...(trip.skipped?.length && { skipped: trip.skipped }), ...(trip.missing?.length && { missing: trip.missing }), ...(trip.night && { night: trip.night }), ...(trip.habit && { habit: trip.habit, habitOn: !!trip.habitOn }), ...(trip.ask && { ask: trip.ask }), best: trip.best,
     considered: trip.considered || [], ...(trip.single && { single: trip.single }), // 決策圖「資料」欄（每個來源一個節點）；只有一種方式時的說明與建議
     options: trip.options, ranked: trip.ranking.ranked, excluded: trip.ranking.excluded, weights: trip.ranking.weights, reason: trip.ranking.reason,
   }, ['states', 'options', 'ranked', 'excluded', 'reason']),

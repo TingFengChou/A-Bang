@@ -153,6 +153,7 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 .dg-src.na .dg-val { fill: var(--muted); font-weight: 400; }
 .dg-edge.quiet { opacity: .45; }
 .dg-single { margin: 6px 0 0; font-size: 12.5px; color: var(--text); background: var(--off-soft); border-radius: 10px; padding: 7px 10px; }
+.dg-missing { list-style: none; margin: 6px 0 0; padding: 7px 10px; font-size: 12.5px; color: var(--text); background: var(--off-soft); border-radius: 10px; display: grid; gap: 2px; } /* 沒列入的方式與原因 */
 .bubble.data-note .say { font-size: 13.5px; }
 .dg-hub-c { fill: var(--card); stroke: var(--brand); stroke-width: 2; filter: drop-shadow(0 3px 0 rgba(15,118,110,.25)) drop-shadow(0 6px 10px rgba(15,118,110,.2)); }
 .dg-state > rect { fill: var(--card); stroke: var(--brand); }
@@ -323,6 +324,42 @@ html.lite-motion .voice-panel .vc-core, html.lite-motion .voice-panel .vc-halo {
 .tab-key { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 .tab-key.listening .key-disc { box-shadow: 0 0 0 4px rgba(251, 191, 36, .55), 0 6px 18px rgba(15, 118, 110, .35); }
 
+/* 長對話（UX.md §4.17）：一輪＝提問＋回答；舊的輪收成一行摘要（按鈕），換話題分隔線，「這次問過」目錄，「回到最新」 */
+.round { display: flex; flex-direction: column; gap: 10px; scroll-margin-top: 76px; }
+.round:focus { outline: none; }
+.round:focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; border-radius: 12px; }
+.round.folded:not(.folding) > :not(.round-sum) { display: none; }
+.round:not(.folded):not(.opened) > .round-sum { display: none; }
+.round-sum { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--card); color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.round-sum:hover { border-color: var(--brand); }
+.round-sum:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.round-sum .rs-line { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.round-sum .rs-tag { flex: none; font-size: 12px; font-weight: 700; color: var(--brand); background: var(--brand-soft); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.round-sum .rs-rest { flex: none; font-size: 13px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.round-sum .rs-chev { margin-left: auto; flex: none; color: var(--muted); }
+.round-sum .rs-chev::after { content: '▸'; }
+.round-sum[aria-expanded="true"] .rs-chev::after { content: '▾'; }
+.round.opened > .round-sum { background: var(--off-soft); }
+.topic-sep { margin: 14px 0 4px; }
+.chat-index { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.chat-index[hidden] { display: none; }
+.chat-index .ci-title { flex: none; font-size: 12px; color: var(--muted); }
+.chat-index .ci-list { display: flex; align-items: center; gap: 2px; margin: 0; padding: 0 0 2px; list-style: none; overflow-x: auto; scrollbar-width: none; }
+.chat-index .ci-list::-webkit-scrollbar { display: none; }
+.chat-index li { display: flex; align-items: center; flex: none; }
+.chat-index li + li::before { content: '・'; color: var(--muted); }
+.chat-index li.ci-break::before { content: ''; width: 1px; height: 18px; margin: 0 6px; background: var(--line); }
+.chat-index .ci-item { border: 0; background: none; color: var(--brand); font: inherit; font-size: 13.5px; font-weight: 600; min-height: 36px; min-width: 36px; padding: 0 6px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.chat-index .ci-item[aria-current] { color: var(--text); }
+.chat-index .ci-item:focus-visible { outline: 3px solid var(--brand); outline-offset: 1px; }
+.to-latest { position: absolute; right: 0; bottom: 100%; margin-bottom: 8px; display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 14px;
+  border: 1px solid var(--brand); border-radius: 999px; background: var(--card); color: var(--brand); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 14px rgba(0, 0, 0, .12); }
+.to-latest[hidden] { display: none; }
+.to-latest:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+/* 底部對話面板空間小：收合規則一樣，目錄與「回到最新」只在整頁 */
+.sheet-body .chat-index, .sheet-body .to-latest { display: none; }
+@media (min-width: 900px) { .chat-index { max-width: 640px; margin: 0 auto 10px; } } /* 桌面：跟對話同寬置中 */
 /* 個人化（2026-11-21）：「你同意：優先推捷運」chip（source habit，紫色）、「你說過：常帶東西」（source usual）、為什麼 */
 .dg-chip.on.src-habit { background: #f1edfb; border-color: #6d4fc2; color: #5b3fb0; }
 .dg-chip.on.src-habit.paused { border-style: dashed; color: var(--muted); }

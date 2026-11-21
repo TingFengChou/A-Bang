@@ -105,17 +105,70 @@ export function missingModes({ straight, roles, skipped = [], limits }) {
     const r = roles[role];
     if (r && r.id) continue; // 有方案
     const sk = skipped.find((s) => s.role === role);
-    if (sk) { out.push({ role, kind: 'skipped', why: sk.why }); continue; }
+    if (sk) { const { role: _r, ...rest } = sk; out.push({ role, kind: 'skipped', ...rest }); continue; }
     if (r?.none) { out.push({ role, ...r.none }); continue; }
-    if (r === 'failed') { out.push({ role, kind: 'none', why: '資料暫時查不到' }); continue; }
+    if (r === 'failed') { out.push({ role, kind: 'none', why: '資料暫時查不到', whyEn: 'Data unavailable right now' }); continue; }
     const tooFar = { walk: limits.walkMaxM, bike: limits.bikeMaxM, bus: limits.busMaxM, metro: 60000 }[role];
     const tooNear = { bike: limits.bikeMinM, metro: 1500, thsr: limits.railMinM, tra: limits.railMinM, intercity: limits.intercityMinM }[role];
-    if (tooFar && far(tooFar)) out.push({ role, kind: 'far', why: `${km} 公里太遠` });
-    else if (tooNear && straight < tooNear) out.push({ role, kind: 'near', why: '距離太近' });
-    else if (role === 'metro') out.push({ role, kind: 'none', why: '起點或目的地附近沒有捷運站' });
-    else out.push({ role, kind: 'none', why: '這段路查不到' });
+    if (tooFar && far(tooFar)) out.push({ role, kind: 'far', why: `${km} 公里太遠`, whyEn: `${km} km is too far` });
+    else if (tooNear && straight < tooNear) out.push({ role, kind: 'near', why: '距離太近', whyEn: 'Too close' });
+    else if (role === 'metro') out.push({ role, kind: 'none', why: '起點或目的地附近沒有捷運站', whyEn: 'No MRT station near the start or destination' });
+    else out.push({ role, kind: 'none', why: '這段路查不到', whyEn: 'Nothing found for this trip' });
   }
   return out;
+}
+
+const MODE_EN = { walk: 'walking', bike: 'YouBike', bus: 'bus', metro: 'MRT', thsr: 'High Speed Rail', tra: 'train', intercity: 'intercity bus', ridehail: 'taxi' };
+const andEn = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
+
+/**
+ * 深夜的一句（公車、捷運收班或末班快到了）：回答第一句、討論串、卡片最上面都用這句（由程式依時間與服務結果產生，不經模型）。
+ * 例：「現在 00:10，公車和捷運都收班了（捷運約 06:00 首班），先比走路、YouBike、叫車」。
+ * 公車收班若是 TDX 額度用完改用示範資料、依時間估的（skip.fallback），照實說。
+ * @param {{ skipped?: Array<{ role, closed?, notYet?, first?, fallback? }>, options?: Array<{ role, lastBus?, lastTrain? }>, departMin: number, isNow?: boolean, single?: boolean }} p single：只有一種方式（不說「先比…」）
+ * @returns {{ text: string, textEn: string, body: string, bodyEn: string, closed: string[], late: string[], notYet?: true, estimated?: true, fallback?: 'tdx-limit' } | null}
+ */
+export function nightOf({ skipped = [], options = [], departMin, isNow = false, single = false }) {
+  const shut = ['bus', 'metro'].map((r) => skipped.find((s) => s.role === r && s.closed)).filter(Boolean);
+  const closed = shut.map((s) => s.role);
+  const late = ['bus', 'metro'].filter((r) => !closed.includes(r) && options.some((o) => o.role === r && (o.lastBus || o.lastTrain)));
+  if (!closed.length && !late.length) return null;
+  const hhmm = toHHMM(departMin);
+  const metro = shut.find((s) => s.role === 'metro');
+  const est = shut.find((s) => s.role === 'bus' && s.fallback);
+  const names = (rs) => rs.map((r) => MODE_NAME[r]).join('和');
+  const head = isNow ? `現在 ${hhmm}` : `${hhmm} 出發`, headEn = isNow ? `It's ${hhmm} now` : `Leaving at ${hhmm}`;
+  const parts = [], en = [];
+  const busEst = est ? '（TDX 額度用完，公車收班是依時間估的，以站牌即時資訊為準）' : '';
+  const busEstEn = est ? ' (bus hours estimated from the time: TDX quota used up)' : '';
+  if (closed.length === 2 && !metro.notYet) {
+    const why = [`捷運約 ${metro.first} 首班`, est && 'TDX 額度用完，公車收班是依時間估的，以站牌即時資訊為準'].filter(Boolean);
+    const whyEn = [`MRT starts around ${metro.first}`, est && 'bus hours estimated from the time: TDX quota used up'].filter(Boolean);
+    parts.push(`公車和捷運都收班了（${why.join('；')}）`);
+    en.push(`buses and the MRT have stopped for the night (${whyEn.join('; ')})`);
+  } else {
+    if (closed.includes('bus')) { parts.push(`公車已收班${busEst}`); en.push(`buses have stopped for the night${busEstEn}`); }
+    // 05:00～05:59：捷運「還沒發車」，不說收班（PR #110 審查）
+    if (metro) {
+      parts.push(metro.notYet ? `捷運還沒發車（約 ${metro.first} 首班）` : `捷運已收班（約 ${metro.first} 首班）`);
+      en.push(metro.notYet ? `the MRT hasn't started yet (first train around ${metro.first})` : `the MRT has stopped for the night (first train around ${metro.first})`);
+    }
+  }
+  if (late.length) {
+    parts.push(`${names(late)}末班快到了，早點出門；錯過可以叫車`);
+    en.push(`last ${andEn(late.map((r) => MODE_EN[r]))} soon, leave early; a taxi is the backup`);
+  }
+  const roles = [...new Set(options.map((o) => o.role))];
+  if (closed.length && !single) { // 只有一種方式時由 single 說「只找到…」，這裡不再說「先比…」
+    parts.push(roles.length ? `先比${roles.map((r) => MODE_NAME[r]).join('、')}` : '目前查不到其他方式');
+    en.push(roles.length ? `comparing ${andEn(roles.map((r) => MODE_EN[r]))}` : 'no other way found right now');
+  }
+  const body = parts.join('，'), bodyEn = `${en.join('; ')}.`;
+  return {
+    text: `${head}，${body}`, textEn: `${headEn}: ${bodyEn}`,
+    body, bodyEn: bodyEn.charAt(0).toUpperCase() + bodyEn.slice(1), // 不帶時間的版本：回答已經說了「明天 00:10 出發：」或出發時間是程式合成的
+    closed, late, ...(metro?.notYet && { notYet: true }), ...(est && { estimated: true, fallback: 'tdx-limit' }),
+  };
 }
 
 /**

@@ -46,6 +46,13 @@ function bikeImpact(data) {
   return { tone: 'good', text: `YouBike：「${b.rent.name}」${b.rent.count} 台可借、「${b.ret.name}」${b.ret.count} 個空位` };
 }
 
+const ROLE_SAY = { walk: '走路', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
+/** 沒列入的方式與原因（plan_trip missing；YouBike 由 bikeImpact 說、深夜收班已在工具發言第一句說） */
+function missingImpact(data) {
+  const xs = (data.missing || []).filter((m) => m.role !== 'bike' && !(m.closed && data.night));
+  return xs.length ? { tone: 'neutral', text: `沒列入：${xs.map((m) => `${ROLE_SAY[m.role] || m.role}（${m.why}）`).join('、')}` } : null;
+}
+
 /**
  * 工具結果對決策的影響。tone：bad（讓某些方式扣分）、good（有利或確認可行）、neutral（不影響）。
  * @returns {{ tone: 'bad'|'good'|'neutral', text: string } | Array<{ tone: string, text: string }> | null} 行程可能有兩行（比較結果＋YouBike 兩端）
@@ -73,8 +80,8 @@ export function impactOf(name, data) {
       if (data.modeUnavailable && best) return [{ tone: 'bad', text: `沒有可行的${{ walk: '步行', bike: 'YouBike', bus: '公車', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' }[data.modeUnavailable] || ''}方案：改建議${best.name}` }, bikeImpact(data)].filter(Boolean);
       if (data.single && best) return [{ tone: 'bad', text: data.single.text }, bikeImpact(data)].filter(Boolean); // 只有一種方式：說明其他方式為什麼不在
       const main = best && top ? { tone: 'good', text: data.mode ? `照你說的選${best.name}（${data.ranking.ranked.find((r) => r.id === best.id)?.score ?? '?'} 分）` : `比了 ${data.options.length} 種走法：${best.name} ${top.score} 分最高` } : { tone: 'bad', text: '這次沒有可行的走法' };
-      const bike = bikeImpact(data);
-      return bike ? [main, bike] : main;
+      const lines = [main, bikeImpact(data), missingImpact(data)].filter(Boolean);
+      return lines.length > 1 ? lines : main;
     }
     case 'bus_route_eta': {
       const f = data.focus;

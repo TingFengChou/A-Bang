@@ -239,8 +239,13 @@ export function mustSay(text, trip, it = null) {
   // 建議叫車：付款在叫車 App（阿幫不代付；P2-10）
   const rideShown = trip.best === 'ridehail' || (it?.mode === 'ridehail' && !trip.modeUnavailable && trip.options?.some((o) => o.role === 'ridehail')); // 卡片上真的有叫車
   if (rideShown && !/付款在叫車|叫車 ?App.{0,8}付款/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}${/「叫車」|叫車 ?App|官方 ?App/.test(out) ? '' : '按卡片上的「叫車」用官方 App 叫車，'}付款在叫車 App 完成（阿幫不代付）。`; // 模型已經說了按叫車：只補付款（不重複，2026-11-21 實機）
-  const night = nightNote(trip);
-  if (night && !/收班|末班/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}${night}`;
+  const dated = it?.intent === 'trip' && Boolean(it.departTime || it.tomorrow); // 使用者說了幾點／明天：不重複「00:10 出發」，也不講合成的出發時間
+  const night = nightNote(trip, { bare: dated });
+  // 深夜一句（plan_trip 的 night）：第一句就說（使用者才知道公車、捷運為什麼不在）；舊資料只有 skipped 時補在後面
+  if (night && !/收班|末班/.test(out)) {
+    const lead = /^(明天|後天)[^：]*出發：/.exec(out)?.[0] || ''; // 「明天 00:10 出發：」後面接深夜那句
+    out = trip.night?.text ? `${lead}${night}${out.slice(lead.length)}` : `${out}${/[。！？]$/.test(out) ? '' : '。'}${night}`;
+  }
   return out;
 }
 
@@ -326,7 +331,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const turnTrips = []; // 這一輪已經出過的行程卡（同起點、同目的地、同方式只出一張：模型換個說法再查也沿用）
   const preDone = new Map(); // 呼叫鍵（工具＋關鍵參數）→ 給模型的文字：模型用相同參數再呼叫時沿用，不重複產生卡片與決策圖；參數不同照常執行
   if (pre.length) {
-    const out = await execTools(svc, pre, emit, { profile, nextId, picked, lang: rulesIt.lang, habit: req.userState?.habit, ask, aside, ...(j && { judgedStates: j.states }) });
+    const out = await execTools(svc, pre, emit, { profile, nextId, picked, lang: rulesIt.lang, habit: req.userState?.habit, ask, now, aside, ...(j && { judgedStates: j.states }) });
     const texts = out.map((o, i) => {
       used.add(pre[i].name);
       if (o.followUp) used.add('bus_route_eta');
@@ -443,7 +448,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     }
 
     const run = turn.calls.filter((c) => !results.has(c.id));
-    const out = await execTools(svc, run.map((c) => ({ name: c.name, args: dropNulls(c.input) })), emit, { profile, nextId, picked, lang: rulesIt.lang, habit: req.userState?.habit, ask, aside, ...(j && { judgedStates: j.states }) });
+    const out = await execTools(svc, run.map((c) => ({ name: c.name, args: dropNulls(c.input) })), emit, { profile, nextId, picked, lang: rulesIt.lang, habit: req.userState?.habit, ask, now, aside, ...(j && { judgedStates: j.states }) });
     run.forEach((c, i) => {
       const o = out[i];
       used.add(c.name);

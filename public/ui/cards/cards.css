@@ -325,6 +325,8 @@ html.lite-motion :is(.ab-scene-body, .ab-scene-person, .ab-scene-halo) { animati
 .ab-bike-warn { list-style: none; margin: 4px 0; padding: 6px 10px; border-radius: 10px; background: var(--ab-warn-soft); color: var(--ab-warn); font-size: 13px; }
 .ab-skipped { list-style: none; margin: 8px 0 0; padding: 0; color: var(--ab-muted); font-size: 13px; }
 .ab-skipped li { display: flex; align-items: center; gap: 6px; }
+/* 深夜：公車、捷運收班或末班快到了（第一行就說；橘底深色字 6.4:1） */
+.ab-night { margin: 0 0 8px; padding: 7px 10px; border-radius: 10px; background: var(--ab-warn-soft); color: #92400e; font-size: 14px; font-weight: 600; }
 .ab-btn.ab-pick { min-height: 44px; margin-top: 8px; border: 1px solid var(--ab-brand); color: var(--ab-brand); background: #fff; font-weight: 700; }
 
 /* 出門提醒（T7）：說明＋允許／先不要；設好後可取消 */

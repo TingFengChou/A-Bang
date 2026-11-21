@@ -22,6 +22,8 @@ const CASES = [
   ['intercity_bus', { from: '台北轉運站', to: '新竹車站', departAt: '09:00' }, { traffic: 'jam' }],
   ['intercity_bus', { from: '台北車站', to: '台北101' }],
   ['plan_trip', { from: '台北車站', to: '台北101', departAt: '09:00' }],
+  ['plan_trip', { from: '台北車站', to: '台北101', departAt: '00:10' }], // 深夜：公車、捷運收班（missing、night）
+  ['plan_trip', { from: '台北車站', to: '台北101', departAt: '23:40' }], // 末班快到了（lastBus、lastTrain）
   ['plan_trip', { from: '台北車站', to: '高雄車站', departAt: '09:00', prefs: { states: ['rush'], arriveBy: '12:00' } }, { traffic: 'jam', weather: 'rain' }],
   ['scam_check_message', { text: '【台電】電費逾期未繳，今日內未處理將停電，請點擊 https://eincioiice-tw-nat-gov.com/pay' }],
   ['scam_check_message', { text: '明天中午一起吃飯嗎？' }],
