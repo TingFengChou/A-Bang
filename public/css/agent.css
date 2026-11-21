@@ -214,3 +214,7 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 .card-same .same-open::after { content: ' ▾'; }
 .card-same[open] .same-open::after { content: ' ▴'; }
 .card-same[open] > summary { border-bottom: 1px solid var(--line); }
+
+/* 安全情境（S18）：求助電話一鍵撥號 */
+.call-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.call-row .btn.call { min-height: 44px; display: inline-flex; align-items: center; text-decoration: none; }
