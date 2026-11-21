@@ -18,7 +18,7 @@ test('P5-1：「欸不是啦，我是要去松山機場」改目的地、起點�
 });
 
 test('P5-2：出發時間（今天／明天＋早上／晚上＋幾點、HH:mm）不和抵達時間、相對時間衝突', () => {
-  const d = (t) => { const x = departTimeOf(t); return x && { hhmm: x.hhmm, tomorrow: x.tomorrow }; };
+  const d = (t) => { const x = departTimeOf(t, null, NOW); return x && { hhmm: x.hhmm, tomorrow: x.tomorrow }; };
   assert.deepEqual(d('明天早上8點從西門町去台北101'), { hhmm: '08:00', tomorrow: true });
   assert.deepEqual(d('晚上8點從西門町去台北101'), { hhmm: '20:00', tomorrow: false });
   assert.deepEqual(d('明天早上八點半出發'), { hhmm: '08:30', tomorrow: true });
@@ -191,7 +191,7 @@ test('審查 3：同一句有抵達時間時，出發時間選在抵達之前；
   assert.deepEqual([it.arriveBy, it.departTime], ['08:00', '07:00']);
   assert.equal(at('我要去台北101，8點前要到，9點出發').departTime, undefined, '出發晚於抵達：不採用');
   assert.deepEqual([at('晚上9點前到101，7點出發').arriveBy, at('晚上9點前到101，7點出發').departTime], ['21:00', '19:00']);
-  assert.equal(departTimeOf('10點前要到，晚上7點出發', '10:00'), null);
+  assert.equal(departTimeOf('10點前要到，晚上7點出發', '10:00', NOW), null);
 });
 
 test('審查 4：禮貌詞開頭後面還有話照常解析；「X點到 Y」是行程（抵達時間）', () => {
