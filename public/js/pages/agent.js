@@ -25,6 +25,8 @@ import { mountVisionButton, handOff, takeHandoff } from '../vision.js';
 import { healthEnabled, agentNudge, turnWeather, nearMe, EXERCISE_Q } from '../health.js';
 import { healthBubble } from '../health-ui.js';
 import { peekNow } from '../home-now.js';
+import { createRounds } from '../agent/collapse.js';
+import { linkReminders } from '../agent/chat-links.js';
 
 // 決策圖重算用的同一份 decide.js（伺服器以 /core/decide.js 提供；UX.md §5）
 const decideModule = import('/core/decide.js').catch(() => null);
@@ -172,6 +174,8 @@ export default {
     const log = el('div', 'chat');
     log.setAttribute('role', 'log');
     log.setAttribute('aria-live', 'polite');
+    // 長對話：舊的輪收成一行、換話題分段、「這次問過」目錄（agent/collapse.js）；收起的輪卡片停止刷新，展開時還在最近兩輪才恢復
+    const rounds = createRounds({ log, onFold: (round, folded) => { for (const c of cards) if (c.slot && round.contains(c.slot)) { if (folded) c.stop?.(); else if (c.turn >= turnNo - 1) c.resume?.(); } } });
     const chips = el('div', 'suggest');
     const pageRow = el('div', 'suggest page-ask'); // 浮動阿幫：在這一頁可以問（abang-dock.js setPage）
     pageRow.hidden = true;
@@ -191,8 +195,8 @@ export default {
     modeLine.setAttribute('aria-live', 'polite'); // 換模式或改在手機上判斷時唸出來 // 由誰回答（ADR-0012；Claude 模式說明對話會送 Anthropic，AGENT.md §7）
     // 說明起點是現在位置（第一次需要位置時才跳權限框，先讓使用者知道為什麼）；拒絕定位時阿幫會問從哪出發
     const hereHint = agentId === 'life' && el('p', 'updated here-hint', '沒說起點時，阿幫用你現在的位置當出發點。');
-    const dock = el('div', 'chat-dock', pageRow, chips, mention, form);
-    main.append(log, dock, ...(hereHint ? [hereHint] : []), disclaimer, modeLine);
+    const dock = el('div', 'chat-dock', rounds.toLatest, pageRow, chips, mention, form);
+    main.append(rounds.nav, log, dock, ...(hereHint ? [hereHint] : []), disclaimer, modeLine);
     // 語音問阿幫（M14-01）：麥克風鍵與在聽的面板（agent/voice-ui.js）；只有生活 agent（防詐是貼上訊息）
     const voice = agentId === 'life' ? mountVoiceUI({ form, sendBtn, dock, send: (q, o) => send(q, o) }) : null;
     // 上次的對話（只有文字、最後一次對話 12 小時內）：只顯示；按「接著上次問」才當成前文跟下一個問題一起送（隱私：沒按就不送，常用地點也不會因為昨天說過「回家」又送出）
@@ -229,6 +233,7 @@ export default {
 
     let lastTripTo = null; // 最後一次行程的目的地：設定到站提醒時記下（公車一直不來時改其他方式）
     const host = createWebHost({ ask: (q) => send(q), setContext: (c) => { context = c; }, tripContext: () => lastTripTo && { to: lastTripTo } });
+    const clearLinks = agentId === 'life' ? linkReminders(host, rounds) : () => {}; // 提醒頁「看當時的對話」（只有保留的生活對話）
 
     // 建議問題與免責（GET /api/v1/agent/profile）；回答後換成「接下來可以…」（依這一輪結果，next-steps.js）
     let defaults = [];
@@ -252,7 +257,8 @@ export default {
       if (!steps.length) { showDefaults(); return; }
       chips.classList.add('next');
       const act = async (s, b) => {
-        if (s.kind === 'ask') return send(s.payload);
+        rounds.touch(view.round);
+        if (s.kind === 'ask') return send(s.payload, { follow: true }); // 接著這一輪問：不算換話題
         if (s.kind === 'navigate') return host.navigate(s.payload);
         if (s.kind === 'state') { // 在這一輪的決策圖加狀態，瀏覽器立即重算
           const add = view.box?.querySelector(`.dg-chip.add[data-state="${s.payload}"]`); // 用狀態鍵對（英文的決策圖文字不同）
@@ -263,7 +269,7 @@ export default {
         }
         if (s.kind === 'remind') {
           await host.watchArrival(s.payload);
-          log.append(el('p', 'agent-sys', view.lang === 'en' ? `OK, I'll remind you ${s.payload.minutes} min before bus ${s.payload.routeName} reaches ${s.payload.stop}.` : `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（${cardT(`busRoute.${host.arrivalNote?.() || 'whenOpenPage'}`)}）。`));
+          (view.round || log).append(el('p', 'agent-sys', view.lang === 'en' ? `OK, I'll remind you ${s.payload.minutes} min before bus ${s.payload.routeName} reaches ${s.payload.stop}.` : `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（${cardT(`busRoute.${host.arrivalNote?.() || 'whenOpenPage'}`)}）。`));
           return showNext(view);
         }
         return undefined;
@@ -288,21 +294,22 @@ export default {
     });
     form.addEventListener('submit', (e) => { e.preventDefault(); send(input.value); });
     // 從首頁帶問題過來（#/agent?q=…）：直接送出，並把網址換掉，避免重新整理時重送（對話保留時，回來帶的問題接在後面）
-    const takeQuery = (qy = {}) => { const seen = takeHandoff(agentId); if (seen) queueMicrotask(() => send(seen)); if (qy.q) { const q0 = qy.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); } };
+    const here = agentId === 'life' ? '#/agent' : `#/agent/${agentId}`;
+    const takeQuery = (qy = {}) => { if (qy.turn != null) { window.history.replaceState(null, '', here); const n = /^\d{1,4}$/.test(qy.turn) ? Number(qy.turn) : 0; if (n) requestAnimationFrame(() => requestAnimationFrame(() => rounds.reveal(n))); } const seen = takeHandoff(agentId); if (seen) queueMicrotask(() => send(seen)); if (qy.q) { const q0 = qy.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); } };
     takeQuery(query);
 
-    async function send(raw, { pageContext = '', voice: spoken = false } = {}) {
+    async function send(raw, { pageContext = '', voice: spoken = false, follow = false } = {}) {
       const q = String(raw || '').trim().slice(0, 500);
       if (!q) return;
       let pendingAsk = null;
       if (openAsk?.open()) { // 用打的或說的回答「阿幫問你」：對得上按鈕就是答案（不送伺服器）；對不上就略過，照常問（帶 pending，伺服器看得懂短答）
         const a = openAsk, hit = matchAnswer(a.ask, q);
         openAsk = null;
-        if (hit) { input.value = ''; if (hit.kind !== 'reply') log.append(el('div', 'msg user', q)); a.answer(hit); return; }
+        if (hit) { input.value = ''; if (hit.kind !== 'reply') (a.el?.closest('.round') || log).append(el('div', 'msg user', q)); a.answer(hit); return; } // 答案接在問題那一輪裡（長對話收起時一起收）
         if (a.ask.pending?.slot) pendingAsk = { id: a.ask.id, ...a.ask.pending };
         a.skip();
       }
-      if (busy) { pendingQ = { q, pageContext, voice: spoken }; return; }
+      if (busy) { pendingQ = { q, pageContext, voice: spoken, follow }; return; }
       turnNo += 1;
       pastWrap?.querySelector('.past-acts button') && pastWrap.querySelector('.past-acts').replaceChildren(el('span', 'past-note', history.length ? '接著上次的話問' : '這次重新問（上次的對話只留著看）'));
       const myGen = gen;
@@ -310,10 +317,12 @@ export default {
       busy = true; sendBtn.disabled = true; input.value = ''; mention.replaceChildren();
       pageRow.hidden = true;
       history.push({ role: 'user', content: q });
-      log.append(el('div', `msg user${spoken ? ' spoken' : ''}`, q)); // 用說的：泡泡上一個小麥克風（css）
       const turn = el('div', 'turn');
-      log.append(turn);
-      const view = turnView(turn, /[A-Za-z]{2,}/.test(q) && !/[一-鿿]/.test(q) ? 'en' : null); // 先猜（第一個畫面用）；伺服器的 status 事件會說這一輪真正的語言
+      const round = el('div', 'round', el('div', `msg user${spoken ? ' spoken' : ''}`, q), turn); // 一輪＝提問＋回答（用說的：泡泡上一個小麥克風）
+      log.append(round);
+      const view = turnView(turn, /[A-Za-z]{2,}/.test(q) && !/[一-鿿]/.test(q) ? 'en' : null, (e) => rounds.progress(round, e)); // 先猜（第一個畫面用）；伺服器的 status 事件會說這一輪真正的語言
+      view.round = round;
+      rounds.start(round, { q, view, follow, keepPrev: !!pendingAsk }); // 可能在回答「阿幫問你」（對不上按鈕）：上一輪先留著（collapse.js 答完再看）
       try {
         // 手機 App：先在裝置上判斷意圖與狀態（最多等 1.8 秒；不可用就不帶，伺服器照常判斷）
         const deviceJudge = agentId === 'life' ? await edgeJudge(q, history.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content)) : null;
@@ -342,13 +351,14 @@ export default {
       } finally {
         view.stop(); // 沒有回答（只有卡片、或中斷）也收起「阿幫在想」
         busy = false; sendBtn.disabled = false; context = '';
-        if (pendingQ) { const p = pendingQ; pendingQ = null; queueMicrotask(() => send(p.q, { pageContext: p.pageContext, voice: p.voice })); }
+        if (pendingQ) { const p = pendingQ; pendingQ = null; queueMicrotask(() => send(p.q, { pageContext: p.pageContext, voice: p.voice, follow: p.follow })); }
         if (!matchMedia('(pointer: coarse)').matches) input.focus(); // 手機不自動聚焦：鍵盤會跳出來蓋住回答
+        if (myGen === gen) rounds.end(round); // 摘要、目錄（清除本機資料後不再寫）
       }
     }
 
     /** 一輪對話的畫面：事件依序呈現；討論串兩則之間至少 300ms（只為避免閃爍） */
-    function turnView(turn, turnLang = null) {
+    function turnView(turn, turnLang = null, onData = null) {
       const thread = el('div', 'thread live');
       thread.setAttribute('aria-label', turnLang === 'en' ? 'Helper thread' : '小幫手討論串');
       // 會議感（原型 transit-discussion.html）：討論中有標題與跳動的點，結束後收合成摘要
@@ -363,7 +373,7 @@ export default {
       let queue = Promise.resolve();
       let lastShown = 0;
       let textEl = null;
-      const view = { text: '', results: [], decision: null, box: null, lang: turnLang, sent: null, judge: null }; // results／decision：給「接下來可以…」；lang：英文那一輪
+      const view = { text: '', results: [], decision: null, box: null, dg: null, lang: turnLang, sent: null, judge: null, profile: agentId }; // results／decision：給「接下來可以…」；lang：英文那一輪
       const gap = async () => {
         if (reducedMotion()) return;
         const wait = MIN_GAP_MS - (performance.now() - lastShown);
@@ -373,6 +383,7 @@ export default {
       const handle = async (e) => {
         think.step(e); // 「阿幫在想」換到這個階段（text／done／error 就收起）
         await handleEvent(e);
+        if (['status', 'agent_note', 'context_reset', 'tool_start', 'tool_result', 'client_tool_call'].includes(e.type)) onData?.(e); // 長對話：status 記候選話題，之後第一個事件定案要不要分段
       };
       const handleEvent = async (e) => {
         switch (e.type) {
@@ -445,7 +456,7 @@ export default {
               // 這筆資料對決策的影響（core/agent/impact.js）：不利／有利／不影響
               if (e.ok && e.impact) say.after(...[e.impact].flat().map((x) => el('div', `impact ${x.tone}`, el('span', 'arrow', '→'), x.text)));
             }
-            if (e.ok) view.results.push({ tool: e.tool, card: e.card, data: e.data, args: e.args });
+            if (e.ok) view.results.push({ tool: e.tool, card: e.card, data: e.data, args: e.args, speak: e.speak });
             if (e.ok && e.card) {
               // 接著問的那一輪，天氣、空品跟上一輪一樣：收合成「天氣同上」（點開看完整卡片），畫面不會越拉越長
               const same = sameAs(e, turn.dataset.follow === '1', turnLang);
@@ -454,12 +465,12 @@ export default {
                 const slot = el('div', 'card-slot');
                 const box = el('details', 'card-same');
                 box.append(el('summary', '', el('span', 'same-text', same), el('span', 'same-open', turnLang === 'en' ? 'Show card' : '看完整')), slot);
-                box.addEventListener('toggle', () => { if (box.open && !slot.childElementCount) cards.push(Object.assign(renderCard(slot, payload, host), { turn: turnNo })); });
+                box.addEventListener('toggle', () => { if (box.open && !slot.childElementCount) cards.push(Object.assign(renderCard(slot, payload, host), { turn: turnNo, slot })); });
                 results.append(box);
               } else {
                 const slot = el('div', `card-slot ${results.children.length >= 2 ? 'scroll-in' : 'enter3d'}`); // 前兩張立體進場，後面的捲到才浮現
                 results.append(slot);
-                cards.push(Object.assign(renderCard(slot, payload, host), { turn: turnNo }));
+                cards.push(Object.assign(renderCard(slot, payload, host), { turn: turnNo, slot }));
               }
             }
             break;
@@ -516,6 +527,7 @@ export default {
             openAsk?.skip();
             const ctl = mountAsk(e, { lang: turnLang, onAnswer: (o) => answerAsk(o, view, turnLang) });
             openAsk = ctl;
+            view.askOpen = () => ctl.open(); // 長對話：問題還開著，這一輪先不收
             if (/^habit:/.test(e.about || '')) markAsked(e.about.slice(6)); // 問過了（沒回答也 3 天內不再問）
             if (view.box?.isConnected) view.box.before(ctl.el); else results.append(ctl.el);
             break;
@@ -623,7 +635,7 @@ export default {
       voiceRelease: () => voice?.release(),
       voiceCancel: () => voice?.cancel(),
       /** 設定頁清除本機資料：畫面上的對話也一起清掉 */
-      clear() { gen++; clearChat(); history.length = 0; pendingQ = null; openAsk = null; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); showDefaults(); },
+      clear() { gen++; clearChat(); history.length = 0; pendingQ = null; openAsk = null; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); rounds.clear(); clearLinks(); showDefaults(); },
       /** 從哪一頁打開（浮動阿幫）：那一頁可以問的問題；點了才把這一頁的說明一起送（自己打的問題不帶）；null＝清掉 */
       setPage(hint) {
         const pc = String(hint?.context || '');

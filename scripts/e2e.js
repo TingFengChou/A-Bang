@@ -1001,6 +1001,7 @@ test('問阿幫：接著問時天氣空品收合同上；重來有分隔線', as
       await page.waitForFunction((n) => document.querySelectorAll('.bubble.final').length === n, i + 1, { timeout: 20000 });
     }
     const second = page.locator('.turn').nth(1);
+    await page.locator('.round').nth(1).locator('.round-sum').click(); // 長對話：舊的輪收成一行，先展開（UX.md §4.17）
     assert.ok(await second.locator('.card-same summary').count() >= 1, '第二輪天氣或空品收合');
     assert.match(await second.locator('.card-same summary').first().textContent(), /同上（.+）看完整/);
     assert.equal(await second.locator('.card-same .ab-card').count(), 0, '收合時還沒畫卡片');
@@ -2748,6 +2749,116 @@ test('語音問阿幫：第一次按麥克風跳權限框（App 暫時看不見�
   }, { init: FAKE_VOICE({ mode: 'auto', startDelay: 800 }), ignore: VOICE_IGNORE });
 });
 
+// 長對話（UX.md §4.17，2026-11-21 PM）：舊的輪收成一行、換話題分隔線、「這次問過」目錄、回到最新、提醒頁回到當時的對話、底部對話面板一樣收合
+test('長對話：連問 5 題只有最新一輪展開、換話題分段、目錄、回到最新、提醒頁看當時的對話、底部面板', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const qs = ['從西門町到台北101怎麼去', '307 到哪了？', '現在天氣如何', '附近空氣品質', '這期發票號碼是多少？'];
+    for (const [i, q] of qs.entries()) {
+      await page.fill('.chat-form input', q);
+      await page.press('.chat-form input', 'Enter');
+      await page.waitForFunction((n) => document.querySelectorAll('.bubble.final').length === n, i + 1, { timeout: 20000 });
+      // 送出後自動捲到最新一輪（reduced motion：直接跳、不平滑）
+      await page.waitForFunction((n) => { const r = document.querySelector(`.round[data-round="${n}"]`).getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight / 2; }, i + 1, { timeout: 3000 });
+    }
+    await page.waitForFunction(() => document.querySelectorAll('.round.folded').length === 4);
+    const rounds = page.locator('.chat .round');
+    assert.equal(await rounds.count(), 5);
+    assert.equal(await rounds.nth(4).evaluate((r) => r.classList.contains('folded')), false, '最新一輪完整展開');
+    assert.equal(await rounds.nth(4).locator('.round-sum').isVisible(), false, '最新一輪沒有摘要列');
+    assert.ok(await rounds.nth(4).locator('[data-card="invoice"]').isVisible());
+    // 舊的每一輪是一行摘要按鈕（讀屏：第 N 輪：…，已收起）；決策圖、卡片收起，只留「決定：…」小標
+    const first = rounds.nth(0).locator('.round-sum');
+    assert.match(await first.getAttribute('aria-label'), /^第 1 輪：西門町到台北101，.+ \d+ 分，已收起$/);
+    assert.equal(await first.getAttribute('aria-expanded'), 'false');
+    assert.match(await first.locator('.rs-tag').textContent(), /^決定：/);
+    assert.equal(await rounds.nth(0).locator('.decision').isVisible(), false, '收起的輪不顯示決策圖');
+    assert.match(await rounds.nth(1).locator('.round-sum').textContent(), /^307：/);
+    assert.match(await rounds.nth(2).locator('.round-sum').textContent(), /^天氣：.+°C/);
+    assert.match(await rounds.nth(3).locator('.round-sum').textContent(), /^空品：.+AQI \d+/);
+    assert.ok((await first.boundingBox()).height >= 44, '摘要按鈕夠大');
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shot(page, 'phone-chat-collapsed');
+    // 換話題：行程 → 公車（交通同一類，不分）→ 天氣 → 空品（天氣同一類，不分）→ 發票
+    const seps = page.locator('.chat .topic-sep[role=separator]');
+    assert.equal(await seps.count(), 2, await page.locator('.chat .topic-sep + .round').evaluateAll((rs) => rs.map((r) => r.dataset.round + r.textContent.slice(0, 30)).join(' / ')));
+    assert.equal(await page.locator('.chat .topic-sep + .round').evaluateAll((rs) => rs.map((r) => r.dataset.round).join()), '3,5', '分段在天氣、發票前面');
+    assert.match(await seps.first().textContent(), /^新的話題・\d{2}:\d{2}$/);
+    assert.match(await seps.first().getAttribute('aria-label'), /^新的話題，\d{2}:\d{2}$/);
+    await seps.nth(0).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: new URL('phone-chat-topic.png', SHOTS).pathname }); // 畫面內（不是整頁）：看得到分隔線與前後的摘要
+    // 點摘要展開、再點收起（鍵盤也可以）；展開時決策圖照舊
+    await first.click();
+    assert.equal(await first.getAttribute('aria-expanded'), 'true');
+    assert.match(await first.getAttribute('aria-label'), /已展開$/);
+    assert.ok(await rounds.nth(0).locator('.decision .dg-svg').isVisible(), '展開時決策圖照舊');
+    await first.focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await first.getAttribute('aria-expanded'), 'false', '鍵盤 Enter 收起');
+    assert.equal(await page.evaluate(() => document.activeElement?.classList.contains('round-sum')), true, '焦點留在摘要按鈕');
+    // 「這次問過」目錄（超過 3 輪；nav 有名稱）：點了捲到那一輪並展開，焦點在那一輪的摘要
+    const nav = page.getByRole('navigation', { name: '這次問過' });
+    assert.ok(await nav.isVisible());
+    assert.deepEqual(await nav.locator('.ci-item').allTextContents(), ['台北101', '307', '天氣', '空品', '發票']);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const toLatest = page.getByRole('button', { name: '回到最新的對話' });
+    await toLatest.waitFor();
+    await page.screenshot({ path: new URL('phone-chat-index.png', SHOTS).pathname }); // 畫面內：頂端目錄＋右下「回到最新」
+    await nav.locator('.ci-item', { hasText: '307' }).click();
+    const bus = rounds.nth(1);
+    assert.equal(await bus.locator('.round-sum').getAttribute('aria-expanded'), 'true');
+    assert.ok(await bus.locator('[data-card="bus-route"]').isVisible());
+    assert.equal(await page.evaluate(() => document.activeElement?.closest('.round')?.dataset.round), '2', '焦點在那一輪');
+    assert.ok(await bus.evaluate((r) => { const t = r.getBoundingClientRect().top; return t >= 0 && t < innerHeight / 2; }), '捲到那一輪');
+    // 在那一輪設到站提醒 → 提醒頁那一筆「看當時的對話」→ 回到問阿幫、那一輪展開
+    await bus.locator('[data-card="bus-route"] .ab-btn', { hasText: '到站前 3 分提醒我' }).click();
+    await bus.locator('.round-sum').click();
+    assert.equal(await bus.evaluate((r) => r.classList.contains('folded')), true);
+    await page.goto(`${base}/#/reminders`);
+    const link = page.locator('.rem-row[data-kind="arrival"] .rem-chat');
+    assert.equal(await link.textContent(), '看當時的對話 ›');
+    assert.equal(await link.getAttribute('href'), '#/agent?turn=2');
+    await link.click();
+    await page.waitForFunction(() => document.querySelector('.round[data-round="2"]') && !document.querySelector('.round[data-round="2"]').classList.contains('folded'));
+    await page.waitForFunction(() => document.activeElement?.closest('.round')?.dataset.round === '2');
+    assert.match(page.url(), /#\/agent$/, '網址換回 #/agent（重新整理不會再跳）');
+    // 回到最新：按了捲到最新一輪
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await toLatest.waitFor();
+    await toLatest.click();
+    await page.waitForFunction(() => document.querySelector('.to-latest').hidden);
+    // 底部對話面板（其他頁打開）：同一段對話一樣收合；目錄只在整頁
+    await page.goto(`${base}/#/`);
+    await page.click('#abang-fab');
+    await page.waitForSelector('#abang-sheet[open] .round');
+    assert.ok(await page.locator('#abang-sheet .round.folded').count() >= 3, '面板裡舊的輪也收成一行');
+    assert.equal(await page.locator('#abang-sheet .round').last().evaluate((r) => r.classList.contains('folded')), false);
+    assert.equal(await page.locator('#abang-sheet .chat-index').isVisible(), false, '面板空間小：不顯示目錄');
+    // 新的一輪在面板裡問：前一輪收起
+    await page.fill('#abang-sheet .chat-form input', '台積電股價');
+    await page.press('#abang-sheet .chat-form input', 'Enter');
+    await page.waitForFunction(() => document.querySelectorAll('#abang-sheet .bubble.final').length === 6, null, { timeout: 20000 });
+    assert.equal(await page.locator('#abang-sheet .round').nth(4).evaluate((r) => r.classList.contains('folded')), true);
+    assert.match(await page.locator('#abang-sheet .round').nth(4).locator('.round-sum').textContent(), /^發票：/);
+  });
+});
+
+test('長對話：動畫開著時前一輪平順收起（不留中間狀態）、收起的決策圖停止光點', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    for (const [i, q] of ['從西門町到台北101怎麼去', '307 到哪了？'].entries()) {
+      await page.fill('.chat-form input', q);
+      await page.press('.chat-form input', 'Enter');
+      await page.waitForFunction((n) => document.querySelectorAll('.bubble.final').length === n, i + 1, { timeout: 20000 });
+      if (!i) await page.waitForFunction(() => document.querySelector('.decision .dg-edge.win.flow'), null, { timeout: 8000 });
+    }
+    await page.waitForFunction(() => document.querySelector('.round').classList.contains('folded') && !document.querySelector('.round.folding'));
+    assert.equal(await page.locator('.round').first().evaluate((r) => r.style.overflow), '', '動畫結束後不留 overflow');
+    assert.equal(await page.locator('.round.folded .dg-flow-dot').count(), 0, '收起的決策圖沒有光點在跑');
+    await page.locator('.round-sum').first().click();
+    await page.waitForFunction(() => !document.querySelector('.round').classList.contains('folded'));
+    await page.waitForFunction(() => document.querySelector('.round .dg-edge.win.flow'));
+  }, { motion: true });
+});
+
 // 判斷看得到（2026-11-21 PM 回饋「會看天氣空品，但都只顯示詢問定位」）：行程比較用到的天氣、空品、路況逐項說明＋影響；
 // 決策圖資料欄每個來源一個節點（值、影響、查不到）；只剩一種方式時說原因並給換條件的建議
 /** 模擬模型模式：拿掉示範模式另外查的天氣、空品、路況（模型模式只呼叫行程比較），討論串只能靠 data_note 說明 */
@@ -3030,4 +3141,129 @@ test('健康與運動（App）：第一次打開才跳權限；被拒 → 開關
     assert.equal(await card.locator('button[data-act="nav"]').count(), 0, '達標不推');
     assert.equal(await card.locator('.tag.demo').count(), 0, '手機上的真資料不標示範');
   }, { init: `${FAKE_HEALTH({ status: { available: true, permission: 'granted', source: 'health-connect' }, steps: 8200 })};localStorage.setItem('abang.health','on');`, ignore: /not in test/ });
+});
+
+// PR #109 審查修正（長對話）
+const askChat = async (page, q, n) => {
+  await page.fill('.chat-form input', q);
+  await page.press('.chat-form input', 'Enter');
+  await page.waitForFunction((k) => document.querySelectorAll('.bubble.final').length === k, n, { timeout: 20000 });
+};
+/** 模擬判斷層有開：status 事件帶 intent（E2E 關掉判斷層，這裡依提問補上，重現「status 先到、沿用那句後到」） */
+const WITH_INTENT = (map) => async (route) => {
+  if (route.request().method() !== 'POST') return route.fallback();
+  const body = JSON.parse(route.request().postData() || '{}');
+  const last = body.messages?.at(-1)?.content || '';
+  const intent = Object.entries(map).find(([k]) => last.includes(k))?.[1];
+  const res = await route.fetch();
+  const text = (await res.text()).split('\n').map((l) => {
+    if (!l.trim() || !intent) return l;
+    const e = JSON.parse(l);
+    return e.type === 'status' ? JSON.stringify({ ...e, judge: { intent, source: 'rules' } }) : l;
+  }).join('\n');
+  return route.fulfill({ response: res, body: text });
+};
+
+test('長對話審查：接著改（沿用那句在 status 之後才到）不分段；換話題比最近有話題的輪', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.route('**/api/v1/agent', WITH_INTENT({ 西門町: 'trip', 下雨: 'weather', 改搭公車: 'trip', 謝謝: 'unknown', 空氣: 'aqi' }));
+    await askChat(page, '從西門町到台北101怎麼去', 1);
+    await askChat(page, '那邊會下雨嗎', 2);
+    await askChat(page, '改搭公車呢', 3);
+    assert.match(await page.locator('.round[data-round="3"] .turn').textContent(), /沿用：/, '第三輪是接著改');
+    assert.equal(await page.locator('.round[data-round="3"]').evaluate((r) => r.previousElementSibling?.classList.contains('topic-sep')), false, '接著改：不插分隔線');
+    assert.equal(await page.locator('.chat .topic-sep').count(), 1, '只有行程 → 天氣那一條');
+    // 行程 → 謝謝 → 空品：謝謝沒有話題，空品跟前面的行程比 → 分段
+    await askChat(page, '謝謝', 4);
+    await askChat(page, '附近空氣品質', 5);
+    assert.equal(await page.locator('.round[data-round="5"]').evaluate((r) => r.previousElementSibling?.classList.contains('topic-sep')), true);
+  });
+});
+
+test('長對話審查：自動收起時焦點在那一輪裡 → 移到它的摘要按鈕；讀屏先不念剛出現的摘要', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await askChat(page, '現在天氣如何', 1); // 沒有「阿幫問你」的一題（有問題開著時上一輪會先留著）
+    await page.locator('.round[data-round="1"] .thread-sum').focus();
+    await page.waitForTimeout(5200); // 超過「正在操作」的 5 秒
+    const r = await page.evaluate(() => {
+      const input = document.querySelector('.chat-form input');
+      input.value = '這期發票號碼是多少？';
+      document.querySelector('.chat-form').requestSubmit(); // 送出不移動焦點（例如提醒泡泡代問）
+      const a = document.activeElement;
+      return { folded: document.querySelector('.round[data-round="1"]').classList.contains('folded'), sum: a?.classList.contains('round-sum'), round: a?.closest('.round')?.dataset.round, hidden: a?.getAttribute('aria-hidden') };
+    });
+    assert.deepEqual(r, { folded: true, sum: true, round: '1', hidden: null }, '焦點移到摘要按鈕，不掉到 body；要放焦點的不藏');
+    await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
+    // 沒有焦點的那一輪：摘要剛出現時 aria-hidden，0.8 秒後放出來
+    const hidden = await page.evaluate(() => {
+      document.querySelector('.chat-form input').value = '台積電股價';
+      document.querySelector('.chat-form').requestSubmit();
+      return document.querySelector('.round[data-round="2"] .round-sum').getAttribute('aria-hidden');
+    });
+    assert.equal(hidden, 'true');
+    await page.waitForFunction(() => !document.querySelector('.round[data-round="2"] .round-sum').hasAttribute('aria-hidden'));
+  });
+});
+
+test('長對話審查：收起的輪卡片停止刷新、展開恢復；「接下來可以」設提醒的確認句在那一輪裡；?turn 只收數字、不換掉防詐頁', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await askChat(page, '307 到哪了？我在臺北車站', 1);
+    const slot = page.locator('.round[data-round="1"] [data-card="bus-route"]').locator('xpath=ancestor::*[@data-live][1]');
+    assert.equal(await slot.getAttribute('data-live'), '1');
+    await page.locator('.suggest .chip', { hasText: '到站前 3 分提醒我' }).click();
+    await page.waitForSelector('.round[data-round="1"] .agent-sys');
+    assert.equal(await page.locator('.chat > .agent-sys').count(), 0, '確認句不在對話最外層');
+    await page.waitForTimeout(5200); // 剛按過（正在操作 5 秒）不收
+    await askChat(page, '現在天氣如何', 2);
+    await page.waitForFunction(() => document.querySelector('.round[data-round="1"]').classList.contains('folded'));
+    assert.equal(await slot.getAttribute('data-live'), '0', '收起：停止刷新');
+    await page.locator('.round[data-round="1"] .round-sum').click();
+    assert.equal(await slot.getAttribute('data-live'), '1', '展開（還在最近兩輪）：恢復刷新');
+    // ?turn 不是數字：不動、網址換回來
+    await page.goto(`${base}/#/agent?turn=abc`);
+    await page.waitForFunction(() => location.hash === '#/agent');
+    await page.goto(`${base}/#/agent/antifraud?turn=2`);
+    await page.waitForSelector('.chat-form');
+    await page.waitForFunction(() => location.hash === '#/agent/antifraud');
+    assert.match(await page.textContent('.topbar h1'), /防詐/, '還在防詐頁');
+  });
+});
+
+test('長對話審查：排隊中的「接下來可以」也算接著問（不分段）', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await askChat(page, '這期發票號碼是多少？', 1);
+    // 第二題（天氣）回答慢一點：回答中點上一輪「接下來可以」的「上一期中獎號碼」（排隊）
+    await page.route('**/api/v1/agent', async (route) => {
+      const last = JSON.parse(route.request().postData() || '{}').messages?.at(-1)?.content || '';
+      if (last.includes('天氣')) await new Promise((r) => setTimeout(r, 1500));
+      return route.fallback();
+    });
+    await page.fill('.chat-form input', '現在天氣如何');
+    await page.press('.chat-form input', 'Enter');
+    await page.locator('.suggest .chip', { hasText: '上一期中獎號碼' }).click();
+    await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 3, null, { timeout: 20000 });
+    assert.match(await page.locator('.round[data-round="3"] .msg.user').textContent(), /上一期/);
+    assert.equal(await page.locator('.round[data-round="2"]').evaluate((r) => r.previousElementSibling?.classList.contains('topic-sep')), true, '發票 → 天氣：分段');
+    assert.equal(await page.locator('.round[data-round="3"]').evaluate((r) => r.previousElementSibling?.classList.contains('topic-sep')), false, '排隊的「接下來可以」是接著問：不分段');
+  });
+});
+
+test('長對話審查：動畫開著但低階裝置（lite-motion）收合不播動畫；桌面目錄與對話同寬置中', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await askChat(page, '從西門町到台北101怎麼去', 1);
+    await askChat(page, '現在天氣如何', 2);
+    await page.waitForFunction(() => document.querySelector('.round').classList.contains('folded') && !document.querySelector('.round.folding'));
+    const anims = await page.evaluate(() => {
+      document.documentElement.classList.add('lite-motion');
+      document.querySelector('.round-sum').click();
+      return document.querySelector('.round').getAnimations({ subtree: false }).length;
+    });
+    assert.equal(anims, 0);
+  }, { motion: true });
+  await withPage(DEVICES.desktop, '#/agent', async (page) => {
+    await page.waitForSelector('.chat-form');
+    const [nav, chat] = await page.evaluate(() => [getComputedStyle(document.querySelector('.chat-index')).maxWidth, getComputedStyle(document.querySelector('.chat')).maxWidth]);
+    assert.equal(nav, '640px');
+    assert.equal(chat, '640px');
+  });
 });

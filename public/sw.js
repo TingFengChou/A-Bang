@@ -14,6 +14,7 @@ const SHELL = [
   '/css/vision.css', '/js/vision.js', '/core/vision-text.js', '/js/edge-write.js', '/core/edge-write.js', '/core/output-guards.js',
   '/js/voice.js', '/js/voice-i18n.js', '/js/agent/voice-ui.js',
   '/js/health.js', '/js/health-ui.js', '/core/health-nudge.js', '/core/nav.js', '/core/landmarks.json',
+  '/js/agent/collapse.js', '/js/agent/turn-summary.js', '/js/agent/chat-links.js', // 長對話（UX.md §4.17）
 ];
 
 self.addEventListener('install', (e) => {

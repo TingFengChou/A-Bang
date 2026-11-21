@@ -531,3 +531,4 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
 .health-why { margin: 8px 0 0; font-size: 13.5px; color: var(--text); background: var(--off-soft); border-radius: 10px; padding: 8px 10px; }
 .health-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .me-health { padding: 14px 16px; }
+.rem-open + .rem-chat { margin-left: 16px; } /* 提醒頁：看當時的對話（長對話，UX.md §4.17） */

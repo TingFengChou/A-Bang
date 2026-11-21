@@ -187,7 +187,7 @@ export function withHabit(args, habit) {
 export const priorUserTexts = (messages) => messages.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content);
 
 /** 判斷層結果給前端看（不含對話內容） */
-export const judgeInfo = (j) => (j ? { intent: j.intent, source: j.source, ...(j.engine && { engine: j.engine }), ...(j.confidence != null && { confidence: Math.round(j.confidence * 100) / 100 }) } : undefined);
+export const judgeInfo = (j) => (j ? { intent: j.intent, source: j.source, ...(j.engine && { engine: j.engine }), ...(j.confidence != null && { confidence: Math.round(j.confidence * 100) / 100 }), ...(j.followUp && { followUp: true }) } : undefined); // followUp：接著上一輪改（前端長對話不分段）
 
 /**
  * 判斷層的兩段呼叫（快速版先說聽懂了什麼、完整版定案）。帶 deviceJudge 時一起交給判斷層；
