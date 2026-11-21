@@ -5,5 +5,6 @@ import Capacitor
 class MainViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(AbangEdgeAIPlugin())
+        bridge?.registerPluginInstance(AbangSystemPlugin()) // 開啟 App 設定（S1c）
     }
 }

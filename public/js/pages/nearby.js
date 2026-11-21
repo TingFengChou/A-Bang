@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { icons } from '../icons.js';
-import { esc, loading, errorBox, empty, fmtDist, fmtTime, locate, chev } from '../ui.js';
+import { esc, loading, errorBox, empty, fmtDist, fmtTime, locate, chev, FALLBACK } from '../ui.js';
+import { locationNotice } from '../location-help.js';
 
 export default {
   title: '附近',
@@ -24,6 +25,8 @@ export default {
       try {
         pos = await locate({ fresh });
         main.querySelector('#loc').lastChild.textContent = ` ${pos.label}`;
+        main.querySelector('.loc-help')?.remove();
+        if (pos === FALLBACK) main.querySelector('#list').before(locationNotice({ retry: () => load(true), onCleanup })); // 沒拿到位置：說原因與下一步（S1c）
         if (tab === 'bus') renderBus(await api.busNearby(pos.lat, pos.lon));
         else renderBike(await api.bikeNearby(pos.lat, pos.lon));
         main.querySelector('#upd').textContent = `更新於 ${fmtTime()}`;

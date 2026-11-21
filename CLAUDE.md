@@ -76,7 +76,7 @@ server/          http.js（REST、/mcp、/api/docs、/healthz、靜態檔）、l
 mcp/             create-server.js、server.js（stdio）、cards-resource.js（ui://abang/cards.html）
 public/          PWA；ui/cards/（卡片渲染、契約、字典、web host、MCP Apps host 與入口 mcp-app.js；預覽 /ui/cards/preview.html）；js/pages/agent.js（問阿幫 #/agent）、js/agent/client.js（定位：App 用原生外掛）、js/edge-judge.js（裝置端 AI）、js/keyboard.js、css/agent.css
 test/            node:test；fixtures/；scenarios/（情境對話集，A0）
-android/、ios/   Capacitor 原生專案（ADR-0013）；前端仍在 public/，打包到 dist/app；專案內外掛 AbangEdgeAI（ADR-0014）
+android/、ios/   Capacitor 原生專案（ADR-0013）；前端仍在 public/，打包到 dist/app；專案內外掛 AbangEdgeAI（ADR-0014）、AbangSystem（開 App 設定，S1c）
 docs/            規格、ADR、原型、文件網站
 ```
 

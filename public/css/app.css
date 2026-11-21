@@ -290,3 +290,9 @@ html.kb-open .app { padding-bottom: 12px; }
 .saved-find[hidden] { display: none; }
 .saved-find .saved-status { grid-column: 1 / -1; margin: 0; font-size: 14px; color: var(--muted); }
 .saved-find .saved-hint { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+
+/* 定位失敗的說明（S1c）：原因＋到設定開啟＋再試一次 */
+.loc-help { background: var(--warn-soft, #fff7e6); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 0 0 10px; font-size: 14px; }
+.loc-help p { margin: 0; }
+.loc-help-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.settings .perm + .btn.small { margin: -4px 0 8px; }

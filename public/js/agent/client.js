@@ -32,6 +32,26 @@ export async function locationGranted() {
   } catch { return false; }
 }
 
+/**
+ * 定位失敗的原因（S1c）：denied 權限沒開、off 手機定位服務關閉、timeout 太久沒回應、unavailable 其他。
+ * 原生外掛的錯誤碼（@capacitor/geolocation，iOS 與 Android 相同）：OS-PLUG-GLOC-0003／0008 拒絕或受限、0007／0009／0017 定位服務關閉、0010 逾時。
+ * 網頁：GeolocationPositionError 1 拒絕、2 拿不到、3 逾時。
+ * @returns {'denied'|'off'|'timeout'|'unavailable'}
+ */
+export function locationReason(err) {
+  const n = Number(/^OS-PLUG-GLOC-(\d+)$/.exec(String(err?.code ?? ''))?.[1]);
+  if (Number.isFinite(n)) return n === 3 || n === 8 ? 'denied' : n === 7 || n === 9 || n === 17 ? 'off' : n === 10 ? 'timeout' : 'unavailable';
+  if (err?.code === 1) return 'denied';
+  if (err?.code === 3) return 'timeout';
+  const m = String(err?.message || '');
+  return /denied/i.test(m) && !/enable/i.test(m) ? 'denied' : /not enabled|turned off|disabled|enable location/i.test(m) ? 'off' : /time/i.test(m) ? 'timeout' : 'unavailable';
+}
+/** 最近一次定位失敗的原因（成功後清掉）；畫面用來說明怎麼辦 */
+let lastError = null;
+export const lastLocationError = () => lastError;
+/** 第幾次定位：只有最新一次、還沒結束的定位能寫 lastError（被逾時放棄的舊呼叫晚到不蓋掉） */
+let attempt = 0;
+
 /** 正在進行的原生定位（問阿幫先定位與 runAgent 同時要位置時共用，不發兩個原生呼叫） */
 let pending = null;
 
@@ -43,27 +63,31 @@ let pending = null;
 export function browserLocation(timeout = 5000, { highAccuracy = false, fresh = false, withAccuracy = false } = {}) {
   if (!fresh && lastFix && Date.now() - lastFix.at < 120_000 && (lastFix.high || !highAccuracy)) return Promise.resolve(lastFix.pos);
   // withAccuracy：多回誤差公尺數（設定常用地點時檢查「大概位置」）；一般定位不帶，送給伺服器的還是只有 lat／lon
-  const keep = (lat, lon, acc) => { const pos = { lat, lon }; lastFix = { pos, at: Date.now(), high: highAccuracy }; return withAccuracy ? { ...pos, accuracy: Number.isFinite(acc) ? acc : null } : pos; };
+  if (pending && !fresh && nativeGeo()) return pending; // 共用進行中的原生定位（不算新的一次）
+  const my = ++attempt;
+  let settled = false;
+  const fail = (why) => { if (!settled && my === attempt) lastError = why; settled = true; return null; };
+  const keep = (lat, lon, acc) => { const pos = { lat, lon }; lastFix = { pos, at: Date.now(), high: highAccuracy }; if (my === attempt) lastError = null; settled = true; return withAccuracy ? { ...pos, accuracy: Number.isFinite(acc) ? acc : null } : pos; };
   const opts = { enableHighAccuracy: highAccuracy, timeout, maximumAge: fresh ? 0 : 60_000 };
   const c = nativeGeo();
   if (c) {
-    if (pending && !fresh) return pending;
     let timer;
     const p = (async () => {
       // 第一次會跳系統權限框：使用者想一下的時間不算逾時（外掛的 timeout 從拿到權限後才開始）；已允許只多等 3 秒
       const granted = await nativeGranted(c).catch(() => false);
       const call = c.nativePromise('Geolocation', 'getCurrentPosition', opts)
-        .then((r) => (Number.isFinite(r?.coords?.latitude) ? keep(r.coords.latitude, r.coords.longitude, r.coords.accuracy) : null)).catch(() => null);
-      return Promise.race([call, new Promise((r) => { timer = setTimeout(() => r(null), timeout + (granted ? 3000 : 30_000)); })]);
+        .then((r) => (Number.isFinite(r?.coords?.latitude) ? keep(r.coords.latitude, r.coords.longitude, r.coords.accuracy) : fail('unavailable')))
+        .catch((e) => fail(locationReason(e)));
+      return Promise.race([call, new Promise((r) => { timer = setTimeout(() => r(fail('timeout')), timeout + (granted ? 3000 : 30_000)); })]);
     })().finally(() => { clearTimeout(timer); if (pending === p) pending = null; }); // fresh 另起的呼叫不被舊的清掉
     if (!fresh) pending = p;
     return p;
   }
   const geo = globalThis.navigator?.geolocation;
-  if (!geo) return Promise.resolve(null);
+  if (!geo) return Promise.resolve(fail('unavailable'));
   return new Promise((resolve) => geo.getCurrentPosition(
     (p) => resolve(keep(p.coords.latitude, p.coords.longitude, p.coords.accuracy)),
-    () => resolve(null),
+    (e) => resolve(fail(locationReason(e))),
     opts,
   ));
 }
@@ -117,7 +141,7 @@ export async function runAgent(body, onEvent, { base = API_BASE, agentId = 'life
         const loc = await locate();
         results.push(loc ? { id: c.id, ok: true, result: loc } : { id: c.id, ok: false });
         // 只給畫面用（不含座標）；台灣以外伺服器不採用，畫面要一致
-        onEvent({ type: 'client_tool_result', id: c.id, name: c.name, ok: inTaiwan(loc), ...(loc && !inTaiwan(loc) && { reason: 'outside' }) });
+        onEvent({ type: 'client_tool_result', id: c.id, name: c.name, ok: inTaiwan(loc), ...(loc && !inTaiwan(loc) ? { reason: 'outside' } : !loc && lastError && { reason: lastError }) }); // reason：畫面說明原因（S1c）
       } else results.push({ id: c.id, ok: false });
     }
     clientToolResults = [...clientToolResults, ...results];

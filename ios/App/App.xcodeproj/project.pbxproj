@@ -17,6 +17,7 @@
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		A0B0C0D0E0F0A1B2C3D4E502 /* AbangEdgeAIPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B0C0D0E0F0A1B2C3D4E501 /* AbangEdgeAIPlugin.swift */; };
+		A0B0C0D0E0F0A1B2C3D4E602 /* AbangSystemPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B0C0D0E0F0A1B2C3D4E601 /* AbangSystemPlugin.swift */; };
 		A0B0C0D0E0F0A1B2C3D4E504 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B0C0D0E0F0A1B2C3D4E503 /* MainViewController.swift */; };
 		A0B0C0D0E0F0A1B2C3D4E506 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A0B0C0D0E0F0A1B2C3D4E505 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -34,6 +35,7 @@
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		A0B0C0D0E0F0A1B2C3D4E501 /* AbangEdgeAIPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbangEdgeAIPlugin.swift; sourceTree = "<group>"; };
+		A0B0C0D0E0F0A1B2C3D4E601 /* AbangSystemPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbangSystemPlugin.swift; sourceTree = "<group>"; };
 		A0B0C0D0E0F0A1B2C3D4E503 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		A0B0C0D0E0F0A1B2C3D4E505 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -75,6 +77,7 @@
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				A0B0C0D0E0F0A1B2C3D4E503 /* MainViewController.swift */,
 				A0B0C0D0E0F0A1B2C3D4E501 /* AbangEdgeAIPlugin.swift */,
+				A0B0C0D0E0F0A1B2C3D4E601 /* AbangSystemPlugin.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				A0B0C0D0E0F0A1B2C3D4E505 /* PrivacyInfo.xcprivacy */,
@@ -171,6 +174,7 @@
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				A0B0C0D0E0F0A1B2C3D4E504 /* MainViewController.swift in Sources */,
 				A0B0C0D0E0F0A1B2C3D4E502 /* AbangEdgeAIPlugin.swift in Sources */,
+				A0B0C0D0E0F0A1B2C3D4E602 /* AbangSystemPlugin.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
