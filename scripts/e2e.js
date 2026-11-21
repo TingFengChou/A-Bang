@@ -1081,7 +1081,7 @@ test('設定與隱私：首頁進入、狀態、隱私權政策', async () => {
     await work.getByRole('button', { name: '輸入地點設成「公司」' }).click();
     await work.locator('.saved-find input').fill('板橋車站');
     await work.locator('.saved-find input').press('Enter');
-    await work.getByRole('listitem', { name: /設成 板橋車站/ }).click();
+    await work.getByRole('listitem').getByRole('button', { name: /設成 板橋車站（新北市）/ }).click();
     await page.waitForFunction(() => /已設定：板橋車站/.test([...document.querySelectorAll('.saved-row')].find((r) => r.textContent.includes('公司')).textContent));
     assert.equal(await work.locator('.saved-find').isHidden(), true, '選好就收起來');
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('abang.places')).公司.name), '板橋車站');

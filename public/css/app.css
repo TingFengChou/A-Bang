@@ -229,9 +229,9 @@ html.kb-open .app { padding-bottom: 12px; }
 .settings ul.local { margin: 0 0 12px; padding-left: 20px; line-height: 1.8; }
 .btn.danger { background: var(--bad-soft); color: var(--bad); border: 1px solid var(--bad); min-height: 44px; }
 .settings, .privacy { margin-bottom: 14px; padding: 16px; }
-.saved-row { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 0; border-top: 1px solid var(--line); }
+.saved-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 48px; padding: 8px 0; border-top: 1px solid var(--line); }
 .saved-row:first-child { border-top: 0; }
-.saved-row > span { display: flex; flex-direction: column; }
+.saved-row > span { flex: 1 1 6em; display: flex; flex-direction: column; }
 .saved-row small { color: var(--muted); }
 .btn.small { min-height: 44px; padding: 0 12px; font-size: 14px; white-space: nowrap; }
 .btn.quiet { background: transparent; color: var(--text); border: 1px solid var(--line); }
@@ -282,12 +282,11 @@ html.kb-open .app { padding-bottom: 12px; }
 .pick-hint { margin: 6px 4px 8px; font-size: 14px; color: var(--muted); }
 
 /* 常用地點：輸入地點（S1b） */
-.saved-row > span { flex: 1 1 6em; }
 .saved-acts { display: flex; gap: 8px; margin-left: auto; }
 .saved-row .saved-find { flex-basis: 100%; }
 .saved-find { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 8px 0 12px; }
 .saved-find input { min-height: 44px; border-radius: 10px; border: 1px solid var(--line); padding: 0 10px; font: inherit; width: 100%; box-sizing: border-box; }
 .saved-find .saved-results { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; font-size: 14px; color: var(--muted); }
 .saved-find[hidden] { display: none; }
+.saved-find .saved-status { grid-column: 1 / -1; margin: 0; font-size: 14px; color: var(--muted); }
 .saved-find .saved-hint { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
-.saved-row { flex-wrap: wrap; }

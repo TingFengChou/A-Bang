@@ -50,7 +50,7 @@ export const settings = {
       </section>
       <section class="card settings">
         <h2>常用地點</h2>
-        <p class="note">在家、公司或學校時按「設成現在位置」，或按「輸入地點」打地名設定。設好以後說「回家」「去公司」就能直接規劃。座標只存在這支手機，只有你提到時才跟問題一起送出。</p>
+        <p class="note">在家、公司或學校時按「設成現在位置」，或按「輸入地點」打地名設定。設好以後說「回家」「去公司」就能直接規劃。位置只存在這支手機，只有你提到時才跟問題一起送出。</p>
         <div id="saved" role="list"></div>
       </section>
       <section class="card settings" id="reminders-card">
@@ -109,37 +109,54 @@ export const settings = {
       find.setAttribute('aria-expanded', 'false');
       const panel = document.createElement('div');
       panel.className = 'saved-find';
+      panel.id = `saved-find-${SAVED_KEYS.indexOf(k)}`;
+      find.setAttribute('aria-controls', panel.id);
       panel.hidden = true;
-      panel.innerHTML = `<label><span class="sr-only">「${esc(k)}」的地點</span><input type="search" maxlength="30" placeholder="車站、捷運站或地標，例如：板橋車站" autocomplete="off"></label><button type="button" class="btn small">搜尋</button><small class="saved-hint">目前查不到門牌地址，請選離那裡最近的車站或地標。</small><div class="saved-results" role="list" aria-live="polite"></div>`;
+      panel.innerHTML = `<label><span class="sr-only">「${esc(k)}」的地點</span><input type="search" maxlength="30" placeholder="車站、捷運站或地標，例如：板橋車站" autocomplete="off"></label><button type="button" class="btn small">搜尋</button><small class="saved-hint">目前查不到門牌地址，請選離那裡最近的車站或地標。</small><p class="saved-status" aria-live="polite"></p><div class="saved-results" role="list"></div>`;
       const input = panel.querySelector('input');
       const results = panel.querySelector('.saved-results');
+      const status = panel.querySelector('.saved-status');
+      const go = panel.querySelector('button');
+      const close = () => { panel.hidden = true; find.setAttribute('aria-expanded', 'false'); };
+      let seq = 0; // 只採用最後一次搜尋的結果（慢的舊回應不蓋掉新的）
       const search = async () => {
         const q = input.value.trim();
         if (!q) { input.focus(); return; }
-        results.textContent = '搜尋中…';
+        const my = ++seq;
+        go.disabled = true;
+        status.textContent = '搜尋中…';
+        results.replaceChildren();
         try {
           const r = await host.callTool('find_place', { query: q });
+          if (my !== seq) return;
           const list = (r.data || []).filter((x) => inTaiwan(x)).slice(0, 5);
-          results.replaceChildren();
-          if (!list.length) { results.textContent = `找不到「${q}」，換個說法或加上縣市`; return; }
+          status.textContent = list.length ? `找到 ${list.length} 個，選一個：` : `找不到「${q}」。試試附近的車站或地標名稱`;
           for (const x of list) {
-            const b = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small quiet', textContent: x.name });
-            b.setAttribute('role', 'listitem');
-            b.setAttribute('aria-label', `把「${k}」設成 ${x.name}`);
+            const label = x.cityName ? `${x.name}（${x.cityName}）` : x.name; // 同名地點分得出來
+            const li = document.createElement('div');
+            li.setAttribute('role', 'listitem');
+            const b = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small quiet', textContent: label });
+            b.setAttribute('aria-label', `把「${k}」設成 ${label}`);
             b.addEventListener('click', () => {
               if (loadPlaces()[k] && !window.confirm(`要把「${k}」改成「${x.name}」嗎？`)) return;
-              if (savePlace(k, { lat: x.lat, lon: x.lon, name: x.name })) toast(`已把「${k}」設成 ${x.name}`);
-              panel.hidden = true; find.setAttribute('aria-expanded', 'false');
+              if (!savePlace(k, { lat: x.lat, lon: x.lon, name: x.name })) { toast('這個瀏覽器不能存資料（無痕模式？）', 5000); return; }
+              toast(`已把「${k}」設成 ${x.name}`);
+              close();
               update(k);
               find.focus();
             });
-            results.append(b);
+            li.append(b);
+            results.append(li);
           }
-        } catch (e) { results.textContent = e.message || '暫時查不到，稍後再試'; }
+        } catch (e) {
+          if (my === seq) status.textContent = /^HTTP |^[A-Za-z]/.test(e.message || '') || !e.message ? '暫時查不到，稍後再試' : e.message; // 伺服器英文錯誤不直接給人看
+        } finally { if (my === seq) go.disabled = false; }
       };
-      panel.querySelector('button').addEventListener('click', search);
+      go.addEventListener('click', search);
+      panel.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); close(); find.focus(); } });
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); search(); } });
       find.addEventListener('click', () => {
+        if (panel.hidden) for (const o of box.querySelectorAll('.saved-find:not([hidden])')) { o.hidden = true; box.querySelector(`[aria-controls="${o.id}"]`)?.setAttribute('aria-expanded', 'false'); } // 一次只開一個
         panel.hidden = !panel.hidden;
         find.setAttribute('aria-expanded', String(!panel.hidden));
         if (!panel.hidden) input.focus();
@@ -235,7 +252,7 @@ export const privacy = {
         <p><b>裝置端 AI：</b>手機 App 可用手機內建的模型（Apple Intelligence、Gemini Nano）先判斷問題類型，只送出判斷結果（例如「行程、趕時間」）；可在「設定與隱私」關閉。</p>
         <p><b>相機（掃發票 QR code）：</b>影像只在手機上解讀號碼與日期，不上傳、不保存影像。</p>
         <p><b>通知：</b>到站與出門提醒是手機上的本機通知，不經過推播伺服器。</p>
-        <p><b>存在你手機上的資料：</b>收藏、我的發票（號碼與日期）、偏好、進行中的提醒、常用地點（家、公司、學校的座標）、離線時顯示的上次查詢結果（公車到站 10 分鐘內、路線與時刻表 24 小時內；不含座標，但看得出你查過哪些路線與站牌）只存在這支手機；常用地點只有在你提到（例如「回家」）時，那一個的座標才跟問題一起送出用來規劃；用「輸入地點」設定時，打的地名會送到阿幫伺服器查座標（不送你的位置）；Claude 模式下，座標不給模型，但依座標查到的站名、路線、天氣等結果會給模型轉述。可在「設定與隱私」清除。</p>
+        <p><b>存在你手機上的資料：</b>收藏、我的發票（號碼與日期）、偏好、進行中的提醒、常用地點（家、公司、學校的座標）、離線時顯示的上次查詢結果（公車到站 10 分鐘內、路線與時刻表 24 小時內；不含座標，但看得出你查過哪些路線與站牌）只存在這支手機；常用地點只有在你提到（例如「回家」）時，那一個的座標與名稱才跟問題一起送出用來規劃；用「輸入地點」設定時，打的地名會送到阿幫伺服器查座標（不送你的位置）；Claude 模式下，座標不給模型，但依座標查到的站名、路線、天氣等結果會給模型轉述。可在「設定與隱私」清除。</p>
         <h3>4. 利用期間、地區、對象、方式</h3>
         <p>期間：回答當下處理；記憶體快取與限流資料自動清除；不建立使用者檔案。地區：〔待補：伺服器所在地〕；Claude 模式另有美國。對象：營運單位、上述資料來源（只送查詢需要的座標或地名）、Claude 模式下的 Anthropic。方式：以電腦自動處理。</p>
         <h3>5. 你的權利</h3>

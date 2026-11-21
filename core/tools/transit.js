@@ -296,7 +296,7 @@ export const findPlace = defineTool({
     ? `「${a.query}」最符合的是${d[0].name}（${cityName(d[0].city)}）${d.length > 1 ? `，另有 ${d.length - 1} 個相近地點` : ''}。`
     : `找不到「${a.query}」，可以換個說法或加上縣市。`),
   async run(svc, a) {
-    const data = withNav(await svc.places.find(a));
+    const data = withNav(await svc.places.find(a)).map((p) => ({ ...p, cityName: cityName(p.city) })); // cityName：同名地點讓人分得出來（設定頁輸入地點）
     const text = data.length
       ? clip([`「${a.query}」找到 ${data.length} 個地點：`, ...data.map((p) => `- ${p.name}（${cityName(p.city)}，${KIND[p.kind] || p.kind}）：lat=${p.lat}, lon=${p.lon}`)])
       : `找不到「${a.query}」。目前只查內建地標與車站，請換個說法（例如完整名稱）或加上縣市。`;
