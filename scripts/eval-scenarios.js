@@ -26,7 +26,7 @@ for (const sc of set.scenarios.filter((x) => !only.length || only.includes(x.id)
   for (const t of sc.turns) {
     messages.push({ role: 'user', content: t.say });
     const es = [];
-    await runModel(svc, { messages, clientTools: ['device_location'], clientToolResults: [sc.location === false ? { id: 'loc1', ok: false } : { id: 'loc1', ok: true, result: set.here }], ...(sc.saved && { savedPlaces: sc.saved }) }, (e) => es.push(e), { provider, judge, now: atTW(sc.at) });
+    await runModel(svc, { messages, clientTools: ['device_location'], clientToolResults: [sc.location === false ? { id: 'loc1', ok: false } : { id: 'loc1', ok: true, result: set.here }], ...(sc.saved && { savedPlaces: sc.saved }) }, (e) => es.push(e), { provider, judge, now: atTW(sc.at), ...(sc.profile && { profileId: sc.profile }) }); // profile：情境指定的 agent（例 antifraud）
     if (process.env.EVAL_DEBUG) for (const e of es) if (e.type === 'tool_start') console.log(`    · ${e.name} ${JSON.stringify(e.input)}`);
     const bad = check(es, t.expect);
     if (bad.length) fails.push(`「${t.say}」${bad.join('；')}`);

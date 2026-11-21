@@ -87,6 +87,9 @@ export const MESSAGES = {
   'scene.sep': '・',
   'scene.riding': '你在車上，在「{stop}」下車',
   'scene.waiting': '你在「{stop}」等車',
+  'scene.mark': '還有 {n} 站',
+  'scene.empty': '目前路上沒有這班車',
+  'scene.you': '你',
 
   // ── bus-station ──
   'busStation.title': '{name} 到站',

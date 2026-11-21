@@ -12,6 +12,10 @@
   "plugins": {
     "SystemBars": {
       "style": "LIGHT"
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_abang",
+      "iconColor": "#0F766E"
     }
   }
 }

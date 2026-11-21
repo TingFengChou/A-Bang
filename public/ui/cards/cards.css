@@ -264,17 +264,49 @@ html.lite-motion .ab-scene *, html.lite-motion .ab-gauge-band { animation: none 
 html.lite-motion .ab-gauge-needle { transition: none; }
 
 /* 公車街景（Blender 低多邊形素材）：街景背景＋公車依站數停在路上；站名與「還有 N 站」用網頁文字 */
-.ab-scene3d { position: relative; width: 100%; aspect-ratio: 960 / 420; overflow: hidden; border-radius: 14px; margin: 8px 0; background: #cfe3d6; }
-.ab-scene3d img { position: absolute; inset: 0; width: 100%; height: 100%; user-select: none; pointer-events: none; }
-.ab-scene-bus { position: absolute; inset: 0; }
-.ab-scene-bus .ab-scene-img { animation: ab-bus-bob 1.6s ease-in-out infinite; transform-origin: 40% 60%; }
+.ab-scene3d { position: relative; width: 100%; aspect-ratio: 960 / 420; overflow: hidden; border-radius: 14px; margin: 8px 0; background: #cfe3d6; isolation: isolate; }
+.ab-scene3d img, .ab-scene3d > svg, .ab-scene-busfx { position: absolute; inset: 0; width: 100%; height: 100%; user-select: none; pointer-events: none; }
+.ab-scene-bus { position: absolute; inset: 0; will-change: transform; pointer-events: none; }
+.ab-scene-body { position: absolute; inset: 0; animation: ab-bus-bob 1.6s ease-in-out infinite; transform-origin: 40% 60%; }
 @keyframes ab-bus-bob { 50% { transform: translateY(-0.3%); } }
-/* 開車中：引擎震動、車身微微前後晃（看得出在動）；到站：煞車點一下再停著 */
-.ab-scene-bus.moving .ab-scene-img { animation: ab-bus-drive .42s ease-in-out infinite alternate; }
+/* 開車中：引擎震動、車身微微前後晃（看得出在動）；到站：煞車點一下再停著、開門 */
+.ab-scene-bus.moving .ab-scene-body { animation: ab-bus-drive .42s ease-in-out infinite alternate; }
 @keyframes ab-bus-drive { from { transform: translateY(0) rotate(0deg); } to { transform: translateY(-0.45%) rotate(-0.35deg); } }
-.ab-scene-bus.at-stop .ab-scene-img { animation: ab-bus-bob 2.4s ease-in-out infinite; }
-.ab-scene-bus.at-stop.braking .ab-scene-img { animation: ab-bus-brake .6s ease-out 1, ab-bus-bob 2.4s ease-in-out .6s infinite; }
+.ab-scene-bus.at-stop .ab-scene-body { animation: ab-bus-bob 2.4s ease-in-out infinite; }
+.ab-scene-bus.at-stop.braking .ab-scene-body { animation: ab-bus-brake .6s ease-out 1, ab-bus-bob 2.4s ease-in-out .6s infinite; }
 @keyframes ab-bus-brake { 40% { transform: rotate(0.8deg) translateY(0.3%); } 100% { transform: none; } }
+.ab-door { opacity: 0; transition: opacity .3s; }
+.ab-scene-bus.open .ab-door { opacity: .95; transition-delay: .55s; }
+/* 坐車中：車頂標「你」 */
+.ab-scene-you { position: absolute; transform: translate(-50%, -50%) rotate(9deg); font-size: 12px; font-weight: 800; line-height: 1.2; color: #fff; background: #c2410c; padding: 2px 8px; border-radius: 999px; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,.2); white-space: nowrap; }
+/* 生活感（bus-scene-art.js）：等車的人、經過的車、中間的小站牌與「還有 N 站」、你這站的光圈 */
+.ab-scene-people, .ab-scene-marks { position: absolute; inset: 0; pointer-events: none; }
+.ab-scene-person, .ab-scene-rider, .ab-scene-taxi { position: absolute; pointer-events: none; }
+.ab-scene-person svg, .ab-scene-rider svg, .ab-scene-taxi svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.ab-scene-rider, .ab-scene-taxi { will-change: transform; }
+.ab-scene-person { animation: ab-idle 3.4s ease-in-out infinite; }
+.ab-scene-person:nth-child(2) { animation-delay: -1.2s; animation-duration: 3.9s; }
+.ab-scene-person:nth-child(3) { animation-delay: -2.1s; animation-duration: 3.1s; }
+.ab-scene-person.arrive { animation: ab-arrive .8s ease-out 2.6s both, ab-idle 3.4s ease-in-out 3.4s infinite; }
+.ab-scene-person.boarding { animation: none; }
+@keyframes ab-idle { 50% { transform: translateY(-2.5%); } }
+@keyframes ab-arrive { from { opacity: 0; transform: translateX(60%); } }
+.ab-sign { transition: opacity .6s; }
+.ab-sign.passed { opacity: .38; }
+.ab-scene-mark { position: absolute; transform: translateY(-50%); font-size: 11px; font-weight: 700; line-height: 1.2; padding: 2px 6px; border-radius: 7px; background: rgba(255,255,255,.94); color: #0f766e; box-shadow: 0 1px 3px rgba(0,0,0,.18); white-space: nowrap; }
+.ab-scene-empty { position: absolute; left: 50%; top: 60%; transform: translate(-50%, -50%); font-size: 13px; font-weight: 700; line-height: 1.25; padding: 4px 12px; border-radius: 999px; background: rgba(255,255,255,.94); color: #334155; box-shadow: 0 2px 6px rgba(0,0,0,.15); white-space: nowrap; }
+.ab-scene-halo { position: absolute; width: 15%; aspect-ratio: 2.4; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(20,184,166,.6), rgba(20,184,166,0)); opacity: 0; transition: opacity .6s; pointer-events: none; }
+.ab-scene-halo.soft { opacity: .6; }
+.ab-scene-halo.on { opacity: 1; animation: ab-halo 1.6s ease-out infinite; }
+@keyframes ab-halo { from { transform: translate(-50%, -50%) scale(.7); opacity: 1; } to { transform: translate(-50%, -50%) scale(1.35); opacity: .3; } }
+/* 時段（台灣時間）：傍晚暖色、夜晚柔和的藍（不是深色 HUD；文字標籤不受影響）；路燈、店面、車窗在罩子上面亮著 */
+.ab-scene-tint { position: absolute; inset: 0; pointer-events: none; }
+.ab-scene3d.dusk .ab-scene-tint { background: linear-gradient(180deg, rgba(255,153,77,.26), rgba(255,111,145,.12)); }
+.ab-scene3d.night { background: #a9b7c6; }
+.ab-scene3d.night .ab-scene-tint { background: linear-gradient(180deg, rgba(30,42,92,.44), rgba(40,56,112,.32)); }
+.ab-scene3d.dusk .ab-scene-img, .ab-scene3d.dusk .ab-scene-near, .ab-scene3d.dusk .ab-scene-rider { filter: brightness(.95) sepia(.14); }
+.ab-scene3d.night .ab-scene-img, .ab-scene3d.night .ab-scene-near, .ab-scene3d.night .ab-scene-rider { filter: brightness(.74) saturate(.85); }
+.ab-scene3d.night .ab-scene-halo { background: radial-gradient(closest-side, rgba(94,234,212,.7), rgba(94,234,212,0)); }
 .ab-scene-top { position: absolute; top: 4%; left: 3%; right: 3%; z-index: 2; display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
 .ab-scene-label { white-space: nowrap; font-weight: 700; font-size: 14px; line-height: 1.25; padding: 4px 10px; border-radius: 9px; box-shadow: 0 2px 6px rgba(0,0,0,.18); overflow: hidden; text-overflow: ellipsis; }
 .ab-scene-label.stop { flex: 0 1 auto; min-width: 3em; background: #0f766e; color: #fff; }
@@ -282,9 +314,9 @@ html.lite-motion .ab-gauge-needle { transition: none; }
 .ab-scene-label.bus b { color: #0f766e; font-size: 15px; }
 .ab-scene-label.bus.near { background: #e6f4ea; }
 .ab-scene-label.bus.near b { color: #15803d; }
-@media (prefers-reduced-motion: reduce) { .ab-scene-bus { transition: none !important; } .ab-scene-bus .ab-scene-img { animation: none !important; } }
-html.lite-motion .ab-scene-bus { transition: none !important; }
-html.lite-motion .ab-scene-bus .ab-scene-img { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .ab-scene-bus, .ab-door, .ab-sign, .ab-scene-halo { transition: none !important; } .ab-scene-body, .ab-scene-person, .ab-scene-halo { animation: none !important; } }
+html.lite-motion :is(.ab-scene-bus, .ab-door, .ab-sign, .ab-scene-halo) { transition: none !important; }
+html.lite-motion :is(.ab-scene-body, .ab-scene-person, .ab-scene-halo) { animation: none !important; }
 
 /* YouBike 兩端：借車站有車、還車站有空位；很緊時黃色警告與備用站 */
 .ab-bike-ends { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }

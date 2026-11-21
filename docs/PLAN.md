@@ -254,7 +254,8 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] M11 Android 返回手勢回上一層、首頁離開 App（PR #31）
 - [x] M11 原生定位 `@capacitor/geolocation`（iOS 只問一次權限）、鍵盤打開收起分頁列、iOS 隱私清單（2026-11-21，PR #33）
 - [ ] M11-03 原生相機掃發票 QR（網頁退路保留）
-- [x] M11-04 啟動畫面（藍鵲＋Abang，iOS／Android 舊版圖片、Android 12+ 系統啟動畫面底色與圖示）、隱私權政策頁 `#/privacy`、設定頁 `#/settings`（2026-11-21；聯絡方式待營運單位補上）
+- [x] App 圖示改用科技感的 Λ 標誌（C2：青綠漸層、Λ、琥珀核心、軌道），藍鵲留在 App 內；啟動畫面改放圖示＋Abang；Android 通知小圖示 `ic_stat_abang`；PWA maskable 與 apple-touch-icon 用方形不透明版（2026-11-21；實機的桌面圖示、主題圖示、通知小圖示、iOS 深色／著色待確認）
+- [x] M11-04 啟動畫面（藍鵲＋Abang〔2026-11-21 改成 Λ 圖示＋Abang〕，iOS／Android 舊版圖片、Android 12+ 系統啟動畫面底色與圖示）、隱私權政策頁 `#/privacy`、設定頁 `#/settings`（2026-11-21；聯絡方式待營運單位補上）
 - [ ] M11-05 ⛔ 測試環境部署（HTTPS，M6-06）＋ Google Play 內部測試、TestFlight（需開發者帳號）
 
 ## M12 裝置端 AI（ADR-0014，2026-11-21）

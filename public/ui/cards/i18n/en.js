@@ -89,6 +89,10 @@ export const MESSAGES = {
   'scene.sep': ' · ',
   'scene.riding': "You're on the bus, getting off at {stop}",
   'scene.waiting': "You're waiting at {stop}",
+  'scene.mark': '{n} stops',
+  'scene.mark.one': '{n} stop',
+  'scene.empty': 'No bus on the way right now',
+  'scene.you': 'You',
 
   // ── bus-station ──
   'busStation.title': '{name} arrivals',
