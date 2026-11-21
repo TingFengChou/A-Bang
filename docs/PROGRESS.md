@@ -14,7 +14,7 @@
 ---
 
 ## 2026-11-21 S1c 定位失敗說原因＋到設定開啟
-- 做了：`locationReason` 把原生外掛錯誤碼與網頁錯誤分成權限沒開、定位服務關閉、逾時、其他；`lastLocationError` 記最近一次原因。新增 `public/js/location-help.js`（說明文字、開設定、頁面說明區塊）與專案內外掛 `AbangSystem.openSettings`（Android：權限開 App 設定、定位服務開系統定位設定；iOS：App 設定）。附近、生活服務頁定位失敗時說原因＋再試一次（App 多「到設定開啟」，回來自動再定位）；問阿幫定位泡泡依原因說並附按鈕；設定頁權限區「到設定開啟」、Android 拒絕過一次另外顯示、回到畫面重新檢查；引導失敗說原因。SW v0.8.4。
+- 做了：`locationReason` 把原生外掛錯誤碼與網頁錯誤分成權限沒開、定位服務關閉、逾時、其他；`lastLocationError` 記最近一次原因。新增 `public/js/location-help.js`（說明文字、開設定、頁面說明區塊）與專案內外掛 `AbangSystem.openSettings`（Android：權限開 App 設定、定位服務開系統定位設定；iOS：App 設定）。附近、生活服務頁定位失敗時說原因＋再試一次（App 多「到設定開啟」，回來自動再定位）；問阿幫定位泡泡依原因說並附按鈕；設定頁權限區「到設定開啟」、Android 拒絕過一次另外顯示、回到畫面重新檢查；引導失敗說原因。SW v0.8.4。審查修正：先掛好「回來就重試」再開設定（iOS 回前景才收到結果）、離開頁面拿掉；設定頁定位服務關閉另外顯示（checkPermissions 丟 0007）；iOS 定位服務關閉不給按鈕（App 設定頁沒有總開關）；各平台設定路徑（Android 權限 → 位置資訊、iOS 設定 → App → Abang → 位置）、網頁「瀏覽器的網站設定」；只有文字是即時區域；開不了設定要說、Android 找不到定位設定改開系統設定且用 Activity 開；引導不說「再試一次」；逾時放棄的舊呼叫晚到不蓋掉原因。
 - 測試：npm test 521 項全過（新增 test/location-help.test.js 5 項）；E2E 53 項全過（新增：附近拒絕定位說原因、再試一次不重疊）；Android 編譯、iOS 模擬器編譯
 - 文件：UX.md §4.12、PLAN.md、CLAUDE.md、PROGRESS.md
 - 下一個：行程中模式

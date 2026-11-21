@@ -49,6 +49,8 @@ export function locationReason(err) {
 /** 最近一次定位失敗的原因（成功後清掉）；畫面用來說明怎麼辦 */
 let lastError = null;
 export const lastLocationError = () => lastError;
+/** 第幾次定位：只有最新一次、還沒結束的定位能寫 lastError（被逾時放棄的舊呼叫晚到不蓋掉） */
+let attempt = 0;
 
 /** 正在進行的原生定位（問阿幫先定位與 runAgent 同時要位置時共用，不發兩個原生呼叫） */
 let pending = null;
@@ -61,28 +63,31 @@ let pending = null;
 export function browserLocation(timeout = 5000, { highAccuracy = false, fresh = false, withAccuracy = false } = {}) {
   if (!fresh && lastFix && Date.now() - lastFix.at < 120_000 && (lastFix.high || !highAccuracy)) return Promise.resolve(lastFix.pos);
   // withAccuracy：多回誤差公尺數（設定常用地點時檢查「大概位置」）；一般定位不帶，送給伺服器的還是只有 lat／lon
-  const keep = (lat, lon, acc) => { const pos = { lat, lon }; lastFix = { pos, at: Date.now(), high: highAccuracy }; lastError = null; return withAccuracy ? { ...pos, accuracy: Number.isFinite(acc) ? acc : null } : pos; };
+  if (pending && !fresh && nativeGeo()) return pending; // 共用進行中的原生定位（不算新的一次）
+  const my = ++attempt;
+  let settled = false;
+  const fail = (why) => { if (!settled && my === attempt) lastError = why; settled = true; return null; };
+  const keep = (lat, lon, acc) => { const pos = { lat, lon }; lastFix = { pos, at: Date.now(), high: highAccuracy }; if (my === attempt) lastError = null; settled = true; return withAccuracy ? { ...pos, accuracy: Number.isFinite(acc) ? acc : null } : pos; };
   const opts = { enableHighAccuracy: highAccuracy, timeout, maximumAge: fresh ? 0 : 60_000 };
   const c = nativeGeo();
   if (c) {
-    if (pending && !fresh) return pending;
     let timer;
     const p = (async () => {
       // 第一次會跳系統權限框：使用者想一下的時間不算逾時（外掛的 timeout 從拿到權限後才開始）；已允許只多等 3 秒
       const granted = await nativeGranted(c).catch(() => false);
       const call = c.nativePromise('Geolocation', 'getCurrentPosition', opts)
-        .then((r) => (Number.isFinite(r?.coords?.latitude) ? keep(r.coords.latitude, r.coords.longitude, r.coords.accuracy) : ((lastError = 'unavailable'), null)))
-        .catch((e) => { lastError = locationReason(e); return null; });
-      return Promise.race([call, new Promise((r) => { timer = setTimeout(() => { lastError = 'timeout'; r(null); }, timeout + (granted ? 3000 : 30_000)); })]);
+        .then((r) => (Number.isFinite(r?.coords?.latitude) ? keep(r.coords.latitude, r.coords.longitude, r.coords.accuracy) : fail('unavailable')))
+        .catch((e) => fail(locationReason(e)));
+      return Promise.race([call, new Promise((r) => { timer = setTimeout(() => r(fail('timeout')), timeout + (granted ? 3000 : 30_000)); })]);
     })().finally(() => { clearTimeout(timer); if (pending === p) pending = null; }); // fresh 另起的呼叫不被舊的清掉
     if (!fresh) pending = p;
     return p;
   }
   const geo = globalThis.navigator?.geolocation;
-  if (!geo) { lastError = 'unavailable'; return Promise.resolve(null); }
+  if (!geo) return Promise.resolve(fail('unavailable'));
   return new Promise((resolve) => geo.getCurrentPosition(
     (p) => resolve(keep(p.coords.latitude, p.coords.longitude, p.coords.accuracy)),
-    (e) => { lastError = locationReason(e); resolve(null); },
+    (e) => resolve(fail(locationReason(e))),
     opts,
   ));
 }

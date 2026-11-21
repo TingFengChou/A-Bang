@@ -26,7 +26,7 @@ export default {
         pos = await locate({ fresh });
         main.querySelector('#loc').lastChild.textContent = ` ${pos.label}`;
         main.querySelector('.loc-help')?.remove();
-        if (pos === FALLBACK) main.querySelector('#list').before(locationNotice({ retry: () => load(true) })); // 沒拿到位置：說原因與下一步（S1c）
+        if (pos === FALLBACK) main.querySelector('#list').before(locationNotice({ retry: () => load(true), onCleanup })); // 沒拿到位置：說原因與下一步（S1c）
         if (tab === 'bus') renderBus(await api.busNearby(pos.lat, pos.lon));
         else renderBike(await api.bikeNearby(pos.lat, pos.lon));
         main.querySelector('#upd').textContent = `更新於 ${fmtTime()}`;

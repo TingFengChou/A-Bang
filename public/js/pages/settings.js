@@ -3,7 +3,7 @@
 import { esc } from '../ui.js';
 import { edgeEnabled, edgeStatus } from '../edge-judge.js';
 import { locationGranted, browserLocation, inTaiwan } from '../agent/client.js';
-import { locationHelp, openLocationSettings } from '../location-help.js';
+import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-help.js';
 import { cancelNotify, NOTIFY_ID } from '../native-notify.js';
 import { loadPlaces, savePlace, SAVED_KEYS } from '../saved-places.js';
 import { showOnboarding } from '../onboarding.js';
@@ -18,14 +18,14 @@ const REASON = { ok: '可以使用', unsupported: '這支手機不支援', disab
 const LOCAL = [['abang.places', '常用地點（家、公司、學校）'], ['favs', '收藏的公車站與路線'], ['invoices', '我的發票'], ['abang.arrivalWatch', '進行中的到站提醒'], ['abang.alightWatch', '進行中的下車提醒'], ['abang.reminders', '出門提醒'], ['pref:', '常用的縣市、藥局地區、股票等偏好（pref:*）'], [EDGE_KEY, '裝置端 AI 設定'], ['abang.onboarded', '看過使用說明（清除後下次會再顯示）'], ['abang.offline', '離線時顯示的上次資料（看過的路線、站牌、時刻表；不含座標）']];
 
 /** 權限狀態文字：已允許／已拒絕（到手機設定開）／還沒問過 */
-const PERM_SAY = { granted: '已允許', denied: '已拒絕', prompt: '還沒問過', rationale: '拒絕過一次（下次用到會再問）' };
+const PERM_SAY = { granted: '已允許', denied: '已拒絕', prompt: '還沒問過', rationale: '拒絕過一次（下次用到會再問）', off: '手機定位服務關閉' };
 async function notifyState() {
   const c = globalThis.Capacitor;
   try {
     if (c?.isNativePlatform?.()) { const d = (await c.nativePromise('LocalNotifications', 'checkPermissions', {}))?.display; return d === 'granted' ? 'granted' : d === 'denied' ? 'denied' : 'prompt'; }
     if (typeof Notification === 'undefined') return 'prompt';
     return Notification.permission === 'default' ? 'prompt' : Notification.permission;
-  } catch { return 'prompt'; }
+  } catch (e) { return e?.code === 'OS-PLUG-GLOC-0007' ? 'off' : 'prompt'; } // 定位服務關閉時 checkPermissions 會丟 0007
 }
 async function locationState() {
   const c = globalThis.Capacitor;
@@ -217,13 +217,14 @@ export const settings = {
     });
     // 權限狀態；App 裡定位被拒絕時給「到設定開啟」（S1c）。從設定回來（畫面再出現）時重新檢查
     const openLoc = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small', textContent: '到設定開啟', hidden: true });
-    openLoc.setAttribute('aria-label', '到手機設定開啟定位權限');
-    openLoc.addEventListener('click', () => openLocationSettings('denied'));
+    openLoc.addEventListener('click', async () => { if (!(await openLocationSettings(openLoc.dataset.reason || 'denied'))) toast(OPEN_FAILED, 5000); });
     main.querySelector('#loc').closest('.perm').after(openLoc);
     function refreshPerms() {
       locationState().then((st) => {
         main.querySelector('#loc').textContent = PERM_SAY[st] || '還沒問過';
-        openLoc.hidden = !(st === 'denied' && locationHelp('denied').canOpen);
+        openLoc.hidden = !((st === 'denied' || st === 'off') && locationHelp(st).canOpen); // iOS 定位服務關閉開設定也沒用：不給
+        openLoc.dataset.reason = st;
+        openLoc.setAttribute('aria-label', st === 'off' ? '到手機設定打開定位服務' : '到手機設定開啟定位權限');
       });
       notifyState().then((st) => { main.querySelector('#notify').textContent = PERM_SAY[st] || '還沒問過'; });
     }

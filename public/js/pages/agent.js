@@ -3,7 +3,7 @@
 import { API_BASE, IN_APP } from '../base.js';
 import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
 import { runAgent, browserLocation, locationGranted } from '../agent/client.js';
-import { locationHelp, openLocationSettings } from '../location-help.js';
+import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-help.js';
 import { edgeJudge, edgePrewarm } from '../edge-judge.js';
 import { placesFor } from '../saved-places.js';
 import { icons } from '../icons.js';
@@ -342,7 +342,7 @@ export default {
               if (!e.ok && locationHelp(e.reason).canOpen) { // App：權限或定位服務關著 → 一鍵到設定（S1c）
                 const b = el('button', 'btn small loc-open', turnLang === 'en' ? 'Open Settings' : '到設定開啟');
                 b.type = 'button';
-                b.addEventListener('click', () => openLocationSettings(e.reason));
+                b.addEventListener('click', async () => { if (!(await openLocationSettings(e.reason))) { b.disabled = true; b.textContent = turnLang === 'en' ? "Couldn't open Settings" : OPEN_FAILED; } });
                 say.after(b);
               }
             }

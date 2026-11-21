@@ -20,12 +20,16 @@ public class AbangSystemPlugin extends Plugin {
         Intent intent = "location".equals(target)
             ? new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
             : new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", getContext().getPackageName(), null));
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
-            getContext().startActivity(intent);
+            getActivity().startActivity(intent); // 用 Activity 開：按返回回到阿幫
             call.resolve();
         } catch (Exception e) {
-            call.reject("無法開啟設定");
+            try {
+                getActivity().startActivity(new Intent(Settings.ACTION_SETTINGS)); // 少數機型（Go、TV）沒有定位設定頁
+                call.resolve();
+            } catch (Exception e2) {
+                call.reject("無法開啟設定");
+            }
         }
     }
 }

@@ -85,7 +85,7 @@ export default {
           w.hidden = false;
           w.textContent = pos === FALLBACK ? `位置：${FALLBACK.label}（沒有取得定位）` : '位置：目前位置附近';
           main.querySelector('.loc-help')?.remove();
-          if (pos === FALLBACK) w.after(locationNotice({ retry: () => run(true) })); // 說原因與下一步（S1c）
+          if (pos === FALLBACK) w.after(locationNotice({ retry: () => run(true), onCleanup })); // 說原因與下一步（S1c）
         }
         const payload = await callTool(cfg.tool, cfg.args(f, pos));
         res.replaceChildren();

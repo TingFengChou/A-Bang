@@ -126,7 +126,7 @@ for (const [dname, device] of Object.entries(DEVICES)) {
   test(`${dname}：附近：拒絕定位時說原因、先用台北車站、可以再試一次（S1c）`, async () => {
     await withPage(device, '#/nearby', async (page) => {
       await page.waitForSelector('.loc-help');
-      assert.match(await page.textContent('.loc-help'), /定位權限沒有打開.+網址列.+台北車站附近/);
+      assert.match(await page.textContent('.loc-help'), /定位權限沒有打開.+網站設定.+台北車站附近/);
       assert.equal(await page.locator('.loc-help button', { hasText: '到設定開啟' }).count(), 0, '網頁版沒有開設定的按鈕');
       await page.waitForSelector('.card.list .title');
       await page.click('.loc-help button:has-text("再試一次")');
@@ -1023,6 +1023,8 @@ test('首次使用引導：要權限、失敗說原因、看過不再顯示、�
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'onboard-title', '換步驟時焦點在標題');
     await dlg.getByRole('button', { name: '允許定位' }).click();
     await page.waitForFunction(() => /沒拿到位置/.test(document.querySelector('.onboard-status')?.textContent || ''));
+    assert.doesNotMatch(await page.textContent('.onboard-status'), /再試一次/, '引導沒有重試按鈕，不說再試一次（S1c）');
+    assert.match(await page.textContent('.onboard-status'), /網站設定.+直接打地點/);
     await dlg.getByRole('button', { name: '開始使用' }).click();
     await page.locator('dialog.onboard').waitFor({ state: 'detached' }); // close 事件之後才移除
     await page.reload();
