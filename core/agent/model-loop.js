@@ -5,11 +5,11 @@ import { describeTool, getTool } from '../tools/index.js';
 import { getProfile } from '../agents/index.js';
 import { buildSystemPrompt } from './prompt.js';
 import { ev } from './events.js';
-import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hideToolNames, judgeInfo, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
+import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hideToolNames, judgeInfo, runDemo, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
 import { judgeNote, outingNote, moreStatesNote } from './impact.js';
 import { lineCode } from '../tools/metro.js';
 import { normName, nowTW } from '../util.js';
-import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, demoSummary, isEnglish } from './demo-intent.js';
+import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, demoSummary, isEnglish, nightNote } from './demo-intent.js';
 import { resolvePoint } from '../services/places.js';
 
 /**
@@ -177,6 +177,19 @@ export function toolDefs(profile, { deviceLocation: withLocation = false, only }
 }
 
 /**
+ * 模型漏講的重點由程式補上（地端小模型常省略；模型模式情境 S10、S12-11）：
+ * 照你說的改了交通方式 → 開頭先說「照你說的選…」；深夜公車收班或接近末班 → 補一句。
+ */
+export function mustSay(text, trip) {
+  if (!trip || !text) return text;
+  let out = text;
+  if (!/照你說的/.test(out) && /^照你說的/.test(trip.ranking?.reason || '')) out = `${trip.ranking.reason} ${out}`; // 程式排序時用了使用者指定的方式才會這樣開頭
+  const night = nightNote(trip);
+  if (night && !/收班|末班/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}${night}`;
+  return out;
+}
+
+/**
  * @param {object} svc createServices() 的結果
  * @param {object} body /api/v1/agent 的請求（會驗證）
  * @param {(e: object) => void} emit
@@ -190,6 +203,8 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   // 判斷層：先用快速版（A＋規則，幾毫秒）說聽懂了什麼，不用等 loading；完整版（含模型）定案狀態與工具範圍
   const jc = judgeCalls(judge, req, profile);
   const last = req.messages.at(-1).content;
+  // 地端小模型的英文不穩（漏英文地名、句型亂，模型模式情境 S12 九個沒過）：英文提問改用規則回答（與示範模式同一套英文總結；Claude 照常）
+  if (provider.mode === 'local' && isEnglish(last)) return runDemo(svc, body, emit, { profileId, now, judge });
   const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode: provider.mode, model: provider.model, profile: profile.id, judge: judgeInfo(q0), lang: isEnglish(last) ? 'en' : 'zh' }));
   // 安全情境（S18）：自傷或緊急狀況不交給模型自由回答，固定給求助電話（與示範模式相同）
@@ -198,7 +213,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   // 規則先解析一次（含常用地點）：重來、聽懂了什麼、沒設定常用地點都用同一個結果
   const rulesIt = parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces });
   if (!req.clientToolResults?.length && rulesIt.reset) emit(ev.contextReset());
-  if (rulesIt.intent === 'savedMissing') { // 「回家」但沒設定家：不給模型猜（也不必等判斷層的模型），直接說去哪裡設定
+  if (rulesIt.intent === 'savedMissing' || (rulesIt.intent === 'weather' && rulesIt.later)) { // 「回家」但沒設定家、問後天以後的天氣：不給模型猜（模型會拿現在的天氣充數），直接照實說
     emit(ev.text(demoSummary(rulesIt, {})));
     emit(ev.done());
     return;
@@ -231,6 +246,9 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   let n = 0;
   const nextId = () => `t${++n}`;
   const used = new Set();
+  let lastTrip = null; // 這一輪最後一次比較的行程（總結補上程式知道、模型漏講的重點）
+  const tripEnds = new Map(); // 起訖座標 → 給模型的文字：同一輪同一段路只比較一次（模型換條件再呼叫也沿用，不出現兩張行程卡；情境 S7-3、S2-14）
+  const endsKey = (f, t) => (f?.lat != null && t?.lat != null ? `${f.lat.toFixed(3)},${f.lon.toFixed(3)}>${t.lat.toFixed(3)},${t.lon.toFixed(3)}` : null);
   // 有現在位置時，程式先用它查好（不靠模型）：地端模型常常只查了目的地就反問「你從哪裡出發」。
   //   沒說起點的行程 → plan_trip（起點＝現在位置）；沒說地點的天氣／空品／YouBike／附近公車／垃圾車 → 對應工具（現在位置）
   // 結果照常出現在討論串與卡片，再交給模型轉述（AGENT.md §5.2.1）
@@ -249,6 +267,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
       if (o.ok && /^(thsr|tra)_timetable$/.test(pre[i].name)) { // 模型用實際起站再查時沿用（有寫日期、沒寫日期都算）
         for (const date of [undefined, o.result.data.date]) preDone.set(callKey(pre[i].name, { from: o.result.data.from, to: o.result.data.to, date }), text);
       }
+      if (o.ok && pre[i].name === 'plan_trip') { lastTrip = o.result.data; const e = endsKey(o.result.data.from, o.result.data.to); if (e) tripEnds.set(e, text); }
       if (o.ok && pre[i].name === 'plan_trip') preDone.set(tripKey(o.result.data.from, o.result.data.to, pre[i].args.prefs), text); // 地名寫法不同（台北松山機場／松山機場）也算同一趟
       return text;
     });
@@ -262,7 +281,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const usage = { modelCalls: 0, inputTokens: 0, outputTokens: 0 };
   const finish = (text) => {
     if (used.size) emit(ev.discussionEnd({ tools: [...used] }));
-    emit(ev.text(guardedText(profile, text, emit))); // L2 輸出護欄（防詐：不保證安全、固定附 165）
+    emit(ev.text(guardedText(profile, mustSay(text, lastTrip), emit))); // L2 輸出護欄（防詐：不保證安全、固定附 165）
     emit(ev.done(usage));
   };
 
@@ -333,6 +352,8 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
       if (c.name === 'plan_trip' && !(k && preDone.has(k)) && c.input?.to) {
         const [f, t] = await Promise.all([c.input.from, c.input.to].map((x) => (x ? resolvePoint(svc.places, x).catch(() => null) : null)));
         if (f && t) k = tripKey(f, t, c.input.prefs);
+        const e = endsKey(f, t);
+        if (e && tripEnds.has(e) && !(k && preDone.has(k))) { results.set(c.id, { content: `（這一段路已經比較過，結果同上；條件以使用者說的為準）\n${tripEnds.get(e)}` }); continue; }
       }
       if (k && preDone.has(k)) results.set(c.id, { content: `（已查好，結果同上）\n${preDone.get(k)}` });
     }
@@ -342,6 +363,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     run.forEach((c, i) => {
       const o = out[i];
       used.add(c.name);
+      if (o.ok && c.name === 'plan_trip') { lastTrip = o.result.data; const e = endsKey(o.result.data.from, o.result.data.to); if (e) tripEnds.set(e, modelText(o.result)); }
       if (o.followUp) used.add('bus_route_eta'); // 選公車後自動盯到站也算一個工具
       // 回填模型的只有文字摘要（清單截短），不放整包 data（AGENT.md §4）
       results.set(c.id, o.ok ? { content: modelText(o.result) + followUpText(o.followUp, o.followWalkMin) } : { content: o.error, isError: true });

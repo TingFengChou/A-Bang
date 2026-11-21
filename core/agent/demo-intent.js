@@ -719,6 +719,12 @@ function englishSummary(it, results) {
 }
 
 /** 示範模式的總結（取自工具結果，不經模型） */
+/** 深夜：公車已收班或接近末班的一句（示範與模型模式共用，S10）；沒有回 '' */
+export function nightNote(trip) {
+  const closed = trip?.skipped?.find((x) => x.role === 'bus' && /收班|末班已過/.test(x.why));
+  return closed ? `${closed.why}。` : trip?.options?.some((o) => o.lastBus) ? '末班快到了，早點出門；錯過可以叫車或騎 YouBike。' : '';
+}
+
 export function demoSummary(it, results, suggestions = []) {
   if (it.lang === 'en') return englishSummary(it, results);
   if (it.intent === 'outing') {
@@ -746,8 +752,8 @@ export function demoSummary(it, results, suggestions = []) {
       return `${pre}${trip.data.ranking.reason} ${bus.speak.replace(/。$/, '')}${walk ? `，走過去約 ${walk} 分` : ''}${miss ? '，這班可能趕不上。要我在下一班快到時提醒你嗎？' : '。要我在公車快到站時提醒你嗎？'}按卡片上的「到站前 3 分提醒我」。`;
     }
     // 深夜：公車已收班或接近末班，先說（S10）
-    const closed = trip?.data.skipped?.find((x) => x.role === 'bus' && /收班|末班已過/.test(x.why));
-    const night = closed ? `${closed.why}。` : trip?.data.options.some((o) => o.lastBus) ? '末班快到了，早點出門；錯過可以叫車或騎 YouBike。' : '';
+    const night = nightNote(trip?.data);
+    const closed = trip?.data.skipped?.some((x) => x.role === 'bus' && /收班|末班已過/.test(x.why));
     // 下一步依建議方式（叫車按官方連結、步行導航…；不再一律問「要我幫你開導航嗎」）
     const bestOpt = trip?.data.options.find((o) => o.id === trip.data.best);
     const reason = closed ? trip.data.ranking.reason.replace(/^公車這次沒有可行的方案；/, '') : trip?.data.ranking.reason; // 已說收班，不再重複「公車沒有可行的方案」

@@ -311,3 +311,13 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - 模型模式：以本地假 Anthropic SSE 伺服器（`ANTHROPIC_BASE_URL`）與假 OpenAI 相容伺服器測試工具迴圈、`agent_note` 轉換、錯誤、5 輪上限、定位、refusal／截斷、預算降級（`test/agent-model.test.js`）。
 - 狀態：說「我帶行李」→ `decision.states` 含 `{ key: 'luggage', source: 'said' }`。
 - 限流：第 11 次請求收到 `error`（`retryable: true`）。
+
+### 5.2.11 模型模式情境評測與程式補強（2026-11-21）
+
+`node --env-file=.env scripts/eval-scenarios.js`（地端 qwen3:8b）：72／89 → 88／89。
+- 評測腳本與單元測試一致：帶情境時間（`at`，深夜末班）與常用地點（`saved`）。
+- 地端模型的英文不穩（漏英文地名、句型亂）：英文提問改由規則回答（`runDemo`，與示範模式同一套英文總結），約 1 秒；Claude 照常由模型回答。
+- 問後天以後的天氣：不交給模型（會拿現在的天氣充數），直接照實說只查得到現在和明天。
+- 模型漏講的重點由程式補上（`mustSay`）：照你說的改了交通方式 → 開頭「照你說的選…」；深夜公車收班或接近末班 → 補一句（與示範模式同一句 `nightNote`）。
+- 同一輪同一段路只比較一次（`tripEnds`）：模型換條件再呼叫 plan_trip 也沿用，不出現兩張行程卡。
+- 已知：小模型有時把卡片上的「每人分攤」又寫進總結（重複但不錯，A1b-1）。
