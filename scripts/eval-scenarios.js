@@ -16,6 +16,8 @@ if (!provider) throw new Error('沒有設定模型（LOCAL_LLM_URL 或 ANTHROPIC
 const { judge, ready } = judgeFromEnv(process.env);
 await ready;
 let pass = 0, n = 0;
+// 與 test/scenarios.test.js 相同：情境指定的時間（at，例：23:20 末班）、沒指定用白天 10:00；常用地點（saved）
+const atTW = (hhmm = '10:00') => Date.parse(`${new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)}T${hhmm}:00+08:00`);
 for (const sc of set.scenarios.filter((x) => !only.length || only.includes(x.id))) {
   const svc = createServices({ forceMock: true, ...(sc.demo && { demo: sc.demo }) });
   const messages = [];
@@ -24,7 +26,7 @@ for (const sc of set.scenarios.filter((x) => !only.length || only.includes(x.id)
   for (const t of sc.turns) {
     messages.push({ role: 'user', content: t.say });
     const es = [];
-    await runModel(svc, { messages, clientTools: ['device_location'], clientToolResults: [sc.location === false ? { id: 'loc1', ok: false } : { id: 'loc1', ok: true, result: set.here }] }, (e) => es.push(e), { provider, judge });
+    await runModel(svc, { messages, clientTools: ['device_location'], clientToolResults: [sc.location === false ? { id: 'loc1', ok: false } : { id: 'loc1', ok: true, result: set.here }], ...(sc.saved && { savedPlaces: sc.saved }) }, (e) => es.push(e), { provider, judge, now: atTW(sc.at) });
     if (process.env.EVAL_DEBUG) for (const e of es) if (e.type === 'tool_start') console.log(`    · ${e.name} ${JSON.stringify(e.input)}`);
     const bad = check(es, t.expect);
     if (bad.length) fails.push(`「${t.say}」${bad.join('；')}`);
