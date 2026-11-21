@@ -906,6 +906,18 @@ test('英文提問：卡片用英文標籤', async () => {
   });
 });
 
+// S12e：英文問出門建議 → 出門建議卡片的建議也是英文（數字來自資料）
+test('英文出門建議：卡片建議英文', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.fill('.chat-form input', 'What should I bring today?');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('[data-card="outing"] .ab-out', { timeout: 20000 });
+    const items = await page.locator('[data-card="outing"] .ab-out').allTextContents();
+    assert.ok(items.length && items.every((x) => !/[一-鿿]/.test(x)), items.join('|'));
+    assert.match(await page.locator('.bubble.final').last().textContent(), /^Before you head out/);
+  });
+});
+
 // 離線與弱網：看過的公車路線離線時仍顯示上次的資料，最上面說是幾點存下的；沒看過的說連不上；連回來後標示消失
 test('離線：顯示上次存下的資料與時間、連回來恢復', async () => {
   const ctx = await newCtx({ ...DEVICES.phone, reducedMotion: 'reduce' });

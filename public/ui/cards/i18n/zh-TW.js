@@ -202,6 +202,17 @@ export const MESSAGES = {
   'scam.rulesUnreviewed': '規則庫 {v}（尚未經防詐專家審核）。比對結果僅供參考，不是法律或調查結論。',
 
   // ── weather（weather_now） ──
+  'outing.item.umbrella.raining': '現在正在下雨，記得帶傘',
+  'outing.item.umbrella.warn': '接下來 3 小時降雨機率 {n}%，帶把傘',
+  'outing.item.umbrella.info': '降雨機率 {n}%，包包放把折傘比較保險',
+  'outing.item.hot.warn': '{n}°C 很熱，注意防曬、多喝水',
+  'outing.item.hot.info': '{n}°C 偏熱，注意防曬',
+  'outing.item.cold.warn': '{n}°C 很冷，多穿一點，注意保暖',
+  'outing.item.cold.info': '{n}°C 偏涼，帶件外套',
+  'outing.item.mask.warn': '空氣品質不佳（AQI {n}），戴口罩、少待戶外',
+  'outing.item.mask.info': '空氣品質普通（AQI {n}），敏感的人少待在路邊',
+  'outing.item.ok.ok': '都還不錯，安心出門',
+  'outing.item.ok.info': '這次只查到部分資料，出門前再看一下天氣',
   'outing.title': '出門建議',
   'outing.titleAt': '{name} 出門建議',
   'outing.items': '出門前注意',

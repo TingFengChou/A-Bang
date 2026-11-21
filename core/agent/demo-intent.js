@@ -1,6 +1,6 @@
 // 示範模式意圖解析（M5-03，AGENT.md §5）：沒有 API Key 時，以規則判斷意圖、地點與使用者狀態，
 // 產生「分段的工具呼叫計畫」；由 run.js 執行並發出與 Claude 模式相同的事件流。不加人工延遲。
-import { enName } from '../tools/speak-en.js';
+import { enName, outingEn, SPEAK_EN } from '../tools/speak-en.js';
 import { LANDMARKS, normPlace } from '../services/places.js';
 import { nextStepOf } from '../tools/trip.js';
 import { outingSay } from './outing.js';
@@ -645,6 +645,9 @@ function englishIntent(s, places, history = []) {
     return { ...base, intent: 'rail', system: /high[- ]speed|\bhsr\b/i.test(s) ? 'THSR' : 'TRA', from: EN_RAIL[from] || null, to: EN_RAIL[rail[1].toLowerCase()] };
   }
   if (/air quality|\baqi\b|pm ?2\.?5|smog/i.test(s)) return { ...base, intent: 'aqi' };
+  // 出門建議（S12e）：「What should I bring/wear?」「Do I need an umbrella?」「Is it OK to go out?」（問明天的交給天氣預報）
+  if (!tomorrow && !toWord && /what (?:should|do) i (?:bring|wear|need)|need an umbrella|bring an umbrella|(?:good|ok|okay|safe) to go out|going out/i.test(s)) return { ...base, intent: 'outing' };
+  if (/pharmac|drug ?store|chemist/i.test(s)) return { ...base, intent: 'pharmacy', area: null }; // 「pharmacy near me」：依位置推估行政區
   if (RAIN.test(s) && !toWord) return { ...base, intent: 'weather' };
   const route = /\bbus\s*(?:no\.?\s*)?([0-9]{1,4}[A-Za-z]?)\b/i.exec(s)?.[1];
   if (route && !toWord) return { ...base, intent: 'bus_route', route };
@@ -708,6 +711,8 @@ function englishSummary(it, results) {
   if (it.intent === 'metro') { const m = results.metro_live_board?.at(-1)?.data; const tr = m?.trains?.find((x) => x.etaMin != null); if (m) return tr ? `MRT ${m.station}: next train to ${tr.destination} in ${tr.etaMin} min.${note}` : `MRT ${m.station}: no live arrival data right now.`; }
   if (it.intent === 'aqi') { const a = results.aqi_nearby?.at(-1)?.data?.nearest; if (a) return `Air quality near ${a.site} station: AQI ${a.aqi}${a.aqi > 100 ? ', consider wearing a mask' : ''}.`; }
   if (it.intent === 'youbike') { const b = results.youbike_nearby?.at(-1)?.data?.stations?.[0]; if (b) return `Nearest YouBike station: ${b.name}, ${b.rent ?? '?'} bikes and ${b.returnSlots ?? '?'} free docks.${note}`; }
+  if (it.intent === 'outing') { const o = results.outing_advice?.at(-1)?.data; if (o) { const tips = o.items.map(outingEn).filter(Boolean); return `Before you head out: ${tips.join('; ')}.${note}`; } }
+  if (it.intent === 'pharmacy') { const p = results.pharmacy_search?.at(-1)?.data; if (p) return `${SPEAK_EN.pharmacy_search(p)} Tap a pharmacy for the map.${note}`; }
   if (it.thanks) return "You're welcome! Have a good trip.";
   if (it.intent === 'unknown') return 'Sorry, I can only help with getting around Taiwan (bus, MRT, train, YouBike, taxi) and the weather for now. Try: "How do I get to Taipei 101?"';
   return `Here you go.${note}`;

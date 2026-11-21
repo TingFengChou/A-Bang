@@ -37,6 +37,16 @@ function railEn(d, label, now) {
   return `${head}${up.length} more today; next leaves ${up[0].depart}, arrives ${d.to} ${up[0].arrive}.`;
 }
 
+/** 出門建議英文（與卡片字典 outing.item.* 同一套；數字來自資料） */
+const OUT_EN = {
+  'umbrella.raining': () => "it's raining now; bring an umbrella", 'umbrella.warn': (n) => `${n}% chance of rain; bring an umbrella`, 'umbrella.info': (n) => `${n}% chance of rain; a folding umbrella is a good idea`,
+  'hot.warn': (n) => `${n}°C and very hot; use sunscreen and drink water`, 'hot.info': (n) => `${n}°C and warm; sun protection helps`,
+  'cold.warn': (n) => `${n}°C and cold; dress warmly`, 'cold.info': (n) => `${n}°C and cool; bring a jacket`,
+  'mask.warn': (n) => `AQI ${n}, unhealthy air; consider a mask`, 'mask.info': (n) => `AQI ${n}, moderate; sensitive people should avoid roadsides`,
+  'ok.ok': () => 'all good to go out', 'ok.info': () => 'only partial data; check again before you go',
+};
+export const outingEn = (x) => OUT_EN[`${x.kind}.${x.kind === 'umbrella' && x.n == null && x.level === 'warn' ? 'raining' : x.level}`]?.(x.n) ?? null;
+
 export const SPEAK_EN = {
   find_place: (d, a) => (d.length ? `Best match for "${a.query}": ${d[0].name}.` : `Couldn't find "${a.query}". Try another name.`),
   plan_trip: (d) => {
@@ -58,7 +68,8 @@ export const SPEAK_EN = {
     return `Tomorrow (${DAY(d.date)})${t}${pop}${umbrella}.`;
   },
   aqi_nearby: (d) => `AQI ${d.nearest.aqi ?? '—'}${AQI_LEVEL[d.nearest.level] ? ` (${AQI_LEVEL[d.nearest.level]})` : ''} at ${d.nearest.site} station${d.nearest.pm25 != null ? `, PM2.5 ${d.nearest.pm25}` : ''}.`,
-  outing_advice: (d) => `Checked weather and air: ${plural(d.items.length, 'tip')} on the card.`,
+  outing_advice: (d) => { const first = outingEn(d.items[0]); return first ? `Before you go: ${first}${d.items.length > 1 ? ` (+${d.items.length - 1} more on the card)` : ''}.` : `Checked weather and air: ${plural(d.items.length, 'tip')} on the card.`; },
+  pharmacy_search: (d) => (d.pharmacies.length ? `Found ${plural(d.pharmacies.length, 'NHI pharmacy').replace('pharmacys', 'pharmacies')}${d.area ? ` in ${d.area}` : ''}; ${d.pharmacies.filter((p) => p.openToday).length} open today.` : 'No matching NHI pharmacies.'),
   youbike_nearby: (d) => { const s = d.stations.find((x) => x.inService && x.rent > 0); return s ? `Nearest station with bikes: ${s.name} (${km(s.distance)}), ${plural(s.rent, 'bike')}.` : 'No bikes at nearby stations right now.'; },
   bus_nearby_stations: (d) => (d.stations.length ? `${plural(d.stations.length, 'bus stop')} nearby; nearest is ${d.stations[0].name} (${km(d.stations[0].distance)}).` : 'No bus stops nearby.'),
   bus_station_eta: (d) => { const f = d.arrivals.find((r) => r.etaSec != null); return f ? `Soonest is ${f.routeName}, in ${mins(f.etaSec)} min.` : 'No buses due at this stop right now.'; },
