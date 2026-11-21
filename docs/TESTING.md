@@ -98,3 +98,10 @@ node scripts/verify-tdx.js            # M1-01：所有端點狀態
 node scripts/record-fixtures.js       # M1-02：錄製 fixture
 DEMO_MODE=0 npm start                 # 真實資料
 ```
+
+
+## 卡片視覺的 DOM 測試（T8，2026-11-21）
+
+- `scripts/e2e.js`「公車街景與天氣卡日夜」：在瀏覽器直接渲染 `busScene`，驗證讀屏標籤（還有幾站、就在你這站）、公車位置（越近越靠站牌）、推估不出不畫車、圖片載不到只留文字；天氣卡依觀測時間（台灣時間 18～6 點）顯示夜晚或白天。
+- `test/motion-helpers.test.js`：`sceneOf` 雨／雲／日夜邊界（含 UTC 時間）。
+- 原生 App 煙霧測試（T8b）需要實機或模擬器，不在 CI。

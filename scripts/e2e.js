@@ -918,6 +918,44 @@ test('英文出門建議：卡片建議英文', async () => {
   });
 });
 
+// T8：公車街景（DOM）——說明與讀屏標籤、公車位置依還有幾站、推估不出不畫車、圖片載不到只留文字；天氣卡日夜（台灣時間）
+test('公車街景與天氣卡日夜', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    const out = await page.evaluate(async () => {
+      const { busScene } = await import('/ui/cards/bus-scene.js');
+      const mk = (o) => { const el = busScene({ routeName: '307', stopName: '西門', etaText: '5 分', ...o }); document.body.append(el); return el; };
+      const far = mk({ away: 3, etaSec: 300 });
+      const near = mk({ away: 0, etaSec: 40, etaText: '即將進站' });
+      const none = mk({ away: null, etaText: '尚未發車' });
+      const x = (el) => Number(/translate\(([-\d.]+)%/.exec(el.querySelector('.ab-scene-bus')?.style.transform || '')?.[1]);
+      const res = {
+        farLabel: far.getAttribute('aria-label'), nearLabel: near.getAttribute('aria-label'), nearCls: near.querySelector('.ab-scene-label.bus').className,
+        farX: x(far), nearX: x(near), noneBus: none.querySelectorAll('.ab-scene-bus').length,
+      };
+      // 圖片載不到：隱藏圖片（不顯示破圖），文字還在
+      const img = far.querySelector('img.ab-scene-bg');
+      img.dispatchEvent(new Event('error'));
+      res.imgHidden = img.hidden;
+      res.textStill = far.querySelector('.ab-scene-label.stop').textContent;
+      // 天氣卡：台灣時間 21 點＝夜晚、10 點＝白天
+      const { renderCard } = await import('/ui/cards/index.js');
+      const wx = (iso) => { const el = document.createElement('div'); document.body.append(el); renderCard(el, { card: 'weather', mode: 'demo', data: { station: '示範測站', town: '', county: '', distanceM: 100, observedAt: iso, tempC: 22, rainMm1h: 0, pop3h: 10, raining: false, summary: 'x' } }); return el.querySelector('.ab-scene').className; };
+      res.night = wx('2026-11-21T13:00:00Z');
+      res.day = wx('2026-11-21T02:00:00Z');
+      return res;
+    });
+    assert.match(out.farLabel, /307・還有 3 站・5 分；你在「西門」等車/);
+    assert.match(out.nearLabel, /就在你這站/);
+    assert.match(out.nearCls, /near/);
+    assert.ok(out.nearX > out.farX, '近的公車比遠的更靠右（靠近站牌）');
+    assert.equal(out.noneBus, 0, '推估不出還有幾站：不畫公車');
+    assert.equal(out.imgHidden, true);
+    assert.equal(out.textStill, '西門');
+    assert.match(out.night, /night/);
+    assert.match(out.day, /sun/);
+  });
+});
+
 // 離線與弱網：看過的公車路線離線時仍顯示上次的資料，最上面說是幾點存下的；沒看過的說連不上；連回來後標示消失
 test('離線：顯示上次存下的資料與時間、連回來恢復', async () => {
   const ctx = await newCtx({ ...DEVICES.phone, reducedMotion: 'reduce' });
