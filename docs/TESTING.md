@@ -115,4 +115,4 @@ DEMO_MODE=0 npm start                 # 真實資料
 - 浮動阿幫拉出對話、Android 返回鍵收起
 - 沒有畫面錯誤；每頁截圖在 `test/screenshots/android-*.png`
 
-先決條件：`npm start`（App 經 `adb reverse` 連 8787）、App 已安裝（`npm run app:sync` 後 `gradlew installDebug`）。不解鎖手機、不改手機設定；`--keep` 不重開 App。
+先決條件：`npm start`（App 經 `adb reverse` 連 8787）、App 已安裝（`npm run app:sync` 後 `gradlew installDebug`）。不解鎖手機、不改手機設定；`--keep` 不重開 App。手機螢幕關著（Dozing）時：返回鍵那項略過並說明（不喚醒手機）；點按改用頁面內直接點（螢幕不畫畫面時等不到「穩定」）；定位逾時的錯誤是環境，不算畫面錯誤。
