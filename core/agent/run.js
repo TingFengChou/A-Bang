@@ -191,7 +191,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   const nextId = () => `t${++n}`;
   const plan = PLANNERS[profile.id] || PLANNERS.life;
   const last = req.messages.at(-1).content;
-  let it = plan.parse(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces });
+  let it = plan.parse(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces, now });
   // 判斷層（judge.js）：先用快速版（A＋規則，幾毫秒）說聽懂了什麼，再用完整版（含模型）定案意圖與狀態
   const jc = judgeCalls(judge, req, profile);
   const q0 = jc ? await jc.quick() : null;
@@ -208,7 +208,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   if (j) {
     // 出門建議是天氣＋空品的組合：判斷層說天氣或空品時保留（判斷層沒有 outing 這個意圖）
     const keep = it.followUp || it.intent === 'outing'; // 判斷層常把「出門要注意什麼」判成空品或行程（設計審查實測）
-    if (j.intent !== it.intent && !keep && !it.savedTrip && it.intent !== 'savedMissing') it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent, saved: req.savedPlaces }) || it;
+    if (j.intent !== it.intent && !keep && !it.savedTrip && it.intent !== 'savedMissing') it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent, saved: req.savedPlaces, now }) || it;
     it.states = j.states;
     const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
     if (more && it.lang !== 'en') emit(ev.agentNote(more));
