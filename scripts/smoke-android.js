@@ -103,7 +103,15 @@ async function main() {
       await page.waitForFunction(() => !globalThis.document.getElementById('abang-sheet').open, null, { timeout: 5000 }).then(() => console.log('✓ 返回鍵收起對話'), () => fail('返回鍵沒有收起對話'));
       }
     }
-    const real = errors.filter((e) => !/favicon|net::ERR_|Failed to load resource|OS-PLUG-GLOC-/.test(e)); // 定位逾時或被拒（螢幕關著、室內）是環境，不是畫面錯誤；畫面上的說明另有測試
+    // 手機上的 AI 在背景猜下一句失敗（剛裝好模型還在載入、忙碌、逾時）會退回規則建議，不是畫面錯誤：列成警告並附原生端記錄的錯誤種類
+    const BG_AI = /message: (suggest failed|timeout|cancelled|unavailable)\b/;
+    const bg = errors.filter((e) => BG_AI.test(e));
+    if (bg.length) {
+      let code = '';
+      try { code = (adb('logcat', '-d', '-s', 'AbangEdgeAI:*').match(/suggest (?:failed: \S+|timeout)/g) || []).pop() || ''; } catch { /* 讀不到 logcat 就只列次數 */ }
+      console.warn(`－ 手機上的 AI 猜下一句失敗 ${bg.length} 次（改用規則建議）${code ? `：${code}` : ''}`);
+    }
+    const real = errors.filter((e) => !BG_AI.test(e) && !/favicon|net::ERR_|Failed to load resource|OS-PLUG-GLOC-/.test(e)); // 定位逾時或被拒（螢幕關著、室內）是環境，不是畫面錯誤；畫面上的說明另有測試
     if (real.length) fail(`畫面錯誤：\n  ${real.join('\n  ')}`); else console.log('✓ 沒有畫面錯誤');
   } finally {
     if (page && onboarded !== undefined) await page.evaluate((v) => { if (v == null) globalThis.localStorage.removeItem('abang.onboarded'); else globalThis.localStorage.setItem('abang.onboarded', v); }, onboarded).catch(() => {}); // 還原
