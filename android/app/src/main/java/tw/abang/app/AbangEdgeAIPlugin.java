@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * status 另外回報系統查得到的模型資訊（「阿幫的腦袋」#/ai 顯示；查不到的欄位就不回傳，不編造）：
  * featureStatus、modelName（基礎模型名稱）、tokenLimit、下載進度、aicoreVersion、osVersion、device。
  * write（ADR-0017）：把伺服器的程式版總結改寫成自然的一兩句；數字由 JS 的程式護欄檢查，不過就用程式版。
- * suggest（AGENT.md §5.4）：猜使用者接下來想問的話。三個任務的優先順序 judge ＞ write ＞ suggest：judge、write 在 exec 上依序跑，
+ * suggest（AGENT.md §5.5）：猜使用者接下來想問的話。三個任務的優先順序 judge ＞ write ＞ suggest：judge、write 在 exec 上依序跑，
  * suggest 用自己的執行緒，judge 或 write 一進來就取消它（stopSuggest），取消後 3 秒內的忙碌錯誤不暫停。
  */
 @CapacitorPlugin(name = "AbangEdgeAI")
@@ -285,7 +285,7 @@ public class AbangEdgeAIPlugin extends Plugin {
     }
 
     /**
-     * 動態「下一句」建議（AGENT.md §5.4）：依情境（頁面、最近的問題與結果摘要、時段；JS 組好、不含座標）猜使用者接下來最可能問的幾句。
+     * 動態「下一句」建議（AGENT.md §5.5）：依情境（頁面、最近的問題與結果摘要、時段；JS 組好、不含座標）猜使用者接下來最可能問的幾句。
      * 只回 { engine, ms, result: "每行一句" }，句子由 JS 送伺服器規則驗證、程式排序。不記錄情境與句子，只記耗時與錯誤類型。
      * 使用者送出問題時 judge 優先：judge 一進來（或 JS 呼叫 cancelSuggest）就取消，回 "cancelled"。
      * suggest 的任何錯誤都不設 pausedUntil（背景任務失敗不該停掉 judge／write）；自己逾時也記取消時間（模型可能還在收尾）。
@@ -368,7 +368,7 @@ public class AbangEdgeAIPlugin extends Plugin {
         o.put("engine", "gemini-nano");
         o.put("reason", reason);
         o.put("write", true); // 這個版本的外掛也能寫回答（ADR-0017）；JS 看到才帶 clientCaps.edgeWrite
-        o.put("suggest", true); // 也能猜下一句（AGENT.md §5.4）
+        o.put("suggest", true); // 也能猜下一句（AGENT.md §5.5）
         return o;
     }
 }

@@ -413,6 +413,46 @@ function lifeIntent(s, only = null) {
   return { intent };
 }
 
+// 找短劇（MyDrama，ADR-0019）：「最近有什麼好看的短劇」「有沒有甜寵劇」「推薦一部短劇」「《夜班公車的約定》在演什麼」
+export const DRAMA_GENRES = ['甜寵', '霸總', '懸疑', '重生', '逆襲', '復仇', '穿越', '古裝', '喜劇', '奇幻', '愛情', '家庭', '都市', '萌寶', '戰神', '職場', '校園', '青春', '宮鬥', '虐戀', '搞笑'];
+const DRAMA_WORD = new RegExp(`短劇|微短劇|追劇|MyDrama|(?:${DRAMA_GENRES.join('|')})(?:的)?(?:短劇|劇)(?![院場團本])|(?:推薦|好看|熱門|最近|最新|新上架|完結|有什麼|有沒有|找|看)[^，,。？?！!]{0,6}(?:劇|連續劇)(?![院場團本烈情痛增])`, 'i');
+const DRAMA_DETAIL = /演什麼|在講什麼|講什麼|簡介|劇情|好看嗎|在演/;
+/** 找短劇的參數：《劇名》→ 搜尋（問劇情再看簡介）；類型 → 搜尋；新劇／完結／台灣自製 → 排行；其他 → 熱門排行 */
+function dramaSlots(s) {
+  const title = /《([^》]{1,30})》/.exec(s)?.[1]?.trim();
+  if (title) return { dramaQuery: title, ...(DRAMA_DETAIL.test(s) && { dramaDetail: true }) };
+  const genre = DRAMA_GENRES.find((g) => s.includes(g));
+  if (genre) return { dramaQuery: genre === '搞笑' ? '喜劇' : genre };
+  const list = /新劇|最新|新上架|剛上架|新出的|新的/.test(s) ? 'new' : /完結|一次看完|追完|一口氣/.test(s) ? 'completed' : /台灣|臺灣|國產|本土|自製/.test(s) ? 'taiwan' : null;
+  if (list) return { dramaList: list };
+  // 其他想找的題材（「有沒有殭屍的短劇」）：去掉找劇的套話，剩下 2～8 個字就拿去搜尋
+  const rest = s.replace(DRAMA_FILLER, '').trim();
+  return /^[一-龥A-Za-z]{2,8}$/.test(rest) ? { dramaQuery: rest } : { dramaList: 'hot' };
+}
+const DRAMA_FILLER = /MyDrama|阿幫|等公車|等捷運|等車|無聊|通勤|打發時間|殺時間|路上|的時候|時候|適合|請問|請|幫我|給我|我想要|我想|想要|想|可以|有沒有|有什麼|什麼|最近|推薦|介紹|一部|幾部|一齣|好看|熱門|很紅|紅的|追劇|微短劇|短劇|連續劇|劇|找|看看|看|一下|類型|題材|那種|的|嗎|呢|吧|啊|啦|喔|哦|耶|[\s？?！!，,。～~]/gi;
+/** 是不是在找短劇（問路線的「怎麼去」不算） */
+// 不是找短劇：表演藝術（去看歌劇、京劇、舞台劇…）、場館
+const NOT_DRAMA = /歌劇|京劇|舞台劇|兒童劇|音樂劇|話劇|布袋戲|歌仔戲|偶戲|戲曲|劇院|劇場|劇團|藝文中心|演藝廳|音樂廳/;
+// 句子在問交通或天氣（搭、坐、捷運、怎麼去、會下雨…），或要去某個地方：交給行程、天氣，不判找劇
+const TRAVEL_OR_WEATHER = /搭|坐(?!著)|捷運|公車|客運|火車|高鐵|台鐵|臺鐵|計程車|叫車|YouBike|怎麼去|怎麼走|怎麼到|怎麼坐|要多久|多遠|下雨|天氣|氣溫|帶傘|幾點到|出發|(?:^|[，,。\s]|我|要|想|明天|今天|晚上|等一下)(?:去|到)(?![看追找])\S/i;
+/**
+ * 是不是在找短劇（「《劇名》在演什麼」也算）。表演藝術、場館、交通與天氣的問題、說了要去的地名（沒有《劇名》）都不算。
+ * @param {string} s
+ * @param {string[]} [places] 句子裡認得的地名
+ */
+export function isDramaAsk(s, places = []) {
+  const t = String(s || '');
+  const titled = /《[^》]{1,30}》/.test(t);
+  if (!(DRAMA_WORD.test(t) || (titled && DRAMA_DETAIL.test(t)))) return false;
+  const bare = t.replace(/《[^》]*》/g, '《》'); // 劇名裡的字（《捷運末班車》）不算交通
+  if (NOT_DRAMA.test(bare) || TRAVEL_OR_WEATHER.test(bare.replace(/^等(?:公|捷運)?車/, ''))) return false; // 「等車無聊，推薦短劇」的等車不是問交通
+  return titled || !places.length;
+}
+/** 英文：「Any good short dramas?」；去劇院、問路、天氣、交通不算 */
+const EN_DRAMA = /\b(?:short[- ]?)?dramas?\b|\bmydrama\b|something to watch/i;
+const EN_NOT_DRAMA = /\b(?:theat(?:er|re)s?|opera|musicals?|concert|plays?|get to|go to|going to|how (?:do|can|should) i|directions?|take me|weather|rain|umbrella|bus|mrt|metro|subway|train|taxi|uber|walk|bike)\b/i;
+export const isEnDramaAsk = (s) => EN_DRAMA.test(String(s || '')) && !EN_NOT_DRAMA.test(String(s || ''));
+
 // 追問（「那聯發科呢？」「0056 呢」）：短句、沒有其他意圖時，沿用前面的股市提問
 const FOLLOW_UP = /^(?:那|那麼|還有|再查|再看|換|也查)?\s*([^\s？?，,。！!]{2,12}?)\s*(?:呢|勒|咧|的呢|也查)?\s*[？?]?$/;
 // 要有追問的語氣（「那…」「…呢」）或本身是代號，「謝謝」「好」不算
@@ -557,6 +597,7 @@ function parseIntentRaw(text, ctx) {
   // 在生活阿幫問「這是詐騙嗎」（有沒有附內容都一樣）：不列功能清單，請他到防詐檢查（PM 盤點 Q-23）
   if (/詐騙嗎|是不是詐騙|是詐騙|是騙人的嗎/.test(s) && !places.length) return { ...base, intent: 'scamAsk' };
   if (ACT_FOR_ME.test(s) && !places.length && (!RAIL_WORD.test(s) || /刷卡|付款|付錢|代付/.test(s))) return { ...base, intent: 'limits' };
+  if (isDramaAsk(s, places)) return { ...base, intent: 'drama', ...dramaSlots(s) }; // 找短劇（ADR-0019）：在行程、生活服務之前（「推薦一部短劇」不是地名）
   let tripMemo;
   const tripBefore = () => (tripMemo !== undefined ? tripMemo : (tripMemo = ctx && 'prev' in ctx ? ctx.prev : lastTrip(history, ctx?.saved)));
   const before = history.length && !otherQuery ? tripBefore() : null; // 結構化上下文（A3）：前面累積的行程條件
@@ -717,6 +758,7 @@ function slotsFor(intent, s, base) {
     case 'quake': return { ...base, intent, county: countyOf(s) };
     case 'pharmacy': return { ...base, intent, area: AREA.exec(s)?.[1] || countyOf(s) };
     case 'stock': return { ...base, intent, query: stockQueryOf(s) || undefined, advice: STOCK_ADVICE.test(s) || undefined };
+    case 'drama': return { ...base, intent, ...dramaSlots(s) };
     case 'youbike': case 'nearby_bus': case 'weather': case 'aqi': case 'garbage': case 'fuel': case 'unknown':
       return { ...base, intent };
     default: return null;
@@ -858,6 +900,18 @@ export function demoSteps(it, now = Date.now()) {
       return [() => ({ note: it.query ? `@股市 查「${it.query}」的收盤行情` : '@股市 看一下大盤收盤', calls: [{ name: 'stock_quote', args: { ...(it.query && { query: it.query }) } }] })];
     case 'invoice':
       return [() => ({ note: it.number ? '@發票 幫你對獎' : '@發票 最新一期中獎號碼', calls: [{ name: 'invoice_lottery', args: { ...(it.number && { number: it.number }) } }] })];
+    case 'drama': { // 找短劇（ADR-0019）：搜尋（類型、劇名）或排行；搜尋沒結果改看熱門；問劇情再看第一部的簡介
+      const pick = (list) => ({ note: `@短劇 看 MyDrama 的${DRAMA_LIST_SAY[list]}`, calls: [{ name: 'drama_picks', args: { list, limit: 5 } }] });
+      if (!it.dramaQuery) return [() => pick(it.dramaList || 'hot')];
+      return [
+        () => ({ note: `@短劇 在 MyDrama 找「${it.dramaQuery}」`, calls: [{ name: 'drama_search', args: { query: it.dramaQuery, limit: 5 } }] }),
+        (r) => {
+          const first = r.drama_search?.at(-1)?.data?.items?.[0];
+          if (!first) return { ...pick('hot'), note: '@短劇 沒找到，改看熱門排行' };
+          return it.dramaDetail ? { note: `@短劇 看《${first.title}》的簡介`, calls: [{ name: 'drama_series', args: { id: first.id } }] } : null;
+        },
+      ];
+    }
     default:
       return [];
   }
@@ -1009,6 +1063,11 @@ function englishIntent(s, places, history = []) {
   }
   if (/youbike|ubike|\bbikes?\b/i.test(s) && !places.length) return { ...base, intent: 'youbike' };
   if (/\b(?:mrt|metro|subway)\b/i.test(s) && (/next|when|how long|last train/i.test(s) || /^\s*(?:is\s+)?(?:the\s+)?(?:taipei\s+)?(?:mrt|metro|subway)\s+(?:still\s+)?(?:running|open|operating)|\b(?:is|are)\s+(?:the\s+)?(?:mrt|metro|subway)(?:\s+trains?)?\s+(?:still\s+)?(?:running|open|operating)/i.test(s))) return { ...base, intent: 'metro', station: null, line: null }; // 「Is the MRT still running now?」（P3-6）
+  // 找短劇（ADR-0019）：「Any good short dramas?」「Recommend a romance drama」（片庫是中文，回答會說明）
+  if (isEnDramaAsk(s) && !toWord) {
+    const g = [['甜寵', /\bromance|romantic|sweet\b/i], ['懸疑', /mystery|thriller|suspense/i], ['喜劇', /comedy|funny/i], ['復仇', /revenge/i], ['古裝', /costume|historical|period/i]].find(([, re]) => re.test(s))?.[0];
+    return { ...base, intent: 'drama', ...(g ? { dramaQuery: g } : { dramaList: /\bnew\b|latest/i.test(s) ? 'new' : /complete|finished|binge/i.test(s) ? 'completed' : 'hot' }) };
+  }
   if (/thank/i.test(s)) return { ...base, intent: 'unknown', thanks: true };
   return { ...base, intent: 'unknown' };
 }
@@ -1028,6 +1087,12 @@ const EN_MODE_NAME = { walk: 'walking', bike: 'YouBike', bus: 'bus', metro: 'MRT
 /** 英文總結（S12；數字取自工具資料） */
 function englishSummary(it, results) {
   const note = ' Station and place names are shown in Chinese.';
+  if (it.intent === 'drama') { // 短劇（ADR-0019）：劇名、簡介是中文
+    const d = (results.drama_search?.at(-1)?.data?.items?.length ? results.drama_search : results.drama_picks)?.at(-1)?.data;
+    if (!d?.items?.length) return "I couldn't find any short dramas right now. Try again later.";
+    const open = d.items.some((x) => x.appLink) || d.store ? ' Tap “Watch on MyDrama” on the card to open the app.' : '';
+    return `${d.kind === 'search' ? 'Short dramas on MyDrama that match' : 'Popular short dramas on MyDrama'}: ${d.items.slice(0, 3).map((x) => `《${x.title}》`).join(', ')}. Titles and episodes are in Chinese.${open}`;
+  }
   if (it.intent === 'trip') {
     const trip = results.plan_trip?.[0]?.data;
     const best = trip?.options.find((o) => o.id === trip.best);
@@ -1116,8 +1181,23 @@ export function demoSummary(it, results, suggestions = []) {
   if (it.intent === 'rail' && it.book && !it.lang) return `${text} 訂票請按卡片上的官方訂票連結，在${it.system === 'THSR' ? '高鐵' : '台鐵'}官網或 App 完成（阿幫不代訂、不付款）。`;
   return text;
 }
+const DRAMA_LIST_SAY = { hot: '熱門排行', new: '新上架短劇', completed: '已完結短劇', taiwan: '台灣自製短劇' };
+/** 找短劇的總結（ADR-0019）：數字與劇名來自工具；有 App 連結才說「按卡片開 App」 */
+export function dramaSummary(it, results) {
+  const search = results.drama_search?.at(-1), picks = results.drama_picks?.at(-1), series = results.drama_series?.at(-1);
+  const canOpen = (d) => !!(d?.items?.some((x) => x.appLink) || d?.store);
+  const open = (d) => (canOpen(d) ? '按卡片上的「在 MyDrama 看」就會開 App（沒裝會到商店頁）。' : '');
+  if (series) {
+    const x = series.data.items[0];
+    return `${series.speak}${x.synopsis ? `簡介：${x.synopsis.length > 90 ? `${x.synopsis.slice(0, 90)}…` : x.synopsis}` : ''} ${open(series.data)}`.trim();
+  }
+  if (search && search.data.items.length) return `${search.speak} ${open(search.data)}還想找別的類型也可以跟我說，例如「懸疑」「重生」。`.trim();
+  if (picks) return `${search ? `MyDrama 沒有找到「${search.data.query}」的短劇，先給你看熱門的：` : ''}${picks.speak} ${open(picks.data)}想看特定類型就說，例如「甜寵」「懸疑」。`.trim();
+  return '這次沒查到短劇資料，等一下再試試看。';
+}
 function summaryCore(it, results, suggestions = []) {
   if (it.lang === 'en') return englishSummary(it, results);
+  if (it.intent === 'drama') return dramaSummary(it, results);
   if (it.intent === 'outing') {
     const pre = it.fromPoint || it.places[0] ? '' : it.noLocation ? `（沒拿到你的位置，先看「${DEFAULT_FROM}」附近。）` : `（你沒說在哪，我先看「${DEFAULT_FROM}」附近。）`;
     const o = results.outing_advice?.at(-1);

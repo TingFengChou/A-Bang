@@ -1,4 +1,4 @@
-// 動態「下一句」建議（產品回饋 2026-11-21：輸入提示都一樣 → 依情境猜使用者接下來想問什麼；UX.md §3.2、AGENT.md §5.4）。
+// 動態「下一句」建議（產品回饋 2026-11-21：輸入提示都一樣 → 依情境猜使用者接下來想問什麼；UX.md §3.2、AGENT.md §5.5）。
 // 1. 情境（suggestContext）：只在手機上組、不送伺服器、不含座標與個資——頁面、最近一兩輪的問題與結果摘要、時段、
 //    常用地點的「標籤」、進行中的提醒、手機上的 AI。
 // 2. 產生：手機上的 AI（edge-judge.js edgeSuggest）猜 3～4 句 → 伺服器 /api/v1/suggest/check 只驗證「句子」（parseIntent，不呼叫模型）
@@ -95,7 +95,7 @@ export function contextText(ctx) {
 // ───── 情境規則（網頁版、手機上的 AI 不可用或不足 3 句時） ─────
 /** 每一句都是阿幫查得到、單獨看得懂的話；ask 是同 parseIntent 的形狀（test/suggest.test.js 用 parseIntent 逐句比對） */
 const A = (q, ask, extra = {}) => ({ label: extra.label || q, q, ask, src: 'rule', rel: extra.rel || 0, domain: extra.domain || domainOf(ask.intent) });
-export const DOMAIN = { trip: 'transit', bus_route: 'transit', metro: 'transit', youbike: 'transit', nearby_bus: 'transit', rail: 'transit', weather: 'life', aqi: 'life', outing: 'life', quake: 'life', pharmacy: 'life', garbage: 'life', invoice: 'money', fuel: 'money', stock: 'money' };
+export const DOMAIN = { drama: 'fun', trip: 'transit', bus_route: 'transit', metro: 'transit', youbike: 'transit', nearby_bus: 'transit', rail: 'transit', weather: 'life', aqi: 'life', outing: 'life', quake: 'life', pharmacy: 'life', garbage: 'life', invoice: 'money', fuel: 'money', stock: 'money' };
 const domainOf = (intent) => DOMAIN[intent] || 'life';
 
 /**
@@ -130,6 +130,7 @@ export function ruleAsks(ctx) {
   if (pk === 'metro' || pk === 'rail') out.push(A('捷運幾點收班？', { intent: 'metro' }, { rel: 1 }));
   if (pk === 'nearby') out.push(A('附近 YouBike 還有車嗎？', { intent: 'youbike' }, { rel: 2 }));
   if (ctx.watching) out.push(A(`${ctx.watching.route} 到哪了？`, { intent: 'bus_route', route: ctx.watching.route }, { rel: 2 }));
+  if (ctx.bus || ctx.watching || pk === 'bus') out.push(A('等車無聊，推薦一部短劇', { intent: 'drama', dramaList: 'hot' })); // 等車推劇（ADR-0019）
   // 時段
   if (part === 'morning') {
     out.push(has('公司') && !weekend ? A('去公司怎麼走最快？', { intent: 'trip', to: '公司', states: ['rush'] }) : A('捷運下一班幾分？', { intent: 'metro' }));
@@ -147,6 +148,7 @@ export function ruleAsks(ctx) {
     out.push(A('附近的藥局有開嗎？', { intent: 'pharmacy' }), A('明天會下雨嗎？', { intent: 'weather', tomorrow: true }));
   }
   if (weekend && part !== 'late') out.push(A('出門要注意什麼？', { intent: 'outing' }));
+  if (part === 'evening' || part === 'late') out.push(A('最近有什麼好看的短劇？', { intent: 'drama', dramaList: 'hot' }));
   if (wet && !t) out.push(A('明天還會下雨嗎？', { intent: 'weather', tomorrow: true }, { rel: 1 }));
   // 消費（首頁每個領域都要有一句；問阿幫頁排在後面）
   out.push(dow === 0 || dow === 1 ? A('這週油價多少？', { intent: 'fuel' }) : A('這期發票中了嗎？', { intent: 'invoice' }));

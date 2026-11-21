@@ -23,6 +23,10 @@ const RULES = [
   [/^依你的位置找這一區的健保藥局$/, () => 'NHI pharmacies in your area'],
   [/^「(.+)」那一區的健保藥局$/, (m) => `NHI pharmacies around ${m[1]}`],
   [/^(.+)的健保藥局$/, (m) => `NHI pharmacies in ${m[1]}`],
+  [/^看 MyDrama 的(.+)$/, () => 'checking short dramas on MyDrama'],
+  [/^在 MyDrama 找「(.+)」$/, (m) => `searching MyDrama for ${m[1]}`],
+  [/^沒找到，改看熱門排行$/, () => 'nothing found; showing popular ones'],
+  [/^看《(.+)》的簡介$/, (m) => `synopsis of 《${m[1]}》`],
   [/^你選了公車，我幫你盯 (\S+) 在「(.+)」的到站$/, (m) => `you picked the bus; watching ${m[1]} at ${m[2]}`],
 ];
 

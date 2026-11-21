@@ -6,7 +6,7 @@
 export const normAsk = (s) => String(s || '').replace(/臺/g, '台').replace(/（.*?）|\(.*?\)/g, '').replace(/\s+/g, '').replace(/車?站$/, '').toLowerCase();
 
 /** 阿幫有資料可以回答的意圖（demo-intent.js；access、scamAsk、limits、reset 這類是說明，不算） */
-export const ANSWERABLE = ['trip', 'bus_route', 'youbike', 'nearby_bus', 'metro', 'rail', 'weather', 'aqi', 'quake', 'pharmacy', 'garbage', 'fuel', 'invoice', 'stock', 'outing'];
+export const ANSWERABLE = ['trip', 'bus_route', 'youbike', 'nearby_bus', 'metro', 'rail', 'weather', 'aqi', 'quake', 'pharmacy', 'garbage', 'fuel', 'invoice', 'stock', 'outing', 'drama']; // drama：找短劇（ADR-0019，MyDrama）
 /** 有即時資料的（排序時優先：App 取得到的即時資料） */
 export const LIVE_INTENTS = ['trip', 'bus_route', 'metro', 'youbike', 'nearby_bus', 'rail', 'weather', 'aqi', 'outing'];
 
@@ -27,7 +27,7 @@ export function answerable(it) {
 /** 只留比對與排序要用的欄位（伺服器回給手機的就是這些；沒有座標） */
 export function slimAsk(it) {
   const o = { intent: it.intent };
-  for (const k of ['from', 'to', 'route', 'station', 'line', 'query', 'nearRail', 'missing']) if (typeof it[k] === 'string' && it[k]) o[k] = it[k].slice(0, 40);
+  for (const k of ['from', 'to', 'route', 'station', 'line', 'query', 'nearRail', 'missing', 'dramaQuery', 'dramaList']) if (typeof it[k] === 'string' && it[k]) o[k] = it[k].slice(0, 40);
   if (it.places?.length) o.places = it.places.slice(0, 2).map((p) => String(p).slice(0, 40));
   if (it.states?.length) o.states = [...it.states];
   if (it.tomorrow) o.tomorrow = true;
@@ -51,6 +51,7 @@ export function sameAsk(a, b) {
     case 'rail': return n(a.to) === n(b.to) && (!a.from || !b.from || n(a.from) === n(b.from)) && !!a.fare === !!b.fare;
     case 'metro': return !a.station || !b.station || n(a.station) === n(b.station);
     case 'stock': return n(a.query) === n(b.query) || (b.queries || []).map(n).includes(n(a.query));
+    case 'drama': return n(a.dramaQuery || a.dramaList) === n(b.dramaQuery || b.dramaList); // 同一個類型或劇名、同一份排行
     case 'weather': if (!!a.tomorrow !== !!b.tomorrow) return false; // falls through：地點比對同下
     default: {
       const at = b.at ? b.at.map(n) : [place0(b)];
@@ -74,7 +75,7 @@ export function shownAsks(results = [], decision = null) {
     out.push({ intent: 'trip', from: here(trip.from?.name), to: trip.to?.name || '', states });
     if (trip.weather) out.push({ intent: 'weather', at: tripAt });
   }
-  for (const { tool, data: d = {} } of results) {
+  for (const { tool, data: d = {}, args } of results) {
     if (tool === 'bus_route_eta') out.push({ intent: 'bus_route', route: d.routeName });
     else if (tool === 'weather_now') out.push({ intent: 'weather', at: ['', ...tripAt] });
     else if (tool === 'weather_tomorrow') out.push({ intent: 'weather', tomorrow: true, at: ['', ...tripAt] });
@@ -90,6 +91,8 @@ export function shownAsks(results = [], decision = null) {
     else if (tool === 'earthquake_recent') out.push({ intent: 'quake', at: [''] });
     else if (tool === 'pharmacy_search') out.push({ intent: 'pharmacy', at: [''] });
     else if (tool === 'garbage_truck_nearby') out.push({ intent: 'garbage', at: [''] });
+    else if (tool === 'drama_picks') out.push({ intent: 'drama', dramaList: args?.list || 'hot' });
+    else if (tool === 'drama_search') out.push({ intent: 'drama', dramaQuery: args?.query || '' });
   }
   return out;
 }
@@ -111,10 +114,10 @@ const UNSAFE = [
 /** 這一句有沒有夾帶誘導內容（網址、網域、email、長號碼、電話、加 LINE、匯款、點連結、座標…）：有就不顯示（伺服器驗證與手機上整理共用） */
 export const unsafeAsk = (text) => UNSAFE.some((re) => re.test(String(text || '')));
 
-/** 去掉意圖欄位（地名、路線、站名、股票）後還剩幾個「字」：中文一字一個、英文與數字一個詞一個 */
+/** 去掉意圖欄位（地名、路線、站名、股票、劇名）後還剩幾個「字」：中文一字一個、英文與數字一個詞一個 */
 export function leftoverUnits(text, it = {}) {
   let s = String(text || '').replace(/臺/g, '台');
-  const slots = [it.from, it.to, it.route, it.station, it.line, it.query, it.near, ...(it.places || [])].filter((x) => typeof x === 'string' && x);
+  const slots = [it.from, it.to, it.route, it.station, it.line, it.query, it.near, it.dramaQuery, ...(it.places || [])].filter((x) => typeof x === 'string' && x);
   for (const v of slots.sort((a, b) => b.length - a.length)) {
     const n = v.replace(/臺/g, '台');
     for (const form of [n, n.replace(/車站$/, ''), n.replace(/站$/, '')]) if (form.length >= 2) s = s.split(form).join(' ');

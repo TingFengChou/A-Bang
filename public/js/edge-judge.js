@@ -146,7 +146,7 @@ export async function edgeJudge(text, history = [], { timeout = EDGE_TIMEOUT_MS 
   }
 }
 
-// ───── 動態「下一句」建議（UX.md §3.2、AGENT.md §5.4）：手機上的 AI 依情境猜使用者接下來想問的 3～4 句 ─────
+// ───── 動態「下一句」建議（UX.md §3.2、AGENT.md §5.5）：手機上的 AI 依情境猜使用者接下來想問的 3～4 句 ─────
 // 情境（public/js/agent/suggest.js contextText）只在手機上給模型看，不送伺服器；回來的句子另外由伺服器規則驗證（只送句子）。
 export const SUGGEST_KEY = 'abang.edgeSuggest';
 /** 設定頁「用手機上的 AI 猜我接下來想問什麼」（預設開；裝置端 AI 整個關掉時也不用） */
@@ -161,7 +161,7 @@ export function setSuggestEnabled(on) {
 export const SUGGEST_INSTRUCTIONS = `你幫「阿幫」App 猜使用者下一句想問什麼。依情境寫 4 句使用者接下來最可能問阿幫的話。
 每句 6～20 字，口語，像使用者自己會打的字；繁體中文、台灣用語。
 每句要單獨看得懂：寫出地名或公車路線號碼，不要用「那裡」「這班」「回程」。
-只問阿幫查得到的：從 A 到 B 怎麼去、公車多久到、捷運下一班、高鐵台鐵班次、YouBike、附近公車站、天氣、明天會不會下雨、出門要帶傘嗎、空氣品質、地震、藥局、垃圾車、油價、發票、台股收盤。
+只問阿幫查得到的：從 A 到 B 怎麼去、公車多久到、捷運下一班、高鐵台鐵班次、YouBike、附近公車站、天氣、明天會不會下雨、出門要帶傘嗎、空氣品質、地震、藥局、垃圾車、油價、發票、台股收盤、MyDrama 短劇（推薦、找類型或劇名）。
 跟剛剛查到的結果直接相關的排前面；不要重複剛剛已經問過的；不要問投資建議；不要編地名。`;
 export const SUGGEST_INSTRUCTIONS_EN = `${SUGGEST_INSTRUCTIONS}\nThe user is asking in English: write all 4 questions in simple English.`;
 

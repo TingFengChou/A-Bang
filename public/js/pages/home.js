@@ -14,6 +14,7 @@ import { alightWatch } from '../alight.js';
 import { createWebHost, currentArrivalWatch } from '../../ui/cards/host-web.js';
 import { locationGranted, browserLocation } from '../agent/client.js';
 import { suggestContext, homeAsks } from '../agent/suggest.js';
+import { twClock } from '../../../core/suggest.js';
 import { loadPlaces } from '../saved-places.js';
 
 const EX_ICON = { trip: 'route', bus_route: 'bus', metro: 'metro', youbike: 'bike', nearby_bus: 'bus', rail: 'train', weather: 'sun', aqi: 'air', outing: 'sun', quake: 'quake', pharmacy: 'pharmacy', garbage: 'trash', invoice: 'receipt', fuel: 'fuel', stock: 'chart' };
@@ -43,7 +44,7 @@ export default {
   title: 'Abang', // App 名稱（2026-11-20 Austin 決定）；吉祥物與對話裡仍叫「阿幫」
   root: true,
   render({ main, toast, onCleanup }) {
-    const hour = new Date().getHours();
+    const { hour } = twClock(); // 台灣時間（不受手機或瀏覽器時區影響）
     const greet = hour < 5 ? '夜深了' : hour < 11 ? '早安' : hour < 18 ? '午安' : '晚安';
     // 離線 Demo（沒有伺服器）：輸入框仍是公車搜尋
     const offline = !!globalThis.__DEMO_SERVICES__;

@@ -20,7 +20,7 @@ async function startServer(env = {}) {
   // 示範模式：清掉金鑰，確保不連外
   const proc = spawn(process.execPath, ['server/http.js'], {
     cwd: new URL('..', import.meta.url),
-    env: { ...process.env, PORT: String(port), DEMO_MODE: '1', DEMO_CLOCK: '10:00', TDX_CLIENT_ID: '', TDX_CLIENT_SECRET: '', CWA_API_KEY: '', ANTHROPIC_API_KEY: '', AGENT_RPM: '500', AGENT_RPD: '5000', RATE_LIMIT_API: '2000', JUDGE: 'off', ...env }, // 判斷層要下載模型，E2E 用規則（判斷層另有單元測試）; // 測試一分鐘內呼叫很多次 API，限流另在 mcp.test 測
+    env: { ...process.env, PORT: String(port), DEMO_MODE: '1', DEMO_CLOCK: '10:00', TDX_CLIENT_ID: '', TDX_CLIENT_SECRET: '', CWA_API_KEY: '', ANTHROPIC_API_KEY: '', AGENT_RPM: '500', AGENT_RPD: '5000', RATE_LIMIT_API: '2000', JUDGE: 'off', MYDRAMA_API_BASE: '', MYDRAMA_LINK_EPISODE: 'example-drama://watch/{id}/{ep}', MYDRAMA_LINK_EXERCISE: '', MYDRAMA_STORE_IOS: 'https://example.com/drama-ios', MYDRAMA_STORE_ANDROID: 'https://example.com/drama-android', ...env }, // 判斷層要下載模型，E2E 用規則（判斷層另有單元測試）; // 測試一分鐘內呼叫很多次 API，限流另在 mcp.test 測
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   await new Promise((res, rej) => {
@@ -2762,7 +2762,7 @@ test('語音問阿幫：第一次按麥克風跳權限框（App 暫時看不見�
   }, { init: FAKE_VOICE({ mode: 'auto', startDelay: 800 }), ignore: VOICE_IGNORE });
 });
 
-// ───── 動態「下一句」建議（UX.md §3.2、AGENT.md §5.4） ─────
+// ───── 動態「下一句」建議（UX.md §3.2、AGENT.md §5.5） ─────
 /** 假的裝置端 AI：suggest 依情境回句子（查完行程後回 5 句：1 句查不到、1 句跟畫面重複）；記下呼叫與收到的情境 */
 const FAKE_SUGGEST = `window.__sug = { calls: [], contexts: [] };
 window.Capacitor = {
@@ -3133,6 +3133,115 @@ test('問阿幫：在示範範圍外、深夜只剩叫車——說明原因、�
     assert.match(await page.locator('.msg.user').last().textContent(), /從台北車站到台北101怎麼去/);
     assert.ok(await page.locator('.decision').last().locator('.dg-opt').count() >= 3);
   }, { geo: { latitude: 24.99, longitude: 121.31 } }); // 桃園（26 公里外）
+});
+
+// ── 短劇（MyDrama，ADR-0019）──
+/** 示範到站時間隨時間變：先找一個「現在還要等 8～14 分」的公車站，問阿幫時才一定會推短劇 */
+async function waitingStop() {
+  const call = (a) => fetch(`${base}/api/v1/tools/bus_route_eta`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ city: 'Taipei', ...a }) }).then((x) => x.json());
+  for (const routeName of ['307', '299', '601', '262', '235', '651', '藍5', '紅30']) {
+    const r = await call({ routeName });
+    for (const s of r.data.directions.flatMap((d) => d.stops)) {
+      if (s.status !== 0 || !(s.etaSec >= 480 && s.etaSec <= 840)) continue;
+      const f = (await call({ routeName, stop: s.stopName })).data.focus; // 同名站兩個方向都有時，以盯站的結果為準
+      if (f?.status === 0 && f.etaSec >= 480) return { routeName, stop: s.stopName };
+    }
+  }
+  throw new Error('示範資料找不到要等 8 分以上的公車站');
+}
+
+test('等車推短劇：公車還要等 8 分以上 → 到站卡片下方一行短劇提示（看這集、不用了）；設定關掉就不出現', async () => {
+  const { routeName, stop } = await waitingStop();
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.fill('.chat-input', `${routeName} 公車到「${stop}」還要多久`);
+    await page.press('.chat-input', 'Enter');
+    await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+    const hint = page.locator('.drama-hint');
+    await hint.waitFor();
+    assert.equal(await hint.count(), 1, '一輪最多一次');
+    // 接在公車卡片正下方；回答文字還是講公車（交通資訊是主角）
+    assert.equal(await page.evaluate(() => document.querySelector('.drama-hint').previousElementSibling?.querySelector('[data-card]')?.dataset.card), 'bus-route');
+    assert.match(await hint.locator('.dh-say').textContent(), /^等車還要 \d+ 分，剛好夠看一集短劇：《.+》第 1 集/);
+    assert.doesNotMatch(await page.locator('.bubble.final .say').textContent(), /短劇/);
+    assert.deepEqual(await hint.locator('button').allTextContents(), ['看這集', '不用了']);
+    assert.match(await hint.locator('.dh-note').textContent(), /設定裡可以關掉/);
+    await hint.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: new URL('phone-drama-wait.png', SHOTS).pathname });
+    await hint.getByRole('button', { name: '不用了' }).click();
+    await hint.waitFor({ state: 'detached' });
+  });
+  // 設定關掉：同一句不再推（伺服器也收到 dramaHint: false）
+  await withPage(DEVICES.phone, '#/settings', async (page) => {
+    const sw = page.locator('#drama-hint');
+    assert.equal(await sw.isChecked(), true, '預設開');
+    await page.locator('#drama-card').scrollIntoViewIfNeeded();
+    await page.locator('#drama-card').screenshot({ path: new URL('phone-drama-setting.png', SHOTS).pathname });
+    await sw.uncheck();
+    await page.goto(`${base}/#/agent`);
+    const sent = page.waitForRequest((r) => r.url().endsWith('/api/v1/agent') && r.method() === 'POST');
+    await page.fill('.chat-input', `${routeName} 公車到「${stop}」還要多久`);
+    await page.press('.chat-input', 'Enter');
+    const body = JSON.parse((await sent).postData());
+    assert.equal(body.userState?.dramaHint, false);
+    assert.ok(Number.isInteger(body.turn) && body.turn >= 1, '送這段對話第幾輪（輪替用）');
+    await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+    await page.locator('.results [data-card="bus-route"]').waitFor();
+    assert.equal(await page.locator('.drama-hint').count(), 0);
+  });
+});
+
+for (const [dname, device] of Object.entries(DEVICES)) {
+  test(`${dname}：問「推薦一部短劇」→ 短劇卡片（排行、集數、免費集數、在 MyDrama 看、看簡介、熱搜）`, async () => {
+    await withPage(device, '#/agent', async (page) => {
+      await page.fill('.chat-input', '推薦一部短劇');
+      await page.press('.chat-input', 'Enter');
+      await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+      const card = page.locator('.results [data-card="drama"]');
+      await card.waitFor();
+      assert.match(await card.locator('.ab-title').textContent(), /短劇・熱門排行/);
+      assert.equal(await card.locator('.ab-drama').count(), 5);
+      assert.match(await card.locator('.ab-drama').first().textContent(), /《夜班公車的約定》.*共 60 集・前 10 集免費・已完結/);
+      assert.equal(await card.locator('.ab-drama-watch').first().textContent(), '在 MyDrama 看');
+      assert.match(await page.locator('.bubble.final .say').textContent(), /熱門排行前 3 名/);
+      assert.equal(await card.locator('.ab-badge.ab-demo').count(), 1, '示範資料有標示');
+      // 在 MyDrama 看：開 App 連結（攔下導頁）＋沒離開畫面就開商店頁
+      await page.evaluate(() => {
+        window.__opened = [];
+        window.open = (u) => { window.__opened.push(u); return {}; }; // 回傳視窗＝沒被擋
+      });
+      await card.locator('.ab-drama-watch').first().click();
+      await page.waitForFunction(() => window.__opened.length === 1, null, { timeout: 5000 });
+      assert.match((await page.evaluate(() => window.__opened))[0], /^https:\/\/example\.com\/drama-(ios|android)$/);
+      // 看簡介：展開完整簡介（drama_series）
+      const first = card.locator('.ab-drama').first();
+      await first.getByRole('button', { name: '看簡介' }).click();
+      await first.locator('.ab-drama-syn.open').waitFor();
+      await card.scrollIntoViewIfNeeded();
+      await shot(page, `${dname}-drama-card`);
+      // 熱搜：點「懸疑」→ 卡片換成搜尋結果
+      await card.locator('.ab-drama-kw .ab-tab', { hasText: '懸疑' }).click();
+      await page.waitForFunction(() => /找「懸疑」的短劇/.test(document.querySelector('.results [data-card="drama"] .ab-title')?.textContent || ''));
+      assert.ok(await card.locator('.ab-drama').count() >= 2);
+    }, { ignore: /example-drama|ERR_UNKNOWN_URL_SCHEME|Failed to launch/ });
+  });
+}
+
+test('問「有沒有甜寵劇」→ 搜尋卡片；問劇名劇情 → 簡介卡片', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.fill('.chat-input', '有沒有甜寵劇');
+    await page.press('.chat-input', 'Enter');
+    await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+    const card = page.locator('.results [data-card="drama"]').last();
+    assert.match(await card.locator('.ab-title').textContent(), /找「甜寵」的短劇/);
+    assert.ok((await card.locator('.ab-chip').allTextContents()).includes('甜寵'));
+    await page.fill('.chat-input', '《捷運末班車》在演什麼');
+    await page.press('.chat-input', 'Enter');
+    await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
+    const syn = page.locator('.results [data-card="drama"]').last();
+    await syn.waitFor();
+    assert.match(await syn.locator('.ab-title').textContent(), /短劇簡介/);
+    assert.match(await page.locator('.bubble.final .say').last().textContent(), /簡介：每晚末班車開走後/);
+  });
 });
 
 test('問阿幫：深夜 00:10 去台北101——第一句說公車和捷運收班、卡片與決策圖列出沒列入的原因（中、英）', async () => {

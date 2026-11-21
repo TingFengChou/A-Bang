@@ -1,7 +1,7 @@
 // 裝置端 AI 判斷（ADR-0014）：Apple Intelligence（Foundation Models）在手機上判斷意圖與狀態。
 // JS 端：public/js/edge-judge.js（Capacitor 外掛名 AbangEdgeAI）。只回 { engine, result: { intent, states } }，
 // write（ADR-0017）：把伺服器的程式版總結改寫成自然的一兩句；數字由 JS 的程式護欄檢查，不過就用程式版。
-// suggest（AGENT.md §5.4）：猜使用者接下來想問的話。優先順序 judge ＞ write ＞ suggest：judge、write 開始前都先取消正在跑的 suggest。
+// suggest（AGENT.md §5.5）：猜使用者接下來想問的話。優先順序 judge ＞ write ＞ suggest：judge、write 開始前都先取消正在跑的 suggest。
 // iOS 26 以下、機型不支援、沒開 Apple Intelligence、模型還在下載、語言不支援 → status 回 available: false，judge 回錯誤，JS 改由伺服器判斷。
 // status 另外回報系統查得到的模型資訊（「阿幫的腦袋」#/ai 顯示；查不到的欄位就不回傳，不編造）：availability、languages、contextSize、osVersion。
 import Foundation
@@ -154,7 +154,7 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
         call.reject("unavailable: os-too-old")
     }
 
-    /// 動態「下一句」建議（AGENT.md §5.4）：依情境（JS 組好、不含座標）猜使用者接下來最可能問的幾句。
+    /// 動態「下一句」建議（AGENT.md §5.5）：依情境（JS 組好、不含座標）猜使用者接下來最可能問的幾句。
     /// 只回 { engine, ms, result: [句子] }，句子由 JS 送伺服器規則驗證、程式排序。不記錄情境與句子。
     @objc func suggest(_ call: CAPPluginCall) {
         guard let context = call.getString("context"), !context.isEmpty else { call.reject("沒有情境"); return }

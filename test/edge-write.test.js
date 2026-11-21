@@ -404,3 +404,13 @@ test('事實清單：英文那一輪用英文的小幫手句子', async () => {
   assert.ok(f.points.some((p) => /AQI/.test(p)));
   assert.deepEqual(answerFacts({ intent: 'weather' }, {}), { intent: 'weather', lang: 'zh', demo: false, points: [] });
 });
+
+test('護欄：劇名（《》）要跟資料一字不差，截短、改字、多出資料沒有的劇都擋（短劇，ADR-0019）', () => {
+  const d = '熱門排行前 3 名：《夜班公車的約定》、《總裁的便當外送員》、《重返十八歲的阿嬤》。';
+  const C = (c) => checkRewrite(c, { draft: d, facts: { intent: 'drama', lang: 'zh', demo: true, points: [d] }, lang: 'zh' });
+  assert.equal(C('現在最紅的前 3 名是《夜班公車的約定》、《總裁的便當外送員》和《重返十八歲的阿嬤》。').ok, true);
+  const cut = C('現在最紅的前 3 名是《夜班公車》、《總裁的便當外送員》和《重返十八歲的阿嬤》。');
+  assert.deepEqual([cut.reason, cut.detail], ['name', '夜班公車'], '截短的劇名');
+  assert.equal(C('現在最紅的前 3 名是《夜班公車的約會》、《總裁的便當外送員》和《重返十八歲的阿嬤》。').reason, 'name', '改字');
+  assert.equal(C('現在最紅的前 3 名是《夜班公車的約定》、《總裁的便當外送員》和《巷口麵攤是武林高手》。').reason, 'name', '資料沒有的劇');
+});

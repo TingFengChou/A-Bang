@@ -9,7 +9,7 @@ export const WRITE_TARGET_CHARS = 80;
 /** 程式版總結太長或數字太多時不改寫（模型一定漏，白花時間）：直接用程式版 */
 export const WRITE_SKIP = { chars: 220, numbers: 10 };
 /** 會交給手機改寫的 agent 與它的工具包（與 core/agents/*.json 的 packs 相同，test/edge-write.test.js 比對）：L2 輸出護欄照工具包套用。防詐不改寫 */
-export const WRITE_PACKS = { life: ['transit', 'weather', 'ridehail', 'life', 'finance'] };
+export const WRITE_PACKS = { life: ['transit', 'weather', 'ridehail', 'life', 'finance', 'drama'] }; // 與 core/agents/life.json 的 packs 一致（drama：ADR-0019）
 export const WRITE_AGENTS = Object.keys(WRITE_PACKS);
 /** 給原生端的輸入上限（指示＋輸入，字數）；原生 write() 超過一樣拒絕 */
 export const WRITE_MAX_INPUT = 4000;
@@ -280,8 +280,11 @@ export function checkRewrite(candidate, { draft, facts = {}, lang = 'zh', agent 
   const neg = negated(text, d, en);
   if (neg) return { ok: false, reason: 'negation', detail: neg };
   // 名稱：引號裡的、以及沒加引號但以站、路、線、出口結尾的，都要是資料裡有的
-  const names = [...text.matchAll(/[「『]([^」』]{1,30})[」』]/g)].map((m) => m[1]);
-  const badName = names.find((x) => !refTw.includes(tw(x))) || unquotedPlace(text, refTw);
+  const names = [...text.matchAll(/[「『《]([^」』》]{1,30})[」』》]/g)].map((m) => m[1]);
+  // 劇名、書名（《》）要跟資料一字不差：截短（《夜班公車》）或改字都不行（短劇，ADR-0019）
+  const titles = new Set([...ref.matchAll(/《([^》]{1,40})》/g)].map((m) => tw(m[1])));
+  const badTitle = [...text.matchAll(/《([^》]{1,40})》/g)].map((m) => m[1]).find((x) => !titles.has(tw(x)));
+  const badName = badTitle || names.find((x) => !refTw.includes(tw(x))) || unquotedPlace(text, refTw);
   if (badName) return { ok: false, reason: 'name', detail: badName };
   return { ok: true, text };
 }

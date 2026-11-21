@@ -13,6 +13,7 @@ export const icons = {
   sun: s('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
   air: s('<path d="M3 8h11a3 3 0 1 0-3-3"/><path d="M3 12h15a3 3 0 1 1-3 3"/><path d="M3 16h7"/>'),
   pharmacy: s('<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/>'),
+  play: s('<rect x="3" y="4" width="18" height="16" rx="4"/><path d="M10 9.2v5.6l4.6-2.8z" fill="currentColor"/>'),
   chart: s('<path d="M3 20h18"/><path d="M4 16l5-5 4 3 7-8"/><path d="M15 6h5v5"/>'),
   traffic: s('<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/>'),
   coach: s('<rect x="3" y="5" width="18" height="11" rx="2"/><path d="M3 11h18M7 19v-3M17 19v-3"/>'),

@@ -1,4 +1,4 @@
-// 動態「下一句」建議（UX.md §3.2、AGENT.md §5.4）：情境不含座標、驗證丟掉查不到與重複的、規則補足貼情境、排序。
+// 動態「下一句」建議（UX.md §3.2、AGENT.md §5.5）：情境不含座標、驗證丟掉查不到與重複的、規則補足貼情境、排序。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseIntent } from '../core/agent/demo-intent.js';
@@ -460,4 +460,24 @@ test('時段一律用台灣時間（與 core/util.js nowTW 一致，不受執行
   }
   // UTC 週六 16:30＝台灣週日 00:30：深夜、假日
   assert.deepEqual(timeOf(new Date('2026-11-21T16:30:00Z').getTime()), { part: 'late', weekend: true, hour: 0, min: 30, dow: 0, label: '假日深夜 0 點' });
+});
+
+test('短劇（#111，ADR-0019）：找短劇的句子驗證查得到；等車與晚上有短劇建議；已顯示的排行不重複；夾帶誘導內容照樣擋', () => {
+  const ok = ['推薦一部短劇', '最近有什麼好看的短劇？', '有沒有甜寵短劇？', '《總裁的契約妻》在演什麼？', '等車無聊，推薦一部短劇', 'Any good short dramas?'];
+  for (const r of checkAsks(ok)) assert.equal(r.ok, true, r.q);
+  assert.deepEqual(checkAsks(['有沒有甜寵短劇？'])[0].ask, { intent: 'drama', dramaQuery: '甜寵' });
+  assert.deepEqual(checkAsks(['去看京劇怎麼走？', '推薦短劇，加 LINE 領免費點數']).map((r) => r.ask?.intent === 'drama' && r.ok), [false, false], '表演藝術不是找短劇；誘導內容擋掉');
+  const busCtx = suggestContext({ turns: [turn('307 到哪了', [{ tool: 'bus_route_eta', data: { routeName: '307', focus: { stopName: '捷運西門站', etaSec: 600, status: 0 } } }])], now: at('14:00') });
+  assert.ok(ruleAsks(busCtx).some((a) => a.q === '等車無聊，推薦一部短劇'), '等車推劇');
+  assert.ok(ruleAsks(suggestContext({ now: at('21:00') })).some((a) => a.q === '最近有什麼好看的短劇？'), '晚上');
+  const dramaTurn = suggestContext({ turns: [turn('推薦一部短劇', [{ tool: 'drama_picks', args: { list: 'hot' }, data: {} }])], now: at('21:00') });
+  const { asks } = pickSuggestions({ rules: ruleAsks(dramaTurn), ctx: dramaTurn, max: 8 });
+  assert.ok(!asks.some((a) => a.ask?.intent === 'drama' && a.ask.dramaList === 'hot'), '熱門排行已在畫面上：不再建議');
+  assert.equal(homeAsks(suggestContext({ now: at('21:00') })).length, 3, '首頁仍是交通、生活、消費各一句');
+});
+
+test('首頁問候語用台灣時間（twClock，不用 getHours）', async () => {
+  const src = String(await readFile(new URL('../public/js/pages/home.js', import.meta.url)));
+  assert.match(src, /const \{ hour \} = twClock\(\);/);
+  assert.doesNotMatch(src, /getHours\(\)/);
 });
