@@ -858,7 +858,7 @@ test('下車提醒：選下車站、進行中、取消', async () => {
     await page.waitForFunction((d) => document.querySelector('.bus-focus .alight .ok')?.textContent.includes(`快到「${d}」前約 2 分提醒你`), far);
     await shot(page, 'phone-alight');
     // 行程中模式：坐車中大字是到下車站還要多久、時間軸標下車站、不再給到站提醒按鈕
-    assert.match(await page.textContent('.bus-focus.riding .sub'), /坐車中・從「敦化市場」上車/);
+    assert.match(await page.textContent('.bus-focus.riding .sub'), /坐車中・從「敦化市場」上車|車快到「敦化市場」了，上車後開始算/); // 示範資料車剛好要進站時：還沒上車
     assert.match(await page.textContent('.bus-focus.riding .big'), new RegExp(`(約 \\d+ 分到|快到)「${far}」`));
     assert.equal(await page.locator('.bus-focus [data-min]').count(), 0, '坐車中不給到站提醒');
     assert.match(await page.locator('.timeline .me-tag.off').locator('..').textContent(), new RegExp(far));
