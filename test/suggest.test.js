@@ -448,3 +448,16 @@ test('審查 7：英文那一輪句子上限 60 字；英文公車頁打開的�
   assert.equal(ctx.lang, 'en');
   assert.ok(ruleAsks(ctx).every((a) => !/[一-鿿]/.test(a.label)));
 });
+
+test('時段一律用台灣時間（與 core/util.js nowTW 一致，不受執行環境時區影響；CI 是 UTC）', async () => {
+  const { twClock } = await import('../core/suggest.js');
+  const { nowTW } = await import('../core/util.js');
+  for (const iso of ['2026-11-18T07:30:00+08:00', '2026-11-18T23:59:00+08:00', '2026-11-22T00:10:00+08:00', '2026-11-21T16:30:00Z']) {
+    const t = new Date(iso).getTime();
+    const c = twClock(t), n = nowTW(t);
+    assert.equal(`${String(c.hour).padStart(2, '0')}:${String(c.min).padStart(2, '0')}`, n.hhmm, iso);
+    assert.equal(c.dow, n.weekday, iso);
+  }
+  // UTC 週六 16:30＝台灣週日 00:30：深夜、假日
+  assert.deepEqual(timeOf(new Date('2026-11-21T16:30:00Z').getTime()), { part: 'late', weekend: true, hour: 0, min: 30, dow: 0, label: '假日深夜 0 點' });
+});

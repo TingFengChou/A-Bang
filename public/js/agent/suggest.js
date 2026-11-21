@@ -4,20 +4,22 @@
 // 2. 產生：手機上的 AI（edge-judge.js edgeSuggest）猜 3～4 句 → 伺服器 /api/v1/suggest/check 只驗證「句子」（parseIntent，不呼叫模型）
 //    → 丟掉查不到的、跟畫面上已回答的重複的；網頁版、AI 不可用、逾時或驗證後不足 3 句 → 情境規則（ruleAsks）補。
 // 3. 排序（rankAsks）：程式計分——跟目前情境直接相關、有即時資料（App 取得到的）排前面；模型只負責提出候選句。
-import { sameAsk, shownAsks, normAsk, LIVE_INTENTS, unsafeAsk } from '../../../core/suggest.js';
+import { sameAsk, shownAsks, normAsk, LIVE_INTENTS, unsafeAsk, twClock } from '../../../core/suggest.js';
 
 /** 手機上的 AI 產生的句子：最多等這麼久（逾時改用規則，畫面先保留舊的建議） */
 export const SUGGEST_WAIT_MS = 1500;
 
 // ───── 情境 ─────
 const PARTS = { morning: '早上', day: '白天', evening: '傍晚', late: '深夜' };
-/** 時段：早上 5–10、白天 10–17、傍晚 17–22、深夜 22–5；週六日是假日 */
+/**
+ * 時段：早上 5–10、白天 10–17、傍晚 17–22、深夜 22–5；週六日是假日。
+ * 一律用台灣時間（UTC+8，同 core/util.js nowTW）：手機或 CI 的時區設成別的也一樣（不用 getHours／getDay）。
+ */
 export function timeOf(now = Date.now()) {
-  const d = new Date(now);
-  const h = d.getHours();
+  const { hour: h, min, dow } = twClock(now);
   const part = h >= 5 && h < 10 ? 'morning' : h >= 10 && h < 17 ? 'day' : h >= 17 && h < 22 ? 'evening' : 'late';
-  const weekend = d.getDay() === 0 || d.getDay() === 6;
-  return { part, weekend, hour: h, min: d.getMinutes(), dow: d.getDay(), label: `${weekend ? '假日' : '平日'}${PARTS[part]} ${h} 點` };
+  const weekend = dow === 0 || dow === 6;
+  return { part, weekend, hour: h, min, dow, label: `${weekend ? '假日' : '平日'}${PARTS[part]} ${h} 點` };
 }
 
 /** 去掉像座標的數字（使用者把座標打進問題裡也不放進情境）：成對的小數 2 位以上（25.04,121.51）、單獨的小數 3 位以上 */

@@ -22,6 +22,7 @@
 - 合主線（#107 阿幫問你、#108 回答在手機上寫）：外掛與斷路器整併——judge ＞ write ＞ suggest：judge 與 write 開始前都先取消正在跑的 suggest（JS `cancelSuggest`、原生端 `stopSuggest`），手機正在寫回答時不猜下一句；write 也用同一個斷路器（`edgeTrips`、取消後 3 秒內的忙碌錯誤不暫停）；`edge-write.js` 改用 `edge-judge.js` 的外掛存取；只剩一種方式時的換條件建議（#108 R1 的 `single.suggest`）標 `pin`，動態建議一律排最前面；sw `v1.0.3`。合主線後 npm test 818 項、npm run e2e 111 項全過，Android assembleDebug、iOS xcodebuild 通過。
 - PR #112 獨立審查修正（合主線 #109 長對話後）：suggest 的錯誤一律不設 Android 10 分鐘暫停、取消記號在呼叫模型前檢查、自己逾時記取消時間、iOS 結束時清掉同一個 task；正在判斷或寫回答、網址帶問題進頁時不猜；suggest 不可用只停 suggest；伺服器驗證與手機整理都擋網址、網域、email、@帳號、長號碼、電話、加 LINE、匯款、點連結、座標，去掉意圖欄位後剩超過 16 字也擋；情境遮「25.04,121.51」這類座標；送出中換頁或提醒變了不換建議、送出時先拿掉同一句與上一輪的動作；猜＋驗證共用 1.5 秒；英文句上限 60、英文公車頁動作用英文；保留 #109 的 rounds.touch、follow、確認句寫在那一輪、clear 一起重設（follow 規則寫進 UX.md §3.2）；設定與隱私頁補「句子可能含你剛問過的地名」。單元測試 +6、E2E +4。
 - 合主線 #110（深夜原因）：`single.suggest` 與 `missing` 照 #110；「只剩一種方式」的換條件建議仍標 `pin` 排最前面；sw `v1.0.8`。
+- CI（UTC）修正：時段、平日／假日改用台灣時間計算（`core/suggest.js` `twClock`，與 `nowTW` 相同，不用 getHours／getDay）；`TZ=UTC npm test`、`TZ=UTC npm run e2e` 全過（單元測試 +1）。
 - 下一個：實機確認句子品質與三個任務輪流用模型的延遲
 
 ## 2026-11-22 R2 審查修正（PR #110 獨立審查）

@@ -123,3 +123,9 @@ export function leftoverUnits(text, it = {}) {
 }
 /** 去掉意圖欄位後最多剩這麼多字（「下雨了，從西門町到台北101少走路怎麼去？」剩 11 字；夾帶一長串別的話就超過） */
 export const MAX_LEFTOVER = 16;
+
+/** 台灣時間的時、分、星期幾（UTC+8，同 core/util.js nowTW；不受執行環境時區影響）。前端共用，所以放這裡不從 util.js 引入 */
+export function twClock(now = Date.now()) {
+  const d = new Date(Number(now) + 8 * 3600e3);
+  return { hour: d.getUTCHours(), min: d.getUTCMinutes(), dow: d.getUTCDay() };
+}
