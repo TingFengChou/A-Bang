@@ -948,18 +948,32 @@ test('公車街景：公車往站牌開、不往回跳', async () => {
 test('首頁格子：點進去有頁首（圖示、說明、資料來源、各自的動作）', async () => {
   await withPage(DEVICES.phone, '#/', async (page) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
-    const want = { '#/s/weather': ['ph-weather', '現在天氣與降雨機率', '中央氣象署'], '#/s/quake': ['ph-quake', '最近的有感地震', '中央氣象署'], '#/nearby': ['ph-nearby', '身邊 400 公尺的公車站', '交通部 TDX'], '#/rail/thsr': ['ph-thsr', '高鐵時刻與票價', '交通部 TDX'], '#/s/stock': ['ph-stock', '台股收盤行情', '證交所'] };
+    const want = { '#/s/weather': ['ph-weather', '要不要帶傘、穿多少', '中央氣象署'], '#/s/quake': ['ph-quake', '剛剛是不是地震了', '中央氣象署'], '#/nearby': ['ph-nearby', '身邊有哪些公車站', null], '#/rail/thsr': ['ph-thsr', '下一班高鐵幾點、多少錢', null], '#/s/stock': ['ph-stock', '查個股，看今天收多少', '證交所'] }; // null：精簡頁首（不顯示資料來源）
     for (const [href, [cls, lead, src]] of Object.entries(want)) {
       await page.goto(`${base}/#/`);
       await page.click(`a.tile[href="${href}"]`);
       await page.waitForSelector(`#pagehero .page-hero.${cls}`);
       assert.equal(await page.textContent('#pagehero .ph-lead'), lead);
-      assert.match(await page.textContent('#pagehero .ph-src'), new RegExp(src));
+      if (src) assert.match(await page.textContent('#pagehero .ph-src'), new RegExp(src));
+      else assert.equal(await page.locator('#pagehero .page-hero.compact').count(), 1, '內容多的頁面：精簡頁首');
       assert.equal(await page.getAttribute('#pagehero .ph-token', 'aria-hidden'), 'true', '圖示是裝飾');
       await page.waitForTimeout(900); // 彈出來＋開始自己的動作
       assert.ok(await page.evaluate(() => document.getAnimations().some((a) => /^ph-(spin|shake|bob|dash|rise)$/.test(a.animationName) && a.playState === 'running')), `${cls} 的圖示在動`);
       await shot(page, `phone-hero-${cls.slice(3)}`);
     }
+    // 天氣：位置寫在頁首資料來源後面（不另起一行）
+    await page.goto(`${base}/#/s/weather`);
+    await page.waitForSelector('.ab-card[data-card="weather"]');
+    await page.waitForFunction(() => /中央氣象署・(目前位置附近|台北車站附近)/.test(document.querySelector('#pagehero .ph-src')?.textContent || ''));
+    assert.equal(await page.locator('#where').isHidden(), true);
+    // 附近切到 YouBike：頁首跟著換
+    await page.goto(`${base}/#/nearby`);
+    await page.waitForSelector('#pagehero .ph-nearby');
+    await page.click('.seg button[data-t="bike"]');
+    await page.waitForSelector('#pagehero .ph-bike');
+    // 小動作做 3 次就停；點圖示再做一次
+    const iter = await page.evaluate(() => getComputedStyle(document.querySelector('#pagehero .ph-ic')).animationIterationCount);
+    assert.equal(iter, '3');
     // 不是格子點進來的頁面（問阿幫、設定）沒有頁首
     await page.goto(`${base}/#/settings`);
     await page.waitForSelector('#saved');

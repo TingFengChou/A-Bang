@@ -90,7 +90,7 @@ export function renderWallet(el, { callTool, toast = () => {} }) {
     const list = wallet.list();
     listEl.innerHTML = list.length
       ? list.map((x) => `<div data-id="${esc(x.id)}"><div class="grow"><div class="title">${esc(x.number)}</div><div class="sub">${esc(x.date ? `消費 ${x.date}` : `${x.period} 期`)}</div></div>${statusHtml(x)}<button class="btn ghost inv-del" type="button" aria-label="刪除 ${esc(x.number)}">刪除</button></div>`).join('')
-      : '<div class="sub">還沒有存發票。輸入號碼和消費日期，開獎後打開阿幫就會自動幫你對獎。</div>';
+      : '<div class="sub wrap">還沒有存發票。輸入號碼和消費日期，開獎後打開阿幫就會自動幫你對獎。</div>';
   };
   const run = async (opts) => {
     try {

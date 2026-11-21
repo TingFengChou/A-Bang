@@ -14,7 +14,7 @@
 ---
 
 ## 2026-11-21 首頁格子點進去的頁首（動畫與圖示）
-- 做了：Austin：「首頁裡面每個項目點進去都要有美美的動畫與圖示」。新增 `page-hero.js`，外殼 `#pagehero` 依頁面的 `hero` 顯示：格子代表色淡色頁首、56px 立體圖示、一句說明、資料來源；點格子時圖示從格子飛進頁首（View Transitions：home.js 送 `abang:go`，app.js `startViewTransition` 等換頁完成）；14 個服務各自的圖示小動作；reduced motion／精簡模式不動。`TILE_COLOR` 移到 `registry.js` 並新增 `HERO`。SW v0.8.7。
+- 做了：Austin：「首頁裡面每個項目點進去都要有美美的動畫與圖示」。新增 `page-hero.js`，外殼 `#pagehero` 依頁面的 `hero` 顯示：格子代表色淡色頁首、56px 立體圖示、一句說明、資料來源；點格子時圖示從格子飛進頁首（View Transitions：home.js 送 `abang:go`，app.js `startViewTransition` 等換頁完成）；14 個服務各自的圖示小動作；reduced motion／精簡模式不動。`TILE_COLOR` 移到 `registry.js` 並新增 `HERO`。SW v0.8.7。設計審查修正：附近切 YouBike 頁首跟著換；小動作做 3 次就停、點圖示再做；發票空狀態不截斷；圖示邊緣不鋸齒；內容多的頁面精簡頁首；說明改成「在這裡可以做什麼」（不重複卡片標題）；台鐵、空品顏色分開；位置併到頁首資料來源一行；天氣欄位名稱不斷行；地震輸入提示不截斷。其餘建議（各頁資料小巧思）列入 PLAN。
 - 測試：npm test 528 項全過；E2E 57 項全過（新增：天氣、地震、附近、高鐵、股市點進去有頁首、說明、資料來源、圖示在動；設定頁沒有頁首）
 - 文件：UX.md §4.16、PLAN.md、PROGRESS.md
 - 下一個：各頁設計審查的修正

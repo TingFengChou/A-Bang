@@ -28,23 +28,25 @@ export const groups = [
 ];
 
 // 格子與頁首的代表色（立體代幣）：交通依方式、生活與政府服務依主題
-export const TILE_COLOR = { nearby: '#1d4ed8', bus: '#0f766e', bike: '#d97706', thsr: '#c2410c', tra: '#1d4ed8', metro: '#0e7490', weather: '#0284c7', aqi: '#0891b2', quake: '#b45309',
+export const TILE_COLOR = { nearby: '#1d4ed8', bus: '#0f766e', bike: '#d97706', thsr: '#c2410c', tra: '#1e3a8a', metro: '#0e7490', weather: '#0284c7', aqi: '#0d9488', quake: '#b45309',
   pharmacy: '#15803d', garbage: '#475569', antifraud: '#b91c1c', fuel: '#9a3412', invoice: '#7c3aed', stock: '#be123c' };
 
-/** 點進格子後的頁首（page-hero.js）：一句說明＋資料來源 */
+/** 點進格子後的頁首（page-hero.js）：一句「在這裡可以做什麼」（不重複卡片標題）＋資料來源 */
+/** 內容多的頁面用精簡頁首（圖示小、只有一行），資料早點出現 */
+export const HERO_COMPACT = new Set(['nearby', 'bike', 'thsr', 'tra', 'pharmacy', 'garbage']);
 export const HERO = {
-  nearby: ['身邊 400 公尺的公車站', '交通部 TDX'],
+  nearby: ['身邊有哪些公車站', '交通部 TDX'],
   bus: ['查路線，看公車到哪了', '交通部 TDX'],
-  bike: ['附近 YouBike 可借可還', '交通部 TDX'],
-  thsr: ['高鐵時刻與票價', '交通部 TDX'],
-  tra: ['台鐵時刻與票價', '交通部 TDX'],
-  metro: ['捷運列車即時到站', '交通部 TDX'],
-  weather: ['現在天氣與降雨機率', '中央氣象署'],
-  aqi: ['附近測站的空氣品質', '環境部'],
-  quake: ['最近的有感地震', '中央氣象署'],
-  pharmacy: ['健保特約藥局與營業時間', '衛福部健保署'],
-  garbage: ['附近垃圾車什麼時候來', '各縣市環保局'],
-  fuel: ['本週汽油、柴油價格', '台灣中油'],
-  invoice: ['開獎號碼與我的發票對獎', '財政部'],
-  stock: ['台股收盤行情', '證交所、櫃買中心'],
+  bike: ['附近 YouBike 借得到、還得了嗎', '交通部 TDX'],
+  thsr: ['下一班高鐵幾點、多少錢', '交通部 TDX'],
+  tra: ['下一班火車幾點、多少錢', '交通部 TDX'],
+  metro: ['下一班捷運還要等多久', '交通部 TDX'],
+  weather: ['要不要帶傘、穿多少', '中央氣象署'],
+  aqi: ['出門要不要戴口罩', '環境部'],
+  quake: ['剛剛是不是地震了', '中央氣象署'],
+  pharmacy: ['附近哪家藥局開著', '衛福部健保署'],
+  garbage: ['垃圾車幾點到你家附近', '各縣市環保局'],
+  fuel: ['這週加一公升多少錢', '台灣中油'],
+  invoice: ['這期發票有沒有中獎', '財政部'],
+  stock: ['查個股，看今天收多少', '證交所、櫃買中心'],
 };
