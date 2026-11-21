@@ -13,7 +13,7 @@ import { detachMain, attachMain, mountFab, syncFab, abangSays } from './abang-do
 import home from './pages/home.js';
 import nearby from './pages/nearby.js';
 import rail from './pages/rail.js';
-import agent from './pages/agent.js';
+import agent, { keptKey } from './pages/agent.js';
 import service from './pages/service.js';
 import { settings, privacy } from './pages/settings.js';
 import { busSearch, busRoute, busStation, favPage } from './pages/bus.js';
@@ -46,8 +46,8 @@ root.innerHTML = `
   <div id="tripbar" hidden></div>
   <main id="main" tabindex="-1"></main>
   <div class="tabbar"><nav>${tabs.map(([h, n, i]) => `<a href="${h}" data-h="${h}">${icons[i]}<span>${n}</span></a>`).join('')}</nav></div>
-  <div class="abang-float"><div id="abang-bubble" class="fab-bubble" role="status" hidden></div><button id="abang-fab" class="abang-fab" type="button" aria-label="問阿幫"><img src="/brand/abang-default.svg" alt=""><i class="fab-dot" aria-hidden="true"></i></button></div>
-  <dialog id="abang-sheet" class="abang-sheet" aria-labelledby="abang-sheet-title"><div class="sheet-head"><span class="sheet-grip" aria-hidden="true"></span><h2 id="abang-sheet-title">問阿幫</h2><button type="button" class="btn small quiet sheet-full">整頁</button><button type="button" class="icon-btn sheet-close" aria-label="收起對話（對話會保留）"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div><div class="sheet-body"></div></dialog>`;
+  <p id="abang-live" class="sr-only" aria-live="polite"></p><div class="abang-float"><div id="abang-bubble" class="fab-bubble" hidden></div><button id="abang-fab" class="abang-fab" type="button" aria-label="問阿幫"><img src="/brand/abang-default.svg" alt=""><i class="fab-dot" aria-hidden="true"></i></button></div>
+  <dialog id="abang-sheet" class="abang-sheet" aria-labelledby="abang-sheet-title"><div class="sheet-head"><span class="sheet-grip" aria-hidden="true"></span><h2 id="abang-sheet-title">問阿幫</h2><button type="button" class="btn small quiet sheet-full">放大成整頁</button><button type="button" class="icon-btn sheet-close" aria-label="收起對話（對話會保留）"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div><div class="sheet-body"></div></dialog>`;
 
 const $ = (id) => document.getElementById(id);
 $('back').onclick = () => (history.length > 1 ? history.back() : (location.hash = '#/'));
@@ -70,9 +70,8 @@ function toast(msg, ms = 2200, action = null) {
 }
 // 提醒由阿幫說（2026-11-21 Austin：阿幫要實體化、能提醒與互動）：記在對話裡；在其他頁面由浮動阿幫冒泡泡。
 // 生活對話看得到（問阿幫頁或底部對話開著）就不再跳提示；防詐頁等看不到的地方用提示。
-const lifeVisible = () => /^#\/agent(?:\?|$)/.test(location.hash) || !!document.getElementById('abang-sheet')?.open;
 function remind(text, action, ms) {
-  if (abangSays(text, action) || lifeVisible()) return;
+  if (abangSays(text, action)) return; // 對話看得到、或浮動阿幫冒了泡泡
   toast(text, ms, action?.ask ? { label: action.label, href: `#/agent?q=${encodeURIComponent(action.ask)}` } : null);
 }
 // 公車到站提醒（L-14，host-web.js）：任何頁面都看得到（沒開通知權限也看得到）
@@ -106,8 +105,8 @@ function navigate() {
   syncFab();
   const setTitle = (t) => { $('title').textContent = t; document.title = t === 'Abang' ? t : `${t}｜Abang`; };
   const setAction = (svg, fn, label, on = false) => { act.innerHTML = svg; act.onclick = fn; act.hidden = false; act.setAttribute('aria-label', label); act.classList.toggle('on', on); };
-  if (page.keepAlive) { // 問阿幫（生活、防詐）：只建一次；卡片、決策圖、捲動位置都保留
-    const key = params[0] ? `agent/${params[0]}` : 'agent';
+  const key = page.keepAlive && keptKey(params[0]);
+  if (key) { // 問阿幫（生活）：只建一次；卡片、決策圖、捲動位置都保留（防詐不保留：貼上的內容離開就清掉）
     const { k } = attachMain(main, key, ({ root, setTitle: keepTitle }) => page.render({ main: root, params, query, toast, setAction: () => {}, setTitle: (t) => { keepTitle(t); setTitle(t); }, onCleanup: () => {} }), query);
     setTitle(k.title || page.title);
     syncFab();

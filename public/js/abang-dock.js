@@ -53,8 +53,10 @@ export function attachMain(main, key, build, query) {
 }
 
 // ───── 浮動阿幫與底部對話面板 ─────
-let fab = null, sheet = null, bubble = null, sheetBody = null, buildLife = null, bubbleTimer = 0;
+let fab = null, sheet = null, bubble = null, live = null, sheetBody = null, buildLife = null, bubbleTimer = 0, quiet = false;
 const onAgentPage = () => /^#\/agent(?:[/?]|$)/.test(location.hash);
+const onLifePage = () => /^#\/agent(?:\?|$)/.test(location.hash);
+const kbOpen = () => document.documentElement.classList.contains('kb-open');
 
 /** 打開底部對話（不支援 <dialog> 的舊瀏覽器改到問阿幫頁） */
 export function openSheet() {
@@ -66,16 +68,30 @@ export function openSheet() {
   sheet.classList.add('open');
   requestAnimationFrame(() => { sheetBody.scrollTop = sheetBody.scrollHeight; k.api.focus?.(); });
 }
-/** 收起底部對話（對話保留在記憶體） */
+/** 收起底部對話（對話保留在記憶體）；收尾在 close 事件（Android 返回鍵直接 close() 也一樣） */
 export function closeSheet({ silent = false } = {}) {
   if (!sheet?.open) return;
-  sheet.classList.remove('open');
+  quiet = silent;
   sheet.close();
-  keptIf('agent')?.root.remove();
-  if (!silent) fab?.focus();
 }
+function onSheetClosed() {
+  sheet.classList.remove('open');
+  const root = keptIf('agent')?.root;
+  if (root?.parentNode === sheetBody) root.remove(); // 已經接到整頁的不動
+  if (!quiet) fab?.focus();
+  quiet = false;
+  syncDot();
+}
+const syncDot = () => {
+  if (!fab) return;
+  const has = !!keptIf('agent')?.api.hasChat?.();
+  fab.classList.toggle('has-chat', has);
+  fab.setAttribute('aria-label', has ? '打開跟阿幫的對話（對話還在）' : '問阿幫');
+};
 
 function hideBubble() { clearTimeout(bubbleTimer); if (bubble) { bubble.hidden = true; bubble.replaceChildren(); } }
+/** 泡泡自動收起（手指或焦點在泡泡上時不收，WCAG 2.2.1） */
+const armHide = () => { clearTimeout(bubbleTimer); bubbleTimer = setTimeout(hideBubble, 12000); };
 
 /**
  * 阿幫主動說一句（提醒）：記在對話裡；不在問阿幫頁時浮動阿幫冒泡泡。
@@ -83,8 +99,9 @@ function hideBubble() { clearTimeout(bubbleTimer); if (bubble) { bubble.hidden =
  * @param {{ label?: string, ask?: string }} [action] 例：公車一直不來 →「改其他方式」（打開對話並問阿幫）
  */
 export function abangSays(text, action = null) {
-  keptIf('agent')?.api.say?.(text, action);
-  if (onAgentPage() || sheet?.open || !fab || fab.hidden) return false;
+  const api = keptIf('agent')?.api;
+  if (api?.say) { api.say(text, action); if (onLifePage() || sheet?.open) return true; } // 對話看得到：說在對話裡就好
+  if (onAgentPage() || !fab || fab.hidden || kbOpen()) return false; // 看不到浮動阿幫（防詐頁、打字中）：交給提示
   clearTimeout(bubbleTimer);
   bubble.replaceChildren();
   const p = document.createElement('p');
@@ -102,8 +119,9 @@ export function abangSays(text, action = null) {
   row.append(close);
   bubble.append(row);
   bubble.hidden = false;
+  if (live) { live.textContent = ''; setTimeout(() => { live.textContent = `阿幫：${text}`; }, 50); } // 讀屏：常駐的即時區域只放文字
   fab.classList.remove('nudge'); void fab.offsetWidth; fab.classList.add('nudge'); // 藍鵲跳一下
-  bubbleTimer = setTimeout(hideBubble, 12000);
+  armHide();
   return true;
 }
 
@@ -112,9 +130,9 @@ export function syncFab() {
   if (!fab) return;
   if (sheet?.open) closeSheet({ silent: true });
   fab.hidden = onAgentPage();
+  document.body.classList.toggle('fab-on', !fab.hidden); // 頁面底部留空間（問阿幫頁不用）
   if (fab.hidden) hideBubble();
-  fab.classList.toggle('has-chat', !!keptIf('agent')?.api.hasChat?.());
-  fab.setAttribute('aria-label', fab.classList.contains('has-chat') ? '打開跟阿幫的對話（對話還在）' : '問阿幫');
+  syncDot();
 }
 
 /**
@@ -125,12 +143,21 @@ export function mountFab(o) {
   buildLife = o.buildLife;
   fab = document.getElementById('abang-fab');
   bubble = document.getElementById('abang-bubble');
+  live = document.getElementById('abang-live');
+  bubble.addEventListener('pointerenter', () => clearTimeout(bubbleTimer));
+  bubble.addEventListener('pointerleave', armHide);
+  bubble.addEventListener('focusin', () => clearTimeout(bubbleTimer));
+  bubble.addEventListener('focusout', armHide);
+  // 捲動時浮動阿幫縮小變淡，不蓋住內容（停下來恢復）
+  let still = 0;
+  addEventListener('scroll', () => { fab.classList.add('scrolling'); clearTimeout(still); still = setTimeout(() => fab.classList.remove('scrolling'), 600); }, { passive: true });
   sheet = document.getElementById('abang-sheet');
   sheetBody = sheet?.querySelector('.sheet-body');
   fab.addEventListener('click', openSheet);
   sheet?.querySelector('.sheet-close')?.addEventListener('click', () => closeSheet());
-  sheet?.querySelector('.sheet-full')?.addEventListener('click', () => { location.hash = '#/agent'; });
-  sheet?.addEventListener('cancel', (e) => { e.preventDefault(); closeSheet(); }); // Esc、Android 返回
+  sheet?.querySelector('.sheet-full')?.addEventListener('click', () => { const k = keptIf('agent'); if (k) k.scrollY = 1e9; location.hash = '#/agent'; }); // 整頁：停在最新的對話
+  sheet?.addEventListener('cancel', (e) => { e.preventDefault(); closeSheet(); }); // Esc
+  sheet?.addEventListener('close', onSheetClosed); // Esc、按鈕、點背景、Android 返回鍵（app.js 直接 close()）
   sheet?.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); }); // 點背景收起
   syncFab();
 }

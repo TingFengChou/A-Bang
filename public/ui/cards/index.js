@@ -80,7 +80,7 @@ export function renderCard(el, payload, host) {
   const hidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
 
   const refresh = async () => {
-    if (!current.tool || !host?.callTool || hidden()) return; // 分頁在背景時不刷新
+    if (!current.tool || !host?.callTool || hidden() || !el.isConnected) return; // 分頁在背景、或卡片不在畫面上（收起的阿幫對話）時不刷新
     status?.replaceChildren(t('common.loading'));
     try {
       const next = await host.callTool(current.tool, current.args || {});
@@ -98,6 +98,8 @@ export function renderCard(el, payload, host) {
   return {
     update(p) { current = merge(p); draw({ fresh: true }); announce(true); },
     refresh,
+    /** 停止自動刷新（卡片留著）：阿幫對話裡較舊的卡片 */
+    stop() { clearInterval(timer); timer = null; },
     destroy() { clearInterval(timer); stopCountdown(); el.replaceChildren(); },
   };
 }

@@ -325,7 +325,10 @@ html.kb-open .abang-float { display: none; }
 .fab-bubble p { margin: 0 0 8px; }
 .fab-bubble-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .fab-bubble[hidden] { display: none; }
-main { padding-bottom: 84px; } /* 浮動阿幫不蓋住頁面最下面的內容 */
+body.fab-on main { padding-bottom: 84px; } /* 浮動阿幫不蓋住頁面最下面的內容（問阿幫頁不用） */
+.abang-fab { transition: transform .2s ease, opacity .2s ease; }
+.abang-fab.scrolling { transform: scale(.72); opacity: .55; } /* 捲動時縮小變淡，不擋住內容 */
+@media (prefers-reduced-motion: reduce) { .abang-fab { transition: none; } }
 
 /* 底部對話面板：同一段對話（卡片、決策圖都在）；背後的頁面還在 */
 .abang-sheet { width: 100%; max-width: 560px; height: min(88dvh, 820px); max-height: none; margin: auto auto 0; padding: 0; border: 0; border-radius: 20px 20px 0 0; background: var(--bg); color: var(--text); display: flex; flex-direction: column; overflow: hidden; }
@@ -336,6 +339,9 @@ main { padding-bottom: 84px; } /* 浮動阿幫不蓋住頁面最下面的內容 
 .abang-sheet h2 { flex: 1; margin: 0; font-size: 17px; }
 .abang-sheet .sheet-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px calc(env(safe-area-inset-bottom) + 8px); }
 .abang-sheet .chat-dock { bottom: 0; }
+.abang-sheet .sheet-close { width: 44px; height: 44px; }
+/* 鍵盤打開（iOS 只縮可見區域）：面板跟著可見高度、往上讓出鍵盤 */
+html.kb-open .abang-sheet { height: min(calc(var(--vvh, 88dvh) - 8px), 820px); margin-bottom: var(--kb, 0px); }
 .abang-sheet.open { animation: sheet-up .25s ease-out; }
 @keyframes sheet-up { from { transform: translateY(40px); opacity: .6; } }
 @media (prefers-reduced-motion: reduce) { .abang-sheet.open { animation: none; } }
