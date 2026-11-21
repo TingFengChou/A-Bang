@@ -88,10 +88,12 @@ export const busRoute = {
     const say = announcer(main.querySelector('#sr'));
     let sceneState = {}; // 公車在街景裡上一次的位置（刷新時從那裡開過來）
     let alightAsked = false;
+    let loadedAt = 0;
 
     async function load() {
       try {
         data = await api.busEta(city, route);
+        loadedAt = stale ? 0 : Date.now(); // 街景：這筆資料查到的時間（舊資料不開車）
         if (dirFromUrl) { // 網址的 dir 是方向值（TDX Direction）：找對應的那一個（環狀線可能是 2）
           dirFromUrl = false;
           const i = data.directions.findIndex((x) => x.direction === Number(query.dir));
@@ -160,7 +162,7 @@ export const busRoute = {
       // 坐車中：下車站的「下一班」不一定是我這台（前面可能還有一台）；看得出是我這台才畫公車與站數，否則只寫剩多久。還沒上車也不畫（上車站之後第一台是前一班）
       const mine = !ride || (!notBoarded(ride) && at && busToDest(d.stops, d.stops.findIndex((x) => (ride.boardSeq != null ? x.seq === ride.boardSeq : x.stopName === myStop)), d.stops.indexOf(at)).where === 'ahead');
       const rail = at && mine && railOf(d, { seq: at.seq, etaSec: at.etaSec, status: at.status });
-      main.querySelector('#scene').replaceChildren(...(at ? [busScene({ routeName: route, stopName: at.stopName, away: rail ? rail.away : null, etaSec: at.status === 0 ? at.etaSec : null, etaText: ride ? rideLeftShort(ride) : at.statusText, state: sceneState, riding: !!ride })] : []));
+      main.querySelector('#scene').replaceChildren(...(at ? [busScene({ routeName: route, stopName: at.stopName, away: rail ? rail.away : null, etaSec: at.status === 0 ? at.etaSec : null, etaText: ride ? rideLeftShort(ride) : at.statusText, state: sceneState, riding: !!ride, dataAt: loadedAt })] : []));
     }
     /** 重畫前記下焦點（站名、方向、上車站卡片裡的按鈕與選單），畫完放回去 */
     function keepSel(act) {

@@ -71,3 +71,17 @@ test('sceneOf：雨、雲、台灣時間 18～6 點是夜晚', async () => {
   assert.equal(sceneOf({ observedAt: '2026-11-21T11:00:00Z' }), 'night', 'UTC 11 點＝台灣 19 點');
   assert.equal(sceneOf({ observedAt: 'bad' }), 'sun', '時間看不懂：當白天');
 });
+
+test('公車會動：兩次更新之間照到站時間往站牌開；不超過站牌、太遠不動、到站不動', async () => {
+  const { SCENE, busX, driveTo } = await import('../public/ui/cards/bus-scene.js');
+  const x1 = busX(1);
+  const to = driveTo(x1, 120);
+  assert.ok(to > x1, '往前開');
+  assert.ok(to < SCENE.busStopAt, '不會開過站牌（真的到站由下一次更新決定）');
+  assert.ok(Math.abs(to - (x1 + (SCENE.busStopAt - x1) * (20 / 120))) < 1e-9, '20 秒開 20/120 的距離');
+  assert.equal(driveTo(x1, 10), SCENE.busStopAt - 0.25, '快到了：停在站牌前一點');
+  assert.equal(driveTo(busX(9), 600), busX(9), '還很遠：不動');
+  assert.equal(driveTo(SCENE.busStopAt, 30), SCENE.busStopAt, '已到站：不動');
+  assert.equal(driveTo(x1, null), x1, '沒有到站時間：不動');
+});
+
