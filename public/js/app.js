@@ -10,7 +10,7 @@ import { restoreReminders } from './reminders.js';
 import { resumeAlight } from './alight.js';
 import { mountTripBar } from './trip-bar.js';
 import { detachMain, attachMain, mountFab, syncFab, abangSays } from './abang-dock.js';
-import { pageHero } from './page-hero.js';
+import { pageHero, canMorph } from './page-hero.js';
 import { miniApps } from './registry.js';
 import home from './pages/home.js';
 import nearby from './pages/nearby.js';
@@ -106,18 +106,20 @@ function resolve() {
 
 // 從格子點進去的頁面回到首頁：圖示從頁首飛回格子（View Transitions；換頁前先拍舊畫面）
 let heroNow = null;
+addEventListener('abang:hero', (e) => { heroNow = e.detail || null; }); // 頁面內換頁首（附近切到 YouBike）
 function navigate() {
-  const back = heroNow && resolve().page === home && typeof document.startViewTransition === 'function' && !matchMedia('(prefers-reduced-motion: reduce)').matches && !document.documentElement.classList.contains('lite-motion');
+  const back = heroNow && resolve().page === home && canMorph();
   if (!back) { render(); return; }
   const id = heroNow;
+  heroNow = null; // 連按兩次返回：第二次不再等這次的動畫（不會畫兩次）
   let ic = null;
   const vt = document.startViewTransition(() => {
-    render();
+    try { render(); } catch (e) { console.error(e); } // 換頁出錯照樣看得到（不吞掉）
     const a = miniApps.find((x) => x.id === id);
     ic = a && document.querySelector(`#main a.tile[href="${a.route}"] .ic`);
     if (ic) ic.style.viewTransitionName = 'ph-token'; // 新畫面裡同名的是那個格子的圖示
   });
-  vt.finished.finally(() => { if (ic) ic.style.viewTransitionName = ''; }); // 飛完拿掉（同名只能有一個）
+  vt.finished.catch(() => {}).finally(() => { if (ic) ic.style.viewTransitionName = ''; }); // 飛完拿掉（同名只能有一個）
 }
 
 function render() {

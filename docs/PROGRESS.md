@@ -14,7 +14,7 @@
 ---
 
 ## 2026-11-21 各頁資料小巧思（第二批）
-- 做了：捷運官方路線色（`core/metro-colors.js`，真實與示範都帶 `lineColor`）、進站中閃點（6 次就停）；YouBike 可借比例條；公車搜尋「最近查過」（`rememberRoute`）；回首頁圖示飛回格子（app.js 把換頁拆成 `navigate`／`render`，回首頁時 `startViewTransition`；飛完拿掉名稱，點格子前先清掉其他格子的名稱）。SW v0.8.8。
+- 做了：捷運官方路線色（`core/metro-colors.js`，真實與示範都帶 `lineColor`）、進站中閃點（6 次就停）；YouBike 可借比例條；公車搜尋「最近查過」（`rememberRoute`）；回首頁圖示飛回格子（app.js 把換頁拆成 `navigate`／`render`，回首頁時 `startViewTransition`；飛完拿掉名稱，點格子前先清掉其他格子的名稱）。SW v0.8.8。審查修正：連按返回不畫兩次、換頁出錯不被吞掉、附近切 YouBike 後回首頁飛回 YouBike 格子、canMorph 共用、閃點 4 次（4.8 秒）、黃橘色條加邊、最近查過資料壞了不出錯且只記縣市代碼、隱私清單寫出最近查過。
 - 測試：npm test 530 項全過；E2E 59 項全過（捷運板南線藍、YouBike 比例條、最近查過）
 - 文件：UX.md、CARDS.md（lineColor）、PLAN.md、PROGRESS.md
 - 下一個：S12f 英文其餘

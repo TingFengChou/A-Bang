@@ -5,6 +5,9 @@ import { miniApps, TILE_COLOR, HERO, HERO_COMPACT } from './registry.js';
 import { icons } from './icons.js';
 import { esc } from './ui.js';
 
+/** 可以用 View Transitions 讓圖示飛（不支援、減少動態、精簡模式時不飛） */
+export const canMorph = () => typeof document.startViewTransition === 'function' && !matchMedia('(prefers-reduced-motion: reduce)').matches && !document.documentElement.classList.contains('lite-motion');
+
 /**
  * @param {string} id 格子 id（registry.js）
  * @returns {HTMLElement|null}

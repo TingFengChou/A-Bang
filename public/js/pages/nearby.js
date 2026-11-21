@@ -5,7 +5,7 @@ import { locationNotice } from '../location-help.js';
 import { pageHero } from '../page-hero.js';
 
 /** 切換公車站／YouBike 時頁首跟著換（換分頁不經過 app.js 換頁） */
-const swapHero = (tab) => { const h = pageHero(tab === 'bike' ? 'bike' : 'nearby'); const box = document.getElementById('pagehero'); if (h && box) box.replaceChildren(h); };
+const swapHero = (tab) => { const id = tab === 'bike' ? 'bike' : 'nearby'; const h = pageHero(id); const box = document.getElementById('pagehero'); if (h && box) { box.replaceChildren(h); dispatchEvent(new CustomEvent('abang:hero', { detail: id })); } }; // 回首頁時飛回對的格子
 
 /** YouBike 可借比例細條（可借 ÷ 可借＋可還；數字旁邊已寫，條只是一眼看出多寡，讀屏跳過） */
 export function bikeFill(s) {

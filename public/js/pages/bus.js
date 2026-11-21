@@ -17,8 +17,12 @@ const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: re
 const CITY_CHIPS = [['Taipei', '臺北'], ['NewTaipei', '新北'], ['Taoyuan', '桃園'], ['Taichung', '臺中'], ['Tainan', '臺南'], ['Kaohsiung', '高雄'], ['Keelung', '基隆'], ['Hsinchu', '新竹']];
 const REFRESH = 20000;
 const cityName = (c) => CITY_CHIPS.find(([v]) => v === c)?.[1] || '';
+/** 存在手機的最近查過（壞掉的資料當作沒有） */
+const recentList = (v) => (Array.isArray(v) ? v.filter((r) => r && typeof r.city === 'string' && typeof r.route === 'string') : []);
 /** 記下最近查過的路線（最多 6 條，最新的在前；偏好 pref:bus:recent） */
-export function rememberRoute(city, route, list = prefs.get('bus:recent', [])) {
+export function rememberRoute(city, route, saved = prefs.get('bus:recent', [])) {
+  const list = recentList(saved);
+  if (!/^[A-Za-z]+$/.test(city)) return list; // 只記縣市代碼（網址被改過就不記）
   const next = [{ city, route }, ...list.filter((r) => !(r.city === city && r.route === route))].slice(0, 6);
   prefs.set('bus:recent', next);
   return next;
@@ -53,7 +57,7 @@ export const busSearch = {
     async function search() {
       const q = main.querySelector('[name=q]').value.trim();
       if (!q) { // 沒輸入：最近查過的路線（只存在這支手機）
-        const recent = prefs.get('bus:recent', []);
+        const recent = recentList(prefs.get('bus:recent', []));
         res.innerHTML = recent.length
           ? `<div class="section-title"><h2>最近查過</h2></div><div class="chips recent">${recent.map((r) => `<a class="chip" href="#/bus/${encodeURIComponent(r.city)}/${encodeURIComponent(r.route)}">${esc(r.route)}<small>${esc(cityName(r.city))}</small></a>`).join('')}</div>`
           : empty('輸入路線號碼開始查詢');
