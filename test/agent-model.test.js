@@ -358,3 +358,28 @@ test('同一輪：模型查起訖點相同的行程（「台北101 → 台北101
   assert.equal(es.filter((e) => e.type === 'decision').length, 1, '只有程式先查的回程（台北101 → 台北車站）');
   assert.match(JSON.stringify(state.reqs[1]), /起點和終點是同一個地方/);
 });
+
+test('地端模型：油價、發票、股市、地震這類查數字的由規則回答，不問模型（P4 模型模式）', async () => {
+  reset([{ text: '（不該問到模型）' }]);
+  const es = await run(local(), '台積電今天收多少');
+  assert.equal(state.reqs.length, 0, '沒有呼叫模型');
+  assert.equal(es[0].mode, 'rules');
+  assert.ok(es.some((e) => e.type === 'tool_result' && e.tool === 'stock_quote'));
+  reset([{ text: '好。' }]);
+  await run(claude(), '台積電今天收多少');
+  assert.ok(state.reqs.length >= 1, 'Claude 照常由模型回答');
+});
+
+test('說了地點的附近查詢：模型改用現在位置再查也沿用那裡的結果（P4-6 模型模式）', async () => {
+  reset([
+    { tools: [{ id: 'y1', name: 'youbike_nearby', input: { lat: 25.0478, lon: 121.517 } }] },
+    { text: '台北101附近有 YouBike。' },
+  ]);
+  const es = [];
+  const messages = [{ role: 'user', content: '從西門町去台北101' }, { role: 'assistant', content: '建議搭捷運。' }, { role: 'user', content: '那邊有 YouBike 嗎' }];
+  await runModel(svc, { messages }, (e) => es.push(e), { provider: claude(), now: NOW });
+  const yb = es.filter((e) => e.type === 'tool_result' && e.tool === 'youbike_nearby');
+  assert.equal(yb.length, 1, '只有程式查的那一次');
+  assert.equal(yb[0].args.lat, 25.034, '是台北101那裡');
+  assert.match(JSON.stringify(state.reqs[1]), /不是他現在的位置/);
+});
