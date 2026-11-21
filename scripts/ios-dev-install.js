@@ -27,6 +27,9 @@ export function firstDevice(listing) {
   return row?.match(/[0-9A-F]{8}-[0-9A-F]{16}|[0-9A-Fa-f-]{36}/)?.[0] || null;
 }
 
+/** devicectl 開啟失敗是因為裝置鎖著 */
+export const isLocked = (out) => /\bLocked\b|could not be, unlocked|device was not.{0,20}unlocked/i.test(String(out));
+
 function main() {
   const team = process.env.IOS_DEV_TEAM;
   if (!team) throw new Error('請設定 IOS_DEV_TEAM（Apple 開發團隊的 Team ID，在 Xcode → Settings → Accounts 可以看到）');
@@ -57,8 +60,14 @@ function main() {
   }
   const app = `${dd}/Build/Products/Debug-iphoneos/App.app`;
   run('xcrun', ['devicectl', 'device', 'install', 'app', '--device', device, app]);
-  run('xcrun', ['devicectl', 'device', 'process', 'launch', '--device', device, 'tw.abang.app']);
-  console.log('已安裝並啟動。第一次開會問「要尋找並連接本機網路上的裝置嗎」，請按允許。');
+  try {
+    run('xcrun', ['devicectl', 'device', 'process', 'launch', '--device', device, 'tw.abang.app']);
+    console.log('已安裝並啟動。第一次開會問「要尋找並連接本機網路上的裝置嗎」，請按允許。');
+  } catch (e) {
+    // iPhone 鎖著時無法自動開 App：已經裝好了，不算失敗
+    if (isLocked(`${e.stdout || ''}${e.stderr || ''}`)) console.log('已安裝。iPhone 鎖著，沒有自動開啟：解鎖後點 Abang 就是新版。');
+    else throw new Error(`已安裝，但開啟失敗：${e.message.split('\n')[0]}`, { cause: e });
+  }
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
