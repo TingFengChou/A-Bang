@@ -17,6 +17,7 @@ import { loadChat, saveChat, clearChat } from '../chat-store.js';
 import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { renderDecision, lite, roleEn } from '../../ui/agent/decision-graph.js';
+import { mountVisionButton, handOff, takeHandoff } from '../vision.js';
 
 // 決策圖重算用的同一份 decide.js（伺服器以 /core/decide.js 提供；UX.md §5）
 const decideModule = import('/core/decide.js').catch(() => null);
@@ -173,6 +174,10 @@ export default {
     const sendBtn = el('button', 'btn chat-send', '送出');
     sendBtn.type = 'submit';
     const form = el('form', 'chat-form', input, sendBtn);
+    // 阿幫會看（M14-02）：相機鍵。讀出來的字確認後才送；生活頁讀到可疑訊息先問，再轉到防詐頁（文字只在記憶體交過去）
+    mountVisionButton(form, { profile: agentId, lang: () => lastView?.lang || null, callTool: (n, a) => host.callTool(n, a), ask: (q) => send(q),
+      fill: (t) => { input.value = t; input.focus(); },
+      scam: (t) => { if (agentId === 'antifraud') send(t); else { handOff('antifraud', t); location.hash = '#/agent/antifraud'; } } });
     const disclaimer = el('p', 'updated');
     const modeLine = el('p', 'updated agent-mode');
     modeLine.setAttribute('aria-live', 'polite'); // 換模式或改在手機上判斷時唸出來 // 由誰回答（ADR-0012；Claude 模式說明對話會送 Anthropic，AGENT.md §7）
@@ -271,7 +276,7 @@ export default {
     });
     form.addEventListener('submit', (e) => { e.preventDefault(); send(input.value); });
     // 從首頁帶問題過來（#/agent?q=…）：直接送出，並把網址換掉，避免重新整理時重送（對話保留時，回來帶的問題接在後面）
-    const takeQuery = (qy = {}) => { if (qy.q) { const q0 = qy.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); } };
+    const takeQuery = (qy = {}) => { const seen = takeHandoff(agentId); if (seen) queueMicrotask(() => send(seen)); if (qy.q) { const q0 = qy.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); } };
     takeQuery(query);
 
     async function send(raw, { pageContext = '' } = {}) {

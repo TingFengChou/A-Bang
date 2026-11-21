@@ -6,5 +6,6 @@ class MainViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(AbangEdgeAIPlugin())
         bridge?.registerPluginInstance(AbangSystemPlugin()) // 開啟 App 設定（S1c）
+        bridge?.registerPluginInstance(AbangVisionPlugin()) // 阿幫會看：手機上讀字與條碼（ADR-0015）
     }
 }

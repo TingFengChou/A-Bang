@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-21 M14-02 阿幫會看（＋M11-03 原生相機掃發票）
+- 做了：專案內外掛 `AbangVision`（Android：系統相機寫 App 暫存檔讀完即刪、Photo Picker、ML Kit 中文文字辨識 16.0.1 與條碼掃描 17.3.0 打包版、Gemini Nano 看圖分類〔選用，試過才回報〕；iOS：UIImagePickerController、PHPicker、Vision 讀字與條碼）。前端 `public/js/vision.js`：輸入列相機鍵（問阿幫、底部對話、防詐頁）、「阿幫在看」動畫、「阿幫看到了：…」確認後才送；可疑訊息走防詐（生活頁先問）、站牌組問題可改、發票存進我的發票並對獎；個資提醒與遮號碼；網頁版只用瀏覽器本機辨識。規則 `core/vision-text.js`（共用給前端）；demo-intent 認得問題裡的站名、`bus_route_eta` 有站名沒縣市時用位置推縣市。設定頁「讓阿幫看照片」、隱私權政策、`#/ai`「阿幫會看」卡。SW v0.9.7-vision。
+- 測試：npm test 新增 18 項（vision.test.js）；E2E 新增 6 項（假外掛：簡訊、站牌、發票、權限被拒、網頁降級、reduced motion）；Android assembleDebug、iOS xcodebuild（不簽署）成功
+- 文件：ADR-0015、adr/README、UX.md §5.0.3、AGENT_ANTIFRAUD.md §1、PLAN.md（M14-02、M11-03）、CLAUDE.md、PROGRESS.md
+- 下一個：Pixel、iPhone 實機確認讀字品質與權限流程
+- 卡住：無（APK 大小：打包版 ML Kit 讓 debug APK 約 10→74 MB，上架用 App Bundle 每支手機約多 16 MB，要產品負責人決定）
+
 
 ## 2026-11-21 模型模式 P5：明確的規則不交給小模型、判斷層不改判
 - 做了：PM 第五批地端模型模式 5／8 → 8／8。禮貌話、只有標點、一句多件事、「去火車站」、說了站名的捷運改由規則回答（`ruleFirst`）；runDemo 裡判斷層不再把這幾種改判（「捷運西門站下一般」原本被嵌入分類器判成行程）。另修 ios:dev 在 iPhone 鎖著時誤報失敗、英文公車頁 E2E 隨示範資料時間偶發失敗。

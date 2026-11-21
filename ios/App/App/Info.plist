@@ -4,6 +4,8 @@
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>阿幫用你現在的位置當出發點，找附近的公車站、YouBike、天氣與空品。位置只用來回答你的問題；你設定的常用地點（家、公司、學校）只存在這支手機。</string>
+	<key>NSCameraUsageDescription</key>
+	<string>讓阿幫看：拍可疑簡訊、站牌或發票，阿幫在手機上讀出上面的字（照片不上傳、不保存），你確認後才拿去查詐騙、問路或對獎。</string>
 	<key>UIUserInterfaceStyle</key>
 	<string>Light</string>
   <key>CAPACITOR_DEBUG</key>

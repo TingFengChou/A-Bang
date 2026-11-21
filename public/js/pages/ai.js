@@ -7,6 +7,7 @@ import { api } from '../api.js';
 import { edgeEnabled, edgeStatus, edgeJudge, edgePrewarm, edgeStats, setEdgeEnabled } from '../edge-judge.js';
 import { ENGINE_NAME, normalizeEdgeInfo, normalizeServerInfo, lastAgentStatus, languageNames, nodeText, judgedText } from '../ai-info.js';
 import { aiT, pageLang } from './ai-i18n.js';
+import { visionStatus, visionEnabled } from '../vision.js';
 
 /** 「試試看」等久一點（使用者正看著；平常問阿幫只等 1.8 秒就交給伺服器） */
 const TRY_TIMEOUT_MS = 6000;
@@ -75,6 +76,7 @@ export default {
         </section>
         <section class="card ai-card" id="ai-try" aria-labelledby="ai-try-h"><h2 id="ai-try-h">${esc(t('try.title'))}</h2><div id="ai-try-body"></div></section>
         <section class="card ai-card" id="ai-model" aria-labelledby="ai-model-h"><h2 id="ai-model-h">${esc(t('model.title'))}</h2><div id="ai-model-body"></div></section>
+        <section class="card ai-card" id="ai-vision" aria-labelledby="ai-vision-h"><h2 id="ai-vision-h">${esc(t('vision.title'))}</h2><div id="ai-vision-body"></div></section>
         <section class="card ai-card" id="ai-server" aria-labelledby="ai-server-h"><h2 id="ai-server-h">${esc(t('server.title'))}</h2><div id="ai-server-body"></div></section>
         <section class="card ai-card" id="ai-flow" aria-labelledby="ai-flow-h"><h2 id="ai-flow-h">${esc(t('flow.title'))}</h2><div id="ai-flow-body"></div></section>
         <p class="updated"><a class="linkish" href="#/settings">${esc(t('links.settings'))}</a>・<a class="linkish" href="#/privacy">${esc(t('links.privacy'))}</a></p>
@@ -247,6 +249,16 @@ export default {
 
     function paintAll() { paintHero(); paintTry(); paintModel(); paintServer(); paintFlow(); }
 
+    // 阿幫會看（M14-02）：讀字、條碼、看懂圖片；只列外掛真的回報的（網頁版照實說只有瀏覽器內建的）
+    visionStatus().then((v) => {
+      if (!alive) return;
+      const eng = (e) => (e ? t(`vision.engine.${e}`) : t('vision.none'));
+      const rows = [[t('vision.text'), v.text ? eng(v.textEngine) : t('vision.none')], [t('vision.barcode'), v.barcode ? eng(v.barcodeEngine) : t('vision.none')]];
+      if (v.describe) rows.push([t('vision.describe'), t(`vision.describe.${v.describe.state}`)]);
+      if (v.cameraPermission) rows.push([t('vision.camera'), t(`vision.perm.${v.cameraPermission}`)]);
+      if (v.where === 'app' || v.text || v.barcode) rows.push([t('vision.switch'), t(visionEnabled() ? 'vision.on' : 'vision.off')]);
+      $('#ai-vision-body').innerHTML = `<p class="note">${esc(t(v.where === 'app' ? 'vision.lead.app' : 'vision.lead.web'))}</p><dl class="ai-dl">${rows.map(([k, x]) => `<div><dt>${esc(k)}</dt><dd>${esc(x)}</dd></div>`).join('')}</dl><p class="note ai-foot">${esc(t('vision.honest'))}</p>`;
+    });
     paintServer(); // 判斷層說明不必等（伺服器資訊到了再補）
     edgeStatus().then((s) => {
       if (!alive) return;

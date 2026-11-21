@@ -63,7 +63,7 @@ async function main() {
     await page.reload();
     await page.waitForSelector('#main', { timeout: 15000 });
     // 原生外掛都註冊了（專案內外掛要手動註冊，漏了不會報錯）
-    const plugins = await page.evaluate(() => ['Geolocation', 'LocalNotifications', 'AbangEdgeAI', 'AbangSystem'].map((n) => [n, !!globalThis.Capacitor?.isPluginAvailable?.(n)]));
+    const plugins = await page.evaluate(() => ['Geolocation', 'LocalNotifications', 'AbangEdgeAI', 'AbangSystem', 'AbangVision'].map((n) => [n, !!globalThis.Capacitor?.isPluginAvailable?.(n)]));
     for (const [n, ok] of plugins) ok ? console.log(`✓ 外掛 ${n}`) : fail(`外掛 ${n} 沒有註冊`);
     mkdirSync(OUT, { recursive: true });
     for (const p of PAGES) {
