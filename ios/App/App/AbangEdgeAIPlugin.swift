@@ -1,7 +1,8 @@
 // 裝置端 AI 判斷（ADR-0014）：Apple Intelligence（Foundation Models）在手機上判斷意圖與狀態。
 // JS 端：public/js/edge-judge.js（Capacitor 外掛名 AbangEdgeAI）。只回 { engine, result: { intent, states } }，
-// iOS 26 以下、機型不支援、沒開 Apple Intelligence、模型還在下載、語言不支援 → status 回 available: false，judge 回錯誤，JS 改由伺服器判斷。
 // write（ADR-0017）：把伺服器的程式版總結改寫成自然的一兩句；數字由 JS 的程式護欄檢查，不過就用程式版。
+// suggest（AGENT.md §5.4）：猜使用者接下來想問的話。優先順序 judge ＞ write ＞ suggest：judge、write 開始前都先取消正在跑的 suggest。
+// iOS 26 以下、機型不支援、沒開 Apple Intelligence、模型還在下載、語言不支援 → status 回 available: false，judge 回錯誤，JS 改由伺服器判斷。
 // status 另外回報系統查得到的模型資訊（「阿幫的腦袋」#/ai 顯示；查不到的欄位就不回傳，不編造）：availability、languages、contextSize、osVersion。
 import Foundation
 import Capacitor
@@ -18,13 +19,60 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "prewarm", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "judge", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "write", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "suggest", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "cancelSuggest", returnType: CAPPluginReturnPromise),
     ]
+    /// 正在跑的 suggest（judge 或 cancelSuggest 來時取消：judge 優先）；結束時比對同一個再清掉
+    private var suggestTask: Task<Void, Never>?
+    private var suggestID = 0
+    /// 取消記號：每次取消加一；還沒呼叫模型的 suggest 看到記號變了就不跑（PR #112 審查）
+    private var suggestToken = 0
+    private let suggestLock = NSLock()
+
+    /// 最近一次取消 suggest 的時間
+    private var suggestCancelledAt = Date.distantPast
+    /// 取消建議後這段時間內的「忙碌」類錯誤不算模型壞掉（產品負責人 2026-11-21；與 Android BUSY_GRACE_MS 相同）
+    static let busyGrace: TimeInterval = 3
+
+    /// 取消 suggest：不論模型開始跑了沒有（記號加一），有 suggest 在等或在跑就記取消時間；回傳有沒有取消到
+    @discardableResult private func stopSuggest() -> Bool {
+        suggestLock.lock(); defer { suggestLock.unlock() }
+        suggestToken += 1
+        guard let t = suggestTask else { return false }
+        suggestTask = nil
+        t.cancel()
+        suggestCancelledAt = Date()
+        return true
+    }
+
+    /// 自己逾時：也記取消時間（模型可能還在收尾）
+    private func noteSuggestTimeout() { suggestLock.lock(); suggestCancelledAt = Date(); suggestLock.unlock() }
+    /// 這一次還有效嗎（沒被取消）
+    private func suggestValid(_ token: Int) -> Bool { suggestLock.lock(); defer { suggestLock.unlock() }; return suggestToken == token }
+    /// 結束時清掉（比對同一個，不清到下一次的）
+    private func suggestDone(_ id: Int) { suggestLock.lock(); if suggestID == id { suggestTask = nil }; suggestLock.unlock() }
+
+    /// 剛取消建議（3 秒內）又遇到忙碌類錯誤（同時有請求在跑、被限流、取消中）：這一題回 busy 交給伺服器
+    private func busyAfterCancel(_ error: Error) -> Bool {
+        suggestLock.lock(); let at = suggestCancelledAt; suggestLock.unlock()
+        guard Date().timeIntervalSince(at) < Self.busyGrace else { return false }
+        if error is CancellationError { return true }
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *), AppleJudge.code(error) == "rateLimited" { return true }
+        #endif
+        return String(describing: error).lowercased().contains("concurrent")
+    }
+
+    /// 使用者送出問題了：取消正在跑的 suggest（JS edge-judge.js cancelSuggest；judge 自己也會先取消）
+    @objc func cancelSuggest(_ call: CAPPluginCall) {
+        call.resolve(["cancelled": stopSuggest()])
+    }
 
     @objc func status(_ call: CAPPluginCall) {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
             let s = AppleJudge.status()
-            var out: [String: Any] = ["available": s.available, "engine": "apple", "reason": s.reason, "osVersion": Self.osVersion, "write": true] // write：也能寫回答（ADR-0017）
+            var out: [String: Any] = ["available": s.available, "engine": "apple", "reason": s.reason, "osVersion": Self.osVersion, "write": true, "suggest": true] // write：也能寫回答（ADR-0017）；suggest：也能猜下一句
             for (k, v) in AppleJudge.info() { out[k] = v }
             call.resolve(out)
             return
@@ -52,6 +100,7 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func judge(_ call: CAPPluginCall) {
         guard let text = call.getString("text"), !text.isEmpty else { call.reject("沒有句子"); return }
         let history = (call.getArray("history") as? [String]) ?? []
+        stopSuggest() // judge 優先：正在猜下一句就先取消，模型讓給這一題
         let instructions = call.getString("instructions") ?? ""
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
@@ -66,7 +115,7 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
                     call.resolve(["engine": "apple", "ms": ms, "result": ["intent": r.intent, "states": r.states]]) // ms：模型花多久（#/ai 顯示）
                 } catch {
                     CAPLog.print("AbangEdgeAI: judge failed \(AppleJudge.code(error))") // 錯誤種類，不印句子內容
-                    call.reject("judge failed")
+                    call.reject(self.busyAfterCancel(error) ? "busy" : "judge failed") // busy：這一題改由伺服器判斷，JS 不當成不可用
                 }
             }
             return
@@ -82,6 +131,7 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
         let instructions = call.getString("instructions") ?? ""
         // 輸入上限（指示＋草稿與事實，字數；與 core/edge-write.js WRITE_MAX_INPUT 相同）：超過就拒絕，不送進模型
         guard prompt.count + instructions.count <= 4000 else { call.reject("too long"); return }
+        stopSuggest() // write 也比猜下一句優先：模型讓給這一題的回答
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
             let s = AppleJudge.status()
@@ -95,9 +145,54 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
                     call.resolve(["engine": "apple", "ms": ms, "text": text])
                 } catch {
                     CAPLog.print("AbangEdgeAI: write failed \(AppleJudge.code(error))")
-                    call.reject("write failed")
+                    call.reject(self.busyAfterCancel(error) ? "busy" : "write failed") // busy：剛讓位；這一題用程式版
                 }
             }
+            return
+        }
+        #endif
+        call.reject("unavailable: os-too-old")
+    }
+
+    /// 動態「下一句」建議（AGENT.md §5.4）：依情境（JS 組好、不含座標）猜使用者接下來最可能問的幾句。
+    /// 只回 { engine, ms, result: [句子] }，句子由 JS 送伺服器規則驗證、程式排序。不記錄情境與句子。
+    @objc func suggest(_ call: CAPPluginCall) {
+        guard let context = call.getString("context"), !context.isEmpty else { call.reject("沒有情境"); return }
+        let instructions = call.getString("instructions") ?? ""
+        let count = Swift.min(6, Swift.max(1, call.getInt("max") ?? 4))
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            let s = AppleJudge.status()
+            guard s.available else { call.reject("unavailable: \(s.reason)"); return }
+            stopSuggest()
+            suggestLock.lock()
+            suggestID += 1
+            let id = suggestID, token = suggestToken
+            suggestTask = Task {
+                defer { self.suggestDone(id) }
+                guard self.suggestValid(token) else { call.reject("cancelled"); return } // 還沒開始就被取消：不呼叫模型
+                let t0 = Date()
+                do {
+                    // 1.5 秒沒猜完就取消（JS 也只等 1.5 秒）；逾時也記取消時間
+                    let list: [String]? = try await withThrowingTaskGroup(of: [String]?.self) { group in
+                        group.addTask { try await AppleJudge.shared.suggest(context: context, instructions: instructions, max: count) }
+                        group.addTask { try await Task.sleep(nanoseconds: 1_500_000_000); return nil }
+                        let first = try await group.next() ?? nil
+                        group.cancelAll()
+                        return first
+                    }
+                    guard let list else { self.noteSuggestTimeout(); call.reject("timeout"); return }
+                    try Task.checkCancellation()
+                    let ms = Int(Date().timeIntervalSince(t0) * 1000)
+                    CAPLog.print("AbangEdgeAI: suggested in \(ms) ms") // 只記耗時，不記內容
+                    call.resolve(["engine": "apple", "ms": ms, "result": list])
+                } catch {
+                    if Task.isCancelled || error is CancellationError { call.reject("cancelled"); return } // 讓給 judge，不算錯誤
+                    CAPLog.print("AbangEdgeAI: suggest failed \(AppleJudge.code(error))") // 不影響 judge／write
+                    call.reject("suggest failed")
+                }
+            }
+            suggestLock.unlock()
             return
         }
         #endif
@@ -121,6 +216,13 @@ struct EdgeJudgement {
     var intent: String
     @Guide(description: "使用者明講的狀態，沒有就空陣列", .maximumCount(9), .element(.anyOf(edgeStates)))
     var states: [String]
+}
+
+@available(iOS 26.0, *)
+@Generable
+struct EdgeSuggestions {
+    @Guide(description: "使用者接下來最可能問阿幫的話，每句單獨看得懂、口語、短", .maximumCount(6))
+    var questions: [String]
 }
 
 /// actor：備用 session 會被 prewarm（Capacitor 佇列）與 judge（Task）同時存取（PR #32 審查）
@@ -206,6 +308,13 @@ actor AppleJudge {
             guard let text = first else { throw EdgeWriteTimeout() }
             return text
         }
+    }
+
+    /// 猜下一句：每次新的 session（不累積前一次）；有一點變化但不亂編
+    func suggest(context: String, instructions: String, max: Int) async throws -> [String] {
+        let session = LanguageModelSession(instructions: instructions)
+        let r = try await session.respond(to: "寫 \(max) 句。\n情境：\n\(context)", generating: EdgeSuggestions.self, options: GenerationOptions(temperature: 0.5))
+        return Array(r.content.questions.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }.prefix(max))
     }
 
     func judge(text: String, history: [String], instructions: String) async throws -> (intent: String, states: [String]) {

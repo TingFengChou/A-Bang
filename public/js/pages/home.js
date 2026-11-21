@@ -13,14 +13,31 @@ import { listReminders } from '../reminders.js';
 import { alightWatch } from '../alight.js';
 import { createWebHost, currentArrivalWatch } from '../../ui/cards/host-web.js';
 import { locationGranted, browserLocation } from '../agent/client.js';
+import { suggestContext, homeAsks } from '../agent/suggest.js';
+import { loadPlaces } from '../saved-places.js';
 
-/** 範例問題：每個領域一句（防詐要貼訊息，開防詐頁） */
-export const EXAMPLES = [
-  { q: '去台北 101', icon: 'route', c: '#1d4ed8' },
-  { q: '會下雨嗎？', icon: 'sun', c: '#0284c7' },
-  { q: '這期發票中了嗎？', icon: 'receipt', c: '#7c3aed' },
-  { q: '這則簡訊是詐騙嗎？', icon: 'shield', c: '#b91c1c', href: '#/agent/antifraud' },
-];
+const EX_ICON = { trip: 'route', bus_route: 'bus', metro: 'metro', youbike: 'bike', nearby_bus: 'bus', rail: 'train', weather: 'sun', aqi: 'air', outing: 'sun', quake: 'quake', pharmacy: 'pharmacy', garbage: 'trash', invoice: 'receipt', fuel: 'fuel', stock: 'chart' };
+const EX_COLOR = { transit: '#1d4ed8', life: '#0284c7', money: '#7c3aed' };
+/**
+ * 範例問題：依時段（早上通勤、深夜…）與「現在」的天氣空品、常用地點，交通、生活、消費各一句（agent/suggest.js 規則，都是阿幫查得到的）；
+ * 防詐要貼訊息，固定開防詐頁。
+ */
+export function homeExamples({ now = Date.now(), nowData = peekNow() } = {}) {
+  const ctx = suggestContext({ now, saved: Object.keys(loadPlaces()), watching: currentArrivalWatch() || null, nowData });
+  return [...homeAsks(ctx).map((x) => ({ q: x.q, icon: EX_ICON[x.intent] || 'route', c: EX_COLOR[x.domain] })), { q: '這則簡訊是詐騙嗎？', icon: 'shield', c: '#b91c1c', href: '#/agent/antifraud' }];
+}
+const exampleHtml = (list) => list.map((x) => `<a class="chip" href="${x.href || `#/agent?q=${encodeURIComponent(x.q)}`}"><span class="chip-ic" style="--c:${x.c}" aria-hidden="true">${icons[x.icon]}</span>${esc(x.q)}</a>`).join('');
+/** 「現在」的天氣查到後：範例跟著變（例：下雨）。一樣就不動；焦點在範例上不換；reduced motion 不淡入 */
+function repaintExamples(main, nowData) {
+  const box = main.querySelector('.hero-ask');
+  if (!box || box.contains(document.activeElement)) return;
+  const list = homeExamples({ nowData });
+  const sig = list.map((x) => x.q).join('|');
+  if ((box.dataset.sig || '') === sig) return;
+  box.dataset.sig = sig;
+  box.innerHTML = exampleHtml(list);
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) { box.classList.remove('fade-in'); void box.offsetWidth; box.classList.add('fade-in'); }
+}
 
 export default {
   title: 'Abang', // App 名稱（2026-11-20 Austin 決定）；吉祥物與對話裡仍叫「阿幫」
@@ -42,7 +59,7 @@ export default {
         <h2 class="big" id="hero-big">${offline ? '即時公車・YouBike・高鐵台鐵' : '有事問阿幫'}</h2>
         ${offline ? '' : '<p class="hero-sub">交通、生活、消費、防詐，一句話幫你查</p>'}
         <form class="search" id="q" role="search">${icons.search}<input name="q" maxlength="500" placeholder="${offline ? '搜尋公車路線，例如 307' : '想查什麼？'}" enterkeyhint="${offline ? 'search' : 'send'}" autocomplete="off" aria-label="${offline ? '搜尋公車路線' : '問阿幫：想查什麼？'}"></form>
-        ${offline ? '' : `<div class="hero-ask">${EXAMPLES.map((x) => `<a class="chip" href="${x.href || `#/agent?q=${encodeURIComponent(x.q)}`}"><span class="chip-ic" style="--c:${x.c}" aria-hidden="true">${icons[x.icon]}</span>${esc(x.q)}</a>`).join('')}</div>`}
+        ${offline ? '' : (() => { const ex = homeExamples(); return `<div class="hero-ask" role="group" aria-label="範例問題" data-sig="${esc(ex.map((x) => x.q).join('|'))}">${exampleHtml(ex)}</div>`; })()}
       </section>
       <section class="now" aria-labelledby="now-h">
         <div class="section-title"><h2 id="now-h">現在</h2><span id="now-when"></span></div>
@@ -147,7 +164,7 @@ async function paintNow(main, offline, { quick = false } = {}) {
   nowLoading = !seen;
   lastNow = await loadNow({ callTool: (n, a) => host.callTool(n, a), granted: locationGranted, locate: () => browserLocation(4000), fallback: FALLBACK }).catch(() => null);
   nowLoading = false;
-  if (main.isConnected) draw(lastNow, false);
+  if (main.isConnected) { draw(lastNow, false); repaintExamples(main, lastNow); }
 }
 const NOW_COLOR = { weather: '#0284c7', aqi: '#0d9488', reminder: '#b45309', offline: '#5d6966' };
 

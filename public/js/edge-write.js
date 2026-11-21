@@ -3,17 +3,13 @@
 // 這裡請外掛 AbangEdgeAI.write 改寫成自然的一兩句，再用 core/edge-write.js 的程式護欄檢查（數字、時間、ADR-0011…），
 // 不過、逾時（2.5 秒）、外掛失敗 → 用程式版總結。網頁版、不支援的手機、開關關掉 → 不帶 clientCaps，行為與原本相同。
 import { checkRewrite, worthRewriting, writePrompt, WRITE_INSTRUCTIONS, WRITE_TARGET_CHARS } from '../../core/edge-write.js';
-import { edgeEnabled, edgeStatus, EDGE_ENGINES, EDGE_ENGINE_NAME } from './edge-judge.js';
+import { edgeEnabled, edgeStatus, EDGE_ENGINES, EDGE_ENGINE_NAME, EDGE_PLUGIN as PLUGIN, edgeCap as cap, edgeTripped, noteEdgeError, cancelSuggest, edgeTasks } from './edge-judge.js';
 
-const PLUGIN = 'AbangEdgeAI';
 /** 等手機寫最多這麼久（原生端 2.3 秒取消）；超過就用程式版 */
 export const WRITE_TIMEOUT_MS = 2500;
 const OFF_KEY = 'abang.edgeWrite';
 export const WRITE_STATS_KEY = 'abang.edgeWriteStats';
-const cap = () => {
-  const c = globalThis.Capacitor;
-  try { return c?.isNativePlatform?.() && typeof c.nativePromise === 'function' ? c : null; } catch { return null; }
-};
+// 外掛存取與斷路器與 edge-judge.js 共用（judge ＞ write ＞ suggest：寫之前先取消正在猜的下一句，寫的時候不猜）
 
 /** 「回答也在手機上寫」開關（預設開；讀不到就當開著） */
 export function edgeWriteEnabled() {
@@ -26,7 +22,7 @@ export function setEdgeWriteEnabled(on) {
 // 外掛狀態只問一次（60 秒內沿用）：每次送出都問會多一次原生往返
 let caps = null;
 /** 測試用 */
-export const _resetEdgeWrite = () => { caps = null; inflight = null; };
+export const _resetEdgeWrite = () => { caps = null; if (inflight) edgeTasks.delete(inflight); inflight = null; };
 
 /**
  * 這一輪能不能交給手機寫：App 裡、裝置端 AI 與「回答也在手機上寫」都開著、外掛說可用且支援 write。
@@ -72,18 +68,20 @@ export async function edgeWrite(draft, { engine, agent = 'life', timeout = WRITE
   const lang = draft?.lang === 'en' ? 'en' : 'zh';
   const c = cap();
   const program = (reason, extra = {}) => ({ text, by: 'program', reason, ...(engine && { engine }), ...extra });
-  if (!c || agent !== 'life') return program('failed');
+  if (!c || agent !== 'life' || edgeTripped()) return program('failed');
   if (!worthRewriting(text)) return program('skip');
   if (inflight) return program('busy'); // 上一題還沒寫完（不排隊）
   const me = {};
   inflight = me;
-  const free = () => { if (inflight === me) inflight = null; };
+  edgeTasks.add(me); // 寫的時候不猜下一句
+  const free = () => { edgeTasks.delete(me); if (inflight === me) inflight = null; };
+  cancelSuggest(); // 正在猜下一句：先取消，模型讓給回答
   const t0 = Date.now();
   let timer;
   try {
     const call = c.nativePromise(PLUGIN, 'write', { draft: text, prompt: writePrompt(text, facts, lang), lang, instructions: WRITE_INSTRUCTIONS[lang], maxChars: WRITE_TARGET_CHARS });
     const done = call.finally(free);
-    const r = await Promise.race([done.catch(() => 'failed'), new Promise((res) => { timer = setTimeout(() => res('timeout'), timeout); })]);
+    const r = await Promise.race([done.catch((e) => { noteEdgeError(e?.message); return 'failed'; }), new Promise((res) => { timer = setTimeout(() => res('timeout'), timeout); })]);
     if (r === 'timeout') { setTimeout(free, release); return program('timeout'); }
     if (r === 'failed') return program('failed');
     const eng = EDGE_ENGINES.includes(r?.engine) ? r.engine : engine;

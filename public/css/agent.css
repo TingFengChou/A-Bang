@@ -191,6 +191,10 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 .suggest .chip.next-remind, .suggest .chip.next-navigate { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
 .suggest .chip.next-state { border-style: dashed; }
 .suggest .chip.ghost { color: var(--muted); }
+/* 動態「下一句」：換新的建議時淡入（產生中保留舊的；reduced motion 不淡入） */
+.suggest.fade-in > * { animation: sg-fade .22s ease-out both; }
+@keyframes sg-fade { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .suggest.fade-in > * { animation: none; } }
 .agent-sys { align-self: center; font-size: 12.5px; color: var(--muted); margin: 2px 0; }
 
 /* 討論串的決策感：每筆資料的「→ 影響」（不利紅、有利綠、不影響灰）；等模型時的「阿幫在想…」 */
