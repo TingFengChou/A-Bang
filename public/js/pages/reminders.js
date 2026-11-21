@@ -7,6 +7,7 @@ import { reminderItems } from '../reminder-items.js';
 import { listReminders, cancelReminder, notifyState } from '../reminders.js';
 import { alightWatch, stopAlight } from '../alight.js';
 import { createWebHost, currentArrivalWatch } from '../../ui/cards/host-web.js';
+import { chatTurnFor } from '../agent/chat-links.js';
 
 const KIND = { alight: ['bus', '#0f766e'], arrival: ['bus', '#1d4ed8'], leave: ['bell', '#b45309'] };
 const EVENTS = ['abang:reminders', 'abang:alight-watch', 'abang:arrival-watch'];
@@ -53,7 +54,8 @@ export default {
         row.setAttribute('role', 'listitem');
         row.dataset.kind = it.kind;
         const [ic, c] = KIND[it.kind];
-        row.innerHTML = `<span class="ab-token sm" style="--c:${c}" aria-hidden="true">${icons[ic]}</span><div class="grow"><div class="title">${esc(it.title)}</div><div class="sub wrap">${esc(it.sub)}</div>${it.href ? `<a class="rem-open" href="${esc(it.href)}">看公車 ›</a>` : ''}</div>`;
+        const turn = chatTurnFor(it.ref); // 在問阿幫設的：回到那一輪（對話還在才有）
+        row.innerHTML = `<span class="ab-token sm" style="--c:${c}" aria-hidden="true">${icons[ic]}</span><div class="grow"><div class="title">${esc(it.title)}</div><div class="sub wrap">${esc(it.sub)}</div>${it.href ? `<a class="rem-open" href="${esc(it.href)}">看公車 ›</a>` : ''}${turn ? `<a class="rem-open rem-chat" href="#/agent?turn=${turn}">看當時的對話 ›</a>` : ''}</div>`;
         const del = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small quiet', textContent: '取消' });
         del.setAttribute('aria-label', it.cancelLabel);
         del.addEventListener('click', () => {
