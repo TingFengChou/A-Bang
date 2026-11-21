@@ -76,16 +76,19 @@ async function main() {
     // 浮動阿幫拉出對話、Android 返回鍵收起（dialog.close）；沒拉出來就不按返回（--keep 時前面可能是別的 App）
     await page.evaluate(() => { globalThis.location.hash = '#/s/weather'; });
     await page.waitForSelector('#abang-fab:not([hidden])');
-    await page.click('#abang-fab');
+    await page.$eval('#abang-fab', (b) => b.click()); // 直接點（手機螢幕變暗或沒在畫畫面時，等「穩定」會一直等不到）
     const opened = await page.waitForSelector('#abang-sheet[open] .chat-form', { timeout: 8000 }).then(() => true, () => false);
     if (!opened) fail('浮動阿幫沒有拉出對話');
     else {
       console.log('✓ 浮動阿幫拉出對話');
       await sleep(400);
+      if (!/mWakefulness=Awake/.test(adb('shell', 'dumpsys', 'power'))) { console.warn('－ 手機螢幕關著：返回鍵這項略過（不喚醒、不解鎖手機；螢幕亮著時再跑一次）'); await page.evaluate(() => globalThis.document.getElementById('abang-sheet').close()); }
+      else {
       adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
       await page.waitForFunction(() => !globalThis.document.getElementById('abang-sheet').open, null, { timeout: 5000 }).then(() => console.log('✓ 返回鍵收起對話'), () => fail('返回鍵沒有收起對話'));
+      }
     }
-    const real = errors.filter((e) => !/favicon|net::ERR_|Failed to load resource/.test(e));
+    const real = errors.filter((e) => !/favicon|net::ERR_|Failed to load resource|OS-PLUG-GLOC-/.test(e)); // 定位逾時或被拒（螢幕關著、室內）是環境，不是畫面錯誤；畫面上的說明另有測試
     if (real.length) fail(`畫面錯誤：\n  ${real.join('\n  ')}`); else console.log('✓ 沒有畫面錯誤');
   } finally {
     if (page && onboarded !== undefined) await page.evaluate((v) => { if (v == null) globalThis.localStorage.removeItem('abang.onboarded'); else globalThis.localStorage.setItem('abang.onboarded', v); }, onboarded).catch(() => {}); // 還原
