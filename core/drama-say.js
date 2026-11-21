@@ -32,14 +32,14 @@ const SAY = {
   zh: {
     wait: ({ min, title, ep, free }) => `等車還要 ${min} 分，剛好夠看一集短劇：《${title}》第 ${ep} 集${free ? `（前 ${free} 集免費）` : ''}。`,
     watch: '看這集', dismiss: '不用了', note: '在 MyDrama 播放；設定裡可以關掉這個提示',
-    exercise: '天氣不錯，今天動得比較少，出去走走吧！在 MyDrama 運動還可以解鎖短劇集數。',
-    exerciseCta: '看 MyDrama 運動解鎖',
+    exercise: '天氣不錯，今天動得比較少，出去走走吧！MyDrama 的活動頁也有跟運動有關的活動。',
+    exerciseCta: '看 MyDrama 活動頁',
   },
   en: {
     wait: ({ min, title, ep, free }) => `${min} min until it comes: just enough for one short-drama episode, “${title}” Ep. ${ep}${free ? ` (first ${free} free, in Chinese)` : ' (in Chinese)'}.`,
     watch: 'Watch it', dismiss: 'No thanks', note: 'Plays in MyDrama; you can turn this tip off in Settings',
-    exercise: 'Nice weather and you haven\'t moved much today. Go for a walk! Exercise in MyDrama can also unlock short-drama episodes.',
-    exerciseCta: 'MyDrama exercise unlock',
+    exercise: 'Nice weather and you haven\'t moved much today. Go for a walk! MyDrama\'s activity page has something for that too.',
+    exerciseCta: 'MyDrama activity page',
   },
 };
 const dict = (lang) => (lang === 'en' ? SAY.en : SAY.zh);
@@ -56,7 +56,7 @@ export function waitHint({ waitMin, pick, lang = null } = {}) {
 }
 
 /**
- * 「天氣好、動得少，建議去運動」時接在後面的一句：MyDrama 有運動解鎖集數（只提示，不代替解鎖；要在 MyDrama 登入）。
+ * 「天氣好、動得少，建議去運動」時接在後面的一句：提一下合作 App 的活動頁（只提示，阿幫不代替登入或參加活動）。
  * 接線留給運動建議那個功能；這裡只決定說不說、說什麼，連結由伺服器設定提供（drama.exerciseLink()）。
  * @param {{ weatherOk: boolean, movedLittle: boolean, lang?: 'en'|null, link?: string|null }} a
  * @returns {{ text: string, cta: string|null, link: string|null } | null}

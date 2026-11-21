@@ -3040,6 +3040,89 @@
           }
         }
       ]
+    },
+    {
+      "id": "D1-9",
+      "title": "去看舞台劇坐捷運：是交通，不是找短劇（PR #111 審查）",
+      "turns": [
+        {
+          "say": "我要去看舞台劇，坐捷運要多久",
+          "expect": {
+            "toolsNot": [
+              "drama_picks",
+              "drama_search",
+              "drama_series"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "D1-10",
+      "title": "去看京劇會不會下雨：是天氣，不是找短劇",
+      "turns": [
+        {
+          "say": "明天去看京劇會下雨嗎",
+          "expect": {
+            "toolsNot": [
+              "drama_picks",
+              "drama_search",
+              "drama_series"
+            ],
+            "tools": [
+              "weather_tomorrow"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "D1-11",
+      "title": "到國家戲劇院看歌劇要搭什麼車：不是找短劇",
+      "turns": [
+        {
+          "say": "到國家戲劇院看歌劇要搭什麼車",
+          "expect": {
+            "toolsNot": [
+              "drama_picks",
+              "drama_search",
+              "drama_series"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "D1-12",
+      "title": "去藝文中心看兒童劇：不是找短劇",
+      "turns": [
+        {
+          "say": "去新北市藝文中心看兒童劇",
+          "expect": {
+            "toolsNot": [
+              "drama_picks",
+              "drama_search",
+              "drama_series"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "D1-13",
+      "title": "英文：去劇院看戲怎麼走，不是找短劇",
+      "turns": [
+        {
+          "say": "How do I get to the National Theater to see a drama",
+          "expect": {
+            "toolsNot": [
+              "drama_picks",
+              "drama_search",
+              "drama_series"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

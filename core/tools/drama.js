@@ -39,7 +39,7 @@ export const dramaPicks = defineTool({
 export const dramaSearch = defineTool({
   name: 'drama_search',
   title: '找短劇',
-  description: '在 MyDrama 片庫找短劇：可以用劇名、類型（甜寵、霸總、懸疑、重生、逆襲、復仇、古裝、喜劇…）、演員或簡介裡的字。回傳符合的劇（熱門優先）與總數。query 只放要找的字，例如「甜寵」，不要放「短劇」「推薦」。',
+  description: '在 MyDrama 片庫找短劇：用劇名或類型關鍵字（甜寵、霸總、懸疑、重生、逆襲、復仇、古裝、喜劇…）。回傳符合的劇（熱門優先）與總數。query 只放要找的字，例如「甜寵」，不要放「短劇」「推薦」。',
   ...common,
   input: {
     query: z.string().trim().min(1).max(20).describe('劇名或類型，例如「甜寵」「懸疑」'),

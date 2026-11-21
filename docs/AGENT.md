@@ -309,9 +309,9 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 ### 5.4 短劇（MyDrama，ADR-0019，2026-11-22；示範與模型模式相同）
 
-- **找劇**：規則意圖 `drama`（`demo-intent.js` `isDramaAsk`／`dramaSlots`）：「短劇」「追劇」「（推薦／好看／熱門／有沒有…）劇」、類型詞（甜寵、霸總、懸疑、重生、逆襲…）、「《劇名》在演什麼」；「戲劇院」「劇場」不算。《劇名》→ `drama_search`（問劇情再 `drama_series` 第一部）；類型或其他題材（「殭屍」）→ `drama_search`，沒結果改 `drama_picks` 熱門並照實說；新劇／完結／台灣自製 → `drama_picks` 對應排行；其他 → 熱門。英文（`short drama`、`romance drama`）同樣，回答說明片庫是中文。判斷層沒有 drama 這個意圖：規則說是找劇時保留；地端模型模式由規則回答（`RULE_ANSWERS`）。總結只在有連結時說「按卡片上的『在 MyDrama 看』」。
-- **等車推劇**（`core/agent/wait-drama.js`，程式決定、不經模型）：`execTools` 在 `bus_route_eta`／`metro_live_board` 的結果（含選公車後自動盯的上車站）之後，算在站牌還要等幾分——公車＝盯的站（`focus`，正常行駛）到站時間扣掉走過去的時間（行程用 `walkMin`；「離你最近的站」超過 100 公尺用 `walkMinutes(distanceM)`），捷運＝最快的一班。≥ 5 分、< 40 分才從熱門排行前 5 部裡有免費集數、第 1 集已上架的挑一部（`pickForWait`：依台灣日期＋這段對話第幾輪輪替，同一天同一輪重問不換），送 `aside`（句子在 `core/drama-say.js`，例：「等車還要 9 分，剛好夠看一集短劇：《…》第 1 集（前 10 集免費）。」）。一輪最多一次（`asideState`：`{ on, done }`，平行的工具也只推一次）；`userState.dramaHint: false`（設定頁關掉）、英文提問、防詐 agent（沒有 drama 工具包）不推；查不到劇或 1.5 秒內沒回應就這一輪不提，交通結果照常。
-- **運動解鎖**（只準備、未接線）：`exerciseNudge({ weatherOk, movedLittle, link })` 回提示句與按鈕文字；連結由 `svc.drama.exerciseLink()`（`MYDRAMA_LINK_EXERCISE`）提供。給「天氣好、動得少，建議去運動」的功能接用；真正解鎖要在 MyDrama 登入，阿幫不做。
+- **找劇**：規則意圖 `drama`（`demo-intent.js` `isDramaAsk`／`dramaSlots`）。不算找劇：歌劇、京劇、舞台劇、兒童劇、音樂劇、話劇、布袋戲、劇院、藝文中心；句子在問交通或天氣（搭、坐、捷運、怎麼去、會下雨…）；說了要去的地名（沒有《劇名》時）。算找劇：「短劇」「追劇」「（推薦／好看／熱門／有沒有…）劇」、類型詞（甜寵、霸總、懸疑、重生、逆襲…）、「《劇名》在演什麼」；「戲劇院」「劇場」不算。《劇名》→ `drama_search`（問劇情再 `drama_series` 第一部）；類型或其他題材（「殭屍」）→ `drama_search`，沒結果改 `drama_picks` 熱門並照實說；新劇／完結／台灣自製 → `drama_picks` 對應排行；其他 → 熱門。英文（`short drama`、`romance drama`）同樣，回答說明片庫是中文。判斷層沒有 drama 這個意圖：規則說是找劇時保留；地端模型模式由規則回答（`RULE_ANSWERS`）。總結只在有連結時說「按卡片上的『在 MyDrama 看』」。
+- **等車推劇**（`core/agent/wait-drama.js`，程式決定、不經模型）：`execTools` 在 `bus_route_eta`／`metro_live_board` 的結果（含選公車後自動盯的上車站）之後，算在站牌還要等幾分——公車＝盯的站（`focus`，正常行駛）到站時間扣掉走過去的時間（行程用 `walkMin`；「離你最近的站」超過 100 公尺用 `walkMinutes(distanceM)`），捷運＝最快的一班。≥ 5 分、< 40 分才從熱門排行前 5 部裡有免費集數、第 1 集已上架的挑一部（`pickForWait`：依台灣日期＋這段對話第幾輪輪替，同一天同一輪重問不換），送 `aside`（句子在 `core/drama-say.js`，例：「等車還要 9 分，剛好夠看一集短劇：《…》第 1 集（前 10 集免費）。」）。一輪最多一次（`asideState`：`{ on, done, turn, pick }`，平行的工具也只推一次）；排行在這一輪一開始就並行拿（`pick`，有快取），推劇不拖慢回答；輪次用手機送的 `turn`（這段對話第幾輪，整數；訊息只送最近 10 則，沒送才退回用訊息數）；`userState.dramaHint: false`（設定頁關掉）、英文提問、防詐 agent（沒有 drama 工具包）不推；查不到劇或 1.5 秒內沒回應就這一輪不提，交通結果照常。
+- **運動建議連動**（只準備、未接線）：`exerciseNudge({ weatherOk, movedLittle, link })` 回提示句與按鈕文字；連結由 `svc.drama.exerciseLink()`（`MYDRAMA_LINK_EXERCISE`，App 內活動頁）提供。給「天氣好、動得少，建議去運動」的功能接用；阿幫不代替登入或參加活動。
 
 ## 6. 成本與濫用防護
 

@@ -10,8 +10,9 @@ export const DRAMA_LISTS = ['hot', 'new', 'completed', 'taiwan'];
 export const DRAMA_LIST_NAME = { hot: '熱門排行', new: '新上架', completed: '已完結', taiwan: '台灣自製' };
 /** 快取秒數（DATA_SOURCES.md §短劇）：排行、片庫、搜尋、熱搜 10 分；單劇與簡介 1 小時 */
 export const DRAMA_TTL = { list: 600, series: 3600 };
-/** 不推薦的分級（限制級、18 禁）：阿幫是大眾助手，排行與搜尋都濾掉 */
-const ADULT = /限制|18|成人|adult/i;
+/** 不推薦的分級（限制級、18 禁；中文或英文代碼）：阿幫是大眾助手，排行與搜尋都濾掉。分級欄位不是字串（缺了、格式不對）也當限制級，寧可少推 */
+const ADULT = /限制|成人|adult|restrict|R ?-?18|18 ?\+|^18$/i;
+export const isAdult = (rating) => typeof rating !== 'string' || !rating.trim() || ADULT.test(rating.trim());
 
 const str = (v, max = 200) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '');
 const int = (v) => { if (typeof v !== 'number' && typeof v !== 'string') return null; const n = Number(v); return String(v).trim() !== '' && Number.isFinite(n) && n >= 0 ? Math.floor(n) : null; };
@@ -29,7 +30,7 @@ export function normSeries(raw, { synopsisMax = SYNOPSIS_MAX } = {}) {
   const id = typeof raw.id === 'string' ? raw.id.trim() : '';
   const title = str(raw.title, 40);
   if (!DRAMA_ID.test(id) || !title) return null;
-  if (ADULT.test(str(raw.contentRating, 20))) return null;
+  if (isAdult(raw.contentRating)) return null;
   const tags = [...new Set((Array.isArray(raw.tags) ? raw.tags : []).map((t) => str(t, 12)).filter(Boolean))].slice(0, 5);
   const episodes = int(raw.episodes);
   const free = int(raw.freeEpisodes);
@@ -104,50 +105,67 @@ export function pickForWait(list, { turn = 0, now = Date.now() } = {}) {
   return pool[((k % pool.length) + pool.length) % pool.length];
 }
 
+/** 一次最多留幾部（排行、搜尋）：只快取正規化後的這幾部 */
+export const LIST_MAX = 50;
+/** 回應大小上限（位元組）：太大視為上游異常，不解析 */
+export const RESPONSE_MAX_BYTES = 2_000_000;
+/** 上游清單 → 正規化（最多 LIST_MAX 部）；不是清單丟錯（上游錯誤） */
+export function parseList(x) {
+  if (!Array.isArray(x)) throw new Error('不是清單');
+  return normList(x.slice(0, LIST_MAX * 4)).slice(0, LIST_MAX);
+}
+const obj = (x) => { if (!x || typeof x !== 'object' || Array.isArray(x)) throw new Error('不是物件'); return x; };
+/** 單劇 → 正規化（簡介最多 600 字）；限制級或不合格回 null */
+export const parseSeries = (x) => normSeries(obj(x), { synopsisMax: 600 });
+/** 簡介 → { id, synopsis } */
+export const parseSynopsis = (x) => { const o = obj(x); return { id: typeof o.seriesId === 'string' ? o.seriesId : null, synopsis: str(o.synopsis, 600) }; };
+/** 熱搜 → 關鍵字 */
+export const parseKeywords = (x) => { if (!Array.isArray(x)) throw new Error('不是清單'); return normKeywords(x); };
+
 /**
- * @param {{ ranking: (type: string) => Promise<any[]>, search: (q: string) => Promise<any[]>, series: (id: string) => Promise<any>, synopsis: (id: string) => Promise<any>, keywords: () => Promise<any[]> }} fx
- *   取上游原始資料（真實：MyDrama 公開讀取端點；示範：core/data/demo/drama.json）。介面相同（Mock 對等）。
+ * @param {{ ranking: (type: string) => Promise<object[]>, search: (q: string) => Promise<object[]>, series: (id: string) => Promise<object|null>, synopsis: (id: string) => Promise<{ id: string|null, synopsis: string }>, keywords: () => Promise<string[]> }} fx
+ *   取資料並正規化（parseList／parseSeries／parseSynopsis／parseKeywords；真實：MyDrama 公開讀取端點；示範：core/data/demo/drama.json）。介面相同（Mock 對等）。
  * @param {{ links?: object }} [opts]
  */
 export function createDramaServices(fx, { links: cfg } = {}) {
   const links = dramaLinks(cfg);
   const show = shown(links);
-  const keywords = () => fx.keywords().then(normKeywords).catch(() => []); // 熱搜失敗不影響主要結果
+  const keywords = () => fx.keywords().catch(() => []); // 熱搜失敗不影響主要結果
+  const gone = () => new UserError('找不到這部短劇，可能已經下架；換個劇名搜尋看看。');
   return {
     drama: {
       /** 排行（hot／new／completed／taiwan） */
       async picks({ list = 'hot', limit = 5 } = {}) {
         if (!DRAMA_LISTS.includes(list)) throw new UserError(`排行種類只有：${DRAMA_LISTS.join('、')}`);
         const [rows, kw] = await Promise.all([fx.ranking(list), keywords()]);
-        const items = normList(rows).slice(0, limit).map((s, i) => show(s, i + 1));
+        const items = rows.slice(0, limit).map((s, i) => show(s, i + 1));
         return { kind: 'list', list, listName: DRAMA_LIST_NAME[list], items, keywords: kw, store: links.store() };
       },
-      /** 搜尋（劇名、類型標籤、演員、簡介；比對交給 MyDrama） */
+      /** 搜尋（劇名或類型關鍵字；比對交給片庫） */
       async search({ query, limit = 5 } = {}) {
         const q = dramaQuery(query);
         if (!q) throw new UserError('要找什麼短劇？說劇名或類型，例如「甜寵」「懸疑」「重生」。');
-        const all = normList(await fx.search(q));
+        const all = await fx.search(q);
         return { kind: 'search', query: q, total: all.length, items: all.slice(0, limit).map((s) => show(s)), store: links.store() };
       },
       /** 單劇＋完整簡介（簡介端點失敗時用單劇自帶的） */
       async series({ id } = {}) {
         if (typeof id !== 'string' || !DRAMA_ID.test(id)) throw new UserError('劇的代號格式不對。');
-        let raw;
-        try { raw = await fx.series(id); } catch (e) {
-          if (e?.upstreamStatus === 404 || e?.upstreamStatus === 410) throw new UserError('找不到這部短劇，可能已經下架；換個劇名搜尋看看。');
+        let s;
+        try { s = await fx.series(id); } catch (e) {
+          if (e?.upstreamStatus === 404 || e?.upstreamStatus === 410) throw gone();
           throw e;
         }
-        const s = normSeries(raw, { synopsisMax: 600 });
-        if (!s || s.id !== id) throw new UserError('找不到這部短劇，可能已經下架；換個劇名搜尋看看。');
-        const syn = await fx.synopsis(id).then((r) => str(r?.seriesId === id || r?.seriesId == null ? r?.synopsis : '', 600)).catch(() => '');
+        if (!s || s.id !== id) throw gone();
+        const syn = await fx.synopsis(id).then((r) => (r?.id == null || r.id === id ? r?.synopsis : '')).catch(() => '');
         return { kind: 'series', items: [show({ ...s, synopsis: syn || s.synopsis })], store: links.store() };
       },
       /** 等車推劇：熱門前 5 部可以從第 1 集看的，依日期＋輪次輪替（找不到回 null；上游失敗也回 null，不影響交通資訊） */
       async waitPick({ turn = 0, now = Date.now() } = {}) {
-        const s = pickForWait(normList(await fx.ranking('hot').catch(() => [])), { turn, now });
+        const s = pickForWait(await fx.ranking('hot').catch(() => []), { turn, now });
         return s ? { ...show(s), ep: 1 } : null;
       },
-      /** 運動解鎖頁的 App 連結（給「天氣好、動得少」的運動建議接用；沒設定回 null） */
+      /** 合作 App 活動頁的連結（給「天氣好、動得少」的運動建議接用；沒設定回 null） */
       exerciseLink: () => links.exercise(),
       /** 商店頁（沒裝 MyDrama 時開） */
       store: () => links.store(),
@@ -157,21 +175,20 @@ export function createDramaServices(fx, { links: cfg } = {}) {
 
 /**
  * 真實：MyDrama 公開讀取端點（od＝createOpenDataClient()，逾時、快取、計量、錯誤訊息不含網址）。
+ * 下載後先正規化再快取（只留阿幫的欄位、最多 50 部）；回應超過 2 MB 視為上游異常。
  * base 只能是 https（本機開發可用 http://localhost）；不合格就不建（回 null，系統改用示範資料）。
  * @param {{ od: { get: Function }, base: string }} a
  */
 export function createLiveDramaFetchers({ od, base }) {
   const b = typeof base === 'string' ? base.trim().replace(/\/+$/, '') : '';
   if (!/^https:\/\/[^\s/]+(?:\/[^\s]*)?$/i.test(b) && !/^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(?:\/[^\s]*)?$/i.test(b)) return null;
-  const arr = (x) => { if (!Array.isArray(x)) throw new Error('不是清單'); return x; };
-  const obj = (x) => { if (!x || typeof x !== 'object' || Array.isArray(x)) throw new Error('不是物件'); return x; };
-  const get = (path, ttlSec, label, parse) => od.get(`${b}${path}`, { ttlSec, label, as: 'json', parse, headers: { accept: 'application/json' } });
+  const get = (path, ttlSec, label, parse) => od.get(`${b}${path}`, { ttlSec, label, as: 'json', parse, maxBytes: RESPONSE_MAX_BYTES, headers: { accept: 'application/json' } });
   const enc = encodeURIComponent;
   return {
-    ranking: (type) => get(`/catalog/ranking?type=${enc(type)}`, DRAMA_TTL.list, 'MyDrama 排行', arr),
-    search: (q) => get(`/catalog/search?q=${enc(q)}`, DRAMA_TTL.list, 'MyDrama 搜尋', arr),
-    series: (id) => get(`/catalog/series/${enc(id)}`, DRAMA_TTL.series, 'MyDrama 劇集資訊', obj),
-    synopsis: (id) => get(`/series/${enc(id)}/synopsis`, DRAMA_TTL.series, 'MyDrama 劇集簡介', obj),
-    keywords: () => get('/catalog/hot-keywords', DRAMA_TTL.list, 'MyDrama 熱搜', arr),
+    ranking: (type) => get(`/catalog/ranking?type=${enc(type)}`, DRAMA_TTL.list, 'MyDrama 排行', parseList),
+    search: (q) => get(`/catalog/search?q=${enc(q)}`, DRAMA_TTL.list, 'MyDrama 搜尋', parseList),
+    series: (id) => get(`/catalog/series/${enc(id)}`, DRAMA_TTL.series, 'MyDrama 劇集資訊', parseSeries),
+    synopsis: (id) => get(`/series/${enc(id)}/synopsis`, DRAMA_TTL.series, 'MyDrama 劇集簡介', parseSynopsis),
+    keywords: () => get('/catalog/hot-keywords', DRAMA_TTL.list, 'MyDrama 熱搜', parseKeywords),
   };
 }

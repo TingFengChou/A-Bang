@@ -429,9 +429,29 @@ function dramaSlots(s) {
   const rest = s.replace(DRAMA_FILLER, '').trim();
   return /^[一-龥A-Za-z]{2,8}$/.test(rest) ? { dramaQuery: rest } : { dramaList: 'hot' };
 }
-const DRAMA_FILLER = /MyDrama|阿幫|請問|請|幫我|給我|我想要|我想|想要|想|可以|有沒有|有什麼|什麼|最近|推薦|介紹|一部|幾部|一齣|好看|熱門|很紅|紅的|追劇|微短劇|短劇|連續劇|劇|找|看看|看|一下|類型|題材|那種|的|嗎|呢|吧|啊|啦|喔|哦|耶|[\s？?！!，,。～~]/gi;
+const DRAMA_FILLER = /MyDrama|阿幫|等公車|等捷運|等車|無聊|通勤|打發時間|殺時間|路上|的時候|時候|適合|請問|請|幫我|給我|我想要|我想|想要|想|可以|有沒有|有什麼|什麼|最近|推薦|介紹|一部|幾部|一齣|好看|熱門|很紅|紅的|追劇|微短劇|短劇|連續劇|劇|找|看看|看|一下|類型|題材|那種|的|嗎|呢|吧|啊|啦|喔|哦|耶|[\s？?！!，,。～~]/gi;
 /** 是不是在找短劇（問路線的「怎麼去」不算） */
-export const isDramaAsk = (s) => (DRAMA_WORD.test(String(s || '')) || (/《[^》]{1,30}》/.test(String(s || '')) && DRAMA_DETAIL.test(String(s || '')))) && !/怎麼去|怎麼走|怎麼坐|從.+(?:到|去)/.test(String(s || '')); // 「《劇名》在演什麼」也算
+// 不是找短劇：表演藝術（去看歌劇、京劇、舞台劇…）、場館
+const NOT_DRAMA = /歌劇|京劇|舞台劇|兒童劇|音樂劇|話劇|布袋戲|歌仔戲|偶戲|戲曲|劇院|劇場|劇團|藝文中心|演藝廳|音樂廳/;
+// 句子在問交通或天氣（搭、坐、捷運、怎麼去、會下雨…），或要去某個地方：交給行程、天氣，不判找劇
+const TRAVEL_OR_WEATHER = /搭|坐(?!著)|捷運|公車|客運|火車|高鐵|台鐵|臺鐵|計程車|叫車|YouBike|怎麼去|怎麼走|怎麼到|怎麼坐|要多久|多遠|下雨|天氣|氣溫|帶傘|幾點到|出發|(?:^|[，,。\s]|我|要|想|明天|今天|晚上|等一下)(?:去|到)(?![看追找])\S/i;
+/**
+ * 是不是在找短劇（「《劇名》在演什麼」也算）。表演藝術、場館、交通與天氣的問題、說了要去的地名（沒有《劇名》）都不算。
+ * @param {string} s
+ * @param {string[]} [places] 句子裡認得的地名
+ */
+export function isDramaAsk(s, places = []) {
+  const t = String(s || '');
+  const titled = /《[^》]{1,30}》/.test(t);
+  if (!(DRAMA_WORD.test(t) || (titled && DRAMA_DETAIL.test(t)))) return false;
+  const bare = t.replace(/《[^》]*》/g, '《》'); // 劇名裡的字（《捷運末班車》）不算交通
+  if (NOT_DRAMA.test(bare) || TRAVEL_OR_WEATHER.test(bare.replace(/^等(?:公|捷運)?車/, ''))) return false; // 「等車無聊，推薦短劇」的等車不是問交通
+  return titled || !places.length;
+}
+/** 英文：「Any good short dramas?」；去劇院、問路、天氣、交通不算 */
+const EN_DRAMA = /\b(?:short[- ]?)?dramas?\b|\bmydrama\b|something to watch/i;
+const EN_NOT_DRAMA = /\b(?:theat(?:er|re)s?|opera|musicals?|concert|plays?|get to|go to|going to|how (?:do|can|should) i|directions?|take me|weather|rain|umbrella|bus|mrt|metro|subway|train|taxi|uber|walk|bike)\b/i;
+export const isEnDramaAsk = (s) => EN_DRAMA.test(String(s || '')) && !EN_NOT_DRAMA.test(String(s || ''));
 
 // 追問（「那聯發科呢？」「0056 呢」）：短句、沒有其他意圖時，沿用前面的股市提問
 const FOLLOW_UP = /^(?:那|那麼|還有|再查|再看|換|也查)?\s*([^\s？?，,。！!]{2,12}?)\s*(?:呢|勒|咧|的呢|也查)?\s*[？?]?$/;
@@ -577,7 +597,7 @@ function parseIntentRaw(text, ctx) {
   // 在生活阿幫問「這是詐騙嗎」（有沒有附內容都一樣）：不列功能清單，請他到防詐檢查（PM 盤點 Q-23）
   if (/詐騙嗎|是不是詐騙|是詐騙|是騙人的嗎/.test(s) && !places.length) return { ...base, intent: 'scamAsk' };
   if (ACT_FOR_ME.test(s) && !places.length && (!RAIL_WORD.test(s) || /刷卡|付款|付錢|代付/.test(s))) return { ...base, intent: 'limits' };
-  if (isDramaAsk(s)) return { ...base, intent: 'drama', ...dramaSlots(s) }; // 找短劇（ADR-0019）：在行程、生活服務之前（「推薦一部短劇」不是地名）
+  if (isDramaAsk(s, places)) return { ...base, intent: 'drama', ...dramaSlots(s) }; // 找短劇（ADR-0019）：在行程、生活服務之前（「推薦一部短劇」不是地名）
   let tripMemo;
   const tripBefore = () => (tripMemo !== undefined ? tripMemo : (tripMemo = ctx && 'prev' in ctx ? ctx.prev : lastTrip(history, ctx?.saved)));
   const before = history.length && !otherQuery ? tripBefore() : null; // 結構化上下文（A3）：前面累積的行程條件
@@ -1044,7 +1064,7 @@ function englishIntent(s, places, history = []) {
   if (/youbike|ubike|\bbikes?\b/i.test(s) && !places.length) return { ...base, intent: 'youbike' };
   if (/\b(?:mrt|metro|subway)\b/i.test(s) && (/next|when|how long|last train/i.test(s) || /^\s*(?:is\s+)?(?:the\s+)?(?:taipei\s+)?(?:mrt|metro|subway)\s+(?:still\s+)?(?:running|open|operating)|\b(?:is|are)\s+(?:the\s+)?(?:mrt|metro|subway)(?:\s+trains?)?\s+(?:still\s+)?(?:running|open|operating)/i.test(s))) return { ...base, intent: 'metro', station: null, line: null }; // 「Is the MRT still running now?」（P3-6）
   // 找短劇（ADR-0019）：「Any good short dramas?」「Recommend a romance drama」（片庫是中文，回答會說明）
-  if (/\b(?:short[- ]?)?dramas?\b|\bmydrama\b|something to watch/i.test(s) && !toWord) {
+  if (isEnDramaAsk(s) && !toWord) {
     const g = [['甜寵', /\bromance|romantic|sweet\b/i], ['懸疑', /mystery|thriller|suspense/i], ['喜劇', /comedy|funny/i], ['復仇', /revenge/i], ['古裝', /costume|historical|period/i]].find(([, re]) => re.test(s))?.[0];
     return { ...base, intent: 'drama', ...(g ? { dramaQuery: g } : { dramaList: /\bnew\b|latest/i.test(s) ? 'new' : /complete|finished|binge/i.test(s) ? 'completed' : 'hot' }) };
   }

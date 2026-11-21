@@ -86,7 +86,7 @@ export const settings = {
         <h2>等車的時候</h2>
         <label class="switch-row"><span><b>等車時推一集短劇</b><small>公車、捷運還要等 5 分以上時，在到站卡片下方提一句</small></span>
           <input type="checkbox" id="drama-hint" class="switch" role="switch" aria-describedby="drama-note" ${dramaHintOn() ? 'checked' : ''}></label>
-        <p class="note" id="drama-note">從 MyDrama 的熱門排行挑一部可以從第 1 集看的；一次問答最多提一次。阿幫只看公開的排行，不會把你的位置或對話送給 MyDrama；按了才開 MyDrama App（沒裝會到商店頁）。</p>
+        <p class="note" id="drama-note">從合作的短劇 App MyDrama 的熱門排行挑一部可以從第 1 集看的；一次問答最多提一次。阿幫只看公開的排行，不會把你的位置或對話送給 MyDrama；按了才開 MyDrama App（沒裝會到商店頁）。</p>
       </section>
       <section class="card settings" id="reminders-card">
         <h2>提醒</h2>
@@ -365,7 +365,7 @@ export const privacy = {
         <h3>6. 不提供的影響</h3>
         <p>不允許定位：要自己說從哪出發。不允許麥克風：用打字問阿幫。不允許通知：提醒只在 App 開著時顯示。不使用 Claude 模式的伺服器不會把問題送給 Anthropic。</p>
         <h3>7. 資料來源與外部連結</h3>
-        <p>交通部 TDX、中央氣象署、環境部、健保署、地方政府、台灣中油、財政部、臺灣證券交易所、證券櫃檯買賣中心等開放資料；導航、叫車、訂票只開官方連結，付款在對方的 App 或網站完成，請另參考對方的隱私權政策。短劇推薦來自 MyDrama 的公開片庫：問短劇時只把搜尋的關鍵字（例如「甜寵」）送給 MyDrama，不送位置、對話或裝置識別；看劇、登入、付費都在 MyDrama App 裡，請另參考 MyDrama 的隱私權政策。防詐檢查結果不代表一定安全，有疑問請撥 165。</p>
+        <p>交通部 TDX、中央氣象署、環境部、健保署、地方政府、台灣中油、財政部、臺灣證券交易所、證券櫃檯買賣中心等開放資料；導航、叫車、訂票只開官方連結，付款在對方的 App 或網站完成，請另參考對方的隱私權政策。短劇推薦來自合作的短劇 App MyDrama 的公開片庫：問短劇時只把搜尋的關鍵字（例如「甜寵」）送給 MyDrama，不送位置、對話或裝置識別；看劇在 MyDrama App 裡，請另參考 MyDrama 的隱私權政策。防詐檢查結果不代表一定安全，有疑問請撥 165。</p>
         <h3>8. 聯絡我們</h3>
         <p>〔待補：營運單位聯絡信箱與電話〕</p>
       </article>`;

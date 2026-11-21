@@ -1,18 +1,19 @@
 // 短劇（MyDrama，ADR-0019）：adapter 防禦解析與正規化、Mock 對等、連結檢查、工具與卡片、等車推劇（門檻、一輪一次、關掉、英文不推）、
-// 找劇意圖、開 App 的備援、運動解鎖提示句，以及 repo 裡沒有 MyDrama 網址（公開 repo）。
+// 找劇意圖、開 App 的備援、運動建議提示句，以及 repo 裡沒有 MyDrama 網址（公開 repo）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
-import { normSeries, normList, normKeywords, dramaLinks, dramaQuery, createDramaServices, createLiveDramaFetchers, pickForWait, DRAMA_TTL } from '../core/services/drama.js';
+import { createHash } from 'node:crypto';
+import { normSeries, normList, normKeywords, dramaLinks, dramaQuery, createDramaServices, createLiveDramaFetchers, pickForWait, parseList, isAdult, DRAMA_TTL, LIST_MAX } from '../core/services/drama.js';
 import { createMockDramaServices, demoDramaFetchers } from '../core/services/drama-mock.js';
 import { isAppLink, isStoreLink, linkFrom, waitHint, exerciseNudge, WAIT_MIN } from '../core/drama-say.js';
 import { waitMinutes, waitDrama } from '../core/agent/wait-drama.js';
 import { createOpenDataClient } from '../core/opendata-client.js';
 import { createServices } from '../core/index.js';
 import { callTool } from '../core/tools/index.js';
-import { runDemo, execTools, asideState } from '../core/agent/run.js';
+import { runDemo, execTools, asideState, validateRequest } from '../core/agent/run.js';
 import { parseIntent } from '../core/agent/demo-intent.js';
 import { ev } from '../core/agent/events.js';
 import { getProfile } from '../core/agents/index.js';
@@ -22,9 +23,9 @@ import { UserError } from '../core/util.js';
 const LINKS = { episode: 'example-drama://watch/{id}/{ep}', exercise: 'example-drama://unlock', storeIos: 'https://example.com/ios', storeAndroid: 'https://example.com/android' };
 
 test('normSeries：只留阿幫的欄位、限制級與不合格的 id 丟掉、數字防禦、簡介截斷', () => {
-  const raw = { id: 's1', title: '  夜班  公車 ', tags: ['甜寵', '甜寵', '', 3, '都市', 'a', 'b', 'c'], episodes: '60', freeEpisodes: 99, category: '愛情', taiwanOriginal: 'true', newRelease: false, completed: true, heat: 12.7, contentRating: '普遍級', synopsis: '一'.repeat(400), coverUrl: 'https://cdn.example.com/x.jpg', coinCost: 30, unlockSpan: 5, pinned: true, trailer: { url: 'x' }, availableEpisodes: 20 };
+  const raw = { id: 's1', title: '  夜班  公車 ', tags: ['甜寵', '甜寵', '', 3, '都市', 'a', 'b', 'c'], episodes: '60', freeEpisodes: 99, category: '愛情', taiwanOriginal: 'true', newRelease: false, completed: true, heat: 12.7, contentRating: 'GENERAL', synopsis: '一'.repeat(400), cover: 'https://cdn.example.com/x.jpg', price: 30, extra: 5, flag: true, media: { url: 'x' }, availableEpisodes: 20 };
   const s = normSeries(raw);
-  assert.deepEqual(Object.keys(s).sort(), ['completed', 'episodes', 'freeEpisodes', 'genre', 'heat', 'id', 'isNew', 'ready', 'synopsis', 'tags', 'taiwanOriginal', 'title'].sort(), '封面、價格、解鎖設定不往上傳');
+  assert.deepEqual(Object.keys(s).sort(), ['completed', 'episodes', 'freeEpisodes', 'genre', 'heat', 'id', 'isNew', 'ready', 'synopsis', 'tags', 'taiwanOriginal', 'title'].sort(), '其他欄位（封面、價格…）不往上傳');
   assert.equal(s.title, '夜班 公車');
   assert.deepEqual(s.tags, ['甜寵', '都市', 'a', 'b', 'c']);
   assert.equal(s.episodes, 60);
@@ -33,15 +34,23 @@ test('normSeries：只留阿幫的欄位、限制級與不合格的 id 丟掉、
   assert.equal(s.taiwanOriginal, true);
   assert.equal(s.synopsis.length, 160);
   for (const bad of [null, 'x', {}, { id: '../login', title: 'x' }, { id: 's1?ep=9', title: 'x' }, { id: 'x'.repeat(65), title: 'x' }, { id: 's2' }, { id: 's3', title: '   ' }]) assert.equal(normSeries(bad), null, JSON.stringify(bad));
-  for (const r of ['限制級', 'R18', '18+', '成人']) assert.equal(normSeries({ id: 'a', title: 'x', contentRating: r }), null, r);
-  assert.equal(normSeries({ id: 'a', title: 'x', contentRating: '輔12級' }).title, 'x');
-  const n = normSeries({ id: 'a', title: 'x', episodes: -1, freeEpisodes: 'abc', heat: null });
+  // 分級：限制級（中文或英文代碼）、缺分級、不是字串都不推薦；一般、保護、輔12、輔15 照常
+  for (const r of ['限制級', 'RESTRICTED', 'restricted', 'R18', 'R 18', 'R-18', '18+', '18', '成人', 'ADULT']) assert.equal(normSeries({ id: 'a', title: 'x', contentRating: r }), null, r);
+  for (const r of [undefined, null, 18, {}, ['GENERAL'], '', '  ']) assert.equal(normSeries({ id: 'a', title: 'x', contentRating: r }), null, `分級 ${JSON.stringify(r)} 當限制級`);
+  for (const r of ['GENERAL', 'PG', 'R12', 'R15', '普遍級', '保護級', '輔12級', '輔15級']) assert.equal(normSeries({ id: 'a', title: 'x', contentRating: r })?.title, 'x', r);
+  assert.equal(isAdult('R15'), false);
+  const n = normSeries({ id: 'a', title: 'x', contentRating: 'PG', episodes: -1, freeEpisodes: 'abc', heat: null });
   assert.deepEqual([n.episodes, n.freeEpisodes, n.heat, n.synopsis, n.genre], [null, null, null, null, null]);
 });
 
 test('normList／normKeywords／dramaQuery：不是陣列回空、去重、關鍵字上限；搜尋詞去掉套話', () => {
   assert.deepEqual(normList({ items: [] }), []);
-  assert.deepEqual(normList([{ id: 'a', title: 'A' }, { id: 'a', title: 'A2' }, null, { id: 'b', title: 'B', contentRating: '限制級' }]).map((s) => s.title), ['A']);
+  assert.deepEqual(normList([{ id: 'a', title: 'A', contentRating: 'GENERAL' }, { id: 'a', title: 'A2', contentRating: 'GENERAL' }, null, { id: 'b', title: 'B', contentRating: 'RESTRICTED' }]).map((s) => s.title), ['A']);
+  // 一次最多留 50 部，只留正規化後的欄位（快取的就是這個）
+  const many = parseList(Array.from({ length: 300 }, (_, i) => ({ id: `s${i}`, title: `劇${i}`, contentRating: 'GENERAL', cover: 'x', price: 9 })));
+  assert.equal(many.length, LIST_MAX);
+  assert.ok(many.every((x) => !('cover' in x) && !('price' in x)));
+  assert.throws(() => parseList({ items: [] }), /不是清單/);
   assert.deepEqual(normKeywords(['甜寵', '甜寵', '', 1, ...'abcdefghij'.split('')]).length, 8);
   assert.deepEqual(normKeywords('x'), []);
   assert.equal(dramaQuery('有沒有甜寵的短劇？'), '甜寵');
@@ -96,7 +105,7 @@ test('真實 adapter＋開放資料 client：找不到是 UserError；上游故�
     const od = createOpenDataClient({ fetchImpl: async (url) => handler(String(url)) });
     return createDramaServices(createLiveDramaFetchers({ od, base: 'https://secret-host.example.com' }), { links: LINKS });
   };
-  const json = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
+  const json = (body, status = 200, len = null) => ({ ok: status < 400, status, headers: { get: (k) => (k === 'content-length' ? len : null) }, text: async () => JSON.stringify(body), json: async () => body });
   const gone = mk((u) => (u.includes('/catalog/series/') ? json({}, 410) : json({})));
   await assert.rejects(gone.drama.series({ id: 'zz' }), (e) => e instanceof UserError && /下架/.test(e.message));
   const down = mk(() => json({}, 500));
@@ -107,11 +116,19 @@ test('真實 adapter＋開放資料 client：找不到是 UserError；上游故�
   await assert.rejects(off.drama.picks({}), (e) => /連線失敗/.test(e.message) && !/secret-host/.test(e.message));
   assert.equal(await off.drama.waitPick(), null, '等車推劇：上游失敗就不推');
   // 正常：簡介端點補完整簡介；熱搜失敗不影響排行
-  const ok = mk((u) => (u.includes('hot-keywords') ? json({}, 500) : u.includes('/synopsis') ? json({ seriesId: 'a', synopsis: '完整簡介' }) : u.includes('/catalog/series/') ? json({ id: 'a', title: 'A', synopsis: '短' }) : json([{ id: 'a', title: 'A', freeEpisodes: 3 }])));
+  const ok = mk((u) => (u.includes('hot-keywords') ? json({}, 500) : u.includes('/synopsis') ? json({ seriesId: 'a', synopsis: '完整簡介' }) : u.includes('/catalog/series/') ? json({ id: 'a', title: 'A', synopsis: '短', contentRating: 'GENERAL' }) : json([{ id: 'a', title: 'A', freeEpisodes: 3, contentRating: 'GENERAL' }])));
   assert.equal((await ok.drama.series({ id: 'a' })).items[0].synopsis, '完整簡介');
   const p = await ok.drama.picks({});
   assert.deepEqual([p.items[0].appLink, p.keywords], ['example-drama://watch/a/1', []]);
   await assert.rejects(ok.drama.search({ query: '短劇' }), UserError, '只說「短劇」沒有要找的字');
+  // 回應太大：宣告的長度或實際內容超過 2 MB 都不解析
+  const huge = mk(() => json([], 200, '9999999'));
+  await assert.rejects(huge.drama.picks({}), (e) => /回應太大/.test(e.message));
+  const big = mk(() => json([{ id: 'a', title: 'A', synopsis: 'x'.repeat(2_100_000), contentRating: 'GENERAL' }]));
+  await assert.rejects(big.drama.search({ query: '甜寵' }), (e) => /回應太大/.test(e.message));
+  // 單劇是限制級：當成找不到
+  const adult = mk((u) => (u.includes('/catalog/series/') ? json({ id: 'r', title: 'R', contentRating: 'RESTRICTED' }) : json({})));
+  await assert.rejects(adult.drama.series({ id: 'r' }), UserError);
 });
 
 test('Mock 對等：示範與真實版方法相同、輸出欄位相同；示範資料是虛構的', async () => {
@@ -155,7 +172,26 @@ test('等車推劇輪替：熱門前 5 部裡可看的，依台灣日期＋對�
   for (let t = 0; t < 8; t++) assert.ok(['a', 'c', 'd', 'e'].includes(pickForWait(list, { turn: t, now: DAY }).id));
   assert.notEqual(pickForWait(list, { turn: 0, now: Date.parse('2026-11-23T15:59:00Z') }).id, pickForWait(list, { turn: 0, now: Date.parse('2026-11-23T16:01:00Z') }).id);
   // 問阿幫：同一段對話第幾句（使用者第幾則）決定輪次
-  assert.equal(asideState({ messages: [{ role: 'user', content: 'a' }, { role: 'assistant', content: 'b' }, { role: 'user', content: 'c' }] }, getProfile('life'), DAY).turn, 2);
+  assert.equal(asideState({ messages: [{ role: 'user', content: 'a' }, { role: 'assistant', content: 'b' }, { role: 'user', content: 'c' }] }, getProfile('life'), DAY).turn, 2, '沒送輪次：退回用訊息數');
+  assert.equal(asideState({ turn: 23, messages: [{ role: 'user', content: 'a' }] }, getProfile('life'), DAY).turn, 23, '手機送的輪次優先（訊息只送最近 10 則）');
+  assert.equal(validateRequest({ messages: [{ role: 'user', content: 'a' }], turn: 23 }).turn, 23);
+  for (const bad of [0, 1.5, -1, '3']) assert.throws(() => validateRequest({ messages: [{ role: 'user', content: 'a' }], turn: bad }), UserError, String(bad));
+});
+
+test('等車推劇不拖慢回答：一輪開始就並行拿排行，到站結果出來時直接用；關掉時不拿', async () => {
+  const svc = createServices({ forceMock: true, drama: { links: LINKS } });
+  let calls = 0;
+  const real = svc.drama.waitPick;
+  const counted = { ...svc, drama: { ...svc.drama, waitPick: (a) => { calls += 1; return real(a); } } };
+  const st = asideState({ messages: [{ role: 'user', content: 'x' }] }, getProfile('life'), Date.now(), counted);
+  assert.equal(calls, 1, '一開始就拿');
+  assert.ok(st.pick);
+  const a = await waitDrama(counted, { tool: 'bus_route_eta', data: { focus: { status: 0, etaSec: 600 } }, parent: 't1' }, st);
+  assert.ok(a);
+  assert.equal(calls, 1, '到站結果出來時沒有再查一次');
+  const off = asideState({ messages: [{ role: 'user', content: 'x' }], userState: { dramaHint: false } }, getProfile('life'), Date.now(), counted);
+  assert.equal(off.pick, null);
+  assert.equal(calls, 1, '關掉就不拿');
 });
 
 test('工具：drama_picks／drama_search／drama_series（示範）；mode 看 MYDRAMA_API_BASE；搜尋沒結果照實說', async () => {
@@ -277,6 +313,9 @@ test('找劇意圖（示範規則）：排行、類型、劇名、劇情、沒�
   assert.equal(P('Any good short dramas?').intent, 'drama');
   assert.equal(P('Recommend a romance drama').dramaQuery, '甜寵');
   assert.notEqual(P('去國家戲劇院怎麼走').intent, 'drama');
+  for (const s of ['我要去看舞台劇，坐捷運要多久', '明天去看京劇會下雨嗎', '到國家戲劇院看歌劇要搭什麼車', '去新北市藝文中心看兒童劇', '週末想看音樂劇', '帶小孩看布袋戲', '去台北101的路上想看短劇', 'How do I get to the National Theater to see a drama', 'Is there a drama at the theater tonight']) assert.notEqual(P(s).intent, 'drama', s);
+  assert.equal(P('等車無聊，推薦短劇').dramaList, 'hot', '「等車」不算問交通');
+  assert.equal(P('《捷運末班車》在演什麼').intent, 'drama', '劇名裡的「捷運」不算問交通');
   assert.notEqual(P('307 到哪了？').intent, 'drama');
   assert.notEqual(P('今天會下雨嗎').intent, 'drama');
   const es = await run(createServices({ forceMock: true }), ask('有沒有殭屍的短劇'));
@@ -286,12 +325,12 @@ test('找劇意圖（示範規則）：排行、類型、劇名、劇情、沒�
   assert.doesNotMatch(noLink, /在 MyDrama 看/, '沒設定連結時不叫使用者按不存在的按鈕');
 });
 
-test('運動解鎖提示（只做句子與連結，接線留給運動建議）：天氣好又動得少才說；連結不合格不給按鈕', () => {
+test('運動建議提示（只做句子與連結，接線留給運動建議）：天氣好又動得少才說；連結不合格不給按鈕', () => {
   assert.equal(exerciseNudge({ weatherOk: true, movedLittle: false }), null);
   assert.equal(exerciseNudge({ weatherOk: false, movedLittle: true }), null);
   const z = exerciseNudge({ weatherOk: true, movedLittle: true, link: 'example-drama://unlock' });
-  assert.match(z.text, /運動還可以解鎖短劇集數/);
-  assert.deepEqual([z.cta, z.link], ['看 MyDrama 運動解鎖', 'example-drama://unlock']);
+  assert.match(z.text, /活動頁/);
+  assert.deepEqual([z.cta, z.link], ['看 MyDrama 活動頁', 'example-drama://unlock']);
   const bad = exerciseNudge({ weatherOk: true, movedLittle: true, link: 'javascript://x' });
   assert.deepEqual([bad.cta, bad.link], [null, null]);
   assert.match(exerciseNudge({ weatherOk: true, movedLittle: true, lang: 'en' }).text, /^Nice weather/);
@@ -330,26 +369,41 @@ test('開 App：先開 App 連結，畫面沒離開才開商店頁；不安全�
   assert.equal(storePage({ ios: 'https://example.com/ios', android: null }, 'Android'), 'https://example.com/ios');
 });
 
-test('公開 repo：沒有 MyDrama 的網址、深層連結格式、內部文件或規格複製', () => {
-  const files = execFileSync('git', ['ls-files', '-co', '--exclude-standard'], { cwd: new URL('..', import.meta.url), encoding: 'utf8' }).split('\n')
-    .filter((f) => f && !/^(?:node_modules|dist|test\/screenshots|private)\//.test(f) && !/\.(?:png|webp|jpg|ico|jar|keystore|mp4)$/i.test(f));
+test('公開 repo：沒有 MyDrama 的網址、網域、深層連結格式、合作方名稱、內部文件或規格複製', () => {
+  const root = new URL('..', import.meta.url);
+  const files = execFileSync('git', ['ls-files', '-co', '--exclude-standard'], { cwd: root, encoding: 'utf8' }).split('\n')
+    .filter((f) => f && !/^(?:node_modules|dist|test\/screenshots)\//.test(f) && !/\.(?:png|webp|jpg|ico|jar|keystore|mp4|woff2?)$/i.test(f)); // private/ 也掃
   // 樣式用字串拼起來（本檔不會比對到自己）
   const D = ['my', 'drama'].join('');
   const BAD = [
     new RegExp(`${D}:\\/\\/`, 'i'), // App 的自訂 scheme
     new RegExp(`https?:\\/\\/[^\\s'"\`)]*${D}`, 'i'), // 含 mydrama 的網址（API、CDN、商店頁、網站）
+    new RegExp(`\\.${D}\\b`, 'i'), // 子網域（某主機點上片庫名稱）
+    new RegExp(`\\b${D}\\.(?:com|tw|net|io|app|co|org|dev|cloud|link)\\b`, 'i'), // 不帶協定的網域
     new RegExp(`tw\\.${D}`, 'i'), // App 套件名稱
     new RegExp(['openapi', 'api', 'app'].join('-'), 'i'), // 規格檔名
     new RegExp(`${D}-workpack|bitbucket\\.org`, 'i'), // 內部 repo
     new RegExp(`\\b${D.toUpperCase()}-\\d+\\b`), // Jira 卡號
     new RegExp(['localhost', '8081'].join(':')), // 本機 API 埠號
   ];
+  // 合作方公司的英文名稱與內部網域只以雜湊比對，不寫進 repo（中文公司名在防詐情境、規劃文件裡本來就會出現，不算）
+  const SECRET = new Set(['b3c4733ebff6cb92b5bd69a6e132d6b98023f8c4551e80961eeeb5e3d949d895']);
+  const sha = (x) => createHash('sha256').update(x).digest('hex');
+  const secretIn = (text) => {
+    const words = text.toLowerCase().match(/[a-z0-9]+/g) || [];
+    for (let i = 0; i < words.length; i++) if (words[i].length >= 6 && (SECRET.has(sha(words[i])) || (i + 1 < words.length && SECRET.has(sha(words[i] + words[i + 1]))))) return true;
+    return false;
+  };
   const hits = [];
   for (const f of files) {
     let s;
-    try { s = readFileSync(new URL(`../${f}`, import.meta.url), 'utf8'); } catch { continue; } // 已刪除、目錄（symlink）
+    try { s = readFileSync(new URL(f, root), 'utf8'); } catch { continue; } // 已刪除、目錄（symlink）
     for (const re of BAD) if (re.test(s)) hits.push(`${f}：${re}`);
+    if (secretIn(s)) hits.push(`${f}：合作方名稱`);
   }
   assert.ok(files.length > 100, '有讀到 repo 的檔案');
+  assert.ok(files.some((f) => f.startsWith('private/')) || !execFileSync('git', ['ls-files', 'private'], { cwd: root, encoding: 'utf8' }).trim(), 'private/ 也有掃');
+  const rev = (x) => [...x].reverse().join(''); // 測試用的名稱倒過來寫，本檔不會比對到自己
+  assert.ok(secretIn(`${rev('nawiaT')} ${rev('eliboM')}`) && secretIn(`corp.${rev('eliBOMnawiat')}.com`), '雜湊比對有效（英文名稱、網域）');
   assert.deepEqual(hits, []);
 });

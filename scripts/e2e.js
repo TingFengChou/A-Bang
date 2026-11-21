@@ -3009,7 +3009,9 @@ test('等車推短劇：公車還要等 8 分以上 → 到站卡片下方一行
     const sent = page.waitForRequest((r) => r.url().endsWith('/api/v1/agent') && r.method() === 'POST');
     await page.fill('.chat-input', `${routeName} 公車到「${stop}」還要多久`);
     await page.press('.chat-input', 'Enter');
-    assert.equal(JSON.parse((await sent).postData()).userState?.dramaHint, false);
+    const body = JSON.parse((await sent).postData());
+    assert.equal(body.userState?.dramaHint, false);
+    assert.ok(Number.isInteger(body.turn) && body.turn >= 1, '送這段對話第幾輪（輪替用）');
     await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
     await page.locator('.results [data-card="bus-route"]').waitFor();
     assert.equal(await page.locator('.drama-hint').count(), 0);

@@ -280,8 +280,11 @@ export function checkRewrite(candidate, { draft, facts = {}, lang = 'zh', agent 
   const neg = negated(text, d, en);
   if (neg) return { ok: false, reason: 'negation', detail: neg };
   // 名稱：引號裡的、以及沒加引號但以站、路、線、出口結尾的，都要是資料裡有的
-  const names = [...text.matchAll(/[「『]([^」』]{1,30})[」』]/g)].map((m) => m[1]);
-  const badName = names.find((x) => !refTw.includes(tw(x))) || unquotedPlace(text, refTw);
+  const names = [...text.matchAll(/[「『《]([^」』》]{1,30})[」』》]/g)].map((m) => m[1]);
+  // 劇名、書名（《》）要跟資料一字不差：截短（《夜班公車》）或改字都不行（短劇，ADR-0019）
+  const titles = new Set([...ref.matchAll(/《([^》]{1,40})》/g)].map((m) => tw(m[1])));
+  const badTitle = [...text.matchAll(/《([^》]{1,40})》/g)].map((m) => m[1]).find((x) => !titles.has(tw(x)));
+  const badName = badTitle || names.find((x) => !refTw.includes(tw(x))) || unquotedPlace(text, refTw);
   if (badName) return { ok: false, reason: 'name', detail: badName };
   return { ok: true, text };
 }

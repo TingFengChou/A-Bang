@@ -318,7 +318,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const used = new Set();
   let lastTrip = null; // 這一輪最後一次比較的行程（總結補上程式知道、模型漏講的重點）
   const ask = { done: false, habitAsk: req.userState?.habitAsk, usual: req.userState?.usual }; // 阿幫問你：這一輪最多一個（ADR-0016）
-  const aside = asideState(req, profile, now); // 等車推短劇（ADR-0019）：這一輪最多一次
+  const aside = asideState(req, profile, now, svc); // 等車推短劇（ADR-0019）：這一輪最多一次（排行先並行拿）
   // 有現在位置時，程式先用它查好（不靠模型）：地端模型常常只查了目的地就反問「你從哪裡出發」。
   //   沒說起點的行程 → plan_trip（起點＝現在位置）；沒說地點的天氣／空品／YouBike／附近公車／垃圾車 → 對應工具（現在位置）
   // 結果照常出現在討論串與卡片，再交給模型轉述（AGENT.md §5.2.1）

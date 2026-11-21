@@ -128,18 +128,17 @@
 
 ## 5.4 MyDrama 短劇（✅ 2026-11-22，ADR-0019；非政府開放資料的內容合作來源）
 
-| 資料 | 端點（相對於 `MYDRAMA_API_BASE`） | 登入 | 快取 |
-|---|---|---|---|
-| 排行（熱門、新上架、已完結、台灣自製） | `/catalog/ranking?type=` | 不需要 | 10 分 |
-| 搜尋（劇名、別名、演員、類型標籤、簡介） | `/catalog/search?q=` | 不需要 | 10 分（每個關鍵字） |
-| 單劇 | `/catalog/series/{id}` | 不需要 | 1 小時 |
-| 簡介 | `/series/{id}/synopsis` | 不需要 | 1 小時 |
-| 熱搜關鍵字 | `/catalog/hot-keywords` | 不需要 | 10 分 |
+阿幫只用合作方的**公開讀取**資料：熱門與分類排行、關鍵字搜尋、單一部劇、簡介、熱搜詞（`core/services/drama.js` 只寫用到的那幾個路徑）。
 
-- **網址不進 repo**：`MYDRAMA_API_BASE`（只收 https；本機開發可 `http://localhost`）、`MYDRAMA_LINK_EPISODE`（App 連結範本，`{id}`、`{ep}`）、`MYDRAMA_LINK_EXERCISE`、`MYDRAMA_STORE_IOS`／`MYDRAMA_STORE_ANDROID` 都只放 `.env`（公司提供）。沒有 `MYDRAMA_API_BASE` 或 `DEMO_MODE=1` 時用 `core/data/demo/drama.json`（**虛構**的劇名與簡介，`demo-` 開頭的 id）。
-- 只用上列公開讀取端點；不用需要登入、後台金鑰、串流網址、留言、會員資料的端點。送出的只有搜尋關鍵字。
-- 防禦性解析：id 只收英數、底線、連字號；劇名必填；數字欄位不合格為 `null`；限制級不列；只留阿幫用的欄位（封面、價格、解鎖設定不往上傳）。HTTP 404／410 → `UserError`「找不到這部短劇」；其他錯誤與格式不符 → 上游錯誤（訊息不含網址）。
-- 公開端點沒有每集長度：等車推劇用「等 ≥ 5 分」代替「一集看得完」（產品負責人待確認）。
+| 用途 | 快取 |
+|---|---|
+| 排行、關鍵字搜尋、熱搜詞 | 10 分（搜尋每個關鍵字各自快取） |
+| 單一部劇、簡介 | 1 小時 |
+
+- **網址不進 repo**：`MYDRAMA_API_BASE`（只收 https；本機開發可 `http://localhost`）、`MYDRAMA_LINK_EPISODE`（App 連結範本，`{id}`、`{ep}`）、`MYDRAMA_LINK_EXERCISE`、`MYDRAMA_STORE_IOS`／`MYDRAMA_STORE_ANDROID` 都只放 `.env`（合作方提供）。沒有 `MYDRAMA_API_BASE` 或 `DEMO_MODE=1` 時用 `core/data/demo/drama.json`（**虛構**的劇名與簡介，`demo-` 開頭的 id）。
+- 不用任何要登入或後台權限的資料；送出的只有搜尋關鍵字。
+- 下載後先正規化再快取：一次最多 50 部、只留阿幫用的欄位（劇名、類型、集數、簡介等），回應超過 2 MB 不解析。id 只收英數、底線、連字號；數字不合格為 `null`；分級是限制級（中文或英文代碼）或缺分級的不列。找不到或已下架 → `UserError`；其他錯誤與格式不符 → 上游錯誤（訊息不含網址）。
+- 一集多長拿不到：等車推劇用「等 ≥ 5 分」代替「一集看得完」（PLAN.md D-08）。
 
 ## 6. 下一階段來源
 
