@@ -71,6 +71,8 @@ test('摘要：只有文字（閒聊、答不出來）用提問＋回答第一�
   const two = turnSummary({ q: '307 到哪了，會下雨嗎', results: [{ tool: 'bus_route_eta', data: { routeName: '307', focus: { stopName: '敦化市場', statusText: '5 分', etaSec: 300 } } }, { tool: 'weather_now', data: { town: '大安區', tempC: 20, raining: false } }] });
   assert.equal(two.line, '307：敦化市場 5 分到站・天氣：大安區 20°C 沒下雨');
   assert.equal(two.short, '307');
+  const busMetro = turnSummary({ q: '307 和捷運', results: [{ tool: 'bus_route_eta', data: { routeName: '307', focus: { stopName: 'A', statusText: '5 分', etaSec: 300 } } }, { tool: 'metro_live_board', data: { station: '市政府', trains: [{ destination: '頂埔', etaMin: 3, status: '3 分' }] } }] });
+  assert.equal(busMetro.line, '307：A 5 分到站・市政府捷運：往頂埔 3 分', '同是交通的兩件事也都留著');
   const unknown = turnSummary({ q: '油價', results: [{ tool: 'some_new_tool', speak: '新工具查好了。還有別的。' }] });
   assert.equal(unknown.line, '新工具查好了。', '認不得的工具：用工具一句話回報的第一句');
 });
@@ -88,12 +90,17 @@ test('摘要：英文那一輪用英文', () => {
   assert.equal(topicText(new Date(2026, 10, 21, 22, 40).getTime(), 'en'), 'New topic · 22:40');
 });
 
-test('換話題：類別不同才分段；接著問、只有文字不算；超過 30 分鐘一定分段', () => {
+test('換話題：類別不同才分段（交通類同一個話題）；接著問、只有文字不算；超過 30 分鐘一定分段', () => {
   const at = new Date(2026, 10, 21, 22, 0).getTime();
-  assert.equal(topicOf({ results: [{ tool: 'find_place' }, { tool: 'weather_now' }, { tool: 'plan_trip' }] }), 'trip', '行程裡的天氣不算天氣話題');
-  assert.equal(topicOf({ results: [{ tool: 'bus_route_eta' }] }), 'bus');
+  assert.equal(topicOf({ results: [{ tool: 'find_place' }, { tool: 'weather_now' }, { tool: 'plan_trip' }] }), 'transit', '行程裡的天氣不算天氣話題');
+  // 產品負責人 2026-11-21：行程、公車、捷運、高鐵台鐵、YouBike 都是交通，同一個話題（問完去 101 再問 307 不分段）
+  for (const tool of ['plan_trip', 'bus_route_eta', 'bus_nearby_stations', 'metro_live_board', 'thsr_timetable', 'tra_timetable', 'youbike_nearby', 'ridehail_link']) assert.equal(topicOf({ results: [{ tool }] }), 'transit', tool);
+  for (const intent of ['trip', 'bus_route', 'nearby_bus', 'youbike', 'metro', 'rail']) assert.equal(topicOf({ results: [], intent }), 'transit', intent);
+  assert.equal(topicBreak({ topic: topicOf({ results: [{ tool: 'plan_trip' }] }), at }, { topic: topicOf({ results: [{ tool: 'bus_route_eta' }] }), at: at + 60e3 }), false, '去 101 → 問 307：不分段');
   assert.equal(topicOf({ results: [{ tool: 'aqi_nearby' }] }), 'weather', '天氣、空品同一類');
-  assert.equal(topicOf({ results: [], intent: 'metro' }), 'metro', '還沒有結果：先用判斷層的意圖');
+  assert.equal(topicOf({ results: [{ tool: 'outing_advice' }] }), 'weather', '出門建議也是天氣類');
+  assert.equal(topicOf({ results: [], intent: 'aqi' }), 'weather', '還沒有結果：先用判斷層的意圖');
+  assert.equal(topicBreak({ topic: 'transit', at }, { topic: 'weather', at: at + 60e3 }), 'topic', '交通 → 天氣：分段');
   assert.equal(topicOf({ results: [], intent: 'unknown' }), null);
   assert.equal(topicOf({ results: [{ tool: 'scam_lookup_url' }], profile: 'antifraud' }), 'scam');
   assert.equal(topicBreak({ topic: 'trip', at }, { topic: 'bus', at: at + 60e3 }), 'topic');

@@ -1,23 +1,23 @@
-// 長對話（UX.md §4.17）：每一輪收起時的一行摘要、「今天問過」的小標、換話題判斷。
+// 長對話（UX.md §4.17）：每一輪收起時的一行摘要、「這次問過」的小標、換話題判斷。
 // 純函式：只看這一輪的資料（工具結果、決策、總結、提問），不經模型；英文那一輪用英文（下面的字典）。node:test 可測。
 
 /** 距上一輪超過這麼久就算新的話題（分段） */
 export const TOPIC_GAP_MS = 30 * 60e3;
 
-/** 工具 → 話題類別（換話題判斷、目錄分組） */
+/** 工具 → 話題類別（換話題判斷、目錄分組）。交通類（行程、公車、捷運、高鐵台鐵、YouBike、叫車、路況）同一個話題（產品負責人 2026-11-21：問完去 101 再問 307 不分段） */
 const TOOL_TOPIC = {
-  plan_trip: 'trip', ridehail_link: 'trip', rail_booking_link: 'trip', traffic_status: 'trip', intercity_bus: 'trip',
-  bus_route_eta: 'bus', bus_station_eta: 'bus', bus_nearby_stations: 'bus', bus_search_routes: 'bus',
-  metro_live_board: 'metro', metro_stations: 'metro',
-  thsr_timetable: 'rail', tra_timetable: 'rail', rail_stations: 'rail', rail_fare: 'rail',
-  youbike_nearby: 'bike',
+  plan_trip: 'transit', ridehail_link: 'transit', rail_booking_link: 'transit', traffic_status: 'transit', intercity_bus: 'transit',
+  bus_route_eta: 'transit', bus_station_eta: 'transit', bus_nearby_stations: 'transit', bus_search_routes: 'transit',
+  metro_live_board: 'transit', metro_stations: 'transit',
+  thsr_timetable: 'transit', tra_timetable: 'transit', rail_stations: 'transit', rail_fare: 'transit',
+  youbike_nearby: 'transit',
   weather_now: 'weather', weather_tomorrow: 'weather', outing_advice: 'weather', aqi_nearby: 'weather',
   earthquake_recent: 'quake', pharmacy_search: 'pharmacy', garbage_truck_nearby: 'garbage', fuel_price: 'fuel',
   invoice_lottery: 'invoice', invoice_check_batch: 'invoice', stock_quote: 'stock',
   scam_check_message: 'scam', scam_lookup_url: 'scam', scam_myth_search: 'scam', sms_sender_check: 'scam',
 };
 /** 判斷層的意圖（core/agent/judge.js JUDGE_INTENTS）→ 話題類別：還沒有工具結果時先用 */
-const INTENT_TOPIC = { trip: 'trip', bus_route: 'bus', nearby_bus: 'bus', youbike: 'bike', metro: 'metro', rail: 'rail', weather: 'weather', aqi: 'weather', quake: 'quake', pharmacy: 'pharmacy', garbage: 'garbage', fuel: 'fuel', invoice: 'invoice', stock: 'stock' };
+const INTENT_TOPIC = { trip: 'transit', bus_route: 'transit', nearby_bus: 'transit', youbike: 'transit', metro: 'transit', rail: 'transit', weather: 'weather', aqi: 'weather', quake: 'quake', pharmacy: 'pharmacy', garbage: 'garbage', fuel: 'fuel', invoice: 'invoice', stock: 'stock' };
 /** 只是輔助的工具（找地點、路況）：有別的結果時不拿來當這一輪的主題 */
 const AUX = new Set(['find_place', 'traffic_status']);
 
@@ -170,7 +170,7 @@ function mainResults(results) {
   const main = ok.filter((r) => !AUX.has(r.tool));
   // 同一類只留最後一筆（接著查同一路線），最多兩件事（「一句兩件事」）
   const seen = new Map();
-  for (const r of main) seen.set(TOOL_TOPIC[r.tool] || r.tool, r);
+  for (const r of main) seen.set(r.tool, r);
   const picked = [...seen.values()].slice(0, 2);
   return picked.length ? picked : ok.slice(-1);
 }

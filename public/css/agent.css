@@ -313,7 +313,7 @@ html.lite-motion .voice-panel .vc-core, html.lite-motion .voice-panel .vc-halo {
 .tab-key { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 .tab-key.listening .key-disc { box-shadow: 0 0 0 4px rgba(251, 191, 36, .55), 0 6px 18px rgba(15, 118, 110, .35); }
 
-/* 長對話（UX.md §4.17）：一輪＝提問＋回答；舊的輪收成一行摘要（按鈕），換話題分隔線，「今天問過」目錄，「回到最新」 */
+/* 長對話（UX.md §4.17）：一輪＝提問＋回答；舊的輪收成一行摘要（按鈕），換話題分隔線，「這次問過」目錄，「回到最新」 */
 .round { display: flex; flex-direction: column; gap: 10px; scroll-margin-top: 76px; }
 .round:focus { outline: none; }
 .round:focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; border-radius: 12px; }

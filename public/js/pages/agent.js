@@ -167,7 +167,7 @@ export default {
     const log = el('div', 'chat');
     log.setAttribute('role', 'log');
     log.setAttribute('aria-live', 'polite');
-    const rounds = createRounds({ log }); // 長對話：舊的輪收成一行、換話題分段、「今天問過」目錄（agent/collapse.js）
+    const rounds = createRounds({ log }); // 長對話：舊的輪收成一行、換話題分段、「這次問過」目錄（agent/collapse.js）
     const chips = el('div', 'suggest');
     const pageRow = el('div', 'suggest page-ask'); // 浮動阿幫：在這一頁可以問（abang-dock.js setPage）
     pageRow.hidden = true;

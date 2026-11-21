@@ -2485,7 +2485,7 @@ test('語音問阿幫：第一次按麥克風跳權限框（App 暫時看不見�
   }, { init: FAKE_VOICE({ mode: 'auto', startDelay: 800 }), ignore: VOICE_IGNORE });
 });
 
-// 長對話（UX.md §4.17，2026-11-21 PM）：舊的輪收成一行、換話題分隔線、「今天問過」目錄、回到最新、提醒頁回到當時的對話、底部對話面板一樣收合
+// 長對話（UX.md §4.17，2026-11-21 PM）：舊的輪收成一行、換話題分隔線、「這次問過」目錄、回到最新、提醒頁回到當時的對話、底部對話面板一樣收合
 test('長對話：連問 5 題只有最新一輪展開、換話題分段、目錄、回到最新、提醒頁看當時的對話、底部面板', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const qs = ['從西門町到台北101怎麼去', '307 到哪了？', '現在天氣如何', '附近空氣品質', '這期發票號碼是多少？'];
@@ -2493,6 +2493,8 @@ test('長對話：連問 5 題只有最新一輪展開、換話題分段、目�
       await page.fill('.chat-form input', q);
       await page.press('.chat-form input', 'Enter');
       await page.waitForFunction((n) => document.querySelectorAll('.bubble.final').length === n, i + 1, { timeout: 20000 });
+      // 送出後自動捲到最新一輪（reduced motion：直接跳、不平滑）
+      await page.waitForFunction((n) => { const r = document.querySelector(`.round[data-round="${n}"]`).getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight / 2; }, i + 1, { timeout: 3000 });
     }
     await page.waitForFunction(() => document.querySelectorAll('.round.folded').length === 4);
     const rounds = page.locator('.chat .round');
@@ -2512,13 +2514,13 @@ test('長對話：連問 5 題只有最新一輪展開、換話題分段、目�
     assert.ok((await first.boundingBox()).height >= 44, '摘要按鈕夠大');
     await page.evaluate(() => window.scrollTo(0, 0));
     await shot(page, 'phone-chat-collapsed');
-    // 換話題：行程 → 公車 → 天氣（空品同一類，不分）→ 發票
+    // 換話題：行程 → 公車（交通同一類，不分）→ 天氣 → 空品（天氣同一類，不分）→ 發票
     const seps = page.locator('.chat .topic-sep[role=separator]');
-    assert.equal(await seps.count(), 3);
+    assert.equal(await seps.count(), 2, await page.locator('.chat .topic-sep + .round').evaluateAll((rs) => rs.map((r) => r.dataset.round + r.textContent.slice(0, 30)).join(' / ')));
+    assert.equal(await page.locator('.chat .topic-sep + .round').evaluateAll((rs) => rs.map((r) => r.dataset.round).join()), '3,5', '分段在天氣、發票前面');
     assert.match(await seps.first().textContent(), /^新的話題・\d{2}:\d{2}$/);
     assert.match(await seps.first().getAttribute('aria-label'), /^新的話題，\d{2}:\d{2}$/);
-    assert.equal(await page.locator('.chat .topic-sep + .round').count(), 3, '分隔線在那一輪前面');
-    await seps.nth(1).scrollIntoViewIfNeeded();
+    await seps.nth(0).scrollIntoViewIfNeeded();
     await page.screenshot({ path: new URL('phone-chat-topic.png', SHOTS).pathname }); // 畫面內（不是整頁）：看得到分隔線與前後的摘要
     // 點摘要展開、再點收起（鍵盤也可以）；展開時決策圖照舊
     await first.click();
@@ -2529,8 +2531,8 @@ test('長對話：連問 5 題只有最新一輪展開、換話題分段、目�
     await page.keyboard.press('Enter');
     assert.equal(await first.getAttribute('aria-expanded'), 'false', '鍵盤 Enter 收起');
     assert.equal(await page.evaluate(() => document.activeElement?.classList.contains('round-sum')), true, '焦點留在摘要按鈕');
-    // 「今天問過」目錄（超過 3 輪；nav 有名稱）：點了捲到那一輪並展開，焦點在那一輪的摘要
-    const nav = page.getByRole('navigation', { name: '今天問過' });
+    // 「這次問過」目錄（超過 3 輪；nav 有名稱）：點了捲到那一輪並展開，焦點在那一輪的摘要
+    const nav = page.getByRole('navigation', { name: '這次問過' });
     assert.ok(await nav.isVisible());
     assert.deepEqual(await nav.locator('.ci-item').allTextContents(), ['台北101', '307', '天氣', '空品', '發票']);
     await page.evaluate(() => window.scrollTo(0, 0));

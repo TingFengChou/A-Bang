@@ -3,7 +3,7 @@
 //    正在回答的那一輪、你正在操作的那一輪（焦點在裡面、剛點過）、阿幫反問你還沒回答的那一輪不收。
 // 2. 收起的輪：決策圖停止動畫（decision-graph pause）、卡片照舊（超過 2 輪的已停止刷新）；只留「決定：捷運」小標。
 // 3. 換話題（類別不同）或距上一輪超過 30 分鐘：插分隔線「新的話題・22:40」。
-// 4. 超過 3 輪：對話上方「今天問過」小目錄（只在整頁顯示）；捲到上面時輸入列右上方出現「回到最新」。
+// 4. 超過 3 輪：對話上方「這次問過」小目錄（只在整頁顯示）；捲到上面時輸入列右上方出現「回到最新」。
 // 收合、展開時保持你正在看的位置（找畫面上第一個不變的元素當錨點，補回捲動距離）；reduced motion 時不動畫。
 import { turnSummary, topicOf, topicBreak, topicText, roundLabel, askedBack } from './turn-summary.js';
 
@@ -36,7 +36,7 @@ export function createRounds({ log }) {
   const latest = () => rounds.at(-1) || null;
   const langNow = () => latest()?.view?.lang || null;
 
-  // 「今天問過」小目錄（log 外面：不在 aria-live 區域裡，目錄更新不會被念）
+  // 「這次問過」小目錄（log 外面：不在 aria-live 區域裡，目錄更新不會被念）
   const nav = el('nav', 'chat-index');
   nav.hidden = true;
   const navTitle = el('span', 'ci-title');
@@ -58,8 +58,8 @@ export function createRounds({ log }) {
   });
   const paintLang = () => {
     const en = langNow() === 'en';
-    nav.setAttribute('aria-label', en ? 'Asked today' : '今天問過');
-    navTitle.textContent = en ? 'Asked today' : '今天問過';
+    nav.setAttribute('aria-label', en ? 'This chat' : '這次問過');
+    navTitle.textContent = en ? 'This chat' : '這次問過';
     toLatest.querySelector('.tl-text').textContent = en ? 'Latest' : '回到最新';
     toLatest.setAttribute('aria-label', en ? 'Back to the latest answer' : '回到最新的對話');
   };
@@ -72,10 +72,13 @@ export function createRounds({ log }) {
     io?.disconnect();
     const m = latest();
     if (!m || rounds.length < 2) { toLatest.hidden = true; return; }
+    // 輸入列（含建議）蓋住的底部不算看得到；最新一輪至少露出 40px 才算
+    const dockTop = toLatest.parentElement?.getBoundingClientRect().top;
+    const cut = Math.round(dockTop > 0 && dockTop < innerHeight ? innerHeight - dockTop + 40 : 180);
     io = new IntersectionObserver(([e]) => {
       if (!log.isConnected || log.closest('.sheet-body')) { toLatest.hidden = true; return; }
       toLatest.hidden = e.isIntersecting || e.boundingClientRect.top < (e.rootBounds?.top ?? 0);
-    }, { rootMargin: '0px 0px -180px 0px' });
+    }, { rootMargin: `0px 0px -${cut}px 0px` });
     io.observe(m.round);
   };
 
@@ -203,6 +206,16 @@ export function createRounds({ log }) {
     m.summary = turnSummary({ q: m.q, results: v.results, decision: v.decision, best: v.box?.dataset.best || null, text: v.text, lang: v.lang });
   }
 
+  /** 捲到這一輪的開頭（只捲對話所在的捲動區：整頁或底部面板，不動到後面的頁面） */
+  function scrollToRound(m) {
+    if (!m.round.isConnected) return;
+    const sc = scrollerOf(log);
+    const sep = m.round.previousElementSibling?.classList.contains('topic-sep') ? m.round.previousElementSibling : null; // 換話題：連分隔線一起看到
+    const top = (sep || m.round).getBoundingClientRect().top - viewBox(sc).top - 8;
+    if (Math.abs(top) < 2) return;
+    sc.scrollTo({ top: sc.scrollTop + top, behavior: reduced() ? 'auto' : 'smooth' });
+  }
+
   function focusRound(m, preferSum = true) {
     const target = preferSum && m.sum && getComputedStyle(m.sum).display !== 'none' ? m.sum : m.round;
     if (target === m.round) m.round.tabIndex = -1;
@@ -235,7 +248,8 @@ export function createRounds({ log }) {
     const line = el('div', 'thread-reset topic-sep', el('span', '', topicText(m.at, m.view?.lang)));
     line.setAttribute('role', 'separator');
     line.setAttribute('aria-label', topicText(m.at, m.view?.lang).replace('・', '，'));
-    const anc = anchorFor(new Set([m.round]));
+    const sc = scrollerOf(log);
+    const anc = inView(m.round, sc) ? { sc, a: m.round, y: m.round.getBoundingClientRect().top } : anchorFor(new Set([m.round])); // 正在看這一輪：它不動，分隔線往上長
     const restore = noAnchor(anc.sc);
     m.round.before(line);
     // 錨點在新的這一輪上面（看舊的時）不動；錨點就是這一輪時保持它的位置
@@ -272,20 +286,24 @@ export function createRounds({ log }) {
         const busy = targets.filter((r) => busyWith(r) || (r === prev && prev.keep));
         for (const r of busy) r.retry = !(r === prev && prev.keep);
         const go = targets.filter((r) => !busy.includes(r));
-        if (go.length) {
-          const anchor = anchorFor(new Set(go.map((r) => r.round)));
-          for (const r of go) fold(r, { animate: r === prev, anchor });
-        }
+        // 送出後會捲到這一輪：收起時不補捲動（錨點不用固定），收完再捲，目標位置才不會在捲動途中變
+        const none = { sc: scrollerOf(log), a: null, y: 0 };
+        for (const r of go) fold(r, { animate: r === prev, anchor: none });
       }
       paintIndex();
       watchLatest();
+      // 送出新問題：自動捲到最新一輪（提問在上、回答往下長）；reduced motion 時不平滑捲動
+      Promise.allSettled(rounds.filter((r) => r.anims.length).map((r) => r.anims[0].finished)).then(() => { if (latest() === m) scrollToRound(m); });
     },
-    /** 這一輪有新資料（status、工具結果）：知道話題就判斷要不要分段 */
-    progress(round) {
+    /**
+     * 這一輪有新資料（status、工具結果）：知道話題就判斷要不要分段。
+     * 回答途中只看判斷層的意圖（行程會先查天氣、空品，半途的工具結果會誤判成天氣）；沒有意圖時等答完（final）看全部工具結果。
+     */
+    progress(round, final = false) {
       const m = byEl.get(round);
       if (!m || m.checked || m.broke) return;
       const v = m.view || {};
-      const topic = topicOf({ results: v.results, intent: v.judge?.intent, profile: v.profile });
+      const topic = topicOf({ results: final ? v.results : [], intent: v.judge?.intent, profile: v.profile });
       if (!topic) return;
       m.checked = true;
       m.topic = topic;
@@ -304,8 +322,8 @@ export function createRounds({ log }) {
       m.done = true;
       m.endAt = Date.now();
       const v = m.view || {};
-      if (!m.topic) m.topic = topicOf({ results: v.results, intent: v.judge?.intent, profile: v.profile });
-      if (!m.checked) api.progress(round);
+      if (!m.checked) api.progress(round, true);
+      m.topic = topicOf({ results: v.results, intent: v.judge?.intent, profile: v.profile }) || m.topic; // 下一輪比對用答完的結果
       summarize(m);
       buildSum(m);
       for (const r of rounds) if (r.retry && r !== m && !r.folded && !busyWith(r)) { r.retry = false; fold(r, { animate: true }); }
