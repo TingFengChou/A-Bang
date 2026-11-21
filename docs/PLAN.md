@@ -33,6 +33,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | Agent 聰明度：模型模式與 PM 第二批（2026-11-21） | ✅（PR #79、#82：地端模型模式 72→97／99；PM P2-1～10 全過） | PM 第三批 | — |
 | M13 Agent 聰明度（PM 情境 S1～S19） | 🚧（情境集 89 個、todo 0：位置當起點、接著改、新狀態、出門建議、明天天氣、末班車、捷運轉乘、高鐵台鐵最近站、英文與卡片／討論串／決策圖英文、常用地點、多人同行／可能下雨／時間很緊、出門建議小卡、出門提醒多筆、附近藥局依位置、公車一直不來、下車提醒、安全情境（求助電話）、常用地點用地名設定、定位失敗說原因、行程中模式 ✅） | S12f 英文其餘、E3／E7 | 真實末班車、捷運路網需 TDX 金鑰 |
 | M14 阿幫聽得懂、看得懂（產品負責人 2026-11-21；ADR-0015） | 🚧（M14-01 語音問阿幫 ✅、M14-02 看 ✅） | 實機確認（Pixel、iPhone） | iOS 實機需 Austin 的 iPhone；打包版 ML Kit 讓 APK 變大（產品負責人已同意） |
+| M15 健康與運動（產品負責人 2026-11-22；ADR-0018） | 🚧（M15-01 天氣好又動得少時建議去走走 ✅，待產品負責人看截圖） | 實機確認（Pixel Health Connect、iPhone HealthKit） | iOS 免費個人開發團隊可能不能簽 HealthKit（開發版改用不含 entitlement 的建置，App 裡反白說原因）；上架前 Play Console 健康資料聲明 |
 | M6 上線 | 🚧（M6-01／02／04／07 ✅、地端部署驗證 ✅） | 正式環境階段再做 | 2026-11-19 Austin 決定：雲端部署（M6-06）、Redis 快取（M6-03）、Lighthouse（M6-05）留到正式環境階段；先衝刺功能。M6-07 需在 repo 設定啟用 Pages |
 
 建議順序：M4、M5、M7、M10 已完成；M1（TDX 金鑰）申請中；M6 正式環境項目延後；目前衝刺 M11 行動 App、M12 裝置端 AI、M13 Agent 聰明度（PM 情境清單見 `test/scenarios/life.json`）；M8 中小企業概念驗證移到下一階段。
@@ -61,7 +62,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 - [ ] 申請中央氣象署開放資料平臺授權碼 → `.env` 的 `CWA_API_KEY`
 - [ ] 本機 `npm start` ＋ `cloudflared tunnel --url http://localhost:8787`，在 Claude 新增自訂連接器 `https://<隨機>.trycloudflare.com/mcp`，確認能列出並呼叫 tools
 - [ ] 本機執行 `node scripts/verify-tdx.js`、`node scripts/record-fixtures.js`（M1 完成後），把 fixtures commit
-- [ ] 校對 `core/data/landmarks.json` 座標（201 筆，Claude 依記憶整理的近似值；可對照 Google 地圖或 M1 的 TDX／TGOS 結果，校對完把 `verified` 改為 `true`）
+- [ ] 校對 `core/data/landmarks.json` 座標（現在 230 筆，含 2026-11-22 新增的 13 個散步地點；Claude 依記憶整理的近似值；可對照 Google 地圖或 M1 的 TDX／TGOS 結果，校對完把 `verified` 改為 `true`）
 - [ ] （M5）取得 `ANTHROPIC_API_KEY`，設定每日預算；或不付費改用地端模型（`LOCAL_LLM_URL`＋`LOCAL_LLM_MODEL`，Ollama 需 `OLLAMA_CONTEXT_LENGTH=16384`）
 - [ ] （M6）選定部署平台與網域；部署時設定環境變數（金鑰）並用 `Dockerfile` 建置
 - [ ] （M11）決定 App 名稱與 App ID（目前 `tw.abang.app`）；申請 Apple Developer（每年 99 美元）與 Google Play 開發者帳號（一次 25 美元），公司或個人名義
@@ -346,6 +347,12 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] M14-02 看：拍可疑簡訊或選截圖查詐騙、拍站牌路牌問怎麼走、拍發票自動對獎（2026-11-21，UX.md §5.0.4、ADR-0015：外掛 `AbangVision`〔Android ML Kit 中文讀字＋條碼打包版、Photo Picker、系統相機；iOS Vision、PHPicker、UIImagePickerController〕、`public/js/vision.js`、`core/vision-text.js`；設定頁開關、隱私權政策、`#/ai` 卡片；E2E 假外掛三條流程＋權限被拒＋網頁降級＋reduced motion。實機讀字品質、Gemini Nano 看圖支援待 Pixel／iPhone 確認）
 - [ ] M14-02b 實機確認：Pixel（ML Kit 中文讀字品質、相機權限流程、Photo Picker、Gemini Nano 是否能看圖）、iPhone（Vision 繁體中文讀字、相機權限文案、PHPicker）；用實拍站牌、真實簡訊截圖校正分類規則
 
+## M15 健康與運動（產品負責人，2026-11-22；ADR-0018）
+
+- [x] M15-01 天氣好又動得少時建議去走走（2026-11-22，UX.md §5.0.5、AGENT.md §5.2.16）：外掛 `AbangHealth`（Android Health Connect `connect-client:1.1.0`，READ_STEPS／READ_EXERCISE、權限說明畫面；iOS HealthKit stepCount／appleExerciseTime、entitlement、NSHealthShareUsageDescription）、`core/health-nudge.js`（門檻常數、時段比例、天氣好、散步地點 10～25 分、文案、一天一次）、`public/js/health.js`（預設關閉、示範資料、權限、只在記憶體）、`public/js/health-ui.js`（首頁小卡、問阿幫補一句、設定頁與「我的」開關）；`weather_now` 加體感溫度 `feelsC`；地標庫加 `walk` 欄位與 13 個公園河濱步道；健康資料不送伺服器（單元測試＋E2E 檢查請求內容）。npm test 新增 18 項、E2E 4 項
+- [ ] M15-01b 實機確認：Pixel（Health Connect 權限畫面與 rationale 畫面、步數與運動分鐘、沒裝 Health Connect 的舊手機）、iPhone（個人開發團隊能不能簽 HealthKit、權限畫面、讀取）
+- [ ] M15-02 上架準備：Play Console 健康資料權限聲明與資料安全表單、App Store HealthKit 用途說明（付費開發者帳號）
+
 ## 被卡住的項目（2026-11-21 彙整）
 
 | 項目 | 卡在哪 | 誰 |
@@ -365,6 +372,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 | 安全情境用語與電話（S19） | 心理衛生、緊急應變專業人員確認 | Austin／專業人員 |
 | 隱私權政策〔待補〕欄位 | 營運單位資料、法務確認 | Austin／法務 |
 | 常用地點門牌地址（S1e） | 地址轉座標資料來源（TGOS 等）評估 | Austin |
+| iPhone 讀步數（M15-01b） | 免費個人開發團隊可能不能簽 HealthKit；需付費 Apple 開發者帳號 | Austin |
 - [ ] 之後：推播伺服器（排程，另寫 ADR，L-16）、地端 AI（判斷層放手機）、Siri 捷徑／App Intents、Android 小工具、App Attest／Play Integrity
 
 ## 其他候選（未排程）

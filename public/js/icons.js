@@ -33,6 +33,7 @@ export const icons = {
   info: s('<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.8" r=".9" fill="currentColor"/>'),
   gear: s('<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>'),
   star: s('<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/>'),
+  walk: s('<circle cx="13" cy="4.5" r="1.8"/><path d="M11 21l1.6-5.5 2.4 2.3V21"/><path d="M7.5 12l2.2-4 3.3-.8 1.9 3.3 2.6 1"/><path d="M10.4 8.5L9 15l-2.5 6"/>'),
   starFill: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>',
   back: s('<path d="M15 5l-7 7 7 7"/>'),
   chev: s('<path d="M9 5l7 7-7 7"/>'),

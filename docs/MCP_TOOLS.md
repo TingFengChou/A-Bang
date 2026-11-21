@@ -288,7 +288,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | | |
 |---|---|
 | 輸入 | `lat`, `lon` |
-| 輸出 | `{ station, town, county, distanceM, observedAt, tempC, rainMm1h: number\|null, rainStation: string\|null, pop3h: 0–100\|null, raining: boolean, summary }`（`rainMm1h` 是最近且 5 公里內雨量站的過去 1 小時雨量；沒有就 null；`pop3h` 取所在縣市＋鄉鎮尚未結束的預報時段，同名鄉鎮以縣市區分） |
+| 輸出 | `{ station, town, county, distanceM, observedAt, tempC, feelsC: number\|null, rainMm1h: number\|null, rainStation: string\|null, pop3h: 0–100\|null, raining: boolean, summary }`（`rainMm1h` 是最近且 5 公里內雨量站的過去 1 小時雨量；沒有就 null；`pop3h` 取所在縣市＋鄉鎮尚未結束的預報時段，同名鄉鎮以縣市區分；`feelsC` 是體感溫度：氣溫、相對濕度、風速〔澳洲氣象局公式〕，缺濕度或風速時為 null，2026-11-22 ADR-0018） |
 | 資料 | 中央氣象署開放資料平臺（需 `CWA_API_KEY` 授權碼）：自動氣象站觀測 `O-A0001-001`／`O-A0003-001`（10m，氣溫、天氣）、雨量站 `O-A0002-001`（10m，`RainfallElement.Past1hr.Precipitation`；氣象站的 `Now.Precipitation` 是當日累積，不用）、鄉鎮天氣預報 `F-D0047-*`（1h）⚠️ 欄位待 M1 驗證 |
 | 判斷 | `raining = rainMm1h > 0 || pop3h ≥ 70`（`isRaining`） |
 | 模式 | `modeOf: svc.weatherMode`：有 `CWA_API_KEY` 才是 live，與 TDX 金鑰無關；來源標示「中央氣象署」；示範提示「尚未設定中央氣象署授權碼」 |

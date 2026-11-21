@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-22 M15-01 健康與運動：天氣好又動得少時建議去走走（ADR-0018）
+- 做了：專案內外掛 `AbangHealth`（Android：Health Connect `connect-client:1.1.0`，只要 READ_STEPS、READ_EXERCISE，`aggregateGroupByPeriod` 每天加總、Kotlin suspend 用 Continuation 從 Java 呼叫、權限說明畫面 `HealthRationaleActivity`〔rationale intent＋Android 14 activity-alias〕、到 Health Connect 允許／到 Play 商店安裝；iOS：HealthKit stepCount、appleExerciseTime 每天加總、`App.entitlements`、`NSHealthShareUsageDescription`，沒有 entitlement 回 no-entitlement）。規則與文案 `core/health-nudge.js`（純函式，前端以 /core/ 共用）：天氣好（沒下雨、降雨 < 30%、體感 15～31°C、AQI ≤ 100、06:00～19:30）、動得少（步數 < 6,000 按清醒時段比例的 60%，或近 7 天運動 < 150 分的進度）、散步地點（內建地標庫 `walk` 欄位，走路 10～25 分最近的）、一天一次。`public/js/health.js`（預設關閉、示範資料與外掛介面相同、步數只在記憶體）、`public/js/health-ui.js`：首頁「現在」散步小卡（今天不用到明天）、問阿幫回答下面補一句（不進對話紀錄）、設定頁與「我的」同一個開關（第一次打開才問權限；被拒說原因；不能用反白）、隱私權政策段落。`weather_now`／`outing_advice` 加體感溫度 `feelsC`；地標庫加 13 個公園、河濱、步道。iOS 開發安裝腳本：個人團隊不能簽 HealthKit 時改用不含 entitlement 的建置。SW v1.0.0-health。
+- 測試：npm test 新增 18 項（health.test.js 17、ios-dev-install 1）；E2E 新增 4 項（首頁小卡與今天不用、問阿幫補一句與一天一次、預設關閉與開關、App 被拒／沒有 Health Connect／達標），請求內容檢查沒有健康資料；Android assembleDebug、iOS xcodebuild（不簽署，模擬器與實機架構）成功
+- 文件：ADR-0018、adr/README、UX.md §3.1、§5.0.5、AGENT.md §5.2.16、§7、MCP_TOOLS.md、DATA_SOURCES.md、PLAN.md M15、CLAUDE.md、PROGRESS.md
+- 下一個：產品負責人看截圖；M15-01b 實機確認（Pixel、iPhone）
+- 卡住：iPhone 免費個人開發團隊可能不能簽 HealthKit（需要付費帳號才能在 iPhone 上真的讀步數；開發版會反白說原因）
+
 ## 2026-11-21 R1 判斷看得到：討論串與決策圖逐項說明天氣、空品、路況怎麼影響建議
 - 做了：`core/services/trip-considered.js`：`plan_trip` 輸出 `considered`（天氣、空品、國道路況各一筆：值、資料一句、影響一句、`effect`＝none／score／自動狀態 key、查不到、示範標記）與 `single`（只有一種方式時，依各方式沒列出的原因組說明＋建議）。`execTools` 在行程結論前送三個 `data_note`（新事件；示範與模型模式相同，不經模型），前端以工具發言樣式排在行程發言前面，示範模式另外查過的角色不重複。決策圖資料欄改用 `decision.considered`：每個來源一個節點、帶值與影響，不影響與查不到淡色、不標成勝出關鍵。最近的空品測站超過 25 公里不採用（之前墾丁會拿台中大里測站判斷）；另外查的 `aqi_nearby` 影響也一樣。只有一種方式：`speak`「只找到叫車一種方式」、討論串影響與示範總結說原因（太遠、附近沒有站、幾點以後沒有趕得上的班次、示範資料是模擬的），「接下來可以」給「改成明天早上出發」「改從台北車站出發比較看看」。模型看到的工具文字多「判斷用到的資料」「只有一種方式」兩行。合併主線（#101～#105）後：TDX 額度用完改用示範資料時，路況那一行標示範並說明。審查修正：建議 chip 帶著使用者說的起點；只有一種方式的說明看這次有沒有 TDX fallback（`currentFallback()`）；data_note 去重改在 tool_start 記角色（工具平行時天氣可能晚到）。SW v0.9.9。
 - 重現與判斷（第 4 點）：示範的公車、YouBike、天氣本來就以使用者位置產生；「只比了叫車」是 20 公里以上的行程在 23 點後（示範客運 06～23 點、火車沒有班次）。捷運與空品的示範資料是真實站名與真實數值片段，在台北以外「以位置為中心產生示範站」會變成假的捷運站與假測站讀數，所以不做；改成照實說原因（查不到、太遠、沒有班次）並標明示範資料範圍。

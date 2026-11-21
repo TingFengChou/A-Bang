@@ -1,5 +1,5 @@
 // Service Worker：App shell 預先快取（離線可開啟），API 一律走網路（即時資料不快取）
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.0.0-health';
 const SHELL = [
   '/', '/index.html', '/css/app.css', '/manifest.webmanifest', '/icons/icon.svg', '/brand/abang-default.svg', '/brand/abang-think.svg', '/brand/abang-happy.svg',
   '/js/app.js', '/js/api.js', '/js/ui.js', '/js/icons.js', '/js/registry.js',
@@ -13,6 +13,7 @@ const SHELL = [
   '/css/ai.css', '/js/pages/ai.js', '/js/pages/ai-i18n.js', '/js/ai-info.js', '/js/agent/thinking.js',
   '/css/vision.css', '/js/vision.js', '/core/vision-text.js',
   '/js/voice.js', '/js/voice-i18n.js', '/js/agent/voice-ui.js',
+  '/js/health.js', '/js/health-ui.js', '/core/health-nudge.js', '/core/nav.js', '/core/landmarks.json',
 ];
 
 self.addEventListener('install', (e) => {

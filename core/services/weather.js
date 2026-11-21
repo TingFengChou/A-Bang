@@ -26,6 +26,8 @@ export function parseStations(json) {
       lat: num(c.StationLatitude), lon: num(c.StationLongitude),
       observedAt: s.ObsTime?.DateTime || null,
       tempC: num(w.AirTemperature),
+      humidity: num(w.RelativeHumidity), // %（⚠️ 待 M1 驗證）
+      windMs: num(w.WindSpeed), // m/s（⚠️ 待 M1 驗證）
       weather: typeof w.Weather === 'string' && w.Weather !== '-99' ? w.Weather : null,
     };
   }).filter((s) => s.lat != null && s.lon != null);
@@ -128,6 +130,16 @@ export function parsePop3h(json, town, now = Date.now(), county = '') {
   return n == null ? null : Math.max(0, Math.min(100, n));
 }
 
+/**
+ * 體感溫度（°C，一位小數）：澳洲氣象局 apparent temperature（氣溫、相對濕度、風速）；缺濕度或風速回 null（呼叫端改用氣溫）。
+ * AT = Ta + 0.33e − 0.70ws − 4.00，e = 濕度/100 × 6.105 × exp(17.27Ta / (237.7 + Ta))
+ */
+export function apparentTemp(tempC, humidity, windMs) {
+  if (![tempC, humidity, windMs].every(Number.isFinite) || humidity < 0 || humidity > 100 || windMs < 0) return null;
+  const e = (humidity / 100) * 6.105 * Math.exp((17.27 * tempC) / (237.7 + tempC));
+  return Math.round((tempC + 0.33 * e - 0.7 * windMs - 4) * 10) / 10;
+}
+
 /** 組成輸出（live 與 mock 共用） */
 export function buildWeather(st, gauge, pop3h, lat, lon) {
   const rainMm1h = gauge?.rainMm1h ?? null;
@@ -136,7 +148,7 @@ export function buildWeather(st, gauge, pop3h, lat, lon) {
   return {
     station: st.name, town: st.town, county: st.county,
     distanceM: distanceM(lat, lon, st.lat, st.lon),
-    observedAt: st.observedAt, tempC: st.tempC, rainMm1h, rainStation: gauge?.name ?? null, pop3h, raining,
+    observedAt: st.observedAt, tempC: st.tempC, feelsC: apparentTemp(st.tempC, st.humidity, st.windMs), rainMm1h, rainStation: gauge?.name ?? null, pop3h, raining,
     summary: bits.join('，') || '暫無觀測資料',
   };
 }

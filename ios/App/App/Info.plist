@@ -10,6 +10,12 @@
 	<string>用說的問阿幫：按麥克風或長按「問阿幫」鍵時，阿幫用麥克風聽你說的話，在手機上轉成文字當作問題送出。不錄音、不上傳。</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>阿幫用 iPhone 的語音辨識把你說的話轉成文字，只在手機上轉換，語音不離開手機；阿幫只收到轉好的文字，不錄音、不上傳。</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>健康與運動（你在設定打開時）：阿幫讀步數與體能訓練時間（今天與近 7 天），天氣好、你今天又動得少時，建議附近可以散步的地方。步數只在手機上判斷，不上傳、不存起來。</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>阿幫不會寫入任何健康資料，只讀步數與體能訓練時間。</string>
+	<key>AbangHealthKit</key>
+	<string>$(ABANG_HEALTHKIT)</string>
 	<key>UIUserInterfaceStyle</key>
 	<string>Light</string>
   <key>CAPACITOR_DEBUG</key>

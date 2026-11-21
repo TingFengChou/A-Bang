@@ -62,7 +62,14 @@ const swaggerFile = (name) => {
 };
 const DOCS_HTML = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>阿幫 API 文件</title><link rel="stylesheet" href="/api/docs/swagger-ui.css"></head><body><div id="ui"></div><script src="/api/docs/swagger-ui-bundle.js"></script><script src="/api/docs/init.js"></script></body></html>`;
 // 前端共用的核心純函式（決策圖即時重算用同一份 decide.js，UX.md §5）：只開放白名單檔案
-const SHARED_CORE = { 'decide.js': fileURLToPath(new URL('../core/decide.js', import.meta.url)), 'vision-text.js': fileURLToPath(new URL('../core/vision-text.js', import.meta.url)) }; // vision-text：阿幫會看在手機上分類讀到的字（M14-02）
+const SHARED_CORE = {
+  'decide.js': fileURLToPath(new URL('../core/decide.js', import.meta.url)),
+  'vision-text.js': fileURLToPath(new URL('../core/vision-text.js', import.meta.url)), // 阿幫會看在手機上分類讀到的字（M14-02）
+  // 天氣好又動得少時建議去走走（ADR-0018）：判斷在手機上（health-nudge.js 用 nav.js 的步行時間與導航連結），散步地點來自內建地標庫
+  'health-nudge.js': fileURLToPath(new URL('../core/health-nudge.js', import.meta.url)),
+  'nav.js': fileURLToPath(new URL('../core/nav.js', import.meta.url)),
+  'landmarks.json': fileURLToPath(new URL('../core/data/landmarks.json', import.meta.url)),
+};
 const DOCS_INIT = "window.ui = SwaggerUIBundle({ url: '/api/v1/openapi.json', dom_id: '#ui', deepLinking: true, tryItOutEnabled: true });";
 
 // 手機 App（ADR-0013）的 WebView 來源：問阿幫端點只對這些來源加 CORS（不用 *）
@@ -134,7 +141,7 @@ createServer(async (req, res) => {
     }
 
     const core = path.match(/^\/core\/([\w.-]+)$/);
-    if (core && Object.hasOwn(SHARED_CORE, core[1])) return sendRaw(res, 200, await readFile(SHARED_CORE[core[1]]), 'text/javascript; charset=utf-8', { 'cache-control': 'no-cache' });
+    if (core && Object.hasOwn(SHARED_CORE, core[1])) return sendRaw(res, 200, await readFile(SHARED_CORE[core[1]]), core[1].endsWith('.json') ? 'application/json; charset=utf-8' : 'text/javascript; charset=utf-8', { 'cache-control': 'no-cache' });
 
     // ── REST ──
     if (path.startsWith('/api/')) {

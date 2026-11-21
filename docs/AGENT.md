@@ -279,6 +279,15 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 `core/agent/safety.js`：提到自傷（想死、活不下去、自殺、kill myself…）或正在發生的緊急狀況（我出車禍了、有人昏倒、救命、失火、someone collapsed…）時，示範與模型模式、所有 agent 都先回固定的求助說明（安心專線 1925、生命線 1995、張老師 1980、119／110；沒有 SIM 卡或自己的電信沒訊號撥 112；暴力或被跟蹤加 113），事件帶一鍵撥號 `calls`（畫面做成 `tel:` 按鈕），不查工具、不請定位、不交給模型；事件帶 `guardrail { tier: 'L0', rule: 'safety:selfHarm'|'safety:emergency' }`。只認明確說法：口語（「笑死」「累死」「氣死」）先拿掉再判斷；「國道有車禍嗎」「救命 307 怎麼還不來」「help me get to…」不算。中英文都有。
 
+### 5.2.16 健康與運動：問天氣、出門時在手機上補一句散步建議（2026-11-22，ADR-0018）
+
+**伺服器與模型都不知道健康資料**：示範模式、Claude 模式、地端模型模式都一樣，agent 照常回答天氣、出門、空品（「我要不要去運動」走 `outing` 意圖、`outing_advice`），不加任何新事件或欄位。
+回答結束後，前端（`public/js/pages/agent.js` `addHealthSay`）在手機上判斷要不要補一句：
+1. 使用者打開了「健康與運動」，而且這一輪有 `weather_now`／`outing_advice`／`aqi_nearby` 的結果（`turnWeather`；`weather_tomorrow`、`plan_trip` 不算），或問題本身在問運動、散步（`EXERCISE_Q`）。
+2. 用這一輪的天氣、空品與工具查的位置（只問天氣或只問空品時，缺的那一個用首頁「現在」10 分鐘內查過的補；不因為健康狀態另外查），加上手機上讀的步數，跑 `core/health-nudge.js` 的 `nudgeFor`（規則見 UX.md §5.0.5）；一天主動提一次（建議過就算，自己問的也算），自己問一定回答。
+3. 補的泡泡 `.bubble.health-say` 不放進 `history`、不存進 `abang.chat`，所以下一個問題也不會帶到伺服器。
+不採用把步數放進 `userState` 讓模型轉述：健康資料會離開手機（ADR-0018）。
+
 ### 5.3 判斷層：意圖與使用者狀態（2026-11-20，`core/agent/judge.js`）
 
 依實驗（`docs/research/decision-eval.md`，172 題）導入；**方案排序仍由 `decide.js` 計分（ADR-0010）**，判斷層只決定「使用者想做什麼」與「使用者狀態」。
@@ -307,7 +316,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 ## 7. 隱私
 
-不儲存對話；log 只記事件類型、tool、耗時、token；座標不寫 log（統計時捨去至小數 2 位）；問阿幫頁依 `status.mode` 說明對話送到哪裡：Claude 模式「對話會送 Anthropic 處理」、地端模式「只送到本站設定的模型伺服器」、示範模式「不經 AI 模型」。
+健康資料（步數、運動時間、「動得少」）不進請求：不在 `userState`、`deviceJudge`、`context`、`messages` 裡，散步建議在手機上補（§5.2.16、ADR-0018）。不儲存對話；log 只記事件類型、tool、耗時、token；座標不寫 log（統計時捨去至小數 2 位）；問阿幫頁依 `status.mode` 說明對話送到哪裡：Claude 模式「對話會送 Anthropic 處理」、地端模式「只送到本站設定的模型伺服器」、示範模式「不經 AI 模型」。
 
 ## 8. 驗收
 

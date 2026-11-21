@@ -20,6 +20,7 @@
 		A0B0C0D0E0F0A1B2C3D4E602 /* AbangSystemPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B0C0D0E0F0A1B2C3D4E601 /* AbangSystemPlugin.swift */; };
 		AB15A0000000000000000002 /* AbangVisionPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB15A0000000000000000001 /* AbangVisionPlugin.swift */; };
 		A0B0C0D0E0F0A1B2C3D4E702 /* AbangVoicePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B0C0D0E0F0A1B2C3D4E701 /* AbangVoicePlugin.swift */; };
+		AB18A0000000000000000002 /* AbangHealthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB18A0000000000000000001 /* AbangHealthPlugin.swift */; };
 		A0B0C0D0E0F0A1B2C3D4E504 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B0C0D0E0F0A1B2C3D4E503 /* MainViewController.swift */; };
 		A0B0C0D0E0F0A1B2C3D4E506 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A0B0C0D0E0F0A1B2C3D4E505 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -40,6 +41,8 @@
 		A0B0C0D0E0F0A1B2C3D4E601 /* AbangSystemPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbangSystemPlugin.swift; sourceTree = "<group>"; };
 		AB15A0000000000000000001 /* AbangVisionPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbangVisionPlugin.swift; sourceTree = "<group>"; };
 		A0B0C0D0E0F0A1B2C3D4E701 /* AbangVoicePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbangVoicePlugin.swift; sourceTree = "<group>"; };
+		AB18A0000000000000000001 /* AbangHealthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbangHealthPlugin.swift; sourceTree = "<group>"; };
+		AB18A0000000000000000003 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		A0B0C0D0E0F0A1B2C3D4E503 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		A0B0C0D0E0F0A1B2C3D4E505 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -84,6 +87,8 @@
 				A0B0C0D0E0F0A1B2C3D4E601 /* AbangSystemPlugin.swift */,
 				AB15A0000000000000000001 /* AbangVisionPlugin.swift */,
 				A0B0C0D0E0F0A1B2C3D4E701 /* AbangVoicePlugin.swift */,
+				AB18A0000000000000000001 /* AbangHealthPlugin.swift */,
+				AB18A0000000000000000003 /* App.entitlements */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				A0B0C0D0E0F0A1B2C3D4E505 /* PrivacyInfo.xcprivacy */,
@@ -183,6 +188,7 @@
 				A0B0C0D0E0F0A1B2C3D4E602 /* AbangSystemPlugin.swift in Sources */,
 				AB15A0000000000000000002 /* AbangVisionPlugin.swift in Sources */,
 				A0B0C0D0E0F0A1B2C3D4E702 /* AbangVoicePlugin.swift in Sources */,
+				AB18A0000000000000000002 /* AbangHealthPlugin.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -322,7 +328,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
 			buildSettings = {
+				ABANG_HEALTHKIT = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = App/Info.plist;
@@ -344,7 +352,9 @@
 		504EC3181FED79650016851F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ABANG_HEALTHKIT = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = App/Info.plist;

@@ -2,12 +2,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- ML Kit GenAI 需要 API 26；App 仍支援 24，外掛在 26 以下直接回不可用（AbangEdgeAIPlugin.osOk） -->
-    <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.prompt,com.google.mlkit.genai.common,com.google.mlkit.genai.schema" />
+    <!-- ML Kit GenAI、Health Connect 需要 API 26；App 仍支援 24，外掛在 26 以下直接回不可用（AbangEdgeAIPlugin.osOk、AbangHealthPlugin.unavailableReason） -->
+    <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.prompt,com.google.mlkit.genai.common,com.google.mlkit.genai.schema,androidx.health.connect.client" />
 
     <!-- 「阿幫的腦袋」（#/ai）顯示 AICore（系統裡管理 Gemini Nano 的元件）的版本：Android 11 以上要宣告才看得到這個套件 -->
     <queries>
         <package android:name="com.google.android.aicore" />
+    </queries>
+    <!-- 健康與運動（ADR-0018）：Android 13 以下要找得到 Health Connect App -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
     </queries>
     <!-- 語音問阿幫（M14-01）：Android 11 以上要宣告才找得到系統的語音辨識服務（SpeechRecognizer） -->
     <queries>
@@ -40,6 +44,27 @@
 
         </activity>
 
+        <!-- 健康與運動（ADR-0018）：Health Connect 規定的權限說明（隱私）畫面。Android 13 以下用 rationale intent，14 以上用 activity-alias -->
+        <activity
+            android:name=".HealthRationaleActivity"
+            android:exported="true"
+            android:label="@string/health_rationale_title"
+            android:theme="@style/AppTheme">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".HealthRationaleActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -63,6 +88,9 @@
     <!-- 語音問阿幫（M14-01）：第一次按麥克風才問；語音只在手機上轉成文字，不錄音存檔、不上傳 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <!-- 健康與運動（ADR-0018）：只讀步數與運動時間（不寫入、不讀其他健康資料）；使用者在設定打開時才問 -->
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
     <!-- 公車提醒不用精準鬧鐘（Google Play 只允許鬧鐘、行事曆類核心功能）：移除外掛合併進來的權限，排程改用一般排程＋提早 30 秒 -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
 </manifest>

@@ -9,7 +9,8 @@ const root = (p) => fileURLToPath(new URL(`../${p}`, import.meta.url));
 const OUT = root('dist/app');
 // 與 server/http.js 的白名單相同（/vendor/、/core/）
 const VENDOR = ['gsap.min.js', 'MotionPathPlugin.min.js', 'Flip.min.js'];
-const CORE = ['decide.js', 'vision-text.js'];
+const CORE = ['decide.js', 'vision-text.js', 'health-nudge.js', 'nav.js'];
+const CORE_DATA = ['landmarks.json']; // core/data/ → dist/app/core/（散步地點，ADR-0018）
 
 /** 驗證並正規化 API 位址：只收 http(s)、去掉結尾斜線；正式版（APP_RELEASE=1）只收 https */
 export function apiBase(raw, { release = false } = {}) {
@@ -39,6 +40,7 @@ async function main() {
   for (const f of VENDOR) await cp(root(`node_modules/gsap/dist/${f}`), `${OUT}/vendor/${f}`);
   await mkdir(`${OUT}/core`, { recursive: true });
   for (const f of CORE) await cp(root(`core/${f}`), `${OUT}/core/${f}`);
+  for (const f of CORE_DATA) await cp(root(`core/data/${f}`), `${OUT}/core/${f}`);
   const html = await readFile(`${OUT}/index.html`, 'utf8');
   await writeFile(`${OUT}/index.html`, injectConfig(html, base));
   console.log(`dist/app 完成（API：${base}）`);

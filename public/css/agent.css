@@ -345,3 +345,10 @@ html.lite-motion .voice-panel .vc-core, html.lite-motion .voice-panel .vc-halo {
 @keyframes ask-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .habit-agreed { list-style: none; padding: 0; margin: 4px 0 8px; display: grid; gap: 6px; }
 .habit-agreed li { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
+/* 散步建議（ADR-0018）：回答下面在手機上補的一句（不進對話紀錄） */
+.bubble.health-say { margin-top: 8px; }
+.bubble.health-say .say { background: #ecfdf3; border: 1px solid #bbf7d0; }
+.bubble.health-say .hs-note, .bubble.health-say .hs-acts { grid-column: 2; }
+.bubble.health-say .hs-note { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+.bubble.health-say .hs-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.bubble.health-say .hs-done { font-size: 13px; color: var(--muted); }

@@ -30,6 +30,13 @@ export function firstDevice(listing) {
 /** devicectl 開啟失敗是因為裝置鎖著 */
 export const isLocked = (out) => /\bLocked\b|could not be, unlocked|device was not.{0,20}unlocked/i.test(String(out));
 
+/**
+ * 簽章時 HealthKit 不能用（免費的個人開發團隊不支援某些 capability；ADR-0018）：改用不含 entitlement 的建置，
+ * App 裡「健康與運動」會反白說原因（AbangHealthPlugin 讀 Info.plist 的 AbangHealthKit＝NO）。
+ */
+export const healthKitUnsupported = (out) => String(out).split('\n').some((l) => /error:/i.test(l) && /HealthKit|com\.apple\.developer\.healthkit/i.test(l)); // 只看錯誤行（建置過程也會印出 entitlement 內容）
+export const NO_HEALTHKIT = ['CODE_SIGN_ENTITLEMENTS=', 'ABANG_HEALTHKIT=NO'];
+
 function main() {
   const team = process.env.IOS_DEV_TEAM;
   if (!team) throw new Error('請設定 IOS_DEV_TEAM（Apple 開發團隊的 Team ID，在 Xcode → Settings → Accounts 可以看到）');
@@ -50,7 +57,14 @@ function main() {
       try { run(BUDDY, ['-c', c, PLIST]); } catch { /* 已經有了 */ }
     }
     console.log('建置中（幾分鐘）…');
-    run('xcodebuild', ['-project', 'App.xcodeproj', '-scheme', 'App', '-configuration', 'Debug', '-destination', `id=${device}`, '-derivedDataPath', dd, '-allowProvisioningUpdates', `DEVELOPMENT_TEAM=${team}`, 'CODE_SIGN_STYLE=Automatic', 'build'], { cwd: root('ios/App') });
+    const args = ['-project', 'App.xcodeproj', '-scheme', 'App', '-configuration', 'Debug', '-destination', `id=${device}`, '-derivedDataPath', dd, '-allowProvisioningUpdates', `DEVELOPMENT_TEAM=${team}`, 'CODE_SIGN_STYLE=Automatic'];
+    try {
+      run('xcodebuild', [...args, 'build'], { cwd: root('ios/App') });
+    } catch (e) {
+      if (!healthKitUnsupported(`${e.stdout || ''}${e.stderr || ''}`)) throw e;
+      console.log('這個開發團隊不能簽 HealthKit：改裝不含健康資料的版本（「健康與運動」會反白說原因）…');
+      run('xcodebuild', [...args, ...NO_HEALTHKIT, 'build'], { cwd: root('ios/App') });
+    }
   } catch (e) {
     const out = `${e.stdout || ''}${e.stderr || ''}`;
     const errs = out.split('\n').filter((l) => /error:/.test(l)).slice(0, 5).join('\n');
