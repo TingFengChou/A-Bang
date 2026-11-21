@@ -3,6 +3,7 @@
 import { API_BASE, IN_APP } from '../base.js';
 import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
 import { runAgent, browserLocation, locationGranted } from '../agent/client.js';
+import { locationHelp, openLocationSettings } from '../location-help.js';
 import { edgeJudge, edgePrewarm } from '../edge-judge.js';
 import { placesFor } from '../saved-places.js';
 import { icons } from '../icons.js';
@@ -82,6 +83,9 @@ export function locateSay({ ok, reason }, lang = null) {
   const en = lang === 'en';
   if (ok) return en ? 'Got it, using your location' : '拿到了，用你現在的位置';
   if (reason === 'outside') return en ? "You're outside Taiwan; type a place instead" : '你的位置不在台灣，阿幫查不到附近資料；可以直接打地點';
+  if (reason === 'denied') return en ? "Location permission is off; type a place or allow location in Settings" : '定位權限沒有打開；可以直接打地點，或到設定允許定位';
+  if (reason === 'off') return en ? 'Location services are off; type a place or turn them on' : '手機的定位服務是關的；可以直接打地點，或打開定位服務';
+  if (reason === 'timeout') return en ? 'Location took too long; type a place or try again' : '定位太久沒有回應；可以直接打地點，或稍後再試';
   return en ? "Couldn't get your location; type a place or turn on location" : '沒拿到你的位置；可以直接打地點，或到手機設定打開定位';
 }
 
@@ -333,7 +337,15 @@ export default {
           }
           case 'client_tool_result': { // 客戶端自己送的（client.js）：定位完成或失敗，把「定位中」換成結果
             const say = bubbles.get(`client:${e.id}`)?.querySelector('.say');
-            if (say) { say.className = 'say'; say.textContent = locateSay(e, turnLang); }
+            if (say) {
+              say.className = 'say'; say.textContent = locateSay(e, turnLang);
+              if (!e.ok && locationHelp(e.reason).canOpen) { // App：權限或定位服務關著 → 一鍵到設定（S1c）
+                const b = el('button', 'btn small loc-open', turnLang === 'en' ? 'Open Settings' : '到設定開啟');
+                b.type = 'button';
+                b.addEventListener('click', () => openLocationSettings(e.reason));
+                say.after(b);
+              }
+            }
             break;
           }
           case 'tool_start': {

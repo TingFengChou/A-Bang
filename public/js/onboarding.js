@@ -3,6 +3,7 @@
 // 網頁版不在這裡要通知：設定到站提醒時（host-web.js）才要，比較看得懂為什麼（PR #49 設計審查）。
 // <dialog> 原生：焦點留在對話框內、Esc 關閉；文字一律 textContent。
 import { browserLocation, locationGranted } from './agent/client.js';
+import { locationHelp } from './location-help.js';
 import { ensureNotifyPermission, hasNativeNotify } from './native-notify.js';
 
 const KEY = 'abang.onboarded';
@@ -30,7 +31,7 @@ const LOCATION = {
   img: '/brand/abang-think.svg',
   title: '用你現在的位置當起點',
   body: ['問「怎麼去」「附近 YouBike」時，我會用你現在的位置。位置只用來回答當下的問題，不會存到伺服器；常用地點要你自己設定，只存在這支手機。', '不給也能用，只是要自己說從哪出發。'],
-  action: { label: '允許定位', done: '已允許定位', fail: '沒拿到位置。之後可到手機或瀏覽器的設定打開定位。', run: async () => Boolean(await browserLocation(8000)) },
+  action: { label: '允許定位', done: '已允許定位', fail: () => `沒拿到位置。${locationHelp().text}`, run: async () => Boolean(await browserLocation(8000)) },
   granted: locationGranted,
 };
 const NOTIFY = {
@@ -98,7 +99,7 @@ export function showOnboarding({ force = false, onClose } = {}) {
         act.textContent = '等一下…';
         act.setAttribute('aria-busy', 'true');
         const ok = await s.action.run().catch(() => false);
-        status.textContent = ok ? s.action.done : s.action.fail;
+        status.textContent = ok ? s.action.done : typeof s.action.fail === 'function' ? s.action.fail() : s.action.fail;
         status.classList.toggle('fail', !ok);
         act.hidden = true;
         next.className = 'btn';

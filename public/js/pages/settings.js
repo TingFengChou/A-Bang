@@ -3,6 +3,7 @@
 import { esc } from '../ui.js';
 import { edgeEnabled, edgeStatus } from '../edge-judge.js';
 import { locationGranted, browserLocation, inTaiwan } from '../agent/client.js';
+import { locationHelp, openLocationSettings } from '../location-help.js';
 import { cancelNotify, NOTIFY_ID } from '../native-notify.js';
 import { loadPlaces, savePlace, SAVED_KEYS } from '../saved-places.js';
 import { showOnboarding } from '../onboarding.js';
@@ -17,7 +18,7 @@ const REASON = { ok: '可以使用', unsupported: '這支手機不支援', disab
 const LOCAL = [['abang.places', '常用地點（家、公司、學校）'], ['favs', '收藏的公車站與路線'], ['invoices', '我的發票'], ['abang.arrivalWatch', '進行中的到站提醒'], ['abang.alightWatch', '進行中的下車提醒'], ['abang.reminders', '出門提醒'], ['pref:', '常用的縣市、藥局地區、股票等偏好（pref:*）'], [EDGE_KEY, '裝置端 AI 設定'], ['abang.onboarded', '看過使用說明（清除後下次會再顯示）'], ['abang.offline', '離線時顯示的上次資料（看過的路線、站牌、時刻表；不含座標）']];
 
 /** 權限狀態文字：已允許／已拒絕（到手機設定開）／還沒問過 */
-const PERM_SAY = { granted: '已允許', denied: '已拒絕', prompt: '還沒問過' };
+const PERM_SAY = { granted: '已允許', denied: '已拒絕', prompt: '還沒問過', rationale: '拒絕過一次（下次用到會再問）' };
 async function notifyState() {
   const c = globalThis.Capacitor;
   try {
@@ -31,7 +32,7 @@ async function locationState() {
   try {
     if (c?.isNativePlatform?.() && c.isPluginAvailable?.('Geolocation')) {
       const r = await c.nativePromise('Geolocation', 'checkPermissions', {});
-      return [r?.location, r?.coarseLocation].includes('granted') ? 'granted' : r?.location === 'denied' ? 'denied' : 'prompt';
+      return [r?.location, r?.coarseLocation].includes('granted') ? 'granted' : r?.location === 'denied' ? 'denied' : r?.location === 'prompt-with-rationale' ? 'rationale' : 'prompt'; // Android：拒絕過一次
     }
     const st = (await navigator.permissions?.query({ name: 'geolocation' }))?.state;
     return st || ((await locationGranted()) ? 'granted' : 'prompt');
@@ -88,8 +89,8 @@ export const settings = {
         const p = await browserLocation(8000, { highAccuracy: true, fresh: true, withAccuracy: true });
         set.disabled = false; set.removeAttribute('aria-busy');
         if (!p) {
-          const denied = (await locationState()) === 'denied';
-          toast(denied ? '定位權限沒有打開：到手機的「設定 → Abang → 位置」允許後再試一次' : '沒拿到位置。請確認定位已開啟、權限已允許，再試一次', 5000);
+          toast(locationHelp().text, 6000); // 說原因（權限、定位服務、逾時）；App 的「到設定開啟」在權限區（S1c）
+          refreshPerms();
         } else if (!inTaiwan(p)) toast(`現在位置不在台灣，不能設成「${k}」`, 5000);
         else if (p.accuracy > 300) toast(`手機只給了大概位置（誤差約 ${p.accuracy >= 1000 ? `${Math.round(p.accuracy / 100) / 10} 公里` : `${Math.round(p.accuracy)} 公尺`}），設成「${k}」會不準。請打開「精確位置」或到窗邊再試一次`, 6000);
         else if (savePlace(k, { lat: p.lat, lon: p.lon, name: '現在位置' })) toast(`已把現在位置設成「${k}」`);
@@ -214,8 +215,22 @@ export const settings = {
       main.querySelector('#edge-status').textContent = s.available ? `${ENGINE[s.engine] || '手機內建模型'}：可以使用` : REASON[s.reason] || '目前不能使用';
       if (s.reason === 'web') edge.closest('.switch-row').querySelector('input').hidden = true; // 網頁版沒有裝置端 AI：不顯示開關（灰色已勾選會讓人誤會）
     });
-    locationState().then((st) => { main.querySelector('#loc').textContent = PERM_SAY[st] || '還沒問過'; });
-    notifyState().then((st) => { main.querySelector('#notify').textContent = PERM_SAY[st] || '還沒問過'; });
+    // 權限狀態；App 裡定位被拒絕時給「到設定開啟」（S1c）。從設定回來（畫面再出現）時重新檢查
+    const openLoc = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small', textContent: '到設定開啟', hidden: true });
+    openLoc.setAttribute('aria-label', '到手機設定開啟定位權限');
+    openLoc.addEventListener('click', () => openLocationSettings('denied'));
+    main.querySelector('#loc').closest('.perm').after(openLoc);
+    function refreshPerms() {
+      locationState().then((st) => {
+        main.querySelector('#loc').textContent = PERM_SAY[st] || '還沒問過';
+        openLoc.hidden = !(st === 'denied' && locationHelp('denied').canOpen);
+      });
+      notifyState().then((st) => { main.querySelector('#notify').textContent = PERM_SAY[st] || '還沒問過'; });
+    }
+    refreshPerms();
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshPerms(); };
+    document.addEventListener('visibilitychange', onVisible);
+    onCleanup?.(() => document.removeEventListener('visibilitychange', onVisible));
     main.querySelector('#clear').addEventListener('click', () => {
       if (!window.confirm('要清除常用地點、收藏、我的發票與提醒嗎？清除後無法復原。')) return;
       try {

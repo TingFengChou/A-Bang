@@ -3,6 +3,7 @@
 import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { loading, errorBox, locate, FALLBACK, prefs } from '../ui.js';
+import { locationNotice } from '../location-help.js';
 import { icons } from '../icons.js';
 import { renderWallet } from '../invoice-wallet.js';
 
@@ -83,6 +84,8 @@ export default {
           const w = main.querySelector('#where');
           w.hidden = false;
           w.textContent = pos === FALLBACK ? `位置：${FALLBACK.label}（沒有取得定位）` : '位置：目前位置附近';
+          main.querySelector('.loc-help')?.remove();
+          if (pos === FALLBACK) w.after(locationNotice({ retry: () => run(true) })); // 說原因與下一步（S1c）
         }
         const payload = await callTool(cfg.tool, cfg.args(f, pos));
         res.replaceChildren();

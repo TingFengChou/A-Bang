@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-21 S1c 定位失敗說原因＋到設定開啟
+- 做了：`locationReason` 把原生外掛錯誤碼與網頁錯誤分成權限沒開、定位服務關閉、逾時、其他；`lastLocationError` 記最近一次原因。新增 `public/js/location-help.js`（說明文字、開設定、頁面說明區塊）與專案內外掛 `AbangSystem.openSettings`（Android：權限開 App 設定、定位服務開系統定位設定；iOS：App 設定）。附近、生活服務頁定位失敗時說原因＋再試一次（App 多「到設定開啟」，回來自動再定位）；問阿幫定位泡泡依原因說並附按鈕；設定頁權限區「到設定開啟」、Android 拒絕過一次另外顯示、回到畫面重新檢查；引導失敗說原因。SW v0.8.4。
+- 測試：npm test 521 項全過（新增 test/location-help.test.js 5 項）；E2E 53 項全過（新增：附近拒絕定位說原因、再試一次不重疊）；Android 編譯、iOS 模擬器編譯
+- 文件：UX.md §4.12、PLAN.md、CLAUDE.md、PROGRESS.md
+- 下一個：行程中模式
+- 卡住：實機確認「到設定開啟」（Android、iPhone）
+
 ## 2026-11-21 文件同步與待辦總表
 - 做了：PLAN 狀態看板（M13 到 S19、下一個任務）、新增「待辦總表」（開發可繼續做的 vs. 需要 Austin）、被卡住的項目加安全情境審核、隱私權政策〔待補〕、門牌地址；CLAUDE.md 進度、文件網站 M13 列同步
 - 測試：無程式變更
