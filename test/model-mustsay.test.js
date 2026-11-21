@@ -45,3 +45,9 @@ test('說要叫車：卡片上有叫車才補付款句；叫車選不到不補�
   const best = { best: 'ridehail', options: [{ id: 'ridehail', role: 'ridehail', name: '叫車（Uber）' }], ranking: {} };
   assert.equal(mustSay('用叫車 App 叫車，付款也在 App 裡。', best), '用叫車 App 叫車，付款也在 App 裡。', '已經說了就不重複');
 });
+
+test('問明天的天氣、模型沒說「明天」：開頭補上（S1-3 模型模式）', () => {
+  assert.equal(mustSay('會下雨，降雨機率 70%。', null, { intent: 'weather', tomorrow: true }), '明天的天氣：會下雨，降雨機率 70%。');
+  assert.equal(mustSay('明天會下雨，記得帶傘。', null, { intent: 'weather', tomorrow: true }), '明天會下雨，記得帶傘。');
+  assert.equal(mustSay('現在沒下雨。', null, { intent: 'weather' }), '現在沒下雨。');
+});
