@@ -7,7 +7,7 @@ import { createServices } from '../core/index.js';
 
 test('每個 tool 都有討論串角色；事件型別齊全', () => {
   for (const t of listTools()) assert.ok(TOOL_ROLES[t.name], t.name);
-  assert.equal(EVENT_TYPES.length, 14); // 含 data_note（#106）、ask（阿幫問你，ADR-0016）、answer_draft（ADR-0017）
+  assert.equal(EVENT_TYPES.length, 15); // 含 data_note（#106）、ask（阿幫問你，ADR-0016）、answer_draft（ADR-0017）與 aside（等車推短劇，ADR-0019）
 });
 
 test('建立函式：必要欄位、registry 帶入、文字截斷', () => {

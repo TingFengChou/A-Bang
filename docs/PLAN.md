@@ -33,6 +33,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | Agent 聰明度：模型模式與 PM 第二批（2026-11-21） | ✅（PR #79、#82：地端模型模式 72→97／99；PM P2-1～10 全過） | PM 第三批 | — |
 | M13 Agent 聰明度（PM 情境 S1～S19） | 🚧（情境集 89 個、todo 0：位置當起點、接著改、新狀態、出門建議、明天天氣、末班車、捷運轉乘、高鐵台鐵最近站、英文與卡片／討論串／決策圖英文、常用地點、多人同行／可能下雨／時間很緊、出門建議小卡、出門提醒多筆、附近藥局依位置、公車一直不來、下車提醒、安全情境（求助電話）、常用地點用地名設定、定位失敗說原因、行程中模式 ✅） | S12f 英文其餘、E3／E7 | 真實末班車、捷運路網需 TDX 金鑰 |
 | M14 阿幫聽得懂、看得懂（產品負責人 2026-11-21；ADR-0015） | 🚧（M14-01 語音問阿幫 ✅、M14-02 看 ✅） | 實機確認（Pixel、iPhone） | iOS 實機需 Austin 的 iPhone；打包版 ML Kit 讓 APK 變大（產品負責人已同意） |
+| 阿幫・短劇（MyDrama，產品負責人 2026-11-22，ADR-0019） | 🧩（等車推短劇、問阿幫找劇、運動建議提示句 ✅；示範片庫可跑） | 產品負責人看截圖決定是否合併；運動建議接線 | 真實片庫與連結需 `.env` 的 `MYDRAMA_*`（合作方提供）；每集長度欄位 |
 | M6 上線 | 🚧（M6-01／02／04／07 ✅、地端部署驗證 ✅） | 正式環境階段再做 | 2026-11-19 Austin 決定：雲端部署（M6-06）、Redis 快取（M6-03）、Lighthouse（M6-05）留到正式環境階段；先衝刺功能。M6-07 需在 repo 設定啟用 Pages |
 
 建議順序：M4、M5、M7、M10 已完成；M1（TDX 金鑰）申請中；M6 正式環境項目延後；目前衝刺 M11 行動 App、M12 裝置端 AI、M13 Agent 聰明度（PM 情境清單見 `test/scenarios/life.json`）；M8 中小企業概念驗證移到下一階段。
@@ -348,6 +349,18 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] M14-02 看：拍可疑簡訊或選截圖查詐騙、拍站牌路牌問怎麼走、拍發票自動對獎（2026-11-21，UX.md §5.0.4、ADR-0015：外掛 `AbangVision`〔Android ML Kit 中文讀字＋條碼打包版、Photo Picker、系統相機；iOS Vision、PHPicker、UIImagePickerController〕、`public/js/vision.js`、`core/vision-text.js`；設定頁開關、隱私權政策、`#/ai` 卡片；E2E 假外掛三條流程＋權限被拒＋網頁降級＋reduced motion。實機讀字品質、Gemini Nano 看圖支援待 Pixel／iPhone 確認）
 - [ ] M14-02b 實機確認：Pixel（ML Kit 中文讀字品質、相機權限流程、Photo Picker、Gemini Nano 是否能看圖）、iPhone（Vision 繁體中文讀字、相機權限文案、PHPicker）；用實拍站牌、真實簡訊截圖校正分類規則
 
+## 阿幫・短劇（MyDrama，產品負責人 2026-11-22，ADR-0019）
+
+- [x] D-01 片庫 adapter（2026-11-22）：`core/services/drama.js`（只用公開讀取：排行、搜尋、單劇、簡介、熱搜；網址只在 `MYDRAMA_API_BASE`；防禦解析、正規化、限制級不列；快取 10 分／1 小時）＋`drama-mock.js`（虛構示範片庫，介面相同）
+- [x] D-02 工具 `drama_picks`、`drama_search`、`drama_series`（pack `drama`、L1、卡片 `drama`；JSON Schema `drama.v1.json`、字典 zh-TW／en）
+- [x] D-03 問阿幫找劇：示範意圖 `drama`（排行、類型、其他題材、劇名問劇情、沒找到改熱門、英文）；情境 D1-1～D1-8；地端模型模式由規則回答
+- [x] D-04 等車推短劇：`core/agent/wait-drama.js`、事件 `aside`、卡片下方提示（看這集／不用了）、設定頁開關（預設開）、`host.openApp`（App 連結＋商店頁備援）；一輪最多一次、≥ 5 分才推、英文不推
+- [x] D-05 運動建議提示句與連結（`core/drama-say.js` `exerciseNudge`、`svc.drama.exerciseLink()`）；**接線留給運動建議那個分支**
+- [ ] D-06 產品負責人看截圖（`test/screenshots/phone-drama-wait.png`、`phone-drama-card.png`、`desktop-drama-card.png`、`phone-drama-setting.png`）後決定合併
+- [ ] D-07 ⛔ 合作方提供 `.env`（產品負責人 2026-11-22：連結與商店網址先留空，`.env.example` 只有變數名）：`MYDRAMA_API_BASE`、`MYDRAMA_LINK_EPISODE`、`MYDRAMA_LINK_EXERCISE`、`MYDRAMA_STORE_IOS`／`ANDROID`；實機確認 App 連結與商店備援（Pixel、iPhone）
+- [x] D-09 推薦輪替（產品負責人 2026-11-22）：熱門前 5 部裡可看的，依台灣日期＋對話輪次輪替；同一輪重問同一部
+- [ ] D-08 待辦：請 MyDrama 片庫加「每集長度」欄位；之後把「一集看得完」從 ≥ 5 分改成精準比較（門檻維持 ≥ 5 分、< 40 分，產品負責人 2026-11-22）
+
 ## 被卡住的項目（2026-11-21 彙整）
 
 | 項目 | 卡在哪 | 誰 |
@@ -359,7 +372,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 | App 給別人用（TestFlight、Play 內測） | HTTPS 測試環境（M6-06）、Apple／Google 開發者帳號 | Austin |
 | App 名稱 Abang 商標與商店撞名 | 智慧局檢索、商店搜尋 | Austin／法務 |
 | Claude 模式與 MCP 連接器實測（M4-09） | `ANTHROPIC_API_KEY`、cloudflared | Austin |
-| MyDrama 短劇（選公車後看短劇） | mydrama-workpack、公司 Bitbucket repo、授權與分潤；需 ADR | Austin |
+| MyDrama 短劇真實片庫與深層連結（ADR-0019 已接好，示範資料可跑） | `.env` 設 `MYDRAMA_API_BASE`、`MYDRAMA_LINK_*`、`MYDRAMA_STORE_*`（合作方提供，不進 repo）；授權與分潤 | Austin／公司 |
 | 推播排程（L-16）／手機條碼載具（L-15） | 推播伺服器與 ADR／財政部 AppID | Austin／公司 |
 | 文件站發布 | repo Settings → Pages | Austin |
 | 地標座標校對（201 筆）、正式 3D 吉祥物圖 | 人工校對、設計師 | Austin／設計資源 |

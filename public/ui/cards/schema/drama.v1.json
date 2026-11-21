@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/drama.v1.json",
+  "title": "drama（drama_picks、drama_search、drama_series）",
+  "type": "object",
+  "required": ["kind", "items", "store"],
+  "additionalProperties": false,
+  "$defs": {
+    "nullableInt": { "type": ["integer", "null"], "minimum": 0 },
+    "url": { "type": ["string", "null"] },
+    "item": {
+      "type": "object",
+      "required": ["id", "title", "tags", "genre", "episodes", "freeEpisodes", "completed", "isNew", "taiwanOriginal", "heat", "synopsis", "appLink"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "genre": { "type": ["string", "null"] },
+        "episodes": { "$ref": "#/$defs/nullableInt" },
+        "freeEpisodes": { "$ref": "#/$defs/nullableInt" },
+        "completed": { "type": "boolean" },
+        "isNew": { "type": "boolean" },
+        "taiwanOriginal": { "type": "boolean" },
+        "heat": { "$ref": "#/$defs/nullableInt" },
+        "synopsis": { "type": ["string", "null"] },
+        "appLink": { "$ref": "#/$defs/url" },
+        "rank": { "type": "integer", "minimum": 1 }
+      }
+    }
+  },
+  "properties": {
+    "kind": { "enum": ["list", "search", "series"] },
+    "list": { "enum": ["hot", "new", "completed", "taiwan"] },
+    "listName": { "type": "string" },
+    "query": { "type": "string" },
+    "total": { "type": "integer", "minimum": 0 },
+    "items": { "type": "array", "items": { "$ref": "#/$defs/item" } },
+    "keywords": { "type": "array", "items": { "type": "string" } },
+    "store": {
+      "type": ["object", "null"],
+      "required": ["ios", "android"],
+      "additionalProperties": false,
+      "properties": { "ios": { "$ref": "#/$defs/url" }, "android": { "$ref": "#/$defs/url" } }
+    }
+  }
+}

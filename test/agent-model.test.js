@@ -82,7 +82,7 @@ test('Claude：工具前的文字 → agent_note、工具事件與 decision、�
     { text: '@行程 幫你比較幾種走法', tools: [{ id: 'tu3', name: 'plan_trip', input: { from: '西門町', to: '台北101' } }] },
     { text: '建議搭捷運，大約 20 分鐘。要我幫你開導航嗎？' },
   ]);
-  const es = await run(claude(), '從西門町到台北 101 怎麼去？', { userState: { picked: ['budget'] } });
+  const es = await run(claude(), '從西門町到台北 101 怎麼去？', { userState: { picked: ['budget'], dramaHint: false } }); // 等車推短劇關掉：示範到站時間隨時間變，事件順序才固定（推劇另在 drama.test.js 測）
   // 起訖點都知道 → 程式先比較（plan_trip），想省錢 → 決策選公車 → 阿幫自動盯上車站（L-14：不靠模型記得要查）；
   // 模型之後用同樣條件呼叫 plan_trip 沿用結果（不再出現第二張卡片）
   // 模型模式也由程式逐項說明行程比較用到的天氣、空品、路況（data_note，排在行程結論前面；不靠模型）
