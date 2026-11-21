@@ -240,12 +240,15 @@ function stationPos(s) {
   return Number.isFinite(lat) && Number.isFinite(lon) && lat ? { lat, lon } : {};
 }
 
+/** 車站別名：查不到時再試（高鐵的高雄站是左營） */
+const STATION_ALIAS = { [normName('高雄')]: '左營', [normName('新左營')]: '左營' };
 export function findStation(list, input, label) {
   const s = String(input || '').trim();
   const byId = list.find((x) => x.id === s);
   if (byId) return byId;
   const n = normName(s);
-  const hit = list.find((x) => normName(x.name) === n) || list.find((x) => normName(x.name).includes(n));
+  const hit = list.find((x) => normName(x.name) === n) || list.find((x) => normName(x.name).includes(n))
+    || (STATION_ALIAS[n] && list.find((x) => normName(x.name).includes(normName(STATION_ALIAS[n])))); // 高鐵沒有「高雄」站：高雄＝左營（台鐵有高雄站，上面就找到了）
   if (!hit) throw new UserError(`找不到${label}車站「${input}」`);
   return hit;
 }
