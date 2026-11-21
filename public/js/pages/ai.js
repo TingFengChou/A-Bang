@@ -4,17 +4,46 @@
 // 動畫只是另一種呈現：同樣的資訊都在 role=status 的那一句（讀屏、reduced motion 拿到的一樣多）。樣式：css/ai.css。
 import { esc } from '../ui.js';
 import { api } from '../api.js';
-import { edgeEnabled, edgeStatus, edgeJudge, edgePrewarm, edgeStats, setEdgeEnabled } from '../edge-judge.js';
+import { edgeEnabled, edgeStatus, edgeJudge, edgePrewarm, edgeStats, setEdgeEnabled, edgeSuggest, edgeCanSuggest } from '../edge-judge.js';
 import { ENGINE_NAME, normalizeEdgeInfo, normalizeServerInfo, lastAgentStatus, languageNames, nodeText, judgedText } from '../ai-info.js';
 import { aiT, pageLang } from './ai-i18n.js';
 import { visionStatus, visionEnabled } from '../vision.js';
 import { voiceStatus, voiceEnabled } from '../voice.js';
 import { voiceT, whyText } from '../voice-i18n.js';
-import { edgeWriteEnabled, edgeWriteStats } from '../edge-write.js';
+import { edgeWriteEnabled, edgeWriteStats, edgeWrite } from '../edge-write.js';
+import { runAgent } from '../agent/client.js';
+import { mountThinking } from '../agent/thinking.js';
+import { SUGGEST_WAIT_MS } from '../agent/suggest.js';
+import { runTrial, trialSuggest, reportJson, TRIAL_SECTIONS, TRIAL_PRESETS } from '../ai-trial.js';
+import { API_BASE } from '../base.js';
+import { roleEn } from '../../ui/agent/decision-graph.js';
 
 /** 「試試看」等久一點（使用者正看著；平常問阿幫只等 1.8 秒就交給伺服器） */
 const TRY_TIMEOUT_MS = 6000;
-const EXAMPLES = ['try.ex1', 'try.ex2', 'try.ex3', 'try.ex4'];
+/** 建一個元素、只用 textContent 放字（試判斷的結果含使用者的句子與伺服器資料：不用 innerHTML） */
+const h = (tag, cls = '', text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = String(text); return e; };
+/** 動態建議的驗證（只送句子，跟問阿幫頁同一個端點）；時間到就當驗證不了 */
+async function checkRemote(asks, ms = 1500) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), Math.max(0, ms));
+  try {
+    const r = await fetch(`${API_BASE}/api/v1/suggest/check`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ asks }), signal: ctl.signal });
+    return r.ok ? (await r.json()).data : [];
+  } finally { clearTimeout(timer); }
+}
+/** 只複製到剪貼簿（不上傳）；沒有 Clipboard API（舊 WebView）就用隱藏的 textarea */
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* 退回舊做法 */ }
+  try {
+    const ta = Object.assign(document.createElement('textarea'), { value: text, readOnly: true });
+    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.append(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch { return false; }
+}
 /** 有模型可談的狀態（其餘：這台不能用、網頁版） */
 const HAS_MODEL = ['ready', 'off', 'downloading', 'downloadable'];
 const LOCK = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
@@ -123,44 +152,169 @@ export default {
       live.textContent = info.active ? t('live.idle') : t('live.dark');
     }
 
+    // ───── 現場試判斷（ai-trial.js）：按一次看四段——意圖與狀態、資料夠不夠、預計回答、下一個預計問你 ─────
+    let trialCtl = null;
+    onCleanup?.(() => trialCtl?.abort());
+    const intentName = (x) => { const v = t(`intent.${x}`); return v === `intent.${x}` ? String(x) : v; };
+    const stateNames = (list) => (list?.length ? list.map((k) => { const v = t(`state.${k}`); return v === `state.${k}` ? k : v; }).join(t('sep')) : t('trial.states.none'));
+    /** 一段的外框：編號、標題、來源、耗時、有沒有用網路、原始 JSON（textContent，不用 innerHTML） */
+    function section(key, sec, src) {
+      const li = h('li', 'ai-sec');
+      li.dataset.sec = key;
+      const head = h('div', 'ai-sec-head');
+      head.append(h('span', 'ai-sec-n', String(TRIAL_SECTIONS.indexOf(key) + 1)), h('h3', '', t(`trial.sec.${key}`)));
+      const meta = h('p', 'ai-meta');
+      if (src) meta.append(h('span', 'ai-by', src));
+      if (Number.isFinite(sec.ms)) meta.append(h('span', 'ai-ms', t('trial.ms', { ms: Math.round(sec.ms) })));
+      meta.append(h('span', `ai-netb ${sec.network ? 'yes' : 'no'}`, t(sec.network ? 'trial.net.yes' : 'trial.net.no')));
+      const body = h('div', 'ai-sec-body');
+      const raw = h('details', 'ai-raw');
+      raw.append(h('summary', '', t('trial.json')), h('pre', '', JSON.stringify(sec, null, 2)));
+      li.append(head, meta, body, raw);
+      return { li, body };
+    }
+    const byLabel = (s) => (s.by === 'device' ? t('trial.by.device', { engine: ENGINE_NAME[s.engine] || s.engine || '' }) : t(`trial.by.${s.source === 'embed' || s.source === 'llm' ? s.source : s.source === 'device' ? 'mixed' : 'rules'}`));
+    const SRC = {
+      judge: byLabel,
+      data: () => t('trial.by.program'),
+      answer: (s) => (s.rewrite?.ok ? t('trial.by.mixed') : t('trial.by.program')),
+      next: (s) => (s.suggest?.source === 'edge' ? t('trial.by.mixed') : t('trial.by.rules')),
+    };
+    const row = (k, v) => { const d = h('div'); d.append(h('dt', '', k), h('dd', '', v)); return d; };
+
+    function paintJudge(body, s) {
+      const dl = h('dl', 'ai-dl');
+      dl.append(row(t('trial.intent'), intentName(s.intent)), row(t('trial.states'), stateNames(s.states)));
+      body.append(dl);
+      if (s.by === 'server' && s.why) body.append(h('p', 'note', t(`trial.why.${s.why}`)));
+      if (s.server) body.append(h('p', 'note', s.server.source === 'device' ? t('trial.server.device') : t('trial.server.own', { intent: intentName(s.server.intent) })));
+    }
+    function paintData(body, s) {
+      if (s.error) { body.append(h('p', 'note', t('trial.error', { msg: s.error }))); return; }
+      const miss = (s.missing || []).map((k) => t(`slot.${k}`)).join(t('trial.sep'));
+      const verdict = s.safety ? t('trial.safety') : s.blocked ? t(`trial.enough.${s.blocked}`) : s.intent === 'savedMissing' ? t('trial.enough.saved', { saved: s.slots?.[0]?.value || '' })
+        : s.fixed ? t('trial.enough.fixed') : s.target !== s.intent && s.missing?.length ? t('trial.enough.judgedOnly', { intent: intentName(s.target), missing: miss })
+          : s.target !== s.intent ? t('trial.enough.unknown') : s.missing?.length ? t('trial.enough.no', { missing: miss }) : s.enough ? t('trial.enough.yes') : t('trial.enough.unknown');
+      body.append(h('p', `ai-verdict ${s.enough ? 'ok' : 'no'}`, verdict));
+      if (s.slots?.length) {
+        const ul = h('ul', 'ai-slots');
+        for (const x of s.slots) {
+          const li = h('li', x.have ? 'have' : x.required ? 'miss' : 'fill');
+          li.append(h('b', '', t(`slot.${x.key}`)), h('span', '', x.have ? x.value : x.required ? t('trial.slot.missing') : `${t('trial.slot.empty')}・${t(`fill.${x.fill}`)}`));
+          ul.append(li);
+        }
+        body.append(ul);
+      }
+      const heard = [...(s.heard?.places || []), ...(s.heard?.states || []).map((k) => stateNames([k])), s.heard?.arriveBy, s.heard?.departTime].filter(Boolean);
+      if (!s.slots?.length && heard.length) body.append(h('p', 'note', t('trial.heard', { x: heard.join(t('trial.sep')) })));
+      if (s.safety) return;
+      body.append(h('h4', '', t('trial.sources')));
+      if (!s.sources?.length) { body.append(h('p', 'note', t('trial.sources.none'))); return; }
+      const ul = h('ul', 'ai-sources');
+      for (const x of s.sources) {
+        const li = h('li', x.mode === 'live' ? 'live' : 'demo');
+        li.append(h('b', '', t(`src.${x.id}`)), h('span', '', t(`srcmode.${x.reason}`, { n: x.minutesAgo ?? 0 })));
+        ul.append(li);
+      }
+      body.append(ul);
+    }
+    function paintAnswer(body, s) {
+      if (s.askedLocation) body.append(h('p', 'note ai-locnote', t('trial.location')));
+      body.append(h('h4', '', t('trial.tools')));
+      if (s.tools?.length) {
+        const ul = h('ul', 'ai-tools');
+        for (const x of s.tools) {
+          const li = h('li', x.ok ? '' : 'fail');
+          li.append(h('b', '', (lang && x.role ? roleEn(x.role) : x.role) || x.title || x.name), h('span', '', x.ok ? x.speak || '' : t('trial.tool.fail', { error: x.error || '' })));
+          if (x.ok && x.mode === 'demo') li.append(h('small', 'ai-tag', t('trial.tool.demo')));
+          ul.append(li);
+        }
+        body.append(ul);
+      } else body.append(h('p', 'note', t('trial.tools.none')));
+      if (s.best) body.append(h('p', 'note ai-best', t('trial.best', { best: s.best }))); // 方案名稱是資料（照原文）
+      if (s.error) body.append(h('p', 'note', t('trial.error', { msg: s.error })));
+      if (s.draft) {
+        const d = h('div', 'ai-draft');
+        d.append(h('h4', '', t(s.direct ? 'trial.direct' : 'trial.draft')), h('p', 'ai-say', s.draft));
+        body.append(d);
+      }
+      const r = s.rewrite || {};
+      const w = h('div', `ai-rewrite ${r.ok ? 'ok' : r.by === 'none' ? 'none' : 'no'}`);
+      if (r.by === 'none') w.append(h('p', 'note', t(`trial.rewrite.${r.reason}`)));
+      else {
+        w.append(h('h4', '', t('trial.rewrite', { engine: ENGINE_NAME[r.engine] || ENGINE_NAME[info.engine] || '' })));
+        if (r.text) w.append(h('p', 'ai-say', r.text));
+        const why = r.reason === 'check' ? `${t(`chk.${r.check}`)}${r.why ? `「${r.why}」` : ''}` : t(`rw.${r.reason}`);
+        w.append(h('p', `ai-check ${r.ok ? 'ok' : 'no'}`, r.ok ? t('trial.rewrite.ok') : t(r.reason === 'check' ? 'trial.rewrite.fail' : 'trial.rewrite.reason', { why })));
+      }
+      body.append(w);
+    }
+    function paintNext(body, s) {
+      body.append(h('h4', '', t('trial.ask')));
+      if (s.ask) {
+        const box = h('div', 'ai-ask');
+        box.append(h('p', 'ai-ask-q', s.ask.question));
+        const ul = h('ul', 'ai-ask-opts');
+        for (const o of s.ask.options || []) {
+          const li = h('li');
+          li.append(h('b', '', o.label), h('span', '', `${t(`kind.${o.kind}`)}${o.guess ? `・${t('trial.ask.guess')}` : ''}`));
+          ul.append(li);
+        }
+        box.append(ul);
+        if (s.ask.why) box.append(h('p', 'note', s.ask.why));
+        body.append(box);
+      } else body.append(h('p', 'note', t('trial.ask.none')));
+      if (s.missing?.length) body.append(h('p', 'note ai-gap', t('trial.ask.missing', { missing: s.missing.map((k) => t(`slot.${k}`)).join(t('trial.sep')) })));
+      if (s.location) body.append(h('p', 'note', t('trial.ask.location')));
+      body.append(h('h4', '', t('trial.suggest')));
+      const sug = s.suggest || {};
+      if (sug.asks?.length) {
+        const ol = h('ol', 'ai-suggest');
+        for (const a of sug.asks) { const li = h('li'); li.dataset.src = a.src; li.append(h('span', '', a.q), h('small', 'ai-tag', t(`trial.suggest.${a.src}`))); ol.append(li); }
+        body.append(ol);
+      } else body.append(h('p', 'note', t('trial.suggest.none')));
+      body.append(h('p', 'note ai-foot', sug.source === 'edge' ? t('trial.suggest.from.edge', { n: sug.asks.filter((a) => a.src === 'edge').length }) : t('trial.suggest.from.rules')));
+    }
+    const PAINT = { judge: paintJudge, data: paintData, answer: paintAnswer, next: paintNext };
+
     function paintTry() {
       const body = $('#ai-try-body');
-      if (!info.active) {
-        const key = info.state === 'downloadable' ? 'downloading' : info.state;
-        body.innerHTML = `<p class="note">${esc(t(`try.no.${key}`, { reason: t(`reason.${info.reason}`) }))}</p>${info.state === 'web' || info.state === 'unsupported' ? `<a class="btn small" href="#/agent${lang ? '?lang=en' : ''}">${esc(t('try.ask'))}</a>` : ''}`;
-        return;
-      }
+      const presets = TRIAL_PRESETS.map((k) => `<button type="button" class="chip" data-q="${esc(t(k))}">${esc(t(k))}${k === 'trial.p2' ? `<small>${esc(t('trial.p.note'))}</small>` : ''}</button>`).join('');
       body.innerHTML = `
-        <p class="note">${esc(t('try.lead', { engine: engineName(info) }))}</p>
+        <p class="note">${esc(t('try.lead'))}</p>
         <form class="ai-try-form" id="ai-form">
           <label class="sr-only" for="ai-input">${esc(t('try.label'))}</label>
           <input class="field" id="ai-input" type="text" maxlength="120" autocomplete="off" enterkeyhint="go" placeholder="${esc(t('try.placeholder'))}">
           <button class="btn" type="submit" id="ai-go">${esc(t('try.go'))}</button>
         </form>
-        <div class="chips ai-ex" role="group" aria-label="${esc(t('try.examples'))}">${EXAMPLES.map((k) => `<button type="button" class="chip">${esc(t(k))}</button>`).join('')}</div>
-        <p class="ai-local">${LOCK}<span>${esc(t('try.local'))}</span></p>`;
+        <div class="chips ai-ex" role="group" aria-label="${esc(t('try.examples'))}">${presets}</div>
+        <div class="ai-net"><p class="ai-local">${LOCK}<b>${esc(t('trial.net.title'))}</b></p><ul>
+          <li>${esc(t(info.active ? 'trial.net.1.device' : 'trial.net.1.server'))}</li><li>${esc(t('trial.net.rest'))}</li><li>${esc(t('trial.net.privacy'))}</li></ul></div>
+        <div id="ai-think" class="ai-think"></div>
+        <ol class="ai-trial" id="ai-trial" hidden></ol>
+        <p class="ai-trial-foot" id="ai-trial-foot" hidden><button type="button" class="btn small ghost" id="ai-copy">${esc(t('trial.copy'))}</button></p>
+        <p class="sr-only" id="ai-trial-live" role="status"></p>`;
       const input = $('#ai-input');
       const go = $('#ai-go');
-      const run = async (text) => {
-        const q = String(text || '').trim();
-        if (busy) return;
-        if (!q) { live.textContent = t('try.empty'); input.focus(); return; }
-        busy = true;
-        go.disabled = true; go.setAttribute('aria-busy', 'true');
-        const t0 = performance.now();
-        const still = calm();
+      const list = $('#ai-trial');
+      const tlive = $('#ai-trial-live');
+      let report = null;
+      $('#ai-copy').addEventListener('click', () => copyText(reportJson(report)).then((ok) => toast(t(ok ? 'trial.copied' : 'trial.copyFail'))));
+
+      // 第 1 段在手機上判斷時：主視覺照原本的核心動畫（至少播 MIN_PLAY_MS；結果文字不等動畫，立刻寫進 role=status）
+      let heroT0 = 0, heroStill = true;
+      const heroStart = () => {
+        heroT0 = performance.now();
+        heroStill = calm();
         setNode('intent', '…'); setNode('states', '…');
         stage('thinking');
-        hero.classList.toggle('playing', !still); // 動畫播放中（至少 MIN_PLAY_MS）
+        hero.classList.toggle('playing', !heroStill);
         live.textContent = t('live.thinking');
-        if (matchMedia('(pointer: coarse)').matches) input.blur(); // 手機：收鍵盤，核心才看得到
-        $('#ai-stage').scrollIntoView({ block: 'start', behavior: calm() ? 'auto' : 'smooth' });
-        const r = await edgeJudge(q, [], { timeout: TRY_TIMEOUT_MS }); // 只呼叫手機上的外掛，沒有任何網路請求
-        if (!alive) return;
-        // 資料不等動畫：結果文字與次數立刻更新（讀屏、reduced motion 拿到的一樣多、一樣快）
+      };
+      const heroEnd = (r) => {
         live.textContent = r ? judgedText(r, edgeStats().lastMs, t) : t('try.fail');
         paintModel(); // 次數與耗時更新
-        const finish = () => { hero.classList.remove('playing'); busy = false; go.disabled = false; go.removeAttribute('aria-busy'); };
+        const finish = () => hero.classList.remove('playing');
         if (!r) { setNode('intent', '—'); setNode('states', '—'); stage('idle'); finish(); return; }
         const light = () => { // 訊號流到意圖、狀態，節點點亮
           setNode('intent', t(`intent.${r.intent}`));
@@ -168,17 +322,55 @@ export default {
           void hero.offsetWidth; // 連續試：讓「點亮」的動畫重新開始
           stage('done');
         };
-        if (still) { light(); finish(); return; }
-        // 思考動畫（核心脈動、訊號流進核心）至少播到 MIN_PLAY_MS − FLOW_MS；判斷比這久就一直播到結果回來
-        const wait = Math.max(0, MIN_PLAY_MS - FLOW_MS - (performance.now() - t0));
-        setTimeout(() => {
-          if (!alive) return;
-          light();
-          setTimeout(() => { if (alive) finish(); }, FLOW_MS);
-        }, wait);
+        if (heroStill) { light(); finish(); return; }
+        const wait = Math.max(0, MIN_PLAY_MS - FLOW_MS - (performance.now() - heroT0));
+        setTimeout(() => { if (!alive) return; light(); setTimeout(() => { if (alive) finish(); }, FLOW_MS); }, wait);
+      };
+
+      const run = async (text) => {
+        const q = String(text || '').trim();
+        if (busy) return;
+        if (!q) { live.textContent = t('try.empty'); input.focus(); return; }
+        busy = true;
+        go.disabled = true; go.setAttribute('aria-busy', 'true');
+        list.replaceChildren(); list.hidden = true; $('#ai-trial-foot').hidden = true;
+        tlive.textContent = t('trial.running');
+        if (matchMedia('(pointer: coarse)').matches) input.blur(); // 手機：收鍵盤
+        const device = { active: info.active, engine: info.engine || null, write: info.active && raw?.write === true && edgeWriteEnabled(), reason: info.state };
+        if (device.active) { heroStart(); $('#ai-stage').scrollIntoView({ block: 'start', behavior: calm() ? 'auto' : 'smooth' }); }
+        const think = mountThinking({ lang, roleName: (r) => (lang ? roleEn(r) || r : r) }); // 「阿幫在想」核心動畫：判斷 → 查資料 → 寫 → 猜下一句（真實事件推進）
+        $('#ai-think').replaceChildren(think.el);
+        trialCtl?.abort();
+        trialCtl = new AbortController();
+        try {
+          report = await runTrial(q, {
+            device,
+            judge: (x) => edgeJudge(x, [], { timeout: TRY_TIMEOUT_MS }), // 只呼叫手機上的外掛，沒有網路
+            judgeMs: () => edgeStats().lastMs,
+            agent: (b, onEv, o) => runAgent(b, onEv, o),
+            write: (d, o) => edgeWrite(d, o),
+            suggest: ({ q: qq, run: r }) => trialSuggest({ q: qq, run: r, canEdge: edgeCanSuggest, edgeSuggest, check: checkRemote, wait: SUGGEST_WAIT_MS }),
+            signal: trialCtl.signal,
+          }, (key, sec) => {
+            if (!alive) return;
+            const old = list.querySelector(`[data-sec="${key}"]`); // 第 1 段之後補上「伺服器怎麼看」：原地換掉
+            if (key === 'judge' && device.active && !old) heroEnd(sec.by === 'device' ? { intent: sec.intent, states: sec.states } : null);
+            const { li, body: b } = section(key, sec, SRC[key](sec));
+            PAINT[key](b, sec);
+            if (old) { li.querySelector('details').open = old.querySelector('details').open; old.replaceWith(li); } else list.append(li);
+            list.hidden = false;
+          }, (e) => think.step(e));
+          if (alive) { tlive.textContent = t('trial.done'); $('#ai-trial-foot').hidden = false; }
+        } catch (e) {
+          if (alive) tlive.textContent = t('trial.error', { msg: e?.message || '' });
+        } finally {
+          think.stop();
+          busy = false;
+          if (alive) { go.disabled = false; go.removeAttribute('aria-busy'); }
+        }
       };
       $('#ai-form').addEventListener('submit', (e) => { e.preventDefault(); run(input.value); });
-      for (const b of body.querySelectorAll('.ai-ex .chip')) b.addEventListener('click', () => { input.value = b.textContent; run(b.textContent); });
+      for (const b of body.querySelectorAll('.ai-ex .chip')) b.addEventListener('click', () => { input.value = b.dataset.q; run(b.dataset.q); });
     }
 
     function paintModel() {
