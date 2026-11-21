@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-21 T8b Android 實機煙霧測試
+- 做了：`scripts/smoke-android.js`（`npm run smoke:android`）：adb＋WebView 偵錯通道＋Playwright connectOverCDP，檢查原生外掛註冊、6 頁、浮動阿幫、返回鍵、沒有錯誤、截圖。實機跑出一個真問題：浮動阿幫打開時自動聚焦輸入框，手機會跳鍵盤蓋住半個對話、第一次按返回只收鍵盤 → 手機不自動聚焦（與問阿幫頁相同）。Pixel 實機全過。
+- 測試：npm test 534 項全過；E2E 59 項全過；smoke:android 全過
+- 文件：TESTING.md、CLAUDE.md、PLAN.md（T8b ✅、T8c iOS 列入）、PROGRESS.md
+- 下一個：T8c iOS 或待辦總表其他項目
+- 卡住：無
+
 ## 2026-11-21 文件同步（PR #65～#75）
 - 做了：CLAUDE.md 進度與目錄（abang-dock、page-hero、trip-bar、location-help、metro-colors）、PLAN 狀態看板與待辦總表（對話重開後保留、油價週漲跌）、文件網站加「阿幫常駐與頁面質感」一列
 - 測試：無程式變更

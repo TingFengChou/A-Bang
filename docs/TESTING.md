@@ -105,3 +105,14 @@ DEMO_MODE=0 npm start                 # 真實資料
 - `scripts/e2e.js`「公車街景與天氣卡日夜」：在瀏覽器直接渲染 `busScene`，驗證讀屏標籤（還有幾站、就在你這站）、公車位置（越近越靠站牌）、推估不出不畫車、圖片載不到只留文字；天氣卡依觀測時間（台灣時間 18～6 點）顯示夜晚或白天。
 - `test/motion-helpers.test.js`：`sceneOf` 雨／雲／日夜邊界（含 UTC 時間）。
 - 原生 App 煙霧測試（T8b）需要實機或模擬器，不在 CI。
+
+## Android 實機煙霧測試（T8b，2026-11-21）
+
+`npm run smoke:android`（`scripts/smoke-android.js`，不在 CI）：adb 連到手機、重開 App，經 WebView 偵錯通道（debug 版）用 Playwright `connectOverCDP` 連進 App 畫面，檢查：
+
+- 原生外掛都有註冊：Geolocation、LocalNotifications、AbangEdgeAI、AbangSystem（專案內外掛要手動註冊，漏了不會報錯）
+- 首頁、問阿幫、公車路線、天氣、附近、設定都畫得出來；浮動阿幫只在問阿幫頁以外出現
+- 浮動阿幫拉出對話、Android 返回鍵收起
+- 沒有畫面錯誤；每頁截圖在 `test/screenshots/android-*.png`
+
+先決條件：`npm start`（App 經 `adb reverse` 連 8787）、App 已安裝（`npm run app:sync` 後 `gradlew installDebug`）。不解鎖手機、不改手機設定；`--keep` 不重開 App。

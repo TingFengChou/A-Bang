@@ -67,7 +67,8 @@ export function openSheet() {
   sheetBody.append(k.root);
   sheet.showModal();
   sheet.classList.add('open');
-  requestAnimationFrame(() => { sheetBody.scrollTop = sheetBody.scrollHeight; k.api.focus?.(); });
+  // 手機不自動聚焦：鍵盤會跳出來蓋住半個對話，第一次按返回只會收鍵盤（與問阿幫頁相同）
+  requestAnimationFrame(() => { sheetBody.scrollTop = sheetBody.scrollHeight; if (!matchMedia('(pointer: coarse)').matches) k.api.focus?.(); });
 }
 /** 收起底部對話（對話保留在記憶體）；收尾在 close 事件（Android 返回鍵直接 close() 也一樣） */
 export function closeSheet({ silent = false } = {}) {

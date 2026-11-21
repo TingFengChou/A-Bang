@@ -47,7 +47,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | S12g 英文 | 更多英文地名、英文判斷由伺服器帶 `lang`、公車頁英文 |
 | E3／E7 裝置端 AI | App 內分類器備援；手機上轉述 |
 | M11-03 iOS 原生相機掃 QR | 發票 QR |
-| T8b 原生 App 煙霧測試 | adb／simctl 或 Maestro（不在 CI） |
+| T8c iOS 煙霧測試 | simctl＋Web Inspector 或 XCUITest（不在 CI） |
 | S1d 本機資料改存 Capacitor Preferences | 新依賴，要先寫 ADR |
 | S1e 常用地點用門牌地址 | 需要地址轉座標資料來源（例如 TGOS），先評估 |
 | S5 YouBike 空位預測 | 需要歷史車位資料 |
@@ -309,7 +309,8 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] T6 iOS 名稱 Abang（主畫面、設定、權限畫面用的 `CFBundleDisplayName` 早已是 Abang；`PRODUCT_NAME` 維持 App 以免動到 Capacitor 的目標與路徑）；iOS 18 深色／著色圖示（`scripts/build-icons.js`；Xcode 編譯通過，實機深色主畫面待確認）（2026-11-21）
 - [x] T7 通知體驗：第一次提醒前的說明（為什麼要通知）、`remind()` 可取消與多筆、重開機後過期通知不補送；設定頁列出出門提醒（2026-11-21）
 - [x] T8 測試補強：公車街景 DOM（讀屏標籤、公車位置、推估不出不畫車、圖片載不到）、天氣卡日夜（台灣時間）（2026-11-21）
-- [ ] T8b 原生 App 煙霧測試（adb／simctl 或 Maestro；需要實機或模擬器，不在 CI）
+- [x] T8b Android 原生 App 煙霧測試 `npm run smoke:android`（adb＋WebView 偵錯通道：原生外掛都註冊、6 頁、浮動阿幫、返回鍵收起；Pixel 實機全過，2026-11-21）
+- [ ] T8c iOS 模擬器煙霧測試（simctl＋Safari Web Inspector 或 XCUITest）
 - [x] 首次使用引導（起點用現在位置、點方案改選、提醒 App 關著也會響；在這裡要定位與通知權限）（2026-11-21）
 - [x] 路線時間軸點站名設成上車站（2026-11-21）
 - [x] 下車提醒（公車頁選上車站後選下車站，快到時提醒；知道車牌時等目的站下一班就是這台且 ≤ 2 分，否則照乘車時間估；App 關著也會響、重開恢復）（2026-11-21）

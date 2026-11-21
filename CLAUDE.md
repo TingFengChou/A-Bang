@@ -46,6 +46,7 @@ npm test             # node:test，全部要過
 npm run e2e          # Playwright E2E 冒煙測試（示範模式、手機＋桌面，截圖在 test/screenshots/）
 npm run build:demo   # dist/demo.html 單檔示範版
 npm run build:cards  # dist/cards.html MCP Apps 卡片單檔（正式環境部署前要跑）
+npm run smoke:android # Android 實機煙霧測試（adb＋WebView 偵錯通道：每頁、原生外掛、浮動阿幫、返回鍵；不在 CI）
 npm run app:sync     # 手機 App（ADR-0013）：打包 dist/app（ABANG_API_BASE）＋ cap sync；再 npx cap open android／ios
 docker build -t abang .   # 容器映像（兩階段；/healthz 健康檢查）
 ```
