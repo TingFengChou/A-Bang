@@ -107,7 +107,15 @@ test('pending：直接打「好」回答「你趕時間嗎？」→ 改寫成「
   const none = [];
   await runDemo(createServices({ forceMock: true }), { messages }, (e) => none.push(e), { now: NOW });
   assert.equal(none.some((e) => e.type === 'decision'), false);
-  assert.throws(() => validateRequest({ messages: [{ role: 'user', content: 'hi' }], pendingAsk: { id: 'x', slot: 'state', intent: { blob: 'x'.repeat(2000) } } }), /請求格式錯誤/);
+  // 原型鏈上的名稱不是 slot：不能把最後一句變成物件、不能 500
+  for (const slot of ['constructor', 'hasOwnProperty', 'toString', '__proto__', 'valueOf']) {
+    assert.equal(resolvePending({ slot }, '好'), null, slot);
+    assert.throws(() => validateRequest({ messages: [{ role: 'user', content: '好' }], pendingAsk: { id: 'x', slot } }), /請求格式錯誤/, slot);
+  }
+  // 沒有 slot 讀的欄位（intent）直接拿掉
+  const v = validateRequest({ messages: [{ role: 'user', content: 'hi' }], pendingAsk: { id: 'x', slot: 'state', state: 'rush', intent: { blob: 'x'.repeat(2000) } } });
+  assert.deepEqual(v.pendingAsk, { id: 'x', slot: 'state', state: 'rush' });
+  assert.equal(typeof v.messages.at(-1).content, 'string');
 });
 
 test('tripAsk：習慣候選在方案裡 → 問要不要優先推（「好」是猜的、放第一個）；叫車問原因（五個選項）；英文', async () => {
@@ -203,6 +211,27 @@ test('matchAnswer：下一句就是答案（「我不趕」對到不趕、「好
   assert.equal(matchAnswer(ride, '常帶東西').label, '常帶東西');
   assert.equal(matchAnswer(ride, '好'), null, '五個選項時「好」不知道是哪個');
   assert.equal(matchAnswer({ options: [{ label: 'Yes, hurry' }, { label: 'No rush' }] }, 'yes').label, 'Yes, hurry');
+});
+
+test('matchAnswer：新問題不能被當成答案（尤其不能寫進手機偏好）', () => {
+  const habit = { options: [{ label: '好', kind: 'store', guess: true }, { label: '不用', kind: 'store' }] };
+  const rush = { options: [{ label: '趕', kind: 'state' }, { label: '不趕', kind: 'dismiss' }] };
+  const lug = { options: [{ label: '有', kind: 'state' }, { label: '沒有', kind: 'dismiss' }] };
+  const usual = { options: [{ label: '是', kind: 'state', guess: true }, { label: '這次沒有', kind: 'dismiss' }] };
+  const ride = { options: ['趕時間', '常帶東西', '不想走路', '就是喜歡叫車', '不一定'].map((label) => ({ label, kind: 'store' })) };
+  for (const ask of [habit, rush, lug, usual, ride]) {
+    for (const q of ['好像要下雨，明天天氣如何', '不用轉乘的路線', '趕快帶我去台北車站', '有沒有去高雄的車', '明天會下雨是嗎', '從板橋去台北101', '要去哪裡搭車', '是不是要帶傘', '我趕時間的話怎麼去松山機場']) {
+      assert.equal(matchAnswer(ask, q), null, `${ask.options[0].label}：${q}`);
+    }
+  }
+  // 存偏好只接受全字或完整的 YES／NO
+  assert.equal(matchAnswer(habit, '好啊').label, '好');
+  assert.equal(matchAnswer(habit, '不要').label, '不用');
+  assert.equal(matchAnswer(habit, '我覺得好'), null);
+  assert.equal(matchAnswer(ride, '我常帶東西'), null, 'store 不做包含比對');
+  assert.equal(matchAnswer(usual, '是！').label, '是');
+  assert.equal(matchAnswer(lug, '沒有。').label, '沒有');
+  assert.equal(matchAnswer(lug, '有').label, '有');
 });
 
 test('情境檢查：asks／asksNone／askOptions／askKind／askGuess／toNot', async () => {

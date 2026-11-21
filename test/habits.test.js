@@ -164,9 +164,19 @@ test('關鍵問題：同一段起訖同一題 24 小時內不再問；只存雜�
   assert.equal(questionAskedRecently('rush@25.05,121.52>25.03,121.56', T0 + 3600e3), false, '換地點照問');
   assert.equal(questionAskedRecently(key, T0 + 24 * 3600e3 + 1), false, '隔天再問');
   assert.doesNotMatch(mem.get(HABITS_KEY), /25\.0|121\./, '不存座標');
-  assert.match(questionHash(key), /^[0-9a-f]{8}$/);
+  assert.match(questionHash(key, 'aa'), /^[0-9a-f]{8}$/);
+  // 有鹽：拿家、公司的座標去試，算不出手機上存的雜湊（每支手機的鹽不同，清除時一起清）
+  const raw = JSON.parse(mem.get(HABITS_KEY));
+  assert.match(raw.salt, /^[0-9a-f]{16}$/);
+  assert.ok(!(questionHash(key) in raw.seenQ), '沒有鹽的雜湊對不上');
+  assert.ok(questionHash(key, raw.salt) in raw.seenQ);
+  assert.notEqual(questionHash(key, 'a'), questionHash(key, 'b'));
   for (let i = 0; i < 70; i++) markQuestion(`k${i}`, T0 + i);
   assert.equal(Object.keys(JSON.parse(mem.get(HABITS_KEY)).seenQ).length, QUESTION_MAX);
   markQuestion('new', T0 + 25 * 3600e3);
   assert.equal(Object.keys(JSON.parse(mem.get(HABITS_KEY)).seenQ).length, 1, '過期的清掉');
+  const salt = JSON.parse(mem.get(HABITS_KEY)).salt;
+  clearHabits();
+  markQuestion(key, T0);
+  assert.notEqual(JSON.parse(mem.get(HABITS_KEY)).salt, salt, '清除後換新的鹽');
 });

@@ -39,7 +39,7 @@ export function guardedText(profile, text, emit) {
 }
 import { STATES } from '../decide.js';
 import { HabitSchema } from '../tools/trip.js';
-import { tripAsk, resolvePending } from './ask.js';
+import { tripAsk, resolvePending, PENDING_SLOTS } from './ask.js';
 
 /** 「你說過」的預設狀況只能是這幾種（habits.js 叫車原因） */
 export const USUAL_STATES = ['rush', 'luggage', 'lessWalk'];
@@ -70,8 +70,8 @@ const RequestSchema = z.object({
   context: z.string().max(200).optional(),
   // 常用地點（S1）：存在手機，只在使用者提到時送（「回家」→ 家）；台灣範圍內的座標
   // 阿幫問你：使用者直接打字回答上一個問題時，客戶端帶回那個問題的 pending（ADR-0016；只有 slot 與意圖，不含個資）
-  pendingAsk: z.object({ id: z.string().max(60), slot: z.string().max(40), state: z.enum(Object.keys(STATES)).optional(), intent: z.record(z.string(), z.any()).optional() })
-    .refine((p) => JSON.stringify(p).length <= 1000, 'pendingAsk 太大').optional(),
+  // slot 只能是有處理函式的；其他欄位只收明確的（intent 等之後有 slot 讀它時再加，不收就會被拿掉）
+  pendingAsk: z.object({ id: z.string().max(60), slot: z.enum(Object.keys(PENDING_SLOTS)), state: z.enum(Object.keys(STATES)).optional() }).optional(),
   savedPlaces: z.partialRecord(z.enum(['家', '公司', '學校']), z.object({ name: z.string().trim().min(1).max(40), lat: z.number().min(21).max(27), lon: z.number().min(118).max(123) })).optional(),
   // 手機上的模型先判斷好的意圖與狀態（ADR-0014）：只是提示，列舉值以外一律拒絕；方案排序仍由 decide.js 計分
   deviceJudge: z.object({ intent: z.enum(Object.keys(JUDGE_INTENTS)), states: z.array(z.enum(JUDGE_STATES)).max(JUDGE_STATES.length), engine: z.enum(DEVICE_ENGINES) }).optional(),

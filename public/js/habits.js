@@ -25,7 +25,7 @@ export const habitName = (m) => NAME[m] || m;
 /** 「你說過」的預設狀況怎麼稱呼（決策圖、設定頁） */
 export const USUAL_LABEL = { rush: '常趕時間', luggage: '常帶東西', lessWalk: '不想走路' };
 
-const empty = () => ({ on: true, picks: [], confirmed: {}, declined: {}, asked: {}, usual: [], ride: null, seenQ: {} });
+const empty = () => ({ on: true, picks: [], confirmed: {}, declined: {}, asked: {}, usual: [], ride: null, seenQ: {}, salt: null });
 const times = (o) => Object.fromEntries(Object.entries(o && typeof o === 'object' ? o : {}).filter(([m, t]) => HABIT_MODES.includes(m) && Number.isFinite(t)));
 /** 讀出（壞掉或沒有：記錄開、沒有紀錄） */
 function load() {
@@ -38,6 +38,7 @@ function load() {
       confirmed: times(v.confirmed), declined: times(v.declined), asked: times(v.asked),
       usual: Array.isArray(v.usual) ? v.usual.filter((k) => RIDE_REASONS[k]).slice(0, 3) : [],
       ride: ['rush', 'luggage', 'lessWalk', 'love', 'depends'].includes(v.ride) ? v.ride : null,
+      salt: typeof v.salt === 'string' && /^[0-9a-f]{16}$/.test(v.salt) ? v.salt : null,
       seenQ: Object.fromEntries(Object.entries(v.seenQ && typeof v.seenQ === 'object' ? v.seenQ : {}).filter(([k, t]) => /^[0-9a-f]{8}$/.test(k) && Number.isFinite(t))),
     };
   } catch { return empty(); }
@@ -117,22 +118,31 @@ export function habitRequest(now = Date.now()) {
   return Object.keys(u).length ? u : null;
 }
 
-/** 問題的鍵（含起訖粗座標）→ 不可讀的 8 碼雜湊（FNV-1a）：手機上只存這個，不存地點 */
-export function questionHash(key) {
+/** 問題的鍵（含起訖粗座標）＋這支手機的隨機鹽 → 8 碼雜湊（FNV-1a）：手機上只存這個，不存地點；
+ *  有鹽，拿到 localStorage 的人也不能拿家、公司的座標去試出問過哪段路（清除時鹽一起清） */
+export function questionHash(key, salt = '') {
   let h = 0x811c9dc5;
-  for (const ch of String(key)) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+  for (const ch of `${salt}|${key}`) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
   return h.toString(16).padStart(8, '0');
 }
+const newSalt = () => {
+  const b = new Uint8Array(8);
+  if (globalThis.crypto?.getRandomValues) globalThis.crypto.getRandomValues(b); else for (let i = 0; i < 8; i++) b[i] = Math.floor(Math.random() * 256);
+  return [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+};
 /** 這一題（同一段起訖、同一個狀態）24 小時內問過嗎 */
 export function questionAskedRecently(key, now = Date.now()) {
-  const t = load().seenQ[questionHash(key)];
+  const s = load();
+  if (!s.salt) return false;
+  const t = s.seenQ[questionHash(key, s.salt)];
   return Number.isFinite(t) && now - t >= 0 && now - t < QUESTION_TTL_MS;
 }
 /** 記下問過這一題（出現就算；點了「不趕」也是問過）；過期的清掉、最多 50 筆 */
 export function markQuestion(key, now = Date.now()) {
   const s = load();
+  s.salt ||= newSalt();
   const keep = Object.entries(s.seenQ).filter(([, t]) => now - t < QUESTION_TTL_MS).sort((a, b) => b[1] - a[1]).slice(0, QUESTION_MAX - 1);
-  s.seenQ = Object.fromEntries([[questionHash(key), now], ...keep]);
+  s.seenQ = Object.fromEntries([[questionHash(key, s.salt), now], ...keep]);
   save(s);
 }
 

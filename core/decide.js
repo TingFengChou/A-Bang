@@ -120,7 +120,7 @@ export function decide(options, ctx = {}) {
     return { weights, ranked, excluded, best: picked, mode: ctx.mode, reason: `照你說的選「${picked.name}」${note}。${careful ? `${STATES[careful].label}要多注意安全。` : ''}` };
   }
   const best = ranked[0] || null;
-  const reason = explain(best, ranked[1], states, excluded);
+  const reason = explain(best, ranked[1], states, excluded, ranked);
   if (habitOn) return { weights, ranked, excluded, best, reason, habitOn };
   // 指定的交通方式沒有可行方案：照分數建議，但要明說（使用者才不會以為已經改成功）
   if (ctx.mode) return { weights, ranked, excluded, best, modeUnavailable: ctx.mode, reason: `${MODE_NAME[ctx.mode] || '你指定的方式'}這次沒有可行的方案；${reason}` };
@@ -131,7 +131,7 @@ const MODE_NAME = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷�
 const MODE_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro: '坐捷運', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
 
 /** 產生一句理由：最佳方案贏在哪裡（取貢獻差最大的項目）＋生效的狀態 */
-function explain(best, second, states, excluded) {
+function explain(best, second, states, excluded, ranked = []) {
   if (!best) {
     const said = excluded.some((e) => !e.why.includes('超過')), late = excluded.some((e) => e.why.includes('超過'));
     // 行動不便時沒有可行方案（短程只有步行、YouBike，或叫車被說不要）：主動建議叫車／無障礙計程車
@@ -140,7 +140,7 @@ function explain(best, second, states, excluded) {
   }
   const why = [];
   if (states.length) why.push(`因為${states.map((s) => STATES[s].say).join('、')}`);
-  const often = best.breakdown?.habit > 0 && (!second || best.breakdown.habit >= (second.breakdown?.habit || 0)) ? [`你想優先${HABIT_DO[best.role] || `選${best.name}`}`] : []; // 習慣（使用者同意過：你想優先搭捷運）
+  const often = habitFlipped(best, ranked) ? [`你想優先${HABIT_DO[best.role] || `選${best.name}`}`] : []; // 只有拿掉偏好加分會換第一名時才說（否則不是因為偏好）
   if (second) {
     const diffs = CRITERIA.map((c) => ({ c, d: best.breakdown[c.key] - second.breakdown[c.key] })).sort((a, b) => b.d - a.d);
     const top = diffs.filter((x) => x.d > 0.01).slice(0, 2).map((x) => PHRASE[x.c.key](best, second, states));
@@ -151,6 +151,13 @@ function explain(best, second, states, excluded) {
   if (unfit.length) why.push([...new Set(unfit.map((e) => e.why))].join('、'));
   if (late.length) why.push(`${late.map((e) => e.name).join('、')}會遲到已排除`);
   return `選「${best.name}」${why.length ? '：' + why.join('，') : ''}。`;
+}
+
+/** 拿掉偏好加分後第一名會不會換（決策圖英文理由也用這個） */
+export function habitFlipped(best, ranked = []) {
+  if (!(best?.breakdown?.habit > 0)) return false;
+  const base = (o) => Object.entries(o.breakdown || {}).reduce((a, [k, v]) => a + (k === 'habit' ? 0 : v), 0);
+  return ranked.some((o) => o.id !== best.id && base(o) > base(best));
 }
 
 const PHRASE = {

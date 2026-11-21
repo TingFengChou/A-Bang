@@ -3,26 +3,31 @@
 // 可及性：role=group＋aria-labelledby（讀屏念問句）、問句 aria-live、原生按鈕可用鍵盤；不搶焦點（不打斷），答完焦點留在區塊的結果句。
 // 語音或打字的人：下一句就是答案（matchAnswer）；對不上就當略過，照常送出。
 
-const YES = /^(好|好啊|好的|要|是|是的|對|嗯|可以|ok|okay|yes|yeah|yep|sure)[!！。.]?$/i;
-const NO = /^(不|不用|不要|不必|沒|沒有|不是|no|nope|no thanks)[!！。.]?$/i;
+const YES = /^(好|好啊|好的|要|是|是的|對|對啊|嗯|可以|ok|okay|yes|yeah|yep|sure)$/i;
+const NO = /^(不|不用|不要|不必|沒|沒有|不是|no|nope|no thanks)$/i;
 
 /**
- * 使用者用打的（或說的）回答：比對按鈕文字（先全字、再由長到短找包含，「我不趕」先對到「不趕」）；
- * 只有兩個選項時「好／要／yes」＝第一個、「不用／no」＝第二個。對不上回 null（＝略過）。
- * @param {{ options: Array<{ label: string }> }} ask
+ * 使用者用打的（或說的）回答：下一句就是答案——但寧可略過，也不能把新問題當成答案（尤其是會存進手機的偏好）。
+ * 1. 全字等於某個選項（去掉句尾標點）→ 那個選項
+ * 2. 整句就是 YES／NO 說法（好、好啊、是、對、要、不用、不要、沒有、yes、no…）且只有兩個選項 → 第一／第二個
+ * 3. 「包含」比對只用在：不是 store 類（存偏好只接受 1、2）、沒有問號、而且選項 ≥ 3 字或這句只比選項多 2 字以內（「我不趕」→ 不趕）
+ * 其他都回 null＝略過，這句照常送出（帶 pendingAsk）。「好像要下雨，明天天氣如何」「不用轉乘的路線」「趕快帶我去台北車站」都不算答案。
+ * @param {{ options: Array<{ label: string, kind?: string }> }} ask
  * @param {string} text
  */
 export function matchAnswer(ask, text) {
   const t = String(text || '').trim().replace(/\s+/g, ' ');
   if (!t || !ask?.options?.length || t.length > 20) return null;
-  const low = t.toLowerCase();
+  const bare = t.replace(/[!！。.～~，,、]+$/u, '');
+  const low = bare.toLowerCase();
   const exact = ask.options.find((o) => o.label.toLowerCase() === low);
   if (exact) return exact;
-  const hit = [...ask.options].sort((a, b) => b.label.length - a.label.length).find((o) => low.includes(o.label.toLowerCase()));
-  if (hit) return hit;
-  if (ask.options.length === 2 && YES.test(t)) return ask.options[0];
-  if (ask.options.length === 2 && NO.test(t)) return ask.options[1];
-  return null;
+  if (ask.options.length === 2 && YES.test(bare)) return ask.options[0];
+  if (ask.options.length === 2 && NO.test(bare)) return ask.options[1];
+  if (/[?？嗎呢]/.test(t)) return null; // 看起來是在問問題
+  const hit = [...ask.options].filter((o) => o.kind !== 'store').sort((a, b) => b.label.length - a.label.length)
+    .find((o) => (o.label.length >= 3 || bare.length <= o.label.length + 2) && low.includes(o.label.toLowerCase()));
+  return hit || null;
 }
 
 let seq = 0;
@@ -58,7 +63,14 @@ export function mountAsk(ask, { lang = null, onAnswer }) {
     async answer(o) {
       if (done) return;
       done = true;
-      const said = await onAnswer(o);
+      let said;
+      try { said = await onAnswer(o); } catch {
+        done = false; // 沒做成：按鈕恢復，可以再按一次
+        let err = box.querySelector('.ask-err');
+        if (!err) { err = el('p', 'ask-err', en ? "That didn't work. Please try again." : '沒做成，請再試一次。'); err.setAttribute('role', 'alert'); box.append(err); }
+        return;
+      }
+      box.querySelector('.ask-err')?.remove();
       row.remove(); why?.remove();
       box.classList.add('answered');
       const r = el('p', 'ask-done', said || (en ? `Got it: ${o.label}` : `好的：${o.label}`));

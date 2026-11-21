@@ -47,9 +47,16 @@ test('西門町 → 台北101：沒有習慣時公車第一；常搭捷運時捷
   assert.deepEqual(validate(schema, r), [], '卡片契約');
 });
 
-test('台北車站 → 台北101：本來就推捷運，理由補上「你想優先搭捷運、省 … 元」', async () => {
+test('台北車站 → 台北101：本來就推捷運——不是因為偏好，理由不說「你想優先搭捷運」（只有偏好讓第一名換掉時才說）', async () => {
   const r = await trip('台北車站', '台北101', { habit: METRO });
-  assert.match(r.ranking.reason, /^選「捷運 淡水信義線」：你想優先搭捷運、省 \d+ 元/);
+  assert.match(r.ranking.reason, /^選「捷運 淡水信義線」：省 \d+ 元/);
+  assert.doesNotMatch(r.ranking.reason, /你想優先/);
+  const m = r.ranking.ranked.find((x) => r.ranking.ranked[0].id === x.id);
+  assert.ok(m.breakdown.habit > 0, '加分照樣算（只是理由不說）');
+  const { habitFlipped } = await import('../core/decide.js');
+  assert.equal(habitFlipped(m, r.ranking.ranked), false);
+  const x = await trip('西門町', '台北101', { habit: METRO });
+  assert.equal(habitFlipped(x.ranking.ranked[0], x.ranking.ranked), true);
 });
 
 test('差距大時不翻盤：常叫車，台北到高雄仍推台鐵；走路 100 分不會因習慣勝出', async () => {

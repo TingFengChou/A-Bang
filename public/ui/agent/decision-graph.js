@@ -31,6 +31,12 @@ const EN = {
   habit: (m) => `You agreed: prefer ${m}`, habitWhy: 'Why?', habitPaused: 'You told Abang your situation, so this preference is not counted this time', habitNote: 'You said yes to preferring it. When you don\'t mention your situation it gets a small bonus (up to 8 pts). Stored only on this phone; undo it in Settings.', often: 'you prefer it', habitCrit: 'Preference',
   details: 'Comparison details', effNone: 'No effect', effNA: 'Not used', effScore: 'Delay risk', pts: (n, s) => `${n}: ${s} pts`, title: 'How Abang decided', pick: (n) => `Switch to ${n}`, ex: (n, w) => `${n}, excluded: ${w}`,
 };
+/** 拿掉偏好加分後第一名會不會換（同 core/decide.js habitFlipped；這個檔不 import /core，打包單檔示範版才不會斷） */
+const habitFlipped = (best, all = []) => {
+  if (!(best?.breakdown?.habit > 0)) return false;
+  const base = (o) => Object.entries(o.breakdown || {}).reduce((a, [k, v]) => a + (k === 'habit' ? 0 : v), 0);
+  return all.some((o) => o.id !== best.id && base(o) > base(best));
+};
 /** 方案名稱縮短，分數一定看得到（「叫車（Uber）」→「叫車」） */
 const short = (n) => { const x = String(n).replace(/（.*?）|\(.*?\)/g, ''); return x.length > 6 ? `${x.slice(0, 5)}…` : x; };
 /** 精簡模式：低階裝置或 reduced motion（UX.md §9）——只淡入、不做翻轉與 3D */
@@ -76,11 +82,11 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
   const critOf = (c) => (en ? EN.crit[c.key] || c.label : c.label);
   const roleOf = (r) => (en ? EN.role[r] || r : r);
   /** 英文的一句理由（對照 decide.js explain：贏在差最多的兩項） */
-  const enReason = (best, second) => {
+  const enReason = (best, second, all = []) => {
     if (!best) return null;
     if (!second) return `${nameOf(best)} is the only option.`;
     const say = { minutes: () => `${Math.max(1, second.minutes - best.minutes)} min faster than ${nameOf(second)}`, waitMin: () => (best.waitMin ? 'shorter wait' : 'no waiting'), walkMin: () => (best.walkMin ? 'less walking' : 'no walking'), cost: () => (best.cost < second.cost ? `NT$${second.cost - best.cost} cheaper` : 'lower cost'), exposure: () => 'less time outdoors', effort: () => 'easier', delayRisk: () => 'avoids traffic delays' };
-    const top = [...(best.breakdown?.habit > 0 ? [EN.often] : []), ...CRITERIA.map((c) => ({ k: c.key, d: (best.breakdown?.[c.key] ?? 0) - (second.breakdown?.[c.key] ?? 0) })).sort((a, b) => b.d - a.d).filter((x) => x.d > 0.01).slice(0, 2).map((x) => say[x.k]?.())];
+    const top = [...(habitFlipped(best, all) ? [EN.often] : []), ...CRITERIA.map((c) => ({ k: c.key, d: (best.breakdown?.[c.key] ?? 0) - (second.breakdown?.[c.key] ?? 0) })).sort((a, b) => b.d - a.d).filter((x) => x.d > 0.01).slice(0, 2).map((x) => say[x.k]?.())];
     return `${nameOf(best)} wins${top.length ? `: ${top.join(', ')}` : ''}.`;
   };
   const initial = decision.states.map((s) => ({ ...s, on: true }));
@@ -126,7 +132,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       ...habitNotes(),
       el('p', 'dg-step', bestOpt ? (en ? EN.step4(nameOf(bestOpt)) : `④ 決定：${bestOpt.name}`) : (en ? EN.decide : '④ 決定')),
       graph(ranked, excluded, active, r.best?.id),
-      el('p', 'dg-why', en ? enReason(bestOpt, ranked.find((o) => o.id !== bestOpt?.id)) : reason), // 英文：程式依分數組一句英文理由
+      el('p', 'dg-why', en ? enReason(bestOpt, ranked.find((o) => o.id !== bestOpt?.id), ranked) : reason), // 英文：程式依分數組一句英文理由
       decision.single && el('p', 'dg-single', en ? decision.single.textEn : decision.single.text), // 只有一種方式：其他方式為什麼不在
       onPick && ranked.length > 1 && el('p', 'dg-hint', en ? EN.hint : '想換方式？點其他方案，阿幫會用它重算'), // 審查：手機沒有 hover，要寫出來
       details(ranked),

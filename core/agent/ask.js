@@ -106,16 +106,18 @@ const YES = /^(好|好啊|好的|要|是|是的|對|對啊|嗯|可以|有|ok|oka
  * @returns {string|null}
  */
 export function resolvePending(pending, text) {
-  const f = pending && PENDING_SLOTS[pending.slot];
-  return f ? f(pending, String(text ?? '').trim()) : null;
+  const slot = pending?.slot;
+  if (typeof slot !== 'string' || !Object.hasOwn(PENDING_SLOTS, slot)) return null; // 不走原型鏈（constructor、toString…）
+  const out = PENDING_SLOTS[slot](pending, String(text ?? '').trim());
+  return typeof out === 'string' && out.trim() ? out.slice(0, 500) : null;
 }
 
-/** slot → (pending, text) => 改寫後的一句｜null */
-export const PENDING_SLOTS = {
+/** slot → (pending, text) => 改寫後的一句｜null（沒有原型：slot 名稱只認這裡列的） */
+export const PENDING_SLOTS = Object.assign(Object.create(null), {
   // 關鍵因子：「好」「嗯」「有」＝加上這個狀態（「我趕時間」會接著上一輪的行程重算）；英文同理
   state: (p, t) => {
     const A = STATE_ANSWERS[p.state];
     if (!A || !YES.test(t)) return null;
     return /^[a-z]/i.test(t) ? A.sayEn : A.say;
   },
-};
+});
