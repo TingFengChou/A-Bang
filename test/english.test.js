@@ -52,3 +52,23 @@ test('捷運：車站、目的地、路線英文', async () => {
   assert.equal(r.stationEn, 'Taipei Main Station');
   assert.deepEqual([r.trains[0].lineEn, r.trains[0].destinationEn], ['Bannan Line', 'Dingpu']);
 });
+
+test('S12g 更多英文地名：觀光客常去的景點、夜市、車站、機場、醫院', async () => {
+  const { parseIntent: pi } = await import('../core/agent/demo-intent.js');
+  const { readFile } = await import('node:fs/promises');
+  const to = (t) => pi(t).to;
+  assert.equal(to('How do I get from Ximen to Taroko?'), '太魯閣國家公園遊客中心');
+  assert.equal(to('How to get to Pier-2 from Zuoying'), '駁二藝術特區');
+  assert.equal(to("How do I get to Tamsui Fisherman's Wharf?"), '淡水漁人碼頭', '長的地名優先');
+  assert.equal(to('Take me to the Taipei Fine Arts Museum'), '臺北市立美術館');
+  assert.equal(to('How do I go to the Grand Hotel from 228 Park?'), '圓山大飯店');
+  assert.deepEqual(pi('Is it raining at Kenting?').places, ['墾丁大街']);
+  const L = JSON.parse(await readFile(new URL('../core/data/landmarks.json', import.meta.url), 'utf8'));
+  const items = Array.isArray(L) ? L : L.items;
+  assert.ok(items.filter((x) => x.en).length >= 140, '有英文名稱的地標');
+  const seen = new Map();
+  for (const x of items) for (const a of x.aliases.filter((k) => /[A-Za-z]/.test(k))) {
+    assert.ok(!seen.has(a.toLowerCase()) || seen.get(a.toLowerCase()) === x.name, `英文別名重複：${a}（${seen.get(a.toLowerCase())}／${x.name}）`);
+    seen.set(a.toLowerCase(), x.name);
+  }
+});
