@@ -312,12 +312,12 @@ export default {
       draw(asks.length ? asks : null);
     }
     /** 畫建議 chips 與 placeholder；內容一樣就不動（不閃、讀屏不重唸） */
-    function paintSuggest({ actions, asks }, view, lang) {
+    function paintSuggest({ asks, items }, view, lang) {
       if (pinnedDefaults) return; // 正在看固定範例：不換掉
       const en = lang === 'en';
       const top = asks[0]?.label;
       input.placeholder = top ? (en ? `e.g. ${top}` : `例如：${top}`) : A.placeholder;
-      const items = [...asks, ...actions]; // 猜的下一句在前（第一句也是 placeholder），動作（提醒、開公車頁、加狀態）在後：卡片上也有同樣的按鈕
+      // 順序（suggest.js orderSuggest）：公車、捷運情境提醒類動作排第一，其他情境猜的問句在前；placeholder 一律是最可能的那一句問句
       const sig = JSON.stringify([!!view, items.map((x) => [x.kind || 'ask', x.label])]);
       if (chips.dataset.sig === sig) return;
       const had = chips.contains(document.activeElement) && document.activeElement.matches(':focus-visible'); // 用鍵盤停在建議上
@@ -368,6 +368,7 @@ export default {
       const myGen = gen;
       for (const c of cards) if (c.turn < turnNo - 1) c.stop?.();
       busy = true; sendBtn.disabled = true; input.value = ''; mention.replaceChildren();
+      sugSeq++; // 還在猜的下一句作廢（答完會依新的情境再猜；edgeJudge 也會請手機取消）
       pageRow.hidden = true;
       history.push({ role: 'user', content: q });
       log.append(el('div', `msg user${spoken ? ' spoken' : ''}`, q)); // 用說的：泡泡上一個小麥克風（css）

@@ -2,10 +2,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseIntent } from '../core/agent/demo-intent.js';
-import { checkAsks } from '../core/agent/suggest-check.js';
+import { checkAsks, checkRequest } from '../core/agent/suggest-check.js';
 import { answerable, sameAsk, slimAsk, shownAsks } from '../core/suggest.js';
-import { suggestContext, contextText, ruleAsks, rankAsks, pickSuggestions, validateAsks, homeAsks, timeOf, resultFacts } from '../public/js/agent/suggest.js';
-import { normalizeSuggest } from '../public/js/edge-judge.js';
+import { suggestContext, contextText, ruleAsks, rankAsks, pickSuggestions, validateAsks, homeAsks, timeOf, resultFacts, orderSuggest } from '../public/js/agent/suggest.js';
+import { normalizeSuggest, edgeSuggest, edgeJudge, cancelSuggest, _resetEdge } from '../public/js/edge-judge.js';
 import { nextSteps } from '../public/js/agent/next-steps.js';
 
 const at = (hhmm, day = '2026-11-18') => new Date(`${day}T${hhmm}:00+08:00`).getTime(); // 2026-11-18 是週三
@@ -190,4 +190,58 @@ test('手機模型回傳整理：編號、引號、重複、太長、JSON 都處
   assert.deepEqual(normalizeSuggest(['明天會下雨嗎？', '  附近 YouBike 還有車嗎？ ']), ['明天會下雨嗎？', '附近 YouBike 還有車嗎？']);
   assert.deepEqual(normalizeSuggest({ questions: ['明天會下雨嗎？'] }), ['明天會下雨嗎？']);
   assert.deepEqual(normalizeSuggest(null), []);
+});
+
+test('排列：公車／捷運頁或剛查過公車到站時提醒類動作排第一；其他情境猜的問句在前', () => {
+  const remind = { label: '到站前 3 分提醒我', kind: 'remind' }, alight = { label: '上車後提醒我下車', kind: 'navigate' }, state = { label: '我很趕', kind: 'state' };
+  const asks = [{ label: '附近還有哪些公車？' }, { label: '捷運幾點收班？' }];
+  const labels = (ctx) => orderSuggest({ actions: [state, remind, alight], asks }, ctx).map((x) => x.label);
+  const busTurn = suggestContext({ turns: [turn('307 到哪了', [{ tool: 'bus_route_eta', data: { routeName: '307', focus: { stopName: '捷運西門站', etaSec: 300, status: 0 } } }])], now: at('14:00') });
+  assert.deepEqual(labels(busTurn), ['到站前 3 分提醒我', '上車後提醒我下車', '附近還有哪些公車？', '捷運幾點收班？', '我很趕']);
+  for (const kind of ['bus', 'metro']) assert.equal(labels(suggestContext({ page: { kind }, now: at('14:00') }))[0], '到站前 3 分提醒我', kind);
+  const tripTurn = suggestContext({ turns: [turn('從西門町到台北101怎麼去？', [trip()])], now: at('14:00') });
+  assert.deepEqual(labels(tripTurn), ['附近還有哪些公車？', '捷運幾點收班？', '到站前 3 分提醒我', '上車後提醒我下車', '我很趕']);
+  assert.equal(labels(suggestContext({ page: { kind: 'weather' }, now: at('14:00') }))[0], '附近還有哪些公車？');
+  // pickSuggestions 一起給排好的順序
+  assert.equal(pickSuggestions({ actions: [remind], rules: ruleAsks(busTurn), ctx: busTurn }).items[0].label, '到站前 3 分提醒我');
+});
+
+test('驗證端點的 log 只記數量，不記句子', () => {
+  const logs = [];
+  const data = checkRequest({ asks: ['從我家巷口到台北101怎麼去？', '晚上回程怎麼走？'] }, { log: (m, o) => logs.push([m, o]) });
+  assert.equal(data.length, 2);
+  assert.deepEqual(logs, [['suggest check', { count: 2, ok: data.filter((x) => x.ok).length, needSaved: 0 }]]);
+  assert.doesNotMatch(JSON.stringify(logs), /台北101|回程|巷口/);
+});
+
+test('judge 優先：建議產生中送出問題 → 先請手機取消 suggest，judge 不排在後面，猜的結果丟掉', async () => {
+  const calls = [];
+  let release;
+  globalThis.Capacitor = {
+    isNativePlatform: () => true,
+    nativePromise: (plugin, method) => {
+      calls.push(method);
+      if (method === 'suggest') return new Promise((res, rej) => { release = rej; setTimeout(() => res({ engine: 'gemini-nano', result: '捷運現在多久一班？' }), 5000); });
+      if (method === 'cancelSuggest') { release?.(new Error('cancelled')); return Promise.resolve({ cancelled: true }); }
+      if (method === 'judge') return Promise.resolve({ engine: 'gemini-nano', ms: 30, result: '{"intent":"trip","states":[]}' });
+      return Promise.resolve({});
+    },
+  };
+  try {
+    const pending = edgeSuggest('現在：平日白天 14 點', { timeout: 4000 });
+    await new Promise((r) => setTimeout(r, 10));
+    const t0 = Date.now();
+    const j = await edgeJudge('從西門町到台北101怎麼去');
+    assert.deepEqual(j, { intent: 'trip', states: [], engine: 'gemini-nano' });
+    assert.ok(Date.now() - t0 < 500, 'judge 沒有等 suggest');
+    assert.deepEqual(calls, ['suggest', 'cancelSuggest', 'judge'], '取消先送到原生端');
+    assert.equal(await pending, null, '被取消的建議不用');
+    assert.equal(cancelSuggest(), false, '沒有在跑的就不送');
+    // 取消後可以再猜（不會因為上一次被擋）
+    globalThis.Capacitor.nativePromise = (plugin, method) => (method === 'suggest' ? Promise.resolve({ engine: 'gemini-nano', result: '1. 明天會下雨嗎？' }) : Promise.resolve({}));
+    assert.deepEqual(await edgeSuggest('現在：平日白天 14 點'), { asks: ['明天會下雨嗎？'], engine: 'gemini-nano' });
+  } finally {
+    delete globalThis.Capacitor;
+    _resetEdge();
+  }
 });

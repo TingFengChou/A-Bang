@@ -91,7 +91,7 @@ export function edgePrewarm() {
 let inflight = null;
 let unavailable = false;
 /** 測試用：重設斷路器 */
-export const _resetEdge = () => { inflight = null; unavailable = false; suggestInflight = null; suggestOff = false; };
+export const _resetEdge = () => { inflight = null; unavailable = false; suggestInflight = null; suggestOff = false; suggestAbort = null; };
 
 /**
  * 在手機上判斷這一句。
@@ -102,6 +102,7 @@ export const _resetEdge = () => { inflight = null; unavailable = false; suggestI
 export async function edgeJudge(text, history = [], { timeout = EDGE_TIMEOUT_MS } = {}) {
   const c = cap();
   if (!c || unavailable || inflight || !edgeEnabled() || !text) return null;
+  cancelSuggest(); // judge 優先：正在猜下一句就先取消（Android 原生端共用一條執行緒，不讓 judge 排在 suggest 後面）
   let timer;
   const t0 = Date.now();
   try {
@@ -153,6 +154,20 @@ export function normalizeSuggest(raw, max = 6) {
 
 let suggestInflight = null;
 let suggestOff = false; // 這個版本的外掛沒有 suggest、或說不可用：這次開 App 不再試
+let suggestAbort = null; // 取消正在等的那一次（結果丟掉）
+/**
+ * 使用者送出問題時讓位給 judge（產品負責人 2026-11-21：judge 優先）：請原生端取消正在跑的 suggest（Android 取消 ML Kit 的 future、
+ * iOS 取消 Task），這裡不再等它、結果丟掉，下一題也不會因為它還在跑而被擋。舊版外掛沒有 cancelSuggest 也沒關係（原生端 judge 另有自己的執行緒）。
+ */
+export function cancelSuggest() {
+  const c = cap();
+  if (!c || !suggestInflight) return false;
+  c.nativePromise(PLUGIN, 'cancelSuggest', {}).catch(() => {});
+  suggestAbort?.();
+  suggestAbort = null;
+  suggestInflight = null;
+  return true;
+}
 /** 現在可以請手機上的 AI 猜嗎（App、外掛可用、兩個開關都開著）；不能就直接用規則，不必等 */
 export const edgeCanSuggest = () => !!cap() && !unavailable && !suggestOff && edgeEnabled() && suggestEnabled();
 /**
@@ -166,8 +181,10 @@ export async function edgeSuggest(context, { lang = null, timeout = 1500 } = {})
   let timer;
   try {
     const call = c.nativePromise(PLUGIN, 'suggest', { context: String(context).slice(0, 600), instructions: lang === 'en' ? SUGGEST_INSTRUCTIONS_EN : SUGGEST_INSTRUCTIONS, lang: lang === 'en' ? 'en' : 'zh-TW', max: 4 });
-    suggestInflight = call.catch((e) => { if (/unavailable|not implemented|UNIMPLEMENTED/i.test(e?.message || e?.code || '')) suggestOff = true; }).finally(() => { suggestInflight = null; });
-    const r = await Promise.race([call, new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeout); })]);
+    const p = call.catch((e) => { if (/unavailable|not implemented|UNIMPLEMENTED/i.test(e?.message || e?.code || '')) suggestOff = true; }).finally(() => { if (suggestInflight === p) suggestInflight = null; });
+    suggestInflight = p;
+    const r = await Promise.race([call, new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeout); suggestAbort = () => resolve(null); })]);
+    suggestAbort = null;
     const asks = r ? normalizeSuggest(r.result) : [];
     return asks.length && EDGE_ENGINES.includes(r.engine) ? { asks, engine: r.engine } : null;
   } catch {

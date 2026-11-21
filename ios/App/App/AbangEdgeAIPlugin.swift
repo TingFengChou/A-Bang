@@ -17,7 +17,25 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "prewarm", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "judge", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "suggest", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "cancelSuggest", returnType: CAPPluginReturnPromise),
     ]
+    /// 正在跑的 suggest（judge 或 cancelSuggest 來時取消：judge 優先）
+    private var suggestTask: Task<Void, Never>?
+    private let suggestLock = NSLock()
+
+    /// 取消正在跑的 suggest；回傳有沒有取消到
+    @discardableResult private func stopSuggest() -> Bool {
+        suggestLock.lock(); defer { suggestLock.unlock() }
+        guard let t = suggestTask else { return false }
+        suggestTask = nil
+        t.cancel()
+        return true
+    }
+
+    /// 使用者送出問題了：取消正在跑的 suggest（JS edge-judge.js cancelSuggest；judge 自己也會先取消）
+    @objc func cancelSuggest(_ call: CAPPluginCall) {
+        call.resolve(["cancelled": stopSuggest()])
+    }
 
     @objc func status(_ call: CAPPluginCall) {
         #if canImport(FoundationModels)
@@ -51,6 +69,7 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func judge(_ call: CAPPluginCall) {
         guard let text = call.getString("text"), !text.isEmpty else { call.reject("沒有句子"); return }
         let history = (call.getArray("history") as? [String]) ?? []
+        stopSuggest() // judge 優先：正在猜下一句就先取消，模型讓給這一題
         let instructions = call.getString("instructions") ?? ""
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
@@ -84,18 +103,22 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
         if #available(iOS 26.0, *) {
             let s = AppleJudge.status()
             guard s.available else { call.reject("unavailable: \(s.reason)"); return }
-            Task {
+            stopSuggest()
+            let task = Task {
                 let t0 = Date()
                 do {
                     let list = try await AppleJudge.shared.suggest(context: context, instructions: instructions, max: count)
+                    try Task.checkCancellation()
                     let ms = Int(Date().timeIntervalSince(t0) * 1000)
                     CAPLog.print("AbangEdgeAI: suggested in \(ms) ms") // 只記耗時，不記內容
                     call.resolve(["engine": "apple", "ms": ms, "result": list])
                 } catch {
+                    if Task.isCancelled || error is CancellationError { call.reject("cancelled"); return } // 讓給 judge，不算錯誤
                     CAPLog.print("AbangEdgeAI: suggest failed \(AppleJudge.code(error))")
                     call.reject("suggest failed")
                 }
             }
+            suggestLock.lock(); suggestTask = task; suggestLock.unlock()
             return
         }
         #endif

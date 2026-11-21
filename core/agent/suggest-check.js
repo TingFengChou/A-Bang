@@ -22,3 +22,14 @@ export function checkAsks(asks) {
     return answerable(it) ? { q, ok: true, ask: slimAsk(it) } : { q, ok: false };
   });
 }
+
+/**
+ * 端點用（server/http.js）：驗證並只記數量（句子可能有使用者查過的地名：不寫進 log、不保存）。
+ * @param {{ asks?: unknown }} body
+ * @param {{ log?: (message: string, fields: object) => void }} [o]
+ */
+export function checkRequest(body, { log = () => {} } = {}) {
+  const data = checkAsks(body?.asks);
+  log('suggest check', { count: data.length, ok: data.filter((x) => x.ok).length, needSaved: data.filter((x) => x.needSaved).length });
+  return data;
+}

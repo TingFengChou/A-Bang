@@ -19,6 +19,7 @@ import com.google.mlkit.genai.prompt.Generation;
 import com.google.mlkit.genai.prompt.TextPart;
 import com.google.mlkit.genai.prompt.java.GenerativeModelFutures;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -159,6 +160,7 @@ public class AbangEdgeAIPlugin extends Plugin {
         if (!osOk()) { call.reject("unavailable: os-too-old"); return; }
         String instructions = call.getString("instructions", "");
         JSArray hist = call.getArray("history", new JSArray());
+        stopSuggest(); // judge 優先：正在猜下一句就先取消，模型讓給這一題
         exec.execute(() -> {
             long t0 = System.currentTimeMillis();
             try {
@@ -193,10 +195,22 @@ public class AbangEdgeAIPlugin extends Plugin {
 
     /** 猜使用者接下來想問的話：一次最多跑這麼久（JS 只等 1.5 秒） */
     private static final long SUGGEST_TIMEOUT_MS = 1500;
+    /** 猜下一句用自己的執行緒：judge 在 exec 上，不會排在 suggest 後面（產品負責人 2026-11-21：judge 優先） */
+    private final ExecutorService suggestExec = Executors.newSingleThreadExecutor();
+    /** 正在跑的 suggest（judge 或 cancelSuggest 來時取消） */
+    private volatile ListenableFuture<GenerateContentResponse> suggestFuture;
+
+    /** 取消正在跑的 suggest（沒有就不做）；回傳有沒有取消到 */
+    private boolean stopSuggest() {
+        ListenableFuture<GenerateContentResponse> f = suggestFuture;
+        suggestFuture = null;
+        return f != null && !f.isDone() && f.cancel(true);
+    }
 
     /**
      * 動態「下一句」建議（AGENT.md §5.4）：依情境（頁面、最近的問題與結果摘要、時段；JS 組好、不含座標）猜使用者接下來最可能問的幾句。
      * 只回 { engine, ms, result: "每行一句" }，句子由 JS 送伺服器規則驗證、程式排序。不記錄情境與句子，只記耗時與錯誤類型。
+     * 使用者送出問題時 judge 優先：judge 一進來（或 JS 呼叫 cancelSuggest）就取消這裡的 future，回 "cancelled"；被取消不算模型錯誤（不暫停）。
      */
     @PluginMethod
     public void suggest(PluginCall call) {
@@ -206,8 +220,9 @@ public class AbangEdgeAIPlugin extends Plugin {
         String instructions = call.getString("instructions", "");
         Integer maxArg = call.getInt("max", 4);
         int max = Math.max(1, Math.min(6, maxArg == null ? 4 : maxArg));
-        exec.execute(() -> {
+        suggestExec.execute(() -> {
             long t0 = System.currentTimeMillis();
+            ListenableFuture<GenerateContentResponse> f = null;
             try {
                 if (System.currentTimeMillis() < pausedUntil || featureStatus() != FeatureStatus.AVAILABLE) { call.reject("unavailable"); return; }
                 String prompt = instructions + "\n每行一句，共 " + max + " 句；不要編號、不要引號、不要其他文字。\n情境：\n" + context;
@@ -215,7 +230,8 @@ public class AbangEdgeAIPlugin extends Plugin {
                 b.setTemperature(0.4f); // 有一點變化（每次不完全一樣），但不亂編
                 b.setTopK(16);
                 b.setMaxOutputTokens(160);
-                ListenableFuture<GenerateContentResponse> f = model().generateContent(b.build());
+                f = model().generateContent(b.build());
+                suggestFuture = f;
                 GenerateContentResponse r;
                 try { r = f.get(SUGGEST_TIMEOUT_MS, TimeUnit.MILLISECONDS); }
                 catch (TimeoutException te) { f.cancel(true); Logger.warn(TAG, "suggest timeout"); call.reject("timeout"); return; }
@@ -227,17 +243,32 @@ public class AbangEdgeAIPlugin extends Plugin {
                 ret.put("ms", ms);
                 ret.put("result", out == null ? "" : out);
                 call.resolve(ret);
+            } catch (CancellationException | InterruptedException e) {
+                Logger.info(TAG, "suggest cancelled for judge");
+                call.reject("cancelled");
             } catch (Exception e) {
+                if (f != null && f.isCancelled()) { call.reject("cancelled"); return; } // 被 judge 取消：不算錯誤、不暫停
                 Logger.warn(TAG, "suggest failed: " + errorCode(e));
                 call.reject("suggest failed");
+            } finally {
+                if (suggestFuture == f) suggestFuture = null;
             }
         });
+    }
+
+    /** 使用者送出問題了：取消正在跑的 suggest（JS edge-judge.js cancelSuggest；judge 自己也會先取消） */
+    @PluginMethod
+    public void cancelSuggest(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("cancelled", stopSuggest());
+        call.resolve(ret);
     }
 
     @Override
     protected void handleOnDestroy() {
         exec.shutdownNow();
         infoExec.shutdownNow();
+        suggestExec.shutdownNow();
         super.handleOnDestroy();
     }
 

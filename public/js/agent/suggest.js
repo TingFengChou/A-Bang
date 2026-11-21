@@ -201,7 +201,19 @@ export function pickSuggestions({ actions = [], edge = null, rules = [], ctx, pa
   const need = Math.max(3, max - acts.length);
   const fromEdge = dropDup(rankAsks(edge || [], ctx), ctx, { pageChips });
   const asks = fromEdge.length >= 3 ? fromEdge.slice(0, need) : dropDup([...fromEdge, ...rankAsks(rules, ctx)], ctx, { pageChips }).slice(0, need);
-  return { actions: acts, asks };
+  return { actions: acts, asks, items: orderSuggest({ actions: acts, asks }, ctx) };
+}
+
+/** 公車、捷運相關的情境：在公車／捷運頁，或這一輪剛查過公車到站（提醒類動作排第一） */
+export const transitMoment = (ctx) => ['bus', 'metro'].includes(ctx.page?.kind) || !!ctx.bus;
+/**
+ * 畫面上的順序（產品負責人 2026-11-21 定案）：公車、捷運情境下提醒類動作（到站提醒、上車後提醒我下車、下車前提醒我）排第一；
+ * 其他情境猜的問句在前（第一句也是 placeholder），動作在後。決策圖加狀態一律在問句後面。
+ */
+export function orderSuggest({ actions = [], asks = [] }, ctx) {
+  const remind = actions.filter((a) => a.kind === 'remind' || a.kind === 'navigate');
+  const rest = actions.filter((a) => !remind.includes(a));
+  return transitMoment(ctx) ? [...remind, ...asks, ...rest] : [...asks, ...remind, ...rest];
 }
 
 /**

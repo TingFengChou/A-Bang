@@ -20,7 +20,7 @@ import { restRoutes } from './rest.js';
 import { buildOpenApi } from './openapi.js';
 import { createAgentHandler } from './agent.js';
 import { judgeFromEnv } from '../core/agent/judge.js';
-import { checkAsks } from '../core/agent/suggest-check.js';
+import { checkRequest } from '../core/agent/suggest-check.js';
 import { createLogger, routeOf } from './log.js';
 import { hasProfile } from '../core/agents/index.js';
 
@@ -141,7 +141,7 @@ createServer(async (req, res) => {
       if (req.method !== 'POST') return send(res, 405, { error: '請以 POST 呼叫' }, { ...cors, allow: 'POST' });
       if (!limit(req, res, 'api')) return;
       const body = await readJson(req);
-      return send(res, 200, { data: checkAsks(body?.asks) }, cors);
+      return send(res, 200, { data: checkRequest(body, { log: (m, o) => log.info(m, o) }) }, cors); // log 只記數量，不記句子
     }
 
     const core = path.match(/^\/core\/([\w.-]+)$/);
