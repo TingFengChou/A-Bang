@@ -51,3 +51,9 @@ test('問明天的天氣、模型沒說「明天」：開頭補上（S1-3 模型
   assert.equal(mustSay('明天會下雨，記得帶傘。', null, { intent: 'weather', tomorrow: true }), '明天會下雨，記得帶傘。');
   assert.equal(mustSay('現在沒下雨。', null, { intent: 'weather' }), '現在沒下雨。');
 });
+
+test('模型已經說了按「叫車」用官方 App：只補付款那句，不重複（2026-11-21 實機）', () => {
+  const best = { best: 'ridehail', options: [{ id: 'ridehail', role: 'ridehail', name: '叫車（Uber）' }], ranking: {} };
+  assert.equal(mustSay('建議叫車。要按卡片上的「叫車」用官方 App 叫車哦！', best), '建議叫車。要按卡片上的「叫車」用官方 App 叫車哦！付款在叫車 App 完成（阿幫不代付）。');
+  assert.match(mustSay('建議叫車。', best), /按卡片上的「叫車」用官方 App 叫車，付款在叫車 App 完成/);
+});

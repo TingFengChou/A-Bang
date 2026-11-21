@@ -218,7 +218,7 @@ export function mustSay(text, trip, it = null) {
   if (picked && /^照你說的/.test(trip.ranking?.reason || '') && !/(照|依|按)你(所)?說|你說要/.test(out)) out = out.includes(picked) ? `照你說的，${out}` : `照你說的選「${picked}」。${out}`; // 已講到方案名稱：只加「照你說的，」
   // 建議叫車：付款在叫車 App（阿幫不代付；P2-10）
   const rideShown = trip.best === 'ridehail' || (it?.mode === 'ridehail' && !trip.modeUnavailable && trip.options?.some((o) => o.role === 'ridehail')); // 卡片上真的有叫車
-  if (rideShown && !/付款在叫車|叫車 ?App.{0,8}付款/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}按卡片上的「叫車」用官方 App 叫車，付款在叫車 App 完成（阿幫不代付）。`;
+  if (rideShown && !/付款在叫車|叫車 ?App.{0,8}付款/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}${/「叫車」|叫車 ?App|官方 ?App/.test(out) ? '' : '按卡片上的「叫車」用官方 App 叫車，'}付款在叫車 App 完成（阿幫不代付）。`; // 模型已經說了按叫車：只補付款（不重複，2026-11-21 實機）
   const night = nightNote(trip);
   if (night && !/收班|末班/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}${night}`;
   return out;
