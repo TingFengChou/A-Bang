@@ -616,6 +616,74 @@ test('選公車就盯到站（L-14）：想省錢 → 公車卡片聚焦上車�
   }, { init: () => { window.Notification = class { static permission = 'granted'; static requestPermission() { return Promise.resolve('granted'); } }; } });
 });
 
+// 個人化（ADR-0010 習慣）：手機記的常選方式 → 決策圖「你常選」chip、理由說常搭、點掉重算；設定頁關閉後不帶、清除
+test('個人化：常選捷運 → 決策圖「你常選：捷運」、點掉重算；按導航也記；設定頁關閉後不帶、清除', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = [];
+    page.on('request', (r) => { if (r.url().endsWith('/api/v1/agent') && r.method() === 'POST') bodies.push(JSON.parse(r.postData() || '{}')); });
+    const ask = async (q, n) => {
+      await page.fill('.chat-input', q);
+      await page.press('.chat-input', 'Enter');
+      await page.waitForFunction((k) => document.querySelectorAll('.bubble.final').length === k, n, { timeout: 20000 });
+      await page.waitForFunction(() => !document.querySelector('.chat-send')?.disabled);
+    };
+    await ask('從西門町去台北101', 1);
+    assert.deepEqual(bodies[0].userState, { habit: { metro: 1 } }, '只送各方式的比例');
+    const dg = page.locator('.decision').last();
+    await dg.locator('.dg-svg').waitFor();
+    const chip = dg.locator('.dg-chip.src-habit');
+    assert.equal(await chip.textContent(), '你常選：捷運 ✕');
+    assert.match(await dg.getAttribute('data-best'), /^metro/, '沒有習慣時是公車；常搭捷運時捷運勝出');
+    assert.match(await dg.locator('.dg-why').textContent(), /^選「捷運.*」：你常搭捷運/);
+    assert.match(await dg.locator('.dg-habit-note.first').textContent(), /只存在這支手機/, '第一次生效時說明');
+    await dg.getByRole('button', { name: '為什麼' }).click();
+    assert.match(await dg.locator('.dg-habit-note').first().textContent(), /最近 30 天選捷運 6 次/);
+    await dg.screenshot({ path: new URL('phone-habit-chip.png', SHOTS).pathname });
+    // 點掉「你常選」：不看習慣即時重算（不呼叫伺服器）→ 公車
+    await dg.locator('.dg-chip.src-habit').click();
+    assert.match(await dg.getAttribute('data-best'), /^bus/);
+    assert.match(await dg.locator('.dg-why').textContent(), /^不看你的習慣的話，選「公車/);
+    assert.equal(await dg.locator('.dg-chip.src-habit.off').count(), 1);
+    assert.equal(bodies.length, 1);
+    // 按建議方案的導航＝選了捷運（只記方式）
+    await page.locator('.results [data-card="trip"] .ab-option.best').last().getByRole('button', { name: '導航' }).click();
+    const raw = await page.evaluate(() => JSON.parse(localStorage.getItem('abang.habits')));
+    assert.equal(raw.picks.length, 7);
+    assert.ok(raw.picks.every((p) => Object.keys(p).sort().join() === 'm,t') && raw.picks.at(-1).m === 'metro', '只記方式與時間');
+    // 設定頁：清單、開關、次數
+    await page.goto(`${base}/#/settings`);
+    await page.waitForSelector('#habit-status:not(:empty)');
+    assert.match(await page.textContent('#habit-status'), /記了 7 次（捷運 7）/);
+    assert.match(await page.textContent('.local'), /常選的交通方式/);
+    await page.locator('#habits-card').scrollIntoViewIfNeeded();
+    await page.locator('#habits-card').screenshot({ path: new URL('phone-habit-settings.png', SHOTS).pathname });
+    await page.locator('#habit').uncheck();
+    assert.match(await page.textContent('#habit-status'), /已關閉/);
+    // 關掉後：問阿幫不帶比例、決策圖沒有「你常選」
+    await page.goto(`${base}/#/agent`);
+    await ask('從西門町去台北101', 2);
+    assert.equal(bodies[1].userState, undefined);
+    const dg2 = page.locator('.decision').last();
+    await dg2.locator('.dg-svg').waitFor();
+    assert.equal(await dg2.locator('.dg-chip.src-habit').count(), 0);
+    assert.match(await dg2.getAttribute('data-best'), /^bus/);
+    // 打開再清除
+    await page.goto(`${base}/#/settings`);
+    await page.locator('#habit').check();
+    assert.match(await page.textContent('#habit-status'), /記了 7 次/);
+    page.once('dialog', (d) => d.accept());
+    await page.click('#habit-clear');
+    assert.match(await page.textContent('#habit-status'), /還沒有紀錄/);
+    assert.equal(await page.evaluate(() => localStorage.getItem('abang.habits')), null);
+  }, {
+    // 選過 6 次捷運（1～6 小時前；只有方式與時間）；導航不真的開地圖
+    init: () => {
+      window.open = () => null;
+      try { if (!sessionStorage.getItem('habit-seeded')) { sessionStorage.setItem('habit-seeded', '1'); localStorage.setItem('abang.habits', JSON.stringify({ v: 1, on: true, picks: [6, 5, 4, 3, 2, 1].map((h) => ({ m: 'metro', t: Date.now() - h * 3600e3 })) })); } } catch { /* 無痕 */ }
+    },
+  });
+});
+
 test('股市：預設查台積電、0050，漲紅跌綠有 ▲▼；卡片內查別檔；問阿幫追問「那聯發科呢？」與問買賣', async () => {
   await withPage(DEVICES.phone, '#/s/stock', async (page) => {
     await page.waitForSelector('.ab-card[data-card="stock"] .ab-stk');

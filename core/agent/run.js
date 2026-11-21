@@ -38,6 +38,7 @@ export function guardedText(profile, text, emit) {
   return g.text;
 }
 import { STATES } from '../decide.js';
+import { HabitSchema } from '../tools/trip.js';
 
 export const MAX_MESSAGES = 10;
 export const MAX_CHARS = 500;
@@ -56,7 +57,8 @@ export function deviceLocation(req) {
 
 const RequestSchema = z.object({
   messages: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(MAX_CHARS) })).min(1).max(MAX_MESSAGES),
-  userState: z.object({ picked: z.array(z.enum(Object.keys(STATES))).max(6).optional() }).optional(),
+  // habit：手機算好的常選比例（public/js/habits.js；只有方式與比例，沒有地點）。由程式帶進 plan_trip，不交給模型
+  userState: z.object({ picked: z.array(z.enum(Object.keys(STATES))).max(6).optional(), habit: HabitSchema.optional() }).optional(),
   clientTools: z.array(z.string()).max(10).optional(),
   clientToolResults: z.array(z.object({ id: z.string(), ok: z.boolean(), result: z.any().optional() })).max(10).optional(),
   context: z.string().max(200).optional(),
@@ -99,10 +101,10 @@ export function busFollowUp(trip) {
  * @param {object} svc
  * @param {Array<{ name: string, args: object }>} calls
  * @param {(e: object) => void} emit
- * @param {{ profile: object, nextId: () => string, picked?: string[] }} opts
+ * @param {{ profile: object, nextId: () => string, picked?: string[], habit?: Record<string, number> }} opts habit：手機送來的常選比例（plan_trip 一律用這個，模型給的不採用）
  * @returns {Promise<Array<{ name: string, ok: boolean, result?: object, error?: string, followUp?: object }>>} 依 calls 順序
  */
-export async function execTools(svc, calls, emit, { profile, nextId, picked = [], judgedStates, lang = null }) {
+export async function execTools(svc, calls, emit, { profile, nextId, picked = [], judgedStates, lang = null, habit = null }) {
   const started = calls.map((c) => ({ ...c, id: nextId() }));
   // 英文提問（S12d）：小幫手的一句話用英文版；「→ 影響」是中文，英文那一輪不附
   const en = lang === 'en';
@@ -112,7 +114,7 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
   return Promise.all(started.map(async (c) => {
     try {
       if (!profile.tools.includes(c.name)) throw new UserError(`這個 agent 不能使用 ${c.name}`);
-      const result = await callTool(svc, c.name, c.name === 'plan_trip' ? withPickedPrefs(c.args, picked, judgedStates) : c.args);
+      const result = await callTool(svc, c.name, c.name === 'plan_trip' ? withHabit(withPickedPrefs(c.args, picked, judgedStates), habit) : c.args);
       emit(ev.toolResult({ id: c.id, result: shown(c.name, result), impact: impactFor(c.name, result.data) }));
       if (c.name !== 'plan_trip') return { name: c.name, ok: true, result };
       emit(ev.decision(withPicked(result.data, picked)));
@@ -145,6 +147,15 @@ function withPickedPrefs(args, picked, judgedStates) {
   const said = judgedStates ?? (Array.isArray(prefs.states) ? prefs.states : []);
   const states = [...new Set([...said, ...picked])];
   return { ...args, prefs: { ...prefs, states } };
+}
+
+/** 習慣只採用手機送來的（模型或規則帶的一律拿掉；手機沒送就不帶） */
+export function withHabit(args, habit) {
+  if (!args || typeof args !== 'object') return args;
+  const { habit: _model, ...prefs } = args.prefs && typeof args.prefs === 'object' ? args.prefs : {};
+  const next = { ...prefs, ...(habit && Object.keys(habit).length && { habit }) };
+  const { prefs: _p, ...rest } = args;
+  return Object.keys(next).length ? { ...rest, prefs: next } : rest;
 }
 
 /** 對話裡之前的使用者訊息（判斷層看追問用） */
@@ -235,7 +246,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
     const s = step(results);
     if (!s) break;
     emit(ev.agentNote(it.lang === 'en' ? enNote(s.note) : s.note)); // 英文提問：說明用英文（S12c）
-    const out = await execTools(svc, s.calls, emit, { profile, nextId, picked, lang: it.lang });
+    const out = await execTools(svc, s.calls, emit, { profile, nextId, picked, lang: it.lang, habit: req.userState?.habit });
     for (const o of out) {
       used.push(o.name);
       if (o.ok) (results[o.name] ||= []).push(o.result);

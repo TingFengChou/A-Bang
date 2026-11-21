@@ -35,7 +35,7 @@ export const ev = {
   decision: (trip) => need('decision', {
     signals: tripSignals(trip),
     signalsEn: tripSignals(trip, 'en'), // 英文那一輪的資料膠囊（S12f）
-    states: trip.states, arriveBy: trip.arriveBy ?? null, ...(trip.arriveByMin != null && { arriveByMin: trip.arriveByMin }), ...(trip.mode && { mode: trip.mode }), ...(trip.avoid && { avoid: trip.avoid }), ...(trip.skipped?.length && { skipped: trip.skipped }), best: trip.best,
+    states: trip.states, arriveBy: trip.arriveBy ?? null, ...(trip.arriveByMin != null && { arriveByMin: trip.arriveByMin }), ...(trip.mode && { mode: trip.mode }), ...(trip.avoid && { avoid: trip.avoid }), ...(trip.skipped?.length && { skipped: trip.skipped }), ...(trip.habit && { habit: trip.habit, habitOn: !!trip.habitOn }), best: trip.best,
     options: trip.options, ranked: trip.ranking.ranked, excluded: trip.ranking.excluded, weights: trip.ranking.weights, reason: trip.ranking.reason,
   }, ['states', 'options', 'ranked', 'excluded', 'reason']),
   guardrail: ({ tier, rule, calls }) => need('guardrail', { tier, rule, ...(calls?.length && { calls: calls.map((c) => ({ label: String(c.label), tel: String(c.tel).replace(/[^0-9]/g, '') })) }) }, ['tier', 'rule']), // calls：一鍵撥號（安全情境）

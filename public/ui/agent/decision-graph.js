@@ -4,6 +4,7 @@
 
 import { svgIcon, modeOf, MODE_COLOR } from '../cards/mode-icons.js';
 import { motion } from '../cards/motion.js';
+import { habitWhy, habitSeen, markHabitSeen } from '../../js/habits.js';
 
 /** 被排除方案的標籤：遲到（超過抵達時間）、不要（使用者說不要這種方式）、其他排除 */
 const exLabel = (why = '') => (why.includes('超過') ? '遲到' : why.startsWith('你說不要') ? '不要' : why.includes('不建議') ? '不適合' : /收班|末班已過/.test(why) ? '收班' : /沒車|沒有車|空位/.test(why) ? '沒列入' : '排除');
@@ -26,6 +27,7 @@ const EN = {
   cols: ['Data', 'Abang', 'Options'],
   step1: '① Gathering data', step2: '② Your situation', step3: (c) => `③ Comparing: ${c}`, step4: (n) => `④ Decision: ${n}`, decide: '④ Decision',
   hint: 'Want another way? Tap an option and Abang recalculates', chips: 'Your situation (tap to toggle, recalculates right away)',
+  habit: (m) => `You often pick: ${m}`, habitWhy: 'Why?', habitPaused: 'You told Abang your situation, so habits are not counted this time', habitNote: 'When you don\'t mention your situation, the way you usually pick gets a small bonus (up to 8 pts). Stored only on this phone; turn it off or clear it in Settings.', often: 'you often pick it', habitCrit: 'Habit',
   details: 'Comparison details', pts: (n, s) => `${n}: ${s} pts`, title: 'How Abang decided', pick: (n) => `Switch to ${n}`, ex: (n, w) => `${n}, excluded: ${w}`,
 };
 /** 方案名稱縮短，分數一定看得到（「叫車（Uber）」→「叫車」） */
@@ -67,28 +69,36 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     if (!best) return null;
     if (!second) return `${nameOf(best)} is the only option.`;
     const say = { minutes: () => `${Math.max(1, second.minutes - best.minutes)} min faster than ${nameOf(second)}`, waitMin: () => (best.waitMin ? 'shorter wait' : 'no waiting'), walkMin: () => (best.walkMin ? 'less walking' : 'no walking'), cost: () => (best.cost < second.cost ? `NT$${second.cost - best.cost} cheaper` : 'lower cost'), exposure: () => 'less time outdoors', effort: () => 'easier', delayRisk: () => 'avoids traffic delays' };
-    const top = CRITERIA.map((c) => ({ k: c.key, d: (best.breakdown?.[c.key] ?? 0) - (second.breakdown?.[c.key] ?? 0) })).sort((a, b) => b.d - a.d).filter((x) => x.d > 0.01).slice(0, 2).map((x) => say[x.k]?.());
+    const top = [...(best.breakdown?.habit > 0 ? [EN.often] : []), ...CRITERIA.map((c) => ({ k: c.key, d: (best.breakdown?.[c.key] ?? 0) - (second.breakdown?.[c.key] ?? 0) })).sort((a, b) => b.d - a.d).filter((x) => x.d > 0.01).slice(0, 2).map((x) => say[x.k]?.())];
     return `${nameOf(best)} wins${top.length ? `: ${top.join(', ')}` : ''}.`;
   };
   const initial = decision.states.map((s) => ({ ...s, on: true }));
   let states = initial;
   let run = 0;
+  // 習慣（「你常選：捷運」）：手機記的常選比例；可以點掉（即時重算），旁邊「為什麼」看次數；第一次出現時說明一次
+  const habitTop = decision.habit ? Object.entries(decision.habit).sort((a, b) => b[1] - a[1])[0]?.[0] : null;
+  let habitOn = !!habitTop, habitApplied = !!decision.habitOn, whyOpen = false;
+  const firstHabit = !!habitTop && !habitSeen();
+  if (firstHabit) markHabitSeen();
 
   const draw = () => {
     run++;
     const active = states.filter((s) => s.on).map((s) => s.key);
     // 與伺服器相同的引擎與輸入；初次（狀態未變）直接用伺服器結果，避免任何差異
-    const changed = states.some((s) => !s.on) || states.length !== initial.length;
+    const changed = states.some((s) => !s.on) || states.length !== initial.length || (habitTop && !habitOn);
+    // 習慣：與伺服器同一條規則——使用者說了（或點了）狀況就以狀況為準（said）
+    const said = states.some((s) => s.on && s.source !== 'auto');
     const r = changed
-      ? decide(decision.options, { states: active, arriveBy: decision.arriveBy ?? undefined, arriveByMin: decision.arriveByMin, mode: decision.mode, avoid: decision.avoid })
-      : { ranked: decision.ranked, excluded: decision.excluded, reason: decision.reason, best: { id: decision.best } };
+      ? decide(decision.options, { states: active, arriveBy: decision.arriveBy ?? undefined, arriveByMin: decision.arriveByMin, mode: decision.mode, avoid: decision.avoid, ...(habitOn && decision.habit && { habit: decision.habit, said }) })
+      : { ranked: decision.ranked, excluded: decision.excluded, reason: decision.reason, best: { id: decision.best }, habitOn: decision.habitOn };
+    habitApplied = !!r.habitOn;
     const byId = new Map(decision.options.map((o) => [o.id, o]));
     const ranked = r.ranked.map((x) => ({ ...byId.get(x.id), score: x.score, breakdown: x.breakdown }));
     // 沒列入比較的方式（深夜公車收班、YouBike 沒車位…）：也畫出來，灰色並寫原因（設計審查）
     const skipped = (decision.skipped || []).map((x) => ({ id: `skip-${x.role}`, role: x.role, name: ROLE_NAME[x.role] || x.role, why: x.why, skipped: true }));
     const excluded = [...r.excluded.map((x) => ({ ...byId.get(x.id), why: x.why })), ...skipped];
     const off = states.filter((s) => !s.on && s.source === 'auto').map((s) => SL[s.key]);
-    const reason = (off.length ? `不考慮「${off.join('、')}」的話，` : '') + r.reason;
+    const reason = (off.length ? `不考慮「${off.join('、')}」的話，` : '') + (habitTop && !habitOn ? '不看你的習慣的話，' : '') + r.reason;
 
     // FLIP（M5-11）：記下重算前各方案節點的位置，重畫後從舊位置滑到新位置（重算才做；精簡模式不做）
     const before = new Map([...root.querySelectorAll('.dg-opt[data-id]')].map((g) => [g.dataset.id, g.getBoundingClientRect().top]));
@@ -97,6 +107,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     last = { ranked, excluded, bestName: bestOpt && nameOf(bestOpt) };
     root.replaceChildren(...[
       chipsBar(),
+      ...habitNotes(),
       el('p', 'dg-step', bestOpt ? (en ? EN.step4(nameOf(bestOpt)) : `④ 決定：${bestOpt.name}`) : (en ? EN.decide : '④ 決定')),
       graph(ranked, excluded, active, r.best?.id),
       el('p', 'dg-why', en ? enReason(bestOpt, ranked.find((o) => o.id !== bestOpt?.id)) : reason), // 英文：程式依分數組一句英文理由
@@ -245,6 +256,20 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       } else b.onclick = () => { states = states.map((x) => (x.key === s.key ? { ...x, on: !x.on } : x)); draw(); };
       bar.append(b);
     }
+    if (habitTop) { // 你常選（source habit）：跟狀態 chip 同一套樣式，顏色不同；點掉＝不看習慣重算
+      const name = en ? EN.mode[habitTop] : ROLE_NAME[habitTop];
+      const b = el('button', `dg-chip ${habitOn ? 'on' : 'off'} src-habit${habitOn && !habitApplied ? ' paused' : ''}`, en ? EN.habit(name) : `你常選：${name}`, habitOn ? ' ✕' : '');
+      b.type = 'button';
+      b.dataset.habit = habitTop;
+      b.setAttribute('aria-pressed', String(habitOn));
+      if (habitOn && !habitApplied) b.title = en ? EN.habitPaused : '你說了狀況（或指定了方式），這次以你說的為準，習慣不加分';
+      b.onclick = () => { habitOn = !habitOn; draw(); };
+      const why = el('button', 'dg-chip dg-why-btn', en ? EN.habitWhy : '為什麼');
+      why.type = 'button';
+      why.setAttribute('aria-expanded', String(whyOpen));
+      why.onclick = () => { whyOpen = !whyOpen; draw(); };
+      bar.append(b, why);
+    }
     for (const k of ADDABLE.filter((k) => !states.some((s) => s.key === k))) {
       const b = el('button', 'dg-chip add', `＋${SL[k]}`);
       b.dataset.state = k; // 「接下來可以」用狀態鍵找這顆（不看文字）
@@ -253,6 +278,19 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       bar.append(b);
     }
     return bar;
+  }
+
+  /** 習慣的「為什麼」與第一次說明（只用手機上的次數，habits.js） */
+  function habitNotes() {
+    if (!habitTop) return [];
+    const out = [];
+    if (whyOpen) out.push(el('p', 'dg-habit-note', en ? EN.habitNote : `${habitWhy(habitTop)}。常選的方式在你沒說狀況時小幅加分（最多 8 分）；紀錄只存在這支手機、只記交通方式與次數，可在「設定」關閉或清除。`));
+    if (firstHabit) {
+      const a = el('a', null, en ? 'Settings' : '設定');
+      a.href = '#/settings';
+      out.push(el('p', 'dg-habit-note first', ...(en ? ['Abang now remembers which ways you usually pick (only on this phone, no places). Tap the chip to ignore it, or turn it off in ', a, '.'] : ['阿幫開始記得你常選的交通方式（只存在這支手機、不記地點）：沒說狀況時，常選的方式會小幅加分。不想要可以點掉「你常選」，或到', a, '關閉。'])));
+    }
+    return out;
   }
 
   // 版面（原型 transit-discussion.html 的會議感）：左＝資料來源圓點、中＝阿幫（吉祥物）、右＝方案；狀態膠囊在阿幫上方
@@ -362,7 +400,8 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
           const bar = el('span', `dg-bar${top.has(c.key) ? ' top' : ''}`);
           bar.style.width = `${Math.max(2, v * 2)}%`;
           return el('div', 'dg-crit', el('span', 'dg-crit-name', critOf(c)), bar, el('span', 'dg-crit-v', v.toFixed(1)));
-        })));
+        }),
+        o.breakdown?.habit > 0 && el('div', 'dg-crit habit', el('span', 'dg-crit-name', en ? EN.habitCrit : '習慣'), Object.assign(el('span', 'dg-bar'), { style: `width:${Math.max(2, o.breakdown.habit * 200)}%` }), el('span', 'dg-crit-v', `+${(o.breakdown.habit * 100).toFixed(1)}`))));
     }
     return d;
   }

@@ -147,7 +147,8 @@ export async function pollAlight(callTool, now = Date.now()) {
  * @param {{ city: string, routeName: string, direction?: number, board: string, boardSeq?: number, dest: string, destSeq?: number, plate?: string|null, rideSec: number, boardAt?: number, lang?: 'en' }} w  lang：英文公車頁設的（通知用英文）
  * @returns {Promise<boolean>} 是否還在提醒（目的站太近，設定當下就提醒並結束時回 false）
  */
-export async function watchAlight(w, callTool) {
+export async function watchAlight(w, callTool, { resumed = false } = {}) {
+  if (!resumed) signal('abang:choice', { role: 'bus' }); // 設下車提醒＝選了公車（habits.js 記常選的方式；只記方式）
   if (hasNativeNotify()) await ensureNotifyPermission();
   else if (typeof Notification !== 'undefined' && Notification.permission === 'default') await Notification.requestPermission().catch(() => {});
   stopAlight();
@@ -187,6 +188,6 @@ export function resumeAlight(callTool, now = Date.now()) {
     if (!saved) return;
     const fired = saved.nativeAt && saved.nativeAt < now; // App 在背景時已經響過（JS 被暫停，沒能清掉）
     if (fired || !saved.dest || now - saved.boardAt >= MAX_MS) { localStorage.removeItem(KEY); cancelNotify(NOTIFY_ID.alight); return; }
-    watchAlight(saved, callTool);
+    watchAlight(saved, callTool, { resumed: true });
   } catch { /* 無痕 */ }
 }

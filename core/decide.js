@@ -37,11 +37,26 @@ export const STATES = {
   rainSoon: { label: '可能下雨', say: '等一下可能下雨', boost: { exposure: 7 } }, // 現在沒下、3 小時降雨機率 ≥ 60%
 };
 
+/** 習慣（個人化，2026-11-21）：手機記的「常選的交通方式」比例（public/js/habits.js），只小幅加分、不改權重。
+ *  max：最多加幾分（滿分 1＝100 分）；full：常選比例到這裡就加滿（60% 捷運＋40% 公車 → 捷運 +8、公車 +5.3，混著選的人差距自然變小）
+ *  只有「沒指定方式、使用者沒說狀況」才看習慣；比最快的方案慢太多（超過 2 倍且多 20 分以上）的不加分（走路 100 分鐘不會因為習慣勝出） */
+export const HABIT = { max: 0.08, full: 0.6 };
+const HABIT_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro: '搭捷運', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
+
+/** 每個方案的習慣加分（0～HABIT.max）；不適用時回 0 */
+export function habitBonus(o, habit, fastest) {
+  const share = Number(habit?.[o.role]);
+  if (!(share > 0) || !Number.isFinite(share)) return 0;
+  if (Number(o.minutes) > Math.max(fastest * 2, fastest + 20)) return 0;
+  return HABIT.max * Math.min(1, share / HABIT.full);
+}
+
 /**
  * @param {Array<{ id: string, name: string, minutes: number, waitMin?: number, walkMin?: number, cost?: number,
  *                 exposure?: number, effort?: number, arriveAt?: string }>} options
- * @param {{ states?: string[], arriveBy?: string, arriveByMin?: number }} [ctx]  states 例如 ['rain','luggage']；arriveBy 例如 '08:00'
+ * @param {{ states?: string[], arriveBy?: string, arriveByMin?: number, habit?: Record<string, number>, said?: boolean }} [ctx]  states 例如 ['rain','luggage']；arriveBy 例如 '08:00'
  *   arriveByMin 與方案的 arriveMin（自出發日 00:00 起算、可超過 24 小時）同時存在時以分鐘比較，跨午夜才不會誤判
+ *   habit：常選比例（{ metro: 0.6, bus: 0.3 }）；said：使用者自己說了（或點選了）狀態 → 這次以狀況為準、不看習慣
  * @returns {{ weights: Record<string, number>, ranked: Array<object>, excluded: Array<object>, best: object|null, reason: string }}
  */
 export function decide(options, ctx = {}) {
@@ -77,8 +92,10 @@ export function decide(options, ctx = {}) {
     return true;
   });
 
-  // 3. 各項正規化（越小越好 → 分數越高），乘上權重
+  // 3. 各項正規化（越小越好 → 分數越高），乘上權重；習慣另外小幅加分（breakdown.habit）
   const val = (o, k) => Number(o[k] ?? 0);
+  const habitOn = !!ctx.habit && !ctx.mode && !ctx.said;
+  const fastest = Math.min(...pool.map((p) => val(p, 'minutes')));
   const ranked = pool.map((o) => {
     const breakdown = {};
     for (const c of CRITERIA) {
@@ -87,6 +104,8 @@ export function decide(options, ctx = {}) {
       else { const lo = Math.min(...pool.map((p) => val(p, c.key))); norm = (lo + c.k) / (val(o, c.key) + c.k); }
       breakdown[c.key] = norm * weights[c.key];
     }
+    const bonus = habitOn ? habitBonus(o, ctx.habit, fastest) : 0;
+    if (bonus > 0) breakdown.habit = bonus;
     const score = Object.values(breakdown).reduce((a, b) => a + b, 0);
     return { ...o, score: Math.round(score * 100), breakdown };
   }).sort((a, b) => b.score - a.score || a.minutes - b.minutes);
@@ -101,6 +120,7 @@ export function decide(options, ctx = {}) {
   }
   const best = ranked[0] || null;
   const reason = explain(best, ranked[1], states, excluded);
+  if (habitOn) return { weights, ranked, excluded, best, reason, habitOn };
   // 指定的交通方式沒有可行方案：照分數建議，但要明說（使用者才不會以為已經改成功）
   if (ctx.mode) return { weights, ranked, excluded, best, modeUnavailable: ctx.mode, reason: `${MODE_NAME[ctx.mode] || '你指定的方式'}這次沒有可行的方案；${reason}` };
   return { weights, ranked, excluded, best, reason };
@@ -119,11 +139,12 @@ function explain(best, second, states, excluded) {
   }
   const why = [];
   if (states.length) why.push(`因為${states.map((s) => STATES[s].say).join('、')}`);
+  const often = best.breakdown?.habit > 0 && (!second || best.breakdown.habit >= (second.breakdown?.habit || 0)) ? [`你常${HABIT_DO[best.role] || `選${best.name}`}`] : []; // 習慣（你常搭捷運）
   if (second) {
     const diffs = CRITERIA.map((c) => ({ c, d: best.breakdown[c.key] - second.breakdown[c.key] })).sort((a, b) => b.d - a.d);
     const top = diffs.filter((x) => x.d > 0.01).slice(0, 2).map((x) => PHRASE[x.c.key](best, second, states));
-    if (top.length) why.push(top.join('、'));
-  }
+    if (often.length || top.length) why.push([...often, ...top].join('、'));
+  } else if (often.length) why.push(often[0]);
   const said = excluded.filter((e) => e.why.startsWith('你說不要')), unfit = excluded.filter((e) => e.why.includes('不建議')), late = excluded.filter((e) => e.why.includes('超過'));
   if (said.length) why.push(`${said.map((e) => e.name).join('、')}照你說的不列入`);
   if (unfit.length) why.push([...new Set(unfit.map((e) => e.why))].join('、'));

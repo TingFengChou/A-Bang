@@ -14,6 +14,7 @@ import { token } from '../../ui/cards/mode-icons.js';
 import { nextSteps } from '../agent/next-steps.js';
 import { alightWatch } from '../alight.js';
 import { loadChat, saveChat, clearChat } from '../chat-store.js';
+import { habitShare, noteDecision } from '../habits.js';
 import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { renderDecision, lite, roleEn } from '../../ui/agent/decision-graph.js';
@@ -296,7 +297,8 @@ export default {
         // 常用地點：只送這段對話提到的（「回家」才送家）
         const savedPlaces = agentId === 'life' ? placesFor(history.slice(-10).filter((m) => m.role === 'user').map((m) => m.content)) : undefined;
         const ctxText = [context, pageContext].filter(Boolean).join('；').slice(0, 200);
-        await runAgent({ messages: history.slice(-10), ...(ctxText && { context: ctxText }), ...(deviceJudge && { deviceJudge }), ...(savedPlaces && { savedPlaces }) }, (e) => {
+        const habit = agentId === 'life' ? habitShare() : null; // 常選的交通方式比例（只有方式與比例；設定頁可關，habits.js）
+        await runAgent({ messages: history.slice(-10), ...(ctxText && { context: ctxText }), ...(deviceJudge && { deviceJudge }), ...(savedPlaces && { savedPlaces }), ...(habit && { userState: { habit } }) }, (e) => {
           // 隱私：防詐頁貼上的內容只送給本站伺服器分析，不保存（AGENT_ANTIFRAUD.md §1）
           if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = modeText(e);
           if (e.type === 'status' && agentId === 'life') noteAgentStatus(e); // 「阿幫的腦袋」（#/ai）顯示最近一輪由誰回答、誰先聽懂（只記模式與來源，不含內容）
@@ -457,6 +459,7 @@ export default {
             if (reducedMotion()) box.classList.add('static');
             results.prepend(box);
             view.decision = e; view.box = box;
+            noteDecision(e); // 指定方式（改成 X、點決策圖的方案）＝選了這種方式（habits.js，只記方式）
             const mod = await decideModule;
             if (mod) renderDecision(box, e, { sources: roles.filter((r) => r !== '行程'), decide: mod.decide, CRITERIA: mod.CRITERIA, lang: turnLang, onPick: (o) => !busy && send(turnLang === 'en' ? `Switch to ${({ walk: 'walking', bike: 'YouBike', bus: 'bus', metro: 'MRT', thsr: 'high speed rail', tra: 'train', intercity: 'intercity bus', ridehail: 'taxi' })[o.role] || o.name} instead` : `改成${o.name}`) }).played.then(() => handoff(box, results, e));
             else box.append(el('p', 'dg-why', e.reason)); // 載不到引擎時至少顯示理由

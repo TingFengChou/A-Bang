@@ -47,7 +47,7 @@
 ```jsonc
 {
   "messages": [{ "role": "user", "content": "從西門町到台北 101 怎麼去？" }], // 最多 10 輪，只含文字
-  "userState": { "picked": ["budget"] },        // 使用者點選的狀態（選填）
+  "userState": { "picked": ["budget"], "habit": { "metro": 0.6, "bus": 0.3 } }, // 點選的狀態；habit＝手機記的常選方式比例（選填，只有方式與比例）
   "clientTools": ["device_location"],           // 客戶端支援的裝置端工具（ADR-0008）
   "clientToolResults": [{ "id": "c1", "ok": true, "result": { "lat": 25.04, "lon": 121.51 } }], // 選填
   "context": "使用者在卡片上選了『從西門站出發』"     // 選填，來自 host.setContext()
@@ -94,7 +94,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 ### 3.3 執行器（✅ M5-04）
 
-`core/agent/run.js`：`validateRequest`（訊息 ≤ 500 字、≤ 10 則、最後一則是使用者、`userState.picked` 只能是已知狀態）；`execTools(svc, calls, emit, { profile, nextId, picked })`（平行：先送全部 `tool_start`，再依完成順序送 `tool_result`；`plan_trip` 成功後送 `decision`；不在 profile 白名單的 tool 回 `ok:false`；錯誤訊息經 `publicMessage`，不外洩上游細節）；`runDemo(svc, body, emit)`（示範模式：`status` → 每段 `agent_note`＋工具 → `discussion_end` → `text` → `done`；某段失敗就停止往下；最多 5 輪）。模型模式（M5-05，§4）共用 `execTools`；`plan_trip` 會自動併入畫面上點選的狀態（`withPickedPrefs`）。
+`core/agent/run.js`：`validateRequest`（訊息 ≤ 500 字、≤ 10 則、最後一則是使用者、`userState.picked` 只能是已知狀態；`userState.habit` 鍵限定 8 種交通方式、值 0～1、總和 ≤ 1.01）；`execTools(svc, calls, emit, { profile, nextId, picked })`（平行：先送全部 `tool_start`，再依完成順序送 `tool_result`；`plan_trip` 成功後送 `decision`；不在 profile 白名單的 tool 回 `ok:false`；錯誤訊息經 `publicMessage`，不外洩上游細節）；`runDemo(svc, body, emit)`（示範模式：`status` → 每段 `agent_note`＋工具 → `discussion_end` → `text` → `done`；某段失敗就停止往下；最多 5 輪）。模型模式（M5-05，§4）共用 `execTools`；`plan_trip` 會自動併入畫面上點選的狀態（`withPickedPrefs`）；`prefs.habit` 一律由程式換成手機送來的 `userState.habit`（`withHabit`：手機沒送就拿掉，模型或規則帶的不採用；`groundedPrefs` 也丟掉模型的 habit），示範與模型模式相同。`decision` 事件帶 `habit`（比例）與 `habitOn`（這次有沒有加分），決策圖的「你常選」chip 與前端重算用。個人化的記錄與計分見 ADR-0010（2026-11-21 習慣）。
 
 ### 3.4 裝置端工具（✅ M5-07）
 

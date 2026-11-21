@@ -117,9 +117,10 @@ export function callKey(name, args = {}, here = null) {
 /**
  * 模型給的 plan_trip prefs → 只留使用者說過的抵達時間、交通方式、不要的方式（規則從這句或前文抽到的；判斷層的 mode）。
  * 狀態也只採判斷層或規則的（沒有判斷層時模型自加的狀態也丟掉；有判斷層時 execTools 另以 judgedStates 為準）。
+ * 習慣（habit）一律丟掉：只採用手機送來的 userState.habit（execTools 帶入）。
  */
 export function groundedPrefs(prefs = {}, it = {}, j = null) {
-  const { arriveBy: _arriveBy, mode: _mode, states: _states, avoid: _avoid, party: _party, ...rest } = prefs;
+  const { arriveBy: _arriveBy, mode: _mode, states: _states, avoid: _avoid, party: _party, habit: _habit, ...rest } = prefs; // habit 由 execTools 從手機帶入
   const said = { arriveBy: it.arriveBy || null, mode: it.mode || j?.mode || null, states: j?.states || it.states || [], avoid: it.avoid || [], party: it.party || null };
   return { ...rest, ...(said.arriveBy && { arriveBy: said.arriveBy }), ...(said.mode && { mode: said.mode }), ...(said.avoid.length && { avoid: said.avoid }), ...(said.states.length && { states: said.states }), ...(said.party && { party: said.party }) };
 }
@@ -322,7 +323,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const turnTrips = []; // 這一輪已經出過的行程卡（同起點、同目的地、同方式只出一張：模型換個說法再查也沿用）
   const preDone = new Map(); // 呼叫鍵（工具＋關鍵參數）→ 給模型的文字：模型用相同參數再呼叫時沿用，不重複產生卡片與決策圖；參數不同照常執行
   if (pre.length) {
-    const out = await execTools(svc, pre, emit, { profile, nextId, picked, lang: rulesIt.lang, ...(j && { judgedStates: j.states }) });
+    const out = await execTools(svc, pre, emit, { profile, nextId, picked, lang: rulesIt.lang, habit: req.userState?.habit, ...(j && { judgedStates: j.states }) });
     const texts = out.map((o, i) => {
       used.add(pre[i].name);
       if (o.followUp) used.add('bus_route_eta');
@@ -439,7 +440,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     }
 
     const run = turn.calls.filter((c) => !results.has(c.id));
-    const out = await execTools(svc, run.map((c) => ({ name: c.name, args: dropNulls(c.input) })), emit, { profile, nextId, picked, lang: rulesIt.lang, ...(j && { judgedStates: j.states }) });
+    const out = await execTools(svc, run.map((c) => ({ name: c.name, args: dropNulls(c.input) })), emit, { profile, nextId, picked, lang: rulesIt.lang, habit: req.userState?.habit, ...(j && { judgedStates: j.states }) });
     run.forEach((c, i) => {
       const o = out[i];
       used.add(c.name);
