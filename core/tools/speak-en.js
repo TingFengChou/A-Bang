@@ -5,7 +5,7 @@ import { normName } from '../util.js';
 
 const km = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`);
 const mins = (sec) => Math.max(1, Math.round(sec / 60));
-const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const plural = (n, w, many = `${w}s`) => `${n} ${n === 1 ? w : many}`;
 
 /** 英文方案名稱（與 en.js trip.leg 一致；公車帶路線號碼） */
 export const EN_ROLE = { walk: 'Walking', bike: 'YouBike', metro: 'MRT', thsr: 'High Speed Rail', tra: 'Train', intercity: 'Intercity bus', ridehail: 'Taxi', transit: 'City transit' };
@@ -37,6 +37,9 @@ function railEn(d, label, now) {
   return `${head}${up.length} more today; next leaves ${up[0].depart}, arrives ${d.to} ${up[0].arrive}.`;
 }
 
+/** 出門建議英文：core/agent/outing.js 產生建議時一起產生（item.en），這裡只取用（只有一份） */
+export const outingEn = (x) => x?.en ?? null;
+
 export const SPEAK_EN = {
   find_place: (d, a) => (d.length ? `Best match for "${a.query}": ${d[0].name}.` : `Couldn't find "${a.query}". Try another name.`),
   plan_trip: (d) => {
@@ -58,7 +61,8 @@ export const SPEAK_EN = {
     return `Tomorrow (${DAY(d.date)})${t}${pop}${umbrella}.`;
   },
   aqi_nearby: (d) => `AQI ${d.nearest.aqi ?? '—'}${AQI_LEVEL[d.nearest.level] ? ` (${AQI_LEVEL[d.nearest.level]})` : ''} at ${d.nearest.site} station${d.nearest.pm25 != null ? `, PM2.5 ${d.nearest.pm25}` : ''}.`,
-  outing_advice: (d) => `Checked weather and air: ${plural(d.items.length, 'tip')} on the card.`,
+  outing_advice: (d) => { const first = outingEn(d.items[0]); return first ? `Before you go: ${first}${d.items.length > 1 ? ` (+${d.items.length - 1} more on the card)` : ''}.` : `Checked weather and air: ${plural(d.items.length, 'tip')} on the card.`; },
+  pharmacy_search: (d) => (d.pharmacies.length ? `Found ${plural(d.pharmacies.length, 'National Health Insurance (NHI) pharmacy', 'National Health Insurance (NHI) pharmacies')}${d.area ? ` in ${d.area}` : ''}; ${d.pharmacies.filter((p) => p.openToday).length} open today.` : 'No matching NHI pharmacies.'),
   youbike_nearby: (d) => { const s = d.stations.find((x) => x.inService && x.rent > 0); return s ? `Nearest station with bikes: ${s.name} (${km(s.distance)}), ${plural(s.rent, 'bike')}.` : 'No bikes at nearby stations right now.'; },
   bus_nearby_stations: (d) => (d.stations.length ? `${plural(d.stations.length, 'bus stop')} nearby; nearest is ${d.stations[0].name} (${km(d.stations[0].distance)}).` : 'No bus stops nearby.'),
   bus_station_eta: (d) => { const f = d.arrivals.find((r) => r.etaSec != null); return f ? `Soonest is ${f.routeName}, in ${mins(f.etaSec)} min.` : 'No buses due at this stop right now.'; },

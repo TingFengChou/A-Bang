@@ -56,7 +56,7 @@ test('每個英文回報都能用工具的實際輸出算出來（不丟錯、�
     find_place: { query: '台北車站' }, plan_trip: { from: '臺北車站', to: '台北101', departAt: '09:00' }, weather_now: P, weather_tomorrow: P, aqi_nearby: P, outing_advice: P,
     youbike_nearby: P, bus_nearby_stations: P, bus_station_eta: { city: 'Taipei', stationId: 'M1000' }, bus_route_eta: { city: 'Taipei', routeName: '307' },
     metro_live_board: { near: '台北車站' }, thsr_timetable: { from: '台北', to: '左營' }, tra_timetable: { from: '臺北', to: '高雄' },
-    rail_fare: { system: 'THSR', from: '台北', to: '左營' }, ridehail_link: { to: '台北101', from: '臺北車站' }, traffic_status: { from: '臺北車站', to: '高雄車站' },
+    rail_fare: { system: 'THSR', from: '台北', to: '左營' }, pharmacy_search: { area: '臺北市大安區' }, ridehail_link: { to: '台北101', from: '臺北車站' }, traffic_status: { from: '臺北車站', to: '高雄車站' },
   };
   for (const name of Object.keys(SPEAK_EN)) {
     const r = await callTool(svc, name, ARGS[name]);
@@ -78,4 +78,39 @@ test('每個英文回報都能用工具的實際輸出算出來（不丟錯、�
   assert.match(speakEn('traffic_status', { covered: true, level: 'jam', delayMin: 12 }), /jammed, about 12 min/);
   // 影響：YouBike 車位很緊
   assert.match(impactEn('plan_trip', { options: [{ role: 'bike', bike: { ret: { tight: true, count: 1, name: '市府站', backup: { name: '信義站' } }, rent: {} } }] }).text, /only 1 dock left at 市府站; if full, return at 信義站/);
+});
+
+test('S12e：英文問出門建議、藥局；出門建議卡片英文；英文卡片設的到站提醒通知也是英文', async () => {
+  const { parseIntent } = await import('../core/agent/demo-intent.js');
+  assert.equal(parseIntent('What should I bring today?').intent, 'outing');
+  assert.equal(parseIntent('Do I need an umbrella?').intent, 'outing');
+  assert.equal(parseIntent('Will it rain tomorrow?').intent, 'weather', '問明天的是預報');
+  assert.equal(parseIntent('pharmacy near me').intent, 'pharmacy');
+  const es = [];
+  await runDemo(createServices({ forceMock: true, demo: { weather: 'rain' } }), { messages: [{ role: 'user', content: 'Do I need an umbrella?' }] }, (e) => es.push(e));
+  assert.match(es.find((e) => e.type === 'text').delta, /^Before you head out: .*umbrella/);
+  for (const n of es.filter((e) => e.type === 'agent_note')) assert.doesNotMatch(n.text.replace(/@\S+/g, '').replace(/臺北車站/g, ''), /[一-鿿]/, n.text);
+  const { arrivalText, nativeBody } = await import('../public/ui/cards/host-web.js');
+  assert.equal(arrivalText('307', '西門', 300, 'en'), 'Bus 307 reaches 西門 in about 5 min. Time to go!');
+  assert.match(arrivalText('307', '西門', 300), /該出門了/);
+  assert.match(nativeBody('307', '西門', 3, new Date(), 'en'), /^Bus 307 reaches 西門 in about 3 min/);
+});
+
+test('S12e 審查：穿什麼與明天、出門建議不誤判、買藥；建議中英文只有一份；英文提醒與一直不來', async () => {
+  const { parseIntent } = await import('../core/agent/demo-intent.js');
+  assert.equal(parseIntent('What should I wear tomorrow?').intent, 'weather');
+  assert.equal(parseIntent('Do I need a jacket?').intent, 'outing');
+  for (const q of ['Is it safe to go out at night?', 'What do I need for the MRT?', 'going out for dinner, any night market?']) assert.notEqual(parseIntent(q).intent, 'outing', q);
+  assert.equal(parseIntent('Where can I buy medicine?').intent, 'pharmacy');
+  const { outingItems } = await import('../core/agent/outing.js');
+  const cases = [{ weather: { raining: true, rainMm1h: 2, tempC: 33 }, air: { aqi: 160, status: '不健康' } }, { weather: { raining: true, rainMm1h: 0, pop3h: 80 } }, { weather: { pop3h: 40, tempC: 12 }, air: { aqi: 120 }, states: ['kids'] }, { weather: { pop3h: 10, tempC: 24 }, air: { aqi: 40 } }, { air: { aqi: null } }];
+  for (const c of cases) for (const x of outingItems(c)) assert.match(x.en, /^[A-Z0-9]/, `${x.text} → ${x.en}`);
+  assert.match(outingItems(cases[2]).find((x) => x.kind === 'mask').en, /unhealthy for sensitive groups; kids should wear a mask/);
+  assert.equal(outingItems(cases[3])[0].en, '24°C, AQI 40; all good to go out');
+  const { nextSteps } = await import('../public/js/agent/next-steps.js');
+  const steps = nextSteps([{ tool: 'bus_route_eta', data: { city: 'Taipei', routeName: '307', focus: { stopName: '西門', status: 0, etaSec: 400, direction: 0 } } }], null, { lang: 'en' });
+  assert.equal(steps.find((s) => s.kind === 'remind').payload.lang, 'en', '英文的提醒建議：通知也英文');
+  const { stuckAsk } = await import('../public/ui/cards/host-web.js');
+  assert.equal(stuckAsk({ lang: 'en', trip: { to: '台北101' } }), 'No bus, find another way to 台北101');
+  assert.equal(parseIntent('No bus, find another way to Taipei 101').avoid?.[0], 'bus');
 });

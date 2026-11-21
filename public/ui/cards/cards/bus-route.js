@@ -28,7 +28,7 @@ export function railOf(dir, f) {
   return { away, window, busAt: away > 0 && idx > 0 ? idx - 0.5 : idx };
 }
 
-function focusBlock(d, f, { host, t, rerender, state }) {
+function focusBlock(d, f, { host, t, rerender, state, locale }) {
   const w = host?.arrivalWatch?.();
   const watching = w && w.routeName === d.routeName && w.stop === f.stopName;
   const live = f.status === 0 && f.etaSec != null;
@@ -52,7 +52,7 @@ function focusBlock(d, f, { host, t, rerender, state }) {
         h('button', { type: 'button', class: 'ab-btn ab-link', onclick: () => { host.unwatchArrival?.(); state.alertMsg = t('busRoute.alertCanceled'); rerender(); } }, t('busRoute.alertCancel')))
       : live && host?.watchArrival && h('div', { class: 'ab-actions' }, state.alertMsg && h('p', { class: 'ab-sub', role: 'status' }, state.alertMsg), [3, 5].map((n) => h('button', { type: 'button', class: 'ab-btn', onclick: async () => {
         state.alertMsg = null;
-        await host.watchArrival({ city: d.city, routeName: d.routeName, stop: f.stopName, direction: f.direction, minutes: n });
+        await host.watchArrival({ city: d.city, routeName: d.routeName, stop: f.stopName, direction: f.direction, minutes: n, ...(locale === 'en' && { lang: 'en' }) }); // 英文卡片：通知也用英文
         rerender();
       } }, t('busRoute.alertBtn', { n })))),
     rail && railView(rail, t, state),
@@ -93,7 +93,7 @@ export default {
     const soon = dir.stops.filter((s) => s.etaSec != null && s.etaSec < SOON_SEC).slice(0, 3).map((s) => s.stopName);
     return soon.length ? t('busRoute.announceSoon', { route: d.routeName, stops: soon.join('、') }) : null;
   },
-  body(d, { host, t, state, rerender }) {
+  body(d, { host, t, state, rerender, locale }) {
     const dirs = d.directions || [];
     const f = d.focus;
     if (f && state.dir == null) state.dir = Math.max(0, dirs.findIndex((x, i) => (x.direction ?? i) === f.direction));
@@ -121,6 +121,6 @@ export default {
           navButton(host, s.nav),
           host?.ask && h('button', { type: 'button', class: 'ab-btn', onclick: () => host.ask(t('busRoute.ask', { route: d.routeName, stop: s.stopName })) }, t('common.more'))));
     }));
-    return h('div', { class: 'ab-body' }, f && focusBlock(d, f, { host, t, rerender, state }), tabs, list);
+    return h('div', { class: 'ab-body' }, f && focusBlock(d, f, { host, t, rerender, state, locale }), tabs, list);
   },
 };

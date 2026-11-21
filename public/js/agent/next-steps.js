@@ -22,7 +22,7 @@ export function nextSteps(results, decision, { watching = null, lang = null } = 
   const f = bus?.data?.focus;
   if (f) {
     const on = watching && watching.routeName === bus.data.routeName && watching.stop === f.stopName;
-    if (!on && f.status === 0 && f.etaSec != null) add({ label: en ? 'Remind me 3 min before' : '到站前 3 分提醒我', kind: 'remind', payload: { city: bus.data.city, routeName: bus.data.routeName, stop: f.stopName, direction: f.direction, minutes: 3 } });
+    if (!on && f.status === 0 && f.etaSec != null) add({ label: en ? 'Remind me 3 min before' : '到站前 3 分提醒我', kind: 'remind', payload: { city: bus.data.city, routeName: bus.data.routeName, stop: f.stopName, direction: f.direction, minutes: 3, ...(en && { lang: 'en' }) } });
     add({ label: en ? 'Open bus page' : '開公車頁看動態', kind: 'navigate', payload: `#/bus/${encodeURIComponent(bus.data.city)}/${encodeURIComponent(bus.data.routeName)}?stop=${encodeURIComponent(f.stopName)}&dir=${f.direction}` });
   } else if (bus) {
     add({ label: en ? 'Open bus page' : '開公車頁看動態', kind: 'navigate', payload: `#/bus/${encodeURIComponent(bus.data.city)}/${encodeURIComponent(bus.data.routeName)}` });

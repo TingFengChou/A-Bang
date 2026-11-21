@@ -1,6 +1,6 @@
 // 示範模式意圖解析（M5-03，AGENT.md §5）：沒有 API Key 時，以規則判斷意圖、地點與使用者狀態，
 // 產生「分段的工具呼叫計畫」；由 run.js 執行並發出與 Claude 模式相同的事件流。不加人工延遲。
-import { enName } from '../tools/speak-en.js';
+import { enName, outingEn, SPEAK_EN } from '../tools/speak-en.js';
 import { LANDMARKS, normPlace } from '../services/places.js';
 import { nextStepOf } from '../tools/trip.js';
 import { outingSay } from './outing.js';
@@ -628,7 +628,7 @@ const EN_STATES = [['rush', /hurry|late|asap|quick(?:ly)?|fastest/i], ['luggage'
 const EN_MODES = [['intercity', /intercity|long[- ]distance bus|\bcoach\b/i], ['bus', /\bbus\b/i], ['metro', /\b(?:mrt|metro|subway)\b/i], ['ridehail', /\b(?:taxi|uber|cab)\b/i], ['walk', /\bwalk(?:ing)?\b/i], ['bike', /\b(?:you)?bike\b/i], ['thsr', /high[- ]speed rail|\bhsr\b/i], ['tra', /\btrain\b|railway/i]];
 /** 英文城市名 → 台鐵／高鐵站名（「next train to Taichung」） */
 const EN_RAIL = { taipei: '臺北', banqiao: '板橋', taoyuan: '桃園', hsinchu: '新竹', miaoli: '苗栗', taichung: '臺中', changhua: '彰化', chiayi: '嘉義', tainan: '臺南', kaohsiung: '高雄', zuoying: '左營', yilan: '宜蘭', hualien: '花蓮', taitung: '臺東', keelung: '基隆', nangang: '南港' };
-const RAIN = /\brain(?:ing|y|s)?\b|umbrella|weather|temperature|\bhot\b(?!\s*springs?)|\bcold\b|\bwarm\b/i;
+const RAIN = /\brain(?:ing|y|s)?\b|umbrella|weather|temperature|\bhot\b(?!\s*springs?)|\bcold\b|\bwarm\b|\bwear\b|jacket|\bcoat\b|sweater/i;
 /** 英文提問 → 意圖與參數（地名已由 placesInText 依英文別名找出）；接著上一輪改條件（I'm with my grandma、by bus instead） */
 function englishIntent(s, places, history = []) {
   const states = EN_STATES.filter(([, re]) => re.test(s)).map(([k]) => k);
@@ -645,6 +645,9 @@ function englishIntent(s, places, history = []) {
     return { ...base, intent: 'rail', system: /high[- ]speed|\bhsr\b/i.test(s) ? 'THSR' : 'TRA', from: EN_RAIL[from] || null, to: EN_RAIL[rail[1].toLowerCase()] };
   }
   if (/air quality|\baqi\b|pm ?2\.?5|smog/i.test(s)) return { ...base, intent: 'aqi' };
+  // 出門建議（S12e）：「What should I bring/wear?」「Do I need an umbrella?」「Is it OK to go out?」（問明天的交給天氣預報）
+  if (!tomorrow && !toWord && /what (?:should|do) i (?:bring|wear)|umbrella|jacket|(?:good|ok|okay) (?:time )?to go out/i.test(s)) return { ...base, intent: 'outing' };
+  if (/pharmac|drug ?store|chemist|buy medicine|get medicine/i.test(s)) return { ...base, intent: 'pharmacy', area: null }; // 「pharmacy near me」：依位置推估行政區
   if (RAIN.test(s) && !toWord) return { ...base, intent: 'weather' };
   const route = /\bbus\s*(?:no\.?\s*)?([0-9]{1,4}[A-Za-z]?)\b/i.exec(s)?.[1];
   if (route && !toWord) return { ...base, intent: 'bus_route', route };
@@ -708,6 +711,8 @@ function englishSummary(it, results) {
   if (it.intent === 'metro') { const m = results.metro_live_board?.at(-1)?.data; const tr = m?.trains?.find((x) => x.etaMin != null); if (m) return tr ? `MRT ${m.station}: next train to ${tr.destination} in ${tr.etaMin} min.${note}` : `MRT ${m.station}: no live arrival data right now.`; }
   if (it.intent === 'aqi') { const a = results.aqi_nearby?.at(-1)?.data?.nearest; if (a) return `Air quality near ${a.site} station: AQI ${a.aqi}${a.aqi > 100 ? ', consider wearing a mask' : ''}.`; }
   if (it.intent === 'youbike') { const b = results.youbike_nearby?.at(-1)?.data?.stations?.[0]; if (b) return `Nearest YouBike station: ${b.name}, ${b.rent ?? '?'} bikes and ${b.returnSlots ?? '?'} free docks.${note}`; }
+  if (it.intent === 'outing') { const o = results.outing_advice?.at(-1)?.data; if (o) { const tips = o.items.map(outingEn).filter(Boolean); return `Before you head out: ${tips.join('; ')}.${note}`; } }
+  if (it.intent === 'pharmacy') { const p = results.pharmacy_search?.at(-1)?.data; if (p) return `${SPEAK_EN.pharmacy_search(p)}${p.areaFrom ? ' The area was guessed from your location; tell me the district if it is wrong.' : ` You didn't say where, so I searched ${p.area}; tell me the district.`} Tap a pharmacy for the map.${note}`; }
   if (it.thanks) return "You're welcome! Have a good trip.";
   if (it.intent === 'unknown') return 'Sorry, I can only help with getting around Taiwan (bus, MRT, train, YouBike, taxi) and the weather for now. Try: "How do I get to Taipei 101?"';
   return `Here you go.${note}`;

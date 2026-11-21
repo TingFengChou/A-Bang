@@ -17,11 +17,14 @@ const icon = (kind) => {
   return s;
 };
 
+/** 建議的文字：英文用伺服器一起產生的 en（中英文只有一份，S12e） */
+const itemText = (x, locale) => (locale === 'en' && x.en ? x.en : x.text);
+
 export default {
   refreshSec: 600,
   title: (d, { t }) => (d.name ? t('outing.titleAt', { name: d.name }) : t('outing.title')),
-  announce: (d) => d.items.map((x) => x.text).join('；'),
-  body(d, { t }) {
+  announce: (d, { t, locale } = {}) => d.items.map((x) => (t ? itemText(x, locale) : x.text)).join(locale === 'en' ? '; ' : '；'),
+  body(d, { t, locale }) {
     const w = d.weather;
     const a = d.air;
     const stat = (label, value) => h('div', { class: 'ab-stat' }, h('span', { class: 'ab-sub' }, label), h('strong', null, value));
@@ -30,7 +33,7 @@ export default {
     return h('div', { class: 'ab-body' },
       // list-style:none 時 VoiceOver 會丟掉清單語意：明寫 role=list；要注意的項目讀屏先念「要注意」（不只靠顏色）
       h('ul', { class: 'ab-outing', role: 'list', 'aria-label': t('outing.items') }, d.items.map((x) => h('li', { class: `ab-out ${x.level}` },
-        icon(x.kind), h('span', null, x.level === 'warn' && h('span', { class: 'ab-sr' }, t('outing.warn')), x.text)))),
+        icon(x.kind), h('span', null, x.level === 'warn' && h('span', { class: 'ab-sr' }, t('outing.warn')), itemText(x, locale))))),
       (d.missing || []).length > 0 && h('p', { class: 'ab-sub ab-missing' }, d.missing.map((k) => t(`outing.missing.${k}`)).join('；')),
       h('div', { class: 'ab-stats' },
         stat(t('weather.temp'), w?.tempC != null ? `${w.tempC}°C` : '—'),

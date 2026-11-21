@@ -12,32 +12,43 @@ export function outingAdvice(d = {}) {
 
 /**
  * 同上，帶種類（出門建議卡片的圖示與顏色）：umbrella 帶傘、hot 防曬、cold 保暖、mask 口罩、ok 沒什麼要注意。
- * level：warn＝要注意（下雨、很熱很冷、空品不健康）、info＝可以留意、ok＝安心出門
- * @returns {Array<{ kind: 'umbrella'|'hot'|'cold'|'mask'|'ok', level: 'warn'|'info'|'ok', text: string }>}
+ * level：warn＝要注意（下雨、很熱很冷、空品不健康）、info＝可以留意、ok＝安心出門。
+ * en：英文說法（S12e；中英文在這裡一起產生，卡片與英文總結都用這一份，數字來自資料）
+ * @returns {Array<{ kind: 'umbrella'|'hot'|'cold'|'mask'|'ok', level: 'warn'|'info'|'ok', text: string, en: string }>}
  */
 export function outingItems({ weather, air, states = [] } = {}) {
   const out = [];
+  const add = (kind, level, text, en) => out.push({ kind, level, text, en });
   if (weather) {
-    if (weather.raining) out.push({ kind: 'umbrella', level: 'warn', text: weather.rainMm1h > 0 ? '現在正在下雨，記得帶傘' : `接下來 3 小時降雨機率 ${weather.pop3h}%，很可能下雨，記得帶傘` });
-    else if (weather.pop3h >= 50) out.push({ kind: 'umbrella', level: 'warn', text: `接下來 3 小時降雨機率 ${weather.pop3h}%，帶把傘` });
-    else if (weather.pop3h >= 30) out.push({ kind: 'umbrella', level: 'info', text: `降雨機率 ${weather.pop3h}%，包包放把折傘比較保險` });
+    const p = weather.pop3h;
+    if (weather.raining && weather.rainMm1h > 0) add('umbrella', 'warn', '現在正在下雨，記得帶傘', "It's raining now; bring an umbrella");
+    else if (weather.raining) add('umbrella', 'warn', `接下來 3 小時降雨機率 ${p}%，很可能下雨，記得帶傘`, `${p}% chance of rain in the next 3 hours; rain is likely, bring an umbrella`);
+    else if (p >= 50) add('umbrella', 'warn', `接下來 3 小時降雨機率 ${p}%，帶把傘`, `${p}% chance of rain in the next 3 hours; bring an umbrella`);
+    else if (p >= 30) add('umbrella', 'info', `降雨機率 ${p}%，包包放把折傘比較保險`, `${p}% chance of rain; a folding umbrella is a good idea`);
     const t = weather.tempC;
     if (Number.isFinite(t)) {
-      if (t >= 32) out.push({ kind: 'hot', level: 'warn', text: `${t}°C 很熱，注意防曬、多喝水` });
-      else if (t >= 28) out.push({ kind: 'hot', level: 'info', text: `${t}°C 偏熱，注意防曬` });
-      else if (t <= 10) out.push({ kind: 'cold', level: 'warn', text: `${t}°C 很冷，多穿一點，注意保暖` });
-      else if (t <= 16) out.push({ kind: 'cold', level: 'info', text: `${t}°C 偏涼，帶件外套` });
+      if (t >= 32) add('hot', 'warn', `${t}°C 很熱，注意防曬、多喝水`, `${t}°C and very hot; use sunscreen and drink water`);
+      else if (t >= 28) add('hot', 'info', `${t}°C 偏熱，注意防曬`, `${t}°C and warm; sun protection helps`);
+      else if (t <= 10) add('cold', 'warn', `${t}°C 很冷，多穿一點，注意保暖`, `${t}°C and cold; dress warmly`);
+      else if (t <= 16) add('cold', 'info', `${t}°C 偏涼，帶件外套`, `${t}°C and cool; bring a jacket`);
     }
   }
   const who = states.includes('kids') ? '小孩' : states.includes('elder') ? '長輩' : null;
+  const whoEn = states.includes('kids') ? 'kids' : states.includes('elder') ? 'seniors' : null;
   if (air && Number.isFinite(air.aqi)) {
-    if (air.aqi > 150) out.push({ kind: 'mask', level: 'warn', text: `空氣品質${air.status || '不良'}（AQI ${air.aqi}），盡量少待戶外、戴口罩` });
-    else if (air.aqi > 100) out.push({ kind: 'mask', level: 'warn', text: `空氣品質對敏感族群不健康（AQI ${air.aqi}），${who ? `${who}記得` : '長輩小孩'}戴口罩、少做戶外運動` });
-    else if (who && air.aqi > 50) out.push({ kind: 'mask', level: 'info', text: `空氣品質普通（AQI ${air.aqi}），${who}比較敏感，少待在路邊` });
+    const a = air.aqi;
+    if (a > 150) add('mask', 'warn', `空氣品質${air.status || '不良'}（AQI ${a}），盡量少待戶外、戴口罩`, `AQI ${a}, unhealthy air; limit time outdoors and wear a mask`);
+    else if (a > 100) add('mask', 'warn', `空氣品質對敏感族群不健康（AQI ${a}），${who ? `${who}記得` : '長輩小孩'}戴口罩、少做戶外運動`, `AQI ${a}, unhealthy for sensitive groups; ${whoEn ? `${whoEn} should` : 'kids and seniors should'} wear a mask and avoid outdoor exercise`);
+    else if (who && a > 50) add('mask', 'info', `空氣品質普通（AQI ${a}），${who}比較敏感，少待在路邊`, `AQI ${a}, moderate; ${whoEn} are more sensitive, avoid roadsides`);
   }
   const hasData = (weather && (Number.isFinite(weather.tempC) || Number.isFinite(weather.pop3h))) || (air && Number.isFinite(air.aqi));
-  if (!out.length && (weather || air) && !hasData) out.push({ kind: 'ok', level: 'info', text: '這次只查到部分資料，出門前再看一下天氣' });
-  if (!out.length && hasData) out.push({ kind: 'ok', level: 'ok', text: `天氣${weather && Number.isFinite(weather.tempC) ? ` ${weather.tempC}°C、` : ''}${air && Number.isFinite(air.aqi) ? `空氣品質${air.status || ''}（AQI ${air.aqi}）` : ''}都還不錯，安心出門`.replace('、都', '，都') });
+  if (!out.length && (weather || air) && !hasData) add('ok', 'info', '這次只查到部分資料，出門前再看一下天氣', 'Only partial data this time; check the weather again before you go');
+  if (!out.length && hasData) {
+    const tz = weather && Number.isFinite(weather.tempC) ? weather.tempC : null;
+    const az = air && Number.isFinite(air.aqi) ? air.aqi : null;
+    add('ok', 'ok', `天氣${tz != null ? ` ${tz}°C、` : ''}${az != null ? `空氣品質${air.status || ''}（AQI ${az}）` : ''}都還不錯，安心出門`.replace('、都', '，都'),
+      `${[tz != null && `${tz}°C`, az != null && `AQI ${az}`].filter(Boolean).join(', ')}${tz != null || az != null ? '; ' : ''}all good to go out`.replace(/^a/, 'A'));
+  }
   return out.slice(0, 3);
 }
 

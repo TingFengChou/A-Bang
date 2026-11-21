@@ -70,7 +70,8 @@ window.addEventListener('abang:alight', (e) => toast(`🔔 ${e.detail.text}`, 10
 // 公車一直不來（S15）：提示可以改其他方式（卡片上有按鈕）
 window.addEventListener('abang:arrival-stuck', (e) => {
   if (location.hash.startsWith('#/agent')) return;
-  toast(cardT('busRoute.stuckToast', { route: e.detail.routeName }), 10000, { label: '改其他方式', href: `#/agent?q=${encodeURIComponent(e.detail.ask)}` });
+  const en = e.detail.lang === 'en';
+  toast(en ? `Bus ${e.detail.routeName} isn't coming. Ask Abang for another way` : cardT('busRoute.stuckToast', { route: e.detail.routeName }), 10000, { label: en ? 'Another way' : '改其他方式', href: `#/agent?q=${encodeURIComponent(e.detail.ask)}` });
 });
 
 function navigate() {

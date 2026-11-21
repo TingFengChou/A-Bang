@@ -57,7 +57,7 @@ export function renderCard(el, payload, host) {
   const draw = (opts) => withLocale(locale, () => drawNow(opts)); // 共用按鈕與字典用同一個語言
   const drawNow = ({ fresh = false } = {}) => {
     const say = (text) => { live.textContent = ''; setTimeout(() => { live.textContent = text; }, 30); };
-    const ctx = { host, t, state, payload: current, rerender: draw, say };
+    const ctx = { host, t, state, payload: current, rerender: draw, say, locale };
     const updated = current.data?.updatedAt ? t('common.updatedAt', { time: hhmm(current.data.updatedAt) }) : null;
     status = h('span', { class: 'ab-status', role: 'status', 'aria-live': 'polite' });
     const card = h('section', { class: 'ab-card', 'data-card': current.card, 'aria-label': def.title(current.data, ctx), ...(locale !== 'zh-TW' && { lang: locale }) },
