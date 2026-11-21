@@ -11,6 +11,7 @@ import { motion } from '../../ui/cards/motion.js';
 import { token } from '../../ui/cards/mode-icons.js';
 import { nextSteps } from '../agent/next-steps.js';
 import { alightWatch } from '../alight.js';
+import { loadChat, saveChat, clearChat } from '../chat-store.js';
 import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { renderDecision, lite, roleEn } from '../../ui/agent/decision-graph.js';
@@ -176,6 +177,26 @@ export default {
     // 說明起點是現在位置（第一次需要位置時才跳權限框，先讓使用者知道為什麼）；拒絕定位時阿幫會問從哪出發
     const hereHint = agentId === 'life' && el('p', 'updated here-hint', '沒說起點時，阿幫用你現在的位置當出發點。');
     main.append(log, el('div', 'chat-dock', pageRow, chips, mention, form), ...(hereHint ? [hereHint] : []), disclaimer, modeLine);
+    // 上次的對話（只有文字、最後一次對話 12 小時內）：只顯示；按「接著上次問」才當成前文跟下一個問題一起送（隱私：沒按就不送，常用地點也不會因為昨天說過「回家」又送出）
+    // 只有生活 agent（防詐不留）
+    const past = agentId === 'life' ? loadChat() : null;
+    let pastWrap = null;
+    let gen = 0; // 清除本機資料時加一：還在回答的那一輪不再寫回對話或存起來
+    if (past) {
+      const d = new Date(past.at);
+      const day = d.toDateString() === new Date().toDateString() ? '今天' : '昨天';
+      const when = `${day} ${d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+      const box = el('details', 'chat-past');
+      box.append(el('summary', '', `上次的對話（${when}，${past.messages.length} 則）`), ...past.messages.map((m) => el('div', `msg ${m.role === 'user' ? 'user' : 'past-answer'}`, m.content)));
+      const cont = el('button', 'btn small', '接著上次問');
+      const fresh = el('button', 'btn small quiet', '不用了，重新開始');
+      cont.type = 'button'; fresh.type = 'button';
+      const acts = el('div', 'past-acts', cont, fresh);
+      cont.onclick = () => { if (!history.length) history.push(...past.messages); acts.replaceChildren(el('span', 'past-note', '好，接下來的問題會接著上次的話問')); };
+      fresh.onclick = () => { clearChat(); pastWrap.remove(); pastWrap = null; };
+      pastWrap = el('div', 'chat-past-wrap', box, acts);
+      log.append(pastWrap);
+    }
     const MODE_TEXT = {
       claude: (m) => `由 Claude（${m}）回答；對話會送 Anthropic 處理。`,
       local: (m) => `由地端模型（${m}）回答；對話只送到本站設定的模型伺服器。`,
@@ -256,6 +277,8 @@ export default {
       if (!q) return;
       if (busy) { pendingQ = { q, pageContext }; return; }
       turnNo += 1;
+      pastWrap?.querySelector('.past-acts button') && pastWrap.querySelector('.past-acts').replaceChildren(el('span', 'past-note', history.length ? '接著上次的話問' : '這次重新問（上次的對話只留著看）'));
+      const myGen = gen;
       for (const c of cards) if (c.turn < turnNo - 1) c.stop?.();
       busy = true; sendBtn.disabled = true; input.value = ''; mention.replaceChildren();
       pageRow.hidden = true;
@@ -276,7 +299,9 @@ export default {
           view.push(e);
         }, { agentId });
         await view.flush();
+        if (myGen !== gen) return; // 回答途中按了清除本機資料：不寫回、不存
         if (view.text) history.push({ role: 'assistant', content: view.text.slice(0, 500) });
+        if (agentId === 'life') saveChat(history); // 只存文字（chat-store.js）
         showNext(view);
       } catch {
         turn.append(el('div', 'msg error', '連線中斷了，請再試一次。'));
@@ -480,6 +505,8 @@ export default {
       focus: () => input.focus({ preventScroll: true }),
       ask: (q) => send(q),
       hasChat: () => history.length > 0,
+      /** 設定頁清除本機資料：畫面上的對話也一起清掉 */
+      clear() { gen++; clearChat(); history.length = 0; pendingQ = null; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); showDefaults(); },
       /** 從哪一頁打開（浮動阿幫）：那一頁可以問的問題；點了才把這一頁的說明一起送（自己打的問題不帶）；null＝清掉 */
       setPage(hint) {
         const pc = String(hint?.context || '');

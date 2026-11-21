@@ -127,6 +127,9 @@ export function abangSays(text, action = null) {
   return true;
 }
 
+// 設定頁清除本機資料：開著的問阿幫對話也清掉
+addEventListener('abang:clear-local', () => { keptIf('agent')?.api.clear?.(); syncDot(); });
+
 /** 換頁時：問阿幫頁不顯示浮動按鈕；面板開著就收起來（阿幫帶你去別頁） */
 export function syncFab() {
   if (!fab) return;
