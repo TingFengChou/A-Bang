@@ -136,6 +136,9 @@ export const sameName = (a, b) => {
   return long.includes(short) && short.length / long.length >= 0.6; // 「台北車站」與「台北車站東三門」不算同一個
 };
 
+/** 地端模型模式改由規則回答的意圖（資料查一次、照實報數字） */
+export const RULE_ANSWERS = new Set(['fuel', 'invoice', 'stock', 'quake']);
+
 /** 行程的座標比對鍵（起訖點座標到小數 3 位＋方式＋抵達時間） */
 export const tripKey = (from, to, prefs = {}) => (Number.isFinite(from?.lat) && Number.isFinite(to?.lat)
   ? `plan_trip@${from.lat.toFixed(3)},${from.lon.toFixed(3)}>${to.lat.toFixed(3)},${to.lon.toFixed(3)}|${prefs?.mode || ''}|${prefs?.arriveBy || ''}|${[...(prefs?.avoid || [])].sort().join(',')}|${prefs?.party || ''}` : null);
@@ -237,6 +240,8 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const last = req.messages.at(-1).content;
   // 地端小模型的英文不穩（漏英文地名、句型亂，模型模式情境 S12 九個沒過）：英文提問改用規則回答（與示範模式同一套英文總結；Claude 照常）
   if (provider.mode === 'local' && isEnglish(last)) return runDemo(svc, body, emit, { profileId, now, judge, mode: 'rules' });
+  // 查一個數字就答的生活資料（油價、發票、股市收盤、地震）：規則聽得懂就由規則查、程式回答（地端小模型常不查或漏講日期、縣市，P4 模型模式 4 個沒過）
+  if (provider.mode === 'local' && profile.id === 'life' && !safetyCheck(last, { profileId: profile.id }) && RULE_ANSWERS.has(parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces, now }).intent)) return runDemo(svc, body, emit, { profileId, now, judge, mode: 'rules' });
   const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode: provider.mode, model: provider.model, profile: profile.id, judge: judgeInfo(q0), lang: isEnglish(last) ? 'en' : 'zh' }));
   // 安全情境（S18）：自傷或緊急狀況不交給模型自由回答，固定給求助電話（與示範模式相同）
@@ -295,6 +300,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const placePt = rulesIt.places?.[0] && PLACE_TOOL[rulesIt.intent] && !(rulesIt.intent === 'pharmacy' && rulesIt.area) ? await resolvePoint(svc.places, rulesIt.places[0]).catch(() => null) : null;
   const pre = prefetchCalls(rulesIt, j, here || null, placePt).map((c) => (c.name === 'plan_trip' && !c.args.departAt ? { ...c, args: { ...c.args, departAt: tripDepartAt(rulesIt, now) } } : c)); // 與示範模式同一個出發時間（明天用明天早上）
   let prefetched = '';
+  const placeDone = new Map(); // 使用者說了地點（「那邊有 YouBike 嗎」）時程式已查好的附近資料：模型改用現在位置再查也沿用（P4-6）
   const turnTrips = []; // 這一輪已經出過的行程卡（同起點、同目的地、同方式只出一張：模型換個說法再查也沿用）
   const preDone = new Map(); // 呼叫鍵（工具＋關鍵參數）→ 給模型的文字：模型用相同參數再呼叫時沿用，不重複產生卡片與決策圖；參數不同照常執行
   if (pre.length) {
@@ -305,6 +311,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
       // 查詢失敗也告訴模型原因（請照實轉述），模型才不會一直重查同一個工具
       const text = o.ok ? (pre[i].note ? `${pre[i].note}\n` : '') + modelText(o.result) + followUpText(o.followUp, o.followWalkMin) : `（${pre[i].name} 查詢失敗：${o.error}。請照實告訴使用者，不要再呼叫同一個工具。）`;
       preDone.set(callKey(pre[i].name, pre[i].args), text);
+      if (placePt && o.ok && pre[i].name !== 'find_place') placeDone.set(pre[i].name, text); // 說了地點的附近查詢
       if (o.ok && /^(thsr|tra)_timetable$/.test(pre[i].name)) { // 模型用實際起站再查時沿用（有寫日期、沒寫日期都算）
         for (const date of [undefined, o.result.data.date]) preDone.set(callKey(pre[i].name, { from: o.result.data.from, to: o.result.data.to, date }), text);
       }
@@ -400,6 +407,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
         if (f && t) k = tripKey(f, t, c.input.prefs);
       }
       if (k && preDone.has(k)) results.set(c.id, { content: `（已查好，結果同上）\n${preDone.get(k)}` });
+      else if (placeDone.has(c.name)) results.set(c.id, { content: `（使用者問的是「${placePt.name || rulesIt.places[0]}」那裡，已查好，結果同上；不是他現在的位置）\n${placeDone.get(c.name)}` });
       // 同一輪、同一個目的地已經有行程卡：模型換了起點寫法或條件再查也不出第二張（使用者這一句只問一趟；要改條件會再說）
       else if (c.name === 'plan_trip' && turnTrips.length && c.input?.to) {
         const [f, t] = await Promise.all([c.input.from, c.input.to].map((x) => (x ? resolvePoint(svc.places, x).catch(() => null) : null)));
