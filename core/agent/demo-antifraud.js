@@ -49,13 +49,24 @@ const AFTERMATH = {
 };
 
 /** 使用者這句話要查什麼：aftermath（已被騙、已匯款或給了驗證碼：先給止損步驟）、sender（簡訊號碼）、url（只有網址）、myth（是真的嗎）、message（其他一律當可疑內容檢查） */
+/** 只有「是不是詐騙」的問法、沒有可以比對的內容（沒有網址、號碼、實際訊息文字） */
+export const SCAM_ASK = /詐騙嗎|是不是詐騙|是詐騙|是騙人的嗎|可疑嗎|幫我看(?:看|一下)?|幫我檢查|這(?:是|個)?(?:安全|真的)嗎/;
+export function isEmptyAsk(text) {
+  const s = String(text ?? '');
+  if (!SCAM_ASK.test(s) || /\d{4,}|https?:|www\.|\.(?:com|tw|net|cc|xyz)\b/i.test(s)) return false;
+  const rest = s.replace(/這(?:是|個|封|則|通)?|那(?:個|封|則)?|是不是|是|詐騙|騙人的?|嗎|幫我|看(?:看|一下)?|檢查|我|剛剛|剛才|今天|收到|接到|一(?:封|則|個|通)|簡訊|訊息|LINE|line|電話|來電|信件?|email|e-mail|可疑|安全|真的|的|了|呢|啊|[？?。，,!！:：\s]/g, '');
+  return rest.length <= 2;
+}
+
 export function parseAntifraud(text, { history = [] } = {}) {
   const s = String(text ?? '').trim();
   const urls = extractUrls(s);
   // 英文訊息：規則庫只認中文，不能說「沒有發現」給錯誤的安心（網址仍可比對 165 清單）
-  if (isEnglish(s.replace(/https?:\/\/\S+/g, '')) && !urls.length) return { intent: 'english', text: s };
+  if (isEnglish(s.replace(/https?:\/\/\S+/g, '')) && !urls.length) return { intent: /^\s*(?:is (?:this|it) (?:a )?(?:scam|fraud|real|legit|safe)|can you check (?:this|it)|check this)\W*$/i.test(s) ? 'emptyEn' : 'english', text: s };
   const after = aftermath(s, { history });
   if (after) return { intent: 'aftermath', kind: after, text: s }; // 先給止損步驟（不查工具）
+  // 只問「這是詐騙嗎」「我收到一封簡訊，是詐騙嗎？」卻沒附內容：不比對（比對空字串會說「沒有發現詐騙特徵」，是錯誤的安心），請他貼上（PM 盤點 Q-22）
+  if (!urls.length && isEmptyAsk(s)) return { intent: 'empty', text: s };
   const rest = urls.reduce((t, u) => t.replace(u, ''), s).replace(/這個?|網址|網站|連結|安全嗎|可以[點開]嗎|是真的嗎|[？?。，,:：\s]/g, '');
   if (urls.length && rest.length <= 6) return { intent: 'url', urls: urls.slice(0, 3), text: s };
   const num = s.match(SENDER);
@@ -79,6 +90,8 @@ export function antifraudSteps(it) {
 
 /** 示範總結：以工具結果為準，不保證安全（輸出護欄會再檢查一次） */
 export function antifraudSummary(it, results) {
+  if (it.intent === 'empty') return '請把收到的簡訊、LINE 訊息、網址或來電號碼貼給我（可以直接複製貼上，也可以按輸入框左邊的相機拍下來或選截圖），我幫你比對 165 的詐騙手法。確認之前，先不要點連結、不要匯款、不要給驗證碼。';
+  if (it.intent === 'emptyEn') return "Paste the message, link, or phone number here and I'll check it. Until then, don't click links, transfer money, or share verification codes. You can also call 165, Taiwan's anti-fraud hotline.";
   if (it.intent === 'english') return "I can only check Chinese messages for now. If you're unsure, don't transfer money or share codes, and call 165 (Taiwan's anti-fraud hotline).";
   if (it.intent === 'aftermath') return AFTERMATH[it.kind] || AFTERMATH.paid;
   const r = (name) => results[name]?.map((x) => x.data) || [];
