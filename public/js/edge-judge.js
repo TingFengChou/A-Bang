@@ -91,7 +91,7 @@ export function edgePrewarm() {
 let inflight = null;
 let unavailable = false;
 /** 測試用：重設斷路器 */
-export const _resetEdge = () => { inflight = null; unavailable = false; };
+export const _resetEdge = () => { inflight = null; unavailable = false; suggestInflight = null; suggestOff = false; };
 
 /**
  * 在手機上判斷這一句。
@@ -112,6 +112,64 @@ export async function edgeJudge(text, history = [], { timeout = EDGE_TIMEOUT_MS 
     const out = r ? normalizeJudge(r.result, r.engine) : null;
     if (out) noteEdgeJudge(validMs(r.ms) ?? Date.now() - t0); // 外掛有回模型耗時就用它，否則用這裡量到的（含橋接）
     return out;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ───── 動態「下一句」建議（UX.md §3.2、AGENT.md §5.4）：手機上的 AI 依情境猜使用者接下來想問的 3～4 句 ─────
+// 情境（public/js/agent/suggest.js contextText）只在手機上給模型看，不送伺服器；回來的句子另外由伺服器規則驗證（只送句子）。
+export const SUGGEST_KEY = 'abang.edgeSuggest';
+/** 設定頁「用手機上的 AI 猜我接下來想問什麼」（預設開；裝置端 AI 整個關掉時也不用） */
+export function suggestEnabled() {
+  try { return globalThis.localStorage?.getItem(SUGGEST_KEY) !== 'off'; } catch { return true; }
+}
+export function setSuggestEnabled(on) {
+  try { if (on) globalThis.localStorage.removeItem(SUGGEST_KEY); else globalThis.localStorage.setItem(SUGGEST_KEY, 'off'); return true; } catch { return false; }
+}
+
+/** 給手機模型的指示（短：手機模型上下文小） */
+export const SUGGEST_INSTRUCTIONS = `你幫「阿幫」App 猜使用者下一句想問什麼。依情境寫 4 句使用者接下來最可能問阿幫的話。
+每句 6～20 字，口語，像使用者自己會打的字；繁體中文、台灣用語。
+每句要單獨看得懂：寫出地名或公車路線號碼，不要用「那裡」「這班」「回程」。
+只問阿幫查得到的：從 A 到 B 怎麼去、公車多久到、捷運下一班、高鐵台鐵班次、YouBike、附近公車站、天氣、明天會不會下雨、出門要帶傘嗎、空氣品質、地震、藥局、垃圾車、油價、發票、台股收盤。
+跟剛剛查到的結果直接相關的排前面；不要重複剛剛已經問過的；不要問投資建議；不要編地名。`;
+export const SUGGEST_INSTRUCTIONS_EN = `${SUGGEST_INSTRUCTIONS}\nThe user is asking in English: write all 4 questions in simple English.`;
+
+/** 外掛回傳 → 句子陣列：字串（每行一句）、陣列或 { questions }；去編號、引號、重複，太短太長的丟掉 */
+export function normalizeSuggest(raw, max = 6) {
+  const list = Array.isArray(raw) ? raw : Array.isArray(raw?.questions) ? raw.questions : typeof raw === 'string' ? raw.split(/\n+/) : [];
+  const out = [];
+  for (const x of list) {
+    const s = String(x ?? '').replace(/^\s*(?:[-*•‧·]|\d+\s*[.、)）]|[（(]\d+[)）])\s*/, '').replace(/^["「『“]+|["」』”]+$/g, '').trim();
+    if (s.length < 4 || s.length > 40 || /[{}[\]<>]/.test(s) || out.includes(s)) continue;
+    out.push(s);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+let suggestInflight = null;
+let suggestOff = false; // 這個版本的外掛沒有 suggest、或說不可用：這次開 App 不再試
+/** 現在可以請手機上的 AI 猜嗎（App、外掛可用、兩個開關都開著）；不能就直接用規則，不必等 */
+export const edgeCanSuggest = () => !!cap() && !unavailable && !suggestOff && edgeEnabled() && suggestEnabled();
+/**
+ * 在手機上猜使用者接下來想問的話（只給候選；要不要顯示由 agent/suggest.js 驗證、排序）。
+ * @param {string} context 情境文字（suggest.js contextText；不含座標）
+ * @returns {Promise<{ asks: string[], engine: string } | null>} 不可用、關掉、逾時、上一次還在跑 → null
+ */
+export async function edgeSuggest(context, { lang = null, timeout = 1500 } = {}) {
+  const c = cap();
+  if (!c || unavailable || suggestOff || suggestInflight || !edgeEnabled() || !suggestEnabled() || !context) return null;
+  let timer;
+  try {
+    const call = c.nativePromise(PLUGIN, 'suggest', { context: String(context).slice(0, 600), instructions: lang === 'en' ? SUGGEST_INSTRUCTIONS_EN : SUGGEST_INSTRUCTIONS, lang: lang === 'en' ? 'en' : 'zh-TW', max: 4 });
+    suggestInflight = call.catch((e) => { if (/unavailable|not implemented|UNIMPLEMENTED/i.test(e?.message || e?.code || '')) suggestOff = true; }).finally(() => { suggestInflight = null; });
+    const r = await Promise.race([call, new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeout); })]);
+    const asks = r ? normalizeSuggest(r.result) : [];
+    return asks.length && EDGE_ENGINES.includes(r.engine) ? { asks, engine: r.engine } : null;
   } catch {
     return null;
   } finally {

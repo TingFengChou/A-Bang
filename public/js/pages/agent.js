@@ -4,15 +4,17 @@ import { API_BASE, IN_APP } from '../base.js';
 import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
 import { runAgent, browserLocation, locationGranted } from '../agent/client.js';
 import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-help.js';
-import { edgeJudge, edgePrewarm } from '../edge-judge.js';
+import { edgeJudge, edgePrewarm, edgeSuggest, edgeCanSuggest } from '../edge-judge.js';
 import { noteAgentStatus } from '../ai-info.js';
 import { mountThinking, deviceLine } from '../agent/thinking.js';
 import { mountVoiceUI } from '../agent/voice-ui.js';
-import { placesFor } from '../saved-places.js';
+import { placesFor, loadPlaces } from '../saved-places.js';
 import { icons } from '../icons.js';
 import { motion } from '../../ui/cards/motion.js';
 import { token } from '../../ui/cards/mode-icons.js';
 import { nextSteps } from '../agent/next-steps.js';
+import { suggestContext, contextText, ruleAsks, pickSuggestions, validateAsks, SUGGEST_WAIT_MS } from '../agent/suggest.js';
+import { peekNow } from '../home-now.js';
 import { alightWatch } from '../alight.js';
 import { loadChat, saveChat, clearChat } from '../chat-store.js';
 import { renderCard } from '../../ui/cards/index.js';
@@ -222,50 +224,124 @@ export default {
     let lastTripTo = null; // 最後一次行程的目的地：設定到站提醒時記下（公車一直不來時改其他方式）
     const host = createWebHost({ ask: (q) => send(q), setContext: (c) => { context = c; }, tripContext: () => lastTripTo && { to: lastTripTo } });
 
-    // 建議問題與免責（GET /api/v1/agent/profile）；回答後換成「接下來可以…」（依這一輪結果，next-steps.js）
+    // 建議問題與免責（GET /api/v1/agent/profile）。生活阿幫：輸入框上方與 placeholder 是動態的「下一句」（agent/suggest.js：情境規則，
+    // App 裡手機上的 AI 先猜、伺服器規則驗證）；「更多例子／其他問題」才列 profile 的固定範例。防詐：固定建議＋回答後的下一步（next-steps.js）
     let defaults = [];
+    const dynamic = agentId === 'life';
+    chips.setAttribute('role', 'group');
+    chips.setAttribute('aria-label', '建議問題');
+    let pinnedDefaults = false; // 按了「更多例子／其他問題」：固定範例留著，到下一輪或換頁才換回動態的
     const showDefaults = () => {
+      pinnedDefaults = dynamic;
       chips.classList.remove('next');
+      chips.dataset.sig = '';
       chips.replaceChildren(...defaults.map((q) => { const b = el('button', 'chip', q); b.type = 'button'; b.onclick = () => send(q); return b; }));
     };
     fetch(`${API_BASE}/api/v1/agent/profile?id=${agentId}`).then((r) => r.json()).then(({ data }) => {
       defaults = data.suggestions;
-      if (!chips.classList.contains('next')) showDefaults();
+      if (!dynamic && !chips.classList.contains('next')) showDefaults();
       disclaimer.textContent = data.disclaimer;
     }).catch(() => {});
     let lastView = null;
     // 在卡片或公車頁設定／取消到站提醒後，下一步建議跟著更新（已提醒就不再建議）
-    const onWatch = () => { if (lastView && chips.classList.contains('next')) showNext(lastView); };
+    const onWatch = () => { if (lastView && (dynamic ? !pinnedDefaults : chips.classList.contains('next'))) showNext(lastView); };
     window.addEventListener('abang:arrival-watch', onWatch);
     onCleanup(() => window.removeEventListener('abang:arrival-watch', onWatch));
+    const act = async (s, b, view) => {
+      if (s.kind === 'ask') return send(s.q || s.payload);
+      if (s.kind === 'navigate') return host.navigate(s.payload);
+      if (s.kind === 'state') { // 在這一輪的決策圖加狀態，瀏覽器立即重算
+        const add = view?.box?.querySelector(`.dg-chip.add[data-state="${s.payload}"]`); // 用狀態鍵對（英文的決策圖文字不同）
+        add?.click();
+        view?.box?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        b.remove();
+        return undefined;
+      }
+      if (s.kind === 'remind') {
+        await host.watchArrival(s.payload);
+        log.append(el('p', 'agent-sys', view?.lang === 'en' ? `OK, I'll remind you ${s.payload.minutes} min before bus ${s.payload.routeName} reaches ${s.payload.stop}.` : `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（${cardT(`busRoute.${host.arrivalNote?.() || 'whenOpenPage'}`)}）。`));
+        return showNext(view);
+      }
+      return undefined;
+    };
     function showNext(view) {
       lastView = view;
+      if (dynamic) { pinnedDefaults = false; refreshSuggest(); return; }
       const steps = nextSteps(view.results, view.decision, { watching: host.arrivalWatch?.(), riding: alightWatch(), lang: view.lang });
       if (!steps.length) { showDefaults(); return; }
       chips.classList.add('next');
-      const act = async (s, b) => {
-        if (s.kind === 'ask') return send(s.payload);
-        if (s.kind === 'navigate') return host.navigate(s.payload);
-        if (s.kind === 'state') { // 在這一輪的決策圖加狀態，瀏覽器立即重算
-          const add = view.box?.querySelector(`.dg-chip.add[data-state="${s.payload}"]`); // 用狀態鍵對（英文的決策圖文字不同）
-          add?.click();
-          view.box?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          b.remove();
-          return undefined;
-        }
-        if (s.kind === 'remind') {
-          await host.watchArrival(s.payload);
-          log.append(el('p', 'agent-sys', view.lang === 'en' ? `OK, I'll remind you ${s.payload.minutes} min before bus ${s.payload.routeName} reaches ${s.payload.stop}.` : `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（${cardT(`busRoute.${host.arrivalNote?.() || 'whenOpenPage'}`)}）。`));
-          return showNext(view);
-        }
-        return undefined;
-      };
-      const btns = steps.map((s) => { const b = el('button', `chip next-${s.kind}`, s.label); b.type = 'button'; b.onclick = () => act(s, b); return b; });
+      const btns = steps.map((s) => { const b = el('button', `chip next-${s.kind}`, s.label); b.type = 'button'; b.onclick = () => act(s, b, view); return b; });
       const more = el('button', 'chip ghost', view.lang === 'en' ? 'Ask something else' : '其他問題');
       more.type = 'button';
       more.onclick = showDefaults;
       chips.replaceChildren(el('span', 'next-title', view.lang === 'en' ? 'Try next' : '接下來可以'), ...btns, more);
     }
+
+    // ── 動態「下一句」（生活阿幫）：情境只在這支手機上組；產生中保留舊的建議，好了再換（淡入；reduced motion 不淡入） ──
+    const turnsLog = []; // 最近幾輪：問題＋結果（只在記憶體，給情境用）
+    let curPage = null; // 浮動阿幫：從哪一頁打開（setPage）
+    let sugSeq = 0;
+    let edgeMemo = { text: '', asks: null }; // 同一個情境不重問手機上的 AI
+    const checkRemote = async (asks) => { // 只送句子（不送情境）；1.5 秒沒回就當驗證不了
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), 1500);
+      try {
+        const r = await fetch(`${API_BASE}/api/v1/suggest/check`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ asks }), signal: ctl.signal });
+        return r.ok ? (await r.json()).data : [];
+      } finally { clearTimeout(t); }
+    };
+    const suggestCtx = () => suggestContext({ turns: turnsLog, page: curPage, saved: Object.keys(loadPlaces()), watching: host.arrivalWatch?.() || null, riding: alightWatch(), nowData: peekNow() });
+    async function refreshSuggest() {
+      if (!dynamic) return;
+      const seq = ++sugSeq;
+      const view = lastView;
+      const ctx = suggestCtx();
+      const steps = view ? nextSteps(view.results, view.decision, { watching: host.arrivalWatch?.(), riding: alightWatch(), lang: view.lang }) : [];
+      const pageActs = curPage?.kind === 'bus' && curPage.stop && curPage.href && !alightWatch() && !view ? [{ label: '下車前提醒我', kind: 'navigate', payload: `${curPage.href}${curPage.href.includes('?') ? '&' : '?'}alight=1` }] : [];
+      const rules = [...steps.filter((x) => x.kind === 'ask').map((x) => ({ label: x.label, q: x.payload, ask: x.ask, src: 'next', rel: 2 })), ...ruleAsks(ctx)];
+      const draw = (edge) => paintSuggest(pickSuggestions({ actions: [...pageActs, ...steps.filter((x) => x.kind !== 'ask')], edge, rules, ctx, pageChips: curPage?.chips || [] }), view, ctx.lang);
+      if (!edgeCanSuggest()) { draw(null); return; } // 網頁版、關掉、外掛不可用：只用規則
+      const text = contextText(ctx);
+      if (edgeMemo.text === text) { draw(edgeMemo.asks); return; }
+      if (!chips.childElementCount) draw(null); // 第一次：先放規則（沒有舊的可以保留）
+      const r = await edgeSuggest(text, { lang: ctx.lang, timeout: SUGGEST_WAIT_MS });
+      if (seq !== sugSeq) return;
+      const asks = r ? await validateAsks(r.asks, { check: checkRemote, saved: ctx.saved }) : [];
+      if (seq !== sugSeq) return;
+      if (r) edgeMemo = { text, asks: asks.length ? asks : null }; // 沒拿到（逾時、上一次還在跑）不記，下次再試
+      draw(asks.length ? asks : null);
+    }
+    /** 畫建議 chips 與 placeholder；內容一樣就不動（不閃、讀屏不重唸） */
+    function paintSuggest({ actions, asks }, view, lang) {
+      if (pinnedDefaults) return; // 正在看固定範例：不換掉
+      const en = lang === 'en';
+      const top = asks[0]?.label;
+      input.placeholder = top ? (en ? `e.g. ${top}` : `例如：${top}`) : A.placeholder;
+      const items = [...asks, ...actions]; // 猜的下一句在前（第一句也是 placeholder），動作（提醒、開公車頁、加狀態）在後：卡片上也有同樣的按鈕
+      const sig = JSON.stringify([!!view, items.map((x) => [x.kind || 'ask', x.label])]);
+      if (chips.dataset.sig === sig) return;
+      const had = chips.contains(document.activeElement) && document.activeElement.matches(':focus-visible'); // 用鍵盤停在建議上
+      chips.dataset.sig = sig;
+      chips.classList.toggle('next', !!view);
+      const title = view ? (en ? 'Try next' : '接下來可以') : (en ? 'Try asking' : '建議問題');
+      chips.setAttribute('aria-label', title);
+      const btns = items.map((s) => {
+        const b = el('button', `chip next-${s.kind || 'ask'}`, s.label);
+        b.type = 'button';
+        b.dataset.src = s.src || s.kind;
+        b.onclick = () => act(s.kind ? s : { ...s, kind: 'ask' }, b, view);
+        return b;
+      });
+      const more = el('button', 'chip ghost', view ? (en ? 'Ask something else' : '其他問題') : (en ? 'More examples' : '更多例子'));
+      more.type = 'button';
+      more.onclick = showDefaults;
+      const head = el('span', 'next-title', title);
+      head.setAttribute('aria-hidden', 'true'); // 群組已用同一句命名：讀屏不重複唸
+      chips.replaceChildren(...(view ? [head] : []), ...btns, more);
+      if (had) (btns[0] || more).focus({ preventScroll: true }); // 焦點不跳回頁首：留在建議群組的第一個
+      if (!reducedMotion()) { chips.classList.remove('fade-in'); void chips.offsetWidth; chips.classList.add('fade-in'); }
+    }
+    if (dynamic) refreshSuggest();
 
     // @ 點名：輸入 @ 時顯示可點名的小幫手
     input.addEventListener('input', () => {
@@ -314,6 +390,8 @@ export default {
         await view.flush();
         if (myGen !== gen) return; // 回答途中按了清除本機資料：不寫回、不存
         if (view.text) history.push({ role: 'assistant', content: view.text.slice(0, 500) });
+        turnsLog.push({ q, results: view.results, decision: view.decision, lang: view.lang });
+        if (turnsLog.length > 3) turnsLog.shift();
         if (agentId === 'life') saveChat(history); // 只存文字（chat-store.js）
         showNext(view);
       } catch {
@@ -526,11 +604,14 @@ export default {
       voiceRelease: () => voice?.release(),
       voiceCancel: () => voice?.cancel(),
       /** 設定頁清除本機資料：畫面上的對話也一起清掉 */
-      clear() { gen++; clearChat(); history.length = 0; pendingQ = null; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); showDefaults(); },
+      clear() { gen++; clearChat(); history.length = 0; pendingQ = null; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); turnsLog.length = 0; lastView = null; edgeMemo = { text: '', asks: null }; pinnedDefaults = false; if (dynamic) refreshSuggest(); else showDefaults(); },
       /** 從哪一頁打開（浮動阿幫）：那一頁可以問的問題；點了才把這一頁的說明一起送（自己打的問題不帶）；null＝清掉 */
       setPage(hint) {
         const pc = String(hint?.context || '');
         const qs = (hint?.chips || []).slice(0, 3);
+        curPage = hint ? { ...hint, href: location.hash } : null; // 動態建議也知道你在哪一頁（只在手機上）
+        pinnedDefaults = false;
+        refreshSuggest();
         pageRow.hidden = !qs.length;
         pageRow.replaceChildren(...(qs.length ? [el('span', 'next-title', '在這頁可以問'), ...qs.map((q) => { const b = el('button', 'chip', q); b.type = 'button'; b.onclick = () => send(q, { pageContext: pc }); return b; })] : []));
       },

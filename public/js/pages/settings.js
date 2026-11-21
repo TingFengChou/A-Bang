@@ -1,7 +1,7 @@
 // 設定與隱私（M11-04、ADR-0014 E8，2026-11-21）：#/settings 設定（裝置端 AI 開關、權限狀態、本機資料）、#/privacy 隱私權政策。
 // 上架必要：App Store／Google Play 都要求隱私權政策頁，且 App 內要能找到。內容以「實際怎麼做」寫，不寫做不到的保證。
 import { esc } from '../ui.js';
-import { edgeEnabled, edgeStatus, setEdgeEnabled, EDGE_STATS_KEY, EDGE_ENGINE_NAME as ENGINE, EDGE_REASON as REASON } from '../edge-judge.js';
+import { edgeEnabled, edgeStatus, setEdgeEnabled, suggestEnabled, setSuggestEnabled, SUGGEST_KEY, EDGE_STATS_KEY, EDGE_ENGINE_NAME as ENGINE, EDGE_REASON as REASON } from '../edge-judge.js';
 import { locationGranted, browserLocation, inTaiwan } from '../agent/client.js';
 import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-help.js';
 import { cancelNotify, NOTIFY_ID } from '../native-notify.js';
@@ -16,7 +16,7 @@ import { whyText } from '../voice-i18n.js';
 const EDGE_KEY = 'abang.edgeAI';
 
 /** 本機資料：存在這支手機的瀏覽器儲存（不上傳） */
-const LOCAL = [['abang.places', '常用地點（家、公司、學校）'], ['favs', '收藏的公車站與路線'], ['invoices', '我的發票'], ['abang.arrivalWatch', '進行中的到站提醒'], ['abang.alightWatch', '進行中的下車提醒'], ['abang.reminders', '出門提醒'], ['pref:', '常用的縣市、藥局地區、股票、最近查過的公車路線等偏好（pref:*）'], [EDGE_KEY, '裝置端 AI 設定'], [VOICE_KEY, '語音問阿幫的開關'], [VISION_KEY, '「讓阿幫看照片」設定'], [EDGE_STATS_KEY, '今天在手機上判斷了幾次、上次花多久（只有數字）'], ['abang.onboarded', '看過使用說明（清除後下次會再顯示）'], ['abang.offline', '離線時顯示的上次資料（看過的路線、站牌、時刻表；不含座標）'], ['abang.chat', '問阿幫的對話（只有文字，最近 10 則，最後一次對話 12 小時後自動清掉）']];
+const LOCAL = [['abang.places', '常用地點（家、公司、學校）'], ['favs', '收藏的公車站與路線'], ['invoices', '我的發票'], ['abang.arrivalWatch', '進行中的到站提醒'], ['abang.alightWatch', '進行中的下車提醒'], ['abang.reminders', '出門提醒'], ['pref:', '常用的縣市、藥局地區、股票、最近查過的公車路線等偏好（pref:*）'], [EDGE_KEY, '裝置端 AI 設定'], [SUGGEST_KEY, '「用手機上的 AI 猜我接下來想問什麼」設定'], [VOICE_KEY, '語音問阿幫的開關'], [VISION_KEY, '「讓阿幫看照片」設定'], [EDGE_STATS_KEY, '今天在手機上判斷了幾次、上次花多久（只有數字）'], ['abang.onboarded', '看過使用說明（清除後下次會再顯示）'], ['abang.offline', '離線時顯示的上次資料（看過的路線、站牌、時刻表；不含座標）'], ['abang.chat', '問阿幫的對話（只有文字，最近 10 則，最後一次對話 12 小時後自動清掉）']];
 
 /** 權限狀態文字：已允許／已拒絕（到手機設定開）／還沒問過 */
 const PERM_SAY = { granted: '已允許', denied: '已拒絕', prompt: '還沒問過', rationale: '拒絕過一次（下次用到會再問）', off: '手機定位服務關閉' };
@@ -49,6 +49,9 @@ export const settings = {
         <label class="switch-row"><span><b>在手機上先聽懂你要做什麼</b><small id="edge-status">檢查中…</small></span>
           <input type="checkbox" id="edge" class="switch" role="switch" aria-describedby="edge-note" ${edgeEnabled() ? 'checked' : ''}></label>
         <p class="note" id="edge-note">開著時，手機內建的模型（iPhone 的 Apple Intelligence、Android 的 Gemini Nano）先判斷你的問題是查交通、天氣或其他，只把判斷結果（例如「行程、趕時間」）一起送出；方案怎麼排一樣由阿幫的程式計算。關掉就全部交給伺服器判斷。</p>
+        <label class="switch-row" id="suggest-row"><span><b>用手機上的 AI 猜我接下來想問什麼</b><small>輸入框上方的建議與提示跟著你在看的頁面、剛查到的結果換</small></span>
+          <input type="checkbox" id="edge-suggest" class="switch" role="switch" aria-describedby="suggest-note" ${suggestEnabled() ? 'checked' : ''}></label>
+        <p class="note" id="suggest-note">開著時，手機內建的模型在手機上依你在看的頁面、最近的問題與結果、時段猜幾句你可能想問的話；這些情境不送出。猜出來的句子只送到阿幫伺服器確認查得到（不送情境、不送位置），查不到的不顯示。關掉或手機不支援時，改用內建規則建議。</p>
         <a class="btn small quiet ai-link" href="#/ai">看阿幫的腦袋：模型資訊、現場試試看</a>
       </section>
       <section class="card settings" id="vision-card">
@@ -204,6 +207,11 @@ export const settings = {
       setEdgeEnabled(edge.checked);
       toast(edge.checked ? '已開啟裝置端 AI' : '已關閉裝置端 AI，改由伺服器判斷');
     });
+    const sug = main.querySelector('#edge-suggest');
+    sug.addEventListener('change', () => {
+      setSuggestEnabled(sug.checked);
+      toast(sug.checked ? '已開啟：用手機上的 AI 猜你接下來想問什麼' : '已關閉：建議改用內建規則');
+    });
     const vision = main.querySelector('#vision');
     vision.addEventListener('change', () => {
       setVisionEnabled(vision.checked);
@@ -215,7 +223,7 @@ export const settings = {
     });
     edgeStatus().then((s) => {
       main.querySelector('#edge-status').textContent = s.available ? `${ENGINE[s.engine] || '手機內建模型'}：可以使用` : REASON[s.reason] || '目前不能使用';
-      if (s.reason === 'web') edge.closest('.switch-row').querySelector('input').hidden = true; // 網頁版沒有裝置端 AI：不顯示開關（灰色已勾選會讓人誤會）
+      if (s.reason === 'web') { edge.closest('.switch-row').querySelector('input').hidden = true; main.querySelector('#suggest-row').hidden = true; main.querySelector('#suggest-note').hidden = true; } // 網頁版沒有裝置端 AI：不顯示開關（灰色已勾選會讓人誤會）；建議只用規則
     });
     // 語音問阿幫（M14-01）：能不能用、是不是在手機上辨識；網頁版不能在本機辨識就不顯示開關
     const voice = main.querySelector('#voice');
@@ -264,6 +272,7 @@ export const settings = {
       dispatchEvent(new CustomEvent('abang:clear-local')); // 開著的問阿幫對話也清掉（abang-dock.js）
       renderSaved();
       edge.checked = true;
+      sug.checked = true;
       vision.checked = true; setVisionEnabled(true);
       voice.checked = true;
       dispatchEvent(new CustomEvent('abang:voice-setting', { detail: { on: true } })); // 麥克風鍵跟著回來
@@ -288,7 +297,7 @@ export const privacy = {
         <p><b>你打的問題：</b>送到阿幫伺服器查資料和回答。伺服器紀錄只記「用了哪些工具、花多久、判斷來源」，不記問題內容。若這台伺服器設定由 AI 模型回答，問題（含防詐頁貼上的訊息）會送給該模型處理：Claude 模式送到 Anthropic, PBC（美國），依 Anthropic 的資料政策處理與保存；地端模型模式只送到本服務自架的模型。問阿幫頁底部會寫明目前由誰回答。</p>
         <p><b>位置（你允許時）：</b>用來當出發點、找附近的站與天氣。位置會送到阿幫伺服器，伺服器再拿去向資料來源（例如交通部 TDX、中央氣象署）查詢；Claude 模式下也會寫進給模型的提示。伺服器不把位置寫進紀錄；為了加快查詢，查詢結果會在記憶體中短暫快取後自動清除。不給定位也能用。</p>
         <p><b>IP 位址：</b>用來限制同一來源的請求次數（只存在伺服器記憶體、數分鐘到一天內清除），主機服務商的存取紀錄也可能記錄 IP〔待補：主機服務商與保存期間〕。</p>
-        <p><b>裝置端 AI：</b>手機 App 可用手機內建的模型（Apple Intelligence、Gemini Nano）先判斷問題類型，只送出判斷結果（例如「行程、趕時間」）；今天判斷了幾次、上次花多久只記在手機上（只有數字，不上傳）；「阿幫的腦袋」頁的「現場試試看」只在手機上判斷，句子不送出；可在「設定與隱私」關閉。</p>
+        <p><b>裝置端 AI：</b>手機 App 可用手機內建的模型（Apple Intelligence、Gemini Nano）先判斷問題類型，只送出判斷結果（例如「行程、趕時間」）；今天判斷了幾次、上次花多久只記在手機上（只有數字，不上傳）；「阿幫的腦袋」頁的「現場試試看」只在手機上判斷，句子不送出；可在「設定與隱私」關閉。輸入框上方的建議（猜你接下來想問什麼）：情境（你在看的頁面、最近的問題與結果、時段、常用地點的名稱）只在手機上組、只給手機上的模型看；猜出來的句子送到阿幫伺服器用規則確認查得到，不送情境與位置；可單獨關閉。</p>
         <p><b>相機與照片（掃發票、讓阿幫看）：</b>拍的照片或選的截圖只在手機上讀出文字與條碼（手機內建的文字辨識），照片不上傳、不保存；讀出來的文字先給你看，你確認（可以改、可以遮住號碼）後才送出，送出的只有文字（例如拿去檢查詐騙、問公車），發票只送號碼與日期去對獎。選截圖用系統的相片選擇器，阿幫看不到你的整個相簿；相機權限在第一次拍照時才問。可在「設定與隱私」關閉。</p>
         <p><b>語音問阿幫（你按麥克風或長按「問阿幫」鍵時）：</b>語音只在手機上轉成文字（Android 的手機上語音辨識、iPhone 的語音辨識設定為只在手機上），不錄音、不上傳；轉好的文字跟打字的問題一樣送出。手機還沒有該語言的語音包時，第一次按麥克風會請手機系統下載（由 Google 或 Apple 提供的語音包，只下載、不送出你的聲音）。手機不支援在手機上辨識時不提供語音（麥克風反白），不改用網路上的語音辨識。網頁版只有瀏覽器能在本機辨識時才提供。第一次使用才會問麥克風權限；可在「設定與隱私」關閉。</p>
         <p><b>通知：</b>到站與出門提醒是手機上的本機通知，不經過推播伺服器。</p>

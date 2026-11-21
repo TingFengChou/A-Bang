@@ -16,6 +16,7 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "status", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "prewarm", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "judge", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "suggest", returnType: CAPPluginReturnPromise),
     ]
 
     @objc func status(_ call: CAPPluginCall) {
@@ -72,6 +73,34 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
         #endif
         call.reject("unavailable: os-too-old")
     }
+
+    /// 動態「下一句」建議（AGENT.md §5.4）：依情境（JS 組好、不含座標）猜使用者接下來最可能問的幾句。
+    /// 只回 { engine, ms, result: [句子] }，句子由 JS 送伺服器規則驗證、程式排序。不記錄情境與句子。
+    @objc func suggest(_ call: CAPPluginCall) {
+        guard let context = call.getString("context"), !context.isEmpty else { call.reject("沒有情境"); return }
+        let instructions = call.getString("instructions") ?? ""
+        let count = Swift.min(6, Swift.max(1, call.getInt("max") ?? 4))
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            let s = AppleJudge.status()
+            guard s.available else { call.reject("unavailable: \(s.reason)"); return }
+            Task {
+                let t0 = Date()
+                do {
+                    let list = try await AppleJudge.shared.suggest(context: context, instructions: instructions, max: count)
+                    let ms = Int(Date().timeIntervalSince(t0) * 1000)
+                    CAPLog.print("AbangEdgeAI: suggested in \(ms) ms") // 只記耗時，不記內容
+                    call.resolve(["engine": "apple", "ms": ms, "result": list])
+                } catch {
+                    CAPLog.print("AbangEdgeAI: suggest failed \(AppleJudge.code(error))")
+                    call.reject("suggest failed")
+                }
+            }
+            return
+        }
+        #endif
+        call.reject("unavailable: os-too-old")
+    }
 }
 
 #if canImport(FoundationModels)
@@ -87,6 +116,13 @@ struct EdgeJudgement {
     var intent: String
     @Guide(description: "使用者明講的狀態，沒有就空陣列", .maximumCount(9), .element(.anyOf(edgeStates)))
     var states: [String]
+}
+
+@available(iOS 26.0, *)
+@Generable
+struct EdgeSuggestions {
+    @Guide(description: "使用者接下來最可能問阿幫的話，每句單獨看得懂、口語、短", .maximumCount(6))
+    var questions: [String]
 }
 
 /// actor：備用 session 會被 prewarm（Capacitor 佇列）與 judge（Task）同時存取（PR #32 審查）
@@ -153,6 +189,13 @@ actor AppleJudge {
             }
         }
         return String(describing: type(of: error))
+    }
+
+    /// 猜下一句：每次新的 session（不累積前一次）；有一點變化但不亂編
+    func suggest(context: String, instructions: String, max: Int) async throws -> [String] {
+        let session = LanguageModelSession(instructions: instructions)
+        let r = try await session.respond(to: "寫 \(max) 句。\n情境：\n\(context)", generating: EdgeSuggestions.self, options: GenerationOptions(temperature: 0.5))
+        return Array(r.content.questions.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }.prefix(max))
     }
 
     func judge(text: String, history: [String], instructions: String) async throws -> (intent: String, states: [String]) {

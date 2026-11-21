@@ -191,6 +191,49 @@ public class AbangEdgeAIPlugin extends Plugin {
         });
     }
 
+    /** 猜使用者接下來想問的話：一次最多跑這麼久（JS 只等 1.5 秒） */
+    private static final long SUGGEST_TIMEOUT_MS = 1500;
+
+    /**
+     * 動態「下一句」建議（AGENT.md §5.4）：依情境（頁面、最近的問題與結果摘要、時段；JS 組好、不含座標）猜使用者接下來最可能問的幾句。
+     * 只回 { engine, ms, result: "每行一句" }，句子由 JS 送伺服器規則驗證、程式排序。不記錄情境與句子，只記耗時與錯誤類型。
+     */
+    @PluginMethod
+    public void suggest(PluginCall call) {
+        String context = call.getString("context", "");
+        if (context == null || context.isEmpty()) { call.reject("沒有情境"); return; }
+        if (!osOk()) { call.reject("unavailable: os-too-old"); return; }
+        String instructions = call.getString("instructions", "");
+        Integer maxArg = call.getInt("max", 4);
+        int max = Math.max(1, Math.min(6, maxArg == null ? 4 : maxArg));
+        exec.execute(() -> {
+            long t0 = System.currentTimeMillis();
+            try {
+                if (System.currentTimeMillis() < pausedUntil || featureStatus() != FeatureStatus.AVAILABLE) { call.reject("unavailable"); return; }
+                String prompt = instructions + "\n每行一句，共 " + max + " 句；不要編號、不要引號、不要其他文字。\n情境：\n" + context;
+                GenerateContentRequest.Builder b = new GenerateContentRequest.Builder(new TextPart(prompt));
+                b.setTemperature(0.4f); // 有一點變化（每次不完全一樣），但不亂編
+                b.setTopK(16);
+                b.setMaxOutputTokens(160);
+                ListenableFuture<GenerateContentResponse> f = model().generateContent(b.build());
+                GenerateContentResponse r;
+                try { r = f.get(SUGGEST_TIMEOUT_MS, TimeUnit.MILLISECONDS); }
+                catch (TimeoutException te) { f.cancel(true); Logger.warn(TAG, "suggest timeout"); call.reject("timeout"); return; }
+                String out = r.getCandidates().isEmpty() ? "" : r.getCandidates().get(0).getText();
+                long ms = System.currentTimeMillis() - t0;
+                Logger.info(TAG, "suggested in " + ms + " ms"); // 只記耗時，不記內容
+                JSObject ret = new JSObject();
+                ret.put("engine", "gemini-nano");
+                ret.put("ms", ms);
+                ret.put("result", out == null ? "" : out);
+                call.resolve(ret);
+            } catch (Exception e) {
+                Logger.warn(TAG, "suggest failed: " + errorCode(e));
+                call.reject("suggest failed");
+            }
+        });
+    }
+
     @Override
     protected void handleOnDestroy() {
         exec.shutdownNow();

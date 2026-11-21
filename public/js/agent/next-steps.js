@@ -10,7 +10,7 @@ const short = (s) => String(s || '').replace(/（.*?）|\(.*?\)/g, '').trim();
  * @param {Array<{ tool: string, card?: string|null, data: any, args?: object }>} results 這一輪成功的工具結果（依出現順序）
  * @param {{ states?: Array<{ key: string, on?: boolean }> } | null} decision 這一輪的 decision 事件（有行程時）
  * @param {{ watching?: { routeName: string, stop: string } | null, riding?: object | null, lang?: 'en' }} [ctx] 目前的到站提醒（已設定就不再建議）；riding：進行中的下車提醒（已設定就不再建議「上車後提醒我下車」）；lang：英文那一輪（S12c）
- * @returns {Array<{ label: string, kind: 'ask'|'remind'|'navigate'|'state', payload?: any }>} 最多 4 個
+ * @returns {Array<{ label: string, kind: 'ask'|'remind'|'navigate'|'state', payload?: any, ask?: object }>} 最多 4 個；ask：問句的意圖與比對欄位（同 parseIntent 形狀，動態建議 agent/suggest.js 用來丟掉跟畫面重複的）
  */
 export function nextSteps(results, decision, { watching = null, riding = null, lang = null } = {}) {
   const en = lang === 'en';
@@ -38,8 +38,8 @@ export function nextSteps(results, decision, { watching = null, riding = null, l
     for (const k of ['rush', 'budget', 'lessWalk']) if (!have.has(k)) { add({ label: (en ? STATE_LABEL_EN : STATE_LABEL)[k], kind: 'state', payload: k }); if (out.length >= 3) break; }
     if (en) return out.slice(0, 4); // 英文：要再問的建議會變成中文問句，先不給
     const from = short(trip.from?.name), to = short(trip.to?.name);
-    if (from && to) add({ label: '回程怎麼走？', kind: 'ask', payload: `從${to}到${from}怎麼去？` });
-    if (to) add({ label: `${to}天氣如何？`, kind: 'ask', payload: `${to}天氣如何？` });
+    if (from && to) add({ label: '回程怎麼走？', kind: 'ask', payload: `從${to}到${from}怎麼去？`, ask: { intent: 'trip', from: to, to: from } });
+    if (to) add({ label: `${to}天氣如何？`, kind: 'ask', payload: `${to}天氣如何？`, ask: { intent: 'weather', places: [to] } });
   }
 
   const stock = byTool('stock_quote')?.data;
@@ -54,10 +54,10 @@ export function nextSteps(results, decision, { watching = null, riding = null, l
     add({ label: '存到我的發票', kind: 'navigate', payload: '#/s/invoice' });
     add({ label: '上一期中獎號碼', kind: 'ask', payload: '上一期的發票中獎號碼' });
   }
-  if (byTool('weather_now') && !trip) { add({ label: '空氣品質呢？', kind: 'ask', payload: '附近的空氣品質' }); add({ label: '明天會下雨嗎？', kind: 'ask', payload: '明天會下雨嗎？' }); }
-  if (byTool('aqi_nearby') && !trip) add({ label: '天氣呢？', kind: 'ask', payload: '附近天氣如何？' });
-  if (byTool('youbike_nearby')) add({ label: '附近公車站呢？', kind: 'ask', payload: '附近有什麼公車站牌' });
-  if (byTool('bus_nearby_stations')) add({ label: '附近 YouBike 呢？', kind: 'ask', payload: '附近還有 YouBike 嗎？' });
+  if (byTool('weather_now') && !trip) { add({ label: '空氣品質呢？', kind: 'ask', payload: '附近的空氣品質', ask: { intent: 'aqi' } }); add({ label: '明天會下雨嗎？', kind: 'ask', payload: '明天會下雨嗎？', ask: { intent: 'weather', tomorrow: true } }); }
+  if (byTool('aqi_nearby') && !trip) add({ label: '天氣呢？', kind: 'ask', payload: '附近天氣如何？', ask: { intent: 'weather' } });
+  if (byTool('youbike_nearby')) add({ label: '附近公車站呢？', kind: 'ask', payload: '附近有什麼公車站牌', ask: { intent: 'nearby_bus' } });
+  if (byTool('bus_nearby_stations')) add({ label: '附近 YouBike 呢？', kind: 'ask', payload: '附近還有 YouBike 嗎？', ask: { intent: 'youbike' } });
   if (byTool('fuel_price')) add({ label: '這期發票號碼', kind: 'ask', payload: '這期發票號碼是多少？' });
   return out.slice(0, 4);
 }

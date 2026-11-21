@@ -20,6 +20,7 @@ import { restRoutes } from './rest.js';
 import { buildOpenApi } from './openapi.js';
 import { createAgentHandler } from './agent.js';
 import { judgeFromEnv } from '../core/agent/judge.js';
+import { checkAsks } from '../core/agent/suggest-check.js';
 import { createLogger, routeOf } from './log.js';
 import { hasProfile } from '../core/agents/index.js';
 
@@ -62,7 +63,7 @@ const swaggerFile = (name) => {
 };
 const DOCS_HTML = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>阿幫 API 文件</title><link rel="stylesheet" href="/api/docs/swagger-ui.css"></head><body><div id="ui"></div><script src="/api/docs/swagger-ui-bundle.js"></script><script src="/api/docs/init.js"></script></body></html>`;
 // 前端共用的核心純函式（決策圖即時重算用同一份 decide.js，UX.md §5）：只開放白名單檔案
-const SHARED_CORE = { 'decide.js': fileURLToPath(new URL('../core/decide.js', import.meta.url)), 'vision-text.js': fileURLToPath(new URL('../core/vision-text.js', import.meta.url)) }; // vision-text：阿幫會看在手機上分類讀到的字（M14-02）
+const SHARED_CORE = { 'decide.js': fileURLToPath(new URL('../core/decide.js', import.meta.url)), 'vision-text.js': fileURLToPath(new URL('../core/vision-text.js', import.meta.url)), 'suggest.js': fileURLToPath(new URL('../core/suggest.js', import.meta.url)) }; // vision-text：阿幫會看在手機上分類讀到的字（M14-02）
 const DOCS_INIT = "window.ui = SwaggerUIBundle({ url: '/api/v1/openapi.json', dom_id: '#ui', deepLinking: true, tryItOutEnabled: true });";
 
 // 手機 App（ADR-0013）的 WebView 來源：問阿幫端點只對這些來源加 CORS（不用 *）
@@ -131,6 +132,16 @@ createServer(async (req, res) => {
       if (!lim.ok) return send(res, 429, { error: `問太快了，請 ${lim.retryAfterSec} 秒後再試`, retryAfterSec: lim.retryAfterSec }, { ...cors, 'retry-after': String(lim.retryAfterSec) });
       for (const [k, v] of Object.entries(cors)) res.setHeader(k, v);
       return await agent.handle(res, await readJson(req), { agentId });
+    }
+
+    // 動態「下一句」建議的驗證（core/agent/suggest-check.js）：只收候選句子，不收情境；規則解析，不呼叫模型
+    if (path === '/api/v1/suggest/check') {
+      const cors = appCors(req);
+      if (req.method === 'OPTIONS') return end(res, 204, cors);
+      if (req.method !== 'POST') return send(res, 405, { error: '請以 POST 呼叫' }, { ...cors, allow: 'POST' });
+      if (!limit(req, res, 'api')) return;
+      const body = await readJson(req);
+      return send(res, 200, { data: checkAsks(body?.asks) }, cors);
     }
 
     const core = path.match(/^\/core\/([\w.-]+)$/);
