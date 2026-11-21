@@ -243,7 +243,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 
 | | |
 |---|---|
-| 輸入 | `from`, `to`：座標或地名（`T.point`）；`departAt?`：HH:mm 或 ISO（同 `intercity_bus`）；`prefs?: { states?: ('rush'\|'traffic'\|'rain'\|'luggage'\|'budget'\|'lessWalk'\|'badAir')[], arriveBy?: 'HH:mm', mode?: 'walk'\|'bike'\|'bus'\|'thsr'\|'tra'\|'intercity'\|'ridehail', avoid?: 同 mode 的陣列 }`（`mode`＝使用者指定的交通方式：分數與排名照算，`best` 改成該方式裡分數最高的，`ranking.reason`「照你說的選…」，輸出帶 `mode` 給前端重算；`avoid`＝使用者說不要的方式（「不要叫車」）：直接排除，`ranking.excluded[].why`「你說不要叫車」，輸出帶 `avoid` 給前端重算；決策圖標「不要」） |
+| 輸入 | `from`, `to`：座標或地名（`T.point`）；`departAt?`：HH:mm 或 ISO（同 `intercity_bus`）；`prefs?: { states?: ('rush'\|'traffic'\|'rain'\|'luggage'\|'budget'\|'lessWalk'\|'badAir')[], arriveBy?: 'HH:mm', mode?: 'walk'\|'bike'\|'bus'\|'thsr'\|'tra'\|'intercity'\|'ridehail', avoid?: 同 mode 的陣列 }`（`mode`＝使用者指定的交通方式：分數與排名照算，`best` 改成該方式裡分數最高的，`ranking.reason`「照你說的選…」，輸出帶 `mode` 給前端重算；`avoid`＝使用者說不要的方式（「不要叫車」）：直接排除，`ranking.excluded[].why`「你說不要叫車」，輸出帶 `avoid` 給前端重算；決策圖標「不要」；`habit?: { [mode]: 0～1 }`＝使用者同意過的常選比例（選填，總和 ≤ 1.01；沒指定方式、沒說狀況時最多加 8 分，輸出帶 `habit`、`habitOn`，工具文字多一行「習慣…」；ADR-0010 2026-11-21）。輸出另有選填 `ask: { state, from, to, dMin, dCost, text, textEn }`＝關鍵問題（`keyQuestion`：答案取決於使用者時要問的一句，例「叫車（Uber）快 5 分但多 270 元，你趕時間嗎？」；網頁 agent 轉成 `ask` 事件，ADR-0016） |
 | 輸出 | `{ from, to, straightKm, date, departAt, best, states: [{ key, source: 'auto'\|'user', from?, detail? }], weather, traffic, options: [Option], ranking: { ranked: [{ id, name, score, breakdown }], excluded: [{ id, name, why }], weights, reason }, unavailable? }`（與 `CARDS.md` `trip` 一致；`unavailable` 列出查詢失敗而略過的方案種類；公車方案另有 `follow`，見 `bus_route_eta`） |
 | Option | `{ id, role: 'walk'\|'bike'\|'bus'\|'thsr'\|'tra'\|'intercity'\|'ridehail', name, minutes, waitMin, walkMin, cost, costRange?, exposure, effort, delayRisk, arriveAt, arriveMin（自出發日 00:00 起算，可超過 24 小時；`arriveBy` 以此比較，跨午夜不誤判）, leaveAt?（高鐵／台鐵／客運：最晚出門時間＝發車 − 到站時間）, legs: [{ mode, from: {name, lat, lon}, to: {...}, minutes, detail, nav, url? }], notes[], train?, estimated?: true }` |
 | 排序 | `core/decide.js`（ADR-0010） |
@@ -262,6 +262,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 6.4 捷運（2026-11-21，S7）：起訖點各自 1.2 公里內有捷運站（同一系統）就列「捷運」方案：同一條線直達，不同線估轉乘一次（＋5 分、名稱「捷運（板南線轉文湖線）」）；時間＝兩站直線距離約每公里 2 分＋進出站，票價依距離估（20～65 元），都標 `estimated`。真實路網與轉乘站待 TDX `Metro/S2STravelTime`、`Metro/ODFare`。`prefs.mode`／`avoid` 可用 `metro`。
 6.5 深夜（2026-11-21，S10）：出發時間 00:00～05:00 公車不列入（`skipped` 寫原因、建議叫車），23:00 後公車方案帶 `lastBus: true` 與提醒。
 7. 自動狀態：查 `traffic_status`（跨城或走一般道路的方案）、`weather_now`（起點）與 `aqi_nearby`（起點，M10）；`raining` → 自動狀態「下雨」，`level = jam` → 「塞車中」，最近測站 AQI > 100 → 「空品不佳」（`detail` 帶測站與 AQI；輸出另有 `air: { site, aqi, status } | null`）。查詢失敗時不加狀態、不中斷規劃。示範：`DEMO_AIR=bad`（或 `createServices({ demo: { air: 'bad' } })`）把示範測站 AQI 調到對敏感族群不健康。
+7.1 判斷用到的資料（2026-11-21）：輸出 `considered[]`（天氣、空品、路況各一筆：`{ source, role, available, demo, value, valueEn, text, textEn, say, sayEn, effect: 'none'|'score'|狀態 key, tone }`，`core/services/trip-considered.js`；討論串 `data_note` 與決策圖資料欄用）。最近的空品測站超過 25 公里（`AIR_MAX_M`）不採用：`air` 為 null、不加 `badAir`。只有一種方式時輸出 `single: { text, textEn, suggest: [{ label, ask }] }`（各方式沒列出的原因：太遠、附近沒有站、某時間以後查不到趕得上的班次、不可行；示範資料加註），工具文字多「判斷用到的資料：…」「只有一種方式：…」兩行給模型。
 
 實作細節（M3-10；門檻與估算常數在 `trip.js` 的 `LIMITS`、`EST`）：
 

@@ -150,7 +150,7 @@ export function createRounds({ log }) {
     m.folded = true;
     m.round.classList.add('folded');
     m.round.classList.remove('opened');
-    m.view?.graph?.pause?.(); // 決策圖：停掉光點與流動
+    m.view?.dg?.pause?.(); // 決策圖：停掉光點與流動
     paintSum(m);
     const fix = fixer(anc);
     if (!motion) { fix(); restore(); return; }
@@ -172,7 +172,7 @@ export function createRounds({ log }) {
     m.folded = false;
     m.round.classList.remove('folded', 'folding');
     m.round.classList.add('opened');
-    m.view?.graph?.resume?.();
+    m.view?.dg?.resume?.();
     paintSum(m);
     const fix = fixer(anc);
     if (!motion) { fix(); restore(); return; }

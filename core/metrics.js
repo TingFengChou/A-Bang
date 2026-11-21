@@ -29,6 +29,9 @@ export function markFallback() {
   if (m) m.fallback = true;
 }
 
+/** 這次 tool 呼叫到目前為止有沒有改用示範資料（plan_trip 說明「只有一種方式」時照實標示） */
+export const currentFallback = () => Boolean(als.getStore()?.fallback);
+
 /**
  * 在計量範圍內執行 fn。
  * @returns {Promise<{ result: any, metrics: { calls: number, cacheHits: number, cacheHit: boolean, scanned: number, ms: number } }>}

@@ -9,6 +9,11 @@ import { STATES } from '../decide.js';
 const hhmm = z.string().trim().regex(HHMM_RE, '時間格式需為 HH:mm（00:00～23:59）');
 
 const MODES = ['walk', 'bike', 'bus', 'metro', 'thsr', 'tra', 'intercity', 'ridehail'];
+const MODE_LABEL = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
+
+/** 常選比例（個人化，ADR-0010 2026-11-21）：鍵限定交通方式、值 0～1、總和 ≤ 1（容許四捨五入 0.01）。網頁 agent 由程式從手機帶入，不交給模型 */
+export const HabitSchema = z.partialRecord(z.enum(MODES), z.number().min(0).max(1))
+  .refine((h) => Object.values(h).reduce((a, b) => a + b, 0) <= 1.01, '常選比例總和不能超過 1');
 
 /** 建議方案的下一步（捷運帶上車站名：「問『台北車站下一班』看即時到站」） */
 /** 只由程式判斷的狀態（多人同行看 party、可能下雨看預報）：不給呼叫端直接指定 */
@@ -33,7 +38,7 @@ export const planTripTool = defineTool({
   description: '比較從起點到終點的交通方式（步行、YouBike、公車直達、高鐵、台鐵、國道客運、叫車），依使用者狀態排序並給一句理由。'
     + '自動查起點天氣與沿途國道路況：下雨、塞車會自動加入狀態（states 中 source=auto）。prefs.states 放使用者說的狀態：'
     + Object.entries(STATES).map(([k, v]) => `${k}=${v.label}`).join('、')
-    + '；prefs.arriveBy 指定最晚抵達時間（會遲到的方案排除）。排序與理由由程式計分（ranking），請照 ranking.reason 轉述，不要自行改排名。estimated=true 的時間或車資是估算。',
+    + '；prefs.arriveBy 指定最晚抵達時間（會遲到的方案排除）；prefs.habit 是使用者同意過的常選比例（選填，例 {"metro":0.6}，沒說狀況時小幅加分）；輸出 ask 是畫面上會問使用者的一句（趕不趕、帶不帶行李…）。排序與理由由程式計分（ranking），請照 ranking.reason 轉述，不要自行改排名。estimated=true 的時間或車資是估算。',
   pack: 'transit', tier: 'L1', card: 'trip',
   input: {
     from: T.point('起點'), to: T.point('終點'),
@@ -44,12 +49,14 @@ export const planTripTool = defineTool({
       mode: z.enum(MODES).optional().describe('使用者指定的交通方式（「改坐公車」→ bus、「叫車／計程車」→ ridehail）：建議改成這種方式裡分數最高的'),
       avoid: z.array(z.enum(MODES)).max(7).optional().describe('使用者說不要的交通方式（「不要叫車」→ ["ridehail"]）：直接排除'),
       party: z.number().int().min(1).max(20).optional().describe('同行人數（「我們 4 個人」→ 4）：2 人以上叫車改用每人分攤比較（4 人一輛）；1＝自己一個人'),
+      habit: HabitSchema.optional().describe('使用者同意過的常選交通方式比例（裝置記的、使用者按過「好」，例 {"metro":0.6}）：沒指定方式、沒說狀況時最多加 8 分；不知道就不要帶'),
     }).optional(),
   },
   speak: (d) => {
     const best = d.options.find((o) => o.id === d.best);
     if (!best) return d.ranking.excluded.length ? d.ranking.reason : '這段路找不到可行的交通方式。';
     const why = d.states.length ? `，因為${d.states.map((s) => STATES[s.key].say).join('、')}` : '';
+    if (d.single) return `只找到${best.name}一種方式${why}。`; // 原因在 impact 與決策圖（single.text）
     return `比了 ${d.options.length} 種方式${why}，建議${best.name}。`;
   },
   async run(svc, a) {
@@ -58,7 +65,11 @@ export const planTripTool = defineTool({
     const byId = new Map(data.options.map((o) => [o.id, o]));
     const lines = [
       `${from.name} → ${to.name}（直線 ${data.straightKm} 公里，${data.departAt} 出發）`,
+      // 判斷用到的資料（程式產生）：模型照這幾行轉述，不要自己說「天氣很好」之類沒有資料的話
+      `判斷用到的資料：${(data.considered || []).map((c) => `${c.role}「${c.text}」→ ${c.say}${c.demo ? '（示範資料）' : ''}`).join('；')}`,
+      ...(data.single ? [`只有一種方式：${data.single.text}`] : []),
       ...(data.states.length ? [`狀態：${data.states.map((s) => `${STATES[s.key].label}（${s.source === 'auto' ? `自動：${s.detail}` : '你說的'}）`).join('、')}`] : []),
+      ...(data.habitOn ? [`習慣（使用者同意過的常選方式，已小幅加分）：${Object.entries(data.habit).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${MODE_LABEL[k]} ${Math.round(v * 100)}%`).join('、')}`] : []),
       ...data.ranking.ranked.map((r, i) => {
         const o = byId.get(r.id);
         return `${i + 1}. ${o.name}：${o.minutes} 分（等 ${o.waitMin}、走 ${o.walkMin}），${o.costRange ? `${o.costRange[0]}～${o.costRange[1]}` : o.cost} 元，${o.arriveAt} 到${o.estimated ? '（含估算）' : ''}，分數 ${r.score}`;

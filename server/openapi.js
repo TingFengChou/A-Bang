@@ -40,7 +40,7 @@ export function buildOpenApi(svc) {
   paths['/api/v1/agent'] = {
     post: {
       tags: ['Agent'], summary: '網頁 agent（NDJSON 事件串流）', operationId: 'postAgent',
-      description: '回應 `application/x-ndjson`，每行一個事件（status、agent_note、tool_start、tool_result、discussion_end、decision、text、done、error），格式見 docs/AGENT.md §3。模式：Claude／地端模型／示範（ADR-0012）。只給本站網頁使用（無 CORS）；每 IP 每分鐘與每日限流。',
+      description: '回應 `application/x-ndjson`，每行一個事件（status、agent_note、tool_start、tool_result、discussion_end、decision、ask、guardrail、client_tool_call、text、done、error），格式見 docs/AGENT.md §3。模式：Claude／地端模型／示範（ADR-0012）。只給本站網頁使用（無 CORS）；每 IP 每分鐘與每日限流。',
       requestBody: { required: true, content: { 'application/json': { schema: {
         type: 'object', required: ['messages'],
         properties: {
