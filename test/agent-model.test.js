@@ -383,3 +383,14 @@ test('說了地點的附近查詢：模型改用現在位置再查也沿用那�
   assert.equal(yb[0].args.lat, 25.034, '是台北101那裡');
   assert.match(JSON.stringify(state.reqs[1]), /不是他現在的位置/);
 });
+
+test('地端模型：禮貌話、只有標點、一句多件事、去火車站、說了站名的捷運也由規則回答（P5 模型模式）', async () => {
+  const { ruleFirst } = await import('../core/agent/model-loop.js');
+  const { parseIntent } = await import('../core/agent/demo-intent.js');
+  for (const t of ['謝謝阿幫', '歹勢', '  ？？？ ', '👍', '307還要多久、會不會下雨、油價多少', '歹勢，欲去火車頭按怎坐', '捷運西門站下一般']) assert.ok(ruleFirst(parseIntent(t, {}), t), t);
+  for (const t of ['從西門町去台北101', '307 還要多久', '今天會下雨嗎', '附近有 YouBike 嗎']) assert.ok(!ruleFirst(parseIntent(t, {}), t), `照常由模型：${t}`);
+  reset([{ text: '（不該問到模型）' }]);
+  const es = await run(local(), '謝謝阿幫');
+  assert.equal(state.reqs.length, 0);
+  assert.ok(!es.some((e) => e.type === 'tool_start'), '禮貌話不查工具');
+});
