@@ -48,3 +48,11 @@ test('行程方案名稱英文：公車號與捷運線名留著', () => {
   assert.equal(optName({ role: 'metro', name: '捷運（淡水信義線→板南線）' }, en, 'en'), 'MRT (淡水信義線→板南線)');
   assert.equal(optName({ role: 'walk', name: '步行' }, en, null), '步行');
 });
+
+test('S12g：status 事件說這一輪的語言（英文問 en、中文問 zh；前端照這個）', async () => {
+  const { runDemo } = await import('../core/agent/run.js');
+  const svc = createServices({ forceMock: true });
+  const lang = async (q) => { const es = []; await runDemo(svc, { messages: [{ role: 'user', content: q }] }, (e) => es.push(e)); return es.find((e) => e.type === 'status')?.lang; };
+  assert.equal(await lang('Will it rain today?'), 'en');
+  assert.equal(await lang('今天會下雨嗎？'), 'zh');
+});

@@ -19,7 +19,7 @@ const need = (type, obj, keys) => {
 };
 
 export const ev = {
-  status: ({ mode, model, profile, judge }) => need('status', { mode, ...(model && { model }), profile, ...(judge && { judge }) }, ['mode', 'profile']), // judge：判斷層結果（意圖、來源、信心；不含對話內容）
+  status: ({ mode, model, profile, judge, lang }) => need('status', { mode, ...(model && { model }), profile, ...(judge && { judge }), ...(lang && { lang: lang === 'en' ? 'en' : 'zh' }) }, ['mode', 'profile']), // lang：這一輪用哪種語言回答（S12g：前端照這個，不自己猜） // judge：判斷層結果（意圖、來源、信心；不含對話內容）
   agentNote: (text) => need('agent_note', { text: String(text).slice(0, 60) }, ['text']),
   /** tool_start：title／role／pack／tier 由 registry 帶入 */
   toolStart: ({ id, name, input, server = 'abang' }) => {

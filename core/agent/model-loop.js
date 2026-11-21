@@ -9,7 +9,7 @@ import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hi
 import { judgeNote, outingNote, moreStatesNote } from './impact.js';
 import { lineCode } from '../tools/metro.js';
 import { normName, nowTW } from '../util.js';
-import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, demoSummary } from './demo-intent.js';
+import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, demoSummary, isEnglish } from './demo-intent.js';
 import { resolvePoint } from '../services/places.js';
 
 /**
@@ -191,7 +191,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const jc = judgeCalls(judge, req, profile);
   const last = req.messages.at(-1).content;
   const q0 = jc ? await jc.quick() : null;
-  emit(ev.status({ mode: provider.mode, model: provider.model, profile: profile.id, judge: judgeInfo(q0) }));
+  emit(ev.status({ mode: provider.mode, model: provider.model, profile: profile.id, judge: judgeInfo(q0), lang: isEnglish(last) ? 'en' : 'zh' }));
   // 安全情境（S18）：自傷或緊急狀況不交給模型自由回答，固定給求助電話（與示範模式相同）
   const safe = safetyCheck(last); // 安全情境在請定位之前就回答，不會有帶定位的重送
   if (safe) { emit(ev.guardrail({ tier: 'L0', rule: `safety:${safe.kind}`, calls: safe.calls })); emit(ev.text(safe.reply)); emit(ev.done()); return; }

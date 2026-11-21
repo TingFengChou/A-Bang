@@ -262,7 +262,7 @@ export default {
       log.append(el('div', 'msg user', q));
       const turn = el('div', 'turn');
       log.append(turn);
-      const view = turnView(turn, /[A-Za-z]{2,}/.test(q) && !/[一-鿿]/.test(q) ? 'en' : null); // 只有英文＝觀光客：卡片用英文（與伺服器 isEnglish 相同）
+      const view = turnView(turn, /[A-Za-z]{2,}/.test(q) && !/[一-鿿]/.test(q) ? 'en' : null); // 先猜（第一個畫面用）；伺服器的 status 事件會說這一輪真正的語言
       try {
         // 手機 App：先在裝置上判斷意圖與狀態（最多等 1.8 秒；不可用就不帶，伺服器照常判斷）
         const deviceJudge = agentId === 'life' ? await edgeJudge(q, history.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content)) : null;
@@ -327,6 +327,7 @@ export default {
         switch (e.type) {
           case 'status':
             turn.dataset.mode = e.mode;
+            if (e.lang) { turnLang = e.lang === 'en' ? 'en' : null; view.lang = turnLang; } // 伺服器說這一輪用哪種語言（S12g）；送出前的猜測只用在「討論中」等第一個畫面
             break;
           case 'agent_note':
             await gap();

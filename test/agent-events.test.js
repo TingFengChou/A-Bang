@@ -12,6 +12,8 @@ test('每個 tool 都有討論串角色；事件型別齊全', () => {
 
 test('建立函式：必要欄位、registry 帶入、文字截斷', () => {
   assert.deepEqual(ev.status({ mode: 'demo', profile: 'life' }), { type: 'status', mode: 'demo', profile: 'life' });
+  assert.equal(ev.status({ mode: 'demo', profile: 'life', lang: 'en' }).lang, 'en', 'S12g：這一輪的語言由伺服器說');
+  assert.equal(ev.status({ mode: 'demo', profile: 'life', lang: 'xx' }).lang, 'zh');
   assert.throws(() => ev.status({ profile: 'life' }), /缺少 mode/);
   const s = ev.toolStart({ id: 't1', name: 'weather_now', input: { lat: 25, lon: 121 } });
   assert.deepEqual([s.title, s.role, s.pack, s.tier, s.server], ['現在天氣', '天氣', 'weather', 'L1', 'abang']);

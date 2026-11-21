@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-21 S12g 第一部分：伺服器說這一輪的語言
+- 做了：`status` 事件帶 `lang: 'en'|'zh'`（示範與模型模式都用 `isEnglish`）；問阿幫收到後改用伺服器的判斷（送出前的猜測只用在「討論中」等第一個畫面）。
+- 測試：npm test 535 項全過（status lang、英文問 en／中文問 zh）；E2E 59 項全過
+- 文件：AGENT.md 事件表、PLAN.md、PROGRESS.md
+- 下一個：模型模式情境評測結果的改進
+- 卡住：無
+
 ## 2026-11-21 T8b Android 實機煙霧測試
 - 做了：`scripts/smoke-android.js`（`npm run smoke:android`）：adb＋WebView 偵錯通道＋Playwright connectOverCDP，檢查原生外掛註冊、6 頁、浮動阿幫、返回鍵、沒有錯誤、截圖。審查修正：多個 pid、多台裝置（ANDROID_SERIAL）、forward 與連線失敗也清掉、先設引導旗標再重新載入（開機錯誤也收）、結束時還原手機上的旗標、截圖改用 adb screencap（手機實際畫面）、沒拉出對話不按返回；打開浮動對話時焦點在「問阿幫」標題（讀屏先念）。實機跑出一個真問題：浮動阿幫打開時自動聚焦輸入框，手機會跳鍵盤蓋住半個對話、第一次按返回只收鍵盤 → 手機不自動聚焦（與問阿幫頁相同）。Pixel 實機全過。
 - 測試：npm test 534 項全過；E2E 59 項全過；smoke:android 全過
