@@ -65,6 +65,9 @@
 | `invoice_lottery` | life | L1 | `invoice` | ✅（M10） |
 | `invoice_check_batch` | life | L1 | — | ✅（M10，網頁「我的發票」自動對獎） |
 | `stock_quote` | finance | L1 | `stock` | ✅（證交所、櫃買中心收盤行情，免金鑰） |
+| `drama_picks` | drama | L1 | `drama` | ✅（2026-11-22，MyDrama 公開片庫，ADR-0019；沒設定 `MYDRAMA_API_BASE` 用虛構示範片庫） |
+| `drama_search` | drama | L1 | `drama` | ✅（同上） |
+| `drama_series` | drama | L1 | `drama` | ✅（同上） |
 | `scam_check_message` | antifraud | **L2** | `scam-risk` | ✅（M7） |
 | `scam_lookup_url` | antifraud | **L2** | — | ✅（M7） |
 | `scam_myth_search` | antifraud | L1 | — | ✅（M7） |
@@ -328,6 +331,23 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 
 模式：`aqiMode`（環境部金鑰）、`quakeMode`（氣象署授權碼）、`openDataMode`（其他，免金鑰；`DEMO_MODE=1`／`OPEN_DATA=0` 用 `core/data/demo/` 片段）。來源與欄位見 `DATA_SOURCES.md` §5.2。
 
+### ✅ 短劇（pack `drama`，ADR-0019，2026-11-22）
+
+MyDrama 的公開讀取端點（排行、搜尋、單劇、簡介、熱搜；不登入），網址與連結都在環境變數（`DATA_SOURCES.md` §5.4）。
+
+| tool | 輸入 | 輸出 `data` 重點 |
+|---|---|---|
+| `drama_picks` | `list?`：`hot`（預設）／`new`／`completed`／`taiwan`；`limit?` 1～10（預設 5） | `kind: 'list'`、`list`、`listName`、`items[]`（附 `rank`）、`keywords[]`（熱搜，失敗回空）、`store` |
+| `drama_search` | `query`：劇名或類型（1～20 字，只放關鍵字，「短劇」「推薦」等套話會去掉） | `kind: 'search'`、`query`、`total`、`items[]`、`store`；沒找到不丟錯（`items: []`） |
+| `drama_series` | `id`：英數、底線、連字號（1～64 字） | `kind: 'series'`、`items[0]`（簡介最多 600 字）、`store`；找不到或已下架 → `UserError` |
+
+`items[]`：`{ id, title, tags[≤5], genre, episodes, freeEpisodes, completed, isNew, taiwanOriginal, heat, synopsis（≤160 字）, appLink }`。`appLink`＝第 1 集的 App 連結（`MYDRAMA_LINK_EPISODE` 範本代入；沒設定為 `null`）；`store`＝`{ ios, android }`（https，沒設定為 `null`）。封面、價格、解鎖設定不往上傳；限制級不列。
+
+| speak 範例 | 「熱門排行前 3 名：《夜班公車的約定》、《總裁的便當外送員》、《重返十八歲的阿嬤》。」（示範片庫的劇名都是虛構的） |
+|---|---|
+
+模式：`dramaMode`（設定 `MYDRAMA_API_BASE` 且非 `DEMO_MODE=1` 時 live）。等車推劇不是工具，是程式在到站結果之後的 `aside` 事件（`AGENT.md` §5.4）。
+
 ### ✅ 防詐（pack `antifraud`，M7）
 
 輸入、輸出、風險等級與寄件號碼規則見 `AGENT_ANTIFRAUD.md` §3。資料：165 遭停止解析涉詐網站（約 10 萬網域）、165 詐騙闢謠專區（CSV，24 小時快取；`DEMO_MODE=1` 或 `OPEN_DATA=0` 用 `core/data/demo/` 片段）＋規則庫 `core/data/scam-rules.json`。L2：不說「安全」，查不到只說「沒有發現已知的詐騙特徵，但不代表一定安全」，一律附 165。
@@ -337,4 +357,4 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 
 ## 8. 卡片種類
 
-見 `CARDS.md`：`bus-route`、`bus-station`、`nearby`、`youbike`、`metro`、`timetable`、`trip`、`scam-risk`（M7）、`weather`、`aqi`、`quake`、`pharmacy`、`garbage`、`fuel`、`invoice`（M10）、`stock`。
+見 `CARDS.md`：`bus-route`、`bus-station`、`nearby`、`youbike`、`metro`、`timetable`、`trip`、`scam-risk`（M7）、`weather`、`aqi`、`quake`、`pharmacy`、`garbage`、`fuel`、`invoice`（M10）、`stock`、`drama`（ADR-0019）。

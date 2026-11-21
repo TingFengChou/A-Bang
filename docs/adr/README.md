@@ -22,6 +22,7 @@
 | [0016](0016-ask-the-user.md) | 阿幫問你：答案取決於使用者時問一句（事件 `ask`、pending、什麼時候問／不問） | 已採用 | `core/agent/ask.js`、`keyQuestion`、`public/ui/agent/ask.js` |
 | [0017](0017-edge-write.md) | 回答也在手機上寫（Gemini Nano／Apple Intelligence，程式護欄檢查數字） | 已採用 | `AbangEdgeAI.write`、`core/edge-write.js`、`public/js/edge-write.js`、`answer_draft` |
 | [0018](0018-health-on-device.md) | 健康資料只在手機、只讀、預設關閉（步數與運動時間；天氣好又動得少時建議去走走） | 已採用 | `AbangHealth` 外掛、`core/health-nudge.js`、`public/js/health.js` |
+| [0019](0019-drama-content-partner.md) | 第一個非政府開放資料的內容合作來源：MyDrama 短劇（只用公開讀取、網址在 env、不收個資、深層連結交給 MyDrama App） | 已採用 | `core/services/drama.js`、`core/tools/drama.js`、`core/agent/wait-drama.js`、`drama` 卡片 |
 
 範本：
 

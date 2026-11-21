@@ -70,6 +70,7 @@ const SHARED_CORE = {
   // 天氣好又動得少時建議去走走（ADR-0018）：判斷在手機上（health-nudge.js 用 nav.js 的步行時間與導航連結），散步地點來自內建地標庫
   'health-nudge.js': fileURLToPath(new URL('../core/health-nudge.js', import.meta.url)),
   'nav.js': fileURLToPath(new URL('../core/nav.js', import.meta.url)),
+  'drama-say.js': fileURLToPath(new URL('../core/drama-say.js', import.meta.url)), // 短劇提示句（ADR-0019）
   'landmarks.json': fileURLToPath(new URL('../core/data/landmarks.json', import.meta.url)),
 };
 const DOCS_INIT = "window.ui = SwaggerUIBundle({ url: '/api/v1/openapi.json', dom_id: '#ui', deepLinking: true, tryItOutEnabled: true });";

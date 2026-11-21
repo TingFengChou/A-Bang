@@ -1,0 +1,194 @@
+{
+  "about": "短劇示範資料（ADR-0019）：劇名、簡介、集數都是虛構的，跟任何真實片庫無關；欄位形狀與公開片庫讀取端點相同，經同一套解析正規化。",
+  "keywords": [
+    "甜寵",
+    "逆襲",
+    "懸疑",
+    "重生",
+    "喜劇",
+    "台灣自製"
+  ],
+  "series": [
+    {
+      "id": "demo-night-bus",
+      "title": "夜班公車的約定",
+      "tags": [
+        "甜寵",
+        "都市"
+      ],
+      "category": "愛情",
+      "episodes": 60,
+      "freeEpisodes": 10,
+      "availableEpisodes": 60,
+      "taiwanOriginal": true,
+      "newRelease": false,
+      "completed": true,
+      "heat": 98200,
+      "contentRating": "GENERAL",
+      "synopsis": "末班公車上，司機每晚都遇到同一位抱著設計稿睡著的女孩。一張忘在座位上的車票，讓兩個在城市夜裡加班的人慢慢靠近。"
+    },
+    {
+      "id": "demo-boss-lunch",
+      "title": "總裁的便當外送員",
+      "tags": [
+        "甜寵",
+        "霸總",
+        "喜劇"
+      ],
+      "category": "愛情",
+      "episodes": 80,
+      "freeEpisodes": 12,
+      "availableEpisodes": 80,
+      "taiwanOriginal": false,
+      "newRelease": false,
+      "completed": true,
+      "heat": 91500,
+      "contentRating": "保護級",
+      "synopsis": "外送員小芸每天中午把便當送進頂樓辦公室，沒想到挑剔的總裁只吃她送的那一家。"
+    },
+    {
+      "id": "demo-grandma-18",
+      "title": "重返十八歲的阿嬤",
+      "tags": [
+        "重生",
+        "喜劇",
+        "家庭"
+      ],
+      "category": "家庭",
+      "episodes": 50,
+      "freeEpisodes": 8,
+      "availableEpisodes": 50,
+      "taiwanOriginal": true,
+      "newRelease": false,
+      "completed": true,
+      "heat": 87300,
+      "contentRating": "GENERAL",
+      "synopsis": "七十八歲的阿嬤一覺醒來回到十八歲，決定這次要把當年沒唱完的歌唱完，順便幫孫子追到喜歡的人。"
+    },
+    {
+      "id": "demo-last-train",
+      "title": "捷運末班車",
+      "tags": [
+        "懸疑",
+        "都市"
+      ],
+      "category": "懸疑",
+      "episodes": 40,
+      "freeEpisodes": 6,
+      "availableEpisodes": 24,
+      "taiwanOriginal": true,
+      "newRelease": true,
+      "completed": false,
+      "heat": 80100,
+      "contentRating": "輔12級",
+      "synopsis": "每晚末班車開走後，月台上總會多出一個人。站務員阿哲決定查清楚，他到底在等誰。"
+    },
+    {
+      "id": "demo-matchmaker",
+      "title": "月老今天也在加班",
+      "tags": [
+        "奇幻",
+        "甜寵"
+      ],
+      "category": "奇幻",
+      "episodes": 70,
+      "freeEpisodes": 10,
+      "availableEpisodes": 35,
+      "taiwanOriginal": false,
+      "newRelease": true,
+      "completed": false,
+      "heat": 76400,
+      "contentRating": "GENERAL",
+      "synopsis": "業績墊底的實習月老被派到人間，要在七夕前湊成一百對，第一對就是他自己的房東。"
+    },
+    {
+      "id": "demo-noodle-master",
+      "title": "巷口麵攤是武林高手",
+      "tags": [
+        "喜劇",
+        "逆襲"
+      ],
+      "category": "喜劇",
+      "episodes": 55,
+      "freeEpisodes": 10,
+      "availableEpisodes": 55,
+      "taiwanOriginal": true,
+      "newRelease": false,
+      "completed": true,
+      "heat": 70800,
+      "contentRating": "保護級",
+      "synopsis": "地痞想收保護費，卻不知道煮了三十年乾麵的老闆，年輕時是江湖上最快的一雙手。"
+    },
+    {
+      "id": "demo-second-life",
+      "title": "替身新娘的第二人生",
+      "tags": [
+        "復仇",
+        "甜寵"
+      ],
+      "category": "愛情",
+      "episodes": 90,
+      "freeEpisodes": 12,
+      "availableEpisodes": 90,
+      "taiwanOriginal": false,
+      "newRelease": false,
+      "completed": true,
+      "heat": 66200,
+      "contentRating": "R12",
+      "synopsis": "替姊姊出嫁的她，在婚禮當天發現真相，決定用自己的方式拿回人生。"
+    },
+    {
+      "id": "demo-teahouse",
+      "title": "山城茶樓迷案",
+      "tags": [
+        "懸疑",
+        "古裝"
+      ],
+      "category": "懸疑",
+      "episodes": 45,
+      "freeEpisodes": 6,
+      "availableEpisodes": 45,
+      "taiwanOriginal": true,
+      "newRelease": false,
+      "completed": true,
+      "heat": 59900,
+      "contentRating": "輔12級",
+      "synopsis": "霧最濃的那一夜，茶樓掌櫃失蹤，只留下一壺還溫著的茶。"
+    },
+    {
+      "id": "demo-rich-after",
+      "title": "被退婚後我成了首富",
+      "tags": [
+        "逆襲",
+        "都市"
+      ],
+      "category": "都市",
+      "episodes": 100,
+      "freeEpisodes": 15,
+      "availableEpisodes": 100,
+      "taiwanOriginal": false,
+      "newRelease": false,
+      "completed": true,
+      "heat": 55100,
+      "contentRating": "PG",
+      "synopsis": "被未婚妻當眾退婚的上班族，隔天接到一通律師的電話：遠房叔公留給他整座山。"
+    },
+    {
+      "id": "demo-late-night",
+      "title": "深夜限定",
+      "tags": [
+        "愛情"
+      ],
+      "category": "愛情",
+      "episodes": 30,
+      "freeEpisodes": 3,
+      "availableEpisodes": 30,
+      "taiwanOriginal": false,
+      "newRelease": false,
+      "completed": true,
+      "heat": 99900,
+      "contentRating": "RESTRICTED",
+      "synopsis": "（示範：限制級內容，阿幫不推薦，用來測試過濾）"
+    }
+  ]
+}

@@ -13,6 +13,7 @@ import { parseAntifraud, antifraudSteps, antifraudSummary } from './demo-antifra
 import { applyOutputGuardrails } from './guardrails.js';
 import { impactOf, judgeNote, outingNote, moreStatesNote } from './impact.js';
 import { createJudge, JUDGE_INTENTS, JUDGE_STATES, DEVICE_ENGINES } from './judge.js';
+import { waitDrama } from './wait-drama.js';
 import { answerFacts } from './answer-facts.js';
 import { WRITE_AGENTS } from '../edge-write.js';
 
@@ -66,7 +67,11 @@ const RequestSchema = z.object({
   // usual：使用者說過的預設狀況（問「你常叫車，通常是因為？」答的：趕時間、常帶東西、不想走路）；不自動套用——會改變建議時問「這次也帶東西嗎？」（ADR-0016）
   // habitAsk：手機說「這種方式選得夠多、還沒問過」（只有方式與次數）→ 這一輪行程後問一次要不要優先推（ADR-0016）
   userState: z.object({ picked: z.array(z.enum(Object.keys(STATES))).max(6).optional(), habit: HabitSchema.optional(), usual: z.array(z.enum(USUAL_STATES)).max(USUAL_STATES.length).optional(),
-    habitAsk: z.object({ mode: z.enum(['walk', 'bike', 'bus', 'metro', 'thsr', 'tra', 'intercity', 'ridehail']), count: z.number().int().min(1).max(50) }).optional() }).optional(),
+    habitAsk: z.object({ mode: z.enum(['walk', 'bike', 'bus', 'metro', 'thsr', 'tra', 'intercity', 'ridehail']), count: z.number().int().min(1).max(50) }).optional(),
+    // 等車推短劇（ADR-0019）：設定頁關掉時手機送 false；沒送＝開（預設開）
+    dramaHint: z.boolean().optional() }).optional(),
+  // 這段對話第幾輪（手機算，整數）：等車推劇的輪替依據（訊息只送最近 10 則，不能用訊息數推；沒送就退回用訊息數）
+  turn: z.number().int().min(1).max(100000).optional(),
   clientTools: z.array(z.string()).max(10).optional(),
   clientToolResults: z.array(z.object({ id: z.string(), ok: z.boolean(), result: z.any().optional() })).max(10).optional(),
   context: z.string().max(200).optional(),
@@ -123,7 +128,7 @@ export function busFollowUp(trip) {
  * @param {{ profile: object, nextId: () => string, picked?: string[], habit?: Record<string, number>, ask?: { done: boolean, habitAsk?: object, usual?: string[] } }} opts habit：手機送來、使用者同意過的常選比例（plan_trip 一律用這個，模型給的不採用）；ask：這一輪的「阿幫問你」（一輪最多一個；usual＝說過的預設狀況，會改變建議時問一句）
  * @returns {Promise<Array<{ name: string, ok: boolean, result?: object, error?: string, followUp?: object }>>} 依 calls 順序
  */
-export async function execTools(svc, calls, emit, { profile, nextId, picked = [], judgedStates, lang = null, habit = null, ask = null, now = null }) {
+export async function execTools(svc, calls, emit, { profile, nextId, picked = [], judgedStates, lang = null, habit = null, ask = null, now = null, aside = null }) {
   const started = calls.map((c) => ({ ...c, id: nextId() }));
   // 英文提問（S12d）：小幫手的一句話用英文版；「→ 影響」是中文，英文那一輪不附
   const en = lang === 'en';
@@ -138,7 +143,7 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
       // 行程比較內部查的天氣、空品、路況：各出一行「資料＋影響」（程式產生；排在行程的結論前面）
       if (c.name === 'plan_trip') for (const item of result.data?.considered || []) emit(ev.dataNote({ parent: c.id, item, lang }));
       emit(ev.toolResult({ id: c.id, result: shown(c.name, result), impact: impactFor(c.name, result.data) }));
-      if (c.name !== 'plan_trip') return { name: c.name, ok: true, result };
+      if (c.name !== 'plan_trip') { await emitAside(svc, emit, aside, { tool: c.name, data: result.data, parent: c.id, lang }); return { name: c.name, ok: true, result }; }
       emit(ev.decision(withPicked(result.data, picked)));
       // 阿幫問你（ADR-0016）：這一輪還沒問過才問（ask 是整輪共用的 { done, habitAsk }）
       const q = ask && !ask.done ? tripAsk(result.data, { habitAsk: ask.habitAsk, usual: ask.usual, lang }) : null;
@@ -151,6 +156,7 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
       try {
         const followUp = await callTool(svc, 'bus_route_eta', f.args);
         emit(ev.toolResult({ id, result: shown('bus_route_eta', followUp), impact: impactFor('bus_route_eta', followUp.data) }));
+        await emitAside(svc, emit, aside, { tool: 'bus_route_eta', data: followUp.data, parent: id, walkMin: f.walkMin, lang }); // 行程選了公車：扣掉走到站牌的時間
         return { name: c.name, ok: true, result, followUp, followWalkMin: f.walkMin };
       } catch (e) {
         emit(ev.toolResult({ id, error: publicMessage(e) })); // 盯不到不影響行程結果
@@ -162,6 +168,24 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
       return { name: c.name, ok: false, error };
     }
   }));
+}
+
+/**
+ * 這一輪「等車推短劇」的狀態（ADR-0019）：profile 有 drama 工具包、使用者沒在設定關掉才開；一輪最多一次（done）。
+ * @returns {{ on: boolean, done: boolean, turn: number, now: number, pick: Promise<object|null>|null }}
+ */
+export function asideState(req, profile, now = Date.now(), svc = null) {
+  const on = req.userState?.dramaHint !== false && !!profile.packs?.includes('drama');
+  const turn = Number.isInteger(req.turn) ? req.turn : (req.messages || []).filter((m) => m.role === 'user').length; // 推哪一部依台灣日期與對話輪次輪替
+  // 一開始就並行拿排行（有快取），到站結果出來時劇已經準備好，推劇不拖慢回答
+  const pick = on && svc?.drama?.waitPick ? svc.drama.waitPick({ turn, now }).catch(() => null) : null;
+  return { on, done: false, turn, now, pick };
+}
+
+/** 到站結果之後：等得夠久就在卡片下方推一集短劇（失敗或逾時都不影響交通結果） */
+async function emitAside(svc, emit, aside, a) {
+  if (!aside?.on || aside.done) return;
+  try { const x = await waitDrama(svc, a, aside); if (x) emit(ev.aside(x)); } catch { /* 提示失敗不影響回答 */ }
 }
 
 /** 使用者點選的狀態一律交給 plan_trip 計分（Claude／地端模型可能漏帶；示範模式已帶，重複無妨） */
@@ -246,8 +270,8 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   if (heard && it.lang !== 'en') emit(ev.agentNote(heard)); // 「聽懂了」的句子是中文：英文那一輪不說
   const j = jc ? await jc.full(q0) : null;
   if (j) {
-    // 出門建議是天氣＋空品的組合：判斷層說天氣或空品時保留（判斷層沒有 outing 這個意圖）
-    const keep = it.followUp || it.intent === 'outing' || it.also?.length || (it.intent === 'metro' && it.station) || it.nearRail || it.thanks || it.sorry; // 說了站名的捷運（「捷運西門站下一般」被判成行程，P5-5 模型模式）、去最近的火車站、禮貌話：規則已經很明確 // 判斷層常把「出門要注意什麼」判成空品或行程（設計審查實測）；一句問好幾件事以規則分段為準（P5-8）
+    // 出門建議是天氣＋空品的組合：判斷層說天氣或空品時保留（判斷層沒有 outing 這個意圖）；找短劇也是（判斷層沒有 drama，規則的關鍵字很明確）
+    const keep = it.followUp || it.intent === 'outing' || it.intent === 'drama' || it.also?.length || (it.intent === 'metro' && it.station) || it.nearRail || it.thanks || it.sorry; // 說了站名的捷運（「捷運西門站下一般」被判成行程，P5-5 模型模式）、去最近的火車站、禮貌話：規則已經很明確 // 判斷層常把「出門要注意什麼」判成空品或行程（設計審查實測）；一句問好幾件事以規則分段為準（P5-8）
     if (j.intent !== it.intent && !keep && !it.savedTrip && it.intent !== 'savedMissing') it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent, saved: req.savedPlaces, now }) || it;
     it.states = j.states;
     const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
@@ -271,12 +295,13 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   const used = [];
   let rounds = 0;
   const ask = { done: false, habitAsk: req.userState?.habitAsk, usual: req.userState?.usual }; // 阿幫問你：這一輪最多一個
+  const aside = asideState(req, profile, now, svc); // 等車推短劇：這一輪最多一次（排行先並行拿）
   for (const step of plan.steps(it, now)) {
     if (++rounds > MAX_TOOL_ROUNDS) break;
     const s = step(results);
     if (!s) break;
     emit(ev.agentNote(it.lang === 'en' ? enNote(s.note) : s.note)); // 英文提問：說明用英文（S12c）
-    const out = await execTools(svc, s.calls, emit, { profile, nextId, picked, lang: it.lang, habit: req.userState?.habit, ask, now });
+    const out = await execTools(svc, s.calls, emit, { profile, nextId, picked, lang: it.lang, habit: req.userState?.habit, ask, now, aside });
     for (const o of out) {
       used.push(o.name);
       if (o.ok) (results[o.name] ||= []).push(o.result);
