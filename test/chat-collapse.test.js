@@ -1,8 +1,10 @@
 // 長對話（UX.md §4.17）：舊的輪收成一行摘要、換話題分段、30 分鐘分段（public/js/agent/turn-summary.js，純函式）
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { turnSummary, topicOf, topicBreak, roundLabel, topicText, askedBack, TOPIC_GAP_MS } from '../public/js/agent/turn-summary.js';
+import { turnSummary, topicOf, topicBreak, roundLabel, topicText, askedBack, lastTopic, TOPIC_GAP_MS } from '../public/js/agent/turn-summary.js';
 import { reminderItems, reminderRef } from '../public/js/reminder-items.js';
+import { judgeInfo } from '../core/agent/run.js';
+import { pruneLinks, linkReminders, chatTurnFor } from '../public/js/agent/chat-links.js';
 
 const trip = {
   tool: 'plan_trip', card: 'trip',
@@ -126,4 +128,42 @@ test('提醒清單每筆有 ref（提醒頁「看當時的對話」用）', () =
   const items = reminderItems({ arrival: { routeName: '307', stop: '敦化市場', minutes: 3 }, alight: { routeName: '601', dest: '市府' }, leave: [{ id: 'r1', at: now + 60e3, text: '該出門了：捷運' }], now });
   assert.deepEqual(items.map((x) => x.ref), ['alight|601|市府', 'arrival|307|敦化市場', 'leave|r1']);
   assert.equal(reminderRef({ kind: 'arrival', routeName: '307', stop: '敦化市場' }), 'arrival|307|敦化市場');
+});
+
+// PR #109 審查修正
+test('審查 1：判斷層的 followUp 帶到前端（接著改不分段）', () => {
+  assert.equal(judgeInfo({ intent: 'trip', source: 'rules', followUp: true }).followUp, true);
+  assert.equal('followUp' in judgeInfo({ intent: 'trip', source: 'embed', confidence: 0.9 }), false);
+});
+
+test('審查 6：「阿幫問你」還開著也算反問（這一輪先不收）', () => {
+  assert.equal(askedBack({ text: '選捷運。', results: [{ tool: 'plan_trip', card: 'trip' }], askOpen: () => true }), true);
+  assert.equal(askedBack({ text: '選捷運。', results: [{ tool: 'plan_trip', card: 'trip' }], askOpen: () => false }), false, '答過或略過');
+});
+
+test('審查 7：換話題往前找最近有話題的輪（行程 → 謝謝 → 天氣 要分段）', () => {
+  const at = Date.now();
+  const list = [{ n: 1, topic: 'transit', at }, { n: 2, topic: null, at }];
+  assert.equal(lastTopic(list).n, 1);
+  assert.equal(topicBreak(lastTopic(list), { topic: 'weather', at }), 'topic');
+  assert.equal(lastTopic([{ topic: null }]), null);
+});
+
+test('審查 5：提醒連結只連 10 分鐘內操作過的那一輪；取消就拿掉', async () => {
+  const map = new Map([['arrival|307|A', 1], ['leave|r1', 2], ['leave|r2', 3]]);
+  pruneLinks(map, 'leave', ['leave|r2']);
+  assert.deepEqual([...map.keys()], ['arrival|307|A', 'leave|r2'], '出門提醒取消或響完：拿掉');
+  pruneLinks(map, 'arrival', []);
+  assert.deepEqual([...map.keys()], ['leave|r2'], '到站提醒取消（事件 null）');
+  let touched = null;
+  let k = 0;
+  const host = { remind: async () => `r${++k}`, watchArrival: async () => true };
+  const clear = linkReminders(host, { recent: () => touched, has: () => true });
+  const id1 = await host.remind('10:00', '該出門了');
+  assert.equal(chatTurnFor(`leave|${id1}`), null, '沒有在對話裡操作過：不連（不猜最新一輪）');
+  touched = { n: 4, view: {} };
+  const id2 = await host.remind('10:05', '該出門了');
+  assert.equal(chatTurnFor(`leave|${id2}`), 4);
+  clear();
+  assert.equal(chatTurnFor(`leave|${id2}`), null, '清除本機資料');
 });

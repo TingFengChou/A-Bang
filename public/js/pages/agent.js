@@ -170,7 +170,8 @@ export default {
     const log = el('div', 'chat');
     log.setAttribute('role', 'log');
     log.setAttribute('aria-live', 'polite');
-    const rounds = createRounds({ log }); // 長對話：舊的輪收成一行、換話題分段、「這次問過」目錄（agent/collapse.js）
+    // 長對話：舊的輪收成一行、換話題分段、「這次問過」目錄（agent/collapse.js）；收起的輪卡片停止刷新，展開時還在最近兩輪才恢復
+    const rounds = createRounds({ log, onFold: (round, folded) => { for (const c of cards) if (c.slot && round.contains(c.slot)) { if (folded) c.stop?.(); else if (c.turn >= turnNo - 1) c.resume?.(); } } });
     const chips = el('div', 'suggest');
     const pageRow = el('div', 'suggest page-ask'); // 浮動阿幫：在這一頁可以問（abang-dock.js setPage）
     pageRow.hidden = true;
@@ -263,7 +264,7 @@ export default {
         }
         if (s.kind === 'remind') {
           await host.watchArrival(s.payload);
-          log.append(el('p', 'agent-sys', view.lang === 'en' ? `OK, I'll remind you ${s.payload.minutes} min before bus ${s.payload.routeName} reaches ${s.payload.stop}.` : `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（${cardT(`busRoute.${host.arrivalNote?.() || 'whenOpenPage'}`)}）。`));
+          (view.round || log).append(el('p', 'agent-sys', view.lang === 'en' ? `OK, I'll remind you ${s.payload.minutes} min before bus ${s.payload.routeName} reaches ${s.payload.stop}.` : `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（${cardT(`busRoute.${host.arrivalNote?.() || 'whenOpenPage'}`)}）。`));
           return showNext(view);
         }
         return undefined;
@@ -288,7 +289,8 @@ export default {
     });
     form.addEventListener('submit', (e) => { e.preventDefault(); send(input.value); });
     // 從首頁帶問題過來（#/agent?q=…）：直接送出，並把網址換掉，避免重新整理時重送（對話保留時，回來帶的問題接在後面）
-    const takeQuery = (qy = {}) => { if (qy.turn) { window.history.replaceState(null, '', '#/agent'); const n = Number(qy.turn); requestAnimationFrame(() => requestAnimationFrame(() => rounds.reveal(n))); } const seen = takeHandoff(agentId); if (seen) queueMicrotask(() => send(seen)); if (qy.q) { const q0 = qy.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); } };
+    const here = agentId === 'life' ? '#/agent' : `#/agent/${agentId}`;
+    const takeQuery = (qy = {}) => { if (qy.turn != null) { window.history.replaceState(null, '', here); const n = /^\d{1,4}$/.test(qy.turn) ? Number(qy.turn) : 0; if (n) requestAnimationFrame(() => requestAnimationFrame(() => rounds.reveal(n))); } const seen = takeHandoff(agentId); if (seen) queueMicrotask(() => send(seen)); if (qy.q) { const q0 = qy.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); } };
     takeQuery(query);
 
     async function send(raw, { pageContext = '', voice: spoken = false, follow = false } = {}) {
@@ -302,7 +304,7 @@ export default {
         if (a.ask.pending?.slot) pendingAsk = { id: a.ask.id, ...a.ask.pending };
         a.skip();
       }
-      if (busy) { pendingQ = { q, pageContext, voice: spoken }; return; }
+      if (busy) { pendingQ = { q, pageContext, voice: spoken, follow }; return; }
       turnNo += 1;
       pastWrap?.querySelector('.past-acts button') && pastWrap.querySelector('.past-acts').replaceChildren(el('span', 'past-note', history.length ? '接著上次的話問' : '這次重新問（上次的對話只留著看）'));
       const myGen = gen;
@@ -313,9 +315,9 @@ export default {
       const turn = el('div', 'turn');
       const round = el('div', 'round', el('div', `msg user${spoken ? ' spoken' : ''}`, q), turn); // 一輪＝提問＋回答（用說的：泡泡上一個小麥克風）
       log.append(round);
-      const view = turnView(turn, /[A-Za-z]{2,}/.test(q) && !/[一-鿿]/.test(q) ? 'en' : null, () => rounds.progress(round)); // 先猜（第一個畫面用）；伺服器的 status 事件會說這一輪真正的語言
+      const view = turnView(turn, /[A-Za-z]{2,}/.test(q) && !/[一-鿿]/.test(q) ? 'en' : null, (e) => rounds.progress(round, e)); // 先猜（第一個畫面用）；伺服器的 status 事件會說這一輪真正的語言
       view.round = round;
-      rounds.start(round, { q, view, follow });
+      rounds.start(round, { q, view, follow, keepPrev: !!pendingAsk }); // 可能在回答「阿幫問你」（對不上按鈕）：上一輪先留著（collapse.js 答完再看）
       try {
         // 手機 App：先在裝置上判斷意圖與狀態（最多等 1.8 秒；不可用就不帶，伺服器照常判斷）
         const deviceJudge = agentId === 'life' ? await edgeJudge(q, history.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content)) : null;
@@ -341,7 +343,7 @@ export default {
       } finally {
         view.stop(); // 沒有回答（只有卡片、或中斷）也收起「阿幫在想」
         busy = false; sendBtn.disabled = false; context = '';
-        if (pendingQ) { const p = pendingQ; pendingQ = null; queueMicrotask(() => send(p.q, { pageContext: p.pageContext, voice: p.voice })); }
+        if (pendingQ) { const p = pendingQ; pendingQ = null; queueMicrotask(() => send(p.q, { pageContext: p.pageContext, voice: p.voice, follow: p.follow })); }
         if (!matchMedia('(pointer: coarse)').matches) input.focus(); // 手機不自動聚焦：鍵盤會跳出來蓋住回答
         if (myGen === gen) rounds.end(round); // 摘要、目錄（清除本機資料後不再寫）
       }
@@ -373,7 +375,7 @@ export default {
       const handle = async (e) => {
         think.step(e); // 「阿幫在想」換到這個階段（text／done／error 就收起）
         await handleEvent(e);
-        if (e.type === 'status' || e.type === 'tool_result') onData?.(); // 知道話題了：要不要分段
+        if (['status', 'agent_note', 'context_reset', 'tool_start', 'tool_result', 'client_tool_call'].includes(e.type)) onData?.(e); // 長對話：status 記候選話題，之後第一個事件定案要不要分段
       };
       const handleEvent = async (e) => {
         switch (e.type) {
@@ -454,12 +456,12 @@ export default {
                 const slot = el('div', 'card-slot');
                 const box = el('details', 'card-same');
                 box.append(el('summary', '', el('span', 'same-text', same), el('span', 'same-open', turnLang === 'en' ? 'Show card' : '看完整')), slot);
-                box.addEventListener('toggle', () => { if (box.open && !slot.childElementCount) cards.push(Object.assign(renderCard(slot, payload, host), { turn: turnNo })); });
+                box.addEventListener('toggle', () => { if (box.open && !slot.childElementCount) cards.push(Object.assign(renderCard(slot, payload, host), { turn: turnNo, slot })); });
                 results.append(box);
               } else {
                 const slot = el('div', `card-slot ${results.children.length >= 2 ? 'scroll-in' : 'enter3d'}`); // 前兩張立體進場，後面的捲到才浮現
                 results.append(slot);
-                cards.push(Object.assign(renderCard(slot, payload, host), { turn: turnNo }));
+                cards.push(Object.assign(renderCard(slot, payload, host), { turn: turnNo, slot }));
               }
             }
             break;
@@ -516,6 +518,7 @@ export default {
             openAsk?.skip();
             const ctl = mountAsk(e, { lang: turnLang, onAnswer: (o) => answerAsk(o, view, turnLang) });
             openAsk = ctl;
+            view.askOpen = () => ctl.open(); // 長對話：問題還開著，這一輪先不收
             if (/^habit:/.test(e.about || '')) markAsked(e.about.slice(6)); // 問過了（沒回答也 3 天內不再問）
             if (view.box?.isConnected) view.box.before(ctl.el); else results.append(ctl.el);
             break;

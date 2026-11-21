@@ -244,5 +244,8 @@ export function topicText(at, lang = null) {
   return lang === 'en' ? `New topic · ${hm}` : `新的話題・${hm}`;
 }
 
-/** 阿幫這一輪是不是在反問你（還沒回答前不收起）：結尾是問號、而且沒有卡片 */
-export const askedBack = ({ text = '', results = [] } = {}) => /[？?]\s*$/.test(String(text).trim()) && !results.some((r) => r.card);
+/** 阿幫這一輪是不是在反問你（還沒回答前不收起）：「阿幫問你」（ADR-0016）還開著，或總結結尾是問號而且沒有卡片 */
+export const askedBack = ({ text = '', results = [], askOpen = null } = {}) => !!(typeof askOpen === 'function' ? askOpen() : askOpen) || (/[？?]\s*$/.test(String(text).trim()) && !results.some((r) => r.card));
+
+/** 換話題要比的「上一輪」：往前找最近一個有話題的（「行程 → 謝謝 → 天氣」：天氣跟行程比） */
+export const lastTopic = (list) => [...list].reverse().find((r) => r && r.topic) || null;

@@ -5,10 +5,12 @@
 // 3. 換話題（類別不同）或距上一輪超過 30 分鐘：插分隔線「新的話題・22:40」。
 // 4. 超過 3 輪：對話上方「這次問過」小目錄（只在整頁顯示）；捲到上面時輸入列右上方出現「回到最新」。
 // 收合、展開時保持你正在看的位置（找畫面上第一個不變的元素當錨點，補回捲動距離）；reduced motion 時不動畫。
-import { turnSummary, topicOf, topicBreak, topicText, roundLabel, askedBack } from './turn-summary.js';
+import { turnSummary, topicOf, topicBreak, topicText, roundLabel, askedBack, lastTopic } from './turn-summary.js';
 
 const TOUCH_MS = 5000; // 剛點過（5 秒內）＝正在操作
 const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** 收合動畫：reduced motion 或低階裝置（html.lite-motion）都不動 */
+const still = () => reduced() || document.documentElement.classList.contains('lite-motion');
 const isRoot = (sc) => sc === document.scrollingElement || sc === document.documentElement;
 const scrollerOf = (el) => el.closest('.sheet-body') || document.scrollingElement || document.documentElement;
 /** 可視範圍（整頁扣掉頂端列） */
@@ -27,9 +29,10 @@ function el(tag, cls, ...kids) {
 }
 
 /**
- * @param {{ log: HTMLElement }} o log：對話（role=log）；每一輪是 log 底下的 .round（使用者泡泡＋.turn）
+ * @param {{ log: HTMLElement, onFold?: (round: HTMLElement, folded: boolean) => void }} o
+ *   log：對話（role=log）；每一輪是 log 底下的 .round（使用者泡泡＋.turn）；onFold：收起／展開時（停止／恢復卡片刷新）
  */
-export function createRounds({ log }) {
+export function createRounds({ log, onFold = null }) {
   /** @type {Array<{ n: number, round: HTMLElement, q: string, at: number, view: any, follow: boolean, topic: string|null, checked: boolean, broke: boolean, folded: boolean, sum: HTMLButtonElement|null, summary: any, touchedAt: number, keep: boolean, retry: boolean, gen: number, anims: Animation[], done: boolean }>} */
   const rounds = [];
   const byEl = new WeakMap();
@@ -144,14 +147,19 @@ export function createRounds({ log }) {
     const sc = scrollerOf(log);
     const anc = anchor || (anchorSelf ? { sc, a: m.sum, y: m.sum.getBoundingClientRect().top } : anchorFor(new Set([m.round])));
     const restore = noAnchor(sc);
-    const motion = animate && !reduced() && typeof m.round.animate === 'function' && inView(m.round, sc);
+    const motion = animate && !still() && typeof m.round.animate === 'function' && inView(m.round, sc);
+    const hadFocus = m.round.contains(document.activeElement) && document.activeElement !== m.sum; // 焦點在要收起的內容裡：收起後移到摘要按鈕（不掉到 body）
     stopAnims(m);
     const h0 = m.round.offsetHeight;
+    // 讀屏：摘要按鈕從隱藏變顯示時在 role=log 裡，可能被當成新內容念出；先藏起來一下再放出來（使用者自己按的、要放焦點的不藏）（UX.md §4.17，待實機確認）
+    if (!anchorSelf && !hadFocus) { m.sum.setAttribute('aria-hidden', 'true'); clearTimeout(m.quiet); m.quiet = setTimeout(() => m.sum?.removeAttribute('aria-hidden'), 800); }
     m.folded = true;
     m.round.classList.add('folded');
     m.round.classList.remove('opened');
     m.view?.dg?.pause?.(); // 決策圖：停掉光點與流動
+    onFold?.(m.round, true); // 卡片停止刷新
     paintSum(m);
+    if (hadFocus) focusRound(m);
     const fix = fixer(anc);
     if (!motion) { fix(); restore(); return; }
     // 動畫：內容還看得到、慢慢變淡，整輪的高度縮到一行（同時補捲動，錨點不動）
@@ -166,13 +174,15 @@ export function createRounds({ log }) {
     const sc = scrollerOf(log);
     const anc = { sc, a: m.sum, y: m.sum?.getBoundingClientRect().top ?? 0 }; // 摘要按鈕不動，內容往下展開
     const restore = noAnchor(sc);
-    const motion = animate && !reduced() && typeof m.round.animate === 'function' && inView(m.round, sc);
+    const motion = animate && !still() && typeof m.round.animate === 'function' && inView(m.round, sc);
     stopAnims(m);
+    clearTimeout(m.quiet); m.sum?.removeAttribute('aria-hidden');
     const h0 = m.round.offsetHeight;
     m.folded = false;
     m.round.classList.remove('folded', 'folding');
     m.round.classList.add('opened');
     m.view?.dg?.resume?.();
+    onFold?.(m.round, false); // 卡片恢復刷新（還在最近兩輪才恢復，agent.js 判斷）
     paintSum(m);
     const fix = fixer(anc);
     if (!motion) { fix(); restore(); return; }
@@ -271,16 +281,17 @@ export function createRounds({ log }) {
     /**
      * 新的一輪開始（已經接到 log 底下）。
      * @param {HTMLElement} round
-     * @param {{ q: string, view: any, follow?: boolean, at?: number }} o follow：從「接下來可以」點的（接著上一輪，不算換話題）
+     * @param {{ q: string, view: any, follow?: boolean, at?: number, keepPrev?: boolean }} o follow：從「接下來可以」點的（接著上一輪，不算換話題）；
+     *   keepPrev：這一句是在回答上一輪「阿幫問你」（帶 pendingAsk）：上一輪留著
      */
-    start(round, { q, view, follow = false, at = Date.now() }) {
+    start(round, { q, view, follow = false, at = Date.now(), keepPrev = false }) {
       const prev = latest();
-      const m = { n: rounds.length + 1, round, q, at, view, follow, topic: null, checked: false, broke: false, folded: false, sum: null, summary: null, touchedAt: 0, keep: false, retry: false, gen: 0, anims: [], done: false };
+      const m = { n: rounds.length + 1, round, q, at, view, follow, answering: keepPrev, topic: null, checked: false, broke: false, folded: false, sum: null, summary: null, touchedAt: 0, keep: false, retry: false, gen: 0, anims: [], done: false };
       rounds.push(m);
       byEl.set(round, m);
       round.dataset.round = String(m.n);
       if (prev) {
-        prev.keep = askedBack(prev.view || {}); // 阿幫反問你：這一輪是回答，前一輪留著
+        prev.keep = keepPrev || askedBack(prev.view || {}); // 阿幫反問你（或「阿幫問你」還開著）：這一輪是回答，前一輪留著
         if (topicBreak({ ...prev, at: prev.endAt || prev.at }, { topic: null, at }) === 'time') separate(m);
         const targets = rounds.filter((r) => r !== m && !r.folded && r.done);
         const busy = targets.filter((r) => busyWith(r) || (r === prev && prev.keep));
@@ -296,19 +307,25 @@ export function createRounds({ log }) {
       Promise.allSettled(rounds.filter((r) => r.anims.length).map((r) => r.anims[0].finished)).then(() => { if (latest() === m) scrollToRound(m); });
     },
     /**
-     * 這一輪有新資料（status、工具結果）：知道話題就判斷要不要分段。
-     * 回答途中只看判斷層的意圖（行程會先查天氣、空品，半途的工具結果會誤判成天氣）；沒有意圖時等答完（final）看全部工具結果。
+     * 這一輪有新資料：status 只記「候選話題」（判斷層的意圖）；等第一個 agent_note／tool_start／工具結果／context_reset 再定案
+     * （「沿用：…」那句 agent_note、「重來」都在 status 之後才到，接著改不能先分段）。沒有意圖時等答完（final）看全部工具結果
+     * （行程會先查天氣、空品，半途的工具結果會誤判成天氣）。
+     * @param {HTMLElement} round
+     * @param {{ type: string }|null} e 事件；null＝答完
      */
-    progress(round, final = false) {
+    progress(round, e = null) {
       const m = byEl.get(round);
       if (!m || m.checked || m.broke) return;
       const v = m.view || {};
-      const topic = topicOf({ results: final ? v.results : [], intent: v.judge?.intent, profile: v.profile });
+      if (e?.type === 'status') { m.cand = topicOf({ results: [], intent: v.judge?.intent, profile: v.profile }); m.followHint = !!v.judge?.followUp; return; }
+      const final = !e;
+      const topic = final ? topicOf({ results: v.results, intent: v.judge?.intent, profile: v.profile }) || m.cand : m.cand;
       if (!topic) return;
       m.checked = true;
       m.topic = topic;
-      const prev = rounds[m.n - 2];
-      const follow = m.follow || !!v.judge?.followUp || m.round.querySelector('.turn')?.dataset.follow === '1' || !!m.round.querySelector('.turn')?.dataset.reset;
+      const prev = lastTopic(rounds.slice(0, m.n - 1)); // 往前找最近有話題的一輪（中間的「謝謝」不算）
+      const turn = m.round.querySelector('.turn');
+      const follow = m.follow || m.followHint || turn?.dataset.follow === '1' || !!turn?.dataset.reset;
       if (prev && topicBreak({ ...prev, at: m.at }, { topic, at: m.at, follow }) === 'topic') {
         separate(m);
         foldOlder(m, { animate: true });
@@ -322,11 +339,14 @@ export function createRounds({ log }) {
       m.done = true;
       m.endAt = Date.now();
       const v = m.view || {};
-      if (!m.checked) api.progress(round, true);
+      if (!m.checked) api.progress(round, null);
       m.topic = topicOf({ results: v.results, intent: v.judge?.intent, profile: v.profile }) || m.topic; // 下一輪比對用答完的結果
       summarize(m);
       buildSum(m);
       for (const r of rounds) if (r.retry && r !== m && !r.folded && !busyWith(r)) { r.retry = false; fold(r, { animate: true }); }
+      // 帶著「阿幫問你」送出的這一句其實是新問題（查出了自己的卡片）：上一輪不用再留著
+      const p = rounds[m.n - 2];
+      if (m.answering && p?.keep && !p.folded && v.results?.some((r) => r.card) && !busyWith(p)) { p.keep = false; fold(p, { animate: true }); }
       paintIndex();
     },
     /** 第 n 輪：展開、捲到那裡、焦點放在摘要（目錄、提醒頁「看當時的對話」） */
@@ -340,14 +360,13 @@ export function createRounds({ log }) {
       return true;
     },
     has: (n) => !!rounds[n - 1] && log.contains(rounds[n - 1].round), // 換頁時整段對話收起來（不在畫面上），還在對話裡就算
-    /** 最近碰過（點、焦點）的那一輪；沒有就是最新一輪 */
+    /** ms 內最近碰過（點、焦點）的那一輪；沒有回 null（提醒頁連結只連真的在那一輪操作過的） */
     recent(ms) {
-      const t = rounds.filter((r) => Date.now() - r.touchedAt < ms).sort((a, b) => b.touchedAt - a.touchedAt)[0];
-      return t || latest();
+      return rounds.filter((r) => Date.now() - r.touchedAt < ms).sort((a, b) => b.touchedAt - a.touchedAt)[0] || null;
     },
     /** 標記這一輪剛被操作（「接下來可以」的按鈕在 log 外面） */
     touch(round) { const m = byEl.get(round); if (m) m.touchedAt = Date.now(); },
-    clear() { io?.disconnect(); rounds.length = 0; list.replaceChildren(); nav.hidden = true; toLatest.hidden = true; },
+    clear() { io?.disconnect(); for (const r of rounds) clearTimeout(r.quiet); rounds.length = 0; list.replaceChildren(); nav.hidden = true; toLatest.hidden = true; },
   };
   return api;
 }
