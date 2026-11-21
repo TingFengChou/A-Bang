@@ -47,6 +47,7 @@ npm run e2e          # Playwright E2E 冒煙測試（示範模式、手機＋桌
 npm run build:demo   # dist/demo.html 單檔示範版
 npm run build:cards  # dist/cards.html MCP Apps 卡片單檔（正式環境部署前要跑）
 npm run smoke:android # Android 實機煙霧測試（adb＋WebView 偵錯通道：每頁、原生外掛、浮動阿幫、返回鍵；不在 CI）
+IOS_DEV_TEAM=<Team ID> npm run ios:dev # 把開發版裝到接上的實體 iPhone（走同一個 Wi-Fi 連本機 8787；只在這次建置暫時允許本機網路，建置完還原；不在 CI）
 npm run app:sync     # 手機 App（ADR-0013）：打包 dist/app（ABANG_API_BASE）＋ cap sync；再 npx cap open android／ios
 docker build -t abang .   # 容器映像（兩階段；/healthz 健康檢查）
 ```
