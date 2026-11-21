@@ -73,3 +73,10 @@ test('App 重開：通知已經響過（排定時間已過）或逾時就清掉�
   assert.equal(store.get('abang.alightWatch'), undefined);
   assert.equal(alightWatch(), null);
 });
+
+test('還沒上車（boardAt 在未來）：不把前一班當我這台，照估計（等車＋坐車）', () => {
+  const w = { boardSeq: 2, destSeq: 5, board: 'S2', dest: 'S5', boardAt: T0 + 60_000, rideSec: 600 };
+  const r = alightDue(w, route([500, 60, 30, 180, 300]), T0); // 上車站之後第一個變小的是前一班
+  assert.deepEqual(r, { due: false, etaSec: 660, by: null });
+  assert.equal(w.seen, undefined, '不記成看過我這台');
+});

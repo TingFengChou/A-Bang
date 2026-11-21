@@ -561,7 +561,7 @@ test('選公車就盯到站（L-14）：想省錢 → 公車卡片聚焦上車�
     // 接下來可以…：輸入框上方換成這一輪的下一步（到站提醒、開公車頁、回程…），不是一開始的通用範例
     await page.waitForSelector('.suggest.next .next-title');
     const nextLabels = await page.locator('.suggest.next .chip').allTextContents();
-    assert.ok(nextLabels.includes('開公車頁看動態') && nextLabels.includes('其他問題'), nextLabels.join('、'));
+    assert.ok(nextLabels.includes('上車後提醒我下車') && nextLabels.includes('其他問題'), nextLabels.join('、')); // 行程中模式：有車要來時建議下車提醒（卡片上仍有開公車頁）
     assert.ok(!nextLabels.includes('307 到哪了？我在臺北車站'), '通用範例收起來');
     await card.getByRole('button', { name: '到站前 5 分提醒我' }).click();
     await card.locator('.ab-alert-on').waitFor();

@@ -10,6 +10,7 @@ import { icons } from '../icons.js';
 import { motion } from '../../ui/cards/motion.js';
 import { token } from '../../ui/cards/mode-icons.js';
 import { nextSteps } from '../agent/next-steps.js';
+import { alightWatch } from '../alight.js';
 import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { renderDecision, lite } from '../../ui/agent/decision-graph.js';
@@ -197,7 +198,7 @@ export default {
     onCleanup(() => window.removeEventListener('abang:arrival-watch', onWatch));
     function showNext(view) {
       lastView = view;
-      const steps = nextSteps(view.results, view.decision, { watching: host.arrivalWatch?.(), lang: view.lang });
+      const steps = nextSteps(view.results, view.decision, { watching: host.arrivalWatch?.(), riding: alightWatch(), lang: view.lang });
       if (!steps.length) { showDefaults(); return; }
       chips.classList.add('next');
       const act = async (s, b) => {

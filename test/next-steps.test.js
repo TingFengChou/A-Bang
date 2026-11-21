@@ -8,10 +8,13 @@ const trip = { tool: 'plan_trip', card: 'trip', data: { from: { name: '西門町
 
 test('選公車：到站提醒、開公車頁優先；已在提醒就不再建議提醒', () => {
   const s = nextSteps([trip, busFocus], { states: [{ key: 'budget' }] });
-  assert.deepEqual(s.map((x) => x.label), ['到站前 3 分提醒我', '開公車頁看動態', '上車後提醒我下車', '我很趕']);
+  assert.deepEqual(s.map((x) => x.label), ['到站前 3 分提醒我', '上車後提醒我下車', '我很趕', '回程怎麼走？']);
   assert.deepEqual(s[0].payload, { city: 'Taipei', routeName: '601', stop: '民生捷運站(1號出口)', direction: 0, minutes: 3 });
-  assert.match(s[1].payload, /^#\/bus\/Taipei\/601\?stop=/);
-  assert.match(s[2].payload, /^#\/bus\/Taipei\/601\?stop=.+&dir=0&alight=1$/, '行程中模式：到公車頁直接選下車站');
+  assert.match(s[1].payload, /^#\/bus\/Taipei\/601\?stop=.+&dir=0&alight=1$/, '行程中模式：到公車頁直接選下車站');
+  const ridingNow = nextSteps([trip, busFocus], null, { riding: { routeName: '601' } });
+  assert.ok(ridingNow.some((x) => x.label === '開公車頁看動態') && !ridingNow.some((x) => x.label === '上車後提醒我下車'), '已在坐車中：改回開公車頁');
+  const noBus = nextSteps([{ ...busFocus, data: { ...busFocus.data, focus: { ...busFocus.data.focus, status: 3, etaSec: null } } }], null);
+  assert.ok(!noBus.some((x) => x.label === '上車後提醒我下車'), '末班已過或沒有車：不建議');
   const watching = nextSteps([trip, busFocus], null, { watching: { routeName: '601', stop: '民生捷運站(1號出口)' } });
   assert.ok(!watching.some((x) => x.kind === 'remind'));
 });
