@@ -11,6 +11,7 @@ import { motion } from '../../ui/cards/motion.js';
 import { token } from '../../ui/cards/mode-icons.js';
 import { nextSteps } from '../agent/next-steps.js';
 import { alightWatch } from '../alight.js';
+import { loadChat, saveChat, clearChat } from '../chat-store.js';
 import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { renderDecision, lite, roleEn } from '../../ui/agent/decision-graph.js';
@@ -176,6 +177,15 @@ export default {
     // 說明起點是現在位置（第一次需要位置時才跳權限框，先讓使用者知道為什麼）；拒絕定位時阿幫會問從哪出發
     const hereHint = agentId === 'life' && el('p', 'updated here-hint', '沒說起點時，阿幫用你現在的位置當出發點。');
     main.append(log, el('div', 'chat-dock', pageRow, chips, mention, form), ...(hereHint ? [hereHint] : []), disclaimer, modeLine);
+    // 上次的對話（只有文字、12 小時內）：收合著，接著問時阿幫記得前面說過的（只有生活 agent；防詐不留）
+    const past = agentId === 'life' ? loadChat() : null;
+    if (past) {
+      history.push(...past.messages);
+      const box = el('details', 'chat-past');
+      const when = new Date(past.at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+      box.append(el('summary', '', `上次的對話（${when}，${past.messages.length} 則）`), ...past.messages.map((m) => el('div', `msg ${m.role === 'user' ? 'user' : 'past-answer'}`, m.content)));
+      log.append(box);
+    }
     const MODE_TEXT = {
       claude: (m) => `由 Claude（${m}）回答；對話會送 Anthropic 處理。`,
       local: (m) => `由地端模型（${m}）回答；對話只送到本站設定的模型伺服器。`,
@@ -277,6 +287,7 @@ export default {
         }, { agentId });
         await view.flush();
         if (view.text) history.push({ role: 'assistant', content: view.text.slice(0, 500) });
+        if (agentId === 'life') saveChat(history); // 只存文字（chat-store.js）
         showNext(view);
       } catch {
         turn.append(el('div', 'msg error', '連線中斷了，請再試一次。'));
@@ -480,6 +491,8 @@ export default {
       focus: () => input.focus({ preventScroll: true }),
       ask: (q) => send(q),
       hasChat: () => history.length > 0,
+      /** 設定頁清除本機資料：畫面上的對話也一起清掉 */
+      clear() { clearChat(); history.length = 0; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); showDefaults(); },
       /** 從哪一頁打開（浮動阿幫）：那一頁可以問的問題；點了才把這一頁的說明一起送（自己打的問題不帶）；null＝清掉 */
       setPage(hint) {
         const pc = String(hint?.context || '');

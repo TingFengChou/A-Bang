@@ -229,3 +229,9 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 /* 浮動阿幫：在這一頁可以問（從哪一頁打開就建議那一頁的問題） */
 .suggest.page-ask { border-bottom: 1px dashed var(--line); padding-bottom: 6px; }
 .suggest.page-ask[hidden] { display: none; }
+
+/* 上次的對話（只有文字、收合）：App 重開後接得上 */
+.chat-past { border: 1px dashed var(--line); border-radius: 12px; padding: 6px 10px; margin: 4px 0 10px; font-size: 14px; color: var(--muted); }
+.chat-past summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; }
+.chat-past .msg { margin: 6px 0; }
+.chat-past .past-answer { background: var(--card, #fff); border-radius: 12px; padding: 8px 10px; color: var(--text); white-space: pre-wrap; }
