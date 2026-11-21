@@ -1951,6 +1951,241 @@ test('中央鍵拉出的底部對話面板：「阿幫在想」一樣會出現�
   }, { init: THINK_RECORDER, motion: true });
 });
 
+// ───── 阿幫會看（M14-02，ADR-0015）：假的 AbangVision 外掛（不開相機，依序回傳讀到的字或條碼）─────
+// 一般 Android 手機的樣子：讀字 ML Kit 中文、條碼 ML Kit、Gemini Nano 看圖還沒試過；語音（AbangVoice）可用，所以輸入列有相機＋麥克風；AbangSystem 只記錄被呼叫
+function fakeVision(readings) {
+  const queue = [...readings];
+  const calls = (window.__vision = []);
+  const listeners = [];
+  window.Capacitor = {
+    isNativePlatform: () => true, getPlatform: () => 'android',
+    isPluginAvailable: (n) => n === 'AbangVision' || n === 'AbangSystem' || n === 'AbangVoice',
+    addListener: (plugin, ev, fn) => { if (plugin === 'AbangVision' && ev === 'stage') listeners.push(fn); return { remove() {} }; },
+    nativePromise: (plugin, method, opts) => {
+      if (plugin === 'AbangSystem') { calls.push(`${plugin}.${method}`); return Promise.resolve(); }
+      if (plugin === 'AbangVoice') return method === 'available' ? Promise.resolve({ engine: 'android-ondevice', lang: opts?.lang, permission: 'prompt', osVersion: '16', available: true, onDevice: true }) : Promise.resolve({});
+      if (plugin !== 'AbangVision') return Promise.reject(new Error('not in test'));
+      if (method === 'available') return Promise.resolve({ platform: 'android', camera: true, photos: true, cameraPermission: 'prompt', text: { available: true, engine: 'mlkit-text-chinese' }, barcode: { available: true, engine: 'mlkit-barcode' }, describe: { engine: 'gemini-nano', state: 'untested' } });
+      if (method !== 'capture') return Promise.resolve({});
+      calls.push({ source: opts.source, want: opts.want });
+      const next = queue.shift() || { reject: 'cancelled' };
+      return new Promise((res, rej) => setTimeout(() => {
+        if (next.reject) { rej(Object.assign(new Error(next.reject), { code: next.reject })); return; }
+        listeners.forEach((f) => f({ stage: 'reading' })); // 相機關了、開始讀
+        setTimeout(() => res(next.result), next.delay || 0);
+      }, 50));
+    },
+  };
+}
+const VISION_SMS = '【中華郵政】您的包裹地址不完整，暫停配送。請於24小時內點擊 https://tw388.xyz/p 補運費25元，逾期退回。客服 0912-345-678';
+const smsReading = (delay = 0) => ({ delay, result: { engine: 'mlkit', ms: 380, text: { full: VISION_SMS, lines: VISION_SMS.split('。').map((t) => ({ text: t, box: { x: 0.05, y: 0.3, w: 0.9, h: 0.03 } })) }, barcodes: [] } });
+
+test('阿幫會看：防詐頁拍可疑訊息 → 看的動畫 → 阿幫看到了、可遮號碼 → 確認後檢查 → 高風險；送出的只有文字', async () => {
+  await withPage(DEVICES.phone, '#/agent/antifraud', async (page) => {
+    const bodies = [];
+    page.on('request', (r) => { if (r.url().endsWith('/api/v1/agent/antifraud') && r.method() === 'POST') bodies.push(JSON.parse(r.postData())); });
+    const cam = page.locator('.chat-form .chat-cam');
+    await cam.waitFor({ state: 'visible' });
+    assert.equal(await cam.getAttribute('aria-label'), '拍可疑訊息或選截圖');
+    const box = await cam.boundingBox();
+    assert.ok(box.width >= 44 && box.height >= 44, '相機鍵至少 44px');
+    await cam.click();
+    await page.waitForSelector('.vision-dialog[open]');
+    assert.equal(await page.textContent('#vs-title'), '拍可疑訊息');
+    assert.deepEqual(await page.locator('.vs-choice').allTextContents(), ['拍可疑訊息', '選截圖']);
+    assert.match(await page.textContent('.vs-lock'), /不上傳、不保存/);
+    await page.click('.vs-choice[data-source="photos"]');
+    // 看的時候：核心脈動、掃描線在動（讀屏念「阿幫在看…」）
+    await page.waitForSelector('.vs-look[data-stage="look"]');
+    assert.equal(await page.locator('.vs-look .vs-core').evaluate((n) => getComputedStyle(n).animationName), 'vs-beat');
+    assert.equal(await page.locator('.vs-look .vs-scan').evaluate((n) => getComputedStyle(n).animationName), 'vs-scan');
+    await page.waitForFunction(() => /阿幫在看/.test(document.querySelector('.vision-dialog .vs-live[role=status]')?.textContent || '')); // 常駐的播報區（審查：帶內容插入的不一定會念）
+    await page.locator('.vision-dialog').screenshot({ path: new URL('phone-vision-looking.png', SHOTS).pathname });
+    await page.waitForSelector('.vision-dialog textarea');
+    assert.equal(bodies.length, 0, '還沒確認：什麼都沒送');
+    await page.waitForFunction(() => /^阿幫看到了：/.test(document.querySelector('.vision-dialog .vs-live')?.textContent || ''));
+    assert.match(await page.textContent('.vision-dialog .vs-live'), /像手機的號碼/, '個資提醒也念');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'vs-title', '手機：焦點在視窗標題（不掉到 body、不自動跳鍵盤）');
+    assert.match(await page.inputValue('.vision-dialog textarea'), /tw388\.xyz/);
+    assert.match(await page.textContent('.vs-warn'), /手機/);
+    await page.click('.vs-mask');
+    assert.doesNotMatch(await page.inputValue('.vision-dialog textarea'), /0912-345-678/);
+    await shot(page, 'phone-vision-scam-saw');
+    await page.click('.vs-go');
+    assert.equal(await page.locator('.vision-dialog').count(), 0, '確認後關閉並移除');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    assert.equal(await page.locator('.results [data-card="scam-risk"] .ab-risk.high').count(), 1);
+    assert.match(bodies[0].messages.at(-1).content, /tw388\.xyz/);
+    assert.doesNotMatch(JSON.stringify(bodies[0]), /0912-345-678|image|base64/, '遮過的號碼、照片都沒有送出');
+    assert.deepEqual(await page.evaluate(() => window.__vision), [{ source: 'photos', want: ['text'] }]);
+    await shot(page, 'phone-vision-scam');
+  }, { init: fakeVision, initArg: [smsReading(900)], motion: true, ignore: /not in test/ });
+});
+
+test('阿幫會看：輸入列相機＋麥克風 375px 不擠；生活頁讀到簡訊先問「要幫你檢查嗎」，答應才轉到防詐頁檢查（文字不放網址）', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const posts = [];
+    page.on('request', (r) => { if (r.url().includes('/api/v1/agent') && r.method() === 'POST') posts.push(r.url()); });
+    // 輸入列：相機（左）、輸入框、麥克風（語音 M14-01）、送出；375px 寬不溢出
+    await page.locator('.chat-form .chat-mic').waitFor({ state: 'visible' });
+    await page.setViewportSize({ width: 375, height: 812 });
+    const row = await page.evaluate(() => {
+      const f = document.querySelector('.chat-form');
+      const r = (s) => f.querySelector(s).getBoundingClientRect();
+      const order = [...f.children].filter((e) => !e.hidden).map((e) => e.className.split(' ').find((c) => c.startsWith('chat-')));
+      return { order, formRight: f.getBoundingClientRect().right, sendRight: r('.chat-send').right, input: r('.chat-input').width, scroll: document.documentElement.scrollWidth, vw: innerWidth, cam: r('.chat-cam').width, mic: r('.chat-mic').width };
+    });
+    assert.deepEqual(row.order, ['chat-cam', 'chat-input', 'chat-mic', 'chat-send'], '相機（左）、輸入框、麥克風、送出');
+    assert.ok(row.sendRight <= row.formRight + 0.5 && row.scroll <= row.vw, `375px 不溢出：${JSON.stringify(row)}`);
+    assert.ok(row.input >= 120 && row.cam >= 44 && row.mic >= 44, `輸入框還夠寬、兩個鍵 44px：${JSON.stringify(row)}`);
+    await page.click('.chat-form .chat-cam');
+    assert.deepEqual(await page.locator('.vs-choice').allTextContents(), ['拍照', '選截圖或照片']);
+    await page.click('.vs-choice[data-source="camera"]');
+    await page.waitForSelector('.vs-ask');
+    assert.equal(await page.textContent('.vs-ask'), '這看起來像一則訊息。要幫你檢查這則訊息是不是詐騙嗎？');
+    await shot(page, 'phone-vision-scam-ask');
+    assert.equal(posts.length, 0);
+    await page.click('.vs-go');
+    await page.waitForFunction(() => location.hash === '#/agent/antifraud');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    assert.equal(await page.locator('.results [data-card="scam-risk"]').count(), 1);
+    assert.doesNotMatch(await page.evaluate(() => location.href), /tw388|%E5%8C%85/);
+    const w = await page.evaluate(() => window.__vision[0]);
+    assert.deepEqual(w, { source: 'camera', want: ['text', 'barcode', 'describe'] }, 'Gemini Nano 看圖還沒試過：請外掛試一次');
+  }, { init: fakeVision, initArg: [smsReading()], ignore: /not in test/ });
+});
+
+test('阿幫會看：拍站牌 → 阿幫看到了站名與路線 → 組好的問題可改 → 送出查到那一站', async () => {
+  const r = await fetch(`${base}/api/v1/tools/bus_route_eta`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ city: 'Taipei', routeName: '307' }) }).then((x) => x.json());
+  const stop = r.data.directions[0].stops[4].stopName;
+  const lines = [['307', 0.05, 0.07], [stop, 0.15, 0.13], ['307 262', 0.5, 0.05], ['往 板橋', 0.6, 0.04], ['申訴專線 1999', 0.9, 0.02]].map(([text, y, h]) => ({ text, box: { x: 0.1, y, w: 0.5, h } }));
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.click('.chat-form .chat-cam');
+    await page.click('.vs-choice[data-source="camera"]');
+    await page.waitForSelector('.vision-dialog .vs-q');
+    const facts = await page.locator('.vs-facts li').allTextContents();
+    assert.deepEqual(facts, [`站名「${stop}」`, '公車 307、262', '往 板橋']);
+    assert.equal(await page.inputValue('.vs-q'), `307 公車到「${stop}」還要多久？`);
+    assert.deepEqual(await page.locator('.vs-alt .chip').allTextContents(), [`262 公車到「${stop}」還要多久？`]);
+    await shot(page, 'phone-vision-stop');
+    await page.click('.vs-go');
+    await page.waitForSelector('.bubble.final', { timeout: 20000 });
+    assert.equal(await page.locator('.msg.user').last().textContent(), `307 公車到「${stop}」還要多久？`);
+    assert.equal(await page.locator('.results [data-card="bus-route"]').count(), 1);
+    assert.ok((await page.locator('.bubble.tool .say').allTextContents()).some((x) => x.includes(`「${stop}」`)), '盯拍到的那一站');
+  }, { init: fakeVision, initArg: [{ result: { engine: 'mlkit', text: { lines }, barcodes: [] } }], ignore: /not in test/ });
+});
+
+test('阿幫會看：拍發票 → 存進我的發票並馬上對獎；發票頁改用原生相機；底部對話也有相機鍵', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.click('.chat-form .chat-cam');
+    await page.click('.vs-choice[data-source="camera"]');
+    await page.waitForSelector('.vs-facts');
+    assert.deepEqual(await page.locator('.vs-facts li').allTextContents(), ['發票 AB-54348835', '消費 2026-08-03']);
+    assert.equal(await page.evaluate(() => localStorage.getItem('invoices')), null, '確認前不存');
+    await page.click('.vs-go');
+    await page.waitForSelector('.vs-result.won');
+    assert.match(await page.textContent('.vs-result'), /中獎了！頭獎/);
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('invoices')).map((x) => [x.number, x.date, x.status])), [['54348835', '2026-08-03', 'won']]);
+    await shot(page, 'phone-vision-invoice');
+    await page.click('.vision-dialog a[href="#/s/invoice"]');
+    await page.waitForSelector('#inv-list .inv-st.won');
+    // 發票頁（M11-03）：App 裡用原生相機拍或選照片；拍到右邊明細 QR 提示拍左邊
+    assert.equal(await page.textContent('#inv-scan'), '拍發票 QR code');
+    assert.equal(await page.textContent('#inv-pick'), '選發票照片');
+    await page.click('#inv-scan');
+    await page.waitForSelector('.vision-dialog .vs-msg');
+    assert.match(await page.textContent('.vision-dialog .vs-msg'), /右邊的明細 QR code/);
+    await page.waitForFunction(() => /右邊的明細/.test(document.querySelector('.vision-dialog .vs-live')?.textContent || ''));
+    await page.click('.vision-dialog .btn.quiet >> text=關閉');
+    await page.click('#inv-pick');
+    await page.waitForSelector('.vs-facts');
+    await page.click('.vs-go');
+    await page.waitForFunction(() => /11\/25 開獎/.test(document.querySelector('.vs-result')?.textContent || ''));
+    await page.click('.vision-dialog .btn.primary >> text=關閉');
+    await page.waitForFunction(() => document.querySelectorAll('#inv-list [data-id]').length === 2);
+    assert.deepEqual(await page.evaluate(() => window.__vision.map((x) => x.source)), ['camera', 'camera', 'photos']);
+    // 底部對話面板（同一段對話）也有相機鍵
+    await page.click('#abang-fab');
+    await page.locator('#abang-sheet .chat-cam').waitFor({ state: 'visible' });
+  }, { init: fakeVision, initArg: [{ result: { engine: 'mlkit', text: { lines: [] }, barcodes: [{ format: 'qr_code', raw: LEFT_QR }] } }, { result: { engine: 'mlkit', text: { lines: [] }, barcodes: [{ format: 'qr_code', raw: '**咖啡:1:65' }] } }, { result: { engine: 'mlkit', text: { full: '電子發票證明聯\n115年09-10月\nCD-11112222\n2026-10-01 12:00:00' }, barcodes: [] } }], ignore: /not in test/ });
+});
+
+test('阿幫會看：相機權限被拒說原因、一鍵到設定；取消回到選單；reduced motion 時看的畫面是靜態', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.click('.chat-form .chat-cam');
+    await page.click('.vs-choice[data-source="camera"]');
+    await page.waitForSelector('.vs-err');
+    assert.equal(await page.textContent('.vs-err'), '沒有相機權限。到手機設定允許「相機」後再試，或改用「選截圖」。');
+    await page.click('.vision-dialog >> text=到設定開啟');
+    await page.waitForFunction(() => window.__vision.includes('AbangSystem.openSettings'));
+    await page.click('.vision-dialog >> text=再試一次');
+    await page.click('.vs-choice[data-source="photos"]'); // 使用者取消選擇器：回到選單
+    await page.waitForSelector('.vs-choice');
+    await page.click('.vs-choice[data-source="photos"]');
+    await page.waitForSelector('.vs-look[data-stage="look"]');
+    assert.equal(await page.locator('.vs-look .vs-core').evaluate((n) => getComputedStyle(n).animationName), 'none', 'reduced motion：不動');
+    assert.equal(await page.locator('.vs-look .vs-scan').evaluate((n) => getComputedStyle(n).animationName), 'none');
+    await page.waitForSelector('.vision-dialog textarea');
+  }, { init: fakeVision, initArg: [{ reject: 'denied' }, { reject: 'cancelled' }, smsReading(800)], ignore: /not in test/ });
+});
+
+test('阿幫會看（網頁版降級）：沒有本機讀字不顯示相機鍵（只有 BarcodeDetector 也不給，發票頁用自己的掃描）；瀏覽器能讀字時在本機讀；設定可關；阿幫的腦袋照實說', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.waitForSelector('.chat-form input');
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator('.chat-cam').isHidden(), true, '沒有任何本機辨識：不給相機鍵');
+    await page.goto(`${base}/#/ai`);
+    await page.waitForFunction(() => /不支援/.test(document.querySelector('#ai-vision-body')?.textContent || ''));
+    assert.match(await page.textContent('#ai-vision-body'), /請用手機 App/);
+  }, { init: () => { window.BarcodeDetector = undefined; window.TextDetector = undefined; } });
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.waitForSelector('.chat-form input');
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator('.chat-cam').isHidden(), true, '只有 BarcodeDetector：問阿幫不給相機鍵（拍簡訊會讀不到字）');
+    await page.goto(`${base}/#/agent/antifraud`);
+    await page.waitForSelector('.chat-form input');
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator('.chat-cam').isHidden(), true, '防詐要讀字：網頁版沒有讀字就不給');
+    await page.goto(`${base}/#/s/invoice`);
+    await page.waitForSelector('#inv-scan');
+    assert.equal(await page.textContent('#inv-scan'), '掃發票 QR code', '發票頁維持網頁的連續掃描');
+  }, { init: () => { window.BarcodeDetector = class { static async getSupportedFormats() { return ['qr_code']; } async detect() { return []; } }; window.TextDetector = undefined; } });
+  // 瀏覽器有 TextDetector：在本機讀字（選檔），照片不送伺服器
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const uploads = [];
+    page.on('request', (r) => { if (r.method() === 'POST' && /image|base64/.test(r.postData() || '')) uploads.push(r.url()); });
+    await page.click('.chat-form .chat-cam');
+    await page.waitForSelector('.vs-choice');
+    assert.equal(await page.locator('.vs-web').count(), 0, '能讀字：不需要說明');
+    const chooser = page.waitForEvent('filechooser');
+    await page.click('.vs-choice[data-source="photos"]');
+    const fc = await chooser;
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAIklEQVR4AdyKMQ0AAAyDyPx73lYBrYAmcMEAm9Tw3dMxHAAAAP//n8zf4QAAAAZJREFUAwCzCQgJB3GDOQAAAABJRU5ErkJggg==', 'base64');
+    await fc.setFiles({ name: 'sms.png', mimeType: 'image/png', buffer: png });
+    await page.waitForSelector('.vs-ask');
+    assert.match(await page.inputValue('.vision-dialog textarea'), /tw388\.xyz/);
+    assert.deepEqual(uploads, [], '照片沒有送出');
+  }, { init: () => { window.TextDetector = class { async detect() { return [{ rawValue: '請於24小時內點擊 https://tw388.xyz/p 補運費', boundingBox: { x: 0, y: 0, width: 1, height: 1 } }]; } }; window.BarcodeDetector = undefined; } });
+  // App：設定頁關掉「讓阿幫看照片」→ 相機鍵不見；阿幫的腦袋列出外掛回報的引擎
+  await withPage(DEVICES.phone, '#/settings', async (page) => {
+    await page.waitForFunction(() => /ML Kit 文字辨識/.test(document.querySelector('#vision-status')?.textContent || ''));
+    await page.click('#vision');
+    assert.equal(await page.evaluate(() => localStorage.getItem('abang.vision')), 'off');
+    await page.goto(`${base}/#/agent`);
+    await page.waitForSelector('.chat-form input');
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator('.chat-cam').isHidden(), true);
+    await page.goto(`${base}/#/ai`);
+    await page.waitForFunction(() => /ML Kit 文字辨識（中文模型/.test(document.querySelector('#ai-vision-body')?.textContent || ''));
+    const t = await page.textContent('#ai-vision-body');
+    assert.match(t, /ML Kit 條碼掃描/);
+    assert.match(t, /Gemini Nano：系統沒有提供查詢/);
+    assert.match(t, /關著/);
+    await page.locator('#ai-vision').screenshot({ path: new URL('phone-ai-vision.png', SHOTS).pathname });
+  }, { init: fakeVision, initArg: [], ignore: /not in test/ });
+});
+
 // 語音問阿幫（M14-01，voice.js、agent/voice-ui.js）：假的原生外掛 AbangVoice 送出 level、partial、final 事件。
 // mode：auto＝像 Android 一樣自己收尾（0.7 秒送 final）；manual＝要等「說完了」、停頓 1.5 秒或放開中央鍵（stop）才送 final。deny：權限被拒。
 // reason：這支手機不能在手機上辨識（os、ios-no-ondevice…）；pack：語言包還沒裝（download 後 progress 30、70、done，之後就能用）；platform：android／ios

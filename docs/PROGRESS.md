@@ -13,6 +13,15 @@
 
 ---
 
+## 2026-11-21 M14-02 阿幫會看（＋M11-03 原生相機掃發票）
+- 做了：專案內外掛 `AbangVision`（Android：系統相機寫 App 暫存檔讀完即刪、Photo Picker、ML Kit 中文文字辨識 16.0.1 與條碼掃描 17.3.0 打包版、Gemini Nano 看圖分類〔選用，試過才回報〕；iOS：UIImagePickerController、PHPicker、Vision 讀字與條碼）。前端 `public/js/vision.js`：輸入列相機鍵（問阿幫、底部對話、防詐頁）、「阿幫在看」動畫、「阿幫看到了：…」確認後才送；可疑訊息走防詐（生活頁先問）、站牌組問題可改、發票存進我的發票並對獎；個資提醒與遮號碼；網頁版只用瀏覽器本機辨識。規則 `core/vision-text.js`（共用給前端）；demo-intent 認得問題裡的站名、`bus_route_eta` 有站名沒縣市時用位置推縣市。設定頁「讓阿幫看照片」、隱私權政策、`#/ai`「阿幫會看」卡。SW v0.9.7-vision。
+- 測試：npm test 新增 18 項（vision.test.js）；E2E 新增 6 項（假外掛：簡訊、站牌、發票、權限被拒、網頁降級、reduced motion）；Android assembleDebug、iOS xcodebuild（不簽署）成功
+- 文件：ADR-0015、adr/README、UX.md §5.0.4、AGENT_ANTIFRAUD.md §1、PLAN.md（M14-02、M11-03）、CLAUDE.md、PROGRESS.md
+- 下一個：Pixel、iPhone 實機確認讀字品質與權限流程
+- 卡住：無（APK 大小：打包版 ML Kit 讓 debug APK 約 10→74 MB；產品負責人同意打包在 App 裡）
+- 審查修正：拍照暫存檔在 App 被回收時也刪、外掛啟動清空、FileProvider 只開放 cache/vision/；讀圖接住 OutOfMemoryError、解碼時就縮；Gemini Nano 只有 NOT_SUPPORTED 才記不支援；網址降為 1 分、讀到路線時不蓋過站牌；常駐播報區與每步焦點；輸入列相機鍵只在能讀字時顯示；交給防詐頁的文字 30 秒過期；iOS 擋重入、發票不做語言校正。
+- 合併主線（語音 M14-01，PR #102）：輸入列＝相機（左）、輸入框、麥克風、送出（375px 不溢出，輸入框 min-width 0，E2E 量寬度）；AbangVision＋AbangVoice 都註冊、Info.plist 相機／麥克風／語音權限都在；設定頁兩個開關與隱私段落、#/ai「聽」「看」兩張卡；「阿幫會看」改為 UX.md §5.0.4；ADR-0015 補語音細節；SW v0.9.8。
+
 
 ## 2026-11-21 M14-01c 語音審查修正
 - 做了：權限框與取消的競爭（原生 start 記號碼、權限回來先比對，被取消就 reject client 不開麥克風；Android 權限框的 onPause 不拆；JS 準備聽時的 visibilitychange 不取消）；長按真的放開才結束（start 帶 hold：iOS 不因停頓收尾、Android 停頓 8 秒；提早收尾時 JS 累加那一段接著聽）；Android available 的 checkRecognitionSupport 包 try/catch＋3 秒逾時；Android 13 下載語言包的辨識器延後拆（待實機驗證）；iOS teardown 把音訊類別設回 ambient、監聽音訊中斷與引擎設定改變；原生到背景時送 error 事件。

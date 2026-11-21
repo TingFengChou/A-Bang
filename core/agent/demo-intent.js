@@ -488,8 +488,17 @@ export function parseIntent(text, ctx) {
     if (g) it.grade = g;
     if (/漲|跌|調/.test(String(text))) it.trend = true;
   }
+  if (it?.intent === 'bus_route' && !it.stop) { const st = busStopOf(text); if (st) it.stop = st; } // 「307 公車到「敦化市場」還要多久」（阿幫會看：拍站牌組出來的問題，M14-02）
   if (it && !isEnglish(String(text || ''))) delete it.lang;
   return it;
+}
+/** 問公車時說了哪一站：「307 公車到「敦化市場」還要多久」「307 公車在市政府站還要多久」（只收有引號或「…站」的，不猜） */
+const STOP_QUOTED = /「([^」\s]{2,20})」/;
+const STOP_SAID = /(?<!我)(?:到|在)\s*([一-龥]{2,12}站)(?=\s*(?:還|多久|要|幾分))/; // 「我在臺北車站」是使用者在哪，不是要盯的站
+export function busStopOf(text) {
+  const s = String(text || '');
+  const m = STOP_QUOTED.exec(s)?.[1] || STOP_SAID.exec(s)?.[1];
+  return m && !/^(?:公車|車)?站$/.test(m) ? m : null;
 }
 /**
  * 台語口語與常見錯字先換成華語（P5-3、P5-5）：在找地名、判斷是不是行程之前做，所以「台北車戰到西門町」也是行程、
@@ -774,6 +783,7 @@ export function demoSteps(it, now = Date.now()) {
         (r) => {
           const p = point(r, 0);
           const near = p ? { lat: p.lat, lon: p.lon, name: p.name } : it.fromPoint ? ll(it.fromPoint) : null;
+          if (it.stop) return { note: `@公車 ${it.route} 到「${it.stop}」還要多久`, calls: [{ name: 'bus_route_eta', args: { ...(p ? { city: p.city } : near ? {} : { city: 'Taipei' }), routeName: it.route, stop: it.stop, ...(near && { near }) } }] }; // 說了站名：盯那一站（位置只用來推縣市）
           return { note: `@公車 ${it.route} 現在到哪了${near ? '，離你最近的站多久到' : ''}`, calls: [{ name: 'bus_route_eta', args: { ...(p ? { city: p.city } : near ? {} : { city: 'Taipei' }), routeName: it.route, ...(near && { near }) } }] };
         },
         ...alsoSteps(it),
