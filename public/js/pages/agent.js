@@ -2,7 +2,7 @@
 // 卡片用 public/ui/cards（renderCard＋web host）。不加假延遲：只在討論串兩則訊息之間保留最短 300ms 避免閃爍（UX.md §4）。
 import { API_BASE, IN_APP } from '../base.js';
 import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
-import { runAgent, browserLocation, locationGranted } from '../agent/client.js';
+import { runAgent, browserLocation, locationGranted, recentFix } from '../agent/client.js';
 import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-help.js';
 import { edgeJudge, edgePrewarm } from '../edge-judge.js';
 import { edgeWrite, edgeWriteCaps, writeLine, writeModeText } from '../edge-write.js';
@@ -420,7 +420,6 @@ export default {
             break;
           }
           case 'client_tool_result': { // 客戶端自己送的（client.js）：定位完成或失敗，把「定位中」換成結果
-            if (e.ok) view.located = true; // 這一輪用了手機定位（散步建議只用你在的地方的天氣）
             const say = bubbles.get(`client:${e.id}`)?.querySelector('.say');
             if (say) {
               say.className = 'say'; say.textContent = locateSay(e, turnLang);
@@ -584,13 +583,16 @@ export default {
      */
     async function addHealthSay(q, view, turn, myGen) {
       const asked = EXERCISE_Q.test(q);
-      const seen = peekNow();
       let wx = turnWeather(view.results);
       if (!asked && !wx.relevant) return;
-      // 查的是別的地方（例：「高雄天氣如何」）：不拿那裡的天氣建議散步
-      if (wx.relevant && !nearMe(wx.pos, { located: view.located, myPos: seen?.pos })) { if (!asked) return; wx = { weather: null, air: null, pos: null }; }
-      // 只問天氣（沒有空品）或只問空品時：用首頁「現在」10 分鐘內查過的補（不因為健康狀態另外查任何東西）
-      const n = await agentNudge({ weather: wx.weather || seen?.weather || null, air: wx.air || seen?.aqi?.nearest || null, pos: wx.pos || seen?.pos || null }, { asked });
+      // 你在哪：手機最近一次定位（或首頁「現在」用你的位置查的）；只在手機上比對，不送出
+      const seen = peekNow();
+      const me = recentFix() || seen?.pos || null;
+      // 查的是別的地方（「高雄天氣如何」「去淡水那邊天氣好嗎」）或不知道你在哪：不拿那裡的天氣建議散步
+      if (wx.relevant && !nearMe(wx.pos, me)) { if (!asked) return; wx = { weather: null, air: null }; }
+      // 只問天氣（沒有空品）或只問空品時：用首頁「現在」10 分鐘內、用你的位置查過的補（台北車站備用的不算；不因為健康狀態另外查任何東西）
+      const fill = seen?.pos && nearMe(seen.pos, me) ? seen : null;
+      const n = await agentNudge({ weather: wx.weather || fill?.weather || null, air: wx.air || fill?.aqi?.nearest || null, pos: me }, { asked }); // 公園用你的位置找
       if (!n || myGen !== gen || !turn.isConnected) return;
       turn.append(healthBubble(n, { avatar: avatar('阿幫', 'happy', view.lang), lang: view.lang, openLink: (u) => host.openLink(u) }));
     }

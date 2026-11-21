@@ -4,7 +4,7 @@
 // - status()：裝置有沒有 HealthKit（iPad 沒有 → no-healthkit）、App 有沒有 HealthKit entitlement（沒有 → no-entitlement）、
 //   有沒有問過權限（prompt／asked）。iOS 不告訴 App 使用者有沒有允許「讀取」（隱私設計），所以問過就回 asked，讀不到資料時 JS 說怎麼去「健康」App 打開。
 // - requestPermission()：跳「健康」App 的權限畫面（NSHealthShareUsageDescription），允許由使用者自己按。
-// - summary({ days })：HKStatisticsCollectionQuery 依手機時區每天加總。
+// - summary({ days })：HKStatisticsCollectionQuery 每天加總，固定以 Asia/Taipei 切日（跟 JS 的 core/health-nudge.js twDate 一致）。
 // 開發版用免費的個人開發團隊簽章時可能不能帶 HealthKit entitlement（scripts/ios-dev-install.js 會改用不含 entitlement 的建置）：這時回 no-entitlement，JS 反白說原因。
 import Foundation
 import HealthKit

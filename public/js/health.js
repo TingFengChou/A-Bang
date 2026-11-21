@@ -63,7 +63,7 @@ const backend = () => { const c = cap(); return c ? nativeBackend(c) : nativeApp
 export const HEALTH_WHY = {
   'not-installed': '這支手機還沒有 Health Connect（健康資料連線）。到 Play 商店安裝後再打開。',
   'update-needed': 'Health Connect 需要更新。到 Play 商店更新後再打開。',
-  os: '需要 Android 8 以上才能讀步數。',
+  os: '需要 Android 9 以上才能讀步數（Health Connect 的最低版本）。',
   'no-healthkit': '這台裝置沒有「健康」App（例如 iPad），讀不到步數。',
   'no-entitlement': '這個版本的 Abang 沒有開通 Apple 健康（開發版用免費開發者帳號簽章，不能使用 HealthKit），所以讀不到步數。',
   'no-plugin': '這個版本的 App 還沒有健康資料功能，請更新 App。',
@@ -144,6 +144,7 @@ export function markMentioned(now = Date.now()) { writeDay({ ...readDay(now), ag
  */
 export async function homeNudge(d, now = Date.now()) {
   if (!healthEnabled() || !homeAllowed(readDay(now))) return null;
+  if (!d?.pos) return null; // 沒有定位：首頁的天氣是台北車站附近的備用資料，不拿來建議散步
   const [health, spots] = await Promise.all([healthSummary(now), loadWalkSpots()]);
   if (!health) return null;
   const n = nudgeFor({ health, ...d, spots }, now);
@@ -165,12 +166,13 @@ export function turnWeather(results = []) {
   return { relevant, weather, air, pos };
 }
 
-/** 散步建議只用「你在的地方」的天氣：這一輪用了手機定位，或查的地方離你 3 公里內（問「高雄天氣」時不拿高雄來建議） */
+/**
+ * 散步建議只用「你在的地方」的天氣：查天氣的位置離手機的位置 3 公里內才算（問「高雄天氣」「去淡水那邊天氣好嗎」都不拿來建議）。
+ * 手機的位置只在手機上比對，不送出；不知道你在哪就不算。
+ */
 export const NEAR_ME_M = 3000;
-export function nearMe(turnPos, { located = false, myPos = null } = {}) {
-  if (!turnPos) return false;
-  if (located) return true;
-  return !!myPos && distanceM(turnPos.lat, turnPos.lon, myPos.lat, myPos.lon) <= NEAR_ME_M;
+export function nearMe(p, me) {
+  return !!p && !!me && Number.isFinite(p.lat) && Number.isFinite(me.lat) && distanceM(p.lat, p.lon, me.lat, me.lon) <= NEAR_ME_M;
 }
 
 /**

@@ -18,6 +18,7 @@
 - 測試：npm test 新增 18 項（health.test.js 17、ios-dev-install 1）；E2E 新增 4 項（首頁小卡與今天不用、問阿幫補一句與一天一次、預設關閉與開關、App 被拒／沒有 Health Connect／達標），請求內容檢查沒有健康資料；Android assembleDebug、iOS xcodebuild（不簽署，模擬器與實機架構）成功
 - 文件：ADR-0018、adr/README、UX.md §3.1、§5.0.5、AGENT.md §5.2.16、§7、MCP_TOOLS.md、DATA_SOURCES.md、PLAN.md M15、CLAUDE.md、PROGRESS.md
 - 決定（產品負責人 2026-11-22）：截圖可以；iPhone 維持簽不過就裝不含健康的版本；動得少改成「而且」；網頁版維持示範資料並標示；上架事項列進卡住項目
+- 獨立審查修正（2026-11-22）：①Android 7（API 24、25）開 App 閃退——外掛類別的 static `ZoneId` 在類別初始化就碰 java.time；改成外掛類別不碰 java.time 與 Health Connect（`HealthConnectReader` 只在 Android 9 以上呼叫，不開 desugaring），單元測試檢查外掛類別的 static 欄位與 import ②沒有定位時不拿台北車站備用天氣建議散步（首頁不出小卡；問阿幫只用離手機定位 3 公里內的天氣，座標只在手機上比對，公園也用你的位置找） ③「自己問運動」排除捷運動物園、看運動比賽、運動中心等，不再蓋過「今天不用」 ④進度文案照實說（步數少但運動跟上、讀不到步數＋運動落後） ⑤Android 8.x 回「需要 Android 9 以上」 ⑥E2E 比對健康開／關時送到伺服器的請求（GET 網址、參數、POST 內容、數量與順序）一樣 ⑦ADR-0018、Swift 註解照實寫（aggregateGroupByDuration、固定 Asia/Taipei）。合併主線 #109（長對話），SW 維持 v1.0.4。
 - 下一個：M15-01b 實機確認（Pixel；iOS 改用模擬器）
 - 卡住：iPhone 免費個人開發團隊可能不能簽 HealthKit（需要付費帳號才能在 iPhone 上真的讀步數；開發版會反白說原因）
 

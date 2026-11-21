@@ -9,7 +9,7 @@
 ## 決策
 1. **只在手機上**：步數、運動分鐘，以及由它推出的「動得少」，都不送伺服器、不寫 log、不進 agent 的 `userState`、`deviceJudge` 或 prompt，也不寫進手機的儲存空間（只在記憶體快取 5 分鐘）。手機上只記開關（`abang.health`）與「今天提過沒有」（`abang.healthDay`：日期＋`off`／`agent` 兩個旗標）。
    - 判斷與文案在手機上組：純函式 `core/health-nudge.js`（伺服器以 `/core/health-nudge.js` 提供、App 打包時複製，比照 `core/vision-text.js`；用 `core/nav.js` 的步行時間與官方導航連結）。
-   - 天氣、空品用既有 API（首頁「現在」已經查好的 `weather_now`、`aqi_nearby`；問阿幫那一輪的 `weather_now`／`outing_advice`／`aqi_nearby` 結果；只有其中一個時用首頁「現在」10 分鐘內的結果補），**不因為健康狀態多查任何東西**：伺服器從請求看不出使用者動得多或少。
+   - 天氣、空品用既有 API（首頁「現在」已經查好的 `weather_now`、`aqi_nearby`；問阿幫那一輪的 `weather_now`／`outing_advice`／`aqi_nearby` 結果；只有其中一個時用首頁「現在」10 分鐘內、用你的位置查的結果補）。只用「你在的地方」的天氣：查天氣的位置要離手機最近一次定位 3 公里內（座標只在手機上比對）；沒有定位時首頁的天氣是台北車站附近的備用資料，不拿來建議，公園也用你的位置找，**不因為健康狀態多查任何東西**：伺服器從請求看不出使用者動得多或少。
    - 散步地點來自內建地標庫 `core/data/landmarks.json` 的 `walk` 欄位（park 公園、riverside 河濱、trail 步道），整份以同站靜態檔 `/core/landmarks.json` 提供、在手機上找最近的（打開功能時載一次，跟健康狀態無關）。
    - 問阿幫時補的那一句是手機上加的泡泡（`.bubble.health-say`），**不放進對話紀錄**（不會跟下一個問題送出、不存進 `abang.chat`）。
 2. **只讀、最小範圍**：Android 只要 Health Connect 的 `READ_STEPS`、`READ_EXERCISE`；iPhone 只讀 HealthKit 的 `stepCount`、`appleExerciseTime`，`toShare` 是空的。外掛回傳正規化資料（每日 `{ date, steps, exerciseMin }`、`source`），不漏資料來源 App、樣本等原始欄位；JS 端再用 `normalizeHealth` 丟掉其他欄位。
@@ -21,8 +21,8 @@
    - 一天一次：首頁小卡今天按「今天不用」就到明天；問阿幫一天主動提一次；使用者自己問「要不要去運動」一定回答（天氣不好時說原因）。達標只給一句鼓勵，不推。不推本機通知。
 5. **Mock 對等**：網頁版與示範模式用示範健康資料（`demoSummary`，介面與外掛相同；卡片與泡泡標「示範資料，不是你的步數」）。手機 App 裡沒有外掛（舊版）時回 `no-plugin`，不拿示範資料冒充。
 6. **外掛 `AbangHealth`**：`status()`、`requestPermission()`、`summary({ days: 7 })`、`openSettings({ target: 'manage'|'install' })`。
-   - Android（`AbangHealthPlugin.java`）：`androidx.health.connect:connect-client:1.1.0`（產品負責人同意的新依賴；需要 API 26，App 仍支援 24，外掛在 26 以下回 `os`）；`aggregateGroupByPeriod` 依手機時區每天加總（Health Connect 會去除重複來源）；Kotlin suspend 函式用 `Continuation` 從 Java 呼叫。Manifest：兩個權限、`<queries>` Health Connect、權限說明畫面 `HealthRationaleActivity`（Android 13 以下 `ACTION_SHOW_PERMISSIONS_RATIONALE`、14 以上 `VIEW_PERMISSION_USAGE`＋`HEALTH_PERMISSIONS` 的 activity-alias）。Health Connect 不分「被拒」與「還沒問」：這次執行中被拒過才回 `denied`。
-   - iOS（`AbangHealthPlugin.swift`）：`HKStatisticsCollectionQuery` 每天加總；`App.entitlements`（`com.apple.developer.healthkit`）、`NSHealthShareUsageDescription`。iOS 不告訴 App 使用者有沒有允許「讀取」：問過就回 `asked`，讀不到資料時說怎麼到「健康」App 打開。
+   - Android（`AbangHealthPlugin.java`＋`HealthConnectReader.java`）：`androidx.health.connect:connect-client:1.1.0`（產品負責人同意的新依賴）。Health Connect 需要 Android 9（API 28）以上，App 仍支援 24：外掛在 28 以下回 `os`（「需要 Android 9 以上」）；**外掛類別本身不碰 java.time 與 Health Connect 的類別**（沒有 static 欄位、方法簽名也沒有），都放在只有 28 以上才會呼叫的 `HealthConnectReader`，Android 7 開 App 不會因為 Capacitor 註冊外掛時初始化類別而閃退（不開 core library desugaring）。`aggregateGroupByDuration`（Instant＋1 天）每天加總，固定以 Asia/Taipei 切日（Health Connect 會去除重複來源）；有權限時沒紀錄的那天是 0。Kotlin suspend 函式用 `Continuation` 從 Java 呼叫。Manifest：兩個權限、`<queries>` Health Connect、權限說明畫面 `HealthRationaleActivity`（Android 13 以下 `ACTION_SHOW_PERMISSIONS_RATIONALE`、14 以上 `VIEW_PERMISSION_USAGE`＋`HEALTH_PERMISSIONS` 的 activity-alias）。Health Connect 不分「被拒」與「還沒問」：這次執行中被拒過才回 `denied`。
+   - iOS（`AbangHealthPlugin.swift`）：`HKStatisticsCollectionQuery` 每天加總，固定以 Asia/Taipei 切日；`App.entitlements`（`com.apple.developer.healthkit`）、`NSHealthShareUsageDescription`。iOS 不告訴 App 使用者有沒有允許「讀取」：問過就回 `asked`，讀不到資料時說怎麼到「健康」App 打開。
    - **免費個人開發團隊**：Apple 的免費帳號（Personal Team）可能不能簽 HealthKit capability。`scripts/ios-dev-install.js` 簽章失敗且錯誤提到 HealthKit 時，改用不含 entitlement 的建置（`CODE_SIGN_ENTITLEMENTS=`、`ABANG_HEALTHKIT=NO`）；外掛讀 Info.plist 的 `AbangHealthKit` 回 `no-entitlement`，App 裡開關反白並說原因。正式上架用付費開發者帳號就有 HealthKit。
 
 ## 不採用

@@ -3267,3 +3267,48 @@ test('長對話審查：動畫開著但低階裝置（lite-motion）收合不播
     assert.equal(chat, '640px');
   });
 });
+
+test('健康與運動：沒有定位——首頁不拿台北車站備用天氣推散步；自己問也不說「天氣好」、不給公園', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.clock.setFixedTime(HEALTH_TIME);
+    await page.reload();
+    await page.waitForSelector('.now-item[data-now="weather"]');
+    assert.match(await page.textContent('.now-item[data-now="weather"]'), /台北車站附近/);
+    await page.waitForTimeout(800);
+    assert.equal(await page.locator('#move .move-card').count(), 0, '沒有定位不出現');
+    await page.goto(`${base}/#/agent?q=${encodeURIComponent('我要不要去運動')}`);
+    const say = page.locator('.bubble.health-say');
+    await say.waitFor({ timeout: 20000 });
+    const t = await say.locator('.say').textContent();
+    assert.match(t, /^今天才走 1,600 步/);
+    assert.doesNotMatch(t, /天氣好|走到/, `不拿別處的天氣：${t}`);
+    assert.equal(await say.locator('button:has-text("走到")').count(), 0);
+  }, { geo: false, init: HEALTH_ON });
+});
+
+/** 首頁＋問一次「我要不要去運動」：送到伺服器的請求（方法、路徑、參數、內容） */
+async function healthFlowRequests(on) {
+  const reqs = [];
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.clock.setFixedTime(HEALTH_TIME);
+    page.on('request', (r) => { const u = new URL(r.url()); if (u.pathname.startsWith('/api/')) reqs.push({ line: `${r.method()} ${u.pathname}${u.search}`, body: r.postData() || '' }); });
+    await page.reload();
+    await page.waitForSelector('.now-item[data-now="weather"]');
+    if (on) await page.locator('#move .move-card').waitFor({ timeout: 15000 });
+    await page.waitForTimeout(800);
+    await page.goto(`${base}/#/agent?q=${encodeURIComponent('我要不要去運動')}`);
+    await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+    if (on) await page.locator('.bubble.health-say').waitFor({ timeout: 10000 });
+    await page.waitForTimeout(800);
+  }, on ? { init: HEALTH_ON } : {});
+  return reqs;
+}
+
+test('健康與運動：隱私——打開與關掉時送到伺服器的請求（數量、順序、網址參數）一樣，內容沒有健康資料', async () => {
+  const on = await healthFlowRequests(true);
+  const off = await healthFlowRequests(false);
+  for (const r of on) assert.ok(!/health|steps|exerciseMin|步數|1,?600|動得少|二二八|walk/i.test(`${r.line} ${r.body}`), `請求沒有健康資料：${r.line} ${r.body.slice(0, 120)}`);
+  assert.deepEqual(on.map((r) => r.line), off.map((r) => r.line), '打開健康與運動不多送、不少送，網址與參數一樣');
+  const strip = (b) => b.replace(/"(?:id|ts|at|requestId)":"?[\w.:-]+"?/g, '');
+  assert.deepEqual(on.map((r) => strip(r.body)), off.map((r) => strip(r.body)), '內容也一樣');
+});

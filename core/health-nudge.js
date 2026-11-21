@@ -183,13 +183,28 @@ export function nudgeFor({ health, weather = null, air = null, pos = null, spots
     return out('wait', `${moveZh}，不過${why.map((x) => x[0]).join('、')}，可以在室內走走，或晚點、明天白天再出門。`,
       `${moveEn[0].toUpperCase()}${moveEn.slice(1)}, but ${why.map((x) => x[1]).join(' and ')}. Try walking indoors, or go out later or tomorrow during the day.`);
   }
-  const stepsZh = mv.steps != null ? `今天走了 ${fmt(mv.steps)} 步` : `這 7 天運動了 ${mv.weekMin} 分鐘`;
-  const stepsEn = mv.steps != null ? `${fmt(mv.steps)} steps today` : `${mv.weekMin} min of exercise this week`;
+  const [stepsZh, stepsEn] = progressSay(mv);
   if (wx.ok) {
     const spot = pickWalkSpot(spots, pos);
-    return out('ok', `${stepsZh}，進度不錯；天氣也好，想去就去吧${spot ? `（走到${spot.name}約 ${spot.walkMin} 分）` : ''}。`, `${stepsEn}, you're on track. The weather's nice too, so go for it${spot ? ` (${spot.en} is about a ${spot.walkMin}-min walk)` : ''}.`, spot);
+    return out('ok', `${stepsZh}；天氣也好，想去就去吧${spot ? `（走到${spot.name}約 ${spot.walkMin} 分）` : ''}。`, `${stepsEn}. The weather's nice too, so go for it${spot ? ` (${spot.en} is about a ${spot.walkMin}-min walk)` : ''}.`, spot);
   }
-  return out('ok', `${stepsZh}，進度不錯；${why.map((x) => x[0]).join('、')}，今天休息一下也沒關係。`, `${stepsEn}, you're on track. ${why.map((x) => x[1]).join(' and ').replace(/^./, (c) => c.toUpperCase())}, so taking it easy today is fine.`);
+  return out('ok', `${stepsZh}；${why.map((x) => x[0]).join('、')}，今天休息一下也沒關係。`, `${stepsEn}. ${why.map((x) => x[1]).join(' and ').replace(/^./, (c) => c.toUpperCase())}, so taking it easy today is fine.`);
+}
+
+/**
+ * 沒有「動得少」也沒達標時（只有自己問才說）：照實說進度，不一律說「進度不錯」。
+ * @returns {[string, string]} 中文、英文
+ */
+export function progressSay(mv) {
+  const ex = mv.weekMin ? [`這 7 天運動 ${mv.weekMin} 分鐘`, `${mv.weekMin} min of exercise this week`] : null;
+  if (mv.steps == null) { // 讀不到今天的步數：只看運動
+    return ex ? [`今天讀不到步數；${ex[0]}，${mv.exerciseLow ? '還沒到這週的進度' : '進度不錯'}`, `I couldn't read today's steps; ${ex[1]}, ${mv.exerciseLow ? 'a bit behind this week' : "you're on track"}`]
+      : ['今天讀不到步數', "I couldn't read today's steps"];
+  }
+  const steps = [`今天走了 ${fmt(mv.steps)} 步`, `${fmt(mv.steps)} steps today`];
+  if (mv.stepsLow && ex && !mv.exerciseLow) return [`今天走得比較少（${fmt(mv.steps)} 步），不過${ex[0]}，有跟上進度`, `Fewer steps today (${fmt(mv.steps)}), but ${ex[1]} keeps you on track`];
+  if (mv.stepsLow) return [`今天才走 ${fmt(mv.steps)} 步`, `Only ${fmt(mv.steps)} steps today`];
+  return [`${steps[0]}，進度不錯`, `${steps[1]}, you're on track`];
 }
 
 // ───── 一天提一次（手機上記：只有日期與兩個旗標，不含步數）─────
@@ -208,4 +223,6 @@ export const homeAllowed = (rec) => !rec.off;
 export const agentAllowed = (rec, asked = false) => asked || (!rec.off && !rec.agent);
 
 /** 使用者自己在問要不要去運動、散步（這句話本來就送到伺服器；判斷「要不要在手機上補一句」用） */
-export const EXERCISE_Q = /(?:要不要|適合|可以|能不能|該不該|應該|想).{0,6}(?:運動|散步|走走|慢跑|跑步|健走)|(?<!捷)(?:運動|散步|走走|慢跑|跑步|健走)(?:一下)?(?:嗎|好嗎|好不好|如何)|走了幾步|步數夠|\b(?:should i (?:go )?(?:exercise|work ?out|jog|run|walk)|go (?:for )?a (?:walk|run|jog)|my steps)\b/i;
+/** 運動、散步這類「自己去動」的詞（捷運動物園、看運動比賽、運動中心、運動公園不算） */
+const MOVE_WORD = '(?:(?<![捷看])運動(?!比賽|賽|會|節目|中心|公園|場|館|鞋|服|用品|員|品牌|新聞|彩券|物)|散步|走走|慢跑|跑步|健走)';
+export const EXERCISE_Q = new RegExp(`(?:要不要|適合|可以|能不能|該不該|應該|想)[^，。？?！!、]{0,6}?${MOVE_WORD}|${MOVE_WORD}(?:一下)?(?:嗎|好嗎|好不好|如何)|走了幾步|步數夠|\\b(?:should i (?:go )?(?:exercise|work ?out|jog|run|walk)|go (?:for )?a (?:walk|run|jog)|my steps)\\b`, 'i');

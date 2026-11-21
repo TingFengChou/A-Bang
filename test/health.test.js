@@ -3,7 +3,7 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { MOVE, GOOD, WALK, twDate, twMinutes, dayProgress, normalizeHealth, movement, weatherGood, walkSpots, pickWalkSpot, nudgeFor, dayRecord, homeAllowed, agentAllowed, EXERCISE_Q } from '../core/health-nudge.js';
+import { MOVE, GOOD, WALK, twDate, twMinutes, dayProgress, normalizeHealth, movement, weatherGood, walkSpots, pickWalkSpot, nudgeFor, dayRecord, homeAllowed, agentAllowed, EXERCISE_Q, progressSay } from '../core/health-nudge.js';
 import { apparentTemp, parseStations, buildWeather } from '../core/services/weather.js';
 import landmarks from '../core/data/landmarks.json' with { type: 'json' };
 
@@ -191,7 +191,7 @@ test('正規化：只留日期、步數、運動分鐘；最近 7 天；奇怪�
 
 test('自己問運動的句子（「捷運動物園」不算）', () => {
   for (const q of ['我要不要去運動', '適合散步嗎', '想出去走走', '今天適合慢跑嗎', 'Should I go for a walk?']) assert.ok(EXERCISE_Q.test(q), q);
-  for (const q of ['捷運動物園站怎麼去', '會下雨嗎？', '從台北車站走路到101', 'is the bus running', '運動中心怎麼去', '去運動公園的公車', '走走停停的公車', 'walk to Taipei 101']) assert.ok(!EXERCISE_Q.test(q), q);
+  for (const q of ['我想搭捷運動物園', '可以坐捷運動物園嗎', '可以去體育館看運動比賽嗎', '我想買運動鞋', '捷運動物園站怎麼去', '會下雨嗎？', '從台北車站走路到101', 'is the bus running', '運動中心怎麼去', '去運動公園的公車', '走走停停的公車', 'walk to Taipei 101']) assert.ok(!EXERCISE_Q.test(q), q);
 });
 
 // ───── public/js/health.js ─────
@@ -263,7 +263,7 @@ test('問阿幫：一天主動提一次、按「今天不用」就不提；首�
   fakeNative({ status: { available: true, permission: 'granted' }, summary: { source: 'health-connect', days: [{ date: TODAY, steps: 1500, exerciseMin: 0 }] } });
   H.setHealthEnabled(true);
   const now = at('15:00');
-  const d = { ...NICE, pos: null };
+  const d = { ...NICE, pos: { lat: 25.0478, lon: 121.517 } };
   assert.equal((await H.agentNudge(d, { asked: true }, now))?.kind, 'go', '自己問：回答');
   assert.equal(await H.agentNudge(d, {}, now + 60_000), null, '自己問過、建議過了：今天不再主動提');
   store.delete(H.HEALTH_DAY_KEY);
@@ -286,11 +286,11 @@ test('問阿幫：一天主動提一次、按「今天不用」就不提；首�
 
 test('散步建議只用你在的地方：用了手機定位，或離你 3 公里內（問高雄天氣不拿來建議）', () => {
   const taipei = { lat: 25.0478, lon: 121.517 };
-  assert.equal(H.nearMe({ lat: 22.62, lon: 120.30 }, { myPos: taipei }), false);
-  assert.equal(H.nearMe({ lat: 25.05, lon: 121.52 }, { myPos: taipei }), true);
-  assert.equal(H.nearMe({ lat: 22.62, lon: 120.30 }, { located: true }), true);
-  assert.equal(H.nearMe({ lat: 25.05, lon: 121.52 }, {}), false, '不知道你在哪：不用');
-  assert.equal(H.nearMe(null, { located: true }), false);
+  assert.equal(H.nearMe({ lat: 22.62, lon: 120.30 }, taipei), false, '問高雄天氣');
+  assert.equal(H.nearMe({ lat: 25.1677, lon: 121.4455 }, taipei), false, '定位了、但問的是淡水那邊');
+  assert.equal(H.nearMe({ lat: 25.05, lon: 121.52 }, taipei), true);
+  assert.equal(H.nearMe({ lat: 25.05, lon: 121.52 }, null), false, '不知道你在哪：不用');
+  assert.equal(H.nearMe(null, taipei), false);
 });
 
 test('這一輪的天氣空品：出門建議、現在天氣、空品；明天的天氣不算', () => {
@@ -319,4 +319,41 @@ test('健康資料不送伺服器：前端健康模組不呼叫阿幫 API；agen
     const src = await readFile(new URL(`../${f}`, import.meta.url), 'utf8');
     assert.ok(!/health|exerciseMin|步數/i.test(src), `${f} 沒有健康欄位`);
   }
+});
+
+test('沒有定位：首頁不拿台北車站備用的天氣建議散步', async () => {
+  fakeNative({ status: { available: true, permission: 'granted' }, summary: { source: 'health-connect', days: [{ date: TODAY, steps: 1500, exerciseMin: 0 }] } });
+  H.setHealthEnabled(true);
+  const now = at('15:00');
+  assert.equal(await H.homeNudge({ ...NICE, pos: null }, now), null);
+  assert.equal((await H.homeNudge({ ...NICE, pos: { lat: 25.0478, lon: 121.517 } }, now))?.kind, 'go');
+});
+
+test('進度文案照實說：步數少但運動有跟上、讀不到步數＋運動落後、步數正常', () => {
+  const now = at('22:00');
+  const ok = (h) => progressSay(movement(normalizeHealth(h, now), now))[0];
+  const ex = [['2026-11-16', 3000, 60], ['2026-11-17', 3000, 60]];
+  assert.equal(ok(days({ steps: 1000, exerciseMin: 0 }, ex)), '今天走得比較少（1,000 步），不過這 7 天運動 120 分鐘，有跟上進度');
+  assert.equal(ok(days({ steps: null, exerciseMin: 0 }, [['2026-11-20', null, 10]])), '今天讀不到步數；這 7 天運動 10 分鐘，還沒到這週的進度');
+  assert.equal(ok(days({ steps: null, exerciseMin: null })), '今天讀不到步數');
+  assert.equal(ok(days({ steps: 5000, exerciseMin: null })), '今天走了 5,000 步，進度不錯');
+  // 自己問、天氣好：不說錯「進度不錯」
+  const h = normalizeHealth(days({ steps: null, exerciseMin: 0 }, [['2026-11-20', null, 10]]), at('15:00'));
+  const n = nudgeFor({ health: h, ...NICE, asked: true }, at('15:00'));
+  assert.equal(n.kind, 'ok');
+  assert.match(n.text, /^今天讀不到步數；這 7 天運動 10 分鐘，還沒到這週的進度；天氣也好/);
+});
+
+test('Android 7 不閃退：外掛類別不碰 java.time 與 Health Connect（都在 Android 9 以上才呼叫的 HealthConnectReader）', async () => {
+  const dir = new URL('../android/app/src/main/java/tw/abang/app/', import.meta.url);
+  const plugin = await readFile(new URL('AbangHealthPlugin.java', dir), 'utf8');
+  assert.ok(!/import java\.time|import androidx\.health|import kotlin/.test(plugin), '外掛類別沒有 import java.time、Health Connect、kotlin');
+  for (const m of plugin.matchAll(/^\s*(?:private |public |protected )?static\s+(?:final\s+)?([\w<>, ?]+?)\s+\w+\s*=/gm)) assert.ok(['String', 'int'].includes(m[1]), `外掛類別的 static 欄位只有字串與整數常數：${m[0].trim()}`);
+  assert.match(plugin, /MIN_SDK = 28/);
+  assert.match(plugin, /if \(Build\.VERSION\.SDK_INT < MIN_SDK\) return "os"/);
+  const reader = await readFile(new URL('HealthConnectReader.java', dir), 'utf8');
+  for (const m of reader.matchAll(/^\s*(?:private |public |protected )?static\s+(?:final\s+)?([\w<>, ?]+?)\s+\w+\s*=/gm)) assert.equal(m[1], 'String', `讀取類別也沒有會在初始化時跑的 static 欄位：${m[0].trim()}`);
+  assert.match(reader, /ZoneId\.of\("Asia\/Taipei"\)/);
+  assert.match(reader, /aggregateGroupByDuration/);
+  assert.match(H.HEALTH_WHY.os, /Android 9 以上/);
 });
