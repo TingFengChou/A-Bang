@@ -204,3 +204,73 @@ test('m01／n02 總結：捷運兩個方向都說；附近站牌列出路線', a
   assert.match(await say('台北車站捷運下一班'), /其他方向：往/);
   assert.match(await say('附近的公車站有哪些車'), /」有 \S+/);
 });
+
+// ───── PR #127 獨立審查（3959 句對照）後的修正 ─────
+const runOne = async (content, extra = {}) => { const es = []; await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content }], ...extra }, (e) => es.push(e)); return es; };
+const textOf = (es) => es.filter((e) => e.type === 'text').map((e) => e.delta).join('');
+const used = (es, name) => es.some((e) => e.type === 'tool_start' && e.name === name);
+
+test('審查必修 1：路況不搶公車與行程；手機的判斷可以更正規則的路況', async () => {
+  for (const t of ['307 公車路況', '307 路況']) assert.deepEqual([parseIntent(t).intent, parseIntent(t).route], ['bus_route', '307'], t);
+  const tr = parseIntent('從板橋去台北車站坐公車會不會塞車');
+  assert.deepEqual([tr.intent, tr.from, tr.to, tr.mode, tr.roadAsk], ['trip', '板橋車站', '臺北車站', 'bus', true]);
+  assert.equal(parseIntent('國3路況').intent, 'traffic', '國道 3 號不是公車 3');
+  assert.equal(parseIntent('從台北去台中開車會塞嗎').intent, 'traffic', '開車還是問路況');
+  assert.ok(used(await runOne('從台北去台中開車會塞嗎', { deviceJudge: { intent: 'trip', states: [], engine: 'gemini-nano' } }), 'plan_trip'), '手機說是行程：照行程');
+  assert.ok(used(await runOne('從台北去台中開車會塞嗎', { deviceJudge: { intent: 'unknown', states: [], engine: 'gemini-nano' } }), 'traffic_status'), '手機說聽不懂不算更正');
+  const bus = await runOne('從板橋去台北車站坐公車會不會塞車');
+  assert.ok(used(bus, 'plan_trip'));
+  assert.match(textOf(bus), /市區道路塞不塞.*查不到/);
+});
+
+test('審查必修 2：帶網址的一般問題不送防詐；官方網域、有起訖、問怎麼去、提到地名都不算', async () => {
+  for (const t of ['LINE 群組說 https://forms.gle/x 今天內填寫，從板橋到西門町', '明天去高雄，車票連結 https://www.thsrc.com.tw 盡快訂', '我要立即繳費 www.etax.nat.gov.tw 怎麼去國稅局', '請立即點擊 https://www.railway.gov.tw 登入補繳']) {
+    assert.ok(!looksScamPaste(t), t);
+    assert.notEqual(parseIntent(t).intent, 'scamAsk', t);
+  }
+  assert.equal(parseIntent('LINE 群組說 https://forms.gle/x 今天內填寫，從板橋到西門町').intent, 'trip');
+  assert.ok(looksScamPaste('【台電】電費逾期未繳，今日內未處理將停電，請點擊 https://eincioiice-tw-nat-gov.com/pay'));
+  assert.ok(!looksScamPaste('請於24小時內點擊 http://x.cc/a'), '沒有金錢或冒名特徵');
+  const kept = await runOne(SCAM, { deviceJudge: { intent: 'unknown', states: [], engine: 'apple' } });
+  assert.equal(kept.find((e) => e.type === 'ask')?.options[0].action.name, 'handOff', '手機說聽不懂：照規則帶到防詐');
+  const fixed = await runOne(SCAM, { deviceJudge: { intent: 'weather', states: [], engine: 'apple' } });
+  assert.ok(!fixed.some((e) => e.type === 'ask' && e.about === 'scam:paste') || used(fixed, 'weather_now'), '手機判斷別的意圖：可以更正');
+});
+
+test('審查建議：發票號碼、單句油價、改去、捷運誤點、國道有車禍、等 N 號、市區路況、YouBike 末班、判斷層的接著問', async () => {
+  assert.deepEqual([parseIntent('12345678 有中嗎').intent, parseIntent('12345678 有中嗎').number], ['invoice', '12345678']);
+  assert.deepEqual([parseIntent('那95呢').intent, parseIntent('那95呢').grade], ['fuel', '95']);
+  assert.equal(parseIntent('那 95 呢', { history: [{ role: 'user', content: '307 到哪了' }, { role: 'assistant', content: '好' }] }).intent, 'bus_route', '前一句問公車：還是公車');
+  assert.equal(parseIntent('改去松山機常').to, '臺北松山機場');
+  assert.deepEqual([parseIntent('文湖線現在有沒有誤點').intent, parseIntent('文湖線現在有沒有誤點').line], ['metro', '文湖線']);
+  for (const t of ['國道有車禍嗎', '國道一號']) { // 判斷層有把握說路況、句子提到國道：問起訖
+    const r = parseIntent(t, { intent: 'traffic' });
+    assert.deepEqual([r.intent, r.needs], ['traffic', 'od'], t);
+  }
+  assert.equal(parseIntent('國道客運幾點', { intent: 'traffic' }), null);
+  for (const t of ['我等3號發薪再去台北101', '等 5 號再說', '我在等2號窗口']) assert.notEqual(parseIntent(t).intent, 'bus_route', t);
+  for (const t of ['我在台北車站等307', '在公車站等307']) assert.equal(parseIntent(t).route, '307', t);
+  for (const t of ['信義區車多不多', '台北市區路況如何', '淡水的路況']) {
+    const r = parseIntent(t);
+    assert.deepEqual([r.intent, r.cityOnly, r.needs], ['traffic', true, undefined], t);
+  }
+  const city = await runOne('信義區車多不多', { clientTools: ['device_location'] });
+  assert.ok(!city.some((e) => ['ask', 'client_tool_call', 'tool_start'].includes(e.type)), '不問、不定位、不亂查');
+  assert.match(textOf(city), /只有國道/);
+  assert.notEqual(parseIntent('YouBike 最後一班').intent, 'bus_route');
+  assert.deepEqual([parseIntent('坐火車去桃園').to, parseIntent('坐高鐵去桃園').to], ['桃園車站', '高鐵桃園站'], '指定系統：用那個系統的站');
+  const j = createJudge({ embed: fake({ intent: 'trip', confidence: 0.99, states: [] }) }); // 接著上一輪只有改行程才標 trip
+  assert.equal((await j('那 262 呢', ['307 到哪了'])).intent, 'bus_route');
+  assert.equal((await j('改坐公車', ['從西門町去台北101'])).intent, 'trip');
+});
+
+test('審查建議 9：英文的國道路況與起訖回答用英文句', () => {
+  const r = parseIntent('Is the freeway jammed from Taipei to Hsinchu?');
+  assert.deepEqual([r.intent, r.from, r.to, r.lang], ['traffic', '臺北車站', '新竹車站', 'en']);
+  const n = parseIntent('Is the freeway jammed?');
+  assert.deepEqual([n.intent, n.needs], ['traffic', 'od']);
+  assert.match(slotAsk(n).ask.question, /From where to where/);
+  const say = resolvePending({ slot: 'od', lang: 'en' }, 'Taipei to Hsinchu');
+  assert.match(say, /^Is the freeway jammed from .+ to .+\?$/);
+  assert.equal(parseIntent(say).intent, 'traffic');
+});

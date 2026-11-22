@@ -4282,6 +4282,273 @@
           }
         }
       ]
+    },
+    {
+      "id": "LA-25",
+      "title": "PR #127 審查：「307 公車路況」「307 路況」查 307，不是國道",
+      "turns": [
+        {
+          "say": "307 公車路況",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "toolsNot": [
+              "traffic_status"
+            ],
+            "asksNot": [
+              "從哪裡到哪裡"
+            ]
+          }
+        },
+        {
+          "say": "307 路況",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "asksNot": [
+              "從哪裡到哪裡"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-26",
+      "title": "PR #127 審查：「從板橋去台北車站坐公車會不會塞車」排行程，說市區路況查不到",
+      "here": {
+        "lat": 25.014,
+        "lon": 121.4637
+      },
+      "turns": [
+        {
+          "say": "從板橋去台北車站坐公車會不會塞車",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "板橋",
+            "to": "台北車站",
+            "textHas": [
+              "路況只有國道"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-27",
+      "title": "PR #127 審查：帶網址的一般問題不送防詐",
+      "turns": [
+        {
+          "say": "LINE 群組說 https://forms.gle/x 今天內填寫，從板橋到西門町",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "asksNot": [
+              "防詐"
+            ]
+          }
+        },
+        {
+          "say": "明天去高雄，車票連結 https://www.thsrc.com.tw 盡快訂",
+          "expect": {
+            "asksNot": [
+              "防詐"
+            ],
+            "textNot": [
+              "詐騙"
+            ]
+          }
+        },
+        {
+          "say": "我要立即繳費 www.etax.nat.gov.tw 怎麼去國稅局",
+          "expect": {
+            "asksNot": [
+              "防詐"
+            ],
+            "textNot": [
+              "詐騙"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-28",
+      "title": "PR #127 審查：「12345678 有中嗎」「那95呢」單句也聽得懂",
+      "location": false,
+      "turns": [
+        {
+          "say": "12345678 有中嗎",
+          "expect": {
+            "tools": [
+              "invoice_lottery"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-29",
+      "title": "PR #127 審查：「那95呢」單句是油價",
+      "location": false,
+      "turns": [
+        {
+          "say": "那95呢",
+          "expect": {
+            "tools": [
+              "fuel_price"
+            ],
+            "textHas": [
+              "95"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-30",
+      "title": "PR #127 審查：「文湖線現在有沒有誤點」查捷運，不是國道",
+      "turns": [
+        {
+          "say": "文湖線現在有沒有誤點",
+          "expect": {
+            "tools": [
+              "metro_live_board"
+            ],
+            "toolsNot": [
+              "traffic_status"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-31",
+      "title": "PR #127 審查：「我等3號發薪再去台北101」「等 5 號再說」「我在等2號窗口」不是公車",
+      "turns": [
+        {
+          "say": "等 5 號再說",
+          "expect": {
+            "toolsNot": [
+              "bus_route_eta"
+            ]
+          }
+        },
+        {
+          "say": "我在等2號窗口",
+          "expect": {
+            "toolsNot": [
+              "bus_route_eta"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-32",
+      "title": "PR #127 審查：「我在台北車站等307」「在公車站等307」是公車",
+      "turns": [
+        {
+          "say": "我在台北車站等307",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ]
+          }
+        },
+        {
+          "say": "在公車站等307",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-33",
+      "title": "PR #127 審查：市區路況照實說只有國道資料，不問國道起訖",
+      "turns": [
+        {
+          "say": "信義區車多不多",
+          "expect": {
+            "toolsNone": true,
+            "asksNone": true,
+            "textHas": [
+              "只有國道"
+            ]
+          }
+        },
+        {
+          "say": "台北市區路況如何",
+          "expect": {
+            "toolsNone": true,
+            "asksNone": true,
+            "textHas": [
+              "只有國道"
+            ]
+          }
+        },
+        {
+          "say": "淡水的路況",
+          "expect": {
+            "toolsNone": true,
+            "asksNone": true,
+            "textHas": [
+              "只有國道"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-34",
+      "title": "PR #127 審查：「YouBike 最後一班」不是公車末班",
+      "turns": [
+        {
+          "say": "YouBike 最後一班",
+          "expect": {
+            "toolsNot": [
+              "bus_route_eta"
+            ],
+            "asksNot": [
+              "末班車"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-35",
+      "title": "PR #127 審查：英文問國道沒有起訖，回答起訖後用英文查",
+      "turns": [
+        {
+          "say": "Is the freeway jammed?",
+          "expect": {
+            "toolsNone": true,
+            "asks": [
+              "From where to where"
+            ]
+          }
+        },
+        {
+          "say": "Taipei to Hsinchu",
+          "expect": {
+            "tools": [
+              "traffic_status"
+            ],
+            "textHas": [
+              "Freeway"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

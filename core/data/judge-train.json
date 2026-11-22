@@ -1223,6 +1223,21 @@
 "text": "開車去宜蘭現在會塞嗎",
 "intent": "traffic",
 "states": []
+},
+{
+"text": "板南線今天有延誤嗎",
+"intent": "metro",
+"states": []
+},
+{
+"text": "淡水信義線現在正常嗎",
+"intent": "metro",
+"states": []
+},
+{
+"text": "中和新蘆線是不是誤點了",
+"intent": "metro",
+"states": []
 }
 ]
 }

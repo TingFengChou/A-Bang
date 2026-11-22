@@ -6,6 +6,7 @@ const RULES = [
   [/^找「(.+)」的位置$/, (m) => `finding ${m[1]}`],
   [/^「(.+)」在哪個縣市$/, (m) => `which city ${m[1]} is in`],
   [/^看一下外面的狀況$/, () => 'checking weather, air and traffic'],
+  [/^看「(.+)」到「(.+)」沿途的國道$/, (m) => `freeway traffic from ${m[1]} to ${m[2]}`],
   [/^幫你比較幾種走法$/, () => 'comparing ways to get there'],
   [/^看一下現在的天氣$/, () => 'checking the weather now'],
   [/^看一下明天的預報$/, () => "checking tomorrow's forecast"],

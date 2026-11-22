@@ -387,7 +387,8 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
   const j = jc ? await jc.full(q0) : null;
   if (j) {
     // 出門建議是天氣＋空品的組合：判斷層說天氣或空品時保留（判斷層沒有 outing 這個意圖）；找短劇也是（判斷層沒有 drama，規則的關鍵字很明確）
-    const keep = it.followUp || it.intent === 'outing' || it.intent === 'drama' || it.also?.length || (it.intent === 'metro' && (it.station || it.system || it.last)) || it.intent === 'traffic' || (it.intent === 'bus_route' && it.last) || it.nearRail || it.thanks || it.sorry || RULE_FINAL.some((k) => it[k]) || (it.airport && j.intent === 'unknown') || !Object.hasOwn(JUDGE_INTENTS, it.intent); // 判斷層沒有的意圖（防詐請到防詐頁、代按代付、電梯）判斷層無從更正：歧義、路名、只說類別、要出門了、沒說去哪的高鐵、公車方向、問中獎——規則已經很明確 // 說了站名的捷運（「捷運西門站下一般」被判成行程，P5-5 模型模式）、去最近的火車站、禮貌話：規則已經很明確 // 判斷層常把「出門要注意什麼」判成空品或行程（設計審查實測）；一句問好幾件事以規則分段為準（P5-8）
+    const byModel = (j.source === 'device' || j.source === 'llm') && j.intent !== 'unknown'; // 模型說聽不懂不算更正
+    const keep = it.followUp || it.intent === 'outing' || it.intent === 'drama' || it.also?.length || (it.intent === 'metro' && (it.station || it.system || it.last)) || (it.intent === 'traffic' && !byModel) || (it.intent === 'bus_route' && it.last) || it.nearRail || it.thanks || it.sorry || RULE_FINAL.some((k) => it[k]) || (it.airport && j.intent === 'unknown') || (!Object.hasOwn(JUDGE_INTENTS, it.intent) && !(it.pasted && byModel)); // 路況、貼上的簡訊：模型（手機或伺服器）判斷不同時可以更正（PR #127 審查） // 判斷層沒有的意圖（防詐請到防詐頁、代按代付、電梯）判斷層無從更正：歧義、路名、只說類別、要出門了、沒說去哪的高鐵、公車方向、問中獎——規則已經很明確 // 說了站名的捷運（「捷運西門站下一般」被判成行程，P5-5 模型模式）、去最近的火車站、禮貌話：規則已經很明確 // 判斷層常把「出門要注意什麼」判成空品或行程（設計審查實測）；一句問好幾件事以規則分段為準（P5-8）
     if (j.intent !== it.intent && !keep && !it.savedTrip && it.intent !== 'savedMissing') it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent, saved: req.savedPlaces, now }) || it;
     it.states = j.states;
     const more = !req.clientToolResults?.length && moreStatesNote(q0, j);

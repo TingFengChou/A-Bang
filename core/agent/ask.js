@@ -315,8 +315,9 @@ Object.assign(PENDING_SLOTS, {
     const c = String(t || '').trim().replace(/[。！!～~.?？]+$/u, '');
     if (c.length > 30 || /[\n\r]/.test(c) || /天氣|下雨|公車|捷運|高鐵|台鐵|油價|發票|股/.test(c)) return null;
     const ps = placesInText(c);
-    if (ps.length !== 2 || !/到|→|至|去|往/.test(c)) return null;
+    if (ps.length !== 2 || !/到|→|至|去|往|\bto\b/i.test(c)) return null;
     const short = (x) => x.replace(/(?:車站|站)$/, '').replace(/^臺/, '台');
+    if (p.lang === 'en' || isEnglish(c)) return `Is the freeway jammed from ${enName(ps[0])} to ${enName(ps[1])}?`; // 英文那一輪：英文句（規則也聽得懂）
     return `${/從/.test(c) ? '從' : ''}${short(ps[0])}到${short(ps[1])}國道塞車嗎？`;
   },
   // 要去哪裡：「台北101」「去西門町」「Taipei 101」→「從起點到台北101怎麼去？」或「怎麼去台北101？」（英文那一輪用英文句）
