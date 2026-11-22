@@ -95,7 +95,7 @@ export function slotReport(it, { judged = null, lang = 'zh' } = {}) {
     ...(it?.tomorrow && { tomorrow: true }),
     ...(it?.mode && { mode: it.mode }),
   };
-  return { intent: ruleIntent, judged: judged || null, target, slots, missing, fixed, location: !!it && Object.hasOwn(INTENT_SLOTS, ruleIntent) && needsLocation(it), enough, blocked, heard };
+  return { intent: ruleIntent, judged: judged || null, target, slots, missing, fixed, location: !!it && !it.needs && Object.hasOwn(INTENT_SLOTS, ruleIntent) && needsLocation(it), ...(it?.needs && { needs: it.needs }), enough, blocked, heard };
 }
 
 /** TDX 額度用完多久內提一句「N 分鐘前曾用完額度」（只是提醒；這一輪的工具結果才知道實際是不是示範） */

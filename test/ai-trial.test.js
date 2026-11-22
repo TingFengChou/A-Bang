@@ -27,16 +27,20 @@ test('資料夠不夠：行程有目的地就夠；起點沒說用定位補、�
   assert.deepEqual(full.slots.map((s) => s.value), ['板橋車站', '臺北車站', '明天 08:00 出發']);
 });
 
-test('資料夠不夠：規則聽不懂、判斷層說查公車 → 照查公車列欄位，缺路線；這一輪仍當聽不懂', () => {
-  const r = slotReport(it('公車還要多久？'), { judged: 'bus_route' });
-  assert.equal(r.intent, 'unknown');
-  assert.equal(r.target, 'bus_route');
+test('資料夠不夠：問公車沒說哪一路 → 缺路線（needs route）；規則聽不懂、判斷層說查公車 → 照查公車列欄位', () => {
+  const r = slotReport(it('公車還要多久？'));
+  assert.deepEqual([r.intent, r.target, r.needs, r.enough, r.location], ['bus_route', 'bus_route', 'route', false, false]);
   assert.deepEqual(r.missing, ['route']);
-  assert.equal(r.enough, false);
-  const none = slotReport(it('公車還要多久？'));
+  const judgedOnly = slotReport({ intent: 'unknown', places: [], states: [] }, { judged: 'bus_route' });
+  assert.equal(judgedOnly.target, 'bus_route');
+  assert.deepEqual(judgedOnly.missing, ['route']);
+  const none = slotReport({ intent: 'unknown', places: [], states: [] });
   assert.equal(none.target, 'unknown');
   assert.deepEqual(none.slots, []);
   assert.equal(none.enough, false);
+  const origin = slotReport(it('從台北車站出發'));
+  assert.deepEqual([origin.intent, origin.needs, origin.missing], ['trip', 'to', ['to']]);
+  assert.equal(origin.slots.find((x) => x.key === 'from').value, '臺北車站', '只說起點：那是起點');
 });
 
 test('資料夠不夠：固定說明（防詐）算夠；後天天氣、投資建議擋下；常用地點沒設定不夠', () => {
@@ -101,14 +105,14 @@ const run = async (body) => { const ev = []; await runDemo(svc, body, (e) => ev.
 const ask = (q, extra = {}) => ({ messages: [{ role: 'user', content: q }], clientTools: ['device_location'], clientCaps: { edgeWrite: true, trial: true }, ...extra });
 
 test('trial 事件：判斷完、請定位前送一次；帶定位結果的重送不再送；回答仍是 answer_draft（不呼叫模型）', async () => {
-  const first = await run(ask('我快遲到了，怎麼去台北車站'));
+  const first = await run(ask('我快遲到了，怎麼去台北101'));
   const types = first.map((e) => e.type);
   assert.ok(types.indexOf('trial') > types.indexOf('status') && types.indexOf('trial') < types.indexOf('client_tool_call'), types.join());
   const tr = first.find((e) => e.type === 'trial');
   assert.equal(tr.enough, true);
   assert.equal(tr.location, true);
   assert.equal(tr.judge.source, 'rules');
-  const again = await run(ask('我快遲到了，怎麼去台北車站', { clientToolResults: [{ id: 'loc1', ok: false }] }));
+  const again = await run(ask('我快遲到了，怎麼去台北101', { clientToolResults: [{ id: 'loc1', ok: false }] }));
   assert.equal(again.filter((e) => e.type === 'trial').length, 0);
   assert.match(again.find((e) => e.type === 'answer_draft').text, /沒拿到你的位置/);
   assert.equal(again.filter((e) => e.type === 'text').length, 0);
@@ -201,27 +205,34 @@ test('runTrial（手機）：手機判斷帶給伺服器；改寫通過與沒通
   const bodies = [];
   const deps = (writeKind) => ({
     device: { active: true, engine: 'gemini-nano', write: true },
-    judge: async () => ({ intent: 'bus_route', states: [], engine: 'gemini-nano' }),
+    judge: async (q) => ({ intent: /公車/.test(q) ? 'bus_route' : 'trip', states: [], engine: 'gemini-nano' }),
     judgeMs: () => 300,
     agent: fakeAgent(bodies),
     write: async (d) => (writeKind === 'ok' ? { by: 'edge', text: `報你知，${d.text}`, engine: 'gemini-nano', ms: 400 } : { by: 'program', reason: 'check', detail: 'number', why: '9 分', candidate: '亂寫 9 分', engine: 'gemini-nano', ms: 380 }),
     suggest: (o) => trialSuggest({ ...o, canEdge: () => true, edgeSuggest: async () => ({ asks: ['307 公車還要多久？', '明天會下雨嗎？', '從台北車站到台北101怎麼去？'], engine: 'gemini-nano' }),
       check: async (asks) => asks.map((q) => ({ q, ok: true, ask: parseIntent(q, {}) })) }),
   });
-  const ok = await runTrial('公車還要多久？', deps('ok'));
+  const ok = await runTrial('我快遲到了，怎麼去台北101', deps('ok'));
   const S = ok.sections;
   assert.deepEqual([S.judge.by, S.judge.ms, S.judge.network], ['device', 300, false]);
   assert.equal(S.judge.server.source, 'device', '伺服器採用了手機的判斷');
-  assert.deepEqual(bodies[0].deviceJudge, { intent: 'bus_route', states: [], engine: 'gemini-nano' });
+  assert.deepEqual(bodies[0].deviceJudge, { intent: 'trip', states: [], engine: 'gemini-nano' });
   assert.deepEqual(bodies[0].clientCaps, { edgeWrite: true, trial: true, engine: 'gemini-nano' });
-  assert.deepEqual(S.data.missing, ['route']);
-  assert.equal(S.next.ask.about, 'unknown', '資料不夠：阿幫問你（聽不懂時給查得到的選項）');
+  assert.equal(S.data.enough, true);
+  assert.equal(S.answer.askedLocation, true);
   assert.equal(S.answer.rewrite.ok, true);
   assert.equal(S.answer.final, S.answer.rewrite.text);
   assert.equal(S.next.suggest.source, 'edge');
-  assert.ok(S.next.suggest.asks.every((a) => a.src === 'edge'));
+  assert.equal(S.next.suggest.asks[0].src, 'edge', '手機猜的在前（不足 3 句時規則補在後面）');
   assert.equal(S.next.network, true);
-  const bad = await runTrial('公車還要多久？', deps('bad'));
+  // 資料不夠：缺路線 → 第 4 段是「哪一路公車？」，伺服器直接給固定的一句（不交給手機改寫）
+  const bus = await runTrial('公車還要多久？', deps('ok'));
+  assert.deepEqual(bus.sections.data.missing, ['route']);
+  assert.deepEqual([bus.sections.next.ask.about, bus.sections.next.ask.question], ['slot:route', '哪一路公車？']);
+  assert.equal(bus.sections.answer.direct, true);
+  assert.deepEqual(bus.sections.answer.rewrite, { by: 'none', reason: 'direct' });
+  assert.equal(bus.sections.answer.tools.length, 0, '缺路線：不查資料');
+  const bad = await runTrial('我快遲到了，怎麼去台北101', deps('bad'));
   assert.deepEqual([bad.sections.answer.rewrite.ok, bad.sections.answer.rewrite.check, bad.sections.answer.rewrite.text], [false, 'number', '亂寫 9 分']);
   assert.equal(bad.sections.answer.final, bad.sections.answer.draft, '沒通過：最後顯示程式版');
 });

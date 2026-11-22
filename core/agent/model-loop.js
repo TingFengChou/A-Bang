@@ -7,6 +7,7 @@ import { buildSystemPrompt } from './prompt.js';
 import { ev } from './events.js';
 import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hideToolNames, judgeInfo, runDemo, asideState, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
 import { judgeNote, outingNote, moreStatesNote } from './impact.js';
+import { slotAsk } from './ask.js';
 import { lineCode } from '../tools/metro.js';
 import { normName, nowTW } from '../util.js';
 import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, demoSummary, isEnglish, nightNote, rainAsked } from './demo-intent.js';
@@ -280,6 +281,9 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     emit(ev.done());
     return;
   }
+  // 缺必要欄位（哪一路公車、要去哪裡）：程式問一句，不交給模型猜（ADR-0016，與示範模式相同）
+  const gap = profile.id === 'life' && slotAsk(rulesIt, { lang: rulesIt.lang, history: req.messages.slice(0, -1) });
+  if (gap) { emit(ev.ask({ id: 'ask-m1', ...gap.ask })); emit(ev.text(gap.short)); emit(ev.done()); return; }
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
   const heard = !req.clientToolResults?.length && (contextNote(rulesIt) || (rulesIt.intent === 'outing' ? outingNote([...(rulesIt.states || []), ...(q0?.states || [])]) : q0 && judgeNote(q0)));
   if (heard && rulesIt.lang !== 'en') emit(ev.agentNote(heard)); // 「聽懂了」是中文：英文提問不說
