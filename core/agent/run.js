@@ -72,6 +72,8 @@ export const USUAL_STATES = ['rush', 'luggage', 'lessWalk'];
 export const MAX_MESSAGES = 10;
 export const MAX_CHARS = 500;
 export const MAX_TOOL_ROUNDS = 5;
+/** 輔助資料（決策的參考，不是答案本身）：失敗時照樣往下一步，plan_trip 自己也會照實說哪項資料沒拿到 */
+export const AUX_TOOLS = new Set(['weather_now', 'weather_tomorrow', 'aqi_nearby', 'traffic_status']);
 /** 裝置定位的 client tool 呼叫 id（客戶端回傳 clientToolResults 時用同一個 id） */
 export const LOCATION_CALL_ID = 'loc1';
 export const MY_LOCATION = '你的位置';
@@ -405,7 +407,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
       if (o.ok) (results[o.name] ||= []).push(o.result);
       if (o.followUp) { used.push('bus_route_eta'); (results.bus_route_eta ||= []).push(o.followUp); }
     }
-    if (out.some((o) => !o.ok)) break; // 有一步失敗就不往下，總結會說明
+    if (out.some((o) => !o.ok && !AUX_TOOLS.has(o.name))) break; // 主要的一步失敗就不往下，總結會說明；天氣、空品、路況是輔助資料，失敗照樣往下（三峽→台北101 路況 404 時不能因此不排行程）
   }
   if (used.length) emit(ev.discussionEnd({ tools: [...new Set(used)] }));
   if (cl?.after) { const r = cl.after(results); if (r) sayAsk(r); } // 先查並問：查完才問（選項第一個是剛剛用的那個）
