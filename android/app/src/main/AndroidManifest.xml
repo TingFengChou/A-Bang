@@ -40,6 +40,9 @@
 
         </activity>
 
+        <!-- 到站提醒常駐服務：App 關著也每 20 秒查真實到站時間，通知列常駐、到點響鈴（AbangWatchService） -->
+        <service android:name=".AbangWatchService" android:exported="false" android:foregroundServiceType="dataSync" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -54,6 +57,9 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- ADR-0013：起點預設是現在位置（問阿幫）；只在 App 使用中定位 -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
