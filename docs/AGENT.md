@@ -323,8 +323,8 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 - **一次呼叫**：手機 judge 同時回 `{ intent, states, ask? }`；指示 `EDGE_JUDGE_INSTRUCTIONS`＝判斷指示＋`EDGE_ASK_GUIDE`（`core/edge-ask.js`：可以問的種類 route／to／from／state、各意圖必要的欄位〔`INTENT_SLOTS`，與試判斷共用〕、寧可不問、題目不要有數字、選項是使用者會點的短答）。
 - **情境**（`public/js/edge-judge.js judgeContext`，只在手機上組、只給手機上的模型看，不送伺服器，最多 400 字）：有沒有定位（`locationGranted`）、常用地點的標籤、上一輪問過哪一題（`ask.about`）、最近兩輪摘要與目前頁面（同 §5.5 `contextText`）。不含座標、地址、健康資料。試判斷一律「沒有定位」。
-- **手機上**：`normalizeJudge` 配對大括號解析巢狀 JSON；`judgeAsk` 整理＋`edgeAskShape` 形狀檢查（種類、狀態、長度〔中文 30／12 字，英文 60／24 字元〕、問句、沒有數字、選項 2～4 個不重複、`unsafeAsk`、L2 輸出護欄、代辦說法、語言、狀態題一肯定一否定）＋剛問過的不再問；不過就只拿掉 `ask`（判斷照送）。解析失敗當作沒有 ask，不跳斷路器。
-- **伺服器**：zod 嚴格收 `deviceJudge.ask`；`deviceAskTracker` 再跑一次形狀檢查；`deviceSlotAsk`（route／to／from：規則的 `slotAsk`／`originAsk` 也認為缺，選項經 `PENDING_SLOTS` 接回完整的一句，家／公司／學校帶 `saved`）、`deviceStateAsk`（`tripAsk` 最前面：沒說狀況、沒指定方式，`keyQuestion(..., [state])` 只試那個狀態會換建議；`why` 放程式算的數字、`key` 照舊）。通過就用手機的題目與選項文字，否則照規則；與規則衝突時以手機為準；手機沒給但規則要問照規則（保底）。`ask.askSource`、最後 `done.askCheck`；log 只記 `ask`／`deviceAsk` 代碼。
+- **手機上**：`normalizeJudge` 配對大括號解析巢狀 JSON（被截斷時用 regex 撈回意圖與狀態，只丟 ask）；`judgeAsk` 整理＋`edgeAskShape` 形狀檢查（種類、狀態、控制與格式字元、長度〔中文 30／12 字，英文 60／24 字元〕、只能一句的問句、要切題、沒有數字〔含國字、圈圈數字〕、選項 2～4 個不重複、NFKC＋去空白後的 `unsafeAsk` 與誘導字、L2 輸出護欄、代辦說法、語言、狀態題要問對狀態不反著問）＋剛問過的不再問；不過就只拿掉 `ask`（判斷照送）。
+- **伺服器**：zod 嚴格收 `deviceJudge.ask`（沒有控制與格式字元）；`deviceAskTracker` 再跑一次形狀檢查＋防詐規則庫；`deviceSlotAsk`（route／to／from：規則的 `slotAsk`／`originAsk` 也認為缺；選項只收前文或請求 `context` 出現過的地名〔整個選項就是那個地名、不是另一端〕與路線號碼、家／公司／學校〔帶 `saved`〕、附近公車、用我的位置，經 `PENDING_SLOTS` 接回完整的一句）、`deviceStateAsk`（只取代關鍵因子：習慣確認、說過的預設狀況優先〔同一個狀態時用手機的題目、選項照程式〕；沒說狀況、沒指定方式，`keyQuestion(..., [state])` 只試那個狀態會換建議；選項一律 `STATE_ANSWERS`、`why` 放程式算的數字、`key` 照舊）。通過就用手機的題目文字（缺欄位題也用手機的選項文字），否則照規則；手機沒給但規則要問照規則（保底）。`ask.askSource`、最後 `done.askCheck`；log 只記 `ask`／`deviceAsk` 代碼。
 - 網頁版、手機 AI 不可用或關掉、舊版外掛：完全照規則（行為不變）。
 
 ### 5.4 短劇（MyDrama，ADR-0019，2026-11-22；示範與模型模式相同）

@@ -85,10 +85,10 @@ const RequestSchema = z.object({
     from: z.string().trim().min(1).max(40).regex(/^[^\n\r]+$/).optional(), to: z.string().trim().min(1).max(40).regex(/^[^\n\r]+$/).optional(), lang: z.enum(['en']).optional() }).optional(),
   savedPlaces: z.partialRecord(z.enum(['家', '公司', '學校']), z.object({ name: z.string().trim().min(1).max(40), lat: z.number().min(21).max(27), lon: z.number().min(118).max(123) })).optional(),
   // 手機上的模型先判斷好的意圖與狀態（ADR-0014）：只是提示，列舉值以外一律拒絕；方案排序仍由 decide.js 計分
-  // ask：手機上的 AI 提議先問使用者的一題（ADR-0020）：只收形狀對的（種類、狀態列舉、長度、選項數），內容另外由程式驗證，不通過就照規則問
+  // ask：手機上的 AI 提議先問使用者的一題（ADR-0020）：只收形狀對的（種類、狀態列舉、長度、選項數、沒有控制與格式字元〔零寬、雙向控制〕），內容另外由程式驗證，不通過就照規則問
   deviceJudge: z.object({ intent: z.enum(Object.keys(JUDGE_INTENTS)), states: z.array(z.enum(JUDGE_STATES)).max(JUDGE_STATES.length), engine: z.enum(DEVICE_ENGINES),
-    ask: z.object({ slot: z.enum(EDGE_ASK_SLOTS), state: z.enum(EDGE_ASK_STATES).optional(), question: z.string().trim().min(2).max(EDGE_ASK_LIMITS.questionEn).regex(/^[^\n\r]+$/), // 中文 30、英文 60（core/edge-ask.js 依語言再檢查）
-      options: z.array(z.string().trim().min(1).max(EDGE_ASK_LIMITS.optionEn).regex(/^[^\n\r]+$/)).min(EDGE_ASK_LIMITS.min).max(EDGE_ASK_LIMITS.max) }).strict().optional() }).optional(),
+    ask: z.object({ slot: z.enum(EDGE_ASK_SLOTS), state: z.enum(EDGE_ASK_STATES).optional(), question: z.string().trim().min(2).max(EDGE_ASK_LIMITS.questionEn).regex(/^[^\p{Cc}\p{Cf}]+$/u), // 中文 30、英文 60（core/edge-ask.js 依語言再檢查）
+      options: z.array(z.string().trim().min(1).max(EDGE_ASK_LIMITS.optionEn).regex(/^[^\p{Cc}\p{Cf}]+$/u)).min(EDGE_ASK_LIMITS.min).max(EDGE_ASK_LIMITS.max) }).strict().nullish() }).optional(), // null＝沒有要問
   // 手機能自己寫回答（ADR-0017）：伺服器不呼叫模型，送程式版總結（answer_draft）由手機改寫
   // trial：「阿幫的腦袋」的現場試判斷（#/ai）：同樣走 edge 模式（不呼叫任何伺服器模型），另外送 trial 事件（資料夠不夠、資料來源）；
   // 網頁版沒有手機上的模型，所以 trial 時 engine 可以不帶（一般請求一定要帶）
@@ -304,7 +304,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
   const askGap = (judged) => {
     const rule = profile.id === 'life' && slotAsk(it, { lang: it.lang, history: req.messages.slice(0, -1) });
     if (!rule) return false;
-    const g = deviceSlotAsk(dask, rule.ask.about.replace(/^slot:/, ''), rule) || rule; // 手機的題目通過驗證就用它，否則照規則（保底）
+    const g = deviceSlotAsk(dask, rule.ask.about.replace(/^slot:/, ''), rule, { history: req.messages.slice(0, -1), context: req.context }) || rule; // 手機的題目通過驗證就用它，否則照規則（保底）
     if (trial && !trialSent) { trialSent = true; emit(ev.trial(trialInfo(svc, it, { judge: judged, lang: it.lang === 'en' ? 'en' : 'zh', now }))); }
     emit(ev.ask({ id: `ask-${nextId()}`, ...g.ask })); emit(ev.text(g.short)); emit(ev.done());
     return true;
@@ -338,7 +338,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
   if (profile.id === 'life' && it.intent === 'trip' && !it.from && !it.fromSaved && !it.fromPoint && (it.nearRail || nearDefaultFrom(it.toSaved || it.to))) {
     const again = ORIGIN_ASKED.test(String(req.messages.slice(0, -1).filter((m) => m.role === 'assistant').at(-1)?.content || ''));
     const rule = originAsk(it.nearRail ? null : it.toSaved?.name || it.to, it.lang, { again, nearRail: it.nearRail });
-    const o = deviceSlotAsk(dask, 'from', rule, { again }) || rule;
+    const o = deviceSlotAsk(dask, 'from', rule, { again, history: req.messages.slice(0, -1), context: req.context }) || rule;
     if (o.ask) emit(ev.ask({ id: `ask-${nextId()}`, ...o.ask }));
     emit(ev.text(o.short)); emit(ev.done()); return;
   }

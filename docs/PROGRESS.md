@@ -17,6 +17,7 @@
 - 做了：產品負責人「決定要問什麼應該交給 edge AI」。手機 judge（AbangEdgeAI，Gemini Nano／Apple Intelligence）一次呼叫回 `{ intent, states, ask? }`，ask＝`{ slot: route|to|from|state, state?, question, options[2～4] }`；情境（定位、常用地點標籤、上一輪問過的題、最近兩輪摘要、頁面）只在手機上組。程式驗證：`core/edge-ask.js edgeAskShape`（手機與伺服器共用，經 `/core/` 提供：種類、長度、問句、沒有數字、選項數與重複、`unsafeAsk`、L2 護欄、代辦說法、語言、狀態題一肯定一否定）＋伺服器 `deviceSlotAsk`／`deviceStateAsk`（規則也認為缺、選項經 `PENDING_SLOTS` 接得回、`keyQuestion` 只試那個狀態會換建議）。通過就用手機的題目與選項（說明、pending、key、這一輪的一句回答仍由程式），與規則衝突以手機為準，手機沒給照規則保底；網頁版不變。`ask.askSource`、最後 `done.askCheck`、log `ask`／`deviceAsk`（不記題目）。試判斷第 4 段標來源、列被擋的題目與原因。Android JSON（輸出 160 token、帶情境）、iOS `@Generable EdgeAsk`。sw `v1.2.0`。
 - 測試：npm test 全過（新增 `test/edge-ask.test.js` 16 項：形狀、整理、巢狀 JSON、指示與情境、請求驗證、採用、寧可不問、衝突順序、英文、模型與 edge 模式、log、試判斷；#115 情境 AR-*／AS-* 用假外掛「合理」「亂來」各跑一遍）；E2E 新增 2 項（手機題目、退回規則、網頁版不變、試判斷來源，截圖 `phone-edge-ask*.png`）；Android assembleDebug、iOS xcodebuild（不簽署）通過
 - 文件：ADR-0020（新）、ADR-0016、AGENT.md §3、§3.1、§3.6、§5.3.1、UX.md §5.0.1、PLAN.md
+- PR #116 獨立審查修正（沒有手機題目時與 main 一致，2229 組對照）：①狀態題題目要問對狀態（`stateQuestionOk`：有那個狀態的字、沒有別的狀態、不反著問、不改問交通方式），選項一律用程式的 `STATE_ANSWERS`；②誘導繞過：NFKC、去掉格式字元與空白後再比 `unsafeAsk`、誘導字、連續數字（國字、圈圈數字）、L2 護欄，伺服器加跑防詐規則庫，題目只能一句、要切題，選項要整個就是地名；③控制與格式字元 zod 400、手機先擋；建議：選項只收前文與情境出現過的地名與路線、起點不能當目的地、指示不放具體例子；Android 截斷撈回判斷只丟 ask；習慣確認與說過的預設狀況優先（手機狀態題只取代關鍵因子）。單元測試 +6、E2E 假外掛加上這些亂來的情況。
 - 下一個：實機確認出題品質與延遲（Pixel、iPhone）
 - 卡住：實機數據需 Pixel 與 iPhone 15 Pro 以上
 

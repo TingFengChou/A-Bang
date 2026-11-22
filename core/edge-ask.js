@@ -40,35 +40,61 @@ export const EDGE_ASK_STATES = [...ASK_STATES];
 /** 問題最多 30 字；選項 2～4 個、每個最多 12 字（沒有中文的英文字串放寬成 60／24 個字元：「Where are you starting from?」「Use my location」） */
 export const EDGE_ASK_LIMITS = { question: 30, option: 12, questionEn: 60, optionEn: 24, min: 2, max: 4 };
 /** 手機提議的題目被擋下的原因（畫面「阿幫的腦袋」用字典照列） */
-export const EDGE_ASK_REASONS = ['shape', 'slot', 'state', 'question-length', 'question-form', 'digits', 'options-count', 'option-length', 'duplicate', 'unsafe', 'guard', 'claim', 'lang', 'option', 'asked', 'not-missing', 'no-change', 'said', 'no-trip', 'taken'];
+export const EDGE_ASK_REASONS = ['shape', 'slot', 'state', 'question-length', 'question-form', 'digits', 'options-count', 'option-length', 'duplicate', 'unsafe', 'guard', 'claim', 'lang', 'off-topic', 'option', 'asked', 'not-missing', 'no-change', 'said', 'no-trip', 'taken'];
 
 /** 給手機模型的出題規則（接在 EDGE_INSTRUCTIONS 後面；短：手機模型上下文小、要快） */
 export const EDGE_ASK_GUIDE = `另外決定要不要先問使用者一題（ask）。寧可不問：句子資料夠就 ask 留空。
 只有這幾種可以問（slot）：route＝問公車到站但沒說哪一路；to＝行程或高鐵台鐵沒說要去哪裡（只說起點也算）；from＝情境說沒有定位、也沒說從哪裡出發；state＝行程沒說狀況，而答案會改變建議（state 只能是 rush 趕時間、luggage 帶行李、budget 想省錢、lessWalk 少走路）。
 各意圖必要的欄位：trip 要 to；bus_route 要 route；rail 要 to；其他意圖不用問。使用者說過的、剛問過的不要再問。
-question：一句 30 字內的問句，不要有數字。options：2～4 個 12 字內的短答，要是使用者會點的答案：路線號碼（307）、地名（台北101）、回家、去公司、用我的位置；state 一個肯定一個否定（趕／不趕）。
+question：一句 30 字內的問句，只問這一件事，不要有數字；state 要直接問那個狀況（例：你趕時間嗎？），不要反著問。options：2～4 個 12 字內的短答，要是使用者會點的答案：前文或情境出現過的路線號碼與地名、回家、去公司、用我的位置、附近公車；不要自己編。
 英文提問就用英文出題。`;
 
 const CJK = /[㐀-鿿豈-﫿]/;
 const NL = /[\n\r]/;
 /** 這段字的長度上限：有中文照中文算，沒有中文（英文）放寬 */
 export const askMax = (text, kind = 'question') => (CJK.test(String(text || '')) ? EDGE_ASK_LIMITS[kind] : EDGE_ASK_LIMITS[`${kind}En`]);
-/** 狀態類的答案：否定（不趕、沒有、不用、No）與肯定（好、趕、有、想省錢、Yes） */
-const NO_RE = /^(?:不|沒|免|別|算了|no\b|not\b|nope|nah)|不用|不要|沒有|不需要|這次沒|no need|not this time|no rush/i;
-const YES_RE = /^(?:好|要|是|對|有|趕|想|急|嗯|ok|okay|yes|yeah|yep|sure)/i;
-const STATE_WORDS = { rush: /趕|急|遲到|hurry|rush|late/i, luggage: /行李|東西|大包|包包|推車|luggage|bag/i, budget: /省|便宜|cheap|save|budget/i, lessWalk: /少走|走路|腳|walk/i };
+/** 控制字元與格式字元（零寬、雙向控制、\u0000、\u0007…）：題目與選項一律不收（伺服器 zod 也擋） */
+export const HIDDEN_CHARS = /[\p{Cc}\p{Cf}]/u;
+/** 比對前先正規化：NFKC（全形、相容字）、去掉控制與格式字元；squash 另外去掉空白（「加 L I N E」「先匯 款」） */
+export const askNorm = (t, squash = false) => {
+  const n = String(t || '').normalize('NFKC').replace(/[\p{Cc}\p{Cf}]/gu, '');
+  return squash ? n.replace(/\s+/g, '') : n;
+};
+/** 題目與選項不該出現的話（手機出題只問路線、目的地、起點、狀況；這些是誘導或離題，PR #116 審查） */
+const ASK_BLOCK = /加賴|賴我|line|紅包|點數|禮物卡|禮券|身分證|密碼|驗證碼|信用卡|卡號|提款|客服|中獎|領獎|抽獎|投資|股票|股價|獲利|穩賺|匯|轉帳|帳號|帳戶|個資|instagram|telegram|whatsapp|wechat|giftcard|bitcoin|crypto|password|verify|login|otp/i;
+const ASK_BLOCK_WORDS = /\b(?:ig|dm|pm me|gift cards?|send money|pay)\b/i;
+/** 連續 6 個以上的數字（含全形、圈圈數字、國字）：電話、帳號 */
+const NUM_RUN = /[0-9零〇一二三四五六七八九壹貳參肆伍陸柒捌玖❶-❿①-⑳⑴-⒇⓪-⓿➀-➓]{6,}/;
+/** 題目裡的數量（「省五十元」「快十分」）：還沒查資料，一定是編的 */
+const NUM_IN_Q = /[0-9❶-❿①-⑳⑴-⒇⓪-⓿➀-➓]|[零〇一二兩三四五六七八九十百千]+\s*(?:元|塊|分鐘|分|公里|小時|站|班)/;
+/** 誘導內容（手機與伺服器共用；伺服器另外加跑防詐規則庫）：原字與正規化後都比 */
+export function askUnsafe(text) {
+  const a = askNorm(text), b = askNorm(text, true);
+  return unsafeAsk(text) || unsafeAsk(a) || unsafeAsk(b) || ASK_BLOCK.test(b) || ASK_BLOCK_WORDS.test(a) || NUM_RUN.test(b);
+}
+
+/** 每一種題目要切題（route 問哪一路、to 問去哪、from 問從哪出發） */
+const TOPIC = { route: /哪|路|公車|bus|route|which/i, to: /哪|去|where/i, from: /哪|出發|from|where/i };
+/** 狀態題要問到那個狀態（題目要有這些字） */
+const STATE_WORDS = { rush: /趕|急|遲到|hurry|rush|late/i, luggage: /行李|大包小包|東西|推車|luggage|bags?\b/i, budget: /省錢|便宜|省一點|cheap|save money|budget/i, lessWalk: /少走|走路|走太多|walk/i };
+/** 狀態題不能反著問（「不趕吧？」「東西很少吧？」「Not in a hurry, right?」）或改問交通方式（「要不要坐捷運」） */
+const STATE_NEG = /不趕|不急|不想|不用|不要|不需|不必|沒有|沒帶|很少|還好|吧|right\s*\?|\bnot\b|n't\b|\bno\b|\bnever\b/i;
+const STATE_MODE = /捷運|公車|客運|叫車|計程車|uber|taxi|高鐵|台鐵|臺鐵|火車|youbike|坐|搭|騎|mrt|\bbus\b|train|\bride\b|\bcab\b/i;
+/** 題目只能一句：句末一個問號（或「嗎／呢」結尾），中間不能有其他句末標點 */
+const oneSentence = (q) => {
+  const body = q.replace(/[?？]\s*$/, '');
+  return !/[?？!！。.;；…]/.test(body) && (q.match(/[嗎呢]/g) || []).length <= 1;
+};
 
 /**
- * 狀態類選項是肯定還是否定（「不想走路」對少走路是肯定）。
- * @returns {'yes'|'no'|null}
+ * 狀態題的題目對不對（題目要有那個狀態的字、不能有別的狀態的字、不能反著問、不能改問交通方式）。
+ * 選項一律用程式的（core/agent/ask.js STATE_ANSWERS），不看手機給的選項。
  */
-export function stateAnswer(label, state) {
-  const t = String(label || '').trim();
-  if (!t) return null;
-  if (state === 'lessWalk' && /不想走|想少走|少走/.test(t)) return 'yes';
-  if (NO_RE.test(t)) return 'no';
-  if (YES_RE.test(t) || STATE_WORDS[state]?.test(t)) return 'yes';
-  return null;
+export function stateQuestionOk(question, state) {
+  const q = askNorm(question);
+  if (!STATE_WORDS[state]?.test(q)) return false;
+  if (Object.entries(STATE_WORDS).some(([k, re]) => k !== state && re.test(q) && !(state === 'lessWalk' && k === 'luggage' && !/行李|大包|推車|luggage|bag/i.test(q)))) return false;
+  return !STATE_NEG.test(q) && !STATE_MODE.test(q);
 }
 
 /**
@@ -104,26 +130,24 @@ export function edgeAskShape(ask, { lang = null } = {}) {
   if (!ask || typeof ask !== 'object' || typeof ask.question !== 'string' || !Array.isArray(ask.options)) return 'shape';
   if (!EDGE_ASK_SLOTS.includes(ask.slot)) return 'slot';
   if (ask.slot === 'state' && !EDGE_ASK_STATES.includes(ask.state)) return 'state';
+  if (ask.options.some((o) => typeof o !== 'string')) return 'shape';
+  const all = [ask.question, ...ask.options];
+  if (all.some((t) => HIDDEN_CHARS.test(t) || NL.test(t) || /[<>{}[\]`*|\\]/.test(t))) return 'shape'; // 零寬、雙向控制、\u0000 一律不收
   const q = ask.question.trim();
   if (q.length < 2 || q.length > askMax(q)) return 'question-length';
   if (ask.options.length < L.min || ask.options.length > L.max) return 'options-count';
-  if (ask.options.some((o) => typeof o !== 'string' || !o.trim() || o.trim().length > askMax(o, 'option'))) return 'option-length';
-  const all = [q, ...ask.options];
-  if (all.some((t) => NL.test(t) || /[<>{}[\]`*|\\]/.test(t))) return 'shape';
+  if (ask.options.some((o) => !o.trim() || o.trim().length > askMax(o, 'option'))) return 'option-length';
   if (!/[?？]\s*$|嗎|呢/.test(q)) return 'question-form';
-  if (/[0-9０-９]/.test(q)) return 'digits'; // 手機在查資料之前出題：題目裡的數字一定是編的（ADR-0009）
-  const seen = new Set(ask.options.map((o) => o.trim().replace(/臺/g, '台').replace(/\s+/g, '').toLowerCase()));
+  if (NUM_IN_Q.test(askNorm(q, true))) return 'digits'; // 手機在查資料之前出題：題目裡的數字一定是編的（ADR-0009）
+  const seen = new Set(ask.options.map((o) => askNorm(o, true).replace(/臺/g, '台').toLowerCase()));
   if (seen.size !== ask.options.length) return 'duplicate';
-  if (all.some((t) => unsafeAsk(t))) return 'unsafe';
-  if (all.some((t) => guardHit(t))) return 'guard';
-  if (all.some((t) => claimsDone(t))) return 'claim';
+  if (all.some((t) => askUnsafe(t))) return 'unsafe';
+  if (all.some((t) => guardHit(askNorm(t)) || guardHit(askNorm(t, true)))) return 'guard';
+  if (all.some((t) => claimsDone(askNorm(t)))) return 'claim';
   if (lang === 'en' && CJK.test(q)) return 'lang';
   if (lang === 'zh' && !CJK.test(q)) return 'lang';
-  if (ask.slot === 'state') {
-    if (ask.options.length !== 2) return 'option';
-    const kinds = ask.options.map((o) => stateAnswer(o, ask.state)).sort();
-    if (kinds[0] !== 'no' || kinds[1] !== 'yes') return 'option';
-  }
+  if (!oneSentence(askNorm(q).trim())) return 'off-topic'; // 只能一句（「要去哪裡？先加賴領紅包嗎？」）
+  if (ask.slot === 'state' ? !stateQuestionOk(q, ask.state) : !TOPIC[ask.slot].test(askNorm(q))) return 'off-topic';
   return null;
 }
 

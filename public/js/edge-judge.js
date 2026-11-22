@@ -94,6 +94,17 @@ function firstJudgeJson(raw) {
   }
   return null;
 }
+/**
+ * 截斷的輸出（Android 輸出上限內沒寫完 ask）：撈回 intent 與 states，只丟掉 ask（ADR-0020 第 6 點：解析失敗只當作沒有 ask）。
+ * @returns {{ intent: string, states: string[] } | null}
+ */
+function salvageJudge(raw) {
+  const s = String(raw);
+  const i = /"intent"\s*:\s*"([a-z_]+)"/.exec(s);
+  if (!i) return null;
+  const st = /"states"\s*:\s*\[([^\]]*)\]/.exec(s);
+  return { intent: i[1], states: st ? [...st[1].matchAll(/"([a-zA-Z]+)"/g)].map((m) => m[1]) : [] };
+}
 /** 這一句是英文還是中文（題目的語言要跟著；伺服器另外用規則判斷） */
 export const textLang = (text) => (/[㐀-鿿]/.test(String(text || '')) ? 'zh' : /[a-z]{2,}/i.test(String(text || '')) ? 'en' : null);
 
@@ -113,7 +124,7 @@ export function judgeAsk(o, { lang = null, asked = [] } = {}) {
  * @param {{ lang?: 'en'|'zh'|null, asked?: string[], onAsk?: (r: ReturnType<typeof judgeAsk>) => void }} [o] asked：這段對話上一輪問過的題（about）
  */
 export function normalizeJudge(raw, engine, { lang = null, asked = [], onAsk = null } = {}) {
-  const o = typeof raw === 'string' ? firstJudgeJson(raw) : raw;
+  const o = typeof raw === 'string' ? firstJudgeJson(raw) || salvageJudge(raw) : raw;
   if (!o || typeof o !== 'object' || !EDGE_INTENTS.includes(o.intent) || !EDGE_ENGINES.includes(engine)) return null;
   const states = [...new Set((Array.isArray(o.states) ? o.states : []).filter((k) => EDGE_STATES.includes(k)))];
   const a = judgeAsk(o, { lang, asked });

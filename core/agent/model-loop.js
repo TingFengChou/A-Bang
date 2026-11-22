@@ -286,7 +286,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   }
   // 缺必要欄位（哪一路公車、要去哪裡）：程式問一句，不交給模型猜（ADR-0016，與示範模式相同）
   const ruleGap = profile.id === 'life' && slotAsk(rulesIt, { lang: rulesIt.lang, history: req.messages.slice(0, -1) });
-  const gap = ruleGap && (deviceSlotAsk(dask, ruleGap.ask.about.replace(/^slot:/, ''), ruleGap) || ruleGap); // 手機的題目通過驗證就用它（ADR-0020）
+  const gap = ruleGap && (deviceSlotAsk(dask, ruleGap.ask.about.replace(/^slot:/, ''), ruleGap, { history: req.messages.slice(0, -1), context: req.context }) || ruleGap); // 手機的題目通過驗證就用它（ADR-0020）
   if (gap) { emit(ev.ask({ id: 'ask-m1', ...gap.ask })); emit(ev.text(gap.short)); emit(ev.done()); return; }
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
   const heard = !req.clientToolResults?.length && (contextNote(rulesIt) || (rulesIt.intent === 'outing' ? outingNote([...(rulesIt.states || []), ...(q0?.states || [])]) : q0 && judgeNote(q0)));
