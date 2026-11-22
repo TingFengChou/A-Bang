@@ -23,6 +23,7 @@ export const MESSAGES = {
   'common.estimatedTag': ' (est.)',
   'common.minutes': '{n} min',
   'busRoute.st.1': 'Not departed yet',
+  'busRoute.st.1eta': 'Not departed yet (about {min} min)',
   'busRoute.st.2': 'Not stopping (traffic control)',
   'busRoute.st.3': 'Last bus has left',
   'busRoute.st.4': 'No service today',

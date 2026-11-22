@@ -28,7 +28,7 @@ const EN = {
   cols: ['Data', 'Abang', 'Options'],
   step1: '① Gathering data', step2: '② Your situation', step3: (c) => `③ Comparing: ${c}`, step4: (n) => `④ Decision: ${n}`, decide: '④ Decision',
   hint: 'Want another way? Tap an option and Abang recalculates', chips: 'Your situation (tap to toggle, recalculates right away)',
-  habit: (m) => `You agreed: prefer ${m}`, habitWhy: 'Why?', habitPaused: 'You told Abang your situation, so this preference is not counted this time', habitNote: 'You said yes to preferring it. When you don\'t mention your situation it gets a small bonus (up to 8 pts). Stored only on this phone; undo it in Settings.', often: 'you prefer it', habitCrit: 'Preference', premiumCrit: 'Not worth the fare', premiumStep: 'Worth the fare?', longCrit: 'Too long', longStep: 'Too long?', unsureCrit: 'Arrival unknown', unsureStep: 'Arrival known?', unsure: (n) => `${n} has no arrival time`, notWorth: (c, m) => (m > 0 ? `NT$${c} cheaper, only ${m} min slower` : `NT$${c} cheaper, no slower`), tooLong: (n, m, cap) => `${n} takes ${m} min (over ${cap})`,
+  habit: (m) => `You agreed: prefer ${m}`, habitWhy: 'Why?', habitPaused: 'You told Abang your situation, so this preference is not counted this time', habitNote: 'You said yes to preferring it. When you don\'t mention your situation it gets a small bonus (up to 8 pts). Stored only on this phone; undo it in Settings.', often: 'you prefer it', habitCrit: 'Preference', premiumCrit: 'Not worth the fare', premiumStep: 'Worth the fare?', longCrit: 'Too long', longStep: 'Too long?', unsureCrit: 'Arrival unknown', unsureStep: 'Arrival known?', estCrit: 'Estimate', estStep: 'Estimated?', unsure: (n) => `${n} has no arrival time`, notWorth: (c, m) => (m > 0 ? `NT$${c} cheaper, only ${m} min slower` : `NT$${c} cheaper, no slower`), tooLong: (n, m, cap) => `${n} takes ${m} min (over ${cap})`,
   notIn: (n, w) => `${n} not included: ${w}`,
   details: 'Comparison details', effNone: 'No effect', effNA: 'Not used', effScore: 'Delay risk', pts: (n, s) => `${n}: ${s} pts`, title: 'How Abang decided', pick: (n) => `Switch to ${n}`, ex: (n, w) => `${n}, excluded: ${w}`,
 };
@@ -44,7 +44,7 @@ const notWorthOf = (best, second) => (second?.notWorth?.vs && second.notWorth.vs
 /** 扣的分（負數）：數字用「−」（UX.md） */
 const minus = (v) => `${v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}`;
 /** 決策圖的扣分列與 ③ 比較最後幾步（core/decide.js：premium 不划算、tooLong 走太久騎太久、unsure 公車到站時間不明，有才出現） */
-const PENALTY = [{ key: 'premium', label: '不划算', step: '划不划算', en: 'premiumCrit', enStep: 'premiumStep' }, { key: 'tooLong', label: '太久', step: '太不太久', en: 'longCrit', enStep: 'longStep' }, { key: 'unsure', label: '時間不明', step: '到站時間明不明', en: 'unsureCrit', enStep: 'unsureStep' }]; // unsure：到站時間不明的公車（core/decide.js）
+const PENALTY = [{ key: 'premium', label: '不划算', step: '划不划算', en: 'premiumCrit', enStep: 'premiumStep' }, { key: 'tooLong', label: '太久', step: '太不太久', en: 'longCrit', enStep: 'longStep' }, { key: 'unsure', label: '時間不明', step: '到站時間明不明', en: 'unsureCrit', enStep: 'unsureStep' }, { key: 'uncertain', label: '估算', step: '是不是估算', en: 'estCrit', enStep: 'estStep' }]; // unsure：到站時間不明的公車；uncertain：時間或票價是估的，保守看（core/decide.js UNCERTAIN）
 /** 方案名稱縮短，分數一定看得到（「叫車（Uber）」→「叫車」） */
 const short = (n) => { const x = String(n).replace(/（.*?）|\(.*?\)/g, ''); return x.length > 6 ? `${x.slice(0, 5)}…` : x; };
 /** 精簡模式：低階裝置或 reduced motion（UX.md §9）——只淡入、不做翻轉與 3D */

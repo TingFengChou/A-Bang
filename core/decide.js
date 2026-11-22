@@ -51,6 +51,12 @@ const TRANSIT_ROLES = new Set(['bus', 'metro', 'tra', 'thsr', 'intercity']);
 /** 走太久、騎太久（分）：沒有理由狀態、有大眾運輸時，超過的步行、YouBike 不排在最好的大眾運輸前面（產品負責人授權，2026-11-22 PR #119 審查） */
 export const LONG_MIN = { walk: 25, bike: 30 };
 
+/** 估算值保守看（ADR-0010 2026-11-22，真實健檢：估算的客運票價 50 元〔實際約 140〕、估算的機場捷運 58 分〔實際約 40〕主導了排名）：
+ *  方案的 est.minutes／est.cost＝時間／票價有估的部分（不是班表、即時資料或公告）：true＝整個值、數字＝估的那幾分／幾元；
+ *  計分時把估的部分多算這個比例（只扣自己，不改別人的分數），扣的分記在 breakdown.uncertain（負數，決策圖「估算」）。
+ *  叫車不標（時間與車資本來就是估算，已有車資範圍與「花錢換時間要划算」的檢查）；到站時間不明的公車另由 etaUnknown 處理，不重複扣。 */
+export const UNCERTAIN = { minutes: 0.15, cost: 0.3 };
+
 /** 同分時：因「不划算」被壓下來的叫車排在讓位的公車後面（時間不明的公車讓位後跟叫車同分時，公車在前，理由句說「公車到站時間不明」而不是跟叫車比價；PR #124 審查） */
 const notWorthLast = (a, b) => (a.notWorth && b.unsure ? 1 : b.notWorth && a.unsure ? -1 : 0); // 只處理這一種同分（其他同分照時間短的在前，理由句不變）
 
@@ -133,6 +139,14 @@ export function decide(options, ctx = {}) {
       if (c.scale === 'abs') norm = 1 - Math.min(1, Math.max(0, val(o, c.key)));
       else { const lo = Math.min(...pool.map((p) => val(p, c.key))); norm = (lo + c.k) / (val(o, c.key) + c.k); }
       breakdown[c.key] = norm * weights[c.key];
+      // 估算值保守看（UNCERTAIN）：同一個最低值，但自己的值放大後再算一次，差額記在 uncertain
+      const e = o.est?.[c.key];
+      const part = e === true ? val(o, c.key) : Number(e) > 0 ? Math.min(Number(e), val(o, c.key)) : 0; // 估的那一部分
+      if (c.scale === 'ratio' && UNCERTAIN[c.key] && part > 0) {
+        const lo = Math.min(...pool.map((q) => val(q, c.key)));
+        const less = ((lo + c.k) / (val(o, c.key) + part * UNCERTAIN[c.key] + c.k)) * weights[c.key] - breakdown[c.key];
+        if (less < 0) breakdown.uncertain = (breakdown.uncertain ?? 0) + less;
+      }
     }
     return { o, breakdown, base: Object.values(breakdown).reduce((a, b) => a + b, 0) };
   });

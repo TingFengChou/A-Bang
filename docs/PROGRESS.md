@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-22 真實健檢 S1：額度用完不推示範班次、估算值保守看
+- 做了：真實 TDX 健檢（每分鐘 5 次）發現額度用完改用示範資料後，`plan_trip` 推了「國道客運示範 A」、假的「公車 綠1」（還問到站提醒）、示範的台鐵自強與高鐵。①`withTdxFallback` 記方法的完整名稱（`bus.directTrips`、`intercity.trips`、`rail.thsrTimetable`…，`markFallback(key, path)`）；`core/services/trip.js` 真實模式下來自示範資料的公車、客運、高鐵、台鐵、捷運站表、YouBike 方案不列入（`limitSkip`：「TDX 額度用完，這次查不到客運班次（稍後再問一次）」，`fallback: 'tdx-limit'`），卡片「沒列入」與決策圖照實說；示範路況不加塞車狀態與延誤；示範票價改保守估。輸出 `limited`（一句；大眾運輸全部沒有時先比走路、YouBike、叫車並建議約 1 分鐘後再問），只有一種方式時 `single` 建議「過一分鐘再問一次」。②估算值保守看：`core/decide.js` `UNCERTAIN`（時間 15%、票價 30%，只扣估的部分、只扣自己，`breakdown.uncertain`，決策圖扣分列「估算」）；客運票價缺資料改「起跳 70 元＋道路公里 × 1.2」、鐵路票價查不到不再當 0 元（依距離保守估）；機場捷運直達車用公告參數（台北車站 ↔ 機場第一／第二航廈約 35／38 分、160 元，⚠️ 以公告為準）。③捷運沒列入的原因說哪一端、最近的站多遠、跨系統（公車／台鐵接捷運列 PLAN 待辦 T-MIX）。④公車尚未發車但有預估：行程「尚未發車，預估約 22 分後到站」、公車卡片 `statusText`「尚未發車（預估約 22 分後到）」（英文 Not departed yet (about 22 min)）。⑤PR #126 審查修正：`limited` 用在工具文字、中英 speak、示範中英回答、行程卡片、「接下來可以」（多種方式也建議「過一分鐘再問一次」）；`plan_trip` 標 `fallbackSafe`，額度用完時工具結果不再標示範、不說「這次先用示範資料」；英文只有一種方式時照實說額度用完（不說太遠）、「1 option」單數；YouBike 額度用完英文影響照實說；「查不到 YouBike」空格。⑥一題行程少打 TDX：`plan_trip` 的路況與 agent 先查的 `traffic_status`、客運內部的路況已共用 60 秒快取與同網址併發，`trip.js` 內沒有再省的空間；`run.js` 的建議列 PLAN 待辦 T-QUOTA。SW v1.2.8。
+- 測試：TZ=UTC npm test 全過（新增 `test/trip-no-demo.test.js` 13 項、英文卡片 1 項；`trip-considered`、`trip-night`、`trip` 期望更新）；示範 3540 組起訖建議方案不因 `UNCERTAIN` 改變；e2e、build:demo、build:cards、lint 全過
+- 文件：ADR-0010、MCP_TOOLS.md（6.7、6.8、方案表）、CARDS.md、PLAN.md、trip.v1.json（`limited`、`est`）
+- 下一個：T-QUOTA（`run.js` 行程題不另外先查路況）；T-MIX 公車／台鐵接捷運
+- 卡住：無
+
 ## 2026-11-22 M1 真實資料健檢修正：明天天氣、站位到站、台鐵票價、股市指數
 - 做了（真實資料修正前 → 後，不含金鑰）：
   - ①S2 天氣：`F-D0047-089` 是「全臺各縣市」層級（`Location` 是 22 個縣市），用 `LocationName=三民區` 篩一律空的。改用測站所在縣市的「未來 3 天」鄉鎮預報（`TOWN_FORECAST`，22 個縣市逐一實測 `F-D0047-001～085`），`weather_now` 與 `weather_tomorrow` 共用快取。

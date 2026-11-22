@@ -37,6 +37,7 @@ test('公車到站英文：分鐘、進站、未發車；中文用資料原文',
     assert.equal(etaText({ status: 0, etaSec: 40, statusText: '進站中' }, en, 'en'), etaLabel(40));
   });
   assert.equal(etaText({ status: 1, etaSec: null, statusText: '尚未發車' }, en, 'en'), 'Not departed yet');
+  assert.equal(etaText({ status: 1, etaSec: 1286, statusText: '尚未發車（預估約 22 分後到）' }, en, 'en'), 'Not departed yet (about 22 min)', '尚未發車但有預估：跟中文一樣帶上（x07）');
   assert.equal(etaText({ status: 0, etaSec: 300, statusText: '5 分' }, en, null), '5 分');
 });
 

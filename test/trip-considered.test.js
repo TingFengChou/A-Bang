@@ -140,8 +140,10 @@ test('TDX 額度用完改用示範資料（#105 withTdxFallback）：路況那�
   const svc = { ...base, mode: 'live', weatherMode: 'live', aqiMode: 'live', ...withTdxFallback(live, createMockTrafficServices()) };
   const r = await planTrip(svc, { from: TAOYUAN, to: T101, now: NOW });
   const t = r.considered.find((c) => c.source === 'traffic');
-  assert.deepEqual([t.demo, t.fallback], [true, 'tdx-limit']);
-  assert.match(t.text, /TDX 額度用完，這次先用示範資料/);
+  assert.deepEqual([t.demo, t.fallback, t.available, t.effect, t.value], [true, 'tdx-limit', false, 'none', '查不到']);
+  assert.equal(t.text, 'TDX 額度用完，這次查不到國道路況', '示範的路況不拿來判斷（ADR-0010 2026-11-22）');
+  assert.ok(!r.states.some((s) => s.key === 'traffic'), '不因示範的塞車加狀態');
+  assert.equal(r.traffic, null);
   assert.equal(ev.dataNote({ parent: 't1', item: t }).mode, 'demo');
   assert.equal(r.considered.find((c) => c.source === 'weather').demo, true, '天氣服務本身是示範（mock 帶 demo）');
 });
@@ -165,9 +167,12 @@ test('真實模式但這次 TDX 額度用完改用示範資料：只有一種方
   const svc = { ...base, mode: 'live', weatherMode: 'live', aqiMode: 'live', ...withTdxFallback(live, mock) };
   const { result: r, metrics } = await measure(() => planTrip(svc, { from: TAOYUAN, to: T101, departAt: '23:30', now: LATE }));
   assert.equal(metrics.fallback, true);
-  assert.match(r.single.text, /TDX 額度用完，這次先用示範資料/);
+  assert.match(r.single.text, /客運：TDX 額度用完，這次查不到（約 1 分鐘後再問一次）/, '示範的客運不推，原因照實說');
+  assert.equal((r.single.text.match(/TDX/g) || []).length, 1, `額度用完只說一次：${r.single.text}`);
+  assert.ok(!r.options.some((o) => /示範/.test(o.name)));
   assert.doesNotMatch(r.single.text, /設定金鑰後/);
   assert.ok(!r.single.suggest.some((s) => /台北車站/.test(s.label)), '不是示範模式：不建議改從台北車站');
+  assert.ok(r.single.suggest.some((s) => s.label === '過一分鐘再問一次'), '額度每分鐘重置：建議稍後再問');
   assert.equal(currentFallback(), false, '計量範圍外沒有旗標');
   // 沒有 fallback 的真實模式：不加說明
   assert.doesNotMatch(singleNote({ options: [{ role: 'ridehail' }], missingList: [], straight: 26000, departMin: 0, demo: false, toName: '台北101' }).text, /示範|TDX/);
