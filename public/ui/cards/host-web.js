@@ -2,6 +2,7 @@
 // MCP Apps 版（host-mcp-app.js）於 M4-04 實作。
 
 import { hasNativeNotify, ensureNotifyPermission, scheduleNotify, cancelNotify, NOTIFY_ID, EARLY_MS } from '../../js/native-notify.js';
+import { startWatchService, stopWatchService, watchServiceStatus } from '../../js/native-watch.js';
 import { addReminder, cancelReminder, notifyState, reminderFor, canNotify } from '../../js/reminders.js';
 import { isAppLink, isStoreLink } from '../../../core/drama-say.js';
 
@@ -65,6 +66,7 @@ export const currentArrivalWatch = () => watch.w;
 const signal = (type, detail) => { try { window.dispatchEvent(new CustomEvent(type, { detail })); } catch { /* 非瀏覽器 */ } };
 function stopWatch({ cancel = true } = {}) {
   clearInterval(watch.poll); clearTimeout(watch.fire);
+  if (watch.service) { watch.service = false; stopWatchService(); } // Android 常駐服務一起停（App 內提醒過、取消、逾時）
   watch.w = null;
   if (cancel && watch.nativeAt) cancelNotify(NOTIFY_ID.arrival); // 使用者取消或逾時：排好的通知一起取消
   watch.nativeAt = 0;
@@ -102,13 +104,14 @@ function fireArrival(f) {
   if (!w) return;
   const text = arrivalText(w.routeName, w.stop, f.etaSec, w.lang);
   const planned = watch.nativeAt;
+  const svc = watch.service;
   stopWatch({ cancel: false });
   if (hasNativeNotify()) {
     const visible = typeof document === 'undefined' || document.visibilityState !== 'hidden';
     // 前景：畫面上的提醒（toast）就夠了，排好的通知取消（不要同一件事出現兩次）
     // 背景：排好的通知在 5 秒內會送（或剛送過）就不重複；車比預估早到 → 改成馬上送
     if (visible) { if (planned) cancelNotify(NOTIFY_ID.arrival); }
-    else if (!planned || planned > Date.now() + 5000) scheduleNotify(NOTIFY_ID.arrival, new Date(), w.lang === 'en' ? NOTIFY_TITLE_EN : NOTIFY_TITLE, text);
+    else if (!svc && (!planned || planned > Date.now() + 5000)) scheduleNotify(NOTIFY_ID.arrival, new Date(), w.lang === 'en' ? NOTIFY_TITLE_EN : NOTIFY_TITLE, text); // 常駐服務在跑：它自己會響，不重複
   } else {
     try { if (typeof Notification !== 'undefined' && Notification.permission === 'granted') new Notification(w.lang === 'en' ? ARRIVING_TITLE_EN : '阿幫：公車快到站', { body: text, icon: '/icons/icon.svg', tag: 'abang-arrival' }); } catch { /* 部分瀏覽器只允許 SW 通知 */ }
   }
@@ -142,6 +145,7 @@ export async function pollWatch(callTool) {
   const w = watch.w;
   if (!w) return;
   if (Date.now() > watch.until) { stopWatch(); return; } // 90 分鐘還沒到：放棄（排好的通知也取消）
+  if (watch.service) { const st = await watchServiceStatus(); if (st && !st.active && st.firedAt) { stopWatch({ cancel: false }); return; } } // 常駐服務已經提醒過（App 關著時）：畫面跟著結束
   try {
     const r = await callTool('bus_route_eta', { city: w.city, routeName: w.routeName, stop: w.stop, ...(w.direction != null && { direction: w.direction }) });
     const f = r?.data?.focus;
@@ -168,7 +172,7 @@ export async function pollWatch(callTool) {
     }
     w.first = false;
     clearTimeout(watch.fire);
-    if (left > 0 && hasNativeNotify()) planNative(w, Date.now() + left * 1000);
+    if (left > 0 && hasNativeNotify() && !watch.service) planNative(w, Date.now() + left * 1000); // 常駐服務在跑：由它準時提醒
     if (left <= 0) fireArrival(f);
     else if (left * 1000 < POLL_MS + 5000) watch.fire = setTimeout(() => fireArrival({ ...f, etaSec: w.minutes * 60 }), left * 1000); // 兩次更新之間到點也準時提醒
   } catch { /* 暫時查不到：下次再試 */ }
@@ -225,6 +229,7 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
       watch.w = { ...w, ...(trip?.to && { trip: { to: trip.to } }), first: true, skip: null };
       watch.until = w.until ?? Date.now() + MAX_MS;
       store.save();
+      watch.service = native.granted !== false && await startWatchService({ ...watch.w, until: watch.until }); // Android：通知列常駐、App 關著也每 20 秒查真實到站時間
       signal('abang:arrival-watch', watch.w);
       const call = (n, a) => this.callTool(n, a);
       await pollWatch(call);
