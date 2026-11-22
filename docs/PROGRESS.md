@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-22 真實健檢 S1：額度用完不推示範班次、估算值保守看
+- 做了：真實 TDX 健檢（每分鐘 5 次）發現額度用完改用示範資料後，`plan_trip` 推了「國道客運示範 A」、假的「公車 綠1」（還問到站提醒）、示範的台鐵自強與高鐵。①`withTdxFallback` 記方法的完整名稱（`bus.directTrips`、`intercity.trips`、`rail.thsrTimetable`…，`markFallback(key, path)`）；`core/services/trip.js` 真實模式下來自示範資料的公車、客運、高鐵、台鐵、捷運站表、YouBike 方案不列入（`limitSkip`：「TDX 額度用完，這次查不到客運班次（稍後再問一次）」，`fallback: 'tdx-limit'`），卡片「沒列入」與決策圖照實說；示範路況不加塞車狀態與延誤；示範票價改保守估。輸出 `limited`（一句；大眾運輸全部沒有時先比走路、YouBike、叫車並建議約 1 分鐘後再問），只有一種方式時 `single` 建議「過一分鐘再問一次」。②估算值保守看：`core/decide.js` `UNCERTAIN`（時間 15%、票價 30%，只扣估的部分、只扣自己，`breakdown.uncertain`，決策圖扣分列「估算」）；客運票價缺資料改「起跳 70 元＋道路公里 × 1.2」、鐵路票價查不到不再當 0 元（依距離保守估）；機場捷運直達車用公告參數（台北車站 ↔ 機場第一／第二航廈約 35／38 分、160 元，⚠️ 以公告為準）。③捷運沒列入的原因說哪一端、最近的站多遠、跨系統（公車／台鐵接捷運列 PLAN 待辦 T-MIX）。④公車尚未發車但有預估：行程「尚未發車，預估約 22 分後到站」、公車卡片 `statusText`「尚未發車（預估約 22 分後到）」（英文 Not departed yet (about 22 min)）。⑤一題行程少打 TDX：`plan_trip` 的路況與 agent 先查的 `traffic_status`、客運內部的路況已共用 60 秒快取與同網址併發，`trip.js` 內沒有再省的空間；`run.js` 的建議列 PLAN 待辦 T-QUOTA。SW v1.2.8。
+- 測試：TZ=UTC npm test 全過（新增 `test/trip-no-demo.test.js` 13 項、英文卡片 1 項；`trip-considered`、`trip-night`、`trip` 期望更新）；示範 3540 組起訖建議方案不因 `UNCERTAIN` 改變；e2e、build:demo、build:cards、lint 全過
+- 文件：ADR-0010、MCP_TOOLS.md（6.7、6.8、方案表）、CARDS.md、PLAN.md、trip.v1.json（`limited`、`est`）
+- 下一個：T-QUOTA（`run.js` 行程題不另外先查路況、`core/tools` 的 `mode`／`speak` 改說 `limited.text`）；T-MIX 公車／台鐵接捷運
+- 卡住：無
+
 ## 2026-11-22 P2b PR #122 審查修正（國定假日核對、去機場不搶別的問題）
 - 做了：①國定假日清單改由 `scripts/build-holidays.js` 讀人事行政總處官方辦公日曆 CSV（data.gov.tw 14718，原檔放 `scripts/data/dgpa-calendar/`）產生，補 2026-02-15 小年夜、2027-12-31（2028 元旦週六的補假）；測試比對產生結果、今年或明年不在清單就失敗 ②「去機場」不搶天氣、空品、路況、不去了、別人去、帶什麼、先去別處、設提醒（照 main 回答），判斷層可更正 ③打字回答「台北」＝松山機場 ④從家／公司去機場用常用地點座標 ⑤「那去機場呢」沿用上一趟起點 ⑥所有機場有英文名稱，中英猜的一致 ⑦搭機場捷運／機捷去機場＝桃園機場 ⑧答案後的附加詞（「松山，叫車」）帶上交通方式、英文 the Taoyuan one ⑨捷運卡片遇到舊版中文狀態用 etaMin 推回代碼 ⑩英文卡片線名、終點用 lineEn／destinationEn ⑪國定假日標記看路線＋方向＋終點
 - 測試：TZ=UTC npm test 全過（新增 holidays 3 項、airport-ask 4 項、metro-status-holiday 2 項、情境 Q-36～Q-45）；e2e、build:demo、build:cards、lint 全過

@@ -171,6 +171,26 @@ export function nightOf({ skipped = [], options = [], departMin, isNow = false, 
   };
 }
 
+const TRANSIT = ['bus', 'metro', 'thsr', 'tra', 'intercity'];
+/**
+ * TDX 額度用完（真實模式改用示範資料）時沒列入的方式（trip.js limitSkip）：一句照實說，不推假班次（ADR-0010 2026-11-22）。
+ * 大眾運輸因此一個都沒有時（noTransit）說「大眾運輸都沒列入」、先比走路／YouBike／叫車（叫車照估算），並建議約 1 分鐘後再問（額度每分鐘重置）。
+ * @param {{ roles?: string[], options?: Array<{ role: string }> }} p roles：因額度用完沒列入的方式
+ * @returns {{ roles: string[], noTransit: boolean, text: string, textEn: string } | null}
+ */
+export function limitedOf({ roles = [], options = [] }) {
+  if (!roles.length) return null;
+  const noTransit = roles.some((r) => TRANSIT.includes(r)) && !options.some((o) => TRANSIT.includes(o.role));
+  const what = roles.map((r) => MODE_NAME[r]).join('、'), whatEn = andEn(roles.map((r) => MODE_EN[r]));
+  const left = [...new Set(options.map((o) => o.role))];
+  const ride = left.includes('ridehail') ? '（叫車的時間與車資是估算）' : '', rideEn = left.includes('ridehail') ? ' (taxi time and fare are estimates)' : '';
+  const leftZh = left.length ? `先比${left.map((r) => MODE_NAME[r]).join('、')}${ride}` : '目前查不到其他方式';
+  const leftEn = left.length ? `comparing ${andEn(left.map((r) => MODE_EN[r]))}${rideEn}` : 'no other way found right now';
+  return noTransit
+    ? { roles, noTransit, text: `TDX 額度用完，這次查不到${what}的即時資料，大眾運輸都沒列入（不推示範的班次）；${leftZh}，約 1 分鐘後再問一次就查得到`, textEn: `TDX quota used up: no live ${whatEn} data this time, so public transport is left out (no demo timetables); ${leftEn}. Ask again in about a minute.` }
+    : { roles, noTransit, text: `TDX 額度用完，這次查不到${what}的即時資料，沒列入比較（約 1 分鐘後再問一次）`, textEn: `TDX quota used up: no live ${whatEn} data this time, left out of the comparison (ask again in about a minute).` };
+}
+
 /**
  * 只有一種方式時的說明（例：「只找到叫車一種方式：距離 26 公里，走路、YouBike、公車、捷運都太遠；高鐵、台鐵、客運 23:30 以後今天沒有趕得上的班次」）。
  * suggest：「接下來可以」的建議（點了就送出那一句，起訖點照原本的說法）；之後可改用「阿幫問你」。
@@ -189,13 +209,15 @@ export function singleNote({ options, missingList, straight, departMin, demo, fa
   const noSvc = pick('noService');
   if (noSvc.length) parts.push(`${join(noSvc)} ${toHHMM(departMin)} 以後今天沒有趕得上的班次`);
   for (const m of [...pick('none'), ...pick('skipped')]) parts.push(`${name(m.role)}：${m.why}`);
-  const text = `只找到${name(only.role)}一種方式${parts.length ? `：${parts.join('；')}` : ''}${demo ? '（現在是示範資料，班次與站牌是模擬的；設定金鑰後就是即時資料）' : fallback ? '（TDX 額度用完，這次先用示範資料，班次與站牌可能不準；稍後再問一次）' : ''}`;
+  // fallback：額度用完的方式已照實列在原因裡（不推示範的班次，trip.js limitSkip）；這裡只提醒稍後再問
+  const text = `只找到${name(only.role)}一種方式${parts.length ? `：${parts.join('；')}` : ''}${demo ? '（現在是示範資料，班次與站牌是模擬的；設定金鑰後就是即時資料）' : fallback && !parts.some((x) => /TDX/.test(x)) ? '（TDX 額度用完，有些資料這次查不到；約 1 分鐘後再問一次）' : ''}`; // 原因裡已經說了額度用完就不重複
   const to = String(toName || '').trim();
   const from = String(fromName || '').trim();
   const fromSaid = from && from !== '你的位置' ? from : ''; // 使用者說了起點：建議也帶著，不然送出後會變成定位或預設起點
   const suggest = [];
   if (to && noSvc.length) suggest.push({ label: '改成明天早上出發', ask: fromSaid ? `明天早上 8 點從${fromSaid}到${to}` : `明天早上 8 點去${to}` });
   if (to && demo && !/台北車站|臺北車站/.test(`${fromName}${to}`)) suggest.push({ label: '改從台北車站出發比較看看', ask: `從台北車站到${to}怎麼去` });
-  const textEn = `Only ${{ walk: 'walking', bike: 'YouBike', bus: 'the bus', metro: 'the MRT', thsr: 'high speed rail', tra: 'the train', intercity: 'the intercity bus', ridehail: 'a taxi' }[only.role] || only.name} works for this trip${far.length ? `: ${+(straight / 1000).toFixed(1)} km is too far for the others` : noSvc.length ? ': no more trains or coaches you can catch today' : ''}${demo || fallback ? ' (demo data)' : ''}.`;
+  if (to && !demo && fallback) suggest.push({ label: '過一分鐘再問一次', ask: fromSaid ? `從${fromSaid}到${to}怎麼去` : `去${to}怎麼走` }); // 額度每分鐘重置
+  const textEn = `Only ${{ walk: 'walking', bike: 'YouBike', bus: 'the bus', metro: 'the MRT', thsr: 'high speed rail', tra: 'the train', intercity: 'the intercity bus', ridehail: 'a taxi' }[only.role] || only.name} works for this trip${far.length ? `: ${+(straight / 1000).toFixed(1)} km is too far for the others` : noSvc.length ? ': no more trains or coaches you can catch today' : ''}${demo ? ' (demo data)' : fallback ? ' (TDX quota used up; ask again in about a minute)' : ''}.`;
   return { text, textEn, suggest };
 }

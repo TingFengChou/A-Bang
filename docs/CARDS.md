@@ -123,6 +123,8 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 // missing[]：所有沒列入的方式與原因（含 skipped、附近沒有捷運站、沒有趕得上的班次；{ role, kind, why, whyEn, closed? }），卡片「沒列入」清單用它（舊資料只有 skipped）；英文卡片用 whyEn
 // missing[].kind 'route'：那一條公車今天不會來（{ route, status: 2|3|4 }，另一條照常列入）——卡片寫「公車 601沒列入：今天沒有營運（站牌即時資訊）」、決策圖節點 id skip-bus-601
 // options[].etaUnknown：公車上車站到站時間不明（沒有預估或尚未發車）；ranking.ranked[].unsure：{ vs }＋breakdown.unsure——不排在時間確定的大眾運輸前面（ADR-0010 2026-11-22）
+// limited：TDX 額度用完、這次沒列入的方式（{ roles, noTransit, text, textEn }）——真實模式下示範資料的方案不參加排名，missing 帶 fallback: 'tdx-limit'（ADR-0010 2026-11-22）
+// options[].est：估的部分（{ minutes?: true|分, cost?: true|元 }）；breakdown.uncertain：估算值保守看扣的分（負數，決策圖扣分列「估算」）
 // night：深夜的一句 { text, textEn, closed[], late[] }，卡片最上面橘底一行（.ab-night）
 // habit：使用者同意過的常選比例（{ metro: 0.6 }，選填）；habitOn：這次有沒有加分；ranking.ranked[].breakdown.habit：習慣加分（ADR-0010 2026-11-21）；breakdown.premium：叫車多付的錢換不到夠多的時間時扣的分（負數，ADR-0010 2026-11-22），ranked[].notWorth：{ vs（對它不划算的大眾運輸 id）, extra（多付幾元）, worth（省下的時間值幾元） }；breakdown.tooLong、ranked[].tooLong：{ vs, cap }——步行超過 25 分、YouBike 超過 30 分排到大眾運輸後面
 // ask：關鍵問題（{ state, text, textEn, from, to, dMin, dCost }，ADR-0016）；states[].source 另有 usual（你說過，i18n trip.state.usual）

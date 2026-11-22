@@ -29,15 +29,18 @@ export function recordFetch({ cacheHit, data, category, stale }) {
   m.scanned += countRecords(data);
 }
 
-/** 這次 tool 呼叫有一部分因上游額度用完改用示範資料（TDX 429 → mock；工具結果的 mode 標成 demo） */
-export function markFallback(key) {
+/**
+ * 這次 tool 呼叫有一部分因上游額度用完改用示範資料（TDX 429 → mock；工具結果的 mode 標成 demo）。
+ * key：方法名稱（directTrips）；path：帶服務的完整名稱（bus.directTrips、rail.thsrTimetable；不同服務的同名方法分得開）
+ */
+export function markFallback(key, path) {
   const m = als.getStore();
   if (!m) return;
   m.fallback = true;
-  if (key) (m.fallbackOn ||= new Set()).add(String(key)); // 哪個方法改用了示範資料（plan_trip 判斷公車收班要知道是不是公車那一個）
+  for (const k of [key, path]) if (k) (m.fallbackOn ||= new Set()).add(String(k)); // 哪個方法改用了示範資料（plan_trip：來自示範資料的方案不參加排名）
 }
 
-/** 這次 tool 呼叫的某個服務方法（例 directTrips）有沒有因 TDX 額度用完改用示範資料 */
+/** 這次 tool 呼叫的某個服務方法（例 directTrips、bus.directTrips）有沒有因 TDX 額度用完改用示範資料 */
 export const fellBack = (key) => Boolean(als.getStore()?.fallbackOn?.has(key));
 
 

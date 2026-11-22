@@ -23,6 +23,7 @@ export const MESSAGES = {
   'common.estimatedTag': '（估算）',
   'common.minutes': '{n} 分',
   'busRoute.st.1': '尚未發車',
+  'busRoute.st.1eta': '尚未發車（預估約 {min} 分後到）',
   'busRoute.st.2': '交管不停靠',
   'busRoute.st.3': '末班車已過',
   'busRoute.st.4': '今日未營運',

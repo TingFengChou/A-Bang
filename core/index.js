@@ -45,19 +45,19 @@ import { createMockDramaServices } from './services/drama-mock.js';
  * TDX 額度用完（429）時，這一次改用示範資料，不讓整個查詢失敗（2026-11-21：Austin 先不申請加值應用，新帳號每分鐘只有 5 次）。
  * 只包會回 Promise 的方法；工具結果會標成示範資料（metrics.fallback → mode: 'demo'）。
  */
-export function withTdxFallback(live, mock, quota = null) {
+export function withTdxFallback(live, mock, quota = null, path = '') {
   return new Proxy(live, {
     get(target, key) {
       const v = target[key];
       // 服務是分層的（transit.bus.routeEta、metro.metro.liveBoard）：子物件也包起來
-      if (v && typeof v === 'object' && mock?.[key] && typeof mock[key] === 'object') return withTdxFallback(v, mock[key], quota);
+      if (v && typeof v === 'object' && mock?.[key] && typeof mock[key] === 'object') return withTdxFallback(v, mock[key], quota, `${path}${String(key)}.`); // path：哪個服務的方法（bus.directTrips、rail.thsrTimetable），plan_trip 判斷哪些方案是示範資料
       if (typeof v !== 'function' || typeof mock?.[key] !== 'function') return v;
       return (...args) => {
         const out = v.apply(target, args);
         if (!out || typeof out.then !== 'function') return out;
         return out.catch((e) => {
           if (e?.name !== 'TdxError' || e.status !== 429) throw e;
-          markFallback(key);
+          markFallback(key, `${path}${String(key)}`);
           if (quota && !e.yielded) quota.at = Date.now(); // 背景讓位（TdxYield）不是額度用完；「阿幫的腦袋」試判斷：資料來源照實說「TDX 額度剛用完，改用示範」（core/agent/trial.js）
           return mock[key](...args);
         });

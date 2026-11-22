@@ -28,10 +28,10 @@ export function normName(s = '') {
   return String(s).replace(/臺/g, '台').replace(/\s+/g, '').replace(/站$/, '');
 }
 
-/** 公車 StopStatus 轉中文 */
+/** 公車 StopStatus 轉中文；尚未發車但有預估（依班表推的）時帶上預估，跟 plan_trip 的說法一致「尚未發車，預估約 N 分後到站」（2026-11-22 真實健檢 x07） */
 export function busStatusText(status, etaSec) {
   switch (status) {
-    case 1: return '尚未發車';
+    case 1: return Number.isFinite(etaSec) ? `尚未發車（預估約 ${Math.max(1, Math.ceil(etaSec / 60))} 分後到）` : '尚未發車';
     case 2: return '交管不停靠';
     case 3: return '末班車已過';
     case 4: return '今日未營運';
