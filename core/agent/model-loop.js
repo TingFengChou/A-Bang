@@ -5,9 +5,9 @@ import { describeTool, getTool } from '../tools/index.js';
 import { getProfile } from '../agents/index.js';
 import { buildSystemPrompt } from './prompt.js';
 import { ev } from './events.js';
-import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hideToolNames, judgeInfo, runDemo, asideState, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
+import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hideToolNames, judgeInfo, runDemo, asideState, withAskCheck, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
 import { judgeNote, outingNote, moreStatesNote } from './impact.js';
-import { slotAsk } from './ask.js';
+import { slotAsk, deviceAskTracker, deviceSlotAsk } from './ask.js';
 import { lineCode } from '../tools/metro.js';
 import { normName, nowTW } from '../util.js';
 import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, demoSummary, isEnglish, nightNote, rainAsked } from './demo-intent.js';
@@ -256,18 +256,21 @@ export function mustSay(text, trip, it = null) {
  * @param {(e: object) => void} emit
  * @param {{ provider: Provider, profileId?: string, now?: number, onModelCall?: () => void }} opts
  */
-export async function runModel(svc, body, emit, { provider, profileId = 'life', now = Date.now(), onModelCall = () => {}, judge }) {
+export async function runModel(svc, body, emit0, { provider, profileId = 'life', now = Date.now(), onModelCall = () => {}, judge }) {
   const req = validateRequest(body);
   const profile = getProfile(profileId);
+  // 手機上的 AI 提議的題目（ADR-0020）：模型模式也由程式驗證後採用；done 帶 askCheck
+  const dask = profile.id === 'life' ? deviceAskTracker(req.deviceJudge?.ask, isEnglish(req.messages.at(-1).content) ? 'en' : 'zh') : null;
+  const emit = withAskCheck(emit0, dask);
   const picked = req.userState?.picked || [];
   const canLocate = !!req.clientTools?.includes(DEVICE_LOCATION_TOOL.name);
   // 判斷層：先用快速版（A＋規則，幾毫秒）說聽懂了什麼，不用等 loading；完整版（含模型）定案狀態與工具範圍
   const jc = judgeCalls(judge, req, profile);
   const last = req.messages.at(-1).content;
   // 地端小模型的英文不穩（漏英文地名、句型亂，模型模式情境 S12 九個沒過）：英文提問改用規則回答（與示範模式同一套英文總結；Claude 照常）
-  if (provider.mode === 'local' && isEnglish(last)) return runDemo(svc, body, emit, { profileId, now, judge, mode: 'rules' });
+  if (provider.mode === 'local' && isEnglish(last)) return runDemo(svc, body, emit0, { profileId, now, judge, mode: 'rules' });
   // 查一個數字就答的生活資料（油價、發票、股市收盤、地震）：規則聽得懂就由規則查、程式回答（地端小模型常不查或漏講日期、縣市，P4 模型模式 4 個沒過）
-  if (provider.mode === 'local' && profile.id === 'life' && !safetyCheck(last, { profileId: profile.id }) && ruleFirst(parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces, now }), last)) return runDemo(svc, body, emit, { profileId, now, judge, mode: 'rules' });
+  if (provider.mode === 'local' && profile.id === 'life' && !safetyCheck(last, { profileId: profile.id }) && ruleFirst(parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces, now }), last)) return runDemo(svc, body, emit0, { profileId, now, judge, mode: 'rules' });
   const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode: provider.mode, model: provider.model, profile: profile.id, judge: judgeInfo(q0), lang: isEnglish(last) ? 'en' : 'zh' }));
   // 安全情境（S18）：自傷或緊急狀況不交給模型自由回答，固定給求助電話（與示範模式相同）
@@ -282,7 +285,8 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
     return;
   }
   // 缺必要欄位（哪一路公車、要去哪裡）：程式問一句，不交給模型猜（ADR-0016，與示範模式相同）
-  const gap = profile.id === 'life' && slotAsk(rulesIt, { lang: rulesIt.lang, history: req.messages.slice(0, -1) });
+  const ruleGap = profile.id === 'life' && slotAsk(rulesIt, { lang: rulesIt.lang, history: req.messages.slice(0, -1) });
+  const gap = ruleGap && (deviceSlotAsk(dask, ruleGap.ask.about.replace(/^slot:/, ''), ruleGap) || ruleGap); // 手機的題目通過驗證就用它（ADR-0020）
   if (gap) { emit(ev.ask({ id: 'ask-m1', ...gap.ask })); emit(ev.text(gap.short)); emit(ev.done()); return; }
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
   const heard = !req.clientToolResults?.length && (contextNote(rulesIt) || (rulesIt.intent === 'outing' ? outingNote([...(rulesIt.states || []), ...(q0?.states || [])]) : q0 && judgeNote(q0)));
@@ -321,7 +325,7 @@ export async function runModel(svc, body, emit, { provider, profileId = 'life', 
   const nextId = () => `t${++n}`;
   const used = new Set();
   let lastTrip = null; // 這一輪最後一次比較的行程（總結補上程式知道、模型漏講的重點）
-  const ask = { done: false, habitAsk: req.userState?.habitAsk, usual: req.userState?.usual }; // 阿幫問你：這一輪最多一個（ADR-0016）
+  const ask = { done: false, habitAsk: req.userState?.habitAsk, usual: req.userState?.usual, device: dask }; // 阿幫問你：這一輪最多一個（ADR-0016；device：手機提議的狀態題，ADR-0020）
   const aside = asideState(req, profile, now, svc); // 等車推短劇（ADR-0019）：這一輪最多一次（排行先並行拿）
   // 有現在位置時，程式先用它查好（不靠模型）：地端模型常常只查了目的地就反問「你從哪裡出發」。
   //   沒說起點的行程 → plan_trip（起點＝現在位置）；沒說地點的天氣／空品／YouBike／附近公車／垃圾車 → 對應工具（現在位置）

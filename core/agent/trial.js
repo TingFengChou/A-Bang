@@ -6,6 +6,7 @@ import { answerable } from '../suggest.js';
 import { needsLocation } from './demo-intent.js';
 import { JUDGE_INTENTS } from './judge.js';
 import { dataSources } from '../index.js';
+import { INTENT_SLOTS } from '../edge-ask.js';
 
 /** 欄位 → 從 parseIntent 結果取值（只取名稱與時間，不取座標） */
 const nameOf = (x) => (typeof x === 'string' ? x : x?.name ? String(x.name) : null);
@@ -29,29 +30,8 @@ const SLOT_VALUE = {
   saved: (it) => it.missing || null,
 };
 
-/**
- * 各意圖需要的欄位：[欄位, 必要嗎, 沒說時怎麼補]
- * 補法：location＝用你的位置（問阿幫會先請手機定位；試判斷不送定位）｜now＝現在｜today＝今天｜all＝全部列出｜hot＝熱門排行｜latest＝最新一期｜saved＝要先設定常用地點
- */
-export const INTENT_SLOTS = {
-  trip: [['to', true], ['from', false, 'location'], ['when', false, 'now']],
-  bus_route: [['route', true], ['stop', false, 'location']],
-  youbike: [['place', false, 'location']],
-  nearby_bus: [['place', false, 'location']],
-  metro: [['station', false, 'location']],
-  rail: [['to', true], ['from', false, 'location'], ['when', false, 'now']],
-  weather: [['place', false, 'location'], ['day', false, 'today']],
-  aqi: [['place', false, 'location']],
-  outing: [['place', false, 'location']],
-  pharmacy: [['place', false, 'location']],
-  garbage: [['place', false, 'location']],
-  quake: [],
-  fuel: [['grade', false, 'all']],
-  invoice: [],
-  stock: [['stock', false, 'index']],
-  drama: [['drama', false, 'hot']],
-  savedMissing: [['saved', true, 'saved']],
-};
+/** 各意圖需要的欄位（與手機上的 AI 出題共用一份，core/edge-ask.js；ADR-0020） */
+export { INTENT_SLOTS };
 
 /** 意圖 → 會查的資料來源（dataSources 的 id；交通含國道路況，行程另外看天氣與空品） */
 export const INTENT_SOURCES = {

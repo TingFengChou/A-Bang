@@ -52,7 +52,8 @@
   "clientTools": ["device_location"],           // 客戶端支援的裝置端工具（ADR-0008）
   "clientToolResults": [{ "id": "c1", "ok": true, "result": { "lat": 25.04, "lon": 121.51 } }], // 選填
   "context": "使用者在卡片上選了『從西門站出發』",    // 選填，來自 host.setContext()
-  "clientCaps": { "edgeWrite": true, "engine": "gemini-nano" } // 選填：手機自己寫回答（§3.5、ADR-0017）
+  "clientCaps": { "edgeWrite": true, "engine": "gemini-nano" }, // 選填：手機自己寫回答（§3.5、ADR-0017）
+  "deviceJudge": { "intent": "bus_route", "states": [], "engine": "gemini-nano", "ask": { "slot": "route", "question": "你在等哪一路公車？", "options": ["307", "附近公車"] } } // 選填：手機判斷（ADR-0014）；ask＝手機上的 AI 提議的一題（§5.3.1、ADR-0020）
 }
 ```
 
@@ -69,7 +70,7 @@
 | `data_note` | `parent`（那次工具呼叫的 id）, `role`（天氣、空品、路況）, `source`, `text`, `impact: { tone, text }`, `effect`（`none`／`score`／狀態 key）, `available`, `mode: 'demo'\|'live'` | 工具內部用到的一項資料＋對這次判斷的影響（目前是 `plan_trip` 查的天氣、空品、國道路況；`core/services/trip-considered.js` 產生，不經模型）。以工具發言樣式排在 `parent` 的發言前面；`mode: 'demo'` 標「示範資料」；同一輪已點名該角色的工具（看 `tool_start`；工具平行，結果可能比 data_note 晚到；示範模式另外查過）時客戶端不重複顯示（2026-11-21） |
 | `discussion_end` | `tools`, `servers` | 討論收合成一行摘要 |
 | `decision` | `states: [{ key, source: 'auto'\|'user'\|'picked'\|'usual', from?, detail? }]`, `arriveBy?`, `best`, `options`, `ranked`, `excluded`, `weights`, `reason`, `habit?`, `habitOn?`, `considered`（同 `plan_trip.considered`）, `single?: { text, textEn, suggest: [{ label, ask }] }` | 決策圖動畫；前端可用同一引擎即時重算；`considered`＝「資料」欄每個來源一個節點；`single`＝只有一種方式時的說明與「接下來可以」的建議 |
-| `ask` | `id`, `question`, `key?`（同一題的鍵，客戶端 24 小時內不重問）, `options: [{ label, kind: 'state'\|'reply'\|'store'\|'dismiss'\|'action', state?\|say?\|value?\|action?, guess? }]`, `why?`, `about?`, `pending?: { slot, state?, intent? }` | 阿幫問你（ADR-0016）：一輪最多一個，由程式產生。state＝加狀態即時重算（`say` 給不能重算的客戶端）、reply＝送出 `say`（完整的一句）、store＝存手機偏好（`value`）、action＝手機做事（`openLink`／`watchArrival`／`remind`，L2 先確認）、dismiss＝不改。直接打字回答時前端先比對按鈕文字，對不上就把 `pending` 當 `pendingAsk` 帶回，`validateRequest` 用 `resolvePending` 把短答改寫成完整的一句 |
+| `ask` | `id`, `question`, `key?`（同一題的鍵，客戶端 24 小時內不重問）, `options: [{ label, kind: 'state'\|'reply'\|'store'\|'dismiss'\|'action', state?\|say?\|value?\|action?, guess? }]`, `why?`, `about?`, `pending?: { slot, state?, intent? }`, `askSource: 'device'\|'rule'` | 阿幫問你（ADR-0016）：一輪最多一個；題目由手機上的 AI 提議、程式驗證後採用（`device`，ADR-0020），否則由程式產生（`rule`）。state＝加狀態即時重算（`say` 給不能重算的客戶端）、reply＝送出 `say`（完整的一句）、store＝存手機偏好（`value`）、action＝手機做事（`openLink`／`watchArrival`／`remind`，L2 先確認）、dismiss＝不改。直接打字回答時前端先比對按鈕文字，對不上就把 `pending` 當 `pendingAsk` 帶回，`validateRequest` 用 `resolvePending` 把短答改寫成完整的一句 |
 | `aside` | `parent`（那次到站工具呼叫的 id）, `kind: 'drama'`, `text`, `waitMin`, `mode`, `data: { id, title, ep, freeEpisodes, appLink, store }`, `labels: { watch, dismiss, note }` | 卡片下方的小提示（不進回答文字）：目前只有等車推短劇（ADR-0019，§5.4）；一輪最多一個；連結在事件建立時再檢查一次 |
 | `guardrail` | `tier`, `rule` | 套用的護欄（L2 以上） |
 | `client_tool_call` | `id`, `name`, `input` | 請客戶端執行裝置端工具（`device_location`、`notify_at`） |
@@ -77,7 +78,7 @@
 | `text` | `delta` | 阿幫的總結（可串流） |
 | `answer_draft` | `text`（程式版總結）, `facts`（事實清單）, `lang: 'zh'\|'en'` | 只在請求帶 `clientCaps.edgeWrite` 時取代 `text`：手機改寫後顯示（§3.5、ADR-0017） |
 | `trial` | `lang`, `judge: { intent, states, source, engine?, confidence? }`, `intent`, `judged`, `target`, `slots: [{ key, required, have, value?, fill? }]`, `missing`, `fixed`, `location`, `enough`, `blocked`, `heard`, `sources: [{ id, mode, reason, minutesAgo? }]`, `safety?` | 只在請求帶 `clientCaps.trial` 時：「阿幫的腦袋」試判斷的「資料夠不夠」（§3.6） |
-| `done` | `usage?` | 結束 |
+| `done` | `usage?`, `askCheck?: { slot, state?, verdict: 'used'\|'rejected', reason? }` | 結束；`askCheck` 只在請求帶 `deviceJudge.ask` 時、這一輪最後的 `done`（請定位那一次沒有）：手機提議的題目用了沒、沒用的原因代碼（ADR-0020） |
 | `error` | `message`, `retryable`, `retryAfterSec?` | 錯誤或限流 |
 
 規則：
@@ -125,7 +126,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 產品負責人要能評估阿幫夠不夠聰明：意圖與狀態之外，看資料夠不夠、預計怎麼回答、下一個會問什麼（UX.md §5.0.1）。**重用 `/api/v1/agent`，不加新端點**；**只有生活 agent 走 edge／trial**（`WRITE_AGENTS`），防詐 agent 帶了 `clientCaps.trial` 也照原路徑、不送 `trial` 事件：
 - 請求帶 `clientCaps: { edgeWrite: true, trial: true, engine? }`（網頁版沒有手機上的模型，`trial` 且 `edgeWrite` 時 `engine` 可省略；一般請求仍必填）。一律走 edge 模式：伺服器只跑規則與程式計分，不呼叫任何伺服器模型。客戶端只送這一句（與手機判斷的 `deviceJudge`），不送 `userState`、`savedPlaces`；伺服器請定位（`client_tool_call device_location`）時回 `ok: false`，回答就是不給定位時的樣子。
 - 伺服器在判斷完、請定位前送一個 `trial` 事件（`core/agent/trial.js` `trialInfo`，程式算）：`slotReport` 依 `INTENT_SLOTS`（各意圖需要的欄位、是否必要、沒說時怎麼補：location／now／today／all／index／hot／saved）比對這一輪實際用的意圖；規則聽不懂但判斷層有意圖時照判斷層列欄位（`target`），`enough=false`；固定說明（防詐請到防詐頁、代按代付…）與禮貌話（謝謝、對不起、重來，同 `runDemo` 聽不懂的判斷）`fixed=true`；後天天氣、投資建議、油價漲跌 `blocked`。`sourceReport` 依 `INTENT_SOURCES` 列會查的資料來源（`dataSources`）與原因：`live`、`forced`（伺服器設定示範）、`no-key`、`no-download`、`no-source`、`tdx-limit`（`withTdxFallback` 遇到 429 記下時間；2 分鐘內 `mode` 仍是 `live`、附 `minutesAgo`，畫面說「N 分鐘前曾用完額度」，這一輪實際有沒有改用示範以工具結果的 `mode` 為準）。帶定位結果的重送不再送；安全情境照樣送（`safety`）後回求助電話。
-- 客戶端（`public/js/ai-trial.js` `runTrial`）組四段：手機判斷 → agent 事件（`trial`、工具、`decision`、`ask`、`answer_draft`）→ 手機改寫（`edgeWrite`，沒通過也回被擋的改寫 `candidate` 與原因）→ 動態建議（`trialSuggest`：同 §5.5，手機猜＋`/api/v1/suggest/check` 只送句子，不能用就規則；試判斷不用常用地點）。
+- 客戶端（`public/js/ai-trial.js` `runTrial`）組四段：手機判斷 → agent 事件（`trial`、工具、`decision`、`ask`、`answer_draft`）→ 手機改寫（`edgeWrite`，沒通過也回被擋的改寫 `candidate` 與原因）→ 動態建議（`trialSuggest`：同 §5.5，手機猜＋`/api/v1/suggest/check` 只送句子，不能用就規則；試判斷不用常用地點）。第 4 段另外用 `askerOf` 標這題是手機上的 AI 決定還是規則保底，手機提議但被擋的題目照列（在手機上就擋／伺服器 `askCheck` 沒採用，含原因，ADR-0020）。
 - log 只多記 `trial: true`（不記句子）；限流與一般問阿幫相同（一次試判斷約 2 個請求：請定位＋不給定位的重送）。
 
 ## 4. 模型模式（✅ M5-05，ADR-0012）
@@ -317,6 +318,14 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - 使用者看得到判斷層：「阿幫的腦袋」頁（`#/ai`，UX.md §5.0.1、ADR-0014 第 7 點）白話說明四個成員（手機上的 AI、嵌入分類器、伺服器的模型、規則）；`GET /api/v1/status` 的 `agent: { mode, model?, judge: { embed, llm } }` 回報這台伺服器由誰回答、分類器與模型有沒有載入（不含金鑰與網址）。
 - 先用快速版 `judge.quick`（A＋規則，不問模型，幾毫秒）在行程前送一句 `agent_note`（`judgeNote`：「你想省錢，我先看天氣、空品、路況，再比較幾種走法」；接著改交通方式時「照你說的改成坐公車，用剛才的起點和目的地重算」；其他查詢不說，2026-11-20 改，原本每次都說「我聽懂了」太多餘），使用者一送出就看到阿幫依他的狀況做事；之後完整版（含模型）定案，多找到的狀態再送一句「我還注意到你…」（`moreStatesNote`）。
 - 退路：`JUDGE=off`、選用依賴沒裝、模型下載失敗、載入中 → 都等同規則；CI 與 E2E 設 `JUDGE=off`，邏輯以單元測試（假的分類器）驗證。
+
+### 5.3.1 問什麼由手機上的 AI 決定（ADR-0020，2026-11-22）
+
+- **一次呼叫**：手機 judge 同時回 `{ intent, states, ask? }`；指示 `EDGE_JUDGE_INSTRUCTIONS`＝判斷指示＋`EDGE_ASK_GUIDE`（`core/edge-ask.js`：可以問的種類 route／to／from／state、各意圖必要的欄位〔`INTENT_SLOTS`，與試判斷共用〕、寧可不問、題目不要有數字、選項是使用者會點的短答）。
+- **情境**（`public/js/edge-judge.js judgeContext`，只在手機上組、只給手機上的模型看，不送伺服器，最多 400 字）：有沒有定位（`locationGranted`）、常用地點的標籤、上一輪問過哪一題（`ask.about`）、最近兩輪摘要與目前頁面（同 §5.5 `contextText`）。不含座標、地址、健康資料。試判斷一律「沒有定位」。
+- **手機上**：`normalizeJudge` 配對大括號解析巢狀 JSON；`judgeAsk` 整理＋`edgeAskShape` 形狀檢查（種類、狀態、長度〔中文 30／12 字，英文 60／24 字元〕、問句、沒有數字、選項 2～4 個不重複、`unsafeAsk`、L2 輸出護欄、代辦說法、語言、狀態題一肯定一否定）＋剛問過的不再問；不過就只拿掉 `ask`（判斷照送）。解析失敗當作沒有 ask，不跳斷路器。
+- **伺服器**：zod 嚴格收 `deviceJudge.ask`；`deviceAskTracker` 再跑一次形狀檢查；`deviceSlotAsk`（route／to／from：規則的 `slotAsk`／`originAsk` 也認為缺，選項經 `PENDING_SLOTS` 接回完整的一句，家／公司／學校帶 `saved`）、`deviceStateAsk`（`tripAsk` 最前面：沒說狀況、沒指定方式，`keyQuestion(..., [state])` 只試那個狀態會換建議；`why` 放程式算的數字、`key` 照舊）。通過就用手機的題目與選項文字，否則照規則；與規則衝突時以手機為準；手機沒給但規則要問照規則（保底）。`ask.askSource`、最後 `done.askCheck`；log 只記 `ask`／`deviceAsk` 代碼。
+- 網頁版、手機 AI 不可用或關掉、舊版外掛：完全照規則（行為不變）。
 
 ### 5.4 短劇（MyDrama，ADR-0019，2026-11-22；示範與模型模式相同）
 

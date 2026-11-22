@@ -12,7 +12,8 @@
 export const ASK_KINDS = ['state', 'reply', 'store', 'dismiss', 'action'];
 export const ASK_ACTIONS = ['openLink', 'watchArrival', 'remind'];
 
-import { decide } from '../decide.js';
+import { decide, keyQuestion } from '../decide.js';
+import { edgeAskShape, stateAnswer } from '../edge-ask.js';
 import { placesInText, parseIntent, isEnglish } from './demo-intent.js';
 import { LANDMARKS, normPlace } from '../services/places.js';
 
@@ -34,8 +35,10 @@ const STATE_ANSWERS = {
  * @param {{ habitAsk?: { mode: string, count: number }, usual?: string[], lang?: 'en'|null }} [o]
  * @returns {{ question: string, options: object[], why?: string, about: string, key?: string, pending?: object } | null}
  */
-export function tripAsk(trip, { habitAsk = null, usual = [], lang = null } = {}) {
+export function tripAsk(trip, { habitAsk = null, usual = [], lang = null, device = null } = {}) {
   const en = lang === 'en';
+  const d = deviceStateAsk(device, trip, { lang }); // 手機上的 AI 提議的狀態題通過驗證就用它（ADR-0020：與規則衝突時以手機為準）
+  if (d) return d;
   if (habitAsk && trip?.options?.some((o) => o.role === habitAsk.mode)) {
     const m = habitAsk.mode, n = habitAsk.count;
     if (m === 'ridehail') { // 有理由才推叫車：先問原因
@@ -290,3 +293,96 @@ Object.assign(PENDING_SLOTS, {
     return tripSentence(c, to, p.lang === 'en');
   },
 });
+
+// ───── 問什麼由手機上的 AI 決定（ADR-0020）：deviceJudge.ask 是候選，程式驗證；不通過就丟掉，照上面的規則問（保底）─────
+// 驗證只做「寧可不問」：題目的欄位要真的是這一句缺的（規則的 slotAsk／originAsk 也認為缺）、狀態題要真的會改變建議（keyQuestion 只試那個狀態）、
+// 每個選項都要接得回（跟打字回答同一套 PENDING_SLOTS：地名要在地標庫或是常用地點標籤、路線要像路線號）。
+// 題目文字用手機的；說明（why）、等待中的答案（pending）、只問一次的鍵（key）、這一輪的一句回答（short）仍由程式產生。
+
+/**
+ * 這一輪手機提議的題目的去向（一個請求一個）：形狀先檢查（core/edge-ask.js，手機也跑過），之後在問的時機逐一驗證。
+ * @param {object|undefined} ask deviceJudge.ask
+ * @param {'en'|'zh'} lang 這一輪的語言
+ * @returns {{ ask: object, verdict: 'used'|'rejected'|null, reason: string|null, blocked: boolean } | null}
+ */
+export function deviceAskTracker(ask, lang = 'zh') {
+  if (!ask) return null;
+  const shape = edgeAskShape(ask, { lang: lang === 'en' ? 'en' : 'zh' });
+  return { ask, verdict: shape ? 'rejected' : null, reason: shape, blocked: !!shape };
+}
+const useDevice = (t) => { t.verdict = 'used'; t.reason = null; };
+const rejectDevice = (t, reason) => { if (t.verdict !== 'used') { t.verdict = 'rejected'; t.reason = reason; } };
+/** 這一輪結束時的結果（done 事件的 askCheck、log）：沒用到的視為被擋（沒有缺這個欄位／這一輪沒有行程可以驗證狀態題） */
+export function deviceAskCheck(t) {
+  if (!t) return null;
+  const used = t.verdict === 'used';
+  return { slot: t.ask.slot, ...(t.ask.slot === 'state' && { state: t.ask.state }), verdict: used ? 'used' : 'rejected', ...(!used && { reason: t.reason || (t.ask.slot === 'state' ? 'no-trip' : 'not-missing') }) };
+}
+
+const SAVED_TO = /^(?:回|去|到)?\s*(家|公司|學校)$/;
+const SAVED_FROM = /^(?:從)?\s*(家|公司|學校)\s*(?:出發)?$/;
+const NEARBY_STOPS = /^(?:看)?附近(?:有哪些|的)?公車(?:站牌?|站)?$|^(?:any\s+)?(?:bus\s+stops?\s+nearby|nearby\s+(?:bus\s+)?stops?)\??$/i;
+const MY_SPOT = /^(?:用)?(?:我的位置|我現在的位置|現在位置|這裡|這邊)$|^(?:use\s+)?my\s+location$|^here$/i;
+/** 手機的一個選項 → ask 事件的選項（reply：按了送出規則聽得懂的完整一句）；接不回回 null */
+function deviceOption(slot, label, pending, { again = false } = {}) {
+  const en = pending?.lang === 'en';
+  if (slot === 'route' && NEARBY_STOPS.test(label)) return { label, kind: 'reply', say: en || /^[a-z]/i.test(label) ? 'Any bus stops nearby?' : '附近的公車站' };
+  if (slot === 'to' && !en) {
+    const m = SAVED_TO.exec(label);
+    if (m) { const go = m[1] === '家' ? '回家' : `去${m[1]}`; return { label, kind: 'reply', say: pending.from ? `從${pending.from}${go}怎麼走？` : `${go}怎麼走？`, saved: m[1] }; }
+  }
+  if (slot === 'from') {
+    if (again && MY_SPOT.test(label)) return null; // 上一輪按了「用我的位置」定位又失敗：不再給這個選項
+    const m = !en && SAVED_FROM.exec(label);
+    if (m) return { label, kind: 'reply', say: `從${m[1]}到${pending.to}怎麼去？`, saved: m[1] };
+  }
+  const say = resolvePending(pending, label); // 跟打字回答同一套：只收路線號碼、地標庫認得的地名、常用地點標籤
+  return say ? { label, kind: 'reply', say } : null;
+}
+
+/**
+ * 缺欄位的題目（route／to／from）：規則也認為這一句缺這個欄位（rule＝slotAsk／originAsk 的結果）、每個選項都接得回，才用手機的題目。
+ * @param {ReturnType<typeof deviceAskTracker>} t
+ * @param {'route'|'to'|'from'} slot 規則這一輪要問的欄位
+ * @param {{ ask: object|null, short: string }} rule
+ * @param {{ again?: boolean }} [o] again：上一輪問過起點、定位又失敗
+ * @returns {{ ask: object, short: string } | null} null：不用手機的（照規則）
+ */
+export function deviceSlotAsk(t, slot, rule, { again = false } = {}) {
+  if (!t || t.blocked || t.verdict === 'used' || t.ask.slot !== slot) return null;
+  if (!rule?.ask?.pending) { rejectDevice(t, 'asked'); return null; } // 英文、上一輪已問過起點：規則只回一句，不再出選項
+  const options = [];
+  for (const label of t.ask.options) {
+    const o = deviceOption(slot, label, rule.ask.pending, { again });
+    if (!o) { rejectDevice(t, 'option'); return null; }
+    if (options.some((x) => x.say === o.say)) { rejectDevice(t, 'duplicate'); return null; }
+    options.push(o);
+  }
+  useDevice(t);
+  return { ask: { ...rule.ask, question: t.ask.question, options, askSource: 'device' }, short: rule.short };
+}
+
+/**
+ * 狀態題（state）：使用者這一輪沒說狀況、沒指定方式，而且只加上這個狀態時建議會換、差別值得問（keyQuestion 只試這個狀態）。
+ * 數字（快幾分、多幾元）由程式算、放在 why；題目與兩個選項用手機的。
+ * @returns {object|null} tripAsk 的形狀
+ */
+export function deviceStateAsk(t, trip, { lang = null } = {}) {
+  if (!t || t.blocked || t.verdict === 'used' || t.ask.slot !== 'state' || !trip?.options?.length) return null;
+  const st = t.ask.state;
+  const said = (trip.states || []).some((s) => s.source !== 'auto');
+  if (trip.mode || said || (trip.states || []).some((s) => s.key === st)) { rejectDevice(t, 'said'); return null; }
+  const ctx = { states: (trip.states || []).map((s) => s.key), arriveBy: trip.arriveBy, arriveByMin: trip.arriveByMin, avoid: trip.avoid, habit: trip.habit };
+  const kq = keyQuestion(trip.options, ctx, [st]);
+  if (!kq) { rejectDevice(t, 'no-change'); return null; }
+  const [a, b] = t.ask.options;
+  const yes = stateAnswer(a, st) === 'yes' ? a : b;
+  const no = yes === a ? b : a;
+  const en = lang === 'en', A = STATE_ANSWERS[st];
+  useDevice(t);
+  return {
+    about: `state:${st}`, question: t.ask.question, why: en ? kq.textEn : kq.text,
+    options: [{ label: yes, kind: 'state', state: st, say: en ? A.sayEn : A.say }, { label: no, kind: 'dismiss' }],
+    key: `${st}@${spot(trip.from)}>${spot(trip.to)}`, pending: { slot: 'state', state: st }, askSource: 'device',
+  };
+}

@@ -18,7 +18,7 @@
    - 地端模型模式下，裝置判斷與伺服器 B 一樣可讓伺服器依意圖縮小給模型的工具（`INTENT_TOOLS`，伺服器自己的對照表，仍在 profile 白名單內）；裝置不能指定工具名稱。
    - 伺服器**有** B 時，完整判斷仍用 B（評測較準），裝置結果只用在快速版（先說聽懂了什麼）。
 4. **降級與斷路器**：上一題原生端還沒跑完就不呼叫（不排隊，晚到的結果丟掉）；外掛回不可用就這次開 App 不再試；Android 遇到配額或背景被擋暫停 10 分鐘。網頁版、iOS 26 以下、機型不支援、沒開 Apple Intelligence、模型下載中、語言不支援、外掛錯誤、超過 1.8 秒（`EDGE_TIMEOUT_MS`；Android 原生端 1.5 秒取消）→ 不帶 `deviceJudge`，伺服器照原本的判斷層。使用者看不出差別。不提高 App 最低版本（iOS 15、Android API 24；外掛在 iOS 26／API 26 以下直接回不可用）。
-5. **隱私**：只送意圖、狀態、引擎三個欄位（使用者的句子本來就會送伺服器回答）；外掛只記耗時與錯誤類型，不記句子。使用者可關閉（`localStorage abang.edgeAI = off`，設定畫面 E8 再做）。
+5. **隱私**：只送意圖、狀態、引擎三個欄位（2026-11-22 ADR-0020 加上手機提議的一題 `ask`：種類、題目、短答選項；出題用的情境只給手機上的模型看，不送伺服器）（使用者的句子本來就會送伺服器回答）；外掛只記耗時與錯誤類型，不記句子。使用者可關閉（`localStorage abang.edgeAI = off`，設定畫面 E8 再做）。
 6. **看得到**：status 事件的 `judge` 帶 `source: 'device'`、`engine`；問阿幫那一輪的回答上方寫一行「阿幫先在手機上用 Apple Intelligence／Gemini Nano 聽懂你要做什麼」；伺服器沒採用時寫「手機上的 … 先聽了一遍；這一輪以伺服器的判斷為準」（2026-11-21 改：原本放在頁底模式說明，與回答上方重複，英文提問時還是中文）；地端模型模式下裝置判斷與伺服器 B 一樣可縮小給模型的工具（`INTENT_TOOLS`）；伺服器 log 記 `judge` 來源（不含內容），作為計量。
 7. **讓使用者看得到模型（2026-11-21）**：「阿幫的腦袋」頁（`#/ai`，UX.md §5.0.1；入口在設定頁的裝置端 AI 區塊）顯示手機上的模型資訊、現場試判斷、資料怎麼走。外掛 `status()` 多回系統查得到的欄位，**查不到就不回傳、畫面就不顯示，不編造版本或參數**：
    - Android（ML Kit GenAI Prompt API）：`featureStatus`（available／downloadable／downloading／unavailable）、`modelName`（`getBaseModelName()`）、`tokenLimit`（`getTokenLimit()`）、下載中的 `downloadTotalBytes`／`downloadedBytes`（`DownloadCallback`）、`aicoreVersion`（AICore 套件版本；manifest 加 `<queries>`）、`osVersion`、`device`。ML Kit 不回報支援語言與模型大小，所以不顯示。

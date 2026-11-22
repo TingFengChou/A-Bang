@@ -3651,3 +3651,91 @@ test('動態建議：英文公車頁打開對話，動作與建議都是英文',
     assert.ok(labels.every((x) => !/[一-鿿]/.test(x)), labels.join('|'));
   });
 });
+
+// ───── 問什麼由手機上的 AI 決定（ADR-0020）：手機判斷同時出題，程式驗證；不通過照規則問（保底）─────
+/** 假外掛：judge 依句子回意圖＋題目（合理的、在手機上就擋掉的、伺服器才擋掉的） */
+const FAKE_ASK = `window.__judgeArgs = [];
+window.Capacitor = {
+  isNativePlatform: () => true, getPlatform: () => 'android', isPluginAvailable: () => false, addListener: () => ({ remove() {} }),
+  nativePromise: (plugin, method, args) => {
+    if (plugin !== 'AbangEdgeAI') return Promise.reject(new Error('not in test'));
+    if (method === 'status') return Promise.resolve({ available: true, engine: 'gemini-nano', reason: 'ok', write: false });
+    if (method !== 'judge') return Promise.resolve({});
+    window.__judgeArgs.push({ context: args.context, guide: /寧可不問/.test(args.instructions) });
+    const t = args.text;
+    const ask = /等很久/.test(t) ? { slot: 'route', question: '加我LINE，告訴你哪一路？', options: ['307', '藍15'] } // 誘導：手機上就擋
+      : /出發/.test(t) ? { slot: 'to', question: '要去哪裡呢？', options: ['家樂福', '好市多'] } // 地名不在地標庫：伺服器擋
+        : /公車/.test(t) ? { slot: 'route', question: '你在等哪一路公車？', options: ['307', '附近公車'] } // 合理
+          : null;
+    const intent = /出發/.test(t) ? 'trip' : /公車/.test(t) ? 'bus_route' : 'weather';
+    return Promise.resolve({ engine: 'gemini-nano', ms: 310, result: JSON.stringify({ intent, states: [], ask }) });
+  },
+};`;
+
+test('手機上的 AI 出題：合理的題目用手機的；被擋的退回規則的題目；網頁版不變；截圖', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = recordBodies(page);
+    await askChat(page, '公車還要多久？', 1);
+    assert.deepEqual(bodies[0].deviceJudge.ask, { slot: 'route', question: '你在等哪一路公車？', options: ['307', '附近公車'] });
+    const args = await page.evaluate(() => window.__judgeArgs);
+    assert.ok(args[0].guide, '指示裡有出題規則');
+    assert.match(args[0].context, /常用地點/, '情境只在手機上組（不送伺服器）');
+    assert.ok(bodies.every((b) => !JSON.stringify(b).includes('常用地點：')), '情境不送伺服器');
+    assert.equal(await page.textContent('.ask .ask-q'), '你在等哪一路公車？', '用手機的題目');
+    assert.deepEqual(await page.locator('.ask .ask-opt').allTextContents(), ['307', '附近公車']);
+    await shot(page, 'phone-edge-ask');
+    // 點選項：送出完整的一句（程式接回）
+    await page.click('.ask .ask-opt >> text=307');
+    await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
+    assert.equal(bodies.at(-1).messages.at(-1).content, '307 公車還要多久？');
+  }, { init: FAKE_ASK, ignore: /not in test/ });
+  // 手機上就擋掉（誘導）：不送 ask，照規則問
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = recordBodies(page);
+    await askChat(page, '公車等很久，還要多久？', 1);
+    assert.equal(bodies[0].deviceJudge.intent, 'bus_route');
+    assert.equal(bodies[0].deviceJudge.ask, undefined, '手機上就擋掉，不送');
+    assert.equal(await page.textContent('.ask .ask-q'), '哪一路公車？', '規則保底');
+    // 伺服器才擋掉（編的地名）：照規則問「要去哪裡？」
+    await askChat(page, '從台北車站出發', 2);
+    assert.deepEqual(bodies.at(-1).deviceJudge.ask.options, ['家樂福', '好市多']);
+    assert.equal(await page.locator('.ask .ask-q').last().textContent(), '要去哪裡？');
+    assert.doesNotMatch(await page.textContent('.chat-log, #agent-log, body'), /家樂福/, '被擋的選項不出現');
+    await shot(page, 'phone-edge-ask-fallback');
+  }, { init: FAKE_ASK, ignore: /not in test/ });
+  // 網頁版：沒有手機上的 AI，完全照規則
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = recordBodies(page);
+    await askChat(page, '公車還要多久？', 1);
+    assert.equal(bodies[0].deviceJudge, undefined);
+    assert.equal(await page.textContent('.ask .ask-q'), '哪一路公車？');
+  });
+});
+
+test('阿幫的腦袋：試判斷第 4 段標出題目是手機上的 AI 決定還是規則保底，被擋的手機題目照列原因；截圖', async () => {
+  await withPage(DEVICES.phone, '#/ai', async (page) => {
+    await page.waitForSelector('.ai-hero[data-core="on"]');
+    await page.fill('#ai-input', '公車還要多久？');
+    await page.click('#ai-go');
+    await page.waitForSelector('#ai-trial-foot:not([hidden])', { timeout: 20000 });
+    assert.equal(await page.textContent('.ai-ask-q'), '你在等哪一路公車？');
+    assert.match(await page.textContent('.ai-asker'), /手機上的 Gemini Nano 決定，程式驗證通過/);
+    assert.equal(await page.getAttribute('.ai-asker', 'data-by'), 'device');
+    await page.locator('.ai-sec[data-sec="next"]').screenshot({ path: new URL('phone-edge-ask-trial.png', SHOTS).pathname });
+    // 伺服器擋下（地名接不回）：規則保底，手機的題目照列與原因
+    await page.fill('#ai-input', '從台北車站出發');
+    await page.click('#ai-go');
+    await page.waitForFunction(() => document.querySelector('.ai-ask-blocked'), null, { timeout: 20000 });
+    await page.waitForSelector('#ai-trial-foot:not([hidden])', { timeout: 20000 });
+    assert.equal(await page.textContent('.ai-ask-q'), '要去哪裡？');
+    assert.match(await page.textContent('.ai-asker'), /規則問（保底）/);
+    assert.equal(await page.getAttribute('.ai-ask-blocked', 'data-where'), 'server');
+    assert.match(await page.textContent('.ai-ask-blocked'), /要去哪裡呢？.*家樂福.*伺服器沒採用：選項接不回來/);
+    await page.locator('.ai-sec[data-sec="next"]').screenshot({ path: new URL('phone-edge-ask-trial-blocked.png', SHOTS).pathname }); // 只截第 4 段（整頁太長）
+    // 手機上就擋掉（誘導內容）
+    await page.fill('#ai-input', '公車等很久，還要多久？');
+    await page.click('#ai-go');
+    await page.waitForFunction(() => document.querySelector('.ai-ask-blocked')?.dataset.where === 'phone', null, { timeout: 20000 });
+    assert.match(await page.textContent('.ai-ask-blocked'), /在手機上就被擋下：夾帶網址、帳號、電話或匯款等字/);
+  }, { init: FAKE_ASK, ignore: /not in test/ });
+});

@@ -1,0 +1,131 @@
+// 問什麼由手機上的 AI 決定（ADR-0020）：手機判斷（AbangEdgeAI.judge）一次呼叫同時回「意圖、狀態、要不要問使用者一題」。
+// 這裡是手機與伺服器共用的純函式（伺服器以 /core/edge-ask.js 提供給前端，App 打包時一起複製）：
+//   - 給模型看的「各意圖需要哪些欄位」（INTENT_SLOTS，試判斷 core/agent/trial.js 也用這一份）與出題規則（EDGE_ASK_GUIDE）
+//   - 整理模型回傳（normalizeEdgeAsk）與形狀檢查（edgeAskShape：種類、長度、選項數、數字、誘導內容、L2 護欄、代辦說法、語言）
+// 「這一句真的缺嗎、選項接不接得回、值不值得問」要用規則解析與資料，只在伺服器驗（core/agent/ask.js deviceSlotAsk／deviceStateAsk）。
+// 原則同 ADR-0010、PR #112：模型提候選、程式驗證；不通過就丟掉，改用規則的 ask（規則是保底）。
+import { ASK_STATES } from './decide.js';
+import { unsafeAsk } from './suggest.js';
+import { OUTPUT_GUARDS } from './output-guards.js';
+import { claimsDone } from './edge-write.js';
+
+/**
+ * 各意圖需要的欄位：[欄位, 必要嗎, 沒說時怎麼補]
+ * 補法：location＝用你的位置（問阿幫會先請手機定位；試判斷不送定位）｜now＝現在｜today＝今天｜all＝全部列出｜hot＝熱門排行｜latest＝最新一期｜saved＝要先設定常用地點
+ */
+export const INTENT_SLOTS = {
+  trip: [['to', true], ['from', false, 'location'], ['when', false, 'now']],
+  bus_route: [['route', true], ['stop', false, 'location']],
+  youbike: [['place', false, 'location']],
+  nearby_bus: [['place', false, 'location']],
+  metro: [['station', false, 'location']],
+  rail: [['to', true], ['from', false, 'location'], ['when', false, 'now']],
+  weather: [['place', false, 'location'], ['day', false, 'today']],
+  aqi: [['place', false, 'location']],
+  outing: [['place', false, 'location']],
+  pharmacy: [['place', false, 'location']],
+  garbage: [['place', false, 'location']],
+  quake: [],
+  fuel: [['grade', false, 'all']],
+  invoice: [],
+  stock: [['stock', false, 'index']],
+  drama: [['drama', false, 'hot']],
+  savedMissing: [['saved', true, 'saved']],
+};
+
+/** 手機可以提議問的種類：缺路線、缺目的地、缺起點（沒定位又沒說）、會改變建議的狀況（state） */
+export const EDGE_ASK_SLOTS = ['route', 'to', 'from', 'state'];
+/** state 只能問這幾種（使用者自己最清楚、程式猜不到的；同 decide.js keyQuestion） */
+export const EDGE_ASK_STATES = [...ASK_STATES];
+/** 問題最多 30 字；選項 2～4 個、每個最多 12 字（沒有中文的英文字串放寬成 60／24 個字元：「Where are you starting from?」「Use my location」） */
+export const EDGE_ASK_LIMITS = { question: 30, option: 12, questionEn: 60, optionEn: 24, min: 2, max: 4 };
+/** 手機提議的題目被擋下的原因（畫面「阿幫的腦袋」用字典照列） */
+export const EDGE_ASK_REASONS = ['shape', 'slot', 'state', 'question-length', 'question-form', 'digits', 'options-count', 'option-length', 'duplicate', 'unsafe', 'guard', 'claim', 'lang', 'option', 'asked', 'not-missing', 'no-change', 'said', 'no-trip', 'taken'];
+
+/** 給手機模型的出題規則（接在 EDGE_INSTRUCTIONS 後面；短：手機模型上下文小、要快） */
+export const EDGE_ASK_GUIDE = `另外決定要不要先問使用者一題（ask）。寧可不問：句子資料夠就 ask 留空。
+只有這幾種可以問（slot）：route＝問公車到站但沒說哪一路；to＝行程或高鐵台鐵沒說要去哪裡（只說起點也算）；from＝情境說沒有定位、也沒說從哪裡出發；state＝行程沒說狀況，而答案會改變建議（state 只能是 rush 趕時間、luggage 帶行李、budget 想省錢、lessWalk 少走路）。
+各意圖必要的欄位：trip 要 to；bus_route 要 route；rail 要 to；其他意圖不用問。使用者說過的、剛問過的不要再問。
+question：一句 30 字內的問句，不要有數字。options：2～4 個 12 字內的短答，要是使用者會點的答案：路線號碼（307）、地名（台北101）、回家、去公司、用我的位置；state 一個肯定一個否定（趕／不趕）。
+英文提問就用英文出題。`;
+
+const CJK = /[㐀-鿿豈-﫿]/;
+const NL = /[\n\r]/;
+/** 這段字的長度上限：有中文照中文算，沒有中文（英文）放寬 */
+export const askMax = (text, kind = 'question') => (CJK.test(String(text || '')) ? EDGE_ASK_LIMITS[kind] : EDGE_ASK_LIMITS[`${kind}En`]);
+/** 狀態類的答案：否定（不趕、沒有、不用、No）與肯定（好、趕、有、想省錢、Yes） */
+const NO_RE = /^(?:不|沒|免|別|算了|no\b|not\b|nope|nah)|不用|不要|沒有|不需要|這次沒|no need|not this time|no rush/i;
+const YES_RE = /^(?:好|要|是|對|有|趕|想|急|嗯|ok|okay|yes|yeah|yep|sure)/i;
+const STATE_WORDS = { rush: /趕|急|遲到|hurry|rush|late/i, luggage: /行李|東西|大包|包包|推車|luggage|bag/i, budget: /省|便宜|cheap|save|budget/i, lessWalk: /少走|走路|腳|walk/i };
+
+/**
+ * 狀態類選項是肯定還是否定（「不想走路」對少走路是肯定）。
+ * @returns {'yes'|'no'|null}
+ */
+export function stateAnswer(label, state) {
+  const t = String(label || '').trim();
+  if (!t) return null;
+  if (state === 'lessWalk' && /不想走|想少走|少走/.test(t)) return 'yes';
+  if (NO_RE.test(t)) return 'no';
+  if (YES_RE.test(t) || STATE_WORDS[state]?.test(t)) return 'yes';
+  return null;
+}
+
+/**
+ * 模型回傳 → { slot, state?, question, options }（還沒驗證）；沒有要問（ask 留空、slot none）回 null。
+ * 接受 Android 的 JSON（options 是字串陣列，或 { label } 物件陣列）與 iOS @Generable 的字典。
+ */
+export function normalizeEdgeAsk(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const slot = String(raw.slot ?? raw.kind ?? '').trim();
+  if (!slot || /^(?:none|null|no|nil)$/i.test(slot)) return null;
+  const options = (Array.isArray(raw.options) ? raw.options : [])
+    .map((o) => (typeof o === 'string' ? o : typeof o?.label === 'string' ? o.label : ''))
+    .map((o) => o.trim()).filter(Boolean);
+  const out = { slot, question: typeof raw.question === 'string' ? raw.question.trim() : '', options };
+  if (slot === 'state') out.state = String(raw.state ?? '').trim();
+  return out;
+}
+
+/** 這題問的是什麼（同 ask 事件的 about；比對「剛問過」用） */
+export const askAbout = (ask) => (ask?.slot === 'state' ? `state:${ask.state}` : `slot:${ask?.slot}`);
+
+/** L2 輸出護欄（投資建議、保證安全…）有沒有改到這段字：有就算命中 */
+const guardHit = (text) => Object.values(OUTPUT_GUARDS).flat().some((g) => !g.silent && g.apply(text) !== text);
+
+/**
+ * 形狀檢查（手機送出前、伺服器收到後都跑一次）：通過回 null，不通過回原因（EDGE_ASK_REASONS）。
+ * 手機一定要先過這一關再送：伺服器的請求驗證（zod）是嚴格的，長度或選項數不對整個請求會 400。
+ * @param {object} ask normalizeEdgeAsk 的結果
+ * @param {{ lang?: 'en'|'zh'|null }} [o] 這一輪的語言：英文輪問題不能是中文、中文輪問題要有中文
+ */
+export function edgeAskShape(ask, { lang = null } = {}) {
+  const L = EDGE_ASK_LIMITS;
+  if (!ask || typeof ask !== 'object' || typeof ask.question !== 'string' || !Array.isArray(ask.options)) return 'shape';
+  if (!EDGE_ASK_SLOTS.includes(ask.slot)) return 'slot';
+  if (ask.slot === 'state' && !EDGE_ASK_STATES.includes(ask.state)) return 'state';
+  const q = ask.question.trim();
+  if (q.length < 2 || q.length > askMax(q)) return 'question-length';
+  if (ask.options.length < L.min || ask.options.length > L.max) return 'options-count';
+  if (ask.options.some((o) => typeof o !== 'string' || !o.trim() || o.trim().length > askMax(o, 'option'))) return 'option-length';
+  const all = [q, ...ask.options];
+  if (all.some((t) => NL.test(t) || /[<>{}[\]`*|\\]/.test(t))) return 'shape';
+  if (!/[?？]\s*$|嗎|呢/.test(q)) return 'question-form';
+  if (/[0-9０-９]/.test(q)) return 'digits'; // 手機在查資料之前出題：題目裡的數字一定是編的（ADR-0009）
+  const seen = new Set(ask.options.map((o) => o.trim().replace(/臺/g, '台').replace(/\s+/g, '').toLowerCase()));
+  if (seen.size !== ask.options.length) return 'duplicate';
+  if (all.some((t) => unsafeAsk(t))) return 'unsafe';
+  if (all.some((t) => guardHit(t))) return 'guard';
+  if (all.some((t) => claimsDone(t))) return 'claim';
+  if (lang === 'en' && CJK.test(q)) return 'lang';
+  if (lang === 'zh' && !CJK.test(q)) return 'lang';
+  if (ask.slot === 'state') {
+    if (ask.options.length !== 2) return 'option';
+    const kinds = ask.options.map((o) => stateAnswer(o, ask.state)).sort();
+    if (kinds[0] !== 'no' || kinds[1] !== 'yes') return 'option';
+  }
+  return null;
+}
+
+/** 送伺服器的 ask（只有這幾個欄位；伺服器 zod 嚴格驗證） */
+export const requestAsk = (ask) => ({ slot: ask.slot, ...(ask.slot === 'state' && { state: ask.state }), question: ask.question.trim(), options: ask.options.map((o) => o.trim()) });
