@@ -12,14 +12,19 @@ export const METRO_SYSTEMS = {
   TYMC: '桃園機場捷運',
   TMRT: '台中捷運',
   KRTC: '高雄捷運',
+  NTMC: '新北捷運',     // 三鶯線、環狀線（2026-11-22 產品負責人：所有捷運系統都要包含，範圍全台灣）
+  NTDLRT: '淡海輕軌',
+  NTALRT: '安坑輕軌',
+  KLRT: '高雄輕軌',
 };
 
 /** 各系統的路線名稱（代碼 → 中文；時刻表沒有路線名稱時用） */
 export const METRO_LINE_NAME = {
   TRTC: { BL: '板南線', R: '淡水信義線', G: '松山新店線', O: '中和新蘆線', BR: '文湖線', Y: '環狀線', LG: '萬大線' },
   TYMC: { A: '機場線' }, TMRT: { G: '綠線' }, KRTC: { R: '紅線', O: '橘線' },
+  NTMC: { LB: '三鶯線', Y: '環狀線' }, NTDLRT: { V: '淡海輕軌' }, NTALRT: { K: '安坑輕軌' }, KLRT: { C: '環狀輕軌' },
 };
-const LINE_NAME_EN = { BL: 'Bannan Line', R: 'Tamsui-Xinyi Line', G: 'Songshan-Xindian Line', O: 'Zhonghe-Xinlu Line', BR: 'Wenhu Line', Y: 'Circular Line', LG: 'Wanda Line' };
+const LINE_NAME_EN = { BL: 'Bannan Line', R: 'Tamsui-Xinyi Line', G: 'Songshan-Xindian Line', O: 'Zhonghe-Xinlu Line', BR: 'Wenhu Line', Y: 'Circular Line', LG: 'Wanda Line', LB: 'Sanying Line', V: 'Danhai LRT', K: 'Ankeng LRT', C: 'Circular LRT' };
 
 /** 各系統路網的大約範圍（緯度、經度；外擴約 10 公里）：行程規劃只查起訖附近有路網的系統 */
 export const METRO_AREA = {
@@ -27,6 +32,10 @@ export const METRO_AREA = {
   TYMC: [24.85, 25.20, 121.10, 121.60],
   TMRT: [24.00, 24.30, 120.50, 120.85],
   KRTC: [22.45, 22.90, 120.15, 120.50],
+  NTMC: [24.85, 25.15, 121.30, 121.60],
+  NTDLRT: [25.05, 25.30, 121.35, 121.55],
+  NTALRT: [24.85, 25.10, 121.45, 121.65],
+  KLRT: [22.50, 22.75, 120.20, 120.40],
 };
 export const nearMetroArea = (op, p) => { const a = METRO_AREA[op]; return Boolean(a && p && p.lat >= a[0] && p.lat <= a[1] && p.lon >= a[2] && p.lon <= a[3]); };
 
@@ -263,7 +272,7 @@ export function createMetroServices(tdx, { now = () => tdx.now?.() ?? Date.now()
  * 台中捷運代碼是數字（103a）→ 綠線 G；機場捷運 A；高雄岡山延伸 RK → 紅線 R。
  */
 export function stationLines(op, ids = []) {
-  const one = { TMRT: 'G', TYMC: 'A' }[op];
+  const one = { TMRT: 'G', TYMC: 'A', NTDLRT: 'V', NTALRT: 'K', KLRT: 'C' }[op];
   if (one) return [one];
   return [...new Set(ids.map((i) => /^[A-Z]+/.exec(i)?.[0]).filter(Boolean).map((c) => (op === 'KRTC' && c === 'RK' ? 'R' : c)))];
 }

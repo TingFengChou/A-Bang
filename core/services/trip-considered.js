@@ -110,7 +110,7 @@ export function missingModes({ straight, roles, skipped = [], limits }) {
     if (r?.none) { out.push({ role, ...r.none }); continue; }
     if (r === 'failed') { out.push({ role, kind: 'none', why: '資料暫時查不到', whyEn: 'Data unavailable right now' }); continue; }
     const tooFar = { walk: limits.walkMaxM, bike: limits.bikeMaxM, bus: limits.busMaxM, metro: 60000 }[role];
-    const tooNear = { bike: limits.bikeMinM, metro: 1500, thsr: limits.railMinM, tra: limits.railMinM, intercity: limits.intercityMinM }[role];
+    const tooNear = { bike: limits.bikeMinM, metro: 1500, thsr: limits.railMinM, tra: limits.traMinM ?? limits.railMinM, intercity: limits.intercityMinM }[role];
     if (tooFar && far(tooFar)) out.push({ role, kind: 'far', why: `${km} 公里太遠`, whyEn: `${km} km is too far` });
     else if (tooNear && straight < tooNear) out.push({ role, kind: 'near', why: '距離太近', whyEn: 'Too close' });
     else if (role === 'metro') out.push({ role, kind: 'none', why: '起點或目的地附近沒有捷運站', whyEn: 'No MRT station near the start or destination' });

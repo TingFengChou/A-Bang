@@ -30,7 +30,7 @@ test('metroHours：各系統約 06:00 首班、24:00 前後收班（⚠️ 大�
   assert.deepEqual(metroHours('TYMC', 23 * 60 + 59), { closed: true, first: '06:00' }, '機場捷運約 23:59 收班');
   assert.deepEqual(metroHours('TYMC', 23 * 60 + 30), { late: true, last: '23:59' });
   assert.deepEqual(metroHours('NOPE', 10), { closed: true, first: '06:00' }, '不認得的系統照台北捷運');
-  assert.deepEqual(Object.keys(METRO_HOURS), ['TRTC', 'TYMC', 'TMRT', 'KRTC']);
+  assert.deepEqual(Object.keys(METRO_HOURS), ['TRTC', 'TYMC', 'TMRT', 'KRTC', 'NTMC', 'NTDLRT', 'NTALRT', 'KLRT'], '全台捷運與輕軌（2026-11-22）');
 });
 
 test('00:10 台北車站→台北101：公車、捷運都不列入且有原因；第一句「現在 00:10，公車和捷運都收班了…」', async () => {
@@ -74,11 +74,9 @@ test('真實資料也套用捷運營運時間（捷運沒有收班即時狀態�
 test('有好幾種方式時 missing 仍帶原因（白天沒有捷運站：卡片、討論串、回答都說）', async () => {
   const r = await planTrip(createServices({ forceMock: true }), { from: MAIN, to: { name: '萬華一帶', lat: 25.0278, lon: 121.497 }, now: at('10:00') });
   assert.ok(r.options.length > 1 && !r.single);
-  // 哪一端沒有、最近的站多遠，照實說（2026-11-22 真實健檢：不要讓人以為捷運壞了）
-  assert.deepEqual(r.missing, [{ role: 'metro', kind: 'none', why: '目的地 1.2 公里內沒有捷運站（最近的是西門站，約 1.9 公里）', whyEn: 'No MRT station within 1.2 km of the destination (nearest: 西門, about 1.9 km)' }]);
+  // 只有 2.8 公里、目的地離捷運站 1.9 公里：接駁比坐捷運還遠，不列入，照實說原因
+  assert.deepEqual(r.missing.find((m) => m.role === 'metro'), { role: 'metro', kind: 'none', why: '到捷運站太遠（兩端加起來約 17 分）', whyEn: 'Too far to reach the MRT stations (about 17 min in total)' });
   assert.equal(r.night, undefined);
-  const lines = [impactOf('plan_trip', r)].flat();
-  assert.ok(lines.some((l) => l.text === '沒列入：捷運（目的地 1.2 公里內沒有捷運站（最近的是西門站，約 1.9 公里））'), '討論串「→ 影響」說沒列入的原因');
   const tool = await callTool(createServices({ forceMock: true }), 'plan_trip', { from: '台北車站', to: '台北101', departAt: '00:10' });
   assert.match(tool.text, /深夜（回答第一句先說）：.*公車和捷運都收班了/, '模型看得到深夜的一句');
   assert.match(tool.text, /沒列入：公車（深夜多數公車已收班.*）、捷運（捷運已收班（約 06:00 首班））/);
@@ -248,7 +246,7 @@ test('審查 6：站牌狀態 4（今日未營運）不當收班、不觸發深�
 
 test('審查 7：沒有捷運的地方（起訖 10 公里內沒有捷運站）不說「捷運沒列入」', async () => {
   const r = await planTrip(createServices({ forceMock: true }), { from: { name: '墾丁', lat: 21.95, lon: 120.79 }, to: { name: '恆春', lat: 22.0, lon: 120.75 }, now: at('10:00') });
-  assert.equal(r.missing, undefined);
+  assert.deepEqual((r.missing || []).map((m) => m.role), ['tra'], '只說台鐵附近沒有車站（台鐵不限距離，沒列出會以為沒查）；捷運不提');
   assert.ok(![impactOf('plan_trip', r)].flat().some((l) => /捷運/.test(l.text)));
   const said = demoSummary(parseIntent('從墾丁去恆春'), { plan_trip: [{ data: r }] });
   assert.doesNotMatch(said, /捷運沒列入/);
