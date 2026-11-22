@@ -54,6 +54,8 @@ export function createParkingServices(tdx, { od = null } = {}) {
   };
   return {
     parking: {
+      /** 伺服器啟動後先下載台北市、新北市的停車場清單（台北約 2.9 MB：第一次查才下載會超過 2.5 秒的等待，那一次就沒有停車場） */
+      warm: open ? () => Promise.allSettled(OPEN_PARKING_CITIES.map((c) => open.lots(c))) : null,
       /**
        * 目的地附近的停車場（含剩餘車位，查得到才有）
        * @returns {Promise<{ city: string|null, lots: Array<object>, noData?: boolean }>}

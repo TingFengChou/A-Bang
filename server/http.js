@@ -182,6 +182,7 @@ createServer(async (req, res) => {
   if (svc.antifraudMode === 'live') svc.antifraud.stats().then((s) => log.info('antifraud data loaded', s)).catch((e) => log.warn('antifraud data not loaded', { error: e.message }));
   // TDX 靜態資料背景預熱（每分鐘最多用 3 次，留 2 次給使用者；已存檔的跳過）；TDX_PREWARM=0 關閉
   if (svc.tdxPrewarm && process.env.TDX_PREWARM !== '0') svc.tdxPrewarm({ log: (m) => log.info(m) });
+  if (svc.parking?.warm && process.env.TDX_PREWARM !== '0') svc.parking.warm().catch(() => {}); // 台北市、新北市停車場清單（免金鑰開放資料，不佔 TDX 額度）
   log.info(`阿幫 running → http://localhost:${PORT}  (mode=${svc.mode}, agent=${agent.mode.mode}${agent.mode.model ? `:${agent.mode.model}` : ''})  MCP: http://localhost:${PORT}/mcp`, { port: PORT, version: VERSION, mode: svc.mode, agentMode: agent.mode.mode });
 });
 
