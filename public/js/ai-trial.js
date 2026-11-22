@@ -25,7 +25,7 @@ const pickTool = (e) => ({ id: e.id, name: e.name, title: e.title, role: e.role 
  * @param {object[]} events runAgent 收到的事件（含 client_tool_call）
  */
 export function summarizeRun(events = []) {
-  const out = { mode: null, lang: 'zh', judge: null, trial: null, tools: [], results: [], decision: null, ask: null, askCheck: null, draft: null, text: '', askedLocation: false, notes: [], safety: null, error: null };
+  const out = { mode: null, lang: 'zh', judge: null, trial: null, tools: [], results: [], decision: null, ask: null, askCheck: null, draft: null, text: '', askedLocation: false, located: false, notes: [], safety: null, error: null };
   const started = new Map();
   for (const e of events) {
     if (!e || typeof e !== 'object') continue;
@@ -46,6 +46,7 @@ export function summarizeRun(events = []) {
       case 'answer_draft': out.draft = { text: e.text, facts: e.facts, lang: e.lang }; break;
       case 'text': out.text += String(e.delta || ''); break;
       case 'client_tool_call': if (e.name === 'device_location') out.askedLocation = true; break;
+      case 'client_tool_result': if (e.name === 'device_location' && e.ok) out.located = true; break; // 手機給了定位（座標不在事件裡）
       case 'guardrail': if (/^safety:/.test(e.rule || '')) out.safety = String(e.rule).slice(7); break;
       case 'error': out.error = String(e.message || ''); break;
       default:
@@ -96,6 +97,9 @@ export async function trialSuggest({ q, run, now = Date.now(), canEdge, edgeSugg
  * @param {(key: string, section: object) => void} [onSection]
  * @param {(e: object) => void} [onEvent] 給「阿幫在想」動畫的事件（device、agent 事件、suggest）
  */
+/** 試判斷帶的前文：問阿幫最近 6 則（3 問 3 答） */
+export const TRIAL_HISTORY = 6;
+
 export async function runTrial(q, deps, onSection = () => {}, onEvent = () => {}) {
   const now = deps.now || (() => performance.now());
   const report = { q, at: new Date().toISOString(), sections: {} };
@@ -109,11 +113,13 @@ export async function runTrial(q, deps, onSection = () => {}, onEvent = () => {}
     if (dev) put('judge', { by: 'device', engine: dev.engine, intent: dev.intent, states: dev.states, ms: deps.judgeMs?.() ?? t, network: false, ...(dev.ask && { ask: dev.ask }) });
   }
   onEvent({ type: 'device', result: dev });
-  // 2、3 真的跑一次 agent（edge 模式、試判斷）：只送這一句（＋手機判斷的意圖、狀態）；伺服器請定位時不給（locate 回 null）
+  // 2、3 真的跑一次 agent（edge 模式、試判斷），跟問阿幫一樣用手機知道的事（2026-11-22 產品負責人「阿幫應該要有手機有的所有資訊，地點、時間不應該要問」）：
+  //   前文：問阿幫最近幾句（history）；定位：伺服器請定位時由手機查（locate；沒給就不送）
   const events = [];
+  const prior = (deps.history?.() || []).filter((m) => (m?.role === 'user' || m?.role === 'assistant') && typeof m.content === 'string').slice(-TRIAL_HISTORY);
   const t1 = now();
   let tTrial = null;
-  const body = { messages: [{ role: 'user', content: q }], clientCaps: { edgeWrite: true, trial: true, ...(deps.device.write && deps.device.engine && { engine: deps.device.engine }) }, ...(dev && { deviceJudge: dev }) };
+  const body = { messages: [...prior, { role: 'user', content: q }], clientCaps: { edgeWrite: true, trial: true, ...(deps.device.write && deps.device.engine && { engine: deps.device.engine }) }, ...(dev && { deviceJudge: dev }) };
   try {
     await deps.agent(body, (e) => {
       events.push(e);
@@ -124,7 +130,7 @@ export async function runTrial(q, deps, onSection = () => {}, onEvent = () => {}
         put('data', { ...dataSection(e), ms: tTrial, network: true });
       }
       if (e.type !== 'answer_draft' && e.type !== 'text' && e.type !== 'done') onEvent(e);
-    }, { locate: async () => null, signal: deps.signal });
+    }, { locate: deps.locate || (async () => null), signal: deps.signal });
   } catch (err) {
     events.push({ type: 'error', message: String(err?.message || err) });
   }
@@ -149,7 +155,7 @@ export async function runTrial(q, deps, onSection = () => {}, onEvent = () => {}
     final: rewrite?.ok ? rewrite.text : (run.draft?.text ?? run.text ?? ''),
     tools: run.tools.filter((x) => x.name !== 'find_place').map((x) => ({ name: x.name, title: x.title, role: x.role, ok: x.ok, ...(x.ok ? { speak: x.speak, mode: x.mode } : { error: x.error }) })),
     ...(run.decision?.best && { best: run.decision.options?.find((o) => o.id === run.decision.best)?.name || null }),
-    askedLocation: run.askedLocation, ...(run.safety && { safety: run.safety }), ...(run.error && { error: run.error }),
+    askedLocation: run.askedLocation, located: run.located, turns: prior.filter((m) => m.role === 'user').length, ...(run.safety && { safety: run.safety }), ...(run.error && { error: run.error }),
     ms: tAnswer + (rewrite?.ms || 0), network: true,
   });
   // 4 下一個預計問你：阿幫問你（這一輪的 ask）＋使用者接下來可能問的（動態建議）
@@ -157,7 +163,7 @@ export async function runTrial(q, deps, onSection = () => {}, onEvent = () => {}
   const t3 = now();
   const sug = await deps.suggest({ q, run }).catch(() => ({ source: 'rules', asks: [], guessed: [], checked: false }));
   const data = report.sections.data;
-  put('next', { ask: run.ask, asker: askerOf(run, dev, deps.askInfo?.() || null), missing: data?.missing || [], location: !!(run.askedLocation || data?.location), suggest: sug, ms: ms(t3, now), network: !!sug.checked }); // 問題來自上面那一輪（已經用過網路）；建議只有驗證猜的句子時用網路
+  put('next', { ask: run.ask, asker: askerOf(run, dev, deps.askInfo?.() || null), missing: data?.missing || [], location: !run.located && !!(run.askedLocation || data?.location), suggest: sug, ms: ms(t3, now), network: !!sug.checked }); // 問題來自上面那一輪（已經用過網路）；建議只有驗證猜的句子時用網路
   return report;
 }
 
