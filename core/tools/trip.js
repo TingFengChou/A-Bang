@@ -73,7 +73,7 @@ export const planTripTool = defineTool({
       `判斷用到的資料：${(data.considered || []).map((c) => `${c.role}「${c.text}」→ ${c.say}${c.demo ? '（示範資料）' : ''}`).join('；')}`,
       ...(data.night ? [`深夜（回答第一句先說）：${data.night.text}`] : []),
       ...(data.single ? [`只有一種方式：${data.single.text}`] : []),
-      ...(data.missing?.length ? [`沒列入：${data.missing.map((m) => `${MODE_LABEL[m.role] || m.role}（${m.why}）`).join('、')}`] : []),
+      ...(data.missing?.length ? [`沒列入：${data.missing.map((m) => `${m.route ? `公車 ${m.route}` : MODE_LABEL[m.role] || m.role}（${m.why}）`).join('、')}`] : []), // route：那一條公車今天不會來（站牌即時資訊）
       ...(data.states.length ? [`狀態：${data.states.map((s) => `${STATES[s.key].label}（${s.source === 'auto' ? `自動：${s.detail}` : '你說的'}）`).join('、')}`] : []),
       ...(data.habitOn ? [`習慣（使用者同意過的常選方式，已小幅加分）：${Object.entries(data.habit).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${MODE_LABEL[k]} ${Math.round(v * 100)}%`).join('、')}`] : []),
       ...data.ranking.ranked.map((r, i) => {

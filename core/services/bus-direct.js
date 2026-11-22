@@ -6,7 +6,7 @@ export const MAX_ROUTES = 3;        // 最多驗證幾條共同路線（每條�
 
 /**
  * 在路線各方向的站序中，找「上車站離起點最近、下車站離終點最近且在上車站之後」的組合（步行總和最短的方向）。
- * @param {Array<{ label: string, stops: Array<{ seq, stopName, lat?, lon?, etaSec? }> }>} directions bus.routeEta 的 directions
+ * @param {Array<{ label: string, stops: Array<{ seq, stopName, lat?, lon?, etaSec?, status? }> }>} directions bus.routeEta 的 directions
  * @returns {{ label, board, alight, stops, walkFromM, walkToM } | null}
  */
 export function matchDirect(directions, from, to, radius = DIRECT_RADIUS_M) {
@@ -23,7 +23,8 @@ export function matchDirect(directions, from, to, radius = DIRECT_RADIUS_M) {
         if (!best || wb + wa < best.walkFromM + best.walkToM) {
           best = {
             label: d.label, direction: d.direction ?? di,
-            board: { name: b.stopName, seq: b.seq, lat: b.lat, lon: b.lon, etaSec: b.etaSec ?? null },
+            // status：上車站的到站狀態（0 正常、1 尚未發車、2 交管不停靠、3 末班已過、4 今日未營運）；plan_trip 靠它排除今天不會來的路線
+            board: { name: b.stopName, seq: b.seq, lat: b.lat, lon: b.lon, etaSec: b.etaSec ?? null, status: b.status ?? 0 },
             alight: { name: a.stopName, lat: a.lat, lon: a.lon },
             stops: a.seq - b.seq, walkFromM: wb, walkToM: wa,
           };

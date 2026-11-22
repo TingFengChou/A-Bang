@@ -50,7 +50,12 @@ const TRA = [['0900', '基隆', 25.1319, 121.7386], ['1000', '臺北', 25.0478, 
 const pad = (n) => String(n).padStart(2, '0');
 const hhmm = (min) => `${pad(Math.floor(min / 60) % 24)}:${pad(min % 60)}`;
 
-export function createMockTransitServices() {
+/**
+ * @param {{ bus?: 'off'|'offLive' }} [opts] 示範情境（docs/TESTING.md §4、DEMO_BUS）：直達公車有兩條，比較快的那條上車站「今日未營運」
+ *   off＝行程規劃與到站查詢都看得到（規劃時就排除）；offLive＝規劃時看起來正常、盯到站時才發現（run.js 盯到後重排的保底）
+ */
+export function createMockTransitServices({ bus: busScenario } = {}) {
+  const offRoutes = new Set(); // 今日未營運的示範路線（directTrips 決定，到站查詢 routeEta 照著回）
   const bus = {
     async searchRoutes({ city, keyword }) {
       const c = resolveCity(city) || resolveCity('Taipei');
@@ -65,14 +70,16 @@ export function createMockTransitServices() {
       const n = 14 + Math.floor(r() * 10);
       const names = Array.from({ length: n }, () => pick(r, ROAD_POOL) + pick(r, STOP_POOL));
       const coords = mockPath(r, c.city, n);
+      const offAll = offRoutes.has(routeName);
       const mk = (dir, list, pts) => {
         // 模擬 2~3 台車在路線上，各站 ETA 由最近車輛推算
         const buses = [0.15, 0.5, 0.85].map((p) => p * list.length + ((Date.now() / 90000) % list.length));
         return list.map((stopName, i) => {
           const ahead = buses.map((b) => (i - (b % list.length) + list.length) % list.length);
           const k = Math.min(...ahead);
-          const etaSec = Math.round(k * 95 + 20);
-          return { seq: i + 1, stopName, lat: pts[i][0], lon: pts[i][1], etaSec, status: 0, statusText: busStatusText(0, etaSec), plate: k < 0.5 ? `${pad(Math.floor(r() * 90 + 10))}0-FT` : null };
+          const etaSec = offAll ? null : Math.round(k * 95 + 20);
+          const status = offAll ? 4 : 0;
+          return { seq: i + 1, stopName, lat: pts[i][0], lon: pts[i][1], etaSec, status, statusText: busStatusText(status, etaSec ?? undefined), plate: !offAll && k < 0.5 ? `${pad(Math.floor(r() * 90 + 10))}0-FT` : null };
         });
       };
       return {
@@ -105,16 +112,23 @@ export function createMockTransitServices() {
       const routeName = pick(r, ROUTES);
       const etaSec = Math.round(60 + r() * 600); // 規劃用的到站時間固定（測試可重現）；盯到站時再查即時
       const rides = Math.max(2, Math.round((d * 1.3) / 450));
-      // 上車站用這條示範路線真的有的站名（選公車後盯到站對得上），座標放在起點旁
-      const dir0 = (await bus.routeEta({ city: 'Taipei', routeName })).directions[0];
-      const b = dir0.stops[2];
-      const a = dir0.stops[Math.min(dir0.stops.length - 1, 2 + rides)];
-      return [{
-        routeName, city: 'Taipei', label: dir0.label, direction: 0,
-        board: { name: b.stopName, seq: b.seq, lat: from.lat + 0.001, lon: from.lon, etaSec },
-        alight: { name: a.stopName, lat: to.lat - 0.001, lon: to.lon },
-        stops: rides, walkFromM: 120, walkToM: 150,
-      }];
+      const trip = async (name, n, eta, off) => {
+        // 上車站用這條示範路線真的有的站名（選公車後盯到站對得上），座標放在起點旁
+        const dir0 = (await bus.routeEta({ city: 'Taipei', routeName: name })).directions[0];
+        const b = dir0.stops[2];
+        const a = dir0.stops[Math.min(dir0.stops.length - 1, 2 + n)];
+        return {
+          routeName: name, city: 'Taipei', label: dir0.label, direction: 0,
+          board: { name: b.stopName, seq: b.seq, lat: from.lat + 0.001, lon: from.lon, ...(off ? { etaSec: null, status: 4 } : { etaSec: eta, status: 0 }) },
+          alight: { name: a.stopName, lat: to.lat - 0.001, lon: to.lon },
+          stops: n, walkFromM: 120, walkToM: 150,
+        };
+      };
+      if (busScenario !== 'off' && busScenario !== 'offLive') return [await trip(routeName, rides, etaSec, false)];
+      // 示範「今日未營運」：比較快的這條今天不會來（off 規劃時就看得到；offLive 規劃時看起來正常、盯到站才發現），另一條慢一點但照常
+      offRoutes.add(routeName);
+      const other = ROUTES[(ROUTES.indexOf(routeName) + 1) % ROUTES.length];
+      return [await trip(routeName, rides, etaSec, busScenario === 'off'), await trip(other, rides + 3, etaSec + 120, false)];
     },
     async stationEta({ stationId }) {
       const r = seeded(stationId);

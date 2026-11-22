@@ -37,7 +37,7 @@
       "type": "object",
       "required": ["ranked", "excluded", "reason"],
       "properties": {
-        "ranked": { "type": "array", "items": { "type": "object", "required": ["id", "name", "score"], "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "score": { "type": "integer" }, "breakdown": { "type": "object" }, "notWorth": { "type": "object", "properties": { "vs": { "type": "string" }, "extra": { "type": "number" }, "worth": { "type": "number" } } }, "tooLong": { "type": "object", "properties": { "vs": { "type": "string" }, "cap": { "type": "number" } } } } } },
+        "ranked": { "type": "array", "items": { "type": "object", "required": ["id", "name", "score"], "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "score": { "type": "integer" }, "breakdown": { "type": "object" }, "notWorth": { "type": "object", "properties": { "vs": { "type": "string" }, "extra": { "type": "number" }, "worth": { "type": "number" } } }, "tooLong": { "type": "object", "properties": { "vs": { "type": "string" }, "cap": { "type": "number" } } }, "unsure": { "type": "object", "description": "到站時間不明的公車讓位給時間確定的大眾運輸（vs）", "properties": { "vs": { "type": "string" } } } } } },
         "excluded": { "type": "array", "items": { "type": "object", "required": ["id", "why"], "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "why": { "type": "string" } } } },
         "weights": { "type": "object" },
         "reason": { "type": "string" }
@@ -71,7 +71,9 @@
       "required": ["role", "why"],
       "properties": {
         "role": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail"] },
-        "kind": { "enum": ["skipped", "none", "noService"], "description": "skipped 查了但不可行（收班、沒車位）、none 查不到站或路線、noService 沒有趕得上的班次" },
+        "kind": { "enum": ["skipped", "none", "noService", "route"], "description": "skipped 查了但不可行（收班、沒車位）、none 查不到站或路線、noService 沒有趕得上的班次、route 這一條公車路線今天不會來（另一條照常列入）" },
+        "route": { "type": "string", "description": "kind route：公車路線名稱" },
+        "status": { "enum": [2, 3, 4], "description": "kind route：上車站的到站狀態（2 交管不停靠、3 末班已過、4 今日未營運）" },
         "why": { "type": "string" },
         "whyEn": { "type": "string" },
         "closed": { "type": "boolean", "description": "收班（深夜公車、捷運）" },
@@ -102,6 +104,7 @@
         "leaveAt": { "type": "string" },
         "estimated": { "type": "boolean" },
         "lastBus": { "type": "boolean", "description": "公車末班快到了（23:00 後）" },
+        "etaUnknown": { "type": "boolean", "description": "公車上車站的到站時間不明（站牌沒有預估或尚未發車）：決策不排在時間確定的大眾運輸前面" },
         "lastTrain": { "type": "boolean", "description": "捷運末班快到了（收班前 30 分）" },
         "notes": { "type": "array", "items": { "type": "string" } },
         "train": { "type": "object" },

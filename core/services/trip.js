@@ -267,32 +267,56 @@ async function metroOption(svc, from, to, straight, depart) {
   };
 }
 
+/**
+ * 上車站的到站狀態（TDX StopStatus）代表這條路線現在不會來：不列入，原因照實說（2026-11-22 三峽→台北 101：推了今日未營運的路線）。
+ * 1 尚未發車不算（等一下會來，只是時間不明，見 busOption 的 etaUnknown）。
+ */
+export const BUS_OFF = {
+  2: { why: '這站交管不停靠（站牌即時資訊）', whyEn: 'not stopping here due to traffic control (live stop info)' },
+  3: { why: '末班已過（站牌即時資訊）', whyEn: 'the last bus has left (live stop info)' },
+  4: { why: '今天沒有營運（站牌即時資訊）', whyEn: 'not running today (live stop info)' },
+};
+/** 不列入的那條路線（卡片、決策圖「沒列入」：公車 X 沒列入：今天沒有營運） */
+export const busOffEntry = (routeName, status) => ({ role: 'bus', kind: 'route', route: routeName, status, why: BUS_OFF[status].why, whyEn: BUS_OFF[status].whyEn });
+
 async function busOption(svc, from, to, straight, risk, depart) {
   if (straight > LIMITS.busMaxM) return null;
-  // 深夜（S10）：示範資料只能看時間；真實資料看上車站的到站狀態（3 末班已過、4 今日未營運），全部收班才不列入
+  // 深夜（S10）：示範資料只能看時間；真實資料看上車站的到站狀態（BUS_OFF：2 交管不停靠、3 末班已過、4 今日未營運），全部不會來才不列入
   const m = depart ? depart.minute % (24 * 60) : null;
   const live = svc.mode === 'live';
   const night = m != null && m >= NIGHT.closedFrom && m < NIGHT.closedTo;
   if (!live && night) return { skip: busNightClosed(false) };
-  const all = await svc.bus.directTrips({ from, to });
+  const raw = await svc.bus.directTrips({ from, to });
+  // svc.busOff：agent 選了公車後盯上車站，發現這條路線其實不會來（run.js execTools）→ 重排時照盯到的狀態排除
+  const off = new Map((svc.busOff || []).filter((x) => BUS_OFF[x.status]).map((x) => [x.routeName, x.status]));
+  const all = raw.map((t) => (off.has(t.routeName) ? { ...t, board: { ...t.board, status: off.get(t.routeName), etaSec: null } } : t));
   const est = live && fellBack('directTrips'); // TDX 額度用完：這次的公車是示範資料（沒有收班狀態），只能依時間估
   if (est && night) return { skip: busNightClosed(true) };
   const late = (!live || est) && m != null && m >= NIGHT.lateFrom;
-  const list = all.filter((t) => ![3, 4].includes(t.board?.status));
-  // 站牌狀態：3 末班已過＝收班；4 今日未營運不是深夜收班（不觸發深夜第一句）
+  const list = all.filter((t) => !BUS_OFF[t.board?.status]);
+  const dropped = all.filter((t) => BUS_OFF[t.board?.status]).map((t) => busOffEntry(t.routeName, t.board.status));
+  // 站牌狀態：3 末班已過＝收班；4 今日未營運、2 交管不停靠不是深夜收班（不觸發深夜第一句）
   if (all.length && !list.length) {
-    return { skip: all.some((t) => t.board?.status === 3)
+    const has = (s) => all.some((t) => t.board?.status === s);
+    const names = all.map((t) => t.routeName).join('、'); // 哪幾條（directTrips 最多 3 條）
+    return { skip: has(3)
       ? { role: 'bus', closed: true, why: '附近直達的公車末班已過（站牌即時資訊），可以叫車或騎 YouBike', whyEn: 'The last direct bus has left (live stop info); try a taxi or YouBike' }
-      : { role: 'bus', why: '附近直達的公車今天沒有營運（站牌即時資訊）', whyEn: 'Direct buses nearby are not running today (live stop info)' } };
+      : has(4) ? { role: 'bus', why: `附近直達的公車（${names}）今天沒有營運（站牌即時資訊）`, whyEn: `Direct buses nearby (${names}) are not running today (live stop info)` }
+        : { role: 'bus', why: `附近直達的公車（${names}）這站交管不停靠（站牌即時資訊）`, whyEn: `Direct buses nearby (${names}) are not stopping here due to traffic control (live stop info)` } };
   }
   // TDX 額度用完：有些路線的到站資料查不到（directTrips 內部 routeEta 429），照實說，不說成「查不到直達公車」
-  if (!list.length && all.limited) return { none: { kind: 'none', why: 'TDX 額度用完，公車資料這次查不到（稍後再問一次）', whyEn: 'TDX quota used up; bus data unavailable this time (try again shortly)', fallback: 'tdx-limit' } };
+  if (!list.length && raw.limited) return { none: { kind: 'none', why: 'TDX 額度用完，公車資料這次查不到（稍後再問一次）', whyEn: 'TDX quota used up; bus data unavailable this time (try again shortly)', fallback: 'tdx-limit' } };
   const opts = list.map((t) => {
     const w1 = walkMinutes(t.walkFromM), w2 = walkMinutes(t.walkToM);
     // 走到站牌前車子就來了 → 等下一班（不知道下一班時間，以 10 分估）
     const etaMin = t.board.etaSec != null ? Math.ceil(t.board.etaSec / 60) : null;
-    const wait = etaMin == null ? 10 : etaMin >= w1 ? etaMin - w1 : 10;
+    // 到站時間不明（站牌沒有任何預估，或尚未發車）：不知道車什麼時候來，決策時不排在時間確定的大眾運輸前面（core/decide.js etaUnknown）
+    const unknown = etaMin == null;
+    const wait = unknown ? 10 : etaMin >= w1 ? etaMin - w1 : 10;
     const ride = Math.round(t.stops * EST.busMinPerStop);
+    const waitNote = unknown
+      ? (t.board.status === 1 ? `${t.board.name}：尚未發車，到站時間不明（等車以 10 分估）` : `${t.board.name}：到站時間不明（站牌沒有預估，等車以 10 分估）`)
+      : etaMin < w1 ? '這班走到前就會開走，下一班到站時間不明，以 10 分估' : `${t.board.name} 約 ${etaMin} 分後到站`;
     return {
       id: `bus-${t.routeName}`, role: 'bus', name: `公車 ${t.routeName}`, minutes: w1 + wait + ride + w2, waitMin: wait, walkMin: w1 + w2,
       cost: EST.busFare, exposure: 0.2, effort: 0.2, delayRisk: risk,
@@ -301,14 +325,18 @@ async function busOption(svc, from, to, straight, risk, depart) {
         leg('bus', t.board, t.alight, ride, [`${t.routeName}（${t.label}）坐 ${t.stops} 站`, `Bus ${t.routeName}, ${t.stops} ${t.stops === 1 ? 'stop' : 'stops'}`], 'transit'),
         leg('walk', t.alight, to, w2, [`步行約 ${w2} 分`, `Walk about ${w2} min`]),
       ],
-      notes: [etaMin == null || etaMin < w1 ? '下一班到站時間不明，以 10 分估' : `${t.board.name} 約 ${etaMin} 分後到站`, '票價以一段票 15 元估', ...(late ? ['末班快到了，早點出門；錯過可以叫車或騎 YouBike'] : [])],
+      notes: [waitNote, '票價以一段票 15 元估', ...(late ? ['末班快到了，早點出門；錯過可以叫車或騎 YouBike'] : [])],
       ...(late && { lastBus: true }),
-      ...((etaMin == null || etaMin < w1) && { estimated: true }),
+      ...((unknown || etaMin < w1) && { estimated: true }),
+      ...(unknown && { etaUnknown: true }),
       // 決策選公車時，agent 接著盯這條路線在上車站的即時到站（bus_route_eta 的 stop／direction）
       follow: { city: t.city, routeName: t.routeName, stop: t.board.name, ...(t.direction != null && { direction: t.direction }), walkMin: w1 },
     };
   });
-  return opts.sort((a, b) => a.minutes - b.minutes)[0] || { none: { kind: 'none', why: '起點附近查不到直達目的地的公車', whyEn: 'No direct bus from near the start to the destination' } };
+  // 好幾條直達路線：到站時間確定的優先，再比總時間（「三峽-臺北市信義區」今日未營運時改列 939）
+  const best = opts.sort((a, b) => (a.etaUnknown ? 1 : 0) - (b.etaUnknown ? 1 : 0) || a.minutes - b.minutes)[0];
+  if (!best) return { none: { kind: 'none', why: '起點附近查不到直達目的地的公車', whyEn: 'No direct bus from near the start to the destination' } };
+  return dropped.length ? { ...best, busOff: dropped } : best;
 }
 
 async function railOption(svc, system, from, to, straight, depart) {
@@ -449,7 +477,8 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   // arriveMin：從出發日 00:00 起算的分鐘數（可超過 24 小時），跨午夜也能正確比較抵達時間
   // arriveMin：班次制方案以實際班次計算（已帶入），其餘＝出發＋總時間
   const skipped = results.filter((o) => o && o !== FAILED && o.skip).map((o) => o.skip); // 查了但不可行（例：目的地沒空位可還）
-  const options = results.filter((o) => o && o !== FAILED && !o.skip && !o.none).map((o) => { const am = o.arriveMin ?? depart.minute + o.minutes; return { ...o, arriveAt: toHHMM(am), arriveMin: am }; });
+  const busOff = results.flatMap((o) => (o && o !== FAILED && o.busOff) || []); // 今天不會來的直達路線（BUS_OFF）：另一條照常列入時，卡片與決策圖說這條為什麼不在
+  const options = results.filter((o) => o && o !== FAILED && !o.skip && !o.none).map(({ busOff: _off, ...o }) => { const am = o.arriveMin ?? depart.minute + o.minutes; return { ...o, arriveAt: toHHMM(am), arriveMin: am }; });
   if (party) for (const [i, o] of options.entries()) if (o.role === 'ridehail') options[i] = shareRide(o, party); // 多人：叫車用每人分攤比較（其他方式本來就是每人）
   // arriveBy 早於出發時間 → 視為隔天（例：23:00 出發、01:00 前到）
   const arriveByMin = prefs.arriveBy ? toMin(prefs.arriveBy) + (toMin(prefs.arriveBy) < depart.minute ? 24 * 60 : 0) : undefined;
@@ -483,7 +512,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     ? { ...c, fallback: 'tdx-limit', text: `${c.text}（TDX 額度用完，這次先用示範資料）`, textEn: `${c.textEn} (TDX quota used up; demo data this time)` } : c));
   // 沒列入的方式與原因（任何時候都說：深夜 00:10 問 101 沒有公車和捷運，使用者以為是 bug）；太近、太遠是顯而易見的，不列
   const missingList = missingModes({ straight, roles: byRole, skipped, limits: LIMITS });
-  const missing = missingList.filter((x) => !['near', 'far', 'na'].includes(x.kind));
+  const missing = [...missingList.filter((x) => !['near', 'far', 'na'].includes(x.kind)), ...busOff]; // busOff：{ role: 'bus', kind: 'route', route, status, why }
   // 深夜：公車、捷運收班或末班快到了，回答第一句就說（「現在 00:10，公車和捷運都收班了（捷運約 06:00 首班），先比走路、YouBike、叫車」）
   const tw = nowTW(now);
   const isNow = depart.date === tw.date && Math.abs(depart.minute - toMin(tw.hhmm)) <= 2;
@@ -507,13 +536,13 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     ...(single && { single }),
     options,
     ranking: {
-      ranked: r.ranked.map((o) => ({ id: o.id, name: o.name, score: o.score, breakdown: o.breakdown, ...(o.notWorth && { notWorth: o.notWorth }), ...(o.tooLong && { tooLong: o.tooLong }) })), // notWorth／tooLong：ADR-0010 2026-11-22
+      ranked: r.ranked.map((o) => ({ id: o.id, name: o.name, score: o.score, breakdown: o.breakdown, ...(o.notWorth && { notWorth: o.notWorth }), ...(o.tooLong && { tooLong: o.tooLong }), ...(o.unsure && { unsure: o.unsure }) })), // notWorth／tooLong／unsure：ADR-0010 2026-11-22
       excluded: r.excluded.map((o) => ({ id: o.id, name: o.name, why: o.why })),
       weights: r.weights, reason: r.reason,
     },
     ...(unavailable.length && { unavailable }),
     ...(skipped.length && { skipped }),
-    ...(missing.length && { missing }), // 沒列入的方式（含 skipped）：{ role, kind, why, whyEn, closed? }（卡片「沒列入」、決策圖）
+    ...(missing.length && { missing }), // 沒列入的方式（含 skipped）：{ role, kind, why, whyEn, closed? }；kind 'route'＝那一條公車路線（route、status）（卡片「沒列入」、決策圖）
     ...(night && { night }), // 深夜的一句（回答、討論串、卡片第一行）
     ...(party && { party }),
     ...(tight && { tight: { slackMin: slack } }),

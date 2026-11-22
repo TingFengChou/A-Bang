@@ -35,7 +35,7 @@ import { createDramaServices, createLiveDramaFetchers } from './services/drama.j
 import { createMockDramaServices } from './services/drama-mock.js';
 
 /**
- * @param {{ clientId?: string, clientSecret?: string, cwaKey?: string, moenvKey?: string, openData?: boolean, forceMock?: boolean, log?: Function, demo?: { traffic?: 'smooth'|'jam', weather?: 'clear'|'rain', air?: 'good'|'bad' }, drama?: { apiBase?: string, links?: object } }} [opts]
+ * @param {{ clientId?: string, clientSecret?: string, cwaKey?: string, moenvKey?: string, openData?: boolean, forceMock?: boolean, log?: Function, demo?: { traffic?: 'smooth'|'jam', weather?: 'clear'|'rain', air?: 'good'|'bad', bus?: 'off'|'offLive' }, drama?: { apiBase?: string, links?: object } }} [opts]
  *   drama：MyDrama 短劇（ADR-0019）；apiBase 沒設定時用虛構的示範片庫；links＝深層連結與商店頁範本（環境變數）
  *   openData：免金鑰的政府開放資料（165 防詐）用真實下載；預設 false（測試不連網），伺服器由 loadEnv 決定
  *   cwaKey：中央氣象署授權碼；沒有時天氣用示範資料（與 TDX 金鑰各自獨立）
@@ -80,7 +80,7 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
     store: tdxCfg.cacheDir ? createFileStore(tdxCfg.cacheDir, { log }) : null,
   }) : null;
   const quota = { at: 0 }; // 最近一次 TDX 額度用完（429）的時間
-  const transit = live ? withTdxFallback(createTransitServices(tdx, { cities }), createMockTransitServices(), quota) : createMockTransitServices();
+  const transit = live ? withTdxFallback(createTransitServices(tdx, { cities }), createMockTransitServices(), quota) : createMockTransitServices({ bus: demo.bus });
   const metro = live ? withTdxFallback(createMetroServices(tdx), createMockMetroServices(), quota) : createMockMetroServices();
   const traffic = live ? withTdxFallback(createTrafficServices(tdx), createMockTrafficServices({ scenario: demo.traffic }), quota) : createMockTrafficServices({ scenario: demo.traffic });
   const intercity = live ? withTdxFallback(createIntercityServices(tdx, traffic), createMockIntercityServices(traffic), quota) : createMockIntercityServices(traffic);
@@ -184,7 +184,7 @@ export async function loadEnv(path = new URL('../.env', import.meta.url)) {
       cacheDir: process.env.TDX_CACHE_DIR === 'off' ? null : process.env.TDX_CACHE_DIR || fileURLToPath(new URL('../.cache/tdx/', import.meta.url)),
       cities: (process.env.TDX_PREWARM_CITIES || '').split(',').map((x) => x.trim()).filter(Boolean),
     },
-    demo: { traffic: process.env.DEMO_TRAFFIC || undefined, weather: process.env.DEMO_WEATHER || undefined, air: process.env.DEMO_AIR || undefined },
+    demo: { traffic: process.env.DEMO_TRAFFIC || undefined, weather: process.env.DEMO_WEATHER || undefined, air: process.env.DEMO_AIR || undefined, bus: process.env.DEMO_BUS || undefined },
     // MyDrama 短劇（ADR-0019）：網址、深層連結、商店頁都只放 .env（repo 是公開的）
     drama: {
       apiBase: process.env.MYDRAMA_API_BASE || undefined,

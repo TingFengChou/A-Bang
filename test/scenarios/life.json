@@ -3672,6 +3672,96 @@
           }
         }
       ]
+    },
+    {
+      "id": "S20-1",
+      "title": "推薦的公車今天沒有營運（盯到站才發現）：排除它、改推另一條，不推不會來的那班",
+      "demo": {
+        "bus": "offLive"
+      },
+      "turns": [
+        {
+          "say": "我想省錢，從西門町到台北101怎麼去？",
+          "expect": {
+            "tools": [
+              "plan_trip",
+              "bus_route_eta"
+            ],
+            "bestRole": "bus",
+            "resultHas": [
+              "601 在「民生捷運站(1號出口)」：今日未營運"
+            ],
+            "textHas": [
+              "公車 601 今天沒有營運（站牌即時資訊），這次不推",
+              "選「公車 212」"
+            ],
+            "textNot": [
+              "選「公車 601」",
+              "601 約"
+            ]
+          }
+        },
+        {
+          "say": "那叫車呢",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "bestRole": "ridehail",
+            "textNot": [
+              "選「公車 601」"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S20-2",
+      "title": "英文：推薦的公車今天沒有營運，先說、改推另一條",
+      "demo": {
+        "bus": "offLive"
+      },
+      "turns": [
+        {
+          "say": "I want to save money. How do I get from Ximending to Taipei 101?",
+          "expect": {
+            "tools": [
+              "plan_trip",
+              "bus_route_eta"
+            ],
+            "textHas": [
+              "Bus 601: not running today (live stop info), so I left it out.",
+              "Best: Bus 212"
+            ],
+            "textNot": [
+              "Best: Bus 601"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S20-3",
+      "title": "規劃時就看得到今日未營運：那條不列入、回答先說",
+      "demo": {
+        "bus": "off"
+      },
+      "turns": [
+        {
+          "say": "我想省錢，從西門町到台北101怎麼去？",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "textHas": [
+              "公車 601 今天沒有營運（站牌即時資訊），這次不推"
+            ],
+            "textNot": [
+              "選「公車 601」"
+            ]
+          }
+        }
+      ]
     }
   ]
 }
