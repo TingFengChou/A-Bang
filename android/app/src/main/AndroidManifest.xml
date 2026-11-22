@@ -42,6 +42,8 @@
 
         <!-- 到站提醒常駐服務：App 關著也每 20 秒查真實到站時間，通知列常駐、到點響鈴（AbangWatchService） -->
         <service android:name=".AbangWatchService" android:exported="false" android:foregroundServiceType="dataSync" />
+        <!-- 下車提醒常駐服務：App 關著也每 20 秒問阿幫伺服器我這台還要多久到下車站，通知列常駐、快到時響鈴（AbangAlightService） -->
+        <service android:name=".AbangAlightService" android:exported="false" android:foregroundServiceType="dataSync" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

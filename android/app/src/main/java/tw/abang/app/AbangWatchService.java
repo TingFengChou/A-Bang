@@ -93,18 +93,21 @@ public class AbangWatchService extends Service {
 
     private boolean en() { return "en".equals(lang); }
 
-    private void channels() {
+    private void channels() { ensureChannels(this); }
+
+    /** 通知頻道（到站提醒與下車提醒共用：進行中 CH_ONGOING、響鈴 CH_ALERT） */
+    static void ensureChannels(Context ctx) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
-        NotificationManager nm = getSystemService(NotificationManager.class);
+        NotificationManager nm = ctx.getSystemService(NotificationManager.class);
         nm.deleteNotificationChannel("abang-watch"); // 舊版（靜音區）
         NotificationChannel a = new NotificationChannel(CH_ONGOING, "公車到站追蹤（進行中）", NotificationManager.IMPORTANCE_DEFAULT);
-        a.setDescription("到站提醒進行中時常駐顯示公車還要多久");
+        a.setDescription("到站提醒、下車提醒進行中時常駐顯示公車還要多久");
         a.setShowBadge(false);
         a.setSound(null, null);
         a.enableVibration(false);
         nm.createNotificationChannel(a);
         NotificationChannel b = new NotificationChannel(CH_ALERT, "公車快到站", NotificationManager.IMPORTANCE_HIGH);
-        b.setDescription("到站前提醒你出門");
+        b.setDescription("到站前提醒你出門、快到下車站時提醒你下車");
         b.enableVibration(true);
         b.setVibrationPattern(new long[] { 0, 300, 150, 300 });
         nm.createNotificationChannel(b);

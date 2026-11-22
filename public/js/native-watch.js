@@ -70,3 +70,34 @@ export function watchLine(w, f, { skip = false } = {}) {
   if (skip) return head + (en ? ' · waiting for the next bus' : '・這班來不及，等下一班');
   return head + (en ? ` · I'll remind you ${w.minutes} min before` : `・到站前 ${w.minutes} 分提醒你`);
 }
+
+// ── 下車提醒常駐服務（同一個外掛 AbangWatch，另一個服務 AbangAlightService；跟到站提醒可以同時進行）──
+// 「我這台」怎麼找只寫在 core/alight.js：服務每 20 秒問阿幫伺服器 /api/v1/bus/alight，只送路線、方向、上下車站與設定時的估計，不送位置。
+
+/**
+ * 開始下車提醒常駐服務
+ * @param {{ city?: string, routeName: string, direction?: number|null, board: string, boardSeq?: number, dest: string, destSeq?: number, plate?: string|null, boardAt: number, rideSec: number, until: number, lang?: string|null }} w
+ * @returns {Promise<boolean>}
+ */
+export async function startAlightService(w) {
+  if (!hasWatchService()) return false;
+  try {
+    await cap().nativePromise(PLUGIN, 'startAlight', {
+      apiBase: API_BASE, routeName: w.routeName, board: w.board, dest: w.dest, boardAt: Math.round(w.boardAt), rideSec: Math.round(w.rideSec), until: Math.round(w.until), lang: w.lang === 'en' ? 'en' : 'zh',
+      ...(w.city && { city: w.city }), ...(w.direction != null && { direction: w.direction }),
+      ...(w.boardSeq != null && { boardSeq: w.boardSeq }), ...(w.destSeq != null && { destSeq: w.destSeq }), ...(w.plate && { plate: w.plate }),
+    });
+    return true;
+  } catch { return false; } // 舊版 App 沒有這個方法：照原本方式（預排本機通知）
+}
+
+export async function stopAlightService() {
+  if (!hasWatchService()) return;
+  try { await cap().nativePromise(PLUGIN, 'stopAlight', {}); } catch { /* 沒在跑 */ }
+}
+
+/** @returns {Promise<{ active: boolean, firedAt: number, endedAt: number }|null>} firedAt：服務已經響過；endedAt：使用者在通知按了「停止」或超過 3 小時 */
+export async function alightServiceStatus() {
+  if (!hasWatchService()) return null;
+  try { return await cap().nativePromise(PLUGIN, 'alightStatus', {}); } catch { return null; }
+}
