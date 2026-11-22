@@ -17,9 +17,9 @@ export const ASK_ACTIONS = ['openLink', 'watchArrival', 'remind', 'navigate', 'f
 import { decide, keyQuestion } from '../decide.js';
 import { edgeAskShape, askNorm } from '../edge-ask.js';
 import { matchRules } from '../scam-check.js';
-import { placesInText, parseIntent, isEnglish } from './demo-intent.js';
+import { placesInText, parseIntent, isEnglish, modeOf } from './demo-intent.js';
 import { LANDMARKS, normPlace } from '../services/places.js';
-import { railPendingSay, topicSay, busStopSay, whereSay, tripSay, TOPIC_KEYS } from './clarify.js';
+import { railPendingSay, topicSay, busStopSay, whereSay, tripSay, TOPIC_KEYS, airportAnswer, answerHead } from './clarify.js';
 
 const MODE = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
 const MODE_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro: '搭捷運', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
@@ -316,6 +316,12 @@ Object.assign(PENDING_SLOTS, {
   // 是哪一個地方（「中山大學」「改去松山機場」「是林口長庚」）：只收地標庫認得的地名，接回「怎麼去 X？」
   place: (p, t) => {
     if (p.road && COUNTY_ONLY.test(String(t).trim().replace(/[。！!～~.]+$/u, ''))) return null; // 問路名附近的地標，回城市名接不回那條路（交回原本流程）
+    const air = p.airport && airportAnswer(t); // 問哪個機場：「桃園」「小港」「松山的」「台北」就是那個機場（不是桃園車站）
+    if (air) { // 後面的附加詞（「松山，叫車」「桃園，搭機捷」）：交通方式一起帶上
+      const extra = String(t).trim().slice(answerHead(t).length);
+      const mode = (extra && modeOf(extra.replace(/機捷/g, '捷運'))) || p.mode || null;
+      return tripSentence(nameBoth(p.from), { zh: air, en: enName(air) !== air ? enName(air) : null }, p.lang === 'en', mode);
+    }
     const c = placeAnswer(String(t).replace(/^(?:不是[^，,。]{0,8}[，,]?\s*)?(?:我是說|我說的是|是要|應該是|改|換|是)\s*/u, ''), /^(?:我)?(?:要|想)?(?:去|到|往)\s*|^(?:to|go to)\s+/iu);
     if (!c || c.saved) return null;
     return tripSentence(nameBoth(p.from), c, p.lang === 'en', p.mode || null);

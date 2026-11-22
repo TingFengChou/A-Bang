@@ -1,7 +1,7 @@
 // 捷運服務（示範資料版）：介面與 metro.js 相同。站名與路線為真實名稱，座標為近似值，到站時間為模擬。
 import { seeded } from './transit-mock.js';
 import { metroLineColor } from '../metro-colors.js';
-import { mustSystem, findMetroStation, metroStatusText, sortByEta, stationLines } from './metro.js';
+import { mustSystem, findMetroStation, metroStatusCode, sortByEta, stationLines } from './metro.js';
 
 // 各線兩端的終點站
 const LINES = {
@@ -62,7 +62,7 @@ export function createMockMetroServices() {
           // 每 6 分鐘一班、依站與方向錯開，隨時間遞減
           const r = seeded(`${op}${st.id}${lineId}${dest}`);
           const etaMin = Math.floor(((r() * 360 - Date.now() / 1000) % 360 + 360) % 360 / 60);
-          trains.push({ line, lineId, ...(metroLineColor(op, lineId) && { lineColor: metroLineColor(op, lineId) }), destination: dest, etaMin, status: metroStatusText(etaMin) });
+          trains.push({ line, lineId, ...(metroLineColor(op, lineId) && { lineColor: metroLineColor(op, lineId) }), destination: dest, etaMin, status: metroStatusCode(etaMin) });
         }
       }
       return { system: op, station: st.name, stationId: st.id, lat: st.lat, lon: st.lon, demo: true, updatedAt: new Date().toISOString(), trains: trains.sort(sortByEta) };

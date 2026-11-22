@@ -5,7 +5,7 @@ import { distanceM, normName, UserError } from '../util.js';
 import { TdxError } from '../tdx-client.js';
 import { resolvePoint } from '../services/places.js';
 import { withNav, navLinks } from '../nav.js';
-import { METRO_SYSTEMS } from '../services/metro.js';
+import { METRO_SYSTEMS, METRO_STATUS, metroStatusText } from '../services/metro.js';
 
 const PACK = 'transit';
 const system = z.enum(Object.keys(METRO_SYSTEMS)).describe(`捷運系統：${Object.entries(METRO_SYSTEMS).map(([k, v]) => `${k}=${v}`).join('、')}`);
@@ -26,7 +26,7 @@ export const metroStations = defineTool({
 export const metroLiveBoard = defineTool({
   name: 'metro_live_board',
   title: '捷運即時到站',
-  description: '查詢捷運某一站各線各方向的下一班車還有幾分鐘到站（etaMin 為分鐘），依到站時間排序；附車站導航連結 nav。站名不確定時先用 metro_stations。使用者沒說站名時給 near（他現在的位置），自動用離他最近的捷運站（3 公里內）；說了路線（例：文湖線）時給 line，只找這條線的站、只列這條線的車。',
+  description: `查詢捷運某一站各線各方向的下一班車還有幾分鐘到站（etaMin 為分鐘；status 為狀態代碼 ${METRO_STATUS.join('／')}：arriving 進站中、approaching 1 分內、scheduled 依時刻表估算），依到站時間排序；附車站導航連結 nav。站名不確定時先用 metro_stations。使用者沒說站名時給 near（他現在的位置），自動用離他最近的捷運站（3 公里內）；說了路線（例：文湖線）時給 line，只找這條線的站、只列這條線的車。`,
   pack: PACK, tier: 'L1', card: 'metro',
   input: {
     system: system.optional().describe('捷運系統；有 near 時可省略（找各系統裡最近的站）'),
@@ -38,7 +38,7 @@ export const metroLiveBoard = defineTool({
     const t = d.trains.find((x) => x.etaMin != null);
     const lineSay = t?.line ? `${t.line}` : '';
     // 時刻表估算的班次（北捷即時到站只有進站中）：照實說「依時刻表約」
-    const train = t && (t.scheduled ? `${lineSay}依時刻表約 ${Math.max(1, t.etaMin)} 分鐘後有往${t.destination}的車` : t.etaMin <= 1 ? `${lineSay}往${t.destination}的車${t.status}` : `${lineSay}最快 ${t.etaMin} 分鐘後有往${t.destination}的車`);
+    const train = t && (t.scheduled ? `${lineSay}依時刻表約 ${Math.max(1, t.etaMin)} 分鐘後有往${t.destination}的車` : t.etaMin <= 1 ? `${lineSay}往${t.destination}的車${metroStatusText(t)}` : `${lineSay}最快 ${t.etaMin} 分鐘後有往${t.destination}的車`);
     if (d.nearest) {
       // 用預設地點（沒拿到位置）時不說「離你」；地點就是那一站時不重複（「臺北車站」→ 台北車站）
       const same = d.nearest.from && normName(d.nearest.from).replace(/站$/, '') === normName(d.station).replace(/站$/, '');
@@ -58,7 +58,7 @@ export const metroLiveBoard = defineTool({
     const trains = line ? raw.trains.filter((t) => (t.lineId || '').startsWith(line)) : raw.trains;
     const data = { ...raw, trains: line && trains.length ? trains : raw.trains, nav: navLinks(raw.lat, raw.lon), ...(near && { nearest: { distanceM: near.distanceM, ...(typeof a.near === 'string' && { from: a.near }) } }) };
     const text = data.trains.length
-      ? clip([`${METRO_SYSTEMS[data.system]} ${data.station} ${data.source && data.source !== 'live' ? '到站（' + data.note + '）' : '即時到站'}（更新：${data.updatedAt}）`, ...data.trains.map((t) => `- ${t.line} 往 ${t.destination}：${t.status}${t.scheduled ? '（時刻表）' : ''}`)])
+      ? clip([`${METRO_SYSTEMS[data.system]} ${data.station} ${data.source && data.source !== 'live' ? '到站（' + data.note + '）' : '即時到站'}（更新：${data.updatedAt}）`, ...data.trains.map((t) => `- ${t.line} 往 ${t.destination}：${metroStatusText(t)}${t.scheduled ? '（時刻表）' : ''}`)])
       : `${METRO_SYSTEMS[data.system]} ${data.station} 目前沒有即時到站資料（部分系統只在營運時段、或只提供部分車站看板）。`;
     return { data, text };
   },

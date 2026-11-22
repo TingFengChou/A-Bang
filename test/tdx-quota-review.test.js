@@ -98,7 +98,7 @@ test('建議 3：快取或舊資料的到站秒數扣掉經過時間（不小於
 
 test('建議 4：時刻表估算不說成即時——卡片標題、列不脈動、英文狀態與回答', () => {
   const zh = tFor('zh-TW'), en = tFor('en');
-  const d = { station: '台北車站', source: 'timetable', trains: [{ line: '板南線', destination: '頂埔', etaMin: 1, status: '約 1 分內', scheduled: true }, { line: '板南線', destination: '南港展覽館', etaMin: 4, status: '約 4 分', scheduled: true }] };
+  const d = { station: '台北車站', source: 'timetable', trains: [{ line: '板南線', destination: '頂埔', etaMin: 1, status: 'scheduled', scheduled: true }, { line: '板南線', destination: '南港展覽館', etaMin: 4, status: 'scheduled', scheduled: true }] };
   assert.equal(metroCard.title(d, { t: zh }), '台北車站 到站（時刻表估算）');
   assert.equal(metroCard.title(d, { t: en }), '台北車站 arrivals (timetable)');
   assert.equal(metroCard.title({ station: '台北車站', trains: [] }, { t: zh }), '台北車站 即時到站');
@@ -109,7 +109,7 @@ test('建議 4：時刻表估算不說成即時——卡片標題、列不脈動
   globalThis.Node = Node;
   globalThis.document = { createElement: (t) => new Node(t), createTextNode: (s) => ({ text: s }) };
   try {
-    const live = { ...d, trains: [{ line: '淡水信義線', destination: '淡水', etaMin: 0, status: '進站中' }, ...d.trains] };
+    const live = { ...d, trains: [{ line: '淡水信義線', destination: '淡水', etaMin: 0, status: 'arriving' }, ...d.trains] };
     metroCard.body(live, { host: null, t: zh, locale: 'zh-TW' });
     const etas = made.filter((n) => /ab-eta/.test(n.className));
     assert.deepEqual(etas.map((n) => n.className), ['ab-eta soon', 'ab-eta planned', 'ab-eta planned']);
@@ -180,7 +180,7 @@ test('建議 9：北捷看板被擋且時刻表空 → 不說成即時（走示�
   now += 30_000; // 看板過期、被擋：用 30 秒前的看板，帶 stale
   const s = await m.liveBoard({ system: 'TRTC', station: 'BL12' });
   assert.equal(s.stale, true);
-  assert.equal(s.trains[0].status, '進站中');
+  assert.equal(s.trains[0].status, 'arriving');
   now += 60_000; // 舊看板也太舊了、還是被擋：只有時刻表 → source timetable（不是 live）
   const r = await m.liveBoard({ system: 'TRTC', station: '台北車站' });
   assert.equal(r.source, 'timetable');

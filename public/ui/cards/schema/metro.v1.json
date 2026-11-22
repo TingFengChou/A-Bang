@@ -23,6 +23,7 @@
       "items": {
         "type": "object",
         "required": ["line", "destination", "etaMin", "status"],
+        "additionalProperties": false,
         "properties": {
           "line": { "type": "string" },
           "lineEn": { "type": "string" },
@@ -31,7 +32,7 @@
           "destination": { "type": "string" },
           "destinationEn": { "type": "string" },
           "etaMin": { "type": ["integer", "null"] },
-          "status": { "type": "string" },
+          "status": { "enum": ["arriving", "approaching", "minutes", "scheduled", "unknown"], "description": "狀態代碼（卡片用字典顯示）：arriving 進站中（看板 EstimateTime 0）、approaching 1 分內、minutes N 分、scheduled 依時刻表估算、unknown 沒有時間" },
           "scheduled": { "type": "boolean" }
         }
       }

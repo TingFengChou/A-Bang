@@ -1,7 +1,7 @@
 // 情境對話的期望檢查（test/scenarios.test.js 示範模式、scripts/eval-scenarios.js 模型模式共用）
 // 期望欄位：tools／toolsNot／toolsNone、states／statesNot、bestRole／bestRoleNot、arriveBy（null＝不該有）、
 // fromHere、from／to／fromNot／toNot（地名，台／臺相同）、optionHas（{ role: 名稱要含的字 }）、textHas／textNot、resultHas、tipHas（行程卡提醒）、
-// 阿幫問你（ADR-0016）：asks（問句要含這些字；沒有 ask 事件算失敗）、asksNone（這輪不該問）、askOptions（第 1 個在 options[0].label，其餘在任一選項）、askKind（options[0].kind）、askGuess（options[0].guess）。
+// 阿幫問你（ADR-0016）：asks（問句要含這些字；沒有 ask 事件算失敗）、asksNone（這輪不該問）、asksNot（可以問別的，但問句不該含這些字）、askOptions（第 1 個在 options[0].label，其餘在任一選項）、askKind（options[0].kind）、askGuess（options[0].guess）。
 // 一律檢查：決策最多一次、ask 最多一次、沒有錯誤、回答不露出工具英文名稱。
 const norm = (s) => String(s ?? '').replace(/臺/g, '台').replace(/\s/g, '');
 const TOOL_NAME = /\b[a-z]+(?:_[a-z0-9]+)+\b/;
@@ -32,6 +32,7 @@ export function check(es, x = {}) {
   if (asks.length > 1) bad.push(`一輪問了 ${asks.length} 個問題（最多一個）`);
   if (x.asks) { if (!ask) bad.push('應該問使用者（沒有 ask 事件）'); else for (const w of [].concat(x.asks)) if (!ask.question.includes(w)) bad.push(`問句缺「${w}」（${ask.question}）`); }
   if (x.asksNone && ask) bad.push(`這輪不該問（問了「${ask.question}」）`);
+  if (x.asksNot && ask) for (const w of [].concat(x.asksNot)) if (ask.question.includes(w)) bad.push(`問句不該含「${w}」（${ask.question}）`);
   if (x.askOptions) {
     const [first, ...rest] = [].concat(x.askOptions);
     const labels = ask?.options?.map((o) => o.label) || [];

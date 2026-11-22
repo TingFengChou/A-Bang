@@ -104,7 +104,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | 捷運線別與估算 | 未驗證（2026-11-21：線別由站代碼字首推（台中數字代碼→綠線、高雄 RK→紅線、機捷 A）；時間票價依距離估，真實改用 `Metro/S2STravelTime`、`Metro/ODFare`） |
 | 高鐵／台鐵車站座標與等級 | 未驗證（2026-11-21：`StationPosition.PositionLat／Lon` 給「最近車站」用；台鐵 `StationClass` 可用來優先有直達車的大站，目前改用「最近 3 站依序查、0 班換下一站」） |
 | OData 空白用 `%20`（已實作）是否必要 | 未驗證 |
-| 捷運站別時刻表的國定假日班表 | 待辦（2026-11-22：`StationTimeTable` 的 `ServiceDay.NationalHolidays` 目前不判斷，國定假日仍依星期幾；需要國定假日清單） |
+| 捷運站別時刻表的國定假日班表 | 2026-11-22 已實作（國定假日用 `ServiceDay.NationalHolidays` 的班表，看路線＋方向＋終點）；國定假日清單 `core/data/tw-holidays.json` 已與人事行政總處 115、116 年辦公日曆表核對（data.gov.tw 資料集 14718，`scripts/build-holidays.js` 由官方 CSV 產生）。待驗證：真實 `StationTimeTable` 是否帶 `NationalHolidays`、平日／假日是否分成兩筆 |
 
 ## M2 Tool registry＋遠端 MCP ✅
 
@@ -315,6 +315,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [ ] S17 長途訂票（導訂票權限 ⛔）
 - [x] P2 阿幫問你（ADR-0016）：通用事件 `ask`（kind state／reply／store／action／dismiss、guess、pending）、共用區塊（問阿幫頁、底部面板）、直接打字回答（matchAnswer、pendingAsk→resolvePending）；關鍵因子 `keyQuestion`（趕不趕、省不省、行李、少走路）；習慣改成問過「好」才加分、叫車問原因（你說過的預設狀況）；情境檢查 asks／asksNone／askOptions／askKind／askGuess／toNot、情境 `here`（2026-11-21）
 - [x] P2b PM 第六批：27 個「阿幫問你」Q 情境（該問就問、不該問就不問；`test/scenarios/life-q.json` Q-1～Q-27 全過）（2026-11-22）：`core/agent/clarify.js`（題目）＋`clarify-plan.js`（stop 只問／after 先用猜的查再問）；`PENDING_SLOTS` 加 railFrom、railTo、place、topic、where、busStop、invoiceNo，`to` 帶叫車；地名歧義（同名跨縣市、同城多義、連鎖、區名、只打名字、路名）、高鐵台鐵缺起站（有定位用最近的站）／迄站（最近站兩個方向先查）、只說類別、沒定位問在哪、公車沒定位問哪一站、公車往某方向（`bus_route_eta` `toward`、兩個方向都說）、捷運站名省略「捷運」、路線名不當地名、我中獎了嗎、要出門了、你就在那裡、防詐請他貼上、公車快到改問提醒、只回「好」；關鍵因子：走路 15 分內不問、趕時間快 5 分以上才問；手機出題新種類（railFrom／railTo／place／where／topic）選項要是程式的候選；模型模式也由程式先問（不用位置的那幾題）
+- [x] P2b 後續三項（2026-11-22）：①「去機場」沒說哪個——有定位先用最近的機場排行程並問（選項最近的放第一、最多 3 個，第一個標猜的），沒定位只問，說了明確的機場或航廈不問，英文 to the airport 同理（情境 Q-28～Q-35、`test/airport-ask.test.js`）②北捷看板狀態正規化成代碼（arriving／approaching／minutes／scheduled／unknown），卡片中英字典、英文播報與摘要不出現中文，`metro.v1.json` 的 `trains[]` 改 enum＋`additionalProperties: false` ③站別時刻表看國定假日（`ServiceDay.NationalHolidays`、2026／2027 清單 `core/data/tw-holidays.json` 由官方辦公日曆 CSV 產生並核對、台灣時間）；PR #122 審查修正：去機場不搶天氣、空品、路況、否定、別人去、多站、提醒、帶什麼；從家／公司去機場；那去機場呢沿用起點；搭機捷＝桃園機場；台北＝松山機場；看板狀態舊值相容、英文卡片用英文線名與終點
 - [x] P1 個人化：記住常選的交通方式（只在手機 `abang.habits`、只記方式與時間、最近 50 次、60 天半衰期、選滿 5 次生效；`userState.habit` → `plan_trip` `prefs.habit`，`decide.js` 最多加 8 分、說了狀況／指定方式／不要／抵達時間優先；決策圖「你常選」chip 可點掉、看為什麼；設定頁開關（預設開）與清除；ADR-0010 習慣）（2026-11-21）
 
 ## 體驗與品質補強（審查與 PM 建議，2026-11-21）

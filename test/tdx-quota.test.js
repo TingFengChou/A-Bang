@@ -291,7 +291,7 @@ test('北捷看板沒有這一站（只有進站中的站）：改用時刻表�
   const r = await metro.liveBoard({ system: 'TRTC', station: '台北車站' });
   assert.equal(r.source, 'timetable');
   assert.match(r.note, /北捷即時到站在開放資料只有「進站中」/);
-  assert.deepEqual(r.trains.map((t) => [t.line, t.destination, t.etaMin, t.status, t.scheduled]), [['板南線', '頂埔', 2, '約 2 分', true], ['板南線', '南港展覽館', 4, '約 4 分', true]]);
+  assert.deepEqual(r.trains.map((t) => [t.line, t.destination, t.etaMin, t.status, t.scheduled]), [['板南線', '頂埔', 2, 'scheduled', true], ['板南線', '南港展覽館', 4, 'scheduled', true]]);
   assert.ok(hits.some((u) => u.includes('StationTimeTable/TRTC') && u.includes("$filter=StationID eq 'BL12' or StationID eq 'R10'")));
   // 工具：說「依時刻表約」，卡片契約過、帶 note
   const { callTool } = await import('../core/tools/index.js');
@@ -306,5 +306,5 @@ test('北捷看板沒有這一站（只有進站中的站）：改用時刻表�
   liveRows = board;
   const m = await createMetroServices(createTdxClient({ clientId: 'a', clientSecret: 'b', fetchImpl, limit: fast }), { now: () => T0 }).metro.liveBoard({ system: 'TRTC', station: 'BL12' });
   assert.equal(m.source, 'mixed');
-  assert.deepEqual(m.trains.map((t) => [t.destination, t.status]), [['頂埔', '進站中'], ['南港展覽館', '約 4 分']]);
+  assert.deepEqual(m.trains.map((t) => [t.destination, t.status]), [['頂埔', 'arriving'], ['南港展覽館', 'scheduled']]);
 });

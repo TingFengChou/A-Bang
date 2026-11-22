@@ -1,7 +1,7 @@
 // 捷運（M3-04）：TDX 形狀 fixture 驗證正規化、示範模式與 tools
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createMetroServices, metroStatusText } from '../core/services/metro.js';
+import { createMetroServices, metroStatusText, metroStatusCode } from '../core/services/metro.js';
 import { createTdxClient } from '../core/tdx-client.js';
 import { callTool } from '../core/tools/index.js';
 import { createServices } from '../core/index.js';
@@ -49,9 +49,9 @@ test('liveBoard：查同站所有代碼、依分鐘排序、目的地備援 Trip
   // 看板整個系統一次取（所有車站共用一份快取，不依站另查）
   assert.ok(urls.some((u) => /Metro\/LiveBoard\/TRTC\?\$format=JSON$/.test(u)), urls.join('\n'));
   assert.deepEqual(r.trains.map((t) => [t.line, t.destination, t.etaMin, t.status]), [
-    ['板南線', '頂埔', 0, '進站中'],
-    ['淡水信義線', '淡水', 4, '4 分'],
-    ['板南線', '南港展覽館', null, '—'], // 看板沒有路線名稱時用代碼對照
+    ['板南線', '頂埔', 0, 'arriving'],
+    ['淡水信義線', '淡水', 4, 'minutes'],
+    ['板南線', '南港展覽館', null, 'unknown'], // 看板沒有路線名稱時用代碼對照
   ]);
   assert.equal(r.updatedAt, '2026-11-17T21:00:20+08:00');
 });
@@ -71,7 +71,7 @@ test('liveBoard：代碼查站、錯誤訊息', async () => {
 });
 
 test('metroStatusText', () => {
-  assert.deepEqual([0, 1, 2, null].map(metroStatusText), ['進站中', '即將進站', '2 分', '—']);
+  assert.deepEqual([0, 1, 2, null].map((m) => metroStatusText({ status: metroStatusCode(m), etaMin: m })), ['進站中', '即將進站', '2 分', '—']);
 });
 
 test('示範模式：四個系統都有站與看板，終點站不顯示往自己的車', async () => {

@@ -336,7 +336,7 @@ for (const [name, fake] of [['合理', reasonable], ['亂來', (_t, i) => ({ ...
         const ask = fake(t.say, n++);
         const deviceJudge = sc.profile ? undefined : { intent: Object.hasOwn(JUDGE_INTENTS, q0.intent) ? q0.intent : 'unknown', states: [], engine: 'gemini-nano', ...(ask && { ask }) };
         const es = [];
-        await runDemo(svc2, { messages, clientTools: ['device_location'], clientToolResults: [sc.location !== false ? { id: 'loc1', ok: true, result: sc.here || qset.here } : { id: 'loc1', ok: false }], ...(pendingAsk && { pendingAsk }), ...(deviceJudge && { deviceJudge }) }, (e) => es.push(e), { judge, now: atTW(sc.at), profileId: sc.profile || 'life' });
+        await runDemo(svc2, { messages, clientTools: ['device_location'], clientToolResults: [sc.location !== false ? { id: 'loc1', ok: true, result: sc.here || qset.here } : { id: 'loc1', ok: false }], ...(pendingAsk && { pendingAsk }), ...(deviceJudge && { deviceJudge }), ...(sc.saved && { savedPlaces: sc.saved }) }, (e) => es.push(e), { judge, now: atTW(sc.at), profileId: sc.profile || 'life' });
         const a = askOf(es);
         pendingAsk = a?.pending ? { id: a.id, ...a.pending } : undefined;
         assert.deepEqual(check(es, t.expect), [], `${sc.id} 第 ${i + 1} 輪「${t.say}」（${name}：${JSON.stringify(ask)}）`);

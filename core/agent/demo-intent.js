@@ -7,7 +7,7 @@ import { BUS_OFF, withoutBus, busOffEntry } from '../services/trip.js';
 import { upcomingTrains } from '../tools/transit.js';
 import { outingSay } from './outing.js';
 import { nowTW, distanceM } from '../util.js';
-import { destToken, lookupToken } from './clarify.js';
+import { destToken, lookupToken, isAirportName } from './clarify.js';
 
 /** 問會不會下雨（不是正在下雨；判斷層的下雨狀態也要拿掉，P2-4） */
 export const RAIN_ASK = /會不會下雨|會下雨[嗎吧]?|下雨[嗎沒]|下不下雨|有沒有下雨/g;
@@ -193,6 +193,34 @@ export function nearDefaultFrom(to) {
   return distanceM(a.lat, a.lon, b.lat, b.lon) < NEAR_DEFAULT_M;
 }
 
+/** 「去機場」「到機場怎麼走」「機場」：沒說哪個機場（機場捷運、機場線、機場巴士不算；說了「桃園機場」「第二航廈」就是那個） */
+const AIRPORT_GO = /(?:去|到|往|趕)\s*(?:飛)?機場(?!捷運|線|快線|巴士|大巴|客運|接駁|站)|^(?:飛)?機場\s*(?:怎麼(?:去|走|坐|搭))?\s*[？?。！!]?$/;
+const AIRPORT_EN = /\b(?:to|for)\s+(?:the\s+)?airport\b(?!\s+(?:mrt|metro|line|express|bus|shuttle))|^(?:the\s+)?airport[?.!]?$/i;
+/**
+ * 句子提到機場但不是要排去機場的行程（審查 #122）：問天氣、空品、路況，說不去了、別人去、先去別的地方、設提醒、問要帶什麼——
+ * 交回原本的流程（天氣、空品、路況照常回答；其他不排行程、不問機場）
+ */
+const AIRPORT_NOT_TRIP = /天氣|氣溫|溫度|幾度|下雨|會不會雨|帶傘|雨傘|颱風|空氣|空品|pm\s*2\.?5|aqi|塞車|塞不塞|路況|車多|交通(?:狀況|順)|不用去|不去|不要去|別去|沒有要去|不必去|取消|已經去|剛去|再去|前先|之前|然後|順便|提醒|鬧鐘|通知|要帶|帶什麼|帶.{0,6}嗎|護照|簽證|安檢|托運|登機|報到|check\s*-?in/i;
+const AIRPORT_NOT_TRIP_EN = /weather|\brain|umbrella|forecast|temperature|air quality|\baqi\b|pm ?2\.?5|traffic|\bjam|congest|remind|alarm|passport|visa|\bbring|\bpack|security|check[- ]?in|\bnot going\b|don'?t (?:need|have) to go|no need to go|cancel|before (?:going|heading|I go)|\bthen\b|\bfirst\b|\bmy (?:wife|husband|friend|mom|mother|dad|father|son|daughter|boss)\b|\b(?:he|she|they)(?:'s| is| are)?\b/i;
+/** 別人去機場（「我老公去機場了」「他剛到機場」）：不是要排自己的行程 */
+const AIRPORT_OTHER = /(?:老公|老婆|先生|太太|爸爸?|媽媽?|朋友|同學|同事|兒子|女兒|小孩|別人|(?<![其吉])[他她])們?(?:已經|剛剛?|正在|在)?(?:去|到)機場(?!怎|要怎|要多久|的路)/;
+const AIRPORT_MRT = /機場捷運|機捷/;
+/**
+ * 沒說哪個機場的行程：{ from, fromSaved?, to: null, airport: true }；句子裡另有一個地名當起點（「我在板橋，要去機場」）、
+ * 「從家／公司去機場」用常用地點的座標；說了搭機場捷運就是桃園機場（不問）。不是行程的句子回 null。
+ */
+function airportTrip(s, places, { en = false, saved = null } = {}) {
+  const t = s.trim();
+  if (!(en ? AIRPORT_EN : AIRPORT_GO).test(t) || places.some(isAirportName)) return null;
+  if ((en ? AIRPORT_NOT_TRIP_EN : AIRPORT_NOT_TRIP).test(t) || (!en && AIRPORT_OTHER.test(t))) return null;
+  if (places.length > 1) return null;
+  const savedKey = !en && /從/.test(t) ? Object.keys(SAVED_FROM).find((k) => SAVED_FROM[k].test(t)) : null; // 「從家去機場」「從我家到機場」「從公司去機場」
+  if (savedKey && !saved?.[savedKey]) return { intent: 'savedMissing', missing: savedKey }; // 手機沒設定：照實說（不猜）
+  const fromSaved = savedKey ? { lat: saved[savedKey].lat, lon: saved[savedKey].lon, name: savedKey } : null;
+  const from = savedKey || (en ? (places[0] && /\bfrom\b|\bI'?m (?:at|in)\b/i.test(t) ? places[0] : null) : places[0] || FROM_TEXT.exec(t)?.[1] || null);
+  if (en ? /\bairport (?:mrt|metro)\b/i.test(t) : AIRPORT_MRT.test(t)) return { intent: 'trip', from, ...(fromSaved && { fromSaved }), to: '臺灣桃園國際機場', mode: 'metro' }; // 搭機場捷運去機場：桃園機場
+  return { intent: 'trip', from, ...(fromSaved && { fromSaved }), to: null, airport: true };
+}
 /** 沒說哪一站的「火車站／高鐵站」（前面是去、到、往） */
 const NEAR_RAIL = /(?:去|到|往)\s*(?:最近的?|附近的?)?\s*(?:火車站|[台臺]鐵站|高鐵站)/;
 const STATION_NAMES = new Set(LANDMARKS.items.filter((x) => x.kind === 'station').map((x) => x.name));
@@ -576,7 +604,7 @@ export function parseIntent(text, ctx) {
     if (/漲|跌|調/.test(String(text))) it.trend = true;
   }
   if (it?.intent === 'bus_route' && !it.stop) { const st = busStopOf(text); if (st) it.stop = st; }
-  if (it?.intent === 'trip' && it.followUp && !it.to && !it.nearRail && !it.toSaved && !it.needs) it.needs = 'to'; // 接著改條件但目的地還沒說（只說過起點）：再問一次要去哪 // 「307 公車到「敦化市場」還要多久」（阿幫會看：拍站牌組出來的問題，M14-02）
+  if (it?.intent === 'trip' && it.followUp && !it.to && !it.nearRail && !it.airport && !it.toSaved && !it.needs) it.needs = 'to'; // 接著改條件但目的地還沒說（只說過起點）：再問一次要去哪 // 「307 公車到「敦化市場」還要多久」（阿幫會看：拍站牌組出來的問題，M14-02）
   if (it && !isEnglish(String(text || ''))) delete it.lang;
   return it;
 }
@@ -668,6 +696,16 @@ function parseIntentRaw(text, ctx) {
   let tripMemo;
   const noNeeds = (t) => { if (!t?.needs) return t; const { needs: _n, ...r } = t; return r; }; // 上一輪在問的欄位：這一輪說了就不再問（「那去台北101呢」）
   const tripBefore = () => (tripMemo !== undefined ? tripMemo : (tripMemo = noNeeds(ctx && 'prev' in ctx ? ctx.prev : lastTrip(history, ctx?.saved))));
+  const air = airportTrip(s, places, { saved: ctx?.saved }); // 「去機場」沒說哪個：程式猜最近的並問（core/agent/clarify-plan.js）
+  if (air?.intent === 'savedMissing') return { ...base, ...air };
+  if (air) {
+    const b = !air.from && CHANGE_TO.test(s) && history.length ? tripBefore() : null; // 「那去機場呢」：起點與條件沿用上一趟（同「那去松山機場呢」）
+    if (b?.from || b?.fromSaved) {
+      const { to: _t, toSaved: _ts, needs: _n, ambig: _a, followUp: _f, changed: _c, nearRail: _r, airport: _ap, savedTrip: _st, ...rest } = b;
+      return { ...rest, states: [...new Set([...(b.states || []), ...states])], ...air, from: b.from, ...(b.fromSaved && { fromSaved: b.fromSaved }), ...((mode || b.mode) && { mode: mode || b.mode }) };
+    }
+    return { ...base, ...air, ...(mode && !air.mode && { mode }) };
+  }
   const bareMode = BARE_MODE.exec(s.replace(/\s+/g, ' ').trim());
   const before = history.length && (!otherQuery || bareMode) ? tripBefore() : null; // 結構化上下文（A3）：前面累積的行程條件；只說「高鐵」＝改坐高鐵
   // 剛查完高鐵／台鐵（票價或班次），接著說「那台鐵呢」：同一段起訖換另一種（審查 #121）
@@ -1158,6 +1196,8 @@ function englishIntent(s, places, history = []) {
   }
   // 要出門了（「I want to go out」）：出門建議＋問要去哪
   if (/^(?:i\s+(?:want|need|have|am going|'m going|am about|'m about)\s+to\s+go\s+out|i'?m\s+(?:heading|going)\s+out(?:\s+now)?|(?:heading|going)\s+out(?:\s+now)?)[.!]?$/i.test(s.trim())) return { ...base, intent: 'outing', askTo: true };
+  const airEn = airportTrip(s, places, { en: true }); // 「How do I get to the airport?」沒說哪個機場：同中文「去機場」
+  if (airEn) return { ...base, ...airEn, ...(mode && !airEn.mode && { mode }) };
   // 沒說哪一站的「train station」「HSR station」：去最近的台鐵／高鐵站（同中文「去火車站」，PM Q-26）
   const nearRailEn = !places.length && /\b(train|railway|hsr|high[- ]speed rail)\s+station\b/i.exec(s);
   if (nearRailEn && /\b(?:get|go|take me|how|way|directions?)\b/i.test(s)) return { ...base, intent: 'trip', from: null, to: null, nearRail: /hsr|high/i.test(nearRailEn[1]) ? 'THSR' : 'TRA' };
@@ -1275,7 +1315,7 @@ function englishSummary(it, results) {
     const next = (up?.length ? up : t?.trains)?.[0];
     if (next) return `${it.system === 'THSR' ? 'High Speed Rail' : 'Train'} from ${t.from} to ${t.to}: next one leaves ${next.depart}, arrives ${next.arrive}.${note}`;
   }
-  if (it.intent === 'metro') { const m = results.metro_live_board?.at(-1)?.data; const tr = m?.trains?.find((x) => x.etaMin != null); if (m) return tr ? `MRT ${m.station}: next train to ${tr.destination} in ${tr.etaMin} min.${note}` : `MRT ${m.station}: no live arrival data right now.`; }
+  if (it.intent === 'metro') { const m = results.metro_live_board?.at(-1)?.data; const tr = m?.trains?.find((x) => x.etaMin != null); if (m) return tr ? `MRT ${m.station}: ${tr.etaMin <= 0 && !tr.scheduled ? `train to ${tr.destination} arriving now` : `next train to ${tr.destination} in ${tr.scheduled ? 'about ' : ''}${Math.max(1, tr.etaMin)} min`}.${note}` : `MRT ${m.station}: no live arrival data right now.`; }
   if (it.intent === 'aqi') { const a = results.aqi_nearby?.at(-1)?.data?.nearest; if (a) return `Air quality near ${a.site} station: AQI ${a.aqi}${a.aqi > 100 ? ', consider wearing a mask' : ''}.`; }
   if (it.intent === 'youbike') { const b = results.youbike_nearby?.at(-1)?.data?.stations?.[0]; if (b) return `Nearest YouBike station: ${b.name}, ${b.rent ?? '?'} bikes and ${b.returnSlots ?? '?'} free docks.${note}`; }
   if (it.intent === 'outing') { const o = results.outing_advice?.at(-1)?.data; if (o) { const tips = o.items.map(outingEn).filter(Boolean); return `Before you head out: ${tips.join('; ')}.${note}`; } }
