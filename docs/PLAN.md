@@ -92,6 +92,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | 待驗證 | 狀態 |
 |---|---|
 | `Bus/EstimatedTimeOfArrival/.../PassThrough/Station/{id}` | 未驗證 |
+| 公車到站 `StopStatus` 與 `NextBusTime` | 部分 ✅ 2026-11-22（新北 939、三峽-臺北市信義區）：`StopStatus` 0～4 都看得到（4 今日未營運整條路線每站都是 4；2 交管不停靠只有個別站）；狀態 1 尚未發車的站**沒有** `NextBusTime`。`etaOf` 有 `NextBusTime` 才換算等車時間（沒寫時區當 +08:00），沒有照舊算「到站時間不明」；台北市與其他縣市未驗證 |
 | `Bus/Shape/City/{City}/{Route}` WKT 格式 | 未驗證（M3-02 假設欄位 `Geometry`、`LINESTRING`／`MULTILINESTRING`；`core/geo.js` 防禦性解析） |
 | 站牌 `StopPosition` 於各縣市完整度 | 未驗證 |
 | `Rail/Metro/LiveBoard/{Op}` 各系統欄位 | 北捷 ✅ 2026-11-22：欄位 `LineID`、`LineName`、`StationID`、`DestinationStationName`、`EstimateTime`（分鐘）符合；但只列「進站中」的站（約 20～25 筆、`EstimateTime` 都是 0）→ 看板整個系統一次取，其他方向用 `StationTimeTable` 估（DATA_SOURCES.md §1.2）。其他系統未驗證 |

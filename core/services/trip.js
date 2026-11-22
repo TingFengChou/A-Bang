@@ -298,11 +298,11 @@ async function busOption(svc, from, to, straight, risk, depart) {
   // 站牌狀態：3 末班已過＝收班；4 今日未營運、2 交管不停靠不是深夜收班（不觸發深夜第一句）
   if (all.length && !list.length) {
     const has = (s) => all.some((t) => t.board?.status === s);
-    const names = all.map((t) => t.routeName).join('、'); // 哪幾條（directTrips 最多 3 條）
+    const names = all.map((t) => t.routeName).join('、'), namesEn = all.map((t) => t.routeName).join(', '); // 哪幾條（directTrips 最多 3 條）
     return { skip: has(3)
       ? { role: 'bus', closed: true, why: '附近直達的公車末班已過（站牌即時資訊），可以叫車或騎 YouBike', whyEn: 'The last direct bus has left (live stop info); try a taxi or YouBike' }
-      : has(4) ? { role: 'bus', why: `附近直達的公車（${names}）今天沒有營運（站牌即時資訊）`, whyEn: `Direct buses nearby (${names}) are not running today (live stop info)` }
-        : { role: 'bus', why: `附近直達的公車（${names}）這站交管不停靠（站牌即時資訊）`, whyEn: `Direct buses nearby (${names}) are not stopping here due to traffic control (live stop info)` } };
+      : has(4) ? { role: 'bus', why: `附近直達的公車（${names}）今天沒有營運（站牌即時資訊）`, whyEn: `Direct buses nearby (${namesEn}) are not running today (live stop info)` }
+        : { role: 'bus', why: `附近直達的公車（${names}）這站交管不停靠（站牌即時資訊）`, whyEn: `Direct buses nearby (${namesEn}) are not stopping here due to traffic control (live stop info)` } };
   }
   // TDX 額度用完：有些路線的到站資料查不到（directTrips 內部 routeEta 429），照實說，不說成「查不到直達公車」
   if (!list.length && raw.limited) return { none: { kind: 'none', why: 'TDX 額度用完，公車資料這次查不到（稍後再問一次）', whyEn: 'TDX quota used up; bus data unavailable this time (try again shortly)', fallback: 'tdx-limit' } };
@@ -434,6 +434,54 @@ export function shareRide(o, party) {
  * @param {{ from: { name, lat, lon }, to: { name, lat, lon }, departAt?: string, prefs?: { states?: string[], arriveBy?: string, party?: number, habit?: Record<string, number> }, now?: number }} p
  *   prefs.habit：手機記的常選比例（只在手機算好送來；沒指定方式、沒說狀況時小幅加分，ADR-0010）
  */
+/** decide() 的結果 → plan_trip 的 ranking（notWorth／tooLong／unsure：ADR-0010 2026-11-22） */
+const rankingOf = (r) => ({
+  ranked: r.ranked.map((o) => ({ id: o.id, name: o.name, score: o.score, breakdown: o.breakdown, ...(o.notWorth && { notWorth: o.notWorth }), ...(o.tooLong && { tooLong: o.tooLong }), ...(o.unsure && { unsure: o.unsure }) })),
+  excluded: r.excluded.map((o) => ({ id: o.id, name: o.name, why: o.why })),
+  weights: r.weights, reason: r.reason,
+});
+const tightTip = (best, arriveBy, slack) => ({ kind: 'tight', text: `時間很緊：預計 ${best.arriveAt} 抵達，比 ${arriveBy} 早到 ${slack} 分鐘，建議現在就出發` });
+/** 決策的條件（planTrip 與 withoutBus 共用；前端決策圖重算用同一套） */
+const ctxOf = (trip) => ({ states: (trip.states || []).map((s) => s.key), arriveBy: trip.arriveBy, arriveByMin: trip.arriveByMin, mode: trip.mode, avoid: trip.avoid, habit: trip.habit || null, said: (trip.states || []).some((s) => s.source !== 'auto') });
+
+/** 盯到不會來的路線補進 missing（重排時公車整個查不到也照樣說是哪一條、為什麼）；已經有的不重複 */
+export function withBusOff(trip, off) {
+  const had = new Set((trip.missing || []).filter((m) => m.kind === 'route').map((m) => m.route));
+  const add = off.filter((m) => !had.has(m.route));
+  return add.length ? { ...trip, missing: [...(trip.missing || []), ...add] } : trip;
+}
+
+/**
+ * 盯到站後發現推薦的公車今天不會來、又不能再重查（重排失敗、重排次數用完）：把這些公車排除，用同一套 decide() 重新排（不打 TDX）。
+ * 不拿 ranking 第二名（第二名可能是被「太久」「不划算」壓到公車後面的步行或叫車）；卡片、決策圖、回答都用回傳的這一份。
+ * @param {object} trip plan_trip 的 data
+ * @param {Array<ReturnType<typeof busOffEntry>>} off 不會來的路線
+ */
+export function withoutBus(trip, off) {
+  if (!trip.options.some((o) => off.some((m) => o.id === `bus-${m.route}`))) return withBusOff(trip, off); // 已經不在方案裡：只補原因
+  const ids = new Set(off.map((m) => `bus-${m.route}`));
+  const options = trip.options.filter((o) => !ids.has(o.id));
+  const ctx = ctxOf(trip);
+  const r = decide(options, ctx);
+  const ask = keyQuestion(options, ctx);
+  const best = options.find((o) => o.id === r.best?.id);
+  const slack = trip.arriveByMin != null && best ? trip.arriveByMin - best.arriveMin : null;
+  const tight = slack != null && slack >= 0 && slack < TIGHT_MIN;
+  const tips = [...(tight ? [tightTip(best, trip.arriveBy, slack)] : []), ...(trip.tips || []).filter((t) => t.kind !== 'tight')];
+  const { missing } = withBusOff(trip, off);
+  const { ask: _a, tight: _t, tips: _tp, mode: _m, modeUnavailable: _mu, habitOn: _h, single: _s, ...rest } = trip; // single：方案數變了，原本的說明不適用
+  return {
+    ...rest, best: r.best?.id ?? null,
+    ...((r.mode || r.modeUnavailable) && { mode: r.mode || r.modeUnavailable }),
+    ...(r.modeUnavailable && { modeUnavailable: r.modeUnavailable }),
+    ...(trip.habit && { habitOn: !!r.habitOn }),
+    ...(ask && { ask }),
+    options, ranking: rankingOf(r), missing,
+    ...(tight && { tight: { slackMin: slack } }),
+    ...(tips.length && { tips }),
+  };
+}
+
 export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date.now() }) {
   const depart = departOf(departAt, now);
   const straight = distanceM(from.lat, from.lon, to.lat, to.lon);
@@ -500,7 +548,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   // 卡片上看得到叫車（建議或備案）、使用者也沒指定別的方式，才說分攤（「不要叫車」已被排除，不在 ranked）
   const rideShown = ride && r.ranked.slice(0, 3).some((o) => o.id === ride.id) && (!prefs.mode || prefs.mode === 'ridehail');
   const tips = [
-    ...(tight ? [{ kind: 'tight', text: `時間很緊：預計 ${bestOpt.arriveAt} 抵達，比 ${prefs.arriveBy} 早到 ${slack} 分鐘，建議現在就出發` }] : []),
+    ...(tight ? [tightTip(bestOpt, prefs.arriveBy, slack)] : []),
     ...(umbrella ? [{ kind: 'rain', text: `3 小時內降雨機率 ${weather.pop3h}%，記得帶傘` }] : []),
     ...(party && ride?.share && rideShown ? [{ kind: 'cost', text: `${party} 人叫車${ride.share.cars > 1 ? `要 ${ride.share.cars} 輛車，` : ''}共約 ${ride.share.total} 元，每人分攤約 ${ride.cost} 元` }] : []),
   ];
@@ -535,11 +583,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     considered,
     ...(single && { single }),
     options,
-    ranking: {
-      ranked: r.ranked.map((o) => ({ id: o.id, name: o.name, score: o.score, breakdown: o.breakdown, ...(o.notWorth && { notWorth: o.notWorth }), ...(o.tooLong && { tooLong: o.tooLong }), ...(o.unsure && { unsure: o.unsure }) })), // notWorth／tooLong／unsure：ADR-0010 2026-11-22
-      excluded: r.excluded.map((o) => ({ id: o.id, name: o.name, why: o.why })),
-      weights: r.weights, reason: r.reason,
-    },
+    ranking: rankingOf(r),
     ...(unavailable.length && { unavailable }),
     ...(skipped.length && { skipped }),
     ...(missing.length && { missing }), // 沒列入的方式（含 skipped）：{ role, kind, why, whyEn, closed? }；kind 'route'＝那一條公車路線（route、status）（卡片「沒列入」、決策圖）

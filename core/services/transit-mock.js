@@ -55,7 +55,8 @@ const hhmm = (min) => `${pad(Math.floor(min / 60) % 24)}:${pad(min % 60)}`;
  *   off＝行程規劃與到站查詢都看得到（規劃時就排除）；offLive＝規劃時看起來正常、盯到站時才發現（run.js 盯到後重排的保底）
  */
 export function createMockTransitServices({ bus: busScenario } = {}) {
-  const offRoutes = new Set(); // 今日未營運的示範路線（directTrips 決定，到站查詢 routeEta 照著回）
+  // 今日未營運的示範路線：由路線本身固定決定（ROUTES 裡排奇數位的；不共用可變狀態，每個請求、每個服務看到的都一樣）
+  const offRoute = (name) => (busScenario === 'off' || busScenario === 'offLive') && ROUTES.indexOf(name) % 2 === 1;
   const bus = {
     async searchRoutes({ city, keyword }) {
       const c = resolveCity(city) || resolveCity('Taipei');
@@ -70,7 +71,7 @@ export function createMockTransitServices({ bus: busScenario } = {}) {
       const n = 14 + Math.floor(r() * 10);
       const names = Array.from({ length: n }, () => pick(r, ROAD_POOL) + pick(r, STOP_POOL));
       const coords = mockPath(r, c.city, n);
-      const offAll = offRoutes.has(routeName);
+      const offAll = offRoute(routeName);
       const mk = (dir, list, pts) => {
         // 模擬 2~3 台車在路線上，各站 ETA 由最近車輛推算
         const buses = [0.15, 0.5, 0.85].map((p) => p * list.length + ((Date.now() / 90000) % list.length));
@@ -126,9 +127,9 @@ export function createMockTransitServices({ bus: busScenario } = {}) {
       };
       if (busScenario !== 'off' && busScenario !== 'offLive') return [await trip(routeName, rides, etaSec, false)];
       // 示範「今日未營運」：比較快的這條今天不會來（off 規劃時就看得到；offLive 規劃時看起來正常、盯到站才發現），另一條慢一點但照常
-      offRoutes.add(routeName);
-      const other = ROUTES[(ROUTES.indexOf(routeName) + 1) % ROUTES.length];
-      return [await trip(routeName, rides, etaSec, busScenario === 'off'), await trip(other, rides + 3, etaSec + 120, false)];
+      const i = ROUTES.indexOf(routeName);
+      const off = ROUTES[i % 2 === 1 ? i : i + 1], other = ROUTES[(ROUTES.indexOf(off) + 1) % ROUTES.length]; // off 一定是奇數位、other 一定是偶數位（ROUTES 長度是偶數）
+      return [await trip(off, rides, etaSec, busScenario === 'off'), await trip(other, rides + 3, etaSec + 120, false)];
     },
     async stationEta({ stationId }) {
       const r = seeded(stationId);

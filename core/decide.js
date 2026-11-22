@@ -51,6 +51,9 @@ const TRANSIT_ROLES = new Set(['bus', 'metro', 'tra', 'thsr', 'intercity']);
 /** 走太久、騎太久（分）：沒有理由狀態、有大眾運輸時，超過的步行、YouBike 不排在最好的大眾運輸前面（產品負責人授權，2026-11-22 PR #119 審查） */
 export const LONG_MIN = { walk: 25, bike: 30 };
 
+/** 同分時：因「不划算」被壓下來的叫車排在讓位的公車後面（時間不明的公車讓位後跟叫車同分時，公車在前，理由句說「公車到站時間不明」而不是跟叫車比價；PR #124 審查） */
+const notWorthLast = (a, b) => (a.notWorth && b.unsure ? 1 : b.notWorth && a.unsure ? -1 : 0); // 只處理這一種同分（其他同分照時間短的在前，理由句不變）
+
 /** 轉乘次數：有 transfers 就用；否則看分段（走路以外的段數 − 1）＋捷運本身的轉乘 */
 function transfersOf(o) {
   if (Number.isFinite(o.transfers)) return o.transfers;
@@ -190,7 +193,7 @@ export function decide(options, ctx = {}) {
     if (bonus > 0) breakdown.habit = bonus;
     const score = Object.values(breakdown).reduce((a, b) => a + b, 0);
     return { ...o, score: Math.round(score * 100), breakdown, ...(notWorth && { notWorth }), ...(tooLong && { tooLong }), ...(unsure && { unsure }) };
-  }).sort((a, b) => b.score - a.score || a.minutes - b.minutes);
+  }).sort((a, b) => b.score - a.score || notWorthLast(a, b) || a.minutes - b.minutes);
 
   // 4. 使用者指定交通方式（「改坐公車」）：分數與排名照算，建議改成該方式裡分數最高的（沒有這種方式就照分數）
   const picked = ctx.mode ? ranked.find((o) => o.role === ctx.mode) : null;

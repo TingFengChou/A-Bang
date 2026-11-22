@@ -4,20 +4,29 @@ import { distanceM } from '../util.js';
 export const DIRECT_RADIUS_M = 500; // 起訖點到上下車站牌的最大距離
 export const MAX_ROUTES = 3;        // 最多驗證幾條共同路線（每條要查一次路線到站）
 
+/** 上車站的這些狀態代表車今天不會在這站載客（2 交管不停靠、3 末班已過、4 今日未營運）；下車站只看 2（不停靠就下不了車） */
+const BOARD_OFF = new Set([2, 3, 4]);
+
 /**
  * 在路線各方向的站序中，找「上車站離起點最近、下車站離終點最近且在上車站之後」的組合（步行總和最短的方向）。
+ * 先跳過不會停的站（上車站 2／3／4、下車站 2），改用同路線下一個候選站；整條路線都不會停時才回不會停的那一站（status 照帶，plan_trip 照實說不列入）。
  * @param {Array<{ label: string, stops: Array<{ seq, stopName, lat?, lon?, etaSec?, status? }> }>} directions bus.routeEta 的 directions
  * @returns {{ label, board, alight, stops, walkFromM, walkToM } | null}
  */
 export function matchDirect(directions, from, to, radius = DIRECT_RADIUS_M) {
+  return pairOf(directions, from, to, radius, true) || pairOf(directions, from, to, radius, false);
+}
+
+function pairOf(directions, from, to, radius, skipOff) {
   let best = null;
   for (const [di, d] of (directions || []).entries()) {
     const stops = (d.stops || []).filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lon));
     for (const b of stops) {
+      if (skipOff && BOARD_OFF.has(b.status)) continue;
       const wb = distanceM(from.lat, from.lon, b.lat, b.lon);
       if (wb > radius) continue;
       for (const a of stops) {
-        if (a.seq <= b.seq) continue;
+        if (a.seq <= b.seq || (skipOff && a.status === 2)) continue;
         const wa = distanceM(to.lat, to.lon, a.lat, a.lon);
         if (wa > radius) continue;
         if (!best || wb + wa < best.walkFromM + best.walkToM) {

@@ -17,7 +17,9 @@ import { waitDrama } from './wait-drama.js';
 import { answerFacts } from './answer-facts.js';
 import { trialInfo } from './trial.js';
 import { WRITE_AGENTS } from '../edge-write.js';
-import { BUS_OFF } from '../services/trip.js';
+import { BUS_OFF, withoutBus, withBusOff, busOffEntry } from '../services/trip.js';
+import { MAX_ROUTES } from '../services/bus-direct.js';
+import { planTripTool, tripText } from '../tools/trip.js';
 
 /** 示範模式的規則式規劃（依 agent）：parse → steps → summary；needsLocation 只有生活 agent 用 */
 const PLANNERS = {
@@ -162,6 +164,8 @@ export function busFollowUp(trip) {
   };
 }
 
+/** 盯到站後排除不會來的公車、重新排出的行程資料 → 工具結果（文字、小幫手的一句跟著資料改） */
+const tripResult = (prev, data) => ({ ...prev, data, text: tripText(data), speak: planTripTool.speak(data) });
 /** 重排前先盯推薦的公車（盯到今天不會來時，討論串的說明） */
 const offNote = (a) => `@公車 先看 ${a.routeName} 在「${a.stop}」今天有沒有車`;
 
@@ -193,22 +197,23 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
         return { name: c.name, ok: true, result };
       }
       // 選了公車：先盯上車站（L-14）。盯到的是今天不會來（BUS_OFF：今日未營運、末班已過、交管不停靠）就排除這條路線重排，
-      // 卡片、決策圖、回答都照重排後的（2026-11-22 三峽→台北 101：推了今日未營運的公車，還問要不要到站提醒）。最多重排 2 次
+      // 卡片、決策圖、回答都照重排後的（2026-11-22 三峽→台北 101：推了今日未營運的公車，還問要不要到站提醒）。
+      // 重排最多 MAX_ROUTES − 1 次（directTrips 最多 MAX_ROUTES 條、busOff 只增）；重排失敗或次數用完時不再重查，把盯到不會來的公車排除、用同一套 decide() 重排（withoutBus，不打 TDX）
       const watch = profile.tools.includes('bus_route_eta');
       const busOff = [], offSeen = [];
       let f = watch ? busFollowUp(result.data) : null, followUp = null, followErr = null;
-      for (let i = 0; f; i++) {
+      while (f) {
         try { followUp = await callTool(svc, 'bus_route_eta', f.args); } catch (e) { followErr = e; break; }
         const st = followUp.data?.focus?.status;
-        if (!BUS_OFF[st] || i >= 2) break;
-        const off = [...busOff, { routeName: f.args.routeName, status: st }];
-        let again;
-        try { again = await callTool({ ...planSvc, busOff: off }, c.name, args); } catch { break; } // 重排失敗：留原本的結果，總結的保底照實說這班不會來、改推下一個
-        busOff.splice(0, busOff.length, ...off);
+        if (!BUS_OFF[st]) break;
         offSeen.push({ f, followUp, status: st });
-        result = again;
-        f = busFollowUp(result.data);
+        busOff.push({ routeName: f.args.routeName, status: st });
         followUp = null;
+        const offs = busOff.map((x) => busOffEntry(x.routeName, x.status));
+        const again = offSeen.length < MAX_ROUTES ? await callTool({ ...planSvc, busOff: [...busOff] }, c.name, args).catch(() => null) : null;
+        const fixed = again && withBusOff(again.data, offs); // 重排時公車整個查不到（資料暫時查不到）也照樣說盯到的那條為什麼不在
+        result = again ? (fixed === again.data ? again : tripResult(again, fixed)) : tripResult(result, withoutBus(result.data, offs));
+        f = again ? busFollowUp(result.data) : null; // withoutBus 已排除全部盯到不會來的公車（plan_trip 只列一條公車），不用再盯
       }
       for (const x of offSeen) { // 盯到的證據照樣出現在討論串（工具發言：「X 在「站」：今日未營運」），再說重新比較
         emit(ev.agentNote(en ? enNote(offNote(x.f.args)) : offNote(x.f.args)));

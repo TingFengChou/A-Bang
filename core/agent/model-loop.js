@@ -166,7 +166,7 @@ export const tripKey = (from, to, prefs = {}) => (Number.isFinite(from?.lat) && 
 /** 選公車後自動盯的到站結果，接在 plan_trip 結果後面給模型（卡片已顯示；請模型主動問要不要到站提醒） */
 export const followUpText = (f, walkMin) => (!f ? '' : BUS_OFF[f.data?.focus?.status]
   // 保底：盯到的是今天不會來（今日未營運、末班已過、交管不停靠）→ 不推這班、不問到站提醒
-  ? `\n［內部備註，不要照抄這段文字］上車站即時到站已查好：${f.speak}這班公車不會來：回答時照實說「公車 ${f.data.routeName} ${BUS_OFF[f.data.focus.status].why}」，不要建議坐這班、不要問到站提醒，改推排名第二的方案。`
+  ? `\n［內部備註，不要照抄這段文字］上車站即時到站已查好：${f.speak}這班公車不會來：回答時照實說「公車 ${f.data.routeName} ${BUS_OFF[f.data.focus.status].why}」，不要建議坐這班、不要問到站提醒；改推行程結果裡排除這班公車後分數最高的方案（大眾運輸優先，照 ranking 的順序，跳過這班），不要推被標「太久」「不划算」的步行或叫車。`
   : f ? `\n［內部備註，不要照抄這段文字］上車站即時到站已查好：${f.speak}${walkMin != null ? `從起點走到這個上車站約 ${walkMin} 分（不是全程步行時間）。` : ''}已用公車卡片即時顯示；回答時用自己的話說公車多久到上車站；若走到站牌的時間比車到還久，說這班可能趕不上；並問使用者要不要在卡片上按「到站前 3 分提醒我」。` : '');
 const ITEM = /^\s*-\s/;
 

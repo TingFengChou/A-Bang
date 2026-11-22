@@ -4,7 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { matchDirect } from '../core/services/bus-direct.js';
-import { planTrip, BUS_OFF } from '../core/services/trip.js';
+import { etaOf, nextBusAt } from '../core/services/transit.js';
+import { answerFacts } from '../core/agent/answer-facts.js';
+import { resolvePoint } from '../core/services/places.js';
+import { planTrip, BUS_OFF, withoutBus } from '../core/services/trip.js';
 import { decide } from '../core/decide.js';
 import { createServices } from '../core/index.js';
 import { runDemo } from '../core/agent/run.js';
@@ -77,6 +80,8 @@ test('decide：到站時間不明的公車不排在時間確定的大眾運輸�
   assert.equal(known.best.role, 'bus');
   const r = decide([bus, metro, ride]);
   assert.equal(r.best.id, 'metro');
+  assert.deepEqual(r.ranked.map((o) => o.id), ['metro', 'bus-939', 'ridehail'], '讓位後跟叫車同分：公車在前（審查 2）');
+  assert.match(r.reason, /^選「捷運 板南線」：公車 939 到站時間不明。$/, '理由說公車時間不明，不是跟叫車比價');
   const b = r.ranked.find((o) => o.id === 'bus-939');
   assert.deepEqual(b.unsure, { vs: 'metro' });
   assert.ok(b.breakdown.unsure < 0, '扣的分畫得出來');
@@ -143,19 +148,123 @@ test('示範 off（規劃時就看得到今日未營運）：那條不列入、�
   assert.match(textOf(es), new RegExp(`^公車 ${off.route} 今天沒有營運（站牌即時資訊），這次不推。`));
 });
 
-test('總結保底：重排後推薦的仍是今天不會來的公車 → 改推排名下一個（中英文），不問到站提醒', () => {
-  const bus = { id: 'bus-939', role: 'bus', name: '公車 939', minutes: 40, arriveAt: '13:20', follow: { city: 'NewTaipei', routeName: '939', stop: '三峽國小', direction: 0, walkMin: 4 } };
-  const ride = { id: 'ridehail', role: 'ridehail', name: '叫車（Uber）', minutes: 38, arriveAt: '13:18', legs: [] };
-  const data = { best: 'bus-939', options: [bus, ride], states: [], ranking: { ranked: [{ id: 'bus-939' }, { id: 'ridehail' }], excluded: [], reason: '選「公車 939」：省 895 元。' } };
+test('總結保底：推薦的仍是今天不會來的公車 → 排除它重新比較（不拿 ranking 第二名：被「太久」壓到公車後面的步行），改推捷運；中英文、不問到站提醒', () => {
+  const o = (id, role, name, minutes, cost, more = {}) => ({ id, role, name, minutes, waitMin: 5, walkMin: 5, cost, exposure: 0.2, effort: 0.2, delayRisk: 0, arriveAt: '13:00', legs: [], ...more });
+  const bus = o('bus-939', 'bus', '公車 939', 38, 15, { follow: { city: 'NewTaipei', routeName: '939', stop: '三峽國小', direction: 0, walkMin: 4 } });
+  const walk = o('walk', 'walk', '步行', 102, 0, { walkMin: 102, waitMin: 0, effort: 0.8, exposure: 1 });
+  const metro = o('metro', 'metro', '捷運（板南線轉淡水信義線）', 32, 25, { arriveAt: '13:12' });
+  const ride = o('ridehail', 'ridehail', '叫車（Uber）', 25, 260, { walkMin: 0 });
+  // 盯到站之前的排名：公車第一、被「太久」壓到公車後 1 分的步行第二（審查重現的情況）
+  const data = { best: 'bus-939', options: [bus, walk, metro, ride], states: [{ key: 'budget', source: 'user' }], ranking: { ranked: [{ id: 'bus-939' }, { id: 'walk' }, { id: 'metro' }, { id: 'ridehail' }], excluded: [], reason: '選「公車 939」' } };
   const eta = { routeName: '939', focus: { stopName: '三峽國小', status: 4, statusText: '今日未營運', etaSec: null } };
   const results = { plan_trip: [{ data }], bus_route_eta: [{ data: eta, speak: '939 在「三峽國小」：今日未營運。' }] };
   const zh = demoSummary({ intent: 'trip', from: '三峽', to: '台北101', places: [], states: [] }, results);
-  assert.match(zh, /公車 939 在「三峽國小」今天沒有營運（站牌即時資訊），這班不會來。改推「叫車（Uber）」：約 38 分，13:18 到。/);
-  assert.doesNotMatch(zh, /選「公車|提醒/);
+  assert.match(zh, /公車 939 在「三峽國小」今天沒有營運（站牌即時資訊），這班不會來。改推「捷運（板南線轉淡水信義線）」：約 32 分，13:12 到。/);
+  assert.doesNotMatch(zh, /選「公車|提醒|步行/);
   const en = demoSummary({ intent: 'trip', from: '三峽', to: '台北101', places: [], states: [], lang: 'en' }, results);
-  assert.match(en, /Bus 939 at 三峽國小: not running today .*won't come\. Instead: .*about 38 min, arriving 13:18\./);
+  assert.match(en, /Bus 939 at 三峽國小: not running today .*won't come\. Instead: MRT.*about 32 min, arriving 13:12\./);
   assert.doesNotMatch(en, /Best: Bus/);
-  assert.match(busOffSay({ ...data, ranking: { ranked: [{ id: 'bus-939' }] } }, eta), /這班不會來。可以叫車或騎 YouBike。$/, '沒有下一個方案');
+  assert.match(busOffSay({ ...data, options: [bus] }, eta), /這班不會來。可以叫車或騎 YouBike。$/, '沒有其他方案');
+});
+
+test('withoutBus：排除不會來的公車後用同一套 decide() 重排，卡片、決策圖、回答一份資料；missing 補那一條', async () => {
+  const svc = createServices({ forceMock: true });
+  const [from, to] = await Promise.all([resolvePoint(svc.places, '西門町'), resolvePoint(svc.places, '台北101')]);
+  const trip = await planTrip(svc, { from, to, departAt: '10:00', prefs: { states: ['budget'] }, now: today10() });
+  assert.equal(trip.options.find((o) => o.id === trip.best).role, 'bus', '前提：示範資料想省錢推公車');
+  const route = trip.options.find((o) => o.id === trip.best).follow.routeName;
+  const r = withoutBus(trip, [{ role: 'bus', kind: 'route', route, status: 4, why: BUS_OFF[4].why, whyEn: BUS_OFF[4].whyEn }]);
+  assert.equal(r.options.find((o) => o.id === r.best).role, 'metro', '大眾運輸優先，不推步行 100 分鐘');
+  assert.ok(!r.options.some((o) => o.role === 'bus'));
+  assert.ok(!r.ranking.ranked.some((x) => x.id === `bus-${route}`));
+  assert.deepEqual(r.missing.filter((m) => m.kind === 'route').map((m) => m.route), [route]);
+  assert.equal(withoutBus(r, [{ role: 'bus', kind: 'route', route, status: 4, why: 'x' }]).missing.filter((m) => m.kind === 'route').length, 1, '不重複');
+});
+
+/** 審查重現：四條直達都盯到今日未營運（directTrips 每次都回四條、到站查詢全部 4）；replanFails：重排時公車資料查不到 */
+async function allOff({ replanFails = false } = {}) {
+  const svc = createServices({ forceMock: true });
+  const bus = svc.bus, rawEta = bus.routeEta.bind(bus), rawDirect = bus.directTrips.bind(bus);
+  let base = null, calls = 0;
+  svc.bus = { ...bus,
+    directTrips: async (a) => { calls++; if (replanFails && calls > 1) throw new Error('boom'); base ||= (await rawDirect(a))[0]; return ['R1', 'R2', 'R3', 'R4'].map((r, i) => ({ ...base, routeName: r, board: { ...base.board, etaSec: 300 + i * 30, status: 0 } })); },
+    routeEta: async (a) => { const r0 = await rawEta({ ...a, routeName: base.routeName }); return { ...r0, routeName: a.routeName, directions: r0.directions.map((d) => ({ ...d, stops: d.stops.map((s) => ({ ...s, status: 4, etaSec: null, statusText: '今日未營運' })) })) }; },
+  };
+  const es = [];
+  await runDemo(svc, { messages: [{ role: 'user', content: '我想省錢，從西門町到台北101怎麼去？' }] }, (e) => es.push(e), { now: today10() });
+  return es;
+}
+
+test('保底：幾條直達連續盯到不會來 → 重排到上限後排除全部、改推捷運；決策與行程結果只出一次，不說「幫你盯」', async () => {
+  const es = await allOff();
+  assert.equal(es.filter((e) => e.type === 'decision').length, 1);
+  assert.equal(es.filter((e) => e.type === 'tool_result' && e.tool === 'plan_trip').length, 1);
+  const etas = es.filter((e) => e.type === 'tool_result' && e.tool === 'bus_route_eta');
+  assert.equal(etas.length, 3, '最多盯 MAX_ROUTES 條');
+  assert.ok(etas.every((e) => e.data.focus.status === 4));
+  const d = es.find((e) => e.type === 'decision');
+  assert.equal(d.options.find((o) => o.id === d.best).role, 'metro');
+  assert.ok(!d.options.some((o) => o.role === 'bus'), '卡片、決策圖也沒有不會來的公車');
+  const offs = d.missing.filter((m) => m.kind === 'route').map((m) => m.route);
+  assert.equal(offs.length, 3);
+  const trip = es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
+  assert.equal(trip.data.best, d.best, '卡片與決策圖同一份');
+  assert.doesNotMatch(trip.speak, /公車/);
+  const text = textOf(es);
+  assert.match(text, new RegExp(`^公車 ${offs.join('、')} 今天沒有營運（站牌即時資訊），這次不推。選「捷運`));
+  assert.doesNotMatch(text, /步行要|選「公車|提醒/);
+  assert.ok(!es.some((e) => e.type === 'agent_note' && /幫你盯/.test(e.text)));
+});
+
+test('保底：重排時公車資料查不到 → 照樣說盯到的那條今天沒有營運，推捷運', async () => {
+  const es = await allOff({ replanFails: true });
+  const d = es.find((e) => e.type === 'decision');
+  assert.equal(es.filter((e) => e.type === 'decision').length, 1);
+  assert.equal(d.options.find((o) => o.id === d.best).role, 'metro');
+  const off = d.missing.find((m) => m.kind === 'route');
+  assert.equal(off.status, 4);
+  assert.match(textOf(es), new RegExp(`^公車 ${off.route} 今天沒有營運（站牌即時資訊），這次不推。選「捷運`));
+});
+
+test('手機寫回答的事實清單：重排後的建議與沒列入的那條公車', async () => {
+  const es = await ask('我想省錢，從西門町到台北101怎麼去？', { bus: 'offLive' });
+  const data = es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip').data;
+  const facts = answerFacts({ intent: 'trip' }, { plan_trip: [{ data }] });
+  assert.equal(facts.trip.best.name, data.options.find((o) => o.id === data.best).name);
+  assert.ok(facts.trip.notIncluded.some((x) => /^公車 601：今天沒有營運/.test(x)), facts.trip.notIncluded.join('|'));
+  assert.ok(answerFacts({ intent: 'trip' }, { plan_trip: [{ data }] }, { lang: 'en' }).trip.notIncluded.some((x) => /^Bus 601: not running today/.test(x)));
+});
+
+test('matchDirect：上車站不會停（2／3／4）改用同路線下一個候選站、下車站交管不停靠也跳過；整條都不會停才回那一站', () => {
+  const stop = (seq, stopName, lat, lon, status = 0, etaSec = 120) => ({ seq, stopName, lat, lon, status, etaSec });
+  const near = (st) => [{ direction: 0, label: 'x', stops: [stop(1, '最近', 24.9341, 121.3691, st, null), stop(2, '次近', 24.9352, 121.3700), stop(9, '下車A', 25.0340, 121.5645), stop(10, '下車B', 25.0345, 121.5650)] }];
+  for (const st of [2, 3, 4]) assert.equal(matchDirect(near(st), SANXIA, T101).board.name, '次近', `狀態 ${st}`);
+  assert.equal(matchDirect(near(1), SANXIA, T101).board.name, '最近', '尚未發車照常');
+  const alight = [{ direction: 0, label: 'x', stops: [stop(1, '上車', 24.9341, 121.3691), stop(9, '下車A', 25.0340, 121.5645, 2), stop(10, '下車B', 25.0352, 121.5641)] }];
+  assert.equal(matchDirect(alight, SANXIA, T101).alight.name, '下車B');
+  const allOff4 = [{ direction: 0, label: 'x', stops: [stop(1, '最近', 24.9341, 121.3691, 4, null), stop(9, '下車A', 25.0340, 121.5645, 4, null)] }];
+  assert.equal(matchDirect(allOff4, SANXIA, T101).board.status, 4, '整條都不會停：帶狀態，plan_trip 照實說不列入');
+});
+
+test('尚未發車有下一班時間（NextBusTime）：換算等車時間、不算時間不明；沒時區當台灣時間；解析不出來照舊', () => {
+  const now = Date.parse('2026-11-22T13:00:00+08:00');
+  assert.deepEqual(etaOf({ StopStatus: 1, NextBusTime: '2026-11-22T13:12:00+08:00' }, 0, now), { etaSec: 720, status: 1, statusText: '尚未發車（下一班約 13:12）', nextBusTime: '13:12' });
+  assert.equal(etaOf({ StopStatus: 1, NextBusTime: '2026-11-22T13:12:00' }, 0, now).etaSec, 720, '沒寫時區＝+08:00');
+  assert.deepEqual(etaOf({ StopStatus: 1 }, 0, now), { etaSec: null, status: 1, statusText: '尚未發車' });
+  assert.equal(etaOf({ StopStatus: 1, NextBusTime: 'x' }, 0, now).etaSec, null);
+  assert.equal(etaOf({ StopStatus: 1, NextBusTime: '2026-11-22T11:00:00+08:00' }, 0, now).etaSec, null, '已經過了');
+  assert.equal(etaOf({ StopStatus: 4, NextBusTime: '2026-11-22T13:12:00+08:00' }, 0, now).etaSec, null, '只看尚未發車');
+  assert.equal(nextBusAt('2026-11-23T03:00:00+08:00', now), null, '超過 12 小時');
+});
+
+test('示範 DEMO_BUS：不會來的路線由路線本身決定（不共用可變狀態；先查到站也一樣）', async () => {
+  const a = createServices({ forceMock: true, demo: { bus: 'offLive' } });
+  const first = await a.bus.routeEta({ city: 'Taipei', routeName: '601' }); // 還沒規劃行程就查
+  assert.ok(first.directions[0].stops.every((s) => s.status === 4));
+  assert.ok((await a.bus.routeEta({ city: 'Taipei', routeName: '212' })).directions[0].stops.every((s) => s.status === 0));
+  const b = createServices({ forceMock: true, demo: { bus: 'offLive' } });
+  const from = { lat: 25.0421, lon: 121.5081 }, to = { lat: 25.033964, lon: 121.564468 };
+  assert.deepEqual((await a.bus.directTrips({ from, to })).map((t) => t.routeName), (await b.bus.directTrips({ from, to })).map((t) => t.routeName));
 });
 
 test('模型模式：盯到今天不會來 → 內部備註叫模型不要推這班、不要問提醒', () => {

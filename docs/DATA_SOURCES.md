@@ -24,7 +24,7 @@
 |---|---|
 | 靜態資料整個縣市一次取、存檔 | 公車站牌（`Bus/Station/City/{City}`，含 `LocationCityCode`）、路線站序（`Bus/DisplayStopOfRoute/City/{City}`）、路線起訖（`Bus/Route/City/{City}`）、YouBike 站點（`Bike/Station/City/{City}`）；捷運四系統、台鐵、高鐵車站。正規化後寫到 `TDX_CACHE_DIR`（預設 `.cache/tdx/`，已 gitignore；Docker 用 volume `/app/.cache`），重啟先讀檔。新鮮 1 天，過期 30 天內仍先用、背景更新。**只存正規化結果**：不存 token、金鑰、網址參數、使用者座標；即時資料（到站、車數、看板）不存檔 |
 | 本機算附近站牌 | 預熱過的縣市不再打 `Bus/Station/NearBy`、`Bike/Station/NearBy`：最近的站在 1.5 公里內、且站位實際所在縣市（`LocationCityCode`）也預熱過才用本機資料（例：基隆市區有新北路線的站，但基隆自己的路線沒預熱 → 照舊問 NearBy） |
-| 即時資料整個縣市一次取、共用 | 公車到站 `Bus/EstimatedTimeOfArrival/City/{City}`（`$select=RouteUID,Direction,StopUID,EstimateTime,StopStatus,PlateNumb`；台北約 2.9 萬筆、5 MB、0.4 秒）、YouBike 車數 `Bike/Availability/City/{City}`：30 秒，所有路線、所有人共用；捷運看板整個系統一份（20 秒） |
+| 即時資料整個縣市一次取、共用 | 公車到站 `Bus/EstimatedTimeOfArrival/City/{City}`（`$select=RouteUID,Direction,StopUID,EstimateTime,StopStatus,PlateNumb,NextBusTime`；`StopStatus` 2 交管不停靠、3 末班已過、4 今日未營運的路線 plan_trip 不列入；1 尚未發車有 `NextBusTime` 才換算等車時間，⚠️ 新北實測沒有這個欄位（PLAN M1 待驗證）；台北約 2.9 萬筆、5 MB、0.4 秒）、YouBike 車數 `Bike/Availability/City/{City}`：30 秒，所有路線、所有人共用；捷運看板整個系統一份（20 秒） |
 | 直達公車只查一個縣市 | 起訖共同路線最多的那個縣市（站牌代碼前三碼＝路線的主管縣市），最多 3 條；不查路線形狀 |
 | 額度排程 | `tdx-client` 依時鐘整分計數，回應標頭校正；`x-ratelimit-remaining-minute` 是 0 才鎖這一分鐘，這分鐘用完就直接回 429 走示範資料，不白打（2.5 秒內就重置的使用者請求等一下）。同網址同時只打一次；逾時 30 秒（含讀 body 與 token 請求，逾時回 504）；先拿 token 再扣額度（token 失敗不扣） |
 | 舊快取 | 即時資料在這分鐘只剩 ≤ 1 次、或被擋 429 時，先用 60 秒內的舊資料（`updatedAt` 是原本取得的時間，計量 `stale: true`），不退回示範 |

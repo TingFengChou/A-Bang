@@ -3,7 +3,7 @@
 import { enName, outingEn, SPEAK_EN } from '../tools/speak-en.js';
 import { LANDMARKS, normPlace } from '../services/places.js';
 import { nextStepOf } from '../tools/trip.js';
-import { BUS_OFF } from '../services/trip.js';
+import { BUS_OFF, withoutBus, busOffEntry } from '../services/trip.js';
 import { upcomingTrains } from '../tools/transit.js';
 import { outingSay } from './outing.js';
 import { nowTW, distanceM } from '../util.js';
@@ -1253,7 +1253,8 @@ function englishSummary(it, results) {
     const night = trip.night?.textEn ? `${trip.night.textEn} ` : ''; // 深夜：第一句先說公車、捷運收班或末班快到了
     // 今天不會來的直達公車（站牌即時資訊）：一條（route）或全部（role 層級；收班由深夜那句說）
     const off = (trip.missing || []).filter((m) => m.role === 'bus' && !m.closed && (m.kind === 'route' || /live stop info/.test(m.whyEn || '')))
-      .map((m) => (m.kind === 'route' ? `Bus ${m.route}: ${m.whyEn}, so I left it out. ` : `${m.whyEn}. `)).join('');
+      .filter((m) => m.kind !== 'route').map((m) => `${m.whyEn}. `).join('')
+      + offGroups((trip.missing || []).filter((m) => m.kind === 'route'), 'whyEn').map(([why, routes]) => `${routes.length > 1 ? 'Buses' : 'Bus'} ${routes.join(', ')}: ${why}, so I left ${routes.length > 1 ? 'them' : 'it'} out. `).join('');
     const eta = results.bus_route_eta?.at(-1)?.data;
     // 保底：推薦的公車盯到站後發現今天不會來（重排後仍是這班）→ 不說「Best: Bus」，改推排名下一個
     if (best.role === 'bus' && eta?.focus && eta.routeName === best.follow?.routeName && BUS_OFF[eta.focus.status]) return `${night}${off}${busOffSay(trip, eta, 'en')}${note}`;
@@ -1369,14 +1370,17 @@ export function dramaSummary(it, results) {
   if (picks) return `${search ? `MyDrama 沒有找到「${search.data.query}」的短劇，先給你看熱門的：` : ''}${picks.speak} ${open(picks.data)}想看特定類型就說，例如「甜寵」「懸疑」。`.trim();
   return '這次沒查到短劇資料，等一下再試試看。';
 }
-/** 排名下一個（推薦的公車今天不會來時改推它）：plan_trip 的 ranking 第二名 */
-function nextOption(trip) {
-  const id = trip?.ranking?.ranked?.find((r) => r.id !== trip.best)?.id;
-  return id ? trip.options.find((o) => o.id === id) : null;
+/** 不會來的路線依原因分組：[[原因, [路線…]]]（「公車 R2、R3 今天沒有營運」一句說完） */
+function offGroups(list, key = 'why') {
+  const m = new Map();
+  for (const x of list) m.set(x[key], [...(m.get(x[key]) || []), x.route]);
+  return [...m.entries()];
 }
-/** 保底（run.js 重排後仍是今天不會來的公車）：照實說這班不會來、改推排名下一個，不問到站提醒 */
+/** 保底（run.js 沒能重排、推薦的仍是今天不會來的公車）：照實說這班不會來，改推把它排除後重新比較的建議（withoutBus，同一套 decide()；不拿 ranking 第二名），不問到站提醒 */
 export function busOffSay(trip, eta, lang = null) {
-  const f = eta.focus, off = BUS_OFF[f.status], next = nextOption(trip);
+  const f = eta.focus, off = BUS_OFF[f.status];
+  const alt = withoutBus(trip, [busOffEntry(eta.routeName, f.status)]);
+  const next = alt.options.find((o) => o.id === alt.best);
   if (lang === 'en') return `Bus ${eta.routeName} at ${f.stopName}: ${off.whyEn}, so it won't come.${next ? ` Instead: ${enName(next)}, about ${next.minutes} min, arriving ${next.arriveAt}.` : ' Try a taxi or YouBike.'}`;
   const step = next && nextStepOf(next);
   return `公車 ${eta.routeName} 在「${f.stopName}」${off.why}，這班不會來。${next ? `改推「${next.name}」：約 ${next.minutes} 分，${next.arriveAt} 到。${step ? `下一步：${step}。` : ''}` : '可以叫車或騎 YouBike。'}`;
@@ -1406,7 +1410,7 @@ function summaryCore(it, results, suggestions = []) {
     const pre = `${when}${it.from || it.fromPoint ? '' : it.noLocation ? `（沒拿到你的位置，先從「${DEFAULT_FROM}」算；告訴我從哪出發就重算。）` : `（你沒說從哪出發，我先用「${DEFAULT_FROM}」算。）`}`;
     // 今天不會來的直達路線（站牌即時資訊：今日未營運、末班已過、交管不停靠；plan_trip 或盯到站後重排已排除）：先說，使用者才知道為什麼不推它
     const off = (trip?.data.missing || []).filter((m) => m.kind === 'route');
-    const offSay = off.map((m) => `公車 ${m.route} ${m.why}，這次不推。`).join('');
+    const offSay = offGroups(off).map(([why, routes]) => `公車 ${routes.join('、')} ${why}，這次不推。`).join('');
     // 選了公車：阿幫已自動盯上車站（run.js busFollowUp）→ 講公車多久到、主動問要不要到站提醒
     const bus = results.bus_route_eta?.at(-1)?.data?.focus && results.bus_route_eta.at(-1);
     const busBest = trip?.data.options.find((o) => o.id === trip.data.best);

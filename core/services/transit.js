@@ -64,7 +64,7 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
   const routeShapeOf = (city, routeName) => cached(key.busShape(city, routeName), STATIC_TTL, async (o) => routeShape(await tdx.get(
     `/basic/v2/Bus/Shape/City/${city}/${encodeURIComponent(routeName)}`, { $filter: `RouteName/Zh_tw eq '${q(routeName)}'` }, 60, rawOpts(o)))).catch(() => null);
   /** 整個縣市的公車預估到站（30 秒，所有路線、所有人共用；額度快用完時用 60 秒內的舊資料） */
-  const cityEta = (city) => meta(`/basic/v2/Bus/EstimatedTimeOfArrival/City/${city}`, { $select: 'RouteUID,Direction,StopUID,EstimateTime,StopStatus,PlateNumb' }, ETA_TTL, { staleSec: STALE_SEC });
+  const cityEta = (city) => meta(`/basic/v2/Bus/EstimatedTimeOfArrival/City/${city}`, { $select: 'RouteUID,Direction,StopUID,EstimateTime,StopStatus,PlateNumb,NextBusTime' }, ETA_TTL, { staleSec: STALE_SEC });
 
   const bus = {
     /** 依關鍵字搜尋路線 */
@@ -108,7 +108,7 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
           return {
             seq: s.seq, stopName: s.name, ...(s.nameEn && { stopNameEn: s.nameEn }),
             ...(Number.isFinite(s.lat) && Number.isFinite(s.lon) && { lat: s.lat, lon: s.lon }),
-            ...etaOf(e, age),
+            ...etaOf(e, age, tdx.now?.() ?? Date.now()),
             plate: e.PlateNumb && e.PlateNumb !== '-1' ? e.PlateNumb : null,
           };
         }),
@@ -291,10 +291,25 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
   return { bus, bike, rail };
 }
 
-/** 到站秒數扣掉資料的年紀（不小於 0），狀態文字跟著修正後的秒數 */
-export function etaOf(e, ageSec = 0) {
-  const etaSec = Number.isFinite(e.EstimateTime) ? Math.max(0, e.EstimateTime - ageSec) : null;
-  return { etaSec, status: e.StopStatus ?? 0, statusText: busStatusText(e.StopStatus ?? 0, etaSec ?? undefined) };
+/**
+ * 到站秒數扣掉資料的年紀（不小於 0），狀態文字跟著修正後的秒數。
+ * 尚未發車（1）但有下一班時間（NextBusTime）：換算成等車秒數（台灣時間；沒寫時區當 +08:00），不算「到站時間不明」，狀態文字「尚未發車（下一班約 13:05）」。
+ * ⚠️ M1 待驗證：新北 939 實測（2026-11-22 13:25）狀態 1 的站都沒有 NextBusTime；有才用，沒有照舊算時間不明。
+ */
+export function etaOf(e, ageSec = 0, nowMs = Date.now()) {
+  let etaSec = Number.isFinite(e.EstimateTime) ? Math.max(0, e.EstimateTime - ageSec) : null;
+  const status = e.StopStatus ?? 0;
+  const next = etaSec == null && status === 1 ? nextBusAt(e.NextBusTime, nowMs) : null;
+  if (next) etaSec = next.sec;
+  return { etaSec, status, statusText: next ? `尚未發車（下一班約 ${next.hhmm}）` : busStatusText(status, etaSec ?? undefined), ...(next && { nextBusTime: next.hhmm }) };
+}
+/** NextBusTime（ISO）→ { sec 距現在幾秒, hhmm 台灣時間 }；解析不出來、已過 1 分鐘以上或超過 12 小時後回 null */
+export function nextBusAt(iso, nowMs = Date.now()) {
+  if (typeof iso !== 'string' || !iso.trim()) return null;
+  const s = iso.trim();
+  const t = Date.parse(/(?:Z|[+-]\d{2}:?\d{2})$/.test(s) ? s : `${s}+08:00`);
+  if (!Number.isFinite(t) || t < nowMs - 60e3 || t - nowMs > 12 * 3600e3) return null;
+  return { sec: Math.max(0, Math.round((t - nowMs) / 1000)), hhmm: new Date(t + 8 * 3600e3).toISOString().slice(11, 16) };
 }
 
 /** 直達公車要查哪個縣市的路線：起訖共同路線最多的縣市；都沒有共同路線時用起點最近站牌的縣市 */
