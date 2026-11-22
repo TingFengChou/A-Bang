@@ -14,6 +14,7 @@ import { lineCode } from '../tools/metro.js';
 import { normName, nowTW } from '../util.js';
 import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, demoSummary, isEnglish, nightNote, rainAsked } from './demo-intent.js';
 import { resolvePoint } from '../services/places.js';
+import { BUS_OFF } from '../services/trip.js';
 
 /**
  * @typedef {{ name: string, description: string, schema: object }} ToolDef
@@ -163,7 +164,10 @@ export const tripKey = (from, to, prefs = {}) => (Number.isFinite(from?.lat) && 
   ? `plan_trip@${from.lat.toFixed(3)},${from.lon.toFixed(3)}>${to.lat.toFixed(3)},${to.lon.toFixed(3)}|${prefs?.mode || ''}|${prefs?.arriveBy || ''}|${[...(prefs?.avoid || [])].sort().join(',')}|${prefs?.party || ''}` : null);
 
 /** 選公車後自動盯的到站結果，接在 plan_trip 結果後面給模型（卡片已顯示；請模型主動問要不要到站提醒） */
-export const followUpText = (f, walkMin) => (f ? `\n［內部備註，不要照抄這段文字］上車站即時到站已查好：${f.speak}${walkMin != null ? `從起點走到這個上車站約 ${walkMin} 分（不是全程步行時間）。` : ''}已用公車卡片即時顯示；回答時用自己的話說公車多久到上車站；若走到站牌的時間比車到還久，說這班可能趕不上；並問使用者要不要在卡片上按「到站前 3 分提醒我」。` : '');
+export const followUpText = (f, walkMin) => (!f ? '' : BUS_OFF[f.data?.focus?.status]
+  // 保底：盯到的是今天不會來（今日未營運、末班已過、交管不停靠）→ 不推這班、不問到站提醒
+  ? `\n［內部備註，不要照抄這段文字］上車站即時到站已查好：${f.speak}這班公車不會來：回答時照實說「公車 ${f.data.routeName} ${BUS_OFF[f.data.focus.status].why}」，不要建議坐這班、不要問到站提醒；改推行程結果裡排除這班公車後分數最高的方案（大眾運輸優先，照 ranking 的順序，跳過這班），不要推被標「太久」「不划算」的步行或叫車。`
+  : f ? `\n［內部備註，不要照抄這段文字］上車站即時到站已查好：${f.speak}${walkMin != null ? `從起點走到這個上車站約 ${walkMin} 分（不是全程步行時間）。` : ''}已用公車卡片即時顯示；回答時用自己的話說公車多久到上車站；若走到站牌的時間比車到還久，說這班可能趕不上；並問使用者要不要在卡片上按「到站前 3 分提醒我」。` : '');
 const ITEM = /^\s*-\s/;
 
 /**
@@ -345,7 +349,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
     const out = await execTools(svc, pre, emit, { profile, nextId, picked, lang: rulesIt.lang, habit: req.userState?.habit, ask, now, aside, ...(j && { judgedStates: j.states }) });
     const texts = out.map((o, i) => {
       used.add(pre[i].name);
-      if (o.followUp) used.add('bus_route_eta');
+      if (o.followUp || o.watched) used.add('bus_route_eta');
       // 查詢失敗也告訴模型原因（請照實轉述），模型才不會一直重查同一個工具
       const text = o.ok ? (pre[i].note ? `${pre[i].note}\n` : '') + modelText(o.result) + followUpText(o.followUp, o.followWalkMin) : `（${pre[i].name} 查詢失敗：${o.error}。請照實告訴使用者，不要再呼叫同一個工具。）`;
       preDone.set(callKey(pre[i].name, pre[i].args), text);
@@ -464,7 +468,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
       const o = out[i];
       used.add(c.name);
       if (o.ok && c.name === 'plan_trip') { lastTrip = o.result.data; turnTrips.push({ from: o.result.data.from, to: o.result.data.to, mode: c.input?.prefs?.mode || null, text: modelText(o.result) }); preDone.set(tripKey(o.result.data.from, o.result.data.to, c.input?.prefs), modelText(o.result)); } // 模型再用相同條件呼叫也沿用（不出現兩張行程卡；條件不同照常查）
-      if (o.followUp) used.add('bus_route_eta'); // 選公車後自動盯到站也算一個工具
+      if (o.followUp || o.watched) used.add('bus_route_eta'); // 選公車後自動盯到站也算一個工具（watched：盯到今天不會來而重排）
       // 回填模型的只有文字摘要（清單截短），不放整包 data（AGENT.md §4）
       results.set(c.id, o.ok ? { content: modelText(o.result) + followUpText(o.followUp, o.followWalkMin) } : { content: o.error, isError: true });
     });

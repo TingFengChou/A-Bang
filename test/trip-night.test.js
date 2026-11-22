@@ -237,7 +237,7 @@ test('審查 6：站牌狀態 4（今日未營運）不當收班、不觸發深�
   const withStatus = (s) => ({ ...base, mode: 'live', bus: { ...base.bus, directTrips: async (a) => (await base.bus.directTrips(a)).map((t) => ({ ...t, board: { ...t.board, status: s } })) } });
   const r4 = await plan(withStatus(4), '14:00');
   const b4 = r4.skipped.find((x) => x.role === 'bus');
-  assert.equal(b4.why, '附近直達的公車今天沒有營運（站牌即時資訊）');
+  assert.match(b4.why, /^附近直達的公車（.+）今天沒有營運（站牌即時資訊）$/); // 說是哪幾條
   assert.ok(!b4.closed);
   assert.equal(r4.night, undefined, '不說「公車已收班」');
   const r3 = await plan(withStatus(3), '23:10');

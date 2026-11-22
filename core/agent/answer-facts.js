@@ -3,6 +3,7 @@
 import { speakEn } from '../tools/speak-en.js';
 
 const MAX_POINTS = 6;
+const MODE_ZH = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
 /** 「25.0430, 121.5070」這類座標拿掉（有些地點名稱就是座標） */
 const noCoords = (s) => String(s ?? '').replace(/-?\d{1,3}\.\d{3,}\s*[,，]\s*-?\d{1,3}\.\d{3,}/g, '').replace(/\s{2,}/g, ' ').trim();
 
@@ -36,6 +37,8 @@ export function answerFacts(it, results = {}, { lang = 'zh' } = {}) {
       ...(trip.arriveBy && { arriveBy: trip.arriveBy }),
       ...(trip.ranking?.reason && { reason: noCoords(trip.ranking.reason).slice(0, 140) }),
       ...(trip.tips?.length && { tips: trip.tips.map((t) => noCoords(t.text)).slice(0, 3) }),
+      // 沒列入的方式與原因（含今天不會來的那條公車：盯到站後重排的結果也在這裡，手機改寫才不會推不會來的那班）
+      ...(trip.missing?.length && { notIncluded: trip.missing.slice(0, 4).map((m) => (en ? `${m.route ? `Bus ${m.route}` : m.role}: ${m.whyEn || m.why}` : `${m.route ? `公車 ${m.route}` : MODE_ZH[m.role] || m.role}：${m.why}`)) }),
     };
   }
   return out;

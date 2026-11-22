@@ -32,6 +32,30 @@ export const NEXT_STEP = {
   intercity: '看卡片上的班次時間，到上車站搭車',
 };
 
+/** plan_trip 給模型的文字（run() 與盯到站後重排 withoutBus 共用：資料改了文字跟著改） */
+export function tripText(data) {
+  const byId = new Map(data.options.map((o) => [o.id, o]));
+  const lines = [
+    `${data.from.name} → ${data.to.name}（直線 ${data.straightKm} 公里，${data.departAt} 出發）`,
+    // 判斷用到的資料（程式產生）：模型照這幾行轉述，不要自己說「天氣很好」之類沒有資料的話
+    `判斷用到的資料：${(data.considered || []).map((c) => `${c.role}「${c.text}」→ ${c.say}${c.demo ? '（示範資料）' : ''}`).join('；')}`,
+    ...(data.night ? [`深夜（回答第一句先說）：${data.night.text}`] : []),
+    ...(data.single ? [`只有一種方式：${data.single.text}`] : []),
+    ...(data.missing?.length ? [`沒列入：${data.missing.map((m) => `${m.route ? `公車 ${m.route}` : MODE_LABEL[m.role] || m.role}（${m.why}）`).join('、')}`] : []), // route：那一條公車今天不會來（站牌即時資訊）
+    ...(data.states.length ? [`狀態：${data.states.map((s) => `${STATES[s.key].label}（${s.source === 'auto' ? `自動：${s.detail}` : '你說的'}）`).join('、')}`] : []),
+    ...(data.habitOn ? [`習慣（使用者同意過的常選方式，已小幅加分）：${Object.entries(data.habit).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${MODE_LABEL[k]} ${Math.round(v * 100)}%`).join('、')}`] : []),
+    ...data.ranking.ranked.map((r, i) => {
+      const o = byId.get(r.id);
+      return `${i + 1}. ${o.name}：${o.minutes} 分（等 ${o.waitMin}、走 ${o.walkMin}），${o.costRange ? `${o.costRange[0]}～${o.costRange[1]}` : o.cost} 元，${o.arriveAt} 到${o.estimated ? '（含估算）' : ''}，分數 ${r.score}`;
+    }),
+    ...data.ranking.excluded.map((e) => `✗ ${e.name}：${e.why}`),
+    `建議：${data.ranking.reason}`,
+    ...(data.tips || []).map((t) => `提醒：${t.text}`),
+    ...(nextStepOf(byId.get(data.best)) ? [`下一步：${nextStepOf(byId.get(data.best))}`] : []),
+  ];
+  return clip(lines);
+}
+
 export const planTripTool = defineTool({
   name: 'plan_trip',
   title: '從 A 到 B 怎麼去',
@@ -66,26 +90,7 @@ export const planTripTool = defineTool({
     const [from, to] = await Promise.all([resolvePoint(svc.places, a.from), resolvePoint(svc.places, a.to)]);
     // svc.now：網頁 agent 這一輪的「現在」（示範時鐘；run.js execTools 帶入）；MCP、REST 用真的時間
     const data = await planTrip(svc, { from, to, departAt: a.departAt, prefs: a.prefs || {}, ...(Number.isFinite(svc.now) && { now: svc.now }) });
-    const byId = new Map(data.options.map((o) => [o.id, o]));
-    const lines = [
-      `${from.name} → ${to.name}（直線 ${data.straightKm} 公里，${data.departAt} 出發）`,
-      // 判斷用到的資料（程式產生）：模型照這幾行轉述，不要自己說「天氣很好」之類沒有資料的話
-      `判斷用到的資料：${(data.considered || []).map((c) => `${c.role}「${c.text}」→ ${c.say}${c.demo ? '（示範資料）' : ''}`).join('；')}`,
-      ...(data.night ? [`深夜（回答第一句先說）：${data.night.text}`] : []),
-      ...(data.single ? [`只有一種方式：${data.single.text}`] : []),
-      ...(data.missing?.length ? [`沒列入：${data.missing.map((m) => `${MODE_LABEL[m.role] || m.role}（${m.why}）`).join('、')}`] : []),
-      ...(data.states.length ? [`狀態：${data.states.map((s) => `${STATES[s.key].label}（${s.source === 'auto' ? `自動：${s.detail}` : '你說的'}）`).join('、')}`] : []),
-      ...(data.habitOn ? [`習慣（使用者同意過的常選方式，已小幅加分）：${Object.entries(data.habit).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${MODE_LABEL[k]} ${Math.round(v * 100)}%`).join('、')}`] : []),
-      ...data.ranking.ranked.map((r, i) => {
-        const o = byId.get(r.id);
-        return `${i + 1}. ${o.name}：${o.minutes} 分（等 ${o.waitMin}、走 ${o.walkMin}），${o.costRange ? `${o.costRange[0]}～${o.costRange[1]}` : o.cost} 元，${o.arriveAt} 到${o.estimated ? '（含估算）' : ''}，分數 ${r.score}`;
-      }),
-      ...data.ranking.excluded.map((e) => `✗ ${e.name}：${e.why}`),
-      `建議：${data.ranking.reason}`,
-      ...(data.tips || []).map((t) => `提醒：${t.text}`),
-      ...(nextStepOf(byId.get(data.best)) ? [`下一步：${nextStepOf(byId.get(data.best))}`] : []),
-    ];
-    return { data, text: clip(lines) };
+    return { data, text: tripText(data) };
   },
 });
 

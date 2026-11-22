@@ -99,10 +99,10 @@ export function createTrafficServices(tdx) {
 
         // 路段形狀與路段資料是靜態的：解析後存檔（重啟不必重抓）；車速與事件 60 秒
         const [shapeList, sections, live, news] = await Promise.all([
-          cached('freeway-shapes', STATIC_TTL, async (o) => nonEmpty(shapesOf(await tdx.get('/v2/Road/Traffic/SectionShape/Freeway', {}, 60, rawOpts(o))), '國道路段形狀')),
-          cached('freeway-sections', STATIC_TTL, async (o) => nonEmpty(normSections(await tdx.get('/v2/Road/Traffic/Section/Freeway', {}, 60, rawOpts(o))), '國道路段')),
-          tdx.get('/v2/Road/Traffic/Live/Freeway', {}, 60),
-          tdx.get('/v2/Road/Traffic/Live/News/Freeway', {}, 60).catch(() => []), // 事件失敗不影響車速
+          cached('freeway-shapes', STATIC_TTL, async (o) => nonEmpty(shapesOf(await tdx.get('/basic/v2/Road/Traffic/SectionShape/Freeway', {}, 60, rawOpts(o))), '國道路段形狀')),
+          cached('freeway-sections', STATIC_TTL, async (o) => nonEmpty(normSections(await tdx.get('/basic/v2/Road/Traffic/Section/Freeway', {}, 60, rawOpts(o))), '國道路段')),
+          tdx.get('/basic/v2/Road/Traffic/Live/Freeway', {}, 60),
+          tdx.get('/basic/v2/Road/Traffic/Live/News/Freeway', {}, 60).catch(() => []), // 事件失敗不影響車速
         ]);
         const info = new Map(arr(sections, 'Sections').map((s) => [s.SectionID, s]));
         const speed = new Map(arr(live, 'LiveTraffics').map((l) => [l.SectionID, l]));

@@ -17,6 +17,9 @@ import { waitDrama } from './wait-drama.js';
 import { answerFacts } from './answer-facts.js';
 import { trialInfo } from './trial.js';
 import { WRITE_AGENTS } from '../edge-write.js';
+import { BUS_OFF, withoutBus, withBusOff, busOffEntry } from '../services/trip.js';
+import { MAX_ROUTES } from '../services/bus-direct.js';
+import { planTripTool, tripText } from '../tools/trip.js';
 
 /** 示範模式的規則式規劃（依 agent）：parse → steps → summary；needsLocation 只有生活 agent 用 */
 const PLANNERS = {
@@ -72,6 +75,8 @@ export const USUAL_STATES = ['rush', 'luggage', 'lessWalk'];
 export const MAX_MESSAGES = 10;
 export const MAX_CHARS = 500;
 export const MAX_TOOL_ROUNDS = 5;
+/** 輔助資料（決策的參考，不是答案本身）：失敗時照樣往下一步，plan_trip 自己也會照實說哪項資料沒拿到 */
+export const AUX_TOOLS = new Set(['weather_now', 'weather_tomorrow', 'aqi_nearby', 'traffic_status']);
 /** 裝置定位的 client tool 呼叫 id（客戶端回傳 clientToolResults 時用同一個 id） */
 export const LOCATION_CALL_ID = 'loc1';
 export const MY_LOCATION = '你的位置';
@@ -159,6 +164,11 @@ export function busFollowUp(trip) {
   };
 }
 
+/** 盯到站後排除不會來的公車、重新排出的行程資料 → 工具結果（文字、小幫手的一句跟著資料改） */
+const tripResult = (prev, data) => ({ ...prev, data, text: tripText(data), speak: planTripTool.speak(data) });
+/** 重排前先盯推薦的公車（盯到今天不會來時，討論串的說明） */
+const offNote = (a) => `@公車 先看 ${a.routeName} 在「${a.stop}」今天有沒有車`;
+
 /**
  * 執行一批 tool 呼叫（平行）：先送全部 tool_start，再依完成順序送 tool_result；plan_trip 成功時接著送 decision。
  * 只允許 profile 白名單內的 tool。plan_trip 選了公車時，接著自動查上車站的即時到站（`followUp`，事件照常送出）。
@@ -166,7 +176,7 @@ export function busFollowUp(trip) {
  * @param {Array<{ name: string, args: object }>} calls
  * @param {(e: object) => void} emit
  * @param {{ profile: object, nextId: () => string, picked?: string[], habit?: Record<string, number>, ask?: { done: boolean, habitAsk?: object, usual?: string[] } }} opts habit：手機送來、使用者同意過的常選比例（plan_trip 一律用這個，模型給的不採用）；ask：這一輪的「阿幫問你」（一輪最多一個；usual＝說過的預設狀況，會改變建議時問一句）
- * @returns {Promise<Array<{ name: string, ok: boolean, result?: object, error?: string, followUp?: object }>>} 依 calls 順序
+ * @returns {Promise<Array<{ name: string, ok: boolean, result?: object, error?: string, followUp?: object, watched?: true }>>} 依 calls 順序；watched＝盯過推薦的公車、今天不會來而重排
  */
 export async function execTools(svc, calls, emit, { profile, nextId, picked = [], judgedStates, lang = null, habit = null, ask = null, now = null, aside = null }) {
   const started = calls.map((c) => ({ ...c, id: nextId() }));
@@ -179,37 +189,66 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
     try {
       if (!profile.tools.includes(c.name)) throw new UserError(`這個 agent 不能使用 ${c.name}`);
       const args = c.name === 'plan_trip' ? withHabit(withPickedPrefs(c.args, picked, judgedStates), habit) : c.args;
-      const result = await callTool(c.name === 'plan_trip' && now != null ? { ...svc, now } : svc, c.name, args); // 行程比較用這一輪的「現在」（示範時鐘；深夜說「現在 00:10」）
+      const planSvc = c.name === 'plan_trip' && now != null ? { ...svc, now } : svc; // 行程比較用這一輪的「現在」（示範時鐘；深夜說「現在 00:10」）
+      let result = await callTool(planSvc, c.name, args);
+      if (c.name !== 'plan_trip') {
+        emit(ev.toolResult({ id: c.id, result: shown(c.name, result), impact: impactFor(c.name, result.data) }));
+        await emitAside(svc, emit, aside, { tool: c.name, data: result.data, parent: c.id, lang });
+        return { name: c.name, ok: true, result };
+      }
+      // 選了公車：先盯上車站（L-14）。盯到的是今天不會來（BUS_OFF：今日未營運、末班已過、交管不停靠）就排除這條路線重排，
+      // 卡片、決策圖、回答都照重排後的（2026-11-22 三峽→台北 101：推了今日未營運的公車，還問要不要到站提醒）。
+      // 重排最多 MAX_ROUTES − 1 次（directTrips 最多 MAX_ROUTES 條、busOff 只增）；重排失敗或次數用完時不再重查，把盯到不會來的公車排除、用同一套 decide() 重排（withoutBus，不打 TDX）
+      const watch = profile.tools.includes('bus_route_eta');
+      const busOff = [], offSeen = [];
+      let f = watch ? busFollowUp(result.data) : null, followUp = null, followErr = null;
+      while (f) {
+        try { followUp = await callTool(svc, 'bus_route_eta', f.args); } catch (e) { followErr = e; break; }
+        const st = followUp.data?.focus?.status;
+        if (!BUS_OFF[st]) break;
+        offSeen.push({ f, followUp, status: st });
+        busOff.push({ routeName: f.args.routeName, status: st });
+        followUp = null;
+        const offs = busOff.map((x) => busOffEntry(x.routeName, x.status));
+        const again = offSeen.length < MAX_ROUTES ? await callTool({ ...planSvc, busOff: [...busOff] }, c.name, args).catch(() => null) : null;
+        const fixed = again && withBusOff(again.data, offs); // 重排時公車整個查不到（資料暫時查不到）也照樣說盯到的那條為什麼不在
+        result = again ? (fixed === again.data ? again : tripResult(again, fixed)) : tripResult(result, withoutBus(result.data, offs));
+        f = again ? busFollowUp(result.data) : null; // withoutBus 已排除全部盯到不會來的公車（plan_trip 只列一條公車），不用再盯
+      }
+      for (const x of offSeen) { // 盯到的證據照樣出現在討論串（工具發言：「X 在「站」：今日未營運」），再說重新比較
+        emit(ev.agentNote(en ? enNote(offNote(x.f.args)) : offNote(x.f.args)));
+        const id = nextId();
+        emit(ev.toolStart({ id, name: 'bus_route_eta', input: x.f.args }));
+        emit(ev.toolResult({ id, result: shown('bus_route_eta', x.followUp), impact: impactFor('bus_route_eta', x.followUp.data) }));
+        const again = `@行程 ${x.f.args.routeName} ${BUS_OFF[x.status].why.replace(/（站牌即時資訊）$/, '')}，不列入，重新比較`;
+        emit(ev.agentNote(en ? enNote(again) : again));
+      }
       // 行程比較內部查的天氣、空品、路況：各出一行「資料＋影響」（程式產生；排在行程的結論前面）
-      if (c.name === 'plan_trip') for (const item of result.data?.considered || []) emit(ev.dataNote({ parent: c.id, item, lang }));
+      for (const item of result.data?.considered || []) emit(ev.dataNote({ parent: c.id, item, lang }));
       emit(ev.toolResult({ id: c.id, result: shown(c.name, result), impact: impactFor(c.name, result.data) }));
-      if (c.name !== 'plan_trip') { await emitAside(svc, emit, aside, { tool: c.name, data: result.data, parent: c.id, lang }); return { name: c.name, ok: true, result }; }
       emit(ev.decision(withPicked(result.data, picked)));
       // 阿幫問你（ADR-0016）：這一輪還沒問過才問（ask 是整輪共用的 { done, habitAsk }）
       const free = ask && !ask.done;
       let q = free ? tripAsk(result.data, { habitAsk: ask.habitAsk, usual: ask.usual, lang, device: ask.device }) : null; // device：手機上的 AI 提議的狀態題（ADR-0020）
       if (q) ask.done = true;
       const sayQ = () => { if (q) emit(ev.ask({ id: `ask-${nextId()}`, ...q })); };
-      const f = busFollowUp(result.data);
-      if (!f || !profile.tools.includes('bus_route_eta')) { sayQ(); return { name: c.name, ok: true, result }; }
+      if (!f) { sayQ(); return { name: c.name, ok: true, result, ...(offSeen.length && { watched: true }) }; }
       emit(ev.agentNote(en ? enNote(f.note) : f.note));
       const id = nextId();
       emit(ev.toolStart({ id, name: 'bus_route_eta', input: f.args }));
-      try {
-        const followUp = await callTool(svc, 'bus_route_eta', f.args);
-        emit(ev.toolResult({ id, result: shown('bus_route_eta', followUp), impact: impactFor('bus_route_eta', followUp.data) }));
-        await emitAside(svc, emit, aside, { tool: 'bus_route_eta', data: followUp.data, parent: id, walkMin: f.walkMin, lang }); // 行程選了公車：扣掉走到站牌的時間
-        // 選了公車、阿幫在盯上車站：回答會問「要我在公車快到站時提醒你嗎？」——規則原本要問的是舒適類的關鍵因子（帶行李、少走路，只是猜）時，
-        // 改問這一題（一輪一題，問題跟回答一致；按鈕或直接打「好」由前端設提醒；PM Q-25）。趕時間、省錢（快 5 分、省 50 元以上）、習慣確認、說過的預設狀況、手機提議的題目照舊優先
-        const r = q && q.askSource !== 'device' && /^state:(?:luggage|lessWalk)$/.test(q.about || '') && remindAsk(f.args, followUp, lang);
-        if (r) q = r;
+      if (followErr || !followUp) {
+        emit(ev.toolResult({ id, error: publicMessage(followErr || new Error('沒有盯到上車站')) })); // 盯不到不影響行程結果
         sayQ();
-        return { name: c.name, ok: true, result, followUp, followWalkMin: f.walkMin };
-      } catch (e) {
-        emit(ev.toolResult({ id, error: publicMessage(e) })); // 盯不到不影響行程結果
-        sayQ();
-        return { name: c.name, ok: true, result };
+        return { name: c.name, ok: true, result, ...(offSeen.length && { watched: true }) };
       }
+      emit(ev.toolResult({ id, result: shown('bus_route_eta', followUp), impact: impactFor('bus_route_eta', followUp.data) }));
+      await emitAside(svc, emit, aside, { tool: 'bus_route_eta', data: followUp.data, parent: id, walkMin: f.walkMin, lang }); // 行程選了公車：扣掉走到站牌的時間
+      // 選了公車、阿幫在盯上車站：回答會問「要我在公車快到站時提醒你嗎？」——規則原本要問的是舒適類的關鍵因子（帶行李、少走路，只是猜）時，
+      // 改問這一題（一輪一題，問題跟回答一致；按鈕或直接打「好」由前端設提醒；PM Q-25）。趕時間、省錢（快 5 分、省 50 元以上）、習慣確認、說過的預設狀況、手機提議的題目照舊優先
+      const r = q && q.askSource !== 'device' && /^state:(?:luggage|lessWalk)$/.test(q.about || '') && remindAsk(f.args, followUp, lang);
+      if (r) q = r;
+      sayQ();
+      return { name: c.name, ok: true, result, followUp, followWalkMin: f.walkMin, ...(offSeen.length && { watched: true }) };
     } catch (e) {
       const error = publicMessage(e);
       emit(ev.toolResult({ id: c.id, error }));
@@ -403,9 +442,9 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
     for (const o of out) {
       used.push(o.name);
       if (o.ok) (results[o.name] ||= []).push(o.result);
-      if (o.followUp) { used.push('bus_route_eta'); (results.bus_route_eta ||= []).push(o.followUp); }
+      if (o.followUp) { used.push('bus_route_eta'); (results.bus_route_eta ||= []).push(o.followUp); } else if (o.watched) used.push('bus_route_eta'); // watched：盯過推薦的公車、今天不會來而重排（結果不放進 results，總結不會說成「選公車」）
     }
-    if (out.some((o) => !o.ok)) break; // 有一步失敗就不往下，總結會說明
+    if (out.some((o) => !o.ok && !AUX_TOOLS.has(o.name))) break; // 主要的一步失敗就不往下，總結會說明；天氣、空品、路況是輔助資料，失敗照樣往下（三峽→台北101 路況 404 時不能因此不排行程）
   }
   if (used.length) emit(ev.discussionEnd({ tools: [...new Set(used)] }));
   if (cl?.after) { const r = cl.after(results); if (r) sayAsk(r); } // 先查並問：查完才問（選項第一個是剛剛用的那個）
