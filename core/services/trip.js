@@ -516,7 +516,11 @@ async function railOption(svc, system, from, to, straight, depart) {
   if (normName(o.name) === normName(d.name)) return { none: { kind: 'near', why: '起點和目的地最近的車站是同一站', whyEn: 'Same station at both ends' } };
   const a1 = access(from, o, o.d), a2 = access(d, to, d.d);
   // 台鐵市區短程（8 公里內）或車站不順路（到站的路加起來比這段路的六成還遠）：照樣列出讓分數決定，但不查時刻表（省 TDX 額度），時間與票價估算
-  if (system === 'TRA' && straight < LIMITS.railMinM && (straight < TRA_EST.queryMinM || o.d + d.d >= straight * 0.6)) return traEstOption(o, d, a1, a2);
+  if (system === 'TRA' && straight < LIMITS.railMinM && (straight < TRA_EST.queryMinM || o.d + d.d >= straight * 0.6)) {
+    const at = (depart.minute + a1.minutes) % (24 * 60);
+    if (at < TRA_EST.open || at > TRA_EST.close) return { none: { kind: 'noService', why: '這個時間台鐵沒有車（約 05:30～23:30 有車）', whyEn: 'No trains at this hour (about 05:30–23:30)' } };
+    return traEstOption(o, d, a1, a2);
+  }
   const tt = await (system === 'THSR' ? svc.rail.thsrTimetable : svc.rail.traTimetable)({ from: o.name, to: d.name, date: depart.date });
   if (demoOf(svc, `rail.${role}Timetable`)) return { skip: limitSkip(role) }; // 示範的班次不推
   const ready = depart.minute + a1.minutes;
@@ -545,7 +549,8 @@ async function railOption(svc, system, from, to, straight, depart) {
 }
 
 /** 台鐵估算方案（短程、不查時刻表）：區間車平均 45 km/h、等車約 10 分；票價依距離估 */
-export const TRA_EST = { kmh: 45, waitMin: 10, queryMinM: 8000 };
+/** 台鐵估算（不查時刻表）：區間車平均 45 km/h、等車約 10 分；約 05:30～23:30 有車（⚠️ 大約值，各站首末班不同；這段時間外不列估算的台鐵） */
+export const TRA_EST = { kmh: 45, waitMin: 10, queryMinM: 8000, open: 5 * 60 + 30, close: 23 * 60 + 30 };
 function traEstOption(o, d, a1, a2) {
   const m = distanceM(o.lat, o.lon, d.lat, d.lon);
   const ride = Math.max(3, Math.round((m * EST.roadFactor / 1000) / TRA_EST.kmh * 60));
