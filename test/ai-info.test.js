@@ -185,9 +185,10 @@ test('入口與外殼：路由、設定頁連結、離線清單、樣式；動�
   const page = await read('public/js/pages/ai.js');
   assert.match(page, /class="ai-stage" id="ai-stage" aria-hidden="true"/, '動畫對讀屏隱藏');
   assert.match(page, /id="ai-live" role="status"/, '同樣的資訊用文字說');
-  // 試判斷（2026-11-22）：第 2～4 段才用網路——agent（只送句子）與建議驗證；不取定位、不送常用地點
+  // 試判斷：第 2～4 段才用網路——agent 與建議驗證；跟問阿幫一樣用前文與手機定位（2026-11-22 產品負責人），不送常用地點座標與習慣
   assert.deepEqual([...page.matchAll(/fetch\(`([^`]+)`/g)].map((m) => m[1]), ['${API_BASE}/api/v1/suggest/check']);
-  assert.doesNotMatch(page, /browserLocation|getCurrentPosition|loadPlaces|savedPlaces|habit/, '試判斷不取定位、不送常用地點與習慣');
+  assert.match(page, /locate: \(\) => browserLocation\(\)/, '伺服器請定位時由手機定位');
+  assert.doesNotMatch(page, /savedPlaces|habitRequest|userState/, '不送常用地點與習慣');
 });
 
 test('原生外掛：status 回報系統查得到的欄位、judge 回耗時（兩個平台）', async () => {
