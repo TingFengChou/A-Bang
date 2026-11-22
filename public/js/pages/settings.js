@@ -14,12 +14,13 @@ import { visionEnabled, setVisionEnabled, visionStatus, VISION_KEY } from '../vi
 import { voiceEnabled, setVoiceEnabled, voiceStatus, VOICE_KEY } from '../voice.js';
 import { whyText } from '../voice-i18n.js';
 import { dramaHintOn, setDramaHintOn, DRAMA_HINT_KEY } from '../drama-hint.js';
+import { hasCar, setHasCar, CAR_KEY } from '../my-car.js';
 import { edgeWriteEnabled, setEdgeWriteEnabled, WRITE_STATS_KEY } from '../edge-write.js';
 
 const EDGE_KEY = 'abang.edgeAI';
 
 /** 本機資料：存在這支手機的瀏覽器儲存（不上傳） */
-const LOCAL = [['abang.places', '常用地點（家、公司、學校）'], ['favs', '收藏的公車站與路線'], ['invoices', '我的發票'], ['abang.arrivalWatch', '進行中的到站提醒'], ['abang.alightWatch', '進行中的下車提醒'], ['abang.reminders', '出門提醒'], ['pref:', '常用的縣市、藥局地區、股票、最近查過的公車路線等偏好（pref:*）'], [EDGE_KEY, '裝置端 AI 設定'], [SUGGEST_KEY, '「用手機上的 AI 猜我接下來想問什麼」設定'], [VOICE_KEY, '語音問阿幫的開關'], [VISION_KEY, '「讓阿幫看照片」設定'], [DRAMA_HINT_KEY, '等車推短劇的開關'], [EDGE_STATS_KEY, '今天在手機上判斷了幾次、上次花多久（只有數字）'], ['abang.edgeWrite', '「回答也在手機上寫」設定'], [WRITE_STATS_KEY, '在手機上寫了幾次回答、上次花多久、通過檢查的比例（只有數字）'], ['abang.onboarded', '看過使用說明（清除後下次會再顯示）'], ['abang.offline', '離線時顯示的上次資料（看過的路線、站牌、時刻表；不含座標）'], ['abang.chat', '問阿幫的對話（只有文字，最近 10 則，最後一次對話 12 小時後自動清掉）'], [HABITS_KEY, '常選的交通方式（只有方式與時間，最近 50 次；你同意的偏好、說過的狀況；24 小時內問過的題目只存雜湊；不含地點）']];
+const LOCAL = [['abang.places', '常用地點（家、公司、學校）'], ['favs', '收藏的公車站與路線'], ['invoices', '我的發票'], ['abang.arrivalWatch', '進行中的到站提醒'], ['abang.alightWatch', '進行中的下車提醒'], ['abang.reminders', '出門提醒'], ['pref:', '常用的縣市、藥局地區、股票、最近查過的公車路線等偏好（pref:*）'], [EDGE_KEY, '裝置端 AI 設定'], [SUGGEST_KEY, '「用手機上的 AI 猜我接下來想問什麼」設定'], [VOICE_KEY, '語音問阿幫的開關'], [VISION_KEY, '「讓阿幫看照片」設定'], [DRAMA_HINT_KEY, '等車推短劇的開關'], [CAR_KEY, '「我有車」設定'], [EDGE_STATS_KEY, '今天在手機上判斷了幾次、上次花多久（只有數字）'], ['abang.edgeWrite', '「回答也在手機上寫」設定'], [WRITE_STATS_KEY, '在手機上寫了幾次回答、上次花多久、通過檢查的比例（只有數字）'], ['abang.onboarded', '看過使用說明（清除後下次會再顯示）'], ['abang.offline', '離線時顯示的上次資料（看過的路線、站牌、時刻表；不含座標）'], ['abang.chat', '問阿幫的對話（只有文字，最近 10 則，最後一次對話 12 小時後自動清掉）'], [HABITS_KEY, '常選的交通方式（只有方式與時間，最近 50 次；你同意的偏好、說過的狀況；24 小時內問過的題目只存雜湊；不含地點）']];
 
 /** 權限狀態文字：已允許／已拒絕（到手機設定開）／還沒問過 */
 const PERM_SAY = { granted: '已允許', denied: '已拒絕', prompt: '還沒問過', rationale: '拒絕過一次（下次用到會再問）', off: '手機定位服務關閉' };
@@ -84,6 +85,12 @@ export const settings = {
         <p class="note" id="habit-note">你按導航、叫車、訂票、「改成…」或設公車提醒時，阿幫記下選了哪種交通方式（只有方式與時間，不記地點，只存在這支手機）。只記不用：某種方式選得夠多時，阿幫會先問你一句，你說「好」才會優先推。</p>
         <ul class="habit-agreed" id="habit-agreed" aria-label="你同意或說過的"></ul>
         <button class="btn small quiet" id="habit-clear" type="button">清除常選紀錄</button>
+      </section>
+      <section class="card settings" id="car-card">
+        <h2>交通方式</h2>
+        <label class="switch-row"><span><b>我有車</b><small>規劃行程時也比較「自己開車」（時間、油錢、停車費是估算）</small></span>
+          <input type="checkbox" id="my-car" class="switch" role="switch" aria-describedby="car-note" ${hasCar() ? 'checked' : ''}></label>
+        <p class="note" id="car-note">只存在這支手機；沒開時說「開車去」也會比較開車。</p>
       </section>
       <section class="card settings" id="drama-card">
         <h2>等車的時候</h2>
@@ -282,6 +289,11 @@ export const settings = {
       if (s.reason === 'web') { main.querySelector('#suggest-row').hidden = true; main.querySelector('#suggest-note').hidden = true; } // 網頁版：建議只用規則
     });
     // 語音問阿幫（M14-01）：能不能用、是不是在手機上辨識；網頁版不能在本機辨識就不顯示開關
+    const carBox = main.querySelector('#my-car');
+    carBox.addEventListener('change', () => {
+      setHasCar(carBox.checked);
+      toast(carBox.checked ? '規劃行程時會比較自己開車' : '已關掉，不再比較自己開車');
+    });
     const dramaBox = main.querySelector('#drama-hint');
     dramaBox.addEventListener('change', () => {
       setDramaHintOn(dramaBox.checked);

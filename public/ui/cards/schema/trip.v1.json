@@ -44,8 +44,8 @@
       }
     },
     "unavailable": { "type": "array", "items": { "type": "string" } },
-    "mode": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail"] },
-    "avoid": { "type": "array", "items": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail"] } },
+    "mode": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail", "drive"] },
+    "avoid": { "type": "array", "items": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail", "drive"] } },
     "habit": { "type": "object" },
     "habitOn": { "type": "boolean" },
     "ask": { "type": "object", "required": ["state", "text"], "properties": { "state": { "enum": ["rush", "budget", "luggage", "lessWalk"] }, "text": { "type": "string" }, "textEn": { "type": "string" } } },
@@ -81,7 +81,7 @@
       "type": "object",
       "required": ["role", "why"],
       "properties": {
-        "role": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail"] },
+        "role": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail", "drive"] },
         "kind": { "enum": ["skipped", "none", "noService", "route"], "description": "skipped 查了但不可行（收班、沒車位）、none 查不到站或路線、noService 沒有趕得上的班次、route 這一條公車路線今天不會來（另一條照常列入）" },
         "route": { "type": "string", "description": "kind route：公車路線名稱" },
         "status": { "enum": [2, 3, 4], "description": "kind route：上車站的到站狀態（2 交管不停靠、3 末班已過、4 今日未營運）" },
@@ -99,7 +99,7 @@
       "required": ["id", "role", "name", "minutes", "waitMin", "walkMin", "cost", "arriveAt", "legs", "notes"],
       "properties": {
         "id": { "type": "string" },
-        "role": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail"] },
+        "role": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail", "drive"] },
         "name": { "type": "string" },
         "minutes": { "type": "integer", "minimum": 0 },
         "waitMin": { "type": "integer", "minimum": 0 },
@@ -126,7 +126,7 @@
             "type": "object",
             "required": ["mode", "from", "to", "minutes", "detail"],
             "properties": {
-              "mode": { "enum": ["walk", "bike", "bus", "transit", "metro", "thsr", "tra", "intercity", "ridehail"] },
+              "mode": { "enum": ["walk", "bike", "bus", "transit", "metro", "thsr", "tra", "intercity", "ridehail", "drive"] },
               "from": { "$ref": "#/$defs/place" },
               "to": { "$ref": "#/$defs/place" },
               "minutes": { "type": "integer", "minimum": 0 },

@@ -30,6 +30,9 @@ export const EST = {
   busFare: 15,              // 公車單段票（台北市一段票）
   cityKmh: 20, cityWaitMin: 5, cityFare: 15, // 到車站的市區轉乘（公車／捷運）
   carCityKmh: 22, carHighwayKmh: 55, ridehailWaitMin: 6,
+  // 自行開車（2026-11-22 產品負責人「交通方式還有應該是自行開車」）：油錢＝道路公里 × 每公里油耗 × 油價（約 2.6 元／公里，⚠️ 依車型不同）；
+  // 停車：找車位約 5 分、停好走到目的地約 3 分；停車費約每小時 40 元（台北市路外停車場常見，⚠️ 以現場公告為準），最少 1 小時
+  driveFuelTwdPerKm: 2.6, driveParkFindMin: 5, driveParkWalkMin: 3, driveParkTwdPerHour: 40,
   // 客運票價缺資料時（保守估算，ADR-0010 2026-11-22）：起跳 70 元＋道路公里 × 1.2 元（⚠️ 以業者公告為準）。
   // 原本道路公里 × 1.3 元把台北車站→機場的 1819（實際約 140 元）估成 50 元，便宜的假象讓它贏了機場捷運；
   // 起跳價對齊實際的短程國道客運（台北→機場約 140、台北→台中約 260～300、台北→高雄約 450～590）
@@ -590,6 +593,43 @@ async function intercityOption(svc, from, to, straight, depart) {
   };
 }
 
+/** 自行開車（估算）：開車時間同叫車的車程（含國道塞車延誤）＋找車位、走到目的地；花費＝油錢＋停車費（停 1 小時估）。
+ *  有目的地附近停車場資料時（svc.parking）：開到有空位的那一個，走過去的時間照距離算，卡片列出停車場與剩幾位 */
+/** 停車場最多等多久（毫秒） */
+export const PARKING_WAIT_MS = 2500;
+
+async function driveOption(svc, from, to, straight, traffic) {
+  const km = roadKm(straight);
+  let timer;
+  const pk = await Promise.race([svc.parking?.nearby({ lat: to.lat, lon: to.lon }).catch(() => null), new Promise((r) => { timer = setTimeout(() => r(null), PARKING_WAIT_MS); })]).finally(() => clearTimeout(timer)); // 停車場查不到不影響開車方案
+  const lots = demoOf(svc, 'parking.nearby') && svc.mode === 'live' ? [] : (pk?.lots || []); // 額度用完的示範停車場不推
+  const lot = lots.find((l) => l.available !== 0 && !l.full) || null;
+  const drive = Math.round((km / (km < 15 ? EST.carCityKmh : EST.carHighwayKmh)) * 60) + (traffic?.delayMin || 0);
+  const fuel = Math.max(5, Math.round((km * EST.driveFuelTwdPerKm) / 5) * 5);
+  const park = EST.driveParkTwdPerHour;
+  const walk = lot ? walkMinutes(lot.distanceM) : EST.driveParkWalkMin;
+  const find = lot?.available != null ? 2 : EST.driveParkFindMin; // 知道有空位：直接開進去
+  return {
+    id: 'drive', role: 'drive', name: '自己開車',
+    minutes: drive + find + walk, waitMin: 0, walkMin: walk,
+    cost: fuel + park, exposure: 0.05, effort: 0.25, delayRisk: delayRiskOf(traffic?.level ?? null),
+    legs: lot ? [
+      leg('drive', from, lot, drive, [`開車到「${lot.name}」約 ${drive} 分（估算${traffic?.delayMin ? `，含塞車多 ${traffic.delayMin} 分` : ''}）`, `About ${drive} min driving to ${lot.name} (est.${traffic?.delayMin ? `, incl. ${traffic.delayMin} min of traffic` : ''})`], 'driving'),
+      leg('walk', lot, to, find + walk, [`停車${lot.available != null ? `（剩 ${lot.available} 位）` : ''}，走過去約 ${walk} 分`, `Park${lot.available != null ? ` (${lot.available} spaces left)` : ''}, then walk about ${walk} min`]),
+    ] : [
+      leg('drive', from, to, drive, [`開車約 ${drive} 分（估算${traffic?.delayMin ? `，含塞車多 ${traffic.delayMin} 分` : ''}）`, `About ${drive} min driving (est.${traffic?.delayMin ? `, incl. ${traffic.delayMin} min of traffic` : ''})`], 'driving'),
+      leg('walk', to, to, find + walk, [`找車位、停好走過去約 ${find + walk} 分（估算）`, `About ${find + walk} min to park and walk (est.)`]),
+    ],
+    notes: [
+      `油錢約 ${fuel} 元（道路約 ${Math.round(km)} 公里）＋停車約 ${park} 元（停 1 小時估）`,
+      ...(lot ? [`停車場：${lot.name}（離目的地約 ${lot.distanceM} 公尺${lot.available != null ? `，剩 ${lot.available} 位` : ''}${lot.fare ? `；${lot.fare}` : ''}）`] : pk?.noData ? ['這一帶查不到停車場資料（台北市、新北市目前沒有停車場座標）'] : []),
+      '開車時間、油錢、停車費都是估算（以實際路況與停車場公告為準）',
+    ],
+    ...(lots.length && { parking: lots.slice(0, 3).map((l) => ({ name: l.name, distanceM: l.distanceM, ...(l.available != null && { available: l.available }), ...(l.fare && { fare: l.fare }), lat: l.lat, lon: l.lon })) }),
+    estimated: true, est: { minutes: true, cost: true },
+  };
+}
+
 async function ridehailOption(svc, from, to, straight, traffic) {
   const km = roadKm(straight);
   const drive = Math.round((km / (km < 15 ? EST.carCityKmh : EST.carHighwayKmh)) * 60) + (traffic?.delayMin || 0);
@@ -711,6 +751,8 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     tra: () => railOption(svc, 'TRA', from, to, straight, depart),
     intercity: () => intercityOption(svc, from, to, straight, depart),
     ridehail: () => ridehailOption(svc, from, to, straight, traffic),
+    // 自行開車：使用者說有車（我的 → 我有車）或指定開車才列（不是每個人都有車）
+    ...((prefs.car === true || prefs.mode === 'drive') && { drive: () => driveOption(svc, from, to, straight, traffic) }),
   };
   const FAILED = Symbol('failed');
   const entries = Object.entries(tasks);

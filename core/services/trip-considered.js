@@ -89,7 +89,7 @@ export function consideredOf({ weather, aqi, traffic, demo = {}, today = true })
 export const effectLabel = (c, en = false) => (!c.available ? (en ? 'N/A' : '查不到') : c.effect === 'none' ? (en ? 'No effect' : '不影響') : c.effect === 'score' ? (en ? 'Delay risk' : '→ 延誤風險') : `→ ${en ? c.effect : STATES[c.effect]?.label || c.effect}`);
 
 // ───────── 只有一種方式時：說明其他方式為什麼不在 ─────────
-const MODE_NAME = { walk: '走路', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
+const MODE_NAME = { walk: '走路', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車', drive: '開車' };
 const MODE_ORDER = Object.keys(MODE_NAME);
 
 /**
@@ -104,6 +104,7 @@ export function missingModes({ straight, roles, skipped = [], limits }) {
   for (const role of MODE_ORDER) {
     const r = roles[role];
     if (r && r.id) continue; // 有方案
+    if (role === 'drive') continue; // 自己開車：只有設了「我有車」或說開車才比，沒列不算缺
     if (role === 'intercity') continue; // 客運：多數起訖本來就沒有客運資料，沒有方案就不列、不說原因（產品負責人 2026-11-22）
     const sk = skipped.find((s) => s.role === role);
     if (sk) { const { role: _r, ...rest } = sk; out.push({ role, kind: 'skipped', ...rest }); continue; }
@@ -119,7 +120,7 @@ export function missingModes({ straight, roles, skipped = [], limits }) {
   return out;
 }
 
-const MODE_EN = { walk: 'walking', bike: 'YouBike', bus: 'bus', metro: 'MRT', thsr: 'High Speed Rail', tra: 'train', intercity: 'intercity bus', ridehail: 'taxi' };
+const MODE_EN = { walk: 'walking', bike: 'YouBike', bus: 'bus', metro: 'MRT', thsr: 'High Speed Rail', tra: 'train', intercity: 'intercity bus', ridehail: 'taxi', drive: 'driving' };
 const andEn = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
 
 /**
@@ -235,6 +236,6 @@ export function singleNote({ options, missingList, straight, departMin, demo, fa
     ...(noSvc.length ? ['no more trains or coaches you can catch today'] : []),
     ...(limitedEn.length ? [`TDX quota used up, no live ${andEn(limitedEn)} data this time (ask again in about a minute)`] : []),
   ];
-  const textEn = `Only ${{ walk: 'walking', bike: 'YouBike', bus: 'the bus', metro: 'the MRT', thsr: 'high speed rail', tra: 'the train', intercity: 'the intercity bus', ridehail: 'a taxi' }[only.role] || only.name} works for this trip${whyEn.length ? `: ${whyEn.join('; ')}` : ''}${demo ? ' (demo data)' : fallback && !limitedEn.length ? ' (TDX quota used up; ask again in about a minute)' : ''}.`;
+  const textEn = `Only ${{ walk: 'walking', bike: 'YouBike', bus: 'the bus', metro: 'the MRT', thsr: 'high speed rail', tra: 'the train', intercity: 'the intercity bus', ridehail: 'a taxi', drive: 'driving' }[only.role] || only.name} works for this trip${whyEn.length ? `: ${whyEn.join('; ')}` : ''}${demo ? ' (demo data)' : fallback && !limitedEn.length ? ' (TDX quota used up; ask again in about a minute)' : ''}.`;
   return { text, textEn, suggest };
 }
