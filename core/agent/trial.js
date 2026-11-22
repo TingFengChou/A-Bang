@@ -37,7 +37,7 @@ export { INTENT_SLOTS };
 export const INTENT_SOURCES = {
   trip: ['transit', 'weather', 'aqi'], bus_route: ['transit'], youbike: ['transit'], nearby_bus: ['transit'], metro: ['transit'], rail: ['transit'],
   weather: ['weather'], aqi: ['aqi'], outing: ['weather', 'aqi'], quake: ['quake'],
-  pharmacy: ['opendata'], garbage: ['opendata'], fuel: ['opendata'], invoice: ['opendata'], stock: ['opendata'], drama: ['drama'],
+  pharmacy: ['opendata'], garbage: ['opendata'], fuel: ['opendata'], invoice: ['opendata'], stock: ['opendata'], drama: ['drama'], traffic: ['transit'],
 };
 
 /** 為什麼不能回答（欄位齊了也一樣）：後天以後的天氣、問該不該買股票、問油價漲跌、聽不懂 */

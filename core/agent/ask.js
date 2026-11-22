@@ -196,12 +196,30 @@ const enName = (name) => { const n = normPlace(name); return LANDMARKS.items.fin
  */
 export function slotAsk(it, { lang = null, history = [] } = {}) {
   const en = lang === 'en' || it?.lang === 'en';
+  if (it?.needs === 'route' && it.last && !en) { // 末班車沒說哪一路（真實資料健檢）：問哪一路公車，或改查捷運
+    const opts = recentRoutes(history).map((r) => ({ label: r, kind: 'reply', say: `${r} 公車末班車幾點？` }));
+    opts.push({ label: '捷運末班車', kind: 'reply', say: '捷運末班車幾點？' });
+    return {
+      ask: { about: 'slot:route', question: '要查哪一路公車的末班車？', why: '直接打路線號碼也可以，例如 307；捷運就點「捷運末班車」。', options: opts, pending: { slot: 'route', last: true } },
+      short: '你要查哪一路公車的末班車？告訴我路線號碼（例如 307）；要查捷運就說「捷運末班車」。',
+    };
+  }
   if (it?.needs === 'route') {
     const opts = recentRoutes(history).map((r) => ({ label: en ? `Bus ${r}` : r, kind: 'reply', say: en ? `How long until bus ${r}?` : `${r} 公車還要多久？` }));
     opts.push(en ? { label: 'Bus stops nearby', kind: 'reply', say: 'Any bus stops nearby?' } : { label: '看附近有哪些公車', kind: 'reply', say: '附近的公車站' });
     return {
       ask: { about: 'slot:route', question: en ? 'Which bus route?' : '哪一路公車？', why: en ? 'Or just type the route number, e.g. 307.' : '直接打路線號碼也可以，例如 307。', options: opts, pending: { slot: 'route', ...(en && { lang: 'en' }) } },
       short: en ? "Which bus route? Tell me the number (e.g. 307) and I'll check how long until it comes." : '你要查哪一路公車？告訴我路線號碼（例如 307），我幫你看還要多久。',
+    };
+  }
+  if (it?.needs === 'od') { // 國道路況沒有起訖（「國道一號現在塞車嗎」）：問從哪到哪，不拿同一個點亂查（真實資料健檢 S7）
+    const fw = it.freeway ? `${it.freeway}` : '國道';
+    const said = recentPlaces(history, [], 2);
+    const pairs = said.length === 2 ? [[said[1], said[0]]] : [];
+    const opts = [...pairs, ...TRAFFIC_EXAMPLES].slice(0, 3).map(([a, b]) => ({ label: en ? `${enName(a)} → ${enName(b)}` : `${a}到${b}`, kind: 'reply', say: `${a}到${b}國道塞車嗎？` }));
+    return {
+      ask: { about: 'slot:od', question: en ? 'From where to where?' : '從哪裡到哪裡？', why: en ? 'Freeway traffic is checked along a route. Or type it, e.g. “Taipei to Hsinchu”.' : `${fw}很長，我要知道你從哪裡開到哪裡；直接打「台北到新竹」也可以。`, options: opts, pending: { slot: 'od', ...(en && { lang: 'en' }) } },
+      short: en ? 'Which stretch? Tell me where you start and where you are going (e.g. Taipei to Hsinchu), and I will check the freeway traffic along it.' : `你要從哪裡到哪裡？${fw}很長，告訴我起訖（例如「台北到新竹」），我幫你看沿途的國道路況。`,
     };
   }
   if (it?.needs === 'to') {
@@ -220,6 +238,9 @@ export function slotAsk(it, { lang = null, history = [] } = {}) {
   }
   return null;
 }
+
+/** 國道路況沒說起訖時的例子（常走的國道路段） */
+const TRAFFIC_EXAMPLES = [['台北', '新竹'], ['台北', '台中'], ['台中', '高雄']];
 
 /** 上一輪阿幫是不是在問起點（originAsk 的回答）：這一輪定位又失敗就不再給「用我的位置」（不無限循環） */
 export const ORIGIN_ASKED = /你從哪裡出發？沒拿到你的位置|還是沒拿到你的位置|^Where are you starting from\? I didn't get|still couldn't get your location/;
@@ -286,7 +307,18 @@ Object.assign(PENDING_SLOTS, {
   route: (p, t) => {
     const m = /^(?:我)?(?:要)?(?:坐|搭|等|查)?\s*([紅藍綠棕橘小幹]?\d{1,4}[區副]?)\s*(?:號|路)?\s*(?:公車)?\s*(?:的|啦|喔|吧|呀)?[。!！.]?$/u.exec(t) || /^(?:the\s+)?(?:bus\s*)?(?:no\.?\s*)?(\d{1,4}[a-z]?)\.?$/i.exec(t);
     if (!m || !ROUTE_RE.test(m[1])) return null;
+    if (p.last) return `${m[1]} 公車末班車幾點？`; // 問末班車時回的路線
     return p.lang === 'en' || /^(?:the\s+)?bus/i.test(t) ? `How long until bus ${m[1]}?` : `${m[1]} 公車還要多久？`;
+  },
+  // 國道路況的起訖：「台北到新竹」「從桃園到台中」→「台北到新竹國道塞車嗎？」（只收兩個地名）
+  od: (p, t) => {
+    const c = String(t || '').trim().replace(/[。！!～~.?？]+$/u, '');
+    if (c.length > 30 || /[\n\r]/.test(c) || /天氣|下雨|公車|捷運|高鐵|台鐵|油價|發票|股/.test(c)) return null;
+    const ps = placesInText(c);
+    if (ps.length !== 2 || !/到|→|至|去|往|\bto\b/i.test(c)) return null;
+    const short = (x) => x.replace(/(?:車站|站)$/, '').replace(/^臺/, '台');
+    if (p.lang === 'en' || isEnglish(c)) return `Is the freeway jammed from ${enName(ps[0])} to ${enName(ps[1])}?`; // 英文那一輪：英文句（規則也聽得懂）
+    return `${/從/.test(c) ? '從' : ''}${short(ps[0])}到${short(ps[1])}國道塞車嗎？`;
   },
   // 要去哪裡：「台北101」「去西門町」「Taipei 101」→「從起點到台北101怎麼去？」或「怎麼去台北101？」（英文那一輪用英文句）
   to: (p, t) => {

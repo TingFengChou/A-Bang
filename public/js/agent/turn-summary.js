@@ -17,7 +17,7 @@ const TOOL_TOPIC = {
   scam_check_message: 'scam', scam_lookup_url: 'scam', scam_myth_search: 'scam', sms_sender_check: 'scam',
 };
 /** 判斷層的意圖（core/agent/judge.js JUDGE_INTENTS）→ 話題類別：還沒有工具結果時先用 */
-const INTENT_TOPIC = { trip: 'transit', bus_route: 'transit', nearby_bus: 'transit', youbike: 'transit', metro: 'transit', rail: 'transit', weather: 'weather', aqi: 'weather', quake: 'quake', pharmacy: 'pharmacy', garbage: 'garbage', fuel: 'fuel', invoice: 'invoice', stock: 'stock' };
+const INTENT_TOPIC = { trip: 'transit', bus_route: 'transit', nearby_bus: 'transit', youbike: 'transit', metro: 'transit', rail: 'transit', weather: 'weather', aqi: 'weather', quake: 'quake', pharmacy: 'pharmacy', garbage: 'garbage', fuel: 'fuel', invoice: 'invoice', stock: 'stock', traffic: 'transit' };
 /** 只是輔助的工具（找地點、路況）：有別的結果時不拿來當這一輪的主題 */
 const AUX = new Set(['find_place', 'traffic_status']);
 

@@ -432,8 +432,10 @@ export function remindAsk(f, followUp, lang = null) {
     ],
   };
 }
-export function scamPasteAsk(profileId = 'life', lang = null, text = '') {
+export function scamPasteAsk(profileId = 'life', lang = null, text = '', { pasted = false } = {}) {
   const en = lang === 'en';
+  // 生活阿幫收到貼上的詐騙樣式簡訊（網址＋催促＋要你點或付，真實資料健檢 f01）：已經有內容，直接問要不要帶過去檢查
+  if (pasted && profileId === 'life' && String(text || '').trim()) return { about: 'scam:paste', question: en ? 'Check this message in Anti-fraud?' : '要帶這則訊息到「防詐」檢查嗎？', why: en ? 'It has a link and pushes you to act fast, like many scam texts.' : '有網址又催你限時處理，很像詐騙簡訊。', options: [{ label: en ? 'Check in Anti-fraud' : '帶到防詐檢查', kind: 'action', action: { name: 'handOff', agent: 'antifraud', text: String(text).trim() } }] };
   if (profileId === 'antifraud') return { about: 'scam:paste', question: en ? 'Can you paste the message here?' : '可以把那則訊息貼上來嗎？', why: en ? 'Paste the text, link or phone number; or take a photo with the camera button.' : '簡訊、LINE、網址、來電號碼都可以；也可以按相機拍下來。', options: [{ label: en ? 'Paste it' : '貼上訊息', kind: 'action', action: { name: 'focusInput' } }] };
   const go = String(text || '').trim() ? { name: 'handOff', agent: 'antifraud', text: String(text).trim() } : { name: 'navigate', to: '#/agent/antifraud' }; // 帶著這一句過去（防詐接著請他貼上；手機記憶體，不放網址）
   return { about: 'scam:paste', question: en ? 'Can you paste the message in Anti-fraud?' : '可以把那則訊息貼到「防詐」給我看嗎？', why: en ? 'Anti-fraud checks it against 165 scam patterns.' : '防詐會比對 165 的詐騙手法。', options: [{ label: en ? 'Open Anti-fraud' : '到防詐貼上', kind: 'action', action: go }] };

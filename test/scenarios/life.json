@@ -3762,6 +3762,793 @@
           }
         }
       ]
+    },
+    {
+      "id": "LA-1",
+      "title": "真實資料健檢 t01：「從板橋到台北車站」是行程，不是查台鐵（S3）",
+      "here": {
+        "lat": 25.014,
+        "lon": 121.4637
+      },
+      "turns": [
+        {
+          "say": "從板橋到台北車站",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "toolsNot": [
+              "tra_timetable",
+              "thsr_timetable"
+            ],
+            "from": "板橋",
+            "to": "台北車站"
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-2",
+      "title": "真實資料健檢 t05：「高雄車站到駁二」是行程，不找台鐵駁二站（S3）",
+      "here": {
+        "lat": 22.639,
+        "lon": 120.302
+      },
+      "turns": [
+        {
+          "say": "高雄車站到駁二",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "toolsNot": [
+              "tra_timetable"
+            ],
+            "to": "駁二",
+            "textNot": [
+              "找不到"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-3",
+      "title": "真實資料健檢 t08：地名裡的「火車站」不是指定坐台鐵（S10）",
+      "location": false,
+      "turns": [
+        {
+          "say": "從桃園火車站到台北101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "toolsNot": [
+              "tra_timetable"
+            ],
+            "from": "桃園車站",
+            "to": "台北101",
+            "textNot": [
+              "照你說的",
+              "台鐵這次沒有可行的方案"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-4",
+      "title": "真實資料健檢：「從桃園火車站去台北101」同上（S10）",
+      "turns": [
+        {
+          "say": "從桃園火車站去台北101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "桃園車站",
+            "textNot": [
+              "照你說的"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-5",
+      "title": "真實資料健檢 f01：生活阿幫收到詐騙樣式簡訊，帶到防詐，不查公車「24」",
+      "location": false,
+      "turns": [
+        {
+          "say": "【中華郵政】您的包裹地址不全無法投遞，請於24小時內點擊 http://post-tw.cc/x 更新資料",
+          "expect": {
+            "toolsNone": true,
+            "asks": [
+              "防詐"
+            ],
+            "askKind": "action",
+            "textHas": [
+              "詐騙",
+              "165"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-6",
+      "title": "真實資料健檢 x04：「國道塞車嗎 台北到新竹」查國道路況，不是台鐵（S7）",
+      "turns": [
+        {
+          "say": "國道塞車嗎 台北到新竹",
+          "expect": {
+            "tools": [
+              "traffic_status"
+            ],
+            "toolsNot": [
+              "tra_timetable",
+              "plan_trip"
+            ],
+            "textHas": [
+              "新竹"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-7",
+      "title": "真實資料健檢 z03：只說國道一號沒有起訖，照實問從哪到哪；回「台北到新竹」再查（S7）",
+      "turns": [
+        {
+          "say": "國道一號現在塞車嗎",
+          "expect": {
+            "toolsNone": true,
+            "asks": [
+              "從哪裡到哪裡"
+            ]
+          }
+        },
+        {
+          "say": "台北到新竹",
+          "expect": {
+            "tools": [
+              "traffic_status"
+            ],
+            "textHas": [
+              "新竹"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-8",
+      "title": "真實資料健檢 z11：人在桃園市區說「桃園到台北101」，起點是桃園車站（不是高鐵桃園站）",
+      "here": {
+        "lat": 24.993,
+        "lon": 121.301
+      },
+      "turns": [
+        {
+          "say": "桃園到台北101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "桃園車站",
+            "fromNot": "高鐵"
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-9",
+      "title": "真實資料健檢 b03：「我在等939」查那一路公車（S8）",
+      "here": {
+        "lat": 25.014,
+        "lon": 121.4637
+      },
+      "turns": [
+        {
+          "say": "我在等939",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-10",
+      "title": "真實資料健檢：「等 939」「等 939 公車」也是查公車（S8）",
+      "turns": [
+        {
+          "say": "等 939",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ]
+          }
+        },
+        {
+          "say": "等 939 公車",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-11",
+      "title": "真實資料健檢 x06：「末班車幾點」沒說哪一路先問；回 307 再查",
+      "here": {
+        "lat": 25.014,
+        "lon": 121.4637
+      },
+      "turns": [
+        {
+          "say": "末班車幾點",
+          "expect": {
+            "toolsNone": true,
+            "asks": [
+              "末班車"
+            ],
+            "askOptions": [
+              "",
+              "捷運"
+            ]
+          }
+        },
+        {
+          "say": "307",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "textHas": [
+              "末班"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-12",
+      "title": "真實資料健檢：「最後一班公車幾點」沒說哪一路先問",
+      "turns": [
+        {
+          "say": "最後一班公車幾點",
+          "expect": {
+            "toolsNone": true,
+            "asks": [
+              "哪一路"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-13",
+      "title": "真實資料健檢：「捷運末班車幾點」查最近一站的時刻表末班車",
+      "turns": [
+        {
+          "say": "捷運末班車幾點",
+          "expect": {
+            "tools": [
+              "metro_live_board"
+            ],
+            "textHas": [
+              "末班車"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-14",
+      "title": "真實資料健檢 z06：「從板橋坐捷運到台北車站」是行程（坐捷運），不是查台北車站看板（S6）",
+      "here": {
+        "lat": 25.014,
+        "lon": 121.4637
+      },
+      "turns": [
+        {
+          "say": "從板橋坐捷運到台北車站",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "toolsNot": [
+              "metro_live_board"
+            ],
+            "from": "板橋",
+            "to": "台北車站"
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-15",
+      "title": "真實資料健檢 z08：「高雄捷運美麗島站下一班」查高雄捷運（S5）",
+      "here": {
+        "lat": 22.639,
+        "lon": 120.302
+      },
+      "turns": [
+        {
+          "say": "高雄捷運美麗島站下一班",
+          "expect": {
+            "tools": [
+              "metro_live_board"
+            ],
+            "resultHas": [
+              "美麗島"
+            ],
+            "textNot": [
+              "找不到"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-16",
+      "title": "真實資料健檢 m03：「高雄捷運美麗島下一班」查美麗島站，不是高雄車站（S5）",
+      "here": {
+        "lat": 22.639,
+        "lon": 120.302
+      },
+      "turns": [
+        {
+          "say": "高雄捷運美麗島下一班",
+          "expect": {
+            "tools": [
+              "metro_live_board"
+            ],
+            "resultHas": [
+              "美麗島"
+            ],
+            "textNot": [
+              "高雄車站"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-17",
+      "title": "真實資料健檢 m01：「台北車站捷運下一班」回答兩個方向都說",
+      "turns": [
+        {
+          "say": "台北車站捷運下一班",
+          "expect": {
+            "tools": [
+              "metro_live_board"
+            ],
+            "textHas": [
+              "其他方向"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-18",
+      "title": "真實資料健檢 n02：「附近的公車站有哪些車」回答列出路線",
+      "here": {
+        "lat": 22.639,
+        "lon": 120.302
+      },
+      "turns": [
+        {
+          "say": "附近的公車站有哪些車",
+          "expect": {
+            "tools": [
+              "bus_nearby_stations"
+            ],
+            "textHas": [
+              "」有"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-19",
+      "title": "真實資料健檢 b02：「藍15 還要多久」查公車（新北的路線在台北問也查得到，S4）",
+      "turns": [
+        {
+          "say": "藍15 還要多久",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "textNot": [
+              "找不到"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-20",
+      "title": "真實資料健檢：「307 末班車幾點」查 307、照實說末班",
+      "here": {
+        "lat": 25.014,
+        "lon": 121.4637
+      },
+      "turns": [
+        {
+          "say": "307 末班車幾點",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "textHas": [
+              "末班"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-21",
+      "title": "真實資料健檢（多輪）：問完 307 接著問「末班車幾點」沿用 307",
+      "turns": [
+        {
+          "say": "307 到哪了",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ]
+          }
+        },
+        {
+          "say": "末班車幾點",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "asksNone": true,
+            "textHas": [
+              "307",
+              "末班"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-22",
+      "title": "真實資料健檢（多輪）：排完行程接著問「那國道會塞車嗎」看同一段起訖",
+      "turns": [
+        {
+          "say": "從台北車站去新竹車站",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ]
+          }
+        },
+        {
+          "say": "那國道會塞車嗎",
+          "expect": {
+            "tools": [
+              "traffic_status"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "asksNone": true,
+            "textHas": [
+              "新竹"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-23",
+      "title": "真實資料健檢（不搶）：「台北到台中國道客運」還是行程（國道客運不是問路況）",
+      "turns": [
+        {
+          "say": "台北到台中國道客運",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "textNot": [
+              "路況："
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-24",
+      "title": "真實資料健檢（不搶）：「我怕塞車，從西門町去101」是排行程",
+      "turns": [
+        {
+          "say": "我怕塞車，從西門町去101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-25",
+      "title": "PR #127 審查：「307 公車路況」「307 路況」查 307，不是國道",
+      "turns": [
+        {
+          "say": "307 公車路況",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "toolsNot": [
+              "traffic_status"
+            ],
+            "asksNot": [
+              "從哪裡到哪裡"
+            ]
+          }
+        },
+        {
+          "say": "307 路況",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "asksNot": [
+              "從哪裡到哪裡"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-26",
+      "title": "PR #127 審查：「從板橋去台北車站坐公車會不會塞車」排行程，說市區路況查不到",
+      "here": {
+        "lat": 25.014,
+        "lon": 121.4637
+      },
+      "turns": [
+        {
+          "say": "從板橋去台北車站坐公車會不會塞車",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "板橋",
+            "to": "台北車站",
+            "textHas": [
+              "路況只有國道"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-27",
+      "title": "PR #127 審查：帶網址的一般問題不送防詐",
+      "turns": [
+        {
+          "say": "LINE 群組說 https://forms.gle/x 今天內填寫，從板橋到西門町",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "asksNot": [
+              "防詐"
+            ]
+          }
+        },
+        {
+          "say": "明天去高雄，車票連結 https://www.thsrc.com.tw 盡快訂",
+          "expect": {
+            "asksNot": [
+              "防詐"
+            ],
+            "textNot": [
+              "詐騙"
+            ]
+          }
+        },
+        {
+          "say": "我要立即繳費 www.etax.nat.gov.tw 怎麼去國稅局",
+          "expect": {
+            "asksNot": [
+              "防詐"
+            ],
+            "textNot": [
+              "詐騙"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-28",
+      "title": "PR #127 審查：「12345678 有中嗎」「那95呢」單句也聽得懂",
+      "location": false,
+      "turns": [
+        {
+          "say": "12345678 有中嗎",
+          "expect": {
+            "tools": [
+              "invoice_lottery"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-29",
+      "title": "PR #127 審查：「那95呢」單句是油價",
+      "location": false,
+      "turns": [
+        {
+          "say": "那95呢",
+          "expect": {
+            "tools": [
+              "fuel_price"
+            ],
+            "textHas": [
+              "95"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-30",
+      "title": "PR #127 審查：「文湖線現在有沒有誤點」查捷運，不是國道",
+      "turns": [
+        {
+          "say": "文湖線現在有沒有誤點",
+          "expect": {
+            "tools": [
+              "metro_live_board"
+            ],
+            "toolsNot": [
+              "traffic_status"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-31",
+      "title": "PR #127 審查：「我等3號發薪再去台北101」「等 5 號再說」「我在等2號窗口」不是公車",
+      "turns": [
+        {
+          "say": "等 5 號再說",
+          "expect": {
+            "toolsNot": [
+              "bus_route_eta"
+            ]
+          }
+        },
+        {
+          "say": "我在等2號窗口",
+          "expect": {
+            "toolsNot": [
+              "bus_route_eta"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-32",
+      "title": "PR #127 審查：「我在台北車站等307」「在公車站等307」是公車",
+      "turns": [
+        {
+          "say": "我在台北車站等307",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ]
+          }
+        },
+        {
+          "say": "在公車站等307",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-33",
+      "title": "PR #127 審查：市區路況照實說只有國道資料，不問國道起訖",
+      "turns": [
+        {
+          "say": "信義區車多不多",
+          "expect": {
+            "toolsNone": true,
+            "asksNone": true,
+            "textHas": [
+              "只有國道"
+            ]
+          }
+        },
+        {
+          "say": "台北市區路況如何",
+          "expect": {
+            "toolsNone": true,
+            "asksNone": true,
+            "textHas": [
+              "只有國道"
+            ]
+          }
+        },
+        {
+          "say": "淡水的路況",
+          "expect": {
+            "toolsNone": true,
+            "asksNone": true,
+            "textHas": [
+              "只有國道"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-34",
+      "title": "PR #127 審查：「YouBike 最後一班」不是公車末班",
+      "turns": [
+        {
+          "say": "YouBike 最後一班",
+          "expect": {
+            "toolsNot": [
+              "bus_route_eta"
+            ],
+            "asksNot": [
+              "末班車"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LA-35",
+      "title": "PR #127 審查：英文問國道沒有起訖，回答起訖後用英文查",
+      "turns": [
+        {
+          "say": "Is the freeway jammed?",
+          "expect": {
+            "toolsNone": true,
+            "asks": [
+              "From where to where"
+            ]
+          }
+        },
+        {
+          "say": "Taipei to Hsinchu",
+          "expect": {
+            "tools": [
+              "traffic_status"
+            ],
+            "textHas": [
+              "Freeway"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

@@ -22,7 +22,7 @@ export function planAsk(it, { profileId = 'life', history = [], text = '' } = {}
   if (profileId === 'antifraud') return ['empty', 'emptyEn'].includes(it?.intent) ? { after: () => ({ ask: scamPasteAsk('antifraud', it.intent === 'emptyEn' ? 'en' : null) }) } : null;
   if (profileId !== 'life' || !it) return null;
   const at = it.fromPoint || landmarkByName(DEFAULT_FROM);
-  if (it.intent === 'scamAsk') return { after: () => ({ ask: scamPasteAsk('life', lang, text) }) };
+  if (it.intent === 'scamAsk') return { after: () => ({ ask: scamPasteAsk('life', lang, text, { pasted: !!it.pasted }) }) };
   if (it.road) return { stop: roadAsk(it.road, lang) };
   if (it.category) return { stop: topicAsk(it.category, lang) };
   if (it.ambig && it.bare && it.intent === 'unknown') { // 只打一個認不得的名字（「中正」）：不排行程，問是哪裡

@@ -83,6 +83,7 @@
 | 輸出 | `{ city, routeName, updatedAt, directions: [{ direction, label, stops: [{ seq, stopName, lat?, lon?, ...Eta, plate, nav }] }], shape?: [[lat, lon]], focus?: { direction, label, seq, stopName, etaSec, status, statusText, other? }, toward?: { name, found, direction?, label? } }`；給 `stop` 時依站名（臺／台相同）找站、先找 `direction` 那一邊，找到才有 `focus`，找不到文字說明「這條路線沒有…這一站」 |
 | TDX | `/basic/v2/Bus/DisplayStopOfRoute/City/{City}/{Route}`（1h）、`/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/{Route}`（20s）、`/basic/v2/Bus/Route/City/{City}/{Route}`（1h）、`/basic/v2/Bus/Shape/City/{City}/{Route}`（1h，WKT）⚠️ |
 | 篩選 | `$filter=RouteName/Zh_tw eq '{Route}'`（路徑參數會模糊比對） |
+| 跨縣市（2026-11-22 真實資料健檢） | 給的（或依位置推估的）縣市找不到這條路線時，依 `NEIGHBOR_CITIES`（台北↔新北、基隆、桃園；桃園↔新北、台北、新竹）找相鄰縣市：只用預熱快取的路線清單判斷在哪個縣市（服務 `bus.routeCities(routeName)`，只讀存檔、不打 TDX；示範資料同介面），找到才查那個縣市；輸出多 `cityMoved: { from, to }`，speak 句尾「（新北市沒有 307，這是臺北市的 307）」。清單也沒有照原本的 `UserError` |
 | speak | 「307 目前有 3 個站即將有車（例如北門、中山堂）。」；有 `focus` 時「601 約 6 分後到「西門」。」（不到 3 分「即將到」、不到 1 分「在「西門」進站中」） |
 | 選公車就盯（L-14） | `plan_trip` 的公車方案帶 `follow: { city, routeName, stop, direction?, walkMin }`；決策選公車時 agent 執行器（`core/agent/run.js` `busFollowUp`）自動呼叫本 tool 盯上車站，示範與模型模式相同 |
 | 座標 | 站點 `lat/lon` 取 `StopPosition`（缺座標的站不帶 `lat/lon`，`nav` 為 `null`）；`nav` 在 tool 層加（§6） |
@@ -144,6 +145,8 @@ TDX：高鐵 `/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}`；台鐵 
 | 欄位 | `StationID`、`StationName`、`StationPosition` | `LineName`／`LineID`／`LineNO`、`DestinationStationName`（缺時用 `TripHeadSign`）、`EstimateTime`（分鐘）、`UpdateTime` |
 | status | — | 狀態代碼（2026-11-22）：0 分 `arriving`（進站中）、1 分 `approaching`（即將進站）、其他 `minutes`（N 分）、時刻表 `scheduled`、無資料 `unknown`；卡片與英文回答依代碼用字典，工具文字仍是中文易讀字（`metroStatusText`） |
 | speak | 「桃園機場捷運共有 6 個車站。」 | 「美麗島最快 3 分鐘後有往小港的車。」；沒資料時「…目前沒有即時到站資料。」；`near`：「離你最近的是市政府（約 89 公尺）：…」（給地名時「離「臺北車站」最近的是…」） |
+
+**系統與末班車（2026-11-22 真實資料健檢）**：只給 `station` 沒給 `system` 時不再預設台北——依站名在四個系統的車站清單裡找（`systemOfStation`：站名完全相同的優先，同名站有 `near` 就用離他近的那個系統，否則台北、機捷、台中、高雄的順序；都找不到回 `UserError`「台北、桃園、台中、高雄捷運都找不到…」）。新增輸入 `last: true`（問末班車）：任何系統都查站別時刻表，輸出多 `lastTrains: [{ lineId, line, destination, time }]`（`lastFromTimetable`：今天營運日各線各方向最晚的一班，凌晨 4 點前算前一天；國定假日規則同下一班；查不到時刻表是空陣列），speak「美麗島的末班車（時刻表）：往小港 00:xx、…」。
 
 看板與時刻表都沒有資料時回空 `trains`（不報錯）。2026-11-22 實測：北捷看板只有「列車進站中」的站（DATA_SOURCES.md §1.2），所以看板沒有的方向依站別時刻表估 60 分鐘內的下一班：`trains[].scheduled: true`、`status: 'scheduled'`（卡片顯示「約 N 分」），輸出加 `source: 'timetable'|'mixed'`、`note`／`noteEn`（說明是時刻表估算）；speak「台北車站依時刻表約 2 分鐘後有往頂埔的車。」；北捷每次都補時刻表，其他系統只在這一站沒有看板資料時才查。示範模式：四個系統的主要車站（真實站名、近似座標），每 6 分鐘一班的模擬到站，終點站不顯示往自己方向的車。
 
@@ -216,7 +219,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 
 | | |
 |---|---|
-| 輸入 | `from`, `to`：座標 `{ lat, lon }` 或地名（`resolvePoint()` 以 `find_place` 轉座標，找不到 → `UserError`） |
+| 輸入 | `from`, `to`：座標 `{ lat, lon }` 或地名（`resolvePoint()` 以 `find_place` 轉座標，找不到 → `UserError`）；起訖直線不到 1 公里（`TRAFFIC_MIN_M`，例：模型拿同一個座標當起訖）→ `UserError`「起點和終點幾乎是同一個地方…請問使用者要從哪裡到哪裡」，不回沒查過的「附近沒塞車」（2026-11-22 真實資料健檢；示範行程起訖不到 1 公里就不查國道） |
 | 輸出 | `{ from, to, fromPoint: { name, lat, lon }, toPoint, level: 'smooth'\|'slow'\|'jam'\|null, delayMin, covered, straightKm, segments: [{ id, name, road, speedKmh, limitKmh, lengthKm, congestion }], events: [{ title, time }], note?, updatedAt }` |
 | 沿途路段 | 直線 < 15 km 不查（`covered: false`、`level: null`）。路段中點離起訖連線 ≤ 3 km、投影落在起訖之間、且路段方向與行進方向一致才算沿途；依行進順序排列。長度用 `SectionLength`，沒有就由形狀估；速限缺時以 100 km/h 計 |
 | level | 車速 ÷ 速限 < 0.4 為壅塞、< 0.75 為車多。壅塞累計 ≥ 5 km 或整體加權比值 < 0.4 → `jam`；車多以上累計 ≥ 5 km 或比值 < 0.75 → `slow`；其餘 `smooth`；沒有車速資料 → `null`（**不是順暢**） |
