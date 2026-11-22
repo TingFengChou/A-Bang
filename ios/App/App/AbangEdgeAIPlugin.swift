@@ -1,5 +1,5 @@
 // 裝置端 AI 判斷（ADR-0014）：Apple Intelligence（Foundation Models）在手機上判斷意圖與狀態。
-// JS 端：public/js/edge-judge.js（Capacitor 外掛名 AbangEdgeAI）。只回 { engine, result: { intent, states } }，
+// JS 端：public/js/edge-judge.js（Capacitor 外掛名 AbangEdgeAI）。只回 { engine, result: { intent, states, ask? } }（ask：要不要先問一題，ADR-0020），
 // write（ADR-0017）：把伺服器的程式版總結改寫成自然的一兩句；數字由 JS 的程式護欄檢查，不過就用程式版。
 // suggest（AGENT.md §5.5）：猜使用者接下來想問的話。優先順序 judge ＞ write ＞ suggest：judge、write 開始前都先取消正在跑的 suggest。
 // iOS 26 以下、機型不支援、沒開 Apple Intelligence、模型還在下載、語言不支援 → status 回 available: false，judge 回錯誤，JS 改由伺服器判斷。
@@ -100,6 +100,7 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func judge(_ call: CAPPluginCall) {
         guard let text = call.getString("text"), !text.isEmpty else { call.reject("沒有句子"); return }
         let history = (call.getArray("history") as? [String]) ?? []
+        let context = String((call.getString("context") ?? "").prefix(400)) // 只在手機上組的情境（不含座標；與 JS JUDGE_CONTEXT_MAX 相同）
         stopSuggest() // judge 優先：正在猜下一句就先取消，模型讓給這一題
         let instructions = call.getString("instructions") ?? ""
         #if canImport(FoundationModels)
@@ -109,10 +110,12 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
             Task {
                 let t0 = Date()
                 do {
-                    let r = try await AppleJudge.shared.judge(text: text, history: history, instructions: instructions)
+                    let r = try await AppleJudge.shared.judge(text: text, history: history, context: context, instructions: instructions)
                     let ms = Int(Date().timeIntervalSince(t0) * 1000)
                     CAPLog.print("AbangEdgeAI: judged in \(ms) ms") // 只記耗時，不記內容
-                    call.resolve(["engine": "apple", "ms": ms, "result": ["intent": r.intent, "states": r.states]]) // ms：模型花多久（#/ai 顯示）
+                    var result: [String: Any] = ["intent": r.intent, "states": r.states]
+                    if let ask = r.ask { result["ask"] = ask } // 題目由 JS 與伺服器的程式驗證（ADR-0020）
+                    call.resolve(["engine": "apple", "ms": ms, "result": result]) // ms：模型花多久（#/ai 顯示）
                 } catch {
                     CAPLog.print("AbangEdgeAI: judge failed \(AppleJudge.code(error))") // 錯誤種類，不印句子內容
                     call.reject(self.busyAfterCancel(error) ? "busy" : "judge failed") // busy：這一題改由伺服器判斷，JS 不當成不可用
@@ -209,6 +212,24 @@ let edgeIntents = ["trip", "bus_route", "youbike", "nearby_bus", "metro", "rail"
 /// 狀態（與 JUDGE_STATES 相同）
 let edgeStates = ["rush", "luggage", "budget", "lessWalk", "rain", "badAir", "elder", "kids", "mobility"]
 
+/// 手機可以提議問的種類與狀況（與 core/edge-ask.js EDGE_ASK_SLOTS、EDGE_ASK_STATES 相同；test/edge-ask.test.js 比對）
+let edgeAskSlots = ["route", "to", "from", "state"]
+let edgeAskStates = ["none", "rush", "budget", "luggage", "lessWalk"]
+
+/// 要不要先問使用者一題（ADR-0020）：模型提候選，JS 與伺服器的程式驗證，不通過就照規則問
+@available(iOS 26.0, *)
+@Generable
+struct EdgeAsk {
+    @Guide(description: "問哪一種：route 缺公車路線、to 缺目的地、from 沒定位也沒說起點、state 會改變建議的狀況", .anyOf(edgeAskSlots))
+    var slot: String
+    @Guide(description: "slot 是 state 時問哪個狀況，其他填 none", .anyOf(edgeAskStates))
+    var state: String
+    @Guide(description: "30 字內的一句問句，不要有數字")
+    var question: String
+    @Guide(description: "2～4 個 12 字內的短答（路線號碼、地名、回家、用我的位置；state 一個肯定一個否定）", .minimumCount(2), .maximumCount(4))
+    var options: [String]
+}
+
 @available(iOS 26.0, *)
 @Generable
 struct EdgeJudgement {
@@ -216,6 +237,8 @@ struct EdgeJudgement {
     var intent: String
     @Guide(description: "使用者明講的狀態，沒有就空陣列", .maximumCount(9), .element(.anyOf(edgeStates)))
     var states: [String]
+    @Guide(description: "要先問使用者的一題；資料夠、不用問就留空（寧可不問）")
+    var ask: EdgeAsk?
 }
 
 @available(iOS 26.0, *)
@@ -317,13 +340,21 @@ actor AppleJudge {
         return Array(r.content.questions.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }.prefix(max))
     }
 
-    func judge(text: String, history: [String], instructions: String) async throws -> (intent: String, states: [String]) {
+    func judge(text: String, history: [String], context: String, instructions: String) async throws -> (intent: String, states: [String], ask: [String: Any]?) {
         let session = take(instructions)
         defer { prewarm(instructions: instructions) }
         let prior = history.isEmpty ? "" : "前文：\(history.joined(separator: "／"))\n"
-        let r = try await session.respond(to: "\(prior)這句：\(text)", generating: EdgeJudgement.self, options: GenerationOptions(sampling: .greedy))
+        let ctx = context.isEmpty ? "" : "情境：\(context)\n"
+        let r = try await session.respond(to: "\(ctx)\(prior)這句：\(text)", generating: EdgeJudgement.self, options: GenerationOptions(sampling: .greedy))
         let states = Array(Set(r.content.states.filter { edgeStates.contains($0) }))
-        return (edgeIntents.contains(r.content.intent) ? r.content.intent : "unknown", states)
+        // 題目只做最基本的整理（種類要對）；長度、選項、內容由 JS 與伺服器的程式驗證
+        var ask: [String: Any]? = nil
+        if let a = r.content.ask, edgeAskSlots.contains(a.slot) {
+            var o: [String: Any] = ["slot": a.slot, "question": a.question, "options": Array(a.options.prefix(4))]
+            if a.slot == "state", a.state != "none" { o["state"] = a.state }
+            ask = o
+        }
+        return (edgeIntents.contains(r.content.intent) ? r.content.intent : "unknown", states, ask)
     }
 }
 #endif

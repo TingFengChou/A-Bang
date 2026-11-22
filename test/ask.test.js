@@ -76,7 +76,7 @@ test('ev.ask：格式、kind 只能是 state／reply／store／dismiss／action�
   assert.ok(EVENT_TYPES.includes('ask'));
   assert.deepEqual(ASK_KINDS, ['state', 'reply', 'store', 'dismiss', 'action']);
   const e = ev.ask({ id: 'q1', question: '你趕時間嗎？', options: [{ label: '趕', kind: 'state', state: 'rush', say: '我趕時間' }, { label: '不趕', kind: 'dismiss' }], about: 'state:rush', pending: { slot: 'state', state: 'rush' } });
-  assert.deepEqual(e, { type: 'ask', id: 'q1', question: '你趕時間嗎？', options: [{ label: '趕', kind: 'state', state: 'rush', say: '我趕時間' }, { label: '不趕', kind: 'dismiss' }], about: 'state:rush', pending: { slot: 'state', state: 'rush' } });
+  assert.deepEqual(e, { type: 'ask', id: 'q1', question: '你趕時間嗎？', options: [{ label: '趕', kind: 'state', state: 'rush', say: '我趕時間' }, { label: '不趕', kind: 'dismiss' }], about: 'state:rush', pending: { slot: 'state', state: 'rush' }, askSource: 'rule' }, '程式產生的題目標 askSource rule（ADR-0020）');
   const r = ev.ask({ id: 'q2', question: '要從哪一站出發？', options: [{ label: '台中', kind: 'reply', say: '高鐵台中到台北多少錢', guess: true }], pending: { slot: 'railFrom', intent: { intent: 'rail', to: '台北' } } });
   assert.deepEqual(r.options[0], { label: '台中', kind: 'reply', guess: true, say: '高鐵台中到台北多少錢' }, 'reply 送完整的一句');
   assert.equal(r.pending.slot, 'railFrom');

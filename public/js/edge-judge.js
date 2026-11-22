@@ -3,8 +3,10 @@
 //   iOS：Apple Intelligence（Foundation Models，iOS 26 以上、支援的機型且已開啟）
 //   Android：Gemini Nano（ML Kit GenAI Prompt API，經 AICore；支援的機型）
 // 網頁版、系統模型不可用、逾時或回傳看不懂 → 回 null，伺服器照原本的判斷層（使用者看不出差別）。
-// 只送「意圖、狀態、引擎」三個欄位，不送模型原文；方案排序仍由伺服器 decide.js 計分（ADR-0010）。
+// 只送「意圖、狀態、引擎」（＋手機提議的一題 ask，ADR-0020）；不送模型原文；方案排序仍由伺服器 decide.js 計分（ADR-0010）。
+// 同一次呼叫也請模型決定要不要先問使用者一題（ask）：形狀先在手機上檢查（core/edge-ask.js），不過就不送；伺服器再驗證內容，不過就照規則問。
 import { unsafeAsk } from '../../core/suggest.js';
+import { EDGE_ASK_GUIDE, normalizeEdgeAsk, edgeAskShape, requestAsk, askAbout } from '../../core/edge-ask.js';
 
 // 外掛 AbangEdgeAI 有三個用模型的任務：judge（聽懂問題）、write（寫回答，edge-write.js）、suggest（猜下一句）。
 // 共用這裡的外掛存取與斷路器；優先順序 judge ＞ write ＞ suggest：judge、write 開始前先取消正在跑的 suggest（cancelSuggest），
@@ -37,6 +39,11 @@ export const EDGE_INSTRUCTIONS = `你是交通與生活助理的「意圖與狀�
 意圖（選一個）：trip 從 A 到 B 怎麼去、行程、比較交通方式（只說目的地也算）；bus_route 某條公車路線到哪、多久到、末班；youbike 借還 YouBike、站點車位；nearby_bus 附近公車站牌；metro 捷運下一班；rail 高鐵、台鐵班次車票；weather 天氣、會不會下雨；aqi 空氣品質、PM2.5、口罩；quake 地震；pharmacy 藥局；garbage 垃圾車；fuel 油價；invoice 發票對獎；stock 台股；unknown 以上都不是。
 狀態（使用者明講才列，可為空）：rush 趕時間、快遲到；luggage 帶行李、大包小包；budget 要便宜、省錢；lessWalk 不想走路、腳不舒服；rain 正在下雨（問會不會下雨不算）；badAir 空氣很差；elder 帶長輩、老人家同行；kids 帶小孩、推嬰兒車；mobility 坐輪椅、行動不便。
 「307 到哪了」「藍15 還要多久」問某條公車在哪、多久到是 bus_route，不是 trip。「板南線下一班」「淡水信義線還要等多久」是 metro。「下一班高鐵到台中」「幾點有自強號」是 rail，不是 trip。「這期發票」「中獎號碼」「我有沒有中」是 invoice。「改坐公車」「那叫車呢」這類接著改條件的話是 trip。前文提過的狀態持續有效。`;
+/** 實際給模型的指示：判斷＋要不要先問一題（ADR-0020；prewarm 與 judge 要用同一份，iOS 才會用到預先載入的 session） */
+export const EDGE_JUDGE_INSTRUCTIONS = `${EDGE_INSTRUCTIONS}\n${EDGE_ASK_GUIDE}`;
+
+/** 現在請手機判斷會不會真的呼叫外掛（App、沒跳斷路器、上一題跑完、開關開著）：不會就不必組情境 */
+export const edgeJudgeReady = () => !!cap() && !unavailable && !inflight && edgeEnabled();
 
 /** 使用者可在設定關掉裝置端 AI（E8）；讀不到就當開著 */
 export function edgeEnabled() {
@@ -69,17 +76,60 @@ export function noteEdgeJudge(ms, now = Date.now()) {
   try { globalThis.localStorage?.setItem(EDGE_STATS_KEY, JSON.stringify({ d: dayKey(now), n: today + 1, ms: validMs(ms) ?? lastMs })); } catch { /* 無痕模式：不記 */ }
 }
 
-/** 把外掛回傳整理成 deviceJudge；任何欄位不對就整個不用（回 null） */
-export function normalizeJudge(raw, engine) {
-  let o = raw;
-  if (typeof o === 'string') {
-    // Android 模型偶爾在 JSON 前後加字、或輸出兩個物件：取第一個解析得出來的
-    o = null;
-    for (const m of raw.match(/\{[^{}]*\}/g) || []) { try { o = JSON.parse(m); break; } catch { /* 下一個 */ } }
+/** 字串裡第一個解析得出來、有 intent 的 JSON 物件（Android 模型偶爾在 JSON 前後加字、輸出兩個物件；ask 是巢狀物件，要配對大括號） */
+function firstJudgeJson(raw) {
+  const s = String(raw);
+  for (let i = s.indexOf('{'); i >= 0; i = s.indexOf('{', i + 1)) {
+    let depth = 0, str = false, esc = false;
+    for (let j = i; j < s.length; j++) {
+      const c = s[j];
+      if (str) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') str = false; continue; }
+      if (c === '"') str = true;
+      else if (c === '{') depth++;
+      else if (c === '}' && --depth === 0) {
+        try { const o = JSON.parse(s.slice(i, j + 1)); if (o && typeof o === 'object' && 'intent' in o) return o; } catch { /* 下一個 */ }
+        break;
+      }
+    }
   }
+  return null;
+}
+/**
+ * 截斷的輸出（Android 輸出上限內沒寫完 ask）：撈回 intent 與 states，只丟掉 ask（ADR-0020 第 6 點：解析失敗只當作沒有 ask）。
+ * @returns {{ intent: string, states: string[] } | null}
+ */
+function salvageJudge(raw) {
+  const s = String(raw);
+  const i = /"intent"\s*:\s*"([a-z_]+)"/.exec(s);
+  if (!i) return null;
+  const st = /"states"\s*:\s*\[([^\]]*)\]/.exec(s);
+  return { intent: i[1], states: st ? [...st[1].matchAll(/"([a-zA-Z]+)"/g)].map((m) => m[1]) : [] };
+}
+/** 這一句是英文還是中文（題目的語言要跟著；伺服器另外用規則判斷） */
+export const textLang = (text) => (/[㐀-鿿]/.test(String(text || '')) ? 'zh' : /[a-z]{2,}/i.test(String(text || '')) ? 'en' : null);
+
+/**
+ * 模型提議的那一題（ADR-0020）：整理＋形狀檢查（core/edge-ask.js）＋剛問過的不再問。
+ * @returns {{ ask: object|null, reason: string|null, raw: object|null }} ask：可以送伺服器的；reason：被擋的原因；raw：模型原本的題目（畫面「阿幫的腦袋」照列）
+ */
+export function judgeAsk(o, { lang = null, asked = [] } = {}) {
+  const raw = normalizeEdgeAsk(o?.ask);
+  if (!raw) return { ask: null, reason: null, raw: null };
+  const reason = edgeAskShape(raw, { lang }) || (asked.includes(askAbout(raw)) ? 'asked' : null);
+  return { ask: reason ? null : requestAsk(raw), reason, raw };
+}
+
+/**
+ * 把外掛回傳整理成 deviceJudge；意圖或引擎不對就整個不用（回 null）。題目（ask）沒通過手機上的檢查就只是不帶，判斷照用。
+ * @param {{ lang?: 'en'|'zh'|null, asked?: string[], onAsk?: (r: ReturnType<typeof judgeAsk>) => void }} [o] asked：這段對話上一輪問過的題（about）
+ */
+export function normalizeJudge(raw, engine, { lang = null, asked = [], onAsk = null } = {}) {
+  const o = typeof raw === 'string' ? firstJudgeJson(raw) || salvageJudge(raw) : raw;
   if (!o || typeof o !== 'object' || !EDGE_INTENTS.includes(o.intent) || !EDGE_ENGINES.includes(engine)) return null;
   const states = [...new Set((Array.isArray(o.states) ? o.states : []).filter((k) => EDGE_STATES.includes(k)))];
-  return { intent: o.intent, states, engine };
+  const a = judgeAsk(o, { lang, asked });
+  if (a.raw) onAsk?.(a);
+  return { intent: o.intent, states, engine, ...(a.ask && { ask: a.ask }) };
 }
 
 /** 裝置模型的狀態：{ available, engine, reason }（reason：unsupported／disabled／downloading／not-ready…） */
@@ -92,7 +142,7 @@ export async function edgeStatus() {
 /** 進問阿幫頁時先讓系統載入模型（第一次判斷才不會慢）；失敗不影響 */
 export function edgePrewarm() {
   const c = cap();
-  if (c && edgeEnabled()) c.nativePromise(PLUGIN, 'prewarm', { instructions: EDGE_INSTRUCTIONS }).catch(() => {});
+  if (c && edgeEnabled()) c.nativePromise(PLUGIN, 'prewarm', { instructions: EDGE_JUDGE_INSTRUCTIONS }).catch(() => {});
 }
 
 // 斷路器（PR #32 審查）：上一題還沒跑完（例：iOS 冷啟動 5 秒）就不等；外掛說不可用就這次開 App 都不再試
@@ -120,23 +170,25 @@ export const edgeTasks = new Set();
 export const _resetEdge = () => { inflight = null; unavailable = false; suggestInflight = null; suggestOff = false; suggestAbort = null; lastCancelAt = -Infinity; edgeTasks.clear(); };
 
 /**
- * 在手機上判斷這一句。
+ * 在手機上判斷這一句（同一次呼叫也決定要不要先問使用者一題，ADR-0020）。
  * @param {string} text 使用者這一句
  * @param {string[]} [history] 前面幾句（只取最後 2 句）
- * @returns {Promise<{ intent: string, states: string[], engine: string } | null>}
+ * @param {{ timeout?: number, context?: string, asked?: string[], onAsk?: Function }} [o] context：只在手機上組的情境（judgeContext；不含座標）；
+ *   asked：上一輪問過的題（about）；onAsk：模型有提議題目時告訴呼叫端（通過或被擋與原因；「阿幫的腦袋」用）
+ * @returns {Promise<{ intent: string, states: string[], engine: string, ask?: object } | null>}
  */
-export async function edgeJudge(text, history = [], { timeout = EDGE_TIMEOUT_MS } = {}) {
+export async function edgeJudge(text, history = [], { timeout = EDGE_TIMEOUT_MS, context = '', asked = [], onAsk = null } = {}) {
   const c = cap();
   if (!c || unavailable || inflight || !edgeEnabled() || !text) return null;
   cancelSuggest(); // judge 優先：正在猜下一句就先取消（Android 原生端共用一條執行緒，不讓 judge 排在 suggest 後面）
   let timer;
   const t0 = Date.now();
   try {
-    const call = c.nativePromise(PLUGIN, 'judge', { text: String(text).slice(0, 500), history: history.slice(-2).map((h) => String(h).slice(0, 200)), instructions: EDGE_INSTRUCTIONS, intents: EDGE_INTENTS, states: EDGE_STATES });
+    const call = c.nativePromise(PLUGIN, 'judge', { text: String(text).slice(0, 500), history: history.slice(-2).map((h) => String(h).slice(0, 200)), instructions: EDGE_JUDGE_INSTRUCTIONS, intents: EDGE_INTENTS, states: EDGE_STATES, context: String(context || '').slice(0, JUDGE_CONTEXT_MAX) });
     // 逾時後原生端仍在跑：跑完前下一題不再呼叫（避免排隊），跑完的結果丟掉（不會用到下一題）
     inflight = call.catch((e) => noteEdgeError(e?.message)).finally(() => { inflight = null; });
     const r = await Promise.race([call, new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeout); })]);
-    const out = r ? normalizeJudge(r.result, r.engine) : null;
+    const out = r ? normalizeJudge(r.result, r.engine, { lang: textLang(text), asked, onAsk }) : null; // 解析失敗只當作沒有 ask，不跳斷路器
     if (out) noteEdgeJudge(validMs(r.ms) ?? Date.now() - t0); // 外掛有回模型耗時就用它，否則用這裡量到的（含橋接）
     return out;
   } catch {
@@ -144,6 +196,24 @@ export async function edgeJudge(text, history = [], { timeout = EDGE_TIMEOUT_MS 
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** 給判斷的情境最多幾個字（手機模型上下文小、要快） */
+export const JUDGE_CONTEXT_MAX = 400;
+/**
+ * 給手機判斷（含要不要問）的情境：只在手機上組、只給手機上的模型看，不送伺服器（AGENT.md §5.3.1）。
+ * 不含座標、不含常用地點的地址、不含健康資料；只有：最近兩輪的摘要（同動態建議 suggestContext）、目前頁面、有沒有定位、常用地點的「標籤」、剛問過什麼。
+ * @param {{ summary?: string, located?: boolean|null, saved?: string[], asked?: string[] }} o summary：suggest.js contextText 的結果
+ */
+export function judgeContext({ summary = '', located = null, saved = [], asked = [] } = {}) {
+  const L = []; // 出題要用的放前面（摘要可能很長，超過上限時截掉的是摘要的尾巴）
+  if (located != null) L.push(located ? '定位：可以用手機定位（沒說起點就用現在位置）' : '定位：沒有定位或還沒允許（不一定知道使用者在哪）');
+  const labels = saved.filter((k) => ['家', '公司', '學校'].includes(k));
+  L.push(labels.length ? `常用地點：${labels.join('、')}` : '常用地點：沒有設定');
+  const ab = asked.filter((a) => typeof a === 'string' && /^(?:slot|state):[a-zA-Z]+$/.test(a));
+  if (ab.length) L.push(`剛問過：${ab.join('、')}（不要再問）`);
+  if (summary) L.push(String(summary).replace(/^設定了常用地點：.*$/m, '').trim());
+  return L.filter(Boolean).join('\n').slice(0, JUDGE_CONTEXT_MAX);
 }
 
 // ───── 動態「下一句」建議（UX.md §3.2、AGENT.md §5.5）：手機上的 AI 依情境猜使用者接下來想問的 3～4 句 ─────

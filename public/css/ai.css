@@ -155,6 +155,12 @@ html.lite-motion .ai-sec { animation: none; }
 .ai-ask { border: 1px solid #f3d9a4; background: #fffaf0; border-radius: 12px; padding: 10px 12px; }
 .ai-ask-q { margin: 0 0 6px; font-weight: 700; line-height: 1.6; }
 .ai-gap { color: var(--warn) !important; }
+/* 這題誰決定的（ADR-0020）：手機上的 AI／規則保底；被擋下的手機題目用灰底（不是阿幫真的會問的） */
+.ai-asker { margin: 8px 0 0; font-weight: 600; }
+.ai-asker.device { color: var(--ok) !important; }
+.ai-ask-blocked { margin-top: 8px; border-color: var(--line); background: #f7f9f8; }
+.ai-ask-blocked .ai-dq { margin: 0 0 6px; font-weight: 700; line-height: 1.6; color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.ai-ask-blocked .ai-ask-opts li { color: var(--muted); }
 .ai-suggest { margin: 0; padding-left: 22px; display: grid; gap: 6px; font-size: 15px; line-height: 1.6; }
 .ai-suggest li span { margin-right: 6px; }
 .ai-raw { margin-top: 10px; }

@@ -4,7 +4,7 @@
 // 動畫只是另一種呈現：同樣的資訊都在 role=status 的那一句（讀屏、reduced motion 拿到的一樣多）。樣式：css/ai.css。
 import { esc } from '../ui.js';
 import { api } from '../api.js';
-import { edgeEnabled, edgeStatus, edgeJudge, edgePrewarm, edgeStats, setEdgeEnabled, edgeSuggest, edgeCanSuggest } from '../edge-judge.js';
+import { edgeEnabled, edgeStatus, edgeJudge, edgePrewarm, edgeStats, setEdgeEnabled, edgeSuggest, edgeCanSuggest, judgeContext } from '../edge-judge.js';
 import { ENGINE_NAME, normalizeEdgeInfo, normalizeServerInfo, lastAgentStatus, languageNames, nodeText, judgedText } from '../ai-info.js';
 import { aiT, pageLang } from './ai-i18n.js';
 import { visionStatus, visionEnabled } from '../vision.js';
@@ -178,7 +178,7 @@ export default {
       judge: byLabel,
       data: () => t('trial.by.program'),
       answer: (s) => (s.rewrite?.ok ? t('trial.by.mixed') : t('trial.by.program')),
-      next: (s) => (s.suggest?.source === 'edge' ? t('trial.by.mixed') : t('trial.by.rules')),
+      next: (s) => (s.suggest?.source === 'edge' || s.asker?.by === 'device' ? t('trial.by.mixed') : t('trial.by.rules')), // 題目或建議有手機上的 AI 參與（ADR-0020）
     };
     const row = (k, v) => { const d = h('div'); d.append(h('dt', '', k), h('dd', '', v)); return d; };
 
@@ -249,6 +249,21 @@ export default {
       }
       body.append(w);
     }
+    /** 這題誰決定的（ADR-0020）：手機上的 AI 決定／規則保底；手機提議但被擋下的題目照列（含原因） */
+    function paintAsker(body, a) {
+      if (!a) return;
+      const engine = ENGINE_NAME[a.engine] || a.engine || '';
+      const line = a.by === 'device' ? t('trial.asker.device', { engine }) : a.by === 'rule' ? (a.proposed ? t('trial.asker.rule') : a.engine ? t('trial.asker.ruleOnly') : t('trial.asker.rule')) : a.engine && !a.proposed ? t('trial.asker.noneDevice') : '';
+      if (line) { const p = h('p', `note ai-asker ${a.by}`, line); p.dataset.by = a.by; body.append(p); }
+      if (!a.blocked || !a.proposed) return;
+      const box = h('div', 'ai-ask ai-ask-blocked');
+      box.dataset.where = a.blocked.where;
+      box.append(h('p', 'note', t('trial.asker.proposed')), h('p', 'ai-dq', a.proposed.question || '—'));
+      if (a.proposed.options?.length) { const ul = h('ul', 'ai-ask-opts'); for (const o of a.proposed.options) ul.append(h('li', '', o)); box.append(ul); }
+      const why = t(`askwhy.${a.blocked.reason}`);
+      box.append(h('p', 'ai-check no', t(`trial.asker.blocked.${a.blocked.where}`, { why: why === `askwhy.${a.blocked.reason}` ? a.blocked.reason : why })));
+      body.append(box);
+    }
     function paintNext(body, s) {
       body.append(h('h4', '', t('trial.ask')));
       if (s.ask) {
@@ -264,6 +279,7 @@ export default {
         if (s.ask.why) box.append(h('p', 'note', s.ask.why));
         body.append(box);
       } else body.append(h('p', 'note', t('trial.ask.none')));
+      paintAsker(body, s.asker);
       if (s.missing?.length && !s.missing.some((k) => s.ask?.about === `slot:${k}`)) body.append(h('p', 'note ai-gap', t('trial.ask.missing', { missing: s.missing.map((k) => t(`slot.${k}`)).join(t('trial.sep')) })));
       if (s.location) body.append(h('p', 'note', t('trial.ask.location')));
       body.append(h('h4', '', t('trial.suggest')));
@@ -351,11 +367,13 @@ export default {
         trialCtl?.abort();
         const ctl = new AbortController();
         trialCtl = ctl;
+        let askInfo = null;
         const mine = () => alive && trialCtl === ctl && !ctl.signal.aborted; // 這一輪還是目前的那一輪（沒被重畫或離開頁面取代）
         try {
           const rep = await runTrial(q, {
             device,
-            judge: (x) => edgeJudge(x, [], { timeout: TRY_TIMEOUT_MS }), // 只呼叫手機上的外掛，沒有網路
+            judge: (x) => { askInfo = null; return edgeJudge(x, [], { timeout: TRY_TIMEOUT_MS, context: judgeContext({ located: false }), onAsk: (a) => { askInfo = a; } }); }, // 只呼叫手機上的外掛，沒有網路；試判斷不送定位（情境照實說沒有定位）
+            askInfo: () => askInfo, // 手機上的 AI 提議的題目與在手機上的檢查結果（ADR-0020）
             judgeMs: () => edgeStats().lastMs,
             agent: (b, onEv, o) => runAgent(b, onEv, o),
             write: (d, o) => edgeWrite(d, o),

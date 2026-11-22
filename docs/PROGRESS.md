@@ -13,6 +13,14 @@
 
 ---
 
+## 2026-11-22 問什麼由手機上的 AI 決定（ADR-0020）
+- 做了：產品負責人「決定要問什麼應該交給 edge AI」。手機 judge（AbangEdgeAI，Gemini Nano／Apple Intelligence）一次呼叫回 `{ intent, states, ask? }`，ask＝`{ slot: route|to|from|state, state?, question, options[2～4] }`；情境（定位、常用地點標籤、上一輪問過的題、最近兩輪摘要、頁面）只在手機上組。程式驗證：`core/edge-ask.js edgeAskShape`（手機與伺服器共用，經 `/core/` 提供：種類、長度、問句、沒有數字、選項數與重複、`unsafeAsk`、L2 護欄、代辦說法、語言、狀態題一肯定一否定）＋伺服器 `deviceSlotAsk`／`deviceStateAsk`（規則也認為缺、選項經 `PENDING_SLOTS` 接得回、`keyQuestion` 只試那個狀態會換建議）。通過就用手機的題目與選項（說明、pending、key、這一輪的一句回答仍由程式），與規則衝突以手機為準，手機沒給照規則保底；網頁版不變。`ask.askSource`、最後 `done.askCheck`、log `ask`／`deviceAsk`（不記題目）。試判斷第 4 段標來源、列被擋的題目與原因。Android JSON（輸出 160 token、帶情境）、iOS `@Generable EdgeAsk`。sw `v1.2.0`。
+- 測試：npm test 全過（新增 `test/edge-ask.test.js` 16 項：形狀、整理、巢狀 JSON、指示與情境、請求驗證、採用、寧可不問、衝突順序、英文、模型與 edge 模式、log、試判斷；#115 情境 AR-*／AS-* 用假外掛「合理」「亂來」各跑一遍）；E2E 新增 2 項（手機題目、退回規則、網頁版不變、試判斷來源，截圖 `phone-edge-ask*.png`）；Android assembleDebug、iOS xcodebuild（不簽署）通過
+- 文件：ADR-0020（新）、ADR-0016、AGENT.md §3、§3.1、§3.6、§5.3.1、UX.md §5.0.1、PLAN.md
+- PR #116 獨立審查修正（沒有手機題目時與 main 一致，2229 組對照）：①狀態題題目要問對狀態（`stateQuestionOk`：有那個狀態的字、沒有別的狀態、不反著問、不改問交通方式），選項一律用程式的 `STATE_ANSWERS`；②誘導繞過：NFKC、去掉格式字元與空白後再比 `unsafeAsk`、誘導字、連續數字（國字、圈圈數字）、L2 護欄，伺服器加跑防詐規則庫，題目只能一句、要切題，選項要整個就是地名；③控制與格式字元 zod 400、手機先擋；建議：選項只收前文與情境出現過的地名與路線、起點不能當目的地、指示不放具體例子；Android 截斷撈回判斷只丟 ask；習慣確認與說過的預設狀況優先（手機狀態題只取代關鍵因子）。單元測試 +6、E2E 假外掛加上這些亂來的情況。
+- 下一個：實機確認出題品質與延遲（Pixel、iPhone）
+- 卡住：實機數據需 Pixel 與 iPhone 15 Pro 以上
+
 ## 2026-11-22 缺必要欄位就問（哪一路公車、要去哪裡、從哪裡出發）
 - 做了：試判斷看出的三個 agent 行為問題，照「該問就問、不要自己猜」走 ADR-0016 的 ask／pendingAsk。①問公車沒說哪一路（「公車還要多久？」「How long until the bus comes?」）→「哪一路公車？」（選項：這段對話最近提到的路線、看附近有哪些公車；打 307 接回「307 公車還要多久？」）。②只說起點（「從台北車站出發」「我在板橋，要出發了」「I'm leaving from Taipei Main Station」；判斷層說是行程時也一樣）當起點，問「要去哪裡？」；想去沒說哪裡（「我要去」「怎麼去？」）也問；選項是最近說過的地點與回家／去公司（手機有設定才顯示）。③沒定位、預設起點（臺北車站）在目的地 300 公尺內時，不算「臺北車站到臺北車站」，問「你從哪裡出發？」（用我的位置、從家／公司出發）。都在查資料、請定位前問，回答只有一句；示範、edge（手機寫回答）、模型模式都由程式問。`PENDING_SLOTS` 加 `route`／`to`／`from`，`pendingAsk` 多收 `from`、`to`、`lang`；打字的短答接回原問題，在問別的（天氣、油價、有問號）不當答案。試判斷第 4 段顯示這些新問題（缺的欄位被問到時不再標「沒有針對問」；常用地點選項標「有設定才會出現」）。sw `v1.1.1`。
 - 測試：npm test 全過（新增 test/ask-slots.test.js 10 項：解析、300 公尺、問句與選項、打字回答與不吞新問題、請求驗證、matchAnswer、runDemo、模型模式；情境 AS-1～AS-7；改 2 項舊測試的句子）；E2E 新增 2 項（問阿幫缺路線／只說起點、沒定位到預設起點＋英文＋常用地點選項），改試判斷 2 項

@@ -43,7 +43,8 @@ export function guardedText(profile, text, emit) {
 }
 import { STATES } from '../decide.js';
 import { HabitSchema } from '../tools/trip.js';
-import { tripAsk, resolvePending, PENDING_SLOTS, unknownAsk, UNKNOWN_SHORT, slotAsk, originAsk, ORIGIN_ASKED } from './ask.js';
+import { tripAsk, resolvePending, PENDING_SLOTS, unknownAsk, UNKNOWN_SHORT, slotAsk, originAsk, ORIGIN_ASKED, deviceAskTracker, deviceAskCheck, deviceSlotAsk } from './ask.js';
+import { EDGE_ASK_SLOTS, EDGE_ASK_STATES, EDGE_ASK_LIMITS } from '../edge-ask.js';
 
 /** 「你說過」的預設狀況只能是這幾種（habits.js 叫車原因） */
 export const USUAL_STATES = ['rush', 'luggage', 'lessWalk'];
@@ -84,7 +85,10 @@ const RequestSchema = z.object({
     from: z.string().trim().min(1).max(40).regex(/^[^\n\r]+$/).optional(), to: z.string().trim().min(1).max(40).regex(/^[^\n\r]+$/).optional(), lang: z.enum(['en']).optional() }).optional(),
   savedPlaces: z.partialRecord(z.enum(['家', '公司', '學校']), z.object({ name: z.string().trim().min(1).max(40), lat: z.number().min(21).max(27), lon: z.number().min(118).max(123) })).optional(),
   // 手機上的模型先判斷好的意圖與狀態（ADR-0014）：只是提示，列舉值以外一律拒絕；方案排序仍由 decide.js 計分
-  deviceJudge: z.object({ intent: z.enum(Object.keys(JUDGE_INTENTS)), states: z.array(z.enum(JUDGE_STATES)).max(JUDGE_STATES.length), engine: z.enum(DEVICE_ENGINES) }).optional(),
+  // ask：手機上的 AI 提議先問使用者的一題（ADR-0020）：只收形狀對的（種類、狀態列舉、長度、選項數、沒有控制與格式字元〔零寬、雙向控制〕），內容另外由程式驗證，不通過就照規則問
+  deviceJudge: z.object({ intent: z.enum(Object.keys(JUDGE_INTENTS)), states: z.array(z.enum(JUDGE_STATES)).max(JUDGE_STATES.length), engine: z.enum(DEVICE_ENGINES),
+    ask: z.object({ slot: z.enum(EDGE_ASK_SLOTS), state: z.enum(EDGE_ASK_STATES).optional(), question: z.string().trim().min(2).max(EDGE_ASK_LIMITS.questionEn).regex(/^[^\p{Cc}\p{Cf}]+$/u), // 中文 30、英文 60（core/edge-ask.js 依語言再檢查）
+      options: z.array(z.string().trim().min(1).max(EDGE_ASK_LIMITS.optionEn).regex(/^[^\p{Cc}\p{Cf}]+$/u)).min(EDGE_ASK_LIMITS.min).max(EDGE_ASK_LIMITS.max) }).strict().nullish() }).optional(), // null＝沒有要問
   // 手機能自己寫回答（ADR-0017）：伺服器不呼叫模型，送程式版總結（answer_draft）由手機改寫
   // trial：「阿幫的腦袋」的現場試判斷（#/ai）：同樣走 edge 模式（不呼叫任何伺服器模型），另外送 trial 事件（資料夠不夠、資料來源）；
   // 網頁版沒有手機上的模型，所以 trial 時 engine 可以不帶（一般請求一定要帶）
@@ -155,7 +159,7 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
       if (c.name !== 'plan_trip') { await emitAside(svc, emit, aside, { tool: c.name, data: result.data, parent: c.id, lang }); return { name: c.name, ok: true, result }; }
       emit(ev.decision(withPicked(result.data, picked)));
       // 阿幫問你（ADR-0016）：這一輪還沒問過才問（ask 是整輪共用的 { done, habitAsk }）
-      const q = ask && !ask.done ? tripAsk(result.data, { habitAsk: ask.habitAsk, usual: ask.usual, lang }) : null;
+      const q = ask && !ask.done ? tripAsk(result.data, { habitAsk: ask.habitAsk, usual: ask.usual, lang, device: ask.device }) : null; // device：手機上的 AI 提議的狀態題（ADR-0020）
       if (q) { ask.done = true; emit(ev.ask({ id: `ask-${nextId()}`, ...q })); }
       const f = busFollowUp(result.data);
       if (!f || !profile.tools.includes('bus_route_eta')) return { name: c.name, ok: true, result };
@@ -216,6 +220,19 @@ export function withHabit(args, habit) {
   return Object.keys(next).length ? { ...rest, prefs: next } : rest;
 }
 
+/**
+ * 這一輪結束時（不是請定位那一次）在 done 事件帶上手機提議的題目的去向（askCheck：用了／被擋與原因；ADR-0020）。
+ * 狀態題要等行程比較完才知道，所以放在最後的 done，不放在一開始的 status。沒有手機題目時原樣送出。
+ */
+export function withAskCheck(emit, dask) {
+  if (!dask) return emit;
+  let locating = false;
+  return (e) => {
+    if (e?.type === 'client_tool_call') locating = true;
+    emit(e?.type === 'done' && !locating ? { ...e, askCheck: deviceAskCheck(dask) } : e);
+  };
+}
+
 /** 對話裡之前的使用者訊息（判斷層看追問用） */
 export const priorUserTexts = (messages) => messages.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content);
 
@@ -254,7 +271,7 @@ function withPicked(trip, picked) {
  * @param {{ profileId?: string, now?: number, notice?: string, mode?: 'demo'|'rules'|'edge' }} [opts] notice：模型額度用完而降級時，在 status 後先說明；mode：rules＝地端模型的英文提問改由規則回答（資料照常是真的，不是示範）；
  *   edge＝回答交給手機寫（ADR-0017）：最後送 answer_draft（程式版總結＋事實清單）而不是 text
  */
-export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.now(), notice, judge, mode = 'demo' } = {}) {
+export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date.now(), notice, judge, mode = 'demo' } = {}) {
   const req = validateRequest(body);
   const profile = getProfile(profileId);
   const edgeWrite = mode === 'edge' && wantsEdgeWrite(req, profile.id);
@@ -265,6 +282,9 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   const plan = PLANNERS[profile.id] || PLANNERS.life;
   const last = req.messages.at(-1).content;
   let it = plan.parse(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces, now });
+  // 手機上的 AI 提議的題目（ADR-0020）：形狀先檢查，之後在問的時機驗證；結束時 done 帶 askCheck（用了／被擋與原因）
+  const dask = profile.id === 'life' ? deviceAskTracker(req.deviceJudge?.ask, it.lang === 'en' ? 'en' : 'zh') : null;
+  const emit = withAskCheck(emit0, dask);
   // 判斷層（judge.js）：先用快速版（A＋規則，幾毫秒）說聽懂了什麼，再用完整版（含模型）定案意圖與狀態
   const jc = judgeCalls(judge, req, profile, { noModel: edgeWrite });
   const q0 = jc ? await jc.quick() : null;
@@ -282,8 +302,9 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   // 快速版判斷同意（或沒有判斷層）就不再呼叫完整版的判斷模型；判斷層說是別的意圖時交給下面重判（可以更正規則）
   let trialSent = false;
   const askGap = (judged) => {
-    const g = profile.id === 'life' && slotAsk(it, { lang: it.lang, history: req.messages.slice(0, -1) });
-    if (!g) return false;
+    const rule = profile.id === 'life' && slotAsk(it, { lang: it.lang, history: req.messages.slice(0, -1) });
+    if (!rule) return false;
+    const g = deviceSlotAsk(dask, rule.ask.about.replace(/^slot:/, ''), rule, { history: req.messages.slice(0, -1), context: req.context }) || rule; // 手機的題目通過驗證就用它，否則照規則（保底）
     if (trial && !trialSent) { trialSent = true; emit(ev.trial(trialInfo(svc, it, { judge: judged, lang: it.lang === 'en' ? 'en' : 'zh', now }))); }
     emit(ev.ask({ id: `ask-${nextId()}`, ...g.ask })); emit(ev.text(g.short)); emit(ev.done());
     return true;
@@ -316,7 +337,8 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   // 上一輪已經問過、這一輪定位又失敗（按了「用我的位置」但拿不到）：不再給「用我的位置」，避免一直重複
   if (profile.id === 'life' && it.intent === 'trip' && !it.from && !it.fromSaved && !it.fromPoint && (it.nearRail || nearDefaultFrom(it.toSaved || it.to))) {
     const again = ORIGIN_ASKED.test(String(req.messages.slice(0, -1).filter((m) => m.role === 'assistant').at(-1)?.content || ''));
-    const o = originAsk(it.nearRail ? null : it.toSaved?.name || it.to, it.lang, { again, nearRail: it.nearRail });
+    const rule = originAsk(it.nearRail ? null : it.toSaved?.name || it.to, it.lang, { again, nearRail: it.nearRail });
+    const o = deviceSlotAsk(dask, 'from', rule, { again, history: req.messages.slice(0, -1), context: req.context }) || rule;
     if (o.ask) emit(ev.ask({ id: `ask-${nextId()}`, ...o.ask }));
     emit(ev.text(o.short)); emit(ev.done()); return;
   }
@@ -325,7 +347,7 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   const results = {};
   const used = [];
   let rounds = 0;
-  const ask = { done: false, habitAsk: req.userState?.habitAsk, usual: req.userState?.usual }; // 阿幫問你：這一輪最多一個
+  const ask = { done: false, habitAsk: req.userState?.habitAsk, usual: req.userState?.usual, device: dask }; // 阿幫問你：這一輪最多一個（device：手機提議的狀態題）
   const aside = asideState(req, profile, now, svc); // 等車推短劇：這一輪最多一次（排行先並行拿）
   for (const step of plan.steps(it, now)) {
     if (++rounds > MAX_TOOL_ROUNDS) break;
