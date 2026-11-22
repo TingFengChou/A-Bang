@@ -27,3 +27,15 @@ test('明天會下雨：晚上 19 點後、白天降雨機率 ≥ 50% 才給「�
   assert.match(umbrellaStep(wt(80), at('22:00'), true).label, /umbrella/);
   assert.ok(nextSteps([wt(70)], null, { now: at('21:00') }).some((x) => x.kind === 'alarm'));
 });
+
+test('發票：待開獎的發票在開獎日 14:00 提醒（只排最早的一天、算張數；過了不排）', async () => {
+  const { nextDrawNotify } = await import('../public/js/invoice-wallet.js');
+  const list = [
+    { status: 'pending', drawDate: '2027-01-25' }, { status: 'pending', drawDate: '2026-11-25' }, { status: 'pending', drawDate: '2026-11-25' },
+    { status: 'lost', drawDate: '2026-09-25' }, { status: 'pending' },
+  ];
+  const n = nextDrawNotify(list, at('10:00'));
+  assert.deepEqual([n.date, n.count, n.at.toISOString()], ['2026-11-25', 2, '2026-11-25T06:00:00.000Z']);
+  assert.equal(nextDrawNotify(list, Date.parse('2026-11-25T14:30:00+08:00')).date, '2027-01-25', '當天 14:00 過了：排下一期');
+  assert.equal(nextDrawNotify([{ status: 'won', drawDate: '2026-11-25' }], at('10:00')), null);
+});
