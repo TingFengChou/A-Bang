@@ -197,7 +197,7 @@ export function slotAsk(it, { lang = null, history = [] } = {}) {
   }
   if (it?.needs === 'to') {
     const from = it.from || null;
-    const fromSay = en && from ? enName(from) : from;
+    const fromSay = en && from ? enName(from) : from; // 英文那一輪用英文名稱（沒有就照原名，打字回答時再換成規則聽得懂的句子）
     const tripSay = (p) => (en ? (from ? `How do I get from ${fromSay} to ${enName(p)}?` : `How do I get to ${enName(p)}?`) : from ? `從${from}到${p}怎麼去？` : `怎麼去${p}？`);
     const opts = recentPlaces(history, [from]).map((p) => ({ label: (en ? enName(p) : p).slice(0, 20), kind: 'reply', say: tripSay(p) }));
     if (!en) opts.push({ label: '回家', kind: 'reply', say: from ? `從${from}回家怎麼走？` : '回家怎麼走？', saved: '家' }, { label: '去公司', kind: 'reply', say: from ? `從${from}去公司怎麼走？` : '去公司怎麼走？', saved: '公司' });
@@ -210,32 +210,63 @@ export function slotAsk(it, { lang = null, history = [] } = {}) {
   return null;
 }
 
+/** 上一輪阿幫是不是在問起點（originAsk 的回答）：這一輪定位又失敗就不再給「用我的位置」（不無限循環） */
+export const ORIGIN_ASKED = /你從哪裡出發？沒拿到你的位置|還是沒拿到你的位置|^Where are you starting from\? I didn't get|still couldn't get your location/;
+const NEAR_RAIL_SAY = { THSR: ['最近的高鐵站', 'the nearest HSR station'], TRA: ['最近的火車站', 'the nearest train station'] };
+
 /**
  * 沒有定位、預設起點又就在目的地旁邊（臺北車站到臺北車站）：問「你從哪裡出發？」，不亂算（2026-11-22）。
- * @param {string} to 目的地
+ * @param {string|null} to 目的地（常用地點是標籤「家」；去最近的火車站時 null，帶 nearRail）
  * @param {'en'|null} [lang]
+ * @param {{ again?: boolean, nearRail?: 'THSR'|'TRA'|null }} [o] again：上一輪問過、這一輪定位又失敗——不再給「用我的位置」
+ * @returns {{ ask: object|null, short: string }} ask 為 null：只回一句（英文又沒有其他選項時）
  */
-export function originAsk(to, lang = null) {
+export function originAsk(to, lang = null, { again = false, nearRail = null } = {}) {
   const en = lang === 'en';
-  const toSay = en ? enName(to) : to;
-  const opts = [{ label: en ? 'Use my location' : '用我的位置', kind: 'reply', say: en ? `How do I get to ${toSay}?` : `怎麼去${to}？` }];
-  if (!en) opts.push({ label: '從家出發', kind: 'reply', say: `從家到${to}怎麼去？`, saved: '家' }, { label: '從公司出發', kind: 'reply', say: `從公司到${to}怎麼去？`, saved: '公司' });
+  const zhTo = nearRail ? NEAR_RAIL_SAY[nearRail][0] : to;
+  const enTo = nearRail ? NEAR_RAIL_SAY[nearRail][1] : enName(to);
+  const useEn = en && !nearRail && enTo !== to; // 英文那一輪、目的地有英文名稱才用英文句（規則才聽得懂）
+  const toSay = useEn ? enTo : zhTo;
+  const opts = again ? [] : [{ label: en ? 'Use my location' : '用我的位置', kind: 'reply', say: useEn ? `How do I get to ${enTo}?` : `怎麼去${zhTo}？` }];
+  if (!en) opts.push({ label: '從家出發', kind: 'reply', say: `從家到${zhTo}怎麼去？`, saved: '家' }, { label: '從公司出發', kind: 'reply', say: `從公司到${zhTo}怎麼去？`, saved: '公司' });
+  const short = again
+    ? (en ? `I still couldn't get your location. Type where you are (e.g. Ximending) and I'll work it out from there.` : '還是沒拿到你的位置。直接打你在哪裡（例如：西門町），我就從那裡幫你算。')
+    : nearRail
+      ? (en ? `Where are you starting from? I didn't get your location, so I won't guess which station is nearest. Tell me where you are and I'll find ${enTo}.` : `你從哪裡出發？沒拿到你的位置，我先不亂猜哪一站最近。告訴我你在哪裡，我幫你找${zhTo}。`)
+      : (en ? `Where are you starting from? I didn't get your location, and ${enTo} is right next to the default start, so I won't guess. Tell me where you are and I'll compare the ways.` : `你從哪裡出發？沒拿到你的位置，「${zhTo}」又就在預設起點旁邊，我先不亂算。告訴我你在哪裡，我幫你比較怎麼去。`);
   return {
-    ask: { about: 'slot:from', question: en ? 'Where are you starting from?' : '你從哪裡出發？', why: en ? "I didn't get your location. Or just type where you are." : '沒拿到你的位置；直接打你在哪裡也可以。', options: opts, pending: { slot: 'from', to: toSay, ...(en && { lang: 'en' }) } },
-    short: en ? `Where are you starting from? I didn't get your location, and ${toSay} is right next to the default start, so I won't guess. Tell me where you are and I'll compare the ways.` : `你從哪裡出發？沒拿到你的位置，「${to}」又就在預設起點旁邊，我先不亂算。告訴我你在哪裡，我幫你比較怎麼去。`,
+    ask: opts.length ? { about: 'slot:from', question: en ? 'Where are you starting from?' : '你從哪裡出發？', why: en ? "I didn't get your location. Or just type where you are." : again ? '還是沒拿到你的位置；直接打你在哪裡（例如：西門町）。' : '沒拿到你的位置；直接打你在哪裡也可以。', options: opts, pending: { slot: 'from', to: toSay, ...(useEn && { lang: 'en' }) } } : null,
+    short,
   };
 }
 
-/** 打字回答時：這句是不是在問別的（天氣、公車、油價…）——是就不當答案（寧可略過，不能把新問題吞成答案） */
+// ───── 打字回答（pendingAsk）：只收「地名」（地標庫認得的，或常用地點標籤）；其他（算了、謝謝、不用了、我趕時間、叫車…）當略過或新問題 ─────
+/** 這一句是不是在問別的（天氣、公車、油價…）——是就不當答案（寧可略過，不能把新問題吞成答案） */
 const OTHER_ASK = /[?？嗎呢]|天氣|下雨|空氣|空品|地震|藥局|垃圾車|油價|發票|股|捷運|高鐵|台鐵|臺鐵|火車|youbike|ubike|詐騙|短劇|公車|怎麼|幾點|多久|\bhow\b|\bwhat\b|\bwhen\b|\bweather\b/i;
+/** 回答裡的地點：地標庫的正式中文名稱、或常用地點標籤；不是地名回 null */
 function placeAnswer(t, prefix) {
   const c = String(t || '').trim().replace(prefix, '').replace(/\s*(?:出發|這邊|那邊|附近)?\s*(?:啦|喔|吧|囉|呀)?[。！!～~.]*$/u, '').trim();
-  if (SAVED_LABELS.includes(c)) return c; // 常用地點的標籤（「家」「公司」）只有一兩個字
-  if (c.length < 2 || c.length > 20 || /[\n\r]/.test(c) || OTHER_ASK.test(c)) return null;
+  if (SAVED_LABELS.includes(c)) return { zh: c, saved: true }; // 常用地點的標籤（「家」「公司」）
+  if (c.length < 2 || c.length > 30 || /[\n\r]/.test(c) || OTHER_ASK.test(c)) return null;
+  const places = placesInText(c);
+  if (places.length !== 1) return null; // 沒有地名（「算了」「謝謝」「叫車」）或好幾個：不當答案
   const it = parseIntent(c, {});
-  return ['unknown', 'trip', 'savedMissing'].includes(it.intent) ? c : null;
+  if (!['unknown', 'trip'].includes(it.intent)) return null;
+  return { zh: places[0], en: enName(places[0]) !== places[0] ? enName(places[0]) : null };
 }
-const textField = (v) => (typeof v === 'string' && v.trim() && v.length <= 40 && !/[\n\r]/.test(v) ? v.trim() : null);
+/** pending 裡的另一端地名（可能是中文或英文）→ { zh, en } */
+const nameBoth = (v) => {
+  const t = typeof v === 'string' && v.trim() && v.length <= 40 && !/[\n\r]/.test(v) ? v.trim() : null;
+  if (!t) return null;
+  const rail = Object.values(NEAR_RAIL_SAY).find((x) => x.includes(t));
+  if (rail) return { zh: rail[0], en: null };
+  const zh = SAVED_LABELS.includes(t) ? t : placesInText(t)[0] || t;
+  return { zh, en: enName(zh) !== zh ? enName(zh) : isEnglish(t) ? t : null };
+};
+/** 句型語言跟地名一致：英文那一輪、兩邊都有英文名稱才用英文句；否則用中文正式名稱的中文句（規則都聽得懂） */
+const tripSentence = (from, to, en) => (en && to.en && (!from || from.en)
+  ? (from ? `How do I get from ${from.en} to ${to.en}?` : `How do I get to ${to.en}?`)
+  : (from ? `從${from.zh}到${to.zh}怎麼去？` : `怎麼去${to.zh}？`));
 Object.assign(PENDING_SLOTS, {
   // 哪一路公車：「307」「坐 307」「307 號」「bus 307」→「307 公車還要多久？」
   route: (p, t) => {
@@ -243,23 +274,19 @@ Object.assign(PENDING_SLOTS, {
     if (!m || !ROUTE_RE.test(m[1])) return null;
     return p.lang === 'en' || /^(?:the\s+)?bus/i.test(t) ? `How long until bus ${m[1]}?` : `${m[1]} 公車還要多久？`;
   },
-  // 要去哪裡：「台北101」「去西門町」→「從起點到台北101怎麼去？」（有起點）或「怎麼去台北101？」
+  // 要去哪裡：「台北101」「去西門町」「Taipei 101」→「從起點到台北101怎麼去？」或「怎麼去台北101？」（英文那一輪用英文句）
   to: (p, t) => {
-    const c = placeAnswer(t, /^(?:我)?(?:要|想)?(?:去|到|往)\s*/u);
+    const c = placeAnswer(t, /^(?:我)?(?:要|想)?(?:去|到|往)\s*|^(?:to|go to)\s+/iu);
     if (!c) return null;
-    const from = textField(p.from);
-    if (p.lang === 'en' || isEnglish(c)) return from ? `How do I get from ${from} to ${c}?` : `How do I get to ${c}?`;
-    if (SAVED_LABELS.includes(c)) return from ? `從${from}到${c}怎麼去？` : `去${c}怎麼走？`;
-    return from ? `從${from}到${c}怎麼去？` : `怎麼去${c}？`;
+    return tripSentence(nameBoth(p.from), c, p.lang === 'en');
   },
-  // 你從哪裡出發：「板橋」「我在西門町」→「從板橋到目的地怎麼去？」；「用我的位置」→「怎麼去目的地？」（手機會定位）
+  // 你從哪裡出發：「板橋」「我在西門町」「Ximending」→「從板橋到目的地怎麼去？」；「用我的位置」→「怎麼去目的地？」（手機會定位）
   from: (p, t) => {
-    const to = textField(p.to);
+    const to = nameBoth(p.to);
     if (!to) return null;
-    if (/^(?:用)?(?:我的位置|我現在的位置|現在位置|這裡|這邊|use my location|my location|here)[。.!！]?$/iu.test(t.trim())) return p.lang === 'en' ? `How do I get to ${to}?` : `怎麼去${to}？`;
+    if (/^(?:用)?(?:我的位置|我現在的位置|現在位置|這裡|這邊|use my location|my location|here)[。.!！]?$/iu.test(t.trim())) return tripSentence(null, to, p.lang === 'en');
     const c = placeAnswer(t, /^(?:我)?(?:現在)?(?:人)?(?:在|從)\s*|^(?:i'?m\s+(?:at|in)|from)\s+/iu);
     if (!c) return null;
-    if (p.lang === 'en' || isEnglish(c)) return `How do I get from ${c} to ${to}?`;
-    return `從${c}到${to}怎麼去？`;
+    return tripSentence(c, to, p.lang === 'en');
   },
 });

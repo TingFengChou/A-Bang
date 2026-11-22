@@ -3292,6 +3292,386 @@
           }
         }
       ]
+    },
+    {
+      "id": "AR-1",
+      "title": "有天氣的句子不問路線：等公車等很久，明天會下雨嗎",
+      "turns": [
+        {
+          "say": "等公車等很久，明天會下雨嗎",
+          "expect": {
+            "tools": [
+              "weather_tomorrow"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-2",
+      "title": "一句問好幾件事：公車還要多久，油價多少 → 查油價、不問路線",
+      "turns": [
+        {
+          "say": "公車還要多久，油價多少",
+          "expect": {
+            "tools": [
+              "fuel_price"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-3",
+      "title": "票價、怎麼坐、帶什麼不問路線：老人坐公車還要付錢嗎",
+      "turns": [
+        {
+          "say": "老人坐公車還要付錢嗎",
+          "expect": {
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-4",
+      "title": "坐公車還要帶悠遊卡嗎：不問路線",
+      "turns": [
+        {
+          "say": "坐公車還要帶悠遊卡嗎",
+          "expect": {
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-5",
+      "title": "公車到哪裡坐：不問路線",
+      "turns": [
+        {
+          "say": "公車到哪裡坐",
+          "expect": {
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-6",
+      "title": "公車上好冷，明天還要帶外套嗎：不問路線",
+      "turns": [
+        {
+          "say": "公車上好冷，明天還要帶外套嗎",
+          "expect": {
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-7",
+      "title": "剛選了公車：剛剛那班公車還要多久 → 查那一班",
+      "turns": [
+        {
+          "say": "從西門町到台北101怎麼去",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ]
+          }
+        },
+        {
+          "say": "剛剛那班公車還要多久",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-8",
+      "title": "剛選了公車：公車一直不來，還要等多久 → 查那一班",
+      "turns": [
+        {
+          "say": "從西門町到台北101怎麼去",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ]
+          }
+        },
+        {
+          "say": "公車一直不來，還要等多久",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-9",
+      "title": "307還要多久，公車到哪了：只查 307",
+      "turns": [
+        {
+          "say": "307還要多久，公車到哪了",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-10",
+      "title": "我等公車等好久，要去台北101：照行程（坐公車）",
+      "turns": [
+        {
+          "say": "我等公車等好久，要去台北101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "台北101",
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-11",
+      "title": "只說起點後「那去台北101呢」：不再問，從起點算",
+      "turns": [
+        {
+          "say": "從台北車站出發",
+          "expect": {
+            "asks": [
+              "要去哪裡"
+            ]
+          }
+        },
+        {
+          "say": "那去台北101呢",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "台北車站",
+            "to": "台北101"
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-12",
+      "title": "只說起點後「改去台北101」：不再問",
+      "turns": [
+        {
+          "say": "從台北車站出發",
+          "expect": {
+            "asks": [
+              "要去哪裡"
+            ]
+          }
+        },
+        {
+          "say": "改去台北101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "台北101"
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-13",
+      "title": "我在板橋要出發了 → 台北101 → 那叫車呢：起點仍是板橋",
+      "turns": [
+        {
+          "say": "我在板橋，要出發了",
+          "expect": {
+            "asks": [
+              "要去哪裡"
+            ]
+          }
+        },
+        {
+          "say": "台北101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "板橋",
+            "to": "台北101"
+          }
+        },
+        {
+          "say": "那叫車呢",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "板橋",
+            "bestRole": "ridehail"
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-14",
+      "title": "中文輪打英文地名：從台北車站出發 → Taipei 101",
+      "turns": [
+        {
+          "say": "從台北車站出發",
+          "expect": {
+            "asks": [
+              "要去哪裡"
+            ]
+          }
+        },
+        {
+          "say": "Taipei 101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "台北車站",
+            "to": "台北101"
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-15",
+      "title": "英文輪打中文地名：I'm leaving from Taipei Main Station → 台北101",
+      "turns": [
+        {
+          "say": "I'm leaving from Taipei Main Station",
+          "expect": {
+            "asks": [
+              "Where are you going"
+            ]
+          }
+        },
+        {
+          "say": "台北101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "台北車站",
+            "to": "台北101"
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-16",
+      "title": "只說起點後回「謝謝」：不當目的地",
+      "turns": [
+        {
+          "say": "從台北車站出發",
+          "expect": {
+            "asks": [
+              "要去哪裡"
+            ]
+          }
+        },
+        {
+          "say": "謝謝",
+          "expect": {
+            "toolsNone": true,
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-17",
+      "title": "沒定位：按「用我的位置」又拿不到 → 第二次不再給那個選項",
+      "location": false,
+      "turns": [
+        {
+          "say": "怎麼去台北車站",
+          "expect": {
+            "asks": [
+              "從哪裡出發"
+            ],
+            "askOptions": [
+              "用我的位置"
+            ]
+          }
+        },
+        {
+          "say": "怎麼去臺北車站？",
+          "expect": {
+            "toolsNone": true,
+            "textHas": [
+              "還是沒拿到你的位置"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-18",
+      "title": "英文不誤問路線：Where is the bus station? / I am waiting for the bus",
+      "turns": [
+        {
+          "say": "Where is the bus station?",
+          "expect": {
+            "asksNone": true
+          }
+        },
+        {
+          "say": "I am waiting for the bus",
+          "expect": {
+            "asksNone": true
+          }
+        },
+        {
+          "say": "Is there a bus late at night?",
+          "expect": {
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "AR-19",
+      "title": "行程後「那坐公車要多久」＝改坐公車",
+      "turns": [
+        {
+          "say": "從西門町到台北101怎麼去",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ]
+          }
+        },
+        {
+          "say": "那坐公車要多久",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "bestRole": "bus",
+            "asksNone": true
+          }
+        }
+      ]
     }
   ]
 }

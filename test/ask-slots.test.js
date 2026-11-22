@@ -88,7 +88,7 @@ test('打字回答（pendingAsk）：路線號碼、地名接回原問題；新�
   assert.equal(R('to', { from: '臺北車站' }, '家'), '從臺北車站到家怎麼去？');
   assert.equal(R('to', { from: 'Taipei Main Station', lang: 'en' }, 'Taipei 101'), 'How do I get from Taipei Main Station to Taipei 101?');
   for (const t of ['明天會下雨嗎', '307 還要多久', '油價多少', '好', '台積電收盤']) assert.equal(R('to', {}, t), null, t);
-  assert.equal(R('from', { to: '臺北車站' }, '板橋'), '從板橋到臺北車站怎麼去？');
+  assert.equal(R('from', { to: '臺北車站' }, '板橋'), '從板橋車站到臺北車站怎麼去？', '地名換成地標庫的正式名稱');
   assert.equal(R('from', { to: '臺北車站' }, '我在西門町'), '從西門町到臺北車站怎麼去？');
   assert.equal(R('from', { to: '臺北車站' }, '用我的位置'), '怎麼去臺北車站？');
   assert.equal(R('from', {}, '板橋'), null, '沒有目的地：不接');
@@ -149,4 +149,138 @@ test('模型模式：缺欄位也由程式先問，不呼叫模型', async () =>
   const es = chunks.join('').trim().split('\n').map((l) => JSON.parse(l));
   assert.equal(starts, 0);
   assert.equal(es.find((e) => e.type === 'ask')?.question, '要去哪裡？');
+});
+
+// ───── PR #115 獨立審查（約 250 句對照 main）：寧可不問（交回原本流程），也不要誤問或吞掉別的問題 ─────
+const ev3 = async (turns, { loc = true, dj = null, saved } = {}) => {
+  const messages = [];
+  let pending;
+  const out = [];
+  for (const say of turns) {
+    messages.push({ role: 'user', content: say });
+    const es = await run({ messages, clientTools: ['device_location'], clientToolResults: [loc ? { id: 'loc1', ok: true, result: { lat: 25.0478, lon: 121.517 } } : { id: 'loc1', ok: false }], ...(pending && { pendingAsk: pending }), ...(dj && { deviceJudge: dj }), ...(saved && { savedPlaces: saved }) });
+    const ask = es.find((e) => e.type === 'ask');
+    pending = ask?.pending ? { id: ask.id, ...ask.pending } : undefined;
+    out.push(es);
+    messages.push({ role: 'assistant', content: es.filter((e) => e.type === 'text').map((e) => e.delta).join('') || '好' });
+  }
+  return out;
+};
+const toolsOf = (es) => es.filter((e) => e.type === 'tool_start' && e.name !== 'find_place').map((e) => e.name);
+const askOf = (es) => es.find((e) => e.type === 'ask')?.about || null;
+const tripIn = (es) => es.find((e) => e.type === 'tool_start' && e.name === 'plan_trip')?.input;
+const fromName = (es) => { const f = tripIn(es)?.from; return f?.name || f; };
+
+test('審查 1：有別的意圖（天氣、油價、票價、怎麼坐、帶什麼）不問路線，模型模式也不攔', async () => {
+  for (const [q, tool] of [['等公車等很久，明天會下雨嗎', 'weather_tomorrow'], ['公車還要多久，油價多少', 'fuel_price'], ['公車上好冷，明天還要帶外套嗎', null], ['老人坐公車還要付錢嗎', null], ['坐公車還要帶悠遊卡嗎', null], ['公車到哪裡坐', null], ['公車多久一班', null]]) {
+    const [es] = await ev3([q]);
+    assert.notEqual(askOf(es), 'slot:route', q);
+    if (tool) assert.ok(toolsOf(es).includes(tool), q);
+    assert.notEqual(parseIntent(q, {}).needs, 'route', q);
+  }
+  let starts = 0;
+  const provider = { mode: 'local', model: 'fake', start() { starts++; return { next: async () => ({ text: '好', calls: [], stop: 'end' }), addResults() {} }; } };
+  const h = createAgentHandler({ svc, env: {}, provider });
+  const res = { writableEnded: false, writeHead() {}, write() {}, end() { this.writableEnded = true; } };
+  await h.handle(res, { messages: msgs('老人坐公車還要付錢嗎') });
+  assert.ok(starts > 0 && h.usage('life').modelCalls > 0, '模型模式：交給模型（不被缺欄位攔下）');
+});
+
+test('審查 2：剛選了公車 →「剛剛那班公車還要多久」「那班公車還要等多久」「公車一直不來，還要等多久」直接查那一班', async () => {
+  for (const q of ['剛剛那班公車還要多久', '那班公車還要等多久', '公車一直不來，還要等多久']) {
+    const [, es] = await ev3(['從西門町到台北101怎麼去', q]);
+    const bus = es.find((e) => e.type === 'tool_start' && e.name === 'bus_route_eta');
+    assert.ok(bus && bus.input.routeName, q);
+    assert.equal(askOf(es), null, q);
+  }
+  const hist = [{ role: 'user', content: '從西門町到台北101怎麼去' }, { role: 'assistant', content: '選「公車 棕9」：省 270 元' }];
+  assert.deepEqual(pick(parseIntent('剛剛那班公車還要多久', { history: hist })), { intent: 'bus_route', from: null, to: null, route: '棕9', needs: null });
+  assert.equal(parseIntent('公車一直不來，還要等多久', { history: hist }).route, '棕9');
+});
+
+test('審查 3：一句問好幾件事不放沒有路線的公車；「我等公車等好久，要去台北101」照行程（坐公車）', async () => {
+  const [a] = await ev3(['307還要多久，公車到哪了']);
+  assert.ok(a.filter((e) => e.type === 'tool_start' && e.name === 'bus_route_eta').every((e) => e.input.routeName), '沒有 routeName:null');
+  const it = parseIntent('307還要多久，公車到哪了', {});
+  assert.ok(!(it.also || []).some((x) => x.intent === 'bus_route' && !x.route));
+  const [b] = await ev3(['我等公車等好久，要去台北101']);
+  assert.equal(tripIn(b)?.prefs?.mode, 'bus');
+  assert.ok(!b.some((e) => e.type === 'tool_start' && e.name === 'bus_route_eta' && !e.input.routeName));
+});
+
+test('審查 4：手機判斷是查公車、句子是「搭公車到西門町」→ 照行程跑', async () => {
+  const [es] = await ev3(['搭公車到西門町'], { dj: { intent: 'bus_route', states: [], engine: 'gemini-nano' } });
+  assert.ok(toolsOf(es).includes('plan_trip'));
+  assert.equal(askOf(es), null);
+  assert.equal(parseIntent('搭公車到西門町', { intent: 'bus_route' }), null, '判斷層的意圖抽不出必要參數：交回規則');
+});
+
+test('審查 5：打字回答只收地名；算了、cancel、謝謝、不用了、不知道、我趕時間、今天好熱、叫車、走路都不收', () => {
+  for (const t of ['算了', 'cancel', '謝謝', '不用了', '不知道', '我趕時間', '今天好熱', '叫車', '走路', '好', '不是']) {
+    assert.equal(resolvePending({ slot: 'to', from: '臺北車站' }, t), null, `to：${t}`);
+    assert.equal(resolvePending({ slot: 'from', to: '臺北車站' }, t), null, `from：${t}`);
+  }
+  assert.equal(resolvePending({ slot: 'to' }, '公司'), '怎麼去公司？');
+});
+
+test('審查 6：打字回答的語言跟句型一致（中文輪打英文地名、英文輪打中文地名）', () => {
+  assert.equal(resolvePending({ slot: 'to', from: '臺北車站' }, 'Taipei 101'), '從臺北車站到台北101怎麼去？');
+  assert.equal(resolvePending({ slot: 'to', from: '臺北車站' }, 'Ximending'), '從臺北車站到西門町怎麼去？');
+  assert.equal(resolvePending({ slot: 'to', from: 'Taipei Main Station', lang: 'en' }, '台北101'), 'How do I get from Taipei Main Station to Taipei 101?');
+  assert.equal(resolvePending({ slot: 'from', to: 'Taipei Main Station', lang: 'en' }, '西門町'), 'How do I get from Ximending to Taipei Main Station?');
+  for (const q of ['從臺北車站到台北101怎麼去？', 'How do I get from Taipei Main Station to Taipei 101?', 'How do I get from Ximending to Taipei Main Station?']) {
+    const it = parseIntent(q, {});
+    assert.equal(it.intent, 'trip', q);
+    assert.ok(it.from && it.to, q);
+  }
+});
+
+test('審查 7：只問一次——「那去台北101呢」「改去台北101」不再問；按了「用我的位置」定位又失敗不再給那個選項', async () => {
+  for (const q of ['那去台北101呢', '改去台北101']) {
+    const [, es] = await ev3(['從台北車站出發', q]);
+    assert.ok(!String(askOf(es) || '').startsWith('slot:'), q);
+    assert.ok(toolsOf(es).includes('plan_trip'), q);
+  }
+  const turns = await ev3(['怎麼去台北車站', '怎麼去臺北車站？', '怎麼去臺北車站？'], { loc: false });
+  assert.equal(turns[0].find((e) => e.type === 'ask').options[0].label, '用我的位置');
+  for (const es of turns.slice(1)) {
+    const a = es.find((e) => e.type === 'ask');
+    assert.ok(!a || !a.options.some((o) => o.label === '用我的位置'), '第二次起不再給「用我的位置」');
+    assert.match(es.find((e) => e.type === 'text').delta, /還是沒拿到你的位置/);
+  }
+  const en = await ev3(['How do I get to Taipei Main Station?', 'How do I get to Taipei Main Station?', 'Ximending'], { loc: false });
+  assert.equal(en[1].find((e) => e.type === 'ask'), undefined, '英文第二次：只回一句');
+  assert.equal(fromName(en[2]), '西門町', '打地名就從那裡算');
+});
+
+test('審查 8：缺欄位的問題，「不用」「好」「不是」「沒有」「不要」不會選中按鈕', () => {
+  const route = slotAsk(parseIntent('公車還要多久？', {})).ask;
+  const to = slotAsk(parseIntent('從台北車站出發', {})).ask;
+  for (const t of ['不用', '好', '不是', '沒有', '不要', 'yes', 'no']) {
+    assert.equal(matchAnswer(route, t), null, t);
+    assert.equal(matchAnswer(to, t), null, t);
+  }
+});
+
+test('審查 9：「我在板橋，要出發了」→「台北101」→「那叫車呢」起點仍是板橋（英文同理）', async () => {
+  const t = await ev3(['我在板橋，要出發了', '台北101', '那叫車呢']);
+  assert.equal(fromName(t[1]), '板橋車站');
+  assert.equal(fromName(t[2]), '板橋車站');
+  assert.equal(tripIn(t[2])?.prefs?.mode, 'ridehail');
+  const e = await ev3(["I'm leaving from Taipei Main Station", '台北101', 'by taxi instead']);
+  assert.equal(fromName(e[2]), '臺北車站');
+});
+
+test('審查建議：英文不誤問路線、go home 當目的地、「那坐公車要多久」改坐公車、常用地點與最近的火車站也看預設起點', async () => {
+  for (const q of ['Where is the bus station?', 'I am waiting for the bus', 'Is there a bus late at night?']) assert.notEqual(parseIntent(q, {}).needs, 'route', q);
+  const home = parseIntent("I'm at Taipei 101, about to go home", { saved: { 家: { name: '家', lat: 25.014, lon: 121.4637 } } });
+  assert.deepEqual([home.intent, home.from, home.to], ['trip', '台北101', '家']);
+  assert.equal(parseIntent("I'm at Taipei 101, about to go home", {}).intent, 'savedMissing');
+  const [, bus] = await ev3(['從西門町到台北101怎麼去', '那坐公車要多久']);
+  assert.equal(tripIn(bus)?.prefs?.mode, 'bus');
+  assert.equal(nearDefaultFrom({ name: '家', lat: 25.0479, lon: 121.5171 }), true, '常用地點（物件）');
+  const [rail] = await ev3(['去最近的火車站'], { loc: false });
+  assert.equal(askOf(rail), 'slot:from', '沒定位：最近的火車站就是預設起點那一站，先問起點');
+  const [home2] = await ev3(['回家'], { loc: false, saved: { 家: { name: '家', lat: 25.0479, lon: 121.5171 } } });
+  assert.equal(askOf(home2), 'slot:from', '家就在預設起點旁邊');
 });

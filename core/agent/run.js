@@ -43,7 +43,7 @@ export function guardedText(profile, text, emit) {
 }
 import { STATES } from '../decide.js';
 import { HabitSchema } from '../tools/trip.js';
-import { tripAsk, resolvePending, PENDING_SLOTS, unknownAsk, UNKNOWN_SHORT, slotAsk, originAsk } from './ask.js';
+import { tripAsk, resolvePending, PENDING_SLOTS, unknownAsk, UNKNOWN_SHORT, slotAsk, originAsk, ORIGIN_ASKED } from './ask.js';
 
 /** 「你說過」的預設狀況只能是這幾種（habits.js 叫車原因） */
 export const USUAL_STATES = ['rush', 'luggage', 'lessWalk'];
@@ -278,19 +278,28 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
   const heard = !req.clientToolResults?.length && !it.needs && (contextNote(parseIntent(last, { history: req.messages.slice(0, -1) })) || (it.intent === 'outing' ? outingNote([...(it.states || []), ...(q0?.states || [])]) : q0 && judgeNote(q0)));
   if (heard && it.lang !== 'en') emit(ev.agentNote(heard)); // 「聽懂了」的句子是中文：英文那一輪不說
+  // 缺必要欄位（哪一路公車、要去哪裡）：先問，不查資料、不請定位（「該問就問、不要自己猜」，ADR-0016）。
+  // 快速版判斷同意（或沒有判斷層）就不再呼叫完整版的判斷模型；判斷層說是別的意圖時交給下面重判（可以更正規則）
+  let trialSent = false;
+  const askGap = (judged) => {
+    const g = profile.id === 'life' && slotAsk(it, { lang: it.lang, history: req.messages.slice(0, -1) });
+    if (!g) return false;
+    if (trial && !trialSent) { trialSent = true; emit(ev.trial(trialInfo(svc, it, { judge: judged, lang: it.lang === 'en' ? 'en' : 'zh', now }))); }
+    emit(ev.ask({ id: `ask-${nextId()}`, ...g.ask })); emit(ev.text(g.short)); emit(ev.done());
+    return true;
+  };
+  if (it.needs && (!q0 || q0.intent === it.intent) && askGap(q0)) return;
   const j = jc ? await jc.full(q0) : null;
   if (j) {
     // 出門建議是天氣＋空品的組合：判斷層說天氣或空品時保留（判斷層沒有 outing 這個意圖）；找短劇也是（判斷層沒有 drama，規則的關鍵字很明確）
-    const keep = it.needs || it.followUp || it.intent === 'outing' || it.intent === 'drama' || it.also?.length || (it.intent === 'metro' && it.station) || it.nearRail || it.thanks || it.sorry; // 說了站名的捷運（「捷運西門站下一般」被判成行程，P5-5 模型模式）、去最近的火車站、禮貌話：規則已經很明確 // 判斷層常把「出門要注意什麼」判成空品或行程（設計審查實測）；一句問好幾件事以規則分段為準（P5-8）
+    const keep = it.followUp || it.intent === 'outing' || it.intent === 'drama' || it.also?.length || (it.intent === 'metro' && it.station) || it.nearRail || it.thanks || it.sorry; // 說了站名的捷運（「捷運西門站下一般」被判成行程，P5-5 模型模式）、去最近的火車站、禮貌話：規則已經很明確 // 判斷層常把「出門要注意什麼」判成空品或行程（設計審查實測）；一句問好幾件事以規則分段為準（P5-8）
     if (j.intent !== it.intent && !keep && !it.savedTrip && it.intent !== 'savedMissing') it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent, saved: req.savedPlaces, now }) || it;
     it.states = j.states;
     const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
     if (more && it.lang !== 'en') emit(ev.agentNote(more));
   }
-  if (trial) emit(ev.trial(trialInfo(svc, it, { judge: j || q0, lang: it.lang === 'en' ? 'en' : 'zh', now }))); // 資料夠不夠、會查哪些資料（程式算，不經模型）
-  // 缺必要欄位（哪一路公車、要去哪裡）：先問，不查資料、不請定位（「該問就問、不要自己猜」，ADR-0016）
-  const gap = profile.id === 'life' && slotAsk(it, { lang: it.lang, history: req.messages.slice(0, -1) });
-  if (gap) { emit(ev.ask({ id: `ask-${nextId()}`, ...gap.ask })); emit(ev.text(gap.short)); emit(ev.done()); return; }
+  if (askGap(j || q0)) return; // 判斷層重判後才缺欄位（例：手機判斷是行程、句子只說了起點）
+  if (trial && !trialSent) emit(ev.trial(trialInfo(svc, it, { judge: j || q0, lang: it.lang === 'en' ? 'en' : 'zh', now }))); // 資料夠不夠、會查哪些資料（程式算，不經模型）
   // 需要使用者位置（M5-07）：客戶端支援 device_location 時先請它定位，拿到結果後客戶端帶 clientToolResults 重送
   if (plan.needsLocation(it) && req.clientTools?.includes('device_location')) {
     const loc = deviceLocation(req);
@@ -303,10 +312,13 @@ export async function runDemo(svc, body, emit, { profileId = 'life', now = Date.
     if (loc) it.fromPoint = loc; // 拒絕定位或無效時，照示範預設起點（總結會說明）
     else it.noLocation = true; // 總結說「沒拿到你的位置」（不是「你沒說」）
   }
-  // 沒有位置、預設起點又就在目的地旁邊（< 300 公尺）：不算「臺北車站到臺北車站」，問從哪裡出發
-  if (profile.id === 'life' && it.intent === 'trip' && !it.from && !it.fromSaved && !it.fromPoint && !it.nearRail && nearDefaultFrom(it.to)) {
-    const o = originAsk(it.to, it.lang);
-    emit(ev.ask({ id: `ask-${nextId()}`, ...o.ask })); emit(ev.text(o.short)); emit(ev.done()); return;
+  // 沒有位置、預設起點又就在目的地旁邊（< 300 公尺；去最近的火車站也是從預設起點找，一樣會是同一站）：不算「臺北車站到臺北車站」，問從哪裡出發。
+  // 上一輪已經問過、這一輪定位又失敗（按了「用我的位置」但拿不到）：不再給「用我的位置」，避免一直重複
+  if (profile.id === 'life' && it.intent === 'trip' && !it.from && !it.fromSaved && !it.fromPoint && (it.nearRail || nearDefaultFrom(it.toSaved || it.to))) {
+    const again = ORIGIN_ASKED.test(String(req.messages.slice(0, -1).filter((m) => m.role === 'assistant').at(-1)?.content || ''));
+    const o = originAsk(it.nearRail ? null : it.toSaved?.name || it.to, it.lang, { again, nearRail: it.nearRail });
+    if (o.ask) emit(ev.ask({ id: `ask-${nextId()}`, ...o.ask }));
+    emit(ev.text(o.short)); emit(ev.done()); return;
   }
   // 使用者點選的狀態一併交給 plan_trip 計分
   if (picked.length && it.states) it.states = [...new Set([...it.states, ...picked])];

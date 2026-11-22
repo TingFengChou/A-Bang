@@ -23,6 +23,7 @@ export function matchAnswer(ask, text) {
   const exact = ask.options.find((o) => o.label.toLowerCase() === low);
   if (exact) return exact;
   if (ask.about === 'unknown') return null; // 「聽不懂」給的選項會送出完整的一句：「台中現在天氣」不能被當成「現在天氣」（PR #108 審查）
+  if (String(ask.about || '').startsWith('slot:')) return null; // 缺欄位的問題（哪一路、要去哪、從哪出發）：好／不用不是答案，交給伺服器（pendingAsk 只收地名、路線）
   if (ask.options.length === 2 && YES.test(bare)) return ask.options[0];
   if (ask.options.length === 2 && NO.test(bare)) return ask.options[1];
   if (/[?？嗎呢]/.test(t)) return null; // 看起來是在問問題
