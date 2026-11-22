@@ -79,9 +79,10 @@ test('空品測站超過 25 公里：不加空品不佳狀態、air 為 null（�
 test('只有一種方式：說明太遠與沒有趕得上的班次（示範標明），建議改明天早上或從台北車站出發', async () => {
   const r = await planTrip(createServices({ forceMock: true }), { from: TAOYUAN, to: T101, departAt: '23:30', now: LATE });
   assert.deepEqual(r.options.map((o) => o.role), ['ridehail']);
-  assert.match(r.single.text, /^只找到叫車一種方式：距離 26.1 公里，走路、YouBike、公車都太遠；客運 23:30 以後今天沒有趕得上的班次/);
+  assert.match(r.single.text, /^只找到叫車一種方式：距離 26.1 公里，走路、YouBike、公車都太遠/);
+  assert.doesNotMatch(r.single.text, /客運/, '客運沒資料就不提（產品負責人 2026-11-22）');
   assert.match(r.single.text, /示範資料/);
-  assert.deepEqual(r.single.suggest.map((s) => s.ask), ['明天早上 8 點去台北101', '從台北車站到台北101怎麼去']);
+  assert.deepEqual(r.single.suggest.map((s) => s.ask), ['從台北車站到台北101怎麼去'], '客運不列後，這段路沒有「班次趕不上」的方式，不建議改明天');
   assert.match(impactOf('plan_trip', r)[0].text, /^只找到叫車一種方式/);
   // 白天同一段路：有客運，不是只有一種
   const day = await planTrip(createServices({ forceMock: true }), { from: TAOYUAN, to: T101, departAt: '10:00', now: NOW });
@@ -90,9 +91,9 @@ test('只有一種方式：說明太遠與沒有趕得上的班次（示範標�
 
 test('missingModes／singleNote：太遠、太近不算、附近沒有站、真實資料不加示範說明', () => {
   const m = missingModes({ straight: 65000, roles: { ridehail: { id: 'ridehail' }, thsr: { none: { kind: 'noService', why: 'x' } }, tra: { none: { kind: 'none', why: '起點或目的地 25 公里內沒有車站' } }, intercity: 'failed' }, limits: LIMITS });
-  assert.deepEqual(m.map((x) => [x.role, x.kind]), [['walk', 'far'], ['bike', 'far'], ['bus', 'far'], ['metro', 'far'], ['thsr', 'noService'], ['tra', 'none'], ['intercity', 'none']]);
+  assert.deepEqual(m.map((x) => [x.role, x.kind]), [['walk', 'far'], ['bike', 'far'], ['bus', 'far'], ['metro', 'far'], ['thsr', 'noService'], ['tra', 'none']], '客運沒有方案就不列');
   const s = singleNote({ options: [{ role: 'ridehail', name: '叫車' }], missingList: m, straight: 65000, departMin: 23 * 60, demo: false, toName: '台北101', fromName: '你的位置' });
-  assert.equal(s.text, '只找到叫車一種方式：距離 65 公里，走路、YouBike、公車、捷運都太遠；高鐵 23:00 以後今天沒有趕得上的班次；台鐵：起點或目的地 25 公里內沒有車站；客運：資料暫時查不到');
+  assert.equal(s.text, '只找到叫車一種方式：距離 65 公里，走路、YouBike、公車、捷運都太遠；高鐵 23:00 以後今天沒有趕得上的班次；台鐵：起點或目的地 25 公里內沒有車站');
   assert.deepEqual(s.suggest.map((x) => x.label), ['改成明天早上出發'], '真實資料不建議改從台北車站');
   assert.equal(singleNote({ options: [{}, {}], missingList: [], straight: 1 }), null);
 });
@@ -167,8 +168,8 @@ test('真實模式但這次 TDX 額度用完改用示範資料：只有一種方
   const svc = { ...base, mode: 'live', weatherMode: 'live', aqiMode: 'live', ...withTdxFallback(live, mock) };
   const { result: r, metrics } = await measure(() => planTrip(svc, { from: TAOYUAN, to: T101, departAt: '23:30', now: LATE }));
   assert.equal(metrics.fallback, true);
-  assert.match(r.single.text, /客運：TDX 額度用完，這次查不到（約 1 分鐘後再問一次）/, '示範的客運不推，原因照實說');
-  assert.equal((r.single.text.match(/TDX/g) || []).length, 1, `額度用完只說一次：${r.single.text}`);
+  assert.doesNotMatch(r.single.text, /客運/, '示範的客運不推，也不提（客運沒資料就不列）');
+  assert.ok((r.single.text.match(/TDX/g) || []).length <= 1, `額度用完最多說一次：${r.single.text}`);
   assert.ok(!r.options.some((o) => /示範/.test(o.name)));
   assert.doesNotMatch(r.single.text, /設定金鑰後/);
   assert.ok(!r.single.suggest.some((s) => /台北車站/.test(s.label)), '不是示範模式：不建議改從台北車站');

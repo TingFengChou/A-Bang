@@ -104,6 +104,7 @@ export function missingModes({ straight, roles, skipped = [], limits }) {
   for (const role of MODE_ORDER) {
     const r = roles[role];
     if (r && r.id) continue; // 有方案
+    if (role === 'intercity') continue; // 客運：多數起訖本來就沒有客運資料，沒有方案就不列、不說原因（產品負責人 2026-11-22）
     const sk = skipped.find((s) => s.role === role);
     if (sk) { const { role: _r, ...rest } = sk; out.push({ role, kind: 'skipped', ...rest }); continue; }
     if (r?.none) { out.push({ role, ...r.none }); continue; }

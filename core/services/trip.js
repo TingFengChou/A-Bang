@@ -656,7 +656,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   // 只有一種方式：說明其他方式為什麼不在（太遠、附近沒有站、沒有趕得上的班次…）；深夜收班已由 night 說，不重複
   const single = singleNote({ options, missingList: night ? missingList.filter((x) => !(x.closed && night.closed.includes(x.role))) : missingList, straight, departMin: depart.minute, demo: svc.mode !== 'live', fallback: currentFallback(), toName: to.name, fromName: from.name }); // fallback：TDX 額度用完時公車、高鐵等可能是示範資料（withTdxFallback 逐個方法改用）
   // TDX 額度用完、這次沒列入的方式（不推示範的假班次）：一句照實說；大眾運輸全部沒有時說先比走路、叫車，約 1 分鐘後再問
-  const limited = limitedOf({ roles: skipped.filter((x) => x.fallback === 'tdx-limit' && !x.closed).map((x) => x.role), options, toName: to.name, fromName: from.name });
+  const limited = limitedOf({ roles: skipped.filter((x) => x.fallback === 'tdx-limit' && !x.closed && x.role !== 'intercity').map((x) => x.role), options, toName: to.name, fromName: from.name }); // 客運沒資料就不提
   return {
     from: pt(from), to: pt(to), straightKm: +(straight / 1000).toFixed(1),
     date: depart.date, departAt: toHHMM(depart.minute),
@@ -675,7 +675,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     options,
     ranking: rankingOf(r),
     ...(unavailable.length && { unavailable }),
-    ...(skipped.length && { skipped }),
+    ...(skipped.some((x) => x.role !== 'intercity') && { skipped: skipped.filter((x) => x.role !== 'intercity') }), // 客運沒資料就不列（卡片、決策圖）
     ...(missing.length && { missing }), // 沒列入的方式（含 skipped）：{ role, kind, why, whyEn, closed? }；kind 'route'＝那一條公車路線（route、status）（卡片「沒列入」、決策圖）
     ...(night && { night }), // 深夜的一句（回答、討論串、卡片第一行）
     ...(limited && { limited }), // TDX 額度用完沒列入的方式（{ roles, noTransit, text, textEn }）
