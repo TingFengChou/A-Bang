@@ -144,10 +144,13 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
       }).sort((a, b) => a.distance - b.distance);
     },
 
-    /** 某站位所有路線的到站時間 */
+    /**
+     * 某站位所有路線的到站時間。
+     * 2026-11-22 實測：站位（PassThrough/Station）在 /advanced/ 底下；/basic/ 同路徑回 404「Resouce Not Found」。
+     */
     async stationEta({ city, stationId }) {
       const c = mustCity(city);
-      const rows = await tdx.get(`/basic/v2/Bus/EstimatedTimeOfArrival/City/${c.city}/PassThrough/Station/${encodeURIComponent(stationId)}`, {}, 20);
+      const rows = await tdx.get(`/advanced/v2/Bus/EstimatedTimeOfArrival/City/${c.city}/PassThrough/Station/${encodeURIComponent(stationId)}`, {}, 20);
       return rows.map((e) => ({
         routeName: zh(e.RouteName), ...enField('routeNameEn', e.RouteName), direction: e.Direction,
         etaSec: e.EstimateTime ?? null, status: e.StopStatus ?? 0,
@@ -258,11 +261,10 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
     const st = await rail.traStations();
     const o = findStation(st, from, '台鐵'), d = findStation(st, to, '台鐵');
     if (o.id === d.id) throw new UserError('起訖站不可相同');
-    const fares = await cached(`tra-fare-${o.id}-${d.id}`, STATIC_TTL, async (opt) => {
+    // 快取鍵 v2：舊鍵存的是「車種代碼 N」與繞島另一方向的票價（2026-11-22 修正），不沿用
+    const fares = await cached(`tra-fare-v2-${o.id}-${d.id}`, STATIC_TTL, async (opt) => {
       const j = await tdx.get(`/basic/v3/Rail/TRA/ODFare/${o.id}/to/${d.id}`, {}, 60, rawOpts(opt));
-      const ods = Array.isArray(j) ? j : j?.ODFares || [];
-      // v3 每個車種一筆 OD，各有 Fares
-      return sortFares(ods.flatMap((od) => normFares(od.Fares, 'TRA', trainTypeLabel(od))));
+      return normTraFares(Array.isArray(j) ? j : j?.ODFares || []);
     });
     return { system: 'TRA', from: o.name, to: d.name, fares };
   };
@@ -332,13 +334,35 @@ export function routeShape(rows) {
   return path.length >= 2 ? path : null;
 }
 
-// ── 票價代碼（依 TDX Swagger；⚠️ 待 M1 驗證，未知代碼顯示「代碼 N」） ──
+// ── 票價代碼（依 TDX Swagger；2026-11-22 高鐵、台鐵實測符合；高鐵未知代碼顯示「代碼 N」） ──
 export const TICKET_TYPE = { 1: '單程票', 2: '來回票', 3: '電子票證', 4: '回數票', 5: '定期票（30 天）', 6: '定期票（60 天）', 7: '早鳥票', 8: '團體票' };
 export const FARE_CLASS = { 1: '成人', 2: '學生', 3: '孩童', 4: '敬老', 5: '愛心', 6: '愛心孩童', 7: '愛心陪伴', 8: '軍警', 9: '法優' };
 export const CABIN_CLASS = { 1: '標準車廂', 2: '商務車廂', 3: '自由座' };
 const label = (table, code) => table[code] || (code == null ? null : `代碼 ${code}`);
-// 台鐵車種代碼對照未經驗證：只採用資料自帶的名稱，否則顯示代碼
-const trainTypeLabel = (od) => zh(od.TrainTypeName) || (od.TrainType != null ? `車種代碼 ${od.TrainType}` : null);
+/**
+ * 台鐵 v3 ODFare 的 TrainType（＝TDX `/basic/v3/Rail/TRA/TrainType` 的 TrainTypeCode，2026-11-22 實測對照）。
+ * 名稱跟時刻表的車種（TrainTypeName 去掉括號）一致，plan_trip 才對得到同車種的票價。
+ * 7 普快不列：一般路段沒有普快車（只剩南迴觀光專開），列進來會讓「X 元起」偏低。不認得的代碼也不列（不把原始代碼給使用者看）。
+ */
+export const TRA_TRAIN_TYPE = { 1: '太魯閣', 2: '普悠瑪', 3: '自強', 4: '莒光', 5: '復興', 6: '區間', 10: '區間快', 11: '自強3000' };
+
+const TRA_ORDER = [6, 10, 5, 4, 3, 11, 2, 1]; // 同價時的列法：區間、區間快、復興、莒光、自強、自強3000、普悠瑪、太魯閣
+
+/**
+ * 台鐵 v3 ODFares（每個車種、每個方向一筆）→ 成人單程的各車種票價（2026-11-22 實測修正）。
+ * - 同一組起訖有兩個方向（例：臺北→新竹 Direction 1 是 78.1 公里，Direction 0 是繞島另一邊 797.8 公里）：只取里程最短的方向；沒有 TravelDistance 時全部保留。
+ *   以前沒分方向，臺北→新竹說成「83 元起（最高 1,932 元）」。
+ * - 只留成人單程（孩童、敬老、愛心等身分一律半價，列出來一次 40 行）；車種代碼轉中文，不認得的代碼不列。
+ */
+export function normTraFares(ods) {
+  const list = (Array.isArray(ods) ? ods : []).filter((od) => TRA_TRAIN_TYPE[od?.TrainType]);
+  const dists = list.map((od) => Number(od.TravelDistance)).filter((n) => Number.isFinite(n) && n > 0);
+  const min = dists.length ? Math.min(...dists) : null;
+  const near = min == null ? list : list.filter((od) => !(Number(od.TravelDistance) > min + 0.5));
+  const rank = (od) => { const i = TRA_ORDER.indexOf(Number(od.TrainType)); return i < 0 ? TRA_ORDER.length : i; };
+  const rows = [...near].sort((a, b) => rank(a) - rank(b)).flatMap((od) => normFares(od.Fares, 'TRA', TRA_TRAIN_TYPE[od.TrainType]).filter((f) => f.adultOneWay));
+  return sortFares(rows);
+}
 
 /** TDX Fares → [{ ticketType, fareClass, cabin?, trainType?, price, adultOneWay }]；價格無效的略過 */
 export function normFares(fares, system, trainType = null) {

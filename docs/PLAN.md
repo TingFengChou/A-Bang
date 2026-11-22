@@ -93,16 +93,16 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 
 | 待驗證 | 狀態 |
 |---|---|
-| `Bus/EstimatedTimeOfArrival/.../PassThrough/Station/{id}` | 未驗證 |
+| `Bus/EstimatedTimeOfArrival/.../PassThrough/Station/{id}` | 已驗證 2026-11-22：在 `/advanced/v2/` 底下（`/basic/` 404 → 以前一律 502）；欄位 `RouteName`、`Direction`、`EstimateTime`（秒，沒有就不帶）、`StopStatus`（臺北市站位 1000 實測） |
 | 公車到站 `StopStatus` 與 `NextBusTime` | 部分 ✅ 2026-11-22（新北 939、三峽-臺北市信義區）：`StopStatus` 0～4 都看得到（4 今日未營運整條路線每站都是 4；2 交管不停靠只有個別站）；狀態 1 尚未發車的站**沒有** `NextBusTime`。`etaOf` 有 `NextBusTime` 才換算等車時間（沒寫時區當 +08:00），沒有照舊算「到站時間不明」；台北市與其他縣市未驗證 |
 | `Bus/Shape/City/{City}/{Route}` WKT 格式 | 未驗證（M3-02 假設欄位 `Geometry`、`LINESTRING`／`MULTILINESTRING`；`core/geo.js` 防禦性解析） |
 | 站牌 `StopPosition` 於各縣市完整度 | 未驗證 |
 | `Rail/Metro/LiveBoard/{Op}` 各系統欄位 | 北捷 ✅ 2026-11-22：欄位 `LineID`、`LineName`、`StationID`、`DestinationStationName`、`EstimateTime`（分鐘）符合；但只列「進站中」的站（約 20～25 筆、`EstimateTime` 都是 0）→ 看板整個系統一次取，其他方向用 `StationTimeTable` 估（DATA_SOURCES.md §1.2）。其他系統未驗證 |
-| 台鐵／高鐵 ODFare 欄位 | 未驗證（M3-05 假設 `Fares[].TicketType／FareClass／CabinClass／Price`、台鐵 v3 `ODFares[]` 每車種一筆；代碼對照與台鐵 `TrainType` 意義待確認） |
+| 台鐵／高鐵 ODFare 欄位 | 已驗證 2026-11-22：`Fares[].TicketType／FareClass／CabinClass／Price` 符合；高鐵代碼對照符合（台北→左營 自由座 1,445、標準 1,490、商務 2,440）。台鐵 v3 `ODFares[]` 每個車種×方向一筆、沒有 `TrainTypeName`，`TrainType` 是車種代碼（1 太魯閣、2 普悠瑪、3 自強、4 莒光、5 復興、6 區間、7 普快、10 區間快、11 自強3000，對照 `/basic/v3/Rail/TRA/TrainType`）；兩個 `Direction` 之一是繞島另一邊，取 `TravelDistance` 最短的。臺北→新竹成人單程 區間 163、莒光 195、自強 253 |
 | 高速公路旅行時間、道路事件、國道客運端點 | 未驗證（M3-07 假設 `StopOfRoute/InterCity`、`Schedule/InterCity` 的 `Timetables[].ServiceDay／StopTimes`；客運票價端點未知；M3-06 假設 `SectionShape`／`Section`／`Live`／`Live/News` 的 Freeway 端點與 `SectionShapes`、`Sections`、`LiveTraffics`、`Newses` 包裝；`TravelSpeed` 為 0 是「完全停滯」還是「無資料」（目前視為無資料）；走廊 3 km 可能同時納入平行國道（國 1／國 3），需以實際路段資料決定是否依 `RoadName` 只取一條主線） |
 | 地理編碼（TDX 或 TGOS） | 未驗證（`find_place` 目前只查內建地標） |
 | 導訂票 API 端點與參數（需權限） | 未驗證 |
-| CWA 觀測與鄉鎮預報欄位 | 未驗證（M3-08 假設 `records.Station[]`（`GeoInfo.Coordinates` WGS84、`WeatherElement.AirTemperature／Weather`）、雨量站 `O-A0002-001` 的 `RainfallElement.Past1hr.Precipitation`（`-998` 雨跡等特殊值目前視為沒有資料）、`F-D0047-089` 可用 `LocationName` 篩、上層縣市欄位 `LocationsName`（同名鄉鎮以縣市區分）、時段 `EndTime`、元素名「3小時降雨機率」；`weather_tomorrow` 另假設時段 `StartTime`（或 `DataTime`）、元素「溫度／最高溫度／最低溫度」「天氣現象」） |
+| CWA 觀測與鄉鎮預報欄位 | 鄉鎮預報已驗證 2026-11-22：`F-D0047-089` 是縣市層級，鄉鎮要用各縣市的 `F-D0047-001～085`（DATA_SOURCES.md §3）；`LocationsName`、`LocationName`、元素名「3小時降雨機率」「溫度」「天氣現象」、`StartTime`／`EndTime`／`DataTime`（帶 +08:00）都符合。觀測與雨量站欄位實際在用、結果合理（高雄三民 25.8°C、雨量 0 mm）。以下是原本的假設，`-998` 等特殊值仍未確認：（M3-08 假設 `records.Station[]`（`GeoInfo.Coordinates` WGS84、`WeatherElement.AirTemperature／Weather`）、雨量站 `O-A0002-001` 的 `RainfallElement.Past1hr.Precipitation`（`-998` 雨跡等特殊值目前視為沒有資料）、`F-D0047-089` 可用 `LocationName` 篩、上層縣市欄位 `LocationsName`（同名鄉鎮以縣市區分）、時段 `EndTime`、元素名「3小時降雨機率」；`weather_tomorrow` 另假設時段 `StartTime`（或 `DataTime`）、元素「溫度／最高溫度／最低溫度」「天氣現象」） |
 | 機場捷運直達車參數 | 未驗證（2026-11-22：`AIRPORT_EXPRESS` 台北車站 ↔ 機場第一航廈約 35 分、第二航廈約 38 分、160 元、約 15 分一班，依公告的大約值；真實改用 `Metro/S2STravelTime`、`Metro/ODFare`） |
 | 捷運線別與估算 | 未驗證（2026-11-21：線別由站代碼字首推（台中數字代碼→綠線、高雄 RK→紅線、機捷 A）；時間票價依距離估，真實改用 `Metro/S2STravelTime`、`Metro/ODFare`） |
 | 高鐵／台鐵車站座標與等級 | 未驗證（2026-11-21：`StationPosition.PositionLat／Lon` 給「最近車站」用；台鐵 `StationClass` 可用來優先有直達車的大站，目前改用「最近 3 站依序查、0 班換下一站」） |

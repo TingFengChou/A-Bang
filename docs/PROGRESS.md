@@ -20,6 +20,22 @@
 - 下一個：T-QUOTA（`run.js` 行程題不另外先查路況、`core/tools` 的 `mode`／`speak` 改說 `limited.text`）；T-MIX 公車／台鐵接捷運
 - 卡住：無
 
+## 2026-11-22 M1 真實資料健檢修正：明天天氣、站位到站、台鐵票價、股市指數
+- 做了（真實資料修正前 → 後，不含金鑰）：
+  - ①S2 天氣：`F-D0047-089` 是「全臺各縣市」層級（`Location` 是 22 個縣市），用 `LocationName=三民區` 篩一律空的。改用測站所在縣市的「未來 3 天」鄉鎮預報（`TOWN_FORECAST`，22 個縣市逐一實測 `F-D0047-001～085`），`weather_now` 與 `weather_tomorrow` 共用快取。
+    前：`weather_tomorrow`（高雄三民、台北中正）一律 502「資料來源暫時無法取得」；`weather_now` 高雄三民 `pop3h: null`。
+    後：`weather_tomorrow` 高雄三民「明天 2026-11-23 多雲，21～28°C，降雨機率 20%」、台北中正「晴，18～26°C，降雨機率 30%」、台中北區「晴，18～27°C，降雨機率 20%」；`weather_now` 高雄三民 `pop3h: 10`、台北中正 `pop3h: 0`。
+  - ②S9 站位到站：`/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/PassThrough/Station/{id}` 是 404「Resouce Not Found」，正確在 `/advanced/v2/…`。
+    前：`bus_station_eta`（臺北市 1000）502。後：「此站 2 條路線到站：紅29（返程）5 分；646（返程）今日未營運」。
+  - ③台鐵票價：v3 `ODFares` 每個車種×方向一筆，兩個 `Direction` 之一是繞島另一邊（臺北→新竹 78.1 對 797.8 公里），`TrainType` 是車種代碼、沒有 `TrainTypeName`。改成只取最短方向、只列成人單程、代碼依 `/basic/v3/Rail/TRA/TrainType` 轉中文（7 普快與不認得的代碼不列），快取鍵改 `tra-fare-v2-*`；示範版台鐵也只列成人單程。高鐵不變（台北→左營 1,445／1,490／2,440）。
+    前：臺北→新竹「成人單程 83 元起（最高 1,932 元）」、車種「車種代碼 7」等 90 行。後：「163 元起（最高 253 元）」，區間／區間快／復興 163、莒光 195、自強／自強3000／普悠瑪／太魯閣 253；臺北→花蓮 376～583、新竹→高雄 529～821。
+  - ④股市：「加權指數」「大盤」「台股」「櫃買指數」等指數名稱不再拿去個股清單找（`indexOf`），問到的指數排第一、只問指數不下載個股清單。
+    前：`stock_quote`「加權指數」→ speak「加權指數 11/20 收 36033.29，跌 2393.6 點。找不到「加權指數」。」。後：「加權指數 11/20 收 36033.29，跌 2393.6 點。」（`notFound: []`）；「櫃買指數、2330」櫃買指數排第一。
+- 測試：TZ=UTC npm test 全過（新增 weather 3 項、transit 2 項、stock 2 項；`test/fixtures/` 放 3 份精簡過的真實回應：CWA F-D0047-065 三民區、TDX 台鐵 ODFare 臺北→新竹、TDX 站位到站臺北市 1000）；e2e、build:demo、build:cards、lint 全過
+- 文件：DATA_SOURCES.md（端點表、§3 鄉鎮預報資料集、§5.3 指數）、PLAN.md（M1 待驗證表：站位到站、ODFare、CWA 鄉鎮預報標「已驗證 2026-11-22」）、MCP_TOOLS.md
+- 下一個：其他 M1 待驗證端點（路線形狀、客運、路況欄位）
+- 卡住：無
+
 ## 2026-11-22 P2b PR #122 審查修正（國定假日核對、去機場不搶別的問題）
 - 做了：①國定假日清單改由 `scripts/build-holidays.js` 讀人事行政總處官方辦公日曆 CSV（data.gov.tw 14718，原檔放 `scripts/data/dgpa-calendar/`）產生，補 2026-02-15 小年夜、2027-12-31（2028 元旦週六的補假）；測試比對產生結果、今年或明年不在清單就失敗 ②「去機場」不搶天氣、空品、路況、不去了、別人去、帶什麼、先去別處、設提醒（照 main 回答），判斷層可更正 ③打字回答「台北」＝松山機場 ④從家／公司去機場用常用地點座標 ⑤「那去機場呢」沿用上一趟起點 ⑥所有機場有英文名稱，中英猜的一致 ⑦搭機場捷運／機捷去機場＝桃園機場 ⑧答案後的附加詞（「松山，叫車」）帶上交通方式、英文 the Taoyuan one ⑨捷運卡片遇到舊版中文狀態用 etaMin 推回代碼 ⑩英文卡片線名、終點用 lineEn／destinationEn ⑪國定假日標記看路線＋方向＋終點
 - 測試：TZ=UTC npm test 全過（新增 holidays 3 項、airport-ask 4 項、metro-status-holiday 2 項、情境 Q-36～Q-45）；e2e、build:demo、build:cards、lint 全過
