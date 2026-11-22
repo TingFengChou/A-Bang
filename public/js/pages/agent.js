@@ -29,6 +29,7 @@ import { looksLikeMessage } from '../../../core/vision-text.js';
 /** 問是不是詐騙（生活阿幫附了內容時直接帶到防詐） */
 const SCAM_Q = /詐騙|是不是騙|騙人的|\bscam\b|\bfraud\b/i;
 import { mountDramaHint, dramaHintOn } from '../drama-hint.js';
+import { hasCar } from '../my-car.js';
 import { createRounds } from '../agent/collapse.js';
 import { linkReminders } from '../agent/chat-links.js';
 
@@ -425,7 +426,8 @@ export default {
         const savedPlaces = agentId === 'life' ? placesFor(history.slice(-10).filter((m) => m.role === 'user').map((m) => m.content)) : undefined;
         const ctxText = [context, pageContext].filter(Boolean).join('；').slice(0, 200);
         const habitState = agentId === 'life' ? habitRequest() : null; // 同意過的偏好比例、說過的預設狀況、可以問的候選（只有方式與次數；habits.js）
-        const userState = agentId === 'life' && !dramaHintOn() ? { ...habitState, dramaHint: false } : habitState; // 設定關掉等車推短劇：伺服器就不查也不推（ADR-0019）
+        const userState0 = agentId === 'life' && !dramaHintOn() ? { ...habitState, dramaHint: false } : habitState; // 設定關掉等車推短劇：伺服器就不查也不推（ADR-0019）
+        const userState = agentId === 'life' && hasCar() ? { ...userState0, car: true } : userState0; // 我有車：行程比較加入自己開車
         await runAgent({ messages: history.slice(-10), ...(ctxText && { context: ctxText }), ...(deviceJudge && { deviceJudge }), ...(clientCaps && { clientCaps }), ...(savedPlaces && { savedPlaces }), ...(userState && { userState }), ...(pendingAsk && { pendingAsk }), ...(agentId === 'life' && { turn: turnNo }) }, (e) => { // turn：這段對話第幾輪（等車推劇輪替用）
           // 隱私：防詐頁貼上的內容只送給本站伺服器分析，不保存（AGENT_ANTIFRAUD.md §1）
           if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = modeText(e);

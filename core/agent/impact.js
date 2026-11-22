@@ -6,7 +6,7 @@ import { BAD_AIR_AQI, AIR_MAX_M } from '../services/trip.js';
 const AVOID_SAY = { bike: 'YouBike', walk: '長距離步行' };
 const STATE_SAY = { rush: '趕時間', luggage: '帶行李', budget: '想省錢', lessWalk: '想少走路', rain: '遇到下雨', badAir: '覺得空氣差', elder: '帶著長輩', kids: '帶著小孩', mobility: '行動不便' };
 
-const MODE_SAY = { bus: '坐公車', bike: '騎 YouBike', walk: '走路', ridehail: '叫車', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運' };
+const MODE_SAY = { bus: '坐公車', bike: '騎 YouBike', walk: '走路', ridehail: '叫車', drive: '開車', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運' };
 
 /**
  * 判斷層結果 → 阿幫在行程開始前的一句（≤ 60 字；agent_note）。只在行程時說，而且要有資訊（不再每次都說「我聽懂了」）：
@@ -46,7 +46,7 @@ function bikeImpact(data) {
   return { tone: 'good', text: `YouBike：「${b.rent.name}」${b.rent.count} 台可借、「${b.ret.name}」${b.ret.count} 個空位` };
 }
 
-const ROLE_SAY = { walk: '走路', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
+const ROLE_SAY = { walk: '走路', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車', drive: '開車' };
 /** 沒列入的方式與原因（plan_trip missing；YouBike 由 bikeImpact 說、深夜收班已在工具發言第一句說） */
 function missingImpact(data) {
   const xs = (data.missing || []).filter((m) => m.role !== 'bike' && !(m.closed && data.night));
@@ -77,7 +77,7 @@ export function impactOf(name, data) {
     case 'plan_trip': {
       const top = data.ranking?.ranked?.[0];
       const best = data.options?.find((o) => o.id === data.best);
-      if (data.modeUnavailable && best) return [{ tone: 'bad', text: `沒有可行的${{ walk: '步行', bike: 'YouBike', bus: '公車', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' }[data.modeUnavailable] || ''}方案：改建議${best.name}` }, bikeImpact(data)].filter(Boolean);
+      if (data.modeUnavailable && best) return [{ tone: 'bad', text: `沒有可行的${{ walk: '步行', bike: 'YouBike', bus: '公車', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車', drive: '開車' }[data.modeUnavailable] || ''}方案：改建議${best.name}` }, bikeImpact(data)].filter(Boolean);
       if (data.single && best) return [{ tone: 'bad', text: data.single.text }, bikeImpact(data)].filter(Boolean); // 只有一種方式：說明其他方式為什麼不在
       const main = best && top ? { tone: 'good', text: data.mode ? `照你說的選${best.name}（${data.ranking.ranked.find((r) => r.id === best.id)?.score ?? '?'} 分）` : `比了 ${data.options.length} 種走法：${best.name} ${top.score} 分最高` } : { tone: 'bad', text: '這次沒有可行的走法' };
       const lines = [main, bikeImpact(data), missingImpact(data)].filter(Boolean);

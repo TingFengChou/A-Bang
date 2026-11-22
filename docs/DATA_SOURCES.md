@@ -80,6 +80,12 @@
 
 `{City}` 由 `core/cities.js` 解析（`Taipei`、`NewTaipei`、`Taoyuan`、`Taichung`、`Tainan`、`Kaohsiung`…）；`{Operator}`：`TRTC` 台北、`TYMC` 桃園、`TMRT` 台中、`KRTC` 高雄。
 
+### 停車場（2026-11-23，自己開車）
+
+- `/basic/v1/Parking/OffStreet/CarPark/City/{City}?$spatialFilter=nearby(lat,lon,600)`：路外停車場（名稱、座標、地址、收費說明、有沒有即時空位）。靜態，存檔 1 天，快取鍵用目的地座標約 100 公尺一格。
+- `/basic/v1/Parking/OffStreet/ParkingAvailability/City/{City}?$filter=CarParkID in (...)`：剩餘車位（只查最近幾個有即時資料的），60 秒。
+- 只在「我有車」或說開車時查（不是每趟行程都打 TDX）；查不到或逾時（2.5 秒）不影響開車方案。台北市、新北市目前沒有座標（實測清單是空的），畫面照實說。
+
 ### 座標欄位（導航用）
 
 | 資料 | 欄位 |

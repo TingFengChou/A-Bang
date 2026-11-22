@@ -13,7 +13,7 @@ const SHELL = [
   '/css/ai.css', '/js/pages/ai.js', '/js/pages/ai-i18n.js', '/js/pages/ai-trial-i18n.js', '/js/ai-info.js', '/js/ai-trial.js', '/js/agent/thinking.js',
   '/css/vision.css', '/js/vision.js', '/core/vision-text.js', '/js/edge-write.js', '/core/edge-write.js', '/core/output-guards.js',
   '/js/voice.js', '/js/voice-i18n.js', '/js/agent/voice-ui.js',
-  '/ui/cards/cards/drama.js', '/js/drama-hint.js', '/js/wait-drama.js', '/core/drama-say.js', '/core/edge-ask.js',
+  '/ui/cards/cards/drama.js', '/js/drama-hint.js', '/js/wait-drama.js', '/js/my-car.js', '/core/drama-say.js', '/core/edge-ask.js',
   '/js/agent/collapse.js', '/js/agent/turn-summary.js', '/js/agent/chat-links.js', // 長對話（UX.md §4.17）
 ];
 

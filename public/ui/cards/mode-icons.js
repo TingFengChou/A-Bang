@@ -10,6 +10,8 @@ export const MODE_PATH = {
   thsr: '<path d="M4 15c0-5 4-9 10-9h3l3 4v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M4 13h16"/><path d="M7 21l2-2M17 21l-2-2"/>',
   tra: '<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 10h14"/><path d="M8 21l2-4M16 21l-2-4"/><circle cx="9" cy="13.5" r=".9" fill="currentColor"/><circle cx="15" cy="13.5" r=".9" fill="currentColor"/>',
   intercity: '<rect x="3" y="5" width="18" height="11" rx="2"/><path d="M3 11h18M7 19v-3M17 19v-3"/>',
+  // 自己開車：方向盤（跟叫車的車子分開，一眼看得出是自己開）
+  drive: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.2"/><path d="M3.8 10.5h5.9M14.3 10.5h5.9M12 14.2v6.2"/>',
   ridehail: '<path d="M5 16l1.5-5A2 2 0 0 1 8.4 9.6h7.2a2 2 0 0 1 1.9 1.4L19 16"/><rect x="3" y="16" width="18" height="3" rx="1"/><circle cx="7.5" cy="19.5" r="1.3"/><circle cx="16.5" cy="19.5" r="1.3"/>',
   place: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
   weather: '<path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.5A3.5 3.5 0 1 1 17 18z"/>',
@@ -23,11 +25,11 @@ MODE_PATH.transit = MODE_PATH.bus;
 /** 代表色（與 cards.css 的 .ab-leg 一致） */
 export const MODE_COLOR = {
   walk: '#6b7280', bike: '#d97706', bus: '#0f766e', transit: '#0f766e', metro: '#0e7490', thsr: '#c2410c', tra: '#1d4ed8',
-  intercity: '#7c3aed', ridehail: '#334155', place: '#1d4ed8', weather: '#0284c7', air: '#0891b2', traffic: '#b45309', fare: '#7c3aed', trip: '#0f766e',
+  intercity: '#7c3aed', ridehail: '#334155', drive: '#475569', place: '#1d4ed8', weather: '#0284c7', air: '#0891b2', traffic: '#b45309', fare: '#7c3aed', trip: '#0f766e',
 };
 
 /** 方案（plan_trip option.role）或小幫手角色 → 圖示 key */
-const ROLE_MODE = { walk: 'walk', bike: 'bike', bus: 'bus', thsr: 'thsr', tra: 'tra', intercity: 'intercity', ridehail: 'ridehail', metro: 'metro',
+const ROLE_MODE = { walk: 'walk', bike: 'bike', bus: 'bus', thsr: 'thsr', tra: 'tra', intercity: 'intercity', ridehail: 'ridehail', drive: 'drive', metro: 'metro',
   地點: 'place', 天氣: 'weather', 空品: 'air', 路況: 'traffic', 票價: 'fare', 行程: 'trip', 公車: 'bus', YouBike: 'bike', 高鐵: 'thsr', 台鐵: 'tra', 捷運: 'metro', 客運: 'intercity', 叫車: 'ridehail' };
 export const modeOf = (roleOrMode) => ROLE_MODE[roleOrMode] || (MODE_PATH[roleOrMode] ? roleOrMode : null);
 

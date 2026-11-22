@@ -8,7 +8,7 @@ const mins = (sec) => Math.max(1, Math.round(sec / 60));
 const plural = (n, w, many = `${w}s`) => `${n} ${n === 1 ? w : many}`;
 
 /** 英文方案名稱（與 en.js trip.leg 一致；公車帶路線號碼） */
-export const EN_ROLE = { walk: 'Walking', bike: 'YouBike', metro: 'MRT', thsr: 'High Speed Rail', tra: 'Train', intercity: 'Intercity bus', ridehail: 'Taxi', transit: 'City transit' };
+export const EN_ROLE = { walk: 'Walking', bike: 'YouBike', metro: 'MRT', thsr: 'High Speed Rail', tra: 'Train', intercity: 'Intercity bus', ridehail: 'Taxi', drive: 'Drive', transit: 'City transit' };
 export const enName = (o) => (o.role === 'bus' ? `Bus ${String(o.name || '').replace(/^公車\s*/, '')}`.trim() : EN_ROLE[o.role] || o.name);
 const AQI_LEVEL = { good: 'good', moderate: 'moderate', sensitive: 'unhealthy for sensitive groups', unhealthy: 'unhealthy', very: 'very unhealthy', hazard: 'hazardous' };
 const BUS_STATUS = ['', 'not departed yet', 'not stopping here (traffic control)', 'last bus has left', 'no service today'];

@@ -3,7 +3,7 @@
 import { speakEn } from '../tools/speak-en.js';
 
 const MAX_POINTS = 6;
-const MODE_ZH = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
+const MODE_ZH = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車', drive: '開車' };
 /** 「25.0430, 121.5070」這類座標拿掉（有些地點名稱就是座標） */
 const noCoords = (s) => String(s ?? '').replace(/-?\d{1,3}\.\d{3,}\s*[,，]\s*-?\d{1,3}\.\d{3,}/g, '').replace(/\s{2,}/g, ' ').trim();
 
