@@ -176,7 +176,9 @@ const TAIPEI = [
   [/Bike\/Availability\/City\/Taipei/, [
     { StationUID: 'TPE5001', ServiceStatus: 1, AvailableRentBikes: 10, AvailableReturnBikes: 10 },
     { StationUID: 'TPE5002', ServiceStatus: 1, AvailableRentBikes: 10, AvailableReturnBikes: 10 }]],
+  [/Rail\/TRA\/Station/, [{ StationID: '1010', StationName: Z('萬華'), StationPosition: P(25.0334, 121.5001) }, { StationID: '1020', StationName: Z('松山'), StationPosition: P(25.0493, 121.5778) }]], // 短程又不順路：台鐵照樣列（估算，不查時刻表）
   [/Metro\/Station\/TYMC/, [{ StationID: 'A1', StationName: Z('臺北車站'), StationPosition: P(25.049, 121.515) }]], // 整個系統的車站不可能是空的（空的當失敗，不存）
+  ...['TMRT', 'KRTC', 'NTMC', 'NTDLRT', 'NTALRT', 'KLRT'].map((op) => [new RegExp(`Metro/Station/${op}\\b`), [{ StationID: 'X1', StationName: Z(`${op}站`), StationPosition: P(22.6, 120.3) }]]), // 其他系統：遠在南部（不影響台北的行程）
   [/Metro\/Station\/TRTC/, [{ StationID: 'BL11', StationName: Z('西門'), StationPosition: P(25.0421, 121.5081) }, { StationID: 'R03', StationName: Z('台北101／世貿'), StationPosition: P(25.0331, 121.5654) }]],
 ];
 

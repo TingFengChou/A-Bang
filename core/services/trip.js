@@ -17,7 +17,8 @@ export const LIMITS = {
   walkMaxM: 6000,        // 步行：6 公里內列出（> 3 公里通常排後）
   bikeMinM: 500, bikeMaxM: 12000, bikeRadiusM: 500, bikeReturnRadiusM: 800,
   busMaxM: 25000,
-  railMinM: 30000,       // 軌道：直線 > 30 公里
+  railMinM: 30000,       // 高鐵：直線 > 30 公里
+  traMinM: 0,            // 台鐵：不限距離（2026-11-22 產品負責人：時間久、麻煩的自然分數低，沒列出來會以為沒查）
   railAccessMaxM: 25000, // 起訖點到車站最遠 25 公里
   intercityMinM: 15000,
 };
@@ -194,8 +195,14 @@ export const METRO_HOURS = {
   TYMC: { open: 6 * 60, close: 23 * 60 + 59 }, // 桃園機場捷運：約 06:00～23:59
   TMRT: { open: 6 * 60, close: 24 * 60 },      // 台中捷運：約 06:00～24:00
   KRTC: { open: 6 * 60, close: 24 * 60 },      // 高雄捷運：約 06:00～24:00
+  NTMC: { open: 6 * 60, close: 24 * 60 },      // 新北捷運（三鶯線、環狀線）：約 06:00～24:00
+  NTDLRT: { open: 6 * 60, close: 24 * 60 },    // 淡海輕軌
+  NTALRT: { open: 6 * 60, close: 24 * 60 },    // 安坑輕軌
+  KLRT: { open: 7 * 60, close: 22 * 60 },      // 高雄輕軌：約 07:00～22:00
 };
 export const METRO_LATE_MIN = 30;
+/** 路線彼此不相通的營運單位：每條線分開算（三鶯線 LB 與環狀線 Y 只能在頂埔、大坪林等站轉台北捷運） */
+const METRO_SPLIT_LINES = new Set(['NTMC']);
 /** 起訖 10 公里內都沒有捷運站＝這一帶沒有捷運：不說「捷運沒列入」 */
 export const METRO_NA_M = 10000;
 const hhmmOf = (min) => (min >= 24 * 60 ? '24:00' : toHHMM(min));
@@ -220,10 +227,32 @@ const METRO_EST = {
   TYMC: { perKm: 1.1, base: 3, wait: 12, fare: (km) => Math.min(160, 30 + Math.round(km * 3.7)) },
   TMRT: { perKm: 1.8, base: 2, wait: 6, fare: (km) => Math.min(50, 20 + 5 * Math.ceil(Math.max(0, km - 2) / 3)) },
   KRTC: { perKm: 1.8, base: 2, wait: 6, fare: (km) => Math.min(60, 20 + 5 * Math.ceil(Math.max(0, km - 5) / 3)) },
+  NTMC: { perKm: 2, base: 2, wait: 6, fare: (km) => Math.min(65, 20 + 5 * Math.ceil(Math.max(0, km - 5) / 3)) },
+  NTDLRT: { perKm: 2.5, base: 1, wait: 10, fare: (km) => Math.min(35, 20 + 5 * Math.ceil(Math.max(0, km - 5) / 3)) },
+  NTALRT: { perKm: 2.5, base: 1, wait: 10, fare: (km) => Math.min(35, 20 + 5 * Math.ceil(Math.max(0, km - 5) / 3)) },
+  KLRT: { perKm: 2.5, base: 1, wait: 12, fare: () => 30 },
 };
 const stLabel = (n) => (/站$/.test(String(n)) ? String(n) : `${n}站`); // 「台北車站」「北屯總站」不再接「站」
 /** 走到捷運站的上限（直線公尺）：超過就算「附近沒有捷運站」 */
 export const METRO_WALK_M = 1200;
+/**
+ * 接駁到捷運站（2026-11-22 產品負責人：捷運為何總是沒列入——三峽最近的頂埔站 5.8 公里，以前一律不列）：
+ * 走不到的站 8 公里內用「公車／YouBike 接駁」估算（市區速度、等車、一段票），組成「接駁＋捷運」方案；標 estimated。
+ */
+export const METRO_ACCESS_M = 8000;
+/** 到捷運站／離開捷運站：1.2 公里內走路，否則公車或 YouBike 接駁（估算） */
+function metroAccess(fromP, toP, d, toStation) {
+  if (d <= METRO_WALK_M) {
+    const m = walkMinutes(d);
+    return { minutes: m, walkMin: m, cost: 0, est: false, leg: leg('walk', fromP, toP, m, toStation ? [`走到捷運${stLabel(toP.name)}`, `Walk to MRT ${toP.name}`] : [`步行約 ${m} 分`, `Walk about ${m} min`]) };
+  }
+  const m = Math.round((roadKm(d) / EST.cityKmh) * 60) + EST.cityWaitMin;
+  const name = toStation ? toP.name : fromP.name;
+  return { minutes: m, walkMin: 4, cost: EST.cityFare, est: true,
+    leg: leg('transit', fromP, toP, m, toStation ? [`坐公車或騎 YouBike 到捷運${stLabel(name)}，約 ${m} 分（估算）`, `Bus or YouBike to MRT ${name}, about ${m} min (est.)`] : [`出站後坐公車或騎 YouBike，約 ${m} 分（估算）`, `Bus or YouBike from MRT ${name}, about ${m} min (est.)`], 'transit') };
+}
+/** 接駁要花的分鐘（挑站用） */
+const accessMin = (m) => (m <= METRO_WALK_M ? walkMinutes(m) : Math.round((roadKm(m) / EST.cityKmh) * 60) + EST.cityWaitMin);
 /**
  * 機場捷運直達車（⚠️ 大約值，以桃園捷運公告為準）：台北車站 ↔ 機場第一航廈約 35 分、第二航廈約 38 分，單程 160 元，約 15 分一班（等車以半個班距估）。
  * 這一段用公告的固定參數，不用距離估算（原本估成 58 分 136 元，輸給票價也是估的客運；2026-11-22 真實健檢 z01）。
@@ -239,7 +268,7 @@ export function airportExpress(sys, a, b) {
   return { ride: term[1], fare: AIRPORT_EXPRESS.fare, wait: AIRPORT_EXPRESS.waitMin };
 }
 const km1 = (m) => (m / 1000).toFixed(1);
-const SYSTEM_EN = { TRTC: 'Taipei Metro', TYMC: 'Taoyuan Airport MRT', TMRT: 'Taichung MRT', KRTC: 'Kaohsiung MRT' };
+const SYSTEM_EN = { TRTC: 'Taipei Metro', TYMC: 'Taoyuan Airport MRT', TMRT: 'Taichung MRT', KRTC: 'Kaohsiung MRT', NTMC: 'New Taipei Metro', NTDLRT: 'Danhai LRT', NTALRT: 'Ankeng LRT', KLRT: 'Kaohsiung LRT' };
 /**
  * 捷運沒列入的原因照實說（2026-11-22 真實健檢：三峽、桃園出發說「起點或目的地附近沒有捷運站」，使用者以為捷運壞了）：
  * 哪一端 1.2 公里內沒有捷運站、最近的是哪一站多遠；兩端都有站但不同系統（高鐵桃園站的機場捷運 → 台北捷運）說跨系統還沒列入比較。
@@ -259,6 +288,34 @@ function metroNone(nearFrom, nearTo, closeFrom, closeTo) {
  * 捷運（S7）：起訖點各自 1.2 公里內有捷運站（同一系統）；同一條線直達，不同線找轉乘站（同時在兩條線、繞最少的站）。
  * 時間與票價依距離估算並標示 estimated；走到站加起來太遠（≥ 直線 60%）不列。
  */
+/** 跨系統轉乘的捷運方案（估算；轉乘多算 5 分）；收班時不列（回 null 交給同系統或「沒列入」） */
+function crossMetroOption(from, to, straight, c, depart) {
+  const { A, B, t, tb, kA, kB } = c;
+  if (A.o.m + B.d.m >= straight * 0.6) return null;
+  const a1 = metroAccess(from, A.o, A.o.m, true), a2 = metroAccess(B.d, to, B.d.m, false);
+  if (depart && (metroHours(A.sys, depart.minute + a1.minutes).closed || metroHours(B.sys, depart.minute + a1.minutes + 20).closed)) return null;
+  const eA = METRO_EST[A.sys] || METRO_EST.TRTC, eB = METRO_EST[B.sys] || METRO_EST.TRTC;
+  const lineOf = (sys, x, y) => { const l = (x.lines || []).find((k) => (y.lines || []).includes(k)) || x.lines?.[0]; return METRO_LINE_NAME[sys]?.[l] || METRO_SYSTEMS[sys] || '捷運'; };
+  const nA = lineOf(A.sys, A.o, t), nB = lineOf(B.sys, B.d, tb);
+  const rideA = Math.round(kA * eA.perKm + eA.base), rideB = Math.round(kB * eB.perKm + eB.base) + 5;
+  const wait = eA.wait + eB.wait;
+  const fed = a1.est || a2.est;
+  return {
+    id: 'metro', role: 'metro', name: `捷運（${nA}轉${nB}）${a1.est ? `（先到${stLabel(A.o.name)}）` : ''}`,
+    minutes: a1.minutes + wait + rideA + rideB + a2.minutes, waitMin: wait, walkMin: a1.walkMin + a2.walkMin,
+    cost: eA.fare(kA) + eB.fare(kB) + a1.cost + a2.cost, exposure: fed ? 0.2 : 0.1, effort: 0.35 + (fed ? 0.1 : 0), delayRisk: fed ? 0.1 : 0,
+    legs: [
+      a1.leg,
+      leg('metro', A.o, t, rideA, [`${nA}：${A.o.name} → ${t.name}`, `${A.o.name} → ${t.name}`], 'transit'),
+      leg('metro', tb, B.d, rideB, [`在${stLabel(t.name)}轉${nB}：${tb.name} → ${B.d.name}`, `Change at ${t.name}: ${tb.name} → ${B.d.name}`], 'transit'),
+      a2.leg,
+    ],
+    notes: ['捷運時間與票價依距離估算（未含實際路網）', `跨系統轉乘（在${stLabel(t.name)}），估算多 5 分`, ...(fed ? ['接駁到捷運站的時間與票價是估算（公車或 YouBike，以實際為準）'] : [])],
+    estimated: true, est: { minutes: true },
+    metro: { system: A.sys, systems: [A.sys, B.sys], from: A.o.name, to: B.d.name, lines: `${nA}轉${nB}`, transfer: true, via: t.name, crossSystem: true, ...(fed && { feeder: { from: a1.est, to: a2.est } }) },
+  };
+}
+
 async function metroOption(svc, from, to, straight, depart) {
   if (straight < 1500 || straight > 60000) return null; // 太近、太遠（missingModes 說明）
   if (!svc.metro) return { none: { kind: 'none', why: '查不到捷運資料', whyEn: 'No MRT data' } };
@@ -269,31 +326,61 @@ async function metroOption(svc, from, to, straight, depart) {
   if (lists.every((r) => r.status === 'rejected')) throw new Error('metro stations unavailable'); // 進 unavailable
   if (demoOf(svc, 'metro.stations')) return { skip: limitSkip('metro') }; // 示範的車站清單不完整，不拿來推薦或說「附近沒有捷運站」
   let best = null, same = false, nearest = Infinity, nearFrom = null, nearTo = null, closeFrom = null, closeTo = null;
-  lists.forEach((r, i) => {
-    const list = (r.status === 'fulfilled' ? r.value : []).filter((x) => Number.isFinite(x.lat));
-    const dist = (p) => list.map((x) => ({ ...x, sys: systems[i], m: distanceM(p.lat, p.lon, x.lat, x.lon) })).sort((a, b) => a.m - b.m)[0];
+  const per = []; // 各路網：起訖最近、接駁得到的站（跨系統轉乘用）
+  // 同一個營運單位但路線不相通（新北捷運的三鶯線與環狀線）：每條線當一個路網，靠同名站轉乘
+  const nets = lists.flatMap((r, i) => {
+    const all = (r.status === 'fulfilled' ? r.value : []).filter((x) => Number.isFinite(x.lat));
+    if (!METRO_SPLIT_LINES.has(systems[i])) return [{ sys: systems[i], net: systems[i], list: all }];
+    const by = new Map();
+    for (const x of all) { const l = x.lines?.[0] || ''; if (!by.has(l)) by.set(l, []); by.get(l).push(x); }
+    return [...by].map(([l, list]) => ({ sys: systems[i], net: `${systems[i]}:${l}`, list }));
+  });
+  nets.forEach(({ sys, net, list }) => {
+    const dist = (p) => list.map((x) => ({ ...x, sys, m: distanceM(p.lat, p.lon, x.lat, x.lon) })).sort((a, b) => a.m - b.m)[0];
     const cf = dist(from), ct = dist(to);
     if (cf && (!closeFrom || cf.m < closeFrom.m)) closeFrom = cf;
     if (ct && (!closeTo || ct.m < closeTo.m)) closeTo = ct;
     nearest = Math.min(nearest, cf?.m ?? Infinity, ct?.m ?? Infinity);
-    const o = cf && cf.m <= METRO_WALK_M ? cf : null, d = ct && ct.m <= METRO_WALK_M ? ct : null;
-    if (o && (!nearFrom || o.m < nearFrom.m)) nearFrom = o;
-    if (d && (!nearTo || d.m < nearTo.m)) nearTo = d;
+    const wo = cf && cf.m <= METRO_WALK_M ? cf : null, wd = ct && ct.m <= METRO_WALK_M ? ct : null;
+    if (wo && (!nearFrom || wo.m < nearFrom.m)) nearFrom = wo;
+    if (wd && (!nearTo || wd.m < nearTo.m)) nearTo = wd;
+    const o = cf && cf.m <= METRO_ACCESS_M ? cf : null, d = ct && ct.m <= METRO_ACCESS_M ? ct : null; // 走不到的站：公車／YouBike 接駁（metroAccess）
+    per.push({ sys, net, list, o, d });
     if (o && d && o.name === d.name) same = true;
     if (!o || !d || o.name === d.name) return;
-    if (!best || o.m + d.m < best.o.m + best.d.m) best = { sys: systems[i], list, o, d };
+    const score = accessMin(o.m) + accessMin(d.m) + (distanceM(o.lat, o.lon, d.lat, d.lon) / 1000) * 2;
+    if (!best || score < best.score) best = { sys, list, o, d, score };
   });
+  // 跨系統轉乘（2026-11-22：三鶯線三峽 → 頂埔轉板南線；淡海輕軌 ↔ 紅樹林；安坑輕軌 ↔ 十四張）：兩個系統有同名的站就能轉
+  let cross = null;
+  for (const A of per) for (const B of per) {
+    if (A.net === B.net || !A.o || !B.d) continue;
+    for (const t of A.list) {
+      const tb = B.list.find((x) => normName(x.name) === normName(t.name));
+      // 轉乘站就是起站或訖站：等於只坐一個系統（同系統的 best 已經算過），不重複收兩段基本票價
+      if (!tb || normName(t.name) === normName(A.o.name) || normName(tb.name) === normName(B.d.name)) continue;
+      const kA = distanceM(A.o.lat, A.o.lon, t.lat, t.lon) / 1000, kB = distanceM(tb.lat, tb.lon, B.d.lat, B.d.lon) / 1000;
+      const score = accessMin(A.o.m) + accessMin(B.d.m) + (kA + kB) * 2 + 8;
+      if (!cross || score < cross.score) cross = { A, B, t, tb, kA, kB, score };
+    }
+  }
+  if (cross && (!best || cross.score < best.score)) {
+    const opt = crossMetroOption(from, to, straight, cross, depart);
+    if (opt) return opt;
+  }
   // 沒列入也要說原因（深夜 00:10 問 101 沒有捷運，使用者以為是 bug）；哪一端沒有、最近的站多遠，照實說（metroNone）
   // 沒有捷運的地方（起訖 10 公里內都沒有捷運站）：kind 'na'，不列入 missing（不要每趟都說「捷運沒列入」）
-  if (!best) return { none: same ? { kind: 'near', why: '起點和目的地最近的捷運站是同一站', whyEn: 'Same MRT station at both ends' } : nearest > METRO_NA_M ? { kind: 'na', why: '這一帶沒有捷運', whyEn: 'No MRT in this area' } : metroNone(nearFrom, nearTo, closeFrom, closeTo) };
+  if (!best) return { none: same && !cross ? { kind: 'near', why: '起點和目的地最近的捷運站是同一站', whyEn: 'Same MRT station at both ends' } : nearest > METRO_NA_M ? { kind: 'na', why: '這一帶沒有捷運', whyEn: 'No MRT in this area' } : metroNone(nearFrom, nearTo, closeFrom, closeTo) };
   const { sys, list, o, d } = best;
-  if (o.m + d.m >= straight * 0.6 || o.m + d.m > 1500) { // 走到站太遠（比坐捷運還遠、或兩段直線加起來超過 1.5 公里，約走 25 分）
-    const w = walkMinutes(o.m) + walkMinutes(d.m);
-    return { none: { kind: 'none', why: `走到捷運站太遠（兩端加起來約走 ${w} 分）`, whyEn: `Too far to walk to the MRT stations (about ${w} min in total)` } };
+  const walkBoth = o.m <= METRO_WALK_M && d.m <= METRO_WALK_M;
+  if (o.m + d.m >= straight * 0.6 || (walkBoth && o.m + d.m > 1500)) { // 到站比坐捷運還遠；或兩端都走路但加起來超過 1.5 公里（約走 25 分）
+    const w = accessMin(o.m) + accessMin(d.m);
+    return { none: { kind: 'none', why: `到捷運站太遠（兩端加起來約 ${w} 分）`, whyEn: `Too far to reach the MRT stations (about ${w} min in total)` } };
   }
+  const a1 = metroAccess(from, o, o.m, true), a2 = metroAccess(d, to, d.m, false);
   // 營運時間（⚠️ 大約值，以各系統公告為準）：看走到站的時刻（23:59 出發走到站已過 24:00；05:50 出發 06:02 到站可搭）
   // 收班不列入並說首班時間（首班前 1 小時內說「還沒發車」）；接近末班列入但提醒
-  const hours = depart ? metroHours(sys, depart.minute + walkMinutes(o.m)) : {};
+  const hours = depart ? metroHours(sys, depart.minute + a1.minutes) : {};
   if (hours.closed) {
     return { skip: hours.notYet
       ? { role: 'metro', closed: true, notYet: true, first: hours.first, why: `捷運還沒發車（約 ${hours.first} 首班）`, whyEn: `The MRT hasn't started yet (first train around ${hours.first})` }
@@ -316,23 +403,25 @@ async function metroOption(svc, from, to, straight, depart) {
     if (via) { km = via.k; pair = [via.a, via.b]; } else pair = [o.lines?.[0], d.lines?.[0]];
   }
   const transfer = !shared;
-  const w1 = walkMinutes(o.m), w2 = walkMinutes(d.m);
+  const w1 = a1.minutes, w2 = a2.minutes;
+  const fed = a1.est || a2.est; // 有接駁（不是走路到站）
   const ride = express ? express.ride : Math.round(km * est.perKm + est.base + (transfer ? 5 : 0));
   const wait = express ? express.wait : est.wait + (transfer ? 3 : 0);
   const lines = shared ? lineName(shared) : `${lineName(pair[0])}轉${lineName(pair[1])}`;
   return {
-    id: 'metro', role: 'metro', name: transfer ? `捷運（${lines}）` : `捷運 ${lines}`, minutes: w1 + wait + ride + w2, waitMin: wait, walkMin: w1 + w2,
-    cost: express ? express.fare : est.fare(km), exposure: 0.1, effort: transfer ? 0.3 : 0.2, delayRisk: 0,
+    id: 'metro', role: 'metro', name: `${transfer ? `捷運（${lines}）` : `捷運 ${lines}`}${a1.est ? `（先到${stLabel(o.name)}）` : ''}`, minutes: w1 + wait + ride + w2, waitMin: wait, walkMin: a1.walkMin + a2.walkMin,
+    cost: (express ? express.fare : est.fare(km)) + a1.cost + a2.cost, exposure: fed ? 0.2 : 0.1, effort: (transfer ? 0.3 : 0.2) + (fed ? 0.1 : 0), delayRisk: fed ? 0.1 : 0,
     legs: [
-      leg('walk', from, o, w1, [`走到捷運${stLabel(o.name)}`, `Walk to MRT ${o.name}`]),
+      a1.leg,
       leg('metro', o, d, ride, [`${lines}：${o.name} → ${d.name}${via ? `（在${stLabel(via.name)}轉乘）` : transfer ? '（轉乘一次）' : ''}`, `MRT ${o.name} → ${d.name}${via ? ` (change at ${via.name})` : transfer ? ' (one transfer)' : ''}`], 'transit'),
-      leg('walk', d, to, w2, [`步行約 ${w2} 分`, `Walk about ${w2} min`]),
+      a2.leg,
     ],
-    notes: [express ? `機場捷運直達車約 ${express.ride} 分、${express.fare} 元，約 15 分一班（依公告，以實際班次為準）` : '捷運時間與票價依距離估算（未含實際路網）', ...(transfer ? [`需轉乘一次${via ? `（在${stLabel(via.name)}）` : ''}，估算多 5 分`] : []), ...(hours.late ? [`末班快到了（約 ${hours.last} 前後，各站不同），早點出門；錯過可以叫車`] : [])],
+    notes: [...(fed ? ['接駁到捷運站的時間與票價是估算（公車或 YouBike，以實際為準）'] : []), express ? `機場捷運直達車約 ${express.ride} 分、${express.fare} 元，約 15 分一班（依公告，以實際班次為準）` : '捷運時間與票價依距離估算（未含實際路網）', ...(transfer ? [`需轉乘一次${via ? `（在${stLabel(via.name)}）` : ''}，估算多 5 分`] : []), ...(hours.late ? [`末班快到了（約 ${hours.last} 前後，各站不同），早點出門；錯過可以叫車`] : [])],
     ...(hours.late && { lastTrain: true }),
     // 直達車用公告的時間與票價（只有等車以半個班距估）；其餘依距離與票價規則估算（跟公車「每站 1.5 分」同一種規則估算，不另外扣分，core/decide.js UNCERTAIN）
-    ...(!express && { estimated: true }),
-    metro: { system: sys, from: o.name, to: d.name, lines, transfer, ...(via && { via: via.name }) },
+    ...((!express || fed) && { estimated: true }),
+    ...(fed && { est: { minutes: true } }), // 接駁時間是估的：決策時保守看（core/decide.js UNCERTAIN）
+    metro: { system: sys, from: o.name, to: d.name, lines, transfer, ...(via && { via: via.name }), ...(fed && { feeder: { from: a1.est, to: a2.est } }) },
   };
 }
 
@@ -414,7 +503,7 @@ async function busOption(svc, from, to, straight, risk, depart) {
 }
 
 async function railOption(svc, system, from, to, straight, depart) {
-  if (straight < LIMITS.railMinM) return null;
+  if (straight < (system === 'THSR' ? LIMITS.railMinM : LIMITS.traMinM)) return null;
   const role = system.toLowerCase(); // thsr、tra（也是 rail 服務方法的字首：rail.thsrTimetable）
   const stations = (await (system === 'THSR' ? svc.rail.thsrStations() : svc.rail.traStations()))
     .map((s) => stationPoint(system, s.name)).filter(Boolean);
@@ -423,6 +512,8 @@ async function railOption(svc, system, from, to, straight, depart) {
   if (!o || !d) return { none: { kind: 'none', why: `起點或目的地 ${LIMITS.railAccessMaxM / 1000} 公里內沒有車站`, whyEn: `No station within ${LIMITS.railAccessMaxM / 1000} km of the start or destination` } };
   if (normName(o.name) === normName(d.name)) return { none: { kind: 'near', why: '起點和目的地最近的車站是同一站', whyEn: 'Same station at both ends' } };
   const a1 = access(from, o, o.d), a2 = access(d, to, d.d);
+  // 台鐵市區短程（8 公里內）或車站不順路（到站的路加起來比這段路的六成還遠）：照樣列出讓分數決定，但不查時刻表（省 TDX 額度），時間與票價估算
+  if (system === 'TRA' && straight < LIMITS.railMinM && (straight < TRA_EST.queryMinM || o.d + d.d >= straight * 0.6)) return traEstOption(o, d, a1, a2);
   const tt = await (system === 'THSR' ? svc.rail.thsrTimetable : svc.rail.traTimetable)({ from: o.name, to: d.name, date: depart.date });
   if (demoOf(svc, `rail.${role}Timetable`)) return { skip: limitSkip(role) }; // 示範的班次不推
   const ready = depart.minute + a1.minutes;
@@ -447,6 +538,22 @@ async function railOption(svc, system, from, to, straight, depart) {
     ...((a1.estimated || a2.estimated || !fare) && { estimated: true }),
     // 票價查不到（估的）：決策時保守看（core/decide.js UNCERTAIN）。到站、離站的市區轉乘時間是規則估算（每一種跨城方式都有），不另外扣
     ...(!fare && { est: { cost: true } }),
+  };
+}
+
+/** 台鐵估算方案（短程、不查時刻表）：區間車平均 45 km/h、等車約 10 分；票價依距離估 */
+export const TRA_EST = { kmh: 45, waitMin: 10, queryMinM: 8000 };
+function traEstOption(o, d, a1, a2) {
+  const m = distanceM(o.lat, o.lon, d.lat, d.lon);
+  const ride = Math.max(3, Math.round((m * EST.roadFactor / 1000) / TRA_EST.kmh * 60));
+  const fare = railFareEst('TRA', m);
+  return {
+    id: 'tra', role: 'tra', name: '台鐵（估算）',
+    minutes: a1.minutes + TRA_EST.waitMin + ride + a2.minutes, waitMin: TRA_EST.waitMin, walkMin: a1.walkMin + a2.walkMin,
+    cost: fare + a1.cost + a2.cost, exposure: 0.1, effort: 0.35, delayRisk: 0.05,
+    legs: [a1.leg, leg('tra', o, d, ride, [`台鐵：${o.name} → ${d.name}（約 ${ride} 分，班次以台鐵為準）`, `TRA: ${o.name} → ${d.name} (about ${ride} min; check the timetable)`], 'transit'), a2.leg],
+    notes: [`車站離起點或目的地有點遠，沒查時刻表：時間與票價約 ${fare} 元是估算（以台鐵公告為準）`],
+    estimated: true, est: { minutes: true, cost: true },
   };
 }
 

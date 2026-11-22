@@ -82,7 +82,7 @@ test('只有一種方式：說明太遠與沒有趕得上的班次（示範標�
   assert.match(r.single.text, /^只找到叫車一種方式：距離 26.1 公里，走路、YouBike、公車都太遠/);
   assert.doesNotMatch(r.single.text, /客運/, '客運沒資料就不提（產品負責人 2026-11-22）');
   assert.match(r.single.text, /示範資料/);
-  assert.deepEqual(r.single.suggest.map((s) => s.ask), ['從台北車站到台北101怎麼去'], '客運不列後，這段路沒有「班次趕不上」的方式，不建議改明天');
+  assert.deepEqual(r.single.suggest.map((s) => s.ask), ['明天早上 8 點去台北101', '從台北車站到台北101怎麼去'], '台鐵不限距離後（2026-11-22）：23:30 以後趕不上台鐵，建議改明天');
   assert.match(impactOf('plan_trip', r)[0].text, /^只找到叫車一種方式/);
   // 白天同一段路：有客運，不是只有一種
   const day = await planTrip(createServices({ forceMock: true }), { from: TAOYUAN, to: T101, departAt: '10:00', now: NOW });

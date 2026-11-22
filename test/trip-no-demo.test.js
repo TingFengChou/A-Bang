@@ -82,7 +82,7 @@ test('大眾運輸全部額度用完：照實說、給可行的（叫車照估�
   // 市區短程：公車、捷運、YouBike 都額度用完 → 走路、叫車
   const city = (await plan(svc, MAIN, T101)).result;
   assert.deepEqual(city.options.map((o) => o.role).sort(), ['ridehail', 'walk']);
-  assert.deepEqual(city.limited.roles, ['bike', 'bus', 'metro']);
+  assert.deepEqual(city.limited.roles, ['bike', 'bus', 'metro', 'tra'], '台鐵不限距離：額度用完也照實說');
   assert.match(city.limited.text, /大眾運輸都沒列入.*先比走路、叫車/);
   assert.ok(!city.options.some((o) => o.follow));
 });
@@ -189,16 +189,31 @@ test('尚未發車但站牌有預估：說法跟公車卡片一致「尚未發�
   assert.equal(busStatusText(1, undefined), '尚未發車');
 });
 
-test('捷運沒列入的原因照實說：哪一端沒有站、最近的站多遠；跨系統說還沒列入比較', async () => {
+test('捷運：全台各系統（含三鶯線、輕軌）、跨系統在同名站轉乘、走不到的站用公車／YouBike 接駁', async () => {
   const svc = createServices({ forceMock: true });
+  // 三峽：三鶯線三峽站 → 頂埔轉台北捷運（2026-11-22「我這裡應該離捷運三鶯線比較近」「所有捷運系統應該都被包含」）
   const sanxia = (await plan(svc, { name: '三峽老街', lat: 24.9349, lon: 121.3695 }, T101)).result;
-  const m = sanxia.missing.find((x) => x.role === 'metro');
-  assert.match(m.why, /^起點 1\.2 公里內沒有捷運站（最近的是.+站，約 \d+\.\d 公里）$/, m.why);
-  assert.match(m.whyEn, /^No MRT station within 1\.2 km of the start \(nearest: .+, about \d+\.\d km\)$/);
+  const m = sanxia.options.find((x) => x.role === 'metro');
+  assert.ok(m, '三鶯線轉台北捷運列入');
+  assert.match(m.name, /^捷運（三鶯線轉.+線）/);
+  assert.match(m.legs[2].detail, /^在頂埔站轉.+線：頂埔 → /);
+  assert.deepEqual([m.metro.crossSystem, m.metro.via, m.metro.systems], [true, '頂埔', ['NTMC', 'TRTC']]);
+  assert.equal(m.est?.minutes, true, '跨系統的時間是估的：決策保守看');
+  assert.ok(!(sanxia.missing || []).some((x) => x.role === 'metro'));
+  // 高鐵桃園站：機場捷運到台北車站轉台北捷運（以前說「跨系統還沒列入」）
   const ty = (await plan(svc, THSR_TY, T101)).result;
-  const t = ty.missing.find((x) => x.role === 'metro');
-  assert.equal(t.why, '起點附近是桃園機場捷運、目的地附近是台北捷運，跨系統轉乘還沒列入比較');
-  assert.match(t.whyEn, /Taoyuan Airport MRT.*Taipei Metro/);
+  const t = ty.options.find((x) => x.role === 'metro');
+  assert.match(t.name, /^捷運（機場線轉/);
+  assert.equal(t.metro.via, '臺北車站');
+  // 三鶯線與環狀線同屬新北捷運但不相通：不會排出「三鶯線轉環狀線」
+  const late = (await plan(svc, { name: '你的位置', lat: 24.99, lon: 121.31 }, T101)).result;
+  assert.ok(!late.options.some((o) => /三鶯線轉環狀線/.test(o.name)));
+  // 走不到的站：接駁（公車或 YouBike，估算）
+  const far = (await plan(svc, { name: '三峽山區', lat: 24.89, lon: 121.40 }, T101)).result;
+  const f = far.options.find((x) => x.role === 'metro');
+  assert.ok(f, '接駁＋捷運列入');
+  assert.match(f.name, /（先到.+站）$/);
+  assert.match(f.legs[0].detail, /^坐公車或騎 YouBike 到捷運.+站，約 \d+ 分（估算）$/);
 });
 
 // ── PR #126 審查：limited 要被用到（工具文字、中英 speak、示範中英回答、建議）；工具結果不再整段標示範 ──
