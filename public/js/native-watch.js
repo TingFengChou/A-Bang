@@ -32,7 +32,7 @@ export async function stopWatchService() {
   try { await cap().nativePromise(PLUGIN, 'stop', {}); } catch { /* 沒在跑 */ }
 }
 
-/** @returns {Promise<{ active: boolean, firedAt: number }|null>} */
+/** @returns {Promise<{ active: boolean, firedAt: number, endedAt?: number }|null>} endedAt：末班已過或今日未營運，服務自己取消了提醒 */
 export async function watchServiceStatus() {
   if (!hasWatchService()) return null;
   try { return await cap().nativePromise(PLUGIN, 'status', {}); } catch { return null; }

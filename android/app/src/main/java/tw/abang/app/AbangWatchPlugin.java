@@ -51,6 +51,7 @@ public class AbangWatchPlugin extends Plugin {
         JSObject r = new JSObject();
         r.put("active", AbangWatchService.active);
         r.put("firedAt", AbangWatchService.firedAt);
+        r.put("endedAt", AbangWatchService.endedAt);
         r.put("etaSec", AbangWatchService.lastEta);
         r.put("text", AbangWatchService.lastText);
         call.resolve(r);
