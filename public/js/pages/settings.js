@@ -5,6 +5,7 @@ import { edgeEnabled, edgeStatus, setEdgeEnabled, suggestEnabled, setSuggestEnab
 import { locationGranted, browserLocation, inTaiwan } from '../agent/client.js';
 import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-help.js';
 import { cancelNotify, NOTIFY_ID } from '../native-notify.js';
+import { stopAlight } from '../alight.js';
 import { loadPlaces, savePlace, SAVED_KEYS } from '../saved-places.js';
 import { showOnboarding } from '../onboarding.js';
 import { cancelAllReminders } from '../reminders.js';
@@ -342,7 +343,8 @@ export const settings = {
           else localStorage.removeItem(k);
         }
       } catch { /* 無痕模式 */ }
-      cancelNotify(NOTIFY_ID.arrival); cancelNotify(NOTIFY_ID.leave); cancelNotify(NOTIFY_ID.alight); cancelAllReminders(); // 已排好的提醒一起取消
+      cancelNotify(NOTIFY_ID.arrival); cancelNotify(NOTIFY_ID.leave); cancelNotify(NOTIFY_ID.alight); cancelNotify(NOTIFY_ID.invoice); cancelAllReminders(); // 已排好的提醒一起取消（含發票開獎日）
+      stopAlight(); createWebHost().unwatchArrival(); // 進行中的到站、下車提醒（Android 常駐服務、iOS 即時動態）也一起停，不然下一次更新又存回來（審查 2026-11-23）
       dispatchEvent(new CustomEvent('abang:clear-local')); // 開著的問阿幫對話也清掉（abang-dock.js）
       if (!habitWasOn) setHabitsOn(false);
       habitStatus();

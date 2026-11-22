@@ -4,7 +4,7 @@
 // App 關著也每 20 秒更新、到點響鈴；畫面開著時這裡照樣每 20 秒查（畫面上的剩餘時間），不再預排本機通知。
 // 其他手機 App（iOS）：設定當下就把通知排到預估時間（App 關著、網路斷也會響），每次更新再改。最多 3 小時。
 import { hasNativeNotify, ensureNotifyPermission, scheduleNotify, cancelNotify, NOTIFY_ID, EARLY_MS } from './native-notify.js';
-import { hasWatchService, startAlightService, stopAlightService, alightServiceStatus } from './native-watch.js';
+import { hasAlightService, startAlightService, stopAlightService, alightServiceStatus } from './native-watch.js';
 import { ALIGHT_SEC, ALIGHT_MAX_MS, alightDue, alightText } from '../../core/alight.js';
 
 export { ALIGHT_SEC, SEC_PER_STOP, alightText, busToDest, alightDue, rideEstimate } from '../../core/alight.js';
@@ -33,9 +33,9 @@ async function planNative(w, etaSec, now = Date.now()) {
 }
 
 /** 停止下車提醒（使用者取消、已提醒、逾時） */
-export function stopAlight({ cancel = true } = {}) {
+export function stopAlight({ cancel = true, keepService = false } = {}) {
   clearInterval(state.poll);
-  if (state.w?.service) stopAlightService(); // Android 常駐服務一起停（App 內提醒過、取消、逾時）
+  if (state.w?.service && !keepService) stopAlightService(); // keepService：背景時讓常駐服務自己響、自己結束（不要兩邊都響，審查 2026-11-23） // Android 常駐服務一起停（App 內提醒過、取消、逾時）
   if (cancel && state.w?.nativeAt) cancelNotify(NOTIFY_ID.alight);
   state.w = null;
   save();
@@ -47,11 +47,12 @@ function fire(etaSec) {
   if (!w) return;
   const text = alightText(w.dest, etaSec, w.lang);
   const planned = w.nativeAt;
-  stopAlight({ cancel: false }); // 常駐服務也停了：背景時下面改由這裡馬上送
   const visible = typeof document === 'undefined' || document.visibilityState !== 'hidden';
+  const svc = w.service === true;
+  stopAlight({ cancel: false, keepService: svc && !visible }); // 前景：常駐服務一起停（畫面上提醒）；背景：交給常駐服務響
   if (hasNativeNotify()) {
     if (visible) { if (planned) cancelNotify(NOTIFY_ID.alight); } // 畫面上看得到：不重複
-    else if (!planned || planned > Date.now() + 5000) scheduleNotify(NOTIFY_ID.alight, new Date(), titleOf(w), text);
+    else if (!svc && (!planned || planned > Date.now() + 5000)) scheduleNotify(NOTIFY_ID.alight, new Date(), titleOf(w), text);
   } else {
     try { if (typeof Notification !== 'undefined' && Notification.permission === 'granted') new Notification(titleOf(w), { body: text, icon: '/icons/icon.svg', tag: 'abang-alight' }); } catch { /* 部分瀏覽器只允許 SW 通知 */ }
   }
@@ -99,7 +100,7 @@ export async function watchAlight(w, callTool, { resumed = false } = {}) {
   stopAlight();
   const now = Date.now();
   const { service: _s, nativeAt: _n, nativeFailed: _f, ...rest } = w;
-  const cur = state.w = { ...rest, boardAt: w.boardAt ?? now, service: granted && hasWatchService() && 'pending' }; // 有外掛：第一次查完還在提醒才真的開（太近當下就提醒時不多開一個）；沒有通知權限不開（畫面照實說 App 關著不會提醒）
+  const cur = state.w = { ...rest, boardAt: w.boardAt ?? now, service: granted && hasAlightService() && 'pending' }; // 有外掛：第一次查完還在提醒才真的開（太近當下就提醒時不多開一個）；沒有通知權限不開（畫面照實說 App 關著不會提醒）
   save();
   signal('abang:alight-watch', cur);
   if (!cur.service) await planNative(cur, w.rideSec - Math.max(0, (now - cur.boardAt) / 1000) + Math.max(0, (cur.boardAt - now) / 1000), now); // 先排好（第一次查失敗也會響）

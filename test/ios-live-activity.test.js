@@ -74,3 +74,17 @@ test('iOS 原生：Widget Extension 有即時動態（鎖定畫面、動態島�
   assert.match(pbx, /AbangLiveActivity\.appex in Embed Foundation Extensions/);
   assert.match(pbx, /PRODUCT_BUNDLE_IDENTIFIER = tw\.abang\.app\.LiveActivity;/);
 });
+
+test('審查 2026-11-23：iOS 沒有下車提醒常駐服務——不呼叫 startAlight（iOS 橋接遇到沒有的方法不回應，會永遠卡住）', async () => {
+  const { hasAlightService, hasWatchService, startAlightService } = await import('../public/js/native-watch.js');
+  assert.equal(hasWatchService(), true, 'iOS 有到站提醒的即時動態');
+  assert.equal(hasAlightService(), false, '下車提醒常駐服務只有 Android');
+  const before = calls.length;
+  assert.equal(await startAlightService({ routeName: '307', board: '西門', dest: '市政府', boardAt: Date.now(), rideSec: 600, until: Date.now() + 1e6 }), false);
+  assert.ok(!calls.slice(before).some((c) => c.method === 'startAlight'));
+});
+
+test('原生呼叫逾時：外掛不回應也不會讓提醒卡住', async () => {
+  const { NATIVE_TIMEOUT_MS } = await import('../public/js/native-watch.js');
+  assert.ok(NATIVE_TIMEOUT_MS > 0 && NATIVE_TIMEOUT_MS <= 10_000);
+});

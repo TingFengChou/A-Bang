@@ -13,6 +13,19 @@ export function hasWatchService() {
   const c = cap();
   return Boolean(c?.isNativePlatform?.() && c.isPluginAvailable?.(PLUGIN) && /^https?:\/\//.test(API_BASE));
 }
+/** 下車提醒常駐服務只有 Android 有（iOS 外掛沒有 startAlight：呼叫不存在的方法時 iOS 橋接不回應，promise 永遠不結束） */
+export function hasAlightService() {
+  return hasWatchService() && cap()?.getPlatform?.() === 'android';
+}
+/** 原生呼叫最多等多久（毫秒）：外掛沒有這個方法、或卡住時不要讓提醒跟著卡住 */
+export const NATIVE_TIMEOUT_MS = 5000;
+const call = (method, args = {}) => {
+  let timer;
+  return Promise.race([
+    cap().nativePromise(PLUGIN, method, args),
+    new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(`AbangWatch.${method} 逾時`)), NATIVE_TIMEOUT_MS); }),
+  ]).finally(() => clearTimeout(timer));
+};
 
 /**
  * 開始盯（Android 只送路線、站名、方向給阿幫伺服器，跟畫面查詢一樣；iOS 不連網，只在手機上顯示）
@@ -22,7 +35,7 @@ export function hasWatchService() {
 export async function startWatchService(w) {
   if (!hasWatchService()) return false;
   try {
-    const r = await cap().nativePromise(PLUGIN, 'start', {
+    const r = await call('start', {
       apiBase: API_BASE, routeName: w.routeName, stop: w.stop, leadSec: Math.max(1, w.minutes) * 60, lang: w.lang === 'en' ? 'en' : 'zh',
       ...(w.city && { city: w.city }), ...(w.direction != null && { direction: w.direction }), ...(w.until && { until: w.until }),
     });
@@ -36,18 +49,18 @@ export async function startWatchService(w) {
  */
 export async function updateWatchService(u) {
   if (!hasWatchService()) return;
-  try { await cap().nativePromise(PLUGIN, 'update', { text: u.text, ...(u.etaSec != null && { etaSec: Math.max(0, Math.round(u.etaSec)) }) }); } catch { /* 沒在跑 */ }
+  try { await call('update', { text: u.text, ...(u.etaSec != null && { etaSec: Math.max(0, Math.round(u.etaSec)) }) }); } catch { /* 沒在跑 */ }
 }
 
 export async function stopWatchService() {
   if (!hasWatchService()) return;
-  try { await cap().nativePromise(PLUGIN, 'stop', {}); } catch { /* 沒在跑 */ }
+  try { await call('stop'); } catch { /* 沒在跑 */ }
 }
 
 /** @returns {Promise<{ active: boolean, firedAt: number, endedAt?: number }|null>} endedAt：末班已過或今日未營運，服務自己取消了提醒 */
 export async function watchServiceStatus() {
   if (!hasWatchService()) return null;
-  try { return await cap().nativePromise(PLUGIN, 'status', {}); } catch { return null; }
+  try { return await call('status'); } catch { return null; }
 }
 
 /**
@@ -80,9 +93,9 @@ export function watchLine(w, f, { skip = false } = {}) {
  * @returns {Promise<boolean>}
  */
 export async function startAlightService(w) {
-  if (!hasWatchService()) return false;
+  if (!hasAlightService()) return false;
   try {
-    await cap().nativePromise(PLUGIN, 'startAlight', {
+    await call('startAlight', {
       apiBase: API_BASE, routeName: w.routeName, board: w.board, dest: w.dest, boardAt: Math.round(w.boardAt), rideSec: Math.round(w.rideSec), until: Math.round(w.until), lang: w.lang === 'en' ? 'en' : 'zh',
       ...(w.city && { city: w.city }), ...(w.direction != null && { direction: w.direction }),
       ...(w.boardSeq != null && { boardSeq: w.boardSeq }), ...(w.destSeq != null && { destSeq: w.destSeq }), ...(w.plate && { plate: w.plate }),
@@ -92,12 +105,12 @@ export async function startAlightService(w) {
 }
 
 export async function stopAlightService() {
-  if (!hasWatchService()) return;
-  try { await cap().nativePromise(PLUGIN, 'stopAlight', {}); } catch { /* 沒在跑 */ }
+  if (!hasAlightService()) return;
+  try { await call('stopAlight'); } catch { /* 沒在跑 */ }
 }
 
 /** @returns {Promise<{ active: boolean, firedAt: number, endedAt: number }|null>} firedAt：服務已經響過；endedAt：使用者在通知按了「停止」或超過 3 小時 */
 export async function alightServiceStatus() {
-  if (!hasWatchService()) return null;
-  try { return await cap().nativePromise(PLUGIN, 'alightStatus', {}); } catch { return null; }
+  if (!hasAlightService()) return null;
+  try { return await call('alightStatus'); } catch { return null; }
 }
