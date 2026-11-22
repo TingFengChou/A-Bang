@@ -6,12 +6,13 @@
 //     store   { value }         存成手機上的偏好（public/js/habits.js applyStore），並把效果套到這一輪
 //     action  { action }        手機做事：{ name: 'openLink', url, confirm? }｜{ name: 'watchArrival', ...公車 }｜{ name: 'remind', at, text }（L2 照 ADR-0011 先確認）
 //                               ｜{ name: 'navigate', to: '#/…' }（App 內的頁面）｜{ name: 'focusInput' }（游標放到輸入框）
+//                               ｜{ name: 'handOff', agent: 'antifraud', text }（帶著這一句到防詐，只在手機記憶體，public/js/vision.js handOff）
 //     dismiss {}                不做事（「不趕」「不用」也是回答，只是不改變結果）
 //   pending：{ slot, state?, intent? }＝在等什麼答案；使用者直接打字回答時，客戶端把它當 pendingAsk 帶回來，
 //     validateRequest 先用 resolvePending 把「好」「台中」改寫成完整的一句（例「我趕時間」），再交給規則或模型。
 // 規則：一輪最多一個問題；使用者已經說過、或答案不會改變結果時不問；問了之後直接打別的話＝略過。
 export const ASK_KINDS = ['state', 'reply', 'store', 'dismiss', 'action'];
-export const ASK_ACTIONS = ['openLink', 'watchArrival', 'remind', 'navigate', 'focusInput']; // navigate：App 內的頁面（#/…，例：到防詐、發票）；focusInput：游標放到輸入框（請他貼上訊息）
+export const ASK_ACTIONS = ['openLink', 'watchArrival', 'remind', 'navigate', 'focusInput', 'handOff']; // navigate：App 內的頁面（#/…，例：到防詐、發票）；focusInput：游標放到輸入框（請他貼上訊息）
 
 import { decide, keyQuestion } from '../decide.js';
 import { edgeAskShape, askNorm } from '../edge-ask.js';
@@ -304,6 +305,8 @@ Object.assign(PENDING_SLOTS, {
   },
 });
 
+/** 看起來像公車站名的字 */
+const STOP_LIKE = /站|路口|捷運|國小|國中|高中|大學|醫院|市場|公園|廟|宮|里|新村|社區|轉運|廣場|橋|街|路|商場|大樓|中心|學校|分局|公所|派出所|郵局|銀行|圖書館|體育館|夜市|教會|寺/;
 const COUNTY_ONLY = /^(?:[臺台](?:北|中|南|東)|新北|桃園|高雄|基隆|新竹|嘉義|苗栗|彰化|南投|雲林|屏東|宜蘭|花蓮|澎湖|金門)(?:市|縣)?$/;
 // ───── PM 的 Q 情境（2026-11-22，core/agent/clarify.js）：缺起站／迄站、地點有歧義、只說類別、沒定位問在哪、公車在哪一站、發票號碼 ─────
 Object.assign(PENDING_SLOTS, {
@@ -333,6 +336,8 @@ Object.assign(PENDING_SLOTS, {
     if (OTHER_ASK.test(s) && !/^往/.test(s)) return null;
     const it = /^往/.test(s) ? null : parseIntent(s.replace(/^(?:我)?(?:現在)?(?:人)?(?:在|從)\s*/u, ''), {}); // 站名可以是地標（「市政府」），但不能是狀況、道謝、別的問題
     if (it && (it.states?.length || it.thanks || it.sorry || it.reset || it.ack || !['unknown', 'trip'].includes(it.intent) || (it.intent === 'trip' && !it.bare))) return null;
+    const name = s.replace(/^(?:我)?(?:現在)?(?:人)?(?:在|從)\s*/u, '').replace(/\s*(?:站牌|這站|那站)?\s*(?:等(?:車)?)?[。！!～~.]*$/u, '');
+    if (!/^往/.test(s) && !(placesInText(name).length === 1 || STOP_LIKE.test(name))) return null; // 只收看起來像站名的（地標庫、或含站、路口、捷運、國小、市場…；「等一下」不收，審查 #121）
     return busStopSay(p, s);
   },
   // 發票號碼：8 碼或末 3 碼 →「發票 12345678 有中獎嗎」

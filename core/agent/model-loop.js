@@ -282,7 +282,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const rulesIt = parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces, now });
   if (!req.clientToolResults?.length && rulesIt.reset) emit(ev.contextReset());
   if (rulesIt.intent === 'savedMissing' || (profile.id === 'life' && ((rulesIt.intent === 'weather' && rulesIt.later) || (rulesIt.intent === 'limits' || rulesIt.intent === 'access' || rulesIt.intent === 'scamAsk')))) { // 要阿幫代按、代付：固定說明只給官方連結（ADR-0011） // 「回家」但沒設定家、問後天以後的天氣：不給模型猜（模型會拿現在的天氣充數），直接照實說
-    if (rulesIt.intent === 'scamAsk') emit(ev.ask({ id: 'ask-m1', ...scamPasteAsk('life', rulesIt.lang) })); // 生活阿幫被問詐騙：請他到防詐貼上（PM Q-23）
+    if (rulesIt.intent === 'scamAsk') emit(ev.ask({ id: 'ask-m1', ...scamPasteAsk('life', rulesIt.lang, last) })); // 生活阿幫被問詐騙：請他到防詐貼上（PM Q-23）
     emit(ev.text(demoSummary(rulesIt, {})));
     emit(ev.done());
     return;

@@ -16,13 +16,13 @@ const shortOf = (en, token) => (en ? `Which “${token}” do you mean? Tap one 
  * @param {{ profileId?: string, history?: Array<{ role: string, content: string }> }} [o]
  * @returns {{ stop: { ask: object, short: string, accept?: Set<string> } } | { after: (results: object) => ({ ask: object, accept?: Set<string> } | null) } | null}
  */
-export function planAsk(it, { profileId = 'life', history = [] } = {}) {
+export function planAsk(it, { profileId = 'life', history = [], text = '' } = {}) {
   const en = it?.lang === 'en';
   const lang = en ? 'en' : null;
   if (profileId === 'antifraud') return ['empty', 'emptyEn'].includes(it?.intent) ? { after: () => ({ ask: scamPasteAsk('antifraud', it.intent === 'emptyEn' ? 'en' : null) }) } : null;
   if (profileId !== 'life' || !it) return null;
   const at = it.fromPoint || landmarkByName(DEFAULT_FROM);
-  if (it.intent === 'scamAsk') return { after: () => ({ ask: scamPasteAsk('life', lang) }) };
+  if (it.intent === 'scamAsk') return { after: () => ({ ask: scamPasteAsk('life', lang, text) }) };
   if (it.road) return { stop: roadAsk(it.road, lang) };
   if (it.category) return { stop: topicAsk(it.category, lang) };
   if (it.ambig && it.bare && it.intent === 'unknown') { // 只打一個認不得的名字（「中正」）：不排行程，問是哪裡
@@ -30,14 +30,19 @@ export function planAsk(it, { profileId = 'life', history = [] } = {}) {
     const a = placeAsk(it.ambig, g.order, { lang });
     return { stop: { ask: a, short: shortOf(en, it.ambig.token), accept: new Set(a.options.map((o) => o.say)) } };
   }
-  if (it.intent === 'trip' && it.ambig) { // 同名的地點：先用最可能的算，同時問（PM Q-4、Q-6、Q-7、Q-9）
+  if (it.intent === 'trip' && it.ambig) { // 同名的地點：先用最可能的算，同時問（PM Q-4、Q-6、Q-9）
     const g = placeGuess(it.ambig, at);
+    if (it.followUp) { if (it.ambig.names.includes(it.to)) it.to = g.guess; return null; } // 接著改條件（「那叫車呢」「我趕時間」）：問過了，沒回答＝略過，照猜的那個算（ADR-0016 第 4 點）
+    if (g.far) { // 猜的在 30 公里外：不先查（不猜遠的），只問
+      const a = placeAsk(it.ambig, g.order, { from: it.from || null, mode: it.mode || null, lang });
+      return { stop: { ask: a, short: shortOf(en, it.ambig.token), accept: new Set(a.options.map((o) => o.say)) } };
+    }
     if (g.guess) it.to = g.guess;
     if (!g.ask) return null;
     const a = placeAsk(it.ambig, g.order, { guess: true, from: it.from || null, mode: it.mode || null, lang });
     return { after: () => ({ ask: a, accept: new Set(a.options.map((o) => o.say)) }) };
   }
-  if (it.intent === 'trip' && it.bare && it.fromPoint && it.to && !it.from) { // 人就在那裡又只打地名：不排 0 分鐘的行程（PM Q-14）
+  if (it.intent === 'trip' && it.bare && it.fromPoint && it.to && !it.from && !it.followUp) { // 人就在那裡又只打地名：不排 0 分鐘的行程（PM Q-14）。「去火車站怎麼坐」人在車站旁仍照常排（P5-3、P5-4、Q-26；跟 Q-14 的衝突列給產品負責人）
     const x = landmarkByName(it.to);
     if (x && distanceM(it.fromPoint.lat, it.fromPoint.lon, x.lat, x.lon) <= HERE_M) return { stop: hereAsk(x.name, lang) };
   }
@@ -75,7 +80,7 @@ export function askFirst(it, { history = [], at = null } = {}) {
   if (!it) return null;
   if (it.intent === 'trip' && it.ambig && !it.bare) { // 模型模式不先用猜的查：同名地點要問就先問（不讓模型自己挑一個）
     const g = placeGuess(it.ambig, at || landmarkByName(DEFAULT_FROM));
-    if (!g.ask) return null;
+    if (it.followUp || !g.ask) { if (it.ambig.names.includes(it.to)) it.to = g.guess; return null; } // 不問就用猜的那個（不是地標庫的第一個）
     const a = placeAsk(it.ambig, g.order, { from: it.from || null, mode: it.mode || null, lang: it.lang === 'en' ? 'en' : null });
     return { ask: a, short: shortOf(it.lang === 'en', it.ambig.token), accept: new Set(a.options.map((o) => o.say)) };
   }

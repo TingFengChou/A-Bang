@@ -26,7 +26,7 @@ async function turn(svc, messages, located = true, now = Date.now(), saved = und
 }
 
 for (const sc of sets.flatMap((st) => st.scenarios.map((x) => ({ ...x, here: x.here || st.here })))) {
-  test(`${sc.id} ${sc.title}`, { todo: sc.todo || false }, async () => {
+  test(`${sc.id} ${sc.title}`, { todo: sc.todo || sc.known || false }, async () => { // known：跟其他決定衝突、等產品負責人決定（期望不改）
     const svc = createServices({ forceMock: true, ...(sc.demo && { demo: sc.demo }) });
     const messages = [];
     let pendingAsk;

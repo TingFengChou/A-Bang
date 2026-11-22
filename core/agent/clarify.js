@@ -21,8 +21,15 @@ const dist = (a, b) => (a && b ? distanceM(a.lat, a.lon, b.lat, b.lon) : Infinit
 const COUNTY_WORD = /^(?:台北|新北|桃園|台中|台南|高雄|基隆|新竹|嘉義|苗栗|彰化|南投|雲林|屏東|宜蘭|花蓮|台東|澎湖|金門|連江|馬祖)(?:市|縣)?$/;
 /** 名稱後面的通稱（「長庚醫院」→ 長庚；「中山大學」本身是別名，先比對完整名稱） */
 const GENERIC_TAIL = /(?:紀念醫院|醫院|大學|火車站|車站|捷運站|機場|商圈|夜市|老街|區|站)$/;
-/** 路名（很多城市都有，查不到是哪一條） */
-const ROAD = /[一-龥]{1,6}(?:路|街|大道)(?:[一二三四五六七八九十]段)?$/;
+/** 路名（很多城市都有，查不到是哪一條）：「X路／X街／X大道」而且 X 是具體的名稱（2～5 字，不是走路、逛街、馬路、公路、網路、一路、哪一路…；審查 #121） */
+const ROAD = /^([一-龥]{2,5}?)(?:[東西南北]?(?:路|街|大道))(?:[一二三四五六七八九十]段)?$/;
+const NOT_ROAD_NAME = /[走逛想要哪不嗎呢坐搭去到我你他的了過迷一]|^(?:馬|大馬|小馬|公|高速公|快速公|省|縣|鄉|產業|網|山|小|大|道|鐵|水|陸|海|後|前|老|商店|夜市|步行|行人|自行車|單車)$|公$|高速|快速/;
+export const isRoadName = (token) => { const m = ROAD.exec(String(token || '')); return !!m && !NOT_ROAD_NAME.test(m[1]); };
+/** 通稱、連鎖、動作（「市場」「博物館」「誠品」「運動」）：不是一個地方的名字，不猜（審查 #121） */
+const GENERIC_NAME = /^(?:市場|傳統市場|菜市場|夜市|老街|博物館|美術館|科學館|溫泉|公園|醫院|診所|車站|火車站|捷運站|公車站|機場|大學|學校|國小|國中|高中|圖書館|百貨|百貨公司|商圈|廟|寺|教堂|海邊|海灘|沙灘|山上|動物園|遊樂園|超市|賣場|量販店|便利商店|誠品|全聯|家樂福|好市多|星巴克|麥當勞|宜家|郵局|銀行|藥局|加油站|停車場|運動中心|體育館|球場|電影院|影城|飯店|酒店|民宿|餐廳|咖啡廳|運動|散步|吃飯|上班|上學|上課|逛街|走走|看看|兜風|買東西|看電影|爬山|玩|旅行|出去|外面|那邊|那裡|這裡|附近|市區|郊外)$/;
+/** 比對要從詞首對齊（可以先去掉「國立、捷運、臺北、林口…」這類前綴）：「運動」不是捷運「動物園」站 */
+const NAME_PREFIX = /^(?:國立|市立|私立|捷運|高鐵|台鐵|台北市立|新北市立|台北|新北|桃園|台中|台南|高雄|基隆|新竹|嘉義|苗栗|彰化|南投|雲林|屏東|宜蘭|花蓮|台東|林口|土城|內湖|新店|中和|永和|板橋|東港|新)/;
+const aligned = (k, core) => k.startsWith(core) || k.replace(NAME_PREFIX, '').startsWith(core);
 /** 同一個區域（猜的那個附近 15 公里內）還有別的同名地點才問；預設的那個在 30 公里內才算「就是它」 */
 const AREA_M = 15_000;
 const LOCAL_M = 30_000;
@@ -41,18 +48,24 @@ export function destToken(s) {
   return only ? { token: only[1], bare: true } : null;
 }
 
+/** 說了「站」「捷運站」（「去大安站」「去士林捷運站」「捷運大安站」）：只找車站 */
+const STATION_SAID = /(?:捷運站|火車站|車站|站)$|^捷運.+站$/;
 /**
- * 名字 → 地標庫的結果：exact（完整名稱或別名，不問）｜road（路名）｜cands（包含這個名字的地標 1～4 個）｜null（認不得、太多、縣市名）
+ * 名字 → 地標庫的結果：exact（完整名稱或別名，或說了「站」而車站只有一個，不問）｜road（路名）｜station（說了「站」但地標庫沒有：查捷運站）
+ * ｜cands（名字從詞首對得上的地標 1～4 個）｜null（認不得、通稱、太多、縣市名）
  */
 export function lookupToken(token) {
   const n = normPlace(token);
   if (!n || n.length < 2) return null;
   const exact = ITEMS.find((x) => keysOf(x).includes(n));
   if (exact) return { exact: exact.name };
-  if (ROAD.test(token) && !/(?:老街|商店街)$/.test(token)) return { road: token }; // 「深坑老街」是地方，不是路名
+  if (isRoadName(token) && !/(?:老街|商店街)$/.test(token)) return { road: token }; // 「深坑老街」是地方，不是路名
+  if (/[區鄉鎮里]$/.test(token)) return null; // 行政區（「大安區」「中正區」）不是一個地方，不猜（寧可不問）
   const core = n.replace(/^(?:捷運|高鐵)/, '').replace(GENERIC_TAIL, '');
-  if (core.length < 2 || COUNTY_WORD.test(core)) return null;
-  const cands = ITEMS.filter((x) => keysOf(x).some((k) => k.includes(core)));
+  if (core.length < 2 || COUNTY_WORD.test(core) || GENERIC_NAME.test(core) || GENERIC_NAME.test(n)) return null;
+  const station = STATION_SAID.test(n);
+  const cands = ITEMS.filter((x) => (!station || x.kind === 'station') && keysOf(x).some((k) => aligned(k, core)));
+  if (station) return cands.length === 1 ? { exact: cands[0].name } : cands.length ? { core, cands: cands.map((x) => x.name) } : { station: core }; // 「去南港站」＝南港車站（不問展覽館）
   return cands.length && cands.length <= 4 ? { core, cands: cands.map((x) => x.name) } : null;
 }
 
@@ -77,11 +90,16 @@ export function placeLabel(name, core) {
 export function placeGuess(amb, at) {
   const cands = amb.names.map(byName).filter(Boolean).sort((a, b) => dist(at, a) - dist(at, b));
   const def = amb.def ? byName(amb.def) : null;
-  const g = def && dist(at, def) <= LOCAL_M ? def : cands[0] || def;
-  if (!g) return { guess: amb.def, ask: false, order: [] };
-  const near = cands.filter((c) => c.name !== g.name && dist(g, c) <= AREA_M);
-  const ask = !(def && g.name === def.name && !near.length);
-  return { guess: g.name, ask, order: [g.name, ...cands.filter((c) => c.name !== g.name).map((c) => c.name)].slice(0, 4) };
+  const order = (g) => [g.name, ...cands.filter((c) => c.name !== g.name).map((c) => c.name)].slice(0, 4);
+  if (def) { // 規則原本就對到一個（車站短名「中山」「左營」「南港」）
+    if (dist(at, def) <= LOCAL_M) return { guess: def.name, ask: cands.some((c) => c.name !== def.name && dist(def, c) <= AREA_M), far: false, order: order(def) }; // 就在附近：同一區還有別的同名地點才問（台北「去中山」不問、「去松山」問）
+    const alt = cands.find((c) => c.name !== def.name && dist(at, c) <= LOCAL_M);
+    return alt ? { guess: alt.name, ask: true, far: false, order: order(alt) } : { guess: def.name, ask: false, far: false, order: order(def) }; // 人在高雄說「去中山」：猜附近的中山大學並問；附近沒有別的（台北說「去左營」）照原本的
+  }
+  const g = cands[0];
+  if (!g) return { guess: null, ask: false, far: false, order: [] };
+  const far = dist(at, g) > LOCAL_M; // 猜的地方在 30 公里外：不先查（只問；審查 #121「不要猜遠的」）
+  return { guess: g.name, ask: far || cands.length > 1, far, order: order(g) }; // 附近只有一個候選就直接用（「去花博」「去士林」）
 }
 
 const KIND_ONE = { hospital: ['間', 'Which hospital'], school: ['間', 'Which school'] };
@@ -345,10 +363,11 @@ export function remindAsk(f, followUp, lang = null) {
     ],
   };
 }
-export function scamPasteAsk(profileId = 'life', lang = null) {
+export function scamPasteAsk(profileId = 'life', lang = null, text = '') {
   const en = lang === 'en';
   if (profileId === 'antifraud') return { about: 'scam:paste', question: en ? 'Can you paste the message here?' : '可以把那則訊息貼上來嗎？', why: en ? 'Paste the text, link or phone number; or take a photo with the camera button.' : '簡訊、LINE、網址、來電號碼都可以；也可以按相機拍下來。', options: [{ label: en ? 'Paste it' : '貼上訊息', kind: 'action', action: { name: 'focusInput' } }] };
-  return { about: 'scam:paste', question: en ? 'Can you paste the message in Anti-fraud?' : '可以把那則訊息貼到「防詐」給我看嗎？', why: en ? 'Anti-fraud checks it against 165 scam patterns.' : '防詐會比對 165 的詐騙手法。', options: [{ label: en ? 'Open Anti-fraud' : '到防詐貼上', kind: 'action', action: { name: 'navigate', to: '#/agent/antifraud' } }] };
+  const go = String(text || '').trim() ? { name: 'handOff', agent: 'antifraud', text: String(text).trim() } : { name: 'navigate', to: '#/agent/antifraud' }; // 帶著這一句過去（防詐接著請他貼上；手機記憶體，不放網址）
+  return { about: 'scam:paste', question: en ? 'Can you paste the message in Anti-fraud?' : '可以把那則訊息貼到「防詐」給我看嗎？', why: en ? 'Anti-fraud checks it against 165 scam patterns.' : '防詐會比對 165 的詐騙手法。', options: [{ label: en ? 'Open Anti-fraud' : '到防詐貼上', kind: 'action', action: go }] };
 }
 
 export { byName as landmarkByName };

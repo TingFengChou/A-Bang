@@ -47,9 +47,26 @@ import { tripAsk, resolvePending, PENDING_SLOTS, unknownAsk, UNKNOWN_SHORT, slot
 import { planAsk } from './clarify-plan.js';
 import { remindAsk, TOPIC_KEYS } from './clarify.js';
 import { EDGE_ASK_SLOTS, EDGE_ASK_STATES, EDGE_ASK_LIMITS } from '../edge-ask.js';
+import { METRO_SYSTEMS } from '../services/metro.js';
+import { normPlace } from '../services/places.js';
+
+/**
+ * 說了「X站」「X捷運站」但地標庫沒有（「去大安站」「去士林捷運站」）：用捷運站資料找座標，離使用者最近的那個系統優先（審查 #121）。
+ * @returns {Promise<{ lat: number, lon: number, name: string } | null>}
+ */
+export async function metroPoint(svc, name, at = null) {
+  const n = normPlace(name);
+  const hits = [];
+  for (const system of Object.keys(METRO_SYSTEMS)) {
+    try { for (const st of await svc.metro.stations({ system })) if (normPlace(st.name) === n && Number.isFinite(st.lat)) hits.push(st); } catch { /* 這個系統查不到就略過 */ }
+  }
+  const d = (x) => (at ? (x.lat - at.lat) ** 2 + (x.lon - at.lon) ** 2 : 0);
+  const st = hits.sort((a, b) => d(a) - d(b))[0];
+  return st ? { lat: st.lat, lon: st.lon, name: `捷運${st.name}站` } : null;
+}
 
 /** 規則已經很明確、判斷層不改意圖的標記（PM Q 情境：只回好、地點歧義、路名、只說類別、要出門了、沒說去哪的高鐵、公車方向、問中獎） */
-const RULE_FINAL = ['ack', 'ambig', 'road', 'category', 'askTo', 'anyTo', 'toward', 'wantCheck'];
+const RULE_FINAL = ['ack', 'ambig', 'category', 'askTo', 'anyTo', 'toward', 'wantCheck', 'metroTo']; // 路名（road）不在這裡：判斷層說是別的意圖時可以更正（審查 #121）
 /** 「你說過」的預設狀況只能是這幾種（habits.js 叫車原因） */
 export const USUAL_STATES = ['rush', 'luggage', 'lessWalk'];
 export const MAX_MESSAGES = 10;
@@ -351,6 +368,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
     if (loc) it.fromPoint = loc; // 拒絕定位或無效時，照示範預設起點（總結會說明）
     else it.noLocation = true; // 總結說「沒拿到你的位置」（不是「你沒說」）
   }
+  if (it.metroTo && !it.toSaved) { const p = await metroPoint(svc, it.metroTo, it.fromPoint); if (p) { it.toSaved = p; it.to = p.name; } } // 「去大安站」：捷運站的座標
   // 沒有位置、預設起點又就在目的地旁邊（< 300 公尺；去最近的火車站也是從預設起點找，一樣會是同一站）：不算「臺北車站到臺北車站」，問從哪裡出發。
   // 上一輪已經問過、這一輪定位又失敗（按了「用我的位置」但拿不到）：不再給「用我的位置」，避免一直重複
   if (profile.id === 'life' && it.intent === 'trip' && !it.from && !it.fromSaved && !it.fromPoint && (it.nearRail || nearDefaultFrom(it.toSaved || it.to))) {
@@ -367,7 +385,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
     const g = (slot && deviceSlotAsk(dask, slot, rule, { history, context: req.context })) || rule;
     emit(ev.ask({ id: `ask-${nextId()}`, ...g.ask }));
   };
-  const cl = planAsk(it, { profileId: profile.id, history });
+  const cl = planAsk(it, { profileId: profile.id, history, text: last });
   if (cl?.stop) { sayAsk(cl.stop); emit(ev.text(cl.stop.short)); emit(ev.done()); return; }
   // 使用者點選的狀態一併交給 plan_trip 計分
   if (picked.length && it.states) it.states = [...new Set([...it.states, ...picked])];

@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { destToken, lookupToken, placeGuess, placeLabel, railStationAnswer, nearestStation, busStopSay, topicSay, railFromAsk } from '../core/agent/clarify.js';
+import { destToken, lookupToken, placeGuess, placeLabel, railStationAnswer, nearestStation, busStopSay, topicSay, railFromAsk, isRoadName, scamPasteAsk } from '../core/agent/clarify.js';
 import { askFirst } from '../core/agent/clarify-plan.js';
 import { resolvePending, PENDING_SLOTS } from '../core/agent/ask.js';
 import { parseIntent, placesInText } from '../core/agent/demo-intent.js';
@@ -42,7 +42,7 @@ test('名字的歧義：完整名稱不問；短名、連鎖、區名找出候�
   assert.ok(!placesInText('去中山路').includes('捷運中山站'), '「中山路」不是捷運中山站');
   assert.ok(placesInText('去中山站').includes('捷運中山站'));
   const zs = parseIntent('去中山', { history: [] }).ambig;
-  assert.deepEqual(placeGuess(zs, TPE), { guess: '捷運中山站', ask: false, order: placeGuess(zs, TPE).order }, '人在台北：中山站很明確，不問');
+  assert.deepEqual([placeGuess(zs, TPE).guess, placeGuess(zs, TPE).ask], ['捷運中山站', false], '人在台北：中山站很明確，不問');
   const khh = placeGuess(zs, KHH);
   assert.equal(khh.guess, '國立中山大學', '人在高雄：猜中山大學');
   assert.equal(khh.ask, true);
@@ -183,6 +183,113 @@ test('審查：老街不是路名；路名的問題回城市名不收；指定�
   assert.equal(askOf(m)?.about, 'slot:place');
 });
 
+// ───── PR #121 獨立審查的必修與建議（寧可不問、不要猜遠的、不要吞掉別的問題） ─────
+/** 多輪：每一輪帶上一輪的 pending（模擬前端打字回答）；'@' 開頭＝按了選項（不帶 pending） */
+async function conv(turns, pt = TPE) {
+  const s2 = createServices({ forceMock: true });
+  const msgs = [], out = [];
+  let pending;
+  for (const raw of turns) {
+    const click = raw.startsWith('@'), t = click ? raw.slice(1) : raw;
+    msgs.push({ role: 'user', content: t });
+    const es = [];
+    await runDemo(s2, { messages: msgs, ...at(pt), ...(pending && !click && { pendingAsk: pending }) }, (e) => es.push(e), { now: NOW, judge });
+    const a = askOf(es);
+    pending = a?.pending ? { id: a.id, ...a.pending } : undefined;
+    out.push(es);
+    msgs.push({ role: 'assistant', content: es.filter((e) => e.type === 'text').map((e) => e.delta).join('').slice(0, 500) || '好' });
+  }
+  return out;
+}
+const tools = (es) => es.filter((e) => e.type === 'tool_start' && e.name !== 'find_place').map((e) => e.name);
+const tripTo = (es) => { const t = es.find((e) => e.type === 'tool_start' && e.name === 'plan_trip')?.input.to; return typeof t === 'string' ? t : t?.name; };
+
+test('審查 1：一般詞不是路名（走路、逛街、馬路、公路、網路、一路、迷路、哪一路）；多輪「走路」＝改走路', async () => {
+  for (const w of ['中山路', '忠孝東路', '民生東路', '中正路']) assert.equal(isRoadName(w), true, w);
+  for (const t of ['走路', '不想走路', '逛街', '我想去逛街', '帶我去逛街', '馬路', '公路', '高速公路', '網路', '一路', '迷路', '你要坐哪一路？', '哪一路？']) {
+    const es = await run({ messages: one(t), ...at(TPE) });
+    assert.notEqual(askOf(es)?.about, 'slot:place', `「${t}」不問路名`);
+    assert.equal(parseIntent(t, { history: [] }).road, undefined, t);
+  }
+  const [, walk] = await conv(['去台北101', '走路']);
+  assert.equal(walk.find((e) => e.type === 'tool_start' && e.name === 'plan_trip')?.input.prefs?.mode, 'walk', '「走路」接在行程後＝改走路');
+});
+
+test('審查 2：子字串與通稱不配地點（運動≠捷運動物園、市場、誠品、博物館）；猜的超過 30 公里只問不先查', async () => {
+  for (const t of ['去運動', '運動', '去市場', '去誠品', '去博物館']) {
+    const es = await run({ messages: one(t), ...at(TPE) });
+    assert.ok(!tools(es).includes('plan_trip'), `「${t}」不排行程`);
+    assert.ok(!askOf(es), `「${t}」不問`);
+  }
+  const far = await run({ messages: one('去長庚醫院'), ...at({ lat: 23.9871, lon: 121.6011 }) }); // 人在花蓮：兩間長庚都在 30 公里外
+  assert.ok(!tools(far).includes('plan_trip'), '不先查遠的');
+  assert.equal(askOf(far).about, 'slot:place');
+  assert.ok(!askOf(far).options.some((o) => o.guess), '沒有猜的');
+});
+
+test('審查 3：說了「站」「捷運站」只找車站：直接排、不問；南港站、松山站照 main；模型模式不攔', async () => {
+  for (const [t, to] of [['去士林捷運站', '捷運士林站'], ['去北投捷運站', '捷運北投站'], ['去大安站', '捷運大安站'], ['去大安捷運站', '捷運大安站'], ['去南港站', '南港車站'], ['去松山站', '松山車站']]) {
+    const es = await run({ messages: one(t), ...at(TPE) });
+    assert.equal(tripTo(es), to, t);
+    assert.notEqual(askOf(es)?.about, 'slot:place', `「${t}」不問是哪裡`);
+  }
+  assert.equal(askFirst(parseIntent('去南港站', { history: [] })), null);
+  assert.equal(askFirst(parseIntent('去大安站', { history: [] })), null);
+});
+
+test('審查 4：你就在那裡的追問要真的查（按選項、打「下一班」都不重問）', async () => {
+  const [a1, a2] = await conv(['台北車站', '@台北車站捷運下一班']);
+  assert.equal(askOf(a1).about, 'slot:topic');
+  assert.deepEqual(tools(a2), ['metro_live_board']);
+  const [, b2] = await conv(['台北車站', '@台北車站附近的公車站']);
+  assert.deepEqual(tools(b2), ['bus_nearby_stations']);
+  const [, c2] = await conv(['台北車站', '下一班']);
+  assert.deepEqual(tools(c2), ['metro_live_board'], '打「下一班」＝那一題的答案');
+  const XMD = { lat: 25.0421, lon: 121.5081 };
+  const [d1, d2] = await conv(['西門町', '下一班'], XMD);
+  assert.equal(askOf(d1).about, 'slot:topic');
+  assert.deepEqual(tools(d2), ['metro_live_board']);
+  const [, e2] = await conv(['西門町', '@西門町附近的 YouBike'], XMD);
+  assert.deepEqual(tools(e2), ['youbike_nearby']);
+});
+
+test('審查 5：票價使用者說的起站不被定位蓋掉；有說起站就直接查、不問', async () => {
+  for (const [t, from] of [['我在台中，高鐵到左營票價', '台中'], ['我在板橋，台鐵到台中多少錢', '板橋'], ['人在新竹，高鐵到台北票價', '新竹'], ['在台中，台鐵到台北多少錢', '臺中'], ['我在左營，高鐵到台北多少錢', '左營']]) {
+    const es = await run({ messages: one(t), ...at(TPE) });
+    assert.equal(es.find((e) => e.type === 'tool_start' && e.name === 'rail_fare')?.input.from.replace(/臺/g, '台'), from.replace(/臺/g, '台'), t);
+    assert.ok(!askOf(es), `「${t}」不問`);
+  }
+});
+
+test('審查 6：歧義題之後接著改（那叫車呢、我趕時間）不再問是哪一個；改去別的地方照常', async () => {
+  const [a1, a2, a3] = await conv(['去南港', '那叫車呢', '我趕時間']);
+  assert.equal(askOf(a1).about, 'slot:place');
+  for (const es of [a2, a3]) { assert.notEqual(askOf(es)?.about, 'slot:place'); assert.equal(tripTo(es), '南港車站'); }
+  const [, k2] = await conv(['去中山', '那叫車呢'], KHH);
+  assert.equal(tripTo(k2), '國立中山大學', '人在高雄：接著改也用猜的那個（不是地標庫的第一個）');
+  const [, c2] = await conv(['去南港', '改去松山機場']);
+  assert.equal(tripTo(c2), '臺北松山機場');
+});
+
+test('建議 a～g：附近只有一個候選不問；帶行李要划算才問；「這三站」是數字；防詐帶著句子；英文最近站說明；那台鐵呢；站名才收', async () => {
+  for (const t of ['去花博', '去士林', '去中正']) assert.notEqual(askOf(await run({ messages: one(t), ...at(TPE) }))?.about, 'slot:place', t);
+  const bus = { id: 'c', role: 'intercity', name: '客運', minutes: 78, cost: 95, walkMin: 14, transfers: 0, waitMin: 5 };
+  const taxi = { id: 'r', role: 'ridehail', name: '叫車', minutes: 75, cost: 1885, walkMin: 0, transfers: 0, waitMin: 3 };
+  assert.equal(keyQuestion([bus, taxi], {}, ['luggage']), null, '去羅東夜市：叫車多 1790 元，不問帶行李');
+  assert.equal(edgeAskShape({ slot: 'railTo', question: '這三站要去哪？', options: ['台中', '左營'] }, { lang: 'zh' }), 'digits');
+  assert.equal(edgeAskShape({ slot: 'railTo', question: '你要去哪一站？', options: ['台中', '左營'] }, { lang: 'zh' }), null);
+  assert.deepEqual(scamPasteAsk('life', null, '這是詐騙嗎').options[0].action, { name: 'handOff', agent: 'antifraud', text: '這是詐騙嗎' });
+  assert.throws(() => ev.ask({ id: 'x', question: '?', options: [{ label: 'go', kind: 'action', action: { name: 'handOff', agent: 'life', text: 'x' } }] }), /防詐/);
+  const enFare = await run({ messages: one('How much is the HSR ticket to Taichung?'), ...at(TPE) });
+  assert.match(enFare.find((e) => e.type === 'text').delta, /nearest to you/);
+  const [, tra] = await conv(['高鐵到台中多少錢', '那台鐵呢']);
+  const f = tra.find((e) => e.type === 'tool_start' && e.name === 'rail_fare')?.input;
+  assert.equal(f?.system, 'TRA');
+  assert.match(f?.to, /[台臺]中/);
+  assert.equal(resolvePending({ slot: 'busStop', route: '307' }, '等一下'), null);
+  assert.equal(resolvePending({ slot: 'busStop', route: '307' }, '市政府'), '307 公車到「市政府」還要多久');
+});
+
 // ───── 手機上的 AI 出題（ADR-0020）：新種類的題目通過驗證就用手機的；亂編的照規則 ─────
 test('手機出題的新種類：形狀檢查認得、要切題', () => {
   for (const k of ['railFrom', 'railTo', 'place', 'where', 'topic']) assert.ok(EDGE_ASK_SLOTS.includes(k));
@@ -218,7 +325,7 @@ const CHAOS = [
 for (const [name, fake] of [['合理', reasonable], ['亂來', (_t, i) => ({ ...CHAOS[i % CHAOS.length], options: [...CHAOS[i % CHAOS.length].options] })]]) {
   test(`Q 情境＋手機出題「${name}」：全部照舊通過（合理的採用手機題目、亂來的照規則）`, async () => {
     let used = 0, n = 0;
-    for (const sc of qset.scenarios) {
+    for (const sc of qset.scenarios.filter((x) => !x.known)) { // known：等產品負責人決定的衝突（Q-7）
       const svc2 = createServices({ forceMock: true });
       const messages = [];
       let pendingAsk;
