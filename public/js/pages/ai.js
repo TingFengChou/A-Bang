@@ -11,10 +11,12 @@ import { visionStatus, visionEnabled } from '../vision.js';
 import { voiceStatus, voiceEnabled } from '../voice.js';
 import { voiceT, whyText } from '../voice-i18n.js';
 import { edgeWriteEnabled, edgeWriteStats, edgeWrite } from '../edge-write.js';
-import { runAgent } from '../agent/client.js';
+import { runAgent, browserLocation, locationGranted } from '../agent/client.js';
+import { loadChat } from '../chat-store.js';
+import { loadPlaces } from '../saved-places.js';
 import { mountThinking } from '../agent/thinking.js';
 import { SUGGEST_WAIT_MS } from '../agent/suggest.js';
-import { runTrial, trialSuggest, reportJson, TRIAL_SECTIONS, TRIAL_PRESETS } from '../ai-trial.js';
+import { runTrial, trialSuggest, reportJson, TRIAL_SECTIONS, TRIAL_PRESETS, TRIAL_HISTORY } from '../ai-trial.js';
 import { API_BASE } from '../base.js';
 import { roleEn } from '../../ui/agent/decision-graph.js';
 
@@ -223,7 +225,8 @@ export default {
       body.append(ul);
     }
     function paintAnswer(body, s) {
-      if (s.askedLocation) body.append(h('p', 'note ai-locnote', t('trial.location')));
+      if (s.askedLocation) body.append(h('p', 'note ai-locnote', t(s.located ? 'trial.located' : 'trial.location')));
+      if (s.turns) body.append(h('p', 'note', t('trial.turns', { n: s.turns })));
       body.append(h('h4', '', t('trial.tools')));
       if (s.tools?.length) {
         const ul = h('ul', 'ai-tools');
@@ -384,11 +387,14 @@ export default {
         const ctl = new AbortController();
         trialCtl = ctl;
         let askInfo = null;
+        const prior = (loadChat()?.messages || []).slice(-TRIAL_HISTORY);
         const mine = () => alive && trialCtl === ctl && !ctl.signal.aborted; // 這一輪還是目前的那一輪（沒被重畫或離開頁面取代）
         try {
           const rep = await runTrial(q, {
             device,
-            judge: (x) => { askInfo = null; return edgeJudge(x, [], { timeout: TRY_TIMEOUT_MS, context: judgeContext({ located: false }), onAsk: (a) => { askInfo = a; } }); }, // 只呼叫手機上的外掛，沒有網路；試判斷不送定位（情境照實說沒有定位）
+            judge: async (x) => { askInfo = null; return edgeJudge(x, prior.filter((m) => m.role === 'user').map((m) => m.content), { timeout: TRY_TIMEOUT_MS, context: judgeContext({ located: await locationGranted().catch(() => null), saved: Object.keys(loadPlaces()) }), onAsk: (a) => { askInfo = a; } }); }, // 只呼叫手機上的外掛，沒有網路；情境跟問阿幫一樣（能不能定位、常用地點、前文）
+            history: () => prior, // 問阿幫最近幾句（阿幫記得剛剛聊什麼）
+            locate: () => browserLocation(), // 伺服器請定位時由手機查（跟問阿幫一樣；沒允許就不送）
             askInfo: () => askInfo, // 手機上的 AI 提議的題目與在手機上的檢查結果（ADR-0020）
             judgeIssue: () => edgeIssue(), // 手機上的 AI 這次沒用上的原因（App 不在前景、系統在背景擋下、電量配額）
             judgeMs: () => edgeStats().lastMs,

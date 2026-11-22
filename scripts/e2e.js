@@ -1997,7 +1997,7 @@ test('阿幫的腦袋：手機上的模型資訊、現場試試看、開關、�
       const b = JSON.parse(x.body);
       assert.deepEqual(b.messages, [{ role: 'user', content: '我快遲到了，怎麼去台北101' }]);
       assert.ok(!('savedPlaces' in b) && !('userState' in b), '不送常用地點與習慣');
-      assert.ok(!JSON.stringify(b.clientToolResults || []).includes('lat'), '不送定位');
+      assert.ok(!b.clientToolResults || JSON.stringify(b.clientToolResults).includes('lat'), '跟問阿幫一樣：伺服器請定位時由手機給（2026-11-22）');
     }
     const judged = (await page.evaluate(() => window.__aiCalls)).filter((c) => c.method === 'judge');
     assert.deepEqual(judged, [{ method: 'judge', text: '我快遲到了，怎麼去台北101' }]);
@@ -2318,12 +2318,12 @@ test('阿幫的腦袋：試判斷（手機）四段——手機判斷、資料�
     const copied = JSON.parse(await page.evaluate(() => window.__copied));
     assert.equal(copied.q, '公車還要多久？');
     assert.deepEqual(Object.keys(copied.sections), ['judge', 'data', 'answer', 'next']);
-    // 行程：資料夠、會先問你在哪（不送定位）、程式計分的建議
+    // 行程：資料夠、用手機的定位（跟問阿幫一樣，2026-11-22）、程式計分的建議
     await page.fill('#ai-input', '我快遲到了，怎麼去台北101');
     await page.click('#ai-go');
     await page.waitForFunction(() => /資料夠/.test(document.querySelector('.ai-verdict')?.textContent || ''), null, { timeout: 20000 });
     await page.waitForSelector('#ai-trial-foot:not([hidden])', { timeout: 20000 });
-    assert.match(await page.textContent('.ai-locnote'), /試判斷不送定位/);
+    assert.match(await page.textContent('.ai-locnote'), /用了手機的定位/);
     assert.match(await secText(page, 'answer'), /程式計分的建議/);
     assert.match(await secText(page, 'answer'), /程式版.*手機改寫（Gemini Nano）報你知，.*通過護欄/);
     assert.ok((await page.evaluate(() => window.__trialCalls)).includes('write'));

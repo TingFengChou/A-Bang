@@ -8,7 +8,7 @@ import { createAgentHandler } from '../server/agent.js';
 import { parseIntent } from '../core/agent/demo-intent.js';
 import { slotReport, sourceReport, trialInfo, INTENT_SLOTS, INTENT_SOURCES, TDX_LIMIT_WINDOW_MS } from '../core/agent/trial.js';
 import { EVENT_TYPES } from '../core/agent/events.js';
-import { summarizeRun, runTrial, trialSuggest, reportJson, TRIAL_SECTIONS, TRIAL_PRESETS, NEXT_MAX } from '../public/js/ai-trial.js';
+import { summarizeRun, runTrial, trialSuggest, reportJson, TRIAL_SECTIONS, TRIAL_PRESETS, NEXT_MAX, TRIAL_HISTORY } from '../public/js/ai-trial.js';
 import { ZH, EN, aiT } from '../public/js/pages/ai-i18n.js';
 import { thinkStart, thinkStep, thinkText } from '../public/js/agent/thinking.js';
 
@@ -165,6 +165,7 @@ const fakeAgent = (bodies) => async (body, onEvent, { locate }) => {
     for (const e of ev) onEvent(e);
     if (!ev.some((e) => e.type === 'client_tool_call')) return;
     const loc = await locate();
+    onEvent({ type: 'client_tool_result', id: 'loc1', name: 'device_location', ok: !!loc }); // 跟 runAgent 一樣（不含座標）
     results = [{ id: 'loc1', ok: !!loc, ...(loc && { result: loc }) }];
   }
 };
@@ -326,4 +327,25 @@ test('edge-write（前端）：改寫沒過護欄時回被擋的改寫 candidate
   } finally {
     delete globalThis.Capacitor;
   }
+});
+
+test('runTrial：跟問阿幫一樣帶前文、由手機定位（2026-11-22「地點、時間不應該要問」）；定位到了就不說「沒拿到你的位置」', async () => {
+  const bodies = [];
+  const prior = [{ role: 'user', content: '台北天氣如何' }, { role: 'assistant', content: '台北現在晴。' }, { role: 'system', content: 'x' }];
+  const rep = await runTrial('怎麼去台北101', {
+    device: { active: false, reason: 'web' },
+    judge: async () => assert.fail(),
+    agent: fakeAgent(bodies),
+    write: async () => assert.fail(),
+    history: () => prior,
+    locate: async () => ({ lat: 25.0478, lon: 121.517, accuracy: 20 }),
+    suggest: (o) => trialSuggest({ ...o, canEdge: () => false, edgeSuggest: async () => assert.fail(), check: async () => assert.fail() }),
+  });
+  assert.deepEqual(bodies[0].messages, [prior[0], prior[1], { role: 'user', content: '怎麼去台北101' }], '前文只帶使用者與阿幫的話');
+  const S = rep.sections;
+  assert.equal(S.answer.located, true);
+  assert.equal(S.answer.turns, 1);
+  assert.doesNotMatch(S.answer.final, /沒拿到你的位置/);
+  assert.equal(S.next.location, false, '定位到了：不再說要問你在哪');
+  assert.ok(TRIAL_HISTORY >= 4);
 });
