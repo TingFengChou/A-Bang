@@ -19,6 +19,15 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-23 iOS 到站提醒的即時動態（Live Activity）
+- 做了：跟 Android 通知列常駐（PR #131）對齊，iOS 16.2+ 設到站提醒時在鎖定畫面與動態島顯示即時動態：「307 往撫遠街・約 N 分到「臺北車站(忠孝)」・到站前 2 分提醒你」，右上角 `Text(timerInterval:)` 系統倒數到預估到站、進度條、「HH:mm 的預估・App 開著時更新」；動態島精簡（公車圖示＋路線｜倒數）、展開（路線、倒數、整句）、最小（公車圖示）。新增 Widget Extension target `AbangLiveActivity`（`ios/App/AbangLiveActivity/`，嵌入 App，bundle id `tw.abang.app.LiveActivity`）、App 的 `NSSupportsLiveActivities`、iOS 外掛 `AbangWatch`（`start`／`update`／`stop`／`status`，介面跟 Android 一樣，多一個 `update`；`start` 回 `polls:false`）。
+- 限制（照實說）：iOS 不讓 App 在背景一直查到站時間，所以即時動態只有 App 在前景、每 20 秒查到新預估時才更新（`host-web.js` `pollWatch` → `updateWatchService`）；App 在背景時倒數照最後一次預估走，過了預估到站 1 分鐘改說「預估可能過時，打開阿幫看最新」。真正的提醒照舊是排好的本機通知。提醒響過、取消、末班已過、90 分鐘到由畫面結束即時動態；App 被關掉留下的過期即時動態下次打開時清掉。沒有通知權限不顯示。
+- 前端：`native-watch.js` 的 `startWatchService` 回 `'service'`（Android 自己查、自己響）／`'live'`（iOS 只顯示）；`watchLine()` 組那一句（中英）；`public/sw.js` 版本 v1.3.12。
+- 測試：`test/ios-live-activity.test.js` 新增 4 項（說法、iOS 走 live、更新與取消、原生檔案）；iOS 模擬器建置通過，模擬器上看過動態島精簡／展開與鎖定畫面。
+- 文件：UX.md §10、本紀錄
+- 下一個：實機確認（iPhone 上關掉 App 後的倒數與過時說明）；之後可評估推播更新（APNs，要伺服器與憑證）
+- 卡住：無
+
 ## 2026-11-23 發票開獎日提醒
 - 做了：我的發票有待開獎的，手機 App 在開獎日 14:00 通知「你存的 N 張發票今天開獎，打開阿幫就自動對獎」（只排最早的一天；存發票時才請通知權限；網頁版照舊打開才對獎）
 - 測試：service-remind 新增 1 項

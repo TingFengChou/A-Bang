@@ -2,7 +2,7 @@
 // MCP Apps 版（host-mcp-app.js）於 M4-04 實作。
 
 import { hasNativeNotify, ensureNotifyPermission, scheduleNotify, cancelNotify, NOTIFY_ID, EARLY_MS } from '../../js/native-notify.js';
-import { startWatchService, stopWatchService, watchServiceStatus } from '../../js/native-watch.js';
+import { startWatchService, stopWatchService, watchServiceStatus, updateWatchService, watchLine } from '../../js/native-watch.js';
 import { addReminder, cancelReminder, notifyState, reminderFor, canNotify } from '../../js/reminders.js';
 import { isAppLink, isStoreLink } from '../../../core/drama-say.js';
 
@@ -12,7 +12,8 @@ import { isAppLink, isStoreLink } from '../../../core/drama-say.js';
 // 每 20 秒查一次上車站的到站時間（bus_route_eta 的 focus），剩下時間 ≤ 設定的分鐘數就通知一次後結束。
 // 設定時這班已經在提醒範圍內（趕不上）→ 跳過這班，等到站時間跳回大數字（下一班）再開始算。
 const POLL_MS = 20_000, MAX_MS = 90 * 60_000;
-const watch = { w: null, poll: null, fire: null, until: 0, nativeAt: 0 };
+// service：Android 常駐服務自己查、自己響；live：iOS 即時動態只顯示，App 開著時由這裡更新（提醒照舊靠排好的通知）
+const watch = { w: null, poll: null, fire: null, until: 0, nativeAt: 0, service: false, live: false };
 // App 的通知能不能在背景送（權限被拒或排程失敗 → false，畫面就不能寫「App 關著也會提醒」）
 const native = { granted: null, failed: false };
 const canBackground = () => hasNativeNotify() && native.granted !== false && !native.failed;
@@ -66,7 +67,7 @@ export const currentArrivalWatch = () => watch.w;
 const signal = (type, detail) => { try { window.dispatchEvent(new CustomEvent(type, { detail })); } catch { /* 非瀏覽器 */ } };
 function stopWatch({ cancel = true } = {}) {
   clearInterval(watch.poll); clearTimeout(watch.fire);
-  if (watch.service) { watch.service = false; stopWatchService(); } // Android 常駐服務一起停（App 內提醒過、取消、逾時）
+  if (watch.service || watch.live) { watch.service = false; watch.live = false; stopWatchService(); } // Android 常駐服務／iOS 即時動態一起停（App 內提醒過、取消、逾時、末班已過）
   watch.w = null;
   if (cancel && watch.nativeAt) cancelNotify(NOTIFY_ID.arrival); // 使用者取消或逾時：排好的通知一起取消
   watch.nativeAt = 0;
@@ -163,16 +164,19 @@ export async function pollWatch(callTool) {
       }
     }
     signal('abang:arrival-watch', w);
-    if (f.status !== 0 || f.etaSec == null) return; // 未發車、末班已過：繼續看下一次
+    // iOS 即時動態：每次查到就更新（鎖定畫面倒數到預估到站）；App 在背景時 iOS 不讓查，停在最後一次的預估
+    const live = (o) => { if (watch.live) updateWatchService({ text: watchLine(w, f, o), etaSec: f.status === 0 && !o?.skip ? f.etaSec : null }); }; // 這班來不及：不倒數這班
+    if (f.status !== 0 || f.etaSec == null) { live(); return; } // 未發車、末班已過：繼續看下一次
     const left = f.etaSec - w.minutes * 60;
     if (w.skip) {
       // 跳過的那班開走後，到站時間會變大（下一班）
       if (f.etaSec > w.skip + 60) { w.skip = null; w.base = null; } // 下一班：延誤從這班重新算
-      else { w.skip = f.etaSec; signal('abang:arrival-watch', w); return; }
+      else { w.skip = f.etaSec; live({ skip: true }); signal('abang:arrival-watch', w); return; }
     } else if (w.first && left <= 0) {
-      w.first = false; w.skip = f.etaSec; signal('abang:arrival-watch', w); return;
+      w.first = false; w.skip = f.etaSec; live({ skip: true }); signal('abang:arrival-watch', w); return;
     }
     w.first = false;
+    if (left > 0) live();
     clearTimeout(watch.fire);
     if (left > 0 && hasNativeNotify() && !watch.service) planNative(w, Date.now() + left * 1000); // 常駐服務在跑：由它準時提醒
     if (left <= 0) fireArrival(f);
@@ -233,7 +237,9 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
       watch.w = { ...w, ...(trip?.to && { trip: { to: trip.to } }), first: true, skip: null };
       watch.until = w.until ?? Date.now() + MAX_MS;
       store.save();
-      watch.service = native.granted !== false && await startWatchService({ ...watch.w, until: watch.until }); // Android：通知列常駐、App 關著也每 20 秒查真實到站時間
+      // Android：通知列常駐、App 關著也每 20 秒查真實到站時間；iOS：鎖定畫面與動態島的即時動態（沒有通知權限就不顯示：到點不會響，不能說「會提醒你」）
+      const kind = native.granted !== false && await startWatchService({ ...watch.w, until: watch.until });
+      watch.service = kind === 'service'; watch.live = kind === 'live';
       signal('abang:arrival-watch', watch.w);
       const call = (n, a) => this.callTool(n, a);
       await pollWatch(call);
