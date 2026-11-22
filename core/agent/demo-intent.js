@@ -1432,7 +1432,8 @@ function englishSummary(it, results) {
     const eta = results.bus_route_eta?.at(-1)?.data;
     // 保底：推薦的公車盯到站後發現今天不會來（重排後仍是這班）→ 不說「Best: Bus」，改推排名下一個
     if (best.role === 'bus' && eta?.focus && eta.routeName === best.follow?.routeName && BUS_OFF[eta.focus.status]) return `${night}${off}${busOffSay(trip, eta, 'en')}${note}`;
-    return `${night}${missing}${off}From ${from} to ${enPlace(it.to)}, I compared ${trip.options.length} options. Best: ${enName(best)}, about ${best.minutes} min, ${cost}, arriving ${best.arriveAt}.${rainSoon}${tight}${note}`;
+    const limited = trip.limited?.textEn ? `${trip.limited.textEn} ` : ''; // TDX 額度用完：示範班次不推，先照實說（PR #126 審查）
+    return `${night}${limited}${missing}${off}From ${from} to ${enPlace(it.to)}, I compared ${trip.options.length} ${trip.options.length === 1 ? 'option' : 'options'}. Best: ${enName(best)}, about ${best.minutes} min, ${cost}, arriving ${best.arriveAt}.${rainSoon}${tight}${note}`;
   }
   if (it.intent === 'weather') {
     const where = it.places[0] ? ` in ${enPlace(it.places[0]).replace(/ Station \(.*\)$/, '').replace(/ Main$/, '')}` : it.fromPoint ? ' where you are' : ` in ${enPlace(DEFAULT_FROM)}`;
@@ -1647,14 +1648,16 @@ function summaryCore(it, results, suggestions = []) {
     const tips = urgent.length ? ` ${urgent.map((x) => `${x.text}。`).join('')}` : '';
     const one = trip?.data.single ? `${trip.data.single.text.replace(/（現在是示範資料.*）$/, '')}。` : ''; // 只有一種方式：先說其他方式為什麼不在（數字來自 plan_trip）
     // 公車、捷運沒列入（不是深夜收班、也不是只有一種方式）：一句說原因，使用者才不會以為是 bug
-    const miss = trip && !one ? (trip.data.missing || []).filter((m) => ['bus', 'metro'].includes(m.role) && !m.closed && m.kind !== 'route') : []; // 單一路線（kind 'route'）已在 offSay 說
+    const miss = trip && !one ? (trip.data.missing || []).filter((m) => ['bus', 'metro'].includes(m.role) && !m.closed && m.kind !== 'route' && m.fallback !== 'tdx-limit') : []; // 額度用完的由 lim 一起說 // 單一路線（kind 'route'）已在 offSay 說
+    // TDX 額度用完沒列入的方式（示範班次不推）：只有一種方式時 single 已說，否則說 limited 一句
+    const lim = trip?.data.limited && !one ? `${trip.data.limited.text}。` : '';
     const missSay = miss.length ? ` ${miss.map((m) => `${m.role === 'bus' ? '公車' : '捷運'}沒列入：${m.why}`).join('；')}。` : '';
     if (!trip) {
       // 沒有行程結果：地點其實找到了（或用了定位）就照實說是資料暫時沒拿到，不說成「找不到地點」
       const found = (results.find_place || []).some((r) => r?.data?.length) || it.fromPoint || it.fromSaved || it.toSaved;
       return found ? `${pre}這次沒拿到行程資料（資料來源暫時有問題），請稍後再問一次。` : `${pre}找不到這兩個地點，換個說法試試看。`;
     }
-    return `${pre}${night}${offSay}${one}${reason}${missSay}${tips}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}`;
+    return `${pre}${night}${offSay}${one}${lim}${reason}${missSay}${tips}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}`;
   }
   // 沒說地點時用了示範預設，先講清楚
   const pre = (isNearby(it) || (it.intent === 'metro' && !it.station && !it.near)) && !it.places[0] && !it.fromPoint
