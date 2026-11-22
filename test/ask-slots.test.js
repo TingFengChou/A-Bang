@@ -152,13 +152,15 @@ test('模型模式：缺欄位也由程式先問，不呼叫模型', async () =>
 });
 
 // ───── PR #115 獨立審查（約 250 句對照 main）：寧可不問（交回原本流程），也不要誤問或吞掉別的問題 ─────
+/** 固定白天（真實時鐘在深夜時公車收班，行程不會選公車） */
+const EV3_NOW = Date.parse('2026-11-18T10:00:00+08:00');
 const ev3 = async (turns, { loc = true, dj = null, saved } = {}) => {
   const messages = [];
   let pending;
   const out = [];
   for (const say of turns) {
     messages.push({ role: 'user', content: say });
-    const es = await run({ messages, clientTools: ['device_location'], clientToolResults: [loc ? { id: 'loc1', ok: true, result: { lat: 25.0478, lon: 121.517 } } : { id: 'loc1', ok: false }], ...(pending && { pendingAsk: pending }), ...(dj && { deviceJudge: dj }), ...(saved && { savedPlaces: saved }) });
+    const es = await run({ messages, clientTools: ['device_location'], clientToolResults: [loc ? { id: 'loc1', ok: true, result: { lat: 25.0478, lon: 121.517 } } : { id: 'loc1', ok: false }], ...(pending && { pendingAsk: pending }), ...(dj && { deviceJudge: dj }), ...(saved && { savedPlaces: saved }) }, { now: EV3_NOW });
     const ask = es.find((e) => e.type === 'ask');
     pending = ask?.pending ? { id: ask.id, ...ask.pending } : undefined;
     out.push(es);
