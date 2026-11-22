@@ -18,6 +18,6 @@ test('原生：服務是前景服務（dataSync）、常駐通知有「停止」
   assert.match(svc, /setOngoing\(true\)/);
   assert.match(svc, /"停止"/);
   assert.match(svc, /\/api\/v1\/tools\/bus_route_eta/);
-  assert.doesNotMatch(svc, /body.put("(lat|lon|near)"/, '不送位置');
+  assert.doesNotMatch(svc, /body\.put\("(lat|lon|near)"/, '不送位置');
   assert.match(readFileSync(new URL('../android/app/src/main/java/tw/abang/app/MainActivity.java', import.meta.url), 'utf8'), /registerPlugin\(AbangWatchPlugin\.class\)/);
 });
