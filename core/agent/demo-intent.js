@@ -1241,7 +1241,9 @@ function englishSummary(it, results) {
   if (it.intent === 'trip') {
     const trip = results.plan_trip?.[0]?.data;
     const best = trip?.options.find((o) => o.id === trip.best);
-    if (!best) return `I couldn't find a good way to get there. Try another place name.${note}`;
+    if (!best) return trip || !((results.find_place || []).some((r) => r?.data?.length) || it.fromPoint || it.fromSaved || it.toSaved)
+      ? `I couldn't find a good way to get there. Try another place name.${note}`
+      : `I couldn't get the trip data this time (a data source had a problem). Please ask again in a moment.${note}`; // 地點找到了、行程沒拿到：照實說
     const cost = `${best.costRange ? `NT$${best.costRange[0]}-${best.costRange[1]}` : best.cost ? `NT$${best.cost}` : 'free'}${best.share ? ` per person (${best.share.party} people)` : ''}`;
     const rainSoon = trip.states?.some((x) => x.key === 'rainSoon') ? ` Rain is likely within 3 hours (${trip.weather?.pop3h}%), bring an umbrella.` : '';
     const tight = trip.tight ? ` Time is tight: only ${trip.tight.slackMin} min to spare, leave now.` : '';
@@ -1405,7 +1407,12 @@ function summaryCore(it, results, suggestions = []) {
     // 公車、捷運沒列入（不是深夜收班、也不是只有一種方式）：一句說原因，使用者才不會以為是 bug
     const miss = trip && !one ? (trip.data.missing || []).filter((m) => ['bus', 'metro'].includes(m.role) && !m.closed) : [];
     const missSay = miss.length ? ` ${miss.map((m) => `${m.role === 'bus' ? '公車' : '捷運'}沒列入：${m.why}`).join('；')}。` : '';
-    return trip ? `${pre}${night}${one}${reason}${missSay}${tips}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}` : `${pre}找不到這兩個地點，換個說法試試看。`;
+    if (!trip) {
+      // 沒有行程結果：地點其實找到了（或用了定位）就照實說是資料暫時沒拿到，不說成「找不到地點」
+      const found = (results.find_place || []).some((r) => r?.data?.length) || it.fromPoint || it.fromSaved || it.toSaved;
+      return found ? `${pre}這次沒拿到行程資料（資料來源暫時有問題），請稍後再問一次。` : `${pre}找不到這兩個地點，換個說法試試看。`;
+    }
+    return `${pre}${night}${one}${reason}${missSay}${tips}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}`;
   }
   // 沒說地點時用了示範預設，先講清楚
   const pre = (isNearby(it) || (it.intent === 'metro' && !it.station && !it.near)) && !it.places[0] && !it.fromPoint
