@@ -4,18 +4,18 @@ import { resolveCity, cityFromUID } from '../cities.js';
 import { distanceM, busStatusText, minutesBetween, normName, todayTW, assertLatLon, UserError, zh, enField, odataStr as q } from '../util.js';
 import { pathFromWkt, thinPath } from '../geo.js';
 import { matchDirect, commonRoutes, DIRECT_RADIUS_M } from './bus-direct.js';
-import { cacheOf, rawOpts, STATIC_TTL } from './tdx-cache.js';
+import { cacheOf, rawOpts, nonEmpty, STATIC_TTL } from './tdx-cache.js';
 import { INDEX_CITIES, ETA_TTL, BIKE_TTL, STALE_SEC, transitKey as key, transitLoaders, normRouteStops, normBikeStation, etaIndex, bikeIndex } from './transit-data.js';
 
 const COVER_M = 1500; // 本機站牌資料離這個點最近的站超過這個距離，視為沒涵蓋（改問 TDX NearBy）
 
 /** 高鐵、台鐵車站（存檔，預熱） */
 export const railLoaders = {
-  thsrStations: (tdx) => async (o) => (await tdx.get('/basic/v2/Rail/THSR/Station', { $select: 'StationID,StationName,StationPosition' }, 60, rawOpts(o)))
-    .map((s) => ({ id: s.StationID, name: zh(s.StationName), ...enField('nameEn', s.StationName), ...stationPos(s) })),
+  thsrStations: (tdx) => async (o) => nonEmpty((await tdx.get('/basic/v2/Rail/THSR/Station', { $select: 'StationID,StationName,StationPosition' }, 60, rawOpts(o)))
+    .map((s) => ({ id: s.StationID, name: zh(s.StationName), ...enField('nameEn', s.StationName), ...stationPos(s) })), '高鐵車站'),
   traStations: (tdx) => async (o) => {
     const j = await tdx.get('/basic/v3/Rail/TRA/Station', { $select: 'StationID,StationName,StationPosition' }, 60, rawOpts(o));
-    return (j.Stations || j).map((s) => ({ id: s.StationID, name: zh(s.StationName), ...enField('nameEn', s.StationName), ...stationPos(s) }));
+    return nonEmpty((j.Stations || j).map((s) => ({ id: s.StationID, name: zh(s.StationName), ...enField('nameEn', s.StationName), ...stationPos(s) })), '台鐵車站');
   },
 };
 export function railWarmSteps(tdx) {
@@ -54,7 +54,9 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
   /** 路線站序：預熱過的整個縣市資料優先，沒有就逐條查（存檔） */
   async function routeStops(city, routeName) {
     const all = await storedOf('busRoutes', city);
-    if (Array.isArray(all) && all.length) return all.filter((d) => d.name === routeName);
+    const hit = Array.isArray(all) ? all.filter((d) => d.name === routeName) : [];
+    if (hit.length) return hit;
+    // 預熱的清單裡沒有（新路線、清單比較舊）或沒預熱：逐條查（空結果不存檔）
     return cached(key.busRoute(city, routeName), STATIC_TTL, async (o) => normRouteStops(await tdx.get(
       `/basic/v2/Bus/DisplayStopOfRoute/City/${city}/${encodeURIComponent(routeName)}`, { $filter: `RouteName/Zh_tw eq '${q(routeName)}'` }, 60, rawOpts(o))));
   }
@@ -94,6 +96,8 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
       ]);
       if (!dirs.length) throw new UserError(`${c.name}找不到路線「${routeName}」`);
       const etaMap = etaIndex(eta.data);
+      // 資料取得後過了幾秒（快取最多 30 秒、額度快用完時的舊資料最多 60 秒）：倒數扣掉，行程判斷與提醒用修正後的值
+      const age = Math.max(0, Math.floor(((tdx.now?.() ?? Date.now()) - eta.at) / 1000));
       const route = Array.isArray(info) ? info.find((r) => (dirs[0].uid && r.uid ? r.uid === dirs[0].uid : r.name === routeName)) : null;
       const directions = dirs.map((d) => ({
         direction: d.direction,
@@ -104,8 +108,7 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
           return {
             seq: s.seq, stopName: s.name, ...(s.nameEn && { stopNameEn: s.nameEn }),
             ...(Number.isFinite(s.lat) && Number.isFinite(s.lon) && { lat: s.lat, lon: s.lon }),
-            etaSec: e.EstimateTime ?? null, status: e.StopStatus ?? 0,
-            statusText: busStatusText(e.StopStatus ?? 0, e.EstimateTime),
+            ...etaOf(e, age),
             plate: e.PlateNumb && e.PlateNumb !== '-1' ? e.PlateNumb : null,
           };
         }),
@@ -286,6 +289,12 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
   };
 
   return { bus, bike, rail };
+}
+
+/** 到站秒數扣掉資料的年紀（不小於 0），狀態文字跟著修正後的秒數 */
+export function etaOf(e, ageSec = 0) {
+  const etaSec = Number.isFinite(e.EstimateTime) ? Math.max(0, e.EstimateTime - ageSec) : null;
+  return { etaSec, status: e.StopStatus ?? 0, statusText: busStatusText(e.StopStatus ?? 0, etaSec ?? undefined) };
 }
 
 /** 直達公車要查哪個縣市的路線：起訖共同路線最多的縣市；都沒有共同路線時用起點最近站牌的縣市 */

@@ -11,11 +11,21 @@ export class TdxError extends Error {
 }
 
 /**
+ * 背景工作讓位（額度留給使用者、或碰到每秒上限）：不是「額度用完」。
+ * 併入同一份下載的使用者看到這個錯誤，就以前景身分自己重新下載；不記成額度用完（core/index.js quota.at）。
+ */
+export class TdxYield extends TdxError {
+  constructor(msg = 'TDX 背景下載讓位給使用者') { super(429, msg); this.yielded = true; }
+}
+const isYield = (e) => Boolean(e?.yielded);
+
+/**
  * 頻率限制（2026-11-22 實測：基本會員每把金鑰每分鐘 5 次，依時鐘整分重置，標頭 x-ratelimit-remaining-minute、ratelimit-reset）。
  * concurrent／gapMs：同時幾個、兩次至少間隔多久；perMinute：每分鐘上限（null＝不知道，等回應標頭告訴我們）；
- * backgroundPerMinute：背景預熱每分鐘最多用幾次（留給使用者）；waitMs：額度在這麼短的時間內就重置時，等一下而不是直接放棄；timeoutMs：單次請求逾時。
+ * backgroundPerMinute：背景預熱每分鐘最多用幾次（留給使用者）；waitMs：額度在這麼短的時間內就重置時，等一下而不是直接放棄；timeoutMs：單次請求逾時（含讀 body、token）；
+ * maxStatics：記憶體裡最多放幾份靜態資料（逐條查的路線站序、形狀會越來越多；超過淘汰最久沒用的，有存檔的之後再讀檔）。
  */
-export const TDX_LIMIT = { concurrent: 3, gapMs: 220, retryMs: 1200, perMinute: null, backgroundPerMinute: 3, waitMs: 2500, timeoutMs: 30000 };
+export const TDX_LIMIT = { concurrent: 3, gapMs: 220, retryMs: 1200, perMinute: null, backgroundPerMinute: 3, waitMs: 2500, timeoutMs: 30000, maxStatics: 400 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const DAY = 86400;
 
@@ -120,9 +130,10 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
           method: 'POST',
           headers: { 'content-type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams({ grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret }),
-        });
+          signal: AbortSignal.timeout(limit.timeoutMs),
+        }).catch((e) => { throw timeoutOr(e); });
         if (!res.ok) throw new TdxError(res.status, `TDX token 取得失敗 (${res.status})，請確認 Client ID / Secret`);
-        const j = await res.json();
+        const j = await res.json().catch((e) => { throw timeoutOr(e); });
         token = j.access_token;
         tokenExp = Date.now() + (j.expires_in - 300) * 1000; // 提前 5 分鐘換新
         log('[tdx] token refreshed');
@@ -132,15 +143,19 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
     return tokenPromise;
   }
 
+  /** 逾時（連線或讀 body）→ TdxError 504；其他錯誤原樣 */
+  const timeoutOr = (e) => (e?.name === 'TimeoutError' || e?.name === 'AbortError' ? new TdxError(504, 'TDX 回應逾時，請稍後再試') : e);
+
   const limitError = (resetMs) => {
     const s = Math.ceil(resetMs / 1000);
     const per = gate.status().limit;
     return new TdxError(429, `TDX 呼叫次數已達方案上限${per ? `（每分鐘 ${per} 次）` : ''}，請${s > 0 ? `約 ${s} 秒後` : '稍後'}再試`);
   };
 
-  /** 取得這一次的額度：使用者請求在幾秒內就重置時等一下；背景工作拿不到就放棄（之後再試） */
+  /** 取得這一次的額度：使用者請求在幾秒內就重置時等一下；背景工作拿不到就讓位（TdxYield，之後再試） */
   async function acquire(background) {
     if (gate.take({ background })) return;
+    if (background) throw new TdxYield();
     const { resetMs } = gate.status();
     if (!background && resetMs <= limit.waitMs) {
       gate.userWaiting(1);
@@ -158,10 +173,11 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
     try {
       return await throttled(async () => {
         unmark();
+        const tok = await getToken(); // 先拿 token：token 失敗不扣 API 額度
         await acquire(background);
-        // 逾時：上游卡住時不要一直占著排隊位置（背景預熱也會卡住）
-        const res = await fetchImpl(url, { headers: { authorization: `Bearer ${await getToken()}`, 'accept-encoding': 'br, gzip' }, signal: AbortSignal.timeout(limit.timeoutMs) })
-          .catch((e) => { throw e?.name === 'TimeoutError' || e?.name === 'AbortError' ? new TdxError(504, 'TDX 回應逾時，請稍後再試') : e; });
+        // 逾時：上游卡住時不要一直占著排隊位置（背景預熱也會卡住）；同一個 signal 也管讀 body（readBody）
+        const res = await fetchImpl(url, { headers: { authorization: `Bearer ${tok}`, 'accept-encoding': 'br, gzip' }, signal: AbortSignal.timeout(limit.timeoutMs) })
+          .catch((e) => { throw timeoutOr(e); });
         const h = (k) => res.headers?.get?.(k);
         gate.sync({ limit: num(h('x-ratelimit-limit-minute')), remaining: num(h('x-ratelimit-remaining-minute')), resetSec: num(h('ratelimit-reset')) });
         return res;
@@ -176,7 +192,9 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
       const h = (k) => res.headers?.get?.(k);
       const remaining = num(h('x-ratelimit-remaining-minute'));
       const reset = num(h('ratelimit-reset') ?? h('retry-after'));
-      if (remaining === 0 || background) { gate.exhausted(reset); stats.refused++; throw limitError(Number.isFinite(reset) ? reset * 1000 : gate.status().resetMs); }
+      // 分鐘額度真的用完（remaining 0）才鎖這一分鐘；背景碰到每秒上限（分鐘額度還有）只讓位、不動閘門
+      if (remaining === 0) { gate.exhausted(reset); stats.refused++; throw background ? new TdxYield('TDX 這分鐘額度用完，背景下次再試') : limitError(Number.isFinite(reset) ? reset * 1000 : gate.status().resetMs); }
+      if (background) throw new TdxYield('TDX 每秒上限，背景下次再試');
       // 每秒次數超過（分鐘額度還有）：照 Retry-After（沒有就等一下）重試一次
       const after = num(h('retry-after'));
       await sleep(Number.isFinite(after) && after > 0 ? Math.min(after * 1000, 5000) : limit.retryMs);
@@ -191,8 +209,8 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
       stats.refused++;
       throw new TdxError(429, `TDX 呼叫次數已達方案上限${Number.isFinite(perMin) && perMin > 0 ? `（每分鐘 ${perMin} 次）` : ''}，請${Number.isFinite(reset) && reset > 0 ? `約 ${Math.ceil(reset)} 秒後` : '稍後'}再試`);
     }
-    if (!res.ok) throw new TdxError(res.status, `TDX API 錯誤 ${res.status}：${(await res.text()).slice(0, 200)}`);
-    const data = await res.json();
+    if (!res.ok) throw new TdxError(res.status, `TDX API 錯誤 ${res.status}：${(await res.text().catch(() => '')).slice(0, 200)}`);
+    const data = await res.json().catch((e) => { throw e instanceof SyntaxError ? new TdxError(502, 'TDX 回應格式錯誤') : timeoutOr(e); });
     const cat = endpointCategory(path);
     stats.sent++;
     stats.byCategory[cat] = (stats.byCategory[cat] || 0) + 1;
@@ -221,8 +239,10 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
     const useStale = () => { stats.stale++; recordFetch({ cacheHit: true, data: hit.data, stale: true }); return { data: hit.data, at: hit.at, stale: true }; };
     if (staleOk && gate.status().left <= 1) return useStale(); // 額度快用完：用不到一分鐘前的資料，把最後一次留給沒有快取的請求
 
-    if (!inflight.has(url)) {
-      inflight.set(url, fetchJson(url, path, background).then(({ data }) => {
+    const joined = inflight.get(url);
+    let p;
+    if (!joined) {
+      p = fetchJson(url, path, background).then(({ data }) => {
         const at = now();
         if (keep) {
           cache.delete(url); // 重新放到最後（淘汰最舊的）
@@ -230,14 +250,23 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
           if (cache.size > 2000) cache.delete(cache.keys().next().value);
         }
         return { data, at };
-      }).finally(() => inflight.delete(url)));
+      }).finally(() => { if (inflight.get(url)?.p === p) inflight.delete(url); });
+      inflight.set(url, { p, background });
     } else {
       recordFetch({ cacheHit: true, data: null }); // 同一網址正在下載：等同一份（不另外打）
-      const r = await inflight.get(url).catch((e) => { if (e?.status === 429 && staleOk) return null; throw e; });
-      return r ? { ...r, stale: false } : useStale();
+      let r;
+      try {
+        r = await joined.p;
+      } catch (e) {
+        // 併入的是背景下載、而它讓位了：使用者以前景身分自己下載（不跟著退回示範）
+        if (isYield(e) && !background) return getMeta(path, query, ttlSec, { staleSec, background, cache: keep });
+        if (e?.status === 429 && staleOk) return useStale();
+        throw e;
+      }
+      return { ...r, stale: false };
     }
     try {
-      const r = await inflight.get(url);
+      const r = await p;
       recordFetch({ cacheHit: false, data: r.data, category: cat });
       return { ...r, stale: false };
     } catch (e) {
@@ -250,9 +279,19 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
   const get = async (path, query, ttlSec, opts) => (await getMeta(path, query, ttlSec, opts)).data;
 
   // ───────── 靜態資料（站牌、路線、站序、車站、形狀）：正規化後快取，有 store 就存檔，重啟後先讀檔 ─────────
-  const statics = new Map(); // key -> { at, data }
-  const loading = new Map(); // key -> Promise（single-flight）
+  const statics = new Map(); // key -> { at, data, ttl? }（LRU：最近用到的在後面）
+  const loading = new Map(); // key -> { p, background }（single-flight）
   const refreshing = new Set();
+  const remember = (key, v) => {
+    statics.delete(key);
+    statics.set(key, v);
+    while (statics.size > limit.maxStatics) statics.delete(statics.keys().next().value); // 淘汰最久沒用的（有存檔的之後再讀檔）
+  };
+  const recall = (key) => { const v = statics.get(key); if (v) { statics.delete(key); statics.set(key, v); } return v; };
+  /** 空結果（空陣列、null）：不存檔，只在記憶體放 10 分鐘（別每次都打，也別把一時的空當成真的） */
+  const isEmpty = (d) => d == null || (Array.isArray(d) && d.length === 0);
+  const EMPTY_TTL = 600;
+  const ttlOf = (v, ttlSec) => Math.min(ttlSec, v.ttl ?? Infinity);
 
   async function fromStore(key) {
     if (!store) return null;
@@ -263,16 +302,21 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
   }
 
   function load(key, loader, background, persist) {
-    if (!loading.has(key)) {
-      loading.set(key, (async () => {
-        const data = await loader({ background });
-        const v = { at: now(), data };
-        statics.set(key, v);
-        if (store && persist) store.write(key, v).catch((e) => log(`[tdx] cache write failed: ${e?.code || e?.message || e}`));
-        return data;
-      })().finally(() => loading.delete(key)));
+    const cur = loading.get(key);
+    if (cur) {
+      // 使用者併入背景預熱的同一份下載：背景讓位時，使用者以前景身分自己下載（不跟著退回示範）
+      return background || !cur.background ? cur.p : cur.p.catch((e) => { if (isYield(e)) return load(key, loader, false, persist); throw e; });
     }
-    return loading.get(key);
+    const p = (async () => {
+      const data = await loader({ background });
+      const empty = isEmpty(data);
+      const v = { at: now(), data, ...(empty && { ttl: EMPTY_TTL }) };
+      remember(key, v);
+      if (store && persist && !empty) store.write(key, v).catch((e) => log(`[tdx] cache write failed: ${e?.code || e?.message || e}`));
+      return data;
+    })().finally(() => { if (loading.get(key)?.p === p) loading.delete(key); });
+    loading.set(key, { p, background });
+    return p;
   }
 
   /**
@@ -286,15 +330,15 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
    *   force：不新鮮就等它下載完（預熱用）
    */
   async function cached(key, ttlSec, loader, { maxStaleSec = 30 * DAY, background = false, persist = true, onlyStored = false, force = false } = {}) {
-    let v = statics.get(key);
+    let v = recall(key);
     if (!v && persist) {
       v = await fromStore(key);
-      if (v) statics.set(key, v);
+      if (v) remember(key, v);
     }
     const age = v ? now() - v.at : Infinity;
-    if (v && age < ttlSec * 1000) { recordFetch({ cacheHit: true, data: v.data }); return v.data; }
+    if (v && age < ttlOf(v, ttlSec) * 1000) { recordFetch({ cacheHit: true, data: v.data }); return v.data; }
     if (force) return load(key, loader, background, persist);
-    if (v && age < maxStaleSec * 1000) {
+    if (v && !v.ttl && age < maxStaleSec * 1000) {
       // 舊資料先用，背景更新（額度不夠就下次再說）
       if (!refreshing.has(key) && !loading.has(key)) {
         refreshing.add(key);
@@ -311,10 +355,10 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
   const peek = (key) => statics.get(key)?.data;
   /** 記憶體或檔案裡有沒有、新不新鮮（預熱用：新鮮就跳過） */
   async function fresh(key, ttlSec) {
-    let v = statics.get(key);
-    if (!v) { v = await fromStore(key); if (v) statics.set(key, v); }
-    return Boolean(v) && now() - v.at < ttlSec * 1000;
+    let v = recall(key);
+    if (!v) { v = await fromStore(key); if (v) remember(key, v); }
+    return Boolean(v) && now() - v.at < ttlOf(v, ttlSec) * 1000;
   }
 
-  return { get, getMeta, cached, peek, fresh, quota: () => gate.status(), backgroundOk: () => gate.backgroundOk(), stats: () => structuredClone(stats) };
+  return { get, getMeta, cached, peek, fresh, now, perMinute: () => gate.status().limit, quota: () => gate.status(), backgroundOk: () => gate.backgroundOk(), stats: () => structuredClone(stats) };
 }

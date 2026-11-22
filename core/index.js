@@ -58,7 +58,7 @@ export function withTdxFallback(live, mock, quota = null) {
         return out.catch((e) => {
           if (e?.name !== 'TdxError' || e.status !== 429) throw e;
           markFallback(key);
-          if (quota) quota.at = Date.now(); // 「阿幫的腦袋」試判斷：資料來源照實說「TDX 額度剛用完，改用示範」（core/agent/trial.js）
+          if (quota && !e.yielded) quota.at = Date.now(); // 背景讓位（TdxYield）不是額度用完；「阿幫的腦袋」試判斷：資料來源照實說「TDX 額度剛用完，改用示範」（core/agent/trial.js）
           return mock[key](...args);
         });
       };
@@ -112,7 +112,12 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
     demoForced: Boolean(forceMock), // 伺服器設定成只用示範資料（DEMO_MODE）：試判斷說明為什麼是示範資料
     tdxLimitedAt: () => quota.at || null, // 最近一次 TDX 額度用完（改用示範）的時間；沒有回 null
     // TDX 背景預熱（伺服器啟動後呼叫；示範模式為 null）：先台北的公車與 YouBike、北捷車站，再新北、桃園、台鐵高鐵
-    tdxPrewarm: live ? (opts) => startTdxPrewarm(tdx, prewarmSteps(tdx, cities), opts) : null,
+    tdxPrewarm: live ? (opts = {}) => {
+      // 每分鐘上限 ≤ 2：預熱要留 2 次給使用者，等於永遠輪不到，直接停用並說清楚
+      const per = tdxCfg.perMinute > 0 ? tdxCfg.perMinute : 5;
+      if (per <= 2) { (opts.log || log || (() => {}))(`[tdx] 每分鐘上限 ${per} 次（≤ 2），背景預熱停用（要留 2 次給使用者）`); return null; }
+      return startTdxPrewarm(tdx, prewarmSteps(tdx, cities), opts);
+    } : null,
     tdxStats: () => (tdx ? { ...tdx.stats(), quota: tdx.quota() } : null), // 除錯：累計上游次數（只有端點類別）與這分鐘的額度
     ...transit, // bus, bike, rail
     ...metro, // metro

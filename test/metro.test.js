@@ -67,7 +67,7 @@ test('liveBoard：代碼查站、錯誤訊息', async () => {
   assert.equal((await metro.liveBoard({ system: 'TRTC', station: 'r10' })).station, '台北車站');
   await assert.rejects(metro.liveBoard({ system: 'TRTC', station: '火星' }), /台北捷運找不到「火星」站/);
   await assert.rejects(metro.stations({ system: 'MRT' }), /不支援的捷運系統/);
-  await assert.rejects(metro.liveBoard({ system: 'KRTC', station: '美麗島' }), /高雄捷運找不到/);
+  await assert.rejects(metro.liveBoard({ system: 'KRTC', station: '美麗島' }), /TDX 回了空的高雄捷運車站/); // 整個系統的車站是空的：當上游失敗（不存檔）
 });
 
 test('metroStatusText', () => {

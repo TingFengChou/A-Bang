@@ -17,6 +17,7 @@
     "source": { "enum": ["live", "timetable", "mixed"] },
     "note": { "type": "string" },
     "noteEn": { "type": "string" },
+    "stale": { "type": "boolean" },
     "trains": {
       "type": "array",
       "items": {

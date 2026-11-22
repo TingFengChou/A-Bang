@@ -176,6 +176,7 @@ const TAIPEI = [
   [/Bike\/Availability\/City\/Taipei/, [
     { StationUID: 'TPE5001', ServiceStatus: 1, AvailableRentBikes: 10, AvailableReturnBikes: 10 },
     { StationUID: 'TPE5002', ServiceStatus: 1, AvailableRentBikes: 10, AvailableReturnBikes: 10 }]],
+  [/Metro\/Station\/TYMC/, [{ StationID: 'A1', StationName: Z('臺北車站'), StationPosition: P(25.049, 121.515) }]], // 整個系統的車站不可能是空的（空的當失敗，不存）
   [/Metro\/Station\/TRTC/, [{ StationID: 'BL11', StationName: Z('西門'), StationPosition: P(25.0421, 121.5081) }, { StationID: 'R03', StationName: Z('台北101／世貿'), StationPosition: P(25.0331, 121.5654) }]],
 ];
 

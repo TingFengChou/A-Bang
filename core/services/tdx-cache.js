@@ -17,3 +17,15 @@ export function cacheOf(tdx) {
 
 /** loader 裡打 TDX 的選項：照傳 background，原始大回應不放記憶體（正規化結果另外保存） */
 export const rawOpts = (o = {}) => ({ background: Boolean(o.background), cache: false });
+
+/**
+ * 整個縣市／系統的靜態資料不可能是空的：空陣列當上游失敗（status 502，預熱會再試），不存檔、不蓋掉舊資料。
+ * @template T @param {T[]} list @param {string} what 例 '台北的公車站牌'
+ * @returns {T[]}
+ */
+export function nonEmpty(list, what) {
+  if (Array.isArray(list) && list.length) return list;
+  const e = new Error(`TDX 回了空的${what}`);
+  e.status = 502;
+  throw e;
+}

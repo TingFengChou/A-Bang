@@ -2,7 +2,7 @@
 // ⚠️ 端點與欄位待 M1 驗證，全部防禦性解析：取不到資料時回 level: null（不是「順暢」），由呼叫端決定不加狀態。
 import { assertLatLon, distanceM, zh, enField, arr } from '../util.js';
 import { pathFromWkt } from '../geo.js';
-import { cacheOf, rawOpts, STATIC_TTL } from './tdx-cache.js';
+import { cacheOf, rawOpts, nonEmpty, STATIC_TTL } from './tdx-cache.js';
 
 export const CORRIDOR_M = 3000;       // 路段中點離起訖連線多遠以內算「沿途」
 export const MIN_TRIP_M = 15000;      // 直線 15 公里以內視為市區短程，不查國道
@@ -99,8 +99,8 @@ export function createTrafficServices(tdx) {
 
         // 路段形狀與路段資料是靜態的：解析後存檔（重啟不必重抓）；車速與事件 60 秒
         const [shapeList, sections, live, news] = await Promise.all([
-          cached('freeway-shapes', STATIC_TTL, async (o) => shapesOf(await tdx.get('/v2/Road/Traffic/SectionShape/Freeway', {}, 60, rawOpts(o)))),
-          cached('freeway-sections', STATIC_TTL, async (o) => normSections(await tdx.get('/v2/Road/Traffic/Section/Freeway', {}, 60, rawOpts(o)))),
+          cached('freeway-shapes', STATIC_TTL, async (o) => nonEmpty(shapesOf(await tdx.get('/v2/Road/Traffic/SectionShape/Freeway', {}, 60, rawOpts(o))), '國道路段形狀')),
+          cached('freeway-sections', STATIC_TTL, async (o) => nonEmpty(normSections(await tdx.get('/v2/Road/Traffic/Section/Freeway', {}, 60, rawOpts(o))), '國道路段')),
           tdx.get('/v2/Road/Traffic/Live/Freeway', {}, 60),
           tdx.get('/v2/Road/Traffic/Live/News/Freeway', {}, 60).catch(() => []), // 事件失敗不影響車速
         ]);

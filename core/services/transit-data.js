@@ -2,7 +2,7 @@
 // TDX 基本會員每分鐘 5 次：靜態資料整個縣市一次取、正規化後存檔（伺服器背景預熱，core/tdx-prewarm.js），
 // 預熱過的縣市在本機算附近站牌，不再每次打 NearBy。這裡不 import node 模組（示範版會打包到 transit.js）。
 import { zh, enField, arr } from '../util.js';
-import { cacheOf, rawOpts, STATIC_TTL } from './tdx-cache.js';
+import { cacheOf, rawOpts, nonEmpty, STATIC_TTL } from './tdx-cache.js';
 
 /** 預熱與本機查詢的縣市（台北、新北、桃園；伺服器可由 TDX_PREWARM_CITIES 調整） */
 export const INDEX_CITIES = ['Taipei', 'NewTaipei', 'Taoyuan'];
@@ -52,12 +52,12 @@ export function normBikeStation(s) {
 
 /** 整個縣市的靜態資料下載（預熱與使用者請求共用同一個 key） */
 export const transitLoaders = {
-  busStations: (tdx, city) => async (o) => normBusStations(await tdx.get(`/basic/v2/Bus/Station/City/${city}`, { $select: 'StationUID,StationID,StationName,StationPosition,Stops,LocationCityCode' }, 60, rawOpts(o))),
-  busRoutes: (tdx, city) => async (o) => normRouteStops(await tdx.get(`/basic/v2/Bus/DisplayStopOfRoute/City/${city}`, {}, 60, rawOpts(o))),
-  busMeta: (tdx, city) => async (o) => arr(await tdx.get(`/basic/v2/Bus/Route/City/${city}`, { $select: 'RouteUID,RouteName,DepartureStopNameZh,DestinationStopNameZh' }, 60, rawOpts(o)))
-    .map((r) => ({ uid: r.RouteUID || null, name: zh(r.RouteName), dep: r.DepartureStopNameZh || null, dest: r.DestinationStopNameZh || null })),
-  bikeStations: (tdx, city) => async (o) => arr(await tdx.get(`/basic/v2/Bike/Station/City/${city}`, { $select: 'StationUID,StationName,StationAddress,StationPosition,BikesCapacity,ServiceType' }, 60, rawOpts(o)))
-    .map(normBikeStation).filter((s) => Number.isFinite(s.lat)),
+  busStations: (tdx, city) => async (o) => nonEmpty(normBusStations(await tdx.get(`/basic/v2/Bus/Station/City/${city}`, { $select: 'StationUID,StationID,StationName,StationPosition,Stops,LocationCityCode' }, 60, rawOpts(o))), `${city} 公車站牌`),
+  busRoutes: (tdx, city) => async (o) => nonEmpty(normRouteStops(await tdx.get(`/basic/v2/Bus/DisplayStopOfRoute/City/${city}`, {}, 60, rawOpts(o))), `${city} 路線站序`),
+  busMeta: (tdx, city) => async (o) => nonEmpty(arr(await tdx.get(`/basic/v2/Bus/Route/City/${city}`, { $select: 'RouteUID,RouteName,DepartureStopNameZh,DestinationStopNameZh' }, 60, rawOpts(o)))
+    .map((r) => ({ uid: r.RouteUID || null, name: zh(r.RouteName), dep: r.DepartureStopNameZh || null, dest: r.DestinationStopNameZh || null })), `${city} 路線起訖`),
+  bikeStations: (tdx, city) => async (o) => nonEmpty(arr(await tdx.get(`/basic/v2/Bike/Station/City/${city}`, { $select: 'StationUID,StationName,StationAddress,StationPosition,BikesCapacity,ServiceType' }, 60, rawOpts(o)))
+    .map(normBikeStation).filter((s) => Number.isFinite(s.lat)), `${city} YouBike 站點`),
 };
 
 /** 預熱步驟（core/tdx-prewarm.js）：一個縣市的公車站牌、站序、YouBike 站點、路線起訖，再下一個縣市 */
