@@ -5,6 +5,7 @@
 // iOS 26 以下、機型不支援、沒開 Apple Intelligence、模型還在下載、語言不支援 → status 回 available: false，judge 回錯誤，JS 改由伺服器判斷。
 // status 另外回報系統查得到的模型資訊（「阿幫的腦袋」#/ai 顯示；查不到的欄位就不回傳，不編造）：availability、languages、contextSize、osVersion。
 import Foundation
+import UIKit
 import Capacitor
 #if canImport(FoundationModels)
 import FoundationModels
@@ -51,6 +52,17 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
     private func suggestValid(_ token: Int) -> Bool { suggestLock.lock(); defer { suggestLock.unlock() }; return suggestToken == token }
     /// 結束時清掉（比對同一個，不清到下一次的）
     private func suggestDone(_ id: Int) { suggestLock.lock(); if suggestID == id { suggestTask = nil }; suggestLock.unlock() }
+
+    /// App 在前景嗎（UIApplication 的狀態只能在主執行緒讀）。不在前景時 Foundation Models 會限流或拒絕：不呼叫，回 background（JS 不跳斷路器，交給伺服器／規則）
+    static func appActive() -> Bool {
+        if Thread.isMainThread { return UIApplication.shared.applicationState == .active }
+        return DispatchQueue.main.sync { UIApplication.shared.applicationState == .active }
+    }
+    /// 系統暫時不讓用（不是模型壞掉）：App 不在前景時的錯誤（含限流）→ "background"；JS 不跳斷路器，這一題交給伺服器或規則
+    private func softReason(_ error: Error) -> String? {
+        if !Self.appActive() { return "background" }
+        return nil
+    }
 
     /// 剛取消建議（3 秒內）又遇到忙碌類錯誤（同時有請求在跑、被限流、取消中）：這一題回 busy 交給伺服器
     private func busyAfterCancel(_ error: Error) -> Bool {
@@ -107,6 +119,7 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
         if #available(iOS 26.0, *) {
             let s = AppleJudge.status()
             guard s.available else { CAPLog.print("AbangEdgeAI: unavailable \(s.reason)"); call.reject("unavailable: \(s.reason)"); return }
+            guard Self.appActive() else { call.reject("background"); return } // App 不在前景：不呼叫模型
             Task {
                 let t0 = Date()
                 do {
@@ -118,7 +131,7 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
                     call.resolve(["engine": "apple", "ms": ms, "result": result]) // ms：模型花多久（#/ai 顯示）
                 } catch {
                     CAPLog.print("AbangEdgeAI: judge failed \(AppleJudge.code(error))") // 錯誤種類，不印句子內容
-                    call.reject(self.busyAfterCancel(error) ? "busy" : "judge failed") // busy：這一題改由伺服器判斷，JS 不當成不可用
+                    call.reject(self.softReason(error) ?? (self.busyAfterCancel(error) ? "busy" : "judge failed")) // background／busy：這一題改由伺服器判斷，JS 不當成不可用
                 }
             }
             return
@@ -139,6 +152,7 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
         if #available(iOS 26.0, *) {
             let s = AppleJudge.status()
             guard s.available else { call.reject("unavailable: \(s.reason)"); return }
+            guard Self.appActive() else { call.reject("background"); return } // App 不在前景：不呼叫模型，用程式版
             Task {
                 let t0 = Date()
                 do {
@@ -148,7 +162,7 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
                     call.resolve(["engine": "apple", "ms": ms, "text": text])
                 } catch {
                     CAPLog.print("AbangEdgeAI: write failed \(AppleJudge.code(error))")
-                    call.reject(self.busyAfterCancel(error) ? "busy" : "write failed") // busy：剛讓位；這一題用程式版
+                    call.reject(self.softReason(error) ?? (self.busyAfterCancel(error) ? "busy" : "write failed")) // background／busy：這一題用程式版
                 }
             }
             return
@@ -167,6 +181,7 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
         if #available(iOS 26.0, *) {
             let s = AppleJudge.status()
             guard s.available else { call.reject("unavailable: \(s.reason)"); return }
+            guard Self.appActive() else { call.reject("background"); return } // App 不在前景：改用規則
             stopSuggest()
             suggestLock.lock()
             suggestID += 1
@@ -192,7 +207,7 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
                 } catch {
                     if Task.isCancelled || error is CancellationError { call.reject("cancelled"); return } // 讓給 judge，不算錯誤
                     CAPLog.print("AbangEdgeAI: suggest failed \(AppleJudge.code(error))") // 不影響 judge／write
-                    call.reject("suggest failed")
+                    call.reject(self.softReason(error) ?? "suggest failed")
                 }
             }
             suggestLock.unlock()

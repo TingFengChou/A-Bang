@@ -94,12 +94,31 @@ public class AbangEdgeAIPlugin extends Plugin {
         return cm != null && !cm.isActiveNetworkMetered();
     }
 
-    /** 錯誤代碼（不含句子內容）；配額、忙碌、背景被擋時暫停 10 分鐘 */
+    /**
+     * 系統暫時不讓用（不是模型壞掉；Pixel smoke 2026-11-22）：App 不在前景（切到別的 App、螢幕關著）時 AICore 回 BACKGROUND_USE_BLOCKED（30），
+     * 電量配額用完回 PER_APP_BATTERY_USE_QUOTA_EXCEEDED（27）。回 JS 可辨識的原因，不設 10 分鐘暫停、JS 不跳斷路器，這一題交給伺服器或規則。
+     * 其他錯誤碼（genai-common 1.0.0-beta5）：CANCELLED=7、NOT_AVAILABLE=8、BUSY=9。
+     */
+    static String softReason(int code) {
+        if (code == GenAiException.ErrorCode.BACKGROUND_USE_BLOCKED) return "background";
+        if (code == GenAiException.ErrorCode.PER_APP_BATTERY_USE_QUOTA_EXCEEDED) return "battery-quota";
+        return null;
+    }
+    static final String SOFT_PREFIX = "soft:";
+    /** 拒絕 JS 的訊息：系統暫時不讓用就回原因（background／battery-quota），否則回 fallback */
+    static String rejectMessage(String code, String fallback) {
+        if (code.startsWith(SOFT_PREFIX)) return code.substring(SOFT_PREFIX.length());
+        return code.startsWith(BUSY_CODE) ? "busy" : fallback;
+    }
+
+    /** 錯誤代碼（不含句子內容）；系統暫時不讓用（背景、電量配額）與剛讓位的忙碌不暫停，其他 GenAiException 暫停 10 分鐘 */
     private String errorCode(Throwable e) {
         Throwable c = e.getCause() != null ? e.getCause() : e;
         long since = System.currentTimeMillis() - suggestCancelledAt;
         if (c instanceof GenAiException) {
             GenAiException g = (GenAiException) c;
+            String soft = softReason(g.getErrorCode());
+            if (soft != null) return SOFT_PREFIX + soft; // 背景被擋、電量配額：回到前景（或過一陣子）就好，不暫停
             if (busyAfterCancel(g.getErrorCode(), since)) return BUSY_CODE + ":" + g.getErrorCode(); // 剛取消建議、模型還在收尾：這一題交給伺服器，不暫停
             pausedUntil = System.currentTimeMillis() + 10 * 60_000;
             return "GenAiException:" + g.getErrorCode();
@@ -221,7 +240,7 @@ public class AbangEdgeAIPlugin extends Plugin {
             } catch (Exception e) {
                 String code = errorCode(e);
                 Logger.warn(TAG, "judge failed: " + code);
-                call.reject(code.startsWith(BUSY_CODE) ? "busy" : "judge failed"); // busy：這一題改由伺服器判斷，JS 不當成不可用
+                call.reject(rejectMessage(code, "judge failed")); // busy／background／battery-quota：這一題改由伺服器判斷，JS 不當成不可用
             }
         });
     }
@@ -264,7 +283,7 @@ public class AbangEdgeAIPlugin extends Plugin {
             } catch (Exception e) {
                 String code = errorCode(e);
                 Logger.warn(TAG, "write failed: " + code);
-                call.reject(code.startsWith(BUSY_CODE) ? "busy" : "write failed"); // busy：剛讓位，不暫停；這一題用程式版
+                call.reject(rejectMessage(code, "write failed")); // busy／background／battery-quota：不暫停；這一題用程式版
             }
         });
     }
@@ -342,7 +361,9 @@ public class AbangEdgeAIPlugin extends Plugin {
             } catch (Exception e) {
                 if (f != null && f.isCancelled()) { call.reject("cancelled"); return; } // 被 judge 取消
                 Logger.warn(TAG, "suggest failed: " + suggestErrorCode(e)); // 不暫停（不用 errorCode）
-                call.reject("suggest failed");
+                Throwable c = e.getCause() != null ? e.getCause() : e;
+                String soft = c instanceof GenAiException ? softReason(((GenAiException) c).getErrorCode()) : null;
+                call.reject(soft != null ? soft : "suggest failed"); // 背景被擋、電量配額：JS 這次改用規則，不停掉 suggest
             } finally {
                 if (suggestFuture == f) suggestFuture = null;
                 suggestPending.decrementAndGet();

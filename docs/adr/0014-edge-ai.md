@@ -26,6 +26,21 @@
    - `judge()` 多回 `ms`（模型花多久）；JS 只在本機記「今天判斷幾次、上次花多久」（`localStorage abang.edgeStats`，只有數字），不上傳。`deviceJudge` 仍然只有意圖、狀態、引擎三個欄位。
 8. **猜下一句（2026-11-21，AGENT.md §5.5）**：外掛多一個 `suggest({ context, instructions, lang, max })`，手機上的模型依只在手機上組的情境（不含座標）猜使用者接下來想問的 3～4 句；句子一律送伺服器用規則驗證查得到才顯示（只送句子），排序由程式計分，不可用或逾時 1.5 秒改用規則；設定可單獨關閉（`localStorage abang.edgeSuggest = off`）。judge 優先：送出問題時先 `cancelSuggest()`（原生端取消 future／Task），Android 的 suggest 用自己的執行緒，judge 不排在後面；驗證端點只記句數、不記句子。取消建議後 3 秒內的忙碌類錯誤（BUSY／CANCELLED、取消中、限流、同時有請求）不觸發 Android 的 10 分鐘暫停、也不跳 JS 斷路器，這一題交給伺服器判斷。與 ADR-0017 的 `write()` 共用同一個外掛、斷路器與優先順序（judge ＞ write ＞ suggest；write 開始前也先取消 suggest、寫的時候與判斷的時候不猜）；suggest 失敗或不可用只停 suggest、原生端不暫停，不影響 judge／write。模型猜的句子一律擋掉網址、帳號、加好友、匯款、座標等誘導內容（伺服器與手機都擋）。另一分支的 `write()`（手機上寫回答）合進主線後，兩者共用同一個外掛與斷路器，可再整併。
 
+### 錯誤碼與處理（2026-11-22，Pixel smoke：App 不在前景時 suggest 失敗）
+ML Kit GenAI（`genai-common 1.0.0-beta5`，`GenAiException.ErrorCode`，javap 確認）與 Foundation Models 的錯誤，原生端回給 JS 的原因與處理：
+
+| 平台 | 錯誤 | 原生端回 | 10 分鐘暫停（Android） | JS 斷路器 | 這一題 |
+|---|---|---|---|---|---|
+| Android | `BACKGROUND_USE_BLOCKED`（30）：App 不在前景、螢幕關著 | `background` | 不設 | 不跳 | judge→伺服器判斷、write→程式版、suggest→規則（不停掉 suggest） |
+| Android | `PER_APP_BATTERY_USE_QUOTA_EXCEEDED`（27）：電量配額 | `battery-quota` | 不設 | 不跳 | 同上 |
+| Android | `BUSY`（9）、`CANCELLED`（7），取消建議後 3 秒內 | `busy` | 不設 | 不跳 | 同上 |
+| Android | 其他 `GenAiException`（例：`NOT_AVAILABLE` 8、其他配額） | `judge failed`／`write failed` | 設 | 不跳（不是 unavailable） | 同上，10 分鐘內原生端回 `unavailable` |
+| iOS | App 不在前景（`UIApplication.applicationState != .active`）：不呼叫模型；呼叫中轉到背景的錯誤（含 `rateLimited`） | `background` | — | 不跳 | 同上 |
+| iOS | 取消建議後 3 秒內的 `rateLimited`、同時有請求、取消中 | `busy` | — | 不跳 | 同上 |
+| 兩者 | 機型不支援、沒開 Apple Intelligence、模型沒準備好、系統版本太舊 | `unavailable: <原因>` | — | 跳（這次開 App 不再用） | 同上 |
+
+JS（`public/js/edge-judge.js`）另外在 `document.visibilityState !== 'visible'` 時不呼叫 judge、write、suggest、prewarm（`edgeForeground`／`edgeCanRun`），直接走伺服器或規則，回到前景照常。最近一次沒用上的原因（`hidden`／`background`／`battery-quota`，`edgeIssue`，一分鐘內）給「阿幫的腦袋」試判斷第 1 段與寫回答那一行照實說（字典 `trial.why.*`、`rw.*`，中英文）。
+
 ## 評測（`scripts/eval-edge.js` 實機、`scripts/eval-edge-combo.js` 組合；`docs/research/edge-eval.md`）
 同一份 172 題評估集：Pixel 11 Pro XL 上的 Gemini Nano 單獨意圖 90.1%、全對 85.5%，延遲 p50 約 270 ms；與 A＋規則組合後全對 89.0%、驗收集 88.4%（A＋規則 77.9%；伺服器 A＋qwen3:8b 89.5%、驗收集 88.4%）。兩者相當，之後若實機數據穩定，可改成「有裝置結果就不呼叫伺服器模型」省成本。iOS 模擬器（Mac 的 Apple Intelligence）第一題冷啟動約 5 秒、超過逾時，實機數據待 iPhone 15 Pro 以上。
 

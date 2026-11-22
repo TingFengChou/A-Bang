@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-22 手機上的 AI 在背景被擋不跳斷路器
+- 做了：Pixel smoke 抓到 suggest 失敗是 ML Kit `GenAiException` 30＝`BACKGROUND_USE_BLOCKED`（App 不在前景、螢幕關著時 AICore 拒絕推論）。Android `AbangEdgeAIPlugin`：30（背景被擋）與 27（`PER_APP_BATTERY_USE_QUOTA_EXCEEDED` 電量配額）對 judge／write／suggest 都不設 10 分鐘暫停，回 `background`／`battery-quota`；iOS：App 不在前景（`UIApplication.applicationState`）不呼叫 Foundation Models、呼叫中轉到背景的錯誤回 `background`。JS（`edge-judge.js`）：`document.visibilityState !== 'visible'` 時不呼叫 judge／write／suggest／prewarm，直接走伺服器或規則；背景與電量配額的錯誤不跳斷路器、不停掉 suggest；最近一次沒用上的原因（`edgeIssue`）給試判斷第 1 段與寫回答那一行照實說（中英字典）。sw `v1.2.4`。
+- 測試：npm test 全過（新增 `test/edge-background.test.js` 7 項：錯誤碼不跳斷路器、judge／write／suggest 遇到背景與電量配額、hidden 不呼叫、試判斷原因、原生原始碼檢查）；Android assembleDebug、iOS xcodebuild（不簽署）通過
+- 文件：ADR-0014（錯誤碼表）、AGENT.md §5.3、§5.5
+- 下一個：Pixel 實機再跑一次 smoke（螢幕關著、切到別的 App 再回來）
+- 卡住：無
+
 ## 2026-11-22 決策：花錢換時間要划算（預設大眾運輸，有理由才推叫車）
 - 做了：產品負責人真實 TDX 實測西門町→台北101（沒有任何狀況）推叫車（27 分、285 元）勝過捷運（32 分、25 元）——多付 260 元只快 5 分。`core/decide.js` 加 `VALUE_OF_TIME`（每分鐘 5 元；走路、等車體感 2 倍；每轉乘多 5 分）與 `feltMinutes()`：沒有叫車的理由（`STATES.*.reason`：趕時間、帶行李、少走路、長輩、小孩、行動不便、下雨、空品不佳）而且有大眾運輸可比時，叫車多付的錢要 ≤ 省下的體感時間 × 5 元，否則扣分（`breakdown.premium`）排到對它不划算的大眾運輸後面 1 分（比叫車貴、也不划算的方案一起往後，不會改推更貴的高鐵），理由句「選「捷運 …」：省 260 元、只慢 5 分。」。PR #119 審查後加上限（產品負責人授權）：沒有理由狀態、有大眾運輸時，步行超過 25 分、YouBike 超過 30 分不排在最好的大眾運輸前面（`breakdown.tooLong`，理由句「YouBike要 37 分（超過 30 分）」）。權重不變；有理由、深夜沒大眾運輸、指定方式、同意優先叫車都照舊。決策圖明細多一列「不划算」「太久」（橘色、負號「−」）、③ 比較最後一步「划不划算」「太不太久」、英文理由同步；`public/sw.js` v1.2.3。
 - 前後（西門町→台北101 實測數字，無狀態）：改前叫車 75、捷運 75（同分、叫車時間短排前面）推叫車；改後捷運 75、叫車 74 推捷運；可能下雨也由叫車改推捷運；趕時間、帶行李、下雨、帶長輩仍推叫車，塞車、想省錢不變。示範資料 1122 組起訖（09:00，審查腳本）：無狀態叫車第一名 314 → 3（剩短程、附近沒有大眾運輸）；步行 > 25 分、YouBike > 30 分卻排在大眾運輸前面：無狀態 0、塞車 0、想省錢 0（原本 50／35）；高鐵第一名數不變。台北車站→西門町（1.5 公里）09:00 無狀態：叫車 → 步行 20 分；00:30（收班）照權重叫車。士林夜市→華山、臺北車站→國父紀念館、塞車時松山機場→板橋：叫車 → 公車。
