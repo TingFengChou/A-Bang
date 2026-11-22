@@ -192,9 +192,8 @@ export function createMockTransitServices({ bus: busScenario } = {}) {
         row('單程票', '孩童', std / 2, { cabin: '標準車廂' }), row('單程票', '敬老', std / 2, { cabin: '標準車廂' }),
       ];
     } else {
-      fares = [['自強', 52], ['莒光', 40], ['區間', 34]].flatMap(([trainType, per]) => [
-        row('單程票', '成人', Math.max(15, hops * per), { trainType }), row('單程票', '孩童', Math.max(10, hops * per / 2), { trainType }),
-      ]);
+      // 台鐵只列成人單程各車種（與 transit.js normTraFares 相同）
+      fares = [['自強', 52], ['莒光', 40], ['區間', 34]].map(([trainType, per]) => row('單程票', '成人', Math.max(15, hops * per), { trainType }));
     }
     return { system, from: o.name, to: d.name, demo: true, fares: fares.sort((a, b) => b.adultOneWay - a.adultOneWay || a.price - b.price) };
   };

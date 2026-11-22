@@ -1,5 +1,7 @@
 // 天氣服務（真實版，中央氣象署）：座標附近測站的現在天氣＋所在鄉鎮接下來 3 小時降雨機率（docs/MCP_TOOLS.md §7）
-// ⚠️ 欄位待 M1 驗證，全部防禦性解析：觀測值 -99 等異常值視為沒有資料；預報解析不到時 pop3h 為 null。
+// 欄位防禦性解析：觀測值 -99 等異常值視為沒有資料；預報解析不到時 pop3h 為 null。
+// 鄉鎮預報（2026-11-22 實測）：F-D0047-089 是「全臺各縣市」層級（Location 是 22 個縣市，不是鄉鎮），用鄉鎮名稱篩一律空的；
+// 鄉鎮要用各縣市的「未來 3 天逐 3 小時」資料集（F-D0047-001～085，見 TOWN_FORECAST）加 LocationName。
 // 雨量：氣象站 `WeatherElement.Now.Precipitation` 是「當日累積」，不能判斷現在有沒有下雨；
 // 過去 1 小時雨量改取雨量站 O-A0002-001 的 `RainfallElement.Past1hr.Precipitation`（最近且 5 公里內的站）。
 import { assertLatLon, distanceM, normName } from '../util.js';
@@ -7,6 +9,18 @@ import { CwaError } from '../cwa-client.js';
 
 export const RAIN_POP = 70; // 3 小時降雨機率 ≥ 70% 也算「下雨」
 export const RAIN_GAUGE_MAX_M = 5000; // 雨量站超過這個距離就不代表使用者所在地，rainMm1h 為 null
+
+/**
+ * 各縣市的鄉鎮預報資料集（未來 3 天，溫度逐 1 小時、降雨機率與天氣現象逐 3 小時）。2026-11-22 逐一實測 LocationsName。
+ * 鍵是 normName 後的縣市名（臺／台視為相同）。
+ */
+export const TOWN_FORECAST = Object.fromEntries(Object.entries({
+  宜蘭縣: '001', 桃園市: '005', 新竹縣: '009', 苗栗縣: '013', 彰化縣: '017', 南投縣: '021', 雲林縣: '025', 嘉義縣: '029',
+  屏東縣: '033', 臺東縣: '037', 花蓮縣: '041', 澎湖縣: '045', 基隆市: '049', 新竹市: '053', 嘉義市: '057', 臺北市: '061',
+  高雄市: '065', 新北市: '069', 臺中市: '073', 臺南市: '077', 連江縣: '081', 金門縣: '085',
+}).map(([k, v]) => [normName(k), `F-D0047-${v}`]));
+/** 縣市 → 鄉鎮預報資料集代碼；不認得的縣市回 null */
+export const townForecastId = (county) => TOWN_FORECAST[normName(county || '')] || null;
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) && n > -90 ? n : null; };
 
@@ -51,7 +65,7 @@ export const twParse = (v) => {
 const twHour = (ms) => new Date(ms + 8 * 3600e3).getUTCHours();
 
 /**
- * 鄉鎮預報 → 明天（台灣時間）的摘要 { date, pop, minT, maxT, wx }；元素名稱與時間欄位都防禦性比對（⚠️ 待 M1 驗證）。
+ * 鄉鎮預報 → 明天（台灣時間）的摘要 { date, pop, minT, maxT, wx }；元素名稱與時間欄位都防禦性比對（2026-11-22 以 F-D0047-065 實測：溫度用 DataTime、其餘 StartTime／EndTime）。
  * pop：明天各時段降雨機率的最大值（3 小時或 12 小時都可）；溫度取「溫度／最高／最低溫度」的最小與最大。沒有任何明天的資料回 null。
  */
 export function parseTomorrow(json, town, now = Date.now(), county = '') {
@@ -150,6 +164,12 @@ export function createWeatherServices(cwa) {
     return stations.reduce((a, b) => (distanceM(lat, lon, a.lat, a.lon) <= distanceM(lat, lon, b.lat, b.lon) ? a : b));
   }
 
+  /** 測站所在鄉鎮的預報（縣市對應的資料集＋LocationName，1 小時快取）；認不出縣市或沒有鄉鎮名稱回 null */
+  async function townForecast(st) {
+    const id = st.town && townForecastId(st.county);
+    return id ? cwa.get(id, { LocationName: st.town }, 3600) : null;
+  }
+
   return {
     weather: {
       /** 座標所在的行政區（S16，藥局用）：最近觀測站的縣市＋鄉鎮，附測站與距離（測站可能在隔壁區，呼叫端要說是推估） */
@@ -159,12 +179,12 @@ export function createWeatherServices(cwa) {
         if (!st.county || !st.town) return null;
         return { county: st.county, town: st.town, area: `${st.county}${st.town}`, station: st.name, distanceM: Math.round(distanceM(lat, lon, st.lat, st.lon)), demo: false };
       },
-      /** 明天的天氣（鄉鎮預報 F-D0047-089）：降雨機率（明天各時段最高）、最低／最高溫、天氣現象 */
+      /** 明天的天氣（所在縣市的鄉鎮預報 TOWN_FORECAST）：降雨機率（明天各時段最高）、最低／最高溫、天氣現象 */
       async tomorrow({ lat, lon }, now = Date.now()) {
         [lat, lon] = assertLatLon(lat, lon);
         const st = await nearestStation(lat, lon);
-        const fc = await cwa.get('F-D0047-089', { LocationName: st.town }, 3600);
-        const d = parseTomorrow(fc, st.town, now, st.county);
+        const fc = await townForecast(st);
+        const d = fc && parseTomorrow(fc, st.town, now, st.county);
         if (!d) throw new CwaError(502, '明天的預報暫時查不到，晚點再試');
         return { town: st.town, county: st.county, ...d };
       },
@@ -178,8 +198,8 @@ export function createWeatherServices(cwa) {
         const stations = [...parseStations(auto), ...parseStations(manned)].filter((s) => s.tempC != null || s.weather != null);
         if (!stations.length) throw new CwaError(502, '氣象署觀測資料暫時無法取得');
         const st = stations.reduce((a, b) => (distanceM(lat, lon, a.lat, a.lon) <= distanceM(lat, lon, b.lat, b.lon) ? a : b));
-        // 鄉鎮預報：F-D0047-089（全臺鄉鎮未來 3 天，⚠️ 待驗證）；失敗時 pop3h 為 null，不影響觀測
-        const fc = st.town ? await cwa.get('F-D0047-089', { LocationName: st.town }, 3600).catch(() => null) : null;
+        // 鄉鎮預報（所在縣市的 F-D0047-0xx，與 tomorrow 共用快取）；失敗時 pop3h 為 null，不影響觀測
+        const fc = await townForecast(st).catch(() => null);
         return buildWeather(st, nearestGauge(parseRainGauges(rain), lat, lon), parsePop3h(fc, st.town, Date.now(), st.county), lat, lon);
       },
     },

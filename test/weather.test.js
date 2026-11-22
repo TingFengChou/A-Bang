@@ -1,7 +1,8 @@
 // 天氣（M3-08）：氣象署形狀 fixture、降雨判斷、預報解析、授權碼不外洩、示範情境、tool
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createWeatherServices, parseStations, parseRainGauges, nearestGauge, parsePop3h, isRaining } from '../core/services/weather.js';
+import { readFileSync } from 'node:fs';
+import { createWeatherServices, parseStations, parseRainGauges, nearestGauge, parsePop3h, parseTomorrow, isRaining, townForecastId, TOWN_FORECAST } from '../core/services/weather.js';
 import { createCwaClient, CwaError } from '../core/cwa-client.js';
 import { callTool } from '../core/tools/index.js';
 import { createServices } from '../core/index.js';
@@ -32,7 +33,7 @@ function svcWith({ forecast = FORECAST, manned = MANNED, rain = RAIN } = {}) {
     if (u.includes('/O-A0001-001')) return new Response(JSON.stringify(AUTO));
     if (u.includes('/O-A0003-001')) return manned ? new Response(JSON.stringify(manned)) : new Response('x', { status: 500 });
     if (u.includes('/O-A0002-001')) return rain ? new Response(JSON.stringify(rain)) : new Response('x', { status: 500 });
-    if (u.includes('/F-D0047-089')) return forecast ? new Response(JSON.stringify(forecast)) : new Response('x', { status: 500 });
+    if (/\/F-D0047-0\d\d\?/.test(u)) return forecast ? new Response(JSON.stringify(forecast)) : new Response('x', { status: 500 });
     return new Response('nf', { status: 404 });
   };
   return { urls, weather: createWeatherServices(createCwaClient({ apiKey: 'SECRET-KEY', fetchImpl })).weather };
@@ -97,7 +98,9 @@ test('now：取最近且有資料的測站、合併預報、授權碼只在請�
   const r = await weather.now({ lat: 25.0478, lon: 121.517 });
   assert.deepEqual([r.station, r.town, r.tempC, r.rainMm1h, r.rainStation, r.pop3h, r.raining], ['臺北', '中正區', 18.4, 1.5, '臺北雨量', 90, true]);
   assert.equal(r.summary, '陰，18.4°C，3 小時降雨機率 90%');
-  assert.ok(urls.some((u) => u.includes('F-D0047-089') && u.includes(encodeURIComponent('中正區'))));
+  // 臺北市的鄉鎮預報是 F-D0047-061（089 是全臺各縣市層級，用鄉鎮名稱篩一律空的）
+  assert.ok(urls.some((u) => u.includes('/F-D0047-061?') && u.includes(encodeURIComponent('中正區'))));
+  assert.ok(!urls.some((u) => u.includes('F-D0047-089')));
   assert.ok(urls.every((u) => u.includes('Authorization=SECRET-KEY')));
   assert.ok(!JSON.stringify(r).includes('SECRET'));
 });
@@ -168,4 +171,48 @@ test('parseTomorrow：沒有時區的時間一律當台灣時間（主機是 UTC
   assert.deepEqual([d.pop, d.dayPop, d.minT, d.maxT], [80, 20, 21, 21]);
   const { weatherTomorrow } = await import('../core/tools/weather.js');
   assert.match(weatherTomorrow.speak({ ...d, county: '臺北市', town: '大安區' }), /^明天 11\/22（日） 臺北市大安區，21～21°C，降雨機率 80%。$/, '白天 20%：不提醒帶傘');
+});
+
+// ── 2026-11-22 真實資料修正：鄉鎮預報要用各縣市的資料集（F-D0047-089 是縣市層級） ──
+const REAL_065 = JSON.parse(readFileSync(new URL('./fixtures/cwa-F-D0047-065-sanmin.json', import.meta.url), 'utf8'));
+
+test('townForecastId：22 縣市對到各自的 3 天鄉鎮預報資料集，臺／台視為相同；不認得回 null', () => {
+  assert.equal(Object.keys(TOWN_FORECAST).length, 22);
+  assert.deepEqual(['臺北市', '台北市', '高雄市', '新北市', '臺中市', '金門縣', '連江縣'].map(townForecastId),
+    ['F-D0047-061', 'F-D0047-061', 'F-D0047-065', 'F-D0047-069', 'F-D0047-073', 'F-D0047-085', 'F-D0047-081']);
+  assert.equal(new Set(Object.values(TOWN_FORECAST)).size, 22);
+  assert.ok(!Object.values(TOWN_FORECAST).includes('F-D0047-089'));
+  assert.deepEqual([townForecastId(''), townForecastId(null), townForecastId('火星市')], [null, null, null]);
+});
+
+test('真實樣本（F-D0047-065 高雄市三民區）：現在的 3 小時降雨機率、明天的摘要', () => {
+  assert.equal(parsePop3h(REAL_065, '三民區', Date.parse('2026-11-22T13:00:00+08:00'), '高雄市'), 10);
+  assert.equal(parsePop3h(REAL_065, '三民區', Date.parse('2026-11-22T16:00:00+08:00'), '高雄市'), 20);
+  assert.deepEqual(parseTomorrow(REAL_065, '三民區', Date.parse('2026-11-22T13:00:00+08:00'), '高雄市'),
+    { date: '2026-11-23', pop: 20, dayPop: 10, minT: 21, maxT: 28, wx: '多雲' });
+});
+
+test('tomorrow／now 打測站所在縣市的資料集；縣市不認得時明天回 502、現在的 pop3h 為 null', async () => {
+  const STN = (county) => ({ success: 'true', records: { Station: [{ StationName: '三民', GeoInfo: { ...W(22.6467, 120.3089), CountyName: county, TownName: '三民區' }, ObsTime: { DateTime: '2026-11-22T14:00:00+08:00' }, WeatherElement: { Weather: '多雲', AirTemperature: 25.8 } }] } });
+  const mk = (county) => {
+    const urls = [];
+    const fetchImpl = async (url) => {
+      const u = String(url);
+      urls.push(u);
+      if (u.includes('/O-A0001-001')) return new Response(JSON.stringify(STN(county)));
+      if (u.includes('/F-D0047-065?')) return new Response(JSON.stringify(REAL_065));
+      if (u.includes('/F-D0047-')) return new Response(JSON.stringify({ success: 'true', records: { Locations: [{ LocationsName: '台灣', Location: [] }] } }));
+      return new Response('x', { status: 500 });
+    };
+    return { urls, weather: createWeatherServices(createCwaClient({ apiKey: 'SECRET-KEY', fetchImpl })).weather };
+  };
+  const ok = mk('高雄市');
+  const t = await ok.weather.tomorrow({ lat: 22.639, lon: 120.302 }, Date.parse('2026-11-22T13:00:00+08:00'));
+  assert.deepEqual([t.town, t.county, t.date, t.pop, t.minT, t.maxT, t.wx], ['三民區', '高雄市', '2026-11-23', 20, 21, 28, '多雲']);
+  await ok.weather.now({ lat: 22.639, lon: 120.302 }); // pop3h 的值看執行當下的時間（上一個測試已用固定時間驗證）
+  assert.equal(ok.urls.filter((u) => u.includes('/F-D0047-065?')).length, 1, 'tomorrow 與 now 共用一份預報快取');
+  const bad = mk('');
+  await assert.rejects(bad.weather.tomorrow({ lat: 22.639, lon: 120.302 }), (e) => e instanceof CwaError && e.status === 502);
+  assert.equal((await bad.weather.now({ lat: 22.639, lon: 120.302 })).pop3h, null);
+  assert.ok(!bad.urls.some((u) => u.includes('/F-D0047-')), '不認得縣市就不打預報');
 });
