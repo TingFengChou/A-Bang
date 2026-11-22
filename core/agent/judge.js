@@ -128,7 +128,9 @@ export function createJudge({ embed = null, llm = null, threshold = CONFIDENT } 
     // 沒有模型也沒有裝置端提示、A 又沒把握：規則有明確意圖就用規則（真實資料健檢 S3）；規則聽不懂才看 A，A 太沒把握就當 unknown
     const ruled = rules.intent !== 'unknown' && Object.hasOwn(JUDGE_INTENTS, rules.intent);
     // 接著上一輪：規則看得到前文。改行程是 trip；接著問公車、股票、發票、油價（「那 262 呢」、末班車那題回「307」）照規則的意圖（PR #127 審查）
-    const pick = rules.followUp ? [rules.intent === 'trip' || !Object.hasOwn(JUDGE_INTENTS, rules.intent) ? 'trip' : rules.intent, 'rules'] : sure ? [a.intent, 'embed'] : b ? [b.intent, dev ? 'device' : 'llm']
+    // 規則有十足把握（這一句寫了公車路線號碼、問的就是那一路，例「307 到哪了」）：手機或模型判成別的（天氣）也不改（真實資料健檢 d10）
+    const strong = ruled && rules.intent === 'bus_route' && !!rules.route && !(rules.also || []).length;
+    const pick = rules.followUp ? [rules.intent === 'trip' || !Object.hasOwn(JUDGE_INTENTS, rules.intent) ? 'trip' : rules.intent, 'rules'] : strong && b && b.intent !== rules.intent ? [rules.intent, 'rules'] : sure ? [a.intent, 'embed'] : b ? [b.intent, dev ? 'device' : 'llm']
       : ruled || !a ? [rules.intent, 'rules'] : a.confidence >= UNSURE_FLOOR ? [a.intent, 'embed'] : ['unknown', 'embed'];
     const [intent, source] = pick;
     const agree = a && b ? a.states.filter((k) => b.states.includes(k)) : [];

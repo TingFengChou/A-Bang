@@ -215,3 +215,12 @@ test('模型模式：預先查詢失敗時把原因告訴模型；相同條件�
   assert.notEqual(callKey('plan_trip', { to: '台北101' }), callKey('plan_trip', { to: '台北101', prefs: { mode: 'bus' } }));
   assert.equal(callKey('find_place', { query: 'x' }), null, '其他工具不沿用');
 });
+
+test('真實資料健檢 d10：「307 到哪了」手機判成天氣也照規則查公車（句子寫了路線號碼）', async () => {
+  const { createJudge } = await import('../core/agent/judge.js');
+  const j = createJudge();
+  const r = await j.quick('307 到哪了', [], { device: { intent: 'weather', states: [], engine: 'gemini-nano' } });
+  assert.deepEqual([r.intent, r.source], ['bus_route', 'rules']);
+  const w = await j.quick('明天會下雨嗎', [], { device: { intent: 'weather', states: [], engine: 'gemini-nano' } });
+  assert.equal(w.intent, 'weather', '其他句子照手機');
+});
