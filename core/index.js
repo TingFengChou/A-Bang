@@ -85,16 +85,17 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
   const transit = live ? withTdxFallback(createTransitServices(tdx, { cities }), createMockTransitServices(), quota) : createMockTransitServices({ bus: demo.bus });
   const metro = live ? withTdxFallback(createMetroServices(tdx), createMockMetroServices(), quota) : createMockMetroServices();
   const traffic = live ? withTdxFallback(createTrafficServices(tdx), createMockTrafficServices({ scenario: demo.traffic }), quota) : createMockTrafficServices({ scenario: demo.traffic });
-  const parking = live ? withTdxFallback(createParkingServices(tdx), createMockParkingServices(), quota) : createMockParkingServices();
+  const antifraudLive = openData && !forceMock;
+  // 生活服務（M10）：免金鑰的開放資料跟著 openData；空品要環境部金鑰、地震要氣象署授權碼，沒有就用示範片段
+  const od = antifraudLive ? createOpenDataClient() : null;
+  // 停車場：其他縣市走 TDX；台北市、新北市的停車場座標用市府開放資料（od，跟著 openData）
+  const parking = live ? withTdxFallback(createParkingServices(tdx, { od }), createMockParkingServices(), quota) : createMockParkingServices();
   const intercity = live ? withTdxFallback(createIntercityServices(tdx, traffic), createMockIntercityServices(traffic), quota) : createMockIntercityServices(traffic);
   const booking = live ? createBookingServices(tdx, transit) : createMockBookingServices(transit);
   const weatherLive = Boolean(cwaKey) && !forceMock;
   const cwa = weatherLive ? createCwaClient({ apiKey: cwaKey }) : null;
   const weather = cwa ? createWeatherServices(cwa) : createMockWeatherServices({ scenario: demo.weather });
 
-  const antifraudLive = openData && !forceMock;
-  // 生活服務（M10）：免金鑰的開放資料跟著 openData；空品要環境部金鑰、地震要氣象署授權碼，沒有就用示範片段
-  const od = antifraudLive ? createOpenDataClient() : null;
   const life = od
     ? createLifeServices(createLiveLifeFetchers({ od, cwa, moenvKey: forceMock ? null : moenvKey, demo: demoLifeFetchersFor({ air: demo.air }) }))
     : createMockLifeServices({ air: demo.air });

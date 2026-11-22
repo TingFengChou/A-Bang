@@ -1,9 +1,11 @@
 // 停車場（2026-11-22 產品負責人「要搭配停車場資訊更好」）：自己開車時，目的地附近的路外停車場與剩餘車位。
 // TDX：/basic/v1/Parking/OffStreet/CarPark/City/{City}（$spatialFilter 附近；靜態，1 天）＋ ParkingAvailability（$filter 站 ID；即時 60 秒）。
-// ⚠️ 2026-11-23 實測：台北市、新北市的 CarPark 清單是空的（只有空位、沒有座標）→ 查不到就回空清單，畫面照實說沒有資料；桃園、台中、高雄、台南有座標。
+// ⚠️ 2026-11-23 實測：台北市、新北市的 CarPark 清單是空的（只有空位、沒有座標）→ 這兩市改用市府開放資料（parking-open.js）；
+// 台北市空位仍走 TDX（ID 相同），新北市空位用新北開放資料。其他縣市（桃園、台中、高雄、台南…）照舊用 TDX。查不到就回空清單，畫面照實說沒有資料。
 import { assertLatLon, distanceM, zh, arr } from '../util.js';
 import { cacheOf, rawOpts, STATIC_TTL } from './tdx-cache.js';
 import { cityNear } from './places.js';
+import { createOpenParkingSource, OPEN_PARKING_CITIES } from './parking-open.js';
 
 /** 找多遠內的停車場（公尺） */
 export const PARKING_RADIUS_M = 600;
@@ -37,8 +39,19 @@ export function rankLots(lots, to) {
     .slice(0, PARKING_MAX);
 }
 
-export function createParkingServices(tdx) {
+/**
+ * @param {object} tdx
+ * @param {{ od?: { get: Function } | null }} [opts] od：免金鑰開放資料 client；有才用台北市、新北市的市府資料
+ */
+export function createParkingServices(tdx, { od = null } = {}) {
   const { cached } = cacheOf(tdx);
+  const open = od ? createOpenParkingSource(od) : null;
+  const tdxAvail = async (c, near) => {
+    const ids = near.filter((l) => l.live && /^[\w-]+$/.test(l.id)).map((l) => `'${l.id}'`); // ID 會放進 OData 篩選：只收英數字
+    if (!ids.length) return new Map();
+    const v = await tdx.get(`/basic/v1/Parking/OffStreet/ParkingAvailability/City/${c}`, { $filter: `CarParkID in (${ids.join(',')})` }, AVAIL_TTL).catch(() => null);
+    return normAvail(v?.ParkingAvailabilities ?? v);
+  };
   return {
     parking: {
       /**
@@ -49,6 +62,13 @@ export function createParkingServices(tdx) {
         [lat, lon] = assertLatLon(lat, lon);
         const c = city || cityNear({ lat, lon });
         if (!c) return { city: null, lots: [], noData: true };
+        if (open && OPEN_PARKING_CITIES.includes(c)) {
+          // 台北市、新北市：整市清單（1 天）裡挑 600 公尺內的；空位台北走 TDX、新北走開放資料（查不到空位照列停車場，只是不知道剩幾位）
+          const near = rankLots(await open.lots(c), { lat, lon });
+          if (!near.length) return { city: c, lots: [], noData: true };
+          const avail = c === 'Taipei' ? await tdxAvail(c, near) : await open.availability(c).catch(() => new Map());
+          return { city: c, lots: rankLots(near.map((l) => ({ ...l, ...(avail.get(l.id) || {}) })), { lat, lon }) };
+        }
         const key = `parking-${c}-${lat.toFixed(3)}-${lon.toFixed(3)}`; // 約 100 公尺一格
         const lots = await cached(key, STATIC_TTL, async (o) => {
           const r = await tdx.get(`/basic/v1/Parking/OffStreet/CarPark/City/${c}`, { $spatialFilter: `nearby(${lat},${lon},${PARKING_RADIUS_M})` }, 60, rawOpts(o));
@@ -56,12 +76,7 @@ export function createParkingServices(tdx) {
         });
         if (!lots.length) return { city: c, lots: [], noData: true };
         const near = rankLots(lots, { lat, lon });
-        const ids = near.filter((l) => l.live).map((l) => `'${l.id.replace(/'/g, '')}'`);
-        let avail = new Map();
-        if (ids.length) {
-          const v = await tdx.get(`/basic/v1/Parking/OffStreet/ParkingAvailability/City/${c}`, { $filter: `CarParkID in (${ids.join(',')})` }, AVAIL_TTL).catch(() => null);
-          avail = normAvail(v?.ParkingAvailabilities ?? v);
-        }
+        const avail = await tdxAvail(c, near);
         return { city: c, lots: rankLots(near.map((l) => ({ ...l, ...(avail.get(l.id) || {}) })), { lat, lon }) };
       },
     },
