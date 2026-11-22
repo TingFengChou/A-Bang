@@ -224,3 +224,10 @@ test('真實資料健檢 d10：「307 到哪了」手機判成天氣也照規則
   const w = await j.quick('明天會下雨嗎', [], { device: { intent: 'weather', states: [], engine: 'gemini-nano' } });
   assert.equal(w.intent, 'weather', '其他句子照手機');
 });
+
+test('健檢 x03：車種「台鐵區間快」不寫成「比台鐵區間快快 84 分」', async () => {
+  const { decide } = await import('../core/decide.js');
+  const o = (id, name, minutes, cost) => ({ id, role: id, name, minutes, cost, waitMin: 0, walkMin: 0, exposure: 0, effort: 0.3, delayRisk: 0 });
+  const r = decide([o('thsr', '高鐵', 40, 400), o('tra', '台鐵區間快', 124, 400)], { states: ['rush'] });
+  assert.match(r.reason, /比「台鐵區間快」快 84 分/);
+});

@@ -269,7 +269,7 @@ export function habitFlipped(best, ranked = []) {
 }
 
 const PHRASE = {
-  minutes: (b, s) => `比${s.name}快 ${Math.max(1, s.minutes - b.minutes)} 分`,
+  minutes: (b, s) => `比${/快$/.test(s.name) ? `「${s.name}」` : s.name}快 ${Math.max(1, s.minutes - b.minutes)} 分`, // 車種「區間快」：加引號，不寫成「區間快快」（健檢 x03）
   waitMin: (b) => (b.waitMin ? `只要等 ${b.waitMin} 分` : '不用等車'),
   walkMin: (b) => (b.walkMin ? `只走 ${b.walkMin} 分` : '不用走路'),
   cost: (b, s) => (b.cost < s.cost ? `省 ${s.cost - b.cost} 元` : '費用較低'),
