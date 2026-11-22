@@ -14,6 +14,9 @@
     "nav": { "type": ["object", "null"], "required": ["google", "apple"], "properties": { "google": { "type": "string" }, "apple": { "type": "string" } } },
     "updatedAt": { "type": "string" },
     "demo": { "type": "boolean" },
+    "source": { "enum": ["live", "timetable", "mixed"] },
+    "note": { "type": "string" },
+    "noteEn": { "type": "string" },
     "trains": {
       "type": "array",
       "items": {
@@ -27,7 +30,8 @@
           "destination": { "type": "string" },
           "destinationEn": { "type": "string" },
           "etaMin": { "type": ["integer", "null"] },
-          "status": { "type": "string" }
+          "status": { "type": "string" },
+          "scheduled": { "type": "boolean" }
         }
       }
     }

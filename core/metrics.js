@@ -14,12 +14,18 @@ export function countRecords(data) {
   return list ? list.length : 1;
 }
 
-/** client 每次取資料（快取或上游）時呼叫；不在 measure() 範圍內時什麼都不做 */
-export function recordFetch({ cacheHit, data }) {
+/**
+ * client 每次取資料（快取或上游）時呼叫；不在 measure() 範圍內時什麼都不做。
+ * category：真的打上游時的端點類別（例 Bus/EstimatedTimeOfArrival/City；只記類別，不記縣市、路線、參數），計在 upstream；
+ * stale：額度快用完時用了不到一分鐘前的舊快取（資料時間照實標示）
+ */
+export function recordFetch({ cacheHit, data, category, stale }) {
   const m = als.getStore();
   if (!m) return;
   m.calls++;
   if (cacheHit) m.cacheHits++;
+  else if (category) (m.upstream ||= {})[category] = (m.upstream[category] || 0) + 1;
+  if (stale) m.stale = true;
   m.scanned += countRecords(data);
 }
 
@@ -40,7 +46,8 @@ export const currentFallback = () => Boolean(als.getStore()?.fallback);
 
 /**
  * 在計量範圍內執行 fn。
- * @returns {Promise<{ result: any, metrics: { calls: number, cacheHits: number, cacheHit: boolean, scanned: number, ms: number } }>}
+ * @returns {Promise<{ result: any, metrics: { calls: number, cacheHits: number, cacheHit: boolean, scanned: number, ms: number, upstream?: Record<string, number>, stale?: boolean } }>}
+ *   upstream：真的打上游的次數（依端點類別）；沒有打就沒有這個欄位
  */
 export async function measure(fn) {
   const m = { calls: 0, cacheHits: 0, scanned: 0 };

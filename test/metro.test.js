@@ -46,11 +46,12 @@ test('stations：同名多線合併、座標可缺', async () => {
 test('liveBoard：查同站所有代碼、依分鐘排序、目的地備援 TripHeadSign', async () => {
   const r = await metro.liveBoard({ system: 'TRTC', station: '臺北車站' });
   assert.equal(r.station, '台北車站');
-  assert.ok(urls.some((u) => u.includes("StationID eq 'BL12' or StationID eq 'R10'")));
+  // 看板整個系統一次取（所有車站共用一份快取，不依站另查）
+  assert.ok(urls.some((u) => /Metro\/LiveBoard\/TRTC\?\$format=JSON$/.test(u)), urls.join('\n'));
   assert.deepEqual(r.trains.map((t) => [t.line, t.destination, t.etaMin, t.status]), [
     ['板南線', '頂埔', 0, '進站中'],
     ['淡水信義線', '淡水', 4, '4 分'],
-    ['BL', '南港展覽館', null, '—'],
+    ['板南線', '南港展覽館', null, '—'], // 看板沒有路線名稱時用代碼對照
   ]);
   assert.equal(r.updatedAt, '2026-11-17T21:00:20+08:00');
 });

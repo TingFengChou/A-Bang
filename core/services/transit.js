@@ -1,12 +1,69 @@
 // 大眾運輸服務（真實 TDX 版）：把 TDX 原始資料正規化成 App / MCP 共用的格式
+// TDX 基本會員每分鐘 5 次（docs/DATA_SOURCES.md §1.1）：靜態資料（站牌、站序、車站）存檔共用，即時資料整個縣市一次取、30 秒共用。
 import { resolveCity, cityFromUID } from '../cities.js';
 import { distanceM, busStatusText, minutesBetween, normName, todayTW, assertLatLon, UserError, zh, enField, odataStr as q } from '../util.js';
 import { pathFromWkt, thinPath } from '../geo.js';
 import { matchDirect, commonRoutes, DIRECT_RADIUS_M } from './bus-direct.js';
+import { cacheOf, rawOpts, STATIC_TTL } from './tdx-cache.js';
+import { INDEX_CITIES, ETA_TTL, BIKE_TTL, STALE_SEC, transitKey as key, transitLoaders, normRouteStops, normBikeStation, etaIndex, bikeIndex } from './transit-data.js';
 
+const COVER_M = 1500; // 本機站牌資料離這個點最近的站超過這個距離，視為沒涵蓋（改問 TDX NearBy）
 
-export function createTransitServices(tdx) {
+/** 高鐵、台鐵車站（存檔，預熱） */
+export const railLoaders = {
+  thsrStations: (tdx) => async (o) => (await tdx.get('/basic/v2/Rail/THSR/Station', { $select: 'StationID,StationName,StationPosition' }, 60, rawOpts(o)))
+    .map((s) => ({ id: s.StationID, name: zh(s.StationName), ...enField('nameEn', s.StationName), ...stationPos(s) })),
+  traStations: (tdx) => async (o) => {
+    const j = await tdx.get('/basic/v3/Rail/TRA/Station', { $select: 'StationID,StationName,StationPosition' }, 60, rawOpts(o));
+    return (j.Stations || j).map((s) => ({ id: s.StationID, name: zh(s.StationName), ...enField('nameEn', s.StationName), ...stationPos(s) }));
+  },
+};
+export function railWarmSteps(tdx) {
+  const { cached } = cacheOf(tdx);
+  return [['thsr-stations', 'thsrStations'], ['tra-stations', 'traStations']].map(([k, kind]) => ({ key: k, ttl: STATIC_TTL, run: (o) => cached(k, STATIC_TTL, railLoaders[kind](tdx), { ...o, force: true }) }));
+}
+
+/**
+ * @param {object} tdx core/tdx-client.js（測試可給只有 get() 的假物件）
+ * @param {{ cities?: string[] }} [opts] cities：預熱過、可在本機查附近站牌的縣市
+ */
+export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
+  const { cached, stored, meta } = cacheOf(tdx);
+  const storedOf = (kind, city) => stored(key[kind](city), STATIC_TTL, transitLoaders[kind](tdx, city)).catch(() => undefined);
+
+  /**
+   * 這個點有沒有預熱過的公車站牌資料涵蓋：最近的站在 1.5 公里內，且站位實際所在的縣市（LocationCityCode）也預熱過
+   * （例：基隆市區有新北路線的站，但基隆自己的路線沒預熱 → 不算涵蓋，改問 TDX）。
+   * @returns {Promise<{ lists: Array<Array<object>>, loc: string|null } | null>}
+   */
+  async function coveredBy(lat, lon) {
+    const loaded = (await Promise.all(cities.map(async (city) => ({ city, list: await storedOf('busStations', city) })))).filter((x) => Array.isArray(x.list) && x.list.length);
+    if (!loaded.length) return null;
+    let best = null;
+    for (const { list } of loaded) for (const s of list) {
+      const m = distanceM(lat, lon, s.lat, s.lon);
+      if (!best || m < best.m) best = { m, s };
+    }
+    if (!best || best.m > COVER_M) return null;
+    const codes = new Set(loaded.map((x) => resolveCity(x.city)?.code));
+    if (best.s.loc && !codes.has(best.s.loc)) return null;
+    return { lists: loaded.map((x) => x.list), loc: best.s.loc };
+  }
+
   // ───────── 公車 ─────────
+  /** 路線站序：預熱過的整個縣市資料優先，沒有就逐條查（存檔） */
+  async function routeStops(city, routeName) {
+    const all = await storedOf('busRoutes', city);
+    if (Array.isArray(all) && all.length) return all.filter((d) => d.name === routeName);
+    return cached(key.busRoute(city, routeName), STATIC_TTL, async (o) => normRouteStops(await tdx.get(
+      `/basic/v2/Bus/DisplayStopOfRoute/City/${city}/${encodeURIComponent(routeName)}`, { $filter: `RouteName/Zh_tw eq '${q(routeName)}'` }, 60, rawOpts(o))));
+  }
+  /** 路線形狀（存檔）；端點失敗回 null，不影響到站資料 */
+  const routeShapeOf = (city, routeName) => cached(key.busShape(city, routeName), STATIC_TTL, async (o) => routeShape(await tdx.get(
+    `/basic/v2/Bus/Shape/City/${city}/${encodeURIComponent(routeName)}`, { $filter: `RouteName/Zh_tw eq '${q(routeName)}'` }, 60, rawOpts(o)))).catch(() => null);
+  /** 整個縣市的公車預估到站（30 秒，所有路線、所有人共用；額度快用完時用 60 秒內的舊資料） */
+  const cityEta = (city) => meta(`/basic/v2/Bus/EstimatedTimeOfArrival/City/${city}`, { $select: 'RouteUID,Direction,StopUID,EstimateTime,StopStatus,PlateNumb' }, ETA_TTL, { staleSec: STALE_SEC });
+
   const bus = {
     /** 依關鍵字搜尋路線 */
     async searchRoutes({ city, keyword }) {
@@ -22,44 +79,55 @@ export function createTransitServices(tdx) {
       }));
     },
 
-    /** 單一路線各站到站時間（含去返程） */
-    async routeEta({ city, routeName }) {
+    /**
+     * 單一路線各站到站時間（含去返程）。
+     * 站序：預熱的縣市資料或逐條查（存檔）；到站：整個縣市一份（30 秒共用）；shape: false 時不查形狀（plan_trip 用不到）。
+     * updatedAt：到站資料實際取得的時間（額度快用完時可能是不到一分鐘前的舊資料，stale: true）
+     */
+    async routeEta({ city, routeName, shape = true }) {
       const c = mustCity(city);
-      const filter = { $filter: `RouteName/Zh_tw eq '${q(routeName)}'` };
-      const [stopsOfRoute, etas, routes, shapes] = await Promise.all([
-        tdx.get(`/basic/v2/Bus/DisplayStopOfRoute/City/${c.city}/${encodeURIComponent(routeName)}`, filter, 3600),
-        tdx.get(`/basic/v2/Bus/EstimatedTimeOfArrival/City/${c.city}/${encodeURIComponent(routeName)}`, filter, 20),
-        tdx.get(`/basic/v2/Bus/Route/City/${c.city}/${encodeURIComponent(routeName)}`, { ...filter, $select: 'RouteName,DepartureStopNameZh,DestinationStopNameZh' }, 3600),
-        // 路線形狀端點待 M1 驗證：失敗只省略 shape，不影響到站資料
-        tdx.get(`/basic/v2/Bus/Shape/City/${c.city}/${encodeURIComponent(routeName)}`, filter, 3600).catch(() => []),
+      const [dirs, eta, path, info] = await Promise.all([
+        routeStops(c.city, routeName),
+        cityEta(c.city),
+        shape ? routeShapeOf(c.city, routeName) : null,
+        storedOf('busMeta', c.city),
       ]);
-      if (!stopsOfRoute.length) throw new UserError(`${c.name}找不到路線「${routeName}」`);
-      const route = routes[0] || {};
-      const etaMap = new Map(etas.map((e) => [`${e.Direction}|${e.StopUID}`, e]));
-      const directions = stopsOfRoute.map((d) => ({
-        direction: d.Direction,
-        label: `往 ${d.Direction === 0 ? route.DestinationStopNameZh || '終點' : route.DepartureStopNameZh || '起點'}`,
-        stops: d.Stops.map((s) => {
-          const e = etaMap.get(`${d.Direction}|${s.StopUID}`) || {};
-          const p = s.StopPosition || {};
+      if (!dirs.length) throw new UserError(`${c.name}找不到路線「${routeName}」`);
+      const etaMap = etaIndex(eta.data);
+      const route = Array.isArray(info) ? info.find((r) => (dirs[0].uid && r.uid ? r.uid === dirs[0].uid : r.name === routeName)) : null;
+      const directions = dirs.map((d) => ({
+        direction: d.direction,
+        // 往哪裡：路線的起訖站名（預熱過才有），沒有就用這個方向的最後一站
+        label: `往 ${(d.direction === 0 ? route?.dest : route?.dep) || d.stops.at(-1)?.name || (d.direction === 0 ? '終點' : '起點')}`,
+        stops: d.stops.map((s) => {
+          const e = (d.uid && etaMap.get(`${d.uid}|${d.direction}|${s.uid}`)) || etaMap.get(`${d.direction}|${s.uid}`) || {};
           return {
-            seq: s.StopSequence, stopName: zh(s.StopName), ...enField('stopNameEn', s.StopName),
-            ...(Number.isFinite(p.PositionLat) && Number.isFinite(p.PositionLon) && { lat: p.PositionLat, lon: p.PositionLon }),
+            seq: s.seq, stopName: s.name, ...(s.nameEn && { stopNameEn: s.nameEn }),
+            ...(Number.isFinite(s.lat) && Number.isFinite(s.lon) && { lat: s.lat, lon: s.lon }),
             etaSec: e.EstimateTime ?? null, status: e.StopStatus ?? 0,
             statusText: busStatusText(e.StopStatus ?? 0, e.EstimateTime),
             plate: e.PlateNumb && e.PlateNumb !== '-1' ? e.PlateNumb : null,
           };
         }),
       }));
-      const shape = routeShape(shapes);
-      return { city: c.city, routeName, directions, ...(shape && { shape }), updatedAt: new Date().toISOString() };
+      return { city: c.city, routeName, directions, ...(path && { shape: path }), updatedAt: new Date(eta.at).toISOString(), ...(eta.stale && { stale: true }) };
     },
 
-    /** 座標附近的公車站位 */
+    /** 座標附近的公車站位：預熱過的縣市在本機算（不打 TDX），其他地方問 TDX NearBy（不存檔：座標是使用者位置） */
     async nearbyStations({ lat, lon, radius = 400 }) {
       [lat, lon] = assertLatLon(lat, lon);
+      const r = Math.min(radius, 1000);
+      const cov = await coveredBy(lat, lon);
+      if (cov) {
+        const out = [];
+        for (const list of cov.lists) for (const s of list) {
+          const d = distanceM(lat, lon, s.lat, s.lon);
+          if (d <= r) out.push({ stationId: s.id, stationUid: s.uid, city: cityFromUID(s.uid)?.city || null, name: s.name, ...(s.nameEn && { nameEn: s.nameEn }), lat: s.lat, lon: s.lon, distance: d, routes: s.routes });
+        }
+        return out.sort((a, b) => a.distance - b.distance).slice(0, 30);
+      }
       const rows = await tdx.get('/advanced/v2/Bus/Station/NearBy', {
-        $spatialFilter: `nearby(${lat},${lon},${Math.min(radius, 1000)})`, $top: 30,
+        $spatialFilter: `nearby(${lat},${lon},${r})`, $top: 30,
       }, 3600);
       return rows.map((s) => {
         const p = s.StationPosition;
@@ -86,25 +154,42 @@ export function createTransitServices(tdx) {
   };
 
   // ───────── 公共自行車 YouBike ─────────
+  /** 預熱過的 YouBike 站點（本機算附近）；這個點不在預熱的縣市回 null（改問 TDX NearBy） */
+  async function localBikeStations(lat, lon, r) {
+    const cov = await coveredBy(lat, lon);
+    if (!cov) return null;
+    const lists = await Promise.all(cities.map((city) => storedOf('bikeStations', city)));
+    const codes = new Set(cities.filter((_, i) => Array.isArray(lists[i]) && lists[i].length).map((c) => resolveCity(c)?.code));
+    if (!codes.size || (cov.loc && !codes.has(cov.loc))) return null;
+    const out = [];
+    for (const list of lists) for (const s of list || []) { const d = distanceM(lat, lon, s.lat, s.lon); if (d <= r) out.push({ ...s, distance: d }); }
+    return out.sort((a, b) => a.distance - b.distance).slice(0, 30);
+  }
+
   const bike = {
+    /** 附近 YouBike：站點（預熱過在本機算）＋車數（依站點代碼的縣市，整個縣市一次取、30 秒共用） */
     async nearby({ lat, lon, radius = 500 }) {
       [lat, lon] = assertLatLon(lat, lon);
-      const sf = { $spatialFilter: `nearby(${lat},${lon},${Math.min(radius, 1000)})`, $top: 30 };
-      const [stations, avail] = await Promise.all([
-        tdx.get('/advanced/v2/Bike/Station/NearBy', sf, 3600),
-        tdx.get('/advanced/v2/Bike/Availability/NearBy', sf, 30),
+      const r = Math.min(radius, 1000);
+      const sf = { $spatialFilter: `nearby(${lat},${lon},${r})`, $top: 30 };
+      const stations = (await localBikeStations(lat, lon, r))
+        || (await tdx.get('/advanced/v2/Bike/Station/NearBy', sf, 3600)).map((s) => ({ ...normBikeStation(s), distance: distanceM(lat, lon, s.StationPosition?.PositionLat, s.StationPosition?.PositionLon) }));
+      // 看不出縣市（站點代碼不是縣市開頭）的才用 NearBy 查車數
+      const citiesHere = [...new Set(stations.map((s) => cityFromUID(s.uid)?.city).filter(Boolean))];
+      const unknown = stations.some((s) => !cityFromUID(s.uid));
+      const avails = await Promise.all([
+        ...citiesHere.map((c) => meta(`/basic/v2/Bike/Availability/City/${c}`, {}, BIKE_TTL, { staleSec: STALE_SEC }).then((x) => x.data)),
+        ...(unknown ? [tdx.get('/advanced/v2/Bike/Availability/NearBy', sf, BIKE_TTL)] : []),
       ]);
-      const a = new Map(avail.map((x) => [x.StationUID, x]));
+      const idx = avails.map(bikeIndex);
+      const availOf = (uid) => { for (const m of idx) { const v = m.get(uid); if (v) return v; } return {}; };
       return stations.map((s) => {
-        const v = a.get(s.StationUID) || {};
-        const p = s.StationPosition;
+        const v = availOf(s.uid);
         return {
-          uid: s.StationUID,
-          name: zh(s.StationName).replace(/^YouBike\d\.\d_/, ''), ...enField('nameEn', s.StationName, (x) => x.replace(/^YouBike\s*\d\.\d_/i, '')),
-          type: s.ServiceType === 2 ? 'YouBike 2.0' : 'YouBike 1.0',
-          address: zh(s.StationAddress), lat: p.PositionLat, lon: p.PositionLon,
-          distance: distanceM(lat, lon, p.PositionLat, p.PositionLon),
-          capacity: s.BikesCapacity ?? null,
+          uid: s.uid, name: s.name, ...(s.nameEn && { nameEn: s.nameEn }), type: s.type,
+          address: s.address, lat: s.lat, lon: s.lon,
+          distance: s.distance,
+          capacity: s.capacity ?? null,
           rent: v.AvailableRentBikes ?? null,
           general: v.AvailableRentBikesDetail?.GeneralBikes ?? null,
           electric: v.AvailableRentBikesDetail?.ElectricBikes ?? null,
@@ -118,10 +203,7 @@ export function createTransitServices(tdx) {
 
   // ───────── 軌道：高鐵 / 台鐵 ─────────
   const rail = {
-    async thsrStations() {
-      const rows = await tdx.get('/basic/v2/Rail/THSR/Station', { $select: 'StationID,StationName,StationPosition' }, 86400);
-      return rows.map((s) => ({ id: s.StationID, name: zh(s.StationName), ...enField('nameEn', s.StationName), ...stationPos(s) }));
-    },
+    thsrStations: () => cached('thsr-stations', STATIC_TTL, railLoaders.thsrStations(tdx)),
     async thsrTimetable({ from, to, date = todayTW() }) {
       const st = await rail.thsrStations();
       const o = findStation(st, from, '高鐵'), d = findStation(st, to, '高鐵');
@@ -135,19 +217,19 @@ export function createTransitServices(tdx) {
         })).sort((x, y) => x.depart.localeCompare(y.depart)),
       };
     },
-    /** 高鐵票價（OD） */
+    /** 高鐵票價（OD；票價很少變，存檔一天） */
     async thsrFare({ from, to }) {
       const st = await rail.thsrStations();
       const o = findStation(st, from, '高鐵'), d = findStation(st, to, '高鐵');
       if (o.id === d.id) throw new UserError('起訖站不可相同');
-      const rows = await tdx.get(`/basic/v2/Rail/THSR/ODFare/${o.id}/to/${d.id}`, {}, 600);
-      const od = (Array.isArray(rows) ? rows : rows?.ODFares || [])[0];
-      return { system: 'THSR', from: o.name, to: d.name, fares: normFares(od?.Fares, 'THSR') };
+      const fares = await cached(`thsr-fare-${o.id}-${d.id}`, STATIC_TTL, async (opt) => {
+        const rows = await tdx.get(`/basic/v2/Rail/THSR/ODFare/${o.id}/to/${d.id}`, {}, 60, rawOpts(opt));
+        const od = (Array.isArray(rows) ? rows : rows?.ODFares || [])[0];
+        return normFares(od?.Fares, 'THSR');
+      });
+      return { system: 'THSR', from: o.name, to: d.name, fares };
     },
-    async traStations() {
-      const j = await tdx.get('/basic/v3/Rail/TRA/Station', { $select: 'StationID,StationName,StationPosition' }, 86400);
-      return (j.Stations || j).map((s) => ({ id: s.StationID, name: zh(s.StationName), ...enField('nameEn', s.StationName), ...stationPos(s) }));
-    },
+    traStations: () => cached('tra-stations', STATIC_TTL, railLoaders.traStations(tdx)),
     async traTimetable({ from, to, date = todayTW() }) {
       const st = await rail.traStations();
       const o = findStation(st, from, '台鐵'), d = findStation(st, to, '台鐵');
@@ -173,21 +255,27 @@ export function createTransitServices(tdx) {
     const st = await rail.traStations();
     const o = findStation(st, from, '台鐵'), d = findStation(st, to, '台鐵');
     if (o.id === d.id) throw new UserError('起訖站不可相同');
-    const j = await tdx.get(`/basic/v3/Rail/TRA/ODFare/${o.id}/to/${d.id}`, {}, 600);
-    const ods = Array.isArray(j) ? j : j?.ODFares || [];
-    // v3 每個車種一筆 OD，各有 Fares
-    const fares = ods.flatMap((od) => normFares(od.Fares, 'TRA', trainTypeLabel(od)));
-    return { system: 'TRA', from: o.name, to: d.name, fares: sortFares(fares) };
+    const fares = await cached(`tra-fare-${o.id}-${d.id}`, STATIC_TTL, async (opt) => {
+      const j = await tdx.get(`/basic/v3/Rail/TRA/ODFare/${o.id}/to/${d.id}`, {}, 60, rawOpts(opt));
+      const ods = Array.isArray(j) ? j : j?.ODFares || [];
+      // v3 每個車種一筆 OD，各有 Fares
+      return sortFares(ods.flatMap((od) => normFares(od.Fares, 'TRA', trainTypeLabel(od))));
+    });
+    return { system: 'TRA', from: o.name, to: d.name, fares };
   };
 
-  /** 起訖附近都有站牌的直達公車（plan_trip 用）：共同路線 → 以站點座標驗證方向；單一路線失敗只略過 */
+  /**
+   * 起訖附近都有站牌的直達公車（plan_trip 用）：共同路線 → 以站點座標驗證方向；單一路線失敗只略過。
+   * 只查一個縣市的路線（站牌代碼前三碼＝路線的主管縣市；共同路線最多的那個），到站資料整個縣市一次取：一趟最多打 1 次 TDX。
+   */
   bus.directTrips = async ({ from, to, radius = DIRECT_RADIUS_M }) => {
     const [a, b] = await Promise.all([bus.nearbyStations({ ...from, radius }), bus.nearbyStations({ ...to, radius })]);
-    const city = a[0]?.city;
+    const city = pickRouteCity(a, b);
     if (!city) return [];
+    const inCity = (list) => list.filter((s) => s.city === city);
     let limited = false;
-    const out = await Promise.all(commonRoutes(a, b).map(async (routeName) => {
-      const eta = await bus.routeEta({ city, routeName }).catch((e) => { if (e?.status === 429) limited = true; return null; });
+    const out = await Promise.all(commonRoutes(inCity(a), inCity(b)).map(async (routeName) => {
+      const eta = await bus.routeEta({ city, routeName, shape: false }).catch((e) => { if (e?.status === 429) limited = true; return null; });
       const m = eta && matchDirect(eta.directions, from, to, radius);
       return m && { routeName, city, ...m };
     }));
@@ -198,6 +286,17 @@ export function createTransitServices(tdx) {
   };
 
   return { bus, bike, rail };
+}
+
+/** 直達公車要查哪個縣市的路線：起訖共同路線最多的縣市；都沒有共同路線時用起點最近站牌的縣市 */
+export function pickRouteCity(fromStations, toStations) {
+  const cities = [...new Set(fromStations.map((s) => s.city).filter(Boolean))];
+  let best = null;
+  for (const c of cities) {
+    const n = commonRoutes(fromStations.filter((s) => s.city === c), toStations.filter((s) => s.city === c), Infinity).length;
+    if (n && (!best || n > best.n)) best = { c, n };
+  }
+  return best?.c || fromStations[0]?.city || null;
 }
 
 // ───────── helpers ─────────

@@ -1,6 +1,7 @@
 // 國道客運服務（真實 TDX 版）：起訖附近都有站牌的直達路線、接下來的班次、含路況的預估抵達（docs/MCP_TOOLS.md §7）
 // ⚠️ 端點與欄位待 M1 驗證，防禦性解析；票價端點未確認，fare 先回 null。
 import { distanceM, nowTW, toMin, toHHMM, UserError, zh, arr, odataStr } from '../util.js';
+import { cacheOf, rawOpts, STATIC_TTL } from './tdx-cache.js';
 
 export const STOP_RADIUS_M = 1500; // 起訖點到上下車站牌的最大距離
 export const MAX_TRIPS = 5;
@@ -139,7 +140,14 @@ export function buildTrips(cands, { departMin, straightM, traffic }) {
     });
 }
 
+/** 公路客運站序 → 只留 matchRoutes 用到的欄位（形狀與 TDX 相同，可存檔） */
+export const normIntercityStops = (rows) => arr(rows).map((r) => ({
+  RouteUID: r.RouteUID, RouteName: { Zh_tw: zh(r.RouteName) }, SubRouteUID: r.SubRouteUID || null, SubRouteName: r.SubRouteName ? { Zh_tw: zh(r.SubRouteName) } : null, Direction: r.Direction ?? 0,
+  Stops: (r.Stops || []).map((x) => ({ StopUID: x.StopUID, StopSequence: x.StopSequence, StopName: { Zh_tw: zh(x.StopName) }, ...(x.StopPosition && { StopPosition: { PositionLat: x.StopPosition.PositionLat, PositionLon: x.StopPosition.PositionLon } }) })),
+}));
+
 export function createIntercityServices(tdx, { traffic }) {
+  const { cached } = cacheOf(tdx);
   return {
     intercity: {
       /**
@@ -150,7 +158,8 @@ export function createIntercityServices(tdx, { traffic }) {
         const departMin = dep.minute;
         const straightM = distanceM(from.lat, from.lon, to.lat, to.lon);
         const [stopOfRoute, tr] = await Promise.all([
-          tdx.get('/basic/v2/Bus/StopOfRoute/InterCity', { $select: 'RouteUID,RouteName,SubRouteUID,SubRouteName,Direction,Stops' }, 86400),
+          // 路線站序是靜態的：只留比對用的欄位後存檔（重啟不必重抓，約 1 MB）
+          cached('intercity-stop-of-route', STATIC_TTL, async (o) => normIntercityStops(await tdx.get('/basic/v2/Bus/StopOfRoute/InterCity', { $select: 'RouteUID,RouteName,SubRouteUID,SubRouteName,Direction,Stops' }, 60, rawOpts(o)))),
           traffic.status({ from: { ...from }, to: { ...to } }).catch(() => null), // 路況失敗不影響班次
         ]);
         const matches = matchRoutes(arr(stopOfRoute), from, to).slice(0, 8);

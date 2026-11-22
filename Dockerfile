@@ -27,6 +27,9 @@ COPY scripts/fetch-judge-model.js ./scripts/fetch-judge-model.js
 RUN node scripts/fetch-judge-model.js || echo "判斷層模型下載失敗，執行時退回規則判斷"
 # 檔案屬 root、對執行者唯讀（本機目錄權限可能是 700，COPY 會保留）
 RUN chmod -R a+rX,go-w /app
+# TDX 靜態資料存檔（站牌、站序、車站；重啟後先讀檔）：唯一可寫的目錄，compose 以 volume 掛載
+ENV TDX_CACHE_DIR=/app/.cache/tdx
+RUN mkdir -p /app/.cache/tdx && chown -R node:node /app/.cache
 USER node
 EXPOSE 8787
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \

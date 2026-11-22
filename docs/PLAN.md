@@ -85,7 +85,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 - [ ] M1-01 `scripts/verify-tdx.js`：逐一呼叫 `MCP_TOOLS.md` 所有 ⚠️ 端點，印出狀態碼、筆數、第一筆欄位名稱（不印金鑰）；無金鑰時清楚提示並 exit 1
 - [ ] M1-02 `scripts/record-fixtures.js`：把真實回應（每端點截前 5 筆）存到 `test/fixtures/<endpoint>.json`，移除可能的個資
 - [ ] M1-03 ⛔ 本機執行 M1-01／02；`test/transit.test.js` 改讀新 fixtures；修正與實際欄位不符的正規化
-- [ ] M1-04 ⛔ 把驗證結果寫進下表與 `DATA_SOURCES.md`；額度方案寫進 `ARCHITECTURE.md` §快取與額度
+- [ ] M1-04 ⛔ 把驗證結果寫進下表與 `DATA_SOURCES.md`；額度方案寫進 `ARCHITECTURE.md` §快取與額度（2026-11-22：額度方案 ✅——每分鐘 5 次下的快取存檔、縣市整批取、背景預熱、額度排程，DATA_SOURCES.md §1.1；其他端點仍待驗證）
 
 驗收：`npm test` 用真實 fixture 通過；`verify-tdx.js` 全綠或有明確「不支援」紀錄。
 
@@ -94,7 +94,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | `Bus/EstimatedTimeOfArrival/.../PassThrough/Station/{id}` | 未驗證 |
 | `Bus/Shape/City/{City}/{Route}` WKT 格式 | 未驗證（M3-02 假設欄位 `Geometry`、`LINESTRING`／`MULTILINESTRING`；`core/geo.js` 防禦性解析） |
 | 站牌 `StopPosition` 於各縣市完整度 | 未驗證 |
-| `Rail/Metro/LiveBoard/{Op}` 各系統欄位 | 未驗證（M3-04 假設 `EstimateTime` 為分鐘、`DestinationStationName`／`TripHeadSign`、可用 `$filter=StationID eq …`） |
+| `Rail/Metro/LiveBoard/{Op}` 各系統欄位 | 北捷 ✅ 2026-11-22：欄位 `LineID`、`LineName`、`StationID`、`DestinationStationName`、`EstimateTime`（分鐘）符合；但只列「進站中」的站（約 20～25 筆、`EstimateTime` 都是 0）→ 看板整個系統一次取，其他方向用 `StationTimeTable` 估（DATA_SOURCES.md §1.2）。其他系統未驗證 |
 | 台鐵／高鐵 ODFare 欄位 | 未驗證（M3-05 假設 `Fares[].TicketType／FareClass／CabinClass／Price`、台鐵 v3 `ODFares[]` 每車種一筆；代碼對照與台鐵 `TrainType` 意義待確認） |
 | 高速公路旅行時間、道路事件、國道客運端點 | 未驗證（M3-07 假設 `StopOfRoute/InterCity`、`Schedule/InterCity` 的 `Timetables[].ServiceDay／StopTimes`；客運票價端點未知；M3-06 假設 `SectionShape`／`Section`／`Live`／`Live/News` 的 Freeway 端點與 `SectionShapes`、`Sections`、`LiveTraffics`、`Newses` 包裝；`TravelSpeed` 為 0 是「完全停滯」還是「無資料」（目前視為無資料）；走廊 3 km 可能同時納入平行國道（國 1／國 3），需以實際路段資料決定是否依 `RoadName` 只取一條主線） |
 | 地理編碼（TDX 或 TGOS） | 未驗證（`find_place` 目前只查內建地標） |

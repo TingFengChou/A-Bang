@@ -6,6 +6,7 @@ import { walkMinutes, navLinks } from '../nav.js';
 import { decide, keyQuestion, STATES } from '../decide.js';
 import { departOf, delayRiskOf } from './intercity.js';
 import { LANDMARKS, normPlace } from './places.js';
+import { METRO_LINE_NAME, nearMetroArea } from './metro.js';
 import { currentFallback, fellBack } from '../metrics.js';
 import { consideredOf, missingModes, singleNote, nightOf, AIR_MAX_M, BAD_AIR_AQI, RAIN_SOON_POP } from './trip-considered.js';
 
@@ -181,10 +182,6 @@ export function metroHours(system, minute) {
   return {};
 }
 /** 捷運路線名（代碼字首；各系統） */
-const METRO_LINE_NAME = {
-  TRTC: { BL: '板南線', R: '淡水信義線', G: '松山新店線', O: '中和新蘆線', BR: '文湖線', Y: '環狀線', LG: '萬大線' },
-  TYMC: { A: '機場線' }, TMRT: { G: '綠線' }, KRTC: { R: '紅線', O: '橘線' },
-};
 /**
  * 各系統的估算參數（S7，依距離；⚠️ 真實以 TDX S2STravelTime／ODFare 為準）：每公里分鐘、進出站分鐘、等車分鐘、票價
  * 北捷：5 公里內 20 元、每 3 公里加 5 元（上限 65）；機捷：直達車快但班距長、票價高（台北車站到機場約 160 元）
@@ -204,7 +201,9 @@ const stLabel = (n) => (/站$/.test(String(n)) ? String(n) : `${n}站`); // 「�
 async function metroOption(svc, from, to, straight, depart) {
   if (straight < 1500 || straight > 60000) return null; // 太近、太遠（missingModes 說明）
   if (!svc.metro) return { none: { kind: 'none', why: '查不到捷運資料', whyEn: 'No MRT data' } };
-  const systems = Object.keys(METRO_LINE_NAME);
+  // 只看起點或目的地附近有路網的系統（台北的行程不必查高雄捷運的車站，冷快取時省 TDX 額度）
+  const systems = Object.keys(METRO_LINE_NAME).filter((sys) => nearMetroArea(sys, from) || nearMetroArea(sys, to));
+  if (!systems.length) return { none: { kind: 'na', why: '這一帶沒有捷運', whyEn: 'No MRT in this area' } };
   const lists = await Promise.allSettled(systems.map((sys) => svc.metro.stations({ system: sys })));
   if (lists.every((r) => r.status === 'rejected')) throw new Error('metro stations unavailable'); // 進 unavailable
   let best = null, same = false, nearest = Infinity;

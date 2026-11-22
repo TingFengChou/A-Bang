@@ -79,7 +79,9 @@ export const SPEAK_EN = {
     const same = d.nearest?.from && normName(d.nearest.from).replace(/站$/, '') === normName(d.station).replace(/站$/, '');
     const where = d.nearest && !same ? nearestEn('MRT', d.station, d.nearest).replace(/\. $/, '') : `At ${d.station}`;
     if (!t) return `${where}: no live arrival data right now.`;
-    return `${where}: ${t.etaMin <= 1 ? `train to ${t.destination} arriving now` : `next train to ${t.destination} in ${t.etaMin} min`}.`;
+    const dest = t.destination;
+    if (t.scheduled) return `${where}: next train to ${dest} in about ${Math.max(1, t.etaMin)} min (timetable).`;
+    return `${where}: ${t.etaMin <= 1 ? `train to ${dest} arriving now` : `next train to ${dest} in ${t.etaMin} min`}.`;
   },
   thsr_timetable: (d) => railEn(d, 'High Speed Rail', Date.now()),
   tra_timetable: (d) => railEn(d, 'Train', Date.now()),

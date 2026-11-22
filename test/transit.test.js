@@ -11,7 +11,7 @@ const fixtures = [
       { StopUID: 'TPE1', StopName: Z('撫遠街'), StopSequence: 1, StopPosition: { PositionLat: 25.0712, PositionLon: 121.5627 } },
       { StopUID: 'TPE2', StopName: Z('臺北車站'), StopSequence: 2, StopPosition: { PositionLat: 25.0462, PositionLon: 121.5173 } },
       { StopUID: 'TPE3', StopName: Z('板橋前站'), StopSequence: 3 }] },
-    { RouteName: Z('307'), Direction: 1, Stops: [{ StopUID: 'TPE9', StopName: Z('板橋前站'), StopSequence: 1 }] },
+    { RouteName: Z('307'), Direction: 1, Stops: [{ StopUID: 'TPE9', StopName: Z('板橋前站'), StopSequence: 1 }, { StopUID: 'TPE8', StopName: Z('撫遠街'), StopSequence: 2 }] },
   ]],
   [/Bus\/Shape\/City\/Taipei\/307/, [
     { RouteName: Z('307'), Direction: 1, Geometry: 'LINESTRING(121.4600 25.0140, 121.5173 25.0462)' },
@@ -29,7 +29,7 @@ const fixtures = [
     { StationUID: 'TPE55', StationID: '55', StationName: Z('臺北車站(忠孝)'), StationPosition: { PositionLat: 25.0462, PositionLon: 121.5173 }, Stops: [{ RouteName: Z('307') }, { RouteName: Z('307') }, { RouteName: Z('262') }] },
     { StationUID: 'NWT66', StationID: '66', StationName: Z('遠站'), StationPosition: { PositionLat: 25.05, PositionLon: 121.52 }, Stops: [] }]],
   [/Bike\/Station\/NearBy/, [{ StationUID: 'TPE500101', StationName: Z('YouBike2.0_捷運台北車站M8'), StationAddress: Z('忠孝西路'), StationPosition: { PositionLat: 25.0479, PositionLon: 121.5171 }, BikesCapacity: 40, ServiceType: 2 }]],
-  [/Bike\/Availability\/NearBy/, [{ StationUID: 'TPE500101', ServiceStatus: 1, AvailableRentBikes: 12, AvailableReturnBikes: 28, AvailableRentBikesDetail: { GeneralBikes: 9, ElectricBikes: 3 }, UpdateTime: '2026-11-17T21:00:00+08:00' }]],
+  [/Bike\/Availability/, [{ StationUID: 'TPE500101', ServiceStatus: 1, AvailableRentBikes: 12, AvailableReturnBikes: 28, AvailableRentBikesDetail: { GeneralBikes: 9, ElectricBikes: 3 }, UpdateTime: '2026-11-17T21:00:00+08:00' }]],
   [/THSR\/Station/, [{ StationID: '1000', StationName: Z('台北') }, { StationID: '1070', StationName: Z('左營') }]],
   [/THSR\/DailyTimetable\/OD\/1000\/to\/1070\/2026-11-18/, [
     { DailyTrainInfo: { TrainNo: '0803' }, OriginStopTime: { DepartureTime: '08:00' }, DestinationStopTime: { ArrivalTime: '09:45' } },

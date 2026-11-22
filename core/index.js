@@ -1,6 +1,13 @@
 // 核心入口：依是否有 TDX 金鑰，回傳真實或示範資料的服務。
 // App 的 HTTP API 與 MCP Server 都只依賴這裡，新增資料領域時在此註冊即可。
-import { createTdxClient } from './tdx-client.js';
+import { createTdxClient, TDX_LIMIT } from './tdx-client.js';
+import { createFileStore } from './tdx-store.js';
+import { startTdxPrewarm } from './tdx-prewarm.js';
+import { INDEX_CITIES, transitWarmSteps } from './services/transit-data.js';
+import { railWarmSteps } from './services/transit.js';
+import { metroWarmSteps } from './services/metro.js';
+import { fileURLToPath } from 'node:url';
+import { resolveCity } from './cities.js';
 import { markFallback } from './metrics.js';
 import { createTransitServices } from './services/transit.js';
 import { createMockTransitServices } from './services/transit-mock.js';
@@ -59,11 +66,21 @@ export function withTdxFallback(live, mock, quota = null) {
   });
 }
 
-export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openData = false, forceMock = false, log, demo = {}, drama: dramaCfg = {} } = {}) {
+/**
+ * TDX 額度（docs/DATA_SOURCES.md §1.1）：tdx.perMinute 每分鐘上限（預設 5，TDX 回應標頭會校正）；tdx.cacheDir 靜態資料存檔目錄（沒有就只放記憶體）；
+ * tdx.cities 預熱與本機查附近站牌的縣市。預熱由伺服器呼叫 svc.tdxPrewarm() 開始（測試與 MCP stdio 不預熱）。
+ */
+export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openData = false, forceMock = false, log, demo = {}, drama: dramaCfg = {}, tdx: tdxCfg = {} } = {}) {
   const live = Boolean(clientId && clientSecret) && !forceMock;
-  const tdx = live ? createTdxClient({ clientId, clientSecret, log }) : null;
+  const picked = (tdxCfg.cities || []).map((c) => resolveCity(c)?.city).filter(Boolean); // 只收認得的縣市（會放進 TDX 網址路徑）
+  const cities = picked.length ? [...new Set(picked)] : INDEX_CITIES;
+  const tdx = live ? createTdxClient({
+    clientId, clientSecret, log,
+    limit: { ...TDX_LIMIT, perMinute: tdxCfg.perMinute > 0 ? tdxCfg.perMinute : 5 },
+    store: tdxCfg.cacheDir ? createFileStore(tdxCfg.cacheDir, { log }) : null,
+  }) : null;
   const quota = { at: 0 }; // 最近一次 TDX 額度用完（429）的時間
-  const transit = live ? withTdxFallback(createTransitServices(tdx), createMockTransitServices(), quota) : createMockTransitServices();
+  const transit = live ? withTdxFallback(createTransitServices(tdx, { cities }), createMockTransitServices(), quota) : createMockTransitServices();
   const metro = live ? withTdxFallback(createMetroServices(tdx), createMockMetroServices(), quota) : createMockMetroServices();
   const traffic = live ? withTdxFallback(createTrafficServices(tdx), createMockTrafficServices({ scenario: demo.traffic }), quota) : createMockTrafficServices({ scenario: demo.traffic });
   const intercity = live ? withTdxFallback(createIntercityServices(tdx, traffic), createMockIntercityServices(traffic), quota) : createMockIntercityServices(traffic);
@@ -94,6 +111,9 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
     dramaMode: dramaFx ? 'live' : 'demo', // 短劇（MyDrama 公開片庫）
     demoForced: Boolean(forceMock), // 伺服器設定成只用示範資料（DEMO_MODE）：試判斷說明為什麼是示範資料
     tdxLimitedAt: () => quota.at || null, // 最近一次 TDX 額度用完（改用示範）的時間；沒有回 null
+    // TDX 背景預熱（伺服器啟動後呼叫；示範模式為 null）：先台北的公車與 YouBike、北捷車站，再新北、桃園、台鐵高鐵
+    tdxPrewarm: live ? (opts) => startTdxPrewarm(tdx, prewarmSteps(tdx, cities), opts) : null,
+    tdxStats: () => (tdx ? { ...tdx.stats(), quota: tdx.quota() } : null), // 除錯：累計上游次數（只有端點類別）與這分鐘的額度
     ...transit, // bus, bike, rail
     ...metro, // metro
     ...traffic, // traffic
@@ -107,6 +127,15 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
     ...antifraud, // antifraud：165 開放資料（免金鑰；DEMO_MODE=1 時用示範片段，M7）
     ...drama, // drama：MyDrama 短劇排行、搜尋、簡介（ADR-0019）
   };
+}
+
+/** 預熱順序：第一個縣市的公車站牌、站序、YouBike 與北捷車站最先（最常用），路線起訖名稱與其他系統最後 */
+function prewarmSteps(tdx, cities) {
+  const t = transitWarmSteps(tdx, cities);
+  const metro = metroWarmSteps(tdx);
+  const main = t.filter((s) => !s.key.startsWith('bus-route-meta-'));
+  const meta = t.filter((s) => s.key.startsWith('bus-route-meta-'));
+  return [...main.slice(0, 3), metro[0], ...main.slice(3), ...railWarmSteps(tdx), ...metro.slice(1), ...meta];
 }
 
 /** 讀取 .env（不依賴 dotenv） */
@@ -144,6 +173,12 @@ export async function loadEnv(path = new URL('../.env', import.meta.url)) {
     cwaKey: process.env.CWA_API_KEY,
     moenvKey: process.env.MOENV_API_KEY, // 環境部開放資料平臺 api_key（空氣品質）
     openData: process.env.OPEN_DATA !== '0', // 免金鑰開放資料（165 防詐）；OPEN_DATA=0 或 DEMO_MODE=1 時用示範片段
+    // TDX 額度與快取（docs/DATA_SOURCES.md §1.1）：每分鐘上限、靜態資料存檔目錄（TDX_CACHE_DIR=off 不存檔）、預熱縣市
+    tdx: {
+      perMinute: Number(process.env.TDX_PER_MINUTE) || 5,
+      cacheDir: process.env.TDX_CACHE_DIR === 'off' ? null : process.env.TDX_CACHE_DIR || fileURLToPath(new URL('../.cache/tdx/', import.meta.url)),
+      cities: (process.env.TDX_PREWARM_CITIES || '').split(',').map((x) => x.trim()).filter(Boolean),
+    },
     demo: { traffic: process.env.DEMO_TRAFFIC || undefined, weather: process.env.DEMO_WEATHER || undefined, air: process.env.DEMO_AIR || undefined },
     // MyDrama 短劇（ADR-0019）：網址、深層連結、商店頁都只放 .env（repo 是公開的）
     drama: {

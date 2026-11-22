@@ -180,6 +180,8 @@ createServer(async (req, res) => {
 }).listen(PORT, () => {
   // 165 開放資料約 10 萬筆，啟動後先載入，第一位使用者不用等（失敗不影響啟動，查詢時會再試）
   if (svc.antifraudMode === 'live') svc.antifraud.stats().then((s) => log.info('antifraud data loaded', s)).catch((e) => log.warn('antifraud data not loaded', { error: e.message }));
+  // TDX 靜態資料背景預熱（每分鐘最多用 3 次，留 2 次給使用者；已存檔的跳過）；TDX_PREWARM=0 關閉
+  if (svc.tdxPrewarm && process.env.TDX_PREWARM !== '0') svc.tdxPrewarm({ log: (m) => log.info(m) });
   log.info(`阿幫 running → http://localhost:${PORT}  (mode=${svc.mode}, agent=${agent.mode.mode}${agent.mode.model ? `:${agent.mode.model}` : ''})  MCP: http://localhost:${PORT}/mcp`, { port: PORT, version: VERSION, mode: svc.mode, agentMode: agent.mode.mode });
 });
 
