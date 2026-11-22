@@ -33,8 +33,9 @@ export const INTENT_SLOTS = {
   savedMissing: [['saved', true, 'saved']],
 };
 
-/** 手機可以提議問的種類：缺路線、缺目的地、缺起點（沒定位又沒說）、會改變建議的狀況（state） */
-export const EDGE_ASK_SLOTS = ['route', 'to', 'from', 'state'];
+/** 手機可以提議問的種類：缺路線、缺目的地、缺起點（沒定位又沒說）、會改變建議的狀況（state）；
+ *  PM 的 Q 情境（2026-11-22）：高鐵台鐵缺起站（railFrom）、缺迄站（railTo）、地點有歧義（place）、沒定位問在哪（where）、只說類別問要查什麼（topic） */
+export const EDGE_ASK_SLOTS = ['route', 'to', 'from', 'state', 'railFrom', 'railTo', 'place', 'where', 'topic'];
 /** state 只能問這幾種（使用者自己最清楚、程式猜不到的；同 decide.js keyQuestion） */
 export const EDGE_ASK_STATES = [...ASK_STATES];
 /** 問題最多 30 字；選項 2～4 個、每個最多 12 字（沒有中文的英文字串放寬成 60／24 個字元：「Where are you starting from?」「Use my location」） */
@@ -44,9 +45,9 @@ export const EDGE_ASK_REASONS = ['shape', 'slot', 'state', 'question-length', 'q
 
 /** 給手機模型的出題規則（接在 EDGE_INSTRUCTIONS 後面；短：手機模型上下文小、要快） */
 export const EDGE_ASK_GUIDE = `另外決定要不要先問使用者一題（ask）。寧可不問：句子資料夠就 ask 留空。
-只有這幾種可以問（slot）：route＝問公車到站但沒說哪一路；to＝行程或高鐵台鐵沒說要去哪裡（只說起點也算）；from＝情境說沒有定位、也沒說從哪裡出發；state＝行程沒說狀況，而答案會改變建議（state 只能是 rush 趕時間、luggage 帶行李、budget 想省錢、lessWalk 少走路）。
+只有這幾種可以問（slot）：route＝問公車到站但沒說哪一路；to＝行程沒說要去哪裡（只說起點、只說叫車也算）；from＝情境說沒有定位、也沒說從哪裡出發；state＝行程沒說狀況，而答案會改變建議（state 只能是 rush 趕時間、luggage 帶行李、budget 想省錢、lessWalk 少走路）；railFrom＝問高鐵台鐵票價沒說起站；railTo＝問高鐵台鐵班次或票價沒說到哪一站；place＝地名有好幾個地方（同名、連鎖醫院、區名）；where＝沒有定位又問天氣空品；topic＝只說高鐵、公車這種類別。
 各意圖必要的欄位：trip 要 to；bus_route 要 route；rail 要 to；其他意圖不用問。使用者說過的、剛問過的不要再問。
-question：一句 30 字內的問句，只問這一件事，不要有數字；state 要直接問那個狀況（例：你趕時間嗎？），不要反著問。options：2～4 個 12 字內的短答，要是使用者會點的答案：前文或情境出現過的路線號碼與地名、回家、去公司、用我的位置、附近公車；不要自己編。
+question：一句 30 字內的問句，只問這一件事，不要有數字；state 要直接問那個狀況（例：你趕時間嗎？），不要反著問。options：2～4 個 12 字內的短答，要是使用者會點的答案：前文或情境出現過的路線號碼與地名、回家、去公司、用我的位置、附近公車、高鐵台鐵的站名、縣市名、下一班、票價；不要自己編。
 英文提問就用英文出題。`;
 
 const CJK = /[㐀-鿿豈-﫿]/;
@@ -66,7 +67,7 @@ const ASK_BLOCK_WORDS = /\b(?:ig|dm|pm me|gift cards?|send money|pay)\b/i;
 /** 連續 6 個以上的數字（含全形、圈圈數字、國字）：電話、帳號 */
 const NUM_RUN = /[0-9零〇一二三四五六七八九壹貳參肆伍陸柒捌玖❶-❿①-⑳⑴-⒇⓪-⓿➀-➓]{6,}/;
 /** 題目裡的數量（「省五十元」「快十分」）：還沒查資料，一定是編的 */
-const NUM_IN_Q = /[0-9❶-❿①-⑳⑴-⒇⓪-⓿➀-➓]|[零〇一二兩三四五六七八九十百千]+\s*(?:元|塊|分鐘|分|公里|小時|站|班)/;
+const NUM_IN_Q = /[0-9❶-❿①-⑳⑴-⒇⓪-⓿➀-➓]|(?<![哪那這每某])[零〇一二兩三四五六七八九十百千]+\s*(?:元|塊|分鐘|分|公里|小時|站|班)/; // 「哪一站」「哪一班」不是數量
 /** 誘導內容（手機與伺服器共用；伺服器另外加跑防詐規則庫）：原字與正規化後都比 */
 export function askUnsafe(text) {
   const a = askNorm(text), b = askNorm(text, true);
@@ -74,7 +75,8 @@ export function askUnsafe(text) {
 }
 
 /** 每一種題目要切題（route 問哪一路、to 問去哪、from 問從哪出發） */
-const TOPIC = { route: /哪|路|公車|bus|route|which/i, to: /哪|去|where/i, from: /哪|出發|from|where/i };
+const TOPIC = { route: /哪|路|公車|bus|route|which/i, to: /哪|去|where/i, from: /哪|出發|from|where/i,
+  railFrom: /哪|出發|起站|from|which/i, railTo: /哪|去|到|迄站|where|which/i, place: /哪|是|where|which|mean/i, where: /哪|在|where/i, topic: /什麼|哪|what|which/i };
 /** 狀態題要問到那個狀態（題目要有這些字） */
 const STATE_WORDS = { rush: /趕|急|遲到|hurry|rush|late/i, luggage: /行李|大包小包|東西|推車|luggage|bags?\b/i, budget: /省錢|便宜|省一點|cheap|save money|budget/i, lessWalk: /少走|走路|走太多|walk/i };
 /** 狀態題不能反著問（「不趕吧？」「東西很少吧？」「Not in a hurry, right?」）或改問交通方式（「要不要坐捷運」） */

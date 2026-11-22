@@ -706,6 +706,8 @@ export default {
         if (a.name === 'openLink') host.openLink(a.url, a.confirm ? { confirm: a.confirm } : {});
         else if (a.name === 'watchArrival') host.watchArrival(a).catch(() => {});
         else if (a.name === 'remind') host.remind(a.at, a.text, a.meta).catch(() => {});
+        else if (a.name === 'navigate' && /^#\/[a-z0-9/_-]{1,40}$/.test(String(a.to))) { host.navigate(a.to); return ''; } // App 內的頁面（到防詐貼上、發票對獎）
+        else if (a.name === 'focusInput') { input.focus(); return en ? 'Paste it in the box below.' : '貼在下面的輸入框就好。'; } // 請他貼上訊息（防詐）
         return en ? 'Done.' : '好了。';
       }
       if (o.kind === 'store') {

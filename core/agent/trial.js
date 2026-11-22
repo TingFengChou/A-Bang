@@ -54,7 +54,7 @@ export function slotReport(it, { judged = null, lang = 'zh' } = {}) {
   const en = lang === 'en';
   const ruleIntent = it?.intent || 'unknown';
   // 規則聽不懂、判斷層有意圖：用判斷層的意圖列欄位（這一輪仍會當成聽不懂，enough＝false）
-  const target = ruleIntent === 'unknown' && !(it?.thanks || it?.sorry || it?.reset) && judged && judged !== 'unknown' && Object.hasOwn(INTENT_SLOTS, judged) ? judged : ruleIntent;
+  const target = ruleIntent === 'unknown' && !(it?.thanks || it?.sorry || it?.reset || it?.ack) && judged && judged !== 'unknown' && Object.hasOwn(INTENT_SLOTS, judged) ? judged : ruleIntent;
   const spec = Object.hasOwn(INTENT_SLOTS, target) ? INTENT_SLOTS[target] : null;
   const slots = (spec || []).map(([key, required, fill]) => {
     const value = SLOT_VALUE[key](it || {}, en);
@@ -64,7 +64,7 @@ export function slotReport(it, { judged = null, lang = 'zh' } = {}) {
   const blocked = blockedOf(it || {});
   const understood = target === ruleIntent && !!spec;
   // 固定說明（防詐請到防詐頁、阿幫不能代按代付）與禮貌話（謝謝、對不起、重來；同 run.js 聽不懂的判斷）：不用查資料，算「夠」，不說聽不懂
-  const polite = !!(it?.thanks || it?.sorry || it?.reset);
+  const polite = !!(it?.thanks || it?.sorry || it?.reset || it?.ack); // ack：只回「好」「不用」
   const fixed = !spec && (ruleIntent !== 'unknown' || polite);
   const enough = fixed || (understood && !missing.length && !blocked && (ruleIntent === 'savedMissing' ? false : answerable(it)));
   const heard = {

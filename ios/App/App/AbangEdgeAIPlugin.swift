@@ -228,14 +228,14 @@ let edgeIntents = ["trip", "bus_route", "youbike", "nearby_bus", "metro", "rail"
 let edgeStates = ["rush", "luggage", "budget", "lessWalk", "rain", "badAir", "elder", "kids", "mobility"]
 
 /// 手機可以提議問的種類與狀況（與 core/edge-ask.js EDGE_ASK_SLOTS、EDGE_ASK_STATES 相同；test/edge-ask.test.js 比對）
-let edgeAskSlots = ["route", "to", "from", "state"]
+let edgeAskSlots = ["route", "to", "from", "state", "railFrom", "railTo", "place", "where", "topic"]
 let edgeAskStates = ["none", "rush", "budget", "luggage", "lessWalk"]
 
 /// 要不要先問使用者一題（ADR-0020）：模型提候選，JS 與伺服器的程式驗證，不通過就照規則問
 @available(iOS 26.0, *)
 @Generable
 struct EdgeAsk {
-    @Guide(description: "問哪一種：route 缺公車路線、to 缺目的地、from 沒定位也沒說起點、state 會改變建議的狀況", .anyOf(edgeAskSlots))
+    @Guide(description: "問哪一種：route 缺公車路線、to 缺目的地、from 沒定位也沒說起點、state 會改變建議的狀況、railFrom 高鐵台鐵缺起站、railTo 缺迄站、place 地名有好幾個、where 沒定位問在哪、topic 只說類別", .anyOf(edgeAskSlots))
     var slot: String
     @Guide(description: "slot 是 state 時問哪個狀況，其他填 none", .anyOf(edgeAskStates))
     var state: String

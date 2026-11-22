@@ -71,6 +71,7 @@ export const ev = {
         const a = o.action;
         if (!ASK_ACTIONS.includes(a?.name)) throw new Error(`事件 ask 的 action 不對：${a?.name}`);
         if (a.name === 'openLink' && !/^https:\/\//.test(String(a.url))) throw new Error('事件 ask 的 openLink 只能是 https 連結');
+        if (a.name === 'navigate' && !/^#\/[a-z0-9/_-]{1,40}$/.test(String(a.to))) throw new Error('事件 ask 的 navigate 只能是 App 內的頁面（#/…）');
         return { ...base, action: a };
       }
       return base;
