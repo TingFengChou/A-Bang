@@ -252,6 +252,10 @@ const PHRASE = {
 export const ASK_STATES = ['rush', 'budget', 'luggage', 'lessWalk'];
 /** 值得問的差別：時間差 ≥ 5 分或費用差 ≥ 50 元 */
 export const ASK_MIN = { minutes: 5, cost: 50 };
+/** 建議走路、而且走路這麼近（分鐘）就不問關鍵因子 */
+export const ASK_WALK_MAX = 15;
+/** 帶行李、少走路的問題：每少走 1 分鐘，最多值得多花多少元 */
+export const ASK_COMFORT_NT = 50;
 const MODE_EN = { walk: 'Walking', bike: 'YouBike', bus: 'The bus', metro: 'The MRT', thsr: 'High speed rail', tra: 'The train', intercity: 'The coach', ridehail: 'A taxi' };
 
 /**
@@ -269,6 +273,7 @@ export function keyQuestion(options, ctx = {}, only = ASK_STATES) {
   const states = (ctx.states || []).filter((k) => STATES[k]);
   const base = decide(options, ctx).best;
   if (!base) return null;
+  if (base.role === 'walk' && Number(base.minutes) <= ASK_WALK_MAX) return null; // 走路 15 分鐘內（約 1 公里）就到：不問趕不趕、帶不帶行李（差別小，問了只是打擾；PM Q-5）
   const fastest = Math.min(...options.map((o) => Number(o.minutes)));
   let pick = null;
   for (const k of ASK_STATES) {
@@ -280,6 +285,8 @@ export function keyQuestion(options, ctx = {}, only = ASK_STATES) {
     const dWalk = Number(base.walkMin ?? 0) - Number(alt.walkMin ?? 0);
     if (Math.abs(dMin) < ASK_MIN.minutes && Math.abs(dCost) < ASK_MIN.cost) continue; // 差不多：不值得打擾
     if ((k === 'rush' && dMin <= 0) || (k === 'budget' && dCost >= 0) || (k === 'lessWalk' && dWalk <= 0)) continue; // 問句要說得通
+    if ((k === 'rush' && dMin < ASK_MIN.minutes) || (k === 'budget' && -dCost < ASK_MIN.cost)) continue;
+    if ((k === 'luggage' || k === 'lessWalk') && (dWalk < ASK_MIN.minutes || dCost > dWalk * ASK_COMFORT_NT)) continue; // 帶行李、少走路：要真的少走 5 分以上，而且多花的錢跟少走的路相稱（每少走 1 分最多多 50 元；「去羅東夜市」不問帶行李，審查 #121） // 趕時間要真的快 5 分以上、想省錢要真的省 50 元以上才問（「快 4 分但多 100 元，你趕時間嗎？」不值得打擾，PM Q-5）
     if (Number(alt.minutes) > Math.max(fastest * 2, fastest + 20)) continue; // 不推明顯不合理的（想省錢就走 70 分鐘）
     const impact = Math.abs(dMin) + Math.abs(dCost) / 20;
     if (!pick || impact > pick.impact) pick = { k, base, alt, dMin, dCost, dWalk, impact };

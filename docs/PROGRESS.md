@@ -13,6 +13,19 @@
 
 ---
 
+## 2026-11-22 P2b 審查修正（PR #121 獨立審查：6 項必修＋7 項建議）
+- 做了：路名只收具體名稱（走路、逛街、馬路、網路、一路、哪一路…不問；判斷層可更正；「去台北101」→「走路」＝改走路）；名字詞首對齊、通稱連鎖行政區不猜、猜的超過 30 公里只問不先查；說了「站」只找車站（地標庫沒有時用捷運站資料，示範資料補士林、北投）；你就在那裡的追問直接查；票價使用者說的起站不被定位蓋掉；歧義題之後接著改不重問；附近只有一個候選直接用；帶行李、少走路要划算（少走 5 分、每分最多多 50 元）；「這三站」算數字；生活阿幫〔到防詐貼上〕帶句子（`handOff`），附了內容前端直接帶過去；英文最近站說明；「那台鐵呢」沿用起訖；公車站名打字回答只收像站名的。
+- 衝突（期望沒改，等產品負責人）：Q-7「去信義」跟建議 a（附近只有一個候選直接用）衝突，標 `known`；Q-26 第 2 輪（人在台北車站問怎麼去火車站）照常排行程——既有 P5-3、P5-4 也是這樣，沒有改成「你就在那裡」。
+- 對照（審查工具 3470 段對話，main 與分支同一時間重跑）：改變 429 段（審查時 420 段；多的是這次新增的站名、你就在那裡、方向等有意的改變，已逐類看過）。keyQuestion 5940 組：帶行李＋少走路的問題 main 507、PR 第一版 1047、修正後 786。
+- 測試：npm test 全過（ask-q 新增 7 項，含多輪）；e2e、build:demo、build:cards、lint 全過
+
+## 2026-11-22 P2b PM 的 27 個「阿幫問你」Q 情境（該問就問、不該問就不問）
+- 做了：PM 的 Q-1～Q-27 寫成 `test/scenarios/life-q.json`（runner 同時跑 life.json 與 life-q.json；開始時 1／27 過，現在 27／27）。全部走既有機制（ADR-0016 ask／pendingAsk、#115 寧可不問、#116 手機出題驗證）：新檔 `core/agent/clarify.js`（題目：地點歧義、路名、你就在那裡、只說類別、高鐵台鐵缺起站／迄站、沒定位問在哪、公車在哪一站、發票號碼、到站提醒、防詐請他貼上）與 `clarify-plan.js`（stop 只問／after 先用猜的查再問，選項第一個標「猜的」）；`PENDING_SLOTS` 加 railFrom、railTo、place、topic、where、busStop、invoiceNo（`to` 帶叫車），zod 同步（system、fare、mode、topic、route、tomorrow）。規則：同名地點跨縣市（猜 30 公里內原本那個，否則離你最近的；15 公里內沒有別的同名就不問）、連鎖醫院、區名、只打名字、路名不當捷運站（車站短名後接路街巷不算）；票價沒說起站有定位用最近的站；「高鐵下一班」最近的站往兩端先查；只說「高鐵」「公車」問要查什麼、只說「叫車」問去哪、有前一趟就改方式；「307 往板橋」是公車方向（`bus_route_eta` `toward`），有定位兩個方向都說（`focus.other`）；「中山站下一班」站名省略捷運、「淡水線」不當地名；「我中獎了嗎」報號碼問號碼；「我要出門」出門建議＋問去哪；只回「好」不列功能清單；英文同步（Call a taxi、train station、HSR ticket、I want to go out）。關鍵因子：建議走路 15 分內不問、趕時間要快 5 分以上、省錢要省 50 元以上才問；選了公車、原本要問帶行李／少走路時改問到站提醒（`watchArrival`）。手機出題（ADR-0020）新種類 railFrom／railTo／place／where／topic：選項要是程式的候選、有猜的要包含；iOS `edgeAskSlots` 同步；「哪一站」不算數字。打字回答被改寫成完整的一句時不採用手機對短答的意圖判斷；判斷層沒有的意圖（防詐請到防詐頁…）不被判斷層蓋掉。模型模式：不用位置、不用先查的那幾題也由程式先問。ask 的 action 加 `navigate`（App 內頁面）、`focusInput`；sw `v1.2.5`。試判斷第 4 段照常顯示新題目（ai-trial 取第一個 ask）。
+- 測試：npm test 1068 項全過（新增 `test/ask-q.test.js` 14 項：歧義、意圖、打字回答與拒收、請求驗證、票價起站、關鍵因子門檻、公車方向、到站提醒、模型模式、手機出題形狀、Q 情境＋假外掛「合理／亂來」、code-review 修正；life-q.json 27 則）；既有 life.json、ask-slots、edge-ask（#115 AR／AS 對照）全過；e2e 新增 1 項（只說高鐵 → 票價 → 打「台中」）
+- 文件：ADR-0016（第 3 點 PM Q 情境、第 4 點關鍵因子門檻、影響）、ADR-0020（新種類）、AGENT.md §3.1、§3.3、§5.3.1、MCP_TOOLS.md（`bus_route_eta` `toward`、`focus.other`）、TESTING.md、PLAN.md（P2b、狀態看板）
+- 下一個：實機（Pixel、iPhone）看手機出題新種類的品質；PM 看 Q-25 的取捨（見 PR）
+- 卡住：無
+
 ## 2026-11-22 手機上的 AI 在背景被擋不跳斷路器
 - 做了：Pixel smoke 抓到 suggest 失敗是 ML Kit `GenAiException` 30＝`BACKGROUND_USE_BLOCKED`（App 不在前景、螢幕關著時 AICore 拒絕推論）。Android `AbangEdgeAIPlugin`：30（背景被擋）與 27（`PER_APP_BATTERY_USE_QUOTA_EXCEEDED` 電量配額）對 judge／write／suggest 都不設 10 分鐘暫停，回 `background`／`battery-quota`；iOS：App 不在前景（`UIApplication.applicationState`）不呼叫 Foundation Models、呼叫中轉到背景的錯誤回 `background`。JS（`edge-judge.js`）：`document.visibilityState !== 'visible'` 時不呼叫 judge／write／suggest／prewarm，直接走伺服器或規則；背景與電量配額的錯誤不跳斷路器、不停掉 suggest；最近一次沒用上的原因（`edgeIssue`）給試判斷第 1 段與寫回答那一行照實說（中英字典）。sw `v1.2.4`。
 - 測試：npm test 全過（新增 `test/edge-background.test.js` 7 項：錯誤碼不跳斷路器、judge／write／suggest 遇到背景與電量配額、hidden 不呼叫、試判斷原因、原生原始碼檢查）；Android assembleDebug、iOS xcodebuild（不簽署）通過

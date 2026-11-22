@@ -69,7 +69,7 @@ export const SPEAK_EN = {
   bus_nearby_stations: (d) => (d.stations.length ? `${plural(d.stations.length, 'bus stop')} nearby; nearest is ${d.stations[0].name} (${km(d.stations[0].distance)}).` : 'No bus stops nearby.'),
   bus_station_eta: (d) => { const f = d.arrivals.find((r) => r.etaSec != null); return f ? `Soonest is ${f.routeName}, in ${mins(f.etaSec)} min.` : 'No buses due at this stop right now.'; },
   bus_route_eta: (d) => {
-    if (d.focus?.nearest) return `Nearest stop is ${d.focus.stopName} (${km(d.focus.distanceM)}): ${busFocus(d.routeName, d.focus)}.`;
+    if (d.focus?.nearest) return `Nearest stop is ${d.focus.stopName} (${km(d.focus.distanceM)}): ${busFocus(d.routeName, d.focus)}${d.focus.other ? ` (${String(d.focus.label).replace(/^往\s*/, 'to ')}); ${String(d.focus.other.label).replace(/^往\s*/, 'to ')}: ${busFocus(d.routeName, d.focus.other)}` : ''}.`; // 兩個方向都說（PM Q-17）
     if (d.focus) return `${busFocus(d.routeName, d.focus)}.`;
     const near = d.directions.flatMap((x) => x.stops.filter((s) => s.etaSec != null && s.etaSec < 180)).length;
     return near ? `${d.routeName}: a bus is due within 3 min at ${plural(near, 'stop')}.` : `No ${d.routeName} buses due within 3 min.`;

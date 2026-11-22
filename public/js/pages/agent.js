@@ -25,6 +25,9 @@ import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { renderDecision, lite, roleEn } from '../../ui/agent/decision-graph.js';
 import { mountVisionButton, handOff, takeHandoff } from '../vision.js';
+import { looksLikeMessage } from '../../../core/vision-text.js';
+/** 問是不是詐騙（生活阿幫附了內容時直接帶到防詐） */
+const SCAM_Q = /詐騙|是不是騙|騙人的|\bscam\b|\bfraud\b/i;
 import { mountDramaHint, dramaHintOn } from '../drama-hint.js';
 import { createRounds } from '../agent/collapse.js';
 import { linkReminders } from '../agent/chat-links.js';
@@ -391,6 +394,7 @@ export default {
         a.skip();
       }
       if (busy) { pendingQ = { q, pageContext, voice: spoken, follow }; return; }
+      if (agentId === 'life' && SCAM_Q.test(q) && (/https?:\/\/|www\.|\d{4,}/i.test(q) || looksLikeMessage(q))) { input.value = ''; handOff('antifraud', q); host.navigate('#/agent/antifraud'); return; } // 生活阿幫被問「這是詐騙嗎」又附了網址、電話或內容：不問，直接帶到防詐（審查 #121）
       turnNo += 1;
       pastWrap?.querySelector('.past-acts button') && pastWrap.querySelector('.past-acts').replaceChildren(el('span', 'past-note', history.length ? '接著上次的話問' : '這次重新問（上次的對話只留著看）'));
       const myGen = gen;
@@ -706,6 +710,9 @@ export default {
         if (a.name === 'openLink') host.openLink(a.url, a.confirm ? { confirm: a.confirm } : {});
         else if (a.name === 'watchArrival') host.watchArrival(a).catch(() => {});
         else if (a.name === 'remind') host.remind(a.at, a.text, a.meta).catch(() => {});
+        else if (a.name === 'navigate' && /^#\/[a-z0-9/_-]{1,40}$/.test(String(a.to))) { host.navigate(a.to); return ''; } // App 內的頁面（到防詐貼上、發票對獎）
+        else if (a.name === 'focusInput') { input.focus(); return en ? 'Paste it in the box below.' : '貼在下面的輸入框就好。'; } // 請他貼上訊息（防詐）
+        else if (a.name === 'handOff' && a.agent === 'antifraud' && typeof a.text === 'string') { handOff('antifraud', a.text); host.navigate('#/agent/antifraud'); return ''; } // 帶著這一句到防詐（只在記憶體）
         return en ? 'Done.' : '好了。';
       }
       if (o.kind === 'store') {

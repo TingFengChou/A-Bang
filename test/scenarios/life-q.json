@@ -1,0 +1,728 @@
+{
+  "about": "PM「該問就問、不該問就不問」Q 情境（2026-11-22，產品團隊寫的；ADR-0016、ADR-0020）。格式同 life.json：here＝整份的定位（臺北車站），情境可另指定；location: false＝拒絕定位；profile＝agent。 known＝跟其他決定衝突、等產品負責人決定的情境（node:test 標 todo，不算失敗；期望不改）。",
+  "here": {
+    "lat": 25.0478,
+    "lon": 121.517
+  },
+  "scenarios": [
+    {
+      "id": "Q-1",
+      "title": "阿幫問起站，使用者點選項或只回站名：接著查票價（不是變成行程）",
+      "location": false,
+      "turns": [
+        {
+          "say": "高鐵到台北多少錢",
+          "expect": {
+            "toolsNone": true,
+            "asks": [
+              "從哪一站出發"
+            ],
+            "askOptions": [
+              "台中",
+              "左營"
+            ],
+            "askKind": "reply",
+            "askGuess": false,
+            "textNot": [
+              "我可以幫你查交通"
+            ]
+          }
+        },
+        {
+          "say": "台中",
+          "expect": {
+            "tools": [
+              "rail_fare"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "textHas": [
+              "台中",
+              "台北"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-2",
+      "title": "票價沒說起站、有定位：用最近的高鐵站，不猜台北、不問",
+      "here": {
+        "lat": 22.6873,
+        "lon": 120.3076
+      },
+      "turns": [
+        {
+          "say": "高鐵到台中多少錢",
+          "expect": {
+            "tools": [
+              "rail_fare"
+            ],
+            "textHas": [
+              "左營"
+            ],
+            "textNot": [
+              "先用台北算"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-3",
+      "title": "票價沒說起站、拒絕定位：先用台北算，順便問起站（台北標猜的）",
+      "location": false,
+      "turns": [
+        {
+          "say": "高鐵到台中多少錢",
+          "expect": {
+            "tools": [
+              "rail_fare"
+            ],
+            "asks": [
+              "從哪一站出發"
+            ],
+            "askOptions": [
+              "台北",
+              "板橋"
+            ],
+            "askGuess": true
+          }
+        },
+        {
+          "say": "我從左營出發",
+          "expect": {
+            "tools": [
+              "rail_fare"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "textHas": [
+              "左營"
+            ],
+            "textNot": [
+              "我可以幫你查交通"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-4",
+      "title": "地名跨縣市同名：人在高雄說「去中山」→ 先查中山大學並問",
+      "here": {
+        "lat": 22.6273,
+        "lon": 120.3014
+      },
+      "turns": [
+        {
+          "say": "去中山",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "中山大學",
+            "bestRoleNot": "thsr",
+            "asks": [
+              "哪個「中山」"
+            ],
+            "askOptions": [
+              "中山大學",
+              "捷運中山站"
+            ],
+            "askGuess": true,
+            "askKind": "reply"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-5",
+      "title": "（不問）人在台北說「去中山」：中山站很明確",
+      "turns": [
+        {
+          "say": "去中山",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "中山",
+            "fromHere": true,
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-6",
+      "title": "同城多義：「去松山」車站或機場，先查車站並問",
+      "turns": [
+        {
+          "say": "去松山",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "松山車站",
+            "asks": [
+              "松山"
+            ],
+            "askOptions": [
+              "松山車站",
+              "松山機場"
+            ],
+            "askGuess": true
+          }
+        },
+        {
+          "say": "改去松山機場",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "松山機場",
+            "fromHere": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-7",
+      "title": "區名當目的地：「去信義」不回功能清單",
+      "turns": [
+        {
+          "say": "去信義",
+          "expect": {
+            "textNot": [
+              "我可以幫你查交通"
+            ],
+            "asks": [
+              "信義"
+            ],
+            "askOptions": [
+              "信義商圈"
+            ],
+            "askGuess": true
+          }
+        }
+      ],
+      "known": "跟審查 #121 建議 a 衝突：附近只有一個候選（信義商圈）就直接用、不問。PM 的期望沒改，等產品負責人決定（目前：直接排到信義商圈、不問）"
+    },
+    {
+      "id": "Q-8",
+      "title": "只打區名／路名「中正」：問是哪裡",
+      "turns": [
+        {
+          "say": "中正",
+          "expect": {
+            "textNot": [
+              "我可以幫你查交通"
+            ],
+            "asks": [
+              "中正"
+            ],
+            "askOptions": [
+              "中正紀念堂"
+            ],
+            "askKind": "reply"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-9",
+      "title": "連鎖醫院：「去長庚醫院」問哪一間，最近的放第一個",
+      "turns": [
+        {
+          "say": "去長庚醫院",
+          "expect": {
+            "textNot": [
+              "我可以幫你查交通"
+            ],
+            "asks": [
+              "哪一間"
+            ],
+            "askOptions": [
+              "林口長庚",
+              "高雄長庚"
+            ],
+            "askGuess": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-10",
+      "title": "路名不是捷運站：「去中山路」不能變成中山站",
+      "turns": [
+        {
+          "say": "去中山路",
+          "expect": {
+            "toNot": "捷運中山站",
+            "asks": [
+              "中山路"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-11",
+      "title": "只說叫車：問去哪（不回功能清單）",
+      "turns": [
+        {
+          "say": "叫車",
+          "expect": {
+            "toolsNot": [
+              "ridehail_link"
+            ],
+            "textNot": [
+              "我可以幫你查交通"
+            ],
+            "asks": [
+              "去哪"
+            ]
+          }
+        },
+        {
+          "say": "叫車去台北101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "bestRole": "ridehail",
+            "to": "台北101"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-12",
+      "title": "（不問）行程後只說「叫車」＝改成叫車",
+      "turns": [
+        {
+          "say": "去台北101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ]
+          }
+        },
+        {
+          "say": "叫車",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "bestRole": "ridehail",
+            "to": "台北101",
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-13",
+      "title": "我要出門：先給出門建議，順便問去哪",
+      "turns": [
+        {
+          "say": "我要出門",
+          "expect": {
+            "tools": [
+              "outing_advice"
+            ],
+            "textNot": [
+              "我可以幫你查交通"
+            ],
+            "asks": [
+              "去哪"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-14",
+      "title": "人就在那裡又只打地名：不排 0 分鐘的行程，問要查什麼",
+      "turns": [
+        {
+          "say": "台北車站",
+          "expect": {
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "asks": [
+              "台北車站"
+            ],
+            "askOptions": [
+              "下一班"
+            ],
+            "askKind": "reply"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-15",
+      "title": "拒絕定位問天氣：先查台北並問在哪（台北標猜的）",
+      "location": false,
+      "turns": [
+        {
+          "say": "現在天氣如何",
+          "expect": {
+            "tools": [
+              "weather_now"
+            ],
+            "asks": [
+              "在哪"
+            ],
+            "askOptions": [
+              "台北"
+            ],
+            "askGuess": true
+          }
+        },
+        {
+          "say": "台中天氣",
+          "expect": {
+            "tools": [
+              "weather_now"
+            ],
+            "textNot": [
+              "臺北車站"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-16",
+      "title": "拒絕定位問公車：不列全線，問在哪一站或方向",
+      "location": false,
+      "turns": [
+        {
+          "say": "307 還要多久",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "asks": [
+              "哪一站"
+            ],
+            "textNot": [
+              "個站即將有車"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-17",
+      "title": "（不問）有定位問公車：兩個方向都說，不默默挑一個",
+      "turns": [
+        {
+          "say": "307 還要多久",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "resultHas": [
+              "往"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-18",
+      "title": "「307 往板橋」是公車方向，不是行程",
+      "turns": [
+        {
+          "say": "307 往板橋的還要多久",
+          "expect": {
+            "tools": [
+              "bus_route_eta"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-19",
+      "title": "高鐵下一班沒說去哪：最近站兩個方向先查，問去哪",
+      "turns": [
+        {
+          "say": "高鐵下一班",
+          "expect": {
+            "tools": [
+              "thsr_timetable"
+            ],
+            "textNot": [
+              "我可以幫你查交通"
+            ],
+            "asks": [
+              "去哪"
+            ],
+            "askOptions": [
+              "台中",
+              "左營"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-20",
+      "title": "（不問）捷運沒說站：站名省略「捷運」、路線名不當地名",
+      "turns": [
+        {
+          "say": "中山站下一班",
+          "expect": {
+            "tools": [
+              "metro_live_board"
+            ],
+            "asksNone": true
+          }
+        },
+        {
+          "say": "淡水線下一班",
+          "expect": {
+            "tools": [
+              "metro_live_board"
+            ],
+            "resultHas": [
+              "離你最近"
+            ],
+            "textNot": [
+              "淡水老街"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-21",
+      "title": "我中獎了嗎：先報這期號碼，問發票號碼",
+      "turns": [
+        {
+          "say": "我中獎了嗎",
+          "expect": {
+            "tools": [
+              "invoice_lottery"
+            ],
+            "textNot": [
+              "我可以幫你查交通"
+            ],
+            "asks": [
+              "號碼"
+            ]
+          }
+        },
+        {
+          "say": "12345678",
+          "expect": {
+            "tools": [
+              "invoice_lottery"
+            ],
+            "textHas": [
+              "沒有中獎"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-22",
+      "title": "防詐沒附內容：不說「沒有發現詐騙特徵」，請他貼上",
+      "profile": "antifraud",
+      "turns": [
+        {
+          "say": "這是詐騙嗎",
+          "expect": {
+            "toolsNone": true,
+            "textNot": [
+              "沒有發現已知的詐騙特徵"
+            ],
+            "asks": [
+              "貼"
+            ]
+          }
+        },
+        {
+          "say": "我收到一封簡訊，是詐騙嗎？",
+          "expect": {
+            "toolsNone": true,
+            "textNot": [
+              "沒有發現已知的詐騙特徵"
+            ],
+            "asks": [
+              "貼"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-23",
+      "title": "生活阿幫被問詐騙：不列功能清單，請他貼上或改問防詐",
+      "turns": [
+        {
+          "say": "這是詐騙嗎",
+          "expect": {
+            "textNot": [
+              "我可以幫你查交通"
+            ],
+            "asks": [
+              "貼"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-24",
+      "title": "只說類別（高鐵／公車）：問要查什麼，不列功能清單",
+      "turns": [
+        {
+          "say": "高鐵",
+          "expect": {
+            "textNot": [
+              "我可以幫你查交通"
+            ],
+            "asks": [
+              "高鐵"
+            ],
+            "askOptions": [
+              "下一班",
+              "票價"
+            ],
+            "askKind": "reply"
+          }
+        },
+        {
+          "say": "公車",
+          "expect": {
+            "textNot": [
+              "我可以幫你查交通"
+            ],
+            "asks": [
+              "公車"
+            ],
+            "askOptions": [
+              "附近"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-25",
+      "title": "回答阿幫「要我提醒你嗎」：說「好」不回功能清單",
+      "turns": [
+        {
+          "say": "去中正紀念堂",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "bestRole": "bus",
+            "asks": [
+              "提醒"
+            ],
+            "askOptions": [
+              "到站前 3 分"
+            ]
+          }
+        },
+        {
+          "say": "好",
+          "expect": {
+            "textNot": [
+              "我可以幫你查交通"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-26",
+      "title": "英文：叫車、火車站、票價、出門不說 Sorry",
+      "turns": [
+        {
+          "say": "Call a taxi",
+          "expect": {
+            "textNot": [
+              "Sorry"
+            ],
+            "asks": [
+              "Where"
+            ]
+          }
+        },
+        {
+          "say": "How do I get to the train station?",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "textHas": [
+              "Taipei Main Station"
+            ],
+            "asksNone": true
+          }
+        },
+        {
+          "say": "How much is the HSR ticket to Taipei?",
+          "expect": {
+            "toolsNone": true,
+            "asks": [
+              "Which station"
+            ],
+            "askKind": "reply"
+          }
+        },
+        {
+          "say": "I want to go out",
+          "expect": {
+            "tools": [
+              "outing_advice"
+            ],
+            "textNot": [
+              "Sorry"
+            ],
+            "asks": [
+              "Where"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-27",
+      "title": "（不問）遠的地名只打名字：照常排行程",
+      "turns": [
+        {
+          "say": "板橋",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "板橋",
+            "fromHere": true,
+            "asksNone": true
+          }
+        }
+      ]
+    }
+  ]
+}

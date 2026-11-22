@@ -5,18 +5,21 @@
 //     reply   { say }           把 say（完整的一句，pending 遺失也解析得對）當成使用者的下一句送出
 //     store   { value }         存成手機上的偏好（public/js/habits.js applyStore），並把效果套到這一輪
 //     action  { action }        手機做事：{ name: 'openLink', url, confirm? }｜{ name: 'watchArrival', ...公車 }｜{ name: 'remind', at, text }（L2 照 ADR-0011 先確認）
+//                               ｜{ name: 'navigate', to: '#/…' }（App 內的頁面）｜{ name: 'focusInput' }（游標放到輸入框）
+//                               ｜{ name: 'handOff', agent: 'antifraud', text }（帶著這一句到防詐，只在手機記憶體，public/js/vision.js handOff）
 //     dismiss {}                不做事（「不趕」「不用」也是回答，只是不改變結果）
 //   pending：{ slot, state?, intent? }＝在等什麼答案；使用者直接打字回答時，客戶端把它當 pendingAsk 帶回來，
 //     validateRequest 先用 resolvePending 把「好」「台中」改寫成完整的一句（例「我趕時間」），再交給規則或模型。
 // 規則：一輪最多一個問題；使用者已經說過、或答案不會改變結果時不問；問了之後直接打別的話＝略過。
 export const ASK_KINDS = ['state', 'reply', 'store', 'dismiss', 'action'];
-export const ASK_ACTIONS = ['openLink', 'watchArrival', 'remind'];
+export const ASK_ACTIONS = ['openLink', 'watchArrival', 'remind', 'navigate', 'focusInput', 'handOff']; // navigate：App 內的頁面（#/…，例：到防詐、發票）；focusInput：游標放到輸入框（請他貼上訊息）
 
 import { decide, keyQuestion } from '../decide.js';
 import { edgeAskShape, askNorm } from '../edge-ask.js';
 import { matchRules } from '../scam-check.js';
 import { placesInText, parseIntent, isEnglish } from './demo-intent.js';
 import { LANDMARKS, normPlace } from '../services/places.js';
+import { railPendingSay, topicSay, busStopSay, whereSay, tripSay, TOPIC_KEYS } from './clarify.js';
 
 const MODE = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
 const MODE_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro: '搭捷運', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
@@ -203,14 +206,16 @@ export function slotAsk(it, { lang = null, history = [] } = {}) {
   }
   if (it?.needs === 'to') {
     const from = it.from || null;
+    const mode = it.mode === 'ridehail' ? 'ridehail' : null; // 只說「叫車」：選項的句子帶著叫車（PM Q-11）
     const fromSay = en && from ? enName(from) : from; // 英文那一輪用英文名稱（沒有就照原名，打字回答時再換成規則聽得懂的句子）
-    const tripSay = (p) => (en ? (from ? `How do I get from ${fromSay} to ${enName(p)}?` : `How do I get to ${enName(p)}?`) : from ? `從${from}到${p}怎麼去？` : `怎麼去${p}？`);
-    const opts = recentPlaces(history, [from]).map((p) => ({ label: (en ? enName(p) : p).slice(0, 20), kind: 'reply', say: tripSay(p) }));
-    if (!en) opts.push({ label: '回家', kind: 'reply', say: from ? `從${from}回家怎麼走？` : '回家怎麼走？', saved: '家' }, { label: '去公司', kind: 'reply', say: from ? `從${from}去公司怎麼走？` : '去公司怎麼走？', saved: '公司' });
-    if (!opts.length) opts.push({ label: 'Taipei 101', kind: 'reply', say: tripSay('台北101') }); // 英文、沒有說過的地點：給一個例子（也可以直接打）
+    const tripSayOf = (p) => (mode ? tripSay(p, { from, mode, en: en ? enName(p) : null }) : en ? (from ? `How do I get from ${fromSay} to ${enName(p)}?` : `How do I get to ${enName(p)}?`) : from ? `從${from}到${p}怎麼去？` : `怎麼去${p}？`);
+    const opts = recentPlaces(history, [from]).map((p) => ({ label: (en ? enName(p) : p).slice(0, 20), kind: 'reply', say: tripSayOf(p) }));
+    if (!en) opts.push({ label: '回家', kind: 'reply', say: from ? `從${from}回家怎麼走？` : mode ? '叫車回家' : '回家怎麼走？', saved: '家' }, { label: '去公司', kind: 'reply', say: from ? `從${from}去公司怎麼走？` : mode ? '叫車去公司' : '去公司怎麼走？', saved: '公司' });
+    if (!opts.length || (en && mode && !opts.some((o) => !o.saved))) opts.push({ label: 'Taipei 101', kind: 'reply', say: tripSayOf('台北101') }); // 英文、沒有說過的地點：給一個例子（也可以直接打）
+    if (!en && mode && !opts.some((o) => !o.saved)) opts.unshift({ label: '台北101', kind: 'reply', say: tripSayOf('台北101') }); // 叫車又沒說過地點：給一個例子（手機沒設定家、公司時才不會只剩「略過」）
     return {
-      ask: { about: 'slot:to', question: en ? 'Where are you going?' : '要去哪裡？', why: en ? 'Or just type the place.' : '直接打地名也可以。', options: opts.slice(0, 6), pending: { slot: 'to', ...(fromSay && { from: fromSay }), ...(en && { lang: 'en' }) } },
-      short: en ? `Where are you going?${from ? ` Starting from ${fromSay}, tell` : ' Tell'} me the destination and I'll compare the ways to get there.` : `要去哪裡？${from ? `從「${from}」出發，` : ''}告訴我目的地，我幫你比較怎麼去。`,
+      ask: { about: 'slot:to', question: en ? 'Where are you going?' : '要去哪裡？', why: en ? 'Or just type the place.' : '直接打地名也可以。', options: opts.slice(0, 6), pending: { slot: 'to', ...(fromSay && { from: fromSay }), ...(mode && { mode }), ...(en && { lang: 'en' }) } },
+      short: en ? `Where are you going?${from ? ` Starting from ${fromSay}, tell` : ' Tell'} me the destination and I'll compare the ways to get there${mode ? ' (taxi included)' : ''}.` : `${mode ? '叫車' : ''}要去哪裡？${from ? `從「${from}」出發，` : ''}告訴我目的地，我幫你比較${mode ? '叫車和其他方式' : '怎麼去'}。`,
     };
   }
   return null;
@@ -269,10 +274,13 @@ const nameBoth = (v) => {
   const zh = SAVED_LABELS.includes(t) ? t : placesInText(t)[0] || t;
   return { zh, en: enName(zh) !== zh ? enName(zh) : isEnglish(t) ? t : null };
 };
-/** 句型語言跟地名一致：英文那一輪、兩邊都有英文名稱才用英文句；否則用中文正式名稱的中文句（規則都聽得懂） */
-const tripSentence = (from, to, en) => (en && to.en && (!from || from.en)
-  ? (from ? `How do I get from ${from.en} to ${to.en}?` : `How do I get to ${to.en}?`)
-  : (from ? `從${from.zh}到${to.zh}怎麼去？` : `怎麼去${to.zh}？`));
+/** 句型語言跟地名一致：英文那一輪、兩邊都有英文名稱才用英文句；否則用中文正式名稱的中文句（規則都聽得懂）；mode：只說「叫車」時帶著叫車 */
+const tripSentence = (from, to, en, mode = null) => {
+  if (mode) return tripSay(to.zh, { from: from?.zh || null, mode, en: en && to.en && !from ? to.en : null });
+  return en && to.en && (!from || from.en)
+    ? (from ? `How do I get from ${from.en} to ${to.en}?` : `How do I get to ${to.en}?`)
+    : (from ? `從${from.zh}到${to.zh}怎麼去？` : `怎麼去${to.zh}？`);
+};
 Object.assign(PENDING_SLOTS, {
   // 哪一路公車：「307」「坐 307」「307 號」「bus 307」→「307 公車還要多久？」
   route: (p, t) => {
@@ -284,7 +292,7 @@ Object.assign(PENDING_SLOTS, {
   to: (p, t) => {
     const c = placeAnswer(t, /^(?:我)?(?:要|想)?(?:去|到|往)\s*|^(?:to|go to)\s+/iu);
     if (!c) return null;
-    return tripSentence(nameBoth(p.from), c, p.lang === 'en');
+    return tripSentence(nameBoth(p.from), c, p.lang === 'en', p.mode || null);
   },
   // 你從哪裡出發：「板橋」「我在西門町」「Ximending」→「從板橋到目的地怎麼去？」；「用我的位置」→「怎麼去目的地？」（手機會定位）
   from: (p, t) => {
@@ -295,6 +303,45 @@ Object.assign(PENDING_SLOTS, {
     if (!c) return null;
     return tripSentence(c, to, p.lang === 'en');
   },
+});
+
+/** 看起來像公車站名的字 */
+const STOP_LIKE = /站|路口|捷運|國小|國中|高中|大學|醫院|市場|公園|廟|宮|里|新村|社區|轉運|廣場|橋|街|路|商場|大樓|中心|學校|分局|公所|派出所|郵局|銀行|圖書館|體育館|夜市|教會|寺/;
+const COUNTY_ONLY = /^(?:[臺台](?:北|中|南|東)|新北|桃園|高雄|基隆|新竹|嘉義|苗栗|彰化|南投|雲林|屏東|宜蘭|花蓮|澎湖|金門)(?:市|縣)?$/;
+// ───── PM 的 Q 情境（2026-11-22，core/agent/clarify.js）：缺起站／迄站、地點有歧義、只說類別、沒定位問在哪、公車在哪一站、發票號碼 ─────
+Object.assign(PENDING_SLOTS, {
+  // 高鐵／台鐵缺起站、缺迄站：「台中」「我從左營出發」→「高鐵台中到台北多少錢」（只收站名）
+  railFrom: (p, t) => (p.system ? railPendingSay({ ...p, slot: 'railFrom' }, t) : null),
+  railTo: (p, t) => (p.system ? railPendingSay({ ...p, slot: 'railTo' }, t) : null),
+  // 是哪一個地方（「中山大學」「改去松山機場」「是林口長庚」）：只收地標庫認得的地名，接回「怎麼去 X？」
+  place: (p, t) => {
+    if (p.road && COUNTY_ONLY.test(String(t).trim().replace(/[。！!～~.]+$/u, ''))) return null; // 問路名附近的地標，回城市名接不回那條路（交回原本流程）
+    const c = placeAnswer(String(t).replace(/^(?:不是[^，,。]{0,8}[，,]?\s*)?(?:我是說|我說的是|是要|應該是|改|換|是)\s*/u, ''), /^(?:我)?(?:要|想)?(?:去|到|往)\s*|^(?:to|go to)\s+/iu);
+    if (!c || c.saved) return null;
+    return tripSentence(nameBoth(p.from), c, p.lang === 'en', p.mode || null);
+  },
+  // 只說類別、你就在那裡：「下一班」「票價」「附近」→ 那一類的完整一句
+  topic: (p, t) => (TOPIC_KEYS.includes(p.topic) ? topicSay(p.topic, t, typeof p.to === 'string' ? p.to : null) : null),
+  // 沒定位問天氣、空品、出門：「台中」「我在板橋」→「台中天氣」
+  where: (p, t) => {
+    if (!['weather', 'aqi', 'outing'].includes(p.topic)) return null;
+    const c = String(t).trim().replace(/^(?:我)?(?:現在)?(?:人)?在\s*/u, '').replace(/\s*(?:這邊|那邊|附近)?(?:啦|喔|吧)?[。！!～~.]*$/u, '').trim();
+    if (!c || c.length > 12 || OTHER_ASK.test(c)) return null;
+    const ok = COUNTY_ONLY.test(c) || placesInText(c).length === 1;
+    return ok ? whereSay(p, c) : null;
+  },
+  // 公車在哪一站等：「市政府」「我在敦化市場」「往板橋」→「307 公車到「市政府」還要多久」
+  busStop: (p, t) => {
+    const s = String(t).trim();
+    if (OTHER_ASK.test(s) && !/^往/.test(s)) return null;
+    const it = /^往/.test(s) ? null : parseIntent(s.replace(/^(?:我)?(?:現在)?(?:人)?(?:在|從)\s*/u, ''), {}); // 站名可以是地標（「市政府」），但不能是狀況、道謝、別的問題
+    if (it && (it.states?.length || it.thanks || it.sorry || it.reset || it.ack || !['unknown', 'trip'].includes(it.intent) || (it.intent === 'trip' && !it.bare))) return null;
+    const name = s.replace(/^(?:我)?(?:現在)?(?:人)?(?:在|從)\s*/u, '').replace(/\s*(?:站牌|這站|那站)?\s*(?:等(?:車)?)?[。！!～~.]*$/u, '');
+    if (!/^往/.test(s) && !(placesInText(name).length === 1 || STOP_LIKE.test(name))) return null; // 只收看起來像站名的（地標庫、或含站、路口、捷運、國小、市場…；「等一下」不收，審查 #121）
+    return busStopSay(p, s);
+  },
+  // 發票號碼：8 碼或末 3 碼 →「發票 12345678 有中獎嗎」
+  invoiceNo: (p, t) => { const m = /^(?:[a-z]{2}-?)?(\d{8}|\d{3})[。.!！]?$/i.exec(String(t).trim()); return m ? `發票 ${m[1]} 有中獎嗎` : null; },
 });
 
 // ───── 問什麼由手機上的 AI 決定（ADR-0020）：deviceJudge.ask 是候選，程式驗證；不通過就丟掉，照上面的規則問（保底）─────
@@ -345,8 +392,12 @@ const placeOf = (name) => (name ? exactPlace(name) || LANDMARKS.items.find((x) =
  * 地名：整個選項要就是地標庫的一個地名、而且是前文或情境出現過的（不收模型自己想的），也不能是另一端（起點＝目的地）；
  * 路線：前文或情境出現過的路線號碼（不收模型自己想的 9999）或「附近公車」；常用地點標籤與「用我的位置」照收。
  */
-function deviceOption(slot, label, pending, { again = false, places = [], routes = [] } = {}) {
+function deviceOption(slot, label, pending, { again = false, places = [], routes = [], accept = null } = {}) {
   const en = pending?.lang === 'en';
+  if (!['route', 'to', 'from'].includes(slot)) { // PM Q 情境的新種類：選項要接得回、而且是程式的候選之一（站名、候選地點、城市；不收模型自己想的）
+    const say = resolvePending(pending, label);
+    return say && accept?.has(say) ? { label, kind: 'reply', say } : null;
+  }
   if (slot === 'route') {
     if (NEARBY_STOPS.test(label)) return { label, kind: 'reply', say: en || /^[a-z]/i.test(label) ? 'Any bus stops nearby?' : '附近的公車站' };
     const m = ROUTE_LABEL.exec(askNorm(label).trim());
@@ -396,13 +447,17 @@ export function deviceSlotAsk(t, slot, rule, { again = false, history = [], cont
   if (!t || t.blocked || t.verdict === 'used' || t.ask.slot !== slot) return null;
   if (!rule?.ask?.pending) { rejectDevice(t, 'asked'); return null; } // 英文、上一輪已問過起點：規則只回一句，不再出選項
   const seen = mentioned(history, context);
+  const accept = new Set([...(rule.accept || []), ...rule.ask.options.filter((o) => o.kind === 'reply').map((o) => o.say)]); // 新種類：程式的候選句子
+  const guessSay = rule.ask.options.find((o) => o.guess)?.say;
   const options = [];
   for (const label of t.ask.options) {
-    const o = deviceOption(slot, label, rule.ask.pending, { again, ...seen });
+    const o = deviceOption(slot, label, rule.ask.pending, { again, accept, ...seen });
     if (!o) { rejectDevice(t, 'option'); return null; }
     if (options.some((x) => x.say === o.say)) { rejectDevice(t, 'duplicate'); return null; }
-    options.push(o);
+    options.push(o.say === guessSay ? { ...o, guess: true } : o);
   }
+  if (guessSay && options.some((o) => o.guess)) options.sort((a, b) => !!b.guess - !!a.guess); // 先查了的那個（猜的）放第一個
+  else if (guessSay) { rejectDevice(t, 'option'); return null; } // 程式已經用猜的查了：選項要包含它（不然使用者沒辦法說「對，就是這個」）
   useDevice(t);
   return { ask: { ...rule.ask, question: t.ask.question, options, askSource: 'device' }, short: rule.short };
 }

@@ -8,6 +8,8 @@ import { ev } from './events.js';
 import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hideToolNames, judgeInfo, runDemo, asideState, withAskCheck, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
 import { judgeNote, outingNote, moreStatesNote } from './impact.js';
 import { slotAsk, deviceAskTracker, deviceSlotAsk } from './ask.js';
+import { askFirst } from './clarify-plan.js';
+import { scamPasteAsk } from './clarify.js';
 import { lineCode } from '../tools/metro.js';
 import { normName, nowTW } from '../util.js';
 import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, demoSummary, isEnglish, nightNote, rainAsked } from './demo-intent.js';
@@ -280,12 +282,13 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const rulesIt = parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces, now });
   if (!req.clientToolResults?.length && rulesIt.reset) emit(ev.contextReset());
   if (rulesIt.intent === 'savedMissing' || (profile.id === 'life' && ((rulesIt.intent === 'weather' && rulesIt.later) || (rulesIt.intent === 'limits' || rulesIt.intent === 'access' || rulesIt.intent === 'scamAsk')))) { // 要阿幫代按、代付：固定說明只給官方連結（ADR-0011） // 「回家」但沒設定家、問後天以後的天氣：不給模型猜（模型會拿現在的天氣充數），直接照實說
+    if (rulesIt.intent === 'scamAsk') emit(ev.ask({ id: 'ask-m1', ...scamPasteAsk('life', rulesIt.lang, last) })); // 生活阿幫被問詐騙：請他到防詐貼上（PM Q-23）
     emit(ev.text(demoSummary(rulesIt, {})));
     emit(ev.done());
     return;
   }
   // 缺必要欄位（哪一路公車、要去哪裡）：程式問一句，不交給模型猜（ADR-0016，與示範模式相同）
-  const ruleGap = profile.id === 'life' && slotAsk(rulesIt, { lang: rulesIt.lang, history: req.messages.slice(0, -1) });
+  const ruleGap = profile.id === 'life' && (slotAsk(rulesIt, { lang: rulesIt.lang, history: req.messages.slice(0, -1) }) || askFirst(rulesIt, { history: req.messages.slice(0, -1), at: req.clientTools?.includes(DEVICE_LOCATION_TOOL.name) ? deviceLocation(req) || null : null })); // 路名、只說類別、認不得的名字、沒說迄站（PM Q 情境）也先問
   const gap = ruleGap && (deviceSlotAsk(dask, ruleGap.ask.about.replace(/^slot:/, ''), ruleGap, { history: req.messages.slice(0, -1), context: req.context }) || ruleGap); // 手機的題目通過驗證就用它（ADR-0020）
   if (gap) { emit(ev.ask({ id: 'ask-m1', ...gap.ask })); emit(ev.text(gap.short)); emit(ev.done()); return; }
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複

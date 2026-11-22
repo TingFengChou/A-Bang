@@ -1,4 +1,4 @@
-// 情境對話評測（A0，模型模式）：用 test/scenarios/life.json 跑真的模型（地端或 Claude，依 .env），報告每個情境過不過。
+// 情境對話評測（A0，模型模式）：用 test/scenarios/life.json（＋life-q.json）跑真的模型（地端或 Claude，依 .env），報告每個情境過不過。
 // 不進 CI（要模型、會花時間或額度）。PR 改了 agent 行為時附上結果。
 //   node --env-file=.env scripts/eval-scenarios.js [情境 id…]（EVAL_DEBUG=1 印出每個工具呼叫的參數）
 import { readFile } from 'node:fs/promises';
@@ -9,7 +9,10 @@ import { createServices } from '../core/index.js';
 import { getProfile } from '../core/agents/index.js';
 import { check } from './eval/scenario-check.js';
 
-const set = JSON.parse(await readFile(new URL('../test/scenarios/life.json', import.meta.url), 'utf8'));
+const load = async (f) => JSON.parse(await readFile(new URL(`../test/scenarios/${f}`, import.meta.url), 'utf8'));
+const set = await load('life.json');
+// PM「該問就問、不該問就不問」的 Q 情境（test/scenarios/life-q.json）一起跑；各檔的 here 是那一份的預設定位
+for (const sc of (await load('life-q.json')).scenarios) set.scenarios.push(sc);
 const only = process.argv.slice(2);
 const provider = pickProvider(process.env, { defaultModel: getProfile('life').model });
 if (!provider) throw new Error('沒有設定模型（LOCAL_LLM_URL 或 ANTHROPIC_API_KEY）');

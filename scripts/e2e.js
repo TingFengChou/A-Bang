@@ -780,6 +780,29 @@ test('阿幫問你：關鍵因子「叫車快 5 分但多 270 元，你趕時間
   });
 });
 
+test('阿幫問你（PM Q 情境）：只說「高鐵」→ 問要查什麼（不列功能清單）→ 票價 → 問到哪一站 → 直接打「台中」＝按那一個 → 用離你最近的站算', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = recordBodies(page);
+    await askAbang(page, '高鐵', 1, bodies);
+    const ask = page.locator('.turn').last().locator('.ask');
+    await ask.waitFor();
+    assert.equal(await ask.locator('.ask-q').textContent(), '要查高鐵的什麼？');
+    assert.doesNotMatch(await page.locator('.bubble.final').last().textContent(), /我可以幫你查交通/);
+    await ask.getByRole('button', { name: '票價', exact: true }).click();
+    await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
+    assert.equal(bodies.at(-1).messages.at(-1).content, '高鐵票價', '按了選項：送出完整的一句');
+    const ask2 = page.locator('.turn').last().locator('.ask');
+    await ask2.waitFor();
+    assert.equal(await ask2.locator('.ask-q').textContent(), '你要去哪一站？');
+    await page.waitForFunction(() => !document.querySelector('.chat-send')?.disabled);
+    await page.fill('.chat-input', '台中');
+    await page.press('.chat-input', 'Enter');
+    await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 3, null, { timeout: 20000 });
+    assert.equal(bodies.filter((b) => !b.clientToolResults).at(-1).messages.at(-1).content, '高鐵到台中多少錢', '打的字對到選項：送出選項的完整一句');
+    assert.match(await page.locator('.bubble.final').last().textContent(), /離你最近的高鐵站「台北」/, '有定位：用最近的站，不猜、不問');
+  });
+});
+
 test('股市：預設查台積電、0050，漲紅跌綠有 ▲▼；卡片內查別檔；問阿幫追問「那聯發科呢？」與問買賣', async () => {
   await withPage(DEVICES.phone, '#/s/stock', async (page) => {
     await page.waitForSelector('.ab-card[data-card="stock"] .ab-stk');

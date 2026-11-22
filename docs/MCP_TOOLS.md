@@ -79,8 +79,8 @@
 
 | | |
 |---|---|
-| 輸入 | `city?: City`（有 `near` 時可省略，用最近地標推估）, `routeName: string`, `stop?: string`（要盯的站，例如上車站）, `direction?: 0\|1`, `near?: Point`（使用者現在的位置；有 `stop` 但沒給 `city` 時只用來推縣市〔M14-02 拍站牌〕；沒說站名時聚焦路線上離他最近的站，`focus` 加 `distanceM`、`nearest: true`；兩個方向都有同一站時挑車比較快到的方向） |
-| 輸出 | `{ city, routeName, updatedAt, directions: [{ direction, label, stops: [{ seq, stopName, lat?, lon?, ...Eta, plate, nav }] }], shape?: [[lat, lon]], focus?: { direction, label, seq, stopName, etaSec, status, statusText } }`；給 `stop` 時依站名（臺／台相同）找站、先找 `direction` 那一邊，找到才有 `focus`，找不到文字說明「這條路線沒有…這一站」 |
+| 輸入 | `city?: City`（有 `near` 時可省略，用最近地標推估）, `routeName: string`, `stop?: string`（要盯的站，例如上車站）, `direction?: 0\|1`, `near?: Point`（使用者現在的位置；有 `stop` 但沒給 `city` 時只用來推縣市〔M14-02 拍站牌〕；沒說站名時聚焦路線上離他最近的站，`focus` 加 `distanceM`、`nearest: true`；兩個方向都有同一站時挑車比較快到的方向；另一個方向離你最近的站放 `focus.other`，speak 兩個方向都說）, `toward?: string`（往哪個方向，例「板橋」：只看方向名稱或終點有這個地名的那一邊；對不到時 `toward.found: false`、speak 照實說「沒有往「板橋」的方向」並兩個方向都列，PM Q-18） |
+| 輸出 | `{ city, routeName, updatedAt, directions: [{ direction, label, stops: [{ seq, stopName, lat?, lon?, ...Eta, plate, nav }] }], shape?: [[lat, lon]], focus?: { direction, label, seq, stopName, etaSec, status, statusText, other? }, toward?: { name, found, direction?, label? } }`；給 `stop` 時依站名（臺／台相同）找站、先找 `direction` 那一邊，找到才有 `focus`，找不到文字說明「這條路線沒有…這一站」 |
 | TDX | `/basic/v2/Bus/DisplayStopOfRoute/City/{City}/{Route}`（1h）、`/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/{Route}`（20s）、`/basic/v2/Bus/Route/City/{City}/{Route}`（1h）、`/basic/v2/Bus/Shape/City/{City}/{Route}`（1h，WKT）⚠️ |
 | 篩選 | `$filter=RouteName/Zh_tw eq '{Route}'`（路徑參數會模糊比對） |
 | speak | 「307 目前有 3 個站即將有車（例如北門、中山堂）。」；有 `focus` 時「601 約 6 分後到「西門」。」（不到 3 分「即將到」、不到 1 分「在「西門」進站中」） |
