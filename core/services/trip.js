@@ -627,7 +627,7 @@ async function driveOption(svc, from, to, straight, traffic) {
     ],
     notes: [
       `油錢約 ${fuel} 元（道路約 ${Math.round(km)} 公里）＋停車約 ${park} 元（停 1 小時估）`,
-      ...(lot ? [`停車場：${lot.name}（離目的地約 ${lot.distanceM} 公尺${lot.available != null ? `，剩 ${lot.available} 位` : ''}${lot.fare ? `；${lot.fare}` : ''}）`] : pk?.noData ? ['這一帶查不到停車場資料（台北市、新北市目前沒有停車場座標）'] : []),
+      ...(lot ? [`停車場：${lot.name}（離目的地約 ${lot.distanceM} 公尺${lot.available != null ? `，剩 ${lot.available} 位` : ''}${lot.fare ? `；${lot.fare}` : ''}）`] : pk?.noData ? ['這一帶查不到停車場資料'] : []),
       '開車時間、油錢、停車費都是估算（以實際路況與停車場公告為準）',
     ],
     ...(lots.length && { parking: lots.slice(0, 3).map((l) => ({ name: l.name, distanceM: l.distanceM, ...(l.available != null && { available: l.available }), ...(l.fare && { fare: l.fare }), lat: l.lat, lon: l.lon })) }),

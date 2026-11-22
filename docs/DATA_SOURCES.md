@@ -84,7 +84,16 @@
 
 - `/basic/v1/Parking/OffStreet/CarPark/City/{City}?$spatialFilter=nearby(lat,lon,600)`：路外停車場（名稱、座標、地址、收費說明、有沒有即時空位）。靜態，存檔 1 天，快取鍵用目的地座標約 100 公尺一格。
 - `/basic/v1/Parking/OffStreet/ParkingAvailability/City/{City}?$filter=CarParkID in (...)`：剩餘車位（只查最近幾個有即時資料的），60 秒。
-- 只在「我有車」或說開車時查（不是每趟行程都打 TDX）；查不到或逾時（2.5 秒）不影響開車方案。台北市、新北市目前沒有座標（實測清單是空的），畫面照實說。
+- 只在「我有車」或說開車時查（不是每趟行程都打 TDX）；查不到或逾時（2.5 秒）不影響開車方案。
+- **台北市、新北市**（TDX `CarPark` 清單是空的，只有空位）：停車場座標改用市府開放資料（免金鑰，跟著 `OPEN_DATA`；`core/services/parking-open.js`），整市清單快取 1 天，程式自己挑 600 公尺內的。
+
+| 縣市 | 停車場清單（靜態，快取 1 天） | 剩餘車位（快取 60 秒） |
+|---|---|---|
+| 台北市 | 「臺北市停車場資訊」（[128435](https://data.gov.tw/dataset/128435)，停管處，每月更新）`tcgbusfs.blob.core.windows.net/blobtcmsv/TCMSV_alldesc.json`（約 2.9 MB，`data.park[]`：`id`、`name`、`address`、`payex`、`tw97x`／`tw97y`、`totalcar`、`EntranceCoord.EntrancecoordInfo[].Xcod`（緯度）／`Ycod`（經度）） | TDX `ParkingAvailability/City/Taipei`（ID 相同：`TPE0001`…；即時）。不用 `TCMSV_allavailable.*`：2026-11-23 實測 JSON 停在 10-19、XML 停在 11-19 |
+| 新北市 | 「新北市路外公共停車場資訊」`data.ntpc.gov.tw/api/datasets/b1464ef0-9c7c-4a6f-abf7-6bdf32847e68/json?page=N&size=1000`（每頁最多 1000 筆，實測 1,345 筆、2 頁；`ID`、`NAME`、`ADDRESS`、`PAYEX`、`TW97X`／`TW97Y`、`TOTALCAR`） | 「新北市公有路外停車場即時賸餘車位數」（[122902](https://data.gov.tw/dataset/122902)，約 3 分鐘更新）`…/e09b35a5-a738-48cc-b0f5-570b67ad9c78/json?page=N&size=1000`（`ID`、`AVAILABLECAR`；-9＝沒有即時資料）。TDX 新北的空位是空的 |
+
+- 座標：TWD97 二度分帶（EPSG:3826）用 `core/twd97.js` 換成經緯度（自己寫的橫麥卡托反算，不加套件；與台北入口座標比對中位數差約 30 公尺）。台北市有入口座標時用入口（車子開進去的地方）；入口是 0,0 的改用 TWD97；入口與 TWD97 差超過 300 公尺當位置不確定、不列（實測 1,767 筆中 14 筆）。新北市東距、北距寫反的換回來；座標 0 或不在台灣的不收。小型車 0 格（機車停車場）不收。
+- 收費說明只留第一句（例「計時：100元/時」），完整費率以現場公告為準。
 
 ### 座標欄位（導航用）
 
