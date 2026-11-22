@@ -63,7 +63,7 @@ const FLOW_MS = 550;
 
 /** 主視覺（座標沿用 App 圖示的比例：軌道圓心在上、Λ 的開口朝下、核心在 Λ 裡面偏下） */
 const coreSvg = (t) => `
-<svg class="ai-svg" viewBox="0 0 360 292" focusable="false">
+<svg class="ai-svg" viewBox="0 0 360 352" focusable="false">
   <defs>
     <linearGradient id="ai-lam" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#CCFBF1"/><stop offset="1" stop-color="#FFFFFF"/></linearGradient>
     <radialGradient id="ai-halo-g"><stop offset="0" stop-color="#FBBF24" stop-opacity=".8"/><stop offset=".45" stop-color="#FBBF24" stop-opacity=".24"/><stop offset="1" stop-color="#FBBF24" stop-opacity="0"/></radialGradient>
@@ -85,6 +85,10 @@ ${SIGNAL_DOTS}
   <g class="ai-node"><rect x="112" y="6" width="136" height="32" rx="16"/><text x="180" y="27">${esc(t('node.input'))}</text></g>
   <g class="ai-node ai-out"><rect x="14" y="234" width="144" height="52" rx="14"/><rect class="ai-glow" x="14" y="234" width="144" height="52" rx="14"/><text class="ai-k" x="86" y="253">${esc(t('node.intent'))}</text><text class="ai-v" data-v="intent" x="86" y="275">—</text></g>
   <g class="ai-node ai-out"><rect x="202" y="234" width="144" height="52" rx="14"/><rect class="ai-glow" x="202" y="234" width="144" height="52" rx="14"/><text class="ai-k" x="274" y="253">${esc(t('node.states'))}</text><text class="ai-v" data-v="states" x="274" y="275">—</text></g>
+  <path class="ai-wire" d="M86 286V296" pathLength="1"/>
+  <path class="ai-wire" d="M274 286V296" pathLength="1"/>
+  <g class="ai-node ai-out ai-out2"><rect x="14" y="296" width="144" height="52" rx="14"/><rect class="ai-glow" x="14" y="296" width="144" height="52" rx="14"/><text class="ai-k" x="86" y="315">${esc(t('node.data'))}</text><text class="ai-v" data-v="data" x="86" y="337">—</text></g>
+  <g class="ai-node ai-out ai-out2"><rect x="202" y="296" width="144" height="52" rx="14"/><rect class="ai-glow" x="202" y="296" width="144" height="52" rx="14"/><text class="ai-k" x="274" y="315">${esc(t('node.next'))}</text><text class="ai-v" data-v="next" x="274" y="337">—</text></g>
 </svg>`;
 
 export default {
@@ -329,7 +333,7 @@ export default {
       const heroStart = () => {
         heroT0 = performance.now();
         heroStill = calm();
-        setNode('intent', '…'); setNode('states', '…');
+        setNode('intent', '…'); setNode('states', '…'); setNode('data', '…'); setNode('next', '…');
         stage('thinking');
         hero.classList.toggle('playing', !heroStill);
         live.textContent = t('live.thinking');
@@ -350,6 +354,17 @@ export default {
         setTimeout(() => { if (!alive) return; light(); setTimeout(() => { if (alive) finish(); }, FLOW_MS); }, wait);
       };
 
+      /** 主視覺下排兩格（2026-11-22 產品負責人：腦袋那邊怎麼都只有意圖跟狀態）：資料夠不夠、下一步問你 */
+      const slotName = (k) => t(`slot.${k}`);
+      const heroMore = (key, sec) => {
+        if (key === 'judge' && !info.active && sec.intent) { setNode('intent', t(`intent.${sec.intent}`)); setNode('states', sec.states?.length ? nodeText(sec.states.map((k) => t(`state.${k}`)), t('sep')) : t('node.none')); stage('done'); }
+        if (key === 'data') setNode('data', sec.error ? t('node.dataErr') : sec.enough ? t('node.enough') : sec.missing?.length ? t('node.missing', { x: nodeText(sec.missing.map(slotName), t('sep')) }) : t('node.notEnough'));
+        if (key === 'next') {
+          const q = sec.ask?.question || (sec.location ? t('node.askWhere') : '') || sec.suggest?.asks?.[0]?.q || sec.suggest?.asks?.[0] || '';
+          setNode('next', q ? String(q).slice(0, 14) : t('node.noAsk'));
+          hero.classList.add('more-done');
+        }
+      };
       const run = async (text) => {
         const q = String(text || '').trim();
         if (busy) return;
@@ -357,6 +372,7 @@ export default {
         busy = true;
         go.disabled = true; go.setAttribute('aria-busy', 'true');
         list.replaceChildren(); list.hidden = true; foot.hidden = true;
+        setNode('data', '…'); setNode('next', '…'); hero.classList.remove('more-done');
         report = null; copy.disabled = true; // 這一輪好了才能複製
         tlive.textContent = t('trial.running');
         if (matchMedia('(pointer: coarse)').matches) input.blur(); // 手機：收鍵盤
@@ -384,6 +400,7 @@ export default {
             if (!mine()) return;
             const old = list.querySelector(`[data-sec="${key}"]`); // 第 1 段之後補上「伺服器怎麼看」：原地換掉
             if (key === 'judge' && device.active && !old) heroEnd(sec.by === 'device' ? { intent: sec.intent, states: sec.states } : null);
+            heroMore(key, sec); // 主視覺四格：資料夠不夠、下一步問你（網頁版也顯示伺服器的判斷）
             const { li, body: b } = section(key, sec, SRC[key](sec));
             PAINT[key](b, sec);
             if (old) { li.querySelector('details').open = old.querySelector('details').open; old.replaceWith(li); } else list.append(li);
