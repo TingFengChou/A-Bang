@@ -19,6 +19,14 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-23 iOS 到站提醒的即時動態（Live Activity）
+- 做了：跟 Android 通知列常駐（PR #131）對齊，iOS 16.2+ 設到站提醒時在鎖定畫面與動態島顯示即時動態：「307 往撫遠街・約 N 分到「臺北車站(忠孝)」・到站前 2 分提醒你」，右上角 `Text(timerInterval:)` 系統倒數到預估到站、進度條、「HH:mm 的預估・App 開著時更新」；動態島精簡（公車圖示＋路線｜倒數）、展開（路線、倒數、整句）、最小（公車圖示）。新增 Widget Extension target `AbangLiveActivity`（`ios/App/AbangLiveActivity/`，嵌入 App，bundle id `tw.abang.app.LiveActivity`）、App 的 `NSSupportsLiveActivities`、iOS 外掛 `AbangWatch`（`start`／`update`／`stop`／`status`，介面跟 Android 一樣，多一個 `update`；`start` 回 `polls:false`）。
+- 限制（照實說）：iOS 不讓 App 在背景一直查到站時間，所以即時動態只有 App 在前景、每 20 秒查到新預估時才更新（`host-web.js` `pollWatch` → `updateWatchService`）；App 在背景時倒數照最後一次預估走，過了預估到站 1 分鐘改說「預估可能過時，打開阿幫看最新」。真正的提醒照舊是排好的本機通知。提醒響過、取消、末班已過、90 分鐘到由畫面結束即時動態；App 被關掉留下的過期即時動態下次打開時清掉。沒有通知權限不顯示。
+- 前端：`native-watch.js` 的 `startWatchService` 回 `'service'`（Android 自己查、自己響）／`'live'`（iOS 只顯示）；`watchLine()` 組那一句（中英）；`public/sw.js` 版本 v1.3.12。
+- 測試：`test/ios-live-activity.test.js` 新增 4 項（說法、iOS 走 live、更新與取消、原生檔案）；iOS 模擬器建置通過，模擬器上看過動態島精簡／展開與鎖定畫面。
+- 文件：UX.md §10、本紀錄
+- 下一個：實機確認（iPhone 上關掉 App 後的倒數與過時說明）；之後可評估推播更新（APNs，要伺服器與憑證）
+- 卡住：無
 ## 2026-11-23 下車提醒改成 Android 常駐服務
 - 做了：下車提醒跟到站提醒（PR #131）一致：Android App 開前景服務 `AbangAlightService`（dataSync），通知列常駐「307 坐車中・約 6 分到「市府」・快到時提醒你下車」＋「停止」，App 關著、螢幕關著也每 20 秒更新；快到時在響鈴頻道（`abang-watch-alert`）提醒「阿幫：準備下車」後結束；最多 3 小時。跟到站提醒是兩個服務，可以同時進行。
 - 設計：「我這台」的判斷不在 Java 重寫。純邏輯搬到 `core/alight.js`（前端以 `/core/alight.js` 載入；`public/js/alight.js` 轉出），新增 `GET /api/v1/bus/alight`（同一個 `bus_route_eta`＋`alightCheck`），服務每 20 秒問一次，拿回 `due`、`etaSec`、`seen`（帶回下一次，判斷「已經過站」用）與通知文字。Java 只做查詢、顯示、計時；連不上伺服器時照最近一次的預估時間準時提醒。只送路線、方向、上下車站與設定時的估計，不送位置。
