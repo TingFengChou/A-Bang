@@ -117,6 +117,9 @@ export const MESSAGES = {
 
   // ── metro ──
   'metro.title': '{station} 即時到站',
+  'metro.titleTimetable': '{station} 到站（時刻表估算）',
+  'metro.scheduled': '約 {min} 分',
+  'metro.scheduledSoon': '約 1 分內',
   'metro.toward': '往 {dest}',
   'metro.empty': '目前沒有即時到站資料',
 

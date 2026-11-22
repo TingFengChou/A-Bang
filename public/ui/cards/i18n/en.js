@@ -123,6 +123,9 @@ export const MESSAGES = {
 
   // ── metro ──
   'metro.title': '{station} live arrivals',
+  'metro.titleTimetable': '{station} arrivals (timetable)',
+  'metro.scheduled': '~{min} min',
+  'metro.scheduledSoon': 'within ~1 min',
   'metro.toward': 'To {dest}',
   'metro.empty': 'No live arrival data right now',
 

@@ -37,7 +37,8 @@ export const metroLiveBoard = defineTool({
   speak: (d) => {
     const t = d.trains.find((x) => x.etaMin != null);
     const lineSay = t?.line ? `${t.line}` : '';
-    const train = t && (t.etaMin <= 1 ? `${lineSay}往${t.destination}的車${t.status}` : `${lineSay}最快 ${t.etaMin} 分鐘後有往${t.destination}的車`);
+    // 時刻表估算的班次（北捷即時到站只有進站中）：照實說「依時刻表約」
+    const train = t && (t.scheduled ? `${lineSay}依時刻表約 ${Math.max(1, t.etaMin)} 分鐘後有往${t.destination}的車` : t.etaMin <= 1 ? `${lineSay}往${t.destination}的車${t.status}` : `${lineSay}最快 ${t.etaMin} 分鐘後有往${t.destination}的車`);
     if (d.nearest) {
       // 用預設地點（沒拿到位置）時不說「離你」；地點就是那一站時不重複（「臺北車站」→ 台北車站）
       const same = d.nearest.from && normName(d.nearest.from).replace(/站$/, '') === normName(d.station).replace(/站$/, '');
@@ -45,7 +46,7 @@ export const metroLiveBoard = defineTool({
       return train ? `${who}：${train}。` : `${who}目前沒有即時到站資料。`;
     }
     if (!t) return `${d.station}目前沒有即時到站資料。`;
-    return `${d.station}${t.etaMin <= 1 ? `往${t.destination}的車${t.status}` : `最快 ${t.etaMin} 分鐘後有往${t.destination}的車`}。`;
+    return `${d.station}${train.slice(lineSay.length)}。`;
   },
   async run(svc, a) {
     const line = lineCode(a.line);
@@ -57,7 +58,7 @@ export const metroLiveBoard = defineTool({
     const trains = line ? raw.trains.filter((t) => (t.lineId || '').startsWith(line)) : raw.trains;
     const data = { ...raw, trains: line && trains.length ? trains : raw.trains, nav: navLinks(raw.lat, raw.lon), ...(near && { nearest: { distanceM: near.distanceM, ...(typeof a.near === 'string' && { from: a.near }) } }) };
     const text = data.trains.length
-      ? clip([`${METRO_SYSTEMS[data.system]} ${data.station} 即時到站（更新：${data.updatedAt}）`, ...data.trains.map((t) => `- ${t.line} 往 ${t.destination}：${t.status}`)])
+      ? clip([`${METRO_SYSTEMS[data.system]} ${data.station} ${data.source && data.source !== 'live' ? '到站（' + data.note + '）' : '即時到站'}（更新：${data.updatedAt}）`, ...data.trains.map((t) => `- ${t.line} 往 ${t.destination}：${t.status}${t.scheduled ? '（時刻表）' : ''}`)])
       : `${METRO_SYSTEMS[data.system]} ${data.station} 目前沒有即時到站資料（部分系統只在營運時段、或只提供部分車站看板）。`;
     return { data, text };
   },

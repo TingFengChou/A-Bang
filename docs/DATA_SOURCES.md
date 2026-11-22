@@ -1,6 +1,6 @@
 # 開放資料來源與使用方式
 
-版本：v0.4（2026-11-17）。狀態：✅ 已串接（含 mock）　📝 待實作　⚠️ 端點／欄位待 M1 驗證　🔭 下一階段
+版本：v0.5（2026-11-22：TDX 免費額度策略 §1.1、北捷看板實測）。狀態：✅ 已串接（含 mock）　📝 待實作　⚠️ 端點／欄位待 M1 驗證　🔭 下一階段
 
 ## 1. 交通部 TDX 運輸資料流通服務（主要來源）
 
@@ -10,33 +10,72 @@
 | 授權 | 政府資料開放授權條款；畫面與 MCP 文字需標示「資料來源：交通部 TDX 運輸資料流通服務」 |
 | 認證 | OIDC client credentials：`POST https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token`，`grant_type=client_credentials`、`client_id`、`client_secret`；token 有效 24 小時 |
 | 呼叫 | `GET https://tdx.transportdata.tw/api{path}`，`Authorization: Bearer {token}`，`$format=JSON` |
-| 限制 | token endpoint 每 IP 每分鐘 ≤ 20 次；API 額度依會員方案（2026-11-21 實測：新帳號在「加值應用」審核通過前每分鐘只有 5 次，回應標頭 `x-ratelimit-limit-minute: 5`、`ratelimit-reset`）；client 端排隊（同時 3 個、間隔 220ms）；遇 429 依 `Retry-After` 重試一次 |
-| 實作 | `core/tdx-client.js`：token single-flight、到期前 5 分換新、回應快取（TTL 由呼叫端指定）、401 換 token 重試、OData 空白編碼為 `%20` |
-| 環境變數 | `TDX_CLIENT_ID`、`TDX_CLIENT_SECRET`（留空 → 示範模式） |
+| 限制 | token endpoint 每 IP 每分鐘 ≤ 20 次（不算 API 額度）；API：基本會員**每把金鑰每分鐘 5 次**（產品負責人決定不加值；2026-11-22 實測依時鐘整分重置，標頭 `x-ratelimit-limit-minute`、`x-ratelimit-remaining-minute`、`ratelimit-reset`）。策略見 §1.1 |
+| 實作 | `core/tdx-client.js`：token single-flight、到期前 5 分換新、回應快取（TTL 由呼叫端指定）、同網址同時只打一次、每分鐘額度閘門、401 換 token 重試、逾時 30 秒、OData 空白編碼為 `%20`；`core/tdx-store.js` 靜態資料存檔；`core/tdx-prewarm.js` 背景預熱 |
+| 環境變數 | `TDX_CLIENT_ID`、`TDX_CLIENT_SECRET`（留空 → 示範模式）；`TDX_PER_MINUTE`（預設 5）、`TDX_CACHE_DIR`（預設 `.cache/tdx`，`off` 不存檔）、`TDX_PREWARM_CITIES`（預設 `Taipei,NewTaipei,Taoyuan`）、`TDX_PREWARM=0`（不預熱） |
 
 常用 OData：`$filter`、`$select`、`$top`、`$orderby`；空間：`$spatialFilter=nearby(lat,lon,radiusM)`（radius ≤ 1000）。
+
+### 1.1 免費額度（每分鐘 5 次）下的策略（2026-11-22）
+
+目標：一般使用時（台北、新北、桃園的市區行程）行程規劃拿得到真實資料，不退回示範。
+
+| 做法 | 內容 |
+|---|---|
+| 靜態資料整個縣市一次取、存檔 | 公車站牌（`Bus/Station/City/{City}`，含 `LocationCityCode`）、路線站序（`Bus/DisplayStopOfRoute/City/{City}`）、路線起訖（`Bus/Route/City/{City}`）、YouBike 站點（`Bike/Station/City/{City}`）；捷運四系統、台鐵、高鐵車站。正規化後寫到 `TDX_CACHE_DIR`（預設 `.cache/tdx/`，已 gitignore；Docker 用 volume `/app/.cache`），重啟先讀檔。新鮮 1 天，過期 30 天內仍先用、背景更新。**只存正規化結果**：不存 token、金鑰、網址參數、使用者座標；即時資料（到站、車數、看板）不存檔 |
+| 本機算附近站牌 | 預熱過的縣市不再打 `Bus/Station/NearBy`、`Bike/Station/NearBy`：最近的站在 1.5 公里內、且站位實際所在縣市（`LocationCityCode`）也預熱過才用本機資料（例：基隆市區有新北路線的站，但基隆自己的路線沒預熱 → 照舊問 NearBy） |
+| 即時資料整個縣市一次取、共用 | 公車到站 `Bus/EstimatedTimeOfArrival/City/{City}`（`$select=RouteUID,Direction,StopUID,EstimateTime,StopStatus,PlateNumb`；台北約 2.9 萬筆、5 MB、0.4 秒）、YouBike 車數 `Bike/Availability/City/{City}`：30 秒，所有路線、所有人共用；捷運看板整個系統一份（20 秒） |
+| 直達公車只查一個縣市 | 起訖共同路線最多的那個縣市（站牌代碼前三碼＝路線的主管縣市），最多 3 條；不查路線形狀 |
+| 額度排程 | `tdx-client` 依時鐘整分計數，回應標頭校正；`x-ratelimit-remaining-minute` 是 0 才鎖這一分鐘，這分鐘用完就直接回 429 走示範資料，不白打（2.5 秒內就重置的使用者請求等一下）。同網址同時只打一次；逾時 30 秒（含讀 body 與 token 請求，逾時回 504）；先拿 token 再扣額度（token 失敗不扣） |
+| 舊快取 | 即時資料在這分鐘只剩 ≤ 1 次、或被擋 429 時，先用 60 秒內的舊資料（`updatedAt` 是原本取得的時間，計量 `stale: true`），不退回示範 |
+| 背景預熱 | 伺服器啟動後依序下載（台北公車站牌、站序、YouBike → 北捷車站 → 新北 → 桃園 → 台鐵高鐵車站 → 其他捷運 → 路線起訖，共 18 次），每分鐘最多 3 次、留 2 次給使用者，有使用者在排隊時先讓；已存檔且新鮮的跳過；之後每 6 小時檢查一次 |
+| 行程規劃的捷運 | 只看起訖附近有路網的系統（台北的行程不查高雄捷運車站） |
+| 背景讓位 | 背景請求拿不到額度、或碰到每秒上限（分鐘額度還有）時丟 `TdxYield`（只讓位，不鎖整分、不記成額度用完）；併入同一份下載的使用者看到就以前景身分自己下載，不跟著退回示範 |
+| 空資料 | 整個縣市／系統的靜態資料回空陣列當上游失敗（502，預熱會再試），不存檔、不蓋掉舊的；逐條查回空只在記憶體放 10 分鐘、不存檔；記憶體裡的靜態資料最多 400 份（LRU，有存檔的之後再讀檔）；存檔先看檔案大小再讀，讀不到的 key 記 10 分鐘 |
+| 舊資料的倒數 | 公車到站秒數、捷運看板分鐘扣掉資料取得後經過的時間（不小於 0），行程判斷與提醒用修正後的值 |
+| 多台伺服器 | 同一把金鑰的額度是所有機器共用：**只讓一台預熱**（其他設 `TDX_PREWARM=0`），各台的閘門靠 TDX 回應標頭校正；`TDX_PER_MINUTE` ≤ 2 時預熱停用並在 log 說明（要留 2 次給使用者） |
+| 計量 | 工具結果 `metrics.upstream`：這次真的打了 TDX 幾次（只記端點類別，例 `Bus/EstimatedTimeOfArrival/City`，不記縣市、路線、參數） |
+
+每個工具每次大約用幾次 TDX（預熱完成後；「0」＝都是快取或存檔）：
+
+| 工具 | 次數 | 說明 |
+|---|---|---|
+| `plan_trip`（同縣市市區，例 西門町→台北101） | 2 | 公車到站 1（整個縣市）＋ YouBike 車數 1；30 秒內再問 0 |
+| `plan_trip`（跨縣市，例 板橋→台北車站） | 3 | YouBike 車數兩個縣市各 1 |
+| `plan_trip`（長途 > 15 公里） | 3～6 | 再加國道車速／事件、客運時刻、台鐵高鐵時刻（各有快取） |
+| `bus_route_eta` | 0～1 | 到站整個縣市一份；沒預熱的縣市第一次多 1～2（站序、形狀，存檔） |
+| `bus_nearby_stations`、`youbike_nearby` | 0～1 | 預熱過的縣市本機算；車數 1 |
+| `metro_live_board` | 0～1 | 看板整個系統一份；站別時刻表第一次 1（存檔） |
+| `metro_stations`、`rail_stations` | 0 | 存檔 |
+
+免費額度下的預期：預熱完成後（新的空目錄約 6～7 分鐘；之後重啟幾乎不用打），每分鐘約可服務 2 趟市區行程；同一分鐘、同一縣市的行程共用到站與車數資料，多人同時問不會倍增。超過時改用 60 秒內的舊資料，再不行才退回示範並照實說。預熱期間使用者每分鐘只有 2 次，跨縣市行程可能有一部分是示範資料。實測數字見 `docs/PROGRESS.md`（2026-11-22）。
+
+### 1.2 北捷即時到站（2026-11-22 實測）
+
+`/basic/v2/Rail/Metro/LiveBoard/TRTC` 有資料，但**只列「列車進站中」的站**（整個路網約 20～25 筆、`EstimateTime` 都是 0），沒有倒數分鐘；某一站大多時候不在清單裡，所以以前常說「台北車站目前沒有即時到站資料」——不是站名比對的問題（`BL12`、`R10` 都對得到）。現在：看板整個系統一次取（20 秒共用），這一站沒有進站中的車的方向，改用站別時刻表 `/basic/v2/Rail/Metro/StationTimeTable/TRTC`（`$filter=StationID eq …`；依 `ServiceDay` 的星期幾，凌晨看前一天的末班；國定假日不另判斷）估 60 分鐘內各方向下一班，標 `scheduled: true`、`source: 'timetable'|'mixed'` 與 `note`「北捷即時到站在開放資料只有「進站中」，其他班次依時刻表估算」。時刻表存檔。其他系統只在這一站沒有看板資料時才查時刻表。TDX 欄位 `DestinationStaionID`（原文拼錯）與 `DestinationStationID` 都讀。
 
 ### 端點清單
 
 | 用途 | 端點 | TTL | 狀態 | 用於 |
 |---|---|---|---|---|
-| 公車路線 | `/basic/v2/Bus/Route/City/{City}[/{Route}]` | 1h | ✅ | `bus_search_routes`、`bus_route_eta` |
-| 路線站序 | `/basic/v2/Bus/DisplayStopOfRoute/City/{City}/{Route}` | 1h | ✅ | `bus_route_eta` |
-| 公車預估到站 | `/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/{Route}` | 20s | ✅ | `bus_route_eta` |
+| 公車路線 | `/basic/v2/Bus/Route/City/{City}`（搜尋；整個縣市的起訖名稱另外預熱、存檔） | 1h／1d | ✅ | `bus_search_routes`、`bus_route_eta` |
+| 路線站序 | `/basic/v2/Bus/DisplayStopOfRoute/City/{City}`（整個縣市，預熱）；沒預熱的縣市 `/{Route}` 逐條查 | 1d（存檔） | ✅ | `bus_route_eta`、`plan_trip` |
+| 公車預估到站 | `/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}`（整個縣市，`$select`） | 30s（舊資料最多 60s） | ✅ | `bus_route_eta`、`plan_trip` |
 | 站位預估到站 | `/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/PassThrough/Station/{StationID}` | 20s | ✅ ⚠️ | `bus_station_eta` |
-| 附近站位 | `/advanced/v2/Bus/Station/NearBy` | 1h | ✅ | `bus_nearby_stations`、`plan_trip` |
-| 路線形狀 | `/basic/v2/Bus/Shape/City/{City}/{Route}`（WKT，欄位 `Geometry`） | 1h | ✅ ⚠️ | `bus_route_eta.shape` |
-| YouBike 站點 | `/advanced/v2/Bike/Station/NearBy` | 1h | ✅ | `youbike_nearby` |
-| YouBike 車數 | `/advanced/v2/Bike/Availability/NearBy` | 30s | ✅ | `youbike_nearby` |
+| 公車站位 | `/basic/v2/Bus/Station/City/{City}`（整個縣市，預熱，本機算附近）；沒涵蓋時 `/advanced/v2/Bus/Station/NearBy`（不存檔：座標是使用者位置） | 1d（存檔）／1h | ✅ | `bus_nearby_stations`、`plan_trip` |
+| 路線形狀 | `/basic/v2/Bus/Shape/City/{City}/{Route}`（WKT，欄位 `Geometry`） | 1d（存檔） | ✅ ⚠️ | `bus_route_eta.shape` |
+| YouBike 站點 | `/basic/v2/Bike/Station/City/{City}`（預熱，本機算附近）；沒涵蓋時 `/advanced/v2/Bike/Station/NearBy` | 1d（存檔）／1h | ✅ | `youbike_nearby`、`plan_trip` |
+| YouBike 車數 | `/basic/v2/Bike/Availability/City/{City}`（依站點代碼的縣市） | 30s（舊資料最多 60s） | ✅ | `youbike_nearby`、`plan_trip` |
 | 高鐵時刻 | `/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}` | 10m | ✅ | `thsr_timetable` |
-| 高鐵車站 | `/basic/v2/Rail/THSR/Station` | 24h | ✅ | `rail_stations` |
+| 高鐵車站 | `/basic/v2/Rail/THSR/Station` | 1d（存檔） | ✅ | `rail_stations` |
 | 台鐵時刻 | `/basic/v3/Rail/TRA/DailyTrainTimetable/OD/{O}/to/{D}/{Date}` | 10m | ✅ | `tra_timetable` |
-| 台鐵車站 | `/basic/v3/Rail/TRA/Station` | 24h | ✅ | `rail_stations` |
-| 高鐵／台鐵票價 | `/basic/v2/Rail/THSR/ODFare/{O}/to/{D}`、`/basic/v3/Rail/TRA/ODFare/{O}/to/{D}` | 10m | ✅ ⚠️ | `rail_fare` |
-| 捷運車站 | `/basic/v2/Rail/Metro/Station/{Operator}` | 24h | ✅ ⚠️ | `metro_stations`、`metro_live_board`（站名→代碼） |
-| 捷運即時看板 | `/basic/v2/Rail/Metro/LiveBoard/{Operator}`（`$filter=StationID eq …`） | 20s | ✅ ⚠️ | `metro_live_board` |
-| 公路客運 | 路線站序 `/basic/v2/Bus/StopOfRoute/InterCity`（含 `StopPosition`）、時刻表 `/basic/v2/Bus/Schedule/InterCity`（`$filter=RouteUID eq …`）；票價端點待確認；即時到站 `/EstimatedTimeOfArrival/InterCity` 尚未使用 | 24h／1h | ✅ ⚠️ | `intercity_bus` |
-| 高速公路路況 | 路段形狀 `/v2/Road/Traffic/SectionShape/Freeway`（WKT）、路段 `/Section/Freeway`（名稱、速限、長度）、即時 `/Live/Freeway`（`TravelSpeed`）、事件 `/Live/News/Freeway` | 24h／24h／60s／60s | ✅ ⚠️ | `traffic_status` |
+| 台鐵車站 | `/basic/v3/Rail/TRA/Station` | 1d（存檔） | ✅ | `rail_stations` |
+| 高鐵／台鐵票價 | `/basic/v2/Rail/THSR/ODFare/{O}/to/{D}`、`/basic/v3/Rail/TRA/ODFare/{O}/to/{D}` | 1d（存檔） | ✅ ⚠️ | `rail_fare` |
+| 捷運車站 | `/basic/v2/Rail/Metro/Station/{Operator}` | 1d（存檔） | ✅ | `metro_stations`、`metro_live_board`（站名→代碼） |
+| 捷運即時看板 | `/basic/v2/Rail/Metro/LiveBoard/{Operator}`（整個系統一份；北捷只有進站中的站，§1.2） | 20s | ✅ | `metro_live_board` |
+| 捷運站別時刻表 | `/basic/v2/Rail/Metro/StationTimeTable/{Operator}`（`$filter=StationID eq …`） | 1d（存檔） | ✅ | `metro_live_board`（看板沒有的方向） |
+| 公路客運 | 路線站序 `/basic/v2/Bus/StopOfRoute/InterCity`（含 `StopPosition`；存檔）、時刻表 `/basic/v2/Bus/Schedule/InterCity`（`$filter=RouteUID eq …`）；票價端點待確認；即時到站 `/EstimatedTimeOfArrival/InterCity` 尚未使用 | 1d／1h | ✅ ⚠️ | `intercity_bus` |
+| 高速公路路況 | 路段形狀 `/v2/Road/Traffic/SectionShape/Freeway`（WKT）、路段 `/Section/Freeway`（名稱、速限、長度）、即時 `/Live/Freeway`（`TravelSpeed`）、事件 `/Live/News/Freeway` | 1d 存檔／1d 存檔／60s／60s | ✅ ⚠️ | `traffic_status` |
 | 導訂票 | 台鐵／高鐵導訂票 API（需申請「臺鐵訂票導訂」「高鐵訂票導訂」權限） | 不快取 | 📝 ⚠️ | `rail_booking_link` |
 
 `{City}` 由 `core/cities.js` 解析（`Taipei`、`NewTaipei`、`Taoyuan`、`Taichung`、`Tainan`、`Kaohsiung`…）；`{Operator}`：`TRTC` 台北、`TYMC` 桃園、`TMRT` 台中、`KRTC` 高雄。

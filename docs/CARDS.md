@@ -101,7 +101,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 ### `metro`（`metro_live_board`）
 
-`{ system, station, stationId, lat?, lon?, nav, updatedAt, trains: [{ line, lineId, lineColor?, destination, etaMin, status }] }`（行程卡片每段 `legs[].detailEn` 為英文說明，英文那一輪用）；每 20 秒刷新。`trains` 為空時顯示「目前沒有即時到站資料」。`lineColor` 依 `lineId` 給各線官方代表色（`core/metro-colors.js`；未知的線不給，卡片用品牌色）。
+`{ system, station, stationId, lat?, lon?, nav, updatedAt, source?, note?, noteEn?, stale?, trains: [{ line, lineId, lineColor?, destination, etaMin, status, scheduled? }] }`（`scheduled`：依時刻表估的班次，灰字、不脈動，狀態用字典「約 N 分」／「~N min」；`source` 不是 live 時標題改「{站} 到站（時刻表估算）」；`stale`：看板用了 60 秒內的舊資料；有 `note` 時卡片在列表下方用灰字照實說「北捷即時到站在開放資料只有「進站中」，其他班次依時刻表估算」，英文卡片用 `noteEn`；行程卡片每段 `legs[].detailEn` 為英文說明，英文那一輪用）；每 20 秒刷新。`trains` 為空時顯示「目前沒有即時到站資料」。`lineColor` 依 `lineId` 給各線官方代表色（`core/metro-colors.js`；未知的線不給，卡片用品牌色）。
 
 ### `timetable`（`thsr_timetable`、`tra_timetable`、`intercity_bus`）
 

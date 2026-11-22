@@ -46,11 +46,12 @@ test('stations：同名多線合併、座標可缺', async () => {
 test('liveBoard：查同站所有代碼、依分鐘排序、目的地備援 TripHeadSign', async () => {
   const r = await metro.liveBoard({ system: 'TRTC', station: '臺北車站' });
   assert.equal(r.station, '台北車站');
-  assert.ok(urls.some((u) => u.includes("StationID eq 'BL12' or StationID eq 'R10'")));
+  // 看板整個系統一次取（所有車站共用一份快取，不依站另查）
+  assert.ok(urls.some((u) => /Metro\/LiveBoard\/TRTC\?\$format=JSON$/.test(u)), urls.join('\n'));
   assert.deepEqual(r.trains.map((t) => [t.line, t.destination, t.etaMin, t.status]), [
     ['板南線', '頂埔', 0, '進站中'],
     ['淡水信義線', '淡水', 4, '4 分'],
-    ['BL', '南港展覽館', null, '—'],
+    ['板南線', '南港展覽館', null, '—'], // 看板沒有路線名稱時用代碼對照
   ]);
   assert.equal(r.updatedAt, '2026-11-17T21:00:20+08:00');
 });
@@ -66,7 +67,7 @@ test('liveBoard：代碼查站、錯誤訊息', async () => {
   assert.equal((await metro.liveBoard({ system: 'TRTC', station: 'r10' })).station, '台北車站');
   await assert.rejects(metro.liveBoard({ system: 'TRTC', station: '火星' }), /台北捷運找不到「火星」站/);
   await assert.rejects(metro.stations({ system: 'MRT' }), /不支援的捷運系統/);
-  await assert.rejects(metro.liveBoard({ system: 'KRTC', station: '美麗島' }), /高雄捷運找不到/);
+  await assert.rejects(metro.liveBoard({ system: 'KRTC', station: '美麗島' }), /TDX 回了空的高雄捷運車站/); // 整個系統的車站是空的：當上游失敗（不存檔）
 });
 
 test('metroStatusText', () => {

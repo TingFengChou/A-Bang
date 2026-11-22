@@ -30,6 +30,7 @@
 .ab-line { border-left: 4px solid var(--ab-brand); padding-left: 6px; }
 .ab-eta, .ab-dist, .ab-time { white-space: nowrap; }
 .ab-eta.soon { color: var(--ab-ok); font-weight: 700; }
+.ab-eta.planned { color: var(--ab-muted); } /* 時刻表估算的班次：灰字，不像即時 */
 .ab-time b { color: var(--ab-warn); }
 .ab-time s { color: var(--ab-muted); }
 .off { opacity: .55; }
