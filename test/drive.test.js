@@ -72,3 +72,15 @@ test('parking：正規化、有空位的優先、600 公尺外不列', async () 
   const r = rankLots([{ id: 'full', lat: 25.0005, lon: 121.5, available: 0 }, { id: 'ok', lat: 25.002, lon: 121.5, available: 3 }, { id: 'far', lat: 25.02, lon: 121.5, available: 9 }], to);
   assert.deepEqual(r.map((x) => x.id), ['ok', 'full']);
 });
+
+test('估算的台鐵（短程、不查時刻表）只在約 05:30～23:30 列出；半夜說沒有車', async () => {
+  const { TRA_EST } = await import('../core/services/trip.js');
+  const svc = createServices({ forceMock: true });
+  const BQ = { name: '板橋車站', lat: 25.0143, lon: 121.4637 }; // 板橋 → 臺北：6 公里多，台鐵用估算
+  const day = await planTrip(svc, { from: BQ, to: MAIN, now: NOW });
+  assert.equal(day.options.find((o) => o.role === 'tra')?.name, '台鐵（估算）', '白天：列估算的台鐵');
+  const night = await planTrip(svc, { from: BQ, to: MAIN, departAt: '00:25', now: Date.parse('2026-11-23T00:25:00+08:00') });
+  assert.ok(!night.options.some((o) => o.role === 'tra'), '00:25：不列台鐵');
+  assert.match(night.missing.find((x) => x.role === 'tra').why, /這個時間台鐵沒有車/);
+  assert.deepEqual([TRA_EST.open, TRA_EST.close], [330, 1410]);
+});
