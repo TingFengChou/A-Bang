@@ -8,6 +8,7 @@ import { watchKeyboard } from './keyboard.js';
 import { showOnboarding } from './onboarding.js';
 import { resumeAlight } from './alight.js';
 import { mountTripBar } from './trip-bar.js';
+import { mountWaitDrama } from './wait-drama.js';
 import { detachMain, attachMain, mountFab, syncFab, syncFabLabel, abangSays } from './abang-dock.js';
 import { shellT, shellLang, applyShell } from './shell-i18n.js';
 import { pageHero, canMorph } from './page-hero.js';
@@ -66,6 +67,7 @@ root.innerHTML = `
   <div id="offline" class="offline-banner" role="status" hidden></div>
   <div id="banner"></div>
   <div id="tripbar" hidden></div>
+  <div id="waitdrama" class="wait-drama" hidden></div>
   <div id="pagehero"></div>
   <main id="main" tabindex="-1"></main>
   <div class="abang-float"><div id="abang-bubble" class="fab-bubble" hidden></div></div>
@@ -263,6 +265,7 @@ try { restoreReminders(); } catch { /* 無痕模式 */ }
 paintBadge();
 // 下車提醒：App 被系統關掉再打開時恢復（沒逾時才恢復）
 mountTripBar($('tripbar')); // 行程中：每一頁上方可回到公車頁
+mountWaitDrama($('waitdrama')); // 設了到站提醒、還要等一陣子：推一集短劇（車快到時會提醒）
 // 中央「問阿幫」鍵：每一頁分頁列正中間，點了從下方拉出同一段對話（不用離開現在的頁面）
 mountFab({
   // 問阿幫知道你在看哪一頁：建議問題＋這一頁的說明（跟下一個問題一起送出）

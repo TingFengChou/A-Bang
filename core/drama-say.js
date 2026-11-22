@@ -31,12 +31,14 @@ export function linkFrom(template, { id, ep } = {}) {
 const SAY = {
   zh: {
     wait: ({ min, title, ep, free }) => `等車還要 ${min} 分，剛好夠看一集短劇：《${title}》第 ${ep} 集${free ? `（前 ${free} 集免費）` : ''}。`,
+    remind: ({ min, title, ep, free }) => `還要等約 ${min} 分，車快到時阿幫會提醒你，不用一直盯著：先看一集《${title}》第 ${ep} 集${free ? `（前 ${free} 集免費）` : ''}？`,
     watch: '看這集', dismiss: '不用了', note: '在 MyDrama 播放；設定裡可以關掉這個提示',
     exercise: '天氣不錯，今天動得比較少，出去走走吧！MyDrama 的活動頁也有跟運動有關的活動。',
     exerciseCta: '看 MyDrama 活動頁',
   },
   en: {
     wait: ({ min, title, ep, free }) => `${min} min until it comes: just enough for one short-drama episode, “${title}” Ep. ${ep}${free ? ` (first ${free} free, in Chinese)` : ' (in Chinese)'}.`,
+    remind: ({ min, title, ep, free }) => `About ${min} min to wait. Abang will remind you before it comes, so no need to keep checking: watch “${title}” Ep. ${ep}${free ? ` (first ${free} free, in Chinese)` : ' (in Chinese)'}?`,
     watch: 'Watch it', dismiss: 'No thanks', note: 'Plays in MyDrama; you can turn this tip off in Settings',
     exercise: 'Nice weather and you haven\'t moved much today. Go for a walk! MyDrama\'s activity page has something for that too.',
     exerciseCta: 'MyDrama activity page',
@@ -49,10 +51,10 @@ const dict = (lang) => (lang === 'en' ? SAY.en : SAY.zh);
  * @param {{ waitMin: number, pick: { title: string, ep: number, freeEpisodes?: number|null } | null, lang?: 'en'|null }} a
  * @returns {{ text: string, watch: string, dismiss: string, note: string } | null}
  */
-export function waitHint({ waitMin, pick, lang = null } = {}) {
+export function waitHint({ waitMin, pick, lang = null, remind = false } = {}) {
   if (!pick?.title || !Number.isFinite(waitMin) || waitMin < WAIT_MIN || waitMin >= WAIT_MAX) return null;
   const d = dict(lang);
-  return { text: d.wait({ min: Math.round(waitMin), title: pick.title, ep: pick.ep || 1, free: pick.freeEpisodes || 0 }), watch: d.watch, dismiss: d.dismiss, note: d.note };
+  return { text: d[remind ? 'remind' : 'wait']({ min: Math.round(waitMin), title: pick.title, ep: pick.ep || 1, free: pick.freeEpisodes || 0 }), watch: d.watch, dismiss: d.dismiss, note: d.note };
 }
 
 /**

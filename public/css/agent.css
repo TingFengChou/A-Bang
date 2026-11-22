@@ -401,3 +401,7 @@ html.lite-motion .voice-panel .vc-core, html.lite-motion .voice-panel .vc-halo {
 .drama-hint .dh-note { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
 .drama-hint.gone { opacity: 0; }
 @media (prefers-reduced-motion: no-preference) { .drama-hint:not(.gone) { animation: ask-in .3s ease-out; } }
+
+/* 到站提醒＋短劇（wait-drama.js）：提醒列下方，每一頁都看得到 */
+.wait-drama { padding: 6px 12px 0; }
+.wait-drama .drama-hint { margin: 0; }
