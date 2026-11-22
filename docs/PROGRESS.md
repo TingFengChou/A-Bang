@@ -19,6 +19,15 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-23 下車提醒改成 Android 常駐服務
+- 做了：下車提醒跟到站提醒（PR #131）一致：Android App 開前景服務 `AbangAlightService`（dataSync），通知列常駐「307 坐車中・約 6 分到「市府」・快到時提醒你下車」＋「停止」，App 關著、螢幕關著也每 20 秒更新；快到時在響鈴頻道（`abang-watch-alert`）提醒「阿幫：準備下車」後結束；最多 3 小時。跟到站提醒是兩個服務，可以同時進行。
+- 設計：「我這台」的判斷不在 Java 重寫。純邏輯搬到 `core/alight.js`（前端以 `/core/alight.js` 載入；`public/js/alight.js` 轉出），新增 `GET /api/v1/bus/alight`（同一個 `bus_route_eta`＋`alightCheck`），服務每 20 秒問一次，拿回 `due`、`etaSec`、`seen`（帶回下一次，判斷「已經過站」用）與通知文字。Java 只做查詢、顯示、計時；連不上伺服器時照最近一次的預估時間準時提醒。只送路線、方向、上下車站與設定時的估計，不送位置。
+- 前端：有外掛時不再預排本機通知（第一次查完還在提醒才開服務，太近當下就提醒時不多開）；服務響過或使用者在通知按「停止」（存在 SharedPreferences，App 行程被收掉也知道），畫面跟著結束；服務被系統收掉就改回預排本機通知；App 重開時服務還在跑就接著看不重開。舊版 App、iOS、網頁照原本方式。
+- 測試：`test/alight-service.test.js` 新增 9 項（核心判斷與文字、REST 參數與結果、開服務不送位置、沒有通知權限不開、停止與響過、舊版 App、重開恢復、原生原始碼檢查）；`npm test` 全過；Android `compileDebugJavaWithJavac` 過
+- 文件：本紀錄、UX.md §4.11、sw.js 加 `/core/alight.js`（v1.3.12）
+- 下一個：Pixel 實機確認常駐通知與響鈴；iOS Live Activity
+- 卡住：無
+
 ## 2026-11-23 發票開獎日提醒
 - 做了：我的發票有待開獎的，手機 App 在開獎日 14:00 通知「你存的 N 張發票今天開獎，打開阿幫就自動對獎」（只排最早的一天；存發票時才請通知權限；網頁版照舊打開才對獎）
 - 測試：service-remind 新增 1 項
