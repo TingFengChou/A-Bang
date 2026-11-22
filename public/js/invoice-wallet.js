@@ -5,6 +5,7 @@ import { storage, esc } from './ui.js';
 import { confetti } from '../ui/cards/confetti.js';
 import { scanSupported, openScanner } from './invoice-qr.js';
 import { nativeVisionReady, visionEnabled, openVision } from './vision.js';
+import { hasNativeNotify, ensureNotifyPermission, scheduleNotify, cancelNotify, NOTIFY_ID } from './native-notify.js';
 
 const KEY = 'invoices';
 export const WALLET_MAX = 100;
@@ -12,6 +13,31 @@ const FINAL = new Set(['won', 'lost', 'unavailable']);
 
 /** 台灣今天 YYYY-MM-DD */
 export const todayTW = (now = Date.now()) => new Date(now + 8 * 3600e3).toISOString().slice(0, 10);
+
+/** 開獎日幾點提醒（台灣時間；13:30 開獎，14:00 號碼都公布了） */
+export const DRAW_NOTIFY_AT = { h: 14, m: 0 };
+/**
+ * 下一次要提醒的開獎日（純函式）：待開獎的發票裡最早、而且提醒時間還沒過的那天
+ * @returns {{ date: string, count: number, at: Date } | null}
+ */
+export function nextDrawNotify(list, now = Date.now()) {
+  const at = (d) => { const [y, mo, da] = d.split('-').map(Number); return new Date(Date.UTC(y, mo - 1, da, DRAW_NOTIFY_AT.h - 8, DRAW_NOTIFY_AT.m)); };
+  const dates = [...new Set(list.filter((x) => x.status === 'pending' && /^\d{4}-\d{2}-\d{2}$/.test(x.drawDate || '')).map((x) => x.drawDate))]
+    .filter((d) => at(d).getTime() > now).sort();
+  if (!dates.length) return null;
+  return { date: dates[0], count: list.filter((x) => x.status === 'pending' && x.drawDate === dates[0]).length, at: at(dates[0]) };
+}
+/**
+ * 手機 App：開獎日 14:00 通知「你存的 N 張發票今天開獎」，打開就自動對獎（產品負責人 2026-11-22「到對獎日期可以自動對獎」）。
+ * 只排下一次的；沒有待開獎的就取消。ask：使用者剛按了存發票，可以請通知權限
+ */
+export async function planDrawNotify({ list = wallet.list(), now = Date.now(), ask = false } = {}) {
+  if (!hasNativeNotify()) return false;
+  const n = nextDrawNotify(list, now);
+  if (!n) { await cancelNotify(NOTIFY_ID.invoice); return false; }
+  if (ask && !(await ensureNotifyPermission())) return false;
+  return scheduleNotify(NOTIFY_ID.invoice, n.at, '阿幫：發票今天開獎', `你存的 ${n.count} 張發票今天開獎，打開阿幫就自動對獎`);
+}
 
 export const wallet = {
   /** @returns {Array<{ id: string, number: string, date?: string, period?: string, status?: string, drawDate?: string, prize?: string|null, amount?: number, title?: string }>} */
@@ -55,6 +81,7 @@ export async function checkWallet(callTool, { all = false } = {}) {
     return { ...x, status: res.status, period: res.period, drawDate: res.drawDate, prize: res.prize ?? null, amount: res.amount ?? 0, ...(res.title && { title: res.title }) };
   });
   wallet.save(list);
+  planDrawNotify({ list, ask: all }).catch(() => {}); // 開獎日提醒（只排下一次）
   return { won, summary: r.data.summary, decided: due.filter((x) => FINAL.has(byId.get(x.id)?.status)).length };
 }
 
@@ -89,7 +116,7 @@ export function renderWallet(el, { callTool, toast = () => {} }) {
       <button class="btn">存起來，開獎自動對</button>
     </form>
     <div class="card list" id="inv-list"></div>
-    <p class="updated">號碼只存在這支手機的瀏覽器；對獎時把號碼和日期送到阿幫伺服器比對，不會保存。打開 App 時，開獎後的發票會自動對獎。領獎方式與期限以財政部公告為準。</p>`;
+    <p class="updated">手機 App 會在開獎日 14:00 通知你。號碼只存在這支手機的瀏覽器；對獎時把號碼和日期送到阿幫伺服器比對，不會保存。打開 App 時，開獎後的發票會自動對獎。領獎方式與期限以財政部公告為準。</p>`;
   const listEl = el.querySelector('#inv-list');
   const draw = () => {
     const list = wallet.list();
