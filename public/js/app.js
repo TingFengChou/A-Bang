@@ -106,6 +106,10 @@ window.addEventListener('abang:alight', (e) => remind(`🔔 ${e.detail.text}`, n
 // 公車一直不來（S15）：可以改其他方式（點了打開對話直接問阿幫；卡片上也有按鈕）
 window.addEventListener('abang:arrival-stuck', (e) => {
   const en = e.detail.lang === 'en';
+  if (e.detail.ended) { // 末班已過、今日未營運：提醒已自動取消
+    remind(en ? `Bus ${e.detail.routeName} isn't running any more today, so I cancelled the reminder. Want another way?` : `${e.detail.routeName} 今天不會再來了（末班已過或沒有營運），到站提醒已取消。要我改其他方式嗎？`, { label: en ? 'Another way' : '改其他方式', ask: e.detail.ask }, 10000);
+    return;
+  }
   remind(en ? `Bus ${e.detail.routeName} isn't coming. Want me to find another way?` : `${e.detail.routeName} 一直沒來，要我幫你改其他方式嗎？`, { label: en ? 'Another way' : '改其他方式', ask: e.detail.ask }, 10000); // 阿幫自己說（不再說「到問阿幫」）
 });
 
