@@ -1,6 +1,6 @@
 // 「接下來可以…」：每一輪回答後，輸入框上方的建議換成依這一輪結果推導的下一步（使用者回饋：一開始的通用範例不適合一直留著）。
 // 純函式：只看這一輪的工具結果（卡片資料）與決策，回傳建議；畫面（agent.js）決定怎麼執行。
-//   kind：ask＝送出一句話、remind＝到站提醒（host.watchArrival）、navigate＝開 App 內頁面、state＝在決策圖加狀態（瀏覽器重算，不呼叫伺服器）
+//   kind：ask＝送出一句話、remind＝到站提醒（host.watchArrival）、alarm＝某天某時的本機提醒（host.remind，例：明早 7 點帶傘）、navigate＝開 App 內頁面、state＝在決策圖加狀態（瀏覽器重算，不呼叫伺服器）
 const STATE_LABEL = { rush: '我很趕', budget: '想省錢', lessWalk: '少走路', luggage: '帶行李' };
 const STATE_LABEL_EN = { rush: 'In a hurry', budget: 'On a budget', lessWalk: 'Less walking', luggage: 'With luggage' }; // 與卡片字典 en.js trip.stateKey 相同
 const POPULAR_STOCKS = ['台積電', '0050', '聯發科', '鴻海'];
@@ -12,7 +12,21 @@ const short = (s) => String(s || '').replace(/（.*?）|\(.*?\)/g, '').trim();
  * @param {{ watching?: { routeName: string, stop: string } | null, riding?: object | null, lang?: 'en' }} [ctx] 目前的到站提醒（已設定就不再建議）；riding：進行中的下車提醒（已設定就不再建議「上車後提醒我下車」）；lang：英文那一輪（S12c）
  * @returns {Array<{ label: string, kind: 'ask'|'remind'|'navigate'|'state', payload?: any, ask?: object }>} 最多 4 個；ask：問句的意圖與比對欄位（同 parseIntent 形狀，動態建議 agent/suggest.js 用來丟掉跟畫面重複的）
  */
-export function nextSteps(results, decision, { watching = null, riding = null, lang = null } = {}) {
+/** 帶傘提醒幾點響（台灣時間） */
+export const UMBRELLA_AT = '07:00';
+/** 明天降雨機率多少以上才問要不要提醒帶傘 */
+export const UMBRELLA_POP = 50;
+/** 明天的帶傘提醒：晚上 19 點以後問「明天會下雨嗎」、白天降雨機率 ≥ 50% 才給（本機通知最多排 12 小時內） */
+export function umbrellaStep(wt, now = Date.now(), en = false) {
+  const p = wt?.data?.dayPop ?? wt?.data?.pop;
+  if (!(p >= UMBRELLA_POP) || !wt.data.date) return null;
+  const tw = new Date(now + 8 * 3600e3);
+  const tomorrow = new Date(Date.UTC(tw.getUTCFullYear(), tw.getUTCMonth(), tw.getUTCDate() + 1)).toISOString().slice(0, 10);
+  if (wt.data.date !== tomorrow || tw.getUTCHours() < 19) return null;
+  return { label: en ? 'Remind me at 7:00 to take an umbrella' : '明早 7 點提醒我帶傘', kind: 'alarm', payload: { date: wt.data.date, at: UMBRELLA_AT, key: `umbrella|${wt.data.date}`, text: en ? `${p}% chance of rain today. Take an umbrella.` : `今天降雨機率 ${p}%，出門記得帶傘`, ...(en && { lang: 'en' }) } };
+}
+
+export function nextSteps(results, decision, { watching = null, riding = null, lang = null, now = Date.now() } = {}) {
   const en = lang === 'en';
   const out = [];
   const add = (s) => { if (s && !out.some((x) => x.label === s.label)) out.push(s); };
@@ -62,5 +76,6 @@ export function nextSteps(results, decision, { watching = null, riding = null, l
   if (byTool('youbike_nearby')) add({ label: '附近公車站呢？', kind: 'ask', payload: '附近有什麼公車站牌', ask: { intent: 'nearby_bus' } });
   if (byTool('bus_nearby_stations')) add({ label: '附近 YouBike 呢？', kind: 'ask', payload: '附近還有 YouBike 嗎？', ask: { intent: 'youbike' } });
   if (byTool('fuel_price')) add({ label: '這期發票號碼', kind: 'ask', payload: '這期發票號碼是多少？' });
+  add(umbrellaStep(byTool('weather_tomorrow'), now, en)); // 查了明天會下雨：問要不要早上提醒帶傘（產品負責人 2026-11-22：每個服務都可以問要不要設提醒）
   return out.slice(0, 4);
 }

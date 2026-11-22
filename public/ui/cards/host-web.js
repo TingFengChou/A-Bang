@@ -207,8 +207,10 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
       // at 是台灣時間（伺服器算的）：不看裝置時區（觀光客手機可能是別的時區，PR #50 審查）
       const [h, m] = String(at).split(':').map(Number);
       const tw = new Date(Date.now() + 8 * 3600e3);
-      const when = new Date(Date.UTC(tw.getUTCFullYear(), tw.getUTCMonth(), tw.getUTCDate(), h - 8, m));
-      return addReminder(when, text, meta);
+      const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(meta?.date || ''); // 指定哪一天（明早帶傘）；沒給＝今天
+      const when = d ? new Date(Date.UTC(+d[1], +d[2] - 1, +d[3], h - 8, m)) : new Date(Date.UTC(tw.getUTCFullYear(), tw.getUTCMonth(), tw.getUTCDate(), h - 8, m));
+      const { date: _d, ...rest } = meta || {};
+      return addReminder(when, text, rest);
     },
     /** 這段路線目前的出門提醒（卡片重畫、重新規劃後也知道已經設了） */
     reminderFor: (key) => reminderFor(key),

@@ -14,3 +14,16 @@ test('垃圾車：今天還沒到、離現在超過 11 分才給「前 10 分提
   assert.equal(garbageRemindAt({ collectToday: false, time: '19:30' }, at('18:00')), null, '今天不收');
   assert.equal(garbageRemindAt({ collectToday: true, time: '' }, at('18:00')), null);
 });
+
+test('明天會下雨：晚上 19 點後、白天降雨機率 ≥ 50% 才給「明早 7 點提醒我帶傘」（指定日期的提醒）', async () => {
+  const { umbrellaStep, nextSteps } = await import('../public/js/agent/next-steps.js');
+  const wt = (pop, date = '2026-11-24') => ({ tool: 'weather_tomorrow', data: { date, dayPop: pop, pop } });
+  const s = umbrellaStep(wt(70), at('21:00'));
+  assert.deepEqual([s.kind, s.label, s.payload.at, s.payload.date, s.payload.key], ['alarm', '明早 7 點提醒我帶傘', '07:00', '2026-11-24', 'umbrella|2026-11-24']);
+  assert.equal(s.payload.text, '今天降雨機率 70%，出門記得帶傘');
+  assert.equal(umbrellaStep(wt(40), at('21:00')), null, '降雨機率不高');
+  assert.equal(umbrellaStep(wt(70), at('15:00')), null, '下午問：離明早超過 12 小時');
+  assert.equal(umbrellaStep(wt(70, '2026-11-25'), at('21:00')), null, '不是明天');
+  assert.match(umbrellaStep(wt(80), at('22:00'), true).label, /umbrella/);
+  assert.ok(nextSteps([wt(70)], null, { now: at('21:00') }).some((x) => x.kind === 'alarm'));
+});
