@@ -54,3 +54,26 @@ export async function waitDrama(svc, { tool, data, parent, walkMin = null, lang 
     labels: { watch: hint.watch, dismiss: hint.dismiss, note: hint.note },
   };
 }
+
+/**
+ * 設了到站提醒、還要等一段時間（產品負責人 2026-11-22「到站提醒的時候出現，代表他想等，但是不要一直盯著看」）：
+ * 提醒列下方推一集短劇（句子說「車快到時會提醒你」）。跟對話裡的提示同一套規則（WAIT_MIN～WAIT_MAX、英文不推、查不到或逾時不說）。
+ * @param {object} svc
+ * @param {{ waitMin: number, lang?: 'en'|null, now?: number }} a
+ * @returns {Promise<object|null>} aside 事件的內容（沒有 parent）或 null
+ */
+export async function remindAside(svc, { waitMin, lang = null, now = Date.now() } = {}) {
+  if (lang === 'en' || !svc?.drama?.waitPick || !Number.isFinite(waitMin)) return null;
+  let timer;
+  const pick = await Promise.race([
+    svc.drama.waitPick({ turn: 0, now }).catch(() => null),
+    new Promise((r) => { timer = setTimeout(() => r(null), PICK_TIMEOUT_MS); }),
+  ]).finally(() => clearTimeout(timer));
+  const hint = pick && waitHint({ waitMin, pick, lang, remind: true });
+  if (!hint) return null;
+  return {
+    kind: 'drama', text: hint.text, waitMin: Math.round(waitMin), mode: svc.dramaMode || 'demo',
+    data: { id: pick.id, title: pick.title, ep: pick.ep, freeEpisodes: pick.freeEpisodes ?? null, appLink: pick.appLink ?? null, store: svc.drama.store?.() || null },
+    labels: { watch: hint.watch, dismiss: hint.dismiss, note: hint.note },
+  };
+}

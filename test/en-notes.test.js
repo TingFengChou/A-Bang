@@ -15,9 +15,11 @@ test('enNote：常見說明換英文、@標籤保留、對不上照原文', () =
   assert.equal(enNote('@股市 看一下大盤收盤'), '@股市 看一下大盤收盤', '沒有英文規則的照原文');
 });
 
+const DAY = Date.parse('2026-11-18T10:00:00+08:00');
+
 test('英文提問：討論串說明英文、不說中文的「聽懂了」；接下來可以英文', async () => {
   const es = [];
-  await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: 'How do I get to Taipei 101?' }] }, (e) => es.push(e));
+  await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: 'How do I get to Taipei 101?' }] }, (e) => es.push(e), { now: DAY }); // 白天（深夜捷運收班會改推公車，站名是中文）
   const notes = es.filter((e) => e.type === 'agent_note').map((e) => e.text);
   assert.ok(notes.length >= 2);
   for (const n of notes) assert.doesNotMatch(n.replace(/@\S+/g, '').replace(/「.+?」|臺北車站|台北101/g, ''), /[一-鿿]/, n);
@@ -30,7 +32,7 @@ test('英文提問：討論串說明英文、不說中文的「聽懂了」；�
 test('S12d：英文那一輪的工具回報是英文（數字來自資料）、不附中文的「→ 影響」', async () => {
   const { speakEn, SPEAK_EN } = await import('../core/tools/speak-en.js');
   const es = [];
-  await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: 'How do I get to Taipei 101?' }] }, (e) => es.push(e));
+  await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: 'How do I get to Taipei 101?' }] }, (e) => es.push(e), { now: DAY }); // 白天（深夜捷運收班會改推公車，站名是中文）
   const results = es.filter((e) => e.type === 'tool_result' && e.ok);
   assert.ok(results.length >= 3);
   for (const r of results) {

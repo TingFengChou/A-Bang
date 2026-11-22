@@ -5,6 +5,7 @@ import { getProfile, hasProfile, PROFILES } from '../core/agents/index.js';
 import { UserError } from '../core/util.js';
 import { dataSources } from '../core/index.js';
 import { TOOL_ROLES } from '../core/agent/events.js';
+import { remindAside } from '../core/agent/wait-drama.js';
 
 const num = (v) => (v == null || v === '' ? undefined : Number(v));
 const q = (name, description, { required = false, type = 'string', example } = {}) => ({ name, description, required, type, ...(example !== undefined && { example }) });
@@ -31,6 +32,15 @@ export function restRoutes(svc, { agentInfo = null } = {}) {
     '/api/v1/thsr/timetable': { summary: '高鐵時刻表', tag: 'PWA', params: OD, handler: (p) => svc.rail.thsrTimetable(p) },
     '/api/v1/tra/stations': { summary: '台鐵車站', tag: 'PWA', params: [], handler: () => svc.rail.traStations() },
     '/api/v1/tra/timetable': { summary: '台鐵時刻表', tag: 'PWA', params: OD, handler: (p) => svc.rail.traTimetable(p) },
+    '/api/v1/drama/wait': {
+      summary: '設了到站提醒、還要等一段時間時推一集短劇（MyDrama；等 5～40 分才推，沒有回 aside: null）', tag: 'PWA',
+      params: [q('min', '還要等幾分鐘', { required: true, type: 'number', example: 12 })],
+      handler: async (p) => {
+        const m = num(p.min);
+        if (!Number.isFinite(m) || m < 0 || m > 180) throw new UserError('min 要是 0～180 的分鐘數');
+        return { aside: await remindAside(svc, { waitMin: m }) };
+      },
+    },
     '/api/v1/agent/profile': {
       summary: '網頁 agent 設定（名稱、建議問題、免責、小幫手角色）', tag: 'Agent',
       params: [q('id', `agent id：${Object.keys(PROFILES).join('、')}；預設 life`, { example: 'antifraud' })],
