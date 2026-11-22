@@ -118,7 +118,7 @@ const AFTER_MIDNIGHT = 4 * 60; // 凌晨 4 點前的班次屬於前一天的營�
 
 /**
  * 依時刻表估各線各方向下一班（每個「路線＋終點」取最近的一班，60 分鐘內）。
- * 國定假日（台灣時間，core/holidays.js 內建清單）：這條線這個方向的資料有 ServiceDay.NationalHolidays 時用標了國定假日的班表；資料沒標就照星期幾。
+ * 國定假日（台灣時間，core/holidays.js 內建清單）：這條線這個方向、這個終點的資料有 ServiceDay.NationalHolidays 時用標了國定假日的班表；資料沒標就照星期幾。
  * @param {ReturnType<typeof normStationTimetable>} table
  * @returns {Array<{ lineId, destination, destinationEn?, etaMin }>}
  */
@@ -127,8 +127,8 @@ export function upcomingFromTimetable(table, now = Date.now(), windowMin = TIMET
   const cur = toMin(hhmm);
   // 今天的營運日；凌晨也看昨天的營運日（00:30 還有昨天的末班）
   const days = [{ wd: weekday, ref: cur, ymd: twDate(now) }, ...(cur < AFTER_MIDNIGHT ? [{ wd: (weekday + 6) % 7, ref: cur + 24 * 60, ymd: twDate(now, -1) }] : [])];
-  const lane = (r) => `${r.lineId}|${r.direction}`;
-  const marked = new Set((table || []).filter((r) => r.holiday === true).map(lane)); // 這條線這個方向有國定假日班表
+  const lane = (r) => `${r.lineId}|${r.direction}|${r.destId || r.dest}`; // 路線＋方向＋終點：區間車那一筆沒標國定假日時不被整筆排除
+  const marked = new Set((table || []).filter((r) => r.holiday === true).map(lane)); // 這條線這個方向、這個終點有國定假日班表
   const runs = (row, { wd, ymd }) => (marked.has(lane(row)) && isNationalHoliday(ymd) ? row.holiday === true : !!row.days?.[wd]);
   const best = new Map();
   for (const row of table || []) {

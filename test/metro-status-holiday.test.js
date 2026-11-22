@@ -10,7 +10,7 @@ import { speakEn } from '../core/tools/speak-en.js';
 import { callTool } from '../core/tools/index.js';
 import { createServices } from '../core/index.js';
 import { validate } from '../public/ui/cards/schema/validate.js';
-import metroCard from '../public/ui/cards/cards/metro.js';
+import metroCard, { statusCode } from '../public/ui/cards/cards/metro.js';
 import { tFor } from '../public/ui/cards/i18n/index.js';
 import { turnSummary } from '../public/js/agent/turn-summary.js';
 
@@ -110,4 +110,23 @@ test('createMetroServices：國定假日的看板補班次用假日班表', asyn
   const b = await m.liveBoard({ system: 'TRTC', station: '台北車站' });
   assert.deepEqual(b.trains.map((t) => [t.destination, t.etaMin, t.status]), [['頂埔', 8, 'scheduled']]);
   assert.deepEqual(validate(schema, { ...b, nav: null }), []);
+});
+
+test('審查 #122：舊版回應（中文狀態字串、離線快取）用 etaMin 推回代碼；英文卡片線名、終點有英文就用英文', () => {
+  const old = { line: '板南線', lineEn: 'Bannan Line', destination: '頂埔', destinationEn: 'Dingpu', etaMin: 0, status: '進站中' };
+  assert.equal(statusCode(old), 'arriving');
+  assert.equal(statusCode({ etaMin: 1, status: '即將進站' }), 'approaching');
+  assert.equal(statusCode({ etaMin: 6, status: '6 分' }), 'minutes');
+  assert.equal(statusCode({ etaMin: null, status: '—' }), 'unknown');
+  assert.equal(statusCode({ etaMin: 3, status: '約 3 分', scheduled: true }), 'scheduled');
+  assert.equal(metroCard.announce({ trains: [old] }, { t: en, locale: 'en' }), 'Bannan Line To Dingpu Arriving');
+  assert.equal(metroCard.announce({ trains: [old] }, { t: zh, locale: 'zh-TW' }), '板南線 往 頂埔 進站中');
+  assert.equal(turnSummary({ q: 'MRT', results: [{ tool: 'metro_live_board', data: { station: '台北車站', trains: [old] } }] }).line, '台北車站捷運：往頂埔 進站中');
+});
+
+test('審查 #122：國定假日標記看「路線＋方向＋終點」——區間車那一筆沒標時不被整筆排除', () => {
+  const SHORT = { ...WEEKDAY, DestinationStationID: 'BL05', DestinationStationName: Z('亞東醫院'), ServiceDay: { Monday: true, Tuesday: true, Wednesday: true, Thursday: true, Friday: true }, Timetables: [{ DepartureTime: '10:04' }] };
+  const table = normStationTimetable([WEEKDAY, HOLIDAY, SHORT]);
+  const r = upcomingFromTimetable(table, at('2026-10-26T02:00:00Z'));
+  assert.deepEqual(r.map((x) => [x.destination, x.etaMin]).sort(), [['亞東醫院', 4], ['頂埔', 8]]);
 });

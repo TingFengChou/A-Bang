@@ -1,4 +1,4 @@
-// 台灣國定假日（含補假）：內建清單 core/data/tw-holidays.json（行政院人事行政總處公告，以官方為準；⚠️ 待校對）。
+// 台灣國定假日（含補假）：內建清單 core/data/tw-holidays.json（由人事行政總處辦公日曆表 CSV 產生，scripts/build-holidays.js；以官方為準）。
 // 捷運站別時刻表（core/services/metro.js）在國定假日改用 ServiceDay.NationalHolidays 的假日班表。日期一律用台灣時間判斷。
 import HOLIDAYS from './data/tw-holidays.json' with { type: 'json' };
 

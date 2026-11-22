@@ -130,3 +130,68 @@ test('模型模式：去哪個機場由程式先問，不呼叫模型', async ()
   assert.deepEqual(ask.options.map((o) => o.label), ['桃園機場', '松山機場', '高雄小港機場']);
   assert.equal(askFirst(parseIntent('去桃園機場')), null);
 });
+
+test('審查 #122：問天氣、空品、路況、不去了、別人去、帶什麼、先去別處、設提醒——不是去機場的行程', () => {
+  for (const s of ['明天要去機場，會下雨嗎', '去機場會不會下雨', '去機場的路上天氣如何', '去機場那邊的空氣品質', '明天去機場會塞車嗎', '不用去機場了', '我老公去機場了', '去機場要帶護照嗎', '去機場前先去全聯', '幫我設去機場的提醒',
+    'Will it rain on my way to the airport?', 'weather for the airport', 'Is traffic bad to the airport?', 'My wife is going to the airport']) {
+    const it = parseIntent(s);
+    assert.ok(!it.airport, s);
+    assert.ok(!(it.intent === 'trip' && it.to == null), s);
+  }
+  assert.equal(parseIntent('明天要去機場，會下雨嗎').intent, 'weather');
+  assert.equal(parseIntent('去機場那邊的空氣品質').intent, 'aqi');
+  // 還是行程：我要去機場了、帶行李去機場、去機場要多久
+  for (const s of ['我要去機場了', '帶行李去機場怎麼走', '去機場要多久', 'Take the train to the airport']) assert.equal(parseIntent(s).airport, true, s); // train 裡有 rain，不算問天氣
+});
+
+test('審查 #122：台北＝松山機場；答案後面的附加詞（交通方式）一起帶；英文 the Taoyuan one', () => {
+  for (const t of ['台北', '臺北', '台北的', 'Taipei', 'taipei']) assert.equal(airportAnswer(t), '臺北松山機場', t);
+  assert.equal(airportAnswer('松山，叫車'), '臺北松山機場');
+  assert.equal(airportAnswer('the Taoyuan one'), '臺灣桃園國際機場');
+  assert.equal(resolvePending({ id: 'a', slot: 'place', airport: true }, '松山，叫車'), '叫車去臺北松山機場');
+  assert.equal(resolvePending({ id: 'a', slot: 'place', airport: true }, '桃園，搭機捷'), '坐捷運去臺灣桃園國際機場');
+  assert.equal(resolvePending({ id: 'a', slot: 'place', airport: true, lang: 'en' }, 'the Taoyuan one'), 'How do I get to Taoyuan International Airport?');
+});
+
+test('審查 #122：從家／公司去機場用常用地點的座標；沒設定照實說；「那去機場呢」沿用起點；搭機捷＝桃園機場', () => {
+  const saved = { 家: { name: '家', lat: 25.0143, lon: 121.4635 }, 公司: { name: '公司', lat: 24.1469, lon: 120.6839 } };
+  for (const [s, k] of [['從家去機場', '家'], ['從我家到機場', '家'], ['從公司去機場', '公司']]) {
+    const it = parseIntent(s, { saved });
+    assert.equal(it.airport, true, s);
+    assert.equal(it.from, k);
+    assert.equal(it.fromSaved.lat, saved[k].lat);
+  }
+  const co = parseIntent('從公司去機場', { saved });
+  assert.ok(planAsk(co).after);
+  assert.equal(co.to, '臺中國際機場', '公司在台中：猜清泉崗（不是現在位置附近的）');
+  const miss = parseIntent('從家去機場', { saved: {} });
+  assert.deepEqual([miss.intent, miss.missing], ['savedMissing', '家']);
+  const h = [{ role: 'user', content: '從板橋到台北101' }, { role: 'assistant', content: '好' }];
+  const f = parseIntent('那去機場呢', { history: h });
+  assert.equal(f.airport, true);
+  assert.equal(f.from, '板橋車站');
+  for (const s of ['搭機場捷運去機場', '坐機捷到機場', 'Take the Airport MRT to the airport']) {
+    const it = parseIntent(s);
+    assert.equal(it.to, '臺灣桃園國際機場', s);
+    assert.ok(!it.airport, s);
+  }
+});
+
+test('審查 #122：英文與中文猜的機場一致（台南：臺南機場有英文名）', () => {
+  const TNN = { lat: 22.997, lon: 120.212 };
+  for (const p of [TPE, ZHONGLI, TXG, KHH, TNN, CHIAYI]) assert.deepEqual(airportGuess(p, { en: true }), airportGuess(p), JSON.stringify(p));
+  assert.equal(airportGuess(TNN).guess, '臺南機場');
+  assert.equal(parseIntent(airportAsk(['臺南機場'], { lang: 'en' }).ask.options[0].say).to, '臺南機場');
+});
+
+test('審查 #122：判斷層可以更正「去機場」（說是天氣就查天氣），只說聽不懂時照規則問機場', async () => {
+  const judgeSays = (intent) => Object.assign(async () => ({ intent, states: [], source: 'test' }), { quick: async () => ({ intent, states: [], source: 'test' }) });
+  const go = async (intent) => { const es = []; await runDemo(svc, { messages: one('去機場'), ...at(TPE) }, (e) => es.push(e), { now: NOW, judge: judgeSays(intent) }); return es; };
+  const tools = (es) => es.filter((e) => e.type === 'tool_start').map((e) => e.tool || e.name);
+  const w = await go('weather');
+  assert.ok(tools(w).includes('weather_now'), tools(w).join(','));
+  assert.ok(!tools(w).includes('plan_trip'));
+  const u = await go('unknown');
+  assert.ok(tools(u).includes('plan_trip'));
+  assert.equal(u.find((e) => e.type === 'ask')?.question, '要去哪個機場？');
+});

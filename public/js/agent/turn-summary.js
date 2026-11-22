@@ -28,7 +28,8 @@ const MODE = {
 const AQI_EN = { good: 'Good', moderate: 'Moderate', sensitive: 'Unhealthy for sensitive groups', unhealthy: 'Unhealthy', very: 'Very unhealthy', hazardous: 'Hazardous' };
 /** 捷運到站狀態代碼（core/services/metro.js）→ 短字（英文那一輪不出現中文） */
 const METRO_ST = { zh: { arriving: '進站中', approaching: '即將進站', minutes: (m) => `${m} 分`, scheduled: (m) => (m <= 1 ? '約 1 分內' : `約 ${m} 分`) }, en: { arriving: 'arriving', approaching: 'approaching', minutes: (m) => `${m} min`, scheduled: (m) => (m <= 1 ? '~1 min' : `~${m} min`) } };
-const metroStatus = (t, en) => { const f = METRO_ST[en ? 'en' : 'zh'][t.scheduled ? 'scheduled' : t.status]; return typeof f === 'function' ? f(t.etaMin) : f || '—'; };
+const metroCode = (t) => (t.scheduled ? 'scheduled' : ['arriving', 'approaching', 'minutes'].includes(t.status) ? t.status : t.etaMin == null ? null : t.etaMin <= 0 ? 'arriving' : t.etaMin <= 1 ? 'approaching' : 'minutes'); // 舊版的中文字串：用 etaMin 推回
+const metroStatus = (t, en) => { const f = METRO_ST[en ? 'en' : 'zh'][metroCode(t)]; return typeof f === 'function' ? f(t.etaMin) : f || '—'; };
 const SCAM = { zh: { high: '高風險', medium: '有疑點', low: '未發現已知特徵' }, en: { high: 'High risk', medium: 'Suspicious', low: 'No known signs' } };
 const L = {
   zh: {

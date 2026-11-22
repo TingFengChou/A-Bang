@@ -201,14 +201,23 @@ export function airportAsk(order, { guess = false, from = null, mode = null, lan
     accept: new Set(AIRPORTS.filter((x) => !en || x.en).map(say)),
   };
 }
-/** 打字回答的機場短名（「桃園」「小港」「松山的」「Taoyuan」）→ 機場正式名稱；不是就回 null（交給一般的地名比對） */
+/** 打字回答的機場短名（「桃園」「小港」「松山的」「台北」「Taoyuan」）→ 機場正式名稱；不是就回 null（交給一般的地名比對） */
 const AIRPORT_SHORT = [
-  [/^(?:桃園|桃機|第[一二三]航廈|t[123]|taoyuan)$/i, '臺灣桃園國際機場'], [/^(?:松山|songshan)$/i, '臺北松山機場'],
-  [/^(?:台中|清泉崗|taichung)$/i, '臺中國際機場'], [/^(?:高雄|小港|kaohsiung)$/i, '高雄國際機場'], [/^台南$/, '臺南機場'],
-  [/^花蓮$/, '花蓮機場'], [/^(?:台東|豐年)$/, '臺東機場'], [/^(?:澎湖|馬公|penghu|magong)$/i, '澎湖機場'], [/^(?:金門|尚義|kinmen)$/i, '金門機場'], [/^(?:南竿|馬祖)$/, '馬祖南竿機場'],
+  [/^(?:桃園|桃機|第[一二三]航廈|t[123]|taoyuan|tpe)$/i, '臺灣桃園國際機場'], [/^(?:松山|台北|taipei|songshan|tsa)$/i, '臺北松山機場'],
+  [/^(?:台中|清泉崗|taichung|rmq)$/i, '臺中國際機場'], [/^(?:高雄|小港|kaohsiung|khh)$/i, '高雄國際機場'], [/^(?:台南|tainan)$/i, '臺南機場'],
+  [/^(?:花蓮|hualien)$/i, '花蓮機場'], [/^(?:台東|豐年|taitung)$/i, '臺東機場'], [/^(?:澎湖|馬公|penghu|magong)$/i, '澎湖機場'], [/^(?:金門|尚義|kinmen)$/i, '金門機場'], [/^(?:南竿|馬祖|nangan|matsu)$/i, '馬祖南竿機場'],
 ];
+/** 答案的第一段（「松山，叫車」「桃園 搭機捷」→ 松山、桃園；英文只切逗號：「the Taoyuan one」） */
+export function answerHead(text) {
+  const t = tw(String(text || '')).trim();
+  const head = t.split(/[，,、；;]/)[0].trim();
+  return CJK.test(head) ? head.split(/\s+/)[0] : head;
+}
 export function airportAnswer(text) {
-  const c = tw(String(text || '').trim()).replace(/^(?:我)?(?:要|想)?(?:去|到|往|是)\s*|^(?:to|the)\s+/giu, '').replace(/\s*(?:的|那個)?\s*(?:國際)?(?:機場|airport)?\s*(?:啦|喔|吧)?[。！!～~.]*$/iu, '').trim();
+  const c = answerHead(text)
+    .replace(/^(?:我)?(?:要|想)?(?:去|到|往|是)\s*|^(?:to|go to|the)\s+/giu, '')
+    .replace(/\s+(?:one|please)$/i, '')
+    .replace(/\s*(?:的|那個)?\s*(?:國際)?(?:機場|airport)?\s*(?:啦|喔|吧)?[。！!～~.]*$/iu, '').trim();
   return AIRPORT_SHORT.find(([re]) => re.test(c))?.[1] || null;
 }
 

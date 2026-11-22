@@ -990,6 +990,306 @@
           }
         }
       ]
+    },
+    {
+      "id": "Q-36",
+      "title": "（不搶）去機場的天氣：照常回答天氣，不排行程、不問機場（審查 #122）",
+      "turns": [
+        {
+          "say": "明天要去機場，會下雨嗎",
+          "expect": {
+            "tools": [
+              "weather_tomorrow"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-37",
+      "title": "（不搶）去機場會不會下雨、路上天氣：天氣",
+      "turns": [
+        {
+          "say": "去機場會不會下雨",
+          "expect": {
+            "tools": [
+              "weather_now"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-38",
+      "title": "（不搶）去機場那邊的空氣品質：空品",
+      "turns": [
+        {
+          "say": "去機場那邊的空氣品質",
+          "expect": {
+            "tools": [
+              "aqi_nearby"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-39",
+      "title": "（不搶）英文 rain on my way to the airport、weather for the airport：天氣",
+      "turns": [
+        {
+          "say": "Will it rain on my way to the airport?",
+          "expect": {
+            "tools": [
+              "weather_now"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "asksNone": true
+          }
+        },
+        {
+          "say": "weather for the airport",
+          "expect": {
+            "tools": [
+              "weather_now"
+            ],
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "asksNone": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-40",
+      "title": "（不搶）去機場會不會塞車、不去了：不排行程、不問機場（審查 #122）",
+      "turns": [
+        {
+          "say": "明天去機場會塞車嗎",
+          "expect": {
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "asksNot": [
+              "機場"
+            ]
+          }
+        },
+        {
+          "say": "Is traffic bad to the airport?",
+          "expect": {
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "asksNot": [
+              "airport"
+            ]
+          }
+        },
+        {
+          "say": "不用去機場了",
+          "expect": {
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "asksNot": [
+              "機場"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-41",
+      "title": "從家／公司去機場：用常用地點當起點，猜離那裡最近的機場",
+      "saved": {
+        "家": {
+          "name": "家",
+          "lat": 25.0143,
+          "lon": 121.4635
+        },
+        "公司": {
+          "name": "公司",
+          "lat": 24.1469,
+          "lon": 120.6839
+        }
+      },
+      "turns": [
+        {
+          "say": "從家去機場",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "家",
+            "to": "松山機場",
+            "asks": [
+              "哪個機場"
+            ],
+            "askGuess": true
+          }
+        },
+        {
+          "say": "重來",
+          "expect": {}
+        },
+        {
+          "say": "從公司去機場",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "公司",
+            "to": "臺中國際機場",
+            "asks": [
+              "哪個機場"
+            ],
+            "askOptions": [
+              "台中清泉崗機場"
+            ],
+            "askGuess": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-42",
+      "title": "「從板橋到台北101」之後「那去機場呢」：起點沿用板橋，問哪個機場",
+      "turns": [
+        {
+          "say": "從板橋到台北101",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ]
+          }
+        },
+        {
+          "say": "那去機場呢",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "from": "板橋",
+            "to": "松山機場",
+            "asks": [
+              "哪個機場"
+            ],
+            "askGuess": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-43",
+      "title": "搭機場捷運去機場：就是桃園機場，不問",
+      "turns": [
+        {
+          "say": "搭機場捷運去機場",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "桃園國際機場",
+            "asksNot": [
+              "機場"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-44",
+      "title": "沒定位問哪個機場，回「台北的」：松山機場",
+      "location": false,
+      "turns": [
+        {
+          "say": "去機場",
+          "expect": {
+            "toolsNone": true,
+            "asks": [
+              "哪個機場"
+            ]
+          }
+        },
+        {
+          "say": "台北的",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "松山機場",
+            "asksNot": [
+              "哪個機場"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-45",
+      "title": "（不搶）別人去機場、問要帶什麼、先去別處、設提醒：不排行程、不問機場（審查 #122）",
+      "turns": [
+        {
+          "say": "我老公去機場了",
+          "expect": {
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "asksNot": [
+              "機場"
+            ]
+          }
+        },
+        {
+          "say": "去機場要帶護照嗎",
+          "expect": {
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "asksNot": [
+              "機場"
+            ]
+          }
+        },
+        {
+          "say": "去機場前先去全聯",
+          "expect": {
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "asksNot": [
+              "機場"
+            ]
+          }
+        },
+        {
+          "say": "幫我設去機場的提醒",
+          "expect": {
+            "toolsNot": [
+              "plan_trip"
+            ],
+            "asksNot": [
+              "機場"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

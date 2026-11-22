@@ -31,7 +31,7 @@ export function planAsk(it, { profileId = 'life', history = [], text = '' } = {}
     return { stop: { ask: a, short: shortOf(en, it.ambig.token), accept: new Set(a.options.map((o) => o.say)) } };
   }
   if (it.intent === 'trip' && it.airport && !it.to) { // 去機場沒說哪個：有位置（或說了起點）先用最近的機場算，同時問；沒位置只問
-    const g = airportGuess(it.fromPoint || (it.from && landmarkByName(it.from)) || null, { en });
+    const g = airportGuess(it.fromSaved || it.fromPoint || (it.from && landmarkByName(it.from)) || null, { en }); // 「從家去機場」：常用地點的座標
     if (it.followUp && g.guess) { it.to = g.guess; return null; } // 接著改條件（「那叫車呢」）：問過了，照猜的那個算
     const o = { from: it.from || null, mode: it.mode || null, lang };
     if (!g.guess) { const a = airportAsk(g.order, o); return { stop: a }; }
@@ -95,7 +95,7 @@ export function askFirst(it, { history = [], at = null } = {}) {
   }
   if (it.intent === 'trip' && it.airport && !it.to) { // 模型模式不先用猜的查：去哪個機場先問（選項最近的放第一）
     const en = it.lang === 'en';
-    const g = airportGuess(at || (it.from && landmarkByName(it.from)) || null, { en });
+    const g = airportGuess(it.fromSaved || (it.from && landmarkByName(it.from)) || at || null, { en });
     if (it.followUp && g.guess) { it.to = g.guess; return null; }
     return airportAsk(g.order, { from: it.from || null, mode: it.mode || null, lang: en ? 'en' : null });
   }

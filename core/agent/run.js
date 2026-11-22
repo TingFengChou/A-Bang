@@ -66,7 +66,7 @@ export async function metroPoint(svc, name, at = null) {
 }
 
 /** 規則已經很明確、判斷層不改意圖的標記（PM Q 情境：只回好、地點歧義、路名、只說類別、要出門了、沒說去哪的高鐵、公車方向、問中獎） */
-const RULE_FINAL = ['ack', 'ambig', 'category', 'askTo', 'anyTo', 'toward', 'wantCheck', 'metroTo', 'airport']; // 路名（road）不在這裡：判斷層說是別的意圖時可以更正（審查 #121）
+const RULE_FINAL = ['ack', 'ambig', 'category', 'askTo', 'anyTo', 'toward', 'wantCheck', 'metroTo']; // 路名（road）、去機場（airport）不在這裡：判斷層說是別的意圖時可以更正（審查 #121、#122）；去機場只有判斷層說「聽不懂」時不改（限縮）
 /** 「你說過」的預設狀況只能是這幾種（habits.js 叫車原因） */
 export const USUAL_STATES = ['rush', 'luggage', 'lessWalk'];
 export const MAX_MESSAGES = 10;
@@ -348,7 +348,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
   const j = jc ? await jc.full(q0) : null;
   if (j) {
     // 出門建議是天氣＋空品的組合：判斷層說天氣或空品時保留（判斷層沒有 outing 這個意圖）；找短劇也是（判斷層沒有 drama，規則的關鍵字很明確）
-    const keep = it.followUp || it.intent === 'outing' || it.intent === 'drama' || it.also?.length || (it.intent === 'metro' && it.station) || it.nearRail || it.thanks || it.sorry || RULE_FINAL.some((k) => it[k]) || !Object.hasOwn(JUDGE_INTENTS, it.intent); // 判斷層沒有的意圖（防詐請到防詐頁、代按代付、電梯）判斷層無從更正：歧義、路名、只說類別、要出門了、沒說去哪的高鐵、公車方向、問中獎——規則已經很明確 // 說了站名的捷運（「捷運西門站下一般」被判成行程，P5-5 模型模式）、去最近的火車站、禮貌話：規則已經很明確 // 判斷層常把「出門要注意什麼」判成空品或行程（設計審查實測）；一句問好幾件事以規則分段為準（P5-8）
+    const keep = it.followUp || it.intent === 'outing' || it.intent === 'drama' || it.also?.length || (it.intent === 'metro' && it.station) || it.nearRail || it.thanks || it.sorry || RULE_FINAL.some((k) => it[k]) || (it.airport && j.intent === 'unknown') || !Object.hasOwn(JUDGE_INTENTS, it.intent); // 判斷層沒有的意圖（防詐請到防詐頁、代按代付、電梯）判斷層無從更正：歧義、路名、只說類別、要出門了、沒說去哪的高鐵、公車方向、問中獎——規則已經很明確 // 說了站名的捷運（「捷運西門站下一般」被判成行程，P5-5 模型模式）、去最近的火車站、禮貌話：規則已經很明確 // 判斷層常把「出門要注意什麼」判成空品或行程（設計審查實測）；一句問好幾件事以規則分段為準（P5-8）
     if (j.intent !== it.intent && !keep && !it.savedTrip && it.intent !== 'savedMissing') it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent, saved: req.savedPlaces, now }) || it;
     it.states = j.states;
     const more = !req.clientToolResults?.length && moreStatesNote(q0, j);

@@ -13,8 +13,15 @@
 
 ---
 
+## 2026-11-22 P2b PR #122 審查修正（國定假日核對、去機場不搶別的問題）
+- 做了：①國定假日清單改由 `scripts/build-holidays.js` 讀人事行政總處官方辦公日曆 CSV（data.gov.tw 14718，原檔放 `scripts/data/dgpa-calendar/`）產生，補 2026-02-15 小年夜、2027-12-31（2028 元旦週六的補假）；測試比對產生結果、今年或明年不在清單就失敗 ②「去機場」不搶天氣、空品、路況、不去了、別人去、帶什麼、先去別處、設提醒（照 main 回答），判斷層可更正 ③打字回答「台北」＝松山機場 ④從家／公司去機場用常用地點座標 ⑤「那去機場呢」沿用上一趟起點 ⑥所有機場有英文名稱，中英猜的一致 ⑦搭機場捷運／機捷去機場＝桃園機場 ⑧答案後的附加詞（「松山，叫車」）帶上交通方式、英文 the Taoyuan one ⑨捷運卡片遇到舊版中文狀態用 etaMin 推回代碼 ⑩英文卡片線名、終點用 lineEn／destinationEn ⑪國定假日標記看路線＋方向＋終點
+- 測試：TZ=UTC npm test 全過（新增 holidays 3 項、airport-ask 4 項、metro-status-holiday 2 項、情境 Q-36～Q-45）；e2e、build:demo、build:cards、lint 全過
+- 文件：AGENT.md、CARDS.md、DATA_SOURCES.md、PLAN.md
+- 下一個：真實 StationTimeTable 是否帶 NationalHolidays（M1）；台北「去機場」先猜松山由產品負責人確認
+- 卡住：無
+
 ## 2026-11-22 P2b 去機場先查並問、北捷看板狀態走字典、時刻表看國定假日
-- 做了：①「去機場」「到機場怎麼走」「叫車去機場」「How do I get to the airport?」原本列功能清單；現在照 #121 的通用機制：有定位（或說了起點）先用最近的機場排行程（台北松山、桃園一帶桃園、台中清泉崗、高雄小港），同時問「要去哪個機場？」（選項最近的放第一、最多 3 個、第一個標猜的）；最近的在 80 公里外或沒定位只問；說了「桃園機場」「松山機場」「第二航廈」（地標庫加航廈別名）不問；打字回答「桃園」「小港」由 `slot:place`＋`pending.airport` 接回；接著改條件不再問；模型模式由程式先問 ②北捷看板 `trains[].status` 改成代碼（arriving／approaching／minutes／scheduled／unknown），卡片用中英字典、英文播報與一句話摘要不出現中文，工具文字仍是中文；`metro.v1.json` status 改 enum、`trains[]` 不收其他欄位 ③站別時刻表：資料有 `ServiceDay.NationalHolidays` 時國定假日（含補假）用假日班表；內建 2026、2027 清單（`core/data/tw-holidays.json`，行政院人事行政總處公告，以官方為準，⚠️ 待校對，列進 PLAN.md M1 待驗證表），台灣時間判斷、凌晨看前一天
+- 做了：①「去機場」「到機場怎麼走」「叫車去機場」「How do I get to the airport?」原本列功能清單；現在照 #121 的通用機制：有定位（或說了起點）先用最近的機場排行程（台北松山、桃園一帶桃園、台中清泉崗、高雄小港），同時問「要去哪個機場？」（選項最近的放第一、最多 3 個、第一個標猜的）；最近的在 80 公里外或沒定位只問；說了「桃園機場」「松山機場」「第二航廈」（地標庫加航廈別名）不問；打字回答「桃園」「小港」由 `slot:place`＋`pending.airport` 接回；接著改條件不再問；模型模式由程式先問 ②北捷看板 `trains[].status` 改成代碼（arriving／approaching／minutes／scheduled／unknown），卡片用中英字典、英文播報與一句話摘要不出現中文，工具文字仍是中文；`metro.v1.json` status 改 enum、`trains[]` 不收其他欄位 ③站別時刻表：資料有 `ServiceDay.NationalHolidays` 時國定假日（含補假）用假日班表；內建 2026、2027 清單（`core/data/tw-holidays.json`；審查後改由官方 CSV 產生並核對），台灣時間判斷、凌晨看前一天
 - 測試：TZ=UTC npm test 全過（新增 airport-ask 6 項、metro-status-holiday 7 項、情境 Q-28～Q-35；情境檢查加 `asksNot`）；e2e、build:demo、build:cards、lint 全過
 - 文件：AGENT.md、CARDS.md、MCP_TOOLS.md、DATA_SOURCES.md、PLAN.md
 - 下一個：國定假日清單與官方辦公日曆表逐日核對；真實 StationTimeTable 是否帶 NationalHolidays（M1）
