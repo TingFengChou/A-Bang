@@ -76,7 +76,7 @@ export function feltMinutes(o) {
  *  max：最多加幾分（滿分 1＝100 分）；full：常選比例到這裡就加滿（60% 捷運＋40% 公車 → 捷運 +8、公車 +5.3，混著選的人差距自然變小）
  *  只有「沒指定方式、使用者沒說狀況」才看習慣；比最快的方案慢太多（超過 2 倍且多 20 分以上）的不加分（走路 100 分鐘不會因為習慣勝出） */
 export const HABIT = { max: 0.08, full: 0.6 };
-const HABIT_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro: '搭捷運', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
+const HABIT_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro: '搭捷運', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車', drive: '開車' };
 
 /** 習慣只在使用者確認後才送來（public/js/habits.js 先問「以後要我優先推捷運嗎？」）：未確認的推測不加分（2026-11-21 互動確認） */
 /** 每個方案的習慣加分（0～HABIT.max）；不適用時回 0 */
@@ -225,8 +225,8 @@ export function decide(options, ctx = {}) {
   return { weights, ranked, excluded, best, reason };
 }
 
-const MODE_NAME = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
-const MODE_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro: '坐捷運', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
+const MODE_NAME = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車', drive: '開車' };
+const MODE_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro: '坐捷運', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車', drive: '開車' };
 
 /** 產生一句理由：最佳方案贏在哪裡（取貢獻差最大的項目）＋生效的狀態 */
 function explain(best, second, states, excluded, ranked = []) {
@@ -286,7 +286,7 @@ export const ASK_MIN = { minutes: 5, cost: 50 };
 export const ASK_WALK_MAX = 15;
 /** 帶行李、少走路的問題：每少走 1 分鐘，最多值得多花多少元 */
 export const ASK_COMFORT_NT = 50;
-const MODE_EN = { walk: 'Walking', bike: 'YouBike', bus: 'The bus', metro: 'The MRT', thsr: 'High speed rail', tra: 'The train', intercity: 'The coach', ridehail: 'A taxi' };
+const MODE_EN = { walk: 'Walking', bike: 'YouBike', bus: 'The bus', metro: 'The MRT', thsr: 'High speed rail', tra: 'The train', intercity: 'The coach', ridehail: 'A taxi', drive: 'Driving' };
 
 /**
  * 關鍵問題（2026-11-21 互動確認，ADR-0010）：答案取決於使用者時，直接問一句，不默默推測。

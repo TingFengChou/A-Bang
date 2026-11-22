@@ -108,6 +108,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | 高鐵／台鐵車站座標與等級 | 未驗證（2026-11-21：`StationPosition.PositionLat／Lon` 給「最近車站」用；台鐵 `StationClass` 可用來優先有直達車的大站，目前改用「最近 3 站依序查、0 班換下一站」） |
 | OData 空白用 `%20`（已實作）是否必要 | 未驗證 |
 | 捷運站別時刻表的國定假日班表 | 2026-11-22 已實作（國定假日用 `ServiceDay.NationalHolidays` 的班表，看路線＋方向＋終點）；國定假日清單 `core/data/tw-holidays.json` 已與人事行政總處 115、116 年辦公日曆表核對（data.gov.tw 資料集 14718，`scripts/build-holidays.js` 由官方 CSV 產生）。待驗證：真實 `StationTimeTable` 是否帶 `NationalHolidays`、平日／假日是否分成兩筆 |
+| 停車場 `/basic/v1/Parking/OffStreet/CarPark/City/{City}` 的 `$spatialFilter` | 2026-11-23 實測：台中 500 公尺內回 1,558 筆（不像真的有篩），程式自己算距離、取 600 公尺內；台北市、新北市 `CarParks` 是空的（只有 `ParkingAvailability`、沒有座標）→ 畫面說查不到。`$select` 沒有作用。待驗證：附近篩選的實際範圍、台北市是否改用市府開放資料 |
 
 ## M2 Tool registry＋遠端 MCP ✅
 

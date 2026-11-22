@@ -105,7 +105,7 @@ const LIFE_WORDS = [
 const OUTING = /(?:適合|可以|能|要不要).{0,4}(?:慢跑|跑步|運動|騎車兜風|散步)|(?:慢跑|跑步|運動|散步).{0,4}(?:好嗎|可以嗎|適合嗎|嗎)|出門.{0,10}(?:注意|要帶|帶什麼|穿什麼|怎麼穿|帶傘|適合)|適合出門|(?:可以|能|適合|要不要)\s*(?:帶.{0,4})?(?:去|出去)\s*(?:公園|郊外|河濱|戶外|玩|散步|運動|爬山|踏青|野餐)|適合(?:出去|戶外)|(?:今天|等一下|待會).{0,6}(?:注意什麼|要帶什麼|穿什麼)|要穿什麼|穿什麼出門/;
 const WEATHER_WORD = /天氣|氣溫|溫度|幾度|下雨|帶傘|雨傘|會冷|會熱|會很[冷熱]|[冷熱]不[冷熱]|很[冷熱][嗎嘛]|颱風|出太陽/; // 「今天會很熱嗎」（P5-4）
 // 使用者指定交通方式（「坐公車去」「改叫車」）：plan_trip prefs.mode；「不要叫車」的叫車不算
-const MODE_WORDS = [['bus', /公車|巴士/], ['metro', /捷運|MRT/i], ['bike', /youbike|ubike|單車|腳踏車/i], ['walk', /走路|步行|走過去/], ['ridehail', /叫車|叫(?:一|1)?(?:台|輛)車|計程車|小黃|uber|汽車|開車/i],
+const MODE_WORDS = [['bus', /公車|巴士/], ['metro', /捷運|MRT/i], ['bike', /youbike|ubike|單車|腳踏車/i], ['walk', /走路|步行|走過去/], ['drive', /自己開車|自行開車|開我的車|自駕|開車(?:去|過去|出門|到)?/], ['ridehail', /叫車|叫(?:一|1)?(?:台|輛)車|計程車|小黃|uber/i],
   ['thsr', /高鐵/], ['tra', /台鐵|臺鐵|火車/], ['intercity', /客運/]];
 /** 使用者說不要的交通方式（「不要叫車」「不想坐公車」「別走路」）→ ['ridehail', …] */
 const NOT_MODE = /(不要|不想|別|不用|不坐|不搭)\s*(坐|搭|改|騎|叫|等)?\s*$/;
@@ -1263,8 +1263,8 @@ function alsoSteps(it, now = Date.now()) {
 
 /** 出發是哪一天（總結、聽懂了什麼用） */
 const dayWord = (it) => ['今天', '明天', '後天'][it.departDays ?? (it.tomorrow ? 1 : 0)] || '今天';
-const MODE_SAY = { walk: '走路', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
-const MODE_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro: '坐捷運', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車' };
+const MODE_SAY = { walk: '走路', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車', drive: '開車' };
+const MODE_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro: '坐捷運', thsr: '坐高鐵', tra: '坐台鐵', intercity: '坐客運', ridehail: '叫車', drive: '開車' };
 const STATE_SAY = { rush: '趕時間', luggage: '帶行李', budget: '想省錢', lessWalk: '少走路', rain: '下雨', badAir: '空氣差', traffic: '塞車', elder: '帶長輩', kids: '帶小孩', mobility: '行動不便' };
 /**
  * 接著改的那一輪，討論串第一句說清楚沿用什麼、改了什麼（PR #35 設計審查）：「沿用：西門町 → 台北101｜改：不要叫車」
@@ -1344,7 +1344,7 @@ export function savedTrip(s, places, saved = {}) {
 export const isEnglish = (s) => /[A-Za-z]{2,}/.test(s) && !/[一-鿿]/.test(s);
 const EN_STATES = [['rush', /hurry|late|asap|quick(?:ly)?|fastest/i], ['luggage', /luggage|suitcase|\bbags?\b/i], ['budget', /cheap|budget|save money/i],
   ['lessWalk', /walk less|don'?t want to walk|tired/i], ['elder', /grand(?:ma|pa|mother|father|parents?)|elderly/i], ['kids', /\bkids?\b|child(?:ren)?|stroller|baby/i], ['mobility', /wheelchair|disabled|crutch/i]];
-const EN_MODES = [['intercity', /intercity|long[- ]distance bus|\bcoach\b/i], ['bus', /\bbus\b/i], ['metro', /\b(?:mrt|metro|subway)\b/i], ['ridehail', /\b(?:taxi|uber|cab)\b/i], ['walk', /\bwalk(?:ing)?\b/i], ['bike', /(?:\b(?:you)?bike\b|\bride\s+(?:one|a bike)\b)/i], ['thsr', /high[- ]speed rail|\bhsr\b/i], ['tra', /\btrain\b|railway/i]];
+const EN_MODES = [['intercity', /intercity|long[- ]distance bus|\bcoach\b/i], ['bus', /\bbus\b/i], ['metro', /\b(?:mrt|metro|subway)\b/i], ['drive', /\b(?:drive|driving|my (?:own )?car)\b/i], ['ridehail', /\b(?:taxi|uber|cab)\b/i], ['walk', /\bwalk(?:ing)?\b/i], ['bike', /(?:\b(?:you)?bike\b|\bride\s+(?:one|a bike)\b)/i], ['thsr', /high[- ]speed rail|\bhsr\b/i], ['tra', /\btrain\b|railway/i]];
 /** 英文城市名 → 台鐵／高鐵站名（「next train to Taichung」） */
 const EN_RAIL = { taipei: '臺北', banqiao: '板橋', taoyuan: '桃園', hsinchu: '新竹', miaoli: '苗栗', taichung: '臺中', changhua: '彰化', chiayi: '嘉義', tainan: '臺南', kaohsiung: '高雄', zuoying: '左營', yilan: '宜蘭', hualien: '花蓮', taitung: '臺東', keelung: '基隆', nangang: '南港' };
 const RAIN = /\brain(?:ing|y|s)?\b|umbrella|weather|temperature|\bhot\b(?!\s*springs?)|\bcold\b|\bwarm\b|\bwear\b|jacket|\bcoat\b|sweater/i;
@@ -1447,7 +1447,7 @@ function enArriveBy(s) {
 
 /** 英文方案名稱（卡片目前仍是中文；回答用英文） */
 const enPlace = (name) => { const l = (LANDMARKS.items || LANDMARKS).find((x) => x.name === name); const en = l?.en || l?.aliases?.find((a) => /^[A-Za-z]{4,}/.test(a)); return en ? `${en} (${name})` : name; };
-const EN_MODE_NAME = { walk: 'walking', bike: 'YouBike', bus: 'bus', metro: 'MRT', thsr: 'High Speed Rail', tra: 'train', intercity: 'intercity bus', ridehail: 'taxi' };
+const EN_MODE_NAME = { walk: 'walking', bike: 'YouBike', bus: 'bus', metro: 'MRT', thsr: 'High Speed Rail', tra: 'train', intercity: 'intercity bus', ridehail: 'taxi', drive: 'driving' };
 /** 英文總結（S12；數字取自工具資料） */
 function englishSummary(it, results) {
   const note = ' Station and place names are shown in Chinese.';

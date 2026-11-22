@@ -16,6 +16,8 @@ import { createMetroServices } from './services/metro.js';
 import { createMockMetroServices } from './services/metro-mock.js';
 import { createTrafficServices } from './services/traffic.js';
 import { createMockTrafficServices } from './services/traffic-mock.js';
+import { createParkingServices } from './services/parking.js';
+import { createMockParkingServices } from './services/parking-mock.js';
 import { createIntercityServices } from './services/intercity.js';
 import { createMockIntercityServices } from './services/intercity-mock.js';
 import { createCwaClient } from './cwa-client.js';
@@ -83,6 +85,7 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
   const transit = live ? withTdxFallback(createTransitServices(tdx, { cities }), createMockTransitServices(), quota) : createMockTransitServices({ bus: demo.bus });
   const metro = live ? withTdxFallback(createMetroServices(tdx), createMockMetroServices(), quota) : createMockMetroServices();
   const traffic = live ? withTdxFallback(createTrafficServices(tdx), createMockTrafficServices({ scenario: demo.traffic }), quota) : createMockTrafficServices({ scenario: demo.traffic });
+  const parking = live ? withTdxFallback(createParkingServices(tdx), createMockParkingServices(), quota) : createMockParkingServices();
   const intercity = live ? withTdxFallback(createIntercityServices(tdx, traffic), createMockIntercityServices(traffic), quota) : createMockIntercityServices(traffic);
   const booking = live ? createBookingServices(tdx, transit) : createMockBookingServices(transit);
   const weatherLive = Boolean(cwaKey) && !forceMock;
@@ -123,6 +126,7 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
     ...metro, // metro
     ...traffic, // traffic
     ...intercity, // intercity（依賴 traffic 算延誤）
+    ...parking, // parking（自己開車時目的地附近的停車場）
     ...weather, // weather（中央氣象署，金鑰獨立）
     places: createPlaceServices(), // 內建地標，live 與示範相同
     ...booking, // booking：導訂票（⛔ 權限前 live 回「尚未開通」）

@@ -95,9 +95,11 @@ const RequestSchema = z.object({
   // usual：使用者說過的預設狀況（問「你常叫車，通常是因為？」答的：趕時間、常帶東西、不想走路）；不自動套用——會改變建議時問「這次也帶東西嗎？」（ADR-0016）
   // habitAsk：手機說「這種方式選得夠多、還沒問過」（只有方式與次數）→ 這一輪行程後問一次要不要優先推（ADR-0016）
   userState: z.object({ picked: z.array(z.enum(Object.keys(STATES))).max(6).optional(), habit: HabitSchema.optional(), usual: z.array(z.enum(USUAL_STATES)).max(USUAL_STATES.length).optional(),
-    habitAsk: z.object({ mode: z.enum(['walk', 'bike', 'bus', 'metro', 'thsr', 'tra', 'intercity', 'ridehail']), count: z.number().int().min(1).max(50) }).optional(),
+    habitAsk: z.object({ mode: z.enum(['walk', 'bike', 'bus', 'metro', 'thsr', 'tra', 'intercity', 'ridehail', 'drive']), count: z.number().int().min(1).max(50) }).optional(),
     // 等車推短劇（ADR-0019）：設定頁關掉時手機送 false；沒送＝開（預設開）
-    dramaHint: z.boolean().optional() }).optional(),
+    dramaHint: z.boolean().optional(),
+    // 我有車（我的 → 設定，2026-11-22）：行程比較加入「自己開車」；沒送＝沒有車
+    car: z.boolean().optional() }).optional(),
   // 這段對話第幾輪（手機算，整數）：等車推劇的輪替依據（訊息只送最近 10 則，不能用訊息數推；沒送就退回用訊息數）
   turn: z.number().int().min(1).max(100000).optional(),
   clientTools: z.array(z.string()).max(10).optional(),
@@ -178,7 +180,7 @@ const offNote = (a) => `@公車 先看 ${a.routeName} 在「${a.stop}」今天�
  * @param {{ profile: object, nextId: () => string, picked?: string[], habit?: Record<string, number>, ask?: { done: boolean, habitAsk?: object, usual?: string[] } }} opts habit：手機送來、使用者同意過的常選比例（plan_trip 一律用這個，模型給的不採用）；ask：這一輪的「阿幫問你」（一輪最多一個；usual＝說過的預設狀況，會改變建議時問一句）
  * @returns {Promise<Array<{ name: string, ok: boolean, result?: object, error?: string, followUp?: object, watched?: true }>>} 依 calls 順序；watched＝盯過推薦的公車、今天不會來而重排
  */
-export async function execTools(svc, calls, emit, { profile, nextId, picked = [], judgedStates, lang = null, habit = null, ask = null, now = null, aside = null }) {
+export async function execTools(svc, calls, emit, { profile, nextId, picked = [], judgedStates, lang = null, habit = null, car = false, ask = null, now = null, aside = null }) {
   const started = calls.map((c) => ({ ...c, id: nextId() }));
   // 英文提問（S12d）：小幫手的一句話用英文版；「→ 影響」是中文，英文那一輪不附
   const en = lang === 'en';
@@ -188,7 +190,7 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
   return Promise.all(started.map(async (c) => {
     try {
       if (!profile.tools.includes(c.name)) throw new UserError(`這個 agent 不能使用 ${c.name}`);
-      const args = c.name === 'plan_trip' ? withHabit(withPickedPrefs(c.args, picked, judgedStates), habit) : c.args;
+      const args = c.name === 'plan_trip' ? withHabit(withPickedPrefs(c.args, picked, judgedStates), habit, car) : c.args;
       const planSvc = c.name === 'plan_trip' && now != null ? { ...svc, now } : svc; // 行程比較用這一輪的「現在」（示範時鐘；深夜說「現在 00:10」）
       let result = await callTool(planSvc, c.name, args);
       if (c.name !== 'plan_trip') {
@@ -286,10 +288,10 @@ function withPickedPrefs(args, picked, judgedStates) {
 }
 
 /** 習慣只採用手機送來的（模型或規則帶的一律拿掉；手機沒送就不帶） */
-export function withHabit(args, habit) {
+export function withHabit(args, habit, car = false) {
   if (!args || typeof args !== 'object') return args;
-  const { habit: _model, ...prefs } = args.prefs && typeof args.prefs === 'object' ? args.prefs : {};
-  const next = { ...prefs, ...(habit && Object.keys(habit).length && { habit }) };
+  const { habit: _model, car: _car, ...prefs } = args.prefs && typeof args.prefs === 'object' ? args.prefs : {};
+  const next = { ...prefs, ...(habit && Object.keys(habit).length && { habit }), ...(car && { car: true }) }; // 我有車：只採用手機設定（模型帶的拿掉）
   const { prefs: _p, ...rest } = args;
   return Object.keys(next).length ? { ...rest, prefs: next } : rest;
 }
@@ -441,7 +443,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
     const s = step(results);
     if (!s) break;
     emit(ev.agentNote(it.lang === 'en' ? enNote(s.note) : s.note)); // 英文提問：說明用英文（S12c）
-    const out = await execTools(svc, s.calls, emit, { profile, nextId, picked, lang: it.lang, habit: req.userState?.habit, ask, now, aside });
+    const out = await execTools(svc, s.calls, emit, { profile, nextId, picked, lang: it.lang, habit: req.userState?.habit, car: req.userState?.car === true, ask, now, aside });
     for (const o of out) {
       used.push(o.name);
       if (o.ok) (results[o.name] ||= []).push(o.result);

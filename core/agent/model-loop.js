@@ -362,7 +362,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const turnTrips = []; // 這一輪已經出過的行程卡（同起點、同目的地、同方式只出一張：模型換個說法再查也沿用）
   const preDone = new Map(); // 呼叫鍵（工具＋關鍵參數）→ 給模型的文字：模型用相同參數再呼叫時沿用，不重複產生卡片與決策圖；參數不同照常執行
   if (pre.length) {
-    const out = await execTools(svc, pre, emit, { profile, nextId, picked, lang: rulesIt.lang, habit: req.userState?.habit, ask, now, aside, ...(j && { judgedStates: j.states }) });
+    const out = await execTools(svc, pre, emit, { profile, nextId, picked, lang: rulesIt.lang, habit: req.userState?.habit, car: req.userState?.car === true, ask, now, aside, ...(j && { judgedStates: j.states }) });
     const texts = out.map((o, i) => {
       used.add(pre[i].name);
       if (o.followUp || o.watched) used.add('bus_route_eta');
@@ -479,7 +479,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
     }
 
     const run = turn.calls.filter((c) => !results.has(c.id));
-    const out = await execTools(svc, run.map((c) => ({ name: c.name, args: dropNulls(c.input) })), emit, { profile, nextId, picked, lang: rulesIt.lang, habit: req.userState?.habit, ask, now, aside, ...(j && { judgedStates: j.states }) });
+    const out = await execTools(svc, run.map((c) => ({ name: c.name, args: dropNulls(c.input) })), emit, { profile, nextId, picked, lang: rulesIt.lang, habit: req.userState?.habit, car: req.userState?.car === true, ask, now, aside, ...(j && { judgedStates: j.states }) });
     run.forEach((c, i) => {
       const o = out[i];
       used.add(c.name);

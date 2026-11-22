@@ -22,8 +22,8 @@ const INTENT_TOPIC = { trip: 'transit', bus_route: 'transit', nearby_bus: 'trans
 const AUX = new Set(['find_place', 'traffic_status']);
 
 const MODE = {
-  zh: { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' },
-  en: { walk: 'Walk', bike: 'YouBike', bus: 'Bus', metro: 'MRT', thsr: 'HSR', tra: 'Train', intercity: 'Intercity bus', ridehail: 'Taxi' },
+  zh: { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車', drive: '開車' },
+  en: { walk: 'Walk', bike: 'YouBike', bus: 'Bus', metro: 'MRT', thsr: 'HSR', tra: 'Train', intercity: 'Intercity bus', ridehail: 'Taxi', drive: 'Drive' },
 };
 const AQI_EN = { good: 'Good', moderate: 'Moderate', sensitive: 'Unhealthy for sensitive groups', unhealthy: 'Unhealthy', very: 'Very unhealthy', hazardous: 'Hazardous' };
 /** 捷運到站狀態代碼（core/services/metro.js）→ 短字（英文那一輪不出現中文） */

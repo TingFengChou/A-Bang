@@ -8,7 +8,7 @@ import { STATES } from '../decide.js';
 
 const hhmm = z.string().trim().regex(HHMM_RE, '時間格式需為 HH:mm（00:00～23:59）');
 
-const MODES = ['walk', 'bike', 'bus', 'metro', 'thsr', 'tra', 'intercity', 'ridehail'];
+const MODES = ['walk', 'bike', 'bus', 'metro', 'thsr', 'tra', 'intercity', 'ridehail', 'drive'];
 const MODE_LABEL = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
 
 /** 常選比例（個人化，ADR-0010 2026-11-21）：鍵限定交通方式、值 0～1、總和 ≤ 1（容許四捨五入 0.01）。網頁 agent 由程式從手機帶入，不交給模型 */
@@ -72,9 +72,10 @@ export const planTripTool = defineTool({
     prefs: z.object({
       states: z.array(z.enum(Object.keys(STATES).filter((k) => !AUTO_ONLY.includes(k)))).max(6).optional().describe('使用者狀態'),
       arriveBy: hhmm.optional().describe('最晚抵達時間 HH:mm'),
-      mode: z.enum(MODES).optional().describe('使用者指定的交通方式（「改坐公車」→ bus、「叫車／計程車」→ ridehail）：建議改成這種方式裡分數最高的'),
+      mode: z.enum(MODES).optional().describe('使用者指定的交通方式（「改坐公車」→ bus、「叫車／計程車」→ ridehail、「自己開車」→ drive）：建議改成這種方式裡分數最高的'),
       avoid: z.array(z.enum(MODES)).max(7).optional().describe('使用者說不要的交通方式（「不要叫車」→ ["ridehail"]）：直接排除'),
       party: z.number().int().min(1).max(20).optional().describe('同行人數（「我們 4 個人」→ 4）：2 人以上叫車改用每人分攤比較（4 人一輛）；1＝自己一個人'),
+      car: z.boolean().optional().describe('使用者在手機設定「我有車」（由程式帶，模型不要填）：行程比較加入自己開車'),
       habit: HabitSchema.optional().describe('使用者同意過的常選交通方式比例（裝置記的、使用者按過「好」，例 {"metro":0.6}）：沒指定方式、沒說狀況時最多加 8 分；不知道就不要帶'),
     }).optional(),
   },
