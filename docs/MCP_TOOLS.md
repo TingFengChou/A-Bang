@@ -96,9 +96,9 @@
 
 輸入 `lat`, `lon`, `radius?`（預設 400，上限 1000）；輸出 `{ lat, lon, radius, stations: [{ stationId, stationUid, city, name, lat, lon, distance, routes[], nav? }] }`（M4-01 起為物件，卡片 `nearby`）；TDX `/advanced/v2/Bus/Station/NearBy?$spatialFilter=nearby(lat,lon,r)`（1h）；`city` 由 `StationUID` 前三碼推得。
 
-### ✅ `bus_station_eta` ⚠️
+### ✅ `bus_station_eta`
 
-輸入 `city`, `stationId`；輸出 `{ city, stationId, arrivals: [{ routeName, direction, ...Eta }] }`（依到站排序；M4-01 起為物件，卡片 `bus-station`）；TDX `/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/PassThrough/Station/{StationID}`（20s）。
+輸入 `city`, `stationId`；輸出 `{ city, stationId, arrivals: [{ routeName, direction, ...Eta }] }`（依到站排序；M4-01 起為物件，卡片 `bus-station`）；TDX `/advanced/v2/Bus/EstimatedTimeOfArrival/City/{City}/PassThrough/Station/{StationID}`（20s；2026-11-22 實測 `/basic/` 是 404）。
 
 ## 4. YouBike
 
@@ -125,9 +125,9 @@ TDX：高鐵 `/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}`；台鐵 
 | | |
 |---|---|
 | 輸入 | `system: 'THSR'\|'TRA'`, `from`, `to`（中文站名或代碼，台／臺通用） |
-| 輸出 | `{ system, from, to, fares: [{ ticketType, fareClass, cabin?, trainType?, price, adultOneWay }] }`；`cabin` 只有高鐵、`trainType` 只有台鐵；成人單程（`adultOneWay`）在前，其次價格由低到高 |
-| TDX | 高鐵 `/basic/v2/Rail/THSR/ODFare/{O}/to/{D}`；台鐵 v3 `/basic/v3/Rail/TRA/ODFare/{O}/to/{D}`（`ODFares` 每個車種一筆）；10m |
-| 代碼 | `TicketType`、`FareClass`、`CabinClass` 依 Swagger 轉中文（`TICKET_TYPE`、`FARE_CLASS`、`CABIN_CLASS`，⚠️ 待驗證）；未知代碼顯示「代碼 N」；台鐵車種只用資料自帶的 `TrainTypeName`，沒有就顯示「車種代碼 N」；`Price` 無效的略過 |
+| 輸出 | `{ system, from, to, fares: [{ ticketType, fareClass, cabin?, trainType?, price, adultOneWay }] }`；`cabin` 只有高鐵、`trainType` 只有台鐵；成人單程（`adultOneWay`）在前，其次價格由低到高。台鐵只列成人單程的各車種（區間、區間快、復興、莒光、自強、自強3000、普悠瑪、太魯閣） |
+| TDX | 高鐵 `/basic/v2/Rail/THSR/ODFare/{O}/to/{D}`；台鐵 v3 `/basic/v3/Rail/TRA/ODFare/{O}/to/{D}`（`ODFares` 每個車種×方向一筆，只取 `TravelDistance` 最短的方向：另一個方向是繞島另一邊）；1d 存檔 |
+| 代碼 | `TicketType`、`FareClass`、`CabinClass` 依 Swagger 轉中文（`TICKET_TYPE`、`FARE_CLASS`、`CABIN_CLASS`，2026-11-22 實測符合）；高鐵未知代碼顯示「代碼 N」；台鐵 `TrainType` 依 `TRA_TRAIN_TYPE` 轉中文（名稱與時刻表車種一致，`plan_trip` 對得到同車種票價），7 普快（一般路段沒有）與不認得的代碼不列，不把原始代碼給使用者看；`Price` 無效的略過 |
 | speak | 「台北到左營高鐵成人單程 1,490 元起（最高 2,390 元）。」；只有一種價格時不加「起」 |
 
 `plan_trip`（M3-10）取成人單程最低價當 `cost`。示範模式依站距估算票價（非真實票價）。也可評估改用 TDX 官方 MCP。
@@ -290,7 +290,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 
 ### ✅ `weather_tomorrow` — 明天的預報（pack `weather`，2026-11-21）
 
-輸入 `lat`、`lon`。最近觀測站的鄉鎮 → `F-D0047-089` 鄉鎮預報（1h 快取）取**明天（台灣時間）**的時段：`{ town, county, date: 'YYYY-MM-DD', pop: 明天各時段降雨機率最高值, dayPop: 白天（06～18 時）最高值, minT, maxT, wx }`；沒有時區的時間一律當台灣時間；元素名稱防禦性比對（「3小時／12小時降雨機率」「溫度／最高溫度／最低溫度」「天氣現象」）⚠️。沒有明天的資料回 `CwaError`。speak：「明天 11/22（日） 臺北市中正區多雲短暫雨，18～26°C，降雨機率 60%，記得帶傘。」（看白天降雨機率：≥ 50% 帶傘、≥ 30% 折傘；沒有鄉鎮名稱說「那一帶」）。「後天」「週末」「禮拜X」：說明只查得到現在和明天，不拿現在的天氣充數。示範：雨天情境 70%、晴 20%。問「明天會下雨嗎」「明天出門要帶傘嗎」用這個（`weather_now` 只有現在）。
+輸入 `lat`、`lon`。最近觀測站的縣市＋鄉鎮 → 該縣市的鄉鎮預報 `F-D0047-0xx`（`TOWN_FORECAST`；2026-11-22 實測 `F-D0047-089` 是縣市層級、用鄉鎮篩一律空的；1h 快取，與 `weather_now` 共用）取**明天（台灣時間）**的時段：`{ town, county, date: 'YYYY-MM-DD', pop: 明天各時段降雨機率最高值, dayPop: 白天（06～18 時）最高值, minT, maxT, wx }`；沒有時區的時間一律當台灣時間；元素名稱防禦性比對（「3小時／12小時降雨機率」「溫度／最高溫度／最低溫度」「天氣現象」）⚠️。沒有明天的資料回 `CwaError`。speak：「明天 11/22（日） 臺北市中正區多雲短暫雨，18～26°C，降雨機率 60%，記得帶傘。」（看白天降雨機率：≥ 50% 帶傘、≥ 30% 折傘；沒有鄉鎮名稱說「那一帶」）。「後天」「週末」「禮拜X」：說明只查得到現在和明天，不拿現在的天氣充數。示範：雨天情境 70%、晴 20%。問「明天會下雨嗎」「明天出門要帶傘嗎」用這個（`weather_now` 只有現在）。
 
 ### ✅ `weather_now` — 現在與接下來 3 小時天氣（pack `weather`）
 
@@ -298,7 +298,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 |---|---|
 | 輸入 | `lat`, `lon` |
 | 輸出 | `{ station, town, county, distanceM, observedAt, tempC, rainMm1h: number\|null, rainStation: string\|null, pop3h: 0–100\|null, raining: boolean, summary }`（`rainMm1h` 是最近且 5 公里內雨量站的過去 1 小時雨量；沒有就 null；`pop3h` 取所在縣市＋鄉鎮尚未結束的預報時段，同名鄉鎮以縣市區分） |
-| 資料 | 中央氣象署開放資料平臺（需 `CWA_API_KEY` 授權碼）：自動氣象站觀測 `O-A0001-001`／`O-A0003-001`（10m，氣溫、天氣）、雨量站 `O-A0002-001`（10m，`RainfallElement.Past1hr.Precipitation`；氣象站的 `Now.Precipitation` 是當日累積，不用）、鄉鎮天氣預報 `F-D0047-*`（1h）⚠️ 欄位待 M1 驗證 |
+| 資料 | 中央氣象署開放資料平臺（需 `CWA_API_KEY` 授權碼）：自動氣象站觀測 `O-A0001-001`／`O-A0003-001`（10m，氣溫、天氣）、雨量站 `O-A0002-001`（10m，`RainfallElement.Past1hr.Precipitation`；氣象站的 `Now.Precipitation` 是當日累積，不用）、鄉鎮天氣預報：所在縣市的 `F-D0047-0xx`＋`LocationName`（1h，DATA_SOURCES.md §3，2026-11-22 已驗證） |
 | 判斷 | `raining = rainMm1h > 0 || pop3h ≥ 70`（`isRaining`） |
 | 模式 | `modeOf: svc.weatherMode`：有 `CWA_API_KEY` 才是 live，與 TDX 金鑰無關；來源標示「中央氣象署」；示範提示「尚未設定中央氣象署授權碼」 |
 | 示範 | `DEMO_WEATHER=rain`（或 `createServices({ demo: { weather: 'rain' } })`）：雨量 2.5 mm、降雨機率 80%；預設多雲、10% |
@@ -323,6 +323,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | `stock_quote` | `query?`：代號或名稱，多檔用「、」分隔（最多 5 檔）；不給只回指數 | `indices[{ id: taiex\|tpex, name, date, close, change, changePct }]`、`quotes[{ code, name, market: 上市\|上櫃, date, open, high, low, close, change, changePct, volumeLots（張）, value, trades, query, similar?[{ code, name }] }]`、`notFound[]`（找不到不丟錯） |
 
 - 比對：代號完全相同 → 名稱相同（臺／台視為相同）→ 名稱開頭 → 名稱包含（短名優先）；不是完全相同時附 `similar` 讓使用者改選。
+- 指數名稱（「加權指數」「大盤」「台股」「櫃買指數」「上櫃指數」「OTC」…）不當個股找、不列 `notFound`；問到的指數排在 `indices` 第一個（speak 講它）；只問指數不下載個股清單。
 - 收盤資料，每檔帶自己的日期；文字一律附「收盤資料，非即時報價；僅供參考，不構成投資建議」。漲跌在文字中寫成「漲 5（0.23%）」「跌 54（9.93%）」，不寫「+5」「-54」（地端小模型會說反）。
 - 只報數字：`PACK_GUARDRAILS.finance` 禁止買賣建議與漲跌預測；輸出護欄 `no-investment-advice`（`core/agent/guardrails.js`）把含買賣建議、看漲看跌、目標價、明牌的句子整句換成固定說法並送 `guardrail` 事件。
 

@@ -1,7 +1,7 @@
 // 股市收盤行情：證交所／櫃買中心欄位解析、指數漲跌方向、名稱比對、示範 tool、開放資料 client 的解析與空資料
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseTwse, parseTpex, parseIndices, findStock, splitQuery, stockQuote, createLiveStockFetchers, STOCK_URLS } from '../core/services/stock.js';
+import { parseTwse, parseTpex, parseIndices, findStock, splitQuery, stockQuote, indexOf, createLiveStockFetchers, createStockServices, STOCK_URLS } from '../core/services/stock.js';
 import { createOpenDataClient } from '../core/opendata-client.js';
 import { callTool } from '../core/tools/index.js';
 import { createServices, dataSources } from '../core/index.js';
@@ -72,6 +72,33 @@ test('stock_quote（示範）：文字含免責、speak 講收盤與漲跌、找
   assert.deepEqual(idx.data.indices.map((i) => i.id), ['taiex', 'tpex']);
   assert.match(idx.speak, /^加權指數 11\/18 收 40194\.91/);
   assert.ok(dataSources(svc).find((s) => s.id === 'opendata').name.includes('股市'));
+});
+
+test('指數名稱（2026-11-22 實測：「加權指數」先回收盤又說找不到）：認得常見說法、不算找不到、問到的指數排前面', async () => {
+  assert.deepEqual(['加權指數', '大盤', '台股', '臺股大盤', '加權', 'taiex', '發行量加權股價指數'].map(indexOf), Array(7).fill('taiex'));
+  assert.deepEqual(['櫃買指數', '櫃買', '上櫃指數', 'OTC'].map(indexOf), Array(4).fill('tpex'));
+  assert.deepEqual(['台積電', '2330', '上櫃', '指數', '加權指數基金'].map(indexOf), [null, null, null, null, null]);
+  const indices = [{ id: 'taiex', name: '加權指數' }, { id: 'tpex', name: '櫃買指數' }];
+  const quotes = parseTwse(TWSE);
+  assert.deepEqual(stockQuote({ quotes, indices }, { query: '加權指數' }), { indices, quotes: [], notFound: [] });
+  const r = stockQuote({ quotes, indices }, { query: '櫃買指數、台積電' });
+  assert.deepEqual([r.indices.map((i) => i.id), r.quotes.map((q) => q.code), r.notFound], [['tpex', 'taiex'], ['2330'], []]);
+  assert.deepEqual(stockQuote({ quotes, indices: [] }, { query: '大盤' }).notFound, ['加權指數'], '沒有指數資料才說找不到');
+  // 只問指數：不下載個股清單
+  const called = [];
+  const svc = createStockServices({ twse: async () => { called.push('twse'); return quotes; }, tpex: async () => { called.push('tpex'); return []; }, twseIndex: async () => [], tpexIndex: async () => [] });
+  await svc.stock.quote({ query: '加權指數' });
+  assert.deepEqual(called, []);
+  await svc.stock.quote({ query: '大盤、台積電' });
+  assert.deepEqual(called, ['twse', 'tpex']);
+});
+
+test('stock_quote（示範）：問「加權指數」speak 只講指數、不說找不到', async () => {
+  const r = await callTool(createServices({ forceMock: true }), 'stock_quote', { query: '加權指數' });
+  assert.match(r.speak, /^加權指數 11\/18 收 40194\.91/);
+  assert.doesNotMatch(r.speak + r.text, /找不到/);
+  const o = await callTool(createServices({ forceMock: true }), 'stock_quote', { query: '櫃買指數' });
+  assert.match(o.speak, /^櫃買指數 /);
 });
 
 test('真實 fetchers：下載後先解析再快取；空清單視為上游錯誤', async () => {

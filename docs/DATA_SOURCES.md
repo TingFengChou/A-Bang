@@ -61,7 +61,7 @@
 | 公車路線 | `/basic/v2/Bus/Route/City/{City}`（搜尋；整個縣市的起訖名稱另外預熱、存檔） | 1h／1d | ✅ | `bus_search_routes`、`bus_route_eta` |
 | 路線站序 | `/basic/v2/Bus/DisplayStopOfRoute/City/{City}`（整個縣市，預熱）；沒預熱的縣市 `/{Route}` 逐條查 | 1d（存檔） | ✅ | `bus_route_eta`、`plan_trip` |
 | 公車預估到站 | `/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}`（整個縣市，`$select`） | 30s（舊資料最多 60s） | ✅ | `bus_route_eta`、`plan_trip` |
-| 站位預估到站 | `/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/PassThrough/Station/{StationID}` | 20s | ✅ ⚠️ | `bus_station_eta` |
+| 站位預估到站 | `/advanced/v2/Bus/EstimatedTimeOfArrival/City/{City}/PassThrough/Station/{StationID}`（已驗證 2026-11-22：在 `/advanced/` 底下；以前用 `/basic/` 一律 404「Resouce Not Found」→ 502。`StationID` 是站位代碼，例：臺北市 `1000` 內湖國中回 2 筆路線） | 20s | ✅ | `bus_station_eta` |
 | 公車站位 | `/basic/v2/Bus/Station/City/{City}`（整個縣市，預熱，本機算附近）；沒涵蓋時 `/advanced/v2/Bus/Station/NearBy`（不存檔：座標是使用者位置） | 1d（存檔）／1h | ✅ | `bus_nearby_stations`、`plan_trip` |
 | 路線形狀 | `/basic/v2/Bus/Shape/City/{City}/{Route}`（WKT，欄位 `Geometry`） | 1d（存檔） | ✅ ⚠️ | `bus_route_eta.shape` |
 | YouBike 站點 | `/basic/v2/Bike/Station/City/{City}`（預熱，本機算附近）；沒涵蓋時 `/advanced/v2/Bike/Station/NearBy` | 1d（存檔）／1h | ✅ | `youbike_nearby`、`plan_trip` |
@@ -70,7 +70,7 @@
 | 高鐵車站 | `/basic/v2/Rail/THSR/Station` | 1d（存檔） | ✅ | `rail_stations` |
 | 台鐵時刻 | `/basic/v3/Rail/TRA/DailyTrainTimetable/OD/{O}/to/{D}/{Date}` | 10m | ✅ | `tra_timetable` |
 | 台鐵車站 | `/basic/v3/Rail/TRA/Station` | 1d（存檔） | ✅ | `rail_stations` |
-| 高鐵／台鐵票價 | `/basic/v2/Rail/THSR/ODFare/{O}/to/{D}`、`/basic/v3/Rail/TRA/ODFare/{O}/to/{D}` | 1d（存檔） | ✅ ⚠️ | `rail_fare` |
+| 高鐵／台鐵票價 | `/basic/v2/Rail/THSR/ODFare/{O}/to/{D}`、`/basic/v3/Rail/TRA/ODFare/{O}/to/{D}`（已驗證 2026-11-22：台鐵 `ODFares` 每個「車種×方向」一筆，`TrainType` 是車種代碼（＝`/basic/v3/Rail/TRA/TrainType` 的 `TrainTypeCode`：1 太魯閣、2 普悠瑪、3 自強、4 莒光、5 復興、6 區間、7 普快、10 區間快、11 自強3000），沒有 `TrainTypeName`；同一組起訖有兩個 `Direction`，另一個是繞島另一邊（臺北→新竹 78.1 對 797.8 公里），只取 `TravelDistance` 最短的；只列成人單程，普快與不認得的代碼不列。快取鍵改 `tra-fare-v2-*`） | 1d（存檔） | ✅ | `rail_fare` |
 | 捷運車站 | `/basic/v2/Rail/Metro/Station/{Operator}` | 1d（存檔） | ✅ | `metro_stations`、`metro_live_board`（站名→代碼） |
 | 捷運即時看板 | `/basic/v2/Rail/Metro/LiveBoard/{Operator}`（整個系統一份；北捷只有進站中的站，§1.2） | 20s | ✅ | `metro_live_board` |
 | 捷運站別時刻表 | `/basic/v2/Rail/Metro/StationTimeTable/{Operator}`（`$filter=StationID eq …`） | 1d（存檔） | ✅ | `metro_live_board`（看板沒有的方向） |
@@ -104,7 +104,8 @@
 | 網站 | https://opendata.cwa.gov.tw （登入取得授權碼） |
 | 呼叫 | `GET https://opendata.cwa.gov.tw/api/v1/rest/datastore/{DataID}?Authorization={key}&format=JSON` |
 | 環境變數 | `CWA_API_KEY`（留空 → `weather_now` 用 mock） |
-| 用到的資料集 | ✅ `O-A0001-001` 自動氣象站觀測、`O-A0003-001` 局屬氣象站觀測（10m，兩者合併取最近且有氣溫或天氣的站；局屬站失敗只用自動站；`WeatherElement.Now.Precipitation` 是當日累積雨量，**不**用來判斷下雨）、`O-A0002-001` 雨量站觀測（10m，取 5 公里內最近一站的 `RainfallElement.Past1hr.Precipitation` 當 `rainMm1h`；失敗或附近沒站時為 null）、`F-D0047-089` 鄉鎮天氣預報（1h，`LocationName={鄉鎮}`，取「3小時降雨機率」第一個時段；失敗時 `pop3h` 為 null；`weather_tomorrow` 取明天各時段的降雨機率最高值、溫度範圍、天氣現象） ⚠️ |
+| 用到的資料集 | ✅ `O-A0001-001` 自動氣象站觀測、`O-A0003-001` 局屬氣象站觀測（10m，兩者合併取最近且有氣溫或天氣的站；局屬站失敗只用自動站；`WeatherElement.Now.Precipitation` 是當日累積雨量，**不**用來判斷下雨）、`O-A0002-001` 雨量站觀測（10m，取 5 公里內最近一站的 `RainfallElement.Past1hr.Precipitation` 當 `rainMm1h`；失敗或附近沒站時為 null）、鄉鎮天氣預報（1h，**所在縣市的資料集**＋`LocationName={鄉鎮}`，取「3小時降雨機率」尚未結束的時段；失敗時 `pop3h` 為 null；`weather_tomorrow` 取明天各時段的降雨機率最高值、溫度範圍、天氣現象；`weather_now` 與 `weather_tomorrow` 共用同一份快取） ✅ 已驗證 2026-11-22 |
+| 鄉鎮預報資料集 | 已驗證 2026-11-22：`F-D0047-089` 是「全臺各縣市」層級（`Location` 是 22 個縣市），用鄉鎮名稱篩一律空的（以前 `weather_tomorrow` 一律 502、`pop3h` 永遠 null）。鄉鎮要用各縣市「未來 3 天」資料集（溫度逐 1 小時、3 小時降雨機率與天氣現象逐 3 小時）：宜蘭縣 001、桃園市 005、新竹縣 009、苗栗縣 013、彰化縣 017、南投縣 021、雲林縣 025、嘉義縣 029、屏東縣 033、臺東縣 037、花蓮縣 041、澎湖縣 045、基隆市 049、新竹市 053、嘉義市 057、臺北市 061、高雄市 065、新北市 069、臺中市 073、臺南市 077、連江縣 081、金門縣 085（`F-D0047-0xx`，`core/services/weather.js` `TOWN_FORECAST`；縣市取最近觀測站的 `GeoInfo.CountyName`）。`F-D0047-093?locationId=F-D0047-065&LocationName=三民區` 結果相同，但一次最多 5 個 locationId，不用。欄位：`records.Locations[].LocationsName`（縣市）→ `Location[].LocationName`（鄉鎮）→ `WeatherElement[]`（`ElementName` 中文：溫度、3小時降雨機率、天氣現象…）→ `Time[]`（溫度用 `DataTime`，其餘 `StartTime`／`EndTime`，都帶 `+08:00`）→ `ElementValue[0]`（`Temperature`、`ProbabilityOfPrecipitation`、`Weather`） |
 | 實作 | `core/cwa-client.js`、`core/services/weather.js`；`-99` 等異常觀測值視為沒有資料；座標取 `CoordinateName=WGS84` |
 | 用於 | `weather_now` → 自動狀態「下雨」 |
 | 標示 | 「資料來源：中央氣象署」 |
@@ -164,6 +165,7 @@
 - **收盤資料，不是即時報價**：每個交易日收盤後更新；兩個市場更新時間不同（實測 18:00 時上櫃已是 11/19、上市仍是 11/18），所以每檔都帶自己的日期。
 - 即時報價（`mis.twse.com.tw`）不是開放資料 API、有頻率限制，不使用。
 - 解析後才快取（上櫃原始檔大）；解析結果為空視為上游錯誤，沿用舊資料。示範片段：`core/data/demo/stock-*.json`（上市 31 檔、上櫃 15 檔、指數）。
+- 問指數（已驗證 2026-11-22）：「加權指數」「大盤」「台股」「TAIEX」→ 加權指數，「櫃買指數」「上櫃指數」「OTC」→ 櫃買指數（`core/services/stock.js` `indexOf`）；不拿去個股清單找、不列「找不到」，問到的指數排第一個（speak 講它）；只問指數不下載個股清單。以前問「加權指數」先回收盤又說「找不到：加權指數」。
 
 ## 5.4 MyDrama 短劇（✅ 2026-11-22，ADR-0019；非政府開放資料的內容合作來源）
 
