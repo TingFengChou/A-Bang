@@ -12,7 +12,9 @@
 export const ASK_KINDS = ['state', 'reply', 'store', 'dismiss', 'action'];
 export const ASK_ACTIONS = ['openLink', 'watchArrival', 'remind'];
 
-import { decide } from '../decide.js';
+import { decide, keyQuestion } from '../decide.js';
+import { edgeAskShape, askNorm } from '../edge-ask.js';
+import { matchRules } from '../scam-check.js';
 import { placesInText, parseIntent, isEnglish } from './demo-intent.js';
 import { LANDMARKS, normPlace } from '../services/places.js';
 
@@ -34,9 +36,11 @@ const STATE_ANSWERS = {
  * @param {{ habitAsk?: { mode: string, count: number }, usual?: string[], lang?: 'en'|null }} [o]
  * @returns {{ question: string, options: object[], why?: string, about: string, key?: string, pending?: object } | null}
  */
-export function tripAsk(trip, { habitAsk = null, usual = [], lang = null } = {}) {
+export function tripAsk(trip, { habitAsk = null, usual = [], lang = null, device = null } = {}) {
   const en = lang === 'en';
+  // 順序（ADR-0020，PR #116 審查）：① 習慣確認 ② 說過的預設狀況 ③ 關鍵因子——手機上的 AI 提議的狀態題只取代 ③（通過驗證時）
   if (habitAsk && trip?.options?.some((o) => o.role === habitAsk.mode)) {
+    if (device?.ask?.slot === 'state') rejectDevice(device, 'taken');
     const m = habitAsk.mode, n = habitAsk.count;
     if (m === 'ridehail') { // 有理由才推叫車：先問原因
       return {
@@ -56,7 +60,9 @@ export function tripAsk(trip, { habitAsk = null, usual = [], lang = null } = {})
     };
   }
   const u = usualAsk(trip, usual, en);
-  if (u) return u;
+  if (u) return deviceUsualAsk(device, u) || u;
+  const d = deviceStateAsk(device, trip, { lang, usual }); // 手機的狀態題通過驗證就取代關鍵因子那一題
+  if (d) return d;
   const q = trip?.ask;
   const A = q && STATE_ANSWERS[q.state];
   if (!A || usual?.includes(q.state)) return null; // 說過的狀況：上面已經判斷過（不會改變建議就不問）
@@ -290,3 +296,149 @@ Object.assign(PENDING_SLOTS, {
     return tripSentence(c, to, p.lang === 'en');
   },
 });
+
+// ───── 問什麼由手機上的 AI 決定（ADR-0020）：deviceJudge.ask 是候選，程式驗證；不通過就丟掉，照上面的規則問（保底）─────
+// 驗證只做「寧可不問」：題目的欄位要真的是這一句缺的（規則的 slotAsk／originAsk 也認為缺）、狀態題要真的會改變建議（keyQuestion 只試那個狀態）、
+// 每個選項都要接得回（跟打字回答同一套 PENDING_SLOTS：地名要在地標庫或是常用地點標籤、路線要像路線號）。
+// 題目文字用手機的；說明（why）、等待中的答案（pending）、只問一次的鍵（key）、這一輪的一句回答（short）仍由程式產生。
+
+/**
+ * 這一輪手機提議的題目的去向（一個請求一個）：形狀先檢查（core/edge-ask.js，手機也跑過），之後在問的時機逐一驗證。
+ * @param {object|undefined} ask deviceJudge.ask
+ * @param {'en'|'zh'} lang 這一輪的語言
+ * @returns {{ ask: object, verdict: 'used'|'rejected'|null, reason: string|null, blocked: boolean } | null}
+ */
+export function deviceAskTracker(ask, lang = 'zh') {
+  if (!ask) return null;
+  const shape = edgeAskShape(ask, { lang: lang === 'en' ? 'en' : 'zh' })
+    || ([ask.question, ...ask.options].some((t) => matchRules(askNorm(t)).length || matchRules(askNorm(t, true)).length) ? 'unsafe' : null); // 伺服器另外跑防詐規則庫（點數卡、解除分期…）
+  return { ask, verdict: shape ? 'rejected' : null, reason: shape, blocked: !!shape };
+}
+const useDevice = (t) => { t.verdict = 'used'; t.reason = null; };
+const rejectDevice = (t, reason) => { if (t && t.verdict !== 'used') { t.verdict = 'rejected'; t.reason = reason; } };
+/** 這一輪結束時的結果（done 事件的 askCheck、log）：沒用到的視為被擋（沒有缺這個欄位／這一輪沒有行程可以驗證狀態題） */
+export function deviceAskCheck(t) {
+  if (!t) return null;
+  const used = t.verdict === 'used';
+  return { slot: t.ask.slot, ...(t.ask.slot === 'state' && { state: t.ask.state }), verdict: used ? 'used' : 'rejected', ...(!used && { reason: t.reason || (t.ask.slot === 'state' ? 'no-trip' : 'not-missing') }) };
+}
+
+const SAVED_TO = /^(?:回|去|到)?\s*(家|公司|學校)$/;
+const SAVED_FROM = /^(?:從)?\s*(家|公司|學校)\s*(?:出發)?$/;
+const NEARBY_STOPS = /^(?:看)?附近(?:有哪些|的)?公車(?:站牌?|站)?$|^(?:any\s+)?(?:bus\s+stops?\s+nearby|nearby\s+(?:bus\s+)?stops?)\??$/i;
+const MY_SPOT = /^(?:用)?(?:我的位置|我現在的位置|現在位置|這裡|這邊)$|^(?:use\s+)?my\s+location$|^here$/i;
+const ROUTE_LABEL = /^(?:bus\s*)?([紅藍綠棕橘小幹]?\d{1,4}[區副]?)\s*(?:號|路)?\s*(?:公車)?$/i;
+const ROUTE_ANY = /(?:^|[^\d])([紅藍綠棕橘小幹]?\d{1,4}[區副]?)(?=\s*(?:號|路)?\s*(?:公車|bus))|(?:公車|bus)\s*([紅藍綠棕橘小幹]?\d{1,4}[區副]?)/gi;
+/** 地標庫裡「整個選項就是這個地名」的那一筆（去掉「去／到／從／我在」與「出發」）；「西門町領紅包」「台北101加賴」不算 */
+function exactPlace(label) {
+  const core = askNorm(label).trim()
+    .replace(/^(?:我)?(?:要|想)?(?:去|到|往)\s*|^(?:我)?(?:現在)?(?:人)?(?:在|從)\s*|^(?:to|go to|from|i'?m at)\s+/i, '')
+    .replace(/\s*出發$/, '').trim();
+  const n = normPlace(core);
+  if (!n) return null;
+  return LANDMARKS.items.find((x) => [x.name, x.en, ...(x.aliases || [])].filter(Boolean).some((k) => normPlace(k) === n)) || null;
+}
+const placeOf = (name) => (name ? exactPlace(name) || LANDMARKS.items.find((x) => normPlace(x.name) === normPlace(placesInText(String(name))[0] || '')) || null : null);
+
+/**
+ * 手機的一個選項 → ask 事件的選項（reply：按了送出規則聽得懂的完整一句）；接不回回 null。
+ * 地名：整個選項要就是地標庫的一個地名、而且是前文或情境出現過的（不收模型自己想的），也不能是另一端（起點＝目的地）；
+ * 路線：前文或情境出現過的路線號碼（不收模型自己想的 9999）或「附近公車」；常用地點標籤與「用我的位置」照收。
+ */
+function deviceOption(slot, label, pending, { again = false, places = [], routes = [] } = {}) {
+  const en = pending?.lang === 'en';
+  if (slot === 'route') {
+    if (NEARBY_STOPS.test(label)) return { label, kind: 'reply', say: en || /^[a-z]/i.test(label) ? 'Any bus stops nearby?' : '附近的公車站' };
+    const m = ROUTE_LABEL.exec(askNorm(label).trim());
+    if (!m || !routes.includes(m[1])) return null;
+  }
+  if (slot === 'to' && !en) {
+    const m = SAVED_TO.exec(label);
+    if (m) { const go = m[1] === '家' ? '回家' : `去${m[1]}`; return { label, kind: 'reply', say: pending.from ? `從${pending.from}${go}怎麼走？` : `${go}怎麼走？`, saved: m[1] }; }
+  }
+  if (slot === 'from') {
+    if (MY_SPOT.test(label)) { if (again) return null; } // 上一輪按了「用我的位置」定位又失敗：不再給這個選項
+    else {
+      const m = !en && SAVED_FROM.exec(label);
+      if (m) return { label, kind: 'reply', say: `從${m[1]}到${pending.to}怎麼去？`, saved: m[1] };
+    }
+  }
+  if ((slot === 'to' || slot === 'from') && !(slot === 'from' && MY_SPOT.test(label))) {
+    const lm = exactPlace(label);
+    if (!lm || !places.includes(lm.name)) return null;
+    const other = placeOf(slot === 'to' ? pending.from : pending.to);
+    if (other && other.name === lm.name) return null; // 起點＝目的地
+  }
+  const say = resolvePending(pending, label); // 跟打字回答同一套：只收路線號碼、地標庫認得的地名、常用地點標籤
+  return say ? { label, kind: 'reply', say } : null;
+}
+
+/** 前文（使用者說過的）與情境（頁面）出現過的地名（地標庫正式名稱）與路線號碼：手機出題的選項只能從這裡挑 */
+function mentioned(history = [], context = '') {
+  const texts = [...history.filter((m) => m?.role === 'user').map((m) => String(m.content || '')), String(context || '')];
+  const places = new Set(), routes = new Set(recentRoutes(history, 10));
+  for (const t of texts) {
+    for (const p of placesInText(t)) { const lm = placeOf(p); if (lm) places.add(lm.name); }
+    for (const x of t.matchAll(ROUTE_ANY)) routes.add(x[1] || x[2]);
+  }
+  return { places: [...places], routes: [...routes] };
+}
+
+/**
+ * 缺欄位的題目（route／to／from）：規則也認為這一句缺這個欄位（rule＝slotAsk／originAsk 的結果）、每個選項都接得回，才用手機的題目。
+ * @param {ReturnType<typeof deviceAskTracker>} t
+ * @param {'route'|'to'|'from'} slot 規則這一輪要問的欄位
+ * @param {{ ask: object|null, short: string }} rule
+ * @param {{ again?: boolean, history?: Array<{ role: string, content: string }>, context?: string }} [o] again：上一輪問過起點、定位又失敗；history／context：選項只能用前文與情境出現過的地名、路線
+ * @returns {{ ask: object, short: string } | null} null：不用手機的（照規則）
+ */
+export function deviceSlotAsk(t, slot, rule, { again = false, history = [], context = '' } = {}) {
+  if (!t || t.blocked || t.verdict === 'used' || t.ask.slot !== slot) return null;
+  if (!rule?.ask?.pending) { rejectDevice(t, 'asked'); return null; } // 英文、上一輪已問過起點：規則只回一句，不再出選項
+  const seen = mentioned(history, context);
+  const options = [];
+  for (const label of t.ask.options) {
+    const o = deviceOption(slot, label, rule.ask.pending, { again, ...seen });
+    if (!o) { rejectDevice(t, 'option'); return null; }
+    if (options.some((x) => x.say === o.say)) { rejectDevice(t, 'duplicate'); return null; }
+    options.push(o);
+  }
+  useDevice(t);
+  return { ask: { ...rule.ask, question: t.ask.question, options, askSource: 'device' }, short: rule.short };
+}
+
+/** 手機的狀態題可以用嗎（題目在形狀檢查已經驗過問到那個狀態、沒反著問）：使用者這一輪沒說狀況、沒指定方式 */
+const stateSaid = (trip, st) => !!(trip.mode || (trip.states || []).some((s) => s.source !== 'auto' || s.key === st));
+
+/**
+ * 說過的預設狀況（「這次也帶東西嗎？」）跟手機問的是同一個狀態：用手機的題目文字，選項照程式（source usual、guess）；不同狀態就讓給說過的預設狀況。
+ */
+function deviceUsualAsk(t, u) {
+  if (!t || t.blocked || t.verdict === 'used' || t.ask.slot !== 'state') return null;
+  if (u.about !== `usual:${t.ask.state}`) { rejectDevice(t, 'taken'); return null; }
+  useDevice(t);
+  return { ...u, question: t.ask.question, askSource: 'device' };
+}
+
+/**
+ * 狀態題（state）：只取代關鍵因子那一題。使用者這一輪沒說狀況、沒指定方式，而且只加上這個狀態時建議會換、差別值得問（keyQuestion 只試這個狀態）。
+ * 題目用手機的（形狀檢查已驗過問到那個狀態、沒反著問）；選項一律用程式的（STATE_ANSWERS），數字（快幾分、多幾元）由程式算、放在 why。
+ * @returns {object|null} tripAsk 的形狀
+ */
+export function deviceStateAsk(t, trip, { lang = null, usual = [] } = {}) {
+  if (!t || t.blocked || t.verdict === 'used' || t.ask.slot !== 'state' || !trip?.options?.length) return null;
+  const st = t.ask.state;
+  if (stateSaid(trip, st)) { rejectDevice(t, 'said'); return null; }
+  if (usual?.includes(st)) { rejectDevice(t, 'no-change'); return null; } // 說過的預設狀況上面已經判斷過（不會換建議才走到這裡）
+  const ctx = { states: (trip.states || []).map((s) => s.key), arriveBy: trip.arriveBy, arriveByMin: trip.arriveByMin, avoid: trip.avoid, habit: trip.habit };
+  const kq = keyQuestion(trip.options, ctx, [st]);
+  if (!kq) { rejectDevice(t, 'no-change'); return null; }
+  const en = lang === 'en', A = STATE_ANSWERS[st];
+  const [yes, no] = A[en ? 'en' : 'zh'];
+  useDevice(t);
+  return {
+    about: `state:${st}`, question: t.ask.question, why: en ? kq.textEn : kq.text,
+    options: [{ label: yes, kind: 'state', state: st, say: en ? A.sayEn : A.say }, { label: no, kind: 'dismiss' }],
+    key: `${st}@${spot(trip.from)}>${spot(trip.to)}`, pending: { slot: 'state', state: st }, askSource: 'device',
+  };
+}

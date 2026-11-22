@@ -4,7 +4,8 @@
 //   2 資料夠不夠：/api/v1/agent 在 clientCaps.trial 時送的 trial 事件（core/agent/trial.js，程式算）
 //   3 預計回答：真的跑一次 agent 的 edge 模式（伺服器只跑規則、不呼叫任何伺服器模型）拿 answer_draft（程式版），
 //     手機能寫就在手機上改寫（edgeWrite，程式護欄 checkRewrite），兩版都列
-//   4 下一個預計問你：這一輪的「阿幫問你」（ask 事件）＋動態建議（手機猜＋伺服器驗證；不能用就規則），前 3 句
+//   4 下一個預計問你：這一輪的「阿幫問你」（ask 事件）＋動態建議（手機猜＋伺服器驗證；不能用就規則），前 3 句。
+//     題目是手機上的 AI 決定的還是規則保底（askSource）；手機提議但被程式擋下的題目也照列（手機上的形狀檢查、伺服器的 askCheck，含原因，ADR-0020）
 // 隱私：試判斷不送定位（伺服器請定位時照實記下「會先問你在哪」，回答用不給定位時的預設起點）、不送常用地點與習慣、不送健康資料；
 // 送伺服器的只有問題句子（與手機判斷的意圖、狀態列舉值，跟問阿幫一樣）。這裡的函式不碰畫面（ai.js 畫），依賴由參數帶入，方便測試。
 import { suggestContext, contextText, ruleAsks, pickSuggestions, validateAsks } from './agent/suggest.js';
@@ -24,7 +25,7 @@ const pickTool = (e) => ({ id: e.id, name: e.name, title: e.title, role: e.role 
  * @param {object[]} events runAgent 收到的事件（含 client_tool_call）
  */
 export function summarizeRun(events = []) {
-  const out = { mode: null, lang: 'zh', judge: null, trial: null, tools: [], results: [], decision: null, ask: null, draft: null, text: '', askedLocation: false, notes: [], safety: null, error: null };
+  const out = { mode: null, lang: 'zh', judge: null, trial: null, tools: [], results: [], decision: null, ask: null, askCheck: null, draft: null, text: '', askedLocation: false, notes: [], safety: null, error: null };
   const started = new Map();
   for (const e of events) {
     if (!e || typeof e !== 'object') continue;
@@ -40,7 +41,8 @@ export function summarizeRun(events = []) {
         break;
       }
       case 'decision': out.decision = e; break;
-      case 'ask': if (!out.ask) out.ask = { id: e.id, question: e.question, options: (e.options || []).map((o) => ({ label: o.label, kind: o.kind, ...(o.guess && { guess: true }) })), ...(e.about && { about: e.about }), ...(e.why && { why: e.why }), ...(e.pending && { pending: e.pending }) }; break;
+      case 'ask': if (!out.ask) out.ask = { id: e.id, question: e.question, options: (e.options || []).map((o) => ({ label: o.label, kind: o.kind, ...(o.guess && { guess: true }) })), ...(e.about && { about: e.about }), ...(e.why && { why: e.why }), ...(e.pending && { pending: e.pending }), askSource: e.askSource === 'device' ? 'device' : 'rule' }; break;
+      case 'done': if (e.askCheck) out.askCheck = e.askCheck; break; // 手機提議的題目用了沒（只在最後的 done；請定位那一次沒有）
       case 'answer_draft': out.draft = { text: e.text, facts: e.facts, lang: e.lang }; break;
       case 'text': out.text += String(e.delta || ''); break;
       case 'client_tool_call': if (e.name === 'device_location') out.askedLocation = true; break;
@@ -104,7 +106,7 @@ export async function runTrial(q, deps, onSection = () => {}, onEvent = () => {}
   if (deps.device.active) {
     dev = await deps.judge(q).catch(() => null);
     const t = ms(t0, now);
-    if (dev) put('judge', { by: 'device', engine: dev.engine, intent: dev.intent, states: dev.states, ms: deps.judgeMs?.() ?? t, network: false });
+    if (dev) put('judge', { by: 'device', engine: dev.engine, intent: dev.intent, states: dev.states, ms: deps.judgeMs?.() ?? t, network: false, ...(dev.ask && { ask: dev.ask }) });
   }
   onEvent({ type: 'device', result: dev });
   // 2、3 真的跑一次 agent（edge 模式、試判斷）：只送這一句（＋手機判斷的意圖、狀態）；伺服器請定位時不給（locate 回 null）
@@ -155,8 +157,24 @@ export async function runTrial(q, deps, onSection = () => {}, onEvent = () => {}
   const t3 = now();
   const sug = await deps.suggest({ q, run }).catch(() => ({ source: 'rules', asks: [], guessed: [], checked: false }));
   const data = report.sections.data;
-  put('next', { ask: run.ask, missing: data?.missing || [], location: !!(run.askedLocation || data?.location), suggest: sug, ms: ms(t3, now), network: !!sug.checked }); // 問題來自上面那一輪（已經用過網路）；建議只有驗證猜的句子時用網路
+  put('next', { ask: run.ask, asker: askerOf(run, dev, deps.askInfo?.() || null), missing: data?.missing || [], location: !!(run.askedLocation || data?.location), suggest: sug, ms: ms(t3, now), network: !!sug.checked }); // 問題來自上面那一輪（已經用過網路）；建議只有驗證猜的句子時用網路
   return report;
+}
+
+/**
+ * 第 4 段「這題誰決定的」（ADR-0020）：手機上的 AI 提議了什麼、程式採用了沒（沒採用的原因）、最後是誰問的。純函式。
+ * @param {ReturnType<typeof summarizeRun>} run
+ * @param {object|null} dev 手機判斷（送伺服器的 deviceJudge，可能帶 ask）
+ * @param {{ raw: object|null, reason: string|null }|null} phone 手機上整理模型回傳的結果（edgeJudge onAsk）：reason＝在手機上就被擋下的原因
+ * @returns {{ by: 'device'|'rule'|'none', engine?: string, proposed: object|null, blocked: null|{ where: 'phone'|'server', reason: string } }}
+ */
+export function askerOf(run, dev, phone = null) {
+  const proposed = phone?.raw ? { slot: phone.raw.slot, ...(phone.raw.state && { state: phone.raw.state }), question: phone.raw.question, options: [...(phone.raw.options || [])] } : dev?.ask ? { ...dev.ask, options: [...dev.ask.options] } : null;
+  const by = run.ask ? (run.ask.askSource === 'device' ? 'device' : 'rule') : 'none';
+  const blocked = phone?.reason ? { where: 'phone', reason: phone.reason }
+    : run.askCheck?.verdict === 'rejected' ? { where: 'server', reason: run.askCheck.reason || 'not-missing' }
+      : proposed && dev?.ask && by !== 'device' && !run.askCheck ? { where: 'server', reason: 'not-missing' } : null; // 安全情境、伺服器出錯：沒有 askCheck 也照實說沒採用
+  return { by, ...(dev?.engine && { engine: dev.engine }), proposed, blocked };
 }
 
 /** trial 事件 → 第 2 段（去掉事件型別） */

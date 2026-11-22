@@ -183,9 +183,10 @@ const MODE_EN = { walk: 'Walking', bike: 'YouBike', bus: 'The bus', metro: 'The 
  * 純函式：伺服器（plan_trip 輸出 ask）與決策圖（按了以後即時重算）共用。
  * @param {Array<object>} options 同 decide()
  * @param {object} [ctx] 同 decide()（含 said、mode、habit）
+ * @param {string[]} [only] 只試這幾個狀態（手機上的 AI 提議問某個狀態時，程式驗證它值不值得問，ADR-0020）
  * @returns {{ state: string, from: string, to: string, dMin: number, dCost: number, text: string, textEn: string } | null}
  */
-export function keyQuestion(options, ctx = {}) {
+export function keyQuestion(options, ctx = {}, only = ASK_STATES) {
   if (ctx.mode || ctx.said) return null;
   const states = (ctx.states || []).filter((k) => STATES[k]);
   const base = decide(options, ctx).best;
@@ -193,7 +194,7 @@ export function keyQuestion(options, ctx = {}) {
   const fastest = Math.min(...options.map((o) => Number(o.minutes)));
   let pick = null;
   for (const k of ASK_STATES) {
-    if (states.includes(k)) continue;
+    if (states.includes(k) || !only.includes(k)) continue;
     const alt = decide(options, { ...ctx, states: [...states, k], said: true }).best;
     if (!alt || alt.id === base.id) continue;
     const dMin = Number(base.minutes) - Number(alt.minutes); // 正＝換過去比較快

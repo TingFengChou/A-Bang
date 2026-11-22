@@ -30,6 +30,8 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * 裝置端 AI 判斷（ADR-0014）：Gemini Nano（ML Kit GenAI Prompt API，經系統的 AICore）在手機上判斷意圖與狀態。
  * JS 端：public/js/edge-judge.js（外掛名 AbangEdgeAI）。只回 { engine, result: "模型輸出的 JSON 字串" }，由 JS 驗證列舉值。
+ * 同一次呼叫也請模型決定要不要先問使用者一題（ADR-0020）：JSON 多一個 ask（沒有要問就 null）；題目由 JS 與伺服器的程式驗證，
+ * 解析失敗只當作沒有 ask（不算模型錯誤、不暫停）。情境（context）由 JS 在手機上組，不含座標，只給模型看，不記錄。
  * Android 8 以下、機型不支援、模型還沒下載 → status 回 available: false，judge 回錯誤，JS 改由伺服器判斷。
  * 不記錄使用者的句子，只記耗時與錯誤類型。
  * status 另外回報系統查得到的模型資訊（「阿幫的腦袋」#/ai 顯示；查不到的欄位就不回傳，不編造）：
@@ -46,6 +48,10 @@ public class AbangEdgeAIPlugin extends Plugin {
     private final ExecutorService infoExec = Executors.newSingleThreadExecutor();
     /** 一題最多跑這麼久（JS 只等 1.8 秒；原生端也要停，否則下一題排在後面一起逾時） */
     private static final long JUDGE_TIMEOUT_MS = 1500;
+    /** judge 的輸出上限：意圖＋狀態約 30 token，加上 ask（30 字問句＋4 個 12 字短答）約 120 token（ADR-0020） */
+    private static final int JUDGE_MAX_TOKENS = 160;
+    /** 情境最多幾個字（與 public/js/edge-judge.js JUDGE_CONTEXT_MAX 相同） */
+    private static final int JUDGE_CONTEXT_MAX = 400;
     /** 寫回答最多跑這麼久（ADR-0017；JS 等 2.5 秒，逾時就用程式版總結） */
     private static final long WRITE_TIMEOUT_MS = 2300;
     /** 寫回答的輸入上限（指示＋草稿與事實，字數）：超過就拒絕，不送進模型 */
@@ -181,6 +187,8 @@ public class AbangEdgeAIPlugin extends Plugin {
         if (text == null || text.isEmpty()) { call.reject("沒有句子"); return; }
         if (!osOk()) { call.reject("unavailable: os-too-old"); return; }
         String instructions = call.getString("instructions", "");
+        String context = call.getString("context", "");
+        final String ctx = context == null ? "" : context.length() > JUDGE_CONTEXT_MAX ? context.substring(0, JUDGE_CONTEXT_MAX) : context;
         JSArray hist = call.getArray("history", new JSArray());
         stopSuggest(); // judge 優先：正在猜下一句就先取消，模型讓給這一題
         exec.execute(() -> {
@@ -188,14 +196,16 @@ public class AbangEdgeAIPlugin extends Plugin {
             try {
                 if (System.currentTimeMillis() < pausedUntil || featureStatus() != FeatureStatus.AVAILABLE) { call.reject("unavailable"); return; }
                 StringBuilder prompt = new StringBuilder(instructions)
-                    .append("\n只回一行 JSON，不要其他文字：{\"intent\":\"意圖\",\"states\":[\"狀態\"]}\n");
+                    .append("\n只回一行 JSON，不要其他文字：{\"intent\":\"意圖\",\"states\":[\"狀態\"],\"ask\":null}")
+                    .append("\n要問時 ask 改成 {\"slot\":\"種類\",\"state\":\"狀況（只有 slot 是 state 才要）\",\"question\":\"問句\",\"options\":[\"短答\",\"短答\"]}\n");
+                if (!ctx.isEmpty()) prompt.append("情境：").append(ctx).append('\n');
                 List<String> prior = hist.toList();
                 if (!prior.isEmpty()) prompt.append("前文：").append(String.join("／", prior)).append('\n');
                 prompt.append("這句：").append(text);
                 GenerateContentRequest.Builder b = new GenerateContentRequest.Builder(new TextPart(prompt.toString()));
                 b.setTemperature(0f);
                 b.setTopK(1);
-                b.setMaxOutputTokens(80);
+                b.setMaxOutputTokens(JUDGE_MAX_TOKENS); // 多了 ask（問句＋最多 4 個短答）
                 ListenableFuture<GenerateContentResponse> f = model().generateContent(b.build());
                 GenerateContentResponse r;
                 try { r = f.get(JUDGE_TIMEOUT_MS, TimeUnit.MILLISECONDS); }

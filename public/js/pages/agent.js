@@ -4,7 +4,7 @@ import { API_BASE, IN_APP } from '../base.js';
 import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
 import { runAgent, browserLocation, locationGranted } from '../agent/client.js';
 import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-help.js';
-import { edgeJudge, edgePrewarm, edgeSuggest, edgeCanSuggest } from '../edge-judge.js';
+import { edgeJudge, edgePrewarm, edgeSuggest, edgeCanSuggest, edgeJudgeReady, judgeContext } from '../edge-judge.js';
 import { edgeWrite, edgeWriteCaps, writeLine, writeModeText } from '../edge-write.js';
 import { noteAgentStatus } from '../ai-info.js';
 import { mountThinking, deviceLine } from '../agent/thinking.js';
@@ -160,6 +160,7 @@ export default {
     const cards = [];
     let turnNo = 0; // 第幾輪：只有最近兩輪的卡片自動刷新（對話一直保留，舊卡片不再查，省流量與電）
     let openAsk = null; // 阿幫問你（ADR-0016）：目前開著的問題；下一句對得上就是答案，對不上＝略過
+    let askedLast = []; // 上一輪問過的題（about）：手機上的 AI 出題時不再問同一題（ADR-0020）
     let pendingQ = null; // 阿幫還在回答時又問（提醒泡泡、首頁帶來的問題）：答完接著問，不丟掉（含這一頁的說明）
     const seenCards = new Map(); // 上一輪的天氣、空品（接著問時沒變就收合「同上」；鍵含測站，同一輪起訖點兩張不互蓋）
     /** 這張卡跟上一輪同一個測站的一樣嗎：一樣回收合說明，否則記下並回 null */
@@ -408,7 +409,11 @@ export default {
       rounds.start(round, { q, view, follow, keepPrev: !!pendingAsk }); // 可能在回答「阿幫問你」（對不上按鈕）：上一輪先留著（collapse.js 答完再看）
       try {
         // 手機 App：先在裝置上判斷意圖與狀態（最多等 1.8 秒；不可用就不帶，伺服器照常判斷）
-        const deviceJudge = agentId === 'life' ? await edgeJudge(q, history.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content)) : null;
+        // 同一次呼叫也決定要不要先問一題（ADR-0020）：情境只在手機上組、只給手機上的模型看（不含座標、地址、健康資料）
+        const asked = askedLast;
+        askedLast = [];
+        const judgeOpts = agentId === 'life' && edgeJudgeReady() ? { context: judgeContext({ summary: contextText(suggestCtx()), located: await locationGranted().catch(() => null), saved: Object.keys(loadPlaces()), asked }), asked } : {};
+        const deviceJudge = agentId === 'life' ? await edgeJudge(q, history.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content), judgeOpts) : null;
         const clientCaps = agentId === 'life' ? await edgeWriteCaps() : null; // 回答也在手機上寫（ADR-0017）：伺服器不呼叫模型
         view.writeEngine = clientCaps?.engine;
         view.device(deviceJudge); // 「阿幫在想」：手機上聽懂了什麼（沒有就改由伺服器判斷）
@@ -424,6 +429,7 @@ export default {
           view.push(e);
         }, { agentId });
         await view.flush();
+        view.finish(); // 沒查工具的一輪（只問你一題…）：收掉「小幫手討論中」
         if (myGen !== gen) return; // 回答途中按了清除本機資料：不寫回、不存
         if (view.text) history.push({ role: 'assistant', content: (view.draft ?? view.text).slice(0, 500) }); // 手機改寫的那一輪：前文用程式版（規則路徑讀得到「剛剛那班」「沒拿到你的位置」），畫面顯示改寫
         turnsLog.push({ q, results: view.results, decision: view.decision, lang: view.lang, round }); // round：建議跟著最新一輪（展開舊輪時也一樣）
@@ -435,6 +441,7 @@ export default {
         turn.append(el('div', 'msg error', '連線中斷了，請再試一次。'));
       } finally {
         view.stop(); // 沒有回答（只有卡片、或中斷）也收起「阿幫在想」
+        view.finish?.();
         busy = false; sendBtn.disabled = false; context = '';
         if (pendingQ) { const p = pendingQ; pendingQ = null; queueMicrotask(() => send(p.q, { pageContext: p.pageContext, voice: p.voice, follow: p.follow })); }
         if (!matchMedia('(pointer: coarse)').matches) input.focus(); // 手機不自動聚焦：鍵盤會跳出來蓋住回答
@@ -609,6 +616,7 @@ export default {
             break;
           }
           case 'ask': { // 阿幫問你（ADR-0016）：一輪最多一個；有決策圖就放在它上方，否則接在後面
+            if (e.about) askedLast.push(e.about);
             if (e.key && questionAskedRecently(e.key)) break; // 同一段起訖同一題，24 小時內問過（手機上只存雜湊）
             if (e.key) markQuestion(e.key);
             openAsk?.skip();
@@ -672,6 +680,16 @@ export default {
       view.device = (r) => { view.sent = r || null; think.step({ type: 'device', result: r || null }); };
       view.stop = () => think.stop();
       view.flush = () => queue;
+      /**
+       * 這一輪結束（伺服器的串流跑完，含請定位後的重送）：沒有查任何工具的一輪（只問你一題、道謝、安全情境…）不會有 discussion_end，
+       * 「小幫手討論中 •••」不能一直留著——討論串只剩標題就整個拿掉；有阿幫的說明（agent_note）就留著說明、拿掉「討論中」與虛線。
+       */
+      view.finish = () => {
+        if (!thread.classList.contains('live')) return;
+        thread.classList.remove('live');
+        thread.querySelector('.thread-head')?.remove();
+        if (!thread.querySelector('.bubble, .thread-reset')) thread.remove();
+      };
       return view;
     }
     /** 「阿幫問你」的答案（ADR-0016）：state＝加狀態即時重算、reply＝送出完整的一句、store＝存手機並套到這一輪、action＝手機做事、dismiss＝照原本；回傳顯示在問題區塊的一句 */
@@ -715,7 +733,7 @@ export default {
       voiceRelease: () => voice?.release(),
       voiceCancel: () => voice?.cancel(),
       /** 設定頁清除本機資料：畫面上的對話也一起清掉 */
-      clear() { gen++; clearChat(); history.length = 0; pendingQ = null; openAsk = null; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); rounds.clear(); clearLinks(); turnsLog.length = 0; lastView = null; edgeMemo = { text: '', asks: null }; pinnedDefaults = false; if (dynamic) refreshSuggest(); else showDefaults(); },
+      clear() { gen++; clearChat(); history.length = 0; pendingQ = null; openAsk = null; askedLast = []; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); rounds.clear(); clearLinks(); turnsLog.length = 0; lastView = null; edgeMemo = { text: '', asks: null }; pinnedDefaults = false; if (dynamic) refreshSuggest(); else showDefaults(); },
       /** 從哪一頁打開（浮動阿幫）：那一頁可以問的問題；點了才把這一頁的說明一起送（自己打的問題不帶）；null＝清掉 */
       setPage(hint) {
         const pc = String(hint?.context || '');

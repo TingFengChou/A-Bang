@@ -132,6 +132,8 @@ const DAYPART = /早上|上午|中午|下午|傍晚|晚上|凌晨|半夜|清晨|
 // ADR-0011：阿幫只產生官方連結，不能說已經幫你叫車、訂票、預約、安排、設提醒、付款
 const DONE_ZH = /(?:已|已經|幫你|替你|為你|幫您|替您|為您)[^。！？\n]{0,6}(?:叫好|叫到|叫了|訂好|訂到|訂了|預訂|預約|付款|付好|付了|付清|買好|買了|下單|安排好|安排了|設好|設定好|排好|完成預訂|完成付款|完成預約)|(?:叫好|訂好|買好|付好|設好)(?:車|票|位|提醒)?了|(?:提醒|鬧鐘)(?:已經?)?(?:設好|設定好)|(?:司機|車子?)(?:已經?|正)在路上|(?:已經?)出發去接你/;
 const DONE_EN = /\b(?:i|we)(?:'ve| have)?\s+(?:already\s+)?(?:booked|ordered|paid|reserved|bought|purchased|arranged|scheduled|set up|set|called)\b|\b(?:has|have|is|are) been (?:booked|paid|reserved|ordered|purchased|arranged|scheduled)\b|\bbooked for you\b|\b(?:your|the)\s+(?:uber|taxi|cab|ride|car|driver)\s+(?:is|'s)\s+on\s+(?:its|the|their|his|her)\s+way\b|\bdriver is on the way\b|\breminder (?:is|has been) set\b/i;
+/** 說「已經幫你叫車、訂票、預約、設提醒、付款」（ADR-0011，中英文）：阿幫只給連結。手機出的題目（core/edge-ask.js）也用同一條 */
+export const claimsDone = (text) => DONE_ZH.test(String(text || '')) || DONE_EN.test(String(text || ''));
 // 草稿有這些提醒，改寫也要有（示範資料、末班、停駛、沒拿到位置、帶傘、時間很緊、到設定頁的固定路徑）
 const KEEP = [
   { draft: /示範/, zh: /示範/, en: /demo/i, name: 'demo' },

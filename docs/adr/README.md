@@ -21,6 +21,7 @@
 | [0015](0015-see-and-hear.md) | 裝置端的聽與看：手機上先讀懂，只送文字 | 已採用 | `AbangVision`／`AbangVoice` 外掛、`public/js/vision.js`、`core/vision-text.js` |
 | [0016](0016-ask-the-user.md) | 阿幫問你：答案取決於使用者時問一句（事件 `ask`、pending、什麼時候問／不問） | 已採用 | `core/agent/ask.js`、`keyQuestion`、`public/ui/agent/ask.js` |
 | [0017](0017-edge-write.md) | 回答也在手機上寫（Gemini Nano／Apple Intelligence，程式護欄檢查數字） | 已採用 | `AbangEdgeAI.write`、`core/edge-write.js`、`public/js/edge-write.js`、`answer_draft` |
+| [0020](0020-edge-ask.md) | 問什麼由手機上的 AI 決定（一次 judge 同時出題），程式驗證、規則保底 | 已採用 | `core/edge-ask.js`、`core/agent/ask.js` `deviceSlotAsk`／`deviceStateAsk`、`AbangEdgeAI.judge` |
 | [0019](0019-drama-content-partner.md) | 第一個非政府開放資料的內容合作來源：MyDrama 短劇（只用公開讀取、網址在 env、不收個資、深層連結交給 MyDrama App） | 已採用 | `core/services/drama.js`、`core/tools/drama.js`、`core/agent/wait-drama.js`、`drama` 卡片 |
 
 範本：

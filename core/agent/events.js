@@ -55,11 +55,11 @@ export const ev = {
     options: trip.options, ranked: trip.ranking.ranked, excluded: trip.ranking.excluded, weights: trip.ranking.weights, reason: trip.ranking.reason,
   }, ['states', 'options', 'ranked', 'excluded', 'reason']),
   /**
-   * ask：阿幫問你（ADR-0016）——一輪最多一個；question 與選項由程式產生（core/agent/ask.js），不交給模型。
+   * ask：阿幫問你（ADR-0016）——一輪最多一個；題目由手機上的 AI 提議、程式驗證後採用（askSource 'device'，ADR-0020），否則由程式產生（'rule'，core/agent/ask.js）。
    * key：同一題的鍵（客戶端 24 小時內問過就不顯示）；options[]：{ label, kind, guess? }＋依 kind：state { state, source?: 'usual', say? }、reply { say }、store { value }、action { action: { name, ... } }、dismiss
    * pending：{ slot, state?, intent? }＝在等什麼答案（使用者直接打字時客戶端帶 pendingAsk 回來）
    */
-  ask: ({ id, question, options, why, about, key, pending }) => {
+  ask: ({ id, question, options, why, about, key, pending, askSource }) => {
     if (!Array.isArray(options) || !options.length || options.length > 6) throw new Error('事件 ask 的 options 要 1～6 個');
     const opts = options.map((o) => {
       if (!ASK_KINDS.includes(o?.kind)) throw new Error(`事件 ask 的 kind 不對：${o?.kind}`);
@@ -75,7 +75,7 @@ export const ev = {
       }
       return base;
     });
-    return need('ask', { id, question: String(question).slice(0, 120), options: opts, ...(why && { why: String(why).slice(0, 80) }),  ...(about && { about: String(about) }), ...(key && { key: String(key).slice(0, 80) }), ...(pending?.slot && { pending }) }, ['id', 'question']);
+    return need('ask', { id, question: String(question).slice(0, 120), options: opts, ...(why && { why: String(why).slice(0, 80) }),  ...(about && { about: String(about) }), ...(key && { key: String(key).slice(0, 80) }), ...(pending?.slot && { pending }), askSource: askSource === 'device' ? 'device' : 'rule' }, ['id', 'question']);
   },
   /**
    * aside：卡片下方的小提示（不進回答文字，交通資訊仍是主角）。目前只有 kind 'drama'＝等車推一集短劇（core/agent/wait-drama.js，ADR-0019）；
