@@ -15,8 +15,13 @@ const CASES = [
   ['市區短程＋空品不佳（自動）', '台北車站', '台北101', '09:00', { air: 'bad' }, {}, { best: 'ridehail', auto: ['badAir'], reason: [/因為空氣品質不佳/], last: 'walk' }],
   ['市區短程＋想省錢', '台北車站', '台北101', '09:00', {}, { states: ['budget'] }, { best: 'metro', reason: [/因為你想省錢/], last: 'ridehail' }], // 有捷運（S7）：比公車快 11 分、只貴 10 元
   ['市區短程＋帶行李＋少走路', '台北車站', '台北101', '09:00', {}, { states: ['luggage', 'lessWalk'] }, { best: 'ridehail', reason: [/你帶著行李/, /比較輕鬆/], last: 'walk' }],
-  ['很近（約 1.5 公里）', '台北車站', '西門町', '09:00', {}, {}, { best: 'ridehail', roles: ['bike', 'bus', 'ridehail', 'walk'], reason: [/^選「叫車/] }],
-  ['台中市區＋下雨', '台中車站', '逢甲夜市', '18:00', { weather: 'rain' }, {}, { best: 'ridehail', auto: ['rain'], reason: [/正在下雨/, /比較不會淋雨|只走 0 分/], notFirst: ['bike', 'walk'] }],
+  // 2026-11-22 花錢換時間要划算（ADR-0010）：原本推叫車（10 分、110 元）；比公車 235（16 分、15 元）只快 6 分卻多 95 元，不划算 → 照分數推步行
+  ['很近（約 1.5 公里）', '台北車站', '西門町', '09:00', {}, {}, { best: 'walk', roles: ['bike', 'bus', 'ridehail', 'walk'], reason: [/^選「步行」：省 110 元、只慢 10 分。$/] }],
+  ['很近（約 1.5 公里）＋趕時間', '台北車站', '西門町', '09:00', {}, { states: ['rush'] }, { best: 'ridehail', reason: [/因為你趕時間/] }],
+  // 西門町→台北101（示範資料）：叫車 27 分 285 元、公車 601 32 分 15 元、捷運 32 分 25 元 → 沒有狀況推公車；趕時間、帶行李推叫車
+  ['西門町→台北101（無狀態）', '西門町', '台北101', '09:00', {}, {}, { best: 'bus', reason: [/^選「公車 601」/] }],
+  ['西門町→台北101＋趕時間', '西門町', '台北101', '09:00', {}, { states: ['rush'] }, { best: 'ridehail', reason: [/因為你趕時間/] }],
+  ['西門町→台北101＋帶行李', '西門町', '台北101', '09:00', {}, { states: ['luggage'] }, { best: 'ridehail', reason: [/因為你帶著行李/] }],  ['台中市區＋下雨', '台中車站', '逢甲夜市', '18:00', { weather: 'rain' }, {}, { best: 'ridehail', auto: ['rain'], reason: [/正在下雨/, /比較不會淋雨|只走 0 分/], notFirst: ['bike', 'walk'] }],
   ['跨城（無狀態）', '台北車站', '高雄車站', '09:00', {}, {}, { best: 'tra', roles: ['intercity', 'ridehail', 'thsr', 'tra'], reason: [/省 \d+ 元/] }],
   ['跨城＋塞車（自動）', '台北車站', '高雄車站', '09:00', { traffic: 'jam' }, {}, { best: 'tra', auto: ['traffic'], reason: [/因為路上正在塞車/], last: 'ridehail' }],
   ['跨城＋趕時間＋12:00 前到', '台北車站', '高雄車站', '09:00', {}, { states: ['rush'], arriveBy: '12:00' }, { best: 'thsr', excluded: ['intercity', 'ridehail'], reason: [/你趕時間/, /比台鐵\S+快 \d+ 分/, /會遲到已排除/] }],

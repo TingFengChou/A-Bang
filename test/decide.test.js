@@ -84,12 +84,14 @@ test('arriveByMin：以分鐘比較，跨午夜的抵達不會被字串比較放
   assert.deepEqual(decide(opts, { arriveBy: '23:30' }).excluded.map((o) => o.id), []); // 只有字串時維持舊行為
 });
 
-test('想省錢（cost ×5，2026-11-18 調整）：市區短程貴的叫車不會勝過公車', async () => {
+test('想省錢（cost ×3，2026-11-21 調整）：市區短程貴的叫車不會勝過公車', async () => {
   const { decide } = await import('../core/decide.js');
   const opts = [
-    { id: 'ride', name: '叫車', minutes: 24, waitMin: 6, walkMin: 0, cost: 255, exposure: 0, effort: 0, delayRisk: 0.4 },
-    { id: 'bus', name: '公車', minutes: 34, waitMin: 5, walkMin: 6, cost: 15, exposure: 0.2, effort: 0.2, delayRisk: 0.4 },
+    { id: 'ride', role: 'ridehail', name: '叫車', minutes: 24, waitMin: 6, walkMin: 0, cost: 255, exposure: 0, effort: 0, delayRisk: 0.4 },
+    { id: 'bus', role: 'bus', name: '公車', minutes: 34, waitMin: 5, walkMin: 6, cost: 15, exposure: 0.2, effort: 0.2, delayRisk: 0.4 },
   ];
-  assert.equal(decide(opts).best.id, 'ride');
+  // 2026-11-22 花錢換時間要划算：沒有狀況時原本推叫車（快 10 分、多 240 元），現在推公車；帶行李才推叫車
+  assert.equal(decide(opts).best.id, 'bus');
+  assert.equal(decide(opts, { states: ['luggage'] }).best.id, 'ride');
   assert.equal(decide(opts, { states: ['budget'] }).best.id, 'bus');
 });
