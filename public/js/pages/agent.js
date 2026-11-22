@@ -429,6 +429,7 @@ export default {
           view.push(e);
         }, { agentId });
         await view.flush();
+        view.finish(); // 沒查工具的一輪（只問你一題…）：收掉「小幫手討論中」
         if (myGen !== gen) return; // 回答途中按了清除本機資料：不寫回、不存
         if (view.text) history.push({ role: 'assistant', content: (view.draft ?? view.text).slice(0, 500) }); // 手機改寫的那一輪：前文用程式版（規則路徑讀得到「剛剛那班」「沒拿到你的位置」），畫面顯示改寫
         turnsLog.push({ q, results: view.results, decision: view.decision, lang: view.lang, round }); // round：建議跟著最新一輪（展開舊輪時也一樣）
@@ -440,6 +441,7 @@ export default {
         turn.append(el('div', 'msg error', '連線中斷了，請再試一次。'));
       } finally {
         view.stop(); // 沒有回答（只有卡片、或中斷）也收起「阿幫在想」
+        view.finish?.();
         busy = false; sendBtn.disabled = false; context = '';
         if (pendingQ) { const p = pendingQ; pendingQ = null; queueMicrotask(() => send(p.q, { pageContext: p.pageContext, voice: p.voice, follow: p.follow })); }
         if (!matchMedia('(pointer: coarse)').matches) input.focus(); // 手機不自動聚焦：鍵盤會跳出來蓋住回答
@@ -678,6 +680,16 @@ export default {
       view.device = (r) => { view.sent = r || null; think.step({ type: 'device', result: r || null }); };
       view.stop = () => think.stop();
       view.flush = () => queue;
+      /**
+       * 這一輪結束（伺服器的串流跑完，含請定位後的重送）：沒有查任何工具的一輪（只問你一題、道謝、安全情境…）不會有 discussion_end，
+       * 「小幫手討論中 •••」不能一直留著——討論串只剩標題就整個拿掉；有阿幫的說明（agent_note）就留著說明、拿掉「討論中」與虛線。
+       */
+      view.finish = () => {
+        if (!thread.classList.contains('live')) return;
+        thread.classList.remove('live');
+        thread.querySelector('.thread-head')?.remove();
+        if (!thread.querySelector('.bubble, .thread-reset')) thread.remove();
+      };
       return view;
     }
     /** 「阿幫問你」的答案（ADR-0016）：state＝加狀態即時重算、reply＝送出完整的一句、store＝存手機並套到這一輪、action＝手機做事、dismiss＝照原本；回傳顯示在問題區塊的一句 */

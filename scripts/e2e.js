@@ -3759,3 +3759,38 @@ test('阿幫的腦袋：試判斷第 4 段標出題目是手機上的 AI 決定�
     await page.waitForFunction(() => /問錯狀況/.test(document.querySelector('.ai-ask-blocked')?.textContent || ''), null, { timeout: 20000 });
   }, { init: FAKE_ASK, ignore: /not in test/ });
 });
+
+// 只問你一題、沒查資料的那一輪（規則或手機出題都一樣）：沒有 discussion_end，「小幫手討論中 •••」不能一直留著
+test('只問一題的那一輪：討論串正確結束（不留「小幫手討論中」）——問阿幫頁與底部面板、中英文', async () => {
+  const idle = (root) => document.querySelector(root).querySelectorAll('.turn .thread.live, .turn .thread-head').length;
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    for (const [i, q, head] of [[1, '公車還要多久？', '小幫手討論中'], [2, 'How long until the bus comes?', 'Checking live data']]) {
+      await page.fill('.chat-form input', q);
+      await page.press('.chat-form input', 'Enter');
+      await page.waitForFunction((k) => document.querySelectorAll('.bubble.final').length === k, i, { timeout: 20000 });
+      await page.waitForFunction(() => !document.querySelector('.chat-send')?.disabled);
+      assert.ok(await page.locator('.turn').last().locator('.ask .ask-q').count() || await page.locator('.ask .ask-q').count(), `${q}：有問你一題`);
+      assert.equal(await page.evaluate(idle, 'body'), 0, `${q}：討論串結束`);
+      assert.doesNotMatch(await page.locator('.turn').last().textContent(), new RegExp(head), q);
+    }
+    assert.equal(await page.locator('.turn').last().locator('.thread').count(), 0, '沒有小幫手發言：整個不顯示');
+    await page.locator('.round').last().screenshot({ path: new URL('phone-ask-only-turn.png', SHOTS).pathname });
+    // 查了工具的一輪照舊收合成摘要
+    await page.fill('.chat-form input', '從西門町到台北101怎麼去');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForSelector('.turn .thread-sum', { timeout: 20000 });
+  });
+  await withPage(DEVICES.phone, '#/services', async (page) => {
+    await page.click('#abang-fab');
+    await page.waitForSelector('#abang-sheet[open] .chat-form input');
+    for (const [i, q] of [[1, '從台北車站出發'], [2, "I'm leaving from Taipei Main Station"]]) {
+      await page.fill('#abang-sheet .chat-form input', q);
+      await page.press('#abang-sheet .chat-form input', 'Enter');
+      await page.waitForFunction((k) => document.querySelectorAll('#abang-sheet .bubble.final').length === k, i, { timeout: 20000 });
+      await page.waitForFunction(() => !document.querySelector('#abang-sheet .chat-send')?.disabled);
+      assert.ok(await page.locator('#abang-sheet .ask .ask-q').count(), `底部面板「${q}」：有問你一題`);
+      assert.equal(await page.evaluate(idle, '#abang-sheet'), 0, `底部面板「${q}」：討論串結束`);
+      assert.doesNotMatch(await page.locator('#abang-sheet .turn').last().textContent(), /小幫手討論中|Checking live data/);
+    }
+  });
+});

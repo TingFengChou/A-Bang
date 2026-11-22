@@ -13,6 +13,13 @@
 
 ---
 
+## 2026-11-22 只問一題的那一輪不再留著「小幫手討論中」
+- 做了：只問你一題、沒查資料的那一輪（規則或手機出題都一樣）沒有 `discussion_end`，討論串一直顯示「小幫手討論中 •••」。`public/js/pages/agent.js` 的一輪畫面加 `view.finish()`：串流（含請定位後的重送）跑完、或中斷時，討論串還在「討論中」就收掉標題與虛線，只剩標題就整個拿掉、有阿幫的說明就留說明；查了工具的一輪照舊收合成摘要。問阿幫頁與底部面板共用同一份。sw `v1.2.1`。
+- 測試：npm test 全過；E2E 新增 1 項（問阿幫頁與底部面板、中英文；拿掉修正時會失敗），截圖 `phone-ask-only-turn.png`
+- 文件：UX.md §4（討論串）
+- 下一個：手機出題實機確認
+- 卡住：無
+
 ## 2026-11-22 問什麼由手機上的 AI 決定（ADR-0020）
 - 做了：產品負責人「決定要問什麼應該交給 edge AI」。手機 judge（AbangEdgeAI，Gemini Nano／Apple Intelligence）一次呼叫回 `{ intent, states, ask? }`，ask＝`{ slot: route|to|from|state, state?, question, options[2～4] }`；情境（定位、常用地點標籤、上一輪問過的題、最近兩輪摘要、頁面）只在手機上組。程式驗證：`core/edge-ask.js edgeAskShape`（手機與伺服器共用，經 `/core/` 提供：種類、長度、問句、沒有數字、選項數與重複、`unsafeAsk`、L2 護欄、代辦說法、語言、狀態題一肯定一否定）＋伺服器 `deviceSlotAsk`／`deviceStateAsk`（規則也認為缺、選項經 `PENDING_SLOTS` 接得回、`keyQuestion` 只試那個狀態會換建議）。通過就用手機的題目與選項（說明、pending、key、這一輪的一句回答仍由程式），與規則衝突以手機為準，手機沒給照規則保底；網頁版不變。`ask.askSource`、最後 `done.askCheck`、log `ask`／`deviceAsk`（不記題目）。試判斷第 4 段標來源、列被擋的題目與原因。Android JSON（輸出 160 token、帶情境）、iOS `@Generable EdgeAsk`。sw `v1.2.0`。
 - 測試：npm test 全過（新增 `test/edge-ask.test.js` 16 項：形狀、整理、巢狀 JSON、指示與情境、請求驗證、採用、寧可不問、衝突順序、英文、模型與 edge 模式、log、試判斷；#115 情境 AR-*／AS-* 用假外掛「合理」「亂來」各跑一遍）；E2E 新增 2 項（手機題目、退回規則、網頁版不變、試判斷來源，截圖 `phone-edge-ask*.png`）；Android assembleDebug、iOS xcodebuild（不簽署）通過
