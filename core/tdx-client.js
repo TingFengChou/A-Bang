@@ -31,7 +31,7 @@ const DAY = 86400;
 
 /** 計量與 log 用的端點類別：只留路徑裡的固定字（例 Bus/EstimatedTimeOfArrival/City），不含縣市、路線、站名、查詢參數 */
 const SKIP_SEG = new Set(['basic', 'advanced', 'v2', 'v3', 'api']);
-const STOP_SEG = /^(Taipei|NewTaipei|Taoyuan|Taichung|Tainan|Kaohsiung|Keelung|Hsinchu|HsinchuCounty|MiaoliCounty|ChanghuaCounty|NantouCounty|YunlinCounty|ChiayiCounty|Chiayi|PingtungCounty|YilanCounty|HualienCounty|TaitungCounty|KinmenCounty|PenghuCounty|LienchiangCounty|TRTC|TYMC|TMRT|KRTC|KLRT|NTDLRT|TRTCMG|NTMC)$/;
+const STOP_SEG = /^(Taipei|NewTaipei|Taoyuan|Taichung|Tainan|Kaohsiung|Keelung|Hsinchu|HsinchuCounty|MiaoliCounty|ChanghuaCounty|NantouCounty|YunlinCounty|ChiayiCounty|Chiayi|PingtungCounty|YilanCounty|HualienCounty|TaitungCounty|KinmenCounty|PenghuCounty|LienchiangCounty|TRTC|TYMC|TMRT|KRTC|KLRT|NTDLRT|TRTCMG|NTMC|NTALRT)$/;
 export function endpointCategory(path) {
   const out = [];
   for (const s of String(path).split('?')[0].split('/').filter(Boolean)) {
