@@ -275,6 +275,12 @@ export default {
         b.remove();
         return undefined;
       }
+      if (s.kind === 'alarm') { // 某天某時的本機提醒（明早帶傘）：跟出門提醒同一套，可在提醒頁取消
+        const id = await host.remind(s.payload.at, s.payload.text, { key: s.payload.key, date: s.payload.date, ...(s.payload.lang && { lang: s.payload.lang }) }).catch(() => false);
+        const en = view?.lang === 'en';
+        (view?.round || log).append(el('p', 'agent-sys', id ? (en ? `OK, I'll remind you at ${s.payload.at} tomorrow.` : `好，明天 ${s.payload.at} 提醒你帶傘。`) : (en ? "Couldn't set the reminder (allow notifications)." : '提醒沒設成（要允許通知）。')));
+        return showNext(view);
+      }
       if (s.kind === 'remind') {
         await host.watchArrival(s.payload);
         (view?.round || log).append(el('p', 'agent-sys', view?.lang === 'en' ? `OK, I'll remind you ${s.payload.minutes} min before bus ${s.payload.routeName} reaches ${s.payload.stop}.` : `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（${cardT(`busRoute.${host.arrivalNote?.() || 'whenOpenPage'}`)}）。`));
