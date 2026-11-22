@@ -184,7 +184,7 @@ export default {
       costTips.length > 0 && h('ul', { class: 'ab-tips', 'aria-label': t('trip.costTips') }, costTips.map((x) => h('li', {}, x.text))),
       alts.length > 0 && h('div', { class: 'ab-alts' }, h('h4', {}, t('trip.alternatives')), alts.map((o) => optionBlock(o, ctx, false))),
       // 沒列入的方式與原因（missing 已含 skipped；舊資料只有 skipped）：深夜收班、附近沒有站、沒有趕得上的班次…
-      notIn.length > 0 && h('ul', { class: 'ab-skipped', 'aria-label': t('trip.missing') }, notIn.map((s) => h('li', { 'data-role': s.role, ...(s.closed && { class: 'closed' }) }, token(s.role, { size: 'xs' }), t('trip.skipped', { name: t(`trip.leg.${s.role}`), why: (en && s.whyEn) || s.why })))),
+      notIn.length > 0 && h('ul', { class: 'ab-skipped', 'aria-label': t('trip.missing') }, notIn.map((s) => h('li', { 'data-role': s.role, ...(s.route && { 'data-route': s.route }), ...(s.closed && { class: 'closed' }) }, token(s.role, { size: 'xs' }), t('trip.skipped', { name: s.route ? optName({ role: 'bus', name: `公車 ${s.route}` }, t, ctx.locale) : t(`trip.leg.${s.role}`), why: (en && s.whyEn) || s.why })))), // route：那一條公車今天不會來（「公車 三峽-臺北市信義區沒列入：今天沒有營運」）
       d.ranking.excluded.length > 0 && h('div', { class: 'ab-excluded' }, h('h4', {}, t('trip.excluded')),
         h('ul', { class: 'ab-list' }, d.ranking.excluded.map((e) => h('li', { class: 'ab-row off' }, token(byId.get(e.id)?.role || e.id, { size: 'sm', cls: 'off' }), h('span', { class: 'ab-name' }, e.name || e.id), h('span', { class: 'ab-sub' }, e.why))))));
   },

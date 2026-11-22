@@ -3494,6 +3494,41 @@ test('問阿幫：深夜 00:10 去台北101——第一句說公車和捷運收�
   }
 });
 
+test('問阿幫：推薦的公車今天沒有營運（盯到站才發現）——排除它重排、卡片與決策圖寫出哪一條、為什麼（中、英）', async () => {
+  const srv = await startServer({ DEMO_BUS: 'offLive' }); // 示範：比較快的那條直達公車上車站今日未營運（規劃時看起來正常）
+  try {
+    await withPage(DEVICES.phone, '#/agent', async (page) => {
+      await page.fill('.chat-form input', '我想省錢，從西門町到台北101怎麼去？');
+      await page.press('.chat-form input', 'Enter');
+      await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+      const say = await page.locator('.bubble.final .say').textContent();
+      assert.match(say, /^公車 601 今天沒有營運（站牌即時資訊），這次不推。選「公車 212」/, say);
+      assert.doesNotMatch(say, /選「公車 601」/);
+      const says = await page.locator('.thread .bubble.tool .say').allTextContents();
+      assert.ok(says.some((x) => x === '601 在「民生捷運站(1號出口)」：今日未營運。'), `盯到的證據在討論串：${says.join('|')}`);
+      const card = page.locator('.results [data-card="trip"]').first();
+      assert.ok((await card.locator('.ab-skipped li').allTextContents()).includes('公車 601沒列入：今天沒有營運（站牌即時資訊）'));
+      const dg = page.locator('.decision');
+      await dg.locator('.dg-svg').waitFor();
+      assert.equal(await dg.locator('.dg-opt.excluded[data-id="skip-bus-601"]').count(), 1, '決策圖畫出那一條（灰色）');
+      assert.ok((await dg.locator('.dg-missing li').allTextContents()).includes('公車 601沒列入：今天沒有營運（站牌即時資訊）'));
+      await card.screenshot({ path: new URL('phone-trip-bus-off-card.png', SHOTS).pathname });
+    }, { origin: srv.base });
+    await withPage(DEVICES.phone, '#/agent', async (page) => {
+      await page.fill('.chat-form input', 'I want to save money. How do I get from Ximending to Taipei 101?');
+      await page.press('.chat-form input', 'Enter');
+      await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+      assert.match(await page.locator('.bubble.final .say').textContent(), /^Bus 601: not running today \(live stop info\), so I left it out\./);
+      const card = page.locator('[data-card="trip"]').first();
+      assert.ok((await card.locator('.ab-skipped li').allTextContents()).includes('Bus 601 not included: not running today (live stop info)'));
+      await page.waitForSelector('.decision .dg-missing');
+      assert.ok((await page.locator('.decision .dg-missing li').allTextContents()).includes('Bus 601 not included: not running today (live stop info)'));
+    }, { origin: srv.base });
+  } finally {
+    srv.proc.kill();
+  }
+});
+
 // PR #109 審查修正（長對話）
 const askChat = async (page, q, n) => {
   await page.fill('.chat-form input', q);

@@ -51,6 +51,9 @@ const TRANSIT_ROLES = new Set(['bus', 'metro', 'tra', 'thsr', 'intercity']);
 /** 走太久、騎太久（分）：沒有理由狀態、有大眾運輸時，超過的步行、YouBike 不排在最好的大眾運輸前面（產品負責人授權，2026-11-22 PR #119 審查） */
 export const LONG_MIN = { walk: 25, bike: 30 };
 
+/** 同分時：因「不划算」被壓下來的叫車排在讓位的公車後面（時間不明的公車讓位後跟叫車同分時，公車在前，理由句說「公車到站時間不明」而不是跟叫車比價；PR #124 審查） */
+const notWorthLast = (a, b) => (a.notWorth && b.unsure ? 1 : b.notWorth && a.unsure ? -1 : 0); // 只處理這一種同分（其他同分照時間短的在前，理由句不變）
+
 /** 轉乘次數：有 transfers 就用；否則看分段（走路以外的段數 − 1）＋捷運本身的轉乘 */
 function transfersOf(o) {
   if (Number.isFinite(o.transfers)) return o.transfers;
@@ -133,19 +136,29 @@ export function decide(options, ctx = {}) {
     }
     return { o, breakdown, base: Object.values(breakdown).reduce((a, b) => a + b, 0) };
   });
+  const pt = (x) => Math.round(x.base * 100);
+  const top = (list) => list.reduce((a, x) => (!a || x.base > a.base ? x : a), null);
+  /** 把 x 排到 ref 後面 1 分（顯示的分數剛好少 1 分），扣的分記在 breakdown[key]（負數，決策圖畫得出來） */
+  const lower = (x, ref, key) => {
+    const t = (pt(ref) - 1) / 100;
+    if (t >= x.base) return;
+    x.breakdown[key] = (x.breakdown[key] ?? 0) + t - x.base;
+    x.base = t;
+  };
+  // 到站時間不明的公車（ADR-0010 2026-11-22：站牌沒有任何預估或尚未發車，etaUnknown）：不知道車會不會來，
+  // 不排在時間確定的大眾運輸前面（breakdown.unsure、unsure.vs），理由句「公車 939 到站時間不明」；沒有別的大眾運輸時照分數（仍列入）。不看狀態：這是資料可不可靠，不是偏好
+  const known = scored.filter((x) => TRANSIT_ROLES.has(x.o.role) && !x.o.etaUnknown);
+  for (const x of scored) {
+    if (!x.o.etaUnknown || !known.length) continue;
+    const ref = top(known);
+    if (pt(x) < pt(ref)) continue;
+    lower(x, ref, 'unsure');
+    x.unsure = { vs: ref.o.id };
+  }
   // 預設大眾運輸（ADR-0010 2026-11-22）：沒有理由狀態（STATES.*.reason）、而且有大眾運輸方案時才做
   if (!states.some((k) => STATES[k].reason)) {
     const transit = scored.filter((x) => TRANSIT_ROLES.has(x.o.role));
     if (transit.length) {
-      const pt = (x) => Math.round(x.base * 100);
-      const top = (list) => list.reduce((a, x) => (!a || x.base > a.base ? x : a), null);
-      /** 把 x 排到 ref 後面 1 分（顯示的分數剛好少 1 分），扣的分記在 breakdown[key]（負數，決策圖畫得出來） */
-      const lower = (x, ref, key) => {
-        const t = (pt(ref) - 1) / 100;
-        if (t >= x.base) return;
-        x.breakdown[key] = (x.breakdown[key] ?? 0) + t - x.base;
-        x.base = t;
-      };
       const cost = (x) => val(x.o, 'cost');
       /** 從 a 換成 b 省下的體感時間值多少錢（VALUE_OF_TIME） */
       const worth = (a, b) => (feltMinutes(a.o) - feltMinutes(b.o)) * VALUE_OF_TIME.perMin;
@@ -175,12 +188,12 @@ export function decide(options, ctx = {}) {
       }
     }
   }
-  const ranked = scored.map(({ o, breakdown, notWorth, tooLong }) => {
+  const ranked = scored.map(({ o, breakdown, notWorth, tooLong, unsure }) => {
     const bonus = habitOn ? habitBonus(o, ctx.habit, fastest) : 0;
     if (bonus > 0) breakdown.habit = bonus;
     const score = Object.values(breakdown).reduce((a, b) => a + b, 0);
-    return { ...o, score: Math.round(score * 100), breakdown, ...(notWorth && { notWorth }), ...(tooLong && { tooLong }) };
-  }).sort((a, b) => b.score - a.score || a.minutes - b.minutes);
+    return { ...o, score: Math.round(score * 100), breakdown, ...(notWorth && { notWorth }), ...(tooLong && { tooLong }), ...(unsure && { unsure }) };
+  }).sort((a, b) => b.score - a.score || notWorthLast(a, b) || a.minutes - b.minutes);
 
   // 4. 使用者指定交通方式（「改坐公車」）：分數與排名照算，建議改成該方式裡分數最高的（沒有這種方式就照分數）
   const picked = ctx.mode ? ranked.find((o) => o.role === ctx.mode) : null;
@@ -216,6 +229,9 @@ function explain(best, second, states, excluded, ranked = []) {
     // 叫車多付的錢換不到夠多的時間（VALUE_OF_TIME）：照實說省多少錢、慢多少（或沒比較慢）
     const slower = Number(best.minutes) - Number(second.minutes);
     why.push([...often, `省 ${second.notWorth.extra} 元`, slower > 0 ? `只慢 ${slower} 分` : '也不會比較慢'].join('、'));
+  } else if (second?.unsure?.vs === best.id) {
+    // 到站時間不明的公車讓位（unsure）：照實說
+    why.push([...often, `${second.name} 到站時間不明`].join('、'));
   } else if (second?.tooLong?.vs === best.id) {
     // 走太久、騎太久（LONG_MIN）：照實說要多久、上限多少
     why.push([...often, `${second.name}要 ${second.minutes} 分（超過 ${second.tooLong.cap} 分）`].join('、'));

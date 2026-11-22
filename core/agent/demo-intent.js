@@ -3,6 +3,7 @@
 import { enName, outingEn, SPEAK_EN } from '../tools/speak-en.js';
 import { LANDMARKS, normPlace } from '../services/places.js';
 import { nextStepOf } from '../tools/trip.js';
+import { BUS_OFF, withoutBus, busOffEntry } from '../services/trip.js';
 import { upcomingTrains } from '../tools/transit.js';
 import { outingSay } from './outing.js';
 import { nowTW, distanceM } from '../util.js';
@@ -1250,7 +1251,14 @@ function englishSummary(it, results) {
     const from = it.from ? enPlace(it.from) : it.fromPoint ? 'your location' : enPlace(DEFAULT_FROM);
     const missing = trip.modeUnavailable ? `I couldn't find a ${EN_MODE_NAME[trip.modeUnavailable] || trip.modeUnavailable} option, so here's the best alternative. ` : '';
     const night = trip.night?.textEn ? `${trip.night.textEn} ` : ''; // 深夜：第一句先說公車、捷運收班或末班快到了
-    return `${night}${missing}From ${from} to ${enPlace(it.to)}, I compared ${trip.options.length} options. Best: ${enName(best)}, about ${best.minutes} min, ${cost}, arriving ${best.arriveAt}.${rainSoon}${tight}${note}`;
+    // 今天不會來的直達公車（站牌即時資訊）：一條（route）或全部（role 層級；收班由深夜那句說）
+    const off = (trip.missing || []).filter((m) => m.role === 'bus' && !m.closed && (m.kind === 'route' || /live stop info/.test(m.whyEn || '')))
+      .filter((m) => m.kind !== 'route').map((m) => `${m.whyEn}. `).join('')
+      + offGroups((trip.missing || []).filter((m) => m.kind === 'route'), 'whyEn').map(([why, routes]) => `${routes.length > 1 ? 'Buses' : 'Bus'} ${routes.join(', ')}: ${why}, so I left ${routes.length > 1 ? 'them' : 'it'} out. `).join('');
+    const eta = results.bus_route_eta?.at(-1)?.data;
+    // 保底：推薦的公車盯到站後發現今天不會來（重排後仍是這班）→ 不說「Best: Bus」，改推排名下一個
+    if (best.role === 'bus' && eta?.focus && eta.routeName === best.follow?.routeName && BUS_OFF[eta.focus.status]) return `${night}${off}${busOffSay(trip, eta, 'en')}${note}`;
+    return `${night}${missing}${off}From ${from} to ${enPlace(it.to)}, I compared ${trip.options.length} options. Best: ${enName(best)}, about ${best.minutes} min, ${cost}, arriving ${best.arriveAt}.${rainSoon}${tight}${note}`;
   }
   if (it.intent === 'weather') {
     const where = it.places[0] ? ` in ${enPlace(it.places[0]).replace(/ Station \(.*\)$/, '').replace(/ Main$/, '')}` : it.fromPoint ? ' where you are' : ` in ${enPlace(DEFAULT_FROM)}`;
@@ -1362,6 +1370,21 @@ export function dramaSummary(it, results) {
   if (picks) return `${search ? `MyDrama 沒有找到「${search.data.query}」的短劇，先給你看熱門的：` : ''}${picks.speak} ${open(picks.data)}想看特定類型就說，例如「甜寵」「懸疑」。`.trim();
   return '這次沒查到短劇資料，等一下再試試看。';
 }
+/** 不會來的路線依原因分組：[[原因, [路線…]]]（「公車 R2、R3 今天沒有營運」一句說完） */
+function offGroups(list, key = 'why') {
+  const m = new Map();
+  for (const x of list) m.set(x[key], [...(m.get(x[key]) || []), x.route]);
+  return [...m.entries()];
+}
+/** 保底（run.js 沒能重排、推薦的仍是今天不會來的公車）：照實說這班不會來，改推把它排除後重新比較的建議（withoutBus，同一套 decide()；不拿 ranking 第二名），不問到站提醒 */
+export function busOffSay(trip, eta, lang = null) {
+  const f = eta.focus, off = BUS_OFF[f.status];
+  const alt = withoutBus(trip, [busOffEntry(eta.routeName, f.status)]);
+  const next = alt.options.find((o) => o.id === alt.best);
+  if (lang === 'en') return `Bus ${eta.routeName} at ${f.stopName}: ${off.whyEn}, so it won't come.${next ? ` Instead: ${enName(next)}, about ${next.minutes} min, arriving ${next.arriveAt}.` : ' Try a taxi or YouBike.'}`;
+  const step = next && nextStepOf(next);
+  return `公車 ${eta.routeName} 在「${f.stopName}」${off.why}，這班不會來。${next ? `改推「${next.name}」：約 ${next.minutes} 分，${next.arriveAt} 到。${step ? `下一步：${step}。` : ''}` : '可以叫車或騎 YouBike。'}`;
+}
 function summaryCore(it, results, suggestions = []) {
   if (it.lang === 'en') return englishSummary(it, results);
   if (it.intent === 'drama') return dramaSummary(it, results);
@@ -1385,15 +1408,21 @@ function summaryCore(it, results, suggestions = []) {
     const trip = results.plan_trip?.[0];
     const when = `${it.departTime ? `${dayWord(it)} ${it.departTime} 出發：` : ''}${it.nearRail && it.to ? `最近的${it.nearRail === 'THSR' ? '高鐵' : '火車'}站是「${String(it.to).replace(/臺/g, '台')}」。` : ''}`; // 說了幾點出發、沒說哪一站的火車站，總結先講（P5-2、P5-4）
     const pre = `${when}${it.from || it.fromPoint ? '' : it.noLocation ? `（沒拿到你的位置，先從「${DEFAULT_FROM}」算；告訴我從哪出發就重算。）` : `（你沒說從哪出發，我先用「${DEFAULT_FROM}」算。）`}`;
+    // 今天不會來的直達路線（站牌即時資訊：今日未營運、末班已過、交管不停靠；plan_trip 或盯到站後重排已排除）：先說，使用者才知道為什麼不推它
+    const off = (trip?.data.missing || []).filter((m) => m.kind === 'route');
+    const offSay = offGroups(off).map(([why, routes]) => `公車 ${routes.join('、')} ${why}，這次不推。`).join('');
     // 選了公車：阿幫已自動盯上車站（run.js busFollowUp）→ 講公車多久到、主動問要不要到站提醒
     const bus = results.bus_route_eta?.at(-1)?.data?.focus && results.bus_route_eta.at(-1);
-    if (trip && bus) {
-      const walk = trip.data.options.find((o) => o.id === trip.data.best)?.follow?.walkMin;
+    const busBest = trip?.data.options.find((o) => o.id === trip.data.best);
+    if (trip && bus && busBest?.role === 'bus' && busBest.follow?.routeName === bus.data.routeName) {
+      const walk = busBest.follow.walkMin;
       const f = bus.data.focus;
+      // 保底：盯到的是今天不會來（重排後仍是這班）→ 不說「選公車」、不問到站提醒，改推排名下一個
+      if (BUS_OFF[f.status]) return `${pre}${offSay}${busOffSay(trip.data, bus.data)}`;
       const miss = walk && f.status === 0 && f.etaSec != null && f.etaSec < walk * 60; // 走過去要比車到還久
-      const last = trip.data.options.find((o) => o.id === trip.data.best)?.lastBus;
-      if (last) return `${pre}${trip.data.ranking.reason} ${bus.speak.replace(/。$/, '')}${walk ? `，走過去約 ${walk} 分` : ''}。這可能是末班，早點出門；趕不上就叫車或騎 YouBike。`;
-      return `${pre}${trip.data.ranking.reason} ${bus.speak.replace(/。$/, '')}${walk ? `，走過去約 ${walk} 分` : ''}${miss ? '，這班可能趕不上。要我在下一班快到時提醒你嗎？' : '。要我在公車快到站時提醒你嗎？'}按卡片上的「到站前 3 分提醒我」。`;
+      const last = busBest.lastBus;
+      if (last) return `${pre}${offSay}${trip.data.ranking.reason} ${bus.speak.replace(/。$/, '')}${walk ? `，走過去約 ${walk} 分` : ''}。這可能是末班，早點出門；趕不上就叫車或騎 YouBike。`;
+      return `${pre}${offSay}${trip.data.ranking.reason} ${bus.speak.replace(/。$/, '')}${walk ? `，走過去約 ${walk} 分` : ''}${miss ? '，這班可能趕不上。要我在下一班快到時提醒你嗎？' : '。要我在公車快到站時提醒你嗎？'}按卡片上的「到站前 3 分提醒我」。`;
     }
     // 深夜：公車已收班或接近末班，先說（S10）
     const night = nightNote(trip?.data, { bare: Boolean(it.departTime || it.tomorrow) }); // 說了幾點（when 已說）或明天合成的時間：不再說一次時間
@@ -1405,14 +1434,14 @@ function summaryCore(it, results, suggestions = []) {
     const tips = urgent.length ? ` ${urgent.map((x) => `${x.text}。`).join('')}` : '';
     const one = trip?.data.single ? `${trip.data.single.text.replace(/（現在是示範資料.*）$/, '')}。` : ''; // 只有一種方式：先說其他方式為什麼不在（數字來自 plan_trip）
     // 公車、捷運沒列入（不是深夜收班、也不是只有一種方式）：一句說原因，使用者才不會以為是 bug
-    const miss = trip && !one ? (trip.data.missing || []).filter((m) => ['bus', 'metro'].includes(m.role) && !m.closed) : [];
+    const miss = trip && !one ? (trip.data.missing || []).filter((m) => ['bus', 'metro'].includes(m.role) && !m.closed && m.kind !== 'route') : []; // 單一路線（kind 'route'）已在 offSay 說
     const missSay = miss.length ? ` ${miss.map((m) => `${m.role === 'bus' ? '公車' : '捷運'}沒列入：${m.why}`).join('；')}。` : '';
     if (!trip) {
       // 沒有行程結果：地點其實找到了（或用了定位）就照實說是資料暫時沒拿到，不說成「找不到地點」
       const found = (results.find_place || []).some((r) => r?.data?.length) || it.fromPoint || it.fromSaved || it.toSaved;
       return found ? `${pre}這次沒拿到行程資料（資料來源暫時有問題），請稍後再問一次。` : `${pre}找不到這兩個地點，換個說法試試看。`;
     }
-    return `${pre}${night}${one}${reason}${missSay}${tips}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}`;
+    return `${pre}${night}${offSay}${one}${reason}${missSay}${tips}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}`;
   }
   // 沒說地點時用了示範預設，先講清楚
   const pre = (isNearby(it) || (it.intent === 'metro' && !it.station && !it.near)) && !it.places[0] && !it.fromPoint
