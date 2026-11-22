@@ -10,6 +10,9 @@ import { TdxError } from '../core/tdx-client.js';
 import { measure } from '../core/metrics.js';
 import { runDemo } from '../core/agent/run.js';
 import { busStatusText } from '../core/util.js';
+import { callTool } from '../core/tools/index.js';
+import { SPEAK_EN, impactEn } from '../core/tools/speak-en.js';
+import { nextSteps } from '../public/js/agent/next-steps.js';
 
 const at = (hhmm) => Date.parse(`2026-11-22T${hhmm}:00+08:00`);
 const MAIN = { name: '台北車站', lat: 25.0478, lon: 121.517 };
@@ -46,7 +49,10 @@ test('客運額度用完：「國道客運示範 A」不參加排名，原因照
   assert.match(ic.whyEn, /TDX quota used up; couldn't get coach times/);
   assert.ok(r.missing.some((m) => m.role === 'intercity' && m.kind === 'skipped' && m.fallback === 'tdx-limit'), '卡片「沒列入」與決策圖');
   assert.equal(r.best, 'metro', '機場捷運照常（站表是真的）');
-  assert.deepEqual(r.limited, { roles: ['intercity'], noTransit: false, text: 'TDX 額度用完，這次查不到客運的即時資料，沒列入比較（約 1 分鐘後再問一次）', textEn: 'TDX quota used up: no live intercity bus data this time, left out of the comparison (ask again in about a minute).' });
+  const { short, shortEn, suggest, ...lim } = r.limited;
+  assert.deepEqual(lim, { roles: ['intercity'], noTransit: false, text: 'TDX 額度用完，這次查不到客運的即時資料，沒列入比較（約 1 分鐘後再問一次）', textEn: 'TDX quota used up: no live intercity bus data this time, left out of the comparison (ask again in about a minute).' });
+  assert.deepEqual([short, shortEn], ['TDX 額度用完，客運這次查不到、沒列入', 'TDX quota used up: no live intercity bus data this time']);
+  assert.deepEqual(suggest, [{ label: '過一分鐘再問一次', ask: '從台北車站到臺灣桃園國際機場怎麼去' }], '多種方式時也建議稍後再問');
 });
 
 test('公車額度用完（白天）：假的「公車 綠1」不推、不盯到站；照實說（t04）', async () => {
@@ -74,7 +80,8 @@ test('大眾運輸全部額度用完：照實說、給可行的（叫車照估�
   assert.equal(r.limited.noTransit, true);
   assert.match(r.limited.text, /^TDX 額度用完，這次查不到高鐵、台鐵、客運的即時資料，大眾運輸都沒列入（不推示範的班次）；先比叫車（叫車的時間與車資是估算），約 1 分鐘後再問一次就查得到$/);
   assert.match(r.limited.textEn, /public transport is left out/);
-  assert.match(r.single.text, /^只找到叫車一種方式：.*高鐵：TDX 額度用完/);
+  assert.match(r.single.text, /^只找到叫車一種方式：.*；高鐵、台鐵、客運：TDX 額度用完，這次查不到（約 1 分鐘後再問一次）$/, r.single.text);
+  assert.match(r.single.textEn, /^Only a taxi works for this trip: [\d.]+ km is too far for walking, YouBike, bus and MRT; TDX quota used up, no live High Speed Rail, train and intercity bus data this time/, '英文不把高鐵台鐵說成太遠（PR #126 審查）');
   assert.ok(r.single.suggest.some((s) => s.label === '過一分鐘再問一次' && s.ask === '從台北車站到高雄車站怎麼去'));
   // 市區短程：公車、捷運、YouBike 都額度用完 → 走路、叫車
   const city = (await plan(svc, MAIN, T101)).result;
@@ -196,4 +203,50 @@ test('捷運沒列入的原因照實說：哪一端沒有站、最近的站多�
   const t = ty.missing.find((x) => x.role === 'metro');
   assert.equal(t.why, '起點附近是桃園機場捷運、目的地附近是台北捷運，跨系統轉乘還沒列入比較');
   assert.match(t.whyEn, /Taoyuan Airport MRT.*Taipei Metro/);
+});
+
+// ── PR #126 審查：limited 要被用到（工具文字、中英 speak、示範中英回答、建議）；工具結果不再整段標示範 ──
+const ALL = { bus: true, rail: true, intercity: true, metro: true, bike: true };
+const answerOf = (es) => es.filter((e) => ['text', 'answer_draft'].includes(e.type)).map((e) => e.text ?? e.delta ?? JSON.stringify(e)).join('');
+
+test('callTool：plan_trip 額度用完時 mode 照真實、speak 說 limited、不說「這次先用示範資料」；模型看得到 limited', async () => {
+  const svc = { ...liveWith({ intercity: ['trips'] }), now: at('14:00') };
+  const r = await callTool(svc, 'plan_trip', { from: '台北車站', to: '桃園機場', departAt: '14:00' });
+  assert.equal(r.mode, 'live', '示範方案已排除：卡片不掛示範徽章');
+  assert.equal(r.fallback, 'tdx-limit', '額度用完這件事照記');
+  assert.match(r.speak, /^TDX 額度用完，客運這次查不到、沒列入。比了 \d 種方式，建議/);
+  assert.doesNotMatch(r.speak, /示範資料/);
+  assert.match(r.text, /TDX 額度用完（回答要照實說，不可提示範班次）：TDX 額度用完，這次查不到客運的即時資料/);
+  assert.match(SPEAK_EN.plan_trip(r.data), /^TDX quota used up: no live intercity bus data this time\. Compared 2 options; best is/);
+  // 其他工具照舊：真的用了示範資料就標示範
+  const b = await callTool(liveWith({ bus: ['routeEta'] }), 'bus_route_eta', { city: 'Taipei', routeName: '307' });
+  assert.equal(b.mode, 'demo');
+  assert.match(b.speak, /這次先用示範資料/);
+});
+
+test('示範回答（中文、多種方式）：先說 limited；建議「過一分鐘再問一次」', async () => {
+  const es = [];
+  await runDemo(liveWith({ intercity: ['trips'] }), { messages: [{ role: 'user', content: '從台北車站到桃園機場怎麼去' }] }, (e) => es.push(e), { now: at('14:00') });
+  const said = answerOf(es);
+  assert.match(said, /TDX 額度用完，這次查不到客運的即時資料，沒列入比較（約 1 分鐘後再問一次）。/, said);
+  assert.doesNotMatch(said, /示範 ?[AB]/);
+  const trip = es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
+  const steps = nextSteps([{ tool: 'plan_trip', data: trip.data }], null);
+  assert.deepEqual(steps[0], { label: '過一分鐘再問一次', kind: 'ask', payload: '從臺北車站到臺灣桃園國際機場怎麼去', pin: true });
+});
+
+test('示範回答（英文、全部額度用完）：先說 limited.textEn，單數 option（PR #126 審查必修 1）', async () => {
+  const es = [];
+  await runDemo(liveWith(ALL), { messages: [{ role: 'user', content: 'From Taipei Main Station to Kaohsiung Station' }] }, (e) => es.push(e), { now: at('14:00') });
+  const said = answerOf(es);
+  assert.match(said, /TDX quota used up: no live High Speed Rail, train and intercity bus data this time, so public transport is left out/, said);
+  assert.match(said, /I compared 1 option\. Best: /);
+  assert.doesNotMatch(said, /too far for the others|1 options/);
+});
+
+test('英文影響：YouBike 因額度用完沒列入，不說成「一端沒車位」（PR #126 審查必修 2）', async () => {
+  const { result: r } = await plan(liveWith({ bike: ['nearby'] }), MAIN, T101);
+  assert.equal(impactEn('plan_trip', r).text, "YouBike: TDX quota used up; couldn't get YouBike availability this time (try again shortly)");
+  assert.match(r.limited.text, /查不到 YouBike/, '中英文之間空一格');
+  assert.equal(limitSkip('bike').why, 'TDX 額度用完，這次查不到 YouBike 車輛與空位（稍後再問一次）');
 });

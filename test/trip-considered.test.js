@@ -167,7 +167,7 @@ test('真實模式但這次 TDX 額度用完改用示範資料：只有一種方
   const svc = { ...base, mode: 'live', weatherMode: 'live', aqiMode: 'live', ...withTdxFallback(live, mock) };
   const { result: r, metrics } = await measure(() => planTrip(svc, { from: TAOYUAN, to: T101, departAt: '23:30', now: LATE }));
   assert.equal(metrics.fallback, true);
-  assert.match(r.single.text, /客運：TDX 額度用完，這次查不到客運班次（稍後再問一次）/, '示範的客運不推，原因照實說');
+  assert.match(r.single.text, /客運：TDX 額度用完，這次查不到（約 1 分鐘後再問一次）/, '示範的客運不推，原因照實說');
   assert.equal((r.single.text.match(/TDX/g) || []).length, 1, `額度用完只說一次：${r.single.text}`);
   assert.ok(!r.options.some((o) => /示範/.test(o.name)));
   assert.doesNotMatch(r.single.text, /設定金鑰後/);

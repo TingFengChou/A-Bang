@@ -46,8 +46,9 @@ export const SPEAK_EN = {
     const best = d.options.find((o) => o.id === d.best);
     if (!best) return 'No workable way found for this trip.';
     const night = d.night?.textEn ? `${d.night.textEn} ` : ''; // 深夜：第一句先說收班或末班快到了
-    if (d.single) return `${night}Only one option found: ${enName(best)} (${best.minutes} min).`;
-    return `${night}Compared ${plural(d.options.length, 'option')}; best is ${enName(best)} (${best.minutes} min).`;
+    const lim = d.limited?.shortEn ? `${d.limited.shortEn}. ` : ''; // TDX 額度用完沒列入的方式（示範班次不推）
+    if (d.single) return `${night}${lim}Only one option found: ${enName(best)} (${best.minutes} min).`;
+    return `${night}${lim}Compared ${plural(d.options.length, 'option')}; best is ${enName(best)} (${best.minutes} min).`;
   },
   weather_now: (d) => {
     const pop = d.pop3h != null ? `, ${d.pop3h}% chance of rain in the next 3 hours` : '';
@@ -111,7 +112,7 @@ export function impactEn(name, data) {
   if (name === 'plan_trip') {
     if (data.single) return { tone: 'bad', text: 'Only one way works for this trip (see "How Abang decided")' };
     const skip = data.skipped?.find((s) => s.role === 'bike');
-    if (skip) return { tone: 'bad', text: 'YouBike: not available at one end, left out' };
+    if (skip) return { tone: 'bad', text: skip.fallback === 'tdx-limit' && skip.whyEn ? `YouBike: ${skip.whyEn}` : 'YouBike: not available at one end, left out' }; // 額度用完不是沒車位（PR #126 審查）
     const b = data.options?.find((o) => o.role === 'bike')?.bike;
     if (b?.ret.tight) return { tone: 'bad', text: `YouBike: only ${plural(b.ret.count, 'dock')} left at ${b.ret.name}${b.ret.backup ? `; if full, return at ${b.ret.backup.name}` : ''}` };
     if (b?.rent.tight) return { tone: 'bad', text: `YouBike: only ${plural(b.rent.count, 'bike')} left at ${b.rent.name}${b.rent.backup ? `; if none, try ${b.rent.backup.name}` : ''}` };

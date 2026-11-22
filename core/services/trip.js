@@ -51,7 +51,7 @@ export const intercityFareEst = (straightM) => Math.round((EST.intercityBaseTwd 
  */
 const LIMIT_WHAT = {
   bus: ['公車到站', 'bus arrivals'], intercity: ['客運班次', 'coach times'], thsr: ['高鐵班次', 'High Speed Rail times'], tra: ['台鐵班次', 'train times'],
-  metro: ['捷運車站', 'MRT stations'], bike: ['YouBike 車輛與空位', 'YouBike availability'],
+  metro: ['捷運車站', 'MRT stations'], bike: [' YouBike 車輛與空位', 'YouBike availability'], // 前面空一格：「查不到 YouBike…」
 };
 export const limitSkip = (role) => ({
   role, fallback: 'tdx-limit',
@@ -656,7 +656,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   // 只有一種方式：說明其他方式為什麼不在（太遠、附近沒有站、沒有趕得上的班次…）；深夜收班已由 night 說，不重複
   const single = singleNote({ options, missingList: night ? missingList.filter((x) => !(x.closed && night.closed.includes(x.role))) : missingList, straight, departMin: depart.minute, demo: svc.mode !== 'live', fallback: currentFallback(), toName: to.name, fromName: from.name }); // fallback：TDX 額度用完時公車、高鐵等可能是示範資料（withTdxFallback 逐個方法改用）
   // TDX 額度用完、這次沒列入的方式（不推示範的假班次）：一句照實說；大眾運輸全部沒有時說先比走路、叫車，約 1 分鐘後再問
-  const limited = limitedOf({ roles: skipped.filter((x) => x.fallback === 'tdx-limit' && !x.closed).map((x) => x.role), options });
+  const limited = limitedOf({ roles: skipped.filter((x) => x.fallback === 'tdx-limit' && !x.closed).map((x) => x.role), options, toName: to.name, fromName: from.name });
   return {
     from: pt(from), to: pt(to), straightKm: +(straight / 1000).toFixed(1),
     date: depart.date, departAt: toHHMM(depart.minute),

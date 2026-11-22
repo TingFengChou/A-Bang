@@ -175,6 +175,7 @@ export default {
     const night = d.night && ((en && d.night.textEn) || d.night.text); // 深夜：公車、捷運收班或末班快到了（第一行就說）
     return h('div', { class: 'ab-body' },
       night && h('p', { class: 'ab-night', role: 'note' }, night),
+      d.limited && h('p', { class: 'ab-night ab-limited', role: 'note' }, (en && d.limited.textEn) || d.limited.text), // TDX 額度用完：示範班次不推，照實說
       d.states?.length > 0 && h('div', { class: 'ab-chips', 'aria-label': t('trip.states') }, d.states.map((s) => h('span', { class: 'ab-chip', title: s.detail || '' },
         `${t(`trip.stateKey.${s.key}`)}・${t(`trip.state.${s.source}`)}`))),
       state.err && h('p', { class: 'ab-fail', role: 'alert' }, state.err),

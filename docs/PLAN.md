@@ -53,7 +53,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | S1e 常用地點用門牌地址 | 需要地址轉座標資料來源（例如 TGOS），先評估 |
 | S5 YouBike 空位預測 | 需要歷史車位資料 |
 | T-MIX 公車／台鐵接捷運 | 起點或目的地附近沒有捷運站（三峽、桃園、高鐵桃園站→台北捷運）時，組合「公車接捷運」「台鐵接捷運」「機捷接北捷」多段方案（大工程；2026-11-22 真實健檢先把「捷運沒列入」的原因說清楚：哪一端、最近的站多遠、跨系統） |
-| T-QUOTA 一題行程少打 TDX | `core/agent/run.js`：行程題不另外先呼叫 `traffic_status`（`plan_trip` 已自己查路況並輸出 `considered`；兩者在 60 秒快取與同網址併發內共用，但 agent 先查會先用掉 2 次額度）；或先 `plan_trip` 再視需要查路況；`core/tools/index.js`：`plan_trip` 的示範方案已不列入，`mode`／`speak` 不必再整段標「這次先用示範資料」、可改說 `limited.text` |
+| T-QUOTA 一題行程少打 TDX | `core/agent/run.js`：行程題不另外先呼叫 `traffic_status`（`plan_trip` 已自己查路況並輸出 `considered`；兩者在 60 秒快取與同網址併發內共用，但 agent 先查會先用掉 2 次額度）；或先 `plan_trip` 再視需要查路況（`core/tools` 的 `mode`／`speak` 已在 PR #126 改說 `limited`） |
 
 **需要 Austin 或其他人**：見下方「Austin 待辦」與「被卡住的項目」；另外上架前：安全情境（S19）的用語與電話請心理衛生、緊急應變專業人員確認；隱私權政策〔待補〕欄位（營運單位、目的代號、伺服器所在地、聯絡方式）由營運單位與法務填寫；實機確認 `tel:` 一鍵撥號、iOS 深色主畫面圖示。
 
