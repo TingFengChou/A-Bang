@@ -1938,7 +1938,7 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       assert.match(await page.textContent('#ai-chip'), /網頁版沒有/);
       assert.match(await page.textContent('#ai-live'), /核心沒有點亮/);
       assert.equal(await page.getAttribute('#ai-stage', 'aria-hidden'), 'true');
-      assert.deepEqual(await page.locator('.ai-v').allTextContents(), ['由伺服器判斷', '由伺服器判斷']);
+      assert.deepEqual(await page.locator('.ai-v[data-v="intent"], .ai-v[data-v="states"]').allTextContents(), ['由伺服器判斷', '由伺服器判斷']);
       assert.equal(await page.locator('#ai-form').count(), 1, '網頁版也能試判斷（第 1 段改用伺服器的規則）');
       assert.match(await page.textContent('.ai-net'), /第 1 段：這裡沒有手機上的 AI，改用伺服器的判斷/);
       assert.equal(await page.locator('#ai-model .ai-dl > div').count(), 1, '模型資訊只有「狀態」一列（不編造）');
@@ -1988,7 +1988,7 @@ test('阿幫的腦袋：手機上的模型資訊、現場試試看、開關、�
     await page.locator('.ai-ex .chip').first().click();
     await page.waitForSelector('.ai-hero[data-stage="done"]');
     assert.equal(await page.textContent('#ai-live'), '聽懂了：意圖是「行程規劃」；狀態是「趕時間」。花了 412 毫秒，沒有離開手機。');
-    assert.deepEqual(await page.locator('.ai-v').allTextContents(), ['行程規劃', '趕時間']);
+    assert.deepEqual(await page.locator('.ai-v[data-v="intent"], .ai-v[data-v="states"]').allTextContents(), ['行程規劃', '趕時間']);
     await page.waitForSelector('#ai-trial-foot:not([hidden])', { timeout: 20000 });
     assert.match(await page.textContent('.ai-sec[data-sec="judge"] .ai-meta'), /手機・Gemini Nano.*412 毫秒.*沒用網路/);
     const agentSent = sent.filter((x) => x.url.endsWith('/api/v1/agent'));
@@ -2134,7 +2134,7 @@ test('阿幫的腦袋：試試看的動畫至少播 1.2 秒（Gemini Nano 0.1 �
     const on = L.find((x) => x.on), off = L.findLast((x) => !x.on);
     assert.ok(off.t - on.t >= 1150, `播了 ${Math.round(off.t - on.t)} ms`);
     assert.equal(await page.getAttribute('.ai-hero', 'data-stage'), 'done');
-    assert.deepEqual(await page.locator('.ai-v').allTextContents(), ['行程規劃', '趕時間']);
+    assert.deepEqual(await page.locator('.ai-v[data-v="intent"], .ai-v[data-v="states"]').allTextContents(), ['行程規劃', '趕時間']);
   }, { init: THINK_RECORDER + FAKE_EDGE(100), motion: true, ignore: /not in test/ });
 });
 
