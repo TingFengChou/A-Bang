@@ -507,7 +507,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     ...(single && { single }),
     options,
     ranking: {
-      ranked: r.ranked.map((o) => ({ id: o.id, name: o.name, score: o.score, breakdown: o.breakdown })),
+      ranked: r.ranked.map((o) => ({ id: o.id, name: o.name, score: o.score, breakdown: o.breakdown, ...(o.notWorth && { notWorth: o.notWorth }), ...(o.tooLong && { tooLong: o.tooLong }) })), // notWorth／tooLong：ADR-0010 2026-11-22
       excluded: r.excluded.map((o) => ({ id: o.id, name: o.name, why: o.why })),
       weights: r.weights, reason: r.reason,
     },

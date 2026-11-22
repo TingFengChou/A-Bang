@@ -48,6 +48,8 @@ export const VALUE_OF_TIME = { perMin: 5, walk: 2, wait: 2, transferMin: 5 };
 /** 要檢查划不划算的方式（門到門、貴很多的那種）；拿來比的大眾運輸（沒有大眾運輸時——深夜收班、附近沒有站——不檢查，照權重） */
 const PREMIUM_ROLES = new Set(['ridehail']);
 const TRANSIT_ROLES = new Set(['bus', 'metro', 'tra', 'thsr', 'intercity']);
+/** 走太久、騎太久（分）：沒有理由狀態、有大眾運輸時，超過的步行、YouBike 不排在最好的大眾運輸前面（產品負責人授權，2026-11-22 PR #119 審查） */
+export const LONG_MIN = { walk: 25, bike: 30 };
 
 /** 轉乘次數：有 transfers 就用；否則看分段（走路以外的段數 − 1）＋捷運本身的轉乘 */
 function transfersOf(o) {
@@ -131,27 +133,53 @@ export function decide(options, ctx = {}) {
     }
     return { o, breakdown, base: Object.values(breakdown).reduce((a, b) => a + b, 0) };
   });
-  // 花錢換時間要划算（VALUE_OF_TIME）：沒有叫車的理由時，叫車要贏過比它便宜的大眾運輸，多付的錢要 ≤ 省下的體感時間 × 時間價值（每個便宜的大眾運輸都要划算）；
-  // 不划算就扣分（breakdown.premium，負數），排到便宜方案裡分數最高的那個後面 1 分；理由句照實說「省 X 元、只慢 Y 分」
+  // 預設大眾運輸（ADR-0010 2026-11-22）：沒有理由狀態（STATES.*.reason）、而且有大眾運輸方案時才做
   if (!states.some((k) => STATES[k].reason)) {
-    for (const s of scored) {
-      if (!PREMIUM_ROLES.has(s.o.role)) continue;
-      const cheaper = scored.filter((x) => !PREMIUM_ROLES.has(x.o.role) && val(x.o, 'cost') < val(s.o, 'cost'));
-      const ref = cheaper.reduce((a, x) => (!a || x.base > a.base ? x : a), null);
-      if (!ref || Math.round(s.base * 100) < Math.round(ref.base * 100)) continue; // 同分時叫車會以時間短排前面，也要檢查
-      const worth = (x) => (feltMinutes(x.o) - feltMinutes(s.o)) * VALUE_OF_TIME.perMin; // 省下的時間值多少錢
-      if (cheaper.every((x) => !TRANSIT_ROLES.has(x.o.role) || val(s.o, 'cost') - val(x.o, 'cost') <= worth(x))) continue;
-      const target = (Math.round(ref.base * 100) - 1) / 100; // 顯示的分數剛好少 1 分
-      s.breakdown.premium = target - s.base;
-      s.base = target;
-      s.notWorth = { vs: ref.o.id, extra: val(s.o, 'cost') - val(ref.o, 'cost'), worth: Math.max(0, Math.round(worth(ref))) };
+    const transit = scored.filter((x) => TRANSIT_ROLES.has(x.o.role));
+    if (transit.length) {
+      const pt = (x) => Math.round(x.base * 100);
+      const top = (list) => list.reduce((a, x) => (!a || x.base > a.base ? x : a), null);
+      /** 把 x 排到 ref 後面 1 分（顯示的分數剛好少 1 分），扣的分記在 breakdown[key]（負數，決策圖畫得出來） */
+      const lower = (x, ref, key) => {
+        const t = (pt(ref) - 1) / 100;
+        if (t >= x.base) return;
+        x.breakdown[key] = (x.breakdown[key] ?? 0) + t - x.base;
+        x.base = t;
+      };
+      const cost = (x) => val(x.o, 'cost');
+      /** 從 a 換成 b 省下的體感時間值多少錢（VALUE_OF_TIME） */
+      const worth = (a, b) => (feltMinutes(a.o) - feltMinutes(b.o)) * VALUE_OF_TIME.perMin;
+      // 1. 花錢換時間要划算：叫車比便宜的大眾運輸多付的錢要 ≤ 省下的體感時間 × 時間價值；
+      //    不划算就排到「不划算的那些大眾運輸」裡分數最高的後面 1 分（breakdown.premium），理由句「省 X 元、只慢 Y 分」
+      for (const s of scored) {
+        if (!PREMIUM_ROLES.has(s.o.role)) continue;
+        const ref = top(transit.filter((x) => cost(x) < cost(s) && cost(s) - cost(x) > worth(x, s)));
+        if (!ref || pt(s) < pt(ref)) continue; // 同分時叫車會以時間短排前面，也要檢查
+        lower(s, ref, 'premium');
+        s.notWorth = { vs: ref.o.id, extra: cost(s) - cost(ref), worth: Math.max(0, Math.round(worth(ref, s))) };
+        // 叫車讓位後不能變成推更貴的方案（叫車 300 元讓位、高鐵 400 元上來）：比叫車貴、對 ref 也不划算的，一樣排到叫車後面
+        for (const x of scored) {
+          if (x === s || PREMIUM_ROLES.has(x.o.role) || cost(x) <= cost(s) || pt(x) < pt(s) || cost(x) - cost(ref) <= worth(ref, x)) continue;
+          lower(x, s, 'premium');
+          x.notWorth = { vs: ref.o.id, extra: cost(x) - cost(ref), worth: Math.max(0, Math.round(worth(ref, x))) };
+        }
+      }
+      // 2. 走太久、騎太久（LONG_MIN：步行 25 分、YouBike 30 分）不排在最好的大眾運輸前面（breakdown.tooLong），理由句「YouBike 要 43 分（超過 30 分）」
+      for (const x of scored) {
+        const cap = LONG_MIN[x.o.role];
+        if (!cap || val(x.o, 'minutes') <= cap) continue;
+        const best = top(transit);
+        if (pt(x) < pt(best)) continue;
+        lower(x, best, 'tooLong');
+        x.tooLong = { vs: best.o.id, cap };
+      }
     }
   }
-  const ranked = scored.map(({ o, breakdown, notWorth }) => {
+  const ranked = scored.map(({ o, breakdown, notWorth, tooLong }) => {
     const bonus = habitOn ? habitBonus(o, ctx.habit, fastest) : 0;
     if (bonus > 0) breakdown.habit = bonus;
     const score = Object.values(breakdown).reduce((a, b) => a + b, 0);
-    return { ...o, score: Math.round(score * 100), breakdown, ...(notWorth && { notWorth }) };
+    return { ...o, score: Math.round(score * 100), breakdown, ...(notWorth && { notWorth }), ...(tooLong && { tooLong }) };
   }).sort((a, b) => b.score - a.score || a.minutes - b.minutes);
 
   // 4. 使用者指定交通方式（「改坐公車」）：分數與排名照算，建議改成該方式裡分數最高的（沒有這種方式就照分數）
@@ -188,6 +216,9 @@ function explain(best, second, states, excluded, ranked = []) {
     // 叫車多付的錢換不到夠多的時間（VALUE_OF_TIME）：照實說省多少錢、慢多少（或沒比較慢）
     const slower = Number(best.minutes) - Number(second.minutes);
     why.push([...often, `省 ${second.notWorth.extra} 元`, slower > 0 ? `只慢 ${slower} 分` : '也不會比較慢'].join('、'));
+  } else if (second?.tooLong?.vs === best.id) {
+    // 走太久、騎太久（LONG_MIN）：照實說要多久、上限多少
+    why.push([...often, `${second.name}要 ${second.minutes} 分（超過 ${second.tooLong.cap} 分）`].join('、'));
   } else if (second) {
     const diffs = CRITERIA.map((c) => ({ c, d: best.breakdown[c.key] - second.breakdown[c.key] })).sort((a, b) => b.d - a.d);
     const top = diffs.filter((x) => x.d > 0.01).slice(0, 2).map((x) => PHRASE[x.c.key](best, second, states));

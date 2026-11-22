@@ -28,7 +28,7 @@ const EN = {
   cols: ['Data', 'Abang', 'Options'],
   step1: '① Gathering data', step2: '② Your situation', step3: (c) => `③ Comparing: ${c}`, step4: (n) => `④ Decision: ${n}`, decide: '④ Decision',
   hint: 'Want another way? Tap an option and Abang recalculates', chips: 'Your situation (tap to toggle, recalculates right away)',
-  habit: (m) => `You agreed: prefer ${m}`, habitWhy: 'Why?', habitPaused: 'You told Abang your situation, so this preference is not counted this time', habitNote: 'You said yes to preferring it. When you don\'t mention your situation it gets a small bonus (up to 8 pts). Stored only on this phone; undo it in Settings.', often: 'you prefer it', habitCrit: 'Preference', premiumCrit: 'Worth the fare?', notWorth: (c, m) => (m > 0 ? `NT$${c} cheaper, only ${m} min slower` : `NT$${c} cheaper, no slower`),
+  habit: (m) => `You agreed: prefer ${m}`, habitWhy: 'Why?', habitPaused: 'You told Abang your situation, so this preference is not counted this time', habitNote: 'You said yes to preferring it. When you don\'t mention your situation it gets a small bonus (up to 8 pts). Stored only on this phone; undo it in Settings.', often: 'you prefer it', habitCrit: 'Preference', premiumCrit: 'Not worth the fare', premiumStep: 'Worth the fare?', longCrit: 'Too long', longStep: 'Too long?', notWorth: (c, m) => (m > 0 ? `NT$${c} cheaper, only ${m} min slower` : `NT$${c} cheaper, no slower`), tooLong: (n, m, cap) => `${n} takes ${m} min (over ${cap})`,
   notIn: (n, w) => `${n} not included: ${w}`,
   details: 'Comparison details', effNone: 'No effect', effNA: 'Not used', effScore: 'Delay risk', pts: (n, s) => `${n}: ${s} pts`, title: 'How Abang decided', pick: (n) => `Switch to ${n}`, ex: (n, w) => `${n}, excluded: ${w}`,
 };
@@ -38,9 +38,13 @@ const habitFlipped = (best, all = []) => {
   const base = (o) => Object.entries(o.breakdown || {}).reduce((a, [k, v]) => a + (k === 'habit' ? 0 : v), 0);
   return all.some((o) => o.id !== best.id && base(o) > base(best));
 };
-/** 叫車多付的錢換不到夠多的時間（core/decide.js VALUE_OF_TIME）：第二名被扣了 premium、而且比第一名貴 */
-const notWorthOf = (best, second) => (second?.breakdown?.premium < 0 && Number(second.cost) > Number(best?.cost)
-  ? { extra: Number(second.cost) - Number(best.cost), slower: Number(best.minutes) - Number(second.minutes) } : null);
+/** 叫車多付的錢換不到夠多的時間（core/decide.js VALUE_OF_TIME）：第二名是對第一名不划算的那個 */
+const notWorthOf = (best, second) => (second?.notWorth?.vs && second.notWorth.vs === best?.id
+  ? { extra: second.notWorth.extra, slower: Number(best.minutes) - Number(second.minutes) } : null);
+/** 扣的分（負數）：數字用「−」（UX.md） */
+const minus = (v) => `${v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}`;
+/** 決策圖的扣分列與 ③ 比較最後幾步（core/decide.js：premium 不划算、tooLong 走太久騎太久，有才出現） */
+const PENALTY = [{ key: 'premium', label: '不划算', step: '划不划算', en: 'premiumCrit', enStep: 'premiumStep' }, { key: 'tooLong', label: '太久', step: '太不太久', en: 'longCrit', enStep: 'longStep' }];
 /** 方案名稱縮短，分數一定看得到（「叫車（Uber）」→「叫車」） */
 const short = (n) => { const x = String(n).replace(/（.*?）|\(.*?\)/g, ''); return x.length > 6 ? `${x.slice(0, 5)}…` : x; };
 /** 精簡模式：低階裝置或 reduced motion（UX.md §9）——只淡入、不做翻轉與 3D */
@@ -94,6 +98,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     const say = { minutes: () => `${Math.max(1, second.minutes - best.minutes)} min faster than ${nameOf(second)}`, waitMin: () => (best.waitMin ? 'shorter wait' : 'no waiting'), walkMin: () => (best.walkMin ? 'less walking' : 'no walking'), cost: () => (best.cost < second.cost ? `NT$${second.cost - best.cost} cheaper` : 'lower cost'), exposure: () => 'less time outdoors', effort: () => 'easier', delayRisk: () => 'avoids traffic delays' };
     const nw = notWorthOf(best, second);
     if (nw) return `${nameOf(best)} wins: ${[...(habitFlipped(best, all) ? [EN.often] : []), EN.notWorth(nw.extra, nw.slower)].join(', ')}.`;
+    if (second.tooLong?.vs === best.id) return `${nameOf(best)} wins: ${[...(habitFlipped(best, all) ? [EN.often] : []), EN.tooLong(nameOf(second), second.minutes, second.tooLong.cap)].join(', ')}.`;
     const top = [...(habitFlipped(best, all) ? [EN.often] : []), ...CRITERIA.map((c) => ({ k: c.key, d: (best.breakdown?.[c.key] ?? 0) - (second.breakdown?.[c.key] ?? 0) })).sort((a, b) => b.d - a.d).filter((x) => x.d > 0.01).slice(0, 2).map((x) => say[x.k]?.())];
     return `${nameOf(best)} wins${top.length ? `: ${top.join(', ')}` : ''}.`;
   };
@@ -123,7 +128,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       : { ranked: decision.ranked, excluded: decision.excluded, reason: decision.reason, best: { id: decision.best }, habitOn: decision.habitOn };
     habitApplied = !!r.habitOn;
     const byId = new Map(decision.options.map((o) => [o.id, o]));
-    const ranked = r.ranked.map((x) => ({ ...byId.get(x.id), score: x.score, breakdown: x.breakdown }));
+    const ranked = r.ranked.map((x) => ({ ...byId.get(x.id), score: x.score, breakdown: x.breakdown, notWorth: x.notWorth, tooLong: x.tooLong }));
     // 沒列入比較的方式（深夜公車、捷運收班、YouBike 沒車位、附近沒有捷運站…）：也畫出來，灰色、標籤寫「收班」或「沒列入」，原因寫在圖下（設計審查）
     const skipped = notIn.map((x) => ({ id: `skip-${x.role}`, role: x.role, name: ROLE_NAME[x.role] || x.role, why: (en && x.whyEn) || x.why, tag: x.notYet ? '未發車' : x.closed || /收班|末班已過/.test(x.why) ? '收班' : '沒列入', skipped: true }));
     const excluded = [...r.excluded.map((x) => ({ ...byId.get(x.id), why: x.why })), ...skipped];
@@ -231,10 +236,10 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     tl.to(q('.dg-opt'), { opacity: 1, duration: 0.25, stagger: 0.05 })
       .from(q('.dg-opt'), { x: '+=14', duration: 0.25, stagger: 0.05 }, '<');
     let acc = new Map(ranked.map((o) => [o.id, 0]));
-    // 最後一步「划不划算」：叫車多付的錢換不到夠多的時間時扣的分（breakdown.premium），有才播
-    const steps = [...CRITERIA, ...(ranked.some((o) => o.breakdown?.premium < 0) ? [{ key: 'premium', label: '划不划算' }] : [])];
+    // 最後幾步「划不划算」「太不太久」：叫車不划算、走太久騎太久時扣的分（breakdown.premium／tooLong），有才播
+    const steps = [...CRITERIA.map((c) => ({ key: c.key, step: c.label, en: critOf(c) })), ...PENALTY.filter((p) => ranked.some((o) => o.breakdown?.[p.key] < 0)).map((p) => ({ key: p.key, step: p.step, en: EN[p.enStep] }))];
     for (const c of steps) {
-      tl.call(step(en ? EN.step3(c.key === 'premium' ? EN.premiumCrit : critOf(c)) : `③ 比較：${c.label}`));
+      tl.call(step(en ? EN.step3(c.en) : `③ 比較：${c.step}`));
       const next = new Map(ranked.map((o) => [o.id, acc.get(o.id) + (o.breakdown?.[c.key] ?? 0)]));
       for (const o of ranked) {
         const e = root.querySelector(`.dg-out-edge[data-id="${o.id}"]`);
@@ -441,7 +446,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
           bar.style.width = `${Math.max(2, v * 2)}%`;
           return el('div', 'dg-crit', el('span', 'dg-crit-name', critOf(c)), bar, el('span', 'dg-crit-v', v.toFixed(1)));
         }),
-        o.breakdown?.premium < 0 && el('div', 'dg-crit premium', el('span', 'dg-crit-name', en ? EN.premiumCrit : '划算'), Object.assign(el('span', 'dg-bar'), { style: `width:${Math.max(2, -o.breakdown.premium * 200)}%` }), el('span', 'dg-crit-v', (o.breakdown.premium * 100).toFixed(1))),
+        ...PENALTY.filter((p) => o.breakdown?.[p.key] < 0).map((p) => el('div', `dg-crit penalty ${p.key}`, el('span', 'dg-crit-name', en ? EN[p.en] : p.label), Object.assign(el('span', 'dg-bar'), { style: `width:${Math.max(2, -o.breakdown[p.key] * 200)}%` }), el('span', 'dg-crit-v', minus(o.breakdown[p.key] * 100)))),
         o.breakdown?.habit > 0 && el('div', 'dg-crit habit', el('span', 'dg-crit-name', en ? EN.habitCrit : '偏好'), Object.assign(el('span', 'dg-bar'), { style: `width:${Math.max(2, o.breakdown.habit * 200)}%` }), el('span', 'dg-crit-v', `+${(o.breakdown.habit * 100).toFixed(1)}`))));
     }
     return d;

@@ -3794,3 +3794,27 @@ test('只問一題的那一輪：討論串正確結束（不留「小幫手討�
     }
   });
 });
+
+test('預設大眾運輸（ADR-0010 2026-11-22）：叫車不划算時決策圖有「不划算」列、③ 最後一步「划不划算」、中英文理由照實', async () => {
+  // 示範資料臺北車站→國父紀念館：叫車 22 分 230 元、公車藍15 31 分 15 元 → 推公車，叫車排第二（西門町→101 示範資料公車本來就贏，沒有扣分）
+  const STEPS = () => { window.__dgSteps = []; new MutationObserver(() => { const t = [...document.querySelectorAll('.decision .dg-step')].at(-1)?.textContent; if (t && window.__dgSteps.at(-1) !== t) window.__dgSteps.push(t); }).observe(document, { subtree: true, childList: true, characterData: true }); };
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    for (const [i, q, why, step, row] of [
+      [1, '從台北車站去國父紀念館', /^選「公車 藍15」：省 215 元、只慢 9 分。$/, '③ 比較：划不划算', /^不划算−\d+\.\d$/],
+      [2, 'How do I get from Taipei Main Station to Sun Yat-sen Memorial Hall?', /^Bus wins: NT\$215 cheaper, only 9 min slower\.$/, '③ Comparing: Worth the fare?', /^Not worth the fare−\d+\.\d$/],
+    ]) {
+      await page.evaluate(() => { window.__dgSteps = []; });
+      await page.fill('.chat-form input', q);
+      await page.press('.chat-form input', 'Enter');
+      await page.waitForFunction((k) => document.querySelectorAll('.decision .dg-svg').length === k, i, { timeout: 20000 });
+      const dg = page.locator('.decision').last();
+      await page.waitForFunction((k) => document.querySelectorAll('.decision')[k - 1]?.querySelector('.dg-edge.win.flow'), i, { timeout: 8000 });
+      assert.match(await dg.locator('.dg-why').textContent(), why, q);
+      assert.ok((await page.evaluate(() => window.__dgSteps)).includes(step), `${q}：③ 比較最後一步`);
+      await dg.locator('.dg-details').evaluate((d) => { d.open = true; }); // 光點持續流動，summary 不算 stable，直接打開
+      const pen = dg.locator('.dg-crit.penalty.premium');
+      assert.equal(await pen.count(), 1, '只有叫車有扣分列');
+      assert.match((await pen.textContent()).trim(), row);
+    }
+  }, { init: STEPS, motion: true });
+});
