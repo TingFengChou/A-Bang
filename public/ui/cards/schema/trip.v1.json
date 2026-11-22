@@ -37,7 +37,7 @@
       "type": "object",
       "required": ["ranked", "excluded", "reason"],
       "properties": {
-        "ranked": { "type": "array", "items": { "type": "object", "required": ["id", "name", "score"], "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "score": { "type": "integer" }, "breakdown": { "type": "object" } } } },
+        "ranked": { "type": "array", "items": { "type": "object", "required": ["id", "name", "score"], "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "score": { "type": "integer" }, "breakdown": { "type": "object" }, "notWorth": { "type": "object", "properties": { "vs": { "type": "string" }, "extra": { "type": "number" }, "worth": { "type": "number" } } }, "tooLong": { "type": "object", "properties": { "vs": { "type": "string" }, "cap": { "type": "number" } } } } } },
         "excluded": { "type": "array", "items": { "type": "object", "required": ["id", "why"], "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "why": { "type": "string" } } } },
         "weights": { "type": "object" },
         "reason": { "type": "string" }
