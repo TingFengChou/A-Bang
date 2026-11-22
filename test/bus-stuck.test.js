@@ -71,3 +71,20 @@ test('送出的話：有目的地＝新行程排除公車；沒有＝沿用上�
   assert.deepEqual([c.mode, c.avoid], ['metro', ['bus']]);
   assert.deepEqual(parseIntent('不要叫車，改坐公車', { history: h }).mode, 'bus', '不同方式：照舊');
 });
+
+test('末班已過或今日未營運：到站提醒自動取消、說一聲（2026-11-22「末班車已經過，應該確認提醒並清除」）', async () => {
+  const host = createWebHost({ ask: () => {} });
+  host.callTool = async () => ({ data: { focus: { status: 3, etaSec: null, statusText: '末班已過' } } });
+  const seen = [];
+  const hadWindow = 'window' in globalThis, oldWindow = globalThis.window;
+  globalThis.window = { dispatchEvent: (e) => { if (e.type === 'abang:arrival-stuck') seen.push(e.detail); return true; } };
+  try {
+    await host.watchArrival({ city: 'Taipei', routeName: '307', stop: '西門', minutes: 3 });
+    assert.equal(host.arrivalWatch(), null, '提醒已取消');
+    assert.equal(seen.length, 1);
+    assert.deepEqual([seen[0].reason, seen[0].ended], ['notRunning', true]);
+  } finally {
+    if (hadWindow) globalThis.window = oldWindow; else delete globalThis.window;
+    host.unwatchArrival();
+  }
+});
