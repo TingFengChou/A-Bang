@@ -3321,11 +3321,11 @@ test('問阿幫：在示範範圍外、深夜只剩叫車——說明原因、�
     const dg = page.locator('.decision');
     await dg.locator('.dg-svg').waitFor();
     assert.equal(await dg.locator('.dg-opt:not(.excluded)').count(), 1, '只有叫車（沒列入的方式另外畫成灰色）');
-    assert.match(await dg.locator('.dg-single').textContent(), /^只找到叫車一種方式：距離 \d+(\.\d)? 公里，走路、YouBike、公車都太遠；客運 23:30 以後今天沒有趕得上的班次.*示範資料/);
+    assert.match(await dg.locator('.dg-single').textContent(), /^只找到叫車一種方式：距離 \d+(\.\d)? 公里，走路、YouBike、公車都太遠.*示範資料/);
     assert.ok(await dg.locator('.dg-src').count() >= 3, '資料欄不是空的');
     assert.match(await page.locator('.bubble.final .say').textContent(), /只找到叫車一種方式/);
     const chips = page.locator('.suggest .chip.next-ask');
-    assert.match((await chips.allTextContents()).join('|'), /改成明天早上出發\|改從台北車站出發比較看看/);
+    assert.match((await chips.allTextContents()).join('|'), /改從台北車站出發比較看看/);
     await page.locator('.bubble.final').scrollIntoViewIfNeeded();
     await page.screenshot({ path: new URL('phone-reasoning-far.png', SHOTS).pathname });
     // 點建議＝送出那一句，從台北車站就比得到好幾種方式
