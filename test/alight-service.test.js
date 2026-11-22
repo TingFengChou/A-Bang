@@ -24,7 +24,7 @@ function bridge({ status = { active: true, firedAt: 0, endedAt: 0 }, failStart =
   const calls = [];
   const st = { ...status };
   globalThis.Capacitor = {
-    isNativePlatform: () => true, isPluginAvailable: (p) => p === 'AbangWatch',
+    isNativePlatform: () => true, getPlatform: () => 'android', isPluginAvailable: (p) => p === 'AbangWatch',
     nativePromise: async (p, m, o) => {
       calls.push([p, m, o]);
       if (p === 'LocalNotifications' && /Permissions/.test(m)) return { display: 'granted' };

@@ -19,6 +19,19 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-23 整夜改動的整體審查修正（提醒）
+- 做了（審查找到 6 項）：
+  1. iOS 下車提醒會卡住：iOS 外掛沒有 `startAlight`，橋接不回應 → 下車提醒常駐服務只在 Android（`hasAlightService`），原生呼叫一律 5 秒逾時
+  2. Android 到站提醒：App 在背景、畫面先算到該提醒時把服務停了又不自己發通知 → 背景時讓服務自己響
+  3. 在通知按「停止」或服務被系統收掉：畫面一直顯示提醒但不會響 → 停止時記 `endedAt`；被收掉時改回畫面查＋預排通知
+  4. 到站提醒服務：舊的查詢結果、提早排的提醒在重新設定或車延誤後仍會響 → 加世代編號、每次查到新資料重排
+  5. 刪掉發票或清除本機資料後，開獎日通知還會來；清除資料後進行中的提醒仍在跑 → 一起取消、停止
+  6. 下車提醒在背景可能響兩次 → 背景交給常駐服務響
+- 測試：npm test 1258 全過（新增 iOS 不呼叫 startAlight 的測試）；Android 編譯過
+- 文件：本紀錄
+- 下一個：手機實測下車提醒常駐通知（要在 App 畫面上設定）
+- 卡住：無
+
 ## 2026-11-23 iOS 到站提醒的即時動態（Live Activity）
 - 做了：跟 Android 通知列常駐（PR #131）對齊，iOS 16.2+ 設到站提醒時在鎖定畫面與動態島顯示即時動態：「307 往撫遠街・約 N 分到「臺北車站(忠孝)」・到站前 2 分提醒你」，右上角 `Text(timerInterval:)` 系統倒數到預估到站、進度條、「HH:mm 的預估・App 開著時更新」；動態島精簡（公車圖示＋路線｜倒數）、展開（路線、倒數、整句）、最小（公車圖示）。新增 Widget Extension target `AbangLiveActivity`（`ios/App/AbangLiveActivity/`，嵌入 App，bundle id `tw.abang.app.LiveActivity`）、App 的 `NSSupportsLiveActivities`、iOS 外掛 `AbangWatch`（`start`／`update`／`stop`／`status`，介面跟 Android 一樣，多一個 `update`；`start` 回 `polls:false`）。
 - 限制（照實說）：iOS 不讓 App 在背景一直查到站時間，所以即時動態只有 App 在前景、每 20 秒查到新預估時才更新（`host-web.js` `pollWatch` → `updateWatchService`）；App 在背景時倒數照最後一次預估走，過了預估到站 1 分鐘改說「預估可能過時，打開阿幫看最新」。真正的提醒照舊是排好的本機通知。提醒響過、取消、末班已過、90 分鐘到由畫面結束即時動態；App 被關掉留下的過期即時動態下次打開時清掉。沒有通知權限不顯示。

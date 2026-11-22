@@ -65,9 +65,10 @@ export function openApp({ app, store } = {}, { win = globalThis.window, doc = gl
 /** 目前的到站提醒（不用建 host；進行中列用） */
 export const currentArrivalWatch = () => watch.w;
 const signal = (type, detail) => { try { window.dispatchEvent(new CustomEvent(type, { detail })); } catch { /* 非瀏覽器 */ } };
-function stopWatch({ cancel = true } = {}) {
+function stopWatch({ cancel = true, keepService = false } = {}) {
   clearInterval(watch.poll); clearTimeout(watch.fire);
-  if (watch.service || watch.live) { watch.service = false; watch.live = false; stopWatchService(); } // Android 常駐服務／iOS 即時動態一起停（App 內提醒過、取消、逾時、末班已過）
+  // keepService：App 在背景、畫面這邊先算到該提醒了——讓 Android 常駐服務自己響、自己結束（停掉它就沒人響了，審查 2026-11-23）
+  if (watch.service || watch.live) { const stop = !(keepService && watch.service); watch.service = false; watch.live = false; if (stop) stopWatchService(); } // Android 常駐服務／iOS 即時動態一起停（App 內提醒過、取消、逾時、末班已過）
   watch.w = null;
   if (cancel && watch.nativeAt) cancelNotify(NOTIFY_ID.arrival); // 使用者取消或逾時：排好的通知一起取消
   watch.nativeAt = 0;
@@ -106,9 +107,9 @@ function fireArrival(f) {
   const text = arrivalText(w.routeName, w.stop, f.etaSec, w.lang);
   const planned = watch.nativeAt;
   const svc = watch.service;
-  stopWatch({ cancel: false });
+  const visible = typeof document === 'undefined' || document.visibilityState !== 'hidden';
+  stopWatch({ cancel: false, keepService: !visible });
   if (hasNativeNotify()) {
-    const visible = typeof document === 'undefined' || document.visibilityState !== 'hidden';
     // 前景：畫面上的提醒（toast）就夠了，排好的通知取消（不要同一件事出現兩次）
     // 背景：排好的通知在 5 秒內會送（或剛送過）就不重複；車比預估早到 → 改成馬上送
     if (visible) { if (planned) cancelNotify(NOTIFY_ID.arrival); }
@@ -146,7 +147,11 @@ export async function pollWatch(callTool) {
   const w = watch.w;
   if (!w) return;
   if (Date.now() > watch.until) { stopWatch(); return; } // 90 分鐘還沒到：放棄（排好的通知也取消）
-  if (watch.service) { const st = await watchServiceStatus(); if (st && !st.active && (st.firedAt || st.endedAt)) { stopWatch({ cancel: false }); return; } } // 常駐服務已經提醒過、或末班已過自己取消了（App 關著時）：畫面跟著結束
+  if (watch.service) {
+    const st = await watchServiceStatus();
+    if (st && !st.active && (st.firedAt || st.endedAt)) { stopWatch({ cancel: false }); return; }
+    if (st && !st.active) watch.service = false; // 服務被系統關掉（沒響、沒被取消）：改回畫面這邊查＋預排通知，不要變成永遠不響（審查 2026-11-23）
+  } // 常駐服務已經提醒過、或末班已過自己取消了（App 關著時）：畫面跟著結束
   try {
     const r = await callTool('bus_route_eta', { city: w.city, routeName: w.routeName, stop: w.stop, ...(w.direction != null && { direction: w.direction }) });
     const f = r?.data?.focus;

@@ -56,7 +56,7 @@ export const wallet = {
     wallet.save([item, ...list]);
     return item;
   },
-  remove: (id) => wallet.save(wallet.list().filter((x) => x.id !== id)),
+  remove: (id) => { const list = wallet.list().filter((x) => x.id !== id); wallet.save(list); planDrawNotify({ list }).catch(() => {}); }, // 刪掉後開獎日提醒重排（全刪光就取消）
 };
 
 /** 要對獎的：還沒對過、或待開獎且開獎日已到 */

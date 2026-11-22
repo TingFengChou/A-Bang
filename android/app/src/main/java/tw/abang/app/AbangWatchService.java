@@ -53,13 +53,19 @@ public class AbangWatchService extends Service {
     private boolean first = true;
     private int skip = -1;
 
+    /** 第幾次設定（重新設定後，舊的查詢結果與到點提醒不用） */
+    private int gen = 0;
+    /** 兩次查詢之間到點的提醒（每次查完重排，車延誤時不會提早響） */
+    private Runnable pendingAlert = null;
+
     private final Runnable poll = new Runnable() {
         @Override public void run() {
             if (!active) return;
             if (System.currentTimeMillis() > until) { stopNow(); return; }
+            final int g = gen;
             io.execute(() -> {
                 JSONObject focus = fetch();
-                h.post(() -> handle(focus));
+                h.post(() -> { if (g == gen) handle(focus); }); // 重新設定（換路線、換站）後，舊的查詢結果不用（審查 2026-11-23）
             });
             h.postDelayed(this, POLL_MS);
         }
@@ -69,7 +75,11 @@ public class AbangWatchService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null || ACTION_STOP.equals(intent.getAction())) { stopNow(); return START_NOT_STICKY; }
+        if (intent == null || ACTION_STOP.equals(intent.getAction())) {
+            if (active && intent != null) endedAt = System.currentTimeMillis(); // 使用者在通知按「停止」：App 回前景時畫面跟著收掉（審查 2026-11-23）
+            stopNow();
+            return START_NOT_STICKY;
+        }
         apiBase = intent.getStringExtra("apiBase");
         city = intent.getStringExtra("city");
         route = intent.getStringExtra("routeName");
@@ -86,7 +96,8 @@ public class AbangWatchService extends Service {
         else startForeground(ONGOING_ID, n);
         if (io == null) io = Executors.newSingleThreadExecutor();
         active = true;
-        h.removeCallbacks(poll);
+        gen++;
+        h.removeCallbacksAndMessages(null); // 舊的查詢、還沒響的到點提醒都清掉
         h.post(poll);
         return START_NOT_STICKY; // 系統殺掉就算了：不在使用者不知道的時候重開
     }
@@ -176,6 +187,7 @@ public class AbangWatchService extends Service {
     private void handle(JSONObject f) {
         if (!active) return;
         if (f == null) { update(en() ? "Can't reach Abang right now; retrying…" : "暫時查不到到站時間，稍後再試…"); return; }
+        if (pendingAlert != null) { h.removeCallbacks(pendingAlert); pendingAlert = null; } // 查到新資料才重新決定（車延誤：舊的提早提醒取消；查不到就照原本的時間響）
         int status = f.optInt("status", 0);
         String label = f.optString("label", "");
         String st = f.optString("stopName", stop);
@@ -203,7 +215,8 @@ public class AbangWatchService extends Service {
         if (left <= 0) { alert(eta, st); stopNow(); return; }
         update(text(eta, st, label) + (en() ? (" · I'll remind you " + Math.round(leadSec / 60f) + " min before") : ("・到站前 " + Math.round(leadSec / 60f) + " 分提醒你")));
         if (left * 1000L < POLL_MS) { // 兩次更新之間到點：準時提醒
-            h.postDelayed(() -> { if (active) { alert(leadSec, st); stopNow(); } }, Math.max(0, left) * 1000L);
+            pendingAlert = () -> { if (active) { alert(leadSec, st); stopNow(); } };
+            h.postDelayed(pendingAlert, Math.max(0, left) * 1000L);
         }
     }
 
