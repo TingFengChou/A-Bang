@@ -145,7 +145,7 @@ export async function pollWatch(callTool) {
   const w = watch.w;
   if (!w) return;
   if (Date.now() > watch.until) { stopWatch(); return; } // 90 分鐘還沒到：放棄（排好的通知也取消）
-  if (watch.service) { const st = await watchServiceStatus(); if (st && !st.active && st.firedAt) { stopWatch({ cancel: false }); return; } } // 常駐服務已經提醒過（App 關著時）：畫面跟著結束
+  if (watch.service) { const st = await watchServiceStatus(); if (st && !st.active && (st.firedAt || st.endedAt)) { stopWatch({ cancel: false }); return; } } // 常駐服務已經提醒過、或末班已過自己取消了（App 關著時）：畫面跟著結束
   try {
     const r = await callTool('bus_route_eta', { city: w.city, routeName: w.routeName, stop: w.stop, ...(w.direction != null && { direction: w.direction }) });
     const f = r?.data?.focus;
@@ -155,9 +155,11 @@ export async function pollWatch(callTool) {
       const why = stuckReason(w, f);
       if (why) { // 只說一次
         w.stuck = why;
-        signal('abang:arrival-stuck', { routeName: w.routeName, stop: w.stop, reason: why, ask: stuckAsk(w), lang: w.lang || null });
+        const ended = why === 'notRunning'; // 末班已過、今日未營運：這班不會來了，提醒自動取消（產品負責人 2026-11-22：過期的提醒要清掉）
+        signal('abang:arrival-stuck', { routeName: w.routeName, stop: w.stop, reason: why, ask: stuckAsk(w), lang: w.lang || null, ...(ended && { ended: true }) });
         const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
         if (hidden && hasNativeNotify()) scheduleNotify(NOTIFY_ID.stuck, new Date(), w.lang === 'en' ? STUCK_TITLE_EN : STUCK_TITLE, stuckText(w)); // App 在背景：畫面上的提示看不到
+        if (ended) { stopWatch(); return; }
       }
     }
     signal('abang:arrival-watch', w);

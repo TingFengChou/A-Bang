@@ -40,6 +40,8 @@ public class AbangWatchService extends Service {
     /** 給外掛查狀態（同一個行程裡） */
     static volatile boolean active = false;
     static volatile long firedAt = 0;
+    /** 末班已過、今日未營運：提醒自動取消的時間（0＝沒有）；App 回到前景時畫面跟著收掉 */
+    static volatile long endedAt = 0;
     static volatile int lastEta = -1;
     static volatile String lastText = "";
 
@@ -76,7 +78,7 @@ public class AbangWatchService extends Service {
         direction = intent.getIntExtra("direction", -1);
         leadSec = Math.max(60, intent.getIntExtra("leadSec", 180));
         until = intent.getLongExtra("until", System.currentTimeMillis() + 90 * 60_000L);
-        first = true; skip = -1; firedAt = 0; lastEta = -1;
+        first = true; skip = -1; firedAt = 0; endedAt = 0; lastEta = -1;
         if (apiBase == null || route == null || stop == null) { stopNow(); return START_NOT_STICKY; }
         channels();
         Notification n = ongoing(en() ? ("Watching bus " + route + " at " + stop) : ("正在幫你盯 " + route + "（" + stop + "）"));
@@ -175,7 +177,12 @@ public class AbangWatchService extends Service {
         String label = f.optString("label", "");
         String st = f.optString("stopName", stop);
         String statusText = f.optString("statusText", "");
-        if (status != 0 || f.isNull("etaSec")) { // 尚未發車、末班已過…：照實說，繼續盯
+        if (status == 3 || status == 4) { // 末班已過、今日未營運：這班不會來了，提醒自動取消並說一聲（產品負責人 2026-11-22：過期的提醒要清掉）
+            ended(st, status == 3);
+            stopNow();
+            return;
+        }
+        if (status != 0 || f.isNull("etaSec")) { // 尚未發車、交管不停靠：照實說，繼續盯
             update(en() ? ("Bus " + route + " " + label + ": " + statusText + " (" + st + ")") : (route + " " + label + "：" + statusText + "（" + st + "）"));
             return;
         }
@@ -215,6 +222,23 @@ public class AbangWatchService extends Service {
             .setContentText(body)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setAutoCancel(true)
+            .setContentIntent(openApp())
+            .build();
+        ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(ALERT_ID, n);
+    }
+
+    private void ended(String st, boolean lastPassed) {
+        endedAt = System.currentTimeMillis();
+        String body = en()
+            ? ("Bus " + route + (lastPassed ? " has made its last run today" : " isn't running today") + ", so the reminder for " + st + " is cancelled. Ask Abang for another way.")
+            : (route + (lastPassed ? " 末班車已經過了" : " 今天沒有營運") + "，「" + st + "」的到站提醒已取消；可以問阿幫改其他方式。");
+        Notification n = new NotificationCompat.Builder(this, CH_ALERT)
+            .setSmallIcon(R.drawable.ic_stat_abang)
+            .setContentTitle(en() ? "Abang: reminder cancelled" : "阿幫：到站提醒已取消")
+            .setContentText(body)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(openApp())
             .build();
