@@ -357,7 +357,8 @@ async function metroOption(svc, from, to, straight, depart) {
     if (A.net === B.net || !A.o || !B.d) continue;
     for (const t of A.list) {
       const tb = B.list.find((x) => normName(x.name) === normName(t.name));
-      if (!tb || normName(t.name) === normName(A.o.name) && normName(tb.name) === normName(B.d.name)) continue;
+      // 轉乘站就是起站或訖站：等於只坐一個系統（同系統的 best 已經算過），不重複收兩段基本票價
+      if (!tb || normName(t.name) === normName(A.o.name) || normName(tb.name) === normName(B.d.name)) continue;
       const kA = distanceM(A.o.lat, A.o.lon, t.lat, t.lon) / 1000, kB = distanceM(tb.lat, tb.lon, B.d.lat, B.d.lon) / 1000;
       const score = accessMin(A.o.m) + accessMin(B.d.m) + (kA + kB) * 2 + 8;
       if (!cross || score < cross.score) cross = { A, B, t, tb, kA, kB, score };
