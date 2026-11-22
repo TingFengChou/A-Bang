@@ -100,3 +100,14 @@ test('parking.nearby：清單下載失敗就丟錯（開車方案照列估算）
   const tdx = { get: async (path) => (path.includes('CarPark/') ? { CarParks: [] } : {}) };
   assert.deepEqual(await createParkingServices(tdx).parking.nearby({ lat: 25.0365, lon: 121.5645 }), { city: 'Taipei', lots: [], noData: true });
 });
+
+test('伺服器啟動時先下載台北市、新北市停車場清單（warm）；沒有開放資料 client 就沒有 warm', async () => {
+  const { createParkingServices } = await import('../core/services/parking.js');
+  const asked = [];
+  const od = { get: async (url) => { asked.push(url); throw new Error('離線'); } };
+  const p = createParkingServices({ get: async () => ({}) }, { od }).parking;
+  const r = await p.warm();
+  assert.equal(r.length, 2, '台北、新北各一次（失敗不丟錯）');
+  assert.ok(asked.some((u) => /TCMSV_alldesc/.test(u)) && asked.some((u) => /data\.ntpc\.gov\.tw/.test(u)));
+  assert.equal(createParkingServices({ get: async () => ({}) }).parking.warm, null);
+});
