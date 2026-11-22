@@ -4,7 +4,7 @@
 // 動畫只是另一種呈現：同樣的資訊都在 role=status 的那一句（讀屏、reduced motion 拿到的一樣多）。樣式：css/ai.css。
 import { esc } from '../ui.js';
 import { api } from '../api.js';
-import { edgeEnabled, edgeStatus, edgeJudge, edgePrewarm, edgeStats, setEdgeEnabled, edgeSuggest, edgeCanSuggest, judgeContext } from '../edge-judge.js';
+import { edgeEnabled, edgeStatus, edgeJudge, edgePrewarm, edgeStats, setEdgeEnabled, edgeSuggest, edgeCanSuggest, judgeContext, edgeIssue } from '../edge-judge.js';
 import { ENGINE_NAME, normalizeEdgeInfo, normalizeServerInfo, lastAgentStatus, languageNames, nodeText, judgedText } from '../ai-info.js';
 import { aiT, pageLang } from './ai-i18n.js';
 import { visionStatus, visionEnabled } from '../vision.js';
@@ -374,6 +374,7 @@ export default {
             device,
             judge: (x) => { askInfo = null; return edgeJudge(x, [], { timeout: TRY_TIMEOUT_MS, context: judgeContext({ located: false }), onAsk: (a) => { askInfo = a; } }); }, // 只呼叫手機上的外掛，沒有網路；試判斷不送定位（情境照實說沒有定位）
             askInfo: () => askInfo, // 手機上的 AI 提議的題目與在手機上的檢查結果（ADR-0020）
+            judgeIssue: () => edgeIssue(), // 手機上的 AI 這次沒用上的原因（App 不在前景、系統在背景擋下、電量配額）
             judgeMs: () => edgeStats().lastMs,
             agent: (b, onEv, o) => runAgent(b, onEv, o),
             write: (d, o) => edgeWrite(d, o),

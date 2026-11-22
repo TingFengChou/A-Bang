@@ -119,7 +119,7 @@ export async function runTrial(q, deps, onSection = () => {}, onEvent = () => {}
       events.push(e);
       if (e.type === 'trial' && tTrial == null) {
         tTrial = ms(t1, now);
-        if (!report.sections.judge) put('judge', { by: 'server', ...serverJudge(e), ms: tTrial, network: true, why: deps.device.active ? 'failed' : deps.device.reason || 'web' });
+        if (!report.sections.judge) put('judge', { by: 'server', ...serverJudge(e), ms: tTrial, network: true, why: deps.device.active ? deps.judgeIssue?.() || 'failed' : deps.device.reason || 'web' });
         else put('judge', { ...report.sections.judge, server: serverJudge(e) }); // 伺服器怎麼看（有沒有採用手機的判斷）
         put('data', { ...dataSection(e), ms: tTrial, network: true });
       }
@@ -130,7 +130,7 @@ export async function runTrial(q, deps, onSection = () => {}, onEvent = () => {}
   }
   if (deps.signal?.aborted) return report; // 離開頁面：不再請手機改寫、猜下一句
   const run = summarizeRun(events);
-  if (!report.sections.judge) put('judge', { by: 'server', ...(serverJudge(run.trial) || { intent: run.judge?.intent || 'unknown', states: [], source: run.judge?.source || 'rules' }), ms: ms(t1, now), network: true, why: deps.device.active ? 'failed' : deps.device.reason || 'web' });
+  if (!report.sections.judge) put('judge', { by: 'server', ...(serverJudge(run.trial) || { intent: run.judge?.intent || 'unknown', states: [], source: run.judge?.source || 'rules' }), ms: ms(t1, now), network: true, why: deps.device.active ? deps.judgeIssue?.() || 'failed' : deps.device.reason || 'web' });
   if (!report.sections.data) put('data', run.trial ? { ...dataSection(run.trial), ms: ms(t1, now), network: true } : { error: run.error || 'no-trial', network: true });
   // 3 預計回答：程式版（伺服器規則）＋手機改寫（可用時）
   const tAnswer = ms(t1, now);

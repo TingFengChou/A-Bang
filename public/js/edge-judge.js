@@ -43,7 +43,7 @@ export const EDGE_INSTRUCTIONS = `你是交通與生活助理的「意圖與狀�
 export const EDGE_JUDGE_INSTRUCTIONS = `${EDGE_INSTRUCTIONS}\n${EDGE_ASK_GUIDE}`;
 
 /** 現在請手機判斷會不會真的呼叫外掛（App、沒跳斷路器、上一題跑完、開關開著）：不會就不必組情境 */
-export const edgeJudgeReady = () => !!cap() && !unavailable && !inflight && edgeEnabled();
+export const edgeJudgeReady = () => !!cap() && !unavailable && !inflight && edgeEnabled() && edgeForeground();
 
 /** 使用者可在設定關掉裝置端 AI（E8）；讀不到就當開著 */
 export function edgeEnabled() {
@@ -142,7 +142,29 @@ export async function edgeStatus() {
 /** 進問阿幫頁時先讓系統載入模型（第一次判斷才不會慢）；失敗不影響 */
 export function edgePrewarm() {
   const c = cap();
-  if (c && edgeEnabled()) c.nativePromise(PLUGIN, 'prewarm', { instructions: EDGE_JUDGE_INSTRUCTIONS }).catch(() => {});
+  if (c && edgeEnabled() && edgeForeground()) c.nativePromise(PLUGIN, 'prewarm', { instructions: EDGE_JUDGE_INSTRUCTIONS }).catch(() => {});
+}
+
+// ───── 系統暫時不讓用（Pixel smoke，2026-11-22）：App 不在前景（切到別的 App、螢幕關著）時 AICore／Foundation Models 拒絕推論 ─────
+// ML Kit GenAiException 錯誤碼：BACKGROUND_USE_BLOCKED=30（背景被擋）、PER_APP_BATTERY_USE_QUOTA_EXCEEDED=27（電量配額）；原生端回 'background'／'battery-quota'，
+// 不設 10 分鐘暫停、不跳斷路器，這一題交給伺服器（判斷、寫回答）或規則（下一句建議）。App 不在前景時乾脆不呼叫。
+/** App 在前景嗎（document.visibilityState；沒有 document 當作在前景） */
+export function edgeForeground() {
+  try { const v = globalThis.document?.visibilityState; return !v || v === 'visible'; } catch { return true; }
+}
+/** 系統暫時不讓用的錯誤（背景被擋、電量配額）：不是模型壞掉 */
+export const EDGE_SOFT = /\b(?:background|battery-quota)\b/;
+/** 系統暫時不讓用的原因代碼（外掛錯誤訊息 → 'background'｜'battery-quota'｜null） */
+export const edgeSoftReason = (message) => (EDGE_SOFT.exec(String(message || ''))?.[0] ?? null);
+let lastIssue = null;
+/** 最近一次手機上的 AI 沒用上的原因（'hidden' App 不在前景、'background'、'battery-quota'）；只給「阿幫的腦袋」試判斷說明，一分鐘內有效 */
+export const edgeIssue = (maxAgeMs = 60_000, now = Date.now()) => (lastIssue && now - lastIssue.at <= maxAgeMs ? lastIssue.reason : null);
+const noteIssue = (reason) => { lastIssue = { reason, at: Date.now() }; };
+/** App 不在前景：記下原因並回 false（呼叫端直接走伺服器／規則） */
+export function edgeCanRun() {
+  if (edgeForeground()) return true;
+  noteIssue('hidden');
+  return false;
 }
 
 // 斷路器（PR #32 審查）：上一題還沒跑完（例：iOS 冷啟動 5 秒）就不等；外掛說不可用就這次開 App 都不再試
@@ -157,17 +179,22 @@ let lastCancelAt = -Infinity;
  */
 export function edgeTrips(message, sinceCancelMs = Infinity) {
   const m = String(message || '');
+  if (EDGE_SOFT.test(m)) return false; // 背景被擋、電量配額：系統暫時不讓用，回到前景就好
   if (sinceCancelMs < EDGE_BUSY_GRACE_MS && /busy|cancel|concurren|rate.?limit/i.test(m)) return false;
   return /unavailable/.test(m);
 }
 /** 斷路器跳了嗎（外掛說不可用）：跳了就這次開 App 都不再請手機做任何事 */
 export const edgeTripped = () => unavailable;
 /** 任務失敗時回報（write 也用）：不可用就跳斷路器；剛讓位的忙碌不算 */
-export function noteEdgeError(message) { if (edgeTrips(message, Date.now() - lastCancelAt)) unavailable = true; }
+export function noteEdgeError(message) {
+  const soft = edgeSoftReason(message);
+  if (soft) { noteIssue(soft); return; }
+  if (edgeTrips(message, Date.now() - lastCancelAt)) unavailable = true;
+}
 /** 正在用模型的其他任務（write）：有的話不猜下一句 */
 export const edgeTasks = new Set();
 /** 測試用：重設斷路器 */
-export const _resetEdge = () => { inflight = null; unavailable = false; suggestInflight = null; suggestOff = false; suggestAbort = null; lastCancelAt = -Infinity; edgeTasks.clear(); };
+export const _resetEdge = () => { inflight = null; unavailable = false; suggestInflight = null; suggestOff = false; suggestAbort = null; lastCancelAt = -Infinity; lastIssue = null; edgeTasks.clear(); };
 
 /**
  * 在手機上判斷這一句（同一次呼叫也決定要不要先問使用者一題，ADR-0020）。
@@ -180,6 +207,7 @@ export const _resetEdge = () => { inflight = null; unavailable = false; suggestI
 export async function edgeJudge(text, history = [], { timeout = EDGE_TIMEOUT_MS, context = '', asked = [], onAsk = null } = {}) {
   const c = cap();
   if (!c || unavailable || inflight || !edgeEnabled() || !text) return null;
+  if (!edgeCanRun()) return null; // App 不在前景：系統會拒絕，直接交給伺服器判斷
   cancelSuggest(); // judge 優先：正在猜下一句就先取消（Android 原生端共用一條執行緒，不讓 judge 排在 suggest 後面）
   let timer;
   const t0 = Date.now();
@@ -189,6 +217,7 @@ export async function edgeJudge(text, history = [], { timeout = EDGE_TIMEOUT_MS,
     inflight = call.catch((e) => noteEdgeError(e?.message)).finally(() => { inflight = null; });
     const r = await Promise.race([call, new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeout); })]);
     const out = r ? normalizeJudge(r.result, r.engine, { lang: textLang(text), asked, onAsk }) : null; // 解析失敗只當作沒有 ask，不跳斷路器
+    if (out) lastIssue = null;
     if (out) noteEdgeJudge(validMs(r.ms) ?? Date.now() - t0); // 外掛有回模型耗時就用它，否則用這裡量到的（含橋接）
     return out;
   } catch {
@@ -267,7 +296,7 @@ export function cancelSuggest() {
   return true;
 }
 /** 現在可以請手機上的 AI 猜嗎（App、外掛可用、兩個開關都開著）；不能就直接用規則，不必等 */
-export const edgeCanSuggest = () => !!cap() && !unavailable && !suggestOff && edgeEnabled() && suggestEnabled();
+export const edgeCanSuggest = () => !!cap() && !unavailable && !suggestOff && edgeEnabled() && suggestEnabled() && edgeForeground(); // App 不在前景：改用規則
 /**
  * 在手機上猜使用者接下來想問的話（只給候選；要不要顯示由 agent/suggest.js 驗證、排序）。
  * @param {string} context 情境文字（suggest.js contextText；不含座標）
@@ -275,11 +304,12 @@ export const edgeCanSuggest = () => !!cap() && !unavailable && !suggestOff && ed
  */
 export async function edgeSuggest(context, { lang = null, timeout = 1500 } = {}) {
   const c = cap();
-  if (!c || unavailable || suggestOff || suggestInflight || inflight || edgeTasks.size || !edgeEnabled() || !suggestEnabled() || !context) return null; // 正在判斷（judge）或寫回答（write）：不猜（它們優先）
+  if (!c || unavailable || suggestOff || suggestInflight || inflight || edgeTasks.size || !edgeEnabled() || !suggestEnabled() || !context) return null;
+  if (!edgeCanRun()) return null; // App 不在前景：改用規則 // 正在判斷（judge）或寫回答（write）：不猜（它們優先）
   let timer;
   try {
     const call = c.nativePromise(PLUGIN, 'suggest', { context: String(context).slice(0, 600), instructions: lang === 'en' ? SUGGEST_INSTRUCTIONS_EN : SUGGEST_INSTRUCTIONS, lang: lang === 'en' ? 'en' : 'zh-TW', max: 4 });
-    const p = call.catch((e) => { if (/unavailable|not implemented|UNIMPLEMENTED/i.test(e?.message || e?.code || '')) suggestOff = true; }).finally(() => { if (suggestInflight === p) suggestInflight = null; });
+    const p = call.catch((e) => { const soft = edgeSoftReason(e?.message); if (soft) noteIssue(soft); else if (/unavailable|not implemented|UNIMPLEMENTED/i.test(e?.message || e?.code || '')) suggestOff = true; }).finally(() => { if (suggestInflight === p) suggestInflight = null; });
     suggestInflight = p;
     const r = await Promise.race([call, new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeout); suggestAbort = () => resolve(null); })]);
     suggestAbort = null;

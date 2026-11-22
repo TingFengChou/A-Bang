@@ -3,7 +3,7 @@
 // 這裡請外掛 AbangEdgeAI.write 改寫成自然的一兩句，再用 core/edge-write.js 的程式護欄檢查（數字、時間、ADR-0011…），
 // 不過、逾時（2.5 秒）、外掛失敗 → 用程式版總結。網頁版、不支援的手機、開關關掉 → 不帶 clientCaps，行為與原本相同。
 import { checkRewrite, worthRewriting, writePrompt, WRITE_INSTRUCTIONS, WRITE_TARGET_CHARS } from '../../core/edge-write.js';
-import { edgeEnabled, edgeStatus, EDGE_ENGINES, EDGE_ENGINE_NAME, EDGE_PLUGIN as PLUGIN, edgeCap as cap, edgeTripped, noteEdgeError, cancelSuggest, edgeTasks } from './edge-judge.js';
+import { edgeEnabled, edgeStatus, EDGE_ENGINES, EDGE_ENGINE_NAME, EDGE_PLUGIN as PLUGIN, edgeCap as cap, edgeTripped, noteEdgeError, cancelSuggest, edgeTasks, edgeCanRun, edgeSoftReason } from './edge-judge.js';
 
 /** 等手機寫最多這麼久（原生端 2.3 秒取消）；超過就用程式版 */
 export const WRITE_TIMEOUT_MS = 2500;
@@ -60,7 +60,8 @@ let inflight = null; // 正在寫的那一次（物件當記號；強制清掉�
  * 請手機改寫 answer_draft。
  * @param {{ text: string, facts?: object, lang?: 'zh'|'en' }} draft answer_draft 事件
  * @param {{ engine?: string, agent?: string, timeout?: number, release?: number }} [o]
- * @returns {Promise<{ text: string, by: 'edge'|'program', reason?: 'skip'|'timeout'|'busy'|'failed'|'check', engine?: string, ms?: number, detail?: string, candidate?: string }>}
+ * @returns {Promise<{ text: string, by: 'edge'|'program', reason?: 'skip'|'timeout'|'busy'|'failed'|'check'|'hidden'|'background'|'battery-quota', engine?: string, ms?: number, detail?: string, candidate?: string }>}
+ *   hidden：App 不在前景，沒有呼叫；background／battery-quota：系統暫時不讓用（不跳斷路器）
  */
 export async function edgeWrite(draft, { engine, agent = 'life', timeout = WRITE_TIMEOUT_MS, release = INFLIGHT_RELEASE_MS } = {}) {
   const text = String(draft?.text ?? '');
@@ -70,6 +71,7 @@ export async function edgeWrite(draft, { engine, agent = 'life', timeout = WRITE
   const program = (reason, extra = {}) => ({ text, by: 'program', reason, ...(engine && { engine }), ...extra });
   if (!c || agent !== 'life' || edgeTripped()) return program('failed');
   if (!worthRewriting(text)) return program('skip');
+  if (!edgeCanRun()) return program('hidden'); // App 不在前景：系統會拒絕，直接用程式版
   if (inflight) return program('busy'); // 上一題還沒寫完（不排隊）
   const me = {};
   inflight = me;
@@ -81,9 +83,9 @@ export async function edgeWrite(draft, { engine, agent = 'life', timeout = WRITE
   try {
     const call = c.nativePromise(PLUGIN, 'write', { draft: text, prompt: writePrompt(text, facts, lang), lang, instructions: WRITE_INSTRUCTIONS[lang], maxChars: WRITE_TARGET_CHARS });
     const done = call.finally(free);
-    const r = await Promise.race([done.catch((e) => { noteEdgeError(e?.message); return 'failed'; }), new Promise((res) => { timer = setTimeout(() => res('timeout'), timeout); })]);
+    const r = await Promise.race([done.catch((e) => { noteEdgeError(e?.message); return edgeSoftReason(e?.message) || 'failed'; }), new Promise((res) => { timer = setTimeout(() => res('timeout'), timeout); })]);
     if (r === 'timeout') { setTimeout(free, release); return program('timeout'); }
-    if (r === 'failed') return program('failed');
+    if (r === 'failed' || r === 'background' || r === 'battery-quota') return program(r);
     const eng = EDGE_ENGINES.includes(r?.engine) ? r.engine : engine;
     const ms = validMs(r?.ms) ?? Date.now() - t0;
     const chk = checkRewrite(r?.text, { draft: text, facts, lang, agent });
@@ -116,6 +118,9 @@ export function writeLine(r, lang = null, { judged = false, judgeEngine } = {}) 
     busy: en ? 'the phone was still writing the last one' : '手機還在寫上一題',
     skip: en ? 'lots of numbers, straight from the data' : '數字多，直接照資料說',
     failed: en ? "the phone couldn't write it" : '手機沒寫出來',
+    hidden: en ? 'the app was in the background' : 'App 不在前景',
+    background: en ? 'the system blocks AI while the app is in the background' : 'App 在背景時系統不讓 AI 跑',
+    'battery-quota': en ? "the system paused the phone's AI to save battery" : '系統為了省電暫停手機上的 AI',
   }[r?.reason] || (en ? "the phone couldn't write it" : '手機沒寫出來');
   if (judged) return en ? `${name} on your phone understood your question; the answer uses Abang's standard wording (${why}).` : `手機上的 ${name} 聽懂你的問題；回答用阿幫的固定說法（${why}）。`;
   return en ? `This answer uses Abang's standard wording (${why}).` : `這次的回答用阿幫的固定說法（${why}）。`;

@@ -281,10 +281,11 @@ test('取消建議後 3 秒內的忙碌類錯誤：不跳斷路器（這一題�
   assert.match(java, /BUSY_GRACE_MS = 3000/);
   assert.match(java, /code == GenAiException\.ErrorCode\.BUSY \|\| code == GenAiException\.ErrorCode\.CANCELLED/);
   assert.match(java, /if \(busyAfterCancel\(g\.getErrorCode\(\), since\)\) return BUSY_CODE[^\n]*\n\s*pausedUntil =/, '忙碌先回、不設 pausedUntil');
-  assert.match(java, /call\.reject\(code\.startsWith\(BUSY_CODE\) \? "busy" : "judge failed"\)/);
+  assert.match(java, /return code\.startsWith\(BUSY_CODE\) \? "busy" : fallback;/);
+  assert.match(java, /call\.reject\(rejectMessage\(code, "judge failed"\)\)/);
   const swift = String(await readFile(new URL('../ios/App/App/AbangEdgeAIPlugin.swift', import.meta.url)));
   assert.match(swift, /static let busyGrace: TimeInterval = 3/);
-  assert.match(swift, /call\.reject\(self\.busyAfterCancel\(error\) \? "busy" : "judge failed"\)/);
+  assert.match(swift, /call\.reject\(self\.softReason\(error\) \?\? \(self\.busyAfterCancel\(error\) \? "busy" : "judge failed"\)\)/);
 });
 
 test('外掛三個任務共用斷路器與優先順序：judge ＞ write ＞ suggest（寫之前先取消猜，寫的時候不猜；寫說不可用就都不再用）', async () => {
