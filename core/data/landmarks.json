@@ -93,7 +93,7 @@
   {"name": "基隆廟口夜市", "aliases": ["廟口夜市", "基隆廟口", "Miaokou Night Market", "Keelung Night Market"], "city": "Keelung", "lat": 25.1283, "lon": 121.7432, "kind": "market", "en": "Keelung Miaokou Night Market"},
   {"name": "和平島公園", "aliases": ["和平島", "Heping Island"], "city": "Keelung", "lat": 25.1606, "lon": 121.7652, "kind": "landmark", "en": "Heping Island Park"},
   {"name": "正濱漁港", "aliases": ["正濱", "Zhengbin"], "city": "Keelung", "lat": 25.15, "lon": 121.773, "kind": "landmark", "en": "Zhengbin Fishing Port"},
-  {"name": "臺灣桃園國際機場", "aliases": ["桃園機場", "桃園國際機場", "TPE", "Taoyuan Airport", "Taoyuan International Airport", "TPE Airport"], "city": "Taoyuan", "lat": 25.0797, "lon": 121.2342, "kind": "airport", "en": "Taoyuan International Airport"},
+  {"name": "臺灣桃園國際機場", "aliases": ["桃園機場", "桃園國際機場", "桃機", "第一航廈", "第二航廈", "第三航廈", "TPE", "Taoyuan Airport", "Taoyuan International Airport", "TPE Airport"], "city": "Taoyuan", "lat": 25.0797, "lon": 121.2342, "kind": "airport", "en": "Taoyuan International Airport"},
   {"name": "高鐵桃園站", "aliases": ["桃園高鐵站", "青埔", "HSR Taoyuan"], "city": "Taoyuan", "lat": 25.0129, "lon": 121.2149, "kind": "station", "en": "THSR Taoyuan Station"},
   {"name": "桃園車站", "aliases": ["桃園火車站", "Taoyuan Station"], "city": "Taoyuan", "lat": 24.9891, "lon": 121.3134, "kind": "station", "en": "Taoyuan Station"},
   {"name": "中壢車站", "aliases": ["中壢火車站", "中壢"], "city": "Taoyuan", "lat": 24.9537, "lon": 121.2257, "kind": "station"},

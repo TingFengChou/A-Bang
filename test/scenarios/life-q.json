@@ -723,6 +723,273 @@
           }
         }
       ]
+    },
+    {
+      "id": "Q-28",
+      "title": "去機場（台北）：先用最近的松山機場排行程並問哪個機場（松山標猜的）；按了別的就重算",
+      "turns": [
+        {
+          "say": "去機場",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "松山機場",
+            "asks": [
+              "哪個機場"
+            ],
+            "askOptions": [
+              "松山機場",
+              "桃園機場"
+            ],
+            "askKind": "reply",
+            "askGuess": true,
+            "textNot": [
+              "我可以幫你查交通"
+            ]
+          }
+        },
+        {
+          "say": "桃園",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "桃園國際機場",
+            "asksNot": [
+              "哪個機場"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-29",
+      "title": "去機場（桃園一帶、台中、高雄）：猜最近的機場",
+      "turns": [
+        {
+          "say": "我要去機場",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "桃園國際機場",
+            "asks": [
+              "哪個機場"
+            ],
+            "askOptions": [
+              "桃園機場"
+            ],
+            "askGuess": true
+          }
+        }
+      ],
+      "here": {
+        "lat": 24.9537,
+        "lon": 121.2256
+      }
+    },
+    {
+      "id": "Q-30",
+      "title": "去機場（台中）：猜清泉崗",
+      "here": {
+        "lat": 24.1373,
+        "lon": 120.6869
+      },
+      "turns": [
+        {
+          "say": "到機場怎麼走",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "臺中國際機場",
+            "asks": [
+              "哪個機場"
+            ],
+            "askOptions": [
+              "台中清泉崗機場"
+            ],
+            "askGuess": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-31",
+      "title": "去機場（高雄）：猜小港",
+      "here": {
+        "lat": 22.6273,
+        "lon": 120.3014
+      },
+      "turns": [
+        {
+          "say": "怎麼去機場？",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "高雄國際機場",
+            "asks": [
+              "哪個機場"
+            ],
+            "askOptions": [
+              "高雄小港機場"
+            ],
+            "askGuess": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-32",
+      "title": "去機場、拒絕定位：只問哪個機場（不查、不猜）；打「小港」接回行程",
+      "location": false,
+      "turns": [
+        {
+          "say": "去機場",
+          "expect": {
+            "toolsNone": true,
+            "asks": [
+              "哪個機場"
+            ],
+            "askOptions": [
+              "桃園機場",
+              "松山機場"
+            ],
+            "askGuess": false,
+            "textNot": [
+              "我可以幫你查交通"
+            ]
+          }
+        },
+        {
+          "say": "小港",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "高雄國際機場",
+            "asksNot": [
+              "哪個機場"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-33",
+      "title": "（不問）說了明確的機場或航廈：照常排行程",
+      "turns": [
+        {
+          "say": "去桃園機場",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "桃園國際機場",
+            "asksNot": [
+              "哪個機場"
+            ]
+          }
+        },
+        {
+          "say": "重來",
+          "expect": {}
+        },
+        {
+          "say": "怎麼去第二航廈",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "桃園國際機場",
+            "asksNot": [
+              "哪個機場"
+            ]
+          }
+        },
+        {
+          "say": "重來",
+          "expect": {}
+        },
+        {
+          "say": "去松山機場",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "松山機場",
+            "asksNot": [
+              "哪個機場"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-34",
+      "title": "英文 to the airport：同中文（先查最近的、問 Which airport）；接著改叫車不再問",
+      "turns": [
+        {
+          "say": "How do I get to the airport?",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "松山機場",
+            "asks": [
+              "Which airport"
+            ],
+            "askOptions": [
+              "Songshan Airport",
+              "Taoyuan Airport"
+            ],
+            "askGuess": true
+          }
+        },
+        {
+          "say": "What about by taxi?",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "松山機場",
+            "asksNot": [
+              "airport"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q-35",
+      "title": "去機場之後接著改條件（叫車）：照猜的那個算，不再問哪個機場",
+      "turns": [
+        {
+          "say": "去機場",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "asks": [
+              "哪個機場"
+            ]
+          }
+        },
+        {
+          "say": "那叫車呢",
+          "expect": {
+            "tools": [
+              "plan_trip"
+            ],
+            "to": "松山機場",
+            "asksNot": [
+              "哪個機場"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

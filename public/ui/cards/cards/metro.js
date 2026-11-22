@@ -2,8 +2,14 @@
 import { h } from '../dom.js';
 import { navButton } from '../actions.js';
 
-/** 時刻表估的班次用字典（英文卡片不出現中文）；看板的班次照資料 */
-const statusOf = (x, t) => (x.scheduled ? (x.etaMin <= 1 ? t('metro.scheduledSoon') : t('metro.scheduled', { min: x.etaMin })) : x.status);
+/** 狀態代碼（arriving／approaching／minutes／scheduled／unknown，core/services/metro.js）→ 字典（英文卡片不出現中文） */
+const statusOf = (x, t) => {
+  const code = x.scheduled ? 'scheduled' : x.status;
+  if (code === 'scheduled') return x.etaMin <= 1 ? t('metro.scheduledSoon') : t('metro.scheduled', { min: x.etaMin });
+  if (code === 'arriving' || code === 'approaching') return t(`metro.status.${code}`);
+  if (code === 'minutes' && x.etaMin != null) return t('metro.status.minutes', { min: x.etaMin });
+  return t('metro.status.unknown');
+};
 
 export default {
   refreshSec: 20,

@@ -121,6 +121,10 @@ export const MESSAGES = {
   'metro.scheduled': '約 {min} 分',
   'metro.scheduledSoon': '約 1 分內',
   'metro.toward': '往 {dest}',
+  'metro.status.arriving': '進站中',
+  'metro.status.approaching': '即將進站',
+  'metro.status.minutes': '{min} 分',
+  'metro.status.unknown': '—',
   'metro.empty': '目前沒有即時到站資料',
 
   // ── timetable ──

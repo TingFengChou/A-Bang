@@ -6,7 +6,7 @@ import { nextStepOf } from '../tools/trip.js';
 import { upcomingTrains } from '../tools/transit.js';
 import { outingSay } from './outing.js';
 import { nowTW, distanceM } from '../util.js';
-import { destToken, lookupToken } from './clarify.js';
+import { destToken, lookupToken, isAirportName } from './clarify.js';
 
 /** 問會不會下雨（不是正在下雨；判斷層的下雨狀態也要拿掉，P2-4） */
 export const RAIN_ASK = /會不會下雨|會下雨[嗎吧]?|下雨[嗎沒]|下不下雨|有沒有下雨/g;
@@ -192,6 +192,16 @@ export function nearDefaultFrom(to) {
   return distanceM(a.lat, a.lon, b.lat, b.lon) < NEAR_DEFAULT_M;
 }
 
+/** 「去機場」「到機場怎麼走」「機場」：沒說哪個機場（機場捷運、機場線、機場巴士不算；說了「桃園機場」「第二航廈」就是那個） */
+const AIRPORT_GO = /(?:去|到|往|趕)\s*(?:飛)?機場(?!捷運|線|快線|巴士|大巴|客運|接駁|站)|^(?:飛)?機場\s*(?:怎麼(?:去|走|坐|搭))?\s*[？?。！!]?$/;
+const AIRPORT_EN = /\b(?:to|for)\s+(?:the\s+)?airport\b(?!\s+(?:mrt|metro|line|express|bus|shuttle))|^(?:the\s+)?airport[?.!]?$/i;
+/** 沒說哪個機場的行程：{ from, to: null, airport: true }；句子裡另有一個地名當起點（「我在板橋，要去機場」） */
+function airportTrip(s, places, en = false) {
+  if (!(en ? AIRPORT_EN : AIRPORT_GO).test(s.trim()) || places.some(isAirportName)) return null;
+  if (places.length > 1) return null;
+  const from = en ? (places[0] && /\bfrom\b|\bI'?m (?:at|in)\b/i.test(s) ? places[0] : null) : places[0] || FROM_TEXT.exec(s)?.[1] || null;
+  return { from, to: null, airport: true };
+}
 /** 沒說哪一站的「火車站／高鐵站」（前面是去、到、往） */
 const NEAR_RAIL = /(?:去|到|往)\s*(?:最近的?|附近的?)?\s*(?:火車站|[台臺]鐵站|高鐵站)/;
 const STATION_NAMES = new Set(LANDMARKS.items.filter((x) => x.kind === 'station').map((x) => x.name));
@@ -575,7 +585,7 @@ export function parseIntent(text, ctx) {
     if (/漲|跌|調/.test(String(text))) it.trend = true;
   }
   if (it?.intent === 'bus_route' && !it.stop) { const st = busStopOf(text); if (st) it.stop = st; }
-  if (it?.intent === 'trip' && it.followUp && !it.to && !it.nearRail && !it.toSaved && !it.needs) it.needs = 'to'; // 接著改條件但目的地還沒說（只說過起點）：再問一次要去哪 // 「307 公車到「敦化市場」還要多久」（阿幫會看：拍站牌組出來的問題，M14-02）
+  if (it?.intent === 'trip' && it.followUp && !it.to && !it.nearRail && !it.airport && !it.toSaved && !it.needs) it.needs = 'to'; // 接著改條件但目的地還沒說（只說過起點）：再問一次要去哪 // 「307 公車到「敦化市場」還要多久」（阿幫會看：拍站牌組出來的問題，M14-02）
   if (it && !isEnglish(String(text || ''))) delete it.lang;
   return it;
 }
@@ -664,6 +674,8 @@ function parseIntentRaw(text, ctx) {
   if (/詐騙嗎|是不是詐騙|是詐騙|是騙人的嗎/.test(s) && !places.length) return { ...base, intent: 'scamAsk' };
   if (ACT_FOR_ME.test(s) && !places.length && (!RAIL_WORD.test(s) || /刷卡|付款|付錢|代付/.test(s))) return { ...base, intent: 'limits' };
   if (isDramaAsk(s, places)) return { ...base, intent: 'drama', ...dramaSlots(s) }; // 找短劇（ADR-0019）：在行程、生活服務之前（「推薦一部短劇」不是地名）
+  const air = airportTrip(s, places); // 「去機場」沒說哪個：程式猜最近的並問（core/agent/clarify-plan.js）
+  if (air) return { ...base, intent: 'trip', ...air, ...(mode && { mode }) };
   let tripMemo;
   const noNeeds = (t) => { if (!t?.needs) return t; const { needs: _n, ...r } = t; return r; }; // 上一輪在問的欄位：這一輪說了就不再問（「那去台北101呢」）
   const tripBefore = () => (tripMemo !== undefined ? tripMemo : (tripMemo = noNeeds(ctx && 'prev' in ctx ? ctx.prev : lastTrip(history, ctx?.saved))));
@@ -1157,6 +1169,8 @@ function englishIntent(s, places, history = []) {
   }
   // 要出門了（「I want to go out」）：出門建議＋問要去哪
   if (/^(?:i\s+(?:want|need|have|am going|'m going|am about|'m about)\s+to\s+go\s+out|i'?m\s+(?:heading|going)\s+out(?:\s+now)?|(?:heading|going)\s+out(?:\s+now)?)[.!]?$/i.test(s.trim())) return { ...base, intent: 'outing', askTo: true };
+  const airEn = airportTrip(s, places, true); // 「How do I get to the airport?」沒說哪個機場：同中文「去機場」
+  if (airEn) return { ...base, intent: 'trip', ...airEn, ...(mode && { mode }) };
   // 沒說哪一站的「train station」「HSR station」：去最近的台鐵／高鐵站（同中文「去火車站」，PM Q-26）
   const nearRailEn = !places.length && /\b(train|railway|hsr|high[- ]speed rail)\s+station\b/i.exec(s);
   if (nearRailEn && /\b(?:get|go|take me|how|way|directions?)\b/i.test(s)) return { ...base, intent: 'trip', from: null, to: null, nearRail: /hsr|high/i.test(nearRailEn[1]) ? 'THSR' : 'TRA' };
@@ -1265,7 +1279,7 @@ function englishSummary(it, results) {
     const next = (up?.length ? up : t?.trains)?.[0];
     if (next) return `${it.system === 'THSR' ? 'High Speed Rail' : 'Train'} from ${t.from} to ${t.to}: next one leaves ${next.depart}, arrives ${next.arrive}.${note}`;
   }
-  if (it.intent === 'metro') { const m = results.metro_live_board?.at(-1)?.data; const tr = m?.trains?.find((x) => x.etaMin != null); if (m) return tr ? `MRT ${m.station}: next train to ${tr.destination} in ${tr.etaMin} min.${note}` : `MRT ${m.station}: no live arrival data right now.`; }
+  if (it.intent === 'metro') { const m = results.metro_live_board?.at(-1)?.data; const tr = m?.trains?.find((x) => x.etaMin != null); if (m) return tr ? `MRT ${m.station}: ${tr.etaMin <= 0 && !tr.scheduled ? `train to ${tr.destination} arriving now` : `next train to ${tr.destination} in ${tr.scheduled ? 'about ' : ''}${Math.max(1, tr.etaMin)} min`}.${note}` : `MRT ${m.station}: no live arrival data right now.`; }
   if (it.intent === 'aqi') { const a = results.aqi_nearby?.at(-1)?.data?.nearest; if (a) return `Air quality near ${a.site} station: AQI ${a.aqi}${a.aqi > 100 ? ', consider wearing a mask' : ''}.`; }
   if (it.intent === 'youbike') { const b = results.youbike_nearby?.at(-1)?.data?.stations?.[0]; if (b) return `Nearest YouBike station: ${b.name}, ${b.rent ?? '?'} bikes and ${b.returnSlots ?? '?'} free docks.${note}`; }
   if (it.intent === 'outing') { const o = results.outing_advice?.at(-1)?.data; if (o) { const tips = o.items.map(outingEn).filter(Boolean); return `Before you head out: ${tips.join('; ')}.${note}`; } }

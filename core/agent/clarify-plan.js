@@ -7,7 +7,7 @@ import { DEFAULT_FROM } from './demo-intent.js';
 import { slotAsk } from './ask.js';
 import {
   placeGuess, placeAsk, roadAsk, hereAsk, topicAsk, railFromAsk, railToAsk, nearestStation, whereAsk, busStopAsk, invoiceAsk, scamPasteAsk,
-  landmarkByName, HERE_M, railName,
+  landmarkByName, HERE_M, railName, airportGuess, airportAsk,
 } from './clarify.js';
 const shortOf = (en, token) => (en ? `Which “${token}” do you mean? Tap one above, or type the full place name.` : `你說的「${token}」是哪裡？點上面一個，或直接打完整的地名。`);
 
@@ -29,6 +29,15 @@ export function planAsk(it, { profileId = 'life', history = [], text = '' } = {}
     const g = placeGuess(it.ambig, at);
     const a = placeAsk(it.ambig, g.order, { lang });
     return { stop: { ask: a, short: shortOf(en, it.ambig.token), accept: new Set(a.options.map((o) => o.say)) } };
+  }
+  if (it.intent === 'trip' && it.airport && !it.to) { // 去機場沒說哪個：有位置（或說了起點）先用最近的機場算，同時問；沒位置只問
+    const g = airportGuess(it.fromPoint || (it.from && landmarkByName(it.from)) || null, { en });
+    if (it.followUp && g.guess) { it.to = g.guess; return null; } // 接著改條件（「那叫車呢」）：問過了，照猜的那個算
+    const o = { from: it.from || null, mode: it.mode || null, lang };
+    if (!g.guess) { const a = airportAsk(g.order, o); return { stop: a }; }
+    it.to = g.guess;
+    const a = airportAsk(g.order, { ...o, guess: true });
+    return { after: () => ({ ask: a.ask, accept: a.accept }) };
   }
   if (it.intent === 'trip' && it.ambig) { // 同名的地點：先用最可能的算，同時問（PM Q-4、Q-6、Q-9）
     const g = placeGuess(it.ambig, at);
@@ -83,6 +92,12 @@ export function askFirst(it, { history = [], at = null } = {}) {
     if (it.followUp || !g.ask) { if (it.ambig.names.includes(it.to)) it.to = g.guess; return null; } // 不問就用猜的那個（不是地標庫的第一個）
     const a = placeAsk(it.ambig, g.order, { from: it.from || null, mode: it.mode || null, lang: it.lang === 'en' ? 'en' : null });
     return { ask: a, short: shortOf(it.lang === 'en', it.ambig.token), accept: new Set(a.options.map((o) => o.say)) };
+  }
+  if (it.intent === 'trip' && it.airport && !it.to) { // 模型模式不先用猜的查：去哪個機場先問（選項最近的放第一）
+    const en = it.lang === 'en';
+    const g = airportGuess(at || (it.from && landmarkByName(it.from)) || null, { en });
+    if (it.followUp && g.guess) { it.to = g.guess; return null; }
+    return airportAsk(g.order, { from: it.from || null, mode: it.mode || null, lang: en ? 'en' : null });
   }
   if (!(it.road || it.category || (it.ambig && it.bare && it.intent === 'unknown') || (it.intent === 'rail' && !it.to && (it.fare || (it.anyTo && it.system !== 'THSR'))))) return null;
   return planAsk({ ...it }, { history })?.stop || null;

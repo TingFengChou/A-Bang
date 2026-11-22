@@ -152,6 +152,66 @@ export function tripSay(to, { from = null, mode = null, en = null } = {}) {
   return from ? `從${from}到${to}怎麼去？` : `怎麼去${to}？`;
 }
 
+// ───── 去機場（沒說哪個）：有位置先用最近的機場算並問；沒位置只問 ─────
+const AIRPORTS = ITEMS.filter((x) => x.kind === 'airport');
+/** 主要機場（一定列進候選）；其他小機場在 30 公里內才列（人在花蓮、澎湖、金門） */
+const MAJOR_AIRPORTS = new Set(['臺灣桃園國際機場', '臺北松山機場', '臺中國際機場', '高雄國際機場']);
+const AIRPORT_LOCAL_M = 30_000;
+/** 最近的機場在 80 公里外（例如人在嘉義）：不先查（不猜遠的），只問 */
+export const AIRPORT_GUESS_M = 80_000;
+/** 沒位置時的選項（國際線旅客最多的三個） */
+const AIRPORT_DEFAULT = ['臺灣桃園國際機場', '臺北松山機場', '高雄國際機場'];
+/** 選項上的短名（使用者口語的叫法） */
+const AIRPORT_LABEL = { 臺灣桃園國際機場: ['桃園機場', 'Taoyuan Airport'], 臺北松山機場: ['松山機場', 'Songshan Airport'], 臺中國際機場: ['台中清泉崗機場', 'Taichung Airport'], 高雄國際機場: ['高雄小港機場', 'Kaohsiung Airport'] };
+export const isAirportName = (name) => byName(name)?.kind === 'airport';
+/**
+ * 去機場沒說哪個：候選（最近的放第一、最多 3 個）與猜哪一個。
+ * @param {{ lat: number, lon: number } | null} at 使用者的位置或說了的起點（沒有＝只問）
+ * @param {{ en?: boolean }} [o] 英文那一輪只列有英文名稱的機場（句子要規則聽得懂）
+ * @returns {{ guess: string|null, order: string[] }}
+ */
+export function airportGuess(at, { en = false } = {}) {
+  const ok = (x) => !en || !!x.en;
+  if (!at) return { guess: null, order: AIRPORT_DEFAULT.filter((n) => ok(byName(n))) };
+  const list = AIRPORTS.filter((x) => ok(x) && (MAJOR_AIRPORTS.has(x.name) || dist(at, x) <= AIRPORT_LOCAL_M)).sort((a, b) => dist(at, a) - dist(at, b));
+  const g = list[0];
+  return { guess: g && dist(at, g) <= AIRPORT_GUESS_M ? g.name : null, order: list.slice(0, 3).map((x) => x.name) };
+}
+/**
+ * 「要去哪個機場？」選項最近的放第一（guess 時標「猜的」），按了送出「怎麼去 X？」（有說起點、指定方式時一起帶上）。
+ * @param {string[]} order 機場正式名稱
+ * @param {{ guess?: boolean, from?: string|null, mode?: string|null, lang?: 'en'|null }} [o]
+ * @returns {{ ask: object, short: string, accept: Set<string> }}
+ */
+export function airportAsk(order, { guess = false, from = null, mode = null, lang = null } = {}) {
+  const en = lang === 'en';
+  const items = order.map(byName).filter(Boolean);
+  const label = (x) => (en ? AIRPORT_LABEL[x.name]?.[1] || String(x.en || x.name).slice(0, 20) : AIRPORT_LABEL[x.name]?.[0] || placeLabel(x.name, '機場'));
+  const say = (x) => tripSay(x.name, { from, mode, en: en && x.en ? x.en : null });
+  const ask = {
+    about: 'slot:place', question: en ? 'Which airport?' : '要去哪個機場？',
+    why: en ? (guess ? `I used ${label(items[0])} (the closest) for now. Or just type the airport.` : 'Or just type the airport name.')
+      : guess ? `先用離你最近的「${label(items[0])}」算；不是的話按正確的機場，或直接打機場名稱。` : '直接打機場名稱也可以（例如「桃園機場」「第二航廈」）。',
+    options: items.map((x, i) => ({ label: label(x), kind: 'reply', say: say(x), ...(guess && i === 0 && { guess: true }) })),
+    pending: { slot: 'place', airport: true, ...(from && { from: String(from).slice(0, 40) }), ...(mode && MODE_GO[mode] && { mode }), ...(en && { lang: 'en' }) },
+  };
+  return {
+    ask,
+    short: en ? 'Which airport? Tap one above, or type the airport name.' : '要去哪個機場？點上面一個，或直接打機場名稱（例如「桃園機場」）。',
+    accept: new Set(AIRPORTS.filter((x) => !en || x.en).map(say)),
+  };
+}
+/** 打字回答的機場短名（「桃園」「小港」「松山的」「Taoyuan」）→ 機場正式名稱；不是就回 null（交給一般的地名比對） */
+const AIRPORT_SHORT = [
+  [/^(?:桃園|桃機|第[一二三]航廈|t[123]|taoyuan)$/i, '臺灣桃園國際機場'], [/^(?:松山|songshan)$/i, '臺北松山機場'],
+  [/^(?:台中|清泉崗|taichung)$/i, '臺中國際機場'], [/^(?:高雄|小港|kaohsiung)$/i, '高雄國際機場'], [/^台南$/, '臺南機場'],
+  [/^花蓮$/, '花蓮機場'], [/^(?:台東|豐年)$/, '臺東機場'], [/^(?:澎湖|馬公|penghu|magong)$/i, '澎湖機場'], [/^(?:金門|尚義|kinmen)$/i, '金門機場'], [/^(?:南竿|馬祖)$/, '馬祖南竿機場'],
+];
+export function airportAnswer(text) {
+  const c = tw(String(text || '').trim()).replace(/^(?:我)?(?:要|想)?(?:去|到|往|是)\s*|^(?:to|the)\s+/giu, '').replace(/\s*(?:的|那個)?\s*(?:國際)?(?:機場|airport)?\s*(?:啦|喔|吧)?[。！!～~.]*$/iu, '').trim();
+  return AIRPORT_SHORT.find(([re]) => re.test(c))?.[1] || null;
+}
+
 // ───── 你就在那裡、只打地名：問要查什麼 ─────
 const METRO_CITY = new Set(['Taipei', 'NewTaipei', 'Taoyuan', 'Taichung', 'Kaohsiung']);
 /** 人就在那裡（300 公尺內）又只打地名：不排 0 分鐘的行程，問要查那裡的什麼（下一班、附近公車、YouBike、天氣） */

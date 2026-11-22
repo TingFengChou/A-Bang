@@ -81,7 +81,7 @@ export const SPEAK_EN = {
     if (!t) return `${where}: no live arrival data right now.`;
     const dest = t.destination;
     if (t.scheduled) return `${where}: next train to ${dest} in about ${Math.max(1, t.etaMin)} min (timetable).`;
-    return `${where}: ${t.etaMin <= 1 ? `train to ${dest} arriving now` : `next train to ${dest} in ${t.etaMin} min`}.`;
+    return `${where}: ${t.status === 'arriving' || t.etaMin <= 0 ? `train to ${dest} arriving now` : t.etaMin <= 1 ? `train to ${dest} arriving within a minute` : `next train to ${dest} in ${t.etaMin} min`}.`; // 狀態代碼（core/services/metro.js），不用中文字串
   },
   thsr_timetable: (d) => railEn(d, 'High Speed Rail', Date.now()),
   tra_timetable: (d) => railEn(d, 'Train', Date.now()),

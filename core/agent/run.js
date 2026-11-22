@@ -66,7 +66,7 @@ export async function metroPoint(svc, name, at = null) {
 }
 
 /** 規則已經很明確、判斷層不改意圖的標記（PM Q 情境：只回好、地點歧義、路名、只說類別、要出門了、沒說去哪的高鐵、公車方向、問中獎） */
-const RULE_FINAL = ['ack', 'ambig', 'category', 'askTo', 'anyTo', 'toward', 'wantCheck', 'metroTo']; // 路名（road）不在這裡：判斷層說是別的意圖時可以更正（審查 #121）
+const RULE_FINAL = ['ack', 'ambig', 'category', 'askTo', 'anyTo', 'toward', 'wantCheck', 'metroTo', 'airport']; // 路名（road）不在這裡：判斷層說是別的意圖時可以更正（審查 #121）
 /** 「你說過」的預設狀況只能是這幾種（habits.js 叫車原因） */
 export const USUAL_STATES = ['rush', 'luggage', 'lessWalk'];
 export const MAX_MESSAGES = 10;
@@ -105,7 +105,7 @@ const RequestSchema = z.object({
   pendingAsk: z.object({ id: z.string().max(60), slot: z.enum(Object.keys(PENDING_SLOTS)), state: z.enum(Object.keys(STATES)).optional(),
     from: z.string().trim().min(1).max(40).regex(/^[^\n\r]+$/).optional(), to: z.string().trim().min(1).max(40).regex(/^[^\n\r]+$/).optional(), lang: z.enum(['en']).optional(),
     // PM 的 Q 情境（core/agent/clarify.js）：高鐵／台鐵（system、fare）、只說叫車（mode）、問什麼（topic）、哪一路公車在等（route）、明天的天氣（tomorrow）
-    system: z.enum(['THSR', 'TRA']).optional(), fare: z.boolean().optional(), mode: z.enum(['walk', 'bike', 'bus', 'metro', 'thsr', 'tra', 'intercity', 'ridehail']).optional(), topic: z.enum(TOPIC_KEYS).optional(), road: z.boolean().optional(),
+    system: z.enum(['THSR', 'TRA']).optional(), fare: z.boolean().optional(), mode: z.enum(['walk', 'bike', 'bus', 'metro', 'thsr', 'tra', 'intercity', 'ridehail']).optional(), topic: z.enum(TOPIC_KEYS).optional(), road: z.boolean().optional(), airport: z.boolean().optional(),
     route: z.string().regex(/^[紅藍綠棕橘小幹]?\d{1,4}[區副]?$/).optional(), tomorrow: z.boolean().optional() }).optional(),
   savedPlaces: z.partialRecord(z.enum(['家', '公司', '學校']), z.object({ name: z.string().trim().min(1).max(40), lat: z.number().min(21).max(27), lon: z.number().min(118).max(123) })).optional(),
   // 手機上的模型先判斷好的意圖與狀態（ADR-0014）：只是提示，列舉值以外一律拒絕；方案排序仍由 decide.js 計分

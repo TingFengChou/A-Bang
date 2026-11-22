@@ -127,6 +127,10 @@ export const MESSAGES = {
   'metro.scheduled': '~{min} min',
   'metro.scheduledSoon': 'within ~1 min',
   'metro.toward': 'To {dest}',
+  'metro.status.arriving': 'Arriving',
+  'metro.status.approaching': 'Approaching',
+  'metro.status.minutes': '{min} min',
+  'metro.status.unknown': '—',
   'metro.empty': 'No live arrival data right now',
 
   // ── timetable ──

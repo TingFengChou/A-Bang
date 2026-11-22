@@ -142,10 +142,10 @@ TDX：高鐵 `/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}`；台鐵 
 | 輸出 | `[{ id, ids, name, lat?, lon?, nav }]`；同名多線合併成一站，`ids` 列出所有代碼 | `{ system, station, stationId, lat?, lon?, nav, updatedAt, trains: [{ line, lineId, destination, etaMin, status }] }`，依 `etaMin` 排序、沒有時間的在後 |
 | TDX | `/basic/v2/Rail/Metro/Station/{Op}`（1 天，存檔） | 先查車站，再 `/basic/v2/Rail/Metro/LiveBoard/{Op}`（整個系統一份，20s，本機篩該站所有代碼）；看板沒有的方向用 `/basic/v2/Rail/Metro/StationTimeTable/{Op}`（存檔）估下一班 |
 | 欄位 | `StationID`、`StationName`、`StationPosition` | `LineName`／`LineID`／`LineNO`、`DestinationStationName`（缺時用 `TripHeadSign`）、`EstimateTime`（分鐘）、`UpdateTime` |
-| status | — | 0 分「進站中」、1 分「即將進站」、其他「N 分」、無資料「—」 |
+| status | — | 狀態代碼（2026-11-22）：0 分 `arriving`（進站中）、1 分 `approaching`（即將進站）、其他 `minutes`（N 分）、時刻表 `scheduled`、無資料 `unknown`；卡片與英文回答依代碼用字典，工具文字仍是中文易讀字（`metroStatusText`） |
 | speak | 「桃園機場捷運共有 6 個車站。」 | 「美麗島最快 3 分鐘後有往小港的車。」；沒資料時「…目前沒有即時到站資料。」；`near`：「離你最近的是市政府（約 89 公尺）：…」（給地名時「離「臺北車站」最近的是…」） |
 
-看板與時刻表都沒有資料時回空 `trains`（不報錯）。2026-11-22 實測：北捷看板只有「列車進站中」的站（DATA_SOURCES.md §1.2），所以看板沒有的方向依站別時刻表估 60 分鐘內的下一班：`trains[].scheduled: true`、`status`「約 N 分」，輸出加 `source: 'timetable'|'mixed'`、`note`／`noteEn`（說明是時刻表估算）；speak「台北車站依時刻表約 2 分鐘後有往頂埔的車。」；北捷每次都補時刻表，其他系統只在這一站沒有看板資料時才查。示範模式：四個系統的主要車站（真實站名、近似座標），每 6 分鐘一班的模擬到站，終點站不顯示往自己方向的車。
+看板與時刻表都沒有資料時回空 `trains`（不報錯）。2026-11-22 實測：北捷看板只有「列車進站中」的站（DATA_SOURCES.md §1.2），所以看板沒有的方向依站別時刻表估 60 分鐘內的下一班：`trains[].scheduled: true`、`status: 'scheduled'`（卡片顯示「約 N 分」），輸出加 `source: 'timetable'|'mixed'`、`note`／`noteEn`（說明是時刻表估算）；speak「台北車站依時刻表約 2 分鐘後有往頂埔的車。」；北捷每次都補時刻表，其他系統只在這一站沒有看板資料時才查。示範模式：四個系統的主要車站（真實站名、近似座標），每 6 分鐘一班的模擬到站，終點站不顯示往自己方向的車。
 
 ## 6. 導航、訂票、叫車
 

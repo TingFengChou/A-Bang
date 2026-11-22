@@ -3,6 +3,7 @@
 // 所以看板整個系統一次取（20 秒共用，不依站另查），這一站沒有進站中的車時，改用站別時刻表（StationTimeTable）估下一班並照實標示。
 import { UserError, normName, zh, enField, arr, odataStr as q, nowTW, toMin } from '../util.js';
 import { metroLineColor } from '../metro-colors.js';
+import { isNationalHoliday, twDate } from '../holidays.js';
 import { cacheOf, rawOpts, nonEmpty, STATIC_TTL } from './tdx-cache.js';
 
 /** 支援的捷運系統（TDX Operator 代碼） */
@@ -35,12 +36,27 @@ export const TIMETABLE_WINDOW_MIN = 60; // 時刻表估算只列 60 分鐘內的
 export const TIMETABLE_NOTE = '北捷即時到站在開放資料只有「進站中」，其他班次依時刻表估算';
 export const TIMETABLE_NOTE_EN = 'Live MRT arrivals are only published when a train is at the platform; other times are estimated from the timetable';
 
-/** 看板分鐘數 → 易讀文字 */
-export function metroStatusText(etaMin) {
-  if (etaMin == null) return '—';
-  if (etaMin <= 0) return '進站中';
-  if (etaMin <= 1) return '即將進站';
-  return `${etaMin} 分`;
+/**
+ * 到站狀態代碼（卡片用中英字典顯示，不把資料的中文字串漏到英文卡片）：
+ *   arriving＝看板 EstimateTime 0（北捷看板實測只有這一種：列車進站中）、approaching＝1 分內、minutes＝N 分、
+ *   scheduled＝依時刻表估算、unknown＝看板沒有時間
+ */
+export const METRO_STATUS = ['arriving', 'approaching', 'minutes', 'scheduled', 'unknown'];
+/** 看板分鐘數 → 狀態代碼 */
+export function metroStatusCode(etaMin) {
+  if (etaMin == null) return 'unknown';
+  if (etaMin <= 0) return 'arriving';
+  if (etaMin <= 1) return 'approaching';
+  return 'minutes';
+}
+const STATUS_TEXT = {
+  zh: { arriving: () => '進站中', approaching: () => '即將進站', minutes: (m) => `${m} 分`, scheduled: (m) => (m <= 1 ? '約 1 分內' : `約 ${m} 分`), unknown: () => '—' },
+  en: { arriving: () => 'Arriving', approaching: () => 'Approaching', minutes: (m) => `${m} min`, scheduled: (m) => (m <= 1 ? 'within ~1 min' : `~${m} min`), unknown: () => '—' },
+};
+/** 狀態代碼 → 易讀文字（伺服器的工具文字與播報用；卡片用 public/ui/cards/i18n 的字典） */
+export function metroStatusText(train, lang = 'zh') {
+  const f = STATUS_TEXT[lang === 'en' ? 'en' : 'zh'][train?.status] || STATUS_TEXT.zh.unknown;
+  return f(train?.etaMin);
 }
 
 /** 依到站分鐘排序，沒有時間的排最後 */
@@ -83,13 +99,17 @@ export function normMetroStations(op, rows) {
   return [...byName.values()].map((st) => ({ ...st, lines: stationLines(op, st.ids) }));
 }
 
-/** StationTimeTable → [{ lineId, direction, destId, dest, destEn?, days: [日..六 是否行駛], times: ['06:00', …] }]（可存檔） */
+/**
+ * StationTimeTable → [{ lineId, direction, destId, dest, destEn?, days: [日..六 是否行駛], holiday?, times: ['06:00', …] }]（可存檔）
+ * holiday：ServiceDay.NationalHolidays（國定假日是否行駛這份班表）；資料沒有這個欄位就不帶（國定假日照星期幾）
+ */
 export function normStationTimetable(rows) {
   const D = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   return arr(rows, 'StationTimeTables').map((r) => ({
     lineId: r.LineID || null, direction: r.Direction ?? null,
     destId: r.DestinationStationID || r.DestinationStaionID || null, dest: zh(r.DestinationStationName), ...enField('destEn', r.DestinationStationName),
     days: D.map((d) => Boolean(r.ServiceDay?.[d])),
+    ...(typeof r.ServiceDay?.NationalHolidays === 'boolean' && { holiday: r.ServiceDay.NationalHolidays }),
     times: (r.Timetables || []).map((t) => t.DepartureTime || t.ArrivalTime).filter((t) => /^\d{1,2}:\d{2}$/.test(t || '')),
   }));
 }
@@ -97,7 +117,8 @@ export function normStationTimetable(rows) {
 const AFTER_MIDNIGHT = 4 * 60; // 凌晨 4 點前的班次屬於前一天的營運日（00:49 末班）
 
 /**
- * 依時刻表估各線各方向下一班（每個「路線＋終點」取最近的一班，60 分鐘內）。國定假日不另判斷（以星期幾為準）。
+ * 依時刻表估各線各方向下一班（每個「路線＋終點」取最近的一班，60 分鐘內）。
+ * 國定假日（台灣時間，core/holidays.js 內建清單）：這條線這個方向的資料有 ServiceDay.NationalHolidays 時用標了國定假日的班表；資料沒標就照星期幾。
  * @param {ReturnType<typeof normStationTimetable>} table
  * @returns {Array<{ lineId, destination, destinationEn?, etaMin }>}
  */
@@ -105,11 +126,15 @@ export function upcomingFromTimetable(table, now = Date.now(), windowMin = TIMET
   const { hhmm, weekday } = nowTW(now);
   const cur = toMin(hhmm);
   // 今天的營運日；凌晨也看昨天的營運日（00:30 還有昨天的末班）
-  const days = [{ wd: weekday, ref: cur }, ...(cur < AFTER_MIDNIGHT ? [{ wd: (weekday + 6) % 7, ref: cur + 24 * 60 }] : [])];
+  const days = [{ wd: weekday, ref: cur, ymd: twDate(now) }, ...(cur < AFTER_MIDNIGHT ? [{ wd: (weekday + 6) % 7, ref: cur + 24 * 60, ymd: twDate(now, -1) }] : [])];
+  const lane = (r) => `${r.lineId}|${r.direction}`;
+  const marked = new Set((table || []).filter((r) => r.holiday === true).map(lane)); // 這條線這個方向有國定假日班表
+  const runs = (row, { wd, ymd }) => (marked.has(lane(row)) && isNationalHoliday(ymd) ? row.holiday === true : !!row.days?.[wd]);
   const best = new Map();
   for (const row of table || []) {
-    for (const { wd, ref } of days) {
-      if (!row.days?.[wd]) continue;
+    for (const day of days) {
+      const { ref } = day;
+      if (!runs(row, day)) continue;
       for (const t of row.times) {
         let m = toMin(t);
         if (m < AFTER_MIDNIGHT) m += 24 * 60;
@@ -170,7 +195,7 @@ export function createMetroServices(tdx, { now = () => tdx.now?.() ?? Date.now()
           lineId,
           ...(metroLineColor(op, lineId) && { lineColor: metroLineColor(op, lineId) }), // 路線代表色（色條）
           destination: zh(r.DestinationStationName) || zh(r.TripHeadSign) || '', ...enField('destinationEn', r.DestinationStationName),
-          etaMin, status: metroStatusText(etaMin),
+          etaMin, status: metroStatusCode(etaMin),
         };
       });
       // 看板沒涵蓋的線與方向用時刻表補：北捷看板只有進站中的站，一律補；其他系統只在這一站沒有看板資料時才查（省額度）
@@ -187,7 +212,7 @@ export function createMetroServices(tdx, { now = () => tdx.now?.() ?? Date.now()
             lineId: t.lineId,
             ...(metroLineColor(op, t.lineId) && { lineColor: metroLineColor(op, t.lineId) }),
             destination: t.destination, ...(t.destinationEn && { destinationEn: t.destinationEn }),
-            etaMin: t.etaMin, status: t.etaMin <= 1 ? '約 1 分內' : `約 ${t.etaMin} 分`, scheduled: true,
+            etaMin: t.etaMin, status: 'scheduled', scheduled: true,
           }));
       }
       const trains = [...live, ...planned].sort(sortByEta);
