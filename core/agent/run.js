@@ -8,7 +8,7 @@ import { callTool, listTools } from '../tools/index.js';
 import { UserError, publicMessage } from '../util.js';
 import { ev } from './events.js';
 import { getProfile } from '../agents/index.js';
-import { parseIntent, demoSteps, demoSummary, needsLocation, contextNote, isEnglish, nearDefaultFrom } from './demo-intent.js';
+import { parseIntent, demoSteps, demoSummary, needsLocation, contextNote, isEnglish, nearDefaultFrom, localStations, hasShortStation } from './demo-intent.js';
 import { parseAntifraud, antifraudSteps, antifraudSummary } from './demo-antifraud.js';
 import { applyOutputGuardrails } from './guardrails.js';
 import { impactOf, judgeNote, outingNote, moreStatesNote } from './impact.js';
@@ -111,7 +111,7 @@ const RequestSchema = z.object({
     from: z.string().trim().min(1).max(40).regex(/^[^\n\r]+$/).optional(), to: z.string().trim().min(1).max(40).regex(/^[^\n\r]+$/).optional(), lang: z.enum(['en']).optional(),
     // PM 的 Q 情境（core/agent/clarify.js）：高鐵／台鐵（system、fare）、只說叫車（mode）、問什麼（topic）、哪一路公車在等（route）、明天的天氣（tomorrow）
     system: z.enum(['THSR', 'TRA']).optional(), fare: z.boolean().optional(), mode: z.enum(['walk', 'bike', 'bus', 'metro', 'thsr', 'tra', 'intercity', 'ridehail']).optional(), topic: z.enum(TOPIC_KEYS).optional(), road: z.boolean().optional(), airport: z.boolean().optional(),
-    route: z.string().regex(/^[紅藍綠棕橘小幹]?\d{1,4}[區副]?$/).optional(), tomorrow: z.boolean().optional() }).optional(),
+    route: z.string().regex(/^[紅藍綠棕橘小幹]?\d{1,4}[區副]?$/).optional(), tomorrow: z.boolean().optional(), last: z.boolean().optional() }).optional(), // last：問哪一路公車的末班車（真實資料健檢）
   savedPlaces: z.partialRecord(z.enum(['家', '公司', '學校']), z.object({ name: z.string().trim().min(1).max(40), lat: z.number().min(21).max(27), lon: z.number().min(118).max(123) })).optional(),
   // 手機上的模型先判斷好的意圖與狀態（ADR-0014）：只是提示，列舉值以外一律拒絕；方案排序仍由 decide.js 計分
   // ask：手機上的 AI 提議先問使用者的一題（ADR-0020）：只收形狀對的（種類、狀態列舉、長度、選項數、沒有控制與格式字元〔零寬、雙向控制〕），內容另外由程式驗證，不通過就照規則問
@@ -387,7 +387,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
   const j = jc ? await jc.full(q0) : null;
   if (j) {
     // 出門建議是天氣＋空品的組合：判斷層說天氣或空品時保留（判斷層沒有 outing 這個意圖）；找短劇也是（判斷層沒有 drama，規則的關鍵字很明確）
-    const keep = it.followUp || it.intent === 'outing' || it.intent === 'drama' || it.also?.length || (it.intent === 'metro' && it.station) || it.nearRail || it.thanks || it.sorry || RULE_FINAL.some((k) => it[k]) || (it.airport && j.intent === 'unknown') || !Object.hasOwn(JUDGE_INTENTS, it.intent); // 判斷層沒有的意圖（防詐請到防詐頁、代按代付、電梯）判斷層無從更正：歧義、路名、只說類別、要出門了、沒說去哪的高鐵、公車方向、問中獎——規則已經很明確 // 說了站名的捷運（「捷運西門站下一般」被判成行程，P5-5 模型模式）、去最近的火車站、禮貌話：規則已經很明確 // 判斷層常把「出門要注意什麼」判成空品或行程（設計審查實測）；一句問好幾件事以規則分段為準（P5-8）
+    const keep = it.followUp || it.intent === 'outing' || it.intent === 'drama' || it.also?.length || (it.intent === 'metro' && (it.station || it.system || it.last)) || it.intent === 'traffic' || (it.intent === 'bus_route' && it.last) || it.nearRail || it.thanks || it.sorry || RULE_FINAL.some((k) => it[k]) || (it.airport && j.intent === 'unknown') || !Object.hasOwn(JUDGE_INTENTS, it.intent); // 判斷層沒有的意圖（防詐請到防詐頁、代按代付、電梯）判斷層無從更正：歧義、路名、只說類別、要出門了、沒說去哪的高鐵、公車方向、問中獎——規則已經很明確 // 說了站名的捷運（「捷運西門站下一般」被判成行程，P5-5 模型模式）、去最近的火車站、禮貌話：規則已經很明確 // 判斷層常把「出門要注意什麼」判成空品或行程（設計審查實測）；一句問好幾件事以規則分段為準（P5-8）
     if (j.intent !== it.intent && !keep && !it.savedTrip && it.intent !== 'savedMissing') it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent, saved: req.savedPlaces, now }) || it;
     it.states = j.states;
     const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
@@ -396,7 +396,9 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
   if (askGap(j || q0)) return; // 判斷層重判後才缺欄位（例：手機判斷是行程、句子只說了起點）
   if (trial && !trialSent) emit(ev.trial(trialInfo(svc, it, { judge: j || q0, lang: it.lang === 'en' ? 'en' : 'zh', now }))); // 資料夠不夠、會查哪些資料（程式算，不經模型）
   // 需要使用者位置（M5-07）：客戶端支援 device_location 時先請它定位，拿到結果後客戶端帶 clientToolResults 重送
-  if (plan.needsLocation(it) && req.clientTools?.includes('device_location')) {
+  // 「桃園到台北101」的「桃園」可能是高鐵站或火車站：有定位才知道人是不是就在桃園市區（localStations，z11）
+  const localPick = profile.id === 'life' && hasShortStation(it, last);
+  if ((plan.needsLocation(it) || localPick) && req.clientTools?.includes('device_location')) {
     const loc = deviceLocation(req);
     if (loc === undefined) {
       emit(ev.agentNote(it.lang === 'en' ? '@定位 checking where you are' : '@定位 先看看你在哪裡'));
@@ -404,7 +406,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
       emit(ev.done());
       return;
     }
-    if (loc) it.fromPoint = loc; // 拒絕定位或無效時，照示範預設起點（總結會說明）
+    if (loc) { it.fromPoint = loc; localStations(it, last, loc); } // 拒絕定位或無效時，照示範預設起點（總結會說明）；「桃園」人在桃園市區＝桃園車站（z11）
     else it.noLocation = true; // 總結說「沒拿到你的位置」（不是「你沒說」）
   }
   if (it.metroTo && !it.toSaved) { const p = await metroPoint(svc, it.metroTo, it.fromPoint); if (p) { it.toSaved = p; it.to = p.name; } } // 「去大安站」：捷運站的座標

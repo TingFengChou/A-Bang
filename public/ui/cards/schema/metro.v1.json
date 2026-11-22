@@ -18,6 +18,7 @@
     "note": { "type": "string" },
     "noteEn": { "type": "string" },
     "stale": { "type": "boolean" },
+    "lastTrains": { "type": "array", "description": "問末班車時（last: true）：依時刻表各線各方向今天最後一班", "items": { "type": "object", "required": ["destination", "time"], "properties": { "lineId": { "type": ["string", "null"] }, "line": { "type": "string" }, "destination": { "type": "string" }, "destinationEn": { "type": "string" }, "time": { "type": "string" } } } },
     "trains": {
       "type": "array",
       "items": {

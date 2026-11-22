@@ -92,6 +92,11 @@ export function createMockTransitServices({ bus: busScenario } = {}) {
         shape: densify(coords),
       };
     },
+    /** 這條示範路線在哪些縣市（介面同 transit.js：只回預熱過的台北、新北、桃園；示範路線都當成臺北市的，藍15 是新北市的） */
+    async routeCities(routeName) {
+      if (!ROUTES.includes(routeName)) return [];
+      return routeName.startsWith('藍') ? ['NewTaipei'] : ['Taipei'];
+    },
     async nearbyStations({ lat, lon, radius = 400 }) {
       [lat, lon] = assertLatLon(lat, lon);
       const r = seeded(`${lat.toFixed(3)},${lon.toFixed(3)}`);

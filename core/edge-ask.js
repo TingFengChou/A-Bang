@@ -29,6 +29,7 @@ export const INTENT_SLOTS = {
   fuel: [['grade', false, 'all']],
   invoice: [],
   stock: [['stock', false, 'index']],
+  traffic: [['to', true], ['from', false, 'location']], // 國道路況（2026-11-22）：沒說從哪到哪程式先問（不開放給手機出題）
   drama: [['drama', false, 'hot']],
   savedMissing: [['saved', true, 'saved']],
 };
@@ -46,7 +47,7 @@ export const EDGE_ASK_REASONS = ['shape', 'slot', 'state', 'question-length', 'q
 /** 給手機模型的出題規則（接在 EDGE_INSTRUCTIONS 後面；短：手機模型上下文小、要快） */
 export const EDGE_ASK_GUIDE = `另外決定要不要先問使用者一題（ask）。寧可不問：句子資料夠就 ask 留空。
 只有這幾種可以問（slot）：route＝問公車到站但沒說哪一路；to＝行程沒說要去哪裡（只說起點、只說叫車也算）；from＝情境說沒有定位、也沒說從哪裡出發；state＝行程沒說狀況，而答案會改變建議（state 只能是 rush 趕時間、luggage 帶行李、budget 想省錢、lessWalk 少走路）；railFrom＝問高鐵台鐵票價沒說起站；railTo＝問高鐵台鐵班次或票價沒說到哪一站；place＝地名有好幾個地方（同名、連鎖醫院、區名）；where＝沒有定位又問天氣空品；topic＝只說高鐵、公車這種類別。
-各意圖必要的欄位：trip 要 to；bus_route 要 route；rail 要 to；其他意圖不用問。使用者說過的、剛問過的不要再問。
+各意圖必要的欄位：trip 要 to；bus_route 要 route；rail 要 to；traffic 要 to（國道路況的起訖由程式問，ask 留空）；其他意圖不用問。使用者說過的、剛問過的不要再問。
 question：一句 30 字內的問句，只問這一件事，不要有數字；state 要直接問那個狀況（例：你趕時間嗎？），不要反著問。options：2～4 個 12 字內的短答，要是使用者會點的答案：前文或情境出現過的路線號碼與地名、回家、去公司、用我的位置、附近公車、高鐵台鐵的站名、縣市名、下一班、票價；不要自己編。
 英文提問就用英文出題。`;
 

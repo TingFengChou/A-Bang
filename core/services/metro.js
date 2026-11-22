@@ -117,6 +117,32 @@ export function normStationTimetable(rows) {
 const AFTER_MIDNIGHT = 4 * 60; // 凌晨 4 點前的班次屬於前一天的營運日（00:49 末班）
 
 /**
+ * 依時刻表找今天（營運日）各線各方向的末班車（「捷運末班車幾點」，真實資料健檢）：每個「路線＋終點」取最晚的一班。
+ * 凌晨 4 點前問的是前一天營運日的末班；國定假日的班表規則同 upcomingFromTimetable。
+ * @returns {Array<{ lineId, destination, destinationEn?, time: string }>} time 'HH:mm'
+ */
+export function lastFromTimetable(table, now = Date.now()) {
+  const { hhmm, weekday } = nowTW(now);
+  const early = toMin(hhmm) < AFTER_MIDNIGHT;
+  const wd = early ? (weekday + 6) % 7 : weekday;
+  const ymd = twDate(now, early ? -1 : 0);
+  const lane = (r) => `${r.lineId}|${r.direction}|${r.destId || r.dest}`;
+  const marked = new Set((table || []).filter((r) => r.holiday === true).map(lane));
+  const runs = (row) => (marked.has(lane(row)) && isNationalHoliday(ymd) ? row.holiday === true : !!row.days?.[wd]);
+  const best = new Map();
+  for (const row of table || []) {
+    if (!runs(row)) continue;
+    for (const t of row.times) {
+      let m = toMin(t);
+      if (m < AFTER_MIDNIGHT) m += 24 * 60;
+      const k = `${row.lineId}|${row.destId || row.dest}`;
+      if (!best.has(k) || m > best.get(k).m) best.set(k, { m, lineId: row.lineId, destination: row.dest, ...(row.destEn && { destinationEn: row.destEn }), time: t.length === 4 ? `0${t}` : t });
+    }
+  }
+  return [...best.values()].sort((a, b) => a.m - b.m).map(({ m: _m, ...x }) => x);
+}
+
+/**
  * 依時刻表估各線各方向下一班（每個「路線＋終點」取最近的一班，60 分鐘內）。
  * 國定假日（台灣時間，core/holidays.js 內建清單）：這條線這個方向、這個終點的資料有 ServiceDay.NationalHolidays 時用標了國定假日的班表；資料沒標就照星期幾。
  * @param {ReturnType<typeof normStationTimetable>} table
@@ -175,7 +201,7 @@ export function createMetroServices(tdx, { now = () => tdx.now?.() ?? Date.now()
      * 某站到站看板（各線各方向）。看板整個系統一次取（20 秒，所有車站、所有人共用）；
      * 這一站沒有看板資料時（北捷只有進站中的站），改用站別時刻表估下一班（scheduled: true、source: 'timetable'、note 說明）。
      */
-    async liveBoard({ system, station }) {
+    async liveBoard({ system, station, last = false }) {
       const op = mustSystem(system);
       const st = findMetroStation(await metro.stations({ system: op }), station, op);
       const ids = new Set(st.ids.map(String));
@@ -183,7 +209,7 @@ export function createMetroServices(tdx, { now = () => tdx.now?.() ?? Date.now()
       let boardErr = null;
       const loadTable = () => cached(metroKey.timetable(op, st.ids), STATIC_TTL, async (o) => normStationTimetable(await tdx.get(
         `/basic/v2/Rail/Metro/StationTimeTable/${op}`, { $filter: st.ids.map((id) => `StationID eq '${q(id)}'`).join(' or ') }, 60, rawOpts(o)))).catch(() => null);
-      const tablePromise = op === 'TRTC' ? loadTable() : null; // 北捷一定要時刻表：跟看板同時查
+      const tablePromise = op === 'TRTC' || last ? loadTable() : null; // 北捷一定要時刻表：跟看板同時查；問末班車也要
       const board = await meta(`/basic/v2/Rail/Metro/LiveBoard/${op}`, {}, BOARD_TTL, { staleSec: 60 }).catch((e) => { if (e?.status !== 429) throw e; boardErr = e; return null; });
       const list = board ? arr(board.data, 'LiveBoards').filter((r) => ids.has(String(r.StationID))) : [];
       const live = list.map((r) => {
@@ -225,6 +251,7 @@ export function createMetroServices(tdx, { now = () => tdx.now?.() ?? Date.now()
         updatedAt, trains,
         ...(source !== 'live' && { source, note: TIMETABLE_NOTE, noteEn: TIMETABLE_NOTE_EN }),
         ...(board?.stale && { stale: true }), // 看板用了 60 秒內的舊資料（額度快用完）
+        ...(last && { lastTrains: Array.isArray(table) ? lastFromTimetable(table, now()).map((x) => ({ ...x, line: lineName(op, x.lineId) })) : [] }), // 末班車（時刻表；查不到是空陣列）
       };
     },
   };

@@ -50,7 +50,7 @@ export function createMockMetroServices() {
       // 與真實版一樣由代碼推線別（stationLines）；轉乘站（一個代碼、多條線）用示範資料寫的線
       return STATIONS[op].map(([id, name, lines, lat, lon]) => ({ id, ids: [id], name, lat, lon, lines: lines.length > 1 ? lines : stationLines(op, [id]) }));
     },
-    async liveBoard({ system, station }) {
+    async liveBoard({ system, station, last = false }) {
       const op = mustSystem(system);
       const st = findMetroStation(await metro.stations({ system: op }), station, op);
       const lines = STATIONS[op].find((x) => x[0] === st.id)[2];
@@ -65,7 +65,9 @@ export function createMockMetroServices() {
           trains.push({ line, lineId, ...(metroLineColor(op, lineId) && { lineColor: metroLineColor(op, lineId) }), destination: dest, etaMin, status: metroStatusCode(etaMin) });
         }
       }
-      return { system: op, station: st.name, stationId: st.id, lat: st.lat, lon: st.lon, demo: true, updatedAt: new Date().toISOString(), trains: trains.sort(sortByEta) };
+      // 末班車（示範）：各方向 23:50～00:20 之間，依站與方向固定
+      const lastTrains = last ? trains.map((t) => { const m = 23 * 60 + 50 + Math.floor(seeded(`last${op}${st.id}${t.lineId}${t.destination}`)() * 30); return { lineId: t.lineId, line: t.line, destination: t.destination, time: `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}` }; }) : null;
+      return { system: op, station: st.name, stationId: st.id, lat: st.lat, lon: st.lon, demo: true, updatedAt: new Date().toISOString(), trains: trains.sort(sortByEta), ...(lastTrains && { lastTrains }) };
     },
   };
   return { metro };

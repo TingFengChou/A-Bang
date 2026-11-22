@@ -61,6 +61,21 @@ export const focusText = (route, f) => (f.status === 0 && f.etaSec != null
   ? (f.etaSec < 60 ? `${route} 在「${f.stopName}」進站中` : f.etaSec < 180 ? `${route} 即將到「${f.stopName}」` : `${route} 約 ${Math.round(f.etaSec / 60)} 分後到「${f.stopName}」`)
   : `${route} 在「${f.stopName}」：${f.statusText}`);
 
+/** 公車常跨縣市（雙北、桃園、基隆）：使用者所在縣市找不到這條路線時，依序看這些縣市（S4） */
+export const NEIGHBOR_CITIES = {
+  Taipei: ['NewTaipei', 'Keelung', 'Taoyuan'], NewTaipei: ['Taipei', 'Keelung', 'Taoyuan'],
+  Taoyuan: ['NewTaipei', 'Taipei', 'Hsinchu', 'HsinchuCounty'], Keelung: ['NewTaipei', 'Taipei'],
+};
+/**
+ * 相鄰縣市裡有這條路線的第一個：只用預熱快取的路線清單（svc.bus.routeCities，不多打 TDX）；清單沒有就回 null（照原本的錯誤說）。
+ * @returns {Promise<string|null>}
+ */
+export async function neighborCity(svc, city, routeName) {
+  const code = resolveCity(city)?.city || city;
+  const known = await svc.bus.routeCities?.(routeName).catch(() => []) || [];
+  return (NEIGHBOR_CITIES[code] || []).find((c) => known.includes(c)) || null;
+}
+
 export const busSearchRoutes = defineTool({
   name: 'bus_search_routes',
   title: '搜尋公車路線',
@@ -92,18 +107,26 @@ export const busRouteEta = defineTool({
   },
   speak: (d) => {
     const tw = d.toward && !d.toward.found ? `${d.routeName} 沒有往「${d.toward.name}」的方向（${d.directions.map((x) => x.label).join('、')}）；` : ''; // 「307 往板橋」對不到方向：照實說，兩個方向都列
-    if (d.focus?.nearest) return `${tw}離你最近的是「${d.focus.stopName}」（約 ${fmtM(d.focus.distanceM)}）：${focusText(d.routeName, d.focus)}${d.focus.other ? `（${d.focus.label}）；${otherText(d.focus.other)}` : ''}。${d.cityGuessed ? `（依你的位置查${d.cityName}的 ${d.routeName}）` : ''}`;
-    if (d.focus) return `${tw}${focusText(d.routeName, d.focus)}。`;
+    const mv = d.cityMoved ? `（${d.cityMoved.from}沒有 ${d.routeName}，這是${d.cityMoved.to}的 ${d.routeName}）` : '';
+    if (d.focus?.nearest) return `${tw}離你最近的是「${d.focus.stopName}」（約 ${fmtM(d.focus.distanceM)}）：${focusText(d.routeName, d.focus)}${d.focus.other ? `（${d.focus.label}）；${otherText(d.focus.other)}` : ''}。${mv || (d.cityGuessed ? `（依你的位置查${d.cityName}的 ${d.routeName}）` : '')}`;
+    if (d.focus) return `${tw}${focusText(d.routeName, d.focus)}。${mv}`;
     const dirs = d.toward?.found ? d.directions.filter((x) => x.direction === d.toward.direction) : d.directions;
     const near = dirs.flatMap((x) => x.stops.filter((s) => s.etaSec != null && s.etaSec < 180).map((s) => s.stopName));
-    return `${tw}${d.routeName}${d.toward?.found ? ` ${d.toward.label}` : ''} 目前有 ${near.length} 個站即將有車${near.length ? `（例如${near.slice(0, 2).join('、')}）` : ''}。`;
+    return `${tw}${d.routeName}${d.toward?.found ? ` ${d.toward.label}` : ''} 目前有 ${near.length} 個站即將有車${near.length ? `（例如${near.slice(0, 2).join('、')}）` : ''}。${d.cityMoved ? `（${d.cityMoved.from}沒有 ${d.routeName}，這是${d.cityMoved.to}的 ${d.routeName}）` : ''}`;
   },
   async run(svc, a) {
     const here = a.near && (!a.stop || !a.city) ? await resolvePoint(svc.places, a.near) : null; // 有站名時位置只用來推縣市（拍站牌問的，M14-02）
-    const city = a.city || (here && cityNear(here));
-    if (!city) throw new UserError('請告訴我是哪個縣市的公車（例如「台北 307」）');
-    const raw = await svc.bus.routeEta({ ...a, city });
-    const data = { ...raw, directions: raw.directions.map((d) => ({ ...d, stops: withNav(d.stops) })), ...(!a.city && { cityGuessed: true, cityName: resolveCity(city)?.name || city }) };
+    const city0 = a.city || (here && cityNear(here));
+    if (!city0) throw new UserError('請告訴我是哪個縣市的公車（例如「台北 307」）');
+    let city = city0, moved = null;
+    const raw = await svc.bus.routeEta({ ...a, city }).catch(async (e) => {
+      // 這個縣市沒有這條路線（板橋問 307、台北車站問藍15）：用預熱過的路線清單看相鄰縣市有沒有（不多打 TDX，S4）
+      const alt = e instanceof UserError && /找不到路線/.test(e.message) ? await neighborCity(svc, city0, a.routeName) : null;
+      if (!alt) throw e;
+      city = alt; moved = { from: resolveCity(city0)?.name || city0, to: resolveCity(alt)?.name || alt };
+      return svc.bus.routeEta({ ...a, city: alt });
+    });
+    const data = { ...raw, directions: raw.directions.map((d) => ({ ...d, stops: withNav(d.stops) })), ...(!a.city && { cityGuessed: true, cityName: resolveCity(city)?.name || city }), ...(moved && { cityMoved: moved }) };
     const dirIdx = a.toward ? data.directions.findIndex((d) => towardMatch(d, a.toward)) : -1;
     const way = dirIdx >= 0 ? data.directions[dirIdx] : null;
     if (a.toward) data.toward = { name: a.toward, found: !!way, ...(way && { direction: way.direction ?? dirIdx, label: way.label }) };

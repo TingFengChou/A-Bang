@@ -1,15 +1,18 @@
 // 工具包：transit（交通）／路況 — 風險分級 L1
 import { defineTool, T, clip } from './define.js';
 import { resolvePoint } from '../services/places.js';
+import { distanceM, UserError } from '../util.js';
 
 const PACK = 'transit';
+/** 起訖太近（同一個點）：沿途沒有國道可以看，不要回「附近沒有塞車」這種沒查過的話（真實資料健檢 S7：模型用同一座標呼叫） */
+export const TRAFFIC_MIN_M = 1000;
 
 const LEVEL = { smooth: '順暢', slow: '車多', jam: '塞車中' };
 
 export const trafficStatus = defineTool({
   name: 'traffic_status',
   title: '沿途國道路況',
-  description: '查起訖兩點之間沿途國道的即時路況：level（smooth 順暢／slow 車多／jam 塞車中；起訖太近或查不到資料時為 null）、delayMin（比以速限行駛多花的分鐘）、各路段車速 segments 與相關事件 events。直線 15 公里以內不查國道。level=jam 時行程規劃應視為「塞車中」。',
+  description: '查起訖兩點之間沿途國道的即時路況（起訖要是兩個不同的地方，不到 1 公里會回錯誤；只說國道幾號時先問從哪到哪）：level（smooth 順暢／slow 車多／jam 塞車中；起訖太近或查不到資料時為 null）、delayMin（比以速限行駛多花的分鐘）、各路段車速 segments 與相關事件 events。直線 15 公里以內不查國道。level=jam 時行程規劃應視為「塞車中」。',
   pack: PACK, tier: 'L1',
   input: { from: T.point('起點'), to: T.point('終點') },
   speak: (d) => {
@@ -20,6 +23,7 @@ export const trafficStatus = defineTool({
   },
   async run(svc, a) {
     const [from, to] = await Promise.all([resolvePoint(svc.places, a.from), resolvePoint(svc.places, a.to)]);
+    if (distanceM(from.lat, from.lon, to.lat, to.lon) < TRAFFIC_MIN_M) throw new UserError('起點和終點幾乎是同一個地方（不到 1 公里），沿途沒有國道可以看；請問使用者要從哪裡到哪裡（例如「台北到新竹」），再查一次。');
     const raw = await svc.traffic.status({ from: { lat: from.lat, lon: from.lon }, to: { lat: to.lat, lon: to.lon } });
     const data = { ...raw, from: from.name, to: to.name, fromPoint: from, toPoint: to }; // 與 intercity_bus 一致
     const head = `${from.name} → ${to.name}（直線 ${data.straightKm} 公里）`;

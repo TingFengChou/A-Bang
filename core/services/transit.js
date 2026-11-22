@@ -116,6 +116,18 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
       return { city: c.city, routeName, directions, ...(path && { shape: path }), updatedAt: new Date(eta.at).toISOString(), ...(eta.stale && { stale: true }) };
     },
 
+    /**
+     * 這條路線在哪些預熱過的縣市（只看已經存檔的路線清單，不打 TDX）：在使用者所在縣市找不到時，工具改查相鄰縣市用
+     * （板橋問 307 是臺北市的路線、台北車站問藍15 是新北市的，真實資料健檢 S4）。沒預熱的縣市不列（不知道）。
+     * @returns {Promise<string[]>} 縣市代碼（例 ['Taipei']）
+     */
+    async routeCities(routeName) {
+      const name = String(routeName || '').trim();
+      if (!name) return [];
+      const lists = await Promise.all(cities.map(async (city) => ({ city, list: (await storedOf('busMeta', city)) || (await storedOf('busRoutes', city)) })));
+      return lists.filter((x) => Array.isArray(x.list) && x.list.some((r) => r.name === name)).map((x) => x.city);
+    },
+
     /** 座標附近的公車站位：預熱過的縣市在本機算（不打 TDX），其他地方問 TDX NearBy（不存檔：座標是使用者位置） */
     async nearbyStations({ lat, lon, radius = 400 }) {
       [lat, lon] = assertLatLon(lat, lon);

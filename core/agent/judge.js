@@ -3,7 +3,9 @@
 //   B 模型判斷：地端模型（OpenAI 相容）＋自動優化過的提示詞（core/agent/judge-prompt.txt）
 //   規則：demo-intent.js 的 parseIntent（保底，也負責抽地點、路線號碼等參數）
 // 組合（實驗結果）：
-//   意圖＝A 信心 ≥ 0.8 用 A，否則有模型就問 B，沒有模型就用 A（A 平均 86.6% 仍優於規則 68%）
+//   意圖＝A 信心 ≥ 0.8 用 A，否則有模型就問 B；沒有模型（也沒有裝置端提示）時，規則有明確意圖就用規則，
+//         規則聽不懂才用 A（A 信心 < 0.5 當作 unknown，不亂選）——真實資料健檢 2026-11-22：A 沒把握時常把「從板橋到台北車站」
+//         「高雄車站到駁二」判成高鐵台鐵、詐騙簡訊判成查公車「24」；評估集 172 題 84.9% → 91.3%（docs/research/decision-eval.md 補充）
 //   狀態＝規則 ∪（A ∩ B）——規則精準、A 與 B 都說有才加（全對 89.5%，驗收集 88.4%）
 //   B 只在「A 沒把握」或「是行程問題（狀態才有用）」時才問，其餘不花模型呼叫
 import { readFile } from 'node:fs/promises';
@@ -24,10 +26,13 @@ export const JUDGE_INTENTS = {
   fuel: '油價、汽油、柴油價格',
   invoice: '統一發票、對獎、中獎號碼、開獎',
   stock: '台股股價、大盤、指數、個股（含問該不該買）',
+  traffic: '國道、高速公路路況：塞不塞車、車多不多（2026-11-22）',
   unknown: '以上都不是：閒聊、其他服務、阿幫不提供的資訊',
 };
 export const JUDGE_STATES = ['rush', 'luggage', 'budget', 'lessWalk', 'rain', 'badAir', 'elder', 'kids', 'mobility'];
 export const CONFIDENT = 0.8;
+/** A 沒把握、規則也聽不懂時：A 信心低於這個值就當作 unknown（不亂選；「我在等939」0.27、詐騙簡訊 0.42） */
+export const UNSURE_FLOOR = 0.5;
 /** 裝置端判斷的引擎（ADR-0014）：Apple Intelligence（Foundation Models）、Gemini Nano（ML Kit GenAI） */
 export const DEVICE_ENGINES = ['apple', 'gemini-nano'];
 
@@ -120,10 +125,14 @@ export function createJudge({ embed = null, llm = null, threshold = CONFIDENT } 
     const wantLlm = !dev && !quick && !rules.followUp && llm && (!sure || a.intent === 'trip' || rules.intent === 'trip');
     const b = dev || (wantLlm ? await llm(it).catch(() => null) : null);
     // 接著上一輪改行程（「改成公車 601」「我很趕」）：規則看得到前文，以它為準（分類器只看這一句，會誤判成查公車）
-    const intent = rules.followUp ? 'trip' : sure ? a.intent : b ? b.intent : a ? a.intent : rules.intent;
+    // 沒有模型也沒有裝置端提示、A 又沒把握：規則有明確意圖就用規則（真實資料健檢 S3）；規則聽不懂才看 A，A 太沒把握就當 unknown
+    const ruled = rules.intent !== 'unknown' && Object.hasOwn(JUDGE_INTENTS, rules.intent);
+    const pick = rules.followUp ? ['trip', 'rules'] : sure ? [a.intent, 'embed'] : b ? [b.intent, dev ? 'device' : 'llm']
+      : ruled || !a ? [rules.intent, 'rules'] : a.confidence >= UNSURE_FLOOR ? [a.intent, 'embed'] : ['unknown', 'embed'];
+    const [intent, source] = pick;
     const agree = a && b ? a.states.filter((k) => b.states.includes(k)) : [];
     const states = [...new Set([...rules.states.filter((k) => JUDGE_STATES.includes(k)), ...agree])];
-    return { intent, states, confidence: a?.confidence ?? null, source: rules.followUp ? 'rules' : sure ? 'embed' : b ? (dev ? 'device' : 'llm') : a ? 'embed' : 'rules', llmUsed: Boolean(b && !dev), ...(dev && { engine: device.engine }), ...(rules.followUp && { followUp: true, states: [...new Set([...rules.states, ...states])] }), ...(rules.mode && { mode: rules.mode }) };
+    return { intent, states, confidence: a?.confidence ?? null, source, llmUsed: Boolean(b && !dev), ...(dev && { engine: device.engine }), ...(rules.followUp && { followUp: true, states: [...new Set([...rules.states, ...states])] }), ...(rules.mode && { mode: rules.mode }) };
   };
   const judge = (text, history, opts = {}) => run(text, history, opts);
   /** 快速版：只用 A＋規則（幾毫秒；有裝置端提示也一起用），讓阿幫一送出就能說聽懂了什麼；完整版（含模型）之後再補狀態 */

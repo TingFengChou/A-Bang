@@ -142,7 +142,7 @@ export const sameName = (a, b) => {
 };
 
 /** 地端模型模式改由規則回答的意圖（資料查一次、照實報數字） */
-export const RULE_ANSWERS = new Set(['fuel', 'invoice', 'stock', 'quake', 'drama']); // drama：找短劇（排行、類型搜尋）規則就聽得懂
+export const RULE_ANSWERS = new Set(['fuel', 'invoice', 'stock', 'quake', 'drama', 'traffic']); // drama：找短劇（排行、類型搜尋）規則就聽得懂；traffic：國道路況（起訖由規則抽，沒有起訖先問，S7）
 /**
  * 地端模型模式改由規則回答的情況（P4、P5 模型模式）：查一次就報數字的生活資料、說了站名的捷運下一班、
  * 一句問好幾件事（規則已經拆好）、沒說哪一站的「去火車站」、禮貌話、只有標點。
@@ -212,6 +212,7 @@ export const INTENT_TOOLS = {
   fuel: ['fuel_price'],
   invoice: ['invoice_lottery'],
   stock: ['stock_quote'],
+  traffic: ['traffic_status', 'find_place'],
   drama: ['drama_picks', 'drama_search', 'drama_series'],
 };
 
@@ -226,13 +227,28 @@ export function toolDefs(profile, { deviceLocation: withLocation = false, only }
   return withLocation ? [...defs, DEVICE_LOCATION_TOOL] : defs;
 }
 
+/** 「要幫你叫車嗎？」「要幫你訂票嗎？」這類追問（地端小模型常在 YouBike、票價、班次後面亂加，真實資料健檢） */
+const OFFER = /^(?:請問)?(?:你|您)?(?:還)?(?:要不要|需要|要)(?:我|阿幫)?(?:幫(?:你|您))?(?:(?:叫|預約)(?:一台|一輛)?(?:計程)?車|叫\s*uber|(?:預)?訂(?:購)?(?:高鐵|台鐵|臺鐵|火車)?(?:車)?票|買(?:車)?票)(?:嗎|呢)?[？?]?$/i;
+/**
+ * 拿掉不相關的叫車、訂票追問：只有這一輪就是叫車（建議或指定叫車）才留叫車；只有使用者要訂票、或建議高鐵台鐵才留訂票。
+ * 句子照標點切，整句是追問才拿掉；全部都是追問就不動（不留空白回答）。
+ */
+export function dropStrayOffers(text, trip = null, it = null) {
+  const best = trip?.options?.find((o) => o.id === trip.best);
+  const rideOk = it?.mode === 'ridehail' || best?.role === 'ridehail';
+  const bookOk = (it?.intent === 'rail' && it.book) || ['thsr', 'tra'].includes(best?.role);
+  const parts = String(text).split(/(?<=[。！？!?])/);
+  const keep = parts.filter((p) => { const t = p.trim(); if (!OFFER.test(t)) return true; return /車(?!票)|uber/i.test(t) && !/票/.test(t) ? rideOk : bookOk; });
+  return keep.join('').trim() ? keep.join('').trim() : text;
+}
+
 /**
  * 模型漏講的重點由程式補上（地端小模型常省略；模型模式情境 S10、S12-11）：
  * 照你說的改了交通方式 → 開頭先說「照你說的選…」；深夜公車收班或接近末班 → 補一句。
  */
 export function mustSay(text, trip, it = null) {
   if (!text) return text;
-  let out = text;
+  let out = dropStrayOffers(text, trip, it);
   // 訂票（「幫我訂明天的高鐵票」）：阿幫只給官方連結（ADR-0011；P2-10）
   if (it?.intent === 'rail' && it.book && !/官方/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}訂票請按卡片上的官方訂票連結，在${it.system === 'THSR' ? '高鐵' : '台鐵'}官網或 App 完成（阿幫不代訂、不付款）。`;
   if (it?.intent === 'weather' && it.tomorrow && !/明天|明日|明早|明晚/.test(out)) out = `明天的天氣：${out}`; // 問明天要講明天（S1-3：小模型常只說「會下雨」）
@@ -286,7 +302,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const rulesIt = parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces, now });
   if (!req.clientToolResults?.length && rulesIt.reset) emit(ev.contextReset());
   if (rulesIt.intent === 'savedMissing' || (profile.id === 'life' && ((rulesIt.intent === 'weather' && rulesIt.later) || (rulesIt.intent === 'limits' || rulesIt.intent === 'access' || rulesIt.intent === 'scamAsk')))) { // 要阿幫代按、代付：固定說明只給官方連結（ADR-0011） // 「回家」但沒設定家、問後天以後的天氣：不給模型猜（模型會拿現在的天氣充數），直接照實說
-    if (rulesIt.intent === 'scamAsk') emit(ev.ask({ id: 'ask-m1', ...scamPasteAsk('life', rulesIt.lang, last) })); // 生活阿幫被問詐騙：請他到防詐貼上（PM Q-23）
+    if (rulesIt.intent === 'scamAsk') emit(ev.ask({ id: 'ask-m1', ...scamPasteAsk('life', rulesIt.lang, last, { pasted: !!rulesIt.pasted }) })); // 生活阿幫被問詐騙：請他到防詐貼上（PM Q-23）
     emit(ev.text(demoSummary(rulesIt, {})));
     emit(ev.done());
     return;
