@@ -22,15 +22,22 @@ const statusOf = (x, t) => {
 const lineOf = (x, en) => (en && x.lineEn) || x.line;
 const destOf = (x, en) => (en && x.destinationEn) || x.destination;
 const isEn = (locale) => String(locale || '').startsWith('en');
+/** 班距文字：營運中「約每 8～10 分一班」，不在營運時間另外說 */
+const headwayText = (d, t) => (!d.headway ? t('metro.headwayClosed') : d.headway.max > d.headway.min ? t('metro.headwayRange', { min: d.headway.min, max: d.headway.max }) : t('metro.headway', { min: d.headway.min }));
 
 export default {
   refreshSec: 20,
   // 時刻表估算（北捷看板只有進站中）不叫「即時到站」
-  title: (d, { t }) => t(d.source && d.source !== 'live' ? 'metro.titleTimetable' : 'metro.title', { station: d.station }),
+  title: (d, { t }) => t(d.source === 'frequency' ? 'metro.titleFrequency' : d.source && d.source !== 'live' ? 'metro.titleTimetable' : 'metro.title', { station: d.station }),
   /** 播報：最近的 2 班 */
-  announce: (d, { t, locale }) => (d.trains?.length ? d.trains.slice(0, 2).map((x) => `${lineOf(x, isEn(locale))} ${t('metro.toward', { dest: destOf(x, isEn(locale)) })} ${statusOf(x, t)}`).join(isEn(locale) ? '; ' : '；') : null),
+  announce: (d, { t, locale }) => (d.source === 'frequency' ? headwayText(d, t) : d.trains?.length ? d.trains.slice(0, 2).map((x) => `${lineOf(x, isEn(locale))} ${t('metro.toward', { dest: destOf(x, isEn(locale)) })} ${statusOf(x, t)}`).join(isEn(locale) ? '; ' : '；') : null),
   body(d, { host, t, locale }) {
-    const list = d.trains?.length
+    // 台中捷運只有班距：一列「綠線 約每 8 分一班」（不是倒數）
+    const list = d.source === 'frequency'
+      ? h('ul', { class: 'ab-list' }, h('li', { class: 'ab-row' },
+        h('span', { class: 'ab-line', style: d.headway?.lineColor ? { borderColor: d.headway.lineColor } : null }, t('metro.lineTMRT')),
+        h('span', { class: 'ab-name' }, headwayText(d, t))))
+      : d.trains?.length
       ? h('ul', { class: 'ab-list' }, d.trains.map((x) => h('li', { class: 'ab-row' },
         h('span', { class: 'ab-line', style: x.lineColor ? { borderColor: x.lineColor } : null }, lineOf(x, isEn(locale))),
         h('span', { class: 'ab-name' }, t('metro.toward', { dest: destOf(x, isEn(locale)) })),
