@@ -187,9 +187,12 @@
 | 上市個股＋ETF 收盤 | `openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`（約 1,400 筆、320 KB） | 免 | `Date`（民國 1151118）、`Code`、`Name`、`OpeningPrice`／`HighestPrice`／`LowestPrice`／`ClosingPrice`、`Change`（負數帶「-」）、`TradeVolume`（股） | 30 分 |
 | 上櫃個股＋ETF 收盤 | `www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes`（約 14,000 筆、5.4 MB，多數是權證） | 免 | `SecuritiesCompanyCode`、`CompanyName`、`Close`（無成交為「 ---」）、`Change`（「+0.01」「-54.00 」「--- 」）、`TradingShares` | 30 分（解析後只留 4 碼股票與 00 開頭 ETF） |
 | 加權指數 | `openapi.twse.com.tw/v1/exchangeReport/MI_INDEX` | 免 | `指數`＝「發行量加權股價指數」、`收盤指數`、`漲跌`（+／-）、`漲跌點數` | 30 分 |
+| 上市個股＋ETF 收盤（網站，同時抓） | `www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY_ALL?response=open_data`（CSV，約 130 KB） | 免 | 中文表頭：`日期`（民國）、`證券代號`、`證券名稱`、`成交股數`、`開盤價`／`最高價`／`最低價`／`收盤價`、`漲跌價差`、`成交筆數`（跟 OpenAPI 同一份資料；`response=json` 也回 CSV） | 30 分 |
+| 加權指數（網站，同時抓） | `www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?response=json&type=IND` | 免 | `stat`＝`OK`、`date`（西元 20261123）、`tables[]` 找有 `指數`／`收盤指數`／`漲跌(+/-)`／`漲跌點數` 欄的表；`漲跌` 是 HTML（`<p style='color:red'>+</p>`） | 30 分 |
 | 櫃買指數 | `www.tpex.org.tw/openapi/v1/tpex_index`（當月每日） | 免 | 取最後一筆：`Date`（西元 20261119）、`Close`、`Change`（負數帶「-」） | 30 分 |
 
 - **收盤資料，不是即時報價**：每個交易日收盤後更新；兩個市場更新時間不同（實測 18:00 時上櫃已是 11/19、上市仍是 11/18），所以每檔都帶自己的日期。
+- **上市資料同時抓 OpenAPI 與證交所網站、取日期新的**（2026-11-23 實測）：16:38 時 OpenAPI 的個股與加權指數仍是上個交易日 11/20，網站與櫃買中心已是 11/23。網站來源失敗（假日沒資料、改版、連不上）就用 OpenAPI，且 10 分鐘內不再抓網站（`core/services/stock.js` `newest`、`createLiveStockFetchers`）。
 - 即時報價（`mis.twse.com.tw`）不是開放資料 API、有頻率限制，不使用。
 - 解析後才快取（上櫃原始檔大）；解析結果為空視為上游錯誤，沿用舊資料。示範片段：`core/data/demo/stock-*.json`（上市 31 檔、上櫃 15 檔、指數）。
 - 問指數（已驗證 2026-11-22）：「加權指數」「大盤」「台股」「TAIEX」→ 加權指數，「櫃買指數」「上櫃指數」「OTC」→ 櫃買指數（`core/services/stock.js` `indexOf`）；不拿去個股清單找、不列「找不到」，問到的指數排第一個（speak 講它）；只問指數不下載個股清單。以前問「加權指數」先回收盤又說「找不到：加權指數」。
