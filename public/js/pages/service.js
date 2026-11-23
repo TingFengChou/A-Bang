@@ -7,7 +7,11 @@ import { locationNotice } from '../location-help.js';
 import { icons } from '../icons.js';
 import { renderWallet } from '../invoice-wallet.js';
 
-const METRO = [['TRTC', '台北捷運'], ['TYMC', '桃園機場捷運'], ['TMRT', '台中捷運'], ['KRTC', '高雄捷運']];
+/** 捷運系統選單：要跟 core/services/metro.js 的 METRO_SYSTEMS 一致（test/metro.test.js 檢查；2026-11-23 漏了新北捷運，找不到三鶯線） */
+export const METRO = [
+  ['TRTC', '台北捷運'], ['NTMC', '新北捷運（三鶯線、環狀線）'], ['TYMC', '桃園機場捷運'], ['TMRT', '台中捷運'], ['KRTC', '高雄捷運'],
+  ['NTDLRT', '淡海輕軌'], ['NTALRT', '安坑輕軌'], ['KLRT', '高雄輕軌'],
+];
 
 /**
  * 服務設定：title、tool、where（需要位置）、form（輸入欄位 HTML）、args(form, pos) → tool 參數、auto（進頁就查）、after(el, { callTool, toast })（卡片下方的區塊）

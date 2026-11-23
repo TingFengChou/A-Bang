@@ -99,3 +99,88 @@ test('metro tools：card、speak、nav', async () => {
   assert.ok(s.data.every((x) => x.nav));
   await assert.rejects(callTool(svc, 'metro_stations', { system: 'XYZ' }), /參數錯誤/);
 });
+
+// 2026-11-23 使用者回報「捷運到站找不到三鶯線」：前端選單漏了新北捷運與輕軌
+test('捷運到站頁的系統選單＝後端 METRO_SYSTEMS（新北捷運三鶯線、各條輕軌都要有）', async () => {
+  const { METRO_SYSTEMS } = await import('../core/services/metro.js');
+  const { METRO } = await import('../public/js/pages/service.js');
+  assert.deepEqual(METRO.map(([k]) => k).sort(), Object.keys(METRO_SYSTEMS).sort());
+  assert.match(METRO.find(([k]) => k === 'NTMC')[1], /三鶯線/);
+});
+
+test('看板查不到（404、上游錯誤）：改用時刻表並照實標示；時刻表也沒有才丟錯（退回示範）', async () => {
+  const T0 = Date.parse('2026-11-23T10:01:00+08:00'); // 星期一
+  const ST = [{ StationID: 'LB08', StationName: Z('鶯歌車站'), StationPosition: P(24.954, 121.353) }];
+  const TT = [{ LineID: 'LB', StationID: 'LB08', Direction: 0, DestinationStationID: 'LB01', DestinationStationName: { Zh_tw: '頂埔', En: 'Dingpu' }, ServiceDay: { Monday: true }, Timetables: [{ DepartureTime: '10:05' }, { DepartureTime: '10:15' }] }];
+  const mk = (board, table) => {
+    const fetchImpl = async (url) => {
+      const u = decodeURIComponent(String(url));
+      if (u.includes('/token')) return new Response(JSON.stringify({ access_token: 'T', expires_in: 86400 }));
+      if (/Metro\/Station\/NTMC/.test(u)) return new Response(JSON.stringify(ST));
+      if (/LiveBoard\/NTMC/.test(u)) return board();
+      if (/StationTimeTable\/NTMC/.test(u)) return table();
+      return new Response('not found', { status: 404 });
+    };
+    const now = () => T0;
+    return createMetroServices(createTdxClient({ clientId: 'a', clientSecret: 'b', fetchImpl, now }), { now }).metro;
+  };
+  const notFound = () => new Response('not found', { status: 404 });
+  const tt = () => new Response(JSON.stringify(TT));
+  for (const board of [notFound, () => new Response('oops', { status: 500 })]) {
+    const r = await mk(board, tt).liveBoard({ system: 'NTMC', station: '鶯歌' });
+    assert.equal(r.source, 'timetable');
+    assert.match(r.note, /依時刻表估算/);
+    assert.doesNotMatch(r.note, /進站中/, '看板查不到：不說成「看板只有進站中」');
+    assert.deepEqual(r.trains.map((t) => [t.line, t.lineEn, t.destination, t.etaMin, t.scheduled]), [['三鶯線', 'Sanying Line', '頂埔', 4, true]]);
+  }
+  await assert.rejects(mk(notFound, notFound).liveBoard({ system: 'NTMC', station: '鶯歌' }), (e) => e.status === 404);
+  // 看板 404：10 分鐘內不再查看板（每分鐘只有幾次額度）
+  let boardCalls = 0;
+  const m = mk(() => { boardCalls++; return notFound(); }, tt);
+  await m.liveBoard({ system: 'NTMC', station: '鶯歌' });
+  const again = await m.liveBoard({ system: 'NTMC', station: '鶯歌' });
+  assert.equal(boardCalls, 1);
+  assert.equal(again.source, 'timetable');
+});
+
+test('示範資料：每個捷運系統都有幾個站可以查到站', async () => {
+  const { createMockMetroServices } = await import('../core/services/metro-mock.js');
+  const { METRO_SYSTEMS } = await import('../core/services/metro.js');
+  const { metro: m } = createMockMetroServices();
+  for (const op of Object.keys(METRO_SYSTEMS)) {
+    const s = await m.stations({ system: op });
+    assert.ok(s.length >= 4, `${op} 只有 ${s.length} 站`);
+    const b = await m.liveBoard({ system: op, station: s[3].name });
+    assert.ok(b.trains.length > 0, op);
+  }
+});
+
+test('看板單位：淡海、安坑輕軌 EstimateTime 是秒；新北捷運看板只有進站中，另一方向用時刻表補', async () => {
+  const T0 = Date.parse('2026-11-23T10:01:00+08:00');
+  const mk = (op, st, board, table = []) => {
+    const fetchImpl = async (url) => {
+      const u = decodeURIComponent(String(url));
+      if (u.includes('/token')) return new Response(JSON.stringify({ access_token: 'T', expires_in: 86400 }));
+      if (u.includes(`Metro/Station/${op}`)) return new Response(JSON.stringify(st));
+      if (u.includes(`LiveBoard/${op}`)) return new Response(JSON.stringify(board));
+      if (u.includes(`StationTimeTable/${op}`)) return new Response(JSON.stringify(table));
+      return new Response('not found', { status: 404 });
+    };
+    const now = () => T0;
+    return createMetroServices(createTdxClient({ clientId: 'a', clientSecret: 'b', fetchImpl, now }), { now }).metro;
+  };
+  const lrt = mk('NTALRT', [{ StationID: 'K04', StationName: Z('耕莘安康院區') }], [
+    { LineID: 'K', StationID: 'K04', DestinationStationName: Z('雙城'), EstimateTime: 60 },
+    { LineID: 'K', StationID: 'K04', DestinationStationName: Z('十四張'), EstimateTime: 720 },
+  ]);
+  const r = await lrt.liveBoard({ system: 'NTALRT', station: '耕莘安康院區' });
+  assert.deepEqual(r.trains.map((t) => [t.destination, t.etaMin]), [['雙城', 1], ['十四張', 12]], '720 秒＝12 分，不是 720 分');
+  const ntmc = mk('NTMC', [{ StationID: 'Y16', StationName: Z('板橋') }],
+    [{ LineID: 'Y', StationID: 'Y16', DestinationStationName: Z('大坪林'), EstimateTime: 0 },
+      { LineID: 'Y', StationID: 'Y16', DestinationStationName: Z('新北產業園區'), TripHeadSign: '往新北產業園區' }], // 實測：沒有 EstimateTime 的列
+    [{ LineID: 'Y', StationID: 'Y16', Direction: 1, DestinationStationID: 'Y20', DestinationStationName: Z('新北產業園區'), ServiceDay: { Monday: true }, Timetables: [{ DepartureTime: '10:07' }] }]);
+  const b = await ntmc.liveBoard({ system: 'NTMC', station: '板橋' });
+  assert.deepEqual(b.trains.map((t) => [t.destination, t.etaMin, Boolean(t.scheduled)]), [['大坪林', 0, false], ['新北產業園區', 6, true]]);
+  assert.equal(b.source, 'mixed');
+  assert.match(b.note, /^新北捷運/);
+});
