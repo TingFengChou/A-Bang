@@ -5,7 +5,7 @@
   "type": "object",
   "required": ["system", "station", "stationId", "updatedAt", "trains", "nav"],
   "properties": {
-    "system": { "enum": ["TRTC", "TYMC", "TMRT", "KRTC"] },
+    "system": { "enum": ["TRTC", "TYMC", "TMRT", "KRTC", "NTMC", "NTDLRT", "NTALRT", "KLRT"] },
     "station": { "type": "string" },
     "stationEn": { "type": "string" },
     "stationId": { "type": "string" },
@@ -14,7 +14,8 @@
     "nav": { "type": ["object", "null"], "required": ["google", "apple"], "properties": { "google": { "type": "string" }, "apple": { "type": "string" } } },
     "updatedAt": { "type": "string" },
     "demo": { "type": "boolean" },
-    "source": { "enum": ["live", "timetable", "mixed"] },
+    "source": { "enum": ["live", "timetable", "mixed", "frequency"] },
+    "headway": { "type": ["object", "null"], "description": "source frequency（台中捷運只有班距）：現在幾分鐘一班；null＝不在營運時間", "required": ["min", "max"], "properties": { "min": { "type": "integer" }, "max": { "type": "integer" }, "peak": { "type": "boolean" }, "lineId": { "type": ["string", "null"] }, "lineColor": { "type": "string" } } },
     "note": { "type": "string" },
     "noteEn": { "type": "string" },
     "stale": { "type": "boolean" },

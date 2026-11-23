@@ -124,6 +124,11 @@ export const MESSAGES = {
 
   // ── metro ──
   'metro.title': '{station} live arrivals',
+  'metro.titleFrequency': '{station} train frequency',
+  'metro.headway': 'About every {min} min',
+  'metro.headwayRange': 'About every {min}–{max} min',
+  'metro.headwayClosed': 'Not in service right now',
+  'metro.lineTMRT': 'Green Line',
   'metro.titleTimetable': '{station} arrivals (timetable)',
   'metro.scheduled': '~{min} min',
   'metro.scheduledSoon': 'within ~1 min',

@@ -118,6 +118,11 @@ export const MESSAGES = {
 
   // ── metro ──
   'metro.title': '{station} 即時到站',
+  'metro.titleFrequency': '{station} 班距',
+  'metro.headway': '約每 {min} 分一班',
+  'metro.headwayRange': '約每 {min}～{max} 分一班',
+  'metro.headwayClosed': '現在不在營運時間',
+  'metro.lineTMRT': '綠線',
   'metro.titleTimetable': '{station} 到站（時刻表估算）',
   'metro.scheduled': '約 {min} 分',
   'metro.scheduledSoon': '約 1 分內',

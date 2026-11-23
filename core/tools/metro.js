@@ -36,6 +36,7 @@ export const metroLiveBoard = defineTool({
     last: z.boolean().optional().describe('問末班車時給 true：多回 lastTrains（依時刻表，各線各方向今天最後一班的時間）'),
   },
   speak: (d) => {
+    if (d.source === 'frequency') return d.headway ? `${d.station}：台中捷運沒有到站時間的開放資料，現在大約${headwaySay(d.headway)}一班。` : `${d.station}：台中捷運現在不在營運時間（約 06:00～24:00）。`;
     if (d.lastTrains) return d.lastTrains.length ? `${d.station}的末班車（時刻表）：${d.lastTrains.slice(0, 4).map((x) => `往${x.destination} ${x.time}`).join('、')}。` : `${d.station}查不到時刻表的末班車資料。`;
     const t = d.trains.find((x) => x.etaMin != null);
     const lineSay = t?.line ? `${t.line}` : '';
@@ -61,13 +62,17 @@ export const metroLiveBoard = defineTool({
     const trains = line ? raw.trains.filter((t) => (t.lineId || '').startsWith(line)) : raw.trains;
     const data = { ...raw, trains: line && trains.length ? trains : raw.trains, nav: navLinks(raw.lat, raw.lon), ...(near && { nearest: { distanceM: near.distanceM, ...(typeof a.near === 'string' && { from: a.near }) } }) };
     const lastLines = data.lastTrains ? (data.lastTrains.length ? [`末班車（時刻表）：${data.lastTrains.map((x) => `${x.line || ''} 往 ${x.destination} ${x.time}`).join('、')}`] : ['末班車：查不到時刻表']) : [];
-    const text = data.trains.length
+    const text = data.source === 'frequency'
+      ? `${METRO_SYSTEMS[data.system]} ${data.station}：${data.note}；${data.headway ? `現在約${headwaySay(data.headway)}一班` : '現在不在營運時間'}。`
+      : data.trains.length
       ? clip([...lastLines, `${METRO_SYSTEMS[data.system]} ${data.station} ${data.source && data.source !== 'live' ? '到站（' + data.note + '）' : '即時到站'}（更新：${data.updatedAt}）`, ...data.trains.map((t) => `- ${t.line} 往 ${t.destination}：${metroStatusText(t)}${t.scheduled ? '（時刻表）' : ''}`)])
       : `${METRO_SYSTEMS[data.system]} ${data.station} 目前沒有即時到站資料（部分系統只在營運時段、或只提供部分車站看板）。`;
     return { data, text };
   },
 });
 
+/** 班距：「每 8 分」或「每 8～10 分」 */
+const headwaySay = (h) => (h.max > h.min ? `每 ${h.min}～${h.max} 分` : `每 ${h.min} 分`);
 const fmtM = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} 公里` : `${m} 公尺`);
 const NEAR_MAX_M = 3000;
 
