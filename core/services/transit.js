@@ -6,7 +6,7 @@ import { pathFromWkt, thinPath } from '../geo.js';
 import { normGeneralTimetable } from '../rail-journeys.js';
 import { matchDirect, commonRoutes, DIRECT_RADIUS_M } from './bus-direct.js';
 import { cacheOf, rawOpts, nonEmpty, STATIC_TTL } from './tdx-cache.js';
-import { INDEX_CITIES, ETA_TTL, BIKE_TTL, STALE_SEC, transitKey as key, transitLoaders, normRouteStops, normBikeStation, etaIndex, bikeIndex } from './transit-data.js';
+import { INDEX_CITIES, ETA_TTL, BIKE_TTL, STALE_SEC, transitKey as key, transitLoaders, normRouteStops, stopOfRoutePath, normBikeStation, etaIndex, bikeIndex } from './transit-data.js';
 
 const COVER_M = 1500; // 本機站牌資料離這個點最近的站超過這個距離，視為沒涵蓋（改問 TDX NearBy）
 
@@ -64,7 +64,7 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
     if (hit.length) return hit;
     // 預熱的清單裡沒有（新路線、清單比較舊）或沒預熱：逐條查（空結果不存檔）
     return cached(key.busRoute(city, routeName), STATIC_TTL, async (o) => normRouteStops(await tdx.get(
-      `/basic/v2/Bus/DisplayStopOfRoute/City/${city}/${encodeURIComponent(routeName)}`, { $filter: `RouteName/Zh_tw eq '${q(routeName)}'` }, 60, rawOpts(o))));
+      `${stopOfRoutePath(city)}/${encodeURIComponent(routeName)}`, { $filter: `RouteName/Zh_tw eq '${q(routeName)}'` }, 60, rawOpts(o))));
   }
   /** 路線形狀（存檔）；端點失敗回 null，不影響到站資料 */
   const routeShapeOf = (city, routeName) => cached(key.busShape(city, routeName), STATIC_TTL, async (o) => routeShape(await tdx.get(

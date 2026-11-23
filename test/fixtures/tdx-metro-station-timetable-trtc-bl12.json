@@ -1,0 +1,377 @@
+[
+ {
+  "RouteID": "BL-1",
+  "LineID": "BL",
+  "StationID": "BL12",
+  "StationName": {
+   "Zh_tw": "台北車站",
+   "En": "Taipei Main Station",
+   "Ja": "台北駅",
+   "Ko": "타이베이 역"
+  },
+  "Direction": 1,
+  "DestinationStaionID": "BL01",
+  "DestinationStationName": {
+   "Zh_tw": "頂埔",
+   "En": "Dingpu",
+   "Ja": "頂埔",
+   "Ko": "딩푸"
+  },
+  "Timetables": [
+   {
+    "Sequence": 1,
+    "DepartureTime": "06:00",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 2,
+    "DepartureTime": "06:08",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 3,
+    "DepartureTime": "06:14",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 4,
+    "DepartureTime": "06:20",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 5,
+    "DepartureTime": "06:26",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 6,
+    "DepartureTime": "06:34",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 7,
+    "DepartureTime": "06:39",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 8,
+    "DepartureTime": "06:43",
+    "TrainType": 0
+   }
+  ],
+  "ServiceDay": {
+   "ServiceTag": "平日",
+   "Monday": true,
+   "Tuesday": true,
+   "Wednesday": true,
+   "Thursday": true,
+   "Friday": true,
+   "Saturday": false,
+   "Sunday": false,
+   "NationalHolidays": false
+  },
+  "SrcUpdateTime": "2026-10-03T00:00:00+08:00",
+  "UpdateTime": "2026-10-12T09:37:12+08:00",
+  "VersionID": 41
+ },
+ {
+  "RouteID": "BL-1",
+  "LineID": "BL",
+  "StationID": "BL12",
+  "StationName": {
+   "Zh_tw": "台北車站",
+   "En": "Taipei Main Station",
+   "Ja": "台北駅",
+   "Ko": "타이베이 역"
+  },
+  "Direction": 1,
+  "DestinationStaionID": "BL01",
+  "DestinationStationName": {
+   "Zh_tw": "頂埔",
+   "En": "Dingpu",
+   "Ja": "頂埔",
+   "Ko": "딩푸"
+  },
+  "Timetables": [
+   {
+    "Sequence": 1,
+    "DepartureTime": "06:00",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 2,
+    "DepartureTime": "06:08",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 3,
+    "DepartureTime": "06:14",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 4,
+    "DepartureTime": "06:20",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 5,
+    "DepartureTime": "06:28",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 6,
+    "DepartureTime": "06:37",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 7,
+    "DepartureTime": "06:45",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 8,
+    "DepartureTime": "06:54",
+    "TrainType": 0
+   }
+  ],
+  "ServiceDay": {
+   "ServiceTag": "假日",
+   "Monday": false,
+   "Tuesday": false,
+   "Wednesday": false,
+   "Thursday": false,
+   "Friday": false,
+   "Saturday": true,
+   "Sunday": true,
+   "NationalHolidays": true
+  },
+  "SrcUpdateTime": "2026-10-03T00:00:00+08:00",
+  "UpdateTime": "2026-10-12T09:37:12+08:00",
+  "VersionID": 41
+ },
+ {
+  "RouteID": "BL-2",
+  "LineID": "BL",
+  "StationID": "BL12",
+  "StationName": {
+   "Zh_tw": "台北車站",
+   "En": "Taipei Main Station",
+   "Ja": "台北駅",
+   "Ko": "타이베이 역"
+  },
+  "Direction": 1,
+  "DestinationStaionID": "BL05",
+  "DestinationStationName": {
+   "Zh_tw": "亞東醫院",
+   "En": "Far Eastern Hospital",
+   "Ja": "亜東病院",
+   "Ko": "야둥 병원"
+  },
+  "Timetables": [
+   {
+    "Sequence": 1,
+    "DepartureTime": "07:16",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 2,
+    "DepartureTime": "07:26",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 3,
+    "DepartureTime": "07:33",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 4,
+    "DepartureTime": "07:41",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 5,
+    "DepartureTime": "07:46",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 6,
+    "DepartureTime": "07:56",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 7,
+    "DepartureTime": "08:02",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 8,
+    "DepartureTime": "08:09",
+    "TrainType": 0
+   }
+  ],
+  "ServiceDay": {
+   "ServiceTag": "平日",
+   "Monday": true,
+   "Tuesday": true,
+   "Wednesday": true,
+   "Thursday": true,
+   "Friday": true,
+   "Saturday": false,
+   "Sunday": false,
+   "NationalHolidays": false
+  },
+  "SrcUpdateTime": "2026-10-03T00:00:00+08:00",
+  "UpdateTime": "2026-10-12T09:37:12+08:00",
+  "VersionID": 41
+ },
+ {
+  "RouteID": "BL-2",
+  "LineID": "BL",
+  "StationID": "BL12",
+  "StationName": {
+   "Zh_tw": "台北車站",
+   "En": "Taipei Main Station",
+   "Ja": "台北駅",
+   "Ko": "타이베이 역"
+  },
+  "Direction": 1,
+  "DestinationStaionID": "BL05",
+  "DestinationStationName": {
+   "Zh_tw": "亞東醫院",
+   "En": "Far Eastern Hospital",
+   "Ja": "亜東病院",
+   "Ko": "야둥 병원"
+  },
+  "Timetables": [
+   {
+    "Sequence": 1,
+    "DepartureTime": "08:16",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 2,
+    "DepartureTime": "08:35",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 3,
+    "DepartureTime": "08:45",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 4,
+    "DepartureTime": "08:55",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 5,
+    "DepartureTime": "09:04",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 6,
+    "DepartureTime": "09:14",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 7,
+    "DepartureTime": "09:24",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 8,
+    "DepartureTime": "09:33",
+    "TrainType": 0
+   }
+  ],
+  "ServiceDay": {
+   "ServiceTag": "假日",
+   "Monday": false,
+   "Tuesday": false,
+   "Wednesday": false,
+   "Thursday": false,
+   "Friday": false,
+   "Saturday": true,
+   "Sunday": true,
+   "NationalHolidays": true
+  },
+  "SrcUpdateTime": "2026-10-03T00:00:00+08:00",
+  "UpdateTime": "2026-10-12T09:37:12+08:00",
+  "VersionID": 41
+ },
+ {
+  "RouteID": "BL-2",
+  "LineID": "BL",
+  "StationID": "BL12",
+  "StationName": {
+   "Zh_tw": "台北車站",
+   "En": "Taipei Main Station",
+   "Ja": "台北駅",
+   "Ko": "타이베이 역"
+  },
+  "Direction": 0,
+  "DestinationStaionID": "BL21",
+  "DestinationStationName": {
+   "Zh_tw": "昆陽",
+   "En": "Kunyang",
+   "Ja": "昆陽",
+   "Ko": "쿤양"
+  },
+  "Timetables": [
+   {
+    "Sequence": 1,
+    "DepartureTime": "08:08",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 2,
+    "DepartureTime": "08:16",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 3,
+    "DepartureTime": "08:25",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 4,
+    "DepartureTime": "08:34",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 5,
+    "DepartureTime": "08:42",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 6,
+    "DepartureTime": "08:51",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 7,
+    "DepartureTime": "09:46",
+    "TrainType": 0
+   },
+   {
+    "Sequence": 8,
+    "DepartureTime": "19:00",
+    "TrainType": 0
+   }
+  ],
+  "ServiceDay": {
+   "ServiceTag": "平日",
+   "Monday": true,
+   "Tuesday": true,
+   "Wednesday": true,
+   "Thursday": true,
+   "Friday": true,
+   "Saturday": false,
+   "Sunday": false,
+   "NationalHolidays": false
+  },
+  "SrcUpdateTime": "2026-10-03T00:00:00+08:00",
+  "UpdateTime": "2026-10-12T09:37:12+08:00",
+  "VersionID": 41
+ }
+]

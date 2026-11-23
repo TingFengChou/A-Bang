@@ -11,7 +11,7 @@
 
 ```
 M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ ─▶ M4 互動卡片 ✅ ─▶ M5 網頁 agent ✅ ─▶ M6 上線 🚧
-     M1 TDX 實測 ⛔（需金鑰，可與 M3 並行；M3 先用 mock＋TDX 形狀 fixture）
+     M1 TDX 實測 ✅（2026-11-23）
 ─▶ M7 反詐騙 ─▶ M8 中小企業概念驗證 ─▶【啟動門檻】─▶ M9 阿幫平台（Agent Builder）
 ```
 
@@ -20,7 +20,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | 里程碑 | 狀態 | 下一個任務 | 卡住 |
 |---|---|---|---|
 | M0 基礎 | ✅ | — | — |
-| M1 TDX 實測 | ⛔ | M1-01 | TDX 金鑰、可連 TDX 的網路 |
+| M1 TDX 實測 | ✅（2026-11-23：`verify-tdx.js`、`record-fixtures.js`、真實 fixture 測試；導訂票 API 待權限） | — | 導訂票 API 需權限 |
 | M2 Registry＋遠端 MCP | ✅（Claude 實機連線待驗） | — | Austin 以 cloudflared 實測 |
 | M3 交通完整版 | ✅（2026-11-18 驗收；M3-12 真實導訂票 ⛔） | — | 待 Austin：無狀態市區短程叫車排第一是否合理（ADR-0010）；`rail_booking_link` 需導訂票權限；`weather_now` 真實資料需 CWA 授權碼（mock 與介面已完成） |
 | M4 互動卡片 | ✅（2026-11-18；M4-09 Claude 實測 ⛔） | M4-09（Austin） | 本機 `npm start`＋cloudflared，在 Claude 自訂連接器實測卡片 |
@@ -37,7 +37,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | 阿幫・短劇（MyDrama，產品負責人 2026-11-22，ADR-0019） | 🧩（等車推短劇、問阿幫找劇、運動建議提示句 ✅；示範片庫可跑） | 產品負責人看截圖決定是否合併；運動建議接線 | 真實片庫與連結需 `.env` 的 `MYDRAMA_*`（合作方提供）；每集長度欄位 |
 | M6 上線 | 🚧（M6-01／02／04／07 ✅、地端部署驗證 ✅） | 正式環境階段再做 | 2026-11-19 Austin 決定：雲端部署（M6-06）、Redis 快取（M6-03）、Lighthouse（M6-05）留到正式環境階段；先衝刺功能。M6-07 需在 repo 設定啟用 Pages |
 
-建議順序：M4、M5、M7、M10 已完成；M1（TDX 金鑰）申請中；M6 正式環境項目延後；目前衝刺 M11 行動 App、M12 裝置端 AI、M13 Agent 聰明度（PM 情境清單見 `test/scenarios/life.json`）；M8 中小企業概念驗證移到下一階段。
+建議順序：M1、M4、M5、M7、M10 已完成；M6 正式環境項目延後；目前衝刺 M11 行動 App、M12 裝置端 AI、M13 Agent 聰明度（PM 情境清單見 `test/scenarios/life.json`）；M8 中小企業概念驗證移到下一階段。
 
 ## 待辦總表（2026-11-21 彙整）
 
@@ -63,7 +63,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 - [ ] 在 TDX 會員中心申請「臺鐵訂票導訂」「高鐵訂票導訂」權限
 - [ ] 申請中央氣象署開放資料平臺授權碼 → `.env` 的 `CWA_API_KEY`
 - [ ] 本機 `npm start` ＋ `cloudflared tunnel --url http://localhost:8787`，在 Claude 新增自訂連接器 `https://<隨機>.trycloudflare.com/mcp`，確認能列出並呼叫 tools
-- [ ] 本機執行 `node scripts/verify-tdx.js`、`node scripts/record-fixtures.js`（M1 完成後），把 fixtures commit
+- [x] 本機執行 `node scripts/verify-tdx.js`、`node scripts/record-fixtures.js`（M1 完成後），把 fixtures commit（2026-11-23）
 - [ ] 校對 `core/data/landmarks.json` 座標（現在 230 筆，含 2026-11-22 新增的 13 個散步地點；Claude 依記憶整理的近似值；可對照 Google 地圖或 M1 的 TDX／TGOS 結果，校對完把 `verified` 改為 `true`）
 - [ ] （M5）取得 `ANTHROPIC_API_KEY`，設定每日預算；或不付費改用地端模型（`LOCAL_LLM_URL`＋`LOCAL_LLM_MODEL`，Ollama 需 `OLLAMA_CONTEXT_LENGTH=16384`）
 - [ ] （M6）選定部署平台與網域；部署時設定環境變數（金鑰）並用 `Dockerfile` 建置
@@ -80,34 +80,34 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 - [x] 測試：正規化 fixture 測試、MCP 整合測試
 - [x] 單檔 Demo（`npm run build:demo`）
 
-## M1 TDX 實測與 fixture 錄製 ⛔
+## M1 TDX 實測與 fixture 錄製 ✅（2026-11-23）
 
 前置：TDX Client ID／Secret（`.env`）、可連到 tdx.transportdata.tw 的網路。雲端沙盒無法連 TDX，**只能在 Austin 本機執行**；Claude Code 可先寫好腳本（不需金鑰即可完成的部分）。
 
-- [ ] M1-01 `scripts/verify-tdx.js`：逐一呼叫 `MCP_TOOLS.md` 所有 ⚠️ 端點，印出狀態碼、筆數、第一筆欄位名稱（不印金鑰）；無金鑰時清楚提示並 exit 1
-- [ ] M1-02 `scripts/record-fixtures.js`：把真實回應（每端點截前 5 筆）存到 `test/fixtures/<endpoint>.json`，移除可能的個資
-- [ ] M1-03 ⛔ 本機執行 M1-01／02；`test/transit.test.js` 改讀新 fixtures；修正與實際欄位不符的正規化
-- [ ] M1-04 ⛔ 把驗證結果寫進下表與 `DATA_SOURCES.md`；額度方案寫進 `ARCHITECTURE.md` §快取與額度（2026-11-22：額度方案 ✅——每分鐘 5 次下的快取存檔、縣市整批取、背景預熱、額度排程，DATA_SOURCES.md §1.1；其他端點仍待驗證）
+- [x] M1-01 `scripts/verify-tdx.js`：逐一呼叫 `MCP_TOOLS.md` 所有 ⚠️ 端點，印出狀態碼、筆數、第一筆欄位名稱（不印金鑰）；無金鑰時清楚提示並 exit 1（2026-11-23：端點清單 `scripts/tdx/endpoints.js` 與錄製共用，另印座標完整度、WKT 類型、`ServiceDay` 型別等；每次間隔 13 秒 `--delay`、`--only`；`npm run tdx:verify`）
+- [x] M1-02 `scripts/record-fixtures.js`：把真實回應（每端點截前 5 筆）存到 `test/fixtures/<endpoint>.json`，移除可能的個資（2026-11-23：`test/fixtures/tdx-<id>.json` 20 個；只存回應內容，丟掉名稱像 token／secret 的欄位；國道三份對齊同一批 `SectionID`；`npm run tdx:record`）
+- [x] M1-03 本機執行 M1-01／02；`test/transit.test.js` 改讀新 fixtures；修正與實際欄位不符的正規化（2026-11-23：新測試 `test/tdx-fixtures.test.js` 12 項讀真實 fixture。修正三處：公車站序 DisplayStopOfRoute 只收 5 個縣市 → 其他縣市改 StopOfRoute（每個子路線一筆）；國道事件 `Live/News` 沒有路名 → 改 `RoadEvent/LiveEvent` 依位置與方向篩；客運時刻表只有起站時間的班次以前整班被丟掉 → 由起站時間沿站牌距離估上車時間，標 `departEstimated`、`departFrom`）
+- [x] M1-04 把驗證結果寫進下表與 `DATA_SOURCES.md`；額度方案寫進 `ARCHITECTURE.md` §快取與額度（2026-11-22：額度方案 ✅——每分鐘 5 次下的快取存檔、縣市整批取、背景預熱、額度排程，DATA_SOURCES.md §1.1；其他端點仍待驗證）
 
 驗收：`npm test` 用真實 fixture 通過；`verify-tdx.js` 全綠或有明確「不支援」紀錄。
 
 | 待驗證 | 狀態 |
 |---|---|
 | `Bus/EstimatedTimeOfArrival/.../PassThrough/Station/{id}` | 已驗證 2026-11-22：在 `/advanced/v2/` 底下（`/basic/` 404 → 以前一律 502）；欄位 `RouteName`、`Direction`、`EstimateTime`（秒，沒有就不帶）、`StopStatus`（臺北市站位 1000 實測） |
-| 公車到站 `StopStatus` 與 `NextBusTime` | 部分 ✅ 2026-11-22（新北 939、三峽-臺北市信義區）：`StopStatus` 0～4 都看得到（4 今日未營運整條路線每站都是 4；2 交管不停靠只有個別站）；狀態 1 尚未發車的站**沒有** `NextBusTime`。`etaOf` 有 `NextBusTime` 才換算等車時間（沒寫時區當 +08:00），沒有照舊算「到站時間不明」；台北市與其他縣市未驗證 |
-| `Bus/Shape/City/{City}/{Route}` WKT 格式 | 未驗證（M3-02 假設欄位 `Geometry`、`LINESTRING`／`MULTILINESTRING`；`core/geo.js` 防禦性解析） |
-| 站牌 `StopPosition` 於各縣市完整度 | 未驗證 |
-| `Rail/Metro/LiveBoard/{Op}` 各系統欄位 | 北捷 ✅ 2026-11-22：欄位 `LineID`、`LineName`、`StationID`、`DestinationStationName`、`EstimateTime`（分鐘）符合；但只列「進站中」的站（約 20～25 筆、`EstimateTime` 都是 0）→ 看板整個系統一次取，其他方向用 `StationTimeTable` 估（DATA_SOURCES.md §1.2）。其他系統未驗證 |
+| 公車到站 `StopStatus` 與 `NextBusTime` | 部分 ✅ 2026-11-22（新北 939、三峽-臺北市信義區）；2026-11-23 臺北 307 也一樣（狀態 1 沒有 `NextBusTime`、路線端點沒有 `PlateNumb`）：`StopStatus` 0～4 都看得到（4 今日未營運整條路線每站都是 4；2 交管不停靠只有個別站）；狀態 1 尚未發車的站**沒有** `NextBusTime`。`etaOf` 有 `NextBusTime` 才換算等車時間（沒寫時區當 +08:00），沒有照舊算「到站時間不明」；台北市與其他縣市未驗證 |
+| `Bus/Shape/City/{City}/{Route}` WKT 格式 | 已驗證 2026-11-23（臺北 307）：欄位 `Geometry`，去返程各一筆 `LINESTRING (經度 緯度, …)`（`LINESTRING` 後有空格），約 290 點；`core/geo.js` 解析成功；另有 `EncodedPolyline`（未用） |
+| 站牌 `StopPosition` 於各縣市完整度 | 已驗證 2026-11-23：臺北 28,826、臺中 37,565、高雄 19,281、花蓮 519、公路客運 61,807 站全部有座標（沒有 0,0）。**DisplayStopOfRoute 只收 Taipei、NewTaipei、Taoyuan、Taichung、Tainan**（其他縣市 400）→ 其他縣市改用 `StopOfRoute`（`core/services/transit-data.js` `stopOfRoutePath`） |
+| `Rail/Metro/LiveBoard/{Op}` 各系統欄位 | 各系統 2026-11-23 已實測（DATA_SOURCES.md §1.2）。北捷 ✅ 2026-11-22：欄位 `LineID`、`LineName`、`StationID`、`DestinationStationName`、`EstimateTime`（分鐘）符合；但只列「進站中」的站（約 20～25 筆、`EstimateTime` 都是 0）→ 看板整個系統一次取，其他方向用 `StationTimeTable` 估（DATA_SOURCES.md §1.2）。其他系統未驗證 |
 | 台鐵／高鐵 ODFare 欄位 | 已驗證 2026-11-22：`Fares[].TicketType／FareClass／CabinClass／Price` 符合；高鐵代碼對照符合（台北→左營 自由座 1,445、標準 1,490、商務 2,440）。台鐵 v3 `ODFares[]` 每個車種×方向一筆、沒有 `TrainTypeName`，`TrainType` 是車種代碼（1 太魯閣、2 普悠瑪、3 自強、4 莒光、5 復興、6 區間、7 普快、10 區間快、11 自強3000，對照 `/basic/v3/Rail/TRA/TrainType`）；兩個 `Direction` 之一是繞島另一邊，取 `TravelDistance` 最短的。臺北→新竹成人單程 區間 163、莒光 195、自強 253 |
-| 高速公路旅行時間、道路事件、國道客運端點 | 未驗證（M3-07 假設 `StopOfRoute/InterCity`、`Schedule/InterCity` 的 `Timetables[].ServiceDay／StopTimes`；客運票價端點未知；M3-06 假設 `SectionShape`／`Section`／`Live`／`Live/News` 的 Freeway 端點與 `SectionShapes`、`Sections`、`LiveTraffics`、`Newses` 包裝；`TravelSpeed` 為 0 是「完全停滯」還是「無資料」（目前視為無資料）；走廊 3 km 可能同時納入平行國道（國 1／國 3），需以實際路段資料決定是否依 `RoadName` 只取一條主線） |
-| 地理編碼（TDX 或 TGOS） | 未驗證（`find_place` 目前只查內建地標） |
+| 高速公路旅行時間、道路事件、國道客運端點 | 已驗證 2026-11-23：`SectionShape`／`Section`／`Live` 的 Freeway 端點與 `SectionShapes`、`Sections`、`LiveTraffics` 包裝都對；`TravelSpeed` 0 只有 1～2 筆、沒有負數（維持當無資料）；形狀與路段對得上 453／474。**事件**：`Live/News` 的 `Newses` 沒有路名與位置（標題只有「施工維護」），依路名篩一律對不到 → 改 `/basic/v1/Traffic/RoadEvent/LiveEvent/Freeway`（`Positions` POINT、`Location.FreeExpressHighway.Direction`），依位置 500 公尺內與方向篩。客運 `StopOfRoute/InterCity`、`Schedule/InterCity`（`ServiceDay` 0／1）都對，但有些班次 `StopTimes` 只有起站 → 由起站時間沿站牌距離估上車時間、標 `departEstimated`；票價 `/basic/v2/Bus/RouteFare/InterCity`（`StageFares`）存在、尚未串接。待做：走廊同時納入平行國道（國 1／國 3）時是否只取一條主線 |
+| 地理編碼（TDX 或 TGOS） | 已驗證 2026-11-23：TDX `/advanced/V3/Map/GeoCode/Coordinate/Address/{地址}`、`/Markname/{地標}` 可用（`Geometry` POINT；地標回多筆、第一筆不一定是本身），尚未串接（`DATA_SOURCES.md` §5）；TGOS 未評估 |
 | 導訂票 API 端點與參數（需權限） | 未驗證 |
 | CWA 觀測與鄉鎮預報欄位 | 鄉鎮預報已驗證 2026-11-22：`F-D0047-089` 是縣市層級，鄉鎮要用各縣市的 `F-D0047-001～085`（DATA_SOURCES.md §3）；`LocationsName`、`LocationName`、元素名「3小時降雨機率」「溫度」「天氣現象」、`StartTime`／`EndTime`／`DataTime`（帶 +08:00）都符合。觀測與雨量站欄位實際在用、結果合理（高雄三民 25.8°C、雨量 0 mm）。以下是原本的假設，`-998` 等特殊值仍未確認：（M3-08 假設 `records.Station[]`（`GeoInfo.Coordinates` WGS84、`WeatherElement.AirTemperature／Weather`）、雨量站 `O-A0002-001` 的 `RainfallElement.Past1hr.Precipitation`（`-998` 雨跡等特殊值目前視為沒有資料）、`F-D0047-089` 可用 `LocationName` 篩、上層縣市欄位 `LocationsName`（同名鄉鎮以縣市區分）、時段 `EndTime`、元素名「3小時降雨機率」；`weather_tomorrow` 另假設時段 `StartTime`（或 `DataTime`）、元素「溫度／最高溫度／最低溫度」「天氣現象」） |
-| 機場捷運直達車參數 | 未驗證（2026-11-22：`AIRPORT_EXPRESS` 台北車站 ↔ 機場第一航廈約 35 分、第二航廈約 38 分、160 元、約 15 分一班，依公告的大約值；真實改用 `Metro/S2STravelTime`、`Metro/ODFare`） |
+| 機場捷運直達車參數 | 已驗證 2026-11-23：`Metro/S2STravelTime/TYMC` 直達車（`TrainType` 2）臺北車站到第一航廈 36 分、到第二航廈 39 分（`AIRPORT_EXPRESS` 35／38，差 1 分，尚未改用 TDX）；票價 160 元未另驗 |
 | 捷運線別與估算 | 未驗證（2026-11-21：線別由站代碼字首推（台中數字代碼→綠線、高雄 RK→紅線、機捷 A）；時間票價依距離估，真實改用 `Metro/S2STravelTime`、`Metro/ODFare`） |
-| 高鐵／台鐵車站座標與等級 | 未驗證（2026-11-21：`StationPosition.PositionLat／Lon` 給「最近車站」用；台鐵 `StationClass` 可用來優先有直達車的大站，目前改用「最近 3 站依序查、0 班換下一站」） |
-| OData 空白用 `%20`（已實作）是否必要 | 未驗證 |
-| 捷運站別時刻表的國定假日班表 | 2026-11-22 已實作（國定假日用 `ServiceDay.NationalHolidays` 的班表，看路線＋方向＋終點）；國定假日清單 `core/data/tw-holidays.json` 已與人事行政總處 115、116 年辦公日曆表核對（data.gov.tw 資料集 14718，`scripts/build-holidays.js` 由官方 CSV 產生）。待驗證：真實 `StationTimeTable` 是否帶 `NationalHolidays`、平日／假日是否分成兩筆 |
+| 高鐵／台鐵車站座標與等級 | 已驗證 2026-11-23：高鐵 12 站、台鐵 245 站 `StationPosition` 都有；台鐵 v3 包在 `Stations`，`StationClass` 是字串 '0'～'5'（目前沒用，「最近車站」仍是最近 3 站依序查） |
+| OData 空白用 `%20`（已實作）是否必要 | 已驗證 2026-11-23：同一個 `$filter` 用 `+` 與 `%20` 結果相同 → 不是必要，保留無妨 |
+| 捷運站別時刻表的國定假日班表 | 2026-11-22 已實作（國定假日用 `ServiceDay.NationalHolidays` 的班表，看路線＋方向＋終點）；國定假日清單 `core/data/tw-holidays.json` 已與人事行政總處 115、116 年辦公日曆表核對（data.gov.tw 資料集 14718，`scripts/build-holidays.js` 由官方 CSV 產生）。2026-11-23 實測（北捷 BL12）：有帶 `NationalHolidays`（布林），平日與假日分成兩份，假日那份 `NationalHolidays: true`，`normStationTimetable` 讀法相符 |
 | 停車場 `/basic/v1/Parking/OffStreet/CarPark/City/{City}` 的 `$spatialFilter` | 2026-11-23 實測：台中 500 公尺內回 1,558 筆（不像真的有篩），程式自己算距離、取 600 公尺內；台北市、新北市 `CarParks` 是空的（只有 `ParkingAvailability`、沒有座標）→ 2026-11-23 改用市府開放資料（`docs/DATA_SOURCES.md` 停車場）。`$select` 沒有作用。待驗證：附近篩選的實際範圍 |
 | 台北市、新北市停車場開放資料（`core/services/parking-open.js`） | 2026-11-23 實測：台北 `TCMSV_alldesc.json` 1,767 筆（收 1,695；`EntranceCoord` 的 `Xcod` 是緯度、`Ycod` 是經度，128 筆入口是 0,0（改用 TWD97），14 筆入口與 TWD97 差超過 300 公尺（不列））；`TCMSV_allavailable.json`／`.xml` 的空位停在 10-19／11-19，改用 TDX 台北空位（ID 相同）。新北 `size` 上限 1000（要分頁）；空位欄位實際是 `AVAILABLECAR`（說明寫 `AVAILABLE`，兩個都收）；有幾筆 `TW97X`／`TW97Y` 寫反或是 0。待驗證：台北入口座標與 TWD97 哪個準（目前差太多就不列）、台北 blob 空位檔是否恢復更新、新北私有停車場是否會有空位 |
 

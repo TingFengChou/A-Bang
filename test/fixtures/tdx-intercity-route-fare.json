@@ -1,0 +1,201 @@
+[
+ {
+  "RouteID": "0968",
+  "RouteName": "0968",
+  "OperatorID": "16",
+  "OperatorNo": "0702",
+  "SubRouteID": "096801",
+  "SubRouteName": "0968",
+  "FarePricingType": 2,
+  "IsFreeBus": 0,
+  "IsForAllSubRoutes": 0,
+  "StageFares": [
+   {
+    "Direction": 0,
+    "OriginStage": {
+     "StopID": "300177",
+     "StopName": "大竹消防隊",
+     "Sequence": 1
+    },
+    "DestinationStage": {
+     "StopID": "300198",
+     "StopName": "庫倫街口",
+     "Sequence": 10
+    },
+    "Fares": [
+     {
+      "FareName": "全票_不分時段_三排座",
+      "TicketType": 1,
+      "FareClass": 1,
+      "Price": 83
+     },
+     {
+      "FareName": "半票_不分時段_三排座",
+      "TicketType": 1,
+      "FareClass": 10,
+      "Price": 42
+     }
+    ]
+   },
+   {
+    "Direction": 0,
+    "OriginStage": {
+     "StopID": "300192",
+     "StopName": "南昌路口",
+     "Sequence": 7
+    },
+    "DestinationStage": {
+     "StopID": "300198",
+     "StopName": "庫倫街口",
+     "Sequence": 10
+    },
+    "Fares": [
+     {
+      "FareName": "全票_不分時段_三排座",
+      "TicketType": 1,
+      "FareClass": 1,
+      "Price": 64
+     },
+     {
+      "FareName": "半票_不分時段_三排座",
+      "TicketType": 1,
+      "FareClass": 10,
+      "Price": 32
+     }
+    ]
+   }
+  ],
+  "UpdateTime": "2026-11-23T09:56:48+08:00"
+ },
+ {
+  "RouteID": "0968",
+  "RouteName": "0968",
+  "OperatorID": "35",
+  "OperatorNo": "1308",
+  "SubRouteID": "096801",
+  "SubRouteName": "0968",
+  "FarePricingType": 2,
+  "IsFreeBus": 0,
+  "IsForAllSubRoutes": 0,
+  "StageFares": [
+   {
+    "Direction": 0,
+    "OriginStage": {
+     "StopID": "300177",
+     "StopName": "大竹消防隊",
+     "Sequence": 1
+    },
+    "DestinationStage": {
+     "StopID": "300192",
+     "StopName": "南昌路口",
+     "Sequence": 7
+    },
+    "Fares": [
+     {
+      "FareName": "全票_不分時段_三排座",
+      "TicketType": 1,
+      "FareClass": 1,
+      "Price": -1
+     },
+     {
+      "FareName": "全票_不分時段_四排座",
+      "TicketType": 1,
+      "FareClass": 1,
+      "Price": -1
+     },
+     {
+      "FareName": "半票_不分時段_四排座",
+      "TicketType": 1,
+      "FareClass": 10,
+      "Price": -1
+     },
+     {
+      "FareName": "半票_不分時段_三排座",
+      "TicketType": 1,
+      "FareClass": 10,
+      "Price": -1
+     }
+    ]
+   },
+   {
+    "Direction": 0,
+    "OriginStage": {
+     "StopID": "300177",
+     "StopName": "大竹消防隊",
+     "Sequence": 1
+    },
+    "DestinationStage": {
+     "StopID": "300198",
+     "StopName": "庫倫街口",
+     "Sequence": 10
+    },
+    "Fares": [
+     {
+      "FareName": "全票_不分時段_四排座",
+      "TicketType": 1,
+      "FareClass": 1,
+      "Price": 66
+     },
+     {
+      "FareName": "全票_不分時段_三排座",
+      "TicketType": 1,
+      "FareClass": 1,
+      "Price": 66
+     },
+     {
+      "FareName": "半票_不分時段_四排座",
+      "TicketType": 1,
+      "FareClass": 10,
+      "Price": 33
+     },
+     {
+      "FareName": "半票_不分時段_三排座",
+      "TicketType": 1,
+      "FareClass": 10,
+      "Price": 33
+     }
+    ]
+   },
+   {
+    "Direction": 0,
+    "OriginStage": {
+     "StopID": "300192",
+     "StopName": "南昌路口",
+     "Sequence": 7
+    },
+    "DestinationStage": {
+     "StopID": "300198",
+     "StopName": "庫倫街口",
+     "Sequence": 10
+    },
+    "Fares": [
+     {
+      "FareName": "全票_不分時段_四排座",
+      "TicketType": 1,
+      "FareClass": 1,
+      "Price": 51
+     },
+     {
+      "FareName": "全票_不分時段_三排座",
+      "TicketType": 1,
+      "FareClass": 1,
+      "Price": 51
+     },
+     {
+      "FareName": "半票_不分時段_三排座",
+      "TicketType": 1,
+      "FareClass": 10,
+      "Price": 25
+     },
+     {
+      "FareName": "半票_不分時段_四排座",
+      "TicketType": 1,
+      "FareClass": 10,
+      "Price": 25
+     }
+    ]
+   }
+  ],
+  "UpdateTime": "2026-11-23T09:56:48+08:00"
+ }
+]

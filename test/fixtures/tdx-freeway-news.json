@@ -1,0 +1,54 @@
+{
+ "UpdateTime": "2026-11-23T14:19:12+08:00",
+ "UpdateInterval": 60,
+ "SrcUpdateTime": "2026-11-23T14:16:00+08:00",
+ "SrcUpdateInterval": 60,
+ "AuthorityCode": "NFB",
+ "Newses": [
+  {
+   "NewsID": "20261123075358943100021",
+   "Language": "Zh_tw",
+   "Title": "施工維護",
+   "NewsCategory": 4,
+   "NewsURL": "https://www.freeway.gov.tw/default.aspx",
+   "PublishTime": "2026-11-23T07:53:00+08:00",
+   "UpdateTime": "0001-01-01T00:00:00+08:06"
+  },
+  {
+   "NewsID": "20261123080028026100021",
+   "Language": "Zh_tw",
+   "Title": "施工維護",
+   "NewsCategory": 4,
+   "NewsURL": "https://www.freeway.gov.tw/default.aspx",
+   "PublishTime": "2026-11-23T08:00:00+08:00",
+   "UpdateTime": "0001-01-01T00:00:00+08:06"
+  },
+  {
+   "NewsID": "20261123080220002100045",
+   "Language": "Zh_tw",
+   "Title": "移動性施工",
+   "NewsCategory": 4,
+   "NewsURL": "https://www.freeway.gov.tw/default.aspx",
+   "PublishTime": "2026-11-23T08:02:00+08:00",
+   "UpdateTime": "0001-01-01T00:00:00+08:06"
+  },
+  {
+   "NewsID": "20261123080552316100045",
+   "Language": "Zh_tw",
+   "Title": "移動性施工",
+   "NewsCategory": 4,
+   "NewsURL": "https://www.freeway.gov.tw/default.aspx",
+   "PublishTime": "2026-11-23T08:05:00+08:00",
+   "UpdateTime": "0001-01-01T00:00:00+08:06"
+  },
+  {
+   "NewsID": "20261123081336279100045",
+   "Language": "Zh_tw",
+   "Title": "移動性施工",
+   "NewsCategory": 4,
+   "NewsURL": "https://www.freeway.gov.tw/default.aspx",
+   "PublishTime": "2026-11-23T08:13:00+08:00",
+   "UpdateTime": "0001-01-01T00:00:00+08:06"
+  }
+ ]
+}

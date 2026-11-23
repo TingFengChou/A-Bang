@@ -1,0 +1,1769 @@
+[
+ {
+  "RouteUID": "THB0968",
+  "RouteID": "0968",
+  "RouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "SubRouteUID": "THB096801",
+  "SubRouteID": "096801",
+  "SubRouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "Direction": 0,
+  "OperatorID": "35",
+  "OperatorCode": "KamalanBus",
+  "OperatorNo": "1308",
+  "Timetables": [
+   {
+    "TripID": "1",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 0,
+     "Monday": 1,
+     "Tuesday": 1,
+     "Wednesday": 1,
+     "Thursday": 1,
+     "Friday": 1,
+     "Saturday": 0
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300177",
+      "StopID": "300177",
+      "StopName": {
+       "Zh_tw": "大竹消防隊",
+       "En": "Dajhu Fire Brigade"
+      },
+      "ArrivalTime": "06:30",
+      "DepartureTime": "06:30"
+     }
+    ]
+   },
+   {
+    "TripID": "2",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 1,
+     "Monday": 1,
+     "Tuesday": 1,
+     "Wednesday": 1,
+     "Thursday": 1,
+     "Friday": 1,
+     "Saturday": 1
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300177",
+      "StopID": "300177",
+      "StopName": {
+       "Zh_tw": "大竹消防隊",
+       "En": "Dajhu Fire Brigade"
+      },
+      "ArrivalTime": "07:00",
+      "DepartureTime": "07:00"
+     }
+    ]
+   },
+   {
+    "TripID": "3",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 1,
+     "Monday": 0,
+     "Tuesday": 0,
+     "Wednesday": 0,
+     "Thursday": 0,
+     "Friday": 0,
+     "Saturday": 1
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300177",
+      "StopID": "300177",
+      "StopName": {
+       "Zh_tw": "大竹消防隊",
+       "En": "Dajhu Fire Brigade"
+      },
+      "ArrivalTime": "07:30",
+      "DepartureTime": "07:30"
+     }
+    ]
+   },
+   {
+    "TripID": "4",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 1,
+     "Monday": 0,
+     "Tuesday": 0,
+     "Wednesday": 0,
+     "Thursday": 0,
+     "Friday": 0,
+     "Saturday": 1
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300177",
+      "StopID": "300177",
+      "StopName": {
+       "Zh_tw": "大竹消防隊",
+       "En": "Dajhu Fire Brigade"
+      },
+      "ArrivalTime": "09:55",
+      "DepartureTime": "09:55"
+     }
+    ]
+   },
+   {
+    "TripID": "5",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 1,
+     "Monday": 0,
+     "Tuesday": 0,
+     "Wednesday": 0,
+     "Thursday": 0,
+     "Friday": 0,
+     "Saturday": 1
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300177",
+      "StopID": "300177",
+      "StopName": {
+       "Zh_tw": "大竹消防隊",
+       "En": "Dajhu Fire Brigade"
+      },
+      "ArrivalTime": "10:35",
+      "DepartureTime": "10:35"
+     }
+    ]
+   }
+  ],
+  "UpdateTime": "2026-11-23T09:56:48+08:00",
+  "VersionID": 8067
+ },
+ {
+  "RouteUID": "THB0968",
+  "RouteID": "0968",
+  "RouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "SubRouteUID": "THB096802",
+  "SubRouteID": "096802",
+  "SubRouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "Direction": 1,
+  "OperatorID": "16",
+  "OperatorCode": "YatungBus",
+  "OperatorNo": "0702",
+  "Timetables": [
+   {
+    "TripID": "1",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 1,
+     "Monday": 1,
+     "Tuesday": 1,
+     "Wednesday": 1,
+     "Thursday": 1,
+     "Friday": 1,
+     "Saturday": 1
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300198",
+      "StopID": "300198",
+      "StopName": {
+       "Zh_tw": "庫倫街口",
+       "En": "Kulun St. Entrance"
+      },
+      "ArrivalTime": "07:40",
+      "DepartureTime": "07:40"
+     },
+     {
+      "StopSequence": 2,
+      "StopUID": "THB300197",
+      "StopID": "300197",
+      "StopName": {
+       "Zh_tw": "長榮",
+       "En": "Changrong"
+      },
+      "ArrivalTime": "08:20",
+      "DepartureTime": "08:20"
+     },
+     {
+      "StopSequence": 3,
+      "StopUID": "THB300195",
+      "StopID": "300195",
+      "StopName": {
+       "Zh_tw": "光明國小",
+       "En": "Guangming Elementary School"
+      },
+      "ArrivalTime": "08:23",
+      "DepartureTime": "08:23"
+     },
+     {
+      "StopSequence": 4,
+      "StopUID": "THB300193",
+      "StopID": "300193",
+      "StopName": {
+       "Zh_tw": "南昌路口",
+       "En": "Nanchang Intersection"
+      },
+      "ArrivalTime": "08:24",
+      "DepartureTime": "08:24"
+     },
+     {
+      "StopSequence": 5,
+      "StopUID": "THB300191",
+      "StopID": "300191",
+      "StopName": {
+       "Zh_tw": "南竹蘆興街口",
+       "En": "Nanjhu & Lusing Intersection"
+      },
+      "ArrivalTime": "08:28",
+      "DepartureTime": "08:28"
+     },
+     {
+      "StopSequence": 6,
+      "StopUID": "THB300189",
+      "StopID": "300189",
+      "StopName": {
+       "Zh_tw": "南竹路四段37號",
+       "En": "Nanzhu Rd., Sec. 4, No. 37"
+      },
+      "ArrivalTime": "08:30",
+      "DepartureTime": "08:30"
+     },
+     {
+      "StopSequence": 7,
+      "StopUID": "THB300187",
+      "StopID": "300187",
+      "StopName": {
+       "Zh_tw": "大竹",
+       "En": "Dajhu"
+      },
+      "ArrivalTime": "08:34",
+      "DepartureTime": "08:34"
+     },
+     {
+      "StopSequence": 8,
+      "StopUID": "THB300185",
+      "StopID": "300185",
+      "StopName": {
+       "Zh_tw": "上大竹",
+       "En": "Shangdajhu"
+      },
+      "ArrivalTime": "08:34",
+      "DepartureTime": "08:34"
+     },
+     {
+      "StopSequence": 9,
+      "StopUID": "THB300182",
+      "StopID": "300182",
+      "StopName": {
+       "Zh_tw": "大竹上興路口",
+       "En": "Dajhu & Shangsing Intersection"
+      },
+      "ArrivalTime": "08:35",
+      "DepartureTime": "08:35"
+     },
+     {
+      "StopSequence": 10,
+      "StopUID": "THB300178",
+      "StopID": "300178",
+      "StopName": {
+       "Zh_tw": "大竹消防隊",
+       "En": "Dajhu Fire Brigade"
+      },
+      "ArrivalTime": "08:36",
+      "DepartureTime": "08:36"
+     }
+    ]
+   },
+   {
+    "TripID": "2",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 1,
+     "Monday": 1,
+     "Tuesday": 1,
+     "Wednesday": 1,
+     "Thursday": 1,
+     "Friday": 1,
+     "Saturday": 1
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300198",
+      "StopID": "300198",
+      "StopName": {
+       "Zh_tw": "庫倫街口",
+       "En": "Kulun St. Entrance"
+      },
+      "ArrivalTime": "09:50",
+      "DepartureTime": "09:50"
+     },
+     {
+      "StopSequence": 2,
+      "StopUID": "THB300197",
+      "StopID": "300197",
+      "StopName": {
+       "Zh_tw": "長榮",
+       "En": "Changrong"
+      },
+      "ArrivalTime": "10:14",
+      "DepartureTime": "10:14"
+     },
+     {
+      "StopSequence": 3,
+      "StopUID": "THB300195",
+      "StopID": "300195",
+      "StopName": {
+       "Zh_tw": "光明國小",
+       "En": "Guangming Elementary School"
+      },
+      "ArrivalTime": "10:16",
+      "DepartureTime": "10:16"
+     },
+     {
+      "StopSequence": 4,
+      "StopUID": "THB300193",
+      "StopID": "300193",
+      "StopName": {
+       "Zh_tw": "南昌路口",
+       "En": "Nanchang Intersection"
+      },
+      "ArrivalTime": "10:17",
+      "DepartureTime": "10:17"
+     },
+     {
+      "StopSequence": 5,
+      "StopUID": "THB300191",
+      "StopID": "300191",
+      "StopName": {
+       "Zh_tw": "南竹蘆興街口",
+       "En": "Nanjhu & Lusing Intersection"
+      },
+      "ArrivalTime": "10:22",
+      "DepartureTime": "10:22"
+     },
+     {
+      "StopSequence": 6,
+      "StopUID": "THB300189",
+      "StopID": "300189",
+      "StopName": {
+       "Zh_tw": "南竹路四段37號",
+       "En": "Nanzhu Rd., Sec. 4, No. 37"
+      },
+      "ArrivalTime": "10:24",
+      "DepartureTime": "10:24"
+     },
+     {
+      "StopSequence": 7,
+      "StopUID": "THB300187",
+      "StopID": "300187",
+      "StopName": {
+       "Zh_tw": "大竹",
+       "En": "Dajhu"
+      },
+      "ArrivalTime": "10:28",
+      "DepartureTime": "10:28"
+     },
+     {
+      "StopSequence": 8,
+      "StopUID": "THB300185",
+      "StopID": "300185",
+      "StopName": {
+       "Zh_tw": "上大竹",
+       "En": "Shangdajhu"
+      },
+      "ArrivalTime": "10:28",
+      "DepartureTime": "10:28"
+     },
+     {
+      "StopSequence": 9,
+      "StopUID": "THB300182",
+      "StopID": "300182",
+      "StopName": {
+       "Zh_tw": "大竹上興路口",
+       "En": "Dajhu & Shangsing Intersection"
+      },
+      "ArrivalTime": "10:29",
+      "DepartureTime": "10:29"
+     },
+     {
+      "StopSequence": 10,
+      "StopUID": "THB300178",
+      "StopID": "300178",
+      "StopName": {
+       "Zh_tw": "大竹消防隊",
+       "En": "Dajhu Fire Brigade"
+      },
+      "ArrivalTime": "10:30",
+      "DepartureTime": "10:30"
+     }
+    ]
+   },
+   {
+    "TripID": "3",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 1,
+     "Monday": 1,
+     "Tuesday": 1,
+     "Wednesday": 1,
+     "Thursday": 1,
+     "Friday": 1,
+     "Saturday": 1
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300198",
+      "StopID": "300198",
+      "StopName": {
+       "Zh_tw": "庫倫街口",
+       "En": "Kulun St. Entrance"
+      },
+      "ArrivalTime": "14:30",
+      "DepartureTime": "14:30"
+     },
+     {
+      "StopSequence": 2,
+      "StopUID": "THB300197",
+      "StopID": "300197",
+      "StopName": {
+       "Zh_tw": "長榮",
+       "En": "Changrong"
+      },
+      "ArrivalTime": "14:59",
+      "DepartureTime": "14:59"
+     },
+     {
+      "StopSequence": 3,
+      "StopUID": "THB300195",
+      "StopID": "300195",
+      "StopName": {
+       "Zh_tw": "光明國小",
+       "En": "Guangming Elementary School"
+      },
+      "ArrivalTime": "15:02",
+      "DepartureTime": "15:02"
+     },
+     {
+      "StopSequence": 4,
+      "StopUID": "THB300193",
+      "StopID": "300193",
+      "StopName": {
+       "Zh_tw": "南昌路口",
+       "En": "Nanchang Intersection"
+      },
+      "ArrivalTime": "15:03",
+      "DepartureTime": "15:03"
+     },
+     {
+      "StopSequence": 5,
+      "StopUID": "THB300191",
+      "StopID": "300191",
+      "StopName": {
+       "Zh_tw": "南竹蘆興街口",
+       "En": "Nanjhu & Lusing Intersection"
+      },
+      "ArrivalTime": "15:07",
+      "DepartureTime": "15:07"
+     },
+     {
+      "StopSequence": 6,
+      "StopUID": "THB300189",
+      "StopID": "300189",
+      "StopName": {
+       "Zh_tw": "南竹路四段37號",
+       "En": "Nanzhu Rd., Sec. 4, No. 37"
+      },
+      "ArrivalTime": "15:09",
+      "DepartureTime": "15:09"
+     },
+     {
+      "StopSequence": 7,
+      "StopUID": "THB300187",
+      "StopID": "300187",
+      "StopName": {
+       "Zh_tw": "大竹",
+       "En": "Dajhu"
+      },
+      "ArrivalTime": "15:13",
+      "DepartureTime": "15:13"
+     },
+     {
+      "StopSequence": 8,
+      "StopUID": "THB300185",
+      "StopID": "300185",
+      "StopName": {
+       "Zh_tw": "上大竹",
+       "En": "Shangdajhu"
+      },
+      "ArrivalTime": "15:15",
+      "DepartureTime": "15:15"
+     },
+     {
+      "StopSequence": 9,
+      "StopUID": "THB300182",
+      "StopID": "300182",
+      "StopName": {
+       "Zh_tw": "大竹上興路口",
+       "En": "Dajhu & Shangsing Intersection"
+      },
+      "ArrivalTime": "15:16",
+      "DepartureTime": "15:16"
+     },
+     {
+      "StopSequence": 10,
+      "StopUID": "THB300178",
+      "StopID": "300178",
+      "StopName": {
+       "Zh_tw": "大竹消防隊",
+       "En": "Dajhu Fire Brigade"
+      },
+      "ArrivalTime": "15:18",
+      "DepartureTime": "15:18"
+     }
+    ]
+   },
+   {
+    "TripID": "4",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 1,
+     "Monday": 1,
+     "Tuesday": 1,
+     "Wednesday": 1,
+     "Thursday": 1,
+     "Friday": 1,
+     "Saturday": 1
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300198",
+      "StopID": "300198",
+      "StopName": {
+       "Zh_tw": "庫倫街口",
+       "En": "Kulun St. Entrance"
+      },
+      "ArrivalTime": "17:30",
+      "DepartureTime": "17:30"
+     },
+     {
+      "StopSequence": 2,
+      "StopUID": "THB300197",
+      "StopID": "300197",
+      "StopName": {
+       "Zh_tw": "長榮",
+       "En": "Changrong"
+      },
+      "ArrivalTime": "18:05",
+      "DepartureTime": "18:05"
+     },
+     {
+      "StopSequence": 3,
+      "StopUID": "THB300195",
+      "StopID": "300195",
+      "StopName": {
+       "Zh_tw": "光明國小",
+       "En": "Guangming Elementary School"
+      },
+      "ArrivalTime": "18:10",
+      "DepartureTime": "18:10"
+     },
+     {
+      "StopSequence": 4,
+      "StopUID": "THB300193",
+      "StopID": "300193",
+      "StopName": {
+       "Zh_tw": "南昌路口",
+       "En": "Nanchang Intersection"
+      },
+      "ArrivalTime": "18:12",
+      "DepartureTime": "18:12"
+     },
+     {
+      "StopSequence": 5,
+      "StopUID": "THB300191",
+      "StopID": "300191",
+      "StopName": {
+       "Zh_tw": "南竹蘆興街口",
+       "En": "Nanjhu & Lusing Intersection"
+      },
+      "ArrivalTime": "18:17",
+      "DepartureTime": "18:17"
+     },
+     {
+      "StopSequence": 6,
+      "StopUID": "THB300189",
+      "StopID": "300189",
+      "StopName": {
+       "Zh_tw": "南竹路四段37號",
+       "En": "Nanzhu Rd., Sec. 4, No. 37"
+      },
+      "ArrivalTime": "18:20",
+      "DepartureTime": "18:20"
+     },
+     {
+      "StopSequence": 7,
+      "StopUID": "THB300187",
+      "StopID": "300187",
+      "StopName": {
+       "Zh_tw": "大竹",
+       "En": "Dajhu"
+      },
+      "ArrivalTime": "18:25",
+      "DepartureTime": "18:25"
+     },
+     {
+      "StopSequence": 8,
+      "StopUID": "THB300185",
+      "StopID": "300185",
+      "StopName": {
+       "Zh_tw": "上大竹",
+       "En": "Shangdajhu"
+      },
+      "ArrivalTime": "18:27",
+      "DepartureTime": "18:27"
+     },
+     {
+      "StopSequence": 9,
+      "StopUID": "THB300182",
+      "StopID": "300182",
+      "StopName": {
+       "Zh_tw": "大竹上興路口",
+       "En": "Dajhu & Shangsing Intersection"
+      },
+      "ArrivalTime": "18:28",
+      "DepartureTime": "18:28"
+     },
+     {
+      "StopSequence": 10,
+      "StopUID": "THB300178",
+      "StopID": "300178",
+      "StopName": {
+       "Zh_tw": "大竹消防隊",
+       "En": "Dajhu Fire Brigade"
+      },
+      "ArrivalTime": "18:30",
+      "DepartureTime": "18:30"
+     }
+    ]
+   }
+  ],
+  "UpdateTime": "2026-11-23T09:56:48+08:00",
+  "VersionID": 8067
+ },
+ {
+  "RouteUID": "THB0968",
+  "RouteID": "0968",
+  "RouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "SubRouteUID": "THB096802",
+  "SubRouteID": "096802",
+  "SubRouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "Direction": 1,
+  "OperatorID": "35",
+  "OperatorCode": "KamalanBus",
+  "OperatorNo": "1308",
+  "Timetables": [
+   {
+    "TripID": "1",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 1,
+     "Monday": 0,
+     "Tuesday": 0,
+     "Wednesday": 0,
+     "Thursday": 0,
+     "Friday": 0,
+     "Saturday": 1
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300198",
+      "StopID": "300198",
+      "StopName": {
+       "Zh_tw": "庫倫街口",
+       "En": "Kulun St. Entrance"
+      },
+      "ArrivalTime": "08:30",
+      "DepartureTime": "08:30"
+     },
+     {
+      "StopSequence": 2,
+      "StopUID": "THB300197",
+      "StopID": "300197",
+      "StopName": {
+       "Zh_tw": "長榮",
+       "En": "Changrong"
+      },
+      "ArrivalTime": "08:55",
+      "DepartureTime": "08:55"
+     },
+     {
+      "StopSequence": 3,
+      "StopUID": "THB300195",
+      "StopID": "300195",
+      "StopName": {
+       "Zh_tw": "光明國小",
+       "En": "Guangming Elementary School"
+      },
+      "ArrivalTime": "08:58",
+      "DepartureTime": "08:58"
+     },
+     {
+      "StopSequence": 4,
+      "StopUID": "THB300193",
+      "StopID": "300193",
+      "StopName": {
+       "Zh_tw": "南昌路口",
+       "En": "Nanchang Intersection"
+      },
+      "ArrivalTime": "08:59",
+      "DepartureTime": "08:59"
+     },
+     {
+      "StopSequence": 5,
+      "StopUID": "THB300191",
+      "StopID": "300191",
+      "StopName": {
+       "Zh_tw": "南竹蘆興街口",
+       "En": "Nanjhu & Lusing Intersection"
+      },
+      "ArrivalTime": "09:03",
+      "DepartureTime": "09:03"
+     },
+     {
+      "StopSequence": 6,
+      "StopUID": "THB300189",
+      "StopID": "300189",
+      "StopName": {
+       "Zh_tw": "南竹路四段37號",
+       "En": "Nanzhu Rd., Sec. 4, No. 37"
+      },
+      "ArrivalTime": "09:05",
+      "DepartureTime": "09:05"
+     },
+     {
+      "StopSequence": 7,
+      "StopUID": "THB300187",
+      "StopID": "300187",
+      "StopName": {
+       "Zh_tw": "大竹",
+       "En": "Dajhu"
+      },
+      "ArrivalTime": "09:09",
+      "DepartureTime": "09:09"
+     },
+     {
+      "StopSequence": 8,
+      "StopUID": "THB300185",
+      "StopID": "300185",
+      "StopName": {
+       "Zh_tw": "上大竹",
+       "En": "Shangdajhu"
+      },
+      "ArrivalTime": "09:10",
+      "DepartureTime": "09:10"
+     },
+     {
+      "StopSequence": 9,
+      "StopUID": "THB300182",
+      "StopID": "300182",
+      "StopName": {
+       "Zh_tw": "大竹上興路口",
+       "En": "Dajhu & Shangsing Intersection"
+      },
+      "ArrivalTime": "09:10",
+      "DepartureTime": "09:10"
+     },
+     {
+      "StopSequence": 10,
+      "StopUID": "THB300178",
+      "StopID": "300178",
+      "StopName": {
+       "Zh_tw": "大竹消防隊",
+       "En": "Dajhu Fire Brigade"
+      },
+      "ArrivalTime": "09:11",
+      "DepartureTime": "09:11"
+     }
+    ]
+   },
+   {
+    "TripID": "2",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 1,
+     "Monday": 0,
+     "Tuesday": 0,
+     "Wednesday": 0,
+     "Thursday": 0,
+     "Friday": 0,
+     "Saturday": 1
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300198",
+      "StopID": "300198",
+      "StopName": {
+       "Zh_tw": "庫倫街口",
+       "En": "Kulun St. Entrance"
+      },
+      "ArrivalTime": "09:00",
+      "DepartureTime": "09:00"
+     },
+     {
+      "StopSequence": 2,
+      "StopUID": "THB300197",
+      "StopID": "300197",
+      "StopName": {
+       "Zh_tw": "長榮",
+       "En": "Changrong"
+      },
+      "ArrivalTime": "09:24",
+      "DepartureTime": "09:24"
+     },
+     {
+      "StopSequence": 3,
+      "StopUID": "THB300195",
+      "StopID": "300195",
+      "StopName": {
+       "Zh_tw": "光明國小",
+       "En": "Guangming Elementary School"
+      },
+      "ArrivalTime": "09:26",
+      "DepartureTime": "09:26"
+     },
+     {
+      "StopSequence": 4,
+      "StopUID": "THB300193",
+      "StopID": "300193",
+      "StopName": {
+       "Zh_tw": "南昌路口",
+       "En": "Nanchang Intersection"
+      },
+      "ArrivalTime": "09:27",
+      "DepartureTime": "09:27"
+     },
+     {
+      "StopSequence": 5,
+      "StopUID": "THB300191",
+      "StopID": "300191",
+      "StopName": {
+       "Zh_tw": "南竹蘆興街口",
+       "En": "Nanjhu & Lusing Intersection"
+      },
+      "ArrivalTime": "09:31",
+      "DepartureTime": "09:31"
+     },
+     {
+      "StopSequence": 6,
+      "StopUID": "THB300189",
+      "StopID": "300189",
+      "StopName": {
+       "Zh_tw": "南竹路四段37號",
+       "En": "Nanzhu Rd., Sec. 4, No. 37"
+      },
+      "ArrivalTime": "09:33",
+      "DepartureTime": "09:33"
+     },
+     {
+      "StopSequence": 7,
+      "StopUID": "THB300187",
+      "StopID": "300187",
+      "StopName": {
+       "Zh_tw": "大竹",
+       "En": "Dajhu"
+      },
+      "ArrivalTime": "09:37",
+      "DepartureTime": "09:37"
+     },
+     {
+      "StopSequence": 8,
+      "StopUID": "THB300185",
+      "StopID": "300185",
+      "StopName": {
+       "Zh_tw": "上大竹",
+       "En": "Shangdajhu"
+      },
+      "ArrivalTime": "09:38",
+      "DepartureTime": "09:38"
+     },
+     {
+      "StopSequence": 9,
+      "StopUID": "THB300182",
+      "StopID": "300182",
+      "StopName": {
+       "Zh_tw": "大竹上興路口",
+       "En": "Dajhu & Shangsing Intersection"
+      },
+      "ArrivalTime": "09:38",
+      "DepartureTime": "09:38"
+     },
+     {
+      "StopSequence": 10,
+      "StopUID": "THB300178",
+      "StopID": "300178",
+      "StopName": {
+       "Zh_tw": "大竹消防隊",
+       "En": "Dajhu Fire Brigade"
+      },
+      "ArrivalTime": "09:39",
+      "DepartureTime": "09:39"
+     }
+    ]
+   },
+   {
+    "TripID": "3",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 1,
+     "Monday": 0,
+     "Tuesday": 0,
+     "Wednesday": 0,
+     "Thursday": 0,
+     "Friday": 0,
+     "Saturday": 1
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300198",
+      "StopID": "300198",
+      "StopName": {
+       "Zh_tw": "庫倫街口",
+       "En": "Kulun St. Entrance"
+      },
+      "ArrivalTime": "11:00",
+      "DepartureTime": "11:00"
+     },
+     {
+      "StopSequence": 2,
+      "StopUID": "THB300197",
+      "StopID": "300197",
+      "StopName": {
+       "Zh_tw": "長榮",
+       "En": "Changrong"
+      },
+      "ArrivalTime": "11:25",
+      "DepartureTime": "11:25"
+     },
+     {
+      "StopSequence": 3,
+      "StopUID": "THB300195",
+      "StopID": "300195",
+      "StopName": {
+       "Zh_tw": "光明國小",
+       "En": "Guangming Elementary School"
+      },
+      "ArrivalTime": "11:28",
+      "DepartureTime": "11:28"
+     },
+     {
+      "StopSequence": 4,
+      "StopUID": "THB300193",
+      "StopID": "300193",
+      "StopName": {
+       "Zh_tw": "南昌路口",
+       "En": "Nanchang Intersection"
+      },
+      "ArrivalTime": "11:29",
+      "DepartureTime": "11:29"
+     },
+     {
+      "StopSequence": 5,
+      "StopUID": "THB300191",
+      "StopID": "300191",
+      "StopName": {
+       "Zh_tw": "南竹蘆興街口",
+       "En": "Nanjhu & Lusing Intersection"
+      },
+      "ArrivalTime": "11:33",
+      "DepartureTime": "11:33"
+     },
+     {
+      "StopSequence": 6,
+      "StopUID": "THB300189",
+      "StopID": "300189",
+      "StopName": {
+       "Zh_tw": "南竹路四段37號",
+       "En": "Nanzhu Rd., Sec. 4, No. 37"
+      },
+      "ArrivalTime": "11:35",
+      "DepartureTime": "11:35"
+     },
+     {
+      "StopSequence": 7,
+      "StopUID": "THB300187",
+      "StopID": "300187",
+      "StopName": {
+       "Zh_tw": "大竹",
+       "En": "Dajhu"
+      },
+      "ArrivalTime": "11:39",
+      "DepartureTime": "11:39"
+     },
+     {
+      "StopSequence": 8,
+      "StopUID": "THB300185",
+      "StopID": "300185",
+      "StopName": {
+       "Zh_tw": "上大竹",
+       "En": "Shangdajhu"
+      },
+      "ArrivalTime": "11:40",
+      "DepartureTime": "11:40"
+     },
+     {
+      "StopSequence": 9,
+      "StopUID": "THB300182",
+      "StopID": "300182",
+      "StopName": {
+       "Zh_tw": "大竹上興路口",
+       "En": "Dajhu & Shangsing Intersection"
+      },
+      "ArrivalTime": "11:41",
+      "DepartureTime": "11:41"
+     },
+     {
+      "StopSequence": 10,
+      "StopUID": "THB300178",
+      "StopID": "300178",
+      "StopName": {
+       "Zh_tw": "大竹消防隊",
+       "En": "Dajhu Fire Brigade"
+      },
+      "ArrivalTime": "11:42",
+      "DepartureTime": "11:42"
+     }
+    ]
+   },
+   {
+    "TripID": "4",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 1,
+     "Monday": 0,
+     "Tuesday": 0,
+     "Wednesday": 0,
+     "Thursday": 0,
+     "Friday": 0,
+     "Saturday": 1
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300198",
+      "StopID": "300198",
+      "StopName": {
+       "Zh_tw": "庫倫街口",
+       "En": "Kulun St. Entrance"
+      },
+      "ArrivalTime": "12:00",
+      "DepartureTime": "12:00"
+     },
+     {
+      "StopSequence": 2,
+      "StopUID": "THB300197",
+      "StopID": "300197",
+      "StopName": {
+       "Zh_tw": "長榮",
+       "En": "Changrong"
+      },
+      "ArrivalTime": "12:24",
+      "DepartureTime": "12:24"
+     },
+     {
+      "StopSequence": 3,
+      "StopUID": "THB300195",
+      "StopID": "300195",
+      "StopName": {
+       "Zh_tw": "光明國小",
+       "En": "Guangming Elementary School"
+      },
+      "ArrivalTime": "12:27",
+      "DepartureTime": "12:27"
+     },
+     {
+      "StopSequence": 4,
+      "StopUID": "THB300193",
+      "StopID": "300193",
+      "StopName": {
+       "Zh_tw": "南昌路口",
+       "En": "Nanchang Intersection"
+      },
+      "ArrivalTime": "12:28",
+      "DepartureTime": "12:28"
+     },
+     {
+      "StopSequence": 5,
+      "StopUID": "THB300191",
+      "StopID": "300191",
+      "StopName": {
+       "Zh_tw": "南竹蘆興街口",
+       "En": "Nanjhu & Lusing Intersection"
+      },
+      "ArrivalTime": "12:32",
+      "DepartureTime": "12:32"
+     },
+     {
+      "StopSequence": 6,
+      "StopUID": "THB300189",
+      "StopID": "300189",
+      "StopName": {
+       "Zh_tw": "南竹路四段37號",
+       "En": "Nanzhu Rd., Sec. 4, No. 37"
+      },
+      "ArrivalTime": "12:34",
+      "DepartureTime": "12:34"
+     },
+     {
+      "StopSequence": 7,
+      "StopUID": "THB300187",
+      "StopID": "300187",
+      "StopName": {
+       "Zh_tw": "大竹",
+       "En": "Dajhu"
+      },
+      "ArrivalTime": "12:38",
+      "DepartureTime": "12:38"
+     },
+     {
+      "StopSequence": 8,
+      "StopUID": "THB300185",
+      "StopID": "300185",
+      "StopName": {
+       "Zh_tw": "上大竹",
+       "En": "Shangdajhu"
+      },
+      "ArrivalTime": "12:40",
+      "DepartureTime": "12:40"
+     },
+     {
+      "StopSequence": 9,
+      "StopUID": "THB300182",
+      "StopID": "300182",
+      "StopName": {
+       "Zh_tw": "大竹上興路口",
+       "En": "Dajhu & Shangsing Intersection"
+      },
+      "ArrivalTime": "12:41",
+      "DepartureTime": "12:41"
+     },
+     {
+      "StopSequence": 10,
+      "StopUID": "THB300178",
+      "StopID": "300178",
+      "StopName": {
+       "Zh_tw": "大竹消防隊",
+       "En": "Dajhu Fire Brigade"
+      },
+      "ArrivalTime": "12:42",
+      "DepartureTime": "12:42"
+     }
+    ]
+   },
+   {
+    "TripID": "5",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 1,
+     "Monday": 0,
+     "Tuesday": 0,
+     "Wednesday": 0,
+     "Thursday": 0,
+     "Friday": 0,
+     "Saturday": 1
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300198",
+      "StopID": "300198",
+      "StopName": {
+       "Zh_tw": "庫倫街口",
+       "En": "Kulun St. Entrance"
+      },
+      "ArrivalTime": "14:30",
+      "DepartureTime": "14:30"
+     },
+     {
+      "StopSequence": 2,
+      "StopUID": "THB300197",
+      "StopID": "300197",
+      "StopName": {
+       "Zh_tw": "長榮",
+       "En": "Changrong"
+      },
+      "ArrivalTime": "14:59",
+      "DepartureTime": "14:59"
+     },
+     {
+      "StopSequence": 3,
+      "StopUID": "THB300195",
+      "StopID": "300195",
+      "StopName": {
+       "Zh_tw": "光明國小",
+       "En": "Guangming Elementary School"
+      },
+      "ArrivalTime": "15:02",
+      "DepartureTime": "15:02"
+     },
+     {
+      "StopSequence": 4,
+      "StopUID": "THB300193",
+      "StopID": "300193",
+      "StopName": {
+       "Zh_tw": "南昌路口",
+       "En": "Nanchang Intersection"
+      },
+      "ArrivalTime": "15:03",
+      "DepartureTime": "15:03"
+     },
+     {
+      "StopSequence": 5,
+      "StopUID": "THB300191",
+      "StopID": "300191",
+      "StopName": {
+       "Zh_tw": "南竹蘆興街口",
+       "En": "Nanjhu & Lusing Intersection"
+      },
+      "ArrivalTime": "15:07",
+      "DepartureTime": "15:07"
+     },
+     {
+      "StopSequence": 6,
+      "StopUID": "THB300189",
+      "StopID": "300189",
+      "StopName": {
+       "Zh_tw": "南竹路四段37號",
+       "En": "Nanzhu Rd., Sec. 4, No. 37"
+      },
+      "ArrivalTime": "15:09",
+      "DepartureTime": "15:09"
+     },
+     {
+      "StopSequence": 7,
+      "StopUID": "THB300187",
+      "StopID": "300187",
+      "StopName": {
+       "Zh_tw": "大竹",
+       "En": "Dajhu"
+      },
+      "ArrivalTime": "15:13",
+      "DepartureTime": "15:13"
+     },
+     {
+      "StopSequence": 8,
+      "StopUID": "THB300185",
+      "StopID": "300185",
+      "StopName": {
+       "Zh_tw": "上大竹",
+       "En": "Shangdajhu"
+      },
+      "ArrivalTime": "15:15",
+      "DepartureTime": "15:15"
+     },
+     {
+      "StopSequence": 9,
+      "StopUID": "THB300182",
+      "StopID": "300182",
+      "StopName": {
+       "Zh_tw": "大竹上興路口",
+       "En": "Dajhu & Shangsing Intersection"
+      },
+      "ArrivalTime": "15:16",
+      "DepartureTime": "15:16"
+     },
+     {
+      "StopSequence": 10,
+      "StopUID": "THB300178",
+      "StopID": "300178",
+      "StopName": {
+       "Zh_tw": "大竹消防隊",
+       "En": "Dajhu Fire Brigade"
+      },
+      "ArrivalTime": "15:18",
+      "DepartureTime": "15:18"
+     }
+    ]
+   }
+  ],
+  "UpdateTime": "2026-11-23T09:56:48+08:00",
+  "VersionID": 8067
+ },
+ {
+  "RouteUID": "THB0968",
+  "RouteID": "0968",
+  "RouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "SubRouteUID": "THB0968A1",
+  "SubRouteID": "0968A1",
+  "SubRouteName": {
+   "Zh_tw": "0968A",
+   "En": "0968A"
+  },
+  "Direction": 0,
+  "OperatorID": "35",
+  "OperatorCode": "KamalanBus",
+  "OperatorNo": "1308",
+  "Timetables": [
+   {
+    "TripID": "1",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 0,
+     "Monday": 1,
+     "Tuesday": 1,
+     "Wednesday": 1,
+     "Thursday": 1,
+     "Friday": 1,
+     "Saturday": 0
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300174",
+      "StopID": "300174",
+      "StopName": {
+       "Zh_tw": "開南大學",
+       "En": "Kainan University"
+      },
+      "ArrivalTime": "09:30",
+      "DepartureTime": "09:30"
+     }
+    ]
+   },
+   {
+    "TripID": "2",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 0,
+     "Monday": 1,
+     "Tuesday": 1,
+     "Wednesday": 1,
+     "Thursday": 1,
+     "Friday": 1,
+     "Saturday": 0
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300174",
+      "StopID": "300174",
+      "StopName": {
+       "Zh_tw": "開南大學",
+       "En": "Kainan University"
+      },
+      "ArrivalTime": "10:00",
+      "DepartureTime": "10:00"
+     }
+    ]
+   },
+   {
+    "TripID": "3",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 0,
+     "Monday": 1,
+     "Tuesday": 1,
+     "Wednesday": 1,
+     "Thursday": 1,
+     "Friday": 1,
+     "Saturday": 0
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300174",
+      "StopID": "300174",
+      "StopName": {
+       "Zh_tw": "開南大學",
+       "En": "Kainan University"
+      },
+      "ArrivalTime": "13:00",
+      "DepartureTime": "13:00"
+     }
+    ]
+   },
+   {
+    "TripID": "4",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 0,
+     "Monday": 1,
+     "Tuesday": 1,
+     "Wednesday": 1,
+     "Thursday": 1,
+     "Friday": 1,
+     "Saturday": 0
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300174",
+      "StopID": "300174",
+      "StopName": {
+       "Zh_tw": "開南大學",
+       "En": "Kainan University"
+      },
+      "ArrivalTime": "14:00",
+      "DepartureTime": "14:00"
+     }
+    ]
+   },
+   {
+    "TripID": "5",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 0,
+     "Monday": 1,
+     "Tuesday": 1,
+     "Wednesday": 1,
+     "Thursday": 1,
+     "Friday": 1,
+     "Saturday": 0
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300174",
+      "StopID": "300174",
+      "StopName": {
+       "Zh_tw": "開南大學",
+       "En": "Kainan University"
+      },
+      "ArrivalTime": "16:00",
+      "DepartureTime": "16:00"
+     }
+    ]
+   }
+  ],
+  "UpdateTime": "2026-11-23T09:56:48+08:00",
+  "VersionID": 8067
+ },
+ {
+  "RouteUID": "THB0968",
+  "RouteID": "0968",
+  "RouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "SubRouteUID": "THB0968A2",
+  "SubRouteID": "0968A2",
+  "SubRouteName": {
+   "Zh_tw": "0968A",
+   "En": "0968A"
+  },
+  "Direction": 1,
+  "OperatorID": "16",
+  "OperatorCode": "YatungBus",
+  "OperatorNo": "0702",
+  "Timetables": [
+   {
+    "TripID": "1",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 0,
+     "Monday": 1,
+     "Tuesday": 1,
+     "Wednesday": 1,
+     "Thursday": 1,
+     "Friday": 1,
+     "Saturday": 0
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300198",
+      "StopID": "300198",
+      "StopName": {
+       "Zh_tw": "庫倫街口",
+       "En": "Kulun St. Entrance"
+      },
+      "ArrivalTime": "07:40",
+      "DepartureTime": "07:40"
+     },
+     {
+      "StopSequence": 2,
+      "StopUID": "THB300197",
+      "StopID": "300197",
+      "StopName": {
+       "Zh_tw": "長榮",
+       "En": "Changrong"
+      },
+      "ArrivalTime": "08:12",
+      "DepartureTime": "08:12"
+     },
+     {
+      "StopSequence": 3,
+      "StopUID": "THB300195",
+      "StopID": "300195",
+      "StopName": {
+       "Zh_tw": "光明國小",
+       "En": "Guangming Elementary School"
+      },
+      "ArrivalTime": "08:15",
+      "DepartureTime": "08:15"
+     },
+     {
+      "StopSequence": 4,
+      "StopUID": "THB300193",
+      "StopID": "300193",
+      "StopName": {
+       "Zh_tw": "南昌路口",
+       "En": "Nanchang Intersection"
+      },
+      "ArrivalTime": "08:16",
+      "DepartureTime": "08:16"
+     },
+     {
+      "StopSequence": 5,
+      "StopUID": "THB300191",
+      "StopID": "300191",
+      "StopName": {
+       "Zh_tw": "南竹蘆興街口",
+       "En": "Nanjhu & Lusing Intersection"
+      },
+      "ArrivalTime": "08:20",
+      "DepartureTime": "08:20"
+     },
+     {
+      "StopSequence": 6,
+      "StopUID": "THB300189",
+      "StopID": "300189",
+      "StopName": {
+       "Zh_tw": "南竹路四段37號",
+       "En": "Nanzhu Rd., Sec. 4, No. 37"
+      },
+      "ArrivalTime": "08:23",
+      "DepartureTime": "08:23"
+     },
+     {
+      "StopSequence": 7,
+      "StopUID": "THB300187",
+      "StopID": "300187",
+      "StopName": {
+       "Zh_tw": "大竹",
+       "En": "Dajhu"
+      },
+      "ArrivalTime": "08:28",
+      "DepartureTime": "08:28"
+     },
+     {
+      "StopSequence": 8,
+      "StopUID": "THB300185",
+      "StopID": "300185",
+      "StopName": {
+       "Zh_tw": "上大竹",
+       "En": "Shangdajhu"
+      },
+      "ArrivalTime": "08:29",
+      "DepartureTime": "08:29"
+     },
+     {
+      "StopSequence": 9,
+      "StopUID": "THB300182",
+      "StopID": "300182",
+      "StopName": {
+       "Zh_tw": "大竹上興路口",
+       "En": "Dajhu & Shangsing Intersection"
+      },
+      "ArrivalTime": "08:30",
+      "DepartureTime": "08:30"
+     },
+     {
+      "StopSequence": 10,
+      "StopUID": "THB300178",
+      "StopID": "300178",
+      "StopName": {
+       "Zh_tw": "大竹消防隊",
+       "En": "Dajhu Fire Brigade"
+      },
+      "ArrivalTime": "08:31",
+      "DepartureTime": "08:31"
+     },
+     {
+      "StopSequence": 11,
+      "StopUID": "THB300174",
+      "StopID": "300174",
+      "StopName": {
+       "Zh_tw": "開南大學",
+       "En": "Kainan University"
+      },
+      "ArrivalTime": "08:39",
+      "DepartureTime": "08:39"
+     }
+    ]
+   },
+   {
+    "TripID": "2",
+    "IsLowFloor": false,
+    "ServiceDay": {
+     "Sunday": 0,
+     "Monday": 1,
+     "Tuesday": 1,
+     "Wednesday": 1,
+     "Thursday": 1,
+     "Friday": 1,
+     "Saturday": 0
+    },
+    "StopTimes": [
+     {
+      "StopSequence": 1,
+      "StopUID": "THB300198",
+      "StopID": "300198",
+      "StopName": {
+       "Zh_tw": "庫倫街口",
+       "En": "Kulun St. Entrance"
+      },
+      "ArrivalTime": "09:50",
+      "DepartureTime": "09:50"
+     },
+     {
+      "StopSequence": 2,
+      "StopUID": "THB300197",
+      "StopID": "300197",
+      "StopName": {
+       "Zh_tw": "長榮",
+       "En": "Changrong"
+      },
+      "ArrivalTime": "10:22",
+      "DepartureTime": "10:22"
+     },
+     {
+      "StopSequence": 3,
+      "StopUID": "THB300195",
+      "StopID": "300195",
+      "StopName": {
+       "Zh_tw": "光明國小",
+       "En": "Guangming Elementary School"
+      },
+      "ArrivalTime": "10:25",
+      "DepartureTime": "10:25"
+     },
+     {
+      "StopSequence": 4,
+      "StopUID": "THB300193",
+      "StopID": "300193",
+      "StopName": {
+       "Zh_tw": "南昌路口",
+       "En": "Nanchang Intersection"
+      },
+      "ArrivalTime": "10:26",
+      "DepartureTime": "10:26"
+     },
+     {
+      "StopSequence": 5,
+      "StopUID": "THB300191",
+      "StopID": "300191",
+      "StopName": {
+       "Zh_tw": "南竹蘆興街口",
+       "En": "Nanjhu & Lusing Intersection"
+      },
+      "ArrivalTime": "10:30",
+      "DepartureTime": "10:30"
+     },
+     {
+      "StopSequence": 6,
+      "StopUID": "THB300189",
+      "StopID": "300189",
+      "StopName": {
+       "Zh_tw": "南竹路四段37號",
+       "En": "Nanzhu Rd., Sec. 4, No. 37"
+      },
+      "ArrivalTime": "10:33",
+      "DepartureTime": "10:33"
+     },
+     {
+      "StopSequence": 7,
+      "StopUID": "THB300187",
+      "StopID": "300187",
+      "StopName": {
+       "Zh_tw": "大竹",
+       "En": "Dajhu"
+      },
+      "ArrivalTime": "10:37",
+      "DepartureTime": "10:37"
+     },
+     {
+      "StopSequence": 8,
+      "StopUID": "THB300185",
+      "StopID": "300185",
+      "StopName": {
+       "Zh_tw": "上大竹",
+       "En": "Shangdajhu"
+      },
+      "ArrivalTime": "10:37",
+      "DepartureTime": "10:37"
+     },
+     {
+      "StopSequence": 9,
+      "StopUID": "THB300182",
+      "StopID": "300182",
+      "StopName": {
+       "Zh_tw": "大竹上興路口",
+       "En": "Dajhu & Shangsing Intersection"
+      },
+      "ArrivalTime": "10:38",
+      "DepartureTime": "10:38"
+     },
+     {
+      "StopSequence": 10,
+      "StopUID": "THB300178",
+      "StopID": "300178",
+      "StopName": {
+       "Zh_tw": "大竹消防隊",
+       "En": "Dajhu Fire Brigade"
+      },
+      "ArrivalTime": "10:39",
+      "DepartureTime": "10:39"
+     },
+     {
+      "StopSequence": 11,
+      "StopUID": "THB300174",
+      "StopID": "300174",
+      "StopName": {
+       "Zh_tw": "開南大學",
+       "En": "Kainan University"
+      },
+      "ArrivalTime": "10:45",
+      "DepartureTime": "10:45"
+     }
+    ]
+   }
+  ],
+  "UpdateTime": "2026-11-23T09:56:48+08:00",
+  "VersionID": 8067
+ }
+]

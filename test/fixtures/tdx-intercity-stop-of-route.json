@@ -1,0 +1,1005 @@
+[
+ {
+  "RouteUID": "THB0968",
+  "RouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "SubRouteUID": "THB096801",
+  "SubRouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "Direction": 0,
+  "Stops": [
+   {
+    "StopUID": "THB300177",
+    "StopID": "300177",
+    "StopName": {
+     "Zh_tw": "大竹消防隊",
+     "En": "Dajhu Fire Brigade"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 1,
+    "StopPosition": {
+     "PositionLon": 121.261064,
+     "PositionLat": 25.018736,
+     "GeoHash": "wsqnr6e8e"
+    },
+    "StationID": "136293",
+    "StationGroupID": "338－086",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300181",
+    "StopID": "300181",
+    "StopName": {
+     "Zh_tw": "大竹上興路口",
+     "En": "Dajhu & Shangsing Intersection"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 2,
+    "StopPosition": {
+     "PositionLon": 121.265103,
+     "PositionLat": 25.020252,
+     "GeoHash": "wsqnr6y99"
+    },
+    "StationID": "136297",
+    "StationGroupID": "338－111",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300183",
+    "StopID": "300183",
+    "StopName": {
+     "Zh_tw": "上大竹",
+     "En": "Shangdajhu"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 3,
+    "StopPosition": {
+     "PositionLon": 121.2631,
+     "PositionLat": 25.02158,
+     "GeoHash": "wsqnr7j17"
+    },
+    "StationID": "136299",
+    "StationGroupID": "338－121",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300186",
+    "StopID": "300186",
+    "StopName": {
+     "Zh_tw": "大竹",
+     "En": "Dajhu"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 4,
+    "StopPosition": {
+     "PositionLon": 121.25934,
+     "PositionLat": 25.02413,
+     "GeoHash": "wsqnr7d25"
+    },
+    "StationID": "136301",
+    "StationGroupID": "338－132",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300188",
+    "StopID": "300188",
+    "StopName": {
+     "Zh_tw": "南竹路四段37號",
+     "En": "Nanzhu Rd., Sec. 4, No. 37"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 5,
+    "StopPosition": {
+     "PositionLon": 121.270736,
+     "PositionLat": 25.031488,
+     "GeoHash": "wsqnrsfdu"
+    },
+    "StationID": "136303",
+    "StationGroupID": "338－143",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB312578",
+    "StopID": "312578",
+    "StopName": {
+     "Zh_tw": "南竹路二段315巷",
+     "En": "Lane 315 Section 2 Nanzhu Road"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 6,
+    "StopPosition": {
+     "PositionLon": 121.27923,
+     "PositionLat": 25.03575,
+     "GeoHash": "wsqnrv8gf"
+    },
+    "StationID": "145737",
+    "StationGroupID": "338－156",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300192",
+    "StopID": "300192",
+    "StopName": {
+     "Zh_tw": "南昌路口",
+     "En": "Nanchang Intersection"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 7,
+    "StopPosition": {
+     "PositionLon": 121.287433,
+     "PositionLat": 25.042302,
+     "GeoHash": "wsqnryycf"
+    },
+    "StationID": "136307",
+    "StationGroupID": "338－148",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300194",
+    "StopID": "300194",
+    "StopName": {
+     "Zh_tw": "光明國小",
+     "En": "Guangming Elementary School"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 8,
+    "StopPosition": {
+     "PositionLon": 121.29021,
+     "PositionLat": 25.04142,
+     "GeoHash": "wsqq2n8uf"
+    },
+    "StationID": "136309",
+    "StationGroupID": "338－149",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300196",
+    "StopID": "300196",
+    "StopName": {
+     "Zh_tw": "長榮",
+     "En": "Changrong"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 9,
+    "StopPosition": {
+     "PositionLon": 121.294189,
+     "PositionLat": 25.043506,
+     "GeoHash": "wsqq2p58z"
+    },
+    "StationID": "136311",
+    "StationGroupID": "338－151",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300198",
+    "StopID": "300198",
+    "StopName": {
+     "Zh_tw": "庫倫街口",
+     "En": "Kulun St. Entrance"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 10,
+    "StopPosition": {
+     "PositionLon": 121.518331,
+     "PositionLat": 25.070919,
+     "GeoHash": "wsqqthnbw"
+    },
+    "StationID": "136313",
+    "StationGroupID": "103－008",
+    "LocationCityCode": "TPE"
+   }
+  ],
+  "UpdateTime": "2026-11-23T09:56:48+08:00",
+  "VersionID": 8067
+ },
+ {
+  "RouteUID": "THB0968",
+  "RouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "SubRouteUID": "THB096801",
+  "SubRouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "Direction": 0,
+  "Stops": [
+   {
+    "StopUID": "THB300177",
+    "StopID": "300177",
+    "StopName": {
+     "Zh_tw": "大竹消防隊",
+     "En": "Dajhu Fire Brigade"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 1,
+    "StopPosition": {
+     "PositionLon": 121.261064,
+     "PositionLat": 25.018736,
+     "GeoHash": "wsqnr6e8e"
+    },
+    "StationID": "136293",
+    "StationGroupID": "338－086",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300181",
+    "StopID": "300181",
+    "StopName": {
+     "Zh_tw": "大竹上興路口",
+     "En": "Dajhu & Shangsing Intersection"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 2,
+    "StopPosition": {
+     "PositionLon": 121.265103,
+     "PositionLat": 25.020252,
+     "GeoHash": "wsqnr6y99"
+    },
+    "StationID": "136297",
+    "StationGroupID": "338－111",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300183",
+    "StopID": "300183",
+    "StopName": {
+     "Zh_tw": "上大竹",
+     "En": "Shangdajhu"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 3,
+    "StopPosition": {
+     "PositionLon": 121.2631,
+     "PositionLat": 25.02158,
+     "GeoHash": "wsqnr7j17"
+    },
+    "StationID": "136299",
+    "StationGroupID": "338－121",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300186",
+    "StopID": "300186",
+    "StopName": {
+     "Zh_tw": "大竹",
+     "En": "Dajhu"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 4,
+    "StopPosition": {
+     "PositionLon": 121.25934,
+     "PositionLat": 25.02413,
+     "GeoHash": "wsqnr7d25"
+    },
+    "StationID": "136301",
+    "StationGroupID": "338－132",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300188",
+    "StopID": "300188",
+    "StopName": {
+     "Zh_tw": "南竹路四段37號",
+     "En": "Nanzhu Rd., Sec. 4, No. 37"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 5,
+    "StopPosition": {
+     "PositionLon": 121.270736,
+     "PositionLat": 25.031488,
+     "GeoHash": "wsqnrsfdu"
+    },
+    "StationID": "136303",
+    "StationGroupID": "338－143",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB312578",
+    "StopID": "312578",
+    "StopName": {
+     "Zh_tw": "南竹路二段315巷",
+     "En": "Lane 315 Section 2 Nanzhu Road"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 6,
+    "StopPosition": {
+     "PositionLon": 121.27923,
+     "PositionLat": 25.03575,
+     "GeoHash": "wsqnrv8gf"
+    },
+    "StationID": "145737",
+    "StationGroupID": "338－156",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300192",
+    "StopID": "300192",
+    "StopName": {
+     "Zh_tw": "南昌路口",
+     "En": "Nanchang Intersection"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 7,
+    "StopPosition": {
+     "PositionLon": 121.287433,
+     "PositionLat": 25.042302,
+     "GeoHash": "wsqnryycf"
+    },
+    "StationID": "136307",
+    "StationGroupID": "338－148",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300194",
+    "StopID": "300194",
+    "StopName": {
+     "Zh_tw": "光明國小",
+     "En": "Guangming Elementary School"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 8,
+    "StopPosition": {
+     "PositionLon": 121.29021,
+     "PositionLat": 25.04142,
+     "GeoHash": "wsqq2n8uf"
+    },
+    "StationID": "136309",
+    "StationGroupID": "338－149",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300196",
+    "StopID": "300196",
+    "StopName": {
+     "Zh_tw": "長榮",
+     "En": "Changrong"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 9,
+    "StopPosition": {
+     "PositionLon": 121.294189,
+     "PositionLat": 25.043506,
+     "GeoHash": "wsqq2p58z"
+    },
+    "StationID": "136311",
+    "StationGroupID": "338－151",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300198",
+    "StopID": "300198",
+    "StopName": {
+     "Zh_tw": "庫倫街口",
+     "En": "Kulun St. Entrance"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 10,
+    "StopPosition": {
+     "PositionLon": 121.518331,
+     "PositionLat": 25.070919,
+     "GeoHash": "wsqqthnbw"
+    },
+    "StationID": "136313",
+    "StationGroupID": "103－008",
+    "LocationCityCode": "TPE"
+   }
+  ],
+  "UpdateTime": "2026-11-23T09:56:48+08:00",
+  "VersionID": 8067
+ },
+ {
+  "RouteUID": "THB0968",
+  "RouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "SubRouteUID": "THB096802",
+  "SubRouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "Direction": 1,
+  "Stops": [
+   {
+    "StopUID": "THB300198",
+    "StopID": "300198",
+    "StopName": {
+     "Zh_tw": "庫倫街口",
+     "En": "Kulun St. Entrance"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 1,
+    "StopPosition": {
+     "PositionLon": 121.518331,
+     "PositionLat": 25.070919,
+     "GeoHash": "wsqqthnbw"
+    },
+    "StationID": "136313",
+    "StationGroupID": "103－008",
+    "LocationCityCode": "TPE"
+   },
+   {
+    "StopUID": "THB300197",
+    "StopID": "300197",
+    "StopName": {
+     "Zh_tw": "長榮",
+     "En": "Changrong"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 2,
+    "StopPosition": {
+     "PositionLon": 121.295231,
+     "PositionLat": 25.042126,
+     "GeoHash": "wsqq2nu2z"
+    },
+    "StationID": "136312",
+    "StationGroupID": "338－151",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300195",
+    "StopID": "300195",
+    "StopName": {
+     "Zh_tw": "光明國小",
+     "En": "Guangming Elementary School"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 3,
+    "StopPosition": {
+     "PositionLon": 121.290189,
+     "PositionLat": 25.041469,
+     "GeoHash": "wsqq2n8v4"
+    },
+    "StationID": "136310",
+    "StationGroupID": "338－149",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300193",
+    "StopID": "300193",
+    "StopName": {
+     "Zh_tw": "南昌路口",
+     "En": "Nanchang Intersection"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 4,
+    "StopPosition": {
+     "PositionLon": 121.287471,
+     "PositionLat": 25.042365,
+     "GeoHash": "wsqnryyf6"
+    },
+    "StationID": "136308",
+    "StationGroupID": "338－148",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300191",
+    "StopID": "300191",
+    "StopName": {
+     "Zh_tw": "南竹蘆興街口",
+     "En": "Nanjhu & Lusing Intersection"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 5,
+    "StopPosition": {
+     "PositionLon": 121.27988,
+     "PositionLat": 25.03683,
+     "GeoHash": "wsqnrvc64"
+    },
+    "StationID": "136306",
+    "StationGroupID": "338－147",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300189",
+    "StopID": "300189",
+    "StopName": {
+     "Zh_tw": "南竹路四段37號",
+     "En": "Nanzhu Rd., Sec. 4, No. 37"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 6,
+    "StopPosition": {
+     "PositionLon": 121.27074,
+     "PositionLat": 25.03163,
+     "GeoHash": "wsqnrsfev"
+    },
+    "StationID": "136304",
+    "StationGroupID": "338－143",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300187",
+    "StopID": "300187",
+    "StopName": {
+     "Zh_tw": "大竹",
+     "En": "Dajhu"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 7,
+    "StopPosition": {
+     "PositionLon": 121.25958,
+     "PositionLat": 25.02376,
+     "GeoHash": "wsqnr76tc"
+    },
+    "StationID": "136302",
+    "StationGroupID": "338－132",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300185",
+    "StopID": "300185",
+    "StopName": {
+     "Zh_tw": "上大竹",
+     "En": "Shangdajhu"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 8,
+    "StopPosition": {
+     "PositionLon": 121.262756,
+     "PositionLat": 25.021679,
+     "GeoHash": "wsqnr7hcg"
+    },
+    "StationID": "136300",
+    "StationGroupID": "338－121",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300182",
+    "StopID": "300182",
+    "StopName": {
+     "Zh_tw": "大竹上興路口",
+     "En": "Dajhu & Shangsing Intersection"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 9,
+    "StopPosition": {
+     "PositionLon": 121.26507,
+     "PositionLat": 25.02023,
+     "GeoHash": "wsqnr6y92"
+    },
+    "StationID": "136298",
+    "StationGroupID": "338－111",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300178",
+    "StopID": "300178",
+    "StopName": {
+     "Zh_tw": "大竹消防隊",
+     "En": "Dajhu Fire Brigade"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 10,
+    "StopPosition": {
+     "PositionLon": 121.26165,
+     "PositionLat": 25.01885,
+     "GeoHash": "wsqnr6s13"
+    },
+    "StationID": "136294",
+    "StationGroupID": "338－086",
+    "LocationCityCode": "TAO"
+   }
+  ],
+  "UpdateTime": "2026-11-23T09:56:48+08:00",
+  "VersionID": 8067
+ },
+ {
+  "RouteUID": "THB0968",
+  "RouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "SubRouteUID": "THB096802",
+  "SubRouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "Direction": 1,
+  "Stops": [
+   {
+    "StopUID": "THB300198",
+    "StopID": "300198",
+    "StopName": {
+     "Zh_tw": "庫倫街口",
+     "En": "Kulun St. Entrance"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 1,
+    "StopPosition": {
+     "PositionLon": 121.518331,
+     "PositionLat": 25.070919,
+     "GeoHash": "wsqqthnbw"
+    },
+    "StationID": "136313",
+    "StationGroupID": "103－008",
+    "LocationCityCode": "TPE"
+   },
+   {
+    "StopUID": "THB300197",
+    "StopID": "300197",
+    "StopName": {
+     "Zh_tw": "長榮",
+     "En": "Changrong"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 2,
+    "StopPosition": {
+     "PositionLon": 121.295231,
+     "PositionLat": 25.042126,
+     "GeoHash": "wsqq2nu2z"
+    },
+    "StationID": "136312",
+    "StationGroupID": "338－151",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300195",
+    "StopID": "300195",
+    "StopName": {
+     "Zh_tw": "光明國小",
+     "En": "Guangming Elementary School"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 3,
+    "StopPosition": {
+     "PositionLon": 121.290189,
+     "PositionLat": 25.041469,
+     "GeoHash": "wsqq2n8v4"
+    },
+    "StationID": "136310",
+    "StationGroupID": "338－149",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300193",
+    "StopID": "300193",
+    "StopName": {
+     "Zh_tw": "南昌路口",
+     "En": "Nanchang Intersection"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 4,
+    "StopPosition": {
+     "PositionLon": 121.287471,
+     "PositionLat": 25.042365,
+     "GeoHash": "wsqnryyf6"
+    },
+    "StationID": "136308",
+    "StationGroupID": "338－148",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300191",
+    "StopID": "300191",
+    "StopName": {
+     "Zh_tw": "南竹蘆興街口",
+     "En": "Nanjhu & Lusing Intersection"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 5,
+    "StopPosition": {
+     "PositionLon": 121.27988,
+     "PositionLat": 25.03683,
+     "GeoHash": "wsqnrvc64"
+    },
+    "StationID": "136306",
+    "StationGroupID": "338－147",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300189",
+    "StopID": "300189",
+    "StopName": {
+     "Zh_tw": "南竹路四段37號",
+     "En": "Nanzhu Rd., Sec. 4, No. 37"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 6,
+    "StopPosition": {
+     "PositionLon": 121.27074,
+     "PositionLat": 25.03163,
+     "GeoHash": "wsqnrsfev"
+    },
+    "StationID": "136304",
+    "StationGroupID": "338－143",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300187",
+    "StopID": "300187",
+    "StopName": {
+     "Zh_tw": "大竹",
+     "En": "Dajhu"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 7,
+    "StopPosition": {
+     "PositionLon": 121.25958,
+     "PositionLat": 25.02376,
+     "GeoHash": "wsqnr76tc"
+    },
+    "StationID": "136302",
+    "StationGroupID": "338－132",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300185",
+    "StopID": "300185",
+    "StopName": {
+     "Zh_tw": "上大竹",
+     "En": "Shangdajhu"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 8,
+    "StopPosition": {
+     "PositionLon": 121.262756,
+     "PositionLat": 25.021679,
+     "GeoHash": "wsqnr7hcg"
+    },
+    "StationID": "136300",
+    "StationGroupID": "338－121",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300182",
+    "StopID": "300182",
+    "StopName": {
+     "Zh_tw": "大竹上興路口",
+     "En": "Dajhu & Shangsing Intersection"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 9,
+    "StopPosition": {
+     "PositionLon": 121.26507,
+     "PositionLat": 25.02023,
+     "GeoHash": "wsqnr6y92"
+    },
+    "StationID": "136298",
+    "StationGroupID": "338－111",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300178",
+    "StopID": "300178",
+    "StopName": {
+     "Zh_tw": "大竹消防隊",
+     "En": "Dajhu Fire Brigade"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 10,
+    "StopPosition": {
+     "PositionLon": 121.26165,
+     "PositionLat": 25.01885,
+     "GeoHash": "wsqnr6s13"
+    },
+    "StationID": "136294",
+    "StationGroupID": "338－086",
+    "LocationCityCode": "TAO"
+   }
+  ],
+  "UpdateTime": "2026-11-23T09:56:48+08:00",
+  "VersionID": 8067
+ },
+ {
+  "RouteUID": "THB0968",
+  "RouteName": {
+   "Zh_tw": "0968",
+   "En": "0968"
+  },
+  "SubRouteUID": "THB0968A1",
+  "SubRouteName": {
+   "Zh_tw": "0968A",
+   "En": "0968A"
+  },
+  "Direction": 0,
+  "Stops": [
+   {
+    "StopUID": "THB300174",
+    "StopID": "300174",
+    "StopName": {
+     "Zh_tw": "開南大學",
+     "En": "Kainan University"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 1,
+    "StopPosition": {
+     "PositionLon": 121.27051,
+     "PositionLat": 25.010788,
+     "GeoHash": "wsqnr946r"
+    },
+    "StationID": "136290",
+    "StationGroupID": "338－074",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300177",
+    "StopID": "300177",
+    "StopName": {
+     "Zh_tw": "大竹消防隊",
+     "En": "Dajhu Fire Brigade"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 2,
+    "StopPosition": {
+     "PositionLon": 121.261064,
+     "PositionLat": 25.018736,
+     "GeoHash": "wsqnr6e8e"
+    },
+    "StationID": "136293",
+    "StationGroupID": "338－086",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300181",
+    "StopID": "300181",
+    "StopName": {
+     "Zh_tw": "大竹上興路口",
+     "En": "Dajhu & Shangsing Intersection"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 3,
+    "StopPosition": {
+     "PositionLon": 121.265103,
+     "PositionLat": 25.020252,
+     "GeoHash": "wsqnr6y99"
+    },
+    "StationID": "136297",
+    "StationGroupID": "338－111",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300183",
+    "StopID": "300183",
+    "StopName": {
+     "Zh_tw": "上大竹",
+     "En": "Shangdajhu"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 4,
+    "StopPosition": {
+     "PositionLon": 121.2631,
+     "PositionLat": 25.02158,
+     "GeoHash": "wsqnr7j17"
+    },
+    "StationID": "136299",
+    "StationGroupID": "338－121",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300186",
+    "StopID": "300186",
+    "StopName": {
+     "Zh_tw": "大竹",
+     "En": "Dajhu"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 5,
+    "StopPosition": {
+     "PositionLon": 121.25934,
+     "PositionLat": 25.02413,
+     "GeoHash": "wsqnr7d25"
+    },
+    "StationID": "136301",
+    "StationGroupID": "338－132",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300188",
+    "StopID": "300188",
+    "StopName": {
+     "Zh_tw": "南竹路四段37號",
+     "En": "Nanzhu Rd., Sec. 4, No. 37"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 6,
+    "StopPosition": {
+     "PositionLon": 121.270736,
+     "PositionLat": 25.031488,
+     "GeoHash": "wsqnrsfdu"
+    },
+    "StationID": "136303",
+    "StationGroupID": "338－143",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB312578",
+    "StopID": "312578",
+    "StopName": {
+     "Zh_tw": "南竹路二段315巷",
+     "En": "Lane 315 Section 2 Nanzhu Road"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 7,
+    "StopPosition": {
+     "PositionLon": 121.27923,
+     "PositionLat": 25.03575,
+     "GeoHash": "wsqnrv8gf"
+    },
+    "StationID": "145737",
+    "StationGroupID": "338－156",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300192",
+    "StopID": "300192",
+    "StopName": {
+     "Zh_tw": "南昌路口",
+     "En": "Nanchang Intersection"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 8,
+    "StopPosition": {
+     "PositionLon": 121.287433,
+     "PositionLat": 25.042302,
+     "GeoHash": "wsqnryycf"
+    },
+    "StationID": "136307",
+    "StationGroupID": "338－148",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300194",
+    "StopID": "300194",
+    "StopName": {
+     "Zh_tw": "光明國小",
+     "En": "Guangming Elementary School"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 9,
+    "StopPosition": {
+     "PositionLon": 121.29021,
+     "PositionLat": 25.04142,
+     "GeoHash": "wsqq2n8uf"
+    },
+    "StationID": "136309",
+    "StationGroupID": "338－149",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300196",
+    "StopID": "300196",
+    "StopName": {
+     "Zh_tw": "長榮",
+     "En": "Changrong"
+    },
+    "StopBoarding": 1,
+    "StopSequence": 10,
+    "StopPosition": {
+     "PositionLon": 121.294189,
+     "PositionLat": 25.043506,
+     "GeoHash": "wsqq2p58z"
+    },
+    "StationID": "136311",
+    "StationGroupID": "338－151",
+    "LocationCityCode": "TAO"
+   },
+   {
+    "StopUID": "THB300198",
+    "StopID": "300198",
+    "StopName": {
+     "Zh_tw": "庫倫街口",
+     "En": "Kulun St. Entrance"
+    },
+    "StopBoarding": -1,
+    "StopSequence": 11,
+    "StopPosition": {
+     "PositionLon": 121.518331,
+     "PositionLat": 25.070919,
+     "GeoHash": "wsqqthnbw"
+    },
+    "StationID": "136313",
+    "StationGroupID": "103－008",
+    "LocationCityCode": "TPE"
+   }
+  ],
+  "UpdateTime": "2026-11-23T09:56:48+08:00",
+  "VersionID": 8067
+ }
+]

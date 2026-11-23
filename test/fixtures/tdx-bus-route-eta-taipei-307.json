@@ -1,0 +1,96 @@
+[
+ {
+  "StopUID": "TPE153800",
+  "StopID": "153800",
+  "StopName": {
+   "Zh_tw": "深丘里(板橋放送所)",
+   "En": "Shenqiu Village(Banqiao Broadcasting Station)"
+  },
+  "RouteUID": "TPE16111",
+  "RouteID": "16111",
+  "RouteName": {
+   "Zh_tw": "307",
+   "En": "307"
+  },
+  "Direction": 0,
+  "EstimateTime": 142,
+  "StopStatus": 0,
+  "SrcUpdateTime": "2026-11-23T14:18:45+08:00",
+  "UpdateTime": "2026-11-23T14:18:48+08:00"
+ },
+ {
+  "StopUID": "TPE153797",
+  "StopID": "153797",
+  "StopName": {
+   "Zh_tw": "深丘里(板橋放送所)",
+   "En": "Shenqiu Village(Banqiao Broadcasting Station)"
+  },
+  "RouteUID": "TPE16111",
+  "RouteID": "16111",
+  "RouteName": {
+   "Zh_tw": "307",
+   "En": "307"
+  },
+  "Direction": 1,
+  "EstimateTime": 323,
+  "StopStatus": 0,
+  "SrcUpdateTime": "2026-11-23T14:18:45+08:00",
+  "UpdateTime": "2026-11-23T14:18:48+08:00"
+ },
+ {
+  "StopUID": "TPE153798",
+  "StopID": "153798",
+  "StopName": {
+   "Zh_tw": "新北市政府(新府路)",
+   "En": "New Taipei City Hall(Xinfu Rd.)"
+  },
+  "RouteUID": "TPE16111",
+  "RouteID": "16111",
+  "RouteName": {
+   "Zh_tw": "307",
+   "En": "307"
+  },
+  "Direction": 1,
+  "EstimateTime": 495,
+  "StopStatus": 0,
+  "SrcUpdateTime": "2026-11-23T14:18:45+08:00",
+  "UpdateTime": "2026-11-23T14:18:48+08:00"
+ },
+ {
+  "StopUID": "TPE153799",
+  "StopID": "153799",
+  "StopName": {
+   "Zh_tw": "新北市政府(新府路)",
+   "En": "New Taipei City Hall(Xinfu Rd.)"
+  },
+  "RouteUID": "TPE16111",
+  "RouteID": "16111",
+  "RouteName": {
+   "Zh_tw": "307",
+   "En": "307"
+  },
+  "Direction": 0,
+  "EstimateTime": 649,
+  "StopStatus": 0,
+  "SrcUpdateTime": "2026-11-23T14:18:45+08:00",
+  "UpdateTime": "2026-11-23T14:18:48+08:00"
+ },
+ {
+  "StopUID": "TPE221716",
+  "StopID": "221716",
+  "StopName": {
+   "Zh_tw": "新月一街",
+   "En": "Xinyue 1st St."
+  },
+  "RouteUID": "TPE16111",
+  "RouteID": "16111",
+  "RouteName": {
+   "Zh_tw": "307",
+   "En": "307"
+  },
+  "Direction": 0,
+  "StopStatus": 1,
+  "SrcUpdateTime": "2026-11-23T14:18:45+08:00",
+  "UpdateTime": "2026-11-23T14:18:48+08:00"
+ }
+]
