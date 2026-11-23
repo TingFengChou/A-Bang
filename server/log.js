@@ -2,7 +2,7 @@
 // 🧩 每筆帶 tenantId（第一方 first-party，ADR-0007）；agent 相關帶 agentId。
 // 隱私：不記對話內容、不記座標與 query string；錯誤訊息先遮掉金鑰（環境變數的值）。
 
-const SECRET_ENV = ['TDX_CLIENT_ID', 'TDX_CLIENT_SECRET', 'CWA_API_KEY', 'ANTHROPIC_API_KEY', 'LOCAL_LLM_API_KEY'];
+const SECRET_ENV = ['TDX_CLIENT_ID', 'TDX_CLIENT_SECRET', 'CWA_API_KEY', 'MOENV_API_KEY', 'JEV_API_KEY', 'ANTHROPIC_API_KEY', 'LOCAL_LLM_API_KEY'];
 
 /** 把字串裡出現的金鑰值換成 [redacted]（只處理長度 ≥ 8 的值，避免誤遮常見字） */
 export function redact(text, env = process.env) {

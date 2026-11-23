@@ -16,7 +16,7 @@ import { listPacks, callTool } from '../core/tools/index.js';
 import { UserError, publicMessage } from '../core/util.js';
 import { createMcpServer } from '../mcp/create-server.js';
 import { createRateLimiter, clientIp } from './rate-limit.js';
-import { restRoutes } from './rest.js';
+import { restRoutes, runRoute } from './rest.js';
 import { buildOpenApi } from './openapi.js';
 import { createAgentHandler } from './agent.js';
 import { judgeFromEnv } from '../core/agent/judge.js';
@@ -157,10 +157,11 @@ createServer(async (req, res) => {
         const r = await callTool(svc, m[1], await readJson(req));
         return send(res, 200, r, CORS);
       }
-      const route = routes[path];
-      if (!route) return send(res, 404, { error: 'Not found' });
-      const data = await route.handler(Object.fromEntries(url.searchParams));
-      return send(res, 200, { mode: svc.mode, data }, path === '/api/v1/tools' ? CORS : appCors(req)); // 其他 REST 只給本站與手機 App
+      const route = Object.hasOwn(routes, path) ? routes[path] : null;
+      if (!route) return send(res, 404, { error: `沒有這個 API：${path.slice(0, 80)}，可用的端點見 /api/docs` });
+      // 參數依路由表檢查（必填、數字、日期）；TDX 額度用完改用示範資料時 mode 標 demo（server/rest.js runRoute）
+      const out = await runRoute(svc, route, Object.fromEntries(url.searchParams));
+      return send(res, 200, out, path === '/api/v1/tools' ? CORS : appCors(req)); // 其他 REST 只給本站與手機 App
     }
 
     // ── 靜態檔：防目錄穿越；找不到就回 index.html（SPA）──

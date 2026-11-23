@@ -9,7 +9,7 @@
 | 網站 | https://tdx.transportdata.tw （會員中心 → API 金鑰） |
 | 授權 | 政府資料開放授權條款；畫面與 MCP 文字需標示「資料來源：交通部 TDX 運輸資料流通服務」 |
 | 認證 | OIDC client credentials：`POST https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token`，`grant_type=client_credentials`、`client_id`、`client_secret`；token 有效 24 小時 |
-| 呼叫 | `GET https://tdx.transportdata.tw/api{path}`，`Authorization: Bearer {token}`，`$format=JSON` |
+| 呼叫 | `GET https://tdx.transportdata.tw/api{path}`，`Authorization: Bearer {token}`，`$format=JSON`；`{path}` 裡來自使用者或資料的段落（站代碼、日期、站位 ID）一律 `encodeURIComponent`，日期先驗證是真的 `YYYY-MM-DD`（不讓輸入改到別的 TDX 端點、用我們的 token 取資料） |
 | 限制 | token endpoint 每 IP 每分鐘 ≤ 20 次（不算 API 額度）；API：基本會員**每把金鑰每分鐘 5 次**（產品負責人決定不加值；2026-11-22 實測依時鐘整分重置，標頭 `x-ratelimit-limit-minute`、`x-ratelimit-remaining-minute`、`ratelimit-reset`）。策略見 §1.1 |
 | 實作 | `core/tdx-client.js`：token single-flight、到期前 5 分換新、回應快取（TTL 由呼叫端指定）、同網址同時只打一次、每分鐘額度閘門、401 換 token 重試、逾時 30 秒、OData 空白編碼為 `%20`；`core/tdx-store.js` 靜態資料存檔；`core/tdx-prewarm.js` 背景預熱 |
 | 環境變數 | `TDX_CLIENT_ID`、`TDX_CLIENT_SECRET`（留空 → 示範模式）；`TDX_PER_MINUTE`（預設 5）、`TDX_CACHE_DIR`（預設 `.cache/tdx`，`off` 不存檔）、`TDX_PREWARM_CITIES`（預設 `Taipei,NewTaipei,Taoyuan`）、`TDX_PREWARM=0`（不預熱） |

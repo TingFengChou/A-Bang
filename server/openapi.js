@@ -20,8 +20,8 @@ export function buildOpenApi(svc) {
     paths[path] = {
       get: {
         tags: [r.tag], summary: r.summary, operationId: `get${path.replace(/\/api\/v1|[^a-z0-9]/gi, ' ').replace(/ (\w)/g, (_, c) => c.toUpperCase()).replace(/ /g, '')}`,
-        parameters: r.params.map((p) => ({ name: p.name, in: 'query', required: p.required, description: p.description, schema: { type: p.type, ...(p.example !== undefined && { example: p.example }) } })),
-        responses: { 200: { description: '成功', content: { 'application/json': { schema: { type: 'object', properties: { mode: { enum: ['live', 'demo'] }, data: {} } } } } }, ...errors },
+        parameters: r.params.map((p) => ({ name: p.name, in: 'query', required: p.required, description: p.description, schema: { type: p.type, ...(p.format && { format: p.format }), ...(p.minimum !== undefined && { minimum: p.minimum }), ...(p.example !== undefined && { example: p.example }) } })),
+        responses: { 200: { description: '成功', content: { 'application/json': { schema: { type: 'object', properties: { mode: { enum: ['live', 'demo'] }, fallback: { enum: ['tdx-limit'], description: 'TDX 額度用完，這次改用示範資料（mode 為 demo）' }, data: {} } } } } }, ...errors },
       },
     };
   }
