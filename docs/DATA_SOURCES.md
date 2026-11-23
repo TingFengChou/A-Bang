@@ -87,7 +87,7 @@
 - OData 空白：`$filter=RouteName/Zh_tw eq '307'` 用 `+` 與 `%20` 結果相同（各 1 筆），`%20` 不是必要，保留無妨。
 - 附近公車站位 `/advanced/v2/Bus/Station/NearBy`（台北車站 300 公尺）15 筆，都有 `StationPosition`、`Stops`、`LocationCityCode`。
 - 公車路線到站 `/basic/v2/Bus/EstimatedTimeOfArrival/City/Taipei/307`：`StopStatus` 0／1／4 都有；臺北市狀態 1 的站一樣**沒有** `NextBusTime`（同新北）；這個端點沒有 `PlateNumb`。
-- 機場捷運站間行駛時間 `/basic/v2/Rail/Metro/S2STravelTime/TYMC`：`TrainType` 1 普通車、2 直達車；`TravelTimes[]` 是起站到各站的累計 `RunTime`（秒）。直達車 A1 臺北車站 → A12 機場第一航廈 2,160 秒（36 分）、→ A13 第二航廈 2,340 秒（39 分），跟 `AIRPORT_EXPRESS`（35／38 分）差 1 分；尚未改用。
+- 機場捷運站間行駛時間 `/basic/v2/Rail/Metro/S2STravelTime/TYMC`：`TrainType` 1 普通車、2 直達車；`TravelTimes[]` 是起站到各站的累計 `RunTime`（秒）。直達車 A1 臺北車站 → A12 機場第一航廈 2,160 秒（36 分）、→ A13 第二航廈 2,340 秒（39 分），`AIRPORT_EXPRESS` 已改用這兩個數字（36／39 分，2026-11-23）。
 - 驗證與錄製：`node scripts/verify-tdx.js`（`npm run tdx:verify`）、`node scripts/record-fixtures.js`（`npm run tdx:record`，存到 `test/fixtures/tdx-*.json`）；端點清單在 `scripts/tdx/endpoints.js`，每次間隔 13 秒（`--delay`），碰到 429 等額度重置再試一次。
 
 `{City}` 由 `core/cities.js` 解析（`Taipei`、`NewTaipei`、`Taoyuan`、`Taichung`、`Tainan`、`Kaohsiung`…）；`{Operator}`：`TRTC` 台北、`TYMC` 桃園、`TMRT` 台中、`KRTC` 高雄。

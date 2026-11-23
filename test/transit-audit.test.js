@@ -148,8 +148,8 @@ test('7. 機場 → 中山（機場線轉台北捷運）：機場捷運用公告
   assert.ok(m.metro.crossSystem);
   assert.equal(m.cost % 5, 0, `票價 ${m.cost}`);
   assert.ok(m.cost >= 160 + 20);
-  assert.equal(m.legs.find((l) => l.mode === 'metro').minutes, 35);
-  assert.ok(m.notes.some((n) => /機場捷運直達車約 35 分、160 元/.test(n)));
+  assert.equal(m.legs.find((l) => l.mode === 'metro').minutes, 36);
+  assert.ok(m.notes.some((n) => /機場捷運直達車約 36 分、160 元/.test(n)));
 });
 
 test('7. 叫車、YouBike 車資說「以臺北市費率估算」，不說成依當地費率', async () => {

@@ -11,6 +11,13 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-23 機場捷運直達車時間改用 TDX
+- 做了：`AIRPORT_EXPRESS` 台北車站 ↔ 機場第一航廈 35 → 36 分、第二航廈 38 → 39 分（M1 實測 `S2STravelTime/TYMC` 直達車 2,160／2,340 秒）；票價 160 元、等車 8 分照舊（以桃園捷運公告為準）
+- 測試：npm test 全過（更新 5 個斷言）
+- 文件：DATA_SOURCES.md、MCP_TOOLS.md、PLAN.md 待驗證表
+- 下一個：無
+- 卡住：無
+
 ## 2026-11-23 M1 TDX 實測與 fixture 錄製
 - 做了：`scripts/verify-tdx.js`（`npm run tdx:verify`）逐一打待驗證的 TDX 端點，印狀態碼、筆數、第一筆欄位與檢查（座標完整度、WKT 類型、`ServiceDay` 型別、OData `+`／`%20` 對照、機捷直達車時間）；`scripts/record-fixtures.js`（`npm run tdx:record`）把真實回應前 5 筆存到 `test/fixtures/tdx-<id>.json`（20 個）；兩支共用 `scripts/tdx/endpoints.js`，每次間隔 13 秒（每分鐘 5 次額度與本機伺服器共用），429 等額度重置再試一次；沒有金鑰 exit 1。實測 24 個端點，結果寫進 PLAN 待驗證表與 DATA_SOURCES.md。
 - 發現並修正：(1) 公車 `DisplayStopOfRoute` 只收臺北、新北、桃園、臺中、臺南，高雄、花蓮等縣市回 400 → 改用 `StopOfRoute`（每個子路線一筆），以前這些縣市查路線一定失敗；(2) 國道事件 `Live/News/Freeway` 只有「施工維護」這類標題、沒有路名與位置，依路名篩一律是空的 → 改用 `RoadEvent/LiveEvent`，依事件位置離沿途路段 500 公尺內、同方向篩；(3) 公路客運有些班次的 `StopTimes` 只有起站一筆，以前上車站不是起站就整班丟掉 → 由前面最近有時間的站沿站牌距離估上車時間（`departEstimated`、`departFrom`，speak 說「約 07:04 到上大竹（大竹消防隊 07:00 開）」），出發時間篩選也用估的上車時間。
