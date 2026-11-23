@@ -16,6 +16,7 @@ globalThis.fetch = async (url) => {
   if (mode === 'portal') return { ok: true, status: 200, json: async () => { throw new SyntaxError('not json'); } };
   if (mode === '502') return { ok: false, status: 502, json: async () => ({}) };
   if (mode === '400') return { ok: false, status: 400, json: async () => ({ error: '參數錯誤' }) };
+  if (mode === 'fallback') return { ok: true, status: 200, json: async () => ({ mode: 'demo', fallback: 'tdx-limit', data: { url: String(url), n: calls, fallback: true } }) };
   return { ok: true, status: 200, json: async () => ({ mode: 'demo', data: { url: String(url), n: calls, pad: mode === 'big' ? 'x'.repeat(40_000) : '' } }) };
 };
 const { api, state, CACHE_MAX, CACHE_BYTES, TTL, clearOfflineCache } = await import('../public/js/api.js');
@@ -67,4 +68,16 @@ test('到站時間只留 10 分鐘、時刻表 24 小時；過期的刪掉；最
   assert.ok(store.get('abang.offline').length <= CACHE_BYTES, '不擠掉收藏、我的發票的空間');
   clearOfflineCache();
   assert.equal(store.get('abang.offline'), undefined);
+});
+
+test('TDX 額度用完、伺服器這次改用示範資料（fallback）：照常顯示但不存成上次的資料', async () => {
+  const good = await api.busEta('Taipei', '307');
+  mode = 'fallback';
+  const fb = await api.busEta('Taipei', '307');
+  assert.equal(fb.fallback, true);
+  assert.equal(state.mode, 'demo');
+  assert.equal(JSON.parse(store.get('abang.offline'))['/api/v1/bus/eta?city=Taipei&route=307'].data.n, good.n, '示範資料不覆蓋好的資料');
+  store.clear();
+  await api.busEta('Taipei', '307');
+  assert.equal(store.get('abang.offline'), undefined, '只有示範資料時不存');
 });

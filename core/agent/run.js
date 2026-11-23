@@ -344,10 +344,10 @@ function withPicked(trip, picked) {
  * @param {object} svc createServices() 的結果
  * @param {object} body /api/v1/agent 的請求（會驗證）
  * @param {(e: object) => void} emit
- * @param {{ profileId?: string, now?: number, notice?: string, mode?: 'demo'|'rules'|'edge' }} [opts] notice：模型額度用完而降級時，在 status 後先說明；mode：rules＝地端模型的英文提問改由規則回答（資料照常是真的，不是示範）；
+ * @param {{ profileId?: string, now?: number, notice?: string, noticeEn?: string, mode?: 'demo'|'rules'|'edge' }} [opts] notice：模型額度用完（或防詐的模型暫時出錯）而降級時，在 status 後先說明（noticeEn：英文提問時的說法）；mode：rules＝地端模型的英文提問改由規則回答（資料照常是真的，不是示範）；
  *   edge＝回答交給手機寫（ADR-0017）：最後送 answer_draft（程式版總結＋事實清單）而不是 text
  */
-export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date.now(), notice, judge, mode = 'demo' } = {}) {
+export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date.now(), notice, noticeEn = "Today's AI quota is used up; answering in demo mode", judge, mode = 'demo' } = {}) {
   const req = validateRequest(body);
   const profile = getProfile(profileId);
   const edgeWrite = mode === 'edge' && wantsEdgeWrite(req, profile.id);
@@ -370,7 +370,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
   const trial = edgeWrite && isTrial(req, profile.id) && !req.clientToolResults?.length; // 試判斷：帶定位結果的重送不再送一次
   if (safe) { if (trial) emit(ev.trial(trialInfo(svc, it, { judge: q0, lang: isEnglish(last) ? 'en' : 'zh', now, safety: safe.kind }))); emit(ev.guardrail({ tier: 'L0', rule: `safety:${safe.kind}`, calls: safe.calls })); emit(ev.text(safe.reply)); emit(ev.done()); return; }
   if (!req.clientToolResults?.length && it.reset) emit(ev.contextReset());
-  if (notice) emit(ev.agentNote(it.lang === 'en' ? "Today's AI quota is used up; answering in demo mode" : notice));
+  if (notice) emit(ev.agentNote(it.lang === 'en' ? noticeEn : notice));
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
   const heard = !req.clientToolResults?.length && !it.needs && (contextNote(parseIntent(last, { history: req.messages.slice(0, -1) })) || (it.intent === 'outing' ? outingNote([...(it.states || []), ...(q0?.states || [])]) : q0 && judgeNote(q0)));
   if (heard && it.lang !== 'en') emit(ev.agentNote(heard)); // 「聽懂了」的句子是中文：英文那一輪不說

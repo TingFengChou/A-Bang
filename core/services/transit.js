@@ -1,7 +1,7 @@
 // 大眾運輸服務（真實 TDX 版）：把 TDX 原始資料正規化成 App / MCP 共用的格式
 // TDX 基本會員每分鐘 5 次（docs/DATA_SOURCES.md §1.1）：靜態資料（站牌、站序、車站）存檔共用，即時資料整個縣市一次取、30 秒共用。
 import { resolveCity, cityFromUID } from '../cities.js';
-import { distanceM, busStatusText, minutesBetween, normName, todayTW, assertLatLon, UserError, zh, enField, odataStr as q } from '../util.js';
+import { distanceM, busStatusText, minutesBetween, normName, todayTW, isDate, assertLatLon, UserError, zh, enField, odataStr as q } from '../util.js';
 import { pathFromWkt, thinPath } from '../geo.js';
 import { matchDirect, commonRoutes, DIRECT_RADIUS_M } from './bus-direct.js';
 import { cacheOf, rawOpts, nonEmpty, STATIC_TTL } from './tdx-cache.js';
@@ -225,7 +225,7 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
     async thsrTimetable({ from, to, date = todayTW() }) {
       const st = await rail.thsrStations();
       const o = findStation(st, from, '高鐵'), d = findStation(st, to, '高鐵');
-      const rows = await tdx.get(`/basic/v2/Rail/THSR/DailyTimetable/OD/${o.id}/to/${d.id}/${date}`, {}, 600);
+      const rows = await tdx.get(`/basic/v2/Rail/THSR/DailyTimetable/OD/${seg(o.id)}/to/${seg(d.id)}/${seg(railDate(date))}`, {}, 600);
       return {
         from: o.name, to: d.name, date,
         trains: rows.map((r) => ({
@@ -241,7 +241,7 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
       const o = findStation(st, from, '高鐵'), d = findStation(st, to, '高鐵');
       if (o.id === d.id) throw new UserError('起訖站不可相同');
       const fares = await cached(`thsr-fare-${o.id}-${d.id}`, STATIC_TTL, async (opt) => {
-        const rows = await tdx.get(`/basic/v2/Rail/THSR/ODFare/${o.id}/to/${d.id}`, {}, 60, rawOpts(opt));
+        const rows = await tdx.get(`/basic/v2/Rail/THSR/ODFare/${seg(o.id)}/to/${seg(d.id)}`, {}, 60, rawOpts(opt));
         const od = (Array.isArray(rows) ? rows : rows?.ODFares || [])[0];
         return normFares(od?.Fares, 'THSR');
       });
@@ -251,7 +251,7 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
     async traTimetable({ from, to, date = todayTW() }) {
       const st = await rail.traStations();
       const o = findStation(st, from, '台鐵'), d = findStation(st, to, '台鐵');
-      const j = await tdx.get(`/basic/v3/Rail/TRA/DailyTrainTimetable/OD/${o.id}/to/${d.id}/${date}`, {}, 600);
+      const j = await tdx.get(`/basic/v3/Rail/TRA/DailyTrainTimetable/OD/${seg(o.id)}/to/${seg(d.id)}/${seg(railDate(date))}`, {}, 600);
       return {
         from: o.name, to: d.name, date,
         trains: (j.TrainTimetables || []).map((t) => {
@@ -275,7 +275,7 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
     if (o.id === d.id) throw new UserError('起訖站不可相同');
     // 快取鍵 v2：舊鍵存的是「車種代碼 N」與繞島另一方向的票價（2026-11-22 修正），不沿用
     const fares = await cached(`tra-fare-v2-${o.id}-${d.id}`, STATIC_TTL, async (opt) => {
-      const j = await tdx.get(`/basic/v3/Rail/TRA/ODFare/${o.id}/to/${d.id}`, {}, 60, rawOpts(opt));
+      const j = await tdx.get(`/basic/v3/Rail/TRA/ODFare/${seg(o.id)}/to/${seg(d.id)}`, {}, 60, rawOpts(opt));
       return normTraFares(Array.isArray(j) ? j : j?.ODFares || []);
     });
     return { system: 'TRA', from: o.name, to: d.name, fares };
@@ -403,13 +403,22 @@ function stationPos(s) {
   return Number.isFinite(lat) && Number.isFinite(lon) && lat ? { lat, lon } : {};
 }
 
+/** TDX 網址的路徑段：一律編碼（日期、站代碼不能帶出 ../ 或 ? 改到別的端點） */
+const seg = (v) => encodeURIComponent(String(v));
+/** 乘車日期：一定要是真的 YYYY-MM-DD（tool 與 REST 已驗證；這裡再擋一次，不把任意字串放進 TDX 網址） */
+export function railDate(date) {
+  if (!isDate(date)) throw new UserError('日期要是 YYYY-MM-DD，例如 2026-11-23');
+  return date;
+}
+
 /** 車站別名：查不到時再試（高鐵的高雄站是左營） */
 const STATION_ALIAS = { [normName('高雄')]: '左營', [normName('新左營')]: '左營' };
 export function findStation(list, input, label) {
-  const s = String(input || '').trim();
+  const s = String(input ?? '').trim();
+  const n = normName(s);
+  if (!n) throw new UserError(`請說${label}的站名，例如「台北」`); // 空字串（或只有「站」）會被 includes('') 配到第一站
   const byId = list.find((x) => x.id === s);
   if (byId) return byId;
-  const n = normName(s);
   const hit = list.find((x) => normName(x.name) === n) || list.find((x) => normName(x.name).includes(n))
     || (STATION_ALIAS[n] && list.find((x) => normName(x.name).includes(normName(STATION_ALIAS[n])))); // 高鐵沒有「高雄」站：高雄＝左營（台鐵有高雄站，上面就找到了）
   if (!hit) throw new UserError(`找不到${label}車站「${input}」`);

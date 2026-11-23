@@ -43,6 +43,14 @@ export const FALLBACK = {
 
 /** 有卡片的工具，回給模型的清單最多幾筆（完整結果已在卡片上） */
 export const MODEL_LIST_MAX = 6;
+
+/** 模型（Claude／地端）呼叫失敗：標記起來，伺服器才分得出是模型出錯、不是資料來源（server/agent.js 防詐改用規則回答） */
+export function asModelError(e) {
+  const err = e instanceof Error ? e : new Error(String(e));
+  try { err.fromModel = true; } catch { /* 凍結的錯誤物件：照原樣丟 */ }
+  return err;
+}
+export const isModelError = (e) => e?.fromModel === true;
 /** 拒絕定位時先用預設起點，模型要照這句說明 */
 export const NO_LOCATION_NOTE = `［內部備註］沒拿到使用者的位置，起點先用「${DEFAULT_FROM}」；回答時先說「沒拿到你的位置，先從${DEFAULT_FROM}算」，並請他說從哪出發就重算。`;
 const NEARBY_TOOL = { weather: 'weather_now', aqi: 'aqi_nearby', youbike: 'youbike_nearby', nearby_bus: 'bus_nearby_stations', garbage: 'garbage_truck_nearby', pharmacy: 'pharmacy_search' };
@@ -394,7 +402,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
 
   for (let round = 0; ; round++) {
     onModelCall();
-    const turn = await conv.next();
+    const turn = await conv.next().catch((e) => { throw asModelError(e); });
     usage.modelCalls++;
     usage.inputTokens += turn.usage.input;
     usage.outputTokens += turn.usage.output;

@@ -3,17 +3,18 @@
 import { listTools, listPacks, describeTool, callTool } from '../core/tools/index.js';
 import { alightCheck } from '../core/alight.js';
 import { getProfile, hasProfile, PROFILES } from '../core/agents/index.js';
-import { UserError } from '../core/util.js';
+import { UserError, isDate } from '../core/util.js';
+import { measure } from '../core/metrics.js';
 import { dataSources } from '../core/index.js';
 import { TOOL_ROLES } from '../core/agent/events.js';
 import { remindAside } from '../core/agent/wait-drama.js';
 
 const num = (v) => (v == null || v === '' ? undefined : Number(v));
-const q = (name, description, { required = false, type = 'string', example } = {}) => ({ name, description, required, type, ...(example !== undefined && { example }) });
+const q = (name, description, { required = false, type = 'string', format, min, example } = {}) => ({ name, description, required, type, ...(format && { format }), ...(min !== undefined && { minimum: min }), ...(example !== undefined && { example }) });
 const CITY = q('city', '縣市，例如 Taipei、台北市', { required: true, example: 'Taipei' });
 const LAT = q('lat', '緯度 (WGS84)', { required: true, type: 'number', example: 25.0478 });
 const LON = q('lon', '經度 (WGS84)', { required: true, type: 'number', example: 121.517 });
-const RADIUS = (d) => q('radius', `搜尋半徑（公尺），預設 ${d}，上限 1000`, { type: 'integer' });
+const RADIUS = (d) => q('radius', `搜尋半徑（公尺），預設 ${d}，上限 1000`, { type: 'integer', min: 1 });
 const int = (v) => { const n = num(v); return Number.isInteger(n) ? n : undefined; };
 const text = (v, max = 40) => (typeof v === 'string' && v.trim() && v.trim().length <= max ? v.trim() : undefined);
 const DAY_MS = 86_400_000;
@@ -30,7 +31,46 @@ function alightParams(p) {
   if (w.rideSec == null || w.rideSec < 0 || w.rideSec > 6 * 3600) throw new UserError('rideSec 要是 0～21600 秒');
   return w;
 }
-const OD = [q('from', '起站（中文站名或代碼）', { required: true, example: '台北' }), q('to', '訖站', { required: true, example: '左營' }), q('date', '日期 YYYY-MM-DD，預設今天')];
+const OD = [q('from', '起站（中文站名或代碼）', { required: true, example: '台北' }), q('to', '訖站', { required: true, example: '左營' }), q('date', '日期 YYYY-MM-DD，預設今天', { format: 'date' })];
+
+const TYPE_HINT = { number: '數字', integer: '整數', boolean: 'true 或 false' };
+const typeOk = { number: (v) => Number.isFinite(Number(v)), integer: (v) => Number.isInteger(Number(v)), boolean: (v) => ['true', 'false', '1', '0'].includes(v), string: () => true };
+
+/**
+ * 依路由表檢查查詢字串（http.js 每次都先走這裡）：去掉前後空白，空的當沒填；必填、數字、整數、日期不對就 UserError（400），說要加或改哪個參數。
+ * 值照樣是字串（handler 自己轉型）。
+ * @param {Array<{ name: string, required: boolean, type: string, format?: string, minimum?: number, example?: any }>} params
+ * @param {Record<string, string>} raw
+ */
+export function checkParams(params, raw = {}) {
+  const out = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const t = typeof v === 'string' ? v.trim() : v;
+    if (t !== '' && t != null) out[k] = t;
+  }
+  for (const p of params) {
+    const v = out[p.name];
+    if (v === undefined) {
+      if (p.required) throw new UserError(`缺少參數 ${p.name}（${p.description}），請在網址加上 ${p.name}=${p.example ?? '…'}`);
+      continue;
+    }
+    if (!(typeOk[p.type] || typeOk.string)(v)) throw new UserError(`參數 ${p.name} 要是${TYPE_HINT[p.type]}，現在是「${String(v).slice(0, 20)}」`);
+    if (p.minimum !== undefined && Number(v) < p.minimum) throw new UserError(`參數 ${p.name} 不能小於 ${p.minimum}`);
+    if (p.format === 'date' && !isDate(v)) throw new UserError(`參數 ${p.name} 要是 YYYY-MM-DD 的日期，例如 2026-11-23`);
+  }
+  return out;
+}
+
+/**
+ * 執行一條 REST 路由：先檢查參數，再在計量範圍內執行（與 tool 相同，core/metrics.js）。
+ * TDX 額度用完改用了示範資料（withTdxFallback）時照實標 mode: 'demo' 與 fallback，不把示範資料標成真實的。
+ * @returns {Promise<{ mode: 'live'|'demo', fallback?: 'tdx-limit', data: any }>}
+ */
+export async function runRoute(svc, route, raw) {
+  const p = checkParams(route.params, raw);
+  const { result: data, metrics } = await measure(() => route.handler(p));
+  return metrics.fallback ? { mode: 'demo', fallback: 'tdx-limit', data } : { mode: svc.mode, data };
+}
 
 /**
  * @param {object} svc createServices() 的結果

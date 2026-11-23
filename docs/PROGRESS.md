@@ -11,6 +11,21 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-23 對外介面稽核：示範資料照實標、日期與必填參數、防詐規則與護欄
+- 做了（每項先寫會失敗的測試再修）：
+  1. 舊版 REST（`/api/v1/thsr/timetable` 等）在 TDX 額度用完改用示範資料時，頂層還寫 `mode: "live"` → `server/rest.js runRoute()` 在與 tool 相同的 `measure()` 裡執行，改用了示範資料就回 `mode: "demo"`＋`fallback: "tdx-limit"`；路由裡再呼叫的 tool（下車提醒）也往外標；前端不把這種回應存成離線的「上次的資料」（SW v1.3.19）
+  2. 安全：`date` 沒驗證、沒編碼就放進 TDX 網址（`date=../../../../v2/Bus/Route/City/Taipei?$top=1` 會用我們的 token 取別的端點）→ `T.date` 要是真的日期（`2026-13-45` 回 400）、REST `format: 'date'`、服務層 `railDate()` 再驗一次，站代碼與日期路徑段都 `encodeURIComponent`
+  3. 防詐示範：「0912345678 打來說是檢察官要我監管帳戶」只查號碼（中）→ 號碼後面還有話時也比對內容，報較高的風險（高：先不要照做）
+  4. REST 必填與數字沒檢查（`bus/eta` 沒 route 示範模式 502、`station-eta` 打 `/Station/undefined`、`thsr/timetable` 沒 `to` 也回時刻表）→ 依路由表檢查必填、數字、整數、日期，400 說要加哪個參數；`findStation` 空站名不比對；示範服務半徑上限 1000 與真實相同；404 改中文
+  5. L2 輸出護欄漏網：防詐「可以安心點開」「可以直接點連結付款」「不會有問題的」「This link is safe」、財經「台積電明天會漲」「台積電應該會反彈」「現在是進場的好時機」、問句後的「不會，會跌」→ 補規則，另測正確的提醒不會被誤擋（「不要直接付款」「打 165 查證比較安心」「請直接輸入官方網址」）
+  6. 有預設值的參數在 OpenAPI／`/api/v1/tools`／模型工具定義被標成必填 → `describeTool` 用 `z.toJSONSchema(schema, { io: 'input' })`
+  7. 限流：`TRUST_PROXY=1` 取 X-Forwarded-For 最左邊（可偽造）→ 取從右邊數第 N 個（`TRUST_PROXY=N` 層代理）
+  8. 防詐模型出錯只回「資料來源暫時無法取得」→ 還沒查資料時這一輪改用規則比對回答，並說「AI 模型暫時無法使用」；其他情況說 AI 模型暫時無法回應（不怪資料來源）
+  - 小項：MCP `SERVER_INFO.version` 讀 package.json；有金鑰但額度用完時 MCP 文字不說「尚未設定 TDX 金鑰」；log 遮掉 `MOENV_API_KEY`、`JEV_API_KEY`；`0800`／`0809` 是免付費電話不是市話
+- 測試：npm test 全過（新增 `test/api-audit.test.js` 16 項、`offline` 1 項）
+- 文件：MCP_TOOLS.md、AGENT_ANTIFRAUD.md、DATA_SOURCES.md、ARCHITECTURE.md、.env.example、本紀錄
+- 卡住：無
+
 ## 2026-11-23 天氣沒有溫度：改用附近有氣溫的測站
 - 產品負責人：手機首頁的天氣沒有溫度。原因：在大安區最近的測站是「臺灣大學」（1.3 公里），這站只有天氣描述、沒有回報氣溫；原本挑「最近且有氣溫或描述」的站，溫度就是空的（全台抽 118 點另有善化、茂林、新埤同樣情形）。
 - 做了：`pickNowStation`：15 公里內最近、有氣溫的站為主（台大附近改用大安森林站 23.1°C）；那站沒有描述時借 10 公里內最近有描述的站；附近都沒有氣溫的站才用最近的站

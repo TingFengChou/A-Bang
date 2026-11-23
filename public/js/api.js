@@ -67,7 +67,8 @@ async function call(path, params, demoFn, { cache = 0 } = {}) {
   if (res.ok && !(j && typeof j === 'object' && 'data' in j)) return fallback(new Error('unexpected response'));
   if (!res.ok) throw new Error(j?.error || `HTTP ${res.status}`);
   state.mode = j.mode;
-  if (canCache) writeCache(key, { at: Date.now(), ttl: cache, data: j.data });
+  // fallback：TDX 額度用完、這次伺服器改用示範資料（mode: demo）——不存成「上次的資料」，連不上時才不會把示範資料當真的顯示
+  if (canCache && !j.fallback) writeCache(key, { at: Date.now(), ttl: cache, data: j.data });
   if (state.staleAt && canCache) { state.staleAt = null; signal('abang:fresh'); }
   return j.data;
 }

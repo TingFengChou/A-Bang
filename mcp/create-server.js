@@ -1,4 +1,5 @@
 // 由 tool registry 建立 MCP server（stdio 與 HTTP 共用；ADR-0002、ADR-0006）
+import { readFileSync } from 'node:fs';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { listTools, callTool } from '../core/tools/index.js';
 import { UserError, publicMessage } from '../core/util.js';
@@ -7,7 +8,9 @@ import { createLogger } from '../server/log.js';
 
 const log = createLogger({ write: (l) => process.stderr.write(l) }); // stdio 模式 stdout 是協定通道，log 一律寫 stderr
 
-export const SERVER_INFO = { name: 'abang', version: '0.2.0' };
+export const SERVER_INFO = { name: 'abang', version: JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version };
+/** 有金鑰、但這次 TDX 額度用完改用示範資料（callTool 的 fallback）：不要說「尚未設定 TDX 金鑰」 */
+export const FALLBACK_NOTE = '【示範資料：TDX 每分鐘的查詢額度用完，這次先用示範資料，以下非真實營運資訊】';
 
 /**
  * @param {object} svc  createServices() 的結果
@@ -32,7 +35,7 @@ export function createMcpServer(svc, { packs } = {}) {
     }, async (args) => {
       try {
         const r = await callTool(svc, t.name, args);
-        const note = r.mode === 'demo' && !t.static ? `${t.demoNote}\n` : '';
+        const note = r.mode === 'demo' && !t.static ? `${r.fallback ? FALLBACK_NOTE : t.demoNote}\n` : '';
         return {
           content: [{ type: 'text', text: note + r.text + `\n\n資料來源：${t.source}` }],
           // CardPayload（CARDS.md §2）：tool／args 給卡片刷新用
