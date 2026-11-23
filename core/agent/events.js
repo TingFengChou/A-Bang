@@ -114,7 +114,7 @@ export function tripSignals(trip, lang = null) {
   const out = {};
   if (trip.straightKm != null) out['地點'] = en ? `${trip.straightKm} km` : `${trip.straightKm} 公里`;
   const w = trip.weather;
-  const temp = /(-?\d+)°C/.exec(w?.summary || '')?.[0];
+  const temp = /-?\d+(?:\.\d+)?°C/.exec(w?.summary || '')?.[0]; // 含小數（26.4°C；以前只抓到「4°C」）
   if (w) out['天氣'] = w.raining ? (en ? 'Rain' : '下雨') : w.pop3h >= 50 ? (en ? `Rain ${w.pop3h}%` : `雨 ${w.pop3h}%`) : (temp || (en ? 'Weather' : '天氣'));
   if (trip.air?.aqi != null) out['空品'] = `AQI ${trip.air.aqi}`;
   const t = trip.traffic;

@@ -3,6 +3,8 @@ import { distanceM } from '../util.js';
 
 export const DIRECT_RADIUS_M = 500; // 起訖點到上下車站牌的最大距離
 export const MAX_ROUTES = 3;        // 最多驗證幾條共同路線（每條要查一次路線到站）
+// 起訖各取幾個站牌找共同路線：要涵蓋整個 DIRECT_RADIUS_M（2026-11-23 實測台北車站 500 公尺內超過 30 個，只取 30 個時 448 公尺外的站牌都漏掉）
+export const DIRECT_STATIONS = 150;
 
 /** 上車站的這些狀態代表車今天不會在這站載客（2 交管不停靠、3 末班已過、4 今日未營運）；下車站只看 2（不停靠就下不了車） */
 const BOARD_OFF = new Set([2, 3, 4]);
