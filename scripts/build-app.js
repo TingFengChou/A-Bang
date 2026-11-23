@@ -4,13 +4,15 @@
 // 正式版必須是 https；沒有設定時用開發預設 http://localhost:8787（Android 模擬器先 adb reverse tcp:8787 tcp:8787；WebView 對 localhost 不擋混合內容）。
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { EDGE_VENDOR } from '../server/edge-model.js';
 
 const root = (p) => fileURLToPath(new URL(`../${p}`, import.meta.url));
 const OUT = root('dist/app');
 // 與 server/http.js 的白名單相同（/vendor/、/core/）
 const VENDOR = ['gsap.min.js', 'MotionPathPlugin.min.js', 'Flip.min.js'];
-const CORE = ['decide.js', 'vision-text.js', 'edge-write.js', 'output-guards.js', 'health-nudge.js', 'nav.js', 'drama-say.js', 'suggest.js', 'edge-ask.js', 'alight.js'];
-const CORE_DATA = ['landmarks.json']; // core/data/ → dist/app/core/（散步地點，ADR-0018）
+const CORE = ['decide.js', 'vision-text.js', 'edge-write.js', 'output-guards.js', 'health-nudge.js', 'nav.js', 'drama-say.js', 'suggest.js', 'edge-ask.js', 'alight.js', 'judge-classify.js'];
+const CORE_DATA = ['landmarks.json', 'judge-classifier.json']; // core/data/ → dist/app/core/（散步地點 ADR-0018；手機上的小模型的分類器參數 E3）
+// 手機上的小模型（E3）的程式放進 App（模型與 27 MB 的執行環境 .wasm 仍由使用者按下載才從伺服器抓）
 
 /** 驗證並正規化 API 位址：只收 http(s)、去掉結尾斜線；正式版（APP_RELEASE=1）只收 https */
 export function apiBase(raw, { release = false } = {}) {
@@ -38,6 +40,7 @@ async function main() {
   await rm(`${OUT}/sw.js`, { force: true }); // App 內不用 service worker
   await mkdir(`${OUT}/vendor`, { recursive: true });
   for (const f of VENDOR) await cp(root(`node_modules/gsap/dist/${f}`), `${OUT}/vendor/${f}`);
+  for (const [f, src] of Object.entries(EDGE_VENDOR)) await cp(src, `${OUT}/vendor/${f}`).catch(() => console.warn(`－ 沒有 ${f}（選用依賴 @huggingface/transformers 沒裝）：App 裡的小模型不能用`));
   await mkdir(`${OUT}/core`, { recursive: true });
   for (const f of CORE) await cp(root(`core/${f}`), `${OUT}/core/${f}`);
   for (const f of CORE_DATA) await cp(root(`core/data/${f}`), `${OUT}/core/${f}`);

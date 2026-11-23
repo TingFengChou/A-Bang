@@ -19,7 +19,8 @@
     "tdx:verify": "node scripts/verify-tdx.js",
     "tdx:record": "node scripts/record-fixtures.js",
     "smoke:android": "node scripts/smoke-android.js",
-    "smoke:ios": "node scripts/smoke-ios.js"
+    "smoke:ios": "node scripts/smoke-ios.js",
+    "build:edge-classifier": "node scripts/build-edge-classifier.js"
   },
   "license": "MIT",
   "dependencies": {

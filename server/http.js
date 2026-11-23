@@ -8,6 +8,8 @@
 // TDX 金鑰只存在伺服器端，瀏覽器與 MCP client 都拿不到。
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { pipeline } from 'node:stream';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -20,6 +22,7 @@ import { restRoutes, runRoute } from './rest.js';
 import { buildOpenApi } from './openapi.js';
 import { createAgentHandler } from './agent.js';
 import { judgeFromEnv } from '../core/agent/judge.js';
+import { edgeModelFile, EDGE_VENDOR } from './edge-model.js';
 import { checkRequest } from '../core/agent/suggest-check.js';
 import { createLogger, routeOf } from './log.js';
 import { hasProfile } from '../core/agents/index.js';
@@ -53,7 +56,7 @@ const VENDOR_DIR = fileURLToPath(new URL('../node_modules/gsap/dist/', import.me
 const VENDOR_FILES = { 'gsap.min.js': 1, 'MotionPathPlugin.min.js': 1, 'Flip.min.js': 1 };
 const vendorCache = new Map();
 const vendorFile = (name) => {
-  if (!vendorCache.has(name)) vendorCache.set(name, readFile(join(VENDOR_DIR, name)).catch((e) => { vendorCache.delete(name); throw e; }));
+  if (!vendorCache.has(name)) vendorCache.set(name, readFile(EDGE_VENDOR[name] || join(VENDOR_DIR, name)).catch((e) => { vendorCache.delete(name); throw e; }));
   return vendorCache.get(name);
 };
 const swaggerCache = new Map(); // 檔名 → Promise<Buffer>：只讀一次磁碟（約 1.5 MB）
@@ -63,7 +66,7 @@ const swaggerFile = (name) => {
 };
 const DOCS_HTML = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>阿幫 API 文件</title><link rel="stylesheet" href="/api/docs/swagger-ui.css"></head><body><div id="ui"></div><script src="/api/docs/swagger-ui-bundle.js"></script><script src="/api/docs/init.js"></script></body></html>`;
 // 前端共用的核心純函式（決策圖即時重算用同一份 decide.js，UX.md §5）：只開放白名單檔案
-const SHARED_CORE = { 'decide.js': fileURLToPath(new URL('../core/decide.js', import.meta.url)), 'vision-text.js': fileURLToPath(new URL('../core/vision-text.js', import.meta.url)), 'edge-write.js': fileURLToPath(new URL('../core/edge-write.js', import.meta.url)), 'output-guards.js': fileURLToPath(new URL('../core/output-guards.js', import.meta.url)), 'health-nudge.js': fileURLToPath(new URL('../core/health-nudge.js', import.meta.url)), 'nav.js': fileURLToPath(new URL('../core/nav.js', import.meta.url)), 'landmarks.json': fileURLToPath(new URL('../core/data/landmarks.json', import.meta.url)), 'drama-say.js': fileURLToPath(new URL('../core/drama-say.js', import.meta.url)), 'suggest.js': fileURLToPath(new URL('../core/suggest.js', import.meta.url)), 'edge-ask.js': fileURLToPath(new URL('../core/edge-ask.js', import.meta.url)), 'alight.js': fileURLToPath(new URL('../core/alight.js', import.meta.url)) }; // vision-text：阿幫會看在手機上分類讀到的字（M14-02）；edge-write：手機寫的回答的程式護欄（ADR-0017）；drama-say：短劇連結檢查與句子（ADR-0019）；edge-ask：手機上的 AI 出的題目的形狀檢查（ADR-0020）；health-nudge＋nav＋landmarks：天氣好又動得少時建議去走走，判斷在手機上（ADR-0018）
+const SHARED_CORE = { 'decide.js': fileURLToPath(new URL('../core/decide.js', import.meta.url)), 'vision-text.js': fileURLToPath(new URL('../core/vision-text.js', import.meta.url)), 'edge-write.js': fileURLToPath(new URL('../core/edge-write.js', import.meta.url)), 'output-guards.js': fileURLToPath(new URL('../core/output-guards.js', import.meta.url)), 'health-nudge.js': fileURLToPath(new URL('../core/health-nudge.js', import.meta.url)), 'nav.js': fileURLToPath(new URL('../core/nav.js', import.meta.url)), 'landmarks.json': fileURLToPath(new URL('../core/data/landmarks.json', import.meta.url)), 'drama-say.js': fileURLToPath(new URL('../core/drama-say.js', import.meta.url)), 'suggest.js': fileURLToPath(new URL('../core/suggest.js', import.meta.url)), 'edge-ask.js': fileURLToPath(new URL('../core/edge-ask.js', import.meta.url)), 'alight.js': fileURLToPath(new URL('../core/alight.js', import.meta.url)), 'judge-classify.js': fileURLToPath(new URL('../core/judge-classify.js', import.meta.url)), 'judge-classifier.json': fileURLToPath(new URL('../core/data/judge-classifier.json', import.meta.url)) }; // vision-text：阿幫會看在手機上分類讀到的字（M14-02）；edge-write：手機寫的回答的程式護欄（ADR-0017）；drama-say：短劇連結檢查與句子（ADR-0019）；edge-ask：手機上的 AI 出的題目的形狀檢查（ADR-0020）；health-nudge＋nav＋landmarks：天氣好又動得少時建議去走走，判斷在手機上（ADR-0018）
 const DOCS_INIT = "window.ui = SwaggerUIBundle({ url: '/api/v1/openapi.json', dom_id: '#ui', deepLinking: true, tryItOutEnabled: true });";
 
 // 手機 App（ADR-0013）的 WebView 來源：問阿幫端點只對這些來源加 CORS（不用 *）
@@ -117,7 +120,22 @@ createServer(async (req, res) => {
 
     // ── 前端動畫套件（白名單）──
     const vend = path.match(/^\/vendor\/([\w.-]+)$/);
-    if (vend && Object.hasOwn(VENDOR_FILES, vend[1])) return sendRaw(res, 200, await vendorFile(vend[1]), 'text/javascript; charset=utf-8', { 'cache-control': 'public, max-age=604800' });
+    if (vend && (Object.hasOwn(VENDOR_FILES, vend[1]) || Object.hasOwn(EDGE_VENDOR, vend[1]))) return sendRaw(res, 200, await vendorFile(vend[1]), 'text/javascript; charset=utf-8', { 'cache-control': 'public, max-age=604800' });
+    // 手機上的小模型（E3）：白名單檔案、串流送出（模型約 118 MB，不讀進記憶體）；App 的 WebView 跨來源下載要 CORS
+    const em = path.match(/^\/edge-model\/([\w./-]+)$/);
+    if (em) {
+      const cors = appCors(req);
+      if (req.method === 'OPTIONS') return end(res, 204, { ...cors, 'access-control-allow-methods': 'GET, OPTIONS' });
+      if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: '請以 GET 下載' }, { ...cors, allow: 'GET, HEAD' });
+      const hit = edgeModelFile(em[1], process.env.JUDGE_MODEL_DIR ? { modelDir: process.env.JUDGE_MODEL_DIR } : {});
+      const st = hit && await stat(hit.file).catch(() => null);
+      if (!st?.isFile()) return send(res, 404, { error: '這台伺服器沒有提供手機上的小模型' }, cors);
+      if (!limit(req, res, 'api')) return;
+      res.writeHead(200, { 'content-type': hit.type, 'content-length': st.size, 'cache-control': 'public, max-age=86400', ...cors, ...(cors['access-control-allow-origin'] && { 'access-control-allow-methods': 'GET, OPTIONS' }) });
+      if (req.method === 'HEAD') return res.end();
+      pipeline(createReadStream(hit.file), res, () => {}); // 使用者中途離開：兩邊都關掉（不留著檔案）
+      return;
+    }
 
     // ── 網頁 agent（NDJSON 串流；給本站網頁與手機 App，App 來源見 APP_ORIGINS）──
     // /api/v1/agent（生活）或 /api/v1/agent/:id（例：antifraud；ADR-0005 多 agent）

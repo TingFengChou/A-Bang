@@ -4,7 +4,7 @@ import { API_BASE, IN_APP } from '../base.js';
 import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
 import { runAgent, browserLocation, locationGranted, recentFix } from '../agent/client.js';
 import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-help.js';
-import { edgeJudge, edgePrewarm, edgeSuggest, edgeCanSuggest, edgeJudgeReady, judgeContext } from '../edge-judge.js';
+import { edgeJudge, edgePrewarm, edgeSuggest, edgeCanSuggest, edgeJudgeReady, judgeContext, judgeFromDevice } from '../edge-judge.js';
 import { edgeWrite, edgeWriteCaps, writeLine, writeModeText } from '../edge-write.js';
 import { noteAgentStatus } from '../ai-info.js';
 import { mountThinking, deviceLine } from '../agent/thinking.js';
@@ -656,7 +656,7 @@ export default {
             break;
           case 'answer_draft': { // 回答交給手機寫（ADR-0017）：改寫、程式護欄檢查；不過或逾時用程式版，回答上方照實說是誰寫的
             const r = await edgeWrite(e, { engine: view.writeEngine, agent: agentId });
-            view.writeLine = writeLine(r, turnLang, { judged: view.judge?.source === 'device', judgeEngine: view.judge?.engine }); // 手機判斷與寫回答合成一行
+            view.writeLine = writeLine(r, turnLang, { judged: judgeFromDevice(view.judge), judgeEngine: view.judge?.engine }); // 手機判斷與寫回答合成一行
             view.draft = e.text;
             modeLine.textContent = writeModeText(r);
             turn.dataset.writer = r.by;

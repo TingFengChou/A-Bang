@@ -7,6 +7,7 @@
 // 同一次呼叫也請模型決定要不要先問使用者一題（ask）：形狀先在手機上檢查（core/edge-ask.js），不過就不送；伺服器再驗證內容，不過就照規則問。
 import { unsafeAsk } from '../../core/suggest.js';
 import { EDGE_ASK_GUIDE, normalizeEdgeAsk, edgeAskShape, requestAsk, askAbout } from '../../core/edge-ask.js';
+import { EMBED_ENGINE, embedJudge, embedReady, warmEmbed } from './edge-embed.js';
 
 // 外掛 AbangEdgeAI 有三個用模型的任務：judge（聽懂問題）、write（寫回答，edge-write.js）、suggest（猜下一句）。
 // 共用這裡的外掛存取與斷路器；優先順序 judge ＞ write ＞ suggest：judge、write 開始前先取消正在跑的 suggest（cancelSuggest），
@@ -24,11 +25,15 @@ const cap = edgeCap;
 export const EDGE_INTENTS = ['trip', 'bus_route', 'youbike', 'nearby_bus', 'metro', 'rail', 'weather', 'aqi', 'quake', 'pharmacy', 'garbage', 'fuel', 'invoice', 'stock', 'traffic', 'unknown'];
 export const EDGE_STATES = ['rush', 'luggage', 'budget', 'lessWalk', 'rain', 'badAir', 'elder', 'kids', 'mobility'];
 export const EDGE_ENGINES = ['apple', 'gemini-nano'];
+/** 送伺服器的 deviceJudge 可以帶的引擎：系統模型＋手機上的小模型（E3，只判斷、不寫回答） */
+export const JUDGE_ENGINES = [...EDGE_ENGINES, EMBED_ENGINE];
 /** 等裝置判斷最多這麼久，超過就不等（使用者送出後不該卡住） */
 export const EDGE_TIMEOUT_MS = 1800;
 const OFF_KEY = 'abang.edgeAI';
 /** 引擎的顯示名稱、不能用的原因（設定頁、首頁「手機上的 AI」共用） */
-export const EDGE_ENGINE_NAME = { apple: 'Apple Intelligence', 'gemini-nano': 'Gemini Nano' };
+export const EDGE_ENGINE_NAME = { apple: 'Apple Intelligence', 'gemini-nano': 'Gemini Nano', [EMBED_ENGINE]: '小模型' };
+/** 這一輪伺服器採用了手機的判斷嗎（status 的 judge）：系統模型是 device；小模型被當作伺服器的嵌入分類器（embed＋engine e5） */
+export const judgeFromDevice = (j) => j?.source === 'device' || (j?.source === 'embed' && j?.engine === EMBED_ENGINE);
 export const EDGE_REASON = { ok: '可以使用', unsupported: '這支手機不支援', disabled: '手機沒有開啟 Apple Intelligence', downloading: '模型下載中', 'needs-wifi': '連上 Wi-Fi 後會自動下載模型', 'os-too-old': '系統版本太舊', language: '目前不支援繁體中文', web: '網頁版不使用（只在手機 App）', 'no-plugin': '這個版本沒有裝置端 AI' };
 
 /**
@@ -43,7 +48,7 @@ export const EDGE_INSTRUCTIONS = `你是交通與生活助理的「意圖與狀�
 export const EDGE_JUDGE_INSTRUCTIONS = `${EDGE_INSTRUCTIONS}\n${EDGE_ASK_GUIDE}`;
 
 /** 現在請手機判斷會不會真的呼叫外掛（App、沒跳斷路器、上一題跑完、開關開著）：不會就不必組情境 */
-export const edgeJudgeReady = () => !!cap() && !unavailable && !inflight && edgeEnabled() && edgeForeground();
+export const edgeJudgeReady = () => ((!!cap() && !unavailable && !inflight) || embedReady()) && edgeEnabled() && edgeForeground();
 
 /** 使用者可在設定關掉裝置端 AI（E8）；讀不到就當開著 */
 export function edgeEnabled() {
@@ -142,7 +147,9 @@ export async function edgeStatus() {
 /** 進問阿幫頁時先讓系統載入模型（第一次判斷才不會慢）；失敗不影響 */
 export function edgePrewarm() {
   const c = cap();
-  if (c && edgeEnabled() && edgeForeground()) c.nativePromise(PLUGIN, 'prewarm', { instructions: EDGE_JUDGE_INSTRUCTIONS }).catch(() => {});
+  if (!edgeEnabled() || !edgeForeground()) return;
+  if (c) c.nativePromise(PLUGIN, 'prewarm', { instructions: EDGE_JUDGE_INSTRUCTIONS }).catch(() => {});
+  warmEmbed(); // 下載過小模型（E3）就從手機上的快取載入（不連網）；沒下載過不做事
 }
 
 // ───── 系統暫時不讓用（Pixel smoke，2026-11-22）：App 不在前景（切到別的 App、螢幕關著）時 AICore／Foundation Models 拒絕推論 ─────
@@ -197,14 +204,37 @@ export const edgeTasks = new Set();
 export const _resetEdge = () => { inflight = null; unavailable = false; suggestInflight = null; suggestOff = false; suggestAbort = null; lastCancelAt = -Infinity; lastIssue = null; edgeTasks.clear(); };
 
 /**
- * 在手機上判斷這一句（同一次呼叫也決定要不要先問使用者一題，ADR-0020）。
+ * 在手機上判斷這一句（同一次呼叫也決定要不要先問使用者一題，ADR-0020）。系統模型不能用時改用下載過的小模型（E3，不出題）。
  * @param {string} text 使用者這一句
  * @param {string[]} [history] 前面幾句（只取最後 2 句）
  * @param {{ timeout?: number, context?: string, asked?: string[], onAsk?: Function }} [o] context：只在手機上組的情境（judgeContext；不含座標）；
  *   asked：上一輪問過的題（about）；onAsk：模型有提議題目時告訴呼叫端（通過或被擋與原因；「阿幫的腦袋」用）
  * @returns {Promise<{ intent: string, states: string[], engine: string, ask?: object } | null>}
  */
-export async function edgeJudge(text, history = [], { timeout = EDGE_TIMEOUT_MS, context = '', asked = [], onAsk = null } = {}) {
+export async function edgeJudge(text, history = [], opts = {}) {
+  return (await nativeJudge(text, history, opts)) || embedFallback(text, history);
+}
+
+/**
+ * 小模型（E3）的結果 → deviceJudge（帶信心；伺服器沒有自己的嵌入分類器時當作它）。意圖不對、信心不是 0～1 → null。
+ * @returns {{ intent: string, states: string[], engine: 'e5', confidence: number } | null}
+ */
+export function normalizeEmbed(r) {
+  if (!r || typeof r !== 'object' || !EDGE_INTENTS.includes(r.intent) || !(r.confidence >= 0 && r.confidence <= 1)) return null;
+  const states = [...new Set((Array.isArray(r.states) ? r.states : []).filter((k) => EDGE_STATES.includes(k)))];
+  return { intent: r.intent, states, engine: EMBED_ENGINE, confidence: Math.round(r.confidence * 1000) / 1000 };
+}
+/** 系統模型不能用（不支援、關掉、逾時、上一題還在跑）時，下載過小模型就由它判斷（不出題；ADR-0020 的 ask 只有系統模型會出） */
+async function embedFallback(text, history) {
+  if (!text || !edgeEnabled() || !embedReady() || !edgeCanRun()) return null;
+  const t0 = Date.now();
+  const r = await embedJudge(text, history);
+  const out = normalizeEmbed(r);
+  if (out) noteEdgeJudge(validMs(r.ms) ?? Date.now() - t0);
+  return out;
+}
+
+async function nativeJudge(text, history = [], { timeout = EDGE_TIMEOUT_MS, context = '', asked = [], onAsk = null } = {}) {
   const c = cap();
   if (!c || unavailable || inflight || !edgeEnabled() || !text) return null;
   if (!edgeCanRun()) return null; // App 不在前景：系統會拒絕，直接交給伺服器判斷
