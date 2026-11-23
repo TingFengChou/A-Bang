@@ -1178,7 +1178,7 @@
 {
 "id": 157,
 "text": "謝謝",
-"intent": "unknown",
+"intent": "chat",
 "states": [],
 "level": "hard",
 "history": [
@@ -1222,21 +1222,21 @@
 {
 "id": 161,
 "text": "你好",
-"intent": "unknown",
+"intent": "chat",
 "states": [],
 "level": "easy"
 },
 {
 "id": 162,
 "text": "你是誰",
-"intent": "unknown",
+"intent": "help",
 "states": [],
 "level": "easy"
 },
 {
 "id": 163,
 "text": "講個笑話",
-"intent": "unknown",
+"intent": "chat",
 "states": [],
 "level": "easy"
 },
@@ -1271,7 +1271,7 @@
 {
 "id": 168,
 "text": "謝謝你",
-"intent": "unknown",
+"intent": "chat",
 "states": [],
 "level": "easy"
 },
@@ -1285,7 +1285,7 @@
 {
 "id": 170,
 "text": "明天要開會提醒我",
-"intent": "unknown",
+"intent": "reminder",
 "states": [],
 "level": "hard"
 },
@@ -1302,6 +1302,370 @@
 "intent": "unknown",
 "states": [],
 "level": "hard"
+},
+{
+"id": 173,
+"text": "統聯到台中還有車嗎",
+"intent": "intercity",
+"states": [],
+"level": "easy"
+},
+{
+"id": 174,
+"text": "想坐客運回嘉義",
+"intent": "intercity",
+"states": [],
+"level": "easy"
+},
+{
+"id": 175,
+"text": "國道客運去新竹要多久",
+"intent": "intercity",
+"states": [],
+"level": "easy"
+},
+{
+"id": 176,
+"text": "搭巴士到桃園機場",
+"intent": "intercity",
+"states": [],
+"level": "easy"
+},
+{
+"id": 177,
+"text": "叫台車去101",
+"intent": "ridehail",
+"states": [],
+"level": "easy"
+},
+{
+"id": 178,
+"text": "幫我叫計程車到松山機場",
+"intent": "ridehail",
+"states": [],
+"level": "easy"
+},
+{
+"id": 179,
+"text": "坐小黃去台北車站多少錢",
+"intent": "ridehail",
+"states": [],
+"level": "easy"
+},
+{
+"id": 180,
+"text": "我要搭 Uber 回家",
+"intent": "ridehail",
+"states": [],
+"level": "easy"
+},
+{
+"id": 181,
+"text": "幫我訂高鐵到左營",
+"intent": "booking",
+"states": [],
+"level": "easy"
+},
+{
+"id": 182,
+"text": "買兩張台鐵車票到台東",
+"intent": "booking",
+"states": [],
+"level": "easy"
+},
+{
+"id": 183,
+"text": "高鐵票要怎麼訂",
+"intent": "booking",
+"states": [],
+"level": "easy"
+},
+{
+"id": 184,
+"text": "訂明天早上去台中的車票",
+"intent": "booking",
+"states": [],
+"level": "easy"
+},
+{
+"id": 185,
+"text": "西門紅樓在哪",
+"intent": "place",
+"states": [],
+"level": "easy"
+},
+{
+"id": 186,
+"text": "台北小巨蛋的地址",
+"intent": "place",
+"states": [],
+"level": "easy"
+},
+{
+"id": 187,
+"text": "象山步道入口在哪裡",
+"intent": "place",
+"states": [],
+"level": "easy"
+},
+{
+"id": 188,
+"text": "士林夜市在什麼地方",
+"intent": "place",
+"states": [],
+"level": "easy"
+},
+{
+"id": 189,
+"text": "出門前有什麼要注意",
+"intent": "outing",
+"states": [],
+"level": "easy"
+},
+{
+"id": 190,
+"text": "現在適合出門嗎",
+"intent": "outing",
+"states": [],
+"level": "easy"
+},
+{
+"id": 191,
+"text": "帶長輩出門要注意什麼",
+"intent": "outing",
+"states": [],
+"level": "easy"
+},
+{
+"id": 192,
+"text": "我等等要出門幫我看看",
+"intent": "outing",
+"states": [],
+"level": "easy"
+},
+{
+"id": 193,
+"text": "推薦好看的短劇",
+"intent": "drama",
+"states": [],
+"level": "easy"
+},
+{
+"id": 194,
+"text": "有什麼劇可以追",
+"intent": "drama",
+"states": [],
+"level": "easy"
+},
+{
+"id": 195,
+"text": "最近流行什麼短劇",
+"intent": "drama",
+"states": [],
+"level": "easy"
+},
+{
+"id": 196,
+"text": "等公車無聊有劇看嗎",
+"intent": "drama",
+"states": [],
+"level": "easy"
+},
+{
+"id": 197,
+"text": "我今天都坐著沒動",
+"intent": "exercise",
+"states": [],
+"level": "easy"
+},
+{
+"id": 198,
+"text": "想去附近散散步",
+"intent": "exercise",
+"states": [],
+"level": "easy"
+},
+{
+"id": 199,
+"text": "天氣不錯適合運動嗎",
+"intent": "exercise",
+"states": [],
+"level": "easy"
+},
+{
+"id": 200,
+"text": "步數太少了怎麼辦",
+"intent": "exercise",
+"states": [],
+"level": "easy"
+},
+{
+"id": 201,
+"text": "陌生人要我加LINE聊投資",
+"intent": "scam",
+"states": [],
+"level": "easy"
+},
+{
+"id": 202,
+"text": "收到繳費簡訊說我欠費",
+"intent": "scam",
+"states": [],
+"level": "easy"
+},
+{
+"id": 203,
+"text": "自稱警察說我帳戶涉案",
+"intent": "scam",
+"states": [],
+"level": "easy"
+},
+{
+"id": 204,
+"text": "這個連結是不是釣魚",
+"intent": "scam",
+"states": [],
+"level": "easy"
+},
+{
+"id": 205,
+"text": "車快到時跟我說",
+"intent": "reminder",
+"states": [],
+"level": "easy"
+},
+{
+"id": 206,
+"text": "幫我設下車提醒",
+"intent": "reminder",
+"states": [],
+"level": "easy"
+},
+{
+"id": 207,
+"text": "明天早上提醒我出門",
+"intent": "reminder",
+"states": [],
+"level": "easy"
+},
+{
+"id": 208,
+"text": "把提醒取消",
+"intent": "reminder",
+"states": [],
+"level": "easy"
+},
+{
+"id": 209,
+"text": "我想設定我家的位置",
+"intent": "settings",
+"states": [],
+"level": "easy"
+},
+{
+"id": 210,
+"text": "改成英文介面",
+"intent": "settings",
+"states": [],
+"level": "easy"
+},
+{
+"id": 211,
+"text": "我有一台車",
+"intent": "settings",
+"states": [],
+"level": "easy"
+},
+{
+"id": 212,
+"text": "通知怎麼關",
+"intent": "settings",
+"states": [],
+"level": "easy"
+},
+{
+"id": 213,
+"text": "阿幫你會什麼",
+"intent": "help",
+"states": [],
+"level": "easy"
+},
+{
+"id": 214,
+"text": "這個 App 能幹嘛",
+"intent": "help",
+"states": [],
+"level": "easy"
+},
+{
+"id": 215,
+"text": "你可以做哪些事",
+"intent": "help",
+"states": [],
+"level": "easy"
+},
+{
+"id": 216,
+"text": "你是什麼",
+"intent": "help",
+"states": [],
+"level": "easy"
+},
+{
+"id": 217,
+"text": "嗨",
+"intent": "chat",
+"states": [],
+"level": "easy"
+},
+{
+"id": 218,
+"text": "謝啦",
+"intent": "chat",
+"states": [],
+"level": "easy"
+},
+{
+"id": 219,
+"text": "你好棒",
+"intent": "chat",
+"states": [],
+"level": "easy"
+},
+{
+"id": 220,
+"text": "早安阿幫",
+"intent": "chat",
+"states": [],
+"level": "easy"
+},
+{
+"id": 221,
+"text": "有人倒在路邊",
+"intent": "emergency",
+"states": [],
+"level": "easy"
+},
+{
+"id": 222,
+"text": "我出車禍了",
+"intent": "emergency",
+"states": [],
+"level": "easy"
+},
+{
+"id": 223,
+"text": "我肚子痛到站不起來",
+"intent": "emergency",
+"states": [],
+"level": "easy"
+},
+{
+"id": 224,
+"text": "家裡失火了",
+"intent": "emergency",
+"states": [],
+"level": "easy"
 }
 ]
 }

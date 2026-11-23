@@ -24,9 +24,10 @@ test('整句問能做什麼、是誰、怎麼用才算（中英文）', () => {
 
 test('手機看了前文判成行程＋趕時間：規則認得「你會做什麼」就用規則，狀態清空', async () => {
   const j = createJudge();
-  for (const q of ['你會做什麼？', 'What can you do?', '謝謝', '好']) {
+  // 2026-11-23 起問阿幫能做什麼是 help、道謝與「好」是 chat（以前都是 unknown）
+  for (const [q, want] of [['你會做什麼？', 'help'], ['What can you do?', 'help'], ['謝謝', 'chat'], ['好', 'chat']]) {
     const r = await j.quick(q, PRIOR, { device: DEV_TRIP });
-    assert.deepEqual([r.intent, r.source, r.states], ['unknown', 'rules', []], q);
+    assert.deepEqual([r.intent, r.source, r.states], [want, 'rules', []], q);
   }
   // 其他句子照手機（不是一律以規則為準）
   const w = await j.quick('明天會下雨嗎', PRIOR, { device: { intent: 'weather', states: [], engine: 'gemini-nano' } });

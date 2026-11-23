@@ -222,7 +222,16 @@ export const INTENT_TOOLS = {
   stock: ['stock_quote'],
   traffic: ['traffic_status', 'find_place'],
   drama: ['drama_picks', 'drama_search', 'drama_series'],
+  // 2026-11-23 新意圖（阿幫會的每一件事都有意圖）
+  intercity: ['intercity_bus', 'plan_trip', 'find_place'],
+  ridehail: ['ridehail_link', 'plan_trip', 'find_place'],
+  booking: ['rail_booking_link', 'thsr_timetable', 'tra_timetable', 'rail_stations', 'rail_fare'],
+  place: ['find_place', 'plan_trip'],
+  outing: ['outing_advice', 'weather_now', 'aqi_nearby', 'find_place'],
+  exercise: ['outing_advice', 'weather_now', 'aqi_nearby', 'find_place'],
 };
+/** 不查資料、程式固定回答的意圖（判斷層有把握、規則聽不懂時）：詐騙請到防詐檢查、提醒與設定說在哪裡設、緊急求助先給電話 */
+export const FIXED_REPLY_INTENTS = ['scam', 'reminder', 'settings', 'emergency'];
 
 /** profile 的工具 → 模型看的工具定義（registry 產生，ADR-0002）；only＝只給這些（判斷層縮減） */
 export function toolDefs(profile, { deviceLocation: withLocation = false, only } = {}) {
@@ -328,6 +337,14 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
   if (more && rulesIt.lang !== 'en') emit(ev.agentNote(more));
   const sure = j && (j.source === 'llm' || j.source === 'device' || (j.confidence ?? 0) >= 0.8); // 模型判斷（伺服器 B 或手機上的模型，ADR-0014）或 A 有把握
+  // 詐騙、提醒、設定、緊急求助：規則聽不懂但判斷層有把握時，程式固定回答（不交給模型自由發揮；跟示範模式同一套說法）
+  if (profile.id === 'life' && sure && rulesIt.intent === 'unknown' && FIXED_REPLY_INTENTS.includes(j.intent)) {
+    const fit = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent, saved: req.savedPlaces, now }) || rulesIt;
+    if (fit.intent === 'scamAsk') emit(ev.ask({ id: 'ask-m1', ...scamPasteAsk('life', fit.lang, last, { pasted: !!fit.pasted }) }));
+    emit(ev.text(demoSummary(fit, {})));
+    emit(ev.done({ modelCalls: 0, inputTokens: 0, outputTokens: 0 }));
+    return;
+  }
   // 這句（或接著改的上一輪）沒說起點 → 起點是現在位置（下面呼叫 plan_trip 時由程式帶入）
   const hereIsOrigin = rulesIt.intent === 'trip' && !rulesIt.from && !rulesIt.fromSaved;
   // 需要現在位置（沒說起點的行程、沒說地點的天氣／YouBike／附近公車／垃圾車／公車到站）→ 問模型之前就先請 App 定位，

@@ -21,7 +21,8 @@ export const edgeCap = () => {
 const cap = edgeCap;
 
 /** 與 core/agent/judge.js 的 JUDGE_INTENTS、JUDGE_STATES 相同（test/edge-judge.test.js 比對） */
-export const EDGE_INTENTS = ['trip', 'bus_route', 'youbike', 'nearby_bus', 'metro', 'rail', 'weather', 'aqi', 'quake', 'pharmacy', 'garbage', 'fuel', 'invoice', 'stock', 'traffic', 'unknown'];
+export const EDGE_INTENTS = ['trip', 'bus_route', 'youbike', 'nearby_bus', 'metro', 'rail', 'weather', 'aqi', 'quake', 'pharmacy', 'garbage', 'fuel', 'invoice', 'stock', 'traffic',
+  'intercity', 'ridehail', 'booking', 'place', 'outing', 'drama', 'exercise', 'scam', 'reminder', 'settings', 'help', 'chat', 'emergency', 'unknown'];
 export const EDGE_STATES = ['rush', 'luggage', 'budget', 'lessWalk', 'rain', 'badAir', 'elder', 'kids', 'mobility'];
 export const EDGE_ENGINES = ['apple', 'gemini-nano'];
 /** 等裝置判斷最多這麼久，超過就不等（使用者送出後不該卡住） */
@@ -36,9 +37,9 @@ export const EDGE_REASON = { ok: '可以使用', unsupported: '這支手機不�
  * iOS 用結構化輸出（@Generable）不需要 JSON 格式說明；Android 要求只回 JSON。
  */
 export const EDGE_INSTRUCTIONS = `你是交通與生活助理的「意圖與狀態判斷器」，只判斷，不回答問題。
-意圖（選一個）：trip 從 A 到 B 怎麼去、行程、比較交通方式（只說目的地也算）；bus_route 某條公車路線到哪、多久到、末班；youbike 借還 YouBike、站點車位；nearby_bus 附近公車站牌；metro 捷運下一班；rail 高鐵、台鐵班次車票；weather 天氣、會不會下雨；aqi 空氣品質、PM2.5、口罩；quake 地震；pharmacy 藥局；garbage 垃圾車；fuel 油價；invoice 發票對獎；stock 台股；traffic 國道路況、塞不塞車；unknown 以上都不是。
+意圖（選一個）：trip 從 A 到 B 怎麼去、行程、比較交通方式（只說目的地也算）；bus_route 某條公車路線到哪、多久到、末班；youbike 借還 YouBike、站點車位；nearby_bus 附近公車站牌；metro 捷運下一班；rail 高鐵、台鐵班次車票；weather 天氣、會不會下雨；aqi 空氣品質、PM2.5、口罩；quake 地震；pharmacy 藥局；garbage 垃圾車；fuel 油價；invoice 發票對獎；stock 台股；traffic 國道路況、塞不塞車；intercity 國道客運；ridehail 叫車、計程車、Uber；booking 訂高鐵台鐵車票；place 某地方在哪、地址；outing 出門要注意什麼、帶傘外套；drama 短劇、追劇；exercise 走太少、散步運動；scam 可疑簡訊電話網址、加 LINE、投資群組、假檢警、被騙；reminder 提醒我、到站通知；settings 設定常用地點、我有車、語言、通知；help 問阿幫能做什麼；chat 打招呼、道謝、閒聊；emergency 受傷急病、有人昏倒、車禍、危險、想傷害自己；unknown 阿幫沒有的服務。
 狀態（使用者明講才列，可為空）：rush 趕時間、快遲到；luggage 帶行李、大包小包；budget 要便宜、省錢；lessWalk 不想走路、腳不舒服；rain 正在下雨（問會不會下雨不算）；badAir 空氣很差；elder 帶長輩、老人家同行；kids 帶小孩、推嬰兒車；mobility 坐輪椅、行動不便。
-「307 到哪了」「藍15 還要多久」問某條公車在哪、多久到是 bus_route，不是 trip。「板南線下一班」「淡水信義線還要等多久」是 metro。「下一班高鐵到台中」「幾點有自強號」是 rail，不是 trip；「從板橋到台北車站」「從桃園火車站去台北101」沒說坐高鐵台鐵是 trip。「國道塞車嗎」「台北到新竹會不會塞」是 traffic。「這期發票」「中獎號碼」「我有沒有中」是 invoice。「改坐公車」「那叫車呢」這類接著改條件的話是 trip。「你會做什麼」「你是誰」「怎麼用」問阿幫能做什麼、閒聊、道謝是 unknown。前文只在這一句接著前面的事（改條件、補充）時參考；換了新話題就不沿用前文的意圖與狀態。`;
+「307 到哪了」「藍15 還要多久」問某條公車在哪、多久到是 bus_route，不是 trip。「板南線下一班」「淡水信義線還要等多久」是 metro。「下一班高鐵到台中」「幾點有自強號」是 rail，不是 trip；「從板橋到台北車站」「從桃園火車站去台北101」沒說坐高鐵台鐵是 trip。「國道塞車嗎」「台北到新竹會不會塞」是 traffic。「這期發票」「中獎號碼」「我有沒有中」是 invoice。「改坐公車」「那叫車呢」這類接著改條件的話是 trip。「搭客運去台中」是 intercity；「幫我叫車去101」是 ridehail；「台北101在哪」是 place（問怎麼去才是 trip）。「有人叫我加 LINE」「這則簡訊是詐騙嗎」是 scam。「你會做什麼」「你是誰」是 help；「你好」「謝謝」是 chat；訂餐廳、查快遞這類阿幫沒有的才是 unknown。前文只在這一句接著前面的事（改條件、補充）時參考；換了新話題就不沿用前文的意圖與狀態。`;
 /** 實際給模型的指示：判斷＋要不要先問一題（ADR-0020；prewarm 與 judge 要用同一份，iOS 才會用到預先載入的 session） */
 export const EDGE_JUDGE_INSTRUCTIONS = `${EDGE_INSTRUCTIONS}\n${EDGE_ASK_GUIDE}`;
 
