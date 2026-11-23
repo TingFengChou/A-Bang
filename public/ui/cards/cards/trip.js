@@ -14,7 +14,8 @@ export function canRemind(leaveAt, date, now = Date.now()) {
   const tw = new Date(now + 8 * 3600e3);
   if (date && date !== tw.toISOString().slice(0, 10)) return false;
   const [hh, mm] = leaveAt.split(':').map(Number);
-  return hh * 60 + mm > tw.getUTCHours() * 60 + tw.getUTCMinutes() + 1;
+  const diff = hh * 60 + mm - (tw.getUTCHours() * 60 + tw.getUTCMinutes());
+  return diff > 1 && diff < 12 * 60; // 提醒最多排 12 小時內（reminders.js addReminder 同一個上限；前端審查 #3：超過還顯示按鈕、按了說「這個裝置無法設定提醒」）
 }
 
 /** 重畫後把焦點放回這個按鈕（整張卡重畫，原本按的按鈕會消失） */
@@ -37,7 +38,7 @@ function remindBlock(o, { host, t, state, rerender, payload, say = () => {}, loc
     const id = await host.remind(o.leaveAt, t('trip.remindText', { name: o.name, time: o.leaveAt }), { key, opt: o.id, ...(locale === 'en' && { lang: 'en' }) }).catch(() => false);
     state.reminded = id ? { opt: o.id, id } : null;
     if (id) { msg(t('trip.reminded', { time: o.leaveAt }) + when); state.remindFocus = 'cancel'; }
-    else { msg(t((host.notifyState && (await host.notifyState().catch(() => 'prompt')) === 'denied') ? 'trip.remindDenied' : 'trip.remindFailed'), 'err'); state.remindFocus = 'trigger'; }
+    else { msg(t(host.remindersFull?.() ? 'trip.remindFull' : (host.notifyState && (await host.notifyState().catch(() => 'prompt')) === 'denied') ? 'trip.remindDenied' : 'trip.remindFailed'), 'err'); state.remindFocus = 'trigger'; } // 已經 5 筆：照實說（前端審查 #3）
     rerender();
   };
   const note = state.remindMsg && h('p', { class: state.remindMsg.kind === 'err' ? 'ab-fail' : 'ab-sub' }, state.remindMsg.text);
@@ -117,6 +118,8 @@ function legsBar(o, t, locale = null) {
 }
 
 /** 方案名稱：英文那一輪用交通方式英文（公車號、捷運線名維持中文：Bus 棕9、MRT 淡水信義線），中文照原名（S12f） */
+/** 英文卡片不放只有中文的句子（理由、提醒、不列入的原因；伺服器只產中文）：引號裡的地名、路線名不算（前端審查 #2） */
+export const zhOnly = (s, locale) => locale === 'en' && /[\u3400-\u9fff]/.test(String(s || '').replace(/「[^」]*」|（[^）]*）/g, ''));
 export function optName(o, t, locale) {
   if (locale !== 'en') return o.name;
   const n = String(o.name || '');
@@ -152,7 +155,7 @@ function optionBlock(o, ctx, best) {
     o.bike && h('div', { class: 'ab-bike-ends' },
       h('span', { class: `ab-chip${o.bike.rent.tight ? ' warn' : ' ok'}` }, t('trip.bikeRent', { name: o.bike.rent.name, n: o.bike.rent.count })),
       h('span', { class: `ab-chip${o.bike.ret.tight ? ' warn' : ' ok'}` }, t('trip.bikeReturn', { name: o.bike.ret.name, n: o.bike.ret.count }))),
-    o.bike && (o.bike.rent.tight || o.bike.ret.tight) && h('ul', { class: 'ab-bike-warn' }, o.notes.filter((n) => /可能/.test(n) && !/變動/.test(n)).map((n) => h('li', {}, n))),
+    o.bike && (o.bike.rent.tight || o.bike.ret.tight) && h('ul', { class: 'ab-bike-warn' }, o.notes.filter((n) => /可能/.test(n) && !/變動/.test(n) && !zhOnly(n, ctx.locale)).map((n) => h('li', {}, n))),
     best && chose(h('div', { class: 'ab-actions' },
       navButton(host, o.legs[0]?.nav),
       ride && confirmLinkButton(host, ride, t('trip.ridehailConfirm'), t('trip.ridehail')),
@@ -167,8 +170,8 @@ export default {
     const { t, state } = ctx;
     const byId = new Map(d.options.map((o) => [o.id, o]));
     const best = byId.get(d.best);
-    const warnTips = (d.tips || []).filter((x) => x.kind !== 'cost'); // 時間很緊、帶傘：放在建議方案上面
-    const costTips = (d.tips || []).filter((x) => x.kind === 'cost');
+    const warnTips = (d.tips || []).filter((x) => x.kind !== 'cost' && !zhOnly(x.text, ctx.locale)); // 時間很緊、帶傘：放在建議方案上面
+    const costTips = (d.tips || []).filter((x) => x.kind === 'cost' && !zhOnly(x.text, ctx.locale));
     const alts = d.ranking.ranked.filter((r) => r.id !== d.best).slice(0, MAX_ALT).map((r) => byId.get(r.id)).filter(Boolean);
     const en = ctx.locale === 'en';
     const notIn = d.missing || d.skipped || [];
@@ -181,12 +184,12 @@ export default {
       state.err && h('p', { class: 'ab-fail', role: 'alert' }, state.err),
       warnTips.length > 0 && h('ul', { class: 'ab-tips warn', 'aria-label': t('trip.tips') }, warnTips.map((x) => h('li', {}, x.text))),
       best ? optionBlock(best, ctx, true) : h('p', { class: 'ab-empty' }, t(!d.ranking.excluded.length ? 'trip.none' : d.ranking.excluded.every((e) => !String(e.why).includes('超過')) ? 'trip.allAvoided' : 'trip.allLate')),
-      d.ranking.reason && h('p', { class: 'ab-reason' }, d.ranking.reason),
+      d.ranking.reason && !zhOnly(d.ranking.reason, ctx.locale) && h('p', { class: 'ab-reason' }, d.ranking.reason),
       costTips.length > 0 && h('ul', { class: 'ab-tips', 'aria-label': t('trip.costTips') }, costTips.map((x) => h('li', {}, x.text))),
       alts.length > 0 && h('div', { class: 'ab-alts' }, h('h4', {}, t('trip.alternatives')), alts.map((o) => optionBlock(o, ctx, false))),
       // 沒列入的方式與原因（missing 已含 skipped；舊資料只有 skipped）：深夜收班、附近沒有站、沒有趕得上的班次…
       notIn.length > 0 && h('ul', { class: 'ab-skipped', 'aria-label': t('trip.missing') }, notIn.map((s) => h('li', { 'data-role': s.role, ...(s.route && { 'data-route': s.route }), ...(s.closed && { class: 'closed' }) }, token(s.role, { size: 'xs' }), t('trip.skipped', { name: s.route ? optName({ role: 'bus', name: `公車 ${s.route}` }, t, ctx.locale) : t(`trip.leg.${s.role}`), why: (en && s.whyEn) || s.why })))), // route：那一條公車今天不會來（「公車 三峽-臺北市信義區沒列入：今天沒有營運」）
       d.ranking.excluded.length > 0 && h('div', { class: 'ab-excluded' }, h('h4', {}, t('trip.excluded')),
-        h('ul', { class: 'ab-list' }, d.ranking.excluded.map((e) => h('li', { class: 'ab-row off' }, token(byId.get(e.id)?.role || e.id, { size: 'sm', cls: 'off' }), h('span', { class: 'ab-name' }, e.name || e.id), h('span', { class: 'ab-sub' }, e.why))))));
+        h('ul', { class: 'ab-list' }, d.ranking.excluded.map((e) => h('li', { class: 'ab-row off' }, token(byId.get(e.id)?.role || e.id, { size: 'sm', cls: 'off' }), h('span', { class: 'ab-name' }, e.name || e.id), h('span', { class: 'ab-sub' }, zhOnly(e.why, ctx.locale) ? '' : e.why))))));
   },
 };

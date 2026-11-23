@@ -189,6 +189,7 @@ export const MESSAGES = {
   'trip.remind': 'Remind me at {time}',
   'trip.reminded': "OK, I'll remind you to leave at {time}",
   'trip.remindFailed': "Reminders aren't available on this device",
+  'trip.remindFull': 'You already have 5 reminders. Cancel one in Reminders first.',
   'trip.remindDenied': 'Notifications are turned off, so I can\'t remind you. On your phone, go to Settings → Abang → Notifications. In a browser, click the lock icon left of the address bar → Notifications.',
   'trip.remindWhy': "At {time}, Abang will send a notification reminding you to leave. Your phone or browser will ask you to allow notifications next.",
   'trip.remindWhenPage': ' (while this page is open)',

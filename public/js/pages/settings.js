@@ -361,6 +361,7 @@ export const settings = {
       edgeWrite.checked = true; edgeWrite.disabled = false;
       vision.checked = true; setVisionEnabled(true);
       dramaBox.checked = true; // 開關存在這支手機，清除後回到預設（開）
+      carBox.checked = false; // 「我有車」回到預設（關）：畫面要跟資料一致，下一次點才不會寫反（前端審查 #4）
       voice.checked = true;
       dispatchEvent(new CustomEvent('abang:voice-setting', { detail: { on: true } })); // 麥克風鍵跟著回來
       dispatchEvent(new CustomEvent('abang:health-setting', { detail: { on: false } })); // 健康與運動回到預設關閉

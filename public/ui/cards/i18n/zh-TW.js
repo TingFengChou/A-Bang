@@ -181,6 +181,7 @@ export const MESSAGES = {
   'trip.remind': '{time} 提醒我出門',
   'trip.reminded': '好，{time} 提醒你出門',
   'trip.remindFailed': '這個裝置無法設定提醒',
+  'trip.remindFull': '提醒已經有 5 筆了，先到「提醒」取消一筆再設',
   'trip.remindDenied': '通知被關掉了，沒辦法提醒你。手機到「設定 → Abang → 通知」打開；瀏覽器點網址列左邊的鎖頭 → 通知。',
   'trip.remindWhy': '{time} 阿幫會用通知提醒你出門。接著手機或瀏覽器會問你是否允許通知。',
   'trip.remindWhenPage': '（頁面開著時）',
