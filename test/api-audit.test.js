@@ -236,3 +236,11 @@ test('MCP 版本讀 package.json；log 遮掉所有金鑰；0800 是免付費電
   assert.equal(checkSender('0809-012-345').kind, '免付費電話');
   assert.equal(checkSender('02-2345-6789').kind, '市話號碼');
 });
+
+test('finance 護欄不誤換油價、票價、氣溫（生活阿幫也套用）', async () => {
+  const { OUTPUT_GUARDS, NO_ADVICE_NOTE } = await import('../core/output-guards.js');
+  const g = OUTPUT_GUARDS.finance[0].apply;
+  for (const t of ['中油宣布下週汽油將調漲 0.1 元。', '92 無鉛下週可能會漲 0.2 元。', '明天氣溫會上升。']) assert.equal(g(t), t, t);
+  assert.equal(g('台積電明天會漲。'), NO_ADVICE_NOTE);
+  assert.equal(g('大盤指數下週可能會漲。'), NO_ADVICE_NOTE);
+});

@@ -46,14 +46,18 @@ const ADVICE = new RegExp([
 ].join('|'));
 /** 被換掉的問句後面緊接的短回答（「這檔會漲嗎？不會，會跌」的「不會，會跌」）也一起拿掉 */
 const ADVICE_ANSWER = /^\s*(不會|會|是|對|沒錯|應該|可能|不一定|有可能)[，,、\s][^。！？\n]{0,10}(漲|跌|反彈|回檔)/;
+/** 講油價、票價、氣溫這類（「下週汽油將調漲 0.1 元」）而且沒提到股票：不是漲跌預測，不換（生活阿幫也套用 finance 護欄） */
+const NOT_STOCK = /油價|汽油|柴油|無鉛|油品|票價|車資|運價|費率|電價|水費|氣溫|溫度|物價|房租|租金/;
+const STOCK_WORD = /股|大盤|指數|ETF|收盤|台積電|聯發科|鴻海/i;
+const notStock = (p) => NOT_STOCK.test(p) && !STOCK_WORD.test(p);
 export const NO_ADVICE_NOTE = '阿幫不提供投資建議或漲跌預測，只能報開放資料的收盤數字。';
 
 /** 以句為單位：含指定說法的句子整句換成固定說法（連續重複只留一句） */
-const replaceSentences = (re, note, answer = null) => (text) => {
+const replaceSentences = (re, note, answer = null, skip = () => false) => (text) => {
   const out = [];
   let prevHit = false;
   for (const p of String(text).split(/(?<=[。！？!?\n])/)) {
-    const hit = re.test(p) || (prevHit && answer?.test(p));
+    const hit = (re.test(p) && !skip(p)) || (prevHit && answer?.test(p));
     prevHit = hit;
     const next = hit ? note + (p.endsWith('\n') ? '\n' : '') : p;
     if (next.trim() === note && out.some((x) => x.trim() === note)) continue;
@@ -63,7 +67,7 @@ const replaceSentences = (re, note, answer = null) => (text) => {
 };
 
 export const OUTPUT_GUARDS = {
-  finance: [{ rule: 'no-investment-advice', apply: replaceSentences(ADVICE, NO_ADVICE_NOTE, ADVICE_ANSWER) }],
+  finance: [{ rule: 'no-investment-advice', apply: replaceSentences(ADVICE, NO_ADVICE_NOTE, ADVICE_ANSWER, notStock) }],
   antifraud: [
     { rule: 'no-safety-claim', apply: noSafetyClaim },
     { rule: 'call-165', apply: (t) => (/165/.test(t) ? t : `${t.trim()}\n${CALL_165}`), silent: true },
