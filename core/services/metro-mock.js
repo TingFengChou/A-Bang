@@ -1,7 +1,7 @@
 // 捷運服務（示範資料版）：介面與 metro.js 相同。站名與路線為真實名稱，座標為近似值，到站時間為模擬。
 import { seeded } from './transit-mock.js';
 import { metroLineColor } from '../metro-colors.js';
-import { mustSystem, findMetroStation, metroStatusCode, sortByEta, stationLines } from './metro.js';
+import { mustSystem, findMetroStation, metroStatusCode, sortByEta, stationLines, FREQUENCY_ONLY, FREQUENCY_NOTE, FREQUENCY_NOTE_EN } from './metro.js';
 
 // 各線兩端的終點站
 const LINES = {
@@ -60,7 +60,7 @@ const STATIONS = {
     ['K08', '新和國小', ['K'], 24.9790, 121.5260], ['K09', '十四張', ['K'], 24.9850, 121.5300],
   ],
   KLRT: [
-    ['C1', '籬仔內', ['C'], 22.6060, 120.3440], ['C3', '前鎮之星', ['C'], 22.5970, 120.3170], ['C8', '夢時代', ['C'], 22.5960, 120.3070],
+    ['C1', '籬仔內', ['C'], 22.6060, 120.3440], ['C3', '前鎮之星', ['C'], 22.5970, 120.3170], ['C5', '夢時代', ['C'], 22.5960, 120.3070],
     ['C11', '真愛碼頭', ['C'], 22.6190, 120.2890], ['C14', '哈瑪星', ['C'], 22.6214, 120.2730],
   ],
 };
@@ -75,6 +75,8 @@ export function createMockMetroServices() {
     async liveBoard({ system, station, last = false }) {
       const op = mustSystem(system);
       const st = findMetroStation(await metro.stations({ system: op }), station, op);
+      // 台中捷運：真實資料只有班距（metro.js FREQUENCY_ONLY），示範也一樣只說幾分鐘一班
+      if (FREQUENCY_ONLY.has(op)) return { system: op, station: st.name, stationId: st.id, lat: st.lat, lon: st.lon, demo: true, updatedAt: new Date().toISOString(), trains: [], source: 'frequency', headway: { min: 8, max: 10, peak: false, lineId: 'G', lineColor: metroLineColor(op, 'G') }, note: FREQUENCY_NOTE, noteEn: FREQUENCY_NOTE_EN, ...(last && { lastTrains: [] }) };
       const lines = STATIONS[op].find((x) => x[0] === st.id)[2];
       const trains = [];
       for (const lineId of lines) {

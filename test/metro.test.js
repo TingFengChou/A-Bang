@@ -29,8 +29,8 @@ const fakeFetch = async (url) => {
   if (/Metro\/LiveBoard\/TRTC/.test(u)) return new Response(JSON.stringify(BOARD));
   if (/Metro\/(Station|LiveBoard)\/KRTC/.test(u)) return new Response('[]');
   // 回應包在物件裡（v3 形式）也要能解析
-  if (/Metro\/Station\/TMRT/.test(u)) return new Response(JSON.stringify({ Stations: STATIONS }));
-  if (/Metro\/LiveBoard\/TMRT/.test(u)) return new Response(JSON.stringify({ LiveBoards: BOARD }));
+  if (/Metro\/Station\/(TMRT|KLRT)/.test(u)) return new Response(JSON.stringify({ Stations: STATIONS }));
+  if (/Metro\/LiveBoard\/KLRT/.test(u)) return new Response(JSON.stringify({ LiveBoards: BOARD })); // 台中捷運沒有看板（只有班距），包在物件裡的看板改用高雄輕軌測
   return new Response('not found', { status: 404 });
 };
 const { metro } = createMetroServices(createTdxClient({ clientId: 'a', clientSecret: 'b', fetchImpl: fakeFetch }));
@@ -58,7 +58,7 @@ test('liveBoard：查同站所有代碼、依分鐘排序、目的地備援 Trip
 
 test('stations／liveBoard：回應包在物件裡也能解析', async () => {
   assert.equal((await metro.stations({ system: 'TMRT' })).length, 3);
-  assert.equal((await metro.liveBoard({ system: 'TMRT', station: '台北車站' })).trains.length, 3);
+  assert.equal((await metro.liveBoard({ system: 'KLRT', station: '台北車站' })).trains.length, 3);
 });
 
 test('liveBoard：代碼查站、錯誤訊息', async () => {
@@ -80,6 +80,7 @@ test('示範模式：四個系統都有站與看板，終點站不顯示往自�
     const st = await svc.metro.stations({ system });
     assert.ok(st.length >= 5, system);
     const b = await svc.metro.liveBoard({ system, station: st[0].name });
+    if (system === 'TMRT') { assert.equal(b.source, 'frequency'); continue; } // 台中捷運只有班距
     assert.ok(b.trains.length > 0, system);
     assert.ok(b.trains.every((t) => t.etaMin >= 0 && t.etaMin <= 5), system);
   }
@@ -151,7 +152,7 @@ test('示範資料：每個捷運系統都有幾個站可以查到站', async ()
     const s = await m.stations({ system: op });
     assert.ok(s.length >= 4, `${op} 只有 ${s.length} 站`);
     const b = await m.liveBoard({ system: op, station: s[3].name });
-    assert.ok(b.trains.length > 0, op);
+    assert.ok(b.trains.length > 0 || (op === 'TMRT' && b.headway), op);
   }
 });
 
@@ -183,4 +184,91 @@ test('看板單位：淡海、安坑輕軌 EstimateTime 是秒；新北捷運看
   assert.deepEqual(b.trains.map((t) => [t.destination, t.etaMin, Boolean(t.scheduled)]), [['大坪林', 0, false], ['新北產業園區', 6, true]]);
   assert.equal(b.source, 'mixed');
   assert.match(b.note, /^新北捷運/);
+});
+
+// 台中捷運：TDX 的 LiveBoard、StationTimeTable 都不收 TMRT（400「RailSystem: 'TMRT' is not accepted」），只有班距 Frequency
+const TMRT_FREQ = [
+  { LineID: 'G', ServiceDay: { ServiceTag: '平日', Monday: true, Tuesday: true, Wednesday: true, Thursday: true, Friday: true, Saturday: false, Sunday: false, NationalHolidays: false },
+    Headways: [{ PeakFlag: '0', StartTime: '09:00', EndTime: '17:00', MinHeadwayMins: 9, MaxHeadwayMins: 9 }, { PeakFlag: '1', StartTime: '07:00', EndTime: '09:00', MinHeadwayMins: 6, MaxHeadwayMins: 6 }, { PeakFlag: '0', StartTime: '23:00', EndTime: '24:00', MinHeadwayMins: 20, MaxHeadwayMins: 20 }] },
+  { LineID: 'G', ServiceDay: { ServiceTag: '假日', Saturday: true, Sunday: true, NationalHolidays: true },
+    Headways: [{ PeakFlag: '1', StartTime: '10:00', EndTime: '20:00', MinHeadwayMins: 8, MaxHeadwayMins: 10 }] },
+];
+
+test('班距：依星期幾與時段找現在幾分鐘一班；不在營運時間 null', async () => {
+  const { headwayNow } = await import('../core/services/metro.js');
+  const at = (iso) => Date.parse(`${iso}+08:00`);
+  assert.deepEqual(headwayNow(TMRT_FREQ, at('2026-11-23T08:10:00')), { min: 6, max: 6, peak: true, lineId: 'G' }, '星期一尖峰');
+  assert.equal(headwayNow(TMRT_FREQ, at('2026-11-23T12:00:00')).min, 9);
+  assert.equal(headwayNow(TMRT_FREQ, at('2026-11-23T23:30:00')).min, 20, '24:00 結束的時段');
+  assert.deepEqual(headwayNow(TMRT_FREQ, at('2026-11-22T12:00:00')), { min: 8, max: 10, peak: true, lineId: 'G' }, '星期日用假日那份');
+  assert.equal(headwayNow(TMRT_FREQ, at('2026-11-23T03:00:00')), null, '半夜');
+  assert.equal(headwayNow([], at('2026-11-23T12:00:00')), null);
+});
+
+test('台中捷運到站：不查看板與時刻表，只回班距（source frequency），文字與卡片照實說幾分鐘一班', async () => {
+  const T0 = Date.parse('2026-11-23T12:00:00+08:00');
+  const hits = [];
+  const fetchImpl = async (url) => {
+    const u = decodeURIComponent(String(url));
+    hits.push(u);
+    if (u.includes('/token')) return new Response(JSON.stringify({ access_token: 'T', expires_in: 86400 }));
+    if (u.includes('Metro/Station/TMRT')) return new Response(JSON.stringify([{ StationID: '110', StationName: Z('市政府'), StationPosition: P(24.16, 120.65) }]));
+    if (u.includes('Metro/Frequency/TMRT')) return new Response(JSON.stringify(TMRT_FREQ));
+    return new Response('{"Message":"RailSystem: \'TMRT\' is not accepted"}', { status: 400 });
+  };
+  const now = () => T0;
+  const m = createMetroServices(createTdxClient({ clientId: 'a', clientSecret: 'b', fetchImpl, now }), { now }).metro;
+  const r = await m.liveBoard({ system: 'TMRT', station: '市政府' });
+  assert.equal(r.source, 'frequency');
+  assert.deepEqual([r.trains.length, r.headway.min, r.headway.lineColor], [0, 9, '#8DC21F']);
+  assert.match(r.note, /只有班距/);
+  assert.ok(!hits.some((u) => /LiveBoard|StationTimeTable/.test(u)), '不花額度查一定 400 的端點');
+  const { validate } = await import('../public/ui/cards/schema/validate.js');
+  const schema = JSON.parse(await (await import('node:fs/promises')).readFile(new URL('../public/ui/cards/schema/metro.v1.json', import.meta.url), 'utf8'));
+  assert.deepEqual(validate(schema, { ...r, nav: null }), []);
+  const card = (await import('../public/ui/cards/cards/metro.js')).default;
+  const { tFor } = await import('../public/ui/cards/i18n/index.js');
+  assert.equal(card.title(r, { t: tFor('zh-TW') }), '市政府 班距');
+  assert.equal(card.announce(r, { t: tFor('zh-TW'), locale: 'zh-TW' }), '約每 9 分一班');
+  assert.equal(card.announce({ ...r, headway: { min: 8, max: 10 } }, { t: tFor('en'), locale: 'en' }), 'About every 8–10 min');
+  assert.equal(card.announce({ ...r, headway: null }, { t: tFor('zh-TW'), locale: 'zh-TW' }), '現在不在營運時間');
+  // 工具文字（示範資料也是班距）
+  const out = await callTool(createServices({ forceMock: true }), 'metro_live_board', { system: 'TMRT', station: '市政府' });
+  assert.match(out.text, /台中捷運 市政府：台中捷運沒有提供到站時間的開放資料，只有班距；現在約每 8～10 分一班/);
+  const { speakEn } = await import('../core/tools/speak-en.js');
+  assert.equal(speakEn('metro_live_board', r), 'At 市政府: Taichung MRT publishes no arrival times; trains run about every 9 min right now.');
+});
+
+test('卡片契約的捷運系統＝METRO_SYSTEMS（新北捷運、各條輕軌的卡片要能通過驗證）', async () => {
+  const { METRO_SYSTEMS } = await import('../core/services/metro.js');
+  const schema = JSON.parse(await (await import('node:fs/promises')).readFile(new URL('../public/ui/cards/schema/metro.v1.json', import.meta.url), 'utf8'));
+  assert.deepEqual([...schema.properties.system.enum].sort(), Object.keys(METRO_SYSTEMS).sort());
+});
+
+test('高雄輕軌環狀線：兩個方向終點都是籬仔內，看板用 TripHeadSign、時刻表用 Direction（0 順行、1 逆行）分開標', async () => {
+  const T0 = Date.parse('2026-11-23T12:00:00+08:00');
+  const ST = [{ StationID: 'C5', StationName: Z('夢時代') }];
+  const D = { Zh_tw: '籬仔內', En: 'Lizihnei' };
+  const BOARD = [
+    { LineID: 'C', StationID: 'C5', TripHeadSign: '逆行方向', DestinationStationID: 'C1', DestinationStationName: D, EstimateTime: 2 },
+    { LineID: 'C', StationID: 'C5', TripHeadSign: '順行方向', DestinationStationID: 'C1', DestinationStationName: D, EstimateTime: 4 },
+  ];
+  const TT = [0, 1].map((dir) => ({ LineID: 'C', StationID: 'C5', Direction: dir, DestinationStationID: 'C1', DestinationStationName: D, ServiceDay: { Monday: true }, Timetables: [{ DepartureTime: dir ? '12:03' : '12:07' }] }));
+  const mk = (board) => {
+    const fetchImpl = async (url) => {
+      const u = decodeURIComponent(String(url));
+      if (u.includes('/token')) return new Response(JSON.stringify({ access_token: 'T', expires_in: 86400 }));
+      if (u.includes('Metro/Station/KLRT')) return new Response(JSON.stringify(ST));
+      if (u.includes('LiveBoard/KLRT')) return new Response(JSON.stringify(board));
+      if (u.includes('StationTimeTable/KLRT')) return new Response(JSON.stringify(TT));
+      return new Response('not found', { status: 404 });
+    };
+    const now = () => T0;
+    return createMetroServices(createTdxClient({ clientId: 'a', clientSecret: 'b', fetchImpl, now }), { now }).metro;
+  };
+  const live = await mk(BOARD).liveBoard({ system: 'KLRT', station: '夢時代' });
+  assert.deepEqual(live.trains.map((t) => [t.destination, t.destinationEn, t.etaMin]), [['籬仔內（逆行）', 'Lizihnei (reverse loop)', 2], ['籬仔內（順行）', 'Lizihnei (forward loop)', 4]]);
+  // 這一站看板沒資料：時刻表兩個方向都列，不合成一班
+  const tt = await mk([]).liveBoard({ system: 'KLRT', station: '夢時代' });
+  assert.deepEqual(tt.trains.map((t) => [t.destination, t.etaMin, t.scheduled]), [['籬仔內（逆行）', 3, true], ['籬仔內（順行）', 7, true]]);
 });

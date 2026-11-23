@@ -57,8 +57,24 @@ const timetableNote = (op, boardOk) => (!boardOk || !ARRIVING_ONLY.has(op) ? { n
  *   看板只有「進站中」（EstimateTime 都是 0）：北捷、新北捷運（而且新北捷運看板只有環狀線，三鶯線全靠時刻表）；
  *   EstimateTime 單位是秒：淡海輕軌、安坑輕軌（例 483、720）；其他系統是分鐘；台中捷運看板回 400（只能用時刻表）。
  */
+/**
+ * 環狀線（高雄輕軌，2026-11-23 實測）：兩個方向的終點都是「籬仔內」，只有 TripHeadSign「順行方向」「逆行方向」分得出來 → 終點後面加方向，
+ * 不然卡片是兩列「往 籬仔內」。英文用 forward／reverse loop（順行、逆行的字面意思）。
+ */
+const LOOP_DIR = { 順行: ['順行', 'forward loop'], 逆行: ['逆行', 'reverse loop'] };
+export function loopDest(dest, destEn, headSign) {
+  const k = /(順行|逆行)/.exec(zh(headSign) || '')?.[1];
+  if (!k) return { destination: dest, ...(destEn && { destinationEn: destEn }) };
+  return { destination: `${dest}（${LOOP_DIR[k][0]}）`, ...(destEn && { destinationEn: `${destEn} (${LOOP_DIR[k][1]})` }) };
+}
+/** 環狀線時刻表的 Direction → 看板的 TripHeadSign（2026-11-23 同一時間比對看板與時刻表：高雄輕軌 0＝順行、1＝逆行） */
+const LOOP_TIMETABLE_DIR = { KLRT: { 0: '順行方向', 1: '逆行方向' } };
 const ARRIVING_ONLY = new Set(['TRTC', 'NTMC']);
 const BOARD_IN_SECONDS = new Set(['NTDLRT', 'NTALRT']);
+/** 只有班距（TDX 的 LiveBoard、StationTimeTable 都不收 TMRT：「RailSystem: 'TMRT' is not accepted」）：不查看板與時刻表，只說幾分鐘一班 */
+export const FREQUENCY_ONLY = new Set(['TMRT']);
+export const FREQUENCY_NOTE = '台中捷運沒有提供到站時間的開放資料，只有班距';
+export const FREQUENCY_NOTE_EN = 'Taichung MRT publishes no arrival times as open data, only how often trains run';
 
 /**
  * 到站狀態代碼（卡片用中英字典顯示，不把資料的中文字串漏到英文卡片）：
@@ -145,6 +161,27 @@ const AFTER_MIDNIGHT = 4 * 60; // 凌晨 4 點前的班次屬於前一天的營�
  * 凌晨 4 點前問的是前一天營運日的末班；國定假日的班表規則同 upcomingFromTimetable。
  * @returns {Array<{ lineId, destination, destinationEn?, time: string }>} time 'HH:mm'
  */
+/**
+ * 班距（TDX Frequency）：台中捷運沒有看板也沒有站別時刻表，只有「幾分鐘一班」。依台灣時間的星期幾（國定假日用標了 NationalHolidays 的那一份）找現在的班距。
+ * @returns {{ min: number, max: number, peak: boolean, lineId: string|null } | null} 不在營運時間或沒資料時 null
+ */
+export function headwayNow(rows, now = Date.now()) {
+  const list = arr(rows, 'Frequencies');
+  if (!list.length) return null;
+  const D = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const { hhmm, weekday } = nowTW(now);
+  const holiday = isNationalHoliday(twDate(now)) && list.some((r) => r.ServiceDay?.NationalHolidays === true);
+  const cur = toMin(hhmm);
+  for (const r of list.filter((x) => (holiday ? x.ServiceDay?.NationalHolidays === true : Boolean(x.ServiceDay?.[D[weekday]])))) {
+    for (const h of r.Headways || []) {
+      const from = toMin(h.StartTime || ''), to = h.EndTime === '24:00' ? 24 * 60 : toMin(h.EndTime || '');
+      const min = Number(h.MinHeadwayMins), max = Number(h.MaxHeadwayMins ?? h.MinHeadwayMins);
+      if (Number.isFinite(from) && Number.isFinite(to) && cur >= from && cur < to && min > 0) return { min, max: max >= min ? max : min, peak: String(h.PeakFlag) === '1', lineId: r.LineID || null };
+    }
+  }
+  return null;
+}
+
 export function lastFromTimetable(table, now = Date.now()) {
   const { hhmm, weekday } = nowTW(now);
   const early = toMin(hhmm) < AFTER_MIDNIGHT;
@@ -190,8 +227,8 @@ export function upcomingFromTimetable(table, now = Date.now(), windowMin = TIMET
         if (m < AFTER_MIDNIGHT) m += 24 * 60;
         const eta = m - ref;
         if (eta < 0 || eta > windowMin) continue;
-        const k = `${row.lineId}|${row.destId || row.dest}`;
-        if (!best.has(k) || eta < best.get(k).etaMin) best.set(k, { lineId: row.lineId, destination: row.dest, ...(row.destEn && { destinationEn: row.destEn }), etaMin: eta });
+        const k = `${row.lineId}|${row.destId || row.dest}|${row.direction ?? ''}`; // 環狀線兩個方向終點相同（高雄輕軌）：方向也要分開
+        if (!best.has(k) || eta < best.get(k).etaMin) best.set(k, { lineId: row.lineId, destination: row.dest, ...(row.destEn && { destinationEn: row.destEn }), ...(row.direction != null && { direction: row.direction }), etaMin: eta });
       }
     }
   }
@@ -202,7 +239,7 @@ export function upcomingFromTimetable(table, now = Date.now(), windowMin = TIMET
 export const metroLoaders = {
   stations: (tdx, op) => async (o) => nonEmpty(normMetroStations(op, await tdx.get(`/basic/v2/Rail/Metro/Station/${op}`, { $select: 'StationID,StationName,StationPosition' }, 60, rawOpts(o))), `${METRO_SYSTEMS[op]}車站`),
 };
-export const metroKey = { stations: (op) => `metro-stations-${op}`, timetable: (op, ids) => `metro-timetable-${op}-${ids.join('_')}` };
+export const metroKey = { stations: (op) => `metro-stations-${op}`, timetable: (op, ids) => `metro-timetable-${op}-${ids.join('_')}`, frequency: (op) => `metro-frequency-${op}` };
 
 /** 預熱步驟：四個系統的車站（plan_trip 每次都要看起訖附近有沒有捷運站） */
 export function metroWarmSteps(tdx) {
@@ -232,6 +269,17 @@ export function createMetroServices(tdx, { now = () => tdx.now?.() ?? Date.now()
       const op = mustSystem(system);
       const st = findMetroStation(await metro.stations({ system: op }), station, op);
       const ids = new Set(st.ids.map(String));
+      if (FREQUENCY_ONLY.has(op)) {
+        const rows = await cached(metroKey.frequency(op), STATIC_TTL, async (o) => nonEmpty(arr(await tdx.get(`/basic/v2/Rail/Metro/Frequency/${op}`, {}, 60, rawOpts(o)), 'Frequencies'), `${METRO_SYSTEMS[op]}班距`));
+        const hw = headwayNow(rows, now());
+        return {
+          system: op, station: st.name, ...(st.nameEn && { stationEn: st.nameEn }), stationId: st.id,
+          ...(st.lat != null && { lat: st.lat, lon: st.lon }),
+          updatedAt: new Date(now()).toISOString(), trains: [], source: 'frequency', headway: hw && { ...hw, ...(metroLineColor(op, hw.lineId) && { lineColor: metroLineColor(op, hw.lineId) }) }, // null＝現在不在營運時間
+          note: FREQUENCY_NOTE, noteEn: FREQUENCY_NOTE_EN,
+          ...(last && { lastTrains: [] }),
+        };
+      }
       // 看板查不到（額度用完 429、這個系統沒有看板 404、上游暫時失敗）時，有時刻表就先用時刻表；兩個都沒有才算失敗（退回示範資料）
       let boardErr = null;
       const loadTable = () => cached(metroKey.timetable(op, st.ids), STATIC_TTL, async (o) => normStationTimetable(await tdx.get(
@@ -254,7 +302,7 @@ export function createMetroServices(tdx, { now = () => tdx.now?.() ?? Date.now()
           line: zh(r.LineName) || lineName(op, lineId), ...enField('lineEn', r.LineName),
           lineId,
           ...(metroLineColor(op, lineId) && { lineColor: metroLineColor(op, lineId) }), // 路線代表色（色條）
-          destination: zh(r.DestinationStationName) || zh(r.TripHeadSign) || '', ...enField('destinationEn', r.DestinationStationName),
+          ...loopDest(zh(r.DestinationStationName) || zh(r.TripHeadSign) || '', enField('destinationEn', r.DestinationStationName).destinationEn, r.TripHeadSign),
           etaMin, status: metroStatusCode(etaMin),
         };
       });
@@ -267,14 +315,14 @@ export function createMetroServices(tdx, { now = () => tdx.now?.() ?? Date.now()
         // 看板列沒有時間（新北捷運看板常這樣，只有「往某站」）不算涵蓋：這個方向用時刻表估
         const covered = new Set(live.filter((t) => t.etaMin != null).map((t) => `${t.lineId}|${normName(t.destination)}`));
         planned = upcomingFromTimetable(table, now())
-          .filter((t) => !covered.has(`${t.lineId}|${normName(t.destination)}`))
           .map((t) => ({
             line: lineName(op, t.lineId), ...(LINE_EN_OK.has(op) && LINE_NAME_EN[t.lineId] && { lineEn: LINE_NAME_EN[t.lineId] }),
             lineId: t.lineId,
             ...(metroLineColor(op, t.lineId) && { lineColor: metroLineColor(op, t.lineId) }),
-            destination: t.destination, ...(t.destinationEn && { destinationEn: t.destinationEn }),
+            ...loopDest(t.destination, t.destinationEn, LOOP_TIMETABLE_DIR[op]?.[t.direction]),
             etaMin: t.etaMin, status: 'scheduled', scheduled: true,
-          }));
+          }))
+          .filter((t) => !covered.has(`${t.lineId}|${normName(t.destination)}`)); // 比對加了方向之後的終點（環狀線）
       }
       const plannedLanes = new Set(planned.map((t) => `${t.lineId}|${normName(t.destination)}`));
       const kept = live.filter((t) => t.etaMin != null || !plannedLanes.has(`${t.lineId}|${normName(t.destination)}`));

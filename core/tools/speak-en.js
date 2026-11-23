@@ -79,6 +79,8 @@ export const SPEAK_EN = {
     const t = d.trains.find((x) => x.etaMin != null);
     const same = d.nearest?.from && normName(d.nearest.from).replace(/站$/, '') === normName(d.station).replace(/站$/, '');
     const where = d.nearest && !same ? nearestEn('MRT', d.station, d.nearest).replace(/\. $/, '') : `At ${d.station}`;
+    // 台中捷運只有班距（core/services/metro.js FREQUENCY_ONLY）
+    if (d.source === 'frequency') return d.headway ? `${where}: Taichung MRT publishes no arrival times; trains run about every ${d.headway.max > d.headway.min ? `${d.headway.min}–${d.headway.max}` : d.headway.min} min right now.` : `${where}: Taichung MRT is not in service right now.`;
     if (!t) return `${where}: no live arrival data right now.`;
     const dest = t.destination;
     if (t.scheduled) return `${where}: next train to ${dest} in about ${Math.max(1, t.etaMin)} min (timetable).`;
