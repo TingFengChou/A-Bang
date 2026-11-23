@@ -11,6 +11,15 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-23 T8c iOS 模擬器煙霧測試
+- 做了：`npm run smoke:ios`（`scripts/smoke-ios.js`），對應 Android 的 `smoke:android`。用模擬器的 Web Inspector 通道（webinspectord_sim 的 unix socket，跟 Safari「開發」選單同一條；`scripts/webinspector.js` 自己做二進位 plist 編解碼與 Target 包裝）連進 App 的 WKWebView 跑 JavaScript，不加依賴、不加 XCUITest target、不動 App。檢查：原生外掛 8 個（含 iOS 才有的 AbangWatch）、10 頁畫得出來且分頁列標對、語音與健康外掛回報狀態、中央鍵拉出與收起對話、console 沒有畫面錯誤、App 沒有閃退、沒有新的當機報告；`simctl io screenshot` 截圖到 `test/screenshots/ios-*.png`。`--build` 先打包、xcodebuild（未簽章 debug 版）、安裝；`--keep` 不重開。未簽章建置的 bundle id 回報是「process-App」，改用 `simctl launch` 的 pid 找 App；Capacitor 外掛被拒時記下的錯誤物件沒有預覽，向頁面要 JSON 內容再判斷。
+- 實測：iPhone 18 Pro 模擬器 `--build` 全部通過；語音「不能用（ios-no-ondevice）」、健康「不能用（no-entitlement）」、手機上的 AI 背景失敗（background）列警告，都是模擬器環境。
+- 沒涵蓋：真的手指點按（點按是頁面內 click()）、系統權限框（不改模擬器設定；重新安裝後第一次會跳定位權限框）、HealthKit、Apple Intelligence、語音辨識、相機
+- 測試：`test/webinspector.test.js` 5 項（解 Apple plutil 產生的 bplist、編碼來回、訊息切分、錯誤格式、console 錯誤文字）
+- 文件：CLAUDE.md 指令、TESTING.md、PLAN.md
+- 下一個：無
+- 卡住：無
+
 ## 2026-11-23 捷運轉乘建議：metro_route
 - 做了：使用者「有辦法做到轉乘建議嗎？」。新 tool `metro_route`（卡片 `metro-route`）：用 TDX 各線車站順序（StationOfLine，存檔）建路網（`core/metro-route.js`），同名站就是轉乘站（同系統不同線、跨系統；臺／台、機捷站名的「站」視為相同），最短路徑＋轉乘懲罰，說坐哪條線、往哪、幾站、在哪轉。北捷支線依真實營運：小碧潭、新北投是接駁（七張、北投換車），蘆洲支線直通（新莊 → 蘆洲在大橋頭換車、共用段「往 迴龍／蘆洲」），淡海輕軌藍海線在濱海沙崙分岔；高雄輕軌環狀線頭尾相連、說「下一站」；台中捷運沒有 StationOfLine，用車站清單依代碼排序。票價用 ODFare 成人單程票（同系統一張票，跨系統分段相加並說明）。第一段附下一班（只取往這個方向的車）。捷運到站頁加「要去哪一站（選填）」，填了就顯示怎麼坐；問阿幫的模型在捷運意圖也能用。示範資料：各線順序、票價依站數估；額度用完改示範時代碼對不上就說查不到票價。新北捷運三鶯線、環狀線、高雄輕軌補路線色（三鶯線近似值）。
 - 真實資料驗證：鶯歌車站 → 松山機場「三鶯線往頂埔 7 站 → 頂埔轉板南線 14 站 → 忠孝復興轉文湖線 3 站」；台北車站 → 小碧潭「淡水信義線到中正紀念堂 → 松山新店線到七張 → 小碧潭支線」；新莊 → 蘆洲在大橋頭換車；淡江大學 → 台北車站在紅樹林轉；台中市政府 → 高鐵臺中站 9 站 30 元、約每 9 分一班。
