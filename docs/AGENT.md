@@ -348,7 +348,8 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
   - 打招呼（「早安」「你好」）跟問能做什麼一樣回答。
   - 手機寫的回答：草稿有「照你說的」就不能拿掉；使用者指定的方案不是最高分時不能說它「比較好、最好、最推薦」（`core/edge-write.js`）。
   - 腦袋頁四格：伺服器實際採用的意圖或狀態跟手機不同時，改顯示實際採用的。
-- 退路：`JUDGE=off`、選用依賴沒裝、模型下載失敗、載入中 → 都等同規則；CI 與 E2E 設 `JUDGE=off`，邏輯以單元測試（假的分類器）驗證。
+- **手機上的小模型（E3，2026-11-23，ADR-0014 補充）**：App 使用者按下載後，系統模型不能用時由手機上的 A（同一個 multilingual-e5-small、同一份分類器參數 `core/data/judge-classifier.json`，純函式 `core/judge-classify.js` 共用）判斷，送 `deviceJudge: { intent, states, engine: 'e5', confidence }`。伺服器沒有自己的 A 時就當作 A（門檻、unknown、規則優先照 A），不當作 B；伺服器有 A 就用自己的。status 的 judge 是 `source: 'embed', engine: 'e5'`。小模型不出題（ADR-0020 的 ask 只有系統模型會出）、不寫回答。
+- 退路：`JUDGE=off`、選用依賴沒裝、模型下載失敗、載入中 → 都等同規則（App 下載過小模型時由手機上的 A 補上）；CI 與 E2E 設 `JUDGE=off`，邏輯以單元測試（假的分類器）驗證。
 
 ### 5.3.1 問什麼由手機上的 AI 決定（ADR-0020，2026-11-22）
 

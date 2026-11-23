@@ -11,6 +11,13 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-23 E3 手機上的小模型（App 內 transformers.js 分類器）
+- 做了：使用者在設定頁「手機上的小模型（備援）」按下載，App 從阿幫自己的伺服器 `/edge-model/`（白名單 `server/edge-model.js`、串流、App 來源 CORS）下載 multilingual-e5-small（實際 162 MB），存在 IndexedDB；在 Web Worker（`public/js/edge-embed-worker.js`）跑 transformers.js。分類器的純函式抽到 `core/judge-classify.js`，伺服器（`judge.js`）與手機共用；手機用的參數 `core/data/judge-classifier.json` 由 `npm run build:edge-classifier` 產生。系統模型不能用時 `edgeJudge` 改用小模型，送 `deviceJudge.engine = 'e5'`＋信心；伺服器沒有自己的 A 時當作 A（門檻、unknown、規則優先照舊；不當作 B），有 A 就用自己的。回答上方那一行、腦袋頁試判斷、隱私權政策、service worker（不快取 `/edge-model/`，v1.3.26）同步。沒有新增套件
+- 實測：Mac 瀏覽器、iOS 模擬器、node 的意圖、狀態相同（信心差約 0.02）。iOS 模擬器（capacitor://）下載 1.5 秒（本機）、每句約 15 毫秒、重開從快取載入約 1 秒；Pixel 11 Pro XL 下載 6.9 秒（USB）、每句 30～70 毫秒、從快取載入 2.2 秒，Gemini Nano 仍是主要判斷。伺服器 `JUDGE=off` 時採用手機的 e5（status `source: embed, engine: e5`）
+- 測試：npm test 全過（新增 `test/judge-classify.test.js`、`test/edge-embed.test.js`、`agent-http` 白名單與 CORS）；lint、e2e 全過
+- 文件：ADR-0014（E3 段、原「不採用」劃掉）、AGENT.md §5.3、UX.md 設定頁、PLAN.md、隱私權政策
+- 下一個：無
+- 卡住：效益照實說——伺服器有 A 時判斷不會更準（同一個模型）；效益是伺服器可設 `JUDGE=off` 省資源、沒有內建 AI 的手機也能在手機上判斷。實體 iPhone 上的載入時間與記憶體待量測
 ## 2026-11-23 直達公車站牌不再只取 30 個、決策圖氣溫小數
 - 做了：問「回三峽」沒有公車 → 查真實資料：直達公車找共同路線時起訖各只取最近 30 個站牌（TDX `$top: 30`＋`slice(0, 30)`），台北車站、西門 500 公尺內有 34～64 個，遠一點站牌的路線會漏掉 → `nearbyStations` 加 `limit`，直達公車用 `DIRECT_STATIONS`＝150。台北車站→三峽老街實測仍沒有直達（705／706 起站在西門，離台北車站 520 公尺以上；702、916 最近 2.7 公里以上），只有捷運——是資料如此，不是漏掉。另外決策圖「天氣」膠囊抓氣溫的規則不含小數，「多雲 26.4°C」顯示成「4°C」→ 改成含小數
 - 測試：npm test 全過（新增 2 個斷言）；e2e 全過；真實資料 10 個起點到三峽老街實測

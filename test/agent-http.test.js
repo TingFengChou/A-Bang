@@ -90,3 +90,24 @@ test('handler：計量以 agent id 為單位、上游錯誤以 error 事件結�
   assert.deepEqual([u.requests, u.toolCalls >= 1, u.budget], [1, true, 5000]);
   assert.equal(JSON.parse(chunks.at(-1)).type, 'done');
 });
+
+test('手機上的小模型（E3）：白名單檔案、App 來源的 CORS、其他路徑 404', async () => {
+  const wasm = await fetch(`${BASE}/edge-model/ort-wasm-simd-threaded.asyncify.wasm`, { method: 'HEAD', headers: { origin: 'capacitor://localhost' } });
+  assert.equal(wasm.status, 200);
+  assert.equal(wasm.headers.get('content-type'), 'application/wasm');
+  assert.equal(wasm.headers.get('access-control-allow-origin'), 'capacitor://localhost');
+  assert.ok(Number(wasm.headers.get('content-length')) > 1_000_000);
+  const other = await fetch(`${BASE}/edge-model/ort-wasm-simd-threaded.asyncify.wasm`, { method: 'HEAD', headers: { origin: 'https://evil.example' } });
+  assert.equal(other.headers.get('access-control-allow-origin'), null);
+  for (const bad of ['/edge-model/../package.json', '/edge-model/Xenova/multilingual-e5-small/../../../package.json', '/edge-model/package.json', '/edge-model/Xenova/multilingual-e5-small/onnx/model.onnx']) {
+    const r = await fetch(`${BASE}${bad}`, { method: 'HEAD' });
+    assert.notEqual(r.headers.get('content-type'), 'application/octet-stream', bad);
+    assert.ok(r.status === 404 || r.headers.get('content-type')?.startsWith('text/html'), `${bad} → ${r.status}`); // fetch 會把 .. 正規化掉，落到 SPA index.html
+  }
+  assert.equal((await fetch(`${BASE}/edge-model/x`, { method: 'POST' })).status, 405);
+  const js = await fetch(`${BASE}/vendor/transformers.min.js`, { method: 'HEAD' });
+  assert.equal(js.status, 200);
+  const cls = await fetch(`${BASE}/core/judge-classifier.json`);
+  assert.equal(cls.status, 200);
+  assert.ok((await cls.json()).intents.trip);
+});

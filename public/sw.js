@@ -1,5 +1,5 @@
 // Service Worker：App shell 預先快取（離線可開啟），API 一律走網路（即時資料不快取）
-const VERSION = 'v1.3.25';
+const VERSION = 'v1.3.26';
 const SHELL = [
   '/', '/index.html', '/css/app.css', '/manifest.webmanifest', '/icons/icon.svg', '/brand/abang-default.svg', '/brand/abang-think.svg', '/brand/abang-happy.svg',
   '/js/app.js', '/js/api.js', '/js/ui.js', '/js/icons.js', '/js/registry.js',
@@ -16,6 +16,7 @@ const SHELL = [
   '/js/health.js', '/js/health-ui.js', '/core/health-nudge.js', '/core/nav.js', '/core/landmarks.json',
   '/ui/cards/cards/drama.js', '/js/drama-hint.js', '/js/wait-drama.js', '/js/my-car.js', '/core/drama-say.js', '/core/edge-ask.js', '/core/alight.js',
   '/js/agent/collapse.js', '/js/agent/turn-summary.js', '/js/agent/chat-links.js', // 長對話（UX.md §4.17）
+  '/js/edge-embed.js', '/js/edge-embed-files.js', '/js/edge-embed-ui.js', '/js/edge-embed-worker.js', '/core/judge-classify.js', '/core/judge-classifier.json', // 手機上的小模型（E3；模型本身不進 service worker 快取）
 ];
 
 self.addEventListener('install', (e) => {
@@ -27,7 +28,7 @@ self.addEventListener('activate', (e) => {
 });
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
-  if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
+  if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/edge-model/')) return; // 小模型約 160 MB：Worker 自己存在 IndexedDB
   // stale-while-revalidate
   e.respondWith(caches.open(VERSION).then(async (c) => {
     const hit = await c.match(e.request, { ignoreSearch: true });
