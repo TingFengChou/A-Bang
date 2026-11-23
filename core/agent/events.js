@@ -88,7 +88,7 @@ export const ev = {
     const store = data?.store && { ios: isStoreLink(data.store.ios) ? data.store.ios : null, android: isStoreLink(data.store.android) ? data.store.android : null };
     return need('aside', {
       parent, kind, text: String(text).slice(0, 120), ...(waitMin != null && { waitMin }), mode: mode === 'live' ? 'live' : 'demo',
-      data: { id: String(data.id), title: String(data.title).slice(0, 40), ep: data.ep, freeEpisodes: data.freeEpisodes ?? null, appLink: isAppLink(data.appLink) ? data.appLink : null, store: store && (store.ios || store.android) ? store : null },
+      data: { id: String(data.id), title: String(data.title).slice(0, 40), ep: data.ep, freeEpisodes: data.freeEpisodes ?? null, appLink: isAppLink(data.appLink) ? data.appLink : null, ...(data.cover === true && { cover: true }), store: store && (store.ios || store.android) ? store : null },
       labels: { watch: String(labels?.watch || ''), dismiss: String(labels?.dismiss || ''), note: String(labels?.note || '') },
     }, ['parent', 'kind', 'text']);
   },

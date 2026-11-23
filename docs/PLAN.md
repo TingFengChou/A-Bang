@@ -380,6 +380,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [ ] D-06 產品負責人看截圖（`test/screenshots/phone-drama-wait.png`、`phone-drama-card.png`、`desktop-drama-card.png`、`phone-drama-setting.png`）後決定合併
 - [ ] D-07 ⛔ 合作方提供 `.env`（產品負責人 2026-11-22：連結與商店網址先留空，`.env.example` 只有變數名）：`MYDRAMA_API_BASE`、`MYDRAMA_LINK_EPISODE`、`MYDRAMA_LINK_EXERCISE`、`MYDRAMA_STORE_IOS`／`ANDROID`；實機確認 App 連結與商店備援（Pixel、iPhone）
 - [x] D-09 推薦輪替（產品負責人 2026-11-22）：熱門前 5 部裡可看的，依台灣日期＋對話輪次輪替；同一輪重問同一部
+- [x] D-10 短劇封面圖（2026-11-23，產品負責人「要，經伺服器代抓」）：`/api/v1/drama/cover/{id}` 伺服器代抓（允許的主機、https、不跟轉址、看檔頭、快取一天），卡片與等車提示顯示封面，MCP Apps 與載不到時用字＋漸層；示範片庫畫 SVG 海報。上游封面欄位名稱待 D-07 合作方資料確認
 - [ ] D-08 待辦：請 MyDrama 片庫加「每集長度」欄位；之後把「一集看得完」從 ≥ 5 分改成精準比較（門檻維持 ≥ 5 分、< 40 分，產品負責人 2026-11-22）
 
 ## 被卡住的項目（2026-11-21 彙整）

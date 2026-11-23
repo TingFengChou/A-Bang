@@ -162,6 +162,18 @@ createServer(async (req, res) => {
       return send(res, 200, { data: checkRequest(body, { log: (m, o) => log.info(m, o) }) }, cors); // log 只記數量，不記句子
     }
 
+    // 短劇封面（伺服器代抓，ADR-0019 2026-11-23）：手機只跟阿幫拿圖，片庫的圖片伺服器看不到使用者；沒有封面回 404（畫面改用劇名第一個字）
+    const dc = path.match(/^\/api\/v1\/drama\/cover\/([\w-]{1,64})$/);
+    if (dc) {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: '請以 GET 取得' }, { allow: 'GET, HEAD' });
+      if (!limit(req, res, 'api')) return;
+      const img = await svc.drama.cover({ id: dc[1] });
+      if (!img) return send(res, 404, { error: '這部劇沒有封面' });
+      // nosniff＋沙箱 CSP：直接開這個網址也只是一張圖（示範海報是 SVG，不執行任何程式）
+      res.writeHead(200, { 'content-type': img.type, 'content-length': img.body.length, 'cache-control': 'public, max-age=86400', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox", 'cross-origin-resource-policy': 'cross-origin' });
+      return res.end(req.method === 'HEAD' ? undefined : img.body);
+    }
+
     const core = path.match(/^\/core\/([\w.-]+)$/);
     if (core && Object.hasOwn(SHARED_CORE, core[1])) return sendRaw(res, 200, await readFile(SHARED_CORE[core[1]]), core[1].endsWith('.json') ? 'application/json; charset=utf-8' : 'text/javascript; charset=utf-8', { 'cache-control': 'no-cache' });
 

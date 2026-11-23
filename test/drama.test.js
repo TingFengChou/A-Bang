@@ -25,7 +25,8 @@ const LINKS = { episode: 'example-drama://watch/{id}/{ep}', exercise: 'example-d
 test('normSeries：只留阿幫的欄位、限制級與不合格的 id 丟掉、數字防禦、簡介截斷', () => {
   const raw = { id: 's1', title: '  夜班  公車 ', tags: ['甜寵', '甜寵', '', 3, '都市', 'a', 'b', 'c'], episodes: '60', freeEpisodes: 99, category: '愛情', taiwanOriginal: 'true', newRelease: false, completed: true, heat: 12.7, contentRating: 'GENERAL', synopsis: '一'.repeat(400), cover: 'https://cdn.example.com/x.jpg', price: 30, extra: 5, flag: true, media: { url: 'x' }, availableEpisodes: 20 };
   const s = normSeries(raw);
-  assert.deepEqual(Object.keys(s).sort(), ['completed', 'episodes', 'freeEpisodes', 'genre', 'heat', 'id', 'isNew', 'ready', 'synopsis', 'tags', 'taiwanOriginal', 'title'].sort(), '其他欄位（封面、價格…）不往上傳');
+  assert.deepEqual(Object.keys(s).sort(), ['_cover', 'completed', 'episodes', 'freeEpisodes', 'genre', 'heat', 'id', 'isNew', 'ready', 'synopsis', 'tags', 'taiwanOriginal', 'title'].sort(), '其他欄位（價格…）不往上傳；封面網址只留在伺服器（_cover）');
+  assert.equal(s._cover, 'https://cdn.example.com/x.jpg');
   assert.equal(s.title, '夜班 公車');
   assert.deepEqual(s.tags, ['甜寵', '都市', 'a', 'b', 'c']);
   assert.equal(s.episodes, 60);

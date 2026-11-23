@@ -37,7 +37,7 @@ import { createDramaServices, createLiveDramaFetchers } from './services/drama.j
 import { createMockDramaServices } from './services/drama-mock.js';
 
 /**
- * @param {{ clientId?: string, clientSecret?: string, cwaKey?: string, moenvKey?: string, openData?: boolean, forceMock?: boolean, log?: Function, demo?: { traffic?: 'smooth'|'jam', weather?: 'clear'|'rain', air?: 'good'|'bad', bus?: 'off'|'offLive' }, drama?: { apiBase?: string, links?: object } }} [opts]
+ * @param {{ clientId?: string, clientSecret?: string, cwaKey?: string, moenvKey?: string, openData?: boolean, forceMock?: boolean, log?: Function, demo?: { traffic?: 'smooth'|'jam', weather?: 'clear'|'rain', air?: 'good'|'bad', bus?: 'off'|'offLive' }, drama?: { apiBase?: string, links?: object, coverHosts?: string[] } }} [opts]
  *   drama：MyDrama 短劇（ADR-0019）；apiBase 沒設定時用虛構的示範片庫；links＝深層連結與商店頁範本（環境變數）
  *   openData：免金鑰的政府開放資料（165 防詐）用真實下載；預設 false（測試不連網），伺服器由 loadEnv 決定
  *   cwaKey：中央氣象署授權碼；沒有時天氣用示範資料（與 TDX 金鑰各自獨立）
@@ -102,7 +102,7 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
   const stock = od ? createStockServices(createLiveStockFetchers({ od })) : createMockStockServices(); // 股市收盤（證交所、櫃買中心，免金鑰）
   const antifraud = antifraudLive ? createAntifraudServices() : createMockAntifraudServices();
   // 短劇（ADR-0019）：MyDrama 公開讀取端點，網址只在環境變數；沒設定（或 DEMO_MODE=1）用虛構示範片庫
-  const dramaFx = dramaCfg.apiBase && !forceMock ? createLiveDramaFetchers({ od: createOpenDataClient(), base: dramaCfg.apiBase }) : null;
+  const dramaFx = dramaCfg.apiBase && !forceMock ? createLiveDramaFetchers({ od: createOpenDataClient(), base: dramaCfg.apiBase, coverHosts: dramaCfg.coverHosts }) : null;
   const drama = dramaFx ? createDramaServices(dramaFx, { links: dramaCfg.links }) : createMockDramaServices({ links: dramaCfg.links });
 
   return {
@@ -193,6 +193,7 @@ export async function loadEnv(path = new URL('../.env', import.meta.url)) {
     // MyDrama 短劇（ADR-0019）：網址、深層連結、商店頁都只放 .env（repo 是公開的）
     drama: {
       apiBase: process.env.MYDRAMA_API_BASE || undefined,
+      coverHosts: (process.env.MYDRAMA_COVER_HOSTS || '').split(',').map((h) => h.trim()).filter(Boolean), // 封面圖的主機（伺服器代抓；沒設定＝API 的主機）
       links: { episode: process.env.MYDRAMA_LINK_EPISODE, exercise: process.env.MYDRAMA_LINK_EXERCISE, storeIos: process.env.MYDRAMA_STORE_IOS, storeAndroid: process.env.MYDRAMA_STORE_ANDROID },
     },
   };

@@ -379,7 +379,7 @@ MyDrama 的公開讀取端點（排行、搜尋、單劇、簡介、熱搜；不
 | `drama_search` | `query`：劇名或類型（1～20 字，只放關鍵字，「短劇」「推薦」等套話會去掉） | `kind: 'search'`、`query`、`total`、`items[]`、`store`；沒找到不丟錯（`items: []`） |
 | `drama_series` | `id`：英數、底線、連字號（1～64 字） | `kind: 'series'`、`items[0]`（簡介最多 600 字）、`store`；找不到或已下架 → `UserError` |
 
-`items[]`：`{ id, title, tags[≤5], genre, episodes, freeEpisodes, completed, isNew, taiwanOriginal, heat, synopsis（≤160 字）, appLink }`。`appLink`＝第 1 集的 App 連結（`MYDRAMA_LINK_EPISODE` 範本代入；沒設定為 `null`）；`store`＝`{ ios, android }`（https，沒設定為 `null`）。封面、價格、解鎖設定不往上傳；限制級不列。
+`items[]`：`{ id, title, tags[≤5], genre, episodes, freeEpisodes, completed, isNew, taiwanOriginal, heat, synopsis（≤160 字）, appLink, cover? }`。`appLink`＝第 1 集的 App 連結（`MYDRAMA_LINK_EPISODE` 範本代入；沒設定為 `null`）；`store`＝`{ ios, android }`（https，沒設定為 `null`）。價格、解鎖設定不往上傳；封面只說 `cover: true`（上游網址留在伺服器，圖由 `/api/v1/drama/cover/{id}` 代抓，2026-11-23）；限制級不列。
 
 | speak 範例 | 「熱門排行前 3 名：《夜班公車的約定》、《總裁的便當外送員》、《重返十八歲的阿嬤》。」（示範片庫的劇名都是虛構的） |
 |---|---|

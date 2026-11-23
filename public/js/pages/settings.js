@@ -110,7 +110,7 @@ export const settings = {
         <h2>等車的時候</h2>
         <label class="switch-row"><span><b>等車時推一集短劇</b><small>公車、捷運還要等 5 分以上時，在到站卡片下方提一句</small></span>
           <input type="checkbox" id="drama-hint" class="switch" role="switch" aria-describedby="drama-note" ${dramaHintOn() ? 'checked' : ''}></label>
-        <p class="note" id="drama-note">從合作的短劇 App MyDrama 的熱門排行挑一部可以從第 1 集看的；一次問答最多提一次。阿幫只看公開的排行，不會把你的位置或對話送給 MyDrama；按了才開 MyDrama App（沒裝會到商店頁）。</p>
+        <p class="note" id="drama-note">從合作的短劇 App MyDrama 的熱門排行挑一部可以從第 1 集看的；一次問答最多提一次。阿幫只看公開的排行，不會把你的位置或對話送給 MyDrama；劇的封面圖由阿幫伺服器代抓，MyDrama 看不到你的網路位址；按了才開 MyDrama App（沒裝會到商店頁）。</p>
       </section>
       <section class="card settings" id="reminders-card">
         <h2>提醒</h2>

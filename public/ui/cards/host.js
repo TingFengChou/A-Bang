@@ -16,6 +16,7 @@
  * @property {boolean} [background]  提醒在 App 關著時也會響（手機 App 有通知權限才是 true；沒有這個屬性＝只有開著時）
  * @property {() => 'whenAlways'|'whenOpenPage'|'whenNoPermission'} [arrivalNote]  設定提醒後的說明文字鍵（i18n busRoute.*）；沒有時用 whenOpenPage
  * @property {(hash: string) => void} [navigate]  開 App 內頁面（網頁 host 才有）
+ * @property {(path: string) => string|null} [assetUrl]  阿幫伺服器上的圖的完整網址（短劇封面；網頁與 App 才有，MCP Apps 沒有）
  * @property {'light'} theme
  * @property {'web'|'mcp-app'|'app'} kind
  */

@@ -11,6 +11,13 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-23 D-10 短劇封面圖（伺服器代抓）
+- 做了：產品負責人看 D-06 截圖後問「短劇圖有嗎」，決定「要，經伺服器代抓」。`GET /api/v1/drama/cover/{id}`（`svc.drama.cover`）：上游封面網址只留在伺服器（`_cover`，往上只說 `cover: true`）；只抓 https、允許的主機（`MYDRAMA_COVER_HOSTS`，預設 API 主機）、不跟轉址、8 秒、1.5 MB、看檔頭只收 JPEG／PNG／WebP／GIF；快取一天（200 張、30 MB），抓不到的 10 分內不再試；回應 nosniff＋沙箱 CSP。卡片（`host.assetUrl`）與等車提示（小海報＋播放角標）顯示封面，MCP Apps、載不到時用字＋漸層。示範片庫畫 SVG 海報（標「示範」）。ADR-0019 決策 3 改寫
+- 測試：npm test 全過（新增 `test/drama-cover.test.js`、agent-http 封面路由）；lint、e2e 全過
+- 文件：ADR-0019、DATA_SOURCES、CARDS、MCP_TOOLS、PLAN（D-10）、設定頁說明、`.env.example`
+- 下一個：D-07 合作方提供 `.env` 後確認上游封面欄位名稱與圖片主機
+- 卡住：上游封面欄位名稱待確認（防禦性讀 cover／coverUrl／poster／coverImage）
+
 ## 2026-11-23 E3 手機上的小模型（App 內 transformers.js 分類器）
 - 做了：使用者在設定頁「手機上的小模型（備援）」按下載，App 從阿幫自己的伺服器 `/edge-model/`（白名單 `server/edge-model.js`、串流、App 來源 CORS）下載 multilingual-e5-small（實際 162 MB），存在 IndexedDB；在 Web Worker（`public/js/edge-embed-worker.js`）跑 transformers.js。分類器的純函式抽到 `core/judge-classify.js`，伺服器（`judge.js`）與手機共用；手機用的參數 `core/data/judge-classifier.json` 由 `npm run build:edge-classifier` 產生。系統模型不能用時 `edgeJudge` 改用小模型，送 `deviceJudge.engine = 'e5'`＋信心；伺服器沒有自己的 A 時當作 A（門檻、unknown、規則優先照舊；不當作 B），有 A 就用自己的。回答上方那一行、腦袋頁試判斷、隱私權政策、service worker（不快取 `/edge-model/`，v1.3.26）同步。沒有新增套件
 - 實測：Mac 瀏覽器、iOS 模擬器、node 的意圖、狀態相同（信心差約 0.02）。iOS 模擬器（capacitor://）下載 1.5 秒（本機）、每句約 15 毫秒、重開從快取載入約 1 秒；Pixel 11 Pro XL 下載 6.9 秒（USB）、每句 30～70 毫秒、從快取載入 2.2 秒，Gemini Nano 仍是主要判斷。伺服器 `JUDGE=off` 時採用手機的 e5（status `source: embed, engine: e5`）

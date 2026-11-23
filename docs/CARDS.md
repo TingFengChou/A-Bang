@@ -162,7 +162,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 | `garbage` | 時間、地點、距離、今天有沒有收（不收則灰階）、新北車輛即時位置、導航 | 2 分 |
 | `fuel` | 92／95／98／超級柴油牌價、生效日 | — |
 | `invoice` | 特別獎、特獎、頭獎；卡片內輸入號碼對獎（`host.callTool`） | — |
-| `drama` | 短劇（`drama_picks`／`drama_search`／`drama_series`，ADR-0019）：每部一列——直式封面示意（劇名第一個字＋依 id 的漸層色，**不載外部圖片**）、排名、新上架標記、劇名、「共 N 集・前 M 集免費・已完結／連載中」、台灣自製、類型標籤（最多 3）、簡介兩行收合（「看簡介」展開時 `host.callTool('drama_series')` 取完整簡介）、「在 MyDrama 看」（`host.openApp({ app, store })`；只有 https 商店頁時改「下載 MyDrama」走 `host.openLink`；都沒有不顯示）；熱搜關鍵字按鈕（`host.callTool('drama_search')`，並 `setContext` 告訴模型在看哪幾部）；搜尋沒結果給「看熱門排行」；頁尾「內容與播放由 MyDrama 提供；阿幫只推薦，不代替登入、付費或解鎖」 | — |
+| `drama` | 短劇（`drama_picks`／`drama_search`／`drama_series`，ADR-0019）：每部一列——直式封面（`cover: true` 且 host 有 `assetUrl` 時載阿幫伺服器代抓的封面 `/api/v1/drama/cover/{id}`；MCP Apps、沒有封面、載不到時用劇名第一個字＋依 id 的漸層色，2026-11-23）、排名、新上架標記、劇名、「共 N 集・前 M 集免費・已完結／連載中」、台灣自製、類型標籤（最多 3）、簡介兩行收合（「看簡介」展開時 `host.callTool('drama_series')` 取完整簡介）、「在 MyDrama 看」（`host.openApp({ app, store })`；只有 https 商店頁時改「下載 MyDrama」走 `host.openLink`；都沒有不顯示）；熱搜關鍵字按鈕（`host.callTool('drama_search')`，並 `setContext` 告訴模型在看哪幾部）；搜尋沒結果給「看熱門排行」；頁尾「內容與播放由 MyDrama 提供；阿幫只推薦，不代替登入、付費或解鎖」 | — |
 | `stock` | 加權／櫃買指數；每檔收盤價、漲跌（台股習慣漲紅跌綠，另有 ▲▼ 與 `aria-label`，不只靠顏色）、開高低、成交張數、資料日期；名稱不是完全相同時列「也可能是」按鈕；卡片內查別檔（`host.callTool`），查到後 `host.setContext` 告訴模型使用者在看哪幾檔；固定附「不構成投資建議」 | —（收盤資料） |
 
 網頁入口：首頁格子 → `#/s/:id`（`public/js/pages/service.js`，需要位置的服務先定位）。
