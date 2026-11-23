@@ -30,11 +30,12 @@ function nearestEn(label, station, nearest) {
 function railEn(d, label, now) {
   const skip = d.skipped ? `${d.skipped} has no direct train, so from ${d.from}: ` : '';
   const head = d.nearest && !d.skipped ? nearestEn(label, d.from, d.nearest) : skip;
-  if (!d.trains.length) return `${head}No direct trains that day.`;
+  if (!d.trains.length) return `${head}No direct trains that day${d.transfersUnavailable ? "; routes with a change of train can't be checked right now, try again shortly" : d.system === 'TRA' ? ', and no route with a change of train' : ''}.`;
+  const via = (x) => (x.via?.length ? ` (change at ${x.via.join(', ')})` : '');
   const up = upcomingTrains(d, now);
-  if (!up) return `${head}${plural(d.trains.length, 'train')} on ${DAY(d.date)}; first leaves ${d.trains[0].depart}, arrives ${d.to} ${d.trains[0].arrive}.`;
+  if (!up) return `${head}${plural(d.trains.length, 'train')} on ${DAY(d.date)}; first leaves ${d.trains[0].depart}${via(d.trains[0])}, arrives ${d.to} ${d.trains[0].arrive}.`;
   if (!up.length) return `${head}All of today's trains have left (last at ${d.trains.at(-1).depart}); try tomorrow.`;
-  return `${head}${up.length} more today; next leaves ${up[0].depart}, arrives ${d.to} ${up[0].arrive}.`;
+  return `${head}${up.length} more today; next leaves ${up[0].depart}${via(up[0])}, arrives ${d.to} ${up[0].arrive}.`;
 }
 
 /** 出門建議英文：core/agent/outing.js 產生建議時一起產生（item.en），這裡只取用（只有一份） */

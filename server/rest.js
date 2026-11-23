@@ -8,6 +8,7 @@ import { measure } from '../core/metrics.js';
 import { dataSources } from '../core/index.js';
 import { TOOL_ROLES } from '../core/agent/events.js';
 import { remindAside } from '../core/agent/wait-drama.js';
+import { traTrips } from '../core/services/rail-trips.js';
 
 const num = (v) => (v == null || v === '' ? undefined : Number(v));
 const q = (name, description, { required = false, type = 'string', format, min, example } = {}) => ({ name, description, required, type, ...(format && { format }), ...(min !== undefined && { minimum: min }), ...(example !== undefined && { example }) });
@@ -114,7 +115,7 @@ export function restRoutes(svc, { agentInfo = null } = {}) {
     '/api/v1/thsr/stations': { summary: '高鐵車站', tag: 'PWA', params: [], handler: () => svc.rail.thsrStations() },
     '/api/v1/thsr/timetable': { summary: '高鐵時刻表', tag: 'PWA', params: OD, handler: (p) => svc.rail.thsrTimetable(p) },
     '/api/v1/tra/stations': { summary: '台鐵車站', tag: 'PWA', params: [], handler: () => svc.rail.traStations() },
-    '/api/v1/tra/timetable': { summary: '台鐵時刻表', tag: 'PWA', params: OD, handler: (p) => svc.rail.traTimetable(p) },
+    '/api/v1/tra/timetable': { summary: '台鐵時刻表（直達＋要換車的走法：trains[].legs、via、transfers）', tag: 'PWA', params: OD, handler: (p) => traTrips(svc, p) },
     '/api/v1/drama/wait': {
       summary: '設了到站提醒、還要等一段時間時推一集短劇（MyDrama；等 5～40 分才推，沒有回 aside: null）', tag: 'PWA',
       params: [q('min', '還要等幾分鐘', { required: true, type: 'number', example: 12 })],
