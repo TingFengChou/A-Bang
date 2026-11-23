@@ -69,6 +69,7 @@
 | 高鐵時刻 | `/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}` | 10m | ✅ | `thsr_timetable` |
 | 高鐵車站 | `/basic/v2/Rail/THSR/Station` | 1d（存檔） | ✅ | `rail_stations` |
 | 台鐵時刻 | `/basic/v3/Rail/TRA/DailyTrainTimetable/OD/{O}/to/{D}/{Date}` | 10m | ✅ | `tra_timetable` |
+| 台鐵定期時刻表 | `/basic/v3/Rail/TRA/GeneralTrainTimetable`（約 950 班、原始約 4.4 MB，只留站代碼與時間約 0.4 MB；`ServiceDay` 星期旗標。2026-11-23 實測：`DailyTrainTimetable/TrainDate/{Date}`、`/Today` 都回空陣列，來源停在 11-20，所以換車用定期時刻表） | 1d（存檔、預熱） | ✅ | `tra_timetable`、`plan_trip`（換車走法） |
 | 台鐵車站 | `/basic/v3/Rail/TRA/Station` | 1d（存檔） | ✅ | `rail_stations` |
 | 高鐵／台鐵票價 | `/basic/v2/Rail/THSR/ODFare/{O}/to/{D}`、`/basic/v3/Rail/TRA/ODFare/{O}/to/{D}`（已驗證 2026-11-22：台鐵 `ODFares` 每個「車種×方向」一筆，`TrainType` 是車種代碼（＝`/basic/v3/Rail/TRA/TrainType` 的 `TrainTypeCode`：1 太魯閣、2 普悠瑪、3 自強、4 莒光、5 復興、6 區間、7 普快、10 區間快、11 自強3000），沒有 `TrainTypeName`；同一組起訖有兩個 `Direction`，另一個是繞島另一邊（臺北→新竹 78.1 對 797.8 公里），只取 `TravelDistance` 最短的；只列成人單程，普快與不認得的代碼不列。快取鍵改 `tra-fare-v2-*`） | 1d（存檔） | ✅ | `rail_fare` |
 | 捷運車站 | `/basic/v2/Rail/Metro/Station/{Operator}` | 1d（存檔） | ✅ | `metro_stations`、`metro_live_board`（站名→代碼） |

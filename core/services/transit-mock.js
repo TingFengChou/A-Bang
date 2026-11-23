@@ -48,9 +48,41 @@ const densify = (pts) => pts.flatMap((p, i) => (i ? [[r6((pts[i - 1][0] + p[0]) 
 const THSR = [['0990', '南港', 25.0533, 121.6070], ['1000', '台北', 25.0478, 121.5170], ['1010', '板橋', 25.0141, 121.4637], ['1020', '桃園', 25.0130, 121.2149], ['1030', '新竹', 24.8079, 121.0402], ['1035', '苗栗', 24.6055, 120.8255], ['1040', '台中', 24.1121, 120.6158], ['1043', '彰化', 23.8740, 120.5745], ['1047', '雲林', 23.7363, 120.4163], ['1050', '嘉義', 23.4593, 120.3232], ['1060', '台南', 22.9250, 120.2857], ['1070', '左營', 22.6871, 120.3076]].map(([id, name, lat, lon]) => ({ id, name, lat, lon }));
 const TRA = [['0900', '基隆', 25.1319, 121.7386], ['1000', '臺北', 25.0478, 121.5170], ['1020', '板橋', 25.0141, 121.4637], ['1080', '桃園', 24.9892, 121.3134], ['1100', '中壢', 24.9536, 121.2256], ['1210', '新竹', 24.8016, 120.9716], ['3160', '苗栗', 24.5700, 120.8224], ['3300', '臺中', 24.1371, 120.6869], ['3360', '彰化', 24.0817, 120.5385], ['4080', '嘉義', 23.4791, 120.4410], ['4220', '臺南', 22.9971, 120.2128], ['4400', '高雄', 22.6397, 120.3027], ['7190', '宜蘭', 24.7546, 121.7584], ['7000', '花蓮', 23.9932, 121.6012], ['6000', '臺東', 22.7932, 121.1233],
   // 地標沒收的中小站（2026-11-23 交通健檢：台中車站→高鐵台中站要能坐到新烏日、三峽要從鶯歌上車）：排在最後，站距用 RAIL_POS 的位置算，不改原有各站之間的示範時間與票價
-  ['1040', '樹林', 24.9913, 121.4243], ['1070', '鶯歌', 24.9543, 121.3553], ['3350', '新烏日', 24.1092, 120.6145], ['4340', '新左營', 22.6874, 120.3077]].map(([id, name, lat, lon]) => ({ id, name, lat, lon }));
-/** 示範班次與票價的站距：清單位置（中小站給兩站之間的小數位置） */
-const RAIL_POS = { 1040: 2.3, 1070: 2.6, 3350: 7.5, 4340: 10.8 };
+  ['1040', '樹林', 24.9913, 121.4243], ['1070', '鶯歌', 24.9543, 121.3553], ['3350', '新烏日', 24.1092, 120.6145], ['4340', '新左營', 22.6874, 120.3077],
+  // 支線（換車示範：平溪線、集集線、內灣線；2026-11-23「查火車都只給直達」）與轉乘站
+  ['7360', '瑞芳', 25.1088, 121.8058], ['7332', '十分', 25.0412, 121.7752], ['7335', '平溪', 25.0257, 121.7385], ['7336', '菁桐', 25.0239, 121.7238],
+  ['3430', '二水', 23.8131, 120.6180], ['3434', '集集', 23.8263, 120.7848], ['3436', '車埕', 23.8326, 120.8659],
+  ['1193', '竹中', 24.7811, 121.0319], ['1208', '內灣', 24.7054, 121.1825]].map(([id, name, lat, lon]) => ({ id, name, lat, lon }));
+/** 示範班次與票價的站距：清單位置（中小站給兩站之間的小數位置；支線站照轉乘站往外加） */
+const RAIL_POS = { 1040: 2.3, 1070: 2.6, 3350: 7.5, 4340: 10.8, 7360: 0.5, 7332: 0.9, 7335: 1.1, 7336: 1.2, 3430: 8.5, 3434: 8.9, 3436: 9.1, 1193: 5.2, 1208: 5.8 };
+/** 示範支線：支線上的站（不含轉乘站）→ 支線名；不同支線、或支線站與幹線站之間沒有直達車（要在轉乘站換車） */
+const BRANCH = { 7332: 'pingxi', 7335: 'pingxi', 7336: 'pingxi', 3434: 'jiji', 3436: 'jiji', 1193: 'neiwan', 1208: 'neiwan' };
+const JUNCTION = { pingxi: '7360', jiji: '3430', neiwan: '1210' };
+const directOk = (o, d) => { const a = BRANCH[o.id], b = BRANCH[d.id]; return a === b || (a && JUNCTION[a] === d.id) || (b && JUNCTION[b] === o.id) || (!a && !b); };
+/**
+ * 示範的台鐵定期時刻表（rail.traGeneral，形狀同 core/rail-journeys.js normGeneralTimetable）：幹線（臺北—瑞芳、臺北—高雄）每 30 分一班，支線接駁。
+ * 幹線每班停站一樣、速度一樣：幹線兩站之間不會冒出換車比直達快的示範走法；支線站要在瑞芳、二水、新竹換車
+ */
+const MOCK_LINES = [
+  { first: 330, last: 1380, every: 30, type: '區間', stops: [['1000', 0], ['7360', 42]] },
+  { first: 330, last: 1380, every: 30, type: '區間快', stops: [['1000', 0], ['1020', 7], ['1080', 30], ['1100', 40], ['1210', 75], ['3160', 115], ['3300', 165], ['3360', 180], ['3430', 200], ['4080', 240], ['4220', 300], ['4400', 345]] },
+  { first: 380, last: 1320, every: 60, type: '區間', stops: [['7360', 0], ['7332', 35], ['7335', 50], ['7336', 55]] },
+  { first: 400, last: 1260, every: 90, type: '區間', stops: [['3430', 0], ['3434', 30], ['3436', 45]] },
+  { first: 390, last: 1320, every: 60, type: '區間', stops: [['1210', 0], ['1193', 15], ['1208', 60]] },
+];
+function mockTraGeneral() {
+  const out = [];
+  MOCK_LINES.forEach((ln, li) => {
+    const span = ln.stops.at(-1)[1];
+    const back = ln.stops.map(([id, m]) => [id, span - m]).reverse();
+    [ln.stops, back].forEach((stops, dir) => {
+      for (let k = 0, t = ln.first; t <= ln.last; k++, t += ln.every) {
+        out.push({ no: String(1000 + li * 400 + k * 2 + dir), type: ln.type, days: [1, 1, 1, 1, 1, 1, 1], stops: stops.map(([id, m]) => [id, t + m, t + m + (m && m !== span ? 1 : 0)]) });
+      }
+    });
+  });
+  return out;
+}
 const hopsOf = (list, o, d) => Math.abs((RAIL_POS[o.id] ?? list.indexOf(o)) - (RAIL_POS[d.id] ?? list.indexOf(d)));
 const pad = (n) => String(n).padStart(2, '0');
 const hhmm = (min) => `${pad(Math.floor(min / 60) % 24)}:${pad(min % 60)}`;
@@ -178,6 +210,7 @@ export function createMockTransitServices({ bus: busScenario } = {}) {
     if (o.id === d.id) throw new UserError('起訖站不可相同');
     const hops = list === TRA ? hopsOf(list, o, d) : Math.abs(list.indexOf(o) - list.indexOf(d));
     const trains = [];
+    if (list === TRA && !directOk(o, d)) return { from: o.name, to: d.name, date, demo: true, trains }; // 支線站與幹線站沒有直達車（換車走法由 traGeneral 算）
     const types = ['自強', '莒光', '區間快', '區間'];
     for (let m = 6 * 60; m < 23 * 60; m += kind === 'thsr' ? 30 : 25) {
       const r = seeded(`${kind}${o.id}${d.id}${m}`);
@@ -217,6 +250,7 @@ export function createMockTransitServices({ bus: busScenario } = {}) {
     async thsrTimetable({ from, to, date = todayTW() }) { return timetable(THSR, from, to, date, '高鐵', 'thsr'); },
     async traStations() { return TRA; },
     async traTimetable({ from, to, date = todayTW() }) { return timetable(TRA, from, to, date, '台鐵', 'tra'); },
+    async traGeneral() { return mockTraGeneral(); },
   };
 
   return { bus, bike, rail };

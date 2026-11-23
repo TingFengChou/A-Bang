@@ -380,3 +380,7 @@ html.lite-motion .ab-eta .ab-pulse { animation: none; }
 .ab-drama-acts .ab-btn { min-height: 44px; }
 .ab-drama-kw { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
 .ab-drama-kw .ab-tab { min-height: 36px; }
+/* 台鐵要換車的班次：換車站與每一段（timetable） */
+.ab-tt-legs { margin-top: 4px; display: grid; gap: 2px; }
+.ab-tt-legs .ab-row { gap: 8px; padding: 1px 0; align-items: center; }
+.ab-note { margin: 8px 0 0; }

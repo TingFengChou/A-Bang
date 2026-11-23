@@ -5,6 +5,7 @@ import { withNav } from '../nav.js';
 import { resolveCity } from '../cities.js';
 import { nowTW, toMin, normName, distanceM, UserError } from '../util.js';
 import { resolvePoint, cityNear } from '../services/places.js';
+import { traTrips } from '../services/rail-trips.js';
 
 const PACK = 'transit';
 const fmtM = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} 公里` : `${m} 公尺`);
@@ -217,8 +218,8 @@ export function nearestSay(d) {
   return skip ? `${skip}${d.from}站（約 ${fmtM(d.nearest.distanceM)}）。` : `${d.nearest.from ? `離「${d.nearest.from}」最近` : '離你最近'}的${label}站是${d.from}（約 ${fmtM(d.nearest.distanceM)}）。`;
 }
 function railSpeakBody(d, now) {
-  if (!d.trains.length) return '那天沒有直達班次。';
-  const type = (x) => (d.system === 'TRA' && x.type ? `（${x.type}）` : '');
+  if (!d.trains.length) return d.transfersUnavailable ? '那天沒有直達班次；換車的走法暫時查不到，稍後再問一次。' : d.system === 'TRA' ? '那天沒有直達班次，也找不到換車的走法。' : '那天沒有直達班次。';
+  const type = (x) => (x.via?.length ? `（在${x.via.join('、')}換車）` : d.system === 'TRA' && x.type ? `（${x.type}）` : '');
   const up = upcomingTrains(d, now);
   if (!up) return `${d.date} 共 ${d.trains.length} 班，最早 ${d.trains[0].depart} 出發${type(d.trains[0])}、${d.trains[0].arrive} 到${d.to}。`;
   if (!up.length) return `今天的班次都開走了（末班 ${d.trains.at(-1).depart}），可以改查明天。`;
@@ -231,13 +232,17 @@ export function railText(data, label, now = Date.now()) {
   return pre + railTextBody(data, label, now);
 }
 function railTextBody(data, label, now) {
-  const row = (t) => `- ${t.trainNo} 次${t.type ? `（${t.type}）` : ''}：${t.depart} → ${t.arrive}，${t.minutes} 分`;
-  if (!data.trains.length) return `${label} ${data.from} → ${data.to}（${data.date}）沒有直達班次。`;
+  const leg = (l) => `${l.trainNo} 次${l.type ? `${l.type}` : ''} ${l.from} ${l.depart} → ${l.to} ${l.arrive}`;
+  const row = (t) => (t.legs
+    ? `- 換車 ${t.transfers} 次（${t.via.join('、')}）：${t.depart} → ${t.arrive}，${t.minutes} 分｜${t.legs.map(leg).join('，')}`
+    : `- ${t.trainNo} 次${t.type ? `（${t.type}）` : ''}：${t.depart} → ${t.arrive}，${t.minutes} 分`);
+  if (!data.trains.length) return `${label} ${data.from} → ${data.to}（${data.date}）沒有直達班次${data.transfersUnavailable ? '；換車的走法（台鐵定期時刻表）暫時查不到，請稍後再查，不要說成沒有車' : data.system === 'TRA' ? '，也找不到換車的走法' : ''}。`;
+  const note = data.transferNote ? `\n（${data.transferNote}）` : '';
   const up = upcomingTrains(data, now);
-  if (!up) return clip([`${label} ${data.from} → ${data.to}（${data.date}），共 ${data.trains.length} 班：`, ...data.trains.map(row)]);
+  if (!up) return clip([`${label} ${data.from} → ${data.to}（${data.date}），共 ${data.trains.length} 班：`, ...data.trains.map(row)]) + note;
   const head = `${label} ${data.from} → ${data.to}（今天 ${data.date}，現在 ${nowTW(now).hhmm}）`;
   if (!up.length) return `${head}：今天的 ${data.trains.length} 班都已開出（末班 ${data.trains.at(-1).depart}），請改查明天。`;
-  return clip([`${head}：今天還有 ${up.length} 班（全天 ${data.trains.length} 班），下一班 ${up[0].depart} 出發。尚未開出的班次：`, ...up.map(row)]);
+  return clip([`${head}：今天還有 ${up.length} 班（全天 ${data.trains.length} 班），下一班 ${up[0].depart} 出發。尚未開出的班次：`, ...up.map(row)]) + note;
 }
 
 /** 高鐵／台鐵時刻表的輸入：起站可省略改給 near（使用者位置），用最近的車站 */
@@ -269,7 +274,8 @@ async function railCandidates(svc, system, a) {
 
 /** 時刻表：有起站直接查；沒有就從最近的站依序查，0 班（支線小站沒直達）換下一站 */
 async function railTimetable(svc, system, a) {
-  const get = (from) => (system === 'THSR' ? svc.rail.thsrTimetable({ ...a, from }) : svc.rail.traTimetable({ ...a, from }));
+  // 台鐵加上要換車的走法（支線小站、直達很少的路線；core/services/rail-trips.js）
+  const get = (from) => (system === 'THSR' ? svc.rail.thsrTimetable({ ...a, from }) : traTrips(svc, { from, to: a.to, date: a.date }));
   const cands = await railCandidates(svc, system, a);
   if (!cands) return get(a.from);
   let first = null;

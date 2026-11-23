@@ -8,6 +8,8 @@ import { departOf, delayRiskOf } from './intercity.js';
 import { LANDMARKS, normPlace } from './places.js';
 import { METRO_LINE_NAME, METRO_SYSTEMS, nearMetroArea } from './metro.js';
 import { currentFallback, fellBack } from '../metrics.js';
+import { railDepMin } from '../rail-journeys.js';
+import { traTrips } from './rail-trips.js';
 import { consideredOf, missingModes, singleNote, nightOf, limitedOf, AIR_MAX_M, BAD_AIR_AQI, RAIN_SOON_POP } from './trip-considered.js';
 
 export { AIR_MAX_M, BAD_AIR_AQI, RAIN_SOON_POP };
@@ -572,37 +574,57 @@ async function railOption(svc, system, from, to, straight, depart) {
     if (!traEstRunning(depart.minute + a1.minutes)) return { none: { kind: 'noService', why: `這個時間台鐵沒有車（約 ${toHHMM(TRA_EST.open)}～${toHHMM(TRA_EST.close)} 有車）`, whyEn: `No trains at this hour (about ${toHHMM(TRA_EST.open)}–${toHHMM(TRA_EST.close)})` } };
     return traEstOption(o, d, a1, a2);
   }
-  const tt = await (system === 'THSR' ? svc.rail.thsrTimetable : svc.rail.traTimetable)({ from: o.name, to: d.name, date: depart.date });
+  // 台鐵含要換車的走法（支線小站沒有直達車；core/services/rail-trips.js）
+  const tt = system === 'THSR' ? await svc.rail.thsrTimetable({ from: o.name, to: d.name, date: depart.date }) : await traTrips(svc, { from: o.name, to: d.name, date: depart.date });
   if (demoOf(svc, `rail.${role}Timetable`)) return { skip: limitSkip(role) }; // 示範的班次不推
   const ready = depart.minute + a1.minutes;
   // 過午夜的末班車（班表上 00:09、00:18）是前一天發的車：算成 24:09，深夜出發才看得到（2026-11-23 交通健檢）
   const depMin = (t) => railDepMin(t.depart);
-  const train = (tt.trains || []).filter((t) => depMin(t) >= ready).sort((x, y) => depMin(x) - depMin(y))[0];
+  // 趕得上的班次裡最早到的（同時到：換車少的、晚開的）；原本取最早開的，慢車先開時會選到比較晚到的那班
+  const arrMin = (t) => depMin(t) + t.minutes;
+  const train = (tt.trains || []).filter((t) => depMin(t) >= ready)
+    .sort((x, y) => arrMin(x) - arrMin(y) || (x.transfers || 0) - (y.transfers || 0) || depMin(y) - depMin(x))[0];
+  if (!train && tt.transfersUnavailable && !tt.trains?.length) return { none: { kind: 'none', why: '沒有直達車，換車的班次暫時查不到（稍後再問一次）', whyEn: "No direct train, and trips with a change of train can't be checked right now" } };
   if (!train) return { none: { kind: 'noService', why: '查不到趕得上的班次', whyEn: 'No train you can still catch today' } };
   const dep = depMin(train);
   const fares = await (system === 'THSR' ? svc.rail.thsrFare : svc.rail.traFare)({ from: o.name, to: d.name }).then((f) => (demoOf(svc, `rail.${role}Fare`) ? [] : f.fares)).catch(() => []); // 示範的票價不用：照「票價暫時查不到」
-  const fare = fares.find((f) => f.adultOneWay && (!train.type || !f.trainType || f.trainType === train.type)) || fares.find((f) => f.adultOneWay);
+  const fareType = train.fareType || train.type; // 換車：取最高等那段的車種（rail-trips.js fareTypeOf）
+  const fare = fares.find((f) => f.adultOneWay && (!fareType || !f.trainType || f.trainType === fareType)) || fares.find((f) => f.adultOneWay);
   // 票價查不到：不當 0 元（會變成最便宜而勝出），依兩站直線距離保守估（RAIL_FARE_EST）
   const estFare = fare ? null : railFareEst(system, distanceM(o.lat, o.lon, d.lat, d.lon));
   // 班次制：等太久就晚點出門，等車最多算 maxIdleWaitMin；抵達以實際班次計算
   const realWait = dep - ready;
   const wait = Math.min(realWait, EST.maxIdleWaitMin);
-  const label = system === 'THSR' ? '高鐵' : `台鐵${train.type || ''}`;
+  const label = system === 'THSR' ? '高鐵' : train.via?.length ? `台鐵（${train.via.join('、')}換車）` : `台鐵${train.type || ''}`;
   const lw = longWaitOf(realWait, wait, train.depart);
   return {
     id: system.toLowerCase(), role: system.toLowerCase(), name: label,
     minutes: a1.minutes + wait + train.minutes + a2.minutes, waitMin: wait, walkMin: a1.walkMin + a2.walkMin,
     arriveMin: dep + train.minutes + a2.minutes,
     cost: (fare?.price ?? estFare) + a1.cost + a2.cost, exposure: 0.1, effort: 0.3, delayRisk: 0,
-    legs: [a1.leg, leg(system.toLowerCase(), o, d, train.minutes, [`${label} ${train.trainNo} 次 ${train.depart} 開、${train.arrive} 到`, `${system === 'THSR' ? 'THSR' : 'Train'} ${train.trainNo}, departs ${train.depart}, arrives ${train.arrive}`], 'transit'), a2.leg],
-    notes: [...(lw ? [lw.note] : []), fare ? `${fare.trainType || fare.cabin || ''}成人單程 ${fare.price} 元` : `票價暫時查不到，約 ${estFare} 元（依距離估，以${system === 'THSR' ? '高鐵' : '台鐵'}公告為準）`],
+    legs: [a1.leg, ...(train.legs?.length ? transferLegsOf(train, stations, o, d) : [leg(system.toLowerCase(), o, d, train.minutes, [`${label} ${train.trainNo} 次 ${train.depart} 開、${train.arrive} 到`, `${system === 'THSR' ? 'THSR' : 'Train'} ${train.trainNo}, departs ${train.depart}, arrives ${train.arrive}`], 'transit')]), a2.leg],
+    notes: [...(lw ? [lw.note] : []), ...(train.via?.length ? [`要在${train.via.join('、')}換車（依台鐵定期時刻表推算，以當天公告為準）`] : []), fare ? `${fare.trainType || fare.cabin || ''}成人單程 ${fare.price} 元` : `票價暫時查不到，約 ${estFare} 元（依距離估，以${system === 'THSR' ? '高鐵' : '台鐵'}公告為準）`],
+    ...(train.via?.length && { rail: { transfers: train.transfers, via: train.via } }),
     ...(lw && { longWait: lw.longWait }),
-    train: { trainNo: train.trainNo, depart: train.depart, arrive: train.arrive, from: o.name, to: d.name, date: depart.date },
+    // 訂票：直達訂整段；換車時訂第一段（區間車那段不用訂位，卡片照樣可開訂票頁）
+    train: train.legs?.length
+      ? { trainNo: train.legs[0].trainNo, depart: train.legs[0].depart, arrive: train.legs[0].arrive, from: train.legs[0].from, to: train.legs[0].to, date: depart.date }
+      : { trainNo: train.trainNo, depart: train.depart, arrive: train.arrive, from: o.name, to: d.name, date: depart.date },
     leaveAt: toHHMM(dep - a1.minutes - wait), // 出門時間＝發車 − 到站 − 等車（卡片「提醒我出門」）
     ...((a1.estimated || a2.estimated || !fare) && { estimated: true }),
     // 票價查不到（估的）：決策時保守看（core/decide.js UNCERTAIN）。到站、離站的市區轉乘時間是規則估算（每一種跨城方式都有），不另外扣
     ...(!fare && { est: { cost: true } }),
   };
+}
+
+/** 換車的每一段 → 行程的分段（換車站座標由車站清單取；查不到座標時用起訖站，卡片仍照段列出） */
+function transferLegsOf(train, stations, o, d) {
+  const at = (name) => stations.find((s) => normName(s.name) === normName(name)) || null;
+  return train.legs.map((l, i) => {
+    const a = i === 0 ? o : at(l.from) || o, b = i === train.legs.length - 1 ? d : at(l.to) || d;
+    const ride = Math.max(1, railDepMin(l.arrive) - railDepMin(l.depart));
+    return leg('tra', a, b, ride, [`台鐵${l.type || ''} ${l.trainNo} 次 ${l.from} ${l.depart} 開、${l.to} ${l.arrive} 到${i < train.legs.length - 1 ? `，在${l.to}換車` : ''}`, `Train ${l.trainNo}, ${l.from} ${l.depart} → ${l.to} ${l.arrive}${i < train.legs.length - 1 ? `, change at ${l.to}` : ''}`], 'transit');
+  });
 }
 
 /**
@@ -616,9 +638,7 @@ export function traEstRunning(minute) {
   const at = ((minute % (24 * 60)) + 24 * 60) % (24 * 60);
   return TRA_EST.close < TRA_EST.open ? !(at > TRA_EST.close && at < TRA_EST.open) : at >= TRA_EST.open && at <= TRA_EST.close;
 }
-/** 鐵路班表上過午夜的班次（03:00 前發車）是前一天的末班車，算成 24 小時以後（例：00:09 → 24:09） */
-export const RAIL_AFTER_MIDNIGHT = 3 * 60;
-export const railDepMin = (hhmm) => { const m = toMin(hhmm); return m < RAIL_AFTER_MIDNIGHT ? m + 24 * 60 : m; };
+export { RAIL_AFTER_MIDNIGHT, railDepMin } from '../rail-journeys.js'; // 鐵路班表過午夜的班次算成 24:xx（與換車走法共用）
 /**
  * 等很久（超過 LONG_WAIT_MIN）才有班次（深夜要等首班）：班次制等車只算 maxIdleWaitMin（當作晚點出門），
  * 但現在就要走時不能假裝只等 10 分——標 longWait（真正要等幾分、幾點才開），決策用抵達時間比（core/decide.js effMinutes），卡片說「首班 05:24」。

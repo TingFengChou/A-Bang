@@ -116,9 +116,16 @@
 
 起站可省略（2026-11-21）：給 `near`（使用者位置）時用 30 公里內最近的車站，輸出加 `nearest: { station, distanceM, from? }`，speak 先說「離你最近的高鐵站是南港（約 4.4 公里）。」；車站座標取 TDX `StationPosition`（⚠️ 待驗證）；沒有 `from` 也沒有 `near` 時回 UserError 請使用者說起站。
 
-輸入 `from`, `to`（中文站名或代碼，台／臺通用）, `date?`；輸出 `{ system: 'THSR'|'TRA', from, to, date, trains: [{ trainNo, type?, depart, arrive, minutes, terminal? }] }`。
+輸入 `from`, `to`（中文站名或代碼，台／臺通用）, `date?`；輸出 `{ system: 'THSR'|'TRA', from, to, date, trains: [{ trainNo, type?, depart, arrive, minutes, terminal?, transfers?, via?, legs? }], transferNote? }`（台鐵換車見下）。
 查今天時，給模型的文字與 `speak` 以「現在時間」為準只講尚未開出的班次（「今天還有 N 班，下一班 HH:mm 出發」；都開走時說末班並建議查明天）；`data.trains` 仍是整天（`upcomingTrains(data, now)`）。
 TDX：高鐵 `/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}`；台鐵 v3 `/basic/v3/Rail/TRA/DailyTrainTimetable/OD/{O}/to/{D}/{Date}`（10m）。
+
+**台鐵換車走法（2026-11-23）**：OD 時刻表只有直達車，支線小站（平溪、集集、內灣）一班都沒有、直達很少的路線（臺北→臺東）很難查。`tra_timetable` 與 `plan_trip` 改走 `traTrips()`（`core/services/rail-trips.js`）：
+- 直達車照舊用 OD 時刻表（當天、最準）；要換車的走法用台鐵定期時刻表（`rail.traGeneral()`，`GeneralTrainTimetable`，一天下載一次、約 950 班）依星期篩班次，在本機用 Connection Scan 算（`core/rail-journeys.js`：換車至少 5 分、最多換 2 次，去掉被「更晚出發、更早或同時到、換車不更多」比下去的）。
+- 換車的走法只在直達車明顯比不上時才列（沒有直達車在它出發前 10 分內開、且在它抵達後 10 分內到），併進 `trains`，照出發時間排序。
+- 換車那一列：`{ trainNo: '4006→4708', depart, arrive, minutes, transfers, via: ['瑞芳'], legs: [{ trainNo, type?, from, to, depart, arrive }], fareType?, planned: true }`；資料另有 `transferNote`（「要換車的班次依台鐵定期時刻表推算，以當天公告為準」）。
+- 定期時刻表查不到（額度、上游錯誤）時只有直達車，不改用示範班表（假的換車走法比沒有更糟）。示範資料：平溪線（瑞芳）、集集線（二水）、內灣線（新竹）要換車，幹線兩站照舊直達。
+- `plan_trip` 的台鐵方案改選「趕得上的班次裡最早到的」（原本取最早開的：慢車先開時選到比較晚到的那班）；換車時 `name`「台鐵（瑞芳換車）」、`legs` 每班車一段、`rail: { transfers, via }`、notes 說在哪換車，訂票鍵訂第一段。
 
 ### ✅ `rail_stations`
 
