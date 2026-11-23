@@ -231,3 +231,17 @@ test('現在天氣：最近的測站沒有氣溫（只有天氣描述）時，�
   assert.deepEqual(pick(pickNowStation([both, tempOnly], at.lat, at.lon)), ['自動站', 24.2, '晴'], '描述借 10 公里內最近有描述的站');
   function pick(x) { return [x.name, x.tempC, x.weather]; }
 });
+
+test('附近 15 公里內都沒有測站回報氣溫：摘要、英文、首頁小卡都照實說（產品負責人：沒有臨近的要明確說明）', async () => {
+  const { buildWeather, NO_TEMP_ZH } = await import('../core/services/weather.js');
+  const { SPEAK_EN } = await import('../core/tools/speak-en.js');
+  const { nowItems } = await import('../public/js/home-now.js');
+  const w = buildWeather({ name: '善化', town: '善化區', county: '臺南市', lat: 23.13, lon: 120.3, tempC: null, weather: '陰' }, null, 10, 23.12, 120.3);
+  assert.equal(w.summary, `陰，${NO_TEMP_ZH}，3 小時降雨機率 10%`);
+  assert.match(SPEAK_EN.weather_now(w), /No weather station within 15 km reported the temperature/);
+  const [card] = nowItems({ weather: w });
+  assert.deepEqual([card.main, card.sub.split('・')[0]], ['天氣', '附近沒有氣溫資料']);
+  const ok = nowItems({ weather: { ...w, tempC: 23.4 } })[0];
+  assert.equal(ok.main, '23°C');
+  assert.ok(!ok.sub.includes('氣溫資料'));
+});

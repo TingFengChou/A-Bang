@@ -158,7 +158,8 @@ export function apparentTemp(tempC, humidity, windMs) {
 export function buildWeather(st, gauge, pop3h, lat, lon) {
   const rainMm1h = gauge?.rainMm1h ?? null;
   const raining = isRaining(rainMm1h, pop3h);
-  const bits = [st.weather, st.tempC != null ? `${st.tempC}°C` : null, pop3h != null ? `3 小時降雨機率 ${pop3h}%` : null].filter(Boolean);
+  // 附近 15 公里內都沒有測站回報氣溫（pickNowStation 才會選到沒有氣溫的站）：照實說，不只留空（2026-11-23 產品負責人）
+  const bits = [st.weather, st.tempC != null ? `${st.tempC}°C` : NO_TEMP_ZH, pop3h != null ? `3 小時降雨機率 ${pop3h}%` : null].filter(Boolean);
   return {
     station: st.name, town: st.town, county: st.county,
     distanceM: distanceM(lat, lon, st.lat, st.lon),
@@ -169,6 +170,8 @@ export function buildWeather(st, gauge, pop3h, lat, lon) {
 
 /** 溫度要從多近的測站拿（公尺）：最近的站沒有氣溫（只有天氣描述，例：善化、萬隆國小）時改用這個距離內最近、有氣溫的站 */
 export const TEMP_STATION_M = 15_000;
+/** 附近都沒有測站回報氣溫時的說明（摘要、語音共用；卡片走字典 weather.noTemp） */
+export const NO_TEMP_ZH = '附近 15 公里內的測站都沒有回報氣溫';
 /** 天氣描述（晴、陰）可以借多近的站（公尺）：有氣溫的站常沒有天氣描述 */
 export const DESC_STATION_M = 10_000;
 /**

@@ -15,6 +15,7 @@ export default {
         stat(t('weather.temp'), d.tempC != null ? `${d.tempC}°C` : '—'),
         stat(t('weather.rain1h'), d.rainMm1h != null ? `${d.rainMm1h} mm` : '—'),
         stat(t('weather.pop3h'), d.pop3h != null ? `${d.pop3h}%` : '—')),
+      d.tempC == null && h('p', { class: 'ab-sub' }, t('weather.noTemp')), // 附近 15 公里內都沒有測站回報氣溫：照實說（不只顯示「—」）
       h('p', { class: 'ab-sub' }, t('weather.station', { station: d.station, km: (d.distanceM / 1000).toFixed(1), time: d.observedAt ? hhmm(d.observedAt) : '—' })));
   },
 };
