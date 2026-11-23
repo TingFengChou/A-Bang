@@ -28,6 +28,8 @@ const twDow = (now) => new Date(Date.parse(`${nowTW(now).date}T12:00:00+08:00`))
 const AQI_LEVELS = [[50, '良好', 'good'], [100, '普通', 'moderate'], [150, '對敏感族群不健康', 'sensitive'], [200, '對所有族群不健康', 'unhealthy'], [300, '非常不健康', 'very'], [Infinity, '危害', 'hazard']];
 export const aqiLevel = (aqi) => (aqi == null ? null : AQI_LEVELS.find(([max]) => aqi <= max));
 
+/** 最近的空品站沒有讀數時，可以改用多遠以內有讀數的站（公尺） */
+export const AQI_FALLBACK_M = 8000;
 export function aqiNearby(rows, { lat, lon }) {
   const list = (Array.isArray(rows) ? rows : []).map((r) => {
     const sLat = num(r.latitude), sLon = num(r.longitude);
@@ -41,7 +43,11 @@ export function aqiNearby(rows, { lat, lon }) {
     };
   }).filter(Boolean).sort((a, b) => a.distanceM - b.distanceM);
   if (!list.length) throw new UserError('找不到空氣品質測站資料');
-  return { nearest: list[0], nearby: list.slice(1, 4) };
+  // 最近的站在維護（沒有 AQI）：改用 AQI_FALLBACK_M 內最近、有讀數的站，並記下維護中的那一站（生活資料審查 #4）
+  const first = list[0];
+  const ok = first.aqi == null ? list.find((x) => x.aqi != null && x.distanceM <= AQI_FALLBACK_M) : null;
+  const nearest = ok ? { ...ok, downSite: first.site } : first;
+  return { nearest, nearby: list.filter((x) => x !== nearest && x.site !== nearest.site).slice(0, 3) };
 }
 
 // ── 地震（中央氣象署 E-A0015-001 顯著有感、E-A0016-001 小區域）──
@@ -94,9 +100,13 @@ export function pharmacySearch(rows, { area, query = '', now = Date.now(), limit
       today: hours, openToday: hours ? hours.length > 0 : null,
       nav: { google: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${r['醫事機構名稱']} ${addr}`)}` },
     });
-    if (list.length >= limit) break;
+    if (list.length >= limit * 3) break;
   }
-  return { area: area || null, query: query || null, weekday: `星期${WEEK[dow]}`, pharmacies: list };
+  // 只說區名（「大安區」）而好幾個縣市都有：只列第一個縣市的，另外說還有哪些縣市（生活資料審查：基隆市中正區的人拿到臺北市的藥局）
+  const cityOf = (p) => /^(.{2}[市縣])/.exec(p.address)?.[1] || null;
+  const cities = a && !/[市縣]/.test(a) ? [...new Set(list.map(cityOf).filter(Boolean))] : [];
+  const shown = (cities.length > 1 ? list.filter((p) => cityOf(p) === cities[0]) : list).slice(0, limit);
+  return { area: area || null, query: query || null, weekday: `星期${WEEK[dow]}`, pharmacies: shown, ...(cities.length > 1 && { city: cities[0], otherCities: cities.slice(1) }) };
 }
 
 // ── 垃圾車（臺北市清運點位、新北市路線＋即時 GPS）──
