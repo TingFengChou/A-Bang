@@ -8,6 +8,8 @@ const MAX_CLIENT_ROUNDS = 2;
 
 /** 最近一次的定位（2 分鐘內重用：起點預設是現在位置，連問幾題不用每次等定位） */
 let lastFix = null;
+/** 最近一次定位（10 分鐘內；只在手機上比對用，不送出）；沒有回 null */
+export const recentFix = (maxAge = 600_000) => (lastFix && Date.now() - lastFix.at < maxAge ? lastFix.pos : null);
 /** 定位逾時時可以沿用的上一次定位（15 分鐘內） */
 export const RECENT_FIX_MS = 15 * 60_000;
 /** 手機 App 的原生定位外掛（@capacitor/geolocation）：iOS 只問 App 權限一次，不會再跳 WebView 的「localhost 想使用你的位置」 */

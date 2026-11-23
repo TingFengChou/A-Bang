@@ -11,6 +11,7 @@ import { reminderItems } from '../reminder-items.js';
 import { edgeEnabled, edgeStatus } from '../edge-judge.js';
 import { edgeLine } from '../home-now.js';
 import { showOnboarding } from '../onboarding.js';
+import { mountHealthSetting } from '../health-ui.js';
 
 /** 資料來源（關於） */
 const SOURCES = ['交通部 TDX 運輸資料流通服務', '中央氣象署', '環境部', '衛福部健保署', '各縣市環保局', '台灣中油', '財政部', '臺灣證券交易所、證券櫃檯買賣中心', '165 全民防騙網'];
@@ -21,7 +22,7 @@ export default {
   title: '我的',
   shellTitle: 'title.me',
   root: true,
-  render({ main, query = {} }) {
+  render({ main, query = {}, toast }) {
     const fav = favs.list().length;
     const places = loadPlaces();
     const set = SAVED_KEYS.filter((k) => places[k]);
@@ -50,10 +51,14 @@ export default {
           <div class="me-ai-acts"><a class="btn small link-btn" href="#/ai">看阿幫的腦袋：模型資訊、現場試試看</a><a class="btn small quiet link-btn" href="#/settings">到設定開關</a></div>
         </div>
       </section>
+      <section aria-labelledby="me-health" id="health">
+        <div class="section-title"><h2 id="me-health" tabindex="-1">健康與運動</h2></div>
+        <div class="card me-health"></div>
+      </section>
       <section aria-labelledby="me-set">
         <div class="section-title"><h2 id="me-set">設定與隱私</h2></div>
         <div class="card list">
-          ${rowHtml('#/settings', 'gear', '#475569', '設定與隱私', '權限、手機上的 AI、清除本機資料')}
+          ${rowHtml('#/settings', 'gear', '#475569', '設定與隱私', '權限、手機上的 AI、健康與運動、清除本機資料')}
           ${rowHtml('#/privacy', 'shield', '#0f766e', '隱私權政策', '問題、位置、手機上的資料怎麼處理')}
           <button type="button" id="me-guide"><span class="ab-token sm" style="--c:#0e7490" aria-hidden="true">${icons.info}</span><div class="grow"><div class="title">使用說明</div><div class="sub">再看一次阿幫能幫你做什麼</div></div>${chev}</button>
         </div>
@@ -65,6 +70,7 @@ export default {
           <ul>${SOURCES.map((s) => `<li>${esc(s)}</li>`).join('')}</ul>
         </div>
       </section>`;
+    mountHealthSetting(main.querySelector('.me-health'), { toast, prefix: 'me-health-sw' }); // ADR-0018：跟設定頁同一個開關
     main.querySelector('#me-guide').addEventListener('click', () => showOnboarding({ force: true }));
     const card = main.querySelector('.me-ai');
     edgeStatus().then((st) => {

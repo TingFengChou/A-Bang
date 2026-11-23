@@ -3336,6 +3336,191 @@ test('問阿幫：在示範範圍外、深夜只剩叫車——說明原因、�
   }, { geo: { latitude: 24.99, longitude: 121.31 } }); // 桃園（26 公里外）
 });
 
+// ───── 健康與運動（ADR-0018）：天氣好又動得少時建議去走走；健康資料只在手機上 ─────
+const HEALTH_TIME = new Date('2026-11-22T15:00:00+08:00'); // 白天：示範天氣 25°C、降雨 10%、AQI 58
+const HEALTH_ON = () => { try { localStorage.setItem('abang.health', 'on'); } catch { /* 無痕 */ } };
+/** 假外掛 AbangHealth（手機 App）：o.status、o.request 是外掛回報；o.steps 今天的步數 */
+const FAKE_HEALTH = (o = {}) => `(() => {
+  const o = ${JSON.stringify(o)};
+  const H = (window.__health = { calls: [] });
+  window.Capacitor = {
+    isNativePlatform: () => true, getPlatform: () => o.platform || 'android',
+    isPluginAvailable: (n) => n === 'AbangHealth' || n === 'AbangSystem',
+    addListener: () => ({ remove() {} }),
+    nativePromise: (plugin, method, args) => {
+      if (plugin !== 'AbangHealth') return Promise.reject(new Error('not in test'));
+      H.calls.push(method + (args && args.target ? ':' + args.target : ''));
+      if (method === 'status') return Promise.resolve(o.status || { available: true, permission: 'prompt', source: 'health-connect' });
+      if (method === 'requestPermission') return Promise.resolve(o.request || { available: true, permission: 'granted', source: 'health-connect' });
+      if (method === 'summary') return Promise.resolve({ source: 'health-connect', days: [{ date: '2026-11-22', steps: o.steps ?? 1500, exerciseMin: 0, dataOrigin: 'com.example.fit' }] });
+      return Promise.resolve({});
+    },
+  };
+})();`;
+/** 送到伺服器的請求內容（檢查健康資料沒有送出） */
+const postBodies = (page) => {
+  const bodies = [];
+  page.on('request', (r) => { if (r.url().includes('/api/') && r.method() === 'POST') bodies.push(r.postData() || ''); });
+  return bodies;
+};
+const dropToasts = (page) => page.evaluate(() => document.querySelectorAll('body > div[role="status"]').forEach((n) => n.remove())); // 截圖前拿掉提示
+const noHealthIn = (bodies) => { for (const b of bodies) assert.ok(!/health|steps|exerciseMin|步數|1,?600|動得少|二二八/i.test(b), `請求裡沒有健康資料：${b.slice(0, 200)}`); };
+
+test('健康與運動：首頁「現在」散步小卡（地點＋時間）、今天不用就收起到明天；示範資料標示範；截圖', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.clock.setFixedTime(HEALTH_TIME);
+    const bodies = postBodies(page);
+    await page.reload();
+    const card = page.locator('#move .move-card');
+    await card.waitFor({ timeout: 15000 });
+    assert.equal(await card.getAttribute('data-kind'), 'go');
+    assert.equal(await card.locator('b').first().textContent(), '去走走吧');
+    assert.match(await card.locator('p').textContent(), /^天氣好、AQI \d+，今天才走 1,600 步，這 7 天運動 70 分鐘；走到二二八和平紀念公園約 1\d 分。$/);
+    assert.match(await card.locator('.mv-note').textContent(), /示範資料，不是你的步數・步數只在手機上看，不上傳/);
+    assert.equal(await card.locator('.tag.demo').count(), 1);
+    assert.equal(await card.locator('button[data-act="nav"]').textContent(), '走到二二八和平紀念公園');
+    await page.locator('.now').evaluate((n) => n.scrollIntoView({ block: 'start' }));
+    await page.screenshot({ path: new URL('phone-health-home.png', SHOTS).pathname });
+    noHealthIn(bodies);
+    // 今天不用：收起，重新整理也不出現（只記日期與旗標，不記步數）
+    await card.locator('button[data-act="off"]').click();
+    assert.ok(await page.locator('#move').isHidden());
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('abang.healthDay'))), { d: '2026-11-22', off: true });
+    await page.reload();
+    await page.waitForSelector('.now-item[data-now="weather"]');
+    await page.waitForTimeout(500);
+    assert.equal(await page.locator('#move .move-card').count(), 0);
+    // 隔天：又出現
+    await page.clock.setFixedTime(new Date('2026-11-23T15:00:00+08:00'));
+    await page.reload();
+    await page.locator('#move .move-card').waitFor({ timeout: 15000 });
+  }, { init: HEALTH_ON });
+});
+
+test('健康與運動：問「我要不要去運動」→ 回答下面在手機上補一句（不進對話紀錄、請求沒有健康資料）；建議過就不再主動提；問天氣用首頁查過的空品補；截圖', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.clock.setFixedTime(HEALTH_TIME);
+    const bodies = postBodies(page);
+    await page.reload();
+    await page.fill('.chat-form input', '我要不要去運動');
+    await page.press('.chat-form input', 'Enter');
+    const say = page.locator('.bubble.health-say');
+    await say.waitFor({ timeout: 20000 });
+    assert.equal(await say.getAttribute('data-kind'), 'go');
+    assert.match(await say.locator('.say').textContent(), /^天氣好、AQI \d+，今天才走 1,600 步，這 7 天運動 70 分鐘；走到二二八和平紀念公園約 1\d 分。$/);
+    assert.match(await say.locator('.hs-note').textContent(), /步數只在手機上看，不上傳，也沒有跟問題一起送出/);
+    assert.equal(await say.locator('.hs-acts button').count(), 2);
+    await page.waitForTimeout(400);
+    await say.evaluate((n) => n.scrollIntoView({ block: 'center' }));
+    await page.screenshot({ path: new URL('phone-health-agent.png', SHOTS).pathname });
+    assert.ok(!/1,600|二二八/.test(await page.evaluate(() => localStorage.getItem('abang.chat') || '')), '補的那一句不存進對話');
+    // 接著問出門：今天已經建議過，不再主動提；下一個請求也沒有那一句
+    await page.fill('.chat-form input', '出門要注意什麼？');
+    await page.press('.chat-form input', 'Enter');
+    await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
+    await page.waitForTimeout(500);
+    assert.equal(await page.locator('.bubble.health-say').count(), 1, '一天主動提一次');
+    assert.ok(bodies.length >= 2);
+    noHealthIn(bodies);
+  }, { init: HEALTH_ON });
+  // 只問天氣（沒有空品）：用首頁「現在」查過的空品補，主動提一次
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.clock.setFixedTime(HEALTH_TIME);
+    await page.reload();
+    await page.locator('#move .move-card').waitFor({ timeout: 15000 });
+    await page.click('#abang-fab');
+    const sheet = page.locator('#abang-sheet[open]');
+    await sheet.locator('.chat-form input').fill('會下雨嗎？');
+    await sheet.locator('.chat-form input').press('Enter');
+    await sheet.locator('.bubble.health-say').waitFor({ timeout: 20000 });
+    assert.match(await sheet.locator('.bubble.health-say .say').textContent(), /^天氣好、AQI \d+，今天才走/);
+  }, { init: HEALTH_ON });
+});
+
+test('健康與運動：預設關閉——首頁沒有小卡、問阿幫不提；設定頁打開（網頁版示範）→ 出現；「我的」關掉 → 不出現；截圖設定', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.clock.setFixedTime(HEALTH_TIME);
+    await page.reload();
+    await page.waitForSelector('.now-item[data-now="weather"]');
+    await page.waitForTimeout(500);
+    assert.equal(await page.locator('#move .move-card').count(), 0, '預設關閉');
+    await page.goto(`${base}/#/agent?q=${encodeURIComponent('我要不要去運動')}`);
+    await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+    await page.waitForTimeout(500);
+    assert.equal(await page.locator('.bubble.health-say').count(), 0, '關著不提');
+    // 設定頁：開關預設關、說明寫清楚；打開（網頁版不跳權限、用示範資料）
+    await page.goto(`${base}/#/settings`);
+    const sw = page.locator('#health');
+    await sw.waitFor();
+    assert.equal(await sw.isChecked(), false);
+    await page.waitForFunction(() => /網頁版打開會用示範資料/.test(document.querySelector('#health-status')?.textContent || ''));
+    assert.match(await page.textContent('#health-note'), /不上傳、不存起來、不會跟問題一起送出/);
+    await sw.click();
+    await page.waitForFunction(() => localStorage.getItem('abang.health') === 'on');
+    assert.match(await page.textContent('#health-status'), /網頁版：用示範資料/);
+    await dropToasts(page);
+    await page.locator('#health-card').scrollIntoViewIfNeeded();
+    await page.locator('#health-card').screenshot({ path: new URL('phone-health-settings.png', SHOTS).pathname });
+    assert.match(await page.textContent('.local'), /天氣好又動得少時建議去走走/);
+    await page.goto(`${base}/#/`);
+    await page.locator('#move .move-card').waitFor({ timeout: 15000 });
+    // 「我的」頁也有同一個開關：關掉 → 首頁不出現
+    await page.goto(`${base}/#/me`);
+    const meSw = page.locator('#me-health-sw');
+    await meSw.waitFor();
+    await page.waitForFunction(() => /網頁版：用示範資料/.test(document.querySelector('#me-health-sw-status')?.textContent || ''));
+    assert.equal(await meSw.isChecked(), true);
+    await meSw.click();
+    await page.waitForFunction(() => localStorage.getItem('abang.health') === null);
+    await page.goto(`${base}/#/`);
+    await page.waitForSelector('.now-item[data-now="weather"]');
+    await page.waitForTimeout(500);
+    assert.equal(await page.locator('#move .move-card').count(), 0);
+  });
+});
+
+test('健康與運動（App）：第一次打開才跳權限；被拒 → 開關關著、說原因、到 Health Connect 允許；沒有 Health Connect → 反白、到 Play 商店；達標只給一句鼓勵', async () => {
+  await withPage(DEVICES.phone, '#/settings', async (page) => {
+    const sw = page.locator('#health');
+    await sw.waitFor();
+    await page.waitForFunction(() => /打開時才會請你允許/.test(document.querySelector('#health-status')?.textContent || ''));
+    assert.ok(!(await page.evaluate(() => window.__health.calls)).includes('requestPermission'), '還沒打開不問權限');
+    await sw.click();
+    await page.waitForSelector('#health-why:not([hidden])');
+    assert.equal(await sw.isChecked(), false, '被拒：開關關著');
+    assert.match(await page.textContent('#health-why'), /你沒有允許阿幫讀取步數和運動時間/);
+    assert.ok((await page.evaluate(() => window.__health.calls)).includes('requestPermission'));
+    await page.click('button:has-text("到 Health Connect 允許")');
+    assert.ok((await page.evaluate(() => window.__health.calls)).includes('openSettings:manage'), '只開畫面，允許由使用者自己按');
+    assert.equal(await page.evaluate(() => localStorage.getItem('abang.health')), null);
+    await dropToasts(page);
+    await page.locator('#health-card').scrollIntoViewIfNeeded();
+    await page.locator('#health-card').screenshot({ path: new URL('phone-health-denied.png', SHOTS).pathname });
+  }, { init: FAKE_HEALTH({ request: { available: true, permission: 'denied', source: 'health-connect' } }), ignore: /not in test/ });
+  await withPage(DEVICES.phone, '#/settings', async (page) => {
+    const sw = page.locator('#health');
+    await page.waitForFunction(() => /不能使用：/.test(document.querySelector('#health-status')?.textContent || ''));
+    assert.equal(await sw.getAttribute('aria-disabled'), 'true');
+    assert.ok(await sw.evaluate((n) => n.classList.contains('unavailable') && !n.disabled), '反白但仍可按');
+    assert.match(await page.textContent('#health-why'), /還沒有 Health Connect/);
+    await sw.click({ force: true });
+    assert.equal(await sw.isChecked(), false, '按了也不打開，只說原因');
+    assert.ok(!(await page.evaluate(() => window.__health.calls)).includes('requestPermission'));
+    await page.click('button:has-text("到 Play 商店安裝 Health Connect")');
+    assert.ok((await page.evaluate(() => window.__health.calls)).includes('openSettings:install'));
+  }, { init: FAKE_HEALTH({ status: { available: false, reason: 'not-installed' } }), ignore: /not in test/ });
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.clock.setFixedTime(HEALTH_TIME);
+    await page.reload();
+    const card = page.locator('#move .move-card');
+    await card.waitFor({ timeout: 15000 });
+    assert.equal(await card.getAttribute('data-kind'), 'cheer');
+    assert.equal(await card.locator('p').textContent(), '今天走了 8,200 步，達標了，很棒！');
+    assert.equal(await card.locator('button[data-act="nav"]').count(), 0, '達標不推');
+    assert.equal(await card.locator('.tag.demo').count(), 0, '手機上的真資料不標示範');
+  }, { init: `${FAKE_HEALTH({ status: { available: true, permission: 'granted', source: 'health-connect' }, steps: 8200 })};localStorage.setItem('abang.health','on');`, ignore: /not in test/ });
+});
+
 // ── 短劇（MyDrama，ADR-0019）──
 /** 示範到站時間隨時間變：先找一個「現在還要等 8～14 分」的公車站，問阿幫時才一定會推短劇 */
 async function waitingStop() {
@@ -3652,6 +3837,84 @@ test('長對話審查：動畫開著但低階裝置（lite-motion）收合不播
     assert.equal(nav, '640px');
     assert.equal(chat, '640px');
   });
+});
+
+test('健康與運動：沒有定位——首頁不拿台北車站備用天氣推散步；自己問也不說「天氣好」、不給公園', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.clock.setFixedTime(HEALTH_TIME);
+    await page.reload();
+    await page.waitForSelector('.now-item[data-now="weather"]');
+    assert.match(await page.textContent('.now-item[data-now="weather"]'), /台北車站附近/);
+    await page.waitForTimeout(800);
+    assert.equal(await page.locator('#move .move-card').count(), 0, '沒有定位不出現');
+    await page.goto(`${base}/#/agent?q=${encodeURIComponent('我要不要去運動')}`);
+    const say = page.locator('.bubble.health-say');
+    await say.waitFor({ timeout: 20000 });
+    const t = await say.locator('.say').textContent();
+    assert.match(t, /^今天才走 1,600 步/);
+    assert.doesNotMatch(t, /天氣好|走到/, `不拿別處的天氣：${t}`);
+    assert.equal(await say.locator('button:has-text("走到")').count(), 0);
+  }, { geo: false, init: HEALTH_ON });
+});
+
+/** 首頁＋問一次「我要不要去運動」：送到伺服器的請求（方法、路徑、參數、內容） */
+async function healthFlowRequests(on) {
+  const reqs = [];
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.clock.setFixedTime(HEALTH_TIME);
+    page.on('request', (r) => { const u = new URL(r.url()); if (u.pathname.startsWith('/api/')) reqs.push({ line: `${r.method()} ${u.pathname}${u.search}`, body: r.postData() || '' }); });
+    await page.reload();
+    await page.waitForSelector('.now-item[data-now="weather"]');
+    if (on) await page.locator('#move .move-card').waitFor({ timeout: 15000 });
+    await page.waitForTimeout(800);
+    await page.goto(`${base}/#/agent?q=${encodeURIComponent('我要不要去運動')}`);
+    await page.waitForSelector('.bubble.final .say', { timeout: 20000 });
+    if (on) await page.locator('.bubble.health-say').waitFor({ timeout: 10000 });
+    await page.waitForTimeout(800);
+  }, on ? { init: HEALTH_ON } : {});
+  return reqs;
+}
+
+test('健康與運動：隱私——打開與關掉時送到伺服器的請求（數量、順序、網址參數）一樣，內容沒有健康資料', async () => {
+  const on = await healthFlowRequests(true);
+  const off = await healthFlowRequests(false);
+  for (const r of on) assert.ok(!/health|steps|exerciseMin|步數|1,?600|動得少|二二八|walk/i.test(`${r.line} ${r.body}`), `請求沒有健康資料：${r.line} ${r.body.slice(0, 120)}`);
+  assert.deepEqual(on.map((r) => r.line), off.map((r) => r.line), '打開健康與運動不多送、不少送，網址與參數一樣');
+  const strip = (b) => b.replace(/"(?:id|ts|at|requestId)":"?[\w.:-]+"?/g, '');
+  assert.deepEqual(on.map((r) => strip(r.body)), off.map((r) => strip(r.body)), '內容也一樣');
+});
+
+test('健康與運動＋MyDrama：設定了運動活動頁連結時，散步小卡與問阿幫補句多一個淡色「看 MyDrama 活動頁」；沒設定不顯示；請求沒有健康資料', async () => {
+  const s = await startServer({ MYDRAMA_LINK_EXERCISE: 'example-drama://unlock' });
+  try {
+    await withPage(DEVICES.phone, '#/', async (page) => {
+      await page.clock.setFixedTime(HEALTH_TIME);
+      const bodies = postBodies(page);
+      await page.reload();
+      const card = page.locator('#move .move-card');
+      await card.waitFor({ timeout: 15000 });
+      const link = card.locator('button[data-act="drama"]');
+      await link.waitFor();
+      assert.equal(await link.textContent(), '看 MyDrama 活動頁');
+      assert.ok(await link.evaluate((n) => n.classList.contains('linkish')), '淡色次要連結');
+      await page.locator('.now').evaluate((n) => n.scrollIntoView({ block: 'start' }));
+      await page.screenshot({ path: new URL('phone-health-drama.png', SHOTS).pathname });
+      await page.goto(`${s.base}/#/agent?q=${encodeURIComponent('我要不要去運動')}`);
+      const say = page.locator('.bubble.health-say');
+      await say.waitFor({ timeout: 20000 });
+      assert.equal(await say.locator('.hs-partner').textContent(), '看 MyDrama 活動頁');
+      noHealthIn(bodies);
+    }, { origin: s.base, init: HEALTH_ON });
+  } finally {
+    s.proc.kill();
+  }
+  // 沒設定（預設伺服器）：不顯示
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.clock.setFixedTime(HEALTH_TIME);
+    await page.reload();
+    await page.locator('#move .move-card').waitFor({ timeout: 15000 });
+    assert.equal(await page.locator('#move button[data-act="drama"]').count(), 0);
+  }, { init: HEALTH_ON });
 });
 
 // ───── PR #112 獨立審查 ─────

@@ -2,7 +2,7 @@
 // 卡片用 public/ui/cards（renderCard＋web host）。不加假延遲：只在討論串兩則訊息之間保留最短 300ms 避免閃爍（UX.md §4）。
 import { API_BASE, IN_APP } from '../base.js';
 import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
-import { runAgent, browserLocation, locationGranted } from '../agent/client.js';
+import { runAgent, browserLocation, locationGranted, recentFix } from '../agent/client.js';
 import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-help.js';
 import { edgeJudge, edgePrewarm, edgeSuggest, edgeCanSuggest, edgeJudgeReady, judgeContext } from '../edge-judge.js';
 import { edgeWrite, edgeWriteCaps, writeLine, writeModeText } from '../edge-write.js';
@@ -25,6 +25,8 @@ import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
 import { renderDecision, lite, roleEn } from '../../ui/agent/decision-graph.js';
 import { mountVisionButton, handOff, takeHandoff } from '../vision.js';
+import { healthEnabled, agentNudge, turnWeather, nearMe, EXERCISE_Q } from '../health.js';
+import { healthBubble } from '../health-ui.js';
 import { looksLikeMessage } from '../../../core/vision-text.js';
 /** 問是不是詐騙（生活阿幫附了內容時直接帶到防詐） */
 const SCAM_Q = /詐騙|是不是騙|騙人的|\bscam\b|\bfraud\b/i;
@@ -448,6 +450,7 @@ export default {
         if (turnsLog.length > 3) turnsLog.shift();
         if (agentId === 'life') saveChat(history); // 只存文字（chat-store.js）
         showNext(view);
+        if (agentId === 'life' && healthEnabled()) addHealthSay(q, view, turn, myGen).catch(() => {}); // 健康資料在手機上判斷，補一句（不進對話紀錄、不送伺服器；ADR-0018）
       } catch {
         view.stop();
         turn.append(el('div', 'msg error', '連線中斷了，請再試一次。'));
@@ -703,6 +706,25 @@ export default {
         if (!thread.querySelector('.bubble, .thread-reset')) thread.remove();
       };
       return view;
+    }
+    /**
+     * 問天氣、出門、空品或「要不要去運動」時，在回答下面補一句散步建議（ADR-0018）。
+     * 步數只在手機上讀、在手機上判斷；這一句不放進 history（不會跟下一個問題送出）、不存進對話紀錄。
+     */
+    async function addHealthSay(q, view, turn, myGen) {
+      const asked = EXERCISE_Q.test(q);
+      let wx = turnWeather(view.results);
+      if (!asked && !wx.relevant) return;
+      // 你在哪：手機最近一次定位（或首頁「現在」用你的位置查的）；只在手機上比對，不送出
+      const seen = peekNow();
+      const me = recentFix() || seen?.pos || null;
+      // 查的是別的地方（「高雄天氣如何」「去淡水那邊天氣好嗎」）或不知道你在哪：不拿那裡的天氣建議散步
+      if (wx.relevant && !nearMe(wx.pos, me)) { if (!asked) return; wx = { weather: null, air: null }; }
+      // 只問天氣（沒有空品）或只問空品時：用首頁「現在」10 分鐘內、用你的位置查過的補（台北車站備用的不算；不因為健康狀態另外查任何東西）
+      const fill = seen?.pos && nearMe(seen.pos, me) ? seen : null;
+      const n = await agentNudge({ weather: wx.weather || fill?.weather || null, air: wx.air || fill?.aqi?.nearest || null, pos: me }, { asked }); // 公園用你的位置找
+      if (!n || myGen !== gen || !turn.isConnected) return;
+      turn.append(healthBubble(n, { avatar: avatar('阿幫', 'happy', view.lang), lang: view.lang, openLink: (u) => host.openLink(u), openApp: (t) => host.openApp(t) }));
     }
     /** 「阿幫問你」的答案（ADR-0016）：state＝加狀態即時重算、reply＝送出完整的一句、store＝存手機並套到這一輪、action＝手機做事、dismiss＝照原本；回傳顯示在問題區塊的一句 */
     function answerAsk(o, view, lang) {

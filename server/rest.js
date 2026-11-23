@@ -37,9 +37,17 @@ const OD = [q('from', '起站（中文站名或代碼）', { required: true, exa
  * @param {{ agentInfo?: () => object|null }} [opts] agentInfo：網頁 agent 用什麼回答（模式、模型名稱、判斷層成員；不含金鑰），放進 /api/v1/status
  * @returns {Record<string, { summary: string, tag: string, params: Array<object>, handler: (p: object) => any }>}
  */
+/**
+ * 合作 App 的連結（ADR-0019）：MyDrama 運動活動頁與商店頁（伺服器設定，沒設定是 null）。
+ * 放在每次開 App 都會查的 /api/v1/status 裡，前端顯示散步建議時不用另外問伺服器（健康資料只在手機，ADR-0018）。
+ */
+export function partnerLinks(svc) {
+  try { return { exercise: svc.drama?.exerciseLink?.() ?? null, store: svc.drama?.store?.() ?? null }; } catch { return { exercise: null, store: null }; }
+}
+
 export function restRoutes(svc, { agentInfo = null } = {}) {
   return {
-    '/api/v1/status': { summary: '服務狀態（live／demo、各類資料是真實或示範、工具包、agent 用什麼回答）', tag: 'PWA', params: [], handler: () => { const agent = agentInfo?.(); return { mode: svc.mode, weatherMode: svc.weatherMode, sources: dataSources(svc), time: new Date().toISOString(), packs: listPacks(), ...(agent && { agent }) }; } },
+    '/api/v1/status': { summary: '服務狀態（live／demo、各類資料是真實或示範、工具包、agent 用什麼回答）', tag: 'PWA', params: [], handler: () => { const agent = agentInfo?.(); return { mode: svc.mode, weatherMode: svc.weatherMode, sources: dataSources(svc), time: new Date().toISOString(), packs: listPacks(), partner: partnerLinks(svc), ...(agent && { agent }) }; } },
     '/api/v1/bus/routes': { summary: '搜尋公車路線', tag: 'PWA', params: [CITY, q('keyword', '路線關鍵字', { example: '307' })], handler: (p) => svc.bus.searchRoutes({ city: p.city, keyword: p.keyword || '' }) },
     '/api/v1/bus/eta': { summary: '公車路線即時到站', tag: 'PWA', params: [CITY, q('route', '完整路線名稱', { required: true, example: '307' })], handler: (p) => svc.bus.routeEta({ city: p.city, routeName: p.route }) },
     '/api/v1/bus/alight': {

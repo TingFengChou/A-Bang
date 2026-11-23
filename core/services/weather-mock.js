@@ -36,6 +36,7 @@ export function createMockWeatherServices({ scenario = 'clear' } = {}) {
           name: '示範測站', town: '', county: '',
           lat: lat + 0.005, lon: lon + 0.005, observedAt: new Date().toISOString(),
           tempC: Math.round((rain ? 19 : 23) + r() * 6),
+          humidity: rain ? 90 : 65, windMs: 2,
           weather: rain ? '陰有雨（示範）' : '多雲（示範）',
         };
         const gauge = { name: '示範雨量站', rainMm1h: rain ? 2.5 : 0 };

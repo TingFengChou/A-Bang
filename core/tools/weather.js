@@ -87,7 +87,7 @@ export const outingAdvice = defineTool({
     const missing = [...(!weather ? ['weather'] : []), ...(!air ? ['air'] : [])]; // 一邊查不到：卡片寫出來（不是靜靜顯示「—」）
     const data = {
       ...(a.name && { name: a.name }),
-      weather: weather && { station: weather.station, town: weather.town || '', tempC: weather.tempC ?? null, pop3h: weather.pop3h ?? null, raining: !!weather.raining, rainMm1h: weather.rainMm1h ?? null, summary: weather.summary, demo: svc.weatherMode !== 'live' },
+      weather: weather && { station: weather.station, town: weather.town || '', tempC: weather.tempC ?? null, feelsC: weather.feelsC ?? null, pop3h: weather.pop3h ?? null, raining: !!weather.raining, rainMm1h: weather.rainMm1h ?? null, summary: weather.summary, demo: svc.weatherMode !== 'live' },
       air: air && { site: air.site, aqi: air.aqi ?? null, status: air.status, level: air.level ?? null, demo: svc.aqiMode !== 'live' },
       items,
       ...(missing.length && { missing }),

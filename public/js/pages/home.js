@@ -13,6 +13,8 @@ import { listReminders } from '../reminders.js';
 import { alightWatch } from '../alight.js';
 import { createWebHost, currentArrivalWatch } from '../../ui/cards/host-web.js';
 import { locationGranted, browserLocation } from '../agent/client.js';
+import { homeNudge } from '../health.js';
+import { renderMoveCard } from '../health-ui.js';
 import { suggestContext, homeAsks } from '../agent/suggest.js';
 import { twClock } from '../../../core/suggest.js';
 import { loadPlaces } from '../saved-places.js';
@@ -65,6 +67,7 @@ export default {
       <section class="now" aria-labelledby="now-h">
         <div class="section-title"><h2 id="now-h">現在</h2><span id="now-when"></span></div>
         <div class="now-row" id="now" aria-busy="true"></div>
+        <div id="move" class="move-wrap" hidden></div>
       </section>
       <div id="favs"></div>
       <section class="group safe" aria-labelledby="g-safe">
@@ -95,10 +98,14 @@ export default {
     api.status().then(() => { markDemoTiles(main); paintNow(main, offline, { quick: true }); }).catch(() => {}); // 現在的天氣空品也標示範
 
     paintAi(main);
-    paintNow(main, offline);
+    paintNow(main, offline).catch(() => {}).then(() => paintMove(main, toast));
     const repaintNow = () => paintNow(main, offline, { quick: true });
     for (const ev of ['abang:reminders', 'abang:alight-watch', 'abang:arrival-watch']) addEventListener(ev, repaintNow);
     onCleanup(() => { for (const ev of ['abang:reminders', 'abang:alight-watch', 'abang:arrival-watch']) removeEventListener(ev, repaintNow); });
+    // 散步小卡（ADR-0018）：開關或「今天不用」變了就重算（判斷在手機上）
+    const repaintMove = () => paintMove(main, toast);
+    for (const ev of ['abang:health-setting', 'abang:health-day']) addEventListener(ev, repaintMove);
+    onCleanup(() => { for (const ev of ['abang:health-setting', 'abang:health-day']) removeEventListener(ev, repaintMove); });
 
     renderFavs(main.querySelector('#favs'));
     const t = setInterval(() => renderFavs(main.querySelector('#favs')), 30000);
@@ -166,6 +173,21 @@ async function paintNow(main, offline, { quick = false } = {}) {
   lastNow = await loadNow({ callTool: (n, a) => host.callTool(n, a), granted: locationGranted, locate: () => browserLocation(4000), fallback: FALLBACK }).catch(() => null);
   nowLoading = false;
   if (main.isConnected) { draw(lastNow, false); repaintExamples(main, lastNow); }
+}
+/**
+ * 散步小卡（ADR-0018）：天氣、空品用「現在」已經查好的（不另外查），步數在手機上讀、在手機上判斷；沒打開就什麼都不做。
+ * 位置只在有定位時才拿來找附近的公園（沒定位就只給一句建議）。
+ */
+let moveSeq = 0;
+async function paintMove(main, toast) {
+  const box = main.querySelector('#move');
+  if (!box) return;
+  const my = ++moveSeq;
+  const v = lastNow || peekNow();
+  const n = v && !v.offline ? await homeNudge({ weather: v.weather, air: v.aqi?.nearest || null, pos: v.pos || null }).catch(() => null) : null;
+  if (my !== moveSeq || !main.isConnected) return;
+  const host = createWebHost();
+  renderMoveCard(box, n, { openLink: (url) => host.openLink(url), openApp: (t) => host.openApp(t), toast });
 }
 const NOW_COLOR = { weather: '#0284c7', aqi: '#0d9488', reminder: '#b45309', offline: '#5d6966' };
 

@@ -11,6 +11,7 @@
     "distanceM": { "type": "integer", "minimum": 0 },
     "observedAt": { "type": ["string", "null"] },
     "tempC": { "type": ["number", "null"] },
+    "feelsC": { "type": ["number", "null"] },
     "rainMm1h": { "type": ["number", "null"] },
     "rainStation": { "type": ["string", "null"] },
     "pop3h": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },

@@ -117,6 +117,17 @@
 
 ---
 
+## 2026-11-22 M15-01 健康與運動：天氣好又動得少時建議去走走（ADR-0018）
+- 做了：專案內外掛 `AbangHealth`（Android：Health Connect `connect-client:1.1.0`，只要 READ_STEPS、READ_EXERCISE，`aggregateGroupByDuration` 每天加總（固定 Asia/Taipei 切日）、Kotlin suspend 用 Continuation 從 Java 呼叫、權限說明畫面 `HealthRationaleActivity`〔rationale intent＋Android 14 activity-alias〕、到 Health Connect 允許／到 Play 商店安裝；iOS：HealthKit stepCount、appleExerciseTime 每天加總、`App.entitlements`、`NSHealthShareUsageDescription`，沒有 entitlement 回 no-entitlement）。規則與文案 `core/health-nudge.js`（純函式，前端以 /core/ 共用）：天氣好（沒下雨、降雨 < 30%、體感 15～31°C、AQI ≤ 100、06:00～19:30）、動得少（步數 < 6,000 按清醒時段比例的 60%，而且近 7 天運動 < 150 分的進度；沒有運動紀錄只看步數、不提運動分鐘——產品負責人 2026-11-22 定案）、散步地點（內建地標庫 `walk` 欄位，走路 10～25 分最近的）、一天一次。`public/js/health.js`（預設關閉、示範資料與外掛介面相同、步數只在記憶體）、`public/js/health-ui.js`：首頁「現在」散步小卡（今天不用到明天）、問阿幫回答下面補一句（不進對話紀錄）、設定頁與「我的」同一個開關（第一次打開才問權限；被拒說原因；不能用反白）、隱私權政策段落。`weather_now`／`outing_advice` 加體感溫度 `feelsC`；地標庫加 13 個公園、河濱、步道。iOS 開發安裝腳本：個人團隊不能簽 HealthKit 時改用不含 entitlement 的建置。SW 見下一行。
+- 測試：npm test 新增 18 項（health.test.js 17、ios-dev-install 1）；E2E 新增 4 項（首頁小卡與今天不用、問阿幫補一句與一天一次、預設關閉與開關、App 被拒／沒有 Health Connect／達標），請求內容檢查沒有健康資料；Android assembleDebug、iOS xcodebuild（不簽署，模擬器與實機架構）成功
+- 文件：ADR-0018、adr/README、UX.md §3.1、§5.0.5、AGENT.md §5.2.16、§7、MCP_TOOLS.md、DATA_SOURCES.md、PLAN.md M15、CLAUDE.md、PROGRESS.md
+- 決定（產品負責人 2026-11-22）：截圖可以；iPhone 維持簽不過就裝不含健康的版本；動得少改成「而且」；網頁版維持示範資料並標示；上架事項列進卡住項目
+- 獨立審查修正（2026-11-22）：①Android 7（API 24、25）開 App 閃退——外掛類別的 static `ZoneId` 在類別初始化就碰 java.time；改成外掛類別不碰 java.time 與 Health Connect（`HealthConnectReader` 只在 Android 9 以上呼叫，不開 desugaring），單元測試檢查外掛類別的 static 欄位與 import ②沒有定位時不拿台北車站備用天氣建議散步（首頁不出小卡；問阿幫只用離手機定位 3 公里內的天氣，座標只在手機上比對，公園也用你的位置找） ③「自己問運動」排除捷運動物園、看運動比賽、運動中心等，不再蓋過「今天不用」 ④進度文案照實說（步數少但運動跟上、讀不到步數＋運動落後） ⑤Android 8.x 回「需要 Android 9 以上」 ⑥E2E 比對健康開／關時送到伺服器的請求（GET 網址、參數、POST 內容、數量與順序）一樣 ⑦ADR-0018、Swift 註解照實寫（aggregateGroupByDuration、固定 Asia/Taipei）。合併主線 #109（長對話）、#110（深夜原因）、#111（短劇）、#112（動態下一句），SW v1.0.9。
+- 接上短劇運動提示（ADR-0019 D-05）：建議去走走時，伺服器設定了 `MYDRAMA_LINK_EXERCISE` 而且沒關短劇提示，就在小卡與補句多一個淡色「看 MyDrama 活動頁」（`host.openApp`）；連結放進 `/api/v1/status` 的 `partner`（每次開 App 都查，跟健康狀態無關），健康資料不交給短劇服務。單元測試 1 項、E2E 1 項（有設定才顯示、請求沒有健康資料），截圖 phone-health-drama.png。
+- 合併主線到 #148（2026-11-23）：外掛註冊、`SHARED_CORE`、`build-app.js`、設定頁清除清單、Info.plist、Xcode 專案兩邊都保留；SW v1.3.15
+- 下一個：M15-01b 實機確認（Pixel；iOS 改用模擬器）
+- 卡住：iPhone 免費個人開發團隊可能不能簽 HealthKit（需要付費帳號才能在 iPhone 上真的讀步數；開發版會反白說原因）
+
 ## 2026-11-22 真實資料健檢：意圖判斷與工具參數（fix/live-intents）
 - 做了：①判斷層：沒有模型也沒有裝置端提示時，嵌入分類器沒把握不再蓋過規則的明確意圖，規則聽不懂、嵌入 < 0.5 當 unknown（評估集 84.3% → 91.9%）；判斷層指定 rail／metro／bus_route 抽不出合理參數就交回規則（S3）②`bus_route_eta` 所在縣市找不到路線時用預熱路線清單查相鄰縣市（S4）③捷運依句子的系統名或各系統站名清單決定系統、不預設台北；「高雄捷運美麗島下一班」查美麗島；有起訖的捷運句子是行程（S5、S6）④新意圖 traffic：有起訖查國道路況，只說國道幾號先問「從哪裡到哪裡？」（slot `od`），工具拒絕起訖不到 1 公里（S7）⑤「我在等939」「等 939 公車」（S8）⑥地名裡的火車站不是指定台鐵（S10）⑦末班車（公車照實說末班狀態、捷運時刻表末班 `lastTrains`，沒說哪一路先問）⑧人在桃園市區說「桃園」＝桃園車站 ⑨生活阿幫收到詐騙樣式簡訊帶到防詐 ⑩捷運回答兩個方向都說、附近站牌列出路線 ⑪地端模型亂加的叫車、訂票追問：護欄＋程式拿掉
 - PR #127 獨立審查修正：路況不搶公車與行程（模型判斷可更正）、帶網址的一般問題不送防詐（官方網域、有起訖、地名不算）、發票號碼、單句油價、捷運誤點、國道有車禍、等 N 號、市區路況照實說、YouBike 末班、判斷層接著問、英文路況

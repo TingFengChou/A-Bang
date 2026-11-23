@@ -50,7 +50,7 @@ export const peekNow = (now = Date.now()) => (cache && now - cache.at < TTL ? ca
  * 快取：天氣與空品都查到才整包記 10 分鐘（只查到一個，下次兩個都重查）；記下當時有沒有用到你的位置，
  * 之後才允許定位就作廢（不會 10 分鐘內一直顯示台北車站附近）。
  * @param {{ callTool: Function, granted: () => Promise<boolean>, locate: () => Promise<{lat:number,lon:number}|null>, fallback: { lat: number, lon: number } }} deps
- * @returns {Promise<{ weather: object|null, aqi: object|null, place: string, offline: boolean }>}
+ * @returns {Promise<{ weather: object|null, aqi: object|null, place: string, offline: boolean, pos?: { lat: number, lon: number } }>}
  */
 export async function loadNow({ callTool, granted, locate, fallback }, now = Date.now()) {
   if (globalThis.navigator?.onLine === false) return { weather: null, aqi: null, place: '', offline: true };
@@ -63,7 +63,7 @@ export async function loadNow({ callTool, granted, locate, fallback }, now = Dat
   const p = pos || fallback;
   const get = (name) => callTool(name, { lat: p.lat, lon: p.lon }).then((r) => r?.data || null, () => null);
   const [weather, aqi] = await Promise.all([get('weather_now'), get('aqi_nearby')]);
-  const v = { weather, aqi, place, offline: false };
+  const v = { weather, aqi, place, offline: false, ...(pos && { pos: { lat: pos.lat, lon: pos.lon } }) }; // pos：只在有定位時（散步小卡找附近的公園，ADR-0018；只在記憶體）
   if (weather && aqi) cache = { at: now, located: !!pos, v };
   else cache = null; // 少一個：下次重查
   return v;

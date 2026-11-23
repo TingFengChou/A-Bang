@@ -13,6 +13,7 @@
         "station": { "type": "string" },
         "town": { "type": "string" },
         "tempC": { "type": ["number", "null"] },
+        "feelsC": { "type": ["number", "null"] },
         "pop3h": { "type": ["integer", "null"] },
         "raining": { "type": "boolean" },
         "rainMm1h": { "type": ["number", "null"] },

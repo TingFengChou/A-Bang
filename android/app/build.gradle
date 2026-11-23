@@ -41,6 +41,8 @@ dependencies {
     // 阿幫會看（ADR-0015）：手機上讀字（中文模型打包在 App 內）、發票 QR（打包版）
     implementation "com.google.mlkit:text-recognition-chinese:16.0.1"
     implementation "com.google.mlkit:barcode-scanning:17.3.0"
+    // 健康與運動（ADR-0018）：Health Connect（只讀步數與運動時間；產品負責人同意加這個依賴）
+    implementation "androidx.health.connect:connect-client:1.1.0"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

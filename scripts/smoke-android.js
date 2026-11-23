@@ -63,7 +63,7 @@ async function main() {
     await page.reload();
     await page.waitForSelector('#main', { timeout: 15000 });
     // 原生外掛都註冊了（專案內外掛要手動註冊，漏了不會報錯）
-    const plugins = await page.evaluate(() => ['Geolocation', 'LocalNotifications', 'AbangEdgeAI', 'AbangSystem', 'AbangVision', 'AbangVoice'].map((n) => [n, !!globalThis.Capacitor?.isPluginAvailable?.(n)]));
+    const plugins = await page.evaluate(() => ['Geolocation', 'LocalNotifications', 'AbangEdgeAI', 'AbangSystem', 'AbangVision', 'AbangVoice', 'AbangHealth'].map((n) => [n, !!globalThis.Capacitor?.isPluginAvailable?.(n)]));
     for (const [n, ok] of plugins) ok ? console.log(`✓ 外掛 ${n}`) : fail(`外掛 ${n} 沒有註冊`);
     mkdirSync(OUT, { recursive: true });
     for (const p of PAGES) {
@@ -88,6 +88,10 @@ async function main() {
       const on = await page.evaluate(() => globalThis.localStorage.getItem('abang.voice') !== 'off'); // 使用者在設定關掉了就不該有
       if (v.available && on && !mic) fail('語音能用，但問阿幫沒有麥克風鍵'); else if (mic) console.log('✓ 麥克風鍵');
     }
+    // 健康與運動（ADR-0018）：只問狀態（不跳權限框、不讀步數、不印數字）
+    const hs = await page.evaluate(() => globalThis.Capacitor.nativePromise('AbangHealth', 'status', {}).catch((e) => ({ error: e.message })));
+    if (hs.error) fail(`AbangHealth.status 失敗：${hs.error}`);
+    else console.log(`✓ 健康資料：${hs.available ? `Health Connect 可用，權限 ${hs.permission}` : `不能用（${hs.reason}）`}`);
     // 中央「問阿幫」鍵拉出對話、Android 返回鍵收起（dialog.close）；沒拉出來就不按返回（--keep 時前面可能是別的 App）
     await page.evaluate(() => { globalThis.location.hash = '#/s/weather'; });
     await page.waitForSelector('#abang-fab');
