@@ -4,7 +4,7 @@ import { resolveCity, cityFromUID } from '../cities.js';
 import { distanceM, busStatusText, minutesBetween, normName, todayTW, isDate, assertLatLon, UserError, zh, enField, odataStr as q } from '../util.js';
 import { pathFromWkt, thinPath } from '../geo.js';
 import { normGeneralTimetable } from '../rail-journeys.js';
-import { matchDirect, commonRoutes, DIRECT_RADIUS_M } from './bus-direct.js';
+import { matchDirect, commonRoutes, DIRECT_RADIUS_M, DIRECT_STATIONS } from './bus-direct.js';
 import { cacheOf, rawOpts, nonEmpty, STATIC_TTL } from './tdx-cache.js';
 import { INDEX_CITIES, ETA_TTL, BIKE_TTL, STALE_SEC, transitKey as key, transitLoaders, normRouteStops, stopOfRoutePath, normBikeStation, etaIndex, bikeIndex } from './transit-data.js';
 
@@ -134,8 +134,11 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
       return lists.filter((x) => Array.isArray(x.list) && x.list.some((r) => r.name === name)).map((x) => x.city);
     },
 
-    /** 座標附近的公車站位：預熱過的縣市在本機算（不打 TDX），其他地方問 TDX NearBy（不存檔：座標是使用者位置） */
-    async nearbyStations({ lat, lon, radius = 400 }) {
+    /**
+     * 座標附近的公車站位：預熱過的縣市在本機算（不打 TDX），其他地方問 TDX NearBy（不存檔：座標是使用者位置）。
+     * limit：最多幾個（近的優先）；直達公車要整個範圍的站牌（台北車站 500 公尺內超過 30 個，只取 30 個會漏掉遠一點站牌的路線）
+     */
+    async nearbyStations({ lat, lon, radius = 400, limit = 30 }) {
       [lat, lon] = assertLatLon(lat, lon);
       const r = Math.min(radius, 1000);
       const cov = await coveredBy(lat, lon);
@@ -145,10 +148,10 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
           const d = distanceM(lat, lon, s.lat, s.lon);
           if (d <= r) out.push({ stationId: s.id, stationUid: s.uid, city: cityFromUID(s.uid)?.city || null, name: s.name, ...(s.nameEn && { nameEn: s.nameEn }), lat: s.lat, lon: s.lon, distance: d, routes: s.routes });
         }
-        return out.sort((a, b) => a.distance - b.distance).slice(0, 30);
+        return out.sort((a, b) => a.distance - b.distance).slice(0, limit);
       }
       const rows = await tdx.get('/advanced/v2/Bus/Station/NearBy', {
-        $spatialFilter: `nearby(${lat},${lon},${r})`, $top: 30,
+        $spatialFilter: `nearby(${lat},${lon},${r})`, $top: limit,
       }, 3600);
       return rows.map((s) => {
         const p = s.StationPosition;
@@ -294,7 +297,7 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
    * 只查一個縣市的路線（站牌代碼前三碼＝路線的主管縣市；共同路線最多的那個），到站資料整個縣市一次取：一趟最多打 1 次 TDX。
    */
   bus.directTrips = async ({ from, to, radius = DIRECT_RADIUS_M }) => {
-    const [a, b] = await Promise.all([bus.nearbyStations({ ...from, radius }), bus.nearbyStations({ ...to, radius })]);
+    const [a, b] = await Promise.all([bus.nearbyStations({ ...from, radius, limit: DIRECT_STATIONS }), bus.nearbyStations({ ...to, radius, limit: DIRECT_STATIONS })]);
     const city = pickRouteCity(a, b);
     if (!city) return [];
     const inCity = (list) => list.filter((s) => s.city === city);
