@@ -19,6 +19,20 @@
 - 文件：PLAN.md（M1 ✅、待驗證表）、DATA_SOURCES.md、MCP_TOOLS.md、CLAUDE.md、docs/index.html
 - 下一個：TDX 地理編碼串進 `find_place`、客運票價串 `RouteFare/InterCity`、機捷直達車改用 `S2STravelTime`
 - 卡住：導訂票 API 需權限
+## 2026-11-23 S7b 行程規劃用真實捷運路網；等捷運推短劇看方向
+- 做了：`plan_trip` 的捷運段改用各線車站順序（StationOfLine）算坐哪幾條線、往哪、幾站、在哪轉，每段一個 leg；票價用 ODFare（同系統一張票、跨系統分段相加），查不到依距離估。路網與票價抽成 `core/services/metro-net.js`，`metro_route` 與行程規劃共用；`linkedSystems`、`fareGroups` 移到 `core/metro-route.js`。行程規劃只用已存的路網與票價（`metro.lines`／`odFare` 新增 `onlyStored`），背景預熱多下載各系統的車站順序（共 25 步）；沒有已存的（剛啟動、示範資料）照舊依距離估算——示範路網只有幾站、站數不準，不拿來跟公車和叫車比。等捷運推短劇：`metro_route` 知道方向，用第一段往這個方向的下一班算等多久（看板不知道方向時仍取各方向最快的一班，保守）。路線顏色：查不到淡海、安坑輕軌與三鶯線的官方色碼，維持原狀（三鶯線近似值、兩條輕軌用品牌色）。
+- 測試：`test/trip-metro-network.test.js` 3 項（三峽老街 → 台北101 三段與票價、票價查不到依距離估、沒有已存路網照舊估算）；`test/drama.test.js` 加 metro_route 等車時間
+- 文件：MCP_TOOLS.md（plan_trip）、DATA_SOURCES.md（預熱）、PLAN.md（S7b）
+- 下一個：M1、T8c（另外兩個 PR）
+- 卡住：E3 App 內分類器要新增 transformers.js 依賴（停止條件），沒做
+## 2026-11-23 T8c iOS 模擬器煙霧測試
+- 做了：`npm run smoke:ios`（`scripts/smoke-ios.js`），對應 Android 的 `smoke:android`。用模擬器的 Web Inspector 通道（webinspectord_sim 的 unix socket，跟 Safari「開發」選單同一條；`scripts/webinspector.js` 自己做二進位 plist 編解碼與 Target 包裝）連進 App 的 WKWebView 跑 JavaScript，不加依賴、不加 XCUITest target、不動 App。檢查：原生外掛 8 個（含 iOS 才有的 AbangWatch）、10 頁畫得出來且分頁列標對、語音與健康外掛回報狀態、中央鍵拉出與收起對話、console 沒有畫面錯誤、App 沒有閃退、沒有新的當機報告；`simctl io screenshot` 截圖到 `test/screenshots/ios-*.png`。`--build` 先打包、xcodebuild（未簽章 debug 版）、安裝；`--keep` 不重開。未簽章建置的 bundle id 回報是「process-App」，改用 `simctl launch` 的 pid 找 App；Capacitor 外掛被拒時記下的錯誤物件沒有預覽，向頁面要 JSON 內容再判斷。
+- 實測：iPhone 18 Pro 模擬器 `--build` 全部通過；語音「不能用（ios-no-ondevice）」、健康「不能用（no-entitlement）」、手機上的 AI 背景失敗（background）列警告，都是模擬器環境。
+- 沒涵蓋：真的手指點按（點按是頁面內 click()）、系統權限框（不改模擬器設定；重新安裝後第一次會跳定位權限框）、HealthKit、Apple Intelligence、語音辨識、相機
+- 測試：`test/webinspector.test.js` 5 項（解 Apple plutil 產生的 bplist、編碼來回、訊息切分、錯誤格式、console 錯誤文字）
+- 文件：CLAUDE.md 指令、TESTING.md、PLAN.md
+- 下一個：無
+- 卡住：無
 
 ## 2026-11-23 捷運轉乘建議：metro_route
 - 做了：使用者「有辦法做到轉乘建議嗎？」。新 tool `metro_route`（卡片 `metro-route`）：用 TDX 各線車站順序（StationOfLine，存檔）建路網（`core/metro-route.js`），同名站就是轉乘站（同系統不同線、跨系統；臺／台、機捷站名的「站」視為相同），最短路徑＋轉乘懲罰，說坐哪條線、往哪、幾站、在哪轉。北捷支線依真實營運：小碧潭、新北投是接駁（七張、北投換車），蘆洲支線直通（新莊 → 蘆洲在大橋頭換車、共用段「往 迴龍／蘆洲」），淡海輕軌藍海線在濱海沙崙分岔；高雄輕軌環狀線頭尾相連、說「下一站」；台中捷運沒有 StationOfLine，用車站清單依代碼排序。票價用 ODFare 成人單程票（同系統一張票，跨系統分段相加並說明）。第一段附下一班（只取往這個方向的車）。捷運到站頁加「要去哪一站（選填）」，填了就顯示怎麼坐；問阿幫的模型在捷運意圖也能用。示範資料：各線順序、票價依站數估；額度用完改示範時代碼對不上就說查不到票價。新北捷運三鶯線、環狀線、高雄輕軌補路線色（三鶯線近似值）。

@@ -91,8 +91,10 @@ export function createMockMetroServices() {
       // 與真實版一樣由代碼推線別（stationLines）；轉乘站（一個代碼、多條線）用示範資料寫的線
       return STATIONS[op].map(([id, name, lines, lat, lon]) => ({ id, ids: [id], name, lat, lon, lines: lines.length > 1 ? lines : stationLines(op, [id]) }));
     },
-    async lines({ system }) {
+    async lines({ system, onlyStored = false }) {
       const op = mustSystem(system);
+      // 行程規劃（onlyStored）：示範路網只有幾站，站數不準，不拿來跟公車、叫車比——回 null 讓它照舊依距離估算；metro_route 示範仍可用
+      if (onlyStored) return null;
       const byName = new Map(STATIONS[op].map(([id, name]) => [name, id]));
       return Object.entries(SEQ[op]).map(([lineId, names]) => ({
         lineId, line: LINES[op][lineId][0], ...(metroLineColor(op, lineId) && { color: metroLineColor(op, lineId) }),

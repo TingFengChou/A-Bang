@@ -18,7 +18,8 @@
     "fetch:judge-model": "node scripts/fetch-judge-model.js",
     "tdx:verify": "node scripts/verify-tdx.js",
     "tdx:record": "node scripts/record-fixtures.js",
-    "smoke:android": "node scripts/smoke-android.js"
+    "smoke:android": "node scripts/smoke-android.js",
+    "smoke:ios": "node scripts/smoke-ios.js"
   },
   "license": "MIT",
   "dependencies": {

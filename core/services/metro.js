@@ -254,17 +254,27 @@ export function upcomingFromTimetable(table, now = Date.now(), windowMin = TIMET
 /** 車站清單的下載（預熱與使用者請求共用同一個 key） */
 export const metroLoaders = {
   stations: (tdx, op) => async (o) => nonEmpty(normMetroStations(op, await tdx.get(`/basic/v2/Rail/Metro/Station/${op}`, { $select: 'StationID,StationName,StationPosition' }, 60, rawOpts(o))), `${METRO_SYSTEMS[op]}車站`),
+  lines: (tdx, op) => async (o) => nonEmpty(normStationOfLine(op, await tdx.get(`/basic/v2/Rail/Metro/StationOfLine/${op}`, {}, 60, rawOpts(o))), `${METRO_SYSTEMS[op]}路線`),
 };
+/** 有 StationOfLine 的系統（台中捷運不收，用車站清單排序；不預熱） */
+const HAS_SOL = (op) => op !== 'TMRT';
 export const metroKey = { stations: (op) => `metro-stations-${op}`, timetable: (op, ids) => `metro-timetable-${op}-${ids.join('_')}`, frequency: (op) => `metro-frequency-${op}`, lines: (op) => `metro-lines-${op}`, fare: (op, a, b) => `metro-fare-${op}-${a}-${b}` };
 
-/** 預熱步驟：四個系統的車站（plan_trip 每次都要看起訖附近有沒有捷運站） */
+/**
+ * 預熱步驟：各系統的車站（plan_trip 每次都要看起訖附近有沒有捷運站），之後是各線車站順序
+ * （行程規劃只用已存的路網，不在使用者這一次花額度下載；S7b 2026-11-23）
+ */
 export function metroWarmSteps(tdx) {
   const { cached } = cacheOf(tdx);
-  return Object.keys(METRO_SYSTEMS).map((op) => ({ key: metroKey.stations(op), ttl: STATIC_TTL, run: (o) => cached(metroKey.stations(op), STATIC_TTL, metroLoaders.stations(tdx, op), { ...o, force: true }) }));
+  const ops = Object.keys(METRO_SYSTEMS);
+  return [
+    ...ops.map((op) => ({ key: metroKey.stations(op), ttl: STATIC_TTL, run: (o) => cached(metroKey.stations(op), STATIC_TTL, metroLoaders.stations(tdx, op), { ...o, force: true }) })),
+    ...ops.filter(HAS_SOL).map((op) => ({ key: metroKey.lines(op), ttl: STATIC_TTL, run: (o) => cached(metroKey.lines(op), STATIC_TTL, metroLoaders.lines(tdx, op), { ...o, force: true }) })),
+  ];
 }
 
 export function createMetroServices(tdx, { now = () => tdx.now?.() ?? Date.now() } = {}) {
-  const { cached, meta } = cacheOf(tdx);
+  const { cached, meta, stored } = cacheOf(tdx);
   const lineName = (op, id) => METRO_LINE_NAME[op]?.[id] || id || '';
   // 看板回 400／404（這個系統沒有看板，例：台中捷運）：記住 10 分鐘，這段時間直接用時刻表，不再花額度查看板
   const noBoard = new Map();
@@ -282,9 +292,14 @@ export function createMetroServices(tdx, { now = () => tdx.now?.() ?? Date.now()
      * 拿不到時（台中捷運不收）、而且這個系統只有一條線：用車站清單依代碼排序（103a、104…119）。
      * @returns {Promise<Array<{ lineId, line, lineEn?, color?, stations: Array<{ id, name, nameEn? }> }>>}
      */
-    async lines({ system }) {
+    async lines({ system, onlyStored = false }) {
       const op = mustSystem(system);
-      const fromSol = await cached(metroKey.lines(op), STATIC_TTL, async (o) => nonEmpty(normStationOfLine(op, await tdx.get(`/basic/v2/Rail/Metro/StationOfLine/${op}`, {}, 60, rawOpts(o))), `${METRO_SYSTEMS[op]}路線`)).catch((e) => { if (e?.status === 429) throw e; return null; });
+      // onlyStored：行程規劃只用已存的（預熱下載），沒有就回 null 讓它照舊估算，不在使用者這一次花額度
+      if (onlyStored) {
+        if (HAS_SOL(op)) return (await stored(metroKey.lines(op), STATIC_TTL, metroLoaders.lines(tdx, op)).catch(() => null)) || null;
+        if (!(await stored(metroKey.stations(op), STATIC_TTL, metroLoaders.stations(tdx, op)).catch(() => null))) return null;
+      }
+      const fromSol = HAS_SOL(op) ? await cached(metroKey.lines(op), STATIC_TTL, metroLoaders.lines(tdx, op)).catch((e) => { if (e?.status === 429) throw e; return null; }) : null;
       if (fromSol) return fromSol;
       const ids = Object.keys(METRO_LINE_NAME[op] || {});
       if (ids.length !== 1) throw new UserError(`${METRO_SYSTEMS[op]}查不到各線的車站順序，暫時沒辦法規劃轉乘`);
@@ -295,12 +310,11 @@ export function createMetroServices(tdx, { now = () => tdx.now?.() ?? Date.now()
     },
 
     /** 兩站之間的成人單程票價（TDX ODFare，存檔）；查不到 null */
-    async odFare({ system, fromId, toId }) {
+    async odFare({ system, fromId, toId, onlyStored = false }) {
       const op = mustSystem(system);
-      return cached(metroKey.fare(op, fromId, toId), STATIC_TTL, async (o) => {
-        const rows = arr(await tdx.get(`/basic/v2/Rail/Metro/ODFare/${op}`, { $filter: `OriginStationID eq '${q(fromId)}' and DestinationStationID eq '${q(toId)}'` }, 60, rawOpts(o)), 'ODFares');
-        return adultFare(rows);
-      }).catch((e) => { if (e?.status === 429) throw e; return null; });
+      const loader = async (o) => adultFare(arr(await tdx.get(`/basic/v2/Rail/Metro/ODFare/${op}`, { $filter: `OriginStationID eq '${q(fromId)}' and DestinationStationID eq '${q(toId)}'` }, 60, rawOpts(o)), 'ODFares'));
+      if (onlyStored) return (await stored(metroKey.fare(op, fromId, toId), STATIC_TTL, loader).catch(() => null)) ?? null; // 行程規劃：查過才有（metro_route 查過的會存下來）
+      return cached(metroKey.fare(op, fromId, toId), STATIC_TTL, loader).catch((e) => { if (e?.status === 429) throw e; return null; });
     },
 
     /**

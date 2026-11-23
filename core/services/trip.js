@@ -7,6 +7,8 @@ import { decide, keyQuestion, STATES } from '../decide.js';
 import { departOf, delayRiskOf } from './intercity.js';
 import { LANDMARKS, normPlace } from './places.js';
 import { METRO_LINE_NAME, METRO_SYSTEMS, nearMetroArea } from './metro.js';
+import { metroNetRoute } from './metro-net.js';
+import { linkedSystems, stationKey } from '../metro-route.js';
 import { currentFallback, fellBack } from '../metrics.js';
 import { railDepMin } from '../rail-journeys.js';
 import { traTrips } from './rail-trips.js';
@@ -382,6 +384,65 @@ function crossMetroOption(from, to, straight, c, depart) {
   };
 }
 
+/**
+ * 真實路網的捷運方案（S7b，2026-11-23）：上下車站照舊挑（接駁最省的站），中間怎麼坐改用各線車站順序算（core/metro-route.js）——
+ * 坐哪幾條線、往哪、幾站、在哪轉；時間依站數估（每站約 2 分、轉乘 5 分）＋進出站與等車；票價用 ODFare（同系統一張票、跨系統分段相加）。
+ * 拿不到路網（額度、示範資料不完整）就回 null，呼叫端照舊依距離估算。
+ * @param {object} c { oSt, dSt, a1, a2, depart, pointOf } oSt／dSt＝上下車站（含 sys、lat、lon、m）、a1／a2＝接駁（metroAccess）、pointOf＝站名 → 座標
+ */
+async function networkMetroOption(svc, from, to, straight, c) {
+  const { oSt, dSt, a1, a2, depart, pointOf } = c;
+  // 到站比坐捷運還遠、或兩端都走路但加起來超過 1.5 公里：交給原本的判斷說原因
+  if (oSt.m + dSt.m >= straight * 0.6 || (oSt.m <= METRO_WALK_M && dSt.m <= METRO_WALK_M && oSt.m + dSt.m > 1500)) return null;
+  let net;
+  try { net = await metroNetRoute(svc.metro, { from: oSt.name, to: dSt.name, systems: linkedSystems(oSt.sys, dSt.sys), onlyStored: true }); } catch { return null; } // 只用已存的路網與票價：不在這一次多花 TDX 額度
+  if (!net) return null;
+  const systems = [...new Set(net.legs.map((l) => l.system))];
+  // 營運時間：每個系統都看（走到站的時刻起；後面的系統多算前面坐的時間）
+  if (depart) {
+    let t = depart.minute + a1.minutes;
+    for (const l of net.legs) { if (metroHours(l.system, t).closed) return null; t += l.minutes + 5; }
+  }
+  const est = METRO_EST[oSt.sys] || METRO_EST.TRTC;
+  const fed = a1.est || a2.est;
+  const ride = Math.round(net.minutes + est.base);
+  const wait = est.wait + 3 * net.transfers;
+  const kmOf = (l) => { const p = pointOf(l.from, l.system), q = pointOf(l.to, l.system); return p && q ? distanceM(p.lat, p.lon, q.lat, q.lon) / 1000 : l.stops; };
+  const fare = net.fare ?? net.legs.reduce((sum, l) => sum + (METRO_EST[l.system] || METRO_EST.TRTC).fare(kmOf(l)), 0); // 查不到 ODFare：各段依距離估
+  const names = net.legs.map((l) => l.line);
+  const lines = names.join('轉');
+  const vias = net.legs.slice(1).map((l) => l.from);
+  const towardZh = (l) => (l.toward ? `往${l.toward}` : `下一站${l.next}`);
+  const towardEn = (l) => (l.toward ? `toward ${l.towardEn || l.toward}` : `next stop ${l.nextEn || l.next}`);
+  const metroLegs = net.legs.map((l, i) => leg('metro', pointOf(l.from, l.system) || (i === 0 ? oSt : dSt), pointOf(l.to, l.system) || dSt, Math.round(l.minutes + (i === 0 ? est.base : TRANSFER_PENALTY)),
+    [`${i ? `在${stLabel(l.from)}轉` : ''}${l.line}（${towardZh(l)}）：${l.from} → ${l.to}，${l.stops} 站`, `${i ? `Change at ${l.fromEn || l.from}: ` : ''}${l.lineEn || l.line} ${towardEn(l)}: ${l.fromEn || l.from} → ${l.toEn || l.to}, ${l.stops} stops`], 'transit'));
+  const hours = depart ? metroHours(oSt.sys, depart.minute + a1.minutes) : {};
+  return {
+    id: 'metro', role: 'metro', name: `${net.transfers ? `捷運（${lines}）` : `捷運 ${lines}`}${a1.est ? `（先到${stLabel(oSt.name)}）` : ''}`,
+    minutes: a1.minutes + wait + ride + a2.minutes, waitMin: wait, walkMin: a1.walkMin + a2.walkMin,
+    cost: fare + a1.cost + a2.cost, exposure: fed ? 0.2 : 0.1, effort: (net.transfers ? 0.3 : 0.2) + (net.transfers > 1 ? 0.05 : 0) + (fed ? 0.1 : 0), delayRisk: fed ? 0.1 : 0,
+    transfers: net.transfers + (a1.est ? 1 : 0) + (a2.est ? 1 : 0),
+    legs: [a1.leg, ...metroLegs, a2.leg],
+    notes: [
+      ...(fed ? ['接駁到捷運站的時間與票價是估算（公車或 YouBike，以實際為準）'] : []),
+      `捷運路線依各線車站順序規劃；時間依站數估算（每站約 2 分${net.transfers ? '、每次轉乘約 5 分' : ''}）`,
+      ...(net.fare == null ? ['捷運票價查不到，依距離估算'] : systems.length > 1 ? ['跨系統票價分段相加，實際可能有轉乘優惠'] : []),
+      ...(net.transfers ? [`轉乘 ${net.transfers} 次（${vias.map(stLabel).join('、')}）`] : []),
+      ...(hours.late ? [`末班快到了（約 ${hours.last} 前後，各站不同），早點出門；錯過可以叫車`] : []),
+    ],
+    ...(hours.late && { lastTrain: true }),
+    estimated: true, ...(fed && { est: { minutes: true } }),
+    metro: {
+      system: oSt.sys, ...(systems.length > 1 && { systems, crossSystem: true }), from: oSt.name, to: dSt.name, lines, transfer: net.transfers > 0,
+      ...(vias[0] && { via: vias[0] }), ...(vias.length > 1 && { vias }), network: true, ...(net.fare != null && { fare: net.fare }),
+      ...(fed && { feeder: { from: a1.est, to: a2.est } }),
+    },
+  };
+}
+const TRANSFER_PENALTY = 5;
+/** 挑上下車站時，估算的接駁（公車／YouBike 到捷運站）每段多算幾分（不確定性） */
+const FEEDER_DOUBT_MIN = 10;
+
 async function metroOption(svc, from, to, straight, depart) {
   if (straight < 1500 || straight > 60000) return null; // 太近、太遠（missingModes 說明）
   if (!svc.metro) return { none: { kind: 'none', why: '查不到捷運資料', whyEn: 'No MRT data' } };
@@ -401,6 +462,8 @@ async function metroOption(svc, from, to, straight, depart) {
     for (const x of all) { const l = x.lines?.[0] || ''; if (!by.has(l)) by.set(l, []); by.get(l).push(x); }
     return [...by].map(([l, list]) => ({ sys: systems[i], net: `${systems[i]}:${l}`, list }));
   });
+  // 站名 → 座標（真實路網方案的每一段起訖用；轉乘站可能在另一個系統的清單裡）
+  const pointOf = (name, sys) => { const k = stationKey(name); const hit = (x) => stationKey(x.name) === k; return (nets.find((n) => n.sys === sys)?.list.find(hit)) || nets.flatMap((n) => n.list).find(hit) || null; };
   nets.forEach(({ sys, net, list }) => {
     const dist = (p) => list.map((x) => ({ ...x, sys, m: distanceM(p.lat, p.lon, x.lat, x.lon) })).sort((a, b) => a.m - b.m)[0];
     const cf = dist(from), ct = dist(to);
@@ -430,6 +493,15 @@ async function metroOption(svc, from, to, straight, depart) {
       if (!cross || score < cross.score) cross = { A, B, t, tb, kA, kB, score };
     }
   }
+  // 真實路網（已存才有）：同系統與跨系統兩組上下車站都算，取比較快的（三峽老街：走到三鶯線三峽站，比坐公車到頂埔快）
+  const real = async (oSt, dSt) => networkMetroOption(svc, from, to, straight, { oSt, dSt, a1: metroAccess(from, oSt, oSt.m, true), a2: metroAccess(dSt, to, dSt.m, false), depart, pointOf });
+  const realCross = cross ? await real({ ...cross.A.o, sys: cross.A.sys }, { ...cross.B.d, sys: cross.B.sys }) : null;
+  // 機場捷運直達車照公告參數（下面原本的算法），不用路網估
+  const realBest = best && !airportExpress(best.sys, best.o.name, best.d.name) ? await real({ ...best.o, sys: best.sys }, { ...best.d, sys: best.sys }) : null;
+  // 比快慢時，接駁（公車／YouBike）是估的、也不知道有沒有直達的公車：每段多算 FEEDER_DOUBT_MIN 分，差不多時選全程坐捷運
+  const doubt = (o) => o.minutes + FEEDER_DOUBT_MIN * ((o.metro?.feeder?.from ? 1 : 0) + (o.metro?.feeder?.to ? 1 : 0));
+  const fastest = [realCross, realBest].filter(Boolean).sort((x, y) => doubt(x) - doubt(y))[0];
+  if (fastest) return fastest;
   if (cross && (!best || cross.score < best.score)) {
     const opt = crossMetroOption(from, to, straight, cross, depart);
     if (opt) return opt;

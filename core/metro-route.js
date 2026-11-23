@@ -6,6 +6,21 @@ import { normName } from './util.js';
 /** 站名比對用的鍵：臺／台相同、去掉結尾的「站」（機場捷運「三重站」＝台北捷運「三重」；「台北車站」兩邊一致） */
 export const stationKey = (name) => normName(String(name || '')).replace(/站$/, '');
 
+/** 哪些系統的路網相通（同一個城市）：北部五個系統靠同名站互轉（多半經台北捷運），南部兩個，台中一個 */
+export const REGION = { TRTC: 'N', NTMC: 'N', TYMC: 'N', NTDLRT: 'N', NTALRT: 'N', KRTC: 'S', KLRT: 'S', TMRT: 'C' };
+export const regionSystems = (r) => Object.keys(REGION).filter((k) => REGION[k] === r);
+/** 規劃 A 系統到 B 系統要載入哪些系統的路網：北部加台北捷運（三鶯線、淡海、安坑輕軌都靠北捷轉），南部兩個都載 */
+export function linkedSystems(a, b = a) {
+  const r = REGION[a];
+  return [...new Set([a, b, ...(r === 'N' ? ['TRTC'] : r === 'S' ? regionSystems('S') : [])])];
+}
+/** 票價分段：同一個系統連續坐的幾段算一張票（ODFare 起站到迄站），跨系統分開 */
+export function fareGroups(legs) {
+  const groups = [];
+  for (const l of legs) { const g = groups.at(-1); if (g && g.system === l.system) g.toId = l.toId; else groups.push({ system: l.system, fromId: l.fromId, toId: l.toId }); }
+  return groups;
+}
+
 /** 每站約幾分（含停站；2026-11-23 依北捷站間行駛時間約 1.5～2 分估）；轉乘約幾分（走到另一個月台） */
 export const PER_STOP_MIN = { TRTC: 2, NTMC: 2, TYMC: 3, TMRT: 2, KRTC: 2, NTDLRT: 2.5, NTALRT: 2.5, KLRT: 2.5 };
 export const TRANSFER_MIN = 5;

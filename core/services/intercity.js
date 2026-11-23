@@ -73,7 +73,9 @@ export function matchRoutes(stopOfRoute, from, to, radius = STOP_RADIUS_M) {
     let cum = 0;
     const seqd = [...stops].sort((x, y) => x.StopSequence - y.StopSequence).filter((s) => s.StopSequence <= best.b.StopSequence);
     seqd.forEach((s, i) => {
-      if (i) cum += distanceM(seqd[i - 1].StopPosition.PositionLat, seqd[i - 1].StopPosition.PositionLon, s.StopPosition.PositionLat, s.StopPosition.PositionLon);
+      const p = seqd[i - 1]?.StopPosition, c = s.StopPosition;
+      // 有站沒有座標（防禦）：這一段不算距離，不讓估的到站時間變成 NaN
+      if (i && Number.isFinite(p?.PositionLat) && Number.isFinite(p?.PositionLon) && Number.isFinite(c?.PositionLat) && Number.isFinite(c?.PositionLon)) cum += distanceM(p.PositionLat, p.PositionLon, c.PositionLat, c.PositionLon);
       along.push([s.StopSequence, Math.round(cum)]);
     });
     out.push({
