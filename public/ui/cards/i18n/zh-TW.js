@@ -116,6 +116,21 @@ export const MESSAGES = {
   'youbike.outOfService': '暫停營運',
   'youbike.empty': '附近 {radius} 公尺沒有 YouBike 站',
 
+  // ── metro-route（捷運怎麼坐）──
+  'route.title': '{from} → {to} 怎麼坐',
+  'route.toward': '往 {dest}',
+  'route.nextStop': '下一站 {stop}',
+  'route.stops': '{n} 站',
+  'route.minutes': '約 {n} 分',
+  'route.transfers': '轉乘 {n} 次',
+  'route.direct': '不用轉乘',
+  'route.fare': '單程票 {n} 元',
+  'route.xfer': '在 {stop} 轉乘',
+  'route.xferSystem': '在 {stop} 轉乘（換系統）',
+  'route.next': '下一班約 {min} 分',
+  'route.nextSoon': '下一班即將進站',
+  'route.nextPlanned': '下一班約 {min} 分（時刻表）',
+  'route.nextSoonPlanned': '下一班約 1 分內（時刻表）',
   // ── metro ──
   'metro.title': '{station} 即時到站',
   'metro.titleFrequency': '{station} 班距',

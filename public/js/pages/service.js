@@ -13,26 +13,35 @@ export const METRO = [
   ['NTDLRT', '淡海輕軌'], ['NTALRT', '安坑輕軌'], ['KLRT', '高雄輕軌'],
 ];
 
+/** 「要去哪一站」選單另外列的系統（跟 core/tools/metro.js 的 REGION 一致：北部靠台北捷運互轉、高雄捷運與輕軌互轉） */
+const METRO_LINKED = { TRTC: ['NTMC', 'TYMC', 'NTDLRT', 'NTALRT'], NTMC: ['TRTC'], TYMC: ['TRTC'], NTDLRT: ['TRTC'], NTALRT: ['TRTC', 'NTMC'], KRTC: ['KLRT'], KLRT: ['KRTC'] };
+
 /**
  * 服務設定：title、tool、where（需要位置）、form（輸入欄位 HTML）、args(form, pos) → tool 參數、auto（進頁就查）、after(el, { callTool, toast })（卡片下方的區塊）
  * 新增服務＝這裡一筆＋registry.js 的格子＋core 的 tool 與卡片。
  */
 export const SERVICES = {
   metro: {
-    title: '捷運到站', tool: 'metro_live_board', auto: true,
+    title: '捷運到站', auto: true,
     form: `<div class="row"><select class="field" name="system" aria-label="捷運系統">${METRO.map(([v, n]) => `<option value="${v}">${n}</option>`).join('')}</select></div>
-      <div class="row"><input class="field" name="station" list="metro-stations" value="台北車站" placeholder="站名，例如 台北車站" aria-label="車站" autocomplete="off"><datalist id="metro-stations"></datalist><button class="btn">查詢</button></div>`,
-    args: (f) => ({ system: f.system.value, station: f.station.value.trim() }),
-    /** 站名選單：依系統載入 metro_stations */
+      <div class="row"><input class="field" name="station" list="metro-stations" value="台北車站" placeholder="站名，例如 台北車站" aria-label="車站" autocomplete="off"><datalist id="metro-stations"></datalist></div>
+      <div class="row"><input class="field" name="to" list="metro-to" placeholder="要去哪一站（選填，告訴你怎麼轉乘）" aria-label="要去哪一站" autocomplete="off"><datalist id="metro-to"></datalist><button class="btn">查詢</button></div>`,
+    // 有填要去哪一站：怎麼坐（轉乘，metro_route）；沒填：這一站的下一班
+    tool: (f) => (f.to.value.trim() ? 'metro_route' : 'metro_live_board'),
+    args: (f) => (f.to.value.trim() ? { from: f.station.value.trim(), to: f.to.value.trim(), system: f.system.value } : { system: f.system.value, station: f.station.value.trim() }),
+    /** 站名選單：依系統載入 metro_stations；「要去哪一站」再加上同一個城市相通的系統（北部加台北捷運、高雄捷運與輕軌互轉） */
     async setup(f, callTool) {
+      const opts = (list) => list.map((name) => Object.assign(document.createElement('option'), { value: name }));
       const fill = async () => {
+        const sys = f.system.value;
+        const also = METRO_LINKED[sys] || [];
         try {
-          const r = await callTool('metro_stations', { system: f.system.value });
-          const dl = f.querySelector('#metro-stations');
-          dl.replaceChildren(...r.data.map((s) => Object.assign(document.createElement('option'), { value: s.name })));
+          const lists = await Promise.all([sys, ...also].map((s) => callTool('metro_stations', { system: s }).then((r) => r.data.map((x) => x.name)).catch(() => [])));
+          f.querySelector('#metro-stations').replaceChildren(...opts(lists[0]));
+          f.querySelector('#metro-to').replaceChildren(...opts([...new Set(lists.flat())]));
         } catch { /* 選單只是輔助 */ }
       };
-      f.system.addEventListener('change', () => { f.station.value = ''; fill(); });
+      f.system.addEventListener('change', () => { f.station.value = ''; f.to.value = ''; fill(); });
       await fill();
     },
   },
@@ -119,7 +128,7 @@ export default {
           main.querySelector('.loc-help')?.remove();
           if (pos === FALLBACK) w.after(locationNotice({ retry: () => run(true), onCleanup })); // 說原因與下一步（S1c）
         }
-        const payload = await callTool(cfg.tool, cfg.args(f, pos));
+        const payload = await callTool(typeof cfg.tool === 'function' ? cfg.tool(f) : cfg.tool, cfg.args(f, pos));
         res.replaceChildren();
         const slot = document.createElement('div');
         res.append(slot);

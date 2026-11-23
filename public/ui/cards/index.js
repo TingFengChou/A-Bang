@@ -9,6 +9,7 @@ import busStation from './cards/bus-station.js';
 import nearby from './cards/nearby.js';
 import youbike from './cards/youbike.js';
 import metro from './cards/metro.js';
+import metroRoute from './cards/metro-route.js';
 import timetable from './cards/timetable.js';
 import trip from './cards/trip.js';
 import scamRisk from './cards/scam-risk.js';
@@ -25,7 +26,7 @@ import drama from './cards/drama.js';
 
 /** card → { title(data), body(data, ctx), refreshSec?, announce?(data, { t, state }) → 刷新後要念的一句話 } */
 export const CARDS = {
-  'bus-route': busRoute, 'bus-station': busStation, nearby, youbike, metro, timetable, trip, 'scam-risk': scamRisk, weather, aqi, quake, pharmacy, garbage, fuel, invoice, stock, outing, drama,
+  'bus-route': busRoute, 'bus-station': busStation, nearby, youbike, metro, 'metro-route': metroRoute, timetable, trip, 'scam-risk': scamRisk, weather, aqi, quake, pharmacy, garbage, fuel, invoice, stock, outing, drama,
 };
 
 /**

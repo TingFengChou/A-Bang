@@ -75,6 +75,8 @@
 | 捷運車站 | `/basic/v2/Rail/Metro/Station/{Operator}` | 1d（存檔） | ✅ | `metro_stations`、`metro_live_board`（站名→代碼） |
 | 捷運即時看板 | `/basic/v2/Rail/Metro/LiveBoard/{Operator}`（整個系統一份；北捷只有進站中的站，§1.2） | 20s | ✅ | `metro_live_board` |
 | 捷運班距 | `/basic/v2/Rail/Metro/Frequency/TMRT`（台中捷運只有這個，§1.2） | 存檔 | ✅ | `metro_live_board` |
+| 捷運各線車站順序 | `/basic/v2/Rail/Metro/StationOfLine/{Operator}`（台中捷運不收，用車站清單排序） | 存檔 | ✅ | `metro_route` |
+| 捷運兩站票價 | `/basic/v2/Rail/Metro/ODFare/{Operator}?$filter=OriginStationID eq …`（成人單程票） | 存檔 | ✅ | `metro_route` |
 | 捷運站別時刻表 | `/basic/v2/Rail/Metro/StationTimeTable/{Operator}`（`$filter=StationID eq …`） | 1d（存檔） | ✅ | `metro_live_board`（看板沒有的方向） |
 | 公路客運 | 路線站序 `/basic/v2/Bus/StopOfRoute/InterCity`（含 `StopPosition`；存檔）、時刻表 `/basic/v2/Bus/Schedule/InterCity`（`$filter=RouteUID eq …`）；票價端點待確認；即時到站 `/EstimatedTimeOfArrival/InterCity` 尚未使用 | 1d／1h | ✅ ⚠️ | `intercity_bus` |
 | 高速公路路況 | 路段形狀 `/basic/v2/Road/Traffic/SectionShape/Freeway`（2026-11-22 前少了 `/basic` 前綴、真實資料一律 404）（WKT）、路段 `/Section/Freeway`（名稱、速限、長度）、即時 `/Live/Freeway`（`TravelSpeed`）、事件 `/Live/News/Freeway` | 1d 存檔／1d 存檔／60s／60s | ✅ ⚠️ | `traffic_status` |

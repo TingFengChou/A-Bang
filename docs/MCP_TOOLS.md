@@ -50,6 +50,7 @@
 | `rail_stations` | transit | L1 | — | ✅ |
 | `metro_stations` | transit | L1 | — | ✅ ⚠️ |
 | `metro_live_board` | transit | L1 | `metro` | ✅ ⚠️ |
+| `metro_route` | transit | L1 | `metro-route` | ✅ |
 | `find_place` | transit | L1 | — | ✅（內建地標；地理編碼 ⚠️） |
 | `traffic_status` | transit | L1 | — | ✅ ⚠️ |
 | `intercity_bus` | transit | L1 | `timetable` | ✅ ⚠️ |
@@ -155,6 +156,16 @@ TDX：高鐵 `/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}`；台鐵 
 | 欄位 | `StationID`、`StationName`、`StationPosition` | `LineName`／`LineID`／`LineNO`、`DestinationStationName`（缺時用 `TripHeadSign`）、`EstimateTime`（分鐘；淡海、安坑輕軌是秒，換成分鐘）、`UpdateTime` |
 | status | — | 狀態代碼（2026-11-22）：0 分 `arriving`（進站中）、1 分 `approaching`（即將進站）、其他 `minutes`（N 分）、時刻表 `scheduled`、無資料 `unknown`；卡片與英文回答依代碼用字典，工具文字仍是中文易讀字（`metroStatusText`） |
 | speak | 「桃園機場捷運共有 6 個車站。」 | 「美麗島最快 3 分鐘後有往小港的車。」；沒資料時「…目前沒有即時到站資料。」；`near`：「離你最近的是市政府（約 89 公尺）：…」（給地名時「離「臺北車站」最近的是…」） |
+
+### ✅ `metro_route`（2026-11-23）
+
+捷運從 A 站到 B 站怎麼坐（轉乘建議）。輸入 `from`、`to`（站名）、`system`（選填：上車站的系統，同名站在不同城市時給）。
+
+- **路網**：各線車站順序 TDX `/basic/v2/Rail/Metro/StationOfLine/{Operator}`（存檔），`core/metro-route.js` 建圖；同名站（臺／台相同、機場捷運站名結尾的「站」去掉）就是轉乘站，同系統不同線、跨系統都算。最短路徑：每站約 2 分（輕軌 2.5、機捷 3）、轉乘 5 分、跨系統 7 分。北捷支線：小碧潭、新北投是接駁（在七張、北投換車）；蘆洲支線直通（南勢角直達蘆洲，新莊 → 蘆洲在大橋頭換車；共用段「往 迴龍／蘆洲」）。高雄輕軌環狀線頭尾相連，卡片說「下一站」。台中捷運沒有 StationOfLine（只有一條線）：用車站清單依代碼排序。
+- **載入哪些系統**：北部是上下車的系統＋台北捷運（三鶯線、淡海、安坑輕軌都靠北捷轉）；南部是高雄捷運＋高雄輕軌；不同城市回 `UserError`。
+- **票價**：同一個系統連續坐的幾段算一張票，TDX `ODFare`（成人單程票 TicketType 1、FareClass 1，存檔）；跨系統分段相加並說明可能有轉乘優惠；查不到 `fare: null`。
+- **下一班**：第一段的上車站看 `metro.liveBoard`，只取往這段方向的車（`trainGoesWay`：終點在下一站之後）；台中捷運給班距；環狀線分不出方向不給。
+- 輸出：`{ from, to, system, minutes（估算，不含等車）, transfers, fare, fares?, fareNote?, legs: [{ system, lineId, line, color?, from, fromId, to, toId, stops, minutes, next, toward?, loop? }], next?, note, nav }`；speak「鶯歌車站到松山機場：坐三鶯線往頂埔，下一班約 3 分，在頂埔轉板南線…；約 40 分、65 元。」
 
 **系統與末班車（2026-11-22 真實資料健檢）**：只給 `station` 沒給 `system` 時不再預設台北——依站名在四個系統的車站清單裡找（`systemOfStation`：站名完全相同的優先，同名站有 `near` 就用離他近的那個系統，否則台北、機捷、台中、高雄的順序；都找不到回 `UserError`「台北、桃園、台中、高雄捷運都找不到…」）。新增輸入 `last: true`（問末班車）：任何系統都查站別時刻表，輸出多 `lastTrains: [{ lineId, line, destination, time }]`（`lastFromTimetable`：今天營運日各線各方向最晚的一班，凌晨 4 點前算前一天；國定假日規則同下一班；查不到時刻表是空陣列），speak「美麗島的末班車（時刻表）：往小港 00:xx、…」。
 

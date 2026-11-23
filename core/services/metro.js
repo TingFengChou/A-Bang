@@ -121,6 +121,22 @@ export function findMetroStation(list, input, system) {
 }
 
 /** Metro Station → 車站清單（同一站多條線時以第一個代碼為準，ids 列出所有代碼；可存檔） */
+/** StationOfLine → 各線車站順序（依 Sequence；線名用 METRO_LINE_NAME，英文線名只給代碼不衝突的系統） */
+export function normStationOfLine(op, rows) {
+  return arr(rows, 'StationOfLines').map((l) => {
+    const lineId = l.LineID || l.LineNo || '';
+    const stations = [...(l.Stations || [])].sort((a, b) => (a.Sequence ?? 0) - (b.Sequence ?? 0))
+      .map((s) => ({ id: s.StationID, name: zh(s.StationName), ...enField('nameEn', s.StationName) })).filter((s) => s.id && s.name);
+    return { lineId, line: METRO_LINE_NAME[op]?.[lineId] || lineId, ...(LINE_EN_OK.has(op) && LINE_NAME_EN[lineId] && { lineEn: LINE_NAME_EN[lineId] }), ...(metroLineColor(op, lineId) && { color: metroLineColor(op, lineId) }), stations };
+  }).filter((l) => l.stations.length >= 2);
+}
+
+/** ODFare 的票價 → 成人單程票（TicketType 1 單程票、FareClass 1 成人；有好幾筆取最低）；沒有 null */
+export function adultFare(rows) {
+  const p = (rows || []).flatMap((r) => r.Fares || []).filter((f) => Number(f.TicketType) === 1 && Number(f.FareClass) === 1 && Number.isFinite(Number(f.Price))).map((f) => Number(f.Price));
+  return p.length ? Math.min(...p) : null;
+}
+
 export function normMetroStations(op, rows) {
   const byName = new Map();
   for (const r of arr(rows, 'Stations')) {
@@ -239,7 +255,7 @@ export function upcomingFromTimetable(table, now = Date.now(), windowMin = TIMET
 export const metroLoaders = {
   stations: (tdx, op) => async (o) => nonEmpty(normMetroStations(op, await tdx.get(`/basic/v2/Rail/Metro/Station/${op}`, { $select: 'StationID,StationName,StationPosition' }, 60, rawOpts(o))), `${METRO_SYSTEMS[op]}車站`),
 };
-export const metroKey = { stations: (op) => `metro-stations-${op}`, timetable: (op, ids) => `metro-timetable-${op}-${ids.join('_')}`, frequency: (op) => `metro-frequency-${op}` };
+export const metroKey = { stations: (op) => `metro-stations-${op}`, timetable: (op, ids) => `metro-timetable-${op}-${ids.join('_')}`, frequency: (op) => `metro-frequency-${op}`, lines: (op) => `metro-lines-${op}`, fare: (op, a, b) => `metro-fare-${op}-${a}-${b}` };
 
 /** 預熱步驟：四個系統的車站（plan_trip 每次都要看起訖附近有沒有捷運站） */
 export function metroWarmSteps(tdx) {
@@ -259,6 +275,32 @@ export function createMetroServices(tdx, { now = () => tdx.now?.() ?? Date.now()
     async stations({ system }) {
       const op = mustSystem(system);
       return cached(metroKey.stations(op), STATIC_TTL, metroLoaders.stations(tdx, op));
+    },
+
+    /**
+     * 各線車站順序（轉乘規劃，core/metro-route.js）：TDX StationOfLine（存檔）。
+     * 拿不到時（台中捷運不收）、而且這個系統只有一條線：用車站清單依代碼排序（103a、104…119）。
+     * @returns {Promise<Array<{ lineId, line, lineEn?, color?, stations: Array<{ id, name, nameEn? }> }>>}
+     */
+    async lines({ system }) {
+      const op = mustSystem(system);
+      const fromSol = await cached(metroKey.lines(op), STATIC_TTL, async (o) => nonEmpty(normStationOfLine(op, await tdx.get(`/basic/v2/Rail/Metro/StationOfLine/${op}`, {}, 60, rawOpts(o))), `${METRO_SYSTEMS[op]}路線`)).catch((e) => { if (e?.status === 429) throw e; return null; });
+      if (fromSol) return fromSol;
+      const ids = Object.keys(METRO_LINE_NAME[op] || {});
+      if (ids.length !== 1) throw new UserError(`${METRO_SYSTEMS[op]}查不到各線的車站順序，暫時沒辦法規劃轉乘`);
+      const st = await metro.stations({ system: op });
+      const nat = (x) => { const m = /^([A-Z]*)(\d+)([a-zA-Z]*)$/.exec(x.id) || []; return [m[1] || '', Number(m[2] || 0), m[3] || '']; };
+      const sorted = [...st].sort((a, b) => { const [pa, na, sa] = nat(a), [pb, nb, sb] = nat(b); return pa.localeCompare(pb) || na - nb || sa.localeCompare(sb); });
+      return [{ lineId: ids[0], line: lineName(op, ids[0]), ...(metroLineColor(op, ids[0]) && { color: metroLineColor(op, ids[0]) }), stations: sorted.map((x) => ({ id: x.id, name: x.name, ...(x.nameEn && { nameEn: x.nameEn }) })) }];
+    },
+
+    /** 兩站之間的成人單程票價（TDX ODFare，存檔）；查不到 null */
+    async odFare({ system, fromId, toId }) {
+      const op = mustSystem(system);
+      return cached(metroKey.fare(op, fromId, toId), STATIC_TTL, async (o) => {
+        const rows = arr(await tdx.get(`/basic/v2/Rail/Metro/ODFare/${op}`, { $filter: `OriginStationID eq '${q(fromId)}' and DestinationStationID eq '${q(toId)}'` }, 60, rawOpts(o)), 'ODFares');
+        return adultFare(rows);
+      }).catch((e) => { if (e?.status === 429) throw e; return null; });
     },
 
     /**

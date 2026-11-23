@@ -176,12 +176,17 @@ for (const [dname, device] of Object.entries(DEVICES)) {
     }
   });
 
-  test(`${dname}：互動卡片預覽（7 種卡片、互動、不注入 HTML）`, async () => {
+  test(`${dname}：互動卡片預覽（8 種卡片、互動、不注入 HTML）`, async () => {
     await withPage(device, 'ui/cards/preview.html', async (page) => {
       await page.waitForSelector('body[data-ready="1"]', { timeout: 20000 });
       assert.equal(await page.locator('.slot.err').count(), 0);
       const cards = await page.locator('.ab-card').evaluateAll((els) => els.map((e) => e.dataset.card));
-      assert.deepEqual([...new Set(cards)].sort(), ['bus-route', 'bus-station', 'metro', 'nearby', 'timetable', 'trip', 'youbike']);
+      assert.deepEqual([...new Set(cards)].sort(), ['bus-route', 'bus-station', 'metro', 'metro-route', 'nearby', 'timetable', 'trip', 'youbike']);
+      // 捷運怎麼坐：每段一列、兩段之間有轉乘列、第一段有下一班
+      const mr = page.locator('[data-card="metro-route"]');
+      assert.equal(await mr.locator('.ab-item').count(), 3, '三鶯線 → 板南線 → 松山新店線');
+      assert.equal(await mr.locator('.ab-route-xfer').count(), 2);
+      assert.match(await mr.locator('.ab-next').first().textContent(), /下一班/);
       assert.ok(await page.locator('.ab-demo').count() >= 7, '示範資料標示');
       // 公車路線：切換方向、點站牌展開
       const route = page.locator('[data-card="bus-route"]');
@@ -1305,6 +1310,27 @@ test('小巧思第二批：捷運路線色、YouBike 比例條、最近查過的
     await page.waitForSelector('.chips.recent a.chip');
     assert.match(await page.textContent('.chips.recent'), /307\s*臺北/);
     await shot(page, 'phone-bus-recent');
+  });
+});
+
+// 捷運到站頁：8 個系統都在選單、填了要去哪一站就給轉乘建議（2026-11-23 使用者「有辦法做到轉乘建議嗎？」）
+test('捷運到站：選新北捷運、填要去哪一站 → 怎麼坐（三鶯線轉板南線）', async () => {
+  await withPage(DEVICES.phone, '#/s/metro', async (page) => {
+    await page.waitForSelector('.ab-card[data-card="metro"]');
+    assert.equal(await page.locator('select[name=system] option').count(), 8);
+    await page.selectOption('select[name=system]', 'NTMC');
+    await page.fill('input[name=station]', '鶯歌車站');
+    await page.fill('input[name=to]', '台北車站');
+    await page.click('form .btn');
+    await page.waitForSelector('.ab-card[data-card="metro-route"]');
+    const text = await page.textContent('.ab-card[data-card="metro-route"]');
+    assert.match(text, /鶯歌車站 → 台北車站 怎麼坐/);
+    assert.match(text, /三鶯線[\s\S]*在 頂埔 轉乘（換系統）[\s\S]*板南線/);
+    await shot(page, 'phone-metro-route');
+    // 清掉要去哪一站：回到這一站的下一班
+    await page.fill('input[name=to]', '');
+    await page.click('form .btn');
+    await page.waitForSelector('.ab-card[data-card="metro"]');
   });
 });
 

@@ -99,6 +99,10 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 `{ lat, lon, stations: [{ uid, name, type, distance, rent, electric, returnSlots, inService, updatedAt, nav }] }`；可切換「借車／還車」排序；每 30 秒刷新。
 
+### `metro-route`（`metro_route`）
+
+`{ from, fromEn?, to, toEn?, system, minutes, transfers, fare（null＝查不到）, fares?, fareNote?, note, noteEn?, nav, next?: { etaMin, destination, scheduled? } | { headway: { min, max } }, legs: [{ system, lineId, line, lineEn?, color?, from, fromId, to, toId, stops, minutes, next, toward?, towardEn?, loop? }] }`（`additionalProperties: false`）。標題「{from} → {to} 怎麼坐」；上方三個小標籤（約 N 分、轉乘 N 次／不用轉乘、單程票 N 元）；每一段一列：線名色條＋「往 {終點}」（環狀線「下一站 {站}」）＋「N 站」，下方「上車站 → 下車站」，第一段加「下一班約 N 分」（時刻表加註、台中捷運說班距）；兩段之間一列「在 {站} 轉乘」（換系統加「（換系統）」）；最下面灰字照實說時間是依站數估算、不含等車，跨系統票價分段相加。不自動刷新。捷運到站頁填了「要去哪一站」時顯示這張卡片。
+
 ### `metro`（`metro_live_board`）
 
 `{ system, station, stationId, lat?, lon?, nav, updatedAt, source?, note?, noteEn?, stale?, lastTrains?: [{ lineId, line, destination, time }]（問末班車 `last: true` 時，依時刻表；卡片目前不顯示，回答文字說，2026-11-22）, trains: [{ line, lineEn?, lineId, lineColor?, destination, destinationEn?, etaMin, status, scheduled? }] }`（`status` 是狀態代碼 `arriving`（進站中，看板 `EstimateTime` 0）｜`approaching`（1 分內）｜`minutes`（N 分）｜`scheduled`（依時刻表估）｜`unknown`，卡片用字典 `metro.status.*`／`metro.scheduled*` 顯示，英文卡片的狀態不出現中文，線名與終點有 `lineEn`／`destinationEn` 就用英文（沒有才照中文原名）；2026-11-22 起不再是中文字串，不認得的值（舊版回應、離線快取的中文字串）由卡片用 `etaMin` 推回代碼；`trains[]` 契約 `additionalProperties: false`，TDX 原始欄位進不來；`scheduled`：依時刻表估的班次，灰字、不脈動，狀態用字典「約 N 分」／「~N min」；`source` 不是 live 時標題改「{站} 到站（時刻表估算）」；`stale`：看板用了 60 秒內的舊資料；有 `note` 時卡片在列表下方用灰字照實說「北捷即時到站在開放資料只有「進站中」，其他班次依時刻表估算」，英文卡片用 `noteEn`；行程卡片每段 `legs[].detailEn` 為英文說明，英文那一輪用）；每 20 秒刷新。`trains` 為空時顯示「目前沒有即時到站資料」。`source: 'frequency'`（台中捷運：TDX 只有班距，沒有看板與站別時刻表）時 `trains` 是空的，多 `headway: { min, max, peak?, lineId?, lineColor? } | null`，標題「{站} 班距」，列表一列「綠線 約每 N 分一班」（`metro.headway*`），`headway` 為 null 時說「現在不在營運時間」。`system` 為 8 個系統代碼之一（同 `METRO_SYSTEMS`，測試檢查）。`lineColor` 依 `lineId` 給各線官方代表色（`core/metro-colors.js`；未知的線不給，卡片用品牌色）。

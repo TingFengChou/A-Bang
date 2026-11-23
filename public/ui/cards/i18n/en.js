@@ -122,6 +122,21 @@ export const MESSAGES = {
   'youbike.outOfService': 'Out of service',
   'youbike.empty': 'No YouBike stations within {radius} m',
 
+  // ── metro-route ──
+  'route.title': '{from} → {to}: how to ride',
+  'route.toward': 'To {dest}',
+  'route.nextStop': 'Next stop {stop}',
+  'route.stops': '{n} stops',
+  'route.minutes': '~{n} min',
+  'route.transfers': '{n} transfer(s)',
+  'route.direct': 'No transfer',
+  'route.fare': 'Single ticket NT${n}',
+  'route.xfer': 'Change at {stop}',
+  'route.xferSystem': 'Change at {stop} (different system)',
+  'route.next': 'Next train in ~{min} min',
+  'route.nextSoon': 'Next train arriving',
+  'route.nextPlanned': 'Next train in ~{min} min (timetable)',
+  'route.nextSoonPlanned': 'Next train within ~1 min (timetable)',
   // ── metro ──
   'metro.title': '{station} live arrivals',
   'metro.titleFrequency': '{station} train frequency',

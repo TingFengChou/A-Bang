@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/metro-route.v1.json",
+  "title": "metro-route（metro_route）：捷運怎麼坐",
+  "type": "object",
+  "required": ["from", "to", "system", "minutes", "transfers", "fare", "legs", "note", "nav"],
+  "additionalProperties": false,
+  "properties": {
+    "from": { "type": "string" },
+    "fromEn": { "type": "string" },
+    "to": { "type": "string" },
+    "toEn": { "type": "string" },
+    "system": { "enum": ["TRTC", "TYMC", "TMRT", "KRTC", "NTMC", "NTDLRT", "NTALRT", "KLRT"], "description": "上車站的系統" },
+    "minutes": { "type": "integer", "minimum": 0, "description": "依站數估算（每站約 2 分、轉乘約 5 分），不含等車" },
+    "transfers": { "type": "integer", "minimum": 0 },
+    "fare": { "type": ["integer", "null"], "description": "成人單程票（TDX ODFare；跨系統分段相加）；查不到 null" },
+    "fares": { "type": "array", "items": { "type": "object", "required": ["system", "price"], "properties": { "system": { "type": "string" }, "price": { "type": ["integer", "null"] } } } },
+    "fareNote": { "type": "string" },
+    "fareNoteEn": { "type": "string" },
+    "note": { "type": "string" },
+    "noteEn": { "type": "string" },
+    "nav": { "type": ["object", "null"], "required": ["google", "apple"], "properties": { "google": { "type": "string" }, "apple": { "type": "string" } } },
+    "next": {
+      "type": "object", "description": "第一段的下一班（看板或時刻表）；台中捷運只有 headway",
+      "additionalProperties": false,
+      "properties": { "etaMin": { "type": "integer" }, "destination": { "type": "string" }, "destinationEn": { "type": "string" }, "scheduled": { "type": "boolean" }, "headway": { "type": "object", "required": ["min", "max"], "properties": { "min": { "type": "integer" }, "max": { "type": "integer" } } } }
+    },
+    "legs": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["system", "lineId", "line", "from", "fromId", "to", "toId", "stops", "minutes", "next"],
+        "additionalProperties": false,
+        "properties": {
+          "system": { "type": "string" }, "lineId": { "type": "string" }, "line": { "type": "string" }, "lineEn": { "type": "string" }, "color": { "type": "string" },
+          "from": { "type": "string" }, "fromEn": { "type": "string" }, "fromId": { "type": "string" },
+          "to": { "type": "string" }, "toEn": { "type": "string" }, "toId": { "type": "string" },
+          "stops": { "type": "integer", "minimum": 1 }, "minutes": { "type": "number" },
+          "next": { "type": "string", "description": "上車後的下一站" }, "nextEn": { "type": "string" },
+          "toward": { "type": "string", "description": "往哪（終點站；分岔線「迴龍／蘆洲」）；環狀線沒有" }, "towardEn": { "type": "string" },
+          "loop": { "type": "boolean", "description": "環狀線（高雄輕軌）：卡片說下一站" }
+        }
+      }
+    }
+  }
+}
