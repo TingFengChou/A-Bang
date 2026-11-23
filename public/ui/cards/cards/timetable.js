@@ -15,6 +15,17 @@ export function visibleTrains(d, showGone = false, now = Date.now()) {
   return { list, gone: d.trains.length - list.length };
 }
 
+/** 對號車（自強、莒光…）才要訂位；區間車不放訂票鍵 */
+const UNRESERVED = /^區間/;
+/** 要換車的一列：在哪換車、每一段的車次與時間；對號車那段各自有訂票鍵（訂那一段） */
+function transferLegs(x, d, host, t, onError) {
+  return h('div', { class: 'ab-tt-legs' },
+    h('div', { class: 'ab-sub' }, t('timetable.via', { stop: x.via.join('、') })),
+    x.legs.map((l) => h('div', { class: 'ab-row ab-sub' },
+      h('span', {}, t('timetable.leg', { no: l.trainNo, type: l.type || '', from: l.from, depart: l.depart, to: l.to, arrive: l.arrive })),
+      !UNRESERVED.test(l.type || '') && bookButton(host, { system: d.system, trainNo: l.trainNo, date: d.date, from: l.from, to: l.to }, onError))));
+}
+
 export default {
   title: (d, { t }) => t(`timetable.title.${d.system}`, { from: d.from, to: d.to }),
   body(d, { host, t, state, rerender }) {
@@ -29,8 +40,9 @@ export default {
       goneBtn,
       h('ul', { class: 'ab-list' }, rows.map((x) => h('li', { class: x.excluded ? 'ab-train off' : 'ab-train' },
         h('div', { class: 'ab-row' },
-          h('span', { class: 'ab-route' }, x.trainNo),
+          h('span', { class: 'ab-route' }, x.legs?.length ? x.legs[0].trainNo : x.trainNo),
           x.type && h('span', { class: 'ab-sub' }, x.type),
+          x.transfers > 0 && h('span', { class: 'ab-badge' }, t('timetable.transfer', { n: x.transfers })),
           x.nextDay && h('span', { class: 'ab-badge' }, t('timetable.nextDay')),
           h('span', { class: 'ab-time' }, x.depart, ' → ',
             x.arriveWithDelay ? [h('s', {}, x.arrive), ' ', h('b', {}, x.arriveWithDelay)] : x.arrive),
@@ -41,7 +53,9 @@ export default {
           x.delayMin && t('timetable.delay', { n: x.delayMin }),
           x.board && ` ${t('timetable.board', { stop: x.board })}`,
           x.estimated && t('common.estimatedTag')),
-        !x.excluded && bookButton(host, { system: d.system, trainNo: x.trainNo, date: d.date, from: d.from, to: d.to }, onError)))),
+        x.legs?.length ? transferLegs(x, d, host, t, onError)
+          : !x.excluded && bookButton(host, { system: d.system, trainNo: x.trainNo, date: d.date, from: d.from, to: d.to }, onError)))),
+      d.transferNote && h('p', { class: 'ab-sub ab-note' }, t('timetable.planned')),
       list.length > MAX_ROWS && h('button', { type: 'button', class: 'ab-btn ab-link', onclick: () => { state.all = !state.all; rerender(); } }, state.all ? t('common.less') : t('common.more')));
   },
 };

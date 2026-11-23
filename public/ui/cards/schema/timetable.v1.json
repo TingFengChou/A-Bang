@@ -13,6 +13,9 @@
     "demo": { "type": "boolean" },
     "traffic": { "type": "object", "properties": { "level": { "enum": ["smooth", "slow", "jam", null] }, "delayMin": { "type": ["integer", "null"] } } },
     "delayRisk": { "type": "number", "minimum": 0, "maximum": 1 },
+    "transferNote": { "type": "string" },
+    "transferNoteEn": { "type": "string" },
+    "transfersUnavailable": { "type": "boolean" },
     "trains": {
       "type": "array",
       "items": {
@@ -27,6 +30,11 @@
           "terminal": { "type": ["string", "null"] },
           "fare": { "type": ["integer", "null"] },
           "excluded": { "type": "string" },
+          "transfers": { "type": "integer", "minimum": 0 },
+          "via": { "type": "array", "items": { "type": "string" } },
+          "fareType": { "type": "string" },
+          "planned": { "type": "boolean" },
+          "legs": { "type": "array", "items": { "type": "object", "required": ["trainNo", "from", "to", "depart", "arrive"], "properties": { "trainNo": { "type": "string" }, "type": { "type": "string" }, "from": { "type": "string" }, "to": { "type": "string" }, "depart": { "type": "string" }, "arrive": { "type": "string" } } } },
           "arriveWithDelay": { "type": "string" },
           "delayMin": { "type": "integer" },
           "estimated": { "type": "boolean" },

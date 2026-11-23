@@ -42,7 +42,7 @@ export default {
       res.innerHTML = loading();
       try {
         const r = await cfg.timetable(f.from.value, f.to.value, f.date.value);
-        if (!r.trains.length) return (res.innerHTML = empty('當日沒有直達班次'));
+        if (!r.trains.length) return (res.innerHTML = empty(r.transfersUnavailable ? '當日沒有直達班次；換車的走法暫時查不到，請稍後再查' : sys === 'tra' ? '當日沒有直達班次，也找不到換車的走法' : '當日沒有直達班次'));
         const now = new Date(Date.now() + 8 * 3600e3).toISOString().slice(11, 16);
         const isToday = r.date === today;
         const nextIdx = isToday ? r.trains.findIndex((t) => t.depart >= now) : -1;
@@ -53,8 +53,10 @@ export default {
               <span class="t">${esc(t.depart)}</span>
               <span class="mid">${Math.floor(t.minutes / 60) ? `${Math.floor(t.minutes / 60)}時` : ''}${t.minutes % 60}分</span>
               <span class="t">${esc(t.arrive)}</span>
-              <span class="meta">${t.type ? `<span class="type-tag">${esc(t.type)}</span><br>` : ''}${esc(t.trainNo)} 次</span>
-            </div>`).join('')}</div>`;
+              <span class="meta">${t.legs ? `<span class="type-tag xfer">換車 ${t.transfers} 次</span>` : `${t.type ? `<span class="type-tag">${esc(t.type)}</span><br>` : ''}${esc(t.trainNo)} 次`}</span>
+              ${t.legs ? `<span class="legs"><b>在${esc(t.via.join('、'))}換車</b>${t.legs.map((l) => `<br>${esc(l.trainNo)} 次${l.type ? ` ${esc(l.type)}` : ''}｜${esc(l.from)} ${esc(l.depart)} → ${esc(l.to)} ${esc(l.arrive)}`).join('')}</span>` : ''}
+            </div>`).join('')}</div>
+          ${r.transferNote ? `<p class="note rail-note">${esc(r.transferNote)}</p>` : ''}`;
         main.querySelector('#next')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       } catch (e) { res.innerHTML = errorBox(e); }
     }

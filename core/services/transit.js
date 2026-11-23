@@ -3,6 +3,7 @@
 import { resolveCity, cityFromUID } from '../cities.js';
 import { distanceM, busStatusText, minutesBetween, normName, todayTW, isDate, assertLatLon, UserError, zh, enField, odataStr as q } from '../util.js';
 import { pathFromWkt, thinPath } from '../geo.js';
+import { normGeneralTimetable } from '../rail-journeys.js';
 import { matchDirect, commonRoutes, DIRECT_RADIUS_M } from './bus-direct.js';
 import { cacheOf, rawOpts, nonEmpty, STATIC_TTL } from './tdx-cache.js';
 import { INDEX_CITIES, ETA_TTL, BIKE_TTL, STALE_SEC, transitKey as key, transitLoaders, normRouteStops, normBikeStation, etaIndex, bikeIndex } from './transit-data.js';
@@ -17,10 +18,15 @@ export const railLoaders = {
     const j = await tdx.get('/basic/v3/Rail/TRA/Station', { $select: 'StationID,StationName,StationPosition' }, 60, rawOpts(o));
     return nonEmpty((j.Stations || j).map((s) => ({ id: s.StationID, name: zh(s.StationName), ...enField('nameEn', s.StationName), ...stationPos(s) })), '台鐵車站');
   },
+  // 台鐵定期時刻表（約 950 班、原始約 4 MB；只留站代碼與時間）：算要換車的走法（core/services/rail-trips.js）。
+  // 2026-11-23 實測：DailyTrainTimetable/TrainDate、Today 都回空陣列（來源停在 11-20），定期時刻表有資料
+  traGeneral: (tdx) => async (o) => nonEmpty(normGeneralTimetable(await tdx.get('/basic/v3/Rail/TRA/GeneralTrainTimetable', {}, 60, rawOpts(o)), traTypeName), '台鐵定期時刻表'),
 };
+/** 台鐵車種名稱：「自強(3000)(EMU3000 型電車)」→「自強」 */
+const traTypeName = (n) => zh(n).replace(/\(.*\)/, '');
 export function railWarmSteps(tdx) {
   const { cached } = cacheOf(tdx);
-  return [['thsr-stations', 'thsrStations'], ['tra-stations', 'traStations']].map(([k, kind]) => ({ key: k, ttl: STATIC_TTL, run: (o) => cached(k, STATIC_TTL, railLoaders[kind](tdx), { ...o, force: true }) }));
+  return [['thsr-stations', 'thsrStations'], ['tra-stations', 'traStations'], ['tra-general', 'traGeneral']].map(([k, kind]) => ({ key: k, ttl: STATIC_TTL, run: (o) => cached(k, STATIC_TTL, railLoaders[kind](tdx), { ...o, force: true }) }));
 }
 
 /**
@@ -248,6 +254,8 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
       return { system: 'THSR', from: o.name, to: d.name, fares };
     },
     traStations: () => cached('tra-stations', STATIC_TTL, railLoaders.traStations(tdx)),
+    /** 台鐵定期時刻表（一天一次）；查不到回 null（不改用示範班表：假的換車走法比沒有更糟） */
+    traGeneral: () => cached('tra-general', STATIC_TTL, railLoaders.traGeneral(tdx)).catch(() => null),
     async traTimetable({ from, to, date = todayTW() }) {
       const st = await rail.traStations();
       const o = findStation(st, from, '台鐵'), d = findStation(st, to, '台鐵');
@@ -259,7 +267,7 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
           const sd = t.StopTimes.find((x) => x.StationID === d.id) || t.StopTimes.at(-1);
           return {
             trainNo: t.TrainInfo.TrainNo,
-            type: zh(t.TrainInfo.TrainTypeName).replace(/\(.*\)/, ''),
+            type: traTypeName(t.TrainInfo.TrainTypeName),
             depart: so.DepartureTime, arrive: sd.ArrivalTime,
             minutes: minutesBetween(so.DepartureTime, sd.ArrivalTime),
             terminal: zh(t.TrainInfo.EndingStationName),

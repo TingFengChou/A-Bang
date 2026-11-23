@@ -111,6 +111,9 @@ main { padding: 4px 16px 16px; }
 .train.past { opacity: .4; }
 .train.next { background: var(--brand-soft); }
 .type-tag { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 6px; background: var(--off-soft); color: var(--text); }
+.type-tag.xfer { background: var(--brand-soft); color: var(--brand); }
+/* 台鐵要換車的班次：在哪換車、每一段（整列寬） */
+.train .legs { grid-column: 1 / -1; font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
 
 .empty, .loading, .error { text-align: center; color: var(--muted); padding: 32px 16px; }
 .error { color: var(--bad); }
@@ -537,3 +540,4 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
 .health-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .me-health { padding: 14px 16px; }
 .rem-open + .rem-chat { margin-left: 16px; } /* 提醒頁：看當時的對話（長對話，UX.md §4.17） */
+.rail-note { font-size: 12px; color: var(--muted); margin: 8px 4px 0; line-height: 1.5; }

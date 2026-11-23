@@ -89,5 +89,5 @@ export const api = {
   thsrStations: () => call('/api/v1/thsr/stations', {}, (s) => s.rail.thsrStations(), { cache: TTL.day }),
   thsrTimetable: (from, to, date) => call('/api/v1/thsr/timetable', { from, to, date }, (s) => s.rail.thsrTimetable({ from, to, date }), { cache: TTL.day }),
   traStations: () => call('/api/v1/tra/stations', {}, (s) => s.rail.traStations(), { cache: TTL.day }),
-  traTimetable: (from, to, date) => call('/api/v1/tra/timetable', { from, to, date }, (s) => s.rail.traTimetable({ from, to, date }), { cache: TTL.day }),
+  traTimetable: (from, to, date) => call('/api/v1/tra/timetable', { from, to, date }, (s) => (s.traTrips ? s.traTrips({ from, to, date }) : s.rail.traTimetable({ from, to, date })), { cache: TTL.day }),
 };
