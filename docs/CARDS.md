@@ -101,7 +101,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 ### `metro`（`metro_live_board`）
 
-`{ system, station, stationId, lat?, lon?, nav, updatedAt, trains: [{ line, lineId, lineColor?, destination, etaMin, status }] }`（行程卡片每段 `legs[].detailEn` 為英文說明，英文那一輪用）；每 20 秒刷新。`trains` 為空時顯示「目前沒有即時到站資料」。`lineColor` 依 `lineId` 給各線官方代表色（`core/metro-colors.js`；未知的線不給，卡片用品牌色）。
+`{ system, station, stationId, lat?, lon?, nav, updatedAt, source?, note?, noteEn?, stale?, lastTrains?: [{ lineId, line, destination, time }]（問末班車 `last: true` 時，依時刻表；卡片目前不顯示，回答文字說，2026-11-22）, trains: [{ line, lineEn?, lineId, lineColor?, destination, destinationEn?, etaMin, status, scheduled? }] }`（`status` 是狀態代碼 `arriving`（進站中，看板 `EstimateTime` 0）｜`approaching`（1 分內）｜`minutes`（N 分）｜`scheduled`（依時刻表估）｜`unknown`，卡片用字典 `metro.status.*`／`metro.scheduled*` 顯示，英文卡片的狀態不出現中文，線名與終點有 `lineEn`／`destinationEn` 就用英文（沒有才照中文原名）；2026-11-22 起不再是中文字串，不認得的值（舊版回應、離線快取的中文字串）由卡片用 `etaMin` 推回代碼；`trains[]` 契約 `additionalProperties: false`，TDX 原始欄位進不來；`scheduled`：依時刻表估的班次，灰字、不脈動，狀態用字典「約 N 分」／「~N min」；`source` 不是 live 時標題改「{站} 到站（時刻表估算）」；`stale`：看板用了 60 秒內的舊資料；有 `note` 時卡片在列表下方用灰字照實說「北捷即時到站在開放資料只有「進站中」，其他班次依時刻表估算」，英文卡片用 `noteEn`；行程卡片每段 `legs[].detailEn` 為英文說明，英文那一輪用）；每 20 秒刷新。`trains` 為空時顯示「目前沒有即時到站資料」。`lineColor` 依 `lineId` 給各線官方代表色（`core/metro-colors.js`；未知的線不給，卡片用品牌色）。
 
 ### `timetable`（`thsr_timetable`、`tra_timetable`、`intercity_bus`）
 
@@ -121,8 +121,12 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 // 同時給 mode=X 與 avoid 含 X：X 被排除、回 modeUnavailable（照分數建議並明說）
 // options[].lastBus：接近末班（示範 23:00 後）；options[].lastTrain：捷運末班快到了（收班前 30 分）；skipped[]：查了但不可行的方式（深夜收班、末班已過、YouBike 沒車位…）
 // missing[]：所有沒列入的方式與原因（含 skipped、附近沒有捷運站、沒有趕得上的班次；{ role, kind, why, whyEn, closed? }），卡片「沒列入」清單用它（舊資料只有 skipped）；英文卡片用 whyEn
+// missing[].kind 'route'：那一條公車今天不會來（{ route, status: 2|3|4 }，另一條照常列入）——卡片寫「公車 601沒列入：今天沒有營運（站牌即時資訊）」、決策圖節點 id skip-bus-601
+// options[].etaUnknown：公車上車站到站時間不明（沒有預估或尚未發車）；ranking.ranked[].unsure：{ vs }＋breakdown.unsure——不排在時間確定的大眾運輸前面（ADR-0010 2026-11-22）
+// limited：TDX 額度用完、這次沒列入的方式（{ roles, noTransit, text, textEn }）——真實模式下示範資料的方案不參加排名，missing 帶 fallback: 'tdx-limit'（ADR-0010 2026-11-22）
+// options[].est：估的部分（{ minutes?: true|分, cost?: true|元 }）；breakdown.uncertain：估算值保守看扣的分（負數，決策圖扣分列「估算」）
 // night：深夜的一句 { text, textEn, closed[], late[] }，卡片最上面橘底一行（.ab-night）
-// habit：使用者同意過的常選比例（{ metro: 0.6 }，選填）；habitOn：這次有沒有加分；ranking.ranked[].breakdown.habit：習慣加分（ADR-0010 2026-11-21）
+// habit：使用者同意過的常選比例（{ metro: 0.6 }，選填）；habitOn：這次有沒有加分；ranking.ranked[].breakdown.habit：習慣加分（ADR-0010 2026-11-21）；breakdown.premium：叫車多付的錢換不到夠多的時間時扣的分（負數，ADR-0010 2026-11-22），ranked[].notWorth：{ vs（對它不划算的大眾運輸 id）, extra（多付幾元）, worth（省下的時間值幾元） }；breakdown.tooLong、ranked[].tooLong：{ vs, cap }——步行超過 25 分、YouBike 超過 30 分排到大眾運輸後面
 // ask：關鍵問題（{ state, text, textEn, from, to, dMin, dCost }，ADR-0016）；states[].source 另有 usual（你說過，i18n trip.state.usual）
 // 卡片：按建議方案的導航／叫車／訂票時送 window 事件 abang:choice { role }（網頁 App 記常選的方式；MCP Apps 裡沒人聽）
 ```

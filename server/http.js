@@ -63,18 +63,7 @@ const swaggerFile = (name) => {
 };
 const DOCS_HTML = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>阿幫 API 文件</title><link rel="stylesheet" href="/api/docs/swagger-ui.css"></head><body><div id="ui"></div><script src="/api/docs/swagger-ui-bundle.js"></script><script src="/api/docs/init.js"></script></body></html>`;
 // 前端共用的核心純函式（決策圖即時重算用同一份 decide.js，UX.md §5）：只開放白名單檔案
-const SHARED_CORE = {
-  'decide.js': fileURLToPath(new URL('../core/decide.js', import.meta.url)),
-  'vision-text.js': fileURLToPath(new URL('../core/vision-text.js', import.meta.url)), // 阿幫會看在手機上分類讀到的字（M14-02）
-  'edge-write.js': fileURLToPath(new URL('../core/edge-write.js', import.meta.url)), // 手機寫的回答的程式護欄（ADR-0017）
-  'output-guards.js': fileURLToPath(new URL('../core/output-guards.js', import.meta.url)),
-  // 天氣好又動得少時建議去走走（ADR-0018）：判斷在手機上（health-nudge.js 用 nav.js 的步行時間與導航連結），散步地點來自內建地標庫
-  'health-nudge.js': fileURLToPath(new URL('../core/health-nudge.js', import.meta.url)),
-  'nav.js': fileURLToPath(new URL('../core/nav.js', import.meta.url)),
-  'drama-say.js': fileURLToPath(new URL('../core/drama-say.js', import.meta.url)), // 短劇提示句（ADR-0019）
-  'suggest.js': fileURLToPath(new URL('../core/suggest.js', import.meta.url)), // 動態下一句（#112）
-  'landmarks.json': fileURLToPath(new URL('../core/data/landmarks.json', import.meta.url)),
-};
+const SHARED_CORE = { 'decide.js': fileURLToPath(new URL('../core/decide.js', import.meta.url)), 'vision-text.js': fileURLToPath(new URL('../core/vision-text.js', import.meta.url)), 'edge-write.js': fileURLToPath(new URL('../core/edge-write.js', import.meta.url)), 'output-guards.js': fileURLToPath(new URL('../core/output-guards.js', import.meta.url)), 'health-nudge.js': fileURLToPath(new URL('../core/health-nudge.js', import.meta.url)), 'nav.js': fileURLToPath(new URL('../core/nav.js', import.meta.url)), 'landmarks.json': fileURLToPath(new URL('../core/data/landmarks.json', import.meta.url)), 'drama-say.js': fileURLToPath(new URL('../core/drama-say.js', import.meta.url)), 'suggest.js': fileURLToPath(new URL('../core/suggest.js', import.meta.url)), 'edge-ask.js': fileURLToPath(new URL('../core/edge-ask.js', import.meta.url)), 'alight.js': fileURLToPath(new URL('../core/alight.js', import.meta.url)) }; // vision-text：阿幫會看在手機上分類讀到的字（M14-02）；edge-write：手機寫的回答的程式護欄（ADR-0017）；drama-say：短劇連結檢查與句子（ADR-0019）；edge-ask：手機上的 AI 出的題目的形狀檢查（ADR-0020）；health-nudge＋nav＋landmarks：天氣好又動得少時建議去走走，判斷在手機上（ADR-0018）
 const DOCS_INIT = "window.ui = SwaggerUIBundle({ url: '/api/v1/openapi.json', dom_id: '#ui', deepLinking: true, tryItOutEnabled: true });";
 
 // 手機 App（ADR-0013）的 WebView 來源：問阿幫端點只對這些來源加 CORS（不用 *）
@@ -191,6 +180,9 @@ createServer(async (req, res) => {
 }).listen(PORT, () => {
   // 165 開放資料約 10 萬筆，啟動後先載入，第一位使用者不用等（失敗不影響啟動，查詢時會再試）
   if (svc.antifraudMode === 'live') svc.antifraud.stats().then((s) => log.info('antifraud data loaded', s)).catch((e) => log.warn('antifraud data not loaded', { error: e.message }));
+  // TDX 靜態資料背景預熱（每分鐘最多用 3 次，留 2 次給使用者；已存檔的跳過）；TDX_PREWARM=0 關閉
+  if (svc.tdxPrewarm && process.env.TDX_PREWARM !== '0') svc.tdxPrewarm({ log: (m) => log.info(m) });
+  if (svc.parking?.warm && process.env.TDX_PREWARM !== '0') svc.parking.warm().catch(() => {}); // 台北市、新北市停車場清單（免金鑰開放資料，不佔 TDX 額度）
   log.info(`阿幫 running → http://localhost:${PORT}  (mode=${svc.mode}, agent=${agent.mode.mode}${agent.mode.model ? `:${agent.mode.model}` : ''})  MCP: http://localhost:${PORT}/mcp`, { port: PORT, version: VERSION, mode: svc.mode, agentMode: agent.mode.mode });
 });
 

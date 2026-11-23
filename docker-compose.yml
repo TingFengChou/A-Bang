@@ -20,6 +20,12 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    # TDX 靜態資料存檔（站牌、站序、車站）：重新部署或重啟後先讀檔，不必從冷快取開始（docs/DATA_SOURCES.md §1.1）
+    volumes:
+      - abang-tdx-cache:/app/.cache
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
+
+volumes:
+  abang-tdx-cache:

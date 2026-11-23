@@ -9,5 +9,6 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(AbangVisionPlugin()) // 阿幫會看：手機上讀字與條碼（ADR-0015）
         bridge?.registerPluginInstance(AbangVoicePlugin()) // 語音問阿幫（M14-01）
         bridge?.registerPluginInstance(AbangHealthPlugin()) // 健康與運動：HealthKit 步數與體能訓練時間（ADR-0018）
+        bridge?.registerPluginInstance(AbangWatchPlugin()) // 到站提醒的即時動態（鎖定畫面、動態島）
     }
 }

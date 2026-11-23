@@ -88,18 +88,35 @@ export function findStock(quotes, q) {
   return { hit: list[0] || null, similar: list.slice(1, 5).map(({ code: c, name }) => ({ code: c, name })) };
 }
 
+const TAIEX_RE = /^(台股|台灣|上市)?(大盤|加權|加權指數|加權股價指數|發行量加權股價指數)$|^(台股|上市指數|集中市場|TAIEX|TWII)$/;
+const TPEX_RE = /^(櫃買|櫃買指數|櫃買中心指數|櫃檯指數|櫃檯買賣指數|上櫃指數|OTC|TPEX)$/;
+/**
+ * 查詢詞是不是在問指數：加權指數（大盤、台股、TAIEX…）→ 'taiex'；櫃買指數（上櫃指數、OTC…）→ 'tpex'；都不是回 null。
+ * 指數不是個股，不拿去個股清單找（2026-11-22 實測：以前問「加權指數」先回收盤又說找不到）。
+ */
+export function indexOf(q) {
+  const n = normName(q).toUpperCase();
+  return TAIEX_RE.test(n) ? 'taiex' : TPEX_RE.test(n) ? 'tpex' : null;
+}
+
 /**
  * @param {{ quotes: object[], indices: object[] }} market
  * @param {{ query?: string }} a
  */
 export function stockQuote({ quotes, indices }, { query } = {}) {
-  const found = [], notFound = [];
+  const found = [], notFound = [], asked = [];
   for (const q of splitQuery(query)) {
+    const idx = indexOf(q);
+    if (idx) { if (!asked.includes(idx)) asked.push(idx); continue; }
     const { hit, similar } = findStock(quotes, q);
     if (!hit) { notFound.push(q); continue; }
     if (!found.some((x) => x.code === hit.code)) found.push({ ...hit, query: q, ...(similar.length && { similar }) });
   }
-  return { indices, quotes: found, notFound };
+  // 問到的指數排前面（speak 講第一個指數）；問了指數卻沒有那個指數的資料才算找不到
+  const rank = (i) => { const k = asked.indexOf(i.id); return k < 0 ? asked.length : k; };
+  const list = asked.length ? [...indices].sort((a, b) => rank(a) - rank(b)) : indices;
+  for (const id of asked) if (!list.some((i) => i.id === id)) notFound.push(id === 'taiex' ? '加權指數' : '櫃買指數');
+  return { indices: list, quotes: found, notFound };
 }
 
 /**
@@ -109,7 +126,7 @@ export function createStockServices(fx) {
   return {
     stock: {
       quote: async (a = {}) => {
-        const need = splitQuery(a.query).length > 0;
+        const need = splitQuery(a.query).some((q) => !indexOf(q)); // 只問指數不用抓個股清單
         const [twse, tpex, ti, pi] = await Promise.all([need ? fx.twse() : [], need ? fx.tpex() : [], fx.twseIndex().catch(() => []), fx.tpexIndex().catch(() => [])]);
         return stockQuote({ quotes: [...twse, ...tpex], indices: parseIndices(ti, pi) }, a);
       },

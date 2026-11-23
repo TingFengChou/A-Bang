@@ -9,7 +9,7 @@ const cap = () => {
 };
 
 /** 通知編號：同一種提醒只會有一則（重新排程＝覆蓋） */
-export const NOTIFY_ID = { arrival: 1001, leave: 1002, stuck: 1003, alight: 1004 };
+export const NOTIFY_ID = { arrival: 1001, leave: 1002, stuck: 1003, alight: 1004, invoice: 1005 };
 /** 一般排程可能晚幾十秒：提早這麼多送（「約 N 分」吸收誤差） */
 export const EARLY_MS = 30_000;
 const CHANNEL = 'arrival';

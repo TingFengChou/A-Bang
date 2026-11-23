@@ -37,20 +37,31 @@
       "type": "object",
       "required": ["ranked", "excluded", "reason"],
       "properties": {
-        "ranked": { "type": "array", "items": { "type": "object", "required": ["id", "name", "score"], "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "score": { "type": "integer" }, "breakdown": { "type": "object" } } } },
+        "ranked": { "type": "array", "items": { "type": "object", "required": ["id", "name", "score"], "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "score": { "type": "integer" }, "breakdown": { "type": "object" }, "notWorth": { "type": "object", "properties": { "vs": { "type": "string" }, "extra": { "type": "number" }, "worth": { "type": "number" } } }, "tooLong": { "type": "object", "properties": { "vs": { "type": "string" }, "cap": { "type": "number" } } }, "unsure": { "type": "object", "description": "到站時間不明的公車讓位給時間確定的大眾運輸（vs）", "properties": { "vs": { "type": "string" } } } } } },
         "excluded": { "type": "array", "items": { "type": "object", "required": ["id", "why"], "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "why": { "type": "string" } } } },
         "weights": { "type": "object" },
         "reason": { "type": "string" }
       }
     },
     "unavailable": { "type": "array", "items": { "type": "string" } },
-    "mode": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail"] },
-    "avoid": { "type": "array", "items": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail"] } },
+    "mode": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail", "drive"] },
+    "avoid": { "type": "array", "items": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail", "drive"] } },
     "habit": { "type": "object" },
     "habitOn": { "type": "boolean" },
     "ask": { "type": "object", "required": ["state", "text"], "properties": { "state": { "enum": ["rush", "budget", "luggage", "lessWalk"] }, "text": { "type": "string" }, "textEn": { "type": "string" } } },
     "skipped": { "type": "array", "items": { "$ref": "#/$defs/notIn" } },
     "missing": { "type": "array", "description": "沒列入的方式與原因（含 skipped；太近、太遠不列）：卡片「沒列入」清單、決策圖", "items": { "$ref": "#/$defs/notIn" } },
+    "limited": {
+      "type": "object",
+      "description": "TDX 額度用完、這次沒列入的方式（示範資料不參加排名）：一句照實說；noTransit＝大眾運輸因此一個都沒有",
+      "required": ["roles", "noTransit", "text"],
+      "properties": {
+        "roles": { "type": "array", "items": { "enum": ["bike", "bus", "metro", "thsr", "tra", "intercity"] } },
+        "noTransit": { "type": "boolean" },
+        "text": { "type": "string" },
+        "textEn": { "type": "string" }
+      }
+    },
     "night": {
       "type": "object",
       "description": "深夜的一句：公車、捷運收班（closed）或末班快到了（late）；卡片第一行、回答第一句",
@@ -70,8 +81,10 @@
       "type": "object",
       "required": ["role", "why"],
       "properties": {
-        "role": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail"] },
-        "kind": { "enum": ["skipped", "none", "noService"], "description": "skipped 查了但不可行（收班、沒車位）、none 查不到站或路線、noService 沒有趕得上的班次" },
+        "role": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail", "drive"] },
+        "kind": { "enum": ["skipped", "none", "noService", "route"], "description": "skipped 查了但不可行（收班、沒車位）、none 查不到站或路線、noService 沒有趕得上的班次、route 這一條公車路線今天不會來（另一條照常列入）" },
+        "route": { "type": "string", "description": "kind route：公車路線名稱" },
+        "status": { "enum": [2, 3, 4], "description": "kind route：上車站的到站狀態（2 交管不停靠、3 末班已過、4 今日未營運）" },
         "why": { "type": "string" },
         "whyEn": { "type": "string" },
         "closed": { "type": "boolean", "description": "收班（深夜公車、捷運）" },
@@ -86,7 +99,7 @@
       "required": ["id", "role", "name", "minutes", "waitMin", "walkMin", "cost", "arriveAt", "legs", "notes"],
       "properties": {
         "id": { "type": "string" },
-        "role": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail"] },
+        "role": { "enum": ["walk", "bike", "bus", "metro", "thsr", "tra", "intercity", "ridehail", "drive"] },
         "name": { "type": "string" },
         "minutes": { "type": "integer", "minimum": 0 },
         "waitMin": { "type": "integer", "minimum": 0 },
@@ -101,7 +114,9 @@
         "arriveMin": { "type": "integer" },
         "leaveAt": { "type": "string" },
         "estimated": { "type": "boolean" },
+        "est": { "type": "object", "description": "估的部分（決策時保守看，core/decide.js UNCERTAIN）：true＝整個值、數字＝只有那幾分／幾元", "properties": { "minutes": { "type": ["boolean", "number"] }, "cost": { "type": ["boolean", "number"] } } },
         "lastBus": { "type": "boolean", "description": "公車末班快到了（23:00 後）" },
+        "etaUnknown": { "type": "boolean", "description": "公車上車站的到站時間不明（站牌沒有預估或尚未發車）：決策不排在時間確定的大眾運輸前面" },
         "lastTrain": { "type": "boolean", "description": "捷運末班快到了（收班前 30 分）" },
         "notes": { "type": "array", "items": { "type": "string" } },
         "train": { "type": "object" },
@@ -111,7 +126,7 @@
             "type": "object",
             "required": ["mode", "from", "to", "minutes", "detail"],
             "properties": {
-              "mode": { "enum": ["walk", "bike", "bus", "transit", "metro", "thsr", "tra", "intercity", "ridehail"] },
+              "mode": { "enum": ["walk", "bike", "bus", "transit", "metro", "thsr", "tra", "intercity", "ridehail", "drive"] },
               "from": { "$ref": "#/$defs/place" },
               "to": { "$ref": "#/$defs/place" },
               "minutes": { "type": "integer", "minimum": 0 },

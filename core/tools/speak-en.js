@@ -8,7 +8,7 @@ const mins = (sec) => Math.max(1, Math.round(sec / 60));
 const plural = (n, w, many = `${w}s`) => `${n} ${n === 1 ? w : many}`;
 
 /** 英文方案名稱（與 en.js trip.leg 一致；公車帶路線號碼） */
-export const EN_ROLE = { walk: 'Walking', bike: 'YouBike', metro: 'MRT', thsr: 'High Speed Rail', tra: 'Train', intercity: 'Intercity bus', ridehail: 'Taxi', transit: 'City transit' };
+export const EN_ROLE = { walk: 'Walking', bike: 'YouBike', metro: 'MRT', thsr: 'High Speed Rail', tra: 'Train', intercity: 'Intercity bus', ridehail: 'Taxi', drive: 'Drive', transit: 'City transit' };
 export const enName = (o) => (o.role === 'bus' ? `Bus ${String(o.name || '').replace(/^公車\s*/, '')}`.trim() : EN_ROLE[o.role] || o.name);
 const AQI_LEVEL = { good: 'good', moderate: 'moderate', sensitive: 'unhealthy for sensitive groups', unhealthy: 'unhealthy', very: 'very unhealthy', hazard: 'hazardous' };
 const BUS_STATUS = ['', 'not departed yet', 'not stopping here (traffic control)', 'last bus has left', 'no service today'];
@@ -46,8 +46,9 @@ export const SPEAK_EN = {
     const best = d.options.find((o) => o.id === d.best);
     if (!best) return 'No workable way found for this trip.';
     const night = d.night?.textEn ? `${d.night.textEn} ` : ''; // 深夜：第一句先說收班或末班快到了
-    if (d.single) return `${night}Only one option found: ${enName(best)} (${best.minutes} min).`;
-    return `${night}Compared ${plural(d.options.length, 'option')}; best is ${enName(best)} (${best.minutes} min).`;
+    const lim = d.limited?.shortEn ? `${d.limited.shortEn}. ` : ''; // TDX 額度用完沒列入的方式（示範班次不推）
+    if (d.single) return `${night}${lim}Only one option found: ${enName(best)} (${best.minutes} min).`;
+    return `${night}${lim}Compared ${plural(d.options.length, 'option')}; best is ${enName(best)} (${best.minutes} min).`;
   },
   weather_now: (d) => {
     const pop = d.pop3h != null ? `, ${d.pop3h}% chance of rain in the next 3 hours` : '';
@@ -69,7 +70,7 @@ export const SPEAK_EN = {
   bus_nearby_stations: (d) => (d.stations.length ? `${plural(d.stations.length, 'bus stop')} nearby; nearest is ${d.stations[0].name} (${km(d.stations[0].distance)}).` : 'No bus stops nearby.'),
   bus_station_eta: (d) => { const f = d.arrivals.find((r) => r.etaSec != null); return f ? `Soonest is ${f.routeName}, in ${mins(f.etaSec)} min.` : 'No buses due at this stop right now.'; },
   bus_route_eta: (d) => {
-    if (d.focus?.nearest) return `Nearest stop is ${d.focus.stopName} (${km(d.focus.distanceM)}): ${busFocus(d.routeName, d.focus)}.`;
+    if (d.focus?.nearest) return `Nearest stop is ${d.focus.stopName} (${km(d.focus.distanceM)}): ${busFocus(d.routeName, d.focus)}${d.focus.other ? ` (${String(d.focus.label).replace(/^往\s*/, 'to ')}); ${String(d.focus.other.label).replace(/^往\s*/, 'to ')}: ${busFocus(d.routeName, d.focus.other)}` : ''}.`; // 兩個方向都說（PM Q-17）
     if (d.focus) return `${busFocus(d.routeName, d.focus)}.`;
     const near = d.directions.flatMap((x) => x.stops.filter((s) => s.etaSec != null && s.etaSec < 180)).length;
     return near ? `${d.routeName}: a bus is due within 3 min at ${plural(near, 'stop')}.` : `No ${d.routeName} buses due within 3 min.`;
@@ -79,7 +80,9 @@ export const SPEAK_EN = {
     const same = d.nearest?.from && normName(d.nearest.from).replace(/站$/, '') === normName(d.station).replace(/站$/, '');
     const where = d.nearest && !same ? nearestEn('MRT', d.station, d.nearest).replace(/\. $/, '') : `At ${d.station}`;
     if (!t) return `${where}: no live arrival data right now.`;
-    return `${where}: ${t.etaMin <= 1 ? `train to ${t.destination} arriving now` : `next train to ${t.destination} in ${t.etaMin} min`}.`;
+    const dest = t.destination;
+    if (t.scheduled) return `${where}: next train to ${dest} in about ${Math.max(1, t.etaMin)} min (timetable).`;
+    return `${where}: ${t.status === 'arriving' || t.etaMin <= 0 ? `train to ${dest} arriving now` : t.etaMin <= 1 ? `train to ${dest} arriving within a minute` : `next train to ${dest} in ${t.etaMin} min`}.`; // 狀態代碼（core/services/metro.js），不用中文字串
   },
   thsr_timetable: (d) => railEn(d, 'High Speed Rail', Date.now()),
   tra_timetable: (d) => railEn(d, 'Train', Date.now()),
@@ -109,7 +112,7 @@ export function impactEn(name, data) {
   if (name === 'plan_trip') {
     if (data.single) return { tone: 'bad', text: 'Only one way works for this trip (see "How Abang decided")' };
     const skip = data.skipped?.find((s) => s.role === 'bike');
-    if (skip) return { tone: 'bad', text: 'YouBike: not available at one end, left out' };
+    if (skip) return { tone: 'bad', text: skip.fallback === 'tdx-limit' && skip.whyEn ? `YouBike: ${skip.whyEn}` : 'YouBike: not available at one end, left out' }; // 額度用完不是沒車位（PR #126 審查）
     const b = data.options?.find((o) => o.role === 'bike')?.bike;
     if (b?.ret.tight) return { tone: 'bad', text: `YouBike: only ${plural(b.ret.count, 'dock')} left at ${b.ret.name}${b.ret.backup ? `; if full, return at ${b.ret.backup.name}` : ''}` };
     if (b?.rent.tight) return { tone: 'bad', text: `YouBike: only ${plural(b.rent.count, 'bike')} left at ${b.rent.name}${b.rent.backup ? `; if none, try ${b.rent.backup.name}` : ''}` };

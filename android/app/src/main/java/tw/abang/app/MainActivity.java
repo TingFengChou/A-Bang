@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AbangVisionPlugin.class); // 阿幫會看：手機上讀字與條碼（ADR-0015）
         registerPlugin(AbangVoicePlugin.class); // 語音問阿幫（M14-01）
         registerPlugin(AbangHealthPlugin.class); // 健康與運動：Health Connect 步數與運動時間（ADR-0018）
+        registerPlugin(AbangWatchPlugin.class); // 到站提醒常駐服務（通知列常駐、到點響鈴）
         super.onCreate(savedInstanceState);
     }
 }

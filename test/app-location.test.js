@@ -133,3 +133,21 @@ test('watchKeyboard：iOS（只有可見高度變矮）、Android（innerHeight 
   stopA(); stopB();
   a.vv.height = 300; a.vv.dispatchEvent(new Event('resize'));
 });
+
+test('這次定位逾時：15 分鐘內定位過就沿用（剛查天氣用了位置，下一句不再問你在哪）；被拒絕或過了 15 分鐘就不沿用', async (t) => {
+  let ok = true, err = { code: 'OS-PLUG-GLOC-0010' };
+  globalThis.Capacitor = { isNativePlatform: () => true, isPluginAvailable: (n) => n === 'Geolocation', nativePromise: async (p, m) => { if (m === 'checkPermissions') return { location: 'granted' }; if (ok) return { coords: { latitude: 25.0478, longitude: 121.517 } }; throw err; } };
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-22T10:00:00Z') });
+  const { browserLocation, lastLocationError, RECENT_FIX_MS } = await fresh();
+  assert.deepEqual(await browserLocation(), { lat: 25.0478, lon: 121.517 });
+  ok = false;
+  t.mock.timers.tick(5 * 60_000); // 超過 2 分鐘快取、還在 15 分鐘內
+  assert.deepEqual(await browserLocation(), { lat: 25.0478, lon: 121.517 }, '逾時：沿用 5 分鐘前的定位');
+  if (lastLocationError) assert.equal(lastLocationError(), 'timeout', '原因照記');
+  err = { code: 'OS-PLUG-GLOC-0003' };
+  assert.equal(await browserLocation(), null, '被拒絕：不沿用');
+  err = { code: 'OS-PLUG-GLOC-0010' };
+  assert.equal(await browserLocation(0, { fresh: true }), null, '重新定位：不沿用');
+  t.mock.timers.tick(RECENT_FIX_MS);
+  assert.equal(await browserLocation(), null, '超過 15 分鐘：不沿用');
+});

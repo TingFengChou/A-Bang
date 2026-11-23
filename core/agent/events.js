@@ -4,7 +4,7 @@ import { getTool } from '../tools/index.js';
 import { ASK_KINDS, ASK_ACTIONS } from './ask.js';
 import { isAppLink, isStoreLink } from '../drama-say.js';
 
-export const EVENT_TYPES = ['status', 'agent_note', 'tool_start', 'tool_result', 'data_note', 'discussion_end', 'decision', 'ask', 'aside', 'guardrail', 'client_tool_call', 'text', 'answer_draft', 'done', 'error'];
+export const EVENT_TYPES = ['status', 'agent_note', 'tool_start', 'tool_result', 'data_note', 'discussion_end', 'decision', 'ask', 'aside', 'guardrail', 'client_tool_call', 'text', 'answer_draft', 'trial', 'done', 'error'];
 
 /** 小幫手角色（討論串中被 @ 點名的名字） */
 export const TOOL_ROLES = {
@@ -55,27 +55,29 @@ export const ev = {
     options: trip.options, ranked: trip.ranking.ranked, excluded: trip.ranking.excluded, weights: trip.ranking.weights, reason: trip.ranking.reason,
   }, ['states', 'options', 'ranked', 'excluded', 'reason']),
   /**
-   * ask：阿幫問你（ADR-0016）——一輪最多一個；question 與選項由程式產生（core/agent/ask.js），不交給模型。
+   * ask：阿幫問你（ADR-0016）——一輪最多一個；題目由手機上的 AI 提議、程式驗證後採用（askSource 'device'，ADR-0020），否則由程式產生（'rule'，core/agent/ask.js）。
    * key：同一題的鍵（客戶端 24 小時內問過就不顯示）；options[]：{ label, kind, guess? }＋依 kind：state { state, source?: 'usual', say? }、reply { say }、store { value }、action { action: { name, ... } }、dismiss
    * pending：{ slot, state?, intent? }＝在等什麼答案（使用者直接打字時客戶端帶 pendingAsk 回來）
    */
-  ask: ({ id, question, options, why, about, key, pending }) => {
+  ask: ({ id, question, options, why, about, key, pending, askSource }) => {
     if (!Array.isArray(options) || !options.length || options.length > 6) throw new Error('事件 ask 的 options 要 1～6 個');
     const opts = options.map((o) => {
       if (!ASK_KINDS.includes(o?.kind)) throw new Error(`事件 ask 的 kind 不對：${o?.kind}`);
       const base = { label: String(o.label).slice(0, 20), kind: o.kind, ...(o.guess && { guess: true }) };
       if (o.kind === 'state') { if (!o.state) throw new Error('事件 ask 的 state 選項要有 state'); return { ...base, state: String(o.state), ...(o.source === 'usual' && { source: 'usual' }), ...(o.say && { say: String(o.say).slice(0, 200) }) }; }
-      if (o.kind === 'reply') { if (!o.say) throw new Error('事件 ask 的 reply 選項要有 say（完整的一句）'); return { ...base, say: String(o.say).slice(0, 200) }; }
+      if (o.kind === 'reply') { if (!o.say) throw new Error('事件 ask 的 reply 選項要有 say（完整的一句）'); return { ...base, say: String(o.say).slice(0, 200), ...(['家', '公司', '學校'].includes(o.saved) && { saved: o.saved }) }; } // saved：手機有設定這個常用地點才顯示
       if (o.kind === 'store') { if (!o.value) throw new Error('事件 ask 的 store 選項要有 value'); return { ...base, value: String(o.value).slice(0, 100) }; }
       if (o.kind === 'action') {
         const a = o.action;
         if (!ASK_ACTIONS.includes(a?.name)) throw new Error(`事件 ask 的 action 不對：${a?.name}`);
         if (a.name === 'openLink' && !/^https:\/\//.test(String(a.url))) throw new Error('事件 ask 的 openLink 只能是 https 連結');
+        if (a.name === 'navigate' && !/^#\/[a-z0-9/_-]{1,40}$/.test(String(a.to))) throw new Error('事件 ask 的 navigate 只能是 App 內的頁面（#/…）');
+        if (a.name === 'handOff') { if (a.agent !== 'antifraud' || typeof a.text !== 'string' || !a.text.trim()) throw new Error('事件 ask 的 handOff 只能帶一句話到防詐'); return { ...base, action: { name: 'handOff', agent: 'antifraud', text: a.text.slice(0, 500) } }; }
         return { ...base, action: a };
       }
       return base;
     });
-    return need('ask', { id, question: String(question).slice(0, 120), options: opts, ...(why && { why: String(why).slice(0, 80) }),  ...(about && { about: String(about) }), ...(key && { key: String(key).slice(0, 80) }), ...(pending?.slot && { pending }) }, ['id', 'question']);
+    return need('ask', { id, question: String(question).slice(0, 120), options: opts, ...(why && { why: String(why).slice(0, 80) }),  ...(about && { about: String(about) }), ...(key && { key: String(key).slice(0, 80) }), ...(pending?.slot && { pending }), askSource: askSource === 'device' ? 'device' : 'rule' }, ['id', 'question']);
   },
   /**
    * aside：卡片下方的小提示（不進回答文字，交通資訊仍是主角）。目前只有 kind 'drama'＝等車推一集短劇（core/agent/wait-drama.js，ADR-0019）；
@@ -95,6 +97,8 @@ export const ev = {
   text: (delta) => need('text', { delta: String(delta) }, ['delta']),
   /** 回答交給手機寫（ADR-0017，請求帶 clientCaps.edgeWrite）：程式版總結＋事實清單；不送 text，手機改寫不過就照 text 顯示程式版 */
   answerDraft: ({ text, facts, lang }) => need('answer_draft', { text: String(text), facts: facts ?? {}, lang: lang === 'en' ? 'en' : 'zh' }, ['text']),
+  /** 試判斷（#/ai，請求帶 clientCaps.trial）：判斷結果、資料夠不夠、會查哪些資料來源（core/agent/trial.js，程式算） */
+  trial: (info) => need('trial', { ...info }, ['intent', 'slots', 'sources']),
   /** 使用者說「重來」：前面的行程不再沿用（畫面加分隔線、前面的對話變淡） */
   contextReset: () => ({ type: 'context_reset' }),
   done: (usage) => ({ type: 'done', ...(usage && { usage }) }),

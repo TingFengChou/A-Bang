@@ -1,22 +1,26 @@
 // 以 TDX 回應格式的假資料驗證「真實版」正規化邏輯（不需網路與金鑰）
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTransitServices } from '../core/services/transit.js';
+import { readFileSync } from 'node:fs';
+import { createTransitServices, normTraFares } from '../core/services/transit.js';
 import { createTdxClient } from '../core/tdx-client.js';
 
 const Z = (s) => ({ Zh_tw: s, En: '' });
+/** 真實回應樣本（2026-11-22 實測，精簡過，不含金鑰）：test/fixtures/ */
+const real = (f) => JSON.parse(readFileSync(new URL(`./fixtures/${f}`, import.meta.url), 'utf8'));
 const fixtures = [
+  [/^https:\/\/tdx\.transportdata\.tw\/api\/advanced\/v2\/Bus\/EstimatedTimeOfArrival\/City\/Taipei\/PassThrough\/Station\/1000\?/, real('tdx-station-eta-taipei-1000.json')],
   [/Bus\/DisplayStopOfRoute/, [
     { RouteName: Z('307'), Direction: 0, Stops: [
       { StopUID: 'TPE1', StopName: Z('撫遠街'), StopSequence: 1, StopPosition: { PositionLat: 25.0712, PositionLon: 121.5627 } },
       { StopUID: 'TPE2', StopName: Z('臺北車站'), StopSequence: 2, StopPosition: { PositionLat: 25.0462, PositionLon: 121.5173 } },
       { StopUID: 'TPE3', StopName: Z('板橋前站'), StopSequence: 3 }] },
-    { RouteName: Z('307'), Direction: 1, Stops: [{ StopUID: 'TPE9', StopName: Z('板橋前站'), StopSequence: 1 }] },
+    { RouteName: Z('307'), Direction: 1, Stops: [{ StopUID: 'TPE9', StopName: Z('板橋前站'), StopSequence: 1 }, { StopUID: 'TPE8', StopName: Z('撫遠街'), StopSequence: 2 }] },
   ]],
   [/Bus\/Shape\/City\/Taipei\/307/, [
     { RouteName: Z('307'), Direction: 1, Geometry: 'LINESTRING(121.4600 25.0140, 121.5173 25.0462)' },
     { RouteName: Z('307'), Direction: 0, Geometry: 'MULTILINESTRING((121.5627 25.0712, 121.5400 25.0600), (121.5400 25.0600, 121.5173 25.0462, 121.4600 25.0140))' }]],
-  [/Bus\/EstimatedTimeOfArrival\/City\/Taipei\/PassThrough/, [
+  [/\/advanced\/v2\/Bus\/EstimatedTimeOfArrival\/City\/Taipei\/PassThrough\/Station\/55\?/, [
     { RouteName: Z('307'), Direction: 0, EstimateTime: 400, StopStatus: 0 },
     { RouteName: Z('262'), Direction: 1, StopStatus: 3 },
     { RouteName: Z('0東'), Direction: 0, EstimateTime: 30, StopStatus: 0 }]],
@@ -29,7 +33,7 @@ const fixtures = [
     { StationUID: 'TPE55', StationID: '55', StationName: Z('臺北車站(忠孝)'), StationPosition: { PositionLat: 25.0462, PositionLon: 121.5173 }, Stops: [{ RouteName: Z('307') }, { RouteName: Z('307') }, { RouteName: Z('262') }] },
     { StationUID: 'NWT66', StationID: '66', StationName: Z('遠站'), StationPosition: { PositionLat: 25.05, PositionLon: 121.52 }, Stops: [] }]],
   [/Bike\/Station\/NearBy/, [{ StationUID: 'TPE500101', StationName: Z('YouBike2.0_捷運台北車站M8'), StationAddress: Z('忠孝西路'), StationPosition: { PositionLat: 25.0479, PositionLon: 121.5171 }, BikesCapacity: 40, ServiceType: 2 }]],
-  [/Bike\/Availability\/NearBy/, [{ StationUID: 'TPE500101', ServiceStatus: 1, AvailableRentBikes: 12, AvailableReturnBikes: 28, AvailableRentBikesDetail: { GeneralBikes: 9, ElectricBikes: 3 }, UpdateTime: '2026-11-17T21:00:00+08:00' }]],
+  [/Bike\/Availability/, [{ StationUID: 'TPE500101', ServiceStatus: 1, AvailableRentBikes: 12, AvailableReturnBikes: 28, AvailableRentBikesDetail: { GeneralBikes: 9, ElectricBikes: 3 }, UpdateTime: '2026-11-17T21:00:00+08:00' }]],
   [/THSR\/Station/, [{ StationID: '1000', StationName: Z('台北') }, { StationID: '1070', StationName: Z('左營') }]],
   [/THSR\/DailyTimetable\/OD\/1000\/to\/1070\/2026-11-18/, [
     { DailyTrainInfo: { TrainNo: '0803' }, OriginStopTime: { DepartureTime: '08:00' }, DestinationStopTime: { ArrivalTime: '09:45' } },
@@ -120,6 +124,13 @@ test('stationEta 依到站時間排序，無時間者在後', async () => {
   assert.equal(r[2].statusText, '末班車已過');
 });
 
+test('stationEta 走 /advanced/ 路徑（/basic/ 是 404，2026-11-22 實測）；真實樣本：臺北市站位 1000', async () => {
+  const r = await svc.bus.stationEta({ city: 'Taipei', stationId: '1000' });
+  assert.deepEqual(r.map((x) => [x.routeName, x.direction, x.etaSec, x.statusText]), [['紅29', 1, 473, '7 分'], ['646', 1, null, '今日未營運']]);
+  assert.ok(calls.some((u) => u.includes('/api/advanced/v2/Bus/EstimatedTimeOfArrival/City/Taipei/PassThrough/Station/1000')));
+  assert.ok(!calls.some((u) => u.includes('/api/basic/v2/Bus/EstimatedTimeOfArrival/City/Taipei/PassThrough')));
+});
+
 test('bike.nearby 合併站點與即時車數', async () => {
   const [b] = await svc.bike.nearby({ lat: 25.0478, lon: 121.517 });
   assert.equal(b.name, '捷運台北車站M8');
@@ -149,12 +160,25 @@ test('高鐵票價：代碼轉中文、成人單程在前、無效價格略過�
   assert.ok(calls.some((u) => u.includes('/THSR/ODFare/1000/to/1070')));
 });
 
-test('台鐵票價：v3 各車種展開；沒有車種名稱時顯示代碼', async () => {
+test('台鐵票價：v3 車種代碼轉中文（不看 TrainTypeName）、只留成人單程', async () => {
   const r = await svc.rail.traFare({ from: '台北', to: '花蓮' });
-  assert.deepEqual(r.fares.map((f) => [f.trainType, f.fareClass, f.price]), [
-    ['車種代碼 6', '成人', 283], ['自強', '成人', 440], ['自強', '孩童', 220],
+  assert.deepEqual(r.fares.map((f) => [f.trainType, f.fareClass, f.price, f.adultOneWay]), [
+    ['區間', '成人', 283, true], ['自強', '成人', 440, true],
   ]);
   await assert.rejects(svc.rail.traFare({ from: '台北', to: '臺北' }), /起訖站不可相同/);
+});
+
+test('normTraFares（真實樣本 臺北→新竹）：只取最短方向、成人單程、代碼轉中文、普快與未知代碼不列', () => {
+  const j = real('tdx-tra-odfare-1000-1210.json');
+  assert.ok(j.ODFares.some((o) => o.TravelDistance > 700), '樣本含繞島另一方向');
+  const f = normTraFares(j.ODFares);
+  assert.deepEqual(f.map((x) => [x.trainType, x.price]), [
+    ['區間', 163], ['區間快', 163], ['復興', 163], ['莒光', 195], ['自強', 253], ['自強3000', 253], ['普悠瑪', 253], ['太魯閣', 253],
+  ]);
+  assert.ok(f.every((x) => x.adultOneWay && x.fareClass === '成人' && x.ticketType === '單程票'));
+  assert.ok(!JSON.stringify(f).includes('代碼'));
+  assert.deepEqual(normTraFares([{ TrainType: 99, Fares: [{ TicketType: 1, FareClass: 1, Price: 10 }] }, { TrainType: 7, Fares: [{ TicketType: 1, FareClass: 1, Price: 83 }] }]), []);
+  assert.deepEqual(normTraFares(null), []);
 });
 
 test('錯誤處理：未知縣市 / 車站 / 座標', async () => {

@@ -17,15 +17,19 @@ const TOOL_TOPIC = {
   scam_check_message: 'scam', scam_lookup_url: 'scam', scam_myth_search: 'scam', sms_sender_check: 'scam',
 };
 /** 判斷層的意圖（core/agent/judge.js JUDGE_INTENTS）→ 話題類別：還沒有工具結果時先用 */
-const INTENT_TOPIC = { trip: 'transit', bus_route: 'transit', nearby_bus: 'transit', youbike: 'transit', metro: 'transit', rail: 'transit', weather: 'weather', aqi: 'weather', quake: 'quake', pharmacy: 'pharmacy', garbage: 'garbage', fuel: 'fuel', invoice: 'invoice', stock: 'stock' };
+const INTENT_TOPIC = { trip: 'transit', bus_route: 'transit', nearby_bus: 'transit', youbike: 'transit', metro: 'transit', rail: 'transit', weather: 'weather', aqi: 'weather', quake: 'quake', pharmacy: 'pharmacy', garbage: 'garbage', fuel: 'fuel', invoice: 'invoice', stock: 'stock', traffic: 'transit' };
 /** 只是輔助的工具（找地點、路況）：有別的結果時不拿來當這一輪的主題 */
 const AUX = new Set(['find_place', 'traffic_status']);
 
 const MODE = {
-  zh: { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' },
-  en: { walk: 'Walk', bike: 'YouBike', bus: 'Bus', metro: 'MRT', thsr: 'HSR', tra: 'Train', intercity: 'Intercity bus', ridehail: 'Taxi' },
+  zh: { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車', drive: '開車' },
+  en: { walk: 'Walk', bike: 'YouBike', bus: 'Bus', metro: 'MRT', thsr: 'HSR', tra: 'Train', intercity: 'Intercity bus', ridehail: 'Taxi', drive: 'Drive' },
 };
 const AQI_EN = { good: 'Good', moderate: 'Moderate', sensitive: 'Unhealthy for sensitive groups', unhealthy: 'Unhealthy', very: 'Very unhealthy', hazardous: 'Hazardous' };
+/** 捷運到站狀態代碼（core/services/metro.js）→ 短字（英文那一輪不出現中文） */
+const METRO_ST = { zh: { arriving: '進站中', approaching: '即將進站', minutes: (m) => `${m} 分`, scheduled: (m) => (m <= 1 ? '約 1 分內' : `約 ${m} 分`) }, en: { arriving: 'arriving', approaching: 'approaching', minutes: (m) => `${m} min`, scheduled: (m) => (m <= 1 ? '~1 min' : `~${m} min`) } };
+const metroCode = (t) => (t.scheduled ? 'scheduled' : ['arriving', 'approaching', 'minutes'].includes(t.status) ? t.status : t.etaMin == null ? null : t.etaMin <= 0 ? 'arriving' : t.etaMin <= 1 ? 'approaching' : 'minutes'); // 舊版的中文字串：用 etaMin 推回
+const metroStatus = (t, en) => { const f = METRO_ST[en ? 'en' : 'zh'][metroCode(t)]; return typeof f === 'function' ? f(t.etaMin) : f || '—'; };
 const SCAM = { zh: { high: '高風險', medium: '有疑點', low: '未發現已知特徵' }, en: { high: 'High risk', medium: 'Suspicious', low: 'No known signs' } };
 const L = {
   zh: {
@@ -95,7 +99,7 @@ function one(r, ctx) {
     }
     case 'metro_live_board': {
       const t = (d.trains || []).find((x) => x.etaMin != null);
-      return { title: en ? `MRT ${d.station}` : `${d.station}捷運`, detail: t ? `${T.to(t.destination)} ${en && t.etaMin <= 1 ? 'arriving' : t.status}` : '—', short: clip(d.station, 6) };
+      return { title: en ? `MRT ${d.station}` : `${d.station}捷運`, detail: t ? `${T.to(t.destination)} ${metroStatus(t, en)}` : '—', short: clip(d.station, 6) };
     }
     case 'thsr_timetable': case 'tra_timetable': {
       const sys = r.tool === 'thsr_timetable' ? (en ? 'HSR' : '高鐵') : (en ? 'Train' : '台鐵');

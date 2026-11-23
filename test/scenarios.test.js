@@ -8,7 +8,10 @@ import { createServices } from '../core/index.js';
 import { createJudge } from '../core/agent/judge.js';
 import { check } from '../scripts/eval/scenario-check.js';
 
-const set = JSON.parse(await readFile(new URL('./scenarios/life.json', import.meta.url), 'utf8'));
+const load = async (f) => JSON.parse(await readFile(new URL(`./scenarios/${f}`, import.meta.url), 'utf8'));
+// life.json（S／P／D／AS／AR…）＋ life-q.json（PM「該問就問、不該問就不問」Q-1～Q-27）；各檔的 here 是那一份的預設定位
+const sets = [await load('life.json'), await load('life-q.json')];
+const set = sets[0];
 const judge = createJudge(); // 規則（CI 不下載嵌入模型）
 
 /** 情境指定時刻（台灣時間 HH:mm，今天）→ 時間戳；沒指定用現在 */
@@ -22,8 +25,8 @@ async function turn(svc, messages, located = true, now = Date.now(), saved = und
   return es;
 }
 
-for (const sc of set.scenarios) {
-  test(`${sc.id} ${sc.title}`, { todo: sc.todo || false }, async () => {
+for (const sc of sets.flatMap((st) => st.scenarios.map((x) => ({ ...x, here: x.here || st.here })))) {
+  test(`${sc.id} ${sc.title}`, { todo: sc.todo || sc.known || false }, async () => { // known：跟其他決定衝突、等產品負責人決定（期望不改）
     const svc = createServices({ forceMock: true, ...(sc.demo && { demo: sc.demo }) });
     const messages = [];
     let pendingAsk;

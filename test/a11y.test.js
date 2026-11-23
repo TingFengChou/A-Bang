@@ -17,7 +17,7 @@ test('卡片播報句：公車路線（點開的站優先、否則即將進站�
   assert.equal(busRoute.announce({ routeName: '307', directions: [] }, { t, state: {} }), null);
   assert.equal(busStation.announce({ name: '臺北車站', arrivals: [{ routeName: '307', statusText: '3 分' }, { routeName: '藍15', statusText: '即將進站' }] }, { t }), '臺北車站：307 3 分；藍15 即將進站');
   assert.equal(busStation.announce({ arrivals: [] }, { t }), null);
-  assert.equal(metro.announce({ trains: [{ line: '板南線', destination: '南港展覽館', status: '1 分' }] }, { t }), '板南線 往 南港展覽館 1 分');
+  assert.equal(metro.announce({ trains: [{ line: '板南線', destination: '南港展覽館', etaMin: 3, status: 'minutes' }] }, { t }), '板南線 往 南港展覽館 3 分');
 });
 
 test('PWA 播報：第一次載入不念、文字沒變不重念、空字串不清掉', () => {

@@ -86,6 +86,7 @@ function railView(rail, t, state) {
 export const etaText = (s, t, locale) => {
   if (locale !== 'en' || !s) return s?.statusText;
   if (s.status === 0 && s.etaSec != null) return etaLabel(s.etaSec); // 跟每秒倒數同一套規則（不會一秒後換字）
+  if (s.status === 1 && s.etaSec != null && !s.nextBusTime) return t('busRoute.st.1eta', { min: Math.max(1, Math.ceil(s.etaSec / 60)) }); // 尚未發車但有預估：跟中文一樣帶上
   const k = `busRoute.st.${s.status}`;
   return t(k) === k ? s.statusText : t(k);
 };

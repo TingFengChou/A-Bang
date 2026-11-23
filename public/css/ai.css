@@ -112,3 +112,62 @@ html.lite-motion .ai-hero * { animation: none !important; transition: none !impo
 .ai-flow p { margin: 2px 0 0; font-size: 14px; line-height: 1.6; color: var(--muted); }
 .ai-privacy { margin: 0 0 12px; padding-left: 20px; font-size: 14px; line-height: 1.8; }
 .settings .ai-link { display: inline-flex; align-items: center; margin-top: 10px; text-decoration: none; white-space: normal; }
+
+/* ───── 現場試判斷（ai-trial.js）：四段逐段出現；每段標來源、耗時、有沒有用網路，可展開原始 JSON ───── */
+.ai-ex .chip small { margin-left: 4px; color: var(--muted); font-size: 12px; }
+.ai-net { margin-top: 12px; }
+.ai-net .ai-local { margin-top: 0; border-radius: 12px 12px 0 0; }
+.ai-net ul { margin: 0; padding: 8px 12px 10px 30px; border: 1px solid var(--brand-soft); border-top: 0; border-radius: 0 0 12px 12px; font-size: 13px; line-height: 1.7; color: var(--muted); }
+.ai-think:not(:empty) { margin-top: 14px; }
+.ai-trial { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 12px; }
+.ai-sec { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: var(--card); animation: ai-sec-in .32s ease-out both; }
+@keyframes ai-sec-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ai-sec { animation: none; } }
+html.lite-motion .ai-sec { animation: none; }
+.ai-sec-head { display: flex; align-items: center; gap: 10px; }
+.ai-sec-head h3 { margin: 0; font-size: 16px; }
+.ai-sec-n { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); font-size: 13px; font-weight: 700; }
+.ai-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 10px; font-size: 12px; }
+.ai-meta span { padding: 2px 8px; border-radius: 999px; background: var(--off-soft); color: var(--off); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ai-meta .ai-by { background: var(--brand-soft); color: #0b4f49; font-weight: 600; }
+.ai-meta .ai-netb.no { background: var(--ok-soft); color: var(--ok); }
+.ai-meta .ai-netb.yes { background: var(--warn-soft); color: var(--warn); }
+.ai-sec h4 { margin: 12px 0 6px; font-size: 14px; color: var(--muted); font-weight: 600; }
+.ai-sec-body > h4:first-child { margin-top: 0; }
+.ai-verdict { margin: 0 0 8px; padding: 8px 10px; border-radius: 10px; font-weight: 600; line-height: 1.6; }
+.ai-verdict.ok { background: var(--ok-soft); color: var(--ok); }
+.ai-verdict.no { background: var(--warn-soft); color: var(--warn); }
+.ai-slots, .ai-sources, .ai-tools, .ai-ask-opts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; line-height: 1.6; }
+.ai-slots li, .ai-sources li, .ai-tools li, .ai-ask-opts li { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+.ai-slots li:first-child, .ai-sources li:first-child, .ai-tools li:first-child, .ai-ask-opts li:first-child { border-top: 0; }
+.ai-slots b, .ai-sources b, .ai-tools b, .ai-ask-opts b { flex: 0 0 auto; min-width: 5em; }
+.ai-slots span, .ai-sources span, .ai-tools span, .ai-ask-opts span { flex: 1 1 12em; color: var(--muted); overflow-wrap: anywhere; }
+.ai-slots li.have span { color: var(--text); font-weight: 600; }
+.ai-slots li.miss span { color: var(--bad); font-weight: 600; }
+.ai-sources li.live span { color: var(--ok); }
+.ai-tools li.fail span { color: var(--bad); }
+.ai-tools .ai-tag { align-self: center; }
+.ai-say { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--off-soft); line-height: 1.7; overflow-wrap: anywhere; }
+.ai-rewrite .ai-say { background: #fff7e6; }
+.ai-check { margin: 6px 0 0; font-size: 13px; font-weight: 600; }
+.ai-check.ok { color: var(--ok); }
+.ai-check.no { color: var(--warn); }
+.ai-ask { border: 1px solid #f3d9a4; background: #fffaf0; border-radius: 12px; padding: 10px 12px; }
+.ai-ask-q { margin: 0 0 6px; font-weight: 700; line-height: 1.6; }
+.ai-gap { color: var(--warn) !important; }
+/* 這題誰決定的（ADR-0020）：手機上的 AI／規則保底；被擋下的手機題目用灰底（不是阿幫真的會問的） */
+.ai-asker { margin: 8px 0 0; font-weight: 600; }
+.ai-asker.device { color: var(--ok) !important; }
+.ai-ask-blocked { margin-top: 8px; border-color: var(--line); background: #f7f9f8; }
+.ai-ask-blocked .ai-dq { margin: 0 0 6px; font-weight: 700; line-height: 1.6; color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.ai-ask-blocked .ai-ask-opts li { color: var(--muted); }
+.ai-suggest { margin: 0; padding-left: 22px; display: grid; gap: 6px; font-size: 15px; line-height: 1.6; }
+.ai-suggest li span { margin-right: 6px; }
+.ai-raw { margin-top: 10px; }
+.ai-raw summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--brand); font-size: 14px; font-weight: 600; }
+.ai-raw pre { margin: 0; max-height: 280px; overflow: auto; padding: 10px; border-radius: 10px; background: #f7f9f8; border: 1px solid var(--line); font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ai-trial-foot { margin: 12px 0 0; }
+.ai-trial-foot .btn { min-height: 44px; }
+.ai-sources b { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; }
+.ai-sources span { flex: 1 1 100%; }
+.ai-ask-opts b { min-width: 7em; }

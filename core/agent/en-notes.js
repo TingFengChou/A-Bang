@@ -6,6 +6,7 @@ const RULES = [
   [/^找「(.+)」的位置$/, (m) => `finding ${m[1]}`],
   [/^「(.+)」在哪個縣市$/, (m) => `which city ${m[1]} is in`],
   [/^看一下外面的狀況$/, () => 'checking weather, air and traffic'],
+  [/^看「(.+)」到「(.+)」沿途的國道$/, (m) => `freeway traffic from ${m[1]} to ${m[2]}`],
   [/^幫你比較幾種走法$/, () => 'comparing ways to get there'],
   [/^看一下現在的天氣$/, () => 'checking the weather now'],
   [/^看一下明天的預報$/, () => "checking tomorrow's forecast"],
@@ -28,6 +29,8 @@ const RULES = [
   [/^沒找到，改看熱門排行$/, () => 'nothing found; showing popular ones'],
   [/^看《(.+)》的簡介$/, (m) => `synopsis of 《${m[1]}》`],
   [/^你選了公車，我幫你盯 (\S+) 在「(.+)」的到站$/, (m) => `you picked the bus; watching ${m[1]} at ${m[2]}`],
+  [/^先看 (\S+) 在「(.+)」今天有沒有車$/, (m) => `checking if bus ${m[1]} is running at ${m[2]}`],
+  [/^(\S+) (今天沒有營運|末班已過|這站交管不停靠)，不列入，重新比較$/, (m) => `bus ${m[1]} ${({ 今天沒有營運: 'is not running today', 末班已過: 'has finished for the day', 這站交管不停靠: 'is not stopping there' })[m[2]]}; comparing again without it`],
 ];
 
 /** 「@天氣 看一下現在的天氣」→「@天氣 checking the weather now」；對不上照原文 */

@@ -4,7 +4,7 @@ import { API_BASE, IN_APP } from '../base.js';
 import { t as cardT } from '../../ui/cards/i18n/zh-TW.js';
 import { runAgent, browserLocation, locationGranted, recentFix } from '../agent/client.js';
 import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-help.js';
-import { edgeJudge, edgePrewarm, edgeSuggest, edgeCanSuggest } from '../edge-judge.js';
+import { edgeJudge, edgePrewarm, edgeSuggest, edgeCanSuggest, edgeJudgeReady, judgeContext } from '../edge-judge.js';
 import { edgeWrite, edgeWriteCaps, writeLine, writeModeText } from '../edge-write.js';
 import { noteAgentStatus } from '../ai-info.js';
 import { mountThinking, deviceLine } from '../agent/thinking.js';
@@ -27,7 +27,11 @@ import { renderDecision, lite, roleEn } from '../../ui/agent/decision-graph.js';
 import { mountVisionButton, handOff, takeHandoff } from '../vision.js';
 import { healthEnabled, agentNudge, turnWeather, nearMe, EXERCISE_Q } from '../health.js';
 import { healthBubble } from '../health-ui.js';
+import { looksLikeMessage } from '../../../core/vision-text.js';
+/** 問是不是詐騙（生活阿幫附了內容時直接帶到防詐） */
+const SCAM_Q = /詐騙|是不是騙|騙人的|\bscam\b|\bfraud\b/i;
 import { mountDramaHint, dramaHintOn } from '../drama-hint.js';
+import { hasCar } from '../my-car.js';
 import { createRounds } from '../agent/collapse.js';
 import { linkReminders } from '../agent/chat-links.js';
 
@@ -162,6 +166,7 @@ export default {
     const cards = [];
     let turnNo = 0; // 第幾輪：只有最近兩輪的卡片自動刷新（對話一直保留，舊卡片不再查，省流量與電）
     let openAsk = null; // 阿幫問你（ADR-0016）：目前開著的問題；下一句對得上就是答案，對不上＝略過
+    let askedLast = []; // 上一輪問過的題（about）：手機上的 AI 出題時不再問同一題（ADR-0020）
     let pendingQ = null; // 阿幫還在回答時又問（提醒泡泡、首頁帶來的問題）：答完接著問，不丟掉（含這一頁的說明）
     const seenCards = new Map(); // 上一輪的天氣、空品（接著問時沒變就收合「同上」；鍵含測站，同一輪起訖點兩張不互蓋）
     /** 這張卡跟上一輪同一個測站的一樣嗎：一樣回收合說明，否則記下並回 null */
@@ -271,6 +276,12 @@ export default {
         view?.box?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         b.remove();
         return undefined;
+      }
+      if (s.kind === 'alarm') { // 某天某時的本機提醒（明早帶傘）：跟出門提醒同一套，可在提醒頁取消
+        const id = await host.remind(s.payload.at, s.payload.text, { key: s.payload.key, date: s.payload.date, ...(s.payload.lang && { lang: s.payload.lang }) }).catch(() => false);
+        const en = view?.lang === 'en';
+        (view?.round || log).append(el('p', 'agent-sys', id ? (en ? `OK, I'll remind you at ${s.payload.at} tomorrow.` : `好，明天 ${s.payload.at} 提醒你帶傘。`) : (en ? "Couldn't set the reminder (allow notifications)." : '提醒沒設成（要允許通知）。')));
+        return showNext(view);
       }
       if (s.kind === 'remind') {
         await host.watchArrival(s.payload);
@@ -392,6 +403,7 @@ export default {
         a.skip();
       }
       if (busy) { pendingQ = { q, pageContext, voice: spoken, follow }; return; }
+      if (agentId === 'life' && SCAM_Q.test(q) && (/https?:\/\/|www\.|\d{4,}/i.test(q) || looksLikeMessage(q))) { input.value = ''; handOff('antifraud', q); host.navigate('#/agent/antifraud'); return; } // 生活阿幫被問「這是詐騙嗎」又附了網址、電話或內容：不問，直接帶到防詐（審查 #121）
       turnNo += 1;
       pastWrap?.querySelector('.past-acts button') && pastWrap.querySelector('.past-acts').replaceChildren(el('span', 'past-note', history.length ? '接著上次的話問' : '這次重新問（上次的對話只留著看）'));
       const myGen = gen;
@@ -410,7 +422,11 @@ export default {
       rounds.start(round, { q, view, follow, keepPrev: !!pendingAsk }); // 可能在回答「阿幫問你」（對不上按鈕）：上一輪先留著（collapse.js 答完再看）
       try {
         // 手機 App：先在裝置上判斷意圖與狀態（最多等 1.8 秒；不可用就不帶，伺服器照常判斷）
-        const deviceJudge = agentId === 'life' ? await edgeJudge(q, history.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content)) : null;
+        // 同一次呼叫也決定要不要先問一題（ADR-0020）：情境只在手機上組、只給手機上的模型看（不含座標、地址、健康資料）
+        const asked = askedLast;
+        askedLast = [];
+        const judgeOpts = agentId === 'life' && edgeJudgeReady() ? { context: judgeContext({ summary: contextText(suggestCtx()), located: await locationGranted().catch(() => null), saved: Object.keys(loadPlaces()), asked }), asked } : {};
+        const deviceJudge = agentId === 'life' ? await edgeJudge(q, history.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content), judgeOpts) : null;
         const clientCaps = agentId === 'life' ? await edgeWriteCaps() : null; // 回答也在手機上寫（ADR-0017）：伺服器不呼叫模型
         view.writeEngine = clientCaps?.engine;
         view.device(deviceJudge); // 「阿幫在想」：手機上聽懂了什麼（沒有就改由伺服器判斷）
@@ -418,7 +434,8 @@ export default {
         const savedPlaces = agentId === 'life' ? placesFor(history.slice(-10).filter((m) => m.role === 'user').map((m) => m.content)) : undefined;
         const ctxText = [context, pageContext].filter(Boolean).join('；').slice(0, 200);
         const habitState = agentId === 'life' ? habitRequest() : null; // 同意過的偏好比例、說過的預設狀況、可以問的候選（只有方式與次數；habits.js）
-        const userState = agentId === 'life' && !dramaHintOn() ? { ...habitState, dramaHint: false } : habitState; // 設定關掉等車推短劇：伺服器就不查也不推（ADR-0019）
+        const userState0 = agentId === 'life' && !dramaHintOn() ? { ...habitState, dramaHint: false } : habitState; // 設定關掉等車推短劇：伺服器就不查也不推（ADR-0019）
+        const userState = agentId === 'life' && hasCar() ? { ...userState0, car: true } : userState0; // 我有車：行程比較加入自己開車
         await runAgent({ messages: history.slice(-10), ...(ctxText && { context: ctxText }), ...(deviceJudge && { deviceJudge }), ...(clientCaps && { clientCaps }), ...(savedPlaces && { savedPlaces }), ...(userState && { userState }), ...(pendingAsk && { pendingAsk }), ...(agentId === 'life' && { turn: turnNo }) }, (e) => { // turn：這段對話第幾輪（等車推劇輪替用）
           // 隱私：防詐頁貼上的內容只送給本站伺服器分析，不保存（AGENT_ANTIFRAUD.md §1）
           if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = modeText(e);
@@ -426,6 +443,7 @@ export default {
           view.push(e);
         }, { agentId });
         await view.flush();
+        view.finish(); // 沒查工具的一輪（只問你一題…）：收掉「小幫手討論中」
         if (myGen !== gen) return; // 回答途中按了清除本機資料：不寫回、不存
         if (view.text) history.push({ role: 'assistant', content: (view.draft ?? view.text).slice(0, 500) }); // 手機改寫的那一輪：前文用程式版（規則路徑讀得到「剛剛那班」「沒拿到你的位置」），畫面顯示改寫
         turnsLog.push({ q, results: view.results, decision: view.decision, lang: view.lang, round }); // round：建議跟著最新一輪（展開舊輪時也一樣）
@@ -438,6 +456,7 @@ export default {
         turn.append(el('div', 'msg error', '連線中斷了，請再試一次。'));
       } finally {
         view.stop(); // 沒有回答（只有卡片、或中斷）也收起「阿幫在想」
+        view.finish?.();
         busy = false; sendBtn.disabled = false; context = '';
         if (pendingQ) { const p = pendingQ; pendingQ = null; queueMicrotask(() => send(p.q, { pageContext: p.pageContext, voice: p.voice, follow: p.follow })); }
         if (!matchMedia('(pointer: coarse)').matches) input.focus(); // 手機不自動聚焦：鍵盤會跳出來蓋住回答
@@ -612,10 +631,13 @@ export default {
             break;
           }
           case 'ask': { // 阿幫問你（ADR-0016）：一輪最多一個；有決策圖就放在它上方，否則接在後面
+            if (e.about) askedLast.push(e.about);
             if (e.key && questionAskedRecently(e.key)) break; // 同一段起訖同一題，24 小時內問過（手機上只存雜湊）
             if (e.key) markQuestion(e.key);
             openAsk?.skip();
-            const ctl = mountAsk(e, { lang: turnLang, onAnswer: (o) => answerAsk(o, view, turnLang) });
+            const mine = loadPlaces(); // 常用地點的選項（回家、從公司出發）：這支手機有設定才顯示
+            const shown = { ...e, options: (e.options || []).filter((o) => !o.saved || mine[o.saved]) };
+            const ctl = mountAsk(shown, { lang: turnLang, onAnswer: (o) => answerAsk(o, view, turnLang) });
             openAsk = ctl;
             view.askOpen = () => ctl.open(); // 長對話：問題還開著，這一輪先不收
             if (/^habit:/.test(e.about || '')) markAsked(e.about.slice(6)); // 問過了（沒回答也 3 天內不再問）
@@ -673,6 +695,16 @@ export default {
       view.device = (r) => { view.sent = r || null; think.step({ type: 'device', result: r || null }); };
       view.stop = () => think.stop();
       view.flush = () => queue;
+      /**
+       * 這一輪結束（伺服器的串流跑完，含請定位後的重送）：沒有查任何工具的一輪（只問你一題、道謝、安全情境…）不會有 discussion_end，
+       * 「小幫手討論中 •••」不能一直留著——討論串只剩標題就整個拿掉；有阿幫的說明（agent_note）就留著說明、拿掉「討論中」與虛線。
+       */
+      view.finish = () => {
+        if (!thread.classList.contains('live')) return;
+        thread.classList.remove('live');
+        thread.querySelector('.thread-head')?.remove();
+        if (!thread.querySelector('.bubble, .thread-reset')) thread.remove();
+      };
       return view;
     }
     /**
@@ -708,6 +740,9 @@ export default {
         if (a.name === 'openLink') host.openLink(a.url, a.confirm ? { confirm: a.confirm } : {});
         else if (a.name === 'watchArrival') host.watchArrival(a).catch(() => {});
         else if (a.name === 'remind') host.remind(a.at, a.text, a.meta).catch(() => {});
+        else if (a.name === 'navigate' && /^#\/[a-z0-9/_-]{1,40}$/.test(String(a.to))) { host.navigate(a.to); return ''; } // App 內的頁面（到防詐貼上、發票對獎）
+        else if (a.name === 'focusInput') { input.focus(); return en ? 'Paste it in the box below.' : '貼在下面的輸入框就好。'; } // 請他貼上訊息（防詐）
+        else if (a.name === 'handOff' && a.agent === 'antifraud' && typeof a.text === 'string') { handOff('antifraud', a.text); host.navigate('#/agent/antifraud'); return ''; } // 帶著這一句到防詐（只在記憶體）
         return en ? 'Done.' : '好了。';
       }
       if (o.kind === 'store') {
@@ -735,7 +770,7 @@ export default {
       voiceRelease: () => voice?.release(),
       voiceCancel: () => voice?.cancel(),
       /** 設定頁清除本機資料：畫面上的對話也一起清掉 */
-      clear() { gen++; clearChat(); history.length = 0; pendingQ = null; openAsk = null; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); rounds.clear(); clearLinks(); turnsLog.length = 0; lastView = null; edgeMemo = { text: '', asks: null }; pinnedDefaults = false; if (dynamic) refreshSuggest(); else showDefaults(); },
+      clear() { gen++; clearChat(); history.length = 0; pendingQ = null; openAsk = null; askedLast = []; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); rounds.clear(); clearLinks(); turnsLog.length = 0; lastView = null; edgeMemo = { text: '', asks: null }; pinnedDefaults = false; if (dynamic) refreshSuggest(); else showDefaults(); },
       /** 從哪一頁打開（浮動阿幫）：那一頁可以問的問題；點了才把這一頁的說明一起送（自己打的問題不帶）；null＝清掉 */
       setPage(hint) {
         const pc = String(hint?.context || '');

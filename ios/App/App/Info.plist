@@ -16,6 +16,8 @@
 	<string>阿幫不會寫入任何健康資料，只讀步數與體能訓練時間。</string>
 	<key>AbangHealthKit</key>
 	<string>$(ABANG_HEALTHKIT)</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>UIUserInterfaceStyle</key>
 	<string>Light</string>
   <key>CAPACITOR_DEBUG</key>

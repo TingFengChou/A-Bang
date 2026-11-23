@@ -31,7 +31,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | M12 裝置端 AI（ADR-0014） | 🚧 第一階段 ✅（2026-11-21：Gemini Nano 實機、Apple Intelligence 模擬器、E8 設定開關 ✅；E7 回答也在手機上寫 ✅ ADR-0017） | E3 App 內分類器備援 | iOS 實機數據需 iPhone 15 Pro 以上並開啟 Apple Intelligence |
 | 阿幫常駐與頁面質感（Austin 2026-11-21） | ✅（PR #69～#81：對話保留、浮動阿幫、提醒泡泡、知道你在哪一頁、App 重開後上次的對話、公車會動、格子頁首動畫、各頁小巧思兩批、英文其餘、Android 實機煙霧測試） | — | — |
 | Agent 聰明度：模型模式與 PM 第二批（2026-11-21） | ✅（PR #79、#82：地端模型模式 72→97／99；PM P2-1～10 全過） | PM 第三批 | — |
-| M13 Agent 聰明度（PM 情境 S1～S19） | 🚧（情境集 89 個、todo 0：位置當起點、接著改、新狀態、出門建議、明天天氣、末班車、捷運轉乘、高鐵台鐵最近站、英文與卡片／討論串／決策圖英文、常用地點、多人同行／可能下雨／時間很緊、出門建議小卡、出門提醒多筆、附近藥局依位置、公車一直不來、下車提醒、安全情境（求助電話）、常用地點用地名設定、定位失敗說原因、行程中模式 ✅） | S12f 英文其餘、E3／E7 | 真實末班車、捷運路網需 TDX 金鑰 |
+| M13 Agent 聰明度（PM 情境 S1～S19） | 🚧（情境集 89 個＋PM「該問就問」Q 情境 27 個（`life-q.json`，全過）、todo 0：位置當起點、接著改、新狀態、出門建議、明天天氣、末班車、捷運轉乘、高鐵台鐵最近站、英文與卡片／討論串／決策圖英文、常用地點、多人同行／可能下雨／時間很緊、出門建議小卡、出門提醒多筆、附近藥局依位置、公車一直不來、下車提醒、安全情境（求助電話）、常用地點用地名設定、定位失敗說原因、行程中模式 ✅） | S12f 英文其餘、E3／E7 | 真實末班車、捷運路網需 TDX 金鑰 |
 | M14 阿幫聽得懂、看得懂（產品負責人 2026-11-21；ADR-0015） | 🚧（M14-01 語音問阿幫 ✅、M14-02 看 ✅） | 實機確認（Pixel、iPhone） | iOS 實機需 Austin 的 iPhone；打包版 ML Kit 讓 APK 變大（產品負責人已同意） |
 | M15 健康與運動（產品負責人 2026-11-22；ADR-0018） | 🚧（M15-01 天氣好又動得少時建議去走走 ✅，待產品負責人看截圖） | 實機確認（Pixel Health Connect、iPhone HealthKit） | iOS 免費個人開發團隊可能不能簽 HealthKit（開發版改用不含 entitlement 的建置，App 裡反白說原因）；上架前 Play Console 健康資料聲明 |
 | 阿幫・短劇（MyDrama，產品負責人 2026-11-22，ADR-0019） | 🧩（等車推短劇、問阿幫找劇、運動建議提示句 ✅；示範片庫可跑） | 產品負責人看截圖決定是否合併；運動建議接線 | 真實片庫與連結需 `.env` 的 `MYDRAMA_*`（合作方提供）；每集長度欄位 |
@@ -53,6 +53,8 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | S1d 本機資料改存 Capacitor Preferences | 新依賴，要先寫 ADR |
 | S1e 常用地點用門牌地址 | 需要地址轉座標資料來源（例如 TGOS），先評估 |
 | S5 YouBike 空位預測 | 需要歷史車位資料 |
+| T-MIX 公車／台鐵接捷運 | 起點或目的地附近沒有捷運站（三峽、桃園、高鐵桃園站→台北捷運）時，組合「公車接捷運」「台鐵接捷運」「機捷接北捷」多段方案（大工程；2026-11-22 真實健檢先把「捷運沒列入」的原因說清楚：哪一端、最近的站多遠、跨系統） |
+| T-QUOTA 一題行程少打 TDX | `core/agent/run.js`：行程題不另外先呼叫 `traffic_status`（`plan_trip` 已自己查路況並輸出 `considered`；兩者在 60 秒快取與同網址併發內共用，但 agent 先查會先用掉 2 次額度）；或先 `plan_trip` 再視需要查路況（`core/tools` 的 `mode`／`speak` 已在 PR #126 改說 `limited`） |
 
 **需要 Austin 或其他人**：見下方「Austin 待辦」與「被卡住的項目」；另外上架前：安全情境（S19）的用語與電話請心理衛生、緊急應變專業人員確認；隱私權政策〔待補〕欄位（營運單位、目的代號、伺服器所在地、聯絡方式）由營運單位與法務填寫；實機確認 `tel:` 一鍵撥號、iOS 深色主畫面圖示。
 
@@ -86,24 +88,29 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 - [ ] M1-01 `scripts/verify-tdx.js`：逐一呼叫 `MCP_TOOLS.md` 所有 ⚠️ 端點，印出狀態碼、筆數、第一筆欄位名稱（不印金鑰）；無金鑰時清楚提示並 exit 1
 - [ ] M1-02 `scripts/record-fixtures.js`：把真實回應（每端點截前 5 筆）存到 `test/fixtures/<endpoint>.json`，移除可能的個資
 - [ ] M1-03 ⛔ 本機執行 M1-01／02；`test/transit.test.js` 改讀新 fixtures；修正與實際欄位不符的正規化
-- [ ] M1-04 ⛔ 把驗證結果寫進下表與 `DATA_SOURCES.md`；額度方案寫進 `ARCHITECTURE.md` §快取與額度
+- [ ] M1-04 ⛔ 把驗證結果寫進下表與 `DATA_SOURCES.md`；額度方案寫進 `ARCHITECTURE.md` §快取與額度（2026-11-22：額度方案 ✅——每分鐘 5 次下的快取存檔、縣市整批取、背景預熱、額度排程，DATA_SOURCES.md §1.1；其他端點仍待驗證）
 
 驗收：`npm test` 用真實 fixture 通過；`verify-tdx.js` 全綠或有明確「不支援」紀錄。
 
 | 待驗證 | 狀態 |
 |---|---|
-| `Bus/EstimatedTimeOfArrival/.../PassThrough/Station/{id}` | 未驗證 |
+| `Bus/EstimatedTimeOfArrival/.../PassThrough/Station/{id}` | 已驗證 2026-11-22：在 `/advanced/v2/` 底下（`/basic/` 404 → 以前一律 502）；欄位 `RouteName`、`Direction`、`EstimateTime`（秒，沒有就不帶）、`StopStatus`（臺北市站位 1000 實測） |
+| 公車到站 `StopStatus` 與 `NextBusTime` | 部分 ✅ 2026-11-22（新北 939、三峽-臺北市信義區）：`StopStatus` 0～4 都看得到（4 今日未營運整條路線每站都是 4；2 交管不停靠只有個別站）；狀態 1 尚未發車的站**沒有** `NextBusTime`。`etaOf` 有 `NextBusTime` 才換算等車時間（沒寫時區當 +08:00），沒有照舊算「到站時間不明」；台北市與其他縣市未驗證 |
 | `Bus/Shape/City/{City}/{Route}` WKT 格式 | 未驗證（M3-02 假設欄位 `Geometry`、`LINESTRING`／`MULTILINESTRING`；`core/geo.js` 防禦性解析） |
 | 站牌 `StopPosition` 於各縣市完整度 | 未驗證 |
-| `Rail/Metro/LiveBoard/{Op}` 各系統欄位 | 未驗證（M3-04 假設 `EstimateTime` 為分鐘、`DestinationStationName`／`TripHeadSign`、可用 `$filter=StationID eq …`） |
-| 台鐵／高鐵 ODFare 欄位 | 未驗證（M3-05 假設 `Fares[].TicketType／FareClass／CabinClass／Price`、台鐵 v3 `ODFares[]` 每車種一筆；代碼對照與台鐵 `TrainType` 意義待確認） |
+| `Rail/Metro/LiveBoard/{Op}` 各系統欄位 | 北捷 ✅ 2026-11-22：欄位 `LineID`、`LineName`、`StationID`、`DestinationStationName`、`EstimateTime`（分鐘）符合；但只列「進站中」的站（約 20～25 筆、`EstimateTime` 都是 0）→ 看板整個系統一次取，其他方向用 `StationTimeTable` 估（DATA_SOURCES.md §1.2）。其他系統未驗證 |
+| 台鐵／高鐵 ODFare 欄位 | 已驗證 2026-11-22：`Fares[].TicketType／FareClass／CabinClass／Price` 符合；高鐵代碼對照符合（台北→左營 自由座 1,445、標準 1,490、商務 2,440）。台鐵 v3 `ODFares[]` 每個車種×方向一筆、沒有 `TrainTypeName`，`TrainType` 是車種代碼（1 太魯閣、2 普悠瑪、3 自強、4 莒光、5 復興、6 區間、7 普快、10 區間快、11 自強3000，對照 `/basic/v3/Rail/TRA/TrainType`）；兩個 `Direction` 之一是繞島另一邊，取 `TravelDistance` 最短的。臺北→新竹成人單程 區間 163、莒光 195、自強 253 |
 | 高速公路旅行時間、道路事件、國道客運端點 | 未驗證（M3-07 假設 `StopOfRoute/InterCity`、`Schedule/InterCity` 的 `Timetables[].ServiceDay／StopTimes`；客運票價端點未知；M3-06 假設 `SectionShape`／`Section`／`Live`／`Live/News` 的 Freeway 端點與 `SectionShapes`、`Sections`、`LiveTraffics`、`Newses` 包裝；`TravelSpeed` 為 0 是「完全停滯」還是「無資料」（目前視為無資料）；走廊 3 km 可能同時納入平行國道（國 1／國 3），需以實際路段資料決定是否依 `RoadName` 只取一條主線） |
 | 地理編碼（TDX 或 TGOS） | 未驗證（`find_place` 目前只查內建地標） |
 | 導訂票 API 端點與參數（需權限） | 未驗證 |
-| CWA 觀測與鄉鎮預報欄位 | 未驗證（M3-08 假設 `records.Station[]`（`GeoInfo.Coordinates` WGS84、`WeatherElement.AirTemperature／Weather`）、雨量站 `O-A0002-001` 的 `RainfallElement.Past1hr.Precipitation`（`-998` 雨跡等特殊值目前視為沒有資料）、`F-D0047-089` 可用 `LocationName` 篩、上層縣市欄位 `LocationsName`（同名鄉鎮以縣市區分）、時段 `EndTime`、元素名「3小時降雨機率」；`weather_tomorrow` 另假設時段 `StartTime`（或 `DataTime`）、元素「溫度／最高溫度／最低溫度」「天氣現象」） |
+| CWA 觀測與鄉鎮預報欄位 | 鄉鎮預報已驗證 2026-11-22：`F-D0047-089` 是縣市層級，鄉鎮要用各縣市的 `F-D0047-001～085`（DATA_SOURCES.md §3）；`LocationsName`、`LocationName`、元素名「3小時降雨機率」「溫度」「天氣現象」、`StartTime`／`EndTime`／`DataTime`（帶 +08:00）都符合。觀測與雨量站欄位實際在用、結果合理（高雄三民 25.8°C、雨量 0 mm）。以下是原本的假設，`-998` 等特殊值仍未確認：（M3-08 假設 `records.Station[]`（`GeoInfo.Coordinates` WGS84、`WeatherElement.AirTemperature／Weather`）、雨量站 `O-A0002-001` 的 `RainfallElement.Past1hr.Precipitation`（`-998` 雨跡等特殊值目前視為沒有資料）、`F-D0047-089` 可用 `LocationName` 篩、上層縣市欄位 `LocationsName`（同名鄉鎮以縣市區分）、時段 `EndTime`、元素名「3小時降雨機率」；`weather_tomorrow` 另假設時段 `StartTime`（或 `DataTime`）、元素「溫度／最高溫度／最低溫度」「天氣現象」） |
+| 機場捷運直達車參數 | 未驗證（2026-11-22：`AIRPORT_EXPRESS` 台北車站 ↔ 機場第一航廈約 35 分、第二航廈約 38 分、160 元、約 15 分一班，依公告的大約值；真實改用 `Metro/S2STravelTime`、`Metro/ODFare`） |
 | 捷運線別與估算 | 未驗證（2026-11-21：線別由站代碼字首推（台中數字代碼→綠線、高雄 RK→紅線、機捷 A）；時間票價依距離估，真實改用 `Metro/S2STravelTime`、`Metro/ODFare`） |
 | 高鐵／台鐵車站座標與等級 | 未驗證（2026-11-21：`StationPosition.PositionLat／Lon` 給「最近車站」用；台鐵 `StationClass` 可用來優先有直達車的大站，目前改用「最近 3 站依序查、0 班換下一站」） |
 | OData 空白用 `%20`（已實作）是否必要 | 未驗證 |
+| 捷運站別時刻表的國定假日班表 | 2026-11-22 已實作（國定假日用 `ServiceDay.NationalHolidays` 的班表，看路線＋方向＋終點）；國定假日清單 `core/data/tw-holidays.json` 已與人事行政總處 115、116 年辦公日曆表核對（data.gov.tw 資料集 14718，`scripts/build-holidays.js` 由官方 CSV 產生）。待驗證：真實 `StationTimeTable` 是否帶 `NationalHolidays`、平日／假日是否分成兩筆 |
+| 停車場 `/basic/v1/Parking/OffStreet/CarPark/City/{City}` 的 `$spatialFilter` | 2026-11-23 實測：台中 500 公尺內回 1,558 筆（不像真的有篩），程式自己算距離、取 600 公尺內；台北市、新北市 `CarParks` 是空的（只有 `ParkingAvailability`、沒有座標）→ 2026-11-23 改用市府開放資料（`docs/DATA_SOURCES.md` 停車場）。`$select` 沒有作用。待驗證：附近篩選的實際範圍 |
+| 台北市、新北市停車場開放資料（`core/services/parking-open.js`） | 2026-11-23 實測：台北 `TCMSV_alldesc.json` 1,767 筆（收 1,695；`EntranceCoord` 的 `Xcod` 是緯度、`Ycod` 是經度，128 筆入口是 0,0（改用 TWD97），14 筆入口與 TWD97 差超過 300 公尺（不列））；`TCMSV_allavailable.json`／`.xml` 的空位停在 10-19／11-19，改用 TDX 台北空位（ID 相同）。新北 `size` 上限 1000（要分頁）；空位欄位實際是 `AVAILABLECAR`（說明寫 `AVAILABLE`，兩個都收）；有幾筆 `TW97X`／`TW97Y` 寫反或是 0。待驗證：台北入口座標與 TWD97 哪個準（目前差太多就不列）、台北 blob 空位檔是否恢復更新、新北私有停車場是否會有空位 |
 
 ## M2 Tool registry＋遠端 MCP ✅
 
@@ -313,7 +320,8 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] S19 安全情境：自傷與緊急狀況先給求助電話（1925、119／110／112），不查交通、不交給模型（2026-11-21）
 - [ ] S17 長途訂票（導訂票權限 ⛔）
 - [x] P2 阿幫問你（ADR-0016）：通用事件 `ask`（kind state／reply／store／action／dismiss、guess、pending）、共用區塊（問阿幫頁、底部面板）、直接打字回答（matchAnswer、pendingAsk→resolvePending）；關鍵因子 `keyQuestion`（趕不趕、省不省、行李、少走路）；習慣改成問過「好」才加分、叫車問原因（你說過的預設狀況）；情境檢查 asks／asksNone／askOptions／askKind／askGuess／toNot、情境 `here`（2026-11-21）
-- [ ] P2b PM 的 27 個「阿幫問你」情境接上（缺起站、地名有歧義、沒說目的地…：在 `PENDING_SLOTS` 加 slot）
+- [x] P2b PM 第六批：27 個「阿幫問你」Q 情境（該問就問、不該問就不問；`test/scenarios/life-q.json` Q-1～Q-27 全過）（2026-11-22）：`core/agent/clarify.js`（題目）＋`clarify-plan.js`（stop 只問／after 先用猜的查再問）；`PENDING_SLOTS` 加 railFrom、railTo、place、topic、where、busStop、invoiceNo，`to` 帶叫車；地名歧義（同名跨縣市、同城多義、連鎖、區名、只打名字、路名）、高鐵台鐵缺起站（有定位用最近的站）／迄站（最近站兩個方向先查）、只說類別、沒定位問在哪、公車沒定位問哪一站、公車往某方向（`bus_route_eta` `toward`、兩個方向都說）、捷運站名省略「捷運」、路線名不當地名、我中獎了嗎、要出門了、你就在那裡、防詐請他貼上、公車快到改問提醒、只回「好」；關鍵因子：走路 15 分內不問、趕時間快 5 分以上才問；手機出題新種類（railFrom／railTo／place／where／topic）選項要是程式的候選；模型模式也由程式先問（不用位置的那幾題）
+- [x] P2b 後續三項（2026-11-22）：①「去機場」沒說哪個——有定位先用最近的機場排行程並問（選項最近的放第一、最多 3 個，第一個標猜的），沒定位只問，說了明確的機場或航廈不問，英文 to the airport 同理（情境 Q-28～Q-35、`test/airport-ask.test.js`）②北捷看板狀態正規化成代碼（arriving／approaching／minutes／scheduled／unknown），卡片中英字典、英文播報與摘要不出現中文，`metro.v1.json` 的 `trains[]` 改 enum＋`additionalProperties: false` ③站別時刻表看國定假日（`ServiceDay.NationalHolidays`、2026／2027 清單 `core/data/tw-holidays.json` 由官方辦公日曆 CSV 產生並核對、台灣時間）；PR #122 審查修正：去機場不搶天氣、空品、路況、否定、別人去、多站、提醒、帶什麼；從家／公司去機場；那去機場呢沿用起點；搭機捷＝桃園機場；台北＝松山機場；看板狀態舊值相容、英文卡片用英文線名與終點
 - [x] P1 個人化：記住常選的交通方式（只在手機 `abang.habits`、只記方式與時間、最近 50 次、60 天半衰期、選滿 5 次生效；`userState.habit` → `plan_trip` `prefs.habit`，`decide.js` 最多加 8 分、說了狀況／指定方式／不要／抵達時間優先；決策圖「你常選」chip 可點掉、看為什麼；設定頁開關（預設開）與清除；ADR-0010 習慣）（2026-11-21）
 
 ## 體驗與品質補強（審查與 PM 建議，2026-11-21）
@@ -329,6 +337,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] 行程中模式（2026-11-21）：坐車中畫面（到下車站還要多久、街景站牌換下車站、時間軸標下車站）、每一頁上方的進行中列、問阿幫「上車後提醒我下車」
 - [ ] 行程中模式第二版：Doze 時的備援通知（Android 精準鬧鐘權限）、Live Activity／持續通知顯示倒數（需原生、另評估）
 - [x] 離線與弱網：快取最近一次結果，顯示「上次更新時間」（公車、時刻表；附近查詢不存）（2026-11-21）
+- [x] 真實資料健檢 S1（2026-11-22）：TDX 額度用完改用示範資料時，示範的公車、客運、高鐵、台鐵、捷運站、YouBike 方案不參加排名（`skipped` 照實說、`limited` 一句；大眾運輸全部沒有時先比走路、叫車並建議稍後再問）；估算值保守看（`UNCERTAIN`、客運與鐵路票價保守估）；機場捷運直達車公告參數；捷運沒列入的原因說哪一端；尚未發車的說法卡片與行程一致（ADR-0010 2026-11-22）
 
 ## 阿幫常駐（Austin 2026-11-21）
 
@@ -343,6 +352,10 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] 浮動阿幫知道你在哪一頁：從公車、天氣、空品、地震、藥局、垃圾車、油價、發票、股市、捷運、高鐵台鐵、附近打開時「在這頁可以問」，這一頁的說明跟下一個問題一起送（2026-11-21）
 - [x] 動態「下一句」建議（產品負責人 2026-11-21，UX.md §3.2、AGENT.md §5.5）：placeholder、輸入框上方建議（問阿幫頁與底部對話面板）、首頁範例依情境變；App 裡手機上的 AI 猜（外掛 `suggest()`）、伺服器規則驗證（`/api/v1/suggest/check`，只收句子）、丟掉查不到與畫面上重複的；網頁版與不足 3 句用情境規則；程式排序（即時資料優先）；設定開關
 - [ ] 動態建議實機確認：Pixel（Gemini Nano 句子品質、延遲）、iPhone（Foundation Models）；之後跟另一分支的 `write()` 整併外掛
+- [x] 「阿幫的腦袋」現場試判斷升級（產品負責人 2026-11-22：「除了意圖狀態外，可以多是否有足夠資料、最後預計回答的內容、下一個預計詢問使用者的內容」，UX.md §5.0.1、AGENT.md §3.6）：按一次逐段出現四段——意圖與狀態（手機；不能用改伺服器規則）、資料夠不夠（`trial` 事件，`core/agent/trial.js` 程式算欄位與資料來源真實／示範與原因）、預計回答（真的跑一次 edge 模式拿程式版，手機改寫與護欄結果兩版都列）、下一個預計問你（`ask` 事件＋動態建議前 3 句標來源）；每段標來源、耗時、有沒有用網路，可展開原始 JSON、複製結果；5 個測試句（含資料不夠、英文、防詐）；不送定位、常用地點、習慣；重用 `/api/v1/agent`（`clientCaps.trial`），不加新端點
+- [x] 試判斷看出來的缺口（2026-11-22，「該問就問、不要自己猜」）：缺路線問「哪一路公車？」、只說起點當起點並問「要去哪裡？」、沒定位而目的地就在預設起點旁邊時問「你從哪裡出發？」；`PENDING_SLOTS` 加 `route`／`to`／`from`，打字回答接回原問題；中英文；情境 AS-1～AS-7
+- [x] 問什麼由手機上的 AI 決定（2026-11-22，產品負責人：「決定要問什麼應該交給 edge AI」，ADR-0020）：手機 judge 一次回意圖、狀態與要不要問一題（route／to／from／state），情境只在手機上組；程式驗證（形狀：`core/edge-ask.js`，手機與伺服器共用；內容：缺的欄位要真的缺、狀態題要真的會換建議、選項要接得回），不通過照規則問（保底）；`ask.askSource`、`done.askCheck`；試判斷第 4 段標來源、列被擋的手機題目與原因；Android JSON、iOS `@Generable`；#115 情境用假外掛「合理／亂來」各跑一遍全過
+- [ ] 手機出題實機確認：Pixel（Gemini Nano）、iPhone 15 Pro 以上（Apple Intelligence）的出題品質、採用率、judge 延遲（輸出多了 ask，原生 1.5 秒逾時是否夠）
 
 ## M14 阿幫聽得懂、看得懂（產品負責人，2026-11-21）
 

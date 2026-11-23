@@ -125,7 +125,7 @@ test('Claude：工具錯誤與不在白名單 → tool_result ok=false，回填 
     { tools: [{ id: 'a', name: 'bus_route_eta', input: {} }, { id: 'b', name: 'metro_stations', input: { system: 'TRTC' } }] },
     { text: '抱歉，需要你告訴我路線號碼。' },
   ]);
-  const es = await run(claude(), '公車到哪了');
+  const es = await run(claude(), '幫我查一下交通'); // 「公車到哪了」缺路線現在由程式先問（ADR-0016），不交給模型
   const rs = es.filter((e) => e.type === 'tool_result');
   assert.deepEqual(rs.map((e) => e.ok), [false, false]);
   assert.ok(!es.some((e) => e.type === 'agent_note'), '沒有前導文字就不送 agent_note');

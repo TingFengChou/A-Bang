@@ -10,6 +10,8 @@ const MAX_CLIENT_ROUNDS = 2;
 let lastFix = null;
 /** 最近一次定位（10 分鐘內；只在手機上比對用，不送出）；沒有回 null */
 export const recentFix = (maxAge = 600_000) => (lastFix && Date.now() - lastFix.at < maxAge ? lastFix.pos : null);
+/** 定位逾時時可以沿用的上一次定位（15 分鐘內） */
+export const RECENT_FIX_MS = 15 * 60_000;
 /** 手機 App 的原生定位外掛（@capacitor/geolocation）：iOS 只問 App 權限一次，不會再跳 WebView 的「localhost 想使用你的位置」 */
 const nativeGeo = () => {
   const c = globalThis.Capacitor;
@@ -68,7 +70,12 @@ export function browserLocation(timeout = 5000, { highAccuracy = false, fresh = 
   if (pending && !fresh && nativeGeo()) return pending; // 共用進行中的原生定位（不算新的一次）
   const my = ++attempt;
   let settled = false;
-  const fail = (why) => { if (!settled && my === attempt) lastError = why; settled = true; return null; };
+  // 這次定位逾時或暫時拿不到（不是被拒絕、不是關掉定位）：15 分鐘內定位過就先用那次（剛剛查天氣用了位置，下一句不要又問你在哪；2026-11-22）
+  const fail = (why) => {
+    if (!settled && my === attempt) lastError = why;
+    settled = true;
+    return (why === 'timeout' || why === 'unavailable') && !fresh && !withAccuracy && lastFix && Date.now() - lastFix.at < RECENT_FIX_MS ? lastFix.pos : null;
+  };
   const keep = (lat, lon, acc) => { const pos = { lat, lon }; lastFix = { pos, at: Date.now(), high: highAccuracy }; if (my === attempt) lastError = null; settled = true; return withAccuracy ? { ...pos, accuracy: Number.isFinite(acc) ? acc : null } : pos; };
   const opts = { enableHighAccuracy: highAccuracy, timeout, maximumAge: fresh ? 0 : 60_000 };
   const c = nativeGeo();

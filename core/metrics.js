@@ -14,24 +14,33 @@ export function countRecords(data) {
   return list ? list.length : 1;
 }
 
-/** client 每次取資料（快取或上游）時呼叫；不在 measure() 範圍內時什麼都不做 */
-export function recordFetch({ cacheHit, data }) {
+/**
+ * client 每次取資料（快取或上游）時呼叫；不在 measure() 範圍內時什麼都不做。
+ * category：真的打上游時的端點類別（例 Bus/EstimatedTimeOfArrival/City；只記類別，不記縣市、路線、參數），計在 upstream；
+ * stale：額度快用完時用了不到一分鐘前的舊快取（資料時間照實標示）
+ */
+export function recordFetch({ cacheHit, data, category, stale }) {
   const m = als.getStore();
   if (!m) return;
   m.calls++;
   if (cacheHit) m.cacheHits++;
+  else if (category) (m.upstream ||= {})[category] = (m.upstream[category] || 0) + 1;
+  if (stale) m.stale = true;
   m.scanned += countRecords(data);
 }
 
-/** 這次 tool 呼叫有一部分因上游額度用完改用示範資料（TDX 429 → mock；工具結果的 mode 標成 demo） */
-export function markFallback(key) {
+/**
+ * 這次 tool 呼叫有一部分因上游額度用完改用示範資料（TDX 429 → mock；工具結果的 mode 標成 demo）。
+ * key：方法名稱（directTrips）；path：帶服務的完整名稱（bus.directTrips、rail.thsrTimetable；不同服務的同名方法分得開）
+ */
+export function markFallback(key, path) {
   const m = als.getStore();
   if (!m) return;
   m.fallback = true;
-  if (key) (m.fallbackOn ||= new Set()).add(String(key)); // 哪個方法改用了示範資料（plan_trip 判斷公車收班要知道是不是公車那一個）
+  for (const k of [key, path]) if (k) (m.fallbackOn ||= new Set()).add(String(k)); // 哪個方法改用了示範資料（plan_trip：來自示範資料的方案不參加排名）
 }
 
-/** 這次 tool 呼叫的某個服務方法（例 directTrips）有沒有因 TDX 額度用完改用示範資料 */
+/** 這次 tool 呼叫的某個服務方法（例 directTrips、bus.directTrips）有沒有因 TDX 額度用完改用示範資料 */
 export const fellBack = (key) => Boolean(als.getStore()?.fallbackOn?.has(key));
 
 
@@ -40,7 +49,8 @@ export const currentFallback = () => Boolean(als.getStore()?.fallback);
 
 /**
  * 在計量範圍內執行 fn。
- * @returns {Promise<{ result: any, metrics: { calls: number, cacheHits: number, cacheHit: boolean, scanned: number, ms: number } }>}
+ * @returns {Promise<{ result: any, metrics: { calls: number, cacheHits: number, cacheHit: boolean, scanned: number, ms: number, upstream?: Record<string, number>, stale?: boolean } }>}
+ *   upstream：真的打上游的次數（依端點類別）；沒有打就沒有這個欄位
  */
 export async function measure(fn) {
   const m = { calls: 0, cacheHits: 0, scanned: 0 };

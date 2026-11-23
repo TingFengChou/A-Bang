@@ -8,7 +8,7 @@ import { habitWhy, USUAL_LABEL } from '../../js/habits.js';
 
 /** 被排除方案的標籤：遲到（超過抵達時間）、不要（使用者說不要這種方式）、其他排除 */
 const exLabel = (why = '') => (why.includes('超過') ? '遲到' : why.startsWith('你說不要') ? '不要' : why.includes('不建議') ? '不適合' : /收班|末班已過/.test(why) ? '收班' : /沒車|沒有車|空位/.test(why) ? '沒列入' : '排除');
-const ROLE_NAME = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車' };
+const ROLE_NAME = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車', drive: '開車' };
 
 const SVG = 'http://www.w3.org/2000/svg';
 const STATE_LABEL = { rush: '趕時間', traffic: '塞車中', rain: '下雨', luggage: '帶行李', budget: '想省錢', lessWalk: '少走路', badAir: '空品不佳', elder: '帶長輩', kids: '帶小孩', mobility: '行動不便', group: '多人同行', rainSoon: '可能下雨' };
@@ -21,14 +21,14 @@ const EN = {
   state: { rush: 'In a hurry', traffic: 'Heavy traffic', rain: 'Raining', luggage: 'With luggage', budget: 'On a budget', lessWalk: 'Less walking', badAir: 'Poor air quality', elder: 'With seniors', kids: 'With kids', mobility: 'Limited mobility', group: 'Group travel', rainSoon: 'Rain likely' }, // 與 en.js trip.stateKey 相同
   source: { auto: 'Auto-detected', user: 'You said', picked: 'You chose', usual: 'You told me' },
   usual: { rush: 'Often in a hurry', luggage: 'Often carrying things', lessWalk: 'Prefer less walking' },
-  mode: { walk: 'Walk', bike: 'YouBike', bus: 'Bus', metro: 'MRT', thsr: 'High Speed Rail', tra: 'Train', intercity: 'Intercity bus', ridehail: 'Taxi' },
+  mode: { walk: 'Walk', bike: 'YouBike', bus: 'Bus', metro: 'MRT', thsr: 'High Speed Rail', tra: 'Train', intercity: 'Intercity bus', ridehail: 'Taxi', drive: 'Drive' },
   role: { 地點: 'Places', 定位: 'Location', 天氣: 'Weather', 空品: 'Air', 路況: 'Traffic', 票價: 'Fares', 行程: 'Trip', 公車: 'Bus', 捷運: 'MRT', YouBike: 'YouBike', 高鐵: 'THSR', 台鐵: 'Train', 叫車: 'Taxi', 客運: 'Coach', 訂票: 'Booking', 車站: 'Stations', 地震: 'Quakes', 藥局: 'Pharmacy', 垃圾車: 'Garbage', 油價: 'Fuel', 發票: 'Invoices', 股市: 'Stocks', 短劇: 'Dramas', 阿幫: 'Abang', 防詐: 'Anti-fraud', 網址: 'Links', 闢謠: 'Fact check', 號碼: 'Numbers' },
   crit: { minutes: 'Time', waitMin: 'Wait', walkMin: 'Walking', cost: 'Cost', exposure: 'Outdoors', effort: 'Effort', delayRisk: 'Delays' },
   tag: { 遲到: 'Late', 不要: 'Skip', 不適合: 'Unfit', 收班: 'No service', 未發車: 'Not yet', 沒列入: 'N/A', 排除: 'Out' },
   cols: ['Data', 'Abang', 'Options'],
   step1: '① Gathering data', step2: '② Your situation', step3: (c) => `③ Comparing: ${c}`, step4: (n) => `④ Decision: ${n}`, decide: '④ Decision',
   hint: 'Want another way? Tap an option and Abang recalculates', chips: 'Your situation (tap to toggle, recalculates right away)',
-  habit: (m) => `You agreed: prefer ${m}`, habitWhy: 'Why?', habitPaused: 'You told Abang your situation, so this preference is not counted this time', habitNote: 'You said yes to preferring it. When you don\'t mention your situation it gets a small bonus (up to 8 pts). Stored only on this phone; undo it in Settings.', often: 'you prefer it', habitCrit: 'Preference',
+  habit: (m) => `You agreed: prefer ${m}`, habitWhy: 'Why?', habitPaused: 'You told Abang your situation, so this preference is not counted this time', habitNote: 'You said yes to preferring it. When you don\'t mention your situation it gets a small bonus (up to 8 pts). Stored only on this phone; undo it in Settings.', often: 'you prefer it', habitCrit: 'Preference', premiumCrit: 'Not worth the fare', premiumStep: 'Worth the fare?', longCrit: 'Too long', longStep: 'Too long?', unsureCrit: 'Arrival unknown', unsureStep: 'Arrival known?', estCrit: 'Estimate', estStep: 'Estimated?', unsure: (n) => `${n} has no arrival time`, notWorth: (c, m) => (m > 0 ? `NT$${c} cheaper, only ${m} min slower` : `NT$${c} cheaper, no slower`), tooLong: (n, m, cap) => `${n} takes ${m} min (over ${cap})`,
   notIn: (n, w) => `${n} not included: ${w}`,
   details: 'Comparison details', effNone: 'No effect', effNA: 'Not used', effScore: 'Delay risk', pts: (n, s) => `${n}: ${s} pts`, title: 'How Abang decided', pick: (n) => `Switch to ${n}`, ex: (n, w) => `${n}, excluded: ${w}`,
 };
@@ -38,6 +38,13 @@ const habitFlipped = (best, all = []) => {
   const base = (o) => Object.entries(o.breakdown || {}).reduce((a, [k, v]) => a + (k === 'habit' ? 0 : v), 0);
   return all.some((o) => o.id !== best.id && base(o) > base(best));
 };
+/** 叫車多付的錢換不到夠多的時間（core/decide.js VALUE_OF_TIME）：第二名是對第一名不划算的那個 */
+const notWorthOf = (best, second) => (second?.notWorth?.vs && second.notWorth.vs === best?.id
+  ? { extra: second.notWorth.extra, slower: Number(best.minutes) - Number(second.minutes) } : null);
+/** 扣的分（負數）：數字用「−」（UX.md） */
+const minus = (v) => `${v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}`;
+/** 決策圖的扣分列與 ③ 比較最後幾步（core/decide.js：premium 不划算、tooLong 走太久騎太久、unsure 公車到站時間不明，有才出現） */
+const PENALTY = [{ key: 'premium', label: '不划算', step: '划不划算', en: 'premiumCrit', enStep: 'premiumStep' }, { key: 'tooLong', label: '太久', step: '太不太久', en: 'longCrit', enStep: 'longStep' }, { key: 'unsure', label: '時間不明', step: '到站時間明不明', en: 'unsureCrit', enStep: 'unsureStep' }, { key: 'uncertain', label: '估算', step: '是不是估算', en: 'estCrit', enStep: 'estStep' }]; // unsure：到站時間不明的公車；uncertain：時間或票價是估的，保守看（core/decide.js UNCERTAIN）
 /** 方案名稱縮短，分數一定看得到（「叫車（Uber）」→「叫車」） */
 const short = (n) => { const x = String(n).replace(/（.*?）|\(.*?\)/g, ''); return x.length > 6 ? `${x.slice(0, 5)}…` : x; };
 /** 精簡模式：低階裝置或 reduced motion（UX.md §9）——只淡入、不做翻轉與 3D */
@@ -89,6 +96,10 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     if (!best) return null;
     if (!second) return `${nameOf(best)} is the only option.`;
     const say = { minutes: () => `${Math.max(1, second.minutes - best.minutes)} min faster than ${nameOf(second)}`, waitMin: () => (best.waitMin ? 'shorter wait' : 'no waiting'), walkMin: () => (best.walkMin ? 'less walking' : 'no walking'), cost: () => (best.cost < second.cost ? `NT$${second.cost - best.cost} cheaper` : 'lower cost'), exposure: () => 'less time outdoors', effort: () => 'easier', delayRisk: () => 'avoids traffic delays' };
+    const nw = notWorthOf(best, second);
+    if (nw) return `${nameOf(best)} wins: ${[...(habitFlipped(best, all) ? [EN.often] : []), EN.notWorth(nw.extra, nw.slower)].join(', ')}.`;
+    if (second.unsure?.vs === best.id) return `${nameOf(best)} wins: ${[...(habitFlipped(best, all) ? [EN.often] : []), EN.unsure(nameOf(second))].join(', ')}.`;
+    if (second.tooLong?.vs === best.id) return `${nameOf(best)} wins: ${[...(habitFlipped(best, all) ? [EN.often] : []), EN.tooLong(nameOf(second), second.minutes, second.tooLong.cap)].join(', ')}.`;
     const top = [...(habitFlipped(best, all) ? [EN.often] : []), ...CRITERIA.map((c) => ({ k: c.key, d: (best.breakdown?.[c.key] ?? 0) - (second.breakdown?.[c.key] ?? 0) })).sort((a, b) => b.d - a.d).filter((x) => x.d > 0.01).slice(0, 2).map((x) => say[x.k]?.())];
     return `${nameOf(best)} wins${top.length ? `: ${top.join(', ')}` : ''}.`;
   };
@@ -118,9 +129,10 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       : { ranked: decision.ranked, excluded: decision.excluded, reason: decision.reason, best: { id: decision.best }, habitOn: decision.habitOn };
     habitApplied = !!r.habitOn;
     const byId = new Map(decision.options.map((o) => [o.id, o]));
-    const ranked = r.ranked.map((x) => ({ ...byId.get(x.id), score: x.score, breakdown: x.breakdown }));
+    const ranked = r.ranked.map((x) => ({ ...byId.get(x.id), score: x.score, breakdown: x.breakdown, notWorth: x.notWorth, tooLong: x.tooLong, unsure: x.unsure }));
     // 沒列入比較的方式（深夜公車、捷運收班、YouBike 沒車位、附近沒有捷運站…）：也畫出來，灰色、標籤寫「收班」或「沒列入」，原因寫在圖下（設計審查）
-    const skipped = notIn.map((x) => ({ id: `skip-${x.role}`, role: x.role, name: ROLE_NAME[x.role] || x.role, why: (en && x.whyEn) || x.why, tag: x.notYet ? '未發車' : x.closed || /收班|末班已過/.test(x.why) ? '收班' : '沒列入', skipped: true }));
+    // route：那一條公車今天不會來（另一條照常列入）：節點寫路線名稱（「公車 三峽-臺北市信義區」），id 帶路線才不會跟整個公車撞
+    const skipped = notIn.map((x) => ({ id: `skip-${x.role}${x.route ? `-${x.route}` : ''}`, role: x.role, name: x.route ? `公車 ${x.route}` : ROLE_NAME[x.role] || x.role, why: (en && x.whyEn) || x.why, tag: x.notYet ? '未發車' : x.closed || /收班|末班已過/.test(x.why) ? '收班' : '沒列入', skipped: true }));
     const excluded = [...r.excluded.map((x) => ({ ...byId.get(x.id), why: x.why })), ...skipped];
     const off = states.filter((s) => !s.on && s.source === 'auto').map((s) => SL[s.key]);
     const reason = (off.length ? `不考慮「${off.join('、')}」的話，` : '') + (habitTop && !habitOn ? '不看你的偏好的話，' : '') + r.reason;
@@ -137,7 +149,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       graph(ranked, excluded, active, r.best?.id),
       el('p', 'dg-why', en ? enReason(bestOpt, ranked.find((o) => o.id !== bestOpt?.id), ranked) : reason), // 英文：程式依分數組一句英文理由
       decision.single && el('p', 'dg-single', en ? decision.single.textEn : decision.single.text), // 只有一種方式：其他方式為什麼不在
-      !decision.single && notIn.length > 0 && el('ul', 'dg-missing', notIn.map((x) => el('li', null, en ? EN.notIn(EN.mode[x.role] || x.role, x.whyEn || x.why) : `${ROLE_NAME[x.role] || x.role}沒列入：${x.why}`))), // 手機沒有 hover：原因寫出來
+      !decision.single && notIn.length > 0 && el('ul', 'dg-missing', notIn.map((x) => el('li', null, en ? EN.notIn(x.route ? `Bus ${x.route}` : EN.mode[x.role] || x.role, x.whyEn || x.why) : `${x.route ? `公車 ${x.route}` : ROLE_NAME[x.role] || x.role}沒列入：${x.why}`))), // 手機沒有 hover：原因寫出來；route＝那一條公車
       onPick && ranked.length > 1 && el('p', 'dg-hint', en ? EN.hint : '想換方式？點其他方案，阿幫會用它重算'), // 審查：手機沒有 hover，要寫出來
       details(ranked),
     ].filter(Boolean));
@@ -226,8 +238,10 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     tl.to(q('.dg-opt'), { opacity: 1, duration: 0.25, stagger: 0.05 })
       .from(q('.dg-opt'), { x: '+=14', duration: 0.25, stagger: 0.05 }, '<');
     let acc = new Map(ranked.map((o) => [o.id, 0]));
-    for (const c of CRITERIA) {
-      tl.call(step(en ? EN.step3(critOf(c)) : `③ 比較：${c.label}`));
+    // 最後幾步「划不划算」「太不太久」：叫車不划算、走太久騎太久時扣的分（breakdown.premium／tooLong），有才播
+    const steps = [...CRITERIA.map((c) => ({ key: c.key, step: c.label, en: critOf(c) })), ...PENALTY.filter((p) => ranked.some((o) => o.breakdown?.[p.key] < 0)).map((p) => ({ key: p.key, step: p.step, en: EN[p.enStep] }))];
+    for (const c of steps) {
+      tl.call(step(en ? EN.step3(c.en) : `③ 比較：${c.step}`));
       const next = new Map(ranked.map((o) => [o.id, acc.get(o.id) + (o.breakdown?.[c.key] ?? 0)]));
       for (const o of ranked) {
         const e = root.querySelector(`.dg-out-edge[data-id="${o.id}"]`);
@@ -434,6 +448,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
           bar.style.width = `${Math.max(2, v * 2)}%`;
           return el('div', 'dg-crit', el('span', 'dg-crit-name', critOf(c)), bar, el('span', 'dg-crit-v', v.toFixed(1)));
         }),
+        ...PENALTY.filter((p) => o.breakdown?.[p.key] < 0).map((p) => el('div', `dg-crit penalty ${p.key}`, el('span', 'dg-crit-name', en ? EN[p.en] : p.label), Object.assign(el('span', 'dg-bar'), { style: `width:${Math.max(2, -o.breakdown[p.key] * 200)}%` }), el('span', 'dg-crit-v', minus(o.breakdown[p.key] * 100)))),
         o.breakdown?.habit > 0 && el('div', 'dg-crit habit', el('span', 'dg-crit-name', en ? EN.habitCrit : '偏好'), Object.assign(el('span', 'dg-bar'), { style: `width:${Math.max(2, o.breakdown.habit * 200)}%` }), el('span', 'dg-crit-v', `+${(o.breakdown.habit * 100).toFixed(1)}`))));
     }
     return d;

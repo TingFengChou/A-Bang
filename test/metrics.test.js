@@ -21,7 +21,8 @@ test('TDX：第一次上游、第二次快取；同時進行的 measure 各自�
     : new Response(JSON.stringify([{ a: 1 }, { a: 2 }, { a: 3 }])));
   const tdx = createTdxClient({ clientId: 'a', clientSecret: 'b', fetchImpl });
   const first = await measure(() => tdx.get('/x', {}, 60));
-  assert.deepEqual({ ...first.metrics, ms: 0 }, { calls: 1, cacheHits: 0, cacheHit: false, scanned: 3, ms: 0 });
+  // upstream：真的打上游的次數，只記端點類別（不含參數）
+  assert.deepEqual({ ...first.metrics, ms: 0 }, { calls: 1, cacheHits: 0, cacheHit: false, scanned: 3, ms: 0, upstream: { x: 1 } });
   const [a, b] = await Promise.all([
     measure(async () => { await tdx.get('/x', {}, 60); await tdx.get('/x', {}, 60); }),
     measure(() => tdx.get('/y', {}, 60)),

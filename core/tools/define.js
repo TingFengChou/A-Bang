@@ -16,6 +16,7 @@ import { z } from 'zod';
  * @property {boolean} [static]   資料不依賴 TDX 金鑰（內建資料），示範模式也不加「示範資料」提示
  * @property {(svc: any) => 'live'|'demo'} [modeOf]  資料來源不是 TDX 時，自己判斷 live／demo（例：天氣看 CWA 授權碼）
  * @property {string} [demoNote]  示範模式提示，預設說明 TDX 金鑰（DEFAULT_DEMO_NOTE）
+ * @property {boolean} [fallbackSafe]  TDX 額度用完改用的示範資料不會出現在結果裡（plan_trip 把那些方案排除並照實說）：mode 照真實、speak 不加「這次先用示範資料」
  */
 
 const TIERS = ['L1', 'L2', 'L3'];

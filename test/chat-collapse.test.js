@@ -39,7 +39,7 @@ test('摘要：公車（聚焦的站、沒聚焦時最快到的站、沒有車�
 });
 
 test('摘要：捷運、天氣、空品、發票、股市、防詐', () => {
-  const metro = turnSummary({ q: '台北車站下一班', results: [{ tool: 'metro_live_board', data: { station: '台北車站', trains: [{ destination: '南港展覽館', etaMin: 1, status: '即將進站' }] } }] });
+  const metro = turnSummary({ q: '台北車站下一班', results: [{ tool: 'metro_live_board', data: { station: '台北車站', trains: [{ destination: '南港展覽館', etaMin: 1, status: 'approaching' }] } }] });
   assert.equal(metro.line, '台北車站捷運：往南港展覽館 即將進站');
   const w = turnSummary({ q: '天氣', results: [{ tool: 'find_place', data: [{ name: '中正紀念堂' }] }, { tool: 'weather_now', data: { town: '中正區', station: '臺北', tempC: 17, rainMm1h: 0, raining: false } }] });
   assert.equal(w.line, '天氣：中正區 17°C 沒下雨', '找地點只是輔助，不當主題');
@@ -73,7 +73,7 @@ test('摘要：只有文字（閒聊、答不出來）用提問＋回答第一�
   const two = turnSummary({ q: '307 到哪了，會下雨嗎', results: [{ tool: 'bus_route_eta', data: { routeName: '307', focus: { stopName: '敦化市場', statusText: '5 分', etaSec: 300 } } }, { tool: 'weather_now', data: { town: '大安區', tempC: 20, raining: false } }] });
   assert.equal(two.line, '307：敦化市場 5 分到站・天氣：大安區 20°C 沒下雨');
   assert.equal(two.short, '307');
-  const busMetro = turnSummary({ q: '307 和捷運', results: [{ tool: 'bus_route_eta', data: { routeName: '307', focus: { stopName: 'A', statusText: '5 分', etaSec: 300 } } }, { tool: 'metro_live_board', data: { station: '市政府', trains: [{ destination: '頂埔', etaMin: 3, status: '3 分' }] } }] });
+  const busMetro = turnSummary({ q: '307 和捷運', results: [{ tool: 'bus_route_eta', data: { routeName: '307', focus: { stopName: 'A', statusText: '5 分', etaSec: 300 } } }, { tool: 'metro_live_board', data: { station: '市政府', trains: [{ destination: '頂埔', etaMin: 3, status: 'minutes' }] } }] });
   assert.equal(busMetro.line, '307：A 5 分到站・市政府捷運：往頂埔 3 分', '同是交通的兩件事也都留著');
   const unknown = turnSummary({ q: '油價', results: [{ tool: 'some_new_tool', speak: '新工具查好了。還有別的。' }] });
   assert.equal(unknown.line, '新工具查好了。', '認不得的工具：用工具一句話回報的第一句');

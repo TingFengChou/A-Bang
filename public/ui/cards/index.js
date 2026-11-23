@@ -50,7 +50,7 @@ export function renderCard(el, payload, host) {
   el.replaceChildren(slot, live);
   let said = null;
   const announce = (speak) => {
-    const text = def.announce?.(current.data, { t, state }) || null;
+    const text = def.announce?.(current.data, { t, state, locale }) || null;
     if (speak && text && text !== said) live.textContent = text;
     said = text;
   };

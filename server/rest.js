@@ -1,10 +1,12 @@
 // REST 路由表（唯一定義）：server/http.js 用它處理請求，server/openapi.js 用它產生 Swagger 文件。
 // PWA 既有頁面使用；新功能請優先走 /api/v1/tools/:name。
-import { listTools, listPacks, describeTool } from '../core/tools/index.js';
+import { listTools, listPacks, describeTool, callTool } from '../core/tools/index.js';
+import { alightCheck } from '../core/alight.js';
 import { getProfile, hasProfile, PROFILES } from '../core/agents/index.js';
 import { UserError } from '../core/util.js';
 import { dataSources } from '../core/index.js';
 import { TOOL_ROLES } from '../core/agent/events.js';
+import { remindAside } from '../core/agent/wait-drama.js';
 
 const num = (v) => (v == null || v === '' ? undefined : Number(v));
 const q = (name, description, { required = false, type = 'string', example } = {}) => ({ name, description, required, type, ...(example !== undefined && { example }) });
@@ -12,6 +14,22 @@ const CITY = q('city', '縣市，例如 Taipei、台北市', { required: true, e
 const LAT = q('lat', '緯度 (WGS84)', { required: true, type: 'number', example: 25.0478 });
 const LON = q('lon', '經度 (WGS84)', { required: true, type: 'number', example: 121.517 });
 const RADIUS = (d) => q('radius', `搜尋半徑（公尺），預設 ${d}，上限 1000`, { type: 'integer' });
+const int = (v) => { const n = num(v); return Number.isInteger(n) ? n : undefined; };
+const text = (v, max = 40) => (typeof v === 'string' && v.trim() && v.trim().length <= max ? v.trim() : undefined);
+const DAY_MS = 86_400_000;
+/** /api/v1/bus/alight 的參數（查詢字串都是字串）：不對就 UserError */
+function alightParams(p) {
+  const now = int(p.now) ?? Date.now();
+  const w = {
+    city: text(p.city), routeName: text(p.route), direction: int(p.direction), board: text(p.board), boardSeq: int(p.boardSeq), dest: text(p.dest), destSeq: int(p.destSeq),
+    plate: text(p.plate, 20) || null, boardAt: int(p.boardAt), rideSec: int(p.rideSec), seen: p.seen === 'true' || p.seen === '1', lang: p.lang === 'en' ? 'en' : null, now,
+  };
+  if (!w.city || !w.routeName || !w.board || !w.dest) throw new UserError('city、route、board、dest 都要有');
+  if (w.direction != null && w.direction !== 0 && w.direction !== 1) throw new UserError('direction 要是 0 或 1');
+  if (w.boardAt == null || Math.abs(w.boardAt - now) > DAY_MS) throw new UserError('boardAt 要是上車時間（epoch 毫秒）');
+  if (w.rideSec == null || w.rideSec < 0 || w.rideSec > 6 * 3600) throw new UserError('rideSec 要是 0～21600 秒');
+  return w;
+}
 const OD = [q('from', '起站（中文站名或代碼）', { required: true, example: '台北' }), q('to', '訖站', { required: true, example: '左營' }), q('date', '日期 YYYY-MM-DD，預設今天')];
 
 /**
@@ -32,6 +50,24 @@ export function restRoutes(svc, { agentInfo = null } = {}) {
     '/api/v1/status': { summary: '服務狀態（live／demo、各類資料是真實或示範、工具包、agent 用什麼回答）', tag: 'PWA', params: [], handler: () => { const agent = agentInfo?.(); return { mode: svc.mode, weatherMode: svc.weatherMode, sources: dataSources(svc), time: new Date().toISOString(), packs: listPacks(), partner: partnerLinks(svc), ...(agent && { agent }) }; } },
     '/api/v1/bus/routes': { summary: '搜尋公車路線', tag: 'PWA', params: [CITY, q('keyword', '路線關鍵字', { example: '307' })], handler: (p) => svc.bus.searchRoutes({ city: p.city, keyword: p.keyword || '' }) },
     '/api/v1/bus/eta': { summary: '公車路線即時到站', tag: 'PWA', params: [CITY, q('route', '完整路線名稱', { required: true, example: '307' })], handler: (p) => svc.bus.routeEta({ city: p.city, routeName: p.route }) },
+    '/api/v1/bus/alight': {
+      summary: '下車提醒：我這台到下車站還要多久、該不該提醒（Android 常駐服務每 20 秒問一次；判斷同 core/alight.js）', tag: 'PWA',
+      params: [
+        CITY, q('route', '完整路線名稱', { required: true, example: '307' }), q('direction', '去程 0、返程 1', { type: 'integer', example: 0 }),
+        q('board', '上車站名', { required: true, example: '西門' }), q('boardSeq', '上車站站序', { type: 'integer' }),
+        q('dest', '下車站名', { required: true, example: '市政府' }), q('destSeq', '下車站站序', { type: 'integer' }),
+        q('plate', '設定時看到的車牌（選填）'), q('boardAt', '上車時間（epoch 毫秒；車正要進站時是未來）', { required: true, type: 'integer' }),
+        q('rideSec', '設定時估的坐車秒數', { required: true, type: 'integer' }), q('seen', '上次回傳的 seen（看過我這台在路上）', { type: 'boolean' }),
+        q('now', '手機現在的時間（epoch 毫秒；跟 boardAt 同一個時鐘）', { type: 'integer' }), q('lang', 'en＝英文文字'),
+      ],
+      handler: async (p) => {
+        const w = alightParams(p);
+        const r = await callTool(svc, 'bus_route_eta', { city: w.city, routeName: w.routeName, ...(w.direction != null && { direction: w.direction }) });
+        const dirs = r?.data?.directions || [];
+        const dir = dirs.find((x) => x.direction === w.direction) || (w.direction == null ? dirs[0] : null); // 方向對不上：不猜，照設定時的估計
+        return alightCheck(w, dir?.stops || [], w.now);
+      },
+    },
     '/api/v1/bus/nearby': { summary: '附近公車站', tag: 'PWA', params: [LAT, LON, RADIUS(400)], handler: (p) => svc.bus.nearbyStations({ lat: num(p.lat), lon: num(p.lon), radius: num(p.radius) }) },
     '/api/v1/bus/station-eta': { summary: '站位所有路線到站', tag: 'PWA', params: [CITY, q('station', '站位 ID', { required: true })], handler: (p) => svc.bus.stationEta({ city: p.city, stationId: p.station }) },
     '/api/v1/bike/nearby': { summary: '附近 YouBike', tag: 'PWA', params: [LAT, LON, RADIUS(500)], handler: (p) => svc.bike.nearby({ lat: num(p.lat), lon: num(p.lon), radius: num(p.radius) }) },
@@ -39,6 +75,15 @@ export function restRoutes(svc, { agentInfo = null } = {}) {
     '/api/v1/thsr/timetable': { summary: '高鐵時刻表', tag: 'PWA', params: OD, handler: (p) => svc.rail.thsrTimetable(p) },
     '/api/v1/tra/stations': { summary: '台鐵車站', tag: 'PWA', params: [], handler: () => svc.rail.traStations() },
     '/api/v1/tra/timetable': { summary: '台鐵時刻表', tag: 'PWA', params: OD, handler: (p) => svc.rail.traTimetable(p) },
+    '/api/v1/drama/wait': {
+      summary: '設了到站提醒、還要等一段時間時推一集短劇（MyDrama；等 5～40 分才推，沒有回 aside: null）', tag: 'PWA',
+      params: [q('min', '還要等幾分鐘', { required: true, type: 'number', example: 12 })],
+      handler: async (p) => {
+        const m = num(p.min);
+        if (!Number.isFinite(m) || m < 0 || m > 180) throw new UserError('min 要是 0～180 的分鐘數');
+        return { aside: await remindAside(svc, { waitMin: m }) };
+      },
+    },
     '/api/v1/agent/profile': {
       summary: '網頁 agent 設定（名稱、建議問題、免責、小幫手角色）', tag: 'Agent',
       params: [q('id', `agent id：${Object.keys(PROFILES).join('、')}；預設 life`, { example: 'antifraud' })],

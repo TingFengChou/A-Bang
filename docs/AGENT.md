@@ -52,7 +52,8 @@
   "clientTools": ["device_location"],           // 客戶端支援的裝置端工具（ADR-0008）
   "clientToolResults": [{ "id": "c1", "ok": true, "result": { "lat": 25.04, "lon": 121.51 } }], // 選填
   "context": "使用者在卡片上選了『從西門站出發』",    // 選填，來自 host.setContext()
-  "clientCaps": { "edgeWrite": true, "engine": "gemini-nano" } // 選填：手機自己寫回答（§3.5、ADR-0017）
+  "clientCaps": { "edgeWrite": true, "engine": "gemini-nano" }, // 選填：手機自己寫回答（§3.5、ADR-0017）
+  "deviceJudge": { "intent": "bus_route", "states": [], "engine": "gemini-nano", "ask": { "slot": "route", "question": "你在等哪一路公車？", "options": ["307", "附近公車"] } } // 選填：手機判斷（ADR-0014）；ask＝手機上的 AI 提議的一題（§5.3.1、ADR-0020）
 }
 ```
 
@@ -69,14 +70,15 @@
 | `data_note` | `parent`（那次工具呼叫的 id）, `role`（天氣、空品、路況）, `source`, `text`, `impact: { tone, text }`, `effect`（`none`／`score`／狀態 key）, `available`, `mode: 'demo'\|'live'` | 工具內部用到的一項資料＋對這次判斷的影響（目前是 `plan_trip` 查的天氣、空品、國道路況；`core/services/trip-considered.js` 產生，不經模型）。以工具發言樣式排在 `parent` 的發言前面；`mode: 'demo'` 標「示範資料」；同一輪已點名該角色的工具（看 `tool_start`；工具平行，結果可能比 data_note 晚到；示範模式另外查過）時客戶端不重複顯示（2026-11-21） |
 | `discussion_end` | `tools`, `servers` | 討論收合成一行摘要 |
 | `decision` | `states: [{ key, source: 'auto'\|'user'\|'picked'\|'usual', from?, detail? }]`, `arriveBy?`, `best`, `options`, `ranked`, `excluded`, `weights`, `reason`, `habit?`, `habitOn?`, `considered`（同 `plan_trip.considered`）, `single?: { text, textEn, suggest: [{ label, ask }] }` | 決策圖動畫；前端可用同一引擎即時重算；`considered`＝「資料」欄每個來源一個節點；`single`＝只有一種方式時的說明與「接下來可以」的建議 |
-| `ask` | `id`, `question`, `key?`（同一題的鍵，客戶端 24 小時內不重問）, `options: [{ label, kind: 'state'\|'reply'\|'store'\|'dismiss'\|'action', state?\|say?\|value?\|action?, guess? }]`, `why?`, `about?`, `pending?: { slot, state?, intent? }` | 阿幫問你（ADR-0016）：一輪最多一個，由程式產生。state＝加狀態即時重算（`say` 給不能重算的客戶端）、reply＝送出 `say`（完整的一句）、store＝存手機偏好（`value`）、action＝手機做事（`openLink`／`watchArrival`／`remind`，L2 先確認）、dismiss＝不改。直接打字回答時前端先比對按鈕文字，對不上就把 `pending` 當 `pendingAsk` 帶回，`validateRequest` 用 `resolvePending` 把短答改寫成完整的一句 |
+| `ask` | `id`, `question`, `key?`（同一題的鍵，客戶端 24 小時內不重問）, `options: [{ label, kind: 'state'\|'reply'\|'store'\|'dismiss'\|'action', state?\|say?\|value?\|action?, guess? }]`, `why?`, `about?`, `pending?: { slot, state?, intent? }`, `askSource: 'device'\|'rule'` | 阿幫問你（ADR-0016）：一輪最多一個；題目由手機上的 AI 提議、程式驗證後採用（`device`，ADR-0020），否則由程式產生（`rule`）。state＝加狀態即時重算（`say` 給不能重算的客戶端）、reply＝送出 `say`（完整的一句）、store＝存手機偏好（`value`）、action＝手機做事（`openLink`／`watchArrival`／`remind`，L2 先確認；`navigate`＝App 內的頁面 `#/…`、`focusInput`＝游標放到輸入框）、dismiss＝不改。直接打字回答時前端先比對按鈕文字，對不上就把 `pending` 當 `pendingAsk` 帶回，`validateRequest` 用 `resolvePending` 把短答改寫成完整的一句 |
 | `aside` | `parent`（那次到站工具呼叫的 id）, `kind: 'drama'`, `text`, `waitMin`, `mode`, `data: { id, title, ep, freeEpisodes, appLink, store }`, `labels: { watch, dismiss, note }` | 卡片下方的小提示（不進回答文字）：目前只有等車推短劇（ADR-0019，§5.4）；一輪最多一個；連結在事件建立時再檢查一次 |
 | `guardrail` | `tier`, `rule` | 套用的護欄（L2 以上） |
 | `client_tool_call` | `id`, `name`, `input` | 請客戶端執行裝置端工具（`device_location`、`notify_at`） |
 | `context_reset` | — | 使用者說「重來」：畫面加「重新開始」分隔線、前面的對話變淡（2026-11-21） |
 | `text` | `delta` | 阿幫的總結（可串流） |
 | `answer_draft` | `text`（程式版總結）, `facts`（事實清單）, `lang: 'zh'\|'en'` | 只在請求帶 `clientCaps.edgeWrite` 時取代 `text`：手機改寫後顯示（§3.5、ADR-0017） |
-| `done` | `usage?` | 結束 |
+| `trial` | `lang`, `judge: { intent, states, source, engine?, confidence? }`, `intent`, `judged`, `target`, `slots: [{ key, required, have, value?, fill? }]`, `missing`, `fixed`, `location`, `enough`, `blocked`, `heard`, `sources: [{ id, mode, reason, minutesAgo? }]`, `safety?` | 只在請求帶 `clientCaps.trial` 時：「阿幫的腦袋」試判斷的「資料夠不夠」（§3.6） |
+| `done` | `usage?`, `askCheck?: { slot, state?, verdict: 'used'\|'rejected', reason? }` | 結束；`askCheck` 只在請求帶 `deviceJudge.ask` 時、這一輪最後的 `done`（請定位那一次沒有）：手機提議的題目用了沒、沒用的原因代碼（ADR-0020） |
 | `error` | `message`, `retryable`, `retryAfterSec?` | 錯誤或限流 |
 
 規則：
@@ -102,6 +104,10 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 `core/agent/run.js`：`validateRequest`（訊息 ≤ 500 字、≤ 10 則、最後一則是使用者、`userState.picked` 只能是已知狀態；`userState.habit` 鍵限定 8 種交通方式、值 0～1、總和 ≤ 1.01；`userState.usual` 只能是 rush／luggage／lessWalk；`userState.habitAsk` 是方式＋次數；`userState.dramaHint` 是布林（false＝不推短劇，ADR-0019）；`pendingAsk` ≤ 1000 字元）；`execTools(svc, calls, emit, { profile, nextId, picked })`（平行：先送全部 `tool_start`，再依完成順序送 `tool_result`；`plan_trip` 成功後送 `decision`；不在 profile 白名單的 tool 回 `ok:false`；錯誤訊息經 `publicMessage`，不外洩上游細節）；`runDemo(svc, body, emit)`（示範模式：`status` → 每段 `agent_note`＋工具 → `discussion_end` → `text` → `done`；某段失敗就停止往下；最多 5 輪）。模型模式（M5-05，§4）共用 `execTools`；`plan_trip` 會自動併入畫面上點選的狀態（`withPickedPrefs`）；`prefs.habit` 一律由程式換成手機送來的 `userState.habit`（`withHabit`：手機沒送就拿掉，模型或規則帶的不採用；`groundedPrefs` 也丟掉模型的 habit），示範與模型模式相同。`decision` 事件帶 `habit`（比例）與 `habitOn`（這次有沒有加分），決策圖的「你同意：優先推捷運」chip 與前端重算用。`userState.usual`（說過的預設狀況）**不自動套用**：這一輪沒說狀況、沒指定方式，而且加上它會換建議時，問「這次也帶東西嗎？」〔是（猜的，kind state、source usual）〕〔這次沒有〕，點〔是〕才在決策圖加上「你說過：常帶東西」重算。`plan_trip` 之後 `execTools` 依整輪共用的 `ask = { done, habitAsk }` 送最多一個 `ask` 事件（`tripAsk`：① 習慣確認 ② 說過的預設狀況「這次也…嗎？」③ `plan_trip` 的關鍵問題 `ask`，帶 `key`＝同一段起訖〔座標到小數 2 位〕同一題，手機 24 小時內問過就不顯示，只存雜湊）。個人化與互動確認見 ADR-0010、ADR-0016。
 
+**缺必要欄位就問（2026-11-22，ADR-0016 第 3 點）**：`parseIntent` 標 `it.needs`（`route`＝問公車沒說哪一路、`to`＝只說起點或想去沒說哪裡；只說起點時 `from` 是那個地點，不是目的地），`runDemo` 在判斷完、請定位前送 `ask`（`about: 'slot:route'|'slot:to'`）＋一句 `text`＋`done`，不查資料；模型模式同樣由程式先問、不呼叫模型。沒有定位（拒絕或客戶端不支援）、預設起點（臺北車站）又在目的地 300 公尺內時（`nearDefaultFrom`），不算「臺北車站到臺北車站」，改問「你從哪裡出發？」（`about: 'slot:from'`）。選項是 `reply`；常用地點的選項帶 `saved`（家／公司／學校），客戶端有設定才顯示。`pendingAsk` 多收 `from`、`to`（≤ 40 字、不能換行）與 `lang: 'en'`，`PENDING_SLOTS.route／to／from` 把打字的短答接回原問題（只收地標庫認得的地名或常用地點標籤；句子語言跟地名一致）。缺欄位只在其他判斷都對不上時才問（`parseIntentRaw` 最後；一句問好幾件事的分段不問）；剛選了公車時「公車一直不來，還要等多久」直接查那一班；快速版判斷同意時不再呼叫完整版的判斷模型，判斷層說是別的意圖時可以更正。上一輪已問過起點、這一輪定位又失敗：不再給「用我的位置」（英文只回一句）。「你從哪裡出發？」只在示範與 edge 模式；模型模式只問路線與目的地（模型照 `NO_LOCATION_NOTE` 說明預設起點）。
+
+**該問就問、不該問就不問（PM 的 Q 情境，2026-11-22，ADR-0016 第 3 點）**：`core/agent/clarify-plan.js` `planAsk(it)` 在 `runDemo` 定位之後決定：`stop`（不查、只問＋一句 `text`＋`done`）或 `after`（先用猜的查，`discussion_end` 之後才送 `ask`，選項第一個 `guess`；這一輪先預留 `ask.done`，行程的關鍵因子不再問）。題目在 `core/agent/clarify.js`：地點有歧義 `slot:place`（同名跨縣市、同城多義、連鎖、區名、只打名字、路名＋地圖連結）、高鐵台鐵缺起站 `slot:railFrom`（有定位用最近的站）／缺迄站 `slot:railTo`（「高鐵下一班」最近的站往兩端先查）、只說類別與你就在那裡 `slot:topic`、沒定位問天氣空品出門 `slot:where`、沒定位問公車 `slot:busStop`、問中獎沒號碼 `slot:invoiceNo`、防詐沒附內容 `scam:paste`、選了公車改問提醒 `remind:bus`（只取代帶行李、少走路這兩種關鍵因子）。只說「叫車」走 `slot:to`（`pending.mode: 'ridehail'`）；只回「好」「不用」回一句短的（`it.ack`）。`pendingAsk` 多收 `system`、`fare`、`mode`、`topic`、`route`、`tomorrow`、`airport`；打字回答被改寫後，手機上的 AI 對短答的意圖不採用（`req.answered`）。模型模式用 `askFirst`：路名、只說類別、只打名字、沒說迄站、同名地點同樣由程式先問（不問時用猜的那個，不是地標庫的第一個）。PR #121 審查後的規則（路名只收具體名稱、詞首對齊、通稱與行政區不猜、說了「站」只找車站〔地標庫沒有用 `metroPoint` 找捷運站座標〕、你就在那裡不算排過行程、使用者說的起站不被定位蓋掉、歧義題之後接著改不再問、帶行李與少走路要划算、`handOff` 帶句子到防詐）見 ADR-0016 第 3 點。**去機場沒說哪個（2026-11-22）**：「去機場」「到機場怎麼走」「叫車去機場」「How do I get to the airport?」→ `it.airport`（`to: null`；機場捷運、機場線、機場巴士不算；說了「桃園機場」「松山機場」「第二航廈」等就是那個機場、不問）。有位置（或說了起點，例「我在板橋，要去機場」）：`airportGuess` 依距離排機場（桃園、松山、台中清泉崗、高雄小港一定列；其他小機場 30 公里內才列），最近的在 80 公里內就先用它排行程（`after`，選項第一個標「猜的」），選項最多 3 個、最近的放第一；最近的也在 80 公里外、或沒定位 → 只問（`stop`，沒定位時選項是桃園、松山、高雄）。問句「要去哪個機場？」／「Which airport?」，`slot:place`＋`pending.airport: true`：打字回答「桃園」「小港」「松山的」「第二航廈」就是那個機場（不是桃園車站）；`pendingAsk` 多收 `airport`。接著改條件（「那叫車呢」）照猜的那個算、不再問；模型模式由 `askFirst` 先問。PR #122 審查後：句子在問天氣、空品、路況，說不去了、別人去（「我老公去機場了」）、先去別處、設提醒、問要帶什麼（護照、行李）時不算去機場的行程（交回原本流程，天氣照常回答）；判斷層可以更正（`airport` 不在 `RULE_FINAL`）；「從家／公司去機場」用常用地點的座標當起點、猜離那裡最近的機場（沒設定 → savedMissing）；「從板橋到台北101」之後「那去機場呢」起點沿用；說了搭「機場捷運」「機捷」就是桃園機場（不問）；打字回答「台北」「台北的」＝松山機場，「松山，叫車」「桃園，搭機捷」把交通方式一起帶上，英文「the Taoyuan one」也接得到；所有機場都有英文名稱（英文與中文猜的一樣）。情境 Q-28～Q-45、`test/airport-ask.test.js`。情境 `test/scenarios/life-q.json`（Q-1～Q-45）；`bus_route_eta` 加 `toward`（往某方向）、有定位時 `focus.other`（另一個方向）。
+
 ### 3.4 裝置端工具（✅ M5-07）
 
 `device_location`：需要使用者位置（行程沒說起點；YouBike／附近公車／天氣／空品／垃圾車沒說地點）且請求帶 `clientTools: ['device_location']` 時，伺服器送 `agent_note`＋`client_tool_call { id: 'loc1', name: 'device_location' }`＋`done` 後結束；客戶端定位後帶 `clientToolResults: [{ id: 'loc1', ok, result: { lat, lon } }]` 重送同一請求。台灣範圍內的座標才採用（起點名稱「你的位置」）；拒絕或無效時改用示範預設起點並在總結說明。客戶端：`public/js/agent/client.js`（`runAgent`：讀 NDJSON 串流、執行 client tool、最多重送 2 次；`browserLocation` 5 秒逾時，手機 App 改用原生定位外掛 `@capacitor/geolocation`，iOS 只問 App 權限一次）。定位完成或失敗時客戶端自己發 `client_tool_result { id, name, ok }`（不經伺服器、不含座標），畫面把「定位中」換成結果。帶 `clientToolResults` 的重送是同一輪：伺服器不再重複「我先看天氣…」等判斷說明。座標不寫入 log。`T.point` 的座標物件可帶 `name`。
@@ -116,6 +122,14 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - **畫面**：思考動畫「在手機上寫回答」（`answer_draft` 後、改寫完成前）；回答上方只有一行，把手機判斷與寫回答合在一起照實說：手機判斷被採用且寫好回答 →「手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答。」；只有寫回答 →「這次的回答由手機上的 Gemini Nano 寫。」；沒通過檢查或逾時 →「手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（沒通過檢查／逾時）。」（沒有手機判斷時「這次的回答用阿幫的固定說法（…）。」）；英文同理，iPhone 照實寫 Apple Intelligence（`writeLine`）；頁底模式說明「回答在手機上寫；伺服器只查資料、用程式排序，不經伺服器的 AI 模型。」
 - **網頁版與不支援的手機**：不帶 `clientCaps`，行為完全不變（伺服器的模型或規則寫回答）。
 - **規則聽不懂的開放式問題**：edge 模式一律不退回伺服器模型（產品負責人 2026-11-21），改用「阿幫問你」的 `ask`（`core/agent/ask.js` `unknownAsk`，`about: 'unknown'`）給 4 個查得到的選項（怎麼去台北101、附近公車站、現在天氣、發票對獎；英文另一組），都是 `reply`：按了就把規則聽得懂的完整一句送出；`answer_draft` 只留一句短的（`UNKNOWN_SHORT`），不再列一串例句。道謝、道歉、重來不算聽不懂。
+
+### 3.6 試判斷（「阿幫的腦袋」#/ai，2026-11-22）
+
+產品負責人要能評估阿幫夠不夠聰明：意圖與狀態之外，看資料夠不夠、預計怎麼回答、下一個會問什麼（UX.md §5.0.1）。**重用 `/api/v1/agent`，不加新端點**；**只有生活 agent 走 edge／trial**（`WRITE_AGENTS`），防詐 agent 帶了 `clientCaps.trial` 也照原路徑、不送 `trial` 事件：
+- 請求帶 `clientCaps: { edgeWrite: true, trial: true, engine? }`（網頁版沒有手機上的模型，`trial` 且 `edgeWrite` 時 `engine` 可省略；一般請求仍必填）。一律走 edge 模式：伺服器只跑規則與程式計分，不呼叫任何伺服器模型。客戶端只送這一句（與手機判斷的 `deviceJudge`），不送 `userState`、`savedPlaces`；伺服器請定位（`client_tool_call device_location`）時回 `ok: false`，回答就是不給定位時的樣子。
+- 伺服器在判斷完、請定位前送一個 `trial` 事件（`core/agent/trial.js` `trialInfo`，程式算）：`slotReport` 依 `INTENT_SLOTS`（各意圖需要的欄位、是否必要、沒說時怎麼補：location／now／today／all／index／hot／saved）比對這一輪實際用的意圖；規則聽不懂但判斷層有意圖時照判斷層列欄位（`target`），`enough=false`；固定說明（防詐請到防詐頁、代按代付…）與禮貌話（謝謝、對不起、重來，同 `runDemo` 聽不懂的判斷）`fixed=true`；後天天氣、投資建議、油價漲跌 `blocked`。`sourceReport` 依 `INTENT_SOURCES` 列會查的資料來源（`dataSources`）與原因：`live`、`forced`（伺服器設定示範）、`no-key`、`no-download`、`no-source`、`tdx-limit`（`withTdxFallback` 遇到 429 記下時間；2 分鐘內 `mode` 仍是 `live`、附 `minutesAgo`，畫面說「N 分鐘前曾用完額度」，這一輪實際有沒有改用示範以工具結果的 `mode` 為準）。帶定位結果的重送不再送；安全情境照樣送（`safety`）後回求助電話。
+- 客戶端（`public/js/ai-trial.js` `runTrial`）組四段：手機判斷 → agent 事件（`trial`、工具、`decision`、`ask`、`answer_draft`）→ 手機改寫（`edgeWrite`，沒通過也回被擋的改寫 `candidate` 與原因）→ 動態建議（`trialSuggest`：同 §5.5，手機猜＋`/api/v1/suggest/check` 只送句子，不能用就規則；試判斷不用常用地點）。第 4 段另外用 `askerOf` 標這題是手機上的 AI 決定還是規則保底，手機提議但被擋的題目照列（在手機上就擋／伺服器 `askCheck` 沒採用，含原因，ADR-0020）。
+- log 只多記 `trial: true`（不記句子）；限流與一般問阿幫相同（一次試判斷約 2 個請求：請定位＋不給定位的重送）。
 
 ## 4. 模型模式（✅ M5-05，ADR-0012）
 
@@ -206,6 +220,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 1. `plan_trip` 的公車方案帶 `follow`（路線、上車站、方向、走到站牌的分鐘）。
 2. 執行器 `execTools`（`core/agent/run.js`）在 `plan_trip` 的 `decision` 之後檢查 `busFollowUp`：選的是公車 → 送 `agent_note`「@公車 你選了公車，我幫你盯 601 在「西門」的到站」→ `bus_route_eta { city, routeName, stop, direction }`（事件照常送出、卡片聚焦上車站）。由程式決定，不靠模型記得要查；查不到不影響行程結果。
+2.1 **今天不會來就重排**（2026-11-22，ADR-0010）：盯上車站其實在出行程卡之前做；盯到 2 交管不停靠、3 末班已過、4 今日未營運 → 送「@公車 先看 X 在「站」今天有沒有車」與那筆到站結果（證據）、「@行程 X 今天沒有營運，不列入，重新比較」，帶 `svc.busOff` 重跑 `plan_trip`（busOff 只增，最多 `MAX_ROUTES − 1` 次），行程卡、決策圖、回答都是重排後的、各只出一次（回答第一句「公車 X、Y 今天沒有營運（站牌即時資訊），這次不推。」）。重排失敗或次數用完：`withoutBus()` 排除盯到不會來的公車、用同一套 `decide()` 重排（不打 TDX、不拿 ranking 第二名）；總結的保底也一樣（中英；模型模式 `followUpText` 同樣要求）。手機寫回答的事實清單（`answerFacts`）帶重排後的建議與 `notIncluded`（沒列入的方式與原因）。
 3. 示範總結：「601 約 6 分後到「西門」，走過去約 3 分。要我在公車快到站時提醒你嗎？」；走過去比車到還久時改說「這班可能趕不上。要我在下一班快到時提醒你嗎？」。模型模式：盯到站的結果接在 `plan_trip` 的工具結果後面（`followUpText`），請模型說公車多久到、趕不上要說、並問要不要提醒；life 規則也要求不要重複呼叫。
 4. 卡片「到站前 3／5 分提醒我」→ `host.watchArrival`（CARDS.md §3）；「開公車頁看動態」→ `#/bus/:city/:route?stop=&dir=`，公車頁顯示同一個上車站與提醒。提醒只在 App 開著時有效；背景準時推播需推播伺服器與使用者訂閱（屬 ADR，PLAN L-16）。
 
@@ -293,14 +308,22 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 `core/agent/safety.js`：提到自傷（想死、活不下去、自殺、kill myself…）或正在發生的緊急狀況（我出車禍了、有人昏倒、救命、失火、someone collapsed…）時，示範與模型模式、所有 agent 都先回固定的求助說明（安心專線 1925、生命線 1995、張老師 1980、119／110；沒有 SIM 卡或自己的電信沒訊號撥 112；暴力或被跟蹤加 113），事件帶一鍵撥號 `calls`（畫面做成 `tel:` 按鈕），不查工具、不請定位、不交給模型；事件帶 `guardrail { tier: 'L0', rule: 'safety:selfHarm'|'safety:emergency' }`。只認明確說法：口語（「笑死」「累死」「氣死」）先拿掉再判斷；「國道有車禍嗎」「救命 307 怎麼還不來」「help me get to…」不算。中英文都有。
 
-### 5.2.16 健康與運動：問天氣、出門時在手機上補一句散步建議（2026-11-22，ADR-0018）
+### 5.2.11 真實資料健檢的意圖與參數（2026-11-22，示範與模型模式相同）
 
-**伺服器與模型都不知道健康資料**：示範模式、Claude 模式、地端模型模式都一樣，agent 照常回答天氣、出門、空品（「我要不要去運動」走 `outing` 意圖、`outing_advice`），不加任何新事件或欄位。
-回答結束後，前端（`public/js/pages/agent.js` `addHealthSay`）在手機上判斷要不要補一句：
-1. 使用者打開了「健康與運動」，而且這一輪有 `weather_now`／`outing_advice`／`aqi_nearby` 的結果（`turnWeather`；`weather_tomorrow`、`plan_trip` 不算），或問題本身在問運動、散步（`EXERCISE_Q`）。
-2. 用這一輪的天氣、空品與工具查的位置（只問天氣或只問空品時，缺的那一個用首頁「現在」10 分鐘內查過的補；不因為健康狀態另外查），加上手機上讀的步數，跑 `core/health-nudge.js` 的 `nudgeFor`（規則見 UX.md §5.0.5）；一天主動提一次（建議過就算，自己問的也算），自己問一定回答。
-3. 補的泡泡 `.bubble.health-say` 不放進 `history`、不存進 `abang.chat`，所以下一個問題也不會帶到伺服器。
-不採用把步數放進 `userState` 讓模型轉述：健康資料會離開手機（ADR-0018）。
+- **公車**：「我在等939」「等 939 公車」（`BUS_WAIT`；「等 20 分鐘」「等 3 個人」不算）＝查那一路。所在縣市找不到這條路線時，`bus_route_eta` 用預熱的路線清單改查相鄰縣市（板橋問 307、台北車站問藍15，MCP_TOOLS.md）。
+- **末班車**：「307 末班車幾點」＝查 307 到站（`last`；到站資料只有「末班已過」狀態、沒有末班時刻，回答照實說）；「末班車幾點」「最後一班公車幾點」沒說哪一路先問「要查哪一路公車的末班車？」（選項：說過的路線、捷運末班車；`pending.last`），剛問過某一路就沿用；「捷運末班車幾點」查最近一站的時刻表末班車（`metro_live_board` `last: true`）。
+- **捷運**：句子說了系統（高雄捷運／高捷、桃園捷運／機捷、台中捷運／中捷、台北捷運／北捷）就查那個系統（`metroSystemOf`）；系統名不當地名（「高雄捷運」不是高雄車站）；說了系統時站名可以不加「站」（「高雄捷運美麗島下一班」）；沒說系統時站名交給工具在各系統找（不預設台北）。有起訖的句子（「從板橋坐捷運到台北車站」）是行程、指定坐捷運，不是查看板。回答把其他方向也說（「其他方向：往頂埔約 2 分、往淡水約 4 分」）。
+- **地名裡的「火車站／高鐵站」**（「從桃園火車站去台北101」「從高鐵桃園站…」）不是交通方式偏好，也不是查台鐵（`withoutRailNames`）；「坐火車」「搭台鐵」才是。
+- **短名車站**：「桃園」「新竹」這種短名同時是高鐵站與火車站，行程起訖是短名時先請手機定位（`hasShortStation`），人在那座城市（離某一站 10 公里內）就用離他近的那一站（`localStations`：人在桃園市區說「桃園到台北101」＝桃園車站）；說了全名不改。
+- **附近站牌**：回答列出最近一站的路線（「「高雄車站(建國路)」有 12、50、248…」）。
+- **貼上的詐騙樣式簡訊**（網址＋催促〔24 小時內、立即、逾期…〕＋要你點或付〔點擊、更新資料、繳費、包裹…〕，`looksScamPaste`）：生活阿幫不查工具、不把裡面的數字當公車，回一句提醒並問「要帶這則訊息到「防詐」檢查嗎？」（`scamPasteAsk(..., { pasted: true })`，選項 `handOff` 帶著整則訊息）。
+- **PR #127 獨立審查（3959 句對照）後**：
+  - 路況不搶公車與行程：說了公車、捷運、坐／搭（開車、叫車除外）或公車號碼（「307 公車路況」「307 路況」；國道 3 號、國3 不算）就不是國道路況；「從板橋去台北車站坐公車會不會塞車」排行程，總結加一句「市區道路塞不塞，開放資料查不到（路況只有國道）」。規則說路況、貼上的簡訊時，手機或伺服器的模型判斷成別的意圖（不是 unknown）可以更正（`run.js` `byModel`）。
+  - 市區路況（「信義區車多不多」「台北市區路況如何」「淡水的路況」，`cityOnly`）：照實說只有國道資料，不問國道起訖、不定位、不查。判斷層有把握說路況、句子提到國道（「國道有車禍嗎」「國道一號」）：問起訖。
+  - 詐騙樣式簡訊要同時有網址、催促、要你點連結或輸入資料，再加上金錢或冒名的機關／物流特徵；官方網域（gov.tw、edu.tw、高鐵、台鐵、郵局）、有起訖、問怎麼去、提到地名的一般問題不算。
+  - 「12345678 有中嗎」＝發票；沒有前文的「那95呢」＝油價（前一句問公車時還是公車）；「改去松山機常」單句是行程；「文湖線現在有沒有誤點」＝捷運（`METRO_ASK` 加誤點、延誤，訓練範例加 3 句）；「我等3號發薪」「等 5 號再說」「我在等2號窗口」不是公車，「我在台北車站等307」是；「YouBike 最後一班」不是公車末班；「坐火車去桃園」用桃園車站（指定系統時短名用那個系統的站）；判斷層「接著上一輪」只有改行程標 trip，接著問公車、股票、發票照規則的意圖。
+  - 英文：「Is the freeway jammed from Taipei to Hsinchu?」查路況；沒有起訖問「From where to where?」，打字回答改寫成英文句。
+- **地端模型亂加的追問**：平台護欄加一句「結尾不要順口問要幫你叫車、訂票」；程式另外拿掉不相關的「要幫你叫車嗎？」「要幫你訂票嗎？」（`dropStrayOffers`：建議或指定叫車才留叫車；使用者要訂票、或建議高鐵台鐵才留訂票）。
 
 ### 5.3 判斷層：意圖與使用者狀態（2026-11-20，`core/agent/judge.js`）
 
@@ -308,13 +331,25 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 - **A 嵌入分類器**：`@huggingface/transformers`（選用依賴）＋ multilingual-e5-small（約 120 MB，首次啟動下載到 `JUDGE_MODEL_DIR`，Docker 建置時先下載進映像）；各意圖類別中心＋信心，狀態各一個 logistic regression；訓練範例 `core/data/judge-train.json`（與評估集分開）。每題約 3 毫秒。
 - **B 模型判斷**：有 `LOCAL_LLM_URL` 時，地端模型＋自動優化過的提示詞（`core/agent/judge-prompt.txt`，由 `scripts/eval-optimize-prompt.js` 產生）。
-- **組合**：意圖＝A 信心 ≥ 0.8 用 A，否則問 B（沒有 B 就用 A）；狀態＝規則 ∪（A ∩ B）；B 只在 A 沒把握或是行程問題時才問。實驗：意圖 94.2%、意圖＋狀態全對 89.5%（驗收集 88.4%），規則單獨 64.0%、模型單獨 58.7%。
+- **組合**：意圖＝A 信心 ≥ 0.8 用 A，否則問 B；**沒有 B（也沒有裝置端提示）時，規則有明確意圖（判斷層的 15 類之一、不是 unknown）就用規則，規則聽不懂才用 A，A 信心 < 0.5（`UNSURE_FLOOR`）當 unknown**（2026-11-22 真實資料健檢 S3：A 沒把握時把「從板橋到台北車站」「高雄車站到駁二」判成高鐵台鐵、詐騙簡訊判成查公車「24」；評估集 172 題用正式的訓練範例 84.3% → 91.9%，原本列錯的 12 題全對、沒有退步）；狀態＝規則 ∪（A ∩ B）；B 只在 A 沒把握或是行程問題時才問。實驗：意圖 94.2%、意圖＋狀態全對 89.5%（驗收集 88.4%），規則單獨 64.0%、模型單獨 58.7%。
+- **判斷層指定意圖抽參數的保底**（同上）：判斷層說 rail，但句子沒有高鐵台鐵字眼也沒問班次、或迄站不是車站（「駁二」）→ 交回規則；說 metro 但句子有起訖（「從板橋坐捷運到台北車站」）→ 交回規則（行程、指定坐捷運）；說 bus_route 但句子是詐騙樣式簡訊 → 交回規則；說 trip 時起訖照「從／到」排、指定的交通方式帶上。
+- **traffic 意圖**（國道路況，2026-11-22）：判斷層 16 類（`JUDGE_INTENTS`、手機 `EDGE_INTENTS`、iOS `edgeIntents`、`judge-prompt.txt`、訓練範例 10 句）。規則 `isTrafficAsk`：塞車、塞不塞、車多不多、路況、國道／國一／中山高／雪隧…順不順，而且是問句；「國道客運」「怕塞車，從西門町去101」（排行程）不算。有起訖 → `traffic_status`；一個地名＋去／到 → 從現在位置；沒有地名接著上一趟行程（「那國道會塞車嗎」）；都沒有（「國道一號現在塞車嗎」）→ `needs: 'od'` 問「從哪裡到哪裡？」（`slotAsk`，選項是說過的兩個地名或常走的路段；打字回答 `PENDING_SLOTS.od` 只收兩個地名）。地端模型模式由規則回答（`RULE_ANSWERS`）；工具層拒絕起訖不到 1 公里（模型用同一座標呼叫時照實說）。手機不出這一題（`EDGE_ASK_GUIDE`：traffic 的起訖由程式問）。
 - **示範模式**：意圖與狀態以判斷層為準，地點、路線號碼、股票名稱等參數仍由規則抽（`parseIntent(text, { intent })`）；指定意圖抽不出必要參數時維持規則的判斷。
 - **模型模式**：`plan_trip` 的使用者狀態以判斷層為準（模型自己加的狀態只有 3 成對），再加上使用者點選的；地端模型且判斷有把握時只給該意圖的工具（`INTENT_TOOLS`，行程與其他不縮減），Claude 照常給全部。
 - `status` 事件帶 `judge: { intent, source: embed|llm|rules, confidence }`（不含對話內容；為快速版結果）。
 - 使用者看得到判斷層：「阿幫的腦袋」頁（`#/ai`，UX.md §5.0.1、ADR-0014 第 7 點）白話說明四個成員（手機上的 AI、嵌入分類器、伺服器的模型、規則）；`GET /api/v1/status` 的 `agent: { mode, model?, judge: { embed, llm } }` 回報這台伺服器由誰回答、分類器與模型有沒有載入（不含金鑰與網址）。
 - 先用快速版 `judge.quick`（A＋規則，不問模型，幾毫秒）在行程前送一句 `agent_note`（`judgeNote`：「你想省錢，我先看天氣、空品、路況，再比較幾種走法」；接著改交通方式時「照你說的改成坐公車，用剛才的起點和目的地重算」；其他查詢不說，2026-11-20 改，原本每次都說「我聽懂了」太多餘），使用者一送出就看到阿幫依他的狀況做事；之後完整版（含模型）定案，多找到的狀態再送一句「我還注意到你…」（`moreStatesNote`）。
+- 手機上的 AI 暫時不能用（2026-11-22）：App 不在前景（`document.visibilityState !== 'visible'`）時手機不呼叫 judge／write／suggest；Android 的背景被擋（`BACKGROUND_USE_BLOCKED` 30）、電量配額（`PER_APP_BATTERY_USE_QUOTA_EXCEEDED` 27）與 iOS 在背景的錯誤回 `background`／`battery-quota`，不暫停、不跳斷路器，這一題交給伺服器判斷（錯誤碼表見 ADR-0014）。
 - 退路：`JUDGE=off`、選用依賴沒裝、模型下載失敗、載入中 → 都等同規則；CI 與 E2E 設 `JUDGE=off`，邏輯以單元測試（假的分類器）驗證。
+
+### 5.3.1 問什麼由手機上的 AI 決定（ADR-0020，2026-11-22）
+
+- **一次呼叫**：手機 judge 同時回 `{ intent, states, ask? }`；指示 `EDGE_JUDGE_INSTRUCTIONS`＝判斷指示＋`EDGE_ASK_GUIDE`（`core/edge-ask.js`：可以問的種類 route／to／from／state、各意圖必要的欄位〔`INTENT_SLOTS`，與試判斷共用〕、寧可不問、題目不要有數字、選項是使用者會點的短答）。
+- **情境**（`public/js/edge-judge.js judgeContext`，只在手機上組、只給手機上的模型看，不送伺服器，最多 400 字）：有沒有定位（`locationGranted`）、常用地點的標籤、上一輪問過哪一題（`ask.about`）、最近兩輪摘要與目前頁面（同 §5.5 `contextText`）。不含座標、地址、健康資料。試判斷一律「沒有定位」。
+- **手機上**：`normalizeJudge` 配對大括號解析巢狀 JSON（被截斷時用 regex 撈回意圖與狀態，只丟 ask）；`judgeAsk` 整理＋`edgeAskShape` 形狀檢查（種類、狀態、控制與格式字元、長度〔中文 30／12 字，英文 60／24 字元〕、只能一句的問句、要切題、沒有數字〔含國字、圈圈數字〕、選項 2～4 個不重複、NFKC＋去空白後的 `unsafeAsk` 與誘導字、L2 輸出護欄、代辦說法、語言、狀態題要問對狀態不反著問）＋剛問過的不再問；不過就只拿掉 `ask`（判斷照送）。
+- **新種類（PM Q 情境，2026-11-22）**：`railFrom`／`railTo`／`place`／`where`／`topic`：規則這一輪也要問同一種，每個選項經 `PENDING_SLOTS` 接回的句子要是程式的候選（站名、候選地點、縣市、類別選項）；程式已經用猜的查了時，選項要包含那一個（標「猜的」排第一）。
+- **伺服器**：zod 嚴格收 `deviceJudge.ask`（沒有控制與格式字元）；`deviceAskTracker` 再跑一次形狀檢查＋防詐規則庫；`deviceSlotAsk`（route／to／from：規則的 `slotAsk`／`originAsk` 也認為缺；選項只收前文或請求 `context` 出現過的地名〔整個選項就是那個地名、不是另一端〕與路線號碼、家／公司／學校〔帶 `saved`〕、附近公車、用我的位置，經 `PENDING_SLOTS` 接回完整的一句）、`deviceStateAsk`（只取代關鍵因子：習慣確認、說過的預設狀況優先〔同一個狀態時用手機的題目、選項照程式〕；沒說狀況、沒指定方式，`keyQuestion(..., [state])` 只試那個狀態會換建議；選項一律 `STATE_ANSWERS`、`why` 放程式算的數字、`key` 照舊）。通過就用手機的題目文字（缺欄位題也用手機的選項文字），否則照規則；手機沒給但規則要問照規則（保底）。`ask.askSource`、最後 `done.askCheck`；log 只記 `ask`／`deviceAsk` 代碼。
+- 網頁版、手機 AI 不可用或關掉、舊版外掛：完全照規則（行為不變）。
 
 ### 5.4 短劇（MyDrama，ADR-0019，2026-11-22；示範與模型模式相同）
 
@@ -328,7 +363,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 1. **情境**（`public/js/agent/suggest.js` `suggestContext`／`contextText`，只在手機上組、不送伺服器）：時段（平日／假日、早上／白天／傍晚／深夜）、目前頁面（浮動阿幫的 `askHint`：公車頁哪條路線哪一站、天氣頁…）、最近兩輪的問題與結果摘要（「行程 西門町→台北101，建議捷運；天氣 正在下雨 18°C；AQI 58」，只取名稱與數字）、常用地點的**標籤**（家／公司／學校）、進行中的到站／下車提醒。不含座標（問題裡像座標的數字也遮掉：成對的小數 2 位以上，例「25.04,121.51」，與單獨的小數 3 位以上）、不含常用地點的地址。
 2. **產生**：App 裡手機上的 AI 可用、設定開著時，外掛 `AbangEdgeAI.suggest({ context, instructions, lang, max })` 回 3～4 句（Android Gemini Nano 每行一句、溫度 0.4、原生 1.5 秒取消；iOS Foundation Models `@Generable` 字串陣列、溫度 0.5）；指示詞 `SUGGEST_INSTRUCTIONS`（每句單獨看得懂、寫出地名路線、只問阿幫查得到的；英文那一輪用英文）。猜＋驗證總共最多等 1.5 秒（`SUGGEST_WAIT_MS`，驗證用剩下的時間，剩不到 50 毫秒就不驗證、改用規則），上一次還沒跑完、正在判斷（judge）或寫回答（write）時不叫；網址帶問題（`?q=`）或從「阿幫會看」交過來、進頁就要送出時也先不叫。外掛沒有這個方法、或 suggest 回「不可用」：**只停 suggest**（這次開 App 不再猜，改用規則），不停 judge／write——suggest 是背景任務，失敗不影響回答；原生端 suggest 的任何錯誤也都不設 Android 的 10 分鐘暫停（`suggestErrorCode`），自己逾時時記取消時間。**judge 優先**（產品負責人 2026-11-21）：使用者送出問題時 `edgeJudge` 先呼叫 `cancelSuggest`（原生端取消：Android 取消 ML Kit 的 future、iOS 取消 Task），正在等的建議結果丟掉；原生端 `judge` 進來也會先取消 suggest，Android 的 suggest 另用一條執行緒，judge 不會排在它後面；被取消回 `cancelled`，不算模型錯誤（不觸發暫停）。取消建議後 3 秒內 judge 若遇到忙碌類錯誤（Android ML Kit `ErrorCode.BUSY`／`CANCELLED`；iOS 取消中、限流、同時有請求），原生端回 `busy`、不暫停 10 分鐘，JS 也不跳斷路器（`edgeTrips`），這一題改由伺服器判斷，下一題照常在手機上。**與「回答在手機上寫」（§3.5、ADR-0017）共用外掛與斷路器**：優先順序 judge ＞ write ＞ suggest——write 開始前也先取消正在跑的 suggest（JS 與原生端都做），手機正在寫回答時不猜下一句（`edgeTasks`）；judge 或 write 回「不可用」跳同一個斷路器（`noteEdgeError`／`edgeTripped`），suggest 回不可用只停 suggest，取消後 3 秒內的忙碌錯誤 write 也回 `busy`、不暫停，該輪用程式版總結。
 3. **驗證**（一律）：句子送 `POST /api/v1/suggest/check { asks }`（**只送句子**，不送情境；最多 8 句、每句 60 字；一般 API 限流；不保存，結構化 log 只記 `{ count, ok, needSaved }` 數量、不記句子，`checkRequest`）→ `core/agent/suggest-check.js` 用示範模式同一套 `parseIntent` 解析：意圖不是 unknown／說明類、需要的欄位齊全（行程要有目的地、公車要有路線、高鐵台鐵要有站、股票不是問買賣、天氣不是後天、油價不是問漲跌；沒說的位置可以用定位補）才 `ok`；用到常用地點時回 `needSaved`，手機有設定才算。另外一律擋掉夾帶誘導內容的句子（`unsafeAsk`：網址、網域、email、@帳號、連續 6 位以上數字、電話格式、LINE／加好友／匯款／帳號／轉帳／點連結／驗證碼等字、座標），去掉意圖欄位（地名、路線、站名、股票）後剩超過 16 字的也不要（`leftoverUnits`，避免在查得到的問題後面接一串別的話）；手機上整理模型回傳時（`normalizeSuggest`）也先擋一次。回傳只有意圖與比對欄位（`core/suggest.js` `slimAsk`），不呼叫模型、不查資料。手機再丟掉跟畫面上已回答的重複的（`shownAsks`＋`sameAsk`：同起訖的行程、已顯示的天氣空品、同一條公車…）、剛問過的、頁面列已有的。
-4. **規則補**：網頁版、手機上的 AI 不可用／關掉／逾時、或驗證後不足 3 句 → `ruleAsks(ctx)`：依最近結果（行程：下雨少淋雨的走法、建議捷運就問捷運下一班、建議公車就問那條公車、回程或回家、目的地附近 YouBike；公車：附近還有哪些公車、上車後提醒我下車）、頁面、時段、常用地點、進行中提醒，加上原本 `next-steps.js` 的問句。每一句規則都在 `test/suggest.test.js` 用 `parseIntent` 逐句驗證查得到、規則標的意圖與解析結果一致。
+4. **規則補**：網頁版、手機上的 AI 不可用／關掉／逾時、App 不在前景（不呼叫；背景被擋、電量配額的錯誤也只這次改用規則，不停掉 suggest，ADR-0014 錯誤碼表）、或驗證後不足 3 句 → `ruleAsks(ctx)`：依最近結果（行程：下雨少淋雨的走法、建議捷運就問捷運下一班、建議公車就問那條公車、回程或回家、目的地附近 YouBike；公車：附近還有哪些公車、上車後提醒我下車）、頁面、時段、常用地點、進行中提醒，加上原本 `next-steps.js` 的問句。每一句規則都在 `test/suggest.test.js` 用 `parseIntent` 逐句驗證查得到、規則標的意圖與解析結果一致。
 5. **排序**（`scoreAsk`，程式計分）：提到情境裡的地名路線 +3、規則標的相關度（從這一輪結果推的 +2～3）、跟結果一起出現的意圖 +1、頁面相符 +2、時段相符 +1、有即時資料（行程、公車、捷運、YouBike、附近站牌、高鐵台鐵、天氣、空品、出門建議）+1；同分照模型或規則原本的順序。手機上的 AI 有 3 句以上就用它的（彼此排序），不足才把規則接在後面。
 
 短劇（§5.4）：找短劇（`drama`）也算查得到（`dramaQuery`／`dramaList` 一起比對；已顯示的排行或同一個類型不重複）；等車時建議「等車無聊，推薦一部短劇」、傍晚與深夜建議「最近有什麼好看的短劇？」。
@@ -429,3 +464,12 @@ PM 依真實說法提的 10 個情境（口語、一句兩件事、指代、相�
 - 「謝謝阿幫」「感恩」「👍」「🙏」回「不客氣」，「歹勢」「不好意思」回「沒關係」，不列功能清單；道謝或道歉後接著問的照常查。
 - 審查補強：晚上／今晚／午夜 12 點＝隔天 00:00（「明天晚上 12 點」＝後天 00:00，`departDays`）；同一句有抵達時間時出發選在抵達之前（「8點前要到，7點出發」＝07:00），推不出合理的就不採用。一句多件事：「先查、再看」也分段，同一段的「油價跟天氣」「307 跟 299」都列出（兩條公車都查，總結從各工具結果尾端取回）；有行程時行程優先（用行程那幾段解析），油價、發票等放 also（天氣、空品行程本來就看）。「謝謝，那307呢」去掉句首禮貌詞照常解析；「明天早上8點到台北101」「晚上8點到台北101」是行程，時間當抵達時間。
 - 未做：模型模式（地端）的一句多件事仍交給模型；英文的出發時間（「leave at 8am」）還沒解析；「跟、和」不當分段符號（會拆壞「台積電和 0050」），改在同一段裡找多個意圖。
+
+### 5.2.16 健康與運動：問天氣、出門時在手機上補一句散步建議（2026-11-22，ADR-0018）
+
+**伺服器與模型都不知道健康資料**：示範模式、Claude 模式、地端模型模式都一樣，agent 照常回答天氣、出門、空品（「我要不要去運動」走 `outing` 意圖、`outing_advice`），不加任何新事件或欄位。
+回答結束後，前端（`public/js/pages/agent.js` `addHealthSay`）在手機上判斷要不要補一句：
+1. 使用者打開了「健康與運動」，而且這一輪有 `weather_now`／`outing_advice`／`aqi_nearby` 的結果（`turnWeather`；`weather_tomorrow`、`plan_trip` 不算），或問題本身在問運動、散步（`EXERCISE_Q`）。
+2. 用這一輪的天氣、空品與工具查的位置（只問天氣或只問空品時，缺的那一個用首頁「現在」10 分鐘內查過的補；不因為健康狀態另外查），加上手機上讀的步數，跑 `core/health-nudge.js` 的 `nudgeFor`（規則見 UX.md §5.0.5）；一天主動提一次（建議過就算，自己問的也算），自己問一定回答。
+3. 補的泡泡 `.bubble.health-say` 不放進 `history`、不存進 `abang.chat`，所以下一個問題也不會帶到伺服器。
+不採用把步數放進 `userState` 讓模型轉述：健康資料會離開手機（ADR-0018）。

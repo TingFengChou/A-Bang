@@ -2,6 +2,7 @@
 // MCP Apps 版（host-mcp-app.js）於 M4-04 實作。
 
 import { hasNativeNotify, ensureNotifyPermission, scheduleNotify, cancelNotify, NOTIFY_ID, EARLY_MS } from '../../js/native-notify.js';
+import { startWatchService, stopWatchService, watchServiceStatus, updateWatchService, watchLine } from '../../js/native-watch.js';
 import { addReminder, cancelReminder, notifyState, reminderFor, canNotify } from '../../js/reminders.js';
 import { isAppLink, isStoreLink } from '../../../core/drama-say.js';
 
@@ -11,7 +12,8 @@ import { isAppLink, isStoreLink } from '../../../core/drama-say.js';
 // 每 20 秒查一次上車站的到站時間（bus_route_eta 的 focus），剩下時間 ≤ 設定的分鐘數就通知一次後結束。
 // 設定時這班已經在提醒範圍內（趕不上）→ 跳過這班，等到站時間跳回大數字（下一班）再開始算。
 const POLL_MS = 20_000, MAX_MS = 90 * 60_000;
-const watch = { w: null, poll: null, fire: null, until: 0, nativeAt: 0 };
+// service：Android 常駐服務自己查、自己響；live：iOS 即時動態只顯示，App 開著時由這裡更新（提醒照舊靠排好的通知）
+const watch = { w: null, poll: null, fire: null, until: 0, nativeAt: 0, service: false, live: false };
 // App 的通知能不能在背景送（權限被拒或排程失敗 → false，畫面就不能寫「App 關著也會提醒」）
 const native = { granted: null, failed: false };
 const canBackground = () => hasNativeNotify() && native.granted !== false && !native.failed;
@@ -63,8 +65,10 @@ export function openApp({ app, store } = {}, { win = globalThis.window, doc = gl
 /** 目前的到站提醒（不用建 host；進行中列用） */
 export const currentArrivalWatch = () => watch.w;
 const signal = (type, detail) => { try { window.dispatchEvent(new CustomEvent(type, { detail })); } catch { /* 非瀏覽器 */ } };
-function stopWatch({ cancel = true } = {}) {
+function stopWatch({ cancel = true, keepService = false } = {}) {
   clearInterval(watch.poll); clearTimeout(watch.fire);
+  // keepService：App 在背景、畫面這邊先算到該提醒了——讓 Android 常駐服務自己響、自己結束（停掉它就沒人響了，審查 2026-11-23）
+  if (watch.service || watch.live) { const stop = !(keepService && watch.service); watch.service = false; watch.live = false; if (stop) stopWatchService(); } // Android 常駐服務／iOS 即時動態一起停（App 內提醒過、取消、逾時、末班已過）
   watch.w = null;
   if (cancel && watch.nativeAt) cancelNotify(NOTIFY_ID.arrival); // 使用者取消或逾時：排好的通知一起取消
   watch.nativeAt = 0;
@@ -102,13 +106,14 @@ function fireArrival(f) {
   if (!w) return;
   const text = arrivalText(w.routeName, w.stop, f.etaSec, w.lang);
   const planned = watch.nativeAt;
-  stopWatch({ cancel: false });
+  const svc = watch.service;
+  const visible = typeof document === 'undefined' || document.visibilityState !== 'hidden';
+  stopWatch({ cancel: false, keepService: !visible });
   if (hasNativeNotify()) {
-    const visible = typeof document === 'undefined' || document.visibilityState !== 'hidden';
     // 前景：畫面上的提醒（toast）就夠了，排好的通知取消（不要同一件事出現兩次）
     // 背景：排好的通知在 5 秒內會送（或剛送過）就不重複；車比預估早到 → 改成馬上送
     if (visible) { if (planned) cancelNotify(NOTIFY_ID.arrival); }
-    else if (!planned || planned > Date.now() + 5000) scheduleNotify(NOTIFY_ID.arrival, new Date(), w.lang === 'en' ? NOTIFY_TITLE_EN : NOTIFY_TITLE, text);
+    else if (!svc && (!planned || planned > Date.now() + 5000)) scheduleNotify(NOTIFY_ID.arrival, new Date(), w.lang === 'en' ? NOTIFY_TITLE_EN : NOTIFY_TITLE, text); // 常駐服務在跑：它自己會響，不重複
   } else {
     try { if (typeof Notification !== 'undefined' && Notification.permission === 'granted') new Notification(w.lang === 'en' ? ARRIVING_TITLE_EN : '阿幫：公車快到站', { body: text, icon: '/icons/icon.svg', tag: 'abang-arrival' }); } catch { /* 部分瀏覽器只允許 SW 通知 */ }
   }
@@ -142,6 +147,11 @@ export async function pollWatch(callTool) {
   const w = watch.w;
   if (!w) return;
   if (Date.now() > watch.until) { stopWatch(); return; } // 90 分鐘還沒到：放棄（排好的通知也取消）
+  if (watch.service) {
+    const st = await watchServiceStatus();
+    if (st && !st.active && (st.firedAt || st.endedAt)) { stopWatch({ cancel: false }); return; }
+    if (st && !st.active) watch.service = false; // 服務被系統關掉（沒響、沒被取消）：改回畫面這邊查＋預排通知，不要變成永遠不響（審查 2026-11-23）
+  } // 常駐服務已經提醒過、或末班已過自己取消了（App 關著時）：畫面跟著結束
   try {
     const r = await callTool('bus_route_eta', { city: w.city, routeName: w.routeName, stop: w.stop, ...(w.direction != null && { direction: w.direction }) });
     const f = r?.data?.focus;
@@ -151,24 +161,29 @@ export async function pollWatch(callTool) {
       const why = stuckReason(w, f);
       if (why) { // 只說一次
         w.stuck = why;
-        signal('abang:arrival-stuck', { routeName: w.routeName, stop: w.stop, reason: why, ask: stuckAsk(w), lang: w.lang || null });
+        const ended = why === 'notRunning'; // 末班已過、今日未營運：這班不會來了，提醒自動取消（產品負責人 2026-11-22：過期的提醒要清掉）
+        signal('abang:arrival-stuck', { routeName: w.routeName, stop: w.stop, reason: why, ask: stuckAsk(w), lang: w.lang || null, ...(ended && { ended: true }) });
         const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
         if (hidden && hasNativeNotify()) scheduleNotify(NOTIFY_ID.stuck, new Date(), w.lang === 'en' ? STUCK_TITLE_EN : STUCK_TITLE, stuckText(w)); // App 在背景：畫面上的提示看不到
+        if (ended) { stopWatch(); return; }
       }
     }
     signal('abang:arrival-watch', w);
-    if (f.status !== 0 || f.etaSec == null) return; // 未發車、末班已過：繼續看下一次
+    // iOS 即時動態：每次查到就更新（鎖定畫面倒數到預估到站）；App 在背景時 iOS 不讓查，停在最後一次的預估
+    const live = (o) => { if (watch.live) updateWatchService({ text: watchLine(w, f, o), etaSec: f.status === 0 && !o?.skip ? f.etaSec : null }); }; // 這班來不及：不倒數這班
+    if (f.status !== 0 || f.etaSec == null) { live(); return; } // 未發車、末班已過：繼續看下一次
     const left = f.etaSec - w.minutes * 60;
     if (w.skip) {
       // 跳過的那班開走後，到站時間會變大（下一班）
       if (f.etaSec > w.skip + 60) { w.skip = null; w.base = null; } // 下一班：延誤從這班重新算
-      else { w.skip = f.etaSec; signal('abang:arrival-watch', w); return; }
+      else { w.skip = f.etaSec; live({ skip: true }); signal('abang:arrival-watch', w); return; }
     } else if (w.first && left <= 0) {
-      w.first = false; w.skip = f.etaSec; signal('abang:arrival-watch', w); return;
+      w.first = false; w.skip = f.etaSec; live({ skip: true }); signal('abang:arrival-watch', w); return;
     }
     w.first = false;
+    if (left > 0) live();
     clearTimeout(watch.fire);
-    if (left > 0 && hasNativeNotify()) planNative(w, Date.now() + left * 1000);
+    if (left > 0 && hasNativeNotify() && !watch.service) planNative(w, Date.now() + left * 1000); // 常駐服務在跑：由它準時提醒
     if (left <= 0) fireArrival(f);
     else if (left * 1000 < POLL_MS + 5000) watch.fire = setTimeout(() => fireArrival({ ...f, etaSec: w.minutes * 60 }), left * 1000); // 兩次更新之間到點也準時提醒
   } catch { /* 暫時查不到：下次再試 */ }
@@ -201,8 +216,10 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
       // at 是台灣時間（伺服器算的）：不看裝置時區（觀光客手機可能是別的時區，PR #50 審查）
       const [h, m] = String(at).split(':').map(Number);
       const tw = new Date(Date.now() + 8 * 3600e3);
-      const when = new Date(Date.UTC(tw.getUTCFullYear(), tw.getUTCMonth(), tw.getUTCDate(), h - 8, m));
-      return addReminder(when, text, meta);
+      const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(meta?.date || ''); // 指定哪一天（明早帶傘）；沒給＝今天
+      const when = d ? new Date(Date.UTC(+d[1], +d[2] - 1, +d[3], h - 8, m)) : new Date(Date.UTC(tw.getUTCFullYear(), tw.getUTCMonth(), tw.getUTCDate(), h - 8, m));
+      const { date: _d, ...rest } = meta || {};
+      return addReminder(when, text, rest);
     },
     /** 這段路線目前的出門提醒（卡片重畫、重新規劃後也知道已經設了） */
     reminderFor: (key) => reminderFor(key),
@@ -225,6 +242,9 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
       watch.w = { ...w, ...(trip?.to && { trip: { to: trip.to } }), first: true, skip: null };
       watch.until = w.until ?? Date.now() + MAX_MS;
       store.save();
+      // Android：通知列常駐、App 關著也每 20 秒查真實到站時間；iOS：鎖定畫面與動態島的即時動態（沒有通知權限就不顯示：到點不會響，不能說「會提醒你」）
+      const kind = native.granted !== false && await startWatchService({ ...watch.w, until: watch.until });
+      watch.service = kind === 'service'; watch.live = kind === 'live';
       signal('abang:arrival-watch', watch.w);
       const call = (n, a) => this.callTool(n, a);
       await pollWatch(call);
