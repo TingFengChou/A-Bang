@@ -241,7 +241,7 @@ test('地端：tool_calls 迴圈、<think> 不外露、回填 role=tool、Author
   assert.equal(state.headers[0].authorization, 'Bearer local-key');
 
   reset([{ message: { role: 'assistant', content: '你好' } }]);
-  await run(local(), '你好');
+  await run(local(), '幫我找一個地方');
   assert.equal(state.headers[0].authorization, undefined);
 });
 
@@ -257,8 +257,8 @@ test('地端：參數不是 JSON → 不執行該工具，回填錯誤讓模型�
 
 test('地端：連線失敗或 HTTP 錯誤 → LocalModelError（訊息不含網址）', async () => {
   reset([{ status: 503 }]);
-  await assert.rejects(run(local(), '你好'), (e) => e instanceof LocalModelError && /503/.test(e.message));
-  await assert.rejects(run(createLocalProvider({ url: 'http://127.0.0.1:9/v1', model: 'm', timeoutMs: 2000 }), '你好'),
+  await assert.rejects(run(local(), '幫我找一個地方'), (e) => e instanceof LocalModelError && /503/.test(e.message));
+  await assert.rejects(run(createLocalProvider({ url: 'http://127.0.0.1:9/v1', model: 'm', timeoutMs: 2000 }), '幫我找一個地方'),
     (e) => e instanceof LocalModelError && !e.message.includes('127.0.0.1'));
 });
 
@@ -269,9 +269,9 @@ test('dropNulls：模型送的 null／空字串視為沒給（地端小模型常
 
 test('地端：設定 reasoningEffort 時帶 reasoning_effort（Ollama 的推理模型可關閉思考）', async () => {
   reset([{ message: { role: 'assistant', content: '你好' } }, { message: { role: 'assistant', content: '你好' } }]);
-  await run(local({ reasoningEffort: 'none' }), '你好');
+  await run(local({ reasoningEffort: 'none' }), '幫我找一個地方');
   assert.equal(state.reqs[0].reasoning_effort, 'none');
-  await run(local(), '你好');
+  await run(local(), '幫我找一個地方');
   assert.ok(!('reasoning_effort' in state.reqs[1]));
 });
 

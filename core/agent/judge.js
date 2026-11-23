@@ -31,6 +31,8 @@ export const JUDGE_INTENTS = {
 };
 export const JUDGE_STATES = ['rush', 'luggage', 'budget', 'lessWalk', 'rain', 'badAir', 'elder', 'kids', 'mobility'];
 export const CONFIDENT = 0.8;
+/** 規則靠明確關鍵字認出的意圖：判斷層（手機、模型、嵌入分類器）說是別的也照規則（腦袋審查 #3） */
+export const KEYWORD_INTENTS = new Set(['weather', 'aqi', 'quake', 'pharmacy', 'garbage', 'fuel', 'invoice', 'stock', 'youbike', 'nearby_bus', 'metro']);
 /** A 沒把握、規則也聽不懂時：A 信心低於這個值就當作 unknown（不亂選；「我在等939」0.27、詐騙簡訊 0.42） */
 export const UNSURE_FLOOR = 0.5;
 /** 裝置端判斷的引擎（ADR-0014）：Apple Intelligence（Foundation Models）、Gemini Nano（ML Kit GenAI） */
@@ -131,8 +133,10 @@ export function createJudge({ embed = null, llm = null, threshold = CONFIDENT } 
     const ruled = rules.intent !== 'unknown' && Object.hasOwn(JUDGE_INTENTS, rules.intent);
     // 接著上一輪：規則看得到前文。改行程是 trip；接著問公車、股票、發票、油價（「那 262 呢」、末班車那題回「307」）照規則的意圖（PR #127 審查）
     // 規則有十足把握（這一句寫了公車路線號碼、問的就是那一路，例「307 到哪了」）：手機或模型判成別的（天氣）也不改（真實資料健檢 d10）
-    const strong = ruled && rules.intent === 'bus_route' && !!rules.route && !(rules.also || []).length;
-    const pick = meta ? ['unknown', 'rules'] : rules.followUp ? [rules.intent === 'trip' || !Object.hasOwn(JUDGE_INTENTS, rules.intent) ? 'trip' : rules.intent, 'rules'] : strong && b && b.intent !== rules.intent ? [rules.intent, 'rules'] : sure ? [a.intent, 'embed'] : b ? [b.intent, dev ? 'device' : 'llm']
+    // 腦袋審查 #3（2026-11-23）：句子有明確關鍵字的生活查詢（天氣、空品、藥局、油價、發票、股票代號、地震、垃圾車、YouBike、附近站牌、捷運）也一樣：
+    // 手機看了前文（剛剛在排行程）判成行程、或把「2330 收盤多少」判成天氣時，照規則（路況、行程、聽不懂的句子仍可由手機或模型更正）
+    const strong = ruled && !(rules.also || []).length && ((rules.intent === 'bus_route' && !!rules.route) || KEYWORD_INTENTS.has(rules.intent));
+    const pick = meta ? ['unknown', 'rules'] : rules.followUp ? [rules.intent === 'trip' || !Object.hasOwn(JUDGE_INTENTS, rules.intent) ? 'trip' : rules.intent, 'rules'] : strong && ((b && b.intent !== rules.intent) || (sure && a.intent !== rules.intent)) ? [rules.intent, 'rules'] : sure ? [a.intent, 'embed'] : b ? [b.intent, dev ? 'device' : 'llm']
       : ruled || !a ? [rules.intent, 'rules'] : a.confidence >= UNSURE_FLOOR ? [a.intent, 'embed'] : ['unknown', 'embed'];
     const [intent, source] = pick;
     const agree = a && b ? a.states.filter((k) => b.states.includes(k)) : [];

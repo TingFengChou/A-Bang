@@ -392,9 +392,16 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
     const byModel = (j.source === 'device' || j.source === 'llm') && j.intent !== 'unknown'; // 模型說聽不懂不算更正
     const keep = it.followUp || it.intent === 'outing' || it.intent === 'drama' || it.also?.length || (it.intent === 'metro' && (it.station || it.system || it.last)) || (it.intent === 'traffic' && !byModel) || (it.intent === 'bus_route' && it.last) || it.nearRail || it.thanks || it.sorry || RULE_FINAL.some((k) => it[k]) || (it.airport && j.intent === 'unknown') || (!Object.hasOwn(JUDGE_INTENTS, it.intent) && !(it.pasted && byModel)); // 路況、貼上的簡訊：模型（手機或伺服器）判斷不同時可以更正（PR #127 審查） // 判斷層沒有的意圖（防詐請到防詐頁、代按代付、電梯）判斷層無從更正：歧義、路名、只說類別、要出門了、沒說去哪的高鐵、公車方向、問中獎——規則已經很明確 // 說了站名的捷運（「捷運西門站下一般」被判成行程，P5-5 模型模式）、去最近的火車站、禮貌話：規則已經很明確 // 判斷層常把「出門要注意什麼」判成空品或行程（設計審查實測）；一句問好幾件事以規則分段為準（P5-8）
     if (j.intent !== it.intent && !keep && !it.savedTrip && it.intent !== 'savedMissing') it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent, saved: req.savedPlaces, now }) || it;
-    it.states = j.states;
+    // 接著同一趟改條件（規則看了完整前文，含阿幫問的話）：規則帶過來的狀態（趕時間、帶行李）不被判斷層蓋掉（腦袋審查 #7）
+    it.states = it.followUp ? [...new Set([...(it.states || []), ...j.states])] : j.states;
     const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
     if (more && it.lang !== 'en') emit(ev.agentNote(more));
+  }
+  // 補答同一趟行程（「你從哪裡出發？」→「西門町」改寫成「從西門町到台北101怎麼去？」）：前一句說的狀態（趕時間、下雨）這一趟仍有效（腦袋審查 #7）
+  if (req.answered && it.intent === 'trip' && profile.id === 'life') {
+    const prev = priorUserTexts(req.messages).at(-1);
+    const ps = prev ? plan.parse(prev, { now })?.states || [] : [];
+    if (ps.length) it.states = [...new Set([...(it.states || []), ...ps])];
   }
   if (askGap(j || q0)) return; // 判斷層重判後才缺欄位（例：手機判斷是行程、句子只說了起點）
   if (trial && !trialSent) emit(ev.trial(trialInfo(svc, it, { judge: j || q0, lang: it.lang === 'en' ? 'en' : 'zh', now }))); // 資料夠不夠、會查哪些資料（程式算，不經模型）
