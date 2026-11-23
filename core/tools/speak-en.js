@@ -63,7 +63,7 @@ export const SPEAK_EN = {
     const umbrella = p >= 50 ? ', bring an umbrella' : p >= 30 ? ', a folding umbrella would be wise' : '';
     return `Tomorrow (${DAY(d.date)})${t}${pop}${umbrella}.`;
   },
-  aqi_nearby: (d) => `AQI ${d.nearest.aqi ?? '—'}${AQI_LEVEL[d.nearest.level] ? ` (${AQI_LEVEL[d.nearest.level]})` : ''} at ${d.nearest.site} station${d.nearest.pm25 != null ? `, PM2.5 ${d.nearest.pm25}` : ''}.`,
+  aqi_nearby: (d) => `${d.nearest.downSite ? `${d.nearest.downSite} station is under maintenance; ` : ''}AQI ${d.nearest.aqi ?? '—'}${AQI_LEVEL[d.nearest.level] ? ` (${AQI_LEVEL[d.nearest.level]})` : ''} at ${d.nearest.site} station${d.nearest.pm25 != null ? `, PM2.5 ${d.nearest.pm25}` : ''}.`,
   outing_advice: (d) => { const first = outingEn(d.items[0]); return first ? `Before you go: ${first}${d.items.length > 1 ? ` (+${d.items.length - 1} more on the card)` : ''}.` : `Checked weather and air: ${plural(d.items.length, 'tip')} on the card.`; },
   pharmacy_search: (d) => (d.pharmacies.length ? `Found ${plural(d.pharmacies.length, 'National Health Insurance (NHI) pharmacy', 'National Health Insurance (NHI) pharmacies')}${d.area ? ` in ${d.area}` : ''}; ${d.pharmacies.filter((p) => p.openToday).length} open today.` : 'No matching NHI pharmacies.'),
   youbike_nearby: (d) => { const s = d.stations.find((x) => x.inService && x.rent > 0); return s ? `Nearest station with bikes: ${s.name} (${km(s.distance)}), ${plural(s.rent, 'bike')}.` : 'No bikes at nearby stations right now.'; },
