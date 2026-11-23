@@ -284,10 +284,10 @@ function metroAccess(fromP, toP, d, toStation) {
 /** 接駁要花的分鐘（挑站用） */
 const accessMin = (m) => (m <= METRO_WALK_M ? walkMinutes(m) : Math.round((roadKm(m) / EST.cityKmh) * 60) + EST.cityWaitMin);
 /**
- * 機場捷運直達車（⚠️ 大約值，以桃園捷運公告為準）：台北車站 ↔ 機場第一航廈約 35 分、第二航廈約 38 分，單程 160 元，約 15 分一班（等車以半個班距估）。
+ * 機場捷運直達車：台北車站 ↔ 機場第一航廈約 36 分、第二航廈約 39 分（2026-11-23 依 TDX S2STravelTime/TYMC 直達車 2,160／2,340 秒），單程 160 元，約 15 分一班（等車以半個班距估；票價與班距以桃園捷運公告為準）。
  * 這一段用公告的固定參數，不用距離估算（原本估成 58 分 136 元，輸給票價也是估的客運；2026-11-22 真實健檢 z01）。
  */
-export const AIRPORT_EXPRESS = { hub: '台北車站', stops: { 機場第一航廈: 35, 機場第二航廈: 38 }, fare: 160, waitMin: 8 };
+export const AIRPORT_EXPRESS = { hub: '台北車站', stops: { 機場第一航廈: 36, 機場第二航廈: 39 }, fare: 160, waitMin: 8 };
 /** 起訖兩站是機場捷運直達車的「台北車站 ↔ 機場航廈」：回 { ride, fare, wait }；不是回 null */
 export function airportExpress(sys, a, b) {
   if (sys !== 'TYMC') return null;

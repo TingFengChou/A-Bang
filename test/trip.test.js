@@ -144,10 +144,10 @@ test('捷運方案（S7）：同線直達、轉乘站（在台北車站轉乘）
   assert.ok(far.options.every((o) => o.role !== 'metro' || o.walkMin < 30));
   const air = await planTrip(svc, { from: P('台北車站', 25.0478, 121.517), to: P('機場第一航廈', 25.0812, 121.2384), departAt: '2026-11-21T10:00' });
   const am = air.options.find((o) => o.role === 'metro');
-  // 機場捷運直達車：台北車站 ↔ 機場第一航廈用公告的固定參數（AIRPORT_EXPRESS：約 35 分、160 元、等 8 分），不是距離估算
+  // 機場捷運直達車：台北車站 ↔ 機場第一航廈用公告的固定參數（AIRPORT_EXPRESS：約 36 分、160 元、等 8 分），不是距離估算
   assert.ok(am, '機捷方案');
-  assert.deepEqual([am.cost, am.waitMin, am.legs[1].minutes, am.estimated], [160, 8, 35, undefined], `機捷直達車（${am?.cost} 元、等 ${am?.waitMin} 分）`);
-  assert.match(am.notes[0], /機場捷運直達車約 35 分、160 元/);
+  assert.deepEqual([am.cost, am.waitMin, am.legs[1].minutes, am.estimated], [160, 8, 36, undefined], `機捷直達車（${am?.cost} 元、等 ${am?.waitMin} 分）`);
+  assert.match(am.notes[0], /機場捷運直達車約 36 分、160 元/);
   const { stationLines } = await import('../core/services/metro.js');
   assert.deepEqual(stationLines('TMRT', ['103a']), ['G']);
   assert.deepEqual(stationLines('KRTC', ['RK1']), ['R']);

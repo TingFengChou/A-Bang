@@ -103,7 +103,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | 地理編碼（TDX 或 TGOS） | 已驗證 2026-11-23：TDX `/advanced/V3/Map/GeoCode/Coordinate/Address/{地址}`、`/Markname/{地標}` 可用（`Geometry` POINT；地標回多筆、第一筆不一定是本身），尚未串接（`DATA_SOURCES.md` §5）；TGOS 未評估 |
 | 導訂票 API 端點與參數（需權限） | 未驗證 |
 | CWA 觀測與鄉鎮預報欄位 | 鄉鎮預報已驗證 2026-11-22：`F-D0047-089` 是縣市層級，鄉鎮要用各縣市的 `F-D0047-001～085`（DATA_SOURCES.md §3）；`LocationsName`、`LocationName`、元素名「3小時降雨機率」「溫度」「天氣現象」、`StartTime`／`EndTime`／`DataTime`（帶 +08:00）都符合。觀測與雨量站欄位實際在用、結果合理（高雄三民 25.8°C、雨量 0 mm）。以下是原本的假設，`-998` 等特殊值仍未確認：（M3-08 假設 `records.Station[]`（`GeoInfo.Coordinates` WGS84、`WeatherElement.AirTemperature／Weather`）、雨量站 `O-A0002-001` 的 `RainfallElement.Past1hr.Precipitation`（`-998` 雨跡等特殊值目前視為沒有資料）、`F-D0047-089` 可用 `LocationName` 篩、上層縣市欄位 `LocationsName`（同名鄉鎮以縣市區分）、時段 `EndTime`、元素名「3小時降雨機率」；`weather_tomorrow` 另假設時段 `StartTime`（或 `DataTime`）、元素「溫度／最高溫度／最低溫度」「天氣現象」） |
-| 機場捷運直達車參數 | 已驗證 2026-11-23：`Metro/S2STravelTime/TYMC` 直達車（`TrainType` 2）臺北車站到第一航廈 36 分、到第二航廈 39 分（`AIRPORT_EXPRESS` 35／38，差 1 分，尚未改用 TDX）；票價 160 元未另驗 |
+| 機場捷運直達車參數 | 已驗證 2026-11-23：`Metro/S2STravelTime/TYMC` 直達車（`TrainType` 2）臺北車站到第一航廈 36 分、到第二航廈 39 分（`AIRPORT_EXPRESS` 已改成 36／39，2026-11-23）；票價 160 元未另驗 |
 | 捷運線別與估算 | 未驗證（2026-11-21：線別由站代碼字首推（台中數字代碼→綠線、高雄 RK→紅線、機捷 A）；時間票價依距離估，真實改用 `Metro/S2STravelTime`、`Metro/ODFare`） |
 | 高鐵／台鐵車站座標與等級 | 已驗證 2026-11-23：高鐵 12 站、台鐵 245 站 `StationPosition` 都有；台鐵 v3 包在 `Stations`，`StationClass` 是字串 '0'～'5'（目前沒用，「最近車站」仍是最近 3 站依序查） |
 | OData 空白用 `%20`（已實作）是否必要 | 已驗證 2026-11-23：同一個 `$filter` 用 `+` 與 `%20` 結果相同 → 不是必要，保留無妨 |

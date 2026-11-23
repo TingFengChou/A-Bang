@@ -140,9 +140,9 @@ test('沒有額度問題的真實模式、示範模式：不受影響（沒有 l
   assert.equal(limitedOf({ roles: [], options: [] }), null);
 });
 
-test('機場捷運直達車：台北車站 ↔ 機場航廈用公告參數（約 35～38 分、160 元），不再輸給票價估太低的客運（z01）', () => {
-  assert.deepEqual(airportExpress('TYMC', '臺北車站', '機場第一航廈'), { ride: 35, fare: 160, wait: AIRPORT_EXPRESS.waitMin });
-  assert.deepEqual(airportExpress('TYMC', '機場第二航廈', '台北車站'), { ride: 38, fare: 160, wait: AIRPORT_EXPRESS.waitMin }, '回程也是');
+test('機場捷運直達車：台北車站 ↔ 機場航廈用公告參數（約 36～39 分、160 元），不再輸給票價估太低的客運（z01）', () => {
+  assert.deepEqual(airportExpress('TYMC', '臺北車站', '機場第一航廈'), { ride: 36, fare: 160, wait: AIRPORT_EXPRESS.waitMin });
+  assert.deepEqual(airportExpress('TYMC', '機場第二航廈', '台北車站'), { ride: 39, fare: 160, wait: AIRPORT_EXPRESS.waitMin }, '回程也是');
   assert.equal(airportExpress('TYMC', '臺北車站', '高鐵桃園站'), null, '不是直達車的停靠站：照距離估');
   assert.equal(airportExpress('TRTC', '台北車站', '機場第一航廈'), null);
   // z01：客運 1819 票價缺資料，原本道路公里 × 1.3 估成 50 元（實際約 140）
