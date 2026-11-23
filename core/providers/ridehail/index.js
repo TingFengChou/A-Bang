@@ -9,7 +9,8 @@ export const DEFAULT_PROVIDER = 'uber';
 // 估價依據：臺北市計程車費率（起跳 85 元含 1.25 公里，續程每 200 公尺 5 元）；道路距離以直線 × 1.3 估算。
 // 上限 ×1.3 涵蓋塞車、夜間加成與平台浮動；不是業者報價。
 export const FARE = { baseTWD: 85, baseKm: 1.25, stepKm: 0.2, stepTWD: 5, roadFactor: 1.3, highFactor: 1.3 };
-export const FARE_BASIS = '依臺北市計程車費率與道路距離（直線 × 1.3）估算，實際以叫車 App 報價為準';
+// 各縣市費率不同：不說成「依臺北市費率」（在台中、高雄叫車也這樣說會像在講當地的費率；2026-11-23 交通健檢），說「以臺北市費率估算」
+export const FARE_BASIS = '以臺北市計程車費率與道路距離（直線 × 1.3）估算，各縣市費率不同，實際以叫車 App 報價為準';
 
 /** 距離 → 車資估算區間 { low, high, distanceKm, currency, estimated, basis } */
 export function estimateFare(straightM) {

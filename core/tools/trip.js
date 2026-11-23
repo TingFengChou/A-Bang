@@ -47,7 +47,8 @@ export function tripText(data) {
     ...(data.habitOn ? [`習慣（使用者同意過的常選方式，已小幅加分）：${Object.entries(data.habit).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${MODE_LABEL[k]} ${Math.round(v * 100)}%`).join('、')}`] : []),
     ...data.ranking.ranked.map((r, i) => {
       const o = byId.get(r.id);
-      return `${i + 1}. ${o.name}：${o.minutes} 分（等 ${o.waitMin}、走 ${o.walkMin}），${o.costRange ? `${o.costRange[0]}～${o.costRange[1]}` : o.cost} 元，${o.arriveAt} 到${o.estimated ? '（含估算）' : ''}，分數 ${r.score}`;
+      // longWait：深夜等首班（要等超過 1 小時）——照實說幾點才有車，不要說成「只要等 10 分」
+      return `${i + 1}. ${o.name}：${o.minutes} 分（等 ${o.waitMin}、走 ${o.walkMin}${o.longWait ? `；${o.longWait.first} 才有車，現在出發要等約 ${o.longWait.min} 分` : ''}），${o.costRange ? `${o.costRange[0]}～${o.costRange[1]}` : o.cost} 元，${o.arriveAt} 到${o.estimated ? '（含估算）' : ''}，分數 ${r.score}`;
     }),
     ...data.ranking.excluded.map((e) => `✗ ${e.name}：${e.why}`),
     `建議：${data.ranking.reason}`,

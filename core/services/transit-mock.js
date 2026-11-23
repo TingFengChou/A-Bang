@@ -46,7 +46,12 @@ const densify = (pts) => pts.flatMap((p, i) => (i ? [[r6((pts[i - 1][0] + p[0]) 
 
 // [代碼, 站名, lat, lon]（座標為近似值，示範用）
 const THSR = [['0990', '南港', 25.0533, 121.6070], ['1000', '台北', 25.0478, 121.5170], ['1010', '板橋', 25.0141, 121.4637], ['1020', '桃園', 25.0130, 121.2149], ['1030', '新竹', 24.8079, 121.0402], ['1035', '苗栗', 24.6055, 120.8255], ['1040', '台中', 24.1121, 120.6158], ['1043', '彰化', 23.8740, 120.5745], ['1047', '雲林', 23.7363, 120.4163], ['1050', '嘉義', 23.4593, 120.3232], ['1060', '台南', 22.9250, 120.2857], ['1070', '左營', 22.6871, 120.3076]].map(([id, name, lat, lon]) => ({ id, name, lat, lon }));
-const TRA = [['0900', '基隆', 25.1319, 121.7386], ['1000', '臺北', 25.0478, 121.5170], ['1020', '板橋', 25.0141, 121.4637], ['1080', '桃園', 24.9892, 121.3134], ['1100', '中壢', 24.9536, 121.2256], ['1210', '新竹', 24.8016, 120.9716], ['3160', '苗栗', 24.5700, 120.8224], ['3300', '臺中', 24.1371, 120.6869], ['3360', '彰化', 24.0817, 120.5385], ['4080', '嘉義', 23.4791, 120.4410], ['4220', '臺南', 22.9971, 120.2128], ['4400', '高雄', 22.6397, 120.3027], ['7190', '宜蘭', 24.7546, 121.7584], ['7000', '花蓮', 23.9932, 121.6012], ['6000', '臺東', 22.7932, 121.1233]].map(([id, name, lat, lon]) => ({ id, name, lat, lon }));
+const TRA = [['0900', '基隆', 25.1319, 121.7386], ['1000', '臺北', 25.0478, 121.5170], ['1020', '板橋', 25.0141, 121.4637], ['1080', '桃園', 24.9892, 121.3134], ['1100', '中壢', 24.9536, 121.2256], ['1210', '新竹', 24.8016, 120.9716], ['3160', '苗栗', 24.5700, 120.8224], ['3300', '臺中', 24.1371, 120.6869], ['3360', '彰化', 24.0817, 120.5385], ['4080', '嘉義', 23.4791, 120.4410], ['4220', '臺南', 22.9971, 120.2128], ['4400', '高雄', 22.6397, 120.3027], ['7190', '宜蘭', 24.7546, 121.7584], ['7000', '花蓮', 23.9932, 121.6012], ['6000', '臺東', 22.7932, 121.1233],
+  // 地標沒收的中小站（2026-11-23 交通健檢：台中車站→高鐵台中站要能坐到新烏日、三峽要從鶯歌上車）：排在最後，站距用 RAIL_POS 的位置算，不改原有各站之間的示範時間與票價
+  ['1040', '樹林', 24.9913, 121.4243], ['1070', '鶯歌', 24.9543, 121.3553], ['3350', '新烏日', 24.1092, 120.6145], ['4340', '新左營', 22.6874, 120.3077]].map(([id, name, lat, lon]) => ({ id, name, lat, lon }));
+/** 示範班次與票價的站距：清單位置（中小站給兩站之間的小數位置） */
+const RAIL_POS = { 1040: 2.3, 1070: 2.6, 3350: 7.5, 4340: 10.8 };
+const hopsOf = (list, o, d) => Math.abs((RAIL_POS[o.id] ?? list.indexOf(o)) - (RAIL_POS[d.id] ?? list.indexOf(d)));
 const pad = (n) => String(n).padStart(2, '0');
 const hhmm = (min) => `${pad(Math.floor(min / 60) % 24)}:${pad(min % 60)}`;
 
@@ -169,7 +174,7 @@ export function createMockTransitServices({ bus: busScenario } = {}) {
   const timetable = (list, from, to, date, label, kind) => {
     const o = findStation(list, from, label), d = findStation(list, to, label);
     if (o.id === d.id) throw new UserError('起訖站不可相同');
-    const hops = Math.abs(list.indexOf(o) - list.indexOf(d));
+    const hops = list === TRA ? hopsOf(list, o, d) : Math.abs(list.indexOf(o) - list.indexOf(d));
     const trains = [];
     const types = ['自強', '莒光', '區間快', '區間'];
     for (let m = 6 * 60; m < 23 * 60; m += kind === 'thsr' ? 30 : 25) {
@@ -187,7 +192,7 @@ export function createMockTransitServices({ bus: busScenario } = {}) {
   const fare = (list, from, to, label, system) => {
     const o = findStation(list, from, label), d = findStation(list, to, label);
     if (o.id === d.id) throw new UserError('起訖站不可相同');
-    const hops = Math.abs(list.indexOf(o) - list.indexOf(d));
+    const hops = list === TRA ? hopsOf(list, o, d) : Math.abs(list.indexOf(o) - list.indexOf(d));
     const row = (ticketType, fareClass, price, extra = {}) => ({ ticketType, fareClass, ...extra, price: Math.round(price / 5) * 5, adultOneWay: ticketType === '單程票' && fareClass === '成人' });
     let fares;
     if (system === 'THSR') {

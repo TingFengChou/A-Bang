@@ -118,6 +118,8 @@
         "lastBus": { "type": "boolean", "description": "公車末班快到了（23:00 後）" },
         "etaUnknown": { "type": "boolean", "description": "公車上車站的到站時間不明（站牌沒有預估或尚未發車）：決策不排在時間確定的大眾運輸前面" },
         "lastTrain": { "type": "boolean", "description": "捷運末班快到了（收班前 30 分）" },
+        "longWait": { "type": "object", "description": "高鐵／台鐵／客運要等超過 60 分才有車（深夜等首班）：min＝真正要等幾分、extra＝比 waitMin 多等的分鐘、first＝那班幾點開；決策照抵達時間比（core/decide.js effMinutes）", "properties": { "min": { "type": "integer" }, "extra": { "type": "integer" }, "first": { "type": "string" } } },
+        "transfers": { "type": "integer", "description": "轉乘次數（跨系統捷運：每一段的轉乘也算）" },
         "notes": { "type": "array", "items": { "type": "string" } },
         "train": { "type": "object" },
         "legs": {

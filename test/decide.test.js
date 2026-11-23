@@ -1,7 +1,7 @@
 // 決策引擎：使用者狀態改變排序、硬限制、理由句
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decide, STATES } from '../core/decide.js';
+import { decide, STATES, effMinutes, feltMinutes } from '../core/decide.js';
 
 const XIMEN_101 = [
   { id: 'bike', name: 'YouBike', minutes: 28, waitMin: 0, walkMin: 3, cost: 10, exposure: 1, effort: 0.8 },
@@ -94,4 +94,23 @@ test('想省錢（cost ×3，2026-11-21 調整）：市區短程貴的叫車不�
   assert.equal(decide(opts).best.id, 'bus');
   assert.equal(decide(opts, { states: ['luggage'] }).best.id, 'ride');
   assert.equal(decide(opts, { states: ['budget'] }).best.id, 'bus');
+});
+
+// 深夜等首班（trip.js longWait，2026-11-23 交通健檢）：01:00 台北→新竹，台鐵 06:02 才開、07:27 到；叫車 02:33 就到
+const NIGHT_HSINCHU = [
+  { id: 'tra', role: 'tra', name: '台鐵莒光', minutes: 96, waitMin: 10, walkMin: 2, cost: 160, exposure: 0.1, effort: 0.3, delayRisk: 0, arriveMin: 447 },
+  { id: 'ridehail', role: 'ridehail', name: '叫車（Uber）', minutes: 93, waitMin: 6, walkMin: 0, cost: 2365, exposure: 0, effort: 0, delayRisk: 0, arriveMin: 153 },
+];
+test('等很久才有車（longWait）：決策照真正要等的時間比（＝抵達時間），不當成只等 10 分', () => {
+  // 沒標 longWait（舊行為）：台鐵只「等 10 分」又便宜，推 07:27 才到的台鐵
+  assert.equal(decide(NIGHT_HSINCHU).best.id, 'tra');
+  const opts = NIGHT_HSINCHU.map((o) => (o.id === 'tra' ? { ...o, longWait: { min: 301, extra: 291, first: '06:02' } } : o));
+  assert.equal(effMinutes(opts[0]), 387);
+  assert.equal(effMinutes(opts[1]), 93, '沒有 longWait 的方案不變');
+  assert.ok(feltMinutes(opts[0]) > feltMinutes(NIGHT_HSINCHU[0]) + 500, '多等的時間也算進體感時間（等車加倍）');
+  const r = decide(opts);
+  assert.equal(r.best.id, 'ridehail');
+  assert.match(r.reason, /比台鐵莒光快 294 分/);
+  // 想省錢的人可以選等首班（照分數，不硬排除）
+  assert.equal(decide(opts, { states: ['budget'] }).best.id, 'tra');
 });

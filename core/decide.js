@@ -60,6 +60,12 @@ export const UNCERTAIN = { minutes: 0.15, cost: 0.3 };
 /** 同分時：因「不划算」被壓下來的叫車排在讓位的公車後面（時間不明的公車讓位後跟叫車同分時，公車在前，理由句說「公車到站時間不明」而不是跟叫車比價；PR #124 審查） */
 const notWorthLast = (a, b) => (a.notWorth && b.unsure ? 1 : b.notWorth && a.unsure ? -1 : 0); // 只處理這一種同分（其他同分照時間短的在前，理由句不變）
 
+/** 等很久才有班次（trip.js longWait：深夜等首班，2026-11-23 交通健檢）：方案的 minutes、waitMin 是「晚點出門、等車只算 10 分」算的，
+ *  現在就要走時不準——01:00 台北→新竹推了 06:41 才到的台鐵，叫車 02:38 就到。決策改用真正要等的時間（＝從現在到抵達），
+ *  longWait.extra＝多等的分鐘（真正的等車 − waitMin）。沒有 longWait 的方案不變。 */
+export const effMinutes = (o) => Number(o?.minutes ?? 0) + Number(o?.longWait?.extra ?? 0);
+const effWait = (o) => Number(o?.waitMin ?? 0) + Number(o?.longWait?.extra ?? 0);
+
 /** 轉乘次數：有 transfers 就用；否則看分段（走路以外的段數 − 1）＋捷運本身的轉乘 */
 function transfersOf(o) {
   if (Number.isFinite(o.transfers)) return o.transfers;
@@ -69,7 +75,7 @@ function transfersOf(o) {
 /** 體感時間（分）：總時間＋走路、等車多算的部分＋轉乘負擔 */
 export function feltMinutes(o) {
   const n = (k) => Number(o[k] ?? 0);
-  return n('minutes') + (VALUE_OF_TIME.walk - 1) * n('walkMin') + (VALUE_OF_TIME.wait - 1) * n('waitMin') + VALUE_OF_TIME.transferMin * transfersOf(o);
+  return effMinutes(o) + (VALUE_OF_TIME.walk - 1) * n('walkMin') + (VALUE_OF_TIME.wait - 1) * effWait(o) + VALUE_OF_TIME.transferMin * transfersOf(o);
 }
 
 /** 習慣（個人化，2026-11-21）：手機記的「常選的交通方式」比例（public/js/habits.js），只小幅加分、不改權重。
@@ -83,7 +89,7 @@ const HABIT_DO = { walk: '走路', bike: '騎 YouBike', bus: '坐公車', metro:
 export function habitBonus(o, habit, fastest) {
   const share = Number(habit?.[o.role]);
   if (!(share > 0) || !Number.isFinite(share)) return 0;
-  if (Number(o.minutes) > Math.max(fastest * 2, fastest + 20)) return 0;
+  if (effMinutes(o) > Math.max(fastest * 2, fastest + 20)) return 0;
   return HABIT.max * Math.min(1, share / HABIT.full);
 }
 
@@ -129,7 +135,8 @@ export function decide(options, ctx = {}) {
   });
 
   // 3. 各項正規化（越小越好 → 分數越高），乘上權重；習慣另外小幅加分（breakdown.habit）
-  const val = (o, k) => Number(o[k] ?? 0);
+  // 總時間、等車用真正要等的（effMinutes：深夜等首班的方案照抵達時間比）
+  const val = (o, k) => (k === 'minutes' ? effMinutes(o) : k === 'waitMin' ? effWait(o) : Number(o[k] ?? 0));
   const habitOn = !!ctx.habit && !ctx.mode && !ctx.said;
   const fastest = Math.min(...pool.map((p) => val(p, 'minutes')));
   const scored = pool.map((o) => {
@@ -141,7 +148,8 @@ export function decide(options, ctx = {}) {
       breakdown[c.key] = norm * weights[c.key];
       // 估算值保守看（UNCERTAIN）：同一個最低值，但自己的值放大後再算一次，差額記在 uncertain
       const e = o.est?.[c.key];
-      const part = e === true ? val(o, c.key) : Number(e) > 0 ? Math.min(Number(e), val(o, c.key)) : 0; // 估的那一部分
+      const own = Number(o[c.key] ?? 0); // 估的只有方案自己的值（不含 longWait 多等的時間：那是班表算的）
+      const part = e === true ? own : Number(e) > 0 ? Math.min(Number(e), own) : 0; // 估的那一部分
       if (c.scale === 'ratio' && UNCERTAIN[c.key] && part > 0) {
         const lo = Math.min(...pool.map((q) => val(q, c.key)));
         const less = ((lo + c.k) / (val(o, c.key) + part * UNCERTAIN[c.key] + c.k)) * weights[c.key] - breakdown[c.key];
@@ -207,7 +215,7 @@ export function decide(options, ctx = {}) {
     if (bonus > 0) breakdown.habit = bonus;
     const score = Object.values(breakdown).reduce((a, b) => a + b, 0);
     return { ...o, score: Math.round(score * 100), breakdown, ...(notWorth && { notWorth }), ...(tooLong && { tooLong }), ...(unsure && { unsure }) };
-  }).sort((a, b) => b.score - a.score || notWorthLast(a, b) || a.minutes - b.minutes);
+  }).sort((a, b) => b.score - a.score || notWorthLast(a, b) || effMinutes(a) - effMinutes(b));
 
   // 4. 使用者指定交通方式（「改坐公車」）：分數與排名照算，建議改成該方式裡分數最高的（沒有這種方式就照分數）
   const picked = ctx.mode ? ranked.find((o) => o.role === ctx.mode) : null;
@@ -241,7 +249,7 @@ function explain(best, second, states, excluded, ranked = []) {
   const often = habitFlipped(best, ranked) ? [`你想優先${HABIT_DO[best.role] || `選${best.name}`}`] : []; // 只有拿掉偏好加分會換第一名時才說（否則不是因為偏好）
   if (second?.notWorth?.vs === best.id) {
     // 叫車多付的錢換不到夠多的時間（VALUE_OF_TIME）：照實說省多少錢、慢多少（或沒比較慢）
-    const slower = Number(best.minutes) - Number(second.minutes);
+    const slower = effMinutes(best) - effMinutes(second);
     why.push([...often, `省 ${second.notWorth.extra} 元`, slower > 0 ? `只慢 ${slower} 分` : '也不會比較慢'].join('、'));
   } else if (second?.unsure?.vs === best.id) {
     // 到站時間不明的公車讓位（unsure）：照實說
@@ -269,7 +277,7 @@ export function habitFlipped(best, ranked = []) {
 }
 
 const PHRASE = {
-  minutes: (b, s) => `比${/快$/.test(s.name) ? `「${s.name}」` : s.name}快 ${Math.max(1, s.minutes - b.minutes)} 分`, // 車種「區間快」：加引號，不寫成「區間快快」（健檢 x03）
+  minutes: (b, s) => `比${/快$/.test(s.name) ? `「${s.name}」` : s.name}快 ${Math.max(1, effMinutes(s) - effMinutes(b))} 分`, // 車種「區間快」：加引號，不寫成「區間快快」（健檢 x03）
   waitMin: (b) => (b.waitMin ? `只要等 ${b.waitMin} 分` : '不用等車'),
   walkMin: (b) => (b.walkMin ? `只走 ${b.walkMin} 分` : '不用走路'),
   cost: (b, s) => (b.cost < s.cost ? `省 ${s.cost - b.cost} 元` : '費用較低'),
@@ -304,20 +312,20 @@ export function keyQuestion(options, ctx = {}, only = ASK_STATES) {
   const base = decide(options, ctx).best;
   if (!base) return null;
   if (base.role === 'walk' && Number(base.minutes) <= ASK_WALK_MAX) return null; // 走路 15 分鐘內（約 1 公里）就到：不問趕不趕、帶不帶行李（差別小，問了只是打擾；PM Q-5）
-  const fastest = Math.min(...options.map((o) => Number(o.minutes)));
+  const fastest = Math.min(...options.map(effMinutes));
   let pick = null;
   for (const k of ASK_STATES) {
     if (states.includes(k) || !only.includes(k)) continue;
     const alt = decide(options, { ...ctx, states: [...states, k], said: true }).best;
     if (!alt || alt.id === base.id) continue;
-    const dMin = Number(base.minutes) - Number(alt.minutes); // 正＝換過去比較快
+    const dMin = effMinutes(base) - effMinutes(alt); // 正＝換過去比較快
     const dCost = Number(alt.cost ?? 0) - Number(base.cost ?? 0); // 正＝換過去比較貴
     const dWalk = Number(base.walkMin ?? 0) - Number(alt.walkMin ?? 0);
     if (Math.abs(dMin) < ASK_MIN.minutes && Math.abs(dCost) < ASK_MIN.cost) continue; // 差不多：不值得打擾
     if ((k === 'rush' && dMin <= 0) || (k === 'budget' && dCost >= 0) || (k === 'lessWalk' && dWalk <= 0)) continue; // 問句要說得通
     if ((k === 'rush' && dMin < ASK_MIN.minutes) || (k === 'budget' && -dCost < ASK_MIN.cost)) continue;
     if ((k === 'luggage' || k === 'lessWalk') && (dWalk < ASK_MIN.minutes || dCost > dWalk * ASK_COMFORT_NT)) continue; // 帶行李、少走路：要真的少走 5 分以上，而且多花的錢跟少走的路相稱（每少走 1 分最多多 50 元；「去羅東夜市」不問帶行李，審查 #121） // 趕時間要真的快 5 分以上、想省錢要真的省 50 元以上才問（「快 4 分但多 100 元，你趕時間嗎？」不值得打擾，PM Q-5）
-    if (Number(alt.minutes) > Math.max(fastest * 2, fastest + 20)) continue; // 不推明顯不合理的（想省錢就走 70 分鐘）
+    if (effMinutes(alt) > Math.max(fastest * 2, fastest + 20)) continue; // 不推明顯不合理的（想省錢就走 70 分鐘）
     const impact = Math.abs(dMin) + Math.abs(dCost) / 20;
     if (!pick || impact > pick.impact) pick = { k, base, alt, dMin, dCost, dWalk, impact };
   }
