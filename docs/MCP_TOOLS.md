@@ -8,11 +8,14 @@
 - 所有 tools 唯讀：`annotations.readOnlyHint = true`、`openWorldHint = true`。
 - 每個 tool 必有 `pack`、`tier`、`speak(data, args)`；選填 `source`（資料來源標示，預設 TDX）、`static`（內建資料、不依賴金鑰：示範模式不加「示範資料」提示）、`modeOf(svc)`（資料不是 TDX 時自己判斷 live／demo）、`demoNote`（示範提示文字）。
 - `callTool()` 回傳：`{ name, card, v?, mode, data, text, speak, args, metrics }`（`v`＝卡片契約版本，有卡片時才有；`args`＝驗證後參數）；`metrics = { calls, cacheHits, cacheHit, scanned, ms }`（`core/metrics.js`：TDX／氣象署取用次數含快取、全部由快取取得、上游回應筆數、耗時；示範模式 `calls`／`scanned` 為 0）。REST 原樣回傳；MCP 放在結果 `_meta['abang/metrics']`（每次不同，不混進 `structuredContent`）。
+- 輸入 JSON Schema（`describeTool().inputSchema`：OpenAPI、`/api/v1/tools`、模型工具定義共用）用 zod 的**輸入端**（`z.toJSONSchema(schema, { io: 'input' })`）：有預設值的參數（`earthquake_recent.limit`、`garbage_truck_nearby.radius`、`drama_picks.limit`…）不列為必填。
+- 日期參數（`T.date`）要是日曆上真的有的 `YYYY-MM-DD`（`2026-13-45`、`2026-02-30` 回 `UserError` 400）；服務層組 TDX 網址時再驗一次（`railDate`），路徑段（站代碼、日期）一律 `encodeURIComponent`，查詢字串不能改到別的 TDX 端點。站名空白（或只有「站」）也是 `UserError`，不會配到第一站。
+- 舊版 REST（`server/rest.js` 路由表，PWA 頁面用）：`runRoute()` 先依路由表檢查查詢字串（去空白、空的當沒填；`required`、`number`／`integer`、`boolean`、`format: 'date'`、`minimum` 不對回 400，訊息說要加或改哪個參數），再在與 tool 相同的計量範圍（`measure()`）內執行；TDX 額度用完改用示範資料時回 `{ mode: 'demo', fallback: 'tdx-limit', data }`（不把示範資料標成 live；前端不存成離線的「上次的資料」）。路由裡再呼叫 tool（下車提醒）時，tool 的 fallback 也會往外標。沒有的路徑回 404「沒有這個 API」。
 - MCP 回傳：
 
 ```jsonc
 {
-  "content": [{ "type": "text", "text": "【示範資料…】（示範模式）摘要（≤ 1500 字）\n\n資料來源：交通部 TDX 運輸資料流通服務" }],
+  "content": [{ "type": "text", "text": "【示範資料…】（示範模式；有金鑰但 TDX 額度用完時說「TDX 每分鐘的查詢額度用完，這次先用示範資料」）摘要（≤ 1500 字）\n\n資料來源：交通部 TDX 運輸資料流通服務" }],
   "structuredContent": { "card": "bus-route", "v": 1, "tool": "bus_route_eta", "args": { }, "mode": "live|demo", "speak": "一句話", "data": { } },
   "_meta（tool 定義上）": { "abang/pack": "transit", "abang/tier": "L1", "abang/card": "bus-route" }
 }
@@ -339,7 +342,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 - 比對：代號完全相同 → 名稱相同（臺／台視為相同）→ 名稱開頭 → 名稱包含（短名優先）；不是完全相同時附 `similar` 讓使用者改選。
 - 指數名稱（「加權指數」「大盤」「台股」「櫃買指數」「上櫃指數」「OTC」…）不當個股找、不列 `notFound`；問到的指數排在 `indices` 第一個（speak 講它）；只問指數不下載個股清單。
 - 收盤資料，每檔帶自己的日期；文字一律附「收盤資料，非即時報價；僅供參考，不構成投資建議」。漲跌在文字中寫成「漲 5（0.23%）」「跌 54（9.93%）」，不寫「+5」「-54」（地端小模型會說反）。
-- 只報數字：`PACK_GUARDRAILS.finance` 禁止買賣建議與漲跌預測；輸出護欄 `no-investment-advice`（`core/agent/guardrails.js`）把含買賣建議、看漲看跌、目標價、明牌的句子整句換成固定說法並送 `guardrail` 事件。
+- 只報數字：`PACK_GUARDRAILS.finance` 禁止買賣建議與漲跌預測；輸出護欄 `no-investment-advice`（`core/output-guards.js`，經 `core/agent/guardrails.js`）把含買賣建議、看漲看跌、目標價、明牌的句子整句換成固定說法並送 `guardrail` 事件。2026-11-23 補：主詞是公司名的預測（「台積電明天會漲」：說了未來時間＋會漲跌；「台積電應該會反彈」：會／應該＋反彈、回檔、上漲、下跌…）、進出場時機（「現在是進場的好時機」、抄底、逢低買）、被換掉的問句後面緊接的短回答（「這檔會漲嗎？不會，會跌」的「不會，會跌」）。一般行情（「漲 102.8 點」）、天氣（「明天會下雨」）、「不會，捷運還有車」不動。
 
 | speak 範例 | 「台積電 11/18 收 2175，漲 5（0.23%）；環球晶 11/19 收 490，跌 54（9.93%）。」 |
 |---|---|

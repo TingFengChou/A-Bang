@@ -56,6 +56,13 @@ export function todayTW() {
   return new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 }
 
+/** 是不是日曆上真的有的 YYYY-MM-DD（2026-13-45、2026-02-30 都不是）；日期會放進 TDX 網址路徑，一定要先驗證 */
+export function isDate(s) {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
 /** 台灣時間的「現在」：{ date: 'YYYY-MM-DD', hhmm: 'HH:mm', weekday: 0–6（0＝週日） } */
 export function nowTW(now = Date.now()) {
   const d = new Date(now + 8 * 3600e3);

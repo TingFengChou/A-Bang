@@ -23,11 +23,17 @@ export function createRateLimiter({ limit, windowMs = 60_000 }) {
   };
 }
 
-/** 取得客戶端 IP；只有在 TRUST_PROXY=1（部署在反向代理後）時才採用 X-Forwarded-For */
+/**
+ * 取得客戶端 IP。TRUST_PROXY=N（N ≥ 1，部署在 N 層反向代理後）時才採用 X-Forwarded-For，
+ * 而且取「從右邊數第 N 個」：最右邊是離我們最近的代理加上的；左邊的可以由客戶端自己偽造，不能拿來限流。
+ * 例：TRUST_PROXY=1、X-Forwarded-For: 偽造, 真正的客戶端 → 真正的客戶端。
+ */
 export function clientIp(req) {
-  if (process.env.TRUST_PROXY === '1') {
+  const hops = Number.parseInt(process.env.TRUST_PROXY ?? '0', 10);
+  if (hops >= 1) {
     const xff = req.headers['x-forwarded-for'];
-    if (xff) return String(xff).split(',')[0].trim();
+    const list = (Array.isArray(xff) ? xff.join(',') : String(xff ?? '')).split(',').map((s) => s.trim()).filter(Boolean);
+    if (list.length) return list.length >= hops ? list[list.length - hops] : list.at(-1); // 比設定的層數少（設定不符）：用最右邊，不用可偽造的最左邊
   }
-  return req.socket.remoteAddress || 'unknown';
+  return req.socket?.remoteAddress || 'unknown';
 }

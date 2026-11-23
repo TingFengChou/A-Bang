@@ -58,6 +58,10 @@ export function isEmptyAsk(text) {
   return rest.length <= 2;
 }
 
+/** 問號碼時常見的字（去掉後剩下的才是對方說了什麼） */
+const SENDER_FILLER = /這(?:個|支|通|封|則)?|號碼|電話|手機|簡訊|訊息|寄來|傳來|發來|來電|打來|打給我|收到|接到|一(?:封|則|通|個)|的|是不是|是|詐騙|騙人|嗎|呢|了|我|剛剛|剛才|今天|昨天|請問|可疑|安全|[？?。，,!！:：\s]/g;
+const RISK = { low: 0, medium: 1, high: 2 };
+
 export function parseAntifraud(text, { history = [] } = {}) {
   const s = String(text ?? '').trim();
   const urls = extractUrls(s);
@@ -70,7 +74,11 @@ export function parseAntifraud(text, { history = [] } = {}) {
   const rest = urls.reduce((t, u) => t.replace(u, ''), s).replace(/這個?|網址|網站|連結|安全嗎|可以[點開]嗎|是真的嗎|[？?。，,:：\s]/g, '');
   if (urls.length && rest.length <= 6) return { intent: 'url', urls: urls.slice(0, 3), text: s };
   const num = s.match(SENDER);
-  if (num && /(簡訊|號碼|寄來|傳來|發來|來電|打來)/.test(s) && s.length <= 40) return { intent: 'sender', sender: num[1].trim(), text: s };
+  if (num && /(簡訊|號碼|寄來|傳來|發來|來電|打來)/.test(s) && s.length <= 40) {
+    // 號碼後面還有一段話（「0912345678 打來說是檢察官要我監管帳戶」）：內容也要比對，只看號碼會低估風險
+    const said = s.replace(num[1], '').replace(SENDER_FILLER, '');
+    return { intent: 'sender', sender: num[1].trim(), text: s, ...(said.length >= 3 && { withText: true }) };
+  }
   if (!urls.length && /(是真的嗎|真的假的|闢謠|有這回事|聽說)/.test(s) && s.length <= 40) {
     return { intent: 'myth', query: s.replace(/(是真的嗎|真的假的|闢謠|有這回事嗎?|聽說|[？?。，,\s])/g, '') || s, text: s };
   }
@@ -81,11 +89,21 @@ export function parseAntifraud(text, { history = [] } = {}) {
 export function antifraudSteps(it) {
   const step = {
     url: { note: '@網址 我拿網域去比對 165 停止解析的涉詐網站清單', calls: (it.urls || []).map((url) => ({ name: 'scam_lookup_url', args: { url } })) },
-    sender: { note: '@號碼 我看看這個寄件號碼是哪一種', calls: [{ name: 'sms_sender_check', args: { sender: it.sender } }] },
+    sender: it.withText
+      ? { note: '@號碼 我看看這個號碼是哪一種，@防詐 也比對他說的話', calls: [{ name: 'sms_sender_check', args: { sender: it.sender } }, { name: 'scam_check_message', args: { text: it.text.slice(0, 2000) } }] }
+      : { note: '@號碼 我看看這個寄件號碼是哪一種', calls: [{ name: 'sms_sender_check', args: { sender: it.sender } }] },
     myth: { note: '@闢謠 我去 165 闢謠專區找找看', calls: [{ name: 'scam_myth_search', args: { query: it.query } }] },
     message: { note: '@防詐 我比對 165 常見詐騙手法，也查裡面的網址', calls: [{ name: 'scam_check_message', args: { text: it.text.slice(0, 2000) } }] },
   }[it.intent];
   return step ? [() => step] : [];
+}
+
+/** 訊息比對結果的一句話（high／medium）；低風險回 null */
+function messageSay(d) {
+  const top = d.findings.slice(0, 2).map((f) => f.label).join('、');
+  if (d.level === 'high') return `先不要照做。${d.urls.some((u) => u.listed) ? '裡面的網址已被 165 列為涉詐網站。' : `這則內容有「${top}」等詐騙常見特徵。`}${d.advice[0]}`;
+  if (d.level === 'medium') return `這則內容有疑點（${top}），先向官方或 165 查證再行動。${d.advice[0]}`;
+  return null;
 }
 
 /** 示範總結：以工具結果為準，不保證安全（輸出護欄會再檢查一次） */
@@ -98,10 +116,7 @@ export function antifraudSummary(it, results) {
   if (it.intent === 'message') {
     const d = r('scam_check_message')[0];
     if (!d) return '這次沒查成功，請稍後再試；有疑問請直接撥 165。';
-    const top = d.findings.slice(0, 2).map((f) => f.label).join('、');
-    if (d.level === 'high') return `先不要照做。${d.urls.some((u) => u.listed) ? '裡面的網址已被 165 列為涉詐網站。' : `這則內容有「${top}」等詐騙常見特徵。`}${d.advice[0]}`;
-    if (d.level === 'medium') return `這則內容有疑點（${top}），先向官方或 165 查證再行動。${d.advice[0]}`;
-    return NOT_SAFE_NOTE;
+    return messageSay(d) || NOT_SAFE_NOTE;
   }
   if (it.intent === 'url') {
     const hits = r('scam_lookup_url').filter((d) => d.listed);
@@ -109,7 +124,11 @@ export function antifraudSummary(it, results) {
   }
   if (it.intent === 'sender') {
     const d = r('sms_sender_check')[0];
-    return d ? `${d.kind}：${d.note}也可以把簡訊內容貼給我，我幫你看可疑之處。` : '這次沒查成功。';
+    const m = it.withText ? r('scam_check_message')[0] : null;
+    // 號碼和內容都查了：以風險較高的為主（內容比對到冒充檢警是高風險，個人手機號碼只是中風險）
+    if (m && m.level !== 'low' && RISK[m.level] >= RISK[d?.risk ?? 'low']) return `${messageSay(m)}${d ? `另外，這是${d.kind}：${d.note}` : ''}`;
+    if (!d) return '這次沒查成功。';
+    return `${d.kind}：${d.note}${m ? `內容比對${NOT_SAFE_NOTE}` : '也可以把簡訊內容貼給我，我幫你看可疑之處。'}`;
   }
   const m = r('scam_myth_search')[0];
   return m?.results.length ? `165 有相關闢謠：「${m.results[0].title}」（${m.results[0].date}）。重點：${m.results[0].summary}` : '165 闢謠專區沒有找到相關文章；可以把你收到的內容貼給我，我幫你比對。';

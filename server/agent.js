@@ -3,7 +3,7 @@
 // 只給本站網頁使用：不加 CORS（避免其他網站耗用模型預算）。
 import { createRateLimiter } from './rate-limit.js';
 import { runDemo, validateRequest, wantsEdgeWrite } from '../core/agent/run.js';
-import { runModel } from '../core/agent/model-loop.js';
+import { runModel, isModelError } from '../core/agent/model-loop.js';
 import { pickProvider } from '../core/agent/provider.js';
 import { ev, toNdjson } from '../core/agent/events.js';
 import { getProfile } from '../core/agents/index.js';
@@ -22,6 +22,11 @@ export function demoClock(env = process.env) {
   if (!m) return () => Date.now();
   return () => Date.parse(`${new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)}T${env.DEMO_CLOCK}:00+08:00`);
 }
+
+/** 模型出錯時給使用者看的話（不怪資料來源；細節只在伺服器 log 記錯誤類型） */
+export const MODEL_ERROR_MSG = 'AI 模型暫時無法回應，請稍後再試。';
+/** 防詐改用規則回答時，討論串先說明 */
+export const MODEL_DOWN_NOTE = 'AI 模型暫時無法使用，這次先用規則比對 165 資料回答';
 
 export function createAgentHandler({ svc, env = process.env, log = () => {}, provider = pickProvider(env, { defaultModel: getProfile('life').model }), judge = null }) {
   const perMin = createRateLimiter({ limit: Number(env.AGENT_RPM) || 10 });
@@ -73,7 +78,11 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
       let failed = null;
       let judgeSrc = null;
       let askSrc = null, askChk = null; // 這一輪的題目由誰出（device／rule）、手機提議的題目用了沒（ADR-0020；只記種類與原因代碼，不記題目文字）
+      const sent = { tools: 0, text: false, done: false }; // 模型出錯時判斷能不能改用規則重答（還沒查資料、還沒回答）
       const emit = (e) => {
+        if (e.type === 'tool_start') sent.tools++;
+        if (e.type === 'text') sent.text = true;
+        if (e.type === 'done') sent.done = true;
         if (e.type === 'ask') askSrc = e.askSource;
         if (e.type === 'done' && e.askCheck) askChk = e.askCheck.verdict === 'used' ? 'used' : `rejected:${e.askCheck.reason}`;
         if (e.type === 'status' && e.judge) judgeSrc = e.judge.source; // 快速版的來源（完整版有伺服器模型時可能改由模型定案）
@@ -93,7 +102,22 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
         }
       } catch (e) {
         failed = e?.status ? `${e.name}:${e.status}` : (e?.name || 'Error'); // 只記錯誤類型，不記訊息（可能含上游細節）
-        emit(ev.error({ message: publicMessage(e), retryable: !(e?.name === 'UserError') }));
+        // 防詐：模型暫時不能用（逾時、過載、連不上）時，這一輪改用規則比對回答（與示範模式同一套規則，資料照常是真的）；
+        // 已經查過資料或回答了就不重來（避免卡片出現兩次），照實說模型暫時無法回應
+        const rescue = isModelError(e) && profile.id === 'antifraud' && !sent.tools && !sent.text && !sent.done;
+        if (rescue) {
+          try {
+            mode = 'rules-fallback';
+            const noStatus = (x) => { if (x.type !== 'status') emit(x); }; // 這一輪已經送過 status
+            await runDemo(svc, body, noStatus, { profileId: profile.id, judge, now: clock(), mode: 'rules', notice: MODEL_DOWN_NOTE, noticeEn: 'The AI model is unavailable right now; checking with rules instead' });
+            return;
+          } catch (e2) {
+            failed = `${failed}+${e2?.name || 'Error'}`;
+            if (sent.done) return;
+          }
+        }
+        const msg = isModelError(e) ? (profile.id === 'antifraud' ? `${MODEL_ERROR_MSG}有疑問請直接撥 165 反詐騙諮詢專線。` : MODEL_ERROR_MSG) : publicMessage(e);
+        emit(ev.error({ message: msg, retryable: !(e?.name === 'UserError') }));
         emit(ev.done());
       } finally {
         res.end();

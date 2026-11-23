@@ -1,5 +1,6 @@
 // Tool 定義與共用型別（ADR-0002：tool 只定義一次）
 import { z } from 'zod';
+import { isDate } from '../util.js';
 
 /**
  * @typedef {object} ToolDef
@@ -38,7 +39,7 @@ export const T = {
   lat: z.number().min(21).max(27).describe('緯度 (WGS84)，例如台北車站 25.0478'),
   lon: z.number().min(118).max(123).describe('經度 (WGS84)，例如台北車站 121.5170'),
   city: z.string().min(1).describe('縣市，可用 Taipei / NewTaipei / Taichung / Kaohsiung… 或中文「台北市」'),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式需為 YYYY-MM-DD').optional().describe('乘車日期 YYYY-MM-DD，預設今天（台灣時間）'),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式需為 YYYY-MM-DD').refine(isDate, '日期不存在，請用 YYYY-MM-DD，例如 2026-11-23').optional().describe('乘車日期 YYYY-MM-DD，預設今天（台灣時間）'),
   /** 座標或地名（tool 內用 resolvePoint 轉成座標） */
   point: (label) => z.union([
     z.object({ lat: z.number().min(21).max(27), lon: z.number().min(118).max(123), name: z.string().trim().min(1).max(30).optional() }),

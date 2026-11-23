@@ -104,6 +104,7 @@ export function createMockTransitServices({ bus: busScenario } = {}) {
     },
     async nearbyStations({ lat, lon, radius = 400 }) {
       [lat, lon] = assertLatLon(lat, lon);
+      radius = Math.min(Number(radius) || 400, 1000); // 上限與真實服務相同
       const r = seeded(`${lat.toFixed(3)},${lon.toFixed(3)}`);
       return Array.from({ length: 8 }, (_, i) => {
         const la = lat + (r() - 0.5) * radius / 55000, lo = lon + (r() - 0.5) * radius / 50000;
@@ -154,6 +155,7 @@ export function createMockTransitServices({ bus: busScenario } = {}) {
   const bike = {
     async nearby({ lat, lon, radius = 500 }) {
       [lat, lon] = assertLatLon(lat, lon);
+      radius = Math.min(Number(radius) || 500, 1000); // 上限與真實服務相同
       const r = seeded(`bike${lat.toFixed(3)},${lon.toFixed(3)}`);
       const tick = Math.floor(Date.now() / 60000);
       return Array.from({ length: 10 }, (_, i) => {

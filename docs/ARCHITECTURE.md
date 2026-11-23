@@ -139,7 +139,7 @@ TDX 基本會員每把金鑰**每分鐘 5 次**（依時鐘整分重置），策
 
 ## 8. 部署（M6）
 
-單一 Node 程序提供 PWA、REST、`/mcp`、agent；容器化部署 Cloud Run／Zeabur；HTTPS 必須（Claude 自訂連接器要求）。`TRUST_PROXY=1` 時採用 `X-Forwarded-For`。
+單一 Node 程序提供 PWA、REST、`/mcp`、agent；容器化部署 Cloud Run／Zeabur；HTTPS 必須（Claude 自訂連接器要求）。`TRUST_PROXY=N`（N 層反向代理）時採用 `X-Forwarded-For` 從右邊數第 N 個位址（代理加上的；最左邊可被客戶端偽造，不拿來限流）。
 
 ✅ M6-01：`Dockerfile` 兩階段——build 階段 `npm ci` 後 `npm run build:cards`；執行階段 `npm ci --omit=dev`，只複製 `core/`、`server/`、`mcp/`、`public/` 與 `dist/cards.html`，檔案屬 root 唯讀、以 `node` 使用者執行，`HEALTHCHECK` 打 `/healthz`（回 `{ ok, version, mode, agent }`，不限流、不記 log、不碰上游）。金鑰由平台環境變數注入，`.dockerignore` 排除 `.env`。Cloud Run 會給 `PORT`（預設 8787）。
 

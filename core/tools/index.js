@@ -1,7 +1,7 @@
 // Tool registry：MCP、REST、網頁 agent 都從這裡取得 tools（ADR-0002）
 import { z } from 'zod';
 import { UserError } from '../util.js';
-import { measure } from '../metrics.js';
+import { measure, markFallback } from '../metrics.js';
 import transit from './transit.js';
 import metro from './metro.js';
 import traffic from './traffic.js';
@@ -40,7 +40,7 @@ export function describeTool(t) {
   return {
     name: t.name, title: t.title, description: t.description,
     pack: t.pack, tier: t.tier, card: t.card ?? null, source: t.source,
-    inputSchema: z.toJSONSchema(t.schema),
+    inputSchema: z.toJSONSchema(t.schema, { io: 'input' }), // 輸入端：有預設值的參數不是必填（earthquake_recent.limit、garbage_truck_nearby.radius）
   };
 }
 
@@ -59,6 +59,7 @@ export async function callTool(svc, name, args = {}) {
     throw new UserError(`參數錯誤（${name}）：${msg}`);
   }
   const { result: { data, text }, metrics } = await measure(() => t.run(svc, parsed.data));
+  if (metrics?.fallback) markFallback(); // 外層也在計量（REST 路由裡呼叫 tool，例：下車提醒）：一樣標成用了示範資料
   // speak：討論串中「工具發言」的一句話，由資料決定（ADR-0009）
   const said = t.speak ? t.speak(data, parsed.data) : null;
   // fallbackSafe（plan_trip）：示範資料的方案已排除、結果自己說了額度用完（limited），不再整段標示範（PR #126 審查）
