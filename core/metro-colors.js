@@ -5,10 +5,13 @@ const COLORS = {
   TYMC: { A: '#8246AF' },
   TMRT: { G: '#8DC21F' },
   KRTC: { R: '#E20B65', O: '#FAA73F', C: '#7CBD52' },
+  // 新北捷運：環狀線同北捷的黃色；三鶯線淺藍（近似值，待對照新北捷運公告）。淡海、安坑輕軌還沒確認，先用品牌色
+  NTMC: { Y: '#FFDB00', LB: '#77B5DE' },
+  KLRT: { C: '#7CBD52' },
 };
 
 /**
- * @param {string} system TRTC／TYMC／TMRT／KRTC
+ * @param {string} system TRTC／TYMC／TMRT／KRTC／NTMC／KLRT…
  * @param {string|null} lineId 例：BL、R、G
  * @returns {string|null}
  */

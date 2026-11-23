@@ -210,7 +210,7 @@ export const INTENT_TOOLS = {
   bus_route: ['bus_route_eta', 'bus_search_routes', 'bus_station_eta', 'bus_nearby_stations', 'find_place'],
   youbike: ['youbike_nearby', 'find_place'],
   nearby_bus: ['bus_nearby_stations', 'bus_station_eta', 'find_place'],
-  metro: ['metro_live_board', 'metro_stations', 'find_place'],
+  metro: ['metro_live_board', 'metro_route', 'metro_stations', 'find_place'],
   rail: ['thsr_timetable', 'tra_timetable', 'rail_stations', 'rail_fare', 'rail_booking_link'],
   weather: ['weather_now', 'weather_tomorrow', 'outing_advice', 'find_place'],
   aqi: ['aqi_nearby', 'outing_advice', 'find_place'],

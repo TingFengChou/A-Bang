@@ -1,5 +1,6 @@
 // 捷運服務（示範資料版）：介面與 metro.js 相同。站名與路線為真實名稱，座標為近似值，到站時間為模擬。
 import { seeded } from './transit-mock.js';
+import { toRoutes, findRoute } from '../metro-route.js';
 import { metroLineColor } from '../metro-colors.js';
 import { mustSystem, findMetroStation, metroStatusCode, sortByEta, stationLines, FREQUENCY_ONLY, FREQUENCY_NOTE, FREQUENCY_NOTE_EN } from './metro.js';
 
@@ -8,7 +9,7 @@ const LINES = {
   TRTC: { BL: ['板南線', '南港展覽館', '頂埔'], R: ['淡水信義線', '淡水', '象山'], G: ['松山新店線', '松山', '新店'], O: ['中和新蘆線', '迴龍', '南勢角'], BR: ['文湖線', '動物園', '南港展覽館'] },
   TYMC: { A: ['機場線', '臺北車站', '環北'] },
   TMRT: { G: ['綠線', '北屯總站', '高鐵臺中站'] },
-  KRTC: { R: ['紅線', '小港', '岡山車站'], O: ['橘線', '西子灣', '大寮'] },
+  KRTC: { R: ['紅線', '小港', '岡山車站'], O: ['橘線', '哈瑪星', '大寮'] },
   NTMC: { LB: ['三鶯線', '頂埔', '鶯桃福德'], Y: ['環狀線', '大坪林', '新北產業園區'] },
   NTDLRT: { V: ['淡海輕軌', '紅樹林', '崁頂'] },
   NTALRT: { K: ['安坑輕軌', '雙城', '十四張'] },
@@ -23,7 +24,7 @@ const STATIONS = {
     ['BL23', '南港展覽館', ['BL', 'BR'], 25.0553, 121.6175], ['BL01', '頂埔', ['BL'], 24.9593, 121.4206],
     ['R11', '中山', ['R', 'G'], 25.0527, 121.5203], ['R07', '東門', ['R', 'O'], 25.0339, 121.5288],
     ['R05', '大安', ['R', 'BR'], 25.0330, 121.5436], ['R13', '民權西路', ['R', 'O'], 25.0623, 121.5194],
-    ['R28', '淡水', ['R'], 25.1677, 121.4459], ['R16', '士林', ['R'], 25.0935, 121.5262], ['R22', '北投', ['R'], 25.1321, 121.4986], ['R02', '象山', ['R'], 25.0328, 121.5703],
+    ['R28', '淡水', ['R'], 25.1677, 121.4459], ['R27', '紅樹林', ['R'], 25.1542, 121.4590], ['R16', '士林', ['R'], 25.0935, 121.5262], ['R22', '北投', ['R'], 25.1321, 121.4986], ['R02', '象山', ['R'], 25.0328, 121.5703],
     ['R03', '台北101／世貿', ['R'], 25.0331, 121.5654], ['G09', '古亭', ['G', 'O'], 25.0263, 121.5229], ['G19', '松山', ['G'], 25.0500, 121.5776],
     ['G01', '新店', ['G'], 24.9579, 121.5379], ['BR01', '動物園', ['BR'], 24.9982, 121.5794],
     ['BL07', '板橋', ['BL'], 25.0143, 121.4625], ['BR14', '劍南路', ['BR'], 25.0848, 121.5555], ['BR15', '西湖', ['BR'], 25.0821, 121.5672],
@@ -43,7 +44,7 @@ const STATIONS = {
     ['R3', '小港', ['R'], 22.5649, 120.3537], ['R4', '高雄國際機場', ['R'], 22.5701, 120.3418],
     ['R10', '美麗島', ['R', 'O'], 22.6313, 120.3019], ['R11', '高雄車站', ['R'], 22.6394, 120.3025],
     ['R16', '左營', ['R'], 22.6873, 120.3076], ['RK1', '岡山車站', ['R'], 22.7920, 120.2990],
-    ['O1', '西子灣', ['O'], 22.6214, 120.2735], ['O10', '衛武營', ['O'], 22.6240, 120.3410], ['OT1', '大寮', ['O'], 22.6222, 120.3953],
+    ['O1', '哈瑪星', ['O'], 22.6214, 120.2735], ['O10', '衛武營', ['O'], 22.6240, 120.3410], ['OT1', '大寮', ['O'], 22.6222, 120.3953],
   ],
   // 2026-11-22：所有捷運、輕軌系統（範圍全台灣）；座標近似值
   NTMC: [
@@ -65,12 +66,49 @@ const STATIONS = {
   ],
 };
 
+// 各線車站順序（示範；只有上面 STATIONS 有的站，依真實順序），轉乘規劃用
+const SEQ = {
+  TRTC: {
+    BL: ['頂埔', '板橋', '西門', '台北車站', '忠孝復興', '市政府', '南港展覽館'],
+    R: ['象山', '台北101／世貿', '大安', '東門', '台北車站', '中山', '民權西路', '士林', '北投', '紅樹林', '淡水'],
+    G: ['新店', '古亭', '西門', '中山', '松山'],
+    O: ['古亭', '東門', '民權西路'],
+    BR: ['動物園', '大安', '忠孝復興', '劍南路', '西湖', '港墘', '文德', '內湖', '南港展覽館'],
+  },
+  NTMC: { LB: ['頂埔', '三峽', '台北大學', '鶯歌車站', '鶯桃福德'], Y: ['大坪林', '板橋', '新北產業園區'] },
+  TYMC: { A: ['臺北車站', '新北產業園區', '機場第一航廈', '機場第二航廈', '高鐵桃園站', '環北'] },
+  TMRT: { G: ['北屯總站', '文心崇德', '市政府', '文華高中', '高鐵臺中站'] },
+  KRTC: { R: ['小港', '高雄國際機場', '美麗島', '高雄車站', '左營', '岡山車站'], O: ['哈瑪星', '美麗島', '衛武營', '大寮'] },
+  NTDLRT: { V: ['紅樹林', '竿蓁林', '淡金鄧公', '淡江大學', '崁頂'] },
+  NTALRT: { K: ['雙城', '耕莘安康院區', '安康', '新和國小', '十四張'] },
+  KLRT: { C: ['籬仔內', '前鎮之星', '夢時代', '真愛碼頭', '哈瑪星'] },
+};
+
 export function createMockMetroServices() {
   const metro = {
     async stations({ system }) {
       const op = mustSystem(system);
       // 與真實版一樣由代碼推線別（stationLines）；轉乘站（一個代碼、多條線）用示範資料寫的線
       return STATIONS[op].map(([id, name, lines, lat, lon]) => ({ id, ids: [id], name, lat, lon, lines: lines.length > 1 ? lines : stationLines(op, [id]) }));
+    },
+    async lines({ system }) {
+      const op = mustSystem(system);
+      const byName = new Map(STATIONS[op].map(([id, name]) => [name, id]));
+      return Object.entries(SEQ[op]).map(([lineId, names]) => ({
+        lineId, line: LINES[op][lineId][0], ...(metroLineColor(op, lineId) && { color: metroLineColor(op, lineId) }),
+        // 轉乘站在不同線有不同代碼（示範資料只有一個）：用「線代碼＋站名」當代碼，票價只看站數
+        stations: names.map((name) => ({ id: byName.get(name) || `${lineId}-${name}`, name })),
+      }));
+    },
+    /** 示範票價：依兩站在示範路網的站數（可轉線）估，20～65 元 */
+    async odFare({ system, fromId, toId }) {
+      const op = mustSystem(system);
+      const lines = await metro.lines({ system: op });
+      const nameOf = (id) => lines.flatMap((l) => l.stations).find((x) => x.id === id)?.name;
+      const a = nameOf(fromId), b = nameOf(toId);
+      // 代碼不在示範路網（真實路網的額度用完、改用示範票價時）：說查不到，不亂給數字
+      const r = a && b ? findRoute(toRoutes(op, lines), a, b) : null;
+      return r ? Math.min(65, 20 + 5 * Math.ceil(r.legs.reduce((n, l) => n + l.stops, 0) / 2)) : null;
     },
     async liveBoard({ system, station, last = false }) {
       const op = mustSystem(system);

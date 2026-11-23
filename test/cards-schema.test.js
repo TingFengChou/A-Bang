@@ -17,6 +17,8 @@ const CASES = [
   ['bus_nearby_stations', P],
   ['youbike_nearby', P],
   ['metro_live_board', { system: 'TRTC', station: '台北車站' }],
+  ['metro_route', { from: '鶯歌車站', to: '松山' }],
+  ['metro_route', { from: '台北車站', to: '內湖' }],
   ['thsr_timetable', { from: '台北', to: '左營' }],
   ['tra_timetable', { from: '臺北', to: '高雄' }],
   ['intercity_bus', { from: '台北轉運站', to: '新竹車站', departAt: '09:00' }, { traffic: 'jam' }],

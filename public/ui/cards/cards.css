@@ -380,3 +380,7 @@ html.lite-motion .ab-eta .ab-pulse { animation: none; }
 .ab-drama-acts .ab-btn { min-height: 44px; }
 .ab-drama-kw { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
 .ab-drama-kw .ab-tab { min-height: 36px; }
+
+/* metro-route：轉乘那一列（兩段之間）、第一段的下一班 */
+.ab-route-xfer { list-style: none; font-size: 13px; color: var(--ab-muted); padding: 2px 0 2px 10px; border-left: 2px dashed var(--ab-line); margin-left: 6px; }
+.ab-next { color: var(--ab-brand); font-weight: 600; }
