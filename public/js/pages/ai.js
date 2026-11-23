@@ -332,9 +332,9 @@ export default {
       copy.addEventListener('click', () => { if (report) copyText(reportJson(report)).then((ok) => toast(t(ok ? 'trial.copied' : 'trial.copyFail'))); });
 
       // 第 1 段在手機上判斷時：主視覺照原本的核心動畫（至少播 MIN_PLAY_MS；結果文字不等動畫，立刻寫進 role=status）
-      let heroT0 = 0, heroStill = true;
+      let heroT0 = 0, heroStill = true, heroFix = null; // heroFix：伺服器實際採用的判斷跟手機不同時（四格顯示實際採用的；點亮動畫晚一點跑也用它）
       const heroStart = () => {
-        heroT0 = performance.now();
+        heroT0 = performance.now(); heroFix = null;
         heroStill = calm();
         setNode('intent', '…'); setNode('states', '…'); setNode('data', '…'); setNode('next', '…');
         stage('thinking');
@@ -347,8 +347,9 @@ export default {
         const finish = () => hero.classList.remove('playing');
         if (!r) { setNode('intent', '—'); setNode('states', '—'); stage('idle'); finish(); return; }
         const light = () => { // 訊號流到意圖、狀態，節點點亮
-          setNode('intent', t(`intent.${r.intent}`));
-          setNode('states', r.states.length ? nodeText(r.states.map((k) => t(`state.${k}`)), t('sep')) : t('node.none'));
+          const v = heroFix || r;
+          setNode('intent', t(`intent.${v.intent}`));
+          setNode('states', v.states.length ? nodeText(v.states.map((k) => t(`state.${k}`)), t('sep')) : t('node.none'));
           void hero.offsetWidth; // 連續試：讓「點亮」的動畫重新開始
           stage('done');
         };
@@ -361,7 +362,7 @@ export default {
       const slotName = (k) => t(`slot.${k}`);
       const heroMore = (key, sec) => {
         if (key === 'judge' && !info.active && sec.intent) { setNode('intent', t(`intent.${sec.intent}`)); setNode('states', sec.states?.length ? nodeText(sec.states.map((k) => t(`state.${k}`)), t('sep')) : t('node.none')); stage('done'); }
-        if (key === 'data') setNode('data', sec.error ? t('node.dataErr') : sec.enough ? t('node.enough') : sec.missing?.length ? t('node.missing', { x: nodeText(sec.missing.map(slotName), t('sep')) }) : t('node.notEnough'));
+        if (key === 'data') setNode('data', sec.error ? t('node.dataErr') : sec.fixed ? t('node.noData') : sec.enough ? t('node.enough') : sec.missing?.length ? t('node.missing', { x: nodeText(sec.missing.map(slotName), t('sep')) }) : t('node.notEnough'));
         if (key === 'next') {
           const q = sec.ask?.question || (sec.location ? t('node.askWhere') : '') || sec.suggest?.asks?.[0]?.q || sec.suggest?.asks?.[0] || '';
           setNode('next', q ? String(q).slice(0, 14) : t('node.noAsk'));
@@ -409,8 +410,10 @@ export default {
             // 伺服器實際採用的跟手機的判斷不同（例：「你會做什麼」手機看了前文判成行程＋趕時間，規則說是問阿幫能做什麼；手機的狀態沒被採用）：四格改成實際採用的
             const same = (x, y) => x?.intent === y?.intent && [...(x?.states || [])].sort().join() === [...(y?.states || [])].sort().join();
             if (key === 'judge' && old && sec.server && Object.hasOwn(sec.server, 'intent') && !same(sec.server, sec)) {
-              setNode('intent', t(`intent.${sec.server.intent}`));
-              setNode('states', sec.server.states?.length ? nodeText(sec.server.states.map((k) => t(`state.${k}`)), t('sep')) : t('node.none'));
+              heroFix = { intent: sec.server.intent, states: sec.server.states || [] };
+              setNode('intent', t(`intent.${heroFix.intent}`));
+              setNode('states', heroFix.states.length ? nodeText(heroFix.states.map((k) => t(`state.${k}`)), t('sep')) : t('node.none'));
+              if (sec.by === 'device' && sec.intent !== heroFix.intent) live.textContent = t('live.fixed', { device: t(`intent.${sec.intent}`), intent: t(`intent.${heroFix.intent}`) });
             }
             heroMore(key, sec); // 主視覺四格：資料夠不夠、下一步問你（網頁版也顯示伺服器的判斷）
             const { li, body: b } = section(key, sec, SRC[key](sec));
