@@ -54,7 +54,7 @@ export const SPEAK_EN = {
     const pop = d.pop3h != null ? `, ${d.pop3h}% chance of rain in the next 3 hours` : '';
     if (d.rainMm1h > 0) return `It's raining now${pop}.`;
     if (d.raining) return `Not raining yet${pop}; rain is likely.`;
-    return `Not raining${d.tempC != null ? `, ${d.tempC}°C` : ''}${pop}.`;
+    return `Not raining${d.tempC != null ? `, ${d.tempC}°C` : ''}${pop}.${d.tempC == null ? ' No weather station within 15 km reported the temperature.' : ''}`;
   },
   weather_tomorrow: (d) => {
     const t = d.minT != null && d.maxT != null ? `, ${d.minT}–${d.maxT}°C` : '';

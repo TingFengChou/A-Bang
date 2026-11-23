@@ -252,6 +252,7 @@ export const MESSAGES = {
   'weather.rain': "It's raining now, or rain is likely soon",
   'weather.dry': 'Not raining now',
   'weather.temp': 'Temperature',
+  'weather.noTemp': 'No weather station within 15 km reported the temperature, so none is shown.',
   'weather.rain1h': 'Rain (1 h)',
   'weather.pop3h': 'Rain chance (3 h)',
   'weather.station': '{station} · {km} km away · observed {time}',

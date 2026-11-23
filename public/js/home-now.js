@@ -29,7 +29,8 @@ export function nowItems({ weather = null, aqi = null, next = null, place = '', 
   const out = [];
   if (weather && (Number.isFinite(weather.tempC) || weather.summary)) {
     const rainy = weather.rainMm1h > 0 ? '正在下雨' : weather.raining ? '可能會下雨' : weather.pop3h != null ? `降雨 ${weather.pop3h}%` : weather.summary || '';
-    out.push({ id: 'weather', icon: 'sun', href: '#/s/weather', main: Number.isFinite(weather.tempC) ? `${Math.round(weather.tempC)}°C` : '天氣', sub: [rainy, place].filter(Boolean).join('・'), ...(demo.weather && { demo: true }) });
+    const temp = Number.isFinite(weather.tempC);
+    out.push({ id: 'weather', icon: 'sun', href: '#/s/weather', main: temp ? `${Math.round(weather.tempC)}°C` : '天氣', sub: [temp ? '' : '附近沒有氣溫資料', rainy, place].filter(Boolean).join('・'), ...(demo.weather && { demo: true }) }); // 附近 15 公里內沒有測站回報氣溫：說出來，不只寫「天氣」
   }
   const n = aqi?.nearest;
   if (n && n.aqi != null && n.aqi !== '') out.push({ id: 'aqi', icon: 'air', href: '#/s/aqi', main: `AQI ${n.aqi}`, sub: n.status || '', ...(demo.aqi && { demo: true }) });
