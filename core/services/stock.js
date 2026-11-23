@@ -69,7 +69,14 @@ export function parseIndices(twseRows, tpexRows) {
 }
 
 /** 「台積電、聯發科」「2330 0050」→ 查詢詞（最多 5 個） */
-export const splitQuery = (q) => String(q ?? '').split(/[、,，;；/\s和跟與及]+/).map((s) => s.trim()).filter(Boolean).slice(0, 5);
+export const splitQuery = (q) => String(q ?? '').split(/[、,，;；/\s]+/).flatMap((p) => conjParts(p)).map((s) => s.trim()).filter((s) => s && !/^[和跟與及]$/.test(s)).slice(0, 5);
+/** 「台積電和聯發科」用連接詞分開；名稱本身以連接詞開頭（和碩、和大、和成、與時…）不拆（生活資料審查 #1：「和碩」原本變成「碩」→ 碩天） */
+const CONJ = /(?<=[^和跟與及\s]{2})[和跟與及](?=[^\s]{2})/g;
+function conjParts(p) {
+  return String(p).split(CONJ);
+}
+/** 查詢詞整個是代號或名稱就不拆（「和碩」「仁寶和碩」以外的少見情形交給 findStock） */
+const keepWhole = (quotes, raw) => raw.split(/[、,，;；/\s]+/).filter(Boolean).filter((p) => quotes.some((x) => x.code === p.toUpperCase() || normName(x.name) === normName(p)));
 
 /**
  * 找一檔：代號完全相同 → 名稱相同 → 名稱開頭 → 名稱包含（短名優先）。
@@ -105,7 +112,9 @@ export function indexOf(q) {
  */
 export function stockQuote({ quotes, indices }, { query } = {}) {
   const found = [], notFound = [], asked = [];
-  for (const q of splitQuery(query)) {
+  const whole = keepWhole(quotes, String(query ?? ''));
+  const parts = [...whole, ...splitQuery(String(query ?? '').split(/[、,，;；/\s]+/).filter((p) => !whole.includes(p)).join(' '))].slice(0, 5);
+  for (const q of parts) {
     const idx = indexOf(q);
     if (idx) { if (!asked.includes(idx)) asked.push(idx); continue; }
     const { hit, similar } = findStock(quotes, q);

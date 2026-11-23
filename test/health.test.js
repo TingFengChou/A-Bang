@@ -72,7 +72,8 @@ test('天氣好：沒下雨、降雨 < 30%、體感 15～31°C、AQI ≤ 100、0
   assert.equal(w({}).ok, true);
   assert.deepEqual(w({ pop3h: 29 }).reasons, []);
   assert.deepEqual(w({ pop3h: 30 }).reasons, ['pop']);
-  assert.deepEqual(w({ raining: true }).reasons, ['rain']);
+  assert.deepEqual(w({ raining: true, pop3h: null }).reasons, ['no-weather', 'rain'], '不知道降雨機率又標下雨：當作在下雨');
+  assert.deepEqual(w({ raining: true, rainMm1h: 0, pop3h: 80 }).reasons, ['pop'], '降雨機率高不是「現在在下雨」（生活資料審查 #2）');
   assert.deepEqual(w({ rainMm1h: 0.5 }).reasons, ['rain']);
   assert.deepEqual(w({ feelsC: 15 }).reasons, []);
   assert.deepEqual(w({ feelsC: 31 }).reasons, []);

@@ -100,8 +100,9 @@ export function weatherGood({ weather = null, air = null } = {}, now = Date.now(
   const pop = Number.isFinite(weather?.pop3h) ? weather.pop3h : null;
   const feels = Number.isFinite(weather?.feelsC) ? weather.feelsC : Number.isFinite(weather?.tempC) ? weather.tempC : null; // 沒有體感溫度時用氣溫
   if (!weather || pop == null || feels == null) reasons.push('no-weather');
-  if (weather?.raining || weather?.rainMm1h > 0) reasons.push('rain');
-  else if (pop != null && pop >= GOOD.POP_LT) reasons.push('pop');
+  // 現在真的在下（過去 1 小時有雨量）才說「在下雨」；raining 也包含 3 小時降雨機率 ≥ 70%，那是「可能會下」（生活資料審查 #2）
+  if (weather?.rainMm1h > 0 || (weather?.raining && pop == null)) reasons.push('rain');
+  else if ((pop != null && pop >= GOOD.POP_LT) || weather?.raining) reasons.push('pop');
   if (feels != null && feels > GOOD.FEELS_MAX) reasons.push('hot');
   if (feels != null && feels < GOOD.FEELS_MIN) reasons.push('cold');
   const aqi = air && air.aqi !== '' && air.aqi != null && Number.isFinite(Number(air.aqi)) ? Number(air.aqi) : null;
