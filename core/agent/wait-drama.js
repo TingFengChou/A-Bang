@@ -10,7 +10,8 @@ export const PICK_TIMEOUT_MS = 1500;
 /**
  * 到站結果 → 在站牌還要等幾分鐘（不知道就回 null）。
  * - 公車：盯的上車站（focus）正常行駛時的到站秒數；有「離你多遠」時扣掉走過去的時間（行程裡選公車時另扣 walkMin）
- * - 捷運：最快來的那班幾分到
+ * - 捷運到站看板：不知道使用者往哪個方向 → 各方向最快的那班（取最小＝保守：每個方向都要等夠久才推）
+ * - 捷運怎麼坐（metro_route）：知道方向 → 第一段往這個方向的下一班（2026-11-23，原本可能抓到反方向的車）
  * @param {string} tool
  * @param {any} data
  * @param {{ walkMin?: number|null }} [opts]
@@ -21,6 +22,10 @@ export function waitMinutes(tool, data, { walkMin = null } = {}) {
     if (!f || f.status !== 0 || !Number.isFinite(f.etaSec)) return null;
     const walk = Number.isFinite(walkMin) ? walkMin : Number.isFinite(f.distanceM) && f.distanceM > 100 ? walkMinutes(f.distanceM) : 0;
     return f.etaSec / 60 - walk;
+  }
+  if (tool === 'metro_route') {
+    const n = data?.next;
+    return Number.isFinite(n?.etaMin) ? n.etaMin : null; // 台中捷運只有班距（headway）：不知道下一班幾分到，不推
   }
   if (tool === 'metro_live_board') {
     const mins = (data?.trains || []).map((t) => t?.etaMin).filter((m) => Number.isFinite(m));

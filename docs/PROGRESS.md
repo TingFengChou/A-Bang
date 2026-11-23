@@ -11,6 +11,12 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-23 S7b 行程規劃用真實捷運路網；等捷運推短劇看方向
+- 做了：`plan_trip` 的捷運段改用各線車站順序（StationOfLine）算坐哪幾條線、往哪、幾站、在哪轉，每段一個 leg；票價用 ODFare（同系統一張票、跨系統分段相加），查不到依距離估。路網與票價抽成 `core/services/metro-net.js`，`metro_route` 與行程規劃共用；`linkedSystems`、`fareGroups` 移到 `core/metro-route.js`。行程規劃只用已存的路網與票價（`metro.lines`／`odFare` 新增 `onlyStored`），背景預熱多下載各系統的車站順序（共 25 步）；沒有已存的（剛啟動、示範資料）照舊依距離估算——示範路網只有幾站、站數不準，不拿來跟公車和叫車比。等捷運推短劇：`metro_route` 知道方向，用第一段往這個方向的下一班算等多久（看板不知道方向時仍取各方向最快的一班，保守）。路線顏色：查不到淡海、安坑輕軌與三鶯線的官方色碼，維持原狀（三鶯線近似值、兩條輕軌用品牌色）。
+- 測試：`test/trip-metro-network.test.js` 3 項（三峽老街 → 台北101 三段與票價、票價查不到依距離估、沒有已存路網照舊估算）；`test/drama.test.js` 加 metro_route 等車時間
+- 文件：MCP_TOOLS.md（plan_trip）、DATA_SOURCES.md（預熱）、PLAN.md（S7b）
+- 下一個：M1、T8c（另外兩個 PR）
+- 卡住：E3 App 內分類器要新增 transformers.js 依賴（停止條件），沒做
 ## 2026-11-23 T8c iOS 模擬器煙霧測試
 - 做了：`npm run smoke:ios`（`scripts/smoke-ios.js`），對應 Android 的 `smoke:android`。用模擬器的 Web Inspector 通道（webinspectord_sim 的 unix socket，跟 Safari「開發」選單同一條；`scripts/webinspector.js` 自己做二進位 plist 編解碼與 Target 包裝）連進 App 的 WKWebView 跑 JavaScript，不加依賴、不加 XCUITest target、不動 App。檢查：原生外掛 8 個（含 iOS 才有的 AbangWatch）、10 頁畫得出來且分頁列標對、語音與健康外掛回報狀態、中央鍵拉出與收起對話、console 沒有畫面錯誤、App 沒有閃退、沒有新的當機報告；`simctl io screenshot` 截圖到 `test/screenshots/ios-*.png`。`--build` 先打包、xcodebuild（未簽章 debug 版）、安裝；`--keep` 不重開。未簽章建置的 bundle id 回報是「process-App」，改用 `simctl launch` 的 pid 找 App；Capacitor 外掛被拒時記下的錯誤物件沒有預覽，向頁面要 JSON 內容再判斷。
 - 實測：iPhone 18 Pro 模擬器 `--build` 全部通過；語音「不能用（ios-no-ondevice）」、健康「不能用（no-entitlement）」、手機上的 AI 背景失敗（background）列警告，都是模擬器環境。

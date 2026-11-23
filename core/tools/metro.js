@@ -6,7 +6,8 @@ import { TdxError } from '../tdx-client.js';
 import { resolvePoint } from '../services/places.js';
 import { withNav, navLinks } from '../nav.js';
 import { METRO_SYSTEMS, METRO_STATUS, metroStatusText, findMetroStation } from '../services/metro.js';
-import { toRoutes, findRoute, trainGoesWay, stationKey, TRANSFER_MIN } from '../metro-route.js';
+import { trainGoesWay, stationKey, TRANSFER_MIN, REGION, regionSystems, linkedSystems } from '../metro-route.js';
+import { metroNetRoute } from '../services/metro-net.js';
 
 const PACK = 'transit';
 const system = z.enum(Object.keys(METRO_SYSTEMS)).describe(`捷運系統：${Object.entries(METRO_SYSTEMS).map(([k, v]) => `${k}=${v}`).join('、')}`);
@@ -122,15 +123,12 @@ export async function nearestMetro(svc, pt, only, line = null) {
   return best && best.distanceM <= NEAR_MAX_M ? best : null;
 }
 
-/** 哪些系統的路網相通（同一個城市）：北部五個系統靠同名站互轉，南部兩個，台中一個 */
-const REGION = { TRTC: 'N', NTMC: 'N', TYMC: 'N', NTDLRT: 'N', NTALRT: 'N', KRTC: 'S', KLRT: 'S', TMRT: 'C' };
-const REGION_SYSTEMS = (r) => Object.keys(REGION).filter((k) => REGION[k] === r);
 const TIME_NOTE = `時間依站數估算（每站約 2 分、轉乘約 ${TRANSFER_MIN} 分），不含等車`;
 const TIME_NOTE_EN = `Times are estimated from the number of stops (about 2 min a stop, ${TRANSFER_MIN} min a transfer), not counting the wait`;
 
 /** 站名在哪個系統：先找 prefer 那個城市的系統（台北捷運優先），都沒有再全台找 */
 async function stationIn(svc, name, prefer) {
-  const order = prefer ? [...new Set([prefer, ...(REGION[prefer] === 'N' ? ['TRTC'] : []), ...REGION_SYSTEMS(REGION[prefer])])] : [];
+  const order = prefer ? [...new Set([prefer, ...(REGION[prefer] === 'N' ? ['TRTC'] : []), ...regionSystems(REGION[prefer])])] : [];
   for (const sys of order) {
     const list = await svc.metro.stations({ system: sys }).catch(() => null);
     if (!list) continue;
@@ -161,17 +159,10 @@ export const metroRoute = defineTool({
     const B = await stationIn(svc, a.to, A.system);
     if (REGION[A.system] !== REGION[B.system]) throw new UserError(`${A.st.name}（${METRO_SYSTEMS[A.system]}）和 ${B.st.name}（${METRO_SYSTEMS[B.system]}）在不同城市，捷運不相通；要跨縣市請用行程規劃（例如「台北到台中」）`);
     if (stationKey(A.st.name) === stationKey(B.st.name)) throw new UserError(`上車站和下車站都是${A.st.name}；請給兩個不同的站`);
-    // 北部：上下車的系統＋台北捷運（三鶯線、淡海輕軌等都靠北捷轉）；南部：高雄捷運＋高雄輕軌
-    const region = REGION[A.system];
-    const load = [...new Set([A.system, B.system, ...(region === 'N' ? ['TRTC'] : region === 'S' ? REGION_SYSTEMS('S') : [])])];
-    const routes = (await Promise.all(load.map(async (sys) => toRoutes(sys, await svc.metro.lines({ system: sys }))))).flat();
-    const found = findRoute(routes, A.st.name, B.st.name);
+    // 北部：上下車的系統＋台北捷運（三鶯線、淡海輕軌等都靠北捷轉）；南部：高雄捷運＋高雄輕軌（linkedSystems）
+    const found = await metroNetRoute(svc.metro, { from: A.st.name, to: B.st.name, systems: linkedSystems(A.system, B.system) });
     if (!found) throw new UserError(`查不到從${A.st.name}到${B.st.name}的捷運路線（路網資料可能還沒有這一站）；可以改用行程規劃`);
-    // 票價：同一個系統連續坐的幾段算一張票（ODFare 起站到迄站）；跨系統分開算
-    const groups = [];
-    for (const l of found.legs) { const g = groups.at(-1); if (g && g.system === l.system) g.toId = l.toId; else groups.push({ system: l.system, fromId: l.fromId, toId: l.toId }); }
-    const fares = await Promise.all(groups.map(async (g) => ({ system: g.system, price: await svc.metro.odFare(g).catch(() => null) })));
-    const fare = fares.every((f) => f.price != null) ? fares.reduce((s, f) => s + f.price, 0) : null;
+    const { routes, fare, fares } = found;
     // 第一段的下一班（看板＋時刻表；台中捷運只有班距）
     const first = found.legs[0];
     let next = null;
@@ -186,9 +177,9 @@ export const metroRoute = defineTool({
     const legs = found.legs.map(({ key: _k, dir: _d, ...l }) => l);
     const data = {
       from: A.st.name, ...(A.st.nameEn && { fromEn: A.st.nameEn }), to: B.st.name, ...(B.st.nameEn && { toEn: B.st.nameEn }),
-      system: A.system, minutes: found.minutes, transfers: found.transfers, fare, ...(groups.length > 1 && { fares }),
+      system: A.system, minutes: found.minutes, transfers: found.transfers, fare, ...(fares.length > 1 && { fares }),
       legs, ...(next && { next }),
-      note: TIME_NOTE, noteEn: TIME_NOTE_EN, ...(groups.length > 1 && fare != null && { fareNote: '跨系統票價分段相加，實際可能有轉乘優惠', fareNoteEn: 'Fares across systems are added up; transfer discounts may apply' }),
+      note: TIME_NOTE, noteEn: TIME_NOTE_EN, ...(fares.length > 1 && fare != null && { fareNote: '跨系統票價分段相加，實際可能有轉乘優惠', fareNoteEn: 'Fares across systems are added up; transfer discounts may apply' }),
       nav: navLinks(A.st.lat, A.st.lon),
     };
     const legText = (l, i) => `${i ? `在${l.from}轉` : '坐'}${l.line}${l.toward ? `（往${l.toward}）` : `（下一站${l.next}）`}：${l.from} → ${l.to}，${l.stops} 站`;

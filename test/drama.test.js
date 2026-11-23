@@ -222,6 +222,10 @@ test('等車時間：公車扣掉走到站牌的時間、捷運取最快的一�
   assert.equal(waitMinutes('bus_route_eta', { directions: [] }), null, '沒盯站不知道等多久');
   assert.equal(waitMinutes('metro_live_board', { trains: [{ etaMin: 9 }, { etaMin: 6 }, { etaMin: null }] }), 6);
   assert.equal(waitMinutes('metro_live_board', { trains: [] }), null);
+  // 捷運怎麼坐：知道方向，用第一段往這個方向的下一班（不會抓到反方向的車）；台中捷運只有班距不推
+  assert.equal(waitMinutes('metro_route', { next: { etaMin: 8, destination: '頂埔' } }), 8);
+  assert.equal(waitMinutes('metro_route', { next: { headway: { min: 9, max: 9 } } }), null);
+  assert.equal(waitMinutes('metro_route', {}), null);
   assert.equal(waitMinutes('weather_now', {}), null);
 });
 
