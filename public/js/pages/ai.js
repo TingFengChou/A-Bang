@@ -406,6 +406,12 @@ export default {
             if (!mine()) return;
             const old = list.querySelector(`[data-sec="${key}"]`); // 第 1 段之後補上「伺服器怎麼看」：原地換掉
             if (key === 'judge' && device.active && !old) heroEnd(sec.by === 'device' ? { intent: sec.intent, states: sec.states } : null);
+            // 伺服器實際採用的跟手機的判斷不同（例：「你會做什麼」手機看了前文判成行程＋趕時間，規則說是問阿幫能做什麼；手機的狀態沒被採用）：四格改成實際採用的
+            const same = (x, y) => x?.intent === y?.intent && [...(x?.states || [])].sort().join() === [...(y?.states || [])].sort().join();
+            if (key === 'judge' && old && sec.server && Object.hasOwn(sec.server, 'intent') && !same(sec.server, sec)) {
+              setNode('intent', t(`intent.${sec.server.intent}`));
+              setNode('states', sec.server.states?.length ? nodeText(sec.server.states.map((k) => t(`state.${k}`)), t('sep')) : t('node.none'));
+            }
             heroMore(key, sec); // 主視覺四格：資料夠不夠、下一步問你（網頁版也顯示伺服器的判斷）
             const { li, body: b } = section(key, sec, SRC[key](sec));
             PAINT[key](b, sec);

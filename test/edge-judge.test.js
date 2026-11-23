@@ -69,7 +69,7 @@ test('判斷層採用裝置提示：A 沒把握時用裝置的意圖、不呼叫
   const device = { intent: 'metro', states: ['rush'], engine: 'gemini-nano' };
   const unsure = fake({ intent: 'bus_route', confidence: 0.5, states: ['rush'] });
 
-  const j1 = await createJudge({ embed: unsure })('板南線下一班幾分', [], { device });
+  const j1 = await createJudge({ embed: unsure })('那班車還要等多久', [], { device });
   assert.equal(j1.intent, 'metro');
   assert.equal(j1.source, 'device');
   assert.equal(j1.engine, 'gemini-nano');
@@ -78,15 +78,23 @@ test('判斷層採用裝置提示：A 沒把握時用裝置的意圖、不呼叫
   const sure = await createJudge({ embed: fake({ intent: 'stock', confidence: 0.95, states: [] }) })('台積電多少', [], { device: { ...device, intent: 'fuel' } });
   assert.equal(sure.intent, 'stock', 'A 有把握時用 A');
 
-  const j2 = await createJudge({ embed: unsure, llm })('板南線下一班幾分', [], { device });
+  const j2 = await createJudge({ embed: unsure, llm })('那班車還要等多久', [], { device });
   assert.equal(llmCalls, 1);
   assert.equal(j2.intent, 'bus_route', '伺服器有模型（B）時完整版用 B');
-  const q = await createJudge({ embed: unsure, llm }).quick('板南線下一班幾分', [], { device });
+  const q = await createJudge({ embed: unsure, llm }).quick('那班車還要等多久', [], { device });
   assert.equal(q.intent, 'metro', '快速版仍用裝置提示（不花伺服器模型）');
   assert.equal(llmCalls, 1);
 
-  const rulesOnly = await createJudge()('板南線下一班幾分', [], { device });
+  const rulesOnly = await createJudge()('那班車還要等多久', [], { device });
   assert.equal(rulesOnly.source, 'device', '伺服器沒有分類器時用規則＋裝置');
+});
+
+test('腦袋審查 #3：規則有明確關鍵字（「板南線下一班幾分」是捷運）時，手機或伺服器模型說別的也照規則', async () => {
+  const llm = async () => ({ intent: 'bus_route', states: [] });
+  const j = await createJudge({ llm })('板南線下一班幾分', [], { device: { intent: 'trip', states: [], engine: 'gemini-nano' } });
+  assert.deepEqual([j.intent, j.source], ['metro', 'rules']);
+  const k = await createJudge({ llm })('板南線下一班幾分', []);
+  assert.deepEqual([k.intent, k.source], ['metro', 'rules']);
 });
 
 test('請求驗證：deviceJudge 只收列舉值；示範模式（伺服器沒有判斷層）也會採用並在 status 標出來源', async () => {

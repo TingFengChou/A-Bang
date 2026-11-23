@@ -38,7 +38,7 @@ export const EDGE_REASON = { ok: '可以使用', unsupported: '這支手機不�
 export const EDGE_INSTRUCTIONS = `你是交通與生活助理的「意圖與狀態判斷器」，只判斷，不回答問題。
 意圖（選一個）：trip 從 A 到 B 怎麼去、行程、比較交通方式（只說目的地也算）；bus_route 某條公車路線到哪、多久到、末班；youbike 借還 YouBike、站點車位；nearby_bus 附近公車站牌；metro 捷運下一班；rail 高鐵、台鐵班次車票；weather 天氣、會不會下雨；aqi 空氣品質、PM2.5、口罩；quake 地震；pharmacy 藥局；garbage 垃圾車；fuel 油價；invoice 發票對獎；stock 台股；traffic 國道路況、塞不塞車；unknown 以上都不是。
 狀態（使用者明講才列，可為空）：rush 趕時間、快遲到；luggage 帶行李、大包小包；budget 要便宜、省錢；lessWalk 不想走路、腳不舒服；rain 正在下雨（問會不會下雨不算）；badAir 空氣很差；elder 帶長輩、老人家同行；kids 帶小孩、推嬰兒車；mobility 坐輪椅、行動不便。
-「307 到哪了」「藍15 還要多久」問某條公車在哪、多久到是 bus_route，不是 trip。「板南線下一班」「淡水信義線還要等多久」是 metro。「下一班高鐵到台中」「幾點有自強號」是 rail，不是 trip；「從板橋到台北車站」「從桃園火車站去台北101」沒說坐高鐵台鐵是 trip。「國道塞車嗎」「台北到新竹會不會塞」是 traffic。「這期發票」「中獎號碼」「我有沒有中」是 invoice。「改坐公車」「那叫車呢」這類接著改條件的話是 trip。前文提過的狀態持續有效。`;
+「307 到哪了」「藍15 還要多久」問某條公車在哪、多久到是 bus_route，不是 trip。「板南線下一班」「淡水信義線還要等多久」是 metro。「下一班高鐵到台中」「幾點有自強號」是 rail，不是 trip；「從板橋到台北車站」「從桃園火車站去台北101」沒說坐高鐵台鐵是 trip。「國道塞車嗎」「台北到新竹會不會塞」是 traffic。「這期發票」「中獎號碼」「我有沒有中」是 invoice。「改坐公車」「那叫車呢」這類接著改條件的話是 trip。「你會做什麼」「你是誰」「怎麼用」問阿幫能做什麼、閒聊、道謝是 unknown。前文只在這一句接著前面的事（改條件、補充）時參考；換了新話題就不沿用前文的意圖與狀態。`;
 /** 實際給模型的指示：判斷＋要不要先問一題（ADR-0020；prewarm 與 judge 要用同一份，iOS 才會用到預先載入的 session） */
 export const EDGE_JUDGE_INSTRUCTIONS = `${EDGE_INSTRUCTIONS}\n${EDGE_ASK_GUIDE}`;
 

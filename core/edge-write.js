@@ -142,6 +142,8 @@ const KEEP = [
   { draft: /沒拿到你的位置|couldn't get your location/i, zh: /沒拿到.{0,4}位置/, en: /location/i, name: 'noLocation' },
   { draft: /傘|umbrella/i, zh: /傘/, en: /umbrella/i, name: 'umbrella' },
   { draft: /時間很緊|tight/i, zh: /緊|趕/, en: /tight|hurry|now/i, name: 'tight' },
+  // 使用者指定的交通方式（「照你說的選捷運（分數最高的是公車 939）」）：改寫不能拿掉「照你說的」，否則變成阿幫推薦分數較低的方案（腦袋審查 #2，Pixel 實測）
+  { draft: /照你說的/, zh: /(?:照|依|按)你(?:所)?說|你(?:說要|指定|要的|選的)/, en: /you (?:asked|chose|picked|wanted)|as you (?:asked|said)|requested/i, name: 'userPick' },
   { draft: /設定與隱私 → 常用地點/, zh: /設定與隱私 → 常用地點/, en: /設定與隱私 → 常用地點/, name: 'settings' }, // 畫面靠這串字放「到常用地點設定」按鈕
 ];
 // 否定詞加在提醒或數字前面（「不用帶傘」「不是末班」「不用打 119」）：草稿沒這樣說就是把意思改反了
@@ -279,6 +281,9 @@ export function checkRewrite(candidate, { draft, facts = {}, lang = 'zh', agent 
   // 重要提醒不能被改寫掉，也不能被否定成相反的意思
   const gone = KEEP.find((k) => k.draft.test(d) && !(en ? k.en : k.zh).test(text) && !k.draft.test(text));
   if (gone) return { ok: false, reason: 'keep', detail: gone.name };
+  // 使用者指定的方案不是分數最高的：改寫不能說它「比較好、最好、最推薦」（草稿沒這樣說）
+  const PRAISE = en ? /\b(?:better|best|recommend(?:ed)?|top choice)\b/i : /比較好|較好|更好|最好|最佳|較佳|最推薦|最划算|最適合/;
+  if (/分數最高的是/.test(d) && PRAISE.test(text) && !PRAISE.test(d)) return { ok: false, reason: 'claim', detail: text.match(PRAISE)[0] };
   const neg = negated(text, d, en);
   if (neg) return { ok: false, reason: 'negation', detail: neg };
   // 名稱：引號裡的、以及沒加引號但以站、路、線、出口結尾的，都要是資料裡有的

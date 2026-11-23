@@ -31,6 +31,8 @@ export const JUDGE_INTENTS = {
 };
 export const JUDGE_STATES = ['rush', 'luggage', 'budget', 'lessWalk', 'rain', 'badAir', 'elder', 'kids', 'mobility'];
 export const CONFIDENT = 0.8;
+/** 規則靠明確關鍵字認出的意圖：判斷層（手機、模型、嵌入分類器）說是別的也照規則（腦袋審查 #3） */
+export const KEYWORD_INTENTS = new Set(['weather', 'aqi', 'quake', 'pharmacy', 'garbage', 'fuel', 'invoice', 'stock', 'youbike', 'nearby_bus', 'metro']);
 /** A 沒把握、規則也聽不懂時：A 信心低於這個值就當作 unknown（不亂選；「我在等939」0.27、詐騙簡訊 0.42） */
 export const UNSURE_FLOOR = 0.5;
 /** 裝置端判斷的引擎（ADR-0014）：Apple Intelligence（Foundation Models）、Gemini Nano（ML Kit GenAI） */
@@ -122,19 +124,23 @@ export function createJudge({ embed = null, llm = null, threshold = CONFIDENT } 
     const rules = parseIntent(text, { history: history.map((content) => ({ role: 'user', content })) });
     const a = embed ? await embed(it).catch(() => null) : null;
     const sure = a && a.confidence >= threshold;
-    const wantLlm = !dev && !quick && !rules.followUp && llm && (!sure || a.intent === 'trip' || rules.intent === 'trip');
+    // 問阿幫能做什麼、道謝、道歉、只回「好」：整句就是這個，手機或模型看了前文（剛剛在排行程、說過快遲到）判成行程也不改，狀態也不沿用（2026-11-23 產品負責人：腦袋頁「你會做什麼」意圖總是行程規劃）
+    const meta = rules.intent === 'unknown' && !!(rules.help || rules.thanks || rules.sorry || rules.ack);
+    const wantLlm = !dev && !quick && !rules.followUp && !meta && llm && (!sure || a.intent === 'trip' || rules.intent === 'trip');
     const b = dev || (wantLlm ? await llm(it).catch(() => null) : null);
     // 接著上一輪改行程（「改成公車 601」「我很趕」）：規則看得到前文，以它為準（分類器只看這一句，會誤判成查公車）
     // 沒有模型也沒有裝置端提示、A 又沒把握：規則有明確意圖就用規則（真實資料健檢 S3）；規則聽不懂才看 A，A 太沒把握就當 unknown
     const ruled = rules.intent !== 'unknown' && Object.hasOwn(JUDGE_INTENTS, rules.intent);
     // 接著上一輪：規則看得到前文。改行程是 trip；接著問公車、股票、發票、油價（「那 262 呢」、末班車那題回「307」）照規則的意圖（PR #127 審查）
     // 規則有十足把握（這一句寫了公車路線號碼、問的就是那一路，例「307 到哪了」）：手機或模型判成別的（天氣）也不改（真實資料健檢 d10）
-    const strong = ruled && rules.intent === 'bus_route' && !!rules.route && !(rules.also || []).length;
-    const pick = rules.followUp ? [rules.intent === 'trip' || !Object.hasOwn(JUDGE_INTENTS, rules.intent) ? 'trip' : rules.intent, 'rules'] : strong && b && b.intent !== rules.intent ? [rules.intent, 'rules'] : sure ? [a.intent, 'embed'] : b ? [b.intent, dev ? 'device' : 'llm']
+    // 腦袋審查 #3（2026-11-23）：句子有明確關鍵字的生活查詢（天氣、空品、藥局、油價、發票、股票代號、地震、垃圾車、YouBike、附近站牌、捷運）也一樣：
+    // 手機看了前文（剛剛在排行程）判成行程、或把「2330 收盤多少」判成天氣時，照規則（路況、行程、聽不懂的句子仍可由手機或模型更正）
+    const strong = ruled && !(rules.also || []).length && ((rules.intent === 'bus_route' && !!rules.route) || KEYWORD_INTENTS.has(rules.intent));
+    const pick = meta ? ['unknown', 'rules'] : rules.followUp ? [rules.intent === 'trip' || !Object.hasOwn(JUDGE_INTENTS, rules.intent) ? 'trip' : rules.intent, 'rules'] : strong && ((b && b.intent !== rules.intent) || (sure && a.intent !== rules.intent)) ? [rules.intent, 'rules'] : sure ? [a.intent, 'embed'] : b ? [b.intent, dev ? 'device' : 'llm']
       : ruled || !a ? [rules.intent, 'rules'] : a.confidence >= UNSURE_FLOOR ? [a.intent, 'embed'] : ['unknown', 'embed'];
     const [intent, source] = pick;
     const agree = a && b ? a.states.filter((k) => b.states.includes(k)) : [];
-    const states = [...new Set([...rules.states.filter((k) => JUDGE_STATES.includes(k)), ...agree])];
+    const states = meta ? [] : [...new Set([...rules.states.filter((k) => JUDGE_STATES.includes(k)), ...agree])];
     return { intent, states, confidence: a?.confidence ?? null, source, llmUsed: Boolean(b && !dev), ...(dev && { engine: device.engine }), ...(rules.followUp && { followUp: true, states: [...new Set([...rules.states, ...states])] }), ...(rules.mode && { mode: rules.mode }) };
   };
   const judge = (text, history, opts = {}) => run(text, history, opts);
