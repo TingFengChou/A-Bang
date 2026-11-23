@@ -17,6 +17,9 @@ test('決策圖資料膠囊：英文那一輪用 km、City、Clear、Rain', () =
   assert.deepEqual(tripSignals(trip, 'en'), { 地點: '5 km', 天氣: '24°C', 空品: 'AQI 58', 路況: 'Local roads' });
   assert.equal(tripSignals({ weather: { raining: true }, traffic: { covered: true, level: 'jam', delayMin: 12 } }, 'en').路況, '+12 min');
   assert.equal(tripSignals({ weather: { raining: true } }, 'en').天氣, 'Rain');
+  // 小數氣溫整個保留（2026-11-23：「多雲 26.4°C」以前顯示成「4°C」）
+  assert.equal(tripSignals({ weather: { raining: false, pop3h: 20, summary: '多雲 26.4°C，3 小時降雨 20%' } }).天氣, '26.4°C');
+  assert.equal(tripSignals({ weather: { raining: false, pop3h: 0, summary: '晴 -1.5°C' } }).天氣, '-1.5°C');
 });
 
 test('行程分段：每段都有英文說明（detailEn），中文照舊', async () => {

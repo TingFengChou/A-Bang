@@ -230,6 +230,8 @@ test('沒預熱（冷快取）時照舊逐條查：附近站牌問 NearBy、路�
   assert.equal(trips[0].routeName, '307');
   assert.equal(trips[0].board.etaSec, 420);
   assert.ok(hits.some((u) => /Station\/NearBy/.test(u)));
+  // 整個範圍的站牌都要（台北車站 500 公尺內超過 30 個；以前只取 30 個，遠一點站牌的路線漏掉）
+  assert.ok(hits.filter((u) => /Station\/NearBy/.test(u)).every((u) => /top=150\b/.test(decodeURIComponent(u))), hits.join('\n'));
   assert.ok(!hits.some((u) => /Bus\/Shape/.test(u)), 'plan_trip 不查路線形狀');
 });
 
