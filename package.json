@@ -16,7 +16,8 @@
     "e2e": "node --test scripts/e2e.js",
     "lint": "eslint .",
     "fetch:judge-model": "node scripts/fetch-judge-model.js",
-    "smoke:android": "node scripts/smoke-android.js"
+    "smoke:android": "node scripts/smoke-android.js",
+    "smoke:ios": "node scripts/smoke-ios.js"
   },
   "license": "MIT",
   "dependencies": {
