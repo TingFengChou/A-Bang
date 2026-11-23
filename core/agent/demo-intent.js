@@ -690,6 +690,8 @@ const THANKS = /^(?:謝謝|謝啦|謝了|感謝|多謝|感恩|3q|讚|好棒|太�
 const COURTESY_HEAD = /^(?:謝謝|謝啦|謝了|感謝|多謝|感恩|歹勢|拍謝|不好意思|抱歉)(?:你|妳|阿幫|啦|喔|哦)*[，,。!！~～\s]+(?=\S)/;
 const SORRY = /^(?:歹勢|拍謝|不好意思|抱歉|對不起)+(?:啦|喔|哦|囉|阿幫|～|~|!|！|。|\s)*$/i;
 /** 只回「好」「嗯」「不用」（沒有在等的問題，或客戶端沒對上按鈕）：回一句短的，不列功能清單（PM Q-25） */
+/** 問阿幫能做什麼、是誰、怎麼用（「你會做什麼？」「阿幫可以幫我什麼」「What can you do?」）：整句只問這個才算；回答列出能查的東西，不沿用前文的意圖與狀態 */
+export const HELP_ASK = /^(?:(?:阿幫|abang)[\s，,]*)?(?:(?:你|妳)\s*)?(?:(?:會|能|可以)(?:幹嘛|幹麻|(?:做|幫(?:我|忙)?(?:做|查)?|查)(?:些)?(?:什麼|甚麼|啥|哪些)(?:事|事情|東西|功能)?)|有(?:什麼|甚麼|哪些)功能|是誰|是什麼|(?:要)?怎麼用)(?:啊|呀|呢|嗎|啦|喔|哦)?[\s？?。！!～~]*$|^(?:what can you do|what do you do|who are you|how do i use (?:you|this|abang)|help)[\s?.!]*$/i;
 const ACK = /^(?:好|好啊|好的|好喔|好哦|嗯|嗯嗯|ok|okay|了解|知道了|收到|沒問題|不用|不用了|不要|沒有|不必)(?:啦|喔|哦|囉|唷|～|~|!|！|。|\s)*$/i;
 /** 只說交通類別（「高鐵」「公車」「叫車」）：沒有前一趟行程時問要查什麼、要去哪（PM Q-11、Q-24）；有前一趟＝改成這種方式（Q-12） */
 const BARE_MODE = /^(?:我要|我想|幫我|那|改|改成|換)?\s*(叫車|叫計程車|計程車|小黃|uber|高鐵|台鐵|臺鐵|火車|公車|捷運|走路|步行|走過去|騎車|騎\s*youbike|騎\s*ubike|youbike|ubike)\s*(?:吧|啦|好了|就好|呢)?\s*[。！!？?]?$/i;
@@ -707,6 +709,7 @@ function parseIntentRaw(text, ctx) {
   const history = (ctx && typeof ctx === 'object' && ctx.history) || [];
   if (THANKS.test(s)) return { places: [], states: [], arriveBy: null, tomorrow: false, intent: 'unknown', thanks: true };
   if (SORRY.test(s)) return { places: [], states: [], arriveBy: null, tomorrow: false, intent: 'unknown', sorry: true };
+  if (HELP_ASK.test(s)) return { places: [], states: [], arriveBy: null, tomorrow: false, intent: 'unknown', help: true, ...(isEnglish(s) && { lang: 'en' }) };
   if (ACK.test(s)) return { places: [], states: [], arriveBy: null, tomorrow: false, intent: 'unknown', ack: true, ...(isEnglish(s) && { lang: 'en' }) };
   const places = placesInText(s.replace(METRO_LINE_ALL, (m) => ' '.repeat(m.length)).replace(METRO_SYS_ALL, (m) => ' '.repeat(m.length))); // 捷運路線名不是地名（「淡水線下一班」不是淡水老街，PM Q-20）；系統名也不是（「高雄捷運」不是高雄車站，S5）
   // 「會下雨嗎」是在問、不是正在下雨（P2-4）：問句不算下雨狀態
@@ -1502,6 +1505,7 @@ function englishSummary(it, results) {
   if (it.intent === 'pharmacy') { const p = results.pharmacy_search?.at(-1)?.data; if (p) return `${SPEAK_EN.pharmacy_search(p)}${p.areaFrom ? ' The area was guessed from your location; tell me the district if it is wrong.' : ` You didn't say where, so I searched ${p.area}; tell me the district.`} Tap a pharmacy for the map.${note}`; }
   if (it.thanks) return "You're welcome! Have a good trip.";
   if (it.intent === 'savedMissing') return `I don't know where your ${({ 家: 'home', 公司: 'office', 學校: 'school' })[it.missing] || 'saved place'} is yet. Set it in Settings & privacy → Saved places, or just tell me the place name (e.g. "How do I get to Banqiao Station?").`; // 「I'm at Taipei 101, about to go home」：還沒設定家
+  if (it.help) return 'I can help you get around Taiwan (bus, MRT, train, high-speed rail, YouBike, taxi, from A to B) and check daily info (weather, air quality, earthquakes, pharmacies, garbage trucks, fuel prices, invoices, stock closing prices). Try: "How do I get to Taipei 101?"';
   if (it.intent === 'unknown') return 'Sorry, I can only help with getting around Taiwan (bus, MRT, train, YouBike, taxi) and the weather for now. Try: "How do I get to Taipei 101?"';
   // 什麼都沒查到（例：車站或地點不在資料裡）：照實說，不說「Here you go」
   if (!Object.keys(results).length) return "Sorry, I couldn't get that information right now (the station or place may not be covered). Try another name.";

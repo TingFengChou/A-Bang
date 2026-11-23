@@ -340,6 +340,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - 使用者看得到判斷層：「阿幫的腦袋」頁（`#/ai`，UX.md §5.0.1、ADR-0014 第 7 點）白話說明四個成員（手機上的 AI、嵌入分類器、伺服器的模型、規則）；`GET /api/v1/status` 的 `agent: { mode, model?, judge: { embed, llm } }` 回報這台伺服器由誰回答、分類器與模型有沒有載入（不含金鑰與網址）。
 - 先用快速版 `judge.quick`（A＋規則，不問模型，幾毫秒）在行程前送一句 `agent_note`（`judgeNote`：「你想省錢，我先看天氣、空品、路況，再比較幾種走法」；接著改交通方式時「照你說的改成坐公車，用剛才的起點和目的地重算」；其他查詢不說，2026-11-20 改，原本每次都說「我聽懂了」太多餘），使用者一送出就看到阿幫依他的狀況做事；之後完整版（含模型）定案，多找到的狀態再送一句「我還注意到你…」（`moreStatesNote`）。
 - 手機上的 AI 暫時不能用（2026-11-22）：App 不在前景（`document.visibilityState !== 'visible'`）時手機不呼叫 judge／write／suggest；Android 的背景被擋（`BACKGROUND_USE_BLOCKED` 30）、電量配額（`PER_APP_BATTERY_USE_QUOTA_EXCEEDED` 27）與 iOS 在背景的錯誤回 `background`／`battery-quota`，不暫停、不跳斷路器，這一題交給伺服器判斷（錯誤碼表見 ADR-0014）。
+- **整句是問阿幫能做什麼、道謝、道歉、只回「好」**（2026-11-23）：規則認得（`HELP_ASK`、`THANKS`、`SORRY`、`ACK`）就以規則為準（unknown、狀態清空），手機或模型看了前文判成行程、趕時間也不改；help 回答列出能查的東西。手機的指示與 `judge-prompt.txt` 也寫明：換新話題不沿用前文的意圖與狀態。
 - 退路：`JUDGE=off`、選用依賴沒裝、模型下載失敗、載入中 → 都等同規則；CI 與 E2E 設 `JUDGE=off`，邏輯以單元測試（假的分類器）驗證。
 
 ### 5.3.1 問什麼由手機上的 AI 決定（ADR-0020，2026-11-22）

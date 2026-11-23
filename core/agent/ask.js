@@ -373,7 +373,7 @@ Object.assign(PENDING_SLOTS, {
     const s = String(t).trim();
     if (OTHER_ASK.test(s) && !/^往/.test(s)) return null;
     const it = /^往/.test(s) ? null : parseIntent(s.replace(/^(?:我)?(?:現在)?(?:人)?(?:在|從)\s*/u, ''), {}); // 站名可以是地標（「市政府」），但不能是狀況、道謝、別的問題
-    if (it && (it.states?.length || it.thanks || it.sorry || it.reset || it.ack || !['unknown', 'trip'].includes(it.intent) || (it.intent === 'trip' && !it.bare))) return null;
+    if (it && (it.states?.length || it.thanks || it.sorry || it.reset || it.ack || it.help || !['unknown', 'trip'].includes(it.intent) || (it.intent === 'trip' && !it.bare))) return null;
     const name = s.replace(/^(?:我)?(?:現在)?(?:人)?(?:在|從)\s*/u, '').replace(/\s*(?:站牌|這站|那站)?\s*(?:等(?:車)?)?[。！!～~.]*$/u, '');
     if (!/^往/.test(s) && !(placesInText(name).length === 1 || STOP_LIKE.test(name))) return null; // 只收看起來像站名的（地標庫、或含站、路口、捷運、國小、市場…；「等一下」不收，審查 #121）
     return busStopSay(p, s);

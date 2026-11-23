@@ -151,7 +151,7 @@ export const RULE_ANSWERS = new Set(['fuel', 'invoice', 'stock', 'quake', 'drama
 export function ruleFirst(it, text = '') {
   if (!it) return false;
   if (RULE_ANSWERS.has(it.intent)) return true;
-  if (it.thanks || it.sorry) return true;
+  if (it.thanks || it.sorry || it.help) return true; // 問阿幫能做什麼：規則列出能查的東西，不交給模型（模型常順著前文接著排行程）
   if (!/[\p{L}\p{N}]/u.test(String(text))) return true; // 只有標點、空白或表情符號
   if (it.also?.length) return true;
   if (it.intent === 'trip' && it.nearRail && !it.to) return true;

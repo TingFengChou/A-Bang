@@ -69,7 +69,7 @@ export async function metroPoint(svc, name, at = null) {
 }
 
 /** 規則已經很明確、判斷層不改意圖的標記（PM Q 情境：只回好、地點歧義、路名、只說類別、要出門了、沒說去哪的高鐵、公車方向、問中獎） */
-const RULE_FINAL = ['ack', 'ambig', 'category', 'askTo', 'anyTo', 'toward', 'wantCheck', 'metroTo']; // 路名（road）、去機場（airport）不在這裡：判斷層說是別的意圖時可以更正（審查 #121、#122）；去機場只有判斷層說「聽不懂」時不改（限縮）
+const RULE_FINAL = ['ack', 'help', 'ambig', 'category', 'askTo', 'anyTo', 'toward', 'wantCheck', 'metroTo']; // 路名（road）、去機場（airport）不在這裡：判斷層說是別的意圖時可以更正（審查 #121、#122）；去機場只有判斷層說「聽不懂」時不改（限縮）
 /** 「你說過」的預設狀況只能是這幾種（habits.js 叫車原因） */
 export const USUAL_STATES = ['rush', 'luggage', 'lessWalk'];
 export const MAX_MESSAGES = 10;
@@ -454,7 +454,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
   if (used.length) emit(ev.discussionEnd({ tools: [...new Set(used)] }));
   if (cl?.after) { const r = cl.after(results); if (r) sayAsk(r); } // 先查並問：查完才問（選項第一個是剛剛用的那個）
   // 手機寫回答的那一輪聽不懂（ADR-0017：不退回伺服器模型）：問一句給幾個查得到的選項，回答只留一句短的
-  const lost = edgeWrite && it.intent === 'unknown' && !it.thanks && !it.sorry && !it.reset && !it.ack && !ask.done;
+  const lost = edgeWrite && it.intent === 'unknown' && !it.thanks && !it.sorry && !it.reset && !it.ack && !it.help && !ask.done; // 問能做什麼（help）不是聽不懂：直接列出能查的東西
   if (lost) { ask.done = true; emit(ev.ask({ id: `ask-${nextId()}`, ...unknownAsk(it.lang) })); } // 一輪最多一個問題
   const summary = lost ? UNKNOWN_SHORT[it.lang === 'en' ? 'en' : 'zh'] : guardedText(profile, plan.summary(it, results, profile.suggestions), emit);
   // 畫面靠固定字串放按鈕的回答（還沒設定常用地點：「設定與隱私 → 常用地點」）不交給手機改寫
