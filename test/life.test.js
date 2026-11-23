@@ -110,6 +110,8 @@ test('開放資料 client：快取、同時只下載一次、失敗沿用舊資�
   assert.equal(n, 1);
   t = 61_000; fail = true;
   assert.deepEqual(await od.get('u', o), [1]); // 沿用舊的
+  t = 3 * 3600e3; // 生活資料審查 #3：上游一直斷，3 小時前的資料不能當現在用
+  await assert.rejects(od.get('u', o), (e) => e.name === 'OpenDataError');
   await assert.rejects(od.get('v', o), (e) => e.name === 'OpenDataError' && /測試資料連線失敗/.test(e.message) && !/SECRET/.test(e.message));
   const bad = createOpenDataClient({ fetchImpl: async () => new Response('api_key 不存在。', { status: 200 }) });
   const fx = createLiveLifeFetchers({ od: bad, cwa: null, moenvKey: 'k', demo: {} });
@@ -144,4 +146,31 @@ test('發票批次對獎：期別、開獎日、中獎／沒中／待開獎／�
   await assert.rejects(callTool(svc, 'invoice_check_batch', { items: [{ number: '123' , date: '2026-10-01' }] }), /8 位數字/);
   await assert.rejects(callTool(svc, 'invoice_check_batch', { items: [{ number: '12345678' }] }), /消費日期或期別/);
   await assert.rejects(callTool(svc, 'invoice_check_batch', { items: Array.from({ length: 51 }, () => ({ number: '12345678', period: '11507' })) }));
+});
+
+test('生活資料審查：空品最近的站維護中改用附近有讀數的站；垃圾車說今天還沒收的；股票「和碩」不拆字、沒成交說資料日期', async () => {
+  const { aqiNearby } = await import('../core/services/life.js');
+  const row = (sitename, latitude, aqi) => ({ sitename, county: '臺北市', latitude, longitude: 121.5, aqi, status: aqi ? '普通' : '' });
+  const r = aqiNearby([row('古亭', 25.02, ''), row('萬華', 25.04, '58'), row('遠站', 25.3, '40')], { lat: 25.02, lon: 121.5 });
+  assert.deepEqual([r.nearest.site, r.nearest.aqi, r.nearest.downSite], ['萬華', 58, '古亭']);
+  const { callTool } = await import('../core/tools/index.js');
+  const { truckPassed } = await import('../core/tools/life.js');
+  const at = (hm) => Date.parse(`2026-11-23T${hm}:00+08:00`);
+  assert.equal(truckPassed('17:06–17:09', at('23:00')), true);
+  assert.equal(truckPassed('17:06–17:09', at('17:15')), false, '結束 10 分內不算收過');
+  assert.equal(truckPassed('19:30', at('17:00')), false);
+  const { splitQuery } = await import('../core/services/stock.js');
+  assert.deepEqual(splitQuery('和碩'), ['和碩']);
+  assert.deepEqual(splitQuery('台積電和聯發科'), ['台積電', '聯發科']);
+  assert.deepEqual(splitQuery('鴻海跟和碩'), ['鴻海', '和碩']);
+  const s = await callTool(svc, 'stock_quote', { query: '00870B' });
+  if (s.data.quotes[0]?.close == null) assert.doesNotMatch(s.speak, /今天沒有成交/);
+});
+
+test('藥局只說區名、好幾個縣市都有：只列第一個縣市，並說還有哪些縣市', () => {
+  const r = (name, addr) => ({ 醫事機構代碼: name, 醫事機構名稱: name, 地址: addr, 電話: '', 固定看診時段: '' });
+  const d = pharmacySearch([r('甲', '臺北市大安區復興南路1號'), r('乙', '臺中市大安區中山南路2號'), r('丙', '臺北市大安區信義路3號')], { area: '大安區' });
+  assert.deepEqual([d.pharmacies.map((p) => p.name), d.city, d.otherCities], [['甲', '丙'], '臺北市', ['臺中市']]);
+  const full = pharmacySearch([r('甲', '臺北市大安區復興南路1號'), r('乙', '臺中市大安區中山南路2號')], { area: '臺中市大安區' });
+  assert.deepEqual([full.pharmacies.map((p) => p.name), full.otherCities], [['乙'], undefined]);
 });

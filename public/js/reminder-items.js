@@ -2,7 +2,10 @@
 //   到站提醒（ui/cards/host-web.js currentArrivalWatch）、下車提醒（alight.js alightWatch）、出門提醒（reminders.js listReminders）
 // 不碰 DOM、不讀手機儲存：呼叫端把現況傳進來。
 
-const hm = (ms) => { const d = new Date(ms); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+// 一律用台灣時間（提醒本身是照台灣時間排的；手機設成別的時區時清單不能差好幾小時，前端審查 #5）
+const TW = 8 * 3600e3;
+const hm = (ms) => { const d = new Date(ms + TW); return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`; };
+const twDay = (ms) => new Date(ms + TW).toISOString().slice(0, 10);
 /** 一筆提醒的識別（提醒頁「看當時的對話」用，chat-links.js）：到站、下車看路線＋站，出門看提醒 id */
 export const reminderRef = ({ kind, id, routeName, stop }) => (kind === 'leave' ? `leave|${id}` : `${kind}|${routeName}|${stop}`);
 const busHref = (city, route, stop, dir, lang) => `#/bus/${encodeURIComponent(city)}/${encodeURIComponent(route)}?${new URLSearchParams({ ...(stop && { stop }), ...(dir != null && { dir: String(dir) }), ...(lang === 'en' && { lang }) })}`;
@@ -23,7 +26,7 @@ export function reminderItems({ arrival = null, alight = null, leave = [], now =
       href: arrival.city ? busHref(arrival.city, arrival.routeName, arrival.stop, arrival.direction, arrival.lang) : undefined, cancelLabel: `取消 ${arrival.routeName} 的到站提醒` });
   }
   for (const r of [...(leave || [])].filter((x) => x && x.at > now).sort((a, b) => a.at - b.at)) {
-    const day = new Date(r.at).toDateString() === new Date(now).toDateString() ? '今天' : '明天';
+    const day = twDay(r.at) === twDay(now) ? '今天' : '明天';
     out.push({ kind: 'leave', id: r.id, ref: reminderRef({ kind: 'leave', id: r.id }), title: `${day} ${hm(r.at)} 出門提醒`, sub: String(r.text || '').replace(/^該出門了：/, ''), cancelLabel: `取消 ${hm(r.at)} 的出門提醒` });
   }
   return out;

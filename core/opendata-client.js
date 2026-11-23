@@ -17,6 +17,8 @@ export function createOpenDataClient({ fetchImpl = fetch, now = () => Date.now()
    * @param {{ ttlSec: number, label: string, as?: 'text'|'json', parse?: (raw: any) => any, headers?: object, maxBytes?: number }} o
    *   label：錯誤訊息用的資料名稱；parse：下載後轉成要快取的資料（解析失敗視為上游錯誤）
    */
+  /** 更新失敗時舊資料最多可以沿用多久（秒）：TTL 的 2 倍、至少 2 分鐘（垃圾車即時位置 TTL 60 秒 → 最多 2 分鐘前的位置；生活資料審查 #3：原本上游一直斷就永遠用舊資料） */
+  const staleLimitSec = (ttlSec) => Math.max(ttlSec * 2, 120);
   async function get(url, { ttlSec, label, as = 'text', parse = (x) => x, headers, maxBytes }) {
     const hit = cache.get(url);
     if (hit?.data !== undefined && now() < hit.exp) { recordFetch({ cacheHit: true, data: hit.data }); return hit.data; }
@@ -33,12 +35,12 @@ export function createOpenDataClient({ fetchImpl = fetch, now = () => Date.now()
       let data;
       try { data = parse(as === 'json' && typeof body === 'string' ? JSON.parse(body) : body); } catch (e) { throw new OpenDataError(`${label}格式不符預期：${e.message}`); }
       recordFetch({ cacheHit: false, data });
-      cache.set(url, { exp: now() + ttlSec * 1000, data });
+      cache.set(url, { exp: now() + ttlSec * 1000, at: now(), data });
       if (cache.size > 200) cache.delete(cache.keys().next().value);
       return data;
     })().catch((e) => {
-      // 更新失敗：有舊資料就先用舊的（標示 stale），沒有才丟錯
-      if (hit?.data !== undefined) { cache.set(url, { exp: now() + 60_000, data: hit.data }); return hit.data; }
+      // 更新失敗：舊資料還不算太舊（staleLimitSec）就先用舊的，太舊或沒有就丟錯（照實說資料暫時拿不到，不把幾小時前的資料當現在）
+      if (hit?.data !== undefined && now() - (hit.at ?? 0) <= staleLimitSec(ttlSec) * 1000) { cache.set(url, { ...hit, exp: Math.min(now() + 60_000, (hit.at ?? 0) + staleLimitSec(ttlSec) * 1000) }); return hit.data; }
       cache.delete(url);
       throw e;
     });

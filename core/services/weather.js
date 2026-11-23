@@ -182,8 +182,10 @@ export const DESC_STATION_M = 10_000;
 export function pickNowStation(stations, lat, lon) {
   const d = (s) => distanceM(lat, lon, s.lat, s.lon);
   const nearest = (list) => (list.length ? list.reduce((a, b) => (d(a) <= d(b) ? a : b)) : null);
+  const near = nearest(stations);
   const warm = nearest(stations.filter((s) => s.tempC != null));
-  const base = warm && d(warm) <= TEMP_STATION_M ? warm : nearest(stations);
+  // 縣市、鄉鎮（標題與鄉鎮預報）照你所在位置最近的站；氣溫借別站時不會變成隔壁區（生活資料審查：#152 的副作用）
+  const base = warm && d(warm) <= TEMP_STATION_M ? { ...warm, town: near.town || warm.town, county: near.county || warm.county } : near;
   if (base.weather) return base;
   const desc = nearest(stations.filter((s) => s.weather));
   return desc && d(desc) <= DESC_STATION_M ? { ...base, weather: desc.weather } : base;

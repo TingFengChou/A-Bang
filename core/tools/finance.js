@@ -18,7 +18,7 @@ export const stockQuote = defineTool({
     query: z.string().trim().max(60).optional().describe('股票代號或名稱，例如「2330」「台積電、0050」；只查大盤時不要給'),
   },
   speak: (d) => {
-    const q = d.quotes.map((x) => (x.close == null ? `${x.name}今天沒有成交` : `${x.name} ${md(x.date)} 收 ${x.close}，${x.change > 0 ? '漲' : x.change < 0 ? '跌' : '平盤'}${x.change ? ` ${Math.abs(x.change)}` : ''}${x.changePct ? `（${Math.abs(x.changePct).toFixed(2)}%）` : ''}`));
+    const q = d.quotes.map((x) => (x.close == null ? `${x.name} ${md(x.date)} 沒有成交` : `${x.name} ${md(x.date)} 收 ${x.close}，${x.change > 0 ? '漲' : x.change < 0 ? '跌' : '平盤'}${x.change ? ` ${Math.abs(x.change)}` : ''}${x.changePct ? `（${Math.abs(x.changePct).toFixed(2)}%）` : ''}`));
     const idx = d.indices[0];
     const head = q.length ? q.join('；') : idx ? `${idx.name} ${md(idx.date)} 收 ${idx.close}，${move(idx.change, null, ' 點')}` : '';
     const miss = d.notFound.length ? `找不到「${d.notFound.join('、')}」。` : '';

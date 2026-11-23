@@ -2,6 +2,13 @@
 import { z } from 'zod';
 import { defineTool, T } from './define.js';
 import { UserError } from '../util.js';
+/** 清運時段（「17:06–17:09」）今天已經結束超過 10 分（台灣時間）；格式不對回 false */
+export function truckPassed(time, now = Date.now()) {
+  const hm = /(\d{1,2}):(\d{2})(?!.*\d{1,2}:\d{2})/.exec(String(time || ''));
+  if (!hm) return false;
+  const tw = new Date(now + 8 * 3600e3);
+  return Number(hm[1]) * 60 + Number(hm[2]) - (tw.getUTCHours() * 60 + tw.getUTCMinutes()) < -10;
+}
 
 const PACK = 'life';
 const DEMO = '【示範資料：開放資料的部分片段，非即時完整資料】';
@@ -14,7 +21,7 @@ export const aqiNearby = defineTool({
   pack: PACK, tier: 'L1', card: 'aqi', source: '環境部環境資料開放平臺（空氣品質指標 AQI）',
   demoNote: '【示範資料：尚未設定環境部 api_key（MOENV_API_KEY），以下非即時空品】', modeOf: (svc) => svc.aqiMode,
   input: { lat: T.lat, lon: T.lon },
-  speak: (d) => `${d.nearest.site}測站 AQI ${d.nearest.aqi ?? '—'}，${d.nearest.status}${d.nearest.pm25 != null ? `，PM2.5 ${d.nearest.pm25}` : ''}。`,
+  speak: (d) => `${d.nearest.downSite ? `最近的${d.nearest.downSite}測站維護中，改看` : ''}${d.nearest.site}測站 AQI ${d.nearest.aqi ?? '—'}，${d.nearest.status}${d.nearest.pm25 != null ? `，PM2.5 ${d.nearest.pm25}` : ''}。`,
   async run(svc, a) {
     const data = await svc.life.aqiNearby(a);
     const n = data.nearest;
@@ -55,7 +62,7 @@ export const pharmacySearch = defineTool({
   description: '依地區（例如「臺北市大安區」）或藥局名稱查健保特約藥局：電話、地址、今天的營業時段（上午／下午／晚上）。資料沒有座標，所以用地區搜尋；沒說地區時可給座標（lat、lon），依位置判斷在哪一區。附地圖搜尋連結。',
   pack: PACK, tier: 'L1', card: 'pharmacy', source: '衛生福利部中央健康保險署（健保特約藥局）', demoNote: DEMO, modeOf: (svc) => svc.openDataMode,
   input: { area: z.string().trim().max(20).optional().describe('縣市＋鄉鎮區，例如 臺北市大安區'), query: z.string().trim().max(20).optional().describe('藥局名稱或路名（選填）'), lat: T.lat.optional().describe('沒說地區時：所在位置緯度'), lon: T.lon.optional().describe('沒說地區時：所在位置經度') },
-  speak: (d) => (d.pharmacies.length ? `找到 ${d.pharmacies.length} 家，今天（${d.weekday}）有營業時段的 ${d.pharmacies.filter((p) => p.openToday).length} 家。` : '沒有找到符合的健保藥局。'),
+  speak: (d) => (d.pharmacies.length ? `${d.otherCities ? `先列${d.city}的；` : ''}找到 ${d.pharmacies.length} 家，今天（${d.weekday}）有營業時段的 ${d.pharmacies.filter((p) => p.openToday).length} 家。${d.otherCities ? `「${d.area}」在${d.otherCities.join('、')}也有，要查那裡請說「${d.otherCities[0]}${d.area}」。` : ''}` : '沒有找到符合的健保藥局。'),
   async run(svc, input) {
     const { lat, lon, ...a } = input;
     let areaFrom = null;
@@ -82,7 +89,12 @@ export const garbageTruckNearby = defineTool({
   pack: PACK, tier: 'L1', card: 'garbage', source: '臺北市政府環境保護局、新北市政府環境保護局（開放資料）', demoNote: DEMO, modeOf: (svc) => svc.openDataMode,
   input: { lat: T.lat, lon: T.lon, radius: z.number().int().min(100).max(1000).default(500).describe('搜尋半徑（公尺）') },
   speak: (d) => {
-    const s = d.stops.find((x) => x.collectToday) || d.stops[0];
+    const now = Date.now();
+    // 今天還沒收過的優先（時段結束超過 10 分算收過，跟卡片 truckWhen 一樣）；今天的都收過了照實說（生活資料審查 #5：23:00 還說「最近的清運點 17:06」）
+    const today = d.stops.filter((x) => x.collectToday);
+    const left = today.find((x) => !truckPassed(x.time, now));
+    if (!left && today.length) return `今天附近的清運點都收過了（最近的${today[0].place}在 ${today[0].time}）。`;
+    const s = left || d.stops[0];
     return s ? `最近的清運點在${s.place}（${s.distanceM} 公尺），${s.time ?? '時間未提供'}${s.collectToday ? '' : '，今天不收'}。` : '附近沒有找到垃圾車清運點（目前只有臺北市、新北市資料）。';
   },
   async run(svc, a) {

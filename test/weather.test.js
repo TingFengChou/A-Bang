@@ -245,3 +245,10 @@ test('附近 15 公里內都沒有測站回報氣溫：摘要、英文、首頁�
   assert.equal(ok.main, '23°C');
   assert.ok(!ok.sub.includes('氣溫資料'));
 });
+
+test('現在天氣借附近站的氣溫時，縣市與鄉鎮仍照最近的站（標題不會變成隔壁區）', async () => {
+  const { pickNowStation } = await import('../core/services/weather.js');
+  const st = (name, town, dLat, tempC, weather) => ({ name, town, county: '臺北市', lat: 25 + dLat, lon: 121.5, tempC, weather });
+  const r = pickNowStation([st('臺灣大學', '大安區', 0.012, null, '陰'), st('公館', '中正區', 0.03, 22.8, null)], 25, 121.5);
+  assert.deepEqual([r.name, r.town, r.tempC, r.weather], ['公館', '大安區', 22.8, '陰']);
+});

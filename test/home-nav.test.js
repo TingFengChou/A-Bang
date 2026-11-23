@@ -38,7 +38,7 @@ test('服務總覽：四組（防詐單獨一組），每個服務都有一句�
 });
 
 test('提醒清單：坐車中 → 等車中 → 出門提醒（依時間、過期的不列），每筆有取消的讀屏名稱與回公車頁連結', () => {
-  const now = new Date(2026, 10, 21, 8, 0).getTime();
+  const now = Date.parse('2026-11-21T08:00:00+08:00'); // 台灣時間（提醒清單一律用台灣時間；CI 主機是 UTC）
   const items = reminderItems({
     arrival: { city: 'Taipei', routeName: '307', stop: '敦化市場', direction: 0, minutes: 3 },
     alight: { city: 'Taipei', routeName: '601', board: '民生', dest: '市府', direction: 1 },
