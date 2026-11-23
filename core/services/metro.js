@@ -25,6 +25,8 @@ export const METRO_LINE_NAME = {
   NTMC: { LB: '三鶯線', Y: '環狀線' }, NTDLRT: { V: '淡海輕軌' }, NTALRT: { K: '安坑輕軌' }, KLRT: { C: '環狀輕軌' },
 };
 const LINE_NAME_EN = { BL: 'Bannan Line', R: 'Tamsui-Xinyi Line', G: 'Songshan-Xindian Line', O: 'Zhonghe-Xinlu Line', BR: 'Wenhu Line', Y: 'Circular Line', LG: 'Wanda Line', LB: 'Sanying Line', V: 'Danhai LRT', K: 'Ankeng LRT', C: 'Circular LRT' };
+/** 線代碼和北捷不衝突的系統才用上面的英文線名（台中 G 是綠線、高雄 R/O 是紅橘線，不是北捷的 G/R/O） */
+const LINE_EN_OK = new Set(['TRTC', 'NTMC', 'NTDLRT', 'NTALRT', 'KLRT']);
 
 /** 各系統路網的大約範圍（緯度、經度；外擴約 10 公里）：行程規劃只查起訖附近有路網的系統 */
 export const METRO_AREA = {
@@ -44,6 +46,19 @@ export const TIMETABLE_WINDOW_MIN = 60; // 時刻表估算只列 60 分鐘內的
 /** 看板沒有這一站時的說明（卡片與工具文字） */
 export const TIMETABLE_NOTE = '北捷即時到站在開放資料只有「進站中」，其他班次依時刻表估算';
 export const TIMETABLE_NOTE_EN = 'Live MRT arrivals are only published when a train is at the platform; other times are estimated from the timetable';
+/** 其他系統：這一站這時候沒有看板資料（或看板查不到）時的說明 */
+export const TIMETABLE_NOTE_OTHER = '這一站目前沒有即時到站資料，依時刻表估算';
+export const TIMETABLE_NOTE_OTHER_EN = 'No live arrivals for this station right now; times are estimated from the timetable';
+/** 看板有拿到、但只有進站中（北捷、新北捷運）→ 說明看板的限制；看板查不到或其他系統 → 「目前沒有即時到站資料」 */
+const timetableNote = (op, boardOk) => (!boardOk || !ARRIVING_ONLY.has(op) ? { note: TIMETABLE_NOTE_OTHER, noteEn: TIMETABLE_NOTE_OTHER_EN }
+  : { note: op === 'TRTC' ? TIMETABLE_NOTE : TIMETABLE_NOTE.replace('北捷', '新北捷運'), noteEn: TIMETABLE_NOTE_EN });
+/**
+ * 2026-11-23 真實資料實測：
+ *   看板只有「進站中」（EstimateTime 都是 0）：北捷、新北捷運（而且新北捷運看板只有環狀線，三鶯線全靠時刻表）；
+ *   EstimateTime 單位是秒：淡海輕軌、安坑輕軌（例 483、720）；其他系統是分鐘；台中捷運看板回 400（只能用時刻表）。
+ */
+const ARRIVING_ONLY = new Set(['TRTC', 'NTMC']);
+const BOARD_IN_SECONDS = new Set(['NTDLRT', 'NTALRT']);
 
 /**
  * 到站狀態代碼（卡片用中英字典顯示，不把資料的中文字串漏到英文卡片）：
@@ -198,6 +213,9 @@ export function metroWarmSteps(tdx) {
 export function createMetroServices(tdx, { now = () => tdx.now?.() ?? Date.now() } = {}) {
   const { cached, meta } = cacheOf(tdx);
   const lineName = (op, id) => METRO_LINE_NAME[op]?.[id] || id || '';
+  // 看板回 400／404（這個系統沒有看板，例：台中捷運）：記住 10 分鐘，這段時間直接用時刻表，不再花額度查看板
+  const noBoard = new Map();
+  const NO_BOARD_MS = 10 * 60_000;
 
   const metro = {
     /** 車站清單（存檔；同一站多條線時以第一個代碼為準，lines 列出所有代碼） */
@@ -214,16 +232,23 @@ export function createMetroServices(tdx, { now = () => tdx.now?.() ?? Date.now()
       const op = mustSystem(system);
       const st = findMetroStation(await metro.stations({ system: op }), station, op);
       const ids = new Set(st.ids.map(String));
-      // 看板額度用完（429）時，有時刻表就先用時刻表；兩個都沒有才算失敗
+      // 看板查不到（額度用完 429、這個系統沒有看板 404、上游暫時失敗）時，有時刻表就先用時刻表；兩個都沒有才算失敗（退回示範資料）
       let boardErr = null;
       const loadTable = () => cached(metroKey.timetable(op, st.ids), STATIC_TTL, async (o) => normStationTimetable(await tdx.get(
         `/basic/v2/Rail/Metro/StationTimeTable/${op}`, { $filter: st.ids.map((id) => `StationID eq '${q(id)}'`).join(' or ') }, 60, rawOpts(o)))).catch(() => null);
-      const tablePromise = op === 'TRTC' || last ? loadTable() : null; // 北捷一定要時刻表：跟看板同時查；問末班車也要
-      const board = await meta(`/basic/v2/Rail/Metro/LiveBoard/${op}`, {}, BOARD_TTL, { staleSec: 60 }).catch((e) => { if (e?.status !== 429) throw e; boardErr = e; return null; });
+      const tablePromise = ARRIVING_ONLY.has(op) || last ? loadTable() : null; // 看板只有進站中的系統一定要時刻表：跟看板同時查；問末班車也要
+      const skip = noBoard.get(op);
+      const board = skip && skip.until > now() ? (boardErr = skip.err, null)
+        : await meta(`/basic/v2/Rail/Metro/LiveBoard/${op}`, {}, BOARD_TTL, { staleSec: 60 }).catch((e) => {
+          boardErr = e;
+          if (e?.status === 400 || e?.status === 404) noBoard.set(op, { until: now() + NO_BOARD_MS, err: e });
+          return null;
+        });
       const list = board ? arr(board.data, 'LiveBoards').filter((r) => ids.has(String(r.StationID))) : [];
       const live = list.map((r) => {
         const ageMin = Math.max(0, Math.floor((now() - board.at) / 60000)); // 舊資料（最多 60 秒）扣掉經過的分鐘
-        const etaMin = Number.isFinite(r.EstimateTime) ? Math.max(0, r.EstimateTime - ageMin) : null;
+        const est = Number.isFinite(r.EstimateTime) ? (BOARD_IN_SECONDS.has(op) ? Math.floor(r.EstimateTime / 60) : r.EstimateTime) : null;
+        const etaMin = est != null ? Math.max(0, est - ageMin) : null;
         const lineId = r.LineID || r.LineNO || null;
         return {
           line: zh(r.LineName) || lineName(op, lineId), ...enField('lineEn', r.LineName),
@@ -233,32 +258,35 @@ export function createMetroServices(tdx, { now = () => tdx.now?.() ?? Date.now()
           etaMin, status: metroStatusCode(etaMin),
         };
       });
-      // 看板沒涵蓋的線與方向用時刻表補：北捷看板只有進站中的站，一律補；其他系統只在這一站沒有看板資料時才查（省額度）
+      // 看板沒涵蓋的線與方向用時刻表補：北捷、新北捷運看板只有進站中的站，一律補；其他系統只在這一站沒有看板資料時才查（省額度）
       let planned = [];
       const table = tablePromise ? await tablePromise : !live.length ? await loadTable() : null;
       // 看板被擋、時刻表也沒有（查不到或空的）：不能說成「目前沒有車」，照常走示範資料
       if (!board && !(Array.isArray(table) && table.length)) throw boardErr;
       if (Array.isArray(table)) {
-        const covered = new Set(live.map((t) => `${t.lineId}|${normName(t.destination)}`));
+        // 看板列沒有時間（新北捷運看板常這樣，只有「往某站」）不算涵蓋：這個方向用時刻表估
+        const covered = new Set(live.filter((t) => t.etaMin != null).map((t) => `${t.lineId}|${normName(t.destination)}`));
         planned = upcomingFromTimetable(table, now())
           .filter((t) => !covered.has(`${t.lineId}|${normName(t.destination)}`))
           .map((t) => ({
-            line: lineName(op, t.lineId), ...(op === 'TRTC' && LINE_NAME_EN[t.lineId] && { lineEn: LINE_NAME_EN[t.lineId] }),
+            line: lineName(op, t.lineId), ...(LINE_EN_OK.has(op) && LINE_NAME_EN[t.lineId] && { lineEn: LINE_NAME_EN[t.lineId] }),
             lineId: t.lineId,
             ...(metroLineColor(op, t.lineId) && { lineColor: metroLineColor(op, t.lineId) }),
             destination: t.destination, ...(t.destinationEn && { destinationEn: t.destinationEn }),
             etaMin: t.etaMin, status: 'scheduled', scheduled: true,
           }));
       }
-      const trains = [...live, ...planned].sort(sortByEta);
+      const plannedLanes = new Set(planned.map((t) => `${t.lineId}|${normName(t.destination)}`));
+      const kept = live.filter((t) => t.etaMin != null || !plannedLanes.has(`${t.lineId}|${normName(t.destination)}`));
+      const trains = [...kept, ...planned].sort(sortByEta);
       const updatedAt = list.map((r) => r.UpdateTime).filter(Boolean).sort().at(-1) || new Date(board?.at ?? now()).toISOString();
       // 看板被擋時就算這一小時沒有班次也是「時刻表」，不是即時
-      const source = !board ? 'timetable' : planned.length ? (live.length ? 'mixed' : 'timetable') : 'live';
+      const source = !board ? 'timetable' : planned.length ? (kept.length ? 'mixed' : 'timetable') : 'live';
       return {
         system: op, station: st.name, ...(st.nameEn && { stationEn: st.nameEn }), stationId: st.id,
         ...(st.lat != null && { lat: st.lat, lon: st.lon }),
         updatedAt, trains,
-        ...(source !== 'live' && { source, note: TIMETABLE_NOTE, noteEn: TIMETABLE_NOTE_EN }),
+        ...(source !== 'live' && { source, ...timetableNote(op, Boolean(board)) }),
         ...(board?.stale && { stale: true }), // 看板用了 60 秒內的舊資料（額度快用完）
         ...(last && { lastTrains: Array.isArray(table) ? lastFromTimetable(table, now()).map((x) => ({ ...x, line: lineName(op, x.lineId) })) : [] }), // 末班車（時刻表；查不到是空陣列）
       };
