@@ -117,3 +117,19 @@ DEMO_MODE=0 npm start                 # 真實資料
 - 沒有畫面錯誤；每頁截圖在 `test/screenshots/android-*.png`
 
 先決條件：`npm start`（App 經 `adb reverse` 連 8787）、App 已安裝（`npm run app:sync` 後 `gradlew installDebug`）。不解鎖手機、不改手機設定；`--keep` 不重開 App。手機螢幕關著（Dozing）時：返回鍵那項略過並說明（不喚醒手機）；點按改用頁面內直接點（螢幕不畫畫面時等不到「穩定」）；定位逾時的錯誤是環境，不算畫面錯誤。
+
+## iOS 模擬器煙霧測試（T8c，2026-11-23）
+
+`npm run smoke:ios`（`scripts/smoke-ios.js`，不在 CI）：重開模擬器上的 App，經模擬器的 Web Inspector 通道（跟 Safari「開發」選單同一條 unix socket `com.apple.webinspectord_sim.socket`；`scripts/webinspector.js` 自己做二進位 plist 編解碼，不加依賴、不加 XCUITest target）連進 App 的 WKWebView（Capacitor debug 版才可檢查），檢查：
+
+- 原生外掛都有註冊：Geolocation、LocalNotifications、AbangEdgeAI、AbangSystem、AbangVision、AbangVoice、AbangHealth、AbangWatch
+- 首頁、服務、提醒、我的、問阿幫、公車路線、天氣、附近、設定、阿幫的腦袋都畫得出來；中央「問阿幫」鍵在、分頁列標對格子
+- AbangVoice.available、AbangHealth.status 回得來（只問狀態，不跳權限框）；語音能用時有麥克風鍵
+- 中央鍵拉出對話、收起鍵收回（iOS 沒有返回鍵）
+- 沒有畫面錯誤（console 錯誤，物件參數會展開）；手機上的 AI 在背景失敗只列警告
+- App 沒有閃退（同一個行程）、`~/Library/Logs/DiagnosticReports` 沒有新的 App 當機報告
+- 每頁截圖用 `simctl io screenshot` 存到 `test/screenshots/ios-*.png`
+
+先決條件：Xcode、開著一台模擬器（`IOS_SIM=<UDID>` 指定，否則第一台開著的）、`npm start`（模擬器跟電腦共用網路，App 直接連 localhost:8787）。`--build`：先打包（`ABANG_API_BASE` 預設 http://localhost:8787）、`cap sync ios`、`xcodebuild`（未簽章 debug 版）、`simctl install`；`--keep` 不重開 App。未簽章的建置 webinspectord 回報的 bundle id 是「process-App」，所以用 `simctl launch` 給的 pid 找 App。
+
+沒涵蓋：真的手指點按與滑動（simctl 沒有點按指令，點按都是頁面內 `click()`）、系統權限框（不改模擬器設定，重新安裝後第一次會跳定位權限框，截圖看得到但不影響畫面檢查）、HealthKit（未簽章沒有 entitlement，回報 no-entitlement）、手機上的 AI（模擬器沒有 Apple Intelligence）、語音辨識（模擬器不支援手機上辨識）、相機。
