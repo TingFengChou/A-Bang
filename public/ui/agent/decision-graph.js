@@ -38,9 +38,11 @@ const habitFlipped = (best, all = []) => {
   const base = (o) => Object.entries(o.breakdown || {}).reduce((a, [k, v]) => a + (k === 'habit' ? 0 : v), 0);
   return all.some((o) => o.id !== best.id && base(o) > base(best));
 };
+/** 真正要花的時間（同 core/decide.js effMinutes：深夜等首班的方案加上多等的時間 longWait.extra） */
+const effMin = (o) => Number(o?.minutes ?? 0) + Number(o?.longWait?.extra ?? 0);
 /** 叫車多付的錢換不到夠多的時間（core/decide.js VALUE_OF_TIME）：第二名是對第一名不划算的那個 */
 const notWorthOf = (best, second) => (second?.notWorth?.vs && second.notWorth.vs === best?.id
-  ? { extra: second.notWorth.extra, slower: Number(best.minutes) - Number(second.minutes) } : null);
+  ? { extra: second.notWorth.extra, slower: effMin(best) - effMin(second) } : null);
 /** 扣的分（負數）：數字用「−」（UX.md） */
 const minus = (v) => `${v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}`;
 /** 決策圖的扣分列與 ③ 比較最後幾步（core/decide.js：premium 不划算、tooLong 走太久騎太久、unsure 公車到站時間不明，有才出現） */
@@ -95,7 +97,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
   const enReason = (best, second, all = []) => {
     if (!best) return null;
     if (!second) return `${nameOf(best)} is the only option.`;
-    const say = { minutes: () => `${Math.max(1, second.minutes - best.minutes)} min faster than ${nameOf(second)}`, waitMin: () => (best.waitMin ? 'shorter wait' : 'no waiting'), walkMin: () => (best.walkMin ? 'less walking' : 'no walking'), cost: () => (best.cost < second.cost ? `NT$${second.cost - best.cost} cheaper` : 'lower cost'), exposure: () => 'less time outdoors', effort: () => 'easier', delayRisk: () => 'avoids traffic delays' };
+    const say = { minutes: () => `${Math.max(1, effMin(second) - effMin(best))} min faster than ${nameOf(second)}`, waitMin: () => (best.waitMin ? 'shorter wait' : 'no waiting'), walkMin: () => (best.walkMin ? 'less walking' : 'no walking'), cost: () => (best.cost < second.cost ? `NT$${second.cost - best.cost} cheaper` : 'lower cost'), exposure: () => 'less time outdoors', effort: () => 'easier', delayRisk: () => 'avoids traffic delays' };
     const nw = notWorthOf(best, second);
     if (nw) return `${nameOf(best)} wins: ${[...(habitFlipped(best, all) ? [EN.often] : []), EN.notWorth(nw.extra, nw.slower)].join(', ')}.`;
     if (second.unsure?.vs === best.id) return `${nameOf(best)} wins: ${[...(habitFlipped(best, all) ? [EN.often] : []), EN.unsure(nameOf(second))].join(', ')}.`;

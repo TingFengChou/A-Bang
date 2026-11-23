@@ -29,7 +29,9 @@ export const EST = {
   busMinPerStop: 1.5,       // 公車每站 1.5 分（MCP_TOOLS §7 規則 3）
   busFare: 15,              // 公車單段票（台北市一段票）
   cityKmh: 20, cityWaitMin: 5, cityFare: 15, // 到車站的市區轉乘（公車／捷運）
-  carCityKmh: 22, carHighwayKmh: 55, ridehailWaitMin: 6,
+  // 車速：道路 15 公里內市區 22 km/h；更遠的前 50 公里 55 km/h（進出市區、上下交流道），超過 50 公里的部分國道 95 km/h
+  // （原本整段 55 km/h：台北→高雄叫車估成 418 分；改後台北→台中約 2 小時、台北→高雄約 4.5 小時，2026-11-23 交通健檢）
+  carCityKmh: 22, carHighwayKmh: 55, carFreewayKmh: 95, carFreewayFromKm: 50, ridehailWaitMin: 6,
   // 自行開車（2026-11-22 產品負責人「交通方式還有應該是自行開車」）：油錢＝道路公里 × 每公里油耗 × 油價（約 2.6 元／公里，⚠️ 依車型不同）；
   // 停車：找車位約 5 分、停好走到目的地約 3 分；停車費約每小時 40 元（台北市路外停車場常見，⚠️ 以現場公告為準），最少 1 小時
   driveFuelTwdPerKm: 2.6, driveParkFindMin: 5, driveParkWalkMin: 3, driveParkTwdPerHour: 40,
@@ -45,6 +47,12 @@ export const EST = {
 export const bikeFare = (min) => (min <= 30 ? 5 : 5 + Math.ceil((min - 30) / 30) * 10);
 
 const roadKm = (m) => (m / 1000) * EST.roadFactor;
+/** 開車（叫車、自己開車）的車程分鐘（不含塞車延誤）：km＝道路公里 */
+export function carMinutes(km) {
+  if (km < 15) return Math.round((km / EST.carCityKmh) * 60);
+  const near = Math.min(km, EST.carFreewayFromKm), far = Math.max(0, km - EST.carFreewayFromKm);
+  return Math.round((near / EST.carHighwayKmh + far / EST.carFreewayKmh) * 60);
+}
 /** 客運票價缺資料時的保守估算（起跳＋每公里；5 元為單位） */
 export const intercityFareEst = (straightM) => Math.round((EST.intercityBaseTwd + roadKm(straightM) * EST.intercityTwdPerKm) / 5) * 5;
 
@@ -77,6 +85,15 @@ const keysOf = (x) => [x.name, ...x.aliases].map(normPlace);
  */
 export const RAIL_FARE_EST = { THSR: { perKm: 5, min: 40 }, TRA: { perKm: 2.8, min: 15 } };
 export const railFareEst = (system, m) => { const r = RAIL_FARE_EST[system] || RAIL_FARE_EST.TRA; return Math.max(r.min, Math.round((m / 1000) * r.perKm / 5) * 5); };
+/**
+ * 鐵路車站 → 座標：車站清單（TDX StationPosition、示範資料）有座標就用；沒有才用內建地標對照（stationPoint）。
+ * 原本只用地標對照，地標沒收的站（鶯歌、樹林、新烏日、新左營…）整個不能用：台中車站到高鐵台中站沒有台鐵、三峽繞到桃園（2026-11-23 交通健檢）。
+ */
+export function railPoint(system, s) {
+  const lat = Number(s?.lat), lon = Number(s?.lon);
+  if (Number.isFinite(lat) && Number.isFinite(lon) && lat && lon) return { name: s.name, lat, lon };
+  return stationPoint(system, s?.name);
+}
 /** 鐵路車站名稱 → 地標座標；找不到回 null */
 const stationCache = new Map();
 export function stationPoint(system, name) {
@@ -171,7 +188,7 @@ async function bikeOption(svc, from, to, straight) {
       ...(r1.tight ? [r1.backup ? `「${rent.name}」只剩 ${rent.rent} 台，借不到就改去「${r1.backup.name}」（${r1.backup.rent} 台）` : `「${rent.name}」只剩 ${rent.rent} 台，走過去可能被借光`] : []),
       ...(r2.tight ? [r2.backup ? `「${ret.name}」只剩 ${ret.returnSlots} 個空位，停滿就改還「${r2.backup.name}」（${r2.backup.returnSlots} 位，到目的地走 ${walkMinutes(r2.backup.distance)} 分）` : `「${ret.name}」只剩 ${ret.returnSlots} 個空位，騎到時可能停滿`] : []),
       '借車、還車數量是現在的資料，騎到時可能變動',
-      `車資依 YouBike 2.0 台北市費率（前 30 分 5 元）`,
+      '車資以 YouBike 2.0 臺北市費率估算（前 30 分 5 元；各縣市費率不同）', // 不說成「依台北市費率」：在台中、高雄騎也這樣說（2026-11-23 交通健檢）
     ],
   };
 }
@@ -181,13 +198,19 @@ async function bikeOption(svc, from, to, straight) {
  * TDX 額度用完、公車這次改用示範資料（withTdxFallback）時，示範資料沒有收班狀態，也依時間估並照實說。
  */
 export const NIGHT = { closedFrom: 0, closedTo: 5 * 60, lateFrom: 23 * 60 };
-/** 公車深夜收班（依時間估）；est＝真實模式但這次公車是示範資料（TDX 額度用完） */
-const busNightClosed = (est) => ({
+/** 公車深夜收班（依時間估）；est＝真實模式但這次公車是示範資料（TDX 額度用完）；later＝出發時間不是現在（站牌即時資訊用不到，依出發時間估） */
+const busNightClosed = (est, later = false) => ({
   role: 'bus', closed: true,
-  why: est ? '深夜多數公車已收班（TDX 額度用完，這次依時間估；以站牌即時資訊為準）' : '深夜多數公車已收班（以站牌即時資訊為準）',
-  whyEn: est ? 'Most buses have stopped for the night (estimated from the time: TDX quota used up; check the stop for live info)' : 'Most buses have stopped for the night (check the stop for live info)',
+  why: est ? '深夜多數公車已收班（TDX 額度用完，這次依時間估；以站牌即時資訊為準）' : later ? '深夜多數公車已收班（依出發時間估；以站牌即時資訊為準）' : '深夜多數公車已收班（以站牌即時資訊為準）',
+  whyEn: est ? 'Most buses have stopped for the night (estimated from the time: TDX quota used up; check the stop for live info)' : later ? 'Most buses have stopped for the night (estimated from the departure time; check the stop for live info)' : 'Most buses have stopped for the night (check the stop for live info)',
   ...(est && { estimated: true, fallback: 'tdx-limit' }),
+  ...(later && !est && { estimated: true }),
 });
+/**
+ * 出發時間離現在超過這麼多分鐘：站牌的即時到站與狀態（末班已過、尚未發車、交管不停靠）是「現在」的，不套到那時候
+ * （2026-11-23 交通健檢：23:30 問明天 08:00 的公車，說「末班已過」不列入）。改依時間估、到站時間不明（etaUnknown）。
+ */
+export const BUS_LIVE_AHEAD_MIN = 15;
 
 /**
  * 捷運營運時間（台灣時間的當日分鐘；S10 深夜）。⚠️ 大約值，以各系統公告為準：首班約 06:00；末班依站與方向不同（多在 24:00 前後從端點發車）。
@@ -288,34 +311,72 @@ function metroNone(nearFrom, nearTo, closeFrom, closeTo) {
 }
 
 /**
+ * 同一個路網裡 o → d 怎麼坐（同系統方案與跨系統的每一段共用）：同一條線直達；不同線找轉乘站（同時有起站某條線與迄站某條線、繞最少的那個）。
+ * @returns {{ shared: string|undefined, via: { name: string, k: number, a: string, b: string }|null, km: number, names: string[], lines: string, transfer: boolean }}
+ */
+function lineRoute(sys, list, o, d, fallback = '捷運') {
+  const lineName = (l) => METRO_LINE_NAME[sys]?.[l] || fallback;
+  const shared = (o.lines || []).find((l) => (d.lines || []).includes(l));
+  let km = distanceM(o.lat, o.lon, d.lat, d.lon) / 1000;
+  let via = null, pair = null;
+  if (!shared) {
+    for (const t of list) {
+      const a = (t.lines || []).find((l) => (o.lines || []).includes(l)), b = (t.lines || []).find((l) => (d.lines || []).includes(l));
+      if (!a || !b || a === b) continue;
+      const k = (distanceM(o.lat, o.lon, t.lat, t.lon) + distanceM(t.lat, t.lon, d.lat, d.lon)) / 1000;
+      if (!via || k < via.k) via = { name: t.name, k, a, b };
+    }
+    if (via) { km = via.k; pair = [via.a, via.b]; } else pair = [o.lines?.[0], d.lines?.[0]];
+  }
+  const names = shared ? [lineName(shared)] : pair.map(lineName);
+  return { shared, via, km, transfer: !shared, names, lines: names.join('轉') };
+}
+
+/**
  * 捷運（S7）：起訖點各自 1.2 公里內有捷運站（同一系統）；同一條線直達，不同線找轉乘站（同時在兩條線、繞最少的站）。
  * 時間與票價依距離估算並標示 estimated；走到站加起來太遠（≥ 直線 60%）不列。
  */
 /** 跨系統轉乘的捷運方案（估算；轉乘多算 5 分）；收班時不列（回 null 交給同系統或「沒列入」） */
 function crossMetroOption(from, to, straight, c, depart) {
-  const { A, B, t, tb, kA, kB } = c;
+  const { A, B, t, tb } = c;
   if (A.o.m + B.d.m >= straight * 0.6) return null;
   const a1 = metroAccess(from, A.o, A.o.m, true), a2 = metroAccess(B.d, to, B.d.m, false);
   if (depart && (metroHours(A.sys, depart.minute + a1.minutes).closed || metroHours(B.sys, depart.minute + a1.minutes + 20).closed)) return null;
   const eA = METRO_EST[A.sys] || METRO_EST.TRTC, eB = METRO_EST[B.sys] || METRO_EST.TRTC;
-  const lineOf = (sys, x, y) => { const l = (x.lines || []).find((k) => (y.lines || []).includes(k)) || x.lines?.[0]; return METRO_LINE_NAME[sys]?.[l] || METRO_SYSTEMS[sys] || '捷運'; };
-  const nA = lineOf(A.sys, A.o, t), nB = lineOf(B.sys, B.d, tb);
-  const rideA = Math.round(kA * eA.perKm + eA.base), rideB = Math.round(kB * eB.perKm + eB.base) + 5;
-  const wait = eA.wait + eB.wait;
+  // 每一段各自找線與轉乘站（2026-11-23 交通健檢：三峽→台北 101 說「在頂埔站轉淡水信義線：頂埔 → 台北101」，頂埔是板南線，還要在台北車站再轉一次）
+  const rA = lineRoute(A.sys, A.list, A.o, t, METRO_SYSTEMS[A.sys]), rB = lineRoute(B.sys, B.list, tb, B.d, METRO_SYSTEMS[B.sys]);
+  // 機場捷運直達車（台北車站 ↔ 機場航廈）：用公告的時間、票價、等車（跟同系統方案一致，不用距離估算）
+  const xA = airportExpress(A.sys, A.o.name, t.name), xB = airportExpress(B.sys, tb.name, B.d.name);
+  const rideA = xA ? xA.ride : Math.round(rA.km * eA.perKm + eA.base + (rA.transfer ? 5 : 0));
+  const rideB = (xB ? xB.ride : Math.round(rB.km * eB.perKm + eB.base + (rB.transfer ? 5 : 0))) + 5;
+  const wait = (xA ? xA.wait : eA.wait + (rA.transfer ? 3 : 0)) + (xB ? xB.wait : eB.wait + (rB.transfer ? 3 : 0));
   const fed = a1.est || a2.est;
+  const nA = rA.lines, nB = rB.lines;
+  const [vA, vAEn] = rA.via ? [`（在${stLabel(rA.via.name)}轉${rA.names[1]}）`, ` (change at ${rA.via.name})`] : ['', ''];
+  // 第二段也要轉乘：「在頂埔站轉板南線，到台北車站再轉淡水信義線：頂埔 → 台北101／世貿」
+  const [cB, cBEn] = rB.via ? [`在${stLabel(t.name)}轉${rB.names[0]}，到${stLabel(rB.via.name)}再轉${rB.names[1]}`, `Change at ${t.name}, then at ${rB.via.name}`] : [`在${stLabel(t.name)}轉${nB}`, `Change at ${t.name}`];
+  const transfers = 1 + (rA.transfer ? 1 : 0) + (rB.transfer ? 1 : 0);
+  const stops = [...(rA.via ? [rA.via.name] : []), t.name, ...(rB.via ? [rB.via.name] : [])];
   return {
     id: 'metro', role: 'metro', name: `捷運（${nA}轉${nB}）${a1.est ? `（先到${stLabel(A.o.name)}）` : ''}`,
     minutes: a1.minutes + wait + rideA + rideB + a2.minutes, waitMin: wait, walkMin: a1.walkMin + a2.walkMin,
-    cost: eA.fare(kA) + eB.fare(kB) + a1.cost + a2.cost, exposure: fed ? 0.2 : 0.1, effort: 0.35 + (fed ? 0.1 : 0), delayRisk: fed ? 0.1 : 0,
+    cost: (xA ? xA.fare : eA.fare(rA.km)) + (xB ? xB.fare : eB.fare(rB.km)) + a1.cost + a2.cost, exposure: fed ? 0.2 : 0.1, effort: 0.35 + (fed ? 0.1 : 0) + (transfers > 1 ? 0.05 : 0), delayRisk: fed ? 0.1 : 0,
+    transfers: transfers + (a1.est ? 1 : 0) + (a2.est ? 1 : 0),
     legs: [
       a1.leg,
-      leg('metro', A.o, t, rideA, [`${nA}：${A.o.name} → ${t.name}`, `${A.o.name} → ${t.name}`], 'transit'),
-      leg('metro', tb, B.d, rideB, [`在${stLabel(t.name)}轉${nB}：${tb.name} → ${B.d.name}`, `Change at ${t.name}: ${tb.name} → ${B.d.name}`], 'transit'),
+      leg('metro', A.o, t, rideA, [`${nA}：${A.o.name} → ${t.name}${vA}`, `${A.o.name} → ${t.name}${vAEn}`], 'transit'),
+      leg('metro', tb, B.d, rideB, [`${cB}：${tb.name} → ${B.d.name}`, `${cBEn}: ${tb.name} → ${B.d.name}`], 'transit'),
       a2.leg,
     ],
-    notes: ['捷運時間與票價依距離估算（未含實際路網）', `跨系統轉乘（在${stLabel(t.name)}），估算多 5 分`, ...(fed ? ['接駁到捷運站的時間與票價是估算（公車或 YouBike，以實際為準）'] : [])],
+    notes: [
+      ...(xA || xB ? [`機場捷運直達車約 ${(xA || xB).ride} 分、${(xA || xB).fare} 元，約 15 分一班（依公告，以實際班次為準）`] : []),
+      '捷運時間與票價依距離估算（未含實際路網）',
+      `跨系統轉乘（在${stLabel(t.name)}），估算多 5 分`,
+      ...(transfers > 1 ? [`共轉乘 ${transfers} 次（${stops.map(stLabel).join('、')}），每次轉乘估算多 5 分`] : []),
+      ...(fed ? ['接駁到捷運站的時間與票價是估算（公車或 YouBike，以實際為準）'] : []),
+    ],
     estimated: true, est: { minutes: true },
-    metro: { system: A.sys, systems: [A.sys, B.sys], from: A.o.name, to: B.d.name, lines: `${nA}轉${nB}`, transfer: true, via: t.name, crossSystem: true, ...(fed && { feeder: { from: a1.est, to: a2.est } }) },
+    metro: { system: A.sys, systems: [A.sys, B.sys], from: A.o.name, to: B.d.name, lines: `${nA}轉${nB}`, transfer: true, via: t.name, ...(transfers > 1 && { vias: stops }), crossSystem: true, ...(fed && { feeder: { from: a1.est, to: a2.est } }) },
   };
 }
 
@@ -391,26 +452,11 @@ async function metroOption(svc, from, to, straight, depart) {
   }
   const est = METRO_EST[sys];
   const express = airportExpress(sys, o.name, d.name); // 機場捷運直達車：公告的固定參數（不是距離估算）
-  const lineName = (l) => METRO_LINE_NAME[sys]?.[l] || '捷運';
-  const shared = (o.lines || []).find((l) => (d.lines || []).includes(l));
-  let km = distanceM(o.lat, o.lon, d.lat, d.lon) / 1000;
-  let via = null, pair = null;
-  if (!shared) {
-    // 轉乘站：同時有起站某條線與迄站某條線的站，繞最少的那個
-    for (const t of list) {
-      const a = (t.lines || []).find((l) => (o.lines || []).includes(l)), b = (t.lines || []).find((l) => (d.lines || []).includes(l));
-      if (!a || !b || a === b) continue;
-      const k = (distanceM(o.lat, o.lon, t.lat, t.lon) + distanceM(t.lat, t.lon, d.lat, d.lon)) / 1000;
-      if (!via || k < via.k) via = { name: t.name, k, a, b };
-    }
-    if (via) { km = via.k; pair = [via.a, via.b]; } else pair = [o.lines?.[0], d.lines?.[0]];
-  }
-  const transfer = !shared;
+  const { via, km, transfer, lines } = lineRoute(sys, list, o, d);
   const w1 = a1.minutes, w2 = a2.minutes;
   const fed = a1.est || a2.est; // 有接駁（不是走路到站）
   const ride = express ? express.ride : Math.round(km * est.perKm + est.base + (transfer ? 5 : 0));
   const wait = express ? express.wait : est.wait + (transfer ? 3 : 0);
-  const lines = shared ? lineName(shared) : `${lineName(pair[0])}轉${lineName(pair[1])}`;
   return {
     id: 'metro', role: 'metro', name: `${transfer ? `捷運（${lines}）` : `捷運 ${lines}`}${a1.est ? `（先到${stLabel(o.name)}）` : ''}`, minutes: w1 + wait + ride + w2, waitMin: wait, walkMin: a1.walkMin + a2.walkMin,
     cost: (express ? express.fare : est.fare(km)) + a1.cost + a2.cost, exposure: fed ? 0.2 : 0.1, effort: (transfer ? 0.3 : 0.2) + (fed ? 0.1 : 0), delayRisk: fed ? 0.1 : 0,
@@ -440,16 +486,21 @@ export const BUS_OFF = {
 /** 不列入的那條路線（卡片、決策圖「沒列入」：公車 X 沒列入：今天沒有營運） */
 export const busOffEntry = (routeName, status) => ({ role: 'bus', kind: 'route', route: routeName, status, why: BUS_OFF[status].why, whyEn: BUS_OFF[status].whyEn });
 
-async function busOption(svc, from, to, straight, risk, depart) {
+async function busOption(svc, from, to, straight, risk, depart, { aheadMin = 0, sameDay = true } = {}) {
   if (straight > LIMITS.busMaxM) return null;
   // 深夜（S10）：示範資料只能看時間；真實資料看上車站的到站狀態（BUS_OFF：2 交管不停靠、3 末班已過、4 今日未營運），全部不會來才不列入
   const m = depart ? depart.minute % (24 * 60) : null;
-  const live = svc.mode === 'live';
+  // 真實資料、晚一點才出發（BUS_LIVE_AHEAD_MIN）：站牌即時資訊是現在的，不拿來判斷那時候——跟示範資料一樣依時間估
+  // （示範資料的到站時間本來就是固定的模擬值，照舊；固定 OD 測試 trip-od.test.js 依賴）
+  const later = svc.mode === 'live' && aheadMin > BUS_LIVE_AHEAD_MIN;
+  const live = svc.mode === 'live' && !later;
   const night = m != null && m >= NIGHT.closedFrom && m < NIGHT.closedTo;
-  if (!live && night) return { skip: busNightClosed(false) };
-  const raw = await svc.bus.directTrips({ from, to });
-  // svc.busOff：agent 選了公車後盯上車站，發現這條路線其實不會來（run.js execTools）→ 重排時照盯到的狀態排除
-  const off = new Map((svc.busOff || []).filter((x) => BUS_OFF[x.status]).map((x) => [x.routeName, x.status]));
+  if (!live && night) return { skip: busNightClosed(false, later) };
+  const raw0 = await svc.bus.directTrips({ from, to });
+  // 晚一點出發：今天沒營運（4）只在同一天還算數；其餘狀態與到站時間都不套用（到站時間不明，依出發時才看站牌）
+  const raw = later ? Object.assign(raw0.map((t) => ({ ...t, board: { ...t.board, etaSec: null, status: t.board?.status === 4 && sameDay ? 4 : null } })), { limited: raw0.limited }) : raw0;
+  // svc.busOff：agent 選了公車後盯上車站，發現這條路線其實不會來（run.js execTools）→ 重排時照盯到的狀態排除（晚一點出發不盯，也不套用）
+  const off = new Map((later ? [] : svc.busOff || []).filter((x) => BUS_OFF[x.status]).map((x) => [x.routeName, x.status]));
   const all = raw.map((t) => (off.has(t.routeName) ? { ...t, board: { ...t.board, status: off.get(t.routeName), etaSec: null } } : t));
   // TDX 額度用完：這次的公車是示範資料——不推假的路線與到站時間（不列入，原因照實說）；深夜照舊依時間說收班
   if (demoOf(svc, 'bus.directTrips')) return { skip: night ? busNightClosed(true) : limitSkip('bus') };
@@ -479,7 +530,8 @@ async function busOption(svc, from, to, straight, risk, depart) {
     const wait = unknown || missed ? 10 : etaMin - w1;
     const ride = Math.round(t.stops * EST.busMinPerStop);
     const waitNote = unknown
-      ? (t.board.status === 1 ? `${t.board.name}：尚未發車，到站時間不明（等車以 10 分估）` : `${t.board.name}：到站時間不明（站牌沒有預估，等車以 10 分估）`)
+      ? later ? `${toHHMM(depart.minute)} 才出發：到站時間以那時的站牌資訊為準（等車以 10 分估）`
+      : (t.board.status === 1 ? `${t.board.name}：尚未發車，到站時間不明（等車以 10 分估）` : `${t.board.name}：到站時間不明（站牌沒有預估，等車以 10 分估）`)
       : missed ? '這班走到前就會開走，下一班到站時間不明，以 10 分估'
         : notYet ? `${t.board.name}：尚未發車，預估約 ${etaMin} 分後到站（發車後以即時資料為準）` : `${t.board.name} 約 ${etaMin} 分後到站`;
     return {
@@ -495,8 +547,8 @@ async function busOption(svc, from, to, straight, risk, depart) {
       ...((unknown || missed || notYet) && { estimated: true }),
       ...((missed || notYet) && { est: { minutes: wait } }), // 等車是估的：決策時這幾分保守看（時間不明另由 etaUnknown 處理，不重複扣）
       ...(unknown && { etaUnknown: true }),
-      // 決策選公車時，agent 接著盯這條路線在上車站的即時到站（bus_route_eta 的 stop／direction）
-      follow: { city: t.city, routeName: t.routeName, stop: t.board.name, ...(t.direction != null && { direction: t.direction }), walkMin: w1 },
+      // 決策選公車時，agent 接著盯這條路線在上車站的即時到站（bus_route_eta 的 stop／direction）；晚一點才出發不盯（現在的到站跟那時無關）
+      ...(!later && { follow: { city: t.city, routeName: t.routeName, stop: t.board.name, ...(t.direction != null && { direction: t.direction }), walkMin: w1 } }),
     };
   });
   // 好幾條直達路線：到站時間確定的優先，再比總時間（「三峽-臺北市信義區」今日未營運時改列 939）
@@ -509,7 +561,7 @@ async function railOption(svc, system, from, to, straight, depart) {
   if (straight < (system === 'THSR' ? LIMITS.railMinM : LIMITS.traMinM)) return null;
   const role = system.toLowerCase(); // thsr、tra（也是 rail 服務方法的字首：rail.thsrTimetable）
   const stations = (await (system === 'THSR' ? svc.rail.thsrStations() : svc.rail.traStations()))
-    .map((s) => stationPoint(system, s.name)).filter(Boolean);
+    .map((s) => railPoint(system, s)).filter(Boolean);
   if (demoOf(svc, `rail.${role}Stations`)) return { skip: limitSkip(role) }; // 示範的車站清單：不拿來挑站（也省下查時刻表的額度）
   const o = nearestStation(stations, from), d = nearestStation(stations, to);
   if (!o || !d) return { none: { kind: 'none', why: `起點或目的地 ${LIMITS.railAccessMaxM / 1000} 公里內沒有車站`, whyEn: `No station within ${LIMITS.railAccessMaxM / 1000} km of the start or destination` } };
@@ -517,40 +569,72 @@ async function railOption(svc, system, from, to, straight, depart) {
   const a1 = access(from, o, o.d), a2 = access(d, to, d.d);
   // 台鐵市區短程（8 公里內）或車站不順路（到站的路加起來比這段路的六成還遠）：照樣列出讓分數決定，但不查時刻表（省 TDX 額度），時間與票價估算
   if (system === 'TRA' && straight < LIMITS.railMinM && (straight < TRA_EST.queryMinM || o.d + d.d >= straight * 0.6)) {
-    const at = (depart.minute + a1.minutes) % (24 * 60);
-    if (at < TRA_EST.open || at > TRA_EST.close) return { none: { kind: 'noService', why: '這個時間台鐵沒有車（約 05:30～23:30 有車）', whyEn: 'No trains at this hour (about 05:30–23:30)' } };
+    if (!traEstRunning(depart.minute + a1.minutes)) return { none: { kind: 'noService', why: `這個時間台鐵沒有車（約 ${toHHMM(TRA_EST.open)}～${toHHMM(TRA_EST.close)} 有車）`, whyEn: `No trains at this hour (about ${toHHMM(TRA_EST.open)}–${toHHMM(TRA_EST.close)})` } };
     return traEstOption(o, d, a1, a2);
   }
   const tt = await (system === 'THSR' ? svc.rail.thsrTimetable : svc.rail.traTimetable)({ from: o.name, to: d.name, date: depart.date });
   if (demoOf(svc, `rail.${role}Timetable`)) return { skip: limitSkip(role) }; // 示範的班次不推
   const ready = depart.minute + a1.minutes;
-  const train = (tt.trains || []).filter((t) => toMin(t.depart) >= ready).sort((x, y) => toMin(x.depart) - toMin(y.depart))[0];
+  // 過午夜的末班車（班表上 00:09、00:18）是前一天發的車：算成 24:09，深夜出發才看得到（2026-11-23 交通健檢）
+  const depMin = (t) => railDepMin(t.depart);
+  const train = (tt.trains || []).filter((t) => depMin(t) >= ready).sort((x, y) => depMin(x) - depMin(y))[0];
   if (!train) return { none: { kind: 'noService', why: '查不到趕得上的班次', whyEn: 'No train you can still catch today' } };
+  const dep = depMin(train);
   const fares = await (system === 'THSR' ? svc.rail.thsrFare : svc.rail.traFare)({ from: o.name, to: d.name }).then((f) => (demoOf(svc, `rail.${role}Fare`) ? [] : f.fares)).catch(() => []); // 示範的票價不用：照「票價暫時查不到」
   const fare = fares.find((f) => f.adultOneWay && (!train.type || !f.trainType || f.trainType === train.type)) || fares.find((f) => f.adultOneWay);
   // 票價查不到：不當 0 元（會變成最便宜而勝出），依兩站直線距離保守估（RAIL_FARE_EST）
   const estFare = fare ? null : railFareEst(system, distanceM(o.lat, o.lon, d.lat, d.lon));
   // 班次制：等太久就晚點出門，等車最多算 maxIdleWaitMin；抵達以實際班次計算
-  const wait = Math.min(toMin(train.depart) - ready, EST.maxIdleWaitMin);
+  const realWait = dep - ready;
+  const wait = Math.min(realWait, EST.maxIdleWaitMin);
   const label = system === 'THSR' ? '高鐵' : `台鐵${train.type || ''}`;
+  const lw = longWaitOf(realWait, wait, train.depart);
   return {
     id: system.toLowerCase(), role: system.toLowerCase(), name: label,
     minutes: a1.minutes + wait + train.minutes + a2.minutes, waitMin: wait, walkMin: a1.walkMin + a2.walkMin,
-    arriveMin: toMin(train.depart) + train.minutes + a2.minutes,
+    arriveMin: dep + train.minutes + a2.minutes,
     cost: (fare?.price ?? estFare) + a1.cost + a2.cost, exposure: 0.1, effort: 0.3, delayRisk: 0,
     legs: [a1.leg, leg(system.toLowerCase(), o, d, train.minutes, [`${label} ${train.trainNo} 次 ${train.depart} 開、${train.arrive} 到`, `${system === 'THSR' ? 'THSR' : 'Train'} ${train.trainNo}, departs ${train.depart}, arrives ${train.arrive}`], 'transit'), a2.leg],
-    notes: [fare ? `${fare.trainType || fare.cabin || ''}成人單程 ${fare.price} 元` : `票價暫時查不到，約 ${estFare} 元（依距離估，以${system === 'THSR' ? '高鐵' : '台鐵'}公告為準）`],
+    notes: [...(lw ? [lw.note] : []), fare ? `${fare.trainType || fare.cabin || ''}成人單程 ${fare.price} 元` : `票價暫時查不到，約 ${estFare} 元（依距離估，以${system === 'THSR' ? '高鐵' : '台鐵'}公告為準）`],
+    ...(lw && { longWait: lw.longWait }),
     train: { trainNo: train.trainNo, depart: train.depart, arrive: train.arrive, from: o.name, to: d.name, date: depart.date },
-    leaveAt: toHHMM(toMin(train.depart) - a1.minutes - wait), // 出門時間＝發車 − 到站 − 等車（卡片「提醒我出門」）
+    leaveAt: toHHMM(dep - a1.minutes - wait), // 出門時間＝發車 − 到站 − 等車（卡片「提醒我出門」）
     ...((a1.estimated || a2.estimated || !fare) && { estimated: true }),
     // 票價查不到（估的）：決策時保守看（core/decide.js UNCERTAIN）。到站、離站的市區轉乘時間是規則估算（每一種跨城方式都有），不另外扣
     ...(!fare && { est: { cost: true } }),
   };
 }
 
-/** 台鐵估算方案（短程、不查時刻表）：區間車平均 45 km/h、等車約 10 分；票價依距離估 */
-/** 台鐵估算（不查時刻表）：區間車平均 45 km/h、等車約 10 分；約 05:30～23:30 有車（⚠️ 大約值，各站首末班不同；這段時間外不列估算的台鐵） */
-export const TRA_EST = { kmh: 45, waitMin: 10, queryMinM: 8000, open: 5 * 60 + 30, close: 23 * 60 + 30 };
+/**
+ * 台鐵估算（短程、不查時刻表）：區間車平均 45 km/h、等車約 10 分；票價依距離估。
+ * 約 05:00～隔天 00:30 有車（⚠️ 大約值，各站首末班不同；這段時間外不列估算的台鐵）。
+ * 原本 05:30～23:30：23:45 說沒有車，其實 23:55、00:09、00:18 都還有車（2026-11-23 交通健檢）；close 是過午夜的分鐘數
+ */
+export const TRA_EST = { kmh: 45, waitMin: 10, queryMinM: 8000, open: 5 * 60, close: 30 };
+/** 這個時刻（當日分鐘，可超過 24 小時）估算的台鐵有沒有車 */
+export function traEstRunning(minute) {
+  const at = ((minute % (24 * 60)) + 24 * 60) % (24 * 60);
+  return TRA_EST.close < TRA_EST.open ? !(at > TRA_EST.close && at < TRA_EST.open) : at >= TRA_EST.open && at <= TRA_EST.close;
+}
+/** 鐵路班表上過午夜的班次（03:00 前發車）是前一天的末班車，算成 24 小時以後（例：00:09 → 24:09） */
+export const RAIL_AFTER_MIDNIGHT = 3 * 60;
+export const railDepMin = (hhmm) => { const m = toMin(hhmm); return m < RAIL_AFTER_MIDNIGHT ? m + 24 * 60 : m; };
+/**
+ * 等很久（超過 LONG_WAIT_MIN）才有班次（深夜要等首班）：班次制等車只算 maxIdleWaitMin（當作晚點出門），
+ * 但現在就要走時不能假裝只等 10 分——標 longWait（真正要等幾分、幾點才開），決策用抵達時間比（core/decide.js effMinutes），卡片說「首班 05:24」。
+ * 2026-11-23 交通健檢：01:00 台北→新竹推了 06:41 才到的台鐵，叫車 02:38 就到。
+ */
+export const LONG_WAIT_MIN = 60;
+function longWaitOf(realWait, wait, departHHMM) {
+  if (!(realWait > LONG_WAIT_MIN)) return null;
+  const h = Math.floor(realWait / 60), m = realWait % 60;
+  const span = h ? `${h} 小時${m ? ` ${m} 分` : ''}` : `${m} 分`;
+  return {
+    longWait: { min: realWait, extra: realWait - wait, first: departHHMM },
+    // 清晨開的那班（深夜問）＝首班車
+    note: `${toMin(departHHMM) < 9 * 60 ? '首班' : '下一班'} ${departHHMM} 才開，現在出發要等約 ${span}`,
+  };
+}
 function traEstOption(o, d, a1, a2) {
   const m = distanceM(o.lat, o.lon, d.lat, d.lon);
   const ride = Math.max(3, Math.round((m * EST.roadFactor / 1000) / TRA_EST.kmh * 60));
@@ -576,6 +660,7 @@ async function intercityOption(svc, from, to, straight, depart) {
   const w1 = walkMinutes(t.walkFromM), w2 = walkMinutes(t.walkToM);
   const realWait = waitOf(t);
   const wait = Math.min(realWait, EST.maxIdleWaitMin);
+  const lw = longWaitOf(realWait, wait, t.depart);
   const fakeRoad = demoOf(svc, 'traffic.status'); // 路況是示範資料（額度用完）：不加假的塞車延誤
   const delayMin = fakeRoad ? 0 : t.delayMin || 0;
   const ride = t.minutes + delayMin;
@@ -592,7 +677,8 @@ async function intercityOption(svc, from, to, straight, depart) {
       leg('intercity', { name: t.board, lat: null, lon: null }, { name: t.alight, lat: null, lon: null }, ride, [`${t.trainNo} ${t.depart} 開${delayMin ? `，路上多 ${delayMin} 分` : ''}`, `${t.trainNo} departs ${t.depart}${delayMin ? `, about ${delayMin} min extra on the road` : ''}`], 'transit'),
       leg('walk', { name: t.alight, lat: null, lon: null }, to, w2, [`步行約 ${w2} 分`, `Walk about ${w2} min`]),
     ],
-    notes: [t.fare != null ? `票價 ${t.fare} 元` : `票價暫無資料，約 ${estFare} 元（起跳 ${EST.intercityBaseTwd} 元＋道路公里 × ${EST.intercityTwdPerKm} 元估，以業者公告為準）`, ...(t.estimated ? ['抵達時間依距離估算'] : [])],
+    ...(lw && { longWait: lw.longWait }),
+    notes: [...(lw ? [lw.note] : []), t.fare != null ? `票價 ${t.fare} 元` : `票價暫無資料，約 ${estFare} 元（起跳 ${EST.intercityBaseTwd} 元＋道路公里 × ${EST.intercityTwdPerKm} 元估，以業者公告為準）`, ...(t.estimated ? ['抵達時間依距離估算'] : [])],
     ...((t.fare == null || t.estimated) && { estimated: true }),
     ...((t.fare == null || t.estimated) && { est: { ...(t.fare == null && { cost: true }), ...(t.estimated && { minutes: ride }) } }), // 決策時估算值保守看（core/decide.js UNCERTAIN）：票價整個、時間只算車程
   };
@@ -609,7 +695,7 @@ async function driveOption(svc, from, to, straight, traffic) {
   const pk = await Promise.race([svc.parking?.nearby({ lat: to.lat, lon: to.lon }).catch(() => null), new Promise((r) => { timer = setTimeout(() => r(null), PARKING_WAIT_MS); })]).finally(() => clearTimeout(timer)); // 停車場查不到不影響開車方案
   const lots = demoOf(svc, 'parking.nearby') && svc.mode === 'live' ? [] : (pk?.lots || []); // 額度用完的示範停車場不推
   const lot = lots.find((l) => l.available !== 0 && !l.full) || null;
-  const drive = Math.round((km / (km < 15 ? EST.carCityKmh : EST.carHighwayKmh)) * 60) + (traffic?.delayMin || 0);
+  const drive = carMinutes(km) + (traffic?.delayMin || 0);
   const fuel = Math.max(5, Math.round((km * EST.driveFuelTwdPerKm) / 5) * 5);
   const park = EST.driveParkTwdPerHour;
   const walk = lot ? walkMinutes(lot.distanceM) : EST.driveParkWalkMin;
@@ -637,7 +723,7 @@ async function driveOption(svc, from, to, straight, traffic) {
 
 async function ridehailOption(svc, from, to, straight, traffic) {
   const km = roadKm(straight);
-  const drive = Math.round((km / (km < 15 ? EST.carCityKmh : EST.carHighwayKmh)) * 60) + (traffic?.delayMin || 0);
+  const drive = carMinutes(km) + (traffic?.delayMin || 0);
   const link = await svc.ridehail.link({ from, to });
   const e = link.estimate;
   return {
@@ -722,6 +808,9 @@ export function withoutBus(trip, off) {
 export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date.now() }) {
   const depart = departOf(departAt, now);
   const straight = distanceM(from.lat, from.lon, to.lat, to.lon);
+  // 出發時間離現在幾分鐘（晚一點出發時，公車不套用站牌的即時狀態，BUS_LIVE_AHEAD_MIN）
+  const tw = nowTW(now);
+  const aheadMin = Math.round((Date.parse(`${depart.date}T00:00:00Z`) - Date.parse(`${tw.date}T00:00:00Z`)) / 6e4) + depart.minute - toMin(tw.hhmm);
 
   // 自動狀態：起點天氣、空品、沿途路況（失敗不加狀態、不中斷）
   const [weather, trafficRaw, aqi] = await Promise.all([
@@ -750,7 +839,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   const tasks = {
     walk: async () => walkOption(from, to, straight),
     bike: () => bikeOption(svc, from, to, straight),
-    bus: () => busOption(svc, from, to, straight, risk, depart),
+    bus: () => busOption(svc, from, to, straight, risk, depart, { aheadMin, sameDay: depart.date === tw.date }),
     metro: () => metroOption(svc, from, to, straight, depart),
     thsr: () => railOption(svc, 'THSR', from, to, straight, depart),
     tra: () => railOption(svc, 'TRA', from, to, straight, depart),
@@ -804,7 +893,6 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
   const missingList = missingModes({ straight, roles: byRole, skipped, limits: LIMITS });
   const missing = [...missingList.filter((x) => !['near', 'far', 'na'].includes(x.kind)), ...busOff]; // busOff：{ role: 'bus', kind: 'route', route, status, why }
   // 深夜：公車、捷運收班或末班快到了，回答第一句就說（「現在 00:10，公車和捷運都收班了（捷運約 06:00 首班），先比走路、YouBike、叫車」）
-  const tw = nowTW(now);
   const isNow = depart.date === tw.date && Math.abs(depart.minute - toMin(tw.hhmm)) <= 2;
   const night = nightOf({ skipped, options, departMin: depart.minute, isNow, single: options.length === 1 });
   // 只有一種方式：說明其他方式為什麼不在（太遠、附近沒有站、沒有趕得上的班次…）；深夜收班已由 night 說，不重複
