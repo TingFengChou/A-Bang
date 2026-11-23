@@ -167,6 +167,25 @@ export function buildWeather(st, gauge, pop3h, lat, lon) {
   };
 }
 
+/** 溫度要從多近的測站拿（公尺）：最近的站沒有氣溫（只有天氣描述，例：善化、萬隆國小）時改用這個距離內最近、有氣溫的站 */
+export const TEMP_STATION_M = 15_000;
+/** 天氣描述（晴、陰）可以借多近的站（公尺）：有氣溫的站常沒有天氣描述 */
+export const DESC_STATION_M = 10_000;
+/**
+ * 「現在天氣」用哪個測站（2026-11-23 產品負責人：手機首頁的天氣沒有溫度）：
+ * 最近而且有氣溫的站（TEMP_STATION_M 內）為主；那一站沒有天氣描述時，借 DESC_STATION_M 內最近、有描述的站的描述。
+ * 附近都沒有氣溫的站才用最近的站（溫度為 null）。
+ */
+export function pickNowStation(stations, lat, lon) {
+  const d = (s) => distanceM(lat, lon, s.lat, s.lon);
+  const nearest = (list) => (list.length ? list.reduce((a, b) => (d(a) <= d(b) ? a : b)) : null);
+  const warm = nearest(stations.filter((s) => s.tempC != null));
+  const base = warm && d(warm) <= TEMP_STATION_M ? warm : nearest(stations);
+  if (base.weather) return base;
+  const desc = nearest(stations.filter((s) => s.weather));
+  return desc && d(desc) <= DESC_STATION_M ? { ...base, weather: desc.weather } : base;
+}
+
 export function createWeatherServices(cwa) {
   /** 最近的觀測站（含鄉鎮名稱，給鄉鎮預報用） */
   async function nearestStation(lat, lon) {
@@ -209,7 +228,7 @@ export function createWeatherServices(cwa) {
         ]);
         const stations = [...parseStations(auto), ...parseStations(manned)].filter((s) => s.tempC != null || s.weather != null);
         if (!stations.length) throw new CwaError(502, '氣象署觀測資料暫時無法取得');
-        const st = stations.reduce((a, b) => (distanceM(lat, lon, a.lat, a.lon) <= distanceM(lat, lon, b.lat, b.lon) ? a : b));
+        const st = pickNowStation(stations, lat, lon);
         // 鄉鎮預報（所在縣市的 F-D0047-0xx，與 tomorrow 共用快取）；失敗時 pop3h 為 null，不影響觀測
         const fc = await townForecast(st).catch(() => null);
         return buildWeather(st, nearestGauge(parseRainGauges(rain), lat, lon), parsePop3h(fc, st.town, Date.now(), st.county), lat, lon);

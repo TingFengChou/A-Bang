@@ -216,3 +216,18 @@ test('tomorrow／now 打測站所在縣市的資料集；縣市不認得時明�
   assert.equal((await bad.weather.now({ lat: 22.639, lon: 120.302 })).pop3h, null);
   assert.ok(!bad.urls.some((u) => u.includes('/F-D0047-')), '不認得縣市就不打預報');
 });
+
+test('現在天氣：最近的測站沒有氣溫（只有天氣描述）時，用 15 公里內最近、有氣溫的站；描述借 10 公里內的站（產品負責人：手機首頁的天氣沒有溫度）', async () => {
+  const { pickNowStation, TEMP_STATION_M } = await import('../core/services/weather.js');
+  const at = { lat: 23.1, lon: 120.3 };
+  const s = (name, dLat, tempC, weather) => ({ name, town: `${name}區`, county: '臺南市', lat: at.lat + dLat, lon: at.lon, tempC, weather });
+  const descOnly = s('善化', 0.013, null, '陰'); // 約 1.4 公里
+  const tempOnly = s('自動站', 0.03, 24.2, null); // 約 3.3 公里
+  const far = s('遠站', 0.2, 22, '晴'); // 約 22 公里
+  assert.deepEqual(pick(pickNowStation([descOnly, tempOnly, far], at.lat, at.lon)), ['自動站', 24.2, '陰'], '溫度用有氣溫的站、描述借最近的');
+  assert.deepEqual(pick(pickNowStation([descOnly, far], at.lat, at.lon)), ['善化', null, '陰'], '15 公里內沒有氣溫的站：仍用最近的（溫度不知道）');
+  assert.ok(TEMP_STATION_M === 15_000);
+  const both = s('局屬站', 0.05, 25, '晴');
+  assert.deepEqual(pick(pickNowStation([both, tempOnly], at.lat, at.lon)), ['自動站', 24.2, '晴'], '描述借 10 公里內最近有描述的站');
+  function pick(x) { return [x.name, x.tempC, x.weather]; }
+});
