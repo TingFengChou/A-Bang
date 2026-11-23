@@ -16,6 +16,8 @@
     "e2e": "node --test scripts/e2e.js",
     "lint": "eslint .",
     "fetch:judge-model": "node scripts/fetch-judge-model.js",
+    "tdx:verify": "node scripts/verify-tdx.js",
+    "tdx:record": "node scripts/record-fixtures.js",
     "smoke:android": "node scripts/smoke-android.js"
   },
   "license": "MIT",

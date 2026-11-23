@@ -1,0 +1,180 @@
+{
+ "UpdateTime": "2026-11-23T14:23:57+08:00",
+ "UpdateInterval": 60,
+ "SrcUpdateTime": "2026-11-23T14:20:06+08:00",
+ "SrcUpdateInterval": 60,
+ "AuthorityCode": "NFB",
+ "LiveEvents": [
+  {
+   "EventID": "A15040100H-01-20261123075358943100021",
+   "EventTitle": "施工事件",
+   "Description": "國道三號 北向 100K+800 施工事件-施工維護",
+   "EventType": 2,
+   "EventSubType": 298,
+   "EventStep": 3,
+   "EffectiveTime": "2026-11-23T07:53:00+08:00",
+   "Positions": "POINT(120.986555 24.757442)",
+   "LocationType": 2,
+   "Location": {
+    "FreeExpressHighway": {
+     "Road": "國道三號",
+     "Direction": "北向",
+     "StartKM": "100K+800",
+     "EndKM": "100K+800",
+     "Interchange": "新竹系統",
+     "Ramp": {
+      "Direction": "北向",
+      "EntryExit": "出口"
+     }
+    }
+   },
+   "Impact": {
+    "Description": "部分阻斷交通",
+    "Severity": 1,
+    "Regulations": [
+     2
+    ],
+    "BlockWay": 1,
+    "BlockedLanes": "3,RS"
+   },
+   "Source": "高公局北區交控中心",
+   "PublishTime": "2026-11-23T07:53:00+08:00",
+   "LastUpdateTime": "2026-11-23T08:28:33+08:00"
+  },
+  {
+   "EventID": "A15040100H-01-20261123080028026100021",
+   "EventTitle": "施工事件",
+   "Description": "國道一號 北向 27K+100 施工事件-施工維護",
+   "EventType": 2,
+   "EventSubType": 298,
+   "EventStep": 2,
+   "EffectiveTime": "2026-11-23T08:00:00+08:00",
+   "Positions": "POINT(121.494586 25.075662)",
+   "LocationType": 2,
+   "Location": {
+    "FreeExpressHighway": {
+     "Road": "國道一號",
+     "Direction": "北向",
+     "StartKM": "27K+100",
+     "EndKM": "27K+100",
+     "Interchange": "三重",
+     "Ramp": {
+      "Direction": "北向",
+      "EntryExit": "入口"
+     }
+    }
+   },
+   "Impact": {
+    "Description": "部分阻斷交通",
+    "Severity": 1,
+    "Regulations": [
+     2
+    ],
+    "BlockWay": 1,
+    "BlockedLanes": "4,5,RS"
+   },
+   "Source": "高公局北區交控中心",
+   "PublishTime": "2026-11-23T08:00:00+08:00",
+   "LastUpdateTime": "2026-11-23T13:53:54+08:00"
+  },
+  {
+   "EventID": "A15040100H-01-20261123080220002100045",
+   "EventTitle": "施工事件",
+   "Description": "國道一號 北向 75K+600 施工事件-移動性施工",
+   "EventType": 2,
+   "EventSubType": 208,
+   "EventStep": 6,
+   "EffectiveTime": "2026-11-23T08:02:00+08:00",
+   "Positions": "POINT(121.105695 24.892702)",
+   "LocationType": 0,
+   "Location": {
+    "FreeExpressHighway": {
+     "Road": "國道一號",
+     "Direction": "北向",
+     "StartKM": "75K+600",
+     "EndKM": "74K+950",
+     "SectionStart": "湖口",
+     "SectionEnd": "高架楊梅端"
+    }
+   },
+   "Impact": {
+    "Description": "部分阻斷交通",
+    "Severity": 1,
+    "Regulations": [
+     2
+    ],
+    "BlockWay": 1,
+    "BlockedLanes": "3,RS"
+   },
+   "Source": "高公局北區交控中心",
+   "PublishTime": "2026-11-23T08:02:00+08:00",
+   "LastUpdateTime": "2026-11-23T11:14:03+08:00"
+  },
+  {
+   "EventID": "A15040100H-01-20261123080552316100045",
+   "EventTitle": "施工事件",
+   "Description": "南港聯絡道 南向 0K+000 施工事件-移動性施工",
+   "EventType": 2,
+   "EventSubType": 208,
+   "EventStep": 1,
+   "EffectiveTime": "2026-11-23T08:05:00+08:00",
+   "Positions": "POINT(121.623320 25.046801)",
+   "LocationType": 0,
+   "Location": {
+    "FreeExpressHighway": {
+     "Road": "南港聯絡道",
+     "Direction": "南向",
+     "StartKM": "0K+000",
+     "EndKM": "1K+400",
+     "SectionStart": "環東",
+     "SectionEnd": "--"
+    }
+   },
+   "Impact": {
+    "Description": "部分阻斷交通",
+    "Severity": 1,
+    "Regulations": [
+     2
+    ],
+    "BlockWay": 1,
+    "BlockedLanes": "RS"
+   },
+   "Source": "電話",
+   "PublishTime": "2026-11-23T08:05:00+08:00",
+   "LastUpdateTime": "2026-11-23T08:05:00+08:00"
+  },
+  {
+   "EventID": "A15040100H-01-20261123081336279100045",
+   "EventTitle": "施工事件",
+   "Description": "南港聯絡道 北向 1K+400 施工事件-移動性施工",
+   "EventType": 2,
+   "EventSubType": 208,
+   "EventStep": 1,
+   "EffectiveTime": "2026-11-23T08:13:00+08:00",
+   "Positions": "POINT(121.622006 25.058283)",
+   "LocationType": 0,
+   "Location": {
+    "FreeExpressHighway": {
+     "Road": "南港聯絡道",
+     "Direction": "北向",
+     "StartKM": "1K+400",
+     "EndKM": "0K+000",
+     "SectionStart": "南港",
+     "SectionEnd": "--"
+    }
+   },
+   "Impact": {
+    "Description": "部分阻斷交通",
+    "Severity": 1,
+    "Regulations": [
+     2
+    ],
+    "BlockWay": 1,
+    "BlockedLanes": "RS"
+   },
+   "Source": "電話",
+   "PublishTime": "2026-11-23T08:13:00+08:00",
+   "LastUpdateTime": "2026-11-23T08:13:00+08:00"
+  }
+ ]
+}

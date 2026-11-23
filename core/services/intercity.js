@@ -1,11 +1,12 @@
 // 國道客運服務（真實 TDX 版）：起訖附近都有站牌的直達路線、接下來的班次、含路況的預估抵達（docs/MCP_TOOLS.md §7）
-// ⚠️ 端點與欄位待 M1 驗證，防禦性解析；票價端點未確認，fare 先回 null。
+// 端點與欄位 2026-11-23 實測（docs/DATA_SOURCES.md）；防禦性解析。票價端點 `/basic/v2/Bus/RouteFare/InterCity`（`StageFares`）存在但尚未串接，fare 先回 null。
 import { distanceM, nowTW, toMin, toHHMM, UserError, zh, arr, odataStr } from '../util.js';
 import { cacheOf, rawOpts, nonEmpty, STATIC_TTL } from './tdx-cache.js';
 
 export const STOP_RADIUS_M = 1500; // 起訖點到上下車站牌的最大距離
 export const MAX_TRIPS = 5;
 export const BUS_KMH = 70;         // 時刻表沒有下車時間時，用直線 × 1.3 ÷ 70 km/h 估算
+export const ALONG_KMH = 50;       // 時刻表沒有上車站時間時，由前一個有時間的站沿站牌距離 ÷ 50 km/h 估到站（估快一點：寧可早到站牌）
 export const NEXT_DAY_WINDOW_MIN = 180; // 深夜查詢：列出 3 小時內的隔日（跨日）班次
 const DAY = 24 * 60;
 /** 合法的 HH:mm（00:00～23:59） */
@@ -49,7 +50,8 @@ export const departMinutes = (departAt, now = Date.now()) => departOf(departAt, 
 
 /**
  * 從各路線站序找出「上車站在起點附近、下車站在終點附近、且下車站在後」的組合。
- * @returns {Array<{ routeUid, subRouteUid, routeName, headsign, direction, board, alight, walkFromM, walkToM }>}
+ * along：上車站以前（含）各站離第一站的沿線距離 [[站序, 公尺]]（時刻表沒有上車站時間時估到站用）
+ * @returns {Array<{ routeUid, subRouteUid, routeName, headsign, direction, board, alight, walkFromM, walkToM, along }>}
  */
 export function matchRoutes(stopOfRoute, from, to, radius = STOP_RADIUS_M) {
   const out = [];
@@ -67,12 +69,19 @@ export function matchRoutes(stopOfRoute, from, to, radius = STOP_RADIUS_M) {
       }
     }
     if (!best) continue;
+    const along = [];
+    let cum = 0;
+    const seqd = [...stops].sort((x, y) => x.StopSequence - y.StopSequence).filter((s) => s.StopSequence <= best.b.StopSequence);
+    seqd.forEach((s, i) => {
+      if (i) cum += distanceM(seqd[i - 1].StopPosition.PositionLat, seqd[i - 1].StopPosition.PositionLon, s.StopPosition.PositionLat, s.StopPosition.PositionLon);
+      along.push([s.StopSequence, Math.round(cum)]);
+    });
     out.push({
       routeUid: r.RouteUID, subRouteUid: r.SubRouteUID || null,
       routeName: zh(r.RouteName), headsign: zh(r.SubRouteName) || zh(r.RouteName), direction: r.Direction ?? 0,
       board: { uid: best.b.StopUID, seq: best.b.StopSequence, name: zh(best.b.StopName) },
       alight: { uid: best.a.StopUID, seq: best.a.StopSequence, name: zh(best.a.StopName) },
-      walkFromM: best.walkFromM, walkToM: best.walkToM,
+      walkFromM: best.walkFromM, walkToM: best.walkToM, along,
     });
   }
   // 同一路線（去返程、不同子路線）只留步行最短的
@@ -92,13 +101,22 @@ export function tripsFromSchedule(schedule, m, weekday) {
     if (tt.ServiceDay && Number(tt.ServiceDay[day]) !== 1) continue;
     const st = tt.StopTimes || [];
     const at = (stop) => st.find((x) => x.StopUID === stop.uid) || st.find((x) => x.StopSequence === stop.seq);
-    const b = at(m.board), a = at(m.alight);
-    const depart = b?.DepartureTime || b?.ArrivalTime;
-    if (!depart) continue;
     const first = st.reduce((p, x) => (p == null || (x.StopSequence ?? Infinity) < (p.StopSequence ?? Infinity) ? x : p), null);
-    const startMin = toMin(first?.DepartureTime || first?.ArrivalTime || depart);
+    const b = at(m.board);
+    const a = at(m.alight);
+    const time = (x) => x?.DepartureTime || x?.ArrivalTime;
+    // 2026-11-23 實測：有些班次的 StopTimes 只有起站一筆（例 THB0968 去程）→ 上車站沒有時間時，
+    // 由上車站之前最近一個有時間的站，沿站牌距離估到站（ALONG_KMH），標 fromStop（哪一站、幾點開），抵達也用估的
+    const known = b ? null : st.filter((x) => (x.StopSequence ?? Infinity) < m.board.seq && time(x)).reduce((p, x) => (!p || x.StopSequence > p.StopSequence ? x : p), null);
+    if (!b && !known) continue;
+    if (!time(b || known)) continue;
+    const startMin = toMin(time(first) || time(b || known));
     const wrap = (t) => (t && toMin(t) < startMin ? hhmmRaw(toMin(t) + DAY) : t);
-    out.push({ depart: wrap(depart), arrive: wrap(a?.ArrivalTime || a?.DepartureTime || null) });
+    if (b) { out.push({ depart: wrap(time(b)), arrive: wrap(time(a) || null) }); continue; }
+    const cum = (seq) => m.along?.find(([q]) => q === seq)?.[1];
+    const gapM = Math.max(0, (cum(m.board.seq) ?? 0) - (cum(known.StopSequence) ?? 0));
+    const knownAt = wrap(time(known));
+    out.push({ depart: hhmmRaw(toMin(knownAt) + Math.round((gapM / 1000 / ALONG_KMH) * 60)), arrive: null, fromStop: { name: zh(known.StopName) || null, time: toHHMM(toMin(knownAt)) } });
   }
   return out;
 }
@@ -134,6 +152,8 @@ export function buildTrips(cands, { departMin, straightM, traffic }) {
         ...(d >= DAY && { nextDay: true }),
         ...(delay && { arriveWithDelay: toHHMM(a + delay), delayMin: delay }),
         ...(!c.arrive && { estimated: true }),
+        // 時刻表沒有上車站的時間：depart 是由前面的站估的（departEstimated），departFrom＝那一站與發車時間
+        ...(c.fromStop && { departEstimated: true, departFrom: c.fromStop }),
         fare: c.fare ?? null,
         board: c.m.board.name, alight: c.m.alight.name, walkFromM: c.m.walkFromM, walkToM: c.m.walkToM,
       };

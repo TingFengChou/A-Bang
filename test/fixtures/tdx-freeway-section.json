@@ -1,0 +1,205 @@
+{
+ "UpdateTime": "2026-11-23T02:27:53+08:00",
+ "UpdateInterval": 21600,
+ "SrcUpdateTime": "2026-11-23T01:59:38+08:00",
+ "SrcUpdateInterval": 86400,
+ "AuthorityCode": "NFB",
+ "LinkVersion": "25.12.1",
+ "Sections": [
+  {
+   "SectionID": "0001",
+   "LinkIDs": [
+    {
+     "LinkID": "0000100000000C"
+    },
+    {
+     "LinkID": "0000100000040C"
+    },
+    {
+     "LinkID": "0000100000080C"
+    },
+    {
+     "LinkID": "0000100000110C"
+    }
+   ],
+   "SubAuthorityCode": "NFB-NR",
+   "SectionName": "國道1號(基隆端到基隆)",
+   "RoadID": "000010",
+   "RoadName": "國道1號",
+   "RoadClass": 0,
+   "RoadDirection": "S",
+   "RoadSection": {
+    "Start": "基隆端",
+    "End": "基隆"
+   },
+   "SectionLength": 1.1,
+   "SectionMile": {
+    "StartKM": "0K+000",
+    "EndKM": "1K+100"
+   },
+   "SpeedLimit": 100
+  },
+  {
+   "SectionID": "0003",
+   "LinkIDs": [
+    {
+     "LinkID": "0000100000080C"
+    },
+    {
+     "LinkID": "0000100000110C"
+    },
+    {
+     "LinkID": "0000100000130C"
+    },
+    {
+     "LinkID": "0000100000200C"
+    },
+    {
+     "LinkID": "0000100000260C"
+    }
+   ],
+   "SubAuthorityCode": "NFB-NR",
+   "SectionName": "國道1號(基隆到八堵)",
+   "RoadID": "000010",
+   "RoadName": "國道1號",
+   "RoadClass": 0,
+   "RoadDirection": "S",
+   "RoadSection": {
+    "Start": "基隆",
+    "End": "八堵"
+   },
+   "SectionLength": 1.5,
+   "SectionMile": {
+    "StartKM": "1K+100",
+    "EndKM": "2K+600"
+   },
+   "SpeedLimit": 100
+  },
+  {
+   "SectionID": "0005",
+   "LinkIDs": [
+    {
+     "LinkID": "0000100000200C"
+    },
+    {
+     "LinkID": "0000100000260C"
+    },
+    {
+     "LinkID": "0000100000300C"
+    },
+    {
+     "LinkID": "0000100000400C"
+    },
+    {
+     "LinkID": "0000100000500C"
+    }
+   ],
+   "SubAuthorityCode": "NFB-NR",
+   "SectionName": "國道1號(八堵到大華系統)",
+   "RoadID": "000010",
+   "RoadName": "國道1號",
+   "RoadClass": 0,
+   "RoadDirection": "S",
+   "RoadSection": {
+    "Start": "八堵",
+    "End": "大華系統"
+   },
+   "SectionLength": 2.4,
+   "SectionMile": {
+    "StartKM": "2K+600",
+    "EndKM": "5K+000"
+   },
+   "SpeedLimit": 100
+  },
+  {
+   "SectionID": "0007",
+   "LinkIDs": [
+    {
+     "LinkID": "0000100000650C"
+    },
+    {
+     "LinkID": "0000100000680C"
+    },
+    {
+     "LinkID": "0000100000700C"
+    },
+    {
+     "LinkID": "0000100000740F"
+    },
+    {
+     "LinkID": "0000100000790C"
+    },
+    {
+     "LinkID": "0000100000800C"
+    },
+    {
+     "LinkID": "0000100000840F"
+    },
+    {
+     "LinkID": "0000100000900F"
+    },
+    {
+     "LinkID": "0000100000990F"
+    },
+    {
+     "LinkID": "0000100001000F"
+    }
+   ],
+   "SubAuthorityCode": "NFB-NR",
+   "SectionName": "國道1號(五堵到汐止)",
+   "RoadID": "000010",
+   "RoadName": "國道1號",
+   "RoadClass": 0,
+   "RoadDirection": "S",
+   "RoadSection": {
+    "Start": "五堵",
+    "End": "汐止"
+   },
+   "SectionLength": 3.7,
+   "SectionMile": {
+    "StartKM": "6K+800",
+    "EndKM": "10K+500"
+   },
+   "SpeedLimit": 100
+  },
+  {
+   "SectionID": "0419",
+   "LinkIDs": [
+    {
+     "LinkID": "0000100000400C"
+    },
+    {
+     "LinkID": "0000100000500C"
+    },
+    {
+     "LinkID": "0000100000550C"
+    },
+    {
+     "LinkID": "0000100000600C"
+    },
+    {
+     "LinkID": "0000100000650C"
+    },
+    {
+     "LinkID": "0000100000680C"
+    }
+   ],
+   "SubAuthorityCode": "NFB-NR",
+   "SectionName": "國道1號(大華系統到五堵)",
+   "RoadID": "000010",
+   "RoadName": "國道1號",
+   "RoadClass": 0,
+   "RoadDirection": "S",
+   "RoadSection": {
+    "Start": "大華系統",
+    "End": "五堵"
+   },
+   "SectionLength": 1.8,
+   "SectionMile": {
+    "StartKM": "5K+000",
+    "EndKM": "6K+800"
+   },
+   "SpeedLimit": 100
+  }
+ ]
+}

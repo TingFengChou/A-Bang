@@ -1,5 +1,5 @@
 // 路況服務（真實 TDX 版）：起訖兩點之間的國道路段即時車速、延誤與事件（docs/MCP_TOOLS.md §7）
-// ⚠️ 端點與欄位待 M1 驗證，全部防禦性解析：取不到資料時回 level: null（不是「順暢」），由呼叫端決定不加狀態。
+// 端點與欄位 2026-11-23 實測（docs/DATA_SOURCES.md）；仍防禦性解析：取不到資料時回 level: null（不是「順暢」），由呼叫端決定不加狀態。
 import { assertLatLon, distanceM, zh, enField, arr } from '../util.js';
 import { pathFromWkt } from '../geo.js';
 import { cacheOf, rawOpts, nonEmpty, STATIC_TTL } from './tdx-cache.js';
@@ -81,6 +81,62 @@ export function shortTrip(from, to) {
   return { level: null, delayMin: null, covered: false, straightKm: +(distanceM(from.lat, from.lon, to.lat, to.lon) / 1000).toFixed(1), segments: [], events: [], note: '起訖距離短，未查國道路況' };
 }
 
+export const EVENT_NEAR_M = 500; // 事件位置離沿途路段多近才算「沿途」
+const EVENT_DIR = { 北向: 'N', 南向: 'S', 東向: 'E', 西向: 'W' };
+
+/** 點到折線的最短距離（公尺；平面近似） */
+function distToPath(lat, lon, path) {
+  const P = project(lat, lon);
+  let best = Infinity;
+  for (let i = 0; i < path.length; i++) {
+    const [ax, ay] = P(path[i][0], path[i][1]);
+    const [bx, by] = i + 1 < path.length ? P(path[i + 1][0], path[i + 1][1]) : [ax, ay];
+    const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+    const t = len2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2)) : 0;
+    best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
+  }
+  return best;
+}
+
+/**
+ * 沿途的道路事件（TDX `/basic/v1/Traffic/RoadEvent/LiveEvent/Freeway`）。
+ * 2026-11-23 實測：`Live/News/Freeway` 的 `Newses` 只有「施工維護」這類標題、沒有路名與位置，以前依路名篩一律對不到；
+ * 改用 LiveEvents：`Positions` 是 WKT（實測都是 POINT（經度 緯度）；多點、線也收）、`Description`「國道一號 北向 27K+100 施工事件-施工維護」、
+ * `Location.FreeExpressHighway.Direction`「北向」。事件位置離沿途路段 500 公尺內、而且附近有同方向的路段（有寫方向時）才算。
+ * @param {any} json LiveEvents 回應
+ * @param {Array<{ path: Array<[number, number]>, dir?: string|null }>} segs 沿途路段（形狀與 RoadDirection N／S／E／W）
+ * @returns {Array<{ title: string, time: string|null }>}
+ */
+export function eventsAlong(json, segs, limit = 3) {
+  const out = [];
+  const PAD = 0.01; // 約 1 公里：先用外框排除離很遠的路段，不必逐點算距離
+  const boxed = segs.map((s) => ({ s, box: s.path.reduce((b, [la, lo]) => [Math.min(b[0], la), Math.max(b[1], la), Math.min(b[2], lo), Math.max(b[3], lo)], [Infinity, -Infinity, Infinity, -Infinity]) }));
+  const inBox = ([lat, lon], b) => lat >= b[0] - PAD && lat <= b[1] + PAD && lon >= b[2] - PAD && lon <= b[3] + PAD;
+  for (const e of arr(json, 'LiveEvents')) {
+    const pts = wktPoints(e.Positions);
+    if (!pts.length) continue;
+    // 事件（點、多點或一段線）任何一點離沿途路段 500 公尺內就算；有寫方向時，附近要有同方向（或沒標方向）的路段
+    const near = boxed.filter(({ s, box }) => pts.some((p) => inBox(p, box) && distToPath(p[0], p[1], s.path) <= EVENT_NEAR_M)).map((x) => x.s);
+    if (!near.length) continue;
+    const dir = EVENT_DIR[e.Location?.FreeExpressHighway?.Direction] || EVENT_DIR[/([北南東西]向)/.exec(e.Description || '')?.[1]];
+    if (dir && !near.some((s) => !s.dir || s.dir === dir)) continue; // 對向車道的事件
+    out.push({ title: e.Description || e.EventTitle || '', time: e.PublishTime || e.EffectiveTime || null });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/** WKT（POINT、MULTIPOINT、LINESTRING…）裡所有座標 → [[lat, lon]]（經緯度寫反的換回來） */
+function wktPoints(wkt) {
+  const out = [];
+  for (const m of String(wkt || '').matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)) {
+    let lon = Number(m[1]), lat = Number(m[2]);
+    if (Math.abs(lon) <= 90 && Math.abs(lat) > 90) [lat, lon] = [lon, lat];
+    if (Math.abs(lat) <= 90 && Math.abs(lon) <= 180) out.push([lat, lon]);
+  }
+  return out;
+}
+
 /** 國道路段資料（正規化後可存檔）：路段只留用到的欄位 */
 const normSections = (j) => arr(j, 'Sections').map((s) => ({ SectionID: s.SectionID, SectionName: s.SectionName, RoadName: s.RoadName, RoadDirection: s.RoadDirection, SectionLength: s.SectionLength, SpeedLimit: s.SpeedLimit }));
 
@@ -98,11 +154,11 @@ export function createTrafficServices(tdx) {
         if (straight < MIN_TRIP_M) return shortTrip(from, to);
 
         // 路段形狀與路段資料是靜態的：解析後存檔（重啟不必重抓）；車速與事件 60 秒
-        const [shapeList, sections, live, news] = await Promise.all([
+        const [shapeList, sections, live, roadEvents] = await Promise.all([
           cached('freeway-shapes', STATIC_TTL, async (o) => nonEmpty(shapesOf(await tdx.get('/basic/v2/Road/Traffic/SectionShape/Freeway', {}, 60, rawOpts(o))), '國道路段形狀')),
           cached('freeway-sections', STATIC_TTL, async (o) => nonEmpty(normSections(await tdx.get('/basic/v2/Road/Traffic/Section/Freeway', {}, 60, rawOpts(o))), '國道路段')),
           tdx.get('/basic/v2/Road/Traffic/Live/Freeway', {}, 60),
-          tdx.get('/basic/v2/Road/Traffic/Live/News/Freeway', {}, 60).catch(() => []), // 事件失敗不影響車速
+          tdx.get('/basic/v1/Traffic/RoadEvent/LiveEvent/Freeway', {}, 60).catch(() => []), // 事件失敗不影響車速
         ]);
         const info = new Map(arr(sections, 'Sections').map((s) => [s.SectionID, s]));
         const speed = new Map(arr(live, 'LiveTraffics').map((l) => [l.SectionID, l]));
@@ -111,11 +167,13 @@ export function createTrafficServices(tdx) {
         const [bx, by] = P(to.lat, to.lon);
         const along = ([lat, lon]) => { const [x, y] = P(lat, lon); return (x * bx + y * by) / (bx * bx + by * by); };
         const segments = [];
+        const segPaths = []; // 沿途路段的形狀與方向（篩事件用，不輸出）
         for (const sh of shapeList) {
           const { path } = sh;
           if (!onCorridor(path, from, to)) continue;
           const s = info.get(sh.id) || {};
           const l = speed.get(sh.id) || {};
+          segPaths.push({ path, dir: s.RoadDirection || null });
           const sp = Number(l.TravelSpeed);
           // 路段長度：資料有就用，沒有就由形狀估
           const lengthKm = Number(s.SectionLength) > 0 ? Number(s.SectionLength)
@@ -133,11 +191,7 @@ export function createTrafficServices(tdx) {
         }
         segments.sort((a, b) => a._t - b._t);
         for (const s of segments) { delete s._t; s.congestion = congestionOf(s.speedKmh, s.limitKmh); }
-        const roads = new Set(segments.map((s) => s.road).filter(Boolean));
-        const events = arr(news, 'Newses')
-          .filter((n) => [...roads].some((r) => `${n.Title || ''}${n.Description || ''}`.includes(r)))
-          .slice(0, 3)
-          .map((n) => ({ title: n.Title || '', time: n.PublishTime || n.UpdateTime || null }));
+        const events = eventsAlong(roadEvents, segPaths);
         const sum = summarize(segments);
         return {
           ...sum, covered: segments.length > 0, straightKm: +(straight / 1000).toFixed(1),

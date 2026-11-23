@@ -1,0 +1,2620 @@
+[
+ {
+  "RouteUID": "KHH100",
+  "RouteName": {
+   "Zh_tw": "100百貨幹線",
+   "En": "100 Baihuo Main Line"
+  },
+  "SubRouteUID": "KHH100",
+  "SubRouteName": {
+   "Zh_tw": "100百貨幹線",
+   "En": "100 Baihuo Main Line"
+  },
+  "Direction": 0,
+  "Stops": [
+   {
+    "StopUID": "KHH1001001781",
+    "StopID": "1001001781",
+    "StopName": {
+     "Zh_tw": "瑞豐站(瑞隆路)",
+     "En": "Rueifong Station(Rueilong Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 1,
+    "StopPosition": {
+     "PositionLon": 120.338401,
+     "PositionLat": 22.60612,
+     "GeoHash": "wsj8d77dp"
+    },
+    "StationID": "2457",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001003081",
+    "StopID": "1001003081",
+    "StopName": {
+     "Zh_tw": "永豐路口",
+     "En": "Yongfong Rd. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 2,
+    "StopPosition": {
+     "PositionLon": 120.334116,
+     "PositionLat": 22.605755,
+     "GeoHash": "wsj8d728h"
+    },
+    "StationID": "1263",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001008311",
+    "StopID": "1001008311",
+    "StopName": {
+     "Zh_tw": "崗山市場",
+     "En": "Gangshan Market"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 3,
+    "StopPosition": {
+     "PositionLon": 120.333533,
+     "PositionLat": 22.607333,
+     "GeoHash": "wsj8d781q"
+    },
+    "StationID": "3649",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001008321",
+    "StopID": "1001008321",
+    "StopName": {
+     "Zh_tw": "崗山北街口",
+     "En": "Gangshan N. St. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 4,
+    "StopPosition": {
+     "PositionLon": 120.33315,
+     "PositionLat": 22.609866,
+     "GeoHash": "wsj8dhpbj"
+    },
+    "StationID": "3651",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001008331",
+    "StopID": "1001008331",
+    "StopName": {
+     "Zh_tw": "鐵路機料廠",
+     "En": "Railway Material Plant"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 5,
+    "StopPosition": {
+     "PositionLon": 120.332716,
+     "PositionLat": 22.612866,
+     "GeoHash": "wsj8dhx97"
+    },
+    "StationID": "3653",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100128221",
+    "StopID": "100100128221",
+    "StopName": {
+     "Zh_tw": "鳳山工業區(監理所後)",
+     "En": "Fongshan Industrial Park Service Center(Behind the Motor Vehicle Office)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 6,
+    "StopPosition": {
+     "PositionLon": 120.332533,
+     "PositionLat": 22.614283,
+     "GeoHash": "wsj8dhz3x"
+    },
+    "StationID": "4806",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001008371",
+    "StopID": "1001008371",
+    "StopName": {
+     "Zh_tw": "鐵路機廠",
+     "En": "Railway Workshop"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 7,
+    "StopPosition": {
+     "PositionLon": 120.33225,
+     "PositionLat": 22.617133,
+     "GeoHash": "wsj8djr62"
+    },
+    "StationID": "3655",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001008401",
+    "StopID": "1001008401",
+    "StopName": {
+     "Zh_tw": "武慶三路",
+     "En": "Wucing 3rd Rd."
+    },
+    "StopBoarding": 0,
+    "StopSequence": 8,
+    "StopPosition": {
+     "PositionLon": 120.331966,
+     "PositionLat": 22.619716,
+     "GeoHash": "wsj8djz16"
+    },
+    "StationID": "3657",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001008411",
+    "StopID": "1001008411",
+    "StopName": {
+     "Zh_tw": "五塊厝(武慶三路)",
+     "En": "Wukuaicuo(Wucing 3rd Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 9,
+    "StopPosition": {
+     "PositionLon": 120.331691,
+     "PositionLat": 22.621489,
+     "GeoHash": "wsj8dnnge"
+    },
+    "StationID": "3659",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010095351",
+    "StopID": "10010095351",
+    "StopName": {
+     "Zh_tw": "三信家商",
+     "En": "San Hsin High School?of?Commerce and Home Economics"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 10,
+    "StopPosition": {
+     "PositionLon": 120.329212,
+     "PositionLat": 22.622119,
+     "GeoHash": "wsj8dnjp3"
+    },
+    "StationID": "112",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001001521",
+    "StopID": "1001001521",
+    "StopName": {
+     "Zh_tw": "國際商工(輕軌五權國小站)",
+     "En": "Kuochi Senior Vocational High School(LRT Wucyuan Elementry School Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 11,
+    "StopPosition": {
+     "PositionLon": 120.326523,
+     "PositionLat": 22.621192,
+     "GeoHash": "wsj8dn51g"
+    },
+    "StationID": "110",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100521",
+    "StopID": "100100521",
+    "StopName": {
+     "Zh_tw": "五權國小(三多二路)",
+     "En": "Wucyuan Elementry School(Sanduo 2nd Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 12,
+    "StopPosition": {
+     "PositionLon": 120.323801,
+     "PositionLat": 22.620276,
+     "GeoHash": "wsj8djche"
+    },
+    "StationID": "3661",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010095371",
+    "StopID": "10010095371",
+    "StopName": {
+     "Zh_tw": "和平路口",
+     "En": "Heping Rd. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 13,
+    "StopPosition": {
+     "PositionLon": 120.321493,
+     "PositionLat": 22.619572,
+     "GeoHash": "wsj89vz2t"
+    },
+    "StationID": "3663",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010095391",
+    "StopID": "10010095391",
+    "StopName": {
+     "Zh_tw": "林德官(三和市場)",
+     "En": "Lindeguan(Sanhe Market)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 14,
+    "StopPosition": {
+     "PositionLon": 120.319791,
+     "PositionLat": 22.619,
+     "GeoHash": "wsj89vwjn"
+    },
+    "StationID": "3665",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010095401",
+    "StopID": "10010095401",
+    "StopName": {
+     "Zh_tw": "光華路口(光華夜市)",
+     "En": "Guanghua Rd. Intersection(Guanghua Night Market)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 15,
+    "StopPosition": {
+     "PositionLon": 120.317459,
+     "PositionLat": 22.618223,
+     "GeoHash": "wsj89vs2x"
+    },
+    "StationID": "3667",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010095411",
+    "StopID": "10010095411",
+    "StopName": {
+     "Zh_tw": "三多市場(三多三路)",
+     "En": "Sanduo Market(Sanduo 3rd Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 16,
+    "StopPosition": {
+     "PositionLon": 120.313862,
+     "PositionLat": 22.617162,
+     "GeoHash": "wsj89v3fs"
+    },
+    "StationID": "3669",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010095541",
+    "StopID": "10010095541",
+    "StopName": {
+     "Zh_tw": "三多復興路口",
+     "En": "Sanduo Fusing Rd. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 17,
+    "StopPosition": {
+     "PositionLon": 120.312333,
+     "PositionLat": 22.616591,
+     "GeoHash": "wsj89v0z0"
+    },
+    "StationID": "430",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010095551",
+    "StopID": "10010095551",
+    "StopName": {
+     "Zh_tw": "仁愛三街口",
+     "En": "Renai 3rd St. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 18,
+    "StopPosition": {
+     "PositionLon": 120.310558,
+     "PositionLat": 22.616015,
+     "GeoHash": "wsj89tp7z"
+    },
+    "StationID": "947",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010095561",
+    "StopID": "10010095561",
+    "StopName": {
+     "Zh_tw": "三多三路",
+     "En": "Sanduo 3rd Rd."
+    },
+    "StopBoarding": 0,
+    "StopSequence": 19,
+    "StopPosition": {
+     "PositionLon": 120.308804,
+     "PositionLat": 22.615457,
+     "GeoHash": "wsj89tn0w"
+    },
+    "StationID": "434",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010095771",
+    "StopID": "10010095771",
+    "StopName": {
+     "Zh_tw": "新光三越(捷運三多商圈站)",
+     "En": "Shin Kong Mitsukoshi Department Store(MRT Sandou Shopping District Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 20,
+    "StopPosition": {
+     "PositionLon": 120.306097,
+     "PositionLat": 22.614469,
+     "GeoHash": "wsj89su4z"
+    },
+    "StationID": "447",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001007571",
+    "StopID": "1001007571",
+    "StopName": {
+     "Zh_tw": "大遠百百貨(捷運三多商圈站)",
+     "En": "Far Eastern Department Store(MRT Sandou Shopping District Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 21,
+    "StopPosition": {
+     "PositionLon": 120.303198,
+     "PositionLat": 22.613541,
+     "GeoHash": "wsj89sdj7"
+    },
+    "StationID": "525",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001009071",
+    "StopID": "1001009071",
+    "StopName": {
+     "Zh_tw": "自強三路口(三多四路)",
+     "En": "Zihciang 3rd Rd. Intersection(Sanduo 4th Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 22,
+    "StopPosition": {
+     "PositionLon": 120.300958,
+     "PositionLat": 22.61283,
+     "GeoHash": "wsj89s83r"
+    },
+    "StationID": "1339",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001007661",
+    "StopID": "1001007661",
+    "StopName": {
+     "Zh_tw": "八五大樓",
+     "En": "85 Sky Tower"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 23,
+    "StopPosition": {
+     "PositionLon": 120.299629,
+     "PositionLat": 22.61238,
+     "GeoHash": "wsj89krw8"
+    },
+    "StationID": "3901",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001008591",
+    "StopID": "1001008591",
+    "StopName": {
+     "Zh_tw": "成功國小",
+     "En": "ChengKung Primary School"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 24,
+    "StopPosition": {
+     "PositionLon": 120.297885,
+     "PositionLat": 22.613843,
+     "GeoHash": "wsj89kwpp"
+    },
+    "StationID": "931",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010095781",
+    "StopID": "10010095781",
+    "StopName": {
+     "Zh_tw": "苓雅市場",
+     "En": "Lingya Market"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 25,
+    "StopPosition": {
+     "PositionLon": 120.296764,
+     "PositionLat": 22.616931,
+     "GeoHash": "wsj89mm3j"
+    },
+    "StationID": "3639",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100801",
+    "StopID": "100100801",
+    "StopName": {
+     "Zh_tw": "漢神百貨",
+     "En": "Hanshin Department Store"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 26,
+    "StopPosition": {
+     "PositionLon": 120.295867,
+     "PositionLat": 22.619297,
+     "GeoHash": "wsj89msyb"
+    },
+    "StationID": "3673",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010025951",
+    "StopID": "10010025951",
+    "StopName": {
+     "Zh_tw": "大立百貨",
+     "En": "Talee Department Store"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 27,
+    "StopPosition": {
+     "PositionLon": 120.295963,
+     "PositionLat": 22.621196,
+     "GeoHash": "wsj89qhf5"
+    },
+    "StationID": "2319",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100122871",
+    "StopID": "100100122871",
+    "StopName": {
+     "Zh_tw": "大立百貨(文武二街口)",
+     "En": "Talee Department Store(Wunwu 2nd St. Intersection)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 28,
+    "StopPosition": {
+     "PositionLon": 120.29761,
+     "PositionLat": 22.621859,
+     "GeoHash": "wsj89qnjc"
+    },
+    "StationID": "2497",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010095791",
+    "StopID": "10010095791",
+    "StopName": {
+     "Zh_tw": "城市光廊(捷運中央公園站)",
+     "En": "Urban Spotlight(MRT Central Park Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 29,
+    "StopPosition": {
+     "PositionLon": 120.299883,
+     "PositionLat": 22.622617,
+     "GeoHash": "wsj89qrdq"
+    },
+    "StationID": "2317",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158451",
+    "StopID": "100100158451",
+    "StopName": {
+     "Zh_tw": "新堀江",
+     "En": "Shinkujihan(New Jyuejiang)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 30,
+    "StopPosition": {
+     "PositionLon": 120.30297,
+     "PositionLat": 22.623627,
+     "GeoHash": "wsj89w9bn"
+    },
+    "StationID": "95",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158491",
+    "StopID": "100100158491",
+    "StopName": {
+     "Zh_tw": "新興國小",
+     "En": "Shin Shing Elementary School"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 31,
+    "StopPosition": {
+     "PositionLon": 120.304377,
+     "PositionLat": 22.626727,
+     "GeoHash": "wsj89x4fp"
+    },
+    "StationID": "3372",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010095931",
+    "StopID": "10010095931",
+    "StopName": {
+     "Zh_tw": "捷運美麗島站",
+     "En": "MRT Formosa Boulevard Station"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 32,
+    "StopPosition": {
+     "PositionLon": 120.301918,
+     "PositionLat": 22.630165,
+     "GeoHash": "wsj89x9nm"
+    },
+    "StationID": "2295",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158501",
+    "StopID": "100100158501",
+    "StopName": {
+     "Zh_tw": "六合夜市(大港埔)",
+     "En": "Liouhe Night Market(Dagangpu)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 33,
+    "StopPosition": {
+     "PositionLon": 120.302372,
+     "PositionLat": 22.634002,
+     "GeoHash": "wsj8c83s8"
+    },
+    "StationID": "3348",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158511",
+    "StopID": "100100158511",
+    "StopName": {
+     "Zh_tw": "高雄車站(站東路)",
+     "En": "Kaohsiung Main Station(Jhandong Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 34,
+    "StopPosition": {
+     "PositionLon": 120.303662,
+     "PositionLat": 22.639645,
+     "GeoHash": "wsj8c96mq"
+    },
+    "StationID": "5948",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158521",
+    "StopID": "100100158521",
+    "StopName": {
+     "Zh_tw": "天津街口",
+     "En": "Tianjin St. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 35,
+    "StopPosition": {
+     "PositionLon": 120.301402,
+     "PositionLat": 22.64565,
+     "GeoHash": "wsj8cd8b3"
+    },
+    "StationID": "3742",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158531",
+    "StopID": "100100158531",
+    "StopName": {
+     "Zh_tw": "三民區公所",
+     "En": "Sanmin District Office"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 36,
+    "StopPosition": {
+     "PositionLon": 120.299898,
+     "PositionLat": 22.646418,
+     "GeoHash": "wsj8c6xsy"
+    },
+    "StationID": "2179",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010091321",
+    "StopID": "10010091321",
+    "StopName": {
+     "Zh_tw": "同盟重慶街口",
+     "En": "Tongmeng Chongching Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 37,
+    "StopPosition": {
+     "PositionLon": 120.302197,
+     "PositionLat": 22.651493,
+     "GeoHash": "wsj8ce96s"
+    },
+    "StationID": "6140",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158541",
+    "StopID": "100100158541",
+    "StopName": {
+     "Zh_tw": "龍德路口(博愛一路)",
+     "En": "Longde Rd. Intersection(Boai 1st Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 38,
+    "StopPosition": {
+     "PositionLon": 120.303772,
+     "PositionLat": 22.654081,
+     "GeoHash": "wsj8cs499"
+    },
+    "StationID": "3711",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158551",
+    "StopID": "100100158551",
+    "StopName": {
+     "Zh_tw": "捷運凹子底站(輕軌愛河之心站)",
+     "En": "MRT Aozihdi Station(LRT Heart of Love River Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 39,
+    "StopPosition": {
+     "PositionLon": 120.303235,
+     "PositionLat": 22.656977,
+     "GeoHash": "wsj8csd4k"
+    },
+    "StationID": "3708",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158581",
+    "StopID": "100100158581",
+    "StopName": {
+     "Zh_tw": "明誠路口(博愛二路)",
+     "En": "Mingcheng Rd. Intersection(Boai 2nd Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 40,
+    "StopPosition": {
+     "PositionLon": 120.303238,
+     "PositionLat": 22.660755,
+     "GeoHash": "wsj8ct60k"
+    },
+    "StationID": "3707",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158591",
+    "StopID": "100100158591",
+    "StopName": {
+     "Zh_tw": "立文路口",
+     "En": "Liwen Rd. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 41,
+    "StopPosition": {
+     "PositionLon": 120.30333,
+     "PositionLat": 22.66423,
+     "GeoHash": "wsj8ctfhw"
+    },
+    "StationID": "4169",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158601",
+    "StopID": "100100158601",
+    "StopName": {
+     "Zh_tw": "捷運巨蛋站",
+     "En": "MRT Kaohsiung Arena Station"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 42,
+    "StopPosition": {
+     "PositionLon": 120.303453,
+     "PositionLat": 22.666229,
+     "GeoHash": "wsj8cw623"
+    },
+    "StationID": "3704",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158631",
+    "StopID": "100100158631",
+    "StopName": {
+     "Zh_tw": "漢神巨蛋",
+     "En": "Hanshin Arena"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 43,
+    "StopPosition": {
+     "PositionLon": 120.303541,
+     "PositionLat": 22.668385,
+     "GeoHash": "wsj8cwdkg"
+    },
+    "StationID": "3702",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158641",
+    "StopID": "100100158641",
+    "StopName": {
+     "Zh_tw": "博愛路口(漢神巨蛋)",
+     "En": "Boai Rd. Intersection(Hanshin Arena )"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 44,
+    "StopPosition": {
+     "PositionLon": 120.301788,
+     "PositionLat": 22.670703,
+     "GeoHash": "wsj8cx146"
+    },
+    "StationID": "4546",
+    "LocationCityCode": "KHH"
+   }
+  ],
+  "UpdateTime": "2026-11-23T10:31:28+08:00",
+  "VersionID": 11541
+ },
+ {
+  "RouteUID": "KHH100",
+  "RouteName": {
+   "Zh_tw": "100百貨幹線",
+   "En": "100 Baihuo Main Line"
+  },
+  "SubRouteUID": "KHH100",
+  "SubRouteName": {
+   "Zh_tw": "100百貨幹線",
+   "En": "100 Baihuo Main Line"
+  },
+  "Direction": 1,
+  "Stops": [
+   {
+    "StopUID": "KHH100100158652",
+    "StopID": "100100158652",
+    "StopName": {
+     "Zh_tw": "博愛路口(漢神巨蛋)",
+     "En": "Boai Rd. Intersection(Hanshin Arena )"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 1,
+    "StopPosition": {
+     "PositionLon": 120.301788,
+     "PositionLat": 22.670703,
+     "GeoHash": "wsj8cx146"
+    },
+    "StationID": "4546",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158662",
+    "StopID": "100100158662",
+    "StopName": {
+     "Zh_tw": "漢神巨蛋",
+     "En": "Hanshin Arena"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 2,
+    "StopPosition": {
+     "PositionLon": 120.303211,
+     "PositionLat": 22.668395,
+     "GeoHash": "wsj8cwdhg"
+    },
+    "StationID": "3700",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158672",
+    "StopID": "100100158672",
+    "StopName": {
+     "Zh_tw": "捷運巨蛋站",
+     "En": "MRT Kaohsiung Arena Station"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 3,
+    "StopPosition": {
+     "PositionLon": 120.303106,
+     "PositionLat": 22.665071,
+     "GeoHash": "wsj8cw419"
+    },
+    "StationID": "3703",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158692",
+    "StopID": "100100158692",
+    "StopName": {
+     "Zh_tw": "明誠路口(博愛二路)",
+     "En": "Mingcheng Rd. Intersection(Boai 2nd Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 4,
+    "StopPosition": {
+     "PositionLon": 120.302999,
+     "PositionLat": 22.661589,
+     "GeoHash": "wsj8ct3vr"
+    },
+    "StationID": "3706",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158702",
+    "StopID": "100100158702",
+    "StopName": {
+     "Zh_tw": "捷運凹子底站(輕軌愛河之心站)",
+     "En": "MRT Aozihdi Station(LRT Heart of Love River Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 5,
+    "StopPosition": {
+     "PositionLon": 120.302951,
+     "PositionLat": 22.657221,
+     "GeoHash": "wsj8cs9gv"
+    },
+    "StationID": "3709",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158712",
+    "StopID": "100100158712",
+    "StopName": {
+     "Zh_tw": "龍德路口(博愛一路)",
+     "En": "Longde Rd. Intersection(Boai 1st Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 6,
+    "StopPosition": {
+     "PositionLon": 120.30342,
+     "PositionLat": 22.654656,
+     "GeoHash": "wsj8cs4kb"
+    },
+    "StationID": "3710",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010091332",
+    "StopID": "10010091332",
+    "StopName": {
+     "Zh_tw": "同盟重慶街口",
+     "En": "Tongmeng Chongching Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 7,
+    "StopPosition": {
+     "PositionLon": 120.302282,
+     "PositionLat": 22.651698,
+     "GeoHash": "wsj8ce97w"
+    },
+    "StationID": "6141",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158732",
+    "StopID": "100100158732",
+    "StopName": {
+     "Zh_tw": "三民區公所",
+     "En": "Sanmin District Office"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 8,
+    "StopPosition": {
+     "PositionLon": 120.299907,
+     "PositionLat": 22.647205,
+     "GeoHash": "wsj8c6z9x"
+    },
+    "StationID": "2178",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158752",
+    "StopID": "100100158752",
+    "StopName": {
+     "Zh_tw": "天津街口",
+     "En": "Tianjin St. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 9,
+    "StopPosition": {
+     "PositionLon": 120.30072,
+     "PositionLat": 22.645562,
+     "GeoHash": "wsj8cd2rc"
+    },
+    "StationID": "3743",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010095962",
+    "StopID": "10010095962",
+    "StopName": {
+     "Zh_tw": "高雄車站(中山路)",
+     "En": "Kaohsiung Main Station(Jhongshan Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 10,
+    "StopPosition": {
+     "PositionLon": 120.302142,
+     "PositionLat": 22.636332,
+     "GeoHash": "wsj8c8c65"
+    },
+    "StationID": "5766",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010095982",
+    "StopID": "10010095982",
+    "StopName": {
+     "Zh_tw": "六合夜市(大港埔)",
+     "En": "Liouhe Night Market(Dagangpu)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 11,
+    "StopPosition": {
+     "PositionLon": 120.301882,
+     "PositionLat": 22.633519,
+     "GeoHash": "wsj8c831v"
+    },
+    "StationID": "3349",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001004022",
+    "StopID": "1001004022",
+    "StopName": {
+     "Zh_tw": "捷運美麗島站",
+     "En": "MRT Formosa Boulevard Station"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 12,
+    "StopPosition": {
+     "PositionLon": 120.301644,
+     "PositionLat": 22.630417,
+     "GeoHash": "wsj89x8zx"
+    },
+    "StationID": "2296",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158762",
+    "StopID": "100100158762",
+    "StopName": {
+     "Zh_tw": "新興國小",
+     "En": "Shin Shing Elementary School"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 13,
+    "StopPosition": {
+     "PositionLon": 120.304273,
+     "PositionLat": 22.626811,
+     "GeoHash": "wsj89x4fs"
+    },
+    "StationID": "3373",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100158772",
+    "StopID": "100100158772",
+    "StopName": {
+     "Zh_tw": "新堀江",
+     "En": "Shinkujihan(New Jyuejiang)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 14,
+    "StopPosition": {
+     "PositionLon": 120.302767,
+     "PositionLat": 22.623859,
+     "GeoHash": "wsj89w9c9"
+    },
+    "StationID": "96",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010096042",
+    "StopID": "10010096042",
+    "StopName": {
+     "Zh_tw": "城市光廊(捷運中央公園站)",
+     "En": "Urban Spotlight(MRT Central Park Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 15,
+    "StopPosition": {
+     "PositionLon": 120.300356,
+     "PositionLat": 22.623033,
+     "GeoHash": "wsj89w2h9"
+    },
+    "StationID": "2316",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100122882",
+    "StopID": "100100122882",
+    "StopName": {
+     "Zh_tw": "大立百貨(文武二街口)",
+     "En": "Talee Department Store(Wunwu 2nd St. Intersection)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 16,
+    "StopPosition": {
+     "PositionLon": 120.297333,
+     "PositionLat": 22.622002,
+     "GeoHash": "wsj89qjye"
+    },
+    "StationID": "2498",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100912",
+    "StopID": "100100912",
+    "StopName": {
+     "Zh_tw": "漢神百貨",
+     "En": "Hanshin Department Store"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 17,
+    "StopPosition": {
+     "PositionLon": 120.295611,
+     "PositionLat": 22.619146,
+     "GeoHash": "wsj89msw4"
+    },
+    "StationID": "3674",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010096052",
+    "StopID": "10010096052",
+    "StopName": {
+     "Zh_tw": "苓雅市場",
+     "En": "Lingya Market"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 18,
+    "StopPosition": {
+     "PositionLon": 120.296579,
+     "PositionLat": 22.616723,
+     "GeoHash": "wsj89mjrc"
+    },
+    "StationID": "3640",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001008792",
+    "StopID": "1001008792",
+    "StopName": {
+     "Zh_tw": "成功國小",
+     "En": "ChengKung Primary School"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 19,
+    "StopPosition": {
+     "PositionLon": 120.29764,
+     "PositionLat": 22.613857,
+     "GeoHash": "wsj89kwp6"
+    },
+    "StationID": "930",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001007922",
+    "StopID": "1001007922",
+    "StopName": {
+     "Zh_tw": "八五大樓",
+     "En": "85 Sky Tower"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 20,
+    "StopPosition": {
+     "PositionLon": 120.300052,
+     "PositionLat": 22.612347,
+     "GeoHash": "wsj89kry6"
+    },
+    "StationID": "3900",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001009092",
+    "StopID": "1001009092",
+    "StopName": {
+     "Zh_tw": "自強三路口(三多四路)",
+     "En": "Zihciang 3rd Rd. Intersection(Sanduo 4th Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 21,
+    "StopPosition": {
+     "PositionLon": 120.301003,
+     "PositionLat": 22.612641,
+     "GeoHash": "wsj89s880"
+    },
+    "StationID": "1338",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001007952",
+    "StopID": "1001007952",
+    "StopName": {
+     "Zh_tw": "大遠百百貨(捷運三多商圈站)",
+     "En": "Far Eastern Department Store(MRT Sandou Shopping District Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 22,
+    "StopPosition": {
+     "PositionLon": 120.303302,
+     "PositionLat": 22.613417,
+     "GeoHash": "wsj89sdhw"
+    },
+    "StationID": "526",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010096202",
+    "StopID": "10010096202",
+    "StopName": {
+     "Zh_tw": "新光三越(捷運三多商圈站)",
+     "En": "Shin Kong Mitsukoshi Department Store(MRT Sandou Shopping District Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 23,
+    "StopPosition": {
+     "PositionLon": 120.306269,
+     "PositionLat": 22.614402,
+     "GeoHash": "wsj89su67"
+    },
+    "StationID": "448",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010096212",
+    "StopID": "10010096212",
+    "StopName": {
+     "Zh_tw": "三多三路",
+     "En": "Sanduo 3rd Rd."
+    },
+    "StopBoarding": 0,
+    "StopSequence": 24,
+    "StopPosition": {
+     "PositionLon": 120.309037,
+     "PositionLat": 22.615328,
+     "GeoHash": "wsj89syrg"
+    },
+    "StationID": "435",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010096252",
+    "StopID": "10010096252",
+    "StopName": {
+     "Zh_tw": "仁愛三街口",
+     "En": "Renai 3rd St. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 25,
+    "StopPosition": {
+     "PositionLon": 120.310727,
+     "PositionLat": 22.615898,
+     "GeoHash": "wsj89tpe5"
+    },
+    "StationID": "948",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010096682",
+    "StopID": "10010096682",
+    "StopName": {
+     "Zh_tw": "三多復興路口",
+     "En": "Sanduo Fusing Rd. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 26,
+    "StopPosition": {
+     "PositionLon": 120.312379,
+     "PositionLat": 22.616393,
+     "GeoHash": "wsj89v0y1"
+    },
+    "StationID": "431",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010096692",
+    "StopID": "10010096692",
+    "StopName": {
+     "Zh_tw": "三多市場(三多三路)",
+     "En": "Sanduo Market(Sanduo 3rd Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 27,
+    "StopPosition": {
+     "PositionLon": 120.314916,
+     "PositionLat": 22.61723,
+     "GeoHash": "wsj89v6du"
+    },
+    "StationID": "3670",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001001172",
+    "StopID": "1001001172",
+    "StopName": {
+     "Zh_tw": "光華路口(光華夜市)",
+     "En": "Guanghua Rd. Intersection(Guanghua Night Market)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 28,
+    "StopPosition": {
+     "PositionLon": 120.318135,
+     "PositionLat": 22.618349,
+     "GeoHash": "wsj89vscr"
+    },
+    "StationID": "3668",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10010096712",
+    "StopID": "10010096712",
+    "StopName": {
+     "Zh_tw": "林德官(三和市場)",
+     "En": "Lindeguan(Sanhe Market)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 29,
+    "StopPosition": {
+     "PositionLon": 120.31997,
+     "PositionLat": 22.618829,
+     "GeoHash": "wsj89vwk4"
+    },
+    "StationID": "3666",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001001262",
+    "StopID": "1001001262",
+    "StopName": {
+     "Zh_tw": "和平路口",
+     "En": "Heping Rd. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 30,
+    "StopPosition": {
+     "PositionLon": 120.321568,
+     "PositionLat": 22.619423,
+     "GeoHash": "wsj89vxrx"
+    },
+    "StationID": "3664",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001001322",
+    "StopID": "1001001322",
+    "StopName": {
+     "Zh_tw": "五權國小(三多二路)",
+     "En": "Wucyuan Elementry School(Sanduo 2nd Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 31,
+    "StopPosition": {
+     "PositionLon": 120.323945,
+     "PositionLat": 22.620201,
+     "GeoHash": "wsj8djchp"
+    },
+    "StationID": "3662",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001005552",
+    "StopID": "1001005552",
+    "StopName": {
+     "Zh_tw": "國際商工(輕軌五權國小站)",
+     "En": "Kuochi Senior Vocational High School(LRT Wucyuan Elementry School Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 32,
+    "StopPosition": {
+     "PositionLon": 120.326541,
+     "PositionLat": 22.621023,
+     "GeoHash": "wsj8dn515"
+    },
+    "StationID": "109",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001005692",
+    "StopID": "1001005692",
+    "StopName": {
+     "Zh_tw": "三信家商",
+     "En": "San Hsin High School?of?Commerce and Home Economics"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 33,
+    "StopPosition": {
+     "PositionLon": 120.329282,
+     "PositionLat": 22.621973,
+     "GeoHash": "wsj8dnjne"
+    },
+    "StationID": "111",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001008962",
+    "StopID": "1001008962",
+    "StopName": {
+     "Zh_tw": "五塊厝(武慶三路)",
+     "En": "Wukuaicuo(Wucing 3rd Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 34,
+    "StopPosition": {
+     "PositionLon": 120.33153,
+     "PositionLat": 22.621683,
+     "GeoHash": "wsj8dnnsz"
+    },
+    "StationID": "3660",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001008972",
+    "StopID": "1001008972",
+    "StopName": {
+     "Zh_tw": "武慶三路",
+     "En": "Wucing 3rd Rd."
+    },
+    "StopBoarding": 0,
+    "StopSequence": 35,
+    "StopPosition": {
+     "PositionLon": 120.331862,
+     "PositionLat": 22.619302,
+     "GeoHash": "wsj8djwyz"
+    },
+    "StationID": "3658",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001008992",
+    "StopID": "1001008992",
+    "StopName": {
+     "Zh_tw": "鐵路機廠",
+     "En": "Railway Workshop"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 36,
+    "StopPosition": {
+     "PositionLon": 120.332133,
+     "PositionLat": 22.616978,
+     "GeoHash": "wsj8djr1m"
+    },
+    "StationID": "3656",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100100128232",
+    "StopID": "100100128232",
+    "StopName": {
+     "Zh_tw": "鳳山工業區(監理所後)",
+     "En": "Fongshan Industrial Park Service Center(Behind the Motor Vehicle Office)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 37,
+    "StopPosition": {
+     "PositionLon": 120.332408,
+     "PositionLat": 22.614653,
+     "GeoHash": "wsj8dhz7u"
+    },
+    "StationID": "4807",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001009032",
+    "StopID": "1001009032",
+    "StopName": {
+     "Zh_tw": "鐵路機料廠",
+     "En": "Railway Material Plant"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 38,
+    "StopPosition": {
+     "PositionLon": 120.332597,
+     "PositionLat": 22.612733,
+     "GeoHash": "wsj8dhx88"
+    },
+    "StationID": "3654",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001009052",
+    "StopID": "1001009052",
+    "StopName": {
+     "Zh_tw": "崗山北街口",
+     "En": "Gangshan N. St. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 39,
+    "StopPosition": {
+     "PositionLon": 120.33295,
+     "PositionLat": 22.609742,
+     "GeoHash": "wsj8d5zz2"
+    },
+    "StationID": "3652",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001009062",
+    "StopID": "1001009062",
+    "StopName": {
+     "Zh_tw": "崗山市場",
+     "En": "Gangshan Market"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 40,
+    "StopPosition": {
+     "PositionLon": 120.333209,
+     "PositionLat": 22.607384,
+     "GeoHash": "wsj8d5xcw"
+    },
+    "StationID": "3650",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001003842",
+    "StopID": "1001003842",
+    "StopName": {
+     "Zh_tw": "永豐路口",
+     "En": "Yongfong Rd. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 41,
+    "StopPosition": {
+     "PositionLon": 120.334196,
+     "PositionLat": 22.605587,
+     "GeoHash": "wsj8d70xj"
+    },
+    "StationID": "1262",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1001002882",
+    "StopID": "1001002882",
+    "StopName": {
+     "Zh_tw": "瑞豐站(瑞隆路)",
+     "En": "Rueifong Station(Rueilong Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 42,
+    "StopPosition": {
+     "PositionLon": 120.337479,
+     "PositionLat": 22.605884,
+     "GeoHash": "wsj8d770f"
+    },
+    "StationID": "2456",
+    "LocationCityCode": "KHH"
+   }
+  ],
+  "UpdateTime": "2026-11-23T10:31:28+08:00",
+  "VersionID": 11541
+ },
+ {
+  "RouteUID": "KHH1001",
+  "RouteName": {
+   "Zh_tw": "100區間車",
+   "En": "100 Baihuo Main Line Interval"
+  },
+  "SubRouteUID": "KHH1001",
+  "SubRouteName": {
+   "Zh_tw": "100區間車",
+   "En": "100 Baihuo Main Line Interval"
+  },
+  "Direction": 0,
+  "Stops": [
+   {
+    "StopUID": "KHH1010011781",
+    "StopID": "1010011781",
+    "StopName": {
+     "Zh_tw": "瑞豐站(瑞隆路)",
+     "En": "Rueifong Station(Rueilong Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 1,
+    "StopPosition": {
+     "PositionLon": 120.338401,
+     "PositionLat": 22.60612,
+     "GeoHash": "wsj8d77dp"
+    },
+    "StationID": "2457",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1010018311",
+    "StopID": "1010018311",
+    "StopName": {
+     "Zh_tw": "崗山市場",
+     "En": "Gangshan Market"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 2,
+    "StopPosition": {
+     "PositionLon": 120.333533,
+     "PositionLat": 22.607333,
+     "GeoHash": "wsj8d781q"
+    },
+    "StationID": "3649",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1010018331",
+    "StopID": "1010018331",
+    "StopName": {
+     "Zh_tw": "鐵路機料廠",
+     "En": "Railway Material Plant"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 3,
+    "StopPosition": {
+     "PositionLon": 120.332716,
+     "PositionLat": 22.612866,
+     "GeoHash": "wsj8dhx97"
+    },
+    "StationID": "3653",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1010018371",
+    "StopID": "1010018371",
+    "StopName": {
+     "Zh_tw": "鐵路機廠",
+     "En": "Railway Workshop"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 4,
+    "StopPosition": {
+     "PositionLon": 120.33225,
+     "PositionLat": 22.617133,
+     "GeoHash": "wsj8djr62"
+    },
+    "StationID": "3655",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1010011521",
+    "StopID": "1010011521",
+    "StopName": {
+     "Zh_tw": "國際商工(輕軌五權國小站)",
+     "En": "Kuochi Senior Vocational High School(LRT Wucyuan Elementry School Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 5,
+    "StopPosition": {
+     "PositionLon": 120.326523,
+     "PositionLat": 22.621192,
+     "GeoHash": "wsj8dn51g"
+    },
+    "StationID": "110",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10100195401",
+    "StopID": "10100195401",
+    "StopName": {
+     "Zh_tw": "光華路口(光華夜市)",
+     "En": "Guanghua Rd. Intersection(Guanghua Night Market)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 6,
+    "StopPosition": {
+     "PositionLon": 120.317459,
+     "PositionLat": 22.618223,
+     "GeoHash": "wsj89vs2x"
+    },
+    "StationID": "3667",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10100195771",
+    "StopID": "10100195771",
+    "StopName": {
+     "Zh_tw": "新光三越(捷運三多商圈站)",
+     "En": "Shin Kong Mitsukoshi Department Store(MRT Sandou Shopping District Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 7,
+    "StopPosition": {
+     "PositionLon": 120.306097,
+     "PositionLat": 22.614469,
+     "GeoHash": "wsj89su4z"
+    },
+    "StationID": "447",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1010017571",
+    "StopID": "1010017571",
+    "StopName": {
+     "Zh_tw": "大遠百百貨(捷運三多商圈站)",
+     "En": "Far Eastern Department Store(MRT Sandou Shopping District Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 8,
+    "StopPosition": {
+     "PositionLon": 120.303198,
+     "PositionLat": 22.613541,
+     "GeoHash": "wsj89sdj7"
+    },
+    "StationID": "525",
+    "LocationCityCode": "KHH"
+   }
+  ],
+  "UpdateTime": "2026-11-23T10:31:28+08:00",
+  "VersionID": 11541
+ },
+ {
+  "RouteUID": "KHH1001",
+  "RouteName": {
+   "Zh_tw": "100區間車",
+   "En": "100 Baihuo Main Line Interval"
+  },
+  "SubRouteUID": "KHH1001",
+  "SubRouteName": {
+   "Zh_tw": "100區間車",
+   "En": "100 Baihuo Main Line Interval"
+  },
+  "Direction": 1,
+  "Stops": [
+   {
+    "StopUID": "KHH10100196192",
+    "StopID": "10100196192",
+    "StopName": {
+     "Zh_tw": "大遠百百貨(捷運三多商圈站)",
+     "En": "Far Eastern Department Store(MRT Sandou Shopping District Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 1,
+    "StopPosition": {
+     "PositionLon": 120.303198,
+     "PositionLat": 22.613541,
+     "GeoHash": "wsj89sdj7"
+    },
+    "StationID": "525",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10100196202",
+    "StopID": "10100196202",
+    "StopName": {
+     "Zh_tw": "新光三越(捷運三多商圈站)",
+     "En": "Shin Kong Mitsukoshi Department Store(MRT Sandou Shopping District Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 2,
+    "StopPosition": {
+     "PositionLon": 120.306269,
+     "PositionLat": 22.614402,
+     "GeoHash": "wsj89su67"
+    },
+    "StationID": "448",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1010011172",
+    "StopID": "1010011172",
+    "StopName": {
+     "Zh_tw": "光華路口(光華夜市)",
+     "En": "Guanghua Rd. Intersection(Guanghua Night Market)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 3,
+    "StopPosition": {
+     "PositionLon": 120.318135,
+     "PositionLat": 22.618349,
+     "GeoHash": "wsj89vscr"
+    },
+    "StationID": "3668",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1010015552",
+    "StopID": "1010015552",
+    "StopName": {
+     "Zh_tw": "國際商工(輕軌五權國小站)",
+     "En": "Kuochi Senior Vocational High School(LRT Wucyuan Elementry School Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 4,
+    "StopPosition": {
+     "PositionLon": 120.326541,
+     "PositionLat": 22.621023,
+     "GeoHash": "wsj8dn515"
+    },
+    "StationID": "109",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1010018992",
+    "StopID": "1010018992",
+    "StopName": {
+     "Zh_tw": "鐵路機廠",
+     "En": "Railway Workshop"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 5,
+    "StopPosition": {
+     "PositionLon": 120.332133,
+     "PositionLat": 22.616978,
+     "GeoHash": "wsj8djr1m"
+    },
+    "StationID": "3656",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1010019032",
+    "StopID": "1010019032",
+    "StopName": {
+     "Zh_tw": "鐵路機料廠",
+     "En": "Railway Material Plant"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 6,
+    "StopPosition": {
+     "PositionLon": 120.332597,
+     "PositionLat": 22.612733,
+     "GeoHash": "wsj8dhx88"
+    },
+    "StationID": "3654",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1010019062",
+    "StopID": "1010019062",
+    "StopName": {
+     "Zh_tw": "崗山市場",
+     "En": "Gangshan Market"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 7,
+    "StopPosition": {
+     "PositionLon": 120.333209,
+     "PositionLat": 22.607384,
+     "GeoHash": "wsj8d5xcw"
+    },
+    "StationID": "3650",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1010012882",
+    "StopID": "1010012882",
+    "StopName": {
+     "Zh_tw": "瑞豐站(瑞隆路)",
+     "En": "Rueifong Station(Rueilong Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 8,
+    "StopPosition": {
+     "PositionLon": 120.337479,
+     "PositionLat": 22.605884,
+     "GeoHash": "wsj8d770f"
+    },
+    "StationID": "2456",
+    "LocationCityCode": "KHH"
+   }
+  ],
+  "UpdateTime": "2026-11-23T10:31:28+08:00",
+  "VersionID": 11541
+ },
+ {
+  "RouteUID": "KHH11",
+  "RouteName": {
+   "Zh_tw": "11",
+   "En": "11 "
+  },
+  "SubRouteUID": "KHH11",
+  "SubRouteName": {
+   "Zh_tw": "11",
+   "En": "11 "
+  },
+  "Direction": 0,
+  "Stops": [
+   {
+    "StopUID": "KHH100011321",
+    "StopID": "100011321",
+    "StopName": {
+     "Zh_tw": "瑞豐站(武營路)",
+     "En": "Rueifong Station(Wuying Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 1,
+    "StopPosition": {
+     "PositionLon": 120.338009,
+     "PositionLat": 22.606961,
+     "GeoHash": "wsj8d77rn"
+    },
+    "StationID": "3205",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011351",
+    "StopID": "100011351",
+    "StopName": {
+     "Zh_tw": "北極殿(鳳山)",
+     "En": "Beiji Temple(Fongshan)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 2,
+    "StopPosition": {
+     "PositionLon": 120.337446,
+     "PositionLat": 22.610952,
+     "GeoHash": "wsj8dk5n3"
+    },
+    "StationID": "3207",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011381",
+    "StopID": "100011381",
+    "StopName": {
+     "Zh_tw": "紫竹林精舍",
+     "En": "Violet Bamboo Grove Buddhist Temple"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 3,
+    "StopPosition": {
+     "PositionLon": 120.337337,
+     "PositionLat": 22.612321,
+     "GeoHash": "wsj8dk6yr"
+    },
+    "StationID": "3209",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011113001",
+    "StopID": "100011113001",
+    "StopName": {
+     "Zh_tw": "新甲國小",
+     "En": "Hsin  Chya  Elementary School"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 4,
+    "StopPosition": {
+     "PositionLon": 120.340827,
+     "PositionLat": 22.612773,
+     "GeoHash": "wsj8dkt8b"
+    },
+    "StationID": "327",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011861",
+    "StopID": "100011861",
+    "StopName": {
+     "Zh_tw": "鳳新高中",
+     "En": "FengHsin Senior High School"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 5,
+    "StopPosition": {
+     "PositionLon": 120.34294,
+     "PositionLat": 22.612872,
+     "GeoHash": "wsj8dkx19"
+    },
+    "StationID": "2555",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011138531",
+    "StopID": "100011138531",
+    "StopName": {
+     "Zh_tw": "鳳新高中(南京路)",
+     "En": "FengHsin Senior High School(Nanjing Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 6,
+    "StopPosition": {
+     "PositionLon": 120.345758,
+     "PositionLat": 22.613457,
+     "GeoHash": "wsj8ds9hg"
+    },
+    "StationID": "2429",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001184881",
+    "StopID": "10001184881",
+    "StopName": {
+     "Zh_tw": "衛武營都會公園(南京路)",
+     "En": "Weiwuying Metropolitan Park(Nanjing Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 7,
+    "StopPosition": {
+     "PositionLon": 120.345722,
+     "PositionLat": 22.617985,
+     "GeoHash": "wsj8dt3p6"
+    },
+    "StationID": "1046",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001185111",
+    "StopID": "10001185111",
+    "StopName": {
+     "Zh_tw": "建軍站(捷運衛武營站)",
+     "En": "Jianjun Station(MRT Weiwuying Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 8,
+    "StopPosition": {
+     "PositionLon": 120.343325,
+     "PositionLat": 22.624935,
+     "GeoHash": "wsj8dqxrf"
+    },
+    "StationID": "74",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001185201",
+    "StopID": "10001185201",
+    "StopName": {
+     "Zh_tw": "衛武營國家藝術文化中心(三多路)",
+     "En": "National Kaohsiung Center for the Arts(Weiwuying)(Sanduo Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 9,
+    "StopPosition": {
+     "PositionLon": 120.340869,
+     "PositionLat": 22.624517,
+     "GeoHash": "wsj8dqtt3"
+    },
+    "StationID": "2266",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001185531",
+    "StopID": "10001185531",
+    "StopName": {
+     "Zh_tw": "衛武營都會公園",
+     "En": "Wei Wu Ying Metropolitan Park"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 10,
+    "StopPosition": {
+     "PositionLon": 120.337453,
+     "PositionLat": 22.624075,
+     "GeoHash": "wsj8dqe4c"
+    },
+    "StationID": "2268",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001185671",
+    "StopID": "10001185671",
+    "StopName": {
+     "Zh_tw": "中正體育場",
+     "En": "Chungjheng Stadium"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 11,
+    "StopPosition": {
+     "PositionLon": 120.335321,
+     "PositionLat": 22.623907,
+     "GeoHash": "wsj8dq99b"
+    },
+    "StationID": "2270",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1000111001",
+    "StopID": "1000111001",
+    "StopName": {
+     "Zh_tw": "輔仁路口(三多一路)",
+     "En": "Furen Rd. Intersection(Sanduo 1st Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 12,
+    "StopPosition": {
+     "PositionLon": 120.333904,
+     "PositionLat": 22.623683,
+     "GeoHash": "wsj8dq82x"
+    },
+    "StationID": "2272",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1000111191",
+    "StopID": "1000111191",
+    "StopName": {
+     "Zh_tw": "五塊厝(三多一路)",
+     "En": "Wukuaicuo(Sanduo 1st Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 13,
+    "StopPosition": {
+     "PositionLon": 120.331998,
+     "PositionLat": 22.623104,
+     "GeoHash": "wsj8dnrj4"
+    },
+    "StationID": "114",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1000111391",
+    "StopID": "1000111391",
+    "StopName": {
+     "Zh_tw": "三信家商",
+     "En": "San Hsin High School?of?Commerce and Home Economics"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 14,
+    "StopPosition": {
+     "PositionLon": 120.329212,
+     "PositionLat": 22.622119,
+     "GeoHash": "wsj8dnjp3"
+    },
+    "StationID": "112",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1000111541",
+    "StopID": "1000111541",
+    "StopName": {
+     "Zh_tw": "國際商工(輕軌五權國小站)",
+     "En": "Kuochi Senior Vocational High School(LRT Wucyuan Elementry School Station)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 15,
+    "StopPosition": {
+     "PositionLon": 120.326523,
+     "PositionLat": 22.621192,
+     "GeoHash": "wsj8dn51g"
+    },
+    "StationID": "110",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011501",
+    "StopID": "100011501",
+    "StopName": {
+     "Zh_tw": "五權國小(三多二路)",
+     "En": "Wucyuan Elementry School(Sanduo 2nd Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 16,
+    "StopPosition": {
+     "PositionLon": 120.323801,
+     "PositionLat": 22.620276,
+     "GeoHash": "wsj8djche"
+    },
+    "StationID": "3661",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011551",
+    "StopID": "100011551",
+    "StopName": {
+     "Zh_tw": "和平路口",
+     "En": "Heping Rd. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 17,
+    "StopPosition": {
+     "PositionLon": 120.321493,
+     "PositionLat": 22.619572,
+     "GeoHash": "wsj89vz2t"
+    },
+    "StationID": "3663",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011581",
+    "StopID": "100011581",
+    "StopName": {
+     "Zh_tw": "林德官(三和市場)",
+     "En": "Lindeguan(Sanhe Market)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 18,
+    "StopPosition": {
+     "PositionLon": 120.319791,
+     "PositionLat": 22.619,
+     "GeoHash": "wsj89vwjn"
+    },
+    "StationID": "3665",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011621",
+    "StopID": "100011621",
+    "StopName": {
+     "Zh_tw": "三多二路口(光華夜市)",
+     "En": "Sanduo 2nd Rd. Intersection(Guanghua Night Market)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 19,
+    "StopPosition": {
+     "PositionLon": 120.317635,
+     "PositionLat": 22.618919,
+     "GeoHash": "wsj89vssu"
+    },
+    "StationID": "3911",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011631",
+    "StopID": "100011631",
+    "StopName": {
+     "Zh_tw": "四維路口(光華一路)",
+     "En": "Sihwei Rd. Intersection(Guanghua 1st Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 20,
+    "StopPosition": {
+     "PositionLon": 120.316968,
+     "PositionLat": 22.620727,
+     "GeoHash": "wsj89vupk"
+    },
+    "StationID": "3913",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011651",
+    "StopID": "100011651",
+    "StopName": {
+     "Zh_tw": "苓雅一路口",
+     "En": "Lingya 1st Rd. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 21,
+    "StopPosition": {
+     "PositionLon": 120.31625,
+     "PositionLat": 22.622501,
+     "GeoHash": "wsj89y79e"
+    },
+    "StationID": "3915",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011711",
+    "StopID": "100011711",
+    "StopName": {
+     "Zh_tw": "四維國小(青年一路)",
+     "En": "Sih-Wei Primary School(Cingnian 1st Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 22,
+    "StopPosition": {
+     "PositionLon": 120.313397,
+     "PositionLat": 22.623803,
+     "GeoHash": "wsj89y991"
+    },
+    "StationID": "3918",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011721",
+    "StopID": "100011721",
+    "StopName": {
+     "Zh_tw": "民權路口(青年一路)",
+     "En": "Mincyuan Rd. Intersection(Cingnian 1st Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 23,
+    "StopPosition": {
+     "PositionLon": 120.311319,
+     "PositionLat": 22.623125,
+     "GeoHash": "wsj89y2j2"
+    },
+    "StationID": "3920",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011731",
+    "StopID": "100011731",
+    "StopName": {
+     "Zh_tw": "國民市場",
+     "En": "Guomin Market"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 24,
+    "StopPosition": {
+     "PositionLon": 120.308514,
+     "PositionLat": 22.622167,
+     "GeoHash": "wsj89wjzx"
+    },
+    "StationID": "3922",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011741",
+    "StopID": "100011741",
+    "StopName": {
+     "Zh_tw": "青年一路",
+     "En": "Cingnian 1st Rd."
+    },
+    "StopBoarding": 0,
+    "StopSequence": 25,
+    "StopPosition": {
+     "PositionLon": 120.306656,
+     "PositionLat": 22.621539,
+     "GeoHash": "wsj89whsh"
+    },
+    "StationID": "3924",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011751",
+    "StopID": "100011751",
+    "StopName": {
+     "Zh_tw": "仁智街口",
+     "En": "Renjhih St. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 26,
+    "StopPosition": {
+     "PositionLon": 120.303144,
+     "PositionLat": 22.620403,
+     "GeoHash": "wsj89tfj6"
+    },
+    "StationID": "3926",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011761",
+    "StopID": "100011761",
+    "StopName": {
+     "Zh_tw": "仁德街口(青年二路)",
+     "En": "Rende St. Intersection(Cingnian 2nd Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 27,
+    "StopPosition": {
+     "PositionLon": 120.300883,
+     "PositionLat": 22.619644,
+     "GeoHash": "wsj89tb2v"
+    },
+    "StationID": "3928",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011771",
+    "StopID": "100011771",
+    "StopName": {
+     "Zh_tw": "青年二路",
+     "En": "Cingnian 2nd Rd."
+    },
+    "StopBoarding": 0,
+    "StopSequence": 28,
+    "StopPosition": {
+     "PositionLon": 120.298329,
+     "PositionLat": 22.618826,
+     "GeoHash": "wsj89mws4"
+    },
+    "StationID": "3930",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH100011781",
+    "StopID": "100011781",
+    "StopName": {
+     "Zh_tw": "漢神百貨",
+     "En": "Hanshin Department Store"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 29,
+    "StopPosition": {
+     "PositionLon": 120.295867,
+     "PositionLat": 22.619297,
+     "GeoHash": "wsj89msyb"
+    },
+    "StationID": "3673",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1000119281",
+    "StopID": "1000119281",
+    "StopName": {
+     "Zh_tw": "高雄女中(真愛碼頭)",
+     "En": "Kaohsiung Girls' Senior High School(Love Pier)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 30,
+    "StopPosition": {
+     "PositionLon": 120.292069,
+     "PositionLat": 22.620807,
+     "GeoHash": "wsj89mfpb"
+    },
+    "StationID": "333",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1000119331",
+    "StopID": "1000119331",
+    "StopName": {
+     "Zh_tw": "大成街口(輕軌真愛碼頭站)",
+     "En": "Dacheng St. Intersection(LRT Love Pier Station）"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 31,
+    "StopPosition": {
+     "PositionLon": 120.288549,
+     "PositionLat": 22.621192,
+     "GeoHash": "wsj89np3y"
+    },
+    "StationID": "3907",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH1000119451",
+    "StopID": "1000119451",
+    "StopName": {
+     "Zh_tw": "大智路口(五福四路)",
+     "En": "Dajhih Rd. Intersection(Wufu 4th Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 32,
+    "StopPosition": {
+     "PositionLon": 120.286952,
+     "PositionLat": 22.621951,
+     "GeoHash": "wsj89nnq3"
+    },
+    "StationID": "3909",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001129621",
+    "StopID": "10001129621",
+    "StopName": {
+     "Zh_tw": "大智路(光榮國小)",
+     "En": "Dajhih Rd.(Guang-Rong Elementary School)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 33,
+    "StopPosition": {
+     "PositionLon": 120.286569,
+     "PositionLat": 22.623553,
+     "GeoHash": "wsj89nqp8"
+    },
+    "StationID": "349",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001126581",
+    "StopID": "10001126581",
+    "StopName": {
+     "Zh_tw": "捷運鹽埕埔站(大仁路)",
+     "En": "MRT Yanchengpu Station(Daren Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 34,
+    "StopPosition": {
+     "PositionLon": 120.285158,
+     "PositionLat": 22.625389,
+     "GeoHash": "wsj89nufr"
+    },
+    "StationID": "2609",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001185781",
+    "StopID": "10001185781",
+    "StopName": {
+     "Zh_tw": "三山國王廟",
+     "En": "Temple of the Three Mountain-Kings"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 35,
+    "StopPosition": {
+     "PositionLon": 120.283725,
+     "PositionLat": 22.625981,
+     "GeoHash": "wsj89ngvv"
+    },
+    "StationID": "3958",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001185861",
+    "StopID": "10001185861",
+    "StopName": {
+     "Zh_tw": "輕軌文武聖殿站(台電)",
+     "En": "LRT Wunwu Temple Station(TPC)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 36,
+    "StopPosition": {
+     "PositionLon": 120.280889,
+     "PositionLat": 22.630095,
+     "GeoHash": "wsj89p9vg"
+    },
+    "StationID": "4494",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001185931",
+    "StopID": "10001185931",
+    "StopName": {
+     "Zh_tw": "鼓山派出所",
+     "En": "Gushan Police Station"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 37,
+    "StopPosition": {
+     "PositionLon": 120.282683,
+     "PositionLat": 22.6347,
+     "GeoHash": "wsj8c0e0t"
+    },
+    "StationID": "4492",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001186171",
+    "StopID": "10001186171",
+    "StopName": {
+     "Zh_tw": "輕軌鼓山區公所站",
+     "En": "LRT Gushan District Office Station"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 38,
+    "StopPosition": {
+     "PositionLon": 120.280751,
+     "PositionLat": 22.637224,
+     "GeoHash": "wsj8c0cz2"
+    },
+    "StationID": "4490",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001186261",
+    "StopID": "10001186261",
+    "StopName": {
+     "Zh_tw": "元亨寺(鼓山二路)",
+     "En": "Yuanheng Temple(Gushan 2nd Rd.)"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 39,
+    "StopPosition": {
+     "PositionLon": 120.279346,
+     "PositionLat": 22.640333,
+     "GeoHash": "wsj8c189r"
+    },
+    "StationID": "4488",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001186601",
+    "StopID": "10001186601",
+    "StopName": {
+     "Zh_tw": "臺鐵鼓山站",
+     "En": "TRA Gushan Station"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 40,
+    "StopPosition": {
+     "PositionLon": 120.278745,
+     "PositionLat": 22.641624,
+     "GeoHash": "wsj8c1b31"
+    },
+    "StationID": "3937",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001187801",
+    "StopID": "10001187801",
+    "StopName": {
+     "Zh_tw": "鼓山三路",
+     "En": "Gushan 3rd Rd."
+    },
+    "StopBoarding": 0,
+    "StopSequence": 41,
+    "StopPosition": {
+     "PositionLon": 120.27799,
+     "PositionLat": 22.644866,
+     "GeoHash": "wsj8bfrgb"
+    },
+    "StationID": "4486",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001187931",
+    "StopID": "10001187931",
+    "StopName": {
+     "Zh_tw": "華安街口",
+     "En": "Huaan St. Intersection"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 42,
+    "StopPosition": {
+     "PositionLon": 120.277243,
+     "PositionLat": 22.647966,
+     "GeoHash": "wsj8bfzjy"
+    },
+    "StationID": "4211",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001188251",
+    "StopID": "10001188251",
+    "StopName": {
+     "Zh_tw": "鼓山國中",
+     "En": "Gushan Junior High School"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 43,
+    "StopPosition": {
+     "PositionLon": 120.276483,
+     "PositionLat": 22.6509,
+     "GeoHash": "wsj8bgqxj"
+    },
+    "StationID": "4209",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001188621",
+    "StopID": "10001188621",
+    "StopName": {
+     "Zh_tw": "九如國小",
+     "En": "Jeou-Ru Primary School"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 44,
+    "StopPosition": {
+     "PositionLon": 120.277373,
+     "PositionLat": 22.651692,
+     "GeoHash": "wsj8bgx79"
+    },
+    "StationID": "3885",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001188711",
+    "StopID": "10001188711",
+    "StopName": {
+     "Zh_tw": "大榮高中",
+     "En": "Dah Yung Senior High School"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 45,
+    "StopPosition": {
+     "PositionLon": 120.279189,
+     "PositionLat": 22.653336,
+     "GeoHash": "wsj8c5bth"
+    },
+    "StationID": "289",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001188741",
+    "StopID": "10001188741",
+    "StopName": {
+     "Zh_tw": "龍泉寺",
+     "En": "Longcyuan Temple"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 46,
+    "StopPosition": {
+     "PositionLon": 120.275229,
+     "PositionLat": 22.656063,
+     "GeoHash": "wsj8bumtp"
+    },
+    "StationID": "3883",
+    "LocationCityCode": "KHH"
+   },
+   {
+    "StopUID": "KHH10001188831",
+    "StopID": "10001188831",
+    "StopName": {
+     "Zh_tw": "鼓山高中",
+     "En": "Gushan Senior High School"
+    },
+    "StopBoarding": 0,
+    "StopSequence": 47,
+    "StopPosition": {
+     "PositionLon": 120.275837,
+     "PositionLat": 22.652982,
+     "GeoHash": "wsj8bgy5n"
+    },
+    "StationID": "3015",
+    "LocationCityCode": "KHH"
+   }
+  ],
+  "UpdateTime": "2026-11-23T10:31:28+08:00",
+  "VersionID": 11541
+ }
+]

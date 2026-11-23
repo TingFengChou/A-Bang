@@ -59,28 +59,36 @@
 | 用途 | 端點 | TTL | 狀態 | 用於 |
 |---|---|---|---|---|
 | 公車路線 | `/basic/v2/Bus/Route/City/{City}`（搜尋；整個縣市的起訖名稱另外預熱、存檔） | 1h／1d | ✅ | `bus_search_routes`、`bus_route_eta` |
-| 路線站序 | `/basic/v2/Bus/DisplayStopOfRoute/City/{City}`（整個縣市，預熱）；沒預熱的縣市 `/{Route}` 逐條查 | 1d（存檔） | ✅ | `bus_route_eta`、`plan_trip` |
+| 路線站序 | `/basic/v2/Bus/DisplayStopOfRoute/City/{City}`（整個縣市，預熱）；沒預熱的縣市 `/{Route}` 逐條查。2026-11-23 實測：**只收 Taipei、NewTaipei、Taoyuan、Taichung、Tainan**，其他縣市 400「City: 'Kaohsiung' is not accepted…」→ 改用 `/basic/v2/Bus/StopOfRoute/City/{City}`（有 `SubRouteUID`；每個子路線各一筆，同一子路線重複的列取站最多的；高雄的區間車是另一個 `RouteUID`）。`StopPosition` 完整度：臺北 28,826 站、臺中 37,565 站、高雄 19,281 站、花蓮 519 站全部有座標（沒有 0,0） | 1d（存檔） | ✅ | `bus_route_eta`、`plan_trip` |
 | 公車預估到站 | `/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}`（整個縣市，`$select`） | 30s（舊資料最多 60s） | ✅ | `bus_route_eta`、`plan_trip` |
 | 站位預估到站 | `/advanced/v2/Bus/EstimatedTimeOfArrival/City/{City}/PassThrough/Station/{StationID}`（已驗證 2026-11-22：在 `/advanced/` 底下；以前用 `/basic/` 一律 404「Resouce Not Found」→ 502。`StationID` 是站位代碼，例：臺北市 `1000` 內湖國中回 2 筆路線） | 20s | ✅ | `bus_station_eta` |
 | 公車站位 | `/basic/v2/Bus/Station/City/{City}`（整個縣市，預熱，本機算附近）；沒涵蓋時 `/advanced/v2/Bus/Station/NearBy`（不存檔：座標是使用者位置） | 1d（存檔）／1h | ✅ | `bus_nearby_stations`、`plan_trip` |
-| 路線形狀 | `/basic/v2/Bus/Shape/City/{City}/{Route}`（WKT，欄位 `Geometry`） | 1d（存檔） | ✅ ⚠️ | `bus_route_eta.shape` |
+| 路線形狀 | `/basic/v2/Bus/Shape/City/{City}/{Route}`（WKT，欄位 `Geometry`；2026-11-23 實測臺北 307：去返程各一筆 `LINESTRING (經度 緯度, …)`（`LINESTRING` 後有空格）、約 290 點，`core/geo.js` 解析成功；另有 `EncodedPolyline` 未用） | 1d（存檔） | ✅ | `bus_route_eta.shape` |
 | YouBike 站點 | `/basic/v2/Bike/Station/City/{City}`（預熱，本機算附近）；沒涵蓋時 `/advanced/v2/Bike/Station/NearBy` | 1d（存檔）／1h | ✅ | `youbike_nearby`、`plan_trip` |
 | YouBike 車數 | `/basic/v2/Bike/Availability/City/{City}`（依站點代碼的縣市） | 30s（舊資料最多 60s） | ✅ | `youbike_nearby`、`plan_trip` |
 | 高鐵時刻 | `/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}` | 10m | ✅ | `thsr_timetable` |
-| 高鐵車站 | `/basic/v2/Rail/THSR/Station` | 1d（存檔） | ✅ | `rail_stations` |
+| 高鐵車站 | `/basic/v2/Rail/THSR/Station`（2026-11-23 實測：12 站 `StationPosition` 都有） | 1d（存檔） | ✅ | `rail_stations` |
 | 台鐵時刻 | `/basic/v3/Rail/TRA/DailyTrainTimetable/OD/{O}/to/{D}/{Date}` | 10m | ✅ | `tra_timetable` |
 | 台鐵定期時刻表 | `/basic/v3/Rail/TRA/GeneralTrainTimetable`（約 950 班、原始約 4.4 MB，只留站代碼與時間約 0.4 MB；`ServiceDay` 星期旗標。2026-11-23 實測：`DailyTrainTimetable/TrainDate/{Date}`、`/Today` 都回空陣列，來源停在 11-20，所以換車用定期時刻表） | 1d（存檔、預熱） | ✅ | `tra_timetable`、`plan_trip`（換車走法） |
-| 台鐵車站 | `/basic/v3/Rail/TRA/Station` | 1d（存檔） | ✅ | `rail_stations` |
+| 台鐵車站 | `/basic/v3/Rail/TRA/Station`（包在 `Stations`；2026-11-23 實測：245 站 `StationPosition` 都有；`StationClass` 是字串 '0'～'5'（特等 0 有 4 站、一等 28 站…），目前沒用，「最近車站」仍是最近 3 站依序查） | 1d（存檔） | ✅ | `rail_stations` |
 | 高鐵／台鐵票價 | `/basic/v2/Rail/THSR/ODFare/{O}/to/{D}`、`/basic/v3/Rail/TRA/ODFare/{O}/to/{D}`（已驗證 2026-11-22：台鐵 `ODFares` 每個「車種×方向」一筆，`TrainType` 是車種代碼（＝`/basic/v3/Rail/TRA/TrainType` 的 `TrainTypeCode`：1 太魯閣、2 普悠瑪、3 自強、4 莒光、5 復興、6 區間、7 普快、10 區間快、11 自強3000），沒有 `TrainTypeName`；同一組起訖有兩個 `Direction`，另一個是繞島另一邊（臺北→新竹 78.1 對 797.8 公里），只取 `TravelDistance` 最短的；只列成人單程，普快與不認得的代碼不列。快取鍵改 `tra-fare-v2-*`） | 1d（存檔） | ✅ | `rail_fare` |
 | 捷運車站 | `/basic/v2/Rail/Metro/Station/{Operator}` | 1d（存檔） | ✅ | `metro_stations`、`metro_live_board`（站名→代碼） |
 | 捷運即時看板 | `/basic/v2/Rail/Metro/LiveBoard/{Operator}`（整個系統一份；北捷只有進站中的站，§1.2） | 20s | ✅ | `metro_live_board` |
 | 捷運班距 | `/basic/v2/Rail/Metro/Frequency/TMRT`（台中捷運只有這個，§1.2） | 存檔 | ✅ | `metro_live_board` |
 | 捷運各線車站順序 | `/basic/v2/Rail/Metro/StationOfLine/{Operator}`（台中捷運不收，用車站清單排序） | 存檔 | ✅ | `metro_route` |
 | 捷運兩站票價 | `/basic/v2/Rail/Metro/ODFare/{Operator}?$filter=OriginStationID eq …`（成人單程票） | 存檔 | ✅ | `metro_route` |
-| 捷運站別時刻表 | `/basic/v2/Rail/Metro/StationTimeTable/{Operator}`（`$filter=StationID eq …`） | 1d（存檔） | ✅ | `metro_live_board`（看板沒有的方向） |
-| 公路客運 | 路線站序 `/basic/v2/Bus/StopOfRoute/InterCity`（含 `StopPosition`；存檔）、時刻表 `/basic/v2/Bus/Schedule/InterCity`（`$filter=RouteUID eq …`）；票價端點待確認；即時到站 `/EstimatedTimeOfArrival/InterCity` 尚未使用 | 1d／1h | ✅ ⚠️ | `intercity_bus` |
-| 高速公路路況 | 路段形狀 `/basic/v2/Road/Traffic/SectionShape/Freeway`（2026-11-22 前少了 `/basic` 前綴、真實資料一律 404）（WKT）、路段 `/Section/Freeway`（名稱、速限、長度）、即時 `/Live/Freeway`（`TravelSpeed`）、事件 `/Live/News/Freeway` | 1d 存檔／1d 存檔／60s／60s | ✅ ⚠️ | `traffic_status` |
+| 捷運站別時刻表 | `/basic/v2/Rail/Metro/StationTimeTable/{Operator}`（`$filter=StationID eq …`）。2026-11-23 實測北捷台北車站 BL12：9 份（線×方向×終點×班表），平日與假日分開兩份；`ServiceDay` 的星期與 `NationalHolidays` 是布林（`ServiceTag` 是字串），假日那份 `Saturday`、`Sunday`、`NationalHolidays` 都是 `true`、平日那份 `NationalHolidays: false`；終點欄位是 `DestinationStaionID`（原文拼錯） | 1d（存檔） | ✅ | `metro_live_board`（看板沒有的方向） |
+| 公路客運 | 路線站序 `/basic/v2/Bus/StopOfRoute/InterCity`（含 `StopPosition`；存檔）、時刻表 `/basic/v2/Bus/Schedule/InterCity`（`$filter=RouteUID eq …`）；即時到站 `/EstimatedTimeOfArrival/InterCity` 尚未使用。2026-11-23 實測：站序 1,867 筆、61,807 站全部有座標（同一子路線同方向可能重複兩筆）；時刻表 `Timetables[].ServiceDay` 是 0／1、`StopTimes[]` 有 `StopUID`、`StopSequence`、`ArrivalTime`、`DepartureTime`，**有些班次 `StopTimes` 只有起站一筆**（上車站沒時間時，由前面最近有時間的站沿站牌距離 ÷ 50 km/h 估到站，`departEstimated`、`departFrom`）；沒有 `Frequencys`。票價 `/basic/v2/Bus/RouteFare/InterCity` 存在（`StageFares[]`：`OriginStage`／`DestinationStage` 的 `StopID`、`Fares[].TicketType／FareClass／Price`），尚未串接 | 1d／1h | ✅ | `intercity_bus` |
+| 高速公路路況 | 路段形狀 `/basic/v2/Road/Traffic/SectionShape/Freeway`（2026-11-22 前少了 `/basic` 前綴、真實資料一律 404）（WKT）、路段 `/Section/Freeway`（名稱、速限、長度）、即時 `/Live/Freeway`（`TravelSpeed`）、事件 `/basic/v1/Traffic/RoadEvent/LiveEvent/Freeway`。2026-11-23 實測：包裝 `SectionShapes`（465 筆，全是 `LINESTRING(經度 緯度,…)`）、`Sections`（474 筆；`SectionName` 例「國道1號(基隆端到基隆)」、`RoadName`、`RoadDirection` N／S、`SectionLength` 公里、`SpeedLimit` 數字）、`LiveTraffics`（464 筆；`TravelSpeed` 0 只有 1～2 筆、沒有負數，維持當「沒有資料」）；形狀與路段對得上 453／474、即時 443／464。`RoadName` 分線（國道1號 172、國道3號 166、國道1號汐止五股高架道路 24…）；走廊 3 km 同時納入平行國道（國 1／國 3）時目前一起算（每段帶 `road`），還沒有只取一條主線。事件：`Live/News/Freeway` 的 `Newses` 只有「施工維護」「移動性施工」這類標題、沒有路名與位置，改用 `RoadEvent/LiveEvent`（`LiveEvents[]`：`Positions` POINT、`Description`「國道一號 北向 27K+100 施工事件-施工維護」、`Location.FreeExpressHighway.Road／Direction`），依位置離沿途路段 500 公尺內、同方向篩 | 1d 存檔／1d 存檔／60s／60s | ✅ | `traffic_status` |
 | 導訂票 | 台鐵／高鐵導訂票 API（需申請「臺鐵訂票導訂」「高鐵訂票導訂」權限） | 不快取 | 📝 ⚠️ | `rail_booking_link` |
+
+其他實測（2026-11-23）：
+
+- OData 空白：`$filter=RouteName/Zh_tw eq '307'` 用 `+` 與 `%20` 結果相同（各 1 筆），`%20` 不是必要，保留無妨。
+- 附近公車站位 `/advanced/v2/Bus/Station/NearBy`（台北車站 300 公尺）15 筆，都有 `StationPosition`、`Stops`、`LocationCityCode`。
+- 公車路線到站 `/basic/v2/Bus/EstimatedTimeOfArrival/City/Taipei/307`：`StopStatus` 0／1／4 都有；臺北市狀態 1 的站一樣**沒有** `NextBusTime`（同新北）；這個端點沒有 `PlateNumb`。
+- 機場捷運站間行駛時間 `/basic/v2/Rail/Metro/S2STravelTime/TYMC`：`TrainType` 1 普通車、2 直達車；`TravelTimes[]` 是起站到各站的累計 `RunTime`（秒）。直達車 A1 臺北車站 → A12 機場第一航廈 2,160 秒（36 分）、→ A13 第二航廈 2,340 秒（39 分），跟 `AIRPORT_EXPRESS`（35／38 分）差 1 分；尚未改用。
+- 驗證與錄製：`node scripts/verify-tdx.js`（`npm run tdx:verify`）、`node scripts/record-fixtures.js`（`npm run tdx:record`，存到 `test/fixtures/tdx-*.json`）；端點清單在 `scripts/tdx/endpoints.js`，每次間隔 13 秒（`--delay`），碰到 429 等額度重置再試一次。
 
 `{City}` 由 `core/cities.js` 解析（`Taipei`、`NewTaipei`、`Taoyuan`、`Taichung`、`Tainan`、`Kaohsiung`…）；`{Operator}`：`TRTC` 台北、`TYMC` 桃園、`TMRT` 台中、`KRTC` 高雄。
 
@@ -143,7 +151,7 @@
 
 1. ✅ 內建地標 `core/data/landmarks.json`（自建，201 筆：車站、機場、景點、夜市商圈、學校、醫院、機關；`verified: false`——座標為整理時的近似值，約百公尺等級，**待人工校對**，見 PLAN「Austin 待辦」）。
 2. 車站名稱：目前併在內建地標（`kind=station`）；TDX 車站 `StationPosition` 於 M1 驗證後可改為即時來源。
-3. 外部地理編碼 ⚠️：候選 TDX 地理編碼服務或內政部 TGOS；M1 驗證可用性與授權後決定。
+3. 外部地理編碼（2026-11-23 實測可用，尚未串接）：TDX `/advanced/V3/Map/GeoCode/Coordinate/Address/{地址}`（「臺北市信義區市府路1號」→ 1 筆 `{ Address, Geometry: 'POINT (121.56378 25.03752)' }`，地址會被正規化成「台北市信義區西村里市府路1號」）、`/advanced/V3/Map/GeoCode/Coordinate/Markname/{地標}`（「台北101」→ 11 筆 `{ Name, Address, TEL, Geometry }`，第一筆是「中華電信台北101服務中心」，不是大樓本身——要自己挑名稱最接近的）。`Geometry` 是 WKT POINT（經度 緯度）。每次查詢算 1 次 TDX 額度，串接時要快取。TGOS 未評估。
 
 ## 5.1 內政部警政署 165 開放資料（✅ M7，免金鑰）
 

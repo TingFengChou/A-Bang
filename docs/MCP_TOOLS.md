@@ -41,7 +41,7 @@
 | Tool | pack | tier | 卡片 | 狀態 |
 |---|---|---|---|---|
 | `bus_search_routes` | transit | L1 | — | ✅ |
-| `bus_route_eta` | transit | L1 | `bus-route` | ✅（含座標、`nav`、`shape` ⚠️） |
+| `bus_route_eta` | transit | L1 | `bus-route` | ✅（含座標、`nav`、`shape`；2026-11-23 實測） |
 | `bus_nearby_stations` | transit | L1 | `nearby` | ✅（含 `nav`） |
 | `bus_station_eta` | transit | L1 | `bus-station` | ✅ ⚠️ |
 | `youbike_nearby` | transit | L1 | `youbike` | ✅（含 `nav`） |
@@ -51,7 +51,7 @@
 | `metro_stations` | transit | L1 | — | ✅ ⚠️ |
 | `metro_live_board` | transit | L1 | `metro` | ✅ ⚠️ |
 | `metro_route` | transit | L1 | `metro-route` | ✅ |
-| `find_place` | transit | L1 | — | ✅（內建地標；地理編碼 ⚠️） |
+| `find_place` | transit | L1 | — | ✅（內建地標；TDX 地理編碼可用、尚未串接） |
 | `traffic_status` | transit | L1 | — | ✅ ⚠️ |
 | `intercity_bus` | transit | L1 | `timetable` | ✅ ⚠️ |
 | `rail_fare` | transit | L1 | — | ✅ ⚠️ |
@@ -85,7 +85,7 @@
 |---|---|
 | 輸入 | `city?: City`（有 `near` 時可省略，用最近地標推估）, `routeName: string`, `stop?: string`（要盯的站，例如上車站）, `direction?: 0\|1`, `near?: Point`（使用者現在的位置；有 `stop` 但沒給 `city` 時只用來推縣市〔M14-02 拍站牌〕；沒說站名時聚焦路線上離他最近的站，`focus` 加 `distanceM`、`nearest: true`；兩個方向都有同一站時挑車比較快到的方向；另一個方向離你最近的站放 `focus.other`，speak 兩個方向都說）, `toward?: string`（往哪個方向，例「板橋」：只看方向名稱或終點有這個地名的那一邊；對不到時 `toward.found: false`、speak 照實說「沒有往「板橋」的方向」並兩個方向都列，PM Q-18） |
 | 輸出 | `{ city, routeName, updatedAt, directions: [{ direction, label, stops: [{ seq, stopName, lat?, lon?, ...Eta, plate, nav }] }], shape?: [[lat, lon]], focus?: { direction, label, seq, stopName, etaSec, status, statusText, other? }, toward?: { name, found, direction?, label? } }`；給 `stop` 時依站名（臺／台相同）找站、先找 `direction` 那一邊，找到才有 `focus`，找不到文字說明「這條路線沒有…這一站」 |
-| TDX | `/basic/v2/Bus/DisplayStopOfRoute/City/{City}/{Route}`（1h）、`/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/{Route}`（20s）、`/basic/v2/Bus/Route/City/{City}/{Route}`（1h）、`/basic/v2/Bus/Shape/City/{City}/{Route}`（1h，WKT）⚠️ |
+| TDX | `/basic/v2/Bus/DisplayStopOfRoute/City/{City}/{Route}`（1h；只收臺北、新北、桃園、臺中、臺南，其他縣市 400 → 改用 `/basic/v2/Bus/StopOfRoute/City/{City}/{Route}`，每個子路線一個方向一筆，2026-11-23 實測）、`/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/{Route}`（20s）、`/basic/v2/Bus/Route/City/{City}/{Route}`（1h）、`/basic/v2/Bus/Shape/City/{City}/{Route}`（1h，WKT `LINESTRING (經度 緯度, …)`，2026-11-23 實測；另有 `EncodedPolyline` 未用） |
 | 篩選 | `$filter=RouteName/Zh_tw eq '{Route}'`（路徑參數會模糊比對） |
 | 跨縣市（2026-11-22 真實資料健檢） | 給的（或依位置推估的）縣市找不到這條路線時，依 `NEIGHBOR_CITIES`（台北↔新北、基隆、桃園；桃園↔新北、台北、新竹）找相鄰縣市：只用預熱快取的路線清單判斷在哪個縣市（服務 `bus.routeCities(routeName)`，只讀存檔、不打 TDX；示範資料同介面），找到才查那個縣市；輸出多 `cityMoved: { from, to }`，speak 句尾「（新北市沒有 307，這是臺北市的 307）」。清單也沒有照原本的 `UserError` |
 | speak | 「307 目前有 3 個站即將有車（例如北門、中山堂）。」；有 `focus` 時「601 約 6 分後到「西門」。」（不到 3 分「即將到」、不到 1 分「在「西門」進站中」） |
@@ -228,13 +228,13 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 |---|---|
 | 輸入 | `query: string`（1–50 字）、`city?: City` |
 | 輸出 | `[{ name, lat, lon, city, cityName, source: 'landmark'\|'station'\|'geocode', kind, nav }]`（`cityName` 中文縣市名）（≤ 5，最符合的在前） |
-| 資料 | 內建地標 `core/data/landmarks.json`（201 筆；車站類 `kind=station` 回 `source: 'station'`）；地理編碼（TDX 或 TGOS）⚠️ 待 M1 驗證，尚未串接 |
+| 資料 | 內建地標 `core/data/landmarks.json`（201 筆；車站類 `kind=station` 回 `source: 'station'`）；地理編碼：TDX `/advanced/V3/Map/GeoCode/Coordinate/Address/{地址}`、`/Markname/{地標}` 可用（2026-11-23 實測，`DATA_SOURCES.md` §5），尚未串接 |
 | 比對 | `normPlace()`：臺→台、去空白與括號、英文小寫，**不去「站」**（「西門站」≠「西門」）。分數：名稱或別名完全相同 3 → 以查詢開頭 2 → 互相包含 1（「我要去逢甲夜市」也能找到）；同分車站優先，再取名稱短的 |
 | 錯誤 | 空白查詢、無法辨識的 `city` → `UserError`；找不到回空陣列 |
 | 來源標示 | `source: '阿幫內建地標資料（座標為近似值）'`、`static: true` |
 | speak | 「「逢甲夜市」最符合的是逢甲夜市（臺中市）。」 |
 
-### ✅ `traffic_status` ⚠️
+### ✅ `traffic_status`（端點 2026-11-23 實測）
 
 實作：`core/services/traffic.js`、`traffic-mock.js`、`core/tools/traffic.js`（M3-06）。
 
@@ -245,23 +245,23 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | 沿途路段 | 直線 < 15 km 不查（`covered: false`、`level: null`）。路段中點離起訖連線 ≤ 3 km、投影落在起訖之間、且路段方向與行進方向一致才算沿途；依行進順序排列。長度用 `SectionLength`，沒有就由形狀估；速限缺時以 100 km/h 計 |
 | level | 車速 ÷ 速限 < 0.4 為壅塞、< 0.75 為車多。壅塞累計 ≥ 5 km 或整體加權比值 < 0.4 → `jam`；車多以上累計 ≥ 5 km 或比值 < 0.75 → `slow`；其餘 `smooth`；沒有車速資料 → `null`（**不是順暢**） |
 | delayMin | 只計車多與壅塞路段：實際行駛時間 − 以速限行駛時間 |
-| events | 事件標題或內容提到沿途道路名稱的前 3 筆；事件端點失敗不影響車速結果 |
+| events | 道路事件 `/basic/v1/Traffic/RoadEvent/LiveEvent/Freeway`（2026-11-23 實測：原本的 `Live/News/Freeway` 只有「施工維護」這類標題、沒有路名與位置，依路名篩一律對不到）：事件 `Positions`（POINT）離沿途路段 500 公尺內、方向（`Location.FreeExpressHighway.Direction` 或 `Description` 的「北向／南向」）與那一段 `RoadDirection` 相同的前 3 筆；`title` 用 `Description`（例「國道一號 北向 27K+100 施工事件-施工維護」）；事件端點失敗不影響車速結果 |
 | speak | 「沿途國道塞車中，預估多花 49 分鐘（…事故…）。」、「沿途國道順暢。」、「起訖很近，不需要看國道路況。」 |
 
 `level = jam` → 自動狀態「塞車中」；`level = null` 時 `plan_trip` 不加狀態。示範模式：`DEMO_TRAFFIC=jam`（或 `createServices({ demo: { traffic: 'jam' } })`）中間一段壅塞並有一則事故；預設順暢。可評估介接 TDX 官方 MCP event。
 
-### ✅ `intercity_bus` ⚠️
+### ✅ `intercity_bus`（端點 2026-11-23 實測）
 
 實作：`core/services/intercity.js`、`intercity-mock.js`、`core/tools/intercity.js`（M3-07）。
 
 | | |
 |---|---|
 | 輸入 | `from`, `to`：座標或地名（`T.point`）；`departAt?`：`'HH:mm'`（今天，00:00～23:59，台灣時間）或 ISO 日期時間（例 `2026-11-20T09:00`，沒帶時區視為台灣時間），預設現在 |
-| 輸出 | `{ system: 'BUS', from, to, fromPoint, toPoint, date, departAt, traffic: { level, delayMin }, delayRisk, trains: [{ trainNo, type, terminal, depart, arrive, minutes, arriveWithDelay?, delayMin?, estimated?, nextDay?, fare, board, alight, walkFromM, walkToM }] }`（卡片 `timetable`，最多 5 班；`date` 是出發日；服務層也接受 ISO `departAt`，用該日的日期與星期 `ServiceDay` 篩班表；出發時間離午夜不到 3 小時時，一併列出 3 小時內的隔日班次並標 `nextDay: true`） |
+| 輸出 | `{ system: 'BUS', from, to, fromPoint, toPoint, date, departAt, traffic: { level, delayMin }, delayRisk, trains: [{ trainNo, type, terminal, depart, arrive, minutes, arriveWithDelay?, delayMin?, estimated?, departEstimated?, departFrom?: { name, time }, nextDay?, fare, board, alight, walkFromM, walkToM }] }`（卡片 `timetable`，最多 5 班；`date` 是出發日；服務層也接受 ISO `departAt`，用該日的日期與星期 `ServiceDay` 篩班表；出發時間離午夜不到 3 小時時，一併列出 3 小時內的隔日班次並標 `nextDay: true`） |
 | 配對 | `StopOfRoute/InterCity` 各路線：上車站離起點 ≤ 1.5 km、下車站離終點 ≤ 1.5 km、且下車站序在後；同一路線名只留步行最短的一組 |
-| 班次 | `Schedule/InterCity` 只查配對到的路線；依 `ServiceDay` 篩今天；上下車時間以 `StopUID`（找不到用站序）對應；沒有下車時間時以直線 × 1.3 ÷ 70 km/h 估算並標 `estimated`；跨日自動 +24h |
+| 班次 | `Schedule/InterCity` 只查配對到的路線；依 `ServiceDay` 篩今天；上下車時間以 `StopUID`（找不到用站序）對應；沒有下車時間時以直線 × 1.3 ÷ 70 km/h 估算並標 `estimated`；跨日自動 +24h。2026-11-23 實測：有些班次的 `StopTimes` 只有起站一筆（例 0968 去程）→ 上車站沒有時間時，由前面最近一個有時間的站沿站牌距離 ÷ 50 km/h（`ALONG_KMH`，估快一點、寧可早到站牌）估 `depart`，標 `departEstimated: true` 與 `departFrom: { name, time }`（哪一站幾點開；speak「約 07:04 到上大竹（大竹消防隊 07:00 開）」），出發時間篩選也用估的上車時間（起站已開走、還沒到上車站的班次照列）；`ServiceDay` 是 0／1 |
 | 路況 | 同時查 `traffic_status`：`delayMin` 加到 `arriveWithDelay`；`delayRisk`＝jam 0.9、slow 0.5、smooth 0.2、未知 0.4（國道即使順暢仍有風險）；路況失敗不影響班次 |
-| 票價 | TDX 客運票價端點未確認，live 先回 `null`；示範模式有估算票價 |
+| 票價 | TDX 客運票價端點 `/basic/v2/Bus/RouteFare/InterCity` 存在（2026-11-23 實測：`StageFares[].OriginStage／DestinationStage.StopID`、`Fares[].TicketType／FareClass／Price`，`FareName` 例「全票_不分時段_三排座」），尚未串接，live 先回 `null`；示範模式有估算票價 |
 | speak | 「下一班 1610 18:00 出發，預計 19:40 到（路上塞車中，多 20 分）。」；沒有班次時「…附近沒有直達的國道客運班次。」 |
 
 ### ✅ `plan_trip` — 從 A 到 B 怎麼去（卡片 `trip`）

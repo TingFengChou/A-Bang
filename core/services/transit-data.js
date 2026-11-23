@@ -22,9 +22,25 @@ export const transitKey = {
 
 const pos = (p) => (Number.isFinite(p?.PositionLat) && Number.isFinite(p?.PositionLon) ? { lat: p.PositionLat, lon: p.PositionLon } : {});
 
-/** DisplayStopOfRoute → [{ uid, name, nameEn?, direction, stops: [{ seq, uid, name, nameEn?, lat?, lon? }] }] */
+/**
+ * 路線站序端點：DisplayStopOfRoute（顯示用站序，一條路線一個方向一筆）只收這 5 個縣市，
+ * 其他縣市回 400「City: 'Kaohsiung' is not accepted but Taipei, Tainan, NewTaipei, Taoyuan, Taichung」（2026-11-23 實測）→ 改用 StopOfRoute（有子路線，normRouteStops 每個子路線一筆）。
+ */
+export const DISPLAY_STOP_CITIES = new Set(['Taipei', 'NewTaipei', 'Taoyuan', 'Taichung', 'Tainan']);
+export const stopOfRoutePath = (city) => `/basic/v2/Bus/${DISPLAY_STOP_CITIES.has(city) ? 'DisplayStopOfRoute' : 'StopOfRoute'}/City/${city}`;
+
+/**
+ * DisplayStopOfRoute／StopOfRoute → [{ uid, name, nameEn?, direction, stops: [{ seq, uid, name, nameEn?, lat?, lon? }] }]。
+ * StopOfRoute 同一路線同一方向可能有好幾個子路線（區間車、繞駛）：每個子路線各一筆（支線的站不會不見）；
+ * 同一個子路線、同一方向重複的列只留站最多的。
+ */
 export function normRouteStops(rows) {
-  return arr(rows).map((d) => ({
+  const best = new Map();
+  for (const d of arr(rows)) {
+    const k = `${d.SubRouteUID || d.RouteUID || zh(d.RouteName)}|${d.Direction ?? 0}`;
+    if (!best.has(k) || (d.Stops || []).length > (best.get(k).Stops || []).length) best.set(k, d);
+  }
+  return [...best.values()].map((d) => ({
     uid: d.RouteUID || null, name: zh(d.RouteName), ...enField('nameEn', d.RouteName), direction: d.Direction ?? 0,
     stops: (d.Stops || []).map((x) => ({ seq: x.StopSequence, uid: x.StopUID, name: zh(x.StopName), ...enField('nameEn', x.StopName), ...pos(x.StopPosition) })),
   }));
@@ -53,7 +69,7 @@ export function normBikeStation(s) {
 /** 整個縣市的靜態資料下載（預熱與使用者請求共用同一個 key） */
 export const transitLoaders = {
   busStations: (tdx, city) => async (o) => nonEmpty(normBusStations(await tdx.get(`/basic/v2/Bus/Station/City/${city}`, { $select: 'StationUID,StationID,StationName,StationPosition,Stops,LocationCityCode' }, 60, rawOpts(o))), `${city} 公車站牌`),
-  busRoutes: (tdx, city) => async (o) => nonEmpty(normRouteStops(await tdx.get(`/basic/v2/Bus/DisplayStopOfRoute/City/${city}`, {}, 60, rawOpts(o))), `${city} 路線站序`),
+  busRoutes: (tdx, city) => async (o) => nonEmpty(normRouteStops(await tdx.get(stopOfRoutePath(city), {}, 60, rawOpts(o))), `${city} 路線站序`),
   busMeta: (tdx, city) => async (o) => nonEmpty(arr(await tdx.get(`/basic/v2/Bus/Route/City/${city}`, { $select: 'RouteUID,RouteName,DepartureStopNameZh,DestinationStopNameZh' }, 60, rawOpts(o)))
     .map((r) => ({ uid: r.RouteUID || null, name: zh(r.RouteName), dep: r.DepartureStopNameZh || null, dest: r.DestinationStopNameZh || null })), `${city} 路線起訖`),
   bikeStations: (tdx, city) => async (o) => nonEmpty(arr(await tdx.get(`/basic/v2/Bike/Station/City/${city}`, { $select: 'StationUID,StationName,StationAddress,StationPosition,BikesCapacity,ServiceType' }, 60, rawOpts(o)))

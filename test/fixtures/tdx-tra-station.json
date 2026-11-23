@@ -1,0 +1,99 @@
+{
+ "UpdateTime": "2026-11-23T05:47:25+08:00",
+ "UpdateInterval": 14400,
+ "SrcUpdateTime": "2026-11-23T04:00:00+08:00",
+ "SrcUpdateInterval": -1,
+ "AuthorityCode": "TRA",
+ "Stations": [
+  {
+   "StationUID": "TRA-0900",
+   "StationID": "0900",
+   "StationName": {
+    "Zh_tw": "基隆",
+    "En": "Keelung",
+    "Ja": "基隆",
+    "Kr": "지롱"
+   },
+   "StationPosition": {
+    "PositionLon": 121.73837,
+    "PositionLat": 25.13191
+   },
+   "StationAddress": "203001基隆市中山區中山一路 16 之 1 號",
+   "StationPhone": "02-24263743",
+   "StationClass": "1",
+   "StationURL": "https://www.trc.com.tw/tra-tip-web/tip/tip00H/tipH41/viewStaInfo/0900"
+  },
+  {
+   "StationUID": "TRA-0910",
+   "StationID": "0910",
+   "StationName": {
+    "Zh_tw": "三坑",
+    "En": "Sankeng",
+    "Ja": "三坑",
+    "Kr": "산컹"
+   },
+   "StationPosition": {
+    "PositionLon": 121.74202,
+    "PositionLat": 25.12305
+   },
+   "StationAddress": "200006基隆市仁愛區德厚里龍安街 206 號",
+   "StationPhone": "02-24230289",
+   "StationClass": "4",
+   "StationURL": "https://www.trc.com.tw/tra-tip-web/tip/tip00H/tipH41/viewStaInfo/0910"
+  },
+  {
+   "StationUID": "TRA-0920",
+   "StationID": "0920",
+   "StationName": {
+    "Zh_tw": "八堵",
+    "En": "Badu",
+    "Ja": "八堵",
+    "Kr": "바두"
+   },
+   "StationPosition": {
+    "PositionLon": 121.72904,
+    "PositionLat": 25.10838
+   },
+   "StationAddress": "205001基隆市暖暖區八南里八堵路 142 號",
+   "StationPhone": "02-24560841",
+   "StationClass": "2",
+   "StationURL": "https://www.trc.com.tw/tra-tip-web/tip/tip00H/tipH41/viewStaInfo/0920"
+  },
+  {
+   "StationUID": "TRA-0930",
+   "StationID": "0930",
+   "StationName": {
+    "Zh_tw": "七堵",
+    "En": "Qidu",
+    "Ja": "七堵",
+    "Kr": "치두"
+   },
+   "StationPosition": {
+    "PositionLon": 121.71415,
+    "PositionLat": 25.09294
+   },
+   "StationAddress": "206006基隆市七堵區長興里東新街 2 號",
+   "StationPhone": "02-24553426",
+   "StationClass": "1",
+   "StationURL": "https://www.trc.com.tw/tra-tip-web/tip/tip00H/tipH41/viewStaInfo/0930"
+  },
+  {
+   "StationUID": "TRA-0940",
+   "StationID": "0940",
+   "StationName": {
+    "Zh_tw": "百福",
+    "En": "Baifu",
+    "Ja": "百福",
+    "Kr": "바이푸"
+   },
+   "StationPosition": {
+    "PositionLon": 121.69379,
+    "PositionLat": 25.07795
+   },
+   "StationAddress": "206011基隆市七堵區堵南里明德三路 1 之 1 號",
+   "StationPhone": "02-24528372",
+   "StationClass": "4",
+   "StationURL": "https://www.trc.com.tw/tra-tip-web/tip/tip00H/tipH41/viewStaInfo/0940"
+  }
+ ]
+}

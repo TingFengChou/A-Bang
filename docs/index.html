@@ -208,7 +208,7 @@ footer{color:var(--faint);font-size:13px;padding:24px 0}
     <tr><td>決策引擎 <code>core/decide.js</code></td><td><span class="pill done">完成</span></td><td>資料＋使用者狀態 → 排序、排除、理由句（ADR-0010）</td></tr>
     <tr><td>討論串＋決策圖原型</td><td><span class="pill done">完成</span></td><td>4 個情境，見「阿幫・生活」</td></tr>
     <tr><td>交通完整版（捷運、地點、路況、天氣、客運、票價、行程、導航、訂票、叫車）</td><td><span class="pill done">M3 完成</span></td><td>18 個 tools 在示範模式皆可用；真實欄位待 M1；導訂票待 TDX 權限</td></tr>
-    <tr><td>TDX 真實資料驗證</td><td><span class="pill next">M1 需金鑰</span></td><td>只能在本機執行；可與 M3 並行</td></tr>
+    <tr><td>TDX 真實資料驗證</td><td><span class="pill done">M1 完成</span></td><td>2026-11-23：verify-tdx.js、record-fixtures.js、真實 fixture 測試；只能在有金鑰的本機執行</td></tr>
     <tr><td>網頁 agent（問阿幫：討論串、決策圖、結論卡）</td><td><span class="pill done">M5 完成</span></td><td>Claude、地端模型（Ollama 等 OpenAI 相容）、示範模式三選一（ADR-0012）；Claude 實機待金鑰</td></tr>
     <tr><td>互動卡片（網頁＋MCP Apps）</td><td><span class="pill done">M4 完成</span></td><td>7 種卡片共用一份渲染；<code>ui://abang/cards.html</code> 單檔；AppBridge E2E；Claude 實測待本機</td></tr>
     <tr><td>阿幫・防詐（網頁 #/agent/antifraud、MCP /mcp/antifraud）</td><td><span class="pill done">M7 完成</span></td><td>165 停止解析涉詐網站與闢謠（免金鑰）、17 條規則（待專家審核）、風險卡片、L2 不保證安全</td></tr>

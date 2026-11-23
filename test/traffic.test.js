@@ -39,7 +39,7 @@ function liveSvc({ news = 'ok', live } = {}) {
       { SectionID: 'X', Geometry: 'POINT(121 25)' },              // 格式不明
     ] },
     Section: { Sections: [
-      { SectionID: 'S1', SectionName: '林口－桃園', RoadName: '國道1號', SpeedLimit: 100, SectionLength: 12 },
+      { SectionID: 'S1', SectionName: '林口－桃園', RoadName: '國道1號', RoadDirection: 'S', SpeedLimit: 100, SectionLength: 12 },
       { SectionID: 'S2', RoadName: '國道1號', RoadDirection: 'S' },
     ] },
     Live: live ?? { LiveTraffics: [
@@ -47,12 +47,17 @@ function liveSvc({ news = 'ok', live } = {}) {
       { SectionID: 'S2', TravelSpeed: 90 },
       { SectionID: 'S1R', TravelSpeed: 100 },
     ] },
-    News: { Newses: [{ Title: '國道1號南向 事故', PublishTime: '2026-11-17T20:50:00+08:00' }, { Title: '國道3號 施工' }] },
+    // RoadEvent/LiveEvent（2026-11-23 實測格式）：位置是 POINT（經度 緯度），方向在 Location.FreeExpressHighway.Direction
+    Event: { LiveEvents: [
+      { Description: '國道一號 南向 40K+000 事故', Positions: `POINT(${along(0.2, 0.2)[0][1]} ${along(0.2, 0.2)[0][0]})`, Location: { FreeExpressHighway: { Direction: '南向' } }, PublishTime: '2026-11-17T20:50:00+08:00' },
+      { Description: '國道一號 北向 40K+000 施工', Positions: `POINT(${along(0.2, 0.2)[0][1]} ${along(0.2, 0.2)[0][0]})`, Location: { FreeExpressHighway: { Direction: '北向' } } }, // 對向
+      { Description: '國道三號 南向 施工', Positions: 'POINT(121.3 24.5)' }, // 不在沿途
+    ] },
   };
   const fetchImpl = async (url) => {
     const u = decodeURIComponent(String(url));
     if (u.includes('/token')) return new Response(JSON.stringify({ access_token: 'T', expires_in: 86400 }));
-    if (u.includes('/Live/News/Freeway')) return news === 'ok' ? new Response(JSON.stringify(fixtures.News)) : new Response('x', { status: 500 });
+    if (u.includes('/RoadEvent/LiveEvent/Freeway')) return news === 'ok' ? new Response(JSON.stringify(fixtures.Event)) : new Response('x', { status: 500 });
     for (const k of ['SectionShape', 'Section', 'Live']) {
       if (u.includes(`/Road/Traffic/${k}/Freeway`)) return new Response(JSON.stringify(fixtures[k]));
     }
@@ -72,7 +77,7 @@ test('status：只取沿途同向路段、依行進順序、合併名稱與速�
   assert.ok(r.segments[1].lengthKm > 10 && r.segments[1].lengthKm < 14); // 由形狀估
   assert.equal(r.level, 'jam');
   assert.equal(r.delayMin, 22); // 12 km：25 km/h 要 28.8 分，速限 7.2 分
-  assert.deepEqual(r.events.map((e) => e.title), ['國道1號南向 事故']);
+  assert.deepEqual(r.events.map((e) => e.title), ['國道一號 南向 40K+000 事故']);
   assert.equal(r.updatedAt, '2026-11-17T21:00:00+08:00');
 });
 

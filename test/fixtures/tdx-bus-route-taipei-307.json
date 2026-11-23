@@ -1,0 +1,15 @@
+[
+ {
+  "RouteUID": "TPE16111",
+  "HasSubRoutes": true,
+  "BusRouteType": 11,
+  "RouteName": {
+   "Zh_tw": "307",
+   "En": "307"
+  },
+  "DepartureStopNameZh": "板橋",
+  "DestinationStopNameZh": "撫遠街",
+  "UpdateTime": "2026-11-23T09:55:17+08:00",
+  "VersionID": 8442
+ }
+]
