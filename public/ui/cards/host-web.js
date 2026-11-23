@@ -3,7 +3,7 @@
 
 import { hasNativeNotify, ensureNotifyPermission, scheduleNotify, cancelNotify, NOTIFY_ID, EARLY_MS } from '../../js/native-notify.js';
 import { startWatchService, stopWatchService, watchServiceStatus, updateWatchService, watchLine } from '../../js/native-watch.js';
-import { addReminder, cancelReminder, notifyState, reminderFor, canNotify } from '../../js/reminders.js';
+import { addReminder, cancelReminder, notifyState, reminderFor, canNotify, listReminders, MAX_REMINDERS } from '../../js/reminders.js';
 import { isAppLink, isStoreLink } from '../../../core/drama-say.js';
 
 // 到站提醒（L-14）：整個頁面共用一個；SPA 換頁仍繼續，網頁版關掉就停止（網頁沒有背景推播）。
@@ -13,14 +13,14 @@ import { isAppLink, isStoreLink } from '../../../core/drama-say.js';
 // 設定時這班已經在提醒範圍內（趕不上）→ 跳過這班，等到站時間跳回大數字（下一班）再開始算。
 const POLL_MS = 20_000, MAX_MS = 90 * 60_000;
 // service：Android 常駐服務自己查、自己響；live：iOS 即時動態只顯示，App 開著時由這裡更新（提醒照舊靠排好的通知）
-const watch = { w: null, poll: null, fire: null, until: 0, nativeAt: 0, service: false, live: false };
+const watch = { w: null, poll: null, fire: null, until: 0, at: 0, nativeAt: 0, service: false, live: false };
 // App 的通知能不能在背景送（權限被拒或排程失敗 → false，畫面就不能寫「App 關著也會提醒」）
 const native = { granted: null, failed: false };
 const canBackground = () => hasNativeNotify() && native.granted !== false && !native.failed;
 // App 被系統關掉再打開：恢復提醒（只存路線與站，不存位置）
 const STORE = 'abang.arrivalWatch';
 const store = {
-  save: () => { try { if (hasNativeNotify() && watch.w) localStorage.setItem(STORE, JSON.stringify({ w: { city: watch.w.city, routeName: watch.w.routeName, stop: watch.w.stop, direction: watch.w.direction, minutes: watch.w.minutes, ...(watch.w.trip && { trip: watch.w.trip }), ...(watch.w.lang && { lang: watch.w.lang }) }, until: watch.until })); } catch { /* 無痕或停用 */ } },
+  save: () => { try { if (hasNativeNotify() && watch.w) localStorage.setItem(STORE, JSON.stringify({ w: { city: watch.w.city, routeName: watch.w.routeName, stop: watch.w.stop, direction: watch.w.direction, minutes: watch.w.minutes, ...(watch.w.trip && { trip: watch.w.trip }), ...(watch.w.lang && { lang: watch.w.lang }) }, until: watch.until, at: watch.at || 0, nativeAt: watch.nativeAt || 0 })); } catch { /* 無痕或停用 */ } },
   clear: () => { try { localStorage.removeItem(STORE); } catch { /* 無痕或停用 */ } },
   load: () => { try { return JSON.parse(localStorage.getItem(STORE) || 'null'); } catch { return null; } },
 };
@@ -91,6 +91,7 @@ export const nativeBody = (route, stop, minutes, at = new Date(), lang = null) =
 function planNative(w, at) {
   if (Math.abs(at - watch.nativeAt) < 20_000) return;
   watch.nativeAt = at;
+  store.save(); // 記下排好的時間：App 被關掉、通知響過再打開時不要再提醒一次（前端審查 #1）
   scheduleNotify(NOTIFY_ID.arrival, new Date(at - EARLY_MS), w.lang === 'en' ? NOTIFY_TITLE_EN : NOTIFY_TITLE, nativeBody(w.routeName, w.stop, w.minutes, new Date(), w.lang)).then((ok) => {
     if (ok) { if (native.failed) { native.failed = false; signal('abang:arrival-watch', watch.w); } return; }
     if (watch.w === w) watch.nativeAt = 0;
@@ -223,6 +224,8 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
     },
     /** 這段路線目前的出門提醒（卡片重畫、重新規劃後也知道已經設了） */
     reminderFor: (key) => reminderFor(key),
+    /** 提醒已經滿了（設不了新的時卡片照實說） */
+    remindersFull: () => listReminders().length >= MAX_REMINDERS,
     /** 這個裝置能不能發通知（iOS Safari 沒加到主畫面就不能：不顯示提醒按鈕） */
     get canNotify() { return canNotify(); },
     /** 取消出門提醒 */
@@ -241,6 +244,7 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
       const trip = w.trip || tripContext?.(); // 問阿幫規劃的行程目的地（公車一直不來時改其他方式用）
       watch.w = { ...w, ...(trip?.to && { trip: { to: trip.to } }), first: true, skip: null };
       watch.until = w.until ?? Date.now() + MAX_MS;
+      watch.at = w.at ?? Date.now(); // 設定的時間（恢復時拿來比對常駐服務是不是已經響過）
       store.save();
       // Android：通知列常駐、App 關著也每 20 秒查真實到站時間；iOS：鎖定畫面與動態島的即時動態（沒有通知權限就不顯示：到點不會響，不能說「會提醒你」）
       const kind = native.granted !== false && await startWatchService({ ...watch.w, until: watch.until });
@@ -273,8 +277,16 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
   if (!resumed && hasNativeNotify()) {
     resumed = true;
     const saved = store.load();
-    if (saved?.w && saved.until > Date.now() && !watch.w) host.watchArrival({ ...saved.w, until: saved.until }).catch(() => {});
-    else if (saved) { store.clear(); cancelNotify(NOTIFY_ID.arrival); }
+    if (saved?.w && saved.until > Date.now() && !watch.w) {
+      // 已經提醒過（排好的通知時間過了、或常駐服務已經響過／結束）就不恢復：恢復會把這班當「來不及」改等下一班、再提醒一次（前端審查 #1）
+      (async () => {
+        const st = await watchServiceStatus().catch(() => null);
+        const firedNative = saved.nativeAt > 0 && saved.nativeAt <= Date.now();
+        const firedSvc = !!st && !st.active && Math.max(st.firedAt || 0, st.endedAt || 0) >= (saved.at || 0) && (saved.at || 0) > 0;
+        if (firedNative || firedSvc) { store.clear(); return; }
+        await host.watchArrival({ ...saved.w, until: saved.until, at: saved.at });
+      })().catch(() => {});
+    } else if (saved) { store.clear(); cancelNotify(NOTIFY_ID.arrival); }
   }
   return host;
 }
