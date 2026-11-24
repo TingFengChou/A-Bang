@@ -111,3 +111,16 @@ test('手機上的小模型（E3）：白名單檔案、App 來源的 CORS、其
   assert.equal(cls.status, 200);
   assert.ok((await cls.json()).intents.trip);
 });
+
+test('短劇封面（伺服器代抓）：示範海報、沙箱 CSP、nosniff；不合格或沒有的 404', async () => {
+  const r = await fetch(`${BASE}/api/v1/drama/cover/demo-last-train`);
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get('content-type'), 'image/svg+xml');
+  assert.equal(r.headers.get('x-content-type-options'), 'nosniff');
+  assert.match(r.headers.get('content-security-policy'), /sandbox/);
+  assert.match(r.headers.get('cache-control'), /max-age=86400/);
+  assert.match(await r.text(), /<svg/);
+  assert.equal((await fetch(`${BASE}/api/v1/drama/cover/no-such-drama`)).status, 404);
+  assert.equal((await fetch(`${BASE}/api/v1/drama/cover/..%2F..%2Fpackage.json`)).status, 404);
+  assert.equal((await fetch(`${BASE}/api/v1/drama/cover/demo-last-train`, { method: 'POST' })).status, 405);
+});

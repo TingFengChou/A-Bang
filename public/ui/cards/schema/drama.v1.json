@@ -25,6 +25,7 @@
         "heat": { "$ref": "#/$defs/nullableInt" },
         "synopsis": { "type": ["string", "null"] },
         "appLink": { "$ref": "#/$defs/url" },
+        "cover": { "const": true, "description": "有封面：圖由阿幫伺服器代抓（/api/v1/drama/cover/{id}）；上游網址不往上傳" },
         "rank": { "type": "integer", "minimum": 1 }
       }
     }

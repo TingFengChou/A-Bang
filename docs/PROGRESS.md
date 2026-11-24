@@ -11,6 +11,12 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-23 D-10 短劇封面圖（伺服器代抓）
+- 做了：產品負責人看 D-06 截圖後問「短劇圖有嗎」，決定「要，經伺服器代抓」。`GET /api/v1/drama/cover/{id}`（`svc.drama.cover`）：上游封面網址只留在伺服器（`_cover`，往上只說 `cover: true`）；只抓 https、允許的主機（`MYDRAMA_COVER_HOSTS`，預設 API 主機）、不跟轉址、8 秒、1.5 MB、看檔頭只收 JPEG／PNG／WebP／GIF；快取一天（200 張、30 MB），抓不到的 10 分內不再試；回應 nosniff＋沙箱 CSP。卡片（`host.assetUrl`）與等車提示（小海報＋播放角標）顯示封面，MCP Apps、載不到時用字＋漸層。示範片庫畫 SVG 海報（標「示範」）。ADR-0019 決策 3 改寫
+- 測試：npm test 全過（新增 `test/drama-cover.test.js`、agent-http 封面路由）；lint、e2e 全過
+- 文件：ADR-0019、DATA_SOURCES、CARDS、MCP_TOOLS、PLAN（D-10）、設定頁說明、`.env.example`
+- 下一個：D-07 合作方提供 `.env` 後確認上游封面欄位名稱與圖片主機
+- 卡住：上游封面欄位名稱待確認（防禦性讀 cover／coverUrl／poster／coverImage）
 ## 2026-11-24 手機橫放撐滿整個螢幕
 - 做了：產品負責人問橫放是不是要撐滿螢幕（以前中間 560px、兩邊各空約 150pt）。手機橫放（高度 ≤ 520px）時：寬度撐滿、左右只留瀏海與圓角的安全區域；首頁、服務、提醒、我的、設定改兩欄（多欄排版，區塊 inline-block 讓兩欄第一列對齊）；天氣這類格子頁、附近、公車時刻表置中單欄（最寬 760px，卡片跟著變寬）；問阿幫的對話維持 720px 閱讀寬度；分頁列撐滿。直放不變
 - 測試：npm test 全過；e2e 全過（新增橫放滿版一項）；iOS 模擬器橫放、直放截圖確認

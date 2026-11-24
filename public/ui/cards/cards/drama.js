@@ -1,5 +1,6 @@
 // drama（drama_picks、drama_search、drama_series；ADR-0019）：MyDrama 短劇的排行、搜尋結果、簡介。
-// 封面不載入外部圖片（MCP Apps 零外部資源、也不讓使用者的 IP 被片庫 CDN 看到）：用劇名第一個字＋依 id 決定的漸層色當示意。
+// 封面（2026-11-23）：有封面時由阿幫伺服器代抓（host.assetUrl，片庫的圖片伺服器看不到使用者的 IP）；MCP Apps 不載入外部圖片、
+// 沒有封面或圖載不到時，用劇名第一個字＋依 id 決定的漸層色當示意（圖載入失敗就拿掉 img，字一直在底下）。
 // 看劇：host.openApp（網頁與 App：先開 MyDrama App，沒裝就到商店頁）；MCP Apps 沒有 openApp，只給 https 的商店頁（host.openLink）。
 import { h, safeUrl } from '../dom.js';
 
@@ -21,6 +22,12 @@ export function watchButton(host, item, store, t, { primary = true } = {}) {
   if (!go) return null;
   const label = item.appLink && host?.openApp ? t('drama.watch') : t('drama.store');
   return h('button', { type: 'button', class: `ab-btn${primary ? ' ab-primary' : ''} ab-drama-watch`, 'aria-label': `${label}：《${item.title}》`, onclick: (e) => { e.stopPropagation(); go(); } }, label);
+}
+
+/** 封面圖（伺服器代抓；沒有 assetUrl 或沒有封面回 null）：裝飾用（alt 空、外框 aria-hidden），載不到就拿掉 */
+export function coverImg(host, s) {
+  const src = s?.cover === true && host?.assetUrl?.(`/api/v1/drama/cover/${encodeURIComponent(s.id)}`);
+  return src ? h('img', { class: 'ab-poster-img', src, alt: '', loading: 'lazy', decoding: 'async', onerror: (e) => e.target.remove() }) : null;
 }
 
 const meta = (s, t) => [s.episodes != null && t('drama.eps', { n: s.episodes }), s.freeEpisodes ? t('drama.free', { n: s.freeEpisodes }) : null, t(s.completed ? 'drama.done' : 'drama.ongoing')].filter(Boolean).join('・');
@@ -51,6 +58,7 @@ export default {
       return h('li', { class: 'ab-drama' },
         h('div', { class: 'ab-poster', 'aria-hidden': 'true', style: { '--pa': a, '--pb': b } },
           h('span', { class: 'ab-poster-ch' }, [...s.title][0]),
+          coverImg(host, s),
           s.rank != null && h('span', { class: 'ab-poster-rank' }, s.rank),
           s.isNew && h('span', { class: 'ab-poster-new' }, t('drama.new'))),
         h('div', { class: 'ab-drama-main' },

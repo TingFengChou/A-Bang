@@ -55,7 +55,7 @@ export async function waitDrama(svc, { tool, data, parent, walkMin = null, lang 
   const store = svc.drama.store?.() || null; // 沒設定連結（示範）時前端改給「在演什麼」（問阿幫），不給打不開的按鈕
   return {
     parent, kind: 'drama', text: hint.text, waitMin: Math.round(min), mode: svc.dramaMode || 'demo', // 分鐘跟公車回報「約 N 分」一樣四捨五入
-    data: { id: pick.id, title: pick.title, ep: pick.ep, freeEpisodes: pick.freeEpisodes ?? null, appLink: pick.appLink ?? null, store },
+    data: { id: pick.id, title: pick.title, ep: pick.ep, freeEpisodes: pick.freeEpisodes ?? null, appLink: pick.appLink ?? null, ...(pick.cover && { cover: true }), store },
     labels: { watch: hint.watch, dismiss: hint.dismiss, note: hint.note },
   };
 }
@@ -78,7 +78,7 @@ export async function remindAside(svc, { waitMin, lang = null, now = Date.now() 
   if (!hint) return null;
   return {
     kind: 'drama', text: hint.text, waitMin: Math.round(waitMin), mode: svc.dramaMode || 'demo',
-    data: { id: pick.id, title: pick.title, ep: pick.ep, freeEpisodes: pick.freeEpisodes ?? null, appLink: pick.appLink ?? null, store: svc.drama.store?.() || null },
+    data: { id: pick.id, title: pick.title, ep: pick.ep, freeEpisodes: pick.freeEpisodes ?? null, appLink: pick.appLink ?? null, ...(pick.cover && { cover: true }), store: svc.drama.store?.() || null },
     labels: { watch: hint.watch, dismiss: hint.dismiss, note: hint.note },
   };
 }

@@ -272,6 +272,8 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
     },
     /** 開合作 App（MyDrama，ADR-0019）：先開 App 連結，沒裝（畫面一直沒離開）就到商店頁 */
     openApp: (target) => openApp(target),
+    /** 阿幫伺服器上的圖（短劇封面，伺服器代抓）：只給 /api/v1/drama/cover/… 的完整網址；MCP Apps 沒有這個方法，卡片改用劇名第一個字 */
+    assetUrl: (path) => (/^\/api\/v1\/drama\/cover\/[\w-]{1,64}$/.test(path) ? `${base}${path}` : null),
   };
   // App 被系統關掉再打開：恢復上次的到站提醒（沒過期才恢復；過期就清掉並取消排好的通知）
   if (!resumed && hasNativeNotify()) {
