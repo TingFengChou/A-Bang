@@ -4,7 +4,8 @@
 // 動畫只是另一種呈現：同樣的資訊都在 role=status 的那一句（讀屏、reduced motion 拿到的一樣多）。樣式：css/ai.css。
 import { esc } from '../ui.js';
 import { api } from '../api.js';
-import { edgeEnabled, edgeStatus, edgeJudge, edgePrewarm, edgeStats, setEdgeEnabled, edgeSuggest, edgeCanSuggest, judgeContext, edgeIssue } from '../edge-judge.js';
+import { edgeEnabled, edgeStatus, edgeJudge, edgePrewarm, edgeStats, setEdgeEnabled, edgeSuggest, edgeCanSuggest, judgeContext, edgeIssue, judgeFromDevice } from '../edge-judge.js';
+import { embedReady, EMBED_ENGINE } from '../edge-embed.js';
 import { ENGINE_NAME, normalizeEdgeInfo, normalizeServerInfo, lastAgentStatus, languageNames, nodeText, judgedText, intentLabel } from '../ai-info.js';
 import { aiT, pageLang } from './ai-i18n.js';
 import { visionStatus, visionEnabled } from '../vision.js';
@@ -193,7 +194,7 @@ export default {
       dl.append(row(t('trial.intent'), intentName(s.intent)), row(t('trial.states'), stateNames(s.states)));
       body.append(dl);
       if (s.by === 'server' && s.why) body.append(h('p', 'note', t(`trial.why.${s.why}`)));
-      if (s.server) body.append(h('p', 'note', s.server.source === 'device' ? t('trial.server.device') : t('trial.server.own', { intent: intentName(s.server.intent) })));
+      if (s.server) body.append(h('p', 'note', judgeFromDevice(s.server) ? t('trial.server.device') : t('trial.server.own', { intent: intentName(s.server.intent) })));
     }
     function paintData(body, s) {
       if (s.error) { body.append(h('p', 'note', t('trial.error', { msg: s.error }))); return; }
@@ -380,7 +381,8 @@ export default {
         report = null; copy.disabled = true; // 這一輪好了才能複製
         tlive.textContent = t('trial.running');
         if (matchMedia('(pointer: coarse)').matches) input.blur(); // 手機：收鍵盤
-        const device = { active: info.active, engine: info.engine || null, write: info.active && raw?.write === true && edgeWriteEnabled(), reason: info.state };
+        const small = !info.active && edgeEnabled() && embedReady(); // 系統模型不能用、下載過小模型（E3）：試判斷第 1 段由小模型在手機上判斷（不寫回答）
+        const device = { active: info.active || small, engine: info.active ? info.engine || null : small ? EMBED_ENGINE : null, write: info.active && raw?.write === true && edgeWriteEnabled(), reason: info.state };
         if (device.active) { heroStart(); $('#ai-stage').scrollIntoView({ block: 'start', behavior: calm() ? 'auto' : 'smooth' }); }
         const think = mountThinking({ lang, roleName: (r) => (lang ? roleEn(r) || r : r) }); // 「阿幫在想」核心動畫：判斷 → 查資料 → 寫 → 猜下一句（真實事件推進）
         thinkBox.replaceChildren(think.el);

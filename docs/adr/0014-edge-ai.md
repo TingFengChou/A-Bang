@@ -44,8 +44,17 @@ JS（`public/js/edge-judge.js`）另外在 `document.visibilityState !== 'visibl
 ## 評測（`scripts/eval-edge.js` 實機、`scripts/eval-edge-combo.js` 組合；`docs/research/edge-eval.md`）
 同一份 172 題評估集：Pixel 11 Pro XL 上的 Gemini Nano 單獨意圖 90.1%、全對 85.5%，延遲 p50 約 270 ms；與 A＋規則組合後全對 89.0%、驗收集 88.4%（A＋規則 77.9%；伺服器 A＋qwen3:8b 89.5%、驗收集 88.4%）。兩者相當，之後若實機數據穩定，可改成「有裝置結果就不呼叫伺服器模型」省成本。iOS 模擬器（Mac 的 Apple Intelligence）第一題冷啟動約 5 秒、超過逾時，實機數據待 iPhone 15 Pro 以上。
 
+## E3 手機上的小模型（2026-11-23，Austin：「可以，做 E3」）
+手機內建的模型不能用時（不支援的機型、沒開 Apple Intelligence、iOS 26 以下、Gemini Nano 逾時或上一題還在跑），由 App 裡的 transformers.js＋multilingual-e5-small 判斷意圖與狀態。它就是伺服器判斷層的 A（嵌入分類器），同一個模型、同一份分類器參數。
+- **使用者按下載才下載**：設定頁「手機上的小模型（備援）」顯示概數約 160 MB，下載時依伺服器回報的大小顯示進度；實際 162 MB（.onnx 118 MB、詞表 17 MB、執行環境 .wasm 27 MB）。只從阿幫自己的伺服器 `/edge-model/` 下載（白名單 `server/edge-model.js`；串流送出；App 的 WebView 來源才加 CORS），不連 Hugging Face 或 CDN。存在 App 的 IndexedDB（不用 Cache API：iOS 的 capacitor:// 來源不一定有）。之後開 App 只從手機上載入：先檢查快取齊全，也擋掉下載，不會偷偷用行動網路再抓；快取被系統清掉就顯示「請重新下載」。可隨時刪除。只在手機 App 顯示，網頁版不下載。
+- **程式在 App 裡、模型從伺服器下載**：`transformers.min.js` 與 onnxruntime 的 `.mjs` 在 App 打包時放進 `dist/app/vendor/`（網頁版由 `/vendor/` 提供）。分類器參數 `core/data/judge-classifier.json`（約 90 KB）由 `scripts/build-edge-classifier.js`（`npm run build:edge-classifier`）從 `judge-train.json` 算出。測試會檢查兩者同步，改了訓練範例要重跑。分類的純函式 `core/judge-classify.js` 由伺服器與手機共用。
+- **在 Web Worker 跑**（`public/js/edge-embed-worker.js`），主執行緒不卡。實測每句：iOS 模擬器約 15 毫秒、Pixel 11 Pro XL 30～70 毫秒。從手機上載入：iOS 模擬器約 1 秒、Pixel 約 2 秒，在進問阿幫頁時進行（`edgePrewarm`）。Mac 瀏覽器、iOS 模擬器與 node 算出的意圖、狀態相同，信心只差約 0.02。需要 WebAssembly SIMD（iOS 16.4 以上、Android WebView），不支援就不顯示下載鍵。
+- **伺服器怎麼用**：`deviceJudge` 多一種引擎 `e5`，一定要帶信心（0～1）；其他引擎不能帶信心（zod）。小模型不能寫回答（`clientCaps.engine` 仍只收系統模型）。伺服器**沒有**自己的 A（`JUDGE=off`、選用依賴沒裝、模型還在載入）時，小模型的結果就當作 A：信心門檻 0.8、0.5 以下當 unknown、規則優先都照 A 的規則。它不當作 B，狀態不單獨採用。伺服器有 A 就用自己的（同一個模型）。status 的 judge 是 `source: 'embed', engine: 'e5'`。回答上方照實寫「阿幫先在手機上用小模型聽懂你要做什麼」，沒被採用時寫「手機上的小模型先聽了一遍；這一輪以伺服器的判斷為準」。「阿幫的腦袋」的試判斷在系統模型不能用時，第 1 段由小模型判斷（標 multilingual-e5-small）。
+- **效益（照實說）**：伺服器有 A 時（Docker 映像預設），手機上的小模型不會讓判斷變準，因為是同一個模型。效益在於：(1) 伺服器可以設 `JUDGE=off`，省下 A 的記憶體與 CPU，判斷品質不變；(2) 沒有內建 AI 的手機也能在「阿幫的腦袋」的試判斷看到手機上的判斷；(3) 之後做離線判斷的基礎。
+- 依賴：沒有新增套件（`@huggingface/transformers` 原本就是選用依賴，`onnxruntime-web` 是它帶入的）。
+
 ## 不採用
-- **在 WebView 跑 transformers.js 分類器**（E3）：模型約 120 MB、手機上首次載入慢；系統模型免下載。保留為之後的第三層備援。
+- ~~**在 WebView 跑 transformers.js 分類器**（E3）：模型約 120 MB、手機上首次載入慢；系統模型免下載。保留為之後的第三層備援。~~ 2026-11-23 改為採用，限使用者按下載（見上方「E3 手機上的小模型」）。
 - **手機上直接回答**（不經伺服器）：數字一定要來自工具資料、計分要一致（ADR-0010），第一階段只做判斷。手機上轉述（E7）另議。（2026-11-21：手機上轉述改由 ADR-0017「回答也在手機上寫」實作：伺服器照舊查資料與排序，手機把程式版總結改寫成一兩句，程式護欄檢查數字。）
 - **讓裝置結果指定工具名稱**：等同讓用戶端決定伺服器執行什麼，信任邊界不清楚（只給意圖，工具範圍由伺服器對照）。
 

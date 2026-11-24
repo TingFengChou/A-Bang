@@ -4,7 +4,7 @@
 // 狀態機是純函式（test/thinking.test.js）；mountThinking 只負責畫面。動畫只動 transform／opacity（css/agent.css .think-core），
 // reduced motion／lite-motion 不動，只顯示文字。讀屏只念兩次：開始想、聽懂了（或改由伺服器判斷）；查資料的過程討論串本來就會念。
 import { aiT } from '../pages/ai-i18n.js';
-import { EDGE_INTENTS, EDGE_STATES } from '../edge-judge.js';
+import { EDGE_INTENTS, EDGE_STATES, judgeFromDevice } from '../edge-judge.js';
 import { intentLabel } from '../ai-info.js';
 
 /** 開始：剛送出 */
@@ -79,12 +79,13 @@ export function thinkText(s, lang = null, roleName = (r) => r) {
  * @returns {string|null}
  */
 export function deviceLine({ sent = null, judge = null } = {}, lang = null) {
-  const NAME = { apple: 'Apple Intelligence', 'gemini-nano': 'Gemini Nano' };
-  const adopted = judge?.source === 'device';
+  const NAME = lang === 'en' ? { apple: 'Apple Intelligence', 'gemini-nano': 'Gemini Nano', e5: "Abang's small model" } : { apple: 'Apple Intelligence', 'gemini-nano': 'Gemini Nano', e5: '小模型' }; // e5：手機上的小模型（E3）
+  const adopted = judgeFromDevice(judge);
   const name = NAME[(adopted && judge.engine) || sent?.engine];
   if (!name || (!adopted && !sent)) return null;
-  if (adopted) return lang === 'en' ? `Abang first worked out what you want on your phone with ${name}.` : `阿幫先在手機上用 ${name} 聽懂你要做什麼。`;
-  return lang === 'en' ? `${name} on your phone listened first; this time the server's own judgment was used.` : `手機上的 ${name} 先聽了一遍；這一輪以伺服器的判斷為準。`;
+  const zh = /^[A-Za-z]/.test(name) ? ` ${name} ` : name; // 中文句子裡英文名稱前後空一格
+  if (adopted) return lang === 'en' ? `Abang first worked out what you want on your phone with ${name}.` : `阿幫先在手機上用${zh}聽懂你要做什麼。`;
+  return lang === 'en' ? `${name} on your phone listened first; this time the server's own judgment was used.` : `手機上的${zh}先聽了一遍；這一輪以伺服器的判斷為準。`;
 }
 
 /** 小核心（跟 App 圖示、#/ai 同一套：深青綠底、亮白 Λ、琥珀核心、一圈軌道） */

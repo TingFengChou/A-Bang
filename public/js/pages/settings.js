@@ -1,7 +1,7 @@
 // 設定與隱私（M11-04、ADR-0014 E8，2026-11-21）：#/settings 設定（裝置端 AI 開關、權限狀態、本機資料）、#/privacy 隱私權政策。
 // 上架必要：App Store／Google Play 都要求隱私權政策頁，且 App 內要能找到。內容以「實際怎麼做」寫，不寫做不到的保證。
 import { esc } from '../ui.js';
-import { edgeEnabled, edgeStatus, setEdgeEnabled, suggestEnabled, setSuggestEnabled, SUGGEST_KEY, EDGE_STATS_KEY, EDGE_ENGINE_NAME as ENGINE, EDGE_REASON as REASON } from '../edge-judge.js';
+import { edgeEnabled, edgeStatus, setEdgeEnabled, suggestEnabled, setSuggestEnabled, SUGGEST_KEY, EDGE_STATS_KEY, EDGE_ENGINE_NAME as ENGINE, EDGE_REASON as REASON, edgeCap } from '../edge-judge.js';
 import { locationGranted, browserLocation, inTaiwan } from '../agent/client.js';
 import { locationHelp, openLocationSettings, OPEN_FAILED } from '../location-help.js';
 import { cancelNotify, NOTIFY_ID } from '../native-notify.js';
@@ -17,6 +17,7 @@ import { whyText } from '../voice-i18n.js';
 import { dramaHintOn, setDramaHintOn, DRAMA_HINT_KEY } from '../drama-hint.js';
 import { hasCar, setHasCar, CAR_KEY } from '../my-car.js';
 import { edgeWriteEnabled, setEdgeWriteEnabled, WRITE_STATS_KEY } from '../edge-write.js';
+import { mountEmbedRow } from '../edge-embed-ui.js';
 import { HEALTH_KEY, HEALTH_DAY_KEY } from '../health.js';
 import { mountHealthSetting } from '../health-ui.js';
 
@@ -62,6 +63,12 @@ export const settings = {
         <label class="switch-row" id="edge-write-row"><span><b>回答也在手機上寫</b><small id="edge-write-status">檢查中…</small></span>
           <input type="checkbox" id="edge-write" class="switch" role="switch" aria-describedby="edge-write-note" ${edgeWriteEnabled() ? 'checked' : ''}${edgeEnabled() ? '' : ' disabled'}></label>
         <p class="note" id="edge-write-note">開著時，阿幫的伺服器只查資料、用程式排好方案，回答由手機上的模型寫成一兩句話：不用伺服器的 AI 模型（成本是零），你的問題也不會送到模型伺服器。手機寫的每個數字都會經程式檢查，對不上就改用阿幫的固定說法。</p>
+        <div id="embed-box" hidden>
+          <div class="switch-row"><span><b>手機上的小模型（備援）</b><small id="embed-status">檢查中…</small></span>
+            <button type="button" class="btn small" id="embed-btn" aria-describedby="embed-note">下載</button></div>
+          <progress id="embed-progress" class="embed-progress" max="100" value="0" hidden aria-label="小模型下載進度"></progress>
+          <p class="note" id="embed-note">手機內建的 AI 不能用時（機型不支援、沒開 Apple Intelligence、系統版本較舊），改用這個小模型在手機上聽懂你要做什麼。它跟阿幫伺服器用的是同一個開源模型（multilingual-e5-small），只判斷問題類型與你的狀況，不寫回答、不出題。按下載才會從阿幫自己的伺服器下載，存在這支手機上；之後開 App 不必再下載，可以隨時刪除。</p>
+        </div>
         <a class="btn small quiet ai-link" href="#/ai">看阿幫的腦袋：模型資訊、現場試試看</a>
       </section>
       <section class="card settings" id="vision-card">
@@ -289,6 +296,8 @@ export const settings = {
       const say = s.where === 'app' ? `在手機上讀字：${s.textEngine === 'apple-vision' ? 'Apple Vision' : 'ML Kit 文字辨識（中文）'}` : s.text ? '這個瀏覽器可以在本機讀字' : s.barcode ? '網頁版只能讀發票 QR code；讀簡訊、站牌請用手機 App' : '這個瀏覽器不能在本機讀字，請用手機 App';
       main.querySelector('#vision-status').textContent = say;
     });
+    // 手機上的小模型（E3）：只在 App 顯示（網頁版不下載）
+    if (edgeCap()) { main.querySelector('#embed-box').hidden = false; mountEmbedRow(main.querySelector('#embed-box'), { toast, onCleanup }); }
     edgeStatus().then((s) => {
       main.querySelector('#edge-status').textContent = s.available ? `${ENGINE[s.engine] || '手機內建模型'}：可以使用` : REASON[s.reason] || '目前不能使用';
       if (s.reason === 'web') edge.closest('.switch-row').querySelector('input').hidden = true; // 網頁版沒有裝置端 AI：不顯示開關（灰色已勾選會讓人誤會）
@@ -388,6 +397,7 @@ export const privacy = {
         <p><b>位置（你允許時）：</b>用來當出發點、找附近的站與天氣。位置會送到阿幫伺服器，伺服器再拿去向資料來源（例如交通部 TDX、中央氣象署）查詢；Claude 模式下也會寫進給模型的提示。伺服器不把位置寫進紀錄；為了加快查詢，查詢結果會在記憶體中短暫快取後自動清除。不給定位也能用。</p>
         <p><b>IP 位址：</b>用來限制同一來源的請求次數（只存在伺服器記憶體、數分鐘到一天內清除），主機服務商的存取紀錄也可能記錄 IP〔待補：主機服務商與保存期間〕。</p>
         <p><b>裝置端 AI：</b>手機 App 可用手機內建的模型（Apple Intelligence、Gemini Nano）先判斷問題類型，只送出判斷結果（例如「行程、趕時間」）；今天判斷了幾次、上次花多久只記在手機上（只有數字，不上傳）；開啟「回答也在手機上寫」時，伺服器只查資料並用程式排好方案，把程式寫好的總結與這一輪的資料重點（不含座標）傳回手機，由手機上的模型改寫成一兩句話，這一輪你的問題不會送到任何模型伺服器（包括 Anthropic 與本站的地端模型）；寫了幾次、通過檢查的比例只記在手機上；「阿幫的腦袋」頁的「現場試試看」只在手機上判斷，句子不送出；可在「設定與隱私」關閉。輸入框上方的建議（猜你接下來想問什麼）：情境（你在看的頁面、最近的問題與結果、時段、常用地點的名稱）只在手機上組、只給手機上的模型看；猜出來的句子（可能含你剛問過的地名）送到阿幫伺服器用規則確認查得到——只送句子、不存，也不寫進伺服器紀錄（只記句數），情境與位置不送；可單獨關閉。</p>
+        <p><b>手機上的小模型（備援）：</b>只有你在「設定與隱私」按下載，App 才會從阿幫自己的伺服器下載一個開源小模型（multilingual-e5-small，約 160 MB），存在這支手機上（App 的本機資料庫）；下載只抓模型檔，不送出任何你的資料。手機內建的 AI 不能用時，它在手機上判斷問題類型與你的狀況，跟上面一樣只多送出判斷結果與一個信心分數（你的問題本來就會送到阿幫伺服器回答，小模型不另外送出任何東西）。之後開 App 只從手機上載入、不會再下載；按「刪除」就從手機移除。</p>
         <p><b>相機與照片（掃發票、讓阿幫看）：</b>拍的照片或選的截圖只在手機上讀出文字與條碼（手機內建的文字辨識），照片不上傳、不保存；讀出來的文字先給你看，你確認（可以改、可以遮住號碼）後才送出，送出的只有文字（例如拿去檢查詐騙、問公車），發票只送號碼與日期去對獎。選截圖用系統的相片選擇器，阿幫看不到你的整個相簿；相機權限在第一次拍照時才問。可在「設定與隱私」關閉。</p>
         <p><b>語音問阿幫（你按麥克風或長按「問阿幫」鍵時）：</b>語音只在手機上轉成文字（Android 的手機上語音辨識、iPhone 的語音辨識設定為只在手機上），不錄音、不上傳；轉好的文字跟打字的問題一樣送出。手機還沒有該語言的語音包時，第一次按麥克風會請手機系統下載（由 Google 或 Apple 提供的語音包，只下載、不送出你的聲音）。手機不支援在手機上辨識時不提供語音（麥克風反白），不改用網路上的語音辨識。網頁版只有瀏覽器能在本機辨識時才提供。第一次使用才會問麥克風權限；可在「設定與隱私」關閉。</p>
         <p><b>健康與運動（預設關閉，你打開時）：</b>阿幫讀這支手機的步數與運動時間（今天與近 7 天；Android 透過 Health Connect、iPhone 透過「健康」App，只讀不寫），只在手機上用來判斷「天氣好、你今天又動得少」，在首頁與問阿幫的回答下面建議附近可以散步的地方。步數、運動時間，以及「動得少」這個判斷都<b>不上傳</b>到阿幫伺服器、不寫進紀錄、不跟問題一起送出，也不存在手機的儲存空間（只在當下讀）；手機上只記開關和「今天提過沒有」的日期。天氣與空品照常用你的位置查（跟首頁「現在」一樣）；散步地點來自 App 內建的地標資料。第一次打開才會請你允許，允許要你自己按；可隨時在「設定與隱私」或「我的」關閉，系統權限到 Health Connect 或「健康」App 收回。網頁版讀不到手機的健康資料，打開時用示範資料。</p>

@@ -1,9 +1,9 @@
 // 「阿幫的腦袋」（#/ai）的資料整理（純函式，test/ai-info.test.js）：
 // 把原生外掛 AbangEdgeAI.status() 與伺服器 /api/v1/status 回報的資訊整理成畫面要的樣子。
 // 原則：只顯示真的拿得到的。欄位不存在、型別不對、長得奇怪 → 那一項就沒有（畫面不顯示），不補預設值、不編造版本或參數。
-import { EDGE_ENGINES, EDGE_INTENTS, EDGE_STATES } from './edge-judge.js';
+import { EDGE_ENGINES, EDGE_INTENTS, EDGE_STATES, judgeFromDevice } from './edge-judge.js';
 
-export const ENGINE_NAME = { apple: 'Apple Intelligence', 'gemini-nano': 'Gemini Nano' };
+export const ENGINE_NAME = { apple: 'Apple Intelligence', 'gemini-nano': 'Gemini Nano', e5: 'multilingual-e5-small' }; // e5：手機上的小模型（E3）
 /** 不可用的原因（外掛的 reason；字典鍵 reason.*） */
 export const EDGE_REASONS = ['unsupported', 'disabled', 'downloading', 'needs-wifi', 'os-too-old', 'language', 'web', 'no-plugin', 'unavailable'];
 
@@ -73,7 +73,7 @@ export function normalizeServerInfo(agent, last = null) {
   if (last && typeof last === 'object' && [...MODES, 'rules', 'edge'].includes(last.mode)) { // edge：回答在手機上寫（ADR-0017）
     const model = ['claude', 'local'].includes(last.mode) ? clean(last.model, 80) : undefined;
     const source = SOURCES.includes(last.judge?.source) ? last.judge.source : undefined;
-    const engine = source === 'device' && EDGE_ENGINES.includes(last.judge?.engine) ? last.judge.engine : undefined;
+    const engine = (source === 'device' && EDGE_ENGINES.includes(last.judge?.engine)) || judgeFromDevice(last.judge) ? last.judge.engine : undefined; // 小模型被伺服器當作嵌入分類器：embed＋e5
     out.last = { mode: last.mode, ...(model && { model }), ...(source && { source }), ...(engine && { engine }) };
     if (!out.mode && MODES.includes(last.mode)) Object.assign(out, { mode: last.mode, ...(model && { model }) }); // 沒有 API 資料時用最近一輪的
   }

@@ -12,7 +12,7 @@ import { parseIntent, demoSteps, demoSummary, needsLocation, contextNote, isEngl
 import { parseAntifraud, antifraudSteps, antifraudSummary } from './demo-antifraud.js';
 import { applyOutputGuardrails } from './guardrails.js';
 import { impactOf, judgeNote, outingNote, moreStatesNote } from './impact.js';
-import { createJudge, JUDGE_INTENTS, JUDGE_STATES, DEVICE_ENGINES } from './judge.js';
+import { createJudge, JUDGE_INTENTS, JUDGE_STATES, DEVICE_ENGINES, DEVICE_JUDGE_ENGINES, EMBED_ENGINE } from './judge.js';
 import { waitDrama } from './wait-drama.js';
 import { answerFacts } from './answer-facts.js';
 import { trialInfo } from './trial.js';
@@ -117,10 +117,12 @@ const RequestSchema = z.object({
   savedPlaces: z.partialRecord(z.enum(['家', '公司', '學校']), z.object({ name: z.string().trim().min(1).max(40), lat: z.number().min(21).max(27), lon: z.number().min(118).max(123) })).optional(),
   // 手機上的模型先判斷好的意圖與狀態（ADR-0014）：只是提示，列舉值以外一律拒絕；方案排序仍由 decide.js 計分
   // ask：手機上的 AI 提議先問使用者的一題（ADR-0020）：只收形狀對的（種類、狀態列舉、長度、選項數、沒有控制與格式字元〔零寬、雙向控制〕），內容另外由程式驗證，不通過就照規則問
-  deviceJudge: z.object({ intent: z.enum(Object.keys(JUDGE_INTENTS)), states: z.array(z.enum(JUDGE_STATES)).max(JUDGE_STATES.length), engine: z.enum(DEVICE_ENGINES),
+  // engine e5＝手機上的小模型（E3）：一定要帶信心（0～1），伺服器沒有自己的嵌入分類器時當作它
+  deviceJudge: z.object({ intent: z.enum(Object.keys(JUDGE_INTENTS)), states: z.array(z.enum(JUDGE_STATES)).max(JUDGE_STATES.length), engine: z.enum(DEVICE_JUDGE_ENGINES), confidence: z.number().min(0).max(1).optional(),
     ask: z.object({ slot: z.enum(EDGE_ASK_SLOTS), state: z.enum(EDGE_ASK_STATES).optional(), question: z.string().trim().min(2).max(EDGE_ASK_LIMITS.questionEn).regex(/^[^\p{Cc}\p{Cf}]+$/u), // 中文 30、英文 60（core/edge-ask.js 依語言再檢查）
       options: z.array(z.string().trim().min(1).max(EDGE_ASK_LIMITS.optionEn).regex(/^[^\p{Cc}\p{Cf}]+$/u)).min(EDGE_ASK_LIMITS.min).max(EDGE_ASK_LIMITS.max) }).strict().nullish(),
-    topic: z.string().trim().max(24).regex(/^[^\p{Cc}\p{Cf}]+$/u).optional() }).optional(), // null＝沒有要問；topic：範圍外的問題使用者想做什麼（core/topic.js 再整理）
+    topic: z.string().trim().max(24).regex(/^[^\p{Cc}\p{Cf}]+$/u).optional() }) // topic：範圍外的問題使用者想做什麼（core/topic.js 再整理）
+    .refine((d) => (d.engine === EMBED_ENGINE) === (d.confidence != null), { message: '小模型（e5）要帶信心，其他引擎不帶' }).optional(), // null＝沒有要問
   // 手機能自己寫回答（ADR-0017）：伺服器不呼叫模型，送程式版總結（answer_draft）由手機改寫
   // trial：「阿幫的腦袋」的現場試判斷（#/ai）：同樣走 edge 模式（不呼叫任何伺服器模型），另外送 trial 事件（資料夠不夠、資料來源）；
   // 網頁版沒有手機上的模型，所以 trial 時 engine 可以不帶（一般請求一定要帶）

@@ -11,6 +11,7 @@
 import { readFile } from 'node:fs/promises';
 import { parseIntent } from './demo-intent.js';
 import { cleanTopic } from '../topic.js';
+import { EMBED_MODEL, EMBED_DTYPE, EMBED_TAU, embedText, trainClassifier, classifyVector } from '../judge-classify.js';
 
 export const JUDGE_INTENTS = {
   trip: '從 A 到 B 怎麼去、行程規劃、比較交通方式（含只說目的地）',
@@ -52,55 +53,31 @@ export const KEYWORD_INTENTS = new Set(['weather', 'aqi', 'quake', 'pharmacy', '
 export const UNSURE_FLOOR = 0.5;
 /** 裝置端判斷的引擎（ADR-0014）：Apple Intelligence（Foundation Models）、Gemini Nano（ML Kit GenAI） */
 export const DEVICE_ENGINES = ['apple', 'gemini-nano'];
-
-const embedText = (it) => `query: ${it.history?.length ? `前文：${it.history.at(-1)}；這句：` : ''}${it.text}`;
-const dot = (a, b) => a.reduce((s, v, i) => s + v * b[i], 0);
+/** 手機上的小模型（E3）：與這裡的 A 同一個嵌入分類器（core/judge-classify.js），帶信心；只判斷，不能寫回答 */
+export const EMBED_ENGINE = 'e5';
+export const DEVICE_JUDGE_ENGINES = [...DEVICE_ENGINES, EMBED_ENGINE];
 
 /**
- * A 嵌入分類器：意圖＝各類別訓練向量的中心＋餘弦相似度 softmax（tau 以訓練範例校準）；狀態＝每種一個 logistic regression。
+ * 載入嵌入模型（node，transformers.js）：回傳 texts → 正規化後的向量。手機上的小模型用同一個模型（public/js/edge-embed-worker.js）。
+ * @returns {Promise<(texts: string[]) => Promise<number[][]>>}
+ */
+export async function createEmbedder({ model = EMBED_MODEL, cacheDir = new URL('../../node_modules/.cache/transformers/', import.meta.url).pathname } = {}) {
+  const { pipeline, env } = await import('@huggingface/transformers');
+  env.cacheDir = cacheDir;
+  const ex = await pipeline('feature-extraction', model, { dtype: EMBED_DTYPE });
+  return async (texts) => (await ex(texts, { pooling: 'mean', normalize: true })).tolist();
+}
+
+/**
+ * A 嵌入分類器：參數計算與分類在 core/judge-classify.js（與手機共用）。
  * @param {Array<{ text: string, intent: string, states: string[], history?: string[] }>} trainItems
  * @param {{ model?: string, tau?: number, cacheDir?: string }} [opts]
  * @returns {Promise<(it: { text: string, history?: string[] }) => Promise<{ intent: string, confidence: number, states: string[] }>>}
  */
-export async function createEmbedClassifier(trainItems, { model = 'Xenova/multilingual-e5-small', tau = 0.005, cacheDir = new URL('../../node_modules/.cache/transformers/', import.meta.url).pathname } = {}) {
-  const { pipeline, env } = await import('@huggingface/transformers');
-  env.cacheDir = cacheDir;
-  const ex = await pipeline('feature-extraction', model, { dtype: 'q8' });
-  const embed = async (texts) => (await ex(texts, { pooling: 'mean', normalize: true })).tolist();
-  const X = await embed(trainItems.map(embedText));
-  const sig = (z) => 1 / (1 + Math.exp(-z));
-  const models = {};
-  for (const k of JUDGE_STATES) {
-    const y = trainItems.map((t) => (t.states.includes(k) ? 1 : 0));
-    const pos = y.filter(Boolean).length;
-    const wPos = (y.length - pos) / Math.max(pos, 1); // 正例少：加權
-    const w = new Array(X[0].length).fill(0);
-    let b = 0;
-    for (let epoch = 0; epoch < 400; epoch++) {
-      const gw = new Array(w.length).fill(0);
-      let gb = 0;
-      X.forEach((x, i) => {
-        const err = (sig(dot(w, x) + b) - y[i]) * (y[i] ? wPos : 1);
-        for (let d = 0; d < x.length; d++) gw[d] += err * x[d];
-        gb += err;
-      });
-      for (let d = 0; d < w.length; d++) w[d] -= (2.0 * gw[d]) / X.length + 1e-3 * w[d];
-      b -= (2.0 * gb) / X.length;
-    }
-    models[k] = { w, b };
-  }
-  const cent = {};
-  X.forEach((x, i) => { const k = trainItems[i].intent; cent[k] ||= new Array(x.length).fill(0); x.forEach((v, d) => { cent[k][d] += v; }); });
-  for (const k of Object.keys(cent)) { const n = Math.sqrt(dot(cent[k], cent[k])); cent[k] = cent[k].map((v) => v / n); }
-  return async (it) => {
-    const [v] = await embed([embedText(it)]);
-    const sims = Object.entries(cent).map(([k, c]) => [k, dot(v, c)]);
-    const mx = Math.max(...sims.map((x) => x[1]));
-    const e = sims.map(([k, s]) => [k, Math.exp((s - mx) / tau)]);
-    const total = e.reduce((a, [, x]) => a + x, 0);
-    const [intent, p] = e.map(([k, x]) => [k, x / total]).sort((a, b) => b[1] - a[1])[0];
-    return { intent, confidence: p, states: JUDGE_STATES.filter((k) => sig(dot(models[k].w, v) + models[k].b) > 0.5) };
-  };
+export async function createEmbedClassifier(trainItems, { model, tau = EMBED_TAU, cacheDir } = {}) {
+  const embed = await createEmbedder({ ...(model && { model }), ...(cacheDir && { cacheDir }) });
+  const params = trainClassifier(await embed(trainItems.map(embedText)), trainItems, { tau, states: JUDGE_STATES });
+  return async (it) => classifyVector((await embed([embedText(it)]))[0], params);
 }
 
 /**
@@ -128,16 +105,18 @@ export function createLlmJudge({ url, model, apiKey, prompt, fetchImpl = fetch, 
 /**
  * 組合判斷（見檔頭）。embed／llm 任一可為 null；兩個都沒有時等同規則。
  * @param {{ embed?: Function|null, llm?: Function|null, threshold?: number }} parts
- * @returns {(text: string, history?: string[], opts?: { device?: { intent: string, states: string[], engine: string } }) => Promise<{ intent: string, states: string[], confidence: number|null, source: 'embed'|'llm'|'device'|'rules', llmUsed: boolean, engine?: string }>}
+ * @returns {(text: string, history?: string[], opts?: { device?: { intent: string, states: string[], engine: string, confidence?: number } }) => Promise<{ intent: string, states: string[], confidence: number|null, source: 'embed'|'llm'|'device'|'rules', llmUsed: boolean, engine?: string }>}
  */
 export function createJudge({ embed = null, llm = null, threshold = CONFIDENT } = {}) {
   const run = async (text, history = [], { quick = false, device = null } = {}) => {
     // 裝置端提示（ADR-0014：手機上的 Apple Intelligence／Gemini Nano 先判斷好）：伺服器沒有自己的模型（B）時當作 B；
     // 有 B 時只用在快速版（評測：A＋規則＋Gemini Nano 全對 89.0%，A＋規則＋地端 qwen3:8b 89.5%，docs/research/edge-eval.md）
-    const dev = device && (quick || !llm) ? { intent: device.intent, states: device.states || [], ...(cleanTopic(device.topic) && { topic: cleanTopic(device.topic) }) } : null;
+    // 手機上的小模型（E3）跟 A 是同一個分類器：伺服器沒有 A（JUDGE=off、還在載入）時當作 A（信心、門檻、規則優先都照 A 的規則）；伺服器有 A 就用自己的
+    const devEmbed = device?.engine === EMBED_ENGINE && !embed && Number.isFinite(device.confidence) ? { intent: device.intent, confidence: device.confidence, states: device.states || [] } : null;
+    const dev = device && device.engine !== EMBED_ENGINE && (quick || !llm) ? { intent: device.intent, states: device.states || [], ...(cleanTopic(device.topic) && { topic: cleanTopic(device.topic) }) } : null;
     const it = { text, ...(history.length && { history }) };
     const rules = parseIntent(text, { history: history.map((content) => ({ role: 'user', content })) });
-    const a = embed ? await embed(it).catch(() => null) : null;
+    const a = embed ? await embed(it).catch(() => null) : devEmbed;
     const sure = a && a.confidence >= threshold;
     // 問阿幫能做什麼、道謝、道歉、只回「好」：整句就是這個，手機或模型看了前文（剛剛在排行程、說過快遲到）判成行程也不改，狀態也不沿用（2026-11-23 產品負責人：腦袋頁「你會做什麼」意圖總是行程規劃）
     const meta = rules.intent === 'unknown' && !!(rules.help || rules.thanks || rules.sorry || rules.ack);
@@ -159,7 +138,7 @@ export function createJudge({ embed = null, llm = null, threshold = CONFIDENT } 
     const states = meta ? [] : [...new Set([...rules.states.filter((k) => JUDGE_STATES.includes(k)), ...agree])];
     // 範圍外（unknown）：手機或伺服器模型寫的主題（使用者想做什麼）帶著，回答時說得出聽懂了什麼（2026-11-23）
     const topic = intent === 'unknown' && !meta ? b?.topic || null : null;
-    return { intent, states, confidence: a?.confidence ?? null, source, llmUsed: Boolean(b && !dev), ...(topic && { topic }), ...(dev && { engine: device.engine }), ...(rules.followUp && { followUp: true, states: [...new Set([...rules.states, ...states])] }), ...(rules.mode && { mode: rules.mode }) };
+    return { intent, states, confidence: a?.confidence ?? null, source, llmUsed: Boolean(b && !dev), ...(topic && { topic }), ...(dev && { engine: device.engine }), ...(devEmbed && source === 'embed' && { engine: EMBED_ENGINE }), ...(rules.followUp && { followUp: true, states: [...new Set([...rules.states, ...states])] }), ...(rules.mode && { mode: rules.mode }) };
   };
   const judge = (text, history, opts = {}) => run(text, history, opts);
   /** 快速版：只用 A＋規則（幾毫秒；有裝置端提示也一起用），讓阿幫一送出就能說聽懂了什麼；完整版（含模型）之後再補狀態 */
