@@ -111,6 +111,8 @@ const WEATHER_WORD = /天氣|氣溫|溫度|幾度|下雨|下大雨|大雨|帶傘
 // 使用者指定交通方式（「坐公車去」「改叫車」）：plan_trip prefs.mode；「不要叫車」的叫車不算
 const MODE_WORDS = [['bus', /公車|巴士/], ['metro', /捷運|MRT/i], ['bike', /youbike|ubike|單車|腳踏車/i], ['walk', /走路|步行|走過去/], ['drive', /自己開車|自行開車|開我的車|自駕|開車(?:去|過去|出門|到)?/], ['ridehail', /叫車|叫(?:一|1)?(?:台|輛)車|計程車|小黃|uber/i],
   ['thsr', /高鐵/], ['tra', /台鐵|臺鐵|火車/], ['intercity', /客運/]];
+/** 搭客運的字眼（判斷層說 intercity 時，句子有這些才限定只查客運） */
+const INTERCITY_WORD = /客運|巴士|統聯|國光|和欣|葛瑪蘭|豪泰|長途/;
 /** 使用者說不要的交通方式（「不要叫車」「不想坐公車」「別走路」）→ ['ridehail', …] */
 const NOT_MODE = /(不要|不想|別|不用|不坐|不搭)\s*(坐|搭|改|騎|叫|等)?\s*$/;
 export function avoidOf(s0) {
@@ -991,6 +993,27 @@ function slotsFor(intent, s, base) {
       const mode = modeOf(s);
       return { ...base, intent, from, to, ...(mode && { mode }) };
     }
+    // 2026-11-23 判斷層的新意圖（阿幫會的每一件事都有意圖）：交給既有的處理（行程、高鐵台鐵、出門建議、防詐說明）或固定回覆
+    case 'intercity': case 'ridehail': case 'place': { // 指定搭客運、叫車、問某地在哪：都是「去那裡」的行程（行程卡片有導航、叫車、客運）
+      // 客運要句子真的提到客運、巴士才限定（「去陽明山有公車嗎」判成客運時照一般行程比較，不只查客運）；叫車是判斷層明確說的
+      const mode = modeOf(s) || (intent === 'intercity' && INTERCITY_WORD.test(s) ? 'intercity' : intent === 'ridehail' ? 'ridehail' : null);
+      if (!base.places.length) return { ...base, intent: 'trip', from: null, to: null, needs: 'to', ...(mode && { mode }) };
+      const origin = originOnly(s, base.places);
+      if (origin) return { ...base, intent: 'trip', from: origin, to: null, needs: 'to', ...(mode && { mode }) };
+      const [from, to] = base.places.length >= 2 ? orderFromTo(s, base.places) : [FROM_TEXT.exec(s)?.[1] ?? null, base.places[0]];
+      return { ...base, intent: 'trip', from, to, ...(mode && { mode }), ...(intent === 'place' && { placeAsk: true }) };
+    }
+    case 'booking': { // 訂票：說得出起訖就查班次（卡片有官方訂票連結）；說不出來就說明只給官方連結（ADR-0011）
+      const r = railOD(s);
+      const system = /高鐵/.test(withoutRailNames(s)) ? 'THSR' : /台鐵|臺鐵|火車|自強|區間|莒光/.test(s) ? 'TRA' : 'THSR';
+      return r?.to && railStationAnswer(r.to, system) ? { ...base, intent: 'rail', system, from: r.from, to: r.to, book: true } : { ...base, intent: 'limits', book: true };
+    }
+    case 'outing': return { ...base, intent: 'outing' };
+    case 'exercise': return { ...base, intent: 'outing', walk: true }; // 散步運動：看天氣與空品適不適合出門走走（判斷只看這句話，不用步數等手機上的資料，ADR-0018）
+    case 'scam': return { ...base, places: [], intent: 'scamAsk', ...(looksScamPaste(s) && { pasted: true }) };
+    case 'reminder': case 'settings': case 'emergency': return { ...base, intent };
+    case 'help': return { ...base, intent: 'unknown', help: true };
+    case 'chat': return { ...base, intent: 'unknown', chat: true };
     case 'invoice': return { ...base, intent, number: INVOICE_NO.exec(s)?.[1] };
     case 'quake': return { ...base, intent, county: countyOf(s) };
     case 'pharmacy': return { ...base, intent, area: AREA.exec(s)?.[1] || countyOf(s) };
@@ -1519,6 +1542,7 @@ function englishSummary(it, results) {
   if (it.thanks) return "You're welcome! Have a good trip.";
   if (it.intent === 'savedMissing') return `I don't know where your ${({ 家: 'home', 公司: 'office', 學校: 'school' })[it.missing] || 'saved place'} is yet. Set it in Settings & privacy → Saved places, or just tell me the place name (e.g. "How do I get to Banqiao Station?").`; // 「I'm at Taipei 101, about to go home」：還沒設定家
   if (it.help) return (it.greet ? `${it.greet[0].toUpperCase()}${it.greet.slice(1)}! I'm Abang. ` : '') + 'I can help you get around Taiwan (bus, MRT, train, high-speed rail, YouBike, taxi, from A to B) and check daily info (weather, air quality, earthquakes, pharmacies, garbage trucks, fuel prices, invoices, stock closing prices). Try: "How do I get to Taipei 101?"';
+  if (it.intent === 'unknown' && it.topic) return `Got it — you want to ${it.topic}. Abang can't do that yet; I can help with getting around Taiwan (bus, MRT, train, YouBike, taxi), the weather and daily info. Try: "How do I get to Taipei 101?"`;
   if (it.intent === 'unknown') return 'Sorry, I can only help with getting around Taiwan (bus, MRT, train, YouBike, taxi) and the weather for now. Try: "How do I get to Taipei 101?"';
   // 什麼都沒查到（例：車站或地點不在資料裡）：照實說，不說「Here you go」
   if (!Object.keys(results).length) return "Sorry, I couldn't get that information right now (the station or place may not be covered). Try another name.";
@@ -1670,8 +1694,14 @@ function summaryCore(it, results, suggestions = []) {
   if (it.intent === 'scamAsk' && it.pasted && it.lang !== 'en') return '這則訊息有網址，又催你限時處理、要你點連結或付款，很像詐騙簡訊。按上面的「帶到防詐檢查」，我在防詐幫你比對 165 的詐騙手法；確認之前先不要點連結、不要回傳資料或驗證碼。有疑問請撥 165。';
   if (it.intent === 'scamAsk') return it.lang === 'en' ? "To check a suspicious message, open Anti-fraud (Home → Anti-fraud) and paste the message, link or phone number, or take a photo of it. Until then, don't click links, transfer money, or share codes." : '要檢查可疑的訊息，請到「防詐」（首頁 → 防詐）把簡訊、LINE、網址或來電號碼貼上，或拍下來，我幫你比對 165 的詐騙手法。確認之前，先不要點連結、不要匯款、不要給驗證碼。';
   if (it.intent === 'limits') return '我不能替你按叫車、付款或訂票（安全與隱私，付款與個資只在官方 App 裡處理）：我會給你官方 App 或網站的連結，由你自己確認、付款。要的話告訴我要去哪裡，我比較怎麼去、附上官方叫車連結。';
+  if (it.intent === 'emergency') return '如果有人受傷、昏倒或有危險，先打 119（救護、火災）或 110（報警）；手機沒有 SIM 卡或沒訊號也可以撥 112。在安全的地方等救援，不要移動受傷的人。需要的話我可以幫你查最近的路怎麼走。';
+  if (it.intent === 'reminder') return '提醒要在卡片上設：查公車或排行程後，按卡片上的「提醒我」或「盯這班」，車快到、該出門時阿幫會通知你；坐上車後也可以設下車提醒。設好的提醒都在下面的「提醒」分頁，可以隨時取消。';
+  if (it.intent === 'settings') return '設定在「我的 → 設定與隱私」：可以設常用地點（家、公司、學校）、「我有車」、語言、通知，也可以關掉手機上的 AI。設好常用地點後，說「回家」「去公司」我就知道在哪。';
+  if (it.chat) return `${it.greet ? `${it.greet}！` : ''}我是阿幫，想查交通或生活資訊直接說就好，例如「去台北 101」「307 到哪了？」「今天會下雨嗎」。`;
   if (it.thanks) return '不客氣！還想查什麼隨時跟我說。';
   if (it.sorry) return '沒關係！想查什麼直接說就好，例如「去台北 101」、「307 到哪了？」。';
+  // 範圍外但聽得懂想做什麼（判斷層的 topic，core/topic.js）：照實說聽懂了什麼、阿幫還沒有這項服務（不說成「聽不懂」）
+  if (it.intent === 'unknown' && it.topic) return `聽懂了，你想「${it.topic}」。這個阿幫還沒有提供，沒辦法幫你查。我可以查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）、天氣、空品、藥局、油價、發票、股市收盤，也可以幫你看訊息是不是詐騙。`;
   if (it.intent === 'unknown') return `${it.greet ? `${it.greet}！我是阿幫。` : ''}我可以幫你查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）和生活資訊（天氣、空品、地震、藥局、垃圾車、油價、發票、股市收盤）。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
   if (it.intent === 'traffic' && it.cityOnly) return `阿幫拿到的路況開放資料只有國道（高速公路）${it.area ? `，「${String(it.area).replace(/臺/g, '台')}」一帶` : '，'}市區道路塞不塞查不到。要看國道就告訴我從哪裡到哪裡（例如「台北到新竹」）。`; // 市區路況（PR #127 審查）
   if (it.intent === 'traffic') { // 國道路況（S7）：起訖、結果照工具資料說

@@ -16,6 +16,11 @@
 - 測試：npm test 全過；e2e 全過（新增橫放滿版一項）；iOS 模擬器橫放、直放截圖確認
 - 文件：無
 - 下一個：無
+## 2026-11-23 意圖判斷 29 類＋範圍外的主題
+- 做了：產品負責人回報 iPhone 上「加 LINE 帳號」意圖總是「其他」。原因是判斷層只有 16 類（Apple Intelligence 的 @Generable 只准從裡面挑），防詐、叫車、訂票、客運、提醒、設定、求助都落到「其他」。擴充成 29 類（intercity、ridehail、booking、place、outing、drama、exercise、scam、reminder、settings、help、chat、emergency），伺服器、手機、iOS、提示詞、評測同一份；新意圖接上既有處理或固定回覆（AGENT.md §5.3）。範圍外（unknown）由手機或伺服器模型寫 2～10 字的主題（`core/topic.js` 擋個資），回答「聽懂了，你想「訂餐廳」…」、畫面「其他：訂餐廳」
+- 測試：npm test 全過（新增 test/judge-all-intents.test.js 10 項）；評測 224 題（嵌入＋規則）：原 172 題 91.3% → 94.8%，新 52 題 100%
+- 文件：AGENT.md §5.3
+- 下一個：iPhone、Pixel 實機確認手機 AI 判斷新意圖與主題
 - 卡住：無
 
 ## 2026-11-23 E3 手機上的小模型（App 內 transformers.js 分類器）

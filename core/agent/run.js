@@ -120,7 +120,8 @@ const RequestSchema = z.object({
   // engine e5＝手機上的小模型（E3）：一定要帶信心（0～1），伺服器沒有自己的嵌入分類器時當作它
   deviceJudge: z.object({ intent: z.enum(Object.keys(JUDGE_INTENTS)), states: z.array(z.enum(JUDGE_STATES)).max(JUDGE_STATES.length), engine: z.enum(DEVICE_JUDGE_ENGINES), confidence: z.number().min(0).max(1).optional(),
     ask: z.object({ slot: z.enum(EDGE_ASK_SLOTS), state: z.enum(EDGE_ASK_STATES).optional(), question: z.string().trim().min(2).max(EDGE_ASK_LIMITS.questionEn).regex(/^[^\p{Cc}\p{Cf}]+$/u), // 中文 30、英文 60（core/edge-ask.js 依語言再檢查）
-      options: z.array(z.string().trim().min(1).max(EDGE_ASK_LIMITS.optionEn).regex(/^[^\p{Cc}\p{Cf}]+$/u)).min(EDGE_ASK_LIMITS.min).max(EDGE_ASK_LIMITS.max) }).strict().nullish() })
+      options: z.array(z.string().trim().min(1).max(EDGE_ASK_LIMITS.optionEn).regex(/^[^\p{Cc}\p{Cf}]+$/u)).min(EDGE_ASK_LIMITS.min).max(EDGE_ASK_LIMITS.max) }).strict().nullish(),
+    topic: z.string().trim().max(24).regex(/^[^\p{Cc}\p{Cf}]+$/u).optional() }) // topic：範圍外的問題使用者想做什麼（core/topic.js 再整理）
     .refine((d) => (d.engine === EMBED_ENGINE) === (d.confidence != null), { message: '小模型（e5）要帶信心，其他引擎不帶' }).optional(), // null＝沒有要問
   // 手機能自己寫回答（ADR-0017）：伺服器不呼叫模型，送程式版總結（answer_draft）由手機改寫
   // trial：「阿幫的腦袋」的現場試判斷（#/ai）：同樣走 edge 模式（不呼叫任何伺服器模型），另外送 trial 事件（資料夠不夠、資料來源）；
@@ -315,7 +316,7 @@ export function withAskCheck(emit, dask) {
 export const priorUserTexts = (messages) => messages.slice(0, -1).filter((m) => m.role === 'user').map((m) => m.content);
 
 /** 判斷層結果給前端看（不含對話內容） */
-export const judgeInfo = (j) => (j ? { intent: j.intent, source: j.source, ...(j.engine && { engine: j.engine }), ...(j.confidence != null && { confidence: Math.round(j.confidence * 100) / 100 }), ...(j.followUp && { followUp: true }) } : undefined); // followUp：接著上一輪改（前端長對話不分段）
+export const judgeInfo = (j) => (j ? { intent: j.intent, source: j.source, ...(j.engine && { engine: j.engine }), ...(j.confidence != null && { confidence: Math.round(j.confidence * 100) / 100 }), ...(j.followUp && { followUp: true }), ...(j.topic && { topic: j.topic }) } : undefined); // followUp：接著上一輪改（前端長對話不分段）
 
 /**
  * 判斷層的兩段呼叫（快速版先說聽懂了什麼、完整版定案）。帶 deviceJudge 時一起交給判斷層；
@@ -396,6 +397,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
     if (j.intent !== it.intent && !keep && !it.savedTrip && it.intent !== 'savedMissing') it = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent, saved: req.savedPlaces, now }) || it;
     // 接著同一趟改條件（規則看了完整前文，含阿幫問的話）：規則帶過來的狀態（趕時間、帶行李）不被判斷層蓋掉（腦袋審查 #7）
     it.states = it.followUp ? [...new Set([...(it.states || []), ...j.states])] : j.states;
+    if (it.intent === 'unknown' && j.topic && !it.help && !it.chat && !it.thanks && !it.sorry && !it.ack && !it.greet) it.topic = j.topic; // 範圍外：聽懂了想做什麼（總結照實說）
     const more = !req.clientToolResults?.length && moreStatesNote(q0, j);
     if (more && it.lang !== 'en') emit(ev.agentNote(more));
   }

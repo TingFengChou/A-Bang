@@ -331,7 +331,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 
 - **A 嵌入分類器**：`@huggingface/transformers`（選用依賴）＋ multilingual-e5-small（約 120 MB，首次啟動下載到 `JUDGE_MODEL_DIR`，Docker 建置時先下載進映像）；各意圖類別中心＋信心，狀態各一個 logistic regression；訓練範例 `core/data/judge-train.json`（與評估集分開）。每題約 3 毫秒。
 - **B 模型判斷**：有 `LOCAL_LLM_URL` 時，地端模型＋自動優化過的提示詞（`core/agent/judge-prompt.txt`，由 `scripts/eval-optimize-prompt.js` 產生）。
-- **組合**：意圖＝A 信心 ≥ 0.8 用 A，否則問 B；**沒有 B（也沒有裝置端提示）時，規則有明確意圖（判斷層的 15 類之一、不是 unknown）就用規則，規則聽不懂才用 A，A 信心 < 0.5（`UNSURE_FLOOR`）當 unknown**（2026-11-22 真實資料健檢 S3：A 沒把握時把「從板橋到台北車站」「高雄車站到駁二」判成高鐵台鐵、詐騙簡訊判成查公車「24」；評估集 172 題用正式的訓練範例 84.3% → 91.9%，原本列錯的 12 題全對、沒有退步）；狀態＝規則 ∪（A ∩ B）；B 只在 A 沒把握或是行程問題時才問。實驗：意圖 94.2%、意圖＋狀態全對 89.5%（驗收集 88.4%），規則單獨 64.0%、模型單獨 58.7%。
+- **組合**：意圖＝A 信心 ≥ 0.8 用 A，否則問 B；**沒有 B（也沒有裝置端提示）時，規則有明確意圖（判斷層的意圖之一、不是 unknown）就用規則，規則聽不懂才用 A，A 信心 < 0.5（`UNSURE_FLOOR`）當 unknown**（2026-11-22 真實資料健檢 S3：A 沒把握時把「從板橋到台北車站」「高雄車站到駁二」判成高鐵台鐵、詐騙簡訊判成查公車「24」；評估集 172 題用正式的訓練範例 84.3% → 91.9%，原本列錯的 12 題全對、沒有退步）；狀態＝規則 ∪（A ∩ B）；B 只在 A 沒把握或是行程問題時才問。實驗：意圖 94.2%、意圖＋狀態全對 89.5%（驗收集 88.4%），規則單獨 64.0%、模型單獨 58.7%。
 - **判斷層指定意圖抽參數的保底**（同上）：判斷層說 rail，但句子沒有高鐵台鐵字眼也沒問班次、或迄站不是車站（「駁二」）→ 交回規則；說 metro 但句子有起訖（「從板橋坐捷運到台北車站」）→ 交回規則（行程、指定坐捷運）；說 bus_route 但句子是詐騙樣式簡訊 → 交回規則；說 trip 時起訖照「從／到」排、指定的交通方式帶上。
 - **traffic 意圖**（國道路況，2026-11-22）：判斷層 16 類（`JUDGE_INTENTS`、手機 `EDGE_INTENTS`、iOS `edgeIntents`、`judge-prompt.txt`、訓練範例 10 句）。規則 `isTrafficAsk`：塞車、塞不塞、車多不多、路況、國道／國一／中山高／雪隧…順不順，而且是問句；「國道客運」「怕塞車，從西門町去101」（排行程）不算。有起訖 → `traffic_status`；一個地名＋去／到 → 從現在位置；沒有地名接著上一趟行程（「那國道會塞車嗎」）；都沒有（「國道一號現在塞車嗎」）→ `needs: 'od'` 問「從哪裡到哪裡？」（`slotAsk`，選項是說過的兩個地名或常走的路段；打字回答 `PENDING_SLOTS.od` 只收兩個地名）。地端模型模式由規則回答（`RULE_ANSWERS`）；工具層拒絕起訖不到 1 公里（模型用同一座標呼叫時照實說）。手機不出這一題（`EDGE_ASK_GUIDE`：traffic 的起訖由程式問）。
 - **示範模式**：意圖與狀態以判斷層為準，地點、路線號碼、股票名稱等參數仍由規則抽（`parseIntent(text, { intent })`）；指定意圖抽不出必要參數時維持規則的判斷。
@@ -350,6 +350,12 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
   - 腦袋頁四格：伺服器實際採用的意圖或狀態跟手機不同時，改顯示實際採用的。
 - **手機上的小模型（E3，2026-11-23，ADR-0014 補充）**：App 使用者按下載後，系統模型不能用時由手機上的 A（同一個 multilingual-e5-small、同一份分類器參數 `core/data/judge-classifier.json`，純函式 `core/judge-classify.js` 共用）判斷，送 `deviceJudge: { intent, states, engine: 'e5', confidence }`。伺服器沒有自己的 A 時就當作 A（門檻、unknown、規則優先照 A），不當作 B；伺服器有 A 就用自己的。status 的 judge 是 `source: 'embed', engine: 'e5'`。小模型不出題（ADR-0020 的 ask 只有系統模型會出）、不寫回答。
 - 退路：`JUDGE=off`、選用依賴沒裝、模型下載失敗、載入中 → 都等同規則（App 下載過小模型時由手機上的 A 補上）；CI 與 E2E 設 `JUDGE=off`，邏輯以單元測試（假的分類器）驗證。
+
+- **29 類意圖：阿幫會的每一件事都有意圖**（2026-11-23 產品負責人：「加 LINE 帳號」在 iPhone 上總是「其他」；Apple Intelligence 不是不聰明，是 @Generable 只准它從 16 類挑）。新增 `intercity` 國道客運、`ridehail` 叫車、`booking` 訂票、`place` 找地點、`outing` 出門建議、`drama` 短劇、`exercise` 散步運動、`scam` 詐騙、`reminder` 提醒、`settings` 設定、`help` 問阿幫能做什麼、`chat` 打招呼道謝閒聊、`emergency` 緊急求助；`unknown` 只剩阿幫沒有的服務。同一份清單：`JUDGE_INTENTS`、手機 `EDGE_INTENTS`／`EDGE_INSTRUCTIONS`、iOS `edgeIntents`、`judge-prompt.txt`、評測 `scripts/eval/lib.js`（直接引用）。
+  - **接上既有處理**（`demo-intent.js` `slotsFor`）：客運、叫車、找地點走行程（客運要句子提到客運、巴士才限定只查客運）；訂票說得出起訖走高鐵台鐵（卡片有官方訂票連結），說不出來走 `limits`（只給官方連結，ADR-0011）；散步運動走出門建議（`walk`，只看這句話，不用手機上的步數，ADR-0018）；詐騙走 `scamAsk`（請到防詐檢查）；提醒、設定、緊急求助固定回覆（119／110／112）。模型模式：新意圖有自己的工具子集（`INTENT_TOOLS`），詐騙、提醒、設定、緊急求助在規則聽不懂、判斷層有把握時由程式固定回答（`FIXED_REPLY_INTENTS`）。
+  - **標得更細**（`judge.js` `finer`）：規則聽出指定客運／叫車 → `intercity`／`ridehail`；出門建議裡是散步運動 → `exercise`。打招呼、道謝改標 `chat`，問能做什麼改標 `help`（以前都是 unknown）。
+  - **範圍外至少了解意圖**（產品負責人：範圍內的就採用，範圍外的至少了解意圖）：手機（Apple Intelligence 的 @Generable 多一個 `topic` 欄位、Gemini Nano 的 JSON 多 `topic`）與伺服器模型用 2～10 個字寫出使用者想做的事；**只有 unknown 時才帶**，`core/topic.js` `cleanTopic` 整理並擋個資（網址、email、4 位以上數字、太長的句子）。`deviceJudge.topic` 選填；`status.judge.topic`、試判斷 `trial.judge.topic`；回答「聽懂了，你想「訂餐廳」。這個阿幫還沒有提供…」，畫面顯示「其他：訂餐廳」（`ai-info.js` `intentLabel`）。不查資料、不用一般知識回答（回答範圍不變）。
+  - 評測（`scripts/eval/decision-set.json` 224 題＝原 172 題＋新意圖 52 題；嵌入＋規則、不含模型）：原 172 題 91.3% → 94.8%，新 52 題 100%。訓練範例每類至少 8 句（`core/data/judge-train.json`）。
 
 ### 5.3.1 問什麼由手機上的 AI 決定（ADR-0020，2026-11-22）
 
