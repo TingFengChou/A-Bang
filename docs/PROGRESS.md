@@ -11,6 +11,13 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-24 手機橫放撐滿整個螢幕
+- 做了：產品負責人問橫放是不是要撐滿螢幕（以前中間 560px、兩邊各空約 150pt）。手機橫放（高度 ≤ 520px）時：寬度撐滿、左右只留瀏海與圓角的安全區域；首頁、服務、提醒、我的、設定改兩欄（多欄排版，區塊 inline-block 讓兩欄第一列對齊）；天氣這類格子頁、附近、公車時刻表置中單欄（最寬 760px，卡片跟著變寬）；問阿幫的對話維持 720px 閱讀寬度；分頁列撐滿。直放不變
+- 測試：npm test 全過；e2e 全過（新增橫放滿版一項）；iOS 模擬器橫放、直放截圖確認
+- 文件：無
+- 下一個：無
+- 卡住：無
+
 ## 2026-11-23 E3 手機上的小模型（App 內 transformers.js 分類器）
 - 做了：使用者在設定頁「手機上的小模型（備援）」按下載，App 從阿幫自己的伺服器 `/edge-model/`（白名單 `server/edge-model.js`、串流、App 來源 CORS）下載 multilingual-e5-small（實際 162 MB），存在 IndexedDB；在 Web Worker（`public/js/edge-embed-worker.js`）跑 transformers.js。分類器的純函式抽到 `core/judge-classify.js`，伺服器（`judge.js`）與手機共用；手機用的參數 `core/data/judge-classifier.json` 由 `npm run build:edge-classifier` 產生。系統模型不能用時 `edgeJudge` 改用小模型，送 `deviceJudge.engine = 'e5'`＋信心；伺服器沒有自己的 A 時當作 A（門檻、unknown、規則優先照舊；不當作 B），有 A 就用自己的。回答上方那一行、腦袋頁試判斷、隱私權政策、service worker（不快取 `/edge-model/`，v1.3.26）同步。沒有新增套件
 - 實測：Mac 瀏覽器、iOS 模擬器、node 的意圖、狀態相同（信心差約 0.02）。iOS 模擬器（capacitor://）下載 1.5 秒（本機）、每句約 15 毫秒、重開從快取載入約 1 秒；Pixel 11 Pro XL 下載 6.9 秒（USB）、每句 30～70 毫秒、從快取載入 2.2 秒，Gemini Nano 仍是主要判斷。伺服器 `JUDGE=off` 時採用手機的 e5（status `source: embed, engine: e5`）
