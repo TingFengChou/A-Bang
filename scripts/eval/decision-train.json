@@ -564,12 +564,12 @@
 },
 {
 "text": "早安",
-"intent": "unknown",
+"intent": "chat",
 "states": []
 },
 {
 "text": "你會做什麼",
-"intent": "unknown",
+"intent": "help",
 "states": []
 },
 {
@@ -599,7 +599,7 @@
 },
 {
 "text": "晚安",
-"intent": "unknown",
+"intent": "chat",
 "states": []
 },
 {
@@ -988,7 +988,7 @@
 },
 {
 "text": "好的謝謝",
-"intent": "unknown",
+"intent": "chat",
 "states": [],
 "history": [
 "0050 現在價格"
@@ -1003,6 +1003,721 @@
 "history": [
 "從士林去松菸"
 ]
+},
+{
+"text": "搭客運去台中幾點有車",
+"intent": "intercity",
+"states": []
+},
+{
+"text": "國光客運到新竹還有班嗎",
+"intent": "intercity",
+"states": []
+},
+{
+"text": "統聯去高雄的末班幾點",
+"intent": "intercity",
+"states": []
+},
+{
+"text": "坐巴士去宜蘭要多久",
+"intent": "intercity",
+"states": []
+},
+{
+"text": "客運從板橋到台中多少錢",
+"intent": "intercity",
+"states": []
+},
+{
+"text": "有沒有直達桃園機場的客運",
+"intent": "intercity",
+"states": []
+},
+{
+"text": "1819 客運下一班什麼時候",
+"intent": "intercity",
+"states": []
+},
+{
+"text": "和欣客運去嘉義",
+"intent": "intercity",
+"states": []
+},
+{
+"text": "想搭長途巴士回台南",
+"intent": "intercity",
+"states": []
+},
+{
+"text": "葛瑪蘭客運去羅東幾點有車",
+"intent": "intercity",
+"states": []
+},
+{
+"text": "幫我叫車去台北101",
+"intent": "ridehail",
+"states": []
+},
+{
+"text": "叫一台計程車",
+"intent": "ridehail",
+"states": []
+},
+{
+"text": "我要叫 Uber 去松山機場",
+"intent": "ridehail",
+"states": []
+},
+{
+"text": "幫我叫小黃回家",
+"intent": "ridehail",
+"states": []
+},
+{
+"text": "坐計程車去台大醫院要多少錢",
+"intent": "ridehail",
+"states": []
+},
+{
+"text": "現在叫得到車嗎",
+"intent": "ridehail",
+"states": []
+},
+{
+"text": "叫車到信義區大概多少錢",
+"intent": "ridehail",
+"states": []
+},
+{
+"text": "幫我叫一台車去公司",
+"intent": "ridehail",
+"states": []
+},
+{
+"text": "搭計程車去車站",
+"intent": "ridehail",
+"states": []
+},
+{
+"text": "用 Uber 去南港展覽館",
+"intent": "ridehail",
+"states": []
+},
+{
+"text": "幫我訂明天到台中的高鐵票",
+"intent": "booking",
+"states": []
+},
+{
+"text": "訂兩張台鐵票去花蓮",
+"intent": "booking",
+"states": []
+},
+{
+"text": "我要買高鐵票",
+"intent": "booking",
+"states": []
+},
+{
+"text": "怎麼訂自強號的車票",
+"intent": "booking",
+"states": []
+},
+{
+"text": "幫我訂週五回高雄的車票",
+"intent": "booking",
+"states": []
+},
+{
+"text": "高鐵早鳥票怎麼買",
+"intent": "booking",
+"states": []
+},
+{
+"text": "訂一張去台南的高鐵",
+"intent": "booking",
+"states": []
+},
+{
+"text": "台鐵訂票",
+"intent": "booking",
+"states": []
+},
+{
+"text": "幫我買火車票到宜蘭",
+"intent": "booking",
+"states": []
+},
+{
+"text": "我要訂來回票去嘉義",
+"intent": "booking",
+"states": []
+},
+{
+"text": "台北101在哪",
+"intent": "place",
+"states": []
+},
+{
+"text": "故宮博物院的地址",
+"intent": "place",
+"states": []
+},
+{
+"text": "國父紀念館在哪一區",
+"intent": "place",
+"states": []
+},
+{
+"text": "台大醫院在什麼路上",
+"intent": "place",
+"states": []
+},
+{
+"text": "華山文創園區在哪裡",
+"intent": "place",
+"states": []
+},
+{
+"text": "松山機場的位置",
+"intent": "place",
+"states": []
+},
+{
+"text": "饒河夜市在哪",
+"intent": "place",
+"states": []
+},
+{
+"text": "幫我找中正紀念堂",
+"intent": "place",
+"states": []
+},
+{
+"text": "南港展覽館地址是什麼",
+"intent": "place",
+"states": []
+},
+{
+"text": "大安森林公園在哪邊",
+"intent": "place",
+"states": []
+},
+{
+"text": "出門要注意什麼",
+"intent": "outing",
+"states": []
+},
+{
+"text": "今天適合出門嗎",
+"intent": "outing",
+"states": []
+},
+{
+"text": "等一下要出門，有什麼要注意的",
+"intent": "outing",
+"states": []
+},
+{
+"text": "現在出去會不會很不舒服",
+"intent": "outing",
+"states": []
+},
+{
+"text": "出門前幫我看一下",
+"intent": "outing",
+"states": []
+},
+{
+"text": "週末出去玩天氣跟空氣怎樣",
+"intent": "outing",
+"states": []
+},
+{
+"text": "今天出門需要準備什麼",
+"intent": "outing",
+"states": []
+},
+{
+"text": "要出門了幫我看看外面狀況",
+"intent": "outing",
+"states": []
+},
+{
+"text": "帶小孩出門要注意什麼",
+"intent": "outing",
+"states": []
+},
+{
+"text": "這時間出門好嗎",
+"intent": "outing",
+"states": []
+},
+{
+"text": "有什麼好看的短劇",
+"intent": "drama",
+"states": []
+},
+{
+"text": "推薦幾部短劇",
+"intent": "drama",
+"states": []
+},
+{
+"text": "最近熱門的短劇",
+"intent": "drama",
+"states": []
+},
+{
+"text": "我想追劇",
+"intent": "drama",
+"states": []
+},
+{
+"text": "MyDrama 有什麼新劇",
+"intent": "drama",
+"states": []
+},
+{
+"text": "找一部霸總短劇",
+"intent": "drama",
+"states": []
+},
+{
+"text": "有沒有甜寵的短劇",
+"intent": "drama",
+"states": []
+},
+{
+"text": "等車時可以看什麼劇",
+"intent": "drama",
+"states": []
+},
+{
+"text": "短劇排行榜",
+"intent": "drama",
+"states": []
+},
+{
+"text": "那部短劇在講什麼",
+"intent": "drama",
+"states": []
+},
+{
+"text": "今天走路走太少",
+"intent": "exercise",
+"states": []
+},
+{
+"text": "要不要去散步",
+"intent": "exercise",
+"states": []
+},
+{
+"text": "我今天都沒運動",
+"intent": "exercise",
+"states": []
+},
+{
+"text": "下午出去走走好嗎",
+"intent": "exercise",
+"states": []
+},
+{
+"text": "推薦附近可以散步的地方",
+"intent": "exercise",
+"states": []
+},
+{
+"text": "天氣好想去跑步",
+"intent": "exercise",
+"states": []
+},
+{
+"text": "每天走幾步比較健康",
+"intent": "exercise",
+"states": []
+},
+{
+"text": "坐太久想動一動",
+"intent": "exercise",
+"states": []
+},
+{
+"text": "晚上去散步適合嗎",
+"intent": "exercise",
+"states": []
+},
+{
+"text": "我想多走一點路",
+"intent": "exercise",
+"states": []
+},
+{
+"text": "有人叫我加line投資",
+"intent": "scam",
+"states": []
+},
+{
+"text": "對方要我加他的line帳號",
+"intent": "scam",
+"states": []
+},
+{
+"text": "這則簡訊是詐騙嗎",
+"intent": "scam",
+"states": []
+},
+{
+"text": "接到自稱檢察官的電話",
+"intent": "scam",
+"states": []
+},
+{
+"text": "網拍買家要我加 LINE 客服",
+"intent": "scam",
+"states": []
+},
+{
+"text": "有人說我中獎要先付手續費",
+"intent": "scam",
+"states": []
+},
+{
+"text": "這個網址安全嗎",
+"intent": "scam",
+"states": []
+},
+{
+"text": "我好像被騙了怎麼辦",
+"intent": "scam",
+"states": []
+},
+{
+"text": "投資群組老師說穩賺不賠",
+"intent": "scam",
+"states": []
+},
+{
+"text": "收到包裹未取件的簡訊要我點連結",
+"intent": "scam",
+"states": []
+},
+{
+"text": "提醒我明天八點出門",
+"intent": "reminder",
+"states": []
+},
+{
+"text": "公車快到的時候通知我",
+"intent": "reminder",
+"states": []
+},
+{
+"text": "到站前叫我下車",
+"intent": "reminder",
+"states": []
+},
+{
+"text": "幫我設出門提醒",
+"intent": "reminder",
+"states": []
+},
+{
+"text": "307 快到時提醒我",
+"intent": "reminder",
+"states": []
+},
+{
+"text": "取消提醒",
+"intent": "reminder",
+"states": []
+},
+{
+"text": "十分鐘後提醒我出發",
+"intent": "reminder",
+"states": []
+},
+{
+"text": "末班車前提醒我",
+"intent": "reminder",
+"states": []
+},
+{
+"text": "我要設下車提醒",
+"intent": "reminder",
+"states": []
+},
+{
+"text": "每天早上提醒我看公車",
+"intent": "reminder",
+"states": []
+},
+{
+"text": "設定我家在板橋",
+"intent": "settings",
+"states": []
+},
+{
+"text": "把公司設成常用地點",
+"intent": "settings",
+"states": []
+},
+{
+"text": "我有車",
+"intent": "settings",
+"states": []
+},
+{
+"text": "把語言改成英文",
+"intent": "settings",
+"states": []
+},
+{
+"text": "關掉通知",
+"intent": "settings",
+"states": []
+},
+{
+"text": "怎麼改我家的地址",
+"intent": "settings",
+"states": []
+},
+{
+"text": "我想關掉手機上的 AI",
+"intent": "settings",
+"states": []
+},
+{
+"text": "隱私設定在哪",
+"intent": "settings",
+"states": []
+},
+{
+"text": "新增常用地點",
+"intent": "settings",
+"states": []
+},
+{
+"text": "我沒有車了",
+"intent": "settings",
+"states": []
+},
+{
+"text": "阿幫可以幫我什麼",
+"intent": "help",
+"states": []
+},
+{
+"text": "你是誰",
+"intent": "help",
+"states": []
+},
+{
+"text": "怎麼用這個 App",
+"intent": "help",
+"states": []
+},
+{
+"text": "你能查哪些東西",
+"intent": "help",
+"states": []
+},
+{
+"text": "有什麼功能",
+"intent": "help",
+"states": []
+},
+{
+"text": "介紹一下你自己",
+"intent": "help",
+"states": []
+},
+{
+"text": "你可以幫我做什麼事",
+"intent": "help",
+"states": []
+},
+{
+"text": "教我怎麼用",
+"intent": "help",
+"states": []
+},
+{
+"text": "What can you do",
+"intent": "help",
+"states": []
+},
+{
+"text": "你好",
+"intent": "chat",
+"states": []
+},
+{
+"text": "謝謝",
+"intent": "chat",
+"states": []
+},
+{
+"text": "你好可愛",
+"intent": "chat",
+"states": []
+},
+{
+"text": "哈哈",
+"intent": "chat",
+"states": []
+},
+{
+"text": "辛苦了",
+"intent": "chat",
+"states": []
+},
+{
+"text": "不好意思",
+"intent": "chat",
+"states": []
+},
+{
+"text": "講個笑話",
+"intent": "chat",
+"states": []
+},
+{
+"text": "有人昏倒了",
+"intent": "emergency",
+"states": []
+},
+{
+"text": "我胸口好痛",
+"intent": "emergency",
+"states": []
+},
+{
+"text": "發生車禍了",
+"intent": "emergency",
+"states": []
+},
+{
+"text": "失火了怎麼辦",
+"intent": "emergency",
+"states": []
+},
+{
+"text": "我被跟蹤好害怕",
+"intent": "emergency",
+"states": []
+},
+{
+"text": "我朋友受傷流血",
+"intent": "emergency",
+"states": []
+},
+{
+"text": "救命",
+"intent": "emergency",
+"states": []
+},
+{
+"text": "老人家跌倒爬不起來",
+"intent": "emergency",
+"states": []
+},
+{
+"text": "我不想活了",
+"intent": "emergency",
+"states": []
+},
+{
+"text": "小孩誤吞東西",
+"intent": "emergency",
+"states": []
+},
+{
+"text": "今天整天坐在辦公室都沒起來",
+"intent": "exercise",
+"states": []
+},
+{
+"text": "好久沒運動了",
+"intent": "exercise",
+"states": []
+},
+{
+"text": "出門要戴口罩嗎",
+"intent": "aqi",
+"states": []
+},
+{
+"text": "外面空氣適合戴口罩嗎",
+"intent": "aqi",
+"states": []
+},
+{
+"text": "去九份有公車可以到嗎",
+"intent": "trip",
+"states": []
+},
+{
+"text": "今天星期幾",
+"intent": "unknown",
+"states": []
+},
+{
+"text": "幫我寫履歷",
+"intent": "unknown",
+"states": []
+},
+{
+"text": "以太幣多少錢",
+"intent": "unknown",
+"states": []
+},
+{
+"text": "幫我寫一首詩",
+"intent": "unknown",
+"states": []
+},
+{
+"text": "現在幾點",
+"intent": "unknown",
+"states": []
+},
+{
+"text": "推薦附近的咖啡廳",
+"intent": "unknown",
+"states": []
+},
+{
+"text": "對一下 12345678 這張發票",
+"intent": "invoice",
+"states": []
+},
+{
+"text": "這張 87654321 有中嗎",
+"intent": "invoice",
+"states": []
+},
+{
+"text": "幫我對發票 23456789",
+"intent": "invoice",
+"states": []
+},
+{
+"text": "幫我寫一封email給同事",
+"intent": "unknown",
+"states": []
+},
+{
+"text": "幫我寫報告",
+"intent": "unknown",
+"states": []
+},
+{
+"text": "狗狗幣價格",
+"intent": "unknown",
+"states": []
 }
 ]
 }
