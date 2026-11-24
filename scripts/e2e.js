@@ -4165,3 +4165,36 @@ test('預設大眾運輸（ADR-0010 2026-11-22）：叫車不划算時決策圖�
     }
   }, { init: STEPS, motion: true });
 });
+
+test('手機橫放：撐滿整個螢幕；首頁、服務兩欄且第一列對齊；天氣置中單欄；問阿幫維持閱讀寬度；直放不變（2026-11-24）', async () => {
+  const LAND = { viewport: { width: 874, height: 402 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
+  await withPage(LAND, '#/', async (page) => {
+    await page.waitForSelector('#main > section.group');
+    const home = await page.evaluate(() => {
+      const m = document.querySelector('#main');
+      const tops = [...m.querySelectorAll(':scope > section.group')].map((s) => { const r = (s.querySelector('h2,h3') || s).getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y)]; });
+      return { cols: getComputedStyle(m).columnCount, appW: Math.round(document.querySelector('.app').getBoundingClientRect().width), tops };
+    });
+    assert.equal(home.cols, '2', '首頁兩欄');
+    assert.ok(home.appW >= 860, `撐滿：${home.appW}`);
+    const xs = [...new Set(home.tops.map(([x]) => x))];
+    assert.equal(xs.length, 2, `區塊分在兩欄：${JSON.stringify(home.tops)}`);
+    const firstY = xs.map((x) => Math.min(...home.tops.filter(([tx]) => tx === x).map(([, y]) => y)));
+    assert.ok(Math.abs(firstY[0] - firstY[1]) <= 2, `兩欄第一個標題對齊：${firstY}`);
+    await page.evaluate(() => { location.hash = '#/services'; });
+    await page.waitForSelector('#main > .svc-group');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#main')).columnCount), '2', '服務兩欄');
+    await page.evaluate(() => { location.hash = '#/s/weather'; });
+    await page.waitForSelector('#main #res');
+    const w = await page.evaluate(() => { const m = document.querySelector('#main').getBoundingClientRect(); return { cols: getComputedStyle(document.querySelector('#main')).columnCount, w: Math.round(m.width), left: Math.round(m.left) }; });
+    assert.equal(w.cols, 'auto', '天氣單欄');
+    assert.ok(w.w <= 760 && w.left > 40, `天氣置中單欄：${JSON.stringify(w)}`);
+    await page.evaluate(() => { location.hash = '#/agent'; });
+    await page.waitForSelector('.chat-form');
+    assert.ok(await page.evaluate(() => document.querySelector('#main').getBoundingClientRect().width) <= 720, '問阿幫維持閱讀寬度');
+  });
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.waitForSelector('#main > section.group');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#main')).columnCount), 'auto', '直放單欄不變');
+  });
+});
