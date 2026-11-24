@@ -10,6 +10,7 @@
 //   B 只在「A 沒把握」或「是行程問題（狀態才有用）」時才問，其餘不花模型呼叫
 import { readFile } from 'node:fs/promises';
 import { parseIntent } from './demo-intent.js';
+import { cleanTopic } from '../topic.js';
 
 export const JUDGE_INTENTS = {
   trip: '從 A 到 B 怎麼去、行程規劃、比較交通方式（含只說目的地）',
@@ -120,7 +121,7 @@ export function createLlmJudge({ url, model, apiKey, prompt, fetchImpl = fetch, 
     const text = String(j.choices?.[0]?.message?.content || '').replace(/<think>[\s\S]*?<\/think>/g, '');
     const m = /\{[\s\S]*\}/.exec(text);
     const o = m ? JSON.parse(m[0]) : {};
-    return { intent: JUDGE_INTENTS[o.intent] ? o.intent : 'unknown', states: (Array.isArray(o.states) ? o.states : []).filter((k) => JUDGE_STATES.includes(k)) };
+    return { intent: JUDGE_INTENTS[o.intent] ? o.intent : 'unknown', states: (Array.isArray(o.states) ? o.states : []).filter((k) => JUDGE_STATES.includes(k)), ...(cleanTopic(o.topic) && { topic: cleanTopic(o.topic) }) };
   };
 }
 
@@ -133,7 +134,7 @@ export function createJudge({ embed = null, llm = null, threshold = CONFIDENT } 
   const run = async (text, history = [], { quick = false, device = null } = {}) => {
     // 裝置端提示（ADR-0014：手機上的 Apple Intelligence／Gemini Nano 先判斷好）：伺服器沒有自己的模型（B）時當作 B；
     // 有 B 時只用在快速版（評測：A＋規則＋Gemini Nano 全對 89.0%，A＋規則＋地端 qwen3:8b 89.5%，docs/research/edge-eval.md）
-    const dev = device && (quick || !llm) ? { intent: device.intent, states: device.states || [] } : null;
+    const dev = device && (quick || !llm) ? { intent: device.intent, states: device.states || [], ...(cleanTopic(device.topic) && { topic: cleanTopic(device.topic) }) } : null;
     const it = { text, ...(history.length && { history }) };
     const rules = parseIntent(text, { history: history.map((content) => ({ role: 'user', content })) });
     const a = embed ? await embed(it).catch(() => null) : null;
@@ -156,7 +157,9 @@ export function createJudge({ embed = null, llm = null, threshold = CONFIDENT } 
     const intent = finer(intent0, rules, text);
     const agree = a && b ? a.states.filter((k) => b.states.includes(k)) : [];
     const states = meta ? [] : [...new Set([...rules.states.filter((k) => JUDGE_STATES.includes(k)), ...agree])];
-    return { intent, states, confidence: a?.confidence ?? null, source, llmUsed: Boolean(b && !dev), ...(dev && { engine: device.engine }), ...(rules.followUp && { followUp: true, states: [...new Set([...rules.states, ...states])] }), ...(rules.mode && { mode: rules.mode }) };
+    // 範圍外（unknown）：手機或伺服器模型寫的主題（使用者想做什麼）帶著，回答時說得出聽懂了什麼（2026-11-23）
+    const topic = intent === 'unknown' && !meta ? b?.topic || null : null;
+    return { intent, states, confidence: a?.confidence ?? null, source, llmUsed: Boolean(b && !dev), ...(topic && { topic }), ...(dev && { engine: device.engine }), ...(rules.followUp && { followUp: true, states: [...new Set([...rules.states, ...states])] }), ...(rules.mode && { mode: rules.mode }) };
   };
   const judge = (text, history, opts = {}) => run(text, history, opts);
   /** 快速版：只用 A＋規則（幾毫秒；有裝置端提示也一起用），讓阿幫一送出就能說聽懂了什麼；完整版（含模型）之後再補狀態 */

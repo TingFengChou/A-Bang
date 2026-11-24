@@ -5,7 +5,7 @@
 import { esc } from '../ui.js';
 import { api } from '../api.js';
 import { edgeEnabled, edgeStatus, edgeJudge, edgePrewarm, edgeStats, setEdgeEnabled, edgeSuggest, edgeCanSuggest, judgeContext, edgeIssue } from '../edge-judge.js';
-import { ENGINE_NAME, normalizeEdgeInfo, normalizeServerInfo, lastAgentStatus, languageNames, nodeText, judgedText } from '../ai-info.js';
+import { ENGINE_NAME, normalizeEdgeInfo, normalizeServerInfo, lastAgentStatus, languageNames, nodeText, judgedText, intentLabel } from '../ai-info.js';
 import { aiT, pageLang } from './ai-i18n.js';
 import { visionStatus, visionEnabled } from '../vision.js';
 import { voiceStatus, voiceEnabled } from '../voice.js';
@@ -348,7 +348,7 @@ export default {
         if (!r) { setNode('intent', '—'); setNode('states', '—'); stage('idle'); finish(); return; }
         const light = () => { // 訊號流到意圖、狀態，節點點亮
           const v = heroFix || r;
-          setNode('intent', t(`intent.${v.intent}`));
+          setNode('intent', intentLabel(v, t));
           setNode('states', v.states.length ? nodeText(v.states.map((k) => t(`state.${k}`)), t('sep')) : t('node.none'));
           void hero.offsetWidth; // 連續試：讓「點亮」的動畫重新開始
           stage('done');
@@ -361,7 +361,7 @@ export default {
       /** 主視覺下排兩格（2026-11-22 產品負責人：腦袋那邊怎麼都只有意圖跟狀態）：資料夠不夠、下一步問你 */
       const slotName = (k) => t(`slot.${k}`);
       const heroMore = (key, sec) => {
-        if (key === 'judge' && !info.active && sec.intent) { setNode('intent', t(`intent.${sec.intent}`)); setNode('states', sec.states?.length ? nodeText(sec.states.map((k) => t(`state.${k}`)), t('sep')) : t('node.none')); stage('done'); }
+        if (key === 'judge' && !info.active && sec.intent) { setNode('intent', intentLabel(sec, t)); setNode('states', sec.states?.length ? nodeText(sec.states.map((k) => t(`state.${k}`)), t('sep')) : t('node.none')); stage('done'); }
         if (key === 'data') setNode('data', sec.error ? t('node.dataErr') : sec.fixed ? t('node.noData') : sec.enough ? t('node.enough') : sec.missing?.length ? t('node.missing', { x: nodeText(sec.missing.map(slotName), t('sep')) }) : t('node.notEnough'));
         if (key === 'next') {
           const q = sec.ask?.question || (sec.location ? t('node.askWhere') : '') || sec.suggest?.asks?.[0]?.q || sec.suggest?.asks?.[0] || '';

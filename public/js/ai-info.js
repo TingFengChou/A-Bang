@@ -98,6 +98,13 @@ export function nodeText(labels, sep = '、') {
 }
 
 /**
+ * 意圖的顯示名稱；範圍外（unknown）但聽得懂想做什麼時帶主題：「其他：訂餐廳」（core/topic.js）
+ * @param {{ intent?: string, topic?: string }|null} r
+ * @param {(key: string, vars?: object) => string} t
+ */
+export const intentLabel = (r, t) => (r?.intent === 'unknown' && r.topic ? t('intent.unknownTopic', { topic: r.topic }) : t(`intent.${EDGE_INTENTS.includes(r?.intent) ? r.intent : 'unknown'}`));
+
+/**
  * 一次判斷的結果文字（畫面與讀屏同一句；動畫只是它的另一種呈現）。
  * @param {{ intent: string, states: string[] }} r normalizeJudge 的結果
  * @param {number|null} ms 花多久
@@ -107,7 +114,7 @@ export function judgedText(r, ms, t) {
   const intent = EDGE_INTENTS.includes(r?.intent) ? r.intent : 'unknown';
   const states = (r?.states || []).filter((k) => EDGE_STATES.includes(k));
   return [
-    t('judged.intent', { intent: t(`intent.${intent}`) }),
+    t('judged.intent', { intent: intentLabel({ ...r, intent }, t) }),
     states.length ? t('judged.states', { states: states.map((k) => t(`state.${k}`)).join(t('sep')) }) : t('judged.noStates'),
     Number.isFinite(ms) ? t('judged.ms', { ms: Math.round(ms) }) : '',
     t('judged.local'),

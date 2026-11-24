@@ -5,6 +5,7 @@
 // reduced motion／lite-motion 不動，只顯示文字。讀屏只念兩次：開始想、聽懂了（或改由伺服器判斷）；查資料的過程討論串本來就會念。
 import { aiT } from '../pages/ai-i18n.js';
 import { EDGE_INTENTS, EDGE_STATES } from '../edge-judge.js';
+import { intentLabel } from '../ai-info.js';
 
 /** 開始：剛送出 */
 export const thinkStart = () => ({ phase: 'think', device: null, pending: [], checked: 0 });
@@ -18,7 +19,7 @@ export function thinkStep(s, e) {
   if (s.phase === 'end' || !e) return s;
   switch (e.type) {
     case 'device': {
-      const r = e.result && EDGE_INTENTS.includes(e.result.intent) ? { intent: e.result.intent, states: (e.result.states || []).filter((k) => EDGE_STATES.includes(k)), engine: e.result.engine } : null;
+      const r = e.result && EDGE_INTENTS.includes(e.result.intent) ? { intent: e.result.intent, states: (e.result.states || []).filter((k) => EDGE_STATES.includes(k)), engine: e.result.engine, ...(e.result.topic && { topic: e.result.topic }) } : null;
       return { ...s, phase: s.pending.length ? s.phase : r ? 'device' : 'server', device: r };
     }
     case 'tool_start':
@@ -57,7 +58,7 @@ export function thinkText(s, lang = null, roleName = (r) => r) {
   const dot = en ? ' · ' : '・';
   let stage = '';
   if (s.phase === 'device' && s.device) {
-    const what = [t(`intent.${s.device.intent}`), ...s.device.states.map((k) => t(`state.${k}`))].join(dot);
+    const what = [intentLabel(s.device, t), ...s.device.states.map((k) => t(`state.${k}`))].join(dot);
     stage = en ? `Understood on your phone: ${what}` : `手機上聽懂了：${what}`;
   } else if (s.phase === 'server') stage = en ? 'The server is working out what you mean' : '伺服器判斷中';
   else if (s.phase === 'tools') {

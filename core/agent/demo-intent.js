@@ -1542,6 +1542,7 @@ function englishSummary(it, results) {
   if (it.thanks) return "You're welcome! Have a good trip.";
   if (it.intent === 'savedMissing') return `I don't know where your ${({ 家: 'home', 公司: 'office', 學校: 'school' })[it.missing] || 'saved place'} is yet. Set it in Settings & privacy → Saved places, or just tell me the place name (e.g. "How do I get to Banqiao Station?").`; // 「I'm at Taipei 101, about to go home」：還沒設定家
   if (it.help) return (it.greet ? `${it.greet[0].toUpperCase()}${it.greet.slice(1)}! I'm Abang. ` : '') + 'I can help you get around Taiwan (bus, MRT, train, high-speed rail, YouBike, taxi, from A to B) and check daily info (weather, air quality, earthquakes, pharmacies, garbage trucks, fuel prices, invoices, stock closing prices). Try: "How do I get to Taipei 101?"';
+  if (it.intent === 'unknown' && it.topic) return `Got it — you want to ${it.topic}. Abang can't do that yet; I can help with getting around Taiwan (bus, MRT, train, YouBike, taxi), the weather and daily info. Try: "How do I get to Taipei 101?"`;
   if (it.intent === 'unknown') return 'Sorry, I can only help with getting around Taiwan (bus, MRT, train, YouBike, taxi) and the weather for now. Try: "How do I get to Taipei 101?"';
   // 什麼都沒查到（例：車站或地點不在資料裡）：照實說，不說「Here you go」
   if (!Object.keys(results).length) return "Sorry, I couldn't get that information right now (the station or place may not be covered). Try another name.";
@@ -1699,6 +1700,8 @@ function summaryCore(it, results, suggestions = []) {
   if (it.chat) return `${it.greet ? `${it.greet}！` : ''}我是阿幫，想查交通或生活資訊直接說就好，例如「去台北 101」「307 到哪了？」「今天會下雨嗎」。`;
   if (it.thanks) return '不客氣！還想查什麼隨時跟我說。';
   if (it.sorry) return '沒關係！想查什麼直接說就好，例如「去台北 101」、「307 到哪了？」。';
+  // 範圍外但聽得懂想做什麼（判斷層的 topic，core/topic.js）：照實說聽懂了什麼、阿幫還沒有這項服務（不說成「聽不懂」）
+  if (it.intent === 'unknown' && it.topic) return `聽懂了，你想「${it.topic}」。這個阿幫還沒有提供，沒辦法幫你查。我可以查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）、天氣、空品、藥局、油價、發票、股市收盤，也可以幫你看訊息是不是詐騙。`;
   if (it.intent === 'unknown') return `${it.greet ? `${it.greet}！我是阿幫。` : ''}我可以幫你查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）和生活資訊（天氣、空品、地震、藥局、垃圾車、油價、發票、股市收盤）。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
   if (it.intent === 'traffic' && it.cityOnly) return `阿幫拿到的路況開放資料只有國道（高速公路）${it.area ? `，「${String(it.area).replace(/臺/g, '台')}」一帶` : '，'}市區道路塞不塞查不到。要看國道就告訴我從哪裡到哪裡（例如「台北到新竹」）。`; // 市區路況（PR #127 審查）
   if (it.intent === 'traffic') { // 國道路況（S7）：起訖、結果照工具資料說
