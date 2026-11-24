@@ -17,6 +17,17 @@
 - 文件：ADR-0019、DATA_SOURCES、CARDS、MCP_TOOLS、PLAN（D-10）、設定頁說明、`.env.example`
 - 下一個：D-07 合作方提供 `.env` 後確認上游封面欄位名稱與圖片主機
 - 卡住：上游封面欄位名稱待確認（防禦性讀 cover／coverUrl／poster／coverImage）
+## 2026-11-24 手機橫放撐滿整個螢幕
+- 做了：產品負責人問橫放是不是要撐滿螢幕（以前中間 560px、兩邊各空約 150pt）。手機橫放（高度 ≤ 520px）時：寬度撐滿、左右只留瀏海與圓角的安全區域；首頁、服務、提醒、我的、設定改兩欄（多欄排版，區塊 inline-block 讓兩欄第一列對齊）；天氣這類格子頁、附近、公車時刻表置中單欄（最寬 760px，卡片跟著變寬）；問阿幫的對話維持 720px 閱讀寬度；分頁列撐滿。直放不變
+- 測試：npm test 全過；e2e 全過（新增橫放滿版一項）；iOS 模擬器橫放、直放截圖確認
+- 文件：無
+- 下一個：無
+## 2026-11-23 意圖判斷 29 類＋範圍外的主題
+- 做了：產品負責人回報 iPhone 上「加 LINE 帳號」意圖總是「其他」。原因是判斷層只有 16 類（Apple Intelligence 的 @Generable 只准從裡面挑），防詐、叫車、訂票、客運、提醒、設定、求助都落到「其他」。擴充成 29 類（intercity、ridehail、booking、place、outing、drama、exercise、scam、reminder、settings、help、chat、emergency），伺服器、手機、iOS、提示詞、評測同一份；新意圖接上既有處理或固定回覆（AGENT.md §5.3）。範圍外（unknown）由手機或伺服器模型寫 2～10 字的主題（`core/topic.js` 擋個資），回答「聽懂了，你想「訂餐廳」…」、畫面「其他：訂餐廳」
+- 測試：npm test 全過（新增 test/judge-all-intents.test.js 10 項）；評測 224 題（嵌入＋規則）：原 172 題 91.3% → 94.8%，新 52 題 100%
+- 文件：AGENT.md §5.3
+- 下一個：iPhone、Pixel 實機確認手機 AI 判斷新意圖與主題
+- 卡住：無
 
 ## 2026-11-23 E3 手機上的小模型（App 內 transformers.js 分類器）
 - 做了：使用者在設定頁「手機上的小模型（備援）」按下載，App 從阿幫自己的伺服器 `/edge-model/`（白名單 `server/edge-model.js`、串流、App 來源 CORS）下載 multilingual-e5-small（實際 162 MB），存在 IndexedDB；在 Web Worker（`public/js/edge-embed-worker.js`）跑 transformers.js。分類器的純函式抽到 `core/judge-classify.js`，伺服器（`judge.js`）與手機共用；手機用的參數 `core/data/judge-classifier.json` 由 `npm run build:edge-classifier` 產生。系統模型不能用時 `edgeJudge` 改用小模型，送 `deviceJudge.engine = 'e5'`＋信心；伺服器沒有自己的 A 時當作 A（門檻、unknown、規則優先照舊；不當作 B），有 A 就用自己的。回答上方那一行、腦袋頁試判斷、隱私權政策、service worker（不快取 `/edge-model/`，v1.3.26）同步。沒有新增套件

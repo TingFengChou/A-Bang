@@ -215,7 +215,7 @@ public class AbangEdgeAIPlugin extends Plugin {
             try {
                 if (System.currentTimeMillis() < pausedUntil || featureStatus() != FeatureStatus.AVAILABLE) { call.reject("unavailable"); return; }
                 StringBuilder prompt = new StringBuilder(instructions)
-                    .append("\n只回一行 JSON，不要其他文字：{\"intent\":\"意圖\",\"states\":[\"狀態\"],\"ask\":null}")
+                    .append("\n只回一行 JSON，不要其他文字：{\"intent\":\"意圖\",\"states\":[\"狀態\"],\"ask\":null,\"topic\":\"想做的事（2～10 字）\"}")
                     .append("\n要問時 ask 改成 {\"slot\":\"種類\",\"state\":\"狀況（只有 slot 是 state 才要）\",\"question\":\"問句\",\"options\":[\"短答\",\"短答\"]}\n");
                 if (!ctx.isEmpty()) prompt.append("情境：").append(ctx).append('\n');
                 List<String> prior = hist.toList();

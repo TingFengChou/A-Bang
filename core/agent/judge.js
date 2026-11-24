@@ -10,6 +10,7 @@
 //   B 只在「A 沒把握」或「是行程問題（狀態才有用）」時才問，其餘不花模型呼叫
 import { readFile } from 'node:fs/promises';
 import { parseIntent } from './demo-intent.js';
+import { cleanTopic } from '../topic.js';
 import { EMBED_MODEL, EMBED_DTYPE, EMBED_TAU, embedText, trainClassifier, classifyVector } from '../judge-classify.js';
 
 export const JUDGE_INTENTS = {
@@ -28,7 +29,21 @@ export const JUDGE_INTENTS = {
   invoice: '統一發票、對獎、中獎號碼、開獎',
   stock: '台股股價、大盤、指數、個股（含問該不該買）',
   traffic: '國道、高速公路路況：塞不塞車、車多不多（2026-11-22）',
-  unknown: '以上都不是：閒聊、其他服務、阿幫不提供的資訊',
+  // 2026-11-23 產品負責人：阿幫會的每一件事都要有意圖（以前只有 16 類，防詐、叫車、提醒、設定……都落到「其他」）
+  intercity: '國道客運：搭客運、長途巴士的班次與時間',
+  ridehail: '叫車：計程車、Uber、叫一台車（只給官方連結）',
+  booking: '訂票：訂高鐵、台鐵車票（只給官方連結）',
+  place: '找地點：某個地方在哪、地址（沒問怎麼去）',
+  outing: '出門建議：出門要注意什麼、要不要帶傘或外套、適不適合出門',
+  drama: '短劇：找劇、推薦短劇、追劇、MyDrama',
+  exercise: '散步運動：今天走太少、要不要去走走、運動建議',
+  scam: '詐騙：可疑簡訊、電話、網址、加 LINE、投資群組、假檢警、被騙了怎麼辦',
+  reminder: '提醒：提醒我出門、公車快到通知我、下車提醒、取消提醒',
+  settings: '設定：常用地點（家、公司）、我有車、語言、通知、隱私',
+  help: '問阿幫能做什麼、是誰、怎麼用',
+  chat: '閒聊、打招呼、道謝、道歉、稱讚、只回「好」',
+  emergency: '緊急求助：受傷、急病、有人昏倒、車禍、失火、遇到危險、想傷害自己',
+  unknown: '以上都不是：阿幫沒有提供的服務或資訊（訂餐廳、查快遞…）',
 };
 export const JUDGE_STATES = ['rush', 'luggage', 'budget', 'lessWalk', 'rain', 'badAir', 'elder', 'kids', 'mobility'];
 export const CONFIDENT = 0.8;
@@ -83,7 +98,7 @@ export function createLlmJudge({ url, model, apiKey, prompt, fetchImpl = fetch, 
     const text = String(j.choices?.[0]?.message?.content || '').replace(/<think>[\s\S]*?<\/think>/g, '');
     const m = /\{[\s\S]*\}/.exec(text);
     const o = m ? JSON.parse(m[0]) : {};
-    return { intent: JUDGE_INTENTS[o.intent] ? o.intent : 'unknown', states: (Array.isArray(o.states) ? o.states : []).filter((k) => JUDGE_STATES.includes(k)) };
+    return { intent: JUDGE_INTENTS[o.intent] ? o.intent : 'unknown', states: (Array.isArray(o.states) ? o.states : []).filter((k) => JUDGE_STATES.includes(k)), ...(cleanTopic(o.topic) && { topic: cleanTopic(o.topic) }) };
   };
 }
 
@@ -98,7 +113,7 @@ export function createJudge({ embed = null, llm = null, threshold = CONFIDENT } 
     // 有 B 時只用在快速版（評測：A＋規則＋Gemini Nano 全對 89.0%，A＋規則＋地端 qwen3:8b 89.5%，docs/research/edge-eval.md）
     // 手機上的小模型（E3）跟 A 是同一個分類器：伺服器沒有 A（JUDGE=off、還在載入）時當作 A（信心、門檻、規則優先都照 A 的規則）；伺服器有 A 就用自己的
     const devEmbed = device?.engine === EMBED_ENGINE && !embed && Number.isFinite(device.confidence) ? { intent: device.intent, confidence: device.confidence, states: device.states || [] } : null;
-    const dev = device && device.engine !== EMBED_ENGINE && (quick || !llm) ? { intent: device.intent, states: device.states || [] } : null;
+    const dev = device && device.engine !== EMBED_ENGINE && (quick || !llm) ? { intent: device.intent, states: device.states || [], ...(cleanTopic(device.topic) && { topic: cleanTopic(device.topic) }) } : null;
     const it = { text, ...(history.length && { history }) };
     const rules = parseIntent(text, { history: history.map((content) => ({ role: 'user', content })) });
     const a = embed ? await embed(it).catch(() => null) : devEmbed;
@@ -115,17 +130,32 @@ export function createJudge({ embed = null, llm = null, threshold = CONFIDENT } 
     // 腦袋審查 #3（2026-11-23）：句子有明確關鍵字的生活查詢（天氣、空品、藥局、油價、發票、股票代號、地震、垃圾車、YouBike、附近站牌、捷運）也一樣：
     // 手機看了前文（剛剛在排行程）判成行程、或把「2330 收盤多少」判成天氣時，照規則（路況、行程、聽不懂的句子仍可由手機或模型更正）
     const strong = ruled && !(rules.also || []).length && ((rules.intent === 'bus_route' && !!rules.route) || KEYWORD_INTENTS.has(rules.intent));
-    const pick = meta ? ['unknown', 'rules'] : rules.followUp ? [rules.intent === 'trip' || !Object.hasOwn(JUDGE_INTENTS, rules.intent) ? 'trip' : rules.intent, 'rules'] : strong && ((b && b.intent !== rules.intent) || (sure && a.intent !== rules.intent)) ? [rules.intent, 'rules'] : sure ? [a.intent, 'embed'] : b ? [b.intent, dev ? 'device' : 'llm']
+    const pick = meta ? [rules.help && !rules.greet ? 'help' : 'chat', 'rules'] : rules.followUp ? [rules.intent === 'trip' || !Object.hasOwn(JUDGE_INTENTS, rules.intent) ? 'trip' : rules.intent, 'rules'] : strong && ((b && b.intent !== rules.intent) || (sure && a.intent !== rules.intent)) ? [rules.intent, 'rules'] : sure ? [a.intent, 'embed'] : b ? [b.intent, dev ? 'device' : 'llm']
       : ruled || !a ? [rules.intent, 'rules'] : a.confidence >= UNSURE_FLOOR ? [a.intent, 'embed'] : ['unknown', 'embed'];
-    const [intent, source] = pick;
+    const [intent0, source] = pick;
+    const intent = finer(intent0, rules, text);
     const agree = a && b ? a.states.filter((k) => b.states.includes(k)) : [];
     const states = meta ? [] : [...new Set([...rules.states.filter((k) => JUDGE_STATES.includes(k)), ...agree])];
-    return { intent, states, confidence: a?.confidence ?? null, source, llmUsed: Boolean(b && !dev), ...(dev && { engine: device.engine }), ...(devEmbed && source === 'embed' && { engine: EMBED_ENGINE }), ...(rules.followUp && { followUp: true, states: [...new Set([...rules.states, ...states])] }), ...(rules.mode && { mode: rules.mode }) };
+    // 範圍外（unknown）：手機或伺服器模型寫的主題（使用者想做什麼）帶著，回答時說得出聽懂了什麼（2026-11-23）
+    const topic = intent === 'unknown' && !meta ? b?.topic || null : null;
+    return { intent, states, confidence: a?.confidence ?? null, source, llmUsed: Boolean(b && !dev), ...(topic && { topic }), ...(dev && { engine: device.engine }), ...(devEmbed && source === 'embed' && { engine: EMBED_ENGINE }), ...(rules.followUp && { followUp: true, states: [...new Set([...rules.states, ...states])] }), ...(rules.mode && { mode: rules.mode }) };
   };
   const judge = (text, history, opts = {}) => run(text, history, opts);
   /** 快速版：只用 A＋規則（幾毫秒；有裝置端提示也一起用），讓阿幫一送出就能說聽懂了什麼；完整版（含模型）之後再補狀態 */
   judge.quick = (text, history, opts = {}) => run(text, history, { ...opts, quick: true });
   return judge;
+}
+
+/** 散步運動的字眼（出門建議裡問的是走走、運動）：判成 exercise */
+const EXERCISE = /散步|走走|走一走|運動|跑步|慢跑|健走|動一動|步數|走太少/;
+/**
+ * 規則已經聽出更細的事（指定搭客運、叫車；出門是要去散步運動）：意圖標得更精確（2026-11-23 阿幫會的每一件事都有意圖）。
+ * 執行照舊：intercity／ridehail 仍是指定交通方式的行程、exercise 仍是出門建議（core/agent/demo-intent.js slotsFor）。
+ */
+export function finer(intent, rules, text) {
+  if (intent === 'trip' && (rules.mode === 'intercity' || rules.mode === 'ridehail')) return rules.mode;
+  if (intent === 'outing' && EXERCISE.test(String(text || ''))) return 'exercise';
+  return intent;
 }
 
 /**

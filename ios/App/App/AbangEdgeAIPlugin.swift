@@ -128,6 +128,7 @@ public class AbangEdgeAIPlugin: CAPPlugin, CAPBridgedPlugin {
                     CAPLog.print("AbangEdgeAI: judged in \(ms) ms") // 只記耗時，不記內容
                     var result: [String: Any] = ["intent": r.intent, "states": r.states]
                     if let ask = r.ask { result["ask"] = ask } // 題目由 JS 與伺服器的程式驗證（ADR-0020）
+                    if !r.topic.isEmpty { result["topic"] = r.topic }
                     call.resolve(["engine": "apple", "ms": ms, "result": result]) // ms：模型花多久（#/ai 顯示）
                 } catch {
                     CAPLog.print("AbangEdgeAI: judge failed \(AppleJudge.code(error))") // 錯誤種類，不印句子內容
@@ -223,7 +224,8 @@ struct EdgeWriteTimeout: Error {}
 
 #if canImport(FoundationModels)
 /// 意圖（與 core/agent/judge.js JUDGE_INTENTS 相同；test/edge-judge.test.js 比對）
-let edgeIntents = ["trip", "bus_route", "youbike", "nearby_bus", "metro", "rail", "weather", "aqi", "quake", "pharmacy", "garbage", "fuel", "invoice", "stock", "traffic", "unknown"]
+let edgeIntents = ["trip", "bus_route", "youbike", "nearby_bus", "metro", "rail", "weather", "aqi", "quake", "pharmacy", "garbage", "fuel", "invoice", "stock", "traffic",
+                   "intercity", "ridehail", "booking", "place", "outing", "drama", "exercise", "scam", "reminder", "settings", "help", "chat", "emergency", "unknown"]
 /// 狀態（與 JUDGE_STATES 相同）
 let edgeStates = ["rush", "luggage", "budget", "lessWalk", "rain", "badAir", "elder", "kids", "mobility"]
 
@@ -254,6 +256,8 @@ struct EdgeJudgement {
     var states: [String]
     @Guide(description: "要先問使用者的一題；資料夠、不用問就留空（寧可不問）")
     var ask: EdgeAsk?
+    @Guide(description: "使用者想做的事，2～10 個字的短語（例：訂餐廳、寫信給老闆、查快遞）；不要放人名、電話、網址")
+    var topic: String
 }
 
 @available(iOS 26.0, *)
@@ -355,7 +359,7 @@ actor AppleJudge {
         return Array(r.content.questions.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }.prefix(max))
     }
 
-    func judge(text: String, history: [String], context: String, instructions: String) async throws -> (intent: String, states: [String], ask: [String: Any]?) {
+    func judge(text: String, history: [String], context: String, instructions: String) async throws -> (intent: String, states: [String], ask: [String: Any]?, topic: String) {
         let session = take(instructions)
         defer { prewarm(instructions: instructions) }
         let prior = history.isEmpty ? "" : "前文：\(history.joined(separator: "／"))\n"
@@ -369,7 +373,8 @@ actor AppleJudge {
             if a.slot == "state", a.state != "none" { o["state"] = a.state }
             ask = o
         }
-        return (edgeIntents.contains(r.content.intent) ? r.content.intent : "unknown", states, ask)
+        // topic：範圍外的問題至少說得出使用者想做什麼；整理與個資檢查在 JS 與伺服器（core/topic.js）
+        return (edgeIntents.contains(r.content.intent) ? r.content.intent : "unknown", states, ask, String(r.content.topic.prefix(24)))
     }
 }
 #endif

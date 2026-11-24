@@ -2,23 +2,9 @@
 // 金鑰只從環境變數讀、不印出；評估集與訓練範例都是自行撰寫的假想提問，不含使用者資料。
 import { readFile } from 'node:fs/promises';
 
-export const INTENTS = {
-  trip: '從 A 到 B 怎麼去、行程規劃、比較交通方式（含只說目的地）',
-  bus_route: '某一條公車路線到哪、多久到站、末班車',
-  youbike: 'YouBike／公共自行車借車還車、站點車位',
-  nearby_bus: '附近有哪些公車站牌、站牌有哪些路線',
-  metro: '捷運下一班、捷運到站時間、班距',
-  rail: '高鐵或台鐵（火車）班次、時刻、車票',
-  weather: '天氣、氣溫、會不會下雨、帶傘、颱風',
-  aqi: '空氣品質、AQI、PM2.5、空汙、要不要戴口罩',
-  quake: '地震、震度、震央',
-  pharmacy: '藥局、領藥、買藥',
-  garbage: '垃圾車、倒垃圾、資源回收車時間',
-  fuel: '油價、汽油、柴油價格',
-  invoice: '統一發票、對獎、中獎號碼、開獎',
-  stock: '台股股價、大盤、指數、個股（含問該不該買）',
-  unknown: '以上都不是：閒聊、其他服務、阿幫不提供的資訊',
-};
+// 與產品的判斷層同一份（core/agent/judge.js；2026-11-23 起 29 類，阿幫會的每一件事都有意圖）
+import { JUDGE_INTENTS } from '../../core/agent/judge.js';
+export const INTENTS = JUDGE_INTENTS;
 export const STATES = {
   rush: '使用者趕時間、快遲到、很急',
   luggage: '使用者帶行李、大包小包',

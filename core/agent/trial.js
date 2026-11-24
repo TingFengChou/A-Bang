@@ -115,7 +115,7 @@ export function trialInfo(svc, it, { judge = null, lang = 'zh', now = Date.now()
   const slots = slotReport(it, { judged, lang });
   return {
     lang: lang === 'en' ? 'en' : 'zh',
-    judge: judge ? { intent: judge.intent, states: [...(judge.states || [])], source: judge.source || 'rules', ...(judge.engine && { engine: judge.engine }), ...(judge.confidence != null && { confidence: Math.round(judge.confidence * 100) / 100 }) }
+    judge: judge ? { intent: judge.intent, states: [...(judge.states || [])], source: judge.source || 'rules', ...(judge.engine && { engine: judge.engine }), ...(judge.confidence != null && { confidence: Math.round(judge.confidence * 100) / 100 }), ...(judge.topic && { topic: judge.topic }) }
       : { intent: it?.intent || 'unknown', states: [...(it?.states || [])], source: 'rules' },
     ...slots,
     sources: safety ? [] : sourceReport(svc, slots.target, { now }),
