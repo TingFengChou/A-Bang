@@ -111,6 +111,12 @@ const WEATHER_WORD = /天氣|氣溫|溫度|幾度|下雨|下大雨|大雨|帶傘
 // 使用者指定交通方式（「坐公車去」「改叫車」）：plan_trip prefs.mode；「不要叫車」的叫車不算
 const MODE_WORDS = [['bus', /公車|巴士/], ['metro', /捷運|MRT/i], ['bike', /youbike|ubike|單車|腳踏車/i], ['walk', /走路|步行|走過去/], ['drive', /自己開車|自行開車|開我的車|自駕|開車(?:去|過去|出門|到)?/], ['ridehail', /叫車|叫(?:一|1)?(?:台|輛)車|計程車|小黃|uber/i],
   ['thsr', /高鐵/], ['tra', /台鐵|臺鐵|火車/], ['intercity', /客運/]];
+/** 有人要你加 LINE、加好友、進投資群組（詐騙話術；「LINE 怎麼用」這類不算） */
+const LINE_SCAM = /(?:加|加入|加我|加他|加她|加對方)\s*(?:的)?\s*(?:line|賴|LINE)|(?:line|賴)\s*(?:帳號|好友|ID)|投資群組|飆股群|穩賺不賠|保證獲利/i;
+/** 要設提醒、通知、到站叫我、取消提醒 */
+const REMIND_ASK = /提醒我|通知我|到站叫我|叫我下車|(?:設|設定|新增|取消|關掉)(?:一個|一下)?(?:出門|下車|到站)?提醒|下車提醒/;
+/** 要改設定：設定／改常用地點（家、公司、學校）、我有車、語言、通知、手機上的 AI */
+const SETTINGS_ASK = /(?:設定|設成|設為|改成|新增|修改|更改|改一下)(?:我)?(?:的)?(?:家|公司|學校|常用地點|語言|通知)|常用地點(?:怎麼|要怎麼|在哪)?(?:設|改|新增)|^我(?:有|沒有)車了?[。！!]?$|(?:關掉|關閉|打開|開啟)(?:通知|手機上的\s*AI)|(?:語言|介面)(?:改|換)成/;
 /** 搭客運的字眼（判斷層說 intercity 時，句子有這些才限定只查客運） */
 const INTERCITY_WORD = /客運|巴士|統聯|國光|和欣|葛瑪蘭|豪泰|長途/;
 /** 使用者說不要的交通方式（「不要叫車」「不想坐公車」「別走路」）→ ['ridehail', …] */
@@ -759,6 +765,12 @@ function parseIntentRaw(text, ctx) {
   if (/電梯|無障礙(?:設施|廁所|出口)?|斜坡|坡道/.test(s) && /嗎|哪|有沒有|在哪|方便|\?|？/.test(s) && !/從.+(?:到|去)|怎麼去|怎麼走/.test(s)) return { ...base, intent: 'access' };
   // 在生活阿幫問「這是詐騙嗎」（有沒有附內容都一樣）：不列功能清單，請他到防詐檢查（PM 盤點 Q-23）
   if (/詐騙嗎|是不是詐騙|是詐騙|是騙人的嗎/.test(s) && !places.length) return { ...base, intent: 'scamAsk' };
+  // 有人要你加 LINE、進投資群組（2026-11-25 Gemini Nano 實測：「加line帳號」有時判成閒聊）：常見詐騙話術，請到防詐檢查
+  if (LINE_SCAM.test(s) && !places.length) return { ...base, intent: 'scamAsk' };
+  // 要設提醒、到站叫我，沒說哪一路公車、也沒說地點（Gemini Nano 實測把「公車快到時提醒我」判成查公車）：說明提醒在哪裡設
+  if (REMIND_ASK.test(s) && !places.length && !/\d/.test(s)) return { ...base, intent: 'reminder' };
+  // 要改設定（常用地點、我有車、語言、通知；Apple Intelligence 實測把「設定我家在板橋」判成找地點）：說明在哪裡設。問怎麼去不算
+  if (SETTINGS_ASK.test(s) && !/怎麼去|怎麼走|多久|到哪|幾點/.test(s)) return { ...base, intent: 'settings' };
   if (looksScamPaste(s, places)) return { ...base, places: [], intent: 'scamAsk', pasted: true }; // 貼上的詐騙樣式簡訊（網址＋催促＋要你點或付）：不拿裡面的數字查公車，請他帶到防詐（f01）
   if (ACT_FOR_ME.test(s) && !places.length && (!RAIL_WORD.test(s) || /刷卡|付款|付錢|代付/.test(s))) return { ...base, intent: 'limits' };
   if (isDramaAsk(s, places)) return { ...base, intent: 'drama', ...dramaSlots(s) }; // 找短劇（ADR-0019）：在行程、生活服務之前（「推薦一部短劇」不是地名）

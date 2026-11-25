@@ -48,7 +48,7 @@ export const JUDGE_INTENTS = {
 export const JUDGE_STATES = ['rush', 'luggage', 'budget', 'lessWalk', 'rain', 'badAir', 'elder', 'kids', 'mobility'];
 export const CONFIDENT = 0.8;
 /** 規則靠明確關鍵字認出的意圖：判斷層（手機、模型、嵌入分類器）說是別的也照規則（腦袋審查 #3） */
-export const KEYWORD_INTENTS = new Set(['weather', 'aqi', 'quake', 'pharmacy', 'garbage', 'fuel', 'invoice', 'stock', 'youbike', 'nearby_bus', 'metro']);
+export const KEYWORD_INTENTS = new Set(['weather', 'aqi', 'quake', 'pharmacy', 'garbage', 'fuel', 'invoice', 'stock', 'youbike', 'nearby_bus', 'metro', 'reminder', 'settings', 'scam', 'drama']);
 /** A 沒把握、規則也聽不懂時：A 信心低於這個值就當作 unknown（不亂選；「我在等939」0.27、詐騙簡訊 0.42） */
 export const UNSURE_FLOOR = 0.5;
 /** 裝置端判斷的引擎（ADR-0014）：Apple Intelligence（Foundation Models）、Gemini Nano（ML Kit GenAI） */
@@ -115,7 +115,9 @@ export function createJudge({ embed = null, llm = null, threshold = CONFIDENT } 
     const devEmbed = device?.engine === EMBED_ENGINE && !embed && Number.isFinite(device.confidence) ? { intent: device.intent, confidence: device.confidence, states: device.states || [] } : null;
     const dev = device && device.engine !== EMBED_ENGINE && (quick || !llm) ? { intent: device.intent, states: device.states || [], ...(cleanTopic(device.topic) && { topic: cleanTopic(device.topic) }) } : null;
     const it = { text, ...(history.length && { history }) };
-    const rules = parseIntent(text, { history: history.map((content) => ({ role: 'user', content })) });
+    const rules0 = parseIntent(text, { history: history.map((content) => ({ role: 'user', content })) });
+    // 規則的「請到防詐檢查」（scamAsk）在判斷層就是 scam（2026-11-25：手機判成其他時，畫面的意圖標籤也要是防詐）
+    const rules = rules0.intent === 'scamAsk' ? { ...rules0, intent: 'scam' } : rules0;
     const a = embed ? await embed(it).catch(() => null) : devEmbed;
     const sure = a && a.confidence >= threshold;
     // 問阿幫能做什麼、道謝、道歉、只回「好」：整句就是這個，手機或模型看了前文（剛剛在排行程、說過快遲到）判成行程也不改，狀態也不沿用（2026-11-23 產品負責人：腦袋頁「你會做什麼」意圖總是行程規劃）
@@ -129,7 +131,8 @@ export function createJudge({ embed = null, llm = null, threshold = CONFIDENT } 
     // 規則有十足把握（這一句寫了公車路線號碼、問的就是那一路，例「307 到哪了」）：手機或模型判成別的（天氣）也不改（真實資料健檢 d10）
     // 腦袋審查 #3（2026-11-23）：句子有明確關鍵字的生活查詢（天氣、空品、藥局、油價、發票、股票代號、地震、垃圾車、YouBike、附近站牌、捷運）也一樣：
     // 手機看了前文（剛剛在排行程）判成行程、或把「2330 收盤多少」判成天氣時，照規則（路況、行程、聽不懂的句子仍可由手機或模型更正）
-    const strong = ruled && !(rules.also || []).length && ((rules.intent === 'bus_route' && !!rules.route) || KEYWORD_INTENTS.has(rules.intent));
+    // 貼上的整段簡訊（pasted）可以由手機或模型更正（裡面可能夾著真正要問的事，PR #127 審查）：不算十足把握
+    const strong = ruled && !(rules.also || []).length && !rules.pasted && ((rules.intent === 'bus_route' && !!rules.route) || KEYWORD_INTENTS.has(rules.intent));
     const pick = meta ? [rules.help && !rules.greet ? 'help' : 'chat', 'rules'] : rules.followUp ? [rules.intent === 'trip' || !Object.hasOwn(JUDGE_INTENTS, rules.intent) ? 'trip' : rules.intent, 'rules'] : strong && ((b && b.intent !== rules.intent) || (sure && a.intent !== rules.intent)) ? [rules.intent, 'rules'] : sure ? [a.intent, 'embed'] : b ? [b.intent, dev ? 'device' : 'llm']
       : ruled || !a ? [rules.intent, 'rules'] : a.confidence >= UNSURE_FLOOR ? [a.intent, 'embed'] : ['unknown', 'embed'];
     const [intent0, source] = pick;

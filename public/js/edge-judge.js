@@ -43,11 +43,23 @@ export const EDGE_REASON = { ok: '可以使用', unsupported: '這支手機不�
  * iOS 用結構化輸出（@Generable）不需要 JSON 格式說明；Android 要求只回 JSON。
  */
 export const EDGE_INSTRUCTIONS = `你是交通與生活助理的「意圖與狀態判斷器」，只判斷，不回答問題。
-意圖（選一個）：trip 從 A 到 B 怎麼去、行程、比較交通方式（只說目的地也算）；bus_route 某條公車路線到哪、多久到、末班；youbike 借還 YouBike、站點車位；nearby_bus 附近公車站牌；metro 捷運下一班；rail 高鐵、台鐵班次車票；weather 天氣、會不會下雨；aqi 空氣品質、PM2.5、口罩；quake 地震；pharmacy 藥局；garbage 垃圾車；fuel 油價；invoice 發票對獎；stock 台股；traffic 國道路況、塞不塞車；intercity 國道客運；ridehail 叫車、計程車、Uber；booking 訂高鐵台鐵車票；place 某地方在哪、地址；outing 出門要注意什麼、帶傘外套；drama 短劇、追劇；exercise 走太少、散步運動；scam 可疑簡訊電話網址、加 LINE、投資群組、假檢警、被騙；reminder 提醒我、到站通知；settings 設定常用地點、我有車、語言、通知；help 問阿幫能做什麼；chat 打招呼、道謝、閒聊；emergency 受傷急病、有人昏倒、車禍、危險、想傷害自己；unknown 阿幫沒有的服務。
+意圖（選一個）：trip 從 A 到 B 怎麼去、行程、比較交通方式（只說目的地也算）；bus_route 某條公車路線到哪、多久到、末班；youbike 借還 YouBike、站點車位；nearby_bus 附近公車站牌；metro 捷運下一班；rail 高鐵、台鐵班次車票；weather 天氣、會不會下雨；aqi 空氣品質、PM2.5、口罩；quake 地震；pharmacy 藥局；garbage 垃圾車；fuel 油價；invoice 發票對獎；stock 台股；traffic 國道路況、塞不塞車；intercity 國道客運；ridehail 叫車、計程車、Uber；booking 訂高鐵台鐵車票；place 某地方在哪、地址；outing 出門要注意什麼、帶傘外套；drama 短劇、追劇；exercise 走太少、散步運動；scam 可疑簡訊電話網址、加 LINE、投資群組、假冒檢警；reminder 提醒我、到站通知；settings 設定常用地點、我有車、語言、通知；help 問阿幫能做什麼；chat 打招呼、道謝、閒聊；emergency 受傷急病、要叫救護車；unknown 阿幫沒有的服務。
 狀態（使用者明講才列，可為空）：rush 趕時間、快遲到；luggage 帶行李、大包小包；budget 要便宜、省錢；lessWalk 不想走路、腳不舒服；rain 正在下雨（問會不會下雨不算）；badAir 空氣很差；elder 帶長輩、老人家同行；kids 帶小孩、推嬰兒車；mobility 坐輪椅、行動不便。
-「307 到哪了」「藍15 還要多久」問某條公車在哪、多久到是 bus_route，不是 trip。「板南線下一班」「淡水信義線還要等多久」是 metro。「下一班高鐵到台中」「幾點有自強號」是 rail，不是 trip；「從板橋到台北車站」「從桃園火車站去台北101」沒說坐高鐵台鐵是 trip。「國道塞車嗎」「台北到新竹會不會塞」是 traffic。「這期發票」「中獎號碼」「我有沒有中」是 invoice。「改坐公車」「那叫車呢」這類接著改條件的話是 trip。「搭客運去台中」是 intercity；「幫我叫車去101」是 ridehail；「台北101在哪」是 place（問怎麼去才是 trip）。「有人叫我加 LINE」「這則簡訊是詐騙嗎」是 scam。「你會做什麼」「你是誰」是 help；「你好」「謝謝」是 chat；訂餐廳、查快遞這類阿幫沒有的才是 unknown。topic 用 2～10 個字寫使用者想做的事（例：訂餐廳、寫信給老闆），不要放人名、電話、網址。前文只在這一句接著前面的事（改條件、補充）時參考；換了新話題就不沿用前文的意圖與狀態。`;
+「307 到哪了」「藍15 還要多久」問某條公車在哪、多久到是 bus_route，不是 trip。「板南線下一班」「淡水信義線還要等多久」是 metro。「下一班高鐵到台中」「幾點有自強號」是 rail，不是 trip；「從板橋到台北車站」「從桃園火車站去台北101」沒說坐高鐵台鐵是 trip。「國道塞車嗎」「台北到新竹會不會塞」是 traffic。「這期發票」「中獎號碼」「我有沒有中」是 invoice。「改坐公車」「那叫車呢」這類接著改條件的話是 trip。「搭客運去台中」是 intercity；「幫我叫車去101」是 ridehail；「台北101在哪」是 place（問怎麼去才是 trip）。「有人叫我加 LINE」「這則簡訊是詐騙嗎」是 scam。「提醒我出門」「公車快到時提醒我」「到站叫我」要設提醒是 reminder；說了公車號碼（「307 快到時提醒我」）是 bus_route。「你會做什麼」「你是誰」是 help；只有打招呼、道謝、閒聊才是 chat；請阿幫做它沒有的事（訂餐廳、寫信、翻譯、查快遞）是 unknown。intent 是 unknown 時一定要寫 topic：2～10 個字寫使用者想做的事（例：訂餐廳、寫信給老闆），不要放人名、電話、網址。前文只在這一句接著前面的事（改條件、補充）時參考；換了新話題就不沿用前文的意圖與狀態。`;
 /** 實際給模型的指示：判斷＋要不要先問一題（ADR-0020；prewarm 與 judge 要用同一份，iOS 才會用到預先載入的 session） */
 export const EDGE_JUDGE_INSTRUCTIONS = `${EDGE_INSTRUCTIONS}\n${EDGE_ASK_GUIDE}`;
+/**
+ * Apple Intelligence 用的精簡版（2026-11-25 iOS 模擬器實測）：Apple 的安全護欄看到詐騙、急病、救護車這類描述會把整個請求擋掉
+ * （LanguageModelError「May contain unsafe content」，連「明天會下雨嗎」也失敗）。這幾類拿掉說明（選項照留），由規則保底
+ * （加 LINE、投資群組 → 防詐；急症先給求助電話，core/agent/safety.js）。Gemini Nano 沒有這個問題，照用完整版。
+ */
+export const EDGE_JUDGE_INSTRUCTIONS_APPLE = EDGE_JUDGE_INSTRUCTIONS
+  .replace('scam 可疑簡訊電話網址、加 LINE、投資群組、假冒檢警；', '')
+  .replace('emergency 受傷急病、要叫救護車；', '')
+  .replace('「有人叫我加 LINE」「這則簡訊是詐騙嗎」是 scam。', '')
+  .replace('，不要放人名、電話、網址', '');
+/** 這支手機要用哪一份指示（prewarm 與 judge 要同一份，iOS 才會用到預先載入的 session） */
+export const judgeInstructions = (c = cap()) => { try { return c?.getPlatform?.() === 'ios' ? EDGE_JUDGE_INSTRUCTIONS_APPLE : EDGE_JUDGE_INSTRUCTIONS; } catch { return EDGE_JUDGE_INSTRUCTIONS; } };
 
 /** 現在請手機判斷會不會真的呼叫外掛（App、沒跳斷路器、上一題跑完、開關開著）：不會就不必組情境 */
 export const edgeJudgeReady = () => ((!!cap() && !unavailable && !inflight) || embedReady()) && edgeEnabled() && edgeForeground();
@@ -153,7 +165,7 @@ export async function edgeStatus() {
 export function edgePrewarm() {
   const c = cap();
   if (!edgeEnabled() || !edgeForeground()) return;
-  if (c) c.nativePromise(PLUGIN, 'prewarm', { instructions: EDGE_JUDGE_INSTRUCTIONS }).catch(() => {});
+  if (c) c.nativePromise(PLUGIN, 'prewarm', { instructions: judgeInstructions(c) }).catch(() => {});
   warmEmbed(); // 下載過小模型（E3）就從手機上的快取載入（不連網）；沒下載過不做事
 }
 
@@ -247,7 +259,7 @@ async function nativeJudge(text, history = [], { timeout = EDGE_TIMEOUT_MS, cont
   let timer;
   const t0 = Date.now();
   try {
-    const call = c.nativePromise(PLUGIN, 'judge', { text: String(text).slice(0, 500), history: history.slice(-2).map((h) => String(h).slice(0, 200)), instructions: EDGE_JUDGE_INSTRUCTIONS, intents: EDGE_INTENTS, states: EDGE_STATES, context: String(context || '').slice(0, JUDGE_CONTEXT_MAX) });
+    const call = c.nativePromise(PLUGIN, 'judge', { text: String(text).slice(0, 500), history: history.slice(-2).map((h) => String(h).slice(0, 200)), instructions: judgeInstructions(c), intents: EDGE_INTENTS, states: EDGE_STATES, context: String(context || '').slice(0, JUDGE_CONTEXT_MAX) });
     // 逾時後原生端仍在跑：跑完前下一題不再呼叫（避免排隊），跑完的結果丟掉（不會用到下一題）
     inflight = call.catch((e) => noteEdgeError(e?.message)).finally(() => { inflight = null; });
     const r = await Promise.race([call, new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeout); })]);
