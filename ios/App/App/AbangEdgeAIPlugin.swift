@@ -254,10 +254,11 @@ struct EdgeJudgement {
     var intent: String
     @Guide(description: "使用者明講的狀態，沒有就空陣列", .maximumCount(9), .element(.anyOf(edgeStates)))
     var states: [String]
-    @Guide(description: "要先問使用者的一題；資料夠、不用問就留空（寧可不問）")
-    var ask: EdgeAsk?
-    @Guide(description: "使用者想做的事，2～10 個字的短語（例：訂餐廳、寫信給老闆、查快遞）；不要放人名、電話、網址")
+    // topic 在 ask 前面：模型依屬性順序產生，先寫想做的事（2026-11-25 Gemini Nano 實測：先寫題目時常漏寫主題）
+    @Guide(description: "使用者想做的事，2～10 個字的短語（例：訂餐廳、寫信給老闆、查快遞）；intent 是 unknown 時一定要寫；不要放人名、電話、網址")
     var topic: String
+    @Guide(description: "要先問使用者的一題；資料夠、不用問就留空（寧可不問）；intent 是 unknown 時留空")
+    var ask: EdgeAsk?
 }
 
 @available(iOS 26.0, *)

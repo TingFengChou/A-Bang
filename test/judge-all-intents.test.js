@@ -116,3 +116,47 @@ test('判斷層說新意圖：端到端照新意圖處理（手機判斷，示�
   assert.match((await run('有個阿伯倒在路邊', { intent: 'emergency' })).text, /119/);
   assert.match((await run('我想改一下我住的地方', { intent: 'settings' })).text, /常用地點/);
 });
+
+test('規則保底（2026-11-25 Gemini Nano 實測不穩的兩類）：加 LINE、投資群組是詐騙；設提醒是提醒，手機說別的也照規則', async () => {
+  for (const q of ['加line帳號', '有人叫我加他的賴', '對方給我line ID', '我想加入投資群組']) assert.equal(parseIntent(q, { history: [] }).intent, 'scamAsk', q);
+  for (const q of ['公車快到時提醒我', '到站叫我', '取消提醒', '明天八點提醒我出門']) assert.equal(parseIntent(q, { history: [] }).intent, 'reminder', q);
+  for (const q of ['line 怎麼更新', '去台北101，出門前提醒我']) assert.notEqual(parseIntent(q, { history: [] }).intent, 'reminder', q);
+  assert.notEqual(parseIntent('line 怎麼更新', { history: [] }).intent, 'scamAsk');
+  const j = createJudge();
+  const r = await j('公車快到時提醒我', [], { device: { intent: 'bus_route', states: [], engine: 'gemini-nano' } });
+  assert.deepEqual([r.intent, r.source], ['reminder', 'rules']);
+  const es = [];
+  await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '加line帳號' }], deviceJudge: { intent: 'chat', states: [], engine: 'gemini-nano' } }, (e) => es.push(e), { judge: createJudge() });
+  assert.match(es.filter((e) => e.type === 'text').map((e) => e.delta).join(''), /防詐/);
+});
+
+test('手機的指示：unknown 一定寫主題、不出題；主題在題目前面（iOS 依屬性順序產生、Android JSON 範本）', async () => {
+  const { EDGE_INSTRUCTIONS } = await import('../public/js/edge-judge.js');
+  const { EDGE_ASK_GUIDE } = await import('../core/edge-ask.js');
+  assert.match(EDGE_INSTRUCTIONS, /unknown 時一定要寫 topic/);
+  assert.match(EDGE_ASK_GUIDE, /unknown 一律不問/);
+  const swift = await readFile(new URL('../ios/App/App/AbangEdgeAIPlugin.swift', import.meta.url), 'utf8');
+  const st = swift.slice(swift.indexOf('struct EdgeJudgement'));
+  assert.ok(st.indexOf('var topic') < st.indexOf('var ask'), 'iOS：topic 在 ask 前面');
+  const java = await readFile(new URL('../android/app/src/main/java/tw/abang/app/AbangEdgeAIPlugin.java', import.meta.url), 'utf8');
+  assert.ok(java.indexOf('\\"topic\\"') < java.indexOf('\\"ask\\":null'), 'Android：topic 在 ask 前面');
+});
+
+test('設定的規則保底（Apple Intelligence 把「設定我家在板橋」判成找地點）；問怎麼去不算', async () => {
+  for (const q of ['設定我家在板橋', '把公司設成常用地點', '我有車', '把語言改成英文', '關掉通知', '常用地點怎麼設']) assert.equal(parseIntent(q, { history: [] }).intent, 'settings', q);
+  assert.equal(parseIntent('我家在板橋，怎麼去101', { history: [] }).intent, 'trip');
+  assert.notEqual(parseIntent('設定鬧鐘', { history: [] }).intent, 'settings');
+  const r = await createJudge()('設定我家在板橋', [], { device: { intent: 'place', states: [], engine: 'apple' } });
+  assert.deepEqual([r.intent, r.source], ['settings', 'rules']);
+});
+
+test('Apple Intelligence 用精簡的指示：沒有會被安全護欄擋的描述（詐騙、急病、救護車）；Gemini Nano 用完整版', async () => {
+  const { EDGE_JUDGE_INSTRUCTIONS, EDGE_JUDGE_INSTRUCTIONS_APPLE, judgeInstructions } = await import('../public/js/edge-judge.js');
+  assert.doesNotMatch(EDGE_JUDGE_INSTRUCTIONS_APPLE, /救護車|急病|假冒檢警|詐騙嗎|人名、電話/);
+  assert.match(EDGE_JUDGE_INSTRUCTIONS, /scam 可疑簡訊/);
+  assert.ok(EDGE_JUDGE_INSTRUCTIONS_APPLE.length < EDGE_JUDGE_INSTRUCTIONS.length);
+  assert.match(EDGE_JUDGE_INSTRUCTIONS_APPLE, /unknown 時一定要寫 topic/);
+  assert.equal(judgeInstructions({ getPlatform: () => 'ios' }), EDGE_JUDGE_INSTRUCTIONS_APPLE);
+  assert.equal(judgeInstructions({ getPlatform: () => 'android' }), EDGE_JUDGE_INSTRUCTIONS);
+  assert.equal(judgeInstructions(null), EDGE_JUDGE_INSTRUCTIONS);
+});

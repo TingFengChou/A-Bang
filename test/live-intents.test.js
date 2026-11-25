@@ -25,7 +25,7 @@ test('S3 判斷層：沒有模型、嵌入沒把握時，規則的明確意圖�
     ['從桃園火車站到台北101', { intent: 'rail', confidence: 0.45 }, 'trip'],
     ['國道塞車嗎 台北到新竹', { intent: 'rail', confidence: 0.74 }, 'traffic'],
     ['我在等939', { intent: 'unknown', confidence: 0.27 }, 'bus_route'],
-    [SCAM, { intent: 'bus_route', confidence: 0.42 }, 'unknown'], // 規則是防詐（判斷層沒有這個意圖），嵌入 < 0.5：不亂選
+    [SCAM, { intent: 'bus_route', confidence: 0.42 }, 'scam'], // 規則是防詐（2026-11-25 起判斷層有 scam 這個意圖）：照規則，不亂選
   ]) {
     const r = await j(a)(text);
     assert.equal(r.intent, want, text);
