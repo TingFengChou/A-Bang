@@ -23,6 +23,7 @@
 | [0017](0017-edge-write.md) | 回答也在手機上寫（Gemini Nano／Apple Intelligence，程式護欄檢查數字） | 已採用 | `AbangEdgeAI.write`、`core/edge-write.js`、`public/js/edge-write.js`、`answer_draft` |
 | [0018](0018-health-on-device.md) | 健康資料只在手機、只讀、預設關閉（步數與運動時間；天氣好又動得少時建議去走走） | 已採用 | `AbangHealth` 外掛、`core/health-nudge.js`、`public/js/health.js` |
 | [0020](0020-edge-ask.md) | 問什麼由手機上的 AI 決定（一次 judge 同時出題），程式驗證、規則保底 | 已採用 | `core/edge-ask.js`、`core/agent/ask.js` `deviceSlotAsk`／`deviceStateAsk`、`AbangEdgeAI.judge` |
+| [0021](0021-web-search.md) | 開放資料查不到時用網路搜尋補：只搜生活資訊、程式組搜尋句、白名單網域、標來源、不參與計分 | 提議（待產品負責人確認） | 尚未實作 |
 | [0019](0019-drama-content-partner.md) | 第一個非政府開放資料的內容合作來源：MyDrama 短劇（只用公開讀取、網址在 env、不收個資、深層連結交給 MyDrama App） | 已採用 | `core/services/drama.js`、`core/tools/drama.js`、`core/agent/wait-drama.js`、`drama` 卡片 |
 
 範本：
