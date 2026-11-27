@@ -2098,6 +2098,28 @@ for (const [dname, device] of Object.entries(DEVICES)) {
   });
 }
 
+// 阿幫的腦袋「行動」（2026-11-28，產品負責人：大腦示意圖加入 take action）：試判斷第 5 段列出可以幫你做的事與確認方式；主視覺「行動」節點點亮；網頁版沒有 Siri 那一句
+test('阿幫的腦袋：試判斷「我快遲到了，怎麼去台北101」→ 第 5 段行動（導航按一下、行事曆與分享由系統畫面確認）、行動節點點亮', async () => {
+  await withPage(DEVICES.phone, '#/ai', async (page) => {
+    await page.waitForSelector('#ai-form');
+    await page.locator('.ai-ex .chip').first().click();
+    const act = page.locator('#ai-trial [data-sec="act"]');
+    await act.waitFor({ timeout: 20000 });
+    assert.equal(await act.locator('li[data-act="nav"][data-confirm="tap"]').count(), 1);
+    assert.equal(await act.locator('li[data-act="calendar"][data-confirm="system"]').count(), 1);
+    assert.match(await act.locator('li[data-act="calendar"]').textContent(), /加到行事曆系統畫面確認/);
+    assert.match(await act.textContent(), /試判斷只列出來，不會真的去做/);
+    assert.equal(await act.locator('.ai-siri').count(), 0, '網頁版不顯示 Siri');
+    assert.match(await page.textContent('.ai-v[data-v="act"]'), /^\d+ 件・\d+ 件要你確認$/);
+    assert.ok(await page.evaluate(() => document.querySelector('.ai-hero').classList.contains('act-on')));
+    assert.match(await page.getAttribute('#ai-stage', 'data-act'), /準備了 \d+ 件事/);
+    assert.match(await page.locator('.ai-flow li').last().textContent(), /你按了才做/);
+    await act.scrollIntoViewIfNeeded();
+    await act.screenshot({ path: new URL('phone-ai-act.png', SHOTS).pathname });
+    await page.locator('.ai-hero').screenshot({ path: new URL('phone-ai-act-hero.png', SHOTS).pathname });
+  });
+});
+
 // 阿幫的腦袋：App 裡（假的 Capacitor 外掛：Gemini Nano 可用）列出系統回報的模型資訊；「試試看」只呼叫手機上的外掛、沒有網路請求，結果用核心動畫與同一句文字呈現
 test('阿幫的腦袋：手機上的模型資訊、現場試試看、開關、英文、設定頁入口', async () => {
   const init = () => {
@@ -2181,7 +2203,7 @@ test('阿幫的腦袋：手機上的模型資訊、現場試試看、開關、�
     // 英文頁：阿幫自己寫的字都是英文（站名、地名是資料，照中文原名）
     const fixed = await page.evaluate(() => { const c = document.querySelector('.ai-page').cloneNode(true); c.querySelectorAll('.ai-slots span, .ai-say, .ai-tools span, .ai-raw, .ai-suggest span, .ai-best').forEach((n) => n.remove()); return c.textContent; });
     assert.doesNotMatch(fixed, /[一-鿿]/, '英文頁沒有中文');
-    assert.deepEqual(await page.locator('.ai-sec h3').allTextContents(), ['Intent and situation', 'Enough to go on?', 'Expected answer', 'What Abang would ask next']);
+    assert.deepEqual(await page.locator('.ai-sec h3').allTextContents(), ['Intent and situation', 'Enough to go on?', 'Expected answer', 'What Abang would ask next', 'What A-Bang can do for you']);
 
     // 入口：設定頁的裝置端 AI 區塊
     await page.goto(`${base}/#/settings`);
@@ -2432,7 +2454,7 @@ test('阿幫的腦袋：試判斷（手機）四段——手機判斷、資料�
     assert.equal(await page.locator('.ai-ex .chip').count(), 5);
     await page.locator('.ai-ex .chip', { hasText: '公車還要多久？' }).click();
     await page.waitForSelector('#ai-trial-foot:not([hidden])', { timeout: 20000 });
-    assert.deepEqual(await page.locator('.ai-sec h3').allTextContents(), ['意圖與狀態', '資料夠不夠', '預計回答', '下一個預計問你']);
+    assert.deepEqual(await page.locator('.ai-sec h3').allTextContents(), ['意圖與狀態', '資料夠不夠', '預計回答', '下一個預計問你', '阿幫可以幫你做']);
     assert.match(await page.textContent('.ai-sec[data-sec="judge"] .ai-meta'), /手機・Gemini Nano.*280 毫秒.*沒用網路/);
     assert.match(await secText(page, 'judge'), /查公車.*伺服器採用了手機的判斷/);
     assert.match(await secText(page, 'data'), /資料不夠：缺公車路線/);
@@ -2451,7 +2473,7 @@ test('阿幫的腦袋：試判斷（手機）四段——手機判斷、資料�
     const calls = await page.evaluate(() => window.__trialCalls);
     assert.ok(['judge', 'suggest'].every((m) => calls.includes(m)) && !calls.includes('write'), `缺路線：伺服器直接給固定的一句，不交給手機改寫（${calls.join()}）`);
     // 原始 JSON：展開看得到（textContent），每段都有
-    assert.equal(await page.locator('.ai-raw').count(), 4);
+    assert.equal(await page.locator('.ai-raw').count(), 5); // 第 5 段：阿幫可以幫你做
     await page.locator('.ai-sec[data-sec="data"] .ai-raw summary').click();
     const raw = JSON.parse(await page.locator('.ai-sec[data-sec="data"] .ai-raw pre').textContent());
     assert.deepEqual(raw.missing, ['route']);
@@ -2460,7 +2482,7 @@ test('阿幫的腦袋：試判斷（手機）四段——手機判斷、資料�
     await page.waitForFunction(() => window.__copied);
     const copied = JSON.parse(await page.evaluate(() => window.__copied));
     assert.equal(copied.q, '公車還要多久？');
-    assert.deepEqual(Object.keys(copied.sections), ['judge', 'data', 'answer', 'next']);
+    assert.deepEqual(Object.keys(copied.sections), ['judge', 'data', 'answer', 'next', 'act']);
     // 行程：資料夠、用手機的定位（跟問阿幫一樣，2026-11-22）、程式計分的建議
     await page.fill('#ai-input', '我快遲到了，怎麼去台北101');
     await page.click('#ai-go');

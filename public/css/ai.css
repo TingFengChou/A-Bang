@@ -171,3 +171,20 @@ html.lite-motion .ai-sec { animation: none; }
 .ai-sources b { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; }
 .ai-sources span { flex: 1 1 100%; }
 .ai-ask-opts b { min-width: 7em; }
+
+/* 行動（2026-11-28，產品負責人：大腦示意圖加入 take action）：只有這一輪真的有行動才點亮（真實事件，不另外加時間）；
+   標籤用文字＋外框區分確認方式（不只靠顏色） */
+.ai-hero.act-on .ai-act rect.ai-glow { animation: ai-pop .2s ease-out 1 both; }
+.ai-hero.act-on .ai-act .ai-k { fill: #713f12; }
+.ai-hero.act-on .ai-act .ai-v { fill: #1f2a44; }
+@media (prefers-reduced-motion: reduce) { .ai-hero.act-on .ai-act rect.ai-glow { opacity: 1; } }
+html.lite-motion .ai-hero.act-on .ai-act rect.ai-glow { opacity: 1; }
+.ai-acts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 15px; line-height: 1.6; }
+.ai-act-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+.ai-act-row:first-child { border-top: 0; }
+.ai-act-row b { min-width: 6em; }
+.ai-act-tag { font-size: 13px; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.ai-act-tag.tap { color: #0f766e; background: #f0fdfa; }
+.ai-act-tag.confirm { color: #92400e; background: #fffbeb; border-style: dashed; }
+.ai-act-tag.system { color: #1e40af; background: #eff6ff; }
+.ai-act-at { color: var(--muted); }

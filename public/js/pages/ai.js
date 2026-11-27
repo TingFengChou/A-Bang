@@ -3,6 +3,9 @@
 // 誠實原則：只顯示系統真的回報的模型資訊（ai-info.js 整理；沒有的欄位不顯示）；沒有裝置端模型時核心不點亮，照實說判斷在伺服器做。
 // 動畫只是另一種呈現：同樣的資訊都在 role=status 的那一句（讀屏、reduced motion 拿到的一樣多）。樣式：css/ai.css。
 import { esc } from '../ui.js';
+import { actSummary } from '../ai-actions.js';
+/** iOS App（Siri／捷徑叫得到阿幫，M16-02）；網頁、Android 不顯示 */
+const isIosApp = () => { try { return globalThis.Capacitor?.isNativePlatform?.() && globalThis.Capacitor.getPlatform?.() === 'ios'; } catch { return false; } };
 import { api } from '../api.js';
 import { edgeEnabled, edgeStatus, edgeJudge, edgePrewarm, edgeStats, setEdgeEnabled, edgeSuggest, edgeCanSuggest, judgeContext, edgeIssue, judgeFromDevice } from '../edge-judge.js';
 import { embedReady, EMBED_ENGINE } from '../edge-embed.js';
@@ -66,7 +69,7 @@ const FLOW_MS = 550;
 
 /** 主視覺（座標沿用 App 圖示的比例：軌道圓心在上、Λ 的開口朝下、核心在 Λ 裡面偏下） */
 const coreSvg = (t) => `
-<svg class="ai-svg" viewBox="0 0 360 352" focusable="false">
+<svg class="ai-svg" viewBox="0 0 360 416" focusable="false">
   <defs>
     <linearGradient id="ai-lam" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#CCFBF1"/><stop offset="1" stop-color="#FFFFFF"/></linearGradient>
     <radialGradient id="ai-halo-g"><stop offset="0" stop-color="#FBBF24" stop-opacity=".8"/><stop offset=".45" stop-color="#FBBF24" stop-opacity=".24"/><stop offset="1" stop-color="#FBBF24" stop-opacity="0"/></radialGradient>
@@ -92,6 +95,9 @@ ${SIGNAL_DOTS}
   <path class="ai-wire" d="M274 286V296" pathLength="1"/>
   <g class="ai-node ai-out ai-out2"><rect x="14" y="296" width="144" height="52" rx="14"/><rect class="ai-glow" x="14" y="296" width="144" height="52" rx="14"/><text class="ai-k" x="86" y="315">${esc(t('node.data'))}</text><text class="ai-v" data-v="data" x="86" y="337">—</text></g>
   <g class="ai-node ai-out ai-out2"><rect x="202" y="296" width="144" height="52" rx="14"/><rect class="ai-glow" x="202" y="296" width="144" height="52" rx="14"/><text class="ai-k" x="274" y="315">${esc(t('node.next'))}</text><text class="ai-v" data-v="next" x="274" y="337">—</text></g>
+  <path class="ai-wire ai-act-wire" d="M86 348C86 362 140 352 150 362" pathLength="1"/>
+  <path class="ai-wire ai-act-wire" d="M274 348C274 362 220 352 210 362" pathLength="1"/>
+  <g class="ai-node ai-act"><rect x="84" y="362" width="192" height="50" rx="25"/><rect class="ai-glow" x="84" y="362" width="192" height="50" rx="25"/><text class="ai-k" x="180" y="381">${esc(t('node.act'))}</text><text class="ai-v" data-v="act" x="180" y="402">—</text></g>
 </svg>`;
 
 export default {
@@ -186,6 +192,7 @@ export default {
       data: () => t('trial.by.program'),
       answer: (s) => (s.rewrite?.ok ? t('trial.by.mixed') : t('trial.by.program')),
       next: (s) => (s.suggest?.source === 'edge' || s.asker?.by === 'device' ? t('trial.by.mixed') : t('trial.by.rules')), // 題目或建議有手機上的 AI 參與（ADR-0020）
+      act: () => t('trial.by.phone'),
     };
     const row = (k, v) => { const d = h('div'); d.append(h('dt', '', k), h('dd', '', v)); return d; };
 
@@ -299,7 +306,22 @@ export default {
       } else body.append(h('p', 'note', t('trial.suggest.none')));
       body.append(h('p', 'note ai-foot', sug.source === 'edge' ? t('trial.suggest.from.edge', { n: sug.asks.filter((a) => a.src === 'edge').length }) : t('trial.suggest.from.rules')));
     }
-    const PAINT = { judge: paintJudge, data: paintData, answer: paintAnswer, next: paintNext };
+    /** 第 5 段「阿幫可以幫你做」：每個行動一列（名稱、確認方式、在哪裡發生）；iOS App 另列 Siri／捷徑叫得到的（只有交接，不標在行動上） */
+    function paintAct(body, s) {
+      if (!s.actions?.length) body.append(h('p', 'note', t('act.none')));
+      else {
+        const ul = h('ul', 'ai-acts');
+        for (const a of s.actions) {
+          const li = h('li', 'ai-act-row');
+          li.dataset.act = a.id; li.dataset.confirm = a.confirm;
+          li.append(h('b', '', t(`act.${a.id}`)), h('span', `ai-act-tag ${a.confirm}`, t(`act.confirm.${a.confirm}`)), h('small', 'ai-act-at', t(`act.at.${a.at}`)));
+          ul.append(li);
+        }
+        body.append(ul, h('p', 'note', t('act.never')));
+      }
+      if (isIosApp()) body.append(h('p', 'note ai-siri', t('act.siri')));
+    }
+    const PAINT = { judge: paintJudge, data: paintData, answer: paintAnswer, next: paintNext, act: paintAct };
 
     function paintTry() {
       // 重畫（例：切了開關）：舊的一輪先停掉，它晚到的結果不會寫進新畫面
@@ -337,7 +359,7 @@ export default {
       const heroStart = () => {
         heroT0 = performance.now(); heroFix = null;
         heroStill = calm();
-        setNode('intent', '…'); setNode('states', '…'); setNode('data', '…'); setNode('next', '…');
+        setNode('intent', '…'); setNode('states', '…'); setNode('data', '…'); setNode('next', '…'); setNode('act', '…');
         stage('thinking');
         hero.classList.toggle('playing', !heroStill);
         live.textContent = t('live.thinking');
@@ -364,6 +386,12 @@ export default {
       const heroMore = (key, sec) => {
         if (key === 'judge' && !info.active && sec.intent) { setNode('intent', intentLabel(sec, t)); setNode('states', sec.states?.length ? nodeText(sec.states.map((k) => t(`state.${k}`)), t('sep')) : t('node.none')); stage('done'); }
         if (key === 'data') setNode('data', sec.error ? t('node.dataErr') : sec.fixed ? t('node.noData') : sec.enough ? t('node.enough') : sec.missing?.length ? t('node.missing', { x: nodeText(sec.missing.map(slotName), t('sep')) }) : t('node.notEnough'));
+        if (key === 'act') {
+          const { n, confirm } = actSummary(sec.actions || []);
+          setNode('act', n ? t('node.actN', { n, c: confirm }) : t('node.actNone'));
+          hero.classList.toggle('act-on', n > 0);
+          $('#ai-stage').setAttribute('data-act', n ? t('live.act', { n, c: confirm }) : ''); // 圖是 aria-hidden；同樣的資訊在第 5 段（文字），不蓋掉「聽懂了」那一句
+        }
         if (key === 'next') {
           const q = sec.ask?.question || (sec.location ? t('node.askWhere') : '') || sec.suggest?.asks?.[0]?.q || sec.suggest?.asks?.[0] || '';
           setNode('next', q ? String(q).slice(0, 14) : t('node.noAsk'));
@@ -377,7 +405,7 @@ export default {
         busy = true;
         go.disabled = true; go.setAttribute('aria-busy', 'true');
         list.replaceChildren(); list.hidden = true; foot.hidden = true;
-        setNode('data', '…'); setNode('next', '…'); hero.classList.remove('more-done');
+        setNode('data', '…'); setNode('next', '…'); setNode('act', '…'); hero.classList.remove('more-done', 'act-on');
         report = null; copy.disabled = true; // 這一輪好了才能複製
         tlive.textContent = t('trial.running');
         if (matchMedia('(pointer: coarse)').matches) input.blur(); // 手機：收鍵盤
@@ -503,6 +531,7 @@ export default {
         ['flow.4', t('flow.4.d'), 'gov', false],
         ['flow.5', t('flow.5.d'), 'server', false],
         ['flow.6', t('flow.6.d'), 'phone', false],
+        ['flow.7', t('flow.7.d'), 'phone', false], // 行動：你按確認（ADR-0011、0021）
       ];
       const web = info.state === 'web';
       const privacy = [dev && 'privacy.try', 'privacy.question', !web && 'privacy.three', !web && 'privacy.count', !web && 'privacy.offOk'].filter(Boolean);
