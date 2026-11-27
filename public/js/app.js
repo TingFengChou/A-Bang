@@ -29,6 +29,7 @@ import service from './pages/service.js';
 import ai from './pages/ai.js';
 import { settings, privacy } from './pages/settings.js';
 import { busSearch, busRoute, busStation, favPage } from './pages/bus.js';
+import { startAppIntents } from './app-intents.js';
 
 const routes = [
   [/^\/?$/, home],
@@ -300,6 +301,9 @@ if (typeof cap?.addListener === 'function' && cap.getPlatform?.() === 'android')
     else if (to === 'back') history.back();
     else location.hash = to;  });
 }
+
+// Siri、捷徑、Spotlight 交給 App 的事（M16-02）：問阿幫、查詐騙、打開某一頁（只有 iOS App）
+startAppIntents().catch(() => {});
 
 // 手機鍵盤打開時收起底部分頁列（css: html.kb-open）
 watchKeyboard();

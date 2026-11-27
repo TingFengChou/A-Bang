@@ -32,6 +32,12 @@
    - 第 2 階段：Android AppFunctions（要加 Kotlin＋KSP，屬新依賴，等產品負責人決定）。
    - 暫不做：打包 FunctionGemma（288 MB、中文未驗證）、手機上的 MCP client（實驗中）、ML Kit function calling（預覽、需 minSdk 26）。
 
+## 補充：第 1 階段的做法（2026-11-27，M16-02）
+
+- App Intents 只「把事情交給 App」（`openAppWhenRun`）：問題、可疑訊息、要開的頁面放進收件匣，App 打開後照原本的流程查。原生端不呼叫 API、不讓 Siri 直接念工具結果——防詐要經過防詐 agent 的完整判斷與護欄（實測 `scam_check_message` 單獨的結果可能低估釣魚簡訊）。
+- 捷徑說法用繁體中文（iOS 開發語言改成 zh-Hant），另附英文說法。
+- 之後若要「不開 App 直接回答」，要先有答案也經過同一套程式護欄的設計，再另寫決定。
+
 ## 不採用
 
 - **模型直接呼叫系統 API（function calling 自動執行）**：違反 ADR-0011；判錯時會在使用者沒看清楚前就動到行事曆或傳訊息。

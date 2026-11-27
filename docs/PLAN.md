@@ -35,7 +35,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | M14 阿幫聽得懂、看得懂（產品負責人 2026-11-21；ADR-0015） | 🚧（M14-01 語音問阿幫 ✅、M14-02 看 ✅） | 實機確認（Pixel、iPhone） | iOS 實機需 Austin 的 iPhone；打包版 ML Kit 讓 APK 變大（產品負責人已同意） |
 | M15 健康與運動（產品負責人 2026-11-22；ADR-0018） | 🚧（M15-01 天氣好又動得少時建議去走走 ✅，待產品負責人看截圖） | 實機確認（Pixel Health Connect、iPhone HealthKit） | iOS 免費個人開發團隊可能不能簽 HealthKit（開發版改用不含 entitlement 的建置，App 裡反白說原因）；上架前 Play Console 健康資料聲明 |
 | 阿幫・短劇（MyDrama，產品負責人 2026-11-22，ADR-0019） | 🧩（等車推短劇、問阿幫找劇、運動建議提示句 ✅；示範片庫可跑） | 產品負責人看截圖決定是否合併；運動建議接線 | 真實片庫與連結需 `.env` 的 `MYDRAMA_*`（合作方提供）；每集長度欄位 |
-| M16 阿幫動手做（ADR-0021，2026-11-27） | 🚧（M16-01 加到行事曆、分享 ✅） | M16-02 iOS App Intents | M16-03 Android AppFunctions 要加 Kotlin＋KSP（新依賴，等產品負責人決定）；Gemini 呼叫要申請 Connected Apps Platform 預覽 |
+| M16 阿幫動手做（ADR-0021，2026-11-27） | 🚧（M16-01 加到行事曆、分享 ✅；M16-02 iOS App Intents ✅） | M16-02b 實機 Siri；M16-04 政府便民服務 | M16-03 Android AppFunctions 要加 Kotlin＋KSP（新依賴，等產品負責人決定）；Gemini 呼叫要申請 Connected Apps Platform 預覽 |
 | M6 上線 | 🚧（M6-01／02／04／07 ✅、地端部署驗證 ✅） | 正式環境階段再做 | 2026-11-19 Austin 決定：雲端部署（M6-06）、Redis 快取（M6-03）、Lighthouse（M6-05）留到正式環境階段；先衝刺功能。M6-07 需在 repo 設定啟用 Pages |
 
 建議順序：M1、M4、M5、M7、M10 已完成；M6 正式環境項目延後；目前衝刺 M11 行動 App、M12 裝置端 AI、M13 Agent 聰明度（PM 情境清單見 `test/scenarios/life.json`）；M8 中小企業概念驗證移到下一階段。
@@ -388,7 +388,8 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] M16-00 研究（2026-11-27）：Android AppFunctions（1.0.0 穩定、Android 16、Kotlin＋KSP、Gemini 要申請預覽）、ML Kit function calling（預覽、Gemini Nano 4、minSdk 26）、Apple App Intents／App Schemas（Siri，沒有交通領域）與 Foundation Models `Tool`、Google AI Edge Gallery（Mobile Actions：FunctionGemma 270M＋系統 Intent）
 - [x] M16-01 加到行事曆、分享（2026-11-27）：`core/device-actions.js`（事件、分享文字、.ics、檢查；不帶使用者座標）、行程卡片按鈕、意圖 `calendar`／`share`（31 類）、`ask` 動作 `addCalendar`／`share`、請求 `deviceActions`、`AbangSystem.addCalendarEvent`／`share`（iOS EventKitUI＋UIActivityViewController、Android ACTION_INSERT＋chooser）、網頁 .ics 與 Web Share／複製。npm test 新增 12 項、E2E 1 項
 - [ ] M16-01b 實機確認：Pixel ✅（2026-11-27：Google 日曆新增畫面帶好標題與時間、分享選單；修正 Android 讀不到毫秒時間戳記）；iOS 模擬器 ✅（不問權限的新增行程畫面帶好標題、時間、地點、路線；取消後卡片說「沒有加入」；分享面板）；實體 iPhone 待接上確認
-- [ ] M16-02 iOS App Intents＋App Shortcuts：查公車、規劃行程、天氣、查詐騙（Siri、捷徑、Spotlight；原生端呼叫 `/api/v1`）；實驗把 iOS 判斷改用 Foundation Models `Tool`，以 224 題評測決定
+- [x] M16-02 iOS App Intents＋App Shortcuts（2026-11-27）：「問阿幫」（帶問題）、「查詐騙」（帶可疑訊息到防詐）、「打開阿幫的頁面」（附近、天氣、提醒、防詐、發票對獎）；Siri、捷徑、Spotlight、動作按鈕都叫得到。原生端只把事情交給 App（`AbangIntents.swift` 收件匣 → `AbangSystem.takeIntent`／`intent` 事件 → `public/js/app-intents.js` 開頁面），不打 API、不念工具結果（防詐要經過防詐 agent 的完整判斷）。iOS 開發語言改成繁體中文（捷徑的中文說法才對得上 Siri）。模擬器實測三種交接與冷啟動
+- [ ] M16-02b 實機用 Siri 說「問 Abang」「用 Abang 查詐騙」確認（實體 iPhone）；實驗把 iOS 判斷改用 Foundation Models `Tool`，以 224 題評測決定
 - [ ] M16-03 ⛔ Android AppFunctions：要加 Kotlin＋KSP（新依賴），只在 Android 16 以上有效；Gemini 呼叫要申請 Connected Apps Platform 預覽（等產品負責人決定）
 - [ ] M16-04 政府便民服務（研究見 side-session notes `gov-services-research.md`）：辦事要帶什麼（我的E政府申辦服務資料）、據點與上班日、護照現場等待人數、官方連結卡
 
