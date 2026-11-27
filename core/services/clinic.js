@@ -79,16 +79,18 @@ export function parseClinics(text) {
 /**
  * 查某一區（或名稱）的診所，這個時段有登記看診的排前面。
  * @param {ReturnType<typeof parseClinics>} rows
- * @param {{ area?: string, query?: string, dept?: string, now?: number, limit?: number }} a
+ * @param {{ area?: string, query?: string, dept?: string, now?: number, limit?: number, dayOffset?: number, period?: string|null }} a
+ *   dayOffset／period：問的是哪一天、哪個時段（「明天上午」「禮拜天」「夜間」）；沒給就是現在
  */
-export function clinicSearch(rows, { area, query = '', dept = null, now = Date.now(), limit = 10 }) {
+export function clinicSearch(rows, { area, query = '', dept = null, now = Date.now(), limit = 10, dayOffset = 0, period: askPeriod = null }) {
   const a = norm(area), q = norm(query);
   if (!a && !q) throw new UserError('請說哪一區（例如「臺北市大安區」）或診所名稱。');
   const d = dept ? DEPTS.find((x) => x.id === dept) : null;
   if (dept && !d) throw new UserError(`不認得「${dept}」這個科別。`);
   const today = nowTW(now).date.replaceAll('-', '');
-  const dow = dowAt(now);
-  const period = periodAt(now);
+  const planned = dayOffset > 0 || !!askPeriod; // 問的是別的日子或指定時段：照那天那個時段排
+  const dow = dowAt(now + dayOffset * 864e5);
+  const period = planned ? askPeriod : periodAt(now);
   const pi = PERIODS.indexOf(period);
   const hourNow = new Date(now + 8 * 3600e3).getUTCHours();
   const list = [];
@@ -99,10 +101,10 @@ export function clinicSearch(rows, { area, query = '', dept = null, now = Date.n
     if (d ? (d.kind ? r.kind !== d.kind : r.kind !== 'western' || !r.depts.some((x) => d.dept.test(x))) : !q && r.kind !== 'western') continue; // 沒說科別：只列西醫（牙醫、中醫要明講）
     const todayOpen = r.slots ? PERIODS.filter((_, i) => r.slots[dow][i]) : null;
     // 還沒過的時段：現在的時段、之後的時段（清晨 8 點前整天都還沒過；晚上 10 點後都過了）
-    const later = todayOpen && todayOpen.filter((p) => (period ? PERIODS.indexOf(p) > pi : hourNow < 8));
+    const later = planned ? [] : todayOpen && todayOpen.filter((p) => (period ? PERIODS.indexOf(p) > pi : hourNow < 8));
     list.push({
       code: r.code, name: r.name, kind: r.kind, depts: r.depts.slice(0, 4), phone: r.phone, address: r.address,
-      today: todayOpen, openNow: todayOpen ? (period ? todayOpen.includes(period) : false) : null, laterToday: later || [],
+      today: todayOpen, openNow: todayOpen ? (period ? todayOpen.includes(period) : planned ? todayOpen.length > 0 : false) : null, laterToday: later || [],
       nav: { google: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${r.name} ${r.address}`)}` },
     });
   }
@@ -114,7 +116,8 @@ export function clinicSearch(rows, { area, query = '', dept = null, now = Date.n
   const sorted = mine.map((c, i) => [c, i]).sort((x, y) => rank(x[0]) - rank(y[0]) || x[1] - y[1]).map(([c]) => c);
   return {
     area: area || null, query: query || null, dept: d ? d.label : null, weekday: `星期${WEEK[dow]}`, period,
-    phase: period ? 'open' : hourNow < 8 ? 'early' : 'late', // 看診時段中／清晨還沒開始／晚上 10 點後
+    phase: planned ? 'planned' : period ? 'open' : hourNow < 8 ? 'early' : 'late', // 問別的日子或時段／看診時段中／清晨還沒開始／晚上 10 點後
+    ...(planned && { dayOffset }),
     total: mine.length, openNowCount: mine.filter((c) => c.openNow).length, laterCount: mine.filter((c) => !c.openNow && c.laterToday.length).length,
     clinics: sorted.slice(0, limit),
     ...(cities.length > 1 && { city: cities[0], otherCities: cities.slice(1) }),

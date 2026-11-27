@@ -9,7 +9,8 @@ export default {
   title: (d, { t }) => t('govOffice.title'),
   body(d, { host, t }) {
     const today = d.today;
-    const day = today.workday ? t('govOffice.workday', { date: today.date }) : t('govOffice.off', { date: today.date, note: today.note ? t('govOffice.offNote', { note: today.note }) : '' });
+    const on = today.dayOffset ? 'Day' : ''; // 問別的日子：不說「今天」
+    const day = today.workday ? t(`govOffice.workday${on}`, { date: today.date }) : t(`govOffice.off${on}`, { date: today.date, note: today.note ? t('govOffice.offNote', { note: today.note }) : '' });
     return h('div', { class: 'ab-body' },
       h('p', { class: today.workday ? 'ab-chip ok ab-gov-day' : 'ab-chip warn ab-gov-day', role: 'status' }, day),
       !today.known && h('p', { class: 'ab-sub' }, t('govOffice.guess')),

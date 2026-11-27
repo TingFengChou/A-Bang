@@ -3,6 +3,7 @@
 import { enName, outingEn, SPEAK_EN } from '../tools/speak-en.js';
 import { findGovLinks } from '../services/govlinks.js';
 import { deptOf, DEPTS } from '../services/clinic.js';
+import { whenOf } from '../when.js';
 import { LANDMARKS, normPlace } from '../services/places.js';
 import { nextStepOf } from '../tools/trip.js';
 import { BUS_OFF, withoutBus, busOffEntry } from '../services/trip.js';
@@ -112,7 +113,7 @@ const LIFE_WORDS = [
 /** 找有看診的診所（與藥局同一個意圖、clinic 旗標）：要有診所、看醫生、看病或科別；問怎麼去某家醫院或診所是行程 */
 const CLINIC_WORD = /診所|看醫生|看病|看診|門診|小兒科|兒科|耳鼻喉|牙醫|看牙|中醫|皮膚科|眼科|婦產科|家醫科|骨科|復健科|身心科/;
 const CLINIC_TRIP = /怎麼(?:去|走|到|坐|搭|過去)|(?:去|到|往)(?!附近|看|找)[^，。？?！!\s]{1,10}(?:醫院|診所|看病|看醫生|看診|回診)|要搭|幾號公車|中醫大|醫院(?!.{0,4}(?:有開|看診))/;
-const clinicOf = (s) => (CLINIC_WORD.test(s) && !CLINIC_TRIP.test(s) ? { clinic: true, ...(deptOf(s) && { dept: deptOf(s) }) } : null);
+const clinicOf = (s) => (CLINIC_WORD.test(s) && !CLINIC_TRIP.test(s) ? { clinic: true, ...(deptOf(s) && { dept: deptOf(s) }), ...(whenOf(s) && { when: whenOf(s) }) } : null); // when：「明天早上」「禮拜天」「夜間」（PM 審查 2026-11-28）
 const DEPTS_LABEL = Object.fromEntries(DEPTS.map((d) => [d.id, d.label]));
 /** 應備證件一條 → 唸得出來的短名稱（去編號、取到第一個標點；太長的條文不唸） */
 export const docShort = (x) => { const v = String(x || '').replace(/^\s*(?:[一二三四五六七八九十]+、|[（(][一二三四五六七八九十\d]+[)）]|\d+[.、．])\s*/, '').split(/[，。；：:（(]/)[0].trim(); return v.length >= 2 && v.length <= 14 && /[證書照表片簿卡章元費印]|影本|正本|文件|資料/.test(v) && !/者$|未滿|初領|補領|換領|親自|委託/.test(v) ? v : null; }; // 只唸文件、費用（「初領或補領」「未滿14歲」是分類標題）
@@ -771,7 +772,7 @@ function parseIntentRaw(text, ctx) {
   const base = { places, states, arriveBy, tomorrow, ...(depart && { departTime: depart.hhmm, departDays: depart.days }), ...(later && { later: true }), ...(party && { party }) };
   // 常用地點（S1）：「回家」「去公司」「從公司回家」——座標存在手機、只有提到時才送來
   // 戶政今天有上班嗎（M16-04b）：「上班」不是去公司，先於常用地點判斷
-  if (GOV_OFFICE.test(s) && !/怎麼去|怎麼走/.test(s) && !GOV_DOCS_Q.test(s)) return { ...base, places: [], intent: 'gov', govOffice: true };
+  if (GOV_OFFICE.test(s) && !/怎麼去|怎麼走/.test(s) && !GOV_DOCS_Q.test(s)) return { ...base, places: [], intent: 'gov', govOffice: true, ...(whenOf(s)?.dayOffset && { when: whenOf(s) }) };
   const saved = savedTrip(s, places, ctx?.saved);
   if (saved) return { ...base, ...saved };
   // 英文（觀光客，S12）：只有英文字母沒有中文時用英文規則，回答也用英文（it.lang = 'en'）
@@ -806,7 +807,7 @@ function parseIntentRaw(text, ctx) {
   // 護照現場人多不多（M16-04c）：領務局與各辦事處的即時等待人數
   if (PASSPORT_WAIT.test(s) && !GOV_DOCS_Q.test(s) && !/怎麼去|怎麼走/.test(s)) return { ...base, places: [], intent: 'gov', govPassport: true, passportOffice: /台中|臺中|中部/.test(s) ? '中部' : /高雄|南部/.test(s) ? '南部' : /嘉義|雲嘉南|台南|臺南/.test(s) ? '雲嘉南' : null };
   // 最近的戶政事務所、今天有沒有上班（M16-04b）：用現在位置找；說了怎麼去才是行程
-  if (GOV_OFFICE.test(s) && !/怎麼去|怎麼走/.test(s) && !GOV_DOCS_Q.test(s)) return { ...base, places: [], intent: 'gov', govOffice: true };
+  if (GOV_OFFICE.test(s) && !/怎麼去|怎麼走/.test(s) && !GOV_DOCS_Q.test(s)) return { ...base, places: [], intent: 'gov', govOffice: true, ...(whenOf(s)?.dayOffset && { when: whenOf(s) }) };
   // 去政府辦事要帶什麼（M16-04a）：說了地點也是在問辦事（「去板橋戶政換身分證要帶什麼」）；問路（怎麼去、怎麼走）才是行程
   if (GOV_ASK.test(s) && !/怎麼去|怎麼走|多遠|幾分鐘到/.test(s)) return { ...base, places: [], intent: 'gov', govQuery: s.slice(0, 40) };
   // 把剛剛的行程加到行事曆、分享給家人（ADR-0021）：手機的系統畫面做最後確認；說了地點是先排行程（runDemo 查完再問要不要加）
@@ -944,6 +945,12 @@ function parseIntentRaw(text, ctx) {
   // 出門建議（S13）：天氣＋空品一起看（「今天出門要注意什麼」「出門要帶傘嗎」「要穿什麼」）
   // 問明天的是天氣預報（現在的天氣答不了），交給天氣意圖
   // 一句問好幾件事（「307還要多久、會不會下雨、油價多少」）：每一段各自判斷，全部都查（P5-8）
+  // 找診所、戶政接著問別的日子或時段（「那明天呢」「明天早上呢」「禮拜天咧」，PM 審查 2026-11-28）：同一件事、換時間
+  if (s.length <= 14 && /呢|咧|勒|有開嗎|有嗎|^那/.test(s) && whenOf(s) && !places.length && !lifeIntent(s) && !WEATHER_WORD.test(s)) {
+    const prev = lastUserIntent(history);
+    if (prev?.intent === 'pharmacy' && prev.clinic) return { ...prev, states: base.states, when: whenOf(s), followUp: true };
+    if (prev?.intent === 'gov' && prev.govOffice && whenOf(s).dayOffset) return { ...prev, states: base.states, when: whenOf(s), followUp: true };
+  }
   const multi = !ctx?.noMulti && multiOf(s, base, ctx);
   if (multi) return multi;
   if (GOING_OUT.test(s)) return { ...base, intent: 'outing', askTo: true }; // 要出門了：出門建議＋問要去哪
@@ -1315,7 +1322,7 @@ export function demoSteps(it, now = Date.now()) {
     case 'pharmacy': {
       // 診所（clinic）與藥局同一套：說了區就查那一區、說了地點用地點推估、沒說用你的位置
       const [tool, who, what, extra] = it.clinic
-        ? ['clinic_search', '診所', `${it.dept ? `${DEPTS_LABEL[it.dept]}` : ''}診所（這個時段有登記看診的排前面）`, it.dept ? { dept: it.dept } : {}]
+        ? ['clinic_search', '診所', `${it.when?.label || ''}${it.dept ? `${DEPTS_LABEL[it.dept]}` : ''}診所（${it.when ? '那個時段' : '這個時段'}有登記看診的排前面）`, { ...(it.dept && { dept: it.dept }), ...(it.when && { dayOffset: it.when.dayOffset, ...(it.when.period && { period: it.when.period }) }) }]
         : ['pharmacy_search', '藥局', '健保藥局', {}];
       if (!it.area && it.places[0]) { // 「板橋車站附近的藥局」：用地標的座標推估在哪一區
         const place = it.places[0];
@@ -1334,11 +1341,12 @@ export function demoSteps(it, now = Date.now()) {
       if (it.govLink) return [() => ({ note: '@辦事 找官方網站的入口', calls: [{ name: 'gov_official_link', args: { topic: it.govQuery || '' } }] })];
       if (it.govPassport) return [() => ({ note: '@辦事 看領務局與各辦事處現在的護照等待人數', calls: [{ name: 'passport_waiting', args: it.passportOffice ? { office: it.passportOffice } : {} }] })];
       if (it.govOffice) {
-        const note = '@辦事 找附近的戶政事務所，看今天是不是上班日';
-        if (it.fromPoint) return [() => ({ note, calls: [{ name: 'gov_office_nearby', args: ll(it.fromPoint) }] })]; // 用裝置定位
+        const note = `@辦事 找附近的戶政事務所，看${it.when?.dayOffset ? it.when.label.replace(/上午|下午|晚上/, '') : '今天'}是不是上班日`;
+        const day = it.when?.dayOffset ? { dayOffset: it.when.dayOffset } : {}; // 「禮拜六有開嗎」：問那一天
+        if (it.fromPoint) return [() => ({ note, calls: [{ name: 'gov_office_nearby', args: { ...ll(it.fromPoint), ...day } }] })]; // 用裝置定位
         return [ // 拿不到位置：先從臺北車站附近找（總結會說明）
           () => ({ note: `@地點 找「${DEFAULT_FROM}」的位置`, calls: [{ name: 'find_place', args: { query: DEFAULT_FROM } }] }),
-          (r) => (point(r, 0) ? { note, calls: [{ name: 'gov_office_nearby', args: ll(point(r, 0)) }] } : null),
+          (r) => (point(r, 0) ? { note, calls: [{ name: 'gov_office_nearby', args: { ...ll(point(r, 0)), ...day } }] } : null),
         ];
       }
       return [() => ({ note: '@辦事 查我的E政府的申辦說明', calls: [{ name: 'gov_service_info', args: { query: it.govQuery || '', ...(countyOf(it.govQuery || '') && { county: countyOf(it.govQuery) }) } }] })]; // 說了縣市：那個縣市的版本也排前面

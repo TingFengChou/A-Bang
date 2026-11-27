@@ -44,7 +44,8 @@
       "enum": [
         "open",
         "early",
-        "late"
+        "late",
+        "planned"
       ]
     },
     "total": {
@@ -148,6 +149,23 @@
               "null"
             ]
           }
+        }
+      }
+    },
+    "dayOffset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 13
+    },
+    "tomorrow": {
+      "type": "object",
+      "properties": {
+        "weekday": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     }
