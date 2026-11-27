@@ -6,23 +6,28 @@ export class OpenDataError extends Error {
   constructor(msg, status = 502) { super(msg); this.name = 'OpenDataError'; this.status = status; }
 }
 
+/** 失敗冷卻（毫秒）：沒有舊資料可用又下載失敗時，這段時間內直接回同一個錯誤，不重複打上游（架構審查 2026-11-28） */
+export const FAIL_COOLDOWN_MS = 30_000;
+/** TTL 至少這麼長（秒）的資料（每日更新的大檔：藥局、診所、辦事須知）過期後先給舊的、背景更新；即時資料照舊等下載 */
+export const SWR_MIN_TTL_SEC = 3600;
+
 /**
  * @param {{ fetchImpl?: typeof fetch, now?: () => number, timeoutMs?: number }} [opts]
  */
 export function createOpenDataClient({ fetchImpl = fetch, now = () => Date.now(), timeoutMs = 30_000 } = {}) {
-  const cache = new Map(); // key → { exp, data } 或 { pending }
+  const cache = new Map(); // key → { exp, at, data, pending?, failedAt?, error? }
 
   /**
    * @param {string} url
-   * @param {{ ttlSec: number, label: string, as?: 'text'|'json', parse?: (raw: any) => any, headers?: object, maxBytes?: number }} o
-   *   label：錯誤訊息用的資料名稱；parse：下載後轉成要快取的資料（解析失敗視為上游錯誤）
+   * @param {{ ttlSec: number, label: string, as?: 'text'|'json', parse?: (raw: any) => any, headers?: object, maxBytes?: number, swr?: boolean }} o
+   *   label：錯誤訊息用的資料名稱；parse：下載後轉成要快取的資料（解析失敗視為上游錯誤）；
+   *   swr：過期但還能沿用時先給舊的、背景更新（預設：TTL ≥ 1 小時的資料）
    */
   /** 更新失敗時舊資料最多可以沿用多久（秒）：TTL 的 2 倍、至少 2 分鐘（垃圾車即時位置 TTL 60 秒 → 最多 2 分鐘前的位置；生活資料審查 #3：原本上游一直斷就永遠用舊資料） */
   const staleLimitSec = (ttlSec) => Math.max(ttlSec * 2, 120);
-  async function get(url, { ttlSec, label, as = 'text', parse = (x) => x, headers, maxBytes }) {
-    const hit = cache.get(url);
-    if (hit?.data !== undefined && now() < hit.exp) { recordFetch({ cacheHit: true, data: hit.data }); return hit.data; }
-    if (hit?.pending) return hit.pending;
+  const usable = (hit, ttlSec) => hit?.data !== undefined && now() - (hit.at ?? 0) <= staleLimitSec(ttlSec) * 1000;
+
+  function refresh(url, hit, { ttlSec, label, as = 'text', parse = (x) => x, headers, maxBytes }) {
     const pending = (async () => {
       let res;
       try { res = await fetchImpl(url, { signal: AbortSignal.timeout(timeoutMs), ...(headers && { headers }) }); } catch { throw new OpenDataError(`${label}連線失敗，請稍後再試`); }
@@ -40,12 +45,26 @@ export function createOpenDataClient({ fetchImpl = fetch, now = () => Date.now()
       return data;
     })().catch((e) => {
       // 更新失敗：舊資料還不算太舊（staleLimitSec）就先用舊的，太舊或沒有就丟錯（照實說資料暫時拿不到，不把幾小時前的資料當現在）
-      if (hit?.data !== undefined && now() - (hit.at ?? 0) <= staleLimitSec(ttlSec) * 1000) { cache.set(url, { ...hit, exp: Math.min(now() + 60_000, (hit.at ?? 0) + staleLimitSec(ttlSec) * 1000) }); return hit.data; }
-      cache.delete(url);
+      if (usable(hit, ttlSec)) { cache.set(url, { ...hit, exp: Math.min(now() + 60_000, (hit.at ?? 0) + staleLimitSec(ttlSec) * 1000) }); return hit.data; }
+      cache.set(url, { failedAt: now(), error: e }); // 冷卻：這段時間內不重複下載
       throw e;
     });
     cache.set(url, { ...(hit || {}), pending });
     return pending;
+  }
+
+  async function get(url, o) {
+    const hit = cache.get(url);
+    if (hit?.data !== undefined && now() < hit.exp) { recordFetch({ cacheHit: true, data: hit.data }); return hit.data; }
+    if (hit?.pending) return hit.data !== undefined && (o.swr ?? o.ttlSec >= SWR_MIN_TTL_SEC) && usable(hit, o.ttlSec) ? hit.data : hit.pending;
+    if (hit?.error && now() - hit.failedAt < FAIL_COOLDOWN_MS) throw hit.error;
+    // 每日更新的大檔：過期但還能沿用 → 先給舊的，背景更新（使用者不用等 16 MB 下載與解析）
+    if ((o.swr ?? o.ttlSec >= SWR_MIN_TTL_SEC) && usable(hit, o.ttlSec)) {
+      refresh(url, hit, o).catch(() => {}); // 背景更新失敗已在 refresh 裡處理（沿用或冷卻）
+      recordFetch({ cacheHit: true, data: hit.data });
+      return hit.data;
+    }
+    return refresh(url, hit, o);
   }
   return { get };
 }

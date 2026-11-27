@@ -128,5 +128,5 @@ export function createClinicServices(fx) {
 
 /** 真實：od＝createOpenDataClient()（失敗時沿用上一份） */
 export function createLiveClinicFetchers({ od }) {
-  return { clinics: () => od.get(CLINICS_URL, { ttlSec: CLINICS_TTL_SEC, label: '健保署診所資料', parse: parseClinics }) };
+  return { clinics: () => od.get(CLINICS_URL, { ttlSec: CLINICS_TTL_SEC, maxBytes: 32 * 2 ** 20, label: '健保署診所資料', parse: parseClinics }) };
 }
