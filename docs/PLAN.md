@@ -387,7 +387,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 
 - [x] M16-00 研究（2026-11-27）：Android AppFunctions（1.0.0 穩定、Android 16、Kotlin＋KSP、Gemini 要申請預覽）、ML Kit function calling（預覽、Gemini Nano 4、minSdk 26）、Apple App Intents／App Schemas（Siri，沒有交通領域）與 Foundation Models `Tool`、Google AI Edge Gallery（Mobile Actions：FunctionGemma 270M＋系統 Intent）
 - [x] M16-01 加到行事曆、分享（2026-11-27）：`core/device-actions.js`（事件、分享文字、.ics、檢查；不帶使用者座標）、行程卡片按鈕、意圖 `calendar`／`share`（31 類）、`ask` 動作 `addCalendar`／`share`、請求 `deviceActions`、`AbangSystem.addCalendarEvent`／`share`（iOS EventKitUI＋UIActivityViewController、Android ACTION_INSERT＋chooser）、網頁 .ics 與 Web Share／複製。npm test 新增 12 項、E2E 1 項
-- [ ] M16-01b 實機確認：Pixel（行事曆 App 新增畫面、分享選單）、iPhone（iOS 17 以上不問權限的新增行程畫面、分享面板）
+- [ ] M16-01b 實機確認：Pixel ✅（2026-11-27：Google 日曆新增畫面帶好標題與時間、分享選單；修正 Android 讀不到毫秒時間戳記）；iOS 模擬器 ✅（不問權限的新增行程畫面帶好標題、時間、地點、路線；取消後卡片說「沒有加入」；分享面板）；實體 iPhone 待接上確認
 - [ ] M16-02 iOS App Intents＋App Shortcuts：查公車、規劃行程、天氣、查詐騙（Siri、捷徑、Spotlight；原生端呼叫 `/api/v1`）；實驗把 iOS 判斷改用 Foundation Models `Tool`，以 224 題評測決定
 - [ ] M16-03 ⛔ Android AppFunctions：要加 Kotlin＋KSP（新依賴），只在 Android 16 以上有效；Gemini 呼叫要申請 Connected Apps Platform 預覽（等產品負責人決定）
 - [ ] M16-04 政府便民服務（研究見 side-session notes `gov-services-research.md`）：辦事要帶什麼（我的E政府申辦服務資料）、據點與上班日、護照現場等待人數、官方連結卡
