@@ -48,6 +48,33 @@ async function locationState() {
   } catch { return 'prompt'; }
 }
 
+/** 設定頁精簡（設計第二輪 #5：原本約 13000px）：超過 60 字的說明收進 <details>「說明」（aria-describedby 照樣念得到）；頁首加各段的跳轉 */
+function compactSettings(main) {
+  for (const p of main.querySelectorAll('.settings p.note')) {
+    if (p.textContent.trim().length < 60 || p.closest('details')) continue;
+    const d = document.createElement('details');
+    d.className = 'note-more';
+    const sm = document.createElement('summary');
+    sm.textContent = '說明';
+    p.replaceWith(d);
+    d.append(sm, p);
+  }
+  const secs = [...main.querySelectorAll('section.settings')].filter((x) => x.querySelector('h2'));
+  const nav = document.createElement('nav');
+  nav.className = 'set-jump';
+  nav.setAttribute('aria-label', '跳到');
+  secs.forEach((sec, i) => {
+    if (!sec.id) sec.id = `set-${i}`;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip';
+    b.textContent = sec.querySelector('h2').textContent;
+    b.addEventListener('click', () => { sec.scrollIntoView({ block: 'start' }); sec.querySelector('h2').setAttribute('tabindex', '-1'); sec.querySelector('h2').focus({ preventScroll: true }); }); // 網址的 # 是路由：用 scrollIntoView，不用錨點
+    nav.append(b);
+  });
+  main.prepend(nav);
+}
+
 export const settings = {
   title: '設定與隱私',
   async render({ main, toast, onCleanup }) {
@@ -132,6 +159,7 @@ export const settings = {
       <p class="updated"><button type="button" class="linkish" id="guide">再看一次使用說明</button>・<a href="#/privacy">隱私權政策</a>・資料來源：交通部 TDX、中央氣象署、環境部、政府資料開放平臺</p>`;
 
     const health = mountHealthSetting(main.querySelector('#health-set'), { toast }); // ADR-0018：預設關閉，打開時才問權限
+    compactSettings(main); // 設計第二輪 #5：每段只留一句狀態＋開關，長說明收進「說明」；頁首跳到各段（健康那段掛上後再整理）
     const host = createWebHost(); // 輸入地點時查找地點（find_place）
     // 每個地點一列：更新時只換文字與按鈕狀態（不重建，鍵盤與讀屏的焦點留在原處）
     const rows = {};

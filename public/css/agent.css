@@ -371,6 +371,8 @@ html.lite-motion .voice-panel .vc-core, html.lite-motion .voice-panel .vc-halo {
 .to-latest:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
 /* 底部對話面板空間小：收合規則一樣，目錄與「回到最新」只在整頁 */
 .sheet-body .chat-index, .sheet-body .to-latest { display: none; }
+/* 底部對話面板：起點說明、資料來源、由誰回答只在整頁（設計第二輪 #5：佔掉對話空間；卡片上本來就標資料來源） */
+.sheet-body .here-hint, .sheet-body .agent-mode, .sheet-body .chat-foot { display: none; }
 @media (min-width: 900px) { .chat-index { max-width: 640px; margin: 0 auto 10px; } } /* 桌面：跟對話同寬置中 */
 /* 個人化（2026-11-21）：「你同意：優先推捷運」chip（source habit，紫色）、「你說過：常帶東西」（source usual）、為什麼 */
 .dg-chip.on.src-habit { background: #f1edfb; border-color: #6d4fc2; color: #5b3fb0; }

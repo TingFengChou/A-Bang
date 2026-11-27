@@ -1884,6 +1884,10 @@ test('設定與隱私：我的進入、狀態、隱私權政策', async () => {
     await page.waitForFunction(() => /已設定：板橋車站/.test([...document.querySelectorAll('.saved-row')].find((r) => r.textContent.includes('公司')).textContent));
     assert.equal(await work.locator('.saved-find').isHidden(), true, '選好就收起來');
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('abang.places')).公司.name), '板橋車站');
+    // 設計第二輪 #5：頁首跳到各段；長說明收進「說明」（預設收起）
+    assert.ok(await page.locator('.set-jump .chip').count() >= 8);
+    assert.ok(await page.locator('.settings details.note-more').count() >= 5);
+    assert.equal(await page.locator('#edge-note').isVisible(), false, '說明預設收起');
     await shot(page, 'phone-settings');
     await page.click('a[href="#/privacy"]');
     await page.waitForSelector('.privacy h2');
