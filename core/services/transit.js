@@ -36,6 +36,7 @@ export function railWarmSteps(tdx) {
 export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
   const { cached, stored, meta } = cacheOf(tdx);
   const storedOf = (kind, city) => stored(key[kind](city), STATIC_TTL, transitLoaders[kind](tdx, city)).catch(() => undefined);
+  const unlistedGate = createUnlistedGate({ now: () => tdx.now?.() ?? Date.now() });
 
   /**
    * 這個點有沒有預熱過的公車站牌資料涵蓋：最近的站在 1.5 公里內，且站位實際所在的縣市（LocationCityCode）也預熱過
@@ -94,13 +95,20 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
      */
     async routeEta({ city, routeName, shape = true }) {
       const c = mustCity(city);
-      const [dirs, eta, path, info] = await Promise.all([
+      // 預熱的路線清單（每天更新）裡沒有這個名稱：新路線、清單比較舊時仍逐條查（審查建議 7），但亂填的名稱不能把每分鐘 5 次額度用光（架構第三輪 #1）——
+      // 清單外的名稱全站每分鐘最多查 1 次、查不到的記 10 分鐘，形狀等找到站序才查
+      const notFound = () => new UserError(`${c.name}找不到路線「${routeName}」`);
+      const all = await storedOf('busRoutes', c.city);
+      const unlisted = Array.isArray(all) && all.length > 0 && !all.some((d) => d.name === routeName);
+      if (unlisted && !unlistedGate.allow(`${c.city}|${routeName}`)) throw notFound();
+      let [dirs, eta, path, info] = await Promise.all([
         routeStops(c.city, routeName),
         cityEta(c.city),
-        shape ? routeShapeOf(c.city, routeName) : null,
+        shape && !unlisted ? routeShapeOf(c.city, routeName) : null,
         storedOf('busMeta', c.city),
       ]);
-      if (!dirs.length) throw new UserError(`${c.name}找不到路線「${routeName}」`);
+      if (!dirs.length) { if (unlisted) unlistedGate.missed(`${c.city}|${routeName}`); throw notFound(); }
+      if (unlisted && shape) path = await routeShapeOf(c.city, routeName);
       const etaMap = etaIndex(eta.data);
       // 資料取得後過了幾秒（快取最多 30 秒、額度快用完時的舊資料最多 60 秒）：倒數扣掉，行程判斷與提醒用修正後的值
       const age = Math.max(0, Math.floor(((tdx.now?.() ?? Date.now()) - eta.at) / 1000));
@@ -439,4 +447,28 @@ export function findStation(list, input, label) {
 export function sortEta(a, b) {
   const k = (x) => (x.etaSec != null ? x.etaSec : 1e6 + x.status);
   return k(a) - k(b);
+}
+
+/**
+ * 預熱清單外的路線名稱（架構第三輪 #1）：全站每分鐘最多逐條查 perMin 次；查不到的名稱記 missMs（最多 maxMissed 筆），期間不再查。
+ * @param {{ now?: () => number, perMin?: number, missMs?: number, maxMissed?: number }} [o]
+ */
+export function createUnlistedGate({ now = Date.now, perMin = 1, missMs = 600_000, maxMissed = 500 } = {}) {
+  const recent = [];
+  const miss = new Map(); // key → 記到什麼時候
+  return {
+    allow(k) {
+      const t = now();
+      if ((miss.get(k) ?? 0) > t) return false;
+      miss.delete(k);
+      while (recent.length && recent[0] <= t - 60_000) recent.shift();
+      if (recent.length >= perMin) return false;
+      recent.push(t);
+      return true;
+    },
+    missed(k) {
+      if (miss.size >= maxMissed) miss.delete(miss.keys().next().value); // 最早記的先刪
+      miss.set(k, now() + missMs);
+    },
+  };
 }

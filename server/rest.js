@@ -19,11 +19,19 @@ const RADIUS = (d) => q('radius', `搜尋半徑（公尺），預設 ${d}，上�
 const int = (v) => { const n = num(v); return Number.isInteger(n) ? n : undefined; };
 const text = (v, max = 40) => (typeof v === 'string' && v.trim() && v.trim().length <= max ? v.trim() : undefined);
 const DAY_MS = 86_400_000;
+/** REST 直接呼叫服務（不經工具的 zod）：路線名稱、關鍵字、站位 ID 跟工具同樣的長度與格式（架構第三輪 #1：亂填會打 TDX、用掉額度） */
+const routeArg = (v, label = '路線名稱', { optional = false } = {}) => {
+  if (optional && (v == null || v === '')) return '';
+  const t = text(v, 20);
+  if (!t) throw new UserError(`${label}要有，最多 20 個字`);
+  return t;
+};
+const stationArg = (v) => { const t = text(v, 40); if (!t || !/^[\w-]+$/.test(t)) throw new UserError('站位 ID 只有英數字，最多 40 個字'); return t; };
 /** /api/v1/bus/alight 的參數（查詢字串都是字串）：不對就 UserError */
 function alightParams(p) {
   const now = int(p.now) ?? Date.now();
   const w = {
-    city: text(p.city), routeName: text(p.route), direction: int(p.direction), board: text(p.board), boardSeq: int(p.boardSeq), dest: text(p.dest), destSeq: int(p.destSeq),
+    city: text(p.city), routeName: text(p.route, 20), direction: int(p.direction), board: text(p.board), boardSeq: int(p.boardSeq), dest: text(p.dest), destSeq: int(p.destSeq),
     plate: text(p.plate, 20) || null, boardAt: int(p.boardAt), rideSec: int(p.rideSec), seen: p.seen === 'true' || p.seen === '1', lang: p.lang === 'en' ? 'en' : null, now,
   };
   if (!w.city || !w.routeName || !w.board || !w.dest) throw new UserError('city、route、board、dest 都要有');
@@ -89,8 +97,8 @@ export function partnerLinks(svc) {
 export function restRoutes(svc, { agentInfo = null } = {}) {
   return {
     '/api/v1/status': { summary: '服務狀態（live／demo、各類資料是真實或示範、工具包、agent 用什麼回答）', tag: 'PWA', params: [], handler: () => { const agent = agentInfo?.(); return { mode: svc.mode, weatherMode: svc.weatherMode, sources: dataSources(svc), time: new Date().toISOString(), packs: listPacks(), partner: partnerLinks(svc), ...(agent && { agent }) }; } },
-    '/api/v1/bus/routes': { summary: '搜尋公車路線', tag: 'PWA', params: [CITY, q('keyword', '路線關鍵字', { example: '307' })], handler: (p) => svc.bus.searchRoutes({ city: p.city, keyword: p.keyword || '' }) },
-    '/api/v1/bus/eta': { summary: '公車路線即時到站', tag: 'PWA', params: [CITY, q('route', '完整路線名稱', { required: true, example: '307' })], handler: (p) => svc.bus.routeEta({ city: p.city, routeName: p.route }) },
+    '/api/v1/bus/routes': { summary: '搜尋公車路線', tag: 'PWA', params: [CITY, q('keyword', '路線關鍵字', { example: '307' })], handler: (p) => svc.bus.searchRoutes({ city: p.city, keyword: routeArg(p.keyword, '路線關鍵字', { optional: true }) }) },
+    '/api/v1/bus/eta': { summary: '公車路線即時到站', tag: 'PWA', params: [CITY, q('route', '完整路線名稱', { required: true, example: '307' })], handler: (p) => svc.bus.routeEta({ city: p.city, routeName: routeArg(p.route) }) },
     '/api/v1/bus/alight': {
       summary: '下車提醒：我這台到下車站還要多久、該不該提醒（Android 常駐服務每 20 秒問一次；判斷同 core/alight.js）', tag: 'PWA',
       params: [
@@ -110,7 +118,7 @@ export function restRoutes(svc, { agentInfo = null } = {}) {
       },
     },
     '/api/v1/bus/nearby': { summary: '附近公車站', tag: 'PWA', params: [LAT, LON, RADIUS(400)], handler: (p) => svc.bus.nearbyStations({ lat: num(p.lat), lon: num(p.lon), radius: num(p.radius) }) },
-    '/api/v1/bus/station-eta': { summary: '站位所有路線到站', tag: 'PWA', params: [CITY, q('station', '站位 ID', { required: true })], handler: (p) => svc.bus.stationEta({ city: p.city, stationId: p.station }) },
+    '/api/v1/bus/station-eta': { summary: '站位所有路線到站', tag: 'PWA', params: [CITY, q('station', '站位 ID', { required: true })], handler: (p) => svc.bus.stationEta({ city: p.city, stationId: stationArg(p.station) }) },
     '/api/v1/bike/nearby': { summary: '附近 YouBike', tag: 'PWA', params: [LAT, LON, RADIUS(500)], handler: (p) => svc.bike.nearby({ lat: num(p.lat), lon: num(p.lon), radius: num(p.radius) }) },
     '/api/v1/thsr/stations': { summary: '高鐵車站', tag: 'PWA', params: [], handler: () => svc.rail.thsrStations() },
     '/api/v1/thsr/timetable': { summary: '高鐵時刻表', tag: 'PWA', params: OD, handler: (p) => svc.rail.thsrTimetable(p) },

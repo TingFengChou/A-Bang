@@ -82,7 +82,7 @@ export const busSearchRoutes = defineTool({
   title: '搜尋公車路線',
   description: '以關鍵字搜尋某縣市的市區公車路線，回傳路線名稱與起訖站。',
   pack: PACK, tier: 'L1',
-  input: { city: T.city, keyword: z.string().min(1).describe('路線關鍵字，例如 307、紅30') },
+  input: { city: T.city, keyword: z.string().trim().min(1).max(20).describe('路線關鍵字，例如 307、紅30') },
   speak: (d, a) => (d.length ? `找到 ${d.length} 條和「${a.keyword}」有關的路線。` : `找不到「${a.keyword}」這條路線。`),
   async run(svc, a) {
     const data = await svc.bus.searchRoutes(a);
@@ -100,7 +100,7 @@ export const busRouteEta = defineTool({
   pack: PACK, tier: 'L1', card: 'bus-route',
   input: {
     city: T.city.optional().describe('縣市，可用 Taipei／台北市；有 near 時可省略（用位置推估）'),
-    routeName: z.string().min(1).describe('完整路線名稱，例如 307'),
+    routeName: z.string().trim().min(1).max(20).describe('完整路線名稱，例如 307'),
     stop: z.string().trim().max(40).optional().describe('要盯的站名（選填，例如上車站）：回傳 focus（該站方向、站序、到站時間），卡片聚焦這一站'),
     near: T.point('使用者現在的位置（選填）：沒說站名時聚焦路線上離他最近的站；有站名但沒給縣市時用來推縣市').optional(),
     direction: z.number().int().min(0).max(1).optional().describe('去程 0、返程 1（選填，配合 stop）'),
@@ -167,7 +167,7 @@ export const busStationEta = defineTool({
   title: '公車站即時到站',
   description: '查詢某個公車站位（stationId 來自 bus_nearby_stations）所有經過路線的預估到站時間。',
   pack: PACK, tier: 'L1', card: 'bus-station',
-  input: { city: T.city, stationId: z.string().min(1) },
+  input: { city: T.city, stationId: z.string().trim().min(1).max(40).regex(/^[\w-]+$/, '站位 ID 只有英數字') },
   speak: (d) => { const f = d.arrivals.find((r) => r.etaSec != null); return f ? `最快的是 ${f.routeName}，${f.statusText}。` : '這個站目前沒有車要來。'; },
   async run(svc, a) {
     const arrivals = await svc.bus.stationEta(a);
