@@ -5,6 +5,7 @@
 //   - 中華民國政府行政機關辦公日曆表（人事行政總處，data.gov.tw 14718）：哪天上班、哪天放假；下載網址每年不同，從 data.gov.tw 的資料集資訊找當年的
 // 營業時間各所不同（午休、夜間延時、週六服務），資料沒有結構化的時間：只說「今天是不是上班日」，不說「現在有開」。
 import { distanceM } from '../util.js';
+import { csvObjects } from '../csv.js';
 import { navLinks, walkMinutes } from '../nav.js';
 
 export const OFFICE_URLS = {
@@ -17,29 +18,9 @@ export const CALENDAR_TTL_SEC = 30 * 24 * 3600;
 const TW_MS = 8 * 3600e3;
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
 
-/** 一列 CSV → 欄位（支援雙引號包起來、裡面有逗號或 "" 的欄位） */
-function cells(line) {
-  const out = []; let cur = ''; let q = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (q) { if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (ch === '"') q = false; else cur += ch; }
-    else if (ch === '"') q = true;
-    else if (ch === ',') { out.push(cur); cur = ''; }
-    else cur += ch;
-  }
-  out.push(cur);
-  return out;
-}
-/** CSV 文字 → 物件陣列（欄數對不上的列跳過） */
-function rows(text) {
-  const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter((l) => l.trim());
-  const head = cells(lines.shift() || '').map((x) => x.trim());
-  return lines.map(cells).filter((c) => c.length === head.length).map((c) => Object.fromEntries(head.map((k, i) => [k, c[i].trim()])));
-}
-
-/** 申辦點位 CSV → 戶政事務所與辦公室（台灣範圍內的座標） */
+/** 申辦點位 CSV → 戶政事務所與辦公室（台灣範圍內的座標）；缺欄位丟錯（opendata-client 沿用上一份） */
 export function parseOffices(csv) {
-  return rows(csv).filter((r) => /戶政事務所/.test(r['名稱'] || '')).map((r) => ({ name: r['名稱'], address: r['地址'] || '', lat: Number(r['座標緯度']), lon: Number(r['座標經度']) }))
+  return csvObjects(csv, ['名稱', '地址', '座標緯度', '座標經度']).filter((r) => /戶政事務所/.test(r['名稱'] || '')).map((r) => ({ name: r['名稱'], address: r['地址'] || '', lat: Number(r['座標緯度']), lon: Number(r['座標經度']) }))
     .filter((o) => o.lat > 21 && o.lat < 27 && o.lon > 118 && o.lon < 123);
 }
 
@@ -49,9 +30,11 @@ export function parseTels(json) {
   return new Map(list.filter((x) => x?.orgName && x?.tel).map((x) => [String(x.orgName).trim(), String(x.tel).trim()]));
 }
 
-/** 辦公日曆 CSV → 'YYYYMMDD' → { off, note } */
+/** 辦公日曆 CSV → 'YYYYMMDD' → { off, note }；缺欄位或一天都沒有就丟錯（不把空表快取 30 天，架構審查 #5） */
 export function parseCalendar(csv) {
-  return new Map(rows(csv).filter((r) => /^\d{8}$/.test(r['西元日期'])).map((r) => [r['西元日期'], { off: r['是否放假'] === '2', note: r['備註'] || null }]));
+  const map = new Map(csvObjects(csv, ['西元日期', '是否放假']).filter((r) => /^\d{8}$/.test(r['西元日期'])).map((r) => [r['西元日期'], { off: r['是否放假'] === '2', note: r['備註'] || null }]));
+  if (!map.size) throw new Error('辦公日曆沒有任何日期');
+  return map;
 }
 
 /** data.gov.tw 的資料集資訊 → 指定民國年的辦公日曆下載網址（不要 Google 行事曆專用版） */

@@ -7,11 +7,20 @@ import { aiT } from '../pages/ai-i18n.js';
 import { EDGE_INTENTS, EDGE_STATES, judgeFromDevice } from '../edge-judge.js';
 import { intentLabel } from '../ai-info.js';
 
+/** 會出現在「準備行動」階段的動作（名稱、確認方式；與 ai-actions.js 同一套說法） */
+export const THINK_ACTS = {
+  addCalendar: { zh: '加到行事曆', en: 'add to calendar', how: 'system' },
+  share: { zh: '分享', en: 'share', how: 'system' },
+  watchArrival: { zh: '到站提醒', en: 'arrival reminder', how: 'tap' },
+  openLink: { zh: '開地圖', en: 'open the map', how: 'tap' },
+};
+const HOW = { system: { zh: '系統畫面確認', en: 'confirmed on the system screen' }, tap: { zh: '你按一下', en: 'one tap' } };
+
 /** 開始：剛送出 */
 export const thinkStart = () => ({ phase: 'think', device: null, pending: [], checked: 0 });
 
 /**
- * 事件 → 下一個狀態。phase：think 剛送出｜device 手機上聽懂了｜server 改由伺服器判斷｜tools 正在查｜compose 查完、整理答案｜write 在手機上寫回答（answer_draft）｜suggest 猜下一句（#/ai 試判斷）｜end 收起
+ * 事件 → 下一個狀態。phase：think 剛送出｜device 手機上聽懂了｜server 改由伺服器判斷｜tools 正在查｜compose 查完、整理答案｜act 準備行動（阿幫問你帶動作選項：加到行事曆、分享、到站提醒；2026-11-28）｜write 在手機上寫回答（answer_draft）｜suggest 猜下一句（#/ai 試判斷）｜end 收起
  * @param {ReturnType<typeof thinkStart>} s
  * @param {{ type: string, [k: string]: any }} e agent 事件；另有 { type: 'device', result }（手機上的判斷結果，沒有是 null）、{ type: 'abort' }
  */
@@ -33,6 +42,10 @@ export function thinkStep(s, e) {
       const id = e.type === 'client_tool_result' ? `client:${e.id}` : e.id;
       const pending = s.pending.filter((p) => p.id !== id);
       return { ...s, pending, checked: s.checked + 1, phase: pending.length ? 'tools' : 'compose' };
+    }
+    case 'ask': { // 阿幫問你帶動作選項：準備好，等你按（產品負責人 2026-11-28：大腦加入 take action）
+      const act = (e.options || []).find((o) => o.kind === 'action' && THINK_ACTS[o.action?.name])?.action.name;
+      return act ? { ...s, phase: 'act', act } : s;
     }
     case 'answer_draft': // 回答交給手機寫（ADR-0017）：收到程式版總結後、手機改寫完成前
       return { ...s, phase: 'write' };
@@ -67,6 +80,7 @@ export function thinkText(s, lang = null, roleName = (r) => r) {
     stage = list ? `${en ? 'Checking: ' : '正在查：'}${list}${roles.length > 3 ? (en ? '…' : '等') : ''}` : (en ? 'Checking data' : '正在查資料');
   } else if (s.phase === 'compose') stage = en ? 'Putting the answer together' : '整理答案中';
   else if (s.phase === 'write') stage = en ? 'Writing the answer on your phone' : '在手機上寫回答';
+  else if (s.phase === 'act' && THINK_ACTS[s.act]) { const a = THINK_ACTS[s.act]; stage = en ? `Getting an action ready: ${a.en} (${HOW[a.how].en})` : `準備行動：${a.zh}（${HOW[a.how].zh}）`; }
   else if (s.phase === 'suggest') stage = t('think.suggest');
   const announce = s.phase === 'think' ? title : s.phase === 'device' || s.phase === 'server' ? stage : null;
   return { title, stage, announce };
