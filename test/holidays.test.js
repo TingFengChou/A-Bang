@@ -1,5 +1,5 @@
 // 國定假日清單（core/data/tw-holidays.json）：由官方辦公日曆 CSV 產生（scripts/build-holidays.js），內容要一致；
-// 今年與明年（台灣時間）不在清單就失敗——提醒每年官方公告新年度日曆後重新產生。
+// 今年不在清單就失敗；明年 7/1 起才要求（官方通常年中公告）——提醒每年公告新年度日曆後重新產生。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
@@ -25,7 +25,11 @@ test('core/data/tw-holidays.json 與官方 CSV（115、116 年）產生的一致
   assert.equal(holidayName('2027-12-31'), '補假');
 });
 
-test('今年與明年（台灣時間）都在清單裡：不在就去 data.gov.tw 資料集 14718 下載新年度的辦公日曆，重新產生', () => {
-  const y = Number(twDate().slice(0, 4));
-  for (const year of [y, y + 1]) assert.ok(HOLIDAY_YEARS.includes(year), `國定假日清單沒有 ${year} 年：node scripts/build-holidays.js scripts/data/dgpa-calendar/*.csv`);
+test('今年一定在清單裡；明年的日曆通常年中才公告：7/1 起才要求（之前只提醒），CI 不會在 1/1 突然紅燈（架構第二輪審查）', (t) => {
+  const today = twDate();
+  const y = Number(today.slice(0, 4));
+  const hint = (year) => `國定假日清單沒有 ${year} 年：去 data.gov.tw 資料集 14718 下載新年度的辦公日曆，node scripts/build-holidays.js scripts/data/dgpa-calendar/*.csv`;
+  assert.ok(HOLIDAY_YEARS.includes(y), hint(y));
+  if (today.slice(5) >= '07-01') assert.ok(HOLIDAY_YEARS.includes(y + 1), hint(y + 1));
+  else if (!HOLIDAY_YEARS.includes(y + 1)) t.diagnostic(hint(y + 1));
 });

@@ -32,3 +32,11 @@ test('股市、發票、天氣：各自的下一步；沒有結果回空陣列�
   assert.deepEqual(nextSteps([{ tool: 'weather_now', card: 'weather', data: {} }], null).map((x) => x.label), ['空氣品質呢？', '明天會下雨嗎？']);
   assert.deepEqual(nextSteps([], null), []);
 });
+
+test('PM 第二輪審查：起點是「你的位置」不給「回程怎麼走？」（原本會排成 101 到 101）', async () => {
+  const { nextSteps } = await import('../public/js/agent/next-steps.js');
+  const trip = { tool: 'plan_trip', data: { from: { name: '你的位置' }, to: { name: '台北101' }, options: [{ id: 'a', role: 'metro' }], best: 'a' } };
+  const s = nextSteps([trip], null, {});
+  assert.ok(!s.some((x) => x.label === '回程怎麼走？'), s.map((x) => x.label).join('、'));
+  assert.ok(s.some((x) => x.label === '台北101天氣如何？'));
+});
