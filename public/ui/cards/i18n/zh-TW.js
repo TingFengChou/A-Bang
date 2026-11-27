@@ -280,6 +280,7 @@ export const MESSAGES = {
   'outing.missing.weather': '天氣暫時查不到',
   'outing.missing.air': '空品暫時查不到',
   'weather.title': '{where} 天氣',
+  'weather.demoStation': '示範測站',
   'weather.rain': '現在下雨，或接下來很可能下雨',
   'weather.dry': '現在沒下雨',
   'weather.temp': '氣溫',

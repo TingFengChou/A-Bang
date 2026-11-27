@@ -131,7 +131,7 @@ createServer(async (req, res) => {
       const st = hit && await stat(hit.file).catch(() => null);
       if (!st?.isFile()) return send(res, 404, { error: '這台伺服器沒有提供手機上的小模型' }, cors);
       if (!limit(req, res, 'api')) return;
-      res.writeHead(200, { 'content-type': hit.type, 'content-length': st.size, 'cache-control': 'public, max-age=86400', ...cors, ...(cors['access-control-allow-origin'] && { 'access-control-allow-methods': 'GET, OPTIONS' }) });
+      res.writeHead(200, { 'content-type': hit.type, 'content-length': st.size, 'cache-control': 'public, max-age=86400', ...SECURITY_HEADERS, ...cors, ...(cors['access-control-allow-origin'] && { 'access-control-allow-methods': 'GET, OPTIONS' }) });
       if (req.method === 'HEAD') return res.end();
       pipeline(createReadStream(hit.file), res, () => {}); // 使用者中途離開：兩邊都關掉（不留著檔案）
       return;
@@ -183,10 +183,12 @@ createServer(async (req, res) => {
     }
 
     // ── 靜態檔：防目錄穿越；找不到就回 index.html（SPA）──
-    let file = normalize(join(PUBLIC, decodeURIComponent(path)));
+    let decoded;
+    try { decoded = decodeURIComponent(path); } catch { return send(res, 400, { error: '網址格式不對' }); } // 「/%E0」：原本丟錯回 502 並寫 error log（可被拿來灌 log，架構第二輪 #6）
+    let file = normalize(join(PUBLIC, decoded));
     if (!file.startsWith(PUBLIC)) return send(res, 403, { error: 'Forbidden' });
     if (!(await stat(file).catch(() => null))?.isFile()) file = join(PUBLIC, 'index.html');
-    res.writeHead(200, { 'content-type': MIME[extname(file)] || 'application/octet-stream', 'cache-control': file.endsWith('sw.js') ? 'no-cache' : 'public, max-age=300' });
+    res.writeHead(200, { 'content-type': MIME[extname(file)] || 'application/octet-stream', 'cache-control': file.endsWith('sw.js') ? 'no-cache' : 'public, max-age=300', ...SECURITY_HEADERS, ...(extname(file) === '.html' && FRAME_SELF) });
     res.end(await readFile(file));
   } catch (e) {
     // UserError（含 413 請求過大）回原訊息；其他錯誤只在伺服器 log，對外回通用訊息
@@ -235,12 +237,17 @@ function readJson(req) {
   });
 }
 
+/** 每個回應都帶的安全標頭（架構第二輪 #6）：不猜型別、跨站只送來源網域 */
+const SECURITY_HEADERS = { 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin-when-cross-origin' };
+/** 網頁不讓別的網站用 iframe 嵌入（點擊劫持）；App 用打包的檔案，不經這裡 */
+const FRAME_SELF = { 'content-security-policy': "frame-ancestors 'self'" };
+
 function send(res, status, body, headers = {}) {
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers });
+  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...SECURITY_HEADERS, ...headers });
   res.end(JSON.stringify(body));
 }
 function sendRaw(res, status, body, type, headers = {}) {
-  res.writeHead(status, { 'content-type': type, 'cache-control': 'no-cache', ...headers });
+  res.writeHead(status, { 'content-type': type, 'cache-control': 'no-cache', ...SECURITY_HEADERS, ...headers });
   res.end(body);
 }
 function end(res, status, headers = {}) { res.writeHead(status, headers); res.end(); }

@@ -19,9 +19,9 @@ export default {
   render({ main, toast, onCleanup }) {
     main.innerHTML = `
       <section aria-labelledby="rem-h">
+        <div class="rem-perm" id="rem-perm" role="status" hidden></div>
         <div class="section-title"><h2 id="rem-h" tabindex="-1">進行中的提醒</h2><span id="rem-count"></span></div>
         <div id="rem-list"></div>
-        <p class="note rem-perm" id="rem-perm" hidden></p>
       </section>
       <section aria-labelledby="how-h" class="rem-how">
         <div class="section-title"><h2 id="how-h">阿幫可以在這些時候叫你</h2></div>
@@ -75,11 +75,19 @@ export default {
     for (const ev of EVENTS) addEventListener(ev, paint);
     onCleanup(() => { for (const ev of EVENTS) removeEventListener(ev, paint); });
     // 通知被拒：提醒只會在畫面上說（照實寫）
+    // 設計第二輪：提示移到列表上方、做成提示條；App 加「打開通知設定」（AbangSystem.openSettings，跟定位失敗同一個）
     notifyState().then((st) => {
       const p = main.querySelector('#rem-perm');
       if (!p || st !== 'denied') return;
+      const c = globalThis.Capacitor;
+      const app = c?.isNativePlatform?.() && typeof c.nativePromise === 'function';
       p.hidden = false;
-      p.textContent = globalThis.Capacitor?.isNativePlatform?.() ? '通知權限被關掉了：提醒只會在阿幫開著時出現。要改到手機的「設定 → Abang → 通知」。' : '通知權限被關掉了：提醒只會在這一頁開著時出現。要改到瀏覽器的網站設定，把「通知」改成允許。';
+      p.replaceChildren(Object.assign(document.createElement('p'), { textContent: app ? '通知關著，提醒只會在阿幫開著時跳出來。' : '通知關著，提醒只會在這一頁開著時跳出來。要改到瀏覽器的網站設定，把「通知」改成允許。' }));
+      if (app) {
+        const b = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small', textContent: '打開通知設定' });
+        b.addEventListener('click', async () => { try { await c.nativePromise('AbangSystem', 'openSettings', { target: 'app' }); } catch { toast('打不開設定，請自己到手機的「設定 → Abang → 通知」開啟。'); } });
+        p.append(b);
+      }
     }).catch(() => {});
   },
 };

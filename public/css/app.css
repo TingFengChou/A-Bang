@@ -211,7 +211,7 @@ html.lite-motion .btn:active, html.lite-motion .tile:active, html.lite-motion .c
 .grid .tile { animation: tile-in .32s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 40ms); }
 @keyframes tile-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .tile:hover .ic.ab-token { transform: perspective(240px) rotateX(14deg) rotateY(-10deg) translateY(-2px); }
-.tile .tag.demo { font-size: 9.5px; background: transparent; border-color: transparent; color: var(--muted); opacity: .8; }
+.tile .tag.demo { font-size: 11px; background: transparent; border-color: transparent; color: var(--muted); } /* 11px、不半透明（對比 4.5:1） */
 
 /* 首頁吉祥物：輕輕浮動，聚焦輸入框時換成思考 */
 /* 3D 吉祥物：疊兩層陰影做出厚度、地上一圈影子；沒人碰時自己輕輕轉身，手指移過橫幅時轉頭看過去 */
@@ -492,7 +492,6 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
 .rem-empty img { flex: none; }
 .rem-empty b { font-size: 16px; }
 .rem-empty p { margin: 4px 0 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
-.rem-perm { margin: 10px 2px 0; font-size: 14px; color: var(--warn); }
 #rem-h:focus { outline: none; }
 #rem-h:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 /* 我的 */
@@ -548,7 +547,7 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
 }
 .svc-list .svc .title, .svc-list .svc .sub { display: block; }
 .now-item { position: relative; }
-.now-item .tag.demo { position: absolute; top: 6px; right: 8px; font-size: 9.5px; color: var(--muted); opacity: .85; }
+.now-item .tag.demo { position: absolute; top: 6px; right: 8px; font-size: 11px; color: var(--muted); }
 /* 散步小卡（ADR-0018）：首頁「現在」下面；天氣好又動得少時才出現 */
 .move-wrap { margin-top: 8px; }
 .move-card { position: relative; display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: var(--card); box-shadow: var(--shadow); border-left: 4px solid #15803d; }
@@ -560,7 +559,7 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
 .move-card .mv-note { font-size: 11.5px; color: var(--muted); }
 /* MyDrama 運動活動頁（ADR-0019）：淡色次要連結，不搶「走到…」的位置 */
 .move-card .mv-partner, .bubble.health-say .hs-partner { min-height: 44px; padding: 0 4px; font-size: 13px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; background: none; border: 0; cursor: pointer; }
-.move-card .tag.demo { position: absolute; top: 8px; right: 10px; font-size: 9.5px; color: var(--muted); opacity: .85; }
+.move-card .tag.demo { position: absolute; top: 8px; right: 10px; font-size: 11px; color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) { .move-card { animation: mv-in .35s ease-out both; } }
 @keyframes mv-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 /* 健康與運動開關：手機不能用時反白（仍可按，按了說原因） */
@@ -573,3 +572,8 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
 /* 手機上的小模型（E3）下載進度 */
 .embed-progress { width: 100%; height: 6px; margin: 6px 0 2px; accent-color: var(--brand); }
 #embed-btn:disabled { opacity: .55; cursor: default; }
+/* 提醒頁：通知關著的提示條（設計第二輪：放在列表上方、有下一步） */
+.rem-perm { background: var(--warn-soft); color: var(--warn); border-radius: 12px; padding: 10px 12px; margin: 0 0 10px; font-size: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.rem-perm p { margin: 0; flex: 1 1 12em; }
+.rem-perm .btn { min-height: 44px; }
+.rem-perm[hidden] { display: none; }

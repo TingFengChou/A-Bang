@@ -156,3 +156,18 @@ test('限流：超過上限回 429 與 Retry-After', async () => {
   assert.equal(last.status, 429);
   assert.ok(Number(last.headers.get('retry-after')) > 0);
 });
+
+test('安全標頭與壞網址（架構第二輪 #6）：nosniff、referrer-policy；網頁不給別人嵌入；「/%E0」回 400 不寫 error log', async () => {
+  const page = await fetch(`${BASE}/`);
+  assert.equal(page.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(page.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
+  assert.match(page.headers.get('content-security-policy') || '', /frame-ancestors 'self'/);
+  const api = await fetch(`${BASE}/api/v1/tools`);
+  assert.equal(api.headers.get('x-content-type-options'), 'nosniff');
+  const js = await fetch(`${BASE}/js/app.js`);
+  assert.equal(js.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(js.headers.get('content-security-policy'), null, '只有網頁帶 frame-ancestors');
+  const bad = await fetch(`${BASE}/%E0`);
+  assert.equal(bad.status, 400);
+  assert.match((await bad.json()).error, /網址格式不對/);
+});
