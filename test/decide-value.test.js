@@ -59,7 +59,7 @@ test('邊界：叫車快 25 分以上、價差小時值得 → 推叫車；同�
   assert.equal(decide([bus, ride(15 + 181)]).best.id, 'bus', '多 181 元：不划算');
   const r = decide([bus, ride(300)]);
   assert.equal(r.best.id, 'bus');
-  assert.equal(r.reason, '選「公車」：省 285 元、只慢 25 分。');
+  assert.equal(r.reason, '選「公車」：省 285 元、慢 25 分。');
 });
 
 test('沒有大眾運輸（深夜收班、附近沒有站）：不檢查，照權重——只剩走路、YouBike、叫車時照樣可以推叫車', () => {
@@ -147,4 +147,14 @@ test('叫車讓位不推更貴的方案：叫車 60 分 300 元、高鐵 45 分 
   // 高鐵快很多、值得多付（跨城）：照分數推高鐵
   const far = [O('ride', 'ridehail', 260, 6, 0, 6000, 0, 0, 0.3), O('thsr', 'thsr', 120, 10, 10, 1490), O('tra', 'tra', 260, 10, 8, 840)];
   assert.equal(decide(far).best.id, 'thsr');
+});
+
+test('理由用字（PM 第二輪 #6）：前兩名只差一點點提第二名；公車等 0 分說「走到站就有車」', async () => {
+  const { decide } = await import('../core/decide.js');
+  const opt = (id, role, name, minutes, cost, extra = {}) => ({ id, role, name, minutes, cost, waitMin: 0, walkMin: 3, exposure: 0, effort: 0.3, delayRisk: role === 'bus' ? 0.3 : 0, legs: [], ...extra });
+  const r = decide([opt('m', 'metro', '捷運', 25, 25), opt('b', 'bus', '公車', 25, 15)], {});
+  const [a, b] = r.ranked;
+  if (a.score - b.score < 2) assert.match(r.reason, /也差不多，看你習慣/);
+  const bus = decide([opt('b', 'bus', '公車 601', 20, 15), opt('w', 'walk', '步行', 60, 0, { walkMin: 60, waitMin: 0, exposure: 1, effort: 1 })], {});
+  assert.doesNotMatch(bus.reason, /不用等車/);
 });
