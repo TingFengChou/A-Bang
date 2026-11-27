@@ -47,7 +47,7 @@ export default {
         <div class="section-title"><h2 id="me-ai" tabindex="-1">手機上的 AI</h2></div>
         <div class="card me-ai" data-tone="wait">
           <p class="me-ai-st"><span class="ai-ic" aria-hidden="true">${icons.chip}</span><span><b id="me-ai-label">檢查中…</b><small id="me-ai-text"></small></span></p>
-          <p class="note">手機 App 會先用手機內建的模型（iPhone 的 Apple Intelligence、Android 的 Gemini Nano）判斷你要查交通、天氣還是別的，只把判斷結果（例如「行程、趕時間」）跟問題一起送出。方案怎麼排、資料怎麼查，一樣由阿幫的程式計算。手機不支援、網頁版或你關掉時，改由阿幫伺服器判斷，用起來一樣。</p>
+          <details class="me-ai-how"><summary>怎麼運作</summary><p class="note">手機 App 會先用手機內建的模型（iPhone 的 Apple Intelligence、Android 的 Gemini Nano）判斷你要查交通、天氣還是別的，只把判斷結果（例如「行程、趕時間」）跟問題一起送出。方案怎麼排、資料怎麼查，一樣由阿幫的程式計算。手機不支援、網頁版或你關掉時，改由阿幫伺服器判斷，用起來一樣。</p></details>
           <div class="me-ai-acts"><a class="btn small link-btn" href="#/ai">看阿幫的腦袋：模型資訊、現場試試看</a><a class="btn small quiet link-btn" href="#/settings">到設定開關</a></div>
         </div>
       </section>
