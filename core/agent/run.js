@@ -1,6 +1,7 @@
 // Agent 共用執行器（M5-04，AGENT.md §2–§3）：呼叫 tool → tool_start／tool_result；plan_trip 時發 decision。
 // 示範模式（demo-intent）與模型模式（model-loop.js：Claude／地端，M5-05）共用 execTools，事件流相同。不加假延遲（ADR-0009）。
 import { safetyCheck } from './safety.js';
+import { ROUTE_EXACT } from './patterns.js';
 import { enNote } from './en-notes.js';
 import { speakEn, impactEn } from '../tools/speak-en.js';
 import { z } from 'zod';
@@ -115,7 +116,7 @@ const RequestSchema = z.object({
     from: z.string().trim().min(1).max(40).regex(/^[^\n\r]+$/).optional(), to: z.string().trim().min(1).max(40).regex(/^[^\n\r]+$/).optional(), lang: z.enum(['en']).optional(),
     // PM 的 Q 情境（core/agent/clarify.js）：高鐵／台鐵（system、fare）、只說叫車（mode）、問什麼（topic）、哪一路公車在等（route）、明天的天氣（tomorrow）
     system: z.enum(['THSR', 'TRA']).optional(), fare: z.boolean().optional(), mode: z.enum(['walk', 'bike', 'bus', 'metro', 'thsr', 'tra', 'intercity', 'ridehail']).optional(), topic: z.enum(TOPIC_KEYS).optional(), road: z.boolean().optional(), airport: z.boolean().optional(),
-    route: z.string().regex(/^[紅藍綠棕橘小幹]?\d{1,4}[區副]?$/).optional(), tomorrow: z.boolean().optional(), last: z.boolean().optional() }).optional(), // last：問哪一路公車的末班車（真實資料健檢）
+    route: z.string().regex(ROUTE_EXACT).optional(), tomorrow: z.boolean().optional(), last: z.boolean().optional() }).optional(), // last：問哪一路公車的末班車（真實資料健檢）
   savedPlaces: z.partialRecord(z.enum(['家', '公司', '學校']), z.object({ name: z.string().trim().min(1).max(40), lat: z.number().min(21).max(27), lon: z.number().min(118).max(123) })).optional(),
   // 手機上的模型先判斷好的意圖與狀態（ADR-0014）：只是提示，列舉值以外一律拒絕；方案排序仍由 decide.js 計分
   // ask：手機上的 AI 提議先問使用者的一題（ADR-0020）：只收形狀對的（種類、狀態列舉、長度、選項數、沒有控制與格式字元〔零寬、雙向控制〕），內容另外由程式驗證，不通過就照規則問
