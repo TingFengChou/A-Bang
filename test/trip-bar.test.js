@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { rideLeftSec, rideLeftText } from '../public/js/alight.js';
 import { sceneSay } from '../public/ui/cards/bus-scene.js';
 
-const { tripOf, onBusPage } = await import('../public/js/trip-bar.js');
+const { tripOf, onBusPage, hideTripBar } = await import('../public/js/trip-bar.js');
 
 const now = 1_800_000_000_000;
 const alight = { city: 'Taipei', routeName: '307', direction: 0, board: '敦化市場', dest: '西門', destSeq: 20, rideSec: 900, boardAt: now - 300_000 };
@@ -47,4 +47,13 @@ test('onBusPage：同路線、同上車站與方向才不顯示；別站或別�
   assert.equal(onBusPage(t, `${enc}?stop=${encodeURIComponent('別站')}&dir=0`), false);
   assert.equal(onBusPage(t, `${enc}?stop=${encodeURIComponent('敦化市場')}&dir=1`), false);
   assert.equal(onBusPage(t, '#/'), false);
+});
+
+test('hideTripBar：提醒頁不顯示（列表第一筆就是同一個提醒，設計第三輪 #6）；其他頁照樣顯示', () => {
+  const t = { city: 'Taipei', route: '307', stop: '捷運西門站', direction: 0 };
+  assert.equal(hideTripBar(t, '#/reminders'), true);
+  assert.equal(hideTripBar(t, '#/reminders?x=1'), true);
+  assert.equal(hideTripBar(t, '#/'), false);
+  assert.equal(hideTripBar(t, '#/agent'), false);
+  assert.equal(hideTripBar(t, '#/bus/Taipei/307?stop=捷運西門站&dir=0'), true, '這條路線的公車頁照舊不顯示');
 });

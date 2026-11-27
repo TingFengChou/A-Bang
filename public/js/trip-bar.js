@@ -34,11 +34,16 @@ export function onBusPage(t, hash) {
   return q.get('stop') === t.stop && (t.direction == null || q.get('dir') == null || Number(q.get('dir')) === t.direction);
 }
 
+/** 不顯示進行中列的頁：這條路線的公車頁（頁面本身就是行程中畫面）、提醒頁（列表第一筆就是同一個提醒，設計第三輪 #6） */
+export function hideTripBar(t, hash) {
+  return hash.split('?')[0] === '#/reminders' || onBusPage(t, hash);
+}
+
 /** 掛在外殼上（app.js）：提醒開始、更新、結束與換頁時重畫 */
 export function mountTripBar(el) {
   const paint = () => {
     const t = tripOf({ alight: alightWatch(), arrival: currentArrivalWatch() });
-    if (!t || onBusPage(t, location.hash)) { el.hidden = true; el.replaceChildren(); return; }
+    if (!t || hideTripBar(t, location.hash)) { el.hidden = true; el.replaceChildren(); return; }
     el.hidden = false;
     el.className = `trip-bar ${t.kind}`;
     el.innerHTML = `<a href="${esc(t.href)}"><span class="dot" aria-hidden="true"></span><span class="t">${esc(t.text)}</span><span class="go">${t.lang === 'en' ? (t.kind === 'riding' ? 'My ride' : 'Bus') : t.kind === 'riding' ? '看行程' : '看公車'}<span aria-hidden="true"> ›</span></span></a>`;
