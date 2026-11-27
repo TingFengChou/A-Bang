@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { defineTool, clip } from './define.js';
 import { twClock } from '../services/passport.js';
+import { findGovLinks } from '../services/govlinks.js';
 
 const PACK = 'gov';
 const SOURCE = '我的E政府入口網－申辦服務資訊（data.gov.tw 146973）';
@@ -94,4 +95,25 @@ export const passportWait = defineTool({
   },
 });
 
-export default [govServiceInfo, govOfficeNearby, passportWait];
+export const govOfficialLink = defineTool({
+  name: 'gov_official_link',
+  title: '政府官方入口',
+  description: '給去政府辦事的官方網站入口：交通罰單查詢繳納、監理（駕照行照考照驗車）、戶政線上申辦與電子謄本、護照網路預約、報稅、牌照稅房屋稅地價稅、健保、勞保勞退國民年金查詢、地政電子謄本、MyData、行動自然人憑證。這些都要使用者自己登入或輸入身分資料，阿幫只給官方網址（使用者確認後開），看不到查詢結果、不代替付款，也不要索取身分證號。使用者問「我想查有沒有罰單」「怎麼報稅」「查勞保年資」時用。',
+  pack: PACK, tier: 'L2', card: 'gov-links', source: '各機關官方網站（阿幫內建清單）', modeOf: () => 'live',
+  input: { topic: z.string().trim().min(2).max(40).describe('要辦的事，例如「罰單」「報稅」「勞保年資」') },
+  speak: (d) => {
+    const l = d.links[0];
+    if (!l) return `沒有找到「${d.topic}」的官方入口。`;
+    return `「${l.title}」在${l.site}：${l.how}。阿幫只給官方網址，登入、查詢、付款都在官網完成。`;
+  },
+  async run(_svc, a) {
+    const links = findGovLinks(a.topic).map(({ id, title, site, url, how }) => ({ id, title, site, url, how }));
+    const data = { topic: a.topic, links };
+    const text = links.length
+      ? clip([...links.map((l) => `- ${l.title}（${l.site}）：${l.url}；${l.how}`), '這些要使用者自己登入或輸入身分資料；阿幫只給網址，看不到結果。提醒只從官方網站或 App 進去，不要點簡訊或訊息裡的連結。'])
+      : `沒有「${a.topic}」的官方入口；可以換個說法（例如「罰單」「報稅」「勞保」）。`;
+    return { data, text };
+  },
+});
+
+export default [govServiceInfo, govOfficeNearby, passportWait, govOfficialLink];

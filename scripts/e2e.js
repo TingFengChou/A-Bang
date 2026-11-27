@@ -794,6 +794,24 @@ test('護照現場等待人數（M16-04c）：「現在去辦護照人多嗎」�
   }, { init: () => { window.open = () => null; } });
 });
 
+test('官方入口（M16-04d）：「我想查有沒有罰單」→ 監理服務網入口；按了先確認才開（L2）', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = recordBodies(page);
+    await askAbang(page, '我想查有沒有罰單', 1, bodies);
+    const slot = page.locator('.turn').last().locator('.card-slot', { has: page.locator('.ab-gov-office') });
+    await slot.waitFor();
+    assert.match(await slot.locator('.ab-name').first().textContent(), /交通罰單查詢與繳納/);
+    assert.match(await slot.locator('.ab-gov-note').textContent(), /不要點簡訊/);
+    let asked = '';
+    page.once('dialog', (d) => { asked = d.message(); d.dismiss(); });
+    await slot.getByRole('button', { name: '開監理服務網' }).click();
+    assert.match(asked, /要開啟「監理服務網」官方網站嗎/);
+    assert.equal(await page.evaluate(() => window.__opened || null), null, '按取消就不開');
+    await slot.scrollIntoViewIfNeeded();
+    await slot.screenshot({ path: new URL('phone-gov-links.png', SHOTS).pathname });
+  }, { init: () => { window.open = (u) => { window.__opened = u; return null; }; } });
+});
+
 test('阿幫問你：常叫車 → 問原因 → 常帶東西（不自動套用）→ 下次「這次也帶東西嗎？」→ 是 →「你說過：常帶東西」重算', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = recordBodies(page);

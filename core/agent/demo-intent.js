@@ -1,6 +1,7 @@
 // 示範模式意圖解析（M5-03，AGENT.md §5）：沒有 API Key 時，以規則判斷意圖、地點與使用者狀態，
 // 產生「分段的工具呼叫計畫」；由 run.js 執行並發出與 Claude 模式相同的事件流。不加人工延遲。
 import { enName, outingEn, SPEAK_EN } from '../tools/speak-en.js';
+import { findGovLinks } from '../services/govlinks.js';
 import { LANDMARKS, normPlace } from '../services/places.js';
 import { nextStepOf } from '../tools/trip.js';
 import { BUS_OFF, withoutBus, busOffEntry } from '../services/trip.js';
@@ -118,11 +119,13 @@ const REMIND_ASK = /提醒我|通知我|到站叫我|叫我下車|(?:設|設定|
 /** 要改設定：設定／改常用地點（家、公司、學校）、我有車、語言、通知、手機上的 AI */
 const SETTINGS_ASK = /(?:設定|設成|設為|改成|新增|修改|更改|改一下)(?:我)?(?:的)?(?:家|公司|學校|常用地點|語言|通知)|常用地點(?:怎麼|要怎麼|在哪)?(?:設|改|新增)|^我(?:有|沒有)車了?[。！!]?$|(?:關掉|關閉|打開|開啟)(?:通知|手機上的\s*AI)|(?:語言|介面)(?:改|換)成/;
 /** 去政府辦事要帶什麼、怎麼辦（M16-04a）：辦的事（身分證、謄本、護照…）＋問要帶什麼／怎麼辦／要多久；或「結婚登記」「遷戶口」這種本身就是辦事的詞 */
-const GOV_THING = '(?:身分證|身份證|戶籍謄本|戶口謄本|謄本|戶口名簿|護照|駕照|行照|印鑑證明|自然人憑證|勞保|國民年金|老人年金|老年年金|育嬰(?:留職停薪)?津貼|生育給付|房屋稅|牌照稅)';
+const GOV_THING = '(?:身分證|身份證|戶籍謄本|戶口謄本|謄本|戶口名簿|護照|駕照|行照|印鑑證明|自然人憑證|勞保|國民年金|老人年金|老年年金|育嬰(?:留職停薪)?津貼|生育給付|房屋稅|牌照稅|報稅|綜所稅|所得稅)';
 export const GOV_ASK = new RegExp(`${GOV_THING}.{0,10}(?:要帶|帶什麼|準備什麼|要準備|需要什麼|怎麼辦|怎麼申請|如何申請|如何辦|怎麼弄|去哪辦|在哪辦|哪裡辦|要多久|幾天|手續|流程|不見了?|掉了|遺失)|(?:換|補|辦|申請|請領|申辦)(?:新的?|一張)?${GOV_THING}|(?:結婚|出生|死亡|離婚|遷入|遷出)登記|遷戶口|報戶口`);
 /** 找戶政事務所、問戶政今天有沒有上班（M16-04b）：「最近的戶政事務所在哪」「戶政今天有上班嗎」；問怎麼去是行程 */
 /** 護照現場人多不多（M16-04c）：「現在去辦護照人多嗎」「領務局要排多久」；問要帶什麼仍是辦事須知 */
 export const PASSPORT_WAIT = /(?:護照|領務局|領事事務局|外交部.{0,4}辦事處).{0,10}(?:人多|人很多|多少人|幾個人|排隊|排多久|等多久|要等|等待人數|現場|叫到幾號|號碼)|(?:領務局|領事事務局).{0,6}(?:現在|今天)/;
+/** 要去官方網站查、繳、報、預約（罰單、報稅、勞保年資…，M16-04d）：有對得到的官方入口，句子又在問查／繳／去哪個網站 */
+const GOV_LINK_VERB = /查|繳|報稅|報|申請|預約|登入|網站|網址|怎麼用|線上|有沒有|下載|註冊/;
 /** 問要帶什麼、怎麼辦（有這些就是問辦事須知，不是找據點） */
 const GOV_DOCS_Q = /要帶|帶什麼|準備什麼|要準備|怎麼申請|如何申請|怎麼辦|手續/;
 export const GOV_OFFICE = /(?:最近|附近|離我最近|哪裡有|哪邊有|找)(?:的)?.{0,3}戶政(?:事務所)?|戶政(?:事務所)?.{0,4}(?:在哪|在哪裡|有開|開門|有上班|上班嗎|上班日|今天有沒有上班|今天有開|放假)/;
@@ -786,6 +789,8 @@ function parseIntentRaw(text, ctx) {
   if (/詐騙嗎|是不是詐騙|是詐騙|是騙人的嗎/.test(s) && !places.length) return { ...base, intent: 'scamAsk' };
   // 有人要你加 LINE、進投資群組（2026-11-25 Gemini Nano 實測：「加line帳號」有時判成閒聊）：常見詐騙話術，請到防詐檢查
   if (LINE_SCAM.test(s) && !places.length) return { ...base, intent: 'scamAsk' };
+  // 官方入口（M16-04d）：罰單、報稅、地方稅、健保、勞保、謄本…只給官方網址；問要帶什麼仍是辦事須知
+  if (!GOV_DOCS_Q.test(s) && GOV_LINK_VERB.test(s) && findGovLinks(s).length && !PASSPORT_WAIT.test(s)) return { ...base, places: [], intent: 'gov', govLink: true, govQuery: s.slice(0, 40) };
   // 護照現場人多不多（M16-04c）：領務局與各辦事處的即時等待人數
   if (PASSPORT_WAIT.test(s) && !GOV_DOCS_Q.test(s) && !/怎麼去|怎麼走/.test(s)) return { ...base, places: [], intent: 'gov', govPassport: true, passportOffice: /台中|臺中|中部/.test(s) ? '中部' : /高雄|南部/.test(s) ? '南部' : /嘉義|雲嘉南|台南|臺南/.test(s) ? '雲嘉南' : null };
   // 最近的戶政事務所、今天有沒有上班（M16-04b）：用現在位置找；說了怎麼去才是行程
@@ -1051,7 +1056,7 @@ function slotsFor(intent, s, base) {
     case 'outing': return { ...base, intent: 'outing' };
     case 'exercise': return { ...base, intent: 'outing', walk: true }; // 散步運動：看天氣與空品適不適合出門走走（判斷只看這句話，不用步數等手機上的資料，ADR-0018）
     case 'scam': return { ...base, places: [], intent: 'scamAsk', ...(looksScamPaste(s) && { pasted: true }) };
-    case 'gov': return PASSPORT_WAIT.test(s) && !GOV_DOCS_Q.test(s) ? { ...base, places: [], intent: 'gov', govPassport: true } : GOV_OFFICE.test(s) && !GOV_DOCS_Q.test(s) ? { ...base, places: [], intent: 'gov', govOffice: true } : { ...base, places: [], intent: 'gov', govQuery: s.slice(0, 40) };
+    case 'gov': return !GOV_DOCS_Q.test(s) && GOV_LINK_VERB.test(s) && findGovLinks(s).length && !PASSPORT_WAIT.test(s) ? { ...base, places: [], intent: 'gov', govLink: true, govQuery: s.slice(0, 40) } : PASSPORT_WAIT.test(s) && !GOV_DOCS_Q.test(s) ? { ...base, places: [], intent: 'gov', govPassport: true } : GOV_OFFICE.test(s) && !GOV_DOCS_Q.test(s) ? { ...base, places: [], intent: 'gov', govOffice: true } : { ...base, places: [], intent: 'gov', govQuery: s.slice(0, 40) };
     case 'calendar': case 'share': return base.places.length ? slotsFor('trip', s, base) : { ...base, intent }; // 說了地點＝先排行程（runDemo 排好後再問要不要加行事曆／分享）
     case 'reminder': case 'settings': case 'emergency': return { ...base, intent };
     case 'help': return { ...base, intent: 'unknown', help: true };
@@ -1310,6 +1315,7 @@ export function demoSteps(it, now = Date.now()) {
     case 'fuel':
       return [() => ({ note: '@油價 中油這週的牌價', calls: [{ name: 'fuel_price', args: {} }] })];
     case 'gov': // 去政府辦事要帶什麼（M16-04a）：我的E政府的申辦說明；找戶政事務所（M16-04b）：用位置找最近的、說今天是不是上班日
+      if (it.govLink) return [() => ({ note: '@辦事 找官方網站的入口', calls: [{ name: 'gov_official_link', args: { topic: it.govQuery || '' } }] })];
       if (it.govPassport) return [() => ({ note: '@辦事 看領務局與各辦事處現在的護照等待人數', calls: [{ name: 'passport_waiting', args: it.passportOffice ? { office: it.passportOffice } : {} }] })];
       if (it.govOffice) {
         const note = '@辦事 找附近的戶政事務所，看今天是不是上班日';
@@ -1750,6 +1756,8 @@ function summaryCore(it, results, suggestions = []) {
   if (it.intent === 'emergency') return '如果有人受傷、昏倒或有危險，先打 119（救護、火災）或 110（報警）；手機沒有 SIM 卡或沒訊號也可以撥 112。在安全的地方等救援，不要移動受傷的人。需要的話我可以幫你查最近的路怎麼走。';
   if (it.intent === 'reminder') return '提醒要在卡片上設：查公車或排行程後，按卡片上的「提醒我」或「盯這班」，車快到、該出門時阿幫會通知你；坐上車後也可以設下車提醒。設好的提醒都在下面的「提醒」分頁，可以隨時取消。';
   if (it.intent === 'gov') { // 去政府辦事（M16-04a）：照工具資料說，提醒以機關公告為準；不代替申辦
+    const gl = results.gov_official_link?.[0];
+    if (it.govLink) return gl?.data?.links?.length ? `${gl.speak}按卡片上的按鈕開官網；只從官方網站或 App 進去，不要點簡訊或訊息裡的連結。` : '這件事我沒有對應的官方入口，可以換個說法，例如「罰單」「報稅」「勞保年資」。';
     const pw = results.passport_waiting?.[0];
     if (it.govPassport) return pw ? `${pw.speak}只有人數、沒有預估時間；先網路預約會快很多，卡片上有網路預約的連結。` : '護照等待人數暫時拿不到，等一下再問一次。';
     const o = results.gov_office_nearby?.[0];

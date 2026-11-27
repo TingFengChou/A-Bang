@@ -35,7 +35,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | M14 阿幫聽得懂、看得懂（產品負責人 2026-11-21；ADR-0015） | 🚧（M14-01 語音問阿幫 ✅、M14-02 看 ✅） | 實機確認（Pixel、iPhone） | iOS 實機需 Austin 的 iPhone；打包版 ML Kit 讓 APK 變大（產品負責人已同意） |
 | M15 健康與運動（產品負責人 2026-11-22；ADR-0018） | 🚧（M15-01 天氣好又動得少時建議去走走 ✅，待產品負責人看截圖） | 實機確認（Pixel Health Connect、iPhone HealthKit） | iOS 免費個人開發團隊可能不能簽 HealthKit（開發版改用不含 entitlement 的建置，App 裡反白說原因）；上架前 Play Console 健康資料聲明 |
 | 阿幫・短劇（MyDrama，產品負責人 2026-11-22，ADR-0019） | 🧩（等車推短劇、問阿幫找劇、運動建議提示句 ✅；示範片庫可跑） | 產品負責人看截圖決定是否合併；運動建議接線 | 真實片庫與連結需 `.env` 的 `MYDRAMA_*`（合作方提供）；每集長度欄位 |
-| M16 阿幫動手做（ADR-0021，2026-11-27） | 🚧（M16-01 加到行事曆、分享 ✅；M16-02 iOS App Intents ✅；M16-04a 去政府辦事要帶什麼 ✅；M16-04b 最近的戶政事務所 ✅；M16-04c 護照等待人數 ✅） | M16-02b 實機 Siri；M16-04d 官方連結卡 | M16-03 Android AppFunctions 要加 Kotlin＋KSP（新依賴，等產品負責人決定）；Gemini 呼叫要申請 Connected Apps Platform 預覽 |
+| M16 阿幫動手做（ADR-0021，2026-11-27） | 🚧（M16-01 加到行事曆、分享 ✅；M16-02 iOS App Intents ✅；M16-04a 去政府辦事要帶什麼 ✅；M16-04b 最近的戶政事務所 ✅；M16-04c 護照等待人數 ✅；M16-04d 官方入口 ✅） | M16-02b 實機 Siri；M16-04 待驗證項目 | M16-03 Android AppFunctions 要加 Kotlin＋KSP（新依賴，等產品負責人決定）；Gemini 呼叫要申請 Connected Apps Platform 預覽 |
 | M6 上線 | 🚧（M6-01／02／04／07 ✅、地端部署驗證 ✅） | 正式環境階段再做 | 2026-11-19 Austin 決定：雲端部署（M6-06）、Redis 快取（M6-03）、Lighthouse（M6-05）留到正式環境階段；先衝刺功能。M6-07 需在 repo 設定啟用 Pages |
 
 建議順序：M1、M4、M5、M7、M10 已完成；M6 正式環境項目延後；目前衝刺 M11 行動 App、M12 裝置端 AI、M13 Agent 聰明度（PM 情境清單見 `test/scenarios/life.json`）；M8 中小企業概念驗證移到下一階段。
@@ -394,7 +394,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] M16-04a 去政府辦事要帶什麼（2026-11-27）：我的E政府申辦服務資訊（data.gov.tw 146973，三個 JSON、快取一天、失敗沿用上一份）、`core/services/govservice.js`（合併、口語換公文用字、中央優先的搜尋、應備證件分條）、示範用真實片段、工具 `gov_service_info`（pack `gov`）、卡片 `gov-service`、意圖 `gov`（32 類）、討論串 @辦事
 - [x] M16-04b 找最近的戶政事務所、今天是不是上班日（2026-11-27）：自然人憑證點位（177793）的座標＋戶政通訊（7437）的電話、辦公日曆（14718，從資料集資訊找當年網址；沒有今天就照週末推並標示）；工具 `gov_office_nearby`、卡片 `gov-office`、規則 `GOV_OFFICE`（用現在位置）
 - [x] M16-04c 護照現場等待人數（2026-11-27）：領務局 RSS（165115，TTL 60 秒）、工具 `passport_waiting`、卡片 `passport-wait`、規則 `PASSPORT_WAIT`（可指定據點）
-- [ ] M16-04d 官方連結卡（罰單、報稅、健保、勞保、謄本；網址白名單，確認後開，阿幫看不到結果）
+- [x] M16-04d 官方入口（2026-11-27）：內建 11 個官方入口（`core/data/gov-links.json`，只收政府網域 https，逐一確認有回應）、工具 `gov_official_link`（L2）、卡片 `gov-links`（確認後開、提醒不要點簡訊連結）
 - [ ] M16-04 待驗證：`www.gov.tw`（Cloudflare）伺服器每天下載是否穩定；監理所站等候人數（86565）資料網址被防機器人擋住，要問公路局正式介接方式；研究全文在 side-session notes `gov-services-research.md`
 
 ## 被卡住的項目（2026-11-21 彙整）
