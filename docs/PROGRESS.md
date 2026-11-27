@@ -11,6 +11,13 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-27 M16-01 阿幫動手做：加到行事曆、分享（ADR-0021）
+- 做了：研究 Android AppFunctions、ML Kit function calling、Apple App Intents／Foundation Models `Tool`、Google AI Edge Gallery 後寫 ADR-0021（裝置動作只準備內容，最後一步由系統畫面確認；分三階段）。第 0 階段：行程卡片「加到行事曆」「分享」；說「加到行事曆」「傳給我媽」→ 意圖 `calendar`／`share` → 伺服器回動作選項（不帶內容），手機用畫面上的行程卡片產生事件或文字（`core/device-actions.js`，台灣時間、跨午夜、不帶使用者座標）。iOS 開 EKEventEditViewController（iOS 17 以上不需權限）與分享面板，Android 走 ACTION_INSERT 與分享選單，網頁下載 .ics、Web Share 或複製。一句話排行程又要分享時，行程排好再問
+- 測試：npm test 全過（新增 12 項）；e2e 新增 1 項；評測集加 12 題、訓練範例加 24 句，重建手機小模型分類器
+- 文件：ADR-0021、CARDS.md §3／§4 trip、AGENT.md 請求與 ask、§5.3、PLAN.md M16
+- 下一個：M16-01b 實機確認；M16-02 iOS App Intents
+- 卡住：M16-03 Android AppFunctions 要加 Kotlin＋KSP（新依賴）
+
 ## 2026-11-25 手機 AI 實測：Apple 安全護欄、主題漏寫、規則保底
 - 做了：Pixel（Gemini Nano）與 iOS 模擬器（Apple Intelligence）實測 20 句新意圖。發現 iOS 每一題都失敗——Apple 的安全護欄看到指示裡的詐騙、急病、救護車描述就擋掉整個請求；改成 iOS 用精簡版指示（依平台選）。Gemini Nano 先出題時漏寫主題 → 主題欄位排到題目前面、指示寫明 unknown 一定寫主題。小模型不穩的加 LINE、提醒、設定加規則保底（關鍵字明確就照規則），規則的 scamAsk 在判斷層標成 scam。實測：Pixel 18／20、iOS 15／20，錯的都有規則保底或結果相同
 - 測試：npm test 全過（新增 4 項）；e2e 全過

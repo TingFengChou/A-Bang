@@ -23,6 +23,8 @@ import { habitRequest, noteDecision, applyStore, markAsked, questionAskedRecentl
 import { mountAsk, matchAnswer } from '../../ui/agent/ask.js';
 import { renderCard } from '../../ui/cards/index.js';
 import { createWebHost } from '../../ui/cards/host-web.js';
+import { calendarFromTrip, shareFromTrip } from '../../../core/device-actions.js';
+import { deviceActionsCan, resultText } from '../device-actions.js';
 import { renderDecision, lite, roleEn } from '../../ui/agent/decision-graph.js';
 import { mountVisionButton, handOff, takeHandoff } from '../vision.js';
 import { healthEnabled, agentNudge, turnWeather, nearMe, EXERCISE_Q } from '../health.js';
@@ -240,6 +242,7 @@ export default {
     if (agentId === 'life') edgePrewarm();
 
     let lastTripTo = null; // 最後一次行程的目的地：設定到站提醒時記下（公車一直不來時改其他方式）
+    let lastTrip = null; // 畫面上最近一張行程卡片（加到行事曆、分享用；ADR-0021）：只在記憶體
     const host = createWebHost({ ask: (q) => send(q), setContext: (c) => { context = c; }, tripContext: () => lastTripTo && { to: lastTripTo } });
     const clearLinks = agentId === 'life' ? linkReminders(host, rounds) : () => {}; // 提醒頁「看當時的對話」（只有保留的生活對話）
 
@@ -436,7 +439,7 @@ export default {
         const habitState = agentId === 'life' ? habitRequest() : null; // 同意過的偏好比例、說過的預設狀況、可以問的候選（只有方式與次數；habits.js）
         const userState0 = agentId === 'life' && !dramaHintOn() ? { ...habitState, dramaHint: false } : habitState; // 設定關掉等車推短劇：伺服器就不查也不推（ADR-0019）
         const userState = agentId === 'life' && hasCar() ? { ...userState0, car: true } : userState0; // 我有車：行程比較加入自己開車
-        await runAgent({ messages: history.slice(-10), ...(ctxText && { context: ctxText }), ...(deviceJudge && { deviceJudge }), ...(clientCaps && { clientCaps }), ...(savedPlaces && { savedPlaces }), ...(userState && { userState }), ...(pendingAsk && { pendingAsk }), ...(agentId === 'life' && { turn: turnNo }) }, (e) => { // turn：這段對話第幾輪（等車推劇輪替用）
+        await runAgent({ messages: history.slice(-10), ...(ctxText && { context: ctxText }), ...(deviceJudge && { deviceJudge }), ...(clientCaps && { clientCaps }), ...(savedPlaces && { savedPlaces }), ...(userState && { userState }), ...(pendingAsk && { pendingAsk }), ...(agentId === 'life' && { turn: turnNo, deviceActions: { can: deviceActionsCan(), trip: !!lastTrip } }) }, (e) => { // turn：這段對話第幾輪（等車推劇輪替用）
           // 隱私：防詐頁貼上的內容只送給本站伺服器分析，不保存（AGENT_ANTIFRAUD.md §1）
           if (e.type === 'status' && MODE_TEXT[e.mode]) modeLine.textContent = modeText(e);
           if (e.type === 'status' && agentId === 'life') noteAgentStatus(e); // 「阿幫的腦袋」（#/ai）顯示最近一輪由誰回答、誰先聽懂（只記模式與來源，不含內容）
@@ -551,7 +554,7 @@ export default {
           }
           case 'tool_result': {
             await gap();
-            if (e.ok && e.tool === 'plan_trip' && e.data?.to?.name) lastTripTo = e.data.to.name;
+            if (e.ok && e.tool === 'plan_trip' && e.data?.to?.name) { lastTripTo = e.data.to.name; lastTrip = { data: e.data, lang: turnLang === 'en' ? 'en' : null }; }
             const b = bubbles.get(e.id);
             const say = b?.querySelector('.say');
             if (say) {
@@ -741,6 +744,13 @@ export default {
         else if (a.name === 'watchArrival') host.watchArrival(a).catch(() => {});
         else if (a.name === 'remind') host.remind(a.at, a.text, a.meta).catch(() => {});
         else if (a.name === 'navigate' && /^#\/[a-z0-9/_-]{1,40}$/.test(String(a.to))) { host.navigate(a.to); return ''; } // App 內的頁面（到防詐貼上、發票對獎）
+        else if (a.name === 'addCalendar' || a.name === 'share') { // 加到行事曆、分享（ADR-0021）：用畫面上最近的行程卡片，開系統畫面讓使用者確認
+          const tr = lastTrip;
+          const content = tr && (a.name === 'addCalendar' ? calendarFromTrip(tr.data, { lang: tr.lang }) : shareFromTrip(tr.data, { lang: tr.lang }));
+          if (!content) return en ? 'Plan a trip first, then try again.' : '先排好行程，再試一次。';
+          (a.name === 'addCalendar' ? host.addCalendar(content) : host.share(content)).catch(() => 'failed').then((r) => api.say(resultText(a.name, r, lang)));
+          return a.name === 'addCalendar' ? (en ? 'Opening your calendar…' : '好，打開手機的行事曆…') : (en ? 'Opening the share menu…' : '好，打開分享選單…');
+        }
         else if (a.name === 'focusInput') { input.focus(); return en ? 'Paste it in the box below.' : '貼在下面的輸入框就好。'; } // 請他貼上訊息（防詐）
         else if (a.name === 'handOff' && a.agent === 'antifraud' && typeof a.text === 'string') { handOff('antifraud', a.text); host.navigate('#/agent/antifraud'); return ''; } // 帶著這一句到防詐（只在記憶體）
         return en ? 'Done.' : '好了。';
@@ -770,7 +780,7 @@ export default {
       voiceRelease: () => voice?.release(),
       voiceCancel: () => voice?.cancel(),
       /** 設定頁清除本機資料：畫面上的對話也一起清掉 */
-      clear() { gen++; clearChat(); history.length = 0; pendingQ = null; openAsk = null; askedLast = []; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); rounds.clear(); clearLinks(); turnsLog.length = 0; lastView = null; edgeMemo = { text: '', asks: null }; pinnedDefaults = false; if (dynamic) refreshSuggest(); else showDefaults(); },
+      clear() { gen++; clearChat(); history.length = 0; pendingQ = null; openAsk = null; askedLast = []; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; lastTrip = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); rounds.clear(); clearLinks(); turnsLog.length = 0; lastView = null; edgeMemo = { text: '', asks: null }; pinnedDefaults = false; if (dynamic) refreshSuggest(); else showDefaults(); },
       /** 從哪一頁打開（浮動阿幫）：那一頁可以問的問題；點了才把這一頁的說明一起送（自己打的問題不帶）；null＝清掉 */
       setPage(hint) {
         const pc = String(hint?.context || '');

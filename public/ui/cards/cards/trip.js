@@ -1,4 +1,4 @@
-// trip（plan_trip）：建議方案＋分段時間條＋備案（最多 2）＋狀態 chips＋理由句；行動：導航、叫車、訂票（CARDS.md §4、UX.md §6）
+// trip（plan_trip）：建議方案＋分段時間條＋備案（最多 2）＋狀態 chips＋理由句；行動：導航、叫車、訂票、加到行事曆、分享（CARDS.md §4、UX.md §6、ADR-0021）
 import { h } from '../dom.js';
 import { token, modeSvg, modeOf } from '../mode-icons.js';
 
@@ -67,6 +67,29 @@ function remindBlock(o, { host, t, state, rerender, payload, say = () => {}, loc
     note);
 }
 import { navButton, confirmLinkButton, bookButton } from '../actions.js';
+import { calendarFromTrip, shareFromTrip } from '../../../../core/device-actions.js';
+
+/**
+ * 加到行事曆、分享（ADR-0021）：只放在建議方案下；host 有這兩個動作才顯示（MCP Apps 沒有）。
+ * 內容由程式從這張卡片產生，最後一步在系統畫面（新增行程、分享面板）由使用者確認；結果寫在這一區。
+ */
+function deviceBlock(o, { host, t, state, rerender, payload, locale = null, say = () => {} }) {
+  if (!host?.addCalendar && !host?.share) return null;
+  const lang = locale === 'en' ? 'en' : null;
+  const event = host.addCalendar && calendarFromTrip(payload?.data, { optId: o.id, lang });
+  const shared = host.share && shareFromTrip(payload?.data, { optId: o.id, lang });
+  if (!event && !shared) return null;
+  const run = async (kind) => {
+    const r = await (kind === 'addCalendar' ? host.addCalendar(event) : host.share(shared)).catch(() => 'failed');
+    const text = t(`device.${kind}.${r}`) === `device.${kind}.${r}` ? t('device.failed') : t(`device.${kind}.${r}`);
+    state.device = { text, err: !['saved', 'downloaded', 'shared', 'copied', 'cancelled', 'opened'].includes(r) };
+    say(text); rerender();
+  };
+  return h('div', { class: 'ab-actions ab-device' },
+    event && h('button', { type: 'button', class: 'ab-btn', onclick: (e) => { e.stopPropagation(); run('addCalendar'); } }, t('device.addCalendar')),
+    shared && h('button', { type: 'button', class: 'ab-btn', onclick: (e) => { e.stopPropagation(); run('share'); } }, t('device.share')),
+    state.device && h('p', { class: state.device.err ? 'ab-fail' : 'ab-sub', role: 'status' }, state.device.text));
+}
 
 const MAX_ALT = 2;
 
@@ -161,6 +184,7 @@ function optionBlock(o, ctx, best) {
       ride && confirmLinkButton(host, ride, t('trip.ridehailConfirm'), t('trip.ridehail')),
       o.train && bookButton(host, { system: o.role.toUpperCase(), trainNo: o.train.trainNo, date: o.train.date, from: o.train.from, to: o.train.to }, (m) => { ctx.state.err = m; ctx.rerender(); })), o.role),
     best && remindBlock(o, ctx),
+    best && deviceBlock(o, ctx),
     pick);
 }
 

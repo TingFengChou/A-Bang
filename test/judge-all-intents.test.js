@@ -1,4 +1,4 @@
-// 意圖判斷 29 類（2026-11-23 產品負責人：阿幫會的每一件事都要有意圖；範圍內的就採用，範圍外的至少了解意圖）
+// 意圖判斷 31 類（2026-11-23 產品負責人：阿幫會的每一件事都要有意圖；範圍內的就採用，範圍外的至少了解意圖；2026-11-27 加 calendar、share，ADR-0021）
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -12,10 +12,10 @@ import { intentLabel } from '../public/js/ai-info.js';
 import { aiT } from '../public/js/pages/ai-i18n.js';
 import { createServices } from '../core/index.js';
 
-const NEW = ['intercity', 'ridehail', 'booking', 'place', 'outing', 'drama', 'exercise', 'scam', 'reminder', 'settings', 'help', 'chat', 'emergency'];
+const NEW = ['intercity', 'ridehail', 'booking', 'place', 'outing', 'drama', 'exercise', 'scam', 'reminder', 'settings', 'calendar', 'share', 'help', 'chat', 'emergency'];
 
-test('29 類：伺服器、手機、iOS（@Generable 選項）、畫面字典同一份', async () => {
-  assert.equal(Object.keys(JUDGE_INTENTS).length, 29);
+test('31 類：伺服器、手機、iOS（@Generable 選項）、畫面字典同一份', async () => {
+  assert.equal(Object.keys(JUDGE_INTENTS).length, 31);
   assert.deepEqual([...EDGE_INTENTS].sort(), Object.keys(JUDGE_INTENTS).sort());
   for (const k of NEW) assert.ok(JUDGE_INTENTS[k], k);
   const swift = await readFile(new URL('../ios/App/App/AbangEdgeAIPlugin.swift', import.meta.url), 'utf8');
@@ -45,7 +45,7 @@ test('判斷層指定新意圖：接上既有的處理', () => {
   assert.equal(p('幫我訂票', 'booking').intent, 'limits', '說不出起訖：說明只給官方連結');
   assert.deepEqual([p('今天適合散步嗎', 'exercise').intent, p('今天適合散步嗎', 'exercise').walk], ['outing', true]);
   assert.equal(p('對方要我加他的line', 'scam').intent, 'scamAsk');
-  for (const k of ['reminder', 'settings', 'emergency']) assert.equal(p('隨便一句', k).intent, k);
+  for (const k of ['reminder', 'settings', 'emergency', 'calendar', 'share']) assert.equal(p('隨便一句', k).intent, k);
   assert.equal(p('你會做什麼', 'help').help, true);
   assert.equal(p('哈哈', 'chat').chat, true);
 });

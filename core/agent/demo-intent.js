@@ -117,6 +117,10 @@ const LINE_SCAM = /(?:加|加入|加我|加他|加她|加對方)\s*(?:的)?\s*(?
 const REMIND_ASK = /提醒我|通知我|到站叫我|叫我下車|(?:設|設定|新增|取消|關掉)(?:一個|一下)?(?:出門|下車|到站)?提醒|下車提醒/;
 /** 要改設定：設定／改常用地點（家、公司、學校）、我有車、語言、通知、手機上的 AI */
 const SETTINGS_ASK = /(?:設定|設成|設為|改成|新增|修改|更改|改一下)(?:我)?(?:的)?(?:家|公司|學校|常用地點|語言|通知)|常用地點(?:怎麼|要怎麼|在哪)?(?:設|改|新增)|^我(?:有|沒有)車了?[。！!]?$|(?:關掉|關閉|打開|開啟)(?:通知|手機上的\s*AI)|(?:語言|介面)(?:改|換)成/;
+/** 把行程加到行事曆、日曆（ADR-0021；系統的新增行程畫面確認） */
+export const CALENDAR_ASK = /(?:加|放|存|寫|排|記|建)(?:一下)?(?:進|到|入|在)?(?:我的)?(?:手機)?(?:的)?(?:行事曆|日曆|行程表|google\s*(?:日曆|calendar))|(?:add|put|save)\b.{0,20}\b(?:to|in|into)\s+(?:my\s+)?calendar/i;
+/** 把行程分享、傳給別人（ADR-0021；系統分享面板）。「有人傳給我一個網址」不算（傳給「我」之後要接家人朋友） */
+export const SHARE_ASK = /^(?:幫我|請|可以|能不能|麻煩|那)?\s*(?:把)?(?:這個|這條|剛剛的|這趟)?(?:路線|行程|走法)?\s*分享(?:給|到|一下|出去)?|(?:轉傳|傳|寄|發|貼)(?:給|到)(?:我(?:的)?)?(?:媽媽?|爸爸?|老公|老婆|家人|朋友|同事|哥哥?|姐姐?|姊姊?|弟弟?|妹妹?|男友|女友|另一半|群組|LINE|line|他|她)|\bshare\b(?:\s+(?:this|it|the\s+(?:trip|route)|with))?/i;
 /** 搭客運的字眼（判斷層說 intercity 時，句子有這些才限定只查客運） */
 const INTERCITY_WORD = /客運|巴士|統聯|國光|和欣|葛瑪蘭|豪泰|長途/;
 /** 使用者說不要的交通方式（「不要叫車」「不想坐公車」「別走路」）→ ['ridehail', …] */
@@ -750,6 +754,8 @@ function parseIntentRaw(text, ctx) {
     const st = savedTrip(places[0] ? `從${places[0]}${key}` : key, places, ctx?.saved);
     if (st) return { ...base, ...st, lang: 'en' };
   }
+  if (isEnglish(s) && !places.length && CALENDAR_ASK.test(s)) return { ...base, intent: 'calendar', lang: 'en' }; // 「Add this to my calendar」（ADR-0021）
+  if (isEnglish(s) && !places.length && SHARE_ASK.test(s) && !/https?:|www\./i.test(s)) return { ...base, intent: 'share', lang: 'en' };
   if (isEnglish(s)) return { ...englishIntent(s, places, history), lang: 'en' };
   // 判斷層（judge.js）已決定意圖：照那個意圖抽參數；抽不出必要參數時回 null，呼叫端改用規則自己的判斷
   if (ctx?.intent) return slotsFor(ctx.intent, s, base);
@@ -767,6 +773,9 @@ function parseIntentRaw(text, ctx) {
   if (/詐騙嗎|是不是詐騙|是詐騙|是騙人的嗎/.test(s) && !places.length) return { ...base, intent: 'scamAsk' };
   // 有人要你加 LINE、進投資群組（2026-11-25 Gemini Nano 實測：「加line帳號」有時判成閒聊）：常見詐騙話術，請到防詐檢查
   if (LINE_SCAM.test(s) && !places.length) return { ...base, intent: 'scamAsk' };
+  // 把剛剛的行程加到行事曆、分享給家人（ADR-0021）：手機的系統畫面做最後確認；說了地點是先排行程（runDemo 查完再問要不要加）
+  if (CALENDAR_ASK.test(s) && !places.length) return { ...base, intent: 'calendar' };
+  if (SHARE_ASK.test(s) && !places.length && !/https?:|www\./i.test(s)) return { ...base, intent: 'share' };
   // 要設提醒、到站叫我，沒說哪一路公車、也沒說地點（Gemini Nano 實測把「公車快到時提醒我」判成查公車）：說明提醒在哪裡設
   if (REMIND_ASK.test(s) && !places.length && !/\d/.test(s)) return { ...base, intent: 'reminder' };
   // 要改設定（常用地點、我有車、語言、通知；Apple Intelligence 實測把「設定我家在板橋」判成找地點）：說明在哪裡設。問怎麼去不算
@@ -1023,7 +1032,7 @@ function slotsFor(intent, s, base) {
     case 'outing': return { ...base, intent: 'outing' };
     case 'exercise': return { ...base, intent: 'outing', walk: true }; // 散步運動：看天氣與空品適不適合出門走走（判斷只看這句話，不用步數等手機上的資料，ADR-0018）
     case 'scam': return { ...base, places: [], intent: 'scamAsk', ...(looksScamPaste(s) && { pasted: true }) };
-    case 'reminder': case 'settings': case 'emergency': return { ...base, intent };
+    case 'reminder': case 'settings': case 'emergency': case 'calendar': case 'share': return { ...base, intent };
     case 'help': return { ...base, intent: 'unknown', help: true };
     case 'chat': return { ...base, intent: 'unknown', chat: true };
     case 'invoice': return { ...base, intent, number: INVOICE_NO.exec(s)?.[1] };
@@ -1708,6 +1717,8 @@ function summaryCore(it, results, suggestions = []) {
   if (it.intent === 'limits') return '我不能替你按叫車、付款或訂票（安全與隱私，付款與個資只在官方 App 裡處理）：我會給你官方 App 或網站的連結，由你自己確認、付款。要的話告訴我要去哪裡，我比較怎麼去、附上官方叫車連結。';
   if (it.intent === 'emergency') return '如果有人受傷、昏倒或有危險，先打 119（救護、火災）或 110（報警）；手機沒有 SIM 卡或沒訊號也可以撥 112。在安全的地方等救援，不要移動受傷的人。需要的話我可以幫你查最近的路怎麼走。';
   if (it.intent === 'reminder') return '提醒要在卡片上設：查公車或排行程後，按卡片上的「提醒我」或「盯這班」，車快到、該出門時阿幫會通知你；坐上車後也可以設下車提醒。設好的提醒都在下面的「提醒」分頁，可以隨時取消。';
+  if (it.intent === 'calendar') return it.lang === 'en' ? 'Plan a trip first, then tap "Add to calendar" on the card. Your phone\'s calendar opens so you can check it before saving.' : '先排好行程，再按卡片上的「加到行事曆」；會打開手機的行事曆，你確認後才加入。';
+  if (it.intent === 'share') return it.lang === 'en' ? 'Plan a trip first, then tap "Share" on the card. Your phone\'s share menu opens and you pick who gets it.' : '先排好行程，再按卡片上的「分享」；會打開手機的分享選單，由你選要傳給誰。';
   if (it.intent === 'settings') return '設定在「我的 → 設定與隱私」：可以設常用地點（家、公司、學校）、「我有車」、語言、通知，也可以關掉手機上的 AI。設好常用地點後，說「回家」「去公司」我就知道在哪。';
   if (it.chat) return `${it.greet ? `${it.greet}！` : ''}我是阿幫，想查交通或生活資訊直接說就好，例如「去台北 101」「307 到哪了？」「今天會下雨嗎」。`;
   if (it.thanks) return '不客氣！還想查什麼隨時跟我說。';

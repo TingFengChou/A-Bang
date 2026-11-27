@@ -16,6 +16,8 @@ import { createJudge, JUDGE_INTENTS, JUDGE_STATES, DEVICE_ENGINES, DEVICE_JUDGE_
 import { waitDrama } from './wait-drama.js';
 import { answerFacts } from './answer-facts.js';
 import { trialInfo } from './trial.js';
+import { deviceIntent, deviceActionReply, deviceActionAsk, thenAction } from './device-turn.js';
+import { DEVICE_ACTIONS } from '../device-actions.js';
 import { WRITE_AGENTS } from '../edge-write.js';
 import { BUS_OFF, withoutBus, withBusOff, busOffEntry } from '../services/trip.js';
 import { MAX_ROUTES } from '../services/bus-direct.js';
@@ -126,6 +128,8 @@ const RequestSchema = z.object({
   // 手機能自己寫回答（ADR-0017）：伺服器不呼叫模型，送程式版總結（answer_draft）由手機改寫
   // trial：「阿幫的腦袋」的現場試判斷（#/ai）：同樣走 edge 模式（不呼叫任何伺服器模型），另外送 trial 事件（資料夠不夠、資料來源）；
   // 網頁版沒有手機上的模型，所以 trial 時 engine 可以不帶（一般請求一定要帶）
+  // 阿幫動手做（ADR-0021）：這個客戶端做得到的裝置動作（加到行事曆、分享），以及畫面上有沒有行程卡片（有才給動作按鈕；內容由手機從卡片產生）
+  deviceActions: z.object({ can: z.array(z.enum(DEVICE_ACTIONS)).max(DEVICE_ACTIONS.length), trip: z.boolean() }).strict().optional(),
   clientCaps: z.object({ edgeWrite: z.boolean(), engine: z.enum(DEVICE_ENGINES).optional(), trial: z.literal(true).optional() }).strict()
     .refine((c) => c.engine || (c.trial && c.edgeWrite), { message: '要有 engine' }).optional(),
 });
@@ -408,6 +412,14 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
     if (ps.length) it.states = [...new Set([...(it.states || []), ...ps])];
   }
   if (askGap(j || q0)) return; // 判斷層重判後才缺欄位（例：手機判斷是行程、句子只說了起點）
+  // 加到行事曆、分享（ADR-0021）：不查資料；給動作選項，手機用畫面上的行程卡片產生內容、開系統畫面確認
+  const dIntent = profile.id === 'life' ? deviceIntent(it) : null;
+  if (dIntent) {
+    const r = deviceActionReply(dIntent, req, it.lang);
+    if (trial && !trialSent) emit(ev.trial(trialInfo(svc, it, { judge: j || q0, lang: it.lang === 'en' ? 'en' : 'zh', now })));
+    if (r.ask) emit(ev.ask({ id: `ask-${nextId()}`, ...r.ask }));
+    emit(ev.text(r.text)); emit(ev.done()); return;
+  }
   if (trial && !trialSent) emit(ev.trial(trialInfo(svc, it, { judge: j || q0, lang: it.lang === 'en' ? 'en' : 'zh', now }))); // 資料夠不夠、會查哪些資料（程式算，不經模型）
   // 需要使用者位置（M5-07）：客戶端支援 device_location 時先請它定位，拿到結果後客戶端帶 clientToolResults 重送
   // 「桃園到台北101」的「桃園」可能是高鐵站或火車站：有定位才知道人是不是就在桃園市區（localStations，z11）
@@ -448,6 +460,10 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
   const used = [];
   let rounds = 0;
   const ask = { done: !!cl?.after && it.intent === 'trip', habitAsk: req.userState?.habitAsk, usual: req.userState?.usual, device: dask }; // 阿幫問你：這一輪最多一個（device：手機提議的狀態題；先查並問的那一題先預留）
+  // 一句話排行程又要加行事曆／分享（「從台北車站去台北101，加到行事曆」，ADR-0021）：使用者自己要的，先保留這一輪唯一的問題，行程排好後再問
+  const then0 = profile.id === 'life' && it.intent === 'trip' && !cl?.after ? thenAction(last) : null;
+  const then = then0 && req.deviceActions?.can?.includes(then0 === 'calendar' ? 'addCalendar' : 'share') ? then0 : null;
+  if (then) ask.done = true;
   const aside = asideState(req, profile, now, svc); // 等車推短劇：這一輪最多一次（排行先並行拿）
   for (const step of plan.steps(it, now)) {
     if (++rounds > MAX_TOOL_ROUNDS) break;
@@ -464,6 +480,8 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
   }
   if (used.length) emit(ev.discussionEnd({ tools: [...new Set(used)] }));
   if (cl?.after) { const r = cl.after(results); if (r) sayAsk(r); } // 先查並問：查完才問（選項第一個是剛剛用的那個）
+  // 一句話排行程又要加行事曆／分享（「排去高雄的車，加到行事曆」）：行程排好、這一輪還沒問過才問（ADR-0021）
+  if (then && results.plan_trip?.length) emit(ev.ask({ id: `ask-${nextId()}`, ...deviceActionAsk(then, it.lang) }));
   // 手機寫回答的那一輪聽不懂（ADR-0017：不退回伺服器模型）：問一句給幾個查得到的選項，回答只留一句短的
   const lost = edgeWrite && it.intent === 'unknown' && !it.thanks && !it.sorry && !it.reset && !it.ack && !it.help && !ask.done; // 問能做什麼（help）不是聽不懂：直接列出能查的東西
   if (lost) { ask.done = true; emit(ev.ask({ id: `ask-${nextId()}`, ...unknownAsk(it.lang) })); } // 一輪最多一個問題

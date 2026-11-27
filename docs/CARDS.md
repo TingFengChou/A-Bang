@@ -49,6 +49,8 @@
  * @property {() => string} [arrivalNote]  提醒說明文字鍵：whenAlways／whenOpenPage／whenNoPermission
  * @property {() => object|null} [arrivalWatch]  目前的到站提醒
  * @property {(hash: string) => void} [navigate]  開 App 內頁面（只接受 #/ 開頭）
+ * @property {(e: { title, start, end, location?, notes? }) => Promise<string>} [addCalendar]  加到行事曆（ADR-0021）：App 開系統的新增行程畫面（iOS 回 saved／cancelled，Android 回 opened），網頁下載 .ics（downloaded）；內容由 core/device-actions.js 從卡片產生。MCP Apps 不提供
+ * @property {(p: { title?, text, url? }) => Promise<string>} [share]  分享（ADR-0021）：App 開系統分享面板（iOS shared／cancelled，Android opened），網頁 Web Share，不支援就複製（copied）。MCP Apps 不提供
  * @property {(t: { app: string|null, store: { ios, android }|null }) => void} [openApp]  開合作 App（MyDrama，ADR-0019）：先開 App 連結，1.6 秒內畫面沒離開就開商店頁；只收安全的自訂 scheme／https（`core/drama-say.js` `isAppLink`），商店頁只收 https。MCP Apps 不提供（卡片改用 https 商店頁）
  * @property {'light'} theme
  * @property {'web'|'mcp-app'|'app'} kind
@@ -59,7 +61,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 | 實作 | 檔案 | `callTool` | `ask` | `setContext` | `openLink` |
 |---|---|---|---|---|---|
 | 網頁 | `public/ui/cards/host-web.js` | `POST /api/v1/tools/:name` | 填入輸入框並送出 | 存在下一次 agent 請求的 `context` | `window.open`（L2 先確認）；`remind`（T7，`public/js/reminders.js`）：可多筆（最多 5）、同一段路線只留一筆（重新規劃後是改時間）、可取消（`cancelRemind`），存在 `localStorage` `abang.reminders`；時間一律台灣時間（不看裝置時區）；App 用系統本機通知（每筆一個編號 2000～2999，App 關著也會響），網頁用 service worker 通知（沒有再用 `new Notification`；頁面開著才響，重新整理後還原，別的分頁取消後不響）；關機期間錯過的提醒 Android 開機後約 15 秒會補送（App 還沒打開，擋不住），打開 App 時把過期的從通知列移除並刪掉；`notifyState` 讓卡片在第一次要權限前先說明；`watchArrival`：整個頁面共用一個提醒（S15：預估抵達比第一次說的晚 10 分以上（跳過的那班開走後重新算）、末班已過／今日未營運（馬上）、未發車超過 10 分鐘、交管不停靠時標 `stuck`，發 `abang:arrival-stuck` 一次，App 在背景時另送一則通知；公車卡片與公車頁說明並給「改其他方式」，送「不要坐公車，改別的方式去{目的地}」（問阿幫頁設定時記下行程目的地 `tripContext`；沒有就沿用對話）；其他頁面的提示可以點到問阿幫），每 20 秒查上車站到站時間，剩下 ≤ N 分通知一次（系統通知＋App 內 toast `abang:arrival`），設定時這班已在範圍內就跳過等下一班，最多盯 90 分；手機 App（M11-02）改用系統本機通知：每次查到就把「該出門了」排到預估時間（提早 30 秒，Android 不用精準鬧鐘），App 關著也會響，App 被關掉重開會恢復提醒；`background`／`arrivalNote()` 告訴卡片能不能在背景提醒（沒有通知權限時說明「App 開著時才會提醒」）；`navigate` 換 hash |
-| MCP Apps | `public/ui/cards/host-mcp-app.js` | `app.callServerTool()` → `structuredContent` | `app.sendMessage()`（host 支援 `message` 時） | `app.updateModelContext()`（host 支援時） | L2 先在卡片下方顯示確認框（iframe 沙箱不允許 `window.confirm`）→ `app.openLink()`；host 不支援或拒絕時顯示網址與「複製連結」；不提供 `remind`、`watchArrival`、`navigate`（卡片不顯示那些按鈕） |
+| MCP Apps | `public/ui/cards/host-mcp-app.js` | `app.callServerTool()` → `structuredContent` | `app.sendMessage()`（host 支援 `message` 時） | `app.updateModelContext()`（host 支援時） | L2 先在卡片下方顯示確認框（iframe 沙箱不允許 `window.confirm`）→ `app.openLink()`；host 不支援或拒絕時顯示網址與「複製連結」；不提供 `remind`、`watchArrival`、`navigate`、`addCalendar`、`share`（卡片不顯示那些按鈕） |
 
 ## 3.1 MCP Apps 打包與資源（✅ M4-04～06）
 
@@ -142,7 +144,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 多語（S12b，2026-11-21）：`renderCard` 的 payload 可帶 `lang: 'en'`，卡片標籤改用 `i18n/en.js`（鍵與佔位符與 zh-TW 相同，測試比對；缺鍵退回中文），`<section lang="en">`；地名、站名等資料維持原文。共用按鈕與倒數經 `i18n/index.js` 的 `withLocale` 取同一個語言。問阿幫頁：只有英文的提問那一輪卡片用英文。
 
-呈現：建議方案＋分段時間條＋備案（最多 2）＋行動（導航、提醒、叫車、訂票）。決策圖由網頁 agent 的 `decision` 事件另外呈現；在 MCP Apps 中，`trip` 卡片以精簡版（排名條＋理由句＋狀態 chips 可切換）呈現。
+呈現：建議方案＋分段時間條＋備案（最多 2）＋行動（導航、提醒、叫車、訂票）＋裝置動作（「加到行事曆」「分享」，ADR-0021：host 有才顯示，結果寫在按鈕下方；不算「選了這個方式」）。決策圖由網頁 agent 的 `decision` 事件另外呈現；在 MCP Apps 中，`trip` 卡片以精簡版（排名條＋理由句＋狀態 chips 可切換）呈現。
 
 ### `scam-risk`（`scam_check_message`，M7）
 
