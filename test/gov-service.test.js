@@ -74,7 +74,7 @@ test('正規化資料：不漏原始欄位名稱', () => {
 
 test('真實下載：三個網址、快取一天、去掉 BOM、電郵傳真檔拿不到不影響、同一份資料只合併一次', async () => {
   const calls = [];
-  const od = { get: async (url, o) => { calls.push([url, o.ttlSec]); if (url === GOV_URLS.other) throw new Error('403'); return o.parse(`﻿${JSON.stringify([row(url === GOV_URLS.online ? 'online' : 'counter', { id: 'A', title: '戶籍謄本核發', docs: '印章' })])}`); } };
+  const od = { get: async (url, o) => { calls.push([url, o.ttlSec]); if (url === GOV_URLS.other) throw new Error('403'); return o.parse(`\uFEFF${JSON.stringify([row(url === GOV_URLS.online ? 'online' : 'counter', { id: 'A', title: '戶籍謄本核發', docs: '印章' })])}`); } };
   const g = createGovServices(createLiveGovFetchers({ od }));
   const r = await g.serviceInfo({ query: '戶籍謄本' });
   assert.equal(r.items[0].title, '戶籍謄本核發');
