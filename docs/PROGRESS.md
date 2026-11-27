@@ -11,6 +11,14 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 示範模式的步驟搬到 core/agent/demo-steps.js（拆 demo-intent 第三步）
+- 做了：架構第二輪 #4 第三步：`demoSteps`、`alsoSteps`（意圖 → 分段計畫，點名哪些工具、帶什麼參數）逐字搬到 `demo-steps.js`（189 行）；`demo-intent.js` 剩解析（1594 → 1411 行，原本 1910）。單向相依：demo-steps 從 demo-intent 拿 `DEFAULT_FROM`、`DEFAULT_AREA`、`NEARBY`、`countyOf`、`nearestRail`、`tripDepartAt`；demo-intent 不 import demo-steps。行為不變
+- App Functions 結合：無（內部重構）
+- 測試：npm test 全過；e2e 全過
+- 文件：PROGRESS.md、CLAUDE.md 目錄
+- 下一個：拆 demo-intent 第四步：英文解析（englishIntent）搬到 intent-en.js
+- 卡住：無
+
 ## 2026-11-28 示範模式的總結搬到 core/agent/demo-summary.js（拆 demo-intent 第二步）
 - 做了：架構第二輪 #4 第二步：`demo-intent.js`（1910 行）的總結（`demoSummary`、`englishSummary`、`dramaSummary`、`nightNote`、`busOffSay` 與捷運、公車、附近的說法）搬到 `demo-summary.js`（321 行）；`demo-intent.js` 剩解析與步驟（1594 行）。單向相依：demo-summary 從 demo-intent 拿常數（`DEFAULT_FROM`、`ALSO_TOOL`…），demo-intent 不 import demo-summary（不會循環）。行為不變
 - 順手：`agent-http` 測試改讓伺服器自己挑 port（PORT=0，啟動訊息寫實際 port），修 CI 偶發 404（已在 #207）

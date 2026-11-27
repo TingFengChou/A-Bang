@@ -1,7 +1,8 @@
 // PM 第五批（P5-1～P5-8）探查到的錯：更正地點與出發時間、台語、口語、錯字、英文指代與 YouBike、一句多件事、禮貌話（回歸測試＋誤判反例）
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseIntent, departTimeOf, normalizeAsk, tripDepartAt, nearestRail, demoSteps } from '../core/agent/demo-intent.js';
+import { parseIntent, departTimeOf, normalizeAsk, tripDepartAt, nearestRail } from '../core/agent/demo-intent.js';
+import { demoSteps } from '../core/agent/demo-steps.js';
 import { demoSummary } from '../core/agent/demo-summary.js';
 
 const h = (...said) => said.flatMap((t) => [{ role: 'user', content: t }, { role: 'assistant', content: '好' }]);
