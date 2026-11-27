@@ -11,6 +11,15 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 PM 第三輪：火車起站、起點補在句尾、從現在位置出發的回程
+- 做了：第三輪審查（PM、設計、架構各 6 項，待辦記在共用筆記）。PM #1：`railOD` 把車種整個拿掉（自強號、區間車、莒光號、普悠瑪、太魯閣號、復興號）、時間數字（8點、8:30）也拿掉，原本起站變成「號台北」「車板橋」「點台北」；「高鐵到台中」「太魯閣號到花蓮」沒說坐也是坐火車的行程，車名「太魯閣號」不再當成太魯閣。PM #2：`orderFromTo` 用使用者說的字在句子裡的位置（新增 `placeHits`），「我要去板橋 從台中」不再排反。PM #3：從現在位置出發的行程，問「回來呢」「那回程呢」→ 從目的地回到你的位置（`toHere`，run.js 有定位就換成座標）；起訖的常用地點座標也跟著對調（原本對調名稱、座標留在去程）
+- 拆 demo-intent 停在 1411 行：englishIntent 經 lastTrip 回頭呼叫 parseIntent，要再拆得先把 parseNow 改成參數
+- App Functions 結合：行程卡的「回程」可以做成捷徑動作（起訖對調，終點是現在位置）；Siri「下一班自強號」可以帶車種參數（下一步）
+- 測試：npm test 全過（新增 `test/pm-round3.test.js` 5 項）；e2e 全過
+- 文件：PROGRESS.md
+- 下一個：PM #5 台語與口語正規化；設計 #2 即將進站顏色、#4 設定頁說明、#5 健康收合、#6 提醒頁重複；架構 #2 全站模型額度、#4 介面對等測試
+- 卡住：無
+
 ## 2026-11-28 示範模式的步驟搬到 core/agent/demo-steps.js（拆 demo-intent 第三步）
 - 做了：架構第二輪 #4 第三步：`demoSteps`、`alsoSteps`（意圖 → 分段計畫，點名哪些工具、帶什麼參數）逐字搬到 `demo-steps.js`（189 行）；`demo-intent.js` 剩解析（1594 → 1411 行，原本 1910）。單向相依：demo-steps 從 demo-intent 拿 `DEFAULT_FROM`、`DEFAULT_AREA`、`NEARBY`、`countyOf`、`nearestRail`、`tripDepartAt`；demo-intent 不 import demo-steps。行為不變
 - App Functions 結合：無（內部重構）

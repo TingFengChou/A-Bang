@@ -448,6 +448,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
     if (loc) { it.fromPoint = loc; localStations(it, last, loc); } // 拒絕定位或無效時，照示範預設起點（總結會說明）；「桃園」人在桃園市區＝桃園車站（z11）
     else it.noLocation = true; // 總結說「沒拿到你的位置」（不是「你沒說」）
   }
+  if (it.toHere && !it.toSaved && it.fromPoint) { it.toSaved = { lat: it.fromPoint.lat, lon: it.fromPoint.lon, name: it.lang === 'en' ? 'your location' : '你的位置' }; it.to = it.toSaved.name; } // 回程回到你現在的位置（PM 第三輪 #3）
   if (it.metroTo && !it.toSaved) { const p = await metroPoint(svc, it.metroTo, it.fromPoint); if (p) { it.toSaved = p; it.to = p.name; } } // 「去大安站」：捷運站的座標
   // 沒有位置、預設起點又就在目的地旁邊（< 300 公尺；去最近的火車站也是從預設起點找，一樣會是同一站）：不算「臺北車站到臺北車站」，問從哪裡出發。
   // 上一輪已經問過、這一輪定位又失敗（按了「用我的位置」但拿不到）：不再給「用我的位置」，避免一直重複
