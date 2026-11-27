@@ -30,7 +30,7 @@ const EN = {
   hint: 'Want another way? Tap an option and Abang recalculates', chips: 'Your situation (tap to toggle, recalculates right away)',
   habit: (m) => `You agreed: prefer ${m}`, habitWhy: 'Why?', habitPaused: 'You told Abang your situation, so this preference is not counted this time', habitNote: 'You said yes to preferring it. When you don\'t mention your situation it gets a small bonus (up to 8 pts). Stored only on this phone; undo it in Settings.', often: 'you prefer it', habitCrit: 'Preference', premiumCrit: 'Not worth the fare', premiumStep: 'Worth the fare?', longCrit: 'Too long', longStep: 'Too long?', unsureCrit: 'Arrival unknown', unsureStep: 'Arrival known?', estCrit: 'Estimate', estStep: 'Estimated?', unsure: (n) => `${n} has no arrival time`, notWorth: (c, m) => (m > 0 ? `NT$${c} cheaper, only ${m} min slower` : `NT$${c} cheaper, no slower`), tooLong: (n, m, cap) => `${n} takes ${m} min (over ${cap})`,
   notIn: (n, w) => `${n} not included: ${w}`,
-  details: 'Comparison details', effNone: 'No effect', effNA: 'Not used', effScore: 'Delay risk', pts: (n, s) => `${n}: ${s} pts`, title: 'How Abang decided', pick: (n) => `Switch to ${n}`, ex: (n, w) => `${n}, excluded: ${w}`,
+  details: 'Comparison details', whyOver: (a, b) => `Why ${a} over ${b}`, scores: 'Score breakdown', cmp: { minutes: 'Time', cost: 'Cost', walkMin: 'Walking', waitMin: 'Waiting' }, unitMin: (n) => `${n} min`, unitNT: (n) => `NT$${n}`, same: 'About the same', effNone: 'No effect', effNA: 'Not used', effScore: 'Delay risk', pts: (n, s) => `${n}: ${s} pts`, title: 'How Abang decided', pick: (n) => `Switch to ${n}`, ex: (n, w) => `${n}, excluded: ${w}`,
 };
 /** 拿掉偏好加分後第一名會不會換（同 core/decide.js habitFlipped；這個檔不 import /core，打包單檔示範版才不會斷） */
 const habitFlipped = (best, all = []) => {
@@ -423,7 +423,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     if (ic) ic.style.color = onBrand ? '#fff' : (MODE_COLOR[modeOf(icon)] || 'currentColor');
     g.append(svg('rect', { width: OPT_W, height: 30, rx: 15 }), ...(ic ? [ic] : []),
       ...(cls.includes('step3') ? [svg('rect', { class: 'dg-hit', x: -6, y: -8, width: OPT_W + 12, height: 46, fill: 'transparent' })] : []), // 點擊範圍 ≥ 44px
-      svg('text', { x: ic ? 30 : 12, y: 19, class: 'dg-name' }, label.length > 7 ? `${label.slice(0, 6)}…` : label),
+      svg('text', { x: ic ? 30 : 12, y: 19, class: 'dg-name' }, shortName(label)),
       svg('text', { x: OPT_W - 12, y: 19, 'text-anchor': 'end', class: 'dg-score' }, score));
     return g;
   }
@@ -437,10 +437,26 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       .sort((a, b) => b.d - a.d).slice(0, 2).filter((x) => x.d > 0.01).map((x) => crit[x.k]);
   }
 
-  /** 明細：每個方案各比較項目得分（× 權重）長條，標示最影響結果的兩項 */
+  /**
+   * 明細（設計第二輪：原本 5 個方案 × 8 項長條帶小數，手機上一個半畫面）：先只比第一名和第二名，寫成白話差距（快 7 分、省 205 元、少走 3 分）
+   * 與一張兩欄小表；各方案的分數長條收進「看分數明細」。
+   */
   function details(ranked) {
     const d = el('details', 'dg-details');
     d.append(el('summary', null, en ? EN.details : '看比較細節'));
+    const [a, b] = ranked;
+    if (a && b) {
+      const ROWS = [['minutes', '時間'], ['cost', '費用'], ['walkMin', '走路'], ['waitMin', '等車']].filter(([k]) => Number.isFinite(a[k]) && Number.isFinite(b[k]));
+      const val = (k, v) => (k === 'cost' ? (en ? EN.unitNT(Math.round(v)) : `${Math.round(v)} 元`) : (en ? EN.unitMin(Math.round(v)) : `${Math.round(v)} 分`));
+      const tbl = el('table', 'dg-cmp');
+      tbl.append(el('thead', null, el('tr', null, el('th', null, ''), el('th', 'win', nameOf(a)), el('th', null, nameOf(b)))),
+        el('tbody', null, ...ROWS.map(([k, zh]) => el('tr', null, el('th', null, en ? EN.cmp[k] : zh), el('td', 'win', val(k, a[k])), el('td', null, val(k, b[k]))))));
+      d.append(el('p', 'dg-cmp-title', en ? EN.whyOver(nameOf(a), nameOf(b)) : `為什麼選「${a.name}」不選「${b.name}」`),
+        el('p', 'dg-cmp-say', plainDiff(a, b, en) || (en ? EN.same : '兩個差不多，看你習慣')), tbl);
+    }
+    const more = el('details', 'dg-more');
+    more.append(el('summary', null, en ? EN.scores : '看分數明細'));
+    d.append(more);
     for (const o of ranked) {
       const top = new Set(Object.entries(o.breakdown || {}).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k]) => k));
       d.append(el('div', 'dg-row', el('b', null, en ? EN.pts(nameOf(o), o.score) : `${o.name}：${o.score} 分`),
@@ -452,6 +468,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
         }),
         ...PENALTY.filter((p) => o.breakdown?.[p.key] < 0).map((p) => el('div', `dg-crit penalty ${p.key}`, el('span', 'dg-crit-name', en ? EN[p.en] : p.label), Object.assign(el('span', 'dg-bar'), { style: `width:${Math.max(2, -o.breakdown[p.key] * 200)}%` }), el('span', 'dg-crit-v', minus(o.breakdown[p.key] * 100)))),
         o.breakdown?.habit > 0 && el('div', 'dg-crit habit', el('span', 'dg-crit-name', en ? EN.habitCrit : '偏好'), Object.assign(el('span', 'dg-bar'), { style: `width:${Math.max(2, o.breakdown.habit * 200)}%` }), el('span', 'dg-crit-v', `+${(o.breakdown.habit * 100).toFixed(1)}`))));
+      more.append(d.lastChild); // 分數長條放進「看分數明細」
     }
     return d;
   }
@@ -473,6 +490,26 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     /** 使用者剛同意優先推的方式（{ metro: 0.8 }）：加上「你同意」chip 後重算 */
     setHabit(h) { if (!h) return; habit = h; habitTop = topOf(h); habitOn = true; draw(); },
   };
+}
+
+/** 節點上的方案名稱：有括號先拿掉括號（「叫車（Uber）」→ 叫車），還太長才截（設計第二輪：「捷運 淡水…」） */
+export const shortName = (label) => {
+  const s = String(label || '');
+  if (s.length <= 7) return s;
+  const bare = s.replace(/（.*?）|\(.*?\)/g, '').trim();
+  return bare.length <= 7 ? bare : `${bare.slice(0, 6)}…`;
+};
+
+/** 第一名比第二名：白話差距（快 7 分、省 205 元、少走 3 分、少等 2 分）；差不到 2 分、2 元不說 */
+export function plainDiff(a, b, en = false) {
+  const out = [];
+  const d = (k) => (Number.isFinite(a?.[k]) && Number.isFinite(b?.[k]) ? Math.round(b[k] - a[k]) : 0);
+  const m = d('minutes'), c = d('cost'), w = d('walkMin'), t = d('waitMin');
+  if (Math.abs(m) >= 2) out.push(en ? `${Math.abs(m)} min ${m > 0 ? 'faster' : 'slower'}` : `${m > 0 ? '快' : '慢'} ${Math.abs(m)} 分`);
+  if (Math.abs(c) >= 2) out.push(en ? `NT$${Math.abs(c)} ${c > 0 ? 'cheaper' : 'more'}` : `${c > 0 ? '省' : '多花'} ${Math.abs(c)} 元`);
+  if (Math.abs(w) >= 2) out.push(en ? `${Math.abs(w)} min ${w > 0 ? 'less' : 'more'} walking` : `${w > 0 ? '少走' : '多走'} ${Math.abs(w)} 分`);
+  if (Math.abs(t) >= 2) out.push(en ? `${Math.abs(t)} min ${t > 0 ? 'less' : 'more'} waiting` : `${t > 0 ? '少等' : '多等'} ${Math.abs(t)} 分`);
+  return out.join(en ? ', ' : '、');
 }
 
 /** 小幫手角色的英文（討論串 @點名、頭像讀屏、決策圖共用；沒有就照原文） */

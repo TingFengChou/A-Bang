@@ -349,7 +349,9 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       // 輕量 3D 降級（M5-11）：測試以 reduced motion 執行 → 精簡模式，不做翻轉
       assert.equal(await page.evaluate(() => document.documentElement.classList.contains('lite-motion')), true);
       assert.equal(await dg.evaluate((n) => n.classList.contains('reranked')), false);
-      await dg.locator('.dg-details summary').click();
+      await dg.locator('.dg-details > summary').click();
+      assert.match(await dg.locator('.dg-cmp-title').textContent(), /^為什麼選「.+」不選「.+」$/, '先比前兩名（設計第二輪）');
+      assert.doesNotMatch(await dg.locator('.dg-cmp-say').textContent(), /\d\.\d/, '白話差距不帶小數');
       assert.ok(await dg.locator('.dg-bar.top').count() >= 2);
       assert.match(await page.locator('.bubble.final .say').textContent(), /^選「/);
       await shot(page, `${dname}-agent-trip`);

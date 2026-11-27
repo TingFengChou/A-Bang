@@ -94,6 +94,14 @@ html.lite-motion .dg-edge.win, html.lite-motion .dg-best > rect, html.lite-motio
 .dg-why { margin: 6px 0 0; background: var(--brand-soft); border-radius: 10px; padding: 8px 10px; }
 .dg-details summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 6px 0; min-height: 32px; }
 .dg-row { margin: 6px 0; }
+.dg-cmp-title { margin: 4px 0 2px; font-weight: 700; font-size: 14px; }
+.dg-cmp-say { margin: 0 0 6px; font-size: 14px; }
+.dg-cmp { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; margin-bottom: 6px; }
+.dg-cmp th, .dg-cmp td { padding: 4px 6px; text-align: right; border-bottom: 1px solid var(--line); }
+.dg-cmp th:first-child { text-align: left; color: var(--muted); font-weight: 400; }
+.dg-cmp thead th { font-weight: 700; }
+.dg-cmp .win { color: var(--brand); font-weight: 700; }
+.dg-more summary { cursor: pointer; color: var(--muted); font-size: 13px; min-height: 44px; display: flex; align-items: center; }
 .dg-crit { display: grid; grid-template-columns: 4.5em 1fr 3em; gap: 6px; align-items: center; font-size: 12px; }
 .dg-bar { height: 8px; border-radius: 4px; background: var(--off); }
 .dg-bar.top { background: var(--brand); }
