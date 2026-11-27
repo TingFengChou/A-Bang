@@ -200,10 +200,10 @@ test('Claude：API 錯誤往上丟（APIError）；handler 轉成通用錯誤事
 });
 
 /** 用假的 res 呼叫 handler，回傳事件 */
-async function handle(h, content) {
+async function handle(h, content, opts) {
   const chunks = [];
   const res = { writableEnded: false, writeHead() {}, write: (c) => chunks.push(c), end() { this.writableEnded = true; } };
-  await h.handle(res, { messages: [{ role: 'user', content }] });
+  await h.handle(res, { messages: [{ role: 'user', content }] }, opts);
   return chunks.join('').trim().split('\n').map((l) => JSON.parse(l));
 }
 
@@ -218,6 +218,16 @@ test('預算：全站每日模型呼叫用完 → 降級示範模式並說明', 
   assert.equal(b[0].mode, 'demo');
   assert.match(b[1].text, /額度用完/);
   assert.equal(state.reqs.length, 1, '降級後不再呼叫模型');
+});
+
+test('預算是全站一份：生活用完，防詐也降級（不是每個 agent 各一份，架構第三輪 #2）', async () => {
+  reset([{ text: '你好，我是阿幫。' }]);
+  const h = createAgentHandler({ svc, env: { AGENT_DAILY_BUDGET: '1' }, provider: claude() });
+  assert.equal((await handle(h, '你好'))[0].mode, 'claude');
+  const b = await handle(h, '這是詐騙嗎？您的包裹地址不完整 http://example.top/x', { agentId: 'antifraud' });
+  assert.equal(b[0].mode, 'demo');
+  assert.equal(state.reqs.length, 1, '防詐沒有再呼叫模型');
+  assert.deepEqual([h.usage('life').modelCalls, h.usage('antifraud').modelCalls, h.usage().siteModelCalls], [1, 0, 1]);
 });
 
 // ── 地端模型（OpenAI 相容） ──

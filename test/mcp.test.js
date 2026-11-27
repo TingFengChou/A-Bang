@@ -6,17 +6,16 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
-const PORT = 18000 + Math.floor(Math.random() * 1000);
-const BASE = `http://127.0.0.1:${PORT}`;
+let BASE; // PORT=0 讓伺服器自己挑，從啟動訊息讀實際的 port（固定區間的隨機 port 可能和同時跑的測試撞到）
 const EXPECTED = ['aqi_nearby', 'bus_nearby_stations', 'bus_route_eta', 'bus_search_routes', 'bus_station_eta', 'clinic_search', 'drama_picks', 'drama_search', 'drama_series', 'earthquake_recent', 'find_place', 'fuel_price', 'garbage_truck_nearby', 'gov_office_nearby', 'gov_official_link', 'gov_service_info', 'intercity_bus', 'invoice_check_batch', 'invoice_lottery', 'metro_live_board', 'metro_route', 'metro_stations', 'outing_advice', 'passport_waiting', 'pharmacy_search', 'plan_trip', 'rail_booking_link', 'rail_fare', 'rail_stations', 'ridehail_link', 'scam_check_message', 'scam_lookup_url', 'scam_myth_search', 'sms_sender_check', 'stock_quote', 'thsr_timetable', 'tra_timetable', 'traffic_status', 'weather_now', 'weather_tomorrow', 'youbike_nearby'];
 const ARGS = { from: '台北', to: '左營', date: '2026-12-01' };
 let http;
 let out = ''; // 伺服器 stdout（結構化 log）
 
 before(async () => {
-  http = spawn(process.execPath, ['server/http.js'], { env: { ...process.env, PORT: String(PORT), DEMO_MODE: '1', RATE_LIMIT_API: '30', JUDGE: 'off' }, stdio: ['ignore', 'pipe', 'inherit'] });
+  http = spawn(process.execPath, ['server/http.js'], { env: { ...process.env, PORT: '0', DEMO_MODE: '1', RATE_LIMIT_API: '30', JUDGE: 'off' }, stdio: ['ignore', 'pipe', 'inherit'] });
   await new Promise((resolve, reject) => {
-    http.stdout.on('data', (d) => { out += d; if (String(d).includes('running')) resolve(); });
+    http.stdout.on('data', (d) => { out += d; const m = /running → http:\/\/localhost:(\d+)/.exec(out); if (m && !BASE) { BASE = `http://127.0.0.1:${m[1]}`; resolve(); } });
     http.on('exit', (c) => reject(new Error(`server exited ${c}`)));
     setTimeout(() => reject(new Error('server start timeout')), 8000);
   });
