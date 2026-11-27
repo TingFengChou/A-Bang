@@ -64,3 +64,11 @@ test('急症先叫 119；問用藥不做醫療判斷；打了個資提醒不要�
     assert.equal(safetyCheck(t), null, `不誤判：${t}`);
   }
 });
+
+test('PM 審查（2026-11-28）：長輩、家長的急症說法（快要昏倒、流很多血、發高燒抽筋、跌倒爬不起來、家人當主詞）先給 119；只是要去看病不算', () => {
+  for (const q of ['我想去看醫生 頭好暈 快要昏倒', '小孩發高燒抽筋 附近有小兒科嗎', '阿嬤跌倒爬不起來', '孫子撞到頭一直吐', '快暈倒了']) assert.equal(safetyCheck(q)?.kind, 'medical', q);
+  for (const q of ['阿公跌倒流很多血 附近診所', '我媽昏倒了', '女兒被車撞了']) assert.equal(safetyCheck(q)?.kind, 'emergency', q);
+  for (const q of ['我媽要去榮總看病', '阿公跌倒過，要去復健科', '小孩發燒附近有小兒科嗎', '女兒的學校怎麼去', '去媽祖廟怎麼走']) assert.equal(safetyCheck(q), null, q);
+  assert.equal(safetyCheck('我爸出車禍要和解金先匯5萬給我', { profileId: 'antifraud' }), null, '防詐：冒充親友話術照常判斷詐騙');
+  assert.match(safetyCheck('頭很痛要吃什麼藥').reply, /有看診的診所/);
+});

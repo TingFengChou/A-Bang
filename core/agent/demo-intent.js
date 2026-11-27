@@ -97,13 +97,15 @@ function railOD(s) {
   const only = new RegExp(`(?:到|→|去|往|回)\\s*([一-龥]{2,3}?)${STOP}`).exec(t);
   return only && ok(only[1]) ? { from: null, to: only[1] } : null;
 }
+/** 找藥局的說法（單一字表：生活意圖與「找診所」的排除共用，架構審查 2026-11-28） */
+const PHARMACY_WORD = /藥局|藥房|領藥|拿藥|慢箋|慢性處方|處方箋|領處方/;
 // 生活服務（M10）：依序比對，先比的優先（「發票」先於其他）。天氣在行程之後才比（「下雨了，從 A 到 B」是行程）
 const LIFE_WORDS = [
   ['invoice', /發票|對獎|中獎號碼|中獎了?(?:嗎|沒)|有沒有中獎|有中獎嗎|(?:^|\D)\d{8}(?!\d)\s*(?:這張)?\s*(?:有中|有沒有中|中了|中獎)/], // 「12345678 有中嗎」（PR #127 審查） // 「我中獎了嗎」（PM Q-21）
   ['fuel', /油價|汽油|柴油|(?:92|95|98)\s*無鉛|加油.{0,6}(?:多少|價|錢)|(?<!\d)(?:92|95|98)\s*(?:一公升|每公升)/],
   ['stock', /股價|股票|股市|[台臺]股|大盤|加權指數|櫃買|收盤|(?<!垃圾車?|回收|資源回收)(?:今天|昨天|今日)收(?:多少|在多少|幾塊|了多少)|漲停|跌停|\bETF\b|\d{4}\s*(?:漲|跌)/i],
   ['quake', /地震|震度|震央/],
-  ['pharmacy', /藥局|藥房|領藥|拿藥|慢箋|慢性處方|處方箋|領處方/], // 「領慢箋」是長輩最常找藥局的原因（P2-8）
+  ['pharmacy', PHARMACY_WORD], // 「領慢箋」是長輩最常找藥局的原因（P2-8）
   ['garbage', /垃圾車|倒垃圾|收垃圾/],
   ['aqi', /空氣品質|空品|空氣(?:好|差|不好|怎樣|如何)|AQI|PM\s*2\.?5|空汙|空污|霧霾|要不要戴口罩/i],
 ];
@@ -138,7 +140,7 @@ export const GOV_OFFICE = /(?:最近|附近|離我最近|哪裡有|哪邊有|找
 /** 把行程加到行事曆、日曆（ADR-0021；系統的新增行程畫面確認） */
 export const CALENDAR_ASK = /(?:加|放|存|寫|排|記|建)(?:一下)?(?:進|到|入|在)?(?:我的)?(?:手機)?(?:的)?(?:行事曆|日曆|行程表|google\s*(?:日曆|calendar))|(?:add|put|save)\b.{0,20}\b(?:to|in|into)\s+(?:my\s+)?calendar/i;
 /** 把行程分享、傳給別人（ADR-0021；系統分享面板）。「有人傳給我一個網址」不算（傳給「我」之後要接家人朋友） */
-export const SHARE_ASK = /^(?:幫我|請|可以|能不能|麻煩|那)?\s*(?:把)?(?:這個|這條|剛剛的|這趟)?(?:路線|行程|走法)?\s*分享(?:一下)?(?:給.{1,8}?|到.{1,8}?|出去)?(?:這個|這條|剛剛的|這趟)?(?:路線|行程|走法)?(?:嗎|好嗎|吧)?[。！!？?～~\s]*$|(?:轉傳|傳|寄|發|貼)(?:給|到)(?:我(?:的)?)?(?:媽媽?|爸爸?|老公|老婆|家人|朋友|同事|哥哥?|姐姐?|姊姊?|弟弟?|妹妹?|男友|女友|另一半|群組|LINE|line|他|她)/;
+export const SHARE_ASK = /^(?:幫我|請|可以|能不能|麻煩|那)?\s*(?:把)?(?:這個|這條|剛剛的|這趟)?(?:路線|行程|走法)?\s*分享(?:一下)?(?:給.{1,8}?|到.{1,8}?|出去)?(?:這個|這條|剛剛的|這趟)?(?:路線|行程|走法)?(?:嗎|好嗎|吧)?[。！!？?～~\s]*$|(?:轉傳|傳|寄|發|貼)(?:給|到)(?:我(?:的)?)?(?:媽媽?|爸爸?|老公|老婆|家人|朋友|同事|哥哥?|姐姐?|姊姊?|弟弟?|妹妹?|男友|女友|另一半|群組|LINE|line|他|她|女兒|兒子|孫子|孫女|阿公|阿嬤|阿媽|爺爺|奶奶|外公|外婆|先生|太太|媳婦|女婿|老師|鄰居|同學|主管|老闆)/;
 /** 英文：「share this」「share the route with my mom」（「share price」不算） */
 export const SHARE_ASK_EN = /^(?:please\s+|can you\s+|could you\s+)?share\s+(?:this|it|the\s+(?:trip|route|plan))\b(?:\s+with\b[^?]*)?[.!?\s]*$/i;
 /** 搭客運的字眼（判斷層說 intercity 時，句子有這些才限定只查客運） */
@@ -558,7 +560,7 @@ function multiOf(s, base, ctx) {
 
 /** 生活服務意圖與參數（沒有符合回 null） */
 function lifeIntent(s, only = null) {
-  const cl = (!only || only === 'pharmacy') && !/藥局|藥房|領藥|拿藥|慢箋/.test(s) && clinicOf(s); // 「附近有開的小兒科」：找診所（藥局照舊）
+  const cl = (!only || only === 'pharmacy') && !PHARMACY_WORD.test(s) && clinicOf(s); // 「附近有開的小兒科」：找診所（藥局照舊）
   if (cl && !LIFE_WORDS.some(([k, re]) => k !== 'pharmacy' && re.test(s))) return { intent: 'pharmacy', ...cl, area: AREA.exec(s)?.[1] || countyOf(s) };
   const hit = LIFE_WORDS.find(([k, re]) => (!only || k === only) && re.test(s));
   if (!hit) return null;
@@ -1071,7 +1073,7 @@ function slotsFor(intent, s, base) {
     case 'chat': return { ...base, intent: 'unknown', chat: true };
     case 'invoice': return { ...base, intent, number: INVOICE_NO.exec(s)?.[1] };
     case 'quake': return { ...base, intent, county: countyOf(s) };
-    case 'pharmacy': return { ...base, intent, area: AREA.exec(s)?.[1] || countyOf(s), ...(!/藥局|藥房|領藥|拿藥|慢箋/.test(s) && clinicOf(s)) };
+    case 'pharmacy': return { ...base, intent, area: AREA.exec(s)?.[1] || countyOf(s), ...(!PHARMACY_WORD.test(s) && clinicOf(s)) };
     case 'stock': return { ...base, intent, query: stockQueryOf(s) || undefined, advice: STOCK_ADVICE.test(s) || undefined };
     case 'drama': return { ...base, intent, ...dramaSlots(s) };
     case 'youbike': case 'nearby_bus': case 'weather': case 'aqi': case 'garbage': case 'fuel': case 'unknown':
@@ -1619,7 +1621,7 @@ function englishSummary(it, results) {
   if (it.intent === 'savedMissing') return `I don't know where your ${({ 家: 'home', 公司: 'office', 學校: 'school' })[it.missing] || 'saved place'} is yet. Set it in Settings & privacy → Saved places, or just tell me the place name (e.g. "How do I get to Banqiao Station?").`; // 「I'm at Taipei 101, about to go home」：還沒設定家
   if (it.help) return (it.greet ? `${it.greet[0].toUpperCase()}${it.greet.slice(1)}! I'm Abang. ` : '') + 'I can help you get around Taiwan (bus, MRT, train, high-speed rail, YouBike, taxi, from A to B) and check daily info (weather, air quality, earthquakes, pharmacies, garbage trucks, fuel prices, invoices, stock closing prices). Try: "How do I get to Taipei 101?"';
   if (it.intent === 'unknown' && it.topic) return `Got it — you want to ${it.topic}. Abang can't do that yet; I can help with getting around Taiwan (bus, MRT, train, YouBike, taxi), the weather and daily info. Try: "How do I get to Taipei 101?"`;
-  if (it.intent === 'unknown') return 'Sorry, I can only help with getting around Taiwan (bus, MRT, train, YouBike, taxi) and the weather for now. Try: "How do I get to Taipei 101?"';
+  if (it.intent === 'unknown') return 'Sorry, I didn\'t catch that. I can help with getting around Taiwan (bus, MRT, train, YouBike, taxi), the weather, and finding a pharmacy or a clinic open nearby. Try: "How do I get to Taipei 101?"';
   // 什麼都沒查到（例：車站或地點不在資料裡）：照實說，不說「Here you go」
   if (!Object.keys(results).length) return "Sorry, I couldn't get that information right now (the station or place may not be covered). Try another name.";
   return `Here you go.${note}`;
@@ -1793,7 +1795,7 @@ function summaryCore(it, results, suggestions = []) {
   if (it.sorry) return '沒關係！想查什麼直接說就好，例如「去台北 101」、「307 到哪了？」。';
   // 範圍外但聽得懂想做什麼（判斷層的 topic，core/topic.js）：照實說聽懂了什麼、阿幫還沒有這項服務（不說成「聽不懂」）
   if (it.intent === 'unknown' && it.topic) return `聽懂了，你想「${it.topic}」。這個阿幫還沒有提供，沒辦法幫你查。我可以查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）、天氣、空品、藥局、油價、發票、股市收盤，也可以幫你看訊息是不是詐騙。`;
-  if (it.intent === 'unknown') return `${it.greet ? `${it.greet}！我是阿幫。` : ''}我可以幫你查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）和生活資訊（天氣、空品、地震、藥局、垃圾車、油價、發票、股市收盤）。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
+  if (it.intent === 'unknown') return `${it.greet ? `${it.greet}！我是阿幫。` : ''}我可以幫你查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）、生活資訊（天氣、空品、地震、藥局、有看診的診所、垃圾車、油價、發票、股市收盤）、去政府辦事（要帶什麼、最近的戶政事務所、護照等多久）和可疑訊息。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
   if (it.intent === 'traffic' && it.cityOnly) return `阿幫拿到的路況開放資料只有國道（高速公路）${it.area ? `，「${String(it.area).replace(/臺/g, '台')}」一帶` : '，'}市區道路塞不塞查不到。要看國道就告訴我從哪裡到哪裡（例如「台北到新竹」）。`; // 市區路況（PR #127 審查）
   if (it.intent === 'traffic') { // 國道路況（S7）：起訖、結果照工具資料說
     const t = results.traffic_status?.at(-1);
