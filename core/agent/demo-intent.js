@@ -64,7 +64,9 @@ const BUS_ROUTE = new RegExp(`(?:^|[^\\d])(${ROUTE_NO})(?:\\s*(?:號|路)?\\s*(?
 const BUS_WAIT = /(?:^|(?<=[我在正還就站牌邊]))等\s*(?:公車\s*)?([紅藍綠棕橘小幹]?\d{1,4}[區副]?)(?!\d)(?!\s*(?:分|秒|小時|鐘|個|人|天|年|點|樓|元|塊|%|％))(?!\s*號(?!\s*(?:公車|的車|[，,。.!！?？～~]|$)))\s*(?:號|路)?\s*(?:公車|的車)?/; // 「我在台北車站等307」算；「我等3號發薪」「等 5 號再說」「等2號窗口」不算（PR #127 審查）
 /** 問末班車（「末班車幾點」「最後一班公車幾點」「捷運末班車幾點」）；高鐵台鐵由 RAIL_ASK 處理 */
 const LAST_ASK = /末班|最後一班|收班|幾點收|(?:捷運|公車|\d{1,4}).{0,3}(?:開)?到幾點|還有(?:沒有)?車|還有(?:公車|捷運)嗎/; // 「307還有車嗎」「捷運到幾點」「捷運幾點收」（PM 第二輪審查）
-const RAIL_WORD = /高鐵|台鐵|臺鐵|火車|自強|區間|莒光/;
+const RAIL_WORD = /高鐵|台鐵|臺鐵|火車|自強|區間|莒光|普悠瑪|太魯閣號/;
+/** 車種與鐵路名稱（含「號」「車」：「自強號台北到花蓮」整個拿掉，不會留下「號台北」；PM 第三輪 #1） */
+const RAIL_TYPE = /高鐵|台鐵|臺鐵|火車|新自強(?:號)?|自強(?:號|3000)?|區間快?車?|莒光(?:號)?|普悠瑪(?:號)?|太魯閣號|復興號/g;
 /** 地名裡的「火車站／高鐵站／台鐵站」不是交通方式偏好（「從桃園火車站去台北101」；真實資料健檢 S10）：判斷交通方式、是不是查高鐵台鐵前先拿掉 */
 const RAIL_IN_NAME = /火車站|火車頭|(?<=[一-龥]{2})(?:高鐵|台鐵|臺鐵)站|(?:高鐵|台鐵|臺鐵)(?=[一-龥]{2}站)/g;
 export const withoutRailNames = (s) => String(s || '').replace(RAIL_IN_NAME, (m) => (/^火車/.test(m) ? '車站' : /站$/.test(m) ? '站' : ''));
@@ -85,7 +87,7 @@ const RAIL_FARE = /票價|多少錢|車資|幾塊|要多少/;
  * 先去掉「從」「搭／坐」「車站」等字（「從板橋到台中的高鐵」「台北車站到…」）。
  */
 function railOD(s) {
-  const t = s.replace(RAIL_WORD, ' ').replace(RAIL_FARE, ' ').replace(/從|搭|坐|乘/g, ' ').replace(/(?<=[一-龥]{2})車?站/g, ' ')
+  const t = s.replace(RAIL_TYPE, ' ').replace(/\d{1,2}\s*(?:[:：]\s*\d{2}|點(?:半|\d{1,2}分?)?|時)/g, ' ').replace(RAIL_FARE, ' ').replace(/從|搭|坐|乘/g, ' ').replace(/(?<=[一-龥]{2})車?站/g, ' ')
     .replace(/(?:明天|今天|後天|明早|今晚)|(?:早上|晚上|下午|中午|上午|傍晚|凌晨)/g, ' '); // 時間詞先拿掉（「明天早上台北到台中」不會變成「上台北」，P2-10）
   const STOP = '(?=下一班|首班|末班|幾點|的|班|車|站|要|有|還|[\\s？?。，,！!]|$)';
   const ok = (x) => x && !NOT_DEST.test(x);
@@ -119,7 +121,7 @@ const OUTING = /(?:適合|可以|能|要不要).{0,4}(?:慢跑|跑步|運動|騎
 const WEATHER_WORD = /天氣|氣溫|溫度|幾度|下雨|下大雨|大雨|帶傘|雨傘|會冷|會熱|會很[冷熱]|[冷熱]不[冷熱]|很[冷熱][嗎嘛]|颱風|出太陽/; // 「今天會很熱嗎」（P5-4）
 // 使用者指定交通方式（「坐公車去」「改叫車」）：plan_trip prefs.mode；「不要叫車」的叫車不算
 const MODE_WORDS = [['bus', /公車|巴士/], ['metro', /捷運|MRT/i], ['bike', /youbike|ubike|單車|腳踏車/i], ['walk', /走路|步行|走過去/], ['drive', /自己開車|自行開車|開我的車|自駕|開車(?:去|過去|出門|到)?/], ['ridehail', /叫車|叫(?:一|1)?(?:台|輛)車|計程車|小黃|uber/i],
-  ['thsr', /高鐵/], ['tra', /台鐵|臺鐵|火車/], ['intercity', /客運/]];
+  ['thsr', /高鐵/], ['tra', /台鐵|臺鐵|火車|自強號?|區間車|莒光號?|普悠瑪|太魯閣號/], ['intercity', /客運/]];
 /** 有人要你加 LINE、加好友、進投資群組（詐騙話術；「LINE 怎麼用」這類不算） */
 const LINE_SCAM = /(?:加|加入|加我|加他|加她|加對方)\s*(?:的)?\s*(?:line|賴|LINE)|(?:line|賴)\s*(?:帳號|好友|ID)|投資群組|飆股群|穩賺不賠|保證獲利/i;
 /** 要設提醒、通知、到站叫我、取消提醒 */
@@ -378,9 +380,17 @@ function englishPlaces(text) {
 }
 
 export function placesInText(text) {
-  if (isEnglish(String(text))) return englishPlaces(text).sort((a, b) => a.index - b.index).map((h) => h.name);
+  return placeHits(text).map((h) => h.name);
+}
+
+/**
+ * 句子裡的地點與位置（位置與長度以 normPlace(text) 為準；英文沒有長度）。
+ * @returns {Array<{ name: string, index: number, len?: number }>}
+ */
+function placeHits(text) {
+  if (isEnglish(String(text))) return englishPlaces(text).sort((a, b) => a.index - b.index);
   // 「三十分鐘內」的「十分」不是十分老街：時間說法先遮掉（長度不變）
-  const s = normPlace(text).replace(/[0-9一二兩三四五六七八九十半]+\s*分鐘?/g, (x) => ' '.repeat(x.length));
+  const s = normPlace(text).replace(/[0-9一二兩三四五六七八九十半]+\s*分鐘?|太魯閣號|普悠瑪號?/g, (x) => ' '.repeat(x.length)); // 車名「太魯閣號」不是太魯閣（PM 第三輪 #1）
   const taken = new Array(s.length).fill(false);
   const hits = [];
   for (const { key, name, full } of PLACE_KEYS) {
@@ -389,22 +399,27 @@ export function placesInText(text) {
       const road = !full && /[路街巷]/.test(s[i + key.length] || ''); // 「中山路」不是捷運中山站（車站的短名後面接路、街）
       if (!road && !taken.slice(i, i + key.length).some(Boolean) && !hits.some((h) => h.name === name)) {
         for (let j = i; j < i + key.length; j++) taken[j] = true;
-        hits.push({ name, index: i });
+        hits.push({ name, index: i, len: key.length });
       }
       i = s.indexOf(key, i + 1);
     }
   }
   for (const { re, name } of NUM_PLACES) { // 「到101」「101怎麼去」：沒被別的地名用掉的數字別名
     const m = re.exec(s);
-    if (m && !taken[m.index] && !hits.some((h) => h.name === name)) hits.push({ name, index: m.index });
+    if (m && !taken[m.index] && !hits.some((h) => h.name === name)) hits.push({ name, index: m.index, len: m[0].length });
   }
-  return hits.sort((a, b) => a.index - b.index).map((h) => h.name);
+  return hits.sort((a, b) => a.index - b.index);
 }
 
 /** 兩個地點的起訖：「從 X」「X 出發」是起點，「去／到／往 Y」是終點；看不出來照出現順序（「X 到 Y」） */
-function orderFromTo(s, places) {
-  const at = (p) => s.indexOf(p);
-  const from = places.find((p) => at(p) >= 0 && (new RegExp(`從\\s*$`).test(s.slice(0, at(p))) || /^\s*出發/.test(s.slice(at(p) + p.length))));
+function orderFromTo(s0, places) {
+  // 位置用使用者說的字（「從台中」裡找不到正式名稱「臺中車站」：原本會照出現順序，把「我要去板橋 從台中」排反，PM 第三輪 #2）
+  const s = normPlace(s0);
+  const hits = isEnglish(String(s0)) ? [] : placeHits(s0);
+  const hit = (p) => hits.find((h) => h.name === p);
+  const at = (p) => hit(p)?.index ?? s.indexOf(normPlace(p));
+  const len = (p) => hit(p)?.len ?? normPlace(p).length;
+  const from = places.find((p) => at(p) >= 0 && (/從\s*$/.test(s.slice(0, at(p))) || /^\s*出發/.test(s.slice(at(p) + len(p)))));
   const to = places.find((p) => p !== from && at(p) >= 0 && /(?:去|到|往|抵達)\s*$/.test(s.slice(0, at(p))));
   if (from && to) return [from, to];
   if (from) return [from, places.find((p) => p !== from)];
@@ -851,8 +866,11 @@ function parseIntentRaw(text, ctx) {
     if (modeOf(bareMode[1]) === 'ridehail') return { ...base, intent: 'trip', from: null, to: null, mode: 'ridehail', needs: 'to' };
   }
   // 「那回程呢」「回來怎麼坐」：上一趟起訖對調（上一趟從現在位置出發的，回程目的地也是那裡；P3-8）
-  if (before?.to && before.from && !places.length && /回程|回來(?:的時候|怎麼|要怎)|怎麼回去|回頭怎麼|反方向|反過來/.test(s) && /怎麼|如何|呢|嗎|幾點|要多久|[?？]/.test(s)) {
-    return { ...before, from: before.to, to: before.from, states: [...new Set([...before.states.filter((k) => k !== 'rush'), ...states])], intent: 'trip', followUp: true, changed: ['from', 'to'] }; // 回程是之後的事：去程的趕時間不沿用（下雨、帶行李、長輩照舊）
+  // 上一趟從現在位置出發（沒有起點）：回程到你現在的位置（toHere，run.js 有定位就換成座標；沒有就跟去程一樣用示範起點；PM 第三輪 #3）
+  if (before?.to && !places.length && /回程|回來(?:的時候|怎麼|要怎|呢)|怎麼回去|回頭怎麼|反方向|反過來/.test(s) && /怎麼|如何|呢|嗎|幾點|要多久|[?？]/.test(s)) {
+    const { fromPoint: _p, fromSaved: _f, toSaved: _t, toHere: _h, ...prev } = before; // 起訖的座標跟著對調，不留去程的
+    const back = before.from ? { to: before.from, ...(before.fromSaved && { toSaved: before.fromSaved }) } : before.fromSaved ? { to: before.fromSaved.name, toSaved: before.fromSaved } : { to: DEFAULT_FROM, toHere: true };
+    return { ...prev, from: before.to, ...(before.toSaved && { fromSaved: before.toSaved }), ...back, states: [...new Set([...before.states.filter((k) => k !== 'rush'), ...states])], intent: 'trip', followUp: true, changed: ['from', 'to'] }; // 回程是之後的事：去程的趕時間不沿用（下雨、帶行李、長輩照舊）
   }
   // 接著改起點或目的地（只有一個地名＋提示詞；起點可以是地標庫沒有的地名，例「板橋」）：其他條件沿用
   if (before) {
@@ -996,7 +1014,7 @@ function parseIntentRaw(text, ctx) {
   if (/附近/.test(s) && /公車|站牌/.test(s)) return { ...base, intent: 'nearby_bus' };
   // 行程：只說目的地（「去台北101」「想省錢，去松山機場」，甚至只打地名）→ 起點用現在位置（needsLocation）
   const timeGo = TIME_GO.test(s) && !WEATHER_WORD.test(s) && !OUTING.test(s); // 「明天去台北101」：時間詞後面接去（PM 第二輪）；「明天去台北101會下雨嗎」仍是問天氣
-  const tripSaid = places.length && (timeGo || (places.length >= 2 && /[一-龥A-Za-z0-9]\s*(?:到|→|至)\s*[一-龥A-Za-z0-9]/.test(s)) || /從.+(到|去)|出發\s*(?:去|到|往)|怎麼去|怎麼走|怎麼坐|怎麼搭|(?:坐|搭)什麼|要到|前到|想去|要去|帶我去|(?:改|換)(?:成)?(?:去|到)|去.+怎麼|(?:^|[，,、\s])(?:去|到|往)\s*\S|(?:末班|最後一班)車?\s*(?:回|去|到|往)\s*\S|(?:[點半]|\d分)\s*(?:到|去)\s*[^\s，,。了]|(?:坐|搭|騎|用|開車|走路|推|帶|叫).{0,8}(?:去|到|往)|(?:公車|捷運|火車|客運)\s*(?:回|去)(?!到|覆|頭)|(?:^|[，,、\s]|要|想|早上|晚上|下午|現在|下班|放學|等等|明天)回(?!到|覆|頭|饋|去|來|應)\s*\S/.test(s));
+  const tripSaid = places.length && (timeGo || (places.length >= 2 && /[一-龥A-Za-z0-9]\s*(?:到|→|至)\s*[一-龥A-Za-z0-9]/.test(s)) || /從.+(到|去)|出發\s*(?:去|到|往)|怎麼去|怎麼走|怎麼坐|怎麼搭|(?:坐|搭)什麼|要到|前到|想去|要去|帶我去|(?:改|換)(?:成)?(?:去|到)|去.+怎麼|(?:^|[，,、\s])(?:去|到|往)\s*\S|(?:末班|最後一班)車?\s*(?:回|去|到|往)\s*\S|(?:[點半]|\d分)\s*(?:到|去)\s*[^\s，,。了]|(?:坐|搭|騎|用|開車|走路|推|帶|叫).{0,8}(?:去|到|往)|(?:公車|捷運|火車|客運)\s*(?:回|去)(?!到|覆|頭)|(?:高鐵|台鐵|臺鐵|火車|客運|自強號?|區間車|莒光號?|普悠瑪號?|太魯閣號)\s*(?:到|去|往)\s*\S|(?:^|[，,、\s]|要|想|早上|晚上|下午|現在|下班|放學|等等|明天)回(?!到|覆|頭|饋|去|來|應)\s*\S/.test(s));
   if (places.length && (tripSaid || onlyPlace(s, places))) {
     const [from, to] = places.length >= 2 ? orderFromTo(s, places) : [FROM_TEXT.exec(s)?.[1] ?? null, places[0]]; // 明講的起點優先
     const amb = places.length === 1 && !from ? ambigOf(s, to) : null; // 「去中山」：同名的地點不只一個（PM Q-4～Q-6）
@@ -1215,7 +1233,7 @@ export const NEARBY = {
 export const isNearby = (it) => Object.hasOwn(NEARBY, it.intent);
 
 /** 需要使用者所在位置嗎（行程沒起點；附近類查詢沒地點） */
-export const needsLocation = (it) => !it.savedAt && ((it.intent === 'gov' && it.govOffice) || (it.intent === 'traffic' && !it.needs && !it.cityOnly && !it.from && !it.fromSaved) || (it.intent === 'pharmacy' && !it.area && !it.places?.[0]) || (it.intent === 'trip' && !it.from && !it.fromSaved) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]) || (it.intent === 'metro' && !it.station && !it.near) || (it.intent === 'outing' && !it.places[0]) || (it.intent === 'rail' && (it.fare ? !!it.to && (!it.from || it.fromGuess) : !it.from && !it.near && (!!it.to || (it.anyTo && it.system === 'THSR')))));
+export const needsLocation = (it) => !it.savedAt && ((it.intent === 'gov' && it.govOffice) || (it.intent === 'traffic' && !it.needs && !it.cityOnly && !it.from && !it.fromSaved) || (it.intent === 'pharmacy' && !it.area && !it.places?.[0]) || (it.intent === 'trip' && ((!it.from && !it.fromSaved) || (it.toHere && !it.toSaved))) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]) || (it.intent === 'metro' && !it.station && !it.near) || (it.intent === 'outing' && !it.places[0]) || (it.intent === 'rail' && (it.fare ? !!it.to && (!it.from || it.fromGuess) : !it.from && !it.near && (!!it.to || (it.anyTo && it.system === 'THSR')))));
 
 /** 出發是哪一天（總結、聽懂了什麼用） */
 export const dayWord = (it) => ['今天', '明天', '後天'][it.departDays ?? (it.tomorrow ? 1 : 0)] || '今天';
