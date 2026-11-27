@@ -50,6 +50,8 @@ const CASES = [
   ['gov_service_info', { query: '換身分證' }],
   ['gov_service_info', { query: '第一次辦護照' }],
   ['gov_service_info', { query: '量子電腦補助' }],
+  ['gov_office_nearby', { lat: 25.0478, lon: 121.517 }],
+  ['gov_office_nearby', { lat: 22.62, lon: 120.31, limit: 5 }],
 ];
 
 test('validate：型別、必要欄位、enum、$ref、additionalProperties', () => {

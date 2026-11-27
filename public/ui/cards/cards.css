@@ -399,3 +399,7 @@ html.lite-motion .ab-eta .ab-pulse { animation: none; }
 .ab-gov-docs { margin: 0 0 6px; padding: 0; list-style: none; display: grid; gap: 6px; line-height: 1.5; }
 .ab-gov-docs li { padding-left: 10px; border-left: 3px solid var(--ab-line); } /* 條文自己有編號（一、(一)、1.），不再加清單編號 */
 .ab-gov-note { margin-top: 6px; }
+/* gov-office（最近的戶政事務所，M16-04b） */
+.ab-gov-day { display: inline-block; margin: 0 0 6px; font-weight: 600; }
+.ab-gov-office { padding: 8px 0; border-top: 1px solid var(--ab-line); }
+.ab-gov-office:first-child { border-top: 0; }

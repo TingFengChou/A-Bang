@@ -37,6 +37,8 @@ import { createDramaServices, createLiveDramaFetchers } from './services/drama.j
 import { createMockDramaServices } from './services/drama-mock.js';
 import { createGovServices, createLiveGovFetchers } from './services/govservice.js';
 import { createMockGovServices } from './services/govservice-mock.js';
+import { createGovOfficeServices, createLiveGovOfficeFetchers } from './services/govoffice.js';
+import { createMockGovOfficeServices } from './services/govoffice-mock.js';
 
 /**
  * @param {{ clientId?: string, clientSecret?: string, cwaKey?: string, moenvKey?: string, openData?: boolean, forceMock?: boolean, log?: Function, demo?: { traffic?: 'smooth'|'jam', weather?: 'clear'|'rain', air?: 'good'|'bad', bus?: 'off'|'offLive' }, drama?: { apiBase?: string, links?: object } }} [opts]
@@ -108,6 +110,7 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
   const drama = dramaFx ? createDramaServices(dramaFx, { links: dramaCfg.links }) : createMockDramaServices({ links: dramaCfg.links });
   // 去政府辦事（M16-04a）：我的E政府申辦服務資料（免金鑰），跟著 openData；沒有時用真實資料的片段
   const gov = od ? createGovServices(createLiveGovFetchers({ od })) : createMockGovServices();
+  const govOffice = od ? createGovOfficeServices(createLiveGovOfficeFetchers({ od })) : createMockGovOfficeServices(); // 最近的戶政事務所、辦公日曆（M16-04b）
 
   return {
     mode: live ? 'live' : 'demo',
@@ -142,6 +145,7 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
     ...antifraud, // antifraud：165 開放資料（免金鑰；DEMO_MODE=1 時用示範片段，M7）
     ...drama, // drama：MyDrama 短劇排行、搜尋、簡介（ADR-0019）
     gov, // gov：去政府辦事的申辦說明（我的E政府，M16-04a）
+    govOffice, // 最近的戶政事務所、今天是不是上班日（M16-04b）
   };
 }
 

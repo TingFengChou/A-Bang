@@ -762,6 +762,23 @@ test('去政府辦事（M16-04a）：「換身分證要帶什麼」→ @辦事 �
   }, { init: () => { window.open = () => null; } });
 });
 
+test('找戶政事務所（M16-04b）：「最近的戶政事務所在哪」→ 用位置找 → 今天是不是上班日、距離、電話、導航', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = recordBodies(page);
+    await askAbang(page, '最近的戶政事務所在哪', 1, bodies);
+    const slot = page.locator('.turn').last().locator('.card-slot', { has: page.locator('.ab-gov-day') });
+    await slot.waitFor();
+    assert.match(await slot.locator('.ab-gov-day').textContent(), /^今天 \d+\/\d+（.）(?:是上班日|放假)/);
+    assert.ok(await slot.locator('.ab-gov-office').count() >= 1);
+    assert.match(await slot.locator('.ab-gov-office .ab-name').first().textContent(), /戶政事務所/);
+    assert.equal(await slot.getByRole('button', { name: '導航' }).count() >= 1, true);
+    assert.match(await slot.locator('a[href^="tel:"]').first().getAttribute('href'), /^tel:\d{6,}$/);
+    assert.match(await page.locator('.bubble.final').last().textContent(), /最近的是.+戶政事務所/);
+    await slot.scrollIntoViewIfNeeded();
+    await slot.screenshot({ path: new URL('phone-gov-office.png', SHOTS).pathname });
+  }, { init: () => { window.open = () => null; } });
+});
+
 test('阿幫問你：常叫車 → 問原因 → 常帶東西（不自動套用）→ 下次「這次也帶東西嗎？」→ 是 →「你說過：常帶東西」重算', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = recordBodies(page);

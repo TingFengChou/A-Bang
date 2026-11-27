@@ -120,6 +120,10 @@ const SETTINGS_ASK = /(?:設定|設成|設為|改成|新增|修改|更改|改一
 /** 去政府辦事要帶什麼、怎麼辦（M16-04a）：辦的事（身分證、謄本、護照…）＋問要帶什麼／怎麼辦／要多久；或「結婚登記」「遷戶口」這種本身就是辦事的詞 */
 const GOV_THING = '(?:身分證|身份證|戶籍謄本|戶口謄本|謄本|戶口名簿|護照|駕照|行照|印鑑證明|自然人憑證|勞保|國民年金|老人年金|老年年金|育嬰(?:留職停薪)?津貼|生育給付|房屋稅|牌照稅)';
 export const GOV_ASK = new RegExp(`${GOV_THING}.{0,10}(?:要帶|帶什麼|準備什麼|要準備|需要什麼|怎麼辦|怎麼申請|如何申請|如何辦|怎麼弄|去哪辦|在哪辦|哪裡辦|要多久|幾天|手續|流程|不見了?|掉了|遺失)|(?:換|補|辦|申請|請領|申辦)(?:新的?|一張)?${GOV_THING}|(?:結婚|出生|死亡|離婚|遷入|遷出)登記|遷戶口|報戶口`);
+/** 找戶政事務所、問戶政今天有沒有上班（M16-04b）：「最近的戶政事務所在哪」「戶政今天有上班嗎」；問怎麼去是行程 */
+/** 問要帶什麼、怎麼辦（有這些就是問辦事須知，不是找據點） */
+const GOV_DOCS_Q = /要帶|帶什麼|準備什麼|要準備|怎麼申請|如何申請|怎麼辦|手續/;
+export const GOV_OFFICE = /(?:最近|附近|離我最近|哪裡有|哪邊有|找)(?:的)?.{0,3}戶政(?:事務所)?|戶政(?:事務所)?.{0,4}(?:在哪|在哪裡|有開|開門|有上班|上班嗎|上班日|今天有沒有上班|今天有開|放假)/;
 /** 把行程加到行事曆、日曆（ADR-0021；系統的新增行程畫面確認） */
 export const CALENDAR_ASK = /(?:加|放|存|寫|排|記|建)(?:一下)?(?:進|到|入|在)?(?:我的)?(?:手機)?(?:的)?(?:行事曆|日曆|行程表|google\s*(?:日曆|calendar))|(?:add|put|save)\b.{0,20}\b(?:to|in|into)\s+(?:my\s+)?calendar/i;
 /** 把行程分享、傳給別人（ADR-0021；系統分享面板）。「有人傳給我一個網址」不算（傳給「我」之後要接家人朋友） */
@@ -749,6 +753,8 @@ function parseIntentRaw(text, ctx) {
   const party = partyOf(s);
   const base = { places, states, arriveBy, tomorrow, ...(depart && { departTime: depart.hhmm, departDays: depart.days }), ...(later && { later: true }), ...(party && { party }) };
   // 常用地點（S1）：「回家」「去公司」「從公司回家」——座標存在手機、只有提到時才送來
+  // 戶政今天有上班嗎（M16-04b）：「上班」不是去公司，先於常用地點判斷
+  if (GOV_OFFICE.test(s) && !/怎麼去|怎麼走/.test(s) && !GOV_DOCS_Q.test(s)) return { ...base, places: [], intent: 'gov', govOffice: true };
   const saved = savedTrip(s, places, ctx?.saved);
   if (saved) return { ...base, ...saved };
   // 英文（觀光客，S12）：只有英文字母沒有中文時用英文規則，回答也用英文（it.lang = 'en'）
@@ -778,6 +784,8 @@ function parseIntentRaw(text, ctx) {
   if (/詐騙嗎|是不是詐騙|是詐騙|是騙人的嗎/.test(s) && !places.length) return { ...base, intent: 'scamAsk' };
   // 有人要你加 LINE、進投資群組（2026-11-25 Gemini Nano 實測：「加line帳號」有時判成閒聊）：常見詐騙話術，請到防詐檢查
   if (LINE_SCAM.test(s) && !places.length) return { ...base, intent: 'scamAsk' };
+  // 最近的戶政事務所、今天有沒有上班（M16-04b）：用現在位置找；說了怎麼去才是行程
+  if (GOV_OFFICE.test(s) && !/怎麼去|怎麼走/.test(s) && !GOV_DOCS_Q.test(s)) return { ...base, places: [], intent: 'gov', govOffice: true };
   // 去政府辦事要帶什麼（M16-04a）：說了地點也是在問辦事（「去板橋戶政換身分證要帶什麼」）；問路（怎麼去、怎麼走）才是行程
   if (GOV_ASK.test(s) && !/怎麼去|怎麼走|多遠|幾分鐘到/.test(s)) return { ...base, places: [], intent: 'gov', govQuery: s.slice(0, 40) };
   // 把剛剛的行程加到行事曆、分享給家人（ADR-0021）：手機的系統畫面做最後確認；說了地點是先排行程（runDemo 查完再問要不要加）
@@ -1039,7 +1047,7 @@ function slotsFor(intent, s, base) {
     case 'outing': return { ...base, intent: 'outing' };
     case 'exercise': return { ...base, intent: 'outing', walk: true }; // 散步運動：看天氣與空品適不適合出門走走（判斷只看這句話，不用步數等手機上的資料，ADR-0018）
     case 'scam': return { ...base, places: [], intent: 'scamAsk', ...(looksScamPaste(s) && { pasted: true }) };
-    case 'gov': return { ...base, places: [], intent: 'gov', govQuery: s.slice(0, 40) };
+    case 'gov': return GOV_OFFICE.test(s) && !GOV_DOCS_Q.test(s) ? { ...base, places: [], intent: 'gov', govOffice: true } : { ...base, places: [], intent: 'gov', govQuery: s.slice(0, 40) };
     case 'calendar': case 'share': return base.places.length ? slotsFor('trip', s, base) : { ...base, intent }; // 說了地點＝先排行程（runDemo 排好後再問要不要加行事曆／分享）
     case 'reminder': case 'settings': case 'emergency': return { ...base, intent };
     case 'help': return { ...base, intent: 'unknown', help: true };
@@ -1166,7 +1174,7 @@ const NEARBY = {
 const isNearby = (it) => Object.hasOwn(NEARBY, it.intent);
 
 /** 需要使用者所在位置嗎（行程沒起點；附近類查詢沒地點） */
-export const needsLocation = (it) => !it.savedAt && ((it.intent === 'traffic' && !it.needs && !it.cityOnly && !it.from && !it.fromSaved) || (it.intent === 'pharmacy' && !it.area && !it.places?.[0]) || (it.intent === 'trip' && !it.from && !it.fromSaved) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]) || (it.intent === 'metro' && !it.station && !it.near) || (it.intent === 'outing' && !it.places[0]) || (it.intent === 'rail' && (it.fare ? !!it.to && (!it.from || it.fromGuess) : !it.from && !it.near && (!!it.to || (it.anyTo && it.system === 'THSR')))));
+export const needsLocation = (it) => !it.savedAt && ((it.intent === 'gov' && it.govOffice) || (it.intent === 'traffic' && !it.needs && !it.cityOnly && !it.from && !it.fromSaved) || (it.intent === 'pharmacy' && !it.area && !it.places?.[0]) || (it.intent === 'trip' && !it.from && !it.fromSaved) || ((isNearby(it) || it.intent === 'bus_route') && !it.places[0]) || (it.intent === 'metro' && !it.station && !it.near) || (it.intent === 'outing' && !it.places[0]) || (it.intent === 'rail' && (it.fare ? !!it.to && (!it.from || it.fromGuess) : !it.from && !it.near && (!!it.to || (it.anyTo && it.system === 'THSR')))));
 
 /**
  * 意圖 → 分段計畫。每段 `(results) => ({ note, calls })`，results 是之前各段的 callTool 結果（依名稱）。
@@ -1297,7 +1305,15 @@ export function demoSteps(it, now = Date.now()) {
     }
     case 'fuel':
       return [() => ({ note: '@油價 中油這週的牌價', calls: [{ name: 'fuel_price', args: {} }] })];
-    case 'gov': // 去政府辦事要帶什麼（M16-04a）：我的E政府的申辦說明
+    case 'gov': // 去政府辦事要帶什麼（M16-04a）：我的E政府的申辦說明；找戶政事務所（M16-04b）：用位置找最近的、說今天是不是上班日
+      if (it.govOffice) {
+        const note = '@辦事 找附近的戶政事務所，看今天是不是上班日';
+        if (it.fromPoint) return [() => ({ note, calls: [{ name: 'gov_office_nearby', args: ll(it.fromPoint) }] })]; // 用裝置定位
+        return [ // 拿不到位置：先從臺北車站附近找（總結會說明）
+          () => ({ note: `@地點 找「${DEFAULT_FROM}」的位置`, calls: [{ name: 'find_place', args: { query: DEFAULT_FROM } }] }),
+          (r) => (point(r, 0) ? { note, calls: [{ name: 'gov_office_nearby', args: ll(point(r, 0)) }] } : null),
+        ];
+      }
       return [() => ({ note: '@辦事 查我的E政府的申辦說明', calls: [{ name: 'gov_service_info', args: { query: it.govQuery || '', ...(countyOf(it.govQuery || '') && { county: countyOf(it.govQuery) }) } }] })]; // 說了縣市：那個縣市的版本也排前面
     case 'stock':
       return [() => ({ note: it.query ? `@股市 查「${it.query}」的收盤行情` : '@股市 看一下大盤收盤', calls: [{ name: 'stock_quote', args: { ...(it.query && { query: it.query }) } }] })];
@@ -1729,6 +1745,8 @@ function summaryCore(it, results, suggestions = []) {
   if (it.intent === 'emergency') return '如果有人受傷、昏倒或有危險，先打 119（救護、火災）或 110（報警）；手機沒有 SIM 卡或沒訊號也可以撥 112。在安全的地方等救援，不要移動受傷的人。需要的話我可以幫你查最近的路怎麼走。';
   if (it.intent === 'reminder') return '提醒要在卡片上設：查公車或排行程後，按卡片上的「提醒我」或「盯這班」，車快到、該出門時阿幫會通知你；坐上車後也可以設下車提醒。設好的提醒都在下面的「提醒」分頁，可以隨時取消。';
   if (it.intent === 'gov') { // 去政府辦事（M16-04a）：照工具資料說，提醒以機關公告為準；不代替申辦
+    const o = results.gov_office_nearby?.[0];
+    if (it.govOffice) return o ? `${o.speak}${o.data.offices[0]?.tel ? `各所營業時間不同（午休、夜間延時、週六服務），出發前可以先打電話（${o.data.offices[0].tel}）。` : '各所營業時間不同，出發前可以先打電話確認。'}${it.noLocation ? '沒拿到你的位置，先用台北車站附近找。' : ''}` : '戶政事務所的資料暫時拿不到，等一下再問一次。';
     const g = results.gov_service_info?.[0];
     const s = g?.data?.items?.[0];
     if (!g) return '我的E政府的申辦資料暫時拿不到，等一下再問一次；急的話可以直接打給辦理的機關。';

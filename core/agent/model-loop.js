@@ -208,7 +208,7 @@ export function dropNulls(v) {
  * trip 與 unknown 不縮減。Claude 等大模型照常看全部工具。
  */
 export const INTENT_TOOLS = {
-  gov: ['gov_service_info'],
+  gov: ['gov_service_info', 'gov_office_nearby'],
   bus_route: ['bus_route_eta', 'bus_search_routes', 'bus_station_eta', 'bus_nearby_stations', 'find_place'],
   youbike: ['youbike_nearby', 'find_place'],
   nearby_bus: ['bus_nearby_stations', 'bus_station_eta', 'find_place'],

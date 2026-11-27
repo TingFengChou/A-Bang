@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/gov-office.v1.json",
+  "title": "gov-office（gov_office_nearby）：最近的戶政事務所、今天是不是上班日",
+  "type": "object",
+  "required": ["offices", "today", "source"],
+  "additionalProperties": false,
+  "properties": {
+    "offices": {
+      "type": "array", "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["name", "address", "tel", "lat", "lon", "distanceM", "walkMin", "nav"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "address": { "type": "string" },
+          "tel": { "type": ["string", "null"] },
+          "lat": { "type": "number" },
+          "lon": { "type": "number" },
+          "distanceM": { "type": "integer", "minimum": 0 },
+          "walkMin": { "type": ["integer", "null"], "minimum": 1 },
+          "nav": { "type": ["object", "null"], "required": ["google", "apple"], "additionalProperties": false, "properties": { "google": { "type": "string" }, "apple": { "type": "string" } } }
+        }
+      }
+    },
+    "today": {
+      "type": "object",
+      "required": ["date", "workday", "note", "known"],
+      "additionalProperties": false,
+      "properties": { "date": { "type": "string" }, "workday": { "type": "boolean" }, "note": { "type": ["string", "null"] }, "known": { "type": "boolean", "description": "false：辦公日曆沒有今天（照週末推的）" } }
+    },
+    "source": { "type": "string" }
+  }
+}
