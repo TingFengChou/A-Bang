@@ -141,3 +141,12 @@ test('示範模式：找診所用 clinic_search；胸痛先叫 119、不查診�
   assert.ok(!sos.some((e) => e.type === 'tool_result' && e.tool === 'clinic_search'));
   assert.match(sos.filter((e) => e.type === 'text').map((e) => e.delta).join(''), /119/);
 });
+
+test('審查（2026-11-28）：處方箋、慢性處方＋診所仍是找藥局；傳給女兒、兒子、阿嬤是分享', () => {
+  const p = (q) => parseIntent(q, { history: [] });
+  for (const q of ['診所開的處方箋要去哪裡領', '拿診所的慢性處方去哪領', '診所的藥要去哪個藥局拿']) {
+    assert.equal(p(q).intent, 'pharmacy', q);
+    assert.notEqual(p(q).clinic, true, q);
+  }
+  for (const q of ['傳給我女兒', '幫我傳給兒子', '傳給我阿嬤']) assert.equal(p(q).intent, 'share', q);
+});
