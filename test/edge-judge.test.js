@@ -48,7 +48,7 @@ test('edgeJudge：網頁版、關閉、外掛錯誤、逾時都回 null；成功
   assert.deepEqual(await edgeJudge('帶行李去松山機場', ['a', 'b', 'c']), { intent: 'trip', states: ['luggage'], engine: 'apple' });
   const args = calls.find((c) => c.method === 'judge').args;
   assert.deepEqual(args.history, ['b', 'c'], '只送最後 2 句前文');
-  assert.ok(args.instructions.includes('bus_route') && args.intents.length === 31);
+  assert.ok(args.instructions.includes('bus_route') && args.intents.length === 32);
 
   fakeCap(() => Promise.reject(new Error('unavailable: disabled')));
   assert.equal(await edgeJudge('去台北101'), null, '外掛回錯誤');

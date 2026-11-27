@@ -14,11 +14,12 @@ import antifraud from './antifraud.js';
 import life from './life.js';
 import finance from './finance.js';
 import drama from './drama.js';
+import gov from './gov.js';
 
 /** 卡片資料契約版本（public/ui/cards/schema/<card>.v1.json） */
 export const CARD_VERSION = 1;
 
-const ALL = [...transit, ...metro, ...traffic, ...intercity, ...weather, ...ridehail, ...trip, ...booking, ...antifraud, ...life, ...finance, ...drama];
+const ALL = [...transit, ...metro, ...traffic, ...intercity, ...weather, ...ridehail, ...trip, ...booking, ...antifraud, ...life, ...finance, ...drama, ...gov];
 const byName = new Map(ALL.map((t) => [t.name, t]));
 if (byName.size !== ALL.length) throw new Error('tool 名稱重複');
 

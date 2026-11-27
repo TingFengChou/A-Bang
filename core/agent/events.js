@@ -14,6 +14,7 @@ export const TOOL_ROLES = {
   aqi_nearby: '空品', earthquake_recent: '地震', pharmacy_search: '藥局', garbage_truck_nearby: '垃圾車', fuel_price: '油價', invoice_lottery: '發票', invoice_check_batch: '發票', stock_quote: '股市',
   scam_check_message: '防詐', scam_lookup_url: '網址', scam_myth_search: '闢謠', sms_sender_check: '號碼',
   drama_picks: '短劇', drama_search: '短劇', drama_series: '短劇',
+  gov_service_info: '辦事',
 };
 
 const need = (type, obj, keys) => {

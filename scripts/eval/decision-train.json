@@ -1838,6 +1838,66 @@
 "text": "寄給我姐",
 "intent": "share",
 "states": []
+},
+{
+"text": "換身分證要帶什麼",
+"intent": "gov",
+"states": []
+},
+{
+"text": "身分證不見了怎麼補辦",
+"intent": "gov",
+"states": []
+},
+{
+"text": "申請戶籍謄本要準備什麼",
+"intent": "gov",
+"states": []
+},
+{
+"text": "戶口名簿可以去哪裡申請",
+"intent": "gov",
+"states": []
+},
+{
+"text": "第一次申請護照要帶哪些東西",
+"intent": "gov",
+"states": []
+},
+{
+"text": "護照遺失要怎麼辦",
+"intent": "gov",
+"states": []
+},
+{
+"text": "結婚登記需要什麼文件",
+"intent": "gov",
+"states": []
+},
+{
+"text": "出生登記要帶什麼",
+"intent": "gov",
+"states": []
+},
+{
+"text": "搬家遷戶口怎麼辦",
+"intent": "gov",
+"states": []
+},
+{
+"text": "勞保生育給付怎麼申請",
+"intent": "gov",
+"states": []
+},
+{
+"text": "國民年金老年年金怎麼請領",
+"intent": "gov",
+"states": []
+},
+{
+"text": "印鑑證明怎麼申請",
+"intent": "gov",
+"states": []
 }
 ]
 }

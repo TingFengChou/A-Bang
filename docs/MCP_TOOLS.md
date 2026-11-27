@@ -72,6 +72,7 @@
 | `drama_picks` | drama | L1 | `drama` | ✅（2026-11-22，MyDrama 公開片庫，ADR-0019；沒設定 `MYDRAMA_API_BASE` 用虛構示範片庫） |
 | `drama_search` | drama | L1 | `drama` | ✅（同上） |
 | `drama_series` | drama | L1 | `drama` | ✅（同上） |
+| `gov_service_info` | gov | L1 | `gov-service` | ✅（M16-04a，2026-11-27） |
 | `scam_check_message` | antifraud | **L2** | `scam-risk` | ✅（M7） |
 | `scam_lookup_url` | antifraud | **L2** | — | ✅（M7） |
 | `scam_myth_search` | antifraud | L1 | — | ✅（M7） |
@@ -380,6 +381,17 @@ MyDrama 的公開讀取端點（排行、搜尋、單劇、簡介、熱搜；不
 | `drama_series` | `id`：英數、底線、連字號（1～64 字） | `kind: 'series'`、`items[0]`（簡介最多 600 字）、`store`；找不到或已下架 → `UserError` |
 
 `items[]`：`{ id, title, tags[≤5], genre, episodes, freeEpisodes, completed, isNew, taiwanOriginal, heat, synopsis（≤160 字）, appLink }`。`appLink`＝第 1 集的 App 連結（`MYDRAMA_LINK_EPISODE` 範本代入；沒設定為 `null`）；`store`＝`{ ios, android }`（https，沒設定為 `null`）。封面、價格、解鎖設定不往上傳；限制級不列。
+
+### 去政府辦事（pack `gov`，M16-04a，2026-11-27）
+
+| tool | 輸入 | 輸出 `data` 重點 |
+|---|---|---|
+| `gov_service_info` | `query`：要辦的事（2～40 字，例「換身分證」「戶籍謄本」；「要帶什麼」「怎麼辦」等問法會去掉）；`county?`：使用者所在縣市（地方版排前面）；`limit?` 1～5（預設 3） | `query`（整理後的關鍵字）、`items[]`、`total`（資料筆數）、`source` |
+
+`items[]`：`{ id, title, central（中央機關版）, channels（counter 臨櫃／online 線上／other 電郵傳真）, docs[≤12]（應備證件一條一條；沒填是空陣列）, days, eligibility, process, contact, url（我的E政府頁面）, onlineUrl, formUrl（只收 https）, updated（YYYY-MM-DD） }`。
+搜尋：口語換成公文用字（換身分證 → 國民身分證換發、遷戶口 → 遷入登記…）後用二字詞比對標題；中央機關版加分、別的縣市與英文版／公司代辦版扣分、同名只留一筆、與最符合的差太多不列。
+speak 範例：「「國民身分證初發、補發、換發」：可以臨櫃辦，當日完成（資料 2022-11-24 更新，以機關公告為準）。」找不到：「沒有找到「…」的申辦說明，換個說法試試看。」
+規則：只讀公開說明，不登入、不送件、不收個資；要身分驗證的申辦只給官方網頁，由使用者自己開（ADR-0011）。
 
 | speak 範例 | 「熱門排行前 3 名：《夜班公車的約定》、《總裁的便當外送員》、《重返十八歲的阿嬤》。」（示範片庫的劇名都是虛構的） |
 |---|---|

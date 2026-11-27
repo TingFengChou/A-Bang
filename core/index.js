@@ -35,6 +35,8 @@ import { createStockServices, createLiveStockFetchers } from './services/stock.j
 import { createMockStockServices } from './services/stock-mock.js';
 import { createDramaServices, createLiveDramaFetchers } from './services/drama.js';
 import { createMockDramaServices } from './services/drama-mock.js';
+import { createGovServices, createLiveGovFetchers } from './services/govservice.js';
+import { createMockGovServices } from './services/govservice-mock.js';
 
 /**
  * @param {{ clientId?: string, clientSecret?: string, cwaKey?: string, moenvKey?: string, openData?: boolean, forceMock?: boolean, log?: Function, demo?: { traffic?: 'smooth'|'jam', weather?: 'clear'|'rain', air?: 'good'|'bad', bus?: 'off'|'offLive' }, drama?: { apiBase?: string, links?: object } }} [opts]
@@ -104,6 +106,8 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
   // 短劇（ADR-0019）：MyDrama 公開讀取端點，網址只在環境變數；沒設定（或 DEMO_MODE=1）用虛構示範片庫
   const dramaFx = dramaCfg.apiBase && !forceMock ? createLiveDramaFetchers({ od: createOpenDataClient(), base: dramaCfg.apiBase }) : null;
   const drama = dramaFx ? createDramaServices(dramaFx, { links: dramaCfg.links }) : createMockDramaServices({ links: dramaCfg.links });
+  // 去政府辦事（M16-04a）：我的E政府申辦服務資料（免金鑰），跟著 openData；沒有時用真實資料的片段
+  const gov = od ? createGovServices(createLiveGovFetchers({ od })) : createMockGovServices();
 
   return {
     mode: live ? 'live' : 'demo',
@@ -113,6 +117,7 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
     aqiMode: antifraudLive && moenvKey ? 'live' : 'demo',
     quakeMode: antifraudLive && cwa ? 'live' : 'demo',
     dramaMode: dramaFx ? 'live' : 'demo', // 短劇（MyDrama 公開片庫）
+    govMode: od ? 'live' : 'demo', // 去政府辦事（我的E政府申辦服務）
     demoForced: Boolean(forceMock), // 伺服器設定成只用示範資料（DEMO_MODE）：試判斷說明為什麼是示範資料
     tdxLimitedAt: () => quota.at || null, // 最近一次 TDX 額度用完（改用示範）的時間；沒有回 null
     // TDX 背景預熱（伺服器啟動後呼叫；示範模式為 null）：先台北的公車與 YouBike、北捷車站，再新北、桃園、台鐵高鐵
@@ -136,6 +141,7 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
     ...stock, // stock：上市櫃收盤行情與指數（finance 工具包）
     ...antifraud, // antifraud：165 開放資料（免金鑰；DEMO_MODE=1 時用示範片段，M7）
     ...drama, // drama：MyDrama 短劇排行、搜尋、簡介（ADR-0019）
+    gov, // gov：去政府辦事的申辦說明（我的E政府，M16-04a）
   };
 }
 

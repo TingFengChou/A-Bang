@@ -745,6 +745,23 @@ test('阿幫動手做（ADR-0021）：行程卡片「加到行事曆」下載 .i
   }, { init: () => { window.open = () => null; Object.defineProperty(navigator, 'share', { value: undefined, configurable: true }); Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (t) => { window.__copied = t; } }, configurable: true }); } });
 });
 
+test('去政府辦事（M16-04a）：「換身分證要帶什麼」→ @辦事 → 辦事須知卡片（要帶什麼、官方說明、資料日期）', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = recordBodies(page);
+    await askAbang(page, '換身分證要帶什麼', 1, bodies);
+    const card = page.locator('.turn').last().locator('.ab-gov').first();
+    await card.waitFor();
+    assert.match(await card.locator('.ab-name').textContent(), /國民身分證初發、補發、換發/);
+    assert.ok(await card.locator('.ab-gov-docs li').count() >= 3, '要帶什麼條列');
+    assert.equal(await card.getByRole('button', { name: '官方說明' }).count(), 1);
+    assert.match(await card.locator('.ab-gov-note').textContent(), /資料 \d{4}-\d{2}-\d{2} 更新，以機關公告為準/);
+    assert.equal(await card.locator('.ab-gov-head').getAttribute('aria-expanded'), 'true', '第一項展開');
+    assert.match(await page.locator('.bubble.final').last().textContent(), /當日完成/);
+    await card.scrollIntoViewIfNeeded();
+    await page.locator('.turn').last().locator('.card-slot', { has: page.locator('.ab-gov') }).screenshot({ path: new URL('phone-gov-service.png', SHOTS).pathname });
+  }, { init: () => { window.open = () => null; } });
+});
+
 test('阿幫問你：常叫車 → 問原因 → 常帶東西（不自動套用）→ 下次「這次也帶東西嗎？」→ 是 →「你說過：常帶東西」重算', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = recordBodies(page);

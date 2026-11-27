@@ -47,6 +47,9 @@ const CASES = [
   ['drama_search', { query: '甜寵' }],
   ['drama_search', { query: '殭屍' }],
   ['drama_series', { id: 'demo-last-train' }],
+  ['gov_service_info', { query: '換身分證' }],
+  ['gov_service_info', { query: '第一次辦護照' }],
+  ['gov_service_info', { query: '量子電腦補助' }],
 ];
 
 test('validate：型別、必要欄位、enum、$ref、additionalProperties', () => {

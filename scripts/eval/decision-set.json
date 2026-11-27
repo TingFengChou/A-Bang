@@ -1750,6 +1750,48 @@
 "intent": "share",
 "states": [],
 "level": "hard"
+},
+{
+"id": 237,
+"text": "補辦身分證需要什麼",
+"intent": "gov",
+"states": [],
+"level": "easy"
+},
+{
+"id": 238,
+"text": "去戶政事務所辦謄本要帶什麼",
+"intent": "gov",
+"states": [],
+"level": "easy"
+},
+{
+"id": 239,
+"text": "辦護照要準備哪些證件",
+"intent": "gov",
+"states": [],
+"level": "easy"
+},
+{
+"id": 240,
+"text": "遷戶口要帶什麼東西",
+"intent": "gov",
+"states": [],
+"level": "easy"
+},
+{
+"id": 241,
+"text": "死亡登記怎麼辦理",
+"intent": "gov",
+"states": [],
+"level": "hard"
+},
+{
+"id": 242,
+"text": "育嬰留職停薪津貼要怎麼申請",
+"intent": "gov",
+"states": [],
+"level": "hard"
 }
 ]
 }
