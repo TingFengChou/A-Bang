@@ -162,6 +162,9 @@ TDX：高鐵 `/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}`；台鐵 
 | status | — | 狀態代碼（2026-11-22）：0 分 `arriving`（進站中）、1 分 `approaching`（即將進站）、其他 `minutes`（N 分）、時刻表 `scheduled`、無資料 `unknown`；卡片與英文回答依代碼用字典，工具文字仍是中文易讀字（`metroStatusText`） |
 | speak | 「桃園機場捷運共有 6 個車站。」 | 「美麗島最快 3 分鐘後有往小港的車。」；沒資料時「…目前沒有即時到站資料。」；`near`：「離你最近的是市政府（約 89 公尺）：…」（給地名時「離「臺北車站」最近的是…」） |
 
+
+`metro_live_board` 的 `toward?`（2026-11-28）：只看往這個方向的車（站名，「往南港的板南線」給 南港）；說的站落在這一站之後、到終點站為止才算，名稱寫一部分也可以（`core/metro-route.js` `towardTrains`）；對不到照原本全部列並回 `towardMissed`。
+
 ### ✅ `metro_route`（2026-11-23）
 
 捷運從 A 站到 B 站怎麼坐（轉乘建議）。輸入 `from`、`to`（站名）、`system`（選填：上車站的系統，同名站在不同城市時給）。
