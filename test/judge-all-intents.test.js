@@ -14,8 +14,8 @@ import { createServices } from '../core/index.js';
 
 const NEW = ['intercity', 'ridehail', 'booking', 'place', 'outing', 'drama', 'exercise', 'scam', 'reminder', 'settings', 'calendar', 'share', 'help', 'chat', 'emergency'];
 
-test('31 類：伺服器、手機、iOS（@Generable 選項）、畫面字典同一份', async () => {
-  assert.equal(Object.keys(JUDGE_INTENTS).length, 31);
+test('32 類：伺服器、手機、iOS（@Generable 選項）、畫面字典同一份', async () => {
+  assert.equal(Object.keys(JUDGE_INTENTS).length, 32);
   assert.deepEqual([...EDGE_INTENTS].sort(), Object.keys(JUDGE_INTENTS).sort());
   for (const k of NEW) assert.ok(JUDGE_INTENTS[k], k);
   const swift = await readFile(new URL('../ios/App/App/AbangEdgeAIPlugin.swift', import.meta.url), 'utf8');

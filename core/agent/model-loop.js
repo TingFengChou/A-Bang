@@ -151,7 +151,7 @@ export const sameName = (a, b) => {
 };
 
 /** 地端模型模式改由規則回答的意圖（資料查一次、照實報數字） */
-export const RULE_ANSWERS = new Set(['fuel', 'invoice', 'stock', 'quake', 'drama', 'traffic']); // drama：找短劇（排行、類型搜尋）規則就聽得懂；traffic：國道路況（起訖由規則抽，沒有起訖先問，S7）
+export const RULE_ANSWERS = new Set(['fuel', 'invoice', 'stock', 'quake', 'drama', 'traffic', 'gov']); // drama：找短劇（排行、類型搜尋）規則就聽得懂；traffic：國道路況（起訖由規則抽，沒有起訖先問，S7）
 /**
  * 地端模型模式改由規則回答的情況（P4、P5 模型模式）：查一次就報數字的生活資料、說了站名的捷運下一班、
  * 一句問好幾件事（規則已經拆好）、沒說哪一站的「去火車站」、禮貌話、只有標點。
@@ -208,6 +208,7 @@ export function dropNulls(v) {
  * trip 與 unknown 不縮減。Claude 等大模型照常看全部工具。
  */
 export const INTENT_TOOLS = {
+  gov: ['gov_service_info'],
   bus_route: ['bus_route_eta', 'bus_search_routes', 'bus_station_eta', 'bus_nearby_stations', 'find_place'],
   youbike: ['youbike_nearby', 'find_place'],
   nearby_bus: ['bus_nearby_stations', 'bus_station_eta', 'find_place'],

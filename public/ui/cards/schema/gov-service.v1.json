@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/gov-service.v1.json",
+  "title": "gov-service（gov_service_info）：去政府辦事要帶什麼（我的E政府申辦服務資訊）",
+  "type": "object",
+  "required": ["query", "items", "total", "source"],
+  "additionalProperties": false,
+  "$defs": {
+    "url": { "type": ["string", "null"], "pattern": "^https://" },
+    "text": { "type": ["string", "null"] },
+    "item": {
+      "type": "object",
+      "required": ["id", "title", "central", "channels", "docs", "days", "eligibility", "process", "contact", "url", "onlineUrl", "formUrl", "updated"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "central": { "type": "boolean", "description": "中央機關的說明（地方政府版是 false）" },
+        "channels": { "type": "array", "items": { "enum": ["counter", "online", "other"] }, "description": "臨櫃、線上、電郵傳真" },
+        "docs": { "type": "array", "items": { "type": "string" }, "maxItems": 12, "description": "應備證件（一條一條；資料沒填就是空陣列）" },
+        "days": { "$ref": "#/$defs/text" },
+        "eligibility": { "$ref": "#/$defs/text" },
+        "process": { "$ref": "#/$defs/text" },
+        "contact": { "$ref": "#/$defs/text" },
+        "url": { "$ref": "#/$defs/url" },
+        "onlineUrl": { "$ref": "#/$defs/url" },
+        "formUrl": { "$ref": "#/$defs/url" },
+        "updated": { "type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+      }
+    }
+  },
+  "properties": {
+    "query": { "type": "string" },
+    "items": { "type": "array", "items": { "$ref": "#/$defs/item" }, "maxItems": 5 },
+    "total": { "type": "integer", "minimum": 0 },
+    "source": { "type": "string" }
+  }
+}

@@ -9,7 +9,7 @@ export const WRITE_TARGET_CHARS = 80;
 /** 程式版總結太長或數字太多時不改寫（模型一定漏，白花時間）：直接用程式版 */
 export const WRITE_SKIP = { chars: 220, numbers: 10 };
 /** 會交給手機改寫的 agent 與它的工具包（與 core/agents/*.json 的 packs 相同，test/edge-write.test.js 比對）：L2 輸出護欄照工具包套用。防詐不改寫 */
-export const WRITE_PACKS = { life: ['transit', 'weather', 'ridehail', 'life', 'finance', 'drama'] }; // 與 core/agents/life.json 的 packs 一致（drama：ADR-0019）
+export const WRITE_PACKS = { life: ['transit', 'weather', 'ridehail', 'life', 'finance', 'drama', 'gov'] }; // 與 core/agents/life.json 的 packs 一致（drama：ADR-0019；gov：去政府辦事，M16-04a）
 export const WRITE_AGENTS = Object.keys(WRITE_PACKS);
 /** 給原生端的輸入上限（指示＋輸入，字數）；原生 write() 超過一樣拒絕 */
 export const WRITE_MAX_INPUT = 4000;
