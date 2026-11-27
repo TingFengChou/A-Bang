@@ -17,11 +17,24 @@ export const CALENDAR_TTL_SEC = 30 * 24 * 3600;
 const TW_MS = 8 * 3600e3;
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
 
-/** 簡單的 CSV（這幾份檔案沒有引號裡的逗號；有的話整列跳過） */
+/** 一列 CSV → 欄位（支援雙引號包起來、裡面有逗號或 "" 的欄位） */
+function cells(line) {
+  const out = []; let cur = ''; let q = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (q) { if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (ch === '"') q = false; else cur += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ',') { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+/** CSV 文字 → 物件陣列（欄數對不上的列跳過） */
 function rows(text) {
   const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter((l) => l.trim());
-  const head = (lines.shift() || '').split(',').map((x) => x.trim());
-  return lines.map((l) => l.split(',')).filter((c) => c.length === head.length).map((c) => Object.fromEntries(head.map((k, i) => [k, c[i].trim()])));
+  const head = cells(lines.shift() || '').map((x) => x.trim());
+  return lines.map(cells).filter((c) => c.length === head.length).map((c) => Object.fromEntries(head.map((k, i) => [k, c[i].trim()])));
 }
 
 /** 申辦點位 CSV → 戶政事務所與辦公室（台灣範圍內的座標） */

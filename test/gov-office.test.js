@@ -15,6 +15,7 @@ const TPE = Date.UTC(2026, 10, 27, 2); // 2026-11-27（五）10:00 台灣時間
 test('解析：只留戶政事務所、台灣範圍的座標；電話；日曆；當年日曆網址（不要 Google 版）', () => {
   const o = parseOffices(CSV);
   assert.deepEqual(o.map((x) => x.name), ['臺北市中正區戶政事務所', '臺北市信義區戶政事務所']);
+  assert.equal(parseOffices('序號,名稱,地址,座標經度,座標緯度\n1,臺北市大安區戶政事務所,"臺北市大安區新生南路2段86號,2樓",121.53,25.02\n')[0]?.address, '臺北市大安區新生南路2段86號,2樓', '地址有逗號（雙引號）也留著');
   assert.equal(parseTels({ responseData: [{ orgName: '臺北市中正區戶政事務所', tel: '02-23948838' }, { orgName: 'x' }] }).get('臺北市中正區戶政事務所'), '02-23948838');
   const cal = parseCalendar('\uFEFF西元日期,星期,是否放假,備註\n20261010,六,2,國慶日\n20261012,一,0,\n');
   assert.deepEqual(cal.get('20261010'), { off: true, note: '國慶日' });
