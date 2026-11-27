@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/gov-links.v1.json",
+  "title": "gov-links（gov_official_link）：去政府辦事的官方入口（只給連結，使用者確認後自己開）",
+  "type": "object",
+  "required": ["topic", "links"],
+  "additionalProperties": false,
+  "properties": {
+    "topic": { "type": "string" },
+    "links": {
+      "type": "array", "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "site", "url", "how"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" }, "title": { "type": "string" }, "site": { "type": "string" },
+          "url": { "type": "string", "pattern": "^https://([a-z0-9-]+\\.)*(gov\\.tw|nat\\.gov\\.tw|gov\\.taipei)/" },
+          "how": { "type": "string" }
+        }
+      }
+    }
+  }
+}

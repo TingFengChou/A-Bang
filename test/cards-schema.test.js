@@ -54,6 +54,8 @@ const CASES = [
   ['gov_office_nearby', { lat: 22.62, lon: 120.31, limit: 5 }],
   ['passport_waiting', {}],
   ['passport_waiting', { office: '高雄' }],
+  ['gov_official_link', { topic: '我想查有沒有罰單' }],
+  ['gov_official_link', { topic: '量子電腦' }],
 ];
 
 test('validate：型別、必要欄位、enum、$ref、additionalProperties', () => {

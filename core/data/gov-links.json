@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "note": "去政府辦事的官方入口（M16-04d）。只收政府網域的 https 網址（core/services/govlinks.js 檢查）；2026-11-27 逐一確認網址有回應（健保署官網擋自動程式，瀏覽器可以開）。要身分驗證的事阿幫只給連結，使用者自己登入、查詢、付款，阿幫看不到結果（ADR-0011）。",
+  "links": [
+    { "id": "ticket", "title": "交通罰單查詢與繳納", "site": "監理服務網", "url": "https://www.mvdis.gov.tw/m3-emv-vil/vil/penaltyQueryPay", "how": "輸入身分證號、生日查詢；可以線上繳", "keys": ["罰單", "紅單", "違規", "超速", "闖紅燈", "交通違規", "罰款"] },
+    { "id": "mvdis", "title": "駕照、行照、考照預約、驗車", "site": "監理服務網", "url": "https://www.mvdis.gov.tw/", "how": "線上預約考照、換照、查驗車日期", "keys": ["監理", "考照", "駕照", "行照", "驗車", "換照", "監理站"] },
+    { "id": "ris", "title": "戶政線上申辦、電子戶籍謄本、網路預約", "site": "內政部戶政司", "url": "https://www.ris.gov.tw/app/portal", "how": "用自然人憑證、健保卡或 TW FidO 登入", "keys": ["戶政", "線上申辦", "網路預約", "電子戶籍謄本", "電子謄本", "戶籍"] },
+    { "id": "passport", "title": "護照網路預約、線上填表", "site": "外交部領事事務局", "url": "https://ppass.boca.gov.tw/", "how": "先在網路預約，現場走預約件會快很多", "keys": ["護照預約", "預約護照", "護照線上", "護照填表"] },
+    { "id": "etax", "title": "報稅、國稅查詢", "site": "財政部電子申報繳稅服務", "url": "https://www.etax.nat.gov.tw/", "how": "用自然人憑證、健保卡、TW FidO 或戶號登入報稅", "keys": ["報稅", "所得稅", "綜所稅", "國稅", "退稅", "扣繳憑單"] },
+    { "id": "localtax", "title": "牌照稅、房屋稅、地價稅查繳", "site": "地方稅網路申報作業", "url": "https://net.tax.nat.gov.tw/", "how": "查稅單、線上繳地方稅", "keys": ["牌照稅", "房屋稅", "地價稅", "地方稅", "稅單", "繳稅"] },
+    { "id": "nhi", "title": "健保：健保卡、繳費、健康存摺", "site": "衛生福利部中央健康保險署", "url": "https://www.nhi.gov.tw/", "how": "健保卡、繳費證明；健康存摺也可以用「全民健保行動快易通」App", "keys": ["健保", "健保費", "健保卡", "健康存摺", "快易通"] },
+    { "id": "bli", "title": "勞保、勞退、國民年金個人查詢", "site": "勞動部勞工保險局 e 化服務系統", "url": "https://edesk.bli.gov.tw/", "how": "用自然人憑證、健保卡或 TW FidO 查投保年資、勞退帳戶", "keys": ["勞保", "勞退", "勞保年資", "退休金", "國民年金", "勞保局"] },
+    { "id": "land", "title": "地政電子謄本", "site": "地政電子謄本系統", "url": "https://ep.land.nat.gov.tw/", "how": "線上申請土地、建物電子謄本（要付費）", "keys": ["地籍謄本", "土地謄本", "建物謄本", "地政", "地政謄本"] },
+    { "id": "mydata", "title": "個人資料自主運用（MyData）", "site": "數位發展部 MyData", "url": "https://mydata.nat.gov.tw/", "how": "下載自己在政府的資料（戶籍、所得、勞健保…）", "keys": ["mydata", "個人資料下載", "我的資料"] },
+    { "id": "fido", "title": "行動自然人憑證（TW FidO）", "site": "內政部 TW FidO", "url": "https://fido.moi.gov.tw/", "how": "在手機註冊後，很多政府網站可以用手機登入", "keys": ["行動自然人憑證", "fido", "twfido", "手機自然人憑證"] }
+  ]
+}

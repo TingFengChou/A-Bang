@@ -9,7 +9,7 @@ const svc = createServices({ forceMock: true });
 
 test('每個 tool 都有 pack、tier、描述與 JSON Schema', () => {
   const tools = listTools();
-  assert.equal(tools.length, 39);
+  assert.equal(tools.length, 40);
   for (const t of tools) {
     assert.match(t.name, /^[a-z][a-z0-9_]*$/);
     assert.ok(t.description.length > 10, t.name);

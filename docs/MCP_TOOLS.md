@@ -75,6 +75,7 @@
 | `gov_service_info` | gov | L1 | `gov-service` | ✅（M16-04a，2026-11-27） |
 | `gov_office_nearby` | gov | L1 | `gov-office` | ✅（M16-04b，2026-11-27） |
 | `passport_waiting` | gov | L1 | `passport-wait` | ✅（M16-04c，2026-11-27） |
+| `gov_official_link` | gov | **L2** | `gov-links` | ✅（M16-04d，2026-11-27） |
 | `scam_check_message` | antifraud | **L2** | `scam-risk` | ✅（M7） |
 | `scam_lookup_url` | antifraud | **L2** | — | ✅（M7） |
 | `scam_myth_search` | antifraud | L1 | — | ✅（M7） |
@@ -402,6 +403,10 @@ speak 範例：「最近的是臺北市中正區戶政事務所，約 1.7 公里
 | `passport_waiting` | `office?`：只看某個據點（「台中」「高雄」「嘉義」；找不到就列全部） | `updatedAt`、`offices[]`：`{ name, short, general: { waiting, now }, online: { waiting, now }, pickup: { waiting } }`（領件上下午合計；沒有欄位是 null 不是 0）、`booking`（網路預約）、`page`（即時看板） |
 
 speak 範例：「領務局（臺北）：申辦一般件 78 人在等、網路預約件 0 人在等、領護照 3 人在等（11:53 更新）。」只有人數，不換算成分鐘。
+
+| `gov_official_link` | `topic`：要辦的事（2～40 字，例「罰單」「報稅」「勞保年資」） | `topic`、`links[≤3]`：`{ id, title, site, url（只收政府網域 https）, how }` |
+
+內建清單 `core/data/gov-links.json`（罰單、監理、戶政線上申辦、護照預約、報稅、地方稅、健保、勞保勞退、地政謄本、MyData、TW FidO），`isGovUrl` 只收 `*.gov.tw`、`*.nat.gov.tw`、`*.gov.taipei` 的 https。L2：卡片按鈕先確認才開；阿幫只給網址，看不到登入後的內容、不代替付款、不索取身分證號。
 
 | speak 範例 | 「熱門排行前 3 名：《夜班公車的約定》、《總裁的便當外送員》、《重返十八歲的阿嬤》。」（示範片庫的劇名都是虛構的） |
 |---|---|
