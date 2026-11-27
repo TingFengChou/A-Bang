@@ -2133,6 +2133,142 @@
 "text": "印鑑證明怎麼申請",
 "intent": "gov",
 "states": []
+},
+{
+"text": "我想看醫生",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "附近哪裡可以看病",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "小孩發燒要看小兒科",
+"intent": "pharmacy",
+"states": [
+"kids"
+]
+},
+{
+"text": "晚上還有門診嗎",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "週末有開的診所",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "附近的家醫科",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "哪間診所現在有看診",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "有夜診的診所嗎",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "想找牙醫洗牙",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "附近有中醫嗎",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "我要拿慢箋",
+"intent": "pharmacy",
+"states": []
+},
+{
+"text": "老人家要看耳鼻喉科",
+"intent": "pharmacy",
+"states": [
+"elder"
+]
+},
+{
+"text": "健保卡不見了",
+"intent": "gov",
+"states": []
+},
+{
+"text": "敬老卡怎麼辦",
+"intent": "gov",
+"states": []
+},
+{
+"text": "低收入戶要準備什麼",
+"intent": "gov",
+"states": []
+},
+{
+"text": "印章不見了要怎麼辦",
+"intent": "gov",
+"states": []
+},
+{
+"text": "戶政事務所幾點開",
+"intent": "gov",
+"states": []
+},
+{
+"text": "孫子報戶口要帶什麼",
+"intent": "gov",
+"states": []
+},
+{
+"text": "去榮總看醫生怎麼走",
+"intent": "trip",
+"states": []
+},
+{
+"text": "去馬偕看病要坐什麼",
+"intent": "trip",
+"states": []
+},
+{
+"text": "附近有醫院嗎",
+"intent": "place",
+"states": []
+},
+{
+"text": "最近的急診室在哪",
+"intent": "place",
+"states": []
+},
+{
+"text": "去長庚看病怎麼去",
+"intent": "trip",
+"states": []
+},
+{
+"text": "帶阿嬤去台大醫院看醫生要搭什麼",
+"intent": "trip",
+"states": [
+"elder"
+]
+},
+{
+"text": "去國泰醫院回診要坐幾號公車",
+"intent": "trip",
+"states": []
+},
+{
+"text": "從家裡去醫院看醫生要多久",
+"intent": "trip",
+"states": []
 }
 ]
 }
