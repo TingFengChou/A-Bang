@@ -4549,6 +4549,192 @@
           }
         }
       ]
+    },
+    {
+      "id": "S21-1",
+      "title": "找有看診的小兒科：用位置推估在哪一區（M16-04e）",
+      "turns": [
+        {
+          "say": "附近有開的小兒科嗎",
+          "expect": {
+            "tools": [
+              "clinic_search"
+            ],
+            "textHas": [
+              "小兒科診所"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S21-2",
+      "title": "找診所之後「那明天早上呢」接著查（時間詞，PM 審查 #4）",
+      "turns": [
+        {
+          "say": "附近有開的診所嗎",
+          "expect": {
+            "tools": [
+              "clinic_search"
+            ]
+          }
+        },
+        {
+          "say": "那明天早上呢",
+          "expect": {
+            "tools": [
+              "clinic_search"
+            ],
+            "textHas": [
+              "明天上午"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S21-3",
+      "title": "有急症又問診所：先叫 119，不查診所（PM 審查 #1）",
+      "turns": [
+        {
+          "say": "小孩發高燒抽筋 附近有小兒科嗎",
+          "expect": {
+            "toolsNone": true,
+            "textHas": [
+              "119"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S21-4",
+      "title": "處方箋＋診所仍是找藥局（架構審查 #2）",
+      "turns": [
+        {
+          "say": "診所開的處方箋要去哪裡領",
+          "expect": {
+            "tools": [
+              "pharmacy_search"
+            ],
+            "toolsNot": [
+              "clinic_search"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S21-5",
+      "title": "最近的戶政事務所、今天是不是上班日（M16-04b）",
+      "turns": [
+        {
+          "say": "最近的戶政事務所在哪",
+          "expect": {
+            "tools": [
+              "gov_office_nearby"
+            ],
+            "textHas": [
+              "戶政事務所"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S21-6",
+      "title": "戶政禮拜六有開嗎：問那一天（時間詞）",
+      "turns": [
+        {
+          "say": "戶政事務所禮拜六有開嗎",
+          "expect": {
+            "tools": [
+              "gov_office_nearby"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S21-7",
+      "title": "健保卡不見了：辦事須知（長輩說法，PM 審查 #3）",
+      "turns": [
+        {
+          "say": "健保卡不見了",
+          "expect": {
+            "tools": [
+              "gov_service_info"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S21-8",
+      "title": "護照現場人多嗎：只報人數、提醒網路預約（M16-04c）",
+      "turns": [
+        {
+          "say": "現在去辦護照人多嗎",
+          "expect": {
+            "tools": [
+              "passport_waiting"
+            ],
+            "textHas": [
+              "網路預約"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S21-9",
+      "title": "查罰單：官方入口、不要點簡訊連結（M16-04d）",
+      "turns": [
+        {
+          "say": "我想查有沒有罰單",
+          "expect": {
+            "tools": [
+              "gov_official_link"
+            ],
+            "textHas": [
+              "不要點簡訊"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S21-10",
+      "title": "英文：觀光客掉了護照——報警、找駐台機構、外籍人士熱線（PM 審查 #6）",
+      "turns": [
+        {
+          "say": "I lost my passport, what should I do",
+          "expect": {
+            "toolsNone": true,
+            "textHas": [
+              "police",
+              "0800-024-111"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S21-11",
+      "title": "英文：最近的戶政事務所（PM 審查 #6）",
+      "turns": [
+        {
+          "say": "Where is the nearest household registration office?",
+          "expect": {
+            "tools": [
+              "gov_office_nearby"
+            ],
+            "textHas": [
+              "household registration office"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

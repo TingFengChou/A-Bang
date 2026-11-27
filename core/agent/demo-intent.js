@@ -1339,6 +1339,7 @@ export function demoSteps(it, now = Date.now()) {
       return [() => ({ note: '@油價 中油這週的牌價', calls: [{ name: 'fuel_price', args: {} }] })];
     case 'gov': // 去政府辦事要帶什麼（M16-04a）：我的E政府的申辦說明；找戶政事務所（M16-04b）：用位置找最近的、說今天是不是上班日
       if (it.govLink) return [() => ({ note: '@辦事 找官方網站的入口', calls: [{ name: 'gov_official_link', args: { topic: it.govQuery || '' } }] })];
+      if (it.lostPassportEn) return []; // 觀光客掉了護照：固定指引，不查資料
       if (it.govPassport) return [() => ({ note: '@辦事 看領務局與各辦事處現在的護照等待人數', calls: [{ name: 'passport_waiting', args: it.passportOffice ? { office: it.passportOffice } : {} }] })];
       if (it.govOffice) {
         const note = `@辦事 找附近的戶政事務所，看${it.when?.dayOffset ? it.when.label.replace(/上午|下午|晚上/, '') : '今天'}是不是上班日`;
@@ -1513,6 +1514,10 @@ function englishIntent(s, places, history = []) {
   if (/air quality|\baqi\b|pm ?2\.?5|smog/i.test(s)) return { ...base, intent: 'aqi' };
   // 出門建議（S12e）：「What should I bring/wear?」「Do I need an umbrella?」「Is it OK to go out?」（問明天的交給天氣預報）
   if (!tomorrow && !toWord && /what (?:should|do) i (?:bring|wear)|umbrella|jacket|(?:good|ok|okay) (?:time )?to go out/i.test(s)) return { ...base, intent: 'outing' };
+  // 去政府辦事（PM 審查 #6，2026-11-28）：戶政事務所、護照現場等待人數；觀光客掉了護照（先報警、找自己國家的駐台機構，不是台灣人的護照遺失申報）
+  if (/\b(?:lost|lose|missing|stolen)\b.{0,20}\bpassport\b|\bpassport\b.{0,20}\b(?:lost|missing|stolen)\b/i.test(s)) return { ...base, places: [], intent: 'gov', lostPassportEn: true };
+  if (/\bpassport (?:office|bureau)|\bBOCA\b/i.test(s) || (/\bpassport\b/i.test(s) && /\b(?:wait|waiting|queue|line|busy|crowded|how many people)\b/i.test(s))) return { ...base, places: [], intent: 'gov', govPassport: true };
+  if (/household registration|registration office|\bhukou\b/i.test(s)) return { ...base, places: [], intent: 'gov', govOffice: true };
   if (/\b(?:clinics?|doctors?|dentists?|pediatricians?|see a doctor)\b/i.test(s) && !/pharmac|drug ?store|how (?:do|can|should) i get|\bto (?:the )?[a-z ]*hospital\b/i.test(s)) { // 「Is there a clinic open near me?」：找診所（依位置推估行政區）
     const dept = /dentist|dental/i.test(s) ? 'dental' : /pediatric|children'?s doctor/i.test(s) ? 'peds' : /\bENT\b|ear,? nose/i.test(s) ? 'ent' : null;
     return { ...base, intent: 'pharmacy', clinic: true, area: null, ...(dept && { dept }) };
@@ -1625,6 +1630,14 @@ function englishSummary(it, results) {
   if (it.intent === 'aqi') { const a = results.aqi_nearby?.at(-1)?.data?.nearest; if (a) return `Air quality near ${a.site} station: AQI ${a.aqi}${a.aqi > 100 ? ', consider wearing a mask' : ''}.`; }
   if (it.intent === 'youbike') { const b = results.youbike_nearby?.at(-1)?.data?.stations?.[0]; if (b) return `Nearest YouBike station: ${b.name}, ${b.rent ?? '?'} bikes and ${b.returnSlots ?? '?'} free docks.${note}`; }
   if (it.intent === 'outing') { const o = results.outing_advice?.at(-1)?.data; if (o) { const tips = o.items.map(outingEn).filter(Boolean); return `Before you head out: ${tips.join('; ')}.${note}`; } }
+  if (it.intent === 'gov') {
+    if (it.lostPassportEn) return 'If you are visiting Taiwan: report the loss at the nearest police station to get a police report (call 110 in an emergency), then contact your country\'s embassy or representative office in Taiwan for a replacement travel document. The 24-hour foreigner hotline 0800-024-111 (free, English) can help. Taiwanese citizens can ask me in Chinese about 護照遺失.';
+    const o = results.gov_office_nearby?.at(-1)?.data;
+    if (it.govOffice && o) return `${SPEAK_EN.gov_office_nearby(o)} Opening hours vary by office (lunch break, some evenings and Saturdays), so call before you go${o.offices[0]?.tel ? ` (${o.offices[0].tel})` : ''}. Office names are shown in Chinese.${it.noLocation ? ' I could not get your location, so I searched near Taipei Main Station.' : ''}`;
+    const p = results.passport_waiting?.at(-1)?.data;
+    if (it.govPassport && p) return `${SPEAK_EN.passport_waiting(p)} These are head counts only, not wait times; booking online is much faster.`;
+    return 'For government services, ask me in Chinese for now (for example 換身分證要帶什麼). I can find the nearest household registration office or show passport office queues in English.';
+  }
   if (it.intent === 'pharmacy' && it.clinic) { const c = results.clinic_search?.at(-1)?.data; if (c) return `${SPEAK_EN.clinic_search(c)}${c.areaFrom ? ' The area was guessed from your location; tell me the district if it is wrong.' : ''} Hours are what clinics registered with NHI; call before you go. For an emergency, call 119.${note}`; }
   if (it.intent === 'pharmacy') { const p = results.pharmacy_search?.at(-1)?.data; if (p) return `${SPEAK_EN.pharmacy_search(p)}${p.areaFrom ? ' The area was guessed from your location; tell me the district if it is wrong.' : ` You didn't say where, so I searched ${p.area}; tell me the district.`} Tap a pharmacy for the map.${note}`; }
   if (it.thanks) return "You're welcome! Have a good trip.";
