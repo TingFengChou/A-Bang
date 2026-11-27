@@ -38,7 +38,7 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
   const perDay = createRateLimiter({ limit: Number(env.AGENT_RPD) || 100, windowMs: 86_400_000 });
   const budget = Number(env.AGENT_DAILY_BUDGET) || 5000;
   const turnMs = Number(env.AGENT_TURN_MS) || 60_000; // 一輪最多跑多久（架構第二輪 #1）
-  const meter = new Map(); // `${date}|${agentId}` → { requests, toolCalls, modelCalls }
+  const meter = new Map(); // `${date}|${agentId}` → { requests, toolCalls, modelCalls }；`${date}|*` 是全站（每日模型額度看全站，架構第三輪 #2）
 
   const usageOf = (agentId, date = nowTW().date) => {
     const k = `${date}|${agentId}`;
@@ -62,7 +62,7 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
     },
 
     /** 今天的計量（測試與 /api/v1/status 用） */
-    usage: (agentId = 'life') => ({ ...usageOf(agentId), budget }),
+    usage: (agentId = 'life') => ({ ...usageOf(agentId), budget, siteModelCalls: usageOf('*').modelCalls }),
 
     /** 目前的模式（claude／local／demo）與模型名稱 */
     mode: provider ? { mode: provider.mode, model: provider.model } : { mode: 'demo' },
@@ -76,6 +76,7 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
       const profile = getProfile(agentId);
       const edgeWrite = wantsEdgeWrite(req, profile.id); // 手機自己寫回答（ADR-0017）：伺服器不呼叫模型
       const u = usageOf(profile.id);
+      const site = usageOf('*'); // 全站：生活、防詐共用同一份每日模型額度（AGENT.md「全站每日」）
       u.requests++;
       res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
       const t0 = Date.now();
@@ -112,9 +113,9 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
         if (edgeWrite) {
           mode = 'edge';
           await runDemo(svc, body, emit, { profileId: profile.id, judge, now: clock(), mode: 'edge' });
-        } else if (provider && u.modelCalls < budget) {
+        } else if (provider && site.modelCalls < budget) {
           mode = provider.mode;
-          await runModel(svc, body, emit, { provider, profileId: profile.id, judge, now: clock(), onModelCall: () => { u.modelCalls++; } });
+          await runModel(svc, body, emit, { provider, profileId: profile.id, judge, now: clock(), onModelCall: () => { u.modelCalls++; site.modelCalls++; } });
         } else {
           await runDemo(svc, body, emit, { profileId: profile.id, judge, now: clock(), ...(provider && { notice: '今天的 AI 額度用完了，先用示範模式回答' }) });
         }
