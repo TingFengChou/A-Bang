@@ -71,7 +71,7 @@ core/            唯一的資料與邏輯層
   metrics.js     每次 tool 呼叫的計量（AsyncLocalStorage）
   geo.js         WKT 路線形狀解析、路徑抽樣
   metro-colors.js 捷運官方路線色
-  agent/         M5：prompt.js、events.js、demo-intent.js、run.js、model-loop.js、provider.js、claude.js、local.js ✅；judge.js 判斷層（意圖與狀態：嵌入分類器＋模型＋規則＋裝置端提示，AGENT.md §5.3、ADR-0014）；outing.js 出門建議
+  agent/         M5：prompt.js、events.js、demo-intent.js、patterns.js（規則共用寫法：路線號碼…）、run.js、model-loop.js、provider.js、claude.js、local.js ✅；judge.js 判斷層（意圖與狀態：嵌入分類器＋模型＋規則＋裝置端提示，AGENT.md §5.3、ADR-0014）；outing.js 出門建議
   agents/        life.json、antifraud.json（agent profile）＋ index.js（zod 驗證）✅
   opendata-client.js 免金鑰開放資料下載與快取（M10）；services/life.js 生活服務（空品、地震、藥局、垃圾車、油價、發票）；services/stock.js 股市收盤（證交所、櫃買中心）
   judge-classify.js 判斷層 A 嵌入分類器的純函式（伺服器與手機上的小模型共用，E3）；data/judge-classifier.json 手機用的參數

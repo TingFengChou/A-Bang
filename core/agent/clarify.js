@@ -5,6 +5,7 @@
 // 全部是通用規則（同名地點跨縣市、連鎖機構、區名、路名、公車方向、只說類別…），不寫死句子；選項都是 reply（完整的一句，
 // 規則聽得懂），打字回答由 core/agent/ask.js 的 PENDING_SLOTS 接回。原則同 #115：寧可不問——對不上就照原本流程。
 import { LANDMARKS, normPlace } from '../services/places.js';
+import { ROUTE_EXACT } from './patterns.js';
 import { distanceM } from '../util.js';
 
 const ITEMS = LANDMARKS.items;
@@ -379,7 +380,7 @@ export function whereAsk(topic, { tomorrow = false, guess = '台北', lang = nul
 export const whereSay = (p, place) => (p.lang === 'en' ? null : WHERE_SAY[p.topic]?.(place, p));
 
 // ───── 公車：沒定位又沒說站、只說方向 ─────
-const ROUTE_NO = /^[紅藍綠棕橘小幹]?\d{1,4}[區副]?$/;
+const ROUTE_NO = ROUTE_EXACT; // 共用寫法（patterns.js）
 /** 沒定位、沒說站：問在哪一站等（選項是兩個方向；直接打站名也可以） */
 export function busStopAsk(data, lang = null) {
   const en = lang === 'en';

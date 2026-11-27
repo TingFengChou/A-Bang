@@ -15,6 +15,7 @@ export const ASK_KINDS = ['state', 'reply', 'store', 'dismiss', 'action'];
 export const ASK_ACTIONS = ['openLink', 'watchArrival', 'remind', 'navigate', 'focusInput', 'handOff', 'addCalendar', 'share']; // navigate：App 內的頁面（#/…，例：到防詐、發票）；focusInput：游標放到輸入框（請他貼上訊息）；addCalendar／share：用畫面上最近的行程卡片開系統畫面（ADR-0021）
 
 import { decide, keyQuestion } from '../decide.js';
+import { ROUTE_EXACT } from './patterns.js';
 import { edgeAskShape, askNorm } from '../edge-ask.js';
 import { matchRules } from '../scam-check.js';
 import { placesInText, parseIntent, isEnglish, modeOf } from './demo-intent.js';
@@ -162,7 +163,7 @@ export const UNKNOWN_SHORT = {
 
 /** 常用地點的標籤：選項帶 saved，手機有設定才顯示（伺服器不知道手機設了哪些） */
 export const SAVED_LABELS = ['家', '公司', '學校'];
-const ROUTE_RE = /^[紅藍綠棕橘小幹]?\d{1,4}[區副]?$/;
+const ROUTE_RE = ROUTE_EXACT; // 共用寫法（patterns.js）
 /** 對話裡最近提到的公車路線（使用者問過的、阿幫回答裡的「公車 601」），新的在前 */
 export function recentRoutes(history = [], max = 3) {
   const out = [];

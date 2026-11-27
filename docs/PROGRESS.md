@@ -11,6 +11,13 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 規則共用寫法 core/agent/patterns.js（拆 demo-intent 第一步）
+- 做了：架構第二輪 #4 第一步：公車路線號碼的寫法在 demo-intent、ask、clarify、run 各寫一份；新增 `core/agent/patterns.js`（`ROUTE_NO`、`ROUTE_EXACT`、`SAID_BUS_ROUTE`），字串組的正規式（BUS_ROUTE、BUS_TOWARD、BARE_ROUTE、ROUTE_LIST）與「整句就是路線號碼」的檢查都改用它；行為不變（情境集與全部測試照舊通過）。刻意不同的（vision-text 不收 0 開頭、前端 suggest.js）保留
+- 測試：npm test 全過；e2e 全過
+- 文件：PROGRESS.md、CLAUDE.md 目錄
+- 下一個：拆 demo-intent 第二步：總結（demoSummary、englishSummary）搬到 demo-summary.js
+- 卡住：無
+
 ## 2026-11-28 捷運往某方向
 - 做了：PM 第二輪：「往南港的板南線」原本被排成去南港車站的行程，「板南線往南港下一班」查成南港附近的站。`metro_live_board` 加 `toward`：只回往那個方向的車（`core/metro-route.js` `towardTrains`：說的站落在「這一站之後、到終點站為止」，名稱寫一部分也可以；對不到照原本全部列並記 `towardMissed`）。規則：句子有捷運或線名、又有「往 X」→ 附近的站、只看往 X 的車；問怎麼去的仍是行程。模型模式的預查也帶上
 - App Functions 結合：`toward` 是工具參數，Siri／Gemini 問「往南港的捷運還要多久」可以直接帶

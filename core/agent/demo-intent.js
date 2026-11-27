@@ -1,6 +1,7 @@
 // 示範模式意圖解析（M5-03，AGENT.md §5）：沒有 API Key 時，以規則判斷意圖、地點與使用者狀態，
 // 產生「分段的工具呼叫計畫」；由 run.js 執行並發出與 Claude 模式相同的事件流。不加人工延遲。
 import { enName, outingEn, SPEAK_EN } from '../tools/speak-en.js';
+import { ROUTE_NO, SAID_BUS_ROUTE } from './patterns.js';
 import { findGovLinks } from '../services/govlinks.js';
 import { deptOf, DEPTS } from '../services/clinic.js';
 import { whenOf } from '../when.js';
@@ -63,7 +64,7 @@ export function partyOf(s) {
 }
 /** 公車路線後面的說法（BUS_ROUTE 與數字地名共用：「101 多久」是公車不是台北101） */
 const BUS_ASK = '公車|到哪|來了|還要|什麼時候|幾分|怎麼還沒|還沒來|多久|要等|來了沒|快到了沒|在哪|幾點(?:會)?來|末班|最後一班|收班'; // 「307 幾點來」（P5-4）；「307 末班車幾點」（真實資料健檢 2026-11-22）
-const BUS_ROUTE = new RegExp(`(?:^|[^\\d])([紅藍綠棕橘小幹]?\\d{1,4}[區副]?)(?:\\s*(?:號|路)?\\s*(?:${BUS_ASK}))`); // 口語：「307 怎麼還沒來」「307 多久」（P2-1）
+const BUS_ROUTE = new RegExp(`(?:^|[^\\d])(${ROUTE_NO})(?:\\s*(?:號|路)?\\s*(?:${BUS_ASK}))`); // 口語：「307 怎麼還沒來」「307 多久」（P2-1）
 /** 在等某一路公車（「我在等939」「等 939 公車」）：沒有問法也是查那一路（真實資料健檢 S8）；「等 20 分鐘」「等 3 個人」不算 */
 const BUS_WAIT = /(?:^|(?<=[我在正還就站牌邊]))等\s*(?:公車\s*)?([紅藍綠棕橘小幹]?\d{1,4}[區副]?)(?!\d)(?!\s*(?:分|秒|小時|鐘|個|人|天|年|點|樓|元|塊|%|％))(?!\s*號(?!\s*(?:公車|的車|[，,。.!！?？～~]|$)))\s*(?:號|路)?\s*(?:公車|的車)?/; // 「我在台北車站等307」算；「我等3號發薪」「等 5 號再說」「等2號窗口」不算（PR #127 審查）
 /** 問末班車（「末班車幾點」「最後一班公車幾點」「捷運末班車幾點」）；高鐵台鐵由 RAIL_ASK 處理 */
@@ -221,7 +222,7 @@ const ASKED_ORIGIN_EN = /^Where are you starting from\?|type where you are/i;
 /** 上一輪阿幫選了（或在盯）哪一班公車（回答裡的「公車 棕9」）；沒有回 null */
 function chosenBus(history) {
   const said = history.filter((x) => x.role === 'assistant').at(-1)?.content || '';
-  return /公車\s*([紅藍綠棕橘小幹]?\d{1,4}[區副]?)/.exec(said)?.[1] || null;
+  return SAID_BUS_ROUTE.exec(said)?.[1] || null;
 }
 /** 句中明講的起點（「從桃園高鐵站到台北101」）：地標庫沒有也要用它，不能被手機定位蓋掉 */
 const FROM_TEXT = /從\s*([^\s，,。、到去往]{2,12}?)\s*(?:要|該)?\s*(?:怎麼|怎樣)?\s*(?:到|去|往)/; // 「從板橋怎麼去」的起點是板橋（不是「板橋怎麼」）
@@ -521,7 +522,6 @@ const MULTI_SPLIT = /[、，,；;。？?！!～~]|還有|順便|然後|另外|�
 /** 可以一起查的意圖（不用再問地點以外的參數）；主要意圖的優先序：行程、公車、天氣、空品，其餘照說的順序 */
 const MULTI_OK = ['bus_route', 'weather', 'aqi', 'fuel', 'quake', 'invoice', 'stock'];
 const ALSO_TOOL = { bus_route: () => 'bus_route_eta', weather: (x) => (x.tomorrow ? 'weather_tomorrow' : 'weather_now'), aqi: () => 'aqi_nearby', fuel: () => 'fuel_price', quake: () => 'earthquake_recent', invoice: () => 'invoice_lottery', stock: () => 'stock_quote' };
-const ROUTE_NO = '[紅藍綠棕橘小幹]?\\d{1,4}[區副]?';
 /** 分段後只剩路線號碼（「先查307，再看油價」的「307」） */
 const BARE_ROUTE = new RegExp(`^(?:也|順便)?\\s*(${ROUTE_NO})\\s*(?:號|路)?\\s*(?:公車)?\\s*(?:呢|咧)?$`);
 /** 「307 跟 299 還要多久」：連在一起的幾條路線 */
@@ -758,7 +758,7 @@ const BARE_TOPIC = { 高鐵: 'thsr', 台鐵: 'tra', 臺鐵: 'tra', 火車: 'tra'
 /** 要出門了（沒說去哪）：先給出門建議，順便問要去哪（PM Q-13） */
 const GOING_OUT = /^(?:我)?(?:現在)?(?:要|準備|快|正要|等一下要|等等要)?出門(?:了|囉|啦)?[。！!～~]?$/;
 /** 公車往某方向（「307 往板橋的還要多久」）：是公車方向，不是行程（PM Q-18） */
-const BUS_TOWARD = new RegExp(`(?:^|[^\\d])([紅藍綠棕橘小幹]?\\d{1,4}[區副]?)\\s*(?:號|路)?\\s*(?:公車)?\\s*往\\s*([一-龥]{2,8}?)\\s*(?:方向)?\\s*(?:的|那班|那台)?\\s*(?:公車|車)?\\s*(?:${BUS_ASK})`);
+const BUS_TOWARD = new RegExp(`(?:^|[^\\d])(${ROUTE_NO})\\s*(?:號|路)?\\s*(?:公車)?\\s*往\\s*([一-龥]{2,8}?)\\s*(?:方向)?\\s*(?:的|那班|那台)?\\s*(?:公車|車)?\\s*(?:${BUS_ASK})`);
 /** 問有沒有中獎（沒給號碼時順便問號碼，PM Q-21） */
 const WIN_ASK = /中獎了?(?:嗎|沒)|有沒有中獎|有中獎嗎|對獎/;
 
@@ -978,7 +978,7 @@ function parseIntentRaw(text, ctx) {
   // 「剛剛那班還要等多久」：那班＝上一輪選的公車（阿幫回答裡的「公車 棕9」；P2-7）
   if (/剛剛那班|剛才那班|那班(?:公車|車)?|那台公車/.test(s) && !BUS_ROUTE.test(s)) {
     const said = history.filter((x) => x.role === 'assistant').at(-1)?.content || '';
-    const r = /公車\s*([紅藍綠棕橘小幹]?\d{1,4}[區副]?)/.exec(said)?.[1];
+    const r = SAID_BUS_ROUTE.exec(said)?.[1];
     if (r) return { ...base, intent: 'bus_route', route: r, followUp: true };
   }
   const route = BUS_ROUTE.exec(s)?.[1] || BUS_WAIT.exec(s)?.[1] || BUS_ROUTE_TRAFFIC.exec(s)?.[1]; // 「我在等939」（S8）；「307 路況」是查 307

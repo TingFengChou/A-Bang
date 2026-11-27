@@ -31,7 +31,7 @@ const log = createLogger(); // 一行一個 JSON（M6-02）
 const VERSION = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
 
 const svc = createServices({ ...(await loadEnv()), log: (m) => log.info(m) });
-const PORT = Number(process.env.PORT) || 8787;
+const PORT = process.env.PORT === '0' ? 0 : Number(process.env.PORT) || 8787; // 0：讓系統挑空的 port（測試用，啟動訊息會寫實際的 port）
 const PUBLIC = fileURLToPath(new URL('../public/', import.meta.url));
 const MAX_BODY = 64 * 1024;
 
@@ -83,7 +83,7 @@ const CORS = {
   'access-control-expose-headers': 'mcp-session-id, mcp-protocol-version',
 };
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const path = url.pathname;
   const t0 = Date.now();
@@ -204,7 +204,8 @@ createServer(async (req, res) => {
   // TDX 靜態資料背景預熱（每分鐘最多用 3 次，留 2 次給使用者；已存檔的跳過）；TDX_PREWARM=0 關閉
   if (svc.tdxPrewarm && process.env.TDX_PREWARM !== '0') svc.tdxPrewarm({ log: (m) => log.info(m) });
   if (svc.parking?.warm && process.env.TDX_PREWARM !== '0') svc.parking.warm().catch(() => {}); // 台北市、新北市停車場清單（免金鑰開放資料，不佔 TDX 額度）
-  log.info(`阿幫 running → http://localhost:${PORT}  (mode=${svc.mode}, agent=${agent.mode.mode}${agent.mode.model ? `:${agent.mode.model}` : ''})  MCP: http://localhost:${PORT}/mcp`, { port: PORT, version: VERSION, mode: svc.mode, agentMode: agent.mode.mode });
+  const port = server.address()?.port ?? PORT;
+  log.info(`阿幫 running → http://localhost:${port}  (mode=${svc.mode}, agent=${agent.mode.mode}${agent.mode.model ? `:${agent.mode.model}` : ''})  MCP: http://localhost:${port}/mcp`, { port, version: VERSION, mode: svc.mode, agentMode: agent.mode.mode });
 });
 
 function limit(req, res, group) {
