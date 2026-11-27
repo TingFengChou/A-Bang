@@ -7,6 +7,8 @@ export const RULES_REVIEWED = RULES.reviewedBy !== '待審核';
 import { CALL_165 } from './output-guards.js'; // 固定句只定義一次（輸出護欄也用）
 export { CALL_165 };
 export const NOT_SAFE_NOTE = '沒有發現已知的詐騙特徵，但不代表一定安全。';
+/** 低風險但有抓到一兩個特徵：照實說，不說「沒有發現」 */
+export const SOME_SIGNS_NOTE = '有一兩個可疑的地方（上面列的），特徵不多，但不代表安全；不確定就不要點連結、不要給資料。';
 
 const COMPILED = RULES.rules.map((r) => ({ ...r, re: r.patterns.map((p) => new RegExp(p, 'i')), exceptRe: (r.except || []).map((p) => new RegExp(p, 'i')) }));
 /** 同一條規則命中多個不重疊的特徵時，最多再加幾次 stack 權重（AGENT_ANTIFRAUD.md §4） */
@@ -16,6 +18,27 @@ const STACK_OFF = new RegExp(RULES.stackOff || '(?!)');
 /** except 只排除短的、沒有其他請求的正常通知（「驗證碼是 123456，請勿告訴任何人，你告訴我一下」不排除） */
 const EXCEPT_OFF = new RegExp(RULES.exceptOff || '(?!)');
 const EXCEPT_MAX = RULES.exceptMaxLength || 80;
+
+/** 機關、公司名義與官方網域（訊息用它的名義，網址卻不是官方網站 → brand-domain，2026-11-28 PM 審查） */
+const BRANDS = (RULES.brands || []).map((b) => ({ ...b, re: new RegExp(b.say) }));
+const BRAND_RULE = RULES.brandRule;
+const GOV_HOST = /(?:^|\.)(?:gov\.tw|gov\.taipei)$/;
+/** 網址 → 小寫主機名（去協定、www、port、路徑） */
+const hostOfUrl = (u) => String(u).replace(/^https?:\/\//i, '').split(/[/?#]/)[0].replace(/:\d+$/, '').replace(/^www\./i, '').toLowerCase();
+const official = (host, b) => (b.gov && GOV_HOST.test(host)) || (b.domains || []).some((d) => host === d || host.endsWith(`.${d}`));
+/** 訊息提到的機關或公司＋不是它官方網域的網址（沒有網址、或網址都是官方的回 null） */
+export function brandMismatch(text) {
+  const s = String(text ?? '');
+  const hosts = extractUrls(s).map(hostOfUrl).filter(Boolean);
+  if (!hosts.length || !BRAND_RULE) return null;
+  for (const b of BRANDS) {
+    const m = s.match(b.re);
+    if (!m) continue;
+    const bad = hosts.find((h) => !official(h, b));
+    if (bad) return { brand: b.name, host: bad, i: m.index ?? 0, m: m[0] };
+  }
+  return null;
+}
 
 /** 不重疊的命中片段數（「穩賺」「穩賺不賠」同一處只算一次） */
 function distinctHits(spans) {
@@ -67,6 +90,11 @@ export function matchRules(text) {
     const extra = r.stack && canStack ? Math.min(distinctHits(spans) - 1, MAX_STACK) * r.stack : 0;
     findings.push({ id: r.id, category: r.category, label: r.label, weight: r.weight + extra, match: m, excerpt, advice: r.advice });
   }
+  const bm = brandMismatch(s);
+  if (bm) {
+    const excerpt = `${bm.m}…${bm.host}`;
+    findings.push({ id: BRAND_RULE.id, category: BRAND_RULE.category, label: BRAND_RULE.label, weight: BRAND_RULE.weight, match: bm.m, excerpt, advice: BRAND_RULE.advice.replace('{name}', bm.brand) });
+  }
   return findings.sort((a, b) => b.weight - a.weight);
 }
 
@@ -93,7 +121,7 @@ export async function checkMessage(svc, text) {
   const advice = [
     ...(listed ? ['這個網址已被 165 列為涉詐網站並停止解析，不要開啟，也不要輸入任何資料。'] : []),
     ...[...new Set(findings.map((f) => f.advice))].slice(0, 3),
-    ...(level === 'low' ? [NOT_SAFE_NOTE] : []),
+    ...(level === 'low' ? [findings.length ? SOME_SIGNS_NOTE : NOT_SAFE_NOTE] : []), // 有抓到特徵就不說「沒有發現已知特徵」（PM 審查 2026-11-28）
     CALL_165,
   ];
   const topic = findings.slice(0, 2).map((f) => f.category).join(' ');
