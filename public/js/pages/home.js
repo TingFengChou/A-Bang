@@ -136,6 +136,7 @@ function paintAi(main) {
     box.querySelector('#ai-label').textContent = l.label;
     box.querySelector('#ai-text').textContent = l.text;
     box.setAttribute('aria-label', `${l.label}：${l.text}。看說明`);
+    box.hidden = st?.reason === 'web'; // 網頁版：首頁第一張不放技術說明（設計第二輪 #4）；「我的 → 手機上的 AI」照樣說明
   };
   put(null);
   edgeStatus().then(put, () => put({ available: false, reason: 'no-plugin' }));

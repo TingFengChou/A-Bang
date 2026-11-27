@@ -85,7 +85,7 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       await page.waitForSelector('.hero .search input');
       // 首頁重新設計（阿幫為中心）：手機上的 AI 照實說（網頁版由伺服器判斷）、現在（天氣、空品、提醒）、防詐大卡在格子前面
       await page.waitForFunction(() => document.querySelector('#ai-line')?.dataset.tone !== 'wait');
-      assert.match(await page.textContent('#ai-line'), /網頁版.*伺服器判斷/);
+      assert.equal(await page.locator('#ai-line').isVisible(), false, '網頁版：首頁第一張不放技術說明（設計第二輪）');
       assert.equal(await page.getAttribute('.search input', 'placeholder'), '想查什麼？');
       await page.waitForSelector('#now[aria-busy="false"] [data-now="weather"]');
       assert.deepEqual(await page.locator('#now .now-item').evaluateAll((els) => els.map((e) => e.dataset.now)), ['weather', 'aqi', 'reminder']);
@@ -1965,8 +1965,8 @@ test('提醒：列出進行中的出門與到站提醒、分頁列數字、逐�
 
 test('我的：收藏、常用地點、發票、提醒、手機上的 AI（網頁版照實說）、設定與關於；首頁 AI 那條點進阿幫的腦袋', async () => {
   await withPage(DEVICES.phone, '#/', async (page) => {
-    await page.waitForFunction(() => document.querySelector('#ai-line')?.dataset.tone !== 'wait');
-    await page.click('#ai-line');
+    await page.goto(`${base}/#/me?sec=ai`); // 網頁版首頁不放「手機上的 AI」那行：從我的頁進阿幫的腦袋
+    await page.click('.me-ai a[href="#/ai"]');
     await page.waitForSelector('.ai-hero #ai-chip:not([hidden])');
     assert.match(page.url(), /#\/ai$/);
     assert.equal(await page.getAttribute('.tabbar [data-tab="me"]', 'aria-current'), 'true', '阿幫的腦袋屬於「我的」');
