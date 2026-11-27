@@ -43,16 +43,17 @@ public class AbangSystemPlugin extends Plugin {
     @PluginMethod
     public void addCalendarEvent(PluginCall call) {
         String title = call.getString("title");
-        Double start = call.getDouble("start");
-        Double end = call.getDouble("end");
-        if (title == null || title.isEmpty() || start == null || end == null || end <= start || end - start > 24 * 3600 * 1000d) {
+        // 毫秒時間戳記從 JS 過來是整數（JSON 裡是 Long），call.getDouble 只認 Double 會拿到 null：直接從資料讀數字（2026-11-27 Pixel 實測）
+        double start = call.getData().optDouble("start", Double.NaN);
+        double end = call.getData().optDouble("end", Double.NaN);
+        if (title == null || title.isEmpty() || Double.isNaN(start) || Double.isNaN(end) || end <= start || end - start > 24 * 3600 * 1000d) {
             call.reject("行程資料不完整", "invalid");
             return;
         }
         Intent intent = new Intent(Intent.ACTION_INSERT)
             .setData(CalendarContract.Events.CONTENT_URI)
-            .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, start.longValue())
-            .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, end.longValue())
+            .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, (long) start)
+            .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, (long) end)
             .putExtra(CalendarContract.Events.TITLE, title);
         String location = call.getString("location");
         String notes = call.getString("notes");

@@ -177,6 +177,8 @@ test('原生外掛與文件：iOS／Android 有方法、iOS 有行事曆說明�
   assert.match(swift, /EKEventEditViewController/);
   const java = await readFile(new URL('../android/app/src/main/java/tw/abang/app/AbangSystemPlugin.java', import.meta.url), 'utf8');
   assert.match(java, /public void addCalendarEvent/);
+  assert.match(java, /optDouble\("start"/, '毫秒時間戳記是整數：call.getDouble 會拿到 null（2026-11-27 Pixel 實測）');
+  assert.doesNotMatch(java, /getDouble\("(?:start|end)"\)/);
   assert.match(java, /CalendarContract\.Events\.CONTENT_URI/);
   assert.match(java, /Intent\.createChooser/);
   const plist = await readFile(new URL('../ios/App/App/Info.plist', import.meta.url), 'utf8');
