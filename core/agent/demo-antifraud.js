@@ -116,7 +116,7 @@ export function antifraudSummary(it, results) {
   if (it.intent === 'message') {
     const d = r('scam_check_message')[0];
     if (!d) return '這次沒查成功，請稍後再試；有疑問請直接撥 165。';
-    return messageSay(d) || NOT_SAFE_NOTE;
+    return messageSay(d) || (d.findings.length ? `有一兩個可疑的地方（${d.findings.slice(0, 2).map((f) => f.label).join('、')}），特徵不多，但不代表安全；不確定就不要點連結、不要給資料，可以打 165 問。` : NOT_SAFE_NOTE);
   }
   if (it.intent === 'url') {
     const hits = r('scam_lookup_url').filter((d) => d.listed);
