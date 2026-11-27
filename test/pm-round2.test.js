@@ -37,3 +37,21 @@ test('末班車的說法：307還有車嗎、捷運到幾點、捷運幾點收�
   assert.equal(p('藥局開到幾點').intent, 'pharmacy');
   assert.equal(p('幾點到台北101').intent, 'trip');
 });
+
+test('排好行程後追問（PM 第二輪 #3）：要多久、票價、幾點出門、明天呢、我在X、反方向、的話呢', async () => {
+  const { createServices } = await import('../core/index.js');
+  const { runDemo } = await import('../core/agent/run.js');
+  const hist = [{ role: 'user', content: '從西門町去台北101' }, { role: 'assistant', content: '選「公車 601」：省 270 元。' }];
+  const f = (q) => parseIntent(q, { history: hist });
+  assert.deepEqual([f('要多久').intent, f('要多久').askWhat, f('要多久').to], ['trip', 'time', '台北101']);
+  assert.equal(f('票價多少').askWhat, 'cost');
+  assert.equal(f('幾點出門比較好').askWhat, 'when');
+  assert.equal(f('明天呢').tomorrow, true);
+  assert.deepEqual([f('我在台北車站').from, f('我在台北車站').to], ['臺北車站', '台北101']);
+  assert.deepEqual([f('那反方向呢').from, f('那反方向呢').to], ['台北101', '西門町']);
+  assert.equal(f('坐捷運的話呢').mode, 'metro');
+  assert.equal(parseIntent('要多久', { history: [] }).intent, 'unknown', '沒有前一趟不接');
+  const out = [];
+  await runDemo(createServices({ forceMock: true }), { messages: [...hist, { role: 'user', content: '票價多少' }] }, (e) => out.push(e), { now: at('10:00') });
+  assert.match(out.filter((e) => e.type === 'text').map((e) => e.delta).join(''), /^「.+」約 \d+ 元、\d+ 分。/);
+});

@@ -193,7 +193,11 @@ function lastTrip(history, saved) {
 /** 阿幫回「你就在那裡、要查什麼？」（clarify.js hereAsk）：那一輪沒有排行程 */
 const HERE_SAID = /^你就在.{1,20}附近，不用排路線|^You're already at /;
 // 改交通方式要有明確的改換字眼（「坐」「搭」「騎」單獨出現不算：「搭 307 到哪了」是查公車）
-const CHANGE_WORD = /改|換|那.*呢|還是|不要|不坐|不搭|^那(?:麼)?\s*(?:坐|搭|騎|叫|走路)/; // 「那坐公車要多久」（行程後）＝改坐公車
+const CHANGE_WORD = /改|換|那.*呢|的話(?:呢|咧)?|還是|不要|不坐|不搭|^那(?:麼)?\s*(?:坐|搭|騎|叫|走路)/; // 「那坐公車要多久」（行程後）＝改坐公車
+/** 排好行程後問時間、票價、幾點出門（只有這句、沒有地名） */
+const FOLLOW_ASK = /^(?:那|請問)?\s*(?:總共|大概|大約)?\s*(?:要多久|要花多久|多久會到|花多久|要多少時間|幾分鐘|票價(?:多少)?|多少錢|要多少錢|車資(?:多少)?|費用|多貴|幾塊|幾點出門(?:比較好)?|幾點出發(?:比較好)?|什麼時候出門(?:比較好)?)\s*(?:啊|呢|咧|嗎)?\s*[?？]?$/;
+/** 排好行程後只換日子（「明天呢」「那明天早上呢」「禮拜六咧」） */
+const FOLLOW_DAY = /^(?:那|那麼)?\s*(?:明天|後天|(?:禮拜|星期|週)[一二三四五六日天])(?:早上|上午|中午|下午|晚上)?\s*(?:呢|咧|勒|的話呢|出發呢)\s*[?？]?$/;
 /** 「重來」：清掉前面的行程（之後只說目的地就從現在位置算） */
 const RESET = /^(?:重來|重新開始|從頭開始|從頭來|從頭|清除|清掉|算了)(?:吧|啦)?[。！!.]?$/;
 /** 接著改目的地（「改去松山機場」「那去松山機場呢」「換到西門町」） */
@@ -853,12 +857,16 @@ function parseIntentRaw(text, ctx) {
     if (modeOf(bareMode[1]) === 'ridehail') return { ...base, intent: 'trip', from: null, to: null, mode: 'ridehail', needs: 'to' };
   }
   // 「那回程呢」「回來怎麼坐」：上一趟起訖對調（上一趟從現在位置出發的，回程目的地也是那裡；P3-8）
-  if (before?.to && before.from && !places.length && /回程|回來(?:的時候|怎麼|要怎)|怎麼回去|回頭怎麼/.test(s) && /怎麼|如何|呢|嗎|幾點|要多久|[?？]/.test(s)) {
+  if (before?.to && before.from && !places.length && /回程|回來(?:的時候|怎麼|要怎)|怎麼回去|回頭怎麼|反方向|反過來/.test(s) && /怎麼|如何|呢|嗎|幾點|要多久|[?？]/.test(s)) {
     return { ...before, from: before.to, to: before.from, states: [...new Set([...before.states.filter((k) => k !== 'rush'), ...states])], intent: 'trip', followUp: true, changed: ['from', 'to'] }; // 回程是之後的事：去程的趕時間不沿用（下雨、帶行李、長輩照舊）
   }
   // 接著改起點或目的地（只有一個地名＋提示詞；起點可以是地標庫沒有的地名，例「板橋」）：其他條件沿用
   if (before) {
     const keep = { ...before, states: carryStates(before.states, states, !!depart), ...(arriveBy && { arriveBy }), ...(party && { party }), ...(depart && { departTime: depart.hhmm, departDays: depart.days, tomorrow }), intent: 'trip', followUp: true };
+    // 排好行程後的追問（PM 第二輪 #3）：要多久、票價、幾點出門 → 同一趟再排一次，總結先回答問的；明天呢 → 改成明天；我在X → 改起點
+    if (!places.length && FOLLOW_ASK.test(s)) return { ...keep, followUp: true, askWhat: /票價|多少錢|要錢|車資|費用|多貴|幾塊/.test(s) ? 'cost' : /幾點出門|幾點出發|什麼時候出門|何時出發|幾點走/.test(s) ? 'when' : 'time' };
+    if (!places.length && FOLLOW_DAY.test(s)) { const w = whenOf(s); return { ...keep, tomorrow: w.dayOffset >= 1, ...(w.dayOffset > 1 && { departDays: w.dayOffset }), followUp: true, changed: ['depart'] }; }
+    if (places.length === 1 && /^(?:我|我們)?(?:現在|人)?(?:在|到了)\s*\S/.test(s) && places[0] !== before.to && !CHANGE_TO.test(s)) return { ...keep, from: places[0], followUp: true, changed: ['from'] };
     // 「從這裡出發」「從我現在的位置」→ 起點改回現在位置
     if (/從\s*(?:這裡|這邊|我這|我現在|現在的?位置)/.test(s) && !CHANGE_TO.test(s) && before.from) return { ...keep, from: null, changed: ['from'] };
     const fromText = fromStartOf(s);
@@ -1839,8 +1847,12 @@ function summaryCore(it, results, suggestions = []) {
   if (!last) return '這次沒查到資料，換個說法或加上地名試試看。';
   if (it.intent === 'trip') {
     const trip = results.plan_trip?.[0];
+    const bestOpt0 = trip?.data?.options?.find((o) => o.id === trip.data.best);
+    const asked = it.askWhat && bestOpt0 ? (it.askWhat === 'cost' ? `「${bestOpt0.name}」${bestOpt0.cost ? `約 ${bestOpt0.cost} 元` : '不用錢'}${bestOpt0.minutes ? `、${bestOpt0.minutes} 分` : ''}。`
+      : it.askWhat === 'when' ? `現在出發、坐「${bestOpt0.name}」約 ${bestOpt0.arriveAt || '—'} 到；要幾點前到可以跟我說（例如「9 點前要到」），我幫你算幾點出門。`
+        : `「${bestOpt0.name}」約 ${bestOpt0.minutes} 分${bestOpt0.arriveAt ? `（${bestOpt0.arriveAt} 到）` : ''}。`) : ''; // 追問時間、票價、幾點出門：先回答問的（PM 第二輪 #3）
     const synth = !it.departTime && !it.arriveBy && it.tomorrow && trip?.data?.departAt ? `（${dayWord(it)} ${trip.data.departAt} 出發算的；要改時間跟我說幾點。）` : ''; // 「明天去台北101」沒說幾點：說清楚用幾點算的（PM 第二輪審查）
-    const when = `${synth}${it.departTime ? `${dayWord(it)} ${it.departTime} 出發：` : ''}${it.nearRail && it.to ? `最近的${it.nearRail === 'THSR' ? '高鐵' : '火車'}站是「${String(it.to).replace(/臺/g, '台')}」。` : ''}`; // 說了幾點出發、沒說哪一站的火車站，總結先講（P5-2、P5-4）
+    const when = `${asked}${synth}${it.departTime ? `${dayWord(it)} ${it.departTime} 出發：` : ''}${it.nearRail && it.to ? `最近的${it.nearRail === 'THSR' ? '高鐵' : '火車'}站是「${String(it.to).replace(/臺/g, '台')}」。` : ''}`; // 說了幾點出發、沒說哪一站的火車站，總結先講（P5-2、P5-4）
     const pre = `${when}${it.from || it.fromPoint ? '' : it.noLocation ? `（沒拿到你的位置，先從「${DEFAULT_FROM}」算；告訴我從哪出發就重算。）` : `（你沒說從哪出發，我先用「${DEFAULT_FROM}」算。）`}`;
     // 今天不會來的直達路線（站牌即時資訊：今日未營運、末班已過、交管不停靠；plan_trip 或盯到站後重排已排除）：先說，使用者才知道為什麼不推它
     const off = (trip?.data.missing || []).filter((m) => m.kind === 'route');
