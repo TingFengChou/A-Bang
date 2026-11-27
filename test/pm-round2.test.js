@@ -55,3 +55,13 @@ test('排好行程後追問（PM 第二輪 #3）：要多久、票價、幾點�
   await runDemo(createServices({ forceMock: true }), { messages: [...hist, { role: 'user', content: '票價多少' }] }, (e) => out.push(e), { now: at('10:00') });
   assert.match(out.filter((e) => e.type === 'text').map((e) => e.delta).join(''), /^「.+」約 \d+ 元、\d+ 分。/);
 });
+
+test('小項（PM 第二輪）：只打 youbike／ubike／Uber 不算英文；YouBike 中文回答說空位', async () => {
+  const { isEnglish } = await import('../core/agent/demo-intent.js');
+  for (const q of ['youbike', 'ubike', 'YouBike？', 'Uber']) assert.equal(isEnglish(q), false, q);
+  assert.equal(isEnglish('Is there a YouBike nearby?'), true);
+  const { callTool } = await import('../core/tools/index.js');
+  const { createServices } = await import('../core/index.js');
+  const r = await callTool(createServices({ forceMock: true }), 'youbike_nearby', { lat: 25.0478, lon: 121.517 });
+  assert.match(r.speak, /還有 \d+ 台、空位 \d+ 個/);
+});

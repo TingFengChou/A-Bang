@@ -185,7 +185,7 @@ export const youbikeNearby = defineTool({
   description: '依座標查詢附近公共自行車站的可借車輛（一般/電輔）與可還空位，依距離排序；每筆附導航連結 nav（Google／Apple 地圖）。',
   pack: PACK, tier: 'L1', card: 'youbike',
   input: { lat: T.lat, lon: T.lon, radius: T.radius(500) },
-  speak: (d) => { const s = d.stations.find((x) => x.inService && x.rent > 0); return s ? `最近有車的是${s.name}（${fmtM(s.distance)}），還有 ${s.rent} 台。` : '附近的站暫時都沒有車。'; },
+  speak: (d) => { const s = d.stations.find((x) => x.inService && x.rent > 0); return s ? `最近有車的是${s.name}（${fmtM(s.distance)}），還有 ${s.rent} 台${Number.isFinite(s.returnSlots) ? `、空位 ${s.returnSlots} 個` : ''}。` : '附近的站暫時都沒有車。'; }, // 空位：要還車的人也要知道（PM 第二輪）
   async run(svc, a) {
     const stations = withNav(await svc.bike.nearby(a));
     const data = { lat: a.lat, lon: a.lon, radius: a.radius ?? 500, stations }; // 卡片 youbike 契約

@@ -1480,7 +1480,8 @@ export function savedTrip(s, places, saved = {}) {
 }
 
 /** 只有英文（沒有中文字）＝英文提問 */
-export const isEnglish = (s) => /[A-Za-z]{2,}/.test(s) && !/[一-鿿]/.test(s);
+export const isEnglish = (s) => /[A-Za-z]{2,}/.test(s) && !/[一-鿿]/.test(s) && !BRAND_ONLY.test(String(s).trim()); // 只打「youbike」「ubike」是品牌名，不是用英文問（PM 第二輪）
+const BRAND_ONLY = /^(?:you\s*bike|u\s*bike|uber|line)[\s?？!！.。]*$/i;
 const EN_STATES = [['rush', /hurry|late|asap|quick(?:ly)?|fastest/i], ['luggage', /luggage|suitcase|\bbags?\b/i], ['budget', /cheap|budget|save money/i],
   ['lessWalk', /walk less|don'?t want to walk|tired/i], ['elder', /grand(?:ma|pa|mother|father|parents?)|elderly/i], ['kids', /\bkids?\b|child(?:ren)?|stroller|baby/i], ['mobility', /wheelchair|disabled|crutch/i]];
 const EN_MODES = [['intercity', /intercity|long[- ]distance bus|\bcoach\b/i], ['bus', /\bbus\b/i], ['metro', /\b(?:mrt|metro|subway)\b/i], ['drive', /\b(?:drive|driving|my (?:own )?car)\b/i], ['ridehail', /\b(?:taxi|uber|cab)\b/i], ['walk', /\bwalk(?:ing)?\b/i], ['bike', /(?:\b(?:you)?bike\b|\bride\s+(?:one|a bike)\b)/i], ['thsr', /high[- ]speed rail|\bhsr\b/i], ['tra', /\btrain\b|railway/i]];
