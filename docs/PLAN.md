@@ -391,6 +391,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] M16-01 加到行事曆、分享（2026-11-27）：`core/device-actions.js`（事件、分享文字、.ics、檢查；不帶使用者座標）、行程卡片按鈕、意圖 `calendar`／`share`（31 類）、`ask` 動作 `addCalendar`／`share`、請求 `deviceActions`、`AbangSystem.addCalendarEvent`／`share`（iOS EventKitUI＋UIActivityViewController、Android ACTION_INSERT＋chooser）、網頁 .ics 與 Web Share／複製。npm test 新增 12 項、E2E 1 項
 - [ ] M16-01b 實機確認：Pixel ✅（2026-11-27：Google 日曆新增畫面帶好標題與時間、分享選單；修正 Android 讀不到毫秒時間戳記）；iOS 模擬器 ✅（不問權限的新增行程畫面帶好標題、時間、地點、路線；取消後卡片說「沒有加入」；分享面板）；實體 iPhone 待接上確認
 - [x] M16-02 iOS App Intents＋App Shortcuts（2026-11-27）：「問阿幫」（帶問題）、「查詐騙」（帶可疑訊息到防詐）、「打開阿幫的頁面」（附近、天氣、提醒、防詐、發票對獎）；Siri、捷徑、Spotlight、動作按鈕都叫得到。原生端只把事情交給 App（`AbangIntents.swift` 收件匣 → `AbangSystem.takeIntent`／`intent` 事件 → `public/js/app-intents.js` 開頁面），不打 API、不念工具結果（防詐要經過防詐 agent 的完整判斷）。iOS 開發語言改成繁體中文（捷徑的中文說法才對得上 Siri）。模擬器實測三種交接與冷啟動
+- [x] M16-02c 捷徑加「辦事要帶什麼」「找有開的診所」（2026-11-28，產品負責人：每個功能都想 App Functions）：`GovServiceIntent`（問要辦的事，交「X 要帶什麼」）、`ClinicNearbyIntent`（不用參數，交「附近現在有開的診所」）；一樣只把事情交給 App，走問阿幫原本的流程
 - [ ] M16-02b 實機用 Siri 說「問 Abang」「用 Abang 查詐騙」確認（實體 iPhone）；實驗把 iOS 判斷改用 Foundation Models `Tool`，以 224 題評測決定
 - [ ] M16-03 ⛔ Android AppFunctions：要加 Kotlin＋KSP（新依賴），只在 Android 16 以上有效；Gemini 呼叫要申請 Connected Apps Platform 預覽（等產品負責人決定）
 - [x] M16-04a 去政府辦事要帶什麼（2026-11-27）：我的E政府申辦服務資訊（data.gov.tw 146973，三個 JSON、快取一天、失敗沿用上一份）、`core/services/govservice.js`（合併、口語換公文用字、中央優先的搜尋、應備證件分條）、示範用真實片段、工具 `gov_service_info`（pack `gov`）、卡片 `gov-service`、意圖 `gov`（32 類）、討論串 @辦事

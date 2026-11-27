@@ -61,6 +61,37 @@ struct CheckScamIntent: AppIntent {
     }
 }
 
+/// 去政府辦事要帶什麼（M16-04a，2026-11-28：每個功能都想 App Functions）：只把「X 要帶什麼」交給 App，照問阿幫原本的流程查
+@available(iOS 16.0, *)
+struct GovServiceIntent: AppIntent {
+    static var title: LocalizedStringResource = "辦事要帶什麼"
+    static var description = IntentDescription("問阿幫去政府辦事要帶什麼：換身分證、健保卡補辦、戶籍謄本、敬老卡……")
+    static var openAppWhenRun: Bool = true
+
+    @Parameter(title: "要辦的事", requestValueDialog: IntentDialog("要辦什麼事？例如換身分證、健保卡補辦"))
+    var thing: String
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        AbangIntentInbox.put(kind: "ask", text: String("\(thing.prefix(40))要帶什麼"))
+        return .result()
+    }
+}
+
+/// 附近現在有看診的診所（M16-04e）：不用多說，交給 App 用手機位置查
+@available(iOS 16.0, *)
+struct ClinicNearbyIntent: AppIntent {
+    static var title: LocalizedStringResource = "找有開的診所"
+    static var description = IntentDescription("找附近現在有登記看診的診所（健保署資料；時段是登記的，出門前先打電話）。")
+    static var openAppWhenRun: Bool = true
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        AbangIntentInbox.put(kind: "ask", text: "附近現在有開的診所")
+        return .result()
+    }
+}
+
 @available(iOS 16.0, *)
 enum AbangPage: String, AppEnum {
     case nearby, weather, reminders, antifraud, invoice
@@ -109,5 +140,15 @@ struct AbangShortcuts: AppShortcutsProvider {
             "\(.applicationName)\(\.$page)",
             "Open \(\.$page) in \(.applicationName)",
         ], shortTitle: "打開頁面", systemImageName: "square.grid.2x2")
+        AppShortcut(intent: GovServiceIntent(), phrases: [
+            "用\(.applicationName)查辦事要帶什麼",
+            "\(.applicationName)辦事要帶什麼",
+            "What to bring with \(.applicationName)",
+        ], shortTitle: "辦事要帶什麼", systemImageName: "doc.text")
+        AppShortcut(intent: ClinicNearbyIntent(), phrases: [
+            "用\(.applicationName)找有開的診所",
+            "\(.applicationName)附近有開的診所",
+            "Find an open clinic with \(.applicationName)",
+        ], shortTitle: "找有開的診所", systemImageName: "cross.case")
     }
 }

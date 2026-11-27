@@ -41,7 +41,7 @@ test('只有 iOS App 才接；拿到就開頁面；舊版 App 沒有方法時不
 
 test('原生端：三個 Intent、捷徑說法、收件匣、外掛方法、Xcode 專案與繁體中文', async () => {
   const swift = await read('ios/App/App/AbangIntents.swift');
-  for (const n of ['AskAbangIntent', 'CheckScamIntent', 'OpenAbangPageIntent', 'AbangShortcuts']) assert.match(swift, new RegExp(`struct ${n}`));
+  for (const n of ['AskAbangIntent', 'CheckScamIntent', 'OpenAbangPageIntent', 'GovServiceIntent', 'ClinicNearbyIntent', 'AbangShortcuts']) assert.match(swift, new RegExp(`struct ${n}`));
   assert.match(swift, /"問\\\(\.applicationName\)"/);
   assert.match(swift, /openAppWhenRun: Bool = true/);
   assert.doesNotMatch(swift, /URLSession|http/, '原生端不打 API：交給 App 照原本流程查');
