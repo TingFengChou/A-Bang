@@ -786,7 +786,9 @@ test('找有看診的診所：「附近有開的小兒科嗎」→ 用位置推�
     const slot = page.locator('.turn').last().locator('.card-slot', { has: page.locator('.ab-clinic') });
     await slot.waitFor();
     assert.ok(await slot.locator('.ab-clinic').count() >= 1);
-    assert.match(await slot.locator('.ab-foot').textContent(), /臨時休診不會反映.+119/);
+    assert.match(await slot.locator('.ab-body > .ab-sub').first().textContent(), /臨時休診不會反映，出門前先打電話/);
+    assert.match(await slot.locator('.ab-foot').textContent(), /119/);
+    assert.match(await slot.locator('.ab-clinic .ab-btn').first().getAttribute('aria-label'), /診所 地圖$/);
     assert.match(await slot.locator('a[href^="tel:"]').first().getAttribute('href'), /^tel:\d{6,}$/);
     assert.equal(await slot.getByRole('button', { name: '地圖' }).count() >= 1, true);
     assert.match(await page.locator('.bubble.final').last().textContent(), /小兒科診所/);

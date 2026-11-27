@@ -2,11 +2,11 @@
 import { h, safeUrl } from './dom.js';
 import { t } from './i18n/index.js';
 
-/** 導航按鈕（nav 為 { google, apple }；沒有就不顯示） */
-export function navButton(host, nav, label = t('common.navigate')) {
+/** 導航按鈕（nav 為 { google, apple }；沒有就不顯示）；ariaLabel：列表裡每列都有同樣的按鈕時，讀屏要聽得出是哪一間（設計審查 2026-11-28） */
+export function navButton(host, nav, label = t('common.navigate'), ariaLabel = null) {
   const url = safeUrl(nav?.google);
   if (!url || !host?.openLink) return null;
-  return h('button', { class: 'ab-btn', type: 'button', onclick: (e) => { e.stopPropagation(); host.openLink(url); } }, label);
+  return h('button', { class: 'ab-btn', type: 'button', ...(ariaLabel && { 'aria-label': ariaLabel }), onclick: (e) => { e.stopPropagation(); host.openLink(url); } }, label);
 }
 
 /** L2 連結按鈕：開啟前必須確認 */
