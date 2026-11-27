@@ -23,6 +23,11 @@ export function demoClock(env = process.env) {
   return () => Date.parse(`${new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)}T${env.DEMO_CLOCK}:00+08:00`);
 }
 
+/** 這一輪被中止（使用者斷線、或超過整輪上限）：不是錯誤，不再送事件 */
+export class TurnAborted extends Error { constructor(why) { super(why); this.name = 'TurnAborted'; } }
+/** 整輪超過上限時給使用者看的話 */
+export const TURN_TIMEOUT_MSG = '這一題查太久了，先停下來；可以換個說法或稍後再問一次。';
+
 /** 模型出錯時給使用者看的話（不怪資料來源；細節只在伺服器 log 記錯誤類型） */
 export const MODEL_ERROR_MSG = 'AI 模型暫時無法回應，請稍後再試。';
 /** 防詐改用規則回答時，討論串先說明 */
@@ -32,6 +37,7 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
   const perMin = createRateLimiter({ limit: Number(env.AGENT_RPM) || 10 });
   const perDay = createRateLimiter({ limit: Number(env.AGENT_RPD) || 100, windowMs: 86_400_000 });
   const budget = Number(env.AGENT_DAILY_BUDGET) || 5000;
+  const turnMs = Number(env.AGENT_TURN_MS) || 60_000; // 一輪最多跑多久（架構第二輪 #1）
   const meter = new Map(); // `${date}|${agentId}` → { requests, toolCalls, modelCalls }
 
   const usageOf = (agentId, date = nowTW().date) => {
@@ -79,7 +85,19 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
       let judgeSrc = null;
       let askSrc = null, askChk = null; // 這一輪的題目由誰出（device／rule）、手機提議的題目用了沒（ADR-0020；只記種類與原因代碼，不記題目文字）
       const sent = { tools: 0, text: false, done: false }; // 模型出錯時判斷能不能改用規則重答（還沒查資料、還沒回答）
+      // 架構第二輪 #1：使用者斷線或整輪超過 TURN_MS 就中止——之後送任何事件都丟 TurnAborted，下一個工具、下一次模型呼叫就不會開始
+      const ac = new AbortController();
+      const onClose = () => { if (!res.writableEnded) ac.abort(new TurnAborted('client closed')); };
+      res.on?.('close', onClose);
+      let timedOut = false;
+      const timer = setTimeout(() => {
+        timedOut = true;
+        if (!res.writableEnded) { res.write(toNdjson(ev.error({ message: TURN_TIMEOUT_MSG, retryable: true }))); res.write(toNdjson(ev.done())); }
+        ac.abort(new TurnAborted('timeout'));
+      }, turnMs);
+      timer.unref?.();
       const emit = (e) => {
+        if (ac.signal.aborted) throw ac.signal.reason;
         if (e.type === 'tool_start') sent.tools++;
         if (e.type === 'text') sent.text = true;
         if (e.type === 'done') sent.done = true;
@@ -101,6 +119,7 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
           await runDemo(svc, body, emit, { profileId: profile.id, judge, now: clock(), ...(provider && { notice: '今天的 AI 額度用完了，先用示範模式回答' }) });
         }
       } catch (e) {
+        if (e instanceof TurnAborted) { failed = timedOut ? 'TurnTimeout' : 'ClientClosed'; return; } // 已經送過結束（逾時）或沒人收了（斷線）
         failed = e?.status ? `${e.name}:${e.status}` : (e?.name || 'Error'); // 只記錯誤類型，不記訊息（可能含上游細節）
         // 防詐：模型暫時不能用（逾時、過載、連不上）時，這一輪改用規則比對回答（與示範模式同一套規則，資料照常是真的）；
         // 已經查過資料或回答了就不重來（避免卡片出現兩次），照實說模型暫時無法回應
@@ -120,6 +139,8 @@ export function createAgentHandler({ svc, env = process.env, log = () => {}, pro
         emit(ev.error({ message: msg, retryable: !(e?.name === 'UserError') }));
         emit(ev.done());
       } finally {
+        clearTimeout(timer);
+        res.off?.('close', onClose);
         res.end();
         // 隱私（AGENT.md §7）：只記模式、事件數量、耗時、token 與判斷來源（embed／llm／device:apple…），不記對話內容與座標；device＝有收到手機判斷（引擎名）
         log({ agent: profile.id, mode, ms: Date.now() - t0, toolCalls: u.toolCalls, modelCalls: u.modelCalls, ...(tokens && { tokens }), ...(judgeSrc && { judge: judgeSrc }), ...(body?.deviceJudge && { device: body.deviceJudge.engine }), ...(askSrc && { ask: askSrc }), ...(askChk && { deviceAsk: askChk }), ...(edgeWrite && req.clientCaps?.trial && { trial: true }), ...(failed && { error: failed }) }); // trial：#/ai 的試判斷（只記有這件事，不記句子）

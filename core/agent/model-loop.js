@@ -28,6 +28,8 @@ import { deviceIntent, deviceActionReply } from './device-turn.js';
  */
 
 /** 裝置端工具（ADR-0008）：客戶端支援時才提供給模型 */
+/** 模型一輪最多同時呼叫幾個工具（多的回錯誤） */
+export const MAX_CALLS_PER_ROUND = 4;
 export const DEVICE_LOCATION_TOOL = {
   name: 'device_location',
   description: '取得使用者裝置目前的位置（緯度、經度）。只在需要使用者所在位置、而使用者沒說起點或所在地時使用。',
@@ -510,7 +512,10 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
       }
     }
 
-    const run = turn.calls.filter((c) => !results.has(c.id));
+    // 一次最多查 MAX_CALLS_PER_ROUND 項（架構第二輪 #1：一次 plan_trip 就會查約 10 個上游，TDX 每分鐘額度很少）；多的回錯誤請模型分次查
+    const fresh = turn.calls.filter((c) => !results.has(c.id));
+    for (const c of fresh.slice(MAX_CALLS_PER_ROUND)) results.set(c.id, { content: `一次最多查 ${MAX_CALLS_PER_ROUND} 項，這一項沒查；需要的話下一輪再查。`, isError: true });
+    const run = fresh.slice(0, MAX_CALLS_PER_ROUND);
     const out = await execTools(svc, run.map((c) => ({ name: c.name, args: dropNulls(c.input) })), emit, { profile, nextId, picked, lang: rulesIt.lang, habit: req.userState?.habit, car: req.userState?.car === true, ask, now, aside, ...(j && { judgedStates: j.states }) });
     run.forEach((c, i) => {
       const o = out[i];

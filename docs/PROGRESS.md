@@ -11,6 +11,13 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 第二輪審查第三批：限流 IPv6、agent 中止與上限
+- 做了：架構 #5：限流 key 的 IPv6 以 /64 當同一個人（換位址繞不過每分鐘、每日上限），IPv4-mapped 轉回 IPv4；計數表最多 5 萬筆（滿了淘汰最舊的）；過期清理間隔最多 60 秒（每日限流原本一天才清一次）。架構 #1：一輪問阿幫超過 `AGENT_TURN_MS`（預設 60 秒）送「這一題查太久了」＋done 並中止；使用者斷線也中止（之後送事件即丟 `TurnAborted`，下一個工具、下一次模型呼叫就不會開始）；模型一次最多呼叫 4 個工具，多的回錯誤請它分次查（一次 plan_trip 約查 10 個上游，TDX 每分鐘額度很少）。log 記 TurnTimeout／ClientClosed
+- 測試：npm test 全過（新增 `test/rate-limit.test.js` 3 項、`test/agent-abort.test.js` 3 項）；e2e 全過
+- 文件：AGENT.md 限制表、`.env.example`（AGENT_TURN_MS）
+- 下一個：設計 #1 決策圖比較細節、#4 首頁第一張卡；PM #3 行程追問、#6 推薦理由；架構 #3 parseTurn
+- 卡住：無
+
 ## 2026-11-28 第二輪審查第二批：安全標頭、英文漏翻、示範小標、提醒頁通知提示
 - 做了：架構 #6：所有回應加 `x-content-type-options: nosniff`、`referrer-policy`，網頁加 `frame-ancestors 'self'`；網址解碼失敗（`/%E0`）回 400，不再回 502 並寫 error log。設計 #2：英文那一輪送出鍵、起點說明、資料來源、由誰回答跟著換英文；示範天氣測站名英文「Demo station」。設計 #3：全部是示範資料時首頁格子不再一個個標「示範」（頁首橫幅已說明），真假混在一起才標；字 11px、不半透明。設計 #6：提醒頁「通知關著」提示移到列表上方、做成提示條（role=status），App 加「打開通知設定」
 - App Functions 結合：「打開通知設定」沿用 AbangSystem.openSettings（跟定位失敗同一個），之後 Siri 交給阿幫設提醒時，通知關著也有同一個下一步

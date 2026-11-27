@@ -398,6 +398,8 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 | 每 IP 每分鐘 | `AGENT_RPM` | 10 |
 | 每 IP 每日 | `AGENT_RPD` | 100 |
 | 全站每日模型呼叫 | `AGENT_DAILY_BUDGET` | 5000；超過降級示範模式並以 `agent_note` 提示「今天的 AI 額度用完了」 |
+| 一輪最多多久 | `AGENT_TURN_MS` | 60000；超過送 `error`（「這一題查太久了」）＋`done` 並中止；使用者斷線也中止（之後不再開始新的工具或模型呼叫） |
+| 一次最多幾個工具 | `MAX_CALLS_PER_ROUND`（程式常數） | 4；模型一次要求更多時，多的回 `isError` 請它分次查 |
 | 單則訊息 | — | 500 字 |
 | 工具迴圈 | — | 5 輪 |
 
