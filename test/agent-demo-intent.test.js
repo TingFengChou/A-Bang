@@ -15,7 +15,8 @@ test('placesInText：依出現順序、長的優先、車站短名', () => {
 });
 
 test('arriveByOf：點、點半、冒號、下午', () => {
-  assert.deepEqual(['8 點前', '10點半前要到', '9:15 之前', '下午 3 點前', '25 點前', '沒有時間'].map(arriveByOf), ['08:00', '10:30', '09:15', '15:00', null, null]);
+  const early = Date.parse('2026-11-28T07:00:00+08:00'); // 時間還沒過（PM 第二輪：已經過了的會推到下午／晚上）
+  assert.deepEqual(['8 點前', '10點半前要到', '9:15 之前', '下午 3 點前', '25 點前', '沒有時間'].map((x) => arriveByOf(x, early)), ['08:00', '10:30', '09:15', '15:00', null, null]);
 });
 
 test('parseIntent：意圖、起訖、路線、狀態', () => {

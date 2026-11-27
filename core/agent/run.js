@@ -157,15 +157,24 @@ export function validateRequest(body) {
   return r.data;
 }
 
+/** 行程是明天以後、或一小時以後才出發（plan_trip 的 date、departAt，台灣時間） */
+export function laterTrip(trip, now = Date.now()) {
+  const tw = new Date(now + 8 * 3600e3);
+  if (trip?.date && trip.date !== tw.toISOString().slice(0, 10)) return true;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(trip?.departAt || ''));
+  return !!m && Number(m[1]) * 60 + Number(m[2]) - (tw.getUTCHours() * 60 + tw.getUTCMinutes()) > 60;
+}
+
 /**
  * 決策選了公車 → 接著盯這條路線在上車站的即時到站（L-14）。由程式決定、不靠模型記得要查（ADR-0010 精神：決策與後續一致）。
  * @param {object} trip plan_trip 的 data
  * @returns {{ note: string, args: object } | null}
  */
-export function busFollowUp(trip) {
+export function busFollowUp(trip, now = Date.now()) {
   const best = trip?.options?.find((o) => o.id === trip.best);
   const f = best?.role === 'bus' && best.follow;
   if (!f?.routeName || !f.stop) return null;
+  if (laterTrip(trip, now)) return null; // 明天或一小時以後才出發：現在的即時到站沒意義，也不問要不要提醒（PM 第二輪審查）
   return {
     walkMin: f.walkMin ?? null,
     note: `@公車 你選了公車，我幫你盯 ${f.routeName} 在「${f.stop}」的到站`,
@@ -210,7 +219,7 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
       // 重排最多 MAX_ROUTES − 1 次（directTrips 最多 MAX_ROUTES 條、busOff 只增）；重排失敗或次數用完時不再重查，把盯到不會來的公車排除、用同一套 decide() 重排（withoutBus，不打 TDX）
       const watch = profile.tools.includes('bus_route_eta');
       const busOff = [], offSeen = [];
-      let f = watch ? busFollowUp(result.data) : null, followUp = null, followErr = null;
+      let f = watch ? busFollowUp(result.data, now ?? Date.now()) : null, followUp = null, followErr = null;
       while (f) {
         try { followUp = await callTool(svc, 'bus_route_eta', f.args); } catch (e) { followErr = e; break; }
         const st = followUp.data?.focus?.status;
@@ -222,7 +231,7 @@ export async function execTools(svc, calls, emit, { profile, nextId, picked = []
         const again = offSeen.length < MAX_ROUTES ? await callTool({ ...planSvc, busOff: [...busOff] }, c.name, args).catch(() => null) : null;
         const fixed = again && withBusOff(again.data, offs); // 重排時公車整個查不到（資料暫時查不到）也照樣說盯到的那條為什麼不在
         result = again ? (fixed === again.data ? again : tripResult(again, fixed)) : tripResult(result, withoutBus(result.data, offs));
-        f = again ? busFollowUp(result.data) : null; // withoutBus 已排除全部盯到不會來的公車（plan_trip 只列一條公車），不用再盯
+        f = again ? busFollowUp(result.data, now ?? Date.now()) : null; // withoutBus 已排除全部盯到不會來的公車（plan_trip 只列一條公車），不用再盯
       }
       for (const x of offSeen) { // 盯到的證據照樣出現在討論串（工具發言：「X 在「站」：今日未營運」），再說重新比較
         emit(ev.agentNote(en ? enNote(offNote(x.f.args)) : offNote(x.f.args)));

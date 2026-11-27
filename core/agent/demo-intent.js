@@ -67,7 +67,7 @@ const BUS_ROUTE = new RegExp(`(?:^|[^\\d])([紅藍綠棕橘小幹]?\\d{1,4}[區�
 /** 在等某一路公車（「我在等939」「等 939 公車」）：沒有問法也是查那一路（真實資料健檢 S8）；「等 20 分鐘」「等 3 個人」不算 */
 const BUS_WAIT = /(?:^|(?<=[我在正還就站牌邊]))等\s*(?:公車\s*)?([紅藍綠棕橘小幹]?\d{1,4}[區副]?)(?!\d)(?!\s*(?:分|秒|小時|鐘|個|人|天|年|點|樓|元|塊|%|％))(?!\s*號(?!\s*(?:公車|的車|[，,。.!！?？～~]|$)))\s*(?:號|路)?\s*(?:公車|的車)?/; // 「我在台北車站等307」算；「我等3號發薪」「等 5 號再說」「等2號窗口」不算（PR #127 審查）
 /** 問末班車（「末班車幾點」「最後一班公車幾點」「捷運末班車幾點」）；高鐵台鐵由 RAIL_ASK 處理 */
-const LAST_ASK = /末班|最後一班|收班/;
+const LAST_ASK = /末班|最後一班|收班|幾點收|(?:捷運|公車|\d{1,4}).{0,3}(?:開)?到幾點|還有(?:沒有)?車|還有(?:公車|捷運)嗎/; // 「307還有車嗎」「捷運到幾點」「捷運幾點收」（PM 第二輪審查）
 const RAIL_WORD = /高鐵|台鐵|臺鐵|火車|自強|區間|莒光/;
 /** 地名裡的「火車站／高鐵站／台鐵站」不是交通方式偏好（「從桃園火車站去台北101」；真實資料健檢 S10）：判斷交通方式、是不是查高鐵台鐵前先拿掉 */
 const RAIL_IN_NAME = /火車站|火車頭|(?<=[一-龥]{2})(?:高鐵|台鐵|臺鐵)站|(?:高鐵|台鐵|臺鐵)(?=[一-龥]{2}站)/g;
@@ -117,6 +117,8 @@ const clinicOf = (s) => (CLINIC_WORD.test(s) && !CLINIC_TRIP.test(s) ? { clinic:
 const DEPTS_LABEL = Object.fromEntries(DEPTS.map((d) => [d.id, d.label]));
 /** 應備證件一條 → 唸得出來的短名稱（去編號、取到第一個標點；太長的條文不唸） */
 export const docShort = (x) => { const v = String(x || '').replace(/^\s*(?:[一二三四五六七八九十]+、|[（(][一二三四五六七八九十\d]+[)）]|\d+[.、．])\s*/, '').split(/[，。；：:（(]/)[0].trim(); return v.length >= 2 && v.length <= 14 && /[證書照表片簿卡章元費印]|影本|正本|文件|資料/.test(v) && !/者$|未滿|初領|補領|換領|親自|委託/.test(v) ? v : null; }; // 只唸文件、費用（「初領或補領」「未滿14歲」是分類標題）
+/** 時間詞後面接去、到、往（「明天去台北101」「等一下去」「禮拜六早上九點去動物園」） */
+const TIME_GO = /(?:明天|今天|後天|今晚|明早|明晚|等一下|等等|待會兒?|晚點|早上|上午|中午|下午|晚上|傍晚|(?:禮拜|星期|週)[一二三四五六日天])(?:要|會)?\s*(?:去|到|往)\s*\S/;
 /** 出門建議的問法 */
 const OUTING = /(?:適合|可以|能|要不要).{0,4}(?:慢跑|跑步|運動|騎車兜風|散步)|(?:慢跑|跑步|運動|散步).{0,4}(?:好嗎|可以嗎|適合嗎|嗎)|出門.{0,10}(?:注意|要帶|帶什麼|穿什麼|怎麼穿|帶傘|適合)|適合出門|(?:可以|能|適合|要不要)\s*(?:帶.{0,4})?(?:去|出去)\s*(?:公園|郊外|河濱|戶外|玩|散步|運動|爬山|踏青|野餐)|適合(?:出去|戶外)|(?:今天|等一下|待會).{0,6}(?:注意什麼|要帶什麼|穿什麼)|要穿什麼|穿什麼出門/;
 const WEATHER_WORD = /天氣|氣溫|溫度|幾度|下雨|下大雨|大雨|帶傘|雨傘|會冷|會熱|會很[冷熱]|[冷熱]不[冷熱]|很[冷熱][嗎嘛]|颱風|出太陽/; // 「今天會很熱嗎」（P5-4）
@@ -447,7 +449,7 @@ const REL_ARRIVE_ZH = /(?:分(?:鐘)?|小時|鐘頭)\s*(?:後|以?內)\s*(?:就|
 const REL_ARRIVE_EN = /\b(?:be there|get there|arrive|be at|reach|make it)\b[^.?!]*\b(?:in|within)\s|\b(?:leaves?|departs?)\s+(?:in|within)\s/i;
 const relArrive = (text) => { const s = String(text || ''); const m = relMinutes(s); return m && (REL_ARRIVE_ZH.test(s) || REL_ARRIVE_EN.test(s)) ? nowTW((parseNow ?? Date.now()) + m * 60e3).hhmm : null; };
 
-export function arriveByOf(text) {
+export function arriveByOf(text, now = Date.now()) {
   const N = '\\d{1,2}|[一二兩三四五六七八九十]{1,3}';
   const m = new RegExp(`(${N})\\s*(?:[點:：時])\\s*(半|${N})?\\s*分?\\s*(?:以前|之前|前|(?:要|會|得)?(?:到|抵達))`).exec(text);
   if (!m) return relArrive(text); // 「20 分鐘後開，來得及嗎」「半小時內要到」
@@ -455,6 +457,11 @@ export function arriveByOf(text) {
   const min = m[2] === '半' ? 30 : m[2] ? zhNum(m[2]) : 0;
   if (!Number.isFinite(h) || !Number.isFinite(min)) return null;
   if (/下午|晚上|傍晚/.test(text) && h < 12) h += 12;
+  // 沒說早晚、今天這個時間已經過了、加 12 小時還沒到 → 下午／晚上（PM 第二輪：15:00 說「六點要到」被當成 06:00；與出發時間同一套）
+  else if (h >= 1 && h < 12 && !/早上|上午|凌晨|清晨|明天|明早|後天/.test(text)) {
+    const tw = new Date(now + 8 * 3600e3), cur = tw.getUTCHours() * 60 + tw.getUTCMinutes();
+    if (h * 60 + min <= cur && (h + 12) * 60 + min > cur) h += 12;
+  }
   if (h > 23 || min > 59) return null;
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
@@ -983,7 +990,8 @@ function parseIntentRaw(text, ctx) {
   } // 「騎 YouBike 去 X」是行程
   if (/附近/.test(s) && /公車|站牌/.test(s)) return { ...base, intent: 'nearby_bus' };
   // 行程：只說目的地（「去台北101」「想省錢，去松山機場」，甚至只打地名）→ 起點用現在位置（needsLocation）
-  const tripSaid = places.length && ((places.length >= 2 && /[一-龥A-Za-z0-9]\s*(?:到|→|至)\s*[一-龥A-Za-z0-9]/.test(s)) || /從.+(到|去)|出發\s*(?:去|到|往)|怎麼去|怎麼走|怎麼坐|怎麼搭|(?:坐|搭)什麼|要到|前到|想去|要去|帶我去|(?:改|換)(?:成)?(?:去|到)|去.+怎麼|(?:^|[，,、\s])(?:去|到|往)\s*\S|(?:[點半]|\d分)\s*(?:到|去)\s*[^\s，,。了]|(?:坐|搭|騎|用|開車|走路|推|帶|叫).{0,8}(?:去|到|往)|(?:公車|捷運|火車|客運)\s*(?:回|去)(?!到|覆|頭)|(?:^|[，,、\s]|要|想|早上|晚上|下午|現在|下班|放學|等等|明天)回(?!到|覆|頭|饋|去|來|應)\s*\S/.test(s));
+  const timeGo = TIME_GO.test(s) && !WEATHER_WORD.test(s) && !OUTING.test(s); // 「明天去台北101」：時間詞後面接去（PM 第二輪）；「明天去台北101會下雨嗎」仍是問天氣
+  const tripSaid = places.length && (timeGo || (places.length >= 2 && /[一-龥A-Za-z0-9]\s*(?:到|→|至)\s*[一-龥A-Za-z0-9]/.test(s)) || /從.+(到|去)|出發\s*(?:去|到|往)|怎麼去|怎麼走|怎麼坐|怎麼搭|(?:坐|搭)什麼|要到|前到|想去|要去|帶我去|(?:改|換)(?:成)?(?:去|到)|去.+怎麼|(?:^|[，,、\s])(?:去|到|往)\s*\S|(?:末班|最後一班)車?\s*(?:回|去|到|往)\s*\S|(?:[點半]|\d分)\s*(?:到|去)\s*[^\s，,。了]|(?:坐|搭|騎|用|開車|走路|推|帶|叫).{0,8}(?:去|到|往)|(?:公車|捷運|火車|客運)\s*(?:回|去)(?!到|覆|頭)|(?:^|[，,、\s]|要|想|早上|晚上|下午|現在|下班|放學|等等|明天)回(?!到|覆|頭|饋|去|來|應)\s*\S/.test(s));
   if (places.length && (tripSaid || onlyPlace(s, places))) {
     const [from, to] = places.length >= 2 ? orderFromTo(s, places) : [FROM_TEXT.exec(s)?.[1] ?? null, places[0]]; // 明講的起點優先
     const amb = places.length === 1 && !from ? ambigOf(s, to) : null; // 「去中山」：同名的地點不只一個（PM Q-4～Q-6）
@@ -1831,7 +1839,8 @@ function summaryCore(it, results, suggestions = []) {
   if (!last) return '這次沒查到資料，換個說法或加上地名試試看。';
   if (it.intent === 'trip') {
     const trip = results.plan_trip?.[0];
-    const when = `${it.departTime ? `${dayWord(it)} ${it.departTime} 出發：` : ''}${it.nearRail && it.to ? `最近的${it.nearRail === 'THSR' ? '高鐵' : '火車'}站是「${String(it.to).replace(/臺/g, '台')}」。` : ''}`; // 說了幾點出發、沒說哪一站的火車站，總結先講（P5-2、P5-4）
+    const synth = !it.departTime && !it.arriveBy && it.tomorrow && trip?.data?.departAt ? `（${dayWord(it)} ${trip.data.departAt} 出發算的；要改時間跟我說幾點。）` : ''; // 「明天去台北101」沒說幾點：說清楚用幾點算的（PM 第二輪審查）
+    const when = `${synth}${it.departTime ? `${dayWord(it)} ${it.departTime} 出發：` : ''}${it.nearRail && it.to ? `最近的${it.nearRail === 'THSR' ? '高鐵' : '火車'}站是「${String(it.to).replace(/臺/g, '台')}」。` : ''}`; // 說了幾點出發、沒說哪一站的火車站，總結先講（P5-2、P5-4）
     const pre = `${when}${it.from || it.fromPoint ? '' : it.noLocation ? `（沒拿到你的位置，先從「${DEFAULT_FROM}」算；告訴我從哪出發就重算。）` : `（你沒說從哪出發，我先用「${DEFAULT_FROM}」算。）`}`;
     // 今天不會來的直達路線（站牌即時資訊：今日未營運、末班已過、交管不停靠；plan_trip 或盯到站後重排已排除）：先說，使用者才知道為什麼不推它
     const off = (trip?.data.missing || []).filter((m) => m.kind === 'route');
