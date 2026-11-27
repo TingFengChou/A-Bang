@@ -11,7 +11,7 @@ import { planTrip, BUS_OFF, withoutBus } from '../core/services/trip.js';
 import { decide } from '../core/decide.js';
 import { createServices } from '../core/index.js';
 import { runDemo } from '../core/agent/run.js';
-import { demoSummary, busOffSay } from '../core/agent/demo-intent.js';
+import { demoSummary, busOffSay } from '../core/agent/demo-summary.js';
 import { followUpText } from '../core/agent/model-loop.js';
 import { enNote } from '../core/agent/en-notes.js';
 

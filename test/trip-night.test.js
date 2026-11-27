@@ -12,7 +12,8 @@ import { callTool } from '../core/tools/index.js';
 import { speakEn } from '../core/tools/speak-en.js';
 import { impactOf } from '../core/agent/impact.js';
 import { mustSay } from '../core/agent/model-loop.js';
-import { nightNote, demoSummary, parseIntent, tripDepartAt } from '../core/agent/demo-intent.js';
+import { parseIntent, tripDepartAt } from '../core/agent/demo-intent.js';
+import { nightNote, demoSummary } from '../core/agent/demo-summary.js';
 
 const MAIN = { name: '台北車站', lat: 25.0478, lon: 121.517 };
 const T101 = { name: '台北101', lat: 25.033964, lon: 121.564468 };

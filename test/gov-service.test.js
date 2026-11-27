@@ -5,7 +5,8 @@ import { cleanText, mergeServices, serviceQuery, searchServices, docsList, toIte
 import { createMockGovServices } from '../core/services/govservice-mock.js';
 import { callTool } from '../core/tools/index.js';
 import { createServices } from '../core/index.js';
-import { parseIntent, demoSummary } from '../core/agent/demo-intent.js';
+import { parseIntent } from '../core/agent/demo-intent.js';
+import { demoSummary } from '../core/agent/demo-summary.js';
 import { runDemo } from '../core/agent/run.js';
 
 const row = (ch, o) => {

@@ -1,7 +1,8 @@
 // 示範模式意圖（M5-03）：地點擷取、抵達時間、狀態關鍵字、意圖分類；每個建議問題的計畫都能用示範資料完整執行
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseIntent, needsLocation, placesInText, arriveByOf, demoSteps, demoSummary, DEFAULT_FROM, NO_ADVICE } from '../core/agent/demo-intent.js';
+import { parseIntent, needsLocation, placesInText, arriveByOf, demoSteps, DEFAULT_FROM, NO_ADVICE } from '../core/agent/demo-intent.js';
+import { demoSummary } from '../core/agent/demo-summary.js';
 import { getProfile } from '../core/agents/index.js';
 import { callTool } from '../core/tools/index.js';
 import { createServices } from '../core/index.js';

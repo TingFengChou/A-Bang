@@ -2,7 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseAntifraud, antifraudSteps, antifraudSummary, isEmptyAsk } from '../core/agent/demo-antifraud.js';
-import { parseIntent, demoSummary } from '../core/agent/demo-intent.js';
+import { parseIntent } from '../core/agent/demo-intent.js';
+import { demoSummary } from '../core/agent/demo-summary.js';
 
 test('防詐：沒附內容只問「是不是詐騙」→ 不查工具、請他貼上，並提醒先別點連結匯款', () => {
   for (const t of ['這是詐騙嗎', '我收到一封簡訊，是詐騙嗎？', '幫我看這個', '剛剛接到一通電話是不是詐騙']) {
