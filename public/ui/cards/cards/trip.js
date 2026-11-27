@@ -73,6 +73,7 @@ import { calendarFromTrip, shareFromTrip } from '../../../../core/device-actions
  * 加到行事曆、分享（ADR-0021）：只放在建議方案下；host 有這兩個動作才顯示（MCP Apps 沒有）。
  * 內容由程式從這張卡片產生，最後一步在系統畫面（新增行程、分享面板）由使用者確認；結果寫在這一區。
  */
+/** @returns {{ buttons: Array<HTMLElement|null>, status: HTMLElement|null }|null} */
 function deviceBlock(o, { host, t, state, rerender, payload, locale = null, say = () => {} }) {
   if (!host?.addCalendar && !host?.share) return null;
   const lang = locale === 'en' ? 'en' : null;
@@ -85,17 +86,21 @@ function deviceBlock(o, { host, t, state, rerender, payload, locale = null, say 
     state.device = { text, err: !['saved', 'downloaded', 'shared', 'copied', 'cancelled', 'opened'].includes(r) };
     say(text); rerender();
   };
-  return h('div', { class: 'ab-actions ab-device' },
-    event && h('button', { type: 'button', class: 'ab-btn', onclick: (e) => { e.stopPropagation(); run('addCalendar'); } }, t('device.addCalendar')),
-    shared && h('button', { type: 'button', class: 'ab-btn', onclick: (e) => { e.stopPropagation(); run('share'); } }, t('device.share')),
-    state.device && h('p', { class: state.device.err ? 'ab-fail' : 'ab-sub', role: 'status' }, state.device.text));
+  // 按鈕併進行程的那一列（設計審查：兩列看起來像兩組不相關的功能）；結果的一句話放在那一列下面
+  return {
+    buttons: [
+      event && h('button', { type: 'button', class: 'ab-btn ab-device-btn', onclick: (e) => { e.stopPropagation(); run('addCalendar'); } }, t('device.addCalendar')),
+      shared && h('button', { type: 'button', class: 'ab-btn ab-device-btn', onclick: (e) => { e.stopPropagation(); run('share'); } }, t('device.share')),
+    ],
+    status: state.device && h('p', { class: state.device.err ? 'ab-fail ab-device-status' : 'ab-sub ab-device-status', role: 'status' }, state.device.text),
+  };
 }
 
 const MAX_ALT = 2;
 
 /** 按建議方案的導航、叫車、訂票＝選了這種方式：送 abang:choice（網頁 App 的 habits.js 記常選的方式，只有方式；MCP Apps 裡沒人聽） */
 const chose = (el, role) => {
-  el.addEventListener('click', (e) => { if (e.target?.closest?.('button') && typeof CustomEvent === 'function') globalThis.dispatchEvent?.(new CustomEvent('abang:choice', { detail: { role } })); }, true); // 捕捉階段：按鈕自己 stopPropagation
+  el.addEventListener('click', (e) => { if (e.target?.closest?.('button') && !e.target.closest('.ab-device-btn') && typeof CustomEvent === 'function') globalThis.dispatchEvent?.(new CustomEvent('abang:choice', { detail: { role } })); }, true); // 捕捉階段：按鈕自己 stopPropagation
   return el;
 };
 
@@ -155,6 +160,7 @@ export function optName(o, t, locale) {
 }
 
 function optionBlock(o, ctx, best) {
+  let dev = null; // 加到行事曆、分享（併進行程那一列）
   const { host, t } = ctx;
   const name = optName(o, t, ctx.locale);
   const range = o.costRange || [o.cost, o.cost];
@@ -179,12 +185,13 @@ function optionBlock(o, ctx, best) {
       h('span', { class: `ab-chip${o.bike.rent.tight ? ' warn' : ' ok'}` }, t('trip.bikeRent', { name: o.bike.rent.name, n: o.bike.rent.count })),
       h('span', { class: `ab-chip${o.bike.ret.tight ? ' warn' : ' ok'}` }, t('trip.bikeReturn', { name: o.bike.ret.name, n: o.bike.ret.count }))),
     o.bike && (o.bike.rent.tight || o.bike.ret.tight) && h('ul', { class: 'ab-bike-warn' }, o.notes.filter((n) => /可能/.test(n) && !/變動/.test(n) && !zhOnly(n, ctx.locale)).map((n) => h('li', {}, n))),
-    best && chose(h('div', { class: 'ab-actions' },
+    best && (dev = deviceBlock(o, ctx), chose(h('div', { class: 'ab-actions' },
       navButton(host, o.legs[0]?.nav),
       ride && confirmLinkButton(host, ride, t('trip.ridehailConfirm'), t('trip.ridehail')),
-      o.train && bookButton(host, { system: o.role.toUpperCase(), trainNo: o.train.trainNo, date: o.train.date, from: o.train.from, to: o.train.to }, (m) => { ctx.state.err = m; ctx.rerender(); })), o.role),
+      o.train && bookButton(host, { system: o.role.toUpperCase(), trainNo: o.train.trainNo, date: o.train.date, from: o.train.from, to: o.train.to }, (m) => { ctx.state.err = m; ctx.rerender(); }),
+      ...(dev?.buttons || [])), o.role)),
+    best && dev?.status,
     best && remindBlock(o, ctx),
-    best && deviceBlock(o, ctx),
     pick);
 }
 

@@ -109,6 +109,15 @@
           "minimum": 1,
           "maximum": 13,
           "description": "問的是幾天後（「禮拜六有開嗎」）；今天不帶"
+        },
+        "md": {
+          "type": "string",
+          "description": "M/D（英文卡片組日期用）"
+        },
+        "dow": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
         }
       }
     },

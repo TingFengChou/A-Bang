@@ -32,9 +32,9 @@ test('解析：只留戶政事務所、台灣範圍的座標；電話；日曆�
 
 test('今天上不上班：照日曆（放假附原因）；日曆沒有就照週末推並標示', () => {
   const cal = parseCalendar('西元日期,星期,是否放假,備註\n20261127,五,0,\n20261010,六,2,國慶日\n');
-  assert.deepEqual(workdayOf(cal, TPE), { date: '11/27（五）', workday: true, note: null, known: true });
-  assert.deepEqual(workdayOf(cal, Date.UTC(2026, 9, 10, 2)), { date: '10/10（六）', workday: false, note: '國慶日', known: true });
-  assert.deepEqual(workdayOf(null, Date.UTC(2027, 0, 9, 2)), { date: '1/9（六）', workday: false, note: null, known: false });
+  assert.deepEqual(workdayOf(cal, TPE), { date: '11/27（五）', md: '11/27', dow: 5, workday: true, note: null, known: true });
+  assert.deepEqual(workdayOf(cal, Date.UTC(2026, 9, 10, 2)), { date: '10/10（六）', md: '10/10', dow: 6, workday: false, note: '國慶日', known: true });
+  assert.deepEqual(workdayOf(null, Date.UTC(2027, 0, 9, 2)), { date: '1/9（六）', md: '1/9', dow: 6, workday: false, note: null, known: false });
   assert.equal(taipeiDay(Date.UTC(2026, 10, 26, 17)).ymd, '20261127', '台灣時間過了午夜就是隔天');
   assert.equal(todaySay({ date: '10/10（六）', workday: false, note: '國慶日', known: true }), '今天 10/10（六）放假（國慶日）');
   assert.match(todaySay({ date: '1/4（一）', workday: true, note: null, known: false }), /照週末推的/);

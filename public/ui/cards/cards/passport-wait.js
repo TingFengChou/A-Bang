@@ -6,12 +6,12 @@ const cell = (n, label, t) => h('div', { class: 'ab-pw-cell' }, h('span', { clas
 export default {
   refreshSec: 60,
   title: (d, { t }) => t('passport.title'),
-  body(d, { host, t }) {
+  body(d, { host, t, locale }) {
     const link = (url, label, primary) => { const u = safeUrl(url); return u && host?.openLink && h('button', { type: 'button', class: primary ? 'ab-btn ab-primary' : 'ab-btn', onclick: () => host.openLink(u) }, label); };
     return h('div', { class: 'ab-body' },
       d.offices.length ? h('ul', { class: 'ab-list' }, d.offices.map((o) => h('li', { class: 'ab-pw-office' },
-        h('span', { class: 'ab-name' }, o.short),
-        h('div', { class: 'ab-pw-row', role: 'group', 'aria-label': o.short },
+        h('span', { class: 'ab-name' }, locale === 'en' && o.shortEn ? o.shortEn : o.short),
+        h('div', { class: 'ab-pw-row', role: 'group', 'aria-label': locale === 'en' && o.shortEn ? o.shortEn : o.short },
           cell(o.general.waiting, t('passport.general'), t), cell(o.online.waiting, t('passport.online'), t), cell(o.pickup.waiting, t('passport.pickup'), t))))) : h('p', { class: 'ab-empty' }, t('passport.empty')),
       h('p', { class: 'ab-sub' }, d.updatedAt ? t('passport.updated') : t('passport.note')), // 時間在卡片標題列，不重複
       h('div', { class: 'ab-actions' }, link(d.booking, t('passport.book'), true), link(d.page, t('passport.page'))));
