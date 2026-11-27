@@ -3,29 +3,100 @@
   "$id": "abang/cards/passport-wait.v1.json",
   "title": "passport-wait（passport_waiting）：護照現場等待人數（外交部領事事務局，每分鐘更新）",
   "type": "object",
-  "required": ["updatedAt", "offices", "booking", "page", "source"],
+  "required": [
+    "updatedAt",
+    "offices",
+    "booking",
+    "page",
+    "source"
+  ],
   "additionalProperties": false,
   "$defs": {
-    "n": { "type": ["integer", "null"], "minimum": 0 },
-    "line": { "type": "object", "required": ["waiting", "now"], "additionalProperties": false, "properties": { "waiting": { "$ref": "#/$defs/n" }, "now": { "$ref": "#/$defs/n" } } }
+    "n": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "line": {
+      "type": "object",
+      "required": [
+        "waiting",
+        "now"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "waiting": {
+          "$ref": "#/$defs/n"
+        },
+        "now": {
+          "$ref": "#/$defs/n"
+        }
+      }
+    }
   },
   "properties": {
-    "updatedAt": { "type": ["string", "null"] },
+    "updatedAt": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "offices": {
-      "type": "array", "maxItems": 6,
+      "type": "array",
+      "maxItems": 6,
       "items": {
         "type": "object",
-        "required": ["name", "short", "general", "online", "pickup"],
+        "required": [
+          "name",
+          "short",
+          "general",
+          "online",
+          "pickup"
+        ],
         "additionalProperties": false,
         "properties": {
-          "name": { "type": "string" }, "short": { "type": "string" },
-          "general": { "$ref": "#/$defs/line" }, "online": { "$ref": "#/$defs/line" },
-          "pickup": { "type": "object", "required": ["waiting"], "additionalProperties": false, "properties": { "waiting": { "$ref": "#/$defs/n" } } }
+          "name": {
+            "type": "string"
+          },
+          "short": {
+            "type": "string"
+          },
+          "general": {
+            "$ref": "#/$defs/line"
+          },
+          "online": {
+            "$ref": "#/$defs/line"
+          },
+          "pickup": {
+            "type": "object",
+            "required": [
+              "waiting"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "waiting": {
+                "$ref": "#/$defs/n"
+              }
+            }
+          },
+          "shortEn": {
+            "type": "string"
+          }
         }
       }
     },
-    "booking": { "type": "string", "pattern": "^https://" },
-    "page": { "type": "string", "pattern": "^https://" },
-    "source": { "type": "string" }
+    "booking": {
+      "type": "string",
+      "pattern": "^https://"
+    },
+    "page": {
+      "type": "string",
+      "pattern": "^https://"
+    },
+    "source": {
+      "type": "string"
+    }
   }
 }

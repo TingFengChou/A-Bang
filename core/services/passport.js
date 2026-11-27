@@ -9,6 +9,7 @@ const num = (s) => { const t = String(s ?? '').trim(); if (!t) return null; cons
 const tag = (xml, name) => { const m = new RegExp(`<${name}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${name}>`).exec(xml); return m ? m[1].trim() : null; };
 const sum = (...xs) => { const v = xs.filter((x) => x != null); return v.length ? v.reduce((a, b) => a + b, 0) : null; };
 /** 據點的短名（給回答用）：領務局在臺北 */
+const SHORT_EN = { 外交部領事事務局: 'BOCA (Taipei)', 外交部中部辦事處: 'Central Office (Taichung)', 外交部南部辦事處: 'Southern Office (Kaohsiung)', 外交部雲嘉南辦事處: 'Yunlin-Chiayi-Tainan Office (Chiayi)', 外交部東部辦事處: 'Eastern Office (Hualien)' };
 const SHORT = { 外交部領事事務局: '領務局（臺北）', 外交部中部辦事處: '中部辦事處（臺中）', 外交部南部辦事處: '南部辦事處（高雄）', 外交部雲嘉南辦事處: '雲嘉南辦事處（嘉義）', 外交部東部辦事處: '東部辦事處（花蓮）' };
 
 /**
@@ -24,7 +25,7 @@ export function parsePassportWait(xml) {
     const name = tag(it, 'location') || '';
     const n = (k) => num(tag(it, k));
     return {
-      name, short: SHORT[name] || name,
+      name, short: SHORT[name] || name, ...(SHORT_EN[name] && { shortEn: SHORT_EN[name] }),
       general: { waiting: n('AP_GeneralWaitingPersonCount'), now: n('AP_GeneralInProcessNumber') },
       online: { waiting: n('AP_OnlineWaitingPersonCount'), now: n('AP_OnlineInProcessNumber') },
       pickup: { waiting: sum(n('RP_WaitingPersonCount'), n('RP_AMWaitingPersonCount'), n('RP_PMWaitingPersonCount')) },

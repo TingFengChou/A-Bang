@@ -48,15 +48,15 @@ export function calendarUrl(meta, rocYear) {
 export function taipeiDay(now = Date.now()) {
   const d = new Date(now + TW_MS);
   const ymd = `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
-  return { ymd, year: d.getUTCFullYear(), label: `${d.getUTCMonth() + 1}/${d.getUTCDate()}（${WEEK[d.getUTCDay()]}）`, weekend: d.getUTCDay() === 0 || d.getUTCDay() === 6 };
+  return { ymd, year: d.getUTCFullYear(), label: `${d.getUTCMonth() + 1}/${d.getUTCDate()}（${WEEK[d.getUTCDay()]}）`, md: `${d.getUTCMonth() + 1}/${d.getUTCDate()}`, dow: d.getUTCDay(), weekend: d.getUTCDay() === 0 || d.getUTCDay() === 6 };
 }
 
 /** 今天上不上班：日曆有就照日曆；沒有（新年度還沒公布、下載失敗）就照週末推，並標示是推的 */
 export function workdayOf(cal, now = Date.now()) {
   const day = taipeiDay(now);
   const hit = cal?.get?.(day.ymd);
-  if (hit) return { date: day.label, workday: !hit.off, note: hit.note, known: true };
-  return { date: day.label, workday: !day.weekend, note: null, known: false };
+  if (hit) return { date: day.label, md: day.md, dow: day.dow, workday: !hit.off, note: hit.note, known: true }; // md、dow：英文卡片自己組日期（設計審查）
+  return { date: day.label, md: day.md, dow: day.dow, workday: !day.weekend, note: null, known: false };
 }
 
 /**

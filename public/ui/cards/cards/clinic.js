@@ -1,6 +1,6 @@
 // clinic（clinic_search）：這一區的健保特約診所，這個時段有登記看診的排前面；科別、電話、地圖搜尋。
 // 只說「有登記看診」，不說看診中（臨時休診不會反映）；不判斷病情、不推薦科別。
-import { h } from '../dom.js';
+import { h, fmtTel } from '../dom.js';
 import { navButton } from '../actions.js';
 import { periodNow } from './pharmacy.js';
 
@@ -26,7 +26,7 @@ export default {
         !planned && now && c.today?.includes(now) && h('p', { class: 'ab-open-now' }, h('i', { class: 'ab-dot-ok', 'aria-hidden': 'true' }), t('clinic.openNow', { period: pname(now) })),
         h('p', { class: 'ab-sub' }, [c.depts?.join(locale === 'en' ? ', ' : '、'), c.address].filter(Boolean).join('・')), // 科別與地址一行
         h('div', { class: 'ab-actions' }, navButton(host, c.nav, t('clinic.map'), t('clinic.mapOf', { name: c.name })),
-          telOf(c.phone).length >= 6 && h('a', { class: 'ab-btn', href: `tel:${telOf(c.phone)}`, 'aria-label': t('clinic.callOf', { name: c.name }) }, t('clinic.call', { phone: c.phone })))))),
+          telOf(c.phone).length >= 6 && h('a', { class: 'ab-btn', href: `tel:${telOf(c.phone)}`, 'aria-label': t('clinic.callOf', { name: c.name }) }, t('clinic.call', { phone: fmtTel(c.phone) })))))),
       d.clinics.length > MAX && h('button', { type: 'button', class: 'ab-btn ab-link', onclick: () => { state.all = !state.all; rerender(); } }, state.all ? t('common.less') : t('common.more')),
       h('p', { class: 'ab-foot' }, t('clinic.note')));
   },

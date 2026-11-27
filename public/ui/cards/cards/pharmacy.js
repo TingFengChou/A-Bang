@@ -1,5 +1,5 @@
 // pharmacy（pharmacy_search）：健保特約藥局、今天營業時段、電話、地圖搜尋
-import { h } from '../dom.js';
+import { h, fmtTel } from '../dom.js';
 import { navButton } from '../actions.js';
 
 const MAX = 5; // 其餘收在「看更多」（設計審查）
@@ -24,7 +24,7 @@ export default {
         p.today?.includes(periodNow()) && h('p', { class: 'ab-open-now' }, h('i', { class: 'ab-dot-ok', 'aria-hidden': 'true' }), t('pharmacy.openNow', { period: pname(periodNow()) })), // 健保署只登記時段：說「有登記」，不說營業中
         h('p', { class: 'ab-sub' }, p.address),
         h('div', { class: 'ab-actions' }, navButton(host, p.nav, t('pharmacy.map'), t('clinic.mapOf', { name: p.name })),
-          telOf(p.phone).length >= 6 && h('a', { class: 'ab-btn', href: `tel:${telOf(p.phone)}`, 'aria-label': t('clinic.callOf', { name: p.name }) }, t('pharmacy.call', { phone: p.phone })))))),
+          telOf(p.phone).length >= 6 && h('a', { class: 'ab-btn', href: `tel:${telOf(p.phone)}`, 'aria-label': t('clinic.callOf', { name: p.name }) }, t('pharmacy.call', { phone: fmtTel(p.phone) })))))),
       d.pharmacies.length > MAX && h('button', { type: 'button', class: 'ab-btn ab-link', onclick: () => { state.all = !state.all; rerender(); } }, state.all ? t('common.less') : t('common.more')),
       h('p', { class: 'ab-foot' }, t('pharmacy.note')));
   },
