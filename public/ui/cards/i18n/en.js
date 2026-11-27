@@ -361,6 +361,7 @@ export const MESSAGES = {
   'gov.days': 'Processing time: {days}',
   'gov.docs': 'What to bring',
   'gov.noDocs': 'This entry lists no documents. Check the official page or ask the office.',
+  'gov.fullDocs': 'Show full text',
   'gov.moreDocs': 'Show {n} more',
   'gov.contact': 'Contact: {contact}',
   'gov.online': 'Apply online',

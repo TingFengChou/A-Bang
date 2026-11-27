@@ -113,3 +113,16 @@ test('示範模式：查我的E政府、回答照資料並說不代替申辦', a
   assert.match(text, /阿幫不代替申辦/);
   assert.match(demoSummary({ intent: 'gov' }, {}), /暫時拿不到/);
 });
+
+test('長輩常辦的事與台語說法（PM 審查 2026-11-28）：規則聽得懂、口語換成標題用字；戶政幾點開是找戶政', async () => {
+  const { serviceQuery } = await import('../core/services/govservice.js');
+  const { parseIntent, docShort } = await import('../core/agent/demo-intent.js');
+  const p = (q) => parseIntent(q, { history: [] });
+  for (const q of ['健保卡不見了', '老人健保卡遺失補辦', '敬老卡要怎麼辦', '我要去區公所辦低收入戶要準備什麼', '中低收入老人津貼怎麼申請', '身障手冊換證明要帶什麼', '阮孫仔欲報戶口，愛紮啥物', '重陽禮金怎麼領', '印章不見了要怎麼辦']) assert.equal(p(q).intent, 'gov', q);
+  for (const q of ['戶政事務所幾點開', '戶政事務所禮拜六有開嗎', '戶政營業時間']) assert.equal(p(q).govOffice, true, q);
+  for (const [q, want] of [['健保卡不見了', '換發健保卡'], ['老人健保卡遺失補辦', '換發健保卡'], ['我要去區公所辦低收入戶要準備什麼', '低收入戶申請'], ['中低收入老人津貼怎麼申請', '中低收入老人生活津貼'], ['身障手冊換證明要帶什麼', '身心障礙證明換發'], ['阮孫仔欲報戶口，愛紮啥物', '出生登記'], ['重陽禮金怎麼領', '敬老禮金'], ['印章不見了要怎麼辦', '印鑑登記'], ['換身分證要帶什麼', '國民身分證換發']]) assert.equal(serviceQuery(q), want, q);
+  assert.equal(serviceQuery('低收入戶房屋稅減免'), '低收入戶房屋稅減免', '已經是標題用字的不再換');
+  assert.equal(docShort('一、請領健保卡申請表。'), '請領健保卡申請表');
+  assert.equal(docShort('新臺幣200元'), '新臺幣200元');
+  for (const x of ['初領或補領', '未滿14歲', '委託申請者', '當事人、利害關係人親自申請者：請攜帶國民身分證正本、印章']) assert.equal(docShort(x), null, x);
+});
