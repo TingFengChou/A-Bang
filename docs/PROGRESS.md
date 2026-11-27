@@ -11,6 +11,14 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 英文辦事說法；情境集補診所、戶政、護照、官方入口
+- 做了：PM 審查 #6：「Where is the nearest household registration office?」「How long is the wait at the passport office?」「Is the passport office busy?」原本聽不懂，現在走 `gov_office_nearby`、`passport_waiting`，英文回報（`SPEAK_EN`：日期「11/28 (Sat)」、據點英文名、只有人數不是等待時間）。「I lost my passport」「My passport was stolen」：觀光客不是台灣人的護照遺失申報——固定指引：到警察局報案拿報案證明（緊急 110）、聯絡自己國家的駐台機構、外籍人士 24 小時免付費熱線 0800-024-111。情境集新增 S21-1～11（小兒科、那明天早上呢、急症先 119、處方箋走藥局、戶政、禮拜六、健保卡不見了、護照人數、查罰單、英文掉護照、英文戶政）
+- App Functions 結合：英文說法與中文走同一組工具，之後 Siri 英文「Ask Abang where the nearest household registration office is」也走同一條路
+- 測試：npm test 全過（情境 S21 11 個）；e2e 全過
+- 文件：PROGRESS.md、AGENT.md
+- 下一個：架構審查 #3、#4（藥局／診所共用純函式、診所獨立意圖＋重訓分類器）
+- 卡住：英文品牌名 Abang／A-Bang 待產品負責人決定
+
 ## 2026-11-28 卡片一致性：電話格式、行程卡按鈕一列、英文日期與據點名
 - 做了：設計審查 #5、#6：電話顯示統一（`fmtTel`：02-2303-8125、0912-345-678、037-123456、0800-000-123，分機照接；診所、藥局、戶政）；行程卡「導航／叫車／訂票」與「加到行事曆／分享」併成同一列（結果那句放在下面；按行事曆、分享不算選了這個方案）；戶政日期帶 `md`、`dow`，英文卡片寫「11/28 (Sat)」不混中文星期；護照據點英文名（BOCA (Taipei)…）
 - App Functions 結合：電話格式統一後，之後 Siri／Gemini 的「打給這間」可以直接用同一份號碼

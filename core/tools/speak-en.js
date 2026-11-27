@@ -75,6 +75,18 @@ export const SPEAK_EN = {
     if (d.laterCount) return `${d.phase === 'early' ? "Clinics haven't opened yet" : 'None registered for right now'}; ${plural(d.laterCount, 'clinic')}${where} registered hours later today.`;
     return 'Clinic hours are over for today; if you feel very unwell go to a hospital ER, and call 119 in an emergency.';
   },
+  gov_office_nearby: (d) => {
+    const t = d.today || {};
+    const day = t.md ? `${t.md} (${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][t.dow]})` : 'today';
+    const w = t.workday ? `${t.dayOffset ? day : `Today, ${day},`} is a government workday` : `Government offices are closed ${t.dayOffset ? 'on' : 'today,'} ${day}`;
+    const o = d.offices?.[0];
+    return o ? `Nearest household registration office: ${o.name}, ${km(o.distanceM)} (about ${o.walkMin} min walk). ${w}.` : `No household registration office found nearby. ${w}.`;
+  },
+  passport_waiting: (d) => {
+    const o = d.offices?.[0];
+    const n = (x) => (x == null ? 'no data' : plural(x, 'person', 'people'));
+    return o ? `${o.shortEn || o.short}: ${n(o.general?.waiting)} waiting for walk-in applications, ${n(o.online?.waiting)} for online bookings, ${n(o.pickup?.waiting)} for pickup.` : 'Passport office queue numbers are unavailable right now.';
+  },
   youbike_nearby: (d) => { const s = d.stations.find((x) => x.inService && x.rent > 0); return s ? `Nearest station with bikes: ${s.name} (${km(s.distance)}), ${plural(s.rent, 'bike')}.` : 'No bikes at nearby stations right now.'; },
   bus_nearby_stations: (d) => (d.stations.length ? `${plural(d.stations.length, 'bus stop')} nearby; nearest is ${d.stations[0].name} (${km(d.stations[0].distance)}).` : 'No bus stops nearby.'),
   bus_station_eta: (d) => { const f = d.arrivals.find((r) => r.etaSec != null); return f ? `Soonest is ${f.routeName}, in ${mins(f.etaSec)} min.` : 'No buses due at this stop right now.'; },
