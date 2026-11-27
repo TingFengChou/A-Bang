@@ -200,7 +200,7 @@ export default {
     mountVisionButton(form, { profile: agentId, lang: () => lastView?.lang || null, callTool: (n, a) => host.callTool(n, a), ask: (q) => send(q),
       fill: (t) => { input.value = t; input.focus(); },
       scam: (t) => { if (agentId === 'antifraud') send(t); else { handOff('antifraud', t); location.hash = '#/agent/antifraud'; } } });
-    const disclaimer = el('p', 'updated');
+    const disclaimer = el('p', 'updated chat-foot');
     const modeLine = el('p', 'updated agent-mode');
     modeLine.setAttribute('aria-live', 'polite'); // 換模式或改在手機上判斷時唸出來 // 由誰回答（ADR-0012；Claude 模式說明對話會送 Anthropic，AGENT.md §7）
     // 說明起點是現在位置（第一次需要位置時才跳權限框，先讓使用者知道為什麼）；拒絕定位時阿幫會問從哪出發

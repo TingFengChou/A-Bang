@@ -580,3 +580,9 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
 /* 首頁「手機上的 AI」那行：網頁版不顯示（設計第二輪 #4）；我的頁說明收進「怎麼運作」 */
 .ai-line[hidden] { display: none; }
 .me-ai-how summary { cursor: pointer; color: var(--muted); font-size: 14px; min-height: 44px; display: flex; align-items: center; }
+/* 設定頁精簡（設計第二輪 #5）：長說明收進「說明」、頁首跳到各段 */
+.note-more summary { cursor: pointer; color: var(--muted); font-size: 13px; min-height: 44px; display: flex; align-items: center; }
+.note-more[open] summary { min-height: 32px; }
+.set-jump { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.set-jump .chip { min-height: 36px; }
+section.settings { scroll-margin-top: 64px; }
