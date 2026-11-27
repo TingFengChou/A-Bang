@@ -4,6 +4,7 @@
 import { csvObjects } from '../csv.js';
 import { nowTW, distanceM as haversine, UserError } from '../util.js';
 import { navLinks } from '../nav.js';
+import { normAddr, twDow, twYmd, WEEK, dayPeriods, pickCity } from '../nhi-hours.js';
 
 export const URLS = {
   aqi: (key) => `https://data.moenv.gov.tw/api/v2/aqx_p_432?api_key=${encodeURIComponent(key)}&limit=1000&format=JSON`,
@@ -17,12 +18,10 @@ export const URLS = {
 
 const num = (v) => { const n = Number(String(v ?? '').trim()); return String(v ?? '').trim() !== '' && Number.isFinite(n) ? n : null; };
 /** 全形數字與「台」統一，地址比對用 */
-export const normAddr = (s) => String(s ?? '').replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(/台/g, '臺').replace(/\s+/g, '');
-const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+export { normAddr }; // 共用（core/nhi-hours.js，藥局與診所同一份）
 const WEEK_EN = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 /** 民國日期 1151116 → 2026-11-16 */
 export const rocDate = (s) => { const m = String(s ?? '').trim().match(/^(\d{2,3})(\d{2})(\d{2})$/); return m ? `${Number(m[1]) + 1911}-${m[2]}-${m[3]}` : null; };
-const twDow = (now) => new Date(Date.parse(`${nowTW(now).date}T12:00:00+08:00`)).getUTCDay();
 
 // ── 空氣品質（環境部 aqx_p_432，每小時）──
 const AQI_LEVELS = [[50, '良好', 'good'], [100, '普通', 'moderate'], [150, '對敏感族群不健康', 'sensitive'], [200, '對所有族群不健康', 'unhealthy'], [300, '非常不健康', 'very'], [Infinity, '危害', 'hazard']];
@@ -75,17 +74,12 @@ export function quakeList(raws, { county, limit = 5 } = {}) {
 }
 
 // ── 藥局（健保署特約藥局，每日；沒有座標 → 以地區與名稱搜尋）──
-/** 固定看診時段字串 → 今天的開放時段（上午／下午／晚上） */
-export function todayHours(text, dow) {
-  const s = String(text ?? '');
-  if (!s.trim()) return null;
-  const open = ['上午', '下午', '晚上'].filter((p) => s.includes(`星期${WEEK[dow]}${p}看診`));
-  return open;
-}
+/** 固定看診時段字串 → 今天的開放時段（上午／下午／晚上）；沒填時段回 null（共用 nhi-hours.js） */
+export const todayHours = dayPeriods;
 export function pharmacySearch(rows, { area, query = '', now = Date.now(), limit = 20 }) {
   const a = normAddr(area), q = normAddr(query);
   if (!a && !q) throw new UserError('請輸入地區（例如「臺北市大安區」）或藥局名稱');
-  const today = nowTW(now).date.replaceAll('-', '');
+  const today = twYmd(now);
   const dow = twDow(now);
   const list = [];
   for (const r of rows) {
@@ -94,19 +88,15 @@ export function pharmacySearch(rows, { area, query = '', now = Date.now(), limit
     const addr = normAddr(r['地址']);
     if (a && !addr.includes(a)) continue;
     if (q && !normAddr(r['醫事機構名稱']).includes(q) && !addr.includes(q)) continue;
-    const hours = todayHours(r['固定看診時段'], dow);
+    const hours = dayPeriods(r['固定看診時段'], dow);
     list.push({
       code: r['醫事機構代碼'], name: r['醫事機構名稱'], phone: r['電話'] || null, address: addr,
       today: hours, openToday: hours ? hours.length > 0 : null,
       nav: { google: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${r['醫事機構名稱']} ${addr}`)}` },
     });
-    if (list.length >= limit * 3) break;
-  }
-  // 只說區名（「大安區」）而好幾個縣市都有：只列第一個縣市的，另外說還有哪些縣市（生活資料審查：基隆市中正區的人拿到臺北市的藥局）
-  const cityOf = (p) => /^(.{2}[市縣])/.exec(p.address)?.[1] || null;
-  const cities = a && !/[市縣]/.test(a) ? [...new Set(list.map(cityOf).filter(Boolean))] : [];
-  const shown = (cities.length > 1 ? list.filter((p) => cityOf(p) === cities[0]) : list).slice(0, limit);
-  return { area: area || null, query: query || null, weekday: `星期${WEEK[dow]}`, pharmacies: shown, ...(cities.length > 1 && { city: cities[0], otherCities: cities.slice(1) }) };
+  } // 不提早停：同名區跨縣市要看完整份才知道有哪些縣市（架構審查：原本找到 limit*3 筆就停，「中正區」可能看不到基隆）
+  const picked = pickCity(list, area);
+  return { area: area || null, query: query || null, weekday: `星期${WEEK[dow]}`, pharmacies: picked.list.slice(0, limit), ...(picked.otherCities && { city: picked.city, otherCities: picked.otherCities }) };
 }
 
 // ── 垃圾車（臺北市清運點位、新北市路線＋即時 GPS）──

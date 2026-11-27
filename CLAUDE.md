@@ -83,6 +83,7 @@ core/            唯一的資料與邏輯層
   services/passport.js 護照現場等待人數（M16-04c）；data/passport-wait-sample.xml 示範用的真實 RSS
   services/govlinks.js 官方入口（M16-04d，只收政府網域 https）；data/gov-links.json 內建清單
   services/clinic.js 現在有看診的診所（M16-04e，健保署，依地區、時段、科別）；data/demo/clinics.csv 示範片段
+  nhi-hours.js   藥局與診所共用的純函式（地址、時段、同名區；前端以 /core/nhi-hours.js 共用）
   device-actions.js 阿幫動手做：行事曆事件、分享文字、.ics、檢查（純函式，前端以 /core/device-actions.js 共用；ADR-0021）；agent/device-turn.js 「加到行事曆」「傳給我媽」怎麼回
   health-nudge.js 健康與運動：天氣好又動得少的規則、散步地點、文案、一天一次（純函式，前端以 /core/health-nudge.js 共用；健康資料只在手機，ADR-0018）
   providers/     ridehail/（index.js 註冊與估價、uber.js 深層連結）✅；📝 mcp-client.js（外部 MCP）

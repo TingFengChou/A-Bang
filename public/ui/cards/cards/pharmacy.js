@@ -1,10 +1,11 @@
 // pharmacy（pharmacy_search）：健保特約藥局、今天營業時段、電話、地圖搜尋
 import { h, fmtTel } from '../dom.js';
 import { navButton } from '../actions.js';
+import { periodAt } from '../../../../core/nhi-hours.js';
 
 const MAX = 5; // 其餘收在「看更多」（設計審查）
-/** 現在是哪個看診時段（台灣時間；健保署只登記上午、下午、晚上）：營業時間外回 null */
-export const periodNow = (now = Date.now()) => { const hr = new Date(now + 8 * 3600e3).getUTCHours(); return hr >= 8 && hr < 12 ? '上午' : hr >= 12 && hr < 18 ? '下午' : hr >= 18 && hr < 22 ? '晚上' : null; };
+/** 現在是哪個看診時段（台灣時間；健保署只登記上午、下午、晚上）：營業時間外回 null。跟伺服器同一份（core/nhi-hours.js） */
+export const periodNow = periodAt;
 const telOf = (p) => String(p || '').split('#')[0].replace(/[^0-9]/g, ''); // 分機（#）不放進 tel:（# 會被當成網址片段）
 const PERIOD_EN = { 上午: 'morning', 下午: 'afternoon', 晚上: 'evening' };
 const DAY_EN = { 星期一: 'Monday', 星期二: 'Tuesday', 星期三: 'Wednesday', 星期四: 'Thursday', 星期五: 'Friday', 星期六: 'Saturday', 星期日: 'Sunday', 星期天: 'Sunday' };
