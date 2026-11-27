@@ -352,6 +352,7 @@ export const MESSAGES = {
   'gov.days': '辦理時間：{days}',
   'gov.docs': '要帶什麼',
   'gov.noDocs': '這筆資料沒有列應備證件，請看官方網頁或洽辦理機關。',
+  'gov.fullDocs': '看全文',
   'gov.moreDocs': '看其他 {n} 條',
   'gov.contact': '洽詢：{contact}',
   'gov.online': '線上申辦',

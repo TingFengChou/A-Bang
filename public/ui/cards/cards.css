@@ -398,6 +398,8 @@ html.lite-motion .ab-eta .ab-pulse { animation: none; }
 .ab-gov-body h4 { margin: 8px 0 4px; font-size: 0.95em; }
 .ab-gov-docs { margin: 0 0 6px; padding: 0; list-style: none; display: grid; gap: 6px; line-height: 1.5; }
 .ab-gov-docs li { padding-left: 10px; border-left: 3px solid var(--ab-line); } /* 條文自己有編號（一、(一)、1.），不再加清單編號 */
+.ab-gov-docs.clamp li { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; } /* 每條最多 3 行，按「看全文」展開 */
+.ab-gov-chev { display: inline-block; width: 1.2em; color: var(--ab-muted); }
 .ab-gov-note { margin-top: 6px; }
 /* gov-office（最近的戶政事務所，M16-04b） */
 .ab-gov-day { display: inline-block; margin: 0 0 6px; font-weight: 600; }
