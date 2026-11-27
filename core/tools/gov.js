@@ -45,7 +45,8 @@ export const govServiceInfo = defineTool({
 const coord = { lat: z.number().min(21).max(27).describe('緯度（使用者的位置）'), lon: z.number().min(118).max(123).describe('經度') };
 /** 「今天 11/27（五）是上班日」「今天 10/10（六）放假（國慶日）」；日曆沒有今天時說是照週末推的 */
 export function todaySay(t) {
-  const base = t.workday ? `今天 ${t.date}是上班日` : `今天 ${t.date}放假${t.note ? `（${t.note}）` : ''}`;
+  const day = t.dayOffset === 1 ? '明天 ' : t.dayOffset === 2 ? '後天 ' : t.dayOffset ? '' : '今天 '; // 問別的日子：「11/29（六）放假」
+  const base = t.workday ? `${day}${t.date}是上班日` : `${day}${t.date}放假${t.note ? `（${t.note}）` : ''}`;
   return t.known ? base : `${base}（今年的辦公日曆還沒有今天的資料，照週末推的）`;
 }
 
@@ -54,7 +55,7 @@ export const govOfficeNearby = defineTool({
   title: '最近的戶政事務所',
   description: '找使用者附近的戶政事務所（含辦公室）：名稱、地址、電話、距離與步行時間、導航；並說今天是不是行政機關上班日（人事行政總處辦公日曆）。各所營業時間不同（午休、夜間延時、週六服務），資料沒有時間：只說上班日，不說「現在有開」，建議先打電話。使用者問「最近的戶政事務所在哪」「戶政今天有上班嗎」時用。',
   pack: PACK, tier: 'L1', card: 'gov-office', source: '內政部（自然人憑證申辦點位、戶政機關通訊）、人事行政總處辦公日曆', demoNote: '【示範資料：沒有連網下載，用的是部分真實資料（臺北市附近幾個戶政事務所與 115 年辦公日曆）】', modeOf: (svc) => svc.govMode,
-  input: { ...coord, limit: z.number().int().min(1).max(5).default(3).describe('最多幾所（預設 3）') },
+  input: { ...coord, limit: z.number().int().min(1).max(5).default(3).describe('最多幾所（預設 3）'), dayOffset: z.number().int().min(0).max(13).optional().describe('問的是幾天後上不上班（明天 1；「禮拜六有開嗎」依今天算）；沒說就是今天') },
   speak: (d) => {
     const o = d.offices[0];
     if (!o) return `附近找不到戶政事務所。${todaySay(d.today)}。`;

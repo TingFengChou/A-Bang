@@ -81,12 +81,13 @@ export function workdayOf(cal, now = Date.now()) {
  */
 export function createGovOfficeServices(fx) {
   return {
-    /** @param {{ lat: number, lon: number, limit?: number, now?: number }} a */
-    async nearbyOffices({ lat, lon, limit = 3, now = Date.now() }) {
-      const [offices, tels, cal] = await Promise.all([fx.offices(), fx.tels().catch(() => new Map()), fx.calendar(taipeiDay(now).year).catch(() => null)]);
+    /** @param {{ lat: number, lon: number, limit?: number, now?: number, dayOffset?: number }} a dayOffset：問的是幾天後（「禮拜六有開嗎」） */
+    async nearbyOffices({ lat, lon, limit = 3, now = Date.now(), dayOffset = 0 }) {
+      const at = now + dayOffset * 864e5;
+      const [offices, tels, cal] = await Promise.all([fx.offices(), fx.tels().catch(() => new Map()), fx.calendar(taipeiDay(at).year).catch(() => null)]);
       const list = offices.map((o) => ({ ...o, distanceM: Math.round(distanceM(lat, lon, o.lat, o.lon)) })).sort((a, b) => a.distanceM - b.distanceM).slice(0, limit)
         .map((o) => ({ name: o.name, address: o.address, tel: tels.get(o.name) || null, lat: o.lat, lon: o.lon, distanceM: o.distanceM, walkMin: walkMinutes(o.distanceM), nav: navLinks(o.lat, o.lon, 'walking') }));
-      return { offices: list, today: workdayOf(cal, now), source: '內政部（自然人憑證申辦點位、戶政機關通訊）、人事行政總處辦公日曆' };
+      return { offices: list, today: { ...workdayOf(cal, at), ...(dayOffset && { dayOffset }) }, source: '內政部（自然人憑證申辦點位、戶政機關通訊）、人事行政總處辦公日曆' };
     },
   };
 }

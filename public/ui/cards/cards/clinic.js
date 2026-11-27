@@ -15,14 +15,15 @@ export default {
   body(d, { host, t, state, rerender, locale }) {
     const pname = (x) => (locale === 'en' ? PERIOD_EN[x] || x : x);
     if (!d.clinics.length) return h('div', { class: 'ab-body' }, h('p', { class: 'ab-empty' }, t('clinic.empty')), h('p', { class: 'ab-foot' }, t('clinic.note')));
-    const now = periodNow();
+    const planned = d.phase === 'planned';
+    const now = planned ? d.period : periodNow(); // 問別的日子或時段：加粗問的那個時段
     const rows = state.all ? d.clinics : d.clinics.slice(0, MAX);
     return h('div', { class: 'ab-body' },
-      h('p', { class: 'ab-sub' }, t('clinic.today', { day: locale === 'en' ? DAY_EN[d.weekday] || d.weekday : d.weekday })),
+      h('p', { class: 'ab-sub' }, t(planned ? 'clinic.onDay' : 'clinic.today', { day: locale === 'en' ? DAY_EN[d.weekday] || d.weekday : d.weekday })),
       h('ul', { class: 'ab-list' }, rows.map((c) => h('li', { class: 'ab-pharm ab-clinic' },
         h('div', { class: 'ab-row' }, h('span', { class: 'ab-name' }, c.name),
           h('span', { class: c.today?.length ? 'ab-chip ok' : 'ab-chip' }, c.today == null ? t('clinic.unknown') : c.today.length ? c.today.flatMap((p, i) => [i ? (locale === 'en' ? ', ' : '・') : '', p === now ? h('strong', {}, pname(p)) : pname(p)]) : t('clinic.closed'))), // 現在這個時段加粗（不只靠顏色）
-        now && c.today?.includes(now) && h('p', { class: 'ab-open-now' }, h('i', { class: 'ab-dot-ok', 'aria-hidden': 'true' }), t('clinic.openNow', { period: pname(now) })),
+        !planned && now && c.today?.includes(now) && h('p', { class: 'ab-open-now' }, h('i', { class: 'ab-dot-ok', 'aria-hidden': 'true' }), t('clinic.openNow', { period: pname(now) })),
         h('p', { class: 'ab-sub' }, [c.depts?.join(locale === 'en' ? ', ' : '、'), c.address].filter(Boolean).join('・')), // 科別與地址一行
         h('div', { class: 'ab-actions' }, navButton(host, c.nav, t('clinic.map'), t('clinic.mapOf', { name: c.name })),
           telOf(c.phone).length >= 6 && h('a', { class: 'ab-btn', href: `tel:${telOf(c.phone)}`, 'aria-label': t('clinic.callOf', { name: c.name }) }, t('clinic.call', { phone: c.phone })))))),

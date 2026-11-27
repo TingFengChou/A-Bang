@@ -70,6 +70,7 @@ export const SPEAK_EN = {
   clinic_search: (d) => {
     const where = d.area ? ` in ${d.area}` : '';
     if (!d.total) return 'No matching NHI clinics found.';
+    if (d.phase === 'planned') return `${plural(d.openNowCount, 'clinic')}${where} registered hours ${d.dayOffset === 1 ? 'tomorrow' : d.dayOffset ? `in ${d.dayOffset} days` : 'today'}${d.period ? ` ${({ 上午: 'morning', 下午: 'afternoon', 晚上: 'evening' })[d.period]}` : ''}.`;
     if (d.openNowCount) return `${plural(d.openNowCount, 'clinic')}${where} registered hours this ${({ 上午: 'morning', 下午: 'afternoon', 晚上: 'evening' })[d.period]}${d.laterCount ? `; ${d.laterCount} more later today` : ''}.`;
     if (d.laterCount) return `${d.phase === 'early' ? "Clinics haven't opened yet" : 'None registered for right now'}; ${plural(d.laterCount, 'clinic')}${where} registered hours later today.`;
     return 'Clinic hours are over for today; if you feel very unwell go to a hospital ER, and call 119 in an emergency.';

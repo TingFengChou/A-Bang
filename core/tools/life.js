@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { defineTool, T } from './define.js';
 import { UserError } from '../util.js';
-import { DEPTS } from '../services/clinic.js';
+import { DEPTS, PERIODS } from '../services/clinic.js';
 /** 清運時段（「17:06–17:09」）今天已經結束超過 10 分（台灣時間）；格式不對回 false */
 export function truckPassed(time, now = Date.now()) {
   const hm = /(\d{1,2}):(\d{2})(?!.*\d{1,2}:\d{2})/.exec(String(time || ''));
@@ -92,6 +92,8 @@ export const clinicSearch = defineTool({
     area: z.string().trim().max(20).optional().describe('縣市＋鄉鎮區，例如 臺北市大安區'),
     dept: z.enum(DEPTS.map((d) => d.id)).optional().describe(`使用者明講的科別：${DEPTS.map((d) => `${d.id}＝${d.label}`).join('、')}；沒說就不給（只列西醫診所）`),
     query: z.string().trim().max(20).optional().describe('診所名稱或路名（選填）'),
+    dayOffset: z.number().int().min(0).max(13).optional().describe('問的是幾天後（明天 1、後天 2、禮拜天依今天算）；沒說就是現在'),
+    period: z.enum(PERIODS).optional().describe('問的時段：上午、下午、晚上（夜間、夜診＝晚上）'),
     lat: T.lat.optional().describe('沒說地區時：所在位置緯度'), lon: T.lon.optional().describe('沒說地區時：所在位置經度'),
   },
   speak: (d) => clinicSay(d),
@@ -106,6 +108,10 @@ export const clinicSearch = defineTool({
       areaFrom = { by: 'location', station: d.station, distanceM: d.distanceM, demo: d.demo };
     }
     const data = { ...(await svc.clinics.search(a)), ...(areaFrom && { areaFrom }) };
+    if (data.phase === 'late' && data.total) { // 晚上 10 點後：順便說明天上午有幾家（PM 審查：晚上替小孩、長輩找隔天門診）
+      const t = await svc.clinics.search({ ...a, dayOffset: 1, period: '上午' });
+      data.tomorrow = { weekday: t.weekday, count: t.openNowCount };
+    }
     const guess = areaFrom && `依位置推估在「${data.area}」${areaFrom.demo ? '（示範）' : `（最近的測站：${areaFrom.station}）`}，不對請說哪一區。`;
     const line = (c) => `- ${c.name}｜${c.phone ?? '—'}｜${c.address}｜${c.depts.join('、') || '不分科'}｜今天：${c.today == null ? '未提供' : c.today.length ? c.today.join('、') : '休診'}${c.openNow ? '（這個時段有登記看診）' : ''}`;
     const text = [guess, clinicSay(data), ...data.clinics.map(line),
@@ -120,12 +126,19 @@ export function clinicSay(d) {
   const where = `${d.otherCities ? d.city : ''}${d.area || d.query || ''}`;
   const after = `；身體很不舒服請到醫院急診，緊急狀況撥 119。`;
   if (!d.total) return `${where}沒有找到${d.dept ? `「${d.dept}」的` : '符合的'}健保特約診所。`;
+  if (d.phase === 'planned') {
+    const when = `${dayWord(d)}${d.period || ''}`;
+    return d.openNowCount ? `${where}${when}有登記看診的${what}有 ${d.openNowCount} 家。時段是登記的，出門前先打電話確認。` : `${where}的${what}${when}沒有登記看診，可以換個時段或換一區問看看。`;
+  }
   if (d.openNowCount) return `${where}有 ${d.openNowCount} 家${what}登記${d.period}看診${d.laterCount ? `，今天稍晚還有 ${d.laterCount} 家` : ''}。時段是登記的，出門前先打電話確認。`;
   if (d.laterCount) return d.phase === 'early'
     ? `診所還沒開始看診；${where}今天有登記看診的${what}有 ${d.laterCount} 家，時段在卡片上。`
     : `${where}的${what}這個時段（${d.period}）沒有登記看診，今天稍晚有 ${d.laterCount} 家。`;
-  return d.phase === 'late' ? `現在已過診所的看診時間，${where}的${what}今天都看完了${after}` : `${where}的${what}今天接下來沒有登記看診${after}`;
+  const tmr = d.tomorrow?.count ? `明天上午這一區有 ${d.tomorrow.count} 家登記看診。` : '';
+  return d.phase === 'late' ? `現在已過診所的看診時間，${where}的${what}今天都看完了${after}${tmr}` : `${where}的${what}今天接下來沒有登記看診${after}`;
 }
+/** 「明天」「後天」「星期六」（問的是別的日子時） */
+export const dayWord = (d) => (d.dayOffset === 1 ? '明天' : d.dayOffset === 2 ? '後天' : d.dayOffset ? d.weekday : '今天');
 
 export const garbageTruckNearby = defineTool({
   name: 'garbage_truck_nearby',
