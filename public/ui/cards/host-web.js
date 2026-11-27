@@ -5,6 +5,7 @@ import { hasNativeNotify, ensureNotifyPermission, scheduleNotify, cancelNotify, 
 import { startWatchService, stopWatchService, watchServiceStatus, updateWatchService, watchLine } from '../../js/native-watch.js';
 import { addReminder, cancelReminder, notifyState, reminderFor, canNotify, listReminders, MAX_REMINDERS } from '../../js/reminders.js';
 import { isAppLink, isStoreLink } from '../../../core/drama-say.js';
+import { addCalendar, share } from '../../js/device-actions.js';
 
 // 到站提醒（L-14）：整個頁面共用一個；SPA 換頁仍繼續，網頁版關掉就停止（網頁沒有背景推播）。
 // 手機 App（M11-02）：每次查到到站時間，就把「該出門了」的本機通知排到預估的時間（同一則覆蓋更新）；
@@ -270,6 +271,10 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
       if (opts.confirm && !confirm(opts.confirm)) return;
       window.open(url, '_blank', 'noopener');
     },
+    /** 加到行事曆（ADR-0021）：App 開系統的新增行程畫面（使用者按加入才寫入），網頁下載 .ics */
+    addCalendar: (event) => addCalendar(event),
+    /** 分享（ADR-0021）：App 開系統分享面板（使用者自己選對象），網頁用 Web Share，不支援就複製 */
+    share: (payload) => share(payload),
     /** 開合作 App（MyDrama，ADR-0019）：先開 App 連結，沒裝（畫面一直沒離開）就到商店頁 */
     openApp: (target) => openApp(target),
   };

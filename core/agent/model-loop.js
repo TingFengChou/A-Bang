@@ -15,6 +15,7 @@ import { normName, nowTW } from '../util.js';
 import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, demoSummary, isEnglish, nightNote, rainAsked } from './demo-intent.js';
 import { resolvePoint } from '../services/places.js';
 import { BUS_OFF } from '../services/trip.js';
+import { deviceIntent, deviceActionReply } from './device-turn.js';
 
 /**
  * @typedef {{ name: string, description: string, schema: object }} ToolDef
@@ -324,6 +325,9 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
     emit(ev.done());
     return;
   }
+  // 加到行事曆、分享（ADR-0021）：程式回答＋動作選項（與示範模式相同；不交給模型）
+  const dRules = profile.id === 'life' ? deviceIntent(rulesIt) : null;
+  if (dRules) { const r = deviceActionReply(dRules, req, rulesIt.lang); if (r.ask) emit(ev.ask({ id: 'ask-m1', ...r.ask })); emit(ev.text(r.text)); emit(ev.done()); return; }
   // 缺必要欄位（哪一路公車、要去哪裡）：程式問一句，不交給模型猜（ADR-0016，與示範模式相同）
   const ruleGap = profile.id === 'life' && (slotAsk(rulesIt, { lang: rulesIt.lang, history: req.messages.slice(0, -1) }) || askFirst(rulesIt, { history: req.messages.slice(0, -1), at: req.clientTools?.includes(DEVICE_LOCATION_TOOL.name) ? deviceLocation(req) || null : null })); // 路名、只說類別、認不得的名字、沒說迄站（PM Q 情境）也先問
   const gap = ruleGap && (deviceSlotAsk(dask, ruleGap.ask.about.replace(/^slot:/, ''), ruleGap, { history: req.messages.slice(0, -1), context: req.context }) || ruleGap); // 手機的題目通過驗證就用它（ADR-0020）
@@ -338,6 +342,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   if (more && rulesIt.lang !== 'en') emit(ev.agentNote(more));
   const sure = j && (j.source === 'llm' || j.source === 'device' || (j.confidence ?? 0) >= 0.8); // 模型判斷（伺服器 B 或手機上的模型，ADR-0014）或 A 有把握
   // 詐騙、提醒、設定、緊急求助：規則聽不懂但判斷層有把握時，程式固定回答（不交給模型自由發揮；跟示範模式同一套說法）
+  if (profile.id === 'life' && sure && rulesIt.intent === 'unknown' && deviceIntent(j)) { const r = deviceActionReply(j.intent, req, rulesIt.lang); if (r.ask) emit(ev.ask({ id: 'ask-m1', ...r.ask })); emit(ev.text(r.text)); emit(ev.done({ modelCalls: 0, inputTokens: 0, outputTokens: 0 })); return; } // 判斷層聽出加行事曆／分享、規則沒聽出來
   if (profile.id === 'life' && sure && rulesIt.intent === 'unknown' && FIXED_REPLY_INTENTS.includes(j.intent)) {
     const fit = parseIntent(last, { history: req.messages.slice(0, -1), intent: j.intent, saved: req.savedPlaces, now }) || rulesIt;
     if (fit.intent === 'scamAsk') emit(ev.ask({ id: 'ask-m1', ...scamPasteAsk('life', fit.lang, last, { pasted: !!fit.pasted }) }));

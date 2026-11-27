@@ -1666,6 +1666,90 @@
 "intent": "emergency",
 "states": [],
 "level": "easy"
+},
+{
+"id": 225,
+"text": "幫我把這班加到行事曆",
+"intent": "calendar",
+"states": [],
+"level": "easy"
+},
+{
+"id": 226,
+"text": "行事曆幫我記一下這個行程",
+"intent": "calendar",
+"states": [],
+"level": "easy"
+},
+{
+"id": 227,
+"text": "存進我的日曆裡",
+"intent": "calendar",
+"states": [],
+"level": "easy"
+},
+{
+"id": 228,
+"text": "add this to my calendar",
+"intent": "calendar",
+"states": [],
+"level": "easy"
+},
+{
+"id": 229,
+"text": "可以排進我手機的行事曆嗎",
+"intent": "calendar",
+"states": [],
+"level": "hard"
+},
+{
+"id": 230,
+"text": "把剛剛那個建議放到日曆",
+"intent": "calendar",
+"states": [],
+"level": "hard"
+},
+{
+"id": 231,
+"text": "傳給我老婆看",
+"intent": "share",
+"states": [],
+"level": "easy"
+},
+{
+"id": 232,
+"text": "把這條路線分享給我哥",
+"intent": "share",
+"states": [],
+"level": "easy"
+},
+{
+"id": 233,
+"text": "幫我轉傳給家人",
+"intent": "share",
+"states": [],
+"level": "easy"
+},
+{
+"id": 234,
+"text": "share this trip",
+"intent": "share",
+"states": [],
+"level": "easy"
+},
+{
+"id": 235,
+"text": "這個可以傳到家族群組嗎",
+"intent": "share",
+"states": [],
+"level": "hard"
+},
+{
+"id": 236,
+"text": "分享一下剛剛的走法",
+"intent": "share",
+"states": [],
+"level": "hard"
 }
 ]
 }

@@ -1718,6 +1718,126 @@
 "text": "狗狗幣價格",
 "intent": "unknown",
 "states": []
+},
+{
+"text": "加到行事曆",
+"intent": "calendar",
+"states": []
+},
+{
+"text": "幫我加到行事曆",
+"intent": "calendar",
+"states": []
+},
+{
+"text": "把這個行程加進我的日曆",
+"intent": "calendar",
+"states": []
+},
+{
+"text": "存到我的行事曆",
+"intent": "calendar",
+"states": []
+},
+{
+"text": "放進行事曆",
+"intent": "calendar",
+"states": []
+},
+{
+"text": "可以幫我記在行事曆上嗎",
+"intent": "calendar",
+"states": []
+},
+{
+"text": "排進我的日曆",
+"intent": "calendar",
+"states": []
+},
+{
+"text": "這班車加到行事曆",
+"intent": "calendar",
+"states": []
+},
+{
+"text": "行程幫我存到 google 日曆",
+"intent": "calendar",
+"states": []
+},
+{
+"text": "把剛剛的路線加到日曆",
+"intent": "calendar",
+"states": []
+},
+{
+"text": "幫我寫進行事曆",
+"intent": "calendar",
+"states": []
+},
+{
+"text": "加入我的行事曆好嗎",
+"intent": "calendar",
+"states": []
+},
+{
+"text": "傳給我媽",
+"intent": "share",
+"states": []
+},
+{
+"text": "分享給我老公",
+"intent": "share",
+"states": []
+},
+{
+"text": "這個路線分享一下",
+"intent": "share",
+"states": []
+},
+{
+"text": "幫我分享這個行程",
+"intent": "share",
+"states": []
+},
+{
+"text": "傳給我朋友",
+"intent": "share",
+"states": []
+},
+{
+"text": "把走法傳給家人",
+"intent": "share",
+"states": []
+},
+{
+"text": "轉傳給我爸",
+"intent": "share",
+"states": []
+},
+{
+"text": "分享到群組",
+"intent": "share",
+"states": []
+},
+{
+"text": "這個傳給她",
+"intent": "share",
+"states": []
+},
+{
+"text": "幫我把路線分享出去",
+"intent": "share",
+"states": []
+},
+{
+"text": "可以分享給同事嗎",
+"intent": "share",
+"states": []
+},
+{
+"text": "寄給我姐",
+"intent": "share",
+"states": []
 }
 ]
 }

@@ -10,7 +10,7 @@ const root = (p) => fileURLToPath(new URL(`../${p}`, import.meta.url));
 const OUT = root('dist/app');
 // 與 server/http.js 的白名單相同（/vendor/、/core/）
 const VENDOR = ['gsap.min.js', 'MotionPathPlugin.min.js', 'Flip.min.js'];
-const CORE = ['decide.js', 'vision-text.js', 'edge-write.js', 'output-guards.js', 'health-nudge.js', 'nav.js', 'drama-say.js', 'suggest.js', 'edge-ask.js', 'alight.js', 'judge-classify.js', 'topic.js'];
+const CORE = ['decide.js', 'vision-text.js', 'edge-write.js', 'output-guards.js', 'health-nudge.js', 'nav.js', 'drama-say.js', 'suggest.js', 'edge-ask.js', 'alight.js', 'judge-classify.js', 'topic.js', 'device-actions.js'];
 const CORE_DATA = ['landmarks.json', 'judge-classifier.json']; // core/data/ → dist/app/core/（散步地點 ADR-0018；手機上的小模型的分類器參數 E3）
 // 手機上的小模型（E3）的程式放進 App（模型與 27 MB 的執行環境 .wasm 仍由使用者按下載才從伺服器抓）
 

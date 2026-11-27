@@ -15,6 +15,8 @@
  * @property {() => ({ city: string, routeName: string, stop: string, minutes: number } | null)} [arrivalWatch]
  * @property {boolean} [background]  提醒在 App 關著時也會響（手機 App 有通知權限才是 true；沒有這個屬性＝只有開著時）
  * @property {() => 'whenAlways'|'whenOpenPage'|'whenNoPermission'} [arrivalNote]  設定提醒後的說明文字鍵（i18n busRoute.*）；沒有時用 whenOpenPage
+ * @property {(event: { title: string, start: number, end: number, location?: string, notes?: string }) => Promise<'saved'|'cancelled'|'downloaded'|'denied'|'outdated'|'failed'>} [addCalendar]  加到行事曆（ADR-0021：系統畫面確認；網頁下載 .ics）
+ * @property {(p: { title?: string, text: string, url?: string }) => Promise<'shared'|'cancelled'|'copied'|'outdated'|'failed'>} [share]  分享（ADR-0021：系統分享面板；網頁 Web Share 或複製）
  * @property {(hash: string) => void} [navigate]  開 App 內頁面（網頁 host 才有）
  * @property {'light'} theme
  * @property {'web'|'mcp-app'|'app'} kind

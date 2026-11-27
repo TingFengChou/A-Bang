@@ -40,6 +40,9 @@ export const JUDGE_INTENTS = {
   scam: '詐騙：可疑簡訊、電話、網址、加 LINE、投資群組、假檢警、被騙了怎麼辦',
   reminder: '提醒：提醒我出門、公車快到通知我、下車提醒、取消提醒',
   settings: '設定：常用地點（家、公司）、我有車、語言、通知、隱私',
+  // 2026-11-27 阿幫動手做（ADR-0021）：裝置動作，最後一步由系統畫面確認
+  calendar: '加到行事曆：把剛剛排好的行程加到手機的行事曆、日曆',
+  share: '分享：把剛剛排好的行程傳給家人朋友、分享路線',
   help: '問阿幫能做什麼、是誰、怎麼用',
   chat: '閒聊、打招呼、道謝、道歉、稱讚、只回「好」',
   emergency: '緊急求助：受傷、急病、有人昏倒、車禍、失火、遇到危險、想傷害自己',
@@ -48,7 +51,7 @@ export const JUDGE_INTENTS = {
 export const JUDGE_STATES = ['rush', 'luggage', 'budget', 'lessWalk', 'rain', 'badAir', 'elder', 'kids', 'mobility'];
 export const CONFIDENT = 0.8;
 /** 規則靠明確關鍵字認出的意圖：判斷層（手機、模型、嵌入分類器）說是別的也照規則（腦袋審查 #3） */
-export const KEYWORD_INTENTS = new Set(['weather', 'aqi', 'quake', 'pharmacy', 'garbage', 'fuel', 'invoice', 'stock', 'youbike', 'nearby_bus', 'metro', 'reminder', 'settings', 'scam', 'drama']);
+export const KEYWORD_INTENTS = new Set(['weather', 'aqi', 'quake', 'pharmacy', 'garbage', 'fuel', 'invoice', 'stock', 'youbike', 'nearby_bus', 'metro', 'reminder', 'settings', 'scam', 'drama', 'calendar', 'share']);
 /** A 沒把握、規則也聽不懂時：A 信心低於這個值就當作 unknown（不亂選；「我在等939」0.27、詐騙簡訊 0.42） */
 export const UNSURE_FLOOR = 0.5;
 /** 裝置端判斷的引擎（ADR-0014）：Apple Intelligence（Foundation Models）、Gemini Nano（ML Kit GenAI） */

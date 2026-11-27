@@ -12,7 +12,7 @@
 //     validateRequest 先用 resolvePending 把「好」「台中」改寫成完整的一句（例「我趕時間」），再交給規則或模型。
 // 規則：一輪最多一個問題；使用者已經說過、或答案不會改變結果時不問；問了之後直接打別的話＝略過。
 export const ASK_KINDS = ['state', 'reply', 'store', 'dismiss', 'action'];
-export const ASK_ACTIONS = ['openLink', 'watchArrival', 'remind', 'navigate', 'focusInput', 'handOff']; // navigate：App 內的頁面（#/…，例：到防詐、發票）；focusInput：游標放到輸入框（請他貼上訊息）
+export const ASK_ACTIONS = ['openLink', 'watchArrival', 'remind', 'navigate', 'focusInput', 'handOff', 'addCalendar', 'share']; // navigate：App 內的頁面（#/…，例：到防詐、發票）；focusInput：游標放到輸入框（請他貼上訊息）；addCalendar／share：用畫面上最近的行程卡片開系統畫面（ADR-0021）
 
 import { decide, keyQuestion } from '../decide.js';
 import { edgeAskShape, askNorm } from '../edge-ask.js';

@@ -4,7 +4,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { chromium, devices } from 'playwright';
 
@@ -711,6 +711,38 @@ test('阿幫問你：常搭捷運 → 問要不要優先推 → 好 →「你同
     assert.match(await page.textContent('#habit-status'), /還沒有紀錄/);
     assert.equal(await page.evaluate(() => localStorage.getItem('abang.habits')), null);
   }, { init: seedPicks, initArg: { mode: 'metro', n: 6 } });
+});
+
+test('阿幫動手做（ADR-0021）：行程卡片「加到行事曆」下載 .ics；還沒有行程時說「傳給我媽」請先排；有行程後問 →「分享行程」複製文字', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = recordBodies(page);
+    const b0 = await askAbang(page, '傳給我媽', 1, bodies);
+    assert.deepEqual(b0.deviceActions, { can: ['addCalendar', 'share'], trip: false });
+    assert.match(await page.locator('.bubble.final').last().textContent(), /先告訴我要去哪裡/);
+    await askAbang(page, '從西門町去台北101', 2, bodies);
+    const dev = page.locator('.turn').last().locator('.ab-device');
+    await dev.waitFor();
+    assert.equal(await dev.getByRole('button').count(), 2, '加到行事曆、分享');
+    const [dl] = await Promise.all([page.waitForEvent('download'), dev.getByRole('button', { name: '加到行事曆' }).click()]);
+    assert.equal(dl.suggestedFilename(), 'abang-trip.ics');
+    const ics = await readFile(await dl.path(), 'utf8');
+    assert.match(ics, /SUMMARY:去台北101（/);
+    assert.match(ics, /LOCATION:西門町/);
+    await dev.locator('[role=status]').waitFor();
+    assert.match(await dev.locator('[role=status]').textContent(), /已下載行事曆檔/);
+    await dev.scrollIntoViewIfNeeded();
+    await page.locator('.turn').last().locator('.card-slot', { has: page.locator('.ab-device') }).screenshot({ path: new URL('phone-device-actions.png', SHOTS).pathname });
+    const b2 = await askAbang(page, '傳給我媽', 3, bodies);
+    assert.equal(b2.deviceActions.trip, true);
+    const ask = page.locator('.turn').last().locator('.ask');
+    await ask.waitFor();
+    assert.equal(await ask.locator('.ask-q').textContent(), '要把剛剛的行程分享出去嗎？');
+    await ask.getByRole('button', { name: '分享行程' }).click();
+    await page.waitForFunction(() => window.__copied);
+    assert.match(await page.evaluate(() => window.__copied), /^從西門町到台北101：坐.+（阿幫）\nhttps:\/\/www\.google\.com\/maps\/dir\//s);
+    await page.waitForFunction(() => /已複製/.test(document.querySelector('.agent-say:last-of-type')?.textContent || ''));
+    assert.equal(bodies.length, 3, '按了不呼叫伺服器');
+  }, { init: () => { window.open = () => null; Object.defineProperty(navigator, 'share', { value: undefined, configurable: true }); Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (t) => { window.__copied = t; } }, configurable: true }); } });
 });
 
 test('阿幫問你：常叫車 → 問原因 → 常帶東西（不自動套用）→ 下次「這次也帶東西嗎？」→ 是 →「你說過：常帶東西」重算', async () => {

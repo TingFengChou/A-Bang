@@ -225,7 +225,7 @@ struct EdgeWriteTimeout: Error {}
 #if canImport(FoundationModels)
 /// 意圖（與 core/agent/judge.js JUDGE_INTENTS 相同；test/edge-judge.test.js 比對）
 let edgeIntents = ["trip", "bus_route", "youbike", "nearby_bus", "metro", "rail", "weather", "aqi", "quake", "pharmacy", "garbage", "fuel", "invoice", "stock", "traffic",
-                   "intercity", "ridehail", "booking", "place", "outing", "drama", "exercise", "scam", "reminder", "settings", "help", "chat", "emergency", "unknown"]
+                   "intercity", "ridehail", "booking", "place", "outing", "drama", "exercise", "scam", "reminder", "settings", "calendar", "share", "help", "chat", "emergency", "unknown"]
 /// 狀態（與 JUDGE_STATES 相同）
 let edgeStates = ["rush", "luggage", "budget", "lessWalk", "rain", "badAir", "elder", "kids", "mobility"]
 
