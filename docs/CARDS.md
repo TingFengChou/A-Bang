@@ -167,6 +167,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 | `drama` | 短劇（`drama_picks`／`drama_search`／`drama_series`，ADR-0019）：每部一列——直式封面示意（劇名第一個字＋依 id 的漸層色，**不載外部圖片**）、排名、新上架標記、劇名、「共 N 集・前 M 集免費・已完結／連載中」、台灣自製、類型標籤（最多 3）、簡介兩行收合（「看簡介」展開時 `host.callTool('drama_series')` 取完整簡介）、「在 MyDrama 看」（`host.openApp({ app, store })`；只有 https 商店頁時改「下載 MyDrama」走 `host.openLink`；都沒有不顯示）；熱搜關鍵字按鈕（`host.callTool('drama_search')`，並 `setContext` 告訴模型在看哪幾部）；搜尋沒結果給「看熱門排行」；頁尾「內容與播放由 MyDrama 提供；阿幫只推薦，不代替登入、付費或解鎖」 | — |
 | `stock` | 加權／櫃買指數；每檔收盤價、漲跌（台股習慣漲紅跌綠，另有 ▲▼ 與 `aria-label`，不只靠顏色）、開高低、成交張數、資料日期；名稱不是完全相同時列「也可能是」按鈕；卡片內查別檔（`host.callTool`），查到後 `host.setContext` 告訴模型使用者在看哪幾檔；固定附「不構成投資建議」 | —（收盤資料） |
 
+| `gov-office` | 最近的戶政事務所（`gov_office_nearby`，M16-04b）：今天是不是上班日（綠色／橘色 chip；日曆沒有今天時註明照週末推）、每所一列（名稱、距離與步行、地址、導航、撥打電話）、營業時間各所不同請先打電話 | — |
 | `gov-service` | 去政府辦事要帶什麼（`gov_service_info`，M16-04a）：每項一列（標題＋臨櫃／線上 chip，第一項展開）、辦理時間、要帶什麼（條列，超過 6 條可展開；沒填照實說）、洽詢、官方說明／線上申辦／表單下載按鈕（只收 https）、資料更新日期與「以機關公告為準」 | — |
 
 網頁入口：首頁格子 → `#/s/:id`（`public/js/pages/service.js`，需要位置的服務先定位）。

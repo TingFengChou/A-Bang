@@ -8,7 +8,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 
 const PORT = 18000 + Math.floor(Math.random() * 1000);
 const BASE = `http://127.0.0.1:${PORT}`;
-const EXPECTED = ['aqi_nearby', 'bus_nearby_stations', 'bus_route_eta', 'bus_search_routes', 'bus_station_eta', 'drama_picks', 'drama_search', 'drama_series', 'earthquake_recent', 'find_place', 'fuel_price', 'garbage_truck_nearby', 'gov_service_info', 'intercity_bus', 'invoice_check_batch', 'invoice_lottery', 'metro_live_board', 'metro_route', 'metro_stations', 'outing_advice', 'pharmacy_search', 'plan_trip', 'rail_booking_link', 'rail_fare', 'rail_stations', 'ridehail_link', 'scam_check_message', 'scam_lookup_url', 'scam_myth_search', 'sms_sender_check', 'stock_quote', 'thsr_timetable', 'tra_timetable', 'traffic_status', 'weather_now', 'weather_tomorrow', 'youbike_nearby'];
+const EXPECTED = ['aqi_nearby', 'bus_nearby_stations', 'bus_route_eta', 'bus_search_routes', 'bus_station_eta', 'drama_picks', 'drama_search', 'drama_series', 'earthquake_recent', 'find_place', 'fuel_price', 'garbage_truck_nearby', 'gov_office_nearby', 'gov_service_info', 'intercity_bus', 'invoice_check_batch', 'invoice_lottery', 'metro_live_board', 'metro_route', 'metro_stations', 'outing_advice', 'pharmacy_search', 'plan_trip', 'rail_booking_link', 'rail_fare', 'rail_stations', 'ridehail_link', 'scam_check_message', 'scam_lookup_url', 'scam_myth_search', 'sms_sender_check', 'stock_quote', 'thsr_timetable', 'tra_timetable', 'traffic_status', 'weather_now', 'weather_tomorrow', 'youbike_nearby'];
 const ARGS = { from: '台北', to: '左營', date: '2026-12-01' };
 let http;
 let out = ''; // 伺服器 stdout（結構化 log）
@@ -113,7 +113,7 @@ test('API 文件：openapi.json、Swagger UI 頁面與資源，只開放白名�
 
 test('REST：tools 清單、參數錯誤、方法錯誤', async () => {
   const list = await (await fetch(BASE + '/api/v1/tools')).json();
-  assert.equal(list.data.length, 37);
+  assert.equal(list.data.length, 38);
   assert.ok(list.data.every((t) => t.pack && t.tier && t.inputSchema));
   const bad = await fetch(BASE + '/api/v1/tools/youbike_nearby', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ lat: 'x' }) });
   assert.equal(bad.status, 400);
