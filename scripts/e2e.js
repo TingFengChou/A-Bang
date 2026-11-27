@@ -95,9 +95,9 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       const order = await page.locator('#main section h2').allTextContents();
       assert.ok(order.indexOf('防詐') > -1 && order.indexOf('防詐') < order.indexOf('交通'), order.join('|'));
       assert.match(await page.textContent('.demo-banner'), /示範模式/);
-      // 示範資料標示：E2E 伺服器全部示範 → 每個格子都標「示範」
-      await page.waitForSelector('a.tile .tag.demo');
-      assert.equal(await page.locator('a.tile .tag.demo').count(), await page.locator('a.tile[data-source]').count());
+      // 示範資料標示：E2E 伺服器全部示範 → 頁首橫幅說明，格子不再一個個標（設計第二輪：14 個小標太吵）
+      await page.waitForSelector('#now [data-now="weather"] .tag.demo'); // 資料來源已載入
+      assert.equal(await page.locator('a.tile .tag.demo').count(), 0);
       // 分頁列：首頁｜服務｜問阿幫（中央鍵）｜提醒｜我的
       assert.deepEqual(await page.locator('.tabbar [data-shell^="tab."]').allTextContents(), ['首頁', '服務', '問阿幫', '提醒', '我的']);
       assert.equal(await page.getAttribute('.tabbar nav', 'aria-label'), '主要分頁');
@@ -1572,6 +1572,10 @@ test('英文提問：卡片用英文標籤', async () => {
     assert.doesNotMatch(await page.locator('.decision .dg-step').first().textContent(), /[一-鿿]/);
     const chips = await page.locator('.suggest .chip').allTextContents();
     assert.ok(chips.length && chips.every((c) => !/[一-鿿]/.test(c)), chips.join('|'));
+    // 設計第二輪：送出鍵、起點說明、由誰回答也是英文
+    assert.equal(await page.textContent('.chat-send'), 'Send');
+    assert.doesNotMatch(await page.textContent('.here-hint'), /[一-鿿]/);
+    assert.match(await page.textContent('.agent-mode'), /^Demo mode/);
     await shot(page, 'phone-agent-english');
     // 最近一輪是英文：外殼也英文（S12g）；整頁 lang 不變（上面還有中文對話），外殼元素標 lang="en"
     assert.equal(await page.getAttribute('html', 'lang'), 'zh-Hant-TW');

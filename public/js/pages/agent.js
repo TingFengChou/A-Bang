@@ -238,7 +238,22 @@ export default {
     };
     // 裝置端 AI（ADR-0014）：在手機上判斷時，說明多一句（判斷不離開手機的模型，只送結果）
     // 頁底只說由誰回答；手機上的 AI 有沒有被採用寫在那一輪的回答上方（deviceLine，跟著那一輪的語言；不在兩處重複）
-    const modeText = (e) => MODE_TEXT[e.mode](e.model || '');
+    const MODE_TEXT_EN = {
+      claude: (m) => `Answered by Claude (${m}); the conversation is processed by Anthropic.`,
+      local: (m) => `Answered by an on-premises model (${m}); the conversation only goes to this site's model server.`,
+      demo: () => 'Demo mode: rule-based answers, no AI model.',
+      rules: () => 'Answered by built-in rules; the data is still live.',
+      edge: () => 'The answer is written on your phone; the server only looks up data and ranks options with code.',
+    };
+    const modeText = (e) => (e.lang === 'en' ? MODE_TEXT_EN : MODE_TEXT)[e.mode](e.model || '');
+    /** 英文那一輪：送出鍵、起點說明、資料來源跟著換（設計第二輪：英文版還有中文）；回到中文照原本的 */
+    let disclaimerZh = '';
+    const chromeLang = (lang) => {
+      const en = lang === 'en';
+      sendBtn.textContent = en ? 'Send' : '送出';
+      if (hereHint) hereHint.textContent = en ? "If you don't say where you're starting, A-Bang uses your current location." : '沒說起點時，阿幫用你現在的位置當出發點。';
+      if (agentId === 'life' && disclaimerZh) disclaimer.textContent = en ? 'Data: Taiwan government open data (MOTC TDX, Central Weather Administration, Ministry of Environment, NHI and more). For reference only; official notices prevail.' : disclaimerZh;
+    };
     if (agentId === 'life') edgePrewarm();
 
     let lastTripTo = null; // 最後一次行程的目的地：設定到站提醒時記下（公車一直不來時改其他方式）
@@ -263,6 +278,7 @@ export default {
       defaults = data.suggestions;
       if (!dynamic && !chips.classList.contains('next')) showDefaults();
       disclaimer.textContent = data.disclaimer;
+      disclaimerZh = data.disclaimer;
     }).catch(() => {});
     let lastView = null;
     // 在卡片或公車頁設定／取消到站提醒後，下一步建議跟著更新（已提醒就不再建議）
@@ -502,7 +518,7 @@ export default {
             turn.dataset.mode = e.mode;
             view.judge = e.judge || null;
             if (e.lang) {
-              turnLang = e.lang === 'en' ? 'en' : null; view.lang = turnLang; think.setLang(turnLang); // 伺服器說這一輪用哪種語言（S12g）；送出前的猜測只用在「討論中」等第一個畫面
+              turnLang = e.lang === 'en' ? 'en' : null; view.lang = turnLang; think.setLang(turnLang); chromeLang(turnLang); // 伺服器說這一輪用哪種語言（S12g）；送出前的猜測只用在「討論中」等第一個畫面
               if (agentId === 'life') window.dispatchEvent(new CustomEvent('abang:agent-lang', { detail: { lang: turnLang } })); // 外殼（分頁列、浮動阿幫、<html lang>）跟著最近一輪的語言（app.js）
             }
             break;

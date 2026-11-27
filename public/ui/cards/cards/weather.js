@@ -4,7 +4,7 @@ import { sceneOf, weatherScene } from '../gauge.js';
 
 export default {
   refreshSec: 600,
-  title: (d, { t }) => t('weather.title', { where: [d.county, d.town].filter(Boolean).join('') || d.station }),
+  title: (d, { t, locale }) => t('weather.title', { where: [d.county, d.town].filter(Boolean).join('') || (locale === 'en' && d.station === '示範測站' ? t('weather.demoStation') : d.station) }), // 英文不出現「示範測站」（設計第二輪）
   announce: (d) => d.summary,
   body(d, { t }) {
     const stat = (label, value) => h('div', { class: 'ab-stat' }, h('span', { class: 'ab-sub' }, label), h('strong', null, value));

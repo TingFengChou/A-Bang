@@ -289,6 +289,7 @@ export const MESSAGES = {
   'outing.missing.weather': 'Weather unavailable right now',
   'outing.missing.air': 'Air quality unavailable right now',
   'weather.title': '{where} weather',
+  'weather.demoStation': 'Demo station',
   'weather.rain': "It's raining now, or rain is likely soon",
   'weather.dry': 'Not raining now',
   'weather.temp': 'Temperature',

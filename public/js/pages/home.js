@@ -194,10 +194,11 @@ const NOW_COLOR = { weather: '#0284c7', aqi: '#0d9488', reminder: '#b45309', off
 /** 資料是示範的服務：格子右上角標「示範」（離線 Demo 全部是示範） */
 function markDemoTiles(main) {
   const demo = new Set((state.sources || []).filter((x) => x.mode === 'demo').map((x) => x.id));
-  const all = !state.sources && state.mode === 'demo';
+  // 全部都是示範資料：頁首已有示範橫幅，格子不再一個個標（設計第二輪：14 個 9.5px 的小標）；真假混在一起才標
+  const allDemo = (!state.sources && state.mode === 'demo') || (state.sources?.length > 0 && demo.size === state.sources.length);
   for (const el of main.querySelectorAll('a.tile[data-source]')) {
     el.querySelector('.tag.demo')?.remove();
-    if (all || demo.has(el.dataset.source)) el.insertAdjacentHTML('beforeend', '<span class="tag demo" title="目前是示範資料，不是即時資料">示範</span>');
+    if (!allDemo && demo.has(el.dataset.source)) el.insertAdjacentHTML('beforeend', '<span class="tag demo" title="目前是示範資料，不是即時資料">示範</span>');
   }
 }
 
