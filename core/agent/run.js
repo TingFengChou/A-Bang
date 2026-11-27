@@ -337,12 +337,12 @@ export const judgeInfo = (j) => (j ? { intent: j.intent, source: j.source, ...(j
  * noModel：這一輪伺服器不呼叫任何 AI 模型（手機寫回答，ADR-0017），完整版直接沿用快速版。
  * @returns {{ quick: () => Promise<object|null>, full: (q0: object|null) => Promise<object|null> } | null}
  */
-export function judgeCalls(judge, req, profile, { noModel = false } = {}) {
+export function judgeCalls(judge, req, profile, { noModel = false, now = null } = {}) {
   if (profile.id !== 'life') return null;
   const device = req.answered ? null : req.deviceJudge; // 打字回答被改寫成完整的一句：手機的判斷是對短答做的，不用
   const J = judge || (device ? createJudge() : null);
   if (!J) return null;
-  const last = req.messages.at(-1).content, prior = priorUserTexts(req.messages), opts = device ? { device } : {};
+  const last = req.messages.at(-1).content, prior = priorUserTexts(req.messages), opts = { ...(device && { device }), ...(req.savedPlaces && { saved: req.savedPlaces }), ...(now != null && { now }) }; // 跟這一輪的規則解析同一組條件（常用地點、示範時鐘）
   return {
     quick: () => (J.quick || J)(last, prior, opts).catch(() => null),
     full: (q0) => (J.quick && !noModel ? J(last, prior, opts).catch(() => q0) : Promise.resolve(q0)), // noModel（手機寫回答，ADR-0017）：不呼叫伺服器的判斷模型，快速版（分類器＋規則＋手機判斷）就定案
@@ -378,7 +378,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
   const dask = profile.id === 'life' ? deviceAskTracker(req.deviceJudge?.ask, it.lang === 'en' ? 'en' : 'zh') : null;
   const emit = withAskCheck(emit0, dask);
   // 判斷層（judge.js）：先用快速版（A＋規則，幾毫秒）說聽懂了什麼，再用完整版（含模型）定案意圖與狀態
-  const jc = judgeCalls(judge, req, profile, { noModel: edgeWrite });
+  const jc = judgeCalls(judge, req, profile, { noModel: edgeWrite, now });
   const q0 = jc ? await jc.quick() : null;
   emit(ev.status({ mode, profile: profile.id, judge: judgeInfo(q0), lang: isEnglish(last) ? 'en' : 'zh' }));
   // 安全情境（S18）：提到自傷或正在發生的緊急狀況 → 先給求助電話，不查交通（所有 agent 都一樣）
@@ -388,7 +388,8 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
   if (!req.clientToolResults?.length && it.reset) emit(ev.contextReset());
   if (notice) emit(ev.agentNote(it.lang === 'en' ? noticeEn : notice));
   // 帶定位結果重送的是同一輪（客戶端接在同一個討論串）：「聽懂了什麼」上一次已經說過，不重複
-  const heard = !req.clientToolResults?.length && !it.needs && (contextNote(parseIntent(last, { history: req.messages.slice(0, -1) })) || (it.intent === 'outing' ? outingNote([...(it.states || []), ...(q0?.states || [])]) : q0 && judgeNote(q0)));
+  // 「聽懂了」用這一輪同一份解析（原本少帶常用地點與這一輪的時間，跟實際對不上；架構第二輪 #3）
+  const heard = !req.clientToolResults?.length && !it.needs && (contextNote(profile.id === 'life' ? it : parseIntent(last, { history: req.messages.slice(0, -1), saved: req.savedPlaces, now })) || (it.intent === 'outing' ? outingNote([...(it.states || []), ...(q0?.states || [])]) : q0 && judgeNote(q0)));
   if (heard && it.lang !== 'en') emit(ev.agentNote(heard)); // 「聽懂了」的句子是中文：英文那一輪不說
   // 缺必要欄位（哪一路公車、要去哪裡）：先問，不查資料、不請定位（「該問就問、不要自己猜」，ADR-0016）。
   // 快速版判斷同意（或沒有判斷層）就不再呼叫完整版的判斷模型；判斷層說是別的意圖時交給下面重判（可以更正規則）

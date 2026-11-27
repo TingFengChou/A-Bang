@@ -309,7 +309,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const picked = req.userState?.picked || [];
   const canLocate = !!req.clientTools?.includes(DEVICE_LOCATION_TOOL.name);
   // 判斷層：先用快速版（A＋規則，幾毫秒）說聽懂了什麼，不用等 loading；完整版（含模型）定案狀態與工具範圍
-  const jc = judgeCalls(judge, req, profile);
+  const jc = judgeCalls(judge, req, profile, { now });
   const last = req.messages.at(-1).content;
   // 地端小模型的英文不穩（漏英文地名、句型亂，模型模式情境 S12 九個沒過）：英文提問改用規則回答（與示範模式同一套英文總結；Claude 照常）
   if (provider.mode === 'local' && isEnglish(last)) return runDemo(svc, body, emit0, { profileId, now, judge, mode: 'rules' });

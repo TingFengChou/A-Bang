@@ -112,14 +112,14 @@ export function createLlmJudge({ url, model, apiKey, prompt, fetchImpl = fetch, 
  * @returns {(text: string, history?: string[], opts?: { device?: { intent: string, states: string[], engine: string, confidence?: number } }) => Promise<{ intent: string, states: string[], confidence: number|null, source: 'embed'|'llm'|'device'|'rules', llmUsed: boolean, engine?: string }>}
  */
 export function createJudge({ embed = null, llm = null, threshold = CONFIDENT } = {}) {
-  const run = async (text, history = [], { quick = false, device = null } = {}) => {
+  const run = async (text, history = [], { quick = false, device = null, now = null, saved = null } = {}) => { // now、saved：跟這一輪的規則解析同一組條件（架構第二輪 #3）
     // 裝置端提示（ADR-0014：手機上的 Apple Intelligence／Gemini Nano 先判斷好）：伺服器沒有自己的模型（B）時當作 B；
     // 有 B 時只用在快速版（評測：A＋規則＋Gemini Nano 全對 89.0%，A＋規則＋地端 qwen3:8b 89.5%，docs/research/edge-eval.md）
     // 手機上的小模型（E3）跟 A 是同一個分類器：伺服器沒有 A（JUDGE=off、還在載入）時當作 A（信心、門檻、規則優先都照 A 的規則）；伺服器有 A 就用自己的
     const devEmbed = device?.engine === EMBED_ENGINE && !embed && Number.isFinite(device.confidence) ? { intent: device.intent, confidence: device.confidence, states: device.states || [] } : null;
     const dev = device && device.engine !== EMBED_ENGINE && (quick || !llm) ? { intent: device.intent, states: device.states || [], ...(cleanTopic(device.topic) && { topic: cleanTopic(device.topic) }) } : null;
     const it = { text, ...(history.length && { history }) };
-    const rules0 = parseIntent(text, { history: history.map((content) => ({ role: 'user', content })) });
+    const rules0 = parseIntent(text, { history: history.map((content) => ({ role: 'user', content })), ...(saved && { saved }), ...(now != null && { now }) });
     // 規則的「請到防詐檢查」（scamAsk）在判斷層就是 scam（2026-11-25：手機判成其他時，畫面的意圖標籤也要是防詐）
     const rules = rules0.intent === 'scamAsk' ? { ...rules0, intent: 'scam' } : rules0;
     const a = embed ? await embed(it).catch(() => null) : devEmbed;
