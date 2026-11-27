@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "abang/cards/clinic.v1.json",
+  "title": "clinic（clinic_search）",
+  "type": "object",
+  "required": [
+    "weekday",
+    "period",
+    "total",
+    "openNowCount",
+    "clinics"
+  ],
+  "properties": {
+    "area": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "query": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "dept": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "weekday": {
+      "type": "string"
+    },
+    "period": {
+      "enum": [
+        "上午",
+        "下午",
+        "晚上",
+        null
+      ]
+    },
+    "phase": {
+      "enum": [
+        "open",
+        "early",
+        "late"
+      ]
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "openNowCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "laterCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "city": {
+      "type": "string"
+    },
+    "otherCities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "areaFrom": {
+      "type": "object"
+    },
+    "clinics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "kind",
+          "address",
+          "today",
+          "openNow",
+          "nav"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "western",
+              "dental",
+              "tcm"
+            ]
+          },
+          "depts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "address": {
+            "type": "string"
+          },
+          "today": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "enum": [
+                "上午",
+                "下午",
+                "晚上"
+              ]
+            }
+          },
+          "openNow": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "laterToday": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "上午",
+                "下午",
+                "晚上"
+              ]
+            }
+          },
+          "nav": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

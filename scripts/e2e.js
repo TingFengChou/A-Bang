@@ -779,6 +779,22 @@ test('找戶政事務所（M16-04b）：「最近的戶政事務所在哪」→ 
   }, { init: () => { window.open = () => null; } });
 });
 
+test('找有看診的診所：「附近有開的小兒科嗎」→ 用位置推估在哪一區 → 小兒科診所、登記時段、電話、地圖', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = recordBodies(page);
+    await askAbang(page, '附近有開的小兒科嗎', 1, bodies);
+    const slot = page.locator('.turn').last().locator('.card-slot', { has: page.locator('.ab-clinic') });
+    await slot.waitFor();
+    assert.ok(await slot.locator('.ab-clinic').count() >= 1);
+    assert.match(await slot.locator('.ab-foot').textContent(), /臨時休診不會反映.+119/);
+    assert.match(await slot.locator('a[href^="tel:"]').first().getAttribute('href'), /^tel:\d{6,}$/);
+    assert.equal(await slot.getByRole('button', { name: '地圖' }).count() >= 1, true);
+    assert.match(await page.locator('.bubble.final').last().textContent(), /小兒科診所/);
+    await slot.scrollIntoViewIfNeeded();
+    await slot.screenshot({ path: new URL('phone-clinic.png', SHOTS).pathname });
+  }, { init: () => { window.open = () => null; } });
+});
+
 test('護照現場等待人數（M16-04c）：「現在去辦護照人多嗎」→ 各據點人數、網路預約按鈕', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = recordBodies(page);

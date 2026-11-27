@@ -67,6 +67,13 @@ export const SPEAK_EN = {
   aqi_nearby: (d) => `${d.nearest.downSite ? `${d.nearest.downSite} station is under maintenance; ` : ''}AQI ${d.nearest.aqi ?? '—'}${AQI_LEVEL[d.nearest.level] ? ` (${AQI_LEVEL[d.nearest.level]})` : ''} at ${d.nearest.site} station${d.nearest.pm25 != null ? `, PM2.5 ${d.nearest.pm25}` : ''}.`,
   outing_advice: (d) => { const first = outingEn(d.items[0]); return first ? `Before you go: ${first}${d.items.length > 1 ? ` (+${d.items.length - 1} more on the card)` : ''}.` : `Checked weather and air: ${plural(d.items.length, 'tip')} on the card.`; },
   pharmacy_search: (d) => (d.pharmacies.length ? `Found ${plural(d.pharmacies.length, 'National Health Insurance (NHI) pharmacy', 'National Health Insurance (NHI) pharmacies')}${d.area ? ` in ${d.area}` : ''}; ${d.pharmacies.filter((p) => p.openToday).length} open today.` : 'No matching NHI pharmacies.'),
+  clinic_search: (d) => {
+    const where = d.area ? ` in ${d.area}` : '';
+    if (!d.total) return 'No matching NHI clinics found.';
+    if (d.openNowCount) return `${plural(d.openNowCount, 'clinic')}${where} registered hours this ${({ 上午: 'morning', 下午: 'afternoon', 晚上: 'evening' })[d.period]}${d.laterCount ? `; ${d.laterCount} more later today` : ''}.`;
+    if (d.laterCount) return `${d.phase === 'early' ? "Clinics haven't opened yet" : 'None registered for right now'}; ${plural(d.laterCount, 'clinic')}${where} registered hours later today.`;
+    return 'Clinic hours are over for today; if you feel very unwell go to a hospital ER, and call 119 in an emergency.';
+  },
   youbike_nearby: (d) => { const s = d.stations.find((x) => x.inService && x.rent > 0); return s ? `Nearest station with bikes: ${s.name} (${km(s.distance)}), ${plural(s.rent, 'bike')}.` : 'No bikes at nearby stations right now.'; },
   bus_nearby_stations: (d) => (d.stations.length ? `${plural(d.stations.length, 'bus stop')} nearby; nearest is ${d.stations[0].name} (${km(d.stations[0].distance)}).` : 'No bus stops nearby.'),
   bus_station_eta: (d) => { const f = d.arrivals.find((r) => r.etaSec != null); return f ? `Soonest is ${f.routeName}, in ${mins(f.etaSec)} min.` : 'No buses due at this stop right now.'; },

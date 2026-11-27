@@ -36,6 +36,8 @@ const CASES = [
   ['outing_advice', { ...P, with: 'kids' }, { weather: 'rain' }],
   ['earthquake_recent', { county: '臺南市' }],
   ['pharmacy_search', { area: '臺北市大安區' }],
+  ['clinic_search', { area: '臺北市中正區' }],
+  ['clinic_search', { area: '大安區', dept: 'peds' }],
   ['garbage_truck_nearby', P],
   ['garbage_truck_nearby', { lat: 25.0183, lon: 121.4717 }],
   ['fuel_price', {}],

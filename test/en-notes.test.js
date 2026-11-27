@@ -58,7 +58,7 @@ test('每個英文回報都能用工具的實際輸出算出來（不丟錯、�
     find_place: { query: '台北車站' }, plan_trip: { from: '臺北車站', to: '台北101', departAt: '09:00' }, weather_now: P, weather_tomorrow: P, aqi_nearby: P, outing_advice: P,
     youbike_nearby: P, bus_nearby_stations: P, bus_station_eta: { city: 'Taipei', stationId: 'M1000' }, bus_route_eta: { city: 'Taipei', routeName: '307' },
     metro_live_board: { near: '台北車站' }, thsr_timetable: { from: '台北', to: '左營' }, tra_timetable: { from: '臺北', to: '高雄' },
-    rail_fare: { system: 'THSR', from: '台北', to: '左營' }, pharmacy_search: { area: '臺北市大安區' }, ridehail_link: { to: '台北101', from: '臺北車站' }, traffic_status: { from: '臺北車站', to: '高雄車站' },
+    rail_fare: { system: 'THSR', from: '台北', to: '左營' }, pharmacy_search: { area: '臺北市大安區' }, clinic_search: { area: '臺北市中正區' }, ridehail_link: { to: '台北101', from: '臺北車站' }, traffic_status: { from: '臺北車站', to: '高雄車站' },
     drama_picks: {}, drama_search: { query: '甜寵' }, drama_series: { id: 'demo-night-bus' },
   };
   for (const name of Object.keys(SPEAK_EN)) {

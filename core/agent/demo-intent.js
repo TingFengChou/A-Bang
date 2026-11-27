@@ -2,6 +2,7 @@
 // 產生「分段的工具呼叫計畫」；由 run.js 執行並發出與 Claude 模式相同的事件流。不加人工延遲。
 import { enName, outingEn, SPEAK_EN } from '../tools/speak-en.js';
 import { findGovLinks } from '../services/govlinks.js';
+import { deptOf, DEPTS } from '../services/clinic.js';
 import { LANDMARKS, normPlace } from '../services/places.js';
 import { nextStepOf } from '../tools/trip.js';
 import { BUS_OFF, withoutBus, busOffEntry } from '../services/trip.js';
@@ -106,6 +107,11 @@ const LIFE_WORDS = [
   ['garbage', /垃圾車|倒垃圾|收垃圾/],
   ['aqi', /空氣品質|空品|空氣(?:好|差|不好|怎樣|如何)|AQI|PM\s*2\.?5|空汙|空污|霧霾|要不要戴口罩/i],
 ];
+/** 找有看診的診所（與藥局同一個意圖、clinic 旗標）：要有診所、看醫生、看病或科別；問怎麼去某家醫院或診所是行程 */
+const CLINIC_WORD = /診所|看醫生|看病|看診|門診|小兒科|兒科|耳鼻喉|牙醫|看牙|中醫|皮膚科|眼科|婦產科|家醫科|骨科|復健科|身心科/;
+const CLINIC_TRIP = /怎麼(?:去|走|到|坐|搭|過去)|(?:去|到|往)(?!附近|看|找)[^，。？?！!\s]{1,10}(?:醫院|診所|看病|看醫生|看診|回診)|要搭|幾號公車|中醫大|醫院(?!.{0,4}(?:有開|看診))/;
+const clinicOf = (s) => (CLINIC_WORD.test(s) && !CLINIC_TRIP.test(s) ? { clinic: true, ...(deptOf(s) && { dept: deptOf(s) }) } : null);
+const DEPTS_LABEL = Object.fromEntries(DEPTS.map((d) => [d.id, d.label]));
 /** 出門建議的問法 */
 const OUTING = /(?:適合|可以|能|要不要).{0,4}(?:慢跑|跑步|運動|騎車兜風|散步)|(?:慢跑|跑步|運動|散步).{0,4}(?:好嗎|可以嗎|適合嗎|嗎)|出門.{0,10}(?:注意|要帶|帶什麼|穿什麼|怎麼穿|帶傘|適合)|適合出門|(?:可以|能|適合|要不要)\s*(?:帶.{0,4})?(?:去|出去)\s*(?:公園|郊外|河濱|戶外|玩|散步|運動|爬山|踏青|野餐)|適合(?:出去|戶外)|(?:今天|等一下|待會).{0,6}(?:注意什麼|要帶什麼|穿什麼)|要穿什麼|穿什麼出門/;
 const WEATHER_WORD = /天氣|氣溫|溫度|幾度|下雨|下大雨|大雨|帶傘|雨傘|會冷|會熱|會很[冷熱]|[冷熱]不[冷熱]|很[冷熱][嗎嘛]|颱風|出太陽/; // 「今天會很熱嗎」（P5-4）
@@ -552,6 +558,8 @@ function multiOf(s, base, ctx) {
 
 /** 生活服務意圖與參數（沒有符合回 null） */
 function lifeIntent(s, only = null) {
+  const cl = (!only || only === 'pharmacy') && !/藥局|藥房|領藥|拿藥|慢箋/.test(s) && clinicOf(s); // 「附近有開的小兒科」：找診所（藥局照舊）
+  if (cl && !LIFE_WORDS.some(([k, re]) => k !== 'pharmacy' && re.test(s))) return { intent: 'pharmacy', ...cl, area: AREA.exec(s)?.[1] || countyOf(s) };
   const hit = LIFE_WORDS.find(([k, re]) => (!only || k === only) && re.test(s));
   if (!hit) return null;
   const intent = hit[0];
@@ -1063,7 +1071,7 @@ function slotsFor(intent, s, base) {
     case 'chat': return { ...base, intent: 'unknown', chat: true };
     case 'invoice': return { ...base, intent, number: INVOICE_NO.exec(s)?.[1] };
     case 'quake': return { ...base, intent, county: countyOf(s) };
-    case 'pharmacy': return { ...base, intent, area: AREA.exec(s)?.[1] || countyOf(s) };
+    case 'pharmacy': return { ...base, intent, area: AREA.exec(s)?.[1] || countyOf(s), ...(!/藥局|藥房|領藥|拿藥|慢箋/.test(s) && clinicOf(s)) };
     case 'stock': return { ...base, intent, query: stockQueryOf(s) || undefined, advice: STOCK_ADVICE.test(s) || undefined };
     case 'drama': return { ...base, intent, ...dramaSlots(s) };
     case 'youbike': case 'nearby_bus': case 'weather': case 'aqi': case 'garbage': case 'fuel': case 'unknown':
@@ -1301,16 +1309,20 @@ export function demoSteps(it, now = Date.now()) {
     case 'quake':
       return [() => ({ note: '@地震 最近的地震報告', calls: [{ name: 'earthquake_recent', args: { ...(it.county && { county: it.county }), limit: 5 } }] })];
     case 'pharmacy': {
+      // 診所（clinic）與藥局同一套：說了區就查那一區、說了地點用地點推估、沒說用你的位置
+      const [tool, who, what, extra] = it.clinic
+        ? ['clinic_search', '診所', `${it.dept ? `${DEPTS_LABEL[it.dept]}` : ''}診所（這個時段有登記看診的排前面）`, it.dept ? { dept: it.dept } : {}]
+        : ['pharmacy_search', '藥局', '健保藥局', {}];
       if (!it.area && it.places[0]) { // 「板橋車站附近的藥局」：用地標的座標推估在哪一區
         const place = it.places[0];
         return [
           () => ({ note: `@地點 找「${place}」的位置`, calls: [{ name: 'find_place', args: { query: place } }] }),
-          (r) => (point(r, 0) ? { note: `@藥局 「${place}」那一區的健保藥局`, calls: [{ name: 'pharmacy_search', args: ll(point(r, 0)) }] } : null),
+          (r) => (point(r, 0) ? { note: `@${who} 「${place}」那一區的${what}`, calls: [{ name: tool, args: { ...ll(point(r, 0)), ...extra } }] } : null),
         ];
       }
-      if (!it.area && it.fromPoint) return [() => ({ note: '@藥局 依你的位置找這一區的健保藥局', calls: [{ name: 'pharmacy_search', args: ll(it.fromPoint) }] })]; // S16
+      if (!it.area && it.fromPoint) return [() => ({ note: `@${who} 依你的位置找這一區的${what}`, calls: [{ name: tool, args: { ...ll(it.fromPoint), ...extra } }] })]; // S16
       const area = it.area || DEFAULT_AREA;
-      return [() => ({ note: `@藥局 ${area}的健保藥局`, calls: [{ name: 'pharmacy_search', args: { area } }] })];
+      return [() => ({ note: `@${who} ${area}的${what}`, calls: [{ name: tool, args: { area, ...extra } }] })];
     }
     case 'fuel':
       return [() => ({ note: '@油價 中油這週的牌價', calls: [{ name: 'fuel_price', args: {} }] })];
@@ -1489,6 +1501,10 @@ function englishIntent(s, places, history = []) {
   if (/air quality|\baqi\b|pm ?2\.?5|smog/i.test(s)) return { ...base, intent: 'aqi' };
   // 出門建議（S12e）：「What should I bring/wear?」「Do I need an umbrella?」「Is it OK to go out?」（問明天的交給天氣預報）
   if (!tomorrow && !toWord && /what (?:should|do) i (?:bring|wear)|umbrella|jacket|(?:good|ok|okay) (?:time )?to go out/i.test(s)) return { ...base, intent: 'outing' };
+  if (/\b(?:clinics?|doctors?|dentists?|pediatricians?|see a doctor)\b/i.test(s) && !/pharmac|drug ?store|how (?:do|can|should) i get|\bto (?:the )?[a-z ]*hospital\b/i.test(s)) { // 「Is there a clinic open near me?」：找診所（依位置推估行政區）
+    const dept = /dentist|dental/i.test(s) ? 'dental' : /pediatric|children'?s doctor/i.test(s) ? 'peds' : /\bENT\b|ear,? nose/i.test(s) ? 'ent' : null;
+    return { ...base, intent: 'pharmacy', clinic: true, area: null, ...(dept && { dept }) };
+  }
   if (/pharmac|drug ?store|chemist|buy medicine|get medicine/i.test(s)) return { ...base, intent: 'pharmacy', area: null }; // 「pharmacy near me」：依位置推估行政區
   if (RAIN.test(s) && !toWord) {
     // 「Is it raining there?」：there＝上一趟的目的地（中文「那裡」同 P2-7；P5-6）
@@ -1597,6 +1613,7 @@ function englishSummary(it, results) {
   if (it.intent === 'aqi') { const a = results.aqi_nearby?.at(-1)?.data?.nearest; if (a) return `Air quality near ${a.site} station: AQI ${a.aqi}${a.aqi > 100 ? ', consider wearing a mask' : ''}.`; }
   if (it.intent === 'youbike') { const b = results.youbike_nearby?.at(-1)?.data?.stations?.[0]; if (b) return `Nearest YouBike station: ${b.name}, ${b.rent ?? '?'} bikes and ${b.returnSlots ?? '?'} free docks.${note}`; }
   if (it.intent === 'outing') { const o = results.outing_advice?.at(-1)?.data; if (o) { const tips = o.items.map(outingEn).filter(Boolean); return `Before you head out: ${tips.join('; ')}.${note}`; } }
+  if (it.intent === 'pharmacy' && it.clinic) { const c = results.clinic_search?.at(-1)?.data; if (c) return `${SPEAK_EN.clinic_search(c)}${c.areaFrom ? ' The area was guessed from your location; tell me the district if it is wrong.' : ''} Hours are what clinics registered with NHI; call before you go. For an emergency, call 119.${note}`; }
   if (it.intent === 'pharmacy') { const p = results.pharmacy_search?.at(-1)?.data; if (p) return `${SPEAK_EN.pharmacy_search(p)}${p.areaFrom ? ' The area was guessed from your location; tell me the district if it is wrong.' : ` You didn't say where, so I searched ${p.area}; tell me the district.`} Tap a pharmacy for the map.${note}`; }
   if (it.thanks) return "You're welcome! Have a good trip.";
   if (it.intent === 'savedMissing') return `I don't know where your ${({ 家: 'home', 公司: 'office', 學校: 'school' })[it.missing] || 'saved place'} is yet. Set it in Settings & privacy → Saved places, or just tell me the place name (e.g. "How do I get to Banqiao Station?").`; // 「I'm at Taipei 101, about to go home」：還沒設定家
@@ -1830,7 +1847,7 @@ function summaryCore(it, results, suggestions = []) {
   // 沒說地點時用了示範預設，先講清楚
   const pre = (isNearby(it) || (it.intent === 'metro' && !it.station && !it.near)) && !it.places[0] && !it.fromPoint
     ? (it.noLocation ? `（沒拿到你的位置，先查「${DEFAULT_FROM}」附近；告訴我地點就重查。）` : `（你沒說在哪，我先查「${DEFAULT_FROM}」附近。）`)
-    : it.intent === 'pharmacy' && !it.area ? (results.pharmacy_search?.at(-1)?.data?.areaFrom ? `（依${it.places[0] ? `「${it.places[0]}」的` : '你的'}位置推估在「${results.pharmacy_search.at(-1).data.area}」，不對請說哪一區。）` : it.noLocation ? `（沒拿到你的位置，我先查「${DEFAULT_AREA}」；告訴我哪一區就重查。）` : `（你沒說哪一區，我先查「${DEFAULT_AREA}」。）`)
+    : it.intent === 'pharmacy' && !it.area ? (results[it.clinic ? 'clinic_search' : 'pharmacy_search']?.at(-1)?.data?.areaFrom ? `（依${it.places[0] ? `「${it.places[0]}」的` : '你的'}位置推估在「${results[it.clinic ? 'clinic_search' : 'pharmacy_search'].at(-1).data.area}」，不對請說哪一區。）` : it.noLocation ? `（沒拿到你的位置，我先查「${DEFAULT_AREA}」；告訴我哪一區就重查。）` : `（你沒說哪一區，我先查「${DEFAULT_AREA}」。）`)
     : it.intent === 'stock' && it.advice ? NO_ADVICE : '';
   // 發票：主動提議存到「我的發票」，開獎後自動對獎（號碼只存在手機）
   const post = it.intent === 'invoice' ? ` ${INVOICE_WALLET_HINT}` : '';

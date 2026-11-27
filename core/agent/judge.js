@@ -23,7 +23,7 @@ export const JUDGE_INTENTS = {
   weather: '天氣、氣溫、會不會下雨、帶傘、颱風',
   aqi: '空氣品質、AQI、PM2.5、空汙、要不要戴口罩',
   quake: '地震、震度、震央',
-  pharmacy: '藥局、領藥、買藥',
+  pharmacy: '藥局、領藥、買藥、找有看診的診所（小兒科、牙醫…）',
   garbage: '垃圾車、倒垃圾、資源回收車時間',
   fuel: '油價、汽油、柴油價格',
   invoice: '統一發票、對獎、中獎號碼、開獎',

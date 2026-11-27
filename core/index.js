@@ -41,6 +41,8 @@ import { createGovOfficeServices, createLiveGovOfficeFetchers } from './services
 import { createMockGovOfficeServices } from './services/govoffice-mock.js';
 import { createPassportServices, createLivePassportFetchers } from './services/passport.js';
 import { createMockPassportServices } from './services/passport-mock.js';
+import { createClinicServices, createLiveClinicFetchers } from './services/clinic.js';
+import { createMockClinicServices } from './services/clinic-mock.js';
 
 /**
  * @param {{ clientId?: string, clientSecret?: string, cwaKey?: string, moenvKey?: string, openData?: boolean, forceMock?: boolean, log?: Function, demo?: { traffic?: 'smooth'|'jam', weather?: 'clear'|'rain', air?: 'good'|'bad', bus?: 'off'|'offLive' }, drama?: { apiBase?: string, links?: object } }} [opts]
@@ -113,6 +115,7 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
   // 去政府辦事（M16-04a）：我的E政府申辦服務資料（免金鑰），跟著 openData；沒有時用真實資料的片段
   const gov = od ? createGovServices(createLiveGovFetchers({ od })) : createMockGovServices();
   const passport = od ? createPassportServices(createLivePassportFetchers({ od })) : createMockPassportServices(); // 護照現場等待人數（M16-04c）
+  const clinic = od ? createClinicServices(createLiveClinicFetchers({ od })) : createMockClinicServices(); // 現在有看診的診所（健保署，與藥局同一個來源）
   const govOffice = od ? createGovOfficeServices(createLiveGovOfficeFetchers({ od })) : createMockGovOfficeServices(); // 最近的戶政事務所、辦公日曆（M16-04b）
 
   return {
@@ -144,6 +147,7 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
     ...booking, // booking：導訂票（⛔ 權限前 live 回「尚未開通」）
     ...createRidehailServices(), // ridehail：只產生官方連結，live 與示範相同（ADR-0011）
     ...life, // life：空品、地震、藥局、垃圾車、油價、發票（M10）
+    ...clinic, // clinics：現在有看診的診所（健保署特約診所）
     ...stock, // stock：上市櫃收盤行情與指數（finance 工具包）
     ...antifraud, // antifraud：165 開放資料（免金鑰；DEMO_MODE=1 時用示範片段，M7）
     ...drama, // drama：MyDrama 短劇排行、搜尋、簡介（ADR-0019）

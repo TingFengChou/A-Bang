@@ -42,7 +42,7 @@ export function resultFacts(results = [], decision = null) {
   if (w) out.push(`天氣 ${w.raining ? '正在下雨' : '沒下雨'}${w.tempC != null ? ` ${w.tempC}°C` : ''}${w.pop3h != null ? `、降雨機率 ${w.pop3h}%` : ''}`);
   const aqi = by('aqi_nearby')?.nearest?.aqi ?? trip?.air?.aqi;
   if (aqi != null) out.push(`AQI ${aqi}`);
-  const named = { youbike_nearby: 'YouBike', bus_nearby_stations: '附近公車站', metro_live_board: '捷運到站', thsr_timetable: '高鐵時刻', tra_timetable: '台鐵時刻', weather_tomorrow: '明天天氣', outing_advice: '出門建議', earthquake_recent: '地震', pharmacy_search: '藥局', garbage_truck_nearby: '垃圾車', fuel_price: '油價', invoice_lottery: '發票', stock_quote: '股市收盤' };
+  const named = { youbike_nearby: 'YouBike', bus_nearby_stations: '附近公車站', metro_live_board: '捷運到站', thsr_timetable: '高鐵時刻', tra_timetable: '台鐵時刻', weather_tomorrow: '明天天氣', outing_advice: '出門建議', earthquake_recent: '地震', pharmacy_search: '藥局', clinic_search: '診所', garbage_truck_nearby: '垃圾車', fuel_price: '油價', invoice_lottery: '發票', stock_quote: '股市收盤' };
   for (const r of results) if (named[r.tool] && !out.includes(named[r.tool])) out.push(named[r.tool]);
   return out.join('；').slice(0, 160);
 }
