@@ -56,6 +56,11 @@ function compactSettings(main) {
     d.className = 'note-more';
     const sm = document.createElement('summary');
     sm.textContent = '說明';
+    // 十幾個「說明」讀屏分不出是哪一個：名稱帶上它說明的那一項（前一個開關的標題，沒有就用段落標題；設計第三輪 #4）
+    let prev = p.previousElementSibling;
+    while (prev && !prev.matches('label.switch-row, h2, h3')) prev = prev.previousElementSibling;
+    const what = (prev?.matches('label.switch-row') ? prev.querySelector('b') : prev)?.textContent.trim() || p.closest('section')?.querySelector('h2')?.textContent.trim();
+    if (what) sm.setAttribute('aria-label', `說明：${what}`);
     p.replaceWith(d);
     d.append(sm, p);
   }

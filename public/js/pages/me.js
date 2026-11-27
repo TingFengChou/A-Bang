@@ -71,6 +71,10 @@ export default {
         </div>
       </section>`;
     mountHealthSetting(main.querySelector('.me-health'), { toast, prefix: 'me-health-sw' }); // ADR-0018：跟設定頁同一個開關
+    { // 約 200 字的說明收進「怎麼運作」，與上面手機上的 AI 那段一致（設計第三輪 #5；aria-describedby 照樣念得到）
+      const note = main.querySelector('#me-health-sw-note');
+      if (note) { const d = Object.assign(document.createElement('details'), { className: 'me-ai-how' }); d.append(Object.assign(document.createElement('summary'), { textContent: '怎麼運作' })); note.replaceWith(d); d.append(note); }
+    }
     main.querySelector('#me-guide').addEventListener('click', () => showOnboarding({ force: true }));
     const card = main.querySelector('.me-ai');
     edgeStatus().then((st) => {

@@ -69,9 +69,10 @@ main { padding: 4px 16px 16px; }
 .dist { color: var(--muted); font-size: 12px; white-space: nowrap; }
 
 /* ETA badge */
-.eta { min-width: 74px; text-align: center; font-weight: 700; font-size: 14px; padding: 5px 8px; border-radius: 10px; background: var(--ok-soft); color: var(--ok); white-space: nowrap; flex: none; }
-.eta.soon { background: var(--bad-soft); color: var(--bad); }
-.eta.mid { background: var(--warn-soft); color: var(--warn); }
+/* 快到＝實心綠（最醒目）、10 分內＝淺綠、還久＝灰；紅色只用在警示（BRAND §3），與卡片的「快到＝綠」一致（設計第三輪 #2） */
+.eta { min-width: 74px; text-align: center; font-weight: 600; font-size: 14px; padding: 5px 8px; border-radius: 10px; background: var(--off-soft); color: var(--text); white-space: nowrap; flex: none; }
+.eta.soon { background: var(--ok); color: #fff; font-weight: 700; }
+.eta.mid { background: var(--ok-soft); color: var(--ok); font-weight: 700; }
 .eta.off { background: var(--off-soft); color: var(--off); font-weight: 500; }
 
 /* Route stop timeline */
@@ -581,7 +582,7 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
 .ai-line[hidden] { display: none; }
 .me-ai-how summary { cursor: pointer; color: var(--muted); font-size: 14px; min-height: 44px; display: flex; align-items: center; }
 /* 設定頁精簡（設計第二輪 #5）：長說明收進「說明」、頁首跳到各段 */
-.note-more summary { cursor: pointer; color: var(--muted); font-size: 13px; min-height: 44px; display: flex; align-items: center; }
+.note-more summary { cursor: pointer; color: var(--muted); font-size: 15px; min-height: 44px; display: flex; align-items: center; } /* 長輩看得清楚（設計第三輪 #4） */
 .note-more[open] summary { min-height: 32px; }
 .set-jump { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
 .set-jump .chip { min-height: 36px; }
