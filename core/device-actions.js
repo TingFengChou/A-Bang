@@ -13,6 +13,14 @@ export const LIMITS = { title: 80, location: 80, notes: 500, shareText: 600, sha
 
 const hm = (s) => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(s ?? '')); return m && +m[1] < 24 && +m[2] < 60 ? +m[1] * 60 + +m[2] : null; };
 const pad = (n) => String(n).padStart(2, '0');
+/** 費用（多人叫車寫每人分攤，與卡片相同） */
+const costOf = (o, en) => {
+  const r = o.costRange || (o.cost != null ? [o.cost, o.cost] : null);
+  if (!r) return '';
+  const v = r[0] === r[1] ? `${r[0]}` : `${r[0]}–${r[1]}`;
+  if (o.share) return en ? `NT$${v} per person${o.share.cars > 1 ? ` (${o.share.cars} cars)` : ''}` : `每人 ${v} 元${o.share.cars > 1 ? `（${o.share.cars} 輛車）` : ''}`;
+  return en ? `NT$${v}` : `${v} 元`;
+};
 const clip = (s, n) => { const a = [...String(s ?? '').replace(/[\p{Cc}\p{Cf}]/gu, (c) => (c === '\n' ? '\n' : '')).trim()]; return a.length > n ? `${a.slice(0, n - 1).join('')}…` : a.join(''); };
 const HERE = /^(?:你的位置|your location|現在位置)$/i;
 
@@ -57,10 +65,10 @@ export function calendarFromTrip(data, { optId = null, lang = null } = {}) {
   const en = lang === 'en';
   const to = String(data.to.name);
   const legs = (o.legs || []).map((l) => (en && l.detailEn) || l.detail).filter(Boolean);
-  const cost = o.costRange ? `${o.costRange[0]}–${o.costRange[1]}` : o.cost;
+  const cost = costOf(o, en);
   const notes = [
     ...legs,
-    Number.isFinite(o.minutes) ? (en ? `About ${o.minutes} min${cost != null ? `, NT$${cost}` : ''}` : `約 ${o.minutes} 分${cost != null ? `、${cost} 元` : ''}${o.estimated ? '（含估算）' : ''}`) : '',
+    Number.isFinite(o.minutes) ? (en ? `About ${o.minutes} min${cost ? `, ${cost}` : ''}` : `約 ${o.minutes} 分${cost ? `、${cost}` : ''}${o.estimated ? '（含估算）' : ''}`) : '',
     en ? 'Planned by A-Bang. Check live times before you leave.' : '阿幫排的行程；出發前再看一次即時資料。',
   ].filter(Boolean).join('\n');
   return cleanCalendarEvent({
@@ -82,10 +90,10 @@ export function shareFromTrip(data, { optId = null, lang = null } = {}) {
   const t = tripTimes(data, o);
   const time = (ms) => { const d = new Date(ms + TZ_OFFSET_MIN * 60000); return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; };
   const from = placeName(data.from, en), to = String(data.to.name);
-  const cost = o.costRange ? `${o.costRange[0]}–${o.costRange[1]}` : o.cost;
+  const cost = costOf(o, en);
   const head = en
-    ? `${from} → ${to}: ${o.name}${t ? `, leave ${time(t.start)}, arrive ${time(t.end)}` : ''}${Number.isFinite(o.minutes) ? `, about ${o.minutes} min` : ''}${cost != null ? `, NT$${cost}` : ''}.`
-    : `${from === '我這裡' ? '從我這裡' : `從${from}`}到${to}：坐${o.name}${t ? `，${time(t.start)} 出發、${time(t.end)} 到` : ''}${Number.isFinite(o.minutes) ? `，約 ${o.minutes} 分` : ''}${cost != null ? `，${cost} 元` : ''}。`;
+    ? `${from} → ${to}: ${o.name}${t ? `, leave ${time(t.start)}, arrive ${time(t.end)}` : ''}${Number.isFinite(o.minutes) ? `, about ${o.minutes} min` : ''}${cost ? `, ${cost}` : ''}.`
+    : `${from === '我這裡' ? '從我這裡' : `從${from}`}到${to}：坐${o.name}${t ? `，${time(t.start)} 出發、${time(t.end)} 到` : ''}${Number.isFinite(o.minutes) ? `，約 ${o.minutes} 分` : ''}${cost ? `，${cost}` : ''}。`;
   const legs = (o.legs || []).map((l) => (en && l.detailEn) || l.detail).filter(Boolean).join(en ? ' → ' : ' → ');
   const lat = Number(data.to.lat), lon = Number(data.to.lon);
   const url = Number.isFinite(lat) && Number.isFinite(lon) && lat > 21 && lat < 27 && lon > 118 && lon < 123

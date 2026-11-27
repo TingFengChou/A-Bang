@@ -51,6 +51,7 @@ public class AbangSystemPlugin: CAPPlugin, CAPBridgedPlugin, EKEventEditViewDele
                 editor.eventStore = self.eventStore
                 editor.event = event
                 editor.editViewDelegate = self
+                editor.isModalInPresentation = true // 不能往下滑關掉：一定經過「取消」或「加入」，回覆才不會卡住
                 self.calendarCall = call
                 vc.present(editor, animated: true)
             }

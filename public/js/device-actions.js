@@ -2,6 +2,7 @@
 // 手機 App：AbangSystem 外掛開系統的新增行程畫面（iOS EKEventEditViewController、Android ACTION_INSERT）與分享面板。
 // 網頁：行事曆下載 .ics；分享用 Web Share API，不支援就複製文字。內容由 core/device-actions.js 產生（不經模型）。
 import { cleanCalendarEvent, cleanShare, toIcs } from '../../core/device-actions.js';
+import { tFor } from '../ui/cards/i18n/index.js';
 
 const PLUGIN = 'AbangSystem';
 const app = () => {
@@ -52,24 +53,9 @@ export async function share(payload, { nav = globalThis.navigator } = {}) {
 /** 這個客戶端做得到的裝置動作（送給伺服器：deviceActions.can） */
 export const deviceActionsCan = () => ['addCalendar', 'share'];
 
-/** 結果 → 給使用者看的一句（卡片、對話共用） */
+/** 結果 → 給使用者看的一句：用卡片字典（public/ui/cards/i18n 的 device.*），卡片按鈕與對話說法一致 */
 export function resultText(kind, r, lang = null) {
-  const en = lang === 'en';
-  const T = {
-    addCalendar: {
-      saved: en ? 'Added to your calendar.' : '已加到行事曆。',
-      cancelled: en ? 'Not added.' : '沒有加入（你按了取消）。',
-      downloaded: en ? 'Downloaded a calendar file (.ics); open it to add the trip.' : '已下載行事曆檔（.ics），打開就能加入。',
-      denied: en ? 'A-Bang needs calendar access; you can allow it in Settings.' : '阿幫沒有行事曆權限，可以到設定裡允許。',
-      opened: en ? 'Your calendar is open; save it there to add the trip.' : '已打開行事曆，按儲存就會加入。',
-    },
-    share: {
-      shared: en ? 'Shared.' : '已分享。',
-      cancelled: en ? 'Not shared.' : '沒有分享（你按了取消）。',
-      copied: en ? 'Copied; paste it wherever you like.' : '已複製，貼到想傳的地方就好。',
-      opened: en ? 'Pick who to send it to.' : '選要傳給誰就好。',
-    },
-  };
-  if (r === 'outdated') return en ? 'Update the A-Bang app to use this.' : '請更新阿幫 App 才能用這個功能。';
-  return T[kind]?.[r] || (en ? 'That didn’t work. Try again.' : '沒有成功，請再試一次。');
+  const t = tFor(lang === 'en' ? 'en' : 'zh-TW');
+  const key = `device.${kind}.${r}`;
+  return t(key) === key ? t('device.failed') : t(key);
 }

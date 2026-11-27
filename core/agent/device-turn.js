@@ -2,7 +2,7 @@
 // 伺服器不產生事件內容、不執行任何動作：只回「阿幫問你」的動作選項（addCalendar／share，ADR-0016），
 // 手機用畫面上最近一張行程卡片的資料產生內容（core/device-actions.js），再開系統畫面讓使用者確認。
 import { ACTION_OF_INTENT } from '../device-actions.js';
-import { CALENDAR_ASK, SHARE_ASK } from './demo-intent.js';
+import { CALENDAR_ASK, SHARE_ASK, SHARE_ASK_EN } from './demo-intent.js';
 
 export const DEVICE_ACTION_INTENTS = Object.keys(ACTION_OF_INTENT);
 
@@ -46,5 +46,5 @@ export function deviceActionReply(intent, req, lang = null) {
 /** 一句話同時排行程又要加行事曆／分享（「排去高雄的車，傳給我媽」）：行程排好後再問（一輪最多一個問題） */
 export function thenAction(text) {
   const s = String(text || '');
-  return CALENDAR_ASK.test(s) ? 'calendar' : SHARE_ASK.test(s) ? 'share' : null;
+  return CALENDAR_ASK.test(s) ? 'calendar' : (SHARE_ASK.test(s) || SHARE_ASK_EN.test(s) || /(?:分享|轉傳|傳)給/.test(s)) ? 'share' : null;
 }

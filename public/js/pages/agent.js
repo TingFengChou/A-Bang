@@ -513,6 +513,7 @@ export default {
             break;
           case 'context_reset': { // 「重來」：分隔線插在「重來」泡泡前面＋前面的對話與提問變淡（不清空，回得去看）
             if (turn.dataset.reset) break; // 同一輪只處理一次
+            lastTrip = null; // 重來：之前的行程不再拿來加行事曆、分享
             turn.dataset.reset = '1';
             const ask = turn.previousElementSibling;
             for (const t of log.querySelectorAll('.turn, .msg.user')) if (t !== turn && t !== ask) t.classList.add('past');
@@ -554,7 +555,7 @@ export default {
           }
           case 'tool_result': {
             await gap();
-            if (e.ok && e.tool === 'plan_trip' && e.data?.to?.name) { lastTripTo = e.data.to.name; lastTrip = { data: e.data, lang: turnLang === 'en' ? 'en' : null }; }
+            if (e.ok && e.tool === 'plan_trip' && e.data?.to?.name) { lastTripTo = e.data.to.name; lastTrip = { data: e.data, lang: turnLang === 'en' ? 'en' : null, view }; }
             const b = bubbles.get(e.id);
             const say = b?.querySelector('.say');
             if (say) {
@@ -746,7 +747,9 @@ export default {
         else if (a.name === 'navigate' && /^#\/[a-z0-9/_-]{1,40}$/.test(String(a.to))) { host.navigate(a.to); return ''; } // App 內的頁面（到防詐貼上、發票對獎）
         else if (a.name === 'addCalendar' || a.name === 'share') { // 加到行事曆、分享（ADR-0021）：用畫面上最近的行程卡片，開系統畫面讓使用者確認
           const tr = lastTrip;
-          const content = tr && (a.name === 'addCalendar' ? calendarFromTrip(tr.data, { lang: tr.lang }) : shareFromTrip(tr.data, { lang: tr.lang }));
+          const cur = tr?.view?.dg?.best?.(); // 決策圖重算過（答了「趕時間嗎」、點了別的方案）：用現在排第一的
+          const optId = cur && tr.data.options?.some((o) => o.id === cur) ? cur : null;
+          const content = tr && (a.name === 'addCalendar' ? calendarFromTrip(tr.data, { optId, lang: tr.lang }) : shareFromTrip(tr.data, { optId, lang: tr.lang }));
           if (!content) return en ? 'Plan a trip first, then try again.' : '先排好行程，再試一次。';
           (a.name === 'addCalendar' ? host.addCalendar(content) : host.share(content)).catch(() => 'failed').then((r) => api.say(resultText(a.name, r, lang)));
           return a.name === 'addCalendar' ? (en ? 'Opening your calendar…' : '好，打開手機的行事曆…') : (en ? 'Opening the share menu…' : '好，打開分享選單…');

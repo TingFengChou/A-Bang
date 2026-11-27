@@ -60,6 +60,10 @@ test('分享：不帶出發地座標、目的地附 https 地圖連結、文字�
   assert.match(here.text, /^從我這裡到台北101/);
   assert.ok(!/25\.04123|121\.54321/.test(JSON.stringify(here)), '不帶使用者座標');
   assert.match(shareFromTrip(d, { lang: 'en' }).text, /\(via A-Bang\)$/);
+  // 多人叫車：寫每人分攤（與卡片相同）
+  const group = { date: '2026-11-27', departAt: '10:00', from: { name: '西門町' }, to: { name: '台北101' }, best: 'r', options: [{ id: 'r', name: '叫車（Uber）', leaveAt: '10:00', arriveMin: 630, minutes: 30, costRange: [70, 90], share: { cars: 2 }, legs: [] }] };
+  assert.match(shareFromTrip(group).text, /每人 70–90 元（2 輛車）/);
+  assert.match(calendarFromTrip(group).notes, /每人 70–90 元/);
 });
 
 test('檢查：長度、時間範圍、只收 https、去掉控制字元', () => {
@@ -94,6 +98,14 @@ test('規則：加到行事曆、分享（「有人傳給我網址」「朋友�
   assert.notEqual(p('有人傳給我一個網址').intent, 'share');
   assert.equal(p('朋友分享的投資群組').intent, 'scamAsk');
   assert.equal(p('提醒我出門').intent, 'reminder');
+  // 程式審查 2026-11-27：問句不是要分享；英文 share price 是股價
+  assert.notEqual(p('分享一下你會做什麼').intent, 'share');
+  assert.notEqual(p('What is the share price of TSMC?').intent, 'share');
+  assert.equal(p('share the route with my mom').intent, 'share');
+  assert.equal(p('可以分享給同事嗎').intent, 'share');
+  // 判斷層說加行事曆、但句子有地點：先排行程
+  assert.equal(parseIntent('從台北車站去台北101，加到行事曆', { history: [], intent: 'calendar' }).intent, 'trip');
+  assert.equal(parseIntent('加到行事曆', { history: [], intent: 'calendar' }).intent, 'calendar');
   assert.equal(thenAction('從台北車站去台北101，幫我加到行事曆'), 'calendar');
   assert.equal(thenAction('從台北車站去台北101'), null);
 });
@@ -155,6 +167,8 @@ test('前端：網頁加行事曆下載 .ics、分享不支援就複製、結果
   assert.equal(await share({ text: 'hi' }, { nav: { share: async () => { throw Object.assign(new Error('x'), { name: 'AbortError' }); } } }), 'cancelled');
   assert.match(resultText('addCalendar', 'saved'), /已加到行事曆/);
   assert.match(resultText('share', 'outdated'), /請更新阿幫 App/);
+  assert.equal(resultText('addCalendar', 'nope'), '沒有成功，請再試一次。', '沒有的結果：說沒成功');
+  assert.equal(resultText('share', 'copied', 'en'), 'Copied; paste it wherever you like.', '用卡片字典');
 });
 
 test('原生外掛與文件：iOS／Android 有方法、iOS 有行事曆說明、前端共用檔都有列', async () => {

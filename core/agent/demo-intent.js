@@ -120,7 +120,9 @@ const SETTINGS_ASK = /(?:設定|設成|設為|改成|新增|修改|更改|改一
 /** 把行程加到行事曆、日曆（ADR-0021；系統的新增行程畫面確認） */
 export const CALENDAR_ASK = /(?:加|放|存|寫|排|記|建)(?:一下)?(?:進|到|入|在)?(?:我的)?(?:手機)?(?:的)?(?:行事曆|日曆|行程表|google\s*(?:日曆|calendar))|(?:add|put|save)\b.{0,20}\b(?:to|in|into)\s+(?:my\s+)?calendar/i;
 /** 把行程分享、傳給別人（ADR-0021；系統分享面板）。「有人傳給我一個網址」不算（傳給「我」之後要接家人朋友） */
-export const SHARE_ASK = /^(?:幫我|請|可以|能不能|麻煩|那)?\s*(?:把)?(?:這個|這條|剛剛的|這趟)?(?:路線|行程|走法)?\s*分享(?:給|到|一下|出去)?|(?:轉傳|傳|寄|發|貼)(?:給|到)(?:我(?:的)?)?(?:媽媽?|爸爸?|老公|老婆|家人|朋友|同事|哥哥?|姐姐?|姊姊?|弟弟?|妹妹?|男友|女友|另一半|群組|LINE|line|他|她)|\bshare\b(?:\s+(?:this|it|the\s+(?:trip|route)|with))?/i;
+export const SHARE_ASK = /^(?:幫我|請|可以|能不能|麻煩|那)?\s*(?:把)?(?:這個|這條|剛剛的|這趟)?(?:路線|行程|走法)?\s*分享(?:一下)?(?:給.{1,8}?|到.{1,8}?|出去)?(?:這個|這條|剛剛的|這趟)?(?:路線|行程|走法)?(?:嗎|好嗎|吧)?[。！!？?～~\s]*$|(?:轉傳|傳|寄|發|貼)(?:給|到)(?:我(?:的)?)?(?:媽媽?|爸爸?|老公|老婆|家人|朋友|同事|哥哥?|姐姐?|姊姊?|弟弟?|妹妹?|男友|女友|另一半|群組|LINE|line|他|她)/;
+/** 英文：「share this」「share the route with my mom」（「share price」不算） */
+export const SHARE_ASK_EN = /^(?:please\s+|can you\s+|could you\s+)?share\s+(?:this|it|the\s+(?:trip|route|plan))\b(?:\s+with\b[^?]*)?[.!?\s]*$/i;
 /** 搭客運的字眼（判斷層說 intercity 時，句子有這些才限定只查客運） */
 const INTERCITY_WORD = /客運|巴士|統聯|國光|和欣|葛瑪蘭|豪泰|長途/;
 /** 使用者說不要的交通方式（「不要叫車」「不想坐公車」「別走路」）→ ['ridehail', …] */
@@ -755,7 +757,7 @@ function parseIntentRaw(text, ctx) {
     if (st) return { ...base, ...st, lang: 'en' };
   }
   if (isEnglish(s) && !places.length && CALENDAR_ASK.test(s)) return { ...base, intent: 'calendar', lang: 'en' }; // 「Add this to my calendar」（ADR-0021）
-  if (isEnglish(s) && !places.length && SHARE_ASK.test(s) && !/https?:|www\./i.test(s)) return { ...base, intent: 'share', lang: 'en' };
+  if (isEnglish(s) && !places.length && SHARE_ASK_EN.test(s)) return { ...base, intent: 'share', lang: 'en' };
   if (isEnglish(s)) return { ...englishIntent(s, places, history), lang: 'en' };
   // 判斷層（judge.js）已決定意圖：照那個意圖抽參數；抽不出必要參數時回 null，呼叫端改用規則自己的判斷
   if (ctx?.intent) return slotsFor(ctx.intent, s, base);
@@ -1032,7 +1034,8 @@ function slotsFor(intent, s, base) {
     case 'outing': return { ...base, intent: 'outing' };
     case 'exercise': return { ...base, intent: 'outing', walk: true }; // 散步運動：看天氣與空品適不適合出門走走（判斷只看這句話，不用步數等手機上的資料，ADR-0018）
     case 'scam': return { ...base, places: [], intent: 'scamAsk', ...(looksScamPaste(s) && { pasted: true }) };
-    case 'reminder': case 'settings': case 'emergency': case 'calendar': case 'share': return { ...base, intent };
+    case 'calendar': case 'share': return base.places.length ? slotsFor('trip', s, base) : { ...base, intent }; // 說了地點＝先排行程（runDemo 排好後再問要不要加行事曆／分享）
+    case 'reminder': case 'settings': case 'emergency': return { ...base, intent };
     case 'help': return { ...base, intent: 'unknown', help: true };
     case 'chat': return { ...base, intent: 'unknown', chat: true };
     case 'invoice': return { ...base, intent, number: INVOICE_NO.exec(s)?.[1] };

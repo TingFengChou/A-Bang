@@ -460,6 +460,8 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
   const played = intro();
   return {
     states: () => states, redraw: draw, played,
+    /** 現在排第一的方案 id（重算後會變；加到行事曆、分享用，ADR-0021） */
+    best: () => root.dataset.best || null,
     /** 收起（長對話）：停掉持續的光點；CSS 的流動在 display:none 時本來就不跑 */
     pause() { paused = true; stopLoops(); },
     resume() { if (!paused) return; paused = false; if (settled) { stopLoops(); settle(); } },
