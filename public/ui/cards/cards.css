@@ -39,7 +39,7 @@
 .ab-tab.on { background: var(--ab-brand); border-color: var(--ab-brand); color: #fff; }
 .ab-btn { border: 1px solid var(--ab-line); background: #fff; color: var(--ab-brand); border-radius: 10px; padding: 4px 12px; cursor: pointer; font: inherit; font-size: 14px; }
 .ab-btn.ab-primary { background: var(--ab-brand); border-color: var(--ab-brand); color: #fff; }
-.ab-btn.ab-link { border: 0; padding: 4px 0; }
+.ab-btn.ab-link { border: 0; padding: 0 4px; min-height: 44px; } /* 看更多、收起：觸控 44px（UX.md） */
 .ab-btn:focus-visible, .ab-tab:focus-visible, .ab-stop-row:focus-visible, .ab-click:focus-visible { outline: 2px solid var(--ab-brand); outline-offset: 2px; }
 .ab-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0; }
 .ab-actions:empty { display: none; }
@@ -409,4 +409,6 @@ html.lite-motion .ab-eta .ab-pulse { animation: none; }
 .ab-pw-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
 .ab-pw-cell { display: flex; flex-direction: column; align-items: flex-start; }
 .ab-pw-n { font-size: 1.5em; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.ab-pw-n small { font-size: 0.55em; font-weight: 400; margin-left: 2px; color: var(--ab-muted); }
+.ab-pw-zero { color: var(--ab-muted); font-weight: 400; } /* 0 人不搶視線 */
 .ab-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

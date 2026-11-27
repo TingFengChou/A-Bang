@@ -4,7 +4,7 @@ import { h } from '../dom.js';
 import { navButton } from '../actions.js';
 import { periodNow } from './pharmacy.js';
 
-const MAX = 8;
+const MAX = 5; // 其餘收在「看更多」（設計審查：一張卡太高）
 const telOf = (p) => String(p || '').split('#')[0].replace(/[^0-9]/g, ''); // 分機（#）不放進 tel:
 const PERIOD_EN = { 上午: 'morning', 下午: 'afternoon', 晚上: 'evening' };
 const DAY_EN = { 星期一: 'Monday', 星期二: 'Tuesday', 星期三: 'Wednesday', 星期四: 'Thursday', 星期五: 'Friday', 星期六: 'Saturday', 星期日: 'Sunday' };
@@ -21,12 +21,11 @@ export default {
       h('p', { class: 'ab-sub' }, t('clinic.today', { day: locale === 'en' ? DAY_EN[d.weekday] || d.weekday : d.weekday })),
       h('ul', { class: 'ab-list' }, rows.map((c) => h('li', { class: 'ab-pharm ab-clinic' },
         h('div', { class: 'ab-row' }, h('span', { class: 'ab-name' }, c.name),
-          h('span', { class: c.today?.length ? 'ab-chip ok' : 'ab-chip' }, c.today == null ? t('clinic.unknown') : c.today.length ? c.today.map(pname).join(locale === 'en' ? ', ' : '・') : t('clinic.closed'))),
+          h('span', { class: c.today?.length ? 'ab-chip ok' : 'ab-chip' }, c.today == null ? t('clinic.unknown') : c.today.length ? c.today.flatMap((p, i) => [i ? (locale === 'en' ? ', ' : '・') : '', p === now ? h('strong', {}, pname(p)) : pname(p)]) : t('clinic.closed'))), // 現在這個時段加粗（不只靠顏色）
         now && c.today?.includes(now) && h('p', { class: 'ab-open-now' }, h('i', { class: 'ab-dot-ok', 'aria-hidden': 'true' }), t('clinic.openNow', { period: pname(now) })),
-        c.depts?.length > 0 && h('p', { class: 'ab-sub' }, c.depts.join(locale === 'en' ? ', ' : '、')),
-        h('p', { class: 'ab-sub' }, c.address),
-        h('div', { class: 'ab-actions' }, navButton(host, c.nav, t('clinic.map')),
-          telOf(c.phone).length >= 6 && h('a', { class: 'ab-btn', href: `tel:${telOf(c.phone)}` }, t('clinic.call', { phone: c.phone })))))),
+        h('p', { class: 'ab-sub' }, [c.depts?.join(locale === 'en' ? ', ' : '、'), c.address].filter(Boolean).join('・')), // 科別與地址一行
+        h('div', { class: 'ab-actions' }, navButton(host, c.nav, t('clinic.map'), t('clinic.mapOf', { name: c.name })),
+          telOf(c.phone).length >= 6 && h('a', { class: 'ab-btn', href: `tel:${telOf(c.phone)}`, 'aria-label': t('clinic.callOf', { name: c.name }) }, t('clinic.call', { phone: c.phone })))))),
       d.clinics.length > MAX && h('button', { type: 'button', class: 'ab-btn ab-link', onclick: () => { state.all = !state.all; rerender(); } }, state.all ? t('common.less') : t('common.more')),
       h('p', { class: 'ab-foot' }, t('clinic.note')));
   },

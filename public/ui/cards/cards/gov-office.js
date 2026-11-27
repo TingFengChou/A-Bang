@@ -17,8 +17,8 @@ export default {
         h('div', { class: 'ab-row' }, h('span', { class: 'ab-name' }, o.name), h('span', { class: 'ab-sub' }, `${far(o.distanceM, t)}${o.walkMin ? t('govOffice.walk', { n: o.walkMin }) : ''}`)),
         h('p', { class: 'ab-sub' }, o.address),
         h('div', { class: 'ab-actions' },
-          navButton(host, o.nav),
-          telOf(o.tel).length >= 6 && h('a', { class: 'ab-btn', href: `tel:${telOf(o.tel)}` }, t('govOffice.call', { tel: o.tel })))))) : h('p', { class: 'ab-empty' }, t('govOffice.empty')),
+          navButton(host, o.nav, t('common.navigate'), `${o.name} ${t('common.navigate')}`),
+          telOf(o.tel).length >= 6 && h('a', { class: 'ab-btn', href: `tel:${telOf(o.tel)}`, 'aria-label': t('clinic.callOf', { name: o.name }) }, t('govOffice.call', { tel: o.tel })))))) : h('p', { class: 'ab-empty' }, t('govOffice.empty')),
       h('p', { class: 'ab-sub ab-gov-note' }, t('govOffice.hours')));
   },
 };
