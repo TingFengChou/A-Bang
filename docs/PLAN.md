@@ -398,6 +398,7 @@ Capacitor 8 把現有網頁包成 Android／iOS App（同一份前端），呼�
 - [x] M16-04c 護照現場等待人數（2026-11-27）：領務局 RSS（165115，TTL 60 秒）、工具 `passport_waiting`、卡片 `passport-wait`、規則 `PASSPORT_WAIT`（可指定據點）
 - [x] M16-04d 官方入口（2026-11-27）：內建 11 個官方入口（`core/data/gov-links.json`，只收政府網域 https，逐一確認有回應）、工具 `gov_official_link`（L2）、卡片 `gov-links`（確認後開、提醒不要點簡訊連結）
 - [x] M16-04e 現在有看診的診所（2026-11-27）：健保署特約診所（39283，每日、24 小時快取）、`core/services/clinic.js`（7×3 時段、西醫／牙醫／中醫、科別只認明講的）、工具 `clinic_search`（依位置推估在哪一區，這個時段有登記看診的排前面）、卡片 `clinic`、規則（藥局意圖＋`clinic` 旗標，不新增意圖；去醫院看病是行程；急症先 119）。資料沒有座標、不做地理編碼：說「這一區」，不說走路幾分鐘
+- [x] 阿幫的腦袋加「行動」（2026-11-28，產品負責人：大腦示意圖加入 take action；PM 與設計收斂）：試判斷第 5 段「阿幫可以幫你做」（確認方式、在哪裡發生、iOS 的 Siri 一句）、主視覺「行動」節點、資料怎麼走第 7 步；`public/js/ai-actions.js`、`test/ai-actions.test.js`、e2e `phone-ai-act.png`。下一版：「阿幫在想」動畫加「準備行動」階段
 - [ ] M16-04 待驗證：`www.gov.tw`（Cloudflare）伺服器每天下載是否穩定；監理所站等候人數（86565）資料網址被防機器人擋住，要問公路局正式介接方式；研究全文在 side-session notes `gov-services-research.md`
 
 ## 被卡住的項目（2026-11-21 彙整）

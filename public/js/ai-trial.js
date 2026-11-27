@@ -10,8 +10,9 @@
 // 送伺服器的只有問題句子（與手機判斷的意圖、狀態列舉值，跟問阿幫一樣）。這裡的函式不碰畫面（ai.js 畫），依賴由參數帶入，方便測試。
 import { suggestContext, contextText, ruleAsks, pickSuggestions, validateAsks } from './agent/suggest.js';
 import { nextSteps } from './agent/next-steps.js';
+import { actionsOf } from './ai-actions.js';
 
-export const TRIAL_SECTIONS = ['judge', 'data', 'answer', 'next'];
+export const TRIAL_SECTIONS = ['judge', 'data', 'answer', 'next', 'act']; // act：阿幫可以幫你做（2026-11-28，ai-actions.js）
 /** 試判斷的預設測試句（含一題資料不夠、一題英文、一題防詐）：字典 key */
 export const TRIAL_PRESETS = ['trial.p1', 'trial.p2', 'trial.p3', 'trial.p4', 'trial.p5'];
 /** 下一句建議最多列幾句 */
@@ -41,7 +42,7 @@ export function summarizeRun(events = []) {
         break;
       }
       case 'decision': out.decision = e; break;
-      case 'ask': if (!out.ask) out.ask = { id: e.id, question: e.question, options: (e.options || []).map((o) => ({ label: o.label, kind: o.kind, ...(o.guess && { guess: true }) })), ...(e.about && { about: e.about }), ...(e.why && { why: e.why }), ...(e.pending && { pending: e.pending }), askSource: e.askSource === 'device' ? 'device' : 'rule' }; break;
+      case 'ask': if (!out.ask) out.ask = { id: e.id, question: e.question, options: (e.options || []).map((o) => ({ label: o.label, kind: o.kind, ...(o.guess && { guess: true }), ...(o.kind === 'action' && o.action?.name && { action: o.action.name }) })), ...(e.about && { about: e.about }), ...(e.why && { why: e.why }), ...(e.pending && { pending: e.pending }), askSource: e.askSource === 'device' ? 'device' : 'rule' }; break;
       case 'done': if (e.askCheck) out.askCheck = e.askCheck; break; // 手機提議的題目用了沒（只在最後的 done；請定位那一次沒有）
       case 'answer_draft': out.draft = { text: e.text, facts: e.facts, lang: e.lang }; break;
       case 'text': out.text += String(e.delta || ''); break;
@@ -163,7 +164,10 @@ export async function runTrial(q, deps, onSection = () => {}, onEvent = () => {}
   const t3 = now();
   const sug = await deps.suggest({ q, run }).catch(() => ({ source: 'rules', asks: [], guessed: [], checked: false }));
   const data = report.sections.data;
-  put('next', { ask: run.ask, asker: askerOf(run, dev, deps.askInfo?.() || null), missing: data?.missing || [], location: !run.located && !!(run.askedLocation || data?.location), suggest: sug, ms: ms(t3, now), network: !!sug.checked }); // 問題來自上面那一輪（已經用過網路）；建議只有驗證猜的句子時用網路
+  const nextSec = { ask: run.ask, asker: askerOf(run, dev, deps.askInfo?.() || null), missing: data?.missing || [], location: !run.located && !!(run.askedLocation || data?.location), suggest: sug, ms: ms(t3, now), network: !!sug.checked }; // 問題來自上面那一輪（已經用過網路）；建議只有驗證猜的句子時用網路
+  put('next', nextSec);
+  // 5 阿幫可以幫你做：從這一輪的事件推出（程式算、不再用網路；試判斷不執行任何行動）
+  put('act', { actions: actionsOf(run), ms: 0, network: false });
   return report;
 }
 

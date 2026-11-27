@@ -130,6 +130,7 @@ states = unique(auto ∪ user ∪ picked)（同 key 保留先出現的來源）�
 - 請求帶 `clientCaps: { edgeWrite: true, trial: true, engine? }`（網頁版沒有手機上的模型，`trial` 且 `edgeWrite` 時 `engine` 可省略；一般請求仍必填）。一律走 edge 模式：伺服器只跑規則與程式計分，不呼叫任何伺服器模型。客戶端只送這一句（與手機判斷的 `deviceJudge`），不送 `userState`、`savedPlaces`；伺服器請定位（`client_tool_call device_location`）時回 `ok: false`，回答就是不給定位時的樣子。
 - 伺服器在判斷完、請定位前送一個 `trial` 事件（`core/agent/trial.js` `trialInfo`，程式算）：`slotReport` 依 `INTENT_SLOTS`（各意圖需要的欄位、是否必要、沒說時怎麼補：location／now／today／all／index／hot／saved）比對這一輪實際用的意圖；規則聽不懂但判斷層有意圖時照判斷層列欄位（`target`），`enough=false`；固定說明（防詐請到防詐頁、代按代付…）與禮貌話（謝謝、對不起、重來，同 `runDemo` 聽不懂的判斷）`fixed=true`；後天天氣、投資建議、油價漲跌 `blocked`。`sourceReport` 依 `INTENT_SOURCES` 列會查的資料來源（`dataSources`）與原因：`live`、`forced`（伺服器設定示範）、`no-key`、`no-download`、`no-source`、`tdx-limit`（`withTdxFallback` 遇到 429 記下時間；2 分鐘內 `mode` 仍是 `live`、附 `minutesAgo`，畫面說「N 分鐘前曾用完額度」，這一輪實際有沒有改用示範以工具結果的 `mode` 為準）。帶定位結果的重送不再送；安全情境照樣送（`safety`）後回求助電話。
 - 客戶端（`public/js/ai-trial.js` `runTrial`）組四段：手機判斷 → agent 事件（`trial`、工具、`decision`、`ask`、`answer_draft`）→ 手機改寫（`edgeWrite`，沒通過也回被擋的改寫 `candidate` 與原因）→ 動態建議（`trialSuggest`：同 §5.5，手機猜＋`/api/v1/suggest/check` 只送句子，不能用就規則；試判斷不用常用地點）。第 4 段另外用 `askerOf` 標這題是手機上的 AI 決定還是規則保底，手機提議但被擋的題目照列（在手機上就擋／伺服器 `askCheck` 沒採用，含原因，ADR-0020）。
+- 第 5 段「阿幫可以幫你做」由客戶端從同一輪事件推出（`public/js/ai-actions.js`；`summarizeRun` 另外保留 `ask` 動作選項的 `action.name` 與安全情境），伺服器不多送事件、試判斷不執行任何行動。
 - log 只多記 `trial: true`（不記句子）；限流與一般問阿幫相同（一次試判斷約 2 個請求：請定位＋不給定位的重送）。
 
 ## 4. 模型模式（✅ M5-05，ADR-0012）
