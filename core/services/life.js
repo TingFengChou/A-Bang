@@ -256,7 +256,7 @@ export function createLiveLifeFetchers({ od, cwa, moenvKey, demo }) {
       ? () => od.get(URLS.aqi(moenvKey), { ttlSec: 600, label: '環境部空氣品質資料', parse: (t) => { if (!/^\s*\[/.test(t)) throw new Error('金鑰無效或回應不是 JSON'); return JSON.parse(t); } })
       : demo.aqi,
     quakes: cwa ? async () => [['significant', await cwa.get('E-A0015-001', { limit: 10 }, 300)], ['local', await cwa.get('E-A0016-001', { limit: 10 }, 300)]] : demo.quakes,
-    pharmacies: () => od.get(URLS.pharmacies, { ttlSec: 86400, label: '健保署藥局資料', parse: csv('藥局', ['醫事機構代碼', '醫事機構名稱', '地址', '固定看診時段', '終止合約或歇業日期']) }),
+    pharmacies: () => od.get(URLS.pharmacies, { ttlSec: 86400, maxBytes: 16 * 2 ** 20, label: '健保署藥局資料', parse: csv('藥局', ['醫事機構代碼', '醫事機構名稱', '地址', '固定看診時段', '終止合約或歇業日期']) }),
     garbage: async (pos) => {
       if (!inTaipeiArea(pos)) return { taipei: [], ntpc: [], gps: [] };
       const [taipei, ntpc, gps] = await Promise.all([
