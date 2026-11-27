@@ -5,27 +5,26 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile } from 'node:fs/promises';
-import { createServer } from 'node:net';
 import { chromium, devices } from 'playwright';
 
 const SHOTS = new URL('../test/screenshots/', import.meta.url);
 const TAIPEI = { latitude: 25.0478, longitude: 121.517 };
 let server, base, browser;
 
-const freePort = () => new Promise((res) => { const s = createServer().listen(0, () => { const { port } = s.address(); s.close(() => res(port)); }); });
-
 /** 起一個示範模式的伺服器（env 可覆寫，例：DEMO_CLOCK 換成深夜） */
 async function startServer(env = {}) {
-  const port = await freePort();
-  // 示範模式：清掉金鑰，確保不連外
+  let port = null;
+  // 示範模式：清掉金鑰，確保不連外。PORT=0 讓伺服器自己挑，從啟動訊息讀實際的 port（先找空 port 再關掉會被同時跑的程式搶走）
+  // MCP 限流放寬：MCP Apps 那一項 7 張卡片各要多次往返，預設每分鐘 60 次在邊緣，CI 偶發 429 → 卡片沒有按鈕（2026-11-28）
   const proc = spawn(process.execPath, ['server/http.js'], {
     cwd: new URL('..', import.meta.url),
-    env: { ...process.env, PORT: String(port), DEMO_MODE: '1', DEMO_CLOCK: '10:00', TDX_CLIENT_ID: '', TDX_CLIENT_SECRET: '', CWA_API_KEY: '', ANTHROPIC_API_KEY: '', AGENT_RPM: '500', AGENT_RPD: '5000', RATE_LIMIT_API: '2000', JUDGE: 'off', MYDRAMA_API_BASE: '', MYDRAMA_LINK_EPISODE: 'example-drama://watch/{id}/{ep}', MYDRAMA_LINK_EXERCISE: '', MYDRAMA_STORE_IOS: 'https://example.com/drama-ios', MYDRAMA_STORE_ANDROID: 'https://example.com/drama-android', ...env }, // 判斷層要下載模型，E2E 用規則（判斷層另有單元測試）; // 測試一分鐘內呼叫很多次 API，限流另在 mcp.test 測
+    env: { ...process.env, PORT: '0', RATE_LIMIT_MCP: '2000', DEMO_MODE: '1', DEMO_CLOCK: '10:00', TDX_CLIENT_ID: '', TDX_CLIENT_SECRET: '', CWA_API_KEY: '', ANTHROPIC_API_KEY: '', AGENT_RPM: '500', AGENT_RPD: '5000', RATE_LIMIT_API: '2000', JUDGE: 'off', MYDRAMA_API_BASE: '', MYDRAMA_LINK_EPISODE: 'example-drama://watch/{id}/{ep}', MYDRAMA_LINK_EXERCISE: '', MYDRAMA_STORE_IOS: 'https://example.com/drama-ios', MYDRAMA_STORE_ANDROID: 'https://example.com/drama-android', ...env }, // 判斷層要下載模型，E2E 用規則（判斷層另有單元測試）; // 測試一分鐘內呼叫很多次 API，限流另在 mcp.test 測
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   await new Promise((res, rej) => {
     const t = setTimeout(() => rej(new Error('伺服器 10 秒內沒有啟動')), 10000);
-    proc.stdout.on('data', (d) => { if (String(d).includes('running')) { clearTimeout(t); res(); } });
+    let out = '';
+    proc.stdout.on('data', (d) => { out += String(d); const m = /running → http:\/\/localhost:(\d+)/.exec(out); if (m && !port) { port = m[1]; clearTimeout(t); res(); } });
     proc.on('exit', (c) => rej(new Error(`伺服器結束 ${c}`)));
   });
   return { proc, base: `http://127.0.0.1:${port}` };

@@ -11,6 +11,14 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 e2e：MCP Apps 那一項偶發失敗的原因（MCP 限流）
+- 做了：CI 上「MCP Apps：AppBridge…L2 確認後開連結」偶發逾時（main 與 #213 各一次：時刻表卡片的訂票按鈕 30 秒沒出現）。本機把 `RATE_LIMIT_MCP` 調成 10 能重現（MCP 回「請求太頻繁」）；e2e 伺服器原本只放寬 `RATE_LIMIT_API`，MCP 仍是每分鐘 60 次，7 張卡片各要多次往返剛好在邊緣。`scripts/e2e.js` 加 `RATE_LIMIT_MCP: '2000'`，port 也改成 PORT=0 從啟動訊息讀（同 #207）
+- App Functions 結合：無（測試）
+- 測試：e2e 153 全過
+- 文件：PROGRESS.md
+- 下一個：設計 #1 帶行李重算後行程卡建議跟著換、#3 決策圖手機字級；PM #5 台語與口語
+- 卡住：無
+
 ## 2026-11-28 架構第三輪 #1：亂填的路線名稱不會把 TDX 額度用光
 - 做了：工具輸入 `routeName`、`keyword` 最多 20 字，`stationId` 只有英數字（最多 40）；REST 的 `/api/v1/bus/eta`、`/bus/routes`、`/bus/station-eta` 直接呼叫服務不經 zod，補同樣的檢查（`server/rest.js` `routeArg`、`stationArg`）。`routeEta`：預熱清單（每天更新）外的名稱仍逐條查（審查建議 7：新路線要查得到），但全站每分鐘最多 1 次、查不到的記 10 分鐘（最多 500 筆），站序找到才查形狀（`createUnlistedGate`）。原本連打 3 個亂填的名稱就用掉一分鐘的額度，這一分鐘所有人都拿到示範資料
 - App Functions 結合：無（伺服器內部）
