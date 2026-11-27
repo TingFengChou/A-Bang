@@ -403,3 +403,10 @@ html.lite-motion .ab-eta .ab-pulse { animation: none; }
 .ab-gov-day { display: inline-block; margin: 0 0 6px; font-weight: 600; }
 .ab-gov-office { padding: 8px 0; border-top: 1px solid var(--ab-line); }
 .ab-gov-office:first-child { border-top: 0; }
+/* passport-wait（護照現場等待人數，M16-04c） */
+.ab-pw-office { padding: 8px 0; border-top: 1px solid var(--ab-line); }
+.ab-pw-office:first-child { border-top: 0; }
+.ab-pw-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
+.ab-pw-cell { display: flex; flex-direction: column; align-items: flex-start; }
+.ab-pw-n { font-size: 1.5em; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.ab-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

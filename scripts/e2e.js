@@ -779,6 +779,21 @@ test('找戶政事務所（M16-04b）：「最近的戶政事務所在哪」→ 
   }, { init: () => { window.open = () => null; } });
 });
 
+test('護照現場等待人數（M16-04c）：「現在去辦護照人多嗎」→ 各據點人數、網路預約按鈕', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = recordBodies(page);
+    await askAbang(page, '現在去辦護照人多嗎', 1, bodies);
+    const slot = page.locator('.turn').last().locator('.card-slot', { has: page.locator('.ab-pw-office') });
+    await slot.waitFor();
+    assert.ok(await slot.locator('.ab-pw-office').count() >= 3);
+    assert.match(await slot.locator('.ab-pw-office .ab-name').first().textContent(), /領務局（臺北）/);
+    assert.equal(await slot.getByRole('button', { name: '網路預約' }).count(), 1);
+    assert.match(await page.locator('.bubble.final').last().textContent(), /人在等/);
+    await slot.scrollIntoViewIfNeeded();
+    await slot.screenshot({ path: new URL('phone-passport-wait.png', SHOTS).pathname });
+  }, { init: () => { window.open = () => null; } });
+});
+
 test('阿幫問你：常叫車 → 問原因 → 常帶東西（不自動套用）→ 下次「這次也帶東西嗎？」→ 是 →「你說過：常帶東西」重算', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = recordBodies(page);

@@ -74,6 +74,7 @@
 | `drama_series` | drama | L1 | `drama` | ✅（同上） |
 | `gov_service_info` | gov | L1 | `gov-service` | ✅（M16-04a，2026-11-27） |
 | `gov_office_nearby` | gov | L1 | `gov-office` | ✅（M16-04b，2026-11-27） |
+| `passport_waiting` | gov | L1 | `passport-wait` | ✅（M16-04c，2026-11-27） |
 | `scam_check_message` | antifraud | **L2** | `scam-risk` | ✅（M7） |
 | `scam_lookup_url` | antifraud | **L2** | — | ✅（M7） |
 | `scam_myth_search` | antifraud | L1 | — | ✅（M7） |
@@ -397,6 +398,10 @@ speak 範例：「「國民身分證初發、補發、換發」：可以臨櫃�
 | `gov_office_nearby` | `lat`、`lon`（台灣範圍）；`limit?` 1～5（預設 3） | `offices[]`：`{ name, address, tel, lat, lon, distanceM, walkMin, nav }`（依距離）；`today`：`{ date（11/27（五））, workday, note（放假原因）, known（false＝日曆沒有今天、照週末推） }`；`source` |
 
 speak 範例：「最近的是臺北市中正區戶政事務所，約 1.7 公里（走路約 30 分）。今天 11/27（五）是上班日。」營業時間各所不同、資料沒有時間：只說上班日，不說「現在有開」，建議先打電話。
+
+| `passport_waiting` | `office?`：只看某個據點（「台中」「高雄」「嘉義」；找不到就列全部） | `updatedAt`、`offices[]`：`{ name, short, general: { waiting, now }, online: { waiting, now }, pickup: { waiting } }`（領件上下午合計；沒有欄位是 null 不是 0）、`booking`（網路預約）、`page`（即時看板） |
+
+speak 範例：「領務局（臺北）：申辦一般件 78 人在等、網路預約件 0 人在等、領護照 3 人在等（11:53 更新）。」只有人數，不換算成分鐘。
 
 | speak 範例 | 「熱門排行前 3 名：《夜班公車的約定》、《總裁的便當外送員》、《重返十八歲的阿嬤》。」（示範片庫的劇名都是虛構的） |
 |---|---|
