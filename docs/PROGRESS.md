@@ -11,6 +11,15 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 示範模式的總結搬到 core/agent/demo-summary.js（拆 demo-intent 第二步）
+- 做了：架構第二輪 #4 第二步：`demo-intent.js`（1910 行）的總結（`demoSummary`、`englishSummary`、`dramaSummary`、`nightNote`、`busOffSay` 與捷運、公車、附近的說法）搬到 `demo-summary.js`（321 行）；`demo-intent.js` 剩解析與步驟（1594 行）。單向相依：demo-summary 從 demo-intent 拿常數（`DEFAULT_FROM`、`ALSO_TOOL`…），demo-intent 不 import demo-summary（不會循環）。行為不變
+- 順手：`agent-http` 測試改讓伺服器自己挑 port（PORT=0，啟動訊息寫實際 port），修 CI 偶發 404（已在 #207）
+- App Functions 結合：無（內部重構）
+- 測試：npm test 全過；e2e 全過
+- 文件：PROGRESS.md、CLAUDE.md 目錄
+- 下一個：拆 demo-intent 第三步：步驟（demoSteps）搬到 demo-steps.js
+- 卡住：無
+
 ## 2026-11-28 規則共用寫法 core/agent/patterns.js（拆 demo-intent 第一步）
 - 做了：架構第二輪 #4 第一步：公車路線號碼的寫法在 demo-intent、ask、clarify、run 各寫一份；新增 `core/agent/patterns.js`（`ROUTE_NO`、`ROUTE_EXACT`、`SAID_BUS_ROUTE`），字串組的正規式（BUS_ROUTE、BUS_TOWARD、BARE_ROUTE、ROUTE_LIST）與「整句就是路線號碼」的檢查都改用它；行為不變（情境集與全部測試照舊通過）。刻意不同的（vision-text 不收 0 開頭、前端 suggest.js）保留
 - 測試：npm test 全過；e2e 全過

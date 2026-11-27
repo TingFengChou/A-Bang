@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServices } from '../core/index.js';
 import { runDemo, AUX_TOOLS } from '../core/agent/run.js';
-import { parseIntent, demoSummary } from '../core/agent/demo-intent.js';
+import { parseIntent } from '../core/agent/demo-intent.js';
+import { demoSummary } from '../core/agent/demo-summary.js';
 
 const SANXIA = { lat: 24.934, lon: 121.369 };
 const NOW = Date.parse('2026-11-22T12:30:00+08:00');

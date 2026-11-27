@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { planTrip, shareRide, RAIN_SOON_POP } from '../core/services/trip.js';
 import { createServices } from '../core/index.js';
-import { parseIntent, partyOf, demoSummary } from '../core/agent/demo-intent.js';
+import { parseIntent, partyOf } from '../core/agent/demo-intent.js';
+import { demoSummary } from '../core/agent/demo-summary.js';
 import { groundedPrefs, prefetchCalls, callKey } from '../core/agent/model-loop.js';
 import { callTool } from '../core/tools/index.js';
 
