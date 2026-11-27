@@ -6,7 +6,7 @@ import { TdxError } from '../tdx-client.js';
 import { resolvePoint } from '../services/places.js';
 import { withNav, navLinks } from '../nav.js';
 import { METRO_SYSTEMS, METRO_STATUS, metroStatusText, findMetroStation } from '../services/metro.js';
-import { trainGoesWay, stationKey, TRANSFER_MIN, REGION, regionSystems, linkedSystems } from '../metro-route.js';
+import { trainGoesWay, stationKey, TRANSFER_MIN, REGION, regionSystems, linkedSystems, towardTrains } from '../metro-route.js';
 import { metroNetRoute } from '../services/metro-net.js';
 
 const PACK = 'transit';
@@ -36,6 +36,7 @@ export const metroLiveBoard = defineTool({
     near: T.point('使用者現在的位置（沒說站名時用）：自動找最近的捷運站').optional(),
     line: z.string().trim().max(10).optional().describe('路線名稱或代碼（選填），例如 板南線、文湖線、BL、BR'),
     last: z.boolean().optional().describe('問末班車時給 true：多回 lastTrains（依時刻表，各線各方向今天最後一班的時間）'),
+    toward: z.string().trim().min(1).max(20).optional().describe('只看往這個方向的車（站名，例如「南港」「淡水」）；「往南港的板南線」就給 南港'),
   },
   speak: (d) => {
     if (d.source === 'frequency') return d.headway ? `${d.station}：台中捷運沒有到站時間的開放資料，現在大約${headwaySay(d.headway)}一班。` : `${d.station}：台中捷運現在不在營運時間（約 06:00～24:00）。`;
@@ -63,6 +64,10 @@ export const metroLiveBoard = defineTool({
     // 指定路線：只列這條線的車（看板其他線的車放後面不列）
     const trains = line ? raw.trains.filter((t) => (t.lineId || '').startsWith(line)) : raw.trains;
     const data = { ...raw, trains: line && trains.length ? trains : raw.trains, nav: navLinks(raw.lat, raw.lon), ...(near && { nearest: { distanceM: near.distanceM, ...(typeof a.near === 'string' && { from: a.near }) } }) };
+    if (a.toward) { // 只看往那個方向的車（PM 第二輪：「往南港的板南線」）；對不到照原本全部列，並記下沒對到
+      const way = towardTrains(data.trains, await svc.metro.lines({ system: sys }).catch(() => []) || [], data.station, a.toward);
+      if (way) { data.trains = way; data.toward = a.toward; } else data.towardMissed = a.toward;
+    }
     const lastLines = data.lastTrains ? (data.lastTrains.length ? [`末班車（時刻表）：${data.lastTrains.map((x) => `${x.line || ''} 往 ${x.destination} ${x.time}`).join('、')}`] : ['末班車：查不到時刻表']) : [];
     const text = data.source === 'frequency'
       ? `${METRO_SYSTEMS[data.system]} ${data.station}：${data.note}；${data.headway ? `現在約${headwaySay(data.headway)}一班` : '現在不在營運時間'}。`

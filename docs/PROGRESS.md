@@ -11,6 +11,14 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 捷運往某方向
+- 做了：PM 第二輪：「往南港的板南線」原本被排成去南港車站的行程，「板南線往南港下一班」查成南港附近的站。`metro_live_board` 加 `toward`：只回往那個方向的車（`core/metro-route.js` `towardTrains`：說的站落在「這一站之後、到終點站為止」，名稱寫一部分也可以；對不到照原本全部列並記 `towardMissed`）。規則：句子有捷運或線名、又有「往 X」→ 附近的站、只看往 X 的車；問怎麼去的仍是行程。模型模式的預查也帶上
+- App Functions 結合：`toward` 是工具參數，Siri／Gemini 問「往南港的捷運還要多久」可以直接帶
+- 測試：npm test 全過（新增 `test/metro-toward.test.js` 3 項）；e2e 全過
+- 文件：PROGRESS.md、MCP_TOOLS.md
+- 下一個：架構 #4 demo-intent.js 拆檔
+- 卡住：無
+
 ## 2026-11-28 「聽懂了」與判斷層跟這一輪的解析同一組條件
 - 做了：架構第二輪 #3：`run.js` 說「聽懂了」那句時重新解析了一次、少帶常用地點與這一輪的時間（示範時鐘）——「從家去公司」接著「改坐公車」原本算不出「沿用：家 → 公司」；判斷層（`judge.js`）的規則解析也一樣。現在生活阿幫直接用這一輪那一份解析，判斷層從 `judgeCalls` 拿到同一組 `now`、`saved`
 - 測試：npm test 全過（新增 `test/parse-turn.test.js` 2 項）；e2e 全過

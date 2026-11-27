@@ -914,6 +914,9 @@ function parseIntentRaw(text, ctx) {
   // 公車往某方向（「307 往板橋的還要多久」）：查那個方向，不是去板橋的行程（PM Q-18）
   const toward = BUS_TOWARD.exec(s);
   if (toward && !/從.+到/.test(s)) return { ...base, places: [], intent: 'bus_route', route: toward[1], toward: toward[2] };
+  // 捷運往某方向（「往南港的板南線」「板南線往南港下一班」，PM 第二輪）：附近的站、只看往那個方向的車；問怎麼去的是行程
+  const mt = (METRO_LINE.test(s) || /捷運|MRT/i.test(s)) && !/從.+(?:到|去)|怎麼(?:去|走|坐|搭)|要多久到/.test(s) && /往\s*([一-龥]{2,5}?)(?=的|方向|那邊|下一班|的車|車|捷運|線|$|[?？呢嗎]|[板淡松新中文環萬機紅藍綠橘棕黃])/.exec(s.replace(METRO_LINE_ALL, (m) => `${m} `));
+  if (mt && !NOT_METRO_STATION.test(mt[1])) return { ...base, places: [], intent: 'metro', station: null, line: METRO_LINE.exec(s)?.[0] || null, toward: mt[1], ...(metroSystemOf(s) && { system: metroSystemOf(s) }) };
   // 只說站名的捷運（「中山站下一班」「高雄捷運美麗島下一班」）：地標庫的捷運站＋下一班類問法（PM Q-20、S5）
   const metroFirst = places.length === 1 && /^捷運/.test(places[0]) ? metroOf(s, places, base) : null;
   if (metroFirst?.station) return metroFirst;
@@ -1303,7 +1306,7 @@ export function demoSteps(it, now = Date.now()) {
       if (!it.station) { // 沒說站：句子裡的地標或現在位置最近的捷運站（拿不到位置就用預設地點）；說了路線只找這條線
         const near = it.near || (it.fromPoint ? ll(it.fromPoint) : DEFAULT_FROM);
         const where = it.near ? `「${it.near}」` : it.fromPoint ? '離你' : `「${DEFAULT_FROM}」`;
-        return [() => ({ note: `@捷運 找${where}最近的${it.line || ''}站，看${it.last ? '末班車' : '下一班'}`, calls: [{ name: 'metro_live_board', args: { near, ...(it.system && { system: it.system }), ...(it.line && { line: it.line }), ...(it.last && { last: true }) } }] })];
+        return [() => ({ note: `@捷運 找${where}最近的${it.line || ''}站，看${it.last ? '末班車' : '下一班'}`, calls: [{ name: 'metro_live_board', args: { near, ...(it.system && { system: it.system }), ...(it.line && { line: it.line }), ...(it.last && { last: true }), ...(it.toward && { toward: it.toward }) } }] })];
       }
       // 系統照句子說的（「高雄捷運美麗島站」）；沒說交給工具在各系統的站名裡找（S5，不預設台北）
       return [() => ({ note: `@捷運 ${it.station}站${it.last ? '的末班車' : '下一班'}`, calls: [{ name: 'metro_live_board', args: { ...(it.system && { system: it.system }), station: it.station, ...(it.fromPoint && { near: ll(it.fromPoint) }), ...(it.last && { last: true }) } }] })];

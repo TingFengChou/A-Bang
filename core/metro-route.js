@@ -191,3 +191,28 @@ export function trainGoesWay(routes, leg, destination) {
     return i >= 0 && n >= 0 && d >= 0 && d !== i && Math.sign(n - i) === Math.sign(d - i) && Math.abs(d - i) >= Math.abs(n - i);
   });
 }
+
+/**
+ * 「往南港的板南線」：只留往那個方向的車（PM 第二輪）。toward 落在「這一站之後、到終點站為止」才算同方向；
+ * 名稱可以只寫一部分（「南港」對到南港展覽館）。都對不到回 null（照原本全部列）。
+ * @param {Array<{ lineId?: string, destination: string }>} trains 看板的車
+ * @param {Array<{ lineId: string, stations: Array<{ name: string }> }>} lines svc.metro.lines() 的各線站序
+ * @param {string} station 這一站的站名
+ * @param {string} toward 使用者說的方向（站名）
+ */
+export function towardTrains(trains, lines, station, toward) {
+  const tk = stationKey(toward);
+  if (!tk) return null;
+  const at = stationKey(station);
+  const hit = (name) => { const k = stationKey(name); return k === tk || k.startsWith(tk) || tk.startsWith(k); };
+  const out = trains.filter((t) => {
+    if (hit(t.destination)) return true; // 終點站就是說的方向（往南港展覽館）
+    const line = lines.find((l) => t.lineId && String(t.lineId).startsWith(l.lineId));
+    if (!line) return false;
+    const names = line.stations.map((s) => stationKey(s.name));
+    const i = names.indexOf(at), d = names.findIndex((n) => n === stationKey(t.destination)), w = names.findIndex((n) => n === tk || n.startsWith(tk));
+    if (i < 0 || d < 0 || w < 0 || w === i) return false;
+    return Math.sign(w - i) === Math.sign(d - i) && Math.abs(w - i) <= Math.abs(d - i);
+  });
+  return out.length ? out : null;
+}

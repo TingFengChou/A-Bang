@@ -82,7 +82,7 @@ export function prefetchCalls(it, j, here, placePt = null) {
     const from = it.fromSaved || it.from || (at ? { ...at, name: here.name } : DEFAULT_FROM); // 常用地點（家、公司）直接用座標
     return [{ name: 'plan_trip', args: { from, to: it.toSaved || it.to, ...(Object.keys(prefs).length && { prefs }) }, ...(!it.from && !at && { note: NO_LOCATION_NOTE }) }];
   }
-  if (it.intent === 'metro' && !it.station && (it.near || at)) return [{ name: METRO_NEAR, args: { near: it.near || { ...at, name: here.name }, ...(it.line && { line: it.line }) } }];
+  if (it.intent === 'metro' && !it.station && (it.near || at)) return [{ name: METRO_NEAR, args: { near: it.near || { ...at, name: here.name }, ...(it.line && { line: it.line }), ...(it.toward && { toward: it.toward }) } }];
   // 高鐵／台鐵沒說起站：句中地名或現在位置最近的車站（拿不到位置用預設地點，與示範模式一致）
   if (it.intent === 'rail' && !it.fare && !it.from && it.to) {
     const near = it.near || (at ? { ...at, name: here.name } : DEFAULT_FROM);
