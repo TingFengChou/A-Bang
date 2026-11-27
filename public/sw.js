@@ -1,5 +1,5 @@
 // Service Worker：App shell 預先快取（離線可開啟），API 一律走網路（即時資料不快取）
-const VERSION = 'v1.3.31';
+const VERSION = 'v1.3.32';
 const SHELL = [
   '/', '/index.html', '/css/app.css', '/manifest.webmanifest', '/icons/icon.svg', '/brand/abang-default.svg', '/brand/abang-think.svg', '/brand/abang-happy.svg',
   '/js/app.js', '/js/api.js', '/js/ui.js', '/js/icons.js', '/js/registry.js',
@@ -14,7 +14,7 @@ const SHELL = [
   '/css/vision.css', '/js/vision.js', '/core/vision-text.js', '/js/edge-write.js', '/core/edge-write.js', '/core/output-guards.js',
   '/js/voice.js', '/js/voice-i18n.js', '/js/agent/voice-ui.js',
   '/js/health.js', '/js/health-ui.js', '/core/health-nudge.js', '/core/nav.js', '/core/landmarks.json',
-  '/ui/cards/cards/drama.js', '/ui/cards/cards/gov-service.js', '/ui/cards/cards/gov-office.js', '/js/drama-hint.js', '/js/wait-drama.js', '/js/my-car.js', '/core/drama-say.js', '/core/edge-ask.js', '/core/topic.js', '/core/alight.js', '/core/device-actions.js', '/js/device-actions.js', '/js/app-intents.js',
+  '/ui/cards/cards/drama.js', '/ui/cards/cards/gov-service.js', '/ui/cards/cards/gov-office.js', '/ui/cards/cards/passport-wait.js', '/js/drama-hint.js', '/js/wait-drama.js', '/js/my-car.js', '/core/drama-say.js', '/core/edge-ask.js', '/core/topic.js', '/core/alight.js', '/core/device-actions.js', '/js/device-actions.js', '/js/app-intents.js',
   '/js/agent/collapse.js', '/js/agent/turn-summary.js', '/js/agent/chat-links.js', // 長對話（UX.md §4.17）
   '/js/edge-embed.js', '/js/edge-embed-files.js', '/js/edge-embed-ui.js', '/js/edge-embed-worker.js', '/core/judge-classify.js', '/core/judge-classifier.json', // 手機上的小模型（E3；模型本身不進 service worker 快取）
 ];

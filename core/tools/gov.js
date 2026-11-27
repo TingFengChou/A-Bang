@@ -2,6 +2,7 @@
 // 申辦要身分驗證的事只給官方網頁連結，由使用者自己開（ADR-0011）。網頁 agent、MCP、REST 都從 registry 取用（ADR-0002）。
 import { z } from 'zod';
 import { defineTool, clip } from './define.js';
+import { twClock } from '../services/passport.js';
 
 const PACK = 'gov';
 const SOURCE = '我的E政府入口網－申辦服務資訊（data.gov.tw 146973）';
@@ -68,4 +69,29 @@ export const govOfficeNearby = defineTool({
   },
 });
 
-export default [govServiceInfo, govOfficeNearby];
+/** 「一般件 78 人在等」；沒資料就不說 */
+const waitSay = (n, label) => (n == null ? null : `${label} ${n} 人在等`);
+
+export const passportWait = defineTool({
+  name: 'passport_waiting',
+  title: '護照現場等待人數',
+  description: '查外交部領事事務局（臺北）與中部、南部、雲嘉南辦事處現在辦護照、領護照的現場等待人數（每分鐘更新）：一般件、網路預約件、領件。只有人數、沒有預估時間，不要自己換算成分鐘；有網路預約會快很多。使用者問「現在去辦護照人多嗎」「領務局要等多久」時用。office 選填（例：「台中」「高雄」）。',
+  pack: PACK, tier: 'L1', card: 'passport-wait', source: '外交部領事事務局（申辦、領取護照現場等待人數即時動態）', demoNote: '【示範資料：沒有連網下載，用的是 2026-11-27 上午的真實數字，不是現在的】', modeOf: (svc) => svc.govMode,
+  input: { office: z.string().trim().max(10).optional().describe('只看某個據點，例如「台中」「高雄」「嘉義」；不填看全部') },
+  speak: (d) => {
+    const o = d.offices[0];
+    if (!o) return '現在拿不到護照現場等待人數。';
+    const parts = [waitSay(o.general.waiting, '申辦一般件'), waitSay(o.online.waiting, '網路預約件'), waitSay(o.pickup.waiting, '領護照')].filter(Boolean).join('、');
+    return `${o.short}：${parts}${d.updatedAt ? `（${twClock(d.updatedAt)} 更新）` : ''}。`;
+  },
+  async run(svc, a) {
+    const data = await svc.passport.passportWait(a);
+    const text = clip([
+      ...data.offices.map((o) => `${o.short}：${[waitSay(o.general.waiting, '申辦一般件'), waitSay(o.online.waiting, '網路預約件'), waitSay(o.pickup.waiting, '領護照')].filter(Boolean).join('、')}`),
+      `${data.updatedAt ? `資料 ${twClock(data.updatedAt)} 更新；` : ''}只有人數、沒有預估時間；先網路預約會快很多（${data.booking}）。`,
+    ]);
+    return { data, text };
+  },
+});
+
+export default [govServiceInfo, govOfficeNearby, passportWait];
