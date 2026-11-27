@@ -3,6 +3,7 @@
 // - addCalendarEvent（ADR-0021）：開系統的新增行程畫面（EKEventEditViewController），使用者按「加入」才寫進行事曆。
 //   iOS 17 以上這個畫面在 App 外執行，不需要行事曆權限；iOS 15～16 要先問一次（NSCalendarsUsageDescription）。阿幫不讀行事曆。
 // - share（ADR-0021）：開系統分享面板（UIActivityViewController），使用者自己選對象、按送出。
+// - takeIntent／intent 事件（M16-02）：Siri、捷徑、Spotlight 交給 App 的事（AbangIntents.swift），拿了就清掉。
 //   JS 端：public/js/device-actions.js（內容由 core/device-actions.js 產生，不經模型）
 import UIKit
 import Capacitor
@@ -17,11 +18,26 @@ public class AbangSystemPlugin: CAPPlugin, CAPBridgedPlugin, EKEventEditViewDele
         CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "addCalendarEvent", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "share", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "takeIntent", returnType: CAPPluginReturnPromise),
     ]
 
     private lazy var eventStore = EKEventStore()
     /** 等新增行程畫面關掉才回覆的那個呼叫（同時只會有一個畫面） */
     private var calendarCall: CAPPluginCall?
+
+    public override func load() {
+        NotificationCenter.default.addObserver(self, selector: #selector(intentPosted), name: AbangIntentInbox.posted, object: nil)
+    }
+
+    /** App 開著時捷徑又交來一件事：通知網頁來拿 */
+    @objc private func intentPosted() {
+        notifyListeners("intent", data: [:])
+    }
+
+    @objc func takeIntent(_ call: CAPPluginCall) {
+        guard let v = AbangIntentInbox.take(), let kind = v["kind"] as? String, let text = v["text"] as? String else { call.resolve([:]); return }
+        call.resolve(["kind": kind, "text": text])
+    }
 
     @objc func openSettings(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
