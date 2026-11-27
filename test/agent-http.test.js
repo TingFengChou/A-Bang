@@ -2,19 +2,21 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { createServer } from 'node:net';
 import { createAgentHandler } from '../server/agent.js';
 import { createServices } from '../core/index.js';
 
-const freePort = () => new Promise((res) => { const s = createServer().listen(0, () => { const { port } = s.address(); s.close(() => res(port)); }); });
 let http, BASE;
 
 before(async () => {
-  const port = await freePort();
-  BASE = `http://127.0.0.1:${port}`;
-  http = spawn(process.execPath, ['server/http.js'], { env: { ...process.env, PORT: String(port), DEMO_MODE: '1', AGENT_RPM: '10', JUDGE: 'off' }, stdio: ['ignore', 'pipe', 'inherit'] });
+  // PORT=0 讓伺服器自己挑，從啟動訊息讀實際的 port（先找空 port 再關掉，中間會被同時跑的其他測試搶走，打到別人的伺服器回 404）
+  http = spawn(process.execPath, ['server/http.js'], { env: { ...process.env, PORT: '0', DEMO_MODE: '1', AGENT_RPM: '10', JUDGE: 'off' }, stdio: ['ignore', 'pipe', 'inherit'] });
   await new Promise((resolve, reject) => {
-    http.stdout.on('data', (d) => String(d).includes('running') && resolve());
+    let out = '';
+    http.stdout.on('data', (d) => {
+      out += String(d);
+      const m = /running → http:\/\/localhost:(\d+)/.exec(out);
+      if (m) { BASE = `http://127.0.0.1:${m[1]}`; resolve(); }
+    });
     http.on('exit', (c) => reject(new Error(`server exited ${c}`)));
     setTimeout(() => reject(new Error('server start timeout')), 8000);
   });
