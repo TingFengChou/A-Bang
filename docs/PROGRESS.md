@@ -11,6 +11,13 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 藥局與診所共用純函式（架構審查 #3）
+- 做了：新增 `core/nhi-hours.js`（地址正規化、時段解析、現在是哪個時段、台灣日期與星期、同名區跨縣市 `pickCity`），藥局（`life.js`）、診所（`clinic.js`）、藥局／診所卡片同一份（卡片經 `/core/nhi-hours.js`；`server/http.js` SHARED_CORE、`scripts/build-app.js`、`sw.js` 都加上）。藥局拿掉「找到 limit×3 筆就停」：原本前面 60 筆都是臺北市中正區時，「中正區」看不到基隆市。`pickCity` 可帶優先縣市（之後有位置時用）
+- 測試：npm test 全過（新增 `test/nhi-hours.test.js` 4 項：時段邊界伺服器與卡片一致、同名區、藥局不提早停）；e2e 全過；`build:cards` 打包正常
+- 文件：PROGRESS.md
+- 下一個：診所獨立意圖＋判斷層例句＋重建手機分類器（架構審查 #4）
+- 卡住：無
+
 ## 2026-11-28 英文辦事說法；情境集補診所、戶政、護照、官方入口
 - 做了：PM 審查 #6：「Where is the nearest household registration office?」「How long is the wait at the passport office?」「Is the passport office busy?」原本聽不懂，現在走 `gov_office_nearby`、`passport_waiting`，英文回報（`SPEAK_EN`：日期「11/28 (Sat)」、據點英文名、只有人數不是等待時間）。「I lost my passport」「My passport was stolen」：觀光客不是台灣人的護照遺失申報——固定指引：到警察局報案拿報案證明（緊急 110）、聯絡自己國家的駐台機構、外籍人士 24 小時免付費熱線 0800-024-111。情境集新增 S21-1～11（小兒科、那明天早上呢、急症先 119、處方箋走藥局、戶政、禮拜六、健保卡不見了、護照人數、查罰單、英文掉護照、英文戶政）
 - App Functions 結合：英文說法與中文走同一組工具，之後 Siri 英文「Ask Abang where the nearest household registration office is」也走同一條路

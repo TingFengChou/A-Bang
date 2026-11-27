@@ -2,16 +2,13 @@
 // 依健保署登記的固定看診時段（上午／下午／晚上）判斷「這個時段有登記看診」。只說有登記，不說「看診中」：臨時休診不會反映。
 // 不做醫療判斷：只照使用者說的科別篩選，不從症狀推科別。
 import { csvObjects } from '../csv.js';
-import { nowTW, UserError } from '../util.js';
+import { UserError } from '../util.js';
+import { PERIODS, WEEK, normAddr as norm, twDow, twYmd, periodAt, weekSlots, pickCity } from '../nhi-hours.js';
 
 export const CLINICS_URL = 'https://info.nhi.gov.tw/api/iode0000s01/Dataset?rId=A21030000I-D21004-009';
 export const CLINICS_TTL_SEC = 86400;
-export const PERIODS = ['上午', '下午', '晚上'];
-const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+export { PERIODS, periodAt, weekSlots }; // 共用（core/nhi-hours.js，藥局與診所同一份）
 const REQUIRED = ['醫事機構代碼', '醫事機構名稱', '醫事機構種類', '地址', '診療科別', '固定看診時段', '終止合約或歇業日期'];
-
-/** 全形數字與「台」統一，地址比對用（與藥局相同） */
-const norm = (s) => String(s ?? '').replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(/台/g, '臺').replace(/\s+/g, '');
 
 /** 機構種類 → 西醫／牙醫／中醫（病理中心等不列） */
 export function kindOf(kind) {
@@ -46,19 +43,6 @@ export const DEPTS = [
 /** 句子裡明講的科別 id（沒有回 null） */
 export const deptOf = (s) => DEPTS.find((d) => d.say.test(String(s ?? '')))?.id || null;
 
-/** 固定看診時段文字 → 7×3（[星期日..六][上午、下午、晚上]，true＝看診）；空的回 null */
-export function weekSlots(text) {
-  const s = String(text ?? '');
-  if (!s.trim()) return null;
-  return WEEK.map((w) => PERIODS.map((p) => s.includes(`星期${w}${p}看診`)));
-}
-
-/** 現在是哪個看診時段（台灣時間；與卡片相同：8–12 上午、12–18 下午、18–22 晚上；其他回 null） */
-export function periodAt(now = Date.now()) {
-  const hr = new Date(now + 8 * 3600e3).getUTCHours();
-  return hr >= 8 && hr < 12 ? '上午' : hr >= 12 && hr < 18 ? '下午' : hr >= 18 && hr < 22 ? '晚上' : null;
-}
-const dowAt = (now) => new Date(Date.parse(`${nowTW(now).date}T12:00:00+08:00`)).getUTCDay();
 
 /** 下載的 CSV → 精簡的診所列表（解析一次、快取這份；已歇業的仍保留，查詢時依日期排除） */
 export function parseClinics(text) {
@@ -87,9 +71,9 @@ export function clinicSearch(rows, { area, query = '', dept = null, now = Date.n
   if (!a && !q) throw new UserError('請說哪一區（例如「臺北市大安區」）或診所名稱。');
   const d = dept ? DEPTS.find((x) => x.id === dept) : null;
   if (dept && !d) throw new UserError(`不認得「${dept}」這個科別。`);
-  const today = nowTW(now).date.replaceAll('-', '');
+  const today = twYmd(now);
   const planned = dayOffset > 0 || !!askPeriod; // 問的是別的日子或指定時段：照那天那個時段排
-  const dow = dowAt(now + dayOffset * 864e5);
+  const dow = twDow(now + dayOffset * 864e5);
   const period = planned ? askPeriod : periodAt(now);
   const pi = PERIODS.indexOf(period);
   const hourNow = new Date(now + 8 * 3600e3).getUTCHours();
@@ -108,10 +92,7 @@ export function clinicSearch(rows, { area, query = '', dept = null, now = Date.n
       nav: { google: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${r.name} ${r.address}`)}` },
     });
   }
-  // 只說區名（「中正區」）而好幾個縣市都有：只列第一個縣市的（與藥局相同）
-  const cityOf = (c) => /^(.{2}[市縣])/.exec(c.address)?.[1] || null;
-  const cities = a && !/[市縣]/.test(a) ? [...new Set(list.map(cityOf).filter(Boolean))] : [];
-  const mine = cities.length > 1 ? list.filter((c) => cityOf(c) === cities[0]) : list;
+  const { list: mine, city, otherCities } = pickCity(list, area); // 只說區名而好幾個縣市都有：只列一個縣市的（與藥局同一份）
   const rank = (c) => (c.openNow ? 0 : c.laterToday.length ? 1 : c.today == null ? 2 : 3);
   const sorted = mine.map((c, i) => [c, i]).sort((x, y) => rank(x[0]) - rank(y[0]) || x[1] - y[1]).map(([c]) => c);
   return {
@@ -120,7 +101,7 @@ export function clinicSearch(rows, { area, query = '', dept = null, now = Date.n
     ...(planned && { dayOffset }),
     total: mine.length, openNowCount: mine.filter((c) => c.openNow).length, laterCount: mine.filter((c) => !c.openNow && c.laterToday.length).length,
     clinics: sorted.slice(0, limit),
-    ...(cities.length > 1 && { city: cities[0], otherCities: cities.slice(1) }),
+    ...(otherCities && { city, otherCities }),
   };
 }
 
