@@ -250,7 +250,7 @@ function explain(best, second, states, excluded, ranked = []) {
   if (second?.notWorth?.vs === best.id) {
     // 叫車多付的錢換不到夠多的時間（VALUE_OF_TIME）：照實說省多少錢、慢多少（或沒比較慢）
     const slower = effMinutes(best) - effMinutes(second);
-    why.push([...often, `省 ${second.notWorth.extra} 元`, slower > 0 ? `只慢 ${slower} 分` : '也不會比較慢'].join('、'));
+    why.push([...often, `省 ${second.notWorth.extra} 元`, slower > 0 ? `${slower >= 15 ? '' : '只'}慢 ${slower} 分` : '也不會比較慢'].join('、')); // 慢 15 分以上不說「只」（PM 第二輪 #6：「只慢 52 分」）
   } else if (second?.unsure?.vs === best.id) {
     // 到站時間不明的公車讓位（unsure）：照實說
     why.push([...often, `${second.name} 到站時間不明`].join('、'));
@@ -261,6 +261,8 @@ function explain(best, second, states, excluded, ranked = []) {
     const diffs = CRITERIA.map((c) => ({ c, d: best.breakdown[c.key] - second.breakdown[c.key] })).sort((a, b) => b.d - a.d);
     const top = diffs.filter((x) => x.d > 0.01).slice(0, 2).map((x) => PHRASE[x.c.key](best, second, states));
     if (often.length || top.length) why.push([...often, ...top].join('、'));
+    // 一般比較、只差一點點：不要讓人以為第二名差很多（PM 第二輪 #6）；叫車讓位、到站不明、走太久是刻意排後面，不說差不多
+    if (Number.isFinite(best.score) && Number.isFinite(second.score) && best.score - second.score < CLOSE_SCORE) why.push(`「${second.name}」也差不多，看你習慣`);
   } else if (often.length) why.push(often[0]);
   const said = excluded.filter((e) => e.why.startsWith('你說不要')), unfit = excluded.filter((e) => e.why.includes('不建議')), late = excluded.filter((e) => e.why.includes('超過'));
   if (said.length) why.push(`${said.map((e) => e.name).join('、')}照你說的不列入`);
@@ -276,9 +278,13 @@ export function habitFlipped(best, ranked = []) {
   return ranked.some((o) => o.id !== best.id && base(o) > base(best));
 }
 
+/** 要走到站搭的（等車時間 0＝走到站剛好有車，不是「不用等」） */
+const STATION_ROLES = new Set(['bus', 'metro', 'tra', 'thsr', 'intercity']);
+/** 前兩名分數差不到這麼多：理由加一句第二名也差不多 */
+export const CLOSE_SCORE = 2;
 const PHRASE = {
   minutes: (b, s) => `比${/快$/.test(s.name) ? `「${s.name}」` : s.name}快 ${Math.max(1, effMinutes(s) - effMinutes(b))} 分`, // 車種「區間快」：加引號，不寫成「區間快快」（健檢 x03）
-  waitMin: (b) => (b.waitMin ? `只要等 ${b.waitMin} 分` : '不用等車'),
+  waitMin: (b) => (b.waitMin ? `只要等 ${b.waitMin} 分` : STATION_ROLES.has(b.role) ? '走到站就有車' : '不用等車'), // 公車捷運：「不用等車」接著「8 分後到」會讓人誤會（PM 第二輪 #6）
   walkMin: (b) => (b.walkMin ? `只走 ${b.walkMin} 分` : '不用走路'),
   cost: (b, s) => (b.cost < s.cost ? `省 ${s.cost - b.cost} 元` : '費用較低'),
   exposure: (_b, _s, states = []) => (states.includes('badAir') && !states.includes('rain') ? '少待在戶外' : '比較不會淋雨'),
