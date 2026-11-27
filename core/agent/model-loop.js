@@ -61,6 +61,7 @@ const METRO_NEAR = 'metro_live_board';
 /** 說了地點時，先找地點再查的工具（與示範模式相同） */
 const PLACE_TOOL = { weather: 'weather_now', aqi: 'aqi_nearby', garbage: 'garbage_truck_nearby', youbike: 'youbike_nearby', nearby_bus: 'bus_nearby_stations', pharmacy: 'pharmacy_search' };
 export function prefetchCalls(it, j, here, placePt = null) {
+  if (it.clinic) return prefetchCalls({ ...it, clinic: false }, j, here, placePt).map((c) => (c.name === 'pharmacy_search' ? { name: 'clinic_search', args: { ...c.args, ...(it.dept && { dept: it.dept }) } } : c)); // 找診所：與藥局同一套，換成診所工具
   const at = here && { lat: here.lat, lon: here.lon };
   if (placePt && PLACE_TOOL[it.intent]) { // 「那裡會下雨嗎」「板橋車站附近的藥局」：地點＋那裡的資料
     const tool = it.intent === 'weather' && it.tomorrow ? 'weather_tomorrow' : PLACE_TOOL[it.intent];
@@ -217,7 +218,7 @@ export const INTENT_TOOLS = {
   weather: ['weather_now', 'weather_tomorrow', 'outing_advice', 'find_place'],
   aqi: ['aqi_nearby', 'outing_advice', 'find_place'],
   quake: ['earthquake_recent'],
-  pharmacy: ['pharmacy_search'],
+  pharmacy: ['pharmacy_search', 'clinic_search'],
   garbage: ['garbage_truck_nearby', 'find_place'],
   fuel: ['fuel_price'],
   invoice: ['invoice_lottery'],

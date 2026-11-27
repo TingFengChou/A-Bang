@@ -1,0 +1,33 @@
+// clinic（clinic_search）：這一區的健保特約診所，這個時段有登記看診的排前面；科別、電話、地圖搜尋。
+// 只說「有登記看診」，不說看診中（臨時休診不會反映）；不判斷病情、不推薦科別。
+import { h } from '../dom.js';
+import { navButton } from '../actions.js';
+import { periodNow } from './pharmacy.js';
+
+const MAX = 8;
+const telOf = (p) => String(p || '').split('#')[0].replace(/[^0-9]/g, ''); // 分機（#）不放進 tel:
+const PERIOD_EN = { 上午: 'morning', 下午: 'afternoon', 晚上: 'evening' };
+const DAY_EN = { 星期一: 'Monday', 星期二: 'Tuesday', 星期三: 'Wednesday', 星期四: 'Thursday', 星期五: 'Friday', 星期六: 'Saturday', 星期日: 'Sunday' };
+
+export default {
+  refreshSec: 600, // 時段換了（中午、傍晚）「這個時段」跟著更新
+  title: (d, { t }) => t('clinic.title', { what: d.dept || t('clinic.western'), area: d.otherCities ? `${d.city}${d.area}` : d.area || d.query || '' }),
+  body(d, { host, t, state, rerender, locale }) {
+    const pname = (x) => (locale === 'en' ? PERIOD_EN[x] || x : x);
+    if (!d.clinics.length) return h('div', { class: 'ab-body' }, h('p', { class: 'ab-empty' }, t('clinic.empty')), h('p', { class: 'ab-foot' }, t('clinic.note')));
+    const now = periodNow();
+    const rows = state.all ? d.clinics : d.clinics.slice(0, MAX);
+    return h('div', { class: 'ab-body' },
+      h('p', { class: 'ab-sub' }, t('clinic.today', { day: locale === 'en' ? DAY_EN[d.weekday] || d.weekday : d.weekday })),
+      h('ul', { class: 'ab-list' }, rows.map((c) => h('li', { class: 'ab-pharm ab-clinic' },
+        h('div', { class: 'ab-row' }, h('span', { class: 'ab-name' }, c.name),
+          h('span', { class: c.today?.length ? 'ab-chip ok' : 'ab-chip' }, c.today == null ? t('clinic.unknown') : c.today.length ? c.today.map(pname).join(locale === 'en' ? ', ' : '・') : t('clinic.closed'))),
+        now && c.today?.includes(now) && h('p', { class: 'ab-open-now' }, h('i', { class: 'ab-dot-ok', 'aria-hidden': 'true' }), t('clinic.openNow', { period: pname(now) })),
+        c.depts?.length > 0 && h('p', { class: 'ab-sub' }, c.depts.join(locale === 'en' ? ', ' : '、')),
+        h('p', { class: 'ab-sub' }, c.address),
+        h('div', { class: 'ab-actions' }, navButton(host, c.nav, t('clinic.map')),
+          telOf(c.phone).length >= 6 && h('a', { class: 'ab-btn', href: `tel:${telOf(c.phone)}` }, t('clinic.call', { phone: c.phone })))))),
+      d.clinics.length > MAX && h('button', { type: 'button', class: 'ab-btn ab-link', onclick: () => { state.all = !state.all; rerender(); } }, state.all ? t('common.less') : t('common.more')),
+      h('p', { class: 'ab-foot' }, t('clinic.note')));
+  },
+};

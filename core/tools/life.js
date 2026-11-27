@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { defineTool, T } from './define.js';
 import { UserError } from '../util.js';
+import { DEPTS } from '../services/clinic.js';
 /** 清運時段（「17:06–17:09」）今天已經結束超過 10 分（台灣時間）；格式不對回 false */
 export function truckPassed(time, now = Date.now()) {
   const hm = /(\d{1,2}):(\d{2})(?!.*\d{1,2}:\d{2})/.exec(String(time || ''));
@@ -81,6 +82,50 @@ export const pharmacySearch = defineTool({
     return { data, text };
   },
 });
+
+export const clinicSearch = defineTool({
+  name: 'clinic_search',
+  title: '現在有看診的診所',
+  description: '依地區（例如「臺北市大安區」）找健保特約診所，這個時段（上午／下午／晚上）有登記看診的排前面；可指定使用者明講的科別（小兒科、耳鼻喉科、牙科、中醫…）。資料沒有座標，所以用地區搜尋；沒說地區時可給座標（lat、lon），依位置判斷在哪一區。看診時段是診所向健保署登記的固定時段，臨時休診不會反映。不要從症狀推薦科別、不判斷病情；胸痛、呼吸困難、昏倒等急症請使用者先撥 119。',
+  pack: PACK, tier: 'L1', card: 'clinic', source: '衛生福利部中央健康保險署（健保特約診所）', demoNote: DEMO, modeOf: (svc) => svc.openDataMode,
+  input: {
+    area: z.string().trim().max(20).optional().describe('縣市＋鄉鎮區，例如 臺北市大安區'),
+    dept: z.enum(DEPTS.map((d) => d.id)).optional().describe(`使用者明講的科別：${DEPTS.map((d) => `${d.id}＝${d.label}`).join('、')}；沒說就不給（只列西醫診所）`),
+    query: z.string().trim().max(20).optional().describe('診所名稱或路名（選填）'),
+    lat: T.lat.optional().describe('沒說地區時：所在位置緯度'), lon: T.lon.optional().describe('沒說地區時：所在位置經度'),
+  },
+  speak: (d) => clinicSay(d),
+  async run(svc, input) {
+    const { lat, lon, ...a } = input;
+    let areaFrom = null;
+    if ((lat == null) !== (lon == null)) throw new UserError('座標要同時給緯度和經度。');
+    if (!a.area && lat != null) { // 「附近有開的診所」：先從位置推估行政區（與藥局相同；最近的測站可能在隔壁區）
+      const d = await svc.weather.district({ lat, lon }).catch(() => null);
+      if (!d) throw new UserError('沒辦法從位置判斷在哪一區，請說縣市和鄉鎮區，例如「大安區的診所」。');
+      a.area = d.area;
+      areaFrom = { by: 'location', station: d.station, distanceM: d.distanceM, demo: d.demo };
+    }
+    const data = { ...(await svc.clinics.search(a)), ...(areaFrom && { areaFrom }) };
+    const guess = areaFrom && `依位置推估在「${data.area}」${areaFrom.demo ? '（示範）' : `（最近的測站：${areaFrom.station}）`}，不對請說哪一區。`;
+    const line = (c) => `- ${c.name}｜${c.phone ?? '—'}｜${c.address}｜${c.depts.join('、') || '不分科'}｜今天：${c.today == null ? '未提供' : c.today.length ? c.today.join('、') : '休診'}${c.openNow ? '（這個時段有登記看診）' : ''}`;
+    const text = [guess, clinicSay(data), ...data.clinics.map(line),
+      '看診時段是診所向健保署登記的固定時段，臨時休診不會反映，出門前先打電話。阿幫不判斷病情、不推薦科別；胸痛、呼吸困難、昏倒等急症請先撥 119。'].filter(Boolean).join('\n');
+    return { data, text };
+  },
+});
+
+/** 一句話：這一區、這個時段有登記看診的幾家（只說「有登記」，不說看診中）；看診時間都過了提醒急診與 119 */
+export function clinicSay(d) {
+  const what = d.dept ? `${d.dept}診所` : '西醫診所';
+  const where = `${d.otherCities ? d.city : ''}${d.area || d.query || ''}`;
+  const after = `；身體很不舒服請到醫院急診，緊急狀況撥 119。`;
+  if (!d.total) return `${where}沒有找到${d.dept ? `「${d.dept}」的` : '符合的'}健保特約診所。`;
+  if (d.openNowCount) return `${where}有 ${d.openNowCount} 家${what}登記${d.period}看診${d.laterCount ? `，今天稍晚還有 ${d.laterCount} 家` : ''}。時段是登記的，出門前先打電話確認。`;
+  if (d.laterCount) return d.phase === 'early'
+    ? `診所還沒開始看診；${where}今天有登記看診的${what}有 ${d.laterCount} 家，時段在卡片上。`
+    : `${where}的${what}這個時段（${d.period}）沒有登記看診，今天稍晚有 ${d.laterCount} 家。`;
+  return d.phase === 'late' ? `現在已過診所的看診時間，${where}的${what}今天都看完了${after}` : `${where}的${what}今天接下來沒有登記看診${after}`;
+}
 
 export const garbageTruckNearby = defineTool({
   name: 'garbage_truck_nearby',
@@ -166,4 +211,4 @@ export const invoiceCheckBatch = defineTool({
   },
 });
 
-export default [aqiNearby, earthquakeRecent, pharmacySearch, garbageTruckNearby, fuelPrice, invoiceLottery, invoiceCheckBatch];
+export default [aqiNearby, earthquakeRecent, pharmacySearch, clinicSearch, garbageTruckNearby, fuelPrice, invoiceLottery, invoiceCheckBatch];

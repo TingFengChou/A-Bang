@@ -36,6 +36,7 @@
     "aqi_nearby",
     "earthquake_recent",
     "pharmacy_search",
+    "clinic_search",
     "garbage_truck_nearby",
     "fuel_price",
     "invoice_lottery",
