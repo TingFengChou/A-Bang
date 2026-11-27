@@ -55,4 +55,6 @@ test('原生端：三個 Intent、捷徑說法、收件匣、外掛方法、Xcod
   assert.match(pbx, /developmentRegion = "zh-Hant";/);
   assert.match(await read('ios/App/App/Info.plist'), /<key>CFBundleDevelopmentRegion<\/key>\s*<string>zh-Hant<\/string>/);
   assert.match(await read('public/js/app.js'), /startAppIntents\(\)/);
+  assert.match(await read('ios/App/App/Info.plist'), /<key>CFBundleLocalizations<\/key>\s*<array>\s*<string>zh-Hant<\/string>\s*<string>en<\/string>/, '英文手機的系統畫面仍是英文');
+  assert.equal([...decodeURIComponent(intentHash({ kind: 'scam', text: '詐'.repeat(900) }).split('q=')[1])].length, 500, '與問阿幫一輪的上限相同');
 });

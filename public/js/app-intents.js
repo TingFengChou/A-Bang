@@ -4,7 +4,7 @@
 
 /** 捷徑可以打開的頁面（AbangPage 的值 → App 內的頁面） */
 export const INTENT_PAGES = { nearby: '#/nearby', weather: '#/s/weather', reminders: '#/reminders', antifraud: '#/agent/antifraud', invoice: '#/s/invoice' };
-const LIMIT = { ask: 500, scam: 2000 };
+const LIMIT = { ask: 500, scam: 500 }; // 與問阿幫一輪的上限相同（core/agent/run.js MAX_CHARS）
 
 /**
  * 捷徑交來的事 → 要開的 App 內頁面；不合格回 null。

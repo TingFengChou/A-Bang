@@ -56,7 +56,7 @@ struct CheckScamIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        AbangIntentInbox.put(kind: "scam", text: String(message.prefix(2000)))
+        AbangIntentInbox.put(kind: "scam", text: String(message.prefix(500))) // 問阿幫一輪最多 500 字
         return .result()
     }
 }
