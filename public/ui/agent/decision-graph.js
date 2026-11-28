@@ -8,6 +8,8 @@ import { habitWhy, USUAL_LABEL } from '../../js/habits.js';
 
 /** 被排除方案的標籤：遲到（超過抵達時間）、不要（使用者說不要這種方式）、其他排除 */
 const exLabel = (why = '') => (why.includes('超過') ? '遲到' : why.startsWith('你說不要') ? '不要' : why.includes('不建議') ? '不適合' : /收班|末班已過/.test(why) ? '收班' : /沒車|沒有車|空位/.test(why) ? '沒列入' : '排除');
+/** 這次資料沒來（上游連不上、TDX 額度用完、查詢失敗）：跟「本來就不適用」（太遠、附近沒有站）分開標「暫缺」——讓人知道阿幫有考慮，只是資料沒來（2026-11-28 Antigravity 第四輪 T-DG-GRAY） */
+export const dataMissing = (x) => Boolean(x?.unavailable || x?.fallback === 'tdx-limit' || x?.why === '資料暫時查不到' || /連不上/.test(x?.why || ''));
 const ROLE_NAME = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車', drive: '開車' };
 
 const SVG = 'http://www.w3.org/2000/svg';
@@ -24,12 +26,13 @@ const EN = {
   mode: { walk: 'Walk', bike: 'YouBike', bus: 'Bus', metro: 'MRT', thsr: 'High Speed Rail', tra: 'Train', intercity: 'Intercity bus', ridehail: 'Taxi', drive: 'Drive' },
   role: { 辦事: 'Gov services', 地點: 'Places', 定位: 'Location', 天氣: 'Weather', 空品: 'Air', 路況: 'Traffic', 票價: 'Fares', 行程: 'Trip', 公車: 'Bus', 捷運: 'MRT', YouBike: 'YouBike', 高鐵: 'THSR', 台鐵: 'Train', 叫車: 'Taxi', 客運: 'Coach', 訂票: 'Booking', 車站: 'Stations', 地震: 'Quakes', 藥局: 'Pharmacy', 垃圾車: 'Garbage', 油價: 'Fuel', 發票: 'Invoices', 股市: 'Stocks', 短劇: 'Dramas', 阿幫: 'Abang', 防詐: 'Anti-fraud', 網址: 'Links', 闢謠: 'Fact check', 號碼: 'Numbers' },
   crit: { minutes: 'Time', waitMin: 'Wait', walkMin: 'Walking', cost: 'Cost', exposure: 'Outdoors', effort: 'Effort', delayRisk: 'Delays' },
-  tag: { 遲到: 'Late', 不要: 'Skip', 不適合: 'Unfit', 收班: 'No service', 未發車: 'Not yet', 沒列入: 'N/A', 排除: 'Out' },
+  tag: { 遲到: 'Late', 不要: 'Skip', 不適合: 'Unfit', 收班: 'No service', 未發車: 'Not yet', 沒列入: 'N/A', 暫缺: 'No data', 排除: 'Out' },
   cols: ['Data', 'Abang', 'Options'],
   step1: '① Gathering data', step2: '② Your situation', step3: (c) => `③ Comparing: ${c}`, step4: (n) => `④ Decision: ${n}`, decide: '④ Decision',
   hint: 'Want another way? Tap an option and Abang recalculates', legend: 'Numbers are scores: higher fits you better right now.', chips: 'Your situation (tap to toggle, recalculates right away)',
   habit: (m) => `You agreed: prefer ${m}`, habitWhy: 'Why?', habitPaused: 'You told Abang your situation, so this preference is not counted this time', habitNote: 'You said yes to preferring it. When you don\'t mention your situation it gets a small bonus (up to 8 pts). Stored only on this phone; undo it in Settings.', often: 'you prefer it', habitCrit: 'Preference', premiumCrit: 'Not worth the fare', premiumStep: 'Worth the fare?', longCrit: 'Too long', longStep: 'Too long?', unsureCrit: 'Arrival unknown', unsureStep: 'Arrival known?', slowCrit: 'Too slow for the saving', slowStep: 'Worth the extra time?', slowCheap: (n, m, c) => `${m > 0 ? `${m} min faster than ${n}` : `less walking and waiting than ${n}`}, only NT$${c} more`, estCrit: 'Estimate', estStep: 'Estimated?', unsure: (n) => `${n} has no arrival time`, notWorth: (c, m) => (m > 0 ? `NT$${c} cheaper, ${m >= 15 ? '' : 'only '}${m} min slower` : `NT$${c} cheaper, no slower`), tooLong: (n, m, cap) => `${n} takes ${m} min (over ${cap})`,
   notIn: (n, w) => `${n} not included: ${w}`,
+  noData: (n, w) => `${n}: no data this time (${w})`,
   details: 'Comparison details', whyOver: (a, b) => `Why ${a} over ${b}`, scores: 'Score breakdown', cmp: { minutes: 'Time', cost: 'Cost', walkMin: 'Walking', waitMin: 'Waiting' }, unitMin: (n) => `${n} min`, unitNT: (n) => `NT$${n}`, same: 'About the same', effNone: 'No effect', effNA: 'Not used', effScore: 'Delay risk', pts: (n, s) => `${n}: ${s} pts`, title: 'How Abang decided', pick: (n) => `Switch to ${n}`, ex: (n, w) => `${n}, excluded: ${w}`,
 };
 /** 拿掉偏好加分後第一名會不會換（同 core/decide.js habitFlipped；這個檔不 import /core，打包單檔示範版才不會斷） */
@@ -147,7 +150,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     const ranked = r.ranked.map((x) => ({ ...byId.get(x.id), score: x.score, breakdown: x.breakdown, notWorth: x.notWorth, tooLong: x.tooLong, unsure: x.unsure, slowCheap: x.slowCheap }));
     // 沒列入比較的方式（深夜公車、捷運收班、YouBike 沒車位、附近沒有捷運站…）：也畫出來，灰色、標籤寫「收班」或「沒列入」，原因寫在圖下（設計審查）
     // route：那一條公車今天不會來（另一條照常列入）：節點寫路線名稱（「公車 三峽-臺北市信義區」），id 帶路線才不會跟整個公車撞
-    const skipped = notIn.map((x) => ({ id: `skip-${x.role}${x.route ? `-${x.route}` : ''}`, role: x.role, name: x.route ? `公車 ${x.route}` : ROLE_NAME[x.role] || x.role, why: (en && x.whyEn) || x.why, tag: x.notYet ? '未發車' : x.closed || /收班|末班已過/.test(x.why) ? '收班' : '沒列入', skipped: true }));
+    const skipped = notIn.map((x) => ({ id: `skip-${x.role}${x.route ? `-${x.route}` : ''}`, role: x.role, name: x.route ? `公車 ${x.route}` : ROLE_NAME[x.role] || x.role, why: (en && x.whyEn) || x.why, tag: x.notYet ? '未發車' : x.closed || /收班|末班已過/.test(x.why) ? '收班' : dataMissing(x) ? '暫缺' : '沒列入', skipped: true }));
     const excluded = [...r.excluded.map((x) => ({ ...byId.get(x.id), why: x.why })), ...skipped];
     const off = states.filter((s) => !s.on && s.source === 'auto').map((s) => SL[s.key]);
     const reason = (off.length ? `不考慮「${off.join('、')}」的話，` : '') + (habitTop && !habitOn ? '不看你的偏好的話，' : '') + r.reason;
@@ -164,7 +167,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       graph(ranked, excluded, active, r.best?.id),
       el('p', 'dg-why', en ? enReason(bestOpt, ranked.find((o) => o.id !== bestOpt?.id), ranked) : reason), // 英文：程式依分數組一句英文理由
       decision.single && el('p', 'dg-single', en ? decision.single.textEn : decision.single.text), // 只有一種方式：其他方式為什麼不在
-      !decision.single && notIn.length > 0 && el('ul', 'dg-missing', notIn.map((x) => el('li', null, en ? EN.notIn(x.route ? `Bus ${x.route}` : EN.mode[x.role] || x.role, x.whyEn || x.why) : `${x.route ? `公車 ${x.route}` : ROLE_NAME[x.role] || x.role}沒列入：${x.why}`))), // 手機沒有 hover：原因寫出來；route＝那一條公車
+      !decision.single && notIn.length > 0 && el('ul', 'dg-missing', notIn.map((x) => el('li', null, en ? (dataMissing(x) ? EN.noData : EN.notIn)(x.route ? `Bus ${x.route}` : EN.mode[x.role] || x.role, x.whyEn || x.why) : `${x.route ? `公車 ${x.route}` : ROLE_NAME[x.role] || x.role}${dataMissing(x) ? '這次資料暫缺' : '沒列入'}：${x.why}`))), // 手機沒有 hover：原因寫出來；route＝那一條公車
       ranked.length > 1 && el('p', 'dg-legend', en ? EN.legend : '數字是推薦分數，越高越適合你現在的狀況。'), // 設計第三輪 #3：一般人看不懂 75、71 是什麼
       onPick && ranked.length > 1 && el('p', 'dg-hint', en ? EN.hint : '想換方式？點其他方案，阿幫會用它重算'), // 審查：手機沒有 hover，要寫出來
       details(ranked),
@@ -413,12 +416,12 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       const isEx = i >= ranked.length;
       const win = o.id === bestId;
       edges.append(svg('path', { d: `M${C.x + 30},${C.y} C${C.x + 62},${C.y} ${OPT_X - 40},${y} ${OPT_X},${y}`,
-        class: `dg-edge dg-out-edge ${isEx ? 'step4 excluded' : 'step3'}${isEx && ['不要', '收班', '未發車', '沒列入'].includes(tagOf(o)) ? ' avoided-edge' : ''}${win ? ' win' : ''}`, 'data-id': o.id, style: `stroke-width:${isEx ? 1 : (1 + 7 * (o.score / max)).toFixed(1)}px` })); // 連線粗細＝分數（inline，CSS 的 stroke-width 才蓋不掉）
-      const avoided = isEx && ['不要', '收班', '未發車', '沒列入'].includes(tagOf(o)), unfit = isEx && tagOf(o) === '不適合';
+        class: `dg-edge dg-out-edge ${isEx ? 'step4 excluded' : 'step3'}${isEx && ['不要', '收班', '未發車', '沒列入', '暫缺'].includes(tagOf(o)) ? ' avoided-edge' : ''}${win ? ' win' : ''}`, 'data-id': o.id, style: `stroke-width:${isEx ? 1 : (1 + 7 * (o.score / max)).toFixed(1)}px` })); // 連線粗細＝分數（inline，CSS 的 stroke-width 才蓋不掉）
+      const avoided = isEx && ['不要', '收班', '未發車', '沒列入', '暫缺'].includes(tagOf(o)), unfit = isEx && tagOf(o) === '不適合';
       const n = node(OPT_X, y, short(nameOf(o)), `dg-opt ${isEx ? 'step4 excluded' : 'step3'}${avoided ? ' avoided' : ''}${unfit ? ' unfit' : ''}${win ? ' win dg-best' : ''}`, o.role, win, isEx ? exText(o.why, o.tag) : String(o.score));
       n.style.setProperty('--i', String(i));
       n.dataset.id = o.id;
-      if (isEx) n.setAttribute('aria-label', en ? EN.ex(nameOf(o), o.skipped ? o.why : exText(o.why, o.tag)) : `${o.name}，${o.skipped ? '沒列入' : '已排除'}：${o.why}`); // 讀屏念原因（「你說不要叫車」「…會遲到」）
+      if (isEx) n.setAttribute('aria-label', en ? EN.ex(nameOf(o), o.skipped ? o.why : exText(o.why, o.tag)) : `${o.name}，${o.skipped ? (o.tag === '暫缺' ? '這次資料暫缺' : '沒列入') : '已排除'}：${o.why}`); // 讀屏念原因（「你說不要叫車」「…會遲到」）
       if (onPick && !isEx && !win) { // 點方案＝「改成這個」（沿用起訖點重算；公車會自動盯到站）
         n.classList.add('pickable');
         n.setAttribute('role', 'button');
