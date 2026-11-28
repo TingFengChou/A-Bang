@@ -48,6 +48,12 @@ test('最近的戶政事務所：依距離排序、步行時間、電話、導�
   assert.equal(r.offices[0].tel, null);
   assert.match(r.offices[0].nav.google, /^https:\/\/www\.google\.com\/maps\/dir\//);
   assert.equal(r.today.known, false);
+  // 日曆下載失敗（P0-2 B）：跟「新年度還沒公布」分開說，不說成日曆沒有今天的資料
+  assert.equal(r.today.calendarFailed, true);
+  assert.match(todaySay(r.today), /辦公日曆這次連不上，照週末推的；補班或連假可能不準/);
+  const notYet = await createGovOfficeServices({ offices: async () => parseOffices(CSV), tels: async () => new Map(), calendar: async () => null }).nearbyOffices({ lat: 25.0330, lon: 121.5650, now: TPE });
+  assert.equal(notYet.today.calendarFailed, undefined);
+  assert.match(todaySay(notYet.today), /今年的辦公日曆還沒有今天的資料/);
 });
 
 test('真實下載：據點與電話 7 天、日曆 30 天；先從資料集資訊找當年的日曆', async () => {

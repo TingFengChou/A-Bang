@@ -84,7 +84,7 @@ test('parsePop3h：同名鄉鎮以縣市區分（臺北市與基隆市都有中�
 
 test('cwa-client：授權碼無效、連線失敗都不把授權碼帶進錯誤', async () => {
   const bad = createCwaClient({ apiKey: 'SECRET-KEY', fetchImpl: async () => new Response('no', { status: 401 }) });
-  await assert.rejects(bad.get('O-A0001-001'), (e) => e instanceof CwaError && /授權碼無效/.test(e.message));
+  await assert.rejects(bad.get('O-A0001-001'), (e) => e instanceof CwaError && /授權碼無效/.test(e.message) && /阿幫這邊的設定有問題/.test(e.publicMsg) && !/CWA_API_KEY|稍後再試/.test(e.publicMsg)); // 給使用者的不說環境變數、不說等一下會好
   const down = createCwaClient({ apiKey: 'SECRET-KEY', fetchImpl: async (url) => { throw new TypeError('fetch failed', { cause: new Error(`connect to ${url}`) }); } });
   await assert.rejects(down.get('O-A0001-001'), (e) => {
     assert.ok(e instanceof CwaError);

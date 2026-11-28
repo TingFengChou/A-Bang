@@ -103,3 +103,14 @@ test('metro_route（示範資料）：跨系統、票價、第一段下一班、
   const tc = await callTool(svc, 'metro_route', { from: '市政府', to: '高鐵臺中站', system: 'TMRT' });
   assert.ok(tc.data.next.headway, '台中捷運：第一段只有班距');
 });
+
+test('metro_route：路網上游壞掉照實說連不上，不說成「路網資料可能還沒有這一站」（P0-2 B 降級盤點）', async () => {
+  const { TdxError } = await import('../core/tdx-client.js');
+  const { shown, publicMessage } = await import('../core/util.js');
+  const svc = createServices({ forceMock: true });
+  const down = { ...svc, metro: { ...svc.metro, lines: async () => { throw shown(new TdxError(503, 'TDX API 錯誤 503'), '交通資料（TDX）暫時無法取得'); } } };
+  await assert.rejects(callTool(down, 'metro_route', { from: '台北車站', to: '內湖' }), (e) => publicMessage(e) === '交通資料（TDX）暫時無法取得' && !/路網資料/.test(e.message));
+  // 行程規劃（不 strict）照舊回 null 改用估算
+  const { metroNetRoute } = await import('../core/services/metro-net.js');
+  assert.equal(await metroNetRoute(down.metro, { from: '台北車站', to: '內湖', systems: ['TRTC'] }), null);
+});

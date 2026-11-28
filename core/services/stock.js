@@ -160,7 +160,11 @@ export function createStockServices(fx) {
     stock: {
       quote: async (a = {}) => {
         const need = splitQuery(a.query).some((q) => !indexOf(q)); // 只問指數不用抓個股清單
-        const [twse, tpex, ti, pi] = await Promise.all([need ? fx.twse() : [], need ? fx.tpex() : [], fx.twseIndex().catch(() => []), fx.tpexIndex().catch(() => [])]);
+        let idxErr = null;
+        const soft = (p) => p.catch((e) => { idxErr ||= e; return []; });
+        const [twse, tpex, ti, pi] = await Promise.all([need ? fx.twse() : [], need ? fx.tpex() : [], soft(fx.twseIndex()), soft(fx.tpexIndex())]);
+        // 只問大盤、兩個指數都抓不到：丟上游的錯（連不上），不說成「目前沒有行情資料」（P0-2 B 降級盤點）
+        if (!need && !ti.length && !pi.length && idxErr) throw idxErr;
         return stockQuote({ quotes: [...twse, ...tpex], indices: parseIndices(ti, pi) }, a);
       },
     },

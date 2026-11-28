@@ -56,7 +56,7 @@ test('execTools：白名單外的 tool 與上游錯誤都回 ok=false，訊息�
   const out = await execTools(svc, [{ name: 'weather_now', args: { lat: 25.04, lon: 121.5 } }, { name: 'rail_stations', args: { system: 'THSR' } }], (e) => es.push(e),
     { profile: getProfile(), nextId: () => `x${++n}` });
   assert.deepEqual(out.map((o) => o.ok), [false, false]);
-  assert.match(out[0].error, /暫時無法取得/);
+  assert.match(out[0].error, /現在連不上/);
   assert.ok(!JSON.stringify(es).includes('/Users/secret'));
   assert.match(out[1].error, /不能使用 rail_stations/);
   assert.deepEqual(types(es).slice(0, 2), ['tool_start', 'tool_start']);

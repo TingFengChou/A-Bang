@@ -187,3 +187,13 @@ test('真實 fetchers：網站來源失敗後 10 分鐘內不再抓，之後再�
   t += 2 * 60_000; await fx.twse();
   assert.equal(siteCalls, 2);
 });
+
+test('只問大盤、兩個指數來源都連不上：丟上游的錯，不說「目前沒有行情資料」；問個股時指數失敗不影響（P0-2 B 降級盤點）', async () => {
+  const { shown, publicMessage } = await import('../core/util.js');
+  const down = async () => { throw shown(new Error('HTTP 503'), '證交所資料暫時連不上'); };
+  const svc = createStockServices({ twse: async () => [], tpex: async () => [], twseIndex: down, tpexIndex: down });
+  await assert.rejects(svc.stock.quote({}), (e) => publicMessage(e) === '證交所資料暫時連不上');
+  await assert.rejects(svc.stock.quote({ query: '大盤' }), (e) => publicMessage(e) === '證交所資料暫時連不上');
+  const r = await createStockServices({ twse: async () => [{ code: '2330', name: '台積電', close: 1000, change: 5, date: '2026-11-27' }], tpex: async () => [], twseIndex: down, tpexIndex: down }).stock.quote({ query: '台積電' });
+  assert.equal(r.quotes.length, 1);
+});

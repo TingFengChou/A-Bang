@@ -51,13 +51,21 @@ test('上游錯誤：丟錯的地方明確標了 publicMsg 才給使用者看，
   const tdx = createTdxClient({ clientId: 'a', clientSecret: 'b', limit: { concurrent: 3, gapMs: 0, retryMs: 1, waitMs: 0 }, fetchImpl: async (u) => (String(u).includes('/token') ? new Response(JSON.stringify({ access_token: 'T', expires_in: 86400 })) : new Response(body, { status: 500 })) });
   const e = await tdx.get('/basic/v2/Bus/Route/City/Taipei', {}).catch((x) => x);
   assert.match(e.message, /secret-upstream-body/, 'log 看得到細節');
-  assert.equal(publicMessage(e), '交通資料（TDX）暫時無法取得，請稍後再試。');
+  assert.equal(publicMessage(e), '交通資料（TDX）現在連不上，這次查不到；急的話可以先看官方的交通 App。');
   // 開放資料：說是哪個資料、要不要等；解析錯誤的細節不給
   const od = createOpenDataClient({ fetchImpl: async () => new Response('<html>oops', { status: 200 }), now: () => 0 });
   const bad = await od.get('https://x.example/p.json', { ttlSec: 60, label: '健保藥局資料', as: 'json' }).catch((x) => x);
-  assert.equal(publicMessage(bad), '健保藥局資料的資料格式有變，阿幫暫時讀不到，請稍後再試。');
+  assert.equal(publicMessage(bad), '健保藥局資料的資料格式有變，阿幫暫時讀不到。');
   assert.doesNotMatch(publicMessage(bad), /oops|Unexpected|x\.example/);
   const down = createOpenDataClient({ fetchImpl: async () => { throw new Error('ECONNREFUSED 10.0.0.1:443'); }, now: () => 0 });
   const de = await down.get('https://x.example/q', { ttlSec: 60, label: '油價' }).catch((x) => x);
-  assert.equal(publicMessage(de), '油價暫時連不上，請稍後再試。');
+  assert.equal(publicMessage(de), '油價現在連不上，這次查不到。');
+});
+
+test('給使用者看的上游錯誤：沒有重置時間就不說「請稍後再試」（Antigravity 第四輪文案原則）', async () => {
+  const { readFileSync } = await import('node:fs');
+  for (const f of ['core/util.js', 'core/tdx-client.js', 'core/opendata-client.js', 'core/cwa-client.js', 'core/services/weather.js', 'core/tools/metro.js']) {
+    const src = readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
+    assert.doesNotMatch(src, /請稍後再試/, f);
+  }
 });

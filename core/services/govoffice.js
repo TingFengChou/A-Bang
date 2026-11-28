@@ -59,6 +59,9 @@ export function workdayOf(cal, now = Date.now()) {
   return { date: day.label, md: day.md, dow: day.dow, workday: !day.weekend, note: null, known: false };
 }
 
+/** 日曆下載失敗的標記（跟「新年度的日曆還沒公布」回 null 分開） */
+const FAILED = Symbol('calendar failed');
+
 /**
  * @param {{ offices: () => Promise<object[]>, tels: () => Promise<Map<string,string>>, calendar: (year: number) => Promise<Map<string, object>|null> }} fx
  */
@@ -67,10 +70,12 @@ export function createGovOfficeServices(fx) {
     /** @param {{ lat: number, lon: number, limit?: number, now?: number, dayOffset?: number }} a dayOffset：問的是幾天後（「禮拜六有開嗎」） */
     async nearbyOffices({ lat, lon, limit = 3, now = Date.now(), dayOffset = 0 }) {
       const at = now + dayOffset * 864e5;
-      const [offices, tels, cal] = await Promise.all([fx.offices(), fx.tels().catch(() => new Map()), fx.calendar(taipeiDay(at).year).catch(() => null)]);
+      const [offices, tels, cal] = await Promise.all([fx.offices(), fx.tels().catch(() => new Map()), fx.calendar(taipeiDay(at).year).catch(() => FAILED)]);
       const list = offices.map((o) => ({ ...o, distanceM: Math.round(distanceM(lat, lon, o.lat, o.lon)) })).sort((a, b) => a.distanceM - b.distanceM).slice(0, limit)
         .map((o) => ({ name: o.name, address: o.address, tel: tels.get(o.name) || null, lat: o.lat, lon: o.lon, distanceM: o.distanceM, walkMin: walkMinutes(o.distanceM), nav: navLinks(o.lat, o.lon, 'walking') }));
-      return { offices: list, today: { ...workdayOf(cal, at), ...(dayOffset && { dayOffset }) }, source: '內政部（自然人憑證申辦點位、戶政機關通訊）、人事行政總處辦公日曆' };
+      // 日曆下載失敗（上游壞掉）跟「新年度還沒公布」分開說：不說成日曆沒有今天的資料（P0-2 B 降級盤點）
+      const failed = cal === FAILED;
+      return { offices: list, today: { ...workdayOf(failed ? null : cal, at), ...(dayOffset && { dayOffset }), ...(failed && { calendarFailed: true }) }, source: '內政部（自然人憑證申辦點位、戶政機關通訊）、人事行政總處辦公日曆' };
     },
   };
 }

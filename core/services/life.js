@@ -2,7 +2,7 @@
 // 下載與快取在 fetchers（真實：政府開放資料；示範：core/data/demo/ 的真實片段），整理邏輯共用（架構規則 3：介面相同）。
 // 來源與欄位已實測（2026-11-19，docs/DATA_SOURCES.md §5.2）。
 import { csvObjects } from '../csv.js';
-import { nowTW, distanceM as haversine, UserError } from '../util.js';
+import { nowTW, distanceM as haversine, UserError, shown } from '../util.js';
 import { navLinks } from '../nav.js';
 import { normAddr, twDow, twYmd, WEEK, dayPeriods, pickCity } from '../nhi-hours.js';
 
@@ -243,7 +243,7 @@ export function createLiveLifeFetchers({ od, cwa, moenvKey, demo }) {
   const inTaipeiArea = ({ lat, lon }) => lat > 24.6 && lat < 25.35 && lon > 121.2 && lon < 122.1; // 雙北範圍外不必下載
   return {
     aqi: moenvKey
-      ? () => od.get(URLS.aqi(moenvKey), { ttlSec: 600, label: '環境部空氣品質資料', parse: (t) => { if (!/^\s*\[/.test(t)) throw new Error('金鑰無效或回應不是 JSON'); return JSON.parse(t); } })
+      ? () => od.get(URLS.aqi(moenvKey), { ttlSec: 600, label: '環境部空氣品質資料', parse: (t) => { if (!/^\s*\[/.test(t)) throw shown(new Error('金鑰無效或回應不是 JSON'), '空氣品質資料這次查不到（阿幫這邊的設定有問題，不是環境部沒開放）。'); return JSON.parse(t); } })
       : demo.aqi,
     quakes: cwa ? async () => [['significant', await cwa.get('E-A0015-001', { limit: 10 }, 300)], ['local', await cwa.get('E-A0016-001', { limit: 10 }, 300)]] : demo.quakes,
     pharmacies: () => od.get(URLS.pharmacies, { ttlSec: 86400, maxBytes: 16 * 2 ** 20, label: '健保署藥局資料', parse: csv('藥局', ['醫事機構代碼', '醫事機構名稱', '地址', '固定看診時段', '終止合約或歇業日期']) }),

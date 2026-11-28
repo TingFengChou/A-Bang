@@ -104,6 +104,10 @@
           "type": "boolean",
           "description": "false：辦公日曆沒有今天（照週末推的）"
         },
+        "calendarFailed": {
+          "type": "boolean",
+          "description": "true：辦公日曆這次下載失敗（照週末推的，跟「新年度還沒公布」分開說）"
+        },
         "dayOffset": {
           "type": "integer",
           "minimum": 1,

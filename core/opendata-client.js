@@ -44,15 +44,15 @@ export function createOpenDataClient({ fetchImpl = fetch, now = () => Date.now()
   function refresh(url, hit, { ttlSec, label, as = 'text', parse = (x) => x, headers, maxBytes }) {
     const pending = (async () => {
       let res;
-      try { res = await fetchImpl(url, { signal: AbortSignal.timeout(timeoutMs), ...(headers && { headers }) }); } catch { throw shown(new OpenDataError(`${label}連線失敗，請稍後再試`), `${label}暫時連不上，請稍後再試。`); }
-      if (!res.ok) throw Object.assign(shown(new OpenDataError(`${label}回應錯誤（HTTP ${res.status}）`), `${label}暫時無法取得，請稍後再試。`), { upstreamStatus: res.status }); // upstreamStatus：服務層分辨「找不到」與上游故障
+      try { res = await fetchImpl(url, { signal: AbortSignal.timeout(timeoutMs), ...(headers && { headers }) }); } catch { throw shown(new OpenDataError(`${label}連線失敗`), `${label}現在連不上，這次查不到。`); }
+      if (!res.ok) throw Object.assign(shown(new OpenDataError(`${label}回應錯誤（HTTP ${res.status}）`), `${label}現在連不上，這次查不到。`), { upstreamStatus: res.status }); // upstreamStatus：服務層分辨「找不到」與上游故障
       // maxBytes：回應大小上限（宣告的長度或實際讀到的超過就不解析）
-      if (maxBytes && Number(res.headers?.get?.('content-length')) > maxBytes) throw shown(new OpenDataError(`${label}回應太大`), `${label}的資料格式有變，阿幫暫時讀不到，請稍後再試。`);
+      if (maxBytes && Number(res.headers?.get?.('content-length')) > maxBytes) throw shown(new OpenDataError(`${label}回應太大`), `${label}的資料格式有變，阿幫暫時讀不到。`);
       let body;
-      try { body = maxBytes || as !== 'json' ? await res.text() : await res.json(); } catch { throw shown(new OpenDataError(`${label}格式不符預期：讀不到內容`), `${label}的資料格式有變，阿幫暫時讀不到，請稍後再試。`); }
-      if (maxBytes && Buffer.byteLength(String(body)) > maxBytes) throw shown(new OpenDataError(`${label}回應太大`), `${label}的資料格式有變，阿幫暫時讀不到，請稍後再試。`);
+      try { body = maxBytes || as !== 'json' ? await res.text() : await res.json(); } catch { throw shown(new OpenDataError(`${label}格式不符預期：讀不到內容`), `${label}的資料格式有變，阿幫暫時讀不到。`); }
+      if (maxBytes && Buffer.byteLength(String(body)) > maxBytes) throw shown(new OpenDataError(`${label}回應太大`), `${label}的資料格式有變，阿幫暫時讀不到。`);
       let data;
-      try { data = parse(as === 'json' && typeof body === 'string' ? JSON.parse(body) : body); } catch (e) { throw shown(new OpenDataError(`${label}格式不符預期：${e.message}`), `${label}的資料格式有變，阿幫暫時讀不到，請稍後再試。`); } // 解析錯誤的細節只進 log
+      try { data = parse(as === 'json' && typeof body === 'string' ? JSON.parse(body) : body); } catch (e) { throw shown(new OpenDataError(`${label}格式不符預期：${e.message}`), e?.publicMsg || `${label}的資料格式有變，阿幫暫時讀不到。`); } // 解析錯誤的細節只進 log；parse 自己帶了給使用者的一句（例：金鑰無效）就用那句
       recordFetch({ cacheHit: false, data });
       put(url, { exp: now() + ttlSec * 1000, at: now(), data });
       return data;

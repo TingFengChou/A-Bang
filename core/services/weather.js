@@ -197,7 +197,7 @@ export function createWeatherServices(cwa) {
   async function nearestStation(lat, lon) {
     const [auto, manned] = await Promise.all([cwa.get('O-A0001-001', {}, 600), cwa.get('O-A0003-001', {}, 600).catch(() => null)]);
     const stations = [...parseStations(auto), ...parseStations(manned)].filter((s) => s.town);
-    if (!stations.length) throw shown(new CwaError(502, '氣象署觀測資料暫時無法取得'), '氣象署觀測資料暫時無法取得，請稍後再試。');
+    if (!stations.length) throw shown(new CwaError(502, '氣象署觀測資料暫時無法取得'), '氣象署的觀測資料現在連不上，這次查不到天氣。');
     return stations.reduce((a, b) => (distanceM(lat, lon, a.lat, a.lon) <= distanceM(lat, lon, b.lat, b.lon) ? a : b));
   }
 
@@ -233,7 +233,7 @@ export function createWeatherServices(cwa) {
           cwa.get('O-A0002-001', {}, 600).catch(() => null), // 雨量站失敗時 rainMm1h 為 null
         ]);
         const stations = [...parseStations(auto), ...parseStations(manned)].filter((s) => s.tempC != null || s.weather != null);
-        if (!stations.length) throw shown(new CwaError(502, '氣象署觀測資料暫時無法取得'), '氣象署觀測資料暫時無法取得，請稍後再試。');
+        if (!stations.length) throw shown(new CwaError(502, '氣象署觀測資料暫時無法取得'), '氣象署的觀測資料現在連不上，這次查不到天氣。');
         const st = pickNowStation(stations, lat, lon);
         // 鄉鎮預報（所在縣市的 F-D0047-0xx，與 tomorrow 共用快取）；失敗時 pop3h 為 null，不影響觀測
         const fc = await townForecast(st).catch(() => null);
