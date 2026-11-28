@@ -561,6 +561,29 @@ for (const [dname, device] of Object.entries(DEVICES)) {
   });
 }
 
+// 高鐵、台鐵時刻表頁（V1-4 覆蓋盤點：台鐵頁原本沒有 e2e，高鐵頁只測了返回鍵）：預設起訖自動查、班次列表、交換起訖、同站提示
+test('時刻表頁：高鐵、台鐵預設起訖查得到班次；交換起訖重查；起訖相同說明', async () => {
+  for (const [sys, title] of [['thsr', '高鐵時刻'], ['tra', '台鐵時刻']]) {
+    await withPage(DEVICES.phone, `#/rail/${sys}`, async (page) => {
+      await page.waitForSelector('#res .train', { timeout: 15000 });
+      assert.match(await page.title(), new RegExp(title), sys);
+      assert.ok(await page.locator('select[name="from"] option').count() >= 10, `${sys} 車站選單`);
+      const head = await page.locator('#res .section-title h2').textContent();
+      assert.match(head, /→/, `${sys} 標題有起訖`);
+      assert.ok(await page.locator('#res .train').count() >= 1, `${sys} 有班次`);
+      assert.equal(await page.locator('.error').count(), 0, sys);
+      await shot(page, `phone-rail-${sys}`);
+      const [a, b] = head.split('→').map((x) => x.trim());
+      await page.click('#swap');
+      await page.waitForFunction(([x, y]) => { const t = document.querySelector('#res .section-title h2')?.textContent || ''; return t.includes(`${y} → ${x}`) || t.includes(`${y}→${x}`); }, [a, b], { timeout: 15000 });
+      const from = await page.inputValue('select[name="from"]');
+      await page.selectOption('select[name="to"]', from);
+      await page.click('#f .btn');
+      await page.waitForSelector('#res :text("起訖站不可相同")');
+    });
+  }
+});
+
 // 生活服務（M10）：首頁 9 個格子都進得去、各自顯示對應卡片、無錯誤；發票卡片內對獎
 test('生活服務：首頁格子 → 服務頁卡片（捷運、天氣、空品、地震、藥局、垃圾車、油價、股市、發票）', async () => {
   const CASES = [['metro', 'metro'], ['weather', 'weather'], ['aqi', 'aqi'], ['quake', 'quake'], ['pharmacy', 'pharmacy'], ['garbage', 'garbage'], ['fuel', 'fuel'], ['stock', 'stock'], ['invoice', 'invoice']];

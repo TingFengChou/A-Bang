@@ -97,6 +97,17 @@ await page.screenshot({ path: 'test/screenshots/agent-trip-rain.png', fullPage: 
 
 寫測試時：跟時間有關的一律給固定時間——`parseIntent(q, { now })`、`arriveByOf(text, now)`、`departTimeOf(text, arriveBy, now)`、情境集的 `"at": "07:00"`、`runDemo(…, { now })`。只想跑某個時段：`CLOCK_TIMES=15:00 npm run test:clock`。
 
+### 覆蓋盤點（V1-4，2026-11-28）
+
+| 類別 | 結果 |
+|---|---|
+| 工具（41 個，`listTools()`） | 每個都有單元測試提到 |
+| 卡片（`public/ui/cards/cards/`） | 除了 `bus-station` 都有單元測試；`bus-station` 由 e2e（MCP Apps、站牌頁）涵蓋 |
+| 頁面 | 生活格子 9 個（`#/s/:id`）、附近、公車、問阿幫、防詐、設定、我的、提醒、腦袋都有 e2e；**台鐵頁 `#/rail/tra` 原本沒有、高鐵頁只測返回鍵** → 新增「時刻表頁」e2e（預設起訖、班次、交換、同站） |
+| 只能手動或實機驗的 | 原生外掛的真實行為（語音辨識、相機讀字、Health Connect、通知、下車提醒常駐服務、Gemini Nano／Apple Intelligence）→ `smoke:android`、`smoke:ios` 與 PLAN.md V4、V5 手動清單 |
+
+盤點方法：`listTools()` 的名稱、卡片檔名、`public/js/pages` 的路由，逐一在 `test/*.test.js`、`scripts/e2e.js`、情境集裡找。新增工具、卡片、頁面時同時補測試。
+
 ## 7. 本機真實資料檢查（Austin）
 
 ```bash
