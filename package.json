@@ -13,6 +13,7 @@
     "app:sync": "node scripts/build-app.js && cap sync",
     "ios:dev": "node scripts/ios-dev-install.js",
     "test": "node --test test/*.test.js",
+    "test:clock": "node scripts/test-clock.js",
     "e2e": "node --test scripts/e2e.js",
     "lint": "eslint .",
     "fetch:judge-model": "node scripts/fetch-judge-model.js",

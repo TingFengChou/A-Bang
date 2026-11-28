@@ -19,12 +19,13 @@ test('groundedPrefs：抵達時間、交通方式、不要的方式、狀態只�
 
 test('中文時間也抽得到（「九點半前」「下午兩點前到」「早上10點到」）；「10點出發」不是抵達時間', async () => {
   const { arriveByOf, parseIntent } = await import('../core/agent/demo-intent.js');
-  assert.equal(arriveByOf('九點半前到台北101'), '09:30');
-  assert.equal(arriveByOf('下午兩點前到西門町'), '14:00');
-  assert.equal(arriveByOf('早上10點到台北101'), '10:00');
-  assert.equal(arriveByOf('十二點前'), '12:00');
-  assert.equal(arriveByOf('10點出發去台北101'), null);
-  assert.equal(groundedPrefs({ arriveBy: '09:30' }, parseIntent('九點半前到台北101')).arriveBy, '09:30', '模型填對的時間不會被刪');
+  const MORNING = Date.parse('2026-11-21T06:00:00+08:00'); // 固定早上：沒說早晚、已經過了的時間會推到晚上（PM 第二輪），結果不能看跑測試的時間（V1-1）
+  assert.equal(arriveByOf('九點半前到台北101', MORNING), '09:30');
+  assert.equal(arriveByOf('下午兩點前到西門町', MORNING), '14:00');
+  assert.equal(arriveByOf('早上10點到台北101', MORNING), '10:00');
+  assert.equal(arriveByOf('十二點前', MORNING), '12:00');
+  assert.equal(arriveByOf('10點出發去台北101', MORNING), null);
+  assert.equal(groundedPrefs({ arriveBy: '09:30' }, parseIntent('九點半前到台北101', { now: MORNING })).arriveBy, '09:30', '模型填對的時間不會被刪');
 });
 
 test('起訖點依提示詞判斷：「去台北101，從西門町出發」起點是西門町', async () => {
@@ -114,7 +115,7 @@ test('contextNote：接著改的那一輪說沿用什麼、改了什麼；理由
   const H = (...t) => t.flatMap((x) => [{ role: 'user', content: x }, { role: 'assistant', content: '好' }]);
   assert.equal(contextNote(parseIntent('不要叫車', { history: H('從西門町叫車去台北101') })), '沿用：西門町 → 台北101｜改：不要叫車');
   assert.equal(contextNote(parseIntent('改坐公車', { history: H('從西門町去台北101') })), '沿用：西門町 → 台北101｜改：坐公車');
-  assert.equal(contextNote(parseIntent('九點要到', { history: H('去台北101') })), '沿用：你的位置 → 台北101｜改：09:00 前到');
+  assert.equal(contextNote(parseIntent('九點要到', { history: H('去台北101'), now: Date.parse('2026-11-21T06:00:00+08:00') })), '沿用：你的位置 → 台北101｜改：09:00 前到'); // 固定早上（V1-1）
   assert.equal(contextNote(parseIntent('去台北101')), null, '不是接著改');
   const { decide } = await import('../core/decide.js');
   const opts = [{ id: 'r', role: 'ridehail', name: '叫車', minutes: 10, cost: 300, walkMin: 0, waitMin: 3 }, { id: 'b', role: 'bus', name: '公車 601', minutes: 25, cost: 15, walkMin: 5, waitMin: 5 }];
