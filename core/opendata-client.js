@@ -10,12 +10,25 @@ export class OpenDataError extends Error {
 export const FAIL_COOLDOWN_MS = 30_000;
 /** TTL 至少這麼長（秒）的資料（每日更新的大檔：藥局、診所、辦事須知）過期後先給舊的、背景更新；即時資料照舊等下載 */
 export const SWR_MIN_TTL_SEC = 3600;
+/** 快取最多幾筆（網址）：超過時最久沒用的先刪；失敗紀錄也算（架構第三輪 #3：原本只有成功時才淘汰，上游斷線時每個不同的查詢字都留一筆） */
+export const MAX_ENTRIES = 200;
 
 /**
  * @param {{ fetchImpl?: typeof fetch, now?: () => number, timeoutMs?: number }} [opts]
  */
 export function createOpenDataClient({ fetchImpl = fetch, now = () => Date.now(), timeoutMs = 30_000 } = {}) {
-  const cache = new Map(); // key → { exp, at, data, pending?, failedAt?, error? }
+  const cache = new Map(); // key → { exp, at, data, pending?, failedAt?, error? }；Map 的順序＝最近用過的在後面
+  /** 寫入並移到最新；超過上限刪最久沒用的（下載中的不刪：同一網址同時只下載一次） */
+  const put = (url, entry) => {
+    cache.delete(url);
+    cache.set(url, entry);
+    for (const [k, v] of cache) {
+      if (cache.size <= MAX_ENTRIES) break;
+      if (k !== url && !v.pending) cache.delete(k);
+    }
+  };
+  /** 失敗紀錄只留訊息與狀態（不留錯誤堆疊，記憶體與 log 都小） */
+  const slim = (e) => Object.assign(new OpenDataError(e?.message || '資料暫時無法取得', e?.status ?? 502), e?.upstreamStatus && { upstreamStatus: e.upstreamStatus });
 
   /**
    * @param {string} url
@@ -40,22 +53,22 @@ export function createOpenDataClient({ fetchImpl = fetch, now = () => Date.now()
       let data;
       try { data = parse(as === 'json' && typeof body === 'string' ? JSON.parse(body) : body); } catch (e) { throw new OpenDataError(`${label}格式不符預期：${e.message}`); }
       recordFetch({ cacheHit: false, data });
-      cache.set(url, { exp: now() + ttlSec * 1000, at: now(), data });
-      if (cache.size > 200) cache.delete(cache.keys().next().value);
+      put(url, { exp: now() + ttlSec * 1000, at: now(), data });
       return data;
     })().catch((e) => {
       // 更新失敗：舊資料還不算太舊（staleLimitSec）就先用舊的，太舊或沒有就丟錯（照實說資料暫時拿不到，不把幾小時前的資料當現在）
-      if (usable(hit, ttlSec)) { cache.set(url, { ...hit, exp: Math.min(now() + 60_000, (hit.at ?? 0) + staleLimitSec(ttlSec) * 1000) }); return hit.data; }
-      cache.set(url, { failedAt: now(), error: e }); // 冷卻：這段時間內不重複下載
-      throw e;
+      if (usable(hit, ttlSec)) { put(url, { ...hit, exp: Math.min(now() + 60_000, (hit.at ?? 0) + staleLimitSec(ttlSec) * 1000) }); return hit.data; }
+      const err = slim(e);
+      put(url, { failedAt: now(), error: err }); // 冷卻：這段時間內不重複下載
+      throw err;
     });
-    cache.set(url, { ...(hit || {}), pending });
+    put(url, { ...(hit || {}), pending });
     return pending;
   }
 
   async function get(url, o) {
     const hit = cache.get(url);
-    if (hit?.data !== undefined && now() < hit.exp) { recordFetch({ cacheHit: true, data: hit.data }); return hit.data; }
+    if (hit?.data !== undefined && now() < hit.exp) { cache.delete(url); cache.set(url, hit); recordFetch({ cacheHit: true, data: hit.data }); return hit.data; } // 用過的移到最新（最久沒用的先刪）
     if (hit?.pending) return hit.data !== undefined && (o.swr ?? o.ttlSec >= SWR_MIN_TTL_SEC) && usable(hit, o.ttlSec) ? hit.data : hit.pending;
     if (hit?.error && now() - hit.failedAt < FAIL_COOLDOWN_MS) throw hit.error;
     // 每日更新的大檔：過期但還能沿用 → 先給舊的，背景更新（使用者不用等 16 MB 下載與解析）
@@ -66,5 +79,5 @@ export function createOpenDataClient({ fetchImpl = fetch, now = () => Date.now()
     }
     return refresh(url, hit, o);
   }
-  return { get };
+  return { get, size: () => cache.size };
 }
