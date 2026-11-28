@@ -127,18 +127,3 @@ export function todayPlan({ now = Date.now(), day = null, weather = null, aqi = 
   const basis = ['依據：', located ? '你的位置' : area ? `${area.county}${area.town}` : '台北車站附近', keys.length ? `・${keys.join('、')}` : '', kind.known ? '・辦公日曆' : ''].join('');
   return { show: true, tier, date, kind, say: `${greetOf(hour)}！${lead}${loading ? '我在看天氣…' : ''}`, tips: w.tips, acts: acts.slice(0, 2), basis };
 }
-
-/**
- * 首頁「這個時段常用」（第十四輪 e）：只放兩格、放在格子上面；下面的格子位置不動（Antigravity：整頁洗牌會破壞肌肉記憶）。
- * 上班日早上公車、捷運；傍晚公車、垃圾車；深夜捷運（收班）、藥局；白天與放假天氣、YouBike；放假早上天氣、藥局。
- * @returns {{ ids: string[], label: string }}
- */
-export function pinnedTiles({ now = Date.now(), workday = null } = {}) {
-  const { hour, dow } = twClock(now);
-  const work = typeof workday === 'boolean' ? workday : !(dow === 0 || dow === 6);
-  const part = dayPart(hour);
-  if (part === 'morning') return work ? { ids: ['bus', 'metro'], label: '通勤時間' } : { ids: ['weather', 'pharmacy'], label: '放假的早上' };
-  if (part === 'evening') return { ids: ['bus', 'garbage'], label: work ? '下班時間' : '傍晚' };
-  if (part === 'late') return { ids: ['metro', 'pharmacy'], label: '晚上' };
-  return { ids: ['weather', 'bike'], label: work ? '白天' : '放假的白天' };
-}
