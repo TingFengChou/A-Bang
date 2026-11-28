@@ -342,6 +342,7 @@ export const MESSAGES = {
   'govOffice.offDay': '{date}放假{note}',
   'govOffice.offNote': '（{note}）',
   'govOffice.guess': '今年的辦公日曆還沒有今天的資料，照週末推的。',
+  'govOffice.calendarFailed': '辦公日曆這次連不上，照週末推的；補班或連假可能不準，去之前先打電話確認。',
   'govOffice.m': '{m} 公尺',
   'govOffice.km': '{km} 公里',
   'govOffice.walk': '・走路約 {n} 分',

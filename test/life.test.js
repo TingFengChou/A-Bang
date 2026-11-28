@@ -115,7 +115,7 @@ test('開放資料 client：快取、同時只下載一次、失敗沿用舊資�
   await assert.rejects(od.get('v', o), (e) => e.name === 'OpenDataError' && /測試資料連線失敗/.test(e.message) && !/SECRET/.test(e.message));
   const bad = createOpenDataClient({ fetchImpl: async () => new Response('api_key 不存在。', { status: 200 }) });
   const fx = createLiveLifeFetchers({ od: bad, cwa: null, moenvKey: 'k', demo: {} });
-  await assert.rejects(fx.aqi(), /環境部空氣品質資料格式不符預期/);
+  await assert.rejects(fx.aqi(), (e) => /環境部空氣品質資料格式不符預期/.test(e.message) && /阿幫這邊的設定有問題/.test(e.publicMsg) && !/格式有變/.test(e.publicMsg));
 });
 
 test('dataSources：各類資料真實／示範（網頁標示用），不含金鑰', () => {

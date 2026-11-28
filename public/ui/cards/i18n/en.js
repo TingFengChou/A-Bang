@@ -351,6 +351,7 @@ export const MESSAGES = {
   'govOffice.offDay': 'Government offices are closed on {date}{note}',
   'govOffice.offNote': ' ({note})',
   'govOffice.guess': 'This year’s office calendar has no entry for today; guessed from the weekday.',
+  'govOffice.calendarFailed': 'Couldn’t reach the office calendar this time; guessed from the weekday. Make-up workdays or long weekends may differ, so call before you go.',
   'govOffice.m': '{m} m',
   'govOffice.km': '{km} km',
   'govOffice.walk': ' · about {n} min walk',

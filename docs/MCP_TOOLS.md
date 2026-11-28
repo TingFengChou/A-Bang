@@ -401,7 +401,7 @@ MyDrama 的公開讀取端點（排行、搜尋、單劇、簡介、熱搜；不
 speak 範例：「「國民身分證初發、補發、換發」：可以臨櫃辦，當日完成（資料 2022-11-24 更新，以機關公告為準）。」找不到：「沒有找到「…」的申辦說明，換個說法試試看。」
 規則：只讀公開說明，不登入、不送件、不收個資；要身分驗證的申辦只給官方網頁，由使用者自己開（ADR-0011）。
 
-| `gov_office_nearby` | `lat`、`lon`（台灣範圍）；`limit?` 1～5（預設 3） | `offices[]`：`{ name, address, tel, lat, lon, distanceM, walkMin, nav }`（依距離）；`today`：`{ date（11/27（五））, workday, note（放假原因）, known（false＝日曆沒有今天、照週末推） }`；`source` |
+| `gov_office_nearby` | `lat`、`lon`（台灣範圍）；`limit?` 1～5（預設 3） | `offices[]`：`{ name, address, tel, lat, lon, distanceM, walkMin, nav }`（依距離）；`today`：`{ date（11/27（五））, workday, note（放假原因）, known（false＝日曆沒有今天、照週末推）, calendarFailed?（true＝日曆這次下載失敗，跟「新年度還沒公布」分開說） }`；`source` |
 
 speak 範例：「最近的是臺北市中正區戶政事務所，約 1.7 公里（走路約 30 分）。今天 11/27（五）是上班日。」營業時間各所不同、資料沒有時間：只說上班日，不說「現在有開」，建議先打電話。
 

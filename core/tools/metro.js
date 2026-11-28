@@ -90,7 +90,7 @@ const NEAR_MAX_M = 3000;
 export async function systemOfStation(svc, station, pt = null) {
   const systems = Object.keys(METRO_SYSTEMS);
   const lists = await Promise.allSettled(systems.map((sys) => svc.metro.stations({ system: sys })));
-  if (lists.every((r) => r.status === 'rejected')) throw shown(new TdxError(503, '捷運車站資料暫時查不到，請稍後再試'));
+  if (lists.every((r) => r.status === 'rejected')) throw shown(new TdxError(503, '捷運車站資料現在連不上，這次查不到；急的話可以先看官方的捷運 App'));
   const hits = [];
   lists.forEach((r, i) => {
     if (r.status !== 'fulfilled') return;
@@ -116,7 +116,7 @@ export async function nearestMetro(svc, pt, only, line = null) {
   if (!pt) return null;
   const systems = only ? [only] : Object.keys(METRO_SYSTEMS);
   const lists = await Promise.allSettled(systems.map((sys) => svc.metro.stations({ system: sys })));
-  if (lists.every((r) => r.status === 'rejected')) throw shown(new TdxError(503, '捷運車站資料暫時查不到，請稍後再試'));
+  if (lists.every((r) => r.status === 'rejected')) throw shown(new TdxError(503, '捷運車站資料現在連不上，這次查不到；急的話可以先看官方的捷運 App'));
   let best = null;
   lists.forEach((r, i) => {
     for (const s of r.status === 'fulfilled' ? r.value : []) {
@@ -165,7 +165,7 @@ export const metroRoute = defineTool({
     if (REGION[A.system] !== REGION[B.system]) throw new UserError(`${A.st.name}（${METRO_SYSTEMS[A.system]}）和 ${B.st.name}（${METRO_SYSTEMS[B.system]}）在不同城市，捷運不相通；要跨縣市請用行程規劃（例如「台北到台中」）`);
     if (stationKey(A.st.name) === stationKey(B.st.name)) throw new UserError(`上車站和下車站都是${A.st.name}；請給兩個不同的站`);
     // 北部：上下車的系統＋台北捷運（三鶯線、淡海輕軌等都靠北捷轉）；南部：高雄捷運＋高雄輕軌（linkedSystems）
-    const found = await metroNetRoute(svc.metro, { from: A.st.name, to: B.st.name, systems: linkedSystems(A.system, B.system) });
+    const found = await metroNetRoute(svc.metro, { from: A.st.name, to: B.st.name, systems: linkedSystems(A.system, B.system), strict: true }); // 路網載不到：丟原本的錯（連不上），不說成路網沒有這一站
     if (!found) throw new UserError(`查不到從${A.st.name}到${B.st.name}的捷運路線（路網資料可能還沒有這一站）；可以改用行程規劃`);
     const { routes, fare, fares } = found;
     // 第一段的下一班（看板＋時刻表；台中捷運只有班距）

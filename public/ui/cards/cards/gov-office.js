@@ -15,7 +15,7 @@ export default {
     const day = today.workday ? t(`govOffice.workday${on}`, { date }) : t(`govOffice.off${on}`, { date, note: today.note ? t('govOffice.offNote', { note: today.note }) : '' });
     return h('div', { class: 'ab-body' },
       h('p', { class: today.workday ? 'ab-chip ok ab-gov-day' : 'ab-chip warn ab-gov-day', role: 'status' }, day),
-      !today.known && h('p', { class: 'ab-sub' }, t('govOffice.guess')),
+      !today.known && h('p', { class: 'ab-sub' }, t(today.calendarFailed ? 'govOffice.calendarFailed' : 'govOffice.guess')),
       d.offices.length ? h('ul', { class: 'ab-list' }, d.offices.map((o) => h('li', { class: 'ab-gov-office' },
         h('div', { class: 'ab-row' }, h('span', { class: 'ab-name' }, o.name), h('span', { class: 'ab-sub' }, `${far(o.distanceM, t)}${o.walkMin ? t('govOffice.walk', { n: o.walkMin }) : ''}`)),
         h('p', { class: 'ab-sub' }, o.address),

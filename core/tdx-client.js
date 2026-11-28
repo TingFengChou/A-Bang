@@ -145,7 +145,7 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
   }
 
   /** 逾時（連線或讀 body）→ TdxError 504；其他錯誤原樣 */
-  const timeoutOr = (e) => (e?.name === 'TimeoutError' || e?.name === 'AbortError' ? shown(new TdxError(504, 'TDX 回應逾時，請稍後再試'), '交通資料（TDX）回應太慢，請稍後再試。') : e);
+  const timeoutOr = (e) => (e?.name === 'TimeoutError' || e?.name === 'AbortError' ? shown(new TdxError(504, 'TDX 回應逾時'), '交通資料（TDX）回應太慢，這次查不到；急的話可以先看官方的交通 App。') : e);
 
   const limitError = (resetMs) => {
     const s = Math.ceil(resetMs / 1000);
@@ -210,8 +210,8 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
       stats.refused++;
       throw shown(new TdxError(429, `TDX 呼叫次數已達方案上限${Number.isFinite(perMin) && perMin > 0 ? `（每分鐘 ${perMin} 次）` : ''}，請${Number.isFinite(reset) && reset > 0 ? `約 ${Math.ceil(reset)} 秒後` : '稍後'}再試`));
     }
-    if (!res.ok) throw shown(new TdxError(res.status, `TDX API 錯誤 ${res.status}：${(await res.text().catch(() => '')).slice(0, 200)}`), '交通資料（TDX）暫時無法取得，請稍後再試。'); // 上游回應內容只進 log
-    const data = await res.json().catch((e) => { throw e instanceof SyntaxError ? shown(new TdxError(502, 'TDX 回應格式錯誤'), '交通資料（TDX）暫時無法取得，請稍後再試。') : timeoutOr(e); });
+    if (!res.ok) throw shown(new TdxError(res.status, `TDX API 錯誤 ${res.status}：${(await res.text().catch(() => '')).slice(0, 200)}`), '交通資料（TDX）現在連不上，這次查不到；急的話可以先看官方的交通 App。'); // 上游回應內容只進 log
+    const data = await res.json().catch((e) => { throw e instanceof SyntaxError ? shown(new TdxError(502, 'TDX 回應格式錯誤'), '交通資料（TDX）現在連不上，這次查不到；急的話可以先看官方的交通 App。') : timeoutOr(e); });
     const cat = endpointCategory(path);
     stats.sent++;
     stats.byCategory[cat] = (stats.byCategory[cat] || 0) + 1;

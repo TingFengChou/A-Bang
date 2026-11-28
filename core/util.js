@@ -88,7 +88,8 @@ export class UserError extends Error {
 }
 
 /** 非 UserError（上游、程式錯誤）對外一律回這句；細節只寫伺服器 log，避免洩漏上游回應或檔案路徑 */
-export const INTERNAL_ERROR_MSG = '資料來源暫時無法取得，請稍後再試。';
+// 沒有重置時間就不叫使用者「稍後再試」（Antigravity 第四輪的文案原則：不開空頭支票，說查不到）
+export const INTERNAL_ERROR_MSG = '這項資料現在連不上，阿幫這次查不到。';
 /** 錯誤 → 可以給使用者看的訊息 */
 export const publicMessage = (e) => (e instanceof UserError ? e.message : typeof e?.publicMsg === 'string' && e.publicMsg ? e.publicMsg : INTERNAL_ERROR_MSG);
 /**
