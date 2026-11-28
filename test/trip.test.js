@@ -155,4 +155,11 @@ test('捷運方案（S7）：同線直達、轉乘站（在台北車站轉乘）
   const broken = { ...svc, metro: { ...svc.metro, stations: async () => { throw new Error('down'); } } };
   const b = await planTrip(broken, { from: P('台北車站', 25.0478, 121.517), to: P('南港展覽館', 25.0553, 121.6175), departAt: '2026-11-21T10:00' });
   assert.ok(b.unavailable.includes('metro'));
+  // 只有北捷的車站清單壞掉（P0-2 B）：不說「附近沒有捷運站」，說連不上
+  const partly = { ...svc, metro: { ...svc.metro, stations: async (a) => { if (a.system === 'TRTC') throw new Error('down'); return svc.metro.stations(a); } } };
+  const p2 = await planTrip(partly, { from: P('台北車站', 25.0478, 121.517), to: P('南港展覽館', 25.0553, 121.6175), departAt: '2026-11-21T10:00' });
+  const m2 = p2.missing.find((x) => x.role === 'metro');
+  assert.equal(m2?.kind, 'skipped');
+  assert.match(m2.why, /^有些捷運系統的車站資料這次連不上，沒辦法確認附近有沒有捷運/);
+  assert.ok(!p2.options.some((o) => o.role === 'metro'));
 });

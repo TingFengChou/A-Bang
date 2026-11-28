@@ -10,7 +10,7 @@ export default {
     const stat = (label, value) => h('div', { class: 'ab-stat' }, h('span', { class: 'ab-sub' }, label), h('strong', null, value));
     return h('div', { class: 'ab-body' },
       weatherScene(sceneOf(d)),
-      h('p', { class: d.raining ? 'ab-wx rain' : 'ab-wx' }, d.raining ? t('weather.rain') : t('weather.dry')),
+      h('p', { class: d.raining ? 'ab-wx rain' : 'ab-wx' }, d.raining ? t('weather.rain') : d.rainKnown === false ? t('weather.rainUnknown') : t('weather.dry')),
       h('div', { class: 'ab-stats' },
         stat(t('weather.temp'), d.tempC != null ? `${d.tempC}°C` : '—'),
         stat(t('weather.rain1h'), d.rainMm1h != null ? `${d.rainMm1h} mm` : '—'),

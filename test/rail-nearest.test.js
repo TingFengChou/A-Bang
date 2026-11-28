@@ -56,3 +56,11 @@ test('callKey：時刻表以起訖站與日期比對；沒有起站不比對', (
   assert.equal(callKey('thsr_timetable', { from: '臺北', to: '台中' }), callKey('thsr_timetable', { from: '台北', to: '台中' }));
   assert.equal(callKey('thsr_timetable', { to: '台中', near: { lat: 25, lon: 121 } }), null);
 });
+
+test('工具 near：最近幾站的時刻表都因上游壞掉查不到 → 照實說連不上，不反問從哪一站出發（P0-2 B 降級盤點）', async () => {
+  const { TdxError } = await import('../core/tdx-client.js');
+  const { shown, publicMessage } = await import('../core/util.js');
+  const svc = createServices({ forceMock: true });
+  const down = { ...svc, rail: { ...svc.rail, thsrTimetable: async () => { throw shown(new TdxError(503, 'TDX API 錯誤 503'), '交通資料（TDX）暫時無法取得'); } } };
+  await assert.rejects(callTool(down, 'thsr_timetable', { to: '台中', near: { lat: 25.0418, lon: 121.5654 } }), (e) => e instanceof TdxError && publicMessage(e) === '交通資料（TDX）暫時無法取得');
+});

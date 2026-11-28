@@ -6,7 +6,7 @@ import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const TIMES = (process.env.CLOCK_TIMES || '06:00,10:30,15:00,22:30,00:30').split(',').map((s) => s.trim()).filter(Boolean);
+const TIMES = (process.env.CLOCK_TIMES || '06:00,10:30,14:00,22:30,00:30').split(',').map((s) => s.trim()).filter(Boolean);
 const files = readdirSync(new URL('../test/', import.meta.url)).filter((f) => f.endsWith('.test.js')).sort().map((f) => `test/${f}`);
 
 let bad = 0;

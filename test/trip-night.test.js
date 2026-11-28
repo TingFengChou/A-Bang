@@ -232,6 +232,27 @@ test('審查 5：directTrips 內部 routeEta 429 記下來，公車原因照實�
   assert.match(bus.whyEn, /TDX quota used up/);
 });
 
+test('P0-2 B：directTrips 的路線查詢上游壞掉 → 說「公車系統這次連不上」，不說成沒有直達公車；使用者輸入錯誤不算', async () => {
+  const { createTransitServices } = await import('../core/services/transit.js');
+  const { UserError } = await import('../core/util.js');
+  const live = createTransitServices({ get: async () => [] });
+  live.bus.nearbyStations = async ({ lat, lon }) => [{ name: 'A', city: 'Taipei', lat, lon, routes: ['307'] }];
+  live.bus.routeEta = async () => { throw new TdxError(503, 'TDX API 錯誤 503'); };
+  const out = await live.bus.directTrips({ from: MAIN, to: T101 });
+  assert.deepEqual([out.length, out.failed, out.limited, Object.keys(out).length], [0, true, undefined, 0]);
+  live.bus.routeEta = async () => { throw new UserError('台北市找不到路線「307」'); };
+  assert.equal((await live.bus.directTrips({ from: MAIN, to: T101 })).failed, undefined, '找不到路線不是上游壞掉');
+  const svc = { ...createServices({ forceMock: true }), mode: 'live' };
+  svc.bus = { ...svc.bus, directTrips: async () => Object.defineProperty([], 'failed', { value: true }) };
+  for (const [label, r] of [['現在出發', await plan(svc, '10:00')], ['晚一點才出發', await plan(svc, '12:00', at('10:00'))]]) {
+    const bus = r.missing.find((x) => x.role === 'bus');
+    assert.equal(bus.kind, 'skipped', label);
+    assert.match(bus.why, /^公車系統這次連不上，沒辦法確認有沒有直達車/, label);
+    assert.doesNotMatch(bus.why, /稍後再試/);
+    assert.match(bus.whyEn, /Couldn't reach the bus system/);
+  }
+});
+
 test('審查 6：站牌狀態 4（今日未營運）不當收班、不觸發深夜第一句；只有 3 算收班', async () => {
   const base = createServices({ forceMock: true });
   const withStatus = (s) => ({ ...base, mode: 'live', bus: { ...base.bus, directTrips: async (a) => (await base.bus.directTrips(a)).map((t) => ({ ...t, board: { ...t.board, status: s } })) } });

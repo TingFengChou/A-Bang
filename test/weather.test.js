@@ -252,3 +252,25 @@ test('現在天氣借附近站的氣溫時，縣市與鄉鎮仍照最近的站�
   const r = pickNowStation([st('臺灣大學', '大安區', 0.012, null, '陰'), st('公館', '中正區', 0.03, 22.8, null)], 25, 121.5);
   assert.deepEqual([r.name, r.town, r.tempC, r.weather], ['公館', '大安區', 22.8, '陰']);
 });
+
+test('雨量站與降雨機率都查不到：不說「沒下雨」，說查不到（P0-2 B 降級盤點、Antigravity 第四輪）', async () => {
+  const { buildWeather } = await import('../core/services/weather.js');
+  const { SPEAK_EN } = await import('../core/tools/speak-en.js');
+  const { impactOf } = await import('../core/agent/impact.js');
+  const { weatherNow } = await import('../core/tools/weather.js');
+  const { t } = await import('../public/ui/cards/i18n/zh-TW.js');
+  const card = (await import('../public/ui/cards/cards/weather.js')).default;
+  const st = { name: '中正', town: '中正區', county: '臺北市', lat: 25.04, lon: 121.51, tempC: 22.5, weather: '陰' };
+  const w = buildWeather(st, null, null, 25.04, 121.51);
+  assert.equal(w.raining, false);
+  assert.equal(w.rainKnown, false);
+  assert.equal(weatherNow.speak(w), '中正區22.5°C，下不下雨這次查不到（附近的雨量站和降雨機率都沒有資料）。');
+  assert.doesNotMatch(SPEAK_EN.weather_now(w), /Not raining/);
+  assert.match(impactOf('weather_now', w).text, /查不到/);
+  assert.match(String(card.body), /rainKnown === false \? t\('weather\.rainUnknown'\)/, '卡片不顯示「現在沒下雨」');
+  assert.equal(t('weather.rainUnknown'), '下不下雨這次查不到');
+  assert.equal((await import('../public/ui/cards/i18n/en.js')).MESSAGES['weather.rainUnknown'], "Couldn't get rain data this time");
+  // 只要有一個查得到，就照原本判斷
+  assert.equal(buildWeather(st, null, 10, 25.04, 121.51).rainKnown, true);
+  assert.equal(weatherNow.speak(buildWeather(st, { rainMm1h: 0, name: '雨量站' }, null, 25.04, 121.51)), '中正區現在沒下雨，22.5°C。');
+});

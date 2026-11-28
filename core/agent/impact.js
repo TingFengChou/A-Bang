@@ -62,6 +62,7 @@ export function impactOf(name, data) {
   switch (name) {
     case 'weather_now':
       if (data.raining) return { tone: 'bad', text: '下雨：走路、YouBike 在「戶外」會扣分' };
+      if (data.rainKnown === false) return { tone: 'neutral', text: '雨量資料這次查不到：不考慮下雨' };
       if ((data.pop3h ?? 0) >= 50) return { tone: 'neutral', text: `降雨機率 ${data.pop3h}%：先記著，現在沒下就不扣分` };
       return { tone: 'good', text: '沒下雨：走路、YouBike 不扣分' };
     case 'aqi_nearby': {

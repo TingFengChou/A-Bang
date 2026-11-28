@@ -47,7 +47,8 @@ export function check(es, x = {}) {
   for (const w of x.textHas || []) if (!text.includes(w)) bad.push(`總結缺「${w}」`);
   for (const w of x.textNot || []) if (text.includes(w)) bad.push(`總結不該有「${w}」`);
   const said = es.filter((e) => e.type === 'tool_result').map((e) => e.speak || '').join('');
-  for (const w of x.resultHas || []) if (!said.includes(w)) bad.push(`工具回報缺「${w}」`);
+  // 一項可以是陣列：其中一個出現就算（結果會隨當下時間換一個說法時，例：垃圾車那一站正在收時改講隔壁點）
+  for (const w of x.resultHas || []) if (![].concat(w).some((y) => said.includes(y))) bad.push(`工具回報缺「${[].concat(w).join('」或「')}」`);
   for (const w of x.tipHas || []) if (!(trip?.data?.tips || []).some((t) => t.text.includes(w))) bad.push(`行程提醒缺「${w}」`);
   for (const [role, word] of Object.entries(x.optionHas || {})) { const o = d?.options.find((y) => y.role === role); if (!o) bad.push(`沒有 ${role} 方案`); else if (word && !o.name.includes(word)) bad.push(`${role} 方案名稱缺「${word}」（${o.name}）`); }
   if (decisions.length > 1) bad.push(`決策出現 ${decisions.length} 次（重複的行程卡）`);

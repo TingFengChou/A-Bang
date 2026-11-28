@@ -278,14 +278,15 @@ async function railTimetable(svc, system, a) {
   const get = (from) => (system === 'THSR' ? svc.rail.thsrTimetable({ ...a, from }) : traTrips(svc, { from, to: a.to, date: a.date }));
   const cands = await railCandidates(svc, system, a);
   if (!cands) return get(a.from);
-  let first = null;
+  let first = null, err = null;
   for (const c of cands) {
-    const r = await get(c.station).catch(() => null);
+    const r = await get(c.station).catch((e) => { if (!(e instanceof UserError)) err = e; return null; });
     if (!r) continue;
     first ||= { r, c };
     if (r.trains.length) return { ...r, nearest: c, ...(c !== cands[0] && { skipped: cands[0].station }) };
   }
   if (first) return { ...first.r, nearest: first.c };
+  if (err) throw err; // 上游壞掉：照實說時刻表連不上，不反問使用者從哪一站出發（P0-2 B 降級盤點）
   throw new UserError('附近的車站查不到班次；請告訴我從哪一站出發');
 }
 

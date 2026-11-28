@@ -164,6 +164,7 @@ export function buildWeather(st, gauge, pop3h, lat, lon) {
     station: st.name, town: st.town, county: st.county,
     distanceM: distanceM(lat, lon, st.lat, st.lon),
     observedAt: st.observedAt, tempC: st.tempC, feelsC: apparentTemp(st.tempC, st.humidity, st.windMs), rainMm1h, rainStation: gauge?.name ?? null, pop3h, raining,
+    rainKnown: rainMm1h != null || pop3h != null, // 雨量與降雨機率都查不到：不知道下不下雨，不能說「沒下雨」（P0-2 B 降級盤點）
     summary: bits.join('，') || '暫無觀測資料',
   };
 }
