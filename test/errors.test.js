@@ -69,3 +69,14 @@ test('給使用者看的上游錯誤：沒有重置時間就不說「請稍後�
     assert.doesNotMatch(src, /請稍後再試/, f);
   }
 });
+
+test('降級文案總檢（第十三輪）：使用者看得到的字不說「稍後再試／再問／再查」，給現在就能做的事', async () => {
+  const { readFileSync } = await import('node:fs');
+  const files = ['core/tdx-client.js', 'core/tools/transit.js', 'core/services/trip.js', 'core/agent/demo-summary.js', 'server/agent.js',
+    'public/js/voice-i18n.js', 'public/js/health.js', 'public/js/location-help.js', 'public/js/pages/bus-i18n.js', 'public/js/pages/rail.js',
+    'public/js/pages/settings.js', 'public/js/pages/agent.js', 'public/ui/cards/i18n/zh-TW.js'];
+  for (const f of files) {
+    const code = readFileSync(new URL(`../${f}`, import.meta.url), 'utf8').split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n'); // 註解不算
+    assert.doesNotMatch(code, /稍後再?(試|問|查)|稍後'|等一下再問/, f);
+  }
+});

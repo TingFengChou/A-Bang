@@ -56,7 +56,7 @@ test('公車額度用完（白天）：假的「公車 綠1」不推、不盯到
   assert.ok(!r.options.some((o) => o.role === 'bus'));
   assert.ok(!r.options.some((o) => o.follow), '沒有公車可盯（回答不會問到站提醒）');
   assert.deepEqual(r.skipped.find((s) => s.role === 'bus'), limitSkip('bus'));
-  assert.equal(limitSkip('bus').why, 'TDX 額度用完，這次查不到公車到站（稍後再問一次）');
+  assert.equal(limitSkip('bus').why, 'TDX 額度用完，這次查不到公車到站（額度每分鐘重算，約一分鐘後再問）');
   assert.ok(r.options.some((o) => o.role === 'metro'), '其他大眾運輸照常比');
 });
 
@@ -113,7 +113,7 @@ test('只有票價額度用完：鐵路照列，票價不當 0 元，依距離�
 test('YouBike、捷運站表額度用完：不列入，不說成「附近沒有捷運站」', async () => {
   const { result: r } = await plan(liveWith({ bike: ['nearby'], metro: ['stations'] }), MAIN, T101);
   assert.equal(r.skipped.find((s) => s.role === 'bike')?.fallback, 'tdx-limit');
-  assert.equal(r.skipped.find((s) => s.role === 'metro')?.why, 'TDX 額度用完，這次查不到捷運車站（稍後再問一次）');
+  assert.equal(r.skipped.find((s) => s.role === 'metro')?.why, 'TDX 額度用完，這次查不到捷運車站（額度每分鐘重算，約一分鐘後再問）');
   assert.ok(!r.options.some((o) => ['bike', 'metro'].includes(o.role)));
 });
 
@@ -258,7 +258,7 @@ test('示範回答（英文、全部額度用完）：先說 limited.textEn，�
 
 test('英文影響：YouBike 因額度用完沒列入，不說成「一端沒車位」（PR #126 審查必修 2）', async () => {
   const { result: r } = await plan(liveWith({ bike: ['nearby'] }), MAIN, T101);
-  assert.equal(impactEn('plan_trip', r).text, "YouBike: TDX quota used up; couldn't get YouBike availability this time (try again shortly)");
+  assert.equal(impactEn('plan_trip', r).text, "YouBike: TDX quota used up; couldn't get YouBike availability this time (the quota resets every minute)");
   assert.match(r.limited.text, /查不到 YouBike/, '中英文之間空一格');
-  assert.equal(limitSkip('bike').why, 'TDX 額度用完，這次查不到 YouBike 車輛與空位（稍後再問一次）');
+  assert.equal(limitSkip('bike').why, 'TDX 額度用完，這次查不到 YouBike 車輛與空位（額度每分鐘重算，約一分鐘後再問）');
 });

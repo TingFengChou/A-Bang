@@ -26,10 +26,10 @@ export function demoClock(env = process.env) {
 /** 這一輪被中止（使用者斷線、或超過整輪上限）：不是錯誤，不再送事件 */
 export class TurnAborted extends Error { constructor(why) { super(why); this.name = 'TurnAborted'; } }
 /** 整輪超過上限時給使用者看的話 */
-export const TURN_TIMEOUT_MSG = '這一題查太久了，先停下來；可以換個說法或稍後再問一次。';
+export const TURN_TIMEOUT_MSG = '這一題查太久了，先停下來；可以換個說法，或把問題拆小一點再問（例如先問怎麼去、再問天氣）。';
 
 /** 模型出錯時給使用者看的話（不怪資料來源；細節只在伺服器 log 記錯誤類型） */
-export const MODEL_ERROR_MSG = 'AI 模型暫時無法回應，請稍後再試。';
+export const MODEL_ERROR_MSG = '阿幫這次沒想出來（AI 模型沒有回應）；可以再問一次，或換個說法。';
 /** 防詐改用規則回答時，討論串先說明 */
 export const MODEL_DOWN_NOTE = 'AI 模型暫時無法使用，這次先用規則比對 165 資料回答';
 

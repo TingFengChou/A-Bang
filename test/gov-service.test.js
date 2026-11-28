@@ -112,7 +112,7 @@ test('示範模式：查我的E政府、回答照資料並說不代替申辦', a
   const text = out.filter((e) => e.type === 'text').map((e) => e.delta).join('');
   assert.match(text, /當日完成/);
   assert.match(text, /阿幫不代替申辦/);
-  assert.match(demoSummary({ intent: 'gov' }, {}), /暫時拿不到/);
+  assert.match(demoSummary({ intent: 'gov' }, {}), /這次拿不到（資料來源連不上，不是沒有這項服務）/);
 });
 
 test('長輩常辦的事與台語說法（PM 審查 2026-11-28）：規則聽得懂、口語換成標題用字；戶政幾點開是找戶政', async () => {

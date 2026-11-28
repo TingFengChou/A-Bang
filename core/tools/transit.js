@@ -218,7 +218,7 @@ export function nearestSay(d) {
   return skip ? `${skip}${d.from}站（約 ${fmtM(d.nearest.distanceM)}）。` : `${d.nearest.from ? `離「${d.nearest.from}」最近` : '離你最近'}的${label}站是${d.from}（約 ${fmtM(d.nearest.distanceM)}）。`;
 }
 function railSpeakBody(d, now) {
-  if (!d.trains.length) return d.transfersUnavailable ? '那天沒有直達班次；換車的走法暫時查不到，稍後再問一次。' : d.system === 'TRA' ? '那天沒有直達班次，也找不到換車的走法。' : '那天沒有直達班次。';
+  if (!d.trains.length) return d.transfersUnavailable ? '那天沒有直達班次；換車的走法這次查不到（不是沒有車），可以換個日期或過一分鐘再問。' : d.system === 'TRA' ? '那天沒有直達班次，也找不到換車的走法。' : '那天沒有直達班次。';
   const type = (x) => (x.via?.length ? `（在${x.via.join('、')}換車）` : d.system === 'TRA' && x.type ? `（${x.type}）` : '');
   const up = upcomingTrains(d, now);
   if (!up) return `${d.date} 共 ${d.trains.length} 班，最早 ${d.trains[0].depart} 出發${type(d.trains[0])}、${d.trains[0].arrive} 到${d.to}。`;
@@ -236,7 +236,7 @@ function railTextBody(data, label, now) {
   const row = (t) => (t.legs
     ? `- 換車 ${t.transfers} 次（${t.via.join('、')}）：${t.depart} → ${t.arrive}，${t.minutes} 分｜${t.legs.map(leg).join('，')}`
     : `- ${t.trainNo} 次${t.type ? `（${t.type}）` : ''}：${t.depart} → ${t.arrive}，${t.minutes} 分`);
-  if (!data.trains.length) return `${label} ${data.from} → ${data.to}（${data.date}）沒有直達班次${data.transfersUnavailable ? '；換車的走法（台鐵定期時刻表）暫時查不到，請稍後再查，不要說成沒有車' : data.system === 'TRA' ? '，也找不到換車的走法' : ''}。`;
+  if (!data.trains.length) return `${label} ${data.from} → ${data.to}（${data.date}）沒有直達班次${data.transfersUnavailable ? '；換車的走法（台鐵定期時刻表）這次查不到，不要說成沒有車' : data.system === 'TRA' ? '，也找不到換車的走法' : ''}。`;
   const note = data.transferNote ? `\n（${data.transferNote}）` : '';
   const up = upcomingTrains(data, now);
   if (!up) return clip([`${label} ${data.from} → ${data.to}（${data.date}），共 ${data.trains.length} 班：`, ...data.trains.map(row)]) + note;

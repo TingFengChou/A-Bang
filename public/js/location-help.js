@@ -29,10 +29,10 @@ export function locationHelp(reason = lastLocationError()) {
     off: [app ? '手機的定位服務是關的。' : '這台裝置的定位服務是關的。', !app
       ? '打開系統的定位服務'
       : ios ? '到「設定 → 隱私權與安全性 → 定位服務」打開' : canOpen ? '按「到設定開啟」打開「使用位置資訊」' : '從螢幕上方往下滑，打開「位置資訊」'],
-    timeout: ['定位太久沒有回應。', '到窗邊或戶外，或稍後'],
-    unavailable: ['暫時拿不到位置。', '確認定位已開啟，稍後'],
+    timeout: ['定位太久沒有回應。', '到窗邊或戶外'],
+    unavailable: ['這次拿不到位置。', '確認定位已開啟'],
   }[r];
-  const tail = r === 'timeout' || r === 'unavailable' ? '再試一次。' : '，再試一次。';
+  const tail = '，再試一次；也可以直接說地點。'; // 不說「稍後」：給現在就能做的事（第十三輪降級文案總檢）
   return { reason: r, why, fix, text: `${why}${fix}${tail}`, canOpen };
 }
 

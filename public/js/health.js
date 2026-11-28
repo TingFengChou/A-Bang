@@ -67,7 +67,7 @@ export const HEALTH_WHY = {
   'no-healthkit': '這台裝置沒有「健康」App（例如 iPad），讀不到步數。',
   'no-entitlement': '這個版本的 Abang 沒有開通 Apple 健康（開發版用免費開發者帳號簽章，不能使用 HealthKit），所以讀不到步數。',
   'no-plugin': '這個版本的 App 還沒有健康資料功能，請更新 App。',
-  failed: '暫時讀不到健康資料，等一下再試。',
+  failed: '這次讀不到健康資料；再按一次試試，或確認健康資料的權限。',
 };
 export const HEALTH_DENIED = {
   android: '你沒有允許阿幫讀取步數和運動時間。要打開的話，按下面的「到 Health Connect 允許」，在 Abang 打開「步數」「運動」。',

@@ -71,8 +71,8 @@ const LIMIT_WHAT = {
 };
 export const limitSkip = (role) => ({
   role, fallback: 'tdx-limit',
-  why: `TDX 額度用完，這次查不到${LIMIT_WHAT[role][0]}（稍後再問一次）`,
-  whyEn: `TDX quota used up; couldn't get ${LIMIT_WHAT[role][1]} this time (try again shortly)`,
+  why: `TDX 額度用完，這次查不到${LIMIT_WHAT[role][0]}（額度每分鐘重算，約一分鐘後再問）`,
+  whyEn: `TDX quota used up; couldn't get ${LIMIT_WHAT[role][1]} this time (the quota resets every minute)`,
 });
 /** 這次 plan_trip 某個服務方法（bus.directTrips…）在真實模式下改用了示範資料 */
 const demoOf = (svc, ...keys) => svc.mode === 'live' && keys.some((k) => fellBack(k));
@@ -693,7 +693,7 @@ async function railOption(svc, system, from, to, straight, depart) {
   const arrMin = (t) => depMin(t) + t.minutes;
   const train = (tt.trains || []).filter((t) => depMin(t) >= ready)
     .sort((x, y) => arrMin(x) - arrMin(y) || (x.transfers || 0) - (y.transfers || 0) || depMin(y) - depMin(x))[0];
-  if (!train && tt.transfersUnavailable && !tt.trains?.length) return { none: { kind: 'none', why: '沒有直達車，換車的班次暫時查不到（稍後再問一次）', whyEn: "No direct train, and trips with a change of train can't be checked right now" } };
+  if (!train && tt.transfersUnavailable && !tt.trains?.length) return { none: { kind: 'none', why: '沒有直達車，換車的班次這次查不到（不是沒有車）', whyEn: "No direct train, and trips with a change of train can't be checked right now" } };
   if (!train) return { none: { kind: 'noService', why: '查不到趕得上的班次', whyEn: 'No train you can still catch today' } };
   const dep = depMin(train);
   // 出站：目的地走不到時試著接真實捷運（從列車抵達的時刻起算營運時間）
