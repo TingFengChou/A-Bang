@@ -63,6 +63,7 @@
   {"name": "大稻埕碼頭", "aliases": ["大稻埕", "Dadaocheng"], "city": "Taipei", "lat": 25.0566, "lon": 121.5085, "kind": "landmark", "en": "Dadaocheng Wharf"},
   {"name": "迪化街", "aliases": ["Dihua Street"], "city": "Taipei", "lat": 25.0558, "lon": 121.5101, "kind": "landmark", "en": "Dihua Street"},
   {"name": "內湖科學園區", "aliases": ["內科", "Neihu Science Park", "Neihu Technology Park"], "city": "Taipei", "lat": 25.079, "lon": 121.576, "kind": "landmark", "en": "Neihu Technology Park"},
+  {"name": "南港軟體園區", "aliases": ["南軟", "南港軟體工業園區", "Nangang Software Park"], "city": "Taipei", "lat": 25.0598, "lon": 121.6157, "kind": "landmark", "en": "Nangang Software Park"},
   {"name": "美麗華百樂園", "aliases": ["美麗華"], "city": "Taipei", "lat": 25.0833, "lon": 121.5571, "kind": "landmark"},
   {"name": "臺北植物園", "aliases": ["植物園", "台北植物園", "Botanical Garden"], "city": "Taipei", "lat": 25.0322, "lon": 121.5094, "kind": "landmark", "en": "Taipei Botanical Garden"},
   {"name": "二二八和平紀念公園", "aliases": ["二二八公園", "新公園", "228 Peace Memorial Park", "228 Park"], "city": "Taipei", "lat": 25.0408, "lon": 121.5156, "kind": "landmark", "en": "228 Peace Memorial Park", "walk": "park"},
