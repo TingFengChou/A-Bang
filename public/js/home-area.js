@@ -46,16 +46,17 @@ export async function areaPicker(box, { onChange } = {}) {
   tSel.setAttribute('aria-label', '區');
   cSel.append(mk('option', { value: '', textContent: '選縣市' }), ...areas.map((c, i) => mk('option', { value: String(i), textContent: c.county })));
   const fillTowns = () => {
-    const c = areas[Number(cSel.value)];
+    const c = cSel.value === '' ? null : areas[Number(cSel.value)]; // Number('') 是 0：沒選不能當成選了第一個
     tSel.replaceChildren(mk('option', { value: '', textContent: c ? '選區' : '先選縣市' }), ...(c ? c.towns.map((t, i) => mk('option', { value: String(i), textContent: t.town })) : []));
     tSel.disabled = !c;
   };
   const value = () => {
-    const c = areas[Number(cSel.value)], t = c?.towns[Number(tSel.value)];
+    const c = cSel.value === '' ? null : areas[Number(cSel.value)], t = tSel.value === '' ? null : c?.towns[Number(tSel.value)];
     return c && t && tSel.value !== '' ? { county: c.county, town: t.town, lat: t.lat, lon: t.lon } : null;
   };
   cSel.addEventListener('change', () => { fillTowns(); onChange?.(null); });
   tSel.addEventListener('change', () => onChange?.(value()));
+  fillTowns(); // 還沒選縣市：區的選單顯示「先選縣市」（首次使用巡檢：原本是空白的）
   const now = homeArea();
   if (now) { // 已經設過：預先選好
     const ci = areas.findIndex((c) => c.county === now.county);
