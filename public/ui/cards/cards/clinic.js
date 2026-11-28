@@ -3,6 +3,7 @@
 import { h, fmtTel } from '../dom.js';
 import { navButton } from '../actions.js';
 import { periodNow } from './pharmacy.js';
+import { periodClosingSoon } from '../../../../core/closing.js';
 
 const MAX = 5; // 其餘收在「看更多」（設計審查：一張卡太高）
 const telOf = (p) => String(p || '').split('#')[0].replace(/[^0-9]/g, ''); // 分機（#）不放進 tel:
@@ -20,6 +21,7 @@ export default {
     const rows = state.all ? d.clinics : d.clinics.slice(0, MAX);
     return h('div', { class: 'ab-body' },
       h('p', { class: 'ab-sub' }, t(planned ? 'clinic.onDay' : 'clinic.today', { day: locale === 'en' ? DAY_EN[d.weekday] || d.weekday : d.weekday })),
+      !planned && now && periodClosingSoon(now) && d.clinics.some((c) => c.today?.includes(now)) && h('p', { class: 'ab-chip warn ab-closing', role: 'note' }, t('clinic.closingSoon', { period: pname(now) })), // 這個時段快到尾聲（卡片每 10 分鐘重算；第十三輪）
       h('ul', { class: 'ab-list' }, rows.map((c) => h('li', { class: 'ab-pharm ab-clinic' },
         h('div', { class: 'ab-row' }, h('span', { class: 'ab-name' }, c.name),
           h('span', { class: c.today?.length ? 'ab-chip ok' : 'ab-chip' }, c.today == null ? t('clinic.unknown') : c.today.length ? c.today.flatMap((p, i) => [i ? (locale === 'en' ? ', ' : '・') : '', p === now ? h('strong', {}, pname(p)) : pname(p)]) : t('clinic.closed'))), // 現在這個時段加粗（不只靠顏色）

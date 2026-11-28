@@ -72,14 +72,15 @@ export const SPEAK_EN = {
     const where = d.area ? ` in ${d.area}` : '';
     if (!d.total) return 'No matching NHI clinics found.';
     if (d.phase === 'planned') return `${plural(d.openNowCount, 'clinic')}${where} registered hours ${d.dayOffset === 1 ? 'tomorrow' : d.dayOffset ? `in ${d.dayOffset} days` : 'today'}${d.period ? ` ${({ 上午: 'morning', 下午: 'afternoon', 晚上: 'evening' })[d.period]}` : ''}.`;
-    if (d.openNowCount) return `${plural(d.openNowCount, 'clinic')}${where} registered hours this ${({ 上午: 'morning', 下午: 'afternoon', 晚上: 'evening' })[d.period]}${d.laterCount ? `; ${d.laterCount} more later today` : ''}.`;
+    if (d.openNowCount) return `${plural(d.openNowCount, 'clinic')}${where} registered hours this ${({ 上午: 'morning', 下午: 'afternoon', 晚上: 'evening' })[d.period]}${d.laterCount ? `; ${d.laterCount} more later today` : ''}.${d.closingSoon ? ' This session ends soon and clinics often stop registering 20–30 minutes early, so call first.' : ''}`;
     if (d.laterCount) return `${d.phase === 'early' ? "Clinics haven't opened yet" : 'None registered for right now'}; ${plural(d.laterCount, 'clinic')}${where} registered hours later today.`;
     return 'Clinic hours are over for today; if you feel very unwell go to a hospital ER, and call 119 in an emergency.';
   },
   gov_office_nearby: (d) => {
     const t = d.today || {};
     const day = t.md ? `${t.md} (${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][t.dow]})` : 'today';
-    const w = t.workday ? `${t.dayOffset ? day : `Today, ${day},`} is a government workday` : `Government offices are closed ${t.dayOffset ? 'on' : 'today,'} ${day}`;
+    const close = t.closing === 'soon' ? '; most offices close at 5 pm and often stop issuing queue numbers early, so call first' : t.closing === 'over' ? '; most offices have closed for the day (some have evening hours), so call first' : '';
+    const w = `${t.workday ? `${t.dayOffset ? day : `Today, ${day},`} is a government workday` : `Government offices are closed ${t.dayOffset ? 'on' : 'today,'} ${day}`}${close}`;
     const o = d.offices?.[0];
     return o ? `Nearest household registration office: ${o.name}, ${km(o.distanceM)} (about ${o.walkMin} min walk). ${w}.` : `No household registration office found nearby. ${w}.`;
   },

@@ -130,7 +130,7 @@ export function clinicSay(d) {
     const when = `${dayWord(d)}${d.period || ''}`;
     return d.openNowCount ? `${where}${when}有登記看診的${what}有 ${d.openNowCount} 家。時段是登記的，出門前先打電話確認。` : `${where}的${what}${when}沒有登記看診，可以換個時段或換一區問看看。`;
   }
-  if (d.openNowCount) return `${where}有 ${d.openNowCount} 家${what}登記${d.period}看診${d.laterCount ? `，今天稍晚還有 ${d.laterCount} 家` : ''}。時段是登記的，出門前先打電話確認。`;
+  if (d.openNowCount) return `${where}有 ${d.openNowCount} 家${what}登記${d.period}看診${d.laterCount ? `，今天稍晚還有 ${d.laterCount} 家` : ''}。${d.closingSoon ? `${d.period}的看診快結束了，診所常在結束前 20～30 分鐘就停止掛號，出發前先打電話問還收不收。` : '時段是登記的，出門前先打電話確認。'}`;
   if (d.laterCount) return d.phase === 'early'
     ? `診所還沒開始看診；${where}今天有登記看診的${what}有 ${d.laterCount} 家，時段在卡片上。`
     : `${where}的${what}這個時段（${d.period}）沒有登記看診，今天稍晚有 ${d.laterCount} 家。`;
