@@ -4,6 +4,7 @@
 import { csvObjects } from '../csv.js';
 import { UserError } from '../util.js';
 import { PERIODS, WEEK, normAddr as norm, twDow, twYmd, periodAt, weekSlots, pickCity } from '../nhi-hours.js';
+import { periodClosingSoon } from '../closing.js';
 
 export const CLINICS_URL = 'https://info.nhi.gov.tw/api/iode0000s01/Dataset?rId=A21030000I-D21004-009';
 export const CLINICS_TTL_SEC = 86400;
@@ -99,6 +100,7 @@ export function clinicSearch(rows, { area, query = '', dept = null, now = Date.n
     area: area || null, query: query || null, dept: d ? d.label : null, weekday: `星期${WEEK[dow]}`, period,
     phase: planned ? 'planned' : period ? 'open' : hourNow < 8 ? 'early' : 'late', // 問別的日子或時段／看診時段中／清晨還沒開始／晚上 10 點後
     ...(planned && { dayOffset }),
+    ...(!planned && periodClosingSoon(period, now) && { closingSoon: true }), // 這個時段快到尾聲：現場常提早停止掛號（第十三輪）
     total: mine.length, openNowCount: mine.filter((c) => c.openNow).length, laterCount: mine.filter((c) => !c.openNow && c.laterToday.length).length,
     clinics: sorted.slice(0, limit),
     ...(otherCities && { city, otherCities }),

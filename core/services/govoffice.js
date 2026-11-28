@@ -5,6 +5,7 @@
 //   - 中華民國政府行政機關辦公日曆表（人事行政總處，data.gov.tw 14718）：哪天上班、哪天放假；下載網址每年不同，從 data.gov.tw 的資料集資訊找當年的
 // 營業時間各所不同（午休、夜間延時、週六服務），資料沒有結構化的時間：只說「今天是不是上班日」，不說「現在有開」。
 import { distanceM } from '../util.js';
+import { officeClosing } from '../closing.js';
 import { csvObjects } from '../csv.js';
 import { navLinks, walkMinutes } from '../nav.js';
 
@@ -110,7 +111,9 @@ export function createGovOfficeServices(fx) {
         .map((o) => ({ name: o.name, address: o.address, tel: tels.get(o.name) || null, lat: o.lat, lon: o.lon, distanceM: o.distanceM, walkMin: walkMinutes(o.distanceM), nav: navLinks(o.lat, o.lon, 'walking') }));
       // 日曆下載失敗（上游壞掉）跟「新年度還沒公布」分開說：不說成日曆沒有今天的資料（P0-2 B 降級盤點）
       const failed = cal === FAILED;
-      return { offices: list, today: { ...workdayOf(failed ? null : cal, at), ...(dayOffset && { dayOffset }), ...(failed && { calendarFailed: true }) }, source: '內政部（自然人憑證申辦點位、戶政機關通訊）、人事行政總處辦公日曆' };
+      const today = workdayOf(failed ? null : cal, at);
+      const closing = dayOffset ? null : officeClosing(today.workday, now); // 今天快下班或已下班：現場常提早停止抽號（第十三輪）
+      return { offices: list, today: { ...today, ...(dayOffset && { dayOffset }), ...(failed && { calendarFailed: true }), ...(closing && { closing }) }, source: '內政部（自然人憑證申辦點位、戶政機關通訊）、人事行政總處辦公日曆' };
     },
   };
 }

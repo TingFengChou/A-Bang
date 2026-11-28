@@ -16,6 +16,7 @@ export default {
     return h('div', { class: 'ab-body' },
       h('p', { class: today.workday ? 'ab-chip ok ab-gov-day' : 'ab-chip warn ab-gov-day', role: 'status' }, day),
       !today.known && h('p', { class: 'ab-sub' }, t(today.calendarFailed ? 'govOffice.calendarFailed' : 'govOffice.guess')),
+      today.closing && h('p', { class: 'ab-chip warn ab-closing', role: 'note' }, t(today.closing === 'soon' ? 'govOffice.closingSoon' : 'govOffice.closingOver')), // 快下班、已下班：現場常提早停止抽號（第十三輪）
       d.offices.length ? h('ul', { class: 'ab-list' }, d.offices.map((o) => h('li', { class: 'ab-gov-office' },
         h('div', { class: 'ab-row' }, h('span', { class: 'ab-name' }, o.name), h('span', { class: 'ab-sub' }, `${far(o.distanceM, t)}${o.walkMin ? t('govOffice.walk', { n: o.walkMin }) : ''}`)),
         h('p', { class: 'ab-sub' }, o.address),
