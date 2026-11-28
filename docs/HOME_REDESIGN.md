@@ -49,7 +49,7 @@ Austin 明講的要求（違反時要先問他）：
 
 ## 3. 建議卡的情境與優先序
 
-由 `core/home-suggest.js`（第 1 期新增，純函式，前端以 `/core/home-suggest.js` 共用）決定。**輸入只有 `ContextSnapshot`（§4），輸出是決策＋用到的訊號**。規則互斥，由上往下第一個成立的就是答案：
+由 `core/home-suggest.js` 的 `homeSuggest()` 決定（純函式，前端以 `/core/home-suggest.js` 共用；測試 `test/home-suggest.test.js`）。**輸入只有 `ContextSnapshot`（§4），輸出是決策＋用到的訊號**。規則互斥，由上往下第一個成立的就是答案：
 
 | 序 | 情境 | 條件（全部成立） | 主按鈕 |
 |---|---|---|---|
@@ -71,16 +71,18 @@ Austin 明講的要求（違反時要先問他）：
 
 ```js
 /**
- * @typedef {object} ContextSnapshot
- * @property {string} now            ISO 時間（台灣時間由函式內換算）
- * @property {{kind:'workday'|'makeup'|'weekend'|'holiday', name?:string}} day
- * @property {{auto: null|{lat:number,lon:number,area:string,at:string}, override: null|'fixed'|'here'}} location
+ * @typedef {object} ContextSnapshot   （core/home-suggest.js snapshot() 補預設值；缺的欄位＝不知道，不是沒有）
+ * @property {number} now                         毫秒；函式不讀時鐘，台灣時間在函式內換算
+ * @property {{workday?:boolean, known?:boolean, note?:string}|null} day   辦公日曆（gov_office_nearby 的 today）
+ * @property {{auto: null|{lat,lon,area?,near?}, override: null|'fixed'|'here'}} location
  *           auto＝打開 App 時讀到的一次位置（沒允許就是 null）；override＝使用者按了出發地切換
- * @property {{home?:Place, office?:Place}} places      只存在手機
- * @property {null|Commute} commute                       固定通勤方式（§8）
- * @property {{weather?:object, aqi?:object, quake?:object}} env
- * @property {{bus?:Arrival[], metro?:Timetable[], bike?:object}} transit  沒查到是 null，不是空陣列
- * @property {{onboarded:boolean, trip:null|object, health:null|object, last:null|{q:string,at:string}}} user
+ * @property {Record<'家'|'公司'|'學校', {lat,lon,area?}>} places   只存在手機
+ * @property {null|{from:'家', to:'公司', legs:Leg[], backLegs?:Leg[], out?:['07:00','09:30'], back?:[…]}} commute
+ *           Leg＝{mode:'bus', route, stop?}｜{mode:'metro', line, name, station?}
+ * @property {{weather?, aqi?, quake?:{alert,area,mag}, typhoon?:{off}, tomorrow?:{pop}, garbage?:{soon,time}}} env
+ * @property {{bus?:[{route, mins, next?, headway?}], metro?:[{line, name?, mins}]}} transit   沒查到就不放，不是 mins: 0
+ * @property {{onboarded:boolean, trip?:{href}, walk?:{kind,text,spot?}, last?:{q,at}, antifraud?:boolean}} user
+ *           walk＝手機上 core/health-nudge.js nudgeFor() 的結果（健康資料不離開手機，ADR-0018）
  * @property {{offline:boolean, demo:boolean, quotaOut:boolean}} source
  */
 ```
@@ -134,7 +136,7 @@ Austin 明講的要求（違反時要先問他）：
 
 ## 8. 固定通勤方式
 
-- 建立：查完路線的結果卡多一顆「設為固定通勤方式」；存的時候自動推導反向路線與預設時段（上班日 07:00–09:30 去、17:30–20:00 回），一次確認建好兩趟（共同決議 B）。
+- 建立：查完路線的結果卡多一顆「設為固定通勤方式」；存的時候自動推導反向路線與預設時段（上班日 06:00–10:00 去、16:30–21:00 回，同 §3；可改），一次確認建好兩趟（共同決議 B）。
 - 存在手機（`abang.commute`），可在個人頁與「為何顯示此建議」頁清除。
 - 快速設定住家：晚上沒設住家時提示「您現在在家嗎？」；按了先顯示逆地理確認「設為：○○區○○附近」，可改成輸入地址或站名，才存（共同決議 5）。
 
