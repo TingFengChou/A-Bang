@@ -54,3 +54,11 @@ test('生活圈（不是行政區，Antigravity 第十一輪）：景美、大�
   assert.deepEqual(parseIntent('新莊會下雨嗎').places, ['新北市新莊區'], '句首也算');
   assert.deepEqual(parseIntent('汐止的藥局').places, ['新北市汐止區']);
 });
+
+test('目的地是一整區：回答最後說是概略位置、說要去哪裡可以更準（Antigravity：戶政事務所不一定在交通樞紐旁）；景點不加', async () => {
+  const { withApproxNote } = await import('../core/agent/run.js');
+  assert.equal(withApproxNote('選「捷運」。', { to: { name: '新北市新莊區（概略位置）' } }), '選「捷運」。（新北市新莊區是一整區，先用概略位置算；說要去哪裡可以算得更準。）');
+  assert.equal(withApproxNote('選「捷運」。', { to: { name: '台北101' } }), '選「捷運」。');
+  assert.equal(withApproxNote('先用概略位置算。', { to: { name: '新北市新莊區（概略位置）' } }), '先用概略位置算。', '已經說了不重複');
+  assert.match(withApproxNote('Take the MRT.', { to: { name: '新北市新莊區（概略位置）' } }, true), /approximate point for 新北市新莊區/);
+});

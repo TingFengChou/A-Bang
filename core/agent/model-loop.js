@@ -5,7 +5,7 @@ import { describeTool, getTool } from '../tools/index.js';
 import { getProfile } from '../agents/index.js';
 import { buildSystemPrompt } from './prompt.js';
 import { ev } from './events.js';
-import { withHomeArea, validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hideToolNames, judgeInfo, runDemo, asideState, withAskCheck, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
+import { withHomeArea, withApproxNote, validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hideToolNames, judgeInfo, runDemo, asideState, withAskCheck, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
 import { judgeNote, outingNote, moreStatesNote } from './impact.js';
 import { slotAsk, deviceAskTracker, deviceSlotAsk, originAsk, ORIGIN_ASKED } from './ask.js';
 import { askFirst, planAsk } from './clarify-plan.js';
@@ -481,7 +481,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const en = isEnglish(last);
   const finish = (text, fromModel = false) => {
     if (used.size) emit(ev.discussionEnd({ tools: [...used] }));
-    emit(ev.text(guardedText(profile, withHomeArea(fromModel && !en ? mustSay(text, lastTrip, rulesIt, { rideLink }) : text, here?.area, en), emit))); // 用了預設地區：第一句說清楚（T-HOMEAREA） // 程式補重點只補模型寫的中文回答（不補到英文、退回說明） // L2 輸出護欄（防詐：不保證安全、固定附 165）
+    emit(ev.text(guardedText(profile, withApproxNote(withHomeArea(fromModel && !en ? mustSay(text, lastTrip, rulesIt, { rideLink }) : text, here?.area, en), lastTrip, en), emit))); // 用了預設地區：第一句說清楚（T-HOMEAREA） // 程式補重點只補模型寫的中文回答（不補到英文、退回說明） // L2 輸出護欄（防詐：不保證安全、固定附 165）
     emit(ev.done(usage));
   };
 
