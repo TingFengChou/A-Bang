@@ -16,7 +16,12 @@ import { token } from '../../ui/cards/mode-icons.js';
 import { nextSteps } from '../agent/next-steps.js';
 import { suggestContext, contextText, ruleAsks, pickSuggestions, validateAsks, pruneAfterSend, SUGGEST_WAIT_MS } from '../agent/suggest.js';
 import { busT } from './bus-i18n.js';
-import { peekNow } from '../home-now.js';
+import { peekNow, loadNow } from '../home-now.js';
+import { openingModel, renderOpening } from '../agent/opening.js';
+import { todayPlan } from '../today.js';
+import { homeArea, areaLabel } from '../home-area.js';
+import { onboarded } from '../onboarding.js';
+import { FALLBACK } from '../ui.js';
 import { alightWatch } from '../alight.js';
 import { loadChat, saveChat, clearChat } from '../chat-store.js';
 import { habitRequest, noteDecision, applyStore, markAsked, questionAskedRecently, markQuestion } from '../habits.js';
@@ -263,6 +268,21 @@ export default {
     let lastTrip = null; // 畫面上最近一張行程卡片（加到行事曆、分享用；ADR-0021）：只在記憶體
     const host = createWebHost({ ask: (q) => send(q), setContext: (c) => { context = c; }, tripContext: () => lastTripTo && { to: lastTripTo } });
     const clearLinks = agentId === 'life' ? linkReminders(host, rounds) : () => {}; // 提醒頁「看當時的對話」（只有保留的生活對話）
+    // 開場（第十四輪）：還沒問之前，阿幫先說今天的一句話、你可能想問、我可以幫你；第一個問題送出就收起來
+    let opening = null;
+    if (agentId === 'life') {
+      const modelOf = (v, loading) => openingModel({
+        plan: todayPlan({ day: v?.day || null, weather: v?.weather || null, aqi: v?.aqi || null, offline: !!v?.offline, places: loadPlaces(), area: homeArea(), located: !!v?.pos, onboarded: onboarded(), loading }),
+      });
+      const seen = peekNow();
+      opening = renderOpening({ model: modelOf(seen, !seen), send: (q) => send(q), go: (h) => host.navigate(h) });
+      log.append(opening.el);
+      if (!seen) { // 直接打開問阿幫（沒先經過首頁）：查一次天氣空品（跟首頁同一份 10 分鐘快取）
+        const area = homeArea();
+        loadNow({ callTool: (n, a) => host.callTool(n, a), granted: locationGranted, locate: () => browserLocation(4000), fallback: area || FALLBACK, ...(area && { fallbackName: areaLabel(area) }) })
+          .then((v) => opening?.update(modelOf(v, false)), () => opening?.update(modelOf(null, false)));
+      }
+    }
 
     // 建議問題與免責（GET /api/v1/agent/profile）。生活阿幫：輸入框上方與 placeholder 是動態的「下一句」（agent/suggest.js：情境規則，
     // App 裡手機上的 AI 先猜、伺服器規則驗證）；「更多例子／其他問題」才列 profile 的固定範例。防詐：固定建議＋回答後的下一步（next-steps.js）
@@ -429,6 +449,7 @@ export default {
       if (busy) { pendingQ = { q, pageContext, voice: spoken, follow }; return; }
       if (agentId === 'life' && SCAM_Q.test(q) && (/https?:\/\/|www\.|\d{4,}/i.test(q) || looksLikeMessage(q))) { input.value = ''; handOff('antifraud', q); host.navigate('#/agent/antifraud'); return; } // 生活阿幫被問「這是詐騙嗎」又附了網址、電話或內容：不問，直接帶到防詐（審查 #121）
       turnNo += 1;
+      if (opening) { opening.el.remove(); opening = null; } // 開場收起來（第一個問題送出）
       pastWrap?.querySelector('.past-acts button') && pastWrap.querySelector('.past-acts').replaceChildren(el('span', 'past-note', history.length ? '接著上次的話問' : '這次重新問（上次的對話只留著看）'));
       const myGen = gen;
       for (const c of cards) if (c.turn < turnNo - 1) c.stop?.();
@@ -827,7 +848,7 @@ export default {
       voiceRelease: () => voice?.release(),
       voiceCancel: () => voice?.cancel(),
       /** 設定頁清除本機資料：畫面上的對話也一起清掉 */
-      clear() { gen++; clearChat(); history.length = 0; pendingQ = null; openAsk = null; askedLast = []; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; lastTrip = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); rounds.clear(); clearLinks(); turnsLog.length = 0; lastView = null; edgeMemo = { text: '', asks: null }; pinnedDefaults = false; if (dynamic) refreshSuggest(); else showDefaults(); },
+      clear() { gen++; clearChat(); opening = null; history.length = 0; pendingQ = null; openAsk = null; askedLast = []; turnNo = 0; seenCards.clear(); context = ''; lastTripTo = null; lastTrip = null; pastWrap = null; cards.forEach((c) => c.destroy?.()); cards.length = 0; log.replaceChildren(); rounds.clear(); clearLinks(); turnsLog.length = 0; lastView = null; edgeMemo = { text: '', asks: null }; pinnedDefaults = false; if (dynamic) refreshSuggest(); else showDefaults(); },
       /** 從哪一頁打開（浮動阿幫）：那一頁可以問的問題；點了才把這一頁的說明一起送（自己打的問題不帶）；null＝清掉 */
       setPage(hint) {
         const pc = String(hint?.context || '');
