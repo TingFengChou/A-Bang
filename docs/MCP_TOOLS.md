@@ -274,7 +274,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 
 ### ✅ `plan_trip` — 從 A 到 B 怎麼去（卡片 `trip`）
 
-**捷運真實路網（S7b，2026-11-23）**：上下車站照舊挑（接駁最省的站），中間改用各線車站順序（`StationOfLine`，`core/metro-route.js`、`core/services/metro-net.js`，與 `metro_route` 共用）算坐哪幾條線、往哪、幾站、在哪轉；每一段一個 `legs[]`（「在頂埔站轉板南線（往市政府）：頂埔 → 台北車站，11 站」）；時間＝站數×每站約 2 分＋轉乘 5 分＋進出站與等車；票價用 `ODFare`（同系統一張票、跨系統分段相加並說明），查不到依距離估。`metro: { network: true, fare?, vias? … }`。**只用已存的路網與票價**（`onlyStored`：背景預熱下載車站順序、`metro_route` 查過的票價會存下來），不在使用者這一次多花 TDX 額度；沒有已存的（剛啟動、示範資料）照舊依距離估算。機場捷運直達車仍用公告參數。
+**捷運真實路網（S7b，2026-11-23）**：上下車站照舊挑（接駁最省的站），中間改用各線車站順序（`StationOfLine`，`core/metro-route.js`、`core/services/metro-net.js`，與 `metro_route` 共用）算坐哪幾條線、往哪、幾站、在哪轉；每一段一個 `legs[]`（「在頂埔站轉板南線（往市政府）：頂埔 → 台北車站，11 站」）；時間＝站數×每站約 2 分＋轉乘 5 分＋進出站與等車；票價用 `ODFare`（同系統一張票、跨系統分段相加並說明），查不到依距離估。`metro: { network: true, fare?, vias? … }`。**只用已存的路網與票價**（`onlyStored`：背景預熱下載車站順序、`metro_route` 查過的票價會存下來），不在使用者這一次多花 TDX 額度；沒有已存的（剛啟動、示範資料）照舊依距離估算。機場捷運直達車仍用公告參數。**高鐵／台鐵進出站接真實捷運（P1-3(b)，2026-11-28）**：車站離起點或目的地超過 1.2 公里時，兩端 1.2 公里內都有捷運站、已存路網找得到路線，就用真實捷運取代「市區公車／捷運約 N 分（估算）」（「走到捷運台北車站 → 淡水信義線（往象山）：台北車站 → 台北101／世貿，3 站 → 步行約 3 分」；`railMetro: { in, out }`、notes「轉捷運（…）依各線車站順序規劃」）；比估算慢超過 `RAIL_METRO_SLACK`（15 分）就不用（已存路網不完整會繞遠路），照舊估算。
 
 實作：`core/services/trip.js`（`planTrip(svc, …)`，只組合既有服務）、`core/services/bus-direct.js`（`matchDirect`、`commonRoutes`；`bus.directTrips` live／mock 介面相同）、`core/tools/trip.js`（M3-10）。
 
