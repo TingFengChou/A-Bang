@@ -1,7 +1,8 @@
 // 鎖定畫面的出發倒數（iOS 即時動態，2026-11-28 Claude 與 Antigravity 第十四輪；App Functions 結合）：
 // 行程卡設了台鐵、高鐵、末班車的「提醒我出門」（reminders.js 送 abang:reminder-rail）時，鎖定畫面與動態島倒數到該出門的時間，
 // 寫「19:00 出門，趕 19:25 從臺北開的車」。時間照時刻表算的（不用連網也會走）；提醒取消就結束；同一時間只有一個。
-// 不需要 App Group（資料由 App 直接交給 ActivityKit），所以個人開發團隊也能用。Android、網頁、舊版 App 什麼都不做。
+// 不需要 App Group（資料由 App 直接交給 ActivityKit），所以個人開發團隊也能用。
+// Android：通知列一則倒數（系統 chronometer 自己走，出門時間過 1 分自動消失，之後由排好的出門通知接手）。網頁、舊版 App 什麼都不做。
 const PLUGIN = 'AbangWatch';
 const ROLE = { tra: ['台鐵', 'Train'], thsr: ['高鐵', 'HSR'] };
 const TW = 8 * 3600e3;
@@ -29,11 +30,11 @@ export function leavePayload(at, rail) {
   return { title: title.slice(0, 30), from, leaveAt: at, depart, text, lang: en ? 'en' : 'zh' };
 }
 
-const iosApp = () => { const c = globalThis.Capacitor; try { return !!(c?.isNativePlatform?.() && c.getPlatform?.() === 'ios' && c.isPluginAvailable?.(PLUGIN)); } catch { return false; } };
+const nativeApp = () => { const c = globalThis.Capacitor; try { return !!(c?.isNativePlatform?.() && ['ios', 'android'].includes(c.getPlatform?.()) && c.isPluginAvailable?.(PLUGIN)); } catch { return false; } };
 
 /** App 啟動時掛上（app.js）：設了出門提醒就開、取消就關 */
 export function mountLeaveActivity() {
-  if (!iosApp()) return;
+  if (!nativeApp()) return;
   let current = null;
   const native = (m, a = {}) => globalThis.Capacitor.nativePromise(PLUGIN, m, a).catch(() => null); // 即時動態關掉、舊版 App：照舊只有通知
   addEventListener('abang:reminder-rail', (e) => {

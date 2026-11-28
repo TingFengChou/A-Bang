@@ -11,6 +11,14 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 Android 通知列的出發倒數
+- 做了：iPhone 鎖定畫面出發倒數（#261）的 Android 版，讓 Pixel 也看得到。同一個 `abang:reminder-rail` 事件（台鐵、高鐵、末班車的出門提醒）：通知列一則「出發倒數・台鐵 2241」＋「19:52 出門，趕 20:17 從臺北開的車（往臺中）」，系統倒數（`setUsesChronometer`＋`setChronometerCountDown`）自己走——不用前景服務、不連網、沒有聲音；出門時間過 1 分自動消失（`setTimeoutAfter`），之後由原本排好的出門通知「該出門了」接手；提醒取消就收掉。`AbangWatchPlugin`（Android）加 `startLeave`／`stopLeave`；`leave-activity.js` 改成 iOS 與 Android 都掛。Pixel 實機：`startLeave` 回 ok、`dumpsys notification` 看到標題、倒數旗標與內文；`stopLeave` 後消失 ✅
+- App Functions 結合：Android 上「不用打開 App」看出門倒數；之後可以接 Android 16 的 Live Updates（進度型通知）
+- 測試：npm test 全過；Android 建置、安裝 ✅
+- 文件：UX.md、PROGRESS.md；sw.js v1.3.70
+- 下一個：iPhone 接回來時裝實機
+- 卡住：無
+
 ## 2026-11-28 iPhone 鎖定畫面的出發倒數（即時動態）
 - 做了：Antigravity 第十四輪：iOS 主畫面小工具要 App Group（個人團隊開不了），改走 Live Activity——資料由 App 直接交給 ActivityKit，不需要 App Group。行程卡設了台鐵、高鐵、末班車的「提醒我出門」（`abang:reminder-rail` 事件）時，iPhone 鎖定畫面與動態島倒數到該出門的時間：「阿幫・出發倒數」、走路圖示、「19:20 出門，趕 19:45 從臺北開的車（往臺中）」「照時刻表算的・不用連網也會倒數」；時間到「該出門了」，過了開車時間「這班可能已經開走了，打開阿幫看下一班」。提醒取消（或換時間）就結束；同一時間只有一個。沿用到站提醒的 Widget Extension：`AbangWatchAttributes` 加 `kind`（bus／leave），外掛加 `startLeave`／`stopLeave`，到站提醒與出發倒數各自開關、互不結束對方。iOS 模擬器實測：動態島「🚶 台鐵 2241　11:53」、鎖定畫面卡片如上 ✅
 - App Functions 結合：這就是 iPhone 上「不用打開 App」的入口；之後 Siri「我要出門了嗎」可以讀同一個倒數

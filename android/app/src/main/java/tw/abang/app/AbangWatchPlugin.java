@@ -13,9 +13,56 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  * 到站提醒常駐服務的開關（JS：public/js/native-watch.js，外掛名 AbangWatch）。
  * start：開始盯（AbangWatchService，通知列常駐、到點響鈴）；stop：停止；status：現在有沒有在盯、有沒有已經提醒過。
  * startAlight／stopAlight／alightStatus：下車提醒（AbangAlightService，跟到站提醒可以同時進行）。
+ * startLeave／stopLeave（2026-11-28 第十四輪）：出發倒數——台鐵、高鐵、末班車的出門提醒設好時，通知列一則倒數到該出門的時間
+ *   （系統 chronometer 自己走，不用前景服務、不連網）；出門時間過 1 分自動消失（之後由原本排好的出門通知接手）。JS：public/js/leave-activity.js
  */
 @CapacitorPlugin(name = "AbangWatch")
 public class AbangWatchPlugin extends Plugin {
+    static final int LEAVE_NID = 7300;
+
+    @PluginMethod
+    public void startLeave(PluginCall call) {
+        String title = call.getString("title");
+        String text = call.getString("text");
+        double leave = call.getData().optDouble("leaveAt", Double.NaN); // 毫秒從 JS 過來是整數（Long）：直接讀數字（同 addCalendarEvent）
+        long now = System.currentTimeMillis();
+        if (title == null || title.isEmpty() || text == null || text.isEmpty() || Double.isNaN(leave) || (long) leave <= now || (long) leave - now > 12L * 3600 * 1000) { call.reject("參數不完整"); return; }
+        android.content.Context ctx = getContext();
+        if (!androidx.core.app.NotificationManagerCompat.from(ctx).areNotificationsEnabled()) { call.reject("通知沒有開"); return; }
+        AbangWatchService.ensureChannels(ctx);
+        boolean en = "en".equals(call.getString("lang"));
+        android.content.Intent open = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
+        if (open == null) open = new android.content.Intent(ctx, MainActivity.class);
+        open.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        android.app.PendingIntent pi = android.app.PendingIntent.getActivity(ctx, 3, open, android.app.PendingIntent.FLAG_IMMUTABLE | android.app.PendingIntent.FLAG_UPDATE_CURRENT);
+        androidx.core.app.NotificationCompat.Builder b = new androidx.core.app.NotificationCompat.Builder(ctx, AbangWatchService.CH_ONGOING)
+            .setSmallIcon(R.drawable.ic_stat_abang)
+            .setContentTitle((en ? "Time to leave · " : "出發倒數・") + title)
+            .setContentText(text)
+            .setStyle(new androidx.core.app.NotificationCompat.BigTextStyle().bigText(text + (en ? "\nFrom the timetable; counts down without data." : "\n照時刻表算的，不用連網也會倒數。")))
+            .setWhen((long) leave)
+            .setShowWhen(true)
+            .setUsesChronometer(true)
+            .setChronometerCountDown(true)
+            .setTimeoutAfter((long) leave - now + 60_000)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setCategory(androidx.core.app.NotificationCompat.CATEGORY_REMINDER)
+            .setContentIntent(pi);
+        try {
+            androidx.core.app.NotificationManagerCompat.from(ctx).notify(LEAVE_NID, b.build());
+            call.resolve();
+        } catch (SecurityException e) {
+            call.reject("通知沒有開");
+        }
+    }
+
+    @PluginMethod
+    public void stopLeave(PluginCall call) {
+        androidx.core.app.NotificationManagerCompat.from(getContext()).cancel(LEAVE_NID);
+        call.resolve();
+    }
+
     @PluginMethod
     public void start(PluginCall call) {
         String apiBase = call.getString("apiBase");
