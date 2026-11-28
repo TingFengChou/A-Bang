@@ -225,6 +225,7 @@ const server = createServer(async (req, res) => {
   if (svc.antifraudMode === 'live') svc.antifraud.stats().then((s) => log.info('antifraud data loaded', s)).catch((e) => log.warn('antifraud data not loaded', { error: e.message }));
   // TDX 靜態資料背景預熱（每分鐘最多用 3 次，留 2 次給使用者；已存檔的跳過）；TDX_PREWARM=0 關閉
   if (svc.tdxPrewarm && process.env.TDX_PREWARM !== '0') svc.tdxPrewarm({ log: (m) => log.info(m) });
+  svc.tdxStoreCheck?.().then((warn) => warn && log.warn(warn)).catch(() => {}); // 存檔目錄（部署檢查，P0-2）
   if (svc.parking?.warm && process.env.TDX_PREWARM !== '0') svc.parking.warm().catch(() => {}); // 台北市、新北市停車場清單（免金鑰開放資料，不佔 TDX 額度）
   const port = server.address()?.port ?? PORT;
   log.info(`阿幫 running → http://localhost:${port}  (mode=${svc.mode}, agent=${agent.mode.mode}${agent.mode.model ? `:${agent.mode.model}` : ''})  MCP: http://localhost:${port}/mcp`, { port, version: VERSION, mode: svc.mode, agentMode: agent.mode.mode });

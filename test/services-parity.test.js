@@ -15,9 +15,9 @@ function methods(svc) {
 }
 
 /** 只有真實資料才有的背景預熱（呼叫端都用 ?. 防護，示範模式不需要） */
-const LIVE_ONLY = ['parking.warm', 'tdxPrewarm'];
+const LIVE_ONLY = ['parking.warm', 'tdxPrewarm', 'tdxStoreCheck']; // 預熱與部署檢查（示範模式為 null）
 
-test('真實與示範的服務方法一樣（只差背景預熱）', () => {
+test('真實與示範的服務方法一樣（只差背景預熱與部署檢查）', () => {
   // 假金鑰只用來走「真實」那條建構路徑；建構時不連網
   const live = methods(createServices({ clientId: 'x', clientSecret: 'y', cwaKey: 'k', moenvKey: 'm', openData: true, drama: { apiBase: 'https://api.example.com' } }));
   const mock = methods(createServices({ forceMock: true }));
