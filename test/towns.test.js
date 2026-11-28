@@ -44,3 +44,13 @@ test('同名的區（「去中正區」）：先用最近的算，同時問是�
   assert.match(ask?.question || '', /哪個「中正區」/);
   assert.deepEqual(ask.options.map((o) => [o.label, !!o.guess]), [['台北市中正區', true], ['基隆市中正區', false]]);
 });
+
+test('生活圈（不是行政區，Antigravity 第十一輪）：景美、大坪林是地標；「大坪林」裡的「坪林」不是坪林區；區短名要像一個詞', () => {
+  const to = (q) => parseIntent(q).to;
+  assert.equal(to('去景美'), '景美');
+  assert.equal(to('去民生社區'), '民生社區');
+  assert.equal(to('去大坪林'), '大坪林');
+  assert.equal(to('去坪林'), '新北市坪林區');
+  assert.deepEqual(parseIntent('新莊會下雨嗎').places, ['新北市新莊區'], '句首也算');
+  assert.deepEqual(parseIntent('汐止的藥局').places, ['新北市汐止區']);
+});
