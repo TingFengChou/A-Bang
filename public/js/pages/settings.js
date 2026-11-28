@@ -15,6 +15,7 @@ import { visionEnabled, setVisionEnabled, visionStatus, VISION_KEY } from '../vi
 import { voiceEnabled, setVoiceEnabled, voiceStatus, VOICE_KEY } from '../voice.js';
 import { whyText } from '../voice-i18n.js';
 import { dramaHintOn, setDramaHintOn, DRAMA_HINT_KEY } from '../drama-hint.js';
+import { bigTextOn, setBigTextOn, BIG_TEXT_KEY } from '../big-text.js';
 import { hasCar, setHasCar, CAR_KEY } from '../my-car.js';
 import { homeArea, setHomeArea, clearHomeArea, areaLabel, areaPicker, nearestArea } from '../home-area.js';
 import { edgeWriteEnabled, setEdgeWriteEnabled, WRITE_STATS_KEY } from '../edge-write.js';
@@ -25,7 +26,7 @@ import { mountHealthSetting } from '../health-ui.js';
 const EDGE_KEY = 'abang.edgeAI';
 
 /** 本機資料：存在這支手機的瀏覽器儲存（不上傳） */
-const LOCAL = [['abang.places', '常用地點（家、公司、學校）'], ['favs', '收藏的公車站與路線'], ['invoices', '我的發票'], ['abang.arrivalWatch', '進行中的到站提醒'], ['abang.alightWatch', '進行中的下車提醒'], ['abang.reminders', '出門提醒'], ['pref:', '常用的縣市、藥局地區、股票、最近查過的公車路線等偏好（pref:*）'], [EDGE_KEY, '裝置端 AI 設定'], [SUGGEST_KEY, '「用手機上的 AI 猜我接下來想問什麼」設定'], [VOICE_KEY, '語音問阿幫的開關'], [VISION_KEY, '「讓阿幫看照片」設定'], [DRAMA_HINT_KEY, '等車推短劇的開關'], [CAR_KEY, '「我有車」設定'], ['abang.homeArea', '預設地區（沒開定位時先用的縣市與區）'], ['abang.railCheck', '出門提醒響後要問趕不趕得上的班次（只有車次、上車站，不含你的位置）'], ['abang.checklist', '去政府辦事的出門前檢核表勾了哪幾項（只有項目編號，30 天沒動就清掉）'], [HEALTH_KEY, '「天氣好又動得少時建議去走走」的開關（步數不存在手機儲存，只在當下讀）'], [HEALTH_DAY_KEY, '今天提過散步建議、按過「今天不用」沒有（只有日期，不含步數）'], [EDGE_STATS_KEY, '今天在手機上判斷了幾次、上次花多久（只有數字）'], ['abang.edgeWrite', '「回答也在手機上寫」設定'], [WRITE_STATS_KEY, '在手機上寫了幾次回答、上次花多久、通過檢查的比例（只有數字）'], ['abang.onboarded', '看過使用說明（清除後下次會再顯示）'], ['abang.offline', '離線時顯示的上次資料（看過的路線、站牌、時刻表；不含座標）'], ['abang.chat', '問阿幫的對話（只有文字，最近 10 則，最後一次對話 12 小時後自動清掉）'], [HABITS_KEY, '常選的交通方式（只有方式與時間，最近 50 次；你同意的偏好、說過的狀況；24 小時內問過的題目只存雜湊；不含地點）']];
+const LOCAL = [['abang.places', '常用地點（家、公司、學校）'], ['favs', '收藏的公車站與路線'], ['invoices', '我的發票'], ['abang.arrivalWatch', '進行中的到站提醒'], ['abang.alightWatch', '進行中的下車提醒'], ['abang.reminders', '出門提醒'], ['pref:', '常用的縣市、藥局地區、股票、最近查過的公車路線等偏好（pref:*）'], [EDGE_KEY, '裝置端 AI 設定'], [SUGGEST_KEY, '「用手機上的 AI 猜我接下來想問什麼」設定'], [VOICE_KEY, '語音問阿幫的開關'], [VISION_KEY, '「讓阿幫看照片」設定'], [DRAMA_HINT_KEY, '等車推短劇的開關'], [CAR_KEY, '「我有車」設定'], ['abang.homeArea', '預設地區（沒開定位時先用的縣市與區）'], ['abang.railCheck', '出門提醒響後要問趕不趕得上的班次（只有車次、上車站，不含你的位置）'], ['abang.checklist', '去政府辦事的出門前檢核表勾了哪幾項（只有項目編號，30 天沒動就清掉）'], [HEALTH_KEY, '「天氣好又動得少時建議去走走」的開關（步數不存在手機儲存，只在當下讀）'], [HEALTH_DAY_KEY, '今天提過散步建議、按過「今天不用」沒有（只有日期，不含步數）'], [EDGE_STATS_KEY, '今天在手機上判斷了幾次、上次花多久（只有數字）'], ['abang.edgeWrite', '「回答也在手機上寫」設定'], [WRITE_STATS_KEY, '在手機上寫了幾次回答、上次花多久、通過檢查的比例（只有數字）'], ['abang.onboarded', '看過使用說明（清除後下次會再顯示）'], ['abang.offline', '離線時顯示的上次資料（看過的路線、站牌、時刻表；不含座標）'], ['abang.chat', '問阿幫的對話（只有文字，最近 10 則，最後一次對話 12 小時後自動清掉）'], [BIG_TEXT_KEY, '大字模式的開關'], [HABITS_KEY, '常選的交通方式（只有方式與時間，最近 50 次；你同意的偏好、說過的狀況；24 小時內問過的題目只存雜湊；不含地點）']];
 
 /** 權限狀態文字：已允許／已拒絕（到手機設定開）／還沒問過 */
 const PERM_SAY = { granted: '已允許', denied: '已拒絕', prompt: '還沒問過', rationale: '拒絕過一次（下次用到會再問）', off: '手機定位服務關閉' };
@@ -85,6 +86,12 @@ export const settings = {
   title: '設定與隱私',
   async render({ main, toast, onCleanup }) {
     main.innerHTML = `
+      <section class="card settings" id="display-card">
+        <h2>顯示</h2>
+        <label class="switch-row"><span><b>大字模式</b><small>整個畫面放大，字和按鈕都比較大</small></span>
+          <input type="checkbox" id="big-text" class="switch" role="switch" aria-describedby="big-text-note" ${bigTextOn() ? 'checked' : ''}></label>
+        <p class="note" id="big-text-note">給看小字吃力的人：字、按鈕、卡片一起放大，版面跟著重排。只存在這支手機。</p>
+      </section>
       <section class="card settings">
         <h2>裝置端 AI</h2>
         <label class="switch-row"><span><b>在手機上先聽懂你要做什麼</b><small id="edge-status">檢查中…</small></span>
@@ -376,6 +383,8 @@ export const settings = {
       setHasCar(carBox.checked);
       toast(carBox.checked ? '規劃行程時會比較自己開車' : '已關掉，不再比較自己開車');
     });
+    const bigBox = main.querySelector('#big-text');
+    bigBox.addEventListener('change', () => { setBigTextOn(bigBox.checked); toast(bigBox.checked ? '已打開大字模式' : '已關掉大字模式'); });
     const dramaBox = main.querySelector('#drama-hint');
     dramaBox.addEventListener('change', () => {
       setDramaHintOn(dramaBox.checked);

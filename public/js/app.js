@@ -1,5 +1,6 @@
 // App shell：hash router + 上方標題列 + 下方分頁列（首頁｜服務｜問阿幫（中央鍵）｜提醒｜我的，tabs.js）
 import { icons } from './icons.js';
+import { applyBigText } from './big-text.js';
 import { api, state } from './api.js';
 import { esc, savedWhen } from './ui.js';
 import { autoCheckOnOpen } from './invoice-wallet.js';
@@ -32,6 +33,7 @@ import ai from './pages/ai.js';
 import { settings, privacy } from './pages/settings.js';
 import { busSearch, busRoute, busStation, favPage } from './pages/bus.js';
 import { startAppIntents } from './app-intents.js';
+applyBigText(); // 大字模式（第十五輪）：越早套越好，免得先看到小字再跳
 
 const routes = [
   [/^\/?$/, home],

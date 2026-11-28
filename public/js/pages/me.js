@@ -13,6 +13,7 @@ import { edgeLine } from '../home-now.js';
 import { showOnboarding } from '../onboarding.js';
 import { mountHealthSetting } from '../health-ui.js';
 import { openMemorySheet } from '../memory-sheet.js';
+import { bigTextOn, setBigTextOn } from '../big-text.js';
 import { widgetAvailable, pinTodayWidget } from '../today-widget.js';
 
 /** 資料來源（關於） */
@@ -43,6 +44,7 @@ export default {
           ${rowHtml('#/settings', 'home', '#1d4ed8', '常用地點', set.length ? `已設定：${set.join('、')}` : '家、公司、學校還沒設定')}
           ${rowHtml('#/s/invoice', 'receipt', '#7c3aed', '我的發票', inv ? `${inv} 張，開獎後自動對獎` : '存發票，開獎後自動對獎')}
           ${rowHtml('#/reminders', 'bell', '#b45309', '提醒', rem ? `${rem} 個進行中` : '目前沒有提醒')}
+          <label class="switch-row me-big"><span class="ab-token sm" style="--c:#b45309" aria-hidden="true">${icons.search}</span><span class="grow"><b>大字模式</b><small>字和按鈕都放大</small></span><input type="checkbox" id="me-big" class="switch" role="switch" ${bigTextOn() ? 'checked' : ''}></label>
           <button type="button" id="me-memory"><span class="ab-token sm" style="--c:#0f766e" aria-hidden="true">${icons.user}</span><div class="grow"><div class="title">阿幫記得你</div><div class="sub">阿幫記得的東西一次看、一項一項忘掉</div></div>${chev}</button>
           ${widgetAvailable() ? `<button type="button" id="me-widget"><span class="ab-token sm" style="--c:#0284c7" aria-hidden="true">${icons.grid}</span><div class="grow"><div class="title">放到主畫面：阿幫・今天</div><div class="sub">不用打開 App，看今天要帶傘嗎、怎麼去公司</div></div>${chev}</button>` : ''}
         </div>
@@ -81,6 +83,8 @@ export default {
     }
     main.querySelector('#me-guide').addEventListener('click', () => showOnboarding({ force: true }));
     main.querySelector('#me-memory').addEventListener('click', () => openMemorySheet({ toast }));
+    const big = main.querySelector('#me-big');
+    big.addEventListener('change', () => { setBigTextOn(big.checked); toast(big.checked ? '已打開大字模式' : '已關掉大字模式'); });
     main.querySelector('#me-widget')?.addEventListener('click', async () => { // 系統畫面上按「新增」才放（ADR-0021：最後一步由系統確認）
       if (!(await pinTodayWidget())) toast('這支手機的桌面不支援從 App 新增：長按桌面空白處 →「小工具」→ 找「阿幫・今天」', 6000);
     });

@@ -640,3 +640,9 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
 .set-jump .chip { min-height: 44px; }
 section.settings { scroll-margin-top: 64px; }
 .pin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } /* 這個時段常用：兩格（第十四輪 e） */
+
+/* 大字模式（第十五輪，big-text.js）：整頁放大 15%，版面跟著重排（不左右捲） */
+html.big-text body { zoom: 1.15; }
+.me-big { display: flex; align-items: center; gap: 10px; padding: 10px 14px; min-height: 56px; }
+.me-big .grow { display: flex; flex-direction: column; }
+.me-big small { color: var(--muted); font-size: 13px; }

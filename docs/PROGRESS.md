@@ -11,6 +11,14 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 大字模式＋回家模式（第十五輪）
+- 做了：跟 Antigravity 第十五輪定（它排第一的「行程分享給家人」M16-01 早就有了：行程卡「分享」「傳給我媽」）。①大字模式（`public/js/big-text.js`）：長輩模式先做輕量的「字放大」開關（Antigravity：整套長輩模式太早維護兩套 UI）——整頁放大 15%（CSS zoom，版面跟著重排、不左右捲），「設定與隱私 → 顯示」與「我的」都能開關，只存在這支手機。②回家模式（今天卡）：週末、放假的傍晚有設家也給「回家怎麼走」；上班日傍晚沒定位但設了公司，按鈕寫「從公司回家怎麼走」（看得出起點）；一樣是按了才查（問阿幫的連結），今天卡不自動查、不先要定位（Antigravity：不吃額度、不偷要 GPS）
+- App Functions 結合：「回家怎麼走」就是 Siri／捷徑最常用的一句；大字模式是系統字級之外的 App 內開關
+- 測試：npm test 全過（`test/today.test.js` 新增 1 項、改 1 項）；e2e 新增大字模式 1 項
+- 文件：UX.md、PROGRESS.md；sw.js v1.3.71
+- 下一個：iPhone 接回來時裝實機；長輩模式其餘（只留五件事）等核心體驗收斂
+- 卡住：無
+
 ## 2026-11-28 Android 通知列的出發倒數
 - 做了：iPhone 鎖定畫面出發倒數（#261）的 Android 版，讓 Pixel 也看得到。同一個 `abang:reminder-rail` 事件（台鐵、高鐵、末班車的出門提醒）：通知列一則「出發倒數・台鐵 2241」＋「19:52 出門，趕 20:17 從臺北開的車（往臺中）」，系統倒數（`setUsesChronometer`＋`setChronometerCountDown`）自己走——不用前景服務、不連網、沒有聲音；出門時間過 1 分自動消失（`setTimeoutAfter`），之後由原本排好的出門通知「該出門了」接手；提醒取消就收掉。`AbangWatchPlugin`（Android）加 `startLeave`／`stopLeave`；`leave-activity.js` 改成 iOS 與 Android 都掛。Pixel 實機：`startLeave` 回 ok、`dumpsys notification` 看到標題、倒數旗標與內文；`stopLeave` 後消失 ✅
 - App Functions 結合：Android 上「不用打開 App」看出門倒數；之後可以接 Android 16 的 Live Updates（進度型通知）
