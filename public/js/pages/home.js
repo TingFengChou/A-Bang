@@ -181,7 +181,7 @@ export default {
       ui.override = o;
       if (o === 'here' && ui.d?.origin && !ui.nowData?.pos) { // 沒有位置：說明只取得一次，再問手機
         const c = $('#hs-card'); c.classList.add('tipOrg'); setTimeout(() => c.classList.remove('tipOrg'), 2500);
-        browserLocation(6000).then((p) => { if (p) ui.nowData = { ...(ui.nowData || {}), pos: { lat: p.lat, lon: p.lon } }; paint(); }).catch(() => { toast('沒有取得位置，先用固定地點'); ui.override = 'fixed'; paint(); });
+        browserLocation(6000).then((p) => { if (!p) throw new Error('no position'); ui.nowData = { ...(ui.nowData || {}), pos: { lat: p.lat, lon: p.lon } }; paint(); }).catch(() => { toast('沒有取得位置，先用固定地點'); ui.override = 'fixed'; paint(); });
       }
       paint();
       pulse(root);
@@ -331,7 +331,7 @@ function paintLive(box, d, t) {
   if (second?.mode === 'metro') out.push(tile(LINE_COLOR[second.line] || '#0e7490', 'metro', `${esc(second.name || second.line)}${second.station ? ` ${esc(second.station)}站` : ''}`, null, '', '依時刻表', '#/s/metro', false));
   else if (second?.mode === 'bus') { const b = t.transit?.bus?.find((x) => x.route === second.route); out.push(tile('#0f766e', 'bus', `轉乘<span class="rt">${esc(second.route)}</span>`, b ? b.mins : null, '分', b ? esc(second.stop ? `${second.stop}上車` : '即時') : '按了再查', '#/bus', !!b)); }
   else if (t.fav) out.push(tile('#0f766e', 'bus', `常用<span class="rt">${esc(t.fav.route)}</span>`, t.fav.mins, '分', esc(t.fav.title), t.fav.href || '#/favs'));
-  else if (favs.list()[0]) { const f = favs.list()[0]; out.push(tile('#0f766e', 'bus', esc(f.title).slice(0, 12), null, '', '按了查到站時間', f.href, false)); }
+  else if (favs.list()[0]) { const f = favs.list()[0]; out.push(tile('#0f766e', 'bus', esc(String(f.title || '').slice(0, 12)), null, '', '按了查到站時間', f.href, false)); }
   else out.push(empty('選擇常用路線', '首頁直接顯示到站時間', '#/bus'));
   if (t.bike) out.push(tile('#d97706', 'bike', `YouBike ${esc(String(t.bike.name || '').replace(/^YouBike\s*2\.0_/, '').slice(0, 8))}`, t.bike.rent ?? null, '台', Number.isFinite(t.bike.returnSlots) ? `可還 <b>${t.bike.returnSlots}</b> 位` : '', '#/nearby?tab=bike'));
   else if (!loadPlaces()['家']) out.push(empty('設定住家', '之後直接建議返家路線', '#/settings'));
