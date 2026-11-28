@@ -18,6 +18,49 @@ export function canRemind(leaveAt, date, now = Date.now()) {
   return diff > 1 && diff < 12 * 60; // 提醒最多排 12 小時內（reminders.js addReminder 同一個上限；前端審查 #3：超過還顯示按鈕、按了說「這個裝置無法設定提醒」）
 }
 
+/**
+ * 出發倒數（2026-11-28 Claude 與 Antigravity 第十四輪）：照時刻表的方案（台鐵、高鐵、國道客運）有 leaveAt。
+ * 今天、還有 90 分鐘以內才顯示；剩幾分（負的＝過了幾分）。台灣時間比較（同 canRemind）。不顯示回 null。
+ */
+export function leaveCountdown(leaveAt, date, now = Date.now()) {
+  if (!/^\d{2}:\d{2}$/.test(leaveAt || '')) return null;
+  const tw = new Date(now + 8 * 3600e3);
+  if (date && date !== tw.toISOString().slice(0, 10)) return null;
+  const [hh, mm] = leaveAt.split(':').map(Number);
+  const diff = hh * 60 + mm - (tw.getUTCHours() * 60 + tw.getUTCMinutes());
+  if (diff > 90 || diff < -15) return null;
+  return { diff, status: diff > 5 ? 'ok' : diff >= 0 ? 'now' : 'late' };
+}
+
+/**
+ * 出發倒數區塊（建議方案最上面）：時間都是確定的（沒有估算）才跳大字倒數、每 30 秒更新；
+ * 有估算（到車站的時間、票價是估的）就只寫「建議最晚 HH:MM 出門」——用猜的倒數會害人遲到（Antigravity）。
+ */
+function leaveBlock(o, { t, payload }) {
+  const date = payload?.data?.date;
+  const c0 = leaveCountdown(o.leaveAt, date);
+  if (!c0) return null;
+  const depart = o.train?.depart || null;
+  if (o.estimated) return h('p', { class: 'ab-leave est', role: 'note' }, h('b', {}, t('trip.leaveBy', { time: o.leaveAt })), depart ? h('small', {}, t('trip.leaveFor', { depart })) : null);
+  const n = h('b', { class: 'ab-leave-n' });
+  const unit = h('span', { class: 'ab-leave-u' });
+  const sub = h('small', {});
+  const box = h('div', { class: 'ab-leave', role: 'timer', 'aria-live': 'off' }, n, unit, sub);
+  const paint = () => {
+    const c = leaveCountdown(o.leaveAt, date);
+    if (!c) { box.remove(); return false; }
+    box.className = `ab-leave ${c.status}`;
+    if (c.status === 'ok') { n.textContent = String(c.diff); unit.textContent = t('trip.leaveIn'); }
+    else if (c.status === 'now') { n.textContent = ''; unit.textContent = t('trip.leaveNow'); }
+    else { n.textContent = ''; unit.textContent = t('trip.leaveLate', { n: -c.diff }); }
+    sub.textContent = depart ? t('trip.leaveAtFor', { time: o.leaveAt, depart }) : t('trip.leaveAtOnly', { time: o.leaveAt });
+    return true;
+  };
+  paint();
+  const timer = setInterval(() => { if (!box.isConnected && box.dataset.mounted) { clearInterval(timer); return; } if (box.isConnected) box.dataset.mounted = '1'; if (!paint()) clearInterval(timer); }, 30_000);
+  return box;
+}
+
 /** 重畫後把焦點放回這個按鈕（整張卡重畫，原本按的按鈕會消失） */
 const focusLater = (el, want, state) => { if (want && state.remindFocus === want) { state.remindFocus = null; setTimeout(() => el.focus(), 0); } return el; };
 
@@ -181,6 +224,7 @@ function optionBlock(o, ctx, best) {
       h('span', { class: 'ab-big' }, t('common.minutes', { n: o.minutes })),
       h('span', { class: 'ab-sub' }, t('trip.arrive', { time: o.arriveAt })),
       h('span', { class: 'ab-sub' }, cost, o.estimated ? t('common.estimatedTag') : '')),
+    best && leaveBlock(o, ctx),
     best && legsBar(o, t, ctx.locale),
     best && h('ul', { class: 'ab-legs-detail' }, o.legs.map((l) => h('li', {}, token(l.mode, { size: 'xs' }), ctx.locale === 'en' && l.detailEn ? l.detailEn : l.detail))),
     // YouBike 兩端都要看：起點有車、終點有空位；很緊時警告並給備用站
