@@ -4396,3 +4396,65 @@ test('手機橫放：撐滿整個螢幕；首頁、服務兩欄且第一列對�
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#main')).columnCount), 'auto', '直放單欄不變');
   });
 });
+
+// ───── 王牌場景一條龍（P2-6，2026-11-28 Claude 與 Antigravity 第十二輪）─────
+// 一次合併很多 PR 之後最怕「單點都過、串起來斷」：把通勤、看病、出門一張卡、去政府辦事從輸入走到卡片、提醒、B 方案，
+// 之後實機照這幾條走一遍（截圖 phone-flagship-*.png）。
+test('王牌場景 1 通勤：下雨又趕時間怎麼去 → 決策圖與行程卡 → 回首頁公車一直不來 → 泡泡直接說 B 方案 → 按了用最新資料重查', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = recordBodies(page);
+    await askAbang(page, '下雨又趕時間，從西門町到台北101怎麼去', 1, bodies);
+    const turn = page.locator('.turn').last();
+    await turn.locator('.decision').waitFor();
+    assert.ok(await turn.locator('[data-card="trip"]').count() >= 1, '行程卡');
+    assert.match(await page.locator('.bubble.final').last().textContent(), /趕時間|下雨/, '總結說出狀況');
+    await shot(page, 'phone-flagship-commute');
+    await page.evaluate(() => { location.hash = '#/'; });
+    await page.waitForSelector('.tabbar');
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('abang:arrival-stuck', { detail: { routeName: '601', stop: 'x', reason: 'late', ask: '不要坐公車，改別的方式去台北101' } })));
+    await page.waitForSelector('#abang-bubble:not([hidden])');
+    assert.match(await page.textContent('#abang-bubble'), /601 一直沒來。可以改/, '有剛才的行程：直接說 B 方案');
+    await shot(page, 'phone-flagship-commute-bplan');
+    await page.click('#abang-bubble .btn:not(.quiet)');
+    await page.waitForSelector('#abang-sheet[open]');
+    await page.waitForFunction(() => [...document.querySelectorAll('#abang-sheet .msg.user')].some((m) => /^改.+台北101/.test(m.textContent.trim())), null, { timeout: 20000 });
+  });
+});
+
+test('王牌場景 2 看病：附近有開的小兒科 → 診所卡片 → 「那明天早上呢」接著查', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = recordBodies(page);
+    await askAbang(page, '小孩發燒，附近有開的小兒科嗎', 1, bodies);
+    assert.ok(await page.locator('.turn').last().locator('.ab-clinic').count() >= 1, '診所卡片');
+    await askAbang(page, '那明天早上呢', 2, bodies);
+    assert.match(await page.locator('.bubble.final').last().textContent(), /明天/, '接著查明天');
+    assert.ok(await page.locator('.turn').last().locator('.ab-clinic').count() >= 1);
+    await shot(page, 'phone-flagship-clinic');
+  });
+});
+
+test('王牌場景 3 出門一張卡：要出門了 → 天氣空品一張卡、問要去哪 → 回答目的地接著排行程', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = recordBodies(page);
+    await askAbang(page, '我要出門了，要注意什麼', 1, bodies);
+    await page.waitForSelector('[data-card="outing"] .ab-out', { timeout: 20000 });
+    await shot(page, 'phone-flagship-outing');
+    await askAbang(page, '去台北101', 2, bodies);
+    assert.ok(await page.locator('.turn').last().locator('[data-card="trip"]').count() >= 1, '接著排行程');
+  });
+});
+
+test('王牌場景 4 去政府辦事：換身分證要帶什麼 → 官方入口與應備文件 → 勾出門前檢核表（只存編號在手機）', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    const bodies = recordBodies(page);
+    await askAbang(page, '換身分證要帶什麼', 1, bodies);
+    const card = page.locator('.turn').last().locator('.ab-gov').first();
+    await card.waitFor();
+    const boxes = card.locator('.ab-gov-check input');
+    assert.ok(await boxes.count() >= 1, '應備文件可以勾');
+    await boxes.first().check();
+    await page.waitForFunction(() => /已備好 1／/.test(document.querySelector('.ab-gov-ready')?.textContent || ''));
+    await shot(page, 'phone-flagship-gov');
+    assert.match(await page.evaluate(() => localStorage.getItem('abang.checklist')), /"done":\[0\]/, '只存編號在手機');
+  });
+});
