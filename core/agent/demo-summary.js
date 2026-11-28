@@ -8,6 +8,8 @@ import { upcomingTrains } from '../tools/transit.js';
 import { outingSay } from './outing.js';
 import { DEFAULT_FROM, DEFAULT_AREA, NO_ADVICE, INVOICE_WALLET_HINT, ALSO_TOOL, docShort, dayWord, isNearby } from './demo-intent.js';
 
+/** 示範資料只收了少數地區的工具（找不到時要說是示範資料） */
+const DEMO_SPARSE = new Set(['pharmacy_search', 'clinic_search', 'garbage_truck_nearby']);
 /** 英文方案名稱（卡片目前仍是中文；回答用英文） */
 const enPlace = (name) => { const l = (LANDMARKS.items || LANDMARKS).find((x) => x.name === name); const en = l?.en || l?.aliases?.find((a) => /^[A-Za-z]{4,}/.test(a)); return en ? `${en} (${name})` : name; };
 const EN_MODE_NAME = { walk: 'walking', bike: 'YouBike', bus: 'bus', metro: 'MRT', thsr: 'High Speed Rail', tra: 'train', intercity: 'intercity bus', ridehail: 'taxi', drive: 'driving' };
@@ -312,7 +314,9 @@ function summaryCore(it, results, suggestions = []) {
     : it.intent === 'pharmacy' && !it.area ? (results[it.clinic ? 'clinic_search' : 'pharmacy_search']?.at(-1)?.data?.areaFrom ? `（依${it.places[0] ? `「${it.places[0]}」的` : '你的'}位置推估在「${results[it.clinic ? 'clinic_search' : 'pharmacy_search'].at(-1).data.area}」，不對請說哪一區。）` : it.noLocation ? `（沒拿到你的位置，我先查「${DEFAULT_AREA}」；告訴我哪一區就重查。）` : `（你沒說哪一區，我先查「${DEFAULT_AREA}」。）`)
     : it.intent === 'stock' && it.advice ? NO_ADVICE : '';
   // 發票：主動提議存到「我的發票」，開獎後自動對獎（號碼只存在手機）
-  const post = it.intent === 'invoice' ? ` ${INVOICE_WALLET_HINT}` : it.hospital ? ' 醫院的看診資料這裡沒有，上面是附近有看診的診所；身體很不舒服、急症請直接打 119 或去急診。' : ''; // 問醫院（PM 第三輪 #5）：照實說資料只有診所
+  // 示範模式找不到（藥局、診所、垃圾車）：示範資料只收了少數地區，不要讓人以為那一區真的沒有（V3 走查 F6）
+  const demoEmpty = DEMO_SPARSE.has(Object.keys(results).find((k) => results[k]?.includes(last)) || '') && last?.mode === 'demo' && /沒有找到|沒查到/.test(last?.speak || '') ? '（現在用的是示範資料，只收了少數地區，所以可能找不到；正式上線會查真實資料。）' : '';
+  const post = it.intent === 'invoice' ? ` ${INVOICE_WALLET_HINT}` : `${demoEmpty}${it.hospital ? ' 醫院的看診資料這裡沒有，上面是附近有看診的診所；身體很不舒服、急症請直接打 119 或去急診。' : ''}`; // 問醫院（PM 第三輪 #5）：照實說資料只有診所
   const body = it.intent === 'metro' && results.metro_live_board?.length ? metroSay(it, results.metro_live_board.at(-1)) // 兩個方向都說（m01）、末班車
     : it.intent === 'bus_route' && it.last && results.bus_route_eta?.length ? busLastSay(it, results.bus_route_eta.at(-1))
       : it.intent === 'nearby_bus' && results.bus_nearby_stations?.length ? `${it.lost ? '別擔心，先看你附近最近的站牌：' : ''}${nearbySay(results.bus_nearby_stations.at(-1))}${it.lost ? ' 要回家可以說「我要回家」，阿幫幫你排怎麼走。' : ''}` // 列出站牌的路線（n02）；迷路先安撫、給下一步
