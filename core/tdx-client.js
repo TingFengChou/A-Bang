@@ -302,7 +302,7 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
   const BACKOFF_MS = [1, 2, 4, 8, 15].map((m) => m * 60_000);
   const failed = new Map(); // key -> { n, until, err }
   const upstreamFail = (e) => !isYield(e) && e?.status !== 429 && (e instanceof TdxError || e?.status >= 500 || (e instanceof TypeError && /fetch failed/i.test(e.message)));
-  const again = (e) => Object.assign(e instanceof TdxError ? new TdxError(e.status, e.message) : new Error(e.message), { name: e.name, status: e.status, backoff: true });
+  const again = (e) => Object.assign(e instanceof TdxError ? new TdxError(e.status, e.message) : new Error(e.message), { name: e.name, status: e.status, backoff: true }, typeof e.publicMsg === 'string' && { publicMsg: e.publicMsg }); // 給使用者看的那句照帶（util.publicMessage）
   const ttlOf = (v, ttlSec) => Math.min(ttlSec, v.ttl ?? Infinity);
 
   async function fromStore(key) {

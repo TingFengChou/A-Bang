@@ -94,6 +94,14 @@ test('TDX 錯誤退避時仍是 TdxError（上層照原本的方式分類）', a
   await assert.rejects(tdx.cached('t', 86400, l), (e) => e instanceof TdxError && e.status === 503 && e.backoff);
 });
 
+test('退避中丟的錯照帶給使用者看的那句（publicMessage）', async () => {
+  const { shown, publicMessage } = await import('../core/util.js');
+  const { tdx } = setup();
+  const l = async () => { throw shown(new TdxError(503, 'TDX API 錯誤 503：內部細節'), '交通資料（TDX）暫時無法取得'); };
+  await assert.rejects(tdx.cached('p', 86400, l));
+  await assert.rejects(tdx.cached('p', 86400, l), (e) => e.backoff && publicMessage(e) === '交通資料（TDX）暫時無法取得');
+});
+
 test('部署檢查：存檔目錄寫得進去回 null；沒設或寫不進去說清楚（示範模式不檢查）', async () => {
   const { mkdtemp, writeFile: wf, rm, readdir } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');

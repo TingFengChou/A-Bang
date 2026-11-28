@@ -14,7 +14,7 @@
 ## 2026-11-28 P0-2 TDX 額度：靜態資料下載失敗退避、存檔目錄檢查
 - 做了：與 Antigravity 第三輪討論（`docs/collab/REVIEW_PRODUCT_AGENT.md`，含改完再量的數字：同一題再問 4 次 → 0 次）。量測（`scripts/tdx-budget.js`）證明行程題先查 `traffic_status` 沒有多打（共用 60 秒快取）；真正的風險是靜態清單（捷運站表、國道路段…）下載失敗或回空時不記住，**每一題都重新下載**，一題最多 13 次，連即時到站的額度一起吃光。①`tdx-client` 的 `load()` 失敗退避 1、2、4、8、15 分鐘：有舊資料照用（背景更新也停）、沒有就立刻丟同樣的錯；預熱（`force`）照排程；429 與背景讓位不退避（全站額度閘門本來就管）。②啟動時檢查 `TDX_CACHE_DIR` 有沒有設、寫不寫得進去（Antigravity 建議：防唯讀掛載）
 - App Functions 結合：無（伺服器額度）
-- 測試：npm test 全過（`test/tdx-backoff.test.js` 新增 8 項）
+- 測試：npm test 全過（`test/tdx-backoff.test.js` 新增 9 項）
 - 文件：DATA_SOURCES.md §1.1、PLAN.md T-QUOTA 與 V2-2 地端模型評測結果（227／260）、協作文件第三輪、PROGRESS.md
 - 下一個：降級文案逐工具盤點（P0-2 B）；P0-1＋F1 等 Austin 用金鑰實測地理編碼
 - 卡住：真實額度標頭要 Austin 的金鑰
