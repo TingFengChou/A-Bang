@@ -88,6 +88,12 @@
       ],
       "additionalProperties": false,
       "properties": {
+        "closing": {
+          "enum": [
+            "soon",
+            "over"
+          ]
+        },
         "date": {
           "type": "string"
         },
