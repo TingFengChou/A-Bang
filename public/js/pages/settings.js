@@ -256,7 +256,7 @@ export const settings = {
             results.append(li);
           }
         } catch (e) {
-          if (my === seq) status.textContent = /^HTTP |^[A-Za-z]/.test(e.message || '') || !e.message ? '暫時查不到，稍後再試' : e.message; // 伺服器英文錯誤不直接給人看
+          if (my === seq) status.textContent = /^HTTP |^[A-Za-z]/.test(e.message || '') || !e.message ? '這次查不到（連不上資料來源），可以再按一次' : e.message; // 伺服器英文錯誤不直接給人看
         } finally { if (my === seq) go.disabled = false; }
       };
       go.addEventListener('click', search);

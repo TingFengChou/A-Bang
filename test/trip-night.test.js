@@ -228,7 +228,7 @@ test('審查 5：directTrips 內部 routeEta 429 記下來，公車原因照實�
   svc.bus = { ...svc.bus, directTrips: async () => Object.defineProperty([], 'limited', { value: true }) };
   const r = await plan(svc, '10:00');
   const bus = r.missing.find((x) => x.role === 'bus');
-  assert.deepEqual([bus.why, bus.fallback, bus.kind], ['TDX 額度用完，這次查不到公車到站（稍後再問一次）', 'tdx-limit', 'skipped']);
+  assert.deepEqual([bus.why, bus.fallback, bus.kind], ['TDX 額度用完，這次查不到公車到站（額度每分鐘重算，約一分鐘後再問）', 'tdx-limit', 'skipped']);
   assert.match(bus.whyEn, /TDX quota used up/);
 });
 

@@ -119,7 +119,7 @@ export function locateSay({ ok, reason, area }, lang = null) {
   if (reason === 'outside') return en ? "You're outside Taiwan; type a place instead" : '你的位置不在台灣，阿幫查不到附近資料；可以直接打地點';
   if (reason === 'denied') return en ? "Location permission is off; type a place or allow location in Settings" : '定位權限沒有打開；可以直接打地點，或到設定允許定位';
   if (reason === 'off') return en ? 'Location services are off; type a place or turn them on' : '手機的定位服務是關的；可以直接打地點，或打開定位服務';
-  if (reason === 'timeout') return en ? 'Location took too long; type a place or try again' : '定位太久沒有回應；可以直接打地點，或稍後再試';
+  if (reason === 'timeout') return en ? 'Location took too long; type a place or try again' : '定位太久沒有回應；可以直接打地點，或再按一次定位';
   return en ? "Couldn't get your location; type a place or turn on location" : '沒拿到你的位置；可以直接打地點，或到手機設定打開定位';
 }
 
