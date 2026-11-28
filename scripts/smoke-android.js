@@ -20,18 +20,18 @@ let serial = '';
 const screencap = () => execFileSync('adb', [...(serial ? ['-s', serial] : []), 'exec-out', 'screencap', '-p'], { maxBuffer: 64 * 1024 * 1024 });
 const adb = (...a) => execFileSync('adb', [...(serial ? ['-s', serial] : []), ...a], { encoding: 'utf8' }).trim();
 
-/** 每一頁要看到什麼（選擇器）；tab：分頁列哪一格標 aria-current（中央「問阿幫」鍵每一頁都在，2026-11-21 取代浮動阿幫） */
+/** 每一頁要看到什麼（選擇器）；chrome：底部放什麼（ADR-0023 頁面矩陣：home 首頁輸入列、dock 總覽頁輸入列、fab 問阿幫浮動鍵、none 都不放；兩個煙霧測試同一份清單） */
 const PAGES = [
-  { name: 'home', hash: '#/', want: '#now', tab: 'home' },
-  { name: 'services', hash: '#/services', want: '.svc-list', tab: 'services' },
-  { name: 'reminders', hash: '#/reminders', want: '#rem-list', tab: 'reminders' },
-  { name: 'me', hash: '#/me', want: '.me-ai', tab: 'me' },
-  { name: 'agent', hash: '#/agent', want: '.chat-form', tab: 'ask' },
-  { name: 'bus', hash: `#/bus/Taipei/307?stop=${encodeURIComponent('敦化市場')}&dir=0`, want: '.timeline', tab: 'services' },
-  { name: 'weather', hash: '#/s/weather', want: '#pagehero .page-hero', tab: 'services' },
-  { name: 'nearby', hash: '#/nearby', want: '#pagehero .page-hero', tab: 'services' },
-  { name: 'settings', hash: '#/settings', want: '#saved', tab: 'me' },
-  { name: 'ai', hash: '#/ai', want: '.ai-hero #ai-chip:not([hidden])', tab: 'me' }, // 阿幫的腦袋：外掛 status() 回來、主視覺畫好
+  { name: 'home', hash: '#/', want: '#hs-card[aria-busy="false"]', chrome: 'home' },
+  { name: 'services', hash: '#/services', want: '.svc-list', chrome: 'dock' },
+  { name: 'reminders', hash: '#/reminders', want: '#rem-list', chrome: 'dock' },
+  { name: 'me', hash: '#/me', want: '.me-ai', chrome: 'dock' },
+  { name: 'agent', hash: '#/agent', want: '.chat-form', chrome: 'none' },
+  { name: 'bus', hash: `#/bus/Taipei/307?stop=${encodeURIComponent('敦化市場')}&dir=0`, want: '.timeline', chrome: 'fab' },
+  { name: 'weather', hash: '#/s/weather', want: '#pagehero .page-hero', chrome: 'fab' },
+  { name: 'nearby', hash: '#/nearby', want: '#pagehero .page-hero', chrome: 'fab' },
+  { name: 'settings', hash: '#/settings', want: '#saved', chrome: 'none' },
+  { name: 'ai', hash: '#/ai', want: '.ai-hero #ai-chip:not([hidden])', chrome: 'fab' }
 ];
 
 function fail(msg) { console.error(`✗ ${msg}`); process.exitCode = 1; }
@@ -70,10 +70,12 @@ async function main() {
       await page.evaluate((h) => { globalThis.location.hash = h; }, p.hash);
       try {
         await page.waitForSelector(p.want, { timeout: 15000 });
-        const st = await page.evaluate(() => { const d = globalThis.document; const b = d.getElementById('abang-fab'); return { key: !!b && b.offsetParent !== null, cur: d.querySelector('.tabbar [aria-current]')?.dataset.tab || null }; });
-        if (!st.key) fail(`${p.name}：中央「問阿幫」鍵沒有出現`);
-        else if (st.cur !== p.tab) fail(`${p.name}：分頁列標在 ${st.cur}，應該是 ${p.tab}`);
-        else console.log(`✓ ${p.name}`);
+        const st = await page.evaluate(() => { const d = globalThis.document; const vis = (s) => { const e = d.querySelector(s); return !!e && e.getClientRects().length > 0 && globalThis.getComputedStyle(e).visibility !== 'hidden'; }; return { fab: vis('#abang-fab'), dock: vis('#sd-form'), home: vis('.hs-dock'), tabbar: !!d.querySelector('.tabbar') }; });
+        const want = { home: { home: true, dock: false, fab: false }, dock: { home: false, dock: true, fab: false }, fab: { home: false, dock: false, fab: true }, none: { home: false, dock: false, fab: false } }[p.chrome];
+        const bad = ['home', 'dock', 'fab'].filter((k) => st[k] !== want[k]);
+        if (st.tabbar) fail(`${p.name}：還有分頁列（ADR-0023 已拿掉）`);
+        else if (bad.length) fail(`${p.name}：底部不對（${bad.map((k) => `${k}=${st[k]}`).join('、')}；應該是 ${p.chrome}）`);
+        else console.log(`✓ ${p.name}（${p.chrome}）`);
       } catch { fail(`${p.name}：15 秒內沒看到 ${p.want}`); }
       await sleep(600);
       try { writeFileSync(fileURLToPath(new URL(`android-${p.name}.png`, OUT)), screencap()); } catch (e) { console.warn(`  （${p.name} 截圖失敗：${e.message}）`); } // 用手機實際畫面（WebView 截圖在重新載入後可能卡住）
@@ -92,14 +94,14 @@ async function main() {
     const hs = await page.evaluate(() => globalThis.Capacitor.nativePromise('AbangHealth', 'status', {}).catch((e) => ({ error: e.message })));
     if (hs.error) fail(`AbangHealth.status 失敗：${hs.error}`);
     else console.log(`✓ 健康資料：${hs.available ? `Health Connect 可用，權限 ${hs.permission}` : `不能用（${hs.reason}）`}`);
-    // 中央「問阿幫」鍵拉出對話、Android 返回鍵收起（dialog.close）；沒拉出來就不按返回（--keep 時前面可能是別的 App）
+    // 「問阿幫」浮動鍵拉出對話、Android 返回鍵收起（dialog.close）；沒拉出來就不按返回（--keep 時前面可能是別的 App）
     await page.evaluate(() => { globalThis.location.hash = '#/s/weather'; });
     await page.waitForSelector('#abang-fab');
     await page.$eval('#abang-fab', (b) => b.click()); // 直接點（手機螢幕變暗或沒在畫畫面時，等「穩定」會一直等不到）
     const opened = await page.waitForSelector('#abang-sheet[open] .chat-form', { timeout: 8000 }).then(() => true, () => false);
-    if (!opened) fail('中央鍵沒有拉出對話');
+    if (!opened) fail('浮動鍵沒有拉出對話');
     else {
-      console.log('✓ 中央鍵拉出對話');
+      console.log('✓ 浮動鍵拉出對話');
       await sleep(400);
       if (!/mWakefulness=Awake/.test(adb('shell', 'dumpsys', 'power'))) { console.warn('－ 手機螢幕關著：返回鍵這項略過（不喚醒、不解鎖手機；螢幕亮著時再跑一次）'); await page.evaluate(() => globalThis.document.getElementById('abang-sheet').close()); }
       else {
