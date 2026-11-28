@@ -54,12 +54,17 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | V5 Android 實機 | `smoke:android`；Gemini Nano、手機寫回答、E3 小模型、語音、相機、提醒常駐、Health Connect；實際搭一趟 | 煙霧測試過＋手動清單 | 🚧 V5-1 煙霧測試全過（Pixel 11 Pro XL、Android 17）；V5-2 Gemini Nano 判斷 0.5～1 秒、手機寫回答可用 |
 | V6 真實資料 | TDX（`verify-tdx.js`、額度降級）、氣象署、免金鑰開放資料逐一、MyDrama | 每個來源可用或列原因 | ⬜（CWA 授權碼待取得） |
 | V7 MCP 與 Claude | 連接器實測 7 種卡片與 L2 確認（M4-09）、REST／OpenAPI、Claude 模式（M5-05） | Austin 實測 | ⬜ |
-| V8 安全與效能 | 全 repo 安全審查、git 歷史掃描（座標、金鑰、個資）、Lighthouse 基準、伺服器 1 小時壓測 | 報告 | 🚧 V8-2 ✅：678 個 commit 沒有 `.env`、金鑰檔、常見金鑰格式；`TDX_CLIENT_SECRET=` 只有文件裡的中文範例；本機路徑與信箱只在 F7 那兩個檔 |
+| V8 安全與效能 | 全 repo 安全審查、git 歷史掃描（座標、金鑰、個資）、Lighthouse 基準、伺服器 1 小時壓測 | 報告 | 🚧 V8-1 ✅ 全 repo 安全審查（4 項：F8 三項已修、F9 等決定；npm audit 0、XSS／路徑穿越／ReDoS／隱私沒發現問題）；V8-2 ✅：678 個 commit 沒有 `.env`、金鑰檔、常見金鑰格式；`TDX_CLIENT_SECRET=` 只有文件裡的中文範例；本機路徑與信箱只在 F7 那兩個檔 |
 | V9 彙整 | 問題分阻擋／重要／小；修完重跑 V1、V2 與受影響的 V3～V5；驗證報告 | Austin 決定恢復開發 | ⬜ |
 
 驗證發現（V9 清單）：
 - **F1（重要，等 Austin）**：附近藥局、「附近有醫院嗎」在台北以外查不到（「沒辦法從位置判斷在哪一區」）。座標轉行政區靠氣象署測站；沒有 CWA 授權碼時只有 17 個示範行政區（6 公里內）。藥局、診所資料本身是真的全台資料。修法：CWA 授權碼（V6-2），或內建全台 368 鄉鎮中心點
 - **F3（要 Austin 決定）**：main 上 `pages` workflow 每次都失敗（repo 沒開 GitHub Pages），main 一直掛紅叉。開 Pages，或先停用 workflow
+- **F8（中，已修）**：V8-1 安全審查
+  - (a) `/api/v1/agent`、`/api/v1/suggest/check` 不檢查 content-type，別的網站用 no-cors 的跨站請求就能用光全站每日模型額度 → 只收本站與 App 來源的 JSON（403／415），錯誤回應不帶 `*`
+  - (b) 站牌到站、路線搜尋直接打 TDX → 路線搜尋在預熱清單本機篩；清單外的站位 ID 走每分鐘 1 次的關卡
+  - (c) `resolveCity('constructor')` 當成縣市 → 只認自己的鍵
+- **F9（低，等 Austin 決定）**：Android `allowBackup="true"`：WebView 的 localStorage（常用地點座標、發票號碼）會進雲端備份。取捨：隱私 vs 換手機時資料跟著走。選項：關掉備份，或用 dataExtractionRules 排除 `app_webview`
 - **F7（小，已修）**：`private/tmp/…/scratchpad/` 兩個評測報告（2026-11-20 判斷小實驗）不小心進了版控，內容無金鑰，但路徑帶本機使用者名稱 → 移出版控、`.gitignore` 加 `/private/`（歷史保留，內容無害）
 - **F6（小，已修）**：示範模式（`DEMO_MODE=1`、CI、公開示範站）問台北中正／大安以外的藥局、診所、垃圾車，回「沒有找到」像那一區真的沒有；示範資料只收了少數地區 → 補一句「現在用的是示範資料，只收了少數地區」（真實開放資料查得到：萬華區藥局 20 家、牙科 17 家、垃圾車 90 公尺）
 - **F5（中，已修）**：無障礙巡檢（手機 21 頁）：時刻表頁起訖站、日期沒有讀屏名稱；觸控目標小於 44px——建議 chip、設定頁跳轉、防詐範例 36px，附近／公車分段按鈕 39px，下拉選單 42px，「再看一次使用說明」32px，「跳到主要內容」39px，首頁搜尋框只有中間 26px 點得到 → 補 aria-label、全部 44px
