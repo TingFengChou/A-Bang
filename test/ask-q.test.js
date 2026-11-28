@@ -283,7 +283,11 @@ test('審查 6：歧義題之後接著改（那叫車呢、我趕時間）不再
 });
 
 test('建議 a～g：附近只有一個候選不問；帶行李要划算才問；「這三站」是數字；防詐帶著句子；英文最近站說明；那台鐵呢；站名才收', async () => {
-  for (const t of ['去花博', '去士林', '去中正']) assert.notEqual(askOf(await run({ messages: one(t), ...at(TPE) }))?.about, 'slot:place', t);
+  for (const t of ['去花博', '去士林']) assert.notEqual(askOf(await run({ messages: one(t), ...at(TPE) }))?.about, 'slot:place', t);
+  // 2026-11-28 行政區（第十一輪）：「中正」附近不只中正紀念堂，還有臺北市中正區——不再只有一個候選，照同一條規則要問（跟 Q-7「去信義」一致）
+  const zz = askOf(await run({ messages: one('去中正'), ...at(TPE) }));
+  assert.equal(zz?.about, 'slot:place');
+  assert.deepEqual(zz.options.slice(0, 2).map((o) => o.label.replace('臺', '台')), ['中正紀念堂', '台北市中正區']);
   const bus = { id: 'c', role: 'intercity', name: '客運', minutes: 78, cost: 95, walkMin: 14, transfers: 0, waitMin: 5 };
   const taxi = { id: 'r', role: 'ridehail', name: '叫車', minutes: 75, cost: 1885, walkMin: 0, transfers: 0, waitMin: 3 };
   assert.equal(keyQuestion([bus, taxi], {}, ['luggage']), null, '去羅東夜市：叫車多 1790 元，不問帶行李');

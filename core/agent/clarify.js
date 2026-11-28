@@ -4,7 +4,7 @@
 //   after＝先用最可能的答案查（選項第一個標 guess「猜的」），同時問一題讓使用者更正，按了就送出完整的一句重算
 // 全部是通用規則（同名地點跨縣市、連鎖機構、區名、路名、公車方向、只說類別…），不寫死句子；選項都是 reply（完整的一句，
 // 規則聽得懂），打字回答由 core/agent/ask.js 的 PENDING_SLOTS 接回。原則同 #115：寧可不問——對不上就照原本流程。
-import { LANDMARKS, normPlace, TOWN_ITEMS, townHits } from '../services/places.js';
+import { LANDMARKS, normPlace, TOWN_ITEMS, townHits, COMMON_SHORT } from '../services/places.js';
 import { ROUTE_EXACT } from './patterns.js';
 import { distanceM } from '../util.js';
 
@@ -71,7 +71,12 @@ export function lookupToken(token) {
   const station = STATION_SAID.test(n);
   const cands = ITEMS.filter((x) => (!station || x.kind === 'station') && keysOf(x).some((k) => aligned(k, core)));
   if (station) return cands.length === 1 ? { exact: cands[0].name } : cands.length ? { core, cands: cands.map((x) => x.name) } : { station: core }; // 「去南港站」＝南港車站（不問展覽館）
-  return cands.length && cands.length <= 4 ? { core, cands: cands.map((x) => x.name) } : null;
+  // 跟區同名的短名（「信義」「中山」：常見路名、不直接當區，第十一輪）：那幾個區也是候選——「去信義」可能是信義商圈，也可能是信義區（Q-7，Antigravity 第十一輪）
+  // 只加不會直接當成區的那種（常見短名「信義」，或全台不只一個的區）；「士林」只有一個區、也不是常見短名：問路照舊走士林的地標
+  const towns0 = station ? [] : TOWN_ITEMS.filter((t) => normPlace(t.town.replace(/[區鄉鎮市]$/, '')) === core && !cands.some((x) => x.name === t.name));
+  const towns = COMMON_SHORT.has(core) || towns0.length >= 2 ? towns0 : [];
+  const all = [...cands.map((x) => x.name), ...towns.map((t) => t.name)];
+  return all.length && all.length <= 4 && (cands.length || towns.length >= 2) ? { core, cands: all } : cands.length && cands.length <= 4 ? { core, cands: cands.map((x) => x.name) } : null;
 }
 
 /** 選項上的名字：正式名稱短（≤ 5 字）而且有這個名字就用它，否則用最短、含這個名字的別名（「林口長庚」「松山機場」「中山公園」） */
