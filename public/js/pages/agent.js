@@ -808,7 +808,8 @@ export default {
       say(text, action = null) {
         const p = el('div', 'agent-say');
         p.append(avatar('阿幫', 'happy'), el('p', 'say', text));
-        if (action?.ask) { const b = el('button', 'btn small', action.label || '問阿幫'); b.type = 'button'; b.onclick = () => { action.before?.(); send(action.ask); }; p.append(b); }
+        if (action?.run) { const b = el('button', 'btn small', action.label); b.type = 'button'; b.onclick = () => { b.disabled = true; action.run(); }; p.append(b); } // 跑一段程式（趕車檢查）
+        else if (action?.ask) { const b = el('button', 'btn small', action.label || '問阿幫'); b.type = 'button'; b.onclick = () => { action.before?.(); send(action.ask); }; p.append(b); }
         log.append(p);
       },
       /** 公車一直不來、末班已過：用畫面上最近那次行程算 B 方案（core/b-plan.js；不打 API）；沒有行程或載不到回 null */

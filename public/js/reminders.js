@@ -77,10 +77,11 @@ function drop(r) {
  * 新增提醒。同一段路線（key）已有提醒就換成新的（改時間）；同時間同文字視為同一筆。
  * @param {Date} when
  * @param {string} text
- * @param {{ key?: string, opt?: string, lang?: 'en' }} [meta]  key：路線（起訖）；opt：方案 id（卡片判斷「這個方案已設定」）；lang：英文卡片設的（通知標題用英文）
+ * @param {{ key?: string, opt?: string, lang?: 'en', rail?: object }} [meta]  key：路線（起訖）；opt：方案 id（卡片判斷「這個方案已設定」）；lang：英文卡片設的（通知標題用英文）；
+ *   rail：台鐵／高鐵／末班車的那一班（提醒響後問趕不趕得上；交給 catch-train.js，用事件不直接引用）
  * @returns {Promise<string|false>} 提醒 id；權限被拒、時間不對、裝置不支援回 false
  */
-export async function addReminder(when, text, { key, opt, lang } = {}) {
+export async function addReminder(when, text, { key, opt, lang, rail } = {}) {
   const at = when.getTime();
   const delay = at - Date.now();
   if (!(delay > 0 && delay < 12 * 3600e3)) return false;
@@ -107,6 +108,8 @@ export async function addReminder(when, text, { key, opt, lang } = {}) {
   save([...list, r]);
   if (!hasNativeNotify()) webTimer(r);
   emit();
+  if (old && old.id !== r.id) globalThis.dispatchEvent?.(new CustomEvent('abang:reminder-cancel', { detail: { id: old.id } }));
+  if (rail) globalThis.dispatchEvent?.(new CustomEvent('abang:reminder-rail', { detail: { id: r.id, at, rail } }));
   return r.id;
 }
 
@@ -118,6 +121,7 @@ export function cancelReminder(id) {
   drop(r);
   save(all.filter((x) => x.id !== id));
   emit();
+  globalThis.dispatchEvent?.(new CustomEvent('abang:reminder-cancel', { detail: { id } })); // 趕車檢查也不問了
   return r.at > Date.now();
 }
 
@@ -127,6 +131,7 @@ export function cancelAllReminders() {
   timers.clear();
   try { localStorage.removeItem(KEY); } catch { /* 無痕模式 */ }
   emit();
+  globalThis.dispatchEvent?.(new CustomEvent('abang:reminder-cancel', { detail: { all: true } }));
 }
 
 /**

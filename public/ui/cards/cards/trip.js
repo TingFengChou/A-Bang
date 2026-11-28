@@ -35,7 +35,10 @@ function remindBlock(o, { host, t, state, rerender, payload, say = () => {}, loc
   const when = host.arrivalNote?.() === 'whenOpenPage' ? t('trip.remindWhenPage') : '';
   const set = async () => {
     state.explain = null; msg(null);
-    const id = await host.remind(o.leaveAt, t('trip.remindText', { name: o.name, time: o.leaveAt }), { key, opt: o.id, ...(locale === 'en' && { lang: 'en' }) }).catch(() => false);
+    // 台鐵、高鐵、末班車：記下那一班與上車站（提醒響後問「要我用一次位置幫你看還趕不趕得上嗎？」；public/js/catch-train.js）
+    const rl = /^(thsr|tra)$/.test(o.role) && o.train ? o.legs?.find((l) => l.mode === o.role) : null;
+    const rail = rl && Number.isFinite(rl.from?.lat) ? { role: o.role, trainNo: o.train.trainNo, depart: o.train.depart, from: o.train.from, to: o.train.to, date: o.train.date, st: { lat: rl.from.lat, lon: rl.from.lon }, ...(o.lastTrain && { last: true }), ...(d.to && Number.isFinite(d.to.lat) && { dest: { name: d.to.name, lat: d.to.lat, lon: d.to.lon } }), ...(locale === 'en' && { lang: 'en' }) } : null;
+    const id = await host.remind(o.leaveAt, t('trip.remindText', { name: o.name, time: o.leaveAt }), { key, opt: o.id, ...(locale === 'en' && { lang: 'en' }), ...(rail && { rail }) }).catch(() => false);
     state.reminded = id ? { opt: o.id, id } : null;
     if (id) { msg(t('trip.reminded', { time: o.leaveAt }) + when); state.remindFocus = 'cancel'; }
     else { msg(t(host.remindersFull?.() ? 'trip.remindFull' : (host.notifyState && (await host.notifyState().catch(() => 'prompt')) === 'denied') ? 'trip.remindDenied' : 'trip.remindFailed'), 'err'); state.remindFocus = 'trigger'; } // 已經 5 筆：照實說（前端審查 #3）
