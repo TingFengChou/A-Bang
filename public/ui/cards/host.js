@@ -18,6 +18,7 @@
  * @property {(event: { title: string, start: number, end: number, location?: string, notes?: string }) => Promise<'saved'|'cancelled'|'downloaded'|'denied'|'outdated'|'failed'>} [addCalendar]  加到行事曆（ADR-0021：系統畫面確認；網頁下載 .ics）
  * @property {(p: { title?: string, text: string, url?: string }) => Promise<'shared'|'cancelled'|'copied'|'outdated'|'failed'>} [share]  分享（ADR-0021：系統分享面板；網頁 Web Share 或複製）
  * @property {(hash: string) => void} [navigate]  開 App 內頁面（網頁 host 才有）
+ * @property {{ get: (id: string) => Set<number>, set: (id: string, done: Set<number>) => void }} [checklist]  出門前檢核表（T-CHECKLIST）：去政府辦事的應備文件勾了哪幾項，只存在手機；MCP Apps 不提供（照舊列清單）
  * @property {'light'} theme
  * @property {'web'|'mcp-app'|'app'} kind
  */

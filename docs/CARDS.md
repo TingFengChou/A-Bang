@@ -49,6 +49,7 @@
  * @property {() => string} [arrivalNote]  提醒說明文字鍵：whenAlways／whenOpenPage／whenNoPermission
  * @property {() => object|null} [arrivalWatch]  目前的到站提醒
  * @property {(hash: string) => void} [navigate]  開 App 內頁面（只接受 #/ 開頭）
+ * @property {{ get: (id) => Set<number>, set: (id, done: Set<number>) => void }} [checklist]  出門前檢核表（T-CHECKLIST）：應備文件勾了哪幾項，只存在手機。MCP Apps 不提供
  * @property {(e: { title, start, end, location?, notes? }) => Promise<string>} [addCalendar]  加到行事曆（ADR-0021）：App 開系統的新增行程畫面（iOS 回 saved／cancelled，Android 回 opened），網頁下載 .ics（downloaded）；內容由 core/device-actions.js 從卡片產生。MCP Apps 不提供
  * @property {(p: { title?, text, url? }) => Promise<string>} [share]  分享（ADR-0021）：App 開系統分享面板（iOS shared／cancelled，Android opened），網頁 Web Share，不支援就複製（copied）。MCP Apps 不提供
  * @property {(t: { app: string|null, store: { ios, android }|null }) => void} [openApp]  開合作 App（MyDrama，ADR-0019）：先開 App 連結，1.6 秒內畫面沒離開就開商店頁；只收安全的自訂 scheme／https（`core/drama-say.js` `isAppLink`），商店頁只收 https。MCP Apps 不提供（卡片改用 https 商店頁）
@@ -171,7 +172,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 | `gov-links` | 官方入口（`gov_official_link`，M16-04d）：每個入口一列（名稱、網站與怎麼用）、開官網按鈕（L2 確認：登入與付款在官網完成、阿幫看不到）、提醒只從官方網站或 App 進去 | — |
 | `passport-wait` | 護照現場等待人數（`passport_waiting`，M16-04c）：每個據點一列三格（申辦一般件、網路預約件、領護照，大數字）、更新時間、網路預約（主要按鈕）與即時看板 | 60 秒 |
 | `gov-office` | 最近的戶政事務所（`gov_office_nearby`，M16-04b）：今天是不是上班日（綠色／橘色 chip；日曆沒有今天時註明照週末推；`calendarFailed` 日曆這次連不上時另說，提醒補班或連假可能不準、先打電話）、每所一列（名稱、距離與步行、地址、導航、撥打電話）、營業時間各所不同請先打電話 | — |
-| `gov-service` | 去政府辦事要帶什麼（`gov_service_info`，M16-04a）：每項一列（標題＋臨櫃／線上 chip，第一項展開）、辦理時間、要帶什麼（條列，超過 6 條可展開；沒填照實說）、洽詢、官方說明／線上申辦／表單下載按鈕（只收 https）、資料更新日期與「以機關公告為準」 | — |
+| `gov-service` | 去政府辦事要帶什麼（`gov_service_info`，M16-04a）：每項一列（標題＋臨櫃／線上 chip，第一項展開）、辦理時間、要帶什麼（條列，超過 6 條可展開；沒填照實說；**出門前檢核表**（T-CHECKLIST，2026-11-28）：host 有 `checklist` 時每條是勾選框，上面「出門前檢查：已備好 2／6 項（勾選只存在這支手機）」，全勾「都備好了，可以出門！」；勾的只存編號在手機，30 天沒動清掉、最多 20 份；MCP Apps 沒有 `checklist` 照舊列清單）、洽詢、官方說明／線上申辦／表單下載按鈕（只收 https）、資料更新日期與「以機關公告為準」 | — |
 
 網頁入口：首頁格子 → `#/s/:id`（`public/js/pages/service.js`，需要位置的服務先定位）。
 

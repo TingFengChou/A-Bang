@@ -365,6 +365,8 @@ export const MESSAGES = {
   'gov.ch.other': 'Email/fax',
   'gov.days': 'Processing time: {days}',
   'gov.docs': 'What to bring',
+  'gov.ready': 'Before you go: {n}/{total} ready (ticks stay on this phone)',
+  'gov.readyAll': 'All set, you can go! (ticks stay on this phone)',
   'gov.noDocs': 'This entry lists no documents. Check the official page or ask the office.',
   'gov.fullDocs': 'Show full text',
   'gov.moreDocs': 'Show {n} more',
