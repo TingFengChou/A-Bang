@@ -71,7 +71,7 @@ export function showOnboarding({ force = false, onClose } = {}) {
   dlg.setAttribute('aria-describedby', 'onboard-body');
   let i = 0;
   const close = () => { markDone(); dlg.close(); };
-  dlg.addEventListener('close', () => { markDone(); dlg.remove(); onClose?.(); });
+  dlg.addEventListener('close', () => { markDone(); dlg.remove(); onClose?.(); dispatchEvent(new Event('abang:onboarded')); }); // 首頁「今天」卡看完引導才出現；預設地區也可能剛設好
   const rest = () => steps.slice(i + 1).filter((s) => !skip.has(s));
 
   const paint = () => {

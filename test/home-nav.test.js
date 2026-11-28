@@ -93,7 +93,7 @@ test('現在：沒給定位不問權限（用台北車站附近並寫明）；�
     granted: async () => ok, locate: async () => { located++; return { lat: 22.6, lon: 120.3 }; }, fallback: { lat: 25.0478, lon: 121.517 },
   });
   const failed = await loadNow(deps(false, true), 1000);
-  assert.deepEqual(failed, { weather: null, aqi: null, place: '台北車站附近', offline: false });
+  assert.deepEqual(failed, { weather: null, aqi: null, day: null, place: '台北車站附近', offline: false });
   assert.equal(located, 0, '沒給過權限：不定位');
   assert.equal(peekNow(1000), null);
   // 只查到天氣：不快取，下次重查（失敗的空品會再試）

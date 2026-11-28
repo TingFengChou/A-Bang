@@ -53,19 +53,21 @@ export const peekNow = (now = Date.now()) => (cache && now - cache.at < TTL ? ca
  * @param {{ callTool: Function, granted: () => Promise<boolean>, locate: () => Promise<{lat:number,lon:number}|null>, fallback: { lat: number, lon: number } }} deps
  * @returns {Promise<{ weather: object|null, aqi: object|null, place: string, offline: boolean, pos?: { lat: number, lon: number } }>}
  */
-export async function loadNow({ callTool, granted, locate, fallback }, now = Date.now()) {
+export async function loadNow({ callTool, granted, locate, fallback, fallbackName = '台北車站附近' }, now = Date.now()) {
   if (globalThis.navigator?.onLine === false) return { weather: null, aqi: null, place: '', offline: true };
   let ok;
   try { ok = !!(await granted()); } catch { ok = false; } // 沒給過權限就不問（不在首頁跳權限框）
-  if (peekNow(now) && (cache.located || !ok)) return cache.v;
+  if (peekNow(now) && (cache.located || !ok) && (cache.located || cache.fb === fallbackName)) return cache.v; // 預設地區換了：不沿用舊地區的天氣
   let pos = null;
   try { if (ok) pos = await locate(); } catch { pos = null; }
-  const place = pos ? '你附近' : '台北車站附近';
+  const place = pos ? '你附近' : fallbackName; // 沒定位：有預設地區就用那一區（T-HOMEAREA），不然台北車站附近
   const p = pos || fallback;
-  const get = (name) => callTool(name, { lat: p.lat, lon: p.lon }).then((r) => r?.data || null, () => null);
-  const [weather, aqi] = await Promise.all([get('weather_now'), get('aqi_nearby')]);
-  const v = { weather, aqi, place, offline: false, ...(pos && { pos: { lat: pos.lat, lon: pos.lon } }) }; // pos：只在有定位時（散步小卡找附近的公園，ADR-0018；只在記憶體）
-  if (weather && aqi) cache = { at: now, located: !!pos, v };
+  const get = (name, extra = {}) => callTool(name, { lat: p.lat, lon: p.lon, ...extra }).then((r) => r?.data || null, () => null);
+  // 今天上不上班（「今天」卡：補班日、連假）：辦公日曆在 gov_office_nearby 的 today；查不到就照星期推
+  const [weather, aqi, office] = await Promise.all([get('weather_now'), get('aqi_nearby'), get('gov_office_nearby', { limit: 1 })]);
+  const day = office?.today && !office.today.calendarFailed ? { workday: office.today.workday, known: !!office.today.known, note: office.today.note || null } : null;
+  const v = { weather, aqi, day, place, offline: false, ...(pos && { pos: { lat: pos.lat, lon: pos.lon } }) }; // pos：只在有定位時（散步小卡找附近的公園，ADR-0018；只在記憶體）
+  if (weather && aqi) cache = { at: now, located: !!pos, fb: fallbackName, v };
   else cache = null; // 少一個：下次重查
   return v;
 }

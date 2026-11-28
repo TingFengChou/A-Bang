@@ -2048,6 +2048,43 @@ test('舊網址都還能用（#/nearby、#/bus、#/favs、#/settings、#/privacy
   });
 });
 
+test('首頁「今天」卡：一句話、馬上能按的問題、依據點開「阿幫記得你」可以一項一項忘掉（第十三輪）', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.evaluate(() => {
+      localStorage.setItem('abang.places', JSON.stringify({ 家: { name: '家', lat: 25.033, lon: 121.543 }, 公司: { name: '台北101', lat: 25.0339, lon: 121.5645 } }));
+      localStorage.setItem('abang.homeArea', JSON.stringify({ county: '臺北市', town: '大安區', lat: 25.0263, lon: 121.5436 }));
+    });
+    await page.reload();
+    await page.waitForSelector('#today.on #now[aria-busy="false"] [data-now="weather"]');
+    assert.match(await page.textContent('#now-h'), /^今天 \d+\/\d+（[日一二三四五六]）$/);
+    assert.match(await page.textContent('#today-kind'), /上班日|補班日|週末|放假/);
+    assert.match(await page.textContent('#today-say'), /^(早安|午安|晚安|夜深了)！/);
+    assert.doesNotMatch(await page.textContent('#today-say'), /我在看天氣/, '查好了就不說還在看');
+    const acts = await page.locator('#today-acts a').evaluateAll((els) => els.map((a) => a.getAttribute('href')));
+    assert.ok(acts.length >= 1 && acts.every((h) => h.startsWith('#/')), acts.join());
+    assert.match(await page.textContent('#today-basis'), /依據：你的位置・家、公司.*阿幫記得你/);
+    const box = await page.locator('#today').boundingBox();
+    const hero = await page.locator('.hero').boundingBox();
+    assert.ok(box.y < hero.y, '今天卡在問阿幫主視覺上面');
+    await shot(page, 'home-today');
+    // 阿幫記得你：按兩下才忘掉；今天卡跟著變
+    await page.click('#today-basis');
+    await page.waitForSelector('dialog.memory-sheet[open]');
+    assert.deepEqual(await page.locator('.mem-row .title').allTextContents(), ['家', '公司', '臺北市大安區']);
+    await shot(page, 'home-memory');
+    const btn = page.locator('.mem-forget[data-id="place:公司"]');
+    await btn.click();
+    assert.equal(await btn.textContent(), '確定？', '第一下只是確認');
+    assert.ok(await page.evaluate(() => JSON.parse(localStorage.getItem('abang.places')).公司), '還沒刪');
+    await btn.click();
+    await page.waitForFunction(() => !document.querySelector('.mem-forget[data-id="place:公司"]'));
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('abang.places')).公司), undefined);
+    await page.click('.mem-close');
+    await page.waitForFunction(() => !document.querySelector('dialog.memory-sheet'));
+    assert.match(await page.textContent('#today-basis'), /依據：你的位置・家(?!、)/);
+  });
+});
+
 test('首頁「現在」降級：沒給定位用台北車站附近、查不到只留提醒、離線說離線（都不擋畫面）', async () => {
   await withPage(DEVICES.phone, '#/', async (page) => {
     await page.waitForSelector('#now[aria-busy="false"] [data-now="weather"]');
@@ -2058,6 +2095,7 @@ test('首頁「現在」降級：沒給定位用台北車站附近、查不到�
     await page.reload();
     await page.waitForSelector('#now[aria-busy="false"]');
     assert.deepEqual(await page.locator('#now .now-item').evaluateAll((els) => els.map((e) => e.dataset.now)), ['reminder']);
+    await page.waitForFunction(() => /天氣這次查不到/.test(document.querySelector('#today-tips')?.textContent || ''));
     assert.ok(await page.locator('.grid .tile').count() > 10, '格子照常');
   }, { ignore: /Failed to load resource/ });
   const ctx = await newCtx({ ...DEVICES.phone, reducedMotion: 'reduce' });
