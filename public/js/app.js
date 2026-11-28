@@ -9,7 +9,7 @@ import { showOnboarding } from './onboarding.js';
 import { resumeAlight } from './alight.js';
 import { mountTripBar } from './trip-bar.js';
 import { mountWaitDrama } from './wait-drama.js';
-import { detachMain, attachMain, mountFab, syncFab, syncFabLabel, abangSays } from './abang-dock.js';
+import { detachMain, attachMain, mountFab, syncFab, syncFabLabel, abangSays, keptIf } from './abang-dock.js';
 import { shellT, shellLang, applyShell } from './shell-i18n.js';
 import { pageHero, canMorph } from './page-hero.js';
 import { miniApps } from './registry.js';
@@ -17,7 +17,7 @@ import { TABS, currentAttr, backTarget } from './tabs.js';
 import { reminderItems } from './reminder-items.js';
 import { listReminders, restoreReminders } from './reminders.js';
 import { alightWatch } from './alight.js';
-import { currentArrivalWatch } from '../ui/cards/host-web.js';
+import { currentArrivalWatch, cancelArrivalWatch } from '../ui/cards/host-web.js';
 import home from './pages/home.js';
 import services from './pages/services.js';
 import remindersPage from './pages/reminders.js';
@@ -105,8 +105,15 @@ function remind(text, action, ms) {
 window.addEventListener('abang:arrival', (e) => remind(`🚌 ${e.detail.text}`, null, 8000));
 window.addEventListener('abang:alight', (e) => remind(`🔔 ${e.detail.text}`, null, 10000)); // 下車提醒
 // 公車一直不來（S15）：可以改其他方式（點了打開對話直接問阿幫；卡片上也有按鈕）
-window.addEventListener('abang:arrival-stuck', (e) => {
+// P1-5 v2（2026-11-28 Antigravity 第六輪）：有剛才的行程就直接說 B 方案（「可以改坐捷運，大約 10:42 到（比原本晚 10 分）」，在手機上重算、不打 API）；
+// 按了用最新的資料重查那種方式，並先取消舊公車的到站提醒；「不用」就收起（同一個提醒只推一次：host-web 的 w.stuck）
+window.addEventListener('abang:arrival-stuck', async (e) => {
   const en = e.detail.lang === 'en';
+  const b = await keptIf('agent')?.api?.bPlan?.(e.detail.routeName, { lang: e.detail.lang, ended: !!e.detail.ended }).catch(() => null);
+  if (b && !b.stale) {
+    remind(b.text, { label: b.label, ask: b.ask, closeLabel: en ? 'No thanks' : '不用', before: () => cancelArrivalWatch() }, 15000);
+    return;
+  }
   if (e.detail.ended) { // 末班已過、今日未營運：提醒已自動取消
     remind(en ? `Bus ${e.detail.routeName} isn't running any more today, so I cancelled the reminder. Want another way?` : `${e.detail.routeName} 今天不會再來了（末班已過或沒有營運），到站提醒已取消。要我改其他方式嗎？`, { label: en ? 'Another way' : '改其他方式', ask: e.detail.ask }, 10000);
     return;
