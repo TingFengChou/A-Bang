@@ -128,6 +128,8 @@ test('阿幫記得你：列出記得的每一項，可以一項一項忘掉；�
   assert.equal(rows[4].title, '常趕時間');
   assert.match(rows[5].sub, /沒有地點/);
   assert.equal(rows[7].forget, undefined, '提醒在提醒頁管理');
+  const c = memoryRows({ commute: { from: '家', to: '公司', legs: [{ mode: 'bus', route: '307' }, { mode: 'metro', line: 'BR', name: '文湖線' }] } });
+  assert.deepEqual(c.map((r) => [r.id, r.group, r.title, r.forget]), [['commute', '固定通勤方式', '住家 → 307 → 文湖線 → 公司', '忘掉']], '固定通勤方式看得到、刪得掉');
 });
 
 test('主畫面小工具「阿幫・今天」：只送文字（日子、一句話、兩個提醒、時間），不送依據與地點', async () => {

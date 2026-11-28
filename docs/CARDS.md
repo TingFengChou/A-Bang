@@ -145,6 +145,8 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 
 多語（S12b，2026-11-21）：`renderCard` 的 payload 可帶 `lang: 'en'`，卡片標籤改用 `i18n/en.js`（鍵與佔位符與 zh-TW 相同，測試比對；缺鍵退回中文），`<section lang="en">`；地名、站名等資料維持原文。共用按鈕與倒數經 `i18n/index.js` 的 `withLocale` 取同一個語言。問阿幫頁：只有英文的提問那一輪卡片用英文。
 
+設為固定通勤方式（ADR-0023 §8，2026-11-29）：host 有 `commutePreview(data, optId)`／`saveCommute(commute)` 才顯示（網頁與 App 有、MCP Apps 沒有）；只有住家↔公司或學校（起訖點在常用地點 400 公尺內）的公車或捷運建議方案會出現。按了先預覽去回兩趟與預設時段（上班日 06:00–10:00、16:30–21:00），確定才存在手機（`abang.commute`）；回程的上車站不知道就不寫。
+
 呈現：建議方案＋分段時間條＋備案（最多 2）＋行動（導航、提醒、叫車、訂票）＋裝置動作（「加到行事曆」「分享」，ADR-0021：host 有才顯示，結果寫在按鈕下方；不算「選了這個方式」）。決策圖由網頁 agent 的 `decision` 事件另外呈現；在 MCP Apps 中，`trip` 卡片以精簡版（排名條＋理由句＋狀態 chips 可切換）呈現。
 
 ### `scam-risk`（`scam_check_message`，M7）

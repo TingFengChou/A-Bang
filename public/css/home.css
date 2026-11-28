@@ -9,8 +9,8 @@ html.home-sky main#main { padding: 0; max-width: none; }
 html.home-sky .demo-banner { position: relative; z-index: 4; margin: 0 auto; max-width: 520px; border-radius: 0 0 14px 14px; }
 
 .hs { position: relative; overflow-x: clip; max-width: 480px; margin: 0 auto; padding: calc(env(safe-area-inset-top, 0px) + 6px) 0 calc(env(safe-area-inset-bottom, 0px) + 148px); -webkit-user-select: none; user-select: none; }
-.hs a { color: inherit; text-decoration: none; }
-.hs button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; text-align: inherit; -webkit-tap-highlight-color: transparent; }
+.hs a:not(.btn) { color: inherit; text-decoration: none; }
+.hs button:not(.btn) { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; text-align: inherit; -webkit-tap-highlight-color: transparent; } /* 對話框裡的 .btn 照全站樣式 */
 .hs :focus-visible { outline: 3px solid var(--hs-amber2); outline-offset: 2px; border-radius: 10px; }
 
 /* ───────── 天空（固定在畫面後面，不跟著捲） ───────── */
@@ -292,6 +292,10 @@ html.kb-open .hs-asks { display: none; }
 .hs-sheet p { margin: 0 0 8px; font-size: 14px; line-height: 1.6; color: var(--hs-sub); }
 .hs-whyL { margin: 0; padding-left: 1.2em; font-size: 14px; line-height: 1.7; }
 .hs-whyN { margin-top: 12px !important; font-size: 13px !important; }
+.hs-homeP { font-size: 16px !important; color: var(--hs-ink) !important; }
+.hs-homeW { color: #B45309 !important; }
+button.hs-tile { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+button.hs-cta { border: 0; font: inherit; cursor: pointer; }
 .hs-whyA, .hs-sheet form { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 
 /* ───────── 進場（1.5 秒內；.play 才跑） ───────── */

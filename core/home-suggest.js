@@ -143,7 +143,7 @@ const RULES = [
   ['out', (c) => outRule(c)],
   ['walk', (c) => (c.s.user.walk?.kind === 'go' ? walkRule(c) : null)],
   ['tomorrow', (c) => tomorrowRule(c)],
-  ['setup', (c) => (!c.s.places['家'] ? { ...newbie(c), kind: 'new' } : null)], // 看過引導但還沒設住家：排在散步、明日提醒之後（首頁的「設定住家」空格也在邀請）
+  ['setup', (c) => (!c.s.places['家'] ? setupRule(c) : null)], // 看過引導但還沒設住家：排在散步、明日提醒之後（首頁的「設定住家」空格也在邀請）
   ['general', (c) => generalRule(c)],
 ];
 
@@ -157,6 +157,11 @@ function safetyOf(s) {
 }
 function newbie(c) {
   return { title: '開始使用', cta: { label: '三步完成設定', href: '#/settings' }, steps: ['設定住家', '設定公司或學校', '選擇固定通勤方式（可略過）'], reasons: [c.s.user.onboarded ? '還沒設定住家' : '第一次使用'] };
+}
+/** 看過引導但沒設住家：晚上（多半在家）直接問「現在在家？」，按了先預覽再存（共同決議 5）；其他時候三步設定 */
+function setupRule(c) {
+  if (c.min >= 19 * 60 || c.min < 2 * 60) return { kind: 'new', title: '設定住家', cta: { label: '現在在家？設為住家', action: 'sethome', steps: ['取得一次目前位置', '先顯示「設為：○○區附近」讓您確認', '確定才存在這支手機'] }, reasons: ['還沒設定住家', '晚上多半在家'] };
+  return { ...newbie(c), kind: 'new' };
 }
 function commuteRule(c, dir) {
   const { s, kind, min } = c;

@@ -142,6 +142,8 @@ test('優先序：安全 > 進行中 > 新手 > 通勤', () => {
   assert.equal(homeSuggest(base({ env: { aqi: { nearest: { aqi: 180 } } } })).kind, 'safety');
   assert.equal(homeSuggest(base({ user: { onboarded: true, trip: { href: '#/agent' } } })).kind, 'trip');
   assert.equal(homeSuggest(base({ places: {}, commute: null })).kind, 'new', '看過引導但沒設住家：開始使用');
+  const eve = homeSuggest(base({ now: tw(12, 1, 21, 0), places: {}, commute: null, location: { auto: null } }));
+  assert.deepEqual([eve.kind, eve.title, eve.cta.action], ['new', '設定住家', 'sethome'], '晚上沒設住家：問現在在家嗎（先預覽再存）');
   const walkFirst = homeSuggest(base({ now: tw(11, 28, 15, 0), day: null, places: {}, commute: null, user: { onboarded: true, walk: { kind: 'go', text: '天氣好' } } }));
   assert.equal(walkFirst.kind, 'walk', '有散步建議時排在「設定住家」前面');
   assert.ok(walkFirst.alt.some((a) => a.kind === 'new'));
