@@ -26,13 +26,18 @@ export function umbrellaStep(wt, now = Date.now(), en = false) {
   return { label: en ? 'Remind me at 7:00 to take an umbrella' : '明早 7 點提醒我帶傘', kind: 'alarm', payload: { date: wt.data.date, at: UMBRELLA_AT, key: `umbrella|${wt.data.date}`, text: en ? `${p}% chance of rain today. Take an umbrella.` : `今天降雨機率 ${p}%，出門記得帶傘`, ...(en && { lang: 'en' }) } };
 }
 
-export function nextSteps(results, decision, { watching = null, riding = null, lang = null, now = Date.now() } = {}) {
+export function nextSteps(results, decision, { watching = null, riding = null, lang = null, now = Date.now(), current = null } = {}) {
+  // current：決策圖在手機上重算後的推薦與狀況（{ best, states }）；改推別的方式時，行程自動跟的那一路公車不再給提醒（設計第三輪 #1 後續）
   const en = lang === 'en';
   const out = [];
   const add = (s) => { if (s && !out.some((x) => x.label === s.label)) out.push(s); };
   const byTool = (name) => results.filter((r) => r.tool === name).at(-1);
 
-  const bus = byTool('bus_route_eta');
+  const trip0 = byTool('plan_trip')?.data;
+  const bestNow = current?.best && trip0?.options?.find((o) => o.id === current.best);
+  const tripBus = (r) => trip0?.options?.some((o) => o.follow?.routeName === r?.data?.routeName);
+  const bus0 = byTool('bus_route_eta');
+  const bus = bestNow && bestNow.role !== 'bus' && tripBus(bus0) ? null : bus0;
   const f = bus?.data?.focus;
   if (f) {
     const on = watching && watching.routeName === bus.data.routeName && watching.stop === f.stopName;
@@ -51,7 +56,7 @@ export function nextSteps(results, decision, { watching = null, riding = null, l
     if (!en) for (const s of (decision?.single || trip.single)?.suggest || []) add({ label: s.label, kind: 'ask', payload: s.ask, pin: true }); // pin：只剩一種方式時換條件的建議，動態建議一律排最前面
     if (!en) for (const s of trip.limited?.suggest || []) add({ label: s.label, kind: 'ask', payload: s.ask, pin: true }); // TDX 額度用完：過一分鐘再問一次（多種方式時也給）
     // 決策圖上還沒有的狀態：點了在瀏覽器重算（不重問）
-    const have = new Set((decision?.states || trip.states || []).map((s) => s.key));
+    const have = new Set([...(decision?.states || trip.states || []), ...(current?.states || [])].map((s) => s.key)); // 圖上已選的狀況不再給
     for (const k of ['rush', 'budget', 'lessWalk']) if (!have.has(k)) { add({ label: (en ? STATE_LABEL_EN : STATE_LABEL)[k], kind: 'state', payload: k }); if (out.length >= 3) break; }
     if (en) return out.slice(0, 4); // 英文：要再問的建議會變成中文問句，先不給
     const from = short(trip.from?.name), to = short(trip.to?.name);
