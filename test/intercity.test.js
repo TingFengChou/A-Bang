@@ -146,3 +146,22 @@ test('示範模式與 intercity_bus tool：塞車時抵達含延誤、近距離�
   await assert.rejects(callTool(svc, 'intercity_bus', { from: '台北車站', to: '新竹車站', departAt: '6點' }), /HH:mm/);
   await assert.rejects(callTool(svc, 'intercity_bus', { from: '台北車站', to: '新竹車站', departAt: '25:00' }), /HH:mm/);
 });
+
+test('示範客運只在兩端 1.5 公里內都有轉運站時才有：上下車在轉運站、走路照實算（2026-11-28 Antigravity 第五輪：修資料、不要拿掉）', async () => {
+  const { createMockIntercityServices, nearestHub } = await import('../core/services/intercity-mock.js');
+  const svc = createServices({ forceMock: true });
+  const ic = createMockIntercityServices({ traffic: svc.traffic }).intercity;
+  const at = { departAt: '2026-11-30T10:00', now: Date.parse('2026-11-30T09:00:00+08:00') };
+  // 台北車站 → 淡水老街：淡水沒有轉運站 → 沒有示範班次（以前任兩點都有）
+  assert.deepEqual((await ic.trips({ from: { lat: 25.0478, lon: 121.517 }, to: { lat: 25.17, lon: 121.4398 }, ...at })).trains, []);
+  // 高鐵桃園站 → 台北101：高鐵站 1.5 公里內沒有轉運站
+  assert.deepEqual((await ic.trips({ from: { lat: 25.0129, lon: 121.2149 }, to: { lat: 25.033964, lon: 121.564468 }, ...at })).trains, []);
+  // 台北101 → 台中車站：市府轉運站上車、台中轉運站下車
+  const r = await ic.trips({ from: { lat: 25.033964, lon: 121.564468 }, to: { lat: 24.1369, lon: 120.6849 }, ...at });
+  assert.ok(r.trains.length);
+  assert.equal(r.trains[0].board, '市府轉運站（示範）');
+  assert.equal(r.trains[0].alight, '台中轉運站（示範）');
+  assert.ok(r.trains[0].walkFromM > 400 && r.trains[0].walkFromM < 1500, `走到市府轉運站 ${r.trains[0].walkFromM} 公尺`);
+  assert.ok(r.trains[0].fare >= 240 && r.trains[0].fare <= 300, `票價 ${r.trains[0].fare} 元（實際約 260～300）`);
+  assert.equal(nearestHub({ lat: 25.0797, lon: 121.2342 }).name, '桃園機場客運站');
+});
