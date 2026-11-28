@@ -25,6 +25,7 @@
 | [0020](0020-edge-ask.md) | 問什麼由手機上的 AI 決定（一次 judge 同時出題），程式驗證、規則保底 | 已採用 | `core/edge-ask.js`、`core/agent/ask.js` `deviceSlotAsk`／`deviceStateAsk`、`AbangEdgeAI.judge` |
 | [0021](0021-device-actions.md) | 阿幫動手做：裝置動作（加到行事曆、分享）由系統畫面做最後確認；之後 iOS App Intents、Android AppFunctions | 已採用 | `core/device-actions.js`、`AbangSystem` 外掛、`public/js/device-actions.js`、`core/agent/device-turn.js` |
 | [0022](0022-homophone-place-names.md) | 地名的同音字容錯：先把地名交給手機語音辨識當提示（iOS contextualStrings、Android 13+ biasing），聽錯了只在找不到地點時、有限候選裡比同音字並出題確認（不默默套用）；同音字先用手寫對照表，不加依賴 | 已採用（實作進行中） | （待實作）`core/homophone.js`、`AbangVoice` 外掛 |
+| [0023](0023-home-night-and-light.md) | 首頁改版「夜色與光」：依時間變化的天空（首頁夜間是 ADR-0009 淺色原則的例外）、一張「現在的建議」卡（固定通勤方式的今日狀況、出發地可切換到目前位置）、底部輸入列取代分頁列（只在首頁與一級總覽頁）、特色依平台據實外顯、捷運標「依時刻表」不寫延誤分鐘；解凍範圍只限本次改版 | 已採用（實作進行中） | `docs/HOME_REDESIGN.md`、`docs/prototypes/home-night-light.html` |
 | [0019](0019-drama-content-partner.md) | 第一個非政府開放資料的內容合作來源：MyDrama 短劇（只用公開讀取、網址在 env、不收個資、深層連結交給 MyDrama App） | 已採用 | `core/services/drama.js`、`core/tools/drama.js`、`core/agent/wait-drama.js`、`drama` 卡片 |
 
 範本：
