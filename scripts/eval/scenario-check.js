@@ -1,6 +1,6 @@
 // 情境對話的期望檢查（test/scenarios.test.js 示範模式、scripts/eval-scenarios.js 模型模式共用）
 // 期望欄位：tools／toolsNot／toolsNone、states／statesNot、bestRole／bestRoleNot、arriveBy（null＝不該有）、
-// fromHere、from／to／fromNot／toNot（地名，台／臺相同）、optionHas（{ role: 名稱要含的字 }）、textHas／textNot、resultHas、tipHas（行程卡提醒）、
+// fromHere、from／to／fromNot／toNot（地名，台／臺相同）、optionHas（{ role: 名稱要含的字 }）、textHas／textNot、resultHas、toolNear（{ 工具: { lat, lon, maxM } }：查的座標在附近）、tipHas（行程卡提醒）、
 // 阿幫問你（ADR-0016）：asks（問句要含這些字；沒有 ask 事件算失敗）、asksNone（這輪不該問）、asksNot（可以問別的，但問句不該含這些字）、askOptions（第 1 個在 options[0].label，其餘在任一選項）、askKind（options[0].kind）、askGuess（options[0].guess）。
 // 一律檢查：決策最多一次、ask 最多一次、沒有錯誤、回答不露出工具英文名稱。
 const norm = (s) => String(s ?? '').replace(/臺/g, '台').replace(/\s/g, '');
@@ -47,8 +47,13 @@ export function check(es, x = {}) {
   for (const w of x.textHas || []) if (!text.includes(w)) bad.push(`總結缺「${w}」`);
   for (const w of x.textNot || []) if (text.includes(w)) bad.push(`總結不該有「${w}」`);
   const said = es.filter((e) => e.type === 'tool_result').map((e) => e.speak || '').join('');
-  // 一項可以是陣列：其中一個出現就算（結果會隨當下時間換一個說法時，例：垃圾車那一站正在收時改講隔壁點）
-  for (const w of x.resultHas || []) if (![].concat(w).some((y) => said.includes(y))) bad.push(`工具回報缺「${[].concat(w).join('」或「')}」`);
+  for (const w of x.resultHas || []) if (!said.includes(w)) bad.push(`工具回報缺「${w}」`);
+  // toolNear：工具查的座標要在某點附近（驗「查的是家」；工具回報的字句會隨當下時間換，例：垃圾車那一站收過了改講隔壁點）
+  for (const [name, at] of Object.entries(x.toolNear || {})) {
+    const input = es.find((e) => e.type === 'tool_start' && e.name === name)?.input;
+    const m = input && Number.isFinite(input.lat) ? Math.hypot((input.lat - at.lat) * 111000, (input.lon - at.lon) * 101000) : Infinity;
+    if (!(m <= (at.maxM ?? 300))) bad.push(`${name} 查的座標不在 (${at.lat}, ${at.lon}) 附近（是 ${input ? `${input.lat}, ${input.lon}` : '沒查'}）`);
+  }
   for (const w of x.tipHas || []) if (!(trip?.data?.tips || []).some((t) => t.text.includes(w))) bad.push(`行程提醒缺「${w}」`);
   for (const [role, word] of Object.entries(x.optionHas || {})) { const o = d?.options.find((y) => y.role === role); if (!o) bad.push(`沒有 ${role} 方案`); else if (word && !o.name.includes(word)) bad.push(`${role} 方案名稱缺「${word}」（${o.name}）`); }
   if (decisions.length > 1) bad.push(`決策出現 ${decisions.length} 次（重複的行程卡）`);

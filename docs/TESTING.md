@@ -93,7 +93,7 @@ await page.screenshot({ path: 'test/screenshots/agent-trip-rain.png', fullPage: 
 
 ### 結果不能看跑測試的時間（V1，2026-11-28）
 
-`npm run test:clock`（`scripts/test-clock.js`）用假時鐘（`test/support/fake-clock.mjs`，`FAKE_TW=HH:mm`）把「現在」挪到台灣時間 06:00、10:30、14:00、22:30、00:30 各跑一次全部單元測試，任一時段失敗就失敗。抓過的例子：「9點前到」在早上 9 點後跑變 21:00（沒說早晚、已過的抵達時間推到晚上），CI 只在台灣白天紅；垃圾車示範資料家附近那一站 13:45 收，13:55～14:05 語音改講隔壁點（下午時段因此從 15:00 改 14:00）。結果會隨時間換說法時，情境的 `resultHas` 可以給陣列：「其中一個出現就算」。
+`npm run test:clock`（`scripts/test-clock.js`）用假時鐘（`test/support/fake-clock.mjs`，`FAKE_TW=HH:mm`）把「現在」挪到台灣時間 06:00、10:30、14:00、22:30、00:30 各跑一次全部單元測試，任一時段失敗就失敗。抓過的例子：「9點前到」在早上 9 點後跑變 21:00（沒說早晚、已過的抵達時間推到晚上），CI 只在台灣白天紅；垃圾車示範資料家附近那一站 13:45 收，13:55～14:05 語音改講隔壁點（13:55～14:10 每幾分鐘換一個點；下午時段因此從 15:00 改 14:00）。要驗「查的是哪裡」別用會隨時間換的工具回報字句，用情境的 `toolNear`（工具查的座標在某點附近）。
 
 寫測試時：跟時間有關的一律給固定時間——`parseIntent(q, { now })`、`arriveByOf(text, now)`、`departTimeOf(text, arriveBy, now)`、情境集的 `"at": "07:00"`、`runDemo(…, { now })`。只想跑某個時段：`CLOCK_TIMES=15:00 npm run test:clock`。
 
