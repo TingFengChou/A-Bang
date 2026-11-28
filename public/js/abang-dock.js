@@ -129,10 +129,10 @@ export function abangSays(text, action = null) {
   row.className = 'fab-bubble-acts';
   if (action?.ask) {
     const b = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small', textContent: action.label || t('bubbleAsk') });
-    b.addEventListener('click', () => { openSheet(); const api = keptIf('agent')?.api; api?.setPage?.(null); api?.ask?.(action.ask); }); // 提醒的問題跟現在這一頁無關：不帶頁面
+    b.addEventListener('click', () => { action.before?.(); openSheet(); const api = keptIf('agent')?.api; api?.setPage?.(null); api?.ask?.(action.ask); }); // 提醒的問題跟現在這一頁無關：不帶頁面；before：例如改方式前先取消舊公車的到站提醒
     row.append(b);
   }
-  const close = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small quiet', textContent: t('bubbleOk') });
+  const close = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small quiet', textContent: action?.closeLabel || t('bubbleOk') }); // closeLabel：B 方案的「不用」
   close.addEventListener('click', hideBubble);
   row.append(close);
   bubble.append(row);

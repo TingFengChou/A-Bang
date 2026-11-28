@@ -40,6 +40,7 @@ import { linkReminders } from '../agent/chat-links.js';
 
 // 決策圖重算用的同一份 decide.js（伺服器以 /core/decide.js 提供；UX.md §5）
 const decideModule = import('/core/decide.js').catch(() => null);
+const bPlanModule = import('/core/b-plan.js').catch(() => null); // 行程中出狀況的 B 方案（P1-5 v2）：在手機上用同一份 decide.js 重算
 
 const MIN_GAP_MS = 300;
 // 小幫手頭像：每個角色一個線條圖示（public/js/icons.js，與首頁格子同一套）；阿幫用吉祥物
@@ -574,7 +575,7 @@ export default {
           }
           case 'tool_result': {
             await gap();
-            if (e.ok && e.tool === 'plan_trip' && e.data?.to?.name) { lastTripTo = e.data.to.name; lastTrip = { data: e.data, lang: turnLang === 'en' ? 'en' : null, view }; }
+            if (e.ok && e.tool === 'plan_trip' && e.data?.to?.name) { lastTripTo = e.data.to.name; lastTrip = { data: e.data, lang: turnLang === 'en' ? 'en' : null, view, at: Date.now() }; } // at：B 方案判斷資料舊不舊（core/b-plan.js STALE_MIN）
             const b = bubbles.get(e.id);
             const say = b?.querySelector('.say');
             if (say) {
@@ -806,8 +807,14 @@ export default {
       say(text, action = null) {
         const p = el('div', 'agent-say');
         p.append(avatar('阿幫', 'happy'), el('p', 'say', text));
-        if (action?.ask) { const b = el('button', 'btn small', action.label || '問阿幫'); b.type = 'button'; b.onclick = () => send(action.ask); p.append(b); }
+        if (action?.ask) { const b = el('button', 'btn small', action.label || '問阿幫'); b.type = 'button'; b.onclick = () => { action.before?.(); send(action.ask); }; p.append(b); }
         log.append(p);
+      },
+      /** 公車一直不來、末班已過：用畫面上最近那次行程算 B 方案（core/b-plan.js；不打 API）；沒有行程或載不到回 null */
+      async bPlan(routeName, { lang = null, ended = false } = {}) {
+        if (!lastTrip) return null;
+        const m = await bPlanModule;
+        try { return m?.bPlan(lastTrip, { routeName, lang, ended }) ?? null; } catch { return null; }
       },
       focus: () => input.focus({ preventScroll: true }),
       ask: (q) => send(q),

@@ -66,6 +66,8 @@ export function openApp({ app, store } = {}, { win = globalThis.window, doc = gl
 /** 目前的到站提醒（不用建 host；進行中列用） */
 export const currentArrivalWatch = () => watch.w;
 const signal = (type, detail) => { try { window.dispatchEvent(new CustomEvent(type, { detail })); } catch { /* 非瀏覽器 */ } };
+/** 取消現在的到站提醒（B 方案：改坐別的之前，舊公車的提醒不要再響；P1-5 v2） */
+export const cancelArrivalWatch = () => { if (watch.w) stopWatch(); };
 function stopWatch({ cancel = true, keepService = false } = {}) {
   clearInterval(watch.poll); clearTimeout(watch.fire);
   // keepService：App 在背景、畫面這邊先算到該提醒了——讓 Android 常駐服務自己響、自己結束（停掉它就沒人響了，審查 2026-11-23）
