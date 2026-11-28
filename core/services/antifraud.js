@@ -1,6 +1,7 @@
 // 防詐資料（M7-02，AGENT_ANTIFRAUD.md §2）：165 遭停止解析涉詐網站、165 詐騙闢謠專區（政府開放資料 CSV，免金鑰）。
 // 只比對網域、不開啟使用者的連結；資料在伺服器記憶體建索引，24 小時更新一次。
 import { csvObjects } from '../csv.js';
+import { shown } from '../util.js';
 import { recordFetch } from '../metrics.js';
 
 const BASE = 'https://opdadm.moi.gov.tw/api/v1/no-auth/resource/api/dataset';
@@ -104,8 +105,8 @@ export function createAntifraudFromLoader({ load, now = () => Date.now() }) {
 export function createAntifraudServices({ fetchImpl = fetch } = {}) {
   const get = async (src) => {
     let res;
-    try { res = await fetchImpl(src.url, { signal: AbortSignal.timeout(30_000) }); } catch { throw new OpenDataError('165 開放資料連線失敗，請稍後再試'); }
-    if (!res.ok) throw new OpenDataError(`165 開放資料回應錯誤（HTTP ${res.status}）`);
+    try { res = await fetchImpl(src.url, { signal: AbortSignal.timeout(30_000) }); } catch { throw shown(new OpenDataError('165 開放資料連線失敗，請稍後再試')); }
+    if (!res.ok) throw shown(new OpenDataError(`165 開放資料回應錯誤（HTTP ${res.status}）`), '165 開放資料暫時無法取得，請稍後再試；有疑問請直接撥 165。');
     return res.text();
   };
   return createAntifraudFromLoader({ load: async () => { const [sitesCsv, mythsCsv] = await Promise.all([get(SOURCES.sites), get(SOURCES.myths)]); return { sitesCsv, mythsCsv }; } });

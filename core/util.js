@@ -90,4 +90,10 @@ export class UserError extends Error {
 /** 非 UserError（上游、程式錯誤）對外一律回這句；細節只寫伺服器 log，避免洩漏上游回應或檔案路徑 */
 export const INTERNAL_ERROR_MSG = '資料來源暫時無法取得，請稍後再試。';
 /** 錯誤 → 可以給使用者看的訊息 */
-export const publicMessage = (e) => (e instanceof UserError ? e.message : INTERNAL_ERROR_MSG);
+export const publicMessage = (e) => (e instanceof UserError ? e.message : typeof e?.publicMsg === 'string' && e.publicMsg ? e.publicMsg : INTERNAL_ERROR_MSG);
+/**
+ * 上游錯誤標上可以給使用者看的一句（架構第三輪 #6：原本各資料來源寫好的說明都被換成同一句，使用者不知道是哪個來源、要不要等）。
+ * 只在丟錯的地方明確標：不含網址、上游回應內容、設定名稱（金鑰）；沒標的照舊回通用訊息。
+ * @template {Error} E @param {E} e @param {string} [msg] 預設用錯誤本身的訊息 @returns {E}
+ */
+export const shown = (e, msg = e.message) => Object.assign(e, { publicMsg: msg });

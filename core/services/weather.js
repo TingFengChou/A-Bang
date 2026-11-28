@@ -4,7 +4,7 @@
 // 鄉鎮要用各縣市的「未來 3 天逐 3 小時」資料集（F-D0047-001～085，見 TOWN_FORECAST）加 LocationName。
 // 雨量：氣象站 `WeatherElement.Now.Precipitation` 是「當日累積」，不能判斷現在有沒有下雨；
 // 過去 1 小時雨量改取雨量站 O-A0002-001 的 `RainfallElement.Past1hr.Precipitation`（最近且 5 公里內的站）。
-import { assertLatLon, distanceM, normName } from '../util.js';
+import { assertLatLon, distanceM, normName, shown } from '../util.js';
 import { CwaError } from '../cwa-client.js';
 
 export const RAIN_POP = 70; // 3 小時降雨機率 ≥ 70% 也算「下雨」
@@ -196,7 +196,7 @@ export function createWeatherServices(cwa) {
   async function nearestStation(lat, lon) {
     const [auto, manned] = await Promise.all([cwa.get('O-A0001-001', {}, 600), cwa.get('O-A0003-001', {}, 600).catch(() => null)]);
     const stations = [...parseStations(auto), ...parseStations(manned)].filter((s) => s.town);
-    if (!stations.length) throw new CwaError(502, '氣象署觀測資料暫時無法取得');
+    if (!stations.length) throw shown(new CwaError(502, '氣象署觀測資料暫時無法取得'), '氣象署觀測資料暫時無法取得，請稍後再試。');
     return stations.reduce((a, b) => (distanceM(lat, lon, a.lat, a.lon) <= distanceM(lat, lon, b.lat, b.lon) ? a : b));
   }
 
@@ -221,7 +221,7 @@ export function createWeatherServices(cwa) {
         const st = await nearestStation(lat, lon);
         const fc = await townForecast(st);
         const d = fc && parseTomorrow(fc, st.town, now, st.county);
-        if (!d) throw new CwaError(502, '明天的預報暫時查不到，晚點再試');
+        if (!d) throw shown(new CwaError(502, '明天的預報暫時查不到，晚點再試'));
         return { town: st.town, county: st.county, ...d };
       },
       async now({ lat, lon }) {
@@ -232,7 +232,7 @@ export function createWeatherServices(cwa) {
           cwa.get('O-A0002-001', {}, 600).catch(() => null), // 雨量站失敗時 rainMm1h 為 null
         ]);
         const stations = [...parseStations(auto), ...parseStations(manned)].filter((s) => s.tempC != null || s.weather != null);
-        if (!stations.length) throw new CwaError(502, '氣象署觀測資料暫時無法取得');
+        if (!stations.length) throw shown(new CwaError(502, '氣象署觀測資料暫時無法取得'), '氣象署觀測資料暫時無法取得，請稍後再試。');
         const st = pickNowStation(stations, lat, lon);
         // 鄉鎮預報（所在縣市的 F-D0047-0xx，與 tomorrow 共用快取）；失敗時 pop3h 為 null，不影響觀測
         const fc = await townForecast(st).catch(() => null);

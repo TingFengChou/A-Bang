@@ -38,3 +38,26 @@ test('MCP：上游錯誤回 isError＋通用訊息，細節不給 client', async
     await server.close();
   }
 });
+
+test('上游錯誤：丟錯的地方明確標了 publicMsg 才給使用者看，不含網址、上游回應、設定名稱（架構第三輪 #6）', async () => {
+  const { shown } = await import('../core/util.js');
+  const { createTdxClient } = await import('../core/tdx-client.js');
+  const { createOpenDataClient } = await import('../core/opendata-client.js');
+  assert.equal(publicMessage(shown(new TdxError(503, '捷運車站資料暫時查不到，請稍後再試'))), '捷運車站資料暫時查不到，請稍後再試');
+  assert.equal(publicMessage(shown(new TdxError(500, LEAK), '交通資料暫時無法取得')), '交通資料暫時無法取得');
+  assert.equal(publicMessage(new TdxError(500, LEAK)), INTERNAL_ERROR_MSG, '沒標照舊通用');
+  // TDX：上游回應內容只進 log
+  const body = 'secret-upstream-body https://tdx.example/?token=abc';
+  const tdx = createTdxClient({ clientId: 'a', clientSecret: 'b', limit: { concurrent: 3, gapMs: 0, retryMs: 1, waitMs: 0 }, fetchImpl: async (u) => (String(u).includes('/token') ? new Response(JSON.stringify({ access_token: 'T', expires_in: 86400 })) : new Response(body, { status: 500 })) });
+  const e = await tdx.get('/basic/v2/Bus/Route/City/Taipei', {}).catch((x) => x);
+  assert.match(e.message, /secret-upstream-body/, 'log 看得到細節');
+  assert.equal(publicMessage(e), '交通資料（TDX）暫時無法取得，請稍後再試。');
+  // 開放資料：說是哪個資料、要不要等；解析錯誤的細節不給
+  const od = createOpenDataClient({ fetchImpl: async () => new Response('<html>oops', { status: 200 }), now: () => 0 });
+  const bad = await od.get('https://x.example/p.json', { ttlSec: 60, label: '健保藥局資料', as: 'json' }).catch((x) => x);
+  assert.equal(publicMessage(bad), '健保藥局資料的資料格式有變，阿幫暫時讀不到，請稍後再試。');
+  assert.doesNotMatch(publicMessage(bad), /oops|Unexpected|x\.example/);
+  const down = createOpenDataClient({ fetchImpl: async () => { throw new Error('ECONNREFUSED 10.0.0.1:443'); }, now: () => 0 });
+  const de = await down.get('https://x.example/q', { ttlSec: 60, label: '油價' }).catch((x) => x);
+  assert.equal(publicMessage(de), '油價暫時連不上，請稍後再試。');
+});

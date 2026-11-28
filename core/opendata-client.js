@@ -1,6 +1,7 @@
 // 免金鑰政府開放資料 client（生活服務：油價、發票、藥局、垃圾車…）：逾時、快取（TTL）、計量、錯誤訊息不含網址參數。
 // 只下載公開資料，不送任何使用者資料；同一網址同時只下載一次。
 import { recordFetch } from './metrics.js';
+import { shown } from './util.js';
 
 export class OpenDataError extends Error {
   constructor(msg, status = 502) { super(msg); this.name = 'OpenDataError'; this.status = status; }
@@ -28,7 +29,7 @@ export function createOpenDataClient({ fetchImpl = fetch, now = () => Date.now()
     }
   };
   /** 失敗紀錄只留訊息與狀態（不留錯誤堆疊，記憶體與 log 都小） */
-  const slim = (e) => Object.assign(new OpenDataError(e?.message || '資料暫時無法取得', e?.status ?? 502), e?.upstreamStatus && { upstreamStatus: e.upstreamStatus });
+  const slim = (e) => Object.assign(new OpenDataError(e?.message || '資料暫時無法取得', e?.status ?? 502), e?.upstreamStatus && { upstreamStatus: e.upstreamStatus }, e?.publicMsg && { publicMsg: e.publicMsg });
 
   /**
    * @param {string} url
@@ -43,15 +44,15 @@ export function createOpenDataClient({ fetchImpl = fetch, now = () => Date.now()
   function refresh(url, hit, { ttlSec, label, as = 'text', parse = (x) => x, headers, maxBytes }) {
     const pending = (async () => {
       let res;
-      try { res = await fetchImpl(url, { signal: AbortSignal.timeout(timeoutMs), ...(headers && { headers }) }); } catch { throw new OpenDataError(`${label}連線失敗，請稍後再試`); }
-      if (!res.ok) throw Object.assign(new OpenDataError(`${label}回應錯誤（HTTP ${res.status}）`), { upstreamStatus: res.status }); // upstreamStatus：服務層分辨「找不到」與上游故障
+      try { res = await fetchImpl(url, { signal: AbortSignal.timeout(timeoutMs), ...(headers && { headers }) }); } catch { throw shown(new OpenDataError(`${label}連線失敗，請稍後再試`), `${label}暫時連不上，請稍後再試。`); }
+      if (!res.ok) throw Object.assign(shown(new OpenDataError(`${label}回應錯誤（HTTP ${res.status}）`), `${label}暫時無法取得，請稍後再試。`), { upstreamStatus: res.status }); // upstreamStatus：服務層分辨「找不到」與上游故障
       // maxBytes：回應大小上限（宣告的長度或實際讀到的超過就不解析）
-      if (maxBytes && Number(res.headers?.get?.('content-length')) > maxBytes) throw new OpenDataError(`${label}回應太大`);
+      if (maxBytes && Number(res.headers?.get?.('content-length')) > maxBytes) throw shown(new OpenDataError(`${label}回應太大`), `${label}的資料格式有變，阿幫暫時讀不到，請稍後再試。`);
       let body;
-      try { body = maxBytes || as !== 'json' ? await res.text() : await res.json(); } catch { throw new OpenDataError(`${label}格式不符預期：讀不到內容`); }
-      if (maxBytes && Buffer.byteLength(String(body)) > maxBytes) throw new OpenDataError(`${label}回應太大`);
+      try { body = maxBytes || as !== 'json' ? await res.text() : await res.json(); } catch { throw shown(new OpenDataError(`${label}格式不符預期：讀不到內容`), `${label}的資料格式有變，阿幫暫時讀不到，請稍後再試。`); }
+      if (maxBytes && Buffer.byteLength(String(body)) > maxBytes) throw shown(new OpenDataError(`${label}回應太大`), `${label}的資料格式有變，阿幫暫時讀不到，請稍後再試。`);
       let data;
-      try { data = parse(as === 'json' && typeof body === 'string' ? JSON.parse(body) : body); } catch (e) { throw new OpenDataError(`${label}格式不符預期：${e.message}`); }
+      try { data = parse(as === 'json' && typeof body === 'string' ? JSON.parse(body) : body); } catch (e) { throw shown(new OpenDataError(`${label}格式不符預期：${e.message}`), `${label}的資料格式有變，阿幫暫時讀不到，請稍後再試。`); } // 解析錯誤的細節只進 log
       recordFetch({ cacheHit: false, data });
       put(url, { exp: now() + ttlSec * 1000, at: now(), data });
       return data;
