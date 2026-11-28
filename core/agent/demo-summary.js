@@ -312,10 +312,10 @@ function summaryCore(it, results, suggestions = []) {
     : it.intent === 'pharmacy' && !it.area ? (results[it.clinic ? 'clinic_search' : 'pharmacy_search']?.at(-1)?.data?.areaFrom ? `（依${it.places[0] ? `「${it.places[0]}」的` : '你的'}位置推估在「${results[it.clinic ? 'clinic_search' : 'pharmacy_search'].at(-1).data.area}」，不對請說哪一區。）` : it.noLocation ? `（沒拿到你的位置，我先查「${DEFAULT_AREA}」；告訴我哪一區就重查。）` : `（你沒說哪一區，我先查「${DEFAULT_AREA}」。）`)
     : it.intent === 'stock' && it.advice ? NO_ADVICE : '';
   // 發票：主動提議存到「我的發票」，開獎後自動對獎（號碼只存在手機）
-  const post = it.intent === 'invoice' ? ` ${INVOICE_WALLET_HINT}` : '';
+  const post = it.intent === 'invoice' ? ` ${INVOICE_WALLET_HINT}` : it.hospital ? ' 醫院的看診資料這裡沒有，上面是附近有看診的診所；身體很不舒服、急症請直接打 119 或去急診。' : ''; // 問醫院（PM 第三輪 #5）：照實說資料只有診所
   const body = it.intent === 'metro' && results.metro_live_board?.length ? metroSay(it, results.metro_live_board.at(-1)) // 兩個方向都說（m01）、末班車
     : it.intent === 'bus_route' && it.last && results.bus_route_eta?.length ? busLastSay(it, results.bus_route_eta.at(-1))
-      : it.intent === 'nearby_bus' && results.bus_nearby_stations?.length ? nearbySay(results.bus_nearby_stations.at(-1)) // 列出站牌的路線（n02）
+      : it.intent === 'nearby_bus' && results.bus_nearby_stations?.length ? `${it.lost ? '別擔心，先看你附近最近的站牌：' : ''}${nearbySay(results.bus_nearby_stations.at(-1))}${it.lost ? ' 要回家可以說「我要回家」，阿幫幫你排怎麼走。' : ''}` // 列出站牌的路線（n02）；迷路先安撫、給下一步
         : last.speak || '查好了，結果在下面的卡片。';
   return `${pre}${body}${post}`;
 }
