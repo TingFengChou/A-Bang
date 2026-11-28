@@ -18,7 +18,7 @@
 │ Claude／AI agent │──▶│  /mcp、/mcp/:pack 遠端 MCP ✅  │   │   profiles/ life ✅規格 antifraud sme 🔭 │   │ TDX 官方 MCP（外部） │
 │  （自訂連接器）   │   ├───────────────────────────────┤   │ services/   交通服務 ✅ ＋ mock ✅        │   │  導訂票・道路事件 📝  │
 ├──────────────────┤   │ mcp/                          │   │   metro・places・trip・traffic 📝        │   ├─────────────────────┤
-│ iOS／Android 🔭   │──▶│  stdio ✅  create-server ✅    │   │ providers/  叫車 adapter（Uber）✅       │   │ 氣象署 📝 165・Uber 🔭│
+│ iOS／Android ✅   │──▶│  stdio ✅  create-server ✅    │   │ providers/  叫車 adapter（Uber）✅       │   │ 氣象署 📝 165・Uber 🔭│
 │ LINE 🔭           │   │  ui://abang/cards.html ✅     │   │ tdx-client.js token・快取 ✅             │   └─────────────────────┘
 └──────────────────┘   └───────────────────────────────┘   └─────────────────────────────────────────┘
           ▲                                                   卡片渲染 public/ui/cards/ ✅（網頁與 MCP Apps 共用）
@@ -35,6 +35,7 @@
 | `core/services/*-mock.js` | ✅ | 介面相同的示範資料，穩定可重現 | 呼叫外部網路 |
 | `core/tools/` | ✅ | Tool registry：`defineTool({ name, title, description, pack, tier, card, input, run, speak })`；`callTool()` 驗證參數並回傳 `{ name, card, mode, data, text, speak }` | 依賴特定 transport |
 | `core/decide.js` | ✅ | 決策引擎：依資料＋使用者狀態替方案計分排序、硬限制、理由句（ADR-0010） | 呼叫模型或外部 API |
+| `core/home-suggest.js` | ✅ | 首頁「現在的建議」：ContextSnapshot → 決策＋出發地＋用到的訊號＋理由；前端以 `/core/home-suggest.js` 共用（ADR-0023） | 讀時鐘、呼叫網路或模型 |
 | `core/agent/` | ✅ | `prompt.js` 組裝 system prompt（平台政策 → 工具包護欄 → 角色 → 情境）；`events.js` 事件；`demo-intent.js` 示範意圖；`run.js` 執行器；`model-loop.js` 模型工具迴圈；`provider.js` 選模式；`claude.js`（SDK）、`local.js`（OpenAI 相容 fetch）（ADR-0012） | 直接碰 TDX |
 | `core/agents/*.json` | ✅ life | agent profile（ADR-0005）：角色與規則、工具白名單、建議問題、免責、模型；`index.js` 以 zod 驗證並與 registry 交叉檢查 | 寫程式邏輯 |
 | `core/providers/` | ✅ 叫車／📝 外部 MCP | 外部服務 adapter（ADR-0011）：`ridehail/index.js`（provider 註冊、`estimateFare` 距離估價、`createRidehailServices`）、`ridehail/uber.js` 深層連結（M3-09）；📝 `mcp-client.js` 包裝外部 MCP（TDX 官方 MCP） | 直接被 server 呼叫 |
@@ -49,7 +50,7 @@
 | `server/rate-limit.js` | ✅ | 每 IP 固定視窗限流（之後加 agent id） | — |
 | `mcp/create-server.js` | ✅ | 由 registry 註冊 MCP tools（`_meta`：pack、tier、card），回傳 `structuredContent: { card, mode, speak, data }` | 自行定義 tool |
 | `mcp/server.js` | ✅ | stdio 入口（`MCP_PACKS` 過濾） | — |
-| `public/` | ✅ PWA／📝 agent 頁 | 頁面、路由、收藏；M5 起首頁為對話 | 持有金鑰 |
+| `public/` | ✅ PWA＋手機 App（Capacitor） | 頁面、路由、收藏；首頁「夜色與光」（`pages/home.js`、`home-sky.js`、`home-data.js`）、頁面矩陣（`tabs.js` `chromeOf`）；問阿幫 `#/agent` | 持有金鑰 |
 | `public/ui/cards/` | ✅ 渲染＋web host／📝 MCP App host | 卡片渲染器（依 `CARDS.md` 契約），網頁與 MCP App bundle 共用：`index.js`（`renderCard`）、`cards/*.js`（7 種）、`dom.js`（只用 textContent）、`actions.js`、`cards.css`、`host-web.js`、`schema/`、`i18n/`、`preview.html`（開發預覽） | 直接 fetch（透過 host）、innerHTML |
 | `docs/prototypes/` | ✅ | 互動原型（討論串＋決策圖） | 被正式程式 import |
 
@@ -64,7 +65,7 @@ agent 執行環境（core/agent）
   ├─ 呼叫工具（可平行）callTool(svc, name, args)       → event: tool_start（role、server、pack、tier）
   │     └─ tool.run() → services → tdx-client（快取）    → event: tool_result（speak、card、data、metrics）
   │        └─ tool.speak(data)：一句話，由資料產生、不經模型
-  ├─ 由工具結果推得狀態（天氣下雨、路況壅塞）＋你說的＋你選的
+  ├─ 由工具結果推得狀態（天氣下雨、路況壅塞）＋您說的＋您選的
   ├─ decide(options, { states, arriveBy })             → event: decision（ranked、excluded、reason）
   ├─ 結論卡片（card = trip / bus-route / timetable…）    → 前端渲染，倒數與位置持續更新
   └─ 一兩句總結＋主動提議（提醒、導航、訂票）              → event: text、done
@@ -84,7 +85,7 @@ Claude 等外部 client 走 `/mcp` 時，順序相同，只是由 Claude 決定�
 
 - 比較項目：總時間、等車、走路、費用（比例計分）、淋雨、體力、塞車風險（0–1）。
 - 使用者狀態調整權重：趕時間、塞車中、下雨、帶行李、想省錢、少走路；硬限制：抵達時間。
-- 狀態來源：**自動判斷**（工具資料）、**你說的**（對話）、**你選的**（點選）。
+- 狀態來源：**自動判斷**（工具資料）、**您說的**（對話）、**您選的**（點選）。
 - 模型不計分；權重調整需更新測試與 ADR。
 
 ### 5.3 小幫手討論串＋決策圖（ADR-0009、ADR-0010）📝

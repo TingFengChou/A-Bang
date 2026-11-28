@@ -24,18 +24,18 @@ const run = (cmd, args, opt = {}) => execFileSync(cmd, args, { encoding: 'utf8',
 let udid = '';
 const simctl = (...a) => run('xcrun', ['simctl', ...a]);
 
-/** 每一頁要看到什麼（選擇器）；tab：分頁列哪一格標 aria-current（跟 Android 煙霧測試同一份清單） */
+/** 每一頁要看到什麼（選擇器）；chrome：底部放什麼（ADR-0023 頁面矩陣：home 首頁輸入列、dock 總覽頁輸入列、fab 問阿幫浮動鍵、none 都不放；兩個煙霧測試同一份清單） */
 const PAGES = [
-  { name: 'home', hash: '#/', want: '#now', tab: 'home' },
-  { name: 'services', hash: '#/services', want: '.svc-list', tab: 'services' },
-  { name: 'reminders', hash: '#/reminders', want: '#rem-list', tab: 'reminders' },
-  { name: 'me', hash: '#/me', want: '.me-ai', tab: 'me' },
-  { name: 'agent', hash: '#/agent', want: '.chat-form', tab: 'ask' },
-  { name: 'bus', hash: `#/bus/Taipei/307?stop=${encodeURIComponent('敦化市場')}&dir=0`, want: '.timeline', tab: 'services' },
-  { name: 'weather', hash: '#/s/weather', want: '#pagehero .page-hero', tab: 'services' },
-  { name: 'nearby', hash: '#/nearby', want: '#pagehero .page-hero', tab: 'services' },
-  { name: 'settings', hash: '#/settings', want: '#saved', tab: 'me' },
-  { name: 'ai', hash: '#/ai', want: '.ai-hero #ai-chip:not([hidden])', tab: 'me' },
+  { name: 'home', hash: '#/', want: '#hs-card[aria-busy="false"]', chrome: 'home' },
+  { name: 'services', hash: '#/services', want: '.svc-list', chrome: 'dock' },
+  { name: 'reminders', hash: '#/reminders', want: '#rem-list', chrome: 'dock' },
+  { name: 'me', hash: '#/me', want: '.me-ai', chrome: 'dock' },
+  { name: 'agent', hash: '#/agent', want: '.chat-form', chrome: 'none' },
+  { name: 'bus', hash: `#/bus/Taipei/307?stop=${encodeURIComponent('敦化市場')}&dir=0`, want: '.timeline', chrome: 'fab' },
+  { name: 'weather', hash: '#/s/weather', want: '#pagehero .page-hero', chrome: 'fab' },
+  { name: 'nearby', hash: '#/nearby', want: '#pagehero .page-hero', chrome: 'fab' },
+  { name: 'settings', hash: '#/settings', want: '#saved', chrome: 'none' },
+  { name: 'ai', hash: '#/ai', want: '.ai-hero #ai-chip:not([hidden])', chrome: 'fab' }
 ];
 /** iOS 有註冊的原生外掛（AbangWatch：到站提醒的即時動態，只有 iOS 有） */
 const PLUGINS = ['Geolocation', 'LocalNotifications', 'AbangEdgeAI', 'AbangSystem', 'AbangVision', 'AbangVoice', 'AbangHealth', 'AbangWatch'];
@@ -108,10 +108,12 @@ async function main() {
       await evaluate(`(location.hash = ${js(p.hash)}, 0)`);
       if (!await waitFor(`!!document.querySelector(${js(p.want)})`)) fail(`${p.name}：15 秒內沒看到 ${p.want}`);
       else {
-        const st = await evaluate("(() => { const b = document.getElementById('abang-fab'); return { key: !!b && b.offsetParent !== null, cur: document.querySelector('.tabbar [aria-current]')?.dataset.tab || null }; })()");
-        if (!st.key) fail(`${p.name}：中央「問阿幫」鍵沒有出現`);
-        else if (st.cur !== p.tab) fail(`${p.name}：分頁列標在 ${st.cur}，應該是 ${p.tab}`);
-        else console.log(`✓ ${p.name}`);
+        const st = await evaluate("(() => { const d = document; const vis = (s) => { const e = d.querySelector(s); return !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden'; }; return { fab: vis('#abang-fab'), dock: vis('#sd-form'), home: vis('.hs-dock'), tabbar: !!d.querySelector('.tabbar') }; })()");
+        const want = { home: { home: true, dock: false, fab: false }, dock: { home: false, dock: true, fab: false }, fab: { home: false, dock: false, fab: true }, none: { home: false, dock: false, fab: false } }[p.chrome];
+        const bad = ['home', 'dock', 'fab'].filter((k) => st[k] !== want[k]);
+        if (st.tabbar) fail(`${p.name}：還有分頁列（ADR-0023 已拿掉）`);
+        else if (bad.length) fail(`${p.name}：底部不對（${bad.map((k) => `${k}=${st[k]}`).join('、')}；應該是 ${p.chrome}）`);
+        else console.log(`✓ ${p.name}（${p.chrome}）`);
       }
       await sleep(600);
       try { simctl('io', udid, 'screenshot', '--type=png', fileURLToPath(new URL(`ios-${p.name}.png`, OUT))); } catch (e) { console.warn(`  （${p.name} 截圖失敗：${e.message}）`); }
@@ -130,13 +132,13 @@ async function main() {
     const hs = await evaluate("Capacitor.nativePromise('AbangHealth', 'status', {}).catch((e) => ({ error: e.message }))");
     if (hs.error) fail(`AbangHealth.status 失敗：${hs.error}`);
     else console.log(`✓ 健康資料：${hs.available ? `HealthKit 可用，權限 ${hs.permission}` : `不能用（${hs.reason}）`}`);
-    // 中央「問阿幫」鍵拉出對話、收起鍵收回（iOS 沒有返回鍵；Esc、點背景走同一個 closeSheet）
+    // 「問阿幫」浮動鍵拉出對話、收起鍵收回（iOS 沒有返回鍵；Esc、點背景走同一個 closeSheet）
     await evaluate("(location.hash = '#/s/weather', 0)");
     await waitFor("!!document.getElementById('abang-fab')", 5000);
     await evaluate("(document.getElementById('abang-fab').click(), 0)");
-    if (!await waitFor("!!document.querySelector('#abang-sheet[open] .chat-form')", 8000)) fail('中央鍵沒有拉出對話');
+    if (!await waitFor("!!document.querySelector('#abang-sheet[open] .chat-form')", 8000)) fail('浮動鍵沒有拉出對話');
     else {
-      console.log('✓ 中央鍵拉出對話');
+      console.log('✓ 浮動鍵拉出對話');
       await sleep(400);
       try { simctl('io', udid, 'screenshot', '--type=png', fileURLToPath(new URL('ios-sheet.png', OUT))); } catch { /* 截圖失敗不算 */ }
       await evaluate("(document.querySelector('#abang-sheet .sheet-close').click(), 0)");

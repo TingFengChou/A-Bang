@@ -1,11 +1,44 @@
-# 阿幫（A-Bang）— 用台灣公共資料幫你辦事的 AI 助手
+# 阿幫（A-Bang）— 打開就知道現在該做什麼的台灣生活 AI 助手
 
-阿幫是一隻熱心的台灣藍鵲。第一階段專注**大眾交通**：公車、捷運、YouBike、台鐵、高鐵、從 A 到 B 怎麼去。
+手機 App 名稱 **Abang**，吉祥物是台灣藍鵲「阿幫」。阿幫把台灣的政府開放資料（交通、天氣空品、看病藥局、垃圾車、發票、防詐、去政府辦事…）整理成一句話的建議，並在您同意後幫您動手（導航、提醒、加到行事曆、分享、叫車、訂票只給官方連結）。
 
-- **MCP tools**：Claude 等 AI agent 可透過遠端連接器（`/mcp`）或本機（stdio）直接查即時交通。
-- **民眾網頁 agent**（M5）：阿幫點名各個小幫手（公車、YouBike、高鐵、天氣、路況…）討論，依「即時資料＋你的狀態」（下雨、塞車、趕時間、帶行李、想省錢…）用透明規則選出建議，並可一鍵導航、訂票、叫車。
+![打開首頁：夜空亮起、手機上的 AI 只連這次用到的資訊、建議卡浮起](docs/media/home-night.jpg)
 
-> 文件網站：[`docs/index.html`](docs/index.html)（GitHub Pages）　開發指引：[`CLAUDE.md`](CLAUDE.md)　計畫：[`docs/PLAN.md`](docs/PLAN.md)　互動原型：[`docs/prototypes/transit-discussion.html`](docs/prototypes/transit-discussion.html)
+## 目標
+
+1. **打開就知道現在該做什麼**：首頁不是一格格的功能清單，而是依時間、位置、您的固定通勤方式與即時資料算出的**一張「現在的建議」**（上班日早上「今日通勤」、傍晚「今日返家」、深夜「末班車」、天氣好又動得少時「散步建議」…），按一下就做。
+2. **判斷透明、資料誠實**：建議由程式依固定規則決定（`core/home-suggest.js`、`core/decide.js`），模型不編數字；每張建議都能看「為何顯示此建議」。捷運標「依時刻表」，拿不到的資料就說查不到，不寫延誤分鐘、不把示範資料當真。
+3. **手機上的 AI、隱私優先**：能在手機上判斷就在手機上（Apple Intelligence、Gemini Nano）；住家、公司、固定通勤方式、健康資料、上次的對話都只存在手機，不背景追蹤位置。
+4. **不只會聊天，也會動手**：拍照查詐騙與對發票、語音問、Siri 與捷徑、鎖定畫面出門倒數、主畫面小工具、加到行事曆與分享——最後一步都由您在系統畫面確認。
+5. **一個核心、多個出口**：同一組 MCP tools 給 Claude 等 AI agent（遠端連接器）、民眾網頁與手機 App 使用；網頁優先、沒有任何金鑰也能用示範資料完整操作。
+
+> 首頁設計與決策：[ADR-0023](docs/adr/0023-home-night-and-light.md)、[`docs/HOME_REDESIGN.md`](docs/HOME_REDESIGN.md)　文件網站：[`docs/index.html`](docs/index.html)　開發指引：[`CLAUDE.md`](CLAUDE.md)　計畫：[`docs/PLAN.md`](docs/PLAN.md)
+
+## 畫面
+
+以下都是從**實際操作的錄影**取格（示範模式、固定時鐘；`node scripts/readme-media.js` 重新產生）。
+
+**上班日早上：固定通勤方式的今天狀況，出發地可切到目前位置，每張建議都能看理由**
+
+![上班日早上的今日通勤](docs/media/home-commute.jpg)
+
+**問阿幫：小幫手討論串 → 決策圖 → 行程卡**
+
+![問阿幫](docs/media/ask.jpg)
+
+**全部服務、即時資料頁，以及任何一頁都能拉出的「問阿幫」**
+
+![服務與資料頁](docs/media/pages.jpg)
+
+## 做得到的事
+
+| 領域 | 內容 |
+|---|---|
+| 交通 | 公車即時到站與街景、捷運（含轉乘）、YouBike、台鐵、高鐵、國道客運與路況、從 A 到 B 比較各種方式（依下雨、趕時間、帶長輩…排序並說理由）、到站與下車提醒、出門倒數 |
+| 生活 | 天氣與明天、空品、地震、出門建議、健保藥局、現在有看診的診所、垃圾車、油價、發票對獎（拍照或掃描）、股市收盤、散步建議（健康資料只在手機） |
+| 防詐 | 可疑簡訊、網址、電話（165 開放資料＋規則庫），拍簡訊截圖也能查 |
+| 去政府辦事 | 要帶什麼、最近的戶政事務所與今天是不是上班日、護照現場等待人數、官方入口（只開政府網域） |
+| 手機 App | 手機上的 AI（意圖判斷、寫回答、出題）、語音、拍照讀字、Siri 與捷徑、iOS 鎖定畫面與動態島、Android 通知列與主畫面小工具、加到行事曆與分享 |
 
 ## 架構
 
@@ -82,6 +115,7 @@ claude mcp add abang -e TDX_CLIENT_ID=… -e TDX_CLIENT_SECRET=… -- node /絕�
 | `thsr_timetable`／`tra_timetable` | 高鐵／台鐵 OD 時刻表 | ✅ |
 | `rail_stations` | 高鐵／台鐵車站 | ✅ |
 | `metro_stations`／`metro_live_board` | 捷運車站與即時看板（北捷、桃捷機場線、中捷、高捷） | ✅ |
+| `metro_route` | 捷運怎麼坐（跨系統轉乘、票價） | ✅ |
 | `find_place` | 地名、車站、俗稱 → 座標（內建地標） | ✅ |
 | `rail_fare` | 高鐵／台鐵票價 | ✅ |
 | `traffic_status` | 沿途國道路況（順暢／車多／塞車、延誤分鐘） | ✅ |
@@ -89,15 +123,19 @@ claude mcp add abang -e TDX_CLIENT_ID=… -e TDX_CLIENT_SECRET=… -- node /絕�
 | `weather_now` | 現在天氣與 3 小時降雨機率（中央氣象署；沒有授權碼時用示範資料） | ✅ |
 | `weather_tomorrow` | 明天的天氣預報（降雨機率、溫度） | ✅ |
 | `outing_advice` | 出門建議：天氣＋空品一張卡（帶傘、防曬、保暖、口罩） | ✅ |
-| `plan_trip` | 從 A 到 B：比較步行、YouBike、公車、高鐵、台鐵、客運、叫車，依天氣、路況與你的狀態排序並說明理由 | ✅ |
+| `plan_trip` | 從 A 到 B：比較步行、YouBike、公車、捷運、高鐵、台鐵、客運、叫車，依天氣、路況與您的狀態排序並說明理由 | ✅ |
 | `ridehail_link` | 叫車 App（Uber）官方連結＋距離估算車資（L2，需使用者確認） | ✅ |
 | `rail_booking_link` | 台鐵／高鐵官方訂票連結（L2，需使用者確認） | 🧩 介面與示範完成；真實版需 TDX 導訂票權限 |
 | `aqi_nearby`／`earthquake_recent`／`pharmacy_search`／`garbage_truck_nearby`／`fuel_price` | 生活：空品、地震、健保藥局、垃圾車、油價 | ✅（空品、地震真實資料需金鑰） |
 | `invoice_lottery`／`invoice_check_batch` | 統一發票對獎（單張、我的發票批次） | ✅ |
 | `stock_quote` | 上市櫃收盤行情（不提供投資建議） | ✅ |
 | `scam_check_message`／`scam_lookup_url`／`scam_myth_search`／`sms_sender_check` | 阿幫・防詐：可疑訊息、涉詐網址、闢謠、簡訊寄件號碼 | ✅ |
+| `clinic_search` | 現在有看診的診所（健保署，依地區、時段、科別） | ✅ |
+| `gov_service_info`／`gov_office_nearby`／`passport_waiting` | 去政府辦事要帶什麼、最近的戶政事務所與辦公日曆、護照現場等待人數 | ✅ |
+| `gov_official_link` | 政府官方入口（L2，只開政府網域 https） | ✅ |
+| `drama_picks`／`drama_search`／`drama_series` | 等車看短劇（MyDrama 公開片庫；沒有設定時用虛構示範片庫） | 🧩 待合作方確認 |
 
-完整規格：[`docs/MCP_TOOLS.md`](docs/MCP_TOOLS.md)。所有 tools 唯讀（`readOnlyHint`）；結果附 `structuredContent: { card, mode, speak, data }`。
+共 41 個 tools，完整規格：[`docs/MCP_TOOLS.md`](docs/MCP_TOOLS.md)。所有 tools 唯讀（`readOnlyHint`）；結果附 `structuredContent: { card, mode, speak, data }`。
 
 ## HTTP API
 
@@ -149,7 +187,7 @@ npm run app:sync                       # 預設連 http://localhost:8787（開�
 npx cap open android                   # Android Studio 開專案、按執行
 adb reverse tcp:8787 tcp:8787          # Android 模擬器連本機伺服器
 npx cap open ios                       # Xcode 開專案、選模擬器執行
-ABANG_API_BASE=https://你的網域 APP_RELEASE=1 npm run app:sync   # 正式版（必須 https）
+ABANG_API_BASE=https://您的網域 APP_RELEASE=1 npm run app:sync   # 正式版（必須 https）
 ```
 
 伺服器對 App 的來源（`capacitor://localhost`、`https://localhost`）開放問阿幫與讀取 API 的 CORS，可用 `APP_ORIGINS` 調整。
@@ -175,6 +213,8 @@ node --env-file=.env scripts/eval-scenarios.js
 
 ## 開發
 
+README 的畫面：`node scripts/readme-media.js`（示範模式真的操作、錄影、從影片取格，存到 `docs/media/`）。
+
 用 Claude Code 循環開發：照 [`docs/LOOP.md`](docs/LOOP.md)，每輪一個任務（[`docs/PLAN.md`](docs/PLAN.md) 的任務代號），紀錄在 [`docs/PROGRESS.md`](docs/PROGRESS.md)。
 
 | 文件 | 內容 |
@@ -184,7 +224,8 @@ node --env-file=.env scripts/eval-scenarios.js
 | [`MCP_TOOLS.md`](docs/MCP_TOOLS.md) | tools 規格 |
 | [`DATA_SOURCES.md`](docs/DATA_SOURCES.md) | 開放資料來源、端點、TTL |
 | [`AGENT.md`](docs/AGENT.md) | 網頁 agent、事件協定 |
-| [`UX.md`](docs/UX.md) | 討論串、決策圖、卡片、文案 |
+| [`HOME_REDESIGN.md`](docs/HOME_REDESIGN.md) | 首頁「夜色與光」：建議規則、ContextSnapshot、頁面矩陣 |
+| [`UX.md`](docs/UX.md) | 首頁、導覽、討論串、決策圖、卡片、文案 |
 | [`CARDS.md`](docs/CARDS.md) | 卡片資料契約 |
 | [`TESTING.md`](docs/TESTING.md) | 測試規格 |
 | [`BRAND.md`](docs/BRAND.md) | 品牌 |

@@ -1,6 +1,6 @@
 # 測試規格
 
-版本：v0.5（2026-11-18）。目前：`npm run lint` 無錯誤、`npm test` 171 項全過、`npm run e2e` 18 項全過（手機＋桌面各 9）。
+版本：v0.6（2026-11-29）。目前：`npm run lint` 無錯誤、`npm test` 約 1680 項全過、`npm run test:clock` 五個時段全過、`npm run e2e` 164 項全過。
 
 ## 1. 原則
 
@@ -43,9 +43,9 @@
 | Agent 端點 | `test/agent-http.test.js` | 起 server：NDJSON 串流、無 CORS、400／405／429；`client.js` 的定位流程（取得／拒絕）；handler 限流以 agent id＋IP、計量、結束事件 | M5-06 起 |
 | Agent 執行器 | `test/agent.test.js` | 示範模式事件順序（`status` → `agent_note` → `tool_start`… → `tool_result`… → `decision` → `discussion_end` → `text` → `done`）、各意圖以卡片結尾、picked 狀態、白名單與錯誤不外洩、請求驗證；限流於 M5-06 | M5-04 起 |
 | 模型迴圈 | `test/agent-model.test.js` | 以本地假 Anthropic SSE（`ANTHROPIC_BASE_URL=http://127.0.0.1:{port}`）與假 OpenAI 相容伺服器回放工具呼叫；5 輪上限；定位；refusal／截斷；錯誤；預算降級；`pickProvider` | ✅ M5-05 |
-| 情境對話（A0） | `test/scenarios.test.js`＋`test/scenarios/life.json`、`life-q.json`（PM「該問就問、不該問就不問」Q-1～Q-27；`test/ask-q.test.js` 另外用假外掛「合理／亂來」跑手機出題）；模型模式 `scripts/eval-scenarios.js`（不進 CI） | PM 盤點 S1～S18 的多輪對話：有定位時用了哪些工具、狀態、最佳方案、抵達時間、起點是你的位置、總結必含／不得含；還做不到的情境標 `todo`（開發目標，不算失敗）。新情境先寫進 JSON 再開發 | 2026-11-21 起 |
+| 情境對話（A0） | `test/scenarios.test.js`＋`test/scenarios/life.json`、`life-q.json`（PM「該問就問、不該問就不問」Q-1～Q-27；`test/ask-q.test.js` 另外用假外掛「合理／亂來」跑手機出題）；模型模式 `scripts/eval-scenarios.js`（不進 CI） | PM 盤點 S1～S18 的多輪對話：有定位時用了哪些工具、狀態、最佳方案、抵達時間、起點是您的位置、總結必含／不得含；還做不到的情境標 `todo`（開發目標，不算失敗）。新情境先寫進 JSON 再開發 | 2026-11-21 起 |
 | 轉述受程式約束（A2） | `test/agent-grounded.test.js` | 模型自加的抵達時間、交通方式丟掉（`groundedPrefs`）、回答不露出工具名稱（`hideToolNames`）、plan_trip 文字的「下一步」依建議方式、捷運最近站（`near`）與預先查詢沿用 | 2026-11-21 起 |
-| E2E 冒煙 | `scripts/e2e.js`（`npm run e2e`） | 示範模式起伺服器（隨機埠、清空金鑰），Playwright 手機（iPhone 13）與桌面：首頁問阿幫（輸入 → `#/agent` 自動送出 → 卡片）與公車搜尋、公車路線去返程、附近（定位）、高鐵台鐵時刻表、Swagger UI；無 console／頁面錯誤；截圖存 `test/screenshots/`（不進版控）；每個 browser context 以 try/finally 關閉；M4-02 起加卡片預覽（7 種卡片皆渲染、公車方向切換與點站、附近站牌展開到站、YouBike 排序、行程建議／分段條／理由、高鐵訂票按鈕、卡片內沒有 script）；M5-08 起加問阿幫（建議問題 → 討論串 → 收合 → trip 卡片 → 總結、@ 點名、瀏覽器定位「你的位置」）；M5-09 起加決策圖（勝出方案、理由、加選「想省錢」即時重算且建議改變、不呼叫伺服器、明細長條）；M5-10 起加提醒我出門（假 host：今天 30 分鐘後出門 → 呼叫 remind、顯示已設定）；M5-13 起加建議問題逐題（M10 起 8 題，含藥局與發票）（討論串、正確卡片、行程有決策圖、每題截圖 `*-suggest-N.png`）；M5-11 起加動態兩種模式（reduced motion → `lite-motion` 不翻轉；完整動態 → `enter3d` 動畫與重算排名翻轉）；M4-08 起加 MCP Apps（AppBridge 經 `/mcp` 載入 `ui://abang/cards.html`，7 種卡片、updateModelContext、訂票確認後 openLink，截圖 `mcp-app-*.png`）；M6-04 起加無障礙（第一個 Tab 是跳到主要內容且有焦點框、Enter 移到 main、分頁列 aria-current、公車頁與每張卡片有 live region、首頁範例問題不是白字） | 每輪 |
+| E2E 冒煙 | `scripts/e2e.js`（`npm run e2e`） | 示範模式起伺服器（隨機埠、清空金鑰），Playwright 手機（iPhone 13）與桌面：首頁「夜色與光」（建議卡、為何顯示此建議、出發地、服務列、文字對比、橫放兩欄）、首頁與總覽頁輸入列（輸入 → `#/agent` 自動送出 → 卡片）、頁面矩陣（內容頁「問阿幫」浮動鍵、Android 返回鍵回上一頁）、快速設定住家、設為固定通勤方式、公車搜尋、公車路線去返程、附近（定位）、高鐵台鐵時刻表、Swagger UI；無 console／頁面錯誤；截圖存 `test/screenshots/`（不進版控）；每個 browser context 以 try/finally 關閉；M4-02 起加卡片預覽（7 種卡片皆渲染、公車方向切換與點站、附近站牌展開到站、YouBike 排序、行程建議／分段條／理由、高鐵訂票按鈕、卡片內沒有 script）；M5-08 起加問阿幫（建議問題 → 討論串 → 收合 → trip 卡片 → 總結、@ 點名、瀏覽器定位「您的位置」）；M5-09 起加決策圖（勝出方案、理由、加選「想省錢」即時重算且建議改變、不呼叫伺服器、明細長條）；M5-10 起加提醒我出門（假 host：今天 30 分鐘後出門 → 呼叫 remind、顯示已設定）；M5-13 起加建議問題逐題（M10 起 8 題，含藥局與發票）（討論串、正確卡片、行程有決策圖、每題截圖 `*-suggest-N.png`）；M5-11 起加動態兩種模式（reduced motion → `lite-motion` 不翻轉；完整動態 → `enter3d` 動畫與重算排名翻轉）；M4-08 起加 MCP Apps（AppBridge 經 `/mcp` 載入 `ui://abang/cards.html`，7 種卡片、updateModelContext、訂票確認後 openLink，截圖 `mcp-app-*.png`）；M6-04 起加無障礙（第一個 Tab 是跳到主要內容且有焦點框、Enter 移到 main、分頁列 aria-current、公車頁與每張卡片有 live region、首頁範例問題不是白字） | 每輪 |
 | Lint | `eslint.config.js`（`npm run lint`） | ESLint 推薦規則＋Node／瀏覽器 globals；`node_modules`、`dist`、`docs`、`test/screenshots` 除外 | 每輪 |
 
 ## 3. Fixture
@@ -103,7 +103,7 @@ await page.screenshot({ path: 'test/screenshots/agent-trip-rain.png', fullPage: 
 |---|---|
 | 工具（41 個，`listTools()`） | 每個都有單元測試提到 |
 | 卡片（`public/ui/cards/cards/`） | 除了 `bus-station` 都有單元測試；`bus-station` 由 e2e（MCP Apps、站牌頁）涵蓋 |
-| 頁面 | 生活格子 9 個（`#/s/:id`）、附近、公車、問阿幫、防詐、設定、我的、提醒、腦袋都有 e2e；**台鐵頁 `#/rail/tra` 原本沒有、高鐵頁只測返回鍵** → 新增「時刻表頁」e2e（預設起訖、班次、交換、同站） |
+| 頁面 | 首頁建議卡（`test/home-suggest.test.js`、`test/home-data.test.js` 規則與資料；e2e 各情境）、生活服務 9 個（`#/s/:id`，從全部服務進入）、附近、公車、問阿幫、防詐、設定、我的、提醒、腦袋都有 e2e；**台鐵頁 `#/rail/tra` 原本沒有、高鐵頁只測返回鍵** → 新增「時刻表頁」e2e（預設起訖、班次、交換、同站） |
 | 只能手動或實機驗的 | 原生外掛的真實行為（語音辨識、相機讀字、Health Connect、通知、下車提醒常駐服務、Gemini Nano／Apple Intelligence）→ `smoke:android`、`smoke:ios` 與 PLAN.md V4、V5 手動清單 |
 
 盤點方法：`listTools()` 的名稱、卡片檔名、`public/js/pages` 的路由，逐一在 `test/*.test.js`、`scripts/e2e.js`、情境集裡找。新增工具、卡片、頁面時同時補測試。
@@ -120,7 +120,7 @@ DEMO_MODE=0 npm start                 # 真實資料
 
 ## 卡片視覺的 DOM 測試（T8，2026-11-21）
 
-- `scripts/e2e.js`「公車街景與天氣卡日夜」：在瀏覽器直接渲染 `busScene`，驗證讀屏標籤（還有幾站、就在你這站）、公車位置（越近越靠站牌）、推估不出不畫車、圖片載不到只留文字；天氣卡依觀測時間（台灣時間 18～6 點）顯示夜晚或白天。
+- `scripts/e2e.js`「公車街景與天氣卡日夜」：在瀏覽器直接渲染 `busScene`，驗證讀屏標籤（還有幾站、就在您這站）、公車位置（越近越靠站牌）、推估不出不畫車、圖片載不到只留文字；天氣卡依觀測時間（台灣時間 18～6 點）顯示夜晚或白天。
 - `test/motion-helpers.test.js`：`sceneOf` 雨／雲／日夜邊界（含 UTC 時間）。
 - 原生 App 煙霧測試（T8b）需要實機或模擬器，不在 CI。
 
@@ -129,7 +129,7 @@ DEMO_MODE=0 npm start                 # 真實資料
 `npm run smoke:android`（`scripts/smoke-android.js`，不在 CI）：adb 連到手機、重開 App，經 WebView 偵錯通道（debug 版）用 Playwright `connectOverCDP` 連進 App 畫面，檢查：
 
 - 原生外掛都有註冊：Geolocation、LocalNotifications、AbangEdgeAI、AbangSystem（專案內外掛要手動註冊，漏了不會報錯）
-- 首頁、問阿幫、公車路線、天氣、附近、設定都畫得出來；浮動阿幫只在問阿幫頁以外出現
+- 首頁、問阿幫、公車路線、天氣、附近、設定都畫得出來；「問阿幫」浮動鍵只在內容頁出現，總覽頁是輸入列（ADR-0023 頁面矩陣）
 - 浮動阿幫拉出對話、Android 返回鍵收起
 - 沒有畫面錯誤；每頁截圖在 `test/screenshots/android-*.png`
 
@@ -140,9 +140,9 @@ DEMO_MODE=0 npm start                 # 真實資料
 `npm run smoke:ios`（`scripts/smoke-ios.js`，不在 CI）：重開模擬器上的 App，經模擬器的 Web Inspector 通道（跟 Safari「開發」選單同一條 unix socket `com.apple.webinspectord_sim.socket`；`scripts/webinspector.js` 自己做二進位 plist 編解碼，不加依賴、不加 XCUITest target）連進 App 的 WKWebView（Capacitor debug 版才可檢查），檢查：
 
 - 原生外掛都有註冊：Geolocation、LocalNotifications、AbangEdgeAI、AbangSystem、AbangVision、AbangVoice、AbangHealth、AbangWatch
-- 首頁、服務、提醒、我的、問阿幫、公車路線、天氣、附近、設定、阿幫的腦袋都畫得出來；中央「問阿幫」鍵在、分頁列標對格子
+- 首頁、服務、提醒、我的、問阿幫、公車路線、天氣、附近、設定、阿幫的腦袋都畫得出來；內容頁有「問阿幫」浮動鍵、總覽頁有輸入列
 - AbangVoice.available、AbangHealth.status 回得來（只問狀態，不跳權限框）；語音能用時有麥克風鍵
-- 中央鍵拉出對話、收起鍵收回（iOS 沒有返回鍵）
+- 浮動鍵拉出對話、收起鍵收回（iOS 沒有返回鍵）
 - 沒有畫面錯誤（console 錯誤，物件參數會展開）；手機上的 AI 在背景失敗只列警告
 - App 沒有閃退（同一個行程）、`~/Library/Logs/DiagnosticReports` 沒有新的 App 當機報告
 - 每頁截圖用 `simctl io screenshot` 存到 `test/screenshots/ios-*.png`

@@ -7,7 +7,8 @@
 | 主題 | 決定 | 詳見 |
 |---|---|---|
 | 品牌 | 名稱「阿幫」（A-Bang），吉祥物台灣藍鵲；repo／套件名 `abang` | `BRAND.md` |
-| 第一階段範圍 | 大眾運輸（公車、捷運、YouBike、台鐵、高鐵、從 A 到 B） | `PRD.md` |
+| 範圍 | 從大眾運輸起步；現在涵蓋生活（天氣、空品、藥局、診所、垃圾車、發票）、防詐、去政府辦事、手機上的 AI | `PRD.md` |
+| 首頁 | 依時間、位置、固定通勤方式與即時資料，由 `core/home-suggest.js` 算出一張「現在的建議」；夜晚是深色天空（淺色原則的首頁例外）；拿掉分頁列 | ADR-0023、`HOME_REDESIGN.md` |
 | 平台優先順序 | **網頁優先**（PWA）；MCP 要「做完整」 | `PLAN.md` |
 | MCP 形式 | stdio（本機）＋遠端 Streamable HTTP `/mcp`（Claude 自訂連接器）；結果附互動卡片（MCP Apps） | `MCP_TOOLS.md`、ADR-0003 |
 | 民眾 agent | **兩者都做**：自家網頁 agent（Claude API）＋ Claude 連接器；兩邊卡片一致 | `AGENT.md`、ADR-0004 |
@@ -18,13 +19,13 @@
 | 多端 | Web、iOS、Android 共用同一套 MCP；卡片資料契約＋裝置端工具事件 | ADR-0008 |
 | 文件 | `docs/index.html` 給人看（GitHub Pages）；`CLAUDE.md`＋`docs/*.md` 給 Claude Code（UX、CARDS、DATA_SOURCES、TESTING、LOOP 為 v0.4 新增） | `HANDOFF.md` |
 | 開發方式 | 交給 Claude Code，一次一個里程碑，上 GitHub（`TingFengChou/A-Bang`） | `HANDOFF.md` |
-| Agent 體驗 | 要「很自動」、看得到多 MCP 互相討論；**先以交通為主、簡單、淺色**。採「小幫手討論串」：阿幫點名工具、工具一句話回報、結論卡片即時更新。深色 HUD 版本已退回不用 | ADR-0009、`prototypes/transit-discussion.html` |
+| Agent 體驗 | 要「很自動」、看得到多 MCP 互相討論；**先以交通為主、簡單、淺色**（首頁夜間深色天空是 ADR-0023 的例外）。採「小幫手討論串」：阿幫點名工具、工具一句話回報、結論卡片即時更新。深色 HUD 版本已退回不用 | ADR-0009、`prototypes/transit-discussion.html` |
 | 導航 | TDX 站牌、站位、YouBike、車站都有經緯度；卡片提供「導航」按鈕開啟 Google／Apple 地圖；App 內提供「出發時機」與到站提醒，不做完整逐步導航 | `MCP_TOOLS.md` |
 | 訂票 | 先做 TDX「導訂票」：產生具時效性的官方訂票連結（自動帶入車次、張數），付款在官方網站完成；需先申請 TDX 權限。站內直接購票需與台鐵、高鐵洽談 | `MCP_TOOLS.md`、`PLAN.md` M3 |
 | 決策 | 阿幫依「MCP 資料＋使用者狀態」決策：比較時間、等車、走路、費用、淋雨、體力、塞車風險；狀態可自動判斷（天氣、路況）、使用者說或點選；由 `core/decide.js` 計分，模型不計分；決策過程有動畫 | ADR-0010 |
 | 叫車 | YouBike 保留；叫車以 provider adapter 預留，先做 Uber 深層連結 | `MCP_TOOLS.md` |
 | 3D | 先做輕量 CSS 3D（卡片立體進場、排名翻轉）；3D 吉祥物與 3D 地圖待評估 | `PLAN.md` M5 |
-| 進度（v0.4） | M0、M2、決策引擎、`speak` 完成（24 項測試通過）；下一步 M3；Claude 實機連線待本機驗證 | `PLAN.md` 狀態看板 |
+| 進度 | 見 `PLAN.md` 狀態看板（本表是 2026-11-17 規劃討論的決策摘要） | `PLAN.md` |
 | 天氣與路況 | 決策的「自動狀態」來源：`weather_now`（氣象署）→ 下雨；`traffic_status`（TDX 路況）→ 塞車中（塞車時建議台鐵／高鐵） | `MCP_TOOLS.md`、`DATA_SOURCES.md` |
 | 行動 | 導航、訂票、叫車只產生官方連結，L2 需使用者確認 | ADR-0011 |
 | 開發方式 v0.4 | Claude Code 以 `/loop` 每輪一個任務（任務代號），紀錄在 `PROGRESS.md` | `LOOP.md` |

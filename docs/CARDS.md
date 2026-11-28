@@ -1,6 +1,6 @@
 # 互動卡片規格
 
-版本：v0.4（2026-11-17）。決策：ADR-0003（MCP Apps、渲染共用）、ADR-0008（先定資料契約）。視覺見 `UX.md` §6。
+版本：v0.5（2026-11-29：行程卡「設為固定通勤方式」、文案稱呼「您」）。決策：ADR-0003（MCP Apps、渲染共用）、ADR-0008（先定資料契約）。視覺見 `UX.md` §6。
 
 ## 1. 原則
 
@@ -86,7 +86,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
   "focus": { "direction": 0, "label": "往 板橋", "seq": 5, "stopName": "西門", "etaSec": 360, "status": 0, "statusText": "6 分" } }   // 選填：盯的站（L-14）
 ```
 
-有 `focus`（選公車後盯的上車站，L-14）：卡片上方大字倒數（`data-eta-sec`）、自動切到該方向、站序標「你在這上車」；`host.watchArrival` 存在時顯示「到站前 3／5 分提醒我」（已設定時顯示狀態與「取消提醒」；設定時這班已趕不上則說明會提醒下一班）；`host.navigate` 存在時顯示「開公車頁看動態」（`#/bus/:city/:route?stop=&dir=`，公車頁同樣顯示上車站與同一個提醒）。
+有 `focus`（選公車後盯的上車站，L-14）：卡片上方大字倒數（`data-eta-sec`）、自動切到該方向、站序標「您在這上車」；`host.watchArrival` 存在時顯示「到站前 3／5 分提醒我」（已設定時顯示狀態與「取消提醒」；設定時這班已趕不上則說明會提醒下一班）；`host.navigate` 存在時顯示「開公車頁看動態」（`#/bus/:city/:route?stop=&dir=`，公車頁同樣顯示上車站與同一個提醒）。
 
 互動：方向切換；點站牌 → `host.setContext('使用者在看「X」站')` 並顯示「導航」「提醒我」；每 20 秒 `callTool` 刷新；倒數每秒本地遞減。
 
@@ -125,7 +125,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
   "ranking": { "ranked": [{ "id": "bus", "name": "公車 307", "score": 81, "breakdown": { } }], "excluded": [{ "id": "thsr-0700", "why": "會遲到" }], "reason": "選「公車 307」：因為正在下雨…" },
   "states": [{ "key": "rain", "source": "auto", "from": "weather_now", "detail": "陰有雨，3 小時降雨機率 80%" }, { "key": "luggage", "source": "user" }] }
 // states[].key 另有 badAir（空品不佳，from: aqi_nearby，M10）；data.air = { site, aqi, status } | null
-// mode：使用者指定的方式；avoid：使用者說不要的方式（A3，ranking.excluded[].why「你說不要叫車」；全部被排除時卡片說「排除你說不要的方式後，沒有其他可行的方案」，與「都趕不上」分開）
+// mode：使用者指定的方式；avoid：使用者說不要的方式（A3，ranking.excluded[].why「您說不要叫車」；全部被排除時卡片說「排除您說不要的方式後，沒有其他可行的方案」，與「都趕不上」分開）
 // 同時給 mode=X 與 avoid 含 X：X 被排除、回 modeUnavailable（照分數建議並明說）
 // options[].lastBus：接近末班（示範 23:00 後）；options[].lastTrain：捷運末班快到了（收班前 30 分）；skipped[]：查了但不可行的方式（深夜收班、末班已過、YouBike 沒車位…）
 // missing[]：所有沒列入的方式與原因（含 skipped、附近沒有捷運站、沒有趕得上的班次；{ role, kind, why, whyEn, closed? }），卡片「沒列入」清單用它（舊資料只有 skipped）；英文卡片用 whyEn
@@ -137,7 +137,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 // options[].est：估的部分（{ minutes?: true|分, cost?: true|元 }）；breakdown.uncertain：估算值保守看扣的分（負數，決策圖扣分列「估算」）
 // night：深夜的一句 { text, textEn, closed[], late[] }，卡片最上面橘底一行（.ab-night）
 // habit：使用者同意過的常選比例（{ metro: 0.6 }，選填）；habitOn：這次有沒有加分；ranking.ranked[].breakdown.habit：習慣加分（ADR-0010 2026-11-21）；breakdown.premium：叫車多付的錢換不到夠多的時間時扣的分（負數，ADR-0010 2026-11-22），ranked[].notWorth：{ vs（對它不划算的大眾運輸 id）, extra（多付幾元）, worth（省下的時間值幾元） }；breakdown.tooLong、ranked[].tooLong：{ vs, cap }——步行超過 25 分、YouBike 超過 30 分排到大眾運輸後面
-// ask：關鍵問題（{ state, text, textEn, from, to, dMin, dCost }，ADR-0016）；states[].source 另有 usual（你說過，i18n trip.state.usual）
+// ask：關鍵問題（{ state, text, textEn, from, to, dMin, dCost }，ADR-0016）；states[].source 另有 usual（您說過，i18n trip.state.usual）
 // 卡片：按建議方案的導航／叫車／訂票時送 window 事件 abang:choice { role }（網頁 App 記常選的方式；MCP Apps 裡沒人聽）
 ```
 
@@ -176,7 +176,7 @@ export function renderCard(el, payload, host) { /* 依 payload.card 分派 */ }
 | `gov-office` | 最近的戶政事務所（`gov_office_nearby`，M16-04b）：今天是不是上班日（綠色／橘色 chip；日曆沒有今天時註明照週末推；`calendarFailed` 日曆這次連不上時另說，提醒補班或連假可能不準、先打電話）、快下班或已下班時一條橘色提醒（`today.closing`：現場常提早停止抽號，先打電話）、每所一列（名稱、距離與步行、地址、導航、撥打電話）、營業時間各所不同請先打電話 | — |
 | `gov-service` | 去政府辦事要帶什麼（`gov_service_info`，M16-04a）：每項一列（標題＋臨櫃／線上 chip，第一項展開）、辦理時間、要帶什麼（條列，超過 6 條可展開；沒填照實說；**出門前檢核表**（T-CHECKLIST，2026-11-28）：host 有 `checklist` 時每條是勾選框，上面「出門前檢查：已備好 2／6 項（勾選只存在這支手機）」，全勾「都備好了，可以出門！」；勾的只存編號在手機，30 天沒動清掉、最多 20 份；MCP Apps 沒有 `checklist` 照舊列清單）、洽詢、官方說明／線上申辦／表單下載按鈕（只收 https）、資料更新日期與「以機關公告為準」 | — |
 
-網頁入口：首頁格子 → `#/s/:id`（`public/js/pages/service.js`，需要位置的服務先定位）。
+網頁入口：首頁服務列或全部服務 → `#/s/:id`（`public/js/pages/service.js`，需要位置的服務先定位）。
 
 ## 5. 狀態與錯誤
 
