@@ -407,3 +407,17 @@ test('地端模型：禮貌話、只有標點、一句多件事、去火車站�
   assert.equal(state.reqs.length, 0);
   assert.ok(!es.some((e) => e.type === 'tool_start'), '禮貌話不查工具');
 });
+
+test('沒拿到位置、目的地就是預設起點：模型模式也先問從哪裡出發，不排「臺北車站到臺北車站」（V2-2 評測 AS-4、AR-17）', async () => {
+  for (const provider of [claude(), local()]) {
+    reset([{ text: '（不該呼叫模型）' }]);
+    const es = await run(provider, '我快遲到了，怎麼去台北車站', { clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: false }] });
+    assert.ok(es.some((e) => e.type === 'ask'), '有問');
+    assert.ok(!es.some((e) => e.type === 'tool_start'), '不查工具');
+    assert.match(es.filter((e) => e.type === 'text').map((e) => e.text ?? e.delta).join(''), /從哪裡出發|哪裡出發|起點/);
+    assert.equal(state.reqs.length, 0, '沒有呼叫模型');
+  }
+  reset([{ message: { role: 'assistant', content: '從西門町坐捷運到台北車站約 5 分。' } }]);
+  const ok = await run(local(), '從西門町怎麼去台北車站');
+  assert.ok(!ok.some((e) => e.type === 'ask' && /從哪裡出發/.test(JSON.stringify(e))), '說了起點照常');
+});

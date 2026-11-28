@@ -7,12 +7,12 @@ import { buildSystemPrompt } from './prompt.js';
 import { ev } from './events.js';
 import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hideToolNames, judgeInfo, runDemo, asideState, withAskCheck, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
 import { judgeNote, outingNote, moreStatesNote } from './impact.js';
-import { slotAsk, deviceAskTracker, deviceSlotAsk } from './ask.js';
+import { slotAsk, deviceAskTracker, deviceSlotAsk, originAsk, ORIGIN_ASKED } from './ask.js';
 import { askFirst } from './clarify-plan.js';
 import { scamPasteAsk } from './clarify.js';
 import { lineCode } from '../tools/metro.js';
 import { normName, nowTW } from '../util.js';
-import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, isEnglish, rainAsked } from './demo-intent.js';
+import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, isEnglish, rainAsked, nearDefaultFrom } from './demo-intent.js';
 import { demoSummary, nightNote } from './demo-summary.js';
 import { resolvePoint } from '../services/places.js';
 import { BUS_OFF } from '../services/trip.js';
@@ -371,6 +371,15 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
     emit(ev.agentNote(rulesIt.lang === 'en' ? '@定位 checking where you are' : '@定位 先看看你在哪裡'));
     emit(ev.clientToolCall({ id: LOCATION_CALL_ID, name: DEVICE_LOCATION_TOOL.name }));
     emit(ev.done({ modelCalls: 0, inputTokens: 0, outputTokens: 0 }));
+    return;
+  }
+  // 沒拿到位置、目的地又就是預設起點（或去最近的火車站）：跟規則模式一樣問從哪裡出發，不交給模型（V2-2 評測 AS-4、AR-17：地端模型直接排「臺北車站到臺北車站」）
+  if (profile.id === 'life' && rulesIt.intent === 'trip' && !rulesIt.from && !rulesIt.fromSaved && !here && (rulesIt.nearRail || nearDefaultFrom(rulesIt.toSaved || rulesIt.to))) {
+    const again = ORIGIN_ASKED.test(String(req.messages.slice(0, -1).filter((m) => m.role === 'assistant').at(-1)?.content || ''));
+    const rule = originAsk(rulesIt.nearRail ? null : rulesIt.toSaved?.name || rulesIt.to, rulesIt.lang, { again, nearRail: rulesIt.nearRail });
+    const o = deviceSlotAsk(dask, 'from', rule, { again, history: req.messages.slice(0, -1), context: req.context }) || rule;
+    if (o.ask) emit(ev.ask({ id: 'ask-m1', ...o.ask }));
+    emit(ev.text(o.short)); emit(ev.done({ modelCalls: 0, inputTokens: 0, outputTokens: 0 }));
     return;
   }
   const locationHint = atSaved ? `使用者問的是他的常用地點「${rulesIt.savedAt}」附近，座標 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}：天氣、空品、YouBike、附近公車、垃圾車、藥局都用這個 lat/lon；不是他現在的位置，也不要再問他在哪裡。` : here ? `使用者現在在 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（手機定位）。使用者沒說起點或地點時就用這個位置：plan_trip 的 from 用 { lat, lon, name: "你的位置" }，天氣、空品、YouBike、附近公車、垃圾車用這個 lat/lon；不要再問他在哪裡。` : '';
