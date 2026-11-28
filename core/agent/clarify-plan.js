@@ -85,20 +85,9 @@ export function planAsk(it, { profileId = 'life', history = [], text = '' } = {}
  * 跟示範與 edge 模式同一題、同一套選項（ADR-0016「模型模式也由程式送 ask」）。先查並問的那幾題要查詢結果，只在示範與 edge 模式。
  * @returns {{ ask: object, short: string, accept?: Set<string> } | null}
  */
-export function askFirst(it, { history = [], at = null } = {}) {
+export function askFirst(it, { history = [] } = {}) {
   if (!it) return null;
-  if (it.intent === 'trip' && it.ambig && !it.bare) { // 模型模式不先用猜的查：同名地點要問就先問（不讓模型自己挑一個）
-    const g = placeGuess(it.ambig, at || landmarkByName(DEFAULT_FROM));
-    if (it.followUp || !g.ask) { if (it.ambig.names.includes(it.to)) it.to = g.guess; return null; } // 不問就用猜的那個（不是地標庫的第一個）
-    const a = placeAsk(it.ambig, g.order, { from: it.from || null, mode: it.mode || null, lang: it.lang === 'en' ? 'en' : null });
-    return { ask: a, short: shortOf(it.lang === 'en', it.ambig.token), accept: new Set(a.options.map((o) => o.say)) };
-  }
-  if (it.intent === 'trip' && it.airport && !it.to) { // 模型模式不先用猜的查：去哪個機場先問（選項最近的放第一）
-    const en = it.lang === 'en';
-    const g = airportGuess(it.fromSaved || (it.from && landmarkByName(it.from)) || at || null, { en });
-    if (it.followUp && g.guess) { it.to = g.guess; return null; }
-    return airportAsk(g.order, { from: it.from || null, mode: it.mode || null, lang: en ? 'en' : null });
-  }
+  // 同名地點、去機場：2026-11-28 起模型模式也「先用猜的算、查完再問」（model-loop 拿到位置後跑 planAsk，Antigravity 第七輪 A）；這裡不先問
   if (!(it.road || it.category || (it.ambig && it.bare && it.intent === 'unknown') || (it.intent === 'rail' && !it.to && (it.fare || (it.anyTo && it.system !== 'THSR'))))) return null;
   return planAsk({ ...it }, { history })?.stop || null;
 }

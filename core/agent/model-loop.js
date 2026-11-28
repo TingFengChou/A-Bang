@@ -8,8 +8,8 @@ import { ev } from './events.js';
 import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hideToolNames, judgeInfo, runDemo, asideState, withAskCheck, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
 import { judgeNote, outingNote, moreStatesNote } from './impact.js';
 import { slotAsk, deviceAskTracker, deviceSlotAsk, originAsk, ORIGIN_ASKED } from './ask.js';
-import { askFirst } from './clarify-plan.js';
-import { scamPasteAsk } from './clarify.js';
+import { askFirst, planAsk } from './clarify-plan.js';
+import { scamPasteAsk, landmarkByName } from './clarify.js';
 import { lineCode } from '../tools/metro.js';
 import { normName, nowTW } from '../util.js';
 import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, isEnglish, rainAsked, nearDefaultFrom, localStations, hasShortStation } from './demo-intent.js';
@@ -71,7 +71,7 @@ export function prefetchCalls(it, j, here, placePt = null) {
     return it.intent === 'weather' && it.later ? [] : [{ name: 'find_place', args: { query: it.places[0] } }, { name: tool, args: { lat: placePt.lat, lon: placePt.lon } }];
   }
   // 公車路線（含「那 299 咧」「剛剛那班」）：離你最近的站多久到；一句兩件事順便看天氣
-  if (it.intent === 'bus_route' && it.route && !it.places?.length) return [{ name: 'bus_route_eta', args: { routeName: it.route, ...(at && { near: { ...at, name: here.name } }) } }, ...(it.alsoWeather && at ? [{ name: 'weather_now', args: at }] : [])];
+  if (it.intent === 'bus_route' && it.route && !it.places?.length) return [{ name: 'bus_route_eta', args: { routeName: it.route, ...(at ? { near: { ...at, name: here.name } } : { city: 'Taipei' }) } }, ...(it.alsoWeather && at ? [{ name: 'weather_now', args: at }] : [])]; // 沒拿到位置：跟示範模式一樣先看台北（PM Q-16：之後問在哪一站）
   // 高鐵／台鐵說了起訖站：直接查班次（「明天早上台北到台中的高鐵」）
   if (it.intent === 'rail' && !it.fare && it.from && it.to) return [{ name: it.system === 'THSR' ? 'thsr_timetable' : 'tra_timetable', args: { from: it.from, to: it.to, ...(it.tomorrow && { date: nowTW(Date.now() + 864e5).date }) } }];
   // 行程：起訖點都知道（明講的起點，或沒說＝現在位置）就由程式先比較，不靠模型記得呼叫 plan_trip
@@ -96,6 +96,13 @@ export function prefetchCalls(it, j, here, placePt = null) {
     return [{ name: 'outing_advice', args: { ...where, ...(who && { with: who }) }, ...(!it.places?.[0] && !at && { note: NO_LOCATION_NOTE.replace('起點先用', '先看').replace('先從', '先看').replace('算」，並請他說從哪出發就重算', '附近」，並請他說在哪就重查') }) }];
   }
   if (it.intent === 'pharmacy' && it.area) return [{ name: 'pharmacy_search', args: { area: it.area } }]; // 說了哪一區：查那一區（不用位置）
+  // 高鐵／台鐵票價：起訖站都知道（說了、或用最近的站）就先查（V2-2：模型模式「高鐵到台中多少錢」沒說最近的站）
+  if (it.intent === 'rail' && it.fare && it.from && it.to) return [{ name: 'rail_fare', args: { system: it.system || 'THSR', from: it.from, to: it.to } }];
+  // 沒拿到位置問天氣、空品：先看預設地點，並請他說在哪（與示範模式一致；PM Q-15）
+  if (!at && it.noLocation && ['weather', 'aqi'].includes(it.intent) && !it.places?.length && !it.later) {
+    const p = landmarkByName(DEFAULT_FROM);
+    if (p) return [{ name: it.intent === 'weather' && it.tomorrow ? 'weather_tomorrow' : NEARBY_TOOL[it.intent], args: { lat: p.lat, lon: p.lon }, note: `［內部備註］沒拿到使用者的位置，先看「${DEFAULT_FROM}」附近；回答時先說「沒拿到你的位置，先看${DEFAULT_FROM}附近」，並請他說在哪就重查。` }];
+  }
   if (!at) return [];
   if (it.places?.length) return [];
   const intent = NEARBY_TOOL[it.intent] ? it.intent : NEARBY_TOOL[j?.intent] ? j.intent : null;
@@ -272,6 +279,9 @@ export function dropStrayOffers(text, trip = null, it = null) {
 export function mustSay(text, trip, it = null, { rideLink = false } = {}) {
   if (!text) return text;
   let out = dropStrayOffers(text, trip, it);
+  // 程式先猜的（去機場用最近的、同名地點、最近的車站）：模型沒說到就在開頭補，前提不能被吞掉（Antigravity 第七輪）
+  if (it?.nearestFrom && !it.guessName && !normName(out.replace(/\s/g, '')).includes(normName(String(it.nearestFrom).replace(/\s/g, '')))) out = `從離你最近的「${it.nearestFrom}」站算：${out}`;
+  if (it?.guessName && !normName(out.replace(/\s/g, '')).includes(normName(String(it.guessName).replace(/\s/g, '')))) out = `先用「${it.guessName}」算給你看：${out}`;
   // 訂票（「幫我訂明天的高鐵票」）：阿幫只給官方連結（ADR-0011；P2-10）
   if (it?.intent === 'rail' && it.book && !/官方/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}訂票請按卡片上的官方訂票連結，在${it.system === 'THSR' ? '高鐵' : '台鐵'}官網或 App 完成（阿幫不代訂、不付款）。`;
   if (it?.intent === 'weather' && it.tomorrow && !/明天|明日|明早|明晚/.test(out)) out = `明天的天氣：${out}`; // 問明天要講明天（S1-3：小模型常只說「會下雨」）
@@ -397,6 +407,17 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const stationHint = ['from', 'to'].filter((k) => rulesIt[k] && rulesIt[k] !== named0[k]).map((k) => `使用者要的是「${rulesIt[k]}」（他就在這附近，不是「${named0[k]}」），plan_trip 的 ${k} 用「${rulesIt[k]}」。`).join('');
   const locationHint0 = atSaved ? `使用者問的是他的常用地點「${rulesIt.savedAt}」附近，座標 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}：天氣、空品、YouBike、附近公車、垃圾車、藥局都用這個 lat/lon；不是他現在的位置，也不要再問他在哪裡。` : here ? `使用者現在在 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（手機定位）。使用者沒說起點或地點時就用這個位置：plan_trip 的 from 用 { lat, lon, name: "你的位置" }，天氣、空品、YouBike、附近公車、垃圾車用這個 lat/lon；不要再問他在哪裡。` : '';
   const locationHint = `${locationHint0}${stationHint}`;
+  // 該問就問、先猜先算（PM Q 情境；2026-11-28 Antigravity 第七輪 A）：跟規則模式同一套 planAsk——
+  //   stop＝程式只問；after＝程式先用最可能的答案查（去機場用最近的、同名地點用最可能的、沒定位問天氣先看預設地點、票價用最近的站…），
+  //   查完由程式出題，模型只轉述。界線（Antigravity）：只在「缺一個參數、而且有安全的預設」時程式先猜；拆意圖、權衡、追問留給模型。
+  //   模型回答一定要先說「先用 X 算」（mustSay 用 it.guessName 補），不能把前提吞掉
+  const itA = profile.id === 'life' ? { ...rulesIt, ...(here && !rulesIt.fromPoint && { fromPoint: here }), ...(canLocate && here === null && { noLocation: true }) } : null;
+  const cl = itA ? planAsk(itA, { history: req.messages.slice(0, -1), text: last }) : null;
+  if (cl?.stop) { emit(ev.ask({ id: 'ask-m1', ...cl.stop.ask })); emit(ev.text(cl.stop.short)); emit(ev.done({ modelCalls: 0, inputTokens: 0, outputTokens: 0 })); return; }
+  const itP = itA || rulesIt; // 預抓用 planAsk 調整過的意圖（猜的目的地、最近的站、接著改條件時沿用猜的機場、沒拿到位置）
+  const guessName = cl?.after && ((itA.to && itA.to !== rulesIt.to && itA.to) || (itA.fromNearest && itA.from) || null);
+  if (guessName) rulesIt.guessName = guessName;
+  if (itA?.fromNearest && itA.from) rulesIt.nearestFrom = itA.from; // 票價沒說起站、有定位：用最近的站（要說是哪一站；V2-2 Q-2）
   // 地端小模型只給這個意圖用得到的工具：規則聽得懂就照規則（P2：判斷層把「來得及去台北車站嗎」聽成查高鐵）
   //   行程：工具不縮減，但拿掉查時刻表（程式已經比較好路線，模型自己去查高鐵班次會答非所問）
   const only0 = provider.mode !== 'local' ? undefined
@@ -417,8 +438,10 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   // 出發時間＝現在（測試與示範時鐘可指定；深夜末班車判斷）
   // 說了地點的附近查詢（「那裡會下雨嗎」「那板橋車站那邊呢」）：程式先找到地點再查（與示範模式一樣，不靠模型記得先 find_place）
   const placePt = rulesIt.places?.[0] && PLACE_TOOL[rulesIt.intent] && !(rulesIt.intent === 'pharmacy' && rulesIt.area) ? await resolvePoint(svc.places, rulesIt.places[0]).catch(() => null) : null;
-  const pre = prefetchCalls(rulesIt, j, here || null, placePt).map((c) => (c.name === 'plan_trip' && !c.args.departAt ? { ...c, args: { ...c.args, departAt: tripDepartAt(rulesIt, now) } } : c)); // 與示範模式同一個出發時間（明天用明天早上）
+  if (cl?.after && itA.intent === 'trip') ask.done = true; // 先查並問的那一題先預留（plan_trip 不另外問）
+  const pre = prefetchCalls(itP, j, here || null, placePt).map((c) => (c.name === 'plan_trip' && !c.args.departAt ? { ...c, args: { ...c.args, departAt: tripDepartAt(rulesIt, now) } } : c)); // 與示範模式同一個出發時間（明天用明天早上）
   let prefetched = '';
+  const afterResults = {}; // 先查並問：預抓的結果（工具名稱 → 結果），給 planAsk 的 after 出題
   const placeDone = new Map(); // 使用者說了地點（「那邊有 YouBike 嗎」）時程式已查好的附近資料：模型改用現在位置再查也沿用（P4-6）
   const turnTrips = []; // 這一輪已經出過的行程卡（同起點、同目的地、同方式只出一張：模型換個說法再查也沿用）
   const preDone = new Map(); // 呼叫鍵（工具＋關鍵參數）→ 給模型的文字：模型用相同參數再呼叫時沿用，不重複產生卡片與決策圖；參數不同照常執行
@@ -440,6 +463,14 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
       return text;
     });
     prefetched = texts.join('\n\n');
+    if (cl?.after) out.forEach((o, i) => { if (o.ok) (afterResults[pre[i].name] ||= []).push(o.result); });
+  }
+  // 先查並問：查完由程式出題（選項第一個是剛剛猜的），告訴模型題目已經問了、開頭要說先用什麼算
+  const later = cl?.after ? cl.after(afterResults) : null;
+  if (later?.ask) {
+    emit(ev.ask({ id: 'ask-m1', ...later.ask }));
+    ask.done = true;
+    prefetched += `\n\n［內部備註］阿幫已經在畫面上問使用者「${later.ask.question || ''}」${guessName ? `，這次先用猜的「${guessName}」算` : ''}。${guessName ? `回答第一句先說「先用「${guessName}」算給你看」，再說可以點上面的選項改；` : ''}不要再問同一個問題，也不要說成是使用者選的。`;
   }
   const conv = provider.start({
     system: buildSystemPrompt(profile, { now, context: req.context, picked, locationHint, prefetched }),

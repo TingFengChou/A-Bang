@@ -177,10 +177,21 @@ test('審查：老街不是路名；路名的問題回城市名不收；指定�
   const a = askOf(es);
   assert.equal(a.pending.mode, 'bike');
   assert.equal(validateRequest({ messages: one('中山大學'), pendingAsk: { id: a.id, ...a.pending } }).messages.at(-1).content, '騎 YouBike去國立中山大學');
-  const provider = { mode: 'local', model: 'fake', start() { throw new Error('不該呼叫模型'); } };
+  // 2026-11-28（Antigravity 第七輪 A）：模型模式也「先用猜的算、查完再問」——程式先排去中山大學、程式出題（第一個標猜的），模型只轉述；
+  // 模型沒提到猜的地點時，程式在開頭補「先用「國立中山大學」算給你看」（前提不能被吞掉）
+  let sys = '';
+  const provider = { mode: 'local', model: 'fake', start(o) { sys = o.system; return { next: async () => ({ text: '建議坐捷運，約 30 分。', calls: [], stop: 'end', usage: { input: 0, output: 0 } }) }; } };
   const m = [];
   await runModel(svc, { messages: one('去中山'), ...at(KHH) }, (e) => m.push(e), { provider, judge: null, now: NOW });
-  assert.equal(askOf(m)?.about, 'slot:place');
+  const trip = m.find((e) => e.type === 'tool_result' && (e.tool || e.name) === 'plan_trip');
+  assert.match(trip?.data?.to?.name || '', /中山大學/, '程式先用猜的中山大學排');
+  const q = askOf(m);
+  assert.equal(q?.about, 'slot:place');
+  assert.equal(q.options[0].guess, true, '第一個選項標猜的');
+  assert.match(sys, /阿幫已經在畫面上問使用者/, '告訴模型題目已經問了');
+  const said = m.filter((e) => e.type === 'text').map((e) => e.delta).join('');
+  assert.match(said, /^先用「國立中山大學」算給你看：建議坐捷運/);
+  assert.equal(m.filter((e) => e.type === 'ask').length, 1, '一輪只問一題');
 });
 
 // ───── PR #121 獨立審查的必修與建議（寧可不問、不要猜遠的、不要吞掉別的問題） ─────
@@ -347,3 +358,18 @@ for (const [name, fake] of [['合理', reasonable], ['亂來', (_t, i) => ({ ...
     if (name === '合理') assert.ok(used >= 8, `合理的手機題目要被採用（${used}）`);
   });
 }
+
+test('模型模式也先查並問（Antigravity 第七輪 A）：沒定位問公車先看台北再問哪一站；票價有定位用最近的站，模型沒說就補', async () => {
+  const provider = { mode: 'local', model: 'fake', start() { return { next: async () => ({ text: '約 5 分到。', calls: [], stop: 'end', usage: { input: 0, output: 0 } }) }; } };
+  const go = async (q, loc) => {
+    const m = [];
+    await runModel(svc, { messages: one(q), clientTools: ['device_location'], clientToolResults: [loc ? { id: 'loc1', ok: true, result: loc } : { id: 'loc1', ok: false }] }, (e) => m.push(e), { provider, judge: null, now: NOW });
+    return m;
+  };
+  const bus = await go('307 還要多久', null);
+  assert.ok(bus.some((e) => e.type === 'tool_start' && e.name === 'bus_route_eta'));
+  assert.match(askOf(bus)?.question || '', /哪一站/);
+  const fare = await go('高鐵到台中多少錢', { lat: 22.6873, lon: 120.3075 }); // 左營附近
+  assert.ok(fare.some((e) => e.type === 'tool_start' && e.name === 'rail_fare'));
+  assert.match(fare.filter((e) => e.type === 'text').map((e) => e.delta).join(''), /^從離你最近的「左營」站算：/);
+});
