@@ -101,3 +101,10 @@ test('#5 問醫院：照實說資料只有診所，急症打 119；問診所不�
   assert.doesNotMatch(await say('附近有診所嗎'), /醫院的看診資料/);
   assert.match(await say('我迷路了'), /^別擔心，先看你附近最近的站牌/);
 });
+
+test('示範模式找不到藥局、診所、垃圾車：說是示範資料只收了少數地區（V3 走查 F6）；找得到、真實資料不加', async () => {
+  const say = async (q, here) => { const es = []; await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: q }], clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: here }] }, (e) => es.push(e), {}); return es.filter((e) => e.type === 'text').map((e) => e.delta).join(''); };
+  const WANHUA = { lat: 25.0423, lon: 121.5079 };
+  for (const q of ['附近有開的藥局', '垃圾車幾點來']) assert.match(await say(q, WANHUA), /現在用的是示範資料，只收了少數地區/, q);
+  assert.doesNotMatch(await say('大安區的藥局', WANHUA), /現在用的是示範資料/, '示範資料裡有：不加');
+});
