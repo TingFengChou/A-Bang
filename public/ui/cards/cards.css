@@ -331,6 +331,15 @@ html.lite-motion :is(.ab-scene-body, .ab-scene-person, .ab-scene-halo) { animati
 .ab-btn.ab-pick { min-height: 44px; margin-top: 8px; border: 1px solid var(--ab-brand); color: var(--ab-brand); background: #fff; font-weight: 700; }
 
 /* 出門提醒（T7）：說明＋允許／先不要；設好後可取消 */
+.ab-leave { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 8px 0 4px; padding: 10px 12px; border-radius: 12px; background: var(--ab-brand-soft, #e3f2ef); color: var(--ab-brand, #0f766e); } /* 出發倒數（第十四輪） */
+.ab-leave-n { font-size: 34px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.ab-leave-n:empty { display: none; }
+.ab-leave-u { font-size: 17px; font-weight: 700; }
+.ab-leave small { flex-basis: 100%; font-size: 13px; color: var(--ab-muted, #5f6f6b); }
+.ab-leave.now { background: var(--ab-warn-soft); color: var(--ab-warn); }
+.ab-leave.late { background: var(--ab-bad-soft, #fde8e8); color: var(--ab-bad, #b91c1c); }
+.ab-leave.late .ab-leave-u { font-size: 15px; }
+.ab-leave.est b { font-size: 17px; }
 .ab-remind { display: grid; gap: 6px; margin: 6px 0 2px; justify-items: start; }
 .ab-remind .ab-btn { min-height: 44px; }
 .ab-remind.ab-explain .ab-btn.ab-primary { width: 100%; }

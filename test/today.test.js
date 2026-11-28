@@ -141,3 +141,13 @@ test('主畫面小工具「阿幫・今天」：只送文字（日子、一句�
   assert.equal(widgetPayload({ show: false }), null);
   assert.equal(await pushTodayWidget(p), false, '網頁版、node：什麼都不做');
 });
+
+test('這個時段常用：只放兩格，依時段與上不上班（下面的格子不動；第十四輪 e）', async () => {
+  const { pinnedTiles } = await import('../public/js/today.js');
+  assert.deepEqual(pinnedTiles({ now: TUE_8 }), { ids: ['bus', 'metro'], label: '通勤時間' });
+  assert.deepEqual(pinnedTiles({ now: TUE_8, workday: false }).ids, ['weather', 'pharmacy'], '連假的早上不叫人通勤');
+  assert.deepEqual(pinnedTiles({ now: SAT_10 - 3 * 3600e3, workday: true }).ids, ['bus', 'metro'], '補班日');
+  assert.deepEqual(pinnedTiles({ now: TUE_18 }), { ids: ['bus', 'garbage'], label: '下班時間' });
+  assert.deepEqual(pinnedTiles({ now: NIGHT }).ids, ['metro', 'pharmacy']);
+  assert.deepEqual(pinnedTiles({ now: tw(2026, 12, 1, 13) }).ids, ['weather', 'bike']);
+});

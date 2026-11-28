@@ -19,7 +19,7 @@ import { renderMoveCard } from '../health-ui.js';
 import { suggestContext, homeAsks } from '../agent/suggest.js';
 import { twClock } from '../../../core/suggest.js';
 import { loadPlaces } from '../saved-places.js';
-import { todayPlan } from '../today.js';
+import { todayPlan, pinnedTiles } from '../today.js';
 import { pushTodayWidget } from '../today-widget.js';
 import { openMemorySheet } from '../memory-sheet.js';
 import { homeArea, areaLabel } from '../home-area.js';
@@ -84,6 +84,7 @@ export default {
         ${offline ? '' : (() => { const ex = homeExamples(); return `<div class="hero-ask" role="group" aria-label="範例問題" data-sig="${esc(ex.map((x) => x.q).join('|'))}">${exampleHtml(ex)}</div>`; })()}
       </section>
       <div id="favs"></div>
+      <section class="group pinned" aria-labelledby="g-pin" id="pinned">${pinnedHtml(pinnedTiles())}</section>
       <section class="group safe" aria-labelledby="g-safe">
         <div class="section-title"><h2 id="g-safe">防詐</h2><span>165 全民防騙網</span></div>
         <a class="tile feature" href="${safe.route}" data-app="antifraud" data-source="${esc(safe.source)}">
@@ -222,7 +223,9 @@ function paintToday(main, args) {
   const sec = main.querySelector('#today');
   if (!sec) return;
   const p = todayPlan({ day: v?.day || null, weather: v?.weather || null, aqi: v?.aqi || null, offline: offline || !!v?.offline, places: loadPlaces(), area: homeArea(), located: !!v?.pos, onboarded: onboarded(), loading: !!loading && !v });
-  if (p.show && !loading) pushTodayWidget(p); // 主畫面小工具「阿幫・今天」（Android）：查好了才送
+  if (p.show && !loading) pushTodayWidget(p);
+  const pin = main.querySelector('#pinned'); // 辦公日曆查到（補班、連假）後，這個時段常用跟著日子換
+  if (pin && v?.day) { const html = pinnedHtml(pinnedTiles({ workday: v.day.workday })); if (pin.dataset.sig !== html) { pin.dataset.sig = html; pin.innerHTML = html; morphTiles(pin); } } // 主畫面小工具「阿幫・今天」（Android）：查好了才送
   const sig = JSON.stringify(p);
   if (sec.dataset.sig === sig) return;
   sec.dataset.sig = sig;
@@ -250,6 +253,12 @@ function markDemoTiles(main) {
     el.querySelector('.tag.demo')?.remove();
     if (!allDemo && demo.has(el.dataset.source)) el.insertAdjacentHTML('beforeend', '<span class="tag demo" title="目前是示範資料，不是即時資料">示範</span>');
   }
+}
+
+/** 這個時段常用（兩格，跟下面的格子同一個樣子；下面的格子不動） */
+function pinnedHtml(p) {
+  const apps = p.ids.map((id) => miniApps.find((a) => a.id === id)).filter((a) => a && a.status !== 'soon');
+  return `<div class="section-title"><h2 id="g-pin">這個時段常用</h2><span>${esc(p.label)}</span></div><div class="grid panel pin-grid">${apps.map((a, i) => tile(a, i)).join('')}</div>`;
 }
 
 function tile(a, i = 0) {

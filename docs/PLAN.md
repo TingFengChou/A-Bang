@@ -146,6 +146,7 @@ M0 基礎 ✅ ─▶ M2 Registry＋遠端 MCP ✅ ─▶ M3 交通完整版 ✅ 
 | OData 空白用 `%20`（已實作）是否必要 | 已驗證 2026-11-23：同一個 `$filter` 用 `+` 與 `%20` 結果相同 → 不是必要，保留無妨 |
 | 捷運站別時刻表的國定假日班表 | 2026-11-22 已實作（國定假日用 `ServiceDay.NationalHolidays` 的班表，看路線＋方向＋終點）；國定假日清單 `core/data/tw-holidays.json` 已與人事行政總處 115、116 年辦公日曆表核對（data.gov.tw 資料集 14718，`scripts/build-holidays.js` 由官方 CSV 產生）。2026-11-23 實測（北捷 BL12）：有帶 `NationalHolidays`（布林），平日與假日分成兩份，假日那份 `NationalHolidays: true`，`normStationTimetable` 讀法相符 |
 | 停車場 `/basic/v1/Parking/OffStreet/CarPark/City/{City}` 的 `$spatialFilter` | 2026-11-23 實測：台中 500 公尺內回 1,558 筆（不像真的有篩），程式自己算距離、取 600 公尺內；台北市、新北市 `CarParks` 是空的（只有 `ParkingAvailability`、沒有座標）→ 2026-11-23 改用市府開放資料（`docs/DATA_SOURCES.md` 停車場）。`$select` 沒有作用。待驗證：附近篩選的實際範圍 |
+| 颱風停班停課（2026-11-28 第十四輪） | data.gov.tw 資料集 20457「天然災害停止上班、停止上課情形」（人事行政總處）：資源是 NCDR 示警 RSS `https://alerts.ncdr.nat.gov.tw/RssAtomFeed.ashx?AlertType=33`（CAP）與 KMZ；中繼資料標「每 1 年」「統計整理」。2026-11-28 實測 RSS 回「請先登入會員」——要 NCDR 會員才拿得到。待 Austin 決定是否申請（帳號屬停止條件）；拿到後由伺服器定時抓、快取，手機不直連 |
 | 台北市、新北市停車場開放資料（`core/services/parking-open.js`） | 2026-11-23 實測：台北 `TCMSV_alldesc.json` 1,767 筆（收 1,695；`EntranceCoord` 的 `Xcod` 是緯度、`Ycod` 是經度，128 筆入口是 0,0（改用 TWD97），14 筆入口與 TWD97 差超過 300 公尺（不列））；`TCMSV_allavailable.json`／`.xml` 的空位停在 10-19／11-19，改用 TDX 台北空位（ID 相同）。新北 `size` 上限 1000（要分頁）；空位欄位實際是 `AVAILABLECAR`（說明寫 `AVAILABLE`，兩個都收）；有幾筆 `TW97X`／`TW97Y` 寫反或是 0。待驗證：台北入口座標與 TWD97 哪個準（目前差太多就不列）、台北 blob 空位檔是否恢復更新、新北私有停車場是否會有空位 |
 
 ## M2 Tool registry＋遠端 MCP ✅

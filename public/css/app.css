@@ -639,3 +639,4 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
 .set-jump { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
 .set-jump .chip { min-height: 44px; }
 section.settings { scroll-margin-top: 64px; }
+.pin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } /* 這個時段常用：兩格（第十四輪 e） */
