@@ -184,7 +184,20 @@ export function decide(options, ctx = {}) {
       const cost = (x) => val(x.o, 'cost');
       /** 從 a 換成 b 省下的體感時間值多少錢（VALUE_OF_TIME） */
       const worth = (a, b) => (feltMinutes(a.o) - feltMinutes(b.o)) * VALUE_OF_TIME.perMin;
-      // 1. 花錢換時間要划算：叫車比便宜的大眾運輸多付的錢要 ≤ 省下的體感時間 × 時間價值；
+      // 1. 大眾運輸之間也用同一把尺（2026-11-28 Antigravity 第五輪；ADR-0010）：比較便宜但比較慢的，
+      //    若對方省下的體感時間 × 時間價值 > 多花的錢，就不排在對方前面（breakdown.slowCheap；跟叫車的 premium 分開，方向相反）。
+      //    例：台北車站→淡水，公車 80 分 15 元 vs 捷運 53 分 40 元：捷運省 19 分體感（×5＝95 元）> 多 25 元 → 捷運在前。
+      //    說「想省錢」時照權重（學生、想省的人；叫車照樣檢查）；到站時間不明的不拿來當對方。
+      //    先做：叫車的「划不划算」要拿調整後的大眾運輸排序來比（否則叫車讓位給慢的公車後，又跟捷運同分排到前面）
+      if (!states.includes('budget')) {
+        for (const x of transit) {
+          const ref = top(transit.filter((y) => y !== x && !y.o.etaUnknown && cost(y) > cost(x) && worth(x, y) > cost(y) - cost(x) && pt(y) <= pt(x)));
+          if (!ref) continue;
+          lower(x, ref, 'slowCheap');
+          x.slowCheap = { vs: ref.o.id, extra: cost(ref) - cost(x), faster: Math.max(0, Math.round(effMinutes(x.o) - effMinutes(ref.o))) };
+        }
+      }
+      // 2. 花錢換時間要划算：叫車比便宜的大眾運輸多付的錢要 ≤ 省下的體感時間 × 時間價值；
       //    不划算就排到「不划算的那些大眾運輸」裡分數最高的後面 1 分（breakdown.premium），理由句「省 X 元、只慢 Y 分」
       for (const s of scored) {
         if (!PREMIUM_ROLES.has(s.o.role)) continue;
@@ -199,7 +212,7 @@ export function decide(options, ctx = {}) {
           x.notWorth = { vs: ref.o.id, extra: cost(x) - cost(ref), worth: Math.max(0, Math.round(worth(ref, x))) };
         }
       }
-      // 2. 走太久、騎太久（LONG_MIN：步行 25 分、YouBike 30 分）不排在最好的大眾運輸前面（breakdown.tooLong），理由句「YouBike 要 43 分（超過 30 分）」
+      // 3. 走太久、騎太久（LONG_MIN：步行 25 分、YouBike 30 分）不排在最好的大眾運輸前面（breakdown.tooLong），理由句「YouBike 要 43 分（超過 30 分）」
       for (const x of scored) {
         const cap = LONG_MIN[x.o.role];
         if (!cap || val(x.o, 'minutes') <= cap) continue;
@@ -210,11 +223,11 @@ export function decide(options, ctx = {}) {
       }
     }
   }
-  const ranked = scored.map(({ o, breakdown, notWorth, tooLong, unsure }) => {
+  const ranked = scored.map(({ o, breakdown, notWorth, tooLong, unsure, slowCheap }) => {
     const bonus = habitOn ? habitBonus(o, ctx.habit, fastest) : 0;
     if (bonus > 0) breakdown.habit = bonus;
     const score = Object.values(breakdown).reduce((a, b) => a + b, 0);
-    return { ...o, score: Math.round(score * 100), breakdown, ...(notWorth && { notWorth }), ...(tooLong && { tooLong }), ...(unsure && { unsure }) };
+    return { ...o, score: Math.round(score * 100), breakdown, ...(notWorth && { notWorth }), ...(tooLong && { tooLong }), ...(unsure && { unsure }), ...(slowCheap && { slowCheap }) };
   }).sort((a, b) => b.score - a.score || notWorthLast(a, b) || effMinutes(a) - effMinutes(b));
 
   // 4. 使用者指定交通方式（「改坐公車」）：分數與排名照算，建議改成該方式裡分數最高的（沒有這種方式就照分數）
@@ -254,6 +267,10 @@ function explain(best, second, states, excluded, ranked = []) {
   } else if (second?.unsure?.vs === best.id) {
     // 到站時間不明的公車讓位（unsure）：照實說
     why.push([...often, `${second.name} 到站時間不明`].join('、'));
+  } else if (second?.slowCheap?.vs === best.id) {
+    // 便宜但慢的大眾運輸讓位（slowCheap）：照實說快多少、只多多少錢
+    const { faster, extra } = second.slowCheap;
+    why.push([...often, faster > 0 ? `比${second.name}快 ${faster} 分` : `比${second.name}少走路、少等車`, `只多 ${extra} 元`].join('、'));
   } else if (second?.tooLong?.vs === best.id) {
     // 走太久、騎太久（LONG_MIN）：照實說要多久、上限多少
     why.push([...often, `${second.name}要 ${second.minutes} 分（超過 ${second.tooLong.cap} 分）`].join('、'));

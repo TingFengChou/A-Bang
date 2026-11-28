@@ -853,9 +853,9 @@ export function shareRide(o, party) {
  * @param {{ from: { name, lat, lon }, to: { name, lat, lon }, departAt?: string, prefs?: { states?: string[], arriveBy?: string, party?: number, habit?: Record<string, number> }, now?: number }} p
  *   prefs.habit：手機記的常選比例（只在手機算好送來；沒指定方式、沒說狀況時小幅加分，ADR-0010）
  */
-/** decide() 的結果 → plan_trip 的 ranking（notWorth／tooLong／unsure：ADR-0010 2026-11-22） */
+/** decide() 的結果 → plan_trip 的 ranking（notWorth／tooLong／unsure：ADR-0010 2026-11-22；slowCheap：2026-11-28） */
 const rankingOf = (r) => ({
-  ranked: r.ranked.map((o) => ({ id: o.id, name: o.name, score: o.score, breakdown: o.breakdown, ...(o.notWorth && { notWorth: o.notWorth }), ...(o.tooLong && { tooLong: o.tooLong }), ...(o.unsure && { unsure: o.unsure }) })),
+  ranked: r.ranked.map((o) => ({ id: o.id, name: o.name, score: o.score, breakdown: o.breakdown, ...(o.notWorth && { notWorth: o.notWorth }), ...(o.tooLong && { tooLong: o.tooLong }), ...(o.unsure && { unsure: o.unsure }), ...(o.slowCheap && { slowCheap: o.slowCheap }) })),
   excluded: r.excluded.map((o) => ({ id: o.id, name: o.name, why: o.why })),
   weights: r.weights, reason: r.reason,
 });
