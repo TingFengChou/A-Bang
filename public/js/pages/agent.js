@@ -431,7 +431,7 @@ export default {
     form.addEventListener('submit', (e) => { e.preventDefault(); send(input.value); });
     // 從首頁帶問題過來（#/agent?q=…）：直接送出，並把網址換掉，避免重新整理時重送（對話保留時，回來帶的問題接在後面）
     const here = agentId === 'life' ? '#/agent' : `#/agent/${agentId}`;
-    const takeQuery = (qy = {}) => { if (qy.turn != null) { window.history.replaceState(null, '', here); const n = /^\d{1,4}$/.test(qy.turn) ? Number(qy.turn) : 0; if (n) requestAnimationFrame(() => requestAnimationFrame(() => rounds.reveal(n))); } const seen = takeHandoff(agentId); if (seen) queueMicrotask(() => send(seen)); if (qy.q) { const q0 = qy.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); } if (seen || qy.q) holdEdge = true; return !!(seen || qy.q); };
+    const takeQuery = (qy = {}) => { if (qy.turn != null) { window.history.replaceState(null, '', here); const n = /^\d{1,4}$/.test(qy.turn) ? Number(qy.turn) : 0; if (n) requestAnimationFrame(() => requestAnimationFrame(() => rounds.reveal(n))); } const seen = takeHandoff(agentId); if (seen) queueMicrotask(() => send(seen)); if (qy.act === 'cam' || qy.act === 'mic') { window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); const sel = qy.act === 'cam' ? '.chat-cam' : '.chat-mic'; requestAnimationFrame(() => main.querySelector(sel)?.click()); } if (qy.q) { const q0 = qy.q; window.history.replaceState(null, '', agentId === 'life' ? '#/agent' : `#/agent/${agentId}`); queueMicrotask(() => send(q0)); } if (seen || qy.q) holdEdge = true; return !!(seen || qy.q); };
     takeQuery(query);
     if (dynamic) refreshSuggest(); // 帶問題進來時只放規則（holdEdge），不請手機猜
 

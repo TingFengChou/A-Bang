@@ -60,6 +60,7 @@ const validCommute = (c) => !!c && typeof c.from === 'string' && typeof c.to ===
  * @returns {{ work: boolean, weekend: boolean, label: string, known: boolean }}
  */
 export function dayKind(day, dow) {
+  if (day && Number.isInteger(day.dow) && day.dow !== dow) day = null; // 辦公日曆是別天的答案（快取跨過午夜）：照星期推
   const weekend = dow === 0 || dow === 6;
   const work = typeof day?.workday === 'boolean' ? day.workday : !weekend;
   const known = !!day?.known;
@@ -78,7 +79,7 @@ export function skyOf(min) {
   if (min < 18 * 60 + 30) return 'dusk';
   return 'night';
 }
-const partLabel = (min) => (min < 5 * 60 ? '深夜' : min < 11 * 60 ? '早上' : min < 16 * 60 ? '白天' : min < 18 * 60 ? '傍晚' : min < 22 * 60 + 30 ? '晚上' : '深夜');
+const partLabel = (min) => (min < 5 * 60 ? '深夜' : min < 11 * 60 ? '早上' : min < 16 * 60 ? '白天' : min < 19 * 60 ? '傍晚' : min < 22 * 60 + 30 ? '晚上' : '深夜');
 
 /**
  * 出發地（§6）：手動切換永遠優先；沒切換時，已知位置離固定地點超過 NEAR_M 就自動改用目前位置。
@@ -91,8 +92,8 @@ export function resolveOrigin(s, fixedKey) {
   const here = s.location.auto;
   const distM = fixed && validPos(fixed) && here ? distanceM(here.lat, here.lon, fixed.lat, fixed.lon) : null;
   const hereSub = here ? (here.area ? `${here.area}${here.near ? here.near : ''}附近` : '依目前位置') : '按下後才取得';
-  const fixedOut = () => ({ mode: 'fixed', label: placeName(fixedKey), sub: `出發地・${fixed?.area || placeName(fixedKey)}`, auto: false, needAsk: false, distM });
-  const hereOut = (auto) => ({ mode: 'here', label: '目前位置', sub: hereSub, auto, needAsk: !here, distM });
+  const fixedOut = () => ({ mode: 'fixed', label: placeName(fixedKey), sub: `出發地・${fixed?.area || placeName(fixedKey)}`, auto: false, needAsk: false, distM, fixedKey });
+  const hereOut = (auto) => ({ mode: 'here', label: '目前位置', sub: hereSub, auto, needAsk: !here, distM, fixedKey: fixed ? fixedKey : null });
   if (s.location.override === 'here' || !fixed) return hereOut(false);
   if (s.location.override === 'fixed') return fixedOut();
   if (distM != null && distM > NEAR_M) return hereOut(true);
@@ -110,7 +111,7 @@ export const placeName = (k) => (k === '家' ? '住家' : k || '');
 export function legStatus(leg, transit = {}, quotaOut = false) {
   if (leg.mode === 'metro') {
     const m = (transit.metro || []).find((x) => x && (x.line === leg.line || x.name === leg.name));
-    if (!m || !Number.isFinite(m.mins)) return { kind: 'unknown', mins: null, next: null, long: false, text: quotaOut ? '這次查不到班次' : '依時刻表' };
+    if (!m || !Number.isFinite(m.mins)) return quotaOut ? { kind: 'unknown', mins: null, next: null, long: false, text: '這次查不到班次' } : { kind: 'timetable', mins: null, next: null, long: false, text: '依時刻表' }; // 捷運沒查也照時刻表走：不是「查不到」
     return { kind: 'timetable', mins: m.mins, next: null, long: false, text: '依時刻表' };
   }
   if (leg.mode === 'bus') {
@@ -135,13 +136,14 @@ export function commuteTrip(c, dir) {
 const RULES = [
   ['safety', (c) => safetyOf(c.s)],
   ['trip', (c) => (c.s.user.trip ? { title: '行程進行中', cta: { label: '回到行程', href: c.s.user.trip.href || '#/agent' }, reasons: ['有進行中的行程'] } : null)],
-  ['new', (c) => (!c.s.user.onboarded || !c.s.places['家'] ? newbie(c) : null)],
+  ['new', (c) => (!c.s.user.onboarded ? newbie(c) : null)],
   ['commute', (c) => commuteRule(c, 'out')],
   ['home', (c) => commuteRule(c, 'back')],
   ['late', (c) => lateRule(c)],
   ['out', (c) => outRule(c)],
   ['walk', (c) => (c.s.user.walk?.kind === 'go' ? walkRule(c) : null)],
   ['tomorrow', (c) => tomorrowRule(c)],
+  ['setup', (c) => (!c.s.places['家'] ? { ...newbie(c), kind: 'new' } : null)], // 看過引導但還沒設住家：排在散步、明日提醒之後（首頁的「設定住家」空格也在邀請）
   ['general', (c) => generalRule(c)],
 ];
 
@@ -168,11 +170,13 @@ function commuteRule(c, dir) {
   const st = trip.legs.map((l) => legStatus(l, s.transit, s.source.quotaOut));
   const first = st[0];
   const longLeg = trip.legs.findIndex((l, i) => l.mode === 'bus' && st[i].long);
-  const status = longLeg >= 0 ? 'warn' : st.some((x) => x.kind === 'unknown') ? 'unknown' : 'ok';
+  // 打開首頁只查第一段（額度）；後面的公車段是「按了再查」，不算查不到
+  const status = longLeg >= 0 ? 'warn' : first.kind === 'unknown' ? 'unknown' : 'ok';
+  st.forEach((x, i) => { if (i > 0 && x.kind === 'unknown' && trip.legs[i].mode === 'bus') Object.assign(x, { kind: 'later', text: '按了再查' }); });
   const statusText = longLeg >= 0 ? `${legLabel(trip.legs[longLeg])} 班次間隔較長` : status === 'unknown' ? '這次查不到部分班次' : '班次正常';
   const title = dir === 'out' ? '今日通勤' : '今日返家';
   const route = [origin.mode === 'here' ? '目前位置' : placeName(trip.from), ...trip.legs.map(legLabel), placeName(trip.to)];
-  const readout = { big: first.mins, unit: '分', line: `${legLabel(trip.legs[0])}${trip.legs[0].stop || trip.legs[0].station ? ` 到${trip.legs[0].stop || trip.legs[0].station}站` : ''}`, note: first.text };
+  const readout = { big: first.mins, unit: '分', line: `${legLabel(trip.legs[0])}${trip.legs[0].stop || trip.legs[0].station ? ` 到${String(trip.legs[0].stop || trip.legs[0].station).replace(/站$/, '')}站` : ''}`, note: first.text };
   const cta = dir === 'out'
     ? { label: '開始出門倒數', action: 'leave', steps: ['設定出門提醒', '鎖定畫面顯示到站倒數', '可分享預計抵達時間給家人'] }
     : { label: '開始返家導引', action: 'guide', steps: ['顯示每一段的班次與轉乘', '快到站時提醒下車', '可分享預計到家時間給家人'] };
@@ -190,9 +194,11 @@ function lateRule(c) {
   if (!(min >= LATE_FROM || min < 4 * 60)) return null;
   const home = s.places['家'];
   if (home && validPos(home) && s.location.auto && distanceM(s.location.auto.lat, s.location.auto.lon, home.lat, home.lon) <= NEAR_M) return null;
-  const fixedKey = s.location.override === 'fixed' && s.places['公司'] ? '公司' : null;
-  const origin = resolveOrigin(s, fixedKey);
-  return { title: '末班車與返家路線', status: 'ok', origin, route: [origin.label, '住家'], cta: { label: '查詢末班車與返家路線', href: ask('回家的末班車是幾點？'), steps: [origin.needAsk ? '取得目前位置，僅用於本次查詢' : fixedKey ? '不需定位，以公司為起點' : '以目前位置為起點', '顯示末班車、返家路線與最晚出發時間', '可設定出門提醒、加入行事曆、分享給家人'] }, reasons: [partLabel(min), '不在住家附近或位置未知'] };
+  // 深夜預設從目前位置（按下後才取得）；有設公司就可以切到「公司」（不需定位）
+  const office = s.places['公司'] ? '公司' : null;
+  const origin = s.location.override === 'fixed' && office ? resolveOrigin(s, office) : { ...resolveOrigin(s, null), fixedKey: office };
+  const fixedKey = origin.mode === 'fixed' ? office : null;
+  return { title: '末班車與返家路線', status: 'ok', origin, route: [origin.label, '住家'], cta: { label: '查詢末班車與返家路線', href: ask(fixedKey ? '從公司回家的末班車是幾點？' : '回家的末班車是幾點？'), steps: [origin.needAsk ? '取得目前位置，僅用於本次查詢' : fixedKey ? '不需定位，以公司為起點' : '以目前位置為起點', '顯示末班車、返家路線與最晚出發時間', '可設定出門提醒、加入行事曆、分享給家人'] }, reasons: [partLabel(min), '不在住家附近或位置未知'] };
 }
 function outRule(c) {
   const { s, kind, min } = c;
@@ -237,7 +243,7 @@ export function homeSuggest(raw) {
   const hits = [];
   for (const [k, fn] of RULES) {
     const r = fn(ctx);
-    if (r) hits.push({ kind: k, ...r });
+    if (r) hits.push({ kind: k, ...r }); // setup 自己帶 kind: 'new'（畫面一樣是「開始使用」）
   }
   const pick = (raw.prefer && hits.find((h) => h.kind === raw.prefer)) || hits[0]; // 「其他建議」點了：換成那一個（仍是成立的規則）
   const d = new Date(s.now + 8 * 3600e3);
@@ -260,7 +266,7 @@ export function homeSuggest(raw) {
 function signalsOf(s, pick, nowText) {
   const out = [{ key: 'now', label: '現在', value: nowText }];
   const o = pick.origin;
-  if (o?.mode === 'here' && s.location.auto?.area) out.push({ key: 'here', label: '目前位置', value: s.location.auto.area });
+  if (o?.mode === 'here' && s.location.auto) out.push({ key: 'here', label: '目前位置', value: s.location.auto.area || '已取得' });
   const keys = pick.kind === 'commute' || pick.kind === 'home' ? [pick.route?.[0] === '目前位置' ? null : commuteTrip(s.commute, pick.kind === 'commute' ? 'out' : 'back').from, commuteTrip(s.commute, pick.kind === 'commute' ? 'out' : 'back').to] : pick.kind === 'late' || pick.kind === 'out' ? ['家'] : [];
   for (const k of keys.filter(Boolean)) {
     const p = s.places[k];

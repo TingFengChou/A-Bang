@@ -56,8 +56,10 @@ test('捷運一律「依時刻表」；查不到就說查不到', () => {
   assert.equal(legStatus({ mode: 'metro', line: 'BR' }, {}, true).text, '這次查不到班次');
   assert.equal(legStatus({ mode: 'bus', route: '307' }, { bus: [] }).text, '這次查不到班次');
   const r = homeSuggest(base({ transit: {} }));
-  assert.equal(r.status, 'unknown');
+  assert.equal(r.status, 'unknown', '公車查不到');
   assert.equal(r.statusText, '這次查不到部分班次');
+  const m = legStatus({ mode: 'metro', line: 'BR' }, {});
+  assert.equal(m.kind, 'timetable', '捷運沒查也照時刻表走：不是查不到');
 });
 
 test('傍晚返家：回程用去程反過來；第一段是捷運就標依時刻表', () => {
@@ -65,6 +67,9 @@ test('傍晚返家：回程用去程反過來；第一段是捷運就標依時�
   assert.equal(r.kind, 'home');
   assert.deepEqual(r.route, ['公司', '文湖線', '307', '住家']);
   assert.equal(r.readout.note, '依時刻表');
+  const r2 = homeSuggest(base({ now: tw(12, 1, 18, 20), location: { auto: OFFICE, override: null }, transit: { metro: [] } }));
+  assert.equal(r2.status, 'ok', '第二段公車沒查（按了再查）不算查不到');
+  assert.equal(r2.legs[1].status.text, '按了再查');
   assert.equal(r.signals.find((x) => x.key === 'line').value, '依時刻表');
   assert.equal(r.cta.label, '開始返家導引');
   assert.equal(r.sky, 'dusk');
@@ -103,6 +108,13 @@ test('早上已經在公司附近 → 不再建議通勤', () => {
   assert.notEqual(r.kind, 'commute');
 });
 
+test('辦公日曆是別天的答案（快取跨過午夜）：不用，照星期推', () => {
+  const r = homeSuggest(base({ day: { workday: false, known: true, dow: 0 } })); // 週二拿到週日的答案
+  assert.equal(r.kind, 'commute');
+  assert.equal(r.day.label, '上班日');
+  assert.equal(r.day.known, false);
+});
+
 test('週末早上、補班日早上', () => {
   assert.notEqual(homeSuggest(base({ now: tw(11, 28, 7, 40), day: null })).kind, 'commute');
   const r = homeSuggest(base({ now: tw(11, 28, 7, 40), day: { workday: true, known: true } }));
@@ -121,13 +133,18 @@ test('週末晚上不在家 → 返家路線；深夜 → 末班車', () => {
   assert.equal(late.sky, 'night');
   const office = homeSuggest(base({ now: tw(11, 28, 23, 40), day: null, location: { auto: null, override: 'fixed' } }));
   assert.equal(office.cta.steps[0], '不需定位，以公司為起點');
+  assert.ok(office.cta.href.includes(encodeURIComponent('從公司回家')));
+  assert.equal(late.origin.fixedKey, '公司', '深夜也能切到公司');
   assert.equal(homeSuggest(base({ now: tw(11, 28, 23, 40), day: null, location: { auto: HOME } })).kind !== 'late', true);
 });
 
 test('優先序：安全 > 進行中 > 新手 > 通勤', () => {
   assert.equal(homeSuggest(base({ env: { aqi: { nearest: { aqi: 180 } } } })).kind, 'safety');
   assert.equal(homeSuggest(base({ user: { onboarded: true, trip: { href: '#/agent' } } })).kind, 'trip');
-  assert.equal(homeSuggest(base({ places: {} })).kind, 'new');
+  assert.equal(homeSuggest(base({ places: {}, commute: null })).kind, 'new', '看過引導但沒設住家：開始使用');
+  const walkFirst = homeSuggest(base({ now: tw(11, 28, 15, 0), day: null, places: {}, commute: null, user: { onboarded: true, walk: { kind: 'go', text: '天氣好' } } }));
+  assert.equal(walkFirst.kind, 'walk', '有散步建議時排在「設定住家」前面');
+  assert.ok(walkFirst.alt.some((a) => a.kind === 'new'));
   assert.equal(homeSuggest(base({ user: { onboarded: false } })).kind, 'new');
   const r = homeSuggest(base({ env: { aqi: { nearest: { aqi: 180 } } } }));
   assert.ok(r.alt.some((a) => a.kind === 'commute'));

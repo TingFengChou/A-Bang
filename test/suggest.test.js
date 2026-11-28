@@ -479,6 +479,6 @@ test('短劇（#111，ADR-0019）：找短劇的句子驗證查得到；等車�
 
 test('首頁問候語用台灣時間（twClock，不用 getHours）', async () => {
   const src = String(await readFile(new URL('../public/js/pages/home.js', import.meta.url)));
-  assert.match(src, /const \{ hour \} = twClock\(\);/);
+  assert.match(src, /const \{ hour, min \} = twClock\(now0\);/);
   assert.doesNotMatch(src, /getHours\(\)/);
 });

@@ -65,11 +65,19 @@ export async function loadNow({ callTool, granted, locate, fallback, fallbackNam
   const get = (name, extra = {}) => callTool(name, { lat: p.lat, lon: p.lon, ...extra }).then((r) => r?.data || null, () => null);
   // 今天上不上班（「今天」卡：補班日、連假）：辦公日曆在 gov_office_nearby 的 today；查不到就照星期推
   const [weather, aqi, office] = await Promise.all([get('weather_now'), get('aqi_nearby'), get('gov_office_nearby', { limit: 1 })]);
-  const day = office?.today && !office.today.calendarFailed ? { workday: office.today.workday, known: !!office.today.known, note: office.today.note || null } : null;
-  const v = { weather, aqi, day, place, offline: false, ...(pos && { pos: { lat: pos.lat, lon: pos.lon } }) }; // pos：只在有定位時（散步小卡找附近的公園，ADR-0018；只在記憶體）
+  const day = office?.today && !office.today.calendarFailed ? { workday: office.today.workday, known: !!office.today.known, note: office.today.note || null, ...(Number.isInteger(office.today.dow) && { dow: office.today.dow }) } : null; // dow：快取跨過午夜時認得出是昨天的答案
+  const area = pos ? officeArea(office?.offices?.[0]) : null; // 首頁「目前位置・信義區」：最近的戶政事務所在 3 公里內才用它的區名
+  const v = { weather, aqi, day, place, offline: false, ...(pos && { pos: { lat: pos.lat, lon: pos.lon } }), ...(area && { area }) }; // pos：只在有定位時（散步小卡找附近的公園，ADR-0018；只在記憶體）
   if (weather && aqi) cache = { at: now, located: !!pos, fb: fallbackName, v };
   else cache = null; // 少一個：下次重查
   return v;
+}
+/** 戶政事務所名稱 → 區名（「臺北市大安區戶政事務所」→ 大安區；「新北市板橋戶政事務所」→ 板橋區）；太遠或認不得回 null */
+export function officeArea(o) {
+  if (!o || !(o.distanceM < 3000)) return null;
+  const m = /^(.{2,3}?[市縣])(.+?)(?:第.)?戶政事務所/.exec(String(o.name || '').trim());
+  if (!m) return null;
+  return /市$/.test(m[1]) && !/[區鄉鎮市]$/.test(m[2]) ? `${m[2]}區` : m[2];
 }
 /** 測試用 */
 export const _resetNow = () => { cache = null; };
