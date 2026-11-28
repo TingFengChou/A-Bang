@@ -269,7 +269,7 @@ export function dropStrayOffers(text, trip = null, it = null) {
  * 模型漏講的重點由程式補上（地端小模型常省略；模型模式情境 S10、S12-11）：
  * 照你說的改了交通方式 → 開頭先說「照你說的選…」；深夜公車收班或接近末班 → 補一句。
  */
-export function mustSay(text, trip, it = null) {
+export function mustSay(text, trip, it = null, { rideLink = false } = {}) {
   if (!text) return text;
   let out = dropStrayOffers(text, trip, it);
   // 訂票（「幫我訂明天的高鐵票」）：阿幫只給官方連結（ADR-0011；P2-10）
@@ -278,6 +278,8 @@ export function mustSay(text, trip, it = null) {
   // 明天（或後天）出發的行程、模型沒說是哪一天：開頭補上（P5-2 模型模式；「改成明天早上8點出發」）
   const days = it?.departDays ?? (it?.tomorrow ? 1 : 0);
   if (it?.intent === 'trip' && days > 0 && !/明天|後天|明早|明晚|明日/.test(out)) out = `${days === 2 ? '後天' : '明天'}${it.departTime ? ` ${it.departTime}` : ''} 出發：${out}`;
+  // 給了叫車連結（ridehail_link）卻沒有行程卡：一樣要說付款在叫車 App（V2-2 評測 P2-10：模型直接給連結時原本漏了）
+  if (rideLink && !/付款在叫車|叫車 ?App.{0,8}付款/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}叫車與付款都在叫車 App 完成（付款在叫車 App，阿幫不代付）。`;
   if (!trip) return out;
   const picked = trip.options?.find((o) => o.id === trip.best)?.name;
   // 程式排序時用了使用者指定的方式（ranking.reason 這樣開頭）、模型沒說到 → 開頭補一句（不帶分數）
@@ -383,6 +385,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const nextId = () => `t${++n}`;
   const used = new Set();
   let lastTrip = null; // 這一輪最後一次比較的行程（總結補上程式知道、模型漏講的重點）
+  let rideLink = false; // 這一輪給了叫車連結（總結要說付款在叫車 App）
   const ask = { done: false, habitAsk: req.userState?.habitAsk, usual: req.userState?.usual, device: dask }; // 阿幫問你：這一輪最多一個（ADR-0016；device：手機提議的狀態題，ADR-0020）
   const aside = asideState(req, profile, now, svc); // 等車推短劇（ADR-0019）：這一輪最多一次（排行先並行拿）
   // 有現在位置時，程式先用它查好（不靠模型）：地端模型常常只查了目的地就反問「你從哪裡出發」。
@@ -408,6 +411,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
       if (o.ok && /^(thsr|tra)_timetable$/.test(pre[i].name)) { // 模型用實際起站再查時沿用（有寫日期、沒寫日期都算）
         for (const date of [undefined, o.result.data.date]) preDone.set(callKey(pre[i].name, { from: o.result.data.from, to: o.result.data.to, date }), text);
       }
+      if (o.ok && pre[i].name === 'ridehail_link') rideLink = true;
       if (o.ok && pre[i].name === 'plan_trip') { lastTrip = o.result.data; turnTrips.push({ from: o.result.data.from, to: o.result.data.to, mode: pre[i].args.prefs?.mode || null, text }); }
       if (o.ok && pre[i].name === 'plan_trip') preDone.set(tripKey(o.result.data.from, o.result.data.to, pre[i].args.prefs), text); // 地名寫法不同（台北松山機場／松山機場）也算同一趟
       return text;
@@ -423,7 +427,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const en = isEnglish(last);
   const finish = (text, fromModel = false) => {
     if (used.size) emit(ev.discussionEnd({ tools: [...used] }));
-    emit(ev.text(guardedText(profile, fromModel && !en ? mustSay(text, lastTrip, rulesIt) : text, emit))); // 程式補重點只補模型寫的中文回答（不補到英文、退回說明） // L2 輸出護欄（防詐：不保證安全、固定附 165）
+    emit(ev.text(guardedText(profile, fromModel && !en ? mustSay(text, lastTrip, rulesIt, { rideLink }) : text, emit))); // 程式補重點只補模型寫的中文回答（不補到英文、退回說明） // L2 輸出護欄（防詐：不保證安全、固定附 165）
     emit(ev.done(usage));
   };
 
@@ -521,6 +525,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
     run.forEach((c, i) => {
       const o = out[i];
       used.add(c.name);
+      if (o.ok && c.name === 'ridehail_link') rideLink = true;
       if (o.ok && c.name === 'plan_trip') { lastTrip = o.result.data; turnTrips.push({ from: o.result.data.from, to: o.result.data.to, mode: c.input?.prefs?.mode || null, text: modelText(o.result) }); preDone.set(tripKey(o.result.data.from, o.result.data.to, c.input?.prefs), modelText(o.result)); } // 模型再用相同條件呼叫也沿用（不出現兩張行程卡；條件不同照常查）
       if (o.followUp || o.watched) used.add('bus_route_eta'); // 選公車後自動盯到站也算一個工具（watched：盯到今天不會來而重排）
       // 回填模型的只有文字摘要（清單截短），不放整包 data（AGENT.md §4）
