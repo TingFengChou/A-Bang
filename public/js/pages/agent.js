@@ -310,10 +310,12 @@ export default {
       }
       return undefined;
     };
+    /** 決策圖在手機上重算後的推薦與狀況（沒有決策圖回 null） */
+    const dgNow = (view) => (view?.dg ? { best: view.dg.best(), states: view.dg.states().filter((s) => s.on) } : null);
     function showNext(view) {
       lastView = view;
       if (dynamic) { pinnedDefaults = false; refreshSuggest(); return; }
-      const steps = nextSteps(view.results, view.decision, { watching: host.arrivalWatch?.(), riding: alightWatch(), lang: view.lang });
+      const steps = nextSteps(view.results, view.decision, { watching: host.arrivalWatch?.(), riding: alightWatch(), lang: view.lang, current: dgNow(view) });
       if (!steps.length) { showDefaults(); return; }
       chips.classList.add('next');
       const btns = steps.map((s) => { const b = el('button', `chip next-${s.kind}`, s.label); b.type = 'button'; b.onclick = () => act(s, b, view); return b; });
@@ -343,7 +345,7 @@ export default {
       const seq = ++sugSeq;
       const view = lastView;
       const ctx = suggestCtx();
-      const steps = view ? nextSteps(view.results, view.decision, { watching: host.arrivalWatch?.(), riding: alightWatch(), lang: view.lang }) : [];
+      const steps = view ? nextSteps(view.results, view.decision, { watching: host.arrivalWatch?.(), riding: alightWatch(), lang: view.lang, current: dgNow(view) }) : [];
       const pageActs = curPage?.kind === 'bus' && curPage.stop && curPage.href && !alightWatch() && !view ? [{ label: curPage.lang === 'en' ? busT('en')('alightGo') : '下車前提醒我', kind: 'navigate', payload: `${curPage.href}${curPage.href.includes('?') ? '&' : '?'}alight=1` }] : []; // 英文公車頁：英文字典
       const rules = [...steps.filter((x) => x.kind === 'ask').map((x) => ({ label: x.label, q: x.payload, ask: x.ask, src: 'next', rel: 2, ...(x.pin && { pin: true }) })), ...ruleAsks(ctx)];
       const draw = (edge) => paintSuggest(pickSuggestions({ actions: [...pageActs, ...steps.filter((x) => x.kind !== 'ask')], edge, rules, ctx, pageChips: curPage?.chips || [] }), view, ctx.lang);
@@ -761,6 +763,7 @@ export default {
       if (say && note) { if (!p) { p = el('p', 'regraph-note'); p.setAttribute('role', 'status'); say.append(p); } p.textContent = note; } else p?.remove(); // 放在回答文字同一欄（泡泡是頭像＋文字的橫排）
       const settled = view.ask?.open() && askSettledBy(view.ask.ask, x.states, lang);
       if (settled) view.ask.resolve(settled);
+      if (view === lastView && !busy && (dynamic ? !pinnedDefaults : chips.classList.contains('next'))) showNext(view); // 「接下來可以」也跟著換（改推叫車就不給公車到站提醒）；使用者切到「其他問題」就不蓋掉
     }
 
     function answerAsk(o, view, lang) {

@@ -40,3 +40,17 @@ test('PM 第二輪審查：起點是「你的位置」不給「回程怎麼走�
   assert.ok(!s.some((x) => x.label === '回程怎麼走？'), s.map((x) => x.label).join('、'));
   assert.ok(s.some((x) => x.label === '台北101天氣如何？'));
 });
+
+test('決策圖重算改推叫車：行程自動跟的那一路公車不再給提醒；圖上已選的狀況不再給（設計第三輪 #1 後續）', () => {
+  const t = { ...trip, data: { ...trip.data, best: 'bus-601', options: [{ id: 'bus-601', role: 'bus', follow: { city: 'Taipei', routeName: '601', stop: '民生捷運站(1號出口)' } }, { id: 'ridehail', role: 'ridehail' }] } };
+  const before = nextSteps([t, busFocus], { states: [{ key: 'budget' }] });
+  assert.equal(before[0].label, '到站前 3 分提醒我', '原本推公車');
+  const after = nextSteps([t, busFocus], { states: [{ key: 'budget' }] }, { current: { best: 'ridehail', states: [{ key: 'rush', source: 'picked' }] } });
+  assert.ok(!after.some((x) => /提醒我|公車頁/.test(x.label)), after.map((x) => x.label).join('、'));
+  assert.ok(!after.some((x) => x.label === '我很趕'), '已選了趕時間');
+  assert.ok(after.some((x) => x.label === '回程怎麼走？'));
+  const back = nextSteps([t, busFocus], { states: [{ key: 'budget' }] }, { current: { best: 'bus-601', states: [] } });
+  assert.equal(back[0].label, '到站前 3 分提醒我', '切回公車：照舊');
+  const other = { ...busFocus, data: { ...busFocus.data, routeName: '307' } }; // 另外問的公車（不是行程跟的那一路）照舊
+  assert.equal(nextSteps([t, other], {}, { current: { best: 'ridehail', states: [] } })[0].label, '到站前 3 分提醒我');
+});
