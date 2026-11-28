@@ -11,6 +11,14 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 V5 Android 實機（Pixel 11 Pro XL）：煙霧測試、裝置端 AI；F2 修正
+- 做了：V5-1 `smoke:android` 全過（外掛 7 個、10 頁、語音在手機上 zh-TW、麥克風鍵、中央鍵與返回鍵、沒有畫面錯誤；螢幕關著時截圖全黑，喚醒後重跑）。V5-2 在 `#/ai` 現場試判斷 5 句＋問阿幫 1 句：Gemini Nano 在手機上判斷 0.5～1 秒、不用網路，伺服器採用；手機寫回答可用。發現 F1（台北以外附近藥局／診所查不到，示範行政區只有 17 個，等 CWA 授權碼或全台鄉鎮中心點，記在 PLAN.md）、F2（試判斷第 2 段說「手機沒給定位」與第 3 段矛盾）→ 改成「會先問手機的定位」
+- App Functions 結合：無（驗證）
+- 測試：npm test 全過；test:clock 全過；e2e 全過
+- 文件：PLAN.md（V 狀態、F1、F2）、PROGRESS.md
+- 下一個：V1-3 main 連續 3 次 CI 全綠；V5-3 相機讀字、V5-4 通知與提醒、Health Connect
+- 卡住：F1 要 Austin 決定
+
 ## 2026-11-28 V 整體驗證開始：V1-1 時鐘測試、V1-2 不同時段跑測試
 - 做了：Austin：「先停下開發，等完整驗證過後繼續往下」。PLAN.md 新增 V 整體驗證（V1～V9）與狀態看板一列；功能 PR（#219、#170、#139）暫停。V1-1：`test/agent-grounded.test.js` 兩項依真實時鐘（「九點半前」「九點要到」在台灣 9:00～21:00 會變晚上），給固定早上的時間。V1-2：`npm run test:clock`（`scripts/test-clock.js`＋`test/support/fake-clock.mjs`）在 5 個台灣時段各跑一次全部單元測試，進 CI；確認舊版測試在 15:00 會被抓到
 - App Functions 結合：無（測試）
