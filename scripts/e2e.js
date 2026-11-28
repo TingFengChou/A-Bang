@@ -561,6 +561,18 @@ for (const [dname, device] of Object.entries(DEVICES)) {
   });
 }
 
+// 換頁時分頁標題跟著換（V3 巡檢 F4：首頁、服務、提醒、我的、設定原本留著上一頁的「股市行情」，讀屏換頁念錯頁名）
+test('換頁時分頁標題跟著換（沒自己設標題的頁也一樣）', async () => {
+  await withPage(DEVICES.phone, '#/s/stock', async (page) => {
+    await page.waitForFunction(() => /股市/.test(document.title));
+    for (const [hash, re] of [['#/services', /^服務｜Abang$/], ['#/reminders', /^提醒｜Abang$/], ['#/me', /^我的｜Abang$/], ['#/settings', /｜Abang$/], ['#/', /^Abang$/]]) {
+      await page.evaluate((h) => { location.hash = h; }, hash);
+      await page.waitForFunction((src) => new RegExp(src).test(document.title), re.source, { timeout: 5000 }).catch(async () => assert.fail(`${hash} 標題是「${await page.title()}」`));
+      assert.doesNotMatch(await page.title(), /股市/, hash);
+    }
+  });
+});
+
 // 高鐵、台鐵時刻表頁（V1-4 覆蓋盤點：台鐵頁原本沒有 e2e，高鐵頁只測了返回鍵）：預設起訖自動查、班次列表、交換起訖、同站提示
 test('時刻表頁：高鐵、台鐵預設起訖查得到班次；交換起訖重查；起訖相同說明', async () => {
   for (const [sys, title] of [['thsr', '高鐵時刻'], ['tra', '台鐵時刻']]) {
