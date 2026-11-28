@@ -64,3 +64,12 @@ test('明天出發的行程、模型沒說是哪一天：開頭補「明天 08:0
   assert.equal(mustSay('明天早上搭捷運約 20 分鐘。', trip, { intent: 'trip', departDays: 1, departTime: '08:00' }), '明天早上搭捷運約 20 分鐘。', '已經說了就不補');
   assert.equal(mustSay('搭捷運約 20 分鐘。', trip, { intent: 'trip' }), '搭捷運約 20 分鐘。', '今天出發不補');
 });
+
+test('給了叫車連結卻沒有行程卡：一樣補「付款在叫車 App」（V2-2 評測 P2-10）；已經說了不重複', () => {
+  const out = mustSay('已經幫你準備好叫車連結。', null, { intent: 'trip', mode: 'ridehail' }, { rideLink: true });
+  assert.match(out, /付款在叫車 App/);
+  assert.doesNotMatch(out, /已經幫你叫好/);
+  const said = '按卡片上的叫車連結，付款在叫車 App 完成。';
+  assert.equal(mustSay(said, null, { intent: 'trip' }, { rideLink: true }), said);
+  assert.equal(mustSay('好的。', null, { intent: 'trip' }), '好的。', '沒有叫車連結不補');
+});
