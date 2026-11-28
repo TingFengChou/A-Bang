@@ -142,6 +142,26 @@ function deviceBlock(o, { host, t, state, rerender, payload, locale = null, say 
   };
 }
 
+/**
+ * 「設為固定通勤方式」（ADR-0023 §8）：只在網頁／App 的 host（MCP Apps 沒有）、住家↔公司或學校的公車或捷運建議方案下面。
+ * 按了先預覽去回兩趟與時段，確定才存（存在手機）。
+ */
+function commuteBlock(o, { host, t, state, rerender, payload, say = () => {} }) {
+  if (!host?.commutePreview || !host?.saveCommute) return null;
+  const pv = host.commutePreview(payload?.data, o.id);
+  if (!pv) return null;
+  if (state.commute === 'saved') return h('p', { class: 'ab-sub ab-commute', role: 'status' }, t('trip.commuteSaved'));
+  if (state.commute === 'preview') {
+    return h('div', { class: 'ab-commute ab-explain' },
+      h('p', { class: 'ab-sub' }, t('trip.commuteWhy')),
+      h('ul', { class: 'ab-commute-list' }, h('li', {}, pv.out), h('li', {}, pv.back)),
+      state.commuteErr && h('p', { class: 'ab-fail', role: 'status' }, t('trip.commuteFailed')),
+      h('button', { type: 'button', class: 'ab-btn ab-primary', onclick: () => { const r = host.saveCommute(pv.commute); state.commute = r === 'saved' ? 'saved' : 'preview'; state.commuteErr = r !== 'saved'; if (r === 'saved') say(t('trip.commuteSaved')); rerender(); } }, t('trip.commuteConfirm')),
+      h('button', { type: 'button', class: 'ab-btn ab-link', onclick: () => { state.commute = null; rerender(); } }, t('trip.commuteCancel')));
+  }
+  return h('div', { class: 'ab-commute' }, h('button', { type: 'button', class: 'ab-btn ab-link', onclick: () => { state.commute = 'preview'; rerender(); } }, t('trip.commuteSet')));
+}
+
 const MAX_ALT = 2;
 
 /** 按建議方案的導航、叫車、訂票＝選了這種方式：送 abang:choice（網頁 App 的 habits.js 記常選的方式，只有方式；MCP Apps 裡沒人聽） */
@@ -239,6 +259,7 @@ function optionBlock(o, ctx, best) {
       ...(dev?.buttons || [])), o.role)),
     best && dev?.status,
     best && remindBlock(o, ctx),
+    best && commuteBlock(o, ctx),
     pick);
 }
 

@@ -68,3 +68,24 @@ test('home-sky：固定亂數（每次一樣）、101 在天際線、連線角�
   assert.equal(fullIntroToday('2026-12-1', store), false, '同一天第二次只淡入');
   assert.equal(fullIntroToday('2026-12-2', store), true);
 });
+
+test('commuteFromTrip：查完住家↔公司的公車或捷運 → 固定通勤方式＋回程＋預設時段（共同決議 B）', async () => {
+  const { commuteFromTrip } = await import('../public/js/home-data.js');
+  const places = { 家: { lat: 25.0263, lon: 121.5436 }, 公司: { lat: 25.0797, lon: 121.5752 } };
+  const data = { from: { name: '家', lat: 25.0264, lon: 121.5437 }, to: { name: '公司', lat: 25.0796, lon: 121.5751 },
+    options: [{ id: 'bus', role: 'bus', follow: { city: 'Taipei', routeName: '307', stop: '和平復興', direction: 0 } }, { id: 'metro', role: 'metro', metro: { from: '大安', lines: '文湖線轉板南線', via: '忠孝復興' } }, { id: 'walk', role: 'walk' }] };
+  const bus = commuteFromTrip(data, 'bus', places);
+  assert.deepEqual(bus.commute.legs, [{ mode: 'bus', route: '307', stop: '和平復興', city: 'Taipei', direction: 0 }]);
+  assert.deepEqual(bus.commute.backLegs, [{ mode: 'bus', route: '307', city: 'Taipei' }], '回程的上車站不知道：不猜');
+  assert.equal(bus.out, '住家 → 307 → 公司（上班日 06:00–10:00）');
+  assert.equal(bus.back, '公司 → 307 → 住家（上班日 16:30–21:00）');
+  assert.ok(commuteOf(bus.commute), '存得進去');
+  const m = commuteFromTrip(data, 'metro', places);
+  assert.deepEqual(m.commute.legs.map((l) => [l.line, l.station]), [['BR', '大安'], ['BL', '忠孝復興']]);
+  assert.equal(commuteFromTrip(data, 'walk', places), null, '走路不算固定通勤方式');
+  // 從公司查回家：回程就是查到的那條
+  const back = commuteFromTrip({ ...data, from: data.to, to: data.from }, 'bus', places);
+  assert.equal(back.commute.to, '公司');
+  assert.equal(back.commute.backLegs[0].stop, '和平復興');
+  assert.equal(commuteFromTrip({ ...data, to: { lat: 25.1, lon: 121.6 } }, 'bus', places), null, '終點不是常用地點');
+});

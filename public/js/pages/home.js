@@ -20,7 +20,8 @@ import { homeNudge } from '../health.js';
 import { renderMoveCard } from '../health-ui.js';
 import { twClock } from '../../../core/suggest.js';
 import { homeSuggest, homeAsks, placeName } from '../../../core/home-suggest.js';
-import { loadPlaces } from '../saved-places.js';
+import { loadPlaces, savePlace } from '../saved-places.js';
+import { officeArea } from '../home-now.js';
 import { todayPlan } from '../today.js';
 import { pushTodayWidget } from '../today-widget.js';
 import { openMemorySheet } from '../memory-sheet.js';
@@ -113,6 +114,7 @@ export default {
         <section class="hs-panel" id="hs-panel" aria-label="其他建議與您可能想問" hidden></section>
         <dialog class="hs-sheet" id="hs-why" aria-labelledby="hs-why-h"></dialog>
         <dialog class="hs-sheet" id="hs-info" aria-labelledby="hs-info-h"></dialog>
+        <dialog class="hs-sheet" id="hs-home" aria-labelledby="hs-home-h"></dialog>
       </div>`;
     const $ = (s) => main.querySelector(s);
     const root = $('#hs');
@@ -187,6 +189,7 @@ export default {
       pulse(root);
     };
     const setPanel = (on) => { $('#hs-panel').hidden = !on; $('#hs-scrim').hidden = !on; root.classList.toggle('askOn', on); $('#hs-other')?.setAttribute('aria-expanded', String(on)); if (on) $('#hs-panel').querySelector('button, a')?.focus(); };
+    main.addEventListener('click', (e) => { if (e.target.closest('[data-act="sethome"]')) openSetHome($('#hs-home'), { callTool: (n, a) => host.callTool(n, a), toast }); });
     $('#hs-scrim').addEventListener('click', () => setPanel(false));
     $('#hs-panel').addEventListener('click', (e) => {
       if (e.target.closest('#hs-panelX')) { setPanel(false); $('#hs-other')?.focus(); return; }
@@ -304,7 +307,7 @@ export function cardHtml(d, { demo = false } = {}) {
   return `<div class="hs-eye ci"><span class="l">現在的建議${eye}${demo ? '<span class="tag demo" title="目前是示範資料，不是即時資料">示範</span>' : ''}</span><button type="button" class="hs-lnk" id="hs-why-btn" aria-haspopup="dialog">為何顯示此建議${icons.chev}</button></div>
     <div class="hs-trow ci"><h2 class="hs-ttl" id="hs-ttl">${esc(d.title)}</h2>${tag}${stat}</div>
     ${route}${read}
-    ${d.kind === 'walk' ? '' : `<a class="hs-cta ci" href="${esc(ctaHref(d))}">${esc(d.cta?.label || '問阿幫')}${icons.chev}<span class="shine" aria-hidden="true"></span></a>`}
+    ${d.kind === 'walk' ? '' : d.cta?.action === 'sethome' ? `<button type="button" class="hs-cta ci" data-act="sethome" aria-haspopup="dialog">${esc(d.cta.label)}${icons.chev}<span class="shine" aria-hidden="true"></span></button>` : `<a class="hs-cta ci" href="${esc(ctaHref(d))}">${esc(d.cta?.label || '問阿幫')}${icons.chev}<span class="shine" aria-hidden="true"></span></a>`}
     ${steps.length && d.kind !== 'walk' ? `<div class="hs-steps ci" id="hs-steps"><button type="button" class="hs-sum" id="hs-sum" aria-expanded="false" aria-controls="hs-stepsL"><b>按下後：</b><span>${esc(steps.map((s) => s.replace(/，.*$/, '')).join(' → '))}</span>${icons.down}</button><div class="hs-more"><div><ol id="hs-stepsL">${steps.map((s, i) => `<li><i>${i + 1}</i>${esc(s)}</li>`).join('')}</ol></div></div></div>` : ''}
     <div class="hs-foot ci">${d.cta?.alt ? `<a class="hs-lnk" href="${esc(ctaHref(d))}">${esc(d.cta.alt.label)}${icons.chev}</a>` : '<span></span>'}<button type="button" class="hs-lnk" id="hs-other" aria-expanded="false" aria-controls="hs-panel">其他建議${icons.chev}</button></div>`;
 }
@@ -333,8 +336,8 @@ function paintLive(box, d, t) {
   else if (t.fav) out.push(tile('#0f766e', 'bus', `常用<span class="rt">${esc(t.fav.route)}</span>`, t.fav.mins, '分', esc(t.fav.title), t.fav.href || '#/favs'));
   else if (favs.list()[0]) { const f = favs.list()[0]; out.push(tile('#0f766e', 'bus', esc(String(f.title || '').slice(0, 12)), null, '', '按了查到站時間', f.href, false)); }
   else out.push(empty('選擇常用路線', '首頁直接顯示到站時間', '#/bus'));
-  if (t.bike) out.push(tile('#d97706', 'bike', `YouBike ${esc(String(t.bike.name || '').replace(/^YouBike\s*2\.0_/, '').slice(0, 8))}`, t.bike.rent ?? null, '台', Number.isFinite(t.bike.returnSlots) ? `可還 <b>${t.bike.returnSlots}</b> 位` : '', '#/nearby?tab=bike'));
-  else if (!loadPlaces()['家']) out.push(empty('設定住家', '之後直接建議返家路線', '#/settings'));
+  if (!loadPlaces()['家']) out.push(`<button type="button" class="hs-tile empty" data-act="sethome" aria-haspopup="dialog"><span class="k"><span class="pl">${icons.plus}</span>設定住家</span><p>之後直接建議返家路線</p></button>`); // 住家是其他建議的基礎：沒設就先邀請
+  else if (t.bike) out.push(tile('#d97706', 'bike', `YouBike ${esc(String(t.bike.name || '').replace(/^YouBike\s*2\.0_/, '').slice(0, 8))}`, t.bike.rent ?? null, '台', Number.isFinite(t.bike.returnSlots) ? `可還 <b>${t.bike.returnSlots}</b> 位` : '', '#/nearby?tab=bike'));
   else out.push(tile('#d97706', 'bike', 'YouBike', null, '', '附近可借可還', '#/nearby?tab=bike', false));
   const html = out.join('');
   if (box.dataset.sig !== html) { box.dataset.sig = html; box.innerHTML = html; }
@@ -469,3 +472,43 @@ function openWhy(dlg, d, toast) {
   dlg.showModal?.();
 }
 
+/**
+ * 快速設定住家（ADR-0023 §6、共同決議 5）：取得一次位置 → 先顯示「設為：大安區附近」讓您確認（誤差大就提醒）→ 確定才存在手機。
+ * 不在背景記錄位置、不從常出現的地方推測住家。
+ */
+function openSetHome(dlg, { callTool, toast }) {
+  const close = () => dlg.close();
+  const ask = () => {
+    dlg.innerHTML = `<h2 id="hs-home-h">設定住家</h2><p>用您現在的位置設為住家？只取得這一次位置，存在這支手機。</p>
+      <div class="hs-whyA"><a class="btn quiet" href="#/settings">輸入地址或站名</a><button type="button" class="btn quiet" data-x>取消</button><button type="button" class="btn" data-go>用目前位置</button></div>`;
+    dlg.querySelector('[data-x]').onclick = close;
+    dlg.querySelector('[data-go]').onclick = locate;
+  };
+  const locate = async () => {
+    dlg.innerHTML = '<h2 id="hs-home-h">設定住家</h2><p role="status">正在取得目前位置…</p>';
+    const p = await browserLocation(10000, { highAccuracy: true, fresh: true, withAccuracy: true }).catch(() => null);
+    if (!p) {
+      dlg.innerHTML = `<h2 id="hs-home-h">設定住家</h2><p role="status">沒有取得位置。請確認定位權限已開啟，或改輸入地址或站名。</p>
+        <div class="hs-whyA"><a class="btn quiet" href="#/settings">輸入地址或站名</a><button type="button" class="btn" data-x>知道了</button></div>`;
+      dlg.querySelector('[data-x]').onclick = close;
+      return;
+    }
+    const office = await callTool('gov_office_nearby', { lat: p.lat, lon: p.lon, limit: 1 }).then((r) => r?.data?.offices?.[0] || null, () => null);
+    const area = officeArea(office);
+    const rough = Number.isFinite(p.accuracy) && p.accuracy > 300;
+    dlg.innerHTML = `<h2 id="hs-home-h">設定住家</h2>
+      <p class="hs-homeP">設為：<b>${esc(area ? `${area}附近` : '目前位置附近')}</b></p>
+      ${rough ? `<p class="hs-homeW" role="status">這次的位置不太準（誤差約 ${Math.round(p.accuracy)} 公尺），建議走到窗邊重新取得，或改輸入地址。</p>` : ''}
+      <p class="hs-whyN">座標只存在這支手機；之後可在「為何顯示此建議」刪除。</p>
+      <div class="hs-whyA"><button type="button" class="btn quiet" data-again>重新取得</button><a class="btn quiet" href="#/settings">輸入地址</a><button type="button" class="btn" data-ok>確定設為住家</button></div>`;
+    dlg.querySelector('[data-again]').onclick = locate;
+    dlg.querySelector('[data-ok]').onclick = () => {
+      const ok = savePlace('家', { name: area || '家', lat: p.lat, lon: p.lon });
+      close();
+      toast(ok ? '已設定住家' : '這次沒有存成功，請再試一次');
+      if (ok) dispatchEvent(new CustomEvent('abang:memory', { detail: { id: 'place:家' } }));
+    };
+  };
+  ask();
+  dlg.showModal?.();
+}

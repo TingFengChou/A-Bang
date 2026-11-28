@@ -1,6 +1,6 @@
 // 「阿幫記得你」（2026-11-28 Claude 與 Antigravity 第十三輪）：首頁「今天」卡最下面的「依據」點開的抽屜。
 // 一眼看到阿幫記得什麼、一鍵忘掉（透明＋一鍵刪除是主動助手的底線）。全部只在這支手機；不上傳。
-// 內容：常用地點、預設地區、交通習慣（同意優先的方式、說過的狀況、記了幾次）、上次的對話、提醒。
+// 內容：常用地點、固定通勤方式、預設地區、交通習慣（同意優先的方式、說過的狀況、記了幾次）、上次的對話、提醒。
 // 刪除只動那一項；改完送 abang:memory 事件，首頁的今天卡重算。
 import { esc } from './ui.js';
 import { loadPlaces, savePlace, SAVED_KEYS } from './saved-places.js';
@@ -8,14 +8,19 @@ import { homeArea, clearHomeArea, areaLabel } from './home-area.js';
 import { habitSummary, habitName, USUAL_LABEL, revokeHabit, revokeUsual, clearHabits } from './habits.js';
 import { loadChat, clearChat } from './chat-store.js';
 import { listReminders } from './reminders.js';
+import { loadCommute, clearCommute } from './home-data.js';
 
 /**
  * 抽屜要列的項目（純函式：給 node:test 測）。
  * @returns {Array<{ id: string, group: string, title: string, sub: string, forget?: string }>}  forget：按鈕上的字（沒有就不能從這裡刪）
  */
-export function memoryRows({ places = {}, area = null, habits = null, chat = null, reminders = 0 } = {}) {
+export function memoryRows({ places = {}, area = null, habits = null, chat = null, reminders = 0, commute = null } = {}) {
   const rows = [];
   for (const k of SAVED_KEYS) if (places[k]) rows.push({ id: `place:${k}`, group: '常用地點', title: k, sub: places[k].name && places[k].name !== k ? places[k].name : '座標只在這支手機', forget: '忘掉' });
+  if (commute) { // 固定通勤方式（首頁改版 H4，ADR-0023）：上班日早上「今日通勤」、傍晚「今日返家」用它
+    const label = (l) => (l.mode === 'bus' ? l.route : l.name || l.line);
+    rows.push({ id: 'commute', group: '固定通勤方式', title: `${commute.from === '家' ? '住家' : commute.from} → ${commute.legs.map(label).join(' → ')} → ${commute.to === '家' ? '住家' : commute.to}`, sub: '上班日早上與傍晚，首頁顯示這條路今天的狀況', forget: '忘掉' });
+  }
   if (area) rows.push({ id: 'area', group: '預設地區', title: areaLabel(area), sub: '沒開定位時先用這一區查', forget: '忘掉' });
   if (habits) {
     for (const m of habits.confirmed || []) rows.push({ id: `habit:${m}`, group: '交通習慣', title: `優先推${habitName(m)}`, sub: '你說過「好」', forget: '不用了' });
@@ -27,7 +32,7 @@ export function memoryRows({ places = {}, area = null, habits = null, chat = nul
   return rows;
 }
 
-const read = () => ({ places: loadPlaces(), area: homeArea(), habits: habitSummary(), chat: loadChat()?.messages || null, reminders: listReminders().length });
+const read = () => ({ places: loadPlaces(), area: homeArea(), habits: habitSummary(), chat: loadChat()?.messages || null, reminders: listReminders().length, commute: loadCommute() });
 
 /** 忘掉一項 */
 function forget(id) {
@@ -37,6 +42,7 @@ function forget(id) {
   else if (id.startsWith('usual:')) revokeUsual(id.slice(6));
   else if (id === 'picks') clearHabits();
   else if (id === 'chat') clearChat();
+  else if (id === 'commute') { clearCommute(); return; } // clearCommute 自己送 abang:memory
   dispatchEvent(new CustomEvent('abang:memory', { detail: { id } }));
 }
 

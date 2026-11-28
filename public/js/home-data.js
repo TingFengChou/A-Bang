@@ -132,3 +132,42 @@ export function capsFor(platform) {
   ];
   return list.filter(Boolean);
 }
+
+/** 台北捷運路線名 → 代碼（首頁路線色；其他系統沒有代碼就用名稱） */
+const LINE_CODE = { 文湖線: 'BR', 淡水信義線: 'R', 松山新店線: 'G', 中和新蘆線: 'O', 板南線: 'BL', 環狀線: 'Y' };
+const NEAR_PLACE_M = 400;
+const distM = (a, b) => { const r = (d) => (d * Math.PI) / 180; const x = Math.sin(r(b.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lon - a.lon) / 2) ** 2; return 2 * 6371000 * Math.asin(Math.sqrt(x)); };
+const placeAt = (p, places) => (p && Number.isFinite(p.lat) ? Object.entries(places || {}).find(([, v]) => v && Number.isFinite(v.lat) && distM(p, v) <= NEAR_PLACE_M)?.[0] || null : null);
+const show = (k) => (k === '家' ? '住家' : k);
+
+/**
+ * 查完路線 →「設為固定通勤方式」（ADR-0023 §8、共同決議 B）：從行程卡的那個方案組出固定通勤方式，順便推出回程與預設時段。
+ * 只收住家 ↔ 公司／學校之間的公車或捷運方案（起訖點在常用地點 400 公尺內）；其他回 null（卡片不顯示按鈕）。
+ * @returns {{ commute: object, out: string, back: string }|null}
+ */
+export function commuteFromTrip(data, optId, places) {
+  const o = data?.options?.find((x) => x.id === optId);
+  if (!o) return null;
+  const a = placeAt(data.from, places), b = placeAt(data.to, places);
+  const work = (k) => k === '公司' || k === '學校';
+  if (!a || !b || a === b || !((a === '家' && work(b)) || (work(a) && b === '家'))) return null;
+  let legs = null;
+  if (o.role === 'bus' && o.follow?.routeName) legs = [{ mode: 'bus', route: o.follow.routeName, ...(o.follow.stop && { stop: o.follow.stop }), ...(o.follow.city && { city: o.follow.city }), ...(Number.isInteger(o.follow.direction) && { direction: o.follow.direction }) }];
+  else if (o.role === 'metro' && o.metro?.lines) {
+    const names = String(o.metro.lines).split('轉').map((x) => x.trim()).filter(Boolean);
+    const stations = [o.metro.from, ...(o.metro.vias || (o.metro.via ? [o.metro.via] : []))];
+    legs = names.map((n, i) => ({ mode: 'metro', line: LINE_CODE[n] || n.slice(0, 8), name: n.slice(0, 12), ...(stations[i] && { station: stations[i] }) }));
+  }
+  if (!legs?.length) return null;
+  const strip = (l) => (l.mode === 'bus' ? { mode: 'bus', route: l.route, ...(l.city && { city: l.city }) } : { mode: 'metro', line: l.line, name: l.name }); // 反方向的上車站不知道：不猜
+  const home = a === '家';
+  const commute = home
+    ? { from: '家', to: b, legs, backLegs: [...legs].reverse().map(strip), out: ['06:00', '10:00'], back: ['16:30', '21:00'] }
+    : { from: '家', to: a, legs: [...legs].reverse().map(strip), backLegs: legs, out: ['06:00', '10:00'], back: ['16:30', '21:00'] };
+  const label = (l) => (l.mode === 'bus' ? l.route : l.name);
+  return {
+    commute,
+    out: `${show('家')} → ${commute.legs.map(label).join(' → ')} → ${show(commute.to)}（上班日 06:00–10:00）`,
+    back: `${show(commute.to)} → ${commute.backLegs.map(label).join(' → ')} → ${show('家')}（上班日 16:30–21:00）`,
+  };
+}

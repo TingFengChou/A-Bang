@@ -4563,3 +4563,56 @@ test('王牌場景 4 去政府辦事：換身分證要帶什麼 → 官方入口
     assert.match(await page.evaluate(() => localStorage.getItem('abang.checklist')), /"done":\[0\]/, '只存編號在手機');
   });
 });
+
+// 首頁改版 H4（ADR-0023 §6、§8；共同決議 5、B）
+test('快速設定住家：用目前位置 → 先顯示「設為：○○區附近」確認 → 確定才存；可改輸入地址', async () => {
+  await withPage(DEVICES.phone, '#/', async (page) => {
+    await page.waitForSelector('#hs-live [data-act="sethome"]');
+    await page.click('#hs-live [data-act="sethome"]');
+    await page.waitForSelector('#hs-home[open]');
+    assert.equal(await page.getAttribute('#hs-home a.btn', 'href'), '#/settings', '可改輸入地址或站名');
+    await page.click('#hs-home [data-go]');
+    await page.waitForSelector('#hs-home .hs-homeP');
+    assert.match(await page.textContent('#hs-home .hs-homeP'), /^設為：.+附近$/);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('abang.places') || '{}').家), undefined, '還沒按確定：不存');
+    await shot(page, 'phone-home-sethome');
+    await page.click('#hs-home [data-ok]');
+    await page.waitForFunction(() => !document.querySelector('#hs-home[open]'));
+    const home = await page.evaluate(() => JSON.parse(localStorage.getItem('abang.places')).家);
+    assert.ok(Number.isFinite(home.lat) && Number.isFinite(home.lon));
+    await page.waitForFunction(() => !document.querySelector('#hs-live [data-act="sethome"]'), null, { timeout: 5000 });
+  });
+});
+
+test('設為固定通勤方式：住家到公司的公車行程卡 → 預覽去回兩趟與時段 → 確定 → 存在手機、阿幫記得的東西看得到；不是常用地點不顯示', async () => {
+  await withPage(DEVICES.phone, '#/services', async (page) => {
+    await page.evaluate(() => localStorage.setItem('abang.places', JSON.stringify({ 家: { name: '大安區', lat: 25.0263, lon: 121.5436 }, 公司: { name: '內湖區', lat: 25.0797, lon: 121.5752 } })));
+    // 固定的行程卡（示範資料的建議方案會隨時間變）：用網頁 host 真的畫出來、真的按
+    const render = (to) => page.evaluate(async (dest) => {
+      const { renderCard } = await import('/ui/cards/index.js');
+      const { createWebHost } = await import('/ui/cards/host-web.js');
+      const box = document.createElement('div'); box.id = 'trip-test'; document.querySelector('#trip-test')?.remove(); document.querySelector('#main').prepend(box);
+      const bus = { id: 'bus', role: 'bus', name: '公車 307', minutes: 38, waitMin: 3, walkMin: 6, cost: 15, arriveAt: '08:31', arriveMin: 511, legs: [{ mode: 'walk', minutes: 4, detail: '走到和平復興' }, { mode: 'bus', minutes: 30, detail: '307 往撫遠街' }, { mode: 'walk', minutes: 4, detail: '走到公司' }], notes: [], follow: { city: 'Taipei', routeName: '307', stop: '和平復興', direction: 0 } };
+      renderCard(box, { card: 'trip', data: { from: { name: '家', lat: 25.0264, lon: 121.5437 }, to: dest, best: 'bus', options: [bus], ranking: { ranked: [{ id: 'bus', name: '公車 307', score: 80, breakdown: {} }], excluded: [], reason: '選公車 307' }, states: [] } }, createWebHost());
+    }, to);
+    await render({ name: '台北101', lat: 25.0339, lon: 121.5645 });
+    await page.waitForSelector('#trip-test [data-card="trip"], #trip-test .ab-card');
+    assert.equal(await page.locator('#trip-test .ab-commute').count(), 0, '終點不是公司或學校：不能設成固定通勤方式');
+    await render({ name: '公司', lat: 25.0796, lon: 121.5751 });
+    await page.click('#trip-test .ab-commute button');
+    await page.waitForSelector('#trip-test .ab-commute-list li');
+    const lines = await page.locator('#trip-test .ab-commute-list li').allTextContents();
+    assert.deepEqual(lines, ['住家 → 307 → 公司（上班日 06:00–10:00）', '公司 → 307 → 住家（上班日 16:30–21:00）']);
+    assert.equal(await page.evaluate(() => localStorage.getItem('abang.commute')), null, '預覽時還沒存');
+    await page.locator('#trip-test .ab-commute').screenshot({ path: new URL('phone-trip-commute.png', SHOTS).pathname });
+    await page.click('#trip-test .ab-commute .ab-primary');
+    await page.waitForSelector('#trip-test .ab-commute[role="status"]');
+    const c = await page.evaluate(() => JSON.parse(localStorage.getItem('abang.commute')));
+    assert.deepEqual([c.from, c.to, c.legs[0].route, c.legs[0].stop, c.backLegs[0].route, c.backLegs[0].stop], ['家', '公司', '307', '和平復興', '307', undefined]);
+    await page.goto(`${base}/#/`);
+    await page.click('#hs-why-btn');
+    await page.click('#hs-mem');
+    await page.waitForSelector('.mem-row[data-id="commute"]');
+    assert.match(await page.textContent('.mem-row[data-id="commute"]'), /住家 → 307 → 公司/);
+  });
+});
