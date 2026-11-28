@@ -11,6 +11,14 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 問阿幫的開場：接上首頁今天卡
+- 做了：Antigravity 第十四輪排第一。以前打開問阿幫是一排小建議＋一大片空白，跟首頁今天卡斷開。現在還沒問之前，對話區先放三樣東西（`public/js/agent/opening.js`）：①阿幫一句話＋提醒（跟今天卡同一個 todayPlan）；②「你可能想問」：今天卡的問題做成大按鈕；時段與天氣的其他建議照舊在輸入框上方，不重複；③「我可以幫你」：怎麼去最快、天氣空品、看病藥局、去政府辦事、生活小事、可疑訊息，一格一個例句，可疑訊息直接到防詐頁。第一個問題送出就收起來。資料用首頁查好的；沒經過首頁就查一次，用同一份 10 分鐘快取
+- App Functions 結合：Siri「問阿幫」開 App 時看到的是同一個開場
+- 測試：npm test 全過（`test/agent-opening.test.js` 新增 4 項：例句阿幫都查得到）；e2e 新增 1 項
+- 文件：UX.md、協作文件第十四輪、PROGRESS.md；sw.js v1.3.67
+- 下一個：(b) 行程卡出發倒數（確定的時間才跳倒數，估的寫「建議最晚 XX:XX 出門」）；(e) 首頁依時段置頂 1～2 格
+- 卡住：iOS 主畫面小工具要付費開發者帳號（App Group），等 Austin
+
 ## 2026-11-28 主畫面小工具「阿幫・今天」（Android）
 - 做了：Austin 說 Android 上看不出改變；今天卡的 App Functions 後續先做最有感的：Pixel 主畫面小工具。`AbangTodayWidget`（AppWidgetProvider、RemoteViews，不加依賴）顯示上次打開阿幫時今天卡算好的日子、阿幫一句話、最多兩個提醒（帶傘、冷熱、口罩），底下「18:30 打開阿幫時的資料・點一下看最新的」；點了打開 App。跟今天卡同一個原則：不在背景更新、不連網、不讀位置（`updatePeriodMillis=0`，只有 App 首頁算完時 `AbangSystem.setTodayWidget` 更新）；只送文字，不送依據、常用地點、座標。「我的」加「放到主畫面：阿幫・今天」（`requestPinAppWidget`：系統畫面按「新增」才放，ADR-0021 同一個原則；桌面不支援就說長按桌面找小工具）與「阿幫記得你」入口。Pixel 實機：安裝、打開 App 後小工具資料已寫入（`shared_prefs/abang_widget.xml`），系統已登記這個小工具；放到桌面要 Austin 自己按
 - App Functions 結合：這就是 App Functions 的第一個主畫面入口；iOS 小工具（WidgetKit extension、App Group 共用資料）列為下一步

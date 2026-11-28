@@ -2088,6 +2088,29 @@ test('首頁「今天」卡：一句話、馬上能按的問題、依據點開�
   });
 });
 
+test('問阿幫的開場：阿幫一句話、你可能想問、我可以幫你；第一個問題送出就收起來（第十四輪）', async () => {
+  await withPage(DEVICES.phone, '#/agent', async (page) => {
+    await page.evaluate(() => localStorage.setItem('abang.places', JSON.stringify({ 家: { name: '家', lat: 25.033, lon: 121.543 }, 公司: { name: '台北101', lat: 25.0339, lon: 121.5645 } })));
+    await page.reload();
+    await page.waitForSelector('.agent-opening .op-say');
+    await page.waitForFunction(() => !/我在看天氣/.test(document.querySelector('.op-say')?.textContent || ''));
+    assert.match(await page.textContent('.op-say'), /^(早安|午安|晚安|夜深了)！/);
+    assert.ok(await page.locator('.op-ask').count() >= 1);
+    assert.equal(await page.locator('.op-can-i').count(), 6);
+    await shot(page, 'agent-opening');
+    await page.locator('.op-can-i', { hasText: '天氣、空品' }).click();
+    await page.waitForSelector('.msg.user');
+    assert.equal(await page.textContent('.msg.user'), '今天出門要帶傘嗎？');
+    assert.equal(await page.locator('.agent-opening').count(), 0, '問了就收起來');
+    // 可疑訊息：到防詐頁
+    await page.goto(`${base}/#/agent`);
+    await page.reload();
+    await page.waitForSelector('.agent-opening');
+    await page.locator('.op-can-i', { hasText: '可疑訊息' }).click();
+    await page.waitForFunction(() => location.hash === '#/agent/antifraud');
+  });
+});
+
 test('首頁「現在」降級：沒給定位用台北車站附近、查不到只留提醒、離線說離線（都不擋畫面）', async () => {
   await withPage(DEVICES.phone, '#/', async (page) => {
     await page.waitForSelector('#now[aria-busy="false"] [data-now="weather"]');
