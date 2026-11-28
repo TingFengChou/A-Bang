@@ -1843,11 +1843,14 @@ test('首次使用引導：要權限、失敗說原因、看過不再顯示、�
     await page.waitForFunction(() => /沒拿到位置/.test(document.querySelector('.onboard-status')?.textContent || ''));
     assert.doesNotMatch(await page.textContent('.onboard-status'), /再試一次/, '引導沒有重試按鈕，不說再試一次（S1c）');
     assert.match(await page.textContent('.onboard-status'), /網站設定.+直接打地點/);
+    assert.match(await dlg.locator('#onboard-body').textContent(), /下一步選一個預設地區/, '定位那步預告下一步');
     await dlg.getByRole('button', { name: '下一步' }).click();
     // 預設地區（T-HOMEAREA）：縣市＋區兩層選單，選好才能儲存；沒開定位時先用這一區
     assert.equal(await dlg.locator('h2').textContent(), '沒開定位也能用');
     await dlg.locator('.area-county option', { hasText: '臺北市' }).waitFor({ state: 'attached' });
     assert.equal(await dlg.getByRole('button', { name: '儲存' }).isDisabled(), true, '還沒選區不能儲存');
+    assert.equal(await dlg.locator('.area-town option').first().textContent(), '先選縣市', '還沒選縣市：區的選單說要先選縣市（首次使用巡檢）');
+    assert.equal(await dlg.getByRole('button', { name: '儲存' }).evaluate((b) => getComputedStyle(b).opacity), '0.45', '停用的按鈕看得出來');
     await dlg.locator('.area-county').selectOption({ label: '臺北市' });
     await dlg.locator('.area-town').selectOption({ label: '大安區' });
     await shot(page, 'phone-onboarding-area');
