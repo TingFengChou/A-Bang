@@ -24,11 +24,11 @@ export default {
     main.innerHTML = `
       <form class="form" id="f">
         <div class="row">
-          <select class="field" name="from">${opts(from0)}</select>
+          <select class="field" name="from" aria-label="起站">${opts(from0)}</select>
           <button type="button" class="icon-btn" id="swap" aria-label="交換起訖站">${icons.swap}</button>
-          <select class="field" name="to">${opts(to0)}</select>
+          <select class="field" name="to" aria-label="迄站">${opts(to0)}</select>
         </div>
-        <div class="row"><input class="field" type="date" name="date" value="${today}"><button class="btn">查詢</button></div>
+        <div class="row"><input class="field" type="date" name="date" value="${today}" aria-label="日期"><button class="btn">查詢</button></div>
       </form>
       <div id="res"></div>`;
     const f = main.querySelector('#f');
