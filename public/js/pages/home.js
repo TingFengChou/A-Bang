@@ -20,6 +20,7 @@ import { suggestContext, homeAsks } from '../agent/suggest.js';
 import { twClock } from '../../../core/suggest.js';
 import { loadPlaces } from '../saved-places.js';
 import { todayPlan } from '../today.js';
+import { pushTodayWidget } from '../today-widget.js';
 import { openMemorySheet } from '../memory-sheet.js';
 import { homeArea, areaLabel } from '../home-area.js';
 import { onboarded } from '../onboarding.js';
@@ -221,6 +222,7 @@ function paintToday(main, args) {
   const sec = main.querySelector('#today');
   if (!sec) return;
   const p = todayPlan({ day: v?.day || null, weather: v?.weather || null, aqi: v?.aqi || null, offline: offline || !!v?.offline, places: loadPlaces(), area: homeArea(), located: !!v?.pos, onboarded: onboarded(), loading: !!loading && !v });
+  if (p.show && !loading) pushTodayWidget(p); // 主畫面小工具「阿幫・今天」（Android）：查好了才送
   const sig = JSON.stringify(p);
   if (sec.dataset.sig === sig) return;
   sec.dataset.sig = sig;

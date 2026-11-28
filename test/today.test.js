@@ -126,3 +126,18 @@ test('阿幫記得你：列出記得的每一項，可以一項一項忘掉；�
   assert.match(rows[5].sub, /沒有地點/);
   assert.equal(rows[7].forget, undefined, '提醒在提醒頁管理');
 });
+
+test('主畫面小工具「阿幫・今天」：只送文字（日子、一句話、兩個提醒、時間），不送依據與地點', async () => {
+  const { widgetPayload, pushTodayWidget } = await import('../public/js/today-widget.js');
+  const p = todayPlan({ now: TUE_8, day: { workday: true, known: true }, weather: { ...sunny, raining: true, pop3h: 80, tempC: 33 }, aqi: { nearest: { aqi: 120 } }, places: HOME_WORK, area: { county: '臺北市', town: '大安區' } });
+  const w = widgetPayload(p, TUE_8 + 5 * 60e3);
+  assert.deepEqual(Object.keys(w), ['title', 'kind', 'say', 'tip1', 'tip2', 'updated']);
+  assert.equal(w.title, '阿幫・今天 12/1（二）');
+  assert.equal(w.kind, '上班日');
+  assert.match(w.tip1, /可能會下雨/);
+  assert.match(w.tip2, /33°C 很熱/);
+  assert.equal(w.updated, '08:05');
+  assert.doesNotMatch(JSON.stringify(w), /大安區|依據|台北101|25\.|121\./, '不送地點與依據');
+  assert.equal(widgetPayload({ show: false }), null);
+  assert.equal(await pushTodayWidget(p), false, '網頁版、node：什麼都不做');
+});
