@@ -87,6 +87,13 @@ export const LOCATION_CALL_ID = 'loc1';
 export const MY_LOCATION = '你的位置';
 /** 用了預設地區（T-HOMEAREA，Antigravity 第八輪的文案）：回答第一句先說，地名要露出來、說可以改 */
 export const homeAreaNote = (area, en = false) => (en ? `No location access, so I used your default area (${area}); you can change it in Settings. ` : `未取得目前位置，先依你設定的預設地區（${area}）查詢；隨時可在設定調整。`);
+/** 目的地是一整個區（行政區的代表點是戶政事務所，第十一輪）：回答最後補一句，說了更準的地點再算（Antigravity：代表點不一定在交通樞紐旁） */
+export function withApproxNote(text, trip, en = false) {
+  const to = trip?.to?.name || '';
+  if (!text || !/（概略位置）$/.test(to) || /概略|approximate/i.test(text)) return text;
+  const area = to.replace(/（概略位置）$/, '');
+  return `${text}${/[。！？.!?]$/.test(text) ? '' : '。'}${en ? ` I used an approximate point for ${area}; tell me the exact place and I'll recalculate.` : `（${area}是一整區，先用概略位置算；說要去哪裡可以算得更準。）`}`;
+}
 /** 回答開頭補預設地區那句（已經說了就不重複） */
 export const withHomeArea = (text, area, en = false) => (!area || !text || String(text).includes(area) && /預設地區|default area/.test(text) ? text : `${homeAreaNote(area, en)}${text}`);
 
@@ -507,7 +514,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
   const lost = edgeWrite && it.intent === 'unknown' && !it.thanks && !it.sorry && !it.reset && !it.ack && !it.help && !ask.done; // 問能做什麼（help）不是聽不懂：直接列出能查的東西
   if (lost) { ask.done = true; emit(ev.ask({ id: `ask-${nextId()}`, ...unknownAsk(it.lang) })); } // 一輪最多一個問題
   const summary0 = lost ? UNKNOWN_SHORT[it.lang === 'en' ? 'en' : 'zh'] : guardedText(profile, plan.summary(it, results, profile.suggestions), emit);
-  const summary = lost ? summary0 : withHomeArea(summary0, it.fromPoint?.area, it.lang === 'en'); // 用了預設地區：第一句說清楚（T-HOMEAREA）
+  const summary = lost ? summary0 : withApproxNote(withHomeArea(summary0, it.fromPoint?.area, it.lang === 'en'), results.plan_trip?.at(-1)?.data, it.lang === 'en'); // 用了預設地區：第一句說清楚（T-HOMEAREA）；目的地是一整區：最後說概略位置
   // 畫面靠固定字串放按鈕的回答（還沒設定常用地點：「設定與隱私 → 常用地點」）不交給手機改寫
   if (edgeWrite && it.intent !== 'savedMissing') { // 手機改寫；程式版總結與事實清單都只來自這一輪的資料（不含座標）
     const lang = it.lang === 'en' ? 'en' : 'zh';
