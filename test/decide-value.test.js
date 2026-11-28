@@ -158,3 +158,41 @@ test('理由用字（PM 第二輪 #6）：前兩名只差一點點提第二名�
   const bus = decide([opt('b', 'bus', '公車 601', 20, 15), opt('w', 'walk', '步行', 60, 0, { walkMin: 60, waitMin: 0, exposure: 1, effort: 1 })], {});
   assert.doesNotMatch(bus.reason, /不用等車/);
 });
+
+// 大眾運輸之間也用同一把尺（2026-11-28 Antigravity 第五輪）：示範資料台北車站→淡水推了公車 307（慢 27 分、只省 25 元）
+const MAIN_TAMSUI = [
+  { id: 'bus-307', role: 'bus', name: '公車 307', minutes: 80, waitMin: 6, walkMin: 6, cost: 15, exposure: 0.2, effort: 0.2, delayRisk: 0.2 },
+  { id: 'metro', role: 'metro', name: '捷運 淡水信義線', minutes: 53, waitMin: 4, walkMin: 16, cost: 40, exposure: 0.1, effort: 0.2, delayRisk: 0 },
+  { id: 'ridehail', role: 'ridehail', name: '叫車（Uber）', minutes: 28, waitMin: 6, walkMin: 0, cost: 650, exposure: 0, effort: 0, delayRisk: 0.2 },
+];
+
+test('大眾運輸之間：便宜但慢的，對方省下的體感時間 × 時間價值 > 多花的錢 → 不排在前面（slowCheap）；叫車也不會因此跑到前面', () => {
+  const r = decide(MAIN_TAMSUI);
+  assert.equal(r.best.id, 'metro');
+  const b307 = r.ranked.find((o) => o.id === 'bus-307');
+  assert.ok(b307.breakdown.slowCheap < 0, '扣分放在 breakdown.slowCheap（跟叫車的 premium 分開）');
+  assert.deepEqual(b307.slowCheap, { vs: 'metro', extra: 25, faster: 27 });
+  assert.ok(b307.score < r.ranked[0].score);
+  assert.ok((feltMinutes(b307) - feltMinutes(MAIN_TAMSUI[1])) * VALUE_OF_TIME.perMin > 25, '捷運省的體感時間值超過 25 元');
+  for (const o of r.ranked) assert.equal(o.score, Math.round(Object.values(o.breakdown).reduce((a, b) => a + b, 0) * 100));
+  // 理由：第二名是讓位的公車時說「比公車快 20 分、只多 40 元」（兩個方案時公車照權重原本會贏）
+  const bus = { id: 'bus', role: 'bus', name: '公車 307', minutes: 70, waitMin: 6, walkMin: 6, cost: 15, exposure: 0.2, effort: 0.2, delayRisk: 0.2 };
+  const metro = { id: 'metro', role: 'metro', name: '捷運', minutes: 50, waitMin: 4, walkMin: 10, cost: 55, exposure: 0.1, effort: 0.2, delayRisk: 0 };
+  const two = decide([bus, metro]);
+  assert.equal(two.reason, '選「捷運」：比公車 307快 20 分、只多 40 元。');
+  assert.deepEqual(two.ranked[1].slowCheap, { vs: 'metro', extra: 40, faster: 20 });
+});
+
+test('大眾運輸之間：說「想省錢」照權重（便宜的可以贏）；差的錢比省的時間值錢就不動；到站時間不明的不當對方', () => {
+  const budget = decide(MAIN_TAMSUI, { states: ['budget'] });
+  assert.equal(budget.best.id, 'bus-307');
+  assert.equal(budget.ranked.find((o) => o.id === 'bus-307').slowCheap, undefined);
+  // 高鐵貴 230 元、只快 20 分：不壓台鐵
+  const rail = [
+    { id: 'tra', role: 'tra', name: '台鐵自強', minutes: 150, waitMin: 10, walkMin: 4, cost: 375, exposure: 0, effort: 0.1, delayRisk: 0 },
+    { id: 'thsr', role: 'thsr', name: '高鐵', minutes: 130, waitMin: 10, walkMin: 4, cost: 605, exposure: 0, effort: 0.1, delayRisk: 0 },
+  ];
+  assert.equal(decide(rail).ranked.find((o) => o.id === 'tra').slowCheap, undefined);
+  const unknownMetro = MAIN_TAMSUI.slice(0, 2).map((o) => (o.id === 'metro' ? { ...o, etaUnknown: true } : o));
+  assert.equal(decide(unknownMetro).ranked.find((o) => o.id === 'bus-307').slowCheap, undefined);
+});

@@ -28,7 +28,7 @@ const EN = {
   cols: ['Data', 'Abang', 'Options'],
   step1: '① Gathering data', step2: '② Your situation', step3: (c) => `③ Comparing: ${c}`, step4: (n) => `④ Decision: ${n}`, decide: '④ Decision',
   hint: 'Want another way? Tap an option and Abang recalculates', legend: 'Numbers are scores: higher fits you better right now.', chips: 'Your situation (tap to toggle, recalculates right away)',
-  habit: (m) => `You agreed: prefer ${m}`, habitWhy: 'Why?', habitPaused: 'You told Abang your situation, so this preference is not counted this time', habitNote: 'You said yes to preferring it. When you don\'t mention your situation it gets a small bonus (up to 8 pts). Stored only on this phone; undo it in Settings.', often: 'you prefer it', habitCrit: 'Preference', premiumCrit: 'Not worth the fare', premiumStep: 'Worth the fare?', longCrit: 'Too long', longStep: 'Too long?', unsureCrit: 'Arrival unknown', unsureStep: 'Arrival known?', estCrit: 'Estimate', estStep: 'Estimated?', unsure: (n) => `${n} has no arrival time`, notWorth: (c, m) => (m > 0 ? `NT$${c} cheaper, ${m >= 15 ? '' : 'only '}${m} min slower` : `NT$${c} cheaper, no slower`), tooLong: (n, m, cap) => `${n} takes ${m} min (over ${cap})`,
+  habit: (m) => `You agreed: prefer ${m}`, habitWhy: 'Why?', habitPaused: 'You told Abang your situation, so this preference is not counted this time', habitNote: 'You said yes to preferring it. When you don\'t mention your situation it gets a small bonus (up to 8 pts). Stored only on this phone; undo it in Settings.', often: 'you prefer it', habitCrit: 'Preference', premiumCrit: 'Not worth the fare', premiumStep: 'Worth the fare?', longCrit: 'Too long', longStep: 'Too long?', unsureCrit: 'Arrival unknown', unsureStep: 'Arrival known?', slowCrit: 'Too slow for the saving', slowStep: 'Worth the extra time?', slowCheap: (n, m, c) => `${m > 0 ? `${m} min faster than ${n}` : `less walking and waiting than ${n}`}, only NT$${c} more`, estCrit: 'Estimate', estStep: 'Estimated?', unsure: (n) => `${n} has no arrival time`, notWorth: (c, m) => (m > 0 ? `NT$${c} cheaper, ${m >= 15 ? '' : 'only '}${m} min slower` : `NT$${c} cheaper, no slower`), tooLong: (n, m, cap) => `${n} takes ${m} min (over ${cap})`,
   notIn: (n, w) => `${n} not included: ${w}`,
   details: 'Comparison details', whyOver: (a, b) => `Why ${a} over ${b}`, scores: 'Score breakdown', cmp: { minutes: 'Time', cost: 'Cost', walkMin: 'Walking', waitMin: 'Waiting' }, unitMin: (n) => `${n} min`, unitNT: (n) => `NT$${n}`, same: 'About the same', effNone: 'No effect', effNA: 'Not used', effScore: 'Delay risk', pts: (n, s) => `${n}: ${s} pts`, title: 'How Abang decided', pick: (n) => `Switch to ${n}`, ex: (n, w) => `${n}, excluded: ${w}`,
 };
@@ -46,7 +46,7 @@ const notWorthOf = (best, second) => (second?.notWorth?.vs && second.notWorth.vs
 /** 扣的分（負數）：數字用「−」（UX.md） */
 const minus = (v) => `${v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}`;
 /** 決策圖的扣分列與 ③ 比較最後幾步（core/decide.js：premium 不划算、tooLong 走太久騎太久、unsure 公車到站時間不明，有才出現） */
-const PENALTY = [{ key: 'premium', label: '不划算', step: '划不划算', en: 'premiumCrit', enStep: 'premiumStep' }, { key: 'tooLong', label: '太久', step: '太不太久', en: 'longCrit', enStep: 'longStep' }, { key: 'unsure', label: '時間不明', step: '到站時間明不明', en: 'unsureCrit', enStep: 'unsureStep' }, { key: 'uncertain', label: '估算', step: '是不是估算', en: 'estCrit', enStep: 'estStep' }]; // unsure：到站時間不明的公車；uncertain：時間或票價是估的，保守看（core/decide.js UNCERTAIN）
+const PENALTY = [{ key: 'premium', label: '不划算', step: '划不划算', en: 'premiumCrit', enStep: 'premiumStep' }, { key: 'tooLong', label: '太久', step: '太不太久', en: 'longCrit', enStep: 'longStep' }, { key: 'unsure', label: '時間不明', step: '到站時間明不明', en: 'unsureCrit', enStep: 'unsureStep' }, { key: 'slowCheap', label: '太慢', step: '省的錢值不值', en: 'slowCrit', enStep: 'slowStep' }, { key: 'uncertain', label: '估算', step: '是不是估算', en: 'estCrit', enStep: 'estStep' }]; // unsure：到站時間不明的公車；uncertain：時間或票價是估的，保守看（core/decide.js UNCERTAIN）
 /** 方案名稱縮短，分數一定看得到（「叫車（Uber）」→「叫車」） */
 const short = (n) => fitName(n);
 /**
@@ -113,6 +113,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     const nw = notWorthOf(best, second);
     if (nw) return `${nameOf(best)} wins: ${[...(habitFlipped(best, all) ? [EN.often] : []), EN.notWorth(nw.extra, nw.slower)].join(', ')}.`;
     if (second.unsure?.vs === best.id) return `${nameOf(best)} wins: ${[...(habitFlipped(best, all) ? [EN.often] : []), EN.unsure(nameOf(second))].join(', ')}.`;
+    if (second.slowCheap?.vs === best.id) return `${nameOf(best)} wins: ${[...(habitFlipped(best, all) ? [EN.often] : []), EN.slowCheap(nameOf(second), second.slowCheap.faster, second.slowCheap.extra)].join(', ')}.`;
     if (second.tooLong?.vs === best.id) return `${nameOf(best)} wins: ${[...(habitFlipped(best, all) ? [EN.often] : []), EN.tooLong(nameOf(second), second.minutes, second.tooLong.cap)].join(', ')}.`;
     const top = [...(habitFlipped(best, all) ? [EN.often] : []), ...CRITERIA.map((c) => ({ k: c.key, d: (best.breakdown?.[c.key] ?? 0) - (second.breakdown?.[c.key] ?? 0) })).sort((a, b) => b.d - a.d).filter((x) => x.d > 0.01).slice(0, 2).map((x) => say[x.k]?.())];
     return `${nameOf(best)} wins${top.length ? `: ${top.join(', ')}` : ''}.`;
@@ -143,7 +144,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       : { ranked: decision.ranked, excluded: decision.excluded, reason: decision.reason, best: { id: decision.best }, habitOn: decision.habitOn };
     habitApplied = !!r.habitOn;
     const byId = new Map(decision.options.map((o) => [o.id, o]));
-    const ranked = r.ranked.map((x) => ({ ...byId.get(x.id), score: x.score, breakdown: x.breakdown, notWorth: x.notWorth, tooLong: x.tooLong, unsure: x.unsure }));
+    const ranked = r.ranked.map((x) => ({ ...byId.get(x.id), score: x.score, breakdown: x.breakdown, notWorth: x.notWorth, tooLong: x.tooLong, unsure: x.unsure, slowCheap: x.slowCheap }));
     // 沒列入比較的方式（深夜公車、捷運收班、YouBike 沒車位、附近沒有捷運站…）：也畫出來，灰色、標籤寫「收班」或「沒列入」，原因寫在圖下（設計審查）
     // route：那一條公車今天不會來（另一條照常列入）：節點寫路線名稱（「公車 三峽-臺北市信義區」），id 帶路線才不會跟整個公車撞
     const skipped = notIn.map((x) => ({ id: `skip-${x.role}${x.route ? `-${x.route}` : ''}`, role: x.role, name: x.route ? `公車 ${x.route}` : ROLE_NAME[x.role] || x.role, why: (en && x.whyEn) || x.why, tag: x.notYet ? '未發車' : x.closed || /收班|末班已過/.test(x.why) ? '收班' : '沒列入', skipped: true }));
