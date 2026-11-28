@@ -28,3 +28,13 @@ test('fitName：依字寬截（中文 1、英數 0.6，上限 5）——YouBike�
   assert.equal(fitName('國道客運示範 B'), '國道客運…');
   assert.equal(fitName('捷運 淡水信義線'), '捷運 淡…');
 });
+
+test('決策圖：這次資料沒來（連不上、額度用完、查詢失敗）標「暫缺」，跟本來就不適用（太遠、附近沒站）的「沒列入」分開（T-DG-GRAY）', async () => {
+  const { dataMissing } = await import('../public/ui/agent/decision-graph.js');
+  assert.equal(dataMissing({ role: 'bus', unavailable: true, why: '公車系統這次連不上，沒辦法確認有沒有直達車' }), true);
+  assert.equal(dataMissing({ role: 'metro', fallback: 'tdx-limit', why: 'TDX 額度用完，這次查不到捷運' }), true);
+  assert.equal(dataMissing({ role: 'tra', kind: 'none', why: '資料暫時查不到' }), true);
+  assert.equal(dataMissing({ role: 'bus', kind: 'none', why: '起點附近查不到直達目的地的公車' }), false, '查過、真的沒有直達車：不是暫缺');
+  assert.equal(dataMissing({ role: 'metro', kind: 'far', why: '起點 1.2 公里內沒有捷運站' }), false);
+  assert.equal(dataMissing(null), false);
+});
