@@ -18,9 +18,34 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  *   Android 拿不到使用者有沒有按儲存，所以回 opened。
  * - share（ADR-0021）：開系統分享選單（ACTION_SEND chooser），使用者自己選對象。
  *   JS 端：public/js/device-actions.js（內容由 core/device-actions.js 產生，不經模型）
+ * - setTodayWidget（2026-11-28）：首頁「今天」卡算好的幾句存給主畫面小工具「阿幫・今天」（AbangTodayWidget），只在打開 App 時更新。
+ *   JS 端：public/js/today-widget.js
  */
 @CapacitorPlugin(name = "AbangSystem")
 public class AbangSystemPlugin extends Plugin {
+    @PluginMethod
+    public void setTodayWidget(PluginCall call) {
+        android.content.SharedPreferences.Editor e = getContext().getSharedPreferences(AbangTodayWidget.PREFS, android.content.Context.MODE_PRIVATE).edit();
+        for (String k : new String[] { "title", "kind", "say", "tip1", "tip2", "updated" }) {
+            String v = call.getString(k, "");
+            e.putString(k, v == null ? "" : (v.length() > 120 ? v.substring(0, 120) : v)); // 小工具只放短句
+        }
+        e.apply();
+        AbangTodayWidget.refresh(getContext());
+        call.resolve();
+    }
+
+    /** 「放到主畫面」：系統畫面上使用者按「新增」才放（Android 8 以上、桌面 App 支援時）；回 { supported } */
+    @PluginMethod
+    public void pinTodayWidget(PluginCall call) {
+        JSObject r = new JSObject();
+        android.appwidget.AppWidgetManager m = android.appwidget.AppWidgetManager.getInstance(getContext());
+        boolean ok = android.os.Build.VERSION.SDK_INT >= 26 && m.isRequestPinAppWidgetSupported();
+        if (ok) ok = m.requestPinAppWidget(new android.content.ComponentName(getContext(), AbangTodayWidget.class), null, null);
+        r.put("supported", ok);
+        call.resolve(r);
+    }
+
     @PluginMethod
     public void openSettings(PluginCall call) {
         String target = call.getString("target", "app");

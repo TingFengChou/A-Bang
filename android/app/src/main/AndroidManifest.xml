@@ -65,6 +65,14 @@
             </intent-filter>
         </activity-alias>
         <!-- 到站提醒常駐服務：App 關著也每 20 秒查真實到站時間，通知列常駐、到點響鈴（AbangWatchService） -->
+        <!-- 主畫面小工具「阿幫・今天」：只在打開 App 時由 App 更新（AbangSystem.setTodayWidget） -->
+        <receiver android:name=".AbangTodayWidget" android:exported="false" android:label="@string/widget_today_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_today_info" />
+        </receiver>
+
         <service android:name=".AbangWatchService" android:exported="false" android:foregroundServiceType="dataSync" />
         <!-- 下車提醒常駐服務：App 關著也每 20 秒問阿幫伺服器我這台還要多久到下車站，通知列常駐、快到時響鈴（AbangAlightService） -->
         <service android:name=".AbangAlightService" android:exported="false" android:foregroundServiceType="dataSync" />
