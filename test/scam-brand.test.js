@@ -43,7 +43,7 @@ test('假檢警的轉述：「說我健保卡被盜用、要我轉給警察」�
 
 test('低風險但有抓到特徵：說「有一兩個可疑的地方」，不說「沒有發現已知特徵」', async () => {
   const svc = createServices({ forceMock: true });
-  const some = await checkMessage(svc, '請點擊連結查看你的包裹進度');
+  const some = await checkMessage(svc, '請點擊連結查看您的包裹進度');
   assert.equal(some.level, 'low');
   assert.ok(some.findings.length);
   assert.ok(some.advice.includes(SOME_SIGNS_NOTE));

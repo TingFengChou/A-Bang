@@ -17,7 +17,7 @@ export const ZH = {
   'title.me': '我的',
   'fab': '問阿幫',
   'fabChat': '問阿幫（對話還在）',
-  'fabUnread': '問阿幫（阿幫有話跟你說）',
+  'fabUnread': '問阿幫（阿幫有話跟您說）',
   'sheetTitle': '問阿幫',
   'sheetFull': '放大成整頁',
   'sheetClose': '收起對話（對話會保留）',

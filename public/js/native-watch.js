@@ -81,7 +81,7 @@ export function watchLine(w, f, { skip = false } = {}) {
     ? (f.etaSec < 60 ? `Bus ${w.routeName} is arriving at ${st}` : `Bus ${w.routeName}${label} · about ${m} min to ${st}`)
     : (f.etaSec < 60 ? `${w.routeName} 在「${st}」進站中` : `${w.routeName}${label}・約 ${m} 分到「${st}」`);
   if (skip) return head + (en ? ' · waiting for the next bus' : '・這班來不及，等下一班');
-  return head + (en ? ` · I'll remind you ${w.minutes} min before` : `・到站前 ${w.minutes} 分提醒你`);
+  return head + (en ? ` · I'll remind you ${w.minutes} min before` : `・到站前 ${w.minutes} 分提醒您`);
 }
 
 // ── 下車提醒常駐服務（同一個外掛 AbangWatch，另一個服務 AbangAlightService；跟到站提醒可以同時進行）──

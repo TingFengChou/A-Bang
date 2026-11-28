@@ -37,7 +37,7 @@ test('可疑訊息：驗證碼、轉帳單獨就算；只有電話或只有「�
   assert.deepEqual(messageSignals(SMS).signals.sort(), ['click', 'lure', 'urgent', 'url']);
   assert.ok(looksLikeMessage('您的驗證碼是 123456，請勿告訴他人'));
   assert.ok(looksLikeMessage('客服通知：請至 ATM 解除分期付款設定'));
-  assert.ok(looksLikeMessage('加我 LINE 好友，老師帶你投資飆股')); // 兩個以上弱訊號
+  assert.ok(looksLikeMessage('加我 LINE 好友，老師帶您投資飆股')); // 兩個以上弱訊號
   assert.ok(!looksLikeMessage('申訴專線 1999'));
   assert.ok(!looksLikeMessage('本月電費繳費收據'));
   assert.ok(!looksLikeMessage('今天晚上吃什麼'));

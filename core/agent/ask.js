@@ -49,7 +49,7 @@ export function tripAsk(trip, { habitAsk = null, usual = [], lang = null, device
     if (m === 'ridehail') { // 有理由才推叫車：先問原因
       return {
         about: 'habit:ridehail',
-        question: en ? `You often take a taxi (${n} times). Usually because…?` : `你常叫車（${n} 次），通常是因為？`,
+        question: en ? `You often take a taxi (${n} times). Usually because…?` : `您常叫車（${n} 次），通常是因為？`,
         why: en ? 'Your answer stays on this phone; change it in Settings.' : '答案只存在這支手機，可以在設定撤銷。',
         options: [['rush', '趕時間', 'In a hurry'], ['luggage', '常帶東西', 'Carrying things'], ['lessWalk', '不想走路', 'Less walking'], ['love', '就是喜歡叫車', 'I just like taxis'], ['depends', '不一定', 'It depends']]
           .map(([v, zh, e]) => ({ label: en ? e : zh, kind: 'store', value: `ride:${v}` })),
@@ -58,7 +58,7 @@ export function tripAsk(trip, { habitAsk = null, usual = [], lang = null, device
     return {
       about: `habit:${m}`,
       question: en ? `You've picked ${MODE_EN[m]} a lot lately (${n} times). When you don't mention anything else, should I put ${MODE_EN[m]} first?`
-        : `我注意到你最近常${MODE_DO[m]}（${n} 次）。以後你沒說條件時，要我優先推${MODE[m]}嗎？`,
+        : `我注意到您最近常${MODE_DO[m]}（${n} 次）。以後您沒說條件時，要我優先推${MODE[m]}嗎？`,
       why: en ? 'Only counts on this phone; no places are stored.' : '只記在這支手機、只記交通方式與次數，可以在設定撤銷。',
       options: [{ label: en ? 'Yes' : '好', kind: 'store', value: `habit:yes:${m}`, guess: true }, { label: en ? 'No thanks' : '不用', kind: 'store', value: `habit:no:${m}` }],
     };
@@ -86,7 +86,7 @@ const USUAL_ASK = {
   luggage: { zh: '這次也帶東西嗎？', en: 'Carrying things this time too?' },
   lessWalk: { zh: '這次也想少走路嗎？', en: 'Want to walk less this time too?' },
 };
-const USUAL_SAID = { rush: '你說過常趕時間', luggage: '你說過常帶東西', lessWalk: '你說過不想走路' };
+const USUAL_SAID = { rush: '您說過常趕時間', luggage: '您說過常帶東西', lessWalk: '您說過不想走路' };
 
 /** 這一輪沒說狀況、沒指定方式，而且加上說過的預設狀況會換建議 → 問「這次也帶東西嗎？」〔是（猜的）〕〔這次沒有〕 */
 function usualAsk(trip, usual, en) {
@@ -202,7 +202,7 @@ export function slotAsk(it, { lang = null, history = [] } = {}) {
     opts.push({ label: '捷運末班車', kind: 'reply', say: '捷運末班車幾點？' });
     return {
       ask: { about: 'slot:route', question: '要查哪一路公車的末班車？', why: '直接打路線號碼也可以，例如 307；捷運就點「捷運末班車」。', options: opts, pending: { slot: 'route', last: true } },
-      short: '你要查哪一路公車的末班車？告訴我路線號碼（例如 307）；要查捷運就說「捷運末班車」。',
+      short: '您要查哪一路公車的末班車？告訴我路線號碼（例如 307）；要查捷運就說「捷運末班車」。',
     };
   }
   if (it?.needs === 'route') {
@@ -210,7 +210,7 @@ export function slotAsk(it, { lang = null, history = [] } = {}) {
     opts.push(en ? { label: 'Bus stops nearby', kind: 'reply', say: 'Any bus stops nearby?' } : { label: '看附近有哪些公車', kind: 'reply', say: '附近的公車站' });
     return {
       ask: { about: 'slot:route', question: en ? 'Which bus route?' : '哪一路公車？', why: en ? 'Or just type the route number, e.g. 307.' : '直接打路線號碼也可以，例如 307。', options: opts, pending: { slot: 'route', ...(en && { lang: 'en' }) } },
-      short: en ? "Which bus route? Tell me the number (e.g. 307) and I'll check how long until it comes." : '你要查哪一路公車？告訴我路線號碼（例如 307），我幫你看還要多久。',
+      short: en ? "Which bus route? Tell me the number (e.g. 307) and I'll check how long until it comes." : '您要查哪一路公車？告訴我路線號碼（例如 307），我幫您看還要多久。',
     };
   }
   if (it?.needs === 'od') { // 國道路況沒有起訖（「國道一號現在塞車嗎」）：問從哪到哪，不拿同一個點亂查（真實資料健檢 S7）
@@ -219,8 +219,8 @@ export function slotAsk(it, { lang = null, history = [] } = {}) {
     const pairs = said.length === 2 ? [[said[1], said[0]]] : [];
     const opts = [...pairs, ...TRAFFIC_EXAMPLES].slice(0, 3).map(([a, b]) => ({ label: en ? `${enName(a)} → ${enName(b)}` : `${a}到${b}`, kind: 'reply', say: `${a}到${b}國道塞車嗎？` }));
     return {
-      ask: { about: 'slot:od', question: en ? 'From where to where?' : '從哪裡到哪裡？', why: en ? 'Freeway traffic is checked along a route. Or type it, e.g. “Taipei to Hsinchu”.' : `${fw}很長，我要知道你從哪裡開到哪裡；直接打「台北到新竹」也可以。`, options: opts, pending: { slot: 'od', ...(en && { lang: 'en' }) } },
-      short: en ? 'Which stretch? Tell me where you start and where you are going (e.g. Taipei to Hsinchu), and I will check the freeway traffic along it.' : `你要從哪裡到哪裡？${fw}很長，告訴我起訖（例如「台北到新竹」），我幫你看沿途的國道路況。`,
+      ask: { about: 'slot:od', question: en ? 'From where to where?' : '從哪裡到哪裡？', why: en ? 'Freeway traffic is checked along a route. Or type it, e.g. “Taipei to Hsinchu”.' : `${fw}很長，我要知道您從哪裡開到哪裡；直接打「台北到新竹」也可以。`, options: opts, pending: { slot: 'od', ...(en && { lang: 'en' }) } },
+      short: en ? 'Which stretch? Tell me where you start and where you are going (e.g. Taipei to Hsinchu), and I will check the freeway traffic along it.' : `您要從哪裡到哪裡？${fw}很長，告訴我起訖（例如「台北到新竹」），我幫您看沿途的國道路況。`,
     };
   }
   if (it?.needs === 'to') {
@@ -234,7 +234,7 @@ export function slotAsk(it, { lang = null, history = [] } = {}) {
     if (!en && mode && !opts.some((o) => !o.saved)) opts.unshift({ label: '台北101', kind: 'reply', say: tripSayOf('台北101') }); // 叫車又沒說過地點：給一個例子（手機沒設定家、公司時才不會只剩「略過」）
     return {
       ask: { about: 'slot:to', question: en ? 'Where are you going?' : '要去哪裡？', why: en ? 'Or just type the place.' : '直接打地名也可以。', options: opts.slice(0, 6), pending: { slot: 'to', ...(fromSay && { from: fromSay }), ...(mode && { mode }), ...(en && { lang: 'en' }) } },
-      short: en ? `Where are you going?${from ? ` Starting from ${fromSay}, tell` : ' Tell'} me the destination and I'll compare the ways to get there${mode ? ' (taxi included)' : ''}.` : `${mode ? '叫車' : ''}要去哪裡？${from ? `從「${from}」出發，` : ''}告訴我目的地，我幫你比較${mode ? '叫車和其他方式' : '怎麼去'}。`,
+      short: en ? `Where are you going?${from ? ` Starting from ${fromSay}, tell` : ' Tell'} me the destination and I'll compare the ways to get there${mode ? ' (taxi included)' : ''}.` : `${mode ? '叫車' : ''}要去哪裡？${from ? `從「${from}」出發，` : ''}告訴我目的地，我幫您比較${mode ? '叫車和其他方式' : '怎麼去'}。`,
     };
   }
   return null;
@@ -244,7 +244,7 @@ export function slotAsk(it, { lang = null, history = [] } = {}) {
 const TRAFFIC_EXAMPLES = [['台北', '新竹'], ['台北', '台中'], ['台中', '高雄']];
 
 /** 上一輪阿幫是不是在問起點（originAsk 的回答）：這一輪定位又失敗就不再給「用我的位置」（不無限循環） */
-export const ORIGIN_ASKED = /你從哪裡出發？沒拿到你的位置|還是沒拿到你的位置|^Where are you starting from\? I didn't get|still couldn't get your location/;
+export const ORIGIN_ASKED = /[你您]從哪裡出發？沒拿到[你您]的位置|還是沒拿到[你您]的位置|^Where are you starting from\? I didn't get|still couldn't get your location/;
 const NEAR_RAIL_SAY = { THSR: ['最近的高鐵站', 'the nearest HSR station'], TRA: ['最近的火車站', 'the nearest train station'] };
 
 /**
@@ -263,12 +263,12 @@ export function originAsk(to, lang = null, { again = false, nearRail = null } = 
   const opts = again ? [] : [{ label: en ? 'Use my location' : '用我的位置', kind: 'reply', say: useEn ? `How do I get to ${enTo}?` : `怎麼去${zhTo}？` }];
   if (!en) opts.push({ label: '從家出發', kind: 'reply', say: `從家到${zhTo}怎麼去？`, saved: '家' }, { label: '從公司出發', kind: 'reply', say: `從公司到${zhTo}怎麼去？`, saved: '公司' });
   const short = again
-    ? (en ? `I still couldn't get your location. Type where you are (e.g. Ximending) and I'll work it out from there.` : '還是沒拿到你的位置。直接打你在哪裡（例如：西門町），我就從那裡幫你算。')
+    ? (en ? `I still couldn't get your location. Type where you are (e.g. Ximending) and I'll work it out from there.` : '還是沒拿到您的位置。直接打您在哪裡（例如：西門町），我就從那裡幫您算。')
     : nearRail
-      ? (en ? `Where are you starting from? I didn't get your location, so I won't guess which station is nearest. Tell me where you are and I'll find ${enTo}.` : `你從哪裡出發？沒拿到你的位置，我先不亂猜哪一站最近。告訴我你在哪裡，我幫你找${zhTo}。`)
-      : (en ? `Where are you starting from? I didn't get your location, and ${enTo} is right next to the default start, so I won't guess. Tell me where you are and I'll compare the ways.` : `你從哪裡出發？沒拿到你的位置，「${zhTo}」又就在預設起點旁邊，我先不亂算。告訴我你在哪裡，我幫你比較怎麼去。`);
+      ? (en ? `Where are you starting from? I didn't get your location, so I won't guess which station is nearest. Tell me where you are and I'll find ${enTo}.` : `您從哪裡出發？沒拿到您的位置，我先不亂猜哪一站最近。告訴我您在哪裡，我幫您找${zhTo}。`)
+      : (en ? `Where are you starting from? I didn't get your location, and ${enTo} is right next to the default start, so I won't guess. Tell me where you are and I'll compare the ways.` : `您從哪裡出發？沒拿到您的位置，「${zhTo}」又就在預設起點旁邊，我先不亂算。告訴我您在哪裡，我幫您比較怎麼去。`);
   return {
-    ask: opts.length ? { about: 'slot:from', question: en ? 'Where are you starting from?' : '你從哪裡出發？', why: en ? "I didn't get your location. Or just type where you are." : again ? '還是沒拿到你的位置；直接打你在哪裡（例如：西門町）。' : '沒拿到你的位置；直接打你在哪裡也可以。', options: opts, pending: { slot: 'from', to: toSay, ...(useEn && { lang: 'en' }) } } : null,
+    ask: opts.length ? { about: 'slot:from', question: en ? 'Where are you starting from?' : '您從哪裡出發？', why: en ? "I didn't get your location. Or just type where you are." : again ? '還是沒拿到您的位置；直接打您在哪裡（例如：西門町）。' : '沒拿到您的位置；直接打您在哪裡也可以。', options: opts, pending: { slot: 'from', to: toSay, ...(useEn && { lang: 'en' }) } } : null,
     short,
   };
 }

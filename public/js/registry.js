@@ -29,7 +29,7 @@ export const groups = [
 ];
 
 /** 服務總覽（#/services）的一句說明：沿用頁首的說法（HERO），沒有頁首的另寫 */
-export const DESC = { antifraud: '可疑簡訊、電話、網址，貼上來幫你看' };
+export const DESC = { antifraud: '可疑簡訊、電話、網址，貼上來幫您看' };
 export const descOf = (id) => DESC[id] || HERO[id]?.[0] || '';
 
 // 格子與頁首的代表色（立體代幣）：交通依方式、生活與政府服務依主題
@@ -50,7 +50,7 @@ export const HERO = {
   aqi: ['出門要不要戴口罩', '環境部'],
   quake: ['剛剛是不是地震了', '中央氣象署'],
   pharmacy: ['附近哪家藥局開著', '衛福部健保署'],
-  garbage: ['垃圾車幾點到你家附近', '各縣市環保局'],
+  garbage: ['垃圾車幾點到您家附近', '各縣市環保局'],
   fuel: ['這週加一公升多少錢', '台灣中油'],
   invoice: ['這期發票有沒有中獎', '財政部'],
   stock: ['查個股，看今天收多少', '證交所、櫃買中心'],

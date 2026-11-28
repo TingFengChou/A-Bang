@@ -14,7 +14,7 @@ export const THINK_ACTS = {
   watchArrival: { zh: '到站提醒', en: 'arrival reminder', how: 'tap' },
   openLink: { zh: '開地圖', en: 'open the map', how: 'tap' },
 };
-const HOW = { system: { zh: '系統畫面確認', en: 'confirmed on the system screen' }, tap: { zh: '你按一下', en: 'one tap' } };
+const HOW = { system: { zh: '系統畫面確認', en: 'confirmed on the system screen' }, tap: { zh: '您按一下', en: 'one tap' } };
 
 /** 開始：剛送出 */
 export const thinkStart = () => ({ phase: 'think', device: null, pending: [], checked: 0 });
@@ -98,7 +98,7 @@ export function deviceLine({ sent = null, judge = null } = {}, lang = null) {
   const name = NAME[(adopted && judge.engine) || sent?.engine];
   if (!name || (!adopted && !sent)) return null;
   const zh = /^[A-Za-z]/.test(name) ? ` ${name} ` : name; // 中文句子裡英文名稱前後空一格
-  if (adopted) return lang === 'en' ? `Abang first worked out what you want on your phone with ${name}.` : `阿幫先在手機上用${zh}聽懂你要做什麼。`;
+  if (adopted) return lang === 'en' ? `Abang first worked out what you want on your phone with ${name}.` : `阿幫先在手機上用${zh}聽懂您要做什麼。`;
   return lang === 'en' ? `${name} on your phone listened first; this time the server's own judgment was used.` : `手機上的${zh}先聽了一遍；這一輪以伺服器的判斷為準。`;
 }
 

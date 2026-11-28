@@ -25,7 +25,7 @@ export const SERVICES = {
     title: '捷運到站', auto: true,
     form: `<div class="row"><select class="field" name="system" aria-label="捷運系統">${METRO.map(([v, n]) => `<option value="${v}">${n}</option>`).join('')}</select></div>
       <div class="row"><input class="field" name="station" list="metro-stations" value="台北車站" placeholder="站名，例如 台北車站" aria-label="車站" autocomplete="off"><datalist id="metro-stations"></datalist></div>
-      <div class="row"><input class="field" name="to" list="metro-to" placeholder="要去哪一站（選填，告訴你怎麼轉乘）" aria-label="要去哪一站" autocomplete="off"><datalist id="metro-to"></datalist><button class="btn">查詢</button></div>`,
+      <div class="row"><input class="field" name="to" list="metro-to" placeholder="要去哪一站（選填，告訴您怎麼轉乘）" aria-label="要去哪一站" autocomplete="off"><datalist id="metro-to"></datalist><button class="btn">查詢</button></div>`,
     // 有填要去哪一站：怎麼坐（轉乘，metro_route）；沒填：這一站的下一班
     tool: (f) => (f.to.value.trim() ? 'metro_route' : 'metro_live_board'),
     args: (f) => (f.to.value.trim() ? { from: f.station.value.trim(), to: f.to.value.trim(), system: f.system.value } : { system: f.system.value, station: f.station.value.trim() }),

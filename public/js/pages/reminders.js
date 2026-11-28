@@ -24,10 +24,10 @@ export default {
         <div id="rem-list"></div>
       </section>
       <section aria-labelledby="how-h" class="rem-how">
-        <div class="section-title"><h2 id="how-h">阿幫可以在這些時候叫你</h2></div>
+        <div class="section-title"><h2 id="how-h">阿幫可以在這些時候叫您</h2></div>
         <div class="card list">
-          <a href="#/bus"><span class="ab-token sm" style="--c:#1d4ed8" aria-hidden="true">${icons.bus}</span><div class="grow"><div class="title">公車快到站</div><div class="sub wrap">查公車、點你上車的站，按「到站前 3 分提醒我」</div></div>${chev}</a>
-          <a href="#/bus"><span class="ab-token sm" style="--c:#0f766e" aria-hidden="true">${icons.bell}</span><div class="grow"><div class="title">快到站該下車</div><div class="sub wrap">上車後在公車頁選下車站，快到時提醒你</div></div>${chev}</a>
+          <a href="#/bus"><span class="ab-token sm" style="--c:#1d4ed8" aria-hidden="true">${icons.bus}</span><div class="grow"><div class="title">公車快到站</div><div class="sub wrap">查公車、點您上車的站，按「到站前 3 分提醒我」</div></div>${chev}</a>
+          <a href="#/bus"><span class="ab-token sm" style="--c:#0f766e" aria-hidden="true">${icons.bell}</span><div class="grow"><div class="title">快到站該下車</div><div class="sub wrap">上車後在公車頁選下車站，快到時提醒您</div></div>${chev}</a>
           <a href="#/agent?q=${encodeURIComponent('去台北 101')}"><span class="ab-token sm" style="--c:#b45309" aria-hidden="true">${icons.route}</span><div class="grow"><div class="title">該出門了</div><div class="sub wrap">問阿幫怎麼去，在行程卡按「提醒我出門」</div></div>${chev}</a>
         </div>
       </section>`;
@@ -42,7 +42,7 @@ export default {
       main.querySelector('#rem-count').textContent = items.length ? `${items.length} 個` : '';
       box.replaceChildren();
       if (!items.length) {
-        box.innerHTML = `<div class="card rem-empty"><img src="/brand/abang-default.svg" alt="" width="72" height="72"><div><b>目前沒有提醒</b><p>設了提醒，阿幫會在時間到的時候叫你；手機 App 關著也會響（網頁版要開著才會響）。下面教你怎麼設。</p></div></div>`;
+        box.innerHTML = `<div class="card rem-empty"><img src="/brand/abang-default.svg" alt="" width="72" height="72"><div><b>目前沒有提醒</b><p>設了提醒，阿幫會在時間到的時候叫您；手機 App 關著也會響（網頁版要開著才會響）。下面教您怎麼設。</p></div></div>`;
         return;
       }
       const list = document.createElement('div');

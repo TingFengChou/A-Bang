@@ -118,7 +118,7 @@ test('示範模式：有定位排到最近的機場並問；拒絕定位只問�
   const no = await run({ messages: one('去機場'), ...at(null) });
   assert.ok(!no.some((e) => e.type === 'tool_start'), '沒定位不查');
   assert.equal(no.filter((e) => e.type === 'ask').length, 1);
-  assert.ok(!no.filter((e) => e.type === 'text').map((e) => e.delta).join('').includes('我可以幫你查'), '不列功能清單');
+  assert.ok(!no.filter((e) => e.type === 'text').map((e) => e.delta).join('').includes('我可以幫您查'), '不列功能清單');
 });
 
 test('模型模式：去哪個機場由程式先問，不呼叫模型', async () => {

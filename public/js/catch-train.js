@@ -40,7 +40,7 @@ export async function runCheck(rail, { host = createWebHost(), locate = () => br
   const lang = rail.lang === 'en' ? 'en' : null;
   const pos = await locate().catch(() => null);
   if (!pos || !inTaiwan(pos)) { say(noLocationText(lang)); return 'noLocation'; }
-  const me = { lat: pos.lat, lon: pos.lon, name: lang === 'en' ? 'your location' : '你的位置' };
+  const me = { lat: pos.lat, lon: pos.lon, name: lang === 'en' ? 'your location' : '您的位置' };
   const st = rail.st && { name: rail.from, lat: rail.st.lat, lon: rail.st.lon };
   const trip = st ? await host.callTool('plan_trip', { from: me, to: st }).catch(() => null) : null;
   const best = trip?.data?.options?.find((o) => o.id === trip.data.best);

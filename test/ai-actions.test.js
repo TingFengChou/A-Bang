@@ -8,7 +8,7 @@ import { TRIAL_ZH, TRIAL_EN } from '../public/js/pages/ai-trial-i18n.js';
 
 const ids = (a) => a.map((x) => `${x.id}:${x.confirm}`);
 
-test('行程卡：導航（按一下）、加到行事曆與分享（系統畫面）；有叫車方案再加叫車（你按確認）', () => {
+test('行程卡：導航（按一下）、加到行事曆與分享（系統畫面）；有叫車方案再加叫車（您按確認）', () => {
   assert.deepEqual(ids(actionsOf({ results: [{ tool: 'plan_trip', card: 'trip', data: { options: [{ role: 'metro' }] } }] })), ['nav:tap', 'calendar:system', 'share:system']);
   assert.deepEqual(ids(actionsOf({ results: [{ tool: 'plan_trip', card: 'trip', data: { options: [{ role: 'ridehail' }] } }] })), ['nav:tap', 'calendar:system', 'share:system', 'ride:confirm']);
 });
@@ -21,9 +21,9 @@ test('診所、藥局、戶政：導航＋撥電話；官方入口要確認；�
   assert.deepEqual(actionsOf({ results: [{ tool: 'weather_now', card: 'weather', data: {} }] }), []);
 });
 
-test('阿幫問你的動作選項（到站提醒、加到行事曆）與安全情境的一鍵撥號', () => {
+test('阿幫問您的動作選項（到站提醒、加到行事曆）與安全情境的一鍵撥號', () => {
   const run = summarizeRun([
-    { type: 'ask', id: 'a', question: '要提醒你嗎？', options: [{ label: '到站前 3 分提醒我', kind: 'action', action: { name: 'watchArrival' } }, { label: '不用', kind: 'dismiss' }] },
+    { type: 'ask', id: 'a', question: '要提醒您嗎？', options: [{ label: '到站前 3 分提醒我', kind: 'action', action: { name: 'watchArrival' } }, { label: '不用', kind: 'dismiss' }] },
     { type: 'guardrail', rule: 'safety:medical', calls: [{ tel: '119' }] },
   ]);
   assert.equal(run.ask.options[0].action, 'watchArrival');

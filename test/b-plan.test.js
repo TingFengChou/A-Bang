@@ -28,7 +28,7 @@ test('會變的（叫車、YouBike、公車）不說幾點到，只說可以改�
   const rush = { ...TRIP, states: [{ key: 'rush', source: 'user' }] };
   const b = bPlan({ data: rush, at: NOW }, { routeName: '601', now: at(5) });
   assert.equal(b.role, 'ridehail');
-  assert.equal(b.text, '601 一直沒來。可以改叫車，按了我用最新的資料幫你查。');
+  assert.equal(b.text, '601 一直沒來。可以改叫車，按了我用最新的資料幫您查。');
   assert.equal(b.arrive, undefined);
   assert.equal(b.ask, '改叫車去台北101');
 });

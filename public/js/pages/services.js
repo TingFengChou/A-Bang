@@ -15,7 +15,7 @@ export default {
   render({ main }) {
     const list = ORDER.map((id) => groups.find((g) => g.id === id)).filter(Boolean);
     main.innerHTML = `
-      <p class="page-lead">政府開放資料，阿幫整理成你看得懂的樣子。不知道找哪個？<a href="#/agent">直接問阿幫</a>。</p>
+      <p class="page-lead">政府開放資料，阿幫整理成您看得懂的樣子。不知道找哪個？<a href="#/agent">直接問阿幫</a>。</p>
       ${list.map((g) => `
         <section class="svc-group${g.id === 'safe' ? ' safe' : ''}" aria-labelledby="sg-${g.id}">
           <div class="section-title"><h2 id="sg-${g.id}">${esc(g.name)}</h2><span>${esc(g.note)}</span></div>

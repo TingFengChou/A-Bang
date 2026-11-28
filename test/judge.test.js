@@ -107,8 +107,8 @@ test('模型模式：使用者沒說起點時，plan_trip 的起點一律是手�
   const es = [];
   await runModel(svc, { ...body, clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 25.0478, lon: 121.517 } }] }, (e) => es.push(e), { provider: fakeProvider('local', call) });
   const r = es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
-  assert.deepEqual(r.args.from, { lat: 25.0478, lon: 121.517, name: '你的位置' });
-  assert.equal(r.data.from.name, '你的位置');
+  assert.deepEqual(r.args.from, { lat: 25.0478, lon: 121.517, name: '您的位置' });
+  assert.equal(r.data.from.name, '您的位置');
 
   // 拒絕定位：與示範模式一致，先從預設起點（臺北車站）算並請模型說明；模型把目的地當起點也會被改成預設起點
   const denied = [];
@@ -123,7 +123,7 @@ test('模型模式：使用者沒說起點時，plan_trip 的起點一律是手�
   assert.match(system, /沒拿到使用者的位置，起點先用「臺北車站」/);
 });
 
-test('模型模式：需要現在位置時，問模型之前就先請 App 定位，再把位置告訴模型（模型不會再反問你在哪）', async () => {
+test('模型模式：需要現在位置時，問模型之前就先請 App 定位，再把位置告訴模型（模型不會再反問您在哪）', async () => {
   const svc = createServices({ forceMock: true });
   let calls = 0, system = '';
   const provider = { mode: 'local', model: 'fake', start({ system: s }) { calls++; system = s; return { next: async () => ({ text: '好的', calls: [], stop: 'end', usage: { input: 1, output: 1 } }), addResults() {} }; } };
@@ -149,7 +149,7 @@ test('模型模式：有現在位置時程式先規劃好行程（模型只查�
   await runModel(svc, { messages: [{ role: 'user', content: '去台北 101' }], clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 25.0478, lon: 121.517 } }] }, (e) => es.push(e), { provider });
   const trip = es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
   assert.ok(trip?.ok, '程式先跑了 plan_trip');
-  assert.equal(trip.data.from.name, '你的位置');
+  assert.equal(trip.data.from.name, '您的位置');
   assert.ok(es.some((e) => e.type === 'decision'), '決策圖照常出現');
   assert.match(system, /程式已依使用者現在的位置查好下面的結果/);
   // 附近類：會下雨嗎 → 先查天氣
@@ -178,10 +178,10 @@ test('模型模式：拒絕定位但使用者講了不同的起訖點 → 照常
 
 test('prefetchCalls：先查什麼（起訖點已知的行程；有位置時附近類沒地點；講了地點的附近類不先查）', async () => {
   const { prefetchCalls } = await import('../core/agent/model-loop.js');
-  const here = { lat: 25.04, lon: 121.51, name: '你的位置' };
+  const here = { lat: 25.04, lon: 121.51, name: '您的位置' };
   const at = { lat: 25.04, lon: 121.51 };
   assert.deepEqual(prefetchCalls({ intent: 'trip', from: null, to: '台北101', states: ['rush'], mode: 'bus', arriveBy: '10:00', places: ['台北101'] }, null, here),
-    [{ name: 'plan_trip', args: { from: { ...at, name: '你的位置' }, to: '台北101', prefs: { arriveBy: '10:00', mode: 'bus', states: ['rush'] } } }]);
+    [{ name: 'plan_trip', args: { from: { ...at, name: '您的位置' }, to: '台北101', prefs: { arriveBy: '10:00', mode: 'bus', states: ['rush'] } } }]);
   assert.deepEqual(prefetchCalls({ intent: 'trip', from: '西門町', to: '台北101', places: ['西門町', '台北101'] }, null, here), [{ name: 'plan_trip', args: { from: '西門町', to: '台北101' } }], '講了起點：用講的起點');
   assert.deepEqual(prefetchCalls({ intent: 'trip', from: '西門町', to: '台北101', places: ['西門町', '台北101'] }, null, null), [{ name: 'plan_trip', args: { from: '西門町', to: '台北101' } }], '沒定位也能先比較');
   assert.deepEqual(prefetchCalls({ intent: 'weather', places: [] }, null, null), [], '附近類沒位置不先查');

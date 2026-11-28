@@ -35,7 +35,7 @@ export const alightOngoingText = (w, sec, boarded = true) => {
     return `Bus ${w.routeName} · ${boarded ? '' : 'waiting · '}${where} · I'll tell you when to get off`;
   }
   const where = sec == null ? `往「${w.dest}」` : near ? `快到「${w.dest}」了` : `約 ${n} 分到「${w.dest}」`;
-  return `${w.routeName} ${boarded ? '坐車中' : '等車中'}・${where}・快到時提醒你下車`;
+  return `${w.routeName} ${boarded ? '坐車中' : '等車中'}・${where}・快到時提醒您下車`;
 };
 
 /** 用站序找站（沒有站序時才用站名） */

@@ -141,7 +141,7 @@ test('輸出護欄（防詐）：安心點開、直接付款、不會有問題�
     assert.deepEqual(g.hits, [{ tier: 'L2', rule: 'no-safety-claim' }], bad);
     assert.ok(!g.text.includes(bad.replace(/。$/, '')), g.text);
   }
-  for (const ok of ['不要點連結，也不要直接付款。', '先別直接匯款，請撥 165 查證。', '打 165 查證比較安心。', "This doesn't mean it's safe. Call 165.", '這不代表一定安全，請撥 165。', '千萬不要直接輸入密碼。', '別擔心，我們一步一步來：先撥 165。', '請直接輸入官方網址，不要點簡訊裡的連結。', '你想知道有沒有風險？請撥 165。']) {
+  for (const ok of ['不要點連結，也不要直接付款。', '先別直接匯款，請撥 165 查證。', '打 165 查證比較安心。', "This doesn't mean it's safe. Call 165.", '這不代表一定安全，請撥 165。', '千萬不要直接輸入密碼。', '別擔心，我們一步一步來：先撥 165。', '請直接輸入官方網址，不要點簡訊裡的連結。', '您想知道有沒有風險？請撥 165。']) {
     assert.deepEqual(applyOutputGuardrails(p, ok).hits, [], ok);
   }
 });
@@ -220,7 +220,7 @@ test('生活：模型出錯時說是 AI 模型沒有回應（不怪資料來源�
   const provider = { mode: 'claude', model: 'fake', start: () => ({ next: async () => { throw Object.assign(new Error('boom'), { name: 'APIConnectionError' }); }, addResults() {} }) };
   const h = createAgentHandler({ svc: demoSvc(), env: {}, provider });
   const res = ndjsonRes();
-  await h.handle(res, { messages: [{ role: 'user', content: '你好，阿幫可以做什麼' }] }, { agentId: 'life' });
+  await h.handle(res, { messages: [{ role: 'user', content: '您好，阿幫可以做什麼' }] }, { agentId: 'life' });
   const err = res.lines.find((e) => e.type === 'error');
   assert.ok(err, JSON.stringify(res.lines.map((e) => e.type)));
   assert.match(err.message, /AI 模型沒有回應/);

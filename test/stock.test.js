@@ -125,11 +125,11 @@ test('問阿幫（示範）：追問沿用上一題的股市，事件流以 stoc
 
 test('輸出護欄（finance）：買賣建議、漲跌預測、目標價整句換掉並送 guardrail；一般行情與交通建議不動', () => {
   const p = getProfile('life');
-  const g = applyOutputGuardrails(p, '台積電 11/18 收 2175，漲 5 元。我建議你可以逢低買進。股價應該會繼續上漲！目標價 3000。要不要也看看 0050？');
+  const g = applyOutputGuardrails(p, '台積電 11/18 收 2175，漲 5 元。我建議您可以逢低買進。股價應該會繼續上漲！目標價 3000。要不要也看看 0050？');
   assert.equal(g.text, `台積電 11/18 收 2175，漲 5 元。${NO_ADVICE_NOTE}要不要也看看 0050？`);
   assert.deepEqual(g.hits, [{ tier: 'L2', rule: 'no-investment-advice' }]);
-  for (const ok of ['建議搭捷運，比較不會淋雨。', '建議買來回票比較便宜。', '我幫你看多少錢。', '油價下週一調整。', '阿幫不提供投資建議，只能報開放資料的收盤數字：台積電收 2175。', '加權指數 11/18 收 40194.91，漲 102.8 點。']) assert.deepEqual(applyOutputGuardrails(p, ok), { text: ok, hits: [] }, ok);
-  assert.equal(applyOutputGuardrails(getProfile('antifraud'), '建議你逢低買進。').text.startsWith('建議你逢低買進'), true, '沒有 finance 工具包的 agent 不套用');
+  for (const ok of ['建議搭捷運，比較不會淋雨。', '建議買來回票比較便宜。', '我幫您看多少錢。', '油價下週一調整。', '阿幫不提供投資建議，只能報開放資料的收盤數字：台積電收 2175。', '加權指數 11/18 收 40194.91，漲 102.8 點。']) assert.deepEqual(applyOutputGuardrails(p, ok), { text: ok, hits: [] }, ok);
+  assert.equal(applyOutputGuardrails(getProfile('antifraud'), '建議您逢低買進。').text.startsWith('建議您逢低買進'), true, '沒有 finance 工具包的 agent 不套用');
 });
 
 // 證交所網站（www.twse.com.tw/rwd）同一份資料：收盤後很快更新；OpenAPI 晚好幾個小時（2026-11-23 16:38 實測 OpenAPI 仍是 11/20）

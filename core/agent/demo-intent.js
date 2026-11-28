@@ -77,7 +77,7 @@ const withoutStopNames = (s) => String(s || '').replace(STOP_IN_NAME, (m) => (/�
 /** 問班次的說法（沒說起站時才用最近車站） */
 const RAIL_ASK = /下一班|幾點|班次|時刻|末班|首班|還有車|有車嗎|幾班/;
 /** 不是站名的「起站」（「下一班高鐵到台中」「我要坐高鐵去左營」） */
-const NOT_STATION = /[我要坐搭想你在]|下一班|一班|最近|現在|明天|今天|後天|早上|晚上|下午|票價|價|來得及|趕得上|來不及/;
+const NOT_STATION = /[我要坐搭想你您在]|下一班|一班|最近|現在|明天|今天|後天|早上|晚上|下午|票價|價|來得及|趕得上|來不及/;
 /** 不是車站的目的地（「火車回家幾點」） */
 const NOT_DEST = /^(?:家|公司|學校|宿舍|老家)|幾|點/;
 /** 問票價（交給 rail_fare，不是時刻表） */
@@ -190,7 +190,7 @@ function lastTrip(history, saved) {
   return cur;
 }
 /** 阿幫回「你就在那裡、要查什麼？」（clarify.js hereAsk）：那一輪沒有排行程 */
-const HERE_SAID = /^你就在.{1,20}附近，不用排路線|^You're already at /;
+const HERE_SAID = /^[你您]就在.{1,20}附近，不用排路線|^You're already at /;
 // 改交通方式要有明確的改換字眼（「坐」「搭」「騎」單獨出現不算：「搭 307 到哪了」是查公車）
 const CHANGE_WORD = /改|換|那.*呢|的話(?:呢|咧)?|還是|不要|不坐|不搭|^那(?:麼)?\s*(?:坐|搭|騎|叫|走路)/; // 「那坐公車要多久」（行程後）＝改坐公車
 /** 排好行程後問時間、票價、幾點出門（只有這句、沒有地名） */
@@ -212,7 +212,7 @@ function fromStartOf(s) {
   return m[3] || /(?:改|其實|我是|是)從/.test(s) ? m[2] : null;
 }
 /** 阿幫上一輪在問起點（「你從哪裡出發？」）→ 使用者只回地名＝起點 */
-const ASKED_ORIGIN = /從哪(裡|兒)?出發|你(現在)?在哪|起點是|^Where are you starting from\?|type where you are/i;
+const ASKED_ORIGIN = /從哪(裡|兒)?出發|[你您](現在)?在哪|起點是|^Where are you starting from\?|type where you are/i;
 /** 阿幫上一輪在問目的地（「要去哪裡？」）→ 使用者只回地名＝目的地，起點沿用 */
 const ASKED_DEST = /要去哪裡？|^Where are you going\?/; // 英文那一輪問、使用者回中文地名也接得上
 const ASKED_DEST_EN = /^Where are you going\?/;
@@ -656,7 +656,7 @@ function followsBus(history = []) {
   return i >= 0 && parseIntent(history[i].content, { history: history.slice(0, i) }).intent === 'bus_route'; // 帶前文：連續追問也認得
 }
 /** 要阿幫代替按、付、訂（只給官方連結，ADR-0011） */
-const ACT_FOR_ME = /(?:直接|幫我|替我|你來|你去)\s*(?:按(?!照|時|順序|電梯|讚|鈕|最|一下讚)|叫好|下單|付(?:款|錢)|刷卡|訂(?:好|票)|買票)|代(?:付|訂|叫)|錢.{0,4}幫我付|幫我付.{0,6}錢|(?:錢|車資).{0,6}(?:轉給|付給)|刷卡買/;
+const ACT_FOR_ME = /(?:直接|幫我|替我|[你您]來|[你您]去)\s*(?:按(?!照|時|順序|電梯|讚|鈕|最|一下讚)|叫好|下單|付(?:款|錢)|刷卡|訂(?:好|票)|買票)|代(?:付|訂|叫)|錢.{0,4}幫我付|幫我付.{0,6}錢|(?:錢|車資).{0,6}(?:轉給|付給)|刷卡買/;
 const LIFE_LABEL = { pharmacy: '藥局', weather: '天氣', aqi: '空氣品質', garbage: '垃圾車', youbike: 'YouBike', nearby_bus: '公車站' };
 /** 前一句問的生活服務（換地點接著問用） */
 function followsLife(history = []) {
@@ -764,15 +764,15 @@ const NORMALIZE = [
 ];
 export const normalizeAsk = (t) => NORMALIZE.reduce((s, [re, to]) => s.replace(re, to), String(t || ''));
 /** 道謝、道歉、按讚（「謝謝阿幫」「歹勢」「👍」「🙏」）：回禮貌話，不列功能清單（P5-8） */
-const THANKS = /^(?:(?:好|好啦|好的|好喔|嗯|ok|okay)[，,\s]*)?(?:謝謝|謝啦|謝了|感謝|多謝|感恩|3q|讚|好棒|太好了|👍|🙏|❤️|♥️|😊|🙂|🥰)+(?:你|妳|阿幫|喔|哦|啦|囉|唷|～|~|!|！|。|\s)*$/i;
+const THANKS = /^(?:(?:好|好啦|好的|好喔|嗯|ok|okay)[，,\s]*)?(?:謝謝|謝啦|謝了|感謝|多謝|感恩|3q|讚|好棒|太好了|👍|🙏|❤️|♥️|😊|🙂|🥰)+(?:[你您]|妳|阿幫|喔|哦|啦|囉|唷|～|~|!|！|。|\s)*$/i;
 /** 句首的禮貌詞（後面還有其他話時去掉） */
-const COURTESY_HEAD = /^(?:謝謝|謝啦|謝了|感謝|多謝|感恩|歹勢|拍謝|不好意思|抱歉)(?:你|妳|阿幫|啦|喔|哦)*[，,。!！~～\s]+(?=\S)/;
+const COURTESY_HEAD = /^(?:謝謝|謝啦|謝了|感謝|多謝|感恩|歹勢|拍謝|不好意思|抱歉)(?:[你您]|妳|阿幫|啦|喔|哦)*[，,。!！~～\s]+(?=\S)/;
 const SORRY = /^(?:歹勢|拍謝|不好意思|抱歉|對不起)+(?:啦|喔|哦|囉|阿幫|～|~|!|！|。|\s)*$/i;
 /** 只回「好」「嗯」「不用」（沒有在等的問題，或客戶端沒對上按鈕）：回一句短的，不列功能清單（PM Q-25） */
 /** 問阿幫能做什麼、是誰、怎麼用（「你會做什麼？」「阿幫可以幫我什麼」「What can you do?」）：整句只問這個才算；回答列出能查的東西，不沿用前文的意圖與狀態 */
-export const HELP_ASK = /^(?:(?:阿幫|abang)[\s，,]*)?(?:(?:你|妳)\s*)?(?:(?:會|能|可以)(?:幹嘛|幹麻|(?:做|幫(?:我|忙)?(?:做|查)?|查)(?:些)?(?:什麼|甚麼|啥|哪些)(?:事|事情|東西|功能)?)|有(?:什麼|甚麼|哪些)功能|是誰|是什麼|(?:要)?怎麼用)(?:啊|呀|呢|嗎|啦|喔|哦)?[\s？?。！!～~]*$|^(?:what can you do|what do you do|who are you|how do i use (?:you|this|abang)|help)[\s?.!]*$/i;
+export const HELP_ASK = /^(?:(?:阿幫|abang)[\s，,]*)?(?:(?:[你您]|妳)\s*)?(?:(?:會|能|可以)(?:幹嘛|幹麻|(?:做|幫(?:我|忙)?(?:做|查)?|查)(?:些)?(?:什麼|甚麼|啥|哪些)(?:事|事情|東西|功能)?)|有(?:什麼|甚麼|哪些)功能|是誰|是什麼|(?:要)?怎麼用)(?:啊|呀|呢|嗎|啦|喔|哦)?[\s？?。！!～~]*$|^(?:what can you do|what do you do|who are you|how do i use (?:you|this|abang)|help)[\s?.!]*$/i;
 /** 只是打招呼（「早安」「你好」「嗨」）：跟問能做什麼一樣回答，先回一句招呼（腦袋審查：手機看了前文會判成行程） */
-const GREET = /^(早安|午安|晚安|你好|妳好|您好|嗨|哈囉|哈嘍|hi|hello|hey|good (?:morning|afternoon|evening))(?:阿幫|abang|啊|呀|喔|哦|～|~|!|！|。|,|，|\s)*$/i;
+const GREET = /^(早安|午安|晚安|[你您]好|妳好|您好|嗨|哈囉|哈嘍|hi|hello|hey|good (?:morning|afternoon|evening))(?:阿幫|abang|啊|呀|喔|哦|～|~|!|！|。|,|，|\s)*$/i;
 const ACK = /^(?:好|好啊|好的|好喔|好哦|嗯|嗯嗯|ok|okay|了解|知道了|收到|沒問題|不用|不用了|不要|沒有|不必)(?:啦|喔|哦|囉|唷|～|~|!|！|。|\s)*$/i;
 /** 只說交通類別（「高鐵」「公車」「叫車」）：沒有前一趟行程時問要查什麼、要去哪（PM Q-11、Q-24）；有前一趟＝改成這種方式（Q-12） */
 const BARE_MODE = /^(?:我要|我想|幫我|那|改|改成|換)?\s*(叫車|叫計程車|計程車|小黃|uber|高鐵|台鐵|臺鐵|火車|公車|捷運|走路|步行|走過去|騎車|騎\s*youbike|騎\s*ubike|youbike|ubike)\s*(?:吧|啦|好了|就好|呢)?\s*[。！!？?]?$/i;
@@ -1138,7 +1138,7 @@ function slotsFor(intent, s, base) {
 
 export const DEFAULT_FROM = '臺北車站'; // 示範：沒說起點也拿不到裝置定位時，先從這裡算
 export const DEFAULT_AREA = '臺北市中正區';
-export const INVOICE_WALLET_HINT = '要不要把發票存到「我的發票」？可以直接掃發票左邊的 QR code，號碼只存在你的手機，開獎後打開阿幫就自動幫你對獎（首頁 → 發票對獎）。'; // 示範：查藥局沒說地區時（臺北車站所在的區）
+export const INVOICE_WALLET_HINT = '要不要把發票存到「我的發票」？可以直接掃發票左邊的 QR code，號碼只存在您的手機，開獎後打開阿幫就自動幫您對獎（首頁 → 發票對獎）。'; // 示範：查藥局沒說地區時（臺北車站所在的區）
 
 /** 捷運路線名（台北、桃園、台中、高雄）與「下一班」類問法 */
 const METRO_LINE = /(?:板南|淡水信義|淡水|信義|松山新店|松山|新店|中和新蘆|新蘆|文湖|環狀|萬大|機場|綠|紅|橘|藍|棕|黃)線/;
@@ -1260,9 +1260,9 @@ const STATE_SAY = { rush: '趕時間', luggage: '帶行李', budget: '想省錢'
  */
 export function contextNote(it) {
   if (!it?.followUp || it.intent !== 'trip' || !it.to || !it.changed?.length) return null;
-  const say = { from: `起點${it.from || '你的位置'}`, to: `目的地${it.to}`, arriveBy: `${it.arriveBy} 前到`, mode: MODE_DO[it.mode] || '換方式', avoid: `不要${(it.avoid || []).map((m) => MODE_SAY[m]).join('、')}`, party: it.party > 1 ? `${it.party} 人` : '自己一個人', departAt: `${dayWord(it)} ${it.departTime} 出發`, states: (it.states || []).map((k) => STATE_SAY[k]).filter(Boolean).join('、') };
+  const say = { from: `起點${it.from || '您的位置'}`, to: `目的地${it.to}`, arriveBy: `${it.arriveBy} 前到`, mode: MODE_DO[it.mode] || '換方式', avoid: `不要${(it.avoid || []).map((m) => MODE_SAY[m]).join('、')}`, party: it.party > 1 ? `${it.party} 人` : '自己一個人', departAt: `${dayWord(it)} ${it.departTime} 出發`, states: (it.states || []).map((k) => STATE_SAY[k]).filter(Boolean).join('、') };
   const changed = it.changed.map((k) => say[k]).filter(Boolean).join('、');
-  return `沿用：${it.from || '你的位置'} → ${it.to}｜改：${changed}`.slice(0, 60);
+  return `沿用：${it.from || '您的位置'} → ${it.to}｜改：${changed}`.slice(0, 60);
 }
 
 /**

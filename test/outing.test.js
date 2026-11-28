@@ -60,11 +60,11 @@ test('示範模式：出門建議只出一張卡；模型模式預先查同一�
   assert.deepEqual(cards.map((e) => e.card), ['outing']);
   assert.equal(cards[0].args.with, 'kids');
   assert.match(es.find((e) => e.type === 'text').delta, /出門前看了一下/);
-  const [pre] = prefetchCalls({ intent: 'outing', places: [], states: ['elder'] }, null, { ...P, name: '你的位置' });
+  const [pre] = prefetchCalls({ intent: 'outing', places: [], states: ['elder'] }, null, { ...P, name: '您的位置' });
   assert.deepEqual(pre, { name: 'outing_advice', args: { ...P, with: 'elder' } });
   assert.equal(callKey('outing_advice', { lat: 25.04781, lon: 121.51702 }), callKey('outing_advice', P));
   // 判斷層聽出帶長輩（規則沒抓到）也放低空品門檻
-  const [pj] = prefetchCalls({ intent: 'outing', places: [], states: [] }, { intent: 'weather', states: ['elder'] }, { ...P, name: '你的位置' });
+  const [pj] = prefetchCalls({ intent: 'outing', places: [], states: [] }, { intent: 'weather', states: ['elder'] }, { ...P, name: '您的位置' });
   assert.equal(pj.args.with, 'elder');
 });
 
@@ -77,9 +77,9 @@ test('地名也能查；模型模式沒拿到位置先看預設地點、說了�
   const [noLoc] = prefetchCalls({ intent: 'outing', places: [], states: [] }, null, null);
   assert.equal(noLoc.args.place, '臺北車站');
   assert.match(noLoc.note, /沒拿到使用者的位置/);
-  const [named] = prefetchCalls({ intent: 'outing', places: ['台北101'], states: [] }, null, { ...P, name: '你的位置' });
+  const [named] = prefetchCalls({ intent: 'outing', places: ['台北101'], states: [] }, null, { ...P, name: '您的位置' });
   assert.deepEqual(named.args, { place: '台北101' });
-  assert.equal(outingNote(['kids']), '你帶著小孩，我會把空品標準放嚴一點');
+  assert.equal(outingNote(['kids']), '您帶著小孩，我會把空品標準放嚴一點');
   assert.equal(outingNote([]), null);
   // 判斷層把「帶小孩出門要注意什麼」判成行程：聽懂了的那句不說「比較幾種走法」
   const es = [];
@@ -87,7 +87,7 @@ test('地名也能查；模型模式沒拿到位置先看預設地點、說了�
   judge.quick = judge;
   await runDemo(svc, { messages: [{ role: 'user', content: '帶小孩出門要注意什麼' }] }, (e) => es.push(e), { judge }); // 第一次送出（不是帶定位重送）才說聽懂了什麼
   const notes = es.filter((e) => e.type === 'agent_note').map((e) => e.text);
-  assert.ok(notes.includes('你帶著小孩，我會把空品標準放嚴一點'), notes.join('｜'));
+  assert.ok(notes.includes('您帶著小孩，我會把空品標準放嚴一點'), notes.join('｜'));
   assert.ok(!notes.some((n) => /比較幾種走法/.test(n)));
   assert.deepEqual(es.filter((e) => e.card).map((e) => e.card), ['outing']);
 });

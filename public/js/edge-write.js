@@ -109,7 +109,7 @@ export function writeLine(r, lang = null, { judged = false, judgeEngine } = {}) 
   const en = lang === 'en';
   const name = EDGE_ENGINE_NAME[r?.engine] || EDGE_ENGINE_NAME[judgeEngine] || (en ? 'the AI' : 'AI');
   if (r?.by === 'edge') {
-    if (judged) return en ? `${name} on your phone understood your question and wrote this answer.` : `手機上的 ${name} 聽懂你的問題，也寫了這次的回答。`;
+    if (judged) return en ? `${name} on your phone understood your question and wrote this answer.` : `手機上的 ${name} 聽懂您的問題，也寫了這次的回答。`;
     return en ? `This answer was written on your phone by ${name}.` : `這次的回答由手機上的 ${name} 寫。`;
   }
   const why = {
@@ -122,7 +122,7 @@ export function writeLine(r, lang = null, { judged = false, judgeEngine } = {}) 
     background: en ? 'the system blocks AI while the app is in the background' : 'App 在背景時系統不讓 AI 跑',
     'battery-quota': en ? "the system paused the phone's AI to save battery" : '系統為了省電暫停手機上的 AI',
   }[r?.reason] || (en ? "the phone couldn't write it" : '手機沒寫出來');
-  if (judged) return en ? `${name} on your phone understood your question; the answer uses Abang's standard wording (${why}).` : `手機上的 ${name} 聽懂你的問題；回答用阿幫的固定說法（${why}）。`;
+  if (judged) return en ? `${name} on your phone understood your question; the answer uses Abang's standard wording (${why}).` : `手機上的 ${name} 聽懂您的問題；回答用阿幫的固定說法（${why}）。`;
   return en ? `This answer uses Abang's standard wording (${why}).` : `這次的回答用阿幫的固定說法（${why}）。`;
 }
 

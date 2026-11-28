@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>阿幫用你現在的位置當出發點，找附近的公車站、YouBike、天氣與空品。位置只用來回答你的問題；你設定的常用地點（家、公司、學校）只存在這支手機。</string>
+	<string>阿幫用您現在的位置當出發點，找附近的公車站、YouBike、天氣與空品。位置只用來回答您的問題；您設定的常用地點（家、公司、學校）只存在這支手機。</string>
 	<key>NSCameraUsageDescription</key>
-	<string>讓阿幫看：拍可疑簡訊、站牌或發票，阿幫在手機上讀出上面的字（照片不上傳、不保存），你確認後才拿去查詐騙、問路或對獎。</string>
+	<string>讓阿幫看：拍可疑簡訊、站牌或發票，阿幫在手機上讀出上面的字（照片不上傳、不保存），您確認後才拿去查詐騙、問路或對獎。</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>用說的問阿幫：按麥克風或長按「問阿幫」鍵時，阿幫用麥克風聽你說的話，在手機上轉成文字當作問題送出。不錄音、不上傳。</string>
+	<string>用說的問阿幫：按麥克風或長按「問阿幫」鍵時，阿幫用麥克風聽您說的話，在手機上轉成文字當作問題送出。不錄音、不上傳。</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>阿幫用 iPhone 的語音辨識把你說的話轉成文字，只在手機上轉換，語音不離開手機；阿幫只收到轉好的文字，不錄音、不上傳。</string>
+	<string>阿幫用 iPhone 的語音辨識把您說的話轉成文字，只在手機上轉換，語音不離開手機；阿幫只收到轉好的文字，不錄音、不上傳。</string>
 	<key>NSCalendarsUsageDescription</key>
-	<string>加到行事曆：你按卡片上的「加到行事曆」時，阿幫打開新增行程的畫面並先填好時間與地點，你按「加入」才會存進行事曆。阿幫不讀你的行事曆。（iOS 17 以上不需要這個權限）</string>
+	<string>加到行事曆：您按卡片上的「加到行事曆」時，阿幫打開新增行程的畫面並先填好時間與地點，您按「加入」才會存進行事曆。阿幫不讀您的行事曆。（iOS 17 以上不需要這個權限）</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>健康與運動（你在設定打開時）：阿幫讀步數與體能訓練時間（今天與近 7 天），天氣好、你今天又動得少時，建議附近可以散步的地方。步數只在手機上判斷，不上傳、不存起來。</string>
+	<string>健康與運動（您在設定打開時）：阿幫讀步數與體能訓練時間（今天與近 7 天），天氣好、您今天又動得少時，建議附近可以散步的地方。步數只在手機上判斷，不上傳、不存起來。</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>阿幫不會寫入任何健康資料，只讀步數與體能訓練時間。</string>
 	<key>AbangHealthKit</key>

@@ -40,7 +40,7 @@ export const DEVICE_LOCATION_TOOL = {
 export const FALLBACK = {
   rounds: '我查了好幾輪資料，結果都在上面的卡片；想再縮小範圍可以換個問法。',
   truncated: '回答太長被截斷了，換個簡短一點的問法試試看。',
-  refusal: '這個問題我沒辦法協助；我可以幫你查公車、捷運、台鐵、高鐵、YouBike，或規劃從 A 到 B 怎麼去。',
+  refusal: '這個問題我沒辦法協助；我可以幫您查公車、捷運、台鐵、高鐵、YouBike，或規劃從 A 到 B 怎麼去。',
   empty: '查好了，結果在上面的卡片。',
   noLocation: '使用者沒有提供位置。請改問使用者從哪裡出發（或人在哪裡），不要猜。',
 };
@@ -56,7 +56,7 @@ export function asModelError(e) {
 }
 export const isModelError = (e) => e?.fromModel === true;
 /** 拒絕定位時先用預設起點，模型要照這句說明 */
-export const NO_LOCATION_NOTE = `［內部備註］沒拿到使用者的位置，起點先用「${DEFAULT_FROM}」；回答時先說「沒拿到你的位置，先從${DEFAULT_FROM}算」，並請他說從哪出發就重算。`;
+export const NO_LOCATION_NOTE = `［內部備註］沒拿到使用者的位置，起點先用「${DEFAULT_FROM}」；回答時先說「沒拿到您的位置，先從${DEFAULT_FROM}算」，並請他說從哪出發就重算。`;
 const NEARBY_TOOL = { weather: 'weather_now', aqi: 'aqi_nearby', youbike: 'youbike_nearby', nearby_bus: 'bus_nearby_stations', garbage: 'garbage_truck_nearby', pharmacy: 'pharmacy_search' };
 /** 捷運沒說站：用現在位置找最近的站（metro_live_board 的 near） */
 const METRO_NEAR = 'metro_live_board';
@@ -101,7 +101,7 @@ export function prefetchCalls(it, j, here, placePt = null) {
   // 沒拿到位置問天氣、空品：先看預設地點，並請他說在哪（與示範模式一致；PM Q-15）
   if (!at && it.noLocation && ['weather', 'aqi'].includes(it.intent) && !it.places?.length && !it.later) {
     const p = landmarkByName(DEFAULT_FROM);
-    if (p) return [{ name: it.intent === 'weather' && it.tomorrow ? 'weather_tomorrow' : NEARBY_TOOL[it.intent], args: { lat: p.lat, lon: p.lon }, note: `［內部備註］沒拿到使用者的位置，先看「${DEFAULT_FROM}」附近；回答時先說「沒拿到你的位置，先看${DEFAULT_FROM}附近」，並請他說在哪就重查。` }];
+    if (p) return [{ name: it.intent === 'weather' && it.tomorrow ? 'weather_tomorrow' : NEARBY_TOOL[it.intent], args: { lat: p.lat, lon: p.lon }, note: `［內部備註］沒拿到使用者的位置，先看「${DEFAULT_FROM}」附近；回答時先說「沒拿到您的位置，先看${DEFAULT_FROM}附近」，並請他說在哪就重查。` }];
   }
   if (!at) return [];
   if (it.places?.length) return [];
@@ -258,7 +258,7 @@ export function toolDefs(profile, { deviceLocation: withLocation = false, only }
 }
 
 /** 「要幫你叫車嗎？」「要幫你訂票嗎？」這類追問（地端小模型常在 YouBike、票價、班次後面亂加，真實資料健檢） */
-const OFFER = /^(?:請問)?(?:你|您)?(?:還)?(?:要不要|需要|要)(?:我|阿幫)?(?:幫(?:你|您))?(?:(?:叫|預約)(?:一台|一輛)?(?:計程)?車|叫\s*uber|(?:預)?訂(?:購)?(?:高鐵|台鐵|臺鐵|火車)?(?:車)?票|買(?:車)?票)(?:嗎|呢)?[？?]?$/i;
+const OFFER = /^(?:請問)?(?:[你您]|您)?(?:還)?(?:要不要|需要|要)(?:我|阿幫)?(?:幫(?:[你您]|您))?(?:(?:叫|預約)(?:一台|一輛)?(?:計程)?車|叫\s*uber|(?:預)?訂(?:購)?(?:高鐵|台鐵|臺鐵|火車)?(?:車)?票|買(?:車)?票)(?:嗎|呢)?[？?]?$/i;
 /**
  * 拿掉不相關的叫車、訂票追問：只有這一輪就是叫車（建議或指定叫車）才留叫車；只有使用者要訂票、或建議高鐵台鐵才留訂票。
  * 句子照標點切，整句是追問才拿掉；全部都是追問就不動（不留空白回答）。
@@ -280,8 +280,8 @@ export function mustSay(text, trip, it = null, { rideLink = false } = {}) {
   if (!text) return text;
   let out = dropStrayOffers(text, trip, it);
   // 程式先猜的（去機場用最近的、同名地點、最近的車站）：模型沒說到就在開頭補，前提不能被吞掉（Antigravity 第七輪）
-  if (it?.nearestFrom && !it.guessName && !normName(out.replace(/\s/g, '')).includes(normName(String(it.nearestFrom).replace(/\s/g, '')))) out = `從離你最近的「${it.nearestFrom}」站算：${out}`;
-  if (it?.guessName && !normName(out.replace(/\s/g, '')).includes(normName(String(it.guessName).replace(/\s/g, '')))) out = `先用「${it.guessName}」算給你看：${out}`;
+  if (it?.nearestFrom && !it.guessName && !normName(out.replace(/\s/g, '')).includes(normName(String(it.nearestFrom).replace(/\s/g, '')))) out = `從離您最近的「${it.nearestFrom}」站算：${out}`;
+  if (it?.guessName && !normName(out.replace(/\s/g, '')).includes(normName(String(it.guessName).replace(/\s/g, '')))) out = `先用「${it.guessName}」算給您看：${out}`;
   // 訂票（「幫我訂明天的高鐵票」）：阿幫只給官方連結（ADR-0011；P2-10）
   if (it?.intent === 'rail' && it.book && !/官方/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}訂票請按卡片上的官方訂票連結，在${it.system === 'THSR' ? '高鐵' : '台鐵'}官網或 App 完成（阿幫不代訂、不付款）。`;
   if (it?.intent === 'weather' && it.tomorrow && !/明天|明日|明早|明晚/.test(out)) out = `明天的天氣：${out}`; // 問明天要講明天（S1-3：小模型常只說「會下雨」）
@@ -301,7 +301,7 @@ export function mustSay(text, trip, it = null, { rideLink = false } = {}) {
     out = `${offSay}${picked && !out.includes(picked) ? `選「${picked}」。` : ''}${out}`;
   }
   // 程式排序時用了使用者指定的方式（ranking.reason 這樣開頭）、模型沒說到 → 開頭補一句（不帶分數）
-  if (picked && /^照你說的/.test(trip.ranking?.reason || '') && !/(照|依|按)你(所)?說|你說要/.test(out)) out = out.includes(picked) ? `照你說的，${out}` : `照你說的選「${picked}」。${out}`; // 已講到方案名稱：只加「照你說的，」
+  if (picked && /^照[你您]說的/.test(trip.ranking?.reason || '') && !/(照|依|按)[你您](所)?說|[你您]說要/.test(out)) out = out.includes(picked) ? `照您說的，${out}` : `照您說的選「${picked}」。${out}`; // 已講到方案名稱：只加「照你說的，」
   // 建議叫車：付款在叫車 App（阿幫不代付；P2-10）
   const rideShown = trip.best === 'ridehail' || (it?.mode === 'ridehail' && !trip.modeUnavailable && trip.options?.some((o) => o.role === 'ridehail')); // 卡片上真的有叫車
   if (rideShown && !/付款在叫車|叫車 ?App.{0,8}付款/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}${/「叫車」|叫車 ?App|官方 ?App/.test(out) ? '' : '按卡片上的「叫車」用官方 App 叫車，'}付款在叫車 App 完成（阿幫不代付）。`; // 模型已經說了按叫車：只補付款（不重複，2026-11-21 實機）
@@ -385,9 +385,9 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const atSaved = rulesIt.savedAt && Number.isFinite(rulesIt.fromPoint?.lat) && [...NEARBY_INTENTS, 'outing'].includes(rulesIt.intent);
   const shortStation = profile.id === 'life' && hasShortStation(rulesIt, last); // 「桃園到台北101」：「桃園」是高鐵站還是火車站要看人在哪（z11）
   const wantHere = canLocate && !namedArea && !atSaved && (hereIsOrigin || shortStation || (!rulesIt.places?.length && (needsLocation(rulesIt) || NEARBY_INTENTS.includes(j?.intent) || j?.intent === 'trip')));
-  const here = atSaved ? { lat: rulesIt.fromPoint.lat, lon: rulesIt.fromPoint.lon, name: rulesIt.lang === 'en' ? 'your saved place' : `你的${rulesIt.savedAt}` } : canLocate ? deviceLocation(req) : null;
+  const here = atSaved ? { lat: rulesIt.fromPoint.lat, lon: rulesIt.fromPoint.lon, name: rulesIt.lang === 'en' ? 'your saved place' : `您的${rulesIt.savedAt}` } : canLocate ? deviceLocation(req) : null;
   if (wantHere && here === undefined) {
-    emit(ev.agentNote(rulesIt.lang === 'en' ? '@定位 checking where you are' : '@定位 先看看你在哪裡'));
+    emit(ev.agentNote(rulesIt.lang === 'en' ? '@定位 checking where you are' : '@定位 先看看您在哪裡'));
     emit(ev.clientToolCall({ id: LOCATION_CALL_ID, name: DEVICE_LOCATION_TOOL.name }));
     emit(ev.done({ modelCalls: 0, inputTokens: 0, outputTokens: 0 }));
     return;
@@ -405,7 +405,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const named0 = { from: rulesIt.from, to: rulesIt.to };
   if (shortStation && here) localStations(rulesIt, last, here);
   const stationHint = ['from', 'to'].filter((k) => rulesIt[k] && rulesIt[k] !== named0[k]).map((k) => `使用者要的是「${rulesIt[k]}」（他就在這附近，不是「${named0[k]}」），plan_trip 的 ${k} 用「${rulesIt[k]}」。`).join('');
-  const locationHint0 = atSaved ? `使用者問的是他的常用地點「${rulesIt.savedAt}」附近，座標 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}：天氣、空品、YouBike、附近公車、垃圾車、藥局都用這個 lat/lon；不是他現在的位置，也不要再問他在哪裡。` : here?.area ? `使用者沒授權定位，這是他自己設定的預設地區「${here.area}」的代表點 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（不是現在位置）。回答時先說「未取得目前位置，先依你設定的預設地區（${here.area}）查詢」。使用者沒說起點或地點時就用這個點：plan_trip 的 from 用 { lat, lon, name: "${here.name}" }，天氣、空品、YouBike、附近公車、垃圾車、藥局用這個 lat/lon；不要再問他在哪裡。` : here ? `使用者現在在 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（手機定位）。使用者沒說起點或地點時就用這個位置：plan_trip 的 from 用 { lat, lon, name: "你的位置" }，天氣、空品、YouBike、附近公車、垃圾車用這個 lat/lon；不要再問他在哪裡。` : '';
+  const locationHint0 = atSaved ? `使用者問的是他的常用地點「${rulesIt.savedAt}」附近，座標 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}：天氣、空品、YouBike、附近公車、垃圾車、藥局都用這個 lat/lon；不是他現在的位置，也不要再問他在哪裡。` : here?.area ? `使用者沒授權定位，這是他自己設定的預設地區「${here.area}」的代表點 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（不是現在位置）。回答時先說「未取得目前位置，先依您設定的預設地區（${here.area}）查詢」。使用者沒說起點或地點時就用這個點：plan_trip 的 from 用 { lat, lon, name: "${here.name}" }，天氣、空品、YouBike、附近公車、垃圾車、藥局用這個 lat/lon；不要再問他在哪裡。` : here ? `使用者現在在 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（手機定位）。使用者沒說起點或地點時就用這個位置：plan_trip 的 from 用 { lat, lon, name: "您的位置" }，天氣、空品、YouBike、附近公車、垃圾車用這個 lat/lon；不要再問他在哪裡。` : '';
   const locationHint = `${locationHint0}${stationHint}`;
   // 該問就問、先猜先算（PM Q 情境；2026-11-28 Antigravity 第七輪 A）：跟規則模式同一套 planAsk——
   //   stop＝程式只問；after＝程式先用最可能的答案查（去機場用最近的、同名地點用最可能的、沒定位問天氣先看預設地點、票價用最近的站…），
@@ -470,7 +470,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   if (later?.ask) {
     emit(ev.ask({ id: 'ask-m1', ...later.ask }));
     ask.done = true;
-    prefetched += `\n\n［內部備註］阿幫已經在畫面上問使用者「${later.ask.question || ''}」${guessName ? `，這次先用猜的「${guessName}」算` : ''}。${guessName ? `回答第一句先說「先用「${guessName}」算給你看」，再說可以點上面的選項改；` : ''}不要再問同一個問題，也不要說成是使用者選的。`;
+    prefetched += `\n\n［內部備註］阿幫已經在畫面上問使用者「${later.ask.question || ''}」${guessName ? `，這次先用猜的「${guessName}」算` : ''}。${guessName ? `回答第一句先說「先用「${guessName}」算給您看」，再說可以點上面的選項改；` : ''}不要再問同一個問題，也不要說成是使用者選的。`;
   }
   const conv = provider.start({
     system: buildSystemPrompt(profile, { now, context: req.context, picked, locationHint, prefetched }),

@@ -60,7 +60,7 @@ test('問句：哪一路公車（最近問過的路線優先）、要去哪裡�
   assert.deepEqual(to.ask.pending, { slot: 'to', from: '臺北車站' });
   assert.match(to.short, /從「臺北車站」出發/);
   const o = originAsk('臺北車站');
-  assert.equal(o.ask.question, '你從哪裡出發？');
+  assert.equal(o.ask.question, '您從哪裡出發？');
   assert.equal(o.ask.options[0].label, '用我的位置');
   assert.deepEqual(o.ask.pending, { slot: 'from', to: '臺北車站' });
   // 英文
@@ -248,7 +248,7 @@ test('審查 7：只問一次——「那去台北101呢」「改去台北101」
   for (const es of turns.slice(1)) {
     const a = es.find((e) => e.type === 'ask');
     assert.ok(!a || !a.options.some((o) => o.label === '用我的位置'), '第二次起不再給「用我的位置」');
-    assert.match(es.find((e) => e.type === 'text').delta, /還是沒拿到你的位置/);
+    assert.match(es.find((e) => e.type === 'text').delta, /還是沒拿到[你您]的位置/);
   }
   const en = await ev3(['How do I get to Taipei Main Station?', 'How do I get to Taipei Main Station?', 'Ximending'], { loc: false });
   assert.equal(en[1].find((e) => e.type === 'ask'), undefined, '英文第二次：只回一句');

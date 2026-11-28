@@ -67,7 +67,7 @@ test('摘要：只有文字（閒聊、答不出來）用提問＋回答第一�
   assert.equal(s.line, '謝謝：不客氣！');
   assert.equal(s.short, '謝謝');
   assert.equal(turnSummary({ q: '在嗎', text: '' }).line, '在嗎：沒有回答');
-  const long = turnSummary({ q: '請幫我查一下從台北車站到台中車站最便宜的方法是什麼呢', text: '（你沒說時間，我先用現在。）好的，我幫你比較了高鐵、台鐵與客運三種方式。' });
+  const long = turnSummary({ q: '請幫我查一下從台北車站到台中車站最便宜的方法是什麼呢', text: '（您沒說時間，我先用現在。）好的，我幫您比較了高鐵、台鐵與客運三種方式。' });
   assert.ok([...long.title].length <= 16, '提問太長截短');
   assert.match(long.detail, /^好的/, '回答開頭的括號說明略過');
   const two = turnSummary({ q: '307 到哪了，會下雨嗎', results: [{ tool: 'bus_route_eta', data: { routeName: '307', focus: { stopName: '敦化市場', statusText: '5 分', etaSec: 300 } } }, { tool: 'weather_now', data: { town: '大安區', tempC: 20, raining: false } }] });
@@ -117,8 +117,8 @@ test('換話題：類別不同才分段（交通類同一個話題）；接著�
   assert.equal(topicText(new Date(2026, 10, 21, 22, 40).getTime()), '新的話題・22:40');
 });
 
-test('阿幫反問你（還沒回答）：結尾問號、沒有卡片', () => {
-  assert.equal(askedBack({ text: '你要從哪裡出發？', results: [] }), true);
+test('阿幫反問您（還沒回答）：結尾問號、沒有卡片', () => {
+  assert.equal(askedBack({ text: '您要從哪裡出發？', results: [] }), true);
   assert.equal(askedBack({ text: '選公車。要不要設提醒？', results: [{ tool: 'plan_trip', card: 'trip' }] }), false, '有卡片＝已經答了');
   assert.equal(askedBack({ text: '好的。', results: [] }), false);
 });
@@ -136,7 +136,7 @@ test('審查 1：判斷層的 followUp 帶到前端（接著改不分段）', ()
   assert.equal('followUp' in judgeInfo({ intent: 'trip', source: 'embed', confidence: 0.9 }), false);
 });
 
-test('審查 6：「阿幫問你」還開著也算反問（這一輪先不收）', () => {
+test('審查 6：「阿幫問您」還開著也算反問（這一輪先不收）', () => {
   assert.equal(askedBack({ text: '選捷運。', results: [{ tool: 'plan_trip', card: 'trip' }], askOpen: () => true }), true);
   assert.equal(askedBack({ text: '選捷運。', results: [{ tool: 'plan_trip', card: 'trip' }], askOpen: () => false }), false, '答過或略過');
 });

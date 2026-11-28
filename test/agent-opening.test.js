@@ -36,7 +36,7 @@ test('問題最多 4 個、不重複；圖示看問的是什麼', () => {
   assert.deepEqual(['附近有開的診所嗎', '捷運幾點收班？', '今天出門要帶傘嗎？', '回家怎麼走？'].map(iconOfQ), ['pharmacy', 'metro', 'sun', 'route']);
 });
 
-test('「我可以幫你」的例句阿幫都查得到（防詐到防詐頁）', () => {
+test('「我可以幫您」的例句阿幫都查得到（防詐到防詐頁）', () => {
   for (const x of CAN_DO) {
     if (x.href) { assert.equal(x.href, '#/agent/antifraud'); continue; }
     const it = parseIntent(x.q);

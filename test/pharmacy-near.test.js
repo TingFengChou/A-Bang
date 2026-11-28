@@ -47,14 +47,14 @@ test('示範模式：附近的藥局先定位；說了地標用地標推估；�
   const run = async (content, extra = {}) => { const es = []; await runDemo(svc, { messages: [{ role: 'user', content }], clientTools: ['device_location'], ...extra }, (e) => es.push(e)); return es; };
   const es = await run('附近的藥局', { clientToolResults: [{ id: 'loc1', ok: true, result: DAAN }] });
   assert.deepEqual(es.find((e) => e.type === 'tool_start' && e.name === 'pharmacy_search').input, DAAN);
-  assert.match(es.find((e) => e.type === 'text').delta, /依你的位置推估在「臺北市大安區」，不對請說哪一區/);
+  assert.match(es.find((e) => e.type === 'text').delta, /依[你您]的位置推估在「臺北市大安區」，不對請說哪一區/);
   assert.ok((await run('附近的藥局')).some((e) => e.type === 'client_tool_call'), '先請 App 定位');
   const named = await run('板橋車站附近的藥局');
   assert.ok(!named.some((e) => e.type === 'client_tool_call'), '說了地標不用定位');
   assert.match(named.find((e) => e.type === 'text').delta, /依「板橋車站」的位置推估在「新北市板橋區」/);
   assert.ok((await run('附近的社區藥局')).some((e) => e.type === 'client_tool_call'), '「社區」不是行政區');
   const noLoc = await run('附近的藥局', { clientToolResults: [{ id: 'loc1', ok: false }] });
-  assert.match(noLoc.find((e) => e.type === 'text').delta, /沒拿到你的位置，我先查「臺北市中正區」/);
+  assert.match(noLoc.find((e) => e.type === 'text').delta, /沒拿到[你您]的位置，我先查「臺北市中正區」/);
 });
 
 test('模型模式：說了哪一區不要位置、直接查那一區；沒說就依位置預先查', async () => {
@@ -64,5 +64,5 @@ test('模型模式：說了哪一區不要位置、直接查那一區；沒說�
   await runModel(svc, { messages: [{ role: 'user', content: '大安區的藥局' }], clientTools: ['device_location'] }, (e) => es.push(e), { provider, judge: async () => ({ intent: 'pharmacy', states: [], confidence: 0.9, source: 'embed' }) });
   assert.ok(!es.some((e) => e.type === 'client_tool_call'), '不問位置');
   assert.deepEqual(es.find((e) => e.type === 'tool_start')?.input, { area: '大安區' });
-  assert.deepEqual(prefetchCalls({ intent: 'pharmacy', places: [], states: [] }, null, { ...DAAN, name: '你的位置' }), [{ name: 'pharmacy_search', args: DAAN }]);
+  assert.deepEqual(prefetchCalls({ intent: 'pharmacy', places: [], states: [] }, null, { ...DAAN, name: '您的位置' }), [{ name: 'pharmacy_search', args: DAAN }]);
 });

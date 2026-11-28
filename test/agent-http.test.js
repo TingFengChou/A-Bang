@@ -35,7 +35,7 @@ test('NDJSON 串流：示範模式完整事件，不帶 CORS', async () => {
   assert.ok(events.some((e) => e.type === 'decision'));
 });
 
-test('client_tool_call：沒起點時請客戶端定位；拿到座標後用「你的位置」規劃；拒絕時用預設起點', async () => {
+test('client_tool_call：沒起點時請客戶端定位；拿到座標後用「您的位置」規劃；拒絕時用預設起點', async () => {
   const { runAgent } = await import('../public/js/agent/client.js');
   const msg = { messages: [{ role: 'user', content: '我想去台北101' }] };
   const collect = async (locate) => { const es = []; await runAgent(msg, (e) => es.push(e), { base: BASE, locate }); return es; };
@@ -45,12 +45,12 @@ test('client_tool_call：沒起點時請客戶端定位；拿到座標後用「�
   assert.deepEqual([call.name, call.id], ['device_location', 'loc1']);
   assert.deepEqual(ok.find((e) => e.type === 'client_tool_result'), { type: 'client_tool_result', id: 'loc1', name: 'device_location', ok: true }, '畫面用：定位完成（不含座標）');
   const trip = ok.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
-  assert.equal(trip.data.from.name, '你的位置');
+  assert.equal(trip.data.from.name, '您的位置');
   assert.ok(!ok.find((e) => e.type === 'text').delta.includes('沒說從哪出發'));
   // 拒絕定位：照示範預設起點，總結說明
   const no = await collect(async () => null);
   assert.equal(no.find((e) => e.type === 'client_tool_result').ok, false);
-  assert.match(no.find((e) => e.type === 'text').delta, /沒拿到你的位置，先從「臺北車站」算；告訴我從哪出發就重算/, '拒絕定位不是「你沒說」');
+  assert.match(no.find((e) => e.type === 'text').delta, /沒拿到[你您]的位置，先從「臺北車站」算；告訴我從哪出發就重算/, '拒絕定位不是「您沒說」');
 });
 
 

@@ -11,8 +11,8 @@ import { nextSteps } from '../public/js/agent/next-steps.js';
 import { dataNodes } from '../public/ui/agent/decision-graph.js';
 
 const T101 = { name: '台北101', lat: 25.033964, lon: 121.564468 };
-const WANHUA = { name: '你的位置', lat: 25.0349, lon: 121.4997 };
-const TAOYUAN = { name: '你的位置', lat: 24.99, lon: 121.31 };
+const WANHUA = { name: '您的位置', lat: 25.0349, lon: 121.4997 };
+const TAOYUAN = { name: '您的位置', lat: 24.99, lon: 121.31 };
 const NOW = Date.parse('2026-11-18T09:00:00+08:00');
 const LATE = Date.parse('2026-11-18T23:30:00+08:00');
 
@@ -92,7 +92,7 @@ test('只有一種方式：說明太遠與沒有趕得上的班次（示範標�
 test('missingModes／singleNote：太遠、太近不算、附近沒有站、真實資料不加示範說明', () => {
   const m = missingModes({ straight: 65000, roles: { ridehail: { id: 'ridehail' }, thsr: { none: { kind: 'noService', why: 'x' } }, tra: { none: { kind: 'none', why: '起點或目的地 25 公里內沒有車站' } }, intercity: 'failed' }, limits: LIMITS });
   assert.deepEqual(m.map((x) => [x.role, x.kind]), [['walk', 'far'], ['bike', 'far'], ['bus', 'far'], ['metro', 'far'], ['thsr', 'noService'], ['tra', 'none']], '客運沒有方案就不列');
-  const s = singleNote({ options: [{ role: 'ridehail', name: '叫車' }], missingList: m, straight: 65000, departMin: 23 * 60, demo: false, toName: '台北101', fromName: '你的位置' });
+  const s = singleNote({ options: [{ role: 'ridehail', name: '叫車' }], missingList: m, straight: 65000, departMin: 23 * 60, demo: false, toName: '台北101', fromName: '您的位置' });
   assert.equal(s.text, '只找到叫車一種方式：距離 65 公里，走路、YouBike、公車、捷運都太遠；高鐵 23:00 以後今天沒有趕得上的班次；台鐵：起點或目的地 25 公里內沒有車站');
   assert.deepEqual(s.suggest.map((x) => x.label), ['改成明天早上出發'], '真實資料不建議改從台北車站');
   assert.equal(singleNote({ options: [{}, {}], missingList: [], straight: 1 }), null);
@@ -128,7 +128,7 @@ test('決策圖資料欄 dataNodes：considered 在前（值、影響、查不�
 
 test('接下來可以：只有一種方式時先給換條件的建議（送出那一句）', () => {
   const single = { text: '只找到叫車一種方式', suggest: [{ label: '改從台北車站出發比較看看', ask: '從台北車站到台北101怎麼去' }] };
-  const steps = nextSteps([{ tool: 'plan_trip', data: { from: { name: '你的位置' }, to: { name: '台北101' }, states: [], single } }], { states: [], single });
+  const steps = nextSteps([{ tool: 'plan_trip', data: { from: { name: '您的位置' }, to: { name: '台北101' }, states: [], single } }], { states: [], single });
   assert.deepEqual(steps[0], { label: '改從台北車站出發比較看看', kind: 'ask', payload: '從台北車站到台北101怎麼去', pin: true }); // pin：動態建議也排最前面（agent/suggest.js）
 });
 
@@ -149,12 +149,12 @@ test('TDX 額度用完改用示範資料（#105 withTdxFallback）：路況那�
   assert.equal(r.considered.find((c) => c.source === 'weather').demo, true, '天氣服務本身是示範（mock 帶 demo）');
 });
 
-test('建議帶著使用者說的起點：「從西門町到台北101」→ 明天早上 8 點從西門町到台北101；你的位置不帶', () => {
+test('建議帶著使用者說的起點：「從西門町到台北101」→ 明天早上 8 點從西門町到台北101；您的位置不帶', () => {
   const missingList = [{ role: 'intercity', kind: 'noService', why: 'x' }];
   const base = { options: [{ role: 'ridehail', name: '叫車' }], missingList, straight: 26000, departMin: 23 * 60 + 30, toName: '台北101' };
   const said = singleNote({ ...base, demo: true, fromName: '西門町' });
   assert.deepEqual(said.suggest.map((s) => s.ask), ['明天早上 8 點從西門町到台北101', '從台北車站到台北101怎麼去']);
-  assert.equal(singleNote({ ...base, demo: true, fromName: '你的位置' }).suggest[0].ask, '明天早上 8 點去台北101');
+  assert.equal(singleNote({ ...base, demo: true, fromName: '您的位置' }).suggest[0].ask, '明天早上 8 點去台北101');
 });
 
 test('真實模式但這次 TDX 額度用完改用示範資料：只有一種方式的說明照實標示，不當成真的沒有班次', async () => {

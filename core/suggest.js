@@ -60,7 +60,7 @@ export function sameAsk(a, b) {
   }
 }
 
-const here = (name) => (!name || /你的位置|現在位置|^現在|^目前/.test(name) ? '' : name);
+const here = (name) => (!name || /[你您您]的位置|現在位置|^現在|^目前/.test(name) ? '' : name);
 /**
  * 這一輪畫面上已經回答的（工具結果 → 同 parseIntent 的形狀），用來丟掉重複的建議。
  * @param {Array<{ tool: string, data: any }>} results

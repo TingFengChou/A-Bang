@@ -18,8 +18,8 @@ export const shouldAsk = (rail) => Boolean(rail && (rail.role === 'thsr' || rail
 export function askText(rail, lang = null) {
   const en = lang === 'en';
   const what = en ? `the ${rail.depart} ${NAME_EN[rail.role] || 'train'}` : `${rail.depart} 的${NAME[rail.role] || '車'}`;
-  if (rail.last) return en ? `Heads up: ${what} is the last one, time to leave. Want me to use your location once to check if you'll make it?` : `注意！${rail.depart} 是末班車，現在該出門了。要我用一次位置幫你看還趕不趕得上嗎？`;
-  return en ? `Time to go! Want me to use your location once to check if you'll make ${what}?` : `該出門囉！要我用一次位置幫你看還趕不趕得上${what}嗎？`;
+  if (rail.last) return en ? `Heads up: ${what} is the last one, time to leave. Want me to use your location once to check if you'll make it?` : `注意！${rail.depart} 是末班車，現在該出門了。要我用一次位置幫您看還趕不趕得上嗎？`;
+  return en ? `Time to go! Want me to use your location once to check if you'll make ${what}?` : `該出門囉！要我用一次位置幫您看還趕不趕得上${what}嗎？`;
 }
 
 /**
@@ -59,7 +59,7 @@ export function resultText(rail, v, { toStationMin, next = null, taxi = null, la
 }
 
 /** 沒拿到位置（Antigravity：照實說算不了，不用預設地區） */
-export const noLocationText = (lang = null) => (lang === 'en' ? "I couldn't get your location, so I can't check that. Leave a little early to be safe." : '沒拿到你的位置，沒辦法幫你算；保險一點，早點出門。');
+export const noLocationText = (lang = null) => (lang === 'en' ? "I couldn't get your location, so I can't check that. Leave a little early to be safe." : '沒拿到您的位置，沒辦法幫您算；保險一點，早點出門。');
 
 /** 下一班：時刻表裡發車時間 ≥ 最早能到的時間（現在＋到站＋緩衝）的第一班 */
 export function nextTrain(trains, nowMin, toStationMin, role) {

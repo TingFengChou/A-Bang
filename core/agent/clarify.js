@@ -24,7 +24,7 @@ const COUNTY_WORD = /^(?:台北|新北|桃園|台中|台南|高雄|基隆|新竹
 const GENERIC_TAIL = /(?:紀念醫院|醫院|大學|火車站|車站|捷運站|機場|商圈|夜市|老街|區|站)$/;
 /** 路名（很多城市都有，查不到是哪一條）：「X路／X街／X大道」而且 X 是具體的名稱（2～5 字，不是走路、逛街、馬路、公路、網路、一路、哪一路…；審查 #121） */
 const ROAD = /^([一-龥]{2,5}?)(?:[東西南北]?(?:路|街|大道))(?:[一二三四五六七八九十]段)?$/;
-const NOT_ROAD_NAME = /[走逛想要哪不嗎呢坐搭去到我你他的了過迷一]|^(?:馬|大馬|小馬|公|高速公|快速公|省|縣|鄉|產業|網|山|小|大|道|鐵|水|陸|海|後|前|老|商店|夜市|步行|行人|自行車|單車)$|公$|高速|快速/;
+const NOT_ROAD_NAME = /[走逛想要哪不嗎呢坐搭去到我你您他的了過迷一]|^(?:馬|大馬|小馬|公|高速公|快速公|省|縣|鄉|產業|網|山|小|大|道|鐵|水|陸|海|後|前|老|商店|夜市|步行|行人|自行車|單車)$|公$|高速|快速/;
 export const isRoadName = (token) => { const m = ROAD.exec(String(token || '')); return !!m && !NOT_ROAD_NAME.test(m[1]); };
 /** 通稱、連鎖、動作（「市場」「博物館」「誠品」「運動」）：不是一個地方的名字，不猜（審查 #121） */
 const GENERIC_NAME = /^(?:市場|傳統市場|菜市場|夜市|老街|博物館|美術館|科學館|溫泉|公園|醫院|診所|車站|火車站|捷運站|公車站|機場|大學|學校|國小|國中|高中|圖書館|百貨|百貨公司|商圈|廟|寺|教堂|海邊|海灘|沙灘|山上|動物園|遊樂園|超市|賣場|量販店|便利商店|誠品|全聯|家樂福|好市多|星巴克|麥當勞|宜家|郵局|銀行|藥局|加油站|停車場|運動中心|體育館|球場|電影院|影城|飯店|酒店|民宿|餐廳|咖啡廳|運動|散步|吃飯|上班|上學|上課|逛街|走走|看看|兜風|買東西|看電影|爬山|玩|旅行|出去|外面|那邊|那裡|這裡|附近|市區|郊外)$/;
@@ -127,7 +127,7 @@ export function placeAsk(amb, order, { guess = false, from = null, mode = null, 
   const chain = items.length > 1 && kinds.size === 1 && KIND_ONE[items[0].kind];
   const q = en
     ? (items.length === 1 ? `Do you mean ${items[0].en || items[0].name}?` : chain ? `${chain[1]} do you mean?` : `Which “${amb.token}” do you mean?`)
-    : (items.length === 1 ? `你說的「${amb.token}」是${placeLabel(items[0].name, core)}嗎？` : chain ? `「${amb.token}」有好幾${chain[0]}，你要去哪一${chain[0]}？` : `你要去哪個「${amb.token}」？`);
+    : (items.length === 1 ? `您說的「${amb.token}」是${placeLabel(items[0].name, core)}嗎？` : chain ? `「${amb.token}」有好幾${chain[0]}，您要去哪一${chain[0]}？` : `您要去哪個「${amb.token}」？`);
   const say = (x) => tripSay(x.name, { from, mode, en: en && x.en ? x.en : null });
   return {
     about: 'slot:place', question: q,
@@ -149,7 +149,7 @@ export function roadAsk(road, lang = null) {
       pending: { slot: 'place', road: true, ...(en && { lang: 'en' }) },
     },
     short: en ? `Many cities have a “${road}”, so I'm not sure which one. Tell me a landmark or station near it and I'll plan the route.`
-      : `很多城市都有「${road}」，我不確定是哪一條。告訴我附近的地標或車站，我幫你排路線；也可以先用地圖找。`,
+      : `很多城市都有「${road}」，我不確定是哪一條。告訴我附近的地標或車站，我幫您排路線；也可以先用地圖找。`,
   };
 }
 
@@ -201,7 +201,7 @@ export function airportAsk(order, { guess = false, from = null, mode = null, lan
   const ask = {
     about: 'slot:place', question: en ? 'Which airport?' : '要去哪個機場？',
     why: en ? (guess ? `I used ${label(items[0])} (the closest) for now. Or just type the airport.` : 'Or just type the airport name.')
-      : guess ? `先用離你最近的「${label(items[0])}」算；不是的話按正確的機場，或直接打機場名稱。` : '直接打機場名稱也可以（例如「桃園機場」「第二航廈」）。',
+      : guess ? `先用離您最近的「${label(items[0])}」算；不是的話按正確的機場，或直接打機場名稱。` : '直接打機場名稱也可以（例如「桃園機場」「第二航廈」）。',
     options: items.map((x, i) => ({ label: label(x), kind: 'reply', say: say(x), ...(guess && i === 0 && { guess: true }) })),
     pending: { slot: 'place', airport: true, ...(from && { from: String(from).slice(0, 40) }), ...(mode && MODE_GO[mode] && { mode }), ...(en && { lang: 'en' }) },
   };
@@ -245,8 +245,8 @@ export function hereAsk(name, lang = null) {
     [en ? 'Weather' : '天氣', en ? "What's the weather now?" : `${n}天氣`],
   ];
   return {
-    ask: { about: 'slot:topic', question: en ? `You're right at ${x?.en || n}. What should I check?` : `你就在${n}附近，要查什麼？`, why: en ? 'Or tell me where you want to go.' : '要去別的地方就直接說地名。', options: opts.map(([label, say]) => ({ label, kind: 'reply', say })), pending: { slot: 'topic', topic: 'here', to: n, ...(en && { lang: 'en' }) } },
-    short: en ? `You're already at ${x?.en || n}. What do you want to check there? Or tell me where you're going.` : `你就在${n}附近，不用排路線。要查那裡的什麼？或告訴我要去哪裡。`,
+    ask: { about: 'slot:topic', question: en ? `You're right at ${x?.en || n}. What should I check?` : `您就在${n}附近，要查什麼？`, why: en ? 'Or tell me where you want to go.' : '要去別的地方就直接說地名。', options: opts.map(([label, say]) => ({ label, kind: 'reply', say })), pending: { slot: 'topic', topic: 'here', to: n, ...(en && { lang: 'en' }) } },
+    short: en ? `You're already at ${x?.en || n}. What do you want to check there? Or tell me where you're going.` : `您就在${n}附近，不用排路線。要查那裡的什麼？或告訴我要去哪裡。`,
   };
 }
 
@@ -320,12 +320,12 @@ export function railFromAsk({ system, to, guess = null, lang = null }) {
   const order = [...(guess ? [railName(guess)] : []), ...list].slice(0, 4);
   return {
     ask: {
-      about: 'slot:railFrom', question: en ? 'Which station are you starting from?' : '你要從哪一站出發？',
+      about: 'slot:railFrom', question: en ? 'Which station are you starting from?' : '您要從哪一站出發？',
       why: en ? (guess ? `I used ${RAIL_EN[guess] || guess} for now. Or just type the station.` : 'Or just type the station.') : guess ? `先用${guess}算；從別站出發就按那一站，或直接打站名。` : '直接打站名也可以。',
       options: order.map((x, i) => ({ label: en ? RAIL_EN[x] || x : x, kind: 'reply', say: fareSay(system, x, dest, en), ...(guess && i === 0 && { guess: true }) })),
       pending: { slot: 'railFrom', system, to: dest, fare: true, ...(en && { lang: 'en' }) },
     },
-    short: en ? `Which station are you starting from? Tell me and I'll look up the fare to ${RAIL_EN[dest] || dest}.` : `你要從哪一站出發？告訴我起站，我幫你查到${dest}的票價。`,
+    short: en ? `Which station are you starting from? Tell me and I'll look up the fare to ${RAIL_EN[dest] || dest}.` : `您要從哪一站出發？告訴我起站，我幫您查到${dest}的票價。`,
     accept: new Set(usable(stationsOf(system), en).filter((x) => x !== dest).map((x) => fareSay(system, x, dest, en))),
   };
 }
@@ -341,11 +341,11 @@ export function railToAsk({ system, from = null, fare = false, lang = null }) {
   const say = (x) => (fare ? (start ? fareSay(system, start, x, en) : en ? `How much is the ${SYS[system][1]} ticket to ${RAIL_EN[x] || x}?` : `${SYS[system][0]}到${x}多少錢`) : nextSay(system, start, x, en));
   return {
     ask: {
-      about: 'slot:railTo', question: en ? 'Which station are you going to?' : '你要去哪一站？', why: en ? 'Or just type the station.' : '直接打站名也可以。',
+      about: 'slot:railTo', question: en ? 'Which station are you going to?' : '您要去哪一站？', why: en ? 'Or just type the station.' : '直接打站名也可以。',
       options: list.slice(0, 4).map((x) => ({ label: en ? RAIL_EN[x] || x : x, kind: 'reply', say: say(x) })),
       pending: { slot: 'railTo', system, ...(start && { from: start }), ...(fare && { fare: true }), ...(en && { lang: 'en' }) },
     },
-    short: en ? `Which station are you going to? Tell me and I'll look it up.` : `你要去哪一站？告訴我迄站，我幫你查${fare ? '票價' : '班次'}。`,
+    short: en ? `Which station are you going to? Tell me and I'll look it up.` : `您要去哪一站？告訴我迄站，我幫您查${fare ? '票價' : '班次'}。`,
     accept: new Set(list.map(say)),
   };
 }
@@ -380,8 +380,8 @@ export function whereAsk(topic, { tomorrow = false, guess = '台北', lang = nul
   const say = (c) => (en ? WHERE_SAY_EN[topic](RAIL_EN[c] || c, { tomorrow }) : WHERE_SAY[topic](c, { tomorrow }));
   const order = [guess, ...CITY_OPTS.filter((c) => c !== guess)];
   return {
-    about: 'slot:where', question: en ? 'Where are you?' : '你在哪裡？',
-    why: en ? `I didn't get your location, so I checked ${RAIL_EN[guess] || guess}. Or just type where you are.` : `沒拿到你的位置，先查了${guess}；不對就按你在的城市，或直接打地名。`,
+    about: 'slot:where', question: en ? 'Where are you?' : '您在哪裡？',
+    why: en ? `I didn't get your location, so I checked ${RAIL_EN[guess] || guess}. Or just type where you are.` : `沒拿到您的位置，先查了${guess}；不對就按您在的城市，或直接打地名。`,
     options: order.map((c, i) => ({ label: en ? RAIL_EN[c] || c : c, kind: 'reply', say: say(c), ...(i === 0 && { guess: true }) })),
     pending: { slot: 'where', topic, ...(tomorrow && { tomorrow: true }), ...(en && { lang: 'en' }) },
   };
@@ -398,7 +398,7 @@ export function busStopAsk(data, lang = null) {
   if (en || !ROUTE_NO.test(String(r || '')) || !dirs.length) return null; // 打字回答要接回規則聽得懂的句子：路線號碼像「307」「紅30」、中文那一輪
   const dest = (d) => String(d.label).replace(/^往\s*/, '');
   return {
-    about: 'slot:busStop', question: en ? `Which stop are you waiting at for bus ${r}?` : `你在哪一站等 ${r}？`,
+    about: 'slot:busStop', question: en ? `Which stop are you waiting at for bus ${r}?` : `您在哪一站等 ${r}？`,
     why: en ? 'Or pick a direction.' : `直接打站名也可以（例如「${(dirs[0].stops?.[1] || dirs[0].stops?.[0])?.stopName || '市政府'}」）；或先選方向。`,
     options: dirs.map((d) => ({ label: (en ? `To ${dest(d)}` : `往 ${dest(d)}`).slice(0, 20), kind: 'reply', say: en ? `How long until bus ${r} to ${dest(d)}?` : `${r} 往${dest(d)}的還要多久` })),
     pending: { slot: 'busStop', route: r, ...(en && { lang: 'en' }) },
@@ -435,7 +435,7 @@ export function remindAsk(f, followUp, lang = null) {
   if (!f?.routeName || !f.stop || !focus || focus.status !== 0 || focus.etaSec == null) return null;
   const en = lang === 'en';
   return {
-    about: 'remind:bus', question: en ? `Remind you before bus ${f.routeName} reaches ${f.stop}?` : `要我在 ${f.routeName} 快到「${f.stop}」前提醒你嗎？`,
+    about: 'remind:bus', question: en ? `Remind you before bus ${f.routeName} reaches ${f.stop}?` : `要我在 ${f.routeName} 快到「${f.stop}」前提醒您嗎？`,
     options: [
       { label: en ? 'Remind me 3 min before' : '到站前 3 分提醒我', kind: 'action', action: { name: 'watchArrival', city: f.city, routeName: f.routeName, stop: f.stop, ...(f.direction != null && { direction: f.direction }), minutes: 3 } },
       { label: en ? 'No thanks' : '不用', kind: 'dismiss' },
@@ -445,7 +445,7 @@ export function remindAsk(f, followUp, lang = null) {
 export function scamPasteAsk(profileId = 'life', lang = null, text = '', { pasted = false } = {}) {
   const en = lang === 'en';
   // 生活阿幫收到貼上的詐騙樣式簡訊（網址＋催促＋要你點或付，真實資料健檢 f01）：已經有內容，直接問要不要帶過去檢查
-  if (pasted && profileId === 'life' && String(text || '').trim()) return { about: 'scam:paste', question: en ? 'Check this message in Anti-fraud?' : '要帶這則訊息到「防詐」檢查嗎？', why: en ? 'It has a link and pushes you to act fast, like many scam texts.' : '有網址又催你限時處理，很像詐騙簡訊。', options: [{ label: en ? 'Check in Anti-fraud' : '帶到防詐檢查', kind: 'action', action: { name: 'handOff', agent: 'antifraud', text: String(text).trim() } }] };
+  if (pasted && profileId === 'life' && String(text || '').trim()) return { about: 'scam:paste', question: en ? 'Check this message in Anti-fraud?' : '要帶這則訊息到「防詐」檢查嗎？', why: en ? 'It has a link and pushes you to act fast, like many scam texts.' : '有網址又催您限時處理，很像詐騙簡訊。', options: [{ label: en ? 'Check in Anti-fraud' : '帶到防詐檢查', kind: 'action', action: { name: 'handOff', agent: 'antifraud', text: String(text).trim() } }] };
   if (profileId === 'antifraud') return { about: 'scam:paste', question: en ? 'Can you paste the message here?' : '可以把那則訊息貼上來嗎？', why: en ? 'Paste the text, link or phone number; or take a photo with the camera button.' : '簡訊、LINE、網址、來電號碼都可以；也可以按相機拍下來。', options: [{ label: en ? 'Paste it' : '貼上訊息', kind: 'action', action: { name: 'focusInput' } }] };
   const go = String(text || '').trim() ? { name: 'handOff', agent: 'antifraud', text: String(text).trim() } : { name: 'navigate', to: '#/agent/antifraud' }; // 帶著這一句過去（防詐接著請他貼上；手機記憶體，不放網址）
   return { about: 'scam:paste', question: en ? 'Can you paste the message in Anti-fraud?' : '可以把那則訊息貼到「防詐」給我看嗎？', why: en ? 'Anti-fraud checks it against 165 scam patterns.' : '防詐會比對 165 的詐騙手法。', options: [{ label: en ? 'Open Anti-fraud' : '到防詐貼上', kind: 'action', action: go }] };

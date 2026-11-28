@@ -43,7 +43,7 @@ export function renderMoveCard(box, n, { openLink, openApp, toast } = {}) {
       <b id="mv-title">${go ? '去走走吧' : '今天達標了'}</b>
       <p>${esc(n.text)}</p>
       <div class="mv-acts">${go && n.spot?.nav?.google ? `<button type="button" class="btn small" data-act="nav">走到${esc(n.spot.name)}</button>` : ''}<button type="button" class="btn small quiet" data-act="off">${go ? '今天不用' : '知道了'}</button>${drama ? `<button type="button" class="linkish mv-partner" data-act="drama">${esc(drama.label)}</button>` : ''}</div>
-      <small class="mv-note">${n.demo ? '示範資料，不是你的步數・' : ''}${PRIVATE}</small>
+      <small class="mv-note">${n.demo ? '示範資料，不是您的步數・' : ''}${PRIVATE}</small>
     </div>${n.demo ? '<span class="tag demo" title="網頁版用示範健康資料">示範</span>' : ''}
   </div>`;
   box.querySelector('[data-act="nav"]')?.addEventListener('click', () => openLink?.(n.spot.nav.google)); // 官方地圖的步行導航（ADR-0011），只帶目的地
@@ -71,7 +71,7 @@ export function healthBubble(n, { avatar, lang = null, openLink, openApp } = {})
   if (en) say.setAttribute('lang', 'en');
   const note = document.createElement('small');
   note.className = 'hs-note';
-  note.textContent = `${n.demo ? (en ? 'Demo data, not your steps · ' : '示範資料，不是你的步數・') : ''}${en ? `${PRIVATE_EN}; not sent with your question` : `${PRIVATE}，也沒有跟問題一起送出`}`;
+  note.textContent = `${n.demo ? (en ? 'Demo data, not your steps · ' : '示範資料，不是您的步數・') : ''}${en ? `${PRIVATE_EN}; not sent with your question` : `${PRIVATE}，也沒有跟問題一起送出`}`;
   const acts = document.createElement('div');
   acts.className = 'hs-acts';
   if (n.kind === 'go' && n.spot?.nav?.google) {
@@ -95,7 +95,7 @@ export function healthBubble(n, { avatar, lang = null, openLink, openApp } = {})
   return wrap;
 }
 
-const READY_SAY = { 'health-connect': '從 Health Connect 讀步數與運動時間', healthkit: '從「健康」App 讀步數與體能訓練時間', demo: '網頁版：用示範資料（不是你的步數）' };
+const READY_SAY = { 'health-connect': '從 Health Connect 讀步數與運動時間', healthkit: '從「健康」App 讀步數與體能訓練時間', demo: '網頁版：用示範資料（不是您的步數）' };
 
 /** 開關旁的一行狀態 */
 export function healthStatusText(st, on) {
@@ -103,7 +103,7 @@ export function healthStatusText(st, on) {
   if (st.where === 'demo') return on ? READY_SAY.demo : '關閉中（網頁版打開會用示範資料）';
   if (st.state === 'ready') return on ? `已打開：${READY_SAY[st.source] || '讀步數與運動時間'}` : '關閉中（已允許過，打開就能用）';
   if (st.state === 'denied') return on ? '沒有允許讀取' : '關閉中（沒有允許讀取；打開時會再問一次）';
-  return '關閉中（打開時才會請你允許讀取步數與運動時間）';
+  return '關閉中（打開時才會請您允許讀取步數與運動時間）';
 }
 
 /**
@@ -117,7 +117,7 @@ export function mountHealthSetting(sec, { toast, prefix = 'health' } = {}) {
       <input type="checkbox" id="${prefix}" class="switch" role="switch" aria-describedby="${prefix}-note" ${healthEnabled() ? 'checked' : ''}></label>
     <p class="health-why" id="${prefix}-why" role="status" hidden></p>
     <div class="health-acts" hidden></div>
-    <p class="note" id="${prefix}-note">打開後，阿幫讀這支手機的步數與運動時間（今天與近 7 天；Android 的 Health Connect、iPhone 的「健康」App，只讀不寫）。步數只在手機上用來判斷「天氣好、你今天又動得少」，<b>不上傳、不存起來、不會跟問題一起送出</b>；天氣、空品照常用你的位置查。建議出現在首頁「現在」與問阿幫的回答下面，一天一次，按「今天不用」就到明天再說，不推通知。系統權限在你打開時才問；網頁版讀不到手機的健康資料，打開後用示範資料讓你看看效果。</p>`;
+    <p class="note" id="${prefix}-note">打開後，阿幫讀這支手機的步數與運動時間（今天與近 7 天；Android 的 Health Connect、iPhone 的「健康」App，只讀不寫）。步數只在手機上用來判斷「天氣好、您今天又動得少」，<b>不上傳、不存起來、不會跟問題一起送出</b>；天氣、空品照常用您的位置查。建議出現在首頁「現在」與問阿幫的回答下面，一天一次，按「今天不用」就到明天再說，不推通知。系統權限在您打開時才問；網頁版讀不到手機的健康資料，打開後用示範資料讓您看看效果。</p>`;
   const sw = sec.querySelector(`#${prefix}`);
   const status = sec.querySelector(`#${prefix}-status`);
   const why = sec.querySelector(`#${prefix}-why`);
@@ -169,7 +169,7 @@ export function mountHealthSetting(sec, { toast, prefix = 'health' } = {}) {
     if (st.state === 'ready') {
       setHealthEnabled(true);
       paint();
-      toast?.(st.where === 'demo' ? '已打開（網頁版用示範資料）' : '已打開：天氣好又動得少時，阿幫會建議你去走走');
+      toast?.(st.where === 'demo' ? '已打開（網頁版用示範資料）' : '已打開：天氣好又動得少時，阿幫會建議您去走走');
       if (st.platform === 'ios') { // iPhone 不告訴 App 有沒有允許讀取：讀一次，什麼都沒有就說怎麼去「健康」App 打開
         const v = await healthSummary();
         if (!v?.days.some((d) => d.steps != null || d.exerciseMin != null)) showWhy(HEALTH_DENIED.ios, null);

@@ -190,7 +190,7 @@ test('審查：老街不是路名；路名的問題回城市名不收；指定�
   assert.equal(q.options[0].guess, true, '第一個選項標猜的');
   assert.match(sys, /阿幫已經在畫面上問使用者/, '告訴模型題目已經問了');
   const said = m.filter((e) => e.type === 'text').map((e) => e.delta).join('');
-  assert.match(said, /^先用「國立中山大學」算給你看：建議坐捷運/);
+  assert.match(said, /^先用「國立中山大學」算給[你您]看：建議坐捷運/);
   assert.equal(m.filter((e) => e.type === 'ask').length, 1, '一輪只問一題');
 });
 
@@ -217,7 +217,7 @@ const tripTo = (es) => { const t = es.find((e) => e.type === 'tool_start' && e.n
 
 test('審查 1：一般詞不是路名（走路、逛街、馬路、公路、網路、一路、迷路、哪一路）；多輪「走路」＝改走路', async () => {
   for (const w of ['中山路', '忠孝東路', '民生東路', '中正路']) assert.equal(isRoadName(w), true, w);
-  for (const t of ['走路', '不想走路', '逛街', '我想去逛街', '帶我去逛街', '馬路', '公路', '高速公路', '網路', '一路', '迷路', '你要坐哪一路？', '哪一路？']) {
+  for (const t of ['走路', '不想走路', '逛街', '我想去逛街', '帶我去逛街', '馬路', '公路', '高速公路', '網路', '一路', '迷路', '您要坐哪一路？', '哪一路？']) {
     const es = await run({ messages: one(t), ...at(TPE) });
     assert.notEqual(askOf(es)?.about, 'slot:place', `「${t}」不問路名`);
     assert.equal(parseIntent(t, { history: [] }).road, undefined, t);
@@ -248,7 +248,7 @@ test('審查 3：說了「站」「捷運站」只找車站：直接排、不問
   assert.equal(askFirst(parseIntent('去大安站', { history: [] })), null);
 });
 
-test('審查 4：你就在那裡的追問要真的查（按選項、打「下一班」都不重問）', async () => {
+test('審查 4：您就在那裡的追問要真的查（按選項、打「下一班」都不重問）', async () => {
   const [a1, a2] = await conv(['台北車站', '@台北車站捷運下一班']);
   assert.equal(askOf(a1).about, 'slot:topic');
   assert.deepEqual(tools(a2), ['metro_live_board']);
@@ -292,7 +292,7 @@ test('建議 a～g：附近只有一個候選不問；帶行李要划算才問�
   const taxi = { id: 'r', role: 'ridehail', name: '叫車', minutes: 75, cost: 1885, walkMin: 0, transfers: 0, waitMin: 3 };
   assert.equal(keyQuestion([bus, taxi], {}, ['luggage']), null, '去羅東夜市：叫車多 1790 元，不問帶行李');
   assert.equal(edgeAskShape({ slot: 'railTo', question: '這三站要去哪？', options: ['台中', '左營'] }, { lang: 'zh' }), 'digits');
-  assert.equal(edgeAskShape({ slot: 'railTo', question: '你要去哪一站？', options: ['台中', '左營'] }, { lang: 'zh' }), null);
+  assert.equal(edgeAskShape({ slot: 'railTo', question: '您要去哪一站？', options: ['台中', '左營'] }, { lang: 'zh' }), null);
   assert.deepEqual(scamPasteAsk('life', null, '這是詐騙嗎').options[0].action, { name: 'handOff', agent: 'antifraud', text: '這是詐騙嗎' });
   assert.throws(() => ev.ask({ id: 'x', question: '?', options: [{ label: 'go', kind: 'action', action: { name: 'handOff', agent: 'life', text: 'x' } }] }), /防詐/);
   const enFare = await run({ messages: one('How much is the HSR ticket to Taichung?'), ...at(TPE) });
@@ -308,7 +308,7 @@ test('建議 a～g：附近只有一個候選不問；帶行李要划算才問�
 // ───── 手機上的 AI 出題（ADR-0020）：新種類的題目通過驗證就用手機的；亂編的照規則 ─────
 test('手機出題的新種類：形狀檢查認得、要切題', () => {
   for (const k of ['railFrom', 'railTo', 'place', 'where', 'topic']) assert.ok(EDGE_ASK_SLOTS.includes(k));
-  assert.equal(edgeAskShape({ slot: 'railFrom', question: '你從哪一站出發？', options: ['台中', '左營'] }, { lang: 'zh' }), null);
+  assert.equal(edgeAskShape({ slot: 'railFrom', question: '您從哪一站出發？', options: ['台中', '左營'] }, { lang: 'zh' }), null);
   assert.equal(edgeAskShape({ slot: 'where', question: '今天天氣好嗎？', options: ['好', '不好'] }, { lang: 'zh' }), 'off-topic');
 });
 
@@ -318,24 +318,24 @@ const atTW = (hhmm = '10:00') => Date.parse(`${new Date(Date.now() + 8 * 3600e3)
 function reasonable(text) {
   const en = !/[一-鿿]/.test(text);
   const fare = /高鐵到(.+?)多少錢/.exec(text);
-  if (fare) return { slot: 'railFrom', question: '你要從哪一站出發？', options: /台北|臺北/.test(fare[1]) ? ['台中', '左營'] : ['台北', '板橋'] };
+  if (fare) return { slot: 'railFrom', question: '您要從哪一站出發？', options: /台北|臺北/.test(fare[1]) ? ['台中', '左營'] : ['台北', '板橋'] };
   if (/HSR ticket to Taipei/i.test(text)) return { slot: 'railFrom', question: 'Which station are you starting from?', options: ['Taichung', 'Zuoying'] };
-  if (/^去中山$/.test(text)) return { slot: 'place', question: '你要去哪個中山？', options: ['中山大學', '捷運中山站'] };
-  if (/^去松山$/.test(text)) return { slot: 'place', question: '你要去哪個松山？', options: ['松山車站', '松山機場'] };
-  if (/^去長庚醫院$/.test(text)) return { slot: 'place', question: '你要去哪一間長庚？', options: ['林口長庚', '高雄長庚'] };
-  if (/^現在天氣如何$/.test(text)) return { slot: 'where', question: '你在哪裡？', options: ['台北', '台中'] };
-  if (/^高鐵下一班$/.test(text)) return { slot: 'railTo', question: '你要去哪一站？', options: ['台中', '左營'] };
+  if (/^去中山$/.test(text)) return { slot: 'place', question: '您要去哪個中山？', options: ['中山大學', '捷運中山站'] };
+  if (/^去松山$/.test(text)) return { slot: 'place', question: '您要去哪個松山？', options: ['松山車站', '松山機場'] };
+  if (/^去長庚醫院$/.test(text)) return { slot: 'place', question: '您要去哪一間長庚？', options: ['林口長庚', '高雄長庚'] };
+  if (/^現在天氣如何$/.test(text)) return { slot: 'where', question: '您在哪裡？', options: ['台北', '台中'] };
+  if (/^高鐵下一班$/.test(text)) return { slot: 'railTo', question: '您要去哪一站？', options: ['台中', '左營'] };
   if (/^高鐵$/.test(text)) return { slot: 'topic', question: '要查高鐵的什麼？', options: ['下一班', '票價'] };
   if (/^公車$/.test(text)) return { slot: 'topic', question: '要查公車的什麼？', options: ['附近的公車站', '某一路多久到'] };
   return en ? null : null;
 }
 /** 亂來的模型：編站名、編地名、選項不是候選、誘導 */
 const CHAOS = [
-  { slot: 'railFrom', question: '你從哪一站出發？', options: ['火星', '月球'] },
-  { slot: 'place', question: '你要去哪個地方？', options: ['西門町', '台北101'] },
-  { slot: 'where', question: '你在哪裡？', options: ['加LINE', '台中'] },
+  { slot: 'railFrom', question: '您從哪一站出發？', options: ['火星', '月球'] },
+  { slot: 'place', question: '您要去哪個地方？', options: ['西門町', '台北101'] },
+  { slot: 'where', question: '您在哪裡？', options: ['加LINE', '台中'] },
   { slot: 'topic', question: '要查什麼？', options: ['股票', '紅包'] },
-  { slot: 'railTo', question: '你要去哪一站？', options: ['台北', '台北 '] },
+  { slot: 'railTo', question: '您要去哪一站？', options: ['台北', '台北 '] },
 ];
 for (const [name, fake] of [['合理', reasonable], ['亂來', (_t, i) => ({ ...CHAOS[i % CHAOS.length], options: [...CHAOS[i % CHAOS.length].options] })]]) {
   test(`Q 情境＋手機出題「${name}」：全部照舊通過（合理的採用手機題目、亂來的照規則）`, async () => {
@@ -375,5 +375,5 @@ test('模型模式也先查並問（Antigravity 第七輪 A）：沒定位問公
   assert.match(askOf(bus)?.question || '', /哪一站/);
   const fare = await go('高鐵到台中多少錢', { lat: 22.6873, lon: 120.3075 }); // 左營附近
   assert.ok(fare.some((e) => e.type === 'tool_start' && e.name === 'rail_fare'));
-  assert.match(fare.filter((e) => e.type === 'text').map((e) => e.delta).join(''), /^從離你最近的「左營」站算：/);
+  assert.match(fare.filter((e) => e.type === 'text').map((e) => e.delta).join(''), /^從離[你您]最近的「左營」站算：/);
 });

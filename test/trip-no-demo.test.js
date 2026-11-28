@@ -95,7 +95,7 @@ test('示範對話（真實模式＋全部額度用完）：回答不提示範�
   assert.ok(trip, es.map((e) => e.type).join(','));
   assert.ok(!trip.data.options.some((o) => /示範/.test(o.name)));
   const said = es.filter((e) => ['text', 'answer_draft', 'ask'].includes(e.type)).map((e) => JSON.stringify(e)).join('\n');
-  assert.doesNotMatch(said, /示範 ?[AB]|綠1|到站提醒|提醒你上車/, said);
+  assert.doesNotMatch(said, /示範 ?[AB]|綠1|到站提醒|提醒[你您]上車/, said);
 });
 
 test('只有票價額度用完：鐵路照列，票價不當 0 元，依距離保守估（est.cost）', async () => {
@@ -206,7 +206,7 @@ test('捷運：全台各系統（含三鶯線、輕軌）、跨系統在同名�
   assert.match(t.name, /^捷運（機場線轉/);
   assert.equal(t.metro.via, '臺北車站');
   // 三鶯線與環狀線同屬新北捷運但不相通：不會排出「三鶯線轉環狀線」
-  const late = (await plan(svc, { name: '你的位置', lat: 24.99, lon: 121.31 }, T101)).result;
+  const late = (await plan(svc, { name: '您的位置', lat: 24.99, lon: 121.31 }, T101)).result;
   assert.ok(!late.options.some((o) => /三鶯線轉環狀線/.test(o.name)));
   // 走不到的站：接駁（公車或 YouBike，估算）
   const far = (await plan(svc, { name: '三峽山區', lat: 24.89, lon: 121.40 }, T101)).result;

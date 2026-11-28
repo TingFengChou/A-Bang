@@ -324,7 +324,7 @@ test('找劇意圖（示範規則）：排行、類型、劇名、劇情、沒�
   assert.notEqual(P('今天會下雨嗎').intent, 'drama');
   const es = await run(createServices({ forceMock: true }), ask('有沒有殭屍的短劇'));
   assert.deepEqual(es.filter((e) => e.type === 'tool_start').map((e) => e.name), ['drama_search', 'drama_picks']);
-  assert.match(es.filter((e) => e.type === 'text').map((e) => e.delta).join(''), /沒有找到「殭屍」的短劇，先給你看熱門的/);
+  assert.match(es.filter((e) => e.type === 'text').map((e) => e.delta).join(''), /沒有找到「殭屍」的短劇，先給[你您]看熱門的/);
   const noLink = es.filter((e) => e.type === 'text').map((e) => e.delta).join('');
   assert.doesNotMatch(noLink, /在 MyDrama 看/, '沒設定連結時不叫使用者按不存在的按鈕');
 });

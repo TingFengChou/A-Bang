@@ -5,8 +5,8 @@
     <string name="package_name">tw.abang.app</string>
     <string name="custom_url_scheme">tw.abang.app</string>
     <!-- 健康與運動（ADR-0018）：Health Connect 權限說明畫面 -->
-    <string name="health_rationale_title">Abang 怎麼使用你的健康資料</string>
-    <string name="health_rationale_body">Abang（阿幫）只讀這支手機的「步數」與「運動時間」（今天與近 7 天），不寫入、不讀其他健康資料。\n\n用途：天氣好、你今天又動得少的時候，在 App 首頁與問阿幫的回答下面建議附近可以散步的地方，一天一次，不推通知。\n\n步數與運動時間只在手機上判斷，不上傳到阿幫伺服器、不寫進紀錄、不跟問題一起送出，也不存在手機的儲存空間（只在當下讀）。\n\n這個功能預設關閉，要在 Abang 的「設定與隱私」或「我的」自己打開；隨時可以關掉，也可以在 Health Connect 收回權限。完整的隱私權政策在 Abang 的「設定與隱私 → 隱私權政策」。</string>
+    <string name="health_rationale_title">Abang 怎麼使用您的健康資料</string>
+    <string name="health_rationale_body">Abang（阿幫）只讀這支手機的「步數」與「運動時間」（今天與近 7 天），不寫入、不讀其他健康資料。\n\n用途：天氣好、您今天又動得少的時候，在 App 首頁與問阿幫的回答下面建議附近可以散步的地方，一天一次，不推通知。\n\n步數與運動時間只在手機上判斷，不上傳到阿幫伺服器、不寫進紀錄、不跟問題一起送出，也不存在手機的儲存空間（只在當下讀）。\n\n這個功能預設關閉，要在 Abang 的「設定與隱私」或「我的」自己打開；隨時可以關掉，也可以在 Health Connect 收回權限。完整的隱私權政策在 Abang 的「設定與隱私 → 隱私權政策」。</string>
     <string name="health_rationale_ok">知道了</string>
     <!-- 主畫面小工具 -->
     <string name="widget_today_name">阿幫・今天</string>

@@ -20,18 +20,18 @@ test('impactOf：下雨／空品／路況／比較結果對決策的影響（不
   assert.equal(impactOf('find_place', {}), null);
 });
 
-test('judgeNote：行程前說一句有資訊的話；接著改交通方式說照你說的重算；其他查詢不說', () => {
-  assert.equal(judgeNote({ intent: 'trip', states: ['rush', 'budget'] }), '你趕時間、想省錢，我先看天氣、空品、路況，再比較幾種走法');
-  assert.equal(judgeNote({ intent: 'trip', states: [], followUp: true, mode: 'bus' }), '照你說的改成坐公車，用剛才的起點和目的地重算');
+test('judgeNote：行程前說一句有資訊的話；接著改交通方式說照您說的重算；其他查詢不說', () => {
+  assert.equal(judgeNote({ intent: 'trip', states: ['rush', 'budget'] }), '您趕時間、想省錢，我先看天氣、空品、路況，再比較幾種走法');
+  assert.equal(judgeNote({ intent: 'trip', states: [], followUp: true, mode: 'bus' }), '照您說的改成坐公車，用剛才的起點和目的地重算');
   assert.equal(judgeNote({ intent: 'weather', states: [] }), null, '不是行程不說（不再每次都說「我聽懂了」）');
   assert.equal(judgeNote({ intent: 'unknown', states: [] }), null);
 });
 
-test('示範模式＋判斷層：第一句說你的狀況與要查什麼，資料回報帶 impact', async () => {
+test('示範模式＋判斷層：第一句說您的狀況與要查什麼，資料回報帶 impact', async () => {
   const judge = createJudge({ embed: async () => ({ intent: 'trip', confidence: 0.95, states: [] }) });
   const es = [];
   await runDemo(createServices({ forceMock: true, demo: { weather: 'rain' } }), { messages: [{ role: 'user', content: '想省錢，從西門町到台北101' }] }, (e) => es.push(e), { judge });
-  assert.match(es.find((e) => e.type === 'agent_note').text, /^你想省錢，我先看天氣/);
+  assert.match(es.find((e) => e.type === 'agent_note').text, /^[你您]想省錢，我先看天氣/);
   const w = es.find((e) => e.type === 'tool_result' && e.tool === 'weather_now');
   assert.deepEqual(w.impact, { tone: 'bad', text: '下雨：走路、YouBike 在「戶外」會扣分' });
 });
@@ -64,12 +64,12 @@ test('快速判斷先說聽懂了（不等模型），完整判斷多找到的�
   const q = await judge.quick('帶行李從台北車站到松山機場');
   assert.equal(llmCalls, 0, '快速版不問模型');
   assert.equal(q.intent, 'trip');
-  assert.equal(moreStatesNote({ states: [] }, { states: ['luggage', 'rush'] }), '我還注意到你帶行李、趕時間，會一起算進去');
+  assert.equal(moreStatesNote({ states: [] }, { states: ['luggage', 'rush'] }), '我還注意到您帶行李、趕時間，會一起算進去');
   assert.equal(moreStatesNote({ states: ['rush'] }, { states: ['rush'] }), null);
   const es = [];
   await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '帶行李從台北車站到松山機場' }] }, (e) => es.push(e), { judge });
   assert.equal(llmCalls, 1, '完整版仍會問一次模型');
-  assert.match(es.find((e) => e.type === 'agent_note').text, /^你帶行李，我先看天氣/);
+  assert.match(es.find((e) => e.type === 'agent_note').text, /^[你您]帶行李，我先看天氣/);
 });
 
 test('YouBike 兩端：優先選車夠、空位夠的站；很緊時警告並給備用站；起點沒車或終點沒空位寫出原因', async () => {
@@ -117,7 +117,7 @@ test('指定交通方式沒有可行方案：照分數建議並明說；最近�
   const f = nearestStop(dirs, { lat: 25.0101, lon: 121.5 });
   assert.deepEqual([f.stopName, f.direction], ['B', 1], '兩個方向都有 B：挑車比較快到的');
   assert.equal(nearestStop([], { lat: 25, lon: 121.5 }), null);
-  assert.equal(nearestStop(dirs, { lat: 25.2, lon: 121.5 }), null, '超過 3 公里不說離你最近');
+  assert.equal(nearestStop(dirs, { lat: 25.2, lon: 121.5 }), null, '超過 3 公里不說離您最近');
 
   const { callTool } = await import('../core/tools/index.js');
   await assert.rejects(callTool(createServices({ forceMock: true }), 'bus_route_eta', { routeName: '307' }), /哪個縣市/, '說明下一步');

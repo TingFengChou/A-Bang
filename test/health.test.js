@@ -152,7 +152,7 @@ test('文案：天氣好又動得少 → 去走走（地點＋時間）；沒有
   assert.equal(nudgeFor({ health: fine, ...NICE, asked: true }, now).kind, 'ok');
   // 讀不到步數：沒問不說；自己問說原因
   assert.equal(nudgeFor({ health: null, ...NICE }, now).kind, 'none');
-  assert.match(nudgeFor({ health: null, ...NICE, asked: true }, now).text, /讀不到你的步數/);
+  assert.match(nudgeFor({ health: null, ...NICE, asked: true }, now).text, /讀不到[你您]的步數/);
   // 晚上不推
   assert.equal(nudgeFor({ health: normalizeHealth(days({ steps: 900, exerciseMin: 0 }), at('20:30')), ...NICE }, at('20:30')).kind, 'none');
 });
@@ -285,12 +285,12 @@ test('問阿幫：一天主動提一次、按「今天不用」就不提；首�
   assert.equal((await H.homeNudge(d, at('14:00', '2026-11-23')))?.kind, 'go');
 });
 
-test('散步建議只用你在的地方：用了手機定位，或離你 3 公里內（問高雄天氣不拿來建議）', () => {
+test('散步建議只用您在的地方：用了手機定位，或離您 3 公里內（問高雄天氣不拿來建議）', () => {
   const taipei = { lat: 25.0478, lon: 121.517 };
   assert.equal(H.nearMe({ lat: 22.62, lon: 120.30 }, taipei), false, '問高雄天氣');
   assert.equal(H.nearMe({ lat: 25.1677, lon: 121.4455 }, taipei), false, '定位了、但問的是淡水那邊');
   assert.equal(H.nearMe({ lat: 25.05, lon: 121.52 }, taipei), true);
-  assert.equal(H.nearMe({ lat: 25.05, lon: 121.52 }, null), false, '不知道你在哪：不用');
+  assert.equal(H.nearMe({ lat: 25.05, lon: 121.52 }, null), false, '不知道您在哪：不用');
   assert.equal(H.nearMe(null, taipei), false);
 });
 
@@ -313,7 +313,7 @@ test('健康資料不送伺服器：前端健康模組不呼叫阿幫 API；agen
   const agent = await readFile(new URL('../public/js/pages/agent.js', import.meta.url), 'utf8');
   const call = agent.split('\n').find((l) => l.includes('await runAgent('));
   assert.ok(call && !/health|step|步數/i.test(call), 'runAgent 的請求沒有健康欄位');
-  const fn = agent.slice(agent.indexOf('async function addHealthSay'), agent.indexOf('/** 「阿幫問你」的答案'));
+  const fn = agent.slice(agent.indexOf('async function addHealthSay'), agent.indexOf('/** 「阿幫問你」的答案')); // 註解沒改稱呼
   assert.ok(fn && !/history\.push|saveChat|runAgent|send\(/.test(fn), '補的那一句不進對話紀錄、不送出');
   // 伺服器、agent、habits（userState）都沒有健康欄位
   for (const f of ['core/agent/prompt.js', 'core/agent/run.js', 'core/agent/model-loop.js', 'server/agent.js', 'public/js/habits.js', 'public/js/agent/client.js']) {

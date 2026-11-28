@@ -18,7 +18,7 @@ test('regraphData：重算後行程卡的建議、排序、理由、狀況換成
 });
 
 test('regraphNote：推薦換了才補一句；換回原本的不說', () => {
-  assert.equal(regraphNote(x, 'metro'), '依你選的「帶行李」重算，改推「叫車」。');
+  assert.equal(regraphNote(x, 'metro'), '依您選的「帶行李」重算，改推「叫車」。');
   assert.equal(regraphNote({ ...x, labels: [] }, 'metro'), '重算後改推「叫車」。');
   assert.equal(regraphNote(x, 'metro', 'en'), 'Recalculated with what you picked: now 叫車.');
   assert.equal(regraphNote({ ...x, best: 'metro' }, 'metro'), null, '還是同一個');

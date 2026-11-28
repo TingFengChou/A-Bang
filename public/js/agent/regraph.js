@@ -21,7 +21,7 @@ export function regraphNote(x, serverBest, lang = null) {
   if (!x?.changed || !x.best || x.best === serverBest || !x.bestName) return null;
   const labels = (x.labels || []).filter(Boolean);
   if (lang === 'en') return `Recalculated with what you picked: now ${x.bestName}.`;
-  return labels.length ? `依你選的「${labels.join('、')}」重算，改推「${x.bestName}」。` : `重算後改推「${x.bestName}」。`;
+  return labels.length ? `依您選的「${labels.join('、')}」重算，改推「${x.bestName}」。` : `重算後改推「${x.bestName}」。`;
 }
 
 /**

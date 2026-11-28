@@ -24,7 +24,7 @@ test('tripOf：坐車中優先；等車中說提醒；連結回公車頁（帶�
   const arrival = { city: 'Taipei', routeName: '307', stop: '和平體育館', direction: 1, minutes: 3 };
   const w = tripOf({ arrival, now });
   assert.equal(w.kind, 'waiting');
-  assert.equal(w.text, '307 在「和平體育館」上車・到站前 3 分提醒你', '說上車站，不像目的地');
+  assert.equal(w.text, '307 在「和平體育館」上車・到站前 3 分提醒您', '說上車站，不像目的地');
   assert.equal(tripOf({ arrival: { ...arrival, last: { etaSec: 400, at: now - 100_000 } }, now }).text, '307 在「和平體育館」上車・約 5 分到站');
   assert.equal(tripOf({ arrival: { ...arrival, last: { etaSec: 50, at: now } }, now }).text, '307 在「和平體育館」上車・車快到了');
   assert.equal(w.href, `#/bus/Taipei/307?stop=${encodeURIComponent('和平體育館')}&dir=1`);
@@ -34,9 +34,9 @@ test('tripOf：坐車中優先；等車中說提醒；連結回公車頁（帶�
   assert.match(r.href, /^#\/bus\/Taipei\/307\?stop=.+&dir=0$/);
 });
 
-test('街景：坐車中快到時說「準備下車」，不說「就在你這站」', () => {
+test('街景：坐車中快到時說「準備下車」，不說「就在您這站」', () => {
   assert.match(sceneSay({ routeName: '307', away: 0, etaSec: 40, etaText: '快到了', riding: true }).head, /快到了，準備下車/);
-  assert.match(sceneSay({ routeName: '307', away: 0, etaSec: 40, etaText: '進站中' }).head, /就在你這站/);
+  assert.match(sceneSay({ routeName: '307', away: 0, etaSec: 40, etaText: '進站中' }).head, /就在[你您]這站/);
 });
 
 test('onBusPage：同路線、同上車站與方向才不顯示；別站或別方向照樣顯示（編碼與否都算）', () => {

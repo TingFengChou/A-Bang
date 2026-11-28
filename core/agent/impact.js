@@ -17,22 +17,22 @@ const MODE_SAY = { bus: '坐公車', bike: '騎 YouBike', walk: '走路', rideha
 export function judgeNote(j) {
   if (!j || j.intent !== 'trip') return null;
   const st = (j.states || []).map((k) => STATE_SAY[k]).filter(Boolean);
-  if (j.followUp) return `${j.mode ? `照你說的改成${MODE_SAY[j.mode] || j.mode}` : `好，${st.length ? `你${st.join('、')}` : '換個條件'}`}，用剛才的起點和目的地重算`.slice(0, 60);
+  if (j.followUp) return `${j.mode ? `照您說的改成${MODE_SAY[j.mode] || j.mode}` : `好，${st.length ? `您${st.join('、')}` : '換個條件'}`}，用剛才的起點和目的地重算`.slice(0, 60);
   // 帶長輩、帶小孩、行動不便：先說會避開哪些方式（PR #36 設計審查）
   const avoid = [...new Set((j.states || []).flatMap((k) => STATES[k]?.exclude || []))].map((m) => AVOID_SAY[m]).filter(Boolean);
-  return `${st.length ? `你${st.join('、')}，` : ''}${avoid.length ? `我會避開${avoid.join('和')}，` : ''}我先看天氣、空品、路況，再比較幾種走法`.slice(0, 60);
+  return `${st.length ? `您${st.join('、')}，` : ''}${avoid.length ? `我會避開${avoid.join('和')}，` : ''}我先看天氣、空品、路況，再比較幾種走法`.slice(0, 60);
 }
 
 /** 出門建議前的一句：帶小孩或長輩時說空品標準會放嚴（不用行程的說法）；其他回 null */
 export function outingNote(states = []) {
   const who = states.includes('kids') ? '小孩' : states.includes('elder') ? '長輩' : null;
-  return who ? `你帶著${who}，我會把空品標準放嚴一點` : null;
+  return who ? `您帶著${who}，我會把空品標準放嚴一點` : null;
 }
 
 /** 完整判斷比快速判斷多找到的狀態 → 阿幫補一句（例：「我還注意到你帶行李」）；沒有新的回 null */
 export function moreStatesNote(quick, full) {
   const extra = (full?.states || []).filter((k) => !(quick?.states || []).includes(k)).map((k) => STATE_SAY[k]).filter(Boolean);
-  return extra.length ? `我還注意到你${extra.join('、')}，會一起算進去` : null;
+  return extra.length ? `我還注意到您${extra.join('、')}，會一起算進去` : null;
 }
 
 /** YouBike 兩端（起點有車、終點有空位）：很緊或不可行時一定要說 */
@@ -80,7 +80,7 @@ export function impactOf(name, data) {
       const best = data.options?.find((o) => o.id === data.best);
       if (data.modeUnavailable && best) return [{ tone: 'bad', text: `沒有可行的${{ walk: '步行', bike: 'YouBike', bus: '公車', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車', drive: '開車' }[data.modeUnavailable] || ''}方案：改建議${best.name}` }, bikeImpact(data)].filter(Boolean);
       if (data.single && best) return [{ tone: 'bad', text: data.single.text }, bikeImpact(data)].filter(Boolean); // 只有一種方式：說明其他方式為什麼不在
-      const main = best && top ? { tone: 'good', text: data.mode ? `照你說的選${best.name}（${data.ranking.ranked.find((r) => r.id === best.id)?.score ?? '?'} 分）` : `比了 ${data.options.length} 種走法：${best.name} ${top.score} 分最高` } : { tone: 'bad', text: '這次沒有可行的走法' };
+      const main = best && top ? { tone: 'good', text: data.mode ? `照您說的選${best.name}（${data.ranking.ranked.find((r) => r.id === best.id)?.score ?? '?'} 分）` : `比了 ${data.options.length} 種走法：${best.name} ${top.score} 分最高` } : { tone: 'bad', text: '這次沒有可行的走法' };
       const lines = [main, bikeImpact(data), missingImpact(data)].filter(Boolean);
       return lines.length > 1 ? lines : main;
     }

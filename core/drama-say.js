@@ -31,7 +31,7 @@ export function linkFrom(template, { id, ep } = {}) {
 const SAY = {
   zh: {
     wait: ({ min, title, ep, free }) => `等車還要 ${min} 分，剛好夠看一集短劇：《${title}》第 ${ep} 集${free ? `（前 ${free} 集免費）` : ''}。`,
-    remind: ({ min, title, ep, free }) => `還要等約 ${min} 分，車快到時阿幫會提醒你，不用一直盯著：先看一集《${title}》第 ${ep} 集${free ? `（前 ${free} 集免費）` : ''}？`,
+    remind: ({ min, title, ep, free }) => `還要等約 ${min} 分，車快到時阿幫會提醒您，不用一直盯著：先看一集《${title}》第 ${ep} 集${free ? `（前 ${free} 集免費）` : ''}？`,
     watch: '看這集', dismiss: '不用了', note: '在 MyDrama 播放；設定裡可以關掉這個提示',
     exercise: '天氣不錯，今天動得比較少，出去走走吧！MyDrama 的活動頁也有跟運動有關的活動。',
     exerciseCta: '看 MyDrama 活動頁',

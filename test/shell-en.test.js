@@ -19,7 +19,7 @@ test('外殼字典：中英同鍵、佔位符相同、英文不含中文', () =>
 test('外殼中文：分頁列（首頁／服務／問阿幫／提醒／我的）與其他外殼文字', () => {
   const zh = shellT(null);
   assert.deepEqual(['skip', 'back', 'tab.home', 'tab.services', 'tab.ask', 'tab.reminders', 'tab.me', 'fab', 'fabChat', 'fabUnread', 'sheetTitle', 'sheetFull', 'sheetClose', 'bubbleOk'].map((k) => zh(k)),
-    ['跳到主要內容', '返回', '首頁', '服務', '問阿幫', '提醒', '我的', '問阿幫', '問阿幫（對話還在）', '問阿幫（阿幫有話跟你說）', '問阿幫', '放大成整頁', '收起對話（對話會保留）', '知道了']);
+    ['跳到主要內容', '返回', '首頁', '服務', '問阿幫', '提醒', '我的', '問阿幫', '問阿幫（對話還在）', '問阿幫（阿幫有話跟您說）', '問阿幫', '放大成整頁', '收起對話（對話會保留）', '知道了']);
   // 中央鍵的讀屏名稱都以看得到的字「問阿幫」開頭（WCAG 2.5.3 label in name）
   for (const k of ['fab', 'fabChat', 'fabUnread']) assert.match(zh(k), /^問阿幫/, k);
   for (const k of ['fab', 'fabChat', 'fabUnread']) assert.match(shellT('en')(k), /^Ask Abang/, k);

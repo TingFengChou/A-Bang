@@ -23,8 +23,8 @@ export function memoryRows({ places = {}, area = null, habits = null, chat = nul
   }
   if (area) rows.push({ id: 'area', group: '預設地區', title: areaLabel(area), sub: '沒開定位時先用這一區查', forget: '忘掉' });
   if (habits) {
-    for (const m of habits.confirmed || []) rows.push({ id: `habit:${m}`, group: '交通習慣', title: `優先推${habitName(m)}`, sub: '你說過「好」', forget: '不用了' });
-    for (const k of habits.usual || []) rows.push({ id: `usual:${k}`, group: '交通習慣', title: USUAL_LABEL[k] || k, sub: '你說過的狀況（每次會再問）', forget: '忘掉' });
+    for (const m of habits.confirmed || []) rows.push({ id: `habit:${m}`, group: '交通習慣', title: `優先推${habitName(m)}`, sub: '您說過「好」', forget: '不用了' });
+    for (const k of habits.usual || []) rows.push({ id: `usual:${k}`, group: '交通習慣', title: USUAL_LABEL[k] || k, sub: '您說過的狀況（每次會再問）', forget: '忘掉' });
     if (habits.total) rows.push({ id: 'picks', group: '交通習慣', title: `記了 ${habits.total} 次選擇`, sub: '只有交通方式和時間，沒有地點', forget: '全部清掉' });
   }
   if (chat?.length) rows.push({ id: 'chat', group: '對話', title: `上次的對話（${chat.length} 則）`, sub: '只有文字，12 小時後自動清掉', forget: '清掉' });
@@ -58,14 +58,14 @@ export function openMemorySheet({ toast } = {}) {
     dlg.innerHTML = `
       <div class="sheet-head"><span class="sheet-grip" aria-hidden="true"></span>
         <img src="/brand/abang-happy.svg" alt="" width="40" height="40">
-        <h2 id="mem-title" tabindex="-1">阿幫記得你</h2>
+        <h2 id="mem-title" tabindex="-1">阿幫記得您</h2>
         <button type="button" class="btn small quiet mem-close">完成</button></div>
       <div class="sheet-body">
         <p class="mem-lead">這些都只存在這支手機，不會上傳。問阿幫時，只送那一題用得到的地點。</p>
         ${rows.length ? groups.map((g) => `<section class="mem-group" aria-label="${esc(g)}"><h3>${esc(g)}</h3><div class="card list">${rows.filter((r) => r.group === g).map((r) => `
           <div class="mem-row" data-id="${esc(r.id)}"><div class="grow"><div class="title">${esc(r.title)}</div><div class="sub">${esc(r.sub)}</div></div>
           ${r.forget ? `<button type="button" class="btn small quiet mem-forget" data-id="${esc(r.id)}" aria-label="${esc(`${r.forget}：${r.title}`)}">${esc(r.forget)}</button>` : '<a class="btn small quiet" href="#/reminders">看提醒</a>'}</div>`).join('')}</div></section>`).join('')
-    : '<p class="mem-empty">阿幫現在什麼都沒記。設定家和公司後，每天早上會幫你看怎麼去。</p>'}
+    : '<p class="mem-empty">阿幫現在什麼都沒記。設定家和公司後，每天早上會幫您看怎麼去。</p>'}
         <p class="mem-more"><a class="btn small" href="#/settings">設定常用地點與預設地區 ›</a></p>
       </div>`;
     dlg.querySelector('.mem-close').addEventListener('click', () => dlg.close());

@@ -38,7 +38,7 @@ test('其他意圖：公車、YouBike、高鐵、捷運、生活服務都以卡�
     assert.equal(es.filter((e) => e.type === 'tool_result').at(-1).card, card, q);
     assert.ok(!es.some((e) => e.type === 'decision'), q);
   }
-  assert.deepEqual(types(await collect('你好')), ['status', 'text', 'done']);
+  assert.deepEqual(types(await collect('您好')), ['status', 'text', 'done']);
 });
 
 test('使用者點選的狀態：帶進 plan_trip 並在 decision 標為 picked', async () => {
@@ -73,7 +73,7 @@ test('validateRequest：長度、則數、最後一則必須是使用者', () =>
 test('deviceLocation：台灣範圍內才採用；拒絕或無效回 null；沒回傳 undefined', async () => {
   const { deviceLocation } = await import('../core/agent/run.js');
   const r = (x) => deviceLocation({ clientToolResults: x });
-  assert.deepEqual(r([{ id: 'loc1', ok: true, result: { lat: 25.04, lon: 121.5 } }]), { name: '你的位置', lat: 25.04, lon: 121.5 });
+  assert.deepEqual(r([{ id: 'loc1', ok: true, result: { lat: 25.04, lon: 121.5 } }]), { name: '您的位置', lat: 25.04, lon: 121.5 });
   assert.equal(r([{ id: 'loc1', ok: true, result: { lat: 35.6, lon: 139.7 } }]), null); // 東京
   assert.equal(r([{ id: 'loc1', ok: false }]), null);
   assert.equal(r(undefined), undefined);

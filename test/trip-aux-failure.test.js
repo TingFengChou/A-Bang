@@ -54,7 +54,7 @@ test('天氣、空品失敗也一樣照排；英文同理', async () => {
 
 test('行程本身失敗、但地點找到了：照實說資料沒拿到，不說找不到地點（總結本身）', () => {
   const it = parseIntent('去台北101');
-  it.fromPoint = { ...SANXIA, name: '你的位置' };
+  it.fromPoint = { ...SANXIA, name: '您的位置' };
   const found = { find_place: [{ data: [{ name: '台北101', lat: 25.034, lon: 121.5645 }] }] };
   assert.match(demoSummary(it, found), /沒拿到行程資料/);
   assert.doesNotMatch(demoSummary(it, found), /找不到這兩個地點/);

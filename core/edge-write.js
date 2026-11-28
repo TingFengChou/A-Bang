@@ -16,7 +16,7 @@ export const WRITE_MAX_INPUT = 4000;
 
 /** 給手機模型的指示（兩個平台共用；語氣見 docs/BRAND.md §4：先講結論、口語短句、台灣用語） */
 export const WRITE_INSTRUCTIONS = {
-  zh: `你是「阿幫」，台灣的交通與生活小幫手，說話親切、簡短、先講結論，用台灣的繁體中文。
+  zh: `你是「阿幫」，台灣的交通與生活小幫手，說話親切、簡短、先講結論，用台灣的繁體中文；稱呼使用者用「您」。
 把「草稿」改寫成自然的一兩句話（${WRITE_TARGET_CHARS} 字以內）。
 規則：
 1. 草稿裡的每個數字、時間、站名、路線、金額都要原樣保留，順序也不要換：不能改、不能少、不能換算、不能改用國字。
@@ -130,7 +130,7 @@ const EN_BIG = /\b(?:eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|e
 const DAYPART = /早上|上午|中午|下午|傍晚|晚上|凌晨|半夜|清晨|深夜|\b(?:morning|afternoon|evening|tonight|noon|midnight)\b/gi;
 
 // ADR-0011：阿幫只產生官方連結，不能說已經幫你叫車、訂票、預約、安排、設提醒、付款
-const DONE_ZH = /(?:已|已經|幫你|替你|為你|幫您|替您|為您)[^。！？\n]{0,6}(?:叫好|叫到|叫了|訂好|訂到|訂了|預訂|預約|付款|付好|付了|付清|買好|買了|下單|安排好|安排了|設好|設定好|排好|完成預訂|完成付款|完成預約)|(?:叫好|訂好|買好|付好|設好)(?:車|票|位|提醒)?了|(?:提醒|鬧鐘)(?:已經?)?(?:設好|設定好)|(?:司機|車子?)(?:已經?|正)在路上|(?:已經?)出發去接你/;
+const DONE_ZH = /(?:已|已經|幫[你您]|替[你您]|為[你您]|幫您|替您|為您)[^。！？\n]{0,6}(?:叫好|叫到|叫了|訂好|訂到|訂了|預訂|預約|付款|付好|付了|付清|買好|買了|下單|安排好|安排了|設好|設定好|排好|完成預訂|完成付款|完成預約)|(?:叫好|訂好|買好|付好|設好)(?:車|票|位|提醒)?了|(?:提醒|鬧鐘)(?:已經?)?(?:設好|設定好)|(?:司機|車子?)(?:已經?|正)在路上|(?:已經?)出發去接[你您]/;
 const DONE_EN = /\b(?:i|we)(?:'ve| have)?\s+(?:already\s+)?(?:booked|ordered|paid|reserved|bought|purchased|arranged|scheduled|set up|set|called)\b|\b(?:has|have|is|are) been (?:booked|paid|reserved|ordered|purchased|arranged|scheduled)\b|\bbooked for you\b|\b(?:your|the)\s+(?:uber|taxi|cab|ride|car|driver)\s+(?:is|'s)\s+on\s+(?:its|the|their|his|her)\s+way\b|\bdriver is on the way\b|\breminder (?:is|has been) set\b/i;
 /** 說「已經幫你叫車、訂票、預約、設提醒、付款」（ADR-0011，中英文）：阿幫只給連結。手機出的題目（core/edge-ask.js）也用同一條 */
 export const claimsDone = (text) => DONE_ZH.test(String(text || '')) || DONE_EN.test(String(text || ''));
@@ -139,11 +139,11 @@ const KEEP = [
   { draft: /示範/, zh: /示範/, en: /demo/i, name: 'demo' },
   { draft: /末班|last (?:train|bus|service)/i, zh: /末班/, en: /\blast\b/i, name: 'last' },
   { draft: /停駛|suspended/i, zh: /停駛/, en: /suspend/i, name: 'suspended' },
-  { draft: /沒拿到你的位置|couldn't get your location/i, zh: /沒拿到.{0,4}位置/, en: /location/i, name: 'noLocation' },
+  { draft: /沒拿到[你您您]的位置|couldn't get your location/i, zh: /沒拿到.{0,4}位置/, en: /location/i, name: 'noLocation' },
   { draft: /傘|umbrella/i, zh: /傘/, en: /umbrella/i, name: 'umbrella' },
   { draft: /時間很緊|tight/i, zh: /緊|趕/, en: /tight|hurry|now/i, name: 'tight' },
   // 使用者指定的交通方式（「照你說的選捷運（分數最高的是公車 939）」）：改寫不能拿掉「照你說的」，否則變成阿幫推薦分數較低的方案（腦袋審查 #2，Pixel 實測）
-  { draft: /照你說的/, zh: /(?:照|依|按)你(?:所)?說|你(?:說要|指定|要的|選的)/, en: /you (?:asked|chose|picked|wanted)|as you (?:asked|said)|requested/i, name: 'userPick' },
+  { draft: /照[你您您]說的/, zh: /(?:照|依|按)[你您您](?:所)?說|[你您您](?:說要|指定|要的|選的)/, en: /you (?:asked|chose|picked|wanted)|as you (?:asked|said)|requested/i, name: 'userPick' },
   { draft: /設定與隱私 → 常用地點/, zh: /設定與隱私 → 常用地點/, en: /設定與隱私 → 常用地點/, name: 'settings' }, // 畫面靠這串字放「到常用地點設定」按鈕
 ];
 // 否定詞加在提醒或數字前面（「不用帶傘」「不是末班」「不用打 119」）：草稿沒這樣說就是把意思改反了

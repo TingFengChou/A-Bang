@@ -53,7 +53,7 @@ export function mountAsk(ask, { lang = null, onAnswer }) {
   box.setAttribute('role', 'group');
   box.setAttribute('aria-labelledby', qid);
   box.dataset.about = ask.about || '';
-  const head = el('p', 'ask-head', en ? 'Abang asks' : '阿幫問你');
+  const head = el('p', 'ask-head', en ? 'Abang asks' : '阿幫問您');
   const q = el('p', 'ask-q', ask.question);
   q.id = qid;
   q.setAttribute('aria-live', 'polite');

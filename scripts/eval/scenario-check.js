@@ -23,7 +23,7 @@ export function check(es, x = {}) {
   if (x.bestRole && best?.role !== x.bestRole) bad.push(`最佳方案應為 ${x.bestRole}（是 ${best?.role ?? '無'}）`);
   if (x.bestRoleNot && best?.role === x.bestRoleNot) bad.push(`最佳方案不該是 ${x.bestRoleNot}`);
   if ('arriveBy' in x && (d?.arriveBy ?? null) !== x.arriveBy) bad.push(`抵達時間應為 ${x.arriveBy}（是 ${d?.arriveBy ?? null}）`);
-  if (x.fromHere && trip?.data?.from?.name !== '你的位置') bad.push(`起點應為你的位置（是 ${trip?.data?.from?.name}）`);
+  if (x.fromHere && !/^[你您]的位置$/.test(trip?.data?.from?.name || '')) bad.push(`起點應為您的位置（是 ${trip?.data?.from?.name}）`);
   if (x.from && !norm(trip?.data?.from?.name).includes(norm(x.from))) bad.push(`起點應為 ${x.from}（是 ${trip?.data?.from?.name}）`);
   if (x.fromNot && trip && norm(trip.data?.from?.name).includes(norm(x.fromNot))) bad.push(`起點不該是 ${x.fromNot}`);
   if (x.to && !norm(trip?.data?.to?.name).includes(norm(x.to))) bad.push(`終點應為 ${x.to}（是 ${trip?.data?.to?.name}）`);

@@ -21,10 +21,10 @@ const demo = async (content, body = {}) => { const es = []; await runDemo(create
 
 // ── 關鍵問題（core/decide.js keyQuestion）──
 
-test('會問：西門町→101 沒說狀況，公車與叫車差 5 分、270 元 →「叫車快 5 分但多 270 元，你趕時間嗎？」', async () => {
+test('會問：西門町→101 沒說狀況，公車與叫車差 5 分、270 元 →「叫車快 5 分但多 270 元，您趕時間嗎？」', async () => {
   const r = await trip('西門町', '台北101');
   assert.equal(r.ask.state, 'rush');
-  assert.equal(r.ask.text, '叫車（Uber）快 5 分但多 270 元，你趕時間嗎？');
+  assert.equal(r.ask.text, '叫車（Uber）快 5 分但多 270 元，您趕時間嗎？');
   assert.match(r.ask.textEn, /^A taxi is 5 min faster but costs NT\$270 more\. In a hurry\?$/);
   // 加上「趕時間」重算真的會換成問句說的方案
   const after = await trip('西門町', '台北101', { states: ['rush'] });
@@ -75,12 +75,12 @@ test('不問：抵達時間會排除的方案不會被問（硬限制在前）',
 test('ev.ask：格式、kind 只能是 state／reply／store／dismiss／action、依 kind 的欄位、選項 1～6 個、pending', () => {
   assert.ok(EVENT_TYPES.includes('ask'));
   assert.deepEqual(ASK_KINDS, ['state', 'reply', 'store', 'dismiss', 'action']);
-  const e = ev.ask({ id: 'q1', question: '你趕時間嗎？', options: [{ label: '趕', kind: 'state', state: 'rush', say: '我趕時間' }, { label: '不趕', kind: 'dismiss' }], about: 'state:rush', pending: { slot: 'state', state: 'rush' } });
-  assert.deepEqual(e, { type: 'ask', id: 'q1', question: '你趕時間嗎？', options: [{ label: '趕', kind: 'state', state: 'rush', say: '我趕時間' }, { label: '不趕', kind: 'dismiss' }], about: 'state:rush', pending: { slot: 'state', state: 'rush' }, askSource: 'rule' }, '程式產生的題目標 askSource rule（ADR-0020）');
+  const e = ev.ask({ id: 'q1', question: '您趕時間嗎？', options: [{ label: '趕', kind: 'state', state: 'rush', say: '我趕時間' }, { label: '不趕', kind: 'dismiss' }], about: 'state:rush', pending: { slot: 'state', state: 'rush' } });
+  assert.deepEqual(e, { type: 'ask', id: 'q1', question: '您趕時間嗎？', options: [{ label: '趕', kind: 'state', state: 'rush', say: '我趕時間' }, { label: '不趕', kind: 'dismiss' }], about: 'state:rush', pending: { slot: 'state', state: 'rush' }, askSource: 'rule' }, '程式產生的題目標 askSource rule（ADR-0020）');
   const r = ev.ask({ id: 'q2', question: '要從哪一站出發？', options: [{ label: '台中', kind: 'reply', say: '高鐵台中到台北多少錢', guess: true }], pending: { slot: 'railFrom', intent: { intent: 'rail', to: '台北' } } });
   assert.deepEqual(r.options[0], { label: '台中', kind: 'reply', guess: true, say: '高鐵台中到台北多少錢' }, 'reply 送完整的一句');
   assert.equal(r.pending.slot, 'railFrom');
-  const a = ev.ask({ id: 'q5', question: '要我提醒你嗎？', options: [{ label: '到站前 3 分提醒我', kind: 'action', action: { name: 'watchArrival', city: 'Taipei', routeName: '307', stop: '台北車站', minutes: 3 } }, { label: '不用', kind: 'dismiss' }] });
+  const a = ev.ask({ id: 'q5', question: '要我提醒您嗎？', options: [{ label: '到站前 3 分提醒我', kind: 'action', action: { name: 'watchArrival', city: 'Taipei', routeName: '307', stop: '台北車站', minutes: 3 } }, { label: '不用', kind: 'dismiss' }] });
   assert.equal(a.options[0].action.name, 'watchArrival');
   assert.throws(() => ev.ask({ id: 'q6', question: 'x', options: [{ label: 'a', kind: 'action', action: { name: 'pay' } }] }), /action/);
   assert.throws(() => ev.ask({ id: 'q7', question: 'x', options: [{ label: 'a', kind: 'action', action: { name: 'openLink', url: 'javascript:alert(1)' } }] }), /https/);
@@ -90,7 +90,7 @@ test('ev.ask：格式、kind 只能是 state／reply／store／dismiss／action�
   assert.throws(() => ev.ask({ question: 'x', options: [{ label: 'a', kind: 'dismiss' }] }), /缺少 id/);
 });
 
-test('pending：直接打「好」回答「你趕時間嗎？」→ 改寫成「我趕時間」接著上一輪重算；問別的照原句', async () => {
+test('pending：直接打「好」回答「您趕時間嗎？」→ 改寫成「我趕時間」接著上一輪重算；問別的照原句', async () => {
   assert.equal(resolvePending({ slot: 'state', state: 'rush' }, '好'), '我趕時間');
   assert.equal(resolvePending({ slot: 'state', state: 'luggage' }, 'yes'), "I'm carrying luggage");
   assert.equal(resolvePending({ slot: 'state', state: 'rush' }, '那松山機場呢'), null);
@@ -121,11 +121,11 @@ test('pending：直接打「好」回答「你趕時間嗎？」→ 改寫成「
 test('tripAsk：習慣候選在方案裡 → 問要不要優先推（「好」是猜的、放第一個）；叫車問原因（五個選項）；英文', async () => {
   const r = await trip('西門町', '台北101');
   const h = tripAsk(r, { habitAsk: { mode: 'metro', count: 6 } });
-  assert.equal(h.question, '我注意到你最近常搭捷運（6 次）。以後你沒說條件時，要我優先推捷運嗎？');
+  assert.equal(h.question, '我注意到您最近常搭捷運（6 次）。以後您沒說條件時，要我優先推捷運嗎？');
   assert.deepEqual(h.options.map((o) => [o.label, o.value, o.kind, !!o.guess]), [['好', 'habit:yes:metro', 'store', true], ['不用', 'habit:no:metro', 'store', false]]);
   assert.equal(h.pending, undefined, '按鈕或「好」在手機上就處理掉');
   const ride = tripAsk(r, { habitAsk: { mode: 'ridehail', count: 7 } });
-  assert.equal(ride.question, '你常叫車（7 次），通常是因為？');
+  assert.equal(ride.question, '您常叫車（7 次），通常是因為？');
   assert.deepEqual(ride.options.map((o) => o.value), ['ride:rush', 'ride:luggage', 'ride:lessWalk', 'ride:love', 'ride:depends']);
   assert.deepEqual(ride.options.map((o) => o.label), ['趕時間', '常帶東西', '不想走路', '就是喜歡叫車', '不一定']);
   assert.match(tripAsk(r, { habitAsk: { mode: 'metro', count: 6 }, lang: 'en' }).question, /^You've picked the MRT a lot lately \(6 times\)/);
@@ -146,7 +146,7 @@ test('示範模式：行程後送一個 ask（關鍵因子），在 decision 之
   assert.equal(t.filter((x) => x === 'ask').length, 1);
   assert.ok(t.indexOf('ask') > t.indexOf('decision'));
   const a = es.find((e) => e.type === 'ask');
-  assert.equal(a.question, '叫車（Uber）快 5 分但多 270 元，你趕時間嗎？');
+  assert.equal(a.question, '叫車（Uber）快 5 分但多 270 元，您趕時間嗎？');
   assert.equal((await demo('我很趕，從西門町去台北101')).some((e) => e.type === 'ask'), false);
   assert.equal((await demo('從西門町去台北101', { userState: { picked: ['budget'] } })).some((e) => e.type === 'ask'), false);
   assert.match((await demo('Ximending to Taipei 101')).find((e) => e.type === 'ask')?.question || '', /^[^一-鿿]+\?$/, '英文提問：問句也是英文');
@@ -167,7 +167,7 @@ test('說過的預設狀況（usual）：不自動套用；會改變建議時問
   const a = es.find((e) => e.type === 'ask');
   assert.equal(a.question, '這次也帶東西嗎？');
   assert.equal(a.about, 'usual:luggage');
-  assert.match(a.why, /你說過常帶東西；是的話改推叫車/);
+  assert.match(a.why, /[你您]說過常帶東西；是的話改推叫車/);
   assert.deepEqual(a.options.map((o) => [o.label, o.kind, o.state, o.source, !!o.guess]), [['是', 'state', 'luggage', 'usual', true], ['這次沒有', 'dismiss', undefined, undefined, false]]);
   assert.equal(a.key, undefined, '「這次」的問題每次都問（不受 24 小時限制）');
   assert.equal((await demo('我很趕，從西門町去台北101', { userState: { usual: ['luggage'] } })).some((e) => e.type === 'ask'), false, '這一輪說了狀況');
@@ -236,8 +236,8 @@ test('matchAnswer：新問題不能被當成答案（尤其不能寫進手機偏
 
 test('情境檢查：asks／asksNone／askOptions／askKind／askGuess／toNot', async () => {
   const { check } = await import('../scripts/eval/scenario-check.js');
-  const es = [{ type: 'ask', id: 'q', question: '你要從哪一站出發？', options: [{ label: '台中', kind: 'reply', say: '高鐵台中到台北多少錢', guess: true }, { label: '左營', kind: 'reply', say: '高鐵左營到台北多少錢' }] },
-    { type: 'tool_result', tool: 'plan_trip', data: { from: { name: '你的位置' }, to: { name: '台北車站' } } }];
+  const es = [{ type: 'ask', id: 'q', question: '您要從哪一站出發？', options: [{ label: '台中', kind: 'reply', say: '高鐵台中到台北多少錢', guess: true }, { label: '左營', kind: 'reply', say: '高鐵左營到台北多少錢' }] },
+    { type: 'tool_result', tool: 'plan_trip', data: { from: { name: '您的位置' }, to: { name: '台北車站' } } }];
   assert.deepEqual(check(es, { asks: ['哪一站'], askOptions: ['台中', '左營'], askKind: 'reply', askGuess: true, toNot: '台中' }), []);
   assert.equal(check(es, { asksNone: true }).length, 1);
   assert.equal(check([], { asks: '哪一站' }).length, 1, '沒有 ask 事件算失敗');

@@ -43,9 +43,9 @@ export function aftermath(text, { history = [] } = {}) {
 
 /** 事後求助的固定步驟（不經工具；模型模式的規則在 antifraud.json） */
 const AFTERMATH = {
-  paid: '先別慌，越快處理越有機會把錢攔下來：\n① 馬上撥 165 反詐騙專線或 110 報案。\n② 打給你的銀行或發卡行客服，說明被詐騙，要求止付、凍結轉出的款項或卡片。\n③ 保留對話、簡訊、通話與轉帳紀錄和對方帳號，先不要刪除。\n④ 如果也給了驗證碼或密碼，立刻改密碼、登出其他裝置，並通知該服務（例如 LINE、網銀）。\n之後若有人說能幫你追回錢、要你先付費，也是詐騙。',
-  friend: '幫家人或朋友處理，越快越有機會把錢攔下來：\n① 請他馬上撥 165 反詐騙專線或 110 報案（你可以陪他一起打）。\n② 請他打給自己的銀行或發卡行客服，說明被詐騙，要求止付、凍結轉出的款項或卡片。\n③ 保留對話、簡訊、通話與轉帳紀錄和對方帳號，先不要刪除。\n④ 如果他給了驗證碼或密碼，幫他改密碼、登出其他裝置，並通知該服務（例如 LINE、網銀）。\n之後若有人說能幫忙追回錢、要先付費，也是詐騙。',
-  code: '先別慌，馬上做這幾件事：\n① 立刻到該服務（例如 LINE、網銀、購物網站）改密碼、登出其他裝置，並通知該服務的官方客服。\n② 撥 165 反詐騙專線或 110 報案。\n③ 如果這個帳號綁了銀行帳戶或信用卡，打給銀行或發卡行客服，要求止付或凍結。\n④ 保留對話與簡訊紀錄，先不要刪除；提醒親友，對方可能冒用你的帳號借錢。',
+  paid: '先別慌，越快處理越有機會把錢攔下來：\n① 馬上撥 165 反詐騙專線或 110 報案。\n② 打給您的銀行或發卡行客服，說明被詐騙，要求止付、凍結轉出的款項或卡片。\n③ 保留對話、簡訊、通話與轉帳紀錄和對方帳號，先不要刪除。\n④ 如果也給了驗證碼或密碼，立刻改密碼、登出其他裝置，並通知該服務（例如 LINE、網銀）。\n之後若有人說能幫您追回錢、要您先付費，也是詐騙。',
+  friend: '幫家人或朋友處理，越快越有機會把錢攔下來：\n① 請他馬上撥 165 反詐騙專線或 110 報案（您可以陪他一起打）。\n② 請他打給自己的銀行或發卡行客服，說明被詐騙，要求止付、凍結轉出的款項或卡片。\n③ 保留對話、簡訊、通話與轉帳紀錄和對方帳號，先不要刪除。\n④ 如果他給了驗證碼或密碼，幫他改密碼、登出其他裝置，並通知該服務（例如 LINE、網銀）。\n之後若有人說能幫忙追回錢、要先付費，也是詐騙。',
+  code: '先別慌，馬上做這幾件事：\n① 立刻到該服務（例如 LINE、網銀、購物網站）改密碼、登出其他裝置，並通知該服務的官方客服。\n② 撥 165 反詐騙專線或 110 報案。\n③ 如果這個帳號綁了銀行帳戶或信用卡，打給銀行或發卡行客服，要求止付或凍結。\n④ 保留對話與簡訊紀錄，先不要刪除；提醒親友，對方可能冒用您的帳號借錢。',
 };
 
 /** 使用者這句話要查什麼：aftermath（已被騙、已匯款或給了驗證碼：先給止損步驟）、sender（簡訊號碼）、url（只有網址）、myth（是真的嗎）、message（其他一律當可疑內容檢查） */
@@ -108,7 +108,7 @@ function messageSay(d) {
 
 /** 示範總結：以工具結果為準，不保證安全（輸出護欄會再檢查一次） */
 export function antifraudSummary(it, results) {
-  if (it.intent === 'empty') return '請把收到的簡訊、LINE 訊息、網址或來電號碼貼給我（可以直接複製貼上，也可以按輸入框左邊的相機拍下來或選截圖），我幫你比對 165 的詐騙手法。確認之前，先不要點連結、不要匯款、不要給驗證碼。';
+  if (it.intent === 'empty') return '請把收到的簡訊、LINE 訊息、網址或來電號碼貼給我（可以直接複製貼上，也可以按輸入框左邊的相機拍下來或選截圖），我幫您比對 165 的詐騙手法。確認之前，先不要點連結、不要匯款、不要給驗證碼。';
   if (it.intent === 'emptyEn') return "Paste the message, link, or phone number here and I'll check it. Until then, don't click links, transfer money, or share verification codes. You can also call 165, Taiwan's anti-fraud hotline.";
   if (it.intent === 'english') return "I can only check Chinese messages for now. If you're unsure, don't transfer money or share codes, and call 165 (Taiwan's anti-fraud hotline).";
   if (it.intent === 'aftermath') return AFTERMATH[it.kind] || AFTERMATH.paid;
@@ -128,8 +128,8 @@ export function antifraudSummary(it, results) {
     // 號碼和內容都查了：以風險較高的為主（內容比對到冒充檢警是高風險，個人手機號碼只是中風險）
     if (m && m.level !== 'low' && RISK[m.level] >= RISK[d?.risk ?? 'low']) return `${messageSay(m)}${d ? `另外，這是${d.kind}：${d.note}` : ''}`;
     if (!d) return '這次沒查成功。';
-    return `${d.kind}：${d.note}${m ? `內容比對${NOT_SAFE_NOTE}` : '也可以把簡訊內容貼給我，我幫你看可疑之處。'}`;
+    return `${d.kind}：${d.note}${m ? `內容比對${NOT_SAFE_NOTE}` : '也可以把簡訊內容貼給我，我幫您看可疑之處。'}`;
   }
   const m = r('scam_myth_search')[0];
-  return m?.results.length ? `165 有相關闢謠：「${m.results[0].title}」（${m.results[0].date}）。重點：${m.results[0].summary}` : '165 闢謠專區沒有找到相關文章；可以把你收到的內容貼給我，我幫你比對。';
+  return m?.results.length ? `165 有相關闢謠：「${m.results[0].title}」（${m.results[0].date}）。重點：${m.results[0].summary}` : '165 闢謠專區沒有找到相關文章；可以把您收到的內容貼給我，我幫您比對。';
 }

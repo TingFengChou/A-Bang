@@ -52,8 +52,8 @@ export function renderOpening({ model, send, go }) {
     box.innerHTML = `
       <div class="op-hello"><img src="/brand/abang-happy.svg" alt="" width="52" height="52"><p class="op-say">${esc(m.say)}</p></div>
       ${m.tips.length ? `<ul class="op-tips">${m.tips.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
-      ${m.asks.length ? `<h3 class="op-h">你可能想問</h3><div class="op-asks">${m.asks.map((a, i) => `<button type="button" class="op-ask${a.primary ? ' primary' : ''}" data-i="${i}"><span aria-hidden="true">${icons[a.icon] || icons.route}</span><b>${esc(a.label)}</b><i aria-hidden="true">›</i></button>`).join('')}</div>` : ''}
-      <h3 class="op-h">我可以幫你</h3>
+      ${m.asks.length ? `<h3 class="op-h">您可能想問</h3><div class="op-asks">${m.asks.map((a, i) => `<button type="button" class="op-ask${a.primary ? ' primary' : ''}" data-i="${i}"><span aria-hidden="true">${icons[a.icon] || icons.route}</span><b>${esc(a.label)}</b><i aria-hidden="true">›</i></button>`).join('')}</div>` : ''}
+      <h3 class="op-h">我可以幫您</h3>
       <div class="op-can">${CAN_DO.map((x, i) => `<button type="button" class="op-can-i" data-c="${i}"><span class="ab-token sm" style="--c:${x.c}" aria-hidden="true">${icons[x.icon]}</span><b>${esc(x.title)}</b><small>${esc(x.q ? `「${x.q}」` : '簡訊、網址貼給我看')}</small></button>`).join('')}</div>`;
     box.querySelectorAll('.op-ask').forEach((b) => b.addEventListener('click', () => send(m.asks[Number(b.dataset.i)].q)));
     box.querySelectorAll('.op-can-i').forEach((b) => b.addEventListener('click', () => { const x = CAN_DO[Number(b.dataset.c)]; if (x.href) go(x.href); else send(x.q); }));

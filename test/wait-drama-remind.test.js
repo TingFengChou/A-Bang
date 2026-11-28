@@ -13,7 +13,7 @@ test('remindAside：等 5～40 分推一集，句子說車快到時會提醒；�
   const svc = createServices({ forceMock: true });
   const a = await remindAside(svc, { waitMin: 12, now: NOW });
   assert.equal(a.kind, 'drama');
-  assert.match(a.text, /^還要等約 12 分，車快到時阿幫會提醒你，不用一直盯著：先看一集《.+》第 \d+ 集/);
+  assert.match(a.text, /^還要等約 12 分，車快到時阿幫會提醒[你您]，不用一直盯著：先看一集《.+》第 \d+ 集/);
   assert.ok(a.data.title && a.labels.watch && a.labels.dismiss);
   assert.equal(await remindAside(svc, { waitMin: WAIT_MIN - 1 }), null);
   assert.equal(await remindAside(svc, { waitMin: WAIT_MAX }), null);

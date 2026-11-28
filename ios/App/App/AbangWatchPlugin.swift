@@ -43,7 +43,7 @@ public class AbangWatchPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         guard until > now else { call.reject("提醒已過期"); return }
         let attrs = AbangWatchAttributes(kind: "bus", routeName: route, stop: stop, leadSec: lead, lang: lang, until: until)
-        let first = lang == "en" ? "Watching bus \(route) at \(stop)" : "正在幫你盯 \(route)（\(stop)）"
+        let first = lang == "en" ? "Watching bus \(route) at \(stop)" : "正在幫您盯 \(route)（\(stop)）"
         let state = AbangWatchAttributes.ContentState(text: first, arrival: nil, updatedAt: now)
         let old = Self.activities("bus") // 現在就記下要結束哪些（不會結束等一下新開的；出發倒數不動）
         Task {

@@ -70,7 +70,7 @@ test('P5-4：「去火車站怎麼坐」去最近的台鐵站；「今天會很�
   assert.equal(at('去高鐵站怎麼坐').nearRail, 'THSR');
   assert.equal(at('從西門町去火車站').from, '西門町');
   // 行程步驟：最近的站當目的地（不查「火車站」這個地名）
-  const steps = demoSteps({ ...it, fromPoint: { lat: 25.0143, lon: 121.4635, name: '你的位置' } }, NOW);
+  const steps = demoSteps({ ...it, fromPoint: { lat: 25.0143, lon: 121.4635, name: '您的位置' } }, NOW);
   const r = {};
   const calls = steps.map((s) => s(r)).filter(Boolean).flatMap((s) => s.calls);
   assert.ok(!calls.some((c) => c.name === 'find_place'));
@@ -139,12 +139,12 @@ test('P5-8：謝謝、歹勢、👍、🙏 回禮貌話；有其他要求的不�
   for (const t of ['謝謝阿幫', '謝謝', '感恩', '👍', '🙏', '謝啦～']) {
     const it = at(t);
     assert.deepEqual([it.intent, it.thanks], ['unknown', true], t);
-    assert.doesNotMatch(demoSummary(it, {}), /我可以幫你查/, t);
+    assert.doesNotMatch(demoSummary(it, {}), /我可以幫[你您]查/, t);
   }
   for (const t of ['歹勢', '不好意思', '拍謝啦']) assert.equal(at(t).sorry, true, t);
-  assert.doesNotMatch(demoSummary(at('歹勢'), {}), /我可以幫你查/);
+  assert.doesNotMatch(demoSummary(at('歹勢'), {}), /我可以幫[你您]查/);
   // 反例：道謝後接著問、道歉後接著問
-  assert.equal(at('謝謝你，我要去101').intent, 'trip');
+  assert.equal(at('謝謝您，我要去101').intent, 'trip');
   assert.equal(at('不好意思，請問去101怎麼走').intent, 'trip');
   assert.equal(at('  ？？？ ').thanks, undefined, '只有標點照舊回功能說明');
   assert.equal(at('Thank you!').lang, 'en', '英文道謝照舊用英文');

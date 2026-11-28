@@ -195,7 +195,7 @@ async function allOff({ replanFails = false } = {}) {
   return es;
 }
 
-test('保底：幾條直達連續盯到不會來 → 重排到上限後排除全部、改推捷運；決策與行程結果只出一次，不說「幫你盯」', async () => {
+test('保底：幾條直達連續盯到不會來 → 重排到上限後排除全部、改推捷運；決策與行程結果只出一次，不說「幫您盯」', async () => {
   const es = await allOff();
   assert.equal(es.filter((e) => e.type === 'decision').length, 1);
   assert.equal(es.filter((e) => e.type === 'tool_result' && e.tool === 'plan_trip').length, 1);
@@ -213,7 +213,7 @@ test('保底：幾條直達連續盯到不會來 → 重排到上限後排除全
   const text = textOf(es);
   assert.match(text, new RegExp(`^公車 ${offs.join('、')} 今天沒有營運（站牌即時資訊），這次不推。選「捷運`));
   assert.doesNotMatch(text, /步行要|選「公車|提醒/);
-  assert.ok(!es.some((e) => e.type === 'agent_note' && /幫你盯/.test(e.text)));
+  assert.ok(!es.some((e) => e.type === 'agent_note' && /幫[你您]盯/.test(e.text)));
 });
 
 test('保底：重排時公車資料查不到 → 照樣說盯到的那條今天沒有營運，推捷運', async () => {

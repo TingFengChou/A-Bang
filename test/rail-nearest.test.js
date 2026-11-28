@@ -31,7 +31,7 @@ test('規則：起訖站、只有迄站、句中地名、票價；「下一班�
 test('工具 near：最近的站、就在附近、排除迄站、太遠說明（花東建議台鐵）、舊的 {from,to} 照常', async () => {
   const svc = createServices({ forceMock: true });
   const a = await callTool(svc, 'thsr_timetable', { to: '台中', near: { lat: 25.0418, lon: 121.5654 } });
-  assert.match(a.speak, /^離你最近的高鐵站是南港（約 4\.4 公里）/);
+  assert.match(a.speak, /^離[你您]最近的高鐵站是南港（約 4\.4 公里）/);
   assert.match(a.text, /^（使用者沒說起站，用最近的車站）/);
   const b = await callTool(svc, 'tra_timetable', { to: '花蓮', near: '台北車站' });
   assert.match(b.speak, /^「台北車站」就在臺北站附近。/);

@@ -91,7 +91,7 @@ public class AbangWatchService extends Service {
         first = true; skip = -1; firedAt = 0; endedAt = 0; lastEta = -1;
         if (apiBase == null || route == null || stop == null) { stopNow(); return START_NOT_STICKY; }
         channels();
-        Notification n = ongoing(en() ? ("Watching bus " + route + " at " + stop) : ("正在幫你盯 " + route + "（" + stop + "）"));
+        Notification n = ongoing(en() ? ("Watching bus " + route + " at " + stop) : ("正在幫您盯 " + route + "（" + stop + "）"));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) startForeground(ONGOING_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         else startForeground(ONGOING_ID, n);
         if (io == null) io = Executors.newSingleThreadExecutor();
@@ -118,7 +118,7 @@ public class AbangWatchService extends Service {
         a.enableVibration(false);
         nm.createNotificationChannel(a);
         NotificationChannel b = new NotificationChannel(CH_ALERT, "公車快到站", NotificationManager.IMPORTANCE_HIGH);
-        b.setDescription("到站前提醒你出門、快到下車站時提醒你下車");
+        b.setDescription("到站前提醒您出門、快到下車站時提醒您下車");
         b.enableVibration(true);
         b.setVibrationPattern(new long[] { 0, 300, 150, 300 });
         nm.createNotificationChannel(b);
@@ -213,7 +213,7 @@ public class AbangWatchService extends Service {
         }
         first = false;
         if (left <= 0) { alert(eta, st); stopNow(); return; }
-        update(text(eta, st, label) + (en() ? (" · I'll remind you " + Math.round(leadSec / 60f) + " min before") : ("・到站前 " + Math.round(leadSec / 60f) + " 分提醒你")));
+        update(text(eta, st, label) + (en() ? (" · I'll remind you " + Math.round(leadSec / 60f) + " min before") : ("・到站前 " + Math.round(leadSec / 60f) + " 分提醒您")));
         if (left * 1000L < POLL_MS) { // 兩次更新之間到點：準時提醒
             pendingAlert = () -> { if (active) { alert(leadSec, st); stopNow(); } };
             h.postDelayed(pendingAlert, Math.max(0, left) * 1000L);

@@ -121,7 +121,7 @@ window.addEventListener('abang:arrival-stuck', async (e) => {
     remind(en ? `Bus ${e.detail.routeName} isn't running any more today, so I cancelled the reminder. Want another way?` : `${e.detail.routeName} 今天不會再來了（末班已過或沒有營運），到站提醒已取消。要我改其他方式嗎？`, { label: en ? 'Another way' : '改其他方式', ask: e.detail.ask }, 10000);
     return;
   }
-  remind(en ? `Bus ${e.detail.routeName} isn't coming. Want me to find another way?` : `${e.detail.routeName} 一直沒來，要我幫你改其他方式嗎？`, { label: en ? 'Another way' : '改其他方式', ask: e.detail.ask }, 10000); // 阿幫自己說（不再說「到問阿幫」）
+  remind(en ? `Bus ${e.detail.routeName} isn't coming. Want me to find another way?` : `${e.detail.routeName} 一直沒來，要我幫您改其他方式嗎？`, { label: en ? 'Another way' : '改其他方式', ask: e.detail.ask }, 10000); // 阿幫自己說（不再說「到問阿幫」）
 });
 
 // 點首頁格子：用 View Transitions 讓格子的圖示飛進新頁面的頁首（home.js 送 abang:go；不支援時直接換頁）

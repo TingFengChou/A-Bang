@@ -191,7 +191,7 @@ export function limitedOf({ roles = [], options = [], toName, fromName }) {
   const leftZh = left.length ? `先比${left.map((r) => MODE_NAME[r]).join('、')}${ride}` : '目前查不到其他方式';
   const leftEn = left.length ? `comparing ${andEn(left.map((r) => MODE_EN[r]))}${rideEn}` : 'no other way found right now';
   const to = String(toName || '').trim(), from = String(fromName || '').trim();
-  const fromSaid = from && from !== '你的位置' ? from : '';
+  const fromSaid = from && from !== '您的位置' ? from : '';
   const suggest = to ? [{ label: '過一分鐘再問一次', ask: fromSaid ? `從${fromSaid}到${to}怎麼去` : `去${to}怎麼走` }] : []; // 額度每分鐘重置
   const short = `TDX 額度用完，${what}這次查不到、沒列入`, shortEn = `TDX quota used up: no live ${whatEn} data this time`;
   return noTransit
@@ -224,7 +224,7 @@ export function singleNote({ options, missingList, straight, departMin, demo, fa
   const text = `只找到${name(only.role)}一種方式${parts.length ? `：${parts.join('；')}` : ''}${demo ? '（現在是示範資料，班次與站牌是模擬的；設定金鑰後就是即時資料）' : fallback && !parts.some((x) => /TDX/.test(x)) ? '（TDX 額度用完，有些資料這次查不到；約 1 分鐘後再問一次）' : ''}`; // 原因裡已經說了額度用完就不重複
   const to = String(toName || '').trim();
   const from = String(fromName || '').trim();
-  const fromSaid = from && from !== '你的位置' ? from : ''; // 使用者說了起點：建議也帶著，不然送出後會變成定位或預設起點
+  const fromSaid = from && from !== '您的位置' ? from : ''; // 使用者說了起點：建議也帶著，不然送出後會變成定位或預設起點
   const suggest = [];
   if (to && noSvc.length) suggest.push({ label: '改成明天早上出發', ask: fromSaid ? `明天早上 8 點從${fromSaid}到${to}` : `明天早上 8 點去${to}` });
   if (to && demo && !/台北車站|臺北車站/.test(`${fromName}${to}`)) suggest.push({ label: '改從台北車站出發比較看看', ask: `從台北車站到${to}怎麼去` });
