@@ -11,6 +11,13 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 V6-3、V7-2、V8-4 結果
+- 做了：V6-3 免金鑰開放資料 14 個工具經本機伺服器查真實資料都可用（藥局 20、萬華牙科 43、垃圾車 90 公尺、油價 11-23、發票 115 年 9～10 月、台積電 11/27、165、辦事須知、戶政週六放假、護照、官方入口 nhi.gov.tw）。V7-2 OpenAPI 3.1 59 條路由、41 個工具都有 summary。V8-4 壓測：10 分鐘 1,220 萬次與 5 分鐘 607 萬次，連線錯誤 0、限流正常；記憶體 820 MB 起、高峰 938 MB、回落 720 MB，沒有洩漏（macOS `ps` 的 RSS 在記憶體壓縮時偏小，要用 `top` 的 MEM）。部署至少 1 GB 記憶體
+- App Functions 結合：無（驗證）
+- 文件：PLAN.md（V6、V7、V8 狀態）、PROGRESS.md
+- 下一個：V2-2 地端模型評測結果（113 過 111：S18-3、P2-10）
+- 卡住：F1、F3、F9、Q-7 等 Austin；V6-1／2、V7-1／3 要金鑰或 Austin 實測
+
 ## 2026-11-28 V8-1 全 repo 安全審查：F8 三項修正、F9 等決定
 - 做了：全 repo 安全審查（輸入驗證、ReDoS 實測、路徑穿越、XSS、連結、CORS、手機設定、隱私、npm audit）。F8：(a) 問阿幫與建議驗證端點不檢查 content-type，別的網站用不需預檢的跨站請求就能耗用全站每日模型額度 → `postGuard`：有 Origin 時只收本站（同 host）與 APP_ORIGINS、內容要 application/json，錯誤回應不帶 `*`；(b) 路線搜尋、站牌到站直接打 TDX → 預熱清單本機篩、清單外站位 ID 走 `createUnlistedGate`；(c) `resolveCity` 用 `Object.hasOwn`。F9（Android 雲端備份會帶走常用地點）是隱私與方便的取捨，等 Austin。用 App 實際的來源（https://localhost、capacitor://localhost）打本機伺服器：200、預檢允許；別的網站 403
 - App Functions 結合：無（安全）
