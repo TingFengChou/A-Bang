@@ -11,6 +11,14 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 主畫面小工具「阿幫・今天」（Android）
+- 做了：Austin 說 Android 上看不出改變；今天卡的 App Functions 後續先做最有感的：Pixel 主畫面小工具。`AbangTodayWidget`（AppWidgetProvider、RemoteViews，不加依賴）顯示上次打開阿幫時今天卡算好的日子、阿幫一句話、最多兩個提醒（帶傘、冷熱、口罩），底下「18:30 打開阿幫時的資料・點一下看最新的」；點了打開 App。跟今天卡同一個原則：不在背景更新、不連網、不讀位置（`updatePeriodMillis=0`，只有 App 首頁算完時 `AbangSystem.setTodayWidget` 更新）；只送文字，不送依據、常用地點、座標。「我的」加「放到主畫面：阿幫・今天」（`requestPinAppWidget`：系統畫面按「新增」才放，ADR-0021 同一個原則；桌面不支援就說長按桌面找小工具）與「阿幫記得你」入口。Pixel 實機：安裝、打開 App 後小工具資料已寫入（`shared_prefs/abang_widget.xml`），系統已登記這個小工具；放到桌面要 Austin 自己按
+- App Functions 結合：這就是 App Functions 的第一個主畫面入口；iOS 小工具（WidgetKit extension、App Group 共用資料）列為下一步
+- 測試：npm test 全過（`test/today.test.js` 新增 1 項：只送文字、不送地點）；Android 建置與安裝 ✅
+- 文件：UX.md §3.1、PLAN.md、PROGRESS.md；sw.js v1.3.65
+- 下一個：iOS 小工具；降級與錯誤文案總檢
+- 卡住：把小工具放到桌面要 Austin 在 Pixel 上按一次（我的 →「放到主畫面：阿幫・今天」）
+
 ## 2026-11-28 主動助手第一版：首頁「今天」卡＋「阿幫記得你」
 - 做了：Austin 說「讓版本看起來有大改動」（Pixel 上看不出最近幾輪：多半在伺服器）；跟 Antigravity 第十三輪定：打開 App 第一眼就感覺「阿幫變主動、記得你」。①首頁第一張「今天」卡（`public/js/today.js`）：日子（辦公日曆：上班日、補班日、週末、放假・節日，經 `gov_office_nearby`，不新增工具）× 時段 × 常用地點 × 天氣空品 → 阿幫一句話、帶傘／雨衣／口罩／冷熱提醒、一兩個馬上能按的問題（上班日早上「今天怎麼去公司」、傍晚「回家怎麼走」、深夜末班車、週末出去走走）；三種情況（通勤版、輕量版邀請設定、沒看完引導不顯示）；查不到天氣照實說。②「依據」點開「阿幫記得你」抽屜（`public/js/memory-sheet.js`）：常用地點、預設地區、交通習慣、上次的對話、提醒，一項一項忘掉（按兩下）。③沒定位時「現在」改用預設地區查（以前一律台北車站附近）。只在前景算、不推播、不追蹤位置（Antigravity 的隱私底線：主動通知與背景定位一定先問）
 - App Functions 結合：「今天」卡的內容就是之後 iOS 小工具／Android 一覽（Glance）與 Siri「阿幫，今天怎麼樣」最適合的來源（同一個純函式）；列為後續
