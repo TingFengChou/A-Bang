@@ -421,3 +421,16 @@ test('沒拿到位置、目的地就是預設起點：模型模式也先問從�
   const ok = await run(local(), '從西門町怎麼去台北車站');
   assert.ok(!ok.some((e) => e.type === 'ask' && /從哪裡出發/.test(JSON.stringify(e))), '說了起點照常');
 });
+
+test('人在桃園市區說「桃園到台北101」：模型模式的起點也是桃園車站，不是高鐵桃園站（V2-2 評測 LA-8）', async () => {
+  reset([
+    { message: { role: 'assistant', content: '', tool_calls: [{ id: 'c1', type: 'function', function: { name: 'plan_trip', arguments: JSON.stringify({ from: '桃園', to: '台北101' }) } }] } },
+    { message: { role: 'assistant', content: '建議坐台鐵再轉捷運。' } },
+  ]);
+  const es = await run(local(), '桃園到台北101', { clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 24.9895, lon: 121.3140 } }] });
+  const trip = es.find((e) => e.type === 'tool_start' && e.name === 'plan_trip');
+  assert.ok(trip, '有排行程');
+  assert.match(JSON.stringify(trip.input.from), /桃園車站/);
+  assert.doesNotMatch(JSON.stringify(trip.input.from), /高鐵/);
+  assert.match(JSON.stringify(state.reqs[0]), /使用者要的是「桃園車站」（他就在這附近，不是「高鐵桃園站」）/, '提示裡告訴模型');
+});
