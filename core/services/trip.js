@@ -508,6 +508,8 @@ async function metroOption(svc, from, to, straight, depart) {
   }
   // 沒列入也要說原因（深夜 00:10 問 101 沒有捷運，使用者以為是 bug）；哪一端沒有、最近的站多遠，照實說（metroNone）
   // 沒有捷運的地方（起訖 10 公里內都沒有捷運站）：kind 'na'，不列入 missing（不要每趟都說「捷運沒列入」）
+  // 有系統的車站清單沒查到（上游壞掉）：找不到站不等於沒有捷運，照實說（P0-2 B 降級盤點）
+  if (!best && lists.some((r) => r.status === 'rejected')) return { skip: { role: 'metro', unavailable: true, why: '有些捷運系統的車站資料這次連不上，沒辦法確認附近有沒有捷運；可以看其他方案，或用官方捷運 App 查', whyEn: "Couldn't reach some MRT station data, so I can't tell whether there's an MRT option nearby; check the other options or an official MRT app" } };
   if (!best) return { none: same && !cross ? { kind: 'near', why: '起點和目的地最近的捷運站是同一站', whyEn: 'Same MRT station at both ends' } : nearest > METRO_NA_M ? { kind: 'na', why: '這一帶沒有捷運', whyEn: 'No MRT in this area' } : metroNone(nearFrom, nearTo, closeFrom, closeTo) };
   const { sys, list, o, d } = best;
   const walkBoth = o.m <= METRO_WALK_M && d.m <= METRO_WALK_M;
@@ -572,7 +574,7 @@ async function busOption(svc, from, to, straight, risk, depart, { aheadMin = 0, 
   if (!live && night) return { skip: busNightClosed(false, later) };
   const raw0 = await svc.bus.directTrips({ from, to });
   // 晚一點出發：今天沒營運（4）只在同一天還算數；其餘狀態與到站時間都不套用（到站時間不明，依出發時才看站牌）
-  const raw = later ? Object.assign(raw0.map((t) => ({ ...t, board: { ...t.board, etaSec: null, status: t.board?.status === 4 && sameDay ? 4 : null } })), { limited: raw0.limited }) : raw0;
+  const raw = later ? Object.assign(raw0.map((t) => ({ ...t, board: { ...t.board, etaSec: null, status: t.board?.status === 4 && sameDay ? 4 : null } })), { limited: raw0.limited, failed: raw0.failed }) : raw0;
   // svc.busOff：agent 選了公車後盯上車站，發現這條路線其實不會來（run.js execTools）→ 重排時照盯到的狀態排除（晚一點出發不盯，也不套用）
   const off = new Map((later ? [] : svc.busOff || []).filter((x) => BUS_OFF[x.status]).map((x) => [x.routeName, x.status]));
   const all = raw.map((t) => (off.has(t.routeName) ? { ...t, board: { ...t.board, status: off.get(t.routeName), etaSec: null } } : t));
@@ -592,6 +594,8 @@ async function busOption(svc, from, to, straight, risk, depart, { aheadMin = 0, 
   }
   // TDX 額度用完：有些路線的到站資料查不到（directTrips 內部 routeEta 429），照實說，不說成「查不到直達公車」
   if (!list.length && raw.limited) return { skip: limitSkip('bus') };
+  // 上游壞掉：查不到不等於沒有直達車（Antigravity 第四輪的改寫範例）
+  if (!list.length && raw.failed) return { skip: { role: 'bus', unavailable: true, why: '公車系統這次連不上，沒辦法確認有沒有直達車；可以看其他方案，或用官方公車 App 查', whyEn: "Couldn't reach the bus system, so I can't tell whether there's a direct bus; check the other options or an official bus app" } };
   const opts = list.map((t) => {
     const w1 = walkMinutes(t.walkFromM), w2 = walkMinutes(t.walkToM);
     // 走到站牌前車子就來了 → 等下一班（不知道下一班時間，以 10 分估）
@@ -1001,7 +1005,7 @@ export async function planTrip(svc, { from, to, departAt, prefs = {}, now = Date
     ...(prefs.avoid?.length && { avoid: prefs.avoid }), // 使用者說不要的方式（前端重算也排除）
     ...(habit && { habit, habitOn: !!r.habitOn }),
     ...(ask && { ask }), // 關鍵問題（core/decide.js keyQuestion）
-    weather: weather && { summary: weather.summary, raining: weather.raining, pop3h: weather.pop3h },
+    weather: weather && { summary: weather.summary, raining: weather.raining, pop3h: weather.pop3h, ...(weather.rainKnown === false && { rainKnown: false }) },
     traffic: traffic && { level: traffic.level, delayMin: traffic.delayMin, covered: traffic.covered },
     air: air ? { site: air.site, aqi: air.aqi, status: air.status } : null,
     considered,

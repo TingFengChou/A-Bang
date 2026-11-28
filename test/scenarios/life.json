@@ -1991,9 +1991,7 @@
               "設定與隱私",
               "我可以幫你查"
             ],
-            "resultHas": [
-              "民生路二段"
-            ]
+            "toolNear": { "garbage_truck_nearby": { "lat": 25.0182, "lon": 121.4716, "maxM": 100 } }
           }
         }
       ]

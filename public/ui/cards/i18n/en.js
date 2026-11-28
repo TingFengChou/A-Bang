@@ -292,6 +292,7 @@ export const MESSAGES = {
   'weather.demoStation': 'Demo station',
   'weather.rain': "It's raining now, or rain is likely soon",
   'weather.dry': 'Not raining now',
+  'weather.rainUnknown': "Couldn't get rain data this time",
   'weather.temp': 'Temperature',
   'weather.noTemp': 'No weather station within 15 km reported the temperature, so none is shown.',
   'weather.rain1h': 'Rain (1 h)',

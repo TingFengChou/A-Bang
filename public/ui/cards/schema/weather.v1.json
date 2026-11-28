@@ -16,6 +16,7 @@
     "rainStation": { "type": ["string", "null"] },
     "pop3h": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
     "raining": { "type": "boolean" },
+    "rainKnown": { "type": "boolean", "description": "false：雨量與降雨機率都查不到，不知道下不下雨（不顯示「沒下雨」）" },
     "summary": { "type": "string" },
     "demo": { "type": "boolean" }
   }

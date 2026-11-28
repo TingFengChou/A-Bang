@@ -48,7 +48,7 @@ function englishSummary(it, results) {
     const where = it.places[0] ? ` in ${enPlace(it.places[0]).replace(/ Station \(.*\)$/, '').replace(/ Main$/, '')}` : it.fromPoint ? ' where you are' : ` in ${enPlace(DEFAULT_FROM)}`;
     const w = results.weather_tomorrow?.at(-1)?.data, n = results.weather_now?.at(-1)?.data;
     if (w) return `Tomorrow${where}: ${w.minT ?? '?'}-${w.maxT ?? '?'}°C, ${w.pop ?? '?'}% chance of rain${(w.dayPop ?? w.pop) >= 50 ? ', bring an umbrella' : ''}.`;
-    if (n) return `Right now${where}: ${n.tempC ?? '?'}°C, ${n.raining ? 'raining' : 'not raining'}${n.pop3h != null ? `, ${n.pop3h}% chance of rain in the next 3 hours` : ''}.`;
+    if (n) return `Right now${where}: ${n.tempC ?? '?'}°C, ${n.raining ? 'raining' : n.rainKnown === false ? 'no rain data this time' : 'not raining'}${n.pop3h != null ? `, ${n.pop3h}% chance of rain in the next 3 hours` : ''}.`;
   }
   if (it.intent === 'rail') {
     // 票價（P3-7）：沒說起站是從台北算，要說

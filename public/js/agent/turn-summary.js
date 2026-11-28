@@ -34,7 +34,7 @@ const SCAM = { zh: { high: '高風險', medium: '有疑點', low: '未發現已�
 const L = {
   zh: {
     min: (n) => `${n} 分`, decided: (m) => `決定：${m}`, noWay: '找不到可行方式', weather: '天氣', tomorrow: '明天天氣', air: '空品', outing: '出門建議',
-    rain: '下雨', mayRain: '可能會下雨', noRain: '沒下雨', pop: (p) => `降雨 ${p}%`, quake: '地震', pharmacy: '藥局', clinic: '診所', garbage: '垃圾車', fuel: '油價', invoice: '發票', stock: '股市', index: '大盤', scam: '防詐', url: '網址', sms: '號碼', myth: '闢謠',
+    rain: '下雨', mayRain: '可能會下雨', noRain: '沒下雨', rainUnknown: '雨量查不到', pop: (p) => `降雨 ${p}%`, quake: '地震', pharmacy: '藥局', clinic: '診所', garbage: '垃圾車', fuel: '油價', invoice: '發票', stock: '股市', index: '大盤', scam: '防詐', url: '網址', sms: '號碼', myth: '闢謠',
     bike: 'YouBike', busStop: '公車站', place: '地點', traffic: '路況', ride: '叫車', book: '訂票', noAnswer: '沒有回答',
     arrive: (s) => `${s}到站`, noBus: '目前沒有車要來', bikes: (n) => `還有 ${n} 台`, noBikes: '暫時沒有車',
     pharmacies: (n, o) => `附近 ${n} 家，今天營業 ${o} 家`, clinics: (n, o) => `這一區 ${n} 家，這個時段有登記 ${o} 家`, won: (p) => `中了${p}`, lost: '沒中獎', batch: (n, w) => `對了 ${n} 張，中 ${w} 張`,
@@ -43,7 +43,7 @@ const L = {
   },
   en: {
     min: (n) => `${n} min`, decided: (m) => `Pick: ${m}`, noWay: 'no option found', weather: 'Weather', tomorrow: 'Tomorrow', air: 'Air', outing: 'Outing tips',
-    rain: 'raining', mayRain: 'rain likely', noRain: 'no rain', pop: (p) => `rain ${p}%`, quake: 'Earthquake', pharmacy: 'Pharmacies', clinic: 'Clinics', garbage: 'Garbage truck', fuel: 'Fuel', invoice: 'Receipt lottery', stock: 'Stocks', index: 'TAIEX', scam: 'Scam check', url: 'Link', sms: 'Sender', myth: 'Myths',
+    rain: 'raining', mayRain: 'rain likely', noRain: 'no rain', rainUnknown: 'no rain data', pop: (p) => `rain ${p}%`, quake: 'Earthquake', pharmacy: 'Pharmacies', clinic: 'Clinics', garbage: 'Garbage truck', fuel: 'Fuel', invoice: 'Receipt lottery', stock: 'Stocks', index: 'TAIEX', scam: 'Scam check', url: 'Link', sms: 'Sender', myth: 'Myths',
     bike: 'YouBike', busStop: 'Bus stops', place: 'Place', traffic: 'Traffic', ride: 'Taxi', book: 'Tickets', noAnswer: 'no answer',
     arrive: (s) => `in ${s.replace(/ 分$/, ' min')}`, noBus: 'no bus coming', bikes: (n) => `${n} bikes`, noBikes: 'no bikes now',
     pharmacies: (n, o) => `${n} nearby, ${o} open today`, clinics: (n, o) => `${n} in area, ${o} registered for now`, won: (p) => `won ${p}`, lost: 'no win', batch: (n, w) => `${n} checked, ${w} won`,
@@ -108,7 +108,7 @@ function one(r, ctx) {
     }
     case 'weather_now': {
       const where = en ? '' : (d.town || d.station || '');
-      const state = d.rainMm1h > 0 ? T.rain : d.raining ? T.mayRain : T.noRain;
+      const state = d.rainMm1h > 0 ? T.rain : d.raining ? T.mayRain : d.rainKnown === false ? T.rainUnknown : T.noRain;
       return { title: T.weather, detail: [where, d.tempC != null && `${d.tempC}°C`, state].filter(Boolean).join(' '), short: T.weather };
     }
     case 'weather_tomorrow':

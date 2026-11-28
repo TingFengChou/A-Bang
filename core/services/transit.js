@@ -320,15 +320,17 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
     const city = pickRouteCity(a, b);
     if (!city) return [];
     const inCity = (list) => list.filter((s) => s.city === city);
-    let limited = false;
+    let limited = false, failed = false;
     const out = await Promise.all(commonRoutes(inCity(a), inCity(b)).map(async (routeName) => {
-      const eta = await bus.routeEta({ city, routeName, shape: false }).catch((e) => { if (e?.status === 429) limited = true; return null; });
+      // 429 → limited；上游壞掉（不是使用者輸入錯誤）→ failed：都不能說成「沒有直達公車」（P0-2 B 降級盤點）
+      const eta = await bus.routeEta({ city, routeName, shape: false }).catch((e) => { if (e?.status === 429) limited = true; else if (!(e instanceof UserError)) failed = true; return null; });
       const m = eta && matchDirect(eta.directions, from, to, radius);
       return m && { routeName, city, ...m };
     }));
     // 額度用完（routeEta 429）略過的路線：在結果陣列上標 limited（不可列舉，不改資料形狀；core 共用，不依賴 node 的 metrics），plan_trip 照實說，不說成查不到直達公車
     const list = out.filter(Boolean);
     if (limited) Object.defineProperty(list, 'limited', { value: true });
+    if (failed) Object.defineProperty(list, 'failed', { value: true });
     return list;
   };
 
