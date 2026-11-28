@@ -127,7 +127,11 @@ export function abangSays(text, action = null) {
   bubble.append(p);
   const row = document.createElement('div');
   row.className = 'fab-bubble-acts';
-  if (action?.ask) {
+  if (action?.run) { // 主要按鈕跑一段程式（趕車檢查：用一次位置幫我看），不是代問
+    const b = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small', textContent: action.label });
+    b.addEventListener('click', () => { hideBubble(); action.run(); });
+    row.append(b);
+  } else if (action?.ask) {
     const b = Object.assign(document.createElement('button'), { type: 'button', className: 'btn small', textContent: action.label || t('bubbleAsk') });
     b.addEventListener('click', () => { action.before?.(); openSheet(); const api = keptIf('agent')?.api; api?.setPage?.(null); api?.ask?.(action.ask); }); // 提醒的問題跟現在這一頁無關：不帶頁面；before：例如改方式前先取消舊公車的到站提醒
     row.append(b);
