@@ -216,14 +216,14 @@ test('防詐：模型出錯時這一輪改用規則比對回答，說明 AI 暫�
   assert.equal(logs[0].mode, 'rules-fallback');
 });
 
-test('生活：模型出錯時說是 AI 模型暫時無法回應（不怪資料來源）', async () => {
+test('生活：模型出錯時說是 AI 模型沒有回應（不怪資料來源）', async () => {
   const provider = { mode: 'claude', model: 'fake', start: () => ({ next: async () => { throw Object.assign(new Error('boom'), { name: 'APIConnectionError' }); }, addResults() {} }) };
   const h = createAgentHandler({ svc: demoSvc(), env: {}, provider });
   const res = ndjsonRes();
   await h.handle(res, { messages: [{ role: 'user', content: '你好，阿幫可以做什麼' }] }, { agentId: 'life' });
   const err = res.lines.find((e) => e.type === 'error');
   assert.ok(err, JSON.stringify(res.lines.map((e) => e.type)));
-  assert.match(err.message, /AI 模型暫時無法回應/);
+  assert.match(err.message, /AI 模型沒有回應/);
   assert.doesNotMatch(err.message, /資料來源/);
 });
 

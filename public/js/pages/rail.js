@@ -42,7 +42,7 @@ export default {
       res.innerHTML = loading();
       try {
         const r = await cfg.timetable(f.from.value, f.to.value, f.date.value);
-        if (!r.trains.length) return (res.innerHTML = empty(r.transfersUnavailable ? '當日沒有直達班次；換車的走法暫時查不到，請稍後再查' : sys === 'tra' ? '當日沒有直達班次，也找不到換車的走法' : '當日沒有直達班次'));
+        if (!r.trains.length) return (res.innerHTML = empty(r.transfersUnavailable ? '當日沒有直達班次；換車的走法這次查不到（不是沒有）；可以到「問阿幫」問怎麼去' : sys === 'tra' ? '當日沒有直達班次，也找不到換車的走法' : '當日沒有直達班次'));
         const now = new Date(Date.now() + 8 * 3600e3).toISOString().slice(11, 16);
         const isToday = r.date === today;
         const nextIdx = isToday ? r.trains.findIndex((t) => t.depart >= now) : -1;

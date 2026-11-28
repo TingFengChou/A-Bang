@@ -99,7 +99,7 @@ test('traTrips：定期時刻表查不到時照舊只有直達車（不改用假
   assert.deepEqual(r.trains, []);
   assert.equal(r.transfersUnavailable, true, '照實標示：換車走法這次查不到（不是沒有）');
   const { railSpeak } = await import('../core/tools/transit.js');
-  assert.match(railSpeak({ system: 'TRA', ...r }), /換車的走法暫時查不到/);
+  assert.match(railSpeak({ system: 'TRA', ...r }), /換車的走法這次查不到/);
   const failing = { ...svc.rail, traGeneral: () => Promise.reject(new Error('boom')) };
   assert.deepEqual((await traTrips({ ...svc, rail: failing }, { from: '臺北', to: '平溪', date: '2026-11-24' })).trains, []);
 });

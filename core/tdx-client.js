@@ -150,7 +150,7 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
   const limitError = (resetMs) => {
     const s = Math.ceil(resetMs / 1000);
     const per = gate.status().limit;
-    return shown(new TdxError(429, `TDX 呼叫次數已達方案上限${per ? `（每分鐘 ${per} 次）` : ''}，請${s > 0 ? `約 ${s} 秒後` : '稍後'}再試`)); // 額度用完：說要等多久（可以給使用者看）
+    return shown(new TdxError(429, `TDX 呼叫次數已達方案上限${per ? `（每分鐘 ${per} 次）` : ''}，${s > 0 ? `請約 ${s} 秒後再試` : '這次查不到（額度每分鐘重算，約一分鐘後再問）'}`)); // 額度用完：說要等多久（可以給使用者看）；不知道就說每分鐘重算（不說「稍後」）
   };
 
   /** 取得這一次的額度：使用者請求在幾秒內就重置時等一下；背景工作拿不到就讓位（TdxYield，之後再試） */
@@ -208,7 +208,7 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
       const perMin = num(h('x-ratelimit-limit-minute'));
       gate.exhausted(reset);
       stats.refused++;
-      throw shown(new TdxError(429, `TDX 呼叫次數已達方案上限${Number.isFinite(perMin) && perMin > 0 ? `（每分鐘 ${perMin} 次）` : ''}，請${Number.isFinite(reset) && reset > 0 ? `約 ${Math.ceil(reset)} 秒後` : '稍後'}再試`));
+      throw shown(new TdxError(429, `TDX 呼叫次數已達方案上限${Number.isFinite(perMin) && perMin > 0 ? `（每分鐘 ${perMin} 次）` : ''}，${Number.isFinite(reset) && reset > 0 ? `請約 ${Math.ceil(reset)} 秒後再試` : '這次查不到（額度每分鐘重算，約一分鐘後再問）'}`));
     }
     if (!res.ok) throw shown(new TdxError(res.status, `TDX API 錯誤 ${res.status}：${(await res.text().catch(() => '')).slice(0, 200)}`), '交通資料（TDX）現在連不上，這次查不到；急的話可以先看官方的交通 App。'); // 上游回應內容只進 log
     const data = await res.json().catch((e) => { throw e instanceof SyntaxError ? shown(new TdxError(502, 'TDX 回應格式錯誤'), '交通資料（TDX）現在連不上，這次查不到；急的話可以先看官方的交通 App。') : timeoutOr(e); });

@@ -164,7 +164,7 @@ export function dramaSummary(it, results) {
   }
   if (search && search.data.items.length) return `${search.speak} ${open(search.data)}還想找別的類型也可以跟我說，例如「懸疑」「重生」。`.trim();
   if (picks) return `${search ? `MyDrama 沒有找到「${search.data.query}」的短劇，先給你看熱門的：` : ''}${picks.speak} ${open(picks.data)}想看特定類型就說，例如「甜寵」「懸疑」。`.trim();
-  return '這次沒查到短劇資料，等一下再試試看。';
+  return '這次沒查到短劇資料（片庫連不上）；先問點別的，過一會兒再找劇。';
 }
 /** 不會來的路線依原因分組：[[原因, [路線…]]]（「公車 R2、R3 今天沒有營運」一句說完） */
 function offGroups(list, key = 'why') {
@@ -234,12 +234,12 @@ function summaryCore(it, results, suggestions = []) {
     const gl = results.gov_official_link?.[0];
     if (it.govLink) return gl?.data?.links?.length ? `${gl.speak}按卡片上的按鈕開官網；只從官方網站或 App 進去，不要點簡訊或訊息裡的連結。` : '這件事我沒有對應的官方入口，可以換個說法，例如「罰單」「報稅」「勞保年資」。';
     const pw = results.passport_waiting?.[0];
-    if (it.govPassport) return pw ? `${pw.speak}只有人數、沒有預估時間；先網路預約會快很多，卡片上有網路預約的連結。` : '護照等待人數暫時拿不到，等一下再問一次。';
+    if (it.govPassport) return pw ? `${pw.speak}只有人數、沒有預估時間；先網路預約會快很多，卡片上有網路預約的連結。` : '護照等待人數這次拿不到（領務局的資料連不上）；急的話可以直接打給外交部領事事務局。';
     const o = results.gov_office_nearby?.[0];
-    if (it.govOffice) return o ? `${o.speak}${o.data.offices[0]?.tel ? `各所營業時間不同（午休、夜間延時、週六服務），出發前可以先打電話（${o.data.offices[0].tel}）。` : '各所營業時間不同，出發前可以先打電話確認。'}${it.noLocation ? '沒拿到你的位置，先用台北車站附近找。' : ''}` : '戶政事務所的資料暫時拿不到，等一下再問一次。';
+    if (it.govOffice) return o ? `${o.speak}${o.data.offices[0]?.tel ? `各所營業時間不同（午休、夜間延時、週六服務），出發前可以先打電話（${o.data.offices[0].tel}）。` : '各所營業時間不同，出發前可以先打電話確認。'}${it.noLocation ? '沒拿到你的位置，先用台北車站附近找。' : ''}` : '戶政事務所的資料這次拿不到（內政部的資料連不上）；急的話可以撥 1996 內政服務專線問最近的戶政事務所。';
     const g = results.gov_service_info?.[0];
     const s = g?.data?.items?.[0];
-    if (!g) return '我的E政府的申辦資料暫時拿不到，等一下再問一次；急的話可以直接打給辦理的機關。';
+    if (!g) return '我的E政府的申辦資料這次拿不到（資料來源連不上，不是沒有這項服務）；急的話可以直接打給辦理的機關。';
     if (!s) return `${g.speak}可以說得更具體一點，例如「換身分證要帶什麼」「戶籍謄本怎麼申請」。`;
     const short = docShort(s.docs[0]) ? s.docs.map(docShort).filter(Boolean).slice(0, 3) : []; // 第一條就是分類標題（依情況不同）時不唸 // 先唸前幾樣要帶的（PM 審查：只說「列在卡片上」聽不到重點）
     return `${g.speak}${short.length ? `要帶：${short.join('、')}${s.docs.length > short.length ? '等，完整的在卡片上' : ''}。` : s.docs.length ? '要帶的東西列在卡片上，' : ''}卡片上也有官方網頁；要身分驗證的部分請在官方網頁或到現場自己辦，阿幫不代替申辦。`;
@@ -257,7 +257,7 @@ function summaryCore(it, results, suggestions = []) {
   if (it.intent === 'traffic') { // 國道路況（S7）：起訖、結果照工具資料說
     const t = results.traffic_status?.at(-1);
     const nm = (x) => String((typeof x === 'string' ? x : x?.name) || '').replace(/臺/g, '台');
-    if (!t) return `沒查到「${nm(it.fromSaved || it.from) || (it.fromPoint ? '你的位置' : DEFAULT_FROM)}」到「${nm(it.toSaved || it.to)}」沿途的國道路況（兩地太近或資料暫時查不到），稍後再問一次。`;
+    if (!t) return `沒查到「${nm(it.fromSaved || it.from) || (it.fromPoint ? '你的位置' : DEFAULT_FROM)}」到「${nm(it.toSaved || it.to)}」沿途的國道路況（兩地太近，或這次連不上交通部的路況資料）；要出門可以直接問怎麼去。`;
     return `${nm(t.data.from)} → ${nm(t.data.to)}：${t.speak}${it.freeway ? `（看的是這段路沿途的國道，不只${it.freeway}）` : ''}`;
   }
   const last = Object.values(results).flat().filter(Boolean).at(-1);
@@ -304,7 +304,7 @@ function summaryCore(it, results, suggestions = []) {
     if (!trip) {
       // 沒有行程結果：地點其實找到了（或用了定位）就照實說是資料暫時沒拿到，不說成「找不到地點」
       const found = (results.find_place || []).some((r) => r?.data?.length) || it.fromPoint || it.fromSaved || it.toSaved;
-      return found ? `${pre}這次沒拿到行程資料（資料來源暫時有問題），請稍後再問一次。` : `${pre}找不到這兩個地點，換個說法試試看。`;
+      return found ? `${pre}這次沒拿到行程資料（資料來源連不上，不是沒有路線）；可以再問一次，或換個說法。` : `${pre}找不到這兩個地點，換個說法試試看。`;
     }
     return `${pre}${night}${offSay}${one}${lim}${reason}${missSay}${tips}${nextStepOf(bestOpt) ? ` 下一步：${nextStepOf(bestOpt)}。` : ''}`;
   }
