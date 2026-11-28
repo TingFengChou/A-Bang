@@ -24,7 +24,7 @@ export default [
   },
   {
     // Playwright 的 page.waitForFunction 等回呼在瀏覽器裡執行
-    files: ['scripts/e2e.js'],
+    files: ['scripts/e2e.js', 'scripts/readme-media.js'],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
 ];

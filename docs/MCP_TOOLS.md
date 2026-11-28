@@ -31,7 +31,7 @@
 | 名稱 | 定義 |
 |---|---|
 | `City` | `Taipei`／`TPE`／`台北市`／`臺北` 皆可（`core/cities.js`） |
-| `LatLon` | `lat` 21–27、`lon` 118–123（WGS84）；`T.point` 的座標物件可另帶 `name`（≤ 30 字，例「你的位置」） |
+| `LatLon` | `lat` 21–27、`lon` 118–123（WGS84）；`T.point` 的座標物件可另帶 `name`（≤ 30 字，例「您的位置」） |
 | `Date` | `YYYY-MM-DD`，預設今天（台灣時間） |
 | `Eta` | `{ etaSec: number\|null, status: 0–4, statusText }`；1 尚未發車、2 交管不停靠、3 末班車已過、4 今日未營運 |
 | `Nav` | `{ google: url, apple: url }` |
@@ -88,7 +88,7 @@
 
 | | |
 |---|---|
-| 輸入 | `city?: City`（有 `near` 時可省略，用最近地標推估）, `routeName: string`, `stop?: string`（要盯的站，例如上車站）, `direction?: 0\|1`, `near?: Point`（使用者現在的位置；有 `stop` 但沒給 `city` 時只用來推縣市〔M14-02 拍站牌〕；沒說站名時聚焦路線上離他最近的站，`focus` 加 `distanceM`、`nearest: true`；兩個方向都有同一站時挑車比較快到的方向；另一個方向離你最近的站放 `focus.other`，speak 兩個方向都說）, `toward?: string`（往哪個方向，例「板橋」：只看方向名稱或終點有這個地名的那一邊；對不到時 `toward.found: false`、speak 照實說「沒有往「板橋」的方向」並兩個方向都列，PM Q-18） |
+| 輸入 | `city?: City`（有 `near` 時可省略，用最近地標推估）, `routeName: string`, `stop?: string`（要盯的站，例如上車站）, `direction?: 0\|1`, `near?: Point`（使用者現在的位置；有 `stop` 但沒給 `city` 時只用來推縣市〔M14-02 拍站牌〕；沒說站名時聚焦路線上離他最近的站，`focus` 加 `distanceM`、`nearest: true`；兩個方向都有同一站時挑車比較快到的方向；另一個方向離您最近的站放 `focus.other`，speak 兩個方向都說）, `toward?: string`（往哪個方向，例「板橋」：只看方向名稱或終點有這個地名的那一邊；對不到時 `toward.found: false`、speak 照實說「沒有往「板橋」的方向」並兩個方向都列，PM Q-18） |
 | 輸出 | `{ city, routeName, updatedAt, directions: [{ direction, label, stops: [{ seq, stopName, lat?, lon?, ...Eta, plate, nav }] }], shape?: [[lat, lon]], focus?: { direction, label, seq, stopName, etaSec, status, statusText, other? }, toward?: { name, found, direction?, label? } }`；給 `stop` 時依站名（臺／台相同）找站、先找 `direction` 那一邊，找到才有 `focus`，找不到文字說明「這條路線沒有…這一站」 |
 | TDX | `/basic/v2/Bus/DisplayStopOfRoute/City/{City}/{Route}`（1h；只收臺北、新北、桃園、臺中、臺南，其他縣市 400 → 改用 `/basic/v2/Bus/StopOfRoute/City/{City}/{Route}`，每個子路線一個方向一筆，2026-11-23 實測）、`/basic/v2/Bus/EstimatedTimeOfArrival/City/{City}/{Route}`（20s）、`/basic/v2/Bus/Route/City/{City}/{Route}`（1h）、`/basic/v2/Bus/Shape/City/{City}/{Route}`（1h，WKT `LINESTRING (經度 緯度, …)`，2026-11-23 實測；另有 `EncodedPolyline` 未用） |
 | 篩選 | `$filter=RouteName/Zh_tw eq '{Route}'`（路徑參數會模糊比對） |
@@ -120,7 +120,7 @@
 
 ### ✅ `thsr_timetable`／`tra_timetable`
 
-起站可省略（2026-11-21）：給 `near`（使用者位置）時用 30 公里內最近的車站，輸出加 `nearest: { station, distanceM, from? }`，speak 先說「離你最近的高鐵站是南港（約 4.4 公里）。」；車站座標取 TDX `StationPosition`（⚠️ 待驗證）；沒有 `from` 也沒有 `near` 時回 UserError 請使用者說起站。
+起站可省略（2026-11-21）：給 `near`（使用者位置）時用 30 公里內最近的車站，輸出加 `nearest: { station, distanceM, from? }`，speak 先說「離您最近的高鐵站是南港（約 4.4 公里）。」；車站座標取 TDX `StationPosition`（⚠️ 待驗證）；沒有 `from` 也沒有 `near` 時回 UserError 請使用者說起站。
 
 輸入 `from`, `to`（中文站名或代碼，台／臺通用）, `date?`；輸出 `{ system: 'THSR'|'TRA', from, to, date, trains: [{ trainNo, type?, depart, arrive, minutes, terminal?, transfers?, via?, legs? }], transferNote? }`（台鐵換車見下）。
 查今天時，給模型的文字與 `speak` 以「現在時間」為準只講尚未開出的班次（「今天還有 N 班，下一班 HH:mm 出發」；都開走時說末班並建議查明天）；`data.trains` 仍是整天（`upcomingTrains(data, now)`）。
@@ -160,7 +160,7 @@ TDX：高鐵 `/basic/v2/Rail/THSR/DailyTimetable/OD/{O}/to/{D}/{Date}`；台鐵 
 | TDX | `/basic/v2/Rail/Metro/Station/{Op}`（1 天，存檔） | 先查車站，再 `/basic/v2/Rail/Metro/LiveBoard/{Op}`（整個系統一份，20s，本機篩該站所有代碼）；看板沒有的方向用 `/basic/v2/Rail/Metro/StationTimeTable/{Op}`（存檔）估下一班 |
 | 欄位 | `StationID`、`StationName`、`StationPosition` | `LineName`／`LineID`／`LineNO`、`DestinationStationName`（缺時用 `TripHeadSign`）、`EstimateTime`（分鐘；淡海、安坑輕軌是秒，換成分鐘）、`UpdateTime` |
 | status | — | 狀態代碼（2026-11-22）：0 分 `arriving`（進站中）、1 分 `approaching`（即將進站）、其他 `minutes`（N 分）、時刻表 `scheduled`、無資料 `unknown`；卡片與英文回答依代碼用字典，工具文字仍是中文易讀字（`metroStatusText`） |
-| speak | 「桃園機場捷運共有 6 個車站。」 | 「美麗島最快 3 分鐘後有往小港的車。」；沒資料時「…目前沒有即時到站資料。」；`near`：「離你最近的是市政府（約 89 公尺）：…」（給地名時「離「臺北車站」最近的是…」） |
+| speak | 「桃園機場捷運共有 6 個車站。」 | 「美麗島最快 3 分鐘後有往小港的車。」；沒資料時「…目前沒有即時到站資料。」；`near`：「離您最近的是市政府（約 89 公尺）：…」（給地名時「離「臺北車站」最近的是…」） |
 
 
 `metro_live_board` 的 `toward?`（2026-11-28）：只看往這個方向的車（站名，「往南港的板南線」給 南港）；說的站落在這一站之後、到終點站為止才算，名稱寫一部分也可以（`core/metro-route.js` `towardTrains`）；對不到照原本全部列並回 `towardMissed`。
@@ -281,7 +281,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 
 | | |
 |---|---|
-| 輸入 | `from`, `to`：座標或地名（`T.point`）；`departAt?`：HH:mm 或 ISO（同 `intercity_bus`）；`prefs?: { states?: ('rush'\|'traffic'\|'rain'\|'luggage'\|'budget'\|'lessWalk'\|'badAir')[], arriveBy?: 'HH:mm', mode?: 'walk'\|'bike'\|'bus'\|'thsr'\|'tra'\|'intercity'\|'ridehail', avoid?: 同 mode 的陣列 }`（`mode`＝使用者指定的交通方式：分數與排名照算，`best` 改成該方式裡分數最高的，`ranking.reason`「照你說的選…」，輸出帶 `mode` 給前端重算；`avoid`＝使用者說不要的方式（「不要叫車」）：直接排除，`ranking.excluded[].why`「你說不要叫車」，輸出帶 `avoid` 給前端重算；決策圖標「不要」；`habit?: { [mode]: 0～1 }`＝使用者同意過的常選比例（選填，總和 ≤ 1.01；沒指定方式、沒說狀況時最多加 8 分，輸出帶 `habit`、`habitOn`，工具文字多一行「習慣…」；ADR-0010 2026-11-21）。輸出另有選填 `ask: { state, from, to, dMin, dCost, text, textEn }`＝關鍵問題（`keyQuestion`：答案取決於使用者時要問的一句，例「叫車（Uber）快 5 分但多 270 元，你趕時間嗎？」；網頁 agent 轉成 `ask` 事件，ADR-0016） |
+| 輸入 | `from`, `to`：座標或地名（`T.point`）；`departAt?`：HH:mm 或 ISO（同 `intercity_bus`）；`prefs?: { states?: ('rush'\|'traffic'\|'rain'\|'luggage'\|'budget'\|'lessWalk'\|'badAir')[], arriveBy?: 'HH:mm', mode?: 'walk'\|'bike'\|'bus'\|'thsr'\|'tra'\|'intercity'\|'ridehail', avoid?: 同 mode 的陣列 }`（`mode`＝使用者指定的交通方式：分數與排名照算，`best` 改成該方式裡分數最高的，`ranking.reason`「照您說的選…」，輸出帶 `mode` 給前端重算；`avoid`＝使用者說不要的方式（「不要叫車」）：直接排除，`ranking.excluded[].why`「您說不要叫車」，輸出帶 `avoid` 給前端重算；決策圖標「不要」；`habit?: { [mode]: 0～1 }`＝使用者同意過的常選比例（選填，總和 ≤ 1.01；沒指定方式、沒說狀況時最多加 8 分，輸出帶 `habit`、`habitOn`，工具文字多一行「習慣…」；ADR-0010 2026-11-21）。輸出另有選填 `ask: { state, from, to, dMin, dCost, text, textEn }`＝關鍵問題（`keyQuestion`：答案取決於使用者時要問的一句，例「叫車（Uber）快 5 分但多 270 元，您趕時間嗎？」；網頁 agent 轉成 `ask` 事件，ADR-0016） |
 | 輸出 | `{ from, to, straightKm, date, departAt, best, states: [{ key, source: 'auto'\|'user', from?, detail? }], weather, traffic, options: [Option], ranking: { ranked: [{ id, name, score, breakdown }], excluded: [{ id, name, why }], weights, reason }, unavailable? }`（與 `CARDS.md` `trip` 一致；`unavailable` 列出查詢失敗而略過的方案種類；公車方案另有 `follow`，見 `bus_route_eta`） |
 | Option | `{ id, role: 'walk'\|'bike'\|'bus'\|'thsr'\|'tra'\|'intercity'\|'ridehail', name, minutes, waitMin, walkMin, cost, costRange?, exposure, effort, delayRisk, arriveAt, arriveMin（自出發日 00:00 起算，可超過 24 小時；`arriveBy` 以此比較，跨午夜不誤判）, leaveAt?（高鐵／台鐵／客運：最晚出門時間＝發車 − 到站時間）, legs: [{ mode, from: {name, lat, lon}, to: {...}, minutes, detail, nav, url? }], notes[], train?, estimated?: true }` |
 | 排序 | `core/decide.js`（ADR-0010） |
