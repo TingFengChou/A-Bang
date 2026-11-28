@@ -192,6 +192,14 @@ function render() {
 
   $('title').textContent = page.shellTitle ? shellT(langNow())(page.shellTitle) : page.title;
   $('back').hidden = !!page.root;
+  document.documentElement.classList.toggle('home-sky', !!page.immersive); // 首頁「夜色與光」：外殼不畫標題列與分頁列（ADR-0023）
+  // 狀態列跟著天色：首頁是深色天空用淺色圖示，離開首頁還原（Capacitor 內建 SystemBars，不加依賴；網頁版換 theme-color）
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', page.immersive ? '#05131B' : '#f4f6f5');
+  const capNow = globalThis.Capacitor;
+  if (capNow?.isNativePlatform?.()) { // DARK＝深色底上的淺色圖示
+    const bars = { style: page.immersive ? 'DARK' : 'LIGHT' };
+    try { (capNow.Plugins?.SystemBars?.setStyle?.(bars) ?? capNow.nativePromise?.('SystemBars', 'setStyle', bars))?.catch?.(() => {}); } catch { /* 舊版沒有 SystemBars */ }
+  }
   const act = $('action'); act.hidden = true; act.onclick = null; act.classList.remove('on');
   // 分頁列：分頁本身 aria-current="page"；在這一區的子頁（公車頁屬於服務、設定屬於我的）aria-current="true"
   document.querySelectorAll('.tabbar [data-tab]').forEach((a) => {

@@ -135,14 +135,26 @@ test('Android 返回鍵：首頁離開 App；分頁本身回首頁（不走分�
   assert.equal(backTarget('/ai', false), '#/', '深層連結打開：回首頁');
 });
 
-test('首頁：範例問題各領域都有（防詐開防詐頁）；不新增伺服器端點（只用現有工具路由）', async () => {
+test('首頁（ADR-0023）：建議與您可能想問用 core/home-suggest.js；防詐在服務列前 8 個；不新增伺服器端點（只用現有工具路由）', async () => {
   const src = await readFile(new URL('../public/js/pages/home.js', import.meta.url), 'utf8');
-  // 交通、生活、消費依時段與情境動態（agent/suggest.js homeAsks，test/suggest.test.js 測各領域都有）；防詐固定
-  assert.match(src, /homeAsks\(ctx\)/);
-  assert.ok(src.includes('詐騙'));
-  assert.match(src, /href: '#\/agent\/antifraud'/);
+  assert.match(src, /homeSuggest\(/);
+  assert.match(src, /homeAsks\(snap, d\)/);
+  assert.doesNotMatch(src, /fetch\(/, '經 host.callTool（/api/v1/tools/:name）');
+  const { svcOrder } = await import('../public/js/home-data.js');
+  for (const m of [7 * 60, 12 * 60, 19 * 60, 23 * 60]) assert.ok(svcOrder(m).slice(0, 8).some((a) => a.id === 'antifraud'), `${m}：防詐在前 8 個`);
   const now = await readFile(new URL('../public/js/home-now.js', import.meta.url), 'utf8');
   assert.doesNotMatch(now, /fetch\(/, '經 host.callTool（/api/v1/tools/:name）');
   assert.match(now, /'weather_now'/);
   assert.match(now, /'aqi_nearby'/);
+  const data = await readFile(new URL('../public/js/home-data.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(data, /fetch\(/);
+});
+
+test('officeArea：最近的戶政事務所在 3 公里內才當「目前位置」的區名', async () => {
+  const { officeArea } = await import('../public/js/home-now.js');
+  assert.equal(officeArea({ name: '臺北市大安區戶政事務所', distanceM: 800 }), '大安區');
+  assert.equal(officeArea({ name: '新北市板橋戶政事務所', distanceM: 800 }), '板橋區');
+  assert.equal(officeArea({ name: '屏東縣潮州戶政事務所', distanceM: 800 }), '潮州');
+  assert.equal(officeArea({ name: '臺北市大安區戶政事務所', distanceM: 5000 }), null);
+  assert.equal(officeArea(null), null);
 });

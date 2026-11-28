@@ -27,6 +27,7 @@ const greetOf = (hour) => (hour < 5 ? '夜深了' : hour < 11 ? '早安' : hour 
  * @returns {{ work: boolean, weekend: boolean, label: string, known: boolean }}
  */
 export function dayKind(day, dow) {
+  if (day && Number.isInteger(day.dow) && day.dow !== dow) day = null; // 辦公日曆是別天的答案（快取跨過午夜）：照星期推
   const weekend = dow === 0 || dow === 6;
   const work = typeof day?.workday === 'boolean' ? day.workday : !weekend;
   const known = !!day?.known;
