@@ -31,7 +31,7 @@ const INTRO = {
 const LOCATION = {
   img: '/brand/abang-think.svg',
   title: '用你現在的位置當起點',
-  body: ['問「怎麼去」「附近 YouBike」時，我會用你現在的位置。位置只用來回答當下的問題，不會存到伺服器；常用地點要你自己設定，只存在這支手機。', '不給也能用，只是要自己說從哪出發。'],
+  body: ['問「怎麼去」「附近 YouBike」時，我會用你現在的位置。位置只用來回答當下的問題，不會存到伺服器；常用地點要你自己設定，只存在這支手機。', '不給也能用：下一步選一個預設地區，或問的時候直接說地點。'],
   action: { label: '允許定位', done: '已允許定位', fail: () => { const h = locationHelp(); return `沒拿到位置：${h.why}之後可以${h.fix.replace(/^按「到設定開啟」，/, '到手機設定，')}；不開也能用，直接打地點就好。`; }, run: async () => Boolean(await browserLocation(8000)) },
   granted: locationGranted,
 };

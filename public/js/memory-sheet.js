@@ -27,11 +27,7 @@ export function memoryRows({ places = {}, area = null, habits = null, chat = nul
   return rows;
 }
 
-const read = () => {
-  let chat = null;
-  try { chat = loadChat()?.messages || loadChat() || null; } catch { chat = null; }
-  return { places: loadPlaces(), area: homeArea(), habits: habitSummary(), chat: Array.isArray(chat) ? chat : null, reminders: listReminders().length };
-};
+const read = () => ({ places: loadPlaces(), area: homeArea(), habits: habitSummary(), chat: loadChat()?.messages || null, reminders: listReminders().length });
 
 /** 忘掉一項 */
 function forget(id) {
