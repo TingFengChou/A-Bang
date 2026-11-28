@@ -19,7 +19,7 @@ export function fileNameOf(key) {
 /**
  * @param {string} dir 存檔目錄（例 .cache/tdx；Docker 用 volume）
  * @param {{ log?: Function, maxBytes?: number }} [opts]
- * @returns {{ dir: string, read(key: string): Promise<{ at: number, data: any } | null>, write(key: string, v: { at: number, data: any }): Promise<void> }}
+ * @returns {{ dir: string, read(key: string): Promise<{ at: number, data: any } | null>, write(key: string, v: { at: number, data: any }): Promise<void>, check(): Promise<void> }}
  */
 export function createFileStore(dir, { log = () => {}, maxBytes = MAX_BYTES } = {}) {
   let ready = null;
@@ -27,6 +27,13 @@ export function createFileStore(dir, { log = () => {}, maxBytes = MAX_BYTES } = 
   const ensure = () => (ready ||= mkdir(dir, { recursive: true, mode: 0o700 }).catch((e) => { ready = null; throw e; }));
   return {
     dir,
+    /** 部署檢查：目錄建得起來、寫得進去（唯讀掛載、權限不對時丟錯；P0-2） */
+    async check() {
+      await ensure();
+      const probe = join(dir, `.probe.${process.pid}.${Date.now()}`);
+      await writeFile(probe, '', { mode: 0o600 });
+      await rm(probe, { force: true });
+    },
     async read(key) {
       if (misses.size > 5000) misses.clear();
       const t = misses.get(key);

@@ -292,6 +292,17 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
   /** 空結果（空陣列、null）：不存檔，只在記憶體放 10 分鐘（別每次都打，也別把一時的空當成真的） */
   const isEmpty = (d) => d == null || (Array.isArray(d) && d.length === 0);
   const EMPTY_TTL = 600;
+  /**
+   * 靜態資料下載失敗（上游壞了、整個系統回空）後退避：1、2、4、8、15 分鐘（P0-2 量測）。
+   * 不退避的話，失敗的清單每一題都重新下載（一題最多十幾次），把每分鐘 5 次的額度連同即時到站一起吃光。
+   * 退避期間有舊資料照用舊的（cached 的背景更新也擋），沒有就立刻丟同樣的錯，不打 TDX；預熱（force）照排程重試。
+   * 只算上游的失敗（TDX 錯誤、5xx、連線失敗）；額度用完（429）與背景讓位不算，那由全站的額度閘門管（gate.exhausted）；
+   * 使用者輸入錯誤（UserError）也不算。
+   */
+  const BACKOFF_MS = [1, 2, 4, 8, 15].map((m) => m * 60_000);
+  const failed = new Map(); // key -> { n, until, err }
+  const upstreamFail = (e) => !isYield(e) && e?.status !== 429 && (e instanceof TdxError || e?.status >= 500 || (e instanceof TypeError && /fetch failed/i.test(e.message)));
+  const again = (e) => Object.assign(e instanceof TdxError ? new TdxError(e.status, e.message) : new Error(e.message), { name: e.name, status: e.status, backoff: true });
   const ttlOf = (v, ttlSec) => Math.min(ttlSec, v.ttl ?? Infinity);
 
   async function fromStore(key) {
@@ -302,14 +313,29 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
     } catch { return null; }
   }
 
-  function load(key, loader, background, persist) {
+  function load(key, loader, background, persist, force = false) {
     const cur = loading.get(key);
     if (cur) {
       // 使用者併入背景預熱的同一份下載：背景讓位時，使用者以前景身分自己下載（不跟著退回示範）
       return background || !cur.background ? cur.p : cur.p.catch((e) => { if (isYield(e)) return load(key, loader, false, persist); throw e; });
     }
+    const f = failed.get(key);
+    if (f && !force && now() < f.until) return Promise.reject(again(f.err));
     const p = (async () => {
-      const data = await loader({ background });
+      let data;
+      try {
+        data = await loader({ background });
+      } catch (e) {
+        if (upstreamFail(e)) {
+          const n = (failed.get(key)?.n || 0) + 1;
+          failed.delete(key); // 重新放到最後（超過上限淘汰最舊的）
+          failed.set(key, { n, until: now() + BACKOFF_MS[Math.min(n, BACKOFF_MS.length) - 1], err: e });
+          while (failed.size > limit.maxStatics) failed.delete(failed.keys().next().value);
+          if (n === 1) log(`[tdx] ${key} 下載失敗，退避重試：${e?.message || e}`);
+        }
+        throw e;
+      }
+      failed.delete(key);
       const empty = isEmpty(data);
       const v = { at: now(), data, ...(empty && { ttl: EMPTY_TTL }) };
       remember(key, v);
@@ -338,7 +364,7 @@ export function createTdxClient({ clientId, clientSecret, fetchImpl = fetch, log
     }
     const age = v ? now() - v.at : Infinity;
     if (v && age < ttlOf(v, ttlSec) * 1000) { recordFetch({ cacheHit: true, data: v.data }); return v.data; }
-    if (force) return load(key, loader, background, persist);
+    if (force) return load(key, loader, background, persist, true);
     if (v && !v.ttl && age < maxStaleSec * 1000) {
       // 舊資料先用，背景更新（額度不夠就下次再說）
       if (!refreshing.has(key) && !loading.has(key)) {

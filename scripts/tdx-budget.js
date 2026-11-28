@@ -34,6 +34,8 @@ const turn = async (q, svc0 = null, label = '冷快取') => {
   calls = [];
   const es = [];
   await runDemo(svc, { messages: [{ role: 'user', content: q }], clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 25.0423, lon: 121.5079 } }] }, (e) => es.push(e), { now: Date.parse('2026-11-28T10:00:00+08:00') });
+  // 等排隊中的請求都送完（400 毫秒沒有新請求）才算這一題，不把它們量到下一題頭上（Antigravity 第三輪）
+  for (let n = -1; n !== calls.length;) { n = calls.length; await new Promise((r) => setTimeout(r, 400)); }
   const tools = es.filter((e) => e.type === 'tool_start').map((e) => e.name);
   const by = {};
   for (const c of calls) by[shape(c)] = (by[shape(c)] || 0) + 1;

@@ -84,10 +84,11 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
   const live = Boolean(clientId && clientSecret) && !forceMock;
   const picked = (tdxCfg.cities || []).map((c) => resolveCity(c)?.city).filter(Boolean); // 只收認得的縣市（會放進 TDX 網址路徑）
   const cities = picked.length ? [...new Set(picked)] : INDEX_CITIES;
+  const tdxStore = live && tdxCfg.cacheDir ? createFileStore(tdxCfg.cacheDir, { log }) : null;
   const tdx = live ? createTdxClient({
     clientId, clientSecret, log,
     limit: { ...TDX_LIMIT, perMinute: tdxCfg.perMinute > 0 ? tdxCfg.perMinute : 5 },
-    store: tdxCfg.cacheDir ? createFileStore(tdxCfg.cacheDir, { log }) : null,
+    store: tdxStore,
   }) : null;
   const quota = { at: 0 }; // 最近一次 TDX 額度用完（429）的時間
   const transit = live ? withTdxFallback(createTransitServices(tdx, { cities }), createMockTransitServices(), quota) : createMockTransitServices({ bus: demo.bus });
@@ -135,6 +136,15 @@ export function createServices({ clientId, clientSecret, cwaKey, moenvKey, openD
       const per = tdxCfg.perMinute > 0 ? tdxCfg.perMinute : 5;
       if (per <= 2) { (opts.log || log || (() => {}))(`[tdx] 每分鐘上限 ${per} 次（≤ 2），背景預熱停用（要留 2 次給使用者）`); return null; }
       return startTdxPrewarm(tdx, prewarmSteps(tdx, cities), opts);
+    } : null,
+    /**
+     * 部署檢查（伺服器啟動時呼叫；示範模式為 null）：靜態資料存檔目錄有沒有設、寫不寫得進去。
+     * 沒有存檔的話，每次重啟後第一批使用者的問題要重新下載站表與站序（一題十幾次），每分鐘 5 次的額度撐不住（P0-2 量測）。
+     * @returns {Promise<string | null>} 有問題回一句說明，沒問題回 null
+     */
+    tdxStoreCheck: live ? async () => {
+      if (!tdxStore) return '沒有設定 TDX 靜態資料存檔目錄（TDX_CACHE_DIR=off）：重啟後要重新下載站表與站序，第一批使用者會很慢、容易用光額度';
+      try { await tdxStore.check(); return null; } catch (e) { return `TDX 靜態資料存檔目錄寫不進去（${e?.code || e?.message || e}）：請確認 TDX_CACHE_DIR 可寫（Docker 要掛 volume）`; }
     } : null,
     tdxStats: () => (tdx ? { ...tdx.stats(), quota: tdx.quota() } : null), // 除錯：累計上游次數（只有端點類別）與這分鐘的額度
     ...transit, // bus, bike, rail
