@@ -124,32 +124,44 @@ main { padding: 4px 16px 16px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .updated { text-align: center; color: var(--muted); font-size: 12px; margin: 10px 0; }
 
-/* Bottom nav（2026-11-21 重新設計）：首頁｜服務｜問阿幫（中央鍵）｜提醒｜我的。目前這一區：圖示後面一塊淡色膠囊 */
-.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: color-mix(in srgb, var(--card) 94%, transparent); backdrop-filter: blur(14px);
-  border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); box-shadow: 0 -4px 18px rgba(16, 40, 34, .05); }
-.tabbar nav { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); height: var(--nav-h); align-items: stretch; }
-.tabbar a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 12.5px; color: var(--muted); min-height: 48px; min-width: 44px; }
-.tabbar .tab-ic { position: relative; display: grid; place-items: center; width: 58px; height: 32px; border-radius: 16px; transition: background .2s ease; }
-.tabbar a svg { width: 26px; height: 26px; }
-.tabbar a.on { color: var(--brand); font-weight: 700; }
-.tabbar a.on .tab-ic { background: var(--brand-soft); }
-.tabbar .tab-badge { position: absolute; top: -3px; right: 6px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--warn); color: #fff; font-size: 10.5px; line-height: 17px; font-weight: 700; text-align: center; border: 2px solid var(--card); box-sizing: content-box; }
-/* 中央「問阿幫」鍵：藍鵲圓盤比分頁列高出一截；有對話＝青綠小點、阿幫有話跟你說＝橘點 */
-.tab-key { position: relative; border: 0; background: none; margin: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; padding: 0 0 7px; color: var(--brand); font: inherit; font-size: 12.5px; font-weight: 700; min-width: 64px; }
-.tab-key .key-disc { position: relative; width: 62px; height: 62px; margin-top: -24px; border-radius: 50%; display: grid; place-items: center;
+/* 頁面矩陣（ADR-0023 §3，H3）：拿掉底部分頁列。總覽頁（服務、提醒、個人）底部是輸入列；內容頁右下角「問阿幫」浮動鍵；問阿幫、設定不放 */
+:root[data-chrome] { --nav-h: 0px; }
+:root[data-chrome="dock"] { --nav-h: 80px; }
+:root[data-chrome="dock"]:has(#sd-asks:not([hidden])) { --nav-h: 128px; }
+:root[data-chrome="fab"] .app { padding-bottom: calc(env(safe-area-inset-bottom) + 96px); }
+.shell-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding: 14px 12px calc(env(safe-area-inset-bottom) + 10px); background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 0%, transparent), var(--bg) 34%); }
+.shell-dock[hidden] { display: none; }
+.shell-dock > * { max-width: 536px; margin: 0 auto; }
+.sd-asks { display: flex; align-items: center; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 8px; }
+.sd-asks[hidden] { display: none; }
+.sd-asks::-webkit-scrollbar { display: none; }
+.sd-askL { flex: none; font-size: 13px; font-weight: 700; color: var(--brand); }
+.sd-chip { flex: none; min-height: 40px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 20px; background: var(--card); border: 1px solid var(--line); color: var(--text); font-size: 14px; white-space: nowrap; }
+.sd-form { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 7px; border-radius: 28px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(16, 40, 34, .12); }
+.sd-form input { flex: 1; min-width: 0; height: 44px; border: 0; background: none; font: inherit; font-size: 16px; color: var(--text); outline: none; }
+.sd-form:focus-within { border-color: var(--brand); }
+.sd-cam, .sd-mic { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.sd-cam { background: var(--brand-soft); color: var(--brand); }
+.sd-mic { background: var(--brand); color: #fff; }
+.sd-cam svg, .sd-mic svg { width: 22px; height: 22px; }
+/* 「問阿幫」浮動鍵：藍鵲圓盤；有對話＝青綠小點、阿幫有話跟你說＝橘點；長按用說的（abang-dock.js） */
+.fab-key { position: fixed; right: max(16px, calc(50% - 264px)); bottom: calc(env(safe-area-inset-bottom) + 18px); z-index: 20; border: 0; background: none; margin: 0; padding: 0; cursor: pointer; }
+.fab-key[hidden] { display: none; }
+.fab-key .key-disc { position: relative; width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center;
   background: radial-gradient(circle at 35% 30%, #fff 0%, #eef8f6 60%, #d7efea 100%); border: 3px solid var(--brand); box-shadow: 0 6px 16px rgba(15, 118, 110, .28), 0 0 0 4px var(--card); transition: transform .18s cubic-bezier(.3,1.6,.5,1); }
-.tab-key .key-disc img { width: 50px; height: 50px; }
-.tab-key:active .key-disc { transform: translateY(2px) scale(.96); }
-.tab-key:focus-visible { outline: none; }
-.tab-key:focus-visible .key-disc { outline: 3px solid var(--brand); outline-offset: 3px; }
-.tab-key.on .key-disc { background: radial-gradient(circle at 35% 30%, #fff 0%, var(--brand-soft) 100%); }
-.tab-key .fab-dot { position: absolute; top: 0; right: 0; width: 13px; height: 13px; border-radius: 50%; background: var(--brand); border: 2px solid var(--card); display: none; }
-.tab-key.has-chat .fab-dot { display: block; }
-.tab-key.unread .fab-dot { display: block; background: var(--warn); animation: key-ping 1.6s ease-out 3; }
+.fab-key .key-disc img { width: 48px; height: 48px; }
+.fab-key:active .key-disc { transform: translateY(2px) scale(.96); }
+.fab-key:focus-visible { outline: none; }
+.fab-key:focus-visible .key-disc { outline: 3px solid var(--brand); outline-offset: 3px; }
+.fab-key .fab-dot { position: absolute; top: 0; right: 0; width: 13px; height: 13px; border-radius: 50%; background: var(--brand); border: 2px solid var(--card); display: none; }
+.fab-key.has-chat .fab-dot { display: block; }
+.fab-key.unread .fab-dot { display: block; background: var(--warn); animation: key-ping 1.6s ease-out 3; }
 @keyframes key-ping { 0% { box-shadow: 0 0 0 0 rgba(180, 83, 9, .5); } 100% { box-shadow: 0 0 0 10px rgba(180, 83, 9, 0); } }
-.tab-key.nudge .key-disc { animation: fab-hop .7s ease-out 2; }
+.fab-key.nudge .key-disc { animation: fab-hop .7s ease-out 2; }
 @keyframes fab-hop { 30% { transform: translateY(-8px) rotate(-6deg); } 60% { transform: translateY(0) rotate(4deg); } }
-@media (prefers-reduced-motion: reduce) { .tab-key.nudge .key-disc, .tab-key.unread .fab-dot { animation: none; } .tab-key .key-disc, .tabbar .tab-ic { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .fab-key.nudge .key-disc, .fab-key.unread .fab-dot { animation: none; } .fab-key .key-disc { transition: none; } }
+:root[data-chrome="fab"] .abang-float { bottom: calc(env(safe-area-inset-bottom) + 92px); }
+:root[data-chrome="dock"] .abang-float { bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 12px); }
 
 /* 首頁「問阿幫」範例（M5-12） */
 .hero-ask { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
@@ -238,7 +250,7 @@ html.lite-motion .hero .mascot, html.lite-motion .hero .mascot-shadow { animatio
 
 /* 鍵盤打開時（手機）收起底部分頁列：鍵盤彈出後分頁列不再浮在鍵盤上方擋住輸入框（2026-11-21 iOS 實機）。
    由 js/keyboard.js 依可見高度判斷（不用 :focus：點輸入框下方的按鈕時分頁列會瞬間跑回來，點擊落空） */
-html.kb-open .tabbar { display: none; }
+html.kb-open .sd-asks, html.kb-open .fab-key { display: none; }
 html.kb-open .chat-dock { bottom: 0; padding-bottom: 8px; }
 html.kb-open .app { padding-bottom: 12px; }
 
@@ -523,18 +535,10 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
 .me-about ul { margin: 0; padding-left: 20px; color: var(--muted); }
 /* 手機橫放（高度很矮）：分頁列與中央鍵縮小，留多一點高度給內容 */
 @media (orientation: landscape) and (max-height: 520px) {
-  :root { --nav-h: 52px; }
-  .tabbar a { gap: 1px; font-size: 11.5px; min-height: 44px; }
-  .tabbar .tab-ic { height: 26px; }
-  .tabbar a svg { width: 22px; height: 22px; }
-  .tab-key { font-size: 11.5px; gap: 1px; padding-bottom: 4px; }
-  .tab-key .key-disc { width: 48px; height: 48px; margin-top: -16px; }
-  .tab-key .key-disc img { width: 38px; height: 38px; }
   .app { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 18px); }
   .abang-float { bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 20px); }
   /* 撐滿整個螢幕（2026-11-24 產品負責人）：左右只留瀏海與圓角的安全區域 */
   .app { max-width: none; padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
-  .tabbar nav { max-width: none; padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
   /* 單一長卡、長清單（天氣這類格子頁、附近、公車時刻表）：置中單欄，不拉成一整條 */
   #main { max-width: 760px; margin: 0 auto; }
   /* 一個個區塊堆起來的頁面（首頁、服務、提醒、我的、設定）：兩欄，一個畫面看得到兩倍 */
@@ -547,11 +551,6 @@ html.lite-motion .page-hero *, html.lite-motion .page-hero .ph-token::after { an
   #main:has(> .kept-page) { max-width: 720px; }
   #main .ab-card { max-width: none; } /* 卡片跟著內容寬度（直放時最寬 560） */
   .abang-sheet { max-width: 720px; }
-}
-/* 桌面：分頁列跟內容一樣寬（不橫跨整個螢幕） */
-@media (min-width: 900px) {
-  .tabbar { border-top: 0; background: transparent; backdrop-filter: none; box-shadow: none; }
-  .tabbar nav { background: color-mix(in srgb, var(--card) 94%, transparent); backdrop-filter: blur(14px); border: 1px solid var(--line); border-bottom: 0; border-radius: 20px 20px 0 0; box-shadow: 0 -4px 18px rgba(16, 40, 34, .06); }
 }
 .svc-list .svc .title, .svc-list .svc .sub { display: block; }
 .now-item { position: relative; }

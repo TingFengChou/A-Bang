@@ -76,11 +76,11 @@ test('問阿幫頁英文一輪：外殼英文、元素標 lang="en"，整頁 <ht
   assert.ok(doc.texts.every((x) => !('lang' in x.attrs)), '回中文拿掉標記');
 });
 
-test('外殼用到的鍵都在字典裡（app.js、分頁列 tabs.js、新頁面的標題）；index.html 預設 zh-Hant-TW', async () => {
+test('外殼用到的鍵都在字典裡（app.js、tabs.js、總覽頁的標題）；index.html 預設 zh-Hant-TW', async () => {
   const read = (f) => readFile(new URL(`../public/js/${f}`, import.meta.url), 'utf8');
   const src = [await read('app.js'), await read('tabs.js'), await read('pages/services.js'), await read('pages/reminders.js'), await read('pages/me.js')].join('\n');
   const keys = [...src.matchAll(/data-shell(?:-label)?="([\w.]+)"/g), ...src.matchAll(/zh\('([\w.]+)'\)/g), ...src.matchAll(/key: '(tab\.\w+)'/g), ...src.matchAll(/shellTitle: '([\w.]+)'/g)].map((m) => m[1]);
-  for (const t of ['tab.home', 'tab.services', 'tab.ask', 'tab.reminders', 'tab.me', 'title.services', 'title.reminders', 'title.me']) assert.ok(keys.includes(t), t);
+  for (const t of ['fab', 'back', 'skip', 'title.services', 'title.reminders', 'title.me']) assert.ok(keys.includes(t), t); // 分頁列拿掉了（ADR-0023）：分頁名稱不再用到
   assert.ok(keys.length >= 10, keys.join(','));
   for (const k of keys) assert.ok(k in ZH, k);
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
