@@ -12,6 +12,8 @@ import { edgeEnabled, edgeStatus } from '../edge-judge.js';
 import { edgeLine } from '../home-now.js';
 import { showOnboarding } from '../onboarding.js';
 import { mountHealthSetting } from '../health-ui.js';
+import { openMemorySheet } from '../memory-sheet.js';
+import { widgetAvailable, pinTodayWidget } from '../today-widget.js';
 
 /** 資料來源（關於） */
 const SOURCES = ['交通部 TDX 運輸資料流通服務', '中央氣象署', '環境部', '衛福部健保署', '各縣市環保局', '台灣中油', '財政部', '臺灣證券交易所、證券櫃檯買賣中心', '165 全民防騙網'];
@@ -41,6 +43,8 @@ export default {
           ${rowHtml('#/settings', 'home', '#1d4ed8', '常用地點', set.length ? `已設定：${set.join('、')}` : '家、公司、學校還沒設定')}
           ${rowHtml('#/s/invoice', 'receipt', '#7c3aed', '我的發票', inv ? `${inv} 張，開獎後自動對獎` : '存發票，開獎後自動對獎')}
           ${rowHtml('#/reminders', 'bell', '#b45309', '提醒', rem ? `${rem} 個進行中` : '目前沒有提醒')}
+          <button type="button" id="me-memory"><span class="ab-token sm" style="--c:#0f766e" aria-hidden="true">${icons.user}</span><div class="grow"><div class="title">阿幫記得你</div><div class="sub">阿幫記得的東西一次看、一項一項忘掉</div></div>${chev}</button>
+          ${widgetAvailable() ? `<button type="button" id="me-widget"><span class="ab-token sm" style="--c:#0284c7" aria-hidden="true">${icons.grid}</span><div class="grow"><div class="title">放到主畫面：阿幫・今天</div><div class="sub">不用打開 App，看今天要帶傘嗎、怎麼去公司</div></div>${chev}</button>` : ''}
         </div>
       </section>
       <section aria-labelledby="me-ai" id="ai">
@@ -76,6 +80,10 @@ export default {
       if (note) { const d = Object.assign(document.createElement('details'), { className: 'me-ai-how' }); d.append(Object.assign(document.createElement('summary'), { textContent: '怎麼運作' })); note.replaceWith(d); d.append(note); }
     }
     main.querySelector('#me-guide').addEventListener('click', () => showOnboarding({ force: true }));
+    main.querySelector('#me-memory').addEventListener('click', () => openMemorySheet({ toast }));
+    main.querySelector('#me-widget')?.addEventListener('click', async () => { // 系統畫面上按「新增」才放（ADR-0021：最後一步由系統確認）
+      if (!(await pinTodayWidget())) toast('這支手機的桌面不支援從 App 新增：長按桌面空白處 →「小工具」→ 找「阿幫・今天」', 6000);
+    });
     const card = main.querySelector('.me-ai');
     edgeStatus().then((st) => {
       const l = edgeLine(st, edgeEnabled());

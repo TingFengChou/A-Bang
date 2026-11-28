@@ -47,8 +47,9 @@ const coord = { lat: z.number().min(21).max(27).describe('緯度（使用者的�
 export function todaySay(t) {
   const day = t.dayOffset === 1 ? '明天 ' : t.dayOffset === 2 ? '後天 ' : t.dayOffset ? '' : '今天 '; // 問別的日子：「11/29（六）放假」
   const base = t.workday ? `${day}${t.date}是上班日` : `${day}${t.date}放假${t.note ? `（${t.note}）` : ''}`;
-  if (t.known) return base;
-  return t.calendarFailed ? `${base}（辦公日曆這次連不上，照週末推的；補班或連假可能不準，去之前先打電話確認）` : `${base}（今年的辦公日曆還沒有今天的資料，照週末推的）`;
+  const close = t.closing === 'soon' ? '；快下班了：多數戶政下午 5 點下班，現場常提早停止抽號，出發前先打電話確認' : t.closing === 'over' ? '；多數戶政已經下班（部分有夜間延時），先打電話問' : '';
+  if (t.known) return `${base}${close}`;
+  return `${base}${t.calendarFailed ? '（辦公日曆這次連不上，照週末推的；補班或連假可能不準，去之前先打電話確認）' : '（今年的辦公日曆還沒有今天的資料，照週末推的）'}${close}`;
 }
 
 export const govOfficeNearby = defineTool({
