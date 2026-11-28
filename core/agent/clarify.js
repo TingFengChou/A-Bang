@@ -4,7 +4,7 @@
 //   after＝先用最可能的答案查（選項第一個標 guess「猜的」），同時問一題讓使用者更正，按了就送出完整的一句重算
 // 全部是通用規則（同名地點跨縣市、連鎖機構、區名、路名、公車方向、只說類別…），不寫死句子；選項都是 reply（完整的一句，
 // 規則聽得懂），打字回答由 core/agent/ask.js 的 PENDING_SLOTS 接回。原則同 #115：寧可不問——對不上就照原本流程。
-import { LANDMARKS, normPlace } from '../services/places.js';
+import { LANDMARKS, normPlace, TOWN_ITEMS, townHits } from '../services/places.js';
 import { ROUTE_EXACT } from './patterns.js';
 import { distanceM } from '../util.js';
 
@@ -14,7 +14,7 @@ const tw = (s) => String(s ?? '').replace(/臺/g, '台');
 /** 地標的中文名稱與別名（比對用：臺→台、去空白；載入時算好一次） */
 const KEYS = new Map(ITEMS.map((x) => [x, [x.name, ...(x.aliases || [])].filter((k) => CJK.test(k)).map(normPlace)]));
 const keysOf = (x) => KEYS.get(x) || [];
-const byName = (name) => ITEMS.find((x) => x.name === name) || null;
+const byName = (name) => ITEMS.find((x) => x.name === name) || TOWN_ITEMS.find((x) => x.name === name) || null; // 行政區也有代表點（第十一輪）
 const dist = (a, b) => (a && b ? distanceM(a.lat, a.lon, b.lat, b.lon) : Infinity);
 
 // ───── 地點有歧義：同名跨縣市（中山）、同城多義（松山車站／松山機場）、連鎖（長庚醫院）、區名（信義）、只打名字（中正）、路名（中山路）─────
@@ -61,7 +61,11 @@ export function lookupToken(token) {
   const exact = ITEMS.find((x) => keysOf(x).includes(n));
   if (exact) return { exact: exact.name };
   if (isRoadName(token) && !/(?:老街|商店街)$/.test(token)) return { road: token }; // 「深坑老街」是地方，不是路名
-  if (/[區鄉鎮里]$/.test(token)) return null; // 行政區（「大安區」「中正區」）不是一個地方，不猜（寧可不問）
+  if (/[區鄉鎮]$/.test(token)) { // 行政區：全台只有一個的已經直接認得；不只一個的（「中正區」臺北、基隆）列出來問（第十一輪，Antigravity：多義要確認）
+    const towns = townHits(n);
+    return towns.length >= 2 && towns.length <= 4 ? { core: n, cands: towns.map((x) => x.name) } : null;
+  }
+  if (/里$/.test(token)) return null; // 里不是一個地方，不猜
   const core = n.replace(/^(?:捷運|高鐵)/, '').replace(GENERIC_TAIL, '');
   if (core.length < 2 || COUNTY_WORD.test(core) || GENERIC_NAME.test(core) || GENERIC_NAME.test(n)) return null;
   const station = STATION_SAID.test(n);

@@ -238,6 +238,7 @@ TDX 站牌、站位、YouBike、車站資料都有經緯度（`StopPosition`／`
 | 輸出 | `[{ name, lat, lon, city, cityName, source: 'landmark'\|'station'\|'geocode', kind, nav }]`（`cityName` 中文縣市名）（≤ 5，最符合的在前） |
 | 資料 | 內建地標 `core/data/landmarks.json`（201 筆；車站類 `kind=station` 回 `source: 'station'`）；地理編碼：TDX `/advanced/V3/Map/GeoCode/Coordinate/Address/{地址}`、`/Markname/{地標}` 可用（2026-11-23 實測，`DATA_SOURCES.md` §5），尚未串接 |
 | 比對 | `normPlace()`：臺→台、去空白與括號、英文小寫，**不去「站」**（「西門站」≠「西門」）。分數：名稱或別名完全相同 3 → 以查詢開頭 2 → 互相包含 1（「我要去逢甲夜市」也能找到）；同分車站優先，再取名稱短的 |
+| 行政區（2026-11-28） | 地標找不到才查 `core/data/towns.json`（365 區，`node scripts/build-towns.js` 從內政部戶政事務所據點產生；代表點是那一區的戶政事務所，不是區的中心）：`{ name: '新北市新莊區', source: 'district', kind: 'district', approx: true }`；`resolvePoint` 的名稱加「（概略位置）」。查詢字以「區、鄉、鎮」結尾時區名優先（「大安區」不被大安站搶走）；全台不只一個的（中正區、大安區、東區）回全部，規則模式出題確認。規則模式也認得區名，但問路時地標優先（「中山」＝捷運中山站、「士林」＝士林夜市）；跟路名、日常用語撞的雙字短名（中山、信義、和平、成功…）要說「區、鄉、鎮」；後面接路、街、巷、站或前面是「捷運」的不算 |
 | 錯誤 | 空白查詢、無法辨識的 `city` → `UserError`；找不到回空陣列 |
 | 來源標示 | `source: '阿幫內建地標資料（座標為近似值）'`、`static: true` |
 | speak | 「「逢甲夜市」最符合的是逢甲夜市（臺中市）。」 |

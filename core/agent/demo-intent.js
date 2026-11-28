@@ -4,7 +4,7 @@ import { ROUTE_NO, SAID_BUS_ROUTE } from './patterns.js';
 import { findGovLinks } from '../services/govlinks.js';
 import { deptOf } from '../services/clinic.js';
 import { whenOf } from '../when.js';
-import { LANDMARKS, normPlace } from '../services/places.js';
+import { LANDMARKS, normPlace, TOWN_ITEMS } from '../services/places.js';
 import { nowTW, distanceM } from '../util.js';
 import { destToken, lookupToken, isAirportName, railStationAnswer } from './clarify.js';
 
@@ -358,6 +358,11 @@ const PLACE_KEYS = LANDMARKS.items
     ...(x.kind === 'station' ? [{ key: short(k), name: x.name, full: false }] : []),
   ]))
   .filter((k) => k.key.length >= 2)
+  // 行政區（第十一輪）：地標沒有的寫法才加（「大安」照舊是大安站；「大安區」比較長、先比到，是區）；後面接路、街、巷不算
+  .concat((() => { // 地標的寫法（含車站短名「北門」）等於或包含這個區名短名的，地標優先（問路：Antigravity 第十一輪；「去士林」照舊走士林的地標、「去北門」是捷運北門站）
+    const marks = LANDMARKS.items.flatMap((x) => [x.name, ...x.aliases].filter((k) => !ASCII.test(k)).flatMap((k) => [normPlace(k), ...(x.kind === 'station' ? [short(k)] : [])]));
+    return TOWN_ITEMS.flatMap((t) => t.keys.filter((k) => k.length >= 2 && !marks.some((m) => m.includes(k))).map((key) => ({ key, name: t.name, full: false, town: true })));
+  })())
   .sort((a, b) => b.key.length - a.key.length || b.full - a.full);
 
 /** 文字中出現的地標（依出現順序、不重疊、同一地標只算一次） */
@@ -395,10 +400,10 @@ function placeHits(text) {
   const s = normPlace(text).replace(/[0-9一二兩三四五六七八九十半]+\s*分鐘?|太魯閣號|普悠瑪號?/g, (x) => ' '.repeat(x.length)); // 車名「太魯閣號」不是太魯閣（PM 第三輪 #1）
   const taken = new Array(s.length).fill(false);
   const hits = [];
-  for (const { key, name, full } of PLACE_KEYS) {
+  for (const { key, name, full, town } of PLACE_KEYS) {
     let i = s.indexOf(key);
     while (i >= 0) {
-      const road = !full && /[路街巷]/.test(s[i + key.length] || ''); // 「中山路」不是捷運中山站（車站的短名後面接路、街）
+      const road = (!full && /[路街巷]/.test(s[i + key.length] || '')) || (town && (/^(?:捷運)?站/.test(s.slice(i + key.length)) || /捷運$/.test(s.slice(0, i)))); // 「中山路」不是捷運中山站；「士林站」「捷運內湖站」是車站，不是區
       if (!road && !taken.slice(i, i + key.length).some(Boolean) && !hits.some((h) => h.name === name)) {
         for (let j = i; j < i + key.length; j++) taken[j] = true;
         hits.push({ name, index: i, len: key.length });
