@@ -220,6 +220,14 @@ html.lite-motion .bubble, html.lite-motion .bubble > .avatar, html.lite-motion .
 .dg-opt.pickable:focus, .dg-opt.pickable:focus-visible { outline: none; } /* 點了不要出現瀏覽器的橘色焦點框；鍵盤焦點用上面的邊框 */
 .dg-node > rect.dg-hit { fill: transparent !important; stroke: none !important; }
 .dg-hint { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+.dg-legend { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+/* 手機：圖是 440 單位寬、縮到約 0.78 倍，標籤原本只剩 8px（設計第三輪 #3）→ 窄螢幕把圖裡的字放大 */
+@media (max-width: 520px) {
+  .dg-col { font-size: 13px; } .dg-lbl { font-size: 12.5px; } .dg-eff { font-size: 11.5px; }
+  .dg-state text { font-size: 12.5px; } .dg-tag { font-size: 11.5px; } .dg-pkt text { font-size: 12px; }
+  .dg-name { font-size: 14px; } .dg-score { font-size: 14px; } .dg-opt.excluded .dg-score { font-size: 12px; }
+  .dg-step, .dg-hint, .dg-why { font-size: 14px; }
+}
 
 /* 「重來」分隔線、前面的對話變淡（不清空）；接著問時沒變的天氣空品卡片收合（2026-11-21 設計審查） */
 .thread-reset { display: flex; align-items: center; gap: 10px; margin: 18px 0 10px; color: var(--muted); font-size: 13px; }

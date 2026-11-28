@@ -19,3 +19,12 @@ test('節點名稱：短的照原樣；有括號先拿掉；還太長才截', ()
   assert.equal(shortName('YouBike（微笑單車 2.0）'), 'YouBike');
   assert.equal(shortName('捷運 淡水信義線'), '捷運 淡水信…');
 });
+
+test('fitName：依字寬截（中文 1、英數 0.6，上限 5）——YouBike、公車 紅30 放得下；長的才截（設計第三輪 #3）', async () => {
+  const { fitName } = await import('../public/ui/agent/decision-graph.js');
+  assert.equal(fitName('YouBike'), 'YouBike');
+  assert.equal(fitName('公車 紅30'), '公車 紅30');
+  assert.equal(fitName('叫車（Uber）'), '叫車');
+  assert.equal(fitName('國道客運示範 B'), '國道客運…');
+  assert.equal(fitName('捷運 淡水信義線'), '捷運 淡…');
+});
