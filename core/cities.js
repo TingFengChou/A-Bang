@@ -31,8 +31,8 @@ const byCity = Object.fromEntries(CITIES.map((c) => [c.city.toLowerCase(), c]));
 export function resolveCity(input) {
   if (!input) return null;
   const s = String(input).trim();
-  if (byCity[s.toLowerCase()]) return byCity[s.toLowerCase()];
-  if (byCode[s.toUpperCase()]) return byCode[s.toUpperCase()];
+  if (Object.hasOwn(byCity, s.toLowerCase())) return byCity[s.toLowerCase()]; // 只認自己的鍵（「constructor」「__proto__」不是縣市，V8-1）
+  if (Object.hasOwn(byCode, s.toUpperCase())) return byCode[s.toUpperCase()];
   const zh = s.replace(/台/g, '臺');
   return CITIES.find((c) => c.name === zh || c.name.slice(0, 2) === zh.slice(0, 2)) || null;
 }

@@ -76,3 +76,36 @@ test('REST（不經 zod）也檢查：路線名稱太長、站位 ID 格式不�
   assert.ok((await call('/api/v1/bus/eta', { city: 'Taipei', route: '307' })).directions.length);
   assert.ok(Array.isArray(await call('/api/v1/bus/routes', { city: 'Taipei' })), '沒給關鍵字照舊');
 });
+
+test('縣市只認自己的寫法：constructor、__proto__ 不是縣市（V8-1）', async () => {
+  const { resolveCity } = await import('../core/cities.js');
+  for (const x of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) assert.equal(resolveCity(x), null, x);
+  assert.equal(resolveCity('Taipei').city, 'Taipei');
+  assert.equal(resolveCity('TPE').city, 'Taipei');
+});
+
+test('路線搜尋：預熱的路線清單在本機篩、不打 TDX；清單外的站位 ID 每分鐘最多查 1 次（V8-1）', async () => {
+  const calls = [];
+  const META = [{ RouteUID: 'TPE1', RouteName: Z('307'), DepartureStopNameZh: '撫遠街', DestinationStopNameZh: '板橋前站' }, { RouteUID: 'TPE2', RouteName: Z('紅30'), DepartureStopNameZh: 'A', DestinationStopNameZh: 'B' }];
+  const STATIONS = [{ StationUID: 'TPE55', StationID: '55', StationName: Z('臺北車站'), StationPosition: { PositionLat: 25.04, PositionLon: 121.51 }, Stops: [] }];
+  const fetchImpl = async (url) => {
+    const u = decodeURIComponent(String(url));
+    if (u.includes('/token')) return new Response(JSON.stringify({ access_token: 'T', expires_in: 86400 }));
+    calls.push(u);
+    if (/Bus\/Route\/City\/Taipei(?:\?|$)/.test(u) && !u.includes('contains(')) return new Response(JSON.stringify(META));
+    if (/Bus\/Station\/City\/Taipei/.test(u)) return new Response(JSON.stringify(STATIONS));
+    return new Response('[]');
+  };
+  const tdx = createTdxClient({ clientId: 'a', clientSecret: 'b', fetchImpl });
+  for (const k of ['bus-route-meta-', 'bus-stations-']) await transitWarmSteps(tdx, ['Taipei']).find((x) => x.key.startsWith(k)).run();
+  const svc = createTransitServices(tdx);
+  const before = calls.length;
+  assert.deepEqual((await svc.bus.searchRoutes({ city: 'Taipei', keyword: '30' })).map((r) => r.routeName), ['307', '紅30']);
+  assert.deepEqual(await svc.bus.searchRoutes({ city: 'Taipei', keyword: 'zz亂打' }), []);
+  assert.equal(calls.length, before, `搜尋沒有打 TDX：${calls.slice(before).join(' | ')}`);
+  await svc.bus.stationEta({ city: 'Taipei', stationId: '55' }); // 清單裡有的照常
+  await svc.bus.stationEta({ city: 'Taipei', stationId: 'X1' }); // 清單外：第一次查（查不到記住）
+  const after = calls.length;
+  for (const id of ['X1', 'X2', 'X3']) await assert.rejects(svc.bus.stationEta({ city: 'Taipei', stationId: id }), UserError);
+  assert.equal(calls.length, after, '同一個記住、一分鐘內別的 ID 不查');
+});

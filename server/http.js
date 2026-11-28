@@ -75,6 +75,23 @@ const appCors = (req) => {
   const o = req.headers.origin;
   return o && APP_ORIGINS.has(o) ? { 'access-control-allow-origin': o, 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '600', vary: 'Origin' } : { vary: 'Origin' };
 };
+/**
+ * 問阿幫、建議驗證（會用到模型額度或伺服器運算）只收本站與 App 的 JSON 請求（V8-1 安全審查）：
+ * 別的網站用不需要預檢的跨站請求（text/plain、no-cors）讀不到回應，但模型呼叫照樣發生、會把全站每日額度用光。
+ * 有 Origin 時要是本站（同一個 host）或 APP_ORIGINS；內容要是 application/json（瀏覽器跨站送 JSON 一定先預檢，預檢不給 CORS 就擋下）。
+ * @returns {{ status: number, error: string } | null}
+ */
+const postGuard = (req) => {
+  const o = req.headers.origin;
+  if (o && !APP_ORIGINS.has(o)) {
+    let host = null;
+    try { host = new URL(o).host; } catch { /* 不是網址 */ }
+    const self = [req.headers.host, req.headers['x-forwarded-host']].filter(Boolean).flatMap((h) => String(h).split(',').map((x) => x.trim()));
+    if (!host || !self.includes(host)) return { status: 403, error: '只接受本站與阿幫 App 的請求' };
+  }
+  if (!/^application\/json\b/i.test(req.headers['content-type'] || '')) return { status: 415, error: '請以 JSON（content-type: application/json）送出' };
+  return null;
+};
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
 const CORS = {
   'access-control-allow-origin': '*',
@@ -146,6 +163,8 @@ const server = createServer(async (req, res) => {
       if (req.method === 'OPTIONS') return end(res, 204, cors);
       if (!hasProfile(agentId)) return send(res, 404, { error: `沒有這個 agent：${agentId}` }, cors);
       if (req.method !== 'POST') return send(res, 405, { error: '請以 POST 呼叫' }, { ...cors, allow: 'POST' });
+      const bad = postGuard(req);
+      if (bad) return send(res, bad.status, { error: bad.error }, cors);
       const lim = agent.limit(agentId, clientIp(req));
       if (!lim.ok) return send(res, 429, { error: `問太快了，請 ${lim.retryAfterSec} 秒後再試`, retryAfterSec: lim.retryAfterSec }, { ...cors, 'retry-after': String(lim.retryAfterSec) });
       for (const [k, v] of Object.entries(cors)) res.setHeader(k, v);
@@ -157,6 +176,8 @@ const server = createServer(async (req, res) => {
       const cors = appCors(req);
       if (req.method === 'OPTIONS') return end(res, 204, cors);
       if (req.method !== 'POST') return send(res, 405, { error: '請以 POST 呼叫' }, { ...cors, allow: 'POST' });
+      const bad = postGuard(req);
+      if (bad) return send(res, bad.status, { error: bad.error }, cors);
       if (!limit(req, res, 'api')) return;
       const body = await readJson(req);
       return send(res, 200, { data: checkRequest(body, { log: (m, o) => log.info(m, o) }) }, cors); // log 只記數量，不記句子
@@ -195,7 +216,8 @@ const server = createServer(async (req, res) => {
     const status = e instanceof UserError ? e.status || 400 : e.status === 429 ? 429 : 502;
     if (!(e instanceof UserError)) log.error('request failed', e, { method: req.method, route: routeOf(path) });
     // API 與 MCP 的錯誤也要帶 CORS，跨網域的 client 才讀得到錯誤訊息；413 回完就關連線（剩下的 body 不讀）
-    const headers = { ...(path.startsWith('/api/') || path.startsWith('/mcp') ? CORS : {}), ...(path.startsWith('/api/v1/agent') && appCors(req)), ...(status === 413 && { connection: 'close' }) };
+    const appOnly = path.startsWith('/api/v1/agent') || path === '/api/v1/suggest/check'; // 只給本站與 App：錯誤也不帶 *（V8-1）
+    const headers = { ...(!appOnly && (path.startsWith('/api/') || path.startsWith('/mcp')) ? CORS : {}), ...(appOnly && appCors(req)), ...(status === 413 && { connection: 'close' }) };
     if (!res.headersSent) send(res, status, { error: publicMessage(e) }, headers);
   }
 }).listen(PORT, () => {

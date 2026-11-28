@@ -11,6 +11,14 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 V8-1 全 repo 安全審查：F8 三項修正、F9 等決定
+- 做了：全 repo 安全審查（輸入驗證、ReDoS 實測、路徑穿越、XSS、連結、CORS、手機設定、隱私、npm audit）。F8：(a) 問阿幫與建議驗證端點不檢查 content-type，別的網站用不需預檢的跨站請求就能耗用全站每日模型額度 → `postGuard`：有 Origin 時只收本站（同 host）與 APP_ORIGINS、內容要 application/json，錯誤回應不帶 `*`；(b) 路線搜尋、站牌到站直接打 TDX → 預熱清單本機篩、清單外站位 ID 走 `createUnlistedGate`；(c) `resolveCity` 用 `Object.hasOwn`。F9（Android 雲端備份會帶走常用地點）是隱私與方便的取捨，等 Austin。用 App 實際的來源（https://localhost、capacitor://localhost）打本機伺服器：200、預檢允許；別的網站 403
+- App Functions 結合：無（安全）
+- 測試：npm test 全過（新增 3 項）；e2e 全過
+- 文件：PLAN.md（V8、F8、F9）、PROGRESS.md
+- 下一個：V2-2 地端模型評測結果；V6 免金鑰開放資料逐一可用
+- 卡住：F1、F3、F9、Q-7 等 Austin
+
 ## 2026-11-28 V8-2 git 歷史掃描；V4-1 iOS 模擬器
 - 做了：V8-2 掃全部 678 個 commit：沒有 `.env`、金鑰檔（pem／p12／keystore／google-services…）、常見金鑰格式（Anthropic、AWS、Google、GitHub、Slack、私鑰）；有值的 `TDX_CLIENT_SECRET=` 只在文件網站的中文範例；本機路徑與公司信箱只出現在 F7：`private/tmp/…/scratchpad/` 兩個評測報告（11-20 判斷小實驗，內容無金鑰）不小心進了版控 → 移出、`.gitignore` 加 `/private/`。V4-1 `smoke:ios` 全過（外掛 8、10 頁、語音在手機上、沒有閃退）
 - App Functions 結合：無（驗證）

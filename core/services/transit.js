@@ -77,6 +77,12 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
     /** 依關鍵字搜尋路線 */
     async searchRoutes({ city, keyword }) {
       const c = mustCity(city);
+      // 預熱過的路線清單（每天更新）：在本機篩，不打 TDX——每個不同的關鍵字都打一次會把每分鐘 5 次額度用光（V8-1 安全審查）
+      const meta = await storedOf('busMeta', c.city);
+      if (Array.isArray(meta) && meta.length) {
+        const k = String(keyword || '').trim();
+        return meta.filter((r) => r.name && (!k || r.name.includes(k))).slice(0, 30).map((r) => ({ city: c.city, routeName: r.name, departure: r.dep, destination: r.dest }));
+      }
       const rows = await tdx.get(`/basic/v2/Bus/Route/City/${c.city}`, {
         $select: 'RouteName,DepartureStopNameZh,DestinationStopNameZh',
         $filter: `contains(RouteName/Zh_tw,'${q(keyword)}')`,
@@ -179,7 +185,12 @@ export function createTransitServices(tdx, { cities = INDEX_CITIES } = {}) {
      */
     async stationEta({ city, stationId }) {
       const c = mustCity(city);
+      // 預熱的站牌清單外的站位 ID：跟路線名稱同一個關卡（全站每分鐘 1 次、查不到的記 10 分鐘；V8-1 安全審查）
+      const stations = await storedOf('busStations', c.city);
+      const unlisted = Array.isArray(stations) && stations.length > 0 && !stations.some((s) => s.id === stationId || s.uid === stationId);
+      if (unlisted && !unlistedGate.allow(`station|${c.city}|${stationId}`)) throw new UserError(`${c.name}找不到站位「${stationId}」`);
       const rows = await tdx.get(`/advanced/v2/Bus/EstimatedTimeOfArrival/City/${c.city}/PassThrough/Station/${encodeURIComponent(stationId)}`, {}, 20);
+      if (unlisted && !rows.length) unlistedGate.missed(`station|${c.city}|${stationId}`);
       return rows.map((e) => ({
         routeName: zh(e.RouteName), ...enField('routeNameEn', e.RouteName), direction: e.Direction,
         etaSec: e.EstimateTime ?? null, status: e.StopStatus ?? 0,
