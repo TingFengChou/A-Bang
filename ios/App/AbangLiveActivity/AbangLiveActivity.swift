@@ -1,4 +1,4 @@
-// 到站提醒的即時動態：鎖定畫面（淺色）與動態島（精簡、展開、最小）。
+// 即時動態：到站提醒與出發倒數（kind "leave"，第十四輪）；鎖定畫面（淺色）與動態島（精簡、展開、最小）。
 // 跟 Android 通知列常駐的說法一樣：「307 往撫遠街・約 5 分到「臺北車站(忠孝)」・到站前 2 分提醒你」，
 // 右上角用系統倒數（Text(timerInterval:)）走到預估到站；App 不在前景時不會有新的預估，照實寫「HH:mm 的預估」。
 import ActivityKit
@@ -18,17 +18,18 @@ struct AbangLiveActivity: Widget {
                 .activitySystemActionForegroundColor(brand)
         } dynamicIsland: { context in
             let en = context.attributes.lang == "en"
+            let icon = context.attributes.kind == "leave" ? "figure.walk" : "bus.fill"
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     Label {
                         Text(context.attributes.routeName).font(.headline).foregroundStyle(.white)
                     } icon: {
-                        Image(systemName: "bus.fill").foregroundStyle(glow)
+                        Image(systemName: icon).foregroundStyle(glow)
                     }
                     .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Countdown(state: context.state, stale: context.isStale, en: en)
+                    Countdown(state: context.state, stale: context.isStale, en: en, leave: context.attributes.kind == "leave")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(glow)
                         .multilineTextAlignment(.trailing)
@@ -41,7 +42,7 @@ struct AbangLiveActivity: Widget {
                             .font(.subheadline)
                             .foregroundStyle(.white)
                             .lineLimit(2)
-                        Footnote(state: context.state, stale: context.isStale, en: en, short: true)
+                        Footnote(state: context.state, stale: context.isStale, en: en, leave: context.attributes.kind == "leave", short: true)
                             .font(.caption2)
                             .foregroundStyle(.white.opacity(0.7))
                     }
@@ -50,18 +51,18 @@ struct AbangLiveActivity: Widget {
                 }
             } compactLeading: {
                 HStack(spacing: 3) {
-                    Image(systemName: "bus.fill").foregroundStyle(glow)
+                    Image(systemName: icon).foregroundStyle(glow)
                     Text(context.attributes.routeName).foregroundStyle(.white).lineLimit(1)
                 }
                 .font(.caption.weight(.semibold))
             } compactTrailing: {
-                Countdown(state: context.state, stale: context.isStale, en: en)
+                Countdown(state: context.state, stale: context.isStale, en: en, leave: context.attributes.kind == "leave")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(glow)
                     .multilineTextAlignment(.trailing)
                     .frame(maxWidth: 44, alignment: .trailing)
             } minimal: {
-                Image(systemName: "bus.fill").foregroundStyle(glow)
+                Image(systemName: icon).foregroundStyle(glow)
             }
             .keylineTint(brand)
         }
@@ -74,13 +75,14 @@ private struct LockScreenView: View {
 
     var body: some View {
         let en = context.attributes.lang == "en"
+        let leave = context.attributes.kind == "leave"
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                Label(en ? "Abang · bus reminder" : "阿幫・到站提醒", systemImage: "bus.fill")
+                Label(leave ? (en ? "Abang · time to leave" : "阿幫・出發倒數") : (en ? "Abang · bus reminder" : "阿幫・到站提醒"), systemImage: leave ? "figure.walk" : "bus.fill")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(brand)
                 Spacer(minLength: 8)
-                Countdown(state: context.state, stale: context.isStale, en: en)
+                Countdown(state: context.state, stale: context.isStale, en: en, leave: context.attributes.kind == "leave")
                     .font(.title2.weight(.bold))
                     .foregroundStyle(ink)
                     .multilineTextAlignment(.trailing)
@@ -95,7 +97,7 @@ private struct LockScreenView: View {
                 ProgressView(timerInterval: context.state.updatedAt...a, countsDown: false, label: { EmptyView() }, currentValueLabel: { EmptyView() })
                     .tint(brand)
             }
-            Footnote(state: context.state, stale: context.isStale, en: en)
+            Footnote(state: context.state, stale: context.isStale, en: en, leave: context.attributes.kind == "leave")
                 .font(.caption2)
                 .foregroundStyle(ink.opacity(0.6))
                 .fixedSize(horizontal: false, vertical: true)
@@ -112,6 +114,7 @@ private struct Countdown: View {
     let state: AbangWatchAttributes.ContentState
     let stale: Bool
     let en: Bool
+    var leave = false
 
     var body: some View {
         let now = Date()
@@ -119,7 +122,7 @@ private struct Countdown: View {
             Text(timerInterval: now...a, countsDown: true)
                 .monospacedDigit()
         } else if state.arrival != nil {
-            Text(en ? "Due" : "進站中")
+            Text(leave ? (en ? "Go now" : "該出門了") : (en ? "Due" : "進站中"))
         } else {
             Text("—")
         }
@@ -131,9 +134,14 @@ private struct Footnote: View {
     let state: AbangWatchAttributes.ContentState
     let stale: Bool
     let en: Bool
+    var leave = false
     var short = false
 
     var body: some View {
+        if leave { // 出發倒數：時間照時刻表算的，不用連網也會走；過了開車時間說可能已經開走
+            if stale { return Text(verbatim: en ? "The train may have left. Open Abang for the next one." : "這班可能已經開走了，打開阿幫看下一班") }
+            return Text(verbatim: short ? (en ? "From the timetable" : "照時刻表算的") : (en ? "From the timetable · counts down without data" : "照時刻表算的・不用連網也會倒數"))
+        }
         let f = DateFormatter()
         f.dateFormat = "HH:mm" // 跟 App 裡一樣用 24 小時制（台灣時間由手機時區決定）
         let hm = f.string(from: state.updatedAt)

@@ -1,10 +1,10 @@
 // Service Worker：App shell 預先快取（離線可開啟），API 一律走網路（即時資料不快取）
-const VERSION = 'v1.3.68';
+const VERSION = 'v1.3.69';
 const SHELL = [
   '/', '/index.html', '/css/app.css', '/manifest.webmanifest', '/icons/icon.svg', '/brand/abang-default.svg', '/brand/abang-think.svg', '/brand/abang-happy.svg',
   '/js/app.js', '/js/api.js', '/js/ui.js', '/js/icons.js', '/js/registry.js',
   '/js/pages/home.js', '/js/pages/nearby.js', '/js/pages/bus.js', '/js/pages/bus-i18n.js', '/js/pages/rail.js',
-  '/css/agent.css', '/js/pages/agent.js', '/js/agent/client.js', '/ui/agent/decision-graph.js', '/core/decide.js', '/core/b-plan.js', '/js/home-area.js', '/js/catch-train.js', '/core/catch-train.js',
+  '/css/agent.css', '/js/pages/agent.js', '/js/agent/client.js', '/ui/agent/decision-graph.js', '/core/decide.js', '/core/b-plan.js', '/js/home-area.js', '/js/catch-train.js', '/js/leave-activity.js', '/core/catch-train.js',
   '/ui/cards/cards.css', '/ui/cards/index.js', '/ui/cards/dom.js', '/ui/cards/actions.js', '/ui/cards/countdown.js', '/ui/cards/host-web.js', '/ui/cards/i18n/zh-TW.js', '/ui/cards/i18n/en.js', '/ui/cards/i18n/index.js',
   '/ui/cards/cards/bus-route.js', '/ui/cards/cards/bus-station.js', '/ui/cards/cards/nearby.js', '/ui/cards/cards/youbike.js',
   '/ui/cards/cards/metro.js', '/ui/cards/cards/metro-route.js', '/ui/cards/cards/timetable.js', '/ui/cards/cards/trip.js', '/ui/cards/cards/scam-risk.js',

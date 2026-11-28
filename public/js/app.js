@@ -9,6 +9,7 @@ import { showOnboarding } from './onboarding.js';
 import { resumeAlight } from './alight.js';
 import { mountTripBar } from './trip-bar.js';
 import { mountCatchTrain } from './catch-train.js';
+import { mountLeaveActivity } from './leave-activity.js';
 import { mountWaitDrama } from './wait-drama.js';
 import { detachMain, attachMain, mountFab, syncFab, syncFabLabel, abangSays, keptIf } from './abang-dock.js';
 import { shellT, shellLang, applyShell } from './shell-i18n.js';
@@ -280,6 +281,7 @@ paintBadge();
 // 下車提醒：App 被系統關掉再打開時恢復（沒逾時才恢復）
 mountTripBar($('tripbar')); // 行程中：每一頁上方可回到公車頁
 mountCatchTrain(); // 台鐵、高鐵、末班車的出門提醒響後問一次趕不趕得上（C，Antigravity 第九輪）
+mountLeaveActivity(); // iPhone：同一個出門提醒在鎖定畫面倒數（即時動態，第十四輪）
 mountWaitDrama($('waitdrama')); // 設了到站提醒、還要等一陣子：推一集短劇（車快到時會提醒）
 // 中央「問阿幫」鍵：每一頁分頁列正中間，點了從下方拉出同一段對話（不用離開現在的頁面）
 mountFab({
