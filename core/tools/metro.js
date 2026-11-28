@@ -1,7 +1,7 @@
 // 工具包：transit（交通）／捷運 — 風險分級 L1
 import { z } from 'zod';
 import { defineTool, T, clip } from './define.js';
-import { distanceM, normName, UserError } from '../util.js';
+import { distanceM, normName, UserError, shown } from '../util.js';
 import { TdxError } from '../tdx-client.js';
 import { resolvePoint } from '../services/places.js';
 import { withNav, navLinks } from '../nav.js';
@@ -90,7 +90,7 @@ const NEAR_MAX_M = 3000;
 export async function systemOfStation(svc, station, pt = null) {
   const systems = Object.keys(METRO_SYSTEMS);
   const lists = await Promise.allSettled(systems.map((sys) => svc.metro.stations({ system: sys })));
-  if (lists.every((r) => r.status === 'rejected')) throw new TdxError(503, '捷運車站資料暫時查不到，請稍後再試');
+  if (lists.every((r) => r.status === 'rejected')) throw shown(new TdxError(503, '捷運車站資料暫時查不到，請稍後再試'));
   const hits = [];
   lists.forEach((r, i) => {
     if (r.status !== 'fulfilled') return;
@@ -116,7 +116,7 @@ export async function nearestMetro(svc, pt, only, line = null) {
   if (!pt) return null;
   const systems = only ? [only] : Object.keys(METRO_SYSTEMS);
   const lists = await Promise.allSettled(systems.map((sys) => svc.metro.stations({ system: sys })));
-  if (lists.every((r) => r.status === 'rejected')) throw new TdxError(503, '捷運車站資料暫時查不到，請稍後再試');
+  if (lists.every((r) => r.status === 'rejected')) throw shown(new TdxError(503, '捷運車站資料暫時查不到，請稍後再試'));
   let best = null;
   lists.forEach((r, i) => {
     for (const s of r.status === 'fulfilled' ? r.value : []) {

@@ -1,6 +1,7 @@
 // 中央氣象署開放資料平臺 client：授權碼放在 query（只在伺服器端）、回應快取
 // 文件：https://opendata.cwa.gov.tw/dist/opendata-swagger.html
 import { recordFetch } from './metrics.js';
+import { shown } from './util.js';
 
 const API_BASE = 'https://opendata.cwa.gov.tw/api/v1/rest/datastore';
 
@@ -26,12 +27,12 @@ export function createCwaClient({ apiKey, fetchImpl = fetch }) {
       res = await fetchImpl(`${API_BASE}/${dataId}?${qs}&Authorization=${encodeURIComponent(apiKey)}`);
     } catch {
       // 不保留原始例外（cause 可能含請求網址，網址裡有授權碼）；只留不含金鑰的訊息
-      throw new CwaError(502, `氣象署連線失敗（${dataId}）`);
+      throw shown(new CwaError(502, `氣象署連線失敗（${dataId}）`), '氣象署暫時連不上，請稍後再試。');
     }
     if (res.status === 401 || res.status === 403) throw new CwaError(res.status, '氣象署授權碼無效，請確認 CWA_API_KEY');
-    if (!res.ok) throw new CwaError(res.status, `氣象署 API 錯誤 ${res.status}`);
+    if (!res.ok) throw shown(new CwaError(res.status, `氣象署 API 錯誤 ${res.status}`), '氣象資料暫時無法取得，請稍後再試。');
     const data = await res.json();
-    if (data?.success === 'false' || data?.success === false) throw new CwaError(502, '氣象署 API 回應失敗');
+    if (data?.success === 'false' || data?.success === false) throw shown(new CwaError(502, '氣象署 API 回應失敗'), '氣象資料暫時無法取得，請稍後再試。');
     recordFetch({ cacheHit: false, data });
     cache.set(key, { exp: Date.now() + ttlSec * 1000, data });
     if (cache.size > 500) cache.delete(cache.keys().next().value);
