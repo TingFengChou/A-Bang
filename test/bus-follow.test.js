@@ -43,7 +43,7 @@ test('bus_route_eta 給 stop：回 focus、speak 講多久到；站名不對時�
 test('busFollowUp：決策選公車才盯；其他方式不盯', () => {
   const opt = { id: 'bus-601', role: 'bus', follow: { city: 'Taipei', routeName: '601', stop: '西門', direction: 0, walkMin: 3 } };
   assert.deepEqual(busFollowUp({ best: 'bus-601', options: [opt] }).args, { city: 'Taipei', routeName: '601', stop: '西門', direction: 0 });
-  assert.match(busFollowUp({ best: 'bus-601', options: [opt] }).note, /^@公車 你選了公車，我幫你盯 601 在「西門」/);
+  assert.match(busFollowUp({ best: 'bus-601', options: [opt] }).note, /^@公車 [你您]選了公車，我幫[你您]盯 601 在「西門」/);
   assert.equal(busFollowUp({ best: 'ride', options: [opt, { id: 'ride', role: 'ride' }] }), null);
   assert.equal(busFollowUp(null), null);
 });
@@ -62,7 +62,7 @@ test('問阿幫（示範）：想省錢選公車 → decision 後自動查上車
   assert.equal(best.role, 'bus');
   assert.equal(bus.data.focus.stopName, best.follow.stop, '盯的是規劃的上車站');
   // 示範到站時間隨時間變化：趕得上 → 問要不要提醒；走過去比車到還久 → 說這班可能趕不上、提醒下一班
-  assert.match(es.find((e) => e.type === 'text').delta, /走過去約 \d+ 分(。要我在公車快到站時提醒你嗎？|，這班可能趕不上。要我在下一班快到時提醒你嗎？)/);
+  assert.match(es.find((e) => e.type === 'text').delta, /走過去約 \d+ 分(。要我在公車快到站時提醒[你您]嗎？|，這班可能趕不上。要我在下一班快到時提醒[你您]嗎？)/);
 });
 
 test('網頁 host 到站提醒：設定時這班已趕不上就跳過、下一班到點通知一次；快到時以計時器準時提醒', async () => {

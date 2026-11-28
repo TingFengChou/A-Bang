@@ -9,12 +9,12 @@ const judge = (s) => {
   return { level: riskLevel(score, false), ids: f.map((x) => x.id) };
 };
 
-test('典型包裹、罰單釣魚簡訊：地址有誤＋限時＋附連結要你處理 → 高風險', () => {
+test('典型包裹、罰單釣魚簡訊：地址有誤＋限時＋附連結要您處理 → 高風險', () => {
   assert.match(RULES_VERSION, /^2026\.11\.2[78]-\d$/);
   for (const s of [
     '【中華郵政】您的包裹因地址不完整無法投遞，請於24小時內更新地址：https://post-tw.cc/a',
     '【黑貓宅急便】您的包裹已到達配送站，因地址資訊有誤暫停配送，請於24小時內點擊更新 https://t-cat.top/x',
-    '中華郵政：你有一個包裹待領取，需支付運費 25 元，請在今日內完成付款 https://xx.cn/p',
+    '中華郵政：您有一個包裹待領取，需支付運費 25 元，請在今日內完成付款 https://xx.cn/p',
     'DHL: Your parcel is on hold due to unpaid customs fee. Pay within 24 hours: https://dhl-tw.top',
     '【監理站】您有一筆交通罰鍰未繳，請於今日內繳納以免吊銷駕照 https://mvdis-tw.cc',
   ]) {
@@ -39,7 +39,7 @@ test('誤判反例：正常的取貨、出貨、帳單、開徵、會議連結�
     '黑貓宅急便：您的包裹預計今日送達，配送員 0912345678',
     '會議連結在這：https://meet.google.com/abc-defg-hij 點此加入',
     '今天晚上要不要一起吃飯？我在 https://maps.app.goo.gl/xyz',
-    '你好，請在24小時內確認一下會議時間',
+    '您好，請在24小時內確認一下會議時間',
     '包裹到了，我放在管理室',
     '【黑貓宅急便】因颱風影響，今日部分地區暫停配送，造成不便敬請見諒',
     '雙11 滿千免付運費，點此逛逛 https://shop.example.com/sale',

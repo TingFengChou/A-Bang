@@ -55,7 +55,7 @@ test('跨城（示範，下雨＋塞車）：自動狀態、軌道與客運、�
   assert.deepEqual(r.options.map((o) => o.role).sort(), ['intercity', 'ridehail', 'thsr', 'tra']);
   assert.deepEqual(r.ranking.excluded.map((e) => e.id).sort(), ['intercity', 'ridehail']);
   assert.equal(r.best, 'thsr');
-  assert.match(r.ranking.reason, /正在下雨、路上正在塞車、你趕時間/);
+  assert.match(r.ranking.reason, /正在下雨、路上正在塞車、[你您]趕時間/);
   const thsr = r.options.find((o) => o.id === 'thsr');
   assert.deepEqual([thsr.train.from, thsr.train.to], ['台北', '左營']);
   // 出門時間＝發車 − 到站（臺北車站就在旁邊：走路 1 分）− 等車（最多 10 分）；抵達以實際班次計算

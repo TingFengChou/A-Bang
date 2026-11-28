@@ -18,7 +18,7 @@ const trip = async (args) => (await callTool(svc, 'plan_trip', args)).data;
 const run = async (body) => { const out = []; await runDemo(svc, body, (e) => out.push(e)); return out; };
 const CAN = { can: ['addCalendar', 'share'], trip: true };
 
-test('行事曆事件：台灣時間、建議方案、出發地名稱、不寫「你的位置」', async () => {
+test('行事曆事件：台灣時間、建議方案、出發地名稱、不寫「您的位置」', async () => {
   const d = await trip({ from: '台北車站', to: '高雄車站', departAt: '09:00' });
   const e = calendarFromTrip(d);
   const best = d.options.find((o) => o.id === d.best);
@@ -29,8 +29,8 @@ test('行事曆事件：台灣時間、建議方案、出發地名稱、不寫�
   assert.ok(e.end > e.start && e.end - e.start <= 24 * 3600e3);
   assert.equal(e.location, '臺北車站');
   assert.match(e.notes, /出發前再看一次即時資料/);
-  const here = calendarFromTrip({ ...d, from: { name: '你的位置', lat: 25.04, lon: 121.5 } });
-  assert.equal(here.location, undefined, '從你的位置出發：不寫地點');
+  const here = calendarFromTrip({ ...d, from: { name: '您的位置', lat: 25.04, lon: 121.5 } });
+  assert.equal(here.location, undefined, '從您的位置出發：不寫地點');
   const alt = d.options.find((o) => o.id !== d.best);
   assert.match(calendarFromTrip(d, { optId: alt.id }).title, new RegExp(alt.name));
   assert.match(calendarFromTrip(d, { lang: 'en' }).title, /^高雄車站 \(/);
@@ -56,7 +56,7 @@ test('分享：不帶出發地座標、目的地附 https 地圖連結、文字�
   assert.match(p.text, /^從臺北車站到台北101：坐.+，\d{2}:\d{2} 出發、\d{2}:\d{2} 到/);
   assert.match(p.text, /（阿幫）$/);
   assert.match(p.url, /^https:\/\/www\.google\.com\/maps\/dir\/\?api=1&destination=25\.03400%2C121\.56450/);
-  const here = shareFromTrip({ ...d, from: { name: '你的位置', lat: 25.0412345, lon: 121.5432109 } });
+  const here = shareFromTrip({ ...d, from: { name: '您的位置', lat: 25.0412345, lon: 121.5432109 } });
   assert.match(here.text, /^從我這裡到台北101/);
   assert.ok(!/25\.04123|121\.54321/.test(JSON.stringify(here)), '不帶使用者座標');
   assert.match(shareFromTrip(d, { lang: 'en' }).text, /\(via A-Bang\)$/);
@@ -99,7 +99,7 @@ test('規則：加到行事曆、分享（「有人傳給我網址」「朋友�
   assert.equal(p('朋友分享的投資群組').intent, 'scamAsk');
   assert.equal(p('提醒我出門').intent, 'reminder');
   // 程式審查 2026-11-27：問句不是要分享；英文 share price 是股價
-  assert.notEqual(p('分享一下你會做什麼').intent, 'share');
+  assert.notEqual(p('分享一下您會做什麼').intent, 'share');
   assert.notEqual(p('What is the share price of TSMC?').intent, 'share');
   assert.equal(p('share the route with my mom').intent, 'share');
   assert.equal(p('可以分享給同事嗎').intent, 'share');
@@ -116,7 +116,7 @@ test('伺服器回覆：做不到照實說、沒有行程請先排、有行程�
   assert.match(deviceActionReply('share', { deviceActions: { can: ['share'], trip: false } }).text, /先告訴我要去哪裡/);
   const r = deviceActionReply('calendar', { deviceActions: CAN });
   assert.deepEqual(r.ask.options.map((o) => o.action?.name || o.kind), ['addCalendar', 'dismiss']);
-  assert.match(r.text, /你確認後才加入/);
+  assert.match(r.text, /[你您]確認後才加入/);
   assert.match(deviceActionAsk('share', 'en').question, /Share this trip/);
   assert.deepEqual(DEVICE_ACTIONS.filter((a) => ASK_ACTIONS.includes(a)), DEVICE_ACTIONS);
   // 事件驗證：動作不帶內容（就算帶了也拿掉）

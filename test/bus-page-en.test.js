@@ -54,7 +54,7 @@ test('街景說明：英文版；中文不變', () => {
   assert.equal(sceneSay({ routeName: '307', away: 0, etaSec: 30, etaText: 'Arriving', lang: 'en' }).head, '307 · at your stop');
   assert.equal(sceneSay({ routeName: '307', away: 0, etaSec: 30, etaText: 'Arriving', riding: true, lang: 'en' }).head, '307 · almost there, get ready to get off');
   assert.equal(sceneSay({ routeName: '307', away: 2, etaSec: 400, etaText: '6 分' }).head, '307・還有 2 站');
-  assert.equal(sceneSay({ routeName: '307', away: 0, etaSec: 30, etaText: '進站中' }).head, '307・就在你這站');
+  assert.equal(sceneSay({ routeName: '307', away: 0, etaSec: 30, etaText: '進站中' }).head, '307・就在您這站');
 });
 
 test('下車提醒通知文字：英文頁設的用英文', () => {
@@ -79,7 +79,7 @@ test('導到公車頁的網址：英文帶 lang=en（接下來可以、進行中
   assert.doesNotMatch(tripOf({ arrival }).href, /lang=/);
   // 進行中列的文字也跟著提醒的語言（PR 審查）
   assert.equal(tripOf({ arrival: { ...arrival, lang: 'en' } }).text, '307 from 敦化市場 · reminder 3 min before');
-  assert.equal(tripOf({ arrival }).text, '307 在「敦化市場」上車・到站前 3 分提醒你', '中文不變');
+  assert.equal(tripOf({ arrival }).text, '307 在「敦化市場」上車・到站前 3 分提醒您', '中文不變');
   assert.match(tripOf({ alight: { city: 'Taipei', routeName: '307', board: '敦化市場', dest: '市府', direction: 0, lang: 'en' } }).text, /^307 on board · (?:to|almost at|\d+ min to) 市府$/);
 });
 

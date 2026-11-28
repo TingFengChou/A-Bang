@@ -114,7 +114,7 @@ test('trial 事件：判斷完、請定位前送一次；帶定位結果的重�
   assert.equal(tr.judge.source, 'rules');
   const again = await run(ask('我快遲到了，怎麼去台北101', { clientToolResults: [{ id: 'loc1', ok: false }] }));
   assert.equal(again.filter((e) => e.type === 'trial').length, 0);
-  assert.match(again.find((e) => e.type === 'answer_draft').text, /沒拿到你的位置/);
+  assert.match(again.find((e) => e.type === 'answer_draft').text, /沒拿到[你您]的位置/);
   assert.equal(again.filter((e) => e.type === 'text').length, 0);
   // 沒帶 trial：不送
   const plain = await run({ messages: [{ role: 'user', content: '天氣' }], clientCaps: { edgeWrite: true, engine: 'gemini-nano' } });
@@ -185,7 +185,7 @@ test('runTrial（網頁版）：四段依序；第 1 段用伺服器規則並說
   assert.equal(S.judge.intent, 'trip');
   assert.equal(S.data.enough, true);
   assert.equal(S.answer.askedLocation, true);
-  assert.match(S.answer.draft, /沒拿到你的位置/);
+  assert.match(S.answer.draft, /沒拿到[你您]的位置/);
   assert.deepEqual(S.answer.rewrite, { by: 'none', reason: 'web' });
   assert.ok(S.answer.tools.some((x) => x.name === 'plan_trip'));
   assert.equal(S.next.suggest.source, 'rules');
@@ -209,7 +209,7 @@ test('runTrial（手機）：手機判斷帶給伺服器；改寫通過與沒通
     judge: async (q) => ({ intent: /公車/.test(q) ? 'bus_route' : 'trip', states: [], engine: 'gemini-nano' }),
     judgeMs: () => 300,
     agent: fakeAgent(bodies),
-    write: async (d) => (writeKind === 'ok' ? { by: 'edge', text: `報你知，${d.text}`, engine: 'gemini-nano', ms: 400 } : { by: 'program', reason: 'check', detail: 'number', why: '9 分', candidate: '亂寫 9 分', engine: 'gemini-nano', ms: 380 }),
+    write: async (d) => (writeKind === 'ok' ? { by: 'edge', text: `報您知，${d.text}`, engine: 'gemini-nano', ms: 400 } : { by: 'program', reason: 'check', detail: 'number', why: '9 分', candidate: '亂寫 9 分', engine: 'gemini-nano', ms: 380 }),
     suggest: (o) => trialSuggest({ ...o, canEdge: () => true, edgeSuggest: async () => ({ asks: ['307 公車還要多久？', '明天會下雨嗎？', '從台北車站到台北101怎麼去？'], engine: 'gemini-nano' }),
       check: async (asks) => asks.map((q) => ({ q, ok: true, ask: parseIntent(q, {}) })) }),
   });
@@ -269,7 +269,7 @@ test('字典與動畫：試判斷的鍵中英都有；測試句 5 句（含資�
   assert.equal(slotReport(parseIntent(ZH['trial.p2'], {})).enough, false, '資料不夠的測試句');
   const s = thinkStep(thinkStep(thinkStart(), { type: 'device', result: null }), { type: 'suggest' });
   assert.equal(s.phase, 'suggest');
-  assert.equal(thinkText(s, null).stage, '在猜你接下來想問什麼');
+  assert.equal(thinkText(s, null).stage, '在猜您接下來想問什麼');
   assert.equal(thinkText(s, 'en').stage, aiT('en')('think.suggest'));
 });
 
@@ -329,7 +329,7 @@ test('edge-write（前端）：改寫沒過護欄時回被擋的改寫 candidate
   }
 });
 
-test('runTrial：跟問阿幫一樣帶前文、由手機定位（2026-11-22「地點、時間不應該要問」）；定位到了就不說「沒拿到你的位置」', async () => {
+test('runTrial：跟問阿幫一樣帶前文、由手機定位（2026-11-22「地點、時間不應該要問」）；定位到了就不說「沒拿到您的位置」', async () => {
   const bodies = [];
   const prior = [{ role: 'user', content: '台北天氣如何' }, { role: 'assistant', content: '台北現在晴。' }, { role: 'system', content: 'x' }];
   const rep = await runTrial('怎麼去台北101', {
@@ -345,7 +345,7 @@ test('runTrial：跟問阿幫一樣帶前文、由手機定位（2026-11-22「�
   const S = rep.sections;
   assert.equal(S.answer.located, true);
   assert.equal(S.answer.turns, 1);
-  assert.doesNotMatch(S.answer.final, /沒拿到你的位置/);
-  assert.equal(S.next.location, false, '定位到了：不再說要問你在哪');
+  assert.doesNotMatch(S.answer.final, /沒拿到[你您]的位置/);
+  assert.equal(S.next.location, false, '定位到了：不再說要問您在哪');
   assert.ok(TRIAL_HISTORY >= 4);
 });

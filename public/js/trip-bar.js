@@ -20,7 +20,7 @@ export function tripOf({ alight = null, arrival = null, now = Date.now() } = {})
     // 「在 X 上車」（不是目的地）；查到過到站時間就說還有幾分（扣掉經過的時間）
     const left = arrival.last?.etaSec != null ? Math.round((arrival.last.etaSec - (now - arrival.last.at) / 1000) / 60) : null;
     const en = arrival.lang === 'en';
-    const when = left != null && !arrival.skip ? (left <= 1 ? (en ? 'arriving now' : '車快到了') : (en ? `about ${left} min` : `約 ${left} 分到站`)) : (en ? `reminder ${arrival.minutes} min before` : `到站前 ${arrival.minutes} 分提醒你`);
+    const when = left != null && !arrival.skip ? (left <= 1 ? (en ? 'arriving now' : '車快到了') : (en ? `about ${left} min` : `約 ${left} 分到站`)) : (en ? `reminder ${arrival.minutes} min before` : `到站前 ${arrival.minutes} 分提醒您`);
     return { kind: 'waiting', city: arrival.city, route: arrival.routeName, stop: arrival.stop, direction: arrival.direction, href: busHref(arrival.city, arrival.routeName, arrival.stop, arrival.direction, arrival.lang), text: en ? `${arrival.routeName} from ${arrival.stop} · ${when}` : `${arrival.routeName} 在「${arrival.stop}」上車・${when}`, ...(en && { lang: 'en' }) };
   }
   return null;

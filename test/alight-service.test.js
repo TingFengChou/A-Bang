@@ -42,17 +42,17 @@ test('alightCheck：常駐文字、響鈴文字、seen 帶回下一次、3 小�
   assert.equal(r.due, false);
   assert.equal(r.etaSec, 300);
   assert.equal(r.seen, true, '看過我這台在路上：服務要帶回下一次');
-  assert.equal(r.ongoing, '307 坐車中・約 5 分到「S5」・快到時提醒你下車');
+  assert.equal(r.ongoing, '307 坐車中・約 5 分到「S5」・快到時提醒您下車');
   assert.equal(r.alert, '約 2 分後到「S5」，準備下車', '還沒到點：給兩次更新之間到點時用的那一句');
   assert.equal(W.seen, undefined, '不改呼叫端的物件');
   const passed = alightCheck({ ...W, seen: true }, route([500, 600, 700, 800, 900, 20]), T0 + 400_000);
   assert.deepEqual([passed.due, passed.by, passed.alert], [true, 'passed', '快到「S5」了，準備下車！']);
   assert.equal(alightCheck(W, route([500, 600, 700, 800, 900, 20]), T0 + 400_000).by, null, '沒看過就不當作已經過站');
   assert.equal(alightCheck(W, [], T0 + ALIGHT_MAX_MS + 1).ended, true);
-  assert.equal(alightCheck({ ...W, boardAt: T0 + 60_000 }, route([500, 60, 30, 180, 300]), T0).ongoing, '307 等車中・約 16 分到「S5」・快到時提醒你下車');
+  assert.equal(alightCheck({ ...W, boardAt: T0 + 60_000 }, route([500, 60, 30, 180, 300]), T0).ongoing, '307 等車中・約 16 分到「S5」・快到時提醒您下車');
   assert.equal(alightOngoingText({ ...W, lang: 'en' }, 300), "Bus 307 · about 5 min to S5 · I'll tell you when to get off");
-  assert.equal(alightOngoingText(W, 30), '307 坐車中・快到「S5」了・快到時提醒你下車');
-  assert.equal(alightOngoingText(W, null), '307 坐車中・往「S5」・快到時提醒你下車');
+  assert.equal(alightOngoingText(W, 30), '307 坐車中・快到「S5」了・快到時提醒您下車');
+  assert.equal(alightOngoingText(W, null), '307 坐車中・往「S5」・快到時提醒您下車');
 });
 
 test('/api/v1/bus/alight：用同一個 bus_route_eta 判斷；參數不對回 UserError', async () => {

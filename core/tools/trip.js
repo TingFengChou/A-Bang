@@ -24,11 +24,11 @@ export const nextStepOf = (o) => (!o ? null : o.role === 'metro' && o.metro ? `$
 export const NEXT_STEP = {
   bus: '卡片上看公車多久到上車站，可以按「到站前 3 分提醒我」',
   metro: '走到捷運站搭車（時間與票價是估算）',
-  ridehail: '按卡片的「叫車」用官方 App 叫車（會先請你確認，付款在叫車 App 完成）',
+  ridehail: '按卡片的「叫車」用官方 App 叫車（會先請您確認，付款在叫車 App 完成）',
   walk: '按「導航」用地圖 App 走過去',
   bike: '照卡片走到借車站借車；還車站目前有空位（騎到時可能變，卡片有備用站）',
-  thsr: '按「訂票」到高鐵官方訂票（會先請你確認）',
-  tra: '按「訂票」到台鐵官方訂票（會先請你確認）',
+  thsr: '按「訂票」到高鐵官方訂票（會先請您確認）',
+  tra: '按「訂票」到台鐵官方訂票（會先請您確認）',
   intercity: '看卡片上的班次時間，到上車站搭車',
 };
 
@@ -43,7 +43,7 @@ export function tripText(data) {
     ...(data.single ? [`只有一種方式：${data.single.text}`] : []),
     ...(data.limited ? [`TDX 額度用完（回答要照實說，不可提示範班次）：${data.limited.text}`] : []), // 示範資料的方案已排除（ADR-0010 2026-11-22）
     ...(data.missing?.length ? [`沒列入：${data.missing.map((m) => `${m.route ? `公車 ${m.route}` : MODE_LABEL[m.role] || m.role}（${m.why}）`).join('、')}`] : []), // route：那一條公車今天不會來（站牌即時資訊）
-    ...(data.states.length ? [`狀態：${data.states.map((s) => `${STATES[s.key].label}（${s.source === 'auto' ? `自動：${s.detail}` : '你說的'}）`).join('、')}`] : []),
+    ...(data.states.length ? [`狀態：${data.states.map((s) => `${STATES[s.key].label}（${s.source === 'auto' ? `自動：${s.detail}` : '您說的'}）`).join('、')}`] : []),
     ...(data.habitOn ? [`習慣（使用者同意過的常選方式，已小幅加分）：${Object.entries(data.habit).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${MODE_LABEL[k]} ${Math.round(v * 100)}%`).join('、')}`] : []),
     ...data.ranking.ranked.map((r, i) => {
       const o = byId.get(r.id);

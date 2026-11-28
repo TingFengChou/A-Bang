@@ -36,7 +36,7 @@ export function bPlan(trip, { routeName, now = Date.now(), lang = null, ended = 
   const head = ended
     ? (en ? `Bus ${routeName} isn't running any more today, so I cancelled the reminder.` : `${routeName} 今天不會再來了（末班已過或沒有營運），到站提醒已取消。`)
     : (en ? `Bus ${routeName} isn't coming.` : `${routeName} 一直沒來。`);
-  const requery = { stale: true, text: en ? `${head} Want me to find another way with fresh data?` : `${head}要我用最新的資料幫你找其他方式嗎？`, label: en ? 'Another way' : '改其他方式', ask: en ? `No bus, find another way to ${to}` : `不要坐公車，改別的方式去${to}` };
+  const requery = { stale: true, text: en ? `${head} Want me to find another way with fresh data?` : `${head}要我用最新的資料幫您找其他方式嗎？`, label: en ? 'Another way' : '改其他方式', ask: en ? `No bus, find another way to ${to}` : `不要坐公車，改別的方式去${to}` };
   if (!(now - Number(trip.at) <= STALE_MIN * 60e3)) return requery; // 資料太舊（或不知道多舊）：不硬算
   const nowMin = twMin(now);
   const stuck = (o) => o.role === 'bus' && String(o.name || '').includes(routeName);
@@ -53,7 +53,7 @@ export function bPlan(trip, { routeName, now = Date.now(), lang = null, ended = 
   if (!STABLE.has(best.role)) {
     // 會變的（公車、YouBike、叫車）：不說幾點到，按了用最新的資料查
     const d = detailOf(best);
-    const say = en ? `${head} You could ${DO_EN[best.role]} instead; tap and I'll check with fresh data.` : `${head}可以改${DO_ZH[best.role]}${d ? `（${d}）` : ''}，按了我用最新的資料幫你查。`;
+    const say = en ? `${head} You could ${DO_EN[best.role]} instead; tap and I'll check with fresh data.` : `${head}可以改${DO_ZH[best.role]}${d ? `（${d}）` : ''}，按了我用最新的資料幫您查。`;
     return { role: best.role, name: best.name, text: say, label, ask };
   }
   const arr = SCHEDULED.has(best.role) ? (best.arriveMin ?? hm(best.arriveAt)) : nowMin + Number(best.minutes || 0);

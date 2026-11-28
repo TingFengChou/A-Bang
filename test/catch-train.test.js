@@ -12,7 +12,7 @@ test('只對台鐵、高鐵、末班車問（Antigravity：一般班次不打擾
   assert.equal(shouldAsk({ role: 'bus', depart: '10:35' }), false);
   assert.equal(shouldAsk({ role: 'bus', depart: '23:40', last: true }), true, '末班公車也問');
   assert.equal(shouldAsk(null), false);
-  assert.equal(askText(HSR), '該出門囉！要我用一次位置幫你看還趕不趕得上10:35 的高鐵嗎？');
+  assert.equal(askText(HSR), '該出門囉！要我用一次位置幫您看還趕不趕得上10:35 的高鐵嗎？');
   assert.match(askText({ ...HSR, last: true }), /^注意！10:35 是末班車，現在該出門了。要我用一次位置/);
   assert.match(askText(HSR, 'en'), /use your location once/);
 });
@@ -31,7 +31,7 @@ test('結果：來得及／很趕附「僅供參考」；趕不上給下一班�
   const miss = verdictOf(HSR, at('10:25'), 15);
   assert.equal(resultText(HSR, miss, { toStationMin: 15, next: { depart: '11:05', arrive: '12:10' } }), '趕不上 10:35 那班（到台北約 15 分）。下一班 11:05 開、12:10 到。');
   assert.equal(resultText({ ...HSR, last: true }, miss, { toStationMin: 15, taxi: { low: 2100, high: 2700 } }), '趕不上 10:35 那班（到台北約 15 分）。那是今天的末班車。改叫車預估約 2100～2700 元，實際以叫車 App 報價為準。');
-  assert.match(noLocationText(), /沒拿到你的位置，沒辦法幫你算/);
+  assert.match(noLocationText(), /沒拿到[你您]的位置，沒辦法幫[你您]算/);
 });
 
 test('下一班：現在＋到站＋緩衝之後的第一班', () => {
@@ -58,5 +58,5 @@ test('前端：按了才定位一次，算到車站、趕不上查下一班；�
   assert.equal(said[0], '趕不上 10:35 那班（到台北約 15 分）。下一班 11:05 開、12:10 到。');
   const r2 = await runCheck(HSR, { host, locate: async () => null, now, say: (t) => said.push(t) });
   assert.equal(r2, 'noLocation');
-  assert.match(said.at(-1), /沒拿到你的位置/);
+  assert.match(said.at(-1), /沒拿到[你您]的位置/);
 });

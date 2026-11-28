@@ -57,9 +57,9 @@ test('metro_live_board near：最近的站；3 公里外說明怎麼辦；沒有
   const svc = createServices({ forceMock: true });
   const r = await callTool(svc, 'metro_live_board', { near: { lat: 25.0418, lon: 121.5654 } });
   assert.equal(r.data.station, '市政府');
-  assert.match(r.speak, /^離你最近的是市政府（約 \d+ 公尺）/);
+  assert.match(r.speak, /^離[你您]最近的是市政府（約 \d+ 公尺）/);
   const r2 = await callTool(svc, 'metro_live_board', { near: '臺北車站' });
-  assert.match(r2.speak, /^台北車站：/, '用預設地點時不說「離你」；地點就是那一站時不重複');
+  assert.match(r2.speak, /^台北車站：/, '用預設地點時不說「離您」；地點就是那一站時不重複');
   const r3 = await callTool(svc, 'metro_live_board', { near: '西門町' });
   assert.match(r3.speak, /^離「西門町」最近的是西門（約 \d+ 公尺）/);
   await assert.rejects(callTool(svc, 'metro_live_board', { near: { lat: 23.0, lon: 120.2 } }), /3 公里內沒有捷運站.+站名/);
@@ -67,7 +67,7 @@ test('metro_live_board near：最近的站；3 公里外說明怎麼辦；沒有
 });
 
 test('捷運沒說站：模型模式先用現在位置查最近的站；模型再查最近站沿用結果', async () => {
-  const here = { lat: 25.0418, lon: 121.5654, name: '你的位置' };
+  const here = { lat: 25.0418, lon: 121.5654, name: '您的位置' };
   assert.deepEqual(prefetchCalls({ intent: 'metro', station: null, places: [] }, null, here), [{ name: 'metro_live_board', args: { near: here } }]);
   assert.deepEqual(prefetchCalls({ intent: 'metro', station: '市政府', places: [] }, null, here), []);
   assert.equal(callKey('metro_live_board', {}, here), callKey('metro_live_board', { near: { lat: 25.0418, lon: 121.5654 } }));
@@ -91,7 +91,7 @@ test('模型自加抵達時間：丟掉後與預先查詢相同，沿用結果�
 test('使用者前文說過起點：模型把起點換成現在位置也會改回來（不出現第二張行程卡）', async () => {
   const here = { lat: 25.0478, lon: 121.517 };
   const es = [];
-  const provider = { mode: 'local', model: 'fake', start() { let n = 0; return { next: async () => (n++ === 0 ? { text: '', calls: [{ id: 'c1', name: 'plan_trip', input: { from: { ...here, name: '你的位置' }, to: '台北101', prefs: { mode: 'bus' } } }], stop: 'tool', usage: { input: 1, output: 1 } } : { text: '好', calls: [], stop: 'end', usage: { input: 1, output: 1 } }), addResults() {} }; } };
+  const provider = { mode: 'local', model: 'fake', start() { let n = 0; return { next: async () => (n++ === 0 ? { text: '', calls: [{ id: 'c1', name: 'plan_trip', input: { from: { ...here, name: '您的位置' }, to: '台北101', prefs: { mode: 'bus' } } }], stop: 'tool', usage: { input: 1, output: 1 } } : { text: '好', calls: [], stop: 'end', usage: { input: 1, output: 1 } }), addResults() {} }; } };
   const messages = [{ role: 'user', content: '從西門町去台北101' }, { role: 'assistant', content: '建議叫車。' }, { role: 'user', content: '改坐公車' }];
   await runModel(createServices({ forceMock: true }), { messages, clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: here }] }, (e) => es.push(e), { provider, judge: null });
   const trips = es.filter((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
@@ -104,10 +104,10 @@ test('decide avoid：使用者說不要的方式直接排除並說明；全部�
   const opts = [{ id: 'r', role: 'ridehail', name: '叫車', minutes: 10, cost: 300, walkMin: 0, waitMin: 3 }, { id: 'b', role: 'bus', name: '公車 601', minutes: 25, cost: 15, walkMin: 5, waitMin: 5 }];
   const r = decide(opts, { avoid: ['ridehail'] });
   assert.equal(r.best.id, 'b');
-  assert.deepEqual(r.excluded.map((e) => [e.id, e.why]), [['r', '你說不要叫車']]);
+  assert.deepEqual(r.excluded.map((e) => [e.id, e.why]), [['r', '您說不要叫車']]);
   const none = decide(opts, { avoid: ['ridehail', 'bus'] });
   assert.equal(none.best, null);
-  assert.match(none.reason, /排除不適合或你說不要的方式後，沒有其他可行的方案/);
+  assert.match(none.reason, /排除不適合或[你您]說不要的方式後，沒有其他可行的方案/);
 });
 
 test('contextNote：接著改的那一輪說沿用什麼、改了什麼；理由不把「不要」說成遲到', async () => {
@@ -115,12 +115,12 @@ test('contextNote：接著改的那一輪說沿用什麼、改了什麼；理由
   const H = (...t) => t.flatMap((x) => [{ role: 'user', content: x }, { role: 'assistant', content: '好' }]);
   assert.equal(contextNote(parseIntent('不要叫車', { history: H('從西門町叫車去台北101') })), '沿用：西門町 → 台北101｜改：不要叫車');
   assert.equal(contextNote(parseIntent('改坐公車', { history: H('從西門町去台北101') })), '沿用：西門町 → 台北101｜改：坐公車');
-  assert.equal(contextNote(parseIntent('九點要到', { history: H('去台北101'), now: Date.parse('2026-11-21T06:00:00+08:00') })), '沿用：你的位置 → 台北101｜改：09:00 前到'); // 固定早上（V1-1）
+  assert.equal(contextNote(parseIntent('九點要到', { history: H('去台北101'), now: Date.parse('2026-11-21T06:00:00+08:00') })), '沿用：您的位置 → 台北101｜改：09:00 前到'); // 固定早上（V1-1）
   assert.equal(contextNote(parseIntent('去台北101')), null, '不是接著改');
   const { decide } = await import('../core/decide.js');
   const opts = [{ id: 'r', role: 'ridehail', name: '叫車', minutes: 10, cost: 300, walkMin: 0, waitMin: 3 }, { id: 'b', role: 'bus', name: '公車 601', minutes: 25, cost: 15, walkMin: 5, waitMin: 5 }];
   const r = decide(opts, { avoid: ['ridehail'] });
-  assert.match(r.reason, /叫車照你說的不列入/);
+  assert.match(r.reason, /叫車照[你您]說的不列入/);
   assert.doesNotMatch(r.reason, /會遲到/);
 });
 
@@ -177,7 +177,7 @@ test('常用地點在模型模式：預先查到家、起訖強制；沒設定�
   const home = { name: '家', lat: 25.0143, lon: 121.4635 };
   const es = [];
   let calls = 0;
-  const provider = { mode: 'local', model: 'fake', start() { calls++; let n = 0; return { next: async () => (n++ === 0 ? { text: '', calls: [{ id: 'c1', name: 'plan_trip', input: { from: '你的位置', to: '台北101' } }], stop: 'tool', usage: { input: 1, output: 1 } } : { text: '好', calls: [], stop: 'end', usage: { input: 1, output: 1 } }), addResults() {} }; } };
+  const provider = { mode: 'local', model: 'fake', start() { calls++; let n = 0; return { next: async () => (n++ === 0 ? { text: '', calls: [{ id: 'c1', name: 'plan_trip', input: { from: '您的位置', to: '台北101' } }], stop: 'tool', usage: { input: 1, output: 1 } } : { text: '好', calls: [], stop: 'end', usage: { input: 1, output: 1 } }), addResults() {} }; } };
   await runModel(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '回家' }], savedPlaces: { 家: home }, clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: here }] }, (e) => es.push(e), { provider, judge: null });
   const trips = es.filter((e) => e.type === 'tool_result' && e.tool === 'plan_trip');
   assert.ok(trips.length >= 1);

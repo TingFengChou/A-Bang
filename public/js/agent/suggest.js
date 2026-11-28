@@ -24,7 +24,7 @@ export function timeOf(now = Date.now()) {
 
 /** 去掉像座標的數字（使用者把座標打進問題裡也不放進情境）：成對的小數 2 位以上（25.04,121.51）、單獨的小數 3 位以上 */
 export const scrub = (s, n = 40) => String(s || '').replace(/-?\d{1,3}\.\d{2,}\s*[,，、\s]\s*-?\d{1,3}\.\d{2,}/g, '…').replace(/-?\d{1,3}\.\d{3,}/g, '…').replace(/\s+/g, ' ').trim().slice(0, n);
-const here = (name) => (!name || /你的位置|現在位置|^現在|^目前/.test(name) ? '' : scrub(name, 20));
+const here = (name) => (!name || /[你您您]的位置|現在位置|^現在|^目前/.test(name) ? '' : scrub(name, 20));
 const routeOf = (name) => /^公車\s*([紅藍綠棕橘小幹]?\d{1,4}[區副]?)/.exec(String(name || ''))?.[1] || null;
 
 /** 一輪的結果 → 一句摘要（只取名稱與數字，不取座標） */
@@ -34,7 +34,7 @@ export function resultFacts(results = [], decision = null) {
   const trip = by('plan_trip');
   if (trip) {
     const best = (decision?.options || trip.options || []).find((o) => o.id === (decision?.best || trip.best));
-    out.push(`行程 ${here(trip.from?.name) || '你的位置'}→${here(trip.to?.name)}${best?.name ? `，建議${scrub(best.name, 16)}` : ''}`);
+    out.push(`行程 ${here(trip.from?.name) || '您的位置'}→${here(trip.to?.name)}${best?.name ? `，建議${scrub(best.name, 16)}` : ''}`);
   }
   const bus = by('bus_route_eta');
   if (bus) out.push(`公車 ${scrub(bus.routeName, 8)}${bus.focus?.stopName ? ` 在${scrub(bus.focus.stopName, 16)}${bus.focus.etaSec != null ? ` ${Math.round(bus.focus.etaSec / 60)} 分到` : ''}` : ''}`);

@@ -35,7 +35,7 @@ export default {
     main.innerHTML = `
       <section class="me-head card">
         <img src="/brand/abang-happy.svg" alt="" width="64" height="64">
-        <div><b>不用註冊、不用登入</b><p>你存的東西都只在這支手機上，隨時可以清掉。</p></div>
+        <div><b>不用註冊、不用登入</b><p>您存的東西都只在這支手機上，隨時可以清掉。</p></div>
       </section>
       <section aria-labelledby="me-mine">
         <div class="section-title"><h2 id="me-mine">我存的</h2></div>
@@ -45,7 +45,7 @@ export default {
           ${rowHtml('#/s/invoice', 'receipt', '#7c3aed', '我的發票', inv ? `${inv} 張，開獎後自動對獎` : '存發票，開獎後自動對獎')}
           ${rowHtml('#/reminders', 'bell', '#b45309', '提醒', rem ? `${rem} 個進行中` : '目前沒有提醒')}
           <label class="switch-row me-big"><span class="ab-token sm" style="--c:#b45309" aria-hidden="true">${icons.search}</span><span class="grow"><b>大字模式</b><small>字和按鈕都放大</small></span><input type="checkbox" id="me-big" class="switch" role="switch" ${bigTextOn() ? 'checked' : ''}></label>
-          <button type="button" id="me-memory"><span class="ab-token sm" style="--c:#0f766e" aria-hidden="true">${icons.user}</span><div class="grow"><div class="title">阿幫記得你</div><div class="sub">阿幫記得的東西一次看、一項一項忘掉</div></div>${chev}</button>
+          <button type="button" id="me-memory"><span class="ab-token sm" style="--c:#0f766e" aria-hidden="true">${icons.user}</span><div class="grow"><div class="title">阿幫記得您</div><div class="sub">阿幫記得的東西一次看、一項一項忘掉</div></div>${chev}</button>
           ${widgetAvailable() ? `<button type="button" id="me-widget"><span class="ab-token sm" style="--c:#0284c7" aria-hidden="true">${icons.grid}</span><div class="grow"><div class="title">放到主畫面：阿幫・今天</div><div class="sub">不用打開 App，看今天要帶傘嗎、怎麼去公司</div></div>${chev}</button>` : ''}
         </div>
       </section>
@@ -53,7 +53,7 @@ export default {
         <div class="section-title"><h2 id="me-ai" tabindex="-1">手機上的 AI</h2></div>
         <div class="card me-ai" data-tone="wait">
           <p class="me-ai-st"><span class="ai-ic" aria-hidden="true">${icons.chip}</span><span><b id="me-ai-label">檢查中…</b><small id="me-ai-text"></small></span></p>
-          <details class="me-ai-how"><summary>怎麼運作</summary><p class="note">手機 App 會先用手機內建的模型（iPhone 的 Apple Intelligence、Android 的 Gemini Nano）判斷你要查交通、天氣還是別的，只把判斷結果（例如「行程、趕時間」）跟問題一起送出。方案怎麼排、資料怎麼查，一樣由阿幫的程式計算。手機不支援、網頁版或你關掉時，改由阿幫伺服器判斷，用起來一樣。</p></details>
+          <details class="me-ai-how"><summary>怎麼運作</summary><p class="note">手機 App 會先用手機內建的模型（iPhone 的 Apple Intelligence、Android 的 Gemini Nano）判斷您要查交通、天氣還是別的，只把判斷結果（例如「行程、趕時間」）跟問題一起送出。方案怎麼排、資料怎麼查，一樣由阿幫的程式計算。手機不支援、網頁版或您關掉時，改由阿幫伺服器判斷，用起來一樣。</p></details>
           <div class="me-ai-acts"><a class="btn small link-btn" href="#/ai">看阿幫的腦袋：模型資訊、現場試試看</a><a class="btn small quiet link-btn" href="#/settings">到設定開關</a></div>
         </div>
       </section>
@@ -66,7 +66,7 @@ export default {
         <div class="card list">
           ${rowHtml('#/settings', 'gear', '#475569', '設定與隱私', '權限、手機上的 AI、健康與運動、清除本機資料')}
           ${rowHtml('#/privacy', 'shield', '#0f766e', '隱私權政策', '問題、位置、手機上的資料怎麼處理')}
-          <button type="button" id="me-guide"><span class="ab-token sm" style="--c:#0e7490" aria-hidden="true">${icons.info}</span><div class="grow"><div class="title">使用說明</div><div class="sub">再看一次阿幫能幫你做什麼</div></div>${chev}</button>
+          <button type="button" id="me-guide"><span class="ab-token sm" style="--c:#0e7490" aria-hidden="true">${icons.info}</span><div class="grow"><div class="title">使用說明</div><div class="sub">再看一次阿幫能幫您做什麼</div></div>${chev}</button>
         </div>
       </section>
       <section aria-labelledby="me-about" class="me-about">

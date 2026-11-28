@@ -866,7 +866,7 @@ async function ridehailOption(svc, from, to, straight, traffic) {
     cost: Math.round((e.low + e.high) / 2 / 5) * 5, costRange: [e.low, e.high],
     exposure: 0, effort: 0, delayRisk: delayRiskOf(traffic?.level ?? null), estimated: true,
     legs: [{ ...leg('ridehail', from, to, drive, [`車程約 ${drive} 分（估算）`, `About ${drive} min by car (est.)`], 'driving'), url: link.url }],
-    notes: [`車資 ${e.low}～${e.high} 元（${e.basis}）`, '叫車前需你確認（ridehail_link）'],
+    notes: [`車資 ${e.low}～${e.high} 元（${e.basis}）`, '叫車前需您確認（ridehail_link）'],
   };
 }
 

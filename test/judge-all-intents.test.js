@@ -47,7 +47,7 @@ test('判斷層指定新意圖：接上既有的處理', () => {
   assert.deepEqual([p('今天適合散步嗎', 'exercise').intent, p('今天適合散步嗎', 'exercise').walk], ['outing', true]);
   assert.equal(p('對方要我加他的line', 'scam').intent, 'scamAsk');
   for (const k of ['reminder', 'settings', 'emergency', 'calendar', 'share']) assert.equal(p('隨便一句', k).intent, k);
-  assert.equal(p('你會做什麼', 'help').help, true);
+  assert.equal(p('您會做什麼', 'help').help, true);
   assert.equal(p('哈哈', 'chat').chat, true);
 });
 
@@ -70,9 +70,9 @@ test('意圖標得更細：規則聽出指定客運／叫車、散步運動', ()
 
 test('打招呼是 chat、問能做什麼是 help（以前都是 unknown）', async () => {
   const j = createJudge();
-  assert.equal((await j('你好')).intent, 'chat');
+  assert.equal((await j('您好')).intent, 'chat');
   assert.equal((await j('早安阿幫')).intent, 'chat');
-  assert.equal((await j('你是誰')).intent, 'help');
+  assert.equal((await j('您是誰')).intent, 'help');
 });
 
 test('範圍外的主題：整理、擋個資', () => {
@@ -97,7 +97,7 @@ test('範圍外：判斷層帶主題、回答說聽懂了什麼；畫面顯示�
   const es = [];
   await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '幫我訂一間餐廳' }], deviceJudge: { intent: 'unknown', states: [], engine: 'apple', topic: '訂餐廳' } }, (e) => es.push(e), { judge: createJudge() });
   const text = es.filter((e) => e.type === 'text').map((e) => e.delta).join('');
-  assert.match(text, /聽懂了，你想「訂餐廳」/);
+  assert.match(text, /聽懂了，[你您]想「訂餐廳」/);
   assert.equal(es.find((e) => e.type === 'tool_start'), undefined, '不查工具');
   const t = aiT('zh');
   assert.equal(intentLabel({ intent: 'unknown', topic: '訂餐廳' }, t), '其他：訂餐廳');

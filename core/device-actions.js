@@ -22,7 +22,7 @@ const costOf = (o, en) => {
   return en ? `NT$${v}` : `${v} 元`;
 };
 const clip = (s, n) => { const a = [...String(s ?? '').replace(/[\p{Cc}\p{Cf}]/gu, (c) => (c === '\n' ? '\n' : '')).trim()]; return a.length > n ? `${a.slice(0, n - 1).join('')}…` : a.join(''); };
-const HERE = /^(?:你的位置|your location|現在位置)$/i;
+const HERE = /^(?:[你您您]的位置|your location|現在位置)$/i;
 
 /** 台灣日期（YYYY-MM-DD）＋從當天 0 點起的分鐘 → epoch 毫秒 */
 export function taipeiMs(date, minutes) {

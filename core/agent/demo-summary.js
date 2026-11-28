@@ -126,19 +126,19 @@ export function demoSummary(it, results, suggestions = []) {
       return `${head}${it.trend ? ' 漲跌：開放資料只有這週的牌價，沒有上週可以比；調整幅度請看中油每週日的公告。' : ''}`;
     }
   }
-  if (it.intent === 'rail' && it.fare && !it.from) return it.lang === 'en' ? 'Which station are you starting from? Tell me and I\'ll look up the fare.' : `你要從哪一站出發？告訴我起站，我幫你查到${it.to}的票價。`;
+  if (it.intent === 'rail' && it.fare && !it.from) return it.lang === 'en' ? 'Which station are you starting from? Tell me and I\'ll look up the fare.' : `您要從哪一站出發？告訴我起站，我幫您查到${it.to}的票價。`;
   if (it.intent === 'rail' && it.anyTo) return railAnySummary(it, results);
   if (it.intent === 'bus_route' && it.askStop && !it.lang) { // 沒定位又沒說站：不列全線，請他說在哪一站等（PM Q-16）
     const d = results.bus_route_eta?.at(-1)?.data;
     const dirs = (d?.directions || []).map((x) => x.label).filter(Boolean);
-    if (d) return `${d.routeName}${dirs.length ? ` 有${dirs.length === 2 ? '兩個' : ''}方向（${dirs.join('、')}）` : ''}。沒拿到你的位置，告訴我你在哪一站等，我幫你看那一站還要多久。`;
+    if (d) return `${d.routeName}${dirs.length ? ` 有${dirs.length === 2 ? '兩個' : ''}方向（${dirs.join('、')}）` : ''}。沒拿到您的位置，告訴我您在哪一站等，我幫您看那一站還要多久。`;
   }
   if (it.ack) return it.lang === 'en' ? 'OK! Ask me anything else anytime.' : '好的！還想查什麼隨時跟我說。';
   const text0 = summaryCore(it, results, suggestions);
   const text = it.intent === 'trip' && it.roadAsk && !it.lang && results.plan_trip?.length ? `${text0} 市區道路塞不塞，開放資料查不到（路況只有國道）。` : text0; // 「坐公車會不會塞車」：排行程，照實說（PR #127 審查）
   // 要訂票（「幫我訂明天的高鐵票」）：阿幫只給官方連結（ADR-0011；P2-10）
-  if (it.intent === 'rail' && it.fare && it.fromGuess && !it.lang) return `${text}（你沒說從哪一站出發，我先用${String(it.from).replace(/臺/g, '台')}算；告訴我起站就重查。）`;
-  if (it.intent === 'rail' && it.fare && it.fromNearest && !it.lang) return `${text}（你沒說從哪一站出發，我用離你最近的${it.system === 'THSR' ? '高鐵' : '火車'}站「${it.from}」算；從別站出發就告訴我。）`; // PM Q-2
+  if (it.intent === 'rail' && it.fare && it.fromGuess && !it.lang) return `${text}（您沒說從哪一站出發，我先用${String(it.from).replace(/臺/g, '台')}算；告訴我起站就重查。）`;
+  if (it.intent === 'rail' && it.fare && it.fromNearest && !it.lang) return `${text}（您沒說從哪一站出發，我用離您最近的${it.system === 'THSR' ? '高鐵' : '火車'}站「${it.from}」算；從別站出發就告訴我。）`; // PM Q-2
   if (it.intent === 'rail' && it.book && !it.lang) return `${text} 訂票請按卡片上的官方訂票連結，在${it.system === 'THSR' ? '高鐵' : '台鐵'}官網或 App 完成（阿幫不代訂、不付款）。`;
   return text;
 }
@@ -146,12 +146,12 @@ export function demoSummary(it, results, suggestions = []) {
 function railAnySummary(it, results) {
   const list = (results.thsr_timetable || results.tra_timetable || []).map((r) => r.data).filter(Boolean);
   const en = it.lang === 'en';
-  if (!list.length) return en ? 'Which station are you going to? Tell me and I\'ll look up the next train.' : '你要去哪一站？告訴我迄站，我幫你查下一班。';
-  const pre = it.fromPoint ? '' : en ? `I didn't get your location, so I used ${DEFAULT_FROM}. ` : it.noLocation ? `（沒拿到你的位置，先看「${DEFAULT_FROM}」最近的站。）` : `（你沒說在哪，先看「${DEFAULT_FROM}」最近的站。）`;
+  if (!list.length) return en ? 'Which station are you going to? Tell me and I\'ll look up the next train.' : '您要去哪一站？告訴我迄站，我幫您查下一班。';
+  const pre = it.fromPoint ? '' : en ? `I didn't get your location, so I used ${DEFAULT_FROM}. ` : it.noLocation ? `（沒拿到您的位置，先看「${DEFAULT_FROM}」最近的站。）` : `（您沒說在哪，先看「${DEFAULT_FROM}」最近的站。）`;
   const parts = list.map((d) => { const up = upcomingTrains(d); const n = (up || d.trains)[0]; return n ? (en ? `toward ${d.to}: next leaves ${n.depart}` : `往${d.to}下一班 ${n.depart} 出發`) : (en ? `toward ${d.to}: no more trains today` : `往${d.to}今天沒有班次了`); });
   const st = String(list[0].from || it.railNear).replace(/臺/g, '台');
   return en ? `${pre}Nearest HSR station: ${st}. ${parts.join('; ')}. Which station are you going to?`
-    : `${pre}${it.fromPoint ? '離你最近' : '最近'}的高鐵站是${st}：${parts.join('、')}。要去哪一站？告訴我，我幫你查那一站的班次。`;
+    : `${pre}${it.fromPoint ? '離您最近' : '最近'}的高鐵站是${st}：${parts.join('、')}。要去哪一站？告訴我，我幫您查那一站的班次。`;
 }
 /** 找短劇的總結（ADR-0019）：數字與劇名來自工具；有 App 連結才說「按卡片開 App」 */
 export function dramaSummary(it, results) {
@@ -163,7 +163,7 @@ export function dramaSummary(it, results) {
     return `${series.speak}${x.synopsis ? `簡介：${x.synopsis.length > 90 ? `${x.synopsis.slice(0, 90)}…` : x.synopsis}` : ''} ${open(series.data)}`.trim();
   }
   if (search && search.data.items.length) return `${search.speak} ${open(search.data)}還想找別的類型也可以跟我說，例如「懸疑」「重生」。`.trim();
-  if (picks) return `${search ? `MyDrama 沒有找到「${search.data.query}」的短劇，先給你看熱門的：` : ''}${picks.speak} ${open(picks.data)}想看特定類型就說，例如「甜寵」「懸疑」。`.trim();
+  if (picks) return `${search ? `MyDrama 沒有找到「${search.data.query}」的短劇，先給您看熱門的：` : ''}${picks.speak} ${open(picks.data)}想看特定類型就說，例如「甜寵」「懸疑」。`.trim();
   return '這次沒查到短劇資料（片庫連不上）；先問點別的，過一會兒再找劇。';
 }
 /** 不會來的路線依原因分組：[[原因, [路線…]]]（「公車 R2、R3 今天沒有營運」一句說完） */
@@ -217,26 +217,26 @@ function summaryCore(it, results, suggestions = []) {
   if (it.lang === 'en') return englishSummary(it, results);
   if (it.intent === 'drama') return dramaSummary(it, results);
   if (it.intent === 'outing') {
-    const pre = it.fromPoint || it.places[0] ? '' : it.noLocation ? `（沒拿到你的位置，先看「${DEFAULT_FROM}」附近。）` : `（你沒說在哪，我先看「${DEFAULT_FROM}」附近。）`;
+    const pre = it.fromPoint || it.places[0] ? '' : it.noLocation ? `（沒拿到您的位置，先看「${DEFAULT_FROM}」附近。）` : `（您沒說在哪，我先看「${DEFAULT_FROM}」附近。）`;
     const o = results.outing_advice?.at(-1);
     return `${pre}${o ? o.speak : outingSay({})}`;
   }
   if (it.intent === 'weather' && it.later) return '我目前只查得到現在和明天的天氣，後天以後的預報還沒辦法；要不要先看明天的？';
-  if (it.intent === 'savedMissing') return `我還不知道你的「${it.missing}」在哪。到「設定與隱私 → 常用地點」按「輸入地點」選附近的車站或地標，或下次在${it.missing === '家' ? '家' : it.missing}時按「設成現在位置」，之後說「${it.missing === '家' ? '回家' : `去${it.missing}`}」就能直接規劃。現在也可以直接說地名，例如「${it.missing === '家' ? '回板橋' : '去台北車站'}」。`;
-  if (it.reset) return '好，重新開始。想去哪裡、想查什麼？沒說起點的話，我用你現在的位置。';
-  if (it.intent === 'access') return '阿幫目前拿到的開放資料沒有電梯、無障礙出口的位置，還查不到是哪一站、哪個出口。台北捷運各站都設有無障礙電梯，位置可以看站內指標，或撥台北捷運客服 (02)218-12345 問；告訴我要去哪裡，我可以幫你排少走路的路線（記得說坐輪椅或行動不便）。';
-  if (it.intent === 'scamAsk' && it.pasted && it.lang !== 'en') return '這則訊息有網址，又催你限時處理、要你點連結或付款，很像詐騙簡訊。按上面的「帶到防詐檢查」，我在防詐幫你比對 165 的詐騙手法；確認之前先不要點連結、不要回傳資料或驗證碼。有疑問請撥 165。';
-  if (it.intent === 'scamAsk') return it.lang === 'en' ? "To check a suspicious message, open Anti-fraud (Home → Anti-fraud) and paste the message, link or phone number, or take a photo of it. Until then, don't click links, transfer money, or share codes." : '要檢查可疑的訊息，請到「防詐」（首頁 → 防詐）把簡訊、LINE、網址或來電號碼貼上，或拍下來，我幫你比對 165 的詐騙手法。確認之前，先不要點連結、不要匯款、不要給驗證碼。';
-  if (it.intent === 'limits') return '我不能替你按叫車、付款或訂票（安全與隱私，付款與個資只在官方 App 裡處理）：我會給你官方 App 或網站的連結，由你自己確認、付款。要的話告訴我要去哪裡，我比較怎麼去、附上官方叫車連結。';
-  if (it.intent === 'emergency') return '如果有人受傷、昏倒或有危險，先打 119（救護、火災）或 110（報警）；手機沒有 SIM 卡或沒訊號也可以撥 112。在安全的地方等救援，不要移動受傷的人。需要的話我可以幫你查最近的路怎麼走。';
-  if (it.intent === 'reminder') return '提醒要在卡片上設：查公車或排行程後，按卡片上的「提醒我」或「盯這班」，車快到、該出門時阿幫會通知你；坐上車後也可以設下車提醒。設好的提醒都在下面的「提醒」分頁，可以隨時取消。';
+  if (it.intent === 'savedMissing') return `我還不知道您的「${it.missing}」在哪。到「設定與隱私 → 常用地點」按「輸入地點」選附近的車站或地標，或下次在${it.missing === '家' ? '家' : it.missing}時按「設成現在位置」，之後說「${it.missing === '家' ? '回家' : `去${it.missing}`}」就能直接規劃。現在也可以直接說地名，例如「${it.missing === '家' ? '回板橋' : '去台北車站'}」。`;
+  if (it.reset) return '好，重新開始。想去哪裡、想查什麼？沒說起點的話，我用您現在的位置。';
+  if (it.intent === 'access') return '阿幫目前拿到的開放資料沒有電梯、無障礙出口的位置，還查不到是哪一站、哪個出口。台北捷運各站都設有無障礙電梯，位置可以看站內指標，或撥台北捷運客服 (02)218-12345 問；告訴我要去哪裡，我可以幫您排少走路的路線（記得說坐輪椅或行動不便）。';
+  if (it.intent === 'scamAsk' && it.pasted && it.lang !== 'en') return '這則訊息有網址，又催您限時處理、要您點連結或付款，很像詐騙簡訊。按上面的「帶到防詐檢查」，我在防詐幫您比對 165 的詐騙手法；確認之前先不要點連結、不要回傳資料或驗證碼。有疑問請撥 165。';
+  if (it.intent === 'scamAsk') return it.lang === 'en' ? "To check a suspicious message, open Anti-fraud (Home → Anti-fraud) and paste the message, link or phone number, or take a photo of it. Until then, don't click links, transfer money, or share codes." : '要檢查可疑的訊息，請到「防詐」（首頁 → 防詐）把簡訊、LINE、網址或來電號碼貼上，或拍下來，我幫您比對 165 的詐騙手法。確認之前，先不要點連結、不要匯款、不要給驗證碼。';
+  if (it.intent === 'limits') return '我不能替您按叫車、付款或訂票（安全與隱私，付款與個資只在官方 App 裡處理）：我會給您官方 App 或網站的連結，由您自己確認、付款。要的話告訴我要去哪裡，我比較怎麼去、附上官方叫車連結。';
+  if (it.intent === 'emergency') return '如果有人受傷、昏倒或有危險，先打 119（救護、火災）或 110（報警）；手機沒有 SIM 卡或沒訊號也可以撥 112。在安全的地方等救援，不要移動受傷的人。需要的話我可以幫您查最近的路怎麼走。';
+  if (it.intent === 'reminder') return '提醒要在卡片上設：查公車或排行程後，按卡片上的「提醒我」或「盯這班」，車快到、該出門時阿幫會通知您；坐上車後也可以設下車提醒。設好的提醒都在下面的「提醒」分頁，可以隨時取消。';
   if (it.intent === 'gov') { // 去政府辦事（M16-04a）：照工具資料說，提醒以機關公告為準；不代替申辦
     const gl = results.gov_official_link?.[0];
     if (it.govLink) return gl?.data?.links?.length ? `${gl.speak}按卡片上的按鈕開官網；只從官方網站或 App 進去，不要點簡訊或訊息裡的連結。` : '這件事我沒有對應的官方入口，可以換個說法，例如「罰單」「報稅」「勞保年資」。';
     const pw = results.passport_waiting?.[0];
     if (it.govPassport) return pw ? `${pw.speak}只有人數、沒有預估時間；先網路預約會快很多，卡片上有網路預約的連結。` : '護照等待人數這次拿不到（領務局的資料連不上）；急的話可以直接打給外交部領事事務局。';
     const o = results.gov_office_nearby?.[0];
-    if (it.govOffice) return o ? `${o.speak}${o.data.offices[0]?.tel ? `各所營業時間不同（午休、夜間延時、週六服務），出發前可以先打電話（${o.data.offices[0].tel}）。` : '各所營業時間不同，出發前可以先打電話確認。'}${it.noLocation ? '沒拿到你的位置，先用台北車站附近找。' : ''}` : '戶政事務所的資料這次拿不到（內政部的資料連不上）；急的話可以撥 1996 內政服務專線問最近的戶政事務所。';
+    if (it.govOffice) return o ? `${o.speak}${o.data.offices[0]?.tel ? `各所營業時間不同（午休、夜間延時、週六服務），出發前可以先打電話（${o.data.offices[0].tel}）。` : '各所營業時間不同，出發前可以先打電話確認。'}${it.noLocation ? '沒拿到您的位置，先用台北車站附近找。' : ''}` : '戶政事務所的資料這次拿不到（內政部的資料連不上）；急的話可以撥 1996 內政服務專線問最近的戶政事務所。';
     const g = results.gov_service_info?.[0];
     const s = g?.data?.items?.[0];
     if (!g) return '我的E政府的申辦資料這次拿不到（資料來源連不上，不是沒有這項服務）；急的話可以直接打給辦理的機關。';
@@ -244,20 +244,20 @@ function summaryCore(it, results, suggestions = []) {
     const short = docShort(s.docs[0]) ? s.docs.map(docShort).filter(Boolean).slice(0, 3) : []; // 第一條就是分類標題（依情況不同）時不唸 // 先唸前幾樣要帶的（PM 審查：只說「列在卡片上」聽不到重點）
     return `${g.speak}${short.length ? `要帶：${short.join('、')}${s.docs.length > short.length ? '等，完整的在卡片上' : ''}。` : s.docs.length ? '要帶的東西列在卡片上，' : ''}卡片上也有官方網頁；要身分驗證的部分請在官方網頁或到現場自己辦，阿幫不代替申辦。`;
   }
-  if (it.intent === 'calendar') return it.lang === 'en' ? 'Plan a trip first, then tap "Add to calendar" on the card. Your phone\'s calendar opens so you can check it before saving.' : '先排好行程，再按卡片上的「加到行事曆」；會打開手機的行事曆，你確認後才加入。';
-  if (it.intent === 'share') return it.lang === 'en' ? 'Plan a trip first, then tap "Share" on the card. Your phone\'s share menu opens and you pick who gets it.' : '先排好行程，再按卡片上的「分享」；會打開手機的分享選單，由你選要傳給誰。';
+  if (it.intent === 'calendar') return it.lang === 'en' ? 'Plan a trip first, then tap "Add to calendar" on the card. Your phone\'s calendar opens so you can check it before saving.' : '先排好行程，再按卡片上的「加到行事曆」；會打開手機的行事曆，您確認後才加入。';
+  if (it.intent === 'share') return it.lang === 'en' ? 'Plan a trip first, then tap "Share" on the card. Your phone\'s share menu opens and you pick who gets it.' : '先排好行程，再按卡片上的「分享」；會打開手機的分享選單，由您選要傳給誰。';
   if (it.intent === 'settings') return '設定在「我的 → 設定與隱私」：可以設常用地點（家、公司、學校）、「我有車」、語言、通知，也可以關掉手機上的 AI。設好常用地點後，說「回家」「去公司」我就知道在哪。';
   if (it.chat) return `${it.greet ? `${it.greet}！` : ''}我是阿幫，想查交通或生活資訊直接說就好，例如「去台北 101」「307 到哪了？」「今天會下雨嗎」。`;
   if (it.thanks) return '不客氣！還想查什麼隨時跟我說。';
   if (it.sorry) return '沒關係！想查什麼直接說就好，例如「去台北 101」、「307 到哪了？」。';
   // 範圍外但聽得懂想做什麼（判斷層的 topic，core/topic.js）：照實說聽懂了什麼、阿幫還沒有這項服務（不說成「聽不懂」）
-  if (it.intent === 'unknown' && it.topic) return `聽懂了，你想「${it.topic}」。這個阿幫還沒有提供，沒辦法幫你查。我可以查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）、天氣、空品、藥局、油價、發票、股市收盤，也可以幫你看訊息是不是詐騙。`;
-  if (it.intent === 'unknown') return `${it.greet ? `${it.greet}！我是阿幫。` : ''}我可以幫你查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）、生活資訊（天氣、空品、地震、藥局、有看診的診所、垃圾車、油價、發票、股市收盤）、去政府辦事（要帶什麼、最近的戶政事務所、護照等多久）和可疑訊息。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
+  if (it.intent === 'unknown' && it.topic) return `聽懂了，您想「${it.topic}」。這個阿幫還沒有提供，沒辦法幫您查。我可以查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）、天氣、空品、藥局、油價、發票、股市收盤，也可以幫您看訊息是不是詐騙。`;
+  if (it.intent === 'unknown') return `${it.greet ? `${it.greet}！我是阿幫。` : ''}我可以幫您查交通（公車、捷運、台鐵、高鐵、YouBike、從 A 到 B 怎麼去）、生活資訊（天氣、空品、地震、藥局、有看診的診所、垃圾車、油價、發票、股市收盤）、去政府辦事（要帶什麼、最近的戶政事務所、護照等多久）和可疑訊息。試試看：${suggestions.slice(0, 3).map((q) => `「${q}」`).join('、')}`;
   if (it.intent === 'traffic' && it.cityOnly) return `阿幫拿到的路況開放資料只有國道（高速公路）${it.area ? `，「${String(it.area).replace(/臺/g, '台')}」一帶` : '，'}市區道路塞不塞查不到。要看國道就告訴我從哪裡到哪裡（例如「台北到新竹」）。`; // 市區路況（PR #127 審查）
   if (it.intent === 'traffic') { // 國道路況（S7）：起訖、結果照工具資料說
     const t = results.traffic_status?.at(-1);
     const nm = (x) => String((typeof x === 'string' ? x : x?.name) || '').replace(/臺/g, '台');
-    if (!t) return `沒查到「${nm(it.fromSaved || it.from) || (it.fromPoint ? '你的位置' : DEFAULT_FROM)}」到「${nm(it.toSaved || it.to)}」沿途的國道路況（兩地太近，或這次連不上交通部的路況資料）；要出門可以直接問怎麼去。`;
+    if (!t) return `沒查到「${nm(it.fromSaved || it.from) || (it.fromPoint ? '您的位置' : DEFAULT_FROM)}」到「${nm(it.toSaved || it.to)}」沿途的國道路況（兩地太近，或這次連不上交通部的路況資料）；要出門可以直接問怎麼去。`;
     return `${nm(t.data.from)} → ${nm(t.data.to)}：${t.speak}${it.freeway ? `（看的是這段路沿途的國道，不只${it.freeway}）` : ''}`;
   }
   const last = Object.values(results).flat().filter(Boolean).at(-1);
@@ -266,11 +266,11 @@ function summaryCore(it, results, suggestions = []) {
     const trip = results.plan_trip?.[0];
     const bestOpt0 = trip?.data?.options?.find((o) => o.id === trip.data.best);
     const asked = it.askWhat && bestOpt0 ? (it.askWhat === 'cost' ? `「${bestOpt0.name}」${bestOpt0.cost ? `約 ${bestOpt0.cost} 元` : '不用錢'}${bestOpt0.minutes ? `、${bestOpt0.minutes} 分` : ''}。`
-      : it.askWhat === 'when' ? `現在出發、坐「${bestOpt0.name}」約 ${bestOpt0.arriveAt || '—'} 到；要幾點前到可以跟我說（例如「9 點前要到」），我幫你算幾點出門。`
+      : it.askWhat === 'when' ? `現在出發、坐「${bestOpt0.name}」約 ${bestOpt0.arriveAt || '—'} 到；要幾點前到可以跟我說（例如「9 點前要到」），我幫您算幾點出門。`
         : `「${bestOpt0.name}」約 ${bestOpt0.minutes} 分${bestOpt0.arriveAt ? `（${bestOpt0.arriveAt} 到）` : ''}。`) : ''; // 追問時間、票價、幾點出門：先回答問的（PM 第二輪 #3）
     const synth = !it.departTime && !it.arriveBy && it.tomorrow && trip?.data?.departAt ? `（${dayWord(it)} ${trip.data.departAt} 出發算的；要改時間跟我說幾點。）` : ''; // 「明天去台北101」沒說幾點：說清楚用幾點算的（PM 第二輪審查）
     const when = `${asked}${synth}${it.departTime ? `${dayWord(it)} ${it.departTime} 出發：` : ''}${it.nearRail && it.to ? `最近的${it.nearRail === 'THSR' ? '高鐵' : '火車'}站是「${String(it.to).replace(/臺/g, '台')}」。` : ''}`; // 說了幾點出發、沒說哪一站的火車站，總結先講（P5-2、P5-4）
-    const pre = `${when}${it.from || it.fromPoint ? '' : it.noLocation ? `（沒拿到你的位置，先從「${DEFAULT_FROM}」算；告訴我從哪出發就重算。）` : `（你沒說從哪出發，我先用「${DEFAULT_FROM}」算。）`}`;
+    const pre = `${when}${it.from || it.fromPoint ? '' : it.noLocation ? `（沒拿到您的位置，先從「${DEFAULT_FROM}」算；告訴我從哪出發就重算。）` : `（您沒說從哪出發，我先用「${DEFAULT_FROM}」算。）`}`;
     // 今天不會來的直達路線（站牌即時資訊：今日未營運、末班已過、交管不停靠；plan_trip 或盯到站後重排已排除）：先說，使用者才知道為什麼不推它
     const off = (trip?.data.missing || []).filter((m) => m.kind === 'route');
     const offSay = offGroups(off).map(([why, routes]) => `公車 ${routes.join('、')} ${why}，這次不推。`).join('');
@@ -285,7 +285,7 @@ function summaryCore(it, results, suggestions = []) {
       const miss = walk && f.status === 0 && f.etaSec != null && f.etaSec < walk * 60; // 走過去要比車到還久
       const last = busBest.lastBus;
       if (last) return `${pre}${offSay}${trip.data.ranking.reason} ${bus.speak.replace(/。$/, '')}${walk ? `，走過去約 ${walk} 分` : ''}。這可能是末班，早點出門；趕不上就叫車或騎 YouBike。`;
-      return `${pre}${offSay}${trip.data.ranking.reason} ${bus.speak.replace(/。$/, '')}${walk ? `，走過去約 ${walk} 分` : ''}${miss ? '，這班可能趕不上。要我在下一班快到時提醒你嗎？' : '。要我在公車快到站時提醒你嗎？'}按卡片上的「到站前 3 分提醒我」。`;
+      return `${pre}${offSay}${trip.data.ranking.reason} ${bus.speak.replace(/。$/, '')}${walk ? `，走過去約 ${walk} 分` : ''}${miss ? '，這班可能趕不上。要我在下一班快到時提醒您嗎？' : '。要我在公車快到站時提醒您嗎？'}按卡片上的「到站前 3 分提醒我」。`;
     }
     // 深夜：公車已收班或接近末班，先說（S10）
     const night = nightNote(trip?.data, { bare: Boolean(it.departTime || it.tomorrow) }); // 說了幾點（when 已說）或明天合成的時間：不再說一次時間
@@ -310,8 +310,8 @@ function summaryCore(it, results, suggestions = []) {
   }
   // 沒說地點時用了示範預設，先講清楚
   const pre = (isNearby(it) || (it.intent === 'metro' && !it.station && !it.near)) && !it.places[0] && !it.fromPoint
-    ? (it.noLocation ? `（沒拿到你的位置，先查「${DEFAULT_FROM}」附近；告訴我地點就重查。）` : `（你沒說在哪，我先查「${DEFAULT_FROM}」附近。）`)
-    : it.intent === 'pharmacy' && !it.area ? (results[it.clinic ? 'clinic_search' : 'pharmacy_search']?.at(-1)?.data?.areaFrom ? `（依${it.places[0] ? `「${it.places[0]}」的位置` : it.fromPoint?.area ? '你設定的預設地區' : '你的位置'}推估在「${results[it.clinic ? 'clinic_search' : 'pharmacy_search'].at(-1).data.area}」，不對請說哪一區。）` : it.noLocation ? `（沒拿到你的位置，我先查「${DEFAULT_AREA}」；告訴我哪一區就重查。）` : `（你沒說哪一區，我先查「${DEFAULT_AREA}」。）`)
+    ? (it.noLocation ? `（沒拿到您的位置，先查「${DEFAULT_FROM}」附近；告訴我地點就重查。）` : `（您沒說在哪，我先查「${DEFAULT_FROM}」附近。）`)
+    : it.intent === 'pharmacy' && !it.area ? (results[it.clinic ? 'clinic_search' : 'pharmacy_search']?.at(-1)?.data?.areaFrom ? `（依${it.places[0] ? `「${it.places[0]}」的位置` : it.fromPoint?.area ? '您設定的預設地區' : '您的位置'}推估在「${results[it.clinic ? 'clinic_search' : 'pharmacy_search'].at(-1).data.area}」，不對請說哪一區。）` : it.noLocation ? `（沒拿到您的位置，我先查「${DEFAULT_AREA}」；告訴我哪一區就重查。）` : `（您沒說哪一區，我先查「${DEFAULT_AREA}」。）`)
     : it.intent === 'stock' && it.advice ? NO_ADVICE : '';
   // 發票：主動提議存到「我的發票」，開獎後自動對獎（號碼只存在手機）
   // 示範模式找不到（藥局、診所、垃圾車）：示範資料只收了少數地區，不要讓人以為那一區真的沒有（V3 走查 F6）
@@ -319,7 +319,7 @@ function summaryCore(it, results, suggestions = []) {
   const post = it.intent === 'invoice' ? ` ${INVOICE_WALLET_HINT}` : `${demoEmpty}${it.hospital ? ' 醫院的看診資料這裡沒有，上面是附近有看診的診所；身體很不舒服、急症請直接打 119 或去急診。' : ''}`; // 問醫院（PM 第三輪 #5）：照實說資料只有診所
   const body = it.intent === 'metro' && results.metro_live_board?.length ? metroSay(it, results.metro_live_board.at(-1)) // 兩個方向都說（m01）、末班車
     : it.intent === 'bus_route' && it.last && results.bus_route_eta?.length ? busLastSay(it, results.bus_route_eta.at(-1))
-      : it.intent === 'nearby_bus' && results.bus_nearby_stations?.length ? `${it.lost ? '別擔心，先看你附近最近的站牌：' : ''}${nearbySay(results.bus_nearby_stations.at(-1))}${it.lost ? ' 要回家可以說「我要回家」，阿幫幫你排怎麼走。' : ''}` // 列出站牌的路線（n02）；迷路先安撫、給下一步
+      : it.intent === 'nearby_bus' && results.bus_nearby_stations?.length ? `${it.lost ? '別擔心，先看您附近最近的站牌：' : ''}${nearbySay(results.bus_nearby_stations.at(-1))}${it.lost ? ' 要回家可以說「我要回家」，阿幫幫您排怎麼走。' : ''}` // 列出站牌的路線（n02）；迷路先安撫、給下一步
         : last.speak || '查好了，結果在下面的卡片。';
   return `${pre}${body}${post}`;
 }

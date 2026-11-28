@@ -61,7 +61,7 @@ export function nextSteps(results, decision, { watching = null, riding = null, l
     if (en) return out.slice(0, 4); // 英文：要再問的建議會變成中文問句，先不給
     const from = short(trip.from?.name), to = short(trip.to?.name);
     // 起點是「你的位置」：不給回程（送「從台北101到你的位置」會排成 101 到 101；PM 第二輪審查，與 suggest.js here() 同一套）
-    if (from && to && !/你的位置|現在位置|^現在|^目前/.test(from)) add({ label: '回程怎麼走？', kind: 'ask', payload: `從${to}到${from}怎麼去？`, ask: { intent: 'trip', from: to, to: from } });
+    if (from && to && !/[你您您]的位置|現在位置|^現在|^目前/.test(from)) add({ label: '回程怎麼走？', kind: 'ask', payload: `從${to}到${from}怎麼去？`, ask: { intent: 'trip', from: to, to: from } });
     if (to) add({ label: `${to}天氣如何？`, kind: 'ask', payload: `${to}天氣如何？`, ask: { intent: 'weather', places: [to] } });
   }
 

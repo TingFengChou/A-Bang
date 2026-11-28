@@ -52,7 +52,7 @@ test('定位、同一個工具重複、超過三個角色、英文', () => {
 });
 
 test('回答上方的手機判斷說明：採用時維持原句；伺服器用自己的判斷時照實說；沒有手機判斷就不說', () => {
-  assert.equal(deviceLine({ sent: { engine: 'apple' }, judge: { source: 'device', engine: 'apple' } }), '阿幫先在手機上用 Apple Intelligence 聽懂你要做什麼。');
+  assert.equal(deviceLine({ sent: { engine: 'apple' }, judge: { source: 'device', engine: 'apple' } }), '阿幫先在手機上用 Apple Intelligence 聽懂您要做什麼。');
   assert.equal(deviceLine({ sent: { engine: 'gemini-nano' }, judge: { source: 'llm' } }), '手機上的 Gemini Nano 先聽了一遍；這一輪以伺服器的判斷為準。');
   assert.equal(deviceLine({ sent: { engine: 'gemini-nano' }, judge: null }), '手機上的 Gemini Nano 先聽了一遍；這一輪以伺服器的判斷為準。');
   assert.equal(deviceLine({ sent: { engine: 'apple' }, judge: { source: 'rules' } }, 'en'), "Apple Intelligence on your phone listened first; this time the server's own judgment was used.");
@@ -61,7 +61,7 @@ test('回答上方的手機判斷說明：採用時維持原句；伺服器用�
   assert.equal(deviceLine({ sent: { engine: 'other' }, judge: null }), null, '不認得的引擎不說');
 });
 
-test('準備行動（2026-11-28）：阿幫問你帶動作選項 → act 階段，寫出動作與確認方式；沒有動作選項不變', async () => {
+test('準備行動（2026-11-28）：阿幫問您帶動作選項 → act 階段，寫出動作與確認方式；沒有動作選項不變', async () => {
   const { thinkStart, thinkStep, thinkText } = await import('../public/js/agent/thinking.js');
   let s = thinkStep(thinkStart(), { type: 'tool_start', id: 't1', role: '路線' });
   s = thinkStep(s, { type: 'tool_result', id: 't1' });
@@ -69,7 +69,7 @@ test('準備行動（2026-11-28）：阿幫問你帶動作選項 → act 階段�
   assert.equal(act.phase, 'act');
   assert.equal(thinkText(act).stage, '準備行動：加到行事曆（系統畫面確認）');
   assert.equal(thinkText(act, 'en').stage, 'Getting an action ready: add to calendar (confirmed on the system screen)');
-  assert.equal(thinkText(thinkStep(s, { type: 'ask', options: [{ kind: 'action', action: { name: 'watchArrival' } }] })).stage, '準備行動：到站提醒（你按一下）');
+  assert.equal(thinkText(thinkStep(s, { type: 'ask', options: [{ kind: 'action', action: { name: 'watchArrival' } }] })).stage, '準備行動：到站提醒（您按一下）');
   assert.equal(thinkStep(s, { type: 'ask', options: [{ kind: 'reply' }] }).phase, 'compose', '只是問問題：不算行動');
   assert.equal(thinkStep(act, { type: 'text', delta: '…' }).phase, 'end');
 });

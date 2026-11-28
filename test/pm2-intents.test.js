@@ -38,7 +38,7 @@ test('審查：新規則不誤判平常的話', () => {
   assert.equal(p('半小時後出發去台北車站').arriveBy, null, '出發時間不是抵達時間');
   assert.equal(p('三十分鐘內要到台北車站').from, null, '「三十分」不是十分老街');
   for (const q of ['幫我按照最省錢的方式', '幫我按電梯', '直接幫我按讚', '幫我預約掛號', '幫我訂位']) assert.notEqual(p(q).intent, 'limits', q);
-  assert.equal(p('你直接幫我按叫車啦').intent, 'limits');
+  assert.equal(p('您直接幫我按叫車啦').intent, 'limits');
   assert.deepEqual([p('101 多久').intent, p('101 多久').places], ['bus_route', []], '「101 多久」是公車');
   assert.equal(p('我來得及坐到台中的末班高鐵嗎').intent, 'rail', '問末班高鐵不是去車站的行程');
   assert.equal(p('那 262 呢', [...h('307 到哪了'), ...h('那 299 咧')]).route, '262', '連續追問');
@@ -77,7 +77,7 @@ test('PR #84 審查：狀態延續、回程、票價、常用地點、英文不�
   assert.equal(parseIntent('How much is the HSR to Taipei?').from, null);
   const saved = { 家: { lat: 25.03, lon: 121.5 } };
   assert.equal(parseIntent('今天垃圾車幾點會到我家這邊', { saved }).savedAt, '家');
-  assert.equal(parseIntent('朋友家附近的藥局', { saved }).savedAt, undefined, '朋友家不是你家');
+  assert.equal(parseIntent('朋友家附近的藥局', { saved }).savedAt, undefined, '朋友家不是您家');
   assert.equal(parseIntent('Is the MRT still running now?').intent, 'metro');
   assert.notEqual(parseIntent('Is the museum near the MRT open now?').intent, 'metro', '博物館開不開：不是問捷運');
 });

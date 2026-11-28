@@ -269,11 +269,11 @@ for (const [dname, device] of Object.entries(DEVICES)) {
         return out;
       });
       assert.deepEqual(badges, { live: '真實資料', demo: '示範資料' });
-      assert.match(reminded.why, /會問你是否允許通知/);
+      assert.match(reminded.why, /會問[你您]是否允許通知/);
       assert.equal(reminded.before, 0, '說明前不要權限、不設定');
       assert.equal(reminded.calls.length, 1);
       assert.equal(reminded.calls[0][0], reminded.leaveAt);
-      assert.match(reminded.text, /提醒你出門/);
+      assert.match(reminded.text, /提醒[你您]出門/);
       assert.deepEqual(reminded.canceled, ['r1']);
       assert.match(reminded.after, /已取消出門提醒/);
       assert.equal(reminded.focused, '取消提醒', '設好後焦點在「取消提醒」（整張卡重畫）');
@@ -308,7 +308,7 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       await page.waitForFunction(() => document.querySelectorAll('.msg.user').length === 2);
       assert.match(await page.locator('.msg.user').nth(1).textContent(), /^改成/);
       await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
-      assert.match(await page.locator('.dg-why').last().textContent(), /照你說的選/);
+      assert.match(await page.locator('.dg-why').last().textContent(), /照[你您]說的選/);
     });
   });
 
@@ -352,7 +352,7 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       await dg.locator('.dg-chip.add', { hasText: '帶行李' }).click();
       assert.equal(await dg.getAttribute('data-run'), '2');
       assert.equal(await dg.getAttribute('data-best'), 'ridehail', '帶行李時改推叫車');
-      assert.equal(await dg.locator('.dg-chip.on', { hasText: '你選的：帶行李' }).count(), 1);
+      assert.equal(await dg.locator('.dg-chip.on', { hasText: '您選的：帶行李' }).count(), 1);
       assert.equal(calls, 0, '重算不呼叫伺服器');
       // 輕量 3D 降級（M5-11）：測試以 reduced motion 執行 → 精簡模式，不做翻轉
       assert.equal(await page.evaluate(() => document.documentElement.classList.contains('lite-motion')), true);
@@ -377,9 +377,9 @@ for (const [dname, device] of Object.entries(DEVICES)) {
       await page.press('.chat-input', 'Enter');
       await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
       assert.equal(await page.locator('.results [data-card="trip"]').count(), 2);
-      assert.match(await page.locator('.results [data-card="trip"] .ab-title').nth(1).textContent(), /^你的位置/);
+      assert.match(await page.locator('.results [data-card="trip"] .ab-title').nth(1).textContent(), /^[你您]的位置/);
       assert.equal(await page.locator('.turn').nth(1).locator('.say.typing').count(), 0, '定位完成後不再顯示「定位中」');
-      assert.match(await page.locator('.turn').nth(1).textContent(), /拿到了，用你現在的位置/);
+      assert.match(await page.locator('.turn').nth(1).textContent(), /拿到了，用[你您]現在的位置/);
       await shot(page, `${dname}-agent-location`);
     });
   });
@@ -639,9 +639,9 @@ test('選公車就盯到站（L-14）：想省錢 → 公車卡片聚焦上車�
     const card = page.locator('.results [data-card="bus-route"]');
     await card.waitFor();
     assert.equal(await card.locator('.ab-focus').count(), 1, '上車站大倒數');
-    assert.equal(await card.locator('.ab-stop.me').count(), 1, '標出你在這上車');
-    assert.match(await card.locator('.ab-stop.me').textContent(), /你在這上車/);
-    assert.match(await page.locator('.bubble.final .say').textContent(), /要我在(公車快到站|下一班快到)時提醒你嗎/);
+    assert.equal(await card.locator('.ab-stop.me').count(), 1, '標出您在這上車');
+    assert.match(await card.locator('.ab-stop.me').textContent(), /[你您]在這上車/);
+    assert.match(await page.locator('.bubble.final .say').textContent(), /要我在(公車快到站|下一班快到)時提醒[你您]嗎/);
     // 示範到站時間隨時間變化；之後的查詢固定成 15 分，提醒才不會一設定就到點（到點通知在 test/bus-follow.test.js 測）
     await page.route('**/api/v1/tools/bus_route_eta', async (route) => {
       const res = await route.fetch();
@@ -656,7 +656,7 @@ test('選公車就盯到站（L-14）：想省錢 → 公車卡片聚焦上車�
     assert.ok(!nextLabels.includes('307 到哪了？我在臺北車站'), '通用範例收起來');
     await card.getByRole('button', { name: '到站前 5 分提醒我' }).click();
     await card.locator('.ab-alert-on').waitFor();
-    assert.match(await card.locator('.ab-alert-on').textContent(), /到站前 5 分提醒你/);
+    assert.match(await card.locator('.ab-alert-on').textContent(), /到站前 5 分提醒[你您]/);
     assert.equal(await card.locator('.ab-map-btn, .ab-map3d').count(), 0, '問阿幫公車卡沒有地圖（改在公車頁看街景）');
     await shot(page, 'phone-agent-bus-follow');
     // 開公車頁：同一個上車站、同一個提醒
@@ -664,7 +664,7 @@ test('選公車就盯到站（L-14）：想省錢 → 公車卡片聚焦上車�
     await page.waitForSelector('.bus-focus');
     assert.match(page.url(), /#\/bus\/Taipei\/[^?]+\?stop=/);
     assert.equal(await page.locator('.timeline .me').count(), 1);
-    assert.match(await page.textContent('.bus-focus'), /已設定：到站前 5 分提醒你/);
+    assert.match(await page.textContent('.bus-focus'), /已設定：到站前 5 分提醒[你您]/);
     // 公車街景（Blender）：站名標籤＝上車站；說明有分鐘；站名不超出畫面
     const scene = page.locator('#scene .ab-scene3d');
     await scene.waitFor();
@@ -673,7 +673,7 @@ test('選公車就盯到站（L-14）：想省錢 → 公車卡片聚焦上車�
     assert.match(await scene.locator('.ab-scene-label.bus').textContent(), /\d+ 分|進站|即將/);
     const [sb, lb] = await Promise.all([scene.boundingBox(), scene.locator('.ab-scene-label.stop').boundingBox()]);
     assert.ok(lb.x >= sb.x && lb.x + lb.width <= sb.x + sb.width + 1, '站名在畫面內');
-    assert.match(await scene.getAttribute('aria-label'), new RegExp(`你在「${stopName.replace(/[()]/g, '\\$&')}」等車`));
+    assert.match(await scene.getAttribute('aria-label'), new RegExp(`您在「${stopName.replace(/[()]/g, '\\$&')}」等車`));
     await shot(page, 'phone-bus-follow-page');
     // 到點：阿幫說（浮動阿幫冒泡泡、讀屏念、也記在對話裡；通知權限另外）
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('abang:arrival', { detail: { text: '601 約 5 分後到「測試站」，該出門了！' } })));
@@ -708,14 +708,14 @@ const seedPicks = ({ mode, n }) => { // page.addInitScript 只傳函式原始碼
   try { if (!sessionStorage.getItem('habit-seeded')) { sessionStorage.setItem('habit-seeded', '1'); localStorage.setItem('abang.habits', JSON.stringify({ v: 2, on: true, picks: Array.from({ length: n }, (_, i) => ({ m: mode, t: Date.now() - (n - i) * 3600e3 })) })); } } catch { /* 無痕 */ }
 };
 
-test('阿幫問你：常搭捷運 → 問要不要優先推 → 好 →「你同意」chip 與加分；設定頁撤銷、關閉、清除', async () => {
+test('阿幫問您：常搭捷運 → 問要不要優先推 → 好 →「您同意」chip 與加分；設定頁撤銷、關閉、清除', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = recordBodies(page);
     const b1 = await askAbang(page, '從西門町去台北101', 1, bodies);
     assert.deepEqual(b1.userState, { habitAsk: { mode: 'metro', count: 6 } }, '沒同意之前不送比例，只說「可以問」');
     const ask = page.locator('.turn').last().locator('.ask');
     await ask.waitFor();
-    assert.equal(await ask.locator('.ask-q').textContent(), '我注意到你最近常搭捷運（6 次）。以後你沒說條件時，要我優先推捷運嗎？');
+    assert.equal(await ask.locator('.ask-q').textContent(), '我注意到您最近常搭捷運（6 次）。以後您沒說條件時，要我優先推捷運嗎？');
     assert.equal(await ask.getAttribute('role'), 'group');
     assert.match(await ask.locator('.ask-opt').first().textContent(), /^好 猜的$/, '最可能的選項在第一個、標「猜的」');
     const dg = page.locator('.decision').last();
@@ -724,10 +724,10 @@ test('阿幫問你：常搭捷運 → 問要不要優先推 → 好 →「你同
     assert.ok(await ask.evaluate((n) => n.nextElementSibling?.classList.contains('decision')), '問題在決策圖上方');
     await shotAsk(page, ask, 'phone-habit-ask.png');
     await ask.getByRole('button', { name: /^好/ }).click();
-    assert.match(await ask.locator('.ask-done').textContent(), /以後你沒說條件時，優先推捷運/);
-    assert.equal(await dg.locator('.dg-chip.src-habit').textContent(), '你同意：優先推捷運 ✕');
+    assert.match(await ask.locator('.ask-done').textContent(), /以後[你您]沒說條件時，優先推捷運/);
+    assert.equal(await dg.locator('.dg-chip.src-habit').textContent(), '您同意：優先推捷運 ✕');
     assert.match(await dg.getAttribute('data-best'), /^metro/, '同意後即時重算：捷運');
-    assert.match(await dg.locator('.dg-why').textContent(), /你想優先搭捷運/);
+    assert.match(await dg.locator('.dg-why').textContent(), /[你您]想優先搭捷運/);
     assert.equal(bodies.length, 1, '按了不呼叫伺服器');
     // 下一次：送同意的比例、不再問
     const b2 = await askAbang(page, '從西門町去台北101', 2, bodies);
@@ -739,7 +739,7 @@ test('阿幫問你：常搭捷運 → 問要不要優先推 → 好 →「你同
     // 點掉「你同意」：不看偏好重算
     await dg2.locator('.dg-chip.src-habit').click();
     assert.match(await dg2.getAttribute('data-best'), /^bus/);
-    assert.match(await dg2.locator('.dg-why').textContent(), /^不看你的偏好的話，/);
+    assert.match(await dg2.locator('.dg-why').textContent(), /^不看[你您]的偏好的話，/);
     // 設定頁：同意的列出來、可撤銷；開關與清除
     await page.goto(`${base}/#/settings`);
     await page.waitForSelector('#habit-status:not(:empty)');
@@ -881,16 +881,16 @@ test('官方入口（M16-04d）：「我想查有沒有罰單」→ 監理服務
   }, { init: () => { window.open = (u) => { window.__opened = u; return null; }; } });
 });
 
-test('阿幫問你：常叫車 → 問原因 → 常帶東西（不自動套用）→ 下次「這次也帶東西嗎？」→ 是 →「你說過：常帶東西」重算', async () => {
+test('阿幫問您：常叫車 → 問原因 → 常帶東西（不自動套用）→ 下次「這次也帶東西嗎？」→ 是 →「您說過：常帶東西」重算', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = recordBodies(page);
     await askAbang(page, '從西門町去台北101', 1, bodies);
     const ask = page.locator('.turn').last().locator('.ask');
     await ask.waitFor();
-    assert.equal(await ask.locator('.ask-q').textContent(), '你常叫車（5 次），通常是因為？');
+    assert.equal(await ask.locator('.ask-q').textContent(), '您常叫車（5 次），通常是因為？');
     assert.deepEqual(await ask.locator('.ask-opt').allTextContents(), ['趕時間', '常帶東西', '不想走路', '就是喜歡叫車', '不一定']);
     await ask.getByRole('button', { name: '常帶東西' }).click();
-    assert.match(await ask.locator('.ask-done').textContent(), /會影響建議時，我會先問你/);
+    assert.match(await ask.locator('.ask-done').textContent(), /會影響建議時，我會先問[你您]/);
     const dg = page.locator('.decision').last();
     assert.equal(await dg.locator('.dg-chip.src-usual').count(), 0, '不自動套用');
     assert.match(await dg.getAttribute('data-best'), /^bus/);
@@ -898,35 +898,35 @@ test('阿幫問你：常叫車 → 問原因 → 常帶東西（不自動套用�
     assert.deepEqual(b2.userState.usual, ['luggage']);
     const dg2 = page.locator('.decision').last();
     await dg2.locator('.dg-svg').waitFor();
-    assert.equal(await dg2.locator('.dg-chip.src-usual').count(), 0, '沒點「是」之前不出現「你說過」');
+    assert.equal(await dg2.locator('.dg-chip.src-usual').count(), 0, '沒點「是」之前不出現「您說過」');
     assert.match(await dg2.getAttribute('data-best'), /^bus/);
     const ask2 = page.locator('.turn').last().locator('.ask');
     await ask2.waitFor();
     assert.equal(await ask2.locator('.ask-q').textContent(), '這次也帶東西嗎？');
     assert.match(await ask2.locator('.ask-opt').first().textContent(), /^是 猜的$/);
-    assert.match(await ask2.locator('.ask-why').textContent(), /你說過常帶東西；是的話改推叫車/);
+    assert.match(await ask2.locator('.ask-why').textContent(), /[你您]說過常帶東西；是的話改推叫車/);
     await shotAsk(page, ask2, 'phone-usual-ask.png');
     await ask2.getByRole('button', { name: /^是/ }).click();
-    assert.equal(await dg2.locator('.dg-chip.src-usual').textContent(), '你說過：常帶東西 ✕');
+    assert.equal(await dg2.locator('.dg-chip.src-usual').textContent(), '您說過：常帶東西 ✕');
     assert.equal(await dg2.getAttribute('data-best'), 'ridehail');
     assert.equal(bodies.length, 2, '按了不呼叫伺服器');
   }, { init: seedPicks, initArg: { mode: 'ridehail', n: 5 } });
 });
 
-test('阿幫問你：關鍵因子「叫車快 5 分但多 270 元，你趕時間嗎？」→ 趕 → 即時重算成叫車；同一段 24 小時內不再問；直接打「沒有」也是回答', async () => {
+test('阿幫問您：關鍵因子「叫車快 5 分但多 270 元，您趕時間嗎？」→ 趕 → 即時重算成叫車；同一段 24 小時內不再問；直接打「沒有」也是回答', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = recordBodies(page);
     await askAbang(page, '從西門町去台北101', 1, bodies);
     const ask = page.locator('.turn').last().locator('.ask');
     await ask.waitFor();
-    assert.equal(await ask.locator('.ask-q').textContent(), '叫車（Uber）快 5 分但多 270 元，你趕時間嗎？');
+    assert.equal(await ask.locator('.ask-q').textContent(), '叫車（Uber）快 5 分但多 270 元，您趕時間嗎？');
     assert.equal(await ask.locator('.ask-q').getAttribute('aria-live'), 'polite', '讀屏念問句');
     await shotAsk(page, ask, 'phone-key-question.png');
     const dg = page.locator('.decision').last();
     assert.match(await dg.getAttribute('data-best'), /^bus/);
     await ask.getByRole('button', { name: '趕', exact: true }).click();
     assert.equal(await dg.getAttribute('data-best'), 'ridehail');
-    assert.equal(await dg.locator('.dg-chip.on', { hasText: '你選的：趕時間' }).count(), 1);
+    assert.equal(await dg.locator('.dg-chip.on', { hasText: '您選的：趕時間' }).count(), 1);
     assert.equal(await ask.locator('.ask-done').evaluate((n) => n === document.activeElement), true, '焦點留在結果句');
     assert.equal(bodies.length, 1);
     // 同一段起訖、同一題：24 小時內不再問（手機只存雜湊）
@@ -953,26 +953,26 @@ test('阿幫問你：關鍵因子「叫車快 5 分但多 270 元，你趕時間
   });
 });
 
-test('阿幫問你（PM Q 情境）：只說「高鐵」→ 問要查什麼（不列功能清單）→ 票價 → 問到哪一站 → 直接打「台中」＝按那一個 → 用離你最近的站算', async () => {
+test('阿幫問您（PM Q 情境）：只說「高鐵」→ 問要查什麼（不列功能清單）→ 票價 → 問到哪一站 → 直接打「台中」＝按那一個 → 用離您最近的站算', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = recordBodies(page);
     await askAbang(page, '高鐵', 1, bodies);
     const ask = page.locator('.turn').last().locator('.ask');
     await ask.waitFor();
     assert.equal(await ask.locator('.ask-q').textContent(), '要查高鐵的什麼？');
-    assert.doesNotMatch(await page.locator('.bubble.final').last().textContent(), /我可以幫你查交通/);
+    assert.doesNotMatch(await page.locator('.bubble.final').last().textContent(), /我可以幫[你您]查交通/);
     await ask.getByRole('button', { name: '票價', exact: true }).click();
     await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 2, null, { timeout: 20000 });
     assert.equal(bodies.at(-1).messages.at(-1).content, '高鐵票價', '按了選項：送出完整的一句');
     const ask2 = page.locator('.turn').last().locator('.ask');
     await ask2.waitFor();
-    assert.equal(await ask2.locator('.ask-q').textContent(), '你要去哪一站？');
+    assert.equal(await ask2.locator('.ask-q').textContent(), '您要去哪一站？');
     await page.waitForFunction(() => !document.querySelector('.chat-send')?.disabled);
     await page.fill('.chat-input', '台中');
     await page.press('.chat-input', 'Enter');
     await page.waitForFunction(() => document.querySelectorAll('.bubble.final').length === 3, null, { timeout: 20000 });
     assert.equal(bodies.filter((b) => !b.clientToolResults).at(-1).messages.at(-1).content, '高鐵到台中多少錢', '打的字對到選項：送出選項的完整一句');
-    assert.match(await page.locator('.bubble.final').last().textContent(), /離你最近的高鐵站「台北」/, '有定位：用最近的站，不猜、不問');
+    assert.match(await page.locator('.bubble.final').last().textContent(), /離[你您]最近的高鐵站「台北」/, '有定位：用最近的站，不猜、不問');
   });
 });
 
@@ -1146,7 +1146,7 @@ test('裝置端 AI：deviceJudge 跟著請求送出、說明來源；外掛失�
         assert.equal(await page.locator('.device-line').count(), 0, '外掛失敗：回答上方不說');
       } else {
         assert.deepEqual(bodies[0].deviceJudge, { intent: 'aqi', states: [], engine: 'apple' });
-        assert.deepEqual(await page.locator('.device-line').allTextContents(), ['阿幫先在手機上用 Apple Intelligence 聽懂你要做什麼。'], '一輪只說一次（在回答上方）');
+        assert.deepEqual(await page.locator('.device-line').allTextContents(), ['阿幫先在手機上用 Apple Intelligence 聽懂您要做什麼。'], '一輪只說一次（在回答上方）');
         assert.doesNotMatch(await page.textContent('.agent-mode'), /Apple Intelligence/, '頁底不重複');
         // 英文提問：那一行跟著用英文
         await page.fill('.chat-form input', 'How is the air today');
@@ -1202,7 +1202,7 @@ test('問阿幫：接著說「不要叫車」→ 排除叫車重算', async () =
     assert.equal(await turn.locator('.msg.error').count(), 0);
     assert.match(await turn.textContent(), /沿用：西門町 → 台北101｜改：不要叫車/, '第一句說清楚沿用什麼、改了什麼');
     assert.equal(await turn.locator('.dg-opt.avoided').count(), 1, '叫車標「不要」（灰色、不劃線）');
-    assert.match(await turn.locator('.dg-opt.avoided').getAttribute('aria-label'), /已排除：你說不要叫車/);
+    assert.match(await turn.locator('.dg-opt.avoided').getAttribute('aria-label'), /已排除：[你您]說不要叫車/);
     assert.doesNotMatch(await turn.locator('.bubble.final .say').textContent(), /選「叫車/);
     await shot(page, 'phone-agent-avoid');
   });
@@ -1272,14 +1272,14 @@ test('下車提醒：選下車站、進行中、取消', async () => {
     const far = options.at(-1); // 選最遠的站（太近的站設定當下就會提醒並結束）
     await page.selectOption('#alight-dest', far);
     await page.click('.bus-focus .alight .btn');
-    await page.waitForFunction((d) => document.querySelector('.bus-focus .alight .ok')?.textContent.includes(`快到「${d}」前約 2 分提醒你`), far);
+    await page.waitForFunction((d) => document.querySelector('.bus-focus .alight .ok')?.textContent.includes(`快到「${d}」前約 2 分提醒您`), far);
     await shot(page, 'phone-alight');
     // 行程中模式：坐車中大字是到下車站還要多久、時間軸標下車站、不再給到站提醒按鈕
     assert.match(await page.textContent('.bus-focus.riding .sub'), /坐車中・從「敦化市場」上車|車快到「敦化市場」了，上車後開始算/); // 示範資料車剛好要進站時：還沒上車
     assert.match(await page.textContent('.bus-focus.riding .big'), new RegExp(`(約 \\d+ 分到|快到)「${far}」`));
     assert.equal(await page.locator('.bus-focus [data-min]').count(), 0, '坐車中不給到站提醒');
     assert.match(await page.locator('.timeline .me-tag.off').locator('..').textContent(), new RegExp(far));
-    assert.match(await page.getAttribute('.ab-scene3d', 'aria-label'), new RegExp(`你在車上，在「${far}」下車`));
+    assert.match(await page.getAttribute('.ab-scene3d', 'aria-label'), new RegExp(`您在車上，在「${far}」下車`));
     assert.equal(await page.locator('#tripbar').isHidden(), true, '在這條路線的公車頁不顯示進行中列');
     // 到首頁：上方有進行中列，點了回到公車頁
     await page.goto(`${base}/#/`);
@@ -1326,7 +1326,7 @@ test('公車頁英文：標題、到站、提醒、下車提醒都是英文', as
       for (const n of [...names].sort((a, b) => b.length - a.length)) text = text.split(n).join('');
       return text;
     });
-    for (const zh of ['到站前', '提醒我', '更新於', '點站名', '點其他', '上車站', '你在這', '即將', '進站', '坐車中', '尚未發車', '設為', '公車在這', '要在哪一站下車', '等車', '還有']) assert.ok(!ui.includes(zh), `不該有「${zh}」`);
+    for (const zh of ['到站前', '提醒我', '更新於', '點站名', '點其他', '上車站', '您在這', '即將', '進站', '坐車中', '尚未發車', '設為', '公車在這', '要在哪一站下車', '等車', '還有']) assert.ok(!ui.includes(zh), `不該有「${zh}」`);
     await shot(page, 'phone-bus-en');
     // 到站提醒（有車要來時）：英文
     const alert = page.locator('.bus-focus [data-min="3"]');
@@ -1390,8 +1390,8 @@ test('阿幫常駐：開公車頁再回來對話還在、浮動阿幫拉出同�
     // 提醒：浮動鍵上方冒泡泡、鍵上亮「有話跟你說」，也記在對話裡；點「改其他方式」打開對話並問阿幫
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('abang:arrival-stuck', { detail: { routeName: '307', stop: 'x', reason: 'late', ask: '不要坐公車了，改別的方式' } })));
     await page.waitForSelector('#abang-bubble:not([hidden])');
-    assert.match(await page.textContent('#abang-bubble'), /307 一直沒來，要我幫你改其他方式嗎？/);
-    assert.equal(await page.getAttribute('#abang-fab', 'aria-label'), '問阿幫（阿幫有話跟你說）');
+    assert.match(await page.textContent('#abang-bubble'), /307 一直沒來，要我幫[你您]改其他方式嗎？/);
+    assert.equal(await page.getAttribute('#abang-fab', 'aria-label'), '問阿幫（阿幫有話跟您說）');
     assert.match(await page.getAttribute('#abang-fab', 'class'), /unread/);
     await shot(page, 'phone-abang-bubble');
     await page.click('#abang-bubble button:has-text("改其他方式")');
@@ -1609,7 +1609,7 @@ test('英文提問：卡片用英文標籤', async () => {
     // S12d：資料裡的中文（空品狀態、你的位置）走字典；小幫手回報英文
     const aqi = page.locator('[data-card="aqi"] .ab-aqi strong').first();
     if (await aqi.count()) assert.doesNotMatch(await aqi.textContent(), /[一-鿿]/);
-    assert.doesNotMatch(await card.locator('.ab-title').textContent(), /你的位置/);
+    assert.doesNotMatch(await card.locator('.ab-title').textContent(), /[你您]的位置/);
     const says = await page.locator('.thread .bubble.tool .say').allTextContents();
     assert.ok(says.some((x) => /Compared \d+ options/.test(x)), says.join('|'));
     assert.doesNotMatch(await page.locator('.bubble.final').last().textContent(), /in Chinese for now/);
@@ -1676,8 +1676,8 @@ test('公車街景與天氣卡日夜', async () => {
       res.day = wx('2026-11-21T02:00:00Z');
       return res;
     });
-    assert.match(out.farLabel, /307・還有 3 站・5 分；你在「西門」等車/);
-    assert.match(out.nearLabel, /就在你這站/);
+    assert.match(out.farLabel, /307・還有 3 站・5 分；[你您]在「西門」等車/);
+    assert.match(out.nearLabel, /就在[你您]這站/);
     assert.match(out.nearCls, /near/);
     assert.ok(out.nearX > out.farX, '近的公車比遠的更靠右（靠近站牌）');
     assert.equal(out.noneBus, 0, '推估不出還有幾站：不畫公車');
@@ -1726,18 +1726,18 @@ test('公車街景：遠近、時段、等車的人、開走與沿用', async ()
     assert.equal(out.dayFar.passed, 0);
     assert.equal(out.dayNear.open, true, '到站開門');
     assert.equal(out.dayNear.people, 0, '減少動態：直接畫上車後（沒有人在等）');
-    assert.match(out.dayNear.halo, /\bon\b/, '你這站的站牌亮起來');
+    assert.match(out.dayNear.halo, /\bon\b/, '您這站的站牌亮起來');
     assert.equal(out.dayNear.passed, 2, '中間的站都開過了');
     assert.match(out.nightFar.cls, /\bnight\b/);
     assert.deepEqual(out.nightFar.marks, ['還有 1 站', '還有 2 站']);
     assert.ok(out.nightFar.glow >= 2, '夜晚路燈亮');
-    assert.match(out.nightNear.label, /307・就在你這站・進站中；你在「市府」等車/);
+    assert.match(out.nightNear.label, /307・就在[你您]這站・進站中；[你您]在「市府」等車/);
     assert.equal(out.empty.bus, 0);
     assert.equal(out.empty.note, '目前路上沒有這班車');
-    assert.match(out.empty.label, /307・末班已過；你在「敦化市場」等車；目前路上沒有這班車/);
+    assert.match(out.empty.label, /307・末班已過；[你您]在「敦化市場」等車；目前路上沒有這班車/);
     assert.ok(out.empty.people >= 1);
     assert.deepEqual(out.en.marks, ['1 stop']);
-    assert.equal(out.en.you, 'You', '坐車中：車上標你');
+    assert.equal(out.en.you, 'You', '坐車中：車上標您');
     assert.match(out.en.label, /^307 · 1 stop away · 3 min\. You're on the bus, getting off at 市府$/);
     assert.equal(out.reuse, true, '同一個 state 沿用同一個街景');
     assert.equal(out.buses, 1);
@@ -1950,7 +1950,7 @@ test('設定與隱私：我的進入、狀態、隱私權政策', async () => {
     await page.click('a[href="#/privacy"]');
     await page.waitForSelector('.privacy h2');
     const text = await page.textContent('.privacy');
-    for (const w of ['IP 位址', 'Anthropic', '相機', '你的權利', '不提供的影響', '常用地點']) assert.ok(text.includes(w), w);
+    for (const w of ['IP 位址', 'Anthropic', '相機', '您的權利', '不提供的影響', '常用地點']) assert.ok(text.includes(w), w);
     await shot(page, 'phone-privacy');
     const bodies = [];
     page.on('request', (r) => { if (r.url().endsWith('/api/v1/agent') && r.method() === 'POST') bodies.push(JSON.parse(r.postData())); });
@@ -2100,7 +2100,7 @@ test('首頁建議卡：日期與上班日、為何顯示此建議（理由＋�
   });
 });
 
-test('問阿幫的開場：阿幫一句話、你可能想問、我可以幫你；第一個問題送出就收起來（第十四輪）', async () => {
+test('問阿幫的開場：阿幫一句話、您可能想問、我可以幫您；第一個問題送出就收起來（第十四輪）', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     await page.evaluate(() => localStorage.setItem('abang.places', JSON.stringify({ 家: { name: '家', lat: 25.033, lon: 121.543 }, 公司: { name: '台北101', lat: 25.0339, lon: 121.5645 } })));
     await page.reload();
@@ -2227,7 +2227,7 @@ test('鍵盤開著時阿幫說話：改用提示，浮動鍵仍亮未讀點', as
     assert.equal(await page.locator('#abang-bubble').isHidden(), true);
     await page.evaluate(() => document.documentElement.classList.remove('kb-open'));
     assert.match(await page.getAttribute('#abang-fab', 'class'), /unread/);
-    assert.equal(await page.getAttribute('#abang-fab', 'aria-label'), '問阿幫（阿幫有話跟你說）');
+    assert.equal(await page.getAttribute('#abang-fab', 'aria-label'), '問阿幫（阿幫有話跟您說）');
   });
 });
 
@@ -2270,10 +2270,10 @@ test('阿幫的腦袋：試判斷「我快遲到了，怎麼去台北101」→ �
     assert.match(await act.locator('li[data-act="calendar"]').textContent(), /加到行事曆系統畫面確認/);
     assert.match(await act.textContent(), /試判斷只列出來，不會真的去做/);
     assert.equal(await act.locator('.ai-siri').count(), 0, '網頁版不顯示 Siri');
-    assert.match(await page.textContent('.ai-v[data-v="act"]'), /^\d+ 件・\d+ 件要你確認$/);
+    assert.match(await page.textContent('.ai-v[data-v="act"]'), /^\d+ 件・\d+ 件要[你您]確認$/);
     assert.ok(await page.evaluate(() => document.querySelector('.ai-hero').classList.contains('act-on')));
     assert.match(await page.getAttribute('#ai-stage', 'data-act'), /準備了 \d+ 件事/);
-    assert.match(await page.locator('.ai-flow li').last().textContent(), /你按了才做/);
+    assert.match(await page.locator('.ai-flow li').last().textContent(), /[你您]按了才做/);
     await act.scrollIntoViewIfNeeded();
     await act.screenshot({ path: new URL('phone-ai-act.png', SHOTS).pathname });
     await page.locator('.ai-hero').screenshot({ path: new URL('phone-ai-act-hero.png', SHOTS).pathname });
@@ -2428,7 +2428,7 @@ test('問阿幫：手機上聽懂了（真實的裝置判斷）亮出小標、�
     release();
     await page.waitForSelector('.bubble.final', { timeout: 20000 });
     assert.equal(await page.locator('.think-core').count(), 0);
-    assert.equal(await page.textContent('.device-line'), '阿幫先在手機上用 Gemini Nano 聽懂你要做什麼。');
+    assert.equal(await page.textContent('.device-line'), '阿幫先在手機上用 Gemini Nano 聽懂您要做什麼。');
     const order = await page.evaluate(() => { const l = document.querySelector('.device-line'); return l.nextElementSibling?.classList.contains('final'); });
     assert.ok(order, '說明在回答正上方');
   }, { init: THINK_RECORDER + FAKE_EDGE(300), motion: true, ignore: /not in test/ });
@@ -2490,7 +2490,7 @@ window.Capacitor = {
     if (method === 'write') {
       window.__writes.push(args);
       const d = args.draft;
-      const text = ${JSON.stringify(kind)} === 'bad' ? d.replace(/\\d+/, (n) => String(Number(n) + 7)) : '報你知，' + d.replace(/^選/, '建議坐');
+      const text = ${JSON.stringify(kind)} === 'bad' ? d.replace(/\\d+/, (n) => String(Number(n) + 7)) : '報您知，' + d.replace(/^選/, '建議坐');
       return new Promise((res) => setTimeout(() => res({ engine: 'gemini-nano', ms: 420, text }), ${kind === 'slow' ? 4000 : 400}));
     }
     return Promise.resolve({});
@@ -2502,7 +2502,7 @@ const agentBodies = (page) => {
   return bodies;
 };
 
-test('回答在手機上寫：思考動畫出現「在手機上寫回答」→ 顯示改寫後的文字與「手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答」；截圖', async () => {
+test('回答在手機上寫：思考動畫出現「在手機上寫回答」→ 顯示改寫後的文字與「手機上的 Gemini Nano 聽懂您的問題，也寫了這次的回答」；截圖', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = agentBodies(page);
     await page.fill('.chat-form input', '從西門町去台北101');
@@ -2515,9 +2515,9 @@ test('回答在手機上寫：思考動畫出現「在手機上寫回答」→ �
     assert.equal(w.length, 1);
     assert.match(w[0].draft, /^選「/);
     const say = await page.textContent('.bubble.final .say');
-    assert.match(say, /^報你知，建議坐「/);
-    assert.equal(say, `報你知，${w[0].draft.replace(/^選/, '建議坐')}`);
-    assert.equal(await page.textContent('.device-line'), '手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答。', '判斷與寫回答合成一行');
+    assert.match(say, /^報[你您]知，建議坐「/);
+    assert.equal(say, `報您知，${w[0].draft.replace(/^選/, '建議坐')}`);
+    assert.equal(await page.textContent('.device-line'), '手機上的 Gemini Nano 聽懂您的問題，也寫了這次的回答。', '判斷與寫回答合成一行');
     assert.equal(await page.getAttribute('.turn', 'data-writer'), 'edge');
     assert.match(await page.textContent('.agent-mode'), /回答在手機上寫/);
     await page.locator('.bubble.final').scrollIntoViewIfNeeded();
@@ -2545,7 +2545,7 @@ test('回答在手機上寫：數字被改 → 顯示程式版並標示；截圖
     await page.waitForSelector('.bubble.final', { timeout: 20000 });
     const w = await page.evaluate(() => window.__writes);
     assert.equal(await page.textContent('.bubble.final .say'), w[0].draft, '用程式版總結');
-    assert.equal(await page.textContent('.device-line'), '手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（沒通過檢查）。');
+    assert.equal(await page.textContent('.device-line'), '手機上的 Gemini Nano 聽懂您的問題；回答用阿幫的固定說法（沒通過檢查）。');
     assert.equal(await page.getAttribute('.turn', 'data-writer'), 'program');
     assert.match(await page.textContent('.agent-mode'), /^這次的回答用阿幫的固定說法/, '頁底照實說：沒用上手機寫的');
     await page.locator('.bubble.final').scrollIntoViewIfNeeded();
@@ -2560,7 +2560,7 @@ test('回答在手機上寫：逾時 → 程式版；網頁版不帶 clientCaps�
     await page.waitForSelector('.bubble.final', { timeout: 20000 });
     const w = await page.evaluate(() => window.__writes);
     assert.equal(await page.textContent('.bubble.final .say'), w[0].draft);
-    assert.equal(await page.textContent('.device-line'), '手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（逾時）。');
+    assert.equal(await page.textContent('.device-line'), '手機上的 Gemini Nano 聽懂您的問題；回答用阿幫的固定說法（逾時）。');
   }, { init: FAKE_EDGE_WRITE('slow'), ignore: /not in test/ });
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = agentBodies(page);
@@ -2574,7 +2574,7 @@ test('回答在手機上寫：逾時 → 程式版；網頁版不帶 clientCaps�
   });
 });
 
-test('回答在手機上寫：聽不懂時不用伺服器模型，阿幫問你給幾個查得到的選項，點了就查', async () => {
+test('回答在手機上寫：聽不懂時不用伺服器模型，阿幫問您給幾個查得到的選項，點了就查', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = agentBodies(page);
     await page.fill('.chat-form input', '幫我寫一首關於秋天的詩');
@@ -2601,20 +2601,20 @@ window.Capacitor = {
     window.__trialCalls.push(method);
     if (method === 'status') return Promise.resolve({ available: true, engine: 'gemini-nano', reason: 'ok', write: ${write ? 'true' : 'false'} });
     if (method === 'judge') return Promise.resolve({ engine: 'gemini-nano', ms: 280, result: /公車/.test(args.text) ? '{"intent":"bus_route","states":[]}' : '{"intent":"trip","states":["rush"]}' });
-    if (method === 'write') return Promise.resolve({ engine: 'gemini-nano', ms: 420, text: '報你知，' + args.draft });
+    if (method === 'write') return Promise.resolve({ engine: 'gemini-nano', ms: 420, text: '報您知，' + args.draft });
     if (method === 'suggest') return Promise.resolve({ engine: 'gemini-nano', result: ['從台北車站到台北101怎麼去？', '307 公車還要多久？', '明天會下雨嗎？', '加我LINE領獎金'] });
     return Promise.resolve({});
   },
 };`;
 const secText = (page, key) => page.locator(`.ai-sec[data-sec="${key}"] .ai-sec-body`).textContent();
 
-test('阿幫的腦袋：試判斷（手機）四段——手機判斷、資料不夠缺路線、程式版與手機改寫、阿幫問你與手機猜的下一句；展開 JSON、複製；截圖', async () => {
+test('阿幫的腦袋：試判斷（手機）四段——手機判斷、資料不夠缺路線、程式版與手機改寫、阿幫問您與手機猜的下一句；展開 JSON、複製；截圖', async () => {
   await withPage(DEVICES.phone, '#/ai', async (page) => {
     await page.waitForSelector('.ai-hero[data-core="on"]');
     assert.equal(await page.locator('.ai-ex .chip').count(), 5);
     await page.locator('.ai-ex .chip', { hasText: '公車還要多久？' }).click();
     await page.waitForSelector('#ai-trial-foot:not([hidden])', { timeout: 20000 });
-    assert.deepEqual(await page.locator('.ai-sec h3').allTextContents(), ['意圖與狀態', '資料夠不夠', '預計回答', '下一個預計問你', '阿幫可以幫你做']);
+    assert.deepEqual(await page.locator('.ai-sec h3').allTextContents(), ['意圖與狀態', '資料夠不夠', '預計回答', '下一個預計問您', '阿幫可以幫您做']);
     assert.match(await page.textContent('.ai-sec[data-sec="judge"] .ai-meta'), /手機・Gemini Nano.*280 毫秒.*沒用網路/);
     assert.match(await secText(page, 'judge'), /查公車.*伺服器採用了手機的判斷/);
     assert.match(await secText(page, 'data'), /資料不夠：缺公車路線/);
@@ -2625,7 +2625,7 @@ test('阿幫的腦袋：試判斷（手機）四段——手機判斷、資料�
     assert.equal(await page.textContent('.ai-ask-q'), '哪一路公車？');
     assert.match(await page.textContent('.ai-ask-opts'), /看附近有哪些公車/);
     assert.equal(await page.locator('.ai-gap').count(), 0);
-    assert.match(await secText(page, 'answer'), /沒有查資料.*固定回答.*你要查哪一路公車/);
+    assert.match(await secText(page, 'answer'), /沒有查資料.*固定回答.*[你您]要查哪一路公車/);
     const sug = page.locator('.ai-suggest li');
     assert.equal(await sug.count(), 3);
     assert.deepEqual(await sug.evaluateAll((ls) => ls.map((l) => l.dataset.src)), ['edge', 'edge', 'edge'], '手機猜、伺服器驗證過');
@@ -2650,7 +2650,7 @@ test('阿幫的腦袋：試判斷（手機）四段——手機判斷、資料�
     await page.waitForSelector('#ai-trial-foot:not([hidden])', { timeout: 20000 });
     assert.match(await page.textContent('.ai-locnote'), /用了手機的定位/);
     assert.match(await secText(page, 'answer'), /程式計分的建議/);
-    assert.match(await secText(page, 'answer'), /程式版.*手機改寫（Gemini Nano）報你知，.*通過護欄/);
+    assert.match(await secText(page, 'answer'), /程式版.*手機改寫（Gemini Nano）報[你您]知，.*通過護欄/);
     assert.ok((await page.evaluate(() => window.__trialCalls)).includes('write'));
     await shot(page, 'phone-ai-trial-trip');
     // 規則聽不懂、手機判斷是行程：資料來源標「如果聽懂了會查」，並照實標出沒有針對缺的目的地問
@@ -2725,13 +2725,13 @@ test('問阿幫：缺路線問「哪一路公車？」，打 307 接回查到站
   });
 });
 
-test('問阿幫：沒定位、目的地就是預設起點 → 問「你從哪裡出發？」，不算臺北車站到臺北車站；回西門町接回去；英文缺路線', async () => {
+test('問阿幫：沒定位、目的地就是預設起點 → 問「您從哪裡出發？」，不算臺北車站到臺北車站；回西門町接回去；英文缺路線', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const bodies = agentBodies(page);
     await page.fill('.chat-form input', '我快遲到了，怎麼去台北車站');
     await page.press('.chat-form input', 'Enter');
     await page.waitForSelector('.ask[data-about="slot:from"]', { timeout: 20000 });
-    assert.equal(await page.locator('.ask[data-about="slot:from"] .ask-q').textContent(), '你從哪裡出發？');
+    assert.equal(await page.locator('.ask[data-about="slot:from"] .ask-q').textContent(), '您從哪裡出發？');
     assert.deepEqual(await page.locator('.ask[data-about="slot:from"] .ask-opt').allTextContents(), ['用我的位置'], '沒設定常用地點：只有用我的位置');
     assert.doesNotMatch(await page.textContent('.bubble.final'), /臺北車站.*到.*臺北車站|步行.*1 分/);
     await page.locator('.ask').scrollIntoViewIfNeeded();
@@ -2826,7 +2826,7 @@ test('阿幫會看：防詐頁拍可疑訊息 → 看的動畫 → 阿幫看到�
   }, { init: fakeVision, initArg: [smsReading(900)], motion: true, ignore: /not in test/ });
 });
 
-test('阿幫會看：輸入列相機＋麥克風 375px 不擠；生活頁讀到簡訊先問「要幫你檢查嗎」，答應才轉到防詐頁檢查（文字不放網址）', async () => {
+test('阿幫會看：輸入列相機＋麥克風 375px 不擠；生活頁讀到簡訊先問「要幫您檢查嗎」，答應才轉到防詐頁檢查（文字不放網址）', async () => {
   await withPage(DEVICES.phone, '#/agent', async (page) => {
     const posts = [];
     page.on('request', (r) => { if (r.url().includes('/api/v1/agent') && r.method() === 'POST') posts.push(r.url()); });
@@ -2846,7 +2846,7 @@ test('阿幫會看：輸入列相機＋麥克風 375px 不擠；生活頁讀到�
     assert.deepEqual(await page.locator('.vs-choice').allTextContents(), ['拍照', '選截圖或照片']);
     await page.click('.vs-choice[data-source="camera"]');
     await page.waitForSelector('.vs-ask');
-    assert.equal(await page.textContent('.vs-ask'), '這看起來像一則訊息。要幫你檢查這則訊息是不是詐騙嗎？');
+    assert.equal(await page.textContent('.vs-ask'), '這看起來像一則訊息。要幫您檢查這則訊息是不是詐騙嗎？');
     await shot(page, 'phone-vision-scam-ask');
     assert.equal(posts.length, 0);
     await page.click('.vs-go');
@@ -3708,7 +3708,7 @@ test('健康與運動：首頁散步建議（地點＋時間）、今天不用�
     assert.equal(await card.getAttribute('data-kind'), 'go');
     assert.equal(await card.locator('b').first().textContent(), '去走走吧');
     assert.match(await card.locator('p').textContent(), /^天氣好、AQI \d+，今天才走 1,600 步，這 7 天運動 70 分鐘；走到二二八和平紀念公園約 1\d 分。$/);
-    assert.match(await card.locator('.mv-note').textContent(), /示範資料，不是你的步數・步數只在手機上看，不上傳/);
+    assert.match(await card.locator('.mv-note').textContent(), /示範資料，不是[你您]的步數・步數只在手機上看，不上傳/);
     assert.equal(await card.locator('.tag.demo').count(), 1);
     assert.equal(await card.locator('button[data-act="nav"]').textContent(), '走到二二八和平紀念公園');
     assert.equal(await page.textContent('#hs-ttl'), '散步建議');
@@ -3814,12 +3814,12 @@ test('健康與運動（App）：第一次打開才跳權限；被拒 → 開關
   await withPage(DEVICES.phone, '#/settings', async (page) => {
     const sw = page.locator('#health');
     await sw.waitFor();
-    await page.waitForFunction(() => /打開時才會請你允許/.test(document.querySelector('#health-status')?.textContent || ''));
+    await page.waitForFunction(() => /打開時才會請[你您]允許/.test(document.querySelector('#health-status')?.textContent || ''));
     assert.ok(!(await page.evaluate(() => window.__health.calls)).includes('requestPermission'), '還沒打開不問權限');
     await sw.click();
     await page.waitForSelector('#health-why:not([hidden])');
     assert.equal(await sw.isChecked(), false, '被拒：開關關著');
-    assert.match(await page.textContent('#health-why'), /你沒有允許阿幫讀取步數和運動時間/);
+    assert.match(await page.textContent('#health-why'), /[你您]沒有允許阿幫讀取步數和運動時間/);
     assert.ok((await page.evaluate(() => window.__health.calls)).includes('requestPermission'));
     await page.click('button:has-text("到 Health Connect 允許")');
     assert.ok((await page.evaluate(() => window.__health.calls)).includes('openSettings:manage'), '只開畫面，允許由使用者自己按');
@@ -4314,12 +4314,12 @@ window.Capacitor = {
     if (method !== 'judge') return Promise.resolve({});
     window.__judgeArgs.push({ context: args.context, guide: /寧可不問/.test(args.instructions) });
     const t = args.text;
-    const ask = /等很久/.test(t) ? { slot: 'route', question: '要去哪？加 L I N E 告訴你哪一路？', options: ['307', '藍15'] } // 誘導（空白分隔）：手機上就擋
+    const ask = /等很久/.test(t) ? { slot: 'route', question: '要去哪？加 L I N E 告訴您哪一路？', options: ['307', '藍15'] } // 誘導（空白分隔）：手機上就擋
       : /零寬/.test(t) ? { slot: 'to', question: '要去哪裡\\u200b？', options: ['回家', '去公司'] } // 零寬字：手機上就擋
-        : /紅包/.test(t) ? { slot: 'state', state: 'rush', question: '你有帶行李嗎？', options: ['有', '沒有'] } // 題目與狀態不一致：手機上就擋
-          : /西門町到台北101/.test(t) ? { slot: 'state', state: 'luggage', question: '你有帶行李嗎？', options: ['嗯嗯', '不用'] } // 合理（選項照程式的）
+        : /紅包/.test(t) ? { slot: 'state', state: 'rush', question: '您有帶行李嗎？', options: ['有', '沒有'] } // 題目與狀態不一致：手機上就擋
+          : /西門町到台北101/.test(t) ? { slot: 'state', state: 'luggage', question: '您有帶行李嗎？', options: ['嗯嗯', '不用'] } // 合理（選項照程式的）
             : /出發/.test(t) ? { slot: 'to', question: '要去哪裡呢？', options: ['台北101', '回家'] } // 前文提過台北101 才收
-              : /公車/.test(t) ? { slot: 'route', question: '你在等哪一路公車？', options: ['9999', '附近公車'] } // 自己想的路線：伺服器擋
+              : /公車/.test(t) ? { slot: 'route', question: '您在等哪一路公車？', options: ['9999', '附近公車'] } // 自己想的路線：伺服器擋
                 : null;
     const intent = /出發|到台北101/.test(t) ? 'trip' : /公車/.test(t) ? 'bus_route' : 'weather';
     return Promise.resolve({ engine: 'gemini-nano', ms: 310, result: JSON.stringify({ intent, states: [], ask }) });
@@ -4347,7 +4347,7 @@ test('手機上的 AI 出題：合理的題目用手機的（狀態題選項照�
     const bodies = recordBodies(page);
     await askChat(page, '從西門町到台北101怎麼去', 1);
     await page.waitForSelector('.ask .ask-q');
-    assert.equal(await page.textContent('.ask .ask-q'), '你有帶行李嗎？');
+    assert.equal(await page.textContent('.ask .ask-q'), '您有帶行李嗎？');
     assert.deepEqual(await page.locator('.ask .ask-opt').allTextContents(), ['有', '沒有'], '狀態題的選項照程式（手機給的「嗯嗯／不用」不用）');
     assert.match(await page.textContent('.ask .ask-why'), /叫車.*多 \d+ 元/, '數字由程式算');
     assert.equal(bodies[0].deviceJudge.ask.state, 'luggage');
@@ -4385,7 +4385,7 @@ test('阿幫的腦袋：試判斷第 4 段標出題目是手機上的 AI 決定�
     await page.fill('#ai-input', '從西門町到台北101怎麼去');
     await page.click('#ai-go');
     await page.waitForSelector('#ai-trial-foot:not([hidden])', { timeout: 20000 });
-    assert.equal(await page.textContent('.ai-ask-q'), '你有帶行李嗎？');
+    assert.equal(await page.textContent('.ai-ask-q'), '您有帶行李嗎？');
     assert.match(await page.textContent('.ai-asker'), /手機上的 Gemini Nano 決定，程式驗證通過/);
     assert.equal(await page.getAttribute('.ai-asker', 'data-by'), 'device');
     await page.locator('.ai-sec[data-sec="next"]').screenshot({ path: new URL('phone-edge-ask-trial.png', SHOTS).pathname });
@@ -4420,7 +4420,7 @@ test('只問一題的那一輪：討論串正確結束（不留「小幫手討�
       await page.press('.chat-form input', 'Enter');
       await page.waitForFunction((k) => document.querySelectorAll('.bubble.final').length === k, i, { timeout: 20000 });
       await page.waitForFunction(() => !document.querySelector('.chat-send')?.disabled);
-      assert.ok(await page.locator('.turn').last().locator('.ask .ask-q').count() || await page.locator('.ask .ask-q').count(), `${q}：有問你一題`);
+      assert.ok(await page.locator('.turn').last().locator('.ask .ask-q').count() || await page.locator('.ask .ask-q').count(), `${q}：有問您一題`);
       assert.equal(await page.evaluate(idle, 'body'), 0, `${q}：討論串結束`);
       assert.doesNotMatch(await page.locator('.turn').last().textContent(), new RegExp(head), q);
     }
@@ -4439,7 +4439,7 @@ test('只問一題的那一輪：討論串正確結束（不留「小幫手討�
       await page.press('#abang-sheet .chat-form input', 'Enter');
       await page.waitForFunction((k) => document.querySelectorAll('#abang-sheet .bubble.final').length === k, i, { timeout: 20000 });
       await page.waitForFunction(() => !document.querySelector('#abang-sheet .chat-send')?.disabled);
-      assert.ok(await page.locator('#abang-sheet .ask .ask-q').count(), `底部面板「${q}」：有問你一題`);
+      assert.ok(await page.locator('#abang-sheet .ask .ask-q').count(), `底部面板「${q}」：有問您一題`);
       assert.equal(await page.evaluate(idle, '#abang-sheet'), 0, `底部面板「${q}」：討論串結束`);
       assert.doesNotMatch(await page.locator('#abang-sheet .turn').last().textContent(), /小幫手討論中|Checking live data/);
     }

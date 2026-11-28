@@ -200,7 +200,7 @@ public class AbangAlightService extends Service {
     private String fallbackText(int sec) {
         int m = Math.max(1, Math.round(sec / 60f));
         if (en()) return "Bus " + route + " · " + (sec < 0 ? "heading to " + dest : sec < 60 ? "almost at " + dest : "about " + m + " min to " + dest) + " · I'll tell you when to get off";
-        return route + " 坐車中・" + (sec < 0 ? "往「" + dest + "」" : sec < 60 ? "快到「" + dest + "」了" : "約 " + m + " 分到「" + dest + "」") + "・快到時提醒你下車";
+        return route + " 坐車中・" + (sec < 0 ? "往「" + dest + "」" : sec < 60 ? "快到「" + dest + "」了" : "約 " + m + " 分到「" + dest + "」") + "・快到時提醒您下車";
     }
 
     /** 連不上伺服器時的響鈴文字（同 core/alight.js alightText） */

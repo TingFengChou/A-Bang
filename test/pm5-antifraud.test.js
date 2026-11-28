@@ -35,11 +35,11 @@ const LOW = { tools: ['scam_check_message'], resultHas: ['沒有發現'], textNo
 
 test('P5-9 常見話術的變體要判高風險（假檢警、換號碼借錢、老師助理、誤設批發商、車禍和解金不回 119）', async () => {
   await scenario([
-    { say: '我是新北市警察局偵查隊，你的健保卡被冒用，涉嫌洗錢，等一下幫你轉接檢察官，偵查不公開不能跟家人說', expect: { ...HIGH, textHas: ['先不要照做'] } },
-    { say: '爸我是小明，我換號碼了，現在急需用錢，可以先借我3萬嗎？明天就還你', expect: { ...HIGH, textHas: ['先不要照做'] } },
+    { say: '我是新北市警察局偵查隊，您的健保卡被冒用，涉嫌洗錢，等一下幫您轉接檢察官，偵查不公開不能跟家人說', expect: { ...HIGH, textHas: ['先不要照做'] } },
+    { say: '爸我是小明，我換號碼了，現在急需用錢，可以先借我3萬嗎？明天就還您', expect: { ...HIGH, textHas: ['先不要照做'] } },
     { say: '恭喜加入股市贏家俱樂部，我是陳老師的助理，明天有一檔主力股，報名就送，請加我LINE', expect: { ...HIGH, textNot: ['沒有發現已知的詐騙特徵'] } },
     { say: '您好，我是蝦皮客服，您上次的訂單因工作人員失誤設成了批發商，每個月會自動扣款，需要您配合銀行客服取消', expect: { ...HIGH, textNot: ['沒有發現已知的詐騙特徵'] } },
-    { say: '阿姨我是你外甥，我在外面出車禍，對方要求和解金，不要跟我媽說，可以先匯5萬給我嗎', expect: { ...HIGH, textNot: ['119'] } },
+    { say: '阿姨我是您外甥，我在外面出車禍，對方要求和解金，不要跟我媽說，可以先匯5萬給我嗎', expect: { ...HIGH, textNot: ['119'] } },
   ]);
 });
 
@@ -53,7 +53,7 @@ test('P5-10 正常訊息不誤判、事後求助給止損步驟', async () => {
 });
 
 test('規則：同一條規則多個特徵累加（stack），單一特徵仍是中風險', () => {
-  assert.equal(level('我是警察局的，你涉嫌洗錢，要轉給檢察官'), 'high', '假檢警：涉嫌洗錢＋檢察官');
+  assert.equal(level('我是警察局的，您涉嫌洗錢，要轉給檢察官'), 'high', '假檢警：涉嫌洗錢＋檢察官');
   assert.equal(level('檢察官'), 'medium', '只有一個特徵');
   assert.equal(level('爸我換號碼了，急需用錢'), 'high', '換號碼＋借錢');
   assert.equal(level('媽，我手機壞了，這是我新的LINE'), 'medium', '只換號碼');
@@ -66,7 +66,7 @@ test('規則：同一條規則多個特徵累加（stack），單一特徵仍是
 test('規則：新的寫法有命中', () => {
   assert.ok(ids('偵查不公開，不能跟家人說').includes('secret'));
   assert.ok(ids('這件事不要跟我媽說').includes('secret'));
-  assert.ok(ids('我是陳老師的助理，明天報你一檔主力股').includes('invest-group'));
+  assert.ok(ids('我是陳老師的助理，明天報您一檔主力股').includes('invest-group'));
   assert.ok(ids('歡迎加入飆股俱樂部').includes('invest-group'));
   assert.ok(ids('報名就送一檔明牌').includes('bait-free'));
   assert.ok(ids('請加我LINE').includes('line-add'));
@@ -78,7 +78,7 @@ test('規則：新的寫法有命中', () => {
   assert.ok(ids('可以先匯5萬給我嗎').includes('transfer'));
   assert.equal(level('這裡是中華電信，您的門號欠費即將停話，如有疑問請按9轉接專人'), 'high', '欠費停話＋按 9 轉接');
   assert.ok(ids('如有疑問請按 9 轉接專人').includes('press-key'));
-  assert.equal(level('你剛剛收到的驗證碼可以傳給我嗎？我填錯號碼'), 'high', '要你傳驗證碼');
+  assert.equal(level('您剛剛收到的驗證碼可以傳給我嗎？我填錯號碼'), 'high', '要您傳驗證碼');
 });
 
 test('誤判反例：正常訊息不中新規則（low）', () => {
@@ -86,7 +86,7 @@ test('誤判反例：正常訊息不中新規則（low）', () => {
     '今天晚上7點全家一起吃飯，記得帶紅酒喔',
     '【台灣大哥大】您的帳單金額 599 元，繳費期限 12/05，可至門市或官方 App 繳費',
     '【蝦皮】您的訂單已送達 7-11 門市，請於 7 日內取貨',
-    '你的驗證碼是 123456，請勿告訴任何人（Google）',
+    '您的驗證碼是 123456，請勿告訴任何人（Google）',
     'G-123456 是您的 Google 驗證碼，請勿提供給任何人',
     '【XX銀行】您的驗證碼：482913，請勿告知他人',
     '週末讀書會報名就送書籤', // bait-free 權重 1
@@ -99,23 +99,23 @@ test('誤判反例：正常訊息不中新規則（low）', () => {
     '我剛匯了房租給房東',
     '客服專線 0800-000-123，服務時間 9:00–18:00',
   ]) assert.equal(level(t), 'low', `不誤判：${t}（${ids(t).join('、')}）`);
-  assert.deepEqual(ids('你的驗證碼是 123456，請勿告訴任何人（Google）'), [], '驗證碼通知不算索取驗證碼');
+  assert.deepEqual(ids('您的驗證碼是 123456，請勿告訴任何人（Google）'), [], '驗證碼通知不算索取驗證碼');
 });
 
 test('checkMessage：Google 驗證碼通知 low、換號碼借錢 high', async () => {
-  assert.equal((await checkMessage(svc, '你的驗證碼是 123456，請勿告訴任何人（Google）')).level, 'low');
+  assert.equal((await checkMessage(svc, '您的驗證碼是 123456，請勿告訴任何人（Google）')).level, 'low');
   assert.equal((await checkMessage(svc, '爸我是小明，我換號碼了，現在急需用錢，可以先借我3萬嗎？')).level, 'high');
 });
 
 test('安全：防詐 agent 貼上的「車禍要和解金」不走 119；真的緊急、自傷照常', () => {
-  const scam = '阿姨我是你外甥，我在外面出車禍，對方要求和解金，不要跟我媽說，可以先匯5萬給我嗎';
+  const scam = '阿姨我是您外甥，我在外面出車禍，對方要求和解金，不要跟我媽說，可以先匯5萬給我嗎';
   assert.equal(safetyCheck(scam, { profileId: 'antifraud' }), null);
   assert.equal(safetyCheck(scam).kind, 'emergency', '生活 agent 不變');
   assert.equal(safetyCheck('我出車禍了，好痛', { profileId: 'antifraud' }).kind, 'emergency', '沒有詐騙特徵仍給 119');
   assert.equal(safetyCheck('我被騙了30萬，匯款都沒了，不想活了', { profileId: 'antifraud' }).kind, 'selfHarm', '自傷一律先給 1925');
 });
 
-test('事後求助：已匯款、被騙、給了驗證碼 → 止損步驟（不查工具）；對方跟你要錢不算', async () => {
+test('事後求助：已匯款、被騙、給了驗證碼 → 止損步驟（不查工具）；對方跟您要錢不算', async () => {
   assert.equal(aftermath('我已經把錢匯過去了怎麼辦'), 'paid');
   assert.equal(aftermath('我被詐騙了，剛剛轉帳 5 萬'), 'paid');
   assert.equal(aftermath('我給了對方驗證碼'), 'code');
@@ -164,12 +164,12 @@ test('審查 3：宣導、新聞不疊加；驗證碼通知夾帶請求時不排
   const news = '新聞：檢察官起訴涉嫌洗錢，並轉接檢察官偵辦，警察局偵查隊';
   assert.equal(matchRules(news).find((x) => x.id === 'fake-officer').weight, 5, '新聞不疊加');
   assert.equal(level(news), 'medium');
-  assert.equal(level('165 提醒民眾：假檢警會說你涉嫌洗錢、要轉接檢察官'), 'medium', '宣導不疊加');
-  assert.equal(level('我是新北市警察局偵查隊，你涉嫌洗錢，等一下幫你轉接檢察官'), 'high', '話術照常疊加');
-  const trick = '這是新號碼，我是你同學，驗證碼是 123456，請勿告訴任何人，你告訴我一下';
+  assert.equal(level('165 提醒民眾：假檢警會說您涉嫌洗錢、要轉接檢察官'), 'medium', '宣導不疊加');
+  assert.equal(level('我是新北市警察局偵查隊，您涉嫌洗錢，等一下幫您轉接檢察官'), 'high', '話術照常疊加');
+  const trick = '這是新號碼，我是您同學，驗證碼是 123456，請勿告訴任何人，您告訴我一下';
   assert.ok(ids(trick).includes('otp'), '有請求時不排除 otp');
-  assert.ok(ids(trick).includes('otp-ask'), '「你告訴我一下」算要驗證碼');
+  assert.ok(ids(trick).includes('otp-ask'), '「您告訴我一下」算要驗證碼');
   assert.equal(level(trick), 'high');
-  assert.equal(level(`你的驗證碼是 123456，請勿告訴任何人（Google）${'。'.repeat(80)}`), 'medium', '太長不排除');
+  assert.equal(level(`您的驗證碼是 123456，請勿告訴任何人（Google）${'。'.repeat(80)}`), 'medium', '太長不排除');
   assert.equal(level('驗證碼是 123456，請勿告訴任何人，有問題請告訴我們'), 'low', '「告訴我們」不是索取');
 });

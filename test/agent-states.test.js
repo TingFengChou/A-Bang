@@ -52,7 +52,7 @@ test('出門建議的問法；需要位置；說了地名的不是出門建議',
 test('使用者明講的方式優先於「不適合」（加提醒）；新狀態不再疊加少走路；行動不便沒有可行方案時建議叫車', () => {
   const r = decide(OPTS, { states: ['elder'], mode: 'bike' });
   assert.equal(r.best.id, 'bike');
-  assert.match(r.reason, /照你說的選「YouBike」.*帶長輩要多注意安全/);
+  assert.match(r.reason, /照[你您]說的選「YouBike」.*帶長輩要多注意安全/);
   assert.ok(!r.excluded.some((e) => e.id === 'bike'));
   const a = decide(OPTS, { states: ['elder', 'lessWalk'] }), b = decide(OPTS, { states: ['elder'] });
   assert.deepEqual(a.weights, b.weights, 'elder 已包含少走路');
@@ -63,7 +63,7 @@ test('使用者明講的方式優先於「不適合」（加提醒）；新狀�
 
 test('討論串第一句：帶長輩說會避開 YouBike；行動不便說避開 YouBike 和長距離步行', async () => {
   const { judgeNote } = await import('../core/agent/impact.js');
-  assert.match(judgeNote({ intent: 'trip', states: ['elder'] }), /^你帶著長輩，我會避開YouBike，我先看天氣/);
+  assert.match(judgeNote({ intent: 'trip', states: ['elder'] }), /^[你您]帶著長輩，我會避開YouBike，我先看天氣/);
   assert.match(judgeNote({ intent: 'trip', states: ['mobility'] }), /我會避開YouBike和長距離步行/);
   assert.doesNotMatch(judgeNote({ intent: 'trip', states: ['rush'] }), /避開/);
 });

@@ -40,7 +40,7 @@ export function demoSteps(it, now = Date.now()) {
           const far = distanceM(a.lat, a.lon, b.lat, b.lon) >= 1000;
           return { note: far ? '@天氣 @空品 @路況 看一下外面的狀況' : '@天氣 @空品 看一下外面的狀況', calls: [it.tomorrow ? { name: 'weather_tomorrow', args: ll(b) } : { name: 'weather_now', args: ll(a) }, { name: 'aqi_nearby', args: ll(a) }, ...(far ? [{ name: 'traffic_status', args: { from: ll(a), to: ll(b) } }] : [])] };
         },
-        (r) => { const [a, b] = pts(r); return a && b ? { note: '@行程 幫你比較幾種走法', calls: [{ name: 'plan_trip', args: {
+        (r) => { const [a, b] = pts(r); return a && b ? { note: '@行程 幫您比較幾種走法', calls: [{ name: 'plan_trip', args: {
           from: asArg(a), to: asArg(b), // 地名：卡片標題顯示地名；定位：帶座標與「你的位置」
           departAt,
           ...((userStates.length || it.arriveBy || it.mode || it.avoid?.length || it.party) && { prefs: { ...(userStates.length && { states: userStates }), ...(it.arriveBy && { arriveBy: it.arriveBy }), ...(it.mode && { mode: it.mode }), ...(it.avoid?.length && { avoid: it.avoid }), ...(it.party && { party: it.party }) } }),
@@ -56,7 +56,7 @@ export function demoSteps(it, now = Date.now()) {
           const near = p ? { lat: p.lat, lon: p.lon, name: p.name } : it.fromPoint ? ll(it.fromPoint) : null;
           const tw = it.toward ? { toward: it.toward } : {}; // 「307 往板橋」：只看往板橋的方向（PM Q-18）
           if (it.stop) return { note: `@公車 ${it.route} 到「${it.stop}」還要多久`, calls: [{ name: 'bus_route_eta', args: { ...(p ? { city: p.city } : near ? {} : { city: 'Taipei' }), routeName: it.route, stop: it.stop, ...(near && { near }), ...tw } }] }; // 說了站名：盯那一站（位置只用來推縣市）
-          return { note: `@公車 ${it.route}${it.toward ? ` 往${it.toward}` : ''} 現在到哪了${near ? '，離你最近的站多久到' : ''}`, calls: [{ name: 'bus_route_eta', args: { ...(p ? { city: p.city } : near ? {} : { city: 'Taipei' }), routeName: it.route, ...(near && { near }), ...tw } }] };
+          return { note: `@公車 ${it.route}${it.toward ? ` 往${it.toward}` : ''} 現在到哪了${near ? '，離您最近的站多久到' : ''}`, calls: [{ name: 'bus_route_eta', args: { ...(p ? { city: p.city } : near ? {} : { city: 'Taipei' }), routeName: it.route, ...(near && { near }), ...tw } }] };
         },
         ...alsoSteps(it),
         // 一句兩件事：順便看天氣（同一個位置）
@@ -81,23 +81,23 @@ export function demoSteps(it, now = Date.now()) {
       const place = it.places[0] || DEFAULT_FROM;
       const who = it.states?.includes('kids') ? 'kids' : it.states?.includes('elder') ? 'elder' : null;
       const args = (p, name) => ({ ...ll(p), ...(name && { name }), ...(who && { with: who }) });
-      if (at) return [() => ({ note: '@天氣 @空品 出門前幫你看一下', calls: [{ name: 'outing_advice', args: args(it.fromPoint) }] })];
+      if (at) return [() => ({ note: '@天氣 @空品 出門前幫您看一下', calls: [{ name: 'outing_advice', args: args(it.fromPoint) }] })];
       return [
         () => ({ note: `@地點 找「${place}」的位置`, calls: [{ name: 'find_place', args: { query: place } }] }),
-        (r) => (point(r, 0) ? { note: '@天氣 @空品 出門前幫你看一下', calls: [{ name: 'outing_advice', args: args(point(r, 0), point(r, 0).name || place) }] } : null),
+        (r) => (point(r, 0) ? { note: '@天氣 @空品 出門前幫您看一下', calls: [{ name: 'outing_advice', args: args(point(r, 0), point(r, 0).name || place) }] } : null),
       ];
     }
     case 'metro':
       if (!it.station) { // 沒說站：句子裡的地標或現在位置最近的捷運站（拿不到位置就用預設地點）；說了路線只找這條線
         const near = it.near || (it.fromPoint ? ll(it.fromPoint) : DEFAULT_FROM);
-        const where = it.near ? `「${it.near}」` : it.fromPoint ? '離你' : `「${DEFAULT_FROM}」`;
+        const where = it.near ? `「${it.near}」` : it.fromPoint ? '離您' : `「${DEFAULT_FROM}」`;
         return [() => ({ note: `@捷運 找${where}最近的${it.line || ''}站，看${it.last ? '末班車' : '下一班'}`, calls: [{ name: 'metro_live_board', args: { near, ...(it.system && { system: it.system }), ...(it.line && { line: it.line }), ...(it.last && { last: true }), ...(it.toward && { toward: it.toward }) } }] })];
       }
       // 系統照句子說的（「高雄捷運美麗島站」）；沒說交給工具在各系統的站名裡找（S5，不預設台北）
       return [() => ({ note: `@捷運 ${it.station}站${it.last ? '的末班車' : '下一班'}`, calls: [{ name: 'metro_live_board', args: { ...(it.system && { system: it.system }), station: it.station, ...(it.fromPoint && { near: ll(it.fromPoint) }), ...(it.last && { last: true }) } }] })];
     case 'traffic': { // 國道路況（S7）：起訖是地名、常用地點或現在位置；沒有目的地不查（已經先問了）
       const fp = it.fromSaved || (!it.from && it.fromPoint);
-      const from = fp ? { lat: fp.lat, lon: fp.lon, name: fp.name || '你的位置' } : it.from || DEFAULT_FROM;
+      const from = fp ? { lat: fp.lat, lon: fp.lon, name: fp.name || '您的位置' } : it.from || DEFAULT_FROM;
       const to = it.toSaved ? { lat: it.toSaved.lat, lon: it.toSaved.lon, name: it.toSaved.name } : it.to;
       if (!to) return [];
       const say = (x) => (typeof x === 'string' ? x : x.name);
@@ -116,7 +116,7 @@ export function demoSteps(it, now = Date.now()) {
       if (it.fare) return [() => ({ note: `@${label} ${it.from}到${it.to}的票價`, calls: [{ name: 'rail_fare', args: { system: it.system, from: it.from, to: it.to } }] })];
       if (!it.from) { // 沒說起站：句中地名、或現在位置（拿不到就預設地點）最近的車站
         const near = it.near || (it.fromPoint ? ll(it.fromPoint) : DEFAULT_FROM);
-        const where = it.near ? `「${it.near}」` : it.fromPoint ? '離你' : `「${DEFAULT_FROM}」`;
+        const where = it.near ? `「${it.near}」` : it.fromPoint ? '離您' : `「${DEFAULT_FROM}」`;
         return [() => ({ note: `@${label} 找${where}最近的站，看到${it.to}的班次`, calls: [{ name, args: { to: it.to, near, ...(date && { date }) } }] })];
       }
       return [() => ({ note: `@${label} ${it.from}到${it.to}的班次`, calls: [{ name, args: { from: it.from, to: it.to, ...(date && { date }) } }] })];
@@ -135,7 +135,7 @@ export function demoSteps(it, now = Date.now()) {
           (r) => (point(r, 0) ? { note: `@${who} 「${place}」那一區的${what}`, calls: [{ name: tool, args: { ...ll(point(r, 0)), ...extra } }] } : null),
         ];
       }
-      if (!it.area && it.fromPoint) return [() => ({ note: `@${who} 依你的位置找這一區的${what}`, calls: [{ name: tool, args: { ...ll(it.fromPoint), ...extra } }] })]; // S16
+      if (!it.area && it.fromPoint) return [() => ({ note: `@${who} 依您的位置找這一區的${what}`, calls: [{ name: tool, args: { ...ll(it.fromPoint), ...extra } }] })]; // S16
       const area = it.area || DEFAULT_AREA;
       return [() => ({ note: `@${who} ${area}的${what}`, calls: [{ name: tool, args: { area, ...extra } }] })];
     }
@@ -158,7 +158,7 @@ export function demoSteps(it, now = Date.now()) {
     case 'stock':
       return [() => ({ note: it.query ? `@股市 查「${it.query}」的收盤行情` : '@股市 看一下大盤收盤', calls: [{ name: 'stock_quote', args: { ...(it.query && { query: it.query }) } }] })];
     case 'invoice':
-      return [() => ({ note: it.number ? '@發票 幫你對獎' : '@發票 最新一期中獎號碼', calls: [{ name: 'invoice_lottery', args: { ...(it.number && { number: it.number }) } }] })];
+      return [() => ({ note: it.number ? '@發票 幫您對獎' : '@發票 最新一期中獎號碼', calls: [{ name: 'invoice_lottery', args: { ...(it.number && { number: it.number }) } }] })];
     case 'drama': { // 找短劇（ADR-0019）：搜尋（類型、劇名）或排行；搜尋沒結果改看熱門；問劇情再看第一部的簡介
       const pick = (list) => ({ note: `@短劇 看 MyDrama 的${DRAMA_LIST_SAY[list]}`, calls: [{ name: 'drama_picks', args: { list, limit: 5 } }] });
       if (!it.dramaQuery) return [() => pick(it.dramaList || 'hot')];

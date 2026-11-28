@@ -12,7 +12,7 @@ test('P4 探查：股名不混進連接詞、「捷運哪一站」不是站名�
   assert.notEqual(parseIntent('我坐輪椅，捷運哪一站有電梯').station, '哪一');
   assert.equal(parseIntent('台北車站有電梯嗎').intent, 'access');
   assert.equal(parseIntent('我坐輪椅，從北車坐捷運去101方便嗎').intent, 'trip', '有起訖是行程');
-  for (const t of ['你可以幫我刷卡買高鐵票嗎', '幫我付計程車錢', '幫我把錢轉給司機']) assert.equal(parseIntent(t).intent, 'limits', t);
+  for (const t of ['您可以幫我刷卡買高鐵票嗎', '幫我付計程車錢', '幫我把錢轉給司機']) assert.equal(parseIntent(t).intent, 'limits', t);
   assert.equal(parseIntent('捷運最近的站下一班').intent, 'metro');
   assert.equal(parseIntent('捷運還有車ㄇ').intent, 'metro', '注音文句尾');
   assert.deepEqual([parseIntent('92 一公升多少').intent, parseIntent('92 一公升多少').grade], ['fuel', '92']);

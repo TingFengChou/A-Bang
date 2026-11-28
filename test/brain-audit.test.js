@@ -18,12 +18,12 @@ test('#1 地名裡的捷運站、公車站不是指定交通方式', () => {
   assert.equal(parseIntent('搭公車去市政府站', {}).mode, 'bus');
 });
 
-test('#2 手機寫的回答：不能拿掉「照你說的」、不能說使用者指定的低分方案比較好', () => {
-  const draft = '照你說的選「捷運（文湖線轉板南線）」（分數 46；分數最高的是公車 939 89）。預估約 86 分，60 元，10:20 到。';
+test('#2 手機寫的回答：不能拿掉「照您說的」、不能說使用者指定的低分方案比較好', () => {
+  const draft = '照您說的選「捷運（文湖線轉板南線）」（分數 46；分數最高的是公車 939 89）。預估約 86 分，60 元，10:20 到。';
   const pixel = '選「捷運（文湖線轉板南線）」（分數 46；分數最高的是公車 939 89）比較好，建議搭捷運，預估約 86 分，60 元，10:20 到。'; // Pixel 實測
   assert.deepEqual(checkRewrite(pixel, { draft }), { ok: false, reason: 'keep', detail: 'userPick' });
-  assert.equal(checkRewrite('照你說的選「捷運（文湖線轉板南線）」（分數 46，最好的選擇；分數最高的是公車 939 89），約 86 分、60 元，10:20 到。', { draft }).reason, 'claim');
-  assert.equal(checkRewrite('照你說的選「捷運（文湖線轉板南線）」（分數 46；分數最高的是公車 939 89），約 86 分、60 元，10:20 到。', { draft }).ok, true);
+  assert.equal(checkRewrite('照您說的選「捷運（文湖線轉板南線）」（分數 46，最好的選擇；分數最高的是公車 939 89），約 86 分、60 元，10:20 到。', { draft }).reason, 'claim');
+  assert.equal(checkRewrite('照您說的選「捷運（文湖線轉板南線）」（分數 46；分數最高的是公車 939 89），約 86 分、60 元，10:20 到。', { draft }).ok, true);
 });
 
 test('#3 規則有明確關鍵字的生活查詢：手機看了前文判成行程（或把股票判成天氣）也照規則', async () => {
@@ -60,7 +60,7 @@ test('#6 「快遲到了」是趕時間、「下大雨」是正在下雨；「�
 });
 
 test('#7 補答起點（阿幫問「從哪裡出發」）：前一句的趕時間、帶行李都保留', async () => {
-  const messages = [{ role: 'user', content: '我趕時間，帶著行李要去台北101' }, { role: 'assistant', content: '你從哪裡出發？' }, { role: 'user', content: '西門町' }];
+  const messages = [{ role: 'user', content: '我趕時間，帶著行李要去台北101' }, { role: 'assistant', content: '您從哪裡出發？' }, { role: 'user', content: '西門町' }];
   const es = await run(messages, { deviceJudge: dev('trip') });
   const trip = es.find((e) => e.type === 'tool_start' && e.name === 'plan_trip');
   assert.deepEqual([...trip.input.prefs.states].sort(), ['luggage', 'rush']);
@@ -75,8 +75,8 @@ test('#8 改出發時間或日期不沿用當下的狀態（趕時間、下雨�
   assert.deepEqual([...parseIntent('改坐公車', { history: h }).states].sort(), ['luggage', 'rain', 'rush'], '同一趟改方式照舊');
 });
 
-test('小項：「早安」「你好」回招呼並列出能查的，不被前文帶成行程；「好啦謝謝」是道謝', async () => {
-  for (const [q, re] of [['早安', /^早安！我是阿幫。我可以幫你查交通/], ['hello', /^Hello! I'm Abang\. I can help/]]) {
+test('小項：「早安」「您好」回招呼並列出能查的，不被前文帶成行程；「好啦謝謝」是道謝', async () => {
+  for (const [q, re] of [['早安', /^早安！我是阿幫。我可以幫[你您]查交通/], ['hello', /^Hello! I'm Abang\. I can help/]]) {
     const es = await run([{ role: 'user', content: PRIOR[0] }, { role: 'assistant', content: '…' }, { role: 'user', content: q }], { deviceJudge: dev('trip', ['rush']) });
     assert.equal(es.find((e) => e.type === 'tool_start'), undefined, q);
     assert.match(es.filter((e) => e.type === 'text').map((e) => e.delta).join(''), re, q);

@@ -58,7 +58,7 @@ export function safetyCheck(text, { profileId } = {}) {
       calls: calls('selfHarm'),
       reply: en
         ? "I'm really sorry you're feeling this way. You don't have to go through it alone. In Taiwan you can call the 1925 Suicide Prevention Hotline (24 hours, free) or Lifeline at 1995. If you are in immediate danger, call 119 now. If you'd like, tell me where someone you trust is and I'll find the way there."
-        : '聽起來你現在很辛苦，謝謝你願意說出來。你不用一個人撐：可以撥安心專線 1925（24 小時、免費），或生命線 1995、張老師 1980。如果有立即的危險，請馬上撥 119。如果你願意，可以繼續跟我說；也可以告訴我信任的人在哪，我幫你查怎麼過去。',
+        : '聽起來您現在很辛苦，謝謝您願意說出來。您不用一個人撐：可以撥安心專線 1925（24 小時、免費），或生命線 1995、張老師 1980。如果有立即的危險，請馬上撥 119。如果您願意，可以繼續跟我說；也可以告訴我信任的人在哪，我幫您查怎麼過去。',
     };
   }
   // 防詐：貼上的冒充親友話術（車禍要和解金、先匯給我）照常判斷詐騙，不回 119；有本人症狀照給
@@ -70,7 +70,7 @@ export function safetyCheck(text, { profileId } = {}) {
       calls: [...calls('emergency'), ...(protect ? [{ label: en ? 'Call 113 protection' : '撥 113 保護專線', tel: '113' }] : [])],
       reply: en
         ? `If anyone is hurt or in danger, call 119 now (ambulance and fire) or 110 (police). Calls are free; if you have no SIM card or your carrier has no coverage, dial 112. Stay somewhere safe.${protect ? ' For violence or being followed, the 113 protection hotline can also help.' : ''} When things are under control, tell me where you need to go and I'll find the way.`
-        : `如果有人受傷或有危險，請先撥 119（救護、消防）或 110（警察），免費；手機沒有 SIM 卡、或自己的電信收不到訊號時，可撥 112。先待在安全的地方。${protect ? '遇到暴力或被跟蹤，也可以撥 113 保護專線。' : ''}狀況穩定後，告訴我要去哪裡，我幫你查怎麼過去。`,
+        : `如果有人受傷或有危險，請先撥 119（救護、消防）或 110（警察），免費；手機沒有 SIM 卡、或自己的電信收不到訊號時，可撥 112。先待在安全的地方。${protect ? '遇到暴力或被跟蹤，也可以撥 113 保護專線。' : ''}狀況穩定後，告訴我要去哪裡，我幫您查怎麼過去。`,
     };
   }
   if (MEDICAL.some((re) => re.test(s))) {
@@ -88,7 +88,7 @@ export function safetyCheck(text, { profileId } = {}) {
       calls: [],
       reply: en
         ? "Please don't type ID numbers, card numbers or passwords here. Abang doesn't need personal data and won't keep it. I can help with transit and daily info instead."
-        : '請不要在這裡輸入身分證字號、卡號、密碼這類個資。阿幫查交通和生活資訊不需要個資，也不會幫你記下來（手機上留的對話也會把號碼遮起來）。有需要查什麼再跟我說。',
+        : '請不要在這裡輸入身分證字號、卡號、密碼這類個資。阿幫查交通和生活資訊不需要個資，也不會幫您記下來（手機上留的對話也會把號碼遮起來）。有需要查什麼再跟我說。',
     };
   }
   if (HEALTH.test(s) && !/公車|捷運|怎麼去|怎麼走|怎麼坐|幾號|搭|附近|藥局|診所/.test(s)) { // 「台大醫院掛哪科要搭幾號公車」「附近有診所嗎」照常查
@@ -97,7 +97,7 @@ export function safetyCheck(text, { profileId } = {}) {
       calls: [],
       reply: en
         ? "I can't judge symptoms or recommend medicine. Please ask a doctor or pharmacist (pharmacists can advise for free). If it's severe or getting worse fast, call 119. I can find a clinic open nearby, a pharmacy, or the way to a hospital."
-        : '阿幫不能判斷病情或建議吃什麼藥，請問醫師或藥師（藥局的藥師可以免費諮詢）；症狀很嚴重或突然變嚴重，請撥 119。我可以幫你找附近現在有看診的診所、藥局，或查怎麼去醫院。',
+        : '阿幫不能判斷病情或建議吃什麼藥，請問醫師或藥師（藥局的藥師可以免費諮詢）；症狀很嚴重或突然變嚴重，請撥 119。我可以幫您找附近現在有看診的診所、藥局，或查怎麼去醫院。',
     };
   }
   return null;

@@ -104,8 +104,8 @@ test('還在查天氣：不先下結論', () => {
   assert.equal(p.tips.length, 0);
 });
 
-test('依據：有定位說「你的位置」、有預設地區說那一區', () => {
-  assert.match(todayPlan({ now: TUE_8, weather: sunny, located: true }).basis, /^依據：你的位置/);
+test('依據：有定位說「您的位置」、有預設地區說那一區', () => {
+  assert.match(todayPlan({ now: TUE_8, weather: sunny, located: true }).basis, /^依據：[你您]的位置/);
   assert.match(todayPlan({ now: TUE_8, weather: sunny, area: { county: '新北市', town: '板橋區' } }).basis, /^依據：新北市板橋區/);
 });
 
@@ -113,7 +113,7 @@ test('時段切法', () => {
   assert.deepEqual([4, 5, 9, 10, 15, 16, 20, 21, 0].map(dayPart), ['late', 'morning', 'morning', 'day', 'day', 'evening', 'evening', 'late', 'late']);
 });
 
-test('阿幫記得你：列出記得的每一項，可以一項一項忘掉；什麼都沒記就是空的', () => {
+test('阿幫記得您：列出記得的每一項，可以一項一項忘掉；什麼都沒記就是空的', () => {
   assert.deepEqual(memoryRows({}), []);
   const rows = memoryRows({
     places: { 家: { name: '家' }, 公司: { name: '台北101' } },

@@ -38,7 +38,7 @@ test('stopMarks：最多兩個中間小站牌；公車還沒開到的（k ≤ �
   }
 });
 
-test('waitingPeople：1～3 個，同一站同一班每次都一樣，換一班會換人；站在你這站的人行道上', () => {
+test('waitingPeople：1～3 個，同一站同一班每次都一樣，換一班會換人；站在您這站的人行道上', () => {
   const a = waitingPeople('敦化市場|0');
   assert.deepEqual(waitingPeople('敦化市場|0'), a, '刷新不亂跳');
   const counts = new Set();
@@ -119,14 +119,14 @@ test('departed：就在附近的這班開走才算（站數變多、沒車了、
   assert.equal(departed({ away: undefined }, { away: 0 }), false, '第一次');
 });
 
-test('街景字典：中英都有「還有 N 站」、路上沒有車、坐車中的「你」；英文單複數', () => {
+test('街景字典：中英都有「還有 N 站」、路上沒有車、坐車中的「您」；英文單複數', () => {
   const zh = tFor(null), en = tFor('en');
   assert.equal(zh('scene.mark', { n: 2 }), '還有 2 站');
   assert.equal(en('scene.mark', { n: 1 }), '1 stop');
   assert.equal(en('scene.mark', { n: 2 }), '2 stops');
   assert.equal(zh('scene.empty'), '目前路上沒有這班車');
   assert.equal(en('scene.empty'), 'No bus on the way right now');
-  assert.equal(zh('scene.you'), '你');
+  assert.equal(zh('scene.you'), '您');
   assert.equal(en('scene.you'), 'You');
   // sceneSay 不變（說明列）
   assert.equal(sceneSay({ routeName: '307', away: 2, etaSec: 400, etaText: '7 分' }).head, '307・還有 2 站');

@@ -162,7 +162,7 @@ test('S8 在等某一路公車；末班車：有路線就查、沒路線就問',
 test('貼上的詐騙樣式簡訊：轉防詐（帶著這一句），不拿裡面的數字查公車', async () => {
   assert.ok(looksScamPaste(SCAM));
   assert.ok(!looksScamPaste('307 還要多久'));
-  assert.ok(!looksScamPaste('看一下 https://abang.tw 的說明'), '沒有催促、沒有要你做事');
+  assert.ok(!looksScamPaste('看一下 https://abang.tw 的說明'), '沒有催促、沒有要您做事');
   const it = parseIntent(SCAM);
   assert.deepEqual([it.intent, it.pasted], ['scamAsk', true]);
   const ask = scamPasteAsk('life', null, SCAM, { pasted: true });
@@ -190,13 +190,13 @@ test('「桃園」人在桃園市區＝桃園車站；在台北照舊；說了�
   assert.equal(full.from, '高鐵桃園站');
 });
 
-test('地端模型亂加的「要幫你叫車嗎」「要幫你訂票嗎」：不相關就拿掉', () => {
-  assert.equal(dropStrayOffers('最近有車的是臺中車站，還有 35 台。要幫你叫車嗎？', null, { intent: 'youbike' }), '最近有車的是臺中車站，還有 35 台。');
-  assert.equal(dropStrayOffers('下一班 14:08 出發。要幫你訂票嗎？', null, { intent: 'rail' }), '下一班 14:08 出發。');
-  assert.equal(dropStrayOffers('下一班 14:08 出發。要幫你訂票嗎？', null, { intent: 'rail', book: true }), '下一班 14:08 出發。要幫你訂票嗎？', '使用者要訂票');
+test('地端模型亂加的「要幫您叫車嗎」「要幫您訂票嗎」：不相關就拿掉', () => {
+  assert.equal(dropStrayOffers('最近有車的是臺中車站，還有 35 台。要幫您叫車嗎？', null, { intent: 'youbike' }), '最近有車的是臺中車站，還有 35 台。');
+  assert.equal(dropStrayOffers('下一班 14:08 出發。要幫您訂票嗎？', null, { intent: 'rail' }), '下一班 14:08 出發。');
+  assert.equal(dropStrayOffers('下一班 14:08 出發。要幫您訂票嗎？', null, { intent: 'rail', book: true }), '下一班 14:08 出發。要幫您訂票嗎？', '使用者要訂票');
   const trip = { best: 'r', options: [{ id: 'r', role: 'ridehail' }] };
-  assert.match(dropStrayOffers('建議叫車。需要我幫你叫車嗎？', trip, { intent: 'trip' }), /叫車嗎/, '建議就是叫車');
-  assert.equal(dropStrayOffers('要幫你叫車嗎？', null, { intent: 'youbike' }), '要幫你叫車嗎？', '整段都是追問：不動');
+  assert.match(dropStrayOffers('建議叫車。需要我幫您叫車嗎？', trip, { intent: 'trip' }), /叫車嗎/, '建議就是叫車');
+  assert.equal(dropStrayOffers('要幫您叫車嗎？', null, { intent: 'youbike' }), '要幫您叫車嗎？', '整段都是追問：不動');
 });
 
 test('m01／n02 總結：捷運兩個方向都說；附近站牌列出路線', async () => {

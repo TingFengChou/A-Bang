@@ -162,7 +162,7 @@ export function nudgeFor({ health, weather = null, air = null, pos = null, spots
   const wx = weatherGood({ weather, air }, now);
   const demo = !!health?.demo;
   const out = (kind, text = '', en = '', spot = null) => ({ kind, text, en, spot, demo, mv, wx });
-  if (!health || !mv.known) return asked ? out('none', '這次讀不到你的步數，到「設定與隱私 → 健康與運動」看看權限。', "I couldn't read your steps this time. Check Settings → Health & exercise.") : out('none');
+  if (!health || !mv.known) return asked ? out('none', '這次讀不到您的步數，到「設定與隱私 → 健康與運動」看看權限。', "I couldn't read your steps this time. Check Settings → Health & exercise.") : out('none');
   // 運動分鐘只在有真的運動紀錄時才提（不說「運動 0 分鐘」）
   const moveZh = `今天才走 ${fmt(mv.steps ?? 0)} 步${mv.weekMin ? `，這 7 天運動 ${mv.weekMin} 分鐘` : ''}`;
   const moveEn = `you've only walked ${fmt(mv.steps ?? 0)} steps today${mv.weekMin ? ` and exercised ${mv.weekMin} min this week` : ''}`;

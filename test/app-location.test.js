@@ -91,7 +91,7 @@ test('台灣範圍：範圍外 client_tool_result 不說「拿到了」', async 
   assert.equal(inTaiwan({ lat: 35.68, lon: 139.76 }), false);
   assert.equal(inTaiwan(null), false);
   const { locateSay } = await import('../public/js/pages/agent.js');
-  assert.equal(locateSay({ ok: true }), '拿到了，用你現在的位置');
+  assert.equal(locateSay({ ok: true }), '拿到了，用您現在的位置');
   assert.match(locateSay({ ok: false, reason: 'outside' }), /不在台灣.+直接打地點/);
   assert.match(locateSay({ ok: false }), /直接打地點.+設定打開定位/);
 });
@@ -134,7 +134,7 @@ test('watchKeyboard：iOS（只有可見高度變矮）、Android（innerHeight 
   a.vv.height = 300; a.vv.dispatchEvent(new Event('resize'));
 });
 
-test('這次定位逾時：15 分鐘內定位過就沿用（剛查天氣用了位置，下一句不再問你在哪）；被拒絕或過了 15 分鐘就不沿用', async (t) => {
+test('這次定位逾時：15 分鐘內定位過就沿用（剛查天氣用了位置，下一句不再問您在哪）；被拒絕或過了 15 分鐘就不沿用', async (t) => {
   let ok = true, err = { code: 'OS-PLUG-GLOC-0010' };
   globalThis.Capacitor = { isNativePlatform: () => true, isPluginAvailable: (n) => n === 'Geolocation', nativePromise: async (p, m) => { if (m === 'checkPermissions') return { location: 'granted' }; if (ok) return { coords: { latitude: 25.0478, longitude: 121.517 } }; throw err; } };
   t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-22T10:00:00Z') });

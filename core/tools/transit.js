@@ -109,7 +109,7 @@ export const busRouteEta = defineTool({
   speak: (d) => {
     const tw = d.toward && !d.toward.found ? `${d.routeName} 沒有往「${d.toward.name}」的方向（${d.directions.map((x) => x.label).join('、')}）；` : ''; // 「307 往板橋」對不到方向：照實說，兩個方向都列
     const mv = d.cityMoved ? `（${d.cityMoved.from}沒有 ${d.routeName}，這是${d.cityMoved.to}的 ${d.routeName}）` : '';
-    if (d.focus?.nearest) return `${tw}離你最近的是「${d.focus.stopName}」（約 ${fmtM(d.focus.distanceM)}）：${focusText(d.routeName, d.focus)}${d.focus.other ? `（${d.focus.label}）；${otherText(d.focus.other)}` : ''}。${mv || (d.cityGuessed ? `（依你的位置查${d.cityName}的 ${d.routeName}）` : '')}`;
+    if (d.focus?.nearest) return `${tw}離您最近的是「${d.focus.stopName}」（約 ${fmtM(d.focus.distanceM)}）：${focusText(d.routeName, d.focus)}${d.focus.other ? `（${d.focus.label}）；${otherText(d.focus.other)}` : ''}。${mv || (d.cityGuessed ? `（依您的位置查${d.cityName}的 ${d.routeName}）` : '')}`;
     if (d.focus) return `${tw}${focusText(d.routeName, d.focus)}。${mv}`;
     const dirs = d.toward?.found ? d.directions.filter((x) => x.direction === d.toward.direction) : d.directions;
     const near = dirs.flatMap((x) => x.stops.filter((s) => s.etaSec != null && s.etaSec < 180).map((s) => s.stopName));
@@ -214,8 +214,8 @@ export function nearestSay(d) {
   if (!d.nearest) return '';
   const label = d.system === 'THSR' ? '高鐵' : '台鐵';
   const skip = d.skipped ? `${d.skipped}站沒有直達車，改從` : '';
-  if (d.nearest.distanceM <= 300 && !skip) return `${d.nearest.from ? `「${d.nearest.from}」` : '你'}就在${d.from}站附近。`;
-  return skip ? `${skip}${d.from}站（約 ${fmtM(d.nearest.distanceM)}）。` : `${d.nearest.from ? `離「${d.nearest.from}」最近` : '離你最近'}的${label}站是${d.from}（約 ${fmtM(d.nearest.distanceM)}）。`;
+  if (d.nearest.distanceM <= 300 && !skip) return `${d.nearest.from ? `「${d.nearest.from}」` : '您'}就在${d.from}站附近。`;
+  return skip ? `${skip}${d.from}站（約 ${fmtM(d.nearest.distanceM)}）。` : `${d.nearest.from ? `離「${d.nearest.from}」最近` : '離您最近'}的${label}站是${d.from}（約 ${fmtM(d.nearest.distanceM)}）。`;
 }
 function railSpeakBody(d, now) {
   if (!d.trains.length) return d.transfersUnavailable ? '那天沒有直達班次；換車的走法這次查不到（不是沒有車），可以換個日期或過一分鐘再問。' : d.system === 'TRA' ? '那天沒有直達班次，也找不到換車的走法。' : '那天沒有直達班次。';
@@ -268,7 +268,7 @@ async function railCandidates(svc, system, a) {
   const near = list.filter((s) => Number.isFinite(s.lat) && !normName(s.name).includes(to) && !to.includes(normName(s.name)))
     .map((s) => ({ station: s.name, distanceM: Math.round(distanceM(pt.lat, pt.lon, s.lat, s.lon)), ...(typeof a.near === 'string' && { from: a.near }) }))
     .filter((x) => x.distanceM <= RAIL_NEAR_MAX_M).sort((x, y) => x.distanceM - y.distanceM).slice(0, 3);
-  if (!near.length) throw new UserError(`你附近 ${RAIL_NEAR_MAX_M / 1000} 公里內找不到${label}站；請告訴我從哪一站出發${system === 'THSR' ? '（花東、宜蘭沒有高鐵，要改查台鐵嗎？）' : ''}`);
+  if (!near.length) throw new UserError(`您附近 ${RAIL_NEAR_MAX_M / 1000} 公里內找不到${label}站；請告訴我從哪一站出發${system === 'THSR' ? '（花東、宜蘭沒有高鐵，要改查台鐵嗎？）' : ''}`);
   return near;
 }
 

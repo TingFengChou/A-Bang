@@ -25,9 +25,9 @@ const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 test('常駐顯示的一句跟 Android 通知列同樣的說法（中英）', () => {
   const w = { routeName: '307', stop: '臺北車站', minutes: 2 };
   const f = { status: 0, etaSec: 300, label: '往撫遠街', stopName: '臺北車站(忠孝)' };
-  assert.equal(watchLine(w, f), '307 往撫遠街・約 5 分到「臺北車站(忠孝)」・到站前 2 分提醒你');
+  assert.equal(watchLine(w, f), '307 往撫遠街・約 5 分到「臺北車站(忠孝)」・到站前 2 分提醒您');
   assert.equal(watchLine(w, f, { skip: true }), '307 往撫遠街・約 5 分到「臺北車站(忠孝)」・這班來不及，等下一班');
-  assert.equal(watchLine(w, { ...f, etaSec: 30 }), '307 在「臺北車站(忠孝)」進站中・到站前 2 分提醒你');
+  assert.equal(watchLine(w, { ...f, etaSec: 30 }), '307 在「臺北車站(忠孝)」進站中・到站前 2 分提醒您');
   assert.equal(watchLine(w, { status: 1, etaSec: null, label: '往撫遠街', statusText: '尚未發車' }), '307 往撫遠街：尚未發車（臺北車站）');
   assert.equal(watchLine({ ...w, lang: 'en' }, f), "Bus 307 往撫遠街 · about 5 min to 臺北車站(忠孝) · I'll remind you 2 min before");
 });
@@ -46,7 +46,7 @@ test('iOS：每次查到就更新即時動態、照舊排本機通知；取消�
     const upd = () => calls.filter((c) => c.plugin === 'AbangWatch' && c.method === 'update');
     await new Promise((r) => setTimeout(r, 10)); // 排通知不等（planNative 在背景跑完）
     assert.ok(calls.some((c) => c.plugin === 'AbangWatch' && c.method === 'start'));
-    assert.deepEqual(upd().at(-1).args, { text: '307 往撫遠街・約 10 分到「臺北車站(忠孝)」・到站前 2 分提醒你', etaSec: 600 });
+    assert.deepEqual(upd().at(-1).args, { text: '307 往撫遠街・約 10 分到「臺北車站(忠孝)」・到站前 2 分提醒您', etaSec: 600 });
     assert.ok(calls.some((c) => c.plugin === 'LocalNotifications' && c.method === 'schedule'), 'iOS 背景不能查：提醒照舊靠排好的通知');
     eta = 420;
     await pollWatch((n, a) => host.callTool(n, a));

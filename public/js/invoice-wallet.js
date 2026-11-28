@@ -36,7 +36,7 @@ export async function planDrawNotify({ list = wallet.list(), now = Date.now(), a
   const n = nextDrawNotify(list, now);
   if (!n) { await cancelNotify(NOTIFY_ID.invoice); return false; }
   if (ask && !(await ensureNotifyPermission())) return false;
-  return scheduleNotify(NOTIFY_ID.invoice, n.at, '阿幫：發票今天開獎', `你存的 ${n.count} 張發票今天開獎，打開阿幫就自動對獎`);
+  return scheduleNotify(NOTIFY_ID.invoice, n.at, '阿幫：發票今天開獎', `您存的 ${n.count} 張發票今天開獎，打開阿幫就自動對獎`);
 }
 
 export const wallet = {
@@ -116,13 +116,13 @@ export function renderWallet(el, { callTool, toast = () => {} }) {
       <button class="btn">存起來，開獎自動對</button>
     </form>
     <div class="card list" id="inv-list"></div>
-    <p class="updated">手機 App 會在開獎日 14:00 通知你。號碼只存在這支手機的瀏覽器；對獎時把號碼和日期送到阿幫伺服器比對，不會保存。打開 App 時，開獎後的發票會自動對獎。領獎方式與期限以財政部公告為準。</p>`;
+    <p class="updated">手機 App 會在開獎日 14:00 通知您。號碼只存在這支手機的瀏覽器；對獎時把號碼和日期送到阿幫伺服器比對，不會保存。打開 App 時，開獎後的發票會自動對獎。領獎方式與期限以財政部公告為準。</p>`;
   const listEl = el.querySelector('#inv-list');
   const draw = () => {
     const list = wallet.list();
     listEl.innerHTML = list.length
       ? list.map((x) => `<div data-id="${esc(x.id)}"><div class="grow"><div class="title">${esc(x.number)}</div><div class="sub">${esc(x.date ? `消費 ${x.date}` : `${x.period} 期`)}</div></div>${statusHtml(x)}<button class="btn ghost inv-del" type="button" aria-label="刪除 ${esc(x.number)}">刪除</button></div>`).join('')
-      : '<div class="sub wrap">還沒有存發票。輸入號碼和消費日期，開獎後打開阿幫就會自動幫你對獎。</div>';
+      : '<div class="sub wrap">還沒有存發票。輸入號碼和消費日期，開獎後打開阿幫就會自動幫您對獎。</div>';
   };
   const run = async (opts) => {
     try {
@@ -175,10 +175,10 @@ export async function autoCheckOnOpen(callTool, { toast = () => {} } = {}) {
   const r = await checkWallet(callTool);
   if (!r) return null;
   if (r.won.length) {
-    const msg = `🎉 你存的發票中獎了：${r.won.map((w) => `${w.number} ${w.prize}`).join('、')}`;
+    const msg = `🎉 您存的發票中獎了：${r.won.map((w) => `${w.number} ${w.prize}`).join('、')}`;
     toast(msg);
     if (typeof document !== 'undefined') confetti(document.body);
     try { if (typeof Notification !== 'undefined' && Notification.permission === 'granted') new Notification('阿幫：發票中獎', { body: msg, icon: '/icons/icon.svg' }); } catch { /* 部分瀏覽器只允許 SW 通知 */ }
-  } else if (r.decided) toast(`你存的 ${r.decided} 張發票已對獎，這期沒中`);
+  } else if (r.decided) toast(`您存的 ${r.decided} 張發票已對獎，這期沒中`);
   return r;
 }

@@ -114,13 +114,13 @@ function handoff(box, results, decision) {
 /** 定位結果的一句話（不分行程或附近查詢都通順；沒拿到時說下一步，CLAUDE.md 規則 6；預設起點由總結說明，這裡不先講） */
 export function locateSay({ ok, reason, area }, lang = null) {
   const en = lang === 'en';
-  if (ok && area) return en ? `No location access, so I'm using your default area (${area}) for now; you can change it in Settings.` : `未取得目前位置，先依你設定的預設地區（${area}）查詢；隨時可在設定調整。`; // T-HOMEAREA（Antigravity 第八輪的文案）
-  if (ok) return en ? 'Got it, using your location' : '拿到了，用你現在的位置';
-  if (reason === 'outside') return en ? "You're outside Taiwan; type a place instead" : '你的位置不在台灣，阿幫查不到附近資料；可以直接打地點';
+  if (ok && area) return en ? `No location access, so I'm using your default area (${area}) for now; you can change it in Settings.` : `未取得目前位置，先依您設定的預設地區（${area}）查詢；隨時可在設定調整。`; // T-HOMEAREA（Antigravity 第八輪的文案）
+  if (ok) return en ? 'Got it, using your location' : '拿到了，用您現在的位置';
+  if (reason === 'outside') return en ? "You're outside Taiwan; type a place instead" : '您的位置不在台灣，阿幫查不到附近資料；可以直接打地點';
   if (reason === 'denied') return en ? "Location permission is off; type a place or allow location in Settings" : '定位權限沒有打開；可以直接打地點，或到設定允許定位';
   if (reason === 'off') return en ? 'Location services are off; type a place or turn them on' : '手機的定位服務是關的；可以直接打地點，或打開定位服務';
   if (reason === 'timeout') return en ? 'Location took too long; type a place or try again' : '定位太久沒有回應；可以直接打地點，或再按一次定位';
-  return en ? "Couldn't get your location; type a place or turn on location" : '沒拿到你的位置；可以直接打地點，或到手機設定打開定位';
+  return en ? "Couldn't get your location; type a place or turn on location" : '沒拿到您的位置；可以直接打地點，或到手機設定打開定位';
 }
 
 /** 天氣、空品、出門建議卡片：{ 鍵（工具＋測站）, 值（主要數字）, 收合時的說明 }；其他卡片不收合 */
@@ -212,7 +212,7 @@ export default {
     const modeLine = el('p', 'updated agent-mode');
     modeLine.setAttribute('aria-live', 'polite'); // 換模式或改在手機上判斷時唸出來 // 由誰回答（ADR-0012；Claude 模式說明對話會送 Anthropic，AGENT.md §7）
     // 說明起點是現在位置（第一次需要位置時才跳權限框，先讓使用者知道為什麼）；拒絕定位時阿幫會問從哪出發
-    const hereHint = agentId === 'life' && el('p', 'updated here-hint', '沒說起點時，阿幫用你現在的位置當出發點。');
+    const hereHint = agentId === 'life' && el('p', 'updated here-hint', '沒說起點時，阿幫用您現在的位置當出發點。');
     const dock = el('div', 'chat-dock', rounds.toLatest, pageRow, chips, mention, form);
     main.append(rounds.nav, log, dock, ...(hereHint ? [hereHint] : []), disclaimer, modeLine);
     // 語音問阿幫（M14-01）：麥克風鍵與在聽的面板（agent/voice-ui.js）；只有生活 agent（防詐是貼上訊息）
@@ -259,7 +259,7 @@ export default {
     const chromeLang = (lang) => {
       const en = lang === 'en';
       sendBtn.textContent = en ? 'Send' : '送出';
-      if (hereHint) hereHint.textContent = en ? "If you don't say where you're starting, A-Bang uses your current location." : '沒說起點時，阿幫用你現在的位置當出發點。';
+      if (hereHint) hereHint.textContent = en ? "If you don't say where you're starting, A-Bang uses your current location." : '沒說起點時，阿幫用您現在的位置當出發點。';
       if (agentId === 'life' && disclaimerZh) disclaimer.textContent = en ? 'Data: Taiwan government open data (MOTC TDX, Central Weather Administration, Ministry of Environment, NHI and more). For reference only; official notices prevail.' : disclaimerZh;
     };
     if (agentId === 'life') edgePrewarm();
@@ -322,12 +322,12 @@ export default {
       if (s.kind === 'alarm') { // 某天某時的本機提醒（明早帶傘）：跟出門提醒同一套，可在提醒頁取消
         const id = await host.remind(s.payload.at, s.payload.text, { key: s.payload.key, date: s.payload.date, ...(s.payload.lang && { lang: s.payload.lang }) }).catch(() => false);
         const en = view?.lang === 'en';
-        (view?.round || log).append(el('p', 'agent-sys', id ? (en ? `OK, I'll remind you at ${s.payload.at} tomorrow.` : `好，明天 ${s.payload.at} 提醒你帶傘。`) : (en ? "Couldn't set the reminder (allow notifications)." : '提醒沒設成（要允許通知）。')));
+        (view?.round || log).append(el('p', 'agent-sys', id ? (en ? `OK, I'll remind you at ${s.payload.at} tomorrow.` : `好，明天 ${s.payload.at} 提醒您帶傘。`) : (en ? "Couldn't set the reminder (allow notifications)." : '提醒沒設成（要允許通知）。')));
         return showNext(view);
       }
       if (s.kind === 'remind') {
         await host.watchArrival(s.payload);
-        (view?.round || log).append(el('p', 'agent-sys', view?.lang === 'en' ? `OK, I'll remind you ${s.payload.minutes} min before bus ${s.payload.routeName} reaches ${s.payload.stop}.` : `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒你（${cardT(`busRoute.${host.arrivalNote?.() || 'whenOpenPage'}`)}）。`));
+        (view?.round || log).append(el('p', 'agent-sys', view?.lang === 'en' ? `OK, I'll remind you ${s.payload.minutes} min before bus ${s.payload.routeName} reaches ${s.payload.stop}.` : `好，${s.payload.routeName} 到「${s.payload.stop}」前 ${s.payload.minutes} 分提醒您（${cardT(`busRoute.${host.arrivalNote?.() || 'whenOpenPage'}`)}）。`));
         return showNext(view);
       }
       return undefined;

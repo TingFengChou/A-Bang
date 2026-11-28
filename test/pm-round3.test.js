@@ -37,7 +37,7 @@ test('#2 起點補在句尾（「我要去板橋 從台中」）：照「從」�
   ]) assert.deepEqual(od(q).slice(1), [from, to], q);
 });
 
-test('#3 從現在位置出發的行程，問回程：從目的地回到你的位置', async () => {
+test('#3 從現在位置出發的行程，問回程：從目的地回到您的位置', async () => {
   const h = [{ role: 'user', content: '去台北101' }, { role: 'assistant', content: '…' }];
   for (const q of ['那回程呢', '回來呢', '回來怎麼坐']) {
     const it = p(q, h);
@@ -49,7 +49,7 @@ test('#3 從現在位置出發的行程，問回程：從目的地回到你的�
   const trip = es.find((e) => e.type === 'tool_start' && e.name === 'plan_trip');
   assert.ok(trip, '有排回程');
   assert.equal(trip.input.from, '台北101');
-  assert.deepEqual([trip.input.to.lat, trip.input.to.lon, trip.input.to.name], [here.lat, here.lon, '你的位置']);
+  assert.deepEqual([trip.input.to.lat, trip.input.to.lon, trip.input.to.name], [here.lat, here.lon, '您的位置']);
 });
 
 test('#3 說了起點的回程照舊對調；從家出發的回程回到家（家的座標不留在起點）', () => {
@@ -99,7 +99,7 @@ test('#5 問醫院：照實說資料只有診所，急症打 119；問診所不�
   const say = async (q) => { const es = []; await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: q }], clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 25.0423, lon: 121.5079 } }] }, (e) => es.push(e), {}); return es.filter((e) => e.type === 'text').map((e) => e.delta).join(''); };
   assert.match(await say('附近有醫院嗎'), /醫院的看診資料這裡沒有.+119/);
   assert.doesNotMatch(await say('附近有診所嗎'), /醫院的看診資料/);
-  assert.match(await say('我迷路了'), /^別擔心，先看你附近最近的站牌/);
+  assert.match(await say('我迷路了'), /^別擔心，先看[你您]附近最近的站牌/);
 });
 
 test('示範模式找不到藥局、診所、垃圾車：說是示範資料只收了少數地區（V3 走查 F6）；找得到、真實資料不加', async () => {

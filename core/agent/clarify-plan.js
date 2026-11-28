@@ -9,7 +9,7 @@ import {
   placeGuess, placeAsk, roadAsk, hereAsk, topicAsk, railFromAsk, railToAsk, nearestStation, whereAsk, busStopAsk, invoiceAsk, scamPasteAsk,
   landmarkByName, HERE_M, railName, airportGuess, airportAsk,
 } from './clarify.js';
-const shortOf = (en, token) => (en ? `Which “${token}” do you mean? Tap one above, or type the full place name.` : `你說的「${token}」是哪裡？點上面一個，或直接打完整的地名。`);
+const shortOf = (en, token) => (en ? `Which “${token}” do you mean? Tap one above, or type the full place name.` : `您說的「${token}」是哪裡？點上面一個，或直接打完整的地名。`);
 
 /**
  * @param {object} it parseIntent 的結果（定位之後；可能會改 it：猜的目的地、最近的車站）

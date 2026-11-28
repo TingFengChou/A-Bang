@@ -7,14 +7,14 @@ import { motion } from '../cards/motion.js';
 import { habitWhy, USUAL_LABEL } from '../../js/habits.js';
 
 /** 被排除方案的標籤：遲到（超過抵達時間）、不要（使用者說不要這種方式）、其他排除 */
-const exLabel = (why = '') => (why.includes('超過') ? '遲到' : why.startsWith('你說不要') ? '不要' : why.includes('不建議') ? '不適合' : /收班|末班已過/.test(why) ? '收班' : /沒車|沒有車|空位/.test(why) ? '沒列入' : '排除');
+const exLabel = (why = '') => (why.includes('超過') ? '遲到' : why.startsWith('您說不要') ? '不要' : why.includes('不建議') ? '不適合' : /收班|末班已過/.test(why) ? '收班' : /沒車|沒有車|空位/.test(why) ? '沒列入' : '排除');
 /** 這次資料沒來（上游連不上、TDX 額度用完、查詢失敗）：跟「本來就不適用」（太遠、附近沒有站）分開標「暫缺」——讓人知道阿幫有考慮，只是資料沒來（2026-11-28 Antigravity 第四輪 T-DG-GRAY） */
 export const dataMissing = (x) => Boolean(x?.unavailable || x?.fallback === 'tdx-limit' || x?.why === '資料暫時查不到' || /連不上/.test(x?.why || ''));
 const ROLE_NAME = { walk: '步行', bike: 'YouBike', bus: '公車', metro: '捷運', thsr: '高鐵', tra: '台鐵', intercity: '客運', ridehail: '叫車', drive: '開車' };
 
 const SVG = 'http://www.w3.org/2000/svg';
 const STATE_LABEL = { rush: '趕時間', traffic: '塞車中', rain: '下雨', luggage: '帶行李', budget: '想省錢', lessWalk: '少走路', badAir: '空品不佳', elder: '帶長輩', kids: '帶小孩', mobility: '行動不便', group: '多人同行', rainSoon: '可能下雨' };
-const SOURCE_LABEL = { auto: '自動', user: '你說的', picked: '你選的', usual: '你說過' };
+const SOURCE_LABEL = { auto: '自動', user: '您說的', picked: '您選的', usual: '您說過' };
 /** 自動狀態連回產生它的工具（UX.md §5 CRIT_SRC） */
 const STATE_SOURCE = { rain: '天氣', rainSoon: '天氣', traffic: '路況', badAir: '空品' };
 const ADDABLE = ['rush', 'budget', 'lessWalk', 'luggage'];
@@ -153,7 +153,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     const skipped = notIn.map((x) => ({ id: `skip-${x.role}${x.route ? `-${x.route}` : ''}`, role: x.role, name: x.route ? `公車 ${x.route}` : ROLE_NAME[x.role] || x.role, why: (en && x.whyEn) || x.why, tag: x.notYet ? '未發車' : x.closed || /收班|末班已過/.test(x.why) ? '收班' : dataMissing(x) ? '暫缺' : '沒列入', skipped: true }));
     const excluded = [...r.excluded.map((x) => ({ ...byId.get(x.id), why: x.why })), ...skipped];
     const off = states.filter((s) => !s.on && s.source === 'auto').map((s) => SL[s.key]);
-    const reason = (off.length ? `不考慮「${off.join('、')}」的話，` : '') + (habitTop && !habitOn ? '不看你的偏好的話，' : '') + r.reason;
+    const reason = (off.length ? `不考慮「${off.join('、')}」的話，` : '') + (habitTop && !habitOn ? '不看您的偏好的話，' : '') + r.reason;
 
     // FLIP（M5-11）：記下重算前各方案節點的位置，重畫後從舊位置滑到新位置（重算才做；精簡模式不做）
     const before = new Map([...root.querySelectorAll('.dg-opt[data-id]')].map((g) => [g.dataset.id, g.getBoundingClientRect().top]));
@@ -168,7 +168,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       el('p', 'dg-why', en ? enReason(bestOpt, ranked.find((o) => o.id !== bestOpt?.id), ranked) : reason), // 英文：程式依分數組一句英文理由
       decision.single && el('p', 'dg-single', en ? decision.single.textEn : decision.single.text), // 只有一種方式：其他方式為什麼不在
       !decision.single && notIn.length > 0 && el('ul', 'dg-missing', notIn.map((x) => el('li', null, en ? (dataMissing(x) ? EN.noData : EN.notIn)(x.route ? `Bus ${x.route}` : EN.mode[x.role] || x.role, x.whyEn || x.why) : `${x.route ? `公車 ${x.route}` : ROLE_NAME[x.role] || x.role}${dataMissing(x) ? '這次資料暫缺' : '沒列入'}：${x.why}`))), // 手機沒有 hover：原因寫出來；route＝那一條公車
-      ranked.length > 1 && el('p', 'dg-legend', en ? EN.legend : '數字是推薦分數，越高越適合你現在的狀況。'), // 設計第三輪 #3：一般人看不懂 75、71 是什麼
+      ranked.length > 1 && el('p', 'dg-legend', en ? EN.legend : '數字是推薦分數，越高越適合您現在的狀況。'), // 設計第三輪 #3：一般人看不懂 75、71 是什麼
       onPick && ranked.length > 1 && el('p', 'dg-hint', en ? EN.hint : '想換方式？點其他方案，阿幫會用它重算'), // 審查：手機沒有 hover，要寫出來
       details(ranked),
     ].filter(Boolean));
@@ -250,7 +250,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       }
     });
     // ② 看你的狀況
-    tl.call(step(en ? EN.step2 : '② 看你的狀況'))
+    tl.call(step(en ? EN.step2 : '② 看您的狀況'))
       .fromTo(q('.dg-state'), { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, transformOrigin: '50% 50%', ease: 'back.out(2)', duration: 0.3, stagger: 0.08 })
       .to(q('.dg-link'), { strokeDashoffset: 0, duration: 0.3 }, '<');
     // ③ 比較：方案出現，逐項累加真實分數（breakdown），連線依累計分數變粗
@@ -308,7 +308,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
 
   function chipsBar() {
     const bar = el('div', 'dg-chips');
-    bar.setAttribute('aria-label', en ? EN.chips : '你的狀態（點一下切換，立即重算）');
+    bar.setAttribute('aria-label', en ? EN.chips : '您的狀態（點一下切換，立即重算）');
     for (const s of states) {
       const label = s.source === 'usual' ? (en ? EN.usual[s.key] : USUAL_LABEL[s.key]) || SL[s.key] : SL[s.key]; // 你說過：常帶東西
       const b = el('button', `dg-chip ${s.on ? 'on' : 'off'} src-${s.source}`, `${SRC[s.source]}：${label}`, s.on ? ' ✕' : '');
@@ -324,11 +324,11 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     }
     if (habitTop) { // 你同意（source habit）：跟狀態 chip 同一套樣式，顏色不同；點掉＝不看偏好重算
       const name = en ? EN.mode[habitTop] : ROLE_NAME[habitTop];
-      const b = el('button', `dg-chip ${habitOn ? 'on' : 'off'} src-habit${habitOn && !habitApplied ? ' paused' : ''}`, en ? EN.habit(name) : `你同意：優先推${name}`, habitOn ? ' ✕' : '');
+      const b = el('button', `dg-chip ${habitOn ? 'on' : 'off'} src-habit${habitOn && !habitApplied ? ' paused' : ''}`, en ? EN.habit(name) : `您同意：優先推${name}`, habitOn ? ' ✕' : '');
       b.type = 'button';
       b.dataset.habit = habitTop;
       b.setAttribute('aria-pressed', String(habitOn));
-      if (habitOn && !habitApplied) b.title = en ? EN.habitPaused : '你說了狀況（或指定了方式），這次以你說的為準，習慣不加分';
+      if (habitOn && !habitApplied) b.title = en ? EN.habitPaused : '您說了狀況（或指定了方式），這次以您說的為準，習慣不加分';
       b.onclick = () => { habitOn = !habitOn; draw(); };
       const why = el('button', 'dg-chip dg-why-btn', en ? EN.habitWhy : '為什麼');
       why.type = 'button';
@@ -350,7 +350,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
   function habitNotes() {
     if (!habitTop) return [];
     const out = [];
-    if (whyOpen) out.push(el('p', 'dg-habit-note', en ? EN.habitNote : `${habitWhy(habitTop)}，你說過「好」。沒說狀況時小幅加分（最多 8 分）；只存在這支手機，可以在「設定」撤銷。`));
+    if (whyOpen) out.push(el('p', 'dg-habit-note', en ? EN.habitNote : `${habitWhy(habitTop)}，您說過「好」。沒說狀況時小幅加分（最多 8 分）；只存在這支手機，可以在「設定」撤銷。`));
     return out;
   }
 
@@ -362,7 +362,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     const ys = (n, i) => (n <= 1 ? C.y : 40 + (i * (H - 90)) / (n - 1)); // 底下留給來源名稱
     const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'dg-svg', role: 'img', 'aria-labelledby': 'dg-title dg-desc' });
     s.append(svg('title', { id: 'dg-title' }, en ? EN.title : '決策圖'),
-      svg('desc', { id: 'dg-desc' }, en ? `Data: ${data.map((d) => `${roleOf(d.role)}${d.value ? ` ${d.value}` : ''}`).join(', ')}. Situation: ${active.map((k) => SL[k]).join(', ') || 'none'}. Options by score: ${ranked.map((o) => `${nameOf(o)} ${o.score}`).join(', ')}.` : `資料：${data.map((d) => `${d.role}${d.value ? ` ${d.value}（${effOf(d)}）` : ''}`).join('、')}；狀態：${active.map((k) => SL[k]).join('、') || '無'}；方案依分數：${ranked.map((o) => `${o.name} ${o.score}`).join('、')}${excluded.length ? `；排除：${excluded.map((o) => `${o.name}（${tagOf(o) === '不要' ? '你說不要' : tagOf(o) === '遲到' ? '會遲到' : o.skipped ? `${tagOf(o)}：${o.why}` : '排除'}）`).join('、')}` : ''}`));
+      svg('desc', { id: 'dg-desc' }, en ? `Data: ${data.map((d) => `${roleOf(d.role)}${d.value ? ` ${d.value}` : ''}`).join(', ')}. Situation: ${active.map((k) => SL[k]).join(', ') || 'none'}. Options by score: ${ranked.map((o) => `${nameOf(o)} ${o.score}`).join(', ')}.` : `資料：${data.map((d) => `${d.role}${d.value ? ` ${d.value}（${effOf(d)}）` : ''}`).join('、')}；狀態：${active.map((k) => SL[k]).join('、') || '無'}；方案依分數：${ranked.map((o) => `${o.name} ${o.score}`).join('、')}${excluded.length ? `；排除：${excluded.map((o) => `${o.name}（${tagOf(o) === '不要' ? '您說不要' : tagOf(o) === '遲到' ? '會遲到' : o.skipped ? `${tagOf(o)}：${o.why}` : '排除'}）`).join('、')}` : ''}`));
     (en ? EN.cols : ['資料', '阿幫', '方案']).forEach((t, i) => s.append(svg('text', { x: [SRC_X, C.x, OPT_X + 4][i], y: 16, class: 'dg-col', 'text-anchor': i === 2 ? 'start' : 'middle' }, t)));
     const edges = svg('g', { class: 'dg-edges' }), nodes = svg('g', { class: 'dg-nodes' });
     s.append(edges, nodes);
@@ -471,7 +471,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       tbl.append(el('thead', null, el('tr', null, el('th', null, ''), el('th', 'win', nameOf(a)), el('th', null, nameOf(b)))),
         el('tbody', null, ...ROWS.map(([k, zh]) => el('tr', null, el('th', null, en ? EN.cmp[k] : zh), el('td', 'win', val(k, a[k])), el('td', null, val(k, b[k]))))));
       d.append(el('p', 'dg-cmp-title', en ? EN.whyOver(nameOf(a), nameOf(b)) : `為什麼選「${a.name}」不選「${b.name}」`),
-        el('p', 'dg-cmp-say', plainDiff(a, b, en) || (en ? EN.same : '兩個差不多，看你習慣')), tbl);
+        el('p', 'dg-cmp-say', plainDiff(a, b, en) || (en ? EN.same : '兩個差不多，看您習慣')), tbl);
     }
     const more = el('details', 'dg-more');
     more.append(el('summary', null, en ? EN.scores : '看分數明細'));

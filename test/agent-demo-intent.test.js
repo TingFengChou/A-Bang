@@ -34,7 +34,7 @@ test('parseIntent：意圖、起訖、路線、狀態', () => {
   assert.deepEqual(c('下雨了，從台北車站去松山車站怎麼走？').states, ['rain']);
   assert.deepEqual(c('今天空氣很差，從台北車站到台北101').states, ['badAir']);
   assert.equal(c('今天天氣如何').intent, 'weather');
-  assert.equal(c('你好').intent, 'unknown');
+  assert.equal(c('您好').intent, 'unknown');
 });
 
 test('parseIntent：生活服務（天氣、空品、地震、藥局、垃圾車、油價、發票）', () => {
@@ -148,17 +148,17 @@ test('生活服務的計畫都能用示範資料執行；沒說地點時用示�
   const r = (await runPlan(svc, demoSteps(ph, NOW))).results;
   assert.ok(r.pharmacy_search[0].data.pharmacies.length > 0, '預設地區有示範藥局');
   assert.match(demoSummary(ph, r), /沒說哪一區.+臺北市中正區/);
-  const near = { ...parseIntent('空氣品質如何', NOW), fromPoint: { name: '你的位置', lat: 25.04, lon: 121.56 } };
+  const near = { ...parseIntent('空氣品質如何', NOW), fromPoint: { name: '您的位置', lat: 25.04, lon: 121.56 } };
   assert.equal(demoSteps(near, NOW).length, 1, '有裝置定位就不查地點');
   assert.doesNotMatch(demoSummary(near, (await runPlan(svc, demoSteps(near, NOW))).results), /沒說在哪/);
 });
 
 test('unknown：回覆可以問的範例', () => {
-  const s = demoSummary(parseIntent('你好'), {}, getProfile().suggestions);
-  assert.match(s, /可以幫你查.+試試看：「/);
+  const s = demoSummary(parseIntent('您好'), {}, getProfile().suggestions);
+  assert.match(s, /可以幫[你您]查.+試試看：「/);
 });
 
-test('以現在位置為起點：只說目的地或地名就是行程；「會下雨嗎」「空氣好嗎」查現在位置；公車沒說站就找離你最近的站', async () => {
+test('以現在位置為起點：只說目的地或地名就是行程；「會下雨嗎」「空氣好嗎」查現在位置；公車沒說站就找離您最近的站', async () => {
   for (const q of ['去台北101', '想省錢，去台北101', '台北101', '帶行李，松山機場', '到松山機場']) {
     const it = parseIntent(q, NOW);
     assert.equal(it.intent, 'trip', q);
@@ -174,7 +174,7 @@ test('以現在位置為起點：只說目的地或地名就是行程；「會�
   const r = results.bus_route_eta[0];
   assert.equal(r.args.near.lat, 25.0478, '帶現在位置');
   assert.ok(r.data.focus?.nearest, '聚焦最近的站');
-  assert.match(r.speak, /^離你最近的是「.+」（約 \d+ 公尺）：307/);
+  assert.match(r.speak, /^離[你您]最近的是「.+」（約 \d+ 公尺）：307/);
 });
 
 test('接著上一輪改交通方式（「改成公車」「我很趕」）：沿用起訖點與狀態，plan_trip 照指定方式選；「不要叫車，改公車」選公車', async () => {
@@ -192,8 +192,8 @@ test('接著上一輪改交通方式（「改成公車」「我很趕」）：�
   const trip = results.plan_trip[0];
   assert.equal(trip.args.prefs.mode, 'bus');
   const best = trip.data.options.find((o) => o.id === trip.data.best);
-  assert.equal(best.role, 'bus', '照你說的選公車');
-  assert.match(trip.data.ranking.reason, /^照你說的選「公車/);
+  assert.equal(best.role, 'bus', '照您說的選公車');
+  assert.match(trip.data.ranking.reason, /^照[你您]說的選「公車/);
   assert.equal(trip.data.mode, 'bus', '前端重算決策圖也照指定方式');
 });
 
@@ -221,7 +221,7 @@ test('規則負面案例：查高鐵、查公車路線、否定、「改天」�
 test('上下文：多輪疊加交通方式與狀態；阿幫問起點後只回地名＝起點；明講的起點（地標庫沒有）不會被定位蓋掉', () => {
   const h = [
     { role: 'user', content: '從西門町到台北101' }, { role: 'assistant', content: '選「叫車」' },
-    { role: 'user', content: '改坐公車' }, { role: 'assistant', content: '照你說的選公車' },
+    { role: 'user', content: '改坐公車' }, { role: 'assistant', content: '照您說的選公車' },
   ];
   const it = parseIntent('我很趕', { ...NOW, history: h });
   assert.deepEqual([it.intent, it.from, it.to, it.mode, it.states.includes('rush')], ['trip', '西門町', '台北101', 'bus', true], '第 2 輪的公車沿用');

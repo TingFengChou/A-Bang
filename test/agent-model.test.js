@@ -79,8 +79,8 @@ async function run(provider, content, body = {}) {
 test('Claude：工具前的文字 → agent_note、工具事件與 decision、最後一輪文字 → text、done 帶 token', async () => {
   reset([
     { text: '@地點 先確認兩個地點', tools: [{ id: 'tu1', name: 'find_place', input: { query: '西門町' } }, { id: 'tu2', name: 'find_place', input: { query: '台北101' } }] },
-    { text: '@行程 幫你比較幾種走法', tools: [{ id: 'tu3', name: 'plan_trip', input: { from: '西門町', to: '台北101' } }] },
-    { text: '建議搭捷運，大約 20 分鐘。要我幫你開導航嗎？' },
+    { text: '@行程 幫您比較幾種走法', tools: [{ id: 'tu3', name: 'plan_trip', input: { from: '西門町', to: '台北101' } }] },
+    { text: '建議搭捷運，大約 20 分鐘。要我幫您開導航嗎？' },
   ]);
   const es = await run(claude(), '從西門町到台北 101 怎麼去？', { userState: { picked: ['budget'], dramaHint: false } }); // 等車推短劇關掉：示範到站時間隨時間變，事件順序才固定（推劇另在 drama.test.js 測）
   // 起訖點都知道 → 程式先比較（plan_trip），想省錢 → 決策選公車 → 阿幫自動盯上車站（L-14：不靠模型記得要查）；
@@ -89,7 +89,7 @@ test('Claude：工具前的文字 → agent_note、工具事件與 decision、�
   assert.deepEqual(types(es), ['status', 'tool_start', 'data_note', 'data_note', 'data_note', 'tool_result', 'decision', 'agent_note', 'tool_start', 'tool_result', 'agent_note', 'tool_start', 'tool_start', 'tool_result', 'tool_result', 'agent_note', 'discussion_end', 'text', 'done']);
   assert.deepEqual(es.filter((e) => e.type === 'data_note').map((e) => e.role), ['天氣', '空品', '路況']);
   assert.ok(es.filter((e) => e.type === 'data_note').every((e) => e.parent === es[1].id && e.impact.text && e.mode === 'demo'));
-  assert.match(es[7].text, /^@公車 你選了公車，我幫你盯/);
+  assert.match(es[7].text, /^@公車 [你您]選了公車，我幫[你您]盯/);
   assert.equal(es[9].tool, 'bus_route_eta');
   assert.equal(es[9].card, 'bus-route');
   assert.ok(es[9].data.focus, '卡片聚焦上車站');
@@ -101,7 +101,7 @@ test('Claude：工具前的文字 → agent_note、工具事件與 decision、�
   // 使用者點選的狀態一律交給 plan_trip（模型沒帶也會補上）
   assert.ok(es.find((e) => e.type === 'tool_result' && e.tool === 'plan_trip').args.prefs.states.includes('budget'));
   assert.ok(es.find((e) => e.type === 'decision').states.some((s) => s.key === 'budget' && s.source === 'picked'));
-  assert.equal(es.at(-2).delta, '建議搭捷運，大約 20 分鐘。要我幫你開導航嗎？');
+  assert.equal(es.at(-2).delta, '建議搭捷運，大約 20 分鐘。要我幫您開導航嗎？');
   assert.deepEqual(es.at(-1).usage, { modelCalls: 3, inputTokens: 300, outputTokens: 60 });
 
   // 請求內容：工具由 registry 產生（無 $schema）、最後一個工具與 system 有快取斷點、回填只有文字摘要
@@ -123,7 +123,7 @@ test('Claude：工具前的文字 → agent_note、工具事件與 decision、�
 test('Claude：工具錯誤與不在白名單 → tool_result ok=false，回填 is_error，模型再回答', async () => {
   reset([
     { tools: [{ id: 'a', name: 'bus_route_eta', input: {} }, { id: 'b', name: 'metro_stations', input: { system: 'TRTC' } }] },
-    { text: '抱歉，需要你告訴我路線號碼。' },
+    { text: '抱歉，需要您告訴我路線號碼。' },
   ]);
   const es = await run(claude(), '幫我查一下交通'); // 「公車到哪了」缺路線現在由程式先問（ADR-0016），不交給模型
   const rs = es.filter((e) => e.type === 'tool_result');
@@ -132,7 +132,7 @@ test('Claude：工具錯誤與不在白名單 → tool_result ok=false，回填 
   const back = state.reqs[1].messages.at(-1).content;
   assert.ok(back.every((b) => b.is_error === true));
   assert.match(back[1].content, /不能使用 metro_stations/);
-  assert.equal(es.find((e) => e.type === 'text').delta, '抱歉，需要你告訴我路線號碼。');
+  assert.equal(es.find((e) => e.type === 'text').delta, '抱歉，需要您告訴我路線號碼。');
 });
 
 test(`Claude：最多 ${MAX_TOOL_ROUNDS} 輪工具，之後改用固定總結`, async () => {
@@ -146,26 +146,26 @@ test(`Claude：最多 ${MAX_TOOL_ROUNDS} 輪工具，之後改用固定總結`, 
 test('Claude：device_location → client_tool_call 後結束；帶定位重送時把座標回填給模型', async () => {
   const body = { clientTools: ['device_location'] };
   // 沒說起點的行程：程式在問模型之前就先請 App 定位（不靠模型記得呼叫）
-  reset([{ text: '你從哪裡出發？' }]);
+  reset([{ text: '您從哪裡出發？' }]);
   const pre = await run(claude(), '我想去台北101', body);
   assert.deepEqual(types(pre), ['status', 'agent_note', 'client_tool_call', 'done']);
   assert.equal(state.reqs.length, 0, '還沒定位先不問模型');
   // 其他問題由模型自己決定要不要定位
-  reset([{ text: '@定位 先看看你在哪', tools: [{ id: 'loc', name: 'device_location', input: {} }] }]);
+  reset([{ text: '@定位 先看看您在哪', tools: [{ id: 'loc', name: 'device_location', input: {} }] }]);
   const first = await run(claude(), '附近有什麼好玩的', body);
   assert.deepEqual(types(first), ['status', 'agent_note', 'client_tool_call', 'done']);
   assert.equal(first[2].id, 'loc1');
   assert.ok(state.reqs[0].tools.some((t) => t.name === 'device_location'));
 
-  reset([{ tools: [{ id: 'loc', name: 'device_location', input: {} }] }, { text: '你在台北車站附近。' }]);
+  reset([{ tools: [{ id: 'loc', name: 'device_location', input: {} }] }, { text: '您在台北車站附近。' }]);
   const again = await run(claude(), '我想去台北101', { ...body, clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 25.0478, lon: 121.517 } }] });
   assert.ok(!again.some((e) => e.type === 'client_tool_call'));
   const back = state.reqs[1].messages.at(-1).content[0];
-  assert.match(back.content, /你的位置/);
+  assert.match(back.content, /[你您]的位置/);
   assert.match(back.content, /25\.0478/);
 
   // 拒絕定位：回填 is_error，請模型改問起點
-  reset([{ tools: [{ id: 'loc', name: 'device_location', input: {} }] }, { text: '你從哪裡出發呢？' }]);
+  reset([{ tools: [{ id: 'loc', name: 'device_location', input: {} }] }, { text: '您從哪裡出發呢？' }]);
   await run(claude(), '我想去台北101', { ...body, clientToolResults: [{ id: 'loc1', ok: false }] });
   assert.equal(state.reqs[1].messages.at(-1).content[0].is_error, true);
 });
@@ -184,19 +184,19 @@ test('Claude：refusal 與 max_tokens 截斷時不執行工具，給固定說明
 
 test('Claude：API 錯誤往上丟（APIError）；handler 轉成通用錯誤事件、可重試，log 只記錯誤類型', async () => {
   reset([{ status: 500 }]);
-  await assert.rejects(run(claude(), '你好'), (e) => e instanceof Anthropic.APIError && e.status === 500);
+  await assert.rejects(run(claude(), '您好'), (e) => e instanceof Anthropic.APIError && e.status === 500);
 
   reset([{ status: 500 }]);
   const logs = [];
   const h = createAgentHandler({ svc, env: {}, provider: claude(), log: (o) => logs.push(o) });
-  const es = await handle(h, '你好');
+  const es = await handle(h, '您好');
   const err = es.find((e) => e.type === 'error');
   assert.equal(err.retryable, true);
   assert.doesNotMatch(err.message, /boom|500/);
   assert.equal(es.at(-1).type, 'done');
   assert.equal(logs[0].mode, 'claude');
   assert.match(logs[0].error, /500/);
-  assert.ok(!JSON.stringify(logs).includes('你好'), 'log 不記對話內容');
+  assert.ok(!JSON.stringify(logs).includes('您好'), 'log 不記對話內容');
 });
 
 /** 用假的 res 呼叫 handler，回傳事件 */
@@ -208,10 +208,10 @@ async function handle(h, content, opts) {
 }
 
 test('預算：全站每日模型呼叫用完 → 降級示範模式並說明', async () => {
-  reset([{ text: '你好，我是阿幫。' }]);
+  reset([{ text: '您好，我是阿幫。' }]);
   const h = createAgentHandler({ svc, env: { AGENT_DAILY_BUDGET: '1' }, provider: claude() });
   assert.deepEqual(h.mode, { mode: 'claude', model: 'claude-haiku-5-5' });
-  const a = await handle(h, '你好');
+  const a = await handle(h, '您好');
   assert.equal(a[0].mode, 'claude');
   assert.equal(h.usage().modelCalls, 1);
   const b = await handle(h, '307 到哪了？我在臺北車站');
@@ -221,9 +221,9 @@ test('預算：全站每日模型呼叫用完 → 降級示範模式並說明', 
 });
 
 test('預算是全站一份：生活用完，防詐也降級（不是每個 agent 各一份，架構第三輪 #2）', async () => {
-  reset([{ text: '你好，我是阿幫。' }]);
+  reset([{ text: '您好，我是阿幫。' }]);
   const h = createAgentHandler({ svc, env: { AGENT_DAILY_BUDGET: '1' }, provider: claude() });
-  assert.equal((await handle(h, '你好'))[0].mode, 'claude');
+  assert.equal((await handle(h, '您好'))[0].mode, 'claude');
   const b = await handle(h, '這是詐騙嗎？您的包裹地址不完整 http://example.top/x', { agentId: 'antifraud' });
   assert.equal(b[0].mode, 'demo');
   assert.equal(state.reqs.length, 1, '防詐沒有再呼叫模型');
@@ -250,7 +250,7 @@ test('地端：tool_calls 迴圈、<think> 不外露、回填 role=tool、Author
   assert.deepEqual([r1.messages.at(-1).role, r1.messages.at(-1).tool_call_id], ['tool', 'c1']);
   assert.equal(state.headers[0].authorization, 'Bearer local-key');
 
-  reset([{ message: { role: 'assistant', content: '你好' } }]);
+  reset([{ message: { role: 'assistant', content: '您好' } }]);
   await run(local(), '幫我找一個地方');
   assert.equal(state.headers[0].authorization, undefined);
 });
@@ -278,7 +278,7 @@ test('dropNulls：模型送的 null／空字串視為沒給（地端小模型常
 });
 
 test('地端：設定 reasoningEffort 時帶 reasoning_effort（Ollama 的推理模型可關閉思考）', async () => {
-  reset([{ message: { role: 'assistant', content: '你好' } }, { message: { role: 'assistant', content: '你好' } }]);
+  reset([{ message: { role: 'assistant', content: '您好' } }, { message: { role: 'assistant', content: '您好' } }]);
   await run(local({ reasoningEffort: 'none' }), '幫我找一個地方');
   assert.equal(state.reqs[0].reasoning_effort, 'none');
   await run(local(), '幫我找一個地方');
@@ -342,7 +342,7 @@ test('同一輪同一個目的地只出一張行程卡：模型換起點寫法�
 });
 
 test('常用地點附近（「垃圾車幾點會到我家這邊」）：用家的座標先查，不先要定位（P3-2）', async () => {
-  reset([{ text: '你家附近的垃圾車資訊在卡片上。' }]);
+  reset([{ text: '您家附近的垃圾車資訊在卡片上。' }]);
   const home = { lat: 25.0597, lon: 121.5440 };
   const es = await run(claude(), '今天垃圾車幾點會到我家這邊', { client: { location: true }, savedPlaces: { 家: { name: '我家', ...home } } });
   assert.ok(!es.some((e) => e.type === 'client_tool_call'), '不必先定位');

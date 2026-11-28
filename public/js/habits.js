@@ -160,15 +160,15 @@ export function applyStore(value, now = Date.now()) {
   if (kind === 'habit' && HABIT_MODES.includes(b) && (a === 'yes' || a === 'no')) {
     if (a === 'yes') { s.confirmed[b] = now; delete s.declined[b]; } else { s.declined[b] = now; delete s.confirmed[b]; }
     save(s);
-    return a === 'yes' ? { ok: true, habit: habitShare(now), say: `好，以後你沒說條件時，優先推${habitName(b)}。可以在設定撤銷。` } : { ok: true, say: '好，不會因為次數多就優先推。' };
+    return a === 'yes' ? { ok: true, habit: habitShare(now), say: `好，以後您沒說條件時，優先推${habitName(b)}。可以在設定撤銷。` } : { ok: true, say: '好，不會因為次數多就優先推。' };
   }
   if (kind === 'ride' && ['rush', 'luggage', 'lessWalk', 'love', 'depends'].includes(a)) {
     s.ride = a;
     if (RIDE_REASONS[a]) s.usual = [a];
     if (a === 'love') { s.confirmed.ridehail = now; delete s.declined.ridehail; }
     save(s);
-    if (RIDE_REASONS[a]) return { ok: true, say: `記住了：你${USUAL_LABEL[a]}。之後沒說條件、而且會影響建議時，我會先問你一句。可以在設定撤銷。` };
-    return a === 'love' ? { ok: true, habit: habitShare(now), say: '好，以後你沒說條件時，叫車會優先一點。可以在設定撤銷。' } : { ok: true, say: '好，叫車照每次的狀況算，不會再問。' };
+    if (RIDE_REASONS[a]) return { ok: true, say: `記住了：您${USUAL_LABEL[a]}。之後沒說條件、而且會影響建議時，我會先問您一句。可以在設定撤銷。` };
+    return a === 'love' ? { ok: true, habit: habitShare(now), say: '好，以後您沒說條件時，叫車會優先一點。可以在設定撤銷。' } : { ok: true, say: '好，叫車照每次的狀況算，不會再問。' };
   }
   return { ok: false };
 }

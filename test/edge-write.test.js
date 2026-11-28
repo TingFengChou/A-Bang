@@ -42,11 +42,11 @@ test('護欄：多出數字、漏掉關鍵數字、時間被改 → 不用', () 
 });
 
 test('護欄：說已經叫車、訂票、付款（ADR-0011）或投資建議 → 不用', () => {
-  assert.equal(chk(`已經幫你叫好車了！${GOOD}`).reason, 'action');
-  assert.equal(chk(`${GOOD}票我幫你訂好了。`).reason, 'action');
+  assert.equal(chk(`已經幫您叫好車了！${GOOD}`).reason, 'action');
+  assert.equal(chk(`${GOOD}票我幫您訂好了。`).reason, 'action');
   assert.equal(chk(`${GOOD}已付款完成。`).reason, 'action');
   const s = '台積電 11/18 收 2175，漲 5（0.23%）。';
-  assert.deepEqual(checkRewrite('台積電 11/18 收 2175，漲 5（0.23%），建議你可以買進。', { draft: s }), { ok: false, reason: 'guard', detail: 'no-investment-advice' });
+  assert.deepEqual(checkRewrite('台積電 11/18 收 2175，漲 5（0.23%），建議您可以買進。', { draft: s }), { ok: false, reason: 'guard', detail: 'no-investment-advice' });
   // 直接重用伺服器的 L2 護欄（core/output-guards.js），不另寫一份比較窄的規則
   for (const c of ['台積電 11/18 收 2175，漲 5（0.23%），股價應該會漲。', '台積電 11/18 收 2175，漲 5（0.23%），看好後市。', '台積電 11/18 收 2175，漲 5（0.23%），現在可以入手。']) {
     assert.equal(checkRewrite(c, { draft: s }).reason, 'guard', c);
@@ -80,25 +80,25 @@ test('護欄：英文那一輪', () => {
 });
 
 // PR #108 獨立審查的繞過案例（scratchpad/bypass.mjs）：每一個都要擋下來
-const D1 = '選「公車 601」：省 270 元、不用等車。 601 約 4 分後到「民生捷運站(1號出口)」，走過去約 3 分。要我在公車快到站時提醒你嗎？按卡片上的「到站前 3 分提醒我」。';
+const D1 = '選「公車 601」：省 270 元、不用等車。 601 約 4 分後到「民生捷運站(1號出口)」，走過去約 3 分。要我在公車快到站時提醒您嗎？按卡片上的「到站前 3 分提醒我」。';
 const F1 = { intent: 'trip', demo: true, points: ['示範測站現在沒下雨，27°C，接下來 3 小時降雨機率 10%。', '萬華測站 AQI 58，普通，PM2.5 21。', '比了 5 種方式，建議公車 601。'], trip: { departAt: '08:00', best: { name: '公車 601', minutes: 32, cost: 15, arriveAt: '08:32' }, others: [{ name: '叫車（Uber）', minutes: 27, cost: 285, arriveAt: '08:27' }, { name: '捷運（板南線轉淡水信義線）', minutes: 32, cost: 25, arriveAt: '08:32' }], reason: '選「公車 601」：省 270 元、不用等車。' } };
 const DW = '明天 11/23（一） 那一帶有雨，22～28°C，降雨機率 80%，記得帶傘。';
 const DE = 'Take "Bus 601": saves NT$270. It arrives in 4 min at Minsheng MRT, a 3 min walk.';
 const R = (c, draft = D1, facts = F1, lang = 'zh') => checkRewrite(c, { draft, facts, lang });
 
 test('審查：數字＋單位要對得上、順序不能換、其他方案的數字只能用在提到它的那一句', () => {
-  assert.ok(R('搭「公車 601」最划算，省 270 元也不用等；4 分後到「民生捷運站(1號出口)」，走 3 分就到，要不要到站前 3 分提醒你？').ok, '基準（「要不要」是問句不是否定）');
-  assert.deepEqual(R('搭「公車 601」省 4 元；約 270 分後到「民生捷運站(1號出口)」，走 3 分，到站前 3 分提醒你。'), { ok: false, reason: 'number', detail: '4元' }, '數字對調');
-  assert.deepEqual(R('搭「公車 601」要 285 元，省 270 元，4 分後到站，走 3 分，可在到站前 3 分提醒你。'), { ok: false, reason: 'number', detail: '285元' }, '叫車的錢說成公車的');
-  assert.ok(R('搭「公車 601」省 270 元，4 分後到站，走 3 分；叫車要 285 元，到站前 3 分提醒你。').ok, '提到叫車的那一句可以用叫車的錢');
-  assert.equal(R('省 270 元就搭「公車 601」，4 分後到站，走 3 分，到站前 3 分提醒你。').reason, 'order');
+  assert.ok(R('搭「公車 601」最划算，省 270 元也不用等；4 分後到「民生捷運站(1號出口)」，走 3 分就到，要不要到站前 3 分提醒您？').ok, '基準（「要不要」是問句不是否定）');
+  assert.deepEqual(R('搭「公車 601」省 4 元；約 270 分後到「民生捷運站(1號出口)」，走 3 分，到站前 3 分提醒您。'), { ok: false, reason: 'number', detail: '4元' }, '數字對調');
+  assert.deepEqual(R('搭「公車 601」要 285 元，省 270 元，4 分後到站，走 3 分，可在到站前 3 分提醒您。'), { ok: false, reason: 'number', detail: '285元' }, '叫車的錢說成公車的');
+  assert.ok(R('搭「公車 601」省 270 元，4 分後到站，走 3 分；叫車要 285 元，到站前 3 分提醒您。').ok, '提到叫車的那一句可以用叫車的錢');
+  assert.equal(R('省 270 元就搭「公車 601」，4 分後到站，走 3 分，到站前 3 分提醒您。').reason, 'order');
   assert.deepEqual(R('明天 11/28 有雨，22～23°C，降雨機率 80%，帶傘。', DW, { points: [DW] }), { ok: false, reason: 'number', detail: '23°C' }, '日期與溫度對調');
   assert.equal(R('明天 11/23 8點開始下雨，22～28°C，降雨機率 80%，記得帶傘。', DW, { points: [DW] }).reason, 'number');
 });
 
 test('審查：國字、英文數量、時段都算多出來的數字', () => {
-  for (const c of ['搭「公車 601」省 270 元，4 分後到站，走 3 分，大概一小時到；到站前 3 分提醒你。', '搭「公車 601」省 270 元，4 分後到站，走 3 分，半小時內到；到站前 3 分提醒你。',
-    '搭「公車 601」省 270 元，4 分後到站，走 3 分；到站前 3 分提醒你，有事打一一九。', '搭「公車 601」省 270 元，4 分後到站，走 3 分；八成會下雨。到站前 3 分提醒你。']) assert.equal(R(c).reason, 'count', c);
+  for (const c of ['搭「公車 601」省 270 元，4 分後到站，走 3 分，大概一小時到；到站前 3 分提醒您。', '搭「公車 601」省 270 元，4 分後到站，走 3 分，半小時內到；到站前 3 分提醒您。',
+    '搭「公車 601」省 270 元，4 分後到站，走 3 分；到站前 3 分提醒您，有事打一一九。', '搭「公車 601」省 270 元，4 分後到站，走 3 分；八成會下雨。到站前 3 分提醒您。']) assert.equal(R(c).reason, 'count', c);
   assert.equal(R('明天 11/23 八點開始下雨，22～28°C，降雨機率 80%，記得帶傘。', DW, { points: [DW] }).reason, 'count');
   assert.deepEqual(R('明天 11/23 早上會下雨，下午放晴，22～28°C，降雨機率 80%，記得帶傘。', DW, { points: [DW] }), { ok: false, reason: 'time', detail: '早上' });
   for (const c of ['Take Bus 601 to save NT$270; it comes in 4 min, then a 3 min walk, about a two-minute wait.', 'Take Bus 601 to save NT$270; it comes in 4 min, then a 3 min walk. Trip takes one hour.',
@@ -106,14 +106,14 @@ test('審查：國字、英文數量、時段都算多出來的數字', () => {
 });
 
 test('審查：ADR-0011 代辦說法、裸網域、markdown 連結、沒加引號的地名', () => {
-  for (const c of ['已為你預約公車 601，省 270 元，4 分後到，走 3 分，到站前 3 分提醒你。', '公車 601 省 270 元，司機已在路上，4 分後到，走 3 分，到站前 3 分提醒你。', '公車 601 省 270 元，4 分後到，走 3 分，我已經幫你設好到站前 3 分的提醒。', '公車 601 省 270 元，已經幫你安排好，4 分後到，走 3 分，到站前 3 分提醒你。']) assert.equal(R(c).reason, 'action', c);
+  for (const c of ['已為您預約公車 601，省 270 元，4 分後到，走 3 分，到站前 3 分提醒您。', '公車 601 省 270 元，司機已在路上，4 分後到，走 3 分，到站前 3 分提醒您。', '公車 601 省 270 元，4 分後到，走 3 分，我已經幫您設好到站前 3 分的提醒。', '公車 601 省 270 元，已經幫您安排好，4 分後到，走 3 分，到站前 3 分提醒您。']) assert.equal(R(c).reason, 'action', c);
   for (const c of ["Take Bus 601 to save NT$270; it comes in 4 min, then a 3 min walk. I've reserved a seat for you.", 'Take Bus 601 to save NT$270; it comes in 4 min, then a 3 min walk. Your Uber is on its way.']) assert.equal(R(c, DE, {}, 'en').reason, 'action', c);
-  assert.equal(R('公車 601 省 270 元，4 分後到，走 3 分，到站前 3 分提醒你，詳見 bus.gov.tw').reason, 'format');
+  assert.equal(R('公車 601 省 270 元，4 分後到，走 3 分，到站前 3 分提醒您，詳見 bus.gov.tw').reason, 'format');
   assert.equal(R('Take Bus 601 to save NT$270; it comes in 4 min, then a 3 min walk. See evil.example.com', DE, {}, 'en').reason, 'format');
   assert.equal(R('Take Bus 601 to save NT$270; it comes in 4 min, then a 3 min walk. [Pay](javascript:alert)', DE, {}, 'en').reason, 'format');
-  assert.deepEqual(R('搭公車 601 省 270 元，4 分後到板橋站，走 3 分；到站前 3 分可以提醒你。'), { ok: false, reason: 'name', detail: '板橋站' });
-  assert.equal(R('搭公車 601 省 270 元，4 分後到中山捷運站，走 3 分；到站前 3 分可以提醒你。').reason, 'name', '泛稱前面接著沒出現過的字');
-  assert.ok(R('搭公車 601 省 270 元，4 分後到民生捷運站，走 3 分；到站前 3 分可以提醒你。').ok, '資料裡有的站名不加引號也可以');
+  assert.deepEqual(R('搭公車 601 省 270 元，4 分後到板橋站，走 3 分；到站前 3 分可以提醒您。'), { ok: false, reason: 'name', detail: '板橋站' });
+  assert.equal(R('搭公車 601 省 270 元，4 分後到中山捷運站，走 3 分；到站前 3 分可以提醒您。').reason, 'name', '泛稱前面接著沒出現過的字');
+  assert.ok(R('搭公車 601 省 270 元，4 分後到民生捷運站，走 3 分；到站前 3 分可以提醒您。').ok, '資料裡有的站名不加引號也可以');
   assert.deepEqual(R('Take Bus 601 to save NT$270; it comes in 4 min at Banqiao Station, a 3 min walk.', DE, {}, 'en'), { ok: false, reason: 'name', detail: 'Banqiao Station' });
 });
 
@@ -129,8 +129,8 @@ test('審查：提醒或數字前加了否定（意思改反）→ 不用', () =
 });
 
 test('審查：到設定頁的固定字串（常用地點）不能被改寫掉', () => {
-  const d = '你還沒設定「家」在哪裡。到「設定與隱私 → 常用地點」設定後，說「回家」就能直接規劃。';
-  assert.equal(R('你還沒設定家，到設定頁設好後說回家就能規劃。', d, {}).reason, 'keep');
+  const d = '您還沒設定「家」在哪裡。到「設定與隱私 → 常用地點」設定後，說「回家」就能直接規劃。';
+  assert.equal(R('您還沒設定家，到設定頁設好後說回家就能規劃。', d, {}).reason, 'keep');
 });
 
 test('L2 護欄的工具包與 agent profile 一致', () => {
@@ -138,7 +138,7 @@ test('L2 護欄的工具包與 agent profile 一致', () => {
 });
 
 test('護欄：防詐 agent 一律不改寫', () => {
-  const d = '這則訊息有詐騙特徵：要你點連結補運費。先不要照做，有疑問撥 165。';
+  const d = '這則訊息有詐騙特徵：要您點連結補運費。先不要照做，有疑問撥 165。';
   assert.deepEqual(checkRewrite(d, { draft: d, agent: 'antifraud' }), { ok: false, reason: 'agent' });
 });
 
@@ -229,11 +229,11 @@ test('edge：聽不懂時不退回伺服器模型，用 ask 給 2～4 個查得�
   assert.ok(!thanks.some((e) => e.type === 'ask'), '道謝不是聽不懂');
   const web = await run('幫我寫一首關於秋天的詩', { mode: 'demo' }, {});
   assert.ok(!web.some((e) => e.type === 'ask'), '網頁版（沒帶 clientCaps）照舊');
-  assert.match(web.find((e) => e.type === 'text').delta, /^我可以幫你查交通/);
+  assert.match(web.find((e) => e.type === 'text').delta, /^我可以幫[你您]查交通/);
 });
 
 test('edge：防詐 agent 不改寫（照樣送 text，模式不是 edge）', async () => {
-  const es = await run('你的包裹地址不完整，請點 https://tw388.xyz/p 補運費', { profileId: 'antifraud' });
+  const es = await run('您的包裹地址不完整，請點 https://tw388.xyz/p 補運費', { profileId: 'antifraud' });
   assert.equal(es[0].mode, 'demo');
   assert.ok(es.some((e) => e.type === 'text') && !es.some((e) => e.type === 'answer_draft'));
 });
@@ -323,20 +323,20 @@ test('前端：手機改寫通過 → 用改寫；數字被改 → 程式版；�
   assert.match(sent.prompt, /草稿：/);
   assert.equal(sent.lang, 'zh');
   assert.equal(W.writeLine(ok), '這次的回答由手機上的 Gemini Nano 寫。', '只有寫回答、沒有手機判斷');
-  assert.equal(W.writeLine(ok, null, { judged: true }), '手機上的 Gemini Nano 聽懂你的問題，也寫了這次的回答。', '判斷與寫回答合成一行');
+  assert.equal(W.writeLine(ok, null, { judged: true }), '手機上的 Gemini Nano 聽懂您的問題，也寫了這次的回答。', '判斷與寫回答合成一行');
   assert.equal(W.writeLine(ok, 'en', { judged: true }), 'Gemini Nano on your phone understood your question and wrote this answer.');
-  assert.equal(W.writeLine({ ...ok, engine: 'apple' }, null, { judged: true }), '手機上的 Apple Intelligence 聽懂你的問題，也寫了這次的回答。', 'iPhone 照實寫');
+  assert.equal(W.writeLine({ ...ok, engine: 'apple' }, null, { judged: true }), '手機上的 Apple Intelligence 聽懂您的問題，也寫了這次的回答。', 'iPhone 照實寫');
 
   fakeCap({ write: async () => ({ engine: 'gemini-nano', ms: 500, text: GOOD.replace('約 7 分', '約 4 分') }) });
   const bad = await W.edgeWrite(DRAFT, { engine: 'gemini-nano' });
   assert.deepEqual({ by: bad.by, reason: bad.reason, text: bad.text }, { by: 'program', reason: 'check', text: D });
-  assert.equal(W.writeLine(bad, null, { judged: true }), '手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（沒通過檢查）。');
+  assert.equal(W.writeLine(bad, null, { judged: true }), '手機上的 Gemini Nano 聽懂您的問題；回答用阿幫的固定說法（沒通過檢查）。');
   assert.equal(W.writeLine(bad), '這次的回答用阿幫的固定說法（沒通過檢查）。');
 
   fakeCap({ write: () => new Promise((r) => setTimeout(() => r({ engine: 'gemini-nano', text: GOOD }), 200)) });
   const slow = await W.edgeWrite(DRAFT, { engine: 'gemini-nano', timeout: 30 });
   assert.deepEqual({ by: slow.by, reason: slow.reason, text: slow.text }, { by: 'program', reason: 'timeout', text: D });
-  assert.equal(W.writeLine(slow, null, { judged: true }), '手機上的 Gemini Nano 聽懂你的問題；回答用阿幫的固定說法（逾時）。');
+  assert.equal(W.writeLine(slow, null, { judged: true }), '手機上的 Gemini Nano 聽懂您的問題；回答用阿幫的固定說法（逾時）。');
   assert.equal(W.writeLine(slow, 'en', { judged: true }), "Gemini Nano on your phone understood your question; the answer uses Abang's standard wording (timed out).");
   assert.equal(W.writeLine(slow, 'en'), "This answer uses Abang's standard wording (timed out).");
   await new Promise((r) => setTimeout(r, 220));

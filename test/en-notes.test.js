@@ -9,7 +9,7 @@ import { createServices } from '../core/index.js';
 test('enNote：常見說明換英文、@標籤保留、對不上照原文', () => {
   assert.equal(enNote('@地點 先確認「臺北車站」和「台北101」在哪'), '@地點 finding where 臺北車站 and 台北101 are');
   assert.equal(enNote('@天氣 @空品 @路況 看一下外面的狀況'), '@天氣 @空品 @路況 checking weather, air and traffic');
-  assert.equal(enNote('@行程 幫你比較幾種走法'), '@行程 comparing ways to get there');
+  assert.equal(enNote('@行程 幫您比較幾種走法'), '@行程 comparing ways to get there');
   assert.equal(enNote('@公車 307 現在到哪了'), '@公車 where bus 307 is now');
   assert.equal(enNote('@高鐵 台北到左營的班次'), '@高鐵 trains from 台北 to 左營');
   assert.equal(enNote('@股市 看一下大盤收盤'), '@股市 看一下大盤收盤', '沒有英文規則的照原文');

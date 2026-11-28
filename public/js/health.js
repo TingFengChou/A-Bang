@@ -70,7 +70,7 @@ export const HEALTH_WHY = {
   failed: '這次讀不到健康資料；再按一次試試，或確認健康資料的權限。',
 };
 export const HEALTH_DENIED = {
-  android: '你沒有允許阿幫讀取步數和運動時間。要打開的話，按下面的「到 Health Connect 允許」，在 Abang 打開「步數」「運動」。',
+  android: '您沒有允許阿幫讀取步數和運動時間。要打開的話，按下面的「到 Health Connect 允許」，在 Abang 打開「步數」「運動」。',
   ios: '讀不到步數：可能沒有允許。到「健康」App → 右上角頭像 → 隱私權 → App → Abang，打開「步數」與「體能訓練時間」。',
 };
 

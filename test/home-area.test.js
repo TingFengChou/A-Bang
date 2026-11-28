@@ -24,13 +24,13 @@ test('戶政事務所名稱 → 縣市＋區（各種寫法）；六都在最前
   assert.deepEqual(a[0].towns, [{ town: '大安區', lat: 25.0266, lon: 121.5345 }], '同一區只留第一個、座標 4 位小數');
 });
 
-test('手機送預設地區：伺服器叫它「預設地區（X）」，不說成你的位置；回答第一句說清楚、可在設定調整', () => {
+test('手機送預設地區：伺服器叫它「預設地區（X）」，不說成您的位置；回答第一句說清楚、可在設定調整', () => {
   const req = (result) => ({ clientToolResults: [{ id: 'loc1', ok: true, result }] });
   assert.deepEqual(deviceLocation(req({ lat: 25.0266, lon: 121.5345, area: '臺北市大安區' })), { name: '預設地區（臺北市大安區）', lat: 25.0266, lon: 121.5345, area: '臺北市大安區' });
   assert.equal(deviceLocation(req({ lat: 25.03, lon: 121.56 })).name, MY_LOCATION);
   assert.equal(deviceLocation(req({ lat: 25.03, lon: 121.56, area: '<b>x</b>' })).name, MY_LOCATION, '只收中文區名');
-  assert.equal(withHomeArea('選「捷運」。', '臺北市大安區'), '未取得目前位置，先依你設定的預設地區（臺北市大安區）查詢；隨時可在設定調整。選「捷運」。');
-  assert.equal(withHomeArea('（依你設定的預設地區推估在「臺北市大安區」）', '臺北市大安區'), '（依你設定的預設地區推估在「臺北市大安區」）', '已經說了就不重複');
+  assert.equal(withHomeArea('選「捷運」。', '臺北市大安區'), '未取得目前位置，先依您設定的預設地區（臺北市大安區）查詢；隨時可在設定調整。選「捷運」。');
+  assert.equal(withHomeArea('（依您設定的預設地區推估在「臺北市大安區」）', '臺北市大安區'), '（依您設定的預設地區推估在「臺北市大安區」）', '已經說了就不重複');
   assert.equal(withHomeArea('選「捷運」。', undefined), '選「捷運」。');
 });
 
@@ -39,5 +39,5 @@ test('規則模式：拒絕定位但有預設地區，行程從那一區出發�
   await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: '去台北101' }], clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 25.0266, lon: 121.5345, area: '臺北市大安區' } }] }, (e) => es.push(e), { now: Date.parse('2026-11-28T10:00:00+08:00') });
   const trip = es.find((e) => e.type === 'tool_result' && (e.tool || e.name) === 'plan_trip');
   assert.equal(trip?.data?.from?.name, '預設地區（臺北市大安區）');
-  assert.match(es.filter((e) => e.type === 'text').map((e) => e.delta).join(''), /^未取得目前位置，先依你設定的預設地區（臺北市大安區）查詢/);
+  assert.match(es.filter((e) => e.type === 'text').map((e) => e.delta).join(''), /^未取得目前位置，先依[你您]設定的預設地區（臺北市大安區）查詢/);
 });

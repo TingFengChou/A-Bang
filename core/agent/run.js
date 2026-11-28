@@ -84,9 +84,9 @@ export const MAX_TOOL_ROUNDS = 5;
 export const AUX_TOOLS = new Set(['weather_now', 'weather_tomorrow', 'aqi_nearby', 'traffic_status']);
 /** 裝置定位的 client tool 呼叫 id（客戶端回傳 clientToolResults 時用同一個 id） */
 export const LOCATION_CALL_ID = 'loc1';
-export const MY_LOCATION = '你的位置';
+export const MY_LOCATION = '您的位置';
 /** 用了預設地區（T-HOMEAREA，Antigravity 第八輪的文案）：回答第一句先說，地名要露出來、說可以改 */
-export const homeAreaNote = (area, en = false) => (en ? `No location access, so I used your default area (${area}); you can change it in Settings. ` : `未取得目前位置，先依你設定的預設地區（${area}）查詢；隨時可在設定調整。`);
+export const homeAreaNote = (area, en = false) => (en ? `No location access, so I used your default area (${area}); you can change it in Settings. ` : `未取得目前位置，先依您設定的預設地區（${area}）查詢；隨時可在設定調整。`);
 /** 目的地是一整個區（行政區的代表點是戶政事務所，第十一輪）：回答最後補一句，說了更準的地點再算（Antigravity：代表點不一定在交通樞紐旁） */
 export function withApproxNote(text, trip, en = false) {
   const to = trip?.to?.name || '';
@@ -194,7 +194,7 @@ export function busFollowUp(trip, now = Date.now()) {
   if (laterTrip(trip, now)) return null; // 明天或一小時以後才出發：現在的即時到站沒意義，也不問要不要提醒（PM 第二輪審查）
   return {
     walkMin: f.walkMin ?? null,
-    note: `@公車 你選了公車，我幫你盯 ${f.routeName} 在「${f.stop}」的到站`,
+    note: `@公車 您選了公車，我幫您盯 ${f.routeName} 在「${f.stop}」的到站`,
     args: { city: f.city, routeName: f.routeName, stop: f.stop, ...(f.direction != null && { direction: f.direction }) },
   };
 }
@@ -454,7 +454,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
   if ((plan.needsLocation(it) || localPick) && req.clientTools?.includes('device_location')) {
     const loc = deviceLocation(req);
     if (loc === undefined) {
-      emit(ev.agentNote(it.lang === 'en' ? '@定位 checking where you are' : '@定位 先看看你在哪裡'));
+      emit(ev.agentNote(it.lang === 'en' ? '@定位 checking where you are' : '@定位 先看看您在哪裡'));
       emit(ev.clientToolCall({ id: LOCATION_CALL_ID, name: 'device_location' }));
       emit(ev.done());
       return;
@@ -462,7 +462,7 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
     if (loc) { it.fromPoint = loc; localStations(it, last, loc); } // 拒絕定位或無效時，照示範預設起點（總結會說明）；「桃園」人在桃園市區＝桃園車站（z11）
     else it.noLocation = true; // 總結說「沒拿到你的位置」（不是「你沒說」）
   }
-  if (it.toHere && !it.toSaved && it.fromPoint) { it.toSaved = { lat: it.fromPoint.lat, lon: it.fromPoint.lon, name: it.lang === 'en' ? 'your location' : '你的位置' }; it.to = it.toSaved.name; } // 回程回到你現在的位置（PM 第三輪 #3）
+  if (it.toHere && !it.toSaved && it.fromPoint) { it.toSaved = { lat: it.fromPoint.lat, lon: it.fromPoint.lon, name: it.lang === 'en' ? 'your location' : '您的位置' }; it.to = it.toSaved.name; } // 回程回到你現在的位置（PM 第三輪 #3）
   if (it.metroTo && !it.toSaved) { const p = await metroPoint(svc, it.metroTo, it.fromPoint); if (p) { it.toSaved = p; it.to = p.name; } } // 「去大安站」：捷運站的座標
   // 沒有位置、預設起點又就在目的地旁邊（< 300 公尺；去最近的火車站也是從預設起點找，一樣會是同一站）：不算「臺北車站到臺北車站」，問從哪裡出發。
   // 上一輪已經問過、這一輪定位又失敗（按了「用我的位置」但拿不到）：不再給「用我的位置」，避免一直重複

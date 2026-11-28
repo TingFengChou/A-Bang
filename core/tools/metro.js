@@ -48,7 +48,7 @@ export const metroLiveBoard = defineTool({
     if (d.nearest) {
       // 用預設地點（沒拿到位置）時不說「離你」；地點就是那一站時不重複（「臺北車站」→ 台北車站）
       const same = d.nearest.from && normName(d.nearest.from).replace(/站$/, '') === normName(d.station).replace(/站$/, '');
-      const who = !d.nearest.from ? `離你最近的是${d.station}（約 ${fmtM(d.nearest.distanceM)}）` : same ? d.station.replace(/(?<!站)$/, '站') : `離「${d.nearest.from}」最近的是${d.station}（約 ${fmtM(d.nearest.distanceM)}）`;
+      const who = !d.nearest.from ? `離您最近的是${d.station}（約 ${fmtM(d.nearest.distanceM)}）` : same ? d.station.replace(/(?<!站)$/, '站') : `離「${d.nearest.from}」最近的是${d.station}（約 ${fmtM(d.nearest.distanceM)}）`;
       return train ? `${who}：${train}。` : `${who}目前沒有即時到站資料。`;
     }
     if (!t) return `${d.station}目前沒有即時到站資料。`;
@@ -57,7 +57,7 @@ export const metroLiveBoard = defineTool({
   async run(svc, a) {
     const line = lineCode(a.line);
     const near = !a.station && a.near ? await nearestMetro(svc, await resolvePoint(svc.places, a.near), a.system, line) : null;
-    if (!a.station && !near) throw new UserError(a.near ? `你附近 3 公里內沒有${a.line ? `${a.line}的` : ''}捷運站；請告訴我站名，例如「市政府站下一班」` : '請告訴我哪一站，例如「市政府站下一班」');
+    if (!a.station && !near) throw new UserError(a.near ? `您附近 3 公里內沒有${a.line ? `${a.line}的` : ''}捷運站；請告訴我站名，例如「市政府站下一班」` : '請告訴我哪一站，例如「市政府站下一班」');
     // 只給站名沒給系統：在各系統的站名裡找（台北優先；有位置時找離他近的那個系統），不預設台北（「美麗島」是高雄捷運，S5）
     const sys = near ? near.system : a.system || await systemOfStation(svc, a.station, a.near ? await resolvePoint(svc.places, a.near).catch(() => null) : null);
     const raw = await svc.metro.liveBoard({ system: sys, station: near ? near.station : a.station, ...(a.last && { last: true }) });

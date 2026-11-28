@@ -18,11 +18,11 @@ const busHref = (city, route, stop, dir, lang) => `#/bus/${encodeURIComponent(ci
 export function reminderItems({ arrival = null, alight = null, leave = [], now = Date.now() } = {}) {
   const out = [];
   if (alight?.routeName && alight.dest) {
-    out.push({ kind: 'alight', id: 'alight', ref: reminderRef({ kind: 'alight', routeName: alight.routeName, stop: alight.dest }), title: `${alight.routeName} 下車提醒`, sub: `快到「${alight.dest}」前約 2 分提醒你${alight.board ? `・從「${alight.board}」上車` : ''}`,
+    out.push({ kind: 'alight', id: 'alight', ref: reminderRef({ kind: 'alight', routeName: alight.routeName, stop: alight.dest }), title: `${alight.routeName} 下車提醒`, sub: `快到「${alight.dest}」前約 2 分提醒您${alight.board ? `・從「${alight.board}」上車` : ''}`,
       href: alight.city ? busHref(alight.city, alight.routeName, alight.board, alight.direction, alight.lang) : undefined, cancelLabel: `取消 ${alight.routeName} 的下車提醒` });
   }
   if (arrival?.routeName && arrival.stop) {
-    out.push({ kind: 'arrival', id: 'arrival', ref: reminderRef({ kind: 'arrival', routeName: arrival.routeName, stop: arrival.stop }), title: `${arrival.routeName} 到站提醒`, sub: `公車到「${arrival.stop}」前 ${arrival.minutes} 分提醒你`,
+    out.push({ kind: 'arrival', id: 'arrival', ref: reminderRef({ kind: 'arrival', routeName: arrival.routeName, stop: arrival.stop }), title: `${arrival.routeName} 到站提醒`, sub: `公車到「${arrival.stop}」前 ${arrival.minutes} 分提醒您`,
       href: arrival.city ? busHref(arrival.city, arrival.routeName, arrival.stop, arrival.direction, arrival.lang) : undefined, cancelLabel: `取消 ${arrival.routeName} 的到站提醒` });
   }
   for (const r of [...(leave || [])].filter((x) => x && x.at > now).sort((a, b) => a.at - b.at)) {

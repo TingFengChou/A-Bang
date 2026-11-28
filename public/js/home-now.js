@@ -13,8 +13,8 @@ import { EDGE_ENGINE_NAME, EDGE_REASON } from './edge-judge.js';
  */
 export function edgeLine(st, enabled = true) {
   if (!st) return { tone: 'wait', label: '手機上的 AI', text: '檢查中…' };
-  if (st.available && enabled) return { tone: 'on', label: `手機上的 AI・${EDGE_ENGINE_NAME[st.engine] || '手機內建模型'}`, text: '先在手機上聽懂你要做什麼，判斷留在手機' };
-  if (st.available) return { tone: 'off', label: '手機上的 AI・已關閉', text: '你關掉了，現在由阿幫伺服器判斷' };
+  if (st.available && enabled) return { tone: 'on', label: `手機上的 AI・${EDGE_ENGINE_NAME[st.engine] || '手機內建模型'}`, text: '先在手機上聽懂您要做什麼，判斷留在手機' };
+  if (st.available) return { tone: 'off', label: '手機上的 AI・已關閉', text: '您關掉了，現在由阿幫伺服器判斷' };
   if (st.reason === 'web') return { tone: 'off', label: '網頁版', text: '由阿幫伺服器判斷；手機 App 可以用手機上的 AI' };
   if (st.reason === 'downloading' || st.reason === 'needs-wifi') return { tone: 'off', label: '手機上的 AI・準備中', text: `${EDGE_REASON[st.reason]}，先由阿幫伺服器判斷` };
   return { tone: 'off', label: '手機上的 AI・不能用', text: `${EDGE_REASON[st.reason] || '目前不能使用'}，由阿幫伺服器判斷` };
@@ -60,7 +60,7 @@ export async function loadNow({ callTool, granted, locate, fallback, fallbackNam
   if (peekNow(now) && (cache.located || !ok) && (cache.located || cache.fb === fallbackName)) return cache.v; // 預設地區換了：不沿用舊地區的天氣
   let pos = null;
   try { if (ok) pos = await locate(); } catch { pos = null; }
-  const place = pos ? '你附近' : fallbackName; // 沒定位：有預設地區就用那一區（T-HOMEAREA），不然台北車站附近
+  const place = pos ? '您附近' : fallbackName; // 沒定位：有預設地區就用那一區（T-HOMEAREA），不然台北車站附近
   const p = pos || fallback;
   const get = (name, extra = {}) => callTool(name, { lat: p.lat, lon: p.lon, ...extra }).then((r) => r?.data || null, () => null);
   // 今天上不上班（「今天」卡：補班日、連假）：辦公日曆在 gov_office_nearby 的 today；查不到就照星期推

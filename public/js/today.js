@@ -86,7 +86,7 @@ export function todayPlan({ now = Date.now(), day = null, weather = null, aqi = 
   const home = !!places['家'];
   const dest = places['公司'] ? '公司' : places['學校'] ? '學校' : null;
   const tier = home && dest ? 'commute' : 'light';
-  const where = located ? '你附近' : area ? `${area.county}${area.town}` : '台北車站附近';
+  const where = located ? '您附近' : area ? `${area.county}${area.town}` : '台北車站附近';
   // 回家的按鈕：有定位從現在的位置；沒定位但設了公司就寫「從公司回家」（看得出起點，第十五輪 Antigravity）
   const homeAct = () => (!located && places['公司'] && kind.work
     ? { label: '從公司回家怎麼走', href: ask('從公司回家怎麼走？'), primary: true }
@@ -122,9 +122,9 @@ export function todayPlan({ now = Date.now(), day = null, weather = null, aqi = 
     lead = w.wet ? '午後出門記得帶傘。' : '要出門的話，先問我怎麼去。';
     acts.push({ label: w.wet ? '出門要帶傘嗎' : '出門要注意什麼', href: ask(w.wet ? '今天出門要帶傘嗎？' : '出門要注意什麼？'), primary: true });
   }
-  if (tier === 'light' && acts.length < 2) acts.push({ label: '設家和公司，每天幫你看怎麼去', href: '#/settings' });
+  if (tier === 'light' && acts.length < 2) acts.push({ label: '設家和公司，每天幫您看怎麼去', href: '#/settings' });
 
   const keys = ['家', '公司', '學校'].filter((k) => places[k]);
-  const basis = ['依據：', located ? '你的位置' : area ? `${area.county}${area.town}` : '台北車站附近', keys.length ? `・${keys.join('、')}` : '', kind.known ? '・辦公日曆' : ''].join('');
+  const basis = ['依據：', located ? '您的位置' : area ? `${area.county}${area.town}` : '台北車站附近', keys.length ? `・${keys.join('、')}` : '', kind.known ? '・辦公日曆' : ''].join('');
   return { show: true, tier, date, kind, say: `${greetOf(hour)}！${lead}${loading ? '我在看天氣…' : ''}`, tips: w.tips, acts: acts.slice(0, 2), basis };
 }

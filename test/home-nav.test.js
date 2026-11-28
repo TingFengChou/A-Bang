@@ -38,7 +38,7 @@ test('提醒清單：坐車中 → 等車中 → 出門提醒（依時間、過�
   assert.deepEqual(items.map((x) => x.kind), ['alight', 'arrival', 'leave', 'leave']);
   assert.deepEqual(items.map((x) => x.id), ['alight', 'arrival', 'a', 'b']);
   assert.equal(items[0].title, '601 下車提醒');
-  assert.match(items[0].sub, /快到「市府」前約 2 分提醒你・從「民生」上車/);
+  assert.match(items[0].sub, /快到「市府」前約 2 分提醒[你您]・從「民生」上車/);
   assert.equal(items[1].href, `#/bus/Taipei/307?stop=${encodeURIComponent('敦化市場')}&dir=0`);
   assert.equal(items[2].title, '今天 08:30 出門提醒');
   assert.equal(items[2].sub, '捷運', '去掉「該出門了：」');
@@ -63,10 +63,10 @@ test('手機上的 AI：可用說引擎、判斷留在手機；不可用、網�
 });
 
 test('現在：天氣、空品、提醒；查不到的那格不出現、提醒一定有；離線說離線', () => {
-  const full = nowItems({ weather: { tempC: 22.6, pop3h: 30, raining: false }, aqi: { nearest: { aqi: 58, status: '普通' } }, next: { title: '307 到站提醒', sub: 'x' }, place: '你附近' });
+  const full = nowItems({ weather: { tempC: 22.6, pop3h: 30, raining: false }, aqi: { nearest: { aqi: 58, status: '普通' } }, next: { title: '307 到站提醒', sub: 'x' }, place: '您附近' });
   assert.deepEqual(full.map((x) => x.id), ['weather', 'aqi', 'reminder']);
   assert.equal(full[0].main, '23°C');
-  assert.equal(full[0].sub, '降雨 30%・你附近');
+  assert.equal(full[0].sub, '降雨 30%・您附近');
   assert.equal(full[1].main, 'AQI 58');
   assert.equal(nowItems({ weather: { tempC: 20, rainMm1h: 2 } })[0].sub, '正在下雨');
   assert.deepEqual(nowItems({}).map((x) => [x.id, x.main]), [['reminder', '沒有提醒']]);
@@ -100,9 +100,9 @@ test('現在：沒給定位不問權限（用台北車站附近並寫明）；�
   assert.equal(calls.length, 0);
   // 之後允許了定位：用台北車站的快取作廢，改查你附近
   const mine = await loadNow(deps(true), 4000);
-  assert.equal(mine.place, '你附近');
+  assert.equal(mine.place, '您附近');
   assert.equal(located, 1);
-  assert.equal(await loadNow(deps(true), 5000), mine, '用你的位置查的快取：照用');
+  assert.equal(await loadNow(deps(true), 5000), mine, '用您的位置查的快取：照用');
   assert.equal(peekNow(4000 + 10 * 60_000 + 1), null, '過 10 分鐘失效');
 });
 

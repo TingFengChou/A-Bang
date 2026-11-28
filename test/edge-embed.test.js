@@ -31,10 +31,10 @@ test('judgeFromDevice：系統模型是 device；小模型被當作嵌入分類�
 });
 
 test('回答上方那一行：小模型被採用／沒被採用', () => {
-  assert.equal(deviceLine({ sent: { engine: 'e5' }, judge: { source: 'embed', engine: 'e5' } }), '阿幫先在手機上用小模型聽懂你要做什麼。');
+  assert.equal(deviceLine({ sent: { engine: 'e5' }, judge: { source: 'embed', engine: 'e5' } }), '阿幫先在手機上用小模型聽懂您要做什麼。');
   assert.equal(deviceLine({ sent: { engine: 'e5' }, judge: { source: 'embed' } }), '手機上的小模型先聽了一遍；這一輪以伺服器的判斷為準。');
   assert.equal(deviceLine({ sent: { engine: 'e5' }, judge: { source: 'embed', engine: 'e5' } }, 'en'), "Abang first worked out what you want on your phone with Abang's small model.");
-  assert.equal(deviceLine({ sent: { engine: 'apple' }, judge: { source: 'device', engine: 'apple' } }), '阿幫先在手機上用 Apple Intelligence 聽懂你要做什麼。');
+  assert.equal(deviceLine({ sent: { engine: 'apple' }, judge: { source: 'device', engine: 'apple' } }), '阿幫先在手機上用 Apple Intelligence 聽懂您要做什麼。');
 });
 
 test('設定頁那一列：每個狀態的字與按鈕', () => {

@@ -113,7 +113,7 @@ test('每一句規則都是阿幫查得到的（parseIntent），規則帶的意
       for (const saved of [[], ['家', '公司']]) {
         ctxs.push(suggestContext({ now: at(hhmm, day), saved }));
         ctxs.push(suggestContext({ now: at(hhmm, day), saved, turns: [turn('從西門町到台北101怎麼去？', [trip(), weather(true)])] }));
-        ctxs.push(suggestContext({ now: at(hhmm, day), saved, turns: [turn('去台北101', [trip({ from: { name: '你的位置' }, best: 'bus-601' })])] }));
+        ctxs.push(suggestContext({ now: at(hhmm, day), saved, turns: [turn('去台北101', [trip({ from: { name: '您的位置' }, best: 'bus-601' })])] }));
         ctxs.push(suggestContext({ now: at(hhmm, day), saved, watching: { routeName: '307', stop: '捷運西門站' }, page: { kind: 'bus', route: '307', stop: '捷運西門站' } }));
         for (const kind of ['weather', 'aqi', 'metro', 'rail', 'nearby']) ctxs.push(suggestContext({ now: at(hhmm, day), saved, page: { kind } }));
         ctxs.push(suggestContext({ now: at(hhmm, day), turns: [turn('How do I get to Taipei 101?', [trip()], { lang: 'en' })] }));
@@ -351,7 +351,7 @@ test('審查 2：夾帶網址、網域、帳號、加 LINE、匯款、座標的�
   // 所有規則句都過得了驗證（不會被誤擋）
   const qs = new Set();
   for (const hhmm of ['03:00', '07:30', '14:00', '18:30', '23:30']) for (const saved of [[], ['家', '公司']]) {
-    for (const turns of [[], [turn('從西門町到台北101怎麼去？', [trip({ weather: { raining: true, pop3h: 90 } })])], [turn('去台北101', [trip({ from: { name: '你的位置' }, best: 'bus-601' })])]]) {
+    for (const turns of [[], [turn('從西門町到台北101怎麼去？', [trip({ weather: { raining: true, pop3h: 90 } })])], [turn('去台北101', [trip({ from: { name: '您的位置' }, best: 'bus-601' })])]]) {
       for (const a of ruleAsks(suggestContext({ now: at(hhmm), saved, turns, watching: { routeName: '307', stop: '捷運西門站' } }))) qs.add(a.q);
     }
   }

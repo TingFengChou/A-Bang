@@ -26,7 +26,7 @@ test('實測：西門町→台北101 沒有狀況推捷運；叫車多 260 元�
   // 會問：「叫車快 5 分但多 260 元，你趕時間嗎？」
   const q = keyQuestion(XIMEN_101, {});
   assert.equal(q.state, 'rush');
-  assert.equal(q.text, '叫車（Uber）快 5 分但多 260 元，你趕時間嗎？');
+  assert.equal(q.text, '叫車（Uber）快 5 分但多 260 元，您趕時間嗎？');
 });
 
 test('有理由才推叫車：趕時間、帶行李、少走路、長輩、小孩、行動不便、下雨、空品不佳 → 叫車（照權重，與 2026-11-21 相同）', () => {
@@ -37,7 +37,7 @@ test('有理由才推叫車：趕時間、帶行李、少走路、長輩、小�
     assert.equal(r.ranked[0].breakdown.premium, undefined, `${k}：不扣分`);
     assert.match(r.reason, new RegExp(`因為${STATES[k].say}`), k);
   }
-  assert.match(decide(XIMEN_101, { states: ['rush'] }).reason, /^選「叫車（Uber）」：因為你趕時間，比捷運 板南線快 5 分/);
+  assert.match(decide(XIMEN_101, { states: ['rush'] }).reason, /^選「叫車（Uber）」：因為[你您]趕時間，比捷運 板南線快 5 分/);
 });
 
 test('不是叫車的理由：塞車中、想省錢、可能下雨、多人同行照樣檢查划不划算', () => {
@@ -82,7 +82,7 @@ test('指定方式、說不要、偏好：叫車照使用者的；使用者同�
   assert.ok(noMetro.ranked.find((o) => o.id === 'bike').breakdown.tooLong < 0);
   const liked = decide(XIMEN_101, { habit: { ridehail: 1 } });
   assert.equal(liked.best.id, 'ridehail');
-  assert.match(liked.reason, /你想優先叫車/);
+  assert.match(liked.reason, /[你您]想優先叫車/);
 });
 
 test('體感時間：走路、等車算 2 倍、每轉乘一次多 5 分（分段或捷運轉乘）', () => {
@@ -154,7 +154,7 @@ test('理由用字（PM 第二輪 #6）：前兩名只差一點點提第二名�
   const opt = (id, role, name, minutes, cost, extra = {}) => ({ id, role, name, minutes, cost, waitMin: 0, walkMin: 3, exposure: 0, effort: 0.3, delayRisk: role === 'bus' ? 0.3 : 0, legs: [], ...extra });
   const r = decide([opt('m', 'metro', '捷運', 25, 25), opt('b', 'bus', '公車', 25, 15)], {});
   const [a, b] = r.ranked;
-  if (a.score - b.score < 2) assert.match(r.reason, /也差不多，看你習慣/);
+  if (a.score - b.score < 2) assert.match(r.reason, /也差不多，看[你您]習慣/);
   const bus = decide([opt('b', 'bus', '公車 601', 20, 15), opt('w', 'walk', '步行', 60, 0, { walkMin: 60, waitMin: 0, exposure: 1, effort: 1 })], {});
   assert.doesNotMatch(bus.reason, /不用等車/);
 });

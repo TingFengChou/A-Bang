@@ -21,20 +21,20 @@ export const CRITERIA = [
 /** 使用者狀態：顯示名稱與對權重的影響（倍數） */
 export const STATES = {
   // reason：本身就是叫車的理由（產品負責人：趕時間、帶行李、行動不便、下雨…）；有這種狀態時不做「花錢換時間要划算」的檢查（VALUE_OF_TIME），照權重
-  rush: { label: '趕時間', say: '你趕時間', boost: { minutes: 2, waitMin: 1.5, delayRisk: 2 }, reason: true },
+  rush: { label: '趕時間', say: '您趕時間', boost: { minutes: 2, waitMin: 1.5, delayRisk: 2 }, reason: true },
   traffic: { label: '塞車中', say: '路上正在塞車', boost: { delayRisk: 6, minutes: 1.2 } },
   rain: { label: '下雨', say: '正在下雨', boost: { exposure: 13, walkMin: 1.5 }, reason: true },
-  luggage: { label: '帶行李', say: '你帶著行李', boost: { effort: 8 }, reason: true },
-  budget: { label: '想省錢', say: '你想省錢', boost: { cost: 3 } }, // ×5 時「想省錢」會推走路 100 分鐘（2026-11-21 權重調整）
-  lessWalk: { label: '少走路', say: '你想少走路、輕鬆一點', boost: { walkMin: 1.5, effort: 6 }, reason: true },
+  luggage: { label: '帶行李', say: '您帶著行李', boost: { effort: 8 }, reason: true },
+  budget: { label: '想省錢', say: '您想省錢', boost: { cost: 3 } }, // ×5 時「想省錢」會推走路 100 分鐘（2026-11-21 權重調整）
+  lessWalk: { label: '少走路', say: '您想少走路、輕鬆一點', boost: { walkMin: 1.5, effort: 6 }, reason: true },
   // 空品不佳（AQI > 100，對敏感族群不健康以上）：少待戶外、少做費力的騎車與長距離步行（M10）
   badAir: { label: '空品不佳', say: '空氣品質不佳', boost: { exposure: 10, effort: 4 }, reason: true },
   // 同行者與行動能力（A1，2026-11-21）：exclude＝不適合的方式直接排除（原因寫明）
-  elder: { label: '帶長輩', say: '你帶著長輩', boost: { walkMin: 2, effort: 6, waitMin: 1.3 }, exclude: ['bike'], reason: true },
-  kids: { label: '帶小孩', say: '你帶著小孩', boost: { walkMin: 1.5, effort: 6 }, exclude: ['bike'], reason: true },
-  mobility: { label: '行動不便', say: '你行動不便', boost: { walkMin: 3, effort: 8 }, exclude: ['bike', 'walk'], reason: true },
+  elder: { label: '帶長輩', say: '您帶著長輩', boost: { walkMin: 2, effort: 6, waitMin: 1.3 }, exclude: ['bike'], reason: true },
+  kids: { label: '帶小孩', say: '您帶著小孩', boost: { walkMin: 1.5, effort: 6 }, exclude: ['bike'], reason: true },
+  mobility: { label: '行動不便', say: '您行動不便', boost: { walkMin: 3, effort: 8 }, exclude: ['bike', 'walk'], reason: true },
   // 第二批（A1b，2026-11-21）：都由程式自動判斷（plan_trip 依 prefs.party、天氣預報），不靠模型
-  group: { label: '多人同行', say: '你們好幾個人一起', boost: { effort: 2.6 } }, // 叫車車資已換成每人分攤（trip.js），這裡只略看重好不好帶隊
+  group: { label: '多人同行', say: '好幾個人一起同行', boost: { effort: 2.6 } }, // 叫車車資已換成每人分攤（trip.js），這裡只略看重好不好帶隊
   rainSoon: { label: '可能下雨', say: '等一下可能下雨', boost: { exposure: 7 } }, // 現在沒下、3 小時降雨機率 ≥ 60%
 };
 
@@ -117,7 +117,7 @@ export function decide(options, ctx = {}) {
   const avoid = new Set(ctx.avoid || []);
   const pool = options.filter((o) => {
     if (avoid.has(o.role)) {
-      excluded.push({ ...o, why: `你說不要${MODE_NAME[o.role] || o.name}` });
+      excluded.push({ ...o, why: `您說不要${MODE_NAME[o.role] || o.name}` });
       return false;
     }
     // 狀態不適合的方式（帶長輩不騎 YouBike…）；使用者明講要這種方式時照他選（理由補一句提醒）
@@ -236,13 +236,13 @@ export function decide(options, ctx = {}) {
     const top = ranked[0];
     const note = picked === top ? '' : `（分數 ${picked.score}；分數最高的是${top.name} ${top.score}）`;
     const careful = states.find((k) => STATES[k].exclude?.includes(ctx.mode));
-    return { weights, ranked, excluded, best: picked, mode: ctx.mode, reason: `照你說的選「${picked.name}」${note}。${careful ? `${STATES[careful].label}要多注意安全。` : ''}` };
+    return { weights, ranked, excluded, best: picked, mode: ctx.mode, reason: `照您說的選「${picked.name}」${note}。${careful ? `${STATES[careful].label}要多注意安全。` : ''}` };
   }
   const best = ranked[0] || null;
   const reason = explain(best, ranked[1], states, excluded, ranked);
   if (habitOn) return { weights, ranked, excluded, best, reason, habitOn };
   // 指定的交通方式沒有可行方案：照分數建議，但要明說（使用者才不會以為已經改成功）
-  if (ctx.mode) return { weights, ranked, excluded, best, modeUnavailable: ctx.mode, reason: `${MODE_NAME[ctx.mode] || '你指定的方式'}這次沒有可行的方案；${reason}` };
+  if (ctx.mode) return { weights, ranked, excluded, best, modeUnavailable: ctx.mode, reason: `${MODE_NAME[ctx.mode] || '您指定的方式'}這次沒有可行的方案；${reason}` };
   return { weights, ranked, excluded, best, reason };
 }
 
@@ -255,11 +255,11 @@ function explain(best, second, states, excluded, ranked = []) {
     const said = excluded.some((e) => !e.why.includes('超過')), late = excluded.some((e) => e.why.includes('超過'));
     // 行動不便時沒有可行方案（短程只有步行、YouBike，或叫車被說不要）：主動建議叫車／無障礙計程車
     const help = excluded.some((e) => e.why.startsWith('行動不便')) ? '可以叫車，或預約各縣市的無障礙計程車（復康巴士）。' : '';
-    return (said && late ? '排除不適合或你說不要的方式後，其他方案都會遲到。' : late ? '所有方案都趕不上指定時間。' : said ? '排除不適合或你說不要的方式後，沒有其他可行的方案。' : '沒有可比較的方案。') + help;
+    return (said && late ? '排除不適合或您說不要的方式後，其他方案都會遲到。' : late ? '所有方案都趕不上指定時間。' : said ? '排除不適合或您說不要的方式後，沒有其他可行的方案。' : '沒有可比較的方案。') + help;
   }
   const why = [];
   if (states.length) why.push(`因為${states.map((s) => STATES[s].say).join('、')}`);
-  const often = habitFlipped(best, ranked) ? [`你想優先${HABIT_DO[best.role] || `選${best.name}`}`] : []; // 只有拿掉偏好加分會換第一名時才說（否則不是因為偏好）
+  const often = habitFlipped(best, ranked) ? [`您想優先${HABIT_DO[best.role] || `選${best.name}`}`] : []; // 只有拿掉偏好加分會換第一名時才說（否則不是因為偏好）
   if (second?.notWorth?.vs === best.id) {
     // 叫車多付的錢換不到夠多的時間（VALUE_OF_TIME）：照實說省多少錢、慢多少（或沒比較慢）
     const slower = effMinutes(best) - effMinutes(second);
@@ -279,10 +279,10 @@ function explain(best, second, states, excluded, ranked = []) {
     const top = diffs.filter((x) => x.d > 0.01).slice(0, 2).map((x) => PHRASE[x.c.key](best, second, states));
     if (often.length || top.length) why.push([...often, ...top].join('、'));
     // 一般比較、只差一點點：不要讓人以為第二名差很多（PM 第二輪 #6）；叫車讓位、到站不明、走太久是刻意排後面，不說差不多
-    if (Number.isFinite(best.score) && Number.isFinite(second.score) && best.score - second.score < CLOSE_SCORE) why.push(`「${second.name}」也差不多，看你習慣`);
+    if (Number.isFinite(best.score) && Number.isFinite(second.score) && best.score - second.score < CLOSE_SCORE) why.push(`「${second.name}」也差不多，看您習慣`);
   } else if (often.length) why.push(often[0]);
-  const said = excluded.filter((e) => e.why.startsWith('你說不要')), unfit = excluded.filter((e) => e.why.includes('不建議')), late = excluded.filter((e) => e.why.includes('超過'));
-  if (said.length) why.push(`${said.map((e) => e.name).join('、')}照你說的不列入`);
+  const said = excluded.filter((e) => e.why.startsWith('您說不要')), unfit = excluded.filter((e) => e.why.includes('不建議')), late = excluded.filter((e) => e.why.includes('超過'));
+  if (said.length) why.push(`${said.map((e) => e.name).join('、')}照您說的不列入`);
   if (unfit.length) why.push([...new Set(unfit.map((e) => e.why))].join('、'));
   if (late.length) why.push(`${late.map((e) => e.name).join('、')}會遲到已排除`);
   return `選「${best.name}」${why.length ? '：' + why.join('，') : ''}。`;
@@ -357,7 +357,7 @@ export function keyQuestion(options, ctx = {}, only = ASK_STATES) {
   const more = dCost > 0 ? `多 ${dCost} 元` : '', moreEn = dCost > 0 ? `NT$${dCost} more` : '';
   const en = MODE_EN[alt.role] || alt.name;
   const text = {
-    rush: `${alt.name}快 ${dMin} 分${more ? `但${more}` : ''}，你趕時間嗎？`,
+    rush: `${alt.name}快 ${dMin} 分${more ? `但${more}` : ''}，您趕時間嗎？`,
     budget: `${alt.name}省 ${-dCost} 元${dMin < 0 ? `但慢 ${-dMin} 分` : ''}，想省錢嗎？`,
     luggage: `有帶行李或大包小包嗎？有的話${alt.name}比較輕鬆${more ? `（${more}）` : ''}。`,
     lessWalk: `想少走路嗎？${alt.name}少走 ${dWalk} 分${more ? `（${more}）` : ''}。`,

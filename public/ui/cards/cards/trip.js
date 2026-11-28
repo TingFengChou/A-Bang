@@ -264,7 +264,7 @@ function optionBlock(o, ctx, best) {
 }
 
 export default {
-  title: (d, { t }) => t('trip.title', { from: d.from.name === '你的位置' ? t('place.here') : d.from.name, to: d.to.name }),
+  title: (d, { t }) => t('trip.title', { from: d.from.name === '您的位置' ? t('place.here') : d.from.name, to: d.to.name }),
   body(d, ctx) {
     const { t, state } = ctx;
     const byId = new Map(d.options.map((o) => [o.id, o]));

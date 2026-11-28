@@ -22,7 +22,7 @@ export function leavePayload(at, rail) {
   if (!(depart >= at)) return null;
   const en = rail.lang === 'en';
   const name = ROLE[rail.role]?.[en ? 1 : 0] || '';
-  const title = `${name} ${rail.trainNo || ''}`.trim() || (en ? 'Your train' : '你的車');
+  const title = `${name} ${rail.trainNo || ''}`.trim() || (en ? 'Your train' : '您的車');
   const from = String(rail.from || '').slice(0, 20);
   const text = en
     ? `Leave at ${hhmm(at)} for the ${rail.depart} departure${from ? ` from ${from}` : ''}`
