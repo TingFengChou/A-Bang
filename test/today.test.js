@@ -64,7 +64,10 @@ test('週末：好天氣建議出去走走；下雨或空品不好說待在室�
 
 test('上班日傍晚：回家；深夜：末班車', () => {
   const eve = todayPlan({ now: TUE_18, weather: sunny, places: HOME_WORK });
-  assert.equal(eve.acts[0].label, '回家怎麼走');
+  assert.equal(eve.acts[0].label, '從公司回家怎麼走', '沒定位但設了公司：寫出起點（第十五輪）');
+  assert.equal(decodeURIComponent(eve.acts[0].href), '#/agent?q=從公司回家怎麼走？');
+  assert.equal(todayPlan({ now: TUE_18, weather: sunny, places: HOME_WORK, located: true }).acts[0].label, '回家怎麼走', '有定位：從現在的位置');
+  assert.equal(todayPlan({ now: TUE_18, weather: sunny, places: { 家: {} } }).acts[0].label, '回家怎麼走', '只設了家');
   assert.match(eve.say, /^晚安！辛苦了。回家前看一下車。$/);
   const late = todayPlan({ now: NIGHT, weather: sunny, places: HOME_WORK });
   assert.deepEqual(late.acts.map((a) => a.label), ['捷運幾點收班', '回家怎麼走最快']);
@@ -150,4 +153,17 @@ test('這個時段常用：只放兩格，依時段與上不上班（下面的�
   assert.deepEqual(pinnedTiles({ now: TUE_18 }), { ids: ['bus', 'garbage'], label: '下班時間' });
   assert.deepEqual(pinnedTiles({ now: NIGHT }).ids, ['metro', 'pharmacy']);
   assert.deepEqual(pinnedTiles({ now: tw(2026, 12, 1, 13) }).ids, ['weather', 'bike']);
+});
+
+test('回家模式（第十五輪 f）：週末、放假的傍晚有設家也給「回家怎麼走」；按了才查（只是問阿幫的連結）', () => {
+  const satEve = Date.UTC(2026, 10, 28, 18 - 8);
+  const p = todayPlan({ now: satEve, weather: sunny, places: { 家: {} } });
+  assert.equal(p.say, '晚安！週末的晚上。要回家時看一下車。');
+  assert.equal(p.acts[0].label, '回家怎麼走');
+  assert.ok(p.acts[0].href.startsWith('#/agent?q='), '連結：按了才查，不在今天卡自動查');
+  const off = todayPlan({ now: TUE_18, day: { workday: false, known: true, note: '行憲紀念日' }, weather: sunny, places: { 家: {}, 公司: {} } });
+  assert.equal(off.acts[0].label, '回家怎麼走', '放假不寫「從公司」');
+  assert.match(off.say, /今天放假的晚上/);
+  const noHome = todayPlan({ now: satEve, weather: sunny });
+  assert.equal(noHome.acts[0].label, '今天適合出門嗎', '沒設家：照舊');
 });

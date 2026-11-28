@@ -86,6 +86,10 @@ export function todayPlan({ now = Date.now(), day = null, weather = null, aqi = 
   const dest = places['公司'] ? '公司' : places['學校'] ? '學校' : null;
   const tier = home && dest ? 'commute' : 'light';
   const where = located ? '你附近' : area ? `${area.county}${area.town}` : '台北車站附近';
+  // 回家的按鈕：有定位從現在的位置；沒定位但設了公司就寫「從公司回家」（看得出起點，第十五輪 Antigravity）
+  const homeAct = () => (!located && places['公司'] && kind.work
+    ? { label: '從公司回家怎麼走', href: ask('從公司回家怎麼走？'), primary: true }
+    : { label: '回家怎麼走', href: ask('回家怎麼走？'), primary: true });
 
   // 數字在下面的格子、要怎麼做在提醒裡：這一句只說「今天是什麼樣的一天、建議做什麼」，不重複
   const fine = !loading && !w.unknown && !w.wet && !w.bad;
@@ -99,8 +103,11 @@ export function todayPlan({ now = Date.now(), day = null, weather = null, aqi = 
     else acts.push({ label: '捷運下一班幾分', href: ask('捷運下一班幾分？'), primary: true });
   } else if (kind.work && part === 'evening') {
     lead = '辛苦了。';
-    if (home) { lead += '回家前看一下車。'; acts.push({ label: '回家怎麼走', href: ask('回家怎麼走？'), primary: true }); }
+    if (home) { lead += '回家前看一下車。'; acts.push(homeAct()); }
     else acts.push({ label: '附近有哪些公車站', href: ask('附近有哪些公車站？'), primary: true });
+  } else if (!kind.work && part === 'evening' && home) { // 回家模式（第十五輪 f）：週末、放假的傍晚也一樣，按了才查（不自動查、不先要定位）
+    lead = `${kind.label === '週末' ? '週末' : '今天放假'}的晚上。要回家時看一下車。`;
+    acts.push(homeAct());
   } else if (part === 'late') {
     lead = '晚了，留意末班車。';
     acts.push({ label: '捷運幾點收班', href: ask('捷運幾點收班？'), primary: true });

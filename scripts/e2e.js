@@ -2111,6 +2111,26 @@ test('問阿幫的開場：阿幫一句話、你可能想問、我可以幫你�
   });
 });
 
+test('大字模式：「我的」打開就整頁放大、重新整理後還在、不會左右捲；設定頁同一個開關（第十五輪）', async () => {
+  await withPage(DEVICES.phone, '#/me', async (page) => {
+    await page.waitForSelector('#me-big');
+    assert.equal(await page.evaluate(() => document.documentElement.classList.contains('big-text')), false);
+    await page.click('label.me-big');
+    await page.waitForFunction(() => document.documentElement.classList.contains('big-text'));
+    await page.reload();
+    await page.waitForSelector('#me-big:checked');
+    assert.equal(await page.evaluate(() => document.documentElement.classList.contains('big-text')), true, '重新整理後還在');
+    await page.goto(`${base}/#/`);
+    await page.waitForSelector('#today');
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), '不會左右捲');
+    await shot(page, 'big-text-home');
+    await page.goto(`${base}/#/settings`);
+    await page.waitForSelector('#big-text:checked');
+    await page.click('#display-card label.switch-row');
+    await page.waitForFunction(() => !document.documentElement.classList.contains('big-text'));
+  });
+});
+
 test('首頁「現在」降級：沒給定位用台北車站附近、查不到只留提醒、離線說離線（都不擋畫面）', async () => {
   await withPage(DEVICES.phone, '#/', async (page) => {
     await page.waitForSelector('#now[aria-busy="false"] [data-now="weather"]');
