@@ -73,3 +73,12 @@ test('給了叫車連結卻沒有行程卡：一樣補「付款在叫車 App」�
   assert.equal(mustSay(said, null, { intent: 'trip' }, { rideLink: true }), said);
   assert.equal(mustSay('好的。', null, { intent: 'trip' }), '好的。', '沒有叫車連結不補');
 });
+
+test('今天不會來的直達公車：模型沒說就先說「這次不推」並講改推哪一個（V2-2 評測 S20-1、S20-3）；說了不重複', () => {
+  const trip = { best: 'b2', options: [{ id: 'b1', name: '公車 601' }, { id: 'b2', name: '公車 212' }], missing: [{ kind: 'route', route: '601', why: '今天沒有營運（站牌即時資訊）' }] };
+  assert.equal(mustSay('坐公車約 25 分。', trip, { intent: 'trip' }), '公車 601 今天沒有營運（站牌即時資訊），這次不推。選「公車 212」。坐公車約 25 分。');
+  assert.equal(mustSay('建議坐公車 212，約 25 分。', trip, { intent: 'trip' }), '公車 601 今天沒有營運（站牌即時資訊），這次不推。建議坐公車 212，約 25 分。', '講到推薦的就不再補「選」');
+  const said = '公車 601 今天沒有營運，改坐公車 212。';
+  assert.equal(mustSay(said, trip, { intent: 'trip' }), said);
+  assert.equal(mustSay('坐公車約 25 分。', { ...trip, missing: [] }, { intent: 'trip' }), '坐公車約 25 分。', '沒有不會來的不補');
+});

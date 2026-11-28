@@ -12,7 +12,7 @@ import { askFirst } from './clarify-plan.js';
 import { scamPasteAsk } from './clarify.js';
 import { lineCode } from '../tools/metro.js';
 import { normName, nowTW } from '../util.js';
-import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, isEnglish, rainAsked, nearDefaultFrom } from './demo-intent.js';
+import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, isEnglish, rainAsked, nearDefaultFrom, localStations, hasShortStation } from './demo-intent.js';
 import { demoSummary, nightNote } from './demo-summary.js';
 import { resolvePoint } from '../services/places.js';
 import { BUS_OFF } from '../services/trip.js';
@@ -282,6 +282,14 @@ export function mustSay(text, trip, it = null, { rideLink = false } = {}) {
   if (rideLink && !/付款在叫車|叫車 ?App.{0,8}付款/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}叫車與付款都在叫車 App 完成（付款在叫車 App，阿幫不代付）。`;
   if (!trip) return out;
   const picked = trip.options?.find((o) => o.id === trip.best)?.name;
+  // 今天不會來的直達公車（站牌即時資訊：今日未營運、末班已過、交管不停靠）：模型沒說就先說，並講改推哪一個（V2-2 評測 S20-1、S20-3；與示範模式同一句）
+  const offRoutes = (trip.missing || []).filter((m) => m.kind === 'route' && m.route);
+  if (offRoutes.length && !offRoutes.every((m) => out.includes(m.route) && /沒有營運|未營運|不會來|末班已過|不停靠|不推/.test(out))) {
+    const groups = new Map();
+    for (const m of offRoutes) groups.set(m.why, [...(groups.get(m.why) || []), m.route]);
+    const offSay = [...groups].map(([why, routes]) => `公車 ${routes.join('、')} ${why}，這次不推。`).join('');
+    out = `${offSay}${picked && !out.includes(picked) ? `選「${picked}」。` : ''}${out}`;
+  }
   // 程式排序時用了使用者指定的方式（ranking.reason 這樣開頭）、模型沒說到 → 開頭補一句（不帶分數）
   if (picked && /^照你說的/.test(trip.ranking?.reason || '') && !/(照|依|按)你(所)?說|你說要/.test(out)) out = out.includes(picked) ? `照你說的，${out}` : `照你說的選「${picked}」。${out}`; // 已講到方案名稱：只加「照你說的，」
   // 建議叫車：付款在叫車 App（阿幫不代付；P2-10）
@@ -365,7 +373,8 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const namedArea = rulesIt.intent === 'pharmacy' && rulesIt.area; // 「大安區的藥局」：不用位置
   // 「垃圾車幾點會到我家這邊」：用常用地點的座標（手機送來的），不用現在位置、也不必先定位（P3-2）
   const atSaved = rulesIt.savedAt && Number.isFinite(rulesIt.fromPoint?.lat) && [...NEARBY_INTENTS, 'outing'].includes(rulesIt.intent);
-  const wantHere = canLocate && !namedArea && !atSaved && (hereIsOrigin || (!rulesIt.places?.length && (needsLocation(rulesIt) || NEARBY_INTENTS.includes(j?.intent) || j?.intent === 'trip')));
+  const shortStation = profile.id === 'life' && hasShortStation(rulesIt, last); // 「桃園到台北101」：「桃園」是高鐵站還是火車站要看人在哪（z11）
+  const wantHere = canLocate && !namedArea && !atSaved && (hereIsOrigin || shortStation || (!rulesIt.places?.length && (needsLocation(rulesIt) || NEARBY_INTENTS.includes(j?.intent) || j?.intent === 'trip')));
   const here = atSaved ? { lat: rulesIt.fromPoint.lat, lon: rulesIt.fromPoint.lon, name: rulesIt.lang === 'en' ? 'your saved place' : `你的${rulesIt.savedAt}` } : canLocate ? deviceLocation(req) : null;
   if (wantHere && here === undefined) {
     emit(ev.agentNote(rulesIt.lang === 'en' ? '@定位 checking where you are' : '@定位 先看看你在哪裡'));
@@ -382,7 +391,12 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
     emit(ev.text(o.short)); emit(ev.done({ modelCalls: 0, inputTokens: 0, outputTokens: 0 }));
     return;
   }
-  const locationHint = atSaved ? `使用者問的是他的常用地點「${rulesIt.savedAt}」附近，座標 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}：天氣、空品、YouBike、附近公車、垃圾車、藥局都用這個 lat/lon；不是他現在的位置，也不要再問他在哪裡。` : here ? `使用者現在在 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（手機定位）。使用者沒說起點或地點時就用這個位置：plan_trip 的 from 用 { lat, lon, name: "你的位置" }，天氣、空品、YouBike、附近公車、垃圾車用這個 lat/lon；不要再問他在哪裡。` : '';
+  // 短名對到不只一個車站（桃園、新竹、台中…）：人就在那附近 → 用最近的那一站，並告訴模型（V2-2 評測 LA-8：地端模型把「桃園」查成高鐵桃園站）
+  const named0 = { from: rulesIt.from, to: rulesIt.to };
+  if (shortStation && here) localStations(rulesIt, last, here);
+  const stationHint = ['from', 'to'].filter((k) => rulesIt[k] && rulesIt[k] !== named0[k]).map((k) => `使用者要的是「${rulesIt[k]}」（他就在這附近，不是「${named0[k]}」），plan_trip 的 ${k} 用「${rulesIt[k]}」。`).join('');
+  const locationHint0 = atSaved ? `使用者問的是他的常用地點「${rulesIt.savedAt}」附近，座標 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}：天氣、空品、YouBike、附近公車、垃圾車、藥局都用這個 lat/lon；不是他現在的位置，也不要再問他在哪裡。` : here ? `使用者現在在 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（手機定位）。使用者沒說起點或地點時就用這個位置：plan_trip 的 from 用 { lat, lon, name: "你的位置" }，天氣、空品、YouBike、附近公車、垃圾車用這個 lat/lon；不要再問他在哪裡。` : '';
+  const locationHint = `${locationHint0}${stationHint}`;
   // 地端小模型只給這個意圖用得到的工具：規則聽得懂就照規則（P2：判斷層把「來得及去台北車站嗎」聽成查高鐵）
   //   行程：工具不縮減，但拿掉查時刻表（程式已經比較好路線，模型自己去查高鐵班次會答非所問）
   const only0 = provider.mode !== 'local' ? undefined
