@@ -80,9 +80,9 @@ function svg(tag, attrs = {}, text) {
 /**
  * @param {HTMLElement} root
  * @param {object} decision decision 事件
- * @param {{ sources: string[], decide: Function, CRITERIA: Array<{ key: string, label: string }>, onPick?: (o: object) => void }} opts sources＝本輪回報的小幫手角色；onPick：點沒被選的方案＝改選它
+ * @param {{ sources: string[], decide: Function, CRITERIA: Array<{ key: string, label: string }>, onPick?: (o: object) => void, onRanked?: (r: object) => void }} opts onRanked：使用者在圖上重算後（不含第一次畫）通知同一輪的行程卡、總結（設計第三輪 #1） sources＝本輪回報的小幫手角色；onPick：點沒被選的方案＝改選它
  */
-export function renderDecision(root, decision, { sources, decide, CRITERIA, onPick, lang = null }) {
+export function renderDecision(root, decision, { sources, decide, CRITERIA, onPick, onRanked, lang = null }) {
   const en = lang === 'en';
   const SL = en ? EN.state : STATE_LABEL; // 狀態名稱
   const SRC = en ? EN.source : SOURCE_LABEL;
@@ -157,6 +157,8 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
     ].filter(Boolean));
     root.dataset.run = String(run);
     root.dataset.best = r.best?.id ?? '';
+    // 圖上重算了（點了狀態、答了問題、點掉偏好）：同一輪的行程卡「建議」、總結跟著換，不會同一個畫面推兩個方案（設計第三輪 #1）
+    if (run > 1) onRanked?.({ changed, best: r.best?.id ?? null, bestName: bestOpt ? nameOf(bestOpt) : null, ranked: r.ranked, excluded: r.excluded, reason, states: states.filter((s) => s.on).map(({ key, source }) => ({ key, source })), labels: states.filter((s) => s.on && s.source !== 'auto').map((s) => SL[s.key]) });
     if (before.size && !lite()) flip(before);
     if (run > 1) settle();
   };

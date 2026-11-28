@@ -44,7 +44,7 @@ function el(tag, cls, text) {
 /**
  * @param {{ id: string, question: string, options: Array<{ label: string, value: string, kind: string, guess?: boolean }>, why?: string }} ask
  * @param {{ lang?: 'en'|null, onAnswer: (o: object) => (string|void|Promise<string|void>) }} opts onAnswer 回傳一句結果（顯示在區塊裡）
- * @returns {{ el: HTMLElement, ask: object, answer: (o: object) => Promise<void>, skip: () => void, open: () => boolean }}
+ * @returns {{ el: HTMLElement, ask: object, answer: (o: object) => Promise<void>, skip: () => void, open: () => boolean, resolve: (text: string) => void }}
  */
 export function mountAsk(ask, { lang = null, onAnswer }) {
   const en = lang === 'en';
@@ -83,6 +83,8 @@ export function mountAsk(ask, { lang = null, onAnswer }) {
       if (box.contains(document.activeElement) || document.activeElement === document.body) r.focus({ preventScroll: true }); // 按了按鈕：焦點留在結果句（按鈕已拿掉）
     },
     skip() { if (done) return; done = true; box.classList.add('skipped'); row.remove(); why?.remove(); box.hidden = true; },
+    /** 在別處已經回答了（決策圖上點了同一個狀況）：收起選項、留一句結果（設計第三輪 #1） */
+    resolve(text) { if (done) return; done = true; row.remove(); why?.remove(); box.classList.add('answered'); const r = el('p', 'ask-done', text); r.setAttribute('role', 'status'); box.append(r); },
   };
   for (const o of ask.options) {
     const b = el('button', `ask-opt${o.guess ? ' guess' : ''}`, o.label);

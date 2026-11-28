@@ -64,7 +64,7 @@ test('資料夠不夠：固定說明（防詐）算夠；後天天氣、投資�
 });
 
 test('資料夠不夠：英文提問的欄位文字是英文', () => {
-  const r = slotReport(it('8點前到台北101', 'trip'), { lang: 'en' });
+  const r = slotReport({ ...parseIntent('8點前到台北101', { now: Date.parse('2026-11-21T06:00:00+08:00') }), intent: 'trip' }, { lang: 'en' }); // 固定早上：8 點過了會推到晚上
   assert.equal(r.slots.find((s) => s.key === 'when').value, 'arrive by 08:00');
   const rail = slotReport({ intent: 'trip', places: [], states: [], nearRail: 'THSR' }, { lang: 'en' });
   assert.equal(rail.slots[0].value, 'nearest HSR station');
