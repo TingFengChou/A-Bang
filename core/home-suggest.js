@@ -90,9 +90,9 @@ export function resolveOrigin(s, fixedKey) {
   const fixed = fixedKey ? s.places[fixedKey] : null;
   const here = s.location.auto;
   const distM = fixed && validPos(fixed) && here ? distanceM(here.lat, here.lon, fixed.lat, fixed.lon) : null;
-  const hereSub = here?.area ? `${here.area}${here.near ? here.near : ''}附近` : '按下後才取得';
+  const hereSub = here ? (here.area ? `${here.area}${here.near ? here.near : ''}附近` : '依目前位置') : '按下後才取得';
   const fixedOut = () => ({ mode: 'fixed', label: placeName(fixedKey), sub: `出發地・${fixed?.area || placeName(fixedKey)}`, auto: false, needAsk: false, distM });
-  const hereOut = (auto) => ({ mode: 'here', label: '目前位置', sub: here ? hereSub : '按下後才取得', auto, needAsk: !here, distM });
+  const hereOut = (auto) => ({ mode: 'here', label: '目前位置', sub: hereSub, auto, needAsk: !here, distM });
   if (s.location.override === 'here' || !fixed) return hereOut(false);
   if (s.location.override === 'fixed') return fixedOut();
   if (distM != null && distM > NEAR_M) return hereOut(true);
@@ -239,7 +239,7 @@ export function homeSuggest(raw) {
     const r = fn(ctx);
     if (r) hits.push({ kind: k, ...r });
   }
-  const pick = hits[0];
+  const pick = (raw.prefer && hits.find((h) => h.kind === raw.prefer)) || hits[0]; // 「其他建議」點了：換成那一個（仍是成立的規則）
   const d = new Date(s.now + 8 * 3600e3);
   const eyebrowBase = pick.kind === 'commute' || pick.kind === 'home' ? `${kind.label === '補班日' ? '補班日' : '上班日'}${partLabel(min)}` : `${kind.weekend && !kind.work ? `週${WEEK[dow]}` : kind.label}${partLabel(min)}`;
   return {
@@ -250,7 +250,7 @@ export function homeSuggest(raw) {
     date: `${d.getUTCMonth() + 1}/${d.getUTCDate()}`,
     weekday: `週${WEEK[dow]}`,
     day: kind,
-    alt: hits.slice(1).filter((h) => h.kind !== 'general').slice(0, 5).map((h) => ({ kind: h.kind, title: h.title })),
+    alt: hits.filter((h) => h !== pick && h.kind !== 'general').slice(0, 5).map((h) => ({ kind: h.kind, title: h.title })),
     signals: signalsOf(s, pick, `週${WEEK[dow]} ${hhmm(min)}`),
     source: s.source,
   };

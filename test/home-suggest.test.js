@@ -143,6 +143,15 @@ test('散步建議、明日提醒、一般', () => {
   assert.equal(g.kind, 'general');
 });
 
+test('其他建議點了：prefer 換成那一個（要是成立的規則），原本的進到其他建議', () => {
+  const s = base({ env: { aqi: { nearest: { aqi: 180 } } } });
+  const r = homeSuggest({ ...s, prefer: 'commute' });
+  assert.equal(r.kind, 'commute');
+  assert.ok(r.alt.some((a) => a.kind === 'safety'));
+  assert.equal(homeSuggest({ ...base(), prefer: 'walk' }).kind, 'commute', '不成立的不換');
+  assert.equal(resolveOrigin(snapshot(base({ location: { auto: { lat: 25.04, lon: 121.56 }, override: 'here' } })), '家').sub, '依目前位置');
+});
+
 test('沒給 now 就丟錯（不讀時鐘）', () => {
   assert.throws(() => homeSuggest({}), TypeError);
 });
