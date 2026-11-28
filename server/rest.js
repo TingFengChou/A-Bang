@@ -120,6 +120,7 @@ export function restRoutes(svc, { agentInfo = null } = {}) {
     '/api/v1/bus/nearby': { summary: '附近公車站', tag: 'PWA', params: [LAT, LON, RADIUS(400)], handler: (p) => svc.bus.nearbyStations({ lat: num(p.lat), lon: num(p.lon), radius: num(p.radius) }) },
     '/api/v1/bus/station-eta': { summary: '站位所有路線到站', tag: 'PWA', params: [CITY, q('station', '站位 ID', { required: true })], handler: (p) => svc.bus.stationEta({ city: p.city, stationId: stationArg(p.station) }) },
     '/api/v1/bike/nearby': { summary: '附近 YouBike', tag: 'PWA', params: [LAT, LON, RADIUS(500)], handler: (p) => svc.bike.nearby({ lat: num(p.lat), lon: num(p.lon), radius: num(p.radius) }) },
+    '/api/v1/areas': { summary: '預設地區的選單：縣市＋區（各區戶政事務所座標當代表點；拒絕定位時用，T-HOMEAREA）', tag: 'PWA', params: [], handler: () => svc.govOffice.areas() },
     '/api/v1/thsr/stations': { summary: '高鐵車站', tag: 'PWA', params: [], handler: () => svc.rail.thsrStations() },
     '/api/v1/thsr/timetable': { summary: '高鐵時刻表', tag: 'PWA', params: OD, handler: (p) => svc.rail.thsrTimetable(p) },
     '/api/v1/tra/stations': { summary: '台鐵車站', tag: 'PWA', params: [], handler: () => svc.rail.traStations() },
