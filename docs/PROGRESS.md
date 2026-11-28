@@ -11,6 +11,14 @@
 - 卡住：無／原因與需要 Austin 做的事
 ```
 
+## 2026-11-28 V 整體驗證開始：V1-1 時鐘測試、V1-2 不同時段跑測試
+- 做了：Austin：「先停下開發，等完整驗證過後繼續往下」。PLAN.md 新增 V 整體驗證（V1～V9）與狀態看板一列；功能 PR（#219、#170、#139）暫停。V1-1：`test/agent-grounded.test.js` 兩項依真實時鐘（「九點半前」「九點要到」在台灣 9:00～21:00 會變晚上），給固定早上的時間。V1-2：`npm run test:clock`（`scripts/test-clock.js`＋`test/support/fake-clock.mjs`）在 5 個台灣時段各跑一次全部單元測試，進 CI；確認舊版測試在 15:00 會被抓到
+- App Functions 結合：無（測試）
+- 測試：npm test 全過；test:clock 5 個時段全過（約 90 秒）；e2e 全過
+- 文件：PLAN.md（V 里程碑）、TESTING.md（CI、結果不能看時間）、PROGRESS.md
+- 下一個：V1-3 main 連續 3 次 CI 全綠；V1-4 覆蓋盤點
+- 卡住：無
+
 ## 2026-11-28 架構第三輪 #3：開放資料快取的筆數上限與最久沒用先刪
 - 做了：`core/opendata-client.js` 原本只有下載成功時才檢查上限（200），淘汰的是最早放進去的；上游斷線時每個不同的網址（例：MyDrama 斷線期間每個 `drama_search` 查詢字）都留一筆失敗紀錄（含錯誤堆疊），記憶體一直漲。現在每次寫入都經過 `put`：超過 `MAX_ENTRIES` 刪最久沒用的（下載中的不刪），讀到快取時移到最新；失敗紀錄只留訊息、狀態碼與 `upstreamStatus`
 - App Functions 結合：無（伺服器內部）
