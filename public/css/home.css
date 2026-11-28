@@ -3,7 +3,7 @@
    進場動畫一天一次（.hs.play）；其他時候只淡入（.hs.calm）；減少動態時全部關掉。 */
 html.home-sky { --hs-ez: cubic-bezier(.2,.8,.2,1); --hs-brand: #0F766E; --hs-ink: #14201D; --hs-sub: #3d524d; --hs-mute: #5b6f6a; --hs-mint: #E3F2EF; --hs-mint2: #CCFBF1; --hs-teal: #5EEAD4; --hs-amber: #FBBF24; --hs-amber2: #FDE68A; }
 html.home-sky body { background: #0B3B39 linear-gradient(180deg,#05131B 0%,#082A2E 18%,#0B3B39 30%,#0A2B2A 55%,#0D1D1B 82%,#0E1816 100%) fixed; color: #fff; }
-html.home-sky .topbar, html.home-sky .tabbar, html.home-sky #pagehero { display: none !important; }
+html.home-sky .topbar, html.home-sky #pagehero { display: none !important; }
 html.home-sky .app { padding-bottom: 0; overflow-x: clip; }
 html.home-sky main#main { padding: 0; max-width: none; }
 html.home-sky .demo-banner { position: relative; z-index: 4; margin: 0 auto; max-width: 520px; border-radius: 0 0 14px 14px; }

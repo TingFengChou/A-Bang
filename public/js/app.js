@@ -1,4 +1,4 @@
-// App shell：hash router + 上方標題列 + 下方分頁列（首頁｜服務｜問阿幫（中央鍵）｜提醒｜我的，tabs.js）
+// App shell：hash router + 上方標題列 + 依頁面矩陣的底部（首頁自己的輸入列｜總覽頁輸入列｜內容頁「問阿幫」浮動鍵｜不放，tabs.js；ADR-0023）
 import { icons } from './icons.js';
 import { applyBigText } from './big-text.js';
 import { api, state } from './api.js';
@@ -16,11 +16,10 @@ import { detachMain, attachMain, mountFab, syncFab, syncFabLabel, abangSays, kep
 import { shellT, shellLang, applyShell } from './shell-i18n.js';
 import { pageHero, canMorph } from './page-hero.js';
 import { miniApps } from './registry.js';
-import { TABS, currentAttr, backTarget } from './tabs.js';
-import { reminderItems } from './reminder-items.js';
-import { listReminders, restoreReminders } from './reminders.js';
-import { alightWatch } from './alight.js';
-import { currentArrivalWatch, cancelArrivalWatch } from '../ui/cards/host-web.js';
+import { chromeOf, dockAsks, backTarget } from './tabs.js';
+import { homeAsks } from '../../core/home-suggest.js';
+import { restoreReminders } from './reminders.js';
+import { cancelArrivalWatch } from '../ui/cards/host-web.js';
 import home from './pages/home.js';
 import services from './pages/services.js';
 import remindersPage from './pages/reminders.js';
@@ -54,13 +53,6 @@ const routes = [
 ];
 const zh = shellT(null); // 外殼一開始用中文；網址帶 lang=en 或問阿幫最近一輪是英文時換英文（shell-i18n.js）
 
-/** 分頁列一格；中央鍵是按鈕（其他頁拉出對話、問阿幫頁回到輸入框，abang-dock.js），id 沿用 abang-fab */
-function tabHtml(t) {
-  if (t.center) return `<button id="abang-fab" class="tab-key" type="button" data-tab="${t.id}" aria-haspopup="dialog" aria-label="${zh('fab')}"><span class="key-disc"><img src="/brand/abang-default.svg" alt=""><i class="fab-dot" aria-hidden="true"></i></span><span class="key-label" data-shell="${t.key}">${zh(t.key)}</span></button>`;
-  const badge = t.id === 'reminders' ? '<b class="tab-badge" aria-hidden="true" hidden></b><span class="sr-only tab-badge-sr"></span>' : '';
-  return `<a href="${t.href}" data-h="${t.href}" data-tab="${t.id}"><span class="tab-ic">${icons[t.icon]}${badge}</span><span class="tab-label" data-shell="${t.key}">${zh(t.key)}</span></a>`;
-}
-
 const root = document.getElementById('app');
 root.innerHTML = `
   <button class="skip" id="skip" type="button" data-shell="skip">${zh('skip')}</button>
@@ -76,12 +68,19 @@ root.innerHTML = `
   <div id="pagehero"></div>
   <main id="main" tabindex="-1"></main>
   <div class="abang-float"><div id="abang-bubble" class="fab-bubble" hidden></div></div>
-  <div class="tabbar"><nav aria-label="${zh('tabsNav')}" data-shell-label="tabsNav">${TABS.map(tabHtml).join('')}</nav></div>
+  <div class="shell-dock" id="shell-dock" hidden><div class="sd-asks" id="sd-asks" role="group" aria-label="您可能想問" hidden></div><form class="sd-form" id="sd-form" role="search"><a class="sd-cam" href="#/agent?act=cam" aria-label="拍照查詢">${icons.cam}</a><input name="q" maxlength="500" placeholder="拍照、語音或輸入，例如 307" enterkeyhint="send" autocomplete="off" aria-label="問阿幫"><a class="sd-mic" href="#/agent?act=mic" aria-label="語音查詢">${icons.mic}</a></form></div>
+  <button id="abang-fab" class="fab-key" type="button" aria-haspopup="dialog" aria-label="${zh('fab')}" hidden><span class="key-disc"><img src="/brand/abang-default.svg" alt=""><i class="fab-dot" aria-hidden="true"></i></span></button>
   <p id="abang-live" class="sr-only" aria-live="polite"></p>
   <dialog id="abang-sheet" class="abang-sheet" aria-labelledby="abang-sheet-title"><div class="sheet-head"><span class="sheet-grip" aria-hidden="true"></span><h2 id="abang-sheet-title" tabindex="-1" autofocus data-shell="sheetTitle">${zh('sheetTitle')}</h2><button type="button" class="btn small quiet sheet-full" data-shell="sheetFull">${zh('sheetFull')}</button><button type="button" class="icon-btn sheet-close" aria-label="${zh('sheetClose')}" data-shell-label="sheetClose"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div><div class="sheet-body"></div></dialog>`;
 
 const $ = (id) => document.getElementById(id);
 $('back').onclick = () => (history.length > 1 ? history.back() : (location.hash = '#/'));
+// 一級總覽頁的輸入列（ADR-0023 §3）：送出開問阿幫
+$('sd-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const q = new FormData(e.target).get('q').trim();
+  if (q) { e.target.reset(); location.hash = `#/agent?q=${encodeURIComponent(q)}`; }
+});
 $('skip').onclick = () => $('main').focus(); // hash 路由：不能用 href="#main"（會被當成頁面）
 
 let cleanups = [];
@@ -156,7 +155,6 @@ function paintShell() {
   const lang = langNow();
   applyShell(lang, document, { docLang: resolve().query?.lang === 'en' ? 'en' : null });
   syncFabLabel();
-  paintBadge();
   if (onLifeAgent(resolve())) setDocTitle(lang === 'en' ? shellT('en')('agentTitle') : agent.title);
 }
 addEventListener('abang:agent-lang', (e) => {
@@ -191,7 +189,14 @@ function render() {
   const { path, query, page, params } = resolve();
 
   $('title').textContent = page.shellTitle ? shellT(langNow())(page.shellTitle) : page.title;
-  $('back').hidden = !!page.root;
+  $('back').hidden = page === home; // 分頁列拿掉後，服務、提醒、個人也要能回去（首頁才沒有返回）
+  const chrome = chromeOf(path);
+  document.documentElement.dataset.chrome = chrome;
+  $('shell-dock').hidden = chrome !== 'dock';
+  $('abang-fab').hidden = chrome !== 'fab';
+  const asksBox = $('sd-asks');
+  asksBox.hidden = !(chrome === 'dock' && dockAsks(path));
+  if (!asksBox.hidden) asksBox.innerHTML = `<span class="sd-askL">您可能想問</span>${homeAsks({ now: Date.now() }, null).slice(0, 4).map((a) => `<a class="sd-chip" href="${esc(a.href)}">${esc(a.q)}</a>`).join('')}`;
   document.documentElement.classList.toggle('home-sky', !!page.immersive); // 首頁「夜色與光」：外殼不畫標題列與分頁列（ADR-0023）
   // 狀態列跟著天色：首頁是深色天空用淺色圖示，離開首頁還原（Capacitor 內建 SystemBars，不加依賴；網頁版換 theme-color）
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', page.immersive ? '#05131B' : '#f4f6f5');
@@ -201,12 +206,6 @@ function render() {
     try { (capNow.Plugins?.SystemBars?.setStyle?.(bars) ?? capNow.nativePromise?.('SystemBars', 'setStyle', bars))?.catch?.(() => {}); } catch { /* 舊版沒有 SystemBars */ }
   }
   const act = $('action'); act.hidden = true; act.onclick = null; act.classList.remove('on');
-  // 分頁列：分頁本身 aria-current="page"；在這一區的子頁（公車頁屬於服務、設定屬於我的）aria-current="true"
-  document.querySelectorAll('.tabbar [data-tab]').forEach((a) => {
-    const cur = currentAttr(a.dataset.tab, path);
-    a.classList.toggle('on', !!cur);
-    if (cur) a.setAttribute('aria-current', cur); else a.removeAttribute('aria-current');
-  });
   // 首頁格子點進來的頁面：頁首（立體圖示＋說明＋動畫，page-hero.js）
   const heroId = page.hero?.({ params, query });
   const hero = heroId && pageHero(heroId);
@@ -231,7 +230,6 @@ function render() {
     page.render({ main, params, query, toast, setTitle, setAction, onCleanup: (f) => cleanups.push(f) });
   }
   paintBanner();
-  paintBadge(); // 提醒數字的讀屏文字跟著這一頁的語言
   afterNav?.(); afterNav = null; // 圖示飛進頁首的換頁：新畫面好了
 }
 
@@ -268,16 +266,6 @@ function bannerHtml({ mode, sources }, en = false) {
   return `<div class="demo-banner">部分示範資料：<b>${esc(demo.join('、'))}</b>目前是示範資料（標「示範」），其他為政府開放資料。</div>`;
 }
 
-/** 提醒分頁上的數字：進行中的到站、下車、出門提醒有幾個 */
-function paintBadge() {
-  const n = reminderItems({ arrival: currentArrivalWatch(), alight: alightWatch(), leave: listReminders() }).length;
-  const b = document.querySelector('.tabbar .tab-badge');
-  if (!b) return;
-  b.hidden = !n;
-  b.textContent = n > 9 ? '9+' : String(n);
-  document.querySelector('.tabbar .tab-badge-sr').textContent = n ? shellT(langNow())('tabBadge', { n }) : '';
-}
-for (const ev of ['abang:reminders', 'abang:alight-watch', 'abang:arrival-watch']) addEventListener(ev, paintBadge);
 
 addEventListener('hashchange', navigate);
 // 連回來：重新載入這一頁（時刻表等不會自動刷新的頁面也換成最新）
@@ -287,13 +275,12 @@ navigate();
 api.status().then(() => paintBanner()).catch(() => {});
 // 出門提醒（T7）：過期的取消（重開機後不補送）、網頁版重新整理後把還沒到的排回去
 try { restoreReminders(); } catch { /* 無痕模式 */ }
-paintBadge();
 // 下車提醒：App 被系統關掉再打開時恢復（沒逾時才恢復）
 mountTripBar($('tripbar')); // 行程中：每一頁上方可回到公車頁
 mountCatchTrain(); // 台鐵、高鐵、末班車的出門提醒響後問一次趕不趕得上（C，Antigravity 第九輪）
 mountLeaveActivity(); // iPhone：同一個出門提醒在鎖定畫面倒數（即時動態，第十四輪）
 mountWaitDrama($('waitdrama')); // 設了到站提醒、還要等一陣子：推一集短劇（車快到時會提醒）
-// 中央「問阿幫」鍵：每一頁分頁列正中間，點了從下方拉出同一段對話（不用離開現在的頁面）
+// 「問阿幫」浮動鍵（內容頁右下角）：點了從下方拉出同一段對話（不用離開現在的頁面）
 mountFab({
   // 問阿幫知道你在看哪一頁：建議問題＋這一頁的說明（跟下一個問題一起送出）
   pageAsk: () => { try { const { page, params, query } = resolve(); return page.askHint?.({ params: params.map((x) => (x == null ? x : decodeURIComponent(x))), query }) || null; } catch { return null; } },
@@ -327,7 +314,7 @@ if (typeof cap?.addListener === 'function' && cap.getPlatform?.() === 'android')
 // Siri、捷徑、Spotlight 交給 App 的事（M16-02）：問阿幫、查詐騙、打開某一頁（只有 iOS App）
 startAppIntents().catch(() => {});
 
-// 手機鍵盤打開時收起底部分頁列（css: html.kb-open）
+// 手機鍵盤打開時收起輸入列上方的提示列、浮動鍵（css: html.kb-open）
 watchKeyboard();
 
 if ('serviceWorker' in navigator && !globalThis.__DEMO_SERVICES__ && !globalThis.__ABANG_APP__ && location.protocol !== 'file:') {

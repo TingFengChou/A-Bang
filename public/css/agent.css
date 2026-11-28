@@ -31,7 +31,7 @@
 .chips-row, .suggest, .mention-bar { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 14px; min-height: 44px; font-size: 14px; cursor: pointer; color: inherit; }
 .mention-bar .chip { color: #fff; border: 0; }
-.chat-dock { position: sticky; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom)); background: var(--bg); padding: 8px 0 32px; /* 下方留給分頁列中央鍵 */ display: flex; flex-direction: column; gap: 6px; }
+.chat-dock { position: sticky; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom)); background: var(--bg); padding: 8px 0 calc(env(safe-area-inset-bottom) + 12px); /* 沒有分頁列了（ADR-0023）：只留安全區 */ display: flex; flex-direction: column; gap: 6px; }
 .suggest { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
 .suggest .chip { white-space: nowrap; }
 .chat-form { display: flex; gap: 8px; }
@@ -341,8 +341,8 @@ html.lite-motion .voice-panel .vc-core, html.lite-motion .voice-panel .vc-halo {
   -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.4" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>') center / contain no-repeat;
   mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.4" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>') center / contain no-repeat; }
 /* 長按中央鍵：不跳選字放大鏡；在聽的時候鍵外圈亮起 */
-.tab-key { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
-.tab-key.listening .key-disc { box-shadow: 0 0 0 4px rgba(251, 191, 36, .55), 0 6px 18px rgba(15, 118, 110, .35); }
+.fab-key { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+.fab-key.listening .key-disc { box-shadow: 0 0 0 4px rgba(251, 191, 36, .55), 0 6px 18px rgba(15, 118, 110, .35); }
 
 /* 長對話（UX.md §4.17）：一輪＝提問＋回答；舊的輪收成一行摘要（按鈕），換話題分隔線，「這次問過」目錄，「回到最新」 */
 .round { display: flex; flex-direction: column; gap: 10px; scroll-margin-top: 76px; }

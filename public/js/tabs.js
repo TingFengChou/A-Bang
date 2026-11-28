@@ -1,56 +1,37 @@
-// 底部分頁列（2026-11-21 首頁與導覽重新設計，Austin：「最下面都是公車相關，跟全方位資料整合＋edge AI 的 App 不相符」）：
-// 首頁｜服務｜問阿幫（中央大鍵）｜提醒｜我的。中央鍵不是連結：在其他頁拉出同一段對話（abang-dock.js），在問阿幫頁聚焦輸入框。
+// 外殼的頁面矩陣（ADR-0023 §3，2026-11-29 首頁改版 H3；規格 docs/HOME_REDESIGN.md §5）：拿掉底部分頁列。
+//   home：首頁自己有日期列、提醒與個人鍵、「您可能想問」＋輸入列
+//   dock：一級總覽頁（全部服務、提醒、個人）底部是輸入列（相機、輸入框、麥克風）；全部服務多一排「您可能想問」
+//   fab ：內容頁（公車、鐵道、附近、各資料頁、收藏、阿幫的腦袋）右下角一顆「問阿幫」浮動鍵，拉出同一段對話（abang-dock.js）
+//   none：問阿幫頁（有自己的輸入區）、設定、隱私（表單）不放
 // 這裡只放純資料與純函式（node:test 可測），畫面在 app.js。
 
-/** [網址, 字典鍵, 圖示]；ask 是中央大鍵（按鈕） */
-export const TABS = [
-  { id: 'home', href: '#/', key: 'tab.home', icon: 'home' },
-  { id: 'services', href: '#/services', key: 'tab.services', icon: 'grid' },
-  { id: 'ask', href: '#/agent', key: 'tab.ask', center: true },
-  { id: 'reminders', href: '#/reminders', key: 'tab.reminders', icon: 'bell' },
-  { id: 'me', href: '#/me', key: 'tab.me', icon: 'user' },
-];
-
-/** 子頁面屬於哪一個分頁（分頁列標「目前在這一區」）：資料服務 → 服務；收藏、設定、隱私、阿幫的腦袋 → 我的 */
-const SECTIONS = [
+const CHROME = [
   [/^\/?$/, 'home'],
-  [/^\/services$/, 'services'],
-  [/^\/(nearby|bus|bus-station|rail|s)(\/|$)/, 'services'],
-  [/^\/agent\/(?!life$)[a-z]/, 'services'], // 防詐等其他 agent 是服務；生活 agent 是中央鍵
-  [/^\/agent(\/life)?$/, 'ask'],
-  [/^\/reminders$/, 'reminders'],
-  [/^\/(me|favs|settings|privacy|ai)$/, 'me'], // ai：阿幫的腦袋（手機上的 AI）
+  [/^\/(services|reminders|me)$/, 'dock'],
+  [/^\/agent(\/|$)/, 'none'],
+  [/^\/(settings|privacy)$/, 'none'],
 ];
 
 /**
- * 目前網址（不含 #、不含 ?）對應的分頁與是不是分頁本身。
- * @param {string} path 例：'/'、'/bus/Taipei/307'
- * @returns {{ tab: string|null, exact: boolean }}
+ * 這一頁底部放什麼。
+ * @param {string} path 例：'/'、'/bus/Taipei/307'（不含 #、不含 ?）
+ * @returns {'home'|'dock'|'fab'|'none'}
  */
-export function activeTab(path = '/') {
+export function chromeOf(path = '/') {
   const p = path || '/';
-  const hit = SECTIONS.find(([re]) => re.test(p));
-  if (!hit) return { tab: null, exact: false };
-  const tab = hit[1];
-  const t = TABS.find((x) => x.id === tab);
-  const exact = `#${p}` === t.href || (tab === 'home' && (p === '' || p === '/')) || (tab === 'ask' && p === '/agent/life');
-  return { tab, exact };
+  const hit = CHROME.find(([re]) => re.test(p));
+  return hit ? hit[1] : 'fab';
 }
 
-/** 分頁上的 aria-current：分頁本身＝page；在這一區的子頁＝true；其他不標 */
-export const currentAttr = (tabId, path) => {
-  const a = activeTab(path);
-  return a.tab !== tabId ? null : a.exact ? 'page' : 'true';
-};
+/** 全部服務才放「您可能想問」（提醒、個人只放輸入列） */
+export const dockAsks = (path) => path === '/services';
 
 /**
- * Android 返回鍵（不含對話框：app.js 先關對話框）：首頁＝離開 App；分頁本身（服務、提醒、我的、問阿幫）＝回首頁（不走分頁之間的歷史）；
- * 其他頁有上一頁就回上一頁，沒有（深層連結打開）回首頁。
+ * Android 返回鍵（不含對話框：app.js 先關對話框）：首頁＝離開 App；其他頁有上一頁就回上一頁，沒有（深層連結打開）回首頁。
+ * 不寫死回首頁（Antigravity 第十九輪）。
  * @returns {'exit'|'back'|'#/'}
  */
 export function backTarget(path = '/', canGoBack = false) {
-  const a = activeTab(path);
-  if (a.tab === 'home' && a.exact) return 'exit';
-  if (a.exact) return '#/';
+  if (chromeOf(path) === 'home') return 'exit';
   return canGoBack ? 'back' : '#/';
 }

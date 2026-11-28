@@ -1,33 +1,23 @@
-// 首頁與導覽重新設計（2026-11-21，阿幫為中心）：分頁列（首頁｜服務｜問阿幫｜提醒｜我的）、子頁屬於哪一區、
+// 首頁與導覽（2026-11-21 阿幫為中心；2026-11-29 ADR-0023 拿掉分頁列，改頁面矩陣）、
 // 提醒頁清單（到站、下車、出門）、首頁「手機上的 AI」照實說、「現在」摘要的降級（沒定位、離線、查不到）
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { TABS, activeTab, currentAttr, backTarget } from '../public/js/tabs.js';
+import { chromeOf, dockAsks, backTarget } from '../public/js/tabs.js';
 import { reminderItems } from '../public/js/reminder-items.js';
 import { edgeLine, nowItems, loadNow, peekNow, _resetNow } from '../public/js/home-now.js';
 import { miniApps, groups, descOf } from '../public/js/registry.js';
 
-test('分頁列：五格、中央是問阿幫、不再是公車相關的附近／公車／收藏', () => {
-  assert.deepEqual(TABS.map((t) => t.id), ['home', 'services', 'ask', 'reminders', 'me']);
-  assert.equal(TABS[2].center, true);
-  assert.deepEqual(TABS.filter((t) => !t.center).map((t) => t.href), ['#/', '#/services', '#/reminders', '#/me']);
-});
-
-test('子頁屬於哪一區：公車、附近、生活服務、防詐 → 服務；收藏、設定、隱私 → 我的；生活問阿幫 → 中央鍵', () => {
+test('頁面矩陣（ADR-0023 §3）：沒有分頁列；總覽頁輸入列、內容頁浮動鍵、問阿幫與設定不放', () => {
   const cases = {
-    '/': ['home', true], '': ['home', true], '/services': ['services', true], '/reminders': ['reminders', true], '/me': ['me', true],
-    '/nearby': ['services', false], '/bus': ['services', false], '/bus/Taipei/307': ['services', false], '/bus-station/Taipei/x': ['services', false],
-    '/rail/thsr': ['services', false], '/s/weather': ['services', false], '/agent/antifraud': ['services', false],
-    '/agent': ['ask', true], '/agent/life': ['ask', true],
-    '/favs': ['me', false], '/settings': ['me', false], '/privacy': ['me', false], '/ai': ['me', false],
-    '/nope': [null, false],
+    '/': 'home', '': 'home', '/services': 'dock', '/reminders': 'dock', '/me': 'dock',
+    '/nearby': 'fab', '/bus': 'fab', '/bus/Taipei/307': 'fab', '/bus-station/Taipei/x': 'fab', '/rail/thsr': 'fab', '/s/weather': 'fab', '/favs': 'fab', '/ai': 'fab',
+    '/agent': 'none', '/agent/life': 'none', '/agent/antifraud': 'none', '/settings': 'none', '/privacy': 'none',
+    '/nope': 'fab',
   };
-  for (const [p, [tab, exact]] of Object.entries(cases)) assert.deepEqual(activeTab(p), { tab, exact }, p);
-  assert.equal(currentAttr('services', '/services'), 'page');
-  assert.equal(currentAttr('services', '/bus/Taipei/307'), 'true');
-  assert.equal(currentAttr('home', '/bus/Taipei/307'), null);
-  assert.equal(currentAttr('ask', '/agent'), 'page');
+  for (const [p, c] of Object.entries(cases)) assert.equal(chromeOf(p), c, p);
+  assert.equal(dockAsks('/services'), true, '全部服務多一排您可能想問');
+  assert.equal(dockAsks('/me'), false);
 });
 
 test('服務總覽：四組（防詐單獨一組），每個服務都有一句說明', () => {
@@ -123,10 +113,10 @@ test('現在：示範資料的天氣、空品標示範', () => {
   assert.equal(items.find((x) => x.id === 'reminder').demo, undefined);
 });
 
-test('Android 返回鍵：首頁離開 App；分頁本身回首頁（不走分頁歷史）；其他頁回上一頁、沒有上一頁回首頁', () => {
+test('Android 返回鍵：首頁離開 App；其他頁有上一頁就回上一頁、沒有回首頁（不寫死回首頁，第十九輪）', () => {
   assert.equal(backTarget('/', true), 'exit');
   assert.equal(backTarget('', false), 'exit');
-  for (const p of ['/services', '/reminders', '/me', '/agent']) assert.equal(backTarget(p, true), '#/', p);
+  for (const p of ['/services', '/reminders', '/me', '/agent']) { assert.equal(backTarget(p, true), 'back', p); assert.equal(backTarget(p, false), '#/', p); }
   assert.equal(backTarget('/bus/Taipei/307', true), 'back');
   assert.equal(backTarget('/bus/Taipei/307', false), '#/');
   assert.equal(backTarget('/agent/antifraud', true), 'back');
