@@ -1,5 +1,6 @@
-// 首頁 #/（2026-11-21 重新設計：阿幫為中心）。由上而下：
-//   手機上的 AI（誰在判斷）→ 問阿幫主視覺（輸入框＋各領域範例）→ 現在（天氣、空品、最近一個提醒）→ 收藏 → 防詐 → 交通、生活、消費與政府格子。
+// 首頁 #/（2026-11-21 重新設計：阿幫為中心；2026-11-28 第十三輪加「今天」卡）。由上而下：
+//   手機上的 AI（誰在判斷）→ 今天（主動助手第一版：一句話、提醒、馬上能按的問題，裡面是天氣、空品、最近一個提醒；「依據」點開「阿幫記得你」）
+//   → 問阿幫主視覺（輸入框＋各領域範例）→ 收藏 → 防詐 → 交通、生活、消費與政府格子。
 // 主視覺與格子是「問」和「直接看」兩條路；所有服務另在 #/services 有一句說明的總覽。
 import { miniApps, groups, TILE_COLOR } from '../registry.js';
 import { canMorph } from '../page-hero.js';
@@ -18,6 +19,10 @@ import { renderMoveCard } from '../health-ui.js';
 import { suggestContext, homeAsks } from '../agent/suggest.js';
 import { twClock } from '../../../core/suggest.js';
 import { loadPlaces } from '../saved-places.js';
+import { todayPlan } from '../today.js';
+import { openMemorySheet } from '../memory-sheet.js';
+import { homeArea, areaLabel } from '../home-area.js';
+import { onboarded } from '../onboarding.js';
 
 const EX_ICON = { trip: 'route', bus_route: 'bus', metro: 'metro', youbike: 'bike', nearby_bus: 'bus', rail: 'train', weather: 'sun', aqi: 'air', outing: 'sun', quake: 'quake', pharmacy: 'pharmacy', garbage: 'trash', invoice: 'receipt', fuel: 'fuel', stock: 'chart' };
 const EX_COLOR = { transit: '#1d4ed8', life: '#0284c7', money: '#7c3aed' };
@@ -56,6 +61,19 @@ export default {
         <span class="ai-ic" aria-hidden="true">${icons.chip}</span>
         <span class="ai-txt"><b id="ai-label">手機上的 AI</b><small id="ai-text">檢查中…</small></span>${chev}
       </a>
+      <section class="now today" id="today" aria-labelledby="now-h">
+        <div class="today-top">
+          <span class="today-av" aria-hidden="true"><img src="/brand/abang-happy.svg" alt="" width="40" height="40"></span>
+          <div class="today-hd"><h2 id="now-h">今天</h2><small id="today-kind"></small></div>
+          <span class="today-when" id="now-when"></span>
+        </div>
+        <p class="today-say" id="today-say" hidden></p>
+        <ul class="today-tips" id="today-tips" hidden></ul>
+        <div class="now-row" id="now" aria-busy="true"></div>
+        <div class="today-acts" id="today-acts" hidden></div>
+        <button type="button" class="today-basis" id="today-basis" hidden></button>
+        <div id="move" class="move-wrap" hidden></div>
+      </section>
       <section class="hero" aria-labelledby="hero-big">
         <span class="mascot-3d" aria-hidden="true"><i class="mascot-shadow"></i><img class="mascot main" src="/brand/abang-default.svg" alt=""><img class="mascot alt" src="/brand/abang-think.svg" alt=""></span>
         <small>${greet}！我是阿幫</small>
@@ -63,11 +81,6 @@ export default {
         ${offline ? '' : '<p class="hero-sub">交通、生活、消費、防詐，一句話幫你查</p>'}
         <form class="search" id="q" role="search">${icons.search}<input name="q" maxlength="500" placeholder="${offline ? '搜尋公車路線，例如 307' : '想查什麼？'}" enterkeyhint="${offline ? 'search' : 'send'}" autocomplete="off" aria-label="${offline ? '搜尋公車路線' : '問阿幫：想查什麼？'}"></form>
         ${offline ? '' : (() => { const ex = homeExamples(); return `<div class="hero-ask" role="group" aria-label="範例問題" data-sig="${esc(ex.map((x) => x.q).join('|'))}">${exampleHtml(ex)}</div>`; })()}
-      </section>
-      <section class="now" aria-labelledby="now-h">
-        <div class="section-title"><h2 id="now-h">現在</h2><span id="now-when"></span></div>
-        <div class="now-row" id="now" aria-busy="true"></div>
-        <div id="move" class="move-wrap" hidden></div>
       </section>
       <div id="favs"></div>
       <section class="group safe" aria-labelledby="g-safe">
@@ -106,6 +119,11 @@ export default {
     const repaintMove = () => paintMove(main, toast);
     for (const ev of ['abang:health-setting', 'abang:health-day']) addEventListener(ev, repaintMove);
     onCleanup(() => { for (const ev of ['abang:health-setting', 'abang:health-day']) removeEventListener(ev, repaintMove); });
+
+    main.querySelector('#today-basis').addEventListener('click', () => openMemorySheet({ toast }));
+    const repaintToday = () => paintToday(main);
+    for (const ev of ['abang:memory', 'abang:onboarded']) addEventListener(ev, repaintToday);
+    onCleanup(() => { for (const ev of ['abang:memory', 'abang:onboarded']) removeEventListener(ev, repaintToday); });
 
     renderFavs(main.querySelector('#favs'));
     const t = setInterval(() => renderFavs(main.querySelector('#favs')), 30000);
@@ -163,6 +181,7 @@ async function paintNow(main, offline, { quick = false } = {}) {
     box.innerHTML = (loading ? '<span class="now-item skel" aria-hidden="true"></span><span class="now-item skel" aria-hidden="true"></span>' : '')
       + items.map((x) => `<a class="now-item" href="${x.href}" data-now="${x.id}"><span class="ab-token sm" style="--c:${NOW_COLOR[x.id] || '#0f766e'}" aria-hidden="true">${icons[x.icon]}</span><span class="now-t"><b>${esc(x.main)}</b><small>${esc(x.sub)}</small></span>${x.demo ? '<span class="tag demo" title="目前是示範資料，不是即時資料">示範</span>' : ''}</a>`).join('');
     box.setAttribute('aria-busy', String(!!loading));
+    paintToday(main, { v, loading, offline });
   };
   const when = main.querySelector('#now-when');
   if (when && !quick) when.textContent = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -171,7 +190,8 @@ async function paintNow(main, offline, { quick = false } = {}) {
   if (seen) { lastNow = seen; draw(seen, false); } else draw(null, true); // 回首頁：上次的結果還有效就不閃骨架
   const host = createWebHost();
   nowLoading = !seen;
-  lastNow = await loadNow({ callTool: (n, a) => host.callTool(n, a), granted: locationGranted, locate: () => browserLocation(4000), fallback: FALLBACK }).catch(() => null);
+  const area = homeArea(); // 沒定位：有預設地區就用那一區（T-HOMEAREA）
+  lastNow = await loadNow({ callTool: (n, a) => host.callTool(n, a), granted: locationGranted, locate: () => browserLocation(4000), fallback: area || FALLBACK, ...(area && { fallbackName: areaLabel(area) }) }).catch(() => null);
   nowLoading = false;
   if (main.isConnected) { draw(lastNow, false); repaintExamples(main, lastNow); }
 }
@@ -189,6 +209,33 @@ async function paintMove(main, toast) {
   if (my !== moveSeq || !main.isConnected) return;
   const host = createWebHost();
   renderMoveCard(box, n, { openLink: (url) => host.openLink(url), openApp: (t) => host.openApp(t), toast });
+}
+/**
+ * 今天卡（主動助手第一版，today.js）：一句話、提醒、馬上能按的問題、依據。資料用「現在」已經查好的（不另外查）。
+ * 內容一樣就不動 DOM（提醒事件每 20 秒一次：焦點不能掉）。
+ */
+let todayArgs = { v: null, loading: true, offline: false };
+function paintToday(main, args) {
+  if (args) todayArgs = args;
+  const { v, loading, offline } = todayArgs;
+  const sec = main.querySelector('#today');
+  if (!sec) return;
+  const p = todayPlan({ day: v?.day || null, weather: v?.weather || null, aqi: v?.aqi || null, offline: offline || !!v?.offline, places: loadPlaces(), area: homeArea(), located: !!v?.pos, onboarded: onboarded(), loading: !!loading && !v });
+  const sig = JSON.stringify(p);
+  if (sec.dataset.sig === sig) return;
+  sec.dataset.sig = sig;
+  const $ = (id) => sec.querySelector(id);
+  sec.classList.toggle('on', p.show);
+  for (const id of ['#today-say', '#today-tips', '#today-acts', '#today-basis']) $(id).hidden = !p.show;
+  $('#now-h').textContent = p.show ? `今天 ${p.date}` : '現在';
+  $('#today-kind').textContent = p.show ? p.kind.label : '';
+  if (!p.show) return;
+  $('#today-say').textContent = p.say;
+  $('#today-tips').innerHTML = p.tips.map((t) => `<li class="${t.tone || ''}"><span aria-hidden="true">${icons[t.icon] || icons.info}</span>${esc(t.text)}</li>`).join('');
+  $('#today-tips').hidden = !p.tips.length;
+  $('#today-acts').innerHTML = p.acts.map((a) => `<a class="btn small ${a.primary ? '' : 'quiet'}" href="${a.href}">${esc(a.label)}${a.primary ? ' ›' : ''}</a>`).join('');
+  $('#today-basis').innerHTML = `${icons.info}<span>${esc(p.basis)}</span><b>阿幫記得你 ›</b>`;
+  $('#today-basis').setAttribute('aria-label', `${p.basis}（只在這支手機）。打開「阿幫記得你」，看或刪掉阿幫記得的東西`);
 }
 const NOW_COLOR = { weather: '#0284c7', aqi: '#0d9488', reminder: '#b45309', offline: '#5d6966' };
 
