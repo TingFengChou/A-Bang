@@ -311,7 +311,7 @@ function summaryCore(it, results, suggestions = []) {
   // 沒說地點時用了示範預設，先講清楚
   const pre = (isNearby(it) || (it.intent === 'metro' && !it.station && !it.near)) && !it.places[0] && !it.fromPoint
     ? (it.noLocation ? `（沒拿到你的位置，先查「${DEFAULT_FROM}」附近；告訴我地點就重查。）` : `（你沒說在哪，我先查「${DEFAULT_FROM}」附近。）`)
-    : it.intent === 'pharmacy' && !it.area ? (results[it.clinic ? 'clinic_search' : 'pharmacy_search']?.at(-1)?.data?.areaFrom ? `（依${it.places[0] ? `「${it.places[0]}」的` : '你的'}位置推估在「${results[it.clinic ? 'clinic_search' : 'pharmacy_search'].at(-1).data.area}」，不對請說哪一區。）` : it.noLocation ? `（沒拿到你的位置，我先查「${DEFAULT_AREA}」；告訴我哪一區就重查。）` : `（你沒說哪一區，我先查「${DEFAULT_AREA}」。）`)
+    : it.intent === 'pharmacy' && !it.area ? (results[it.clinic ? 'clinic_search' : 'pharmacy_search']?.at(-1)?.data?.areaFrom ? `（依${it.places[0] ? `「${it.places[0]}」的位置` : it.fromPoint?.area ? '你設定的預設地區' : '你的位置'}推估在「${results[it.clinic ? 'clinic_search' : 'pharmacy_search'].at(-1).data.area}」，不對請說哪一區。）` : it.noLocation ? `（沒拿到你的位置，我先查「${DEFAULT_AREA}」；告訴我哪一區就重查。）` : `（你沒說哪一區，我先查「${DEFAULT_AREA}」。）`)
     : it.intent === 'stock' && it.advice ? NO_ADVICE : '';
   // 發票：主動提議存到「我的發票」，開獎後自動對獎（號碼只存在手機）
   // 示範模式找不到（藥局、診所、垃圾車）：示範資料只收了少數地區，不要讓人以為那一區真的沒有（V3 走查 F6）

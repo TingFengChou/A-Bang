@@ -16,6 +16,7 @@ import { voiceEnabled, setVoiceEnabled, voiceStatus, VOICE_KEY } from '../voice.
 import { whyText } from '../voice-i18n.js';
 import { dramaHintOn, setDramaHintOn, DRAMA_HINT_KEY } from '../drama-hint.js';
 import { hasCar, setHasCar, CAR_KEY } from '../my-car.js';
+import { homeArea, setHomeArea, clearHomeArea, areaLabel, areaPicker, nearestArea } from '../home-area.js';
 import { edgeWriteEnabled, setEdgeWriteEnabled, WRITE_STATS_KEY } from '../edge-write.js';
 import { mountEmbedRow } from '../edge-embed-ui.js';
 import { HEALTH_KEY, HEALTH_DAY_KEY } from '../health.js';
@@ -24,7 +25,7 @@ import { mountHealthSetting } from '../health-ui.js';
 const EDGE_KEY = 'abang.edgeAI';
 
 /** 本機資料：存在這支手機的瀏覽器儲存（不上傳） */
-const LOCAL = [['abang.places', '常用地點（家、公司、學校）'], ['favs', '收藏的公車站與路線'], ['invoices', '我的發票'], ['abang.arrivalWatch', '進行中的到站提醒'], ['abang.alightWatch', '進行中的下車提醒'], ['abang.reminders', '出門提醒'], ['pref:', '常用的縣市、藥局地區、股票、最近查過的公車路線等偏好（pref:*）'], [EDGE_KEY, '裝置端 AI 設定'], [SUGGEST_KEY, '「用手機上的 AI 猜我接下來想問什麼」設定'], [VOICE_KEY, '語音問阿幫的開關'], [VISION_KEY, '「讓阿幫看照片」設定'], [DRAMA_HINT_KEY, '等車推短劇的開關'], [CAR_KEY, '「我有車」設定'], [HEALTH_KEY, '「天氣好又動得少時建議去走走」的開關（步數不存在手機儲存，只在當下讀）'], [HEALTH_DAY_KEY, '今天提過散步建議、按過「今天不用」沒有（只有日期，不含步數）'], [EDGE_STATS_KEY, '今天在手機上判斷了幾次、上次花多久（只有數字）'], ['abang.edgeWrite', '「回答也在手機上寫」設定'], [WRITE_STATS_KEY, '在手機上寫了幾次回答、上次花多久、通過檢查的比例（只有數字）'], ['abang.onboarded', '看過使用說明（清除後下次會再顯示）'], ['abang.offline', '離線時顯示的上次資料（看過的路線、站牌、時刻表；不含座標）'], ['abang.chat', '問阿幫的對話（只有文字，最近 10 則，最後一次對話 12 小時後自動清掉）'], [HABITS_KEY, '常選的交通方式（只有方式與時間，最近 50 次；你同意的偏好、說過的狀況；24 小時內問過的題目只存雜湊；不含地點）']];
+const LOCAL = [['abang.places', '常用地點（家、公司、學校）'], ['favs', '收藏的公車站與路線'], ['invoices', '我的發票'], ['abang.arrivalWatch', '進行中的到站提醒'], ['abang.alightWatch', '進行中的下車提醒'], ['abang.reminders', '出門提醒'], ['pref:', '常用的縣市、藥局地區、股票、最近查過的公車路線等偏好（pref:*）'], [EDGE_KEY, '裝置端 AI 設定'], [SUGGEST_KEY, '「用手機上的 AI 猜我接下來想問什麼」設定'], [VOICE_KEY, '語音問阿幫的開關'], [VISION_KEY, '「讓阿幫看照片」設定'], [DRAMA_HINT_KEY, '等車推短劇的開關'], [CAR_KEY, '「我有車」設定'], ['abang.homeArea', '預設地區（沒開定位時先用的縣市與區）'], [HEALTH_KEY, '「天氣好又動得少時建議去走走」的開關（步數不存在手機儲存，只在當下讀）'], [HEALTH_DAY_KEY, '今天提過散步建議、按過「今天不用」沒有（只有日期，不含步數）'], [EDGE_STATS_KEY, '今天在手機上判斷了幾次、上次花多久（只有數字）'], ['abang.edgeWrite', '「回答也在手機上寫」設定'], [WRITE_STATS_KEY, '在手機上寫了幾次回答、上次花多久、通過檢查的比例（只有數字）'], ['abang.onboarded', '看過使用說明（清除後下次會再顯示）'], ['abang.offline', '離線時顯示的上次資料（看過的路線、站牌、時刻表；不含座標）'], ['abang.chat', '問阿幫的對話（只有文字，最近 10 則，最後一次對話 12 小時後自動清掉）'], [HABITS_KEY, '常選的交通方式（只有方式與時間，最近 50 次；你同意的偏好、說過的狀況；24 小時內問過的題目只存雜湊；不含地點）']];
 
 /** 權限狀態文字：已允許／已拒絕（到手機設定開）／還沒問過 */
 const PERM_SAY = { granted: '已允許', denied: '已拒絕', prompt: '還沒問過', rationale: '拒絕過一次（下次用到會再問）', off: '手機定位服務關閉' };
@@ -123,6 +124,17 @@ export const settings = {
         <h2>常用地點</h2>
         <p class="note">在家、公司或學校時按「設成現在位置」，或按「輸入地點」打地名設定。設好以後說「回家」「去公司」就能直接規劃。位置只存在這支手機，只有你提到時才跟問題一起送出。</p>
         <div id="saved" role="list"></div>
+      </section>
+      <section class="card settings" id="area-card">
+        <h2>預設地區</h2>
+        <p class="note" id="area-note">沒開定位時，問「附近藥局」「怎麼去」先用這一區查，並說清楚是預設地區（不是你現在的位置）。只存在這支手機；跟常用地點（家、公司）分開。</p>
+        <p id="area-now" role="status"></p>
+        <div id="area-pick"></div>
+        <div class="row-actions">
+          <button class="btn small" id="area-save" type="button" disabled>儲存</button>
+          <button class="btn small quiet" id="area-here" type="button">用目前位置帶入</button>
+          <button class="btn small quiet" id="area-clear" type="button">清除</button>
+        </div>
       </section>
       <section class="card settings" id="habits-card">
         <h2>個人化</h2>
@@ -339,6 +351,26 @@ export const settings = {
       if (s.reason === 'web') { main.querySelector('#suggest-row').hidden = true; main.querySelector('#suggest-note').hidden = true; } // 網頁版：建議只用規則
     });
     // 語音問阿幫（M14-01）：能不能用、是不是在手機上辨識；網頁版不能在本機辨識就不顯示開關
+    // 預設地區（T-HOMEAREA，Antigravity 第八輪）：縣市＋區兩層選單；「用目前位置帶入」只抓這一次、換成行政區（不存座標以外的東西）
+    const areaNow = main.querySelector('#area-now'), areaSave = main.querySelector('#area-save');
+    let areaChosen = null, pickerApi = null;
+    const paintArea = () => { const a = homeArea(); areaNow.textContent = a ? `現在：${areaLabel(a)}` : '還沒設定（沒開定位時先用臺北車站附近）'; main.querySelector('#area-clear').hidden = !a; };
+    paintArea();
+    areaPicker(main.querySelector('#area-pick'), { onChange: (a) => { areaChosen = a; areaSave.disabled = !a; } }).then((p) => { pickerApi = p; }).catch(() => {});
+    areaSave.addEventListener('click', () => { if (!areaChosen) return; setHomeArea(areaChosen); paintArea(); toast(`預設地區設成${areaLabel(areaChosen)}`); });
+    main.querySelector('#area-here').addEventListener('click', async (ev) => {
+      const b = ev.currentTarget;
+      b.disabled = true;
+      const pos = await browserLocation(8000, { fresh: true }).catch(() => null);
+      b.disabled = false;
+      const a = pos && inTaiwan(pos) && nearestArea(pickerApi?.areas() || [], pos);
+      if (!a) { toast(pos ? '你的位置不在台灣，請用選單選' : `沒拿到位置：${locationHelp().why}請用選單選`); return; }
+      setHomeArea(a);
+      paintArea();
+      areaPicker(main.querySelector('#area-pick'), { onChange: (x) => { areaChosen = x; areaSave.disabled = !x; } }).then((p) => { pickerApi = p; }).catch(() => {});
+      toast(`預設地區設成${areaLabel(a)}（大概在這一區）`);
+    });
+    main.querySelector('#area-clear').addEventListener('click', () => { clearHomeArea(); paintArea(); toast('已清除預設地區'); });
     const carBox = main.querySelector('#my-car');
     carBox.addEventListener('change', () => {
       setHasCar(carBox.checked);
@@ -398,6 +430,7 @@ export const settings = {
       if (!habitWasOn) setHabitsOn(false);
       habitStatus();
       renderSaved();
+      paintArea();
       edge.checked = true;
       sug.checked = true; sug.disabled = false;
       edgeWrite.checked = true; edgeWrite.disabled = false;
@@ -436,7 +469,7 @@ export const privacy = {
         <p><b>健康與運動（預設關閉，你打開時）：</b>阿幫讀這支手機的步數與運動時間（今天與近 7 天；Android 透過 Health Connect、iPhone 透過「健康」App，只讀不寫），只在手機上用來判斷「天氣好、你今天又動得少」，在首頁與問阿幫的回答下面建議附近可以散步的地方。步數、運動時間，以及「動得少」這個判斷都<b>不上傳</b>到阿幫伺服器、不寫進紀錄、不跟問題一起送出，也不存在手機的儲存空間（只在當下讀）；手機上只記開關和「今天提過沒有」的日期。天氣與空品照常用你的位置查（跟首頁「現在」一樣）；散步地點來自 App 內建的地標資料。第一次打開才會請你允許，允許要你自己按；可隨時在「設定與隱私」或「我的」關閉，系統權限到 Health Connect 或「健康」App 收回。網頁版讀不到手機的健康資料，打開時用示範資料。</p>
         <p><b>常選的交通方式：</b>你按導航、叫車、訂票、「改成…」或設公車提醒時，只記選了哪種交通方式（例如捷運）與時間，最近 50 次，不記地點、路線或站名，只存在這支手機。某種方式選得夠多時，阿幫會先問你要不要優先推；問阿幫時只送出你同意的方式的比例（例如捷運 60%）、你說過的狀況（例如常帶東西），以及「可以問」的方式與次數，用來在你沒說狀況時小幅加分或照你說過的狀況比較（Claude 模式下這些會跟行程比較結果一起給模型轉述）。可在「設定與隱私」關閉、撤銷或清除。</p>
         <p><b>通知：</b>到站與出門提醒是手機上的本機通知，不經過推播伺服器。</p>
-        <p><b>存在你手機上的資料：</b>收藏、我的發票（號碼與日期）、偏好、進行中的提醒、常用地點（家、公司、學校的座標）、離線時顯示的上次查詢結果（公車到站 10 分鐘內、路線與時刻表 24 小時內；不含座標，但看得出你查過哪些路線與站牌）只存在這支手機；常用地點只有在你提到（例如「回家」）時，那一個的座標與名稱才跟問題一起送出用來規劃；用「輸入地點」設定時，打的地名會送到阿幫伺服器查座標（不送你的位置）；問阿幫的對話文字（最近 10 則，不含卡片與座標，最後一次對話 12 小時後自動清掉）也存在這支手機；下次打開只顯示，按「接著上次問」才會跟下一個問題一起送出；從浮動阿幫點「在這頁可以問」的問題時，會一起送出你正在看的頁面（例如哪一條公車路線與上車站），自己打的問題不會帶；Claude 模式下，座標不給模型，但依座標查到的站名、路線、天氣等結果會給模型轉述。可在「設定與隱私」清除。</p>
+        <p><b>存在你手機上的資料：</b>收藏、我的發票（號碼與日期）、偏好、進行中的提醒、常用地點（家、公司、學校的座標）、預設地區（沒開定位時先用的縣市與區，只有區的代表座標）、離線時顯示的上次查詢結果（公車到站 10 分鐘內、路線與時刻表 24 小時內；不含座標，但看得出你查過哪些路線與站牌）只存在這支手機；常用地點只有在你提到（例如「回家」）時，那一個的座標與名稱才跟問題一起送出用來規劃；預設地區只在沒開定位、問題需要位置時，送那一區的代表座標與區名（回答會說是預設地區）；用「輸入地點」設定時，打的地名會送到阿幫伺服器查座標（不送你的位置）；問阿幫的對話文字（最近 10 則，不含卡片與座標，最後一次對話 12 小時後自動清掉）也存在這支手機；下次打開只顯示，按「接著上次問」才會跟下一個問題一起送出；從浮動阿幫點「在這頁可以問」的問題時，會一起送出你正在看的頁面（例如哪一條公車路線與上車站），自己打的問題不會帶；Claude 模式下，座標不給模型，但依座標查到的站名、路線、天氣等結果會給模型轉述。可在「設定與隱私」清除。</p>
         <h3>4. 利用期間、地區、對象、方式</h3>
         <p>期間：回答當下處理；記憶體快取與限流資料自動清除；不建立使用者檔案。地區：〔待補：伺服器所在地〕；Claude 模式另有美國。對象：營運單位、上述資料來源（只送查詢需要的座標或地名）、Claude 模式下的 Anthropic。方式：以電腦自動處理。</p>
         <h3>5. 你的權利</h3>

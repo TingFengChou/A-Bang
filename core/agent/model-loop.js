@@ -5,7 +5,7 @@ import { describeTool, getTool } from '../tools/index.js';
 import { getProfile } from '../agents/index.js';
 import { buildSystemPrompt } from './prompt.js';
 import { ev } from './events.js';
-import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hideToolNames, judgeInfo, runDemo, asideState, withAskCheck, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
+import { withHomeArea, validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hideToolNames, judgeInfo, runDemo, asideState, withAskCheck, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
 import { judgeNote, outingNote, moreStatesNote } from './impact.js';
 import { slotAsk, deviceAskTracker, deviceSlotAsk, originAsk, ORIGIN_ASKED } from './ask.js';
 import { askFirst, planAsk } from './clarify-plan.js';
@@ -405,7 +405,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const named0 = { from: rulesIt.from, to: rulesIt.to };
   if (shortStation && here) localStations(rulesIt, last, here);
   const stationHint = ['from', 'to'].filter((k) => rulesIt[k] && rulesIt[k] !== named0[k]).map((k) => `使用者要的是「${rulesIt[k]}」（他就在這附近，不是「${named0[k]}」），plan_trip 的 ${k} 用「${rulesIt[k]}」。`).join('');
-  const locationHint0 = atSaved ? `使用者問的是他的常用地點「${rulesIt.savedAt}」附近，座標 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}：天氣、空品、YouBike、附近公車、垃圾車、藥局都用這個 lat/lon；不是他現在的位置，也不要再問他在哪裡。` : here ? `使用者現在在 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（手機定位）。使用者沒說起點或地點時就用這個位置：plan_trip 的 from 用 { lat, lon, name: "你的位置" }，天氣、空品、YouBike、附近公車、垃圾車用這個 lat/lon；不要再問他在哪裡。` : '';
+  const locationHint0 = atSaved ? `使用者問的是他的常用地點「${rulesIt.savedAt}」附近，座標 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}：天氣、空品、YouBike、附近公車、垃圾車、藥局都用這個 lat/lon；不是他現在的位置，也不要再問他在哪裡。` : here?.area ? `使用者沒授權定位，這是他自己設定的預設地區「${here.area}」的代表點 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（不是現在位置）。回答時先說「未取得目前位置，先依你設定的預設地區（${here.area}）查詢」。使用者沒說起點或地點時就用這個點：plan_trip 的 from 用 { lat, lon, name: "${here.name}" }，天氣、空品、YouBike、附近公車、垃圾車、藥局用這個 lat/lon；不要再問他在哪裡。` : here ? `使用者現在在 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（手機定位）。使用者沒說起點或地點時就用這個位置：plan_trip 的 from 用 { lat, lon, name: "你的位置" }，天氣、空品、YouBike、附近公車、垃圾車用這個 lat/lon；不要再問他在哪裡。` : '';
   const locationHint = `${locationHint0}${stationHint}`;
   // 該問就問、先猜先算（PM Q 情境；2026-11-28 Antigravity 第七輪 A）：跟規則模式同一套 planAsk——
   //   stop＝程式只問；after＝程式先用最可能的答案查（去機場用最近的、同名地點用最可能的、沒定位問天氣先看預設地點、票價用最近的站…），
@@ -481,7 +481,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const en = isEnglish(last);
   const finish = (text, fromModel = false) => {
     if (used.size) emit(ev.discussionEnd({ tools: [...used] }));
-    emit(ev.text(guardedText(profile, fromModel && !en ? mustSay(text, lastTrip, rulesIt, { rideLink }) : text, emit))); // 程式補重點只補模型寫的中文回答（不補到英文、退回說明） // L2 輸出護欄（防詐：不保證安全、固定附 165）
+    emit(ev.text(guardedText(profile, withHomeArea(fromModel && !en ? mustSay(text, lastTrip, rulesIt, { rideLink }) : text, here?.area, en), emit))); // 用了預設地區：第一句說清楚（T-HOMEAREA） // 程式補重點只補模型寫的中文回答（不補到英文、退回說明） // L2 輸出護欄（防詐：不保證安全、固定附 165）
     emit(ev.done(usage));
   };
 

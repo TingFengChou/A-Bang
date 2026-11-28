@@ -24,6 +24,39 @@ export function parseOffices(csv) {
     .filter((o) => o.lat > 21 && o.lat < 27 && o.lon > 118 && o.lon < 123);
 }
 
+/**
+ * 預設地區（T-HOMEAREA，2026-11-28 Claude 與 Antigravity 第八輪）：拒絕定位的人在首次引導選「縣市＋區」，用那一區的戶政事務所座標當代表點。
+ * 每一區都有戶政事務所或辦公室（內政部開放資料，M16-04b 已在用、每 7 天更新）：不另外下載新資料、不加依賴。
+ * 名稱寫法：「臺北市大安區戶政事務所」「新北市板橋戶政事務所」「基隆市七堵戶政事務所暖暖辦公室」「新北市新店戶政事務所深坑區所」「臺南市新營戶政事務所鹽水辦公處」
+ * → { county, town }（直轄市、省轄市的區補「區」；縣的鄉鎮市照名稱，例「屏東縣潮州」）。認不得的回 null。
+ */
+const AREA_RE = /^(.{2,3}?[市縣])(.+?)(?:第.)?戶政事務所(?:(.+?)(?:辦公室|辦公處|區所))?$/;
+export function areaOf(name) {
+  const m = AREA_RE.exec(String(name || '').trim());
+  if (!m) return null;
+  let town = (m[3] || '').replace(/^第.$/, '') || m[2].replace(/第.$/, ''); // 「第二辦公室」這種不是區名：用所名
+  if (/市$/.test(m[1]) && !/區$/.test(town)) town += '區';
+  return { county: m[1], town };
+}
+/** 六都放最前面（Antigravity：六都置頂），其他縣市照北到南 */
+const COUNTY_ORDER = ['臺北市', '新北市', '桃園市', '臺中市', '臺南市', '高雄市', '基隆市', '新竹市', '新竹縣', '苗栗縣', '彰化縣', '南投縣', '雲林縣', '嘉義市', '嘉義縣', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣', '澎湖縣', '金門縣', '連江縣'];
+/**
+ * 戶政事務所清單 → 縣市＋區（每區一個代表點；同一區有好幾個所時取第一個）
+ * @returns {Array<{ county: string, towns: Array<{ town: string, lat: number, lon: number }> }>}
+ */
+export function areasOf(offices) {
+  const by = new Map();
+  for (const o of offices || []) {
+    const a = areaOf(o.name);
+    if (!a || !Number.isFinite(o.lat) || !Number.isFinite(o.lon)) continue;
+    if (!by.has(a.county)) by.set(a.county, new Map());
+    const towns = by.get(a.county);
+    if (!towns.has(a.town)) towns.set(a.town, { town: a.town, lat: +o.lat.toFixed(4), lon: +o.lon.toFixed(4) });
+  }
+  const rank = (c) => { const i = COUNTY_ORDER.indexOf(c); return i < 0 ? 99 : i; };
+  return [...by].sort((a, b) => rank(a[0]) - rank(b[0])).map(([county, towns]) => ({ county, towns: [...towns.values()] }));
+}
+
 /** 戶政通訊 API → 名稱對電話 */
 export function parseTels(json) {
   const list = Array.isArray(json?.responseData) ? json.responseData : [];
@@ -67,6 +100,8 @@ const FAILED = Symbol('calendar failed');
  */
 export function createGovOfficeServices(fx) {
   return {
+    /** 預設地區的選單：縣市＋區（各區戶政事務所的座標當代表點；T-HOMEAREA） */
+    async areas() { return { areas: areasOf(await fx.offices()), source: '內政部（戶政事務所據點）' }; },
     /** @param {{ lat: number, lon: number, limit?: number, now?: number, dayOffset?: number }} a dayOffset：問的是幾天後（「禮拜六有開嗎」） */
     async nearbyOffices({ lat, lon, limit = 3, now = Date.now(), dayOffset = 0 }) {
       const at = now + dayOffset * 864e5;

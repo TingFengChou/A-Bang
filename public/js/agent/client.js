@@ -3,6 +3,8 @@
 // 瀏覽器與 Node 20 皆可用（fetch、TextDecoder、ReadableStream）。座標只送回本站伺服器，不寫入任何紀錄。
 import { API_BASE } from '../base.js';
 
+import { homeArea, areaLabel } from '../home-area.js';
+
 export const CLIENT_TOOLS = ['device_location'];
 const MAX_CLIENT_ROUNDS = 2;
 
@@ -148,6 +150,13 @@ export async function runAgent(body, onEvent, { base = API_BASE, agentId = 'life
     for (const c of pending) {
       if (c.name === 'device_location') {
         const loc = await locate();
+        // 沒授權定位或定位服務關著、設了預設地區：用那一區的代表點，並註明是預設地區（伺服器照實說；T-HOMEAREA）。暫時抓不到（逾時、訊號差）不套用
+        const area = !loc && ['denied', 'off'].includes(lastError) ? homeArea() : null;
+        if (area) {
+          results.push({ id: c.id, ok: true, result: { lat: area.lat, lon: area.lon, area: areaLabel(area) } });
+          onEvent({ type: 'client_tool_result', id: c.id, name: c.name, ok: true, area: area.town });
+          continue;
+        }
         results.push(loc ? { id: c.id, ok: true, result: loc } : { id: c.id, ok: false });
         // 只給畫面用（不含座標）；台灣以外伺服器不採用，畫面要一致
         onEvent({ type: 'client_tool_result', id: c.id, name: c.name, ok: inTaiwan(loc), ...(loc && !inTaiwan(loc) ? { reason: 'outside' } : !loc && lastError && { reason: lastError }) }); // reason：畫面說明原因（S1c）

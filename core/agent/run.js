@@ -85,13 +85,20 @@ export const AUX_TOOLS = new Set(['weather_now', 'weather_tomorrow', 'aqi_nearby
 /** 裝置定位的 client tool 呼叫 id（客戶端回傳 clientToolResults 時用同一個 id） */
 export const LOCATION_CALL_ID = 'loc1';
 export const MY_LOCATION = '你的位置';
+/** 用了預設地區（T-HOMEAREA，Antigravity 第八輪的文案）：回答第一句先說，地名要露出來、說可以改 */
+export const homeAreaNote = (area, en = false) => (en ? `No location access, so I used your default area (${area}); you can change it in Settings. ` : `未取得目前位置，先依你設定的預設地區（${area}）查詢；隨時可在設定調整。`);
+/** 回答開頭補預設地區那句（已經說了就不重複） */
+export const withHomeArea = (text, area, en = false) => (!area || !text || String(text).includes(area) && /預設地區|default area/.test(text) ? text : `${homeAreaNote(area, en)}${text}`);
 
 /** 從 clientToolResults 取出裝置定位（台灣範圍內才採用）；沒有回 undefined、拒絕或無效回 null */
 export function deviceLocation(req) {
   const r = req.clientToolResults?.find((x) => x.id === LOCATION_CALL_ID);
   if (!r) return undefined;
   const lat = Number(r.result?.lat), lon = Number(r.result?.lon);
-  return r.ok && lat >= 21 && lat <= 27 && lon >= 118 && lon <= 123 ? { name: MY_LOCATION, lat, lon } : null;
+  if (!(r.ok && lat >= 21 && lat <= 27 && lon >= 118 && lon <= 123)) return null;
+  // 預設地區（T-HOMEAREA）：沒授權定位時手機送的是使用者設定的那一區的代表點，不是現在位置——名稱照實寫「預設地區（大安區）」
+  const area = typeof r.result?.area === 'string' ? r.result.area.replace(/[^\p{Script=Han}]/gu, '').slice(0, 10) : '';
+  return area ? { name: `預設地區（${area}）`, lat, lon, area } : { name: MY_LOCATION, lat, lon };
 }
 
 const RequestSchema = z.object({
@@ -499,7 +506,8 @@ export async function runDemo(svc, body, emit0, { profileId = 'life', now = Date
   // 手機寫回答的那一輪聽不懂（ADR-0017：不退回伺服器模型）：問一句給幾個查得到的選項，回答只留一句短的
   const lost = edgeWrite && it.intent === 'unknown' && !it.thanks && !it.sorry && !it.reset && !it.ack && !it.help && !ask.done; // 問能做什麼（help）不是聽不懂：直接列出能查的東西
   if (lost) { ask.done = true; emit(ev.ask({ id: `ask-${nextId()}`, ...unknownAsk(it.lang) })); } // 一輪最多一個問題
-  const summary = lost ? UNKNOWN_SHORT[it.lang === 'en' ? 'en' : 'zh'] : guardedText(profile, plan.summary(it, results, profile.suggestions), emit);
+  const summary0 = lost ? UNKNOWN_SHORT[it.lang === 'en' ? 'en' : 'zh'] : guardedText(profile, plan.summary(it, results, profile.suggestions), emit);
+  const summary = lost ? summary0 : withHomeArea(summary0, it.fromPoint?.area, it.lang === 'en'); // 用了預設地區：第一句說清楚（T-HOMEAREA）
   // 畫面靠固定字串放按鈕的回答（還沒設定常用地點：「設定與隱私 → 常用地點」）不交給手機改寫
   if (edgeWrite && it.intent !== 'savedMissing') { // 手機改寫；程式版總結與事實清單都只來自這一輪的資料（不含座標）
     const lang = it.lang === 'en' ? 'en' : 'zh';

@@ -5,6 +5,7 @@
 import { browserLocation, locationGranted } from './agent/client.js';
 import { locationHelp } from './location-help.js';
 import { ensureNotifyPermission, hasNativeNotify } from './native-notify.js';
+import { areaPicker, setHomeArea, areaLabel } from './home-area.js';
 
 const KEY = 'abang.onboarded';
 
@@ -34,6 +35,14 @@ const LOCATION = {
   action: { label: '允許定位', done: '已允許定位', fail: () => { const h = locationHelp(); return `沒拿到位置：${h.why}之後可以${h.fix.replace(/^按「到設定開啟」，/, '到手機設定，')}；不開也能用，直接打地點就好。`; }, run: async () => Boolean(await browserLocation(8000)) },
   granted: locationGranted,
 };
+// 預設地區（T-HOMEAREA）：定位已允許就跳過；沒開定位也能用——選一個縣市＋區，問附近、怎麼去時先用那一區
+const AREA = {
+  img: '/brand/abang-think.svg',
+  title: '沒開定位也能用',
+  body: ['選一個預設地區：沒拿到位置時，問「附近藥局」「怎麼去」我先用這一區查，並說清楚是預設地區。只存在這支手機，隨時可在「設定與隱私」改。'],
+  picker: true,
+  granted: locationGranted,
+};
 const NOTIFY = {
   img: '/brand/abang-happy.svg',
   title: '公車快到時提醒你',
@@ -52,7 +61,7 @@ export function showOnboarding({ force = false, onClose } = {}) {
   // iOS 15.0～15.3 的 WKWebView 沒有 <dialog>（部署目標 15.0）：不顯示，也不記成看過（升級後還會出現）
   if (typeof HTMLDialogElement !== 'function' || typeof HTMLDialogElement.prototype.showModal !== 'function') return null;
   if (document.querySelector('dialog.onboard')) return null; // 連點「再看一次」不疊兩個
-  const steps = [INTRO, LOCATION, ...(hasNativeNotify() ? [NOTIFY] : [])];
+  const steps = [INTRO, LOCATION, AREA, ...(hasNativeNotify() ? [NOTIFY] : [])];
   // 已經允許的權限步驟跳過（背景檢查；第一步沒有權限，查完之前不會用到）
   const skip = new Set();
   for (const s of steps) if (s.granted) s.granted().then((ok) => { if (ok) skip.add(s); }).catch(() => {});
@@ -90,7 +99,26 @@ export function showOnboarding({ force = false, onClose } = {}) {
       i = k;
       paint();
     });
-    if (s.action) {
+    if (s.picker) { // 預設地區：選好縣市＋區才能儲存；「先跳過」照樣往下
+      const box = document.createElement('div');
+      body.append(box);
+      let chosen = null;
+      const save = Object.assign(document.createElement('button'), { type: 'button', className: 'btn', textContent: '儲存', disabled: true });
+      areaPicker(box, { onChange: (a) => { chosen = a; save.disabled = !a; } }).catch(() => {});
+      next.className = 'btn quiet';
+      next.textContent = last ? '先跳過，開始使用' : '先跳過';
+      save.addEventListener('click', () => {
+        if (!chosen) return;
+        setHomeArea(chosen);
+        status.textContent = `好，預設地區是${areaLabel(chosen)}。`;
+        save.hidden = true;
+        next.className = 'btn';
+        next.textContent = last ? '開始使用' : '下一步';
+        next.setAttribute('aria-describedby', status.id);
+        next.focus();
+      });
+      row.append(save, next);
+    } else if (s.action) {
       const act = Object.assign(document.createElement('button'), { type: 'button', className: 'btn', textContent: s.action.label });
       next.className = 'btn quiet';
       next.textContent = last ? '先不要，開始使用' : '先不要';

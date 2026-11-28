@@ -81,6 +81,8 @@ export function clearOfflineCache() {
 export const api = {
   /** 服務狀態；sources（各類資料真實／示範）存進 state.sources */
   status: () => call('/api/v1/status', {}, () => ({ mode: 'demo' })).then((d) => { state.sources = d?.sources || null; state.partner = d?.partner || null; return d; }), // partner：合作 App 連結（散步建議的 MyDrama 活動頁）
+  /** 預設地區的選單：縣市＋區（T-HOMEAREA；一天內用快取） */
+  areas: () => call('/api/v1/areas', {}, (s) => s.govOffice.areas(), { cache: TTL.day }),
   busRoutes: (city, keyword) => call('/api/v1/bus/routes', { city, keyword }, (s) => s.bus.searchRoutes({ city, keyword }), { cache: TTL.day }),
   busEta: (city, route) => call('/api/v1/bus/eta', { city, route }, (s) => s.bus.routeEta({ city, routeName: route }), { cache: TTL.eta }),
   busNearby: (lat, lon) => call('/api/v1/bus/nearby', { lat, lon }, (s) => s.bus.nearbyStations({ lat, lon })),
