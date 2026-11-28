@@ -208,6 +208,7 @@ function render() {
     if (onLifeAgent({ page, params })) paintShell(); // 最近一輪是英文：標題也英文
   } else {
     window.scrollTo(0, 0);
+    setDocTitle($('title').textContent || 'Abang'); // 先用這一頁的預設標題：沒自己設標題的頁（首頁、服務、提醒、我的…）原本留著上一頁的（V3 巡檢 F4：讀屏換頁念錯頁名）
     page.render({ main, params, query, toast, setTitle, setAction, onCleanup: (f) => cleanups.push(f) });
   }
   paintBanner();

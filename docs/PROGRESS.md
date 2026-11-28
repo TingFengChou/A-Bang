@@ -19,6 +19,85 @@
 - 下一個：設計 #3 決策圖手機字級；PM #4 觀光地名與轉車；架構 #5 前端重複的時間與距離
 - 卡住：無
 
+## 2026-11-28 恢復開發：設計第三輪 #3 決策圖在手機上
+- 做了：Austin「繼續開發」。決策圖手機上字太小（圖縮到 0.78 倍，標籤約 8px）、名稱被截（「YouBi…」）、分數 75、71 一般人看不懂 → 窄螢幕把圖裡的字放大、方案框加寬、名稱依字寬截（`fitName`）、圖下加一句說明分數。手機尺寸實際畫兩趟（西門町→台北101、桃園車站→台北101）檢查沒有字超出方案框
+- App Functions 結合：無（畫面）
+- 測試：npm test 全過（`test/dg-details.test.js` 新增 1 項）；e2e 全過
+- 文件：UX.md、PROGRESS.md
+- 下一個：V2-2 地端模型評測結果寫進 PLAN；第三輪剩下的（PM #4 觀光地名與轉車、架構 #5 前端重複邏輯）
+- 卡住：F1、F3、F9、Q-7 等 Austin
+
+## 2026-11-28 V6-3、V7-2、V8-4 結果
+- 做了：V6-3 免金鑰開放資料 14 個工具經本機伺服器查真實資料都可用（藥局 20、萬華牙科 43、垃圾車 90 公尺、油價 11-23、發票 115 年 9～10 月、台積電 11/27、165、辦事須知、戶政週六放假、護照、官方入口 nhi.gov.tw）。V7-2 OpenAPI 3.1 59 條路由、41 個工具都有 summary。V8-4 壓測：10 分鐘 1,220 萬次與 5 分鐘 607 萬次，連線錯誤 0、限流正常；記憶體 820 MB 起、高峰 938 MB、回落 720 MB，沒有洩漏（macOS `ps` 的 RSS 在記憶體壓縮時偏小，要用 `top` 的 MEM）。部署至少 1 GB 記憶體
+- App Functions 結合：無（驗證）
+- 文件：PLAN.md（V6、V7、V8 狀態）、PROGRESS.md
+- 下一個：V2-2 地端模型評測結果（113 過 111：S18-3、P2-10）
+- 卡住：F1、F3、F9、Q-7 等 Austin；V6-1／2、V7-1／3 要金鑰或 Austin 實測
+
+## 2026-11-28 V8-1 全 repo 安全審查：F8 三項修正、F9 等決定
+- 做了：全 repo 安全審查（輸入驗證、ReDoS 實測、路徑穿越、XSS、連結、CORS、手機設定、隱私、npm audit）。F8：(a) 問阿幫與建議驗證端點不檢查 content-type，別的網站用不需預檢的跨站請求就能耗用全站每日模型額度 → `postGuard`：有 Origin 時只收本站（同 host）與 APP_ORIGINS、內容要 application/json，錯誤回應不帶 `*`；(b) 路線搜尋、站牌到站直接打 TDX → 預熱清單本機篩、清單外站位 ID 走 `createUnlistedGate`；(c) `resolveCity` 用 `Object.hasOwn`。F9（Android 雲端備份會帶走常用地點）是隱私與方便的取捨，等 Austin。用 App 實際的來源（https://localhost、capacitor://localhost）打本機伺服器：200、預檢允許；別的網站 403
+- App Functions 結合：無（安全）
+- 測試：npm test 全過（新增 3 項）；e2e 全過
+- 文件：PLAN.md（V8、F8、F9）、PROGRESS.md
+- 下一個：V2-2 地端模型評測結果；V6 免金鑰開放資料逐一可用
+- 卡住：F1、F3、F9、Q-7 等 Austin
+
+## 2026-11-28 V8-2 git 歷史掃描；V4-1 iOS 模擬器
+- 做了：V8-2 掃全部 678 個 commit：沒有 `.env`、金鑰檔（pem／p12／keystore／google-services…）、常見金鑰格式（Anthropic、AWS、Google、GitHub、Slack、私鑰）；有值的 `TDX_CLIENT_SECRET=` 只在文件網站的中文範例；本機路徑與公司信箱只出現在 F7：`private/tmp/…/scratchpad/` 兩個評測報告（11-20 判斷小實驗，內容無金鑰）不小心進了版控 → 移出、`.gitignore` 加 `/private/`。V4-1 `smoke:ios` 全過（外掛 8、10 頁、語音在手機上、沒有閃退）
+- App Functions 結合：無（驗證）
+- 測試：npm test 全過；e2e 全過
+- 文件：PLAN.md（V4、V8 狀態、F7）、PROGRESS.md
+- 下一個：V2-2 地端模型評測結果；V8-1 全 repo 安全審查
+- 卡住：F1、F3、Q-7 等 Austin
+
+## 2026-11-28 V3 問阿幫走查 F6：示範資料找不到時照實說
+- 做了：問阿幫 9 類（行程、公車、捷運、高鐵台鐵、天氣空品、藥局診所、政府、發票股市油價、其他）27 句走查，示範模式與真實開放資料各一次：回答正確（帶行李改推叫車、戶政週六放假、自傷先給 1925／119）。F6：示範模式問萬華區的藥局、牙科、垃圾車回「沒有找到」，其實是示範資料只收了中正、大安等少數地區（真實資料查得到）→ 這三個工具在示範模式找不到時補一句說明
+- App Functions 結合：無（修正）
+- 測試：npm test 全過（新增 1 項）；e2e 全過
+- 文件：PLAN.md（V3 狀態、F6）、PROGRESS.md
+- 下一個：V2-2 地端模型評測（43／43 進行中）；V4 iOS 模擬器 smoke
+- 卡住：F1、F3、Q-7 等 Austin
+
+## 2026-11-28 V3 無障礙巡檢 F5：讀屏名稱與 44px 觸控
+- 做了：手機尺寸 21 頁無障礙巡檢（本機腳本：互動元件名稱、圖片 alt、觸控目標、lang、h1）。每頁 1 個 h1、lang zh-Hant-TW、圖片都有 alt。F5：時刻表頁起訖站、日期沒有讀屏名稱 → aria-label「起站」「迄站」「日期」；觸控目標 32～42px（建議 chip、設定頁跳轉、防詐範例、分段按鈕、下拉選單、文字按鈕、跳到主要內容）→ 全部 44px，chip 字 13→14px；首頁搜尋框原本只有中間 26px 點得到 → 整條 44px。修完重跑巡檢 0 項
+- App Functions 結合：無（無障礙）
+- 測試：npm test 全過；e2e 全過；巡檢 0 項
+- 文件：UX.md（觸控 44px）、PLAN.md（V3 狀態、F5）、PROGRESS.md
+- 下一個：V2-2 地端模型評測結果；V3 問阿幫各類走查
+- 卡住：F1、F3、Q-7 等 Austin
+
+## 2026-11-28 V1 完成；V3 巡檢發現 F4（換頁標題沒更新）
+- 做了：V1-3 達成（#220、#221、#222 合併後 main CI 連續 3 次全綠、沒有重跑），V1 全部完成。V2-1：260 個情境示範模式全過，known 只有 Q-7。V3 巡檢 27 個網址（手機尺寸）：沒有 JS 錯誤、不存在的網址有處理；發現 F4：沒自己設標題的頁（首頁、服務、提醒、我的、設定…）換頁後 `document.title` 留著上一頁的 → `app.js` 換頁先設預設標題；新增 e2e（確認修正前會失敗）
+- App Functions 結合：無（修正）
+- 測試：npm test 全過；e2e 全過
+- 文件：PLAN.md（V 狀態、F4）、PROGRESS.md
+- 下一個：V2-2 地端模型評測結果；V3 手動驗收（問阿幫各類、無障礙）
+- 卡住：F1、F3、Q-7 要 Austin 決定
+
+## 2026-11-28 V1-4 覆蓋盤點；時刻表頁 e2e
+- 做了：盤點工具、卡片、頁面的測試覆蓋（結果寫在 TESTING.md）：工具全有單元測試；卡片只有 `bus-station` 沒有單元測試（e2e 有）；台鐵頁 `#/rail/tra` 沒有 e2e、高鐵頁只測返回鍵。新增 e2e「時刻表頁」：高鐵、台鐵預設起訖自動查得到班次、交換起訖重查、起訖相同說明。V5-4 部分（Pixel）：通知與定位權限允許、Health Connect 讀得到 7 天資料。F3：`pages` workflow 每次失敗（沒開 GitHub Pages），等 Austin 決定
+- App Functions 結合：無（測試）
+- 測試：e2e 154 全過；npm test 全過
+- 文件：TESTING.md（覆蓋盤點）、PLAN.md（V 狀態、F3）、PROGRESS.md
+- 下一個：V1-3 main 連續 3 次 CI 全綠；V2 情境集與判斷
+- 卡住：F1、F3 要 Austin 決定
+
+## 2026-11-28 V5 Android 實機（Pixel 11 Pro XL）：煙霧測試、裝置端 AI；F2 修正
+- 做了：V5-1 `smoke:android` 全過（外掛 7 個、10 頁、語音在手機上 zh-TW、麥克風鍵、中央鍵與返回鍵、沒有畫面錯誤；螢幕關著時截圖全黑，喚醒後重跑）。V5-2 在 `#/ai` 現場試判斷 5 句＋問阿幫 1 句：Gemini Nano 在手機上判斷 0.5～1 秒、不用網路，伺服器採用；手機寫回答可用。發現 F1（台北以外附近藥局／診所查不到，示範行政區只有 17 個，等 CWA 授權碼或全台鄉鎮中心點，記在 PLAN.md）、F2（試判斷第 2 段說「手機沒給定位」與第 3 段矛盾）→ 改成「會先問手機的定位」
+- App Functions 結合：無（驗證）
+- 測試：npm test 全過；test:clock 全過；e2e 全過
+- 文件：PLAN.md（V 狀態、F1、F2）、PROGRESS.md
+- 下一個：V1-3 main 連續 3 次 CI 全綠；V5-3 相機讀字、V5-4 通知與提醒、Health Connect
+- 卡住：F1 要 Austin 決定
+
+## 2026-11-28 V 整體驗證開始：V1-1 時鐘測試、V1-2 不同時段跑測試
+- 做了：Austin：「先停下開發，等完整驗證過後繼續往下」。PLAN.md 新增 V 整體驗證（V1～V9）與狀態看板一列；功能 PR（#219、#170、#139）暫停。V1-1：`test/agent-grounded.test.js` 兩項依真實時鐘（「九點半前」「九點要到」在台灣 9:00～21:00 會變晚上），給固定早上的時間。V1-2：`npm run test:clock`（`scripts/test-clock.js`＋`test/support/fake-clock.mjs`）在 5 個台灣時段各跑一次全部單元測試，進 CI；確認舊版測試在 15:00 會被抓到
+- App Functions 結合：無（測試）
+- 測試：npm test 全過；test:clock 5 個時段全過（約 90 秒）；e2e 全過
+- 文件：PLAN.md（V 里程碑）、TESTING.md（CI、結果不能看時間）、PROGRESS.md
+- 下一個：V1-3 main 連續 3 次 CI 全綠；V1-4 覆蓋盤點
+- 卡住：無
+
 ## 2026-11-28 架構第三輪 #3：開放資料快取的筆數上限與最久沒用先刪
 - 做了：`core/opendata-client.js` 原本只有下載成功時才檢查上限（200），淘汰的是最早放進去的；上游斷線時每個不同的網址（例：MyDrama 斷線期間每個 `drama_search` 查詢字）都留一筆失敗紀錄（含錯誤堆疊），記憶體一直漲。現在每次寫入都經過 `put`：超過 `MAX_ENTRIES` 刪最久沒用的（下載中的不刪），讀到快取時移到最新；失敗紀錄只留訊息、狀態碼與 `upstreamStatus`
 - App Functions 結合：無（伺服器內部）

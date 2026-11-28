@@ -4,3 +4,6 @@ dist/
 .cache/
 test/screenshots/
 .DS_Store
+
+# 本機暫存（V8-2：曾不小心提交過 private/tmp/…/scratchpad）
+/private/

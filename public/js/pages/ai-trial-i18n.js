@@ -90,7 +90,7 @@ export const TRIAL_ZH = {
   'slot.grade': '油品',
   'slot.drama': '劇名或類型',
   'slot.saved': '常用地點',
-  'fill.location': '要知道你在哪（手機沒給定位）',
+  'fill.location': '要知道你在哪（會先問手機的定位）', // 這一段在拿到定位之前算：不說「沒給」（V5 實機：第 3 段明明用了定位）
   'fill.now': '用現在',
   'fill.today': '今天',
   'fill.all': '全部列出',
@@ -306,7 +306,7 @@ export const TRIAL_EN = {
   'slot.grade': 'Fuel type',
   'slot.drama': 'Title or genre',
   'slot.saved': 'Saved place',
-  'fill.location': "Needs to know where you are (the phone gave no location)",
+  'fill.location': 'Needs to know where you are (asks the phone for its location)',
   'fill.now': 'Uses now',
   'fill.today': 'Today',
   'fill.all': 'Lists all',

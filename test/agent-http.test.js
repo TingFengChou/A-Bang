@@ -80,6 +80,25 @@ test('手機 App 來源（ADR-0013）：預檢與回應帶 CORS；其他網站�
   assert.equal(await rest('https://evil.example'), null);
 });
 
+test('別的網站送不需要預檢的跨站請求擋下（V8-1：會用到模型額度）；本站與 App 照常', async () => {
+  const body = JSON.stringify({ messages: [{ role: 'user', content: '台北到高雄' }] });
+  const send = (path, headers) => fetch(`${BASE}${path}`, { method: 'POST', headers, body: path.includes('suggest') ? JSON.stringify({ asks: ['307 到哪了'] }) : body });
+  for (const path of ['/api/v1/agent', '/api/v1/suggest/check']) {
+    const plain = await send(path, { 'content-type': 'text/plain' }); // no-cors 的 fetch、表單都只能送這種
+    assert.equal(plain.status, 415, `${path} text/plain`);
+    const evil = await send(path, { origin: 'https://evil.example', 'content-type': 'application/json' });
+    assert.equal(evil.status, 403, `${path} 別的網站`);
+    assert.equal(evil.headers.get('access-control-allow-origin'), null, '錯誤也不帶 *');
+    for (const origin of [new URL(BASE).origin, 'capacitor://localhost']) {
+      const ok = await send(path, { origin, 'content-type': 'application/json' });
+      assert.ok(![403, 415].includes(ok.status), `${path} ${origin} → ${ok.status}`); // 本站、App（可能被前面的測試限流 429，但不是擋來源）
+      await ok.body?.cancel();
+    }
+  }
+  const bad = await fetch(`${BASE}/api/v1/agent`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{' });
+  assert.equal(bad.headers.get('access-control-allow-origin'), null, 'agent 出錯的回應不帶 *');
+});
+
 test('handler：計量以 agent id 為單位、上游錯誤以 error 事件結束', async () => {
   const svc = createServices({ forceMock: true });
   const h = createAgentHandler({ svc, env: { AGENT_RPM: '2', AGENT_RPD: '100' } });

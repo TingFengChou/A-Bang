@@ -30,7 +30,12 @@ for (const sc of set.scenarios.filter((x) => !only.length || only.includes(x.id)
   for (const t of sc.turns) {
     messages.push({ role: 'user', content: t.say });
     const es = [];
-    await runModel(svc, { messages, clientTools: ['device_location'], clientToolResults: [sc.location === false ? { id: 'loc1', ok: false } : { id: 'loc1', ok: true, result: sc.here || set.here }], ...(sc.saved && { savedPlaces: sc.saved }), ...(pendingAsk && { pendingAsk }) }, (e) => es.push(e), { provider, judge, now: atTW(sc.at), ...(sc.profile && { profileId: sc.profile }) }); // profile：情境指定的 agent（例 antifraud）；here：情境的定位
+    try {
+      await runModel(svc, { messages, clientTools: ['device_location'], clientToolResults: [sc.location === false ? { id: 'loc1', ok: false } : { id: 'loc1', ok: true, result: sc.here || set.here }], ...(sc.saved && { savedPlaces: sc.saved }), ...(pendingAsk && { pendingAsk }) }, (e) => es.push(e), { provider, judge, now: atTW(sc.at), ...(sc.profile && { profileId: sc.profile }) }); // profile：情境指定的 agent（例 antifraud）；here：情境的定位
+    } catch (e) { // 模型逾時或連不上：記成這個情境失敗、接著跑下一個（V2-2：一次逾時讓整批評測停在 204／260）
+      fails.push(`「${t.say}」模型錯誤：${e.message}`);
+      break;
+    }
     const ask = es.find((e) => e.type === 'ask');
     pendingAsk = ask?.pending ? { id: ask.id, ...ask.pending } : undefined;
     if (process.env.EVAL_DEBUG) for (const e of es) if (e.type === 'tool_start') console.log(`    · ${e.name} ${JSON.stringify(e.input)}`);

@@ -7,12 +7,12 @@ import { buildSystemPrompt } from './prompt.js';
 import { ev } from './events.js';
 import { validateRequest, judgeCalls, execTools, deviceLocation, guardedText, hideToolNames, judgeInfo, runDemo, asideState, withAskCheck, LOCATION_CALL_ID, MAX_TOOL_ROUNDS } from './run.js';
 import { judgeNote, outingNote, moreStatesNote } from './impact.js';
-import { slotAsk, deviceAskTracker, deviceSlotAsk } from './ask.js';
+import { slotAsk, deviceAskTracker, deviceSlotAsk, originAsk, ORIGIN_ASKED } from './ask.js';
 import { askFirst } from './clarify-plan.js';
 import { scamPasteAsk } from './clarify.js';
 import { lineCode } from '../tools/metro.js';
 import { normName, nowTW } from '../util.js';
-import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, isEnglish, rainAsked } from './demo-intent.js';
+import { parseIntent, needsLocation, DEFAULT_FROM, contextNote, tripDepartAt, isEnglish, rainAsked, nearDefaultFrom, localStations, hasShortStation } from './demo-intent.js';
 import { demoSummary, nightNote } from './demo-summary.js';
 import { resolvePoint } from '../services/places.js';
 import { BUS_OFF } from '../services/trip.js';
@@ -269,7 +269,7 @@ export function dropStrayOffers(text, trip = null, it = null) {
  * 模型漏講的重點由程式補上（地端小模型常省略；模型模式情境 S10、S12-11）：
  * 照你說的改了交通方式 → 開頭先說「照你說的選…」；深夜公車收班或接近末班 → 補一句。
  */
-export function mustSay(text, trip, it = null) {
+export function mustSay(text, trip, it = null, { rideLink = false } = {}) {
   if (!text) return text;
   let out = dropStrayOffers(text, trip, it);
   // 訂票（「幫我訂明天的高鐵票」）：阿幫只給官方連結（ADR-0011；P2-10）
@@ -278,8 +278,18 @@ export function mustSay(text, trip, it = null) {
   // 明天（或後天）出發的行程、模型沒說是哪一天：開頭補上（P5-2 模型模式；「改成明天早上8點出發」）
   const days = it?.departDays ?? (it?.tomorrow ? 1 : 0);
   if (it?.intent === 'trip' && days > 0 && !/明天|後天|明早|明晚|明日/.test(out)) out = `${days === 2 ? '後天' : '明天'}${it.departTime ? ` ${it.departTime}` : ''} 出發：${out}`;
+  // 給了叫車連結（ridehail_link）卻沒有行程卡：一樣要說付款在叫車 App（V2-2 評測 P2-10：模型直接給連結時原本漏了）
+  if (rideLink && !/付款在叫車|叫車 ?App.{0,8}付款/.test(out)) out = `${out}${/[。！？]$/.test(out) ? '' : '。'}叫車與付款都在叫車 App 完成（付款在叫車 App，阿幫不代付）。`;
   if (!trip) return out;
   const picked = trip.options?.find((o) => o.id === trip.best)?.name;
+  // 今天不會來的直達公車（站牌即時資訊：今日未營運、末班已過、交管不停靠）：模型沒說就先說，並講改推哪一個（V2-2 評測 S20-1、S20-3；與示範模式同一句）
+  const offRoutes = (trip.missing || []).filter((m) => m.kind === 'route' && m.route);
+  if (offRoutes.length && !offRoutes.every((m) => out.includes(m.route) && /沒有營運|未營運|不會來|末班已過|不停靠|不推/.test(out))) {
+    const groups = new Map();
+    for (const m of offRoutes) groups.set(m.why, [...(groups.get(m.why) || []), m.route]);
+    const offSay = [...groups].map(([why, routes]) => `公車 ${routes.join('、')} ${why}，這次不推。`).join('');
+    out = `${offSay}${picked && !out.includes(picked) ? `選「${picked}」。` : ''}${out}`;
+  }
   // 程式排序時用了使用者指定的方式（ranking.reason 這樣開頭）、模型沒說到 → 開頭補一句（不帶分數）
   if (picked && /^照你說的/.test(trip.ranking?.reason || '') && !/(照|依|按)你(所)?說|你說要/.test(out)) out = out.includes(picked) ? `照你說的，${out}` : `照你說的選「${picked}」。${out}`; // 已講到方案名稱：只加「照你說的，」
   // 建議叫車：付款在叫車 App（阿幫不代付；P2-10）
@@ -363,7 +373,8 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const namedArea = rulesIt.intent === 'pharmacy' && rulesIt.area; // 「大安區的藥局」：不用位置
   // 「垃圾車幾點會到我家這邊」：用常用地點的座標（手機送來的），不用現在位置、也不必先定位（P3-2）
   const atSaved = rulesIt.savedAt && Number.isFinite(rulesIt.fromPoint?.lat) && [...NEARBY_INTENTS, 'outing'].includes(rulesIt.intent);
-  const wantHere = canLocate && !namedArea && !atSaved && (hereIsOrigin || (!rulesIt.places?.length && (needsLocation(rulesIt) || NEARBY_INTENTS.includes(j?.intent) || j?.intent === 'trip')));
+  const shortStation = profile.id === 'life' && hasShortStation(rulesIt, last); // 「桃園到台北101」：「桃園」是高鐵站還是火車站要看人在哪（z11）
+  const wantHere = canLocate && !namedArea && !atSaved && (hereIsOrigin || shortStation || (!rulesIt.places?.length && (needsLocation(rulesIt) || NEARBY_INTENTS.includes(j?.intent) || j?.intent === 'trip')));
   const here = atSaved ? { lat: rulesIt.fromPoint.lat, lon: rulesIt.fromPoint.lon, name: rulesIt.lang === 'en' ? 'your saved place' : `你的${rulesIt.savedAt}` } : canLocate ? deviceLocation(req) : null;
   if (wantHere && here === undefined) {
     emit(ev.agentNote(rulesIt.lang === 'en' ? '@定位 checking where you are' : '@定位 先看看你在哪裡'));
@@ -371,7 +382,21 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
     emit(ev.done({ modelCalls: 0, inputTokens: 0, outputTokens: 0 }));
     return;
   }
-  const locationHint = atSaved ? `使用者問的是他的常用地點「${rulesIt.savedAt}」附近，座標 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}：天氣、空品、YouBike、附近公車、垃圾車、藥局都用這個 lat/lon；不是他現在的位置，也不要再問他在哪裡。` : here ? `使用者現在在 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（手機定位）。使用者沒說起點或地點時就用這個位置：plan_trip 的 from 用 { lat, lon, name: "你的位置" }，天氣、空品、YouBike、附近公車、垃圾車用這個 lat/lon；不要再問他在哪裡。` : '';
+  // 沒拿到位置、目的地又就是預設起點（或去最近的火車站）：跟規則模式一樣問從哪裡出發，不交給模型（V2-2 評測 AS-4、AR-17：地端模型直接排「臺北車站到臺北車站」）
+  if (profile.id === 'life' && rulesIt.intent === 'trip' && !rulesIt.from && !rulesIt.fromSaved && !here && (rulesIt.nearRail || nearDefaultFrom(rulesIt.toSaved || rulesIt.to))) {
+    const again = ORIGIN_ASKED.test(String(req.messages.slice(0, -1).filter((m) => m.role === 'assistant').at(-1)?.content || ''));
+    const rule = originAsk(rulesIt.nearRail ? null : rulesIt.toSaved?.name || rulesIt.to, rulesIt.lang, { again, nearRail: rulesIt.nearRail });
+    const o = deviceSlotAsk(dask, 'from', rule, { again, history: req.messages.slice(0, -1), context: req.context }) || rule;
+    if (o.ask) emit(ev.ask({ id: 'ask-m1', ...o.ask }));
+    emit(ev.text(o.short)); emit(ev.done({ modelCalls: 0, inputTokens: 0, outputTokens: 0 }));
+    return;
+  }
+  // 短名對到不只一個車站（桃園、新竹、台中…）：人就在那附近 → 用最近的那一站，並告訴模型（V2-2 評測 LA-8：地端模型把「桃園」查成高鐵桃園站）
+  const named0 = { from: rulesIt.from, to: rulesIt.to };
+  if (shortStation && here) localStations(rulesIt, last, here);
+  const stationHint = ['from', 'to'].filter((k) => rulesIt[k] && rulesIt[k] !== named0[k]).map((k) => `使用者要的是「${rulesIt[k]}」（他就在這附近，不是「${named0[k]}」），plan_trip 的 ${k} 用「${rulesIt[k]}」。`).join('');
+  const locationHint0 = atSaved ? `使用者問的是他的常用地點「${rulesIt.savedAt}」附近，座標 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}：天氣、空品、YouBike、附近公車、垃圾車、藥局都用這個 lat/lon；不是他現在的位置，也不要再問他在哪裡。` : here ? `使用者現在在 ${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}（手機定位）。使用者沒說起點或地點時就用這個位置：plan_trip 的 from 用 { lat, lon, name: "你的位置" }，天氣、空品、YouBike、附近公車、垃圾車用這個 lat/lon；不要再問他在哪裡。` : '';
+  const locationHint = `${locationHint0}${stationHint}`;
   // 地端小模型只給這個意圖用得到的工具：規則聽得懂就照規則（P2：判斷層把「來得及去台北車站嗎」聽成查高鐵）
   //   行程：工具不縮減，但拿掉查時刻表（程式已經比較好路線，模型自己去查高鐵班次會答非所問）
   const only0 = provider.mode !== 'local' ? undefined
@@ -383,6 +408,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const nextId = () => `t${++n}`;
   const used = new Set();
   let lastTrip = null; // 這一輪最後一次比較的行程（總結補上程式知道、模型漏講的重點）
+  let rideLink = false; // 這一輪給了叫車連結（總結要說付款在叫車 App）
   const ask = { done: false, habitAsk: req.userState?.habitAsk, usual: req.userState?.usual, device: dask }; // 阿幫問你：這一輪最多一個（ADR-0016；device：手機提議的狀態題，ADR-0020）
   const aside = asideState(req, profile, now, svc); // 等車推短劇（ADR-0019）：這一輪最多一次（排行先並行拿）
   // 有現在位置時，程式先用它查好（不靠模型）：地端模型常常只查了目的地就反問「你從哪裡出發」。
@@ -408,6 +434,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
       if (o.ok && /^(thsr|tra)_timetable$/.test(pre[i].name)) { // 模型用實際起站再查時沿用（有寫日期、沒寫日期都算）
         for (const date of [undefined, o.result.data.date]) preDone.set(callKey(pre[i].name, { from: o.result.data.from, to: o.result.data.to, date }), text);
       }
+      if (o.ok && pre[i].name === 'ridehail_link') rideLink = true;
       if (o.ok && pre[i].name === 'plan_trip') { lastTrip = o.result.data; turnTrips.push({ from: o.result.data.from, to: o.result.data.to, mode: pre[i].args.prefs?.mode || null, text }); }
       if (o.ok && pre[i].name === 'plan_trip') preDone.set(tripKey(o.result.data.from, o.result.data.to, pre[i].args.prefs), text); // 地名寫法不同（台北松山機場／松山機場）也算同一趟
       return text;
@@ -423,7 +450,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
   const en = isEnglish(last);
   const finish = (text, fromModel = false) => {
     if (used.size) emit(ev.discussionEnd({ tools: [...used] }));
-    emit(ev.text(guardedText(profile, fromModel && !en ? mustSay(text, lastTrip, rulesIt) : text, emit))); // 程式補重點只補模型寫的中文回答（不補到英文、退回說明） // L2 輸出護欄（防詐：不保證安全、固定附 165）
+    emit(ev.text(guardedText(profile, fromModel && !en ? mustSay(text, lastTrip, rulesIt, { rideLink }) : text, emit))); // 程式補重點只補模型寫的中文回答（不補到英文、退回說明） // L2 輸出護欄（防詐：不保證安全、固定附 165）
     emit(ev.done(usage));
   };
 
@@ -521,6 +548,7 @@ export async function runModel(svc, body, emit0, { provider, profileId = 'life',
     run.forEach((c, i) => {
       const o = out[i];
       used.add(c.name);
+      if (o.ok && c.name === 'ridehail_link') rideLink = true;
       if (o.ok && c.name === 'plan_trip') { lastTrip = o.result.data; turnTrips.push({ from: o.result.data.from, to: o.result.data.to, mode: c.input?.prefs?.mode || null, text: modelText(o.result) }); preDone.set(tripKey(o.result.data.from, o.result.data.to, c.input?.prefs), modelText(o.result)); } // 模型再用相同條件呼叫也沿用（不出現兩張行程卡；條件不同照常查）
       if (o.followUp || o.watched) used.add('bus_route_eta'); // 選公車後自動盯到站也算一個工具（watched：盯到今天不會來而重排）
       // 回填模型的只有文字摘要（清單截短），不放整包 data（AGENT.md §4）

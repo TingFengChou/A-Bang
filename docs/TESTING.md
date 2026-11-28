@@ -89,7 +89,24 @@ await page.screenshot({ path: 'test/screenshots/agent-trip-rain.png', fullPage: 
 
 ## 6. CI
 
-`.github/workflows/ci.yml`（PR 與推 `main` 時跑，`DEMO_MODE=1`）：Node 22、`npm ci` → `npm run lint` → `npm test` → `npm run build:demo` → `npx playwright install --with-deps chromium` → `npm run e2e`；E2E 截圖上傳為 artifact `e2e-screenshots`（保留 7 天）。`npm run build:cards`（M4-05）接在 `build:demo` 之後。
+`.github/workflows/ci.yml`（PR 與推 `main` 時跑，`DEMO_MODE=1`）：Node 22、`npm ci` → `npm run lint` → `npm test` → `npm run test:clock`（不同時段，見下） → `npm run build:demo` → `npx playwright install --with-deps chromium` → `npm run e2e`；E2E 截圖上傳為 artifact `e2e-screenshots`（保留 7 天）。`npm run build:cards`（M4-05）接在 `build:demo` 之後。
+
+### 結果不能看跑測試的時間（V1，2026-11-28）
+
+`npm run test:clock`（`scripts/test-clock.js`）用假時鐘（`test/support/fake-clock.mjs`，`FAKE_TW=HH:mm`）把「現在」挪到台灣時間 06:00、10:30、15:00、22:30、00:30 各跑一次全部單元測試，任一時段失敗就失敗。抓過的例子：「9點前到」在早上 9 點後跑變 21:00（沒說早晚、已過的抵達時間推到晚上），CI 只在台灣白天紅。
+
+寫測試時：跟時間有關的一律給固定時間——`parseIntent(q, { now })`、`arriveByOf(text, now)`、`departTimeOf(text, arriveBy, now)`、情境集的 `"at": "07:00"`、`runDemo(…, { now })`。只想跑某個時段：`CLOCK_TIMES=15:00 npm run test:clock`。
+
+### 覆蓋盤點（V1-4，2026-11-28）
+
+| 類別 | 結果 |
+|---|---|
+| 工具（41 個，`listTools()`） | 每個都有單元測試提到 |
+| 卡片（`public/ui/cards/cards/`） | 除了 `bus-station` 都有單元測試；`bus-station` 由 e2e（MCP Apps、站牌頁）涵蓋 |
+| 頁面 | 生活格子 9 個（`#/s/:id`）、附近、公車、問阿幫、防詐、設定、我的、提醒、腦袋都有 e2e；**台鐵頁 `#/rail/tra` 原本沒有、高鐵頁只測返回鍵** → 新增「時刻表頁」e2e（預設起訖、班次、交換、同站） |
+| 只能手動或實機驗的 | 原生外掛的真實行為（語音辨識、相機讀字、Health Connect、通知、下車提醒常駐服務、Gemini Nano／Apple Intelligence）→ `smoke:android`、`smoke:ios` 與 PLAN.md V4、V5 手動清單 |
+
+盤點方法：`listTools()` 的名稱、卡片檔名、`public/js/pages` 的路由，逐一在 `test/*.test.js`、`scripts/e2e.js`、情境集裡找。新增工具、卡片、頁面時同時補測試。
 
 ## 7. 本機真實資料檢查（Austin）
 

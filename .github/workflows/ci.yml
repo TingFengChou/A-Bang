@@ -22,6 +22,8 @@ jobs:
       - name: 品牌圖檔與產生腳本一致
         run: python3 scripts/build-brand.py && git diff --exit-code public/brand public/icons/icon.svg
       - run: npm test
+      - name: 不同時段跑一次單元測試（結果不能看跑測試的時間）
+        run: npm run test:clock
       - run: npm run build:demo
       - run: npm run build:cards
       - name: 安裝 Playwright Chromium

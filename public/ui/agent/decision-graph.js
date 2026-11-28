@@ -27,7 +27,7 @@ const EN = {
   tag: { 遲到: 'Late', 不要: 'Skip', 不適合: 'Unfit', 收班: 'No service', 未發車: 'Not yet', 沒列入: 'N/A', 排除: 'Out' },
   cols: ['Data', 'Abang', 'Options'],
   step1: '① Gathering data', step2: '② Your situation', step3: (c) => `③ Comparing: ${c}`, step4: (n) => `④ Decision: ${n}`, decide: '④ Decision',
-  hint: 'Want another way? Tap an option and Abang recalculates', chips: 'Your situation (tap to toggle, recalculates right away)',
+  hint: 'Want another way? Tap an option and Abang recalculates', legend: 'Numbers are scores: higher fits you better right now.', chips: 'Your situation (tap to toggle, recalculates right away)',
   habit: (m) => `You agreed: prefer ${m}`, habitWhy: 'Why?', habitPaused: 'You told Abang your situation, so this preference is not counted this time', habitNote: 'You said yes to preferring it. When you don\'t mention your situation it gets a small bonus (up to 8 pts). Stored only on this phone; undo it in Settings.', often: 'you prefer it', habitCrit: 'Preference', premiumCrit: 'Not worth the fare', premiumStep: 'Worth the fare?', longCrit: 'Too long', longStep: 'Too long?', unsureCrit: 'Arrival unknown', unsureStep: 'Arrival known?', estCrit: 'Estimate', estStep: 'Estimated?', unsure: (n) => `${n} has no arrival time`, notWorth: (c, m) => (m > 0 ? `NT$${c} cheaper, ${m >= 15 ? '' : 'only '}${m} min slower` : `NT$${c} cheaper, no slower`), tooLong: (n, m, cap) => `${n} takes ${m} min (over ${cap})`,
   notIn: (n, w) => `${n} not included: ${w}`,
   details: 'Comparison details', whyOver: (a, b) => `Why ${a} over ${b}`, scores: 'Score breakdown', cmp: { minutes: 'Time', cost: 'Cost', walkMin: 'Walking', waitMin: 'Waiting' }, unitMin: (n) => `${n} min`, unitNT: (n) => `NT$${n}`, same: 'About the same', effNone: 'No effect', effNA: 'Not used', effScore: 'Delay risk', pts: (n, s) => `${n}: ${s} pts`, title: 'How Abang decided', pick: (n) => `Switch to ${n}`, ex: (n, w) => `${n}, excluded: ${w}`,
@@ -48,11 +48,23 @@ const minus = (v) => `${v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}`;
 /** 決策圖的扣分列與 ③ 比較最後幾步（core/decide.js：premium 不划算、tooLong 走太久騎太久、unsure 公車到站時間不明，有才出現） */
 const PENALTY = [{ key: 'premium', label: '不划算', step: '划不划算', en: 'premiumCrit', enStep: 'premiumStep' }, { key: 'tooLong', label: '太久', step: '太不太久', en: 'longCrit', enStep: 'longStep' }, { key: 'unsure', label: '時間不明', step: '到站時間明不明', en: 'unsureCrit', enStep: 'unsureStep' }, { key: 'uncertain', label: '估算', step: '是不是估算', en: 'estCrit', enStep: 'estStep' }]; // unsure：到站時間不明的公車；uncertain：時間或票價是估的，保守看（core/decide.js UNCERTAIN）
 /** 方案名稱縮短，分數一定看得到（「叫車（Uber）」→「叫車」） */
-const short = (n) => { const x = String(n).replace(/（.*?）|\(.*?\)/g, ''); return x.length > 6 ? `${x.slice(0, 5)}…` : x; };
+const short = (n) => fitName(n);
+/**
+ * 依字寬截（中文 1、英數與空白 0.6 個字寬；上限 5）：「YouBike」「公車 紅30」放得下，原本超過 6 個「字」就截（設計第三輪 #3：「YouBi…」）
+ * @param {string} n 方案名稱
+ */
+export function fitName(n, max = 5) {
+  const x = String(n).replace(/（.*?）|\(.*?\)/g, '').trim();
+  const w = (c) => (c.codePointAt(0) <= 0x24f ? 0.6 : 1);
+  if ([...x].reduce((a, c) => a + w(c), 0) <= max) return x;
+  let out = '', acc = 0;
+  for (const c of x) { if (acc + w(c) > max - 0.8) break; out += c; acc += w(c); }
+  return `${out.trimEnd()}…`;
+}
 /** 精簡模式：低階裝置或 reduced motion（UX.md §9）——只淡入、不做翻轉與 3D */
 export const lite = () => (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches)
   || (typeof navigator !== 'undefined' && navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4);
-const W = 440, OPT_X = 300, OPT_W = 128, SRC_X = 38;
+const W = 440, OPT_X = 282, OPT_W = 146, SRC_X = 38; // 方案框加寬（手機字放大後名稱放得下，設計第三輪 #3）
 
 /**
  * 「資料」欄的節點（UX.md §5）：plan_trip 判斷用到的來源（decision.considered：天氣、空品、路況）在前，其他本輪回報的小幫手在後。
@@ -152,6 +164,7 @@ export function renderDecision(root, decision, { sources, decide, CRITERIA, onPi
       el('p', 'dg-why', en ? enReason(bestOpt, ranked.find((o) => o.id !== bestOpt?.id), ranked) : reason), // 英文：程式依分數組一句英文理由
       decision.single && el('p', 'dg-single', en ? decision.single.textEn : decision.single.text), // 只有一種方式：其他方式為什麼不在
       !decision.single && notIn.length > 0 && el('ul', 'dg-missing', notIn.map((x) => el('li', null, en ? EN.notIn(x.route ? `Bus ${x.route}` : EN.mode[x.role] || x.role, x.whyEn || x.why) : `${x.route ? `公車 ${x.route}` : ROLE_NAME[x.role] || x.role}沒列入：${x.why}`))), // 手機沒有 hover：原因寫出來；route＝那一條公車
+      ranked.length > 1 && el('p', 'dg-legend', en ? EN.legend : '數字是推薦分數，越高越適合你現在的狀況。'), // 設計第三輪 #3：一般人看不懂 75、71 是什麼
       onPick && ranked.length > 1 && el('p', 'dg-hint', en ? EN.hint : '想換方式？點其他方案，阿幫會用它重算'), // 審查：手機沒有 hover，要寫出來
       details(ranked),
     ].filter(Boolean));
