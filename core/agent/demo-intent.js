@@ -474,7 +474,7 @@ export function arriveByOf(text, now = Date.now()) {
   // 沒說早晚、今天這個時間已經過了、加 12 小時還沒到 → 下午／晚上（PM 第二輪：15:00 說「六點要到」被當成 06:00；與出發時間同一套）
   else if (h >= 1 && h < 12 && !/早上|上午|凌晨|清晨|明天|明早|後天/.test(text)) {
     const tw = new Date(now + 8 * 3600e3), cur = tw.getUTCHours() * 60 + tw.getUTCMinutes();
-    if (h * 60 + min <= cur && (h + 12) * 60 + min > cur) h += 12;
+    if (h * 60 + min < cur && (h + 12) * 60 + min > cur) h += 12; // 剛好是現在（10:00 說「10點前到」）照說的
   }
   if (h > 23 || min > 59) return null;
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
@@ -784,7 +784,7 @@ function parseIntentRaw(text, ctx) {
   const places = placesInText(s.replace(METRO_LINE_ALL, (m) => ' '.repeat(m.length)).replace(METRO_SYS_ALL, (m) => ' '.repeat(m.length))); // 捷運路線名不是地名（「淡水線下一班」不是淡水老街，PM Q-20）；系統名也不是（「高雄捷運」不是高雄車站，S5）
   // 「會下雨嗎」是在問、不是正在下雨（P2-4）：問句不算下雨狀態
   const states = STATE_WORDS.filter(([k, re]) => re.test(k === 'rain' ? s.replace(RAIN_ASK, '') : s)).map(([k]) => k);
-  const arriveBy = arriveByOf(s);
+  const arriveBy = arriveByOf(s, parseNow ?? Date.now()); // 這一輪的時間（示範時鐘、測試指定）；原本用真實時鐘，早上 8 點後「8點前到」的測試會變 20:00
   const depart = departTimeOf(s, arriveBy); // 出發時間（P5-2）：「明天早上8點出發」「晚上8點從西門町去101」
   const tomorrow = /明天|明早|明晚|明日/.test(s) || !!depart?.tomorrow;
   const later = !tomorrow && /後天|週末|周末|禮拜[一二三四五六日天]|星期[一二三四五六日天]|下週|下禮拜|下星期/.test(s); // 天氣只查得到今天、明天

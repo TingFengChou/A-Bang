@@ -26,6 +26,7 @@ import { createWebHost } from '../../ui/cards/host-web.js';
 import { calendarFromTrip, shareFromTrip } from '../../../core/device-actions.js';
 import { deviceActionsCan, resultText } from '../device-actions.js';
 import { renderDecision, lite, roleEn } from '../../ui/agent/decision-graph.js';
+import { regraphData, regraphNote, askSettledBy } from '../agent/regraph.js';
 import { mountVisionButton, handOff, takeHandoff } from '../vision.js';
 import { healthEnabled, agentNudge, turnWeather, nearMe, EXERCISE_Q } from '../health.js';
 import { healthBubble } from '../health-ui.js';
@@ -599,7 +600,9 @@ export default {
                 const slot = el('div', `card-slot ${results.children.length >= 2 ? 'scroll-in' : 'enter3d'}`); // 前兩張立體進場，後面的捲到才浮現
                 results.append(slot);
                 slots.set(e.id, slot);
-                cards.push(Object.assign(renderCard(slot, payload, host), { turn: turnNo, slot }));
+                const card = Object.assign(renderCard(slot, payload, host), { turn: turnNo, slot });
+                cards.push(card);
+                if (e.tool === 'plan_trip') view.trip = { card, payload }; // 決策圖重算時跟著換建議（設計第三輪 #1）
               }
             }
             break;
@@ -646,7 +649,7 @@ export default {
             view.decision = e; view.box = box;
             noteDecision(e); // 指定方式（改成 X、點決策圖的方案）＝選了這種方式（habits.js，只記方式）
             const mod = await decideModule;
-            if (mod) { view.dg = renderDecision(box, e, { sources: roles.filter((r) => r !== '行程'), decide: mod.decide, CRITERIA: mod.CRITERIA, lang: turnLang, onPick: (o) => !busy && send(turnLang === 'en' ? `Switch to ${({ walk: 'walking', bike: 'YouBike', bus: 'bus', metro: 'MRT', thsr: 'high speed rail', tra: 'train', intercity: 'intercity bus', ridehail: 'taxi' })[o.role] || o.name} instead` : `改成${o.name}`) }); view.dg.played.then(() => handoff(box, results, e)); }
+            if (mod) { view.dg = renderDecision(box, e, { sources: roles.filter((r) => r !== '行程'), decide: mod.decide, CRITERIA: mod.CRITERIA, lang: turnLang, onRanked: (x) => regraph(view, x, turnLang), onPick: (o) => !busy && send(turnLang === 'en' ? `Switch to ${({ walk: 'walking', bike: 'YouBike', bus: 'bus', metro: 'MRT', thsr: 'high speed rail', tra: 'train', intercity: 'intercity bus', ridehail: 'taxi' })[o.role] || o.name} instead` : `改成${o.name}`) }); view.dg.played.then(() => handoff(box, results, e)); }
             else box.append(el('p', 'dg-why', e.reason)); // 載不到引擎時至少顯示理由
             break;
           }
@@ -659,6 +662,7 @@ export default {
             const shown = { ...e, options: (e.options || []).filter((o) => !o.saved || mine[o.saved]) };
             const ctl = mountAsk(shown, { lang: turnLang, onAnswer: (o) => answerAsk(o, view, turnLang) });
             openAsk = ctl;
+            view.ask = ctl;
             view.askOpen = () => ctl.open(); // 長對話：問題還開著，這一輪先不收
             if (/^habit:/.test(e.about || '')) markAsked(e.about.slice(6)); // 問過了（沒回答也 3 天內不再問）
             if (view.box?.isConnected) view.box.before(ctl.el); else results.append(ctl.el);
@@ -689,6 +693,7 @@ export default {
               const line = view.writeLine || deviceLine({ sent: view.sent, judge: view.judge }, turnLang);
               if (line) turn.append(el('p', 'device-line', line));
               textEl = el('div', 'bubble agent final', avatar('阿幫', 'happy', turnLang), el('div', 'say')); turn.append(textEl);
+              view.textEl = textEl;
             }
             view.text += e.delta;
             textEl.querySelector('.say').textContent = view.text;
@@ -747,6 +752,17 @@ export default {
       turn.append(healthBubble(n, { avatar: avatar('阿幫', 'happy', view.lang), lang: view.lang, openLink: (u) => host.openLink(u), openApp: (t) => host.openApp(t) }));
     }
     /** 「阿幫問你」的答案（ADR-0016）：state＝加狀態即時重算、reply＝送出完整的一句、store＝存手機並套到這一輪、action＝手機做事、dismiss＝照原本；回傳顯示在問題區塊的一句 */
+    /** 決策圖重算後（設計第三輪 #1）：同一輪的行程卡換建議、總結補一句、問同一件事的問題收起 */
+    function regraph(view, x, lang) {
+      if (view.trip) view.trip.card.update({ ...view.trip.payload, data: regraphData(view.trip.payload.data, x) });
+      const note = regraphNote(x, view.decision?.best, lang);
+      const say = view.textEl?.querySelector('.say');
+      let p = view.textEl?.querySelector('.regraph-note');
+      if (say && note) { if (!p) { p = el('p', 'regraph-note'); p.setAttribute('role', 'status'); say.append(p); } p.textContent = note; } else p?.remove(); // 放在回答文字同一欄（泡泡是頭像＋文字的橫排）
+      const settled = view.ask?.open() && askSettledBy(view.ask.ask, x.states, lang);
+      if (settled) view.ask.resolve(settled);
+    }
+
     function answerAsk(o, view, lang) {
       const en = lang === 'en';
       if (o.kind === 'state') {

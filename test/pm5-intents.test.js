@@ -189,9 +189,10 @@ test('審查 2：一句多件事—「先查、再看」分段，同一段「跟
 });
 
 test('審查 3：同一句有抵達時間時，出發時間選在抵達之前；推不出就不用', () => {
-  const it = at('我要去台北101，8點前要到，7點出發');
+  const MORNING = { now: Date.parse('2026-11-21T06:00:00+08:00') }; // 8 點還沒過（過了的抵達時間會推到晚上，PM 第二輪）
+  const it = at('我要去台北101，8點前要到，7點出發', MORNING);
   assert.deepEqual([it.arriveBy, it.departTime], ['08:00', '07:00']);
-  assert.equal(at('我要去台北101，8點前要到，9點出發').departTime, undefined, '出發晚於抵達：不採用');
+  assert.equal(at('我要去台北101，8點前要到，9點出發', MORNING).departTime, undefined, '出發晚於抵達：不採用');
   assert.deepEqual([at('晚上9點前到101，7點出發').arriveBy, at('晚上9點前到101，7點出發').departTime], ['21:00', '19:00']);
   assert.equal(departTimeOf('10點前要到，晚上7點出發', '10:00', NOW), null);
 });
