@@ -1,7 +1,7 @@
 // PM 第三輪審查（2026-11-28）：火車車種與時間不混進起站、起點補在句尾、從現在位置出發的回程
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseIntent } from '../core/agent/demo-intent.js';
+import { parseIntent, normalizeAsk } from '../core/agent/demo-intent.js';
 import { runDemo } from '../core/agent/run.js';
 import { createServices } from '../core/index.js';
 
@@ -61,4 +61,43 @@ test('#3 說了起點的回程照舊對調；從家出發的回程回到家（�
   assert.equal(out.from, '台北101');
   assert.equal(out.fromSaved, undefined, '起點是台北101，不是家');
   assert.deepEqual([out.toSaved?.lat, out.toSaved?.lon], [home.lat, home.lon]);
+});
+
+test('#5 台語：擱／閣、偌久、最尾班、猶有…無、會…袂、阮、病院、轉去厝', () => {
+  const n = (q) => normalizeAsk(q);
+  assert.equal(n('公車擱偌久才會來'), '公車還多久才會來');
+  assert.equal(n('307 閣愛等偌久'), '307 還要等多久');
+  assert.equal(n('307 欲閣等偌久'), '307 還要等多久');
+  assert.equal(n('捷運最尾班幾點'), '捷運末班幾點');
+  assert.equal(n('高鐵猶有位無'), '高鐵還有位嗎');
+  assert.equal(n('今仔日會落雨袂'), '今天會下雨嗎');
+  assert.equal(n('阮欲去病院'), '我要去醫院');
+  assert.equal(n('我欲轉去厝'), '我要回家');
+  assert.equal(n('阮兜附近有藥局無'), '我家附近有藥局嗎');
+  for (const [q, intent, extra] of [
+    ['公車擱偌久才會來', 'bus_route', {}], ['307 閣愛等偌久', 'bus_route', { route: '307' }], ['捷運最尾班幾點', 'metro', { last: true }],
+    ['明仔載愛去高雄', 'trip', { tomorrow: true }], ['阮兜附近有藥局無', 'pharmacy', {}], ['今仔日會落雨袂', 'weather', {}],
+  ]) {
+    const it = p(q);
+    assert.equal(it.intent, intent, q);
+    for (const [k, v] of Object.entries(extra)) assert.equal(it[k], v, `${q} ${k}`);
+  }
+});
+
+test('#5 口語：「307還多久」、醫院、帶外套、迷路、高鐵站怎麼去', () => {
+  for (const q of ['307還多久', '307還多久才會到', '307公車還要多久']) assert.deepEqual([p(q).intent, p(q).route], ['bus_route', '307'], q);
+  assert.deepEqual([p('我要去醫院').intent, p('我要去醫院').needs], ['trip', 'to'], '沒說哪家：問要去哪');
+  assert.equal(p('我要去台大醫院').to, '臺大醫院', '說了哪家照舊');
+  for (const q of ['附近有醫院嗎', '最近的醫院在哪']) assert.deepEqual([p(q).intent, p(q).clinic], ['pharmacy', true], q);
+  for (const q of ['今天要不要帶外套', '明天要穿多少']) assert.equal(p(q).intent, 'weather', q);
+  assert.deepEqual([p('我迷路了').intent, p('我迷路了').lost], ['nearby_bus', true]);
+  for (const [q, rail] of [['高鐵站怎麼去', 'THSR'], ['最近的高鐵站怎麼去', 'THSR'], ['火車站怎麼走', 'TRA']]) assert.deepEqual([p(q).intent, p(q).nearRail], ['trip', rail], q);
+  assert.equal(p('台北火車站怎麼走').to, '臺北車站', '說了哪一站照舊');
+});
+
+test('#5 問醫院：照實說資料只有診所，急症打 119；問診所不加', async () => {
+  const say = async (q) => { const es = []; await runDemo(createServices({ forceMock: true }), { messages: [{ role: 'user', content: q }], clientTools: ['device_location'], clientToolResults: [{ id: 'loc1', ok: true, result: { lat: 25.0423, lon: 121.5079 } }] }, (e) => es.push(e), {}); return es.filter((e) => e.type === 'text').map((e) => e.delta).join(''); };
+  assert.match(await say('附近有醫院嗎'), /醫院的看診資料這裡沒有.+119/);
+  assert.doesNotMatch(await say('附近有診所嗎'), /醫院的看診資料/);
+  assert.match(await say('我迷路了'), /^別擔心，先看你附近最近的站牌/);
 });
