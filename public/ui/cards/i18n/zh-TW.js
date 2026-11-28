@@ -356,6 +356,8 @@ export const MESSAGES = {
   'gov.ch.other': '電郵傳真',
   'gov.days': '辦理時間：{days}',
   'gov.docs': '要帶什麼',
+  'gov.ready': '出門前檢查：已備好 {n}／{total} 項（勾選只存在這支手機）',
+  'gov.readyAll': '都備好了，可以出門！（勾選只存在這支手機）',
   'gov.noDocs': '這筆資料沒有列應備證件，請看官方網頁或洽辦理機關。',
   'gov.fullDocs': '看全文',
   'gov.moreDocs': '看其他 {n} 條',

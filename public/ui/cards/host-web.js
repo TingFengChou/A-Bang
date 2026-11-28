@@ -197,6 +197,27 @@ export async function pollWatch(callTool) {
  * @param {{ base?: string, ask?: (text: string) => void, setContext?: (text: string) => void, confirm?: (text: string) => boolean }} [opts]
  * @returns {import('./host.js').Host}
  */
+/**
+ * 出門前檢核表（T-CHECKLIST，2026-11-28 Antigravity 第七輪）：去政府辦事的應備文件勾了哪幾項，只存在這支手機。
+ * 鍵＝申辦項目 id；只存勾了第幾項（不存文件內容）；最多 20 份、30 天沒動就清掉。
+ */
+export const CHECKLIST_KEY = 'abang.checklist';
+const CHECKLIST_MAX = 20, CHECKLIST_DAYS = 30;
+function checklistStore() {
+  let all;
+  try { all = JSON.parse(localStorage.getItem(CHECKLIST_KEY) || '{}') || {}; } catch { all = {}; }
+  const fresh = Object.entries(all).filter(([, v]) => v && Array.isArray(v.done) && Date.now() - Number(v.at) < CHECKLIST_DAYS * 864e5);
+  return Object.fromEntries(fresh.sort((a, b) => b[1].at - a[1].at).slice(0, CHECKLIST_MAX));
+}
+export function checklistGet(id) { return new Set((checklistStore()[String(id)]?.done || []).filter(Number.isInteger)); }
+export function checklistSet(id, done) {
+  const all = checklistStore();
+  const list = [...done].filter(Number.isInteger).sort((a, b) => a - b);
+  if (list.length) all[String(id)] = { done: list, at: Date.now() }; else delete all[String(id)];
+  const keep = Object.fromEntries(Object.entries(all).sort((a, b) => b[1].at - a[1].at).slice(0, CHECKLIST_MAX)); // 加了新的一份之後再剪（最多 20 份）
+  try { localStorage.setItem(CHECKLIST_KEY, JSON.stringify(keep)); } catch { /* 無痕模式：這次畫面上還是勾得起來 */ }
+}
+
 export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '').replace(/\/+$/, ''), ask, setContext, confirm = (m) => window.confirm(m), tripContext } = {}) {
   const host = {
     kind: 'web', theme: 'light',
@@ -225,6 +246,8 @@ export function createWebHost({ base = String(globalThis.__ABANG_API_BASE__ || '
       const { date: _d, ...rest } = meta || {};
       return addReminder(when, text, rest);
     },
+    /** 出門前檢核表（T-CHECKLIST）：去政府辦事的應備文件勾了哪幾項（只存在手機） */
+    checklist: { get: (id) => checklistGet(id), set: (id, done) => checklistSet(id, done) },
     /** 這段路線目前的出門提醒（卡片重畫、重新規劃後也知道已經設了） */
     reminderFor: (key) => reminderFor(key),
     /** 提醒已經滿了（設不了新的時卡片照實說） */

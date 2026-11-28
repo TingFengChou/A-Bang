@@ -398,6 +398,10 @@ html.lite-motion .ab-eta .ab-pulse { animation: none; }
 .ab-gov-body h4 { margin: 8px 0 4px; font-size: 0.95em; }
 .ab-gov-docs { margin: 0 0 6px; padding: 0; list-style: none; display: grid; gap: 6px; line-height: 1.5; }
 .ab-gov-docs li { padding-left: 10px; border-left: 3px solid var(--ab-line); } /* 條文自己有編號（一、(一)、1.），不再加清單編號 */
+.ab-gov-check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; } /* 出門前檢核表：整列都能點、勾選框 22px */
+.ab-gov-check input { flex: none; width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--ab-accent, #2f6f5e); }
+.ab-gov-check input:checked + span { color: var(--ab-muted, #5f6f6b); text-decoration: line-through; text-decoration-color: rgba(0,0,0,.25); }
+.ab-gov-ready { font-weight: 600; }
 .ab-gov-docs.clamp li { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; } /* 每條最多 3 行，按「看全文」展開 */
 .ab-gov-chev { display: inline-block; width: 1.2em; color: var(--ab-muted); }
 .ab-gov-note { margin-top: 6px; }
